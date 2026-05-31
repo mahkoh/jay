@@ -730,9 +730,6 @@ pub trait GfxImage {
     fn to_framebuffer(self: Rc<Self>) -> Result<Rc<dyn GfxFramebuffer>, GfxError>;
 
     fn to_texture(self: Rc<Self>) -> Result<Rc<dyn GfxTexture>, GfxError>;
-
-    fn width(&self) -> i32;
-    fn height(&self) -> i32;
 }
 
 pub trait GfxTexture: Any + Debug {

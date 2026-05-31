@@ -735,20 +735,38 @@ impl JayScreencastRequestHandler for JayScreencast {
             return Ok(());
         }
         let buffer = self.client.lookup(req.buffer)?;
-        if let Some(WlBufferStorage::Dmabuf { img, .. }) = &*buffer.storage.borrow() {
-            match img.clone().to_framebuffer() {
-                Ok(fb) => self.pending.buffers.borrow_mut().push(fb),
-                Err(e) => {
-                    log::warn!(
-                        "Could not turn GfxImage into GfxFramebuffer: {}",
-                        ErrorFmt(e)
-                    );
+        let Some(WlBufferStorage::Dmabuf(storage)) = &mut *buffer.storage.borrow_mut() else {
+            return Err(JayScreencastError::NotDmabuf);
+        };
+        let img = match &storage.img {
+            Some(img) => img.clone(),
+            None => {
+                let Some(ctx) = self.client.state.render_ctx.get() else {
+                    log::warn!("There is no render context");
                     self.do_destroy();
+                    return Ok(());
+                };
+                match storage.ensure_img(&ctx) {
+                    Ok(img) => img,
+                    Err(e) => {
+                        log::warn!("Could not import dmabuf as image: {}", ErrorFmt(e));
+                        self.do_destroy();
+                        return Ok(());
+                    }
                 }
             }
-            return Ok(());
+        };
+        match img.to_framebuffer() {
+            Ok(fb) => self.pending.buffers.borrow_mut().push(fb),
+            Err(e) => {
+                log::warn!(
+                    "Could not turn GfxImage into GfxFramebuffer: {}",
+                    ErrorFmt(e)
+                );
+                self.do_destroy();
+            }
         }
-        Err(JayScreencastError::NotDmabuf)
+        Ok(())
     }
 }
 

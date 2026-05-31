@@ -158,8 +158,8 @@ impl ExtImageCopyCaptureFrameV1 {
                 self.session.shm_bridge.set(Some(bridge));
                 self.session.shm_staging.set(Some(staging));
             }
-            WlBufferStorage::Dmabuf { fb, .. } => {
-                let Some(fb) = fb else {
+            WlBufferStorage::Dmabuf(storage) => {
+                let Some(fb) = &storage.fb else {
                     return Err(FrameFailureReason::BufferConstraints);
                 };
                 let res = f(fb.clone(), AcquireSync::Implicit, ReleaseSync::Implicit);

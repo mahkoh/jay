@@ -520,8 +520,8 @@ impl OutputNode {
                             }
                         }
                     }
-                    WlBufferStorage::Dmabuf { fb, .. } => {
-                        let fb = match fb {
+                    WlBufferStorage::Dmabuf(storage) => {
+                        let fb = match &storage.fb {
                             Some(fb) => fb,
                             _ => {
                                 log::warn!("Capture buffer has no framebuffer");

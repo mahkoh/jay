@@ -291,6 +291,20 @@ impl TestGfxImage {
         }
         Ok(())
     }
+
+    fn width(&self) -> i32 {
+        match self {
+            TestGfxImage::Shm(v) => v.width,
+            TestGfxImage::DmaBuf(v) => v.buf.width,
+        }
+    }
+
+    fn height(&self) -> i32 {
+        match self {
+            TestGfxImage::Shm(v) => v.height,
+            TestGfxImage::DmaBuf(v) => v.buf.height,
+        }
+    }
 }
 
 impl Debug for TestGfxImage {
@@ -382,20 +396,6 @@ impl GfxImage for TestGfxImage {
 
     fn to_texture(self: Rc<Self>) -> Result<Rc<dyn GfxTexture>, GfxError> {
         Ok(self)
-    }
-
-    fn width(&self) -> i32 {
-        match self {
-            TestGfxImage::Shm(v) => v.width,
-            TestGfxImage::DmaBuf(v) => v.buf.width,
-        }
-    }
-
-    fn height(&self) -> i32 {
-        match self {
-            TestGfxImage::Shm(v) => v.height,
-            TestGfxImage::DmaBuf(v) => v.buf.height,
-        }
     }
 }
 

@@ -30,11 +30,14 @@ pub enum WlBufferStorage {
         stride: i32,
         dmabuf_buffer_params: DmabufBufferParams,
     },
-    Dmabuf {
-        img: Rc<dyn GfxImage>,
-        tex: Option<Rc<dyn GfxTexture>>,
-        fb: Option<Rc<dyn GfxFramebuffer>>,
-    },
+    Dmabuf(WlBufferDmabufStorage),
+}
+
+pub struct WlBufferDmabufStorage {
+    pub dmabuf: Rc<DmaBuf>,
+    pub img: Option<Rc<dyn GfxImage>>,
+    pub tex: Option<Rc<dyn GfxTexture>>,
+    pub fb: Option<Rc<dyn GfxFramebuffer>>,
 }
 
 pub struct DmabufBufferParams {
@@ -68,7 +71,7 @@ pub struct WlBuffer {
     pub client: Rc<Client>,
     pub rect: Rect,
     pub format: &'static Format,
-    pub client_dmabuf: Option<DmaBuf>,
+    pub client_dmabuf: Option<Rc<DmaBuf>>,
     #[expect(dead_code)]
     pub client_dmabuf_device: Option<Rc<DrmDevData>>,
     render_ctx_version: Cell<u32>,
@@ -96,7 +99,7 @@ impl WlBuffer {
         format: &'static Format,
         width: i32,
         height: i32,
-        client_dmabuf: Option<DmaBuf>,
+        client_dmabuf: Option<Rc<DmaBuf>>,
         client_dmabuf_device: Option<Rc<DrmDevData>>,
         storage: Option<WlBufferStorage>,
         shm: bool,
@@ -128,22 +131,23 @@ impl WlBuffer {
         client: &Rc<Client>,
         format: &'static Format,
         client_dmabuf: DmaBuf,
-        img: &Rc<dyn GfxImage>,
     ) -> Rc<Self> {
         let device = client.state.find_dmabuf_device(&client_dmabuf);
+        let client_dmabuf = Rc::new(client_dmabuf);
         Self::new(
             id,
             client,
             format,
-            img.width(),
-            img.height(),
-            Some(client_dmabuf),
+            client_dmabuf.width,
+            client_dmabuf.height,
+            Some(client_dmabuf.clone()),
             device,
-            Some(WlBufferStorage::Dmabuf {
-                img: img.clone(),
+            Some(WlBufferStorage::Dmabuf(WlBufferDmabufStorage {
+                dmabuf: client_dmabuf,
+                img: None,
                 tex: None,
                 fb: None,
-            }),
+            })),
             false,
             None,
         )
@@ -204,7 +208,7 @@ impl WlBuffer {
             format,
             width,
             height,
-            client_dmabuf,
+            client_dmabuf.map(Rc::new),
             None,
             Some(WlBufferStorage::Shm {
                 dmabuf_buffer_params,
@@ -251,11 +255,11 @@ impl WlBuffer {
                     dmabuf_buffer_params: DmabufBufferParams { tex, .. },
                     ..
                 } => tex,
-                WlBufferStorage::Dmabuf { tex, .. } => tex,
+                WlBufferStorage::Dmabuf(storage) => &storage.tex,
             };
             return tex.is_some();
         }
-        let had_texture = match s {
+        match s {
             WlBufferStorage::Shm {
                 dmabuf_buffer_params:
                     DmabufBufferParams {
@@ -274,31 +278,14 @@ impl WlBuffer {
                 *tex_impossible = *udmabuf_impossible;
                 return had_texture;
             }
-            WlBufferStorage::Dmabuf { tex, .. } => tex.is_some(),
-        };
-        *storage = None;
-        let Some(ctx) = self.client.state.render_ctx.get() else {
-            return false;
-        };
-        let Some(dmabuf) = &self.client_dmabuf else {
-            return false;
-        };
-        let img = match ctx.dmabuf_img(dmabuf) {
-            Ok(image) => image,
-            Err(e) => {
-                log::error!(
-                    "Cannot re-import wl_buffer after graphics context change: {}",
-                    ErrorFmt(e)
-                );
-                return false;
+            WlBufferStorage::Dmabuf(storage) => {
+                let had_texture = storage.tex.is_some();
+                storage.img = None;
+                storage.tex = None;
+                storage.fb = None;
+                had_texture
             }
-        };
-        *storage = Some(WlBufferStorage::Dmabuf {
-            img,
-            tex: None,
-            fb: None,
-        });
-        had_texture
+        }
     }
 
     pub fn get_texture(&self, surface: &WlSurface) -> Option<Rc<dyn GfxTexture>> {
@@ -314,7 +301,7 @@ impl WlBuffer {
                     }
                     surface.shm_textures.front().tex.get().map(|t| t as _)
                 }
-                WlBufferStorage::Dmabuf { tex, .. } => tex.clone(),
+                WlBufferStorage::Dmabuf(storage) => storage.tex.clone(),
             },
         }
     }
@@ -470,6 +457,9 @@ impl WlBuffer {
             Some(s) => s,
             _ => return Ok(()),
         };
+        let Some(ctx) = self.client.state.render_ctx.get() else {
+            return Ok(());
+        };
         match storage {
             WlBufferStorage::Shm {
                 mem,
@@ -480,9 +470,6 @@ impl WlBuffer {
                 if !sync_shm {
                     return Ok(());
                 }
-                let Some(ctx) = self.client.state.render_ctx.get() else {
-                    return Ok(());
-                };
                 if ctx.fast_ram_access()
                     && self
                         .import_udmabuf_texture(&ctx, mem, *stride, dmabuf_buffer_params)
@@ -501,10 +488,8 @@ impl WlBuffer {
                 surface.shm_textures.front().tex.set(Some(tex));
                 surface.shm_textures.front().damage.clear();
             }
-            WlBufferStorage::Dmabuf { img, tex, .. } => {
-                if tex.is_none() {
-                    *tex = Some(img.clone().to_texture()?);
-                }
+            WlBufferStorage::Dmabuf(storage) => {
+                storage.ensure_tex(&ctx)?;
             }
         }
         Ok(())
@@ -520,9 +505,9 @@ impl WlBuffer {
             WlBufferStorage::Shm { .. } => {
                 // nothing
             }
-            WlBufferStorage::Dmabuf { img, fb, .. } => {
-                if fb.is_none() {
-                    *fb = Some(img.clone().to_framebuffer()?);
+            WlBufferStorage::Dmabuf(storage) => {
+                if let Some(ctx) = self.client.state.render_ctx.get() {
+                    storage.ensure_fb(&ctx)?;
                 }
             }
         }
@@ -531,6 +516,44 @@ impl WlBuffer {
 
     fn send_release(&self) {
         self.client.event(Release { self_id: self.id })
+    }
+}
+
+impl WlBufferDmabufStorage {
+    pub fn ensure_img(
+        &mut self,
+        ctx: &Rc<dyn GfxContext>,
+    ) -> Result<Rc<dyn GfxImage>, WlBufferError> {
+        if let Some(img) = &self.img {
+            return Ok(img.clone());
+        }
+        let img = ctx
+            .clone()
+            .dmabuf_img(&self.dmabuf)
+            .map_err(WlBufferError::GfxError)?;
+        Ok(self.img.insert(img).clone())
+    }
+
+    pub fn ensure_tex(
+        &mut self,
+        ctx: &Rc<dyn GfxContext>,
+    ) -> Result<Rc<dyn GfxTexture>, WlBufferError> {
+        if let Some(tex) = &self.tex {
+            return Ok(tex.clone());
+        }
+        let tex = self.ensure_img(ctx)?.to_texture()?;
+        Ok(self.tex.insert(tex).clone())
+    }
+
+    pub fn ensure_fb(
+        &mut self,
+        ctx: &Rc<dyn GfxContext>,
+    ) -> Result<Rc<dyn GfxFramebuffer>, WlBufferError> {
+        if let Some(fb) = &self.fb {
+            return Ok(fb.clone());
+        }
+        let fb = self.ensure_img(ctx)?.to_framebuffer()?;
+        Ok(self.fb.insert(fb).clone())
     }
 }
 

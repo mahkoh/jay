@@ -615,14 +615,6 @@ impl GfxImage for VulkanDmaBufImageTemplate {
     fn to_texture(self: Rc<Self>) -> Result<Rc<dyn GfxTexture>, GfxError> {
         self.create_texture().map(|v| v as _).map_err(|e| e.into())
     }
-
-    fn width(&self) -> i32 {
-        self.width as i32
-    }
-
-    fn height(&self) -> i32 {
-        self.height as i32
-    }
 }
 
 impl Debug for VulkanImage {
