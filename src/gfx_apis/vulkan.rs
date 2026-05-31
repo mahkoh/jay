@@ -32,8 +32,8 @@ use {
         format::Format,
         gfx_api::{
             AsyncShmGfxTexture, GfxApi, GfxBlendBuffer, GfxBuffer, GfxContext, GfxError, GfxFormat,
-            GfxFramebuffer, GfxImage, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture,
-            ResetStatus, STAGING_DOWNLOAD, STAGING_UPLOAD, ShmGfxTexture, StagingBufferUsecase,
+            GfxFramebuffer, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture, ResetStatus,
+            STAGING_DOWNLOAD, STAGING_UPLOAD, ShmGfxTexture, StagingBufferUsecase,
         },
         gfx_apis::vulkan::{
             device::VulkanDevice, image::VulkanImageMemory, instance::VulkanInstance,
@@ -295,9 +295,18 @@ impl GfxContext for Context {
         self.0.device.fast_ram_access
     }
 
-    fn dmabuf_img(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxImage>, GfxError> {
+    fn dmabuf_fb(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
         self.0
-            .import_dmabuf(buf)
+            .import_dmabuf(buf)?
+            .create_framebuffer()
+            .map(|v| v as _)
+            .map_err(|e| e.into())
+    }
+
+    fn dmabuf_tex(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxTexture>, GfxError> {
+        self.0
+            .import_dmabuf(buf)?
+            .create_texture()
             .map(|v| v as _)
             .map_err(|e| e.into())
     }

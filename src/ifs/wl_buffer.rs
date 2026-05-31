@@ -3,7 +3,7 @@ use {
         client::{Client, ClientError},
         clientmem::{ClientMem, ClientMemError, ClientMemOffset},
         format::{ARGB8888, Format},
-        gfx_api::{GfxBuffer, GfxContext, GfxError, GfxFramebuffer, GfxImage, GfxTexture},
+        gfx_api::{GfxBuffer, GfxContext, GfxError, GfxFramebuffer, GfxTexture},
         ifs::wl_surface::WlSurface,
         leaks::Tracker,
         object::{Object, Version},
@@ -35,7 +35,6 @@ pub enum WlBufferStorage {
 
 pub struct WlBufferDmabufStorage {
     pub dmabuf: Rc<DmaBuf>,
-    pub img: Option<Rc<dyn GfxImage>>,
     pub tex: Option<Rc<dyn GfxTexture>>,
     pub fb: Option<Rc<dyn GfxFramebuffer>>,
 }
@@ -144,7 +143,6 @@ impl WlBuffer {
             device,
             Some(WlBufferStorage::Dmabuf(WlBufferDmabufStorage {
                 dmabuf: client_dmabuf,
-                img: None,
                 tex: None,
                 fb: None,
             })),
@@ -280,7 +278,6 @@ impl WlBuffer {
             }
             WlBufferStorage::Dmabuf(storage) => {
                 let had_texture = storage.tex.is_some();
-                storage.img = None;
                 storage.tex = None;
                 storage.fb = None;
                 had_texture
@@ -430,15 +427,7 @@ impl WlBuffer {
             stride: stride as _,
             fd: udmabuf,
         });
-        let img = match ctx.clone().dmabuf_img(&dmabuf) {
-            Ok(i) => i,
-            Err(e) => {
-                *tex_impossible = true;
-                log::debug!("Could not import udmabuf as GfxImage: {}", ErrorFmt(e));
-                return None;
-            }
-        };
-        let tex_ = match img.to_texture() {
+        let tex_ = match ctx.clone().dmabuf_tex(&dmabuf) {
             Ok(i) => i,
             Err(e) => {
                 *tex_impossible = true;
@@ -520,20 +509,6 @@ impl WlBuffer {
 }
 
 impl WlBufferDmabufStorage {
-    pub fn ensure_img(
-        &mut self,
-        ctx: &Rc<dyn GfxContext>,
-    ) -> Result<Rc<dyn GfxImage>, WlBufferError> {
-        if let Some(img) = &self.img {
-            return Ok(img.clone());
-        }
-        let img = ctx
-            .clone()
-            .dmabuf_img(&self.dmabuf)
-            .map_err(WlBufferError::GfxError)?;
-        Ok(self.img.insert(img).clone())
-    }
-
     pub fn ensure_tex(
         &mut self,
         ctx: &Rc<dyn GfxContext>,
@@ -541,7 +516,7 @@ impl WlBufferDmabufStorage {
         if let Some(tex) = &self.tex {
             return Ok(tex.clone());
         }
-        let tex = self.ensure_img(ctx)?.to_texture()?;
+        let tex = ctx.clone().dmabuf_tex(&self.dmabuf)?;
         Ok(self.tex.insert(tex).clone())
     }
 
@@ -552,7 +527,7 @@ impl WlBufferDmabufStorage {
         if let Some(fb) = &self.fb {
             return Ok(fb.clone());
         }
-        let fb = self.ensure_img(ctx)?.to_framebuffer()?;
+        let fb = ctx.clone().dmabuf_fb(&self.dmabuf)?;
         Ok(self.fb.insert(fb).clone())
     }
 }

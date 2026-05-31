@@ -266,7 +266,7 @@ impl RenderBuffer {
             if rc_eq(&new_ctx.gfx, &old_ctx.gfx) {
                 return copy_texture_impl(fb, tex);
             }
-            let tex = new_ctx.gfx.clone().dmabuf_img(dma_buf)?.to_texture()?;
+            let tex = new_ctx.gfx.clone().dmabuf_tex(dma_buf)?;
             copy_texture_impl(fb, &tex)
         };
 
@@ -520,8 +520,6 @@ pub enum ScanoutBufferErrorKind {
     SodBufferAllocation(#[source] GbmError),
     #[error("Scanout device: addfb2 failed")]
     SodAddfb2(#[source] DrmError),
-    #[error("Scanout device: Could not import SCANOUT buffer into the gfx API")]
-    SodImportSodImage(#[source] GfxError),
     #[error("Scanout device: Could not turn imported SCANOUT buffer into gfx API FB")]
     SodImportFb(#[source] GfxError),
     #[error("Render device: The intersection of render/sample/sod_sample modifiers is empty")]
@@ -540,16 +538,12 @@ pub enum ScanoutBufferErrorKind {
     SodPlaneCopyDstIntersection,
     #[error("Render device: Buffer allocation failed")]
     RenderBufferAllocation(#[source] GbmError),
-    #[error("Render device: Could not import RENDER buffer into the gfx API")]
-    RenderImportImage(#[source] GfxError),
     #[error("Render device: Could not turn imported RENDER buffer into gfx API FB")]
     RenderImportFb(#[source] GfxError),
     #[error("Render device: Could not clear RENDER buffer")]
     RenderClear(#[source] GfxError),
     #[error("Render device: Could not turn imported RENDER buffer into gfx API texture")]
     RenderImportRenderTexture(#[source] GfxError),
-    #[error("Scanout device: Could not import RENDER buffer into the gfx API")]
-    SodImportRenderImage(#[source] GfxError),
     #[error("Scanout device: Could not turn imported RENDER buffer into gfx API texture")]
     SodImportRenderTexture(#[source] GfxError),
     #[error("Udmabuf is not available")]
@@ -911,17 +905,15 @@ impl Builder<'_> {
         let send_render_modifier = on_drop(|| {
             dbg.borrow_mut().render_modifier = Some(bo.dmabuf().modifier);
         });
-        let img = render_ctx
+        let tex = render_ctx
             .gfx
             .clone()
-            .dmabuf_img(bo.dmabuf())
-            .map_err(ScanoutBufferErrorKind::RenderImportImage)?;
-        let tex = img
-            .clone()
-            .to_texture()
+            .dmabuf_tex(bo.dmabuf())
             .map_err(ScanoutBufferErrorKind::RenderImportRenderTexture)?;
-        let fb = img
-            .to_framebuffer()
+        let fb = render_ctx
+            .gfx
+            .clone()
+            .dmabuf_fb(bo.dmabuf())
             .map_err(ScanoutBufferErrorKind::RenderImportFb)?;
         fb.clear(
             AcquireSync::Unnecessary,
@@ -1103,9 +1095,7 @@ impl Builder<'_> {
         let dev_render_tex = dev_ctx
             .gfx
             .clone()
-            .dmabuf_img(render.bo.dmabuf())
-            .map_err(ScanoutBufferErrorKind::SodImportRenderImage)?
-            .to_texture()
+            .dmabuf_tex(render.bo.dmabuf())
             .map_err(ScanoutBufferErrorKind::SodImportRenderTexture)?;
         let (dev_bo, drm) = self.create_dev_bo(dev_allocation_settings, dbg)?;
         let send_dev_modifier = on_drop(|| {
@@ -1114,9 +1104,7 @@ impl Builder<'_> {
         let dev_fb = dev_ctx
             .gfx
             .clone()
-            .dmabuf_img(dev_bo.dmabuf())
-            .map_err(ScanoutBufferErrorKind::SodImportSodImage)?
-            .to_framebuffer()
+            .dmabuf_fb(dev_bo.dmabuf())
             .map_err(ScanoutBufferErrorKind::SodImportFb)?;
         send_dev_modifier.forget();
         send_render_modifier.forget();

@@ -1,7 +1,6 @@
 use {
     crate::{
         allocator::BufferObject,
-        gfx_api::{GfxError, GfxFramebuffer, GfxImage, GfxTexture},
         gfx_apis::gl::{
             Framebuffer, GlRenderContext, RenderError, Texture, egl::image::EglImage,
             gl::texture::GlTexture,
@@ -17,7 +16,7 @@ pub struct Image {
 }
 
 impl Image {
-    fn to_texture(self: &Rc<Self>) -> Result<Rc<Texture>, RenderError> {
+    pub fn to_texture(&self) -> Result<Rc<Texture>, RenderError> {
         Ok(Rc::new(Texture {
             ctx: self.ctx.clone(),
             gl: GlTexture::import_img(&self.ctx.ctx, &self.gl)?,
@@ -25,23 +24,7 @@ impl Image {
         }))
     }
 
-    fn to_framebuffer(&self) -> Result<Rc<Framebuffer>, RenderError> {
+    pub fn to_framebuffer(&self) -> Result<Rc<Framebuffer>, RenderError> {
         self.ctx.image_to_fb(&self.gl)
-    }
-}
-
-impl GfxImage for Image {
-    fn to_framebuffer(self: Rc<Self>) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
-        (*self)
-            .to_framebuffer()
-            .map(|v| v as Rc<dyn GfxFramebuffer>)
-            .map_err(|e| e.into())
-    }
-
-    fn to_texture(self: Rc<Self>) -> Result<Rc<dyn GfxTexture>, GfxError> {
-        (&self)
-            .to_texture()
-            .map(|v| v as Rc<dyn GfxTexture>)
-            .map_err(|e| e.into())
     }
 }

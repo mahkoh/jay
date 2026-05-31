@@ -100,8 +100,6 @@ pub enum XBackendError {
     ImportBuffer(#[source] XconError),
     #[error("Could not create a graphics API context")]
     CreateEgl(#[source] GfxError),
-    #[error("Could not create an graphics API image from a dma-buf")]
-    CreateImage(#[source] GfxError),
     #[error("Could not create a framebuffer from a graphics API image")]
     CreateFramebuffer(#[source] GfxError),
     #[error("Could not create a texture from an graphics API image")]
@@ -401,15 +399,11 @@ impl XBackend {
                 GBM_BO_USE_RENDERING,
             )?;
             let dma = bo.dmabuf();
-            let img = match self.ctx.clone().dmabuf_img(dma) {
-                Ok(f) => f,
-                Err(e) => return Err(XBackendError::CreateImage(e)),
-            };
-            let fb = match img.clone().to_framebuffer() {
+            let fb = match self.ctx.clone().dmabuf_fb(dma) {
                 Ok(f) => f,
                 Err(e) => return Err(XBackendError::CreateFramebuffer(e)),
             };
-            let tex = match img.to_texture() {
+            let tex = match self.ctx.clone().dmabuf_tex(dma) {
                 Ok(f) => f,
                 Err(e) => return Err(XBackendError::CreateTexture(e)),
             };

@@ -6,7 +6,7 @@ use {
         format::{Format, XRGB8888},
         gfx_api::{
             AsyncShmGfxTexture, BufferResvUser, GfxApi, GfxBlendBuffer, GfxContext, GfxError,
-            GfxFormat, GfxFramebuffer, GfxImage, GfxInternalFramebuffer, GfxTexture, ResetStatus,
+            GfxFormat, GfxFramebuffer, GfxInternalFramebuffer, GfxTexture, ResetStatus,
             ShmGfxTexture,
         },
         gfx_apis::gl::{
@@ -206,7 +206,7 @@ impl GlRenderContext {
         })
     }
 
-    fn dmabuf_img(self: &Rc<Self>, buf: &DmaBuf) -> Result<Rc<Image>, RenderError> {
+    fn dmabuf_img(self: &Rc<Self>, buf: &DmaBuf) -> Result<Image, RenderError> {
         self.dmabuf_img2(buf, None)
     }
 
@@ -214,14 +214,14 @@ impl GlRenderContext {
         self: &Rc<Self>,
         buf: &DmaBuf,
         bo: Option<Rc<dyn BufferObject>>,
-    ) -> Result<Rc<Image>, RenderError> {
+    ) -> Result<Image, RenderError> {
         self.ctx.with_current(|| {
             let img = self.ctx.dpy.import_dmabuf(buf)?;
-            Ok(Rc::new(Image {
+            Ok(Image {
                 ctx: self.clone(),
                 gl: img,
                 _bo: bo,
-            }))
+            })
         })
     }
 
@@ -284,10 +284,11 @@ impl GfxContext for GlRenderContext {
             .map_err(|e| e.into())
     }
 
-    fn dmabuf_img(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxImage>, GfxError> {
+    fn dmabuf_tex(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxTexture>, GfxError> {
         (&self)
-            .dmabuf_img(buf)
-            .map(|w| w as Rc<dyn GfxImage>)
+            .dmabuf_img(buf)?
+            .to_texture()
+            .map(|w| w as Rc<dyn GfxTexture>)
             .map_err(|e| e.into())
     }
 
@@ -386,7 +387,7 @@ impl GfxContext for GlRenderContext {
             .create_bo(dma_buf_ids, width, height, format.format, &modifiers, usage)
             .map_err(RenderError::AllocateBo)?;
         let img = self.dmabuf_img2(bo.dmabuf(), Some(bo.clone()))?;
-        let tex = img.clone().to_texture()?;
+        let tex = img.to_texture()?;
         let fb = img.to_framebuffer()?;
         Ok((fb, tex))
     }

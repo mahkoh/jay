@@ -8,9 +8,9 @@ use {
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback, CopyTexture, FdSync,
             FillRect, FramebufferRect, GfxApi, GfxApiOpt, GfxBlendBuffer, GfxContext, GfxError,
-            GfxFormat, GfxFramebuffer, GfxImage, GfxInternalFramebuffer, GfxStagingBuffer,
-            GfxTexture, GfxWriteModifier, PendingShmTransfer, ReleaseSync, ResetStatus,
-            ShmGfxTexture, ShmMemory,
+            GfxFormat, GfxFramebuffer, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture,
+            GfxWriteModifier, PendingShmTransfer, ReleaseSync, ResetStatus, ShmGfxTexture,
+            ShmMemory,
         },
         rect::{Rect, Region},
         syncobj::SyncobjCtx,
@@ -90,6 +90,16 @@ impl TestGfxCtx {
             allocator,
         }))
     }
+
+    fn create_img(&self, buf: &DmaBuf) -> Result<Rc<TestGfxImage>, TestGfxError> {
+        Ok(Rc::new(TestGfxImage::DmaBuf(TestDmaBufGfxImage {
+            buf: buf.clone(),
+            bo: self
+                .allocator
+                .import_dmabuf(buf, BufferUsage::none())
+                .map_err(TestGfxError::ImportDmaBuf)?,
+        })))
+    }
 }
 
 impl Debug for TestGfxCtx {
@@ -119,14 +129,15 @@ impl GfxContext for TestGfxCtx {
         true
     }
 
-    fn dmabuf_img(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxImage>, GfxError> {
-        Ok(Rc::new(TestGfxImage::DmaBuf(TestDmaBufGfxImage {
-            buf: buf.clone(),
-            bo: self
-                .allocator
-                .import_dmabuf(buf, BufferUsage::none())
-                .map_err(TestGfxError::ImportDmaBuf)?,
-        })))
+    fn dmabuf_fb(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
+        Ok(Rc::new(TestGfxFb {
+            staging: RefCell::new(vec![Color::TRANSPARENT; (buf.width * buf.height) as usize]),
+            img: self.create_img(buf)?,
+        }))
+    }
+
+    fn dmabuf_tex(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxTexture>, GfxError> {
+        self.create_img(buf).map(|w| w as _).map_err(|e| e.into())
     }
 
     fn shmem_texture(
@@ -380,22 +391,6 @@ impl AsyncShmGfxTexture for TestGfxImage {
             unreachable!();
         };
         shm.format == format && shm.width == width && shm.height == height && shm.stride == stride
-    }
-}
-
-impl GfxImage for TestGfxImage {
-    fn to_framebuffer(self: Rc<Self>) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
-        Ok(Rc::new(TestGfxFb {
-            staging: RefCell::new(vec![
-                Color::TRANSPARENT;
-                (self.width() * self.height()) as usize
-            ]),
-            img: self,
-        }))
-    }
-
-    fn to_texture(self: Rc<Self>) -> Result<Rc<dyn GfxTexture>, GfxError> {
-        Ok(self)
     }
 }
 
