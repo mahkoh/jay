@@ -225,7 +225,11 @@ impl HeadlessBackend {
 
 impl HeadlessDrmDevice {
     fn create_ctx(&self, api: GfxApi) -> Option<Rc<dyn GfxContext>> {
-        match self.backend.state.create_gfx_context(&self.drm, Some(api)) {
+        match self
+            .backend
+            .state
+            .create_gfx_context(self.id, &self.drm, Some(api))
+        {
             Ok(c) => Some(c),
             Err(e) => {
                 log::error!("Could not create GFX context: {}", ErrorFmt(e));

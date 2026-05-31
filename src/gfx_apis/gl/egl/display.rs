@@ -1,6 +1,7 @@
 use {
     crate::{
         allocator::BufferObject,
+        backend::DrmDeviceId,
         format::{Format, XRGB8888, formats},
         gfx_api::{GfxFormat, GfxWriteModifier},
         gfx_apis::gl::{
@@ -68,6 +69,7 @@ pub struct EglModifier {
 
 #[derive(Debug)]
 pub struct EglDisplay {
+    pub drm_device_id: Option<DrmDeviceId>,
     pub egl: &'static Egl,
     pub gles: &'static GlesV2,
     pub procs: &'static ExtProc,
@@ -81,6 +83,7 @@ pub struct EglDisplay {
 
 impl EglDisplay {
     pub(in crate::gfx_apis::gl) fn create(
+        drm_device_id: Option<DrmDeviceId>,
         drm: &Drm,
         software: bool,
     ) -> Result<Rc<Self>, RenderError> {
@@ -107,6 +110,7 @@ impl EglDisplay {
                 return Err(RenderError::GetDisplay);
             }
             let mut dpy = EglDisplay {
+                drm_device_id,
                 egl,
                 gles,
                 procs,

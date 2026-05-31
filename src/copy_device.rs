@@ -251,6 +251,8 @@ struct CopyDeviceCopyInner {
     command_buffer: CommandBuffer,
     tt: TransferType,
     ty: CopyDeviceCopyType,
+    dynamic_region: bool,
+    no_op: bool,
 }
 
 enum CopyDeviceCopyType {
@@ -809,42 +811,7 @@ impl CopyDevice {
         if buf.planes.len() != format.planes {
             return Err(CopyDeviceError::WrongNumberOfPlanes);
         }
-        let mut fd_props = PlaneVec::new();
-        for plane in &buf.planes {
-            let mut props = MemoryFdPropertiesKHR::default();
-            unsafe {
-                self.dev
-                    .external_memory_fd
-                    .get_memory_fd_properties(
-                        ExternalMemoryHandleTypeFlags::DMA_BUF_EXT,
-                        plane.fd.raw(),
-                        &mut props,
-                    )
-                    .map_err(CopyDeviceError::GetMemoryFdProperties)?;
-            }
-            fd_props.push(props);
-            if buf.is_one_file() {
-                break;
-            }
-        }
-        let mut on_device = true;
-        for prop in &fd_props {
-            let mut plane_on_device = false;
-            for (idx, ty) in self.dev.phy.memory_types.iter().enumerate() {
-                if prop.memory_type_bits & (1 << idx) != 0
-                    && ty
-                        .property_flags
-                        .contains(MemoryPropertyFlags::DEVICE_LOCAL)
-                {
-                    plane_on_device = true;
-                    break;
-                }
-            }
-            if !plane_on_device {
-                on_device = false;
-                break;
-            }
-        }
+        let (on_device, fd_props) = self.is_on_device_(buf)?;
         let buffer_possible = buf.modifier == LINEAR_MODIFIER
             && buf.planes.len() == 1
             && buf.planes[0].stride % buf.format.bpp == 0
@@ -1079,10 +1046,29 @@ impl CopyDevice {
         })
     }
 
+    #[expect(dead_code)]
+    pub fn create_fixed_copy(
+        self: &Rc<Self>,
+        src: &DmaBuf,
+        dst: &DmaBuf,
+        region: Option<&Region>,
+    ) -> Result<CopyDeviceCopy, CopyDeviceError> {
+        self.create_copy_(src, dst, Some(region))
+    }
+
     pub fn create_copy(
         self: &Rc<Self>,
         src: &DmaBuf,
         dst: &DmaBuf,
+    ) -> Result<CopyDeviceCopy, CopyDeviceError> {
+        self.create_copy_(src, dst, None)
+    }
+
+    fn create_copy_(
+        self: &Rc<Self>,
+        src: &DmaBuf,
+        dst: &DmaBuf,
+        region: Option<Option<&Region>>,
     ) -> Result<CopyDeviceCopy, CopyDeviceError> {
         if (dst.width, dst.height) != (src.width, src.height) {
             return Err(CopyDeviceError::NotSameSize);
@@ -1150,17 +1136,25 @@ impl CopyDevice {
             }
         };
         free_command_buffer.forget();
+        let mut copy = CopyDeviceCopyInner {
+            dev: self.dev.clone(),
+            busy_id: Default::default(),
+            busy: Default::default(),
+            width: src.width as _,
+            height: src.height as _,
+            command_buffer,
+            tt,
+            ty,
+            dynamic_region: region.is_none(),
+            no_op: false,
+        };
+        if let Some(region) = region
+            && !copy.record_command_buffer(region)?
+        {
+            copy.no_op = true;
+        }
         Ok(CopyDeviceCopy {
-            inner: Rc::new(CopyDeviceCopyInner {
-                dev: self.dev.clone(),
-                busy_id: Default::default(),
-                busy: Default::default(),
-                width: src.width as _,
-                height: src.height as _,
-                command_buffer,
-                tt,
-                ty,
-            }),
+            inner: Rc::new(copy),
             dev: self.clone(),
         })
     }
@@ -1261,6 +1255,53 @@ impl CopyDevice {
             dmabuf,
         })
     }
+
+    pub fn is_on_device(&self, buf: &DmaBuf) -> Result<bool, CopyDeviceError> {
+        self.is_on_device_(buf).map(|v| v.0)
+    }
+
+    fn is_on_device_(
+        &self,
+        buf: &DmaBuf,
+    ) -> Result<(bool, PlaneVec<MemoryFdPropertiesKHR<'static>>), CopyDeviceError> {
+        let mut fd_props = PlaneVec::new();
+        for plane in &buf.planes {
+            let mut props = MemoryFdPropertiesKHR::default();
+            unsafe {
+                self.dev
+                    .external_memory_fd
+                    .get_memory_fd_properties(
+                        ExternalMemoryHandleTypeFlags::DMA_BUF_EXT,
+                        plane.fd.raw(),
+                        &mut props,
+                    )
+                    .map_err(CopyDeviceError::GetMemoryFdProperties)?;
+            }
+            fd_props.push(props);
+            if buf.is_one_file() {
+                break;
+            }
+        }
+        let mut on_device = true;
+        for prop in &fd_props {
+            let mut plane_on_device = false;
+            for (idx, ty) in self.dev.phy.memory_types.iter().enumerate() {
+                if prop.memory_type_bits & (1 << idx) != 0
+                    && ty
+                        .property_flags
+                        .contains(MemoryPropertyFlags::DEVICE_LOCAL)
+                {
+                    plane_on_device = true;
+                    break;
+                }
+            }
+            if !plane_on_device {
+                on_device = false;
+                break;
+            }
+        }
+        Ok((on_device, fd_props))
+    }
 }
 
 impl CopyDeviceInner {
@@ -1301,14 +1342,11 @@ impl CopyDeviceCopy {
         slf.busy.take();
         Ok(())
     }
+}
 
-    pub fn execute(
-        &self,
-        sync: Option<&FdSync>,
-        region: Option<&Region>,
-    ) -> Result<Option<FdSync>, CopyDeviceError> {
-        self.ensure_not_busy()?;
-        let slf = &*self.inner;
+impl CopyDeviceCopyInner {
+    fn record_command_buffer(&self, region: Option<&Region>) -> Result<bool, CopyDeviceError> {
+        let slf = self;
         let tt = slf.tt;
         let dev = &slf.dev.dev;
         let cmd = slf.command_buffer;
@@ -1339,10 +1377,13 @@ impl CopyDeviceCopy {
             rects.push((x1 as i32, y1 as i32, width, height));
         }
         if rects.is_empty() {
-            return Ok(None);
+            return Ok(false);
         }
-        let begin_info =
-            CommandBufferBeginInfo::default().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+        let mut flags = CommandBufferUsageFlags::empty();
+        if slf.dynamic_region {
+            flags |= CommandBufferUsageFlags::ONE_TIME_SUBMIT;
+        }
+        let begin_info = CommandBufferBeginInfo::default().flags(flags);
         unsafe {
             dev.begin_command_buffer(cmd, &begin_info)
                 .map_err(CopyDeviceError::BeginCommandBuffer)?;
@@ -1662,6 +1703,26 @@ impl CopyDeviceCopy {
             dev.end_command_buffer(cmd)
                 .map_err(CopyDeviceError::EndCommandBuffer)?;
         }
+        Ok(true)
+    }
+}
+
+impl CopyDeviceCopy {
+    pub fn execute(
+        &self,
+        sync: Option<&FdSync>,
+        region: Option<&Region>,
+    ) -> Result<Option<FdSync>, CopyDeviceError> {
+        self.ensure_not_busy()?;
+        let slf = &*self.inner;
+        if slf.no_op {
+            return Ok(None);
+        }
+        if slf.dynamic_region && !slf.record_command_buffer(region)? {
+            return Ok(None);
+        }
+        let tt = slf.tt;
+        let cmd = slf.command_buffer;
         let mut wait_semaphore = None;
         let mut wait_semaphores = ArrayVec::<_, 1>::new();
         if let Some(sync) = sync

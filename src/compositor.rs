@@ -240,6 +240,7 @@ fn start_compositor2(
         default_keymap: kb_keymap,
         eng: engine.clone(),
         render_ctx: Default::default(),
+        render_ctx_drm_device_id: Default::default(),
         drm_feedback: Default::default(),
         drm_feedback_consumers: Default::default(),
         render_ctx_version: NumCell::new(1),

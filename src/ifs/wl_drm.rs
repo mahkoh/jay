@@ -122,7 +122,8 @@ impl WlDrmRequestHandler for WlDrm {
         req: CreatePrimeBuffer,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        let ctx = match self.client.state.render_ctx.get() {
+        let state = &self.client.state;
+        let ctx = match state.render_ctx.get() {
             Some(ctx) => ctx,
             None => return Err(WlDrmError::NoRenderContext),
         };
@@ -132,7 +133,7 @@ impl WlDrmRequestHandler for WlDrm {
             None => return Err(WlDrmError::InvalidFormat(req.format)),
         };
         let mut dmabuf = DmaBuf {
-            id: self.client.state.dma_buf_ids.next(),
+            id: state.dma_buf_ids.next(),
             width: req.width,
             height: req.height,
             format,

@@ -2,7 +2,8 @@ use {
     crate::{
         format::Format,
         gfx_api::SyncFile,
-        utils::{compat::IoctlNumber, oserror::OsError},
+        state::{DrmDevData, State},
+        utils::{compat::IoctlNumber, errorfmt::ErrorFmt, oserror::OsError},
         video::{
             LINEAR_MODIFIER, Modifier,
             drm::{DrmError, syncobj::merge_sync_files},
@@ -211,4 +212,35 @@ fn is_udmabuf(fd: &OwnedFd, ino: c::ino_t) -> bool {
         }
     }
     false
+}
+
+impl State {
+    pub fn find_dmabuf_device(&self, buf: &DmaBuf) -> Option<Rc<DrmDevData>> {
+        let is_on_device = |dev: &Rc<DrmDevData>| {
+            let Some(cd) = &dev.copy_device else {
+                return false;
+            };
+            cd.is_on_device(buf)
+                .inspect_err(|e| {
+                    log::warn!("Could not check if dmabuf is on device: {}", ErrorFmt(e));
+                })
+                .unwrap_or(false)
+        };
+        let render_dev = self.render_ctx_drm_device_id.get();
+        if let Some(id) = render_dev
+            && let Some(dev) = self.drm_devs.get(&id)
+            && is_on_device(&dev)
+        {
+            return Some(dev);
+        }
+        for dev in self.drm_devs.lock().values() {
+            if render_dev == Some(dev.id) {
+                continue;
+            }
+            if is_on_device(dev) {
+                return Some(dev.clone());
+            }
+        }
+        None
+    }
 }

@@ -1,6 +1,7 @@
 use {
     crate::{
         allocator::Allocator,
+        backend::DrmDeviceId,
         cmm::{
             cmm_description::{ColorDescription, LinearColorDescription},
             cmm_render_intent::RenderIntent,
@@ -835,6 +836,7 @@ pub trait AsyncShmGfxTexture: GfxTexture {
 
 pub trait GfxContext: Debug {
     fn reset_status(&self) -> Option<ResetStatus>;
+    fn drm_device_id(&self) -> Option<DrmDeviceId>;
 
     fn render_node(&self) -> Option<Rc<CString>>;
 

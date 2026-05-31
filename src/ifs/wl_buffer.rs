@@ -8,6 +8,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         rect::{Rect, Region},
+        state::DrmDevData,
         utils::{errorfmt::ErrorFmt, event_listener::EventListener, page_size::page_size},
         video::{
             LINEAR_MODIFIER,
@@ -68,6 +69,8 @@ pub struct WlBuffer {
     pub rect: Rect,
     pub format: &'static Format,
     pub client_dmabuf: Option<DmaBuf>,
+    #[expect(dead_code)]
+    pub client_dmabuf_device: Option<Rc<DrmDevData>>,
     render_ctx_version: Cell<u32>,
     pub storage: RefCell<Option<WlBufferStorage>>,
     shm: bool,
@@ -94,6 +97,7 @@ impl WlBuffer {
         width: i32,
         height: i32,
         client_dmabuf: Option<DmaBuf>,
+        client_dmabuf_device: Option<Rc<DrmDevData>>,
         storage: Option<WlBufferStorage>,
         shm: bool,
         color: Option<[u32; 4]>,
@@ -107,6 +111,7 @@ impl WlBuffer {
             width,
             height,
             client_dmabuf,
+            client_dmabuf_device,
             render_ctx_version: Cell::new(client.state.render_ctx_version.get()),
             storage: RefCell::new(storage),
             shm,
@@ -125,6 +130,7 @@ impl WlBuffer {
         client_dmabuf: DmaBuf,
         img: &Rc<dyn GfxImage>,
     ) -> Rc<Self> {
+        let device = client.state.find_dmabuf_device(&client_dmabuf);
         Self::new(
             id,
             client,
@@ -132,6 +138,7 @@ impl WlBuffer {
             img.width(),
             img.height(),
             Some(client_dmabuf),
+            device,
             Some(WlBufferStorage::Dmabuf {
                 img: img.clone(),
                 tex: None,
@@ -198,6 +205,7 @@ impl WlBuffer {
             width,
             height,
             client_dmabuf,
+            None,
             Some(WlBufferStorage::Shm {
                 dmabuf_buffer_params,
                 mem,
@@ -222,6 +230,7 @@ impl WlBuffer {
             ARGB8888,
             1,
             1,
+            None,
             None,
             None,
             false,

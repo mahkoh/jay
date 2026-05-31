@@ -1,6 +1,7 @@
 use {
     crate::{
         allocator::{Allocator, BO_USE_RENDERING, BufferObject, BufferUsage},
+        backend::DrmDeviceId,
         cpu_worker::CpuWorker,
         format::{Format, XRGB8888},
         gfx_api::{
@@ -104,6 +105,7 @@ impl GlRenderContext {
     }
 
     pub(in crate::gfx_apis::gl) fn from_drm_device(
+        drm_device_id: Option<DrmDeviceId>,
         drm: &Drm,
         software: bool,
     ) -> Result<Self, RenderError> {
@@ -111,7 +113,7 @@ impl GlRenderContext {
             .get_render_node()?
             .ok_or(RenderError::NoRenderNode)
             .map(Rc::new)?;
-        let dpy = EglDisplay::create(drm, software)?;
+        let dpy = EglDisplay::create(drm_device_id, drm, software)?;
         if !dpy.formats.contains_key(&XRGB8888.drm) {
             return Err(RenderError::XRGB888);
         }
@@ -257,6 +259,10 @@ impl GlRenderContext {
 impl GfxContext for GlRenderContext {
     fn reset_status(&self) -> Option<ResetStatus> {
         self.reset_status()
+    }
+
+    fn drm_device_id(&self) -> Option<DrmDeviceId> {
+        self.ctx.dpy.drm_device_id
     }
 
     fn render_node(&self) -> Option<Rc<CString>> {

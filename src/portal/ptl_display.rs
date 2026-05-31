@@ -189,6 +189,7 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
                 &self.state.eng,
                 &self.state.ring,
                 &self.state.eventfd_cache,
+                None,
                 &drm,
                 GfxApi::OpenGl,
                 None,
