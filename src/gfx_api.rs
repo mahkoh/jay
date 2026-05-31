@@ -1227,7 +1227,6 @@ impl FdSync {
         }
     }
 
-    #[expect(dead_code)]
     pub fn signaled_external(
         &self,
         ring: &Rc<IoUring>,

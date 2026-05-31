@@ -1447,7 +1447,6 @@ impl BufferIdDeviceDyn for CopyDevice {
 }
 
 impl CopyDeviceSrcObject {
-    #[expect(dead_code)]
     pub fn copy_to(
         &self,
         dst: &CopyDeviceDstObject,
