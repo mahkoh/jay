@@ -259,19 +259,16 @@ impl XdgToplevelIconV1 {
                 continue;
             };
             let (mem, &mut stride, dmabuf_buffer_params) = match storage {
-                WlBufferStorage::Dmabuf { img, tex, .. } => {
-                    let tex = match tex {
-                        Some(t) => t,
-                        None => match img.clone().to_texture() {
-                            Ok(t) => tex.insert(t),
-                            Err(e) => {
-                                log::error!("Could not convert image to texture: {}", ErrorFmt(e));
-                                continue;
-                            }
-                        },
+                WlBufferStorage::Dmabuf(storage) => {
+                    let tex = match storage.ensure_tex(ctx) {
+                        Ok(t) => t,
+                        Err(e) => {
+                            log::error!("Could not convert image to texture: {}", ErrorFmt(e));
+                            continue;
+                        }
                     };
                     let Some(dmabuf) = &buf.client_dmabuf else {
-                        self.set_tex(ctx, key, tex);
+                        self.set_tex(ctx, key, &tex);
                         continue;
                     };
                     let pending = self.create_async_data(key, tex.clone());

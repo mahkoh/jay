@@ -5,8 +5,8 @@ use {
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback,
             AsyncShmGfxTextureTransferCancellable, FdSync, GfxApiOpt, GfxBlendBuffer, GfxBuffer,
-            GfxError, GfxFramebuffer, GfxImage, GfxInternalFramebuffer, GfxStagingBuffer,
-            GfxTexture, PendingShmTransfer, ReleaseSync, ShmGfxTexture, ShmMemory,
+            GfxError, GfxFramebuffer, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture,
+            PendingShmTransfer, ReleaseSync, ShmGfxTexture, ShmMemory,
         },
         gfx_apis::vulkan::{
             VulkanError,
@@ -150,7 +150,7 @@ pub enum VulkanImageMemory {
 }
 
 pub struct VulkanDmaBufImage {
-    pub(super) template: Rc<VulkanDmaBufImageTemplate>,
+    pub(super) template: VulkanDmaBufImageTemplate,
     pub(super) mems: PlaneVec<DeviceMemory>,
 }
 
@@ -191,7 +191,7 @@ impl VulkanRenderer {
     pub fn import_dmabuf(
         self: &Rc<Self>,
         dmabuf: &DmaBuf,
-    ) -> Result<Rc<VulkanDmaBufImageTemplate>, VulkanError> {
+    ) -> Result<VulkanDmaBufImageTemplate, VulkanError> {
         let format = self
             .device
             .formats
@@ -206,20 +206,6 @@ impl VulkanRenderer {
         }
         let width = dmabuf.width as u32;
         let height = dmabuf.height as u32;
-        let can_render = match &modifier.render_limits {
-            None => false,
-            Some(t) => width <= t.max_width && height <= t.max_height,
-        };
-        let can_texture = match &modifier.texture_limits {
-            None => false,
-            Some(t) => width <= t.max_width && height <= t.max_height,
-        };
-        if !can_render && !can_texture {
-            if modifier.render_limits.is_none() && modifier.texture_limits.is_none() {
-                return Err(VulkanError::ModifierUseNotSupported);
-            }
-            return Err(VulkanError::ImageTooLarge);
-        }
         if modifier.planes != dmabuf.planes.len() {
             return Err(VulkanError::BadPlaneCount);
         }
@@ -227,7 +213,7 @@ impl VulkanRenderer {
         if disjoint && !modifier.features.contains(FormatFeatureFlags::DISJOINT) {
             return Err(VulkanError::DisjointNotSupported);
         }
-        Ok(Rc::new(VulkanDmaBufImageTemplate {
+        Ok(VulkanDmaBufImageTemplate {
             renderer: self.clone(),
             width,
             height,
@@ -236,7 +222,7 @@ impl VulkanRenderer {
             render_limits: modifier.render_limits,
             texture_limits: modifier.texture_limits,
             render_needs_bridge: modifier.render_needs_bridge,
-        }))
+        })
     }
 }
 
@@ -348,15 +334,15 @@ impl DescriptorHeapDevice {
 }
 
 impl VulkanDmaBufImageTemplate {
-    pub fn create_framebuffer(self: &Rc<Self>) -> Result<Rc<VulkanImage>, VulkanError> {
+    pub fn create_framebuffer(self) -> Result<Rc<VulkanImage>, VulkanError> {
         self.create_image(true)
     }
 
-    pub fn create_texture(self: &Rc<Self>) -> Result<Rc<VulkanImage>, VulkanError> {
+    pub fn create_texture(self) -> Result<Rc<VulkanImage>, VulkanError> {
         self.create_image(false)
     }
 
-    fn create_image(self: &Rc<Self>, for_rendering: bool) -> Result<Rc<VulkanImage>, VulkanError> {
+    fn create_image(self, for_rendering: bool) -> Result<Rc<VulkanImage>, VulkanError> {
         let device = &self.renderer.device;
         let limits = match for_rendering {
             true => self.render_limits,
@@ -532,7 +518,8 @@ impl VulkanDmaBufImageTemplate {
         )?;
         destroy_render_view.map(OnDrop::forget);
         destroy_texture_view.map(OnDrop::forget);
-        free_device_memories.drain(..).for_each(mem::forget);
+        free_device_memories.drain(..).for_each(OnDrop::forget);
+        drop(free_device_memories);
         mem::forget(destroy_image);
         mem::forget(destroy_bridge_image);
         Ok(Rc::new(VulkanImage {
@@ -543,10 +530,6 @@ impl VulkanDmaBufImageTemplate {
             width: self.width,
             height: self.height,
             stride: 0,
-            ty: VulkanImageMemory::DmaBuf(VulkanDmaBufImage {
-                template: self.clone(),
-                mems: device_memories,
-            }),
             format: self.dmabuf.format,
             is_undefined: Cell::new(true),
             contents_are_undefined: Cell::new(false),
@@ -558,6 +541,10 @@ impl VulkanDmaBufImageTemplate {
             descriptor_buffer: texture_view
                 .and_then(|v| self.renderer.descriptor_buffer_image(usage, v)),
             descriptor_heap,
+            ty: VulkanImageMemory::DmaBuf(VulkanDmaBufImage {
+                template: self,
+                mems: device_memories,
+            }),
         }))
     }
 
@@ -602,26 +589,6 @@ impl VulkanDmaBufImageTemplate {
         res.map_err(VulkanError::BindImageMemory)?;
         destroy_image.forget();
         Ok((image, allocation))
-    }
-}
-
-impl GfxImage for VulkanDmaBufImageTemplate {
-    fn to_framebuffer(self: Rc<Self>) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
-        self.create_framebuffer()
-            .map(|v| v as _)
-            .map_err(|e| e.into())
-    }
-
-    fn to_texture(self: Rc<Self>) -> Result<Rc<dyn GfxTexture>, GfxError> {
-        self.create_texture().map(|v| v as _).map_err(|e| e.into())
-    }
-
-    fn width(&self) -> i32 {
-        self.width as i32
-    }
-
-    fn height(&self) -> i32 {
-        self.height as i32
     }
 }
 

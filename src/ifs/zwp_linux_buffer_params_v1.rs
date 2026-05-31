@@ -2,6 +2,7 @@ use {
     crate::{
         client::ClientError,
         clientmem::{ClientMem, ClientMemError},
+        format::formats,
         gfx_api::GfxError,
         ifs::{
             wl_buffer::{WlBuffer, WlBufferError},
@@ -71,27 +72,19 @@ impl ZwpLinuxBufferParamsV1 {
         _flags: u32,
     ) -> Result<WlBufferId, ZwpLinuxBufferParamsV1Error> {
         let state = &self.parent.client.state;
-        let ctx = match state.render_ctx.get() {
-            Some(ctx) => ctx,
-            None => return Err(ZwpLinuxBufferParamsV1Error::NoRenderContext),
-        };
-        let formats = ctx.formats().clone();
-        let format = match formats.get(&format) {
-            Some(f) => f,
+        let format = match formats().get(&format) {
+            Some(f) => *f,
             None => return Err(ZwpLinuxBufferParamsV1Error::InvalidFormat(format)),
         };
         let modifier = match self.modifier.get() {
             Some(m) => m,
             _ => return Err(ZwpLinuxBufferParamsV1Error::NoPlanes),
         };
-        if !format.read_modifiers.contains(&modifier) {
-            return Err(ZwpLinuxBufferParamsV1Error::InvalidModifier(modifier));
-        }
         let mut dmabuf = DmaBuf {
             id: state.dma_buf_ids.next(),
             width,
             height,
-            format: format.format,
+            format,
             modifier,
             planes: PlaneVec::new(),
             is_disjoint: Default::default(),
@@ -112,7 +105,9 @@ impl ZwpLinuxBufferParamsV1 {
             None => self.parent.client.new_id(),
             Some(i) => Ok(i),
         };
-        let buffer = if format.supports_shm
+        let buffer = if let Some(ctx) = state.render_ctx.get()
+            && let Some(format) = ctx.formats().get(&dmabuf.format.drm)
+            && format.supports_shm
             && let Some(size) = dmabuf.udmabuf_size()
         {
             let p = &dmabuf.planes[0];
@@ -139,8 +134,7 @@ impl ZwpLinuxBufferParamsV1 {
                 Some((&p.fd, size)),
             )?
         } else {
-            let img = ctx.dmabuf_img(&dmabuf)?;
-            WlBuffer::new_dmabuf(get_id()?, &self.parent.client, format.format, dmabuf, &img)
+            WlBuffer::new_dmabuf(get_id()?, &self.parent.client, format, dmabuf)
         };
         track!(self.parent.client, buffer);
         if buffer_id.is_some() {
@@ -234,14 +228,10 @@ pub enum ZwpLinuxBufferParamsV1Error {
     MixedModifiers(u64, u64),
     #[error("The plane {0} was already set")]
     AlreadySet(u32),
-    #[error("The compositor has no render context attached")]
-    NoRenderContext,
     #[error("The format {0} is not supported")]
     InvalidFormat(u32),
     #[error("No planes were added")]
     NoPlanes,
-    #[error("The modifier {0} is not supported")]
-    InvalidModifier(u64),
     #[error("Plane {0} was not set")]
     MissingPlane(usize),
     #[error("Could not import the buffer")]

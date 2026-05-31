@@ -458,7 +458,7 @@ impl JayScreencast {
                     &modifiers,
                     usage,
                 )?;
-                let fb = ctx.clone().dmabuf_img(buffer.dmabuf())?.to_framebuffer()?;
+                let fb = ctx.clone().dmabuf_fb(buffer.dmabuf())?;
                 buffers.push(ScreencastBuffer {
                     dmabuf: Some(buffer.dmabuf().clone()),
                     _bo: Some(buffer),
@@ -735,20 +735,22 @@ impl JayScreencastRequestHandler for JayScreencast {
             return Ok(());
         }
         let buffer = self.client.lookup(req.buffer)?;
-        if let Some(WlBufferStorage::Dmabuf { img, .. }) = &*buffer.storage.borrow() {
-            match img.clone().to_framebuffer() {
-                Ok(fb) => self.pending.buffers.borrow_mut().push(fb),
-                Err(e) => {
-                    log::warn!(
-                        "Could not turn GfxImage into GfxFramebuffer: {}",
-                        ErrorFmt(e)
-                    );
-                    self.do_destroy();
-                }
-            }
+        let Some(WlBufferStorage::Dmabuf(storage)) = &mut *buffer.storage.borrow_mut() else {
+            return Err(JayScreencastError::NotDmabuf);
+        };
+        let Some(ctx) = self.client.state.render_ctx.get() else {
+            log::warn!("There is no render context");
+            self.do_destroy();
             return Ok(());
+        };
+        match ctx.dmabuf_fb(&storage.dmabuf) {
+            Ok(fb) => self.pending.buffers.borrow_mut().push(fb),
+            Err(e) => {
+                log::warn!("Could not turn dmabuf as GfxFramebuffer: {}", ErrorFmt(e));
+                self.do_destroy();
+            }
         }
-        Err(JayScreencastError::NotDmabuf)
+        Ok(())
     }
 }
 

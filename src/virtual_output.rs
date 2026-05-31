@@ -1042,8 +1042,6 @@ enum AllocError {
     GfxFormatNotSupported,
     #[error("Could not allocate the BO")]
     CreateBo(#[source] AllocatorError),
-    #[error("Could not import the dmabuf into the GfxContext")]
-    ImportImage(#[source] GfxError),
     #[error("Could not create a texture")]
     CreateTexture(#[source] GfxError),
     #[error("Could not create a framebuffer")]
@@ -1077,15 +1075,14 @@ fn allocate_scanout_buffers(
             .allocator()
             .create_bo(&state.dma_buf_ids, width, height, format, &modifiers, usage)
             .map_err(AllocError::CreateBo)?;
-        let img = ctx
+        let tex = ctx
             .clone()
-            .dmabuf_img(bo.dmabuf())
-            .map_err(AllocError::ImportImage)?;
-        let tex = img
-            .clone()
-            .to_texture()
+            .dmabuf_tex(bo.dmabuf())
             .map_err(AllocError::CreateTexture)?;
-        let fb = img.clone().to_framebuffer().map_err(AllocError::CreateFb)?;
+        let fb = ctx
+            .clone()
+            .dmabuf_fb(bo.dmabuf())
+            .map_err(AllocError::CreateFb)?;
         Ok(VoFb {
             width,
             height,

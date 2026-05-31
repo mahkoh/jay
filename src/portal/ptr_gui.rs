@@ -763,14 +763,7 @@ impl WindowData {
                     return;
                 }
             };
-            let img = match ctx.ctx.ctx.clone().dmabuf_img(bo.dmabuf()) {
-                Ok(b) => b,
-                Err(e) => {
-                    log::error!("Could not import dmabuf into EGL: {}", ErrorFmt(e));
-                    return;
-                }
-            };
-            let fb = match img.to_framebuffer() {
+            let fb = match ctx.ctx.ctx.clone().dmabuf_fb(bo.dmabuf()) {
                 Ok(b) => b,
                 Err(e) => {
                     log::error!(

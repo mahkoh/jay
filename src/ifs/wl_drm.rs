@@ -1,6 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
+        format::formats,
         gfx_api::GfxError,
         globals::{Global, GlobalName},
         ifs::wl_buffer::WlBuffer,
@@ -123,13 +124,8 @@ impl WlDrmRequestHandler for WlDrm {
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
         let state = &self.client.state;
-        let ctx = match state.render_ctx.get() {
-            Some(ctx) => ctx,
-            None => return Err(WlDrmError::NoRenderContext),
-        };
-        let formats = ctx.formats();
-        let format = match formats.get(&req.format) {
-            Some(f) => f.format,
+        let format = match formats().get(&req.format) {
+            Some(f) => *f,
             None => return Err(WlDrmError::InvalidFormat(req.format)),
         };
         let mut dmabuf = DmaBuf {
@@ -162,8 +158,7 @@ impl WlDrmRequestHandler for WlDrm {
                 }
             }
         }
-        let img = ctx.dmabuf_img(&dmabuf)?;
-        let buffer = WlBuffer::new_dmabuf(req.id, &self.client, format, dmabuf, &img);
+        let buffer = WlBuffer::new_dmabuf(req.id, &self.client, format, dmabuf);
         track!(self.client, buffer);
         self.client.add_client_obj(&buffer)?;
         Ok(())
@@ -185,8 +180,6 @@ pub enum WlDrmError {
     ClientError(Box<ClientError>),
     #[error("This api is not supported")]
     Unsupported,
-    #[error("The compositor has no render context attached")]
-    NoRenderContext,
     #[error("The format {0} is not supported")]
     InvalidFormat(u32),
     #[error("Could not import the buffer")]

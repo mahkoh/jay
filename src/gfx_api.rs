@@ -726,15 +726,6 @@ impl dyn GfxFramebuffer {
     }
 }
 
-pub trait GfxImage {
-    fn to_framebuffer(self: Rc<Self>) -> Result<Rc<dyn GfxFramebuffer>, GfxError>;
-
-    fn to_texture(self: Rc<Self>) -> Result<Rc<dyn GfxTexture>, GfxError>;
-
-    fn width(&self) -> i32;
-    fn height(&self) -> i32;
-}
-
 pub trait GfxTexture: Any + Debug {
     fn size(&self) -> (i32, i32);
     fn dmabuf(&self) -> Option<&DmaBuf>;
@@ -844,11 +835,9 @@ pub trait GfxContext: Debug {
 
     fn fast_ram_access(&self) -> bool;
 
-    fn dmabuf_fb(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
-        self.dmabuf_img(buf)?.to_framebuffer()
-    }
+    fn dmabuf_fb(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxFramebuffer>, GfxError>;
 
-    fn dmabuf_img(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxImage>, GfxError>;
+    fn dmabuf_tex(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxTexture>, GfxError>;
 
     fn shmem_texture(
         self: Rc<Self>,
