@@ -1779,44 +1779,7 @@ impl CopyDeviceCopy {
             return Ok(None);
         }
         let tt = slf.tt;
-        let cmd = slf.command_buffer;
-        let mut wait_semaphore = None;
-        let mut wait_semaphores = ArrayVec::<_, 1>::new();
-        if let Some(sync) = sync
-            && let Some(sync_file) = sync.get_sync_file()
-        {
-            let semaphore = match slf.dev.semaphores.pop() {
-                Some(s) => s,
-                _ => slf.dev.create_semaphore()?,
-            };
-            semaphore.import(sync_file)?;
-            let info = SemaphoreSubmitInfo::default()
-                .semaphore(semaphore.semaphore)
-                .stage_mask(PipelineStageFlags2::TRANSFER);
-            wait_semaphores.push(info);
-            wait_semaphore = Some(semaphore);
-        }
-        let command_buffer_info = CommandBufferSubmitInfo::default().command_buffer(cmd);
-        let mut semaphore_submit_info = SemaphoreSubmitInfo::default();
-        let mut submit_info = SubmitInfo2::default()
-            .command_buffer_infos(slice::from_ref(&command_buffer_info))
-            .wait_semaphore_infos(&wait_semaphores);
-        let vulkan_sync = slf.dev.create_sync(
-            self.dev.timeline_semaphore.as_ref(),
-            &mut semaphore_submit_info,
-            &mut submit_info,
-        )?;
-        unsafe {
-            slf.dev
-                .dev
-                .queue_submit2(
-                    slf.dev.queues[tt],
-                    slice::from_ref(&submit_info),
-                    vulkan_sync.fence(),
-                )
-                .map_err(CopyDeviceError::SubmitCopy)?;
-        }
-        let sync = vulkan_sync.to_sync(|| slf.dev.wait_idle());
+        let (vulkan_sync, sync, wait_semaphore) = submit(&self.dev, tt, slf.command_buffer, sync)?;
         slf.busy.set(sync.clone());
         let pending = Pending {
             dev: slf.dev.clone(),
@@ -1829,6 +1792,52 @@ impl CopyDeviceCopy {
         slf.dev.submissions[tt].pending.push(pending);
         Ok(sync)
     }
+}
+
+fn submit(
+    cd: &CopyDevice,
+    tt: TransferType,
+    cmd: CommandBuffer,
+    sync: Option<&FdSync>,
+) -> Result<(VulkanSync, Option<FdSync>, Option<VulkanSemaphore>), CopyDeviceError> {
+    let mut wait_semaphore = None;
+    let mut wait_semaphores = ArrayVec::<_, 1>::new();
+    if let Some(sync) = sync
+        && let Some(sync_file) = sync.get_sync_file()
+    {
+        let semaphore = match cd.dev.semaphores.pop() {
+            Some(s) => s,
+            _ => cd.dev.create_semaphore()?,
+        };
+        semaphore.import(sync_file)?;
+        let info = SemaphoreSubmitInfo::default()
+            .semaphore(semaphore.semaphore)
+            .stage_mask(PipelineStageFlags2::TRANSFER);
+        wait_semaphores.push(info);
+        wait_semaphore = Some(semaphore);
+    }
+    let command_buffer_info = CommandBufferSubmitInfo::default().command_buffer(cmd);
+    let mut semaphore_submit_info = SemaphoreSubmitInfo::default();
+    let mut submit_info = SubmitInfo2::default()
+        .command_buffer_infos(slice::from_ref(&command_buffer_info))
+        .wait_semaphore_infos(&wait_semaphores);
+    let vulkan_sync = cd.dev.create_sync(
+        cd.timeline_semaphore.as_ref(),
+        &mut semaphore_submit_info,
+        &mut submit_info,
+    )?;
+    unsafe {
+        cd.dev
+            .dev
+            .queue_submit2(
+                cd.dev.queues[tt],
+                slice::from_ref(&submit_info),
+                vulkan_sync.fence(),
+            )
+            .map_err(CopyDeviceError::SubmitCopy)?;
+    }
+    let sync = vulkan_sync.to_sync(|| cd.dev.wait_idle());
+    Ok((vulkan_sync, sync, wait_semaphore))
 }
 
 impl VulkanSemaphore {
