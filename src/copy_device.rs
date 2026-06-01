@@ -286,6 +286,35 @@ enum CopyDeviceCopyType {
     },
 }
 
+enum CopyDeviceCopyTypeRef<'a> {
+    BufferToBuffer {
+        src: &'a VulkanBuffer,
+        dst: &'a VulkanBuffer,
+        stride: u32,
+        bpp: u32,
+    },
+    BufferToImage {
+        buf: &'a VulkanBuffer,
+        buf_format: &'static Format,
+        buf_stride: u32,
+        img: &'a VulkanImage,
+    },
+    ImageToBuffer {
+        img: &'a VulkanImage,
+        buf: &'a VulkanBuffer,
+        buf_format: &'static Format,
+        buf_stride: u32,
+    },
+    ImageToImage {
+        src: &'a VulkanImage,
+        dst: &'a VulkanImage,
+    },
+    Blit {
+        src: &'a VulkanImage,
+        dst: &'a VulkanImage,
+    },
+}
+
 struct Pending {
     dev: Rc<CopyDeviceInner>,
     busy_id: u64,
@@ -1355,365 +1384,384 @@ impl CopyDeviceCopy {
 
 impl CopyDeviceCopyInner {
     fn record_command_buffer(&self, region: Option<&Region>) -> Result<bool, CopyDeviceError> {
-        let slf = self;
-        let tt = slf.tt;
-        let dev = &slf.dev.dev;
-        let cmd = slf.command_buffer;
-        let queue_family = slf.dev.phy.queues[tt].family;
-        let region_buf;
-        let width = slf.width;
-        let height = slf.height;
-        let region = match region {
-            Some(r) => r,
-            _ => {
-                region_buf = Region::new(Rect::new_saturating(0, 0, width as i32, height as i32));
-                &region_buf
-            }
+        record_command_buffer(
+            &self.dev,
+            self.tt,
+            self.command_buffer,
+            self.width,
+            self.height,
+            self.ty.to_ref(),
+            self.dynamic_region,
+            region,
+        )
+    }
+}
+
+fn record_command_buffer(
+    cdi: &CopyDeviceInner,
+    tt: TransferType,
+    cmd: CommandBuffer,
+    slf_width: u32,
+    slf_height: u32,
+    ty: CopyDeviceCopyTypeRef<'_>,
+    dynamic_region: bool,
+    region: Option<&Region>,
+) -> Result<bool, CopyDeviceError> {
+    let dev = &cdi.dev;
+    let queue_family = cdi.phy.queues[tt].family;
+    let region_buf;
+    let width = slf_width;
+    let height = slf_height;
+    let region = match region {
+        Some(r) => r,
+        _ => {
+            region_buf = Region::new(Rect::new_saturating(0, 0, width as i32, height as i32));
+            &region_buf
+        }
+    };
+    let (x_mask, y_mask) = cdi.phy.queues[tt].transfer_granularity_mask;
+    let rects = &mut *cdi.phy.rects.borrow_mut();
+    rects.clear();
+    for rect in region.iter() {
+        let x1 = (rect.x1().max(0) as u32 & !x_mask).min(width);
+        let y1 = (rect.y1().max(0) as u32 & !y_mask).min(height);
+        let x2 = ((rect.x2().max(0) as u32 + x_mask) & !x_mask).min(width);
+        let y2 = ((rect.y2().max(0) as u32 + y_mask) & !y_mask).min(height);
+        let width = x2 - x1;
+        let height = y2 - y1;
+        if width == 0 || height == 0 {
+            continue;
+        }
+        rects.push((x1 as i32, y1 as i32, width, height));
+    }
+    if rects.is_empty() {
+        return Ok(false);
+    }
+    let mut flags = CommandBufferUsageFlags::empty();
+    if dynamic_region {
+        flags |= CommandBufferUsageFlags::ONE_TIME_SUBMIT;
+    }
+    let begin_info = CommandBufferBeginInfo::default().flags(flags);
+    unsafe {
+        dev.begin_command_buffer(cmd, &begin_info)
+            .map_err(CopyDeviceError::BeginCommandBuffer)?;
+    }
+    macro_rules! initial_buffer_barriers {
+        ($($buf:expr, $access:expr;)*) => {
+            [$(
+                BufferMemoryBarrier2::default()
+                    .dst_stage_mask(PipelineStageFlags2::TRANSFER)
+                    .dst_access_mask($access)
+                    .src_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
+                    .dst_queue_family_index(queue_family)
+                    .buffer($buf.buf)
+                    .size(WHOLE_SIZE),
+            )*]
         };
-        let (x_mask, y_mask) = slf.dev.phy.queues[tt].transfer_granularity_mask;
-        let rects = &mut *slf.dev.phy.rects.borrow_mut();
-        rects.clear();
-        for rect in region.iter() {
-            let x1 = (rect.x1().max(0) as u32 & !x_mask).min(width);
-            let y1 = (rect.y1().max(0) as u32 & !y_mask).min(height);
-            let x2 = ((rect.x2().max(0) as u32 + x_mask) & !x_mask).min(width);
-            let y2 = ((rect.y2().max(0) as u32 + y_mask) & !y_mask).min(height);
-            let width = x2 - x1;
-            let height = y2 - y1;
-            if width == 0 || height == 0 {
-                continue;
-            }
-            rects.push((x1 as i32, y1 as i32, width, height));
-        }
-        if rects.is_empty() {
-            return Ok(false);
-        }
-        let mut flags = CommandBufferUsageFlags::empty();
-        if slf.dynamic_region {
-            flags |= CommandBufferUsageFlags::ONE_TIME_SUBMIT;
-        }
-        let begin_info = CommandBufferBeginInfo::default().flags(flags);
-        unsafe {
-            dev.begin_command_buffer(cmd, &begin_info)
-                .map_err(CopyDeviceError::BeginCommandBuffer)?;
-        }
-        macro_rules! initial_buffer_barriers {
-            ($($buf:expr, $access:expr;)*) => {
-                [$(
-                    BufferMemoryBarrier2::default()
-                        .dst_stage_mask(PipelineStageFlags2::TRANSFER)
-                        .dst_access_mask($access)
-                        .src_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
-                        .dst_queue_family_index(queue_family)
-                        .buffer($buf.buf)
-                        .size(WHOLE_SIZE),
-                )*]
-            };
-        }
-        macro_rules! final_buffer_barriers {
-            ($($buf:expr, $access:expr;)*) => {
-                [$(
-                    BufferMemoryBarrier2::default()
-                        .src_stage_mask(PipelineStageFlags2::TRANSFER)
-                        .src_access_mask($access)
-                        .src_queue_family_index(queue_family)
-                        .dst_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
-                        .buffer($buf.buf)
-                        .size(WHOLE_SIZE),
-                )*]
-            };
-        }
-        let image_subresource_range = ImageSubresourceRange {
-            aspect_mask: ImageAspectFlags::COLOR,
-            base_mip_level: 0,
-            level_count: 1,
-            base_array_layer: 0,
-            layer_count: 1,
+    }
+    macro_rules! final_buffer_barriers {
+        ($($buf:expr, $access:expr;)*) => {
+            [$(
+                BufferMemoryBarrier2::default()
+                    .src_stage_mask(PipelineStageFlags2::TRANSFER)
+                    .src_access_mask($access)
+                    .src_queue_family_index(queue_family)
+                    .dst_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
+                    .buffer($buf.buf)
+                    .size(WHOLE_SIZE),
+            )*]
         };
-        let image_subresource = ImageSubresourceLayers {
-            aspect_mask: ImageAspectFlags::COLOR,
-            mip_level: 0,
-            base_array_layer: 0,
-            layer_count: 1,
+    }
+    let image_subresource_range = ImageSubresourceRange {
+        aspect_mask: ImageAspectFlags::COLOR,
+        base_mip_level: 0,
+        level_count: 1,
+        base_array_layer: 0,
+        layer_count: 1,
+    };
+    let image_subresource = ImageSubresourceLayers {
+        aspect_mask: ImageAspectFlags::COLOR,
+        mip_level: 0,
+        base_array_layer: 0,
+        layer_count: 1,
+    };
+    macro_rules! initial_image_barriers {
+        ($($img:expr, $layout:expr, $access:expr;)*) => {
+            [$(
+                ImageMemoryBarrier2::default()
+                    .dst_stage_mask(PipelineStageFlags2::TRANSFER)
+                    .dst_access_mask($access)
+                    .old_layout(ImageLayout::GENERAL)
+                    .new_layout(ImageLayout::GENERAL)
+                    .src_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
+                    .dst_queue_family_index(queue_family)
+                    .image($img.img)
+                    .subresource_range(image_subresource_range),
+                ImageMemoryBarrier2::default()
+                    .src_stage_mask(PipelineStageFlags2::TRANSFER)
+                    .src_access_mask($access)
+                    .dst_stage_mask(PipelineStageFlags2::TRANSFER)
+                    .dst_access_mask($access)
+                    .old_layout(ImageLayout::GENERAL)
+                    .new_layout($layout)
+                    .src_queue_family_index(queue_family)
+                    .dst_queue_family_index(queue_family)
+                    .image($img.img)
+                    .subresource_range(image_subresource_range),
+            )*]
         };
-        macro_rules! initial_image_barriers {
-            ($($img:expr, $layout:expr, $access:expr;)*) => {
-                [$(
-                    ImageMemoryBarrier2::default()
-                        .dst_stage_mask(PipelineStageFlags2::TRANSFER)
-                        .dst_access_mask($access)
-                        .old_layout(ImageLayout::GENERAL)
-                        .new_layout(ImageLayout::GENERAL)
-                        .src_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
-                        .dst_queue_family_index(queue_family)
-                        .image($img.img)
-                        .subresource_range(image_subresource_range),
-                    ImageMemoryBarrier2::default()
-                        .src_stage_mask(PipelineStageFlags2::TRANSFER)
-                        .src_access_mask($access)
-                        .dst_stage_mask(PipelineStageFlags2::TRANSFER)
-                        .dst_access_mask($access)
-                        .old_layout(ImageLayout::GENERAL)
-                        .new_layout($layout)
-                        .src_queue_family_index(queue_family)
-                        .dst_queue_family_index(queue_family)
-                        .image($img.img)
-                        .subresource_range(image_subresource_range),
-                )*]
-            };
+    }
+    macro_rules! final_image_barriers {
+        ($($img:expr, $layout:expr, $access:expr;)*) => {
+            [$(
+                ImageMemoryBarrier2::default()
+                    .src_stage_mask(PipelineStageFlags2::TRANSFER)
+                    .src_access_mask($access)
+                    .dst_stage_mask(PipelineStageFlags2::TRANSFER)
+                    .dst_access_mask($access)
+                    .old_layout($layout)
+                    .new_layout(ImageLayout::GENERAL)
+                    .src_queue_family_index(queue_family)
+                    .dst_queue_family_index(queue_family)
+                    .image($img.img)
+                    .subresource_range(image_subresource_range),
+                ImageMemoryBarrier2::default()
+                    .src_stage_mask(PipelineStageFlags2::TRANSFER)
+                    .src_access_mask($access)
+                    .old_layout(ImageLayout::GENERAL)
+                    .new_layout(ImageLayout::GENERAL)
+                    .src_queue_family_index(queue_family)
+                    .dst_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
+                    .image($img.img)
+                    .subresource_range(image_subresource_range),
+            )*]
+        };
+    }
+    match ty {
+        CopyDeviceCopyTypeRef::BufferToBuffer {
+            src,
+            dst,
+            stride,
+            bpp,
+        } => {
+            let regions = &mut *cdi.phy.buffer_copy_2.borrow_mut();
+            regions.clear();
+            let stride = stride as u64;
+            let bpp = bpp as u64;
+            for &mut (x, y, width, height) in rects {
+                let lo = y as u64 * stride + x as u64 * bpp;
+                let size = (height as u64 - 1) * stride + width as u64 * bpp;
+                let region = BufferCopy2::default()
+                    .src_offset(lo)
+                    .dst_offset(lo)
+                    .size(size);
+                regions.push(region);
+            }
+            use AccessFlags2 as A;
+            let initial_barriers = initial_buffer_barriers![
+                src, A::TRANSFER_READ;
+                dst, A::TRANSFER_WRITE;
+            ];
+            let final_barriers = final_buffer_barriers![
+                src, A::TRANSFER_READ;
+                dst, A::TRANSFER_WRITE;
+            ];
+            let initial_dependency_info =
+                DependencyInfo::default().buffer_memory_barriers(&initial_barriers);
+            let final_dependency_info =
+                DependencyInfo::default().buffer_memory_barriers(&final_barriers);
+            let copy_buffer_info = CopyBufferInfo2::default()
+                .src_buffer(src.buf)
+                .dst_buffer(dst.buf)
+                .regions(regions);
+            unsafe {
+                dev.cmd_pipeline_barrier2(cmd, &initial_dependency_info);
+                dev.cmd_copy_buffer2(cmd, &copy_buffer_info);
+                dev.cmd_pipeline_barrier2(cmd, &final_dependency_info);
+            }
         }
-        macro_rules! final_image_barriers {
-            ($($img:expr, $layout:expr, $access:expr;)*) => {
-                [$(
-                    ImageMemoryBarrier2::default()
-                        .src_stage_mask(PipelineStageFlags2::TRANSFER)
-                        .src_access_mask($access)
-                        .dst_stage_mask(PipelineStageFlags2::TRANSFER)
-                        .dst_access_mask($access)
-                        .old_layout($layout)
-                        .new_layout(ImageLayout::GENERAL)
-                        .src_queue_family_index(queue_family)
-                        .dst_queue_family_index(queue_family)
-                        .image($img.img)
-                        .subresource_range(image_subresource_range),
-                    ImageMemoryBarrier2::default()
-                        .src_stage_mask(PipelineStageFlags2::TRANSFER)
-                        .src_access_mask($access)
-                        .old_layout(ImageLayout::GENERAL)
-                        .new_layout(ImageLayout::GENERAL)
-                        .src_queue_family_index(queue_family)
-                        .dst_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
-                        .image($img.img)
-                        .subresource_range(image_subresource_range),
-                )*]
-            };
+        CopyDeviceCopyTypeRef::BufferToImage {
+            buf,
+            buf_format,
+            buf_stride,
+            img,
         }
-        match &slf.ty {
-            CopyDeviceCopyType::BufferToBuffer {
-                src,
-                dst,
-                stride,
-                bpp,
-            } => {
-                let regions = &mut *slf.dev.phy.buffer_copy_2.borrow_mut();
-                regions.clear();
-                let stride = *stride as u64;
-                let bpp = *bpp as u64;
-                for &mut (x, y, width, height) in rects {
-                    let lo = y as u64 * stride + x as u64 * bpp;
-                    let size = (height as u64 - 1) * stride + width as u64 * bpp;
-                    let region = BufferCopy2::default()
-                        .src_offset(lo)
-                        .dst_offset(lo)
-                        .size(size);
-                    regions.push(region);
+        | CopyDeviceCopyTypeRef::ImageToBuffer {
+            img,
+            buf,
+            buf_format,
+            buf_stride,
+        } => {
+            let regions = &mut *cdi.phy.buffer_image_copy_2.borrow_mut();
+            regions.clear();
+            for &mut (x, y, width, height) in rects {
+                let offset = y as u64 * buf_stride as u64 + x as u64 * buf_format.bpp as u64;
+                let region = BufferImageCopy2::default()
+                    .buffer_offset(offset)
+                    .buffer_row_length(buf_stride / buf_format.bpp)
+                    .buffer_image_height(slf_height)
+                    .image_subresource(image_subresource)
+                    .image_offset(Offset3D { x, y, z: 0 })
+                    .image_extent(Extent3D {
+                        width,
+                        height,
+                        depth: 1,
+                    });
+                regions.push(region);
+            }
+            let buffer_to_image = match ty {
+                CopyDeviceCopyTypeRef::BufferToImage { .. } => true,
+                CopyDeviceCopyTypeRef::ImageToBuffer { .. } => false,
+                _ => unreachable!(),
+            };
+            let image_access_mask;
+            let image_layout;
+            let buffer_access_mask;
+            match buffer_to_image {
+                true => {
+                    image_access_mask = AccessFlags2::TRANSFER_WRITE;
+                    image_layout = ImageLayout::TRANSFER_DST_OPTIMAL;
+                    buffer_access_mask = AccessFlags2::TRANSFER_READ;
                 }
-                use AccessFlags2 as A;
-                let initial_barriers = initial_buffer_barriers![
-                    src, A::TRANSFER_READ;
-                    dst, A::TRANSFER_WRITE;
-                ];
-                let final_barriers = final_buffer_barriers![
-                    src, A::TRANSFER_READ;
-                    dst, A::TRANSFER_WRITE;
-                ];
-                let initial_dependency_info =
-                    DependencyInfo::default().buffer_memory_barriers(&initial_barriers);
-                let final_dependency_info =
-                    DependencyInfo::default().buffer_memory_barriers(&final_barriers);
-                let copy_buffer_info = CopyBufferInfo2::default()
-                    .src_buffer(src.buf)
-                    .dst_buffer(dst.buf)
-                    .regions(regions);
-                unsafe {
-                    dev.cmd_pipeline_barrier2(cmd, &initial_dependency_info);
-                    dev.cmd_copy_buffer2(cmd, &copy_buffer_info);
-                    dev.cmd_pipeline_barrier2(cmd, &final_dependency_info);
+                false => {
+                    image_access_mask = AccessFlags2::TRANSFER_READ;
+                    image_layout = ImageLayout::TRANSFER_SRC_OPTIMAL;
+                    buffer_access_mask = AccessFlags2::TRANSFER_WRITE;
                 }
             }
-            CopyDeviceCopyType::BufferToImage {
-                buf,
-                buf_format,
-                buf_stride,
-                img,
-            }
-            | CopyDeviceCopyType::ImageToBuffer {
-                img,
-                buf,
-                buf_format,
-                buf_stride,
-            } => {
-                let regions = &mut *slf.dev.phy.buffer_image_copy_2.borrow_mut();
-                regions.clear();
-                for &mut (x, y, width, height) in rects {
-                    let offset = y as u64 * *buf_stride as u64 + x as u64 * buf_format.bpp as u64;
-                    let region = BufferImageCopy2::default()
-                        .buffer_offset(offset)
-                        .buffer_row_length(*buf_stride / buf_format.bpp)
-                        .buffer_image_height(slf.height)
-                        .image_subresource(image_subresource)
-                        .image_offset(Offset3D { x, y, z: 0 })
-                        .image_extent(Extent3D {
-                            width,
-                            height,
-                            depth: 1,
-                        });
-                    regions.push(region);
-                }
-                let buffer_to_image = match &slf.ty {
-                    CopyDeviceCopyType::BufferToImage { .. } => true,
-                    CopyDeviceCopyType::ImageToBuffer { .. } => false,
-                    _ => unreachable!(),
-                };
-                let image_access_mask;
-                let image_layout;
-                let buffer_access_mask;
+            let initial_image_barriers = initial_image_barriers![
+                img, image_layout, image_access_mask;
+            ];
+            let final_image_barriers = final_image_barriers![
+                img, image_layout, image_access_mask;
+            ];
+            let initial_buffer_barriers = initial_buffer_barriers![
+                buf, buffer_access_mask;
+            ];
+            let final_buffer_barriers = final_buffer_barriers![
+                buf, buffer_access_mask;
+            ];
+            let initial_dependency_info = DependencyInfo::default()
+                .buffer_memory_barriers(&initial_buffer_barriers)
+                .image_memory_barriers(&initial_image_barriers);
+            let final_dependency_info = DependencyInfo::default()
+                .buffer_memory_barriers(&final_buffer_barriers)
+                .image_memory_barriers(&final_image_barriers);
+            unsafe {
+                dev.cmd_pipeline_barrier2(cmd, &initial_dependency_info);
                 match buffer_to_image {
                     true => {
-                        image_access_mask = AccessFlags2::TRANSFER_WRITE;
-                        image_layout = ImageLayout::TRANSFER_DST_OPTIMAL;
-                        buffer_access_mask = AccessFlags2::TRANSFER_READ;
+                        let copy = CopyBufferToImageInfo2::default()
+                            .src_buffer(buf.buf)
+                            .dst_image(img.img)
+                            .dst_image_layout(image_layout)
+                            .regions(&regions);
+                        dev.cmd_copy_buffer_to_image2(cmd, &copy);
                     }
                     false => {
-                        image_access_mask = AccessFlags2::TRANSFER_READ;
-                        image_layout = ImageLayout::TRANSFER_SRC_OPTIMAL;
-                        buffer_access_mask = AccessFlags2::TRANSFER_WRITE;
+                        let copy = CopyImageToBufferInfo2::default()
+                            .src_image(img.img)
+                            .src_image_layout(image_layout)
+                            .dst_buffer(buf.buf)
+                            .regions(&regions);
+                        dev.cmd_copy_image_to_buffer2(cmd, &copy);
                     }
                 }
-                let initial_image_barriers = initial_image_barriers![
-                    img, image_layout, image_access_mask;
-                ];
-                let final_image_barriers = final_image_barriers![
-                    img, image_layout, image_access_mask;
-                ];
-                let initial_buffer_barriers = initial_buffer_barriers![
-                    buf, buffer_access_mask;
-                ];
-                let final_buffer_barriers = final_buffer_barriers![
-                    buf, buffer_access_mask;
-                ];
-                let initial_dependency_info = DependencyInfo::default()
-                    .buffer_memory_barriers(&initial_buffer_barriers)
-                    .image_memory_barriers(&initial_image_barriers);
-                let final_dependency_info = DependencyInfo::default()
-                    .buffer_memory_barriers(&final_buffer_barriers)
-                    .image_memory_barriers(&final_image_barriers);
-                unsafe {
-                    dev.cmd_pipeline_barrier2(cmd, &initial_dependency_info);
-                    match buffer_to_image {
-                        true => {
-                            let copy = CopyBufferToImageInfo2::default()
-                                .src_buffer(buf.buf)
-                                .dst_image(img.img)
-                                .dst_image_layout(image_layout)
-                                .regions(&regions);
-                            dev.cmd_copy_buffer_to_image2(cmd, &copy);
-                        }
-                        false => {
-                            let copy = CopyImageToBufferInfo2::default()
-                                .src_image(img.img)
-                                .src_image_layout(image_layout)
-                                .dst_buffer(buf.buf)
-                                .regions(&regions);
-                            dev.cmd_copy_image_to_buffer2(cmd, &copy);
-                        }
-                    }
-                    dev.cmd_pipeline_barrier2(cmd, &final_dependency_info);
-                }
+                dev.cmd_pipeline_barrier2(cmd, &final_dependency_info);
             }
-            CopyDeviceCopyType::ImageToImage { src, dst } => {
-                let regions = &mut *slf.dev.phy.image_copy_2.borrow_mut();
-                regions.clear();
-                for &mut (x, y, width, height) in rects {
-                    let region = ImageCopy2::default()
-                        .src_subresource(image_subresource)
-                        .src_offset(Offset3D { x, y, z: 0 })
-                        .dst_subresource(image_subresource)
-                        .dst_offset(Offset3D { x, y, z: 0 })
-                        .extent(Extent3D {
-                            width,
-                            height,
-                            depth: 1,
-                        });
-                    regions.push(region);
-                }
-                use {AccessFlags2 as A, ImageLayout as L};
-                let initial_barriers = initial_image_barriers![
-                    src, L::TRANSFER_SRC_OPTIMAL, A::TRANSFER_READ;
-                    dst, L::TRANSFER_DST_OPTIMAL, A::TRANSFER_WRITE;
-                ];
-                let final_barriers = final_image_barriers![
-                    src, L::TRANSFER_SRC_OPTIMAL, A::TRANSFER_READ;
-                    dst, L::TRANSFER_DST_OPTIMAL, A::TRANSFER_WRITE;
-                ];
-                let initial_dependency_info =
-                    DependencyInfo::default().image_memory_barriers(&initial_barriers);
-                let final_dependency_info =
-                    DependencyInfo::default().image_memory_barriers(&final_barriers);
-                let copy_image_info = CopyImageInfo2::default()
-                    .src_image(src.img)
-                    .src_image_layout(L::TRANSFER_SRC_OPTIMAL)
-                    .dst_image(dst.img)
-                    .dst_image_layout(L::TRANSFER_DST_OPTIMAL)
-                    .regions(regions);
-                unsafe {
-                    dev.cmd_pipeline_barrier2(cmd, &initial_dependency_info);
-                    dev.cmd_copy_image2(cmd, &copy_image_info);
-                    dev.cmd_pipeline_barrier2(cmd, &final_dependency_info);
-                }
-            }
-            CopyDeviceCopyType::Blit { src, dst } => {
-                let regions = &mut *slf.dev.phy.image_blit_2.borrow_mut();
-                regions.clear();
-                for &mut (x, y, width, height) in rects {
-                    let x1 = x;
-                    let y1 = y;
-                    let x2 = x1 + width as i32;
-                    let y2 = y1 + height as i32;
-                    let offsets = [
-                        Offset3D { x: x1, y: y1, z: 0 },
-                        Offset3D { x: x2, y: y2, z: 1 },
-                    ];
-                    let region = ImageBlit2::default()
-                        .src_subresource(image_subresource)
-                        .src_offsets(offsets)
-                        .dst_subresource(image_subresource)
-                        .dst_offsets(offsets);
-                    regions.push(region);
-                }
-                use {AccessFlags2 as A, ImageLayout as L};
-                let initial_barriers = initial_image_barriers![
-                    src, L::TRANSFER_SRC_OPTIMAL, A::TRANSFER_READ;
-                    dst, L::TRANSFER_DST_OPTIMAL, A::TRANSFER_WRITE;
-                ];
-                let final_barriers = final_image_barriers![
-                    src, L::TRANSFER_SRC_OPTIMAL, A::TRANSFER_READ;
-                    dst, L::TRANSFER_DST_OPTIMAL, A::TRANSFER_WRITE;
-                ];
-                let initial_dependency_info =
-                    DependencyInfo::default().image_memory_barriers(&initial_barriers);
-                let final_dependency_info =
-                    DependencyInfo::default().image_memory_barriers(&final_barriers);
-                let blit_image_info = BlitImageInfo2::default()
-                    .src_image(src.img)
-                    .src_image_layout(L::TRANSFER_SRC_OPTIMAL)
-                    .dst_image(dst.img)
-                    .dst_image_layout(L::TRANSFER_DST_OPTIMAL)
-                    .regions(regions)
-                    .filter(Filter::NEAREST);
-                unsafe {
-                    dev.cmd_pipeline_barrier2(cmd, &initial_dependency_info);
-                    dev.cmd_blit_image2(cmd, &blit_image_info);
-                    dev.cmd_pipeline_barrier2(cmd, &final_dependency_info);
-                }
-            }
-        };
-        unsafe {
-            dev.end_command_buffer(cmd)
-                .map_err(CopyDeviceError::EndCommandBuffer)?;
         }
-        Ok(true)
+        CopyDeviceCopyTypeRef::ImageToImage { src, dst } => {
+            let regions = &mut *cdi.phy.image_copy_2.borrow_mut();
+            regions.clear();
+            for &mut (x, y, width, height) in rects {
+                let region = ImageCopy2::default()
+                    .src_subresource(image_subresource)
+                    .src_offset(Offset3D { x, y, z: 0 })
+                    .dst_subresource(image_subresource)
+                    .dst_offset(Offset3D { x, y, z: 0 })
+                    .extent(Extent3D {
+                        width,
+                        height,
+                        depth: 1,
+                    });
+                regions.push(region);
+            }
+            use {AccessFlags2 as A, ImageLayout as L};
+            let initial_barriers = initial_image_barriers![
+                src, L::TRANSFER_SRC_OPTIMAL, A::TRANSFER_READ;
+                dst, L::TRANSFER_DST_OPTIMAL, A::TRANSFER_WRITE;
+            ];
+            let final_barriers = final_image_barriers![
+                src, L::TRANSFER_SRC_OPTIMAL, A::TRANSFER_READ;
+                dst, L::TRANSFER_DST_OPTIMAL, A::TRANSFER_WRITE;
+            ];
+            let initial_dependency_info =
+                DependencyInfo::default().image_memory_barriers(&initial_barriers);
+            let final_dependency_info =
+                DependencyInfo::default().image_memory_barriers(&final_barriers);
+            let copy_image_info = CopyImageInfo2::default()
+                .src_image(src.img)
+                .src_image_layout(L::TRANSFER_SRC_OPTIMAL)
+                .dst_image(dst.img)
+                .dst_image_layout(L::TRANSFER_DST_OPTIMAL)
+                .regions(regions);
+            unsafe {
+                dev.cmd_pipeline_barrier2(cmd, &initial_dependency_info);
+                dev.cmd_copy_image2(cmd, &copy_image_info);
+                dev.cmd_pipeline_barrier2(cmd, &final_dependency_info);
+            }
+        }
+        CopyDeviceCopyTypeRef::Blit { src, dst } => {
+            let regions = &mut *cdi.phy.image_blit_2.borrow_mut();
+            regions.clear();
+            for &mut (x, y, width, height) in rects {
+                let x1 = x;
+                let y1 = y;
+                let x2 = x1 + width as i32;
+                let y2 = y1 + height as i32;
+                let offsets = [
+                    Offset3D { x: x1, y: y1, z: 0 },
+                    Offset3D { x: x2, y: y2, z: 1 },
+                ];
+                let region = ImageBlit2::default()
+                    .src_subresource(image_subresource)
+                    .src_offsets(offsets)
+                    .dst_subresource(image_subresource)
+                    .dst_offsets(offsets);
+                regions.push(region);
+            }
+            use {AccessFlags2 as A, ImageLayout as L};
+            let initial_barriers = initial_image_barriers![
+                src, L::TRANSFER_SRC_OPTIMAL, A::TRANSFER_READ;
+                dst, L::TRANSFER_DST_OPTIMAL, A::TRANSFER_WRITE;
+            ];
+            let final_barriers = final_image_barriers![
+                src, L::TRANSFER_SRC_OPTIMAL, A::TRANSFER_READ;
+                dst, L::TRANSFER_DST_OPTIMAL, A::TRANSFER_WRITE;
+            ];
+            let initial_dependency_info =
+                DependencyInfo::default().image_memory_barriers(&initial_barriers);
+            let final_dependency_info =
+                DependencyInfo::default().image_memory_barriers(&final_barriers);
+            let blit_image_info = BlitImageInfo2::default()
+                .src_image(src.img)
+                .src_image_layout(L::TRANSFER_SRC_OPTIMAL)
+                .dst_image(dst.img)
+                .dst_image_layout(L::TRANSFER_DST_OPTIMAL)
+                .regions(regions)
+                .filter(Filter::NEAREST);
+            unsafe {
+                dev.cmd_pipeline_barrier2(cmd, &initial_dependency_info);
+                dev.cmd_blit_image2(cmd, &blit_image_info);
+                dev.cmd_pipeline_barrier2(cmd, &final_dependency_info);
+            }
+        }
+    };
+    unsafe {
+        dev.end_command_buffer(cmd)
+            .map_err(CopyDeviceError::EndCommandBuffer)?;
     }
+    Ok(true)
 }
 
 impl CopyDeviceCopy {
@@ -2115,5 +2163,49 @@ impl VulkanDeviceInf for CopyDeviceInner {
 
     fn eventfd_cache(&self) -> &Rc<EventfdCache> {
         &self.phy.eventfd_cache
+    }
+}
+
+impl CopyDeviceCopyType {
+    fn to_ref(&self) -> CopyDeviceCopyTypeRef<'_> {
+        match self {
+            CopyDeviceCopyType::BufferToBuffer {
+                src,
+                dst,
+                stride,
+                bpp,
+            } => CopyDeviceCopyTypeRef::BufferToBuffer {
+                src,
+                dst,
+                stride: *stride,
+                bpp: *bpp,
+            },
+            CopyDeviceCopyType::BufferToImage {
+                buf,
+                buf_format,
+                buf_stride,
+                img,
+            } => CopyDeviceCopyTypeRef::BufferToImage {
+                buf,
+                buf_format,
+                buf_stride: *buf_stride,
+                img,
+            },
+            CopyDeviceCopyType::ImageToBuffer {
+                img,
+                buf,
+                buf_format,
+                buf_stride,
+            } => CopyDeviceCopyTypeRef::ImageToBuffer {
+                img,
+                buf,
+                buf_format,
+                buf_stride: *buf_stride,
+            },
+            CopyDeviceCopyType::ImageToImage { src, dst } => {
+                CopyDeviceCopyTypeRef::ImageToImage { src, dst }
+            }
+            CopyDeviceCopyType::Blit { src, dst } => CopyDeviceCopyTypeRef::Blit { src, dst },
+        }
     }
 }
