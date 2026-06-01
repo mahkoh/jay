@@ -257,6 +257,14 @@ struct CopyDeviceCopyInner {
     no_op: bool,
 }
 
+enum CopyDeviceCopyKind {
+    BufferToBuffer,
+    BufferToImage,
+    ImageToBuffer,
+    ImageToImage,
+    Blit,
+}
+
 enum CopyDeviceCopyType {
     BufferToBuffer {
         src: VulkanBuffer,
@@ -1108,22 +1116,24 @@ impl CopyDevice {
         dst: &DmaBuf,
         region: Option<Option<&Region>>,
     ) -> Result<CopyDeviceCopy, CopyDeviceError> {
-        if (dst.width, dst.height) != (src.width, src.height) {
-            return Err(CopyDeviceError::NotSameSize);
-        }
         let src_class = self.classify_dmabuf(src, Dir::Src)?;
         let dst_class = self.classify_dmabuf(dst, Dir::Dst)?;
-        let blit = src.format != dst.format;
-        if blit && (!src_class.format.blit || !dst_class.format.blit) {
-            return Err(CopyDeviceError::BlitNotSupported);
-        }
-        let tt = match (src_class.on_device, dst_class.on_device) {
-            (false, false) => return Err(CopyDeviceError::BothOffDevice),
-            _ if blit => TransferType::Blit,
-            (false, true) => TransferType::Upload,
-            (true, false) => TransferType::Download,
-            (true, true) => TransferType::Intra,
-        };
+        let (tt, kind) = classify_copy(ClassifyParams {
+            src_width: src.width as _,
+            dst_width: dst.width as _,
+            src_height: src.height as _,
+            dst_height: dst.height as _,
+            src_format: src.format,
+            dst_format: dst.format,
+            src_blit_support: src_class.format.blit,
+            dst_blit_support: dst_class.format.blit,
+            src_on_device: src_class.on_device,
+            dst_on_device: dst_class.on_device,
+            src_buffer_possible: src_class.buffer_possible,
+            dst_buffer_possible: dst_class.buffer_possible,
+            src_stride: src.planes[0].stride,
+            dst_stride: dst.planes[0].stride,
+        })?;
         let dev = &self.dev.dev;
         let command_buffer = {
             let info = CommandBufferAllocateInfo::default()
@@ -1138,40 +1148,33 @@ impl CopyDevice {
         };
         let free_command_buffer =
             on_drop(|| unsafe { dev.free_command_buffers(self.dev.pools[tt], &[command_buffer]) });
-        let ty = if blit {
-            CopyDeviceCopyType::Blit {
+        let ty = match kind {
+            CopyDeviceCopyKind::Blit => CopyDeviceCopyType::Blit {
                 src: self.import_image(tt, &src_class, src, Dir::Src)?,
                 dst: self.import_image(tt, &dst_class, dst, Dir::Dst)?,
-            }
-        } else if !src_class.buffer_possible && !dst_class.buffer_possible {
-            CopyDeviceCopyType::ImageToImage {
+            },
+            CopyDeviceCopyKind::ImageToImage => CopyDeviceCopyType::ImageToImage {
                 src: self.import_image(tt, &src_class, src, Dir::Src)?,
                 dst: self.import_image(tt, &dst_class, dst, Dir::Dst)?,
-            }
-        } else if src_class.buffer_possible
-            && dst_class.buffer_possible
-            && src.planes[0].stride == dst.planes[0].stride
-        {
-            CopyDeviceCopyType::BufferToBuffer {
+            },
+            CopyDeviceCopyKind::BufferToBuffer => CopyDeviceCopyType::BufferToBuffer {
                 src: self.import_buffer(tt, &src_class, src, Dir::Src)?,
                 dst: self.import_buffer(tt, &dst_class, dst, Dir::Dst)?,
                 stride: src.planes[0].stride,
                 bpp: src.format.bpp,
-            }
-        } else if src_class.buffer_possible {
-            CopyDeviceCopyType::BufferToImage {
+            },
+            CopyDeviceCopyKind::BufferToImage => CopyDeviceCopyType::BufferToImage {
                 buf: self.import_buffer(tt, &src_class, src, Dir::Src)?,
                 buf_format: src.format,
                 buf_stride: src.planes[0].stride,
                 img: self.import_image(tt, &dst_class, dst, Dir::Dst)?,
-            }
-        } else {
-            CopyDeviceCopyType::ImageToBuffer {
+            },
+            CopyDeviceCopyKind::ImageToBuffer => CopyDeviceCopyType::ImageToBuffer {
                 img: self.import_image(tt, &src_class, src, Dir::Src)?,
                 buf: self.import_buffer(tt, &dst_class, dst, Dir::Dst)?,
                 buf_format: dst.format,
                 buf_stride: dst.planes[0].stride,
-            }
+            },
         };
         free_command_buffer.forget();
         let mut copy = CopyDeviceCopyInner {
@@ -1340,6 +1343,70 @@ impl CopyDevice {
         }
         Ok((on_device, fd_props))
     }
+}
+
+struct ClassifyParams {
+    src_width: u32,
+    dst_width: u32,
+    src_height: u32,
+    dst_height: u32,
+    src_format: &'static Format,
+    dst_format: &'static Format,
+    src_blit_support: bool,
+    dst_blit_support: bool,
+    src_on_device: bool,
+    dst_on_device: bool,
+    src_buffer_possible: bool,
+    dst_buffer_possible: bool,
+    src_stride: u32,
+    dst_stride: u32,
+}
+
+fn classify_copy(
+    params: ClassifyParams,
+) -> Result<(TransferType, CopyDeviceCopyKind), CopyDeviceError> {
+    let ClassifyParams {
+        src_width,
+        dst_width,
+        src_height,
+        dst_height,
+        src_format,
+        dst_format,
+        src_blit_support,
+        dst_blit_support,
+        src_on_device,
+        dst_on_device,
+        src_buffer_possible,
+        dst_buffer_possible,
+        src_stride,
+        dst_stride,
+    } = params;
+    if (dst_width, dst_height) != (src_width, src_height) {
+        return Err(CopyDeviceError::NotSameSize);
+    }
+    let blit = src_format != dst_format;
+    if blit && (!src_blit_support || !dst_blit_support) {
+        return Err(CopyDeviceError::BlitNotSupported);
+    }
+    let tt = match (src_on_device, dst_on_device) {
+        (false, false) => return Err(CopyDeviceError::BothOffDevice),
+        _ if blit => TransferType::Blit,
+        (false, true) => TransferType::Upload,
+        (true, false) => TransferType::Download,
+        (true, true) => TransferType::Intra,
+    };
+    let kind = if blit {
+        CopyDeviceCopyKind::Blit
+    } else if !src_buffer_possible && !dst_buffer_possible {
+        CopyDeviceCopyKind::ImageToImage
+    } else if src_buffer_possible && dst_buffer_possible && src_stride == dst_stride {
+        CopyDeviceCopyKind::BufferToBuffer
+    } else if src_buffer_possible {
+        CopyDeviceCopyKind::BufferToImage
+    } else {
+        CopyDeviceCopyKind::ImageToBuffer
+    };
+    Ok((tt, kind))
 }
 
 impl CopyDeviceInner {
