@@ -327,9 +327,13 @@ struct Pending {
     dev: Rc<CopyDeviceInner>,
     busy_id: u64,
     sync: Option<FdSync>,
-    copy: Rc<CopyDeviceCopyInner>,
+    ty: PendingType,
     semaphore: Option<VulkanSemaphore>,
     vulkan_sync: VulkanSync,
+}
+
+enum PendingType {
+    Copy(Rc<CopyDeviceCopyInner>),
 }
 
 struct VulkanSemaphore {
@@ -1852,7 +1856,7 @@ impl CopyDeviceCopy {
             dev: slf.dev.clone(),
             busy_id: slf.busy_id.add_fetch(1),
             sync: sync.clone(),
-            copy: self.inner.clone(),
+            ty: PendingType::Copy(self.inner.clone()),
             semaphore: wait_semaphore,
             vulkan_sync,
         };
@@ -2019,8 +2023,12 @@ impl Drop for Pending {
         if let Some(v) = self.semaphore.take() {
             self.dev.semaphores.push(v);
         }
-        if self.copy.busy_id.get() == self.busy_id {
-            self.copy.busy.take();
+        match &self.ty {
+            PendingType::Copy(c) => {
+                if c.busy_id.get() == self.busy_id {
+                    c.busy.take();
+                }
+            }
         }
     }
 }
