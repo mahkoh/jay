@@ -5,6 +5,7 @@ use {
             MappedBuffer,
         },
         format::Format,
+        gfx_api::SyncFile,
         gfx_apis::vulkan::{
             VulkanError, allocator::VulkanAllocator, command::VulkanCommandBuffer,
             device::VulkanDevice, format::VulkanFormat, renderer::image_barrier,
@@ -632,6 +633,10 @@ impl BufferObject for VulkanBo {
     fn map_write(self: Rc<Self>) -> Result<Box<dyn MappedBuffer>, AllocatorError> {
         let m = self.map(true)?;
         Ok(Box::new(m))
+    }
+
+    fn take_initial_sync(&self) -> Option<SyncFile> {
+        None
     }
 }
 

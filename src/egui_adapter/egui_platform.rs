@@ -31,7 +31,6 @@ use {
             pipe::{Pipe, pipe},
             rc_eq::rc_eq,
         },
-        video::{dmabuf::DMA_BUF_SYNC_WRITE, drm::DrmError},
         wire::{
             WlSurfaceId,
             wl_pointer::{Button, Enter, Leave, Motion},
@@ -105,8 +104,6 @@ pub enum EggError {
     Render(#[source] EgvError),
     #[error("No viewport output")]
     NoViewportOutput,
-    #[error("Could not export initial dmabuf sync file")]
-    ExportBoSyncFile(#[source] DrmError),
 }
 
 pub mod icons {
@@ -747,9 +744,7 @@ impl EggWindowInner {
                     .import_framebuffer(&bo)
                     .map_err(EggError::ImportFramebuffer)?;
                 let dmabuf = bo.dmabuf();
-                let sync_file = dmabuf
-                    .export_sync_file(DMA_BUF_SYNC_WRITE)
-                    .map_err(EggError::ExportBoSyncFile)?;
+                let sync_file = bo.take_initial_sync();
                 let wl_buffer = self.ctx.zwp_linux_dmabuf_v1.create_buffer(dmabuf);
                 let fb = Rc::new(EggFramebuffer {
                     client_acquire_fence: CloneCell::new(Some(sync_file)),

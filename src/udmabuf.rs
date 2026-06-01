@@ -2,6 +2,7 @@ use {
     crate::{
         allocator::{Allocator, AllocatorError, BufferObject, BufferUsage, MappedBuffer},
         format::Format,
+        gfx_api::SyncFile,
         utils::{
             clonecell::CloneCell,
             compat::IoctlNumber,
@@ -269,6 +270,10 @@ impl BufferObject for UdmabufBo {
                 _bo: self,
             }))
         }
+    }
+
+    fn take_initial_sync(&self) -> Option<SyncFile> {
+        None
     }
 }
 
