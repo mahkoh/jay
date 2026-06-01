@@ -89,6 +89,7 @@ pub struct MetalRenderContext {
 
 pub struct CopyDeviceHolder {
     pub registry: Rc<CopyDeviceRegistry>,
+    pub id: DrmDeviceId,
     pub devnum: dev_t,
     pub dev: OnceCell<Option<Rc<CopyDevice>>>,
 }
@@ -2029,6 +2030,7 @@ impl MetalBackend {
 
         let copy_device = Rc::new(CopyDeviceHolder {
             registry: self.state.copy_device_registry.clone(),
+            id: pending.id,
             devnum: pending.devnum,
             dev: Default::default(),
         });
@@ -2702,8 +2704,13 @@ impl MetalBackend {
 impl CopyDeviceHolder {
     pub fn get(&self) -> Option<Rc<CopyDevice>> {
         self.dev
-            .get_or_init(
-                || match self.registry.get(self.devnum)?.create_device().map(Some) {
+            .get_or_init(|| {
+                match self
+                    .registry
+                    .get(self.id, self.devnum)?
+                    .create_device()
+                    .map(Some)
+                {
                     Ok(d) => d,
                     Err(e) => {
                         log::error!(
@@ -2713,8 +2720,8 @@ impl CopyDeviceHolder {
                         );
                         None
                     }
-                },
-            )
+                }
+            })
             .clone()
     }
 }

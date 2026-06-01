@@ -1,6 +1,7 @@
 use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
+        backend::DrmDeviceId,
         eventfd_cache::EventfdCache,
         format::{FORMATS, Format},
         gfx_api::FdSync,
@@ -14,6 +15,7 @@ use {
             numcell::NumCell,
             oserror::{OsError, OsErrorExt2},
             queue::AsyncQueue,
+            rc_eq::rc_eq,
             stack::Stack,
         },
         video::{
@@ -50,22 +52,22 @@ use {
             ExternalMemoryFeatureFlags, ExternalMemoryHandleTypeFlags,
             ExternalMemoryImageCreateInfo, ExternalSemaphoreFeatureFlags,
             ExternalSemaphoreHandleTypeFlags, ExternalSemaphoreProperties, Filter,
-            FormatFeatureFlags, FormatProperties2, ImageAspectFlags, ImageBlit2, ImageCopy2,
-            ImageCreateFlags, ImageCreateInfo, ImageDrmFormatModifierExplicitCreateInfoEXT,
-            ImageFormatProperties2, ImageLayout, ImageMemoryBarrier2, ImageMemoryRequirementsInfo2,
-            ImagePlaneMemoryRequirementsInfo, ImageSubresourceLayers, ImageSubresourceRange,
-            ImageTiling, ImageType, ImageUsageFlags, ImportMemoryFdInfoKHR,
-            ImportSemaphoreFdInfoKHR, MemoryAllocateInfo, MemoryDedicatedAllocateInfo,
-            MemoryFdPropertiesKHR, MemoryGetFdInfoKHR, MemoryPropertyFlags, MemoryRequirements2,
-            MemoryType, Offset3D, PhysicalDevice, PhysicalDeviceDrmPropertiesEXT,
-            PhysicalDeviceExternalBufferInfo, PhysicalDeviceExternalFenceInfo,
-            PhysicalDeviceExternalImageFormatInfoKHR, PhysicalDeviceExternalSemaphoreInfo,
-            PhysicalDeviceFeatures2, PhysicalDeviceImageDrmFormatModifierInfoEXT,
-            PhysicalDeviceImageFormatInfo2, PhysicalDeviceProperties2,
-            PhysicalDeviceSynchronization2Features, PhysicalDeviceTimelineSemaphoreFeatures,
-            PipelineStageFlags2, QUEUE_FAMILY_FOREIGN_EXT, Queue, QueueFlags, SampleCountFlags,
-            SemaphoreCreateInfo, SemaphoreImportFlags, SemaphoreSubmitInfo, SharingMode,
-            SubmitInfo2, SubresourceLayout, WHOLE_SIZE,
+            FormatFeatureFlags, FormatProperties2, Handle, ImageAspectFlags, ImageBlit2,
+            ImageCopy2, ImageCreateFlags, ImageCreateInfo,
+            ImageDrmFormatModifierExplicitCreateInfoEXT, ImageFormatProperties2, ImageLayout,
+            ImageMemoryBarrier2, ImageMemoryRequirementsInfo2, ImagePlaneMemoryRequirementsInfo,
+            ImageSubresourceLayers, ImageSubresourceRange, ImageTiling, ImageType, ImageUsageFlags,
+            ImportMemoryFdInfoKHR, ImportSemaphoreFdInfoKHR, MemoryAllocateInfo,
+            MemoryDedicatedAllocateInfo, MemoryFdPropertiesKHR, MemoryGetFdInfoKHR,
+            MemoryPropertyFlags, MemoryRequirements2, MemoryType, Offset3D, PhysicalDevice,
+            PhysicalDeviceDrmPropertiesEXT, PhysicalDeviceExternalBufferInfo,
+            PhysicalDeviceExternalFenceInfo, PhysicalDeviceExternalImageFormatInfoKHR,
+            PhysicalDeviceExternalSemaphoreInfo, PhysicalDeviceFeatures2,
+            PhysicalDeviceImageDrmFormatModifierInfoEXT, PhysicalDeviceImageFormatInfo2,
+            PhysicalDeviceProperties2, PhysicalDeviceSynchronization2Features,
+            PhysicalDeviceTimelineSemaphoreFeatures, PipelineStageFlags2, QUEUE_FAMILY_FOREIGN_EXT,
+            Queue, QueueFlags, SampleCountFlags, SemaphoreCreateInfo, SemaphoreImportFlags,
+            SemaphoreSubmitInfo, SharingMode, SubmitInfo2, SubresourceLayout, WHOLE_SIZE,
         },
     },
     bstr::ByteSlice,
@@ -172,12 +174,15 @@ pub enum CopyDeviceError {
     BlitNotSupported,
     #[error("Could not create syncobj ctx")]
     CreateSyncobjCtx(#[source] SyncobjError),
+    #[error("Objects don't belong to the same device")]
+    DeviceMismatch,
 }
 
 type Keyed<T> = StaticMap<TransferType, T>;
 type KeyedCopy<T> = StaticCopyMap<TransferType, T>;
 
 pub struct PhysicalCopyDevice {
+    id: DrmDeviceId,
     ring: Rc<IoUring>,
     eng: Rc<AsyncEngine>,
     eventfd_cache: Rc<EventfdCache>,
@@ -255,6 +260,46 @@ struct CopyDeviceCopyInner {
     no_op: bool,
 }
 
+pub struct CopyDeviceSrcObject {
+    obj: CopyDeviceObject,
+}
+
+pub struct CopyDeviceDstObject {
+    obj: CopyDeviceObject,
+}
+
+struct CopyDeviceObject {
+    inner: Rc<CopyDeviceObjectInner>,
+    dev: Rc<CopyDevice>,
+}
+
+struct CopyDeviceObjectInner {
+    dev: Rc<CopyDeviceInner>,
+    busy_id: NumCell<u64>,
+    busy: CloneCell<Option<FdSync>>,
+    command_buffer: StaticMap<TransferType, Cell<CommandBuffer>>,
+    buf: DmaBuf,
+    blit_support: bool,
+    on_device: bool,
+    buffer_possible: bool,
+    memory_type_bits: PlaneVec<u32>,
+    mut_: RefCell<CopyDeviceObjectMut>,
+}
+
+#[derive(Default)]
+struct CopyDeviceObjectMut {
+    image: StaticMap<TransferType, Option<VulkanImage>>,
+    buffer: StaticMap<TransferType, Option<VulkanBuffer>>,
+}
+
+enum CopyDeviceCopyKind {
+    BufferToBuffer,
+    BufferToImage,
+    ImageToBuffer,
+    ImageToImage,
+    Blit,
+}
+
 enum CopyDeviceCopyType {
     BufferToBuffer {
         src: VulkanBuffer,
@@ -284,13 +329,50 @@ enum CopyDeviceCopyType {
     },
 }
 
+enum CopyDeviceCopyTypeRef<'a> {
+    BufferToBuffer {
+        src: &'a VulkanBuffer,
+        dst: &'a VulkanBuffer,
+        stride: u32,
+        bpp: u32,
+    },
+    BufferToImage {
+        buf: &'a VulkanBuffer,
+        buf_format: &'static Format,
+        buf_stride: u32,
+        img: &'a VulkanImage,
+    },
+    ImageToBuffer {
+        img: &'a VulkanImage,
+        buf: &'a VulkanBuffer,
+        buf_format: &'static Format,
+        buf_stride: u32,
+    },
+    ImageToImage {
+        src: &'a VulkanImage,
+        dst: &'a VulkanImage,
+    },
+    Blit {
+        src: &'a VulkanImage,
+        dst: &'a VulkanImage,
+    },
+}
+
 struct Pending {
     dev: Rc<CopyDeviceInner>,
     busy_id: u64,
     sync: Option<FdSync>,
-    copy: Rc<CopyDeviceCopyInner>,
+    ty: PendingType,
     semaphore: Option<VulkanSemaphore>,
     vulkan_sync: VulkanSync,
+}
+
+enum PendingType {
+    Copy(Rc<CopyDeviceCopyInner>),
+    Objects {
+        _src: Rc<CopyDeviceObjectInner>,
+        dst: Rc<CopyDeviceObjectInner>,
+    },
 }
 
 struct VulkanSemaphore {
@@ -345,7 +427,7 @@ enum Dir {
 }
 
 struct ClassifiedDmabuf<'a> {
-    fd_props: PlaneVec<MemoryFdPropertiesKHR<'static>>,
+    memory_type_bits: PlaneVec<u32>,
     on_device: bool,
     buffer_possible: bool,
     format: &'a CopyDeviceSupport,
@@ -355,7 +437,7 @@ pub struct CopyDeviceRegistry {
     ring: Rc<IoUring>,
     eng: Rc<AsyncEngine>,
     eventfd_cache: Rc<EventfdCache>,
-    devs: CopyHashMap<c::dev_t, Option<Rc<PhysicalCopyDevice>>>,
+    devs: CopyHashMap<DrmDeviceId, Option<Rc<PhysicalCopyDevice>>>,
 }
 
 const DEVICE_EXTENSIONS: [&CStr; 6] = [
@@ -372,6 +454,7 @@ impl PhysicalCopyDevice {
         ring: &Rc<IoUring>,
         eng: &Rc<AsyncEngine>,
         eventfd_cache: &Rc<EventfdCache>,
+        id: DrmDeviceId,
         dev: c::dev_t,
     ) -> Result<Rc<Self>, CopyDeviceError> {
         let core_instance = VulkanCoreInstance::new(Level::Debug)?;
@@ -633,6 +716,7 @@ impl PhysicalCopyDevice {
         let supports_timeline_opaque_export =
             core_instance.supports_timeline_opaque_export(physical_device, &features);
         let dev = Rc::new(PhysicalCopyDevice {
+            id,
             ring: ring.clone(),
             eng: eng.clone(),
             eventfd_cache: eventfd_cache.clone(),
@@ -652,6 +736,11 @@ impl PhysicalCopyDevice {
             buffer_image_copy_2: Default::default(),
         });
         Ok(dev)
+    }
+
+    #[expect(dead_code)]
+    pub fn drm_device_id(&self) -> DrmDeviceId {
+        self.id
     }
 
     pub fn src_support(&self, format: &Format) -> &[CopyDeviceSupport] {
@@ -817,7 +906,7 @@ impl CopyDevice {
             && buf.planes[0].stride % buf.format.bpp == 0
             && width <= buf.planes[0].stride / buf.format.bpp;
         Ok(ClassifiedDmabuf {
-            fd_props,
+            memory_type_bits: fd_props.iter().map(|p| p.memory_type_bits).collect(),
             on_device,
             buffer_possible,
             format,
@@ -827,11 +916,10 @@ impl CopyDevice {
     fn import_buffer(
         &self,
         tt: TransferType,
-        class: &ClassifiedDmabuf,
+        fd_memory_type_bits: &PlaneVec<u32>,
         buf: &DmaBuf,
         dir: Dir,
     ) -> Result<VulkanBuffer, CopyDeviceError> {
-        assert!(class.buffer_possible);
         let height = buf.height as u32;
         let plane = &buf.planes[0];
         let queue_family = self.dev.phy.queues[tt].family;
@@ -861,7 +949,7 @@ impl CopyDevice {
             if out.size > buffer_size {
                 return Err(CopyDeviceError::UnexpectedBufferSize);
             }
-            let memory_type_bits = class.fd_props[0].memory_type_bits & out.memory_type_bits;
+            let memory_type_bits = fd_memory_type_bits[0] & out.memory_type_bits;
             if memory_type_bits == 0 {
                 return Err(CopyDeviceError::NoMemoryTypeForImport);
             }
@@ -904,7 +992,7 @@ impl CopyDevice {
     fn import_image(
         &self,
         tt: TransferType,
-        class: &ClassifiedDmabuf,
+        fd_memory_type_bits: &PlaneVec<u32>,
         buf: &DmaBuf,
         dir: Dir,
     ) -> Result<VulkanImage, CopyDeviceError> {
@@ -997,7 +1085,7 @@ impl CopyDevice {
                     );
                 }
                 let memory_type_bits = memory_requirements.memory_requirements.memory_type_bits
-                    & class.fd_props[plane_idx].memory_type_bits;
+                    & fd_memory_type_bits[plane_idx];
                 if memory_type_bits == 0 {
                     return Err(CopyDeviceError::NoMemoryTypeForImport);
                 }
@@ -1070,22 +1158,24 @@ impl CopyDevice {
         dst: &DmaBuf,
         region: Option<Option<&Region>>,
     ) -> Result<CopyDeviceCopy, CopyDeviceError> {
-        if (dst.width, dst.height) != (src.width, src.height) {
-            return Err(CopyDeviceError::NotSameSize);
-        }
         let src_class = self.classify_dmabuf(src, Dir::Src)?;
         let dst_class = self.classify_dmabuf(dst, Dir::Dst)?;
-        let blit = src.format != dst.format;
-        if blit && (!src_class.format.blit || !dst_class.format.blit) {
-            return Err(CopyDeviceError::BlitNotSupported);
-        }
-        let tt = match (src_class.on_device, dst_class.on_device) {
-            (false, false) => return Err(CopyDeviceError::BothOffDevice),
-            _ if blit => TransferType::Blit,
-            (false, true) => TransferType::Upload,
-            (true, false) => TransferType::Download,
-            (true, true) => TransferType::Intra,
-        };
+        let (tt, kind) = classify_copy(ClassifyParams {
+            src_width: src.width as _,
+            dst_width: dst.width as _,
+            src_height: src.height as _,
+            dst_height: dst.height as _,
+            src_format: src.format,
+            dst_format: dst.format,
+            src_blit_support: src_class.format.blit,
+            dst_blit_support: dst_class.format.blit,
+            src_on_device: src_class.on_device,
+            dst_on_device: dst_class.on_device,
+            src_buffer_possible: src_class.buffer_possible,
+            dst_buffer_possible: dst_class.buffer_possible,
+            src_stride: src.planes[0].stride,
+            dst_stride: dst.planes[0].stride,
+        })?;
         let dev = &self.dev.dev;
         let command_buffer = {
             let info = CommandBufferAllocateInfo::default()
@@ -1100,40 +1190,35 @@ impl CopyDevice {
         };
         let free_command_buffer =
             on_drop(|| unsafe { dev.free_command_buffers(self.dev.pools[tt], &[command_buffer]) });
-        let ty = if blit {
-            CopyDeviceCopyType::Blit {
-                src: self.import_image(tt, &src_class, src, Dir::Src)?,
-                dst: self.import_image(tt, &dst_class, dst, Dir::Dst)?,
-            }
-        } else if !src_class.buffer_possible && !dst_class.buffer_possible {
-            CopyDeviceCopyType::ImageToImage {
-                src: self.import_image(tt, &src_class, src, Dir::Src)?,
-                dst: self.import_image(tt, &dst_class, dst, Dir::Dst)?,
-            }
-        } else if src_class.buffer_possible
-            && dst_class.buffer_possible
-            && src.planes[0].stride == dst.planes[0].stride
-        {
-            CopyDeviceCopyType::BufferToBuffer {
-                src: self.import_buffer(tt, &src_class, src, Dir::Src)?,
-                dst: self.import_buffer(tt, &dst_class, dst, Dir::Dst)?,
+        let src_mtb = &src_class.memory_type_bits;
+        let dst_mtb = &dst_class.memory_type_bits;
+        let ty = match kind {
+            CopyDeviceCopyKind::Blit => CopyDeviceCopyType::Blit {
+                src: self.import_image(tt, src_mtb, src, Dir::Src)?,
+                dst: self.import_image(tt, dst_mtb, dst, Dir::Dst)?,
+            },
+            CopyDeviceCopyKind::ImageToImage => CopyDeviceCopyType::ImageToImage {
+                src: self.import_image(tt, src_mtb, src, Dir::Src)?,
+                dst: self.import_image(tt, dst_mtb, dst, Dir::Dst)?,
+            },
+            CopyDeviceCopyKind::BufferToBuffer => CopyDeviceCopyType::BufferToBuffer {
+                src: self.import_buffer(tt, src_mtb, src, Dir::Src)?,
+                dst: self.import_buffer(tt, dst_mtb, dst, Dir::Dst)?,
                 stride: src.planes[0].stride,
                 bpp: src.format.bpp,
-            }
-        } else if src_class.buffer_possible {
-            CopyDeviceCopyType::BufferToImage {
-                buf: self.import_buffer(tt, &src_class, src, Dir::Src)?,
+            },
+            CopyDeviceCopyKind::BufferToImage => CopyDeviceCopyType::BufferToImage {
+                buf: self.import_buffer(tt, src_mtb, src, Dir::Src)?,
                 buf_format: src.format,
                 buf_stride: src.planes[0].stride,
-                img: self.import_image(tt, &dst_class, dst, Dir::Dst)?,
-            }
-        } else {
-            CopyDeviceCopyType::ImageToBuffer {
-                img: self.import_image(tt, &src_class, src, Dir::Src)?,
-                buf: self.import_buffer(tt, &dst_class, dst, Dir::Dst)?,
+                img: self.import_image(tt, dst_mtb, dst, Dir::Dst)?,
+            },
+            CopyDeviceCopyKind::ImageToBuffer => CopyDeviceCopyType::ImageToBuffer {
+                img: self.import_image(tt, src_mtb, src, Dir::Src)?,
+                buf: self.import_buffer(tt, dst_mtb, dst, Dir::Dst)?,
                 buf_format: dst.format,
                 buf_stride: dst.planes[0].stride,
-            }
+            },
         };
         free_command_buffer.forget();
         let mut copy = CopyDeviceCopyInner {
@@ -1302,6 +1387,262 @@ impl CopyDevice {
         }
         Ok((on_device, fd_props))
     }
+
+    #[expect(dead_code)]
+    pub fn create_src_object(
+        self: &Rc<Self>,
+        buf: &DmaBuf,
+    ) -> Result<CopyDeviceSrcObject, CopyDeviceError> {
+        self.create_object_(buf, Dir::Src)
+            .map(|obj| CopyDeviceSrcObject { obj })
+    }
+
+    #[expect(dead_code)]
+    pub fn create_dst_object(
+        self: &Rc<Self>,
+        buf: &DmaBuf,
+    ) -> Result<CopyDeviceDstObject, CopyDeviceError> {
+        self.create_object_(buf, Dir::Dst)
+            .map(|obj| CopyDeviceDstObject { obj })
+    }
+
+    fn create_object_(
+        self: &Rc<Self>,
+        buf: &DmaBuf,
+        dir: Dir,
+    ) -> Result<CopyDeviceObject, CopyDeviceError> {
+        let class = self.classify_dmabuf(buf, dir)?;
+        Ok(CopyDeviceObject {
+            inner: Rc::new(CopyDeviceObjectInner {
+                dev: self.dev.clone(),
+                busy_id: Default::default(),
+                busy: Default::default(),
+                command_buffer: Default::default(),
+                buf: buf.clone(),
+                blit_support: class.format.blit,
+                on_device: class.on_device,
+                buffer_possible: class.buffer_possible,
+                memory_type_bits: class.memory_type_bits,
+                mut_: Default::default(),
+            }),
+            dev: self.clone(),
+        })
+    }
+}
+
+impl CopyDeviceSrcObject {
+    #[expect(dead_code)]
+    pub fn copy_to(
+        &self,
+        dst: &CopyDeviceDstObject,
+        sync: Option<&FdSync>,
+        region: Option<&Region>,
+    ) -> Result<Option<FdSync>, CopyDeviceError> {
+        let src = &self.obj.inner;
+        let dst = &dst.obj.inner;
+        if !rc_eq(&src.dev, &dst.dev) {
+            return Err(CopyDeviceError::DeviceMismatch);
+        }
+        dst.ensure_not_busy()?;
+        let dev = &self.obj.dev;
+        let (tt, kind) = classify_copy(ClassifyParams {
+            src_width: src.buf.width as _,
+            dst_width: dst.buf.width as _,
+            src_height: src.buf.height as _,
+            dst_height: dst.buf.height as _,
+            src_format: src.buf.format,
+            dst_format: dst.buf.format,
+            src_blit_support: src.blit_support,
+            dst_blit_support: dst.blit_support,
+            src_on_device: src.on_device,
+            dst_on_device: dst.on_device,
+            src_buffer_possible: src.buffer_possible,
+            dst_buffer_possible: dst.buffer_possible,
+            src_stride: src.buf.planes[0].stride,
+            dst_stride: dst.buf.planes[0].stride,
+        })?;
+        let src_mut = &mut *src.mut_.borrow_mut();
+        let dst_mut = &mut *dst.mut_.borrow_mut();
+        fn ensure_image<'a>(
+            cd: &CopyDevice,
+            tt: TransferType,
+            dir: Dir,
+            oi: &CopyDeviceObjectInner,
+            mut_: &'a mut CopyDeviceObjectMut,
+        ) -> Result<&'a VulkanImage, CopyDeviceError> {
+            let img = &mut mut_.image[tt];
+            match img {
+                Some(i) => Ok(i),
+                None => {
+                    let i = cd.import_image(tt, &oi.memory_type_bits, &oi.buf, dir)?;
+                    Ok(img.insert(i))
+                }
+            }
+        }
+        fn ensure_buffer<'a>(
+            cd: &CopyDevice,
+            tt: TransferType,
+            dir: Dir,
+            oi: &CopyDeviceObjectInner,
+            mut_: &'a mut CopyDeviceObjectMut,
+        ) -> Result<&'a VulkanBuffer, CopyDeviceError> {
+            let buf = &mut mut_.buffer[tt];
+            match buf {
+                Some(i) => Ok(i),
+                None => {
+                    let b = cd.import_buffer(tt, &oi.memory_type_bits, &oi.buf, dir)?;
+                    Ok(buf.insert(b))
+                }
+            }
+        }
+        let ty = match kind {
+            CopyDeviceCopyKind::Blit => CopyDeviceCopyTypeRef::Blit {
+                src: ensure_image(dev, tt, Dir::Src, src, src_mut)?,
+                dst: ensure_image(dev, tt, Dir::Dst, dst, dst_mut)?,
+            },
+            CopyDeviceCopyKind::ImageToImage => CopyDeviceCopyTypeRef::ImageToImage {
+                src: ensure_image(dev, tt, Dir::Src, src, src_mut)?,
+                dst: ensure_image(dev, tt, Dir::Dst, dst, dst_mut)?,
+            },
+            CopyDeviceCopyKind::BufferToBuffer => CopyDeviceCopyTypeRef::BufferToBuffer {
+                src: ensure_buffer(dev, tt, Dir::Src, src, src_mut)?,
+                dst: ensure_buffer(dev, tt, Dir::Dst, dst, dst_mut)?,
+                stride: src.buf.planes[0].stride,
+                bpp: src.buf.format.bpp,
+            },
+            CopyDeviceCopyKind::BufferToImage => CopyDeviceCopyTypeRef::BufferToImage {
+                buf: ensure_buffer(dev, tt, Dir::Src, src, src_mut)?,
+                buf_format: src.buf.format,
+                buf_stride: src.buf.planes[0].stride,
+                img: ensure_image(dev, tt, Dir::Dst, dst, dst_mut)?,
+            },
+            CopyDeviceCopyKind::ImageToBuffer => CopyDeviceCopyTypeRef::ImageToBuffer {
+                img: ensure_image(dev, tt, Dir::Src, src, src_mut)?,
+                buf: ensure_buffer(dev, tt, Dir::Dst, dst, dst_mut)?,
+                buf_format: dst.buf.format,
+                buf_stride: dst.buf.planes[0].stride,
+            },
+        };
+        let mut buf = dst.command_buffer[tt].get();
+        if buf.is_null() {
+            let info = CommandBufferAllocateInfo::default()
+                .command_pool(dev.dev.pools[tt])
+                .command_buffer_count(1);
+            let mut bufs = unsafe {
+                dev.dev
+                    .dev
+                    .allocate_command_buffers(&info)
+                    .map_err(CopyDeviceError::CreateCommandBuffer)?
+            };
+            assert_eq!(bufs.len(), 1);
+            buf = bufs.pop().unwrap();
+            dst.command_buffer[tt].set(buf);
+        }
+        let todo = record_command_buffer(
+            &dev.dev,
+            tt,
+            buf,
+            src.buf.width as _,
+            src.buf.height as _,
+            ty,
+            true,
+            region,
+        )?;
+        if !todo {
+            return Ok(None);
+        }
+        let (vulkan_sync, sync, wait_semaphore) = submit(dev, tt, buf, sync)?;
+        dst.busy.set(sync.clone());
+        let pending = Pending {
+            dev: dev.dev.clone(),
+            busy_id: dst.busy_id.add_fetch(1),
+            sync: sync.clone(),
+            semaphore: wait_semaphore,
+            vulkan_sync,
+            ty: PendingType::Objects {
+                _src: src.clone(),
+                dst: dst.clone(),
+            },
+        };
+        dev.dev.submissions[tt].pending.push(pending);
+        Ok(sync)
+    }
+}
+
+impl CopyDeviceObjectInner {
+    fn ensure_not_busy(&self) -> Result<(), CopyDeviceError> {
+        if let Some(sync) = self.busy.get()
+            && sync.is_unsignaled()
+        {
+            return Err(CopyDeviceError::Busy);
+        }
+        self.busy.take();
+        Ok(())
+    }
+}
+
+struct ClassifyParams {
+    src_width: u32,
+    dst_width: u32,
+    src_height: u32,
+    dst_height: u32,
+    src_format: &'static Format,
+    dst_format: &'static Format,
+    src_blit_support: bool,
+    dst_blit_support: bool,
+    src_on_device: bool,
+    dst_on_device: bool,
+    src_buffer_possible: bool,
+    dst_buffer_possible: bool,
+    src_stride: u32,
+    dst_stride: u32,
+}
+
+fn classify_copy(
+    params: ClassifyParams,
+) -> Result<(TransferType, CopyDeviceCopyKind), CopyDeviceError> {
+    let ClassifyParams {
+        src_width,
+        dst_width,
+        src_height,
+        dst_height,
+        src_format,
+        dst_format,
+        src_blit_support,
+        dst_blit_support,
+        src_on_device,
+        dst_on_device,
+        src_buffer_possible,
+        dst_buffer_possible,
+        src_stride,
+        dst_stride,
+    } = params;
+    if (dst_width, dst_height) != (src_width, src_height) {
+        return Err(CopyDeviceError::NotSameSize);
+    }
+    let blit = src_format != dst_format;
+    if blit && (!src_blit_support || !dst_blit_support) {
+        return Err(CopyDeviceError::BlitNotSupported);
+    }
+    let tt = match (src_on_device, dst_on_device) {
+        (false, false) => return Err(CopyDeviceError::BothOffDevice),
+        _ if blit => TransferType::Blit,
+        (false, true) => TransferType::Upload,
+        (true, false) => TransferType::Download,
+        (true, true) => TransferType::Intra,
+    };
+    let kind = if blit {
+        CopyDeviceCopyKind::Blit
+    } else if !src_buffer_possible && !dst_buffer_possible {
+        CopyDeviceCopyKind::ImageToImage
+    } else if src_buffer_possible && dst_buffer_possible && src_stride == dst_stride {
+        CopyDeviceCopyKind::BufferToBuffer
+    } else if src_buffer_possible {
+        CopyDeviceCopyKind::BufferToImage
+    } else {
+        CopyDeviceCopyKind::ImageToBuffer
+    };
+    Ok((tt, kind))
 }
 
 impl CopyDeviceInner {
@@ -1346,365 +1687,384 @@ impl CopyDeviceCopy {
 
 impl CopyDeviceCopyInner {
     fn record_command_buffer(&self, region: Option<&Region>) -> Result<bool, CopyDeviceError> {
-        let slf = self;
-        let tt = slf.tt;
-        let dev = &slf.dev.dev;
-        let cmd = slf.command_buffer;
-        let queue_family = slf.dev.phy.queues[tt].family;
-        let region_buf;
-        let width = slf.width;
-        let height = slf.height;
-        let region = match region {
-            Some(r) => r,
-            _ => {
-                region_buf = Region::new(Rect::new_saturating(0, 0, width as i32, height as i32));
-                &region_buf
-            }
+        record_command_buffer(
+            &self.dev,
+            self.tt,
+            self.command_buffer,
+            self.width,
+            self.height,
+            self.ty.to_ref(),
+            self.dynamic_region,
+            region,
+        )
+    }
+}
+
+fn record_command_buffer(
+    cdi: &CopyDeviceInner,
+    tt: TransferType,
+    cmd: CommandBuffer,
+    slf_width: u32,
+    slf_height: u32,
+    ty: CopyDeviceCopyTypeRef<'_>,
+    dynamic_region: bool,
+    region: Option<&Region>,
+) -> Result<bool, CopyDeviceError> {
+    let dev = &cdi.dev;
+    let queue_family = cdi.phy.queues[tt].family;
+    let region_buf;
+    let width = slf_width;
+    let height = slf_height;
+    let region = match region {
+        Some(r) => r,
+        _ => {
+            region_buf = Region::new(Rect::new_saturating(0, 0, width as i32, height as i32));
+            &region_buf
+        }
+    };
+    let (x_mask, y_mask) = cdi.phy.queues[tt].transfer_granularity_mask;
+    let rects = &mut *cdi.phy.rects.borrow_mut();
+    rects.clear();
+    for rect in region.iter() {
+        let x1 = (rect.x1().max(0) as u32 & !x_mask).min(width);
+        let y1 = (rect.y1().max(0) as u32 & !y_mask).min(height);
+        let x2 = ((rect.x2().max(0) as u32 + x_mask) & !x_mask).min(width);
+        let y2 = ((rect.y2().max(0) as u32 + y_mask) & !y_mask).min(height);
+        let width = x2 - x1;
+        let height = y2 - y1;
+        if width == 0 || height == 0 {
+            continue;
+        }
+        rects.push((x1 as i32, y1 as i32, width, height));
+    }
+    if rects.is_empty() {
+        return Ok(false);
+    }
+    let mut flags = CommandBufferUsageFlags::empty();
+    if dynamic_region {
+        flags |= CommandBufferUsageFlags::ONE_TIME_SUBMIT;
+    }
+    let begin_info = CommandBufferBeginInfo::default().flags(flags);
+    unsafe {
+        dev.begin_command_buffer(cmd, &begin_info)
+            .map_err(CopyDeviceError::BeginCommandBuffer)?;
+    }
+    macro_rules! initial_buffer_barriers {
+        ($($buf:expr, $access:expr;)*) => {
+            [$(
+                BufferMemoryBarrier2::default()
+                    .dst_stage_mask(PipelineStageFlags2::TRANSFER)
+                    .dst_access_mask($access)
+                    .src_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
+                    .dst_queue_family_index(queue_family)
+                    .buffer($buf.buf)
+                    .size(WHOLE_SIZE),
+            )*]
         };
-        let (x_mask, y_mask) = slf.dev.phy.queues[tt].transfer_granularity_mask;
-        let rects = &mut *slf.dev.phy.rects.borrow_mut();
-        rects.clear();
-        for rect in region.iter() {
-            let x1 = (rect.x1().max(0) as u32 & !x_mask).min(width);
-            let y1 = (rect.y1().max(0) as u32 & !y_mask).min(height);
-            let x2 = ((rect.x2().max(0) as u32 + x_mask) & !x_mask).min(width);
-            let y2 = ((rect.y2().max(0) as u32 + y_mask) & !y_mask).min(height);
-            let width = x2 - x1;
-            let height = y2 - y1;
-            if width == 0 || height == 0 {
-                continue;
-            }
-            rects.push((x1 as i32, y1 as i32, width, height));
-        }
-        if rects.is_empty() {
-            return Ok(false);
-        }
-        let mut flags = CommandBufferUsageFlags::empty();
-        if slf.dynamic_region {
-            flags |= CommandBufferUsageFlags::ONE_TIME_SUBMIT;
-        }
-        let begin_info = CommandBufferBeginInfo::default().flags(flags);
-        unsafe {
-            dev.begin_command_buffer(cmd, &begin_info)
-                .map_err(CopyDeviceError::BeginCommandBuffer)?;
-        }
-        macro_rules! initial_buffer_barriers {
-            ($($buf:expr, $access:expr;)*) => {
-                [$(
-                    BufferMemoryBarrier2::default()
-                        .dst_stage_mask(PipelineStageFlags2::TRANSFER)
-                        .dst_access_mask($access)
-                        .src_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
-                        .dst_queue_family_index(queue_family)
-                        .buffer($buf.buf)
-                        .size(WHOLE_SIZE),
-                )*]
-            };
-        }
-        macro_rules! final_buffer_barriers {
-            ($($buf:expr, $access:expr;)*) => {
-                [$(
-                    BufferMemoryBarrier2::default()
-                        .src_stage_mask(PipelineStageFlags2::TRANSFER)
-                        .src_access_mask($access)
-                        .src_queue_family_index(queue_family)
-                        .dst_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
-                        .buffer($buf.buf)
-                        .size(WHOLE_SIZE),
-                )*]
-            };
-        }
-        let image_subresource_range = ImageSubresourceRange {
-            aspect_mask: ImageAspectFlags::COLOR,
-            base_mip_level: 0,
-            level_count: 1,
-            base_array_layer: 0,
-            layer_count: 1,
+    }
+    macro_rules! final_buffer_barriers {
+        ($($buf:expr, $access:expr;)*) => {
+            [$(
+                BufferMemoryBarrier2::default()
+                    .src_stage_mask(PipelineStageFlags2::TRANSFER)
+                    .src_access_mask($access)
+                    .src_queue_family_index(queue_family)
+                    .dst_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
+                    .buffer($buf.buf)
+                    .size(WHOLE_SIZE),
+            )*]
         };
-        let image_subresource = ImageSubresourceLayers {
-            aspect_mask: ImageAspectFlags::COLOR,
-            mip_level: 0,
-            base_array_layer: 0,
-            layer_count: 1,
+    }
+    let image_subresource_range = ImageSubresourceRange {
+        aspect_mask: ImageAspectFlags::COLOR,
+        base_mip_level: 0,
+        level_count: 1,
+        base_array_layer: 0,
+        layer_count: 1,
+    };
+    let image_subresource = ImageSubresourceLayers {
+        aspect_mask: ImageAspectFlags::COLOR,
+        mip_level: 0,
+        base_array_layer: 0,
+        layer_count: 1,
+    };
+    macro_rules! initial_image_barriers {
+        ($($img:expr, $layout:expr, $access:expr;)*) => {
+            [$(
+                ImageMemoryBarrier2::default()
+                    .dst_stage_mask(PipelineStageFlags2::TRANSFER)
+                    .dst_access_mask($access)
+                    .old_layout(ImageLayout::GENERAL)
+                    .new_layout(ImageLayout::GENERAL)
+                    .src_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
+                    .dst_queue_family_index(queue_family)
+                    .image($img.img)
+                    .subresource_range(image_subresource_range),
+                ImageMemoryBarrier2::default()
+                    .src_stage_mask(PipelineStageFlags2::TRANSFER)
+                    .src_access_mask($access)
+                    .dst_stage_mask(PipelineStageFlags2::TRANSFER)
+                    .dst_access_mask($access)
+                    .old_layout(ImageLayout::GENERAL)
+                    .new_layout($layout)
+                    .src_queue_family_index(queue_family)
+                    .dst_queue_family_index(queue_family)
+                    .image($img.img)
+                    .subresource_range(image_subresource_range),
+            )*]
         };
-        macro_rules! initial_image_barriers {
-            ($($img:expr, $layout:expr, $access:expr;)*) => {
-                [$(
-                    ImageMemoryBarrier2::default()
-                        .dst_stage_mask(PipelineStageFlags2::TRANSFER)
-                        .dst_access_mask($access)
-                        .old_layout(ImageLayout::GENERAL)
-                        .new_layout(ImageLayout::GENERAL)
-                        .src_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
-                        .dst_queue_family_index(queue_family)
-                        .image($img.img)
-                        .subresource_range(image_subresource_range),
-                    ImageMemoryBarrier2::default()
-                        .src_stage_mask(PipelineStageFlags2::TRANSFER)
-                        .src_access_mask($access)
-                        .dst_stage_mask(PipelineStageFlags2::TRANSFER)
-                        .dst_access_mask($access)
-                        .old_layout(ImageLayout::GENERAL)
-                        .new_layout($layout)
-                        .src_queue_family_index(queue_family)
-                        .dst_queue_family_index(queue_family)
-                        .image($img.img)
-                        .subresource_range(image_subresource_range),
-                )*]
-            };
+    }
+    macro_rules! final_image_barriers {
+        ($($img:expr, $layout:expr, $access:expr;)*) => {
+            [$(
+                ImageMemoryBarrier2::default()
+                    .src_stage_mask(PipelineStageFlags2::TRANSFER)
+                    .src_access_mask($access)
+                    .dst_stage_mask(PipelineStageFlags2::TRANSFER)
+                    .dst_access_mask($access)
+                    .old_layout($layout)
+                    .new_layout(ImageLayout::GENERAL)
+                    .src_queue_family_index(queue_family)
+                    .dst_queue_family_index(queue_family)
+                    .image($img.img)
+                    .subresource_range(image_subresource_range),
+                ImageMemoryBarrier2::default()
+                    .src_stage_mask(PipelineStageFlags2::TRANSFER)
+                    .src_access_mask($access)
+                    .old_layout(ImageLayout::GENERAL)
+                    .new_layout(ImageLayout::GENERAL)
+                    .src_queue_family_index(queue_family)
+                    .dst_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
+                    .image($img.img)
+                    .subresource_range(image_subresource_range),
+            )*]
+        };
+    }
+    match ty {
+        CopyDeviceCopyTypeRef::BufferToBuffer {
+            src,
+            dst,
+            stride,
+            bpp,
+        } => {
+            let regions = &mut *cdi.phy.buffer_copy_2.borrow_mut();
+            regions.clear();
+            let stride = stride as u64;
+            let bpp = bpp as u64;
+            for &mut (x, y, width, height) in rects {
+                let lo = y as u64 * stride + x as u64 * bpp;
+                let size = (height as u64 - 1) * stride + width as u64 * bpp;
+                let region = BufferCopy2::default()
+                    .src_offset(lo)
+                    .dst_offset(lo)
+                    .size(size);
+                regions.push(region);
+            }
+            use AccessFlags2 as A;
+            let initial_barriers = initial_buffer_barriers![
+                src, A::TRANSFER_READ;
+                dst, A::TRANSFER_WRITE;
+            ];
+            let final_barriers = final_buffer_barriers![
+                src, A::TRANSFER_READ;
+                dst, A::TRANSFER_WRITE;
+            ];
+            let initial_dependency_info =
+                DependencyInfo::default().buffer_memory_barriers(&initial_barriers);
+            let final_dependency_info =
+                DependencyInfo::default().buffer_memory_barriers(&final_barriers);
+            let copy_buffer_info = CopyBufferInfo2::default()
+                .src_buffer(src.buf)
+                .dst_buffer(dst.buf)
+                .regions(regions);
+            unsafe {
+                dev.cmd_pipeline_barrier2(cmd, &initial_dependency_info);
+                dev.cmd_copy_buffer2(cmd, &copy_buffer_info);
+                dev.cmd_pipeline_barrier2(cmd, &final_dependency_info);
+            }
         }
-        macro_rules! final_image_barriers {
-            ($($img:expr, $layout:expr, $access:expr;)*) => {
-                [$(
-                    ImageMemoryBarrier2::default()
-                        .src_stage_mask(PipelineStageFlags2::TRANSFER)
-                        .src_access_mask($access)
-                        .dst_stage_mask(PipelineStageFlags2::TRANSFER)
-                        .dst_access_mask($access)
-                        .old_layout($layout)
-                        .new_layout(ImageLayout::GENERAL)
-                        .src_queue_family_index(queue_family)
-                        .dst_queue_family_index(queue_family)
-                        .image($img.img)
-                        .subresource_range(image_subresource_range),
-                    ImageMemoryBarrier2::default()
-                        .src_stage_mask(PipelineStageFlags2::TRANSFER)
-                        .src_access_mask($access)
-                        .old_layout(ImageLayout::GENERAL)
-                        .new_layout(ImageLayout::GENERAL)
-                        .src_queue_family_index(queue_family)
-                        .dst_queue_family_index(QUEUE_FAMILY_FOREIGN_EXT)
-                        .image($img.img)
-                        .subresource_range(image_subresource_range),
-                )*]
-            };
+        CopyDeviceCopyTypeRef::BufferToImage {
+            buf,
+            buf_format,
+            buf_stride,
+            img,
         }
-        match &slf.ty {
-            CopyDeviceCopyType::BufferToBuffer {
-                src,
-                dst,
-                stride,
-                bpp,
-            } => {
-                let regions = &mut *slf.dev.phy.buffer_copy_2.borrow_mut();
-                regions.clear();
-                let stride = *stride as u64;
-                let bpp = *bpp as u64;
-                for &mut (x, y, width, height) in rects {
-                    let lo = y as u64 * stride + x as u64 * bpp;
-                    let size = (height as u64 - 1) * stride + width as u64 * bpp;
-                    let region = BufferCopy2::default()
-                        .src_offset(lo)
-                        .dst_offset(lo)
-                        .size(size);
-                    regions.push(region);
+        | CopyDeviceCopyTypeRef::ImageToBuffer {
+            img,
+            buf,
+            buf_format,
+            buf_stride,
+        } => {
+            let regions = &mut *cdi.phy.buffer_image_copy_2.borrow_mut();
+            regions.clear();
+            for &mut (x, y, width, height) in rects {
+                let offset = y as u64 * buf_stride as u64 + x as u64 * buf_format.bpp as u64;
+                let region = BufferImageCopy2::default()
+                    .buffer_offset(offset)
+                    .buffer_row_length(buf_stride / buf_format.bpp)
+                    .buffer_image_height(slf_height)
+                    .image_subresource(image_subresource)
+                    .image_offset(Offset3D { x, y, z: 0 })
+                    .image_extent(Extent3D {
+                        width,
+                        height,
+                        depth: 1,
+                    });
+                regions.push(region);
+            }
+            let buffer_to_image = match ty {
+                CopyDeviceCopyTypeRef::BufferToImage { .. } => true,
+                CopyDeviceCopyTypeRef::ImageToBuffer { .. } => false,
+                _ => unreachable!(),
+            };
+            let image_access_mask;
+            let image_layout;
+            let buffer_access_mask;
+            match buffer_to_image {
+                true => {
+                    image_access_mask = AccessFlags2::TRANSFER_WRITE;
+                    image_layout = ImageLayout::TRANSFER_DST_OPTIMAL;
+                    buffer_access_mask = AccessFlags2::TRANSFER_READ;
                 }
-                use AccessFlags2 as A;
-                let initial_barriers = initial_buffer_barriers![
-                    src, A::TRANSFER_READ;
-                    dst, A::TRANSFER_WRITE;
-                ];
-                let final_barriers = final_buffer_barriers![
-                    src, A::TRANSFER_READ;
-                    dst, A::TRANSFER_WRITE;
-                ];
-                let initial_dependency_info =
-                    DependencyInfo::default().buffer_memory_barriers(&initial_barriers);
-                let final_dependency_info =
-                    DependencyInfo::default().buffer_memory_barriers(&final_barriers);
-                let copy_buffer_info = CopyBufferInfo2::default()
-                    .src_buffer(src.buf)
-                    .dst_buffer(dst.buf)
-                    .regions(regions);
-                unsafe {
-                    dev.cmd_pipeline_barrier2(cmd, &initial_dependency_info);
-                    dev.cmd_copy_buffer2(cmd, &copy_buffer_info);
-                    dev.cmd_pipeline_barrier2(cmd, &final_dependency_info);
+                false => {
+                    image_access_mask = AccessFlags2::TRANSFER_READ;
+                    image_layout = ImageLayout::TRANSFER_SRC_OPTIMAL;
+                    buffer_access_mask = AccessFlags2::TRANSFER_WRITE;
                 }
             }
-            CopyDeviceCopyType::BufferToImage {
-                buf,
-                buf_format,
-                buf_stride,
-                img,
-            }
-            | CopyDeviceCopyType::ImageToBuffer {
-                img,
-                buf,
-                buf_format,
-                buf_stride,
-            } => {
-                let regions = &mut *slf.dev.phy.buffer_image_copy_2.borrow_mut();
-                regions.clear();
-                for &mut (x, y, width, height) in rects {
-                    let offset = y as u64 * *buf_stride as u64 + x as u64 * buf_format.bpp as u64;
-                    let region = BufferImageCopy2::default()
-                        .buffer_offset(offset)
-                        .buffer_row_length(*buf_stride / buf_format.bpp)
-                        .buffer_image_height(slf.height)
-                        .image_subresource(image_subresource)
-                        .image_offset(Offset3D { x, y, z: 0 })
-                        .image_extent(Extent3D {
-                            width,
-                            height,
-                            depth: 1,
-                        });
-                    regions.push(region);
-                }
-                let buffer_to_image = match &slf.ty {
-                    CopyDeviceCopyType::BufferToImage { .. } => true,
-                    CopyDeviceCopyType::ImageToBuffer { .. } => false,
-                    _ => unreachable!(),
-                };
-                let image_access_mask;
-                let image_layout;
-                let buffer_access_mask;
+            let initial_image_barriers = initial_image_barriers![
+                img, image_layout, image_access_mask;
+            ];
+            let final_image_barriers = final_image_barriers![
+                img, image_layout, image_access_mask;
+            ];
+            let initial_buffer_barriers = initial_buffer_barriers![
+                buf, buffer_access_mask;
+            ];
+            let final_buffer_barriers = final_buffer_barriers![
+                buf, buffer_access_mask;
+            ];
+            let initial_dependency_info = DependencyInfo::default()
+                .buffer_memory_barriers(&initial_buffer_barriers)
+                .image_memory_barriers(&initial_image_barriers);
+            let final_dependency_info = DependencyInfo::default()
+                .buffer_memory_barriers(&final_buffer_barriers)
+                .image_memory_barriers(&final_image_barriers);
+            unsafe {
+                dev.cmd_pipeline_barrier2(cmd, &initial_dependency_info);
                 match buffer_to_image {
                     true => {
-                        image_access_mask = AccessFlags2::TRANSFER_WRITE;
-                        image_layout = ImageLayout::TRANSFER_DST_OPTIMAL;
-                        buffer_access_mask = AccessFlags2::TRANSFER_READ;
+                        let copy = CopyBufferToImageInfo2::default()
+                            .src_buffer(buf.buf)
+                            .dst_image(img.img)
+                            .dst_image_layout(image_layout)
+                            .regions(&regions);
+                        dev.cmd_copy_buffer_to_image2(cmd, &copy);
                     }
                     false => {
-                        image_access_mask = AccessFlags2::TRANSFER_READ;
-                        image_layout = ImageLayout::TRANSFER_SRC_OPTIMAL;
-                        buffer_access_mask = AccessFlags2::TRANSFER_WRITE;
+                        let copy = CopyImageToBufferInfo2::default()
+                            .src_image(img.img)
+                            .src_image_layout(image_layout)
+                            .dst_buffer(buf.buf)
+                            .regions(&regions);
+                        dev.cmd_copy_image_to_buffer2(cmd, &copy);
                     }
                 }
-                let initial_image_barriers = initial_image_barriers![
-                    img, image_layout, image_access_mask;
-                ];
-                let final_image_barriers = final_image_barriers![
-                    img, image_layout, image_access_mask;
-                ];
-                let initial_buffer_barriers = initial_buffer_barriers![
-                    buf, buffer_access_mask;
-                ];
-                let final_buffer_barriers = final_buffer_barriers![
-                    buf, buffer_access_mask;
-                ];
-                let initial_dependency_info = DependencyInfo::default()
-                    .buffer_memory_barriers(&initial_buffer_barriers)
-                    .image_memory_barriers(&initial_image_barriers);
-                let final_dependency_info = DependencyInfo::default()
-                    .buffer_memory_barriers(&final_buffer_barriers)
-                    .image_memory_barriers(&final_image_barriers);
-                unsafe {
-                    dev.cmd_pipeline_barrier2(cmd, &initial_dependency_info);
-                    match buffer_to_image {
-                        true => {
-                            let copy = CopyBufferToImageInfo2::default()
-                                .src_buffer(buf.buf)
-                                .dst_image(img.img)
-                                .dst_image_layout(image_layout)
-                                .regions(&regions);
-                            dev.cmd_copy_buffer_to_image2(cmd, &copy);
-                        }
-                        false => {
-                            let copy = CopyImageToBufferInfo2::default()
-                                .src_image(img.img)
-                                .src_image_layout(image_layout)
-                                .dst_buffer(buf.buf)
-                                .regions(&regions);
-                            dev.cmd_copy_image_to_buffer2(cmd, &copy);
-                        }
-                    }
-                    dev.cmd_pipeline_barrier2(cmd, &final_dependency_info);
-                }
+                dev.cmd_pipeline_barrier2(cmd, &final_dependency_info);
             }
-            CopyDeviceCopyType::ImageToImage { src, dst } => {
-                let regions = &mut *slf.dev.phy.image_copy_2.borrow_mut();
-                regions.clear();
-                for &mut (x, y, width, height) in rects {
-                    let region = ImageCopy2::default()
-                        .src_subresource(image_subresource)
-                        .src_offset(Offset3D { x, y, z: 0 })
-                        .dst_subresource(image_subresource)
-                        .dst_offset(Offset3D { x, y, z: 0 })
-                        .extent(Extent3D {
-                            width,
-                            height,
-                            depth: 1,
-                        });
-                    regions.push(region);
-                }
-                use {AccessFlags2 as A, ImageLayout as L};
-                let initial_barriers = initial_image_barriers![
-                    src, L::TRANSFER_SRC_OPTIMAL, A::TRANSFER_READ;
-                    dst, L::TRANSFER_DST_OPTIMAL, A::TRANSFER_WRITE;
-                ];
-                let final_barriers = final_image_barriers![
-                    src, L::TRANSFER_SRC_OPTIMAL, A::TRANSFER_READ;
-                    dst, L::TRANSFER_DST_OPTIMAL, A::TRANSFER_WRITE;
-                ];
-                let initial_dependency_info =
-                    DependencyInfo::default().image_memory_barriers(&initial_barriers);
-                let final_dependency_info =
-                    DependencyInfo::default().image_memory_barriers(&final_barriers);
-                let copy_image_info = CopyImageInfo2::default()
-                    .src_image(src.img)
-                    .src_image_layout(L::TRANSFER_SRC_OPTIMAL)
-                    .dst_image(dst.img)
-                    .dst_image_layout(L::TRANSFER_DST_OPTIMAL)
-                    .regions(regions);
-                unsafe {
-                    dev.cmd_pipeline_barrier2(cmd, &initial_dependency_info);
-                    dev.cmd_copy_image2(cmd, &copy_image_info);
-                    dev.cmd_pipeline_barrier2(cmd, &final_dependency_info);
-                }
-            }
-            CopyDeviceCopyType::Blit { src, dst } => {
-                let regions = &mut *slf.dev.phy.image_blit_2.borrow_mut();
-                regions.clear();
-                for &mut (x, y, width, height) in rects {
-                    let x1 = x;
-                    let y1 = y;
-                    let x2 = x1 + width as i32;
-                    let y2 = y1 + height as i32;
-                    let offsets = [
-                        Offset3D { x: x1, y: y1, z: 0 },
-                        Offset3D { x: x2, y: y2, z: 1 },
-                    ];
-                    let region = ImageBlit2::default()
-                        .src_subresource(image_subresource)
-                        .src_offsets(offsets)
-                        .dst_subresource(image_subresource)
-                        .dst_offsets(offsets);
-                    regions.push(region);
-                }
-                use {AccessFlags2 as A, ImageLayout as L};
-                let initial_barriers = initial_image_barriers![
-                    src, L::TRANSFER_SRC_OPTIMAL, A::TRANSFER_READ;
-                    dst, L::TRANSFER_DST_OPTIMAL, A::TRANSFER_WRITE;
-                ];
-                let final_barriers = final_image_barriers![
-                    src, L::TRANSFER_SRC_OPTIMAL, A::TRANSFER_READ;
-                    dst, L::TRANSFER_DST_OPTIMAL, A::TRANSFER_WRITE;
-                ];
-                let initial_dependency_info =
-                    DependencyInfo::default().image_memory_barriers(&initial_barriers);
-                let final_dependency_info =
-                    DependencyInfo::default().image_memory_barriers(&final_barriers);
-                let blit_image_info = BlitImageInfo2::default()
-                    .src_image(src.img)
-                    .src_image_layout(L::TRANSFER_SRC_OPTIMAL)
-                    .dst_image(dst.img)
-                    .dst_image_layout(L::TRANSFER_DST_OPTIMAL)
-                    .regions(regions)
-                    .filter(Filter::NEAREST);
-                unsafe {
-                    dev.cmd_pipeline_barrier2(cmd, &initial_dependency_info);
-                    dev.cmd_blit_image2(cmd, &blit_image_info);
-                    dev.cmd_pipeline_barrier2(cmd, &final_dependency_info);
-                }
-            }
-        };
-        unsafe {
-            dev.end_command_buffer(cmd)
-                .map_err(CopyDeviceError::EndCommandBuffer)?;
         }
-        Ok(true)
+        CopyDeviceCopyTypeRef::ImageToImage { src, dst } => {
+            let regions = &mut *cdi.phy.image_copy_2.borrow_mut();
+            regions.clear();
+            for &mut (x, y, width, height) in rects {
+                let region = ImageCopy2::default()
+                    .src_subresource(image_subresource)
+                    .src_offset(Offset3D { x, y, z: 0 })
+                    .dst_subresource(image_subresource)
+                    .dst_offset(Offset3D { x, y, z: 0 })
+                    .extent(Extent3D {
+                        width,
+                        height,
+                        depth: 1,
+                    });
+                regions.push(region);
+            }
+            use {AccessFlags2 as A, ImageLayout as L};
+            let initial_barriers = initial_image_barriers![
+                src, L::TRANSFER_SRC_OPTIMAL, A::TRANSFER_READ;
+                dst, L::TRANSFER_DST_OPTIMAL, A::TRANSFER_WRITE;
+            ];
+            let final_barriers = final_image_barriers![
+                src, L::TRANSFER_SRC_OPTIMAL, A::TRANSFER_READ;
+                dst, L::TRANSFER_DST_OPTIMAL, A::TRANSFER_WRITE;
+            ];
+            let initial_dependency_info =
+                DependencyInfo::default().image_memory_barriers(&initial_barriers);
+            let final_dependency_info =
+                DependencyInfo::default().image_memory_barriers(&final_barriers);
+            let copy_image_info = CopyImageInfo2::default()
+                .src_image(src.img)
+                .src_image_layout(L::TRANSFER_SRC_OPTIMAL)
+                .dst_image(dst.img)
+                .dst_image_layout(L::TRANSFER_DST_OPTIMAL)
+                .regions(regions);
+            unsafe {
+                dev.cmd_pipeline_barrier2(cmd, &initial_dependency_info);
+                dev.cmd_copy_image2(cmd, &copy_image_info);
+                dev.cmd_pipeline_barrier2(cmd, &final_dependency_info);
+            }
+        }
+        CopyDeviceCopyTypeRef::Blit { src, dst } => {
+            let regions = &mut *cdi.phy.image_blit_2.borrow_mut();
+            regions.clear();
+            for &mut (x, y, width, height) in rects {
+                let x1 = x;
+                let y1 = y;
+                let x2 = x1 + width as i32;
+                let y2 = y1 + height as i32;
+                let offsets = [
+                    Offset3D { x: x1, y: y1, z: 0 },
+                    Offset3D { x: x2, y: y2, z: 1 },
+                ];
+                let region = ImageBlit2::default()
+                    .src_subresource(image_subresource)
+                    .src_offsets(offsets)
+                    .dst_subresource(image_subresource)
+                    .dst_offsets(offsets);
+                regions.push(region);
+            }
+            use {AccessFlags2 as A, ImageLayout as L};
+            let initial_barriers = initial_image_barriers![
+                src, L::TRANSFER_SRC_OPTIMAL, A::TRANSFER_READ;
+                dst, L::TRANSFER_DST_OPTIMAL, A::TRANSFER_WRITE;
+            ];
+            let final_barriers = final_image_barriers![
+                src, L::TRANSFER_SRC_OPTIMAL, A::TRANSFER_READ;
+                dst, L::TRANSFER_DST_OPTIMAL, A::TRANSFER_WRITE;
+            ];
+            let initial_dependency_info =
+                DependencyInfo::default().image_memory_barriers(&initial_barriers);
+            let final_dependency_info =
+                DependencyInfo::default().image_memory_barriers(&final_barriers);
+            let blit_image_info = BlitImageInfo2::default()
+                .src_image(src.img)
+                .src_image_layout(L::TRANSFER_SRC_OPTIMAL)
+                .dst_image(dst.img)
+                .dst_image_layout(L::TRANSFER_DST_OPTIMAL)
+                .regions(regions)
+                .filter(Filter::NEAREST);
+            unsafe {
+                dev.cmd_pipeline_barrier2(cmd, &initial_dependency_info);
+                dev.cmd_blit_image2(cmd, &blit_image_info);
+                dev.cmd_pipeline_barrier2(cmd, &final_dependency_info);
+            }
+        }
+    };
+    unsafe {
+        dev.end_command_buffer(cmd)
+            .map_err(CopyDeviceError::EndCommandBuffer)?;
     }
+    Ok(true)
 }
 
 impl CopyDeviceCopy {
@@ -1722,56 +2082,65 @@ impl CopyDeviceCopy {
             return Ok(None);
         }
         let tt = slf.tt;
-        let cmd = slf.command_buffer;
-        let mut wait_semaphore = None;
-        let mut wait_semaphores = ArrayVec::<_, 1>::new();
-        if let Some(sync) = sync
-            && let Some(sync_file) = sync.get_sync_file()
-        {
-            let semaphore = match slf.dev.semaphores.pop() {
-                Some(s) => s,
-                _ => slf.dev.create_semaphore()?,
-            };
-            semaphore.import(sync_file)?;
-            let info = SemaphoreSubmitInfo::default()
-                .semaphore(semaphore.semaphore)
-                .stage_mask(PipelineStageFlags2::TRANSFER);
-            wait_semaphores.push(info);
-            wait_semaphore = Some(semaphore);
-        }
-        let command_buffer_info = CommandBufferSubmitInfo::default().command_buffer(cmd);
-        let mut semaphore_submit_info = SemaphoreSubmitInfo::default();
-        let mut submit_info = SubmitInfo2::default()
-            .command_buffer_infos(slice::from_ref(&command_buffer_info))
-            .wait_semaphore_infos(&wait_semaphores);
-        let vulkan_sync = slf.dev.create_sync(
-            self.dev.timeline_semaphore.as_ref(),
-            &mut semaphore_submit_info,
-            &mut submit_info,
-        )?;
-        unsafe {
-            slf.dev
-                .dev
-                .queue_submit2(
-                    slf.dev.queues[tt],
-                    slice::from_ref(&submit_info),
-                    vulkan_sync.fence(),
-                )
-                .map_err(CopyDeviceError::SubmitCopy)?;
-        }
-        let sync = vulkan_sync.to_sync(|| slf.dev.wait_idle());
+        let (vulkan_sync, sync, wait_semaphore) = submit(&self.dev, tt, slf.command_buffer, sync)?;
         slf.busy.set(sync.clone());
         let pending = Pending {
             dev: slf.dev.clone(),
             busy_id: slf.busy_id.add_fetch(1),
             sync: sync.clone(),
-            copy: self.inner.clone(),
+            ty: PendingType::Copy(self.inner.clone()),
             semaphore: wait_semaphore,
             vulkan_sync,
         };
         slf.dev.submissions[tt].pending.push(pending);
         Ok(sync)
     }
+}
+
+fn submit(
+    cd: &CopyDevice,
+    tt: TransferType,
+    cmd: CommandBuffer,
+    sync: Option<&FdSync>,
+) -> Result<(VulkanSync, Option<FdSync>, Option<VulkanSemaphore>), CopyDeviceError> {
+    let mut wait_semaphore = None;
+    let mut wait_semaphores = ArrayVec::<_, 1>::new();
+    if let Some(sync) = sync
+        && let Some(sync_file) = sync.get_sync_file()
+    {
+        let semaphore = match cd.dev.semaphores.pop() {
+            Some(s) => s,
+            _ => cd.dev.create_semaphore()?,
+        };
+        semaphore.import(sync_file)?;
+        let info = SemaphoreSubmitInfo::default()
+            .semaphore(semaphore.semaphore)
+            .stage_mask(PipelineStageFlags2::TRANSFER);
+        wait_semaphores.push(info);
+        wait_semaphore = Some(semaphore);
+    }
+    let command_buffer_info = CommandBufferSubmitInfo::default().command_buffer(cmd);
+    let mut semaphore_submit_info = SemaphoreSubmitInfo::default();
+    let mut submit_info = SubmitInfo2::default()
+        .command_buffer_infos(slice::from_ref(&command_buffer_info))
+        .wait_semaphore_infos(&wait_semaphores);
+    let vulkan_sync = cd.dev.create_sync(
+        cd.timeline_semaphore.as_ref(),
+        &mut semaphore_submit_info,
+        &mut submit_info,
+    )?;
+    unsafe {
+        cd.dev
+            .dev
+            .queue_submit2(
+                cd.dev.queues[tt],
+                slice::from_ref(&submit_info),
+                vulkan_sync.fence(),
+            )
+            .map_err(CopyDeviceError::SubmitCopy)?;
+    }
+    let sync = vulkan_sync.to_sync(|| cd.dev.wait_idle());
+    Ok((vulkan_sync, sync, wait_semaphore))
 }
 
 impl VulkanSemaphore {
@@ -1808,17 +2177,18 @@ impl CopyDeviceRegistry {
         }
     }
 
-    pub fn remove(&self, dev: c::dev_t) {
-        self.devs.remove(&dev);
+    pub fn remove(&self, id: DrmDeviceId) {
+        self.devs.remove(&id);
     }
 
-    pub fn get(&self, dev: c::dev_t) -> Option<Rc<PhysicalCopyDevice>> {
-        if let Some(dev) = self.devs.get(&dev) {
+    pub fn get(&self, id: DrmDeviceId, dev: c::dev_t) -> Option<Rc<PhysicalCopyDevice>> {
+        if let Some(dev) = self.devs.get(&id) {
             return dev;
         }
-        match PhysicalCopyDevice::new(&self.ring, &self.eng, &self.eventfd_cache, dev).map(Some) {
+        match PhysicalCopyDevice::new(&self.ring, &self.eng, &self.eventfd_cache, id, dev).map(Some)
+        {
             Ok(cd) => {
-                self.devs.set(dev, cd.clone());
+                self.devs.set(id, cd.clone());
                 cd
             }
             Err(e) => {
@@ -1828,7 +2198,7 @@ impl CopyDeviceRegistry {
                     "Could not create physical copy device for {maj}:{min}: {}",
                     ErrorFmt(e),
                 );
-                self.devs.set(dev, None);
+                self.devs.set(id, None);
                 None
             }
         }
@@ -1850,6 +2220,22 @@ impl Drop for CopyDeviceCopyInner {
                 self.dev.pools[self.tt],
                 slice::from_ref(&self.command_buffer),
             );
+        }
+    }
+}
+
+impl Drop for CopyDeviceObjectInner {
+    fn drop(&mut self) {
+        for (tt, buf) in self.command_buffer.iter() {
+            let buf = buf.get();
+            if buf.is_null() {
+                continue;
+            }
+            unsafe {
+                self.dev
+                    .dev
+                    .free_command_buffers(self.dev.pools[tt], slice::from_ref(&buf));
+            }
         }
     }
 }
@@ -1885,8 +2271,17 @@ impl Drop for Pending {
         if let Some(v) = self.semaphore.take() {
             self.dev.semaphores.push(v);
         }
-        if self.copy.busy_id.get() == self.busy_id {
-            self.copy.busy.take();
+        match &self.ty {
+            PendingType::Copy(c) => {
+                if c.busy_id.get() == self.busy_id {
+                    c.busy.take();
+                }
+            }
+            PendingType::Objects { dst, .. } => {
+                if dst.busy_id.get() == self.busy_id {
+                    dst.busy.take();
+                }
+            }
         }
     }
 }
@@ -2105,5 +2500,49 @@ impl VulkanDeviceInf for CopyDeviceInner {
 
     fn eventfd_cache(&self) -> &Rc<EventfdCache> {
         &self.phy.eventfd_cache
+    }
+}
+
+impl CopyDeviceCopyType {
+    fn to_ref(&self) -> CopyDeviceCopyTypeRef<'_> {
+        match self {
+            CopyDeviceCopyType::BufferToBuffer {
+                src,
+                dst,
+                stride,
+                bpp,
+            } => CopyDeviceCopyTypeRef::BufferToBuffer {
+                src,
+                dst,
+                stride: *stride,
+                bpp: *bpp,
+            },
+            CopyDeviceCopyType::BufferToImage {
+                buf,
+                buf_format,
+                buf_stride,
+                img,
+            } => CopyDeviceCopyTypeRef::BufferToImage {
+                buf,
+                buf_format,
+                buf_stride: *buf_stride,
+                img,
+            },
+            CopyDeviceCopyType::ImageToBuffer {
+                img,
+                buf,
+                buf_format,
+                buf_stride,
+            } => CopyDeviceCopyTypeRef::ImageToBuffer {
+                img,
+                buf,
+                buf_format,
+                buf_stride: *buf_stride,
+            },
+            CopyDeviceCopyType::ImageToImage { src, dst } => {
+                CopyDeviceCopyTypeRef::ImageToImage { src, dst }
+            }
+            CopyDeviceCopyType::Blit { src, dst } => CopyDeviceCopyTypeRef::Blit { src, dst },
+        }
     }
 }
