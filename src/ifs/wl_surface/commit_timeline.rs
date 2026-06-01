@@ -503,9 +503,7 @@ impl NodeRef<Entry> {
                 if may_access_buffer {
                     if c.pending_uploads.get() > 0 {
                         check_shm_uploads(c)?;
-                        if c.pending_uploads.get() > 0 {
-                            has_unmet_dependencies = true;
-                        }
+                        has_unmet_dependencies |= c.pending_uploads.get() > 0;
                     }
                 } else {
                     has_unmet_dependencies = true;
