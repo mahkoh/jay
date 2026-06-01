@@ -388,7 +388,7 @@ enum Dir {
 }
 
 struct ClassifiedDmabuf<'a> {
-    fd_props: PlaneVec<MemoryFdPropertiesKHR<'static>>,
+    memory_type_bits: PlaneVec<u32>,
     on_device: bool,
     buffer_possible: bool,
     format: &'a CopyDeviceSupport,
@@ -867,7 +867,7 @@ impl CopyDevice {
             && buf.planes[0].stride % buf.format.bpp == 0
             && width <= buf.planes[0].stride / buf.format.bpp;
         Ok(ClassifiedDmabuf {
-            fd_props,
+            memory_type_bits: fd_props.iter().map(|p| p.memory_type_bits).collect(),
             on_device,
             buffer_possible,
             format,
@@ -877,11 +877,10 @@ impl CopyDevice {
     fn import_buffer(
         &self,
         tt: TransferType,
-        class: &ClassifiedDmabuf,
+        fd_memory_type_bits: &PlaneVec<u32>,
         buf: &DmaBuf,
         dir: Dir,
     ) -> Result<VulkanBuffer, CopyDeviceError> {
-        assert!(class.buffer_possible);
         let height = buf.height as u32;
         let plane = &buf.planes[0];
         let queue_family = self.dev.phy.queues[tt].family;
@@ -911,7 +910,7 @@ impl CopyDevice {
             if out.size > buffer_size {
                 return Err(CopyDeviceError::UnexpectedBufferSize);
             }
-            let memory_type_bits = class.fd_props[0].memory_type_bits & out.memory_type_bits;
+            let memory_type_bits = fd_memory_type_bits[0] & out.memory_type_bits;
             if memory_type_bits == 0 {
                 return Err(CopyDeviceError::NoMemoryTypeForImport);
             }
@@ -954,7 +953,7 @@ impl CopyDevice {
     fn import_image(
         &self,
         tt: TransferType,
-        class: &ClassifiedDmabuf,
+        fd_memory_type_bits: &PlaneVec<u32>,
         buf: &DmaBuf,
         dir: Dir,
     ) -> Result<VulkanImage, CopyDeviceError> {
@@ -1047,7 +1046,7 @@ impl CopyDevice {
                     );
                 }
                 let memory_type_bits = memory_requirements.memory_requirements.memory_type_bits
-                    & class.fd_props[plane_idx].memory_type_bits;
+                    & fd_memory_type_bits[plane_idx];
                 if memory_type_bits == 0 {
                     return Err(CopyDeviceError::NoMemoryTypeForImport);
                 }
@@ -1152,30 +1151,32 @@ impl CopyDevice {
         };
         let free_command_buffer =
             on_drop(|| unsafe { dev.free_command_buffers(self.dev.pools[tt], &[command_buffer]) });
+        let src_mtb = &src_class.memory_type_bits;
+        let dst_mtb = &dst_class.memory_type_bits;
         let ty = match kind {
             CopyDeviceCopyKind::Blit => CopyDeviceCopyType::Blit {
-                src: self.import_image(tt, &src_class, src, Dir::Src)?,
-                dst: self.import_image(tt, &dst_class, dst, Dir::Dst)?,
+                src: self.import_image(tt, src_mtb, src, Dir::Src)?,
+                dst: self.import_image(tt, dst_mtb, dst, Dir::Dst)?,
             },
             CopyDeviceCopyKind::ImageToImage => CopyDeviceCopyType::ImageToImage {
-                src: self.import_image(tt, &src_class, src, Dir::Src)?,
-                dst: self.import_image(tt, &dst_class, dst, Dir::Dst)?,
+                src: self.import_image(tt, src_mtb, src, Dir::Src)?,
+                dst: self.import_image(tt, dst_mtb, dst, Dir::Dst)?,
             },
             CopyDeviceCopyKind::BufferToBuffer => CopyDeviceCopyType::BufferToBuffer {
-                src: self.import_buffer(tt, &src_class, src, Dir::Src)?,
-                dst: self.import_buffer(tt, &dst_class, dst, Dir::Dst)?,
+                src: self.import_buffer(tt, src_mtb, src, Dir::Src)?,
+                dst: self.import_buffer(tt, dst_mtb, dst, Dir::Dst)?,
                 stride: src.planes[0].stride,
                 bpp: src.format.bpp,
             },
             CopyDeviceCopyKind::BufferToImage => CopyDeviceCopyType::BufferToImage {
-                buf: self.import_buffer(tt, &src_class, src, Dir::Src)?,
+                buf: self.import_buffer(tt, src_mtb, src, Dir::Src)?,
                 buf_format: src.format,
                 buf_stride: src.planes[0].stride,
-                img: self.import_image(tt, &dst_class, dst, Dir::Dst)?,
+                img: self.import_image(tt, dst_mtb, dst, Dir::Dst)?,
             },
             CopyDeviceCopyKind::ImageToBuffer => CopyDeviceCopyType::ImageToBuffer {
-                img: self.import_image(tt, &src_class, src, Dir::Src)?,
-                buf: self.import_buffer(tt, &dst_class, dst, Dir::Dst)?,
+                img: self.import_image(tt, src_mtb, src, Dir::Src)?,
+                buf: self.import_buffer(tt, dst_mtb, dst, Dir::Dst)?,
                 buf_format: dst.format,
                 buf_stride: dst.planes[0].stride,
             },
