@@ -1,6 +1,7 @@
 use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
+        backend::DrmDeviceId,
         eventfd_cache::EventfdCache,
         format::{FORMATS, Format},
         gfx_api::FdSync,
@@ -178,6 +179,7 @@ type Keyed<T> = StaticMap<TransferType, T>;
 type KeyedCopy<T> = StaticCopyMap<TransferType, T>;
 
 pub struct PhysicalCopyDevice {
+    id: DrmDeviceId,
     ring: Rc<IoUring>,
     eng: Rc<AsyncEngine>,
     eventfd_cache: Rc<EventfdCache>,
@@ -355,7 +357,7 @@ pub struct CopyDeviceRegistry {
     ring: Rc<IoUring>,
     eng: Rc<AsyncEngine>,
     eventfd_cache: Rc<EventfdCache>,
-    devs: CopyHashMap<c::dev_t, Option<Rc<PhysicalCopyDevice>>>,
+    devs: CopyHashMap<DrmDeviceId, Option<Rc<PhysicalCopyDevice>>>,
 }
 
 const DEVICE_EXTENSIONS: [&CStr; 6] = [
@@ -372,6 +374,7 @@ impl PhysicalCopyDevice {
         ring: &Rc<IoUring>,
         eng: &Rc<AsyncEngine>,
         eventfd_cache: &Rc<EventfdCache>,
+        id: DrmDeviceId,
         dev: c::dev_t,
     ) -> Result<Rc<Self>, CopyDeviceError> {
         let core_instance = VulkanCoreInstance::new(Level::Debug)?;
@@ -633,6 +636,7 @@ impl PhysicalCopyDevice {
         let supports_timeline_opaque_export =
             core_instance.supports_timeline_opaque_export(physical_device, &features);
         let dev = Rc::new(PhysicalCopyDevice {
+            id,
             ring: ring.clone(),
             eng: eng.clone(),
             eventfd_cache: eventfd_cache.clone(),
@@ -652,6 +656,11 @@ impl PhysicalCopyDevice {
             buffer_image_copy_2: Default::default(),
         });
         Ok(dev)
+    }
+
+    #[expect(dead_code)]
+    pub fn drm_device_id(&self) -> DrmDeviceId {
+        self.id
     }
 
     pub fn src_support(&self, format: &Format) -> &[CopyDeviceSupport] {
@@ -1808,17 +1817,18 @@ impl CopyDeviceRegistry {
         }
     }
 
-    pub fn remove(&self, dev: c::dev_t) {
-        self.devs.remove(&dev);
+    pub fn remove(&self, id: DrmDeviceId) {
+        self.devs.remove(&id);
     }
 
-    pub fn get(&self, dev: c::dev_t) -> Option<Rc<PhysicalCopyDevice>> {
-        if let Some(dev) = self.devs.get(&dev) {
+    pub fn get(&self, id: DrmDeviceId, dev: c::dev_t) -> Option<Rc<PhysicalCopyDevice>> {
+        if let Some(dev) = self.devs.get(&id) {
             return dev;
         }
-        match PhysicalCopyDevice::new(&self.ring, &self.eng, &self.eventfd_cache, dev).map(Some) {
+        match PhysicalCopyDevice::new(&self.ring, &self.eng, &self.eventfd_cache, id, dev).map(Some)
+        {
             Ok(cd) => {
-                self.devs.set(dev, cd.clone());
+                self.devs.set(id, cd.clone());
                 cd
             }
             Err(e) => {
@@ -1828,7 +1838,7 @@ impl CopyDeviceRegistry {
                     "Could not create physical copy device for {maj}:{min}: {}",
                     ErrorFmt(e),
                 );
-                self.devs.set(dev, None);
+                self.devs.set(id, None);
                 None
             }
         }

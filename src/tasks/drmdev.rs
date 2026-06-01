@@ -19,7 +19,7 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn BackendDrmDevice>) {
         bindings: Default::default(),
     });
     state.add_global(&lease_global);
-    let copy_device = state.copy_device_registry.get(dev_t).and_then(|d| {
+    let copy_device = state.copy_device_registry.get(id, dev_t).and_then(|d| {
         d.create_device()
             .inspect_err(|e| {
                 let maj = uapi::major(dev_t);
