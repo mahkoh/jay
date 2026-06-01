@@ -15,6 +15,7 @@ use {
             numcell::NumCell,
             oserror::{OsError, OsErrorExt2},
             queue::AsyncQueue,
+            rc_eq::rc_eq,
             stack::Stack,
         },
         video::{
@@ -51,22 +52,22 @@ use {
             ExternalMemoryFeatureFlags, ExternalMemoryHandleTypeFlags,
             ExternalMemoryImageCreateInfo, ExternalSemaphoreFeatureFlags,
             ExternalSemaphoreHandleTypeFlags, ExternalSemaphoreProperties, Filter,
-            FormatFeatureFlags, FormatProperties2, ImageAspectFlags, ImageBlit2, ImageCopy2,
-            ImageCreateFlags, ImageCreateInfo, ImageDrmFormatModifierExplicitCreateInfoEXT,
-            ImageFormatProperties2, ImageLayout, ImageMemoryBarrier2, ImageMemoryRequirementsInfo2,
-            ImagePlaneMemoryRequirementsInfo, ImageSubresourceLayers, ImageSubresourceRange,
-            ImageTiling, ImageType, ImageUsageFlags, ImportMemoryFdInfoKHR,
-            ImportSemaphoreFdInfoKHR, MemoryAllocateInfo, MemoryDedicatedAllocateInfo,
-            MemoryFdPropertiesKHR, MemoryGetFdInfoKHR, MemoryPropertyFlags, MemoryRequirements2,
-            MemoryType, Offset3D, PhysicalDevice, PhysicalDeviceDrmPropertiesEXT,
-            PhysicalDeviceExternalBufferInfo, PhysicalDeviceExternalFenceInfo,
-            PhysicalDeviceExternalImageFormatInfoKHR, PhysicalDeviceExternalSemaphoreInfo,
-            PhysicalDeviceFeatures2, PhysicalDeviceImageDrmFormatModifierInfoEXT,
-            PhysicalDeviceImageFormatInfo2, PhysicalDeviceProperties2,
-            PhysicalDeviceSynchronization2Features, PhysicalDeviceTimelineSemaphoreFeatures,
-            PipelineStageFlags2, QUEUE_FAMILY_FOREIGN_EXT, Queue, QueueFlags, SampleCountFlags,
-            SemaphoreCreateInfo, SemaphoreImportFlags, SemaphoreSubmitInfo, SharingMode,
-            SubmitInfo2, SubresourceLayout, WHOLE_SIZE,
+            FormatFeatureFlags, FormatProperties2, Handle, ImageAspectFlags, ImageBlit2,
+            ImageCopy2, ImageCreateFlags, ImageCreateInfo,
+            ImageDrmFormatModifierExplicitCreateInfoEXT, ImageFormatProperties2, ImageLayout,
+            ImageMemoryBarrier2, ImageMemoryRequirementsInfo2, ImagePlaneMemoryRequirementsInfo,
+            ImageSubresourceLayers, ImageSubresourceRange, ImageTiling, ImageType, ImageUsageFlags,
+            ImportMemoryFdInfoKHR, ImportSemaphoreFdInfoKHR, MemoryAllocateInfo,
+            MemoryDedicatedAllocateInfo, MemoryFdPropertiesKHR, MemoryGetFdInfoKHR,
+            MemoryPropertyFlags, MemoryRequirements2, MemoryType, Offset3D, PhysicalDevice,
+            PhysicalDeviceDrmPropertiesEXT, PhysicalDeviceExternalBufferInfo,
+            PhysicalDeviceExternalFenceInfo, PhysicalDeviceExternalImageFormatInfoKHR,
+            PhysicalDeviceExternalSemaphoreInfo, PhysicalDeviceFeatures2,
+            PhysicalDeviceImageDrmFormatModifierInfoEXT, PhysicalDeviceImageFormatInfo2,
+            PhysicalDeviceProperties2, PhysicalDeviceSynchronization2Features,
+            PhysicalDeviceTimelineSemaphoreFeatures, PipelineStageFlags2, QUEUE_FAMILY_FOREIGN_EXT,
+            Queue, QueueFlags, SampleCountFlags, SemaphoreCreateInfo, SemaphoreImportFlags,
+            SemaphoreSubmitInfo, SharingMode, SubmitInfo2, SubresourceLayout, WHOLE_SIZE,
         },
     },
     bstr::ByteSlice,
@@ -173,6 +174,8 @@ pub enum CopyDeviceError {
     BlitNotSupported,
     #[error("Could not create syncobj ctx")]
     CreateSyncobjCtx(#[source] SyncobjError),
+    #[error("Objects don't belong to the same device")]
+    DeviceMismatch,
 }
 
 type Keyed<T> = StaticMap<TransferType, T>;
@@ -257,6 +260,38 @@ struct CopyDeviceCopyInner {
     no_op: bool,
 }
 
+pub struct CopyDeviceSrcObject {
+    obj: CopyDeviceObject,
+}
+
+pub struct CopyDeviceDstObject {
+    obj: CopyDeviceObject,
+}
+
+struct CopyDeviceObject {
+    inner: Rc<CopyDeviceObjectInner>,
+    dev: Rc<CopyDevice>,
+}
+
+struct CopyDeviceObjectInner {
+    dev: Rc<CopyDeviceInner>,
+    busy_id: NumCell<u64>,
+    busy: CloneCell<Option<FdSync>>,
+    command_buffer: StaticMap<TransferType, Cell<CommandBuffer>>,
+    buf: DmaBuf,
+    blit_support: bool,
+    on_device: bool,
+    buffer_possible: bool,
+    memory_type_bits: PlaneVec<u32>,
+    mut_: RefCell<CopyDeviceObjectMut>,
+}
+
+#[derive(Default)]
+struct CopyDeviceObjectMut {
+    image: StaticMap<TransferType, Option<VulkanImage>>,
+    buffer: StaticMap<TransferType, Option<VulkanBuffer>>,
+}
+
 enum CopyDeviceCopyKind {
     BufferToBuffer,
     BufferToImage,
@@ -334,6 +369,10 @@ struct Pending {
 
 enum PendingType {
     Copy(Rc<CopyDeviceCopyInner>),
+    Objects {
+        _src: Rc<CopyDeviceObjectInner>,
+        dst: Rc<CopyDeviceObjectInner>,
+    },
 }
 
 struct VulkanSemaphore {
@@ -1348,6 +1387,198 @@ impl CopyDevice {
         }
         Ok((on_device, fd_props))
     }
+
+    #[expect(dead_code)]
+    pub fn create_src_object(
+        self: &Rc<Self>,
+        buf: &DmaBuf,
+    ) -> Result<CopyDeviceSrcObject, CopyDeviceError> {
+        self.create_object_(buf, Dir::Src)
+            .map(|obj| CopyDeviceSrcObject { obj })
+    }
+
+    #[expect(dead_code)]
+    pub fn create_dst_object(
+        self: &Rc<Self>,
+        buf: &DmaBuf,
+    ) -> Result<CopyDeviceDstObject, CopyDeviceError> {
+        self.create_object_(buf, Dir::Dst)
+            .map(|obj| CopyDeviceDstObject { obj })
+    }
+
+    fn create_object_(
+        self: &Rc<Self>,
+        buf: &DmaBuf,
+        dir: Dir,
+    ) -> Result<CopyDeviceObject, CopyDeviceError> {
+        let class = self.classify_dmabuf(buf, dir)?;
+        Ok(CopyDeviceObject {
+            inner: Rc::new(CopyDeviceObjectInner {
+                dev: self.dev.clone(),
+                busy_id: Default::default(),
+                busy: Default::default(),
+                command_buffer: Default::default(),
+                buf: buf.clone(),
+                blit_support: class.format.blit,
+                on_device: class.on_device,
+                buffer_possible: class.buffer_possible,
+                memory_type_bits: class.memory_type_bits,
+                mut_: Default::default(),
+            }),
+            dev: self.clone(),
+        })
+    }
+}
+
+impl CopyDeviceSrcObject {
+    #[expect(dead_code)]
+    pub fn copy_to(
+        &self,
+        dst: &CopyDeviceDstObject,
+        sync: Option<&FdSync>,
+        region: Option<&Region>,
+    ) -> Result<Option<FdSync>, CopyDeviceError> {
+        let src = &self.obj.inner;
+        let dst = &dst.obj.inner;
+        if !rc_eq(&src.dev, &dst.dev) {
+            return Err(CopyDeviceError::DeviceMismatch);
+        }
+        dst.ensure_not_busy()?;
+        let dev = &self.obj.dev;
+        let (tt, kind) = classify_copy(ClassifyParams {
+            src_width: src.buf.width as _,
+            dst_width: dst.buf.width as _,
+            src_height: src.buf.height as _,
+            dst_height: dst.buf.height as _,
+            src_format: src.buf.format,
+            dst_format: dst.buf.format,
+            src_blit_support: src.blit_support,
+            dst_blit_support: dst.blit_support,
+            src_on_device: src.on_device,
+            dst_on_device: dst.on_device,
+            src_buffer_possible: src.buffer_possible,
+            dst_buffer_possible: dst.buffer_possible,
+            src_stride: src.buf.planes[0].stride,
+            dst_stride: dst.buf.planes[0].stride,
+        })?;
+        let src_mut = &mut *src.mut_.borrow_mut();
+        let dst_mut = &mut *dst.mut_.borrow_mut();
+        fn ensure_image<'a>(
+            cd: &CopyDevice,
+            tt: TransferType,
+            dir: Dir,
+            oi: &CopyDeviceObjectInner,
+            mut_: &'a mut CopyDeviceObjectMut,
+        ) -> Result<&'a VulkanImage, CopyDeviceError> {
+            let img = &mut mut_.image[tt];
+            match img {
+                Some(i) => Ok(i),
+                None => {
+                    let i = cd.import_image(tt, &oi.memory_type_bits, &oi.buf, dir)?;
+                    Ok(img.insert(i))
+                }
+            }
+        }
+        fn ensure_buffer<'a>(
+            cd: &CopyDevice,
+            tt: TransferType,
+            dir: Dir,
+            oi: &CopyDeviceObjectInner,
+            mut_: &'a mut CopyDeviceObjectMut,
+        ) -> Result<&'a VulkanBuffer, CopyDeviceError> {
+            let buf = &mut mut_.buffer[tt];
+            match buf {
+                Some(i) => Ok(i),
+                None => {
+                    let b = cd.import_buffer(tt, &oi.memory_type_bits, &oi.buf, dir)?;
+                    Ok(buf.insert(b))
+                }
+            }
+        }
+        let ty = match kind {
+            CopyDeviceCopyKind::Blit => CopyDeviceCopyTypeRef::Blit {
+                src: ensure_image(dev, tt, Dir::Src, src, src_mut)?,
+                dst: ensure_image(dev, tt, Dir::Dst, dst, dst_mut)?,
+            },
+            CopyDeviceCopyKind::ImageToImage => CopyDeviceCopyTypeRef::ImageToImage {
+                src: ensure_image(dev, tt, Dir::Src, src, src_mut)?,
+                dst: ensure_image(dev, tt, Dir::Dst, dst, dst_mut)?,
+            },
+            CopyDeviceCopyKind::BufferToBuffer => CopyDeviceCopyTypeRef::BufferToBuffer {
+                src: ensure_buffer(dev, tt, Dir::Src, src, src_mut)?,
+                dst: ensure_buffer(dev, tt, Dir::Dst, dst, dst_mut)?,
+                stride: src.buf.planes[0].stride,
+                bpp: src.buf.format.bpp,
+            },
+            CopyDeviceCopyKind::BufferToImage => CopyDeviceCopyTypeRef::BufferToImage {
+                buf: ensure_buffer(dev, tt, Dir::Src, src, src_mut)?,
+                buf_format: src.buf.format,
+                buf_stride: src.buf.planes[0].stride,
+                img: ensure_image(dev, tt, Dir::Dst, dst, dst_mut)?,
+            },
+            CopyDeviceCopyKind::ImageToBuffer => CopyDeviceCopyTypeRef::ImageToBuffer {
+                img: ensure_image(dev, tt, Dir::Src, src, src_mut)?,
+                buf: ensure_buffer(dev, tt, Dir::Dst, dst, dst_mut)?,
+                buf_format: dst.buf.format,
+                buf_stride: dst.buf.planes[0].stride,
+            },
+        };
+        let mut buf = dst.command_buffer[tt].get();
+        if buf.is_null() {
+            let info = CommandBufferAllocateInfo::default()
+                .command_pool(dev.dev.pools[tt])
+                .command_buffer_count(1);
+            let mut bufs = unsafe {
+                dev.dev
+                    .dev
+                    .allocate_command_buffers(&info)
+                    .map_err(CopyDeviceError::CreateCommandBuffer)?
+            };
+            assert_eq!(bufs.len(), 1);
+            buf = bufs.pop().unwrap();
+            dst.command_buffer[tt].set(buf);
+        }
+        let todo = record_command_buffer(
+            &dev.dev,
+            tt,
+            buf,
+            src.buf.width as _,
+            src.buf.height as _,
+            ty,
+            true,
+            region,
+        )?;
+        if !todo {
+            return Ok(None);
+        }
+        let (vulkan_sync, sync, wait_semaphore) = submit(dev, tt, buf, sync)?;
+        dst.busy.set(sync.clone());
+        let pending = Pending {
+            dev: dev.dev.clone(),
+            busy_id: dst.busy_id.add_fetch(1),
+            sync: sync.clone(),
+            semaphore: wait_semaphore,
+            vulkan_sync,
+            ty: PendingType::Objects {
+                _src: src.clone(),
+                dst: dst.clone(),
+            },
+        };
+        dev.dev.submissions[tt].pending.push(pending);
+        Ok(sync)
+    }
+}
+
+impl CopyDeviceObjectInner {
+    fn ensure_not_busy(&self) -> Result<(), CopyDeviceError> {
+        if let Some(sync) = self.busy.get()
+            && sync.is_unsignaled()
+        {
+            return Err(CopyDeviceError::Busy);
+        }
+        self.busy.take();
+        Ok(())
+    }
 }
 
 struct ClassifyParams {
@@ -1993,6 +2224,22 @@ impl Drop for CopyDeviceCopyInner {
     }
 }
 
+impl Drop for CopyDeviceObjectInner {
+    fn drop(&mut self) {
+        for (tt, buf) in self.command_buffer.iter() {
+            let buf = buf.get();
+            if buf.is_null() {
+                continue;
+            }
+            unsafe {
+                self.dev
+                    .dev
+                    .free_command_buffers(self.dev.pools[tt], slice::from_ref(&buf));
+            }
+        }
+    }
+}
+
 impl Drop for CopyDeviceInner {
     fn drop(&mut self) {
         unsafe {
@@ -2028,6 +2275,11 @@ impl Drop for Pending {
             PendingType::Copy(c) => {
                 if c.busy_id.get() == self.busy_id {
                     c.busy.take();
+                }
+            }
+            PendingType::Objects { dst, .. } => {
+                if dst.busy_id.get() == self.busy_id {
+                    dst.busy.take();
                 }
             }
         }
