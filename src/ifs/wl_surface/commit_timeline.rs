@@ -5,7 +5,10 @@ use {
         gfx_api::{AsyncShmGfxTextureCallback, GfxError, PendingShmTransfer, STAGING_UPLOAD},
         ifs::{
             wl_buffer::WlBufferStorage,
-            wl_surface::{PendingState, WlSurface, WlSurfaceError},
+            wl_surface::{
+                PendingState, WlSurface, WlSurfaceError,
+                commit_timeline::commit_cache::CachedCommit,
+            },
         },
         io_uring::{
             IoUring, IoUringError, PendingPoll, PendingTimeout, PollCallback, TimeoutCallback,
@@ -38,6 +41,8 @@ use {
     thiserror::Error,
     uapi::{OwnedFd, c::c_short},
 };
+
+pub mod commit_cache;
 
 const MAX_TIMELINE_DEPTH: usize = 256;
 
@@ -247,7 +252,7 @@ impl CommitTimeline {
         let noderef = add_entry(
             &self.own_timeline.entries,
             &self.shared,
-            EntryKind::Commit(Commit {
+            EntryKind::Commit(surface.client.state.commit_cache.get(Commit {
                 surface: surface.clone(),
                 pending: RefCell::new(mem::take(pending)),
                 syncobj: NumCell::new(points.len()),
@@ -259,7 +264,7 @@ impl CommitTimeline {
                 fifo_state: Cell::new(commit_fifo_state),
                 commit_times: RefCell::new(CommitTimesState::Ready),
                 toplevel_restored,
-            }),
+            })),
         );
         let mut needs_flush = commit_fifo_state == CommitFifoState::Queued;
         if has_dependencies {
@@ -441,7 +446,7 @@ struct Entry {
 }
 
 enum EntryKind {
-    Commit(Commit),
+    Commit(CachedCommit),
     Wait(Cell<bool>),
     Signal(NodeRef<Entry>),
     Gc(CommitTimelineId),
