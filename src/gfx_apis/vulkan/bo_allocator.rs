@@ -691,7 +691,7 @@ impl MappedBuffer for VulkanBoMapping {
 }
 
 fn validate_usage(usage: BufferUsage) -> Result<(), VulkanError> {
-    if usage.contains(!(BO_USE_WRITE | BO_USE_RENDERING)) {
+    if usage.intersects(!(BO_USE_WRITE | BO_USE_RENDERING)) {
         return Err(VulkanError::UnsupportedBufferUsage);
     }
     Ok(())
