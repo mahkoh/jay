@@ -44,7 +44,7 @@ use {
             CommandBufferSubmitInfo, CommandBufferUsageFlags, CommandPoolCreateFlags,
             CommandPoolCreateInfo, CopyBufferInfo2, CopyBufferToImageInfo2, CopyImageInfo2,
             CopyImageToBufferInfo2, DependencyInfo, DeviceCreateInfo, DeviceMemory,
-            DeviceQueueCreateInfo, DrmFormatModifierPropertiesEXT,
+            DeviceQueueCreateInfo, DriverId, DrmFormatModifierPropertiesEXT,
             DrmFormatModifierPropertiesListEXT, ExportMemoryAllocateInfo, Extent3D,
             ExternalBufferProperties, ExternalFenceFeatureFlags, ExternalFenceHandleTypeFlags,
             ExternalFenceProperties, ExternalImageFormatPropertiesKHR,
@@ -65,8 +65,9 @@ use {
             PhysicalDeviceExternalSemaphoreInfo, PhysicalDeviceFeatures2,
             PhysicalDeviceImageDrmFormatModifierInfoEXT, PhysicalDeviceImageFormatInfo2,
             PhysicalDeviceProperties2, PhysicalDeviceSynchronization2Features,
-            PhysicalDeviceTimelineSemaphoreFeatures, PipelineStageFlags2, QUEUE_FAMILY_FOREIGN_EXT,
-            Queue, QueueFlags, SampleCountFlags, SemaphoreCreateInfo, SemaphoreImportFlags,
+            PhysicalDeviceTimelineSemaphoreFeatures, PhysicalDeviceType,
+            PhysicalDeviceVulkan12Properties, PipelineStageFlags2, QUEUE_FAMILY_FOREIGN_EXT, Queue,
+            QueueFlags, SampleCountFlags, SemaphoreCreateInfo, SemaphoreImportFlags,
             SemaphoreSubmitInfo, SharingMode, SubmitInfo2, SubresourceLayout, WHOLE_SIZE,
         },
     },
@@ -461,6 +462,7 @@ impl PhysicalCopyDevice {
         let instance = &core_instance.instance;
         let physical_device;
         let device_extensions;
+        let device_12_properties;
         let device_properties;
         let supports_dmabuf_export;
         'find_device: {
@@ -485,7 +487,10 @@ impl PhysicalCopyDevice {
                     continue 'outer;
                 }
                 let mut drm_props = PhysicalDeviceDrmPropertiesEXT::default();
-                let mut props = PhysicalDeviceProperties2::default().push_next(&mut drm_props);
+                let mut props12 = PhysicalDeviceVulkan12Properties::default();
+                let mut props = PhysicalDeviceProperties2::default()
+                    .push_next(&mut drm_props)
+                    .push_next(&mut props12);
                 unsafe {
                     instance.get_physical_device_properties2(phy, &mut props);
                 }
@@ -501,6 +506,7 @@ impl PhysicalCopyDevice {
                 if matches {
                     physical_device = phy;
                     device_extensions = exts;
+                    device_12_properties = props12;
                     device_properties = props;
                     break 'find_device;
                 }
@@ -585,6 +591,15 @@ impl PhysicalCopyDevice {
             }
             supports_dmabuf_export = features.contains(ExternalMemoryFeatureFlags::EXPORTABLE);
         }
+        let driver_type = (
+            device_properties.device_type,
+            device_12_properties.driver_id,
+        );
+        let mut use_transfer_queue = true;
+        if driver_type == (PhysicalDeviceType::INTEGRATED_GPU, DriverId::MESA_RADV) {
+            // https://gitlab.freedesktop.org/mesa/mesa/-/work_items/15595
+            use_transfer_queue = false;
+        }
         let (queues_to_allocate, queue_indices) = {
             let families =
                 unsafe { instance.get_physical_device_queue_family_properties(physical_device) };
@@ -612,7 +627,7 @@ impl PhysicalCopyDevice {
                     if compute_only.is_none() {
                         compute_only = Some(v);
                     }
-                } else if flags.contains(QueueFlags::TRANSFER) {
+                } else if use_transfer_queue && flags.contains(QueueFlags::TRANSFER) {
                     if transfer_only.is_none() {
                         transfer_only = Some(v);
                     }
