@@ -1,6 +1,7 @@
 use {
     crate::{
         format::Format,
+        gfx_api::SyncFile,
         video::{
             Modifier,
             dmabuf::{DmaBuf, DmaBufIds},
@@ -47,6 +48,7 @@ pub trait BufferObject {
     fn dmabuf(&self) -> &DmaBuf;
     fn map_read(self: Rc<Self>) -> Result<Box<dyn MappedBuffer>, AllocatorError>;
     fn map_write(self: Rc<Self>) -> Result<Box<dyn MappedBuffer>, AllocatorError>;
+    fn take_initial_sync(&self) -> Option<SyncFile>;
 }
 
 pub trait MappedBuffer {

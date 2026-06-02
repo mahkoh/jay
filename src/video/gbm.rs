@@ -8,14 +8,16 @@ use {
             MappedBuffer,
         },
         format::{Format, XRGB8888, formats},
+        gfx_api::SyncFile,
         utils::{errorfmt::ErrorFmt, oserror::OsError},
         video::{
             INVALID_MODIFIER, Modifier,
-            dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
+            dmabuf::{DMA_BUF_SYNC_WRITE, DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
             drm::{Drm, DrmError},
         },
     },
     std::{
+        cell::Cell,
         fmt::{Debug, Formatter},
         ptr,
         rc::Rc,
@@ -147,6 +149,7 @@ struct BoHolder {
 pub struct GbmBo {
     bo: BoHolder,
     dmabuf: DmaBuf,
+    initial_sync: Cell<Option<SyncFile>>,
 }
 
 impl Debug for GbmBo {
@@ -280,7 +283,12 @@ impl GbmDevice {
             if let [modifier] = *modifiers {
                 dma.modifier = modifier;
             }
-            Ok(GbmBo { bo, dmabuf: dma })
+            let initial_sync = dma.export_sync_file(DMA_BUF_SYNC_WRITE).ok().flatten();
+            Ok(GbmBo {
+                bo,
+                dmabuf: dma,
+                initial_sync: Cell::new(initial_sync),
+            })
         }
     }
 
@@ -317,6 +325,7 @@ impl GbmDevice {
             Ok(GbmBo {
                 bo,
                 dmabuf: dmabuf.clone(),
+                initial_sync: Default::default(),
             })
         }
     }
@@ -432,6 +441,10 @@ impl BufferObject for GbmBo {
         GbmBo::map_write(&self)
             .map(|v| Box::new(v) as _)
             .map_err(|v| v.into())
+    }
+
+    fn take_initial_sync(&self) -> Option<SyncFile> {
+        self.initial_sync.take()
     }
 }
 

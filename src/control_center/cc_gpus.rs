@@ -28,11 +28,10 @@ impl GpusPane {
     }
 
     pub fn show(&mut self, ui: &mut Ui) {
-        let devs = self.state.drm_devs.lock();
-        let mut devs: Vec<_> = devs.iter().collect();
-        devs.sort_by_key(|d| d.0);
+        let mut devs: Vec<_> = self.state.drm_devs.lock().values().cloned().collect();
+        devs.sort_by_key(|d| d.id);
         for dev in devs {
-            self.show_dev(ui, dev.1);
+            self.show_dev(ui, &dev);
         }
     }
 

@@ -410,6 +410,7 @@ fn start_compositor2(
         toplevel_icons: Default::default(),
         tree_serials: Default::default(),
         configure_groups: Default::default(),
+        commit_cache: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
