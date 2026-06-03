@@ -34,6 +34,7 @@ impl<T> LinkedList<T> {
         }
     }
 
+    #[expect(dead_code)]
     pub fn append_all(&self, other: &LinkedList<T>) {
         if other.is_empty() || self.root.data == other.root.data {
             return;
