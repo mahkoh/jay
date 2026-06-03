@@ -178,6 +178,7 @@ fn break_loops(inner: &Rc<Inner>) {
             c.wait_handles.take();
             *c.shm_upload.borrow_mut() = ShmUploadState::None;
             c.pending_polls.take();
+            *c.commit_times.borrow_mut() = CommitTimesState::Ready;
         }
     }
 }
