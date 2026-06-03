@@ -476,7 +476,7 @@ impl FloatNode {
         }
         self.workspace_link
             .set(Some(ws.stacked.add_last(self.clone())));
-        self.workspace.set(ws.clone());
+        let old_ws = self.workspace.set(ws.clone());
         if self.workspace_ty.replace(ws.ty) != ws.ty {
             self.display_link
                 .borrow_mut()
@@ -491,6 +491,9 @@ impl FloatNode {
         }
         if update_pinned && let Some(pl) = &*self.pinned_link.borrow_mut() {
             ws.node_state.output.get().pinned.add_last_existing(pl);
+        }
+        if old_ws.id != ws.id && old_ws.is_empty() {
+            old_ws.enforce_workspace_empty_behavior();
         }
     }
 
@@ -1022,6 +1025,10 @@ impl ContainingNode for FloatNode {
         self.pinned_link.take();
         if ns.visible.get() {
             self.state.damage(ns.position.get());
+        }
+        let ws = self.workspace.get();
+        if ws.is_empty() {
+            ws.enforce_workspace_empty_behavior();
         }
     }
 

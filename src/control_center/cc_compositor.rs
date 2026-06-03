@@ -57,6 +57,12 @@ impl CompositorPane {
                 s.workspace_display_order.get(),
                 |o| s.set_workspace_display_order(o),
             );
+            combo_box(
+                ui,
+                "Workspace Empty Behavior",
+                s.workspace_empty_behavior.get(),
+                |b| s.set_workspace_empty_behavior(b),
+            );
             if let Some(logger) = &s.logger {
                 combo_box(ui, "Log Level", logger.level(), |l| s.set_log_level(l));
                 row(ui, "Log File", |ui| {

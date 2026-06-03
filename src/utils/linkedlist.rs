@@ -291,6 +291,26 @@ impl<T> NodeRef<T> {
         self.peer(|d| &d.next)
     }
 
+    pub fn prev_find(&self, mut accept: impl FnMut(&NodeRef<T>) -> bool) -> Option<NodeRef<T>> {
+        let mut candidate = self.prev()?;
+        loop {
+            if accept(&candidate) {
+                return Some(candidate);
+            }
+            candidate = candidate.prev()?;
+        }
+    }
+
+    pub fn next_find(&self, mut accept: impl FnMut(&NodeRef<T>) -> bool) -> Option<NodeRef<T>> {
+        let mut candidate = self.next()?;
+        loop {
+            if accept(&candidate) {
+                return Some(candidate);
+            }
+            candidate = candidate.next()?;
+        }
+    }
+
     pub fn detach(&self) {
         unsafe {
             let data = self.data.as_ref();

@@ -38,7 +38,7 @@ use {
         theme::{BarPosition, Color},
         video::{BlendSpace, ColorSpace, Eotf, Format, GfxApi, TearingMode, Transform, VrrMode},
         window::{ContentType, TileState, WindowType},
-        workspace::WorkspaceDisplayOrder,
+        workspace::{WorkspaceDisplayOrder, WorkspaceEmptyBehavior},
         xwayland::XScalingMode,
     },
     std::{
@@ -580,6 +580,7 @@ pub struct Config {
     pub simple_im: Option<SimpleIm>,
     pub fallback_output_mode: Option<FallbackOutputMode>,
     pub mouse_follows_focus: Option<bool>,
+    pub workspace_empty_behavior: Option<WorkspaceEmptyBehavior>,
 }
 
 #[derive(Debug, Error)]
@@ -646,6 +647,7 @@ where
             WorkspaceType::Overlay => get_overlay(&name),
         };
         ws.ws.set(id);
+        id.set_empty_behavior_override(ws.eb.get());
     }
     Some(config)
 }
