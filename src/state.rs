@@ -136,7 +136,7 @@ use {
             refcounted::RefCounted,
             run_toplevel::RunToplevel,
         },
-        video::{dmabuf::DmaBufIds, drm::Drm},
+        video::{Modifier, dmabuf::DmaBufIds, drm::Drm},
         virtual_output::VirtualOutputs,
         wheel::Wheel,
         wire::{
@@ -145,8 +145,9 @@ use {
         },
         xwayland::{self, XWaylandEvent},
     },
-    ahash::AHashMap,
+    ahash::{AHashMap, AHashSet},
     bstr::ByteSlice,
+    isnt::std_1::{collections::IsntHashMapExt, primitive::IsntSliceExt},
     jay_config::PciId,
     std::{
         cell::{Cell, RefCell},
@@ -174,6 +175,7 @@ pub struct State {
     pub render_ctx: CloneCell<Option<Rc<dyn GfxContext>>>,
     pub render_ctx_drm_device: ObjAndId<Option<Rc<DrmDevData>>>,
     pub render_ctx_prime_copy_device: CloneCell<Option<Rc<CopyDevice>>>,
+    pub render_ctx_prime_modifiers: CopyHashMap<Option<ConnectorId>, PrimeModifiers>,
     pub render_ctx_version: NumCell<u32>,
     pub render_ctx_ever_initialized: Cell<bool>,
     pub cursors: CloneCell<Option<Rc<ServerCursors>>>,
@@ -333,6 +335,15 @@ impl Debug for State {
         f.debug_struct("State").finish_non_exhaustive()
     }
 }
+
+#[derive(Copy, Clone, PartialEq)]
+pub struct PrimeModifier {
+    pub modifier: Modifier,
+    pub max_width: u32,
+    pub max_height: u32,
+}
+
+pub type PrimeModifiers = Rc<AHashMap<u32, Vec<PrimeModifier>>>;
 
 pub struct ScreenlockState {
     pub locked: Cell<bool>,
@@ -717,7 +728,7 @@ impl State {
             .set_ctx(ctx.as_ref().and_then(|c| c.syncobj_ctx().cloned()));
         self.virtual_outputs.handle_render_ctx_change(self);
         self.dmabuf_feedback.update();
-        self.update_render_device();
+        self.update_render_device(true);
 
         {
             struct Walker;
@@ -2274,15 +2285,105 @@ impl State {
         Some(TreeSerial::from_raw(s))
     }
 
-    pub fn update_render_device(&self) {
-        let id = self.render_ctx.get().and_then(|c| c.drm_device_id());
+    pub fn update_render_device(&self, render_ctx_changed: bool) {
+        let ctx = self.render_ctx.get();
+        let id = ctx.as_ref().and_then(|c| c.drm_device_id());
         let drm_dev = id.and_then(|id| self.drm_devs.get(&id));
-        if drm_dev.id() == self.render_ctx_drm_device.id() {
+        if !render_ctx_changed && drm_dev.id() == self.render_ctx_drm_device.id() {
             return;
         }
         let copy_dev = drm_dev.as_ref().and_then(|dev| dev.copy_device.clone());
         self.render_ctx_drm_device.set(drm_dev);
-        self.render_ctx_prime_copy_device.set(copy_dev);
+        self.render_ctx_prime_copy_device.set(copy_dev.clone());
+        self.render_ctx_prime_modifiers.clear();
+        if let Some(ctx) = &ctx
+            && let Some(copy_dev) = &copy_dev
+        {
+            let mut res = AHashMap::new();
+            for format in ctx.formats().values() {
+                let supported_mods: AHashMap<_, _> = copy_dev
+                    .dst_support(format.format)
+                    .iter()
+                    .map(|s| {
+                        (
+                            s.modifier,
+                            PrimeModifier {
+                                modifier: s.modifier,
+                                max_width: s.max_width,
+                                max_height: s.max_height,
+                            },
+                        )
+                    })
+                    .collect();
+                let mods: Vec<_> = format
+                    .read_modifiers
+                    .iter()
+                    .copied()
+                    .filter_map(|m| supported_mods.get(&m))
+                    .copied()
+                    .collect();
+                if mods.is_not_empty() {
+                    res.insert(format.format.drm, mods);
+                }
+            }
+            if res.is_not_empty() {
+                let base = Rc::new(res);
+                for connector in self.connectors.lock().values() {
+                    self.update_prime_scanout_modifiers_(&base, connector);
+                }
+                self.render_ctx_prime_modifiers.set(None, base.clone());
+            }
+        }
+    }
+
+    pub fn update_prime_scanout_modifiers_id(&self, id: ConnectorId) {
+        if let Some(con) = self.connectors.get(&id) {
+            self.update_prime_scanout_modifiers(&con);
+        }
+    }
+
+    pub fn update_prime_scanout_modifiers(&self, connector: &ConnectorData) {
+        let Some(base) = self.render_ctx_prime_modifiers.get(&None) else {
+            return;
+        };
+        self.update_prime_scanout_modifiers_(&base, connector);
+    }
+
+    fn update_prime_scanout_modifiers_(&self, base: &PrimeModifiers, connector: &ConnectorData) {
+        let res = self.calculate_prime_scanout_modifiers(base, connector);
+        self.render_ctx_prime_modifiers.set(Some(connector.id), res);
+    }
+
+    fn calculate_prime_scanout_modifiers(
+        &self,
+        base: &PrimeModifiers,
+        connector: &ConnectorData,
+    ) -> PrimeModifiers {
+        let Some(supported) = connector.connector.scanout_formats() else {
+            return base.clone();
+        };
+        let supported: AHashSet<_> = supported
+            .iter()
+            .map(|&(fmt, modifier)| (fmt.drm, modifier))
+            .collect();
+        let mut res = AHashMap::new();
+        for (&format, modifiers) in &**base {
+            let mut mods = vec![];
+            for &modifier in modifiers {
+                if supported.contains(&(format, modifier.modifier)) {
+                    mods.push(modifier);
+                }
+            }
+            if mods.is_empty() {
+                mods = modifiers.clone();
+            }
+            res.insert(format, mods);
+        }
+        if res == **base {
+            base.clone()
+        } else {
+            Rc::new(res)
+        }
     }
 }
 

@@ -92,10 +92,11 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
     let future = state.eng.spawn("connector handler", oh.handle());
     data.handler.set(Some(future));
     state.trigger_cci(CCI_OUTPUTS);
-    if state.connectors.set(id, data).is_some() {
+    if state.connectors.set(id, data.clone()).is_some() {
         panic!("Connector id has been reused");
     }
     state.dmabuf_feedback.update();
+    state.update_prime_scanout_modifiers(&data);
 }
 
 struct ConnectorHandler {
@@ -132,6 +133,7 @@ impl ConnectorHandler {
         self.data.handler.set(None);
         self.state.connectors.remove(&self.id);
         self.state.dmabuf_feedback.update();
+        self.state.render_ctx_prime_modifiers.remove(&Some(self.id));
         self.state.trigger_cci(CCI_OUTPUTS);
     }
 

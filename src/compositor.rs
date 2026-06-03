@@ -243,6 +243,7 @@ fn start_compositor2(
         render_ctx: Default::default(),
         render_ctx_drm_device: Default::default(),
         render_ctx_prime_copy_device: Default::default(),
+        render_ctx_prime_modifiers: Default::default(),
         render_ctx_version: NumCell::new(1),
         render_ctx_ever_initialized: Cell::new(false),
         cursors: Default::default(),

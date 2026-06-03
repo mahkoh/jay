@@ -1075,7 +1075,9 @@ impl MetalDeviceTransactionWithChange {
                             connector.obj.send_formats();
                             connector.obj.send_state();
                             if connector.obj.scanout_formats() != connector.old_scanout_formats {
-                                connector.obj.state.dmabuf_feedback.update();
+                                let state = &connector.obj.state;
+                                state.dmabuf_feedback.update();
+                                state.update_prime_scanout_modifiers_id(connector.obj.connector_id);
                             }
                         }
                     }

@@ -65,7 +65,7 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn BackendDrmDevice>) {
         panic!("Drm device id has been reused");
     }
     state.dmabuf_feedback.update();
-    state.update_render_device();
+    state.update_render_device(false);
 }
 
 struct DrvDevHandler {
@@ -104,7 +104,7 @@ impl DrvDevHandler {
         let _ = self.state.remove_global(&self.data.lease_global);
         self.data.handler.set(None);
         self.state.drm_devs.remove(&self.id);
-        self.state.update_render_device();
+        self.state.update_render_device(false);
     }
 
     fn log_gfx_api(&self) {
