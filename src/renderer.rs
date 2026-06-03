@@ -1,10 +1,12 @@
 use {
     crate::{
         cmm::cmm_render_intent::RenderIntent,
-        gfx_api::{AcquireSync, AlphaMode, GfxApiOpt, ReleaseSync, SampleRect},
+        gfx_api::{
+            AcquireSync, AlphaMode, BufferResv, GfxApiOpt, GfxTexture, ReleaseSync, SampleRect,
+        },
         icons::{IconState, SizedBarIcons, SizedTitleIcons},
         ifs::wl_surface::{
-            SurfaceBuffer, WlSurface,
+            WlSurface,
             x_surface::xwindow::Xwindow,
             xdg_surface::{
                 XdgSurface,
@@ -545,15 +547,12 @@ impl Renderer<'_> {
         is_subsurface: bool,
     ) {
         let children = surface.children.borrow();
-        let buffer = match surface.buffer.get() {
-            Some(b) => b,
-            _ => {
-                if !surface.is_cursor() && !is_subsurface {
-                    log::warn!("surface has no buffer attached");
-                }
-                return;
+        if surface.buffer.is_none() {
+            if !surface.is_cursor() && !is_subsurface {
+                log::warn!("surface has no buffer attached");
             }
-        };
+            return;
+        }
         let tpoints = surface.buffer_points_norm.borrow_mut();
         let mut size = surface.buffer_abs_pos.get().size();
         if let Some((x_rel, y_rel)) = pos_rel {
@@ -584,68 +583,77 @@ impl Renderer<'_> {
                 };
             }
             render!(&children.below);
-            self.render_buffer(surface, &buffer, x, y, *tpoints, size, bounds);
+            self.render_buffer(surface, x, y, *tpoints, size, bounds);
             render!(&children.above);
         } else {
-            self.render_buffer(surface, &buffer, x, y, *tpoints, size, bounds);
+            self.render_buffer(surface, x, y, *tpoints, size, bounds);
         }
     }
 
     pub fn render_buffer(
         &mut self,
         surface: &WlSurface,
-        buffer: &Rc<SurfaceBuffer>,
         x: i32,
         y: i32,
         tpoints: SampleRect,
         tsize: (i32, i32),
         bounds: Option<&Rect>,
     ) {
-        let buf = &buffer.buffer.buf;
         let alpha = surface.alpha();
         let cd = surface.color_description();
         let intent = surface.render_intent();
         let alpha_mode = surface.alpha_mode();
-        if let Some(tex) = buf.get_texture(surface) {
+        let render_texture = |slf: &mut Renderer,
+                              tex: &Rc<dyn GfxTexture>,
+                              buffer: Rc<dyn BufferResv>,
+                              release_sync: ReleaseSync| {
             let mut opaque = surface.opaque();
             if !opaque && tex.format().has_alpha {
-                opaque = self.bounds_are_opaque(x, y, bounds, surface);
+                opaque = slf.bounds_are_opaque(x, y, bounds, surface);
             }
-            self.base.render_texture(
-                &tex,
+            slf.base.render_texture(
+                tex,
                 alpha,
                 x,
                 y,
                 Some(tpoints),
                 Some(tsize),
-                self.base.scale,
+                slf.base.scale,
                 bounds,
-                Some(buffer.clone()),
+                Some(buffer),
                 AcquireSync::Unnecessary,
-                buffer.release_sync,
+                release_sync,
                 opaque,
                 &cd,
                 intent,
                 alpha_mode,
                 false,
             );
-        } else if let Some(color) = &buf.color {
-            if let Some(rect) = Rect::new_sized(x, y, tsize.0, tsize.1) {
-                let rect = match bounds {
-                    None => rect,
-                    Some(bounds) => rect.intersect(*bounds),
-                };
-                if !rect.is_empty() {
-                    let color = Color::from_u32(
-                        cd.eotf, alpha_mode, color[0], color[1], color[2], color[3],
-                    );
-                    self.base.sync();
-                    self.base
-                        .fill_scaled_boxes(&[rect], &color, alpha, &cd.linear, intent);
+        };
+        if let Some(buffer) = surface.buffer.get() {
+            let buf = &buffer.buffer.buf;
+            if let Some(tex) = buf.get_texture(surface) {
+                render_texture(self, &tex, buffer.clone(), buffer.release_sync);
+            } else if let Some(color) = &buf.color {
+                if let Some(rect) = Rect::new_sized(x, y, tsize.0, tsize.1) {
+                    let rect = match bounds {
+                        None => rect,
+                        Some(bounds) => rect.intersect(*bounds),
+                    };
+                    if !rect.is_empty() {
+                        let color = Color::from_u32(
+                            cd.eotf, alpha_mode, color[0], color[1], color[2], color[3],
+                        );
+                        self.base.sync();
+                        self.base
+                            .fill_scaled_boxes(&[rect], &color, alpha, &cd.linear, intent);
+                    }
                 }
+            } else {
+                log::info!("client buffer has neither a texture nor is a single-pixel buffer");
             }
         } else {
-            log::info!("live buffer has neither a texture nor is a single-pixel buffer");
+            log::info!("surface has no client buffer");
         }
     }
 
