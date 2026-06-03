@@ -4,9 +4,10 @@ mod size;
 #[cfg(test)]
 mod tests;
 
+#[expect(unused_imports)]
 pub use {
     crate::rect::size::Size,
-    region::{DamageQueue, RegionBuilder},
+    region::{DamageQueue, DynamicDamageQueue, DynamicDamageQueueElement, RegionBuilder},
 };
 use {
     jay_algorithms::rect::{NoTag, RectRaw, Tag},
