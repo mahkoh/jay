@@ -21,11 +21,11 @@ use {
         utils::{
             copyhashmap::CopyHashMap,
             hash_map_ext::HashMapExt,
-            linkedlist::{LinkedList, LinkedNode, NodeRef},
             numcell::NumCell,
             obj_and_id::{ObjAndId, ObjWithId},
             oserror::OsError,
             queue::AsyncQueue,
+            syncqueue::SyncQueue,
         },
         video::drm::syncobj::{Syncobj, SyncobjPoint},
     },
@@ -34,7 +34,7 @@ use {
     std::{
         cell::{Cell, RefCell},
         mem,
-        ops::{Deref, DerefMut},
+        ops::DerefMut,
         rc::{Rc, Weak},
         slice,
     },
@@ -53,13 +53,13 @@ pub struct CommitTimelines {
     wfs: Rc<WaitForSyncobj>,
     ring: Rc<IoUring>,
     depth: NumCell<usize>,
-    gc: CopyHashMap<CommitTimelineId, LinkedList<Entry>>,
+    gc: CopyHashMap<CommitTimelineId, Rc<Inner>>,
     flush_requests: Rc<FlushRequests>,
     _flush_requests_future: SpawnedFuture<()>,
 }
 
 struct CommitTimeWaiter {
-    node: NodeRef<Entry>,
+    node: Rc<Entry>,
     present: u64,
 }
 
@@ -68,14 +68,14 @@ pub struct CommitTimeline {
     own_timeline: Rc<Inner>,
     effective_timeline: ObjAndId<Rc<Inner>>,
     fifo_barrier_set: Cell<bool>,
-    fifo_waiter: Cell<Option<NodeRef<Entry>>>,
+    fifo_waiter: Cell<Option<Rc<Inner>>>,
     commit_time_waiter: RefCell<Option<CommitTimeWaiter>>,
-    toplevel_restored_waiter: Cell<Option<NodeRef<Entry>>>,
+    toplevel_restored_waiter: Cell<Option<Rc<Inner>>>,
 }
 
 struct Inner {
     id: CommitTimelineId,
-    entries: LinkedList<Entry>,
+    entries: SyncQueue<Rc<Entry>>,
 }
 
 impl ObjWithId for Rc<Inner> {
@@ -86,20 +86,15 @@ impl ObjWithId for Rc<Inner> {
     }
 }
 
-fn add_entry(
-    list: &LinkedList<Entry>,
-    shared: &Rc<CommitTimelines>,
-    kind: EntryKind,
-) -> NodeRef<Entry> {
+fn add_entry(inner: &Rc<Inner>, shared: &Rc<CommitTimelines>, kind: EntryKind) -> Rc<Entry> {
     shared.depth.fetch_add(1);
-    let link = list.add_last(Entry {
-        link: Cell::new(None),
+    let entry = Rc::new(Entry {
+        inner: inner.clone(),
         shared: shared.clone(),
         kind,
     });
-    let noderef = link.to_ref();
-    noderef.link.set(Some(link));
-    noderef
+    inner.entries.push(entry.clone());
+    entry
 }
 
 #[derive(Debug, Error)]
@@ -177,9 +172,8 @@ pub enum ClearReason {
     Destroy,
 }
 
-fn break_loops(list: &LinkedList<Entry>) {
-    for entry in list.iter() {
-        entry.link.take();
+fn break_loops(inner: &Rc<Inner>) {
+    while let Some(entry) = inner.entries.pop() {
         if let EntryKind::Commit(c) = &entry.kind {
             c.wait_handles.take();
             *c.shm_upload.borrow_mut() = ShmUploadState::None;
@@ -195,15 +189,19 @@ impl CommitTimeline {
                 self.fifo_waiter.take();
                 self.commit_time_waiter.take();
                 self.toplevel_restored_waiter.take();
-                break_loops(&self.own_timeline.entries)
+                break_loops(&self.own_timeline)
             }
             ClearReason::Destroy => {
                 self.clear_fifo_barrier();
                 if self.own_timeline.entries.is_not_empty() {
-                    let list = LinkedList::new();
-                    list.append_all(&self.own_timeline.entries);
-                    add_entry(&list, &self.shared, EntryKind::Gc(self.own_timeline.id));
-                    self.shared.gc.set(self.own_timeline.id, list);
+                    add_entry(
+                        &self.own_timeline,
+                        &self.shared,
+                        EntryKind::Gc(self.own_timeline.id),
+                    );
+                    self.shared
+                        .gc
+                        .set(self.own_timeline.id, self.own_timeline.clone());
                 }
             }
         }
@@ -245,12 +243,13 @@ impl CommitTimeline {
             return Err(CommitTimelineError::Depth);
         }
         set_effective_timeline(self, pending, &self.own_timeline);
+        let queue_was_empty = self.own_timeline.entries.is_empty();
         let commit_fifo_state = match pending.fifo_barrier_wait {
             true => CommitFifoState::Queued,
             false => CommitFifoState::Mailbox,
         };
-        let noderef = add_entry(
-            &self.own_timeline.entries,
+        let entry = add_entry(
+            &self.own_timeline,
             &self.shared,
             EntryKind::Commit(surface.client.state.commit_cache.get(Commit {
                 surface: surface.clone(),
@@ -268,8 +267,7 @@ impl CommitTimeline {
         );
         let mut needs_flush = commit_fifo_state == CommitFifoState::Queued;
         if has_dependencies {
-            let noderef = Rc::new(noderef.clone());
-            let EntryKind::Commit(commit) = &noderef.kind else {
+            let EntryKind::Commit(commit) = &entry.kind else {
                 unreachable!();
             };
             if points.is_not_empty() {
@@ -278,14 +276,14 @@ impl CommitTimeline {
                     let handle = self
                         .shared
                         .wfs
-                        .wait(&syncobj, point, true, noderef.clone())
+                        .wait(&syncobj, point, true, entry.clone())
                         .map_err(CommitTimelineError::RegisterWait)?;
                     wait_handles.push(handle);
                 }
                 commit.wait_handles.set(wait_handles);
             }
             if pending_uploads > 0 {
-                *commit.shm_upload.borrow_mut() = ShmUploadState::Todo(noderef.clone());
+                *commit.shm_upload.borrow_mut() = ShmUploadState::Todo;
                 needs_flush = true;
             }
             if acquire_files.is_not_empty() {
@@ -294,25 +292,22 @@ impl CommitTimeline {
                     let handle = self
                         .shared
                         .ring
-                        .readable_external(&fd, noderef.clone())
+                        .readable_external(&fd, entry.clone())
                         .map_err(CommitTimelineError::RegisterImplicitPoll)?;
                     pending_polls.push(handle);
                 }
                 commit.pending_polls.set(pending_polls);
             }
             if has_commit_time {
-                *commit.commit_times.borrow_mut() = CommitTimesState::Queued {
-                    rc: noderef.clone(),
-                    time: commit_time,
-                };
+                *commit.commit_times.borrow_mut() = CommitTimesState::Queued { time: commit_time };
                 needs_flush = true;
             }
             if commit.toplevel_restored.is_some() {
                 needs_flush = true;
             }
         }
-        if needs_flush && noderef.prev().is_none() {
-            flush_from(noderef.clone()).map_err(CommitTimelineError::DelayedCommit)?;
+        if needs_flush && queue_was_empty {
+            flush_list(&self.own_timeline).map_err(CommitTimelineError::DelayedCommit)?;
         }
         Ok(())
     }
@@ -349,7 +344,7 @@ impl CommitTimeline {
                 self.shared
                     .flush_requests
                     .flush_waiters
-                    .push(w.node.clone());
+                    .push(w.node.inner.clone());
                 *waiter = None;
                 surface.before_latch_listener.detach();
                 BeforeLatchResult::Yield
@@ -363,7 +358,7 @@ impl CommitTimeline {
     }
 }
 
-impl SyncobjWaiter for NodeRef<Entry> {
+impl SyncobjWaiter for Entry {
     fn done(self: Rc<Self>, result: Result<(), SyncobjError>) {
         let EntryKind::Commit(commit) = &self.kind else {
             unreachable!();
@@ -373,12 +368,12 @@ impl SyncobjWaiter for NodeRef<Entry> {
             return;
         }
         commit.syncobj.fetch_sub(1);
-        flush_commit(&self, commit);
+        flush_commit(&self.inner, commit);
     }
 }
 
-fn flush_commit(node_ref: &NodeRef<Entry>, commit: &Commit) {
-    if let Err(e) = flush_from(node_ref.clone()) {
+fn flush_commit(list: &Rc<Inner>, commit: &Commit) {
+    if let Err(e) = flush_list(list) {
         commit
             .surface
             .client
@@ -386,7 +381,7 @@ fn flush_commit(node_ref: &NodeRef<Entry>, commit: &Commit) {
     }
 }
 
-impl AsyncShmGfxTextureCallback for NodeRef<Entry> {
+impl AsyncShmGfxTextureCallback for Entry {
     fn completed(self: Rc<Self>, res: Result<(), GfxError>) {
         let EntryKind::Commit(commit) = &self.kind else {
             unreachable!();
@@ -399,11 +394,11 @@ impl AsyncShmGfxTextureCallback for NodeRef<Entry> {
             return;
         }
         commit.pending_uploads.fetch_sub(1);
-        flush_commit(&self, commit);
+        flush_commit(&self.inner, commit);
     }
 }
 
-impl PollCallback for NodeRef<Entry> {
+impl PollCallback for Entry {
     fn completed(self: Rc<Self>, res: Result<c_short, OsError>) {
         let EntryKind::Commit(commit) = &self.kind else {
             unreachable!();
@@ -416,11 +411,11 @@ impl PollCallback for NodeRef<Entry> {
             return;
         }
         commit.num_pending_polls.fetch_sub(1);
-        flush_commit(&self, commit);
+        flush_commit(&self.inner, commit);
     }
 }
 
-impl TimeoutCallback for NodeRef<Entry> {
+impl TimeoutCallback for Entry {
     fn completed(self: Rc<Self>, res: Result<(), OsError>, _data: u64) {
         let EntryKind::Commit(commit) = &self.kind else {
             unreachable!();
@@ -435,32 +430,32 @@ impl TimeoutCallback for NodeRef<Entry> {
             return;
         }
         *commit.commit_times.borrow_mut() = CommitTimesState::Ready;
-        flush_commit(&self, commit);
+        flush_commit(&self.inner, commit);
     }
 }
 
 struct Entry {
-    link: Cell<Option<LinkedNode<Entry>>>,
+    inner: Rc<Inner>,
     shared: Rc<CommitTimelines>,
     kind: EntryKind,
 }
 
 enum EntryKind {
     Commit(CachedCommit),
-    Wait(Cell<bool>),
-    Signal(NodeRef<Entry>),
+    Wait(Rc<Cell<bool>>),
+    Signal(Rc<Inner>, Rc<Cell<bool>>),
     Gc(CommitTimelineId),
 }
 
 enum ShmUploadState {
     None,
-    Todo(Rc<NodeRef<Entry>>),
+    Todo,
     Scheduled(#[expect(dead_code)] SmallVec<[PendingShmTransfer; 1]>),
 }
 
 enum CommitTimesState {
     Ready,
-    Queued { rc: Rc<NodeRef<Entry>>, time: u64 },
+    Queued { time: u64 },
     Registered { _pending: PendingTimeout },
 }
 
@@ -478,31 +473,27 @@ struct Commit {
     toplevel_restored: Option<Rc<Cell<bool>>>,
 }
 
-fn flush_from(mut point: NodeRef<Entry>) -> Result<(), WlSurfaceError> {
-    let mut gc_list = None;
-    while point.maybe_apply(&mut gc_list)? {
-        point.shared.depth.fetch_sub(1);
-        let _link = point.link.take();
-        match point.next() {
-            None => break,
-            Some(n) => point = n,
+fn flush_list(inner: &Rc<Inner>) -> Result<(), WlSurfaceError> {
+    while let Some(el) = inner.entries.pop() {
+        if el.maybe_apply()? {
+            el.shared.depth.fetch_sub(1);
+        } else {
+            inner.entries.push_front(el);
+            break;
         }
     }
     Ok(())
 }
 
-impl NodeRef<Entry> {
-    fn maybe_apply(&self, gc_list: &mut Option<LinkedList<Entry>>) -> Result<bool, WlSurfaceError> {
-        if self.prev().is_some() {
-            return Ok(false);
-        }
+impl Entry {
+    fn maybe_apply(self: &Rc<Self>) -> Result<bool, WlSurfaceError> {
         match &self.kind {
             EntryKind::Commit(c) => {
                 let mut has_unmet_dependencies = false;
                 let may_access_buffer = c.syncobj.get() == 0 && c.num_pending_polls.get() == 0;
                 if may_access_buffer {
                     if c.pending_uploads.get() > 0 {
-                        check_shm_uploads(c)?;
+                        check_shm_uploads(self, c)?;
                         has_unmet_dependencies |= c.pending_uploads.get() > 0;
                     }
                 } else {
@@ -512,7 +503,7 @@ impl NodeRef<Entry> {
                 if tl.fifo_barrier_set.get() {
                     match c.fifo_state.get() {
                         CommitFifoState::Queued => {
-                            tl.fifo_waiter.set(Some(self.clone()));
+                            tl.fifo_waiter.set(Some(self.inner.clone()));
                             c.fifo_state.set(CommitFifoState::Registered);
                             has_unmet_dependencies = true;
                         }
@@ -525,8 +516,8 @@ impl NodeRef<Entry> {
                 let commit_times = &mut *c.commit_times.borrow_mut();
                 match commit_times {
                     CommitTimesState::Ready => {}
-                    CommitTimesState::Queued { rc, time } => {
-                        *commit_times = register_commit_time(tl, rc, c, *time)?;
+                    CommitTimesState::Queued { time } => {
+                        *commit_times = register_commit_time(tl, self, c, *time)?;
                         if let CommitTimesState::Registered { .. } = commit_times {
                             has_unmet_dependencies = true;
                         }
@@ -538,7 +529,7 @@ impl NodeRef<Entry> {
                 if let Some(restored) = &c.toplevel_restored
                     && !restored.get()
                 {
-                    tl.toplevel_restored_waiter.set(Some(self.clone()));
+                    tl.toplevel_restored_waiter.set(Some(self.inner.clone()));
                     has_unmet_dependencies = true;
                 }
                 if has_unmet_dependencies {
@@ -548,27 +539,24 @@ impl NodeRef<Entry> {
                 Ok(true)
             }
             EntryKind::Wait(signaled) => Ok(signaled.get()),
-            EntryKind::Signal(s) => match &s.kind {
-                EntryKind::Wait(signaled) => {
-                    signaled.set(true);
-                    flush_from(s.clone())?;
-                    Ok(true)
-                }
-                _ => unreachable!(),
-            },
+            EntryKind::Signal(next, signaled) => {
+                signaled.set(true);
+                flush_list(next)?;
+                Ok(true)
+            }
             EntryKind::Gc(id) => {
-                *gc_list = self.shared.gc.remove(id);
+                self.shared.gc.remove(id);
                 Ok(true)
             }
         }
     }
 }
 
-fn check_shm_uploads(c: &Commit) -> Result<(), WlSurfaceError> {
+fn check_shm_uploads(entry: &Rc<Entry>, c: &Commit) -> Result<(), WlSurfaceError> {
     let state = &mut *c.shm_upload.borrow_mut();
-    if let ShmUploadState::Todo(node_ref) = state {
+    if let ShmUploadState::Todo = state {
         let mut pending = SmallVec::new();
-        schedule_async_uploads(node_ref, &c.surface, &c.pending.borrow(), &mut pending)?;
+        schedule_async_uploads(entry, &c.surface, &c.pending.borrow(), &mut pending)?;
         c.pending_uploads.set(pending.len());
         *state = ShmUploadState::Scheduled(pending);
     }
@@ -577,7 +565,7 @@ fn check_shm_uploads(c: &Commit) -> Result<(), WlSurfaceError> {
 
 fn register_commit_time(
     tl: &CommitTimeline,
-    rc: &Rc<NodeRef<Entry>>,
+    rc: &Rc<Entry>,
     c: &Commit,
     time: u64,
 ) -> Result<CommitTimesState, WlSurfaceError> {
@@ -596,7 +584,7 @@ fn register_commit_time(
         .timeout_external(timeout, rc.clone(), 0)
         .map_err(WlSurfaceError::RegisterCommitTimeout)?;
     *tl.commit_time_waiter.borrow_mut() = Some(CommitTimeWaiter {
-        node: rc.deref().clone(),
+        node: rc.clone(),
         present: time,
     });
     c.surface
@@ -606,7 +594,7 @@ fn register_commit_time(
 }
 
 fn schedule_async_uploads(
-    node_ref: &Rc<NodeRef<Entry>>,
+    node_ref: &Rc<Entry>,
     surface: &WlSurface,
     pending: &PendingState,
     uploads: &mut SmallVec<[PendingShmTransfer; 1]>,
@@ -623,7 +611,7 @@ fn schedule_async_uploads(
 }
 
 fn schedule_async_upload(
-    node_ref: &Rc<NodeRef<Entry>>,
+    node_ref: &Rc<Entry>,
     surface: &WlSurface,
     pending: &PendingState,
 ) -> Result<Option<PendingShmTransfer>, WlSurfaceError> {
@@ -779,12 +767,17 @@ fn set_effective_timeline(
     if timeline.effective_timeline.id() != effective.id {
         let prev = timeline.effective_timeline.set(effective.clone());
         if prev.entries.is_not_empty() {
-            let noderef = add_entry(
-                &effective.entries,
+            let signaled = Rc::new(Cell::new(false));
+            add_entry(
+                effective,
                 &timeline.shared,
-                EntryKind::Wait(Cell::new(false)),
+                EntryKind::Wait(signaled.clone()),
             );
-            add_entry(&prev.entries, &timeline.shared, EntryKind::Signal(noderef));
+            add_entry(
+                &prev,
+                &timeline.shared,
+                EntryKind::Signal(effective.clone(), signaled),
+            );
         }
     }
     for ss in pending.subsurfaces.values() {
@@ -796,14 +789,14 @@ fn set_effective_timeline(
 
 #[derive(Default)]
 struct FlushRequests {
-    flush_waiters: AsyncQueue<NodeRef<Entry>>,
+    flush_waiters: AsyncQueue<Rc<Inner>>,
 }
 
 async fn process_flush_requests(client: Weak<Client>, requests: Rc<FlushRequests>) {
     loop {
         requests.flush_waiters.non_empty().await;
         while let Some(entry) = requests.flush_waiters.try_pop() {
-            if let Err(e) = flush_from(entry) {
+            if let Err(e) = flush_list(&entry) {
                 if let Some(client) = client.upgrade() {
                     client.error(e);
                 }
