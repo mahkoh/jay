@@ -861,12 +861,19 @@ macro_rules! dbg {
 
 macro_rules! dynload {
     (
-        $item:ident: $container:ident from $name:literal {
+        $item:ident: $container:ident from $name:literal for $feature:literal ($description:literal) {
             $(
                 $fun:ident: $ty:ty,
             )*
         }
     ) => {
+        dlopen_note::dlopen_note! {
+            soname: [$name],
+            feature: $feature,
+            description: $description,
+            priority: "recommended",
+        }
+
         #[expect(non_snake_case)]
         #[derive(Debug)]
         pub struct $container {

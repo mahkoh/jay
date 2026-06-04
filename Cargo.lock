@@ -389,6 +389,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "dlopen-note"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "764ae42ff1ff6f8ddc5daad1dc27a9c5e586a8e47c592c65c42f6a9b929a8f9f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.117",
+]
+
+[[package]]
 name = "ecolor"
 version = "0.34.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -801,6 +812,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "dirs",
+ "dlopen-note",
  "egui",
  "egui_tiles",
  "futures-util",

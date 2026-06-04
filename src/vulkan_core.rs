@@ -16,6 +16,7 @@ use {
             api_version_patch, api_version_variant,
         },
     },
+    dlopen_note::dlopen_note,
     isnt::std_1::collections::IsntHashMapExt,
     log::Level,
     run_on_drop::on_drop,
@@ -34,6 +35,13 @@ pub mod fence;
 pub mod gpu_alloc_ash;
 pub mod sync;
 pub mod timeline_semaphore;
+
+dlopen_note! {
+    soname: ["libvulkan.so.1"],
+    feature: "vulkan",
+    description: "required for the vulkan renderer",
+    priority: "recommended",
+}
 
 static VULKAN_ENTRY: LazyLock<Result<Entry, Arc<LoadingError>>> =
     LazyLock::new(|| unsafe { Entry::load() }.map_err(Arc::new));
