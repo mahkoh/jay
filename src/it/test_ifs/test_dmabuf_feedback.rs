@@ -4,7 +4,7 @@ use {
             test_error::TestResult, test_object::TestObject, test_transport::TestTransport,
             test_utils::test_expected_event::TEEH, testrun::ParseFull,
         },
-        utils::buffd::MsgParser,
+        utils::{buffd::MsgParser, clonecell::CloneCell},
         wire::{ZwpLinuxDmabufFeedbackV1Id, zwp_linux_dmabuf_feedback_v1::*},
     },
     std::{
@@ -21,21 +21,19 @@ pub struct TestDmabufFeedback {
     pub tran: Rc<TestTransport>,
     pub destroyed: Cell<bool>,
     pub feedback: TEEH<Feedback>,
+    pub format_table: CloneCell<Option<Rc<OwnedFd>>>,
+    pub format_table_size: Cell<usize>,
     pub pending_feedback: RefCell<PendingFeedback>,
 }
 
 #[derive(Default)]
 pub struct PendingFeedback {
-    pub format_table: Option<Rc<OwnedFd>>,
-    pub format_table_size: usize,
     pub main_device: c::dev_t,
     pub tranches: Vec<Tranche>,
     pub pending_tranche: Tranche,
 }
 
 pub struct Feedback {
-    pub _format_table: Rc<OwnedFd>,
-    pub _format_table_size: usize,
     pub _main_device: c::dev_t,
     pub tranches: Vec<Tranche>,
 }
@@ -53,8 +51,10 @@ impl TestDmabufFeedback {
             id: tran.id(),
             tran: tran.clone(),
             destroyed: Cell::new(false),
-            feedback: Rc::new(Default::default()),
-            pending_feedback: RefCell::new(Default::default()),
+            feedback: Default::default(),
+            format_table: Default::default(),
+            format_table_size: Default::default(),
+            pending_feedback: Default::default(),
         }
     }
 
@@ -67,13 +67,8 @@ impl TestDmabufFeedback {
 
     fn handle_done(&self, parser: MsgParser<'_, '_>) -> TestResult {
         let _ev = Done::parse_full(parser)?;
-        let mut pending = mem::take(self.pending_feedback.borrow_mut().deref_mut());
+        let pending = mem::take(self.pending_feedback.borrow_mut().deref_mut());
         self.feedback.push(Feedback {
-            _format_table: match pending.format_table.take() {
-                None => bail!("compositor did not send format table"),
-                Some(ft) => ft,
-            },
-            _format_table_size: pending.format_table_size,
             _main_device: pending.main_device,
             tranches: pending.tranches,
         });
@@ -82,9 +77,8 @@ impl TestDmabufFeedback {
 
     fn handle_format_table(&self, parser: MsgParser<'_, '_>) -> TestResult {
         let ev = FormatTable::parse_full(parser)?;
-        let pending = &mut *self.pending_feedback.borrow_mut();
-        pending.format_table = Some(ev.fd);
-        pending.format_table_size = ev.size as _;
+        self.format_table.set(Some(ev.fd));
+        self.format_table_size.set(ev.size as _);
         Ok(())
     }
 

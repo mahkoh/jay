@@ -1025,7 +1025,7 @@ impl BackendDrmDevice for XDrmDevice {
         // nothing
     }
 
-    fn gtx_api(&self) -> GfxApi {
+    fn gfx_api(&self) -> GfxApi {
         self.backend.ctx.gfx_api()
     }
 

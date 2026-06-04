@@ -196,6 +196,7 @@ impl WlSubsurface {
         self.surface.set_absolute_position(x, y);
         self.surface
             .set_output(&self.parent.output.get(), self.parent.location.get());
+        self.surface.mark_fullscreen(self.parent.fullscreen.get());
         Ok(())
     }
 

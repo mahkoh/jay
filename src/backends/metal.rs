@@ -21,7 +21,6 @@ use {
             },
         },
         dbus::{DbusError, SignalHandler},
-        drm_feedback::DrmFeedback,
         gfx_api::{GfxError, SyncFile},
         ifs::{
             wl_output::OutputId,
@@ -140,7 +139,6 @@ pub struct MetalBackend {
     resume_handler: Cell<Option<SignalHandler>>,
     ctx: CloneCell<Option<Rc<MetalRenderContext>>>,
     signaled_sync_file: CloneCell<Option<SyncFile>>,
-    default_feedback: CloneCell<Option<Rc<DrmFeedback>>>,
     persistent_display_data: CopyHashMap<Rc<OutputId>, Rc<PersistentDisplayData>>,
 }
 
@@ -298,7 +296,6 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<MetalBackend>, MetalError> {
         resume_handler: Default::default(),
         ctx: Default::default(),
         signaled_sync_file: Default::default(),
-        default_feedback: Default::default(),
         persistent_display_data: Default::default(),
     });
     metal.pause_handler.set(Some({

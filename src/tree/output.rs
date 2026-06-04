@@ -1578,7 +1578,7 @@ impl OutputNode {
                         continue;
                     };
                     if let Some(req) = surface {
-                        let Some(surface) = tl.tl_scanout_surface() else {
+                        let Some(surface) = tl.tl_surface() else {
                             break 'get false;
                         };
                         if let Some(req) = req.content_type {
@@ -1621,7 +1621,7 @@ impl OutputNode {
                         continue;
                     };
                     if let Some(req) = surface {
-                        let Some(surface) = tl.tl_scanout_surface() else {
+                        let Some(surface) = tl.tl_surface() else {
                             break 'get false;
                         };
                         if req.tearing_requested {

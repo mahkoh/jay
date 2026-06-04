@@ -263,7 +263,7 @@ impl BackendDrmDevice for HeadlessDrmDevice {
         let ctx = match self.ctx.get() {
             Some(ctx) => ctx,
             _ => {
-                let Some(ctx) = self.create_ctx(self.gtx_api()) else {
+                let Some(ctx) = self.create_ctx(self.gfx_api()) else {
                     return;
                 };
                 self.ctx.set(Some(ctx.clone()));
@@ -293,7 +293,7 @@ impl BackendDrmDevice for HeadlessDrmDevice {
         }
     }
 
-    fn gtx_api(&self) -> GfxApi {
+    fn gfx_api(&self) -> GfxApi {
         self.api.get()
     }
 

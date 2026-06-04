@@ -103,7 +103,7 @@ impl ZwpLinuxDmabufV1 {
         &self,
         id: ZwpLinuxDmabufFeedbackV1Id,
         surface: Option<&Rc<WlSurface>>,
-    ) -> Result<Rc<ZwpLinuxDmabufFeedbackV1>, ZwpLinuxDmabufV1Error> {
+    ) -> Result<(), ZwpLinuxDmabufV1Error> {
         let fb = Rc::new(ZwpLinuxDmabufFeedbackV1::new(
             id,
             &self.client,
@@ -112,14 +112,21 @@ impl ZwpLinuxDmabufV1 {
         ));
         track!(self.client, fb);
         self.client.add_client_obj(&fb)?;
-        self.client
-            .state
-            .drm_feedback_consumers
-            .set((self.client.id, id), fb.clone());
-        if let Some(feedback) = self.client.state.drm_feedback.get() {
-            fb.send_feedback(&feedback);
+        let connector = if let Some(surface) = surface {
+            surface.dmabuf_feedback.set(id, fb.clone());
+            surface.fullscreen.get()
+        } else {
+            self.client
+                .state
+                .dmabuf_feedback
+                .default
+                .set((self.client.id, id), fb.clone());
+            None
+        };
+        if let Some(dfb) = self.client.state.dmabuf_feedback.fb.get() {
+            dfb.send(&fb, connector);
         }
-        Ok(fb)
+        Ok(())
     }
 }
 
@@ -153,8 +160,7 @@ impl ZwpLinuxDmabufV1RequestHandler for ZwpLinuxDmabufV1 {
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
         let surface = self.client.lookup(req.surface)?;
-        let fb = self.get_feedback(req.id, Some(&surface))?;
-        surface.drm_feedback.set(req.id, fb);
+        self.get_feedback(req.id, Some(&surface))?;
         Ok(())
     }
 }

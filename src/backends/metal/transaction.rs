@@ -3,7 +3,7 @@ use {
         allocator::BufferObject,
         backend::{
             BackendColorSpace, BackendConnectorState, BackendEotfs, BackendGammaLut, Connector,
-            ConnectorEvent,
+            ConnectorEvent, ScanoutFormats,
             transaction::{
                 BackendAppliedConnectorTransaction, BackendConnectorTransaction,
                 BackendConnectorTransactionError, BackendPreparedConnectorTransaction,
@@ -106,6 +106,7 @@ struct ConnectorConfig {
     state: BackendConnectorState,
     requested: bool,
     changed: Rc<Cell<bool>>,
+    old_scanout_formats: Option<ScanoutFormats>,
 }
 
 const SIZE: usize = 16;
@@ -198,6 +199,7 @@ impl MetalDrmDeviceData {
                     state: dd.persistent.state.borrow().clone(),
                     requested: false,
                     changed: Default::default(),
+                    old_scanout_formats: connector.scanout_formats(),
                 },
             );
         }
@@ -1071,8 +1073,10 @@ impl MetalDeviceTransactionWithChange {
                         if connector.changed.get() || connector.requested {
                             connector.obj.send_hardware_cursor();
                             connector.obj.send_formats();
-                            connector.obj.update_drm_feedback();
                             connector.obj.send_state();
+                            if connector.obj.scanout_formats() != connector.old_scanout_formats {
+                                connector.obj.state.dmabuf_feedback.update();
+                            }
                         }
                     }
                     FrontState::Connected { non_desktop: true } => {

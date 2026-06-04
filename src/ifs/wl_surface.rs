@@ -24,13 +24,13 @@ pub mod zwp_input_popup_surface_v2;
 
 use {
     crate::{
-        backend::{ButtonState, KeyState},
+        backend::{ButtonState, ConnectorId, KeyState},
         client::{Client, ClientError},
         cmm::{cmm_description::ColorDescription, cmm_render_intent::RenderIntent},
         configurable::ConfigurableDataCore,
         cursor_user::{CursorUser, CursorUserId},
         damage::DamageMatrix,
-        drm_feedback::DrmFeedback,
+        dmabuf_feedback::DmaBufFeedback,
         fixed::Fixed,
         gfx_api::{
             AlphaMode, AsyncShmGfxTexture, BufferResv, BufferResvUser, FdSync, GfxError,
@@ -317,7 +317,6 @@ pub struct WlSurface {
     version: Version,
     pub has_content_type_manager: Cell<bool>,
     pub content_type: Cell<Option<ContentType>>,
-    pub drm_feedback: CopyHashMap<ZwpLinuxDmabufFeedbackV1Id, Rc<ZwpLinuxDmabufFeedbackV1>>,
     syncobj_surface: CloneCell<Option<Rc<WpLinuxDrmSyncobjSurfaceV1>>>,
     destroyed: Cell<bool>,
     commit_timeline: CommitTimeline,
@@ -343,6 +342,8 @@ pub struct WlSurface {
     alpha_mode: Cell<AlphaMode>,
     requested_serial: Cell<TreeSerial>,
     flush_frame_requests: Cell<bool>,
+    pub fullscreen: Cell<Option<ConnectorId>>,
+    pub dmabuf_feedback: CopyHashMap<ZwpLinuxDmabufFeedbackV1Id, Rc<ZwpLinuxDmabufFeedbackV1>>,
 }
 
 impl Debug for WlSurface {
@@ -683,7 +684,6 @@ impl WlSurface {
             version,
             has_content_type_manager: Default::default(),
             content_type: Default::default(),
-            drm_feedback: Default::default(),
             syncobj_surface: Default::default(),
             destroyed: Cell::new(false),
             commit_timeline: client.commit_timelines.create_timeline(),
@@ -708,6 +708,8 @@ impl WlSurface {
             alpha_mode: Default::default(),
             requested_serial: Cell::new(TreeSerial::from_raw(0)),
             flush_frame_requests: Default::default(),
+            fullscreen: Default::default(),
+            dmabuf_feedback: Default::default(),
         }
     }
 
@@ -914,6 +916,7 @@ impl WlSurface {
     fn set_dummy_output(&self) {
         let dummy_output = self.client.state.dummy_output.get().unwrap();
         self.set_output(&dummy_output, NodeLocation::Output(dummy_output.id));
+        self.mark_fullscreen(None);
     }
 
     fn calculate_extents(&self, propagate: bool) {
@@ -1767,12 +1770,6 @@ impl WlSurface {
         }
     }
 
-    pub fn send_feedback(&self, fb: &DrmFeedback) {
-        for consumer in self.drm_feedback.lock().values() {
-            consumer.send_feedback(fb);
-        }
-    }
-
     fn consume_pending_child(
         &self,
         child: SubsurfaceId,
@@ -1829,6 +1826,31 @@ impl WlSurface {
             fb.send_preferred_changed(&cd);
         }
     }
+
+    pub fn send_feedback(&self, fb: &DmaBufFeedback) {
+        for consumer in self.dmabuf_feedback.lock().values() {
+            fb.send(consumer, self.fullscreen.get());
+        }
+    }
+
+    pub fn mark_fullscreen(&self, connector: Option<ConnectorId>) {
+        let fb = self.client.state.dmabuf_feedback.fb.get();
+        self.mark_fullscreen_(connector, fb.as_ref());
+    }
+
+    fn mark_fullscreen_(&self, connector: Option<ConnectorId>, fb: Option<&Rc<DmaBufFeedback>>) {
+        if self.fullscreen.replace(connector) == connector {
+            return;
+        }
+        if let Some(fb) = fb {
+            self.send_feedback(fb);
+        }
+        if let Some(children) = &*self.children.borrow() {
+            for child in children.subsurfaces.values() {
+                child.surface.mark_fullscreen_(connector, fb);
+            }
+        }
+    }
 }
 
 object_base! {
@@ -1854,7 +1876,6 @@ impl Object for WlSurface {
         self.fractional_scale.take();
         self.tearing_control.take();
         self.constraints.clear();
-        self.drm_feedback.clear();
         self.commit_timeline.clear(ClearReason::BreakLoops);
         self.alpha_modifier.take();
         self.text_input_connections.clear();
@@ -1863,6 +1884,7 @@ impl Object for WlSurface {
         self.color_management_surface.take();
         self.color_management_feedback.clear();
         self.color_representation_surface.take();
+        self.dmabuf_feedback.clear();
     }
 }
 

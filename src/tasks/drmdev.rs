@@ -36,6 +36,7 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn BackendDrmDevice>) {
         dev: dev.clone(),
         handler: Cell::new(None),
         connectors: Default::default(),
+        dev_t,
         syspath: props.syspath,
         devnode: props.devnode,
         vendor: props.vendor,
@@ -54,6 +55,7 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn BackendDrmDevice>) {
     if state.drm_devs.set(id, data).is_some() {
         panic!("Drm device id has been reused");
     }
+    state.dmabuf_feedback.update();
 }
 
 struct DrvDevHandler {
@@ -95,7 +97,7 @@ impl DrvDevHandler {
     }
 
     fn log_gfx_api(&self) {
-        let api = self.data.dev.gtx_api();
+        let api = self.data.dev.gfx_api();
         log::info!(
             "Using {:?} for device {}",
             api,

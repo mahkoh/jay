@@ -6,7 +6,6 @@ use {
             BackendConnectorTransactionType, BackendConnectorTransactionTypeDyn,
         },
         cmm::cmm_primaries::Primaries,
-        drm_feedback::DrmFeedback,
         fixed::Fixed,
         format::Format,
         gfx_api::{FdSync, GfxApi, GfxFramebuffer},
@@ -23,10 +22,13 @@ use {
         },
         libinput::consts::DeviceCapability,
         utils::static_text::StaticText,
-        video::drm::{
-            ConnectorType, DRM_MODE_COLORIMETRY_BT2020_RGB, DRM_MODE_COLORIMETRY_DEFAULT,
-            DrmConnector, DrmError, DrmVersion, HDMI_EOTF_SMPTE_ST2084,
-            HDMI_EOTF_TRADITIONAL_GAMMA_SDR,
+        video::{
+            Modifier,
+            drm::{
+                ConnectorType, DRM_MODE_COLORIMETRY_BT2020_RGB, DRM_MODE_COLORIMETRY_DEFAULT,
+                DrmConnector, DrmError, DrmVersion, HDMI_EOTF_SMPTE_ST2084,
+                HDMI_EOTF_TRADITIONAL_GAMMA_SDR,
+            },
         },
     },
     jay_config::input::SwitchEvent,
@@ -130,6 +132,8 @@ impl Display for ConnectorKernelId {
     }
 }
 
+pub type ScanoutFormats = Rc<Vec<(&'static Format, Modifier)>>;
+
 pub trait Connector: Any {
     fn id(&self) -> ConnectorId;
     fn kernel_id(&self) -> ConnectorKernelId;
@@ -139,9 +143,6 @@ pub trait Connector: Any {
     fn drm_dev(&self) -> Option<DrmDeviceId>;
     fn effectively_locked(&self) -> bool;
     fn state(&self) -> BackendConnectorState;
-    fn drm_feedback(&self) -> Option<Rc<DrmFeedback>> {
-        None
-    }
     fn drm_object_id(&self) -> Option<DrmConnector> {
         None
     }
@@ -166,6 +167,9 @@ pub trait Connector: Any {
     }
     fn name(&self) -> String {
         self.kernel_id().to_string()
+    }
+    fn scanout_formats(&self) -> Option<ScanoutFormats> {
+        None
     }
 }
 
@@ -568,7 +572,7 @@ pub trait BackendDrmDevice {
     fn dev_t(&self) -> c::dev_t;
     fn make_render_device(&self);
     fn set_gfx_api(&self, api: GfxApi);
-    fn gtx_api(&self) -> GfxApi;
+    fn gfx_api(&self) -> GfxApi;
     fn version(&self) -> Result<DrmVersion, DrmError>;
     fn set_direct_scanout_enabled(&self, enabled: bool);
     fn is_render_device(&self) -> bool;

@@ -31,7 +31,7 @@ use {
         cursor_user::{CursorUserGroup, CursorUserGroupId, CursorUserGroupIds, CursorUserIds},
         damage::DamageVisualizer,
         dbus::Dbus,
-        drm_feedback::{DrmFeedback, DrmFeedbackIds},
+        dmabuf_feedback::DmaBufFeedbackState,
         egui_adapter::egui_platform::EggState,
         ei::{
             ei_acceptor::EiAcceptor,
@@ -91,7 +91,6 @@ use {
             xdg_activation_token_v1::ActivationToken,
             zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1,
             zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
-            zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
         },
         io_uring::IoUring,
         kbvm::{KbvmContext, KbvmMap},
@@ -140,7 +139,7 @@ use {
         wheel::Wheel,
         wire::{
             ExtForeignToplevelListV1Id, ExtIdleNotificationV1Id, JayRenderCtxId, JaySeatEventsId,
-            JayWorkspaceWatcherId, ZwlrForeignToplevelManagerV1Id, ZwpLinuxDmabufFeedbackV1Id,
+            JayWorkspaceWatcherId, ZwlrForeignToplevelManagerV1Id,
         },
         xwayland::{self, XWaylandEvent},
     },
@@ -157,7 +156,10 @@ use {
         time::{Duration, SystemTime},
     },
     thiserror::Error,
-    uapi::{OwnedFd, c},
+    uapi::{
+        OwnedFd,
+        c::{self, dev_t},
+    },
 };
 
 pub struct State {
@@ -169,9 +171,6 @@ pub struct State {
     pub eng: Rc<AsyncEngine>,
     pub render_ctx: CloneCell<Option<Rc<dyn GfxContext>>>,
     pub render_ctx_drm_device_id: Cell<Option<DrmDeviceId>>,
-    pub drm_feedback: CloneCell<Option<Rc<DrmFeedback>>>,
-    pub drm_feedback_consumers:
-        CopyHashMap<(ClientId, ZwpLinuxDmabufFeedbackV1Id), Rc<ZwpLinuxDmabufFeedbackV1>>,
     pub render_ctx_version: NumCell<u32>,
     pub render_ctx_ever_initialized: Cell<bool>,
     pub cursors: CloneCell<Option<Rc<ServerCursors>>>,
@@ -238,7 +237,6 @@ pub struct State {
     pub toplevel_lists:
         CopyHashMap<(ClientId, ExtForeignToplevelListV1Id), Rc<ExtForeignToplevelListV1>>,
     pub dma_buf_ids: Rc<DmaBufIds>,
-    pub drm_feedback_ids: DrmFeedbackIds,
     pub direct_scanout_enabled: Cell<bool>,
     pub persistent_output_states: CopyHashMap<Rc<OutputId>, Rc<PersistentOutputState>>,
     pub double_click_interval_usec: Cell<u64>,
@@ -316,6 +314,7 @@ pub struct State {
     pub tree_serials: TreeSerials,
     pub configure_groups: ConfigureGroups,
     pub commit_cache: Rc<CommitCache>,
+    pub dmabuf_feedback: DmaBufFeedbackState,
 }
 
 // impl Drop for State {
@@ -470,6 +469,7 @@ pub struct DrmDevData {
     pub dev: Rc<dyn BackendDrmDevice>,
     pub handler: Cell<Option<SpawnedFuture<()>>>,
     pub connectors: CopyHashMap<ConnectorId, Rc<ConnectorData>>,
+    pub dev_t: dev_t,
     pub syspath: Option<String>,
     pub devnode: Option<String>,
     pub vendor: Option<String>,
@@ -700,27 +700,11 @@ impl State {
         self.render_ctx_drm_device_id
             .set(ctx.as_ref().and_then(|c| c.drm_device_id()));
         self.cursors.set(None);
-        self.drm_feedback.set(None);
         self.icons.clear();
         self.wait_for_syncobj
             .set_ctx(ctx.as_ref().and_then(|c| c.syncobj_ctx().cloned()));
         self.virtual_outputs.handle_render_ctx_change(self);
-
-        'handle_new_feedback: {
-            if let Some(ctx) = &ctx {
-                let feedback = match DrmFeedback::new(&self.drm_feedback_ids, &**ctx) {
-                    Ok(fb) => fb,
-                    Err(e) => {
-                        log::error!("Could not create new DRM feedback: {}", ErrorFmt(e));
-                        break 'handle_new_feedback;
-                    }
-                };
-                for watcher in self.drm_feedback_consumers.lock().values() {
-                    watcher.send_feedback(&feedback);
-                }
-                self.drm_feedback.set(Some(Rc::new(feedback)));
-            }
-        }
+        self.dmabuf_feedback.update();
 
         {
             struct Walker;

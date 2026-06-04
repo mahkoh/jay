@@ -84,7 +84,7 @@ impl GpusPane {
                     let v = dev.dev.dev_t();
                     label(ui, "Dev", format!("{}:{}", uapi::major(v), uapi::minor(v)));
                 }
-                combo_box(ui, "API", dev.dev.gtx_api(), |v| dev.dev.set_gfx_api(v));
+                combo_box(ui, "API", dev.dev.gfx_api(), |v| dev.dev.set_gfx_api(v));
                 row(ui, "Primary Device", |ui| {
                     let mut v = dev.dev.is_render_device();
                     let old = v;

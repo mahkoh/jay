@@ -1,7 +1,7 @@
 use {
     crate::{
         client::{Client, ClientError},
-        drm_feedback::{DrmFeedback, DrmFeedbackId},
+        dmabuf_feedback::DmaBufFeedbackId,
         ifs::wl_surface::WlSurface,
         leaks::Tracker,
         object::{Object, Version},
@@ -12,13 +12,13 @@ use {
     uapi::{OwnedFd, c},
 };
 
-pub const SCANOUT: u32 = 1;
+pub const FB_SCANOUT: u32 = 1;
 
 pub struct ZwpLinuxDmabufFeedbackV1 {
     pub id: ZwpLinuxDmabufFeedbackV1Id,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
-    pub last_feedback: Cell<Option<DrmFeedbackId>>,
+    pub last_format_table: Cell<Option<DmaBufFeedbackId>>,
     pub surface: Option<Rc<WlSurface>>,
     pub version: Version,
 }
@@ -34,65 +34,50 @@ impl ZwpLinuxDmabufFeedbackV1 {
             id,
             client: client.clone(),
             tracker: Default::default(),
-            last_feedback: Default::default(),
+            last_format_table: Default::default(),
             surface: surface.cloned(),
             version,
         }
     }
 
-    pub fn send_feedback(&self, feedback: &DrmFeedback) {
-        if self.last_feedback.replace(Some(feedback.id)) == Some(feedback.id) {
-            return;
-        }
-        self.send_format_table(&feedback.shared.fd, feedback.shared.size);
-        self.send_main_device(feedback.shared.main_device);
-        for tranch in &feedback.tranches {
-            self.send_tranche_target_device(tranch.device);
-            self.send_tranche_formats(&tranch.indices);
-            self.send_tranche_flags(if tranch.scanout { SCANOUT } else { 0 });
-            self.send_tranche_done();
-        }
-        self.send_done();
-    }
-
-    fn send_done(&self) {
+    pub fn send_done(&self) {
         self.client.event(Done { self_id: self.id });
     }
 
-    fn send_format_table(&self, fd: &Rc<OwnedFd>, size: usize) {
+    pub fn send_format_table(&self, fd: &Rc<OwnedFd>, size: u32) {
         self.client.event(FormatTable {
             self_id: self.id,
             fd: fd.clone(),
-            size: size as _,
+            size,
         });
     }
 
-    fn send_main_device(&self, dev: c::dev_t) {
+    pub fn send_main_device(&self, dev: c::dev_t) {
         self.client.event(MainDevice {
             self_id: self.id,
             device: dev,
         });
     }
 
-    fn send_tranche_done(&self) {
+    pub fn send_tranche_done(&self) {
         self.client.event(TrancheDone { self_id: self.id });
     }
 
-    fn send_tranche_target_device(&self, dev: c::dev_t) {
+    pub fn send_tranche_target_device(&self, dev: c::dev_t) {
         self.client.event(TrancheTargetDevice {
             self_id: self.id,
             device: dev,
         });
     }
 
-    fn send_tranche_formats(&self, indices: &[u16]) {
+    pub fn send_tranche_formats(&self, indices: &[u16]) {
         self.client.event(TrancheFormats {
             self_id: self.id,
             indices,
         });
     }
 
-    fn send_tranche_flags(&self, flags: u32) {
+    pub fn send_tranche_flags(&self, flags: u32) {
         self.client.event(TrancheFlags {
             self_id: self.id,
             flags,
@@ -112,12 +97,14 @@ impl ZwpLinuxDmabufFeedbackV1RequestHandler for ZwpLinuxDmabufFeedbackV1 {
 
 impl ZwpLinuxDmabufFeedbackV1 {
     fn detach(&self) {
-        self.client
-            .state
-            .drm_feedback_consumers
-            .remove(&(self.client.id, self.id));
         if let Some(surface) = &self.surface {
-            surface.drm_feedback.remove(&self.id);
+            surface.dmabuf_feedback.remove(&self.id);
+        } else {
+            self.client
+                .state
+                .dmabuf_feedback
+                .default
+                .remove(&(self.client.id, self.id));
         }
     }
 }

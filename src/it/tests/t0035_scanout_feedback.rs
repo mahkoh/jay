@@ -1,10 +1,13 @@
 use {
     crate::{
-        ifs::zwp_linux_dmabuf_feedback_v1::SCANOUT,
+        backend::BackendDrmDevice,
+        format::ARGB8888,
+        ifs::zwp_linux_dmabuf_feedback_v1::FB_SCANOUT,
         it::{
             test_error::{TestErrorExt, TestResult},
             testrun::TestRun,
         },
+        video::LINEAR_MODIFIER,
     },
     std::rc::Rc,
 };
@@ -14,21 +17,11 @@ testcase!();
 async fn test(run: Rc<TestRun>) -> TestResult {
     let ds = run.create_default_setup2(true).await?;
 
-    let scanout_feedback = {
-        let Some(base_fb) = run.state.drm_feedback.get() else {
-            bail!("no base fb");
-        };
-        let Some(index) = base_fb.shared.indices.keys().copied().next() else {
-            bail!("no formats");
-        };
-        let fb = base_fb
-            .for_scanout(&run.state.drm_feedback_ids, 1234, &[index])
-            .unwrap()
-            .unwrap();
-        Rc::new(fb)
-    };
-
-    ds.connector.feedback.set(Some(scanout_feedback.clone()));
+    ds.connector
+        .scanout_formats
+        .set(Some(Rc::new(vec![(ARGB8888, LINEAR_MODIFIER)])));
+    run.state.dmabuf_feedback.update();
+    run.sync().await;
 
     let client1 = run.create_client().await?;
     let win1 = client1.create_window().await?;
@@ -49,9 +42,9 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     tassert_eq!(fb.tranches.len(), 2);
     tassert_eq!(
         fb.tranches[0].target_device,
-        scanout_feedback.tranches[0].device
+        run.backend.default_drm_dev.dev_t(),
     );
-    tassert_eq!(fb.tranches[0].flags, SCANOUT);
+    tassert_eq!(fb.tranches[0].flags, FB_SCANOUT);
     tassert_eq!(fb.tranches[1].flags, 0);
 
     run.cfg.set_fullscreen(ds.seat.id(), false)?;
