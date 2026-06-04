@@ -1334,15 +1334,14 @@ impl CopyDevice {
             }
         };
         let fd = Rc::new(OwnedFd::new(fd));
-        let mut dmabuf = DmaBuf {
-            id: dma_buf_ids.next(),
+        let mut dmabuf = DmaBuf::new(
+            dma_buf_ids,
             width,
             height,
             format,
-            modifier: LINEAR_MODIFIER,
-            planes: Default::default(),
-            is_disjoint: Default::default(),
-        };
+            LINEAR_MODIFIER,
+            Default::default(),
+        );
         dmabuf.planes.push(DmaBufPlane {
             offset: 0,
             stride,

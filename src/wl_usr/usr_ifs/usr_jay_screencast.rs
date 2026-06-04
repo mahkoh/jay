@@ -148,15 +148,14 @@ impl JayScreencastEventHandler for UsrJayScreencast {
             Some(f) => f,
             _ => return Err(UsrJayScreencastError::UnknownFormat(ev.format)),
         };
-        self.pending_buffers.borrow_mut().push(DmaBuf {
-            id: self.con.dma_buf_ids.next(),
-            width: ev.width,
-            height: ev.height,
+        self.pending_buffers.borrow_mut().push(DmaBuf::new(
+            &self.con.dma_buf_ids,
+            ev.width,
+            ev.height,
             format,
-            modifier: ev.modifier,
-            planes: mem::take(self.pending_planes.borrow_mut().deref_mut()),
-            is_disjoint: Default::default(),
-        });
+            ev.modifier,
+            mem::take(self.pending_planes.borrow_mut().deref_mut()),
+        ));
         Ok(())
     }
 

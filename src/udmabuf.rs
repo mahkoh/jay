@@ -153,15 +153,14 @@ impl Udmabuf {
             stride: stride as _,
             fd: Rc::new(dmabuf),
         });
-        let dmabuf = DmaBuf {
-            id: dma_buf_ids.next(),
-            width: width as _,
-            height: height as _,
+        let dmabuf = DmaBuf::new(
+            dma_buf_ids,
+            width as _,
+            height as _,
             format,
-            modifier: LINEAR_MODIFIER,
+            LINEAR_MODIFIER,
             planes,
-            is_disjoint: Default::default(),
-        };
+        );
         Ok(UdmabufBo {
             buf: dmabuf,
             size: size as _,

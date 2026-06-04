@@ -225,15 +225,14 @@ impl VulkanBoAllocator {
                 fd: fd.clone(),
             });
         }
-        let buf = DmaBuf {
-            id: dma_buf_ids.next(),
-            width: width as _,
-            height: height as _,
-            format: format.format,
-            modifier: modifier.modifier,
+        let buf = DmaBuf::new(
+            dma_buf_ids,
+            width as _,
+            height as _,
+            format.format,
+            modifier.modifier,
             planes,
-            is_disjoint: Default::default(),
-        };
+        );
         unsafe {
             let cmd = data.command_buffer.buffer;
             let device = &data.device.device;

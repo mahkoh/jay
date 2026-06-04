@@ -128,15 +128,14 @@ impl WlDrmRequestHandler for WlDrm {
             Some(f) => *f,
             None => return Err(WlDrmError::InvalidFormat(req.format)),
         };
-        let mut dmabuf = DmaBuf {
-            id: state.dma_buf_ids.next(),
-            width: req.width,
-            height: req.height,
+        let mut dmabuf = DmaBuf::new(
+            &state.dma_buf_ids,
+            req.width,
+            req.height,
             format,
-            modifier: INVALID_MODIFIER,
-            planes: PlaneVec::new(),
-            is_disjoint: Default::default(),
-        };
+            INVALID_MODIFIER,
+            PlaneVec::new(),
+        );
         if req.stride0 > 0 {
             dmabuf.planes.push(DmaBufPlane {
                 offset: req.offset0 as _,

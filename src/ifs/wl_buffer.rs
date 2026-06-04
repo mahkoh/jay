@@ -12,7 +12,7 @@ use {
         utils::{errorfmt::ErrorFmt, event_listener::EventListener, page_size::page_size},
         video::{
             LINEAR_MODIFIER,
-            dmabuf::{DmaBuf, DmaBufPlane},
+            dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
         },
         wire::{WlBufferId, wl_buffer::*},
     },
@@ -413,15 +413,14 @@ impl WlBuffer {
             tex_impossible,
             ..
         } = dmabuf_buffer_params;
-        let mut dmabuf = DmaBuf {
-            id: self.client.state.dma_buf_ids.next(),
-            width: self.width,
-            height: self.height,
-            format: self.format,
-            modifier: LINEAR_MODIFIER,
-            planes: Default::default(),
-            is_disjoint: Default::default(),
-        };
+        let mut dmabuf = DmaBuf::new(
+            &self.client.state.dma_buf_ids,
+            self.width,
+            self.height,
+            self.format,
+            LINEAR_MODIFIER,
+            PlaneVec::new(),
+        );
         dmabuf.planes.push(DmaBufPlane {
             offset: *udmabuf_offset as _,
             stride: stride as _,

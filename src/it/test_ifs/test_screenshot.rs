@@ -31,15 +31,14 @@ impl TestJayScreenshot {
             stride: ev.stride,
             fd: ev.fd,
         });
-        self.result.set(Some(Ok(DmaBuf {
-            id: self.state.dma_buf_ids.next(),
-            width: ev.width as _,
-            height: ev.height as _,
-            format: XRGB8888,
-            modifier: ev.modifier,
+        self.result.set(Some(Ok(DmaBuf::new(
+            &self.state.dma_buf_ids,
+            ev.width as _,
+            ev.height as _,
+            XRGB8888,
+            ev.modifier,
             planes,
-            is_disjoint: Default::default(),
-        })));
+        ))));
         Ok(())
     }
 
@@ -67,15 +66,14 @@ impl TestJayScreenshot {
 
     fn handle_dmabuf2(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
         let ev = Dmabuf2::parse_full(parser)?;
-        self.result.set(Some(Ok(DmaBuf {
-            id: self.state.dma_buf_ids.next(),
-            width: ev.width as _,
-            height: ev.height as _,
-            format: XRGB8888,
-            modifier: ev.modifier,
-            planes: self.planes.take(),
-            is_disjoint: Default::default(),
-        })));
+        self.result.set(Some(Ok(DmaBuf::new(
+            &self.state.dma_buf_ids,
+            ev.width as _,
+            ev.height as _,
+            XRGB8888,
+            ev.modifier,
+            self.planes.take(),
+        ))));
         Ok(())
     }
 }

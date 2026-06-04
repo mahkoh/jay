@@ -36,7 +36,7 @@ pub struct DmaBuf {
     pub format: &'static Format,
     pub modifier: Modifier,
     pub planes: PlaneVec<DmaBufPlane>,
-    pub is_disjoint: OnceCell<bool>,
+    is_disjoint: OnceCell<bool>,
 }
 
 pub const MAX_PLANES: usize = 4;
@@ -44,6 +44,25 @@ pub const MAX_PLANES: usize = 4;
 pub type PlaneVec<T> = ArrayVec<T, MAX_PLANES>;
 
 impl DmaBuf {
+    pub fn new(
+        ids: &DmaBufIds,
+        width: i32,
+        height: i32,
+        format: &'static Format,
+        modifier: Modifier,
+        planes: PlaneVec<DmaBufPlane>,
+    ) -> Self {
+        Self {
+            id: ids.next(),
+            width,
+            height,
+            format,
+            modifier,
+            planes,
+            is_disjoint: Default::default(),
+        }
+    }
+
     pub fn is_disjoint(&self) -> bool {
         *self.is_disjoint.get_or_init(|| {
             if self.planes.len() <= 1 {

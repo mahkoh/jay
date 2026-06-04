@@ -80,15 +80,14 @@ impl ZwpLinuxBufferParamsV1 {
             Some(m) => m,
             _ => return Err(ZwpLinuxBufferParamsV1Error::NoPlanes),
         };
-        let mut dmabuf = DmaBuf {
-            id: state.dma_buf_ids.next(),
+        let mut dmabuf = DmaBuf::new(
+            &state.dma_buf_ids,
             width,
             height,
             format,
             modifier,
-            planes: PlaneVec::new(),
-            is_disjoint: Default::default(),
-        };
+            PlaneVec::new(),
+        );
         let mut planes: Vec<_> = self.planes.borrow_mut().drain_values().collect();
         planes.sort_by_key(|a| a.plane_idx);
         for (i, p) in planes.into_iter().enumerate() {

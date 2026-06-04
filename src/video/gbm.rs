@@ -181,19 +181,19 @@ impl MappedBuffer for GbmBoMap {
 
 unsafe fn export_bo(dmabuf_ids: &DmaBufIds, bo: *mut Bo) -> Result<DmaBuf, GbmError> {
     unsafe {
-        Ok(DmaBuf {
-            id: dmabuf_ids.next(),
-            width: gbm_bo_get_width(bo) as _,
-            height: gbm_bo_get_height(bo) as _,
-            modifier: gbm_bo_get_modifier(bo),
-            format: {
+        Ok(DmaBuf::new(
+            dmabuf_ids,
+            gbm_bo_get_width(bo) as _,
+            gbm_bo_get_height(bo) as _,
+            {
                 let format = gbm_bo_get_format(bo);
                 match formats().get(&format).copied() {
                     Some(f) => f,
                     _ => return Err(GbmError::UnknownFormat),
                 }
             },
-            planes: {
+            gbm_bo_get_modifier(bo),
+            {
                 let mut planes = PlaneVec::new();
                 for plane in 0..gbm_bo_get_plane_count(bo) {
                     let offset = gbm_bo_get_offset(bo, plane);
@@ -210,8 +210,7 @@ unsafe fn export_bo(dmabuf_ids: &DmaBufIds, bo: *mut Bo) -> Result<DmaBuf, GbmEr
                 }
                 planes
             },
-            is_disjoint: Default::default(),
-        })
+        ))
     }
 }
 
