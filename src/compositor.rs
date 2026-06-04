@@ -29,6 +29,7 @@ use {
         },
         damage::{DamageVisualizer, visualize_damage},
         dbus::Dbus,
+        dmabuf_feedback::handle_dmabuf_feedback_changes,
         ei::ei_client::EiClients,
         eventfd_cache::EventfdCache,
         forker,
@@ -241,8 +242,6 @@ fn start_compositor2(
         eng: engine.clone(),
         render_ctx: Default::default(),
         render_ctx_drm_device_id: Default::default(),
-        drm_feedback: Default::default(),
-        drm_feedback_consumers: Default::default(),
         render_ctx_version: NumCell::new(1),
         render_ctx_ever_initialized: Cell::new(false),
         cursors: Default::default(),
@@ -334,7 +333,6 @@ fn start_compositor2(
         activation_tokens: Default::default(),
         toplevel_lists: Default::default(),
         dma_buf_ids: Default::default(),
-        drm_feedback_ids: Default::default(),
         direct_scanout_enabled: Cell::new(true),
         persistent_output_states: Default::default(),
         double_click_interval_usec: Cell::new(400 * 1000),
@@ -411,6 +409,7 @@ fn start_compositor2(
         tree_serials: Default::default(),
         configure_groups: Default::default(),
         commit_cache: Default::default(),
+        dmabuf_feedback: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -634,6 +633,10 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             "configurables timeout",
             Phase::PostLayout,
             handle_configurables_timeout(state.clone()),
+        ),
+        eng.spawn(
+            "dmabuf feedback changes",
+            handle_dmabuf_feedback_changes(state.clone()),
         ),
     ]
 }

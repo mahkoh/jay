@@ -334,11 +334,6 @@ impl WorkspaceNode {
         } else {
             node.tl_set_visible(false);
         }
-        if let Some(surface) = node.tl_scanout_surface()
-            && let Some(fb) = ns.output.get().global.connector.connector.drm_feedback()
-        {
-            surface.send_feedback(&fb);
-        }
         ns.output.get().update_presentation_type();
     }
 
@@ -348,11 +343,6 @@ impl WorkspaceNode {
             self.discard_child_properties(&*node);
             if ns.visible.get() {
                 ns.output.get().fullscreen_changed();
-            }
-            if let Some(surface) = node.tl_scanout_surface()
-                && let Some(fb) = surface.client.state.drm_feedback.get()
-            {
-                surface.send_feedback(&fb);
             }
             ns.output.get().update_presentation_type();
         }

@@ -7,7 +7,7 @@ use {
             ButtonState, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId,
             DrmEvent, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
             InputDeviceClickMethod, InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo,
-            ScrollAxis, TransformMatrix,
+            ScanoutFormats, ScrollAxis, TransformMatrix,
             transaction::{
                 BackendAppliedConnectorTransaction, BackendConnectorTransaction,
                 BackendConnectorTransactionError, BackendConnectorTransactionType,
@@ -16,7 +16,6 @@ use {
         },
         cmm::cmm_primaries::Primaries,
         compositor::TestFuture,
-        drm_feedback::DrmFeedback,
         fixed::Fixed,
         format::XRGB8888,
         gfx_api::{GfxApi, GfxError},
@@ -120,10 +119,10 @@ impl TestBackend {
                 idx: 1,
             },
             events: Default::default(),
-            feedback: Default::default(),
             idle: Default::default(),
             damage_calls: NumCell::new(0),
             state: RefCell::new(bcs.clone()),
+            scanout_formats: Default::default(),
         });
         let default_mouse = Rc::new(TestBackendMouse {
             common: TestInputDeviceCommon {
@@ -340,10 +339,10 @@ pub struct TestConnector {
     pub drm_dev_id: DrmDeviceId,
     pub kernel_id: ConnectorKernelId,
     pub events: OnChange<ConnectorEvent>,
-    pub feedback: CloneCell<Option<Rc<DrmFeedback>>>,
     pub idle: TEEH<bool>,
     pub damage_calls: NumCell<u32>,
     pub state: RefCell<BackendConnectorState>,
+    pub scanout_formats: CloneCell<Option<ScanoutFormats>>,
 }
 
 impl Connector for TestConnector {
@@ -380,10 +379,6 @@ impl Connector for TestConnector {
         self.state.borrow().clone()
     }
 
-    fn drm_feedback(&self) -> Option<Rc<DrmFeedback>> {
-        self.feedback.get()
-    }
-
     fn transaction_type(&self) -> Box<dyn BackendConnectorTransactionTypeDyn> {
         Box::new(TestBackendTransactionType)
     }
@@ -392,6 +387,10 @@ impl Connector for TestConnector {
         &self,
     ) -> Result<Box<dyn BackendConnectorTransaction>, BackendConnectorTransactionError> {
         Ok(Box::new(TestBackendTransaction::default()))
+    }
+
+    fn scanout_formats(&self) -> Option<ScanoutFormats> {
+        self.scanout_formats.get()
     }
 }
 

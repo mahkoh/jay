@@ -95,6 +95,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
     if state.connectors.set(id, data).is_some() {
         panic!("Connector id has been reused");
     }
+    state.dmabuf_feedback.update();
 }
 
 struct ConnectorHandler {
@@ -130,6 +131,7 @@ impl ConnectorHandler {
         }
         self.data.handler.set(None);
         self.state.connectors.remove(&self.id);
+        self.state.dmabuf_feedback.update();
         self.state.trigger_cci(CCI_OUTPUTS);
     }
 

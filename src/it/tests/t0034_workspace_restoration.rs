@@ -49,10 +49,10 @@ async fn test(run: Rc<TestRun>) -> TestResult {
             idx: 2,
         },
         events: Default::default(),
-        feedback: Default::default(),
         idle: Default::default(),
         damage_calls: NumCell::new(0),
         state: RefCell::new(bcs.clone()),
+        scanout_formats: Default::default(),
     });
     let new_monitor_info = MonitorInfo {
         modes: Some(vec![]),

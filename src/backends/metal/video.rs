@@ -5,7 +5,7 @@ use {
             BackendColorSpace, BackendConnectorState, BackendDrmDevice, BackendDrmLease,
             BackendDrmLessee, BackendEotfs, BackendEvent, BackendGammaLut, BackendGammaLutElement,
             BackendLuminance, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId,
-            DrmDeviceId, HardwareCursor, HardwareCursorUpdate, Mode, MonitorInfo,
+            DrmDeviceId, HardwareCursor, HardwareCursorUpdate, Mode, MonitorInfo, ScanoutFormats,
             transaction::{
                 BackendConnectorTransaction, BackendConnectorTransactionError,
                 BackendConnectorTransactionType, BackendConnectorTransactionTypeDyn,
@@ -22,7 +22,6 @@ use {
         },
         cmm::{cmm_description::ColorDescription, cmm_primaries::Primaries},
         copy_device::{CopyDevice, CopyDeviceRegistry},
-        drm_feedback::DrmFeedback,
         edid::{CtaDataBlock, Descriptor, EdidExtension},
         format::{Format, XRGB8888},
         gfx_api::{FdSync, GfxApi, GfxContext, GfxFramebuffer},
@@ -545,7 +544,6 @@ pub struct MetalConnector {
     pub cursor_swap_buffer: Cell<bool>,
     pub cursor_sync: CloneCell<Option<FdSync>>,
 
-    pub drm_feedback: CloneCell<Option<Rc<DrmFeedback>>>,
     pub scanout_buffers: RefCell<AHashMap<DmaBufId, DirectScanoutCache>>,
     pub active_framebuffer: RefCell<Option<PresentFb>>,
     pub next_framebuffer: OpaqueCell<Option<PresentFb>>,
@@ -686,32 +684,6 @@ impl MetalConnector {
     fn connected(&self) -> bool {
         let dd = self.display.borrow();
         dd.connection == ConnectorStatus::Connected
-    }
-
-    pub fn update_drm_feedback(&self) {
-        let fb = self.compute_drm_feedback();
-        self.drm_feedback.set(fb);
-    }
-
-    fn compute_drm_feedback(&self) -> Option<Rc<DrmFeedback>> {
-        if !self.dev.is_render_device() {
-            return None;
-        }
-        let default = self.backend.default_feedback.get()?;
-        let plane = self.primary_plane.get()?;
-        let mut formats = vec![];
-        for (format, info) in &plane.formats {
-            for modifier in &info.modifiers {
-                formats.push((*format, *modifier));
-            }
-        }
-        match default.for_scanout(&self.state.drm_feedback_ids, self.dev.devnum, &formats) {
-            Ok(fb) => fb.map(Rc::new),
-            Err(e) => {
-                log::error!("Could not compute connector feedback: {}", ErrorFmt(e));
-                None
-            }
-        }
     }
 
     pub fn send_event(&self, event: ConnectorEvent) {
@@ -873,10 +845,6 @@ impl Connector for MetalConnector {
         self.display.borrow().persistent.state.borrow().clone()
     }
 
-    fn drm_feedback(&self) -> Option<Rc<DrmFeedback>> {
-        self.drm_feedback.get()
-    }
-
     fn drm_object_id(&self) -> Option<DrmConnector> {
         Some(self.id)
     }
@@ -916,6 +884,10 @@ impl Connector for MetalConnector {
 
     fn gamma_lut_size(&self) -> Option<u32> {
         self.crtc.get().and_then(|crtc| crtc.gamma_lut_size)
+    }
+
+    fn scanout_formats(&self) -> Option<ScanoutFormats> {
+        Some(self.primary_plane.get()?.scanout_formats.clone())
     }
 }
 
@@ -981,6 +953,7 @@ pub struct MetalPlane {
 
     pub possible_crtcs: u32,
     pub formats: AHashMap<u32, PlaneFormat>,
+    pub scanout_formats: ScanoutFormats,
 
     pub lease: Cell<Option<MetalLeaseId>>,
 
@@ -1133,7 +1106,6 @@ fn create_connector(
         cursor_damage: Cell::new(false),
         cursor_swap_buffer: Cell::new(false),
         cursor_sync: Default::default(),
-        drm_feedback: Default::default(),
         scanout_buffers: Default::default(),
         active_framebuffer: Default::default(),
         next_framebuffer: Default::default(),
@@ -1570,12 +1542,16 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
     let info = master.get_plane_info(plane)?;
     let props = collect_properties(master, plane)?;
     let mut formats = AHashMap::new();
+    let mut scanout_formats = Vec::new();
     if let Some((_, v)) = props.props.get(b"IN_FORMATS".as_bstr()) {
         for format in master.get_in_formats(*v as _)? {
             if format.modifiers.is_empty() {
                 continue;
             }
             if let Some(f) = crate::format::formats().get(&format.format) {
+                for &modifier in &format.modifiers {
+                    scanout_formats.push((*f, modifier));
+                }
                 formats.insert(
                     format.format,
                     PlaneFormat {
@@ -1588,6 +1564,7 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
     } else {
         for format in info.format_types {
             if let Some(f) = crate::format::formats().get(&format) {
+                scanout_formats.push((*f, INVALID_MODIFIER));
                 formats.insert(
                     format,
                     PlaneFormat {
@@ -1671,6 +1648,7 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
         ty,
         possible_crtcs: info.possible_crtcs,
         formats,
+        scanout_formats: Rc::new(scanout_formats),
         drm_state: RefCell::new(state),
         fb_id: fb_id.id,
         crtc_id: crtc_id.id,
@@ -1970,7 +1948,6 @@ impl MetalBackend {
             state,
         }));
         connector.send_hardware_cursor();
-        connector.update_drm_feedback();
         connector.send_formats();
     }
 
@@ -2493,14 +2470,6 @@ impl MetalBackend {
             }
         }
         self.state.set_render_ctx(Some(ctx.gfx.clone()));
-        let fb = match DrmFeedback::new(&self.state.drm_feedback_ids, &*ctx.gfx) {
-            Ok(fb) => Some(Rc::new(fb)),
-            Err(e) => {
-                log::error!("Could not create feedback for new context: {}", ErrorFmt(e));
-                None
-            }
-        };
-        self.default_feedback.set(fb);
         self.ctx.set(Some(ctx));
         for dev in self.device_holder.drm_devices.lock().values() {
             self.init_drm_device_after_gfx_ctx_change(&dev);
