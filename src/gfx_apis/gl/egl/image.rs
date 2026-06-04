@@ -13,7 +13,7 @@ pub struct EglImage {
     pub dpy: Rc<EglDisplay>,
     pub img: EGLImageKHR,
     pub external_only: bool,
-    pub dmabuf: DmaBuf,
+    pub dmabuf: Rc<DmaBuf>,
 }
 
 impl Drop for EglImage {

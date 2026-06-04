@@ -260,7 +260,7 @@ impl EglDisplay {
 
     pub(in crate::gfx_apis::gl) fn import_dmabuf(
         self: &Rc<Self>,
-        buf: &DmaBuf,
+        buf: &Rc<DmaBuf>,
     ) -> Result<Rc<EglImage>, RenderError> {
         let format = match self.formats.get(&buf.format.drm) {
             Some(fmt) => match fmt.modifiers.get(&buf.modifier) {

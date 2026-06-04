@@ -28,7 +28,7 @@ pub struct DmaBufPlane {
 
 linear_ids!(DmaBufIds, DmaBufId);
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct DmaBuf {
     pub id: DmaBufId,
     pub width: i32,
@@ -51,8 +51,8 @@ impl DmaBuf {
         format: &'static Format,
         modifier: Modifier,
         planes: PlaneVec<DmaBufPlane>,
-    ) -> Self {
-        Self {
+    ) -> Rc<Self> {
+        Rc::new(Self {
             id: ids.next(),
             width,
             height,
@@ -60,7 +60,7 @@ impl DmaBuf {
             modifier,
             planes,
             is_disjoint: Default::default(),
-        }
+        })
     }
 
     pub fn is_disjoint(&self) -> bool {

@@ -123,7 +123,7 @@ impl Udmabuf {
         width: i32,
         height: i32,
         format: &'static Format,
-    ) -> Result<DmaBuf, UdmabufError> {
+    ) -> Result<Rc<DmaBuf>, UdmabufError> {
         Ok(self.create_bo(dma_buf_ids, width, height, format)?.buf)
     }
 
@@ -195,7 +195,7 @@ impl Allocator for Udmabuf {
 
     fn import_dmabuf(
         &self,
-        dmabuf: &DmaBuf,
+        dmabuf: &Rc<DmaBuf>,
         _usage: BufferUsage,
     ) -> Result<Rc<dyn BufferObject>, AllocatorError> {
         if dmabuf.planes.len() != 1 {
@@ -231,12 +231,12 @@ impl Allocator for Udmabuf {
 }
 
 struct UdmabufBo {
-    buf: DmaBuf,
+    buf: Rc<DmaBuf>,
     size: usize,
 }
 
 impl BufferObject for UdmabufBo {
-    fn dmabuf(&self) -> &DmaBuf {
+    fn dmabuf(&self) -> &Rc<DmaBuf> {
         &self.buf
     }
 

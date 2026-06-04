@@ -129,7 +129,7 @@ pub struct StartedScreencast {
     pub node: Rc<PwClientNode>,
     pub port: Rc<PwClientNodePort>,
     pub buffer_objects: RefCell<Vec<Rc<dyn BufferObject>>>,
-    pub buffers: RefCell<Vec<DmaBuf>>,
+    pub buffers: RefCell<Vec<Rc<DmaBuf>>>,
     pub pending_buffers: RefCell<Vec<Rc<UsrLinuxBufferParams>>>,
     pub buffers_valid: Cell<bool>,
     pub dpy: Rc<PortalDisplay>,
@@ -602,7 +602,7 @@ impl PortalSession {
 }
 
 impl UsrJayScreencastOwner for StartedScreencast {
-    fn buffers(&self, buffers: Vec<DmaBuf>) {
+    fn buffers(&self, buffers: Vec<Rc<DmaBuf>>) {
         if buffers.len() == 0 {
             return;
         }

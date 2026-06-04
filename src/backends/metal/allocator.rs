@@ -262,7 +262,7 @@ impl RenderBuffer {
                             fb: &Rc<dyn GfxFramebuffer>,
                             old_ctx: &Rc<MetalRenderContext>,
                             tex: &Rc<dyn GfxTexture>,
-                            dma_buf: &DmaBuf| {
+                            dma_buf: &Rc<DmaBuf>| {
             if rc_eq(&new_ctx.gfx, &old_ctx.gfx) {
                 return copy_texture_impl(fb, tex);
             }

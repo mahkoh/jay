@@ -148,7 +148,7 @@ struct BoHolder {
 
 pub struct GbmBo {
     bo: BoHolder,
-    dmabuf: DmaBuf,
+    dmabuf: Rc<DmaBuf>,
     initial_sync: Cell<Option<SyncFile>>,
 }
 
@@ -183,7 +183,7 @@ unsafe fn export_bo(
     dmabuf_ids: &DmaBufIds,
     bo: *mut Bo,
     modifiers: &[Modifier],
-) -> Result<DmaBuf, GbmError> {
+) -> Result<Rc<DmaBuf>, GbmError> {
     unsafe {
         let modifier = if let [modifier] = *modifiers {
             modifier
@@ -297,7 +297,7 @@ impl GbmDevice {
         }
     }
 
-    pub fn import_dmabuf(&self, dmabuf: &DmaBuf, usage: u32) -> Result<GbmBo, GbmError> {
+    pub fn import_dmabuf(&self, dmabuf: &Rc<DmaBuf>, usage: u32) -> Result<GbmBo, GbmError> {
         let mut import = gbm_import_fd_modifier_data {
             width: dmabuf.width as _,
             height: dmabuf.height as _,
@@ -358,7 +358,7 @@ impl Allocator for GbmDevice {
 
     fn import_dmabuf(
         &self,
-        dmabuf: &DmaBuf,
+        dmabuf: &Rc<DmaBuf>,
         usage: BufferUsage,
     ) -> Result<Rc<dyn BufferObject>, AllocatorError> {
         let usage = map_usage(usage);
@@ -432,7 +432,7 @@ impl GbmBo {
 }
 
 impl BufferObject for GbmBo {
-    fn dmabuf(&self) -> &DmaBuf {
+    fn dmabuf(&self) -> &Rc<DmaBuf> {
         &self.dmabuf
     }
 

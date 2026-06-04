@@ -194,7 +194,7 @@ impl GlRenderContext {
         &self.ctx.formats
     }
 
-    fn dmabuf_fb(self: &Rc<Self>, buf: &DmaBuf) -> Result<Rc<Framebuffer>, RenderError> {
+    fn dmabuf_fb(self: &Rc<Self>, buf: &Rc<DmaBuf>) -> Result<Rc<Framebuffer>, RenderError> {
         self.ctx.with_current(|| unsafe {
             let img = self.ctx.dpy.import_dmabuf(buf)?;
             let rb = GlRenderBuffer::from_image(&img, &self.ctx)?;
@@ -206,13 +206,13 @@ impl GlRenderContext {
         })
     }
 
-    fn dmabuf_img(self: &Rc<Self>, buf: &DmaBuf) -> Result<Image, RenderError> {
+    fn dmabuf_img(self: &Rc<Self>, buf: &Rc<DmaBuf>) -> Result<Image, RenderError> {
         self.dmabuf_img2(buf, None)
     }
 
     fn dmabuf_img2(
         self: &Rc<Self>,
-        buf: &DmaBuf,
+        buf: &Rc<DmaBuf>,
         bo: Option<Rc<dyn BufferObject>>,
     ) -> Result<Image, RenderError> {
         self.ctx.with_current(|| {
@@ -277,14 +277,14 @@ impl GfxContext for GlRenderContext {
         self.ctx.dpy.fast_ram_access
     }
 
-    fn dmabuf_fb(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
+    fn dmabuf_fb(self: Rc<Self>, buf: &Rc<DmaBuf>) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
         (&self)
             .dmabuf_fb(buf)
             .map(|w| w as Rc<dyn GfxFramebuffer>)
             .map_err(|e| e.into())
     }
 
-    fn dmabuf_tex(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxTexture>, GfxError> {
+    fn dmabuf_tex(self: Rc<Self>, buf: &Rc<DmaBuf>) -> Result<Rc<dyn GfxTexture>, GfxError> {
         (&self)
             .dmabuf_img(buf)?
             .to_texture()

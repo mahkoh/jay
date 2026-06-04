@@ -149,7 +149,7 @@ pub enum ScreenshotError {
 
 fn map(
     allocator: Rc<dyn Allocator>,
-    buf: &DmaBuf,
+    buf: &Rc<DmaBuf>,
 ) -> Result<Box<dyn MappedBuffer>, ScreenshotError> {
     let bo = allocator
         .import_dmabuf(buf, BufferUsage::none())
@@ -161,7 +161,7 @@ fn map(
 pub fn buf_to_bytes(
     eventfd_cache: &Rc<EventfdCache>,
     drm_dev: Option<&Rc<OwnedFd>>,
-    buf: &DmaBuf,
+    buf: &Rc<DmaBuf>,
     format: ScreenshotFormat,
 ) -> Result<Vec<u8>, ScreenshotError> {
     let mut allocators =

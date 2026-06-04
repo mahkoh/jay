@@ -728,7 +728,7 @@ impl dyn GfxFramebuffer {
 
 pub trait GfxTexture: Any + Debug {
     fn size(&self) -> (i32, i32);
-    fn dmabuf(&self) -> Option<&DmaBuf>;
+    fn dmabuf(&self) -> Option<&Rc<DmaBuf>>;
     fn format(&self) -> &'static Format;
 }
 
@@ -835,9 +835,9 @@ pub trait GfxContext: Debug {
 
     fn fast_ram_access(&self) -> bool;
 
-    fn dmabuf_fb(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxFramebuffer>, GfxError>;
+    fn dmabuf_fb(self: Rc<Self>, buf: &Rc<DmaBuf>) -> Result<Rc<dyn GfxFramebuffer>, GfxError>;
 
-    fn dmabuf_tex(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxTexture>, GfxError>;
+    fn dmabuf_tex(self: Rc<Self>, buf: &Rc<DmaBuf>) -> Result<Rc<dyn GfxTexture>, GfxError>;
 
     fn shmem_texture(
         self: Rc<Self>,

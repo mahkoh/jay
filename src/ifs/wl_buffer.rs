@@ -129,10 +129,9 @@ impl WlBuffer {
         id: WlBufferId,
         client: &Rc<Client>,
         format: &'static Format,
-        client_dmabuf: DmaBuf,
+        client_dmabuf: Rc<DmaBuf>,
     ) -> Rc<Self> {
         let device = client.state.find_dmabuf_device(&client_dmabuf);
-        let client_dmabuf = Rc::new(client_dmabuf);
         Self::new(
             id,
             client,
@@ -158,7 +157,7 @@ impl WlBuffer {
         offset: usize,
         width: i32,
         height: i32,
-        client_dmabuf: Option<DmaBuf>,
+        client_dmabuf: Option<Rc<DmaBuf>>,
         stride: i32,
         format: &'static Format,
         mem: &Rc<ClientMem>,
@@ -206,7 +205,7 @@ impl WlBuffer {
             format,
             width,
             height,
-            client_dmabuf.map(Rc::new),
+            client_dmabuf,
             None,
             Some(WlBufferStorage::Shm {
                 dmabuf_buffer_params,

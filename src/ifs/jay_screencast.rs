@@ -116,7 +116,7 @@ struct Pending {
 
 struct ScreencastBuffer {
     _bo: Option<Rc<dyn BufferObject>>,
-    dmabuf: Option<DmaBuf>,
+    dmabuf: Option<Rc<DmaBuf>>,
     fb: Rc<dyn GfxFramebuffer>,
     free: bool,
 }

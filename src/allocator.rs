@@ -39,13 +39,13 @@ pub trait Allocator {
     ) -> Result<Rc<dyn BufferObject>, AllocatorError>;
     fn import_dmabuf(
         &self,
-        dmabuf: &DmaBuf,
+        dmabuf: &Rc<DmaBuf>,
         usage: BufferUsage,
     ) -> Result<Rc<dyn BufferObject>, AllocatorError>;
 }
 
 pub trait BufferObject {
-    fn dmabuf(&self) -> &DmaBuf;
+    fn dmabuf(&self) -> &Rc<DmaBuf>;
     fn map_read(self: Rc<Self>) -> Result<Box<dyn MappedBuffer>, AllocatorError>;
     fn map_write(self: Rc<Self>) -> Result<Box<dyn MappedBuffer>, AllocatorError>;
     fn take_initial_sync(&self) -> Option<SyncFile>;

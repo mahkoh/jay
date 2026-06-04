@@ -60,7 +60,7 @@ struct VulkanBo {
     allocator: Rc<VulkanBoAllocatorData>,
     image: Image,
     memory: PlaneVec<DeviceMemory>,
-    buf: DmaBuf,
+    buf: Rc<DmaBuf>,
 }
 
 struct VulkanBoMapping {
@@ -281,7 +281,7 @@ impl VulkanBoAllocator {
 
     fn import_dmabuf(
         &self,
-        dmabuf: &DmaBuf,
+        dmabuf: &Rc<DmaBuf>,
         usage: BufferUsage,
     ) -> Result<Rc<VulkanBo>, VulkanError> {
         validate_usage(usage)?;
@@ -448,7 +448,7 @@ impl Allocator for VulkanBoAllocator {
 
     fn import_dmabuf(
         &self,
-        dmabuf: &DmaBuf,
+        dmabuf: &Rc<DmaBuf>,
         usage: BufferUsage,
     ) -> Result<Rc<dyn BufferObject>, AllocatorError> {
         let bo = self.import_dmabuf(dmabuf, usage)?;
@@ -620,7 +620,7 @@ impl VulkanBo {
 }
 
 impl BufferObject for VulkanBo {
-    fn dmabuf(&self) -> &DmaBuf {
+    fn dmabuf(&self) -> &Rc<DmaBuf> {
         &self.buf
     }
 

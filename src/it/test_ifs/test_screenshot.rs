@@ -19,7 +19,7 @@ pub struct TestJayScreenshot {
     pub state: Rc<State>,
     pub drm_dev: Cell<Option<Rc<OwnedFd>>>,
     pub planes: RefCell<PlaneVec<DmaBufPlane>>,
-    pub result: Cell<Option<Result<DmaBuf, String>>>,
+    pub result: Cell<Option<Result<Rc<DmaBuf>, String>>>,
 }
 
 impl TestJayScreenshot {

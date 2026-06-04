@@ -24,7 +24,7 @@ pub struct UsrJayScreencast {
     pub owner: CloneCell<Option<Rc<dyn UsrJayScreencastOwner>>>,
     pub version: Version,
 
-    pub pending_buffers: RefCell<Vec<DmaBuf>>,
+    pub pending_buffers: RefCell<Vec<Rc<DmaBuf>>>,
     pub pending_planes: RefCell<PlaneVec<DmaBufPlane>>,
 
     pub pending_config: RefCell<UsrJayScreencastServerConfig>,
@@ -42,7 +42,7 @@ pub struct UsrJayScreencastServerConfig {
 }
 
 pub trait UsrJayScreencastOwner {
-    fn buffers(&self, buffers: Vec<DmaBuf>) {
+    fn buffers(&self, buffers: Vec<Rc<DmaBuf>>) {
         let _ = buffers;
     }
 
