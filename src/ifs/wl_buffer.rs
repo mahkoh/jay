@@ -413,19 +413,20 @@ impl WlBuffer {
             tex_impossible,
             ..
         } = dmabuf_buffer_params;
-        let mut dmabuf = DmaBuf::new(
+        let mut planes = PlaneVec::new();
+        planes.push(DmaBufPlane {
+            offset: *udmabuf_offset as _,
+            stride: stride as _,
+            fd: udmabuf,
+        });
+        let dmabuf = DmaBuf::new(
             &self.client.state.dma_buf_ids,
             self.width,
             self.height,
             self.format,
             LINEAR_MODIFIER,
-            PlaneVec::new(),
+            planes,
         );
-        dmabuf.planes.push(DmaBufPlane {
-            offset: *udmabuf_offset as _,
-            stride: stride as _,
-            fd: udmabuf,
-        });
         let tex_ = match ctx.clone().dmabuf_tex(&dmabuf) {
             Ok(i) => i,
             Err(e) => {
