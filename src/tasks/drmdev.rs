@@ -97,7 +97,7 @@ impl DrvDevHandler {
     }
 
     fn log_gfx_api(&self) {
-        let api = self.data.dev.gtx_api();
+        let api = self.data.dev.gfx_api();
         log::info!(
             "Using {:?} for device {}",
             api,

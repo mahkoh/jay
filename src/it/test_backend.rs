@@ -757,7 +757,7 @@ impl BackendDrmDevice for TestDrmDevice {
         let _ = api;
     }
 
-    fn gtx_api(&self) -> GfxApi {
+    fn gfx_api(&self) -> GfxApi {
         GfxApi::Vulkan
     }
 

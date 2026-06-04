@@ -572,7 +572,7 @@ pub trait BackendDrmDevice {
     fn dev_t(&self) -> c::dev_t;
     fn make_render_device(&self);
     fn set_gfx_api(&self, api: GfxApi);
-    fn gtx_api(&self) -> GfxApi;
+    fn gfx_api(&self) -> GfxApi;
     fn version(&self) -> Result<DrmVersion, DrmError>;
     fn set_direct_scanout_enabled(&self, enabled: bool);
     fn is_render_device(&self) -> bool;

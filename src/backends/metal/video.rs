@@ -167,7 +167,7 @@ impl BackendDrmDevice for MetalDrmDevice {
         self.backend.set_gfx_api(self, api)
     }
 
-    fn gtx_api(&self) -> GfxApi {
+    fn gfx_api(&self) -> GfxApi {
         self.ctx.get().gfx.gfx_api()
     }
 

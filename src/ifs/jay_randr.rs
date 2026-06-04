@@ -66,7 +66,7 @@ impl JayRandr {
             model: data.pci_id.map(|p| p.model).unwrap_or_default(),
             model_name: data.model.as_deref().unwrap_or_default(),
             devnode: data.devnode.as_deref().unwrap_or_default(),
-            gfx_api: data.dev.gtx_api().to_str(),
+            gfx_api: data.dev.gfx_api().to_str(),
             render_device: data.dev.is_render_device() as _,
         });
     }
