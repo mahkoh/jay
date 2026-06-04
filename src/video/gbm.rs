@@ -179,8 +179,17 @@ impl MappedBuffer for GbmBoMap {
     }
 }
 
-unsafe fn export_bo(dmabuf_ids: &DmaBufIds, bo: *mut Bo) -> Result<DmaBuf, GbmError> {
+unsafe fn export_bo(
+    dmabuf_ids: &DmaBufIds,
+    bo: *mut Bo,
+    modifiers: &[Modifier],
+) -> Result<DmaBuf, GbmError> {
     unsafe {
+        let modifier = if let [modifier] = *modifiers {
+            modifier
+        } else {
+            gbm_bo_get_modifier(bo)
+        };
         Ok(DmaBuf::new(
             dmabuf_ids,
             gbm_bo_get_width(bo) as _,
@@ -192,7 +201,7 @@ unsafe fn export_bo(dmabuf_ids: &DmaBufIds, bo: *mut Bo) -> Result<DmaBuf, GbmEr
                     _ => return Err(GbmError::UnknownFormat),
                 }
             },
-            gbm_bo_get_modifier(bo),
+            modifier,
             {
                 let mut planes = PlaneVec::new();
                 for plane in 0..gbm_bo_get_plane_count(bo) {
@@ -278,10 +287,7 @@ impl GbmDevice {
                 bo,
                 _dev: self.dev.clone(),
             };
-            let mut dma = export_bo(dma_buf_ids, bo.bo)?;
-            if let [modifier] = *modifiers {
-                dma.modifier = modifier;
-            }
+            let dma = export_bo(dma_buf_ids, bo.bo, &modifiers)?;
             let initial_sync = dma.export_sync_file(DMA_BUF_SYNC_WRITE).ok().flatten();
             Ok(GbmBo {
                 bo,
