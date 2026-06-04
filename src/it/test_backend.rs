@@ -3,10 +3,11 @@ use {
         allocator::{Allocator, AllocatorError},
         async_engine::SpawnedFuture,
         backend::{
-            AxisSource, Backend, BackendConnectorState, BackendEvent, ButtonState, Connector,
-            ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId, InputDevice,
-            InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod, InputDeviceId,
-            InputEvent, KeyState, Mode, MonitorInfo, ScrollAxis, TransformMatrix,
+            AxisSource, Backend, BackendConnectorState, BackendDrmDevice, BackendEvent,
+            ButtonState, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId,
+            DrmEvent, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
+            InputDeviceClickMethod, InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo,
+            ScrollAxis, TransformMatrix,
             transaction::{
                 BackendAppliedConnectorTransaction, BackendConnectorTransaction,
                 BackendConnectorTransactionError, BackendConnectorTransactionType,
@@ -18,7 +19,7 @@ use {
         drm_feedback::DrmFeedback,
         fixed::Fixed,
         format::XRGB8888,
-        gfx_api::GfxError,
+        gfx_api::{GfxApi, GfxError},
         gfx_apis::create_vulkan_allocator,
         ifs::wl_output::OutputId,
         it::{
@@ -36,7 +37,7 @@ use {
             syncqueue::SyncQueue,
         },
         video::{
-            drm::{ConnectorType, Drm, DrmError},
+            drm::{ConnectorType, Drm, DrmError, DrmVersion},
             gbm::{GbmDevice, GbmError},
         },
     },
@@ -52,7 +53,7 @@ use {
         rc::Rc,
     },
     thiserror::Error,
-    uapi::c,
+    uapi::{c, c::dev_t},
 };
 
 #[derive(Debug, Error)]
@@ -78,6 +79,7 @@ pub enum TestBackendError {
 pub struct TestBackend {
     pub state: Rc<State>,
     pub test_future: TestFuture,
+    pub default_drm_dev: Rc<TestDrmDevice>,
     pub default_monitor_info: MonitorInfo,
     pub default_connector: Rc<TestConnector>,
     pub default_mouse: Rc<TestBackendMouse>,
@@ -106,8 +108,13 @@ impl TestBackend {
             eotf: Default::default(),
             gamma_lut: Default::default(),
         };
+        let default_drm_dev = Rc::new(TestDrmDevice {
+            id: state.drm_dev_ids.next(),
+            dev_t: 1234,
+        });
         let default_connector = Rc::new(TestConnector {
             id: state.connector_ids.next(),
+            drm_dev_id: default_drm_dev.id,
             kernel_id: ConnectorKernelId {
                 ty: ConnectorType::VGA,
                 idx: 1,
@@ -169,6 +176,7 @@ impl TestBackend {
         Self {
             state: state.clone(),
             test_future: future,
+            default_drm_dev,
             default_monitor_info,
             default_connector,
             default_mouse,
@@ -191,6 +199,9 @@ impl TestBackend {
     }
 
     pub fn install_default2(&self, need_drm: bool) -> TestResult {
+        self.state
+            .backend_events
+            .push(BackendEvent::NewDrmDevice(self.default_drm_dev.clone()));
         self.install_render_context(need_drm)?;
         self.state
             .backend_events
@@ -243,7 +254,7 @@ impl TestBackend {
             }
         }
         let allocator = allocator.ok_or(TestBackendError::CreateAllocator)?;
-        let ctx = match TestGfxCtx::new(allocator) {
+        let ctx = match TestGfxCtx::new(allocator, need_drm.then_some(self.default_drm_dev.id)) {
             Ok(ctx) => ctx,
             Err(e) => return Err(TestBackendError::RenderContext(e)),
         };
@@ -326,6 +337,7 @@ impl Backend for TestBackend {
 
 pub struct TestConnector {
     pub id: ConnectorId,
+    pub drm_dev_id: DrmDeviceId,
     pub kernel_id: ConnectorKernelId,
     pub events: OnChange<ConnectorEvent>,
     pub feedback: CloneCell<Option<Rc<DrmFeedback>>>,
@@ -356,7 +368,7 @@ impl Connector for TestConnector {
     }
 
     fn drm_dev(&self) -> Option<DrmDeviceId> {
-        None
+        Some(self.drm_dev_id)
     }
 
     fn effectively_locked(&self) -> bool {
@@ -713,5 +725,52 @@ impl<T: TestInputDevice> InputDevice for T {
 
     fn set_middle_button_emulation_enabled(&self, enabled: bool) {
         <Self as TestInputDevice>::set_middle_button_emulation_enabled(self, enabled)
+    }
+}
+
+pub struct TestDrmDevice {
+    id: DrmDeviceId,
+    dev_t: dev_t,
+}
+
+impl BackendDrmDevice for TestDrmDevice {
+    fn id(&self) -> DrmDeviceId {
+        self.id
+    }
+
+    fn event(&self) -> Option<DrmEvent> {
+        None
+    }
+
+    fn on_change(&self, cb: Rc<dyn Fn()>) {
+        let _ = cb;
+    }
+
+    fn dev_t(&self) -> dev_t {
+        self.dev_t
+    }
+
+    fn make_render_device(&self) {
+        // nothing
+    }
+
+    fn set_gfx_api(&self, api: GfxApi) {
+        let _ = api;
+    }
+
+    fn gtx_api(&self) -> GfxApi {
+        GfxApi::Vulkan
+    }
+
+    fn version(&self) -> Result<DrmVersion, DrmError> {
+        Err(DrmError::NoDeviceNodes)
+    }
+
+    fn set_direct_scanout_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
+
+    fn is_render_device(&self) -> bool {
+        true
     }
 }

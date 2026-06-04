@@ -1,7 +1,8 @@
 use {
     crate::{
         backend::{
-            BackendConnectorState, BackendEvent, ConnectorEvent, ConnectorKernelId, MonitorInfo,
+            BackendConnectorState, BackendDrmDevice, BackendEvent, ConnectorEvent,
+            ConnectorKernelId, MonitorInfo,
         },
         cmm::cmm_primaries::Primaries,
         format::XRGB8888,
@@ -42,6 +43,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     };
     let new_connector = Rc::new(TestConnector {
         id: run.state.connector_ids.next(),
+        drm_dev_id: run.backend.default_drm_dev.id(),
         kernel_id: ConnectorKernelId {
             ty: ConnectorType::VGA,
             idx: 2,

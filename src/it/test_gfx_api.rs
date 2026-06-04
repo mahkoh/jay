@@ -56,10 +56,14 @@ impl From<TestGfxError> for GfxError {
 pub struct TestGfxCtx {
     formats: Rc<AHashMap<u32, GfxFormat>>,
     allocator: Rc<dyn Allocator>,
+    drm_device_id: Option<DrmDeviceId>,
 }
 
 impl TestGfxCtx {
-    pub fn new(allocator: Rc<dyn Allocator>) -> Result<Rc<Self>, GfxError> {
+    pub fn new(
+        allocator: Rc<dyn Allocator>,
+        drm_device_id: Option<DrmDeviceId>,
+    ) -> Result<Rc<Self>, GfxError> {
         let mut modifiers = IndexSet::new();
         modifiers.insert(LINEAR_MODIFIER);
         let mut formats = AHashMap::new();
@@ -88,6 +92,7 @@ impl TestGfxCtx {
         Ok(Rc::new(Self {
             formats: Rc::new(formats),
             allocator,
+            drm_device_id,
         }))
     }
 
@@ -114,7 +119,7 @@ impl GfxContext for TestGfxCtx {
     }
 
     fn drm_device_id(&self) -> Option<DrmDeviceId> {
-        None
+        self.drm_device_id
     }
 
     fn render_node(&self) -> Option<Rc<CString>> {
