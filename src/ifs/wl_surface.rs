@@ -24,7 +24,7 @@ pub mod zwp_input_popup_surface_v2;
 
 use {
     crate::{
-        backend::{ButtonState, KeyState},
+        backend::{ButtonState, ConnectorId, KeyState},
         client::{Client, ClientError},
         cmm::{cmm_description::ColorDescription, cmm_render_intent::RenderIntent},
         configurable::ConfigurableDataCore,
@@ -343,6 +343,7 @@ pub struct WlSurface {
     alpha_mode: Cell<AlphaMode>,
     requested_serial: Cell<TreeSerial>,
     flush_frame_requests: Cell<bool>,
+    pub fullscreen: Cell<Option<ConnectorId>>,
 }
 
 impl Debug for WlSurface {
@@ -708,6 +709,7 @@ impl WlSurface {
             alpha_mode: Default::default(),
             requested_serial: Cell::new(TreeSerial::from_raw(0)),
             flush_frame_requests: Default::default(),
+            fullscreen: Default::default(),
         }
     }
 
@@ -914,6 +916,7 @@ impl WlSurface {
     fn set_dummy_output(&self) {
         let dummy_output = self.client.state.dummy_output.get().unwrap();
         self.set_output(&dummy_output, NodeLocation::Output(dummy_output.id));
+        self.mark_fullscreen(None);
     }
 
     fn calculate_extents(&self, propagate: bool) {
@@ -1827,6 +1830,17 @@ impl WlSurface {
         let cd = self.output.get().node_state.color_description.get();
         for fb in self.color_management_feedback.lock().values() {
             fb.send_preferred_changed(&cd);
+        }
+    }
+
+    pub fn mark_fullscreen(&self, connector: Option<ConnectorId>) {
+        if self.fullscreen.replace(connector) == connector {
+            return;
+        }
+        if let Some(children) = &*self.children.borrow() {
+            for child in children.subsurfaces.values() {
+                child.surface.mark_fullscreen(connector);
+            }
         }
     }
 }

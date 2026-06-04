@@ -1,5 +1,6 @@
 use {
     crate::{
+        backend::ConnectorId,
         client::{Client, ClientId},
         criteria::{
             CritDestroyListener, CritMatcherId,
@@ -72,7 +73,7 @@ pub trait ToplevelNode: ToplevelNodeBase {
     fn tl_set_pinned(&self, self_pinned: bool, pinned: bool);
     fn tl_set_float(&self, float: Option<&Rc<FloatNode>>);
     fn tl_mark_ancestor_fullscreen(&self, fullscreen: bool);
-    fn tl_mark_fullscreen(&self, fullscreen: bool);
+    fn tl_mark_fullscreen(&self, connector: Option<ConnectorId>);
     fn tl_resize(&self, dx1: i32, dy1: i32, dx2: i32, dy2: i32);
 }
 
@@ -268,12 +269,16 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         self.tl_mark_ancestor_fullscreen_ext(fullscreen);
     }
 
-    fn tl_mark_fullscreen(&self, fullscreen: bool) {
+    fn tl_mark_fullscreen(&self, connector: Option<ConnectorId>) {
+        let fullscreen = connector.is_some();
         self.tl_data().is_fullscreen.set(fullscreen);
         self.tl_mark_ancestor_fullscreen(fullscreen);
         self.tl_mark_fullscreen_ext();
         if let Some(session) = self.tl_data().session.get() {
             session.set_fullscreen(fullscreen);
+        }
+        if let Some(surface) = self.tl_scanout_surface() {
+            surface.mark_fullscreen(connector)
         }
     }
 
@@ -813,12 +818,12 @@ impl ToplevelData {
             workspace: ws.clone(),
         });
         drop(data);
-        node.tl_mark_fullscreen(true);
+        let output = wns.output.get();
+        node.tl_mark_fullscreen(Some(output.global.connector.id));
         self.property_changed(TL_CHANGED_FULLSCREEN);
         node.tl_set_parent(ws.clone());
         ws.set_fullscreen_node(&node);
-        node.clone()
-            .tl_change_extents(&wns.output.get().node_state.pos.get());
+        node.clone().tl_change_extents(&output.node_state.pos.get());
         for seat in kb_foci {
             node.clone().node_do_focus(&seat, Direction::Unspecified);
         }
@@ -840,7 +845,7 @@ impl ToplevelData {
                 return;
             }
         };
-        node.tl_mark_fullscreen(false);
+        node.tl_mark_fullscreen(None);
         self.property_changed(TL_CHANGED_FULLSCREEN);
         match fd.workspace.node_state.fullscreen.get() {
             None => {
