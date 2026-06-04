@@ -63,15 +63,14 @@ async fn run(screenshot: Rc<Screenshot>) {
             stride: ev.stride,
             fd: ev.fd,
         });
-        let buf = DmaBuf {
-            id: DmaBufIds::default().next(),
-            width: ev.width as _,
-            height: ev.height as _,
-            format: XRGB8888,
-            modifier: ev.modifier,
+        let buf = DmaBuf::new(
+            &DmaBufIds::default(),
+            ev.width as _,
+            ev.height as _,
+            XRGB8888,
+            ev.modifier,
             planes,
-            is_disjoint: Default::default(),
-        };
+        );
         res.push(Ok((buf, Some(ev.drm_dev))));
     });
     let drm_dev = Rc::new(Cell::new(None));
@@ -91,15 +90,14 @@ async fn run(screenshot: Rc<Screenshot>) {
         sid,
         (drm_dev, planes, result.clone()),
         |(dev, planes, res), ev| {
-            let buf = DmaBuf {
-                id: DmaBufIds::default().next(),
-                width: ev.width,
-                height: ev.height,
-                format: XRGB8888,
-                modifier: ev.modifier,
-                planes: planes.take(),
-                is_disjoint: Default::default(),
-            };
+            let buf = DmaBuf::new(
+                &DmaBufIds::default(),
+                ev.width,
+                ev.height,
+                XRGB8888,
+                ev.modifier,
+                planes.take(),
+            );
             res.push(Ok((buf, dev.take())))
         },
     );
@@ -151,7 +149,7 @@ pub enum ScreenshotError {
 
 fn map(
     allocator: Rc<dyn Allocator>,
-    buf: &DmaBuf,
+    buf: &Rc<DmaBuf>,
 ) -> Result<Box<dyn MappedBuffer>, ScreenshotError> {
     let bo = allocator
         .import_dmabuf(buf, BufferUsage::none())
@@ -163,7 +161,7 @@ fn map(
 pub fn buf_to_bytes(
     eventfd_cache: &Rc<EventfdCache>,
     drm_dev: Option<&Rc<OwnedFd>>,
-    buf: &DmaBuf,
+    buf: &Rc<DmaBuf>,
     format: ScreenshotFormat,
 ) -> Result<Vec<u8>, ScreenshotError> {
     let mut allocators =

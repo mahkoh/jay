@@ -148,7 +148,7 @@ struct BoHolder {
 
 pub struct GbmBo {
     bo: BoHolder,
-    dmabuf: DmaBuf,
+    dmabuf: Rc<DmaBuf>,
     initial_sync: Cell<Option<SyncFile>>,
 }
 
@@ -179,21 +179,30 @@ impl MappedBuffer for GbmBoMap {
     }
 }
 
-unsafe fn export_bo(dmabuf_ids: &DmaBufIds, bo: *mut Bo) -> Result<DmaBuf, GbmError> {
+unsafe fn export_bo(
+    dmabuf_ids: &DmaBufIds,
+    bo: *mut Bo,
+    modifiers: &[Modifier],
+) -> Result<Rc<DmaBuf>, GbmError> {
     unsafe {
-        Ok(DmaBuf {
-            id: dmabuf_ids.next(),
-            width: gbm_bo_get_width(bo) as _,
-            height: gbm_bo_get_height(bo) as _,
-            modifier: gbm_bo_get_modifier(bo),
-            format: {
+        let modifier = if let [modifier] = *modifiers {
+            modifier
+        } else {
+            gbm_bo_get_modifier(bo)
+        };
+        Ok(DmaBuf::new(
+            dmabuf_ids,
+            gbm_bo_get_width(bo) as _,
+            gbm_bo_get_height(bo) as _,
+            {
                 let format = gbm_bo_get_format(bo);
                 match formats().get(&format).copied() {
                     Some(f) => f,
                     _ => return Err(GbmError::UnknownFormat),
                 }
             },
-            planes: {
+            modifier,
+            {
                 let mut planes = PlaneVec::new();
                 for plane in 0..gbm_bo_get_plane_count(bo) {
                     let offset = gbm_bo_get_offset(bo, plane);
@@ -210,8 +219,7 @@ unsafe fn export_bo(dmabuf_ids: &DmaBufIds, bo: *mut Bo) -> Result<DmaBuf, GbmEr
                 }
                 planes
             },
-            is_disjoint: Default::default(),
-        })
+        ))
     }
 }
 
@@ -279,10 +287,7 @@ impl GbmDevice {
                 bo,
                 _dev: self.dev.clone(),
             };
-            let mut dma = export_bo(dma_buf_ids, bo.bo)?;
-            if let [modifier] = *modifiers {
-                dma.modifier = modifier;
-            }
+            let dma = export_bo(dma_buf_ids, bo.bo, &modifiers)?;
             let initial_sync = dma.export_sync_file(DMA_BUF_SYNC_WRITE).ok().flatten();
             Ok(GbmBo {
                 bo,
@@ -292,7 +297,7 @@ impl GbmDevice {
         }
     }
 
-    pub fn import_dmabuf(&self, dmabuf: &DmaBuf, usage: u32) -> Result<GbmBo, GbmError> {
+    pub fn import_dmabuf(&self, dmabuf: &Rc<DmaBuf>, usage: u32) -> Result<GbmBo, GbmError> {
         let mut import = gbm_import_fd_modifier_data {
             width: dmabuf.width as _,
             height: dmabuf.height as _,
@@ -353,7 +358,7 @@ impl Allocator for GbmDevice {
 
     fn import_dmabuf(
         &self,
-        dmabuf: &DmaBuf,
+        dmabuf: &Rc<DmaBuf>,
         usage: BufferUsage,
     ) -> Result<Rc<dyn BufferObject>, AllocatorError> {
         let usage = map_usage(usage);
@@ -427,7 +432,7 @@ impl GbmBo {
 }
 
 impl BufferObject for GbmBo {
-    fn dmabuf(&self) -> &DmaBuf {
+    fn dmabuf(&self) -> &Rc<DmaBuf> {
         &self.dmabuf
     }
 

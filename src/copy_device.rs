@@ -279,7 +279,7 @@ struct CopyDeviceObjectInner {
     busy_id: NumCell<u64>,
     busy: CloneCell<Option<FdSync>>,
     command_buffer: StaticMap<TransferType, Cell<CommandBuffer>>,
-    buf: DmaBuf,
+    buf: Rc<DmaBuf>,
     blit_support: bool,
     on_device: bool,
     buffer_possible: bool,
@@ -410,7 +410,7 @@ pub struct CopyDeviceSupport {
 pub struct CopyDeviceBuffer {
     device: Rc<CopyDeviceInner>,
     memory: DeviceMemory,
-    dmabuf: DmaBuf,
+    dmabuf: Rc<DmaBuf>,
 }
 
 #[derive(Copy, Clone, Debug, Linearize)]
@@ -1334,20 +1334,13 @@ impl CopyDevice {
             }
         };
         let fd = Rc::new(OwnedFd::new(fd));
-        let mut dmabuf = DmaBuf {
-            id: dma_buf_ids.next(),
-            width,
-            height,
-            format,
-            modifier: LINEAR_MODIFIER,
-            planes: Default::default(),
-            is_disjoint: Default::default(),
-        };
-        dmabuf.planes.push(DmaBufPlane {
+        let mut planes = PlaneVec::new();
+        planes.push(DmaBufPlane {
             offset: 0,
             stride,
             fd,
         });
+        let dmabuf = DmaBuf::new(dma_buf_ids, width, height, format, LINEAR_MODIFIER, planes);
         free_memory.forget();
         Ok(CopyDeviceBuffer {
             device: self.dev.clone(),
@@ -1406,7 +1399,7 @@ impl CopyDevice {
     #[expect(dead_code)]
     pub fn create_src_object(
         self: &Rc<Self>,
-        buf: &DmaBuf,
+        buf: &Rc<DmaBuf>,
     ) -> Result<CopyDeviceSrcObject, CopyDeviceError> {
         self.create_object_(buf, Dir::Src)
             .map(|obj| CopyDeviceSrcObject { obj })
@@ -1415,7 +1408,7 @@ impl CopyDevice {
     #[expect(dead_code)]
     pub fn create_dst_object(
         self: &Rc<Self>,
-        buf: &DmaBuf,
+        buf: &Rc<DmaBuf>,
     ) -> Result<CopyDeviceDstObject, CopyDeviceError> {
         self.create_object_(buf, Dir::Dst)
             .map(|obj| CopyDeviceDstObject { obj })
@@ -1423,7 +1416,7 @@ impl CopyDevice {
 
     fn create_object_(
         self: &Rc<Self>,
-        buf: &DmaBuf,
+        buf: &Rc<DmaBuf>,
         dir: Dir,
     ) -> Result<CopyDeviceObject, CopyDeviceError> {
         let class = self.classify_dmabuf(buf, dir)?;
@@ -2302,7 +2295,7 @@ impl Drop for Pending {
 }
 
 impl CopyDeviceBuffer {
-    pub fn dmabuf(&self) -> &DmaBuf {
+    pub fn dmabuf(&self) -> &Rc<DmaBuf> {
         &self.dmabuf
     }
 }

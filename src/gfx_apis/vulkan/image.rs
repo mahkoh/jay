@@ -50,7 +50,7 @@ pub struct VulkanDmaBufImageTemplate {
     pub(super) width: u32,
     pub(super) height: u32,
     pub(super) disjoint: bool,
-    pub(super) dmabuf: DmaBuf,
+    pub(super) dmabuf: Rc<DmaBuf>,
     pub(super) render_limits: Option<VulkanModifierLimits>,
     pub(super) texture_limits: Option<VulkanModifierLimits>,
     pub(super) render_needs_bridge: bool,
@@ -190,7 +190,7 @@ impl Drop for VulkanImage {
 impl VulkanRenderer {
     pub fn import_dmabuf(
         self: &Rc<Self>,
-        dmabuf: &DmaBuf,
+        dmabuf: &Rc<DmaBuf>,
     ) -> Result<VulkanDmaBufImageTemplate, VulkanError> {
         let format = self
             .device
@@ -692,7 +692,7 @@ impl GfxTexture for VulkanImage {
         (self.width as _, self.height as _)
     }
 
-    fn dmabuf(&self) -> Option<&DmaBuf> {
+    fn dmabuf(&self) -> Option<&Rc<DmaBuf>> {
         match &self.ty {
             VulkanImageMemory::DmaBuf(b) => Some(&b.template.dmabuf),
             VulkanImageMemory::Internal(_) => None,

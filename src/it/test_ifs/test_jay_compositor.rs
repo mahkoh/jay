@@ -53,7 +53,7 @@ impl TestJayCompositor {
     pub async fn take_screenshot(
         &self,
         include_cursor: bool,
-    ) -> Result<(DmaBuf, Option<Rc<OwnedFd>>), TestError> {
+    ) -> Result<(Rc<DmaBuf>, Option<Rc<OwnedFd>>), TestError> {
         self.tran.sync().await;
         self.tran.run.state.idle().await;
         let js = Rc::new(TestJayScreenshot {

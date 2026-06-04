@@ -24,7 +24,7 @@ pub struct UsrJayScreencast {
     pub owner: CloneCell<Option<Rc<dyn UsrJayScreencastOwner>>>,
     pub version: Version,
 
-    pub pending_buffers: RefCell<Vec<DmaBuf>>,
+    pub pending_buffers: RefCell<Vec<Rc<DmaBuf>>>,
     pub pending_planes: RefCell<PlaneVec<DmaBufPlane>>,
 
     pub pending_config: RefCell<UsrJayScreencastServerConfig>,
@@ -42,7 +42,7 @@ pub struct UsrJayScreencastServerConfig {
 }
 
 pub trait UsrJayScreencastOwner {
-    fn buffers(&self, buffers: Vec<DmaBuf>) {
+    fn buffers(&self, buffers: Vec<Rc<DmaBuf>>) {
         let _ = buffers;
     }
 
@@ -148,15 +148,14 @@ impl JayScreencastEventHandler for UsrJayScreencast {
             Some(f) => f,
             _ => return Err(UsrJayScreencastError::UnknownFormat(ev.format)),
         };
-        self.pending_buffers.borrow_mut().push(DmaBuf {
-            id: self.con.dma_buf_ids.next(),
-            width: ev.width,
-            height: ev.height,
+        self.pending_buffers.borrow_mut().push(DmaBuf::new(
+            &self.con.dma_buf_ids,
+            ev.width,
+            ev.height,
             format,
-            modifier: ev.modifier,
-            planes: mem::take(self.pending_planes.borrow_mut().deref_mut()),
-            is_disjoint: Default::default(),
-        });
+            ev.modifier,
+            mem::take(self.pending_planes.borrow_mut().deref_mut()),
+        ));
         Ok(())
     }
 

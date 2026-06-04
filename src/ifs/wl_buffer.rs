@@ -12,7 +12,7 @@ use {
         utils::{errorfmt::ErrorFmt, event_listener::EventListener, page_size::page_size},
         video::{
             LINEAR_MODIFIER,
-            dmabuf::{DmaBuf, DmaBufPlane},
+            dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
         },
         wire::{WlBufferId, wl_buffer::*},
     },
@@ -129,10 +129,9 @@ impl WlBuffer {
         id: WlBufferId,
         client: &Rc<Client>,
         format: &'static Format,
-        client_dmabuf: DmaBuf,
+        client_dmabuf: Rc<DmaBuf>,
     ) -> Rc<Self> {
         let device = client.state.find_dmabuf_device(&client_dmabuf);
-        let client_dmabuf = Rc::new(client_dmabuf);
         Self::new(
             id,
             client,
@@ -158,7 +157,7 @@ impl WlBuffer {
         offset: usize,
         width: i32,
         height: i32,
-        client_dmabuf: Option<DmaBuf>,
+        client_dmabuf: Option<Rc<DmaBuf>>,
         stride: i32,
         format: &'static Format,
         mem: &Rc<ClientMem>,
@@ -206,7 +205,7 @@ impl WlBuffer {
             format,
             width,
             height,
-            client_dmabuf.map(Rc::new),
+            client_dmabuf,
             None,
             Some(WlBufferStorage::Shm {
                 dmabuf_buffer_params,
@@ -413,20 +412,20 @@ impl WlBuffer {
             tex_impossible,
             ..
         } = dmabuf_buffer_params;
-        let mut dmabuf = DmaBuf {
-            id: self.client.state.dma_buf_ids.next(),
-            width: self.width,
-            height: self.height,
-            format: self.format,
-            modifier: LINEAR_MODIFIER,
-            planes: Default::default(),
-            is_disjoint: Default::default(),
-        };
-        dmabuf.planes.push(DmaBufPlane {
+        let mut planes = PlaneVec::new();
+        planes.push(DmaBufPlane {
             offset: *udmabuf_offset as _,
             stride: stride as _,
             fd: udmabuf,
         });
+        let dmabuf = DmaBuf::new(
+            &self.client.state.dma_buf_ids,
+            self.width,
+            self.height,
+            self.format,
+            LINEAR_MODIFIER,
+            planes,
+        );
         let tex_ = match ctx.clone().dmabuf_tex(&dmabuf) {
             Ok(i) => i,
             Err(e) => {

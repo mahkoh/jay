@@ -80,27 +80,20 @@ impl ZwpLinuxBufferParamsV1 {
             Some(m) => m,
             _ => return Err(ZwpLinuxBufferParamsV1Error::NoPlanes),
         };
-        let mut dmabuf = DmaBuf {
-            id: state.dma_buf_ids.next(),
-            width,
-            height,
-            format,
-            modifier,
-            planes: PlaneVec::new(),
-            is_disjoint: Default::default(),
-        };
         let mut planes: Vec<_> = self.planes.borrow_mut().drain_values().collect();
         planes.sort_by_key(|a| a.plane_idx);
+        let mut dplanes = PlaneVec::new();
         for (i, p) in planes.into_iter().enumerate() {
             if p.plane_idx as usize != i {
                 return Err(ZwpLinuxBufferParamsV1Error::MissingPlane(i));
             }
-            dmabuf.planes.push(DmaBufPlane {
+            dplanes.push(DmaBufPlane {
                 offset: p.offset,
                 stride: p.stride,
                 fd: p.fd,
             });
         }
+        let dmabuf = DmaBuf::new(&state.dma_buf_ids, width, height, format, modifier, dplanes);
         let get_id = || match buffer_id {
             None => self.parent.client.new_id(),
             Some(i) => Ok(i),

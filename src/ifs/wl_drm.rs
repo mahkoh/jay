@@ -128,29 +128,21 @@ impl WlDrmRequestHandler for WlDrm {
             Some(f) => *f,
             None => return Err(WlDrmError::InvalidFormat(req.format)),
         };
-        let mut dmabuf = DmaBuf {
-            id: state.dma_buf_ids.next(),
-            width: req.width,
-            height: req.height,
-            format,
-            modifier: INVALID_MODIFIER,
-            planes: PlaneVec::new(),
-            is_disjoint: Default::default(),
-        };
+        let mut planes = PlaneVec::new();
         if req.stride0 > 0 {
-            dmabuf.planes.push(DmaBufPlane {
+            planes.push(DmaBufPlane {
                 offset: req.offset0 as _,
                 stride: req.stride0 as _,
                 fd: req.name.clone(),
             });
             if req.stride1 > 0 {
-                dmabuf.planes.push(DmaBufPlane {
+                planes.push(DmaBufPlane {
                     offset: req.offset1 as _,
                     stride: req.stride1 as _,
                     fd: req.name.clone(),
                 });
                 if req.stride2 > 0 {
-                    dmabuf.planes.push(DmaBufPlane {
+                    planes.push(DmaBufPlane {
                         offset: req.offset2 as _,
                         stride: req.stride2 as _,
                         fd: req.name.clone(),
@@ -158,6 +150,14 @@ impl WlDrmRequestHandler for WlDrm {
                 }
             }
         }
+        let dmabuf = DmaBuf::new(
+            &state.dma_buf_ids,
+            req.width,
+            req.height,
+            format,
+            INVALID_MODIFIER,
+            planes,
+        );
         let buffer = WlBuffer::new_dmabuf(req.id, &self.client, format, dmabuf);
         track!(self.client, buffer);
         self.client.add_client_obj(&buffer)?;

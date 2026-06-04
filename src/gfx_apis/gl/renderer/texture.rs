@@ -51,7 +51,7 @@ impl GfxTexture for Texture {
         (self.width(), self.height())
     }
 
-    fn dmabuf(&self) -> Option<&DmaBuf> {
+    fn dmabuf(&self) -> Option<&Rc<DmaBuf>> {
         self.gl.img.as_ref().map(|i| &i.dmabuf)
     }
 

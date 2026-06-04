@@ -96,7 +96,7 @@ impl TestGfxCtx {
         }))
     }
 
-    fn create_img(&self, buf: &DmaBuf) -> Result<Rc<TestGfxImage>, TestGfxError> {
+    fn create_img(&self, buf: &Rc<DmaBuf>) -> Result<Rc<TestGfxImage>, TestGfxError> {
         Ok(Rc::new(TestGfxImage::DmaBuf(TestDmaBufGfxImage {
             buf: buf.clone(),
             bo: self
@@ -134,14 +134,14 @@ impl GfxContext for TestGfxCtx {
         true
     }
 
-    fn dmabuf_fb(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
+    fn dmabuf_fb(self: Rc<Self>, buf: &Rc<DmaBuf>) -> Result<Rc<dyn GfxFramebuffer>, GfxError> {
         Ok(Rc::new(TestGfxFb {
             staging: RefCell::new(vec![Color::TRANSPARENT; (buf.width * buf.height) as usize]),
             img: self.create_img(buf)?,
         }))
     }
 
-    fn dmabuf_tex(self: Rc<Self>, buf: &DmaBuf) -> Result<Rc<dyn GfxTexture>, GfxError> {
+    fn dmabuf_tex(self: Rc<Self>, buf: &Rc<DmaBuf>) -> Result<Rc<dyn GfxTexture>, GfxError> {
         self.create_img(buf).map(|w| w as _).map_err(|e| e.into())
     }
 
@@ -273,7 +273,7 @@ struct TestShmGfxImage {
 }
 
 struct TestDmaBufGfxImage {
-    buf: DmaBuf,
+    buf: Rc<DmaBuf>,
     bo: Rc<dyn BufferObject>,
 }
 
@@ -329,7 +329,7 @@ impl GfxTexture for TestGfxImage {
         }
     }
 
-    fn dmabuf(&self) -> Option<&DmaBuf> {
+    fn dmabuf(&self) -> Option<&Rc<DmaBuf>> {
         match self {
             TestGfxImage::Shm(_) => None,
             TestGfxImage::DmaBuf(v) => Some(&v.buf),

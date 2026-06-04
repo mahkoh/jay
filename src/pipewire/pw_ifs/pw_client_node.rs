@@ -277,7 +277,7 @@ impl PwClientNode {
         port
     }
 
-    pub fn send_port_output_buffers(&self, port: &PwClientNodePort, buffers: &[DmaBuf]) {
+    pub fn send_port_output_buffers(&self, port: &PwClientNodePort, buffers: &[Rc<DmaBuf>]) {
         self.con.send(self, PwClientNodeMethods::PortBuffers, |f| {
             f.write_struct(|f| {
                 // direction
