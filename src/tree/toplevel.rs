@@ -277,7 +277,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         if let Some(session) = self.tl_data().session.get() {
             session.set_fullscreen(fullscreen);
         }
-        if let Some(surface) = self.tl_scanout_surface() {
+        if let Some(surface) = self.tl_surface() {
             surface.mark_fullscreen(connector)
         }
     }
@@ -323,7 +323,7 @@ pub trait ToplevelNodeBase: Node {
 
     fn tl_last_active_child(self: Rc<Self>) -> Rc<dyn ToplevelNode>;
 
-    fn tl_scanout_surface(&self) -> Option<Rc<WlSurface>> {
+    fn tl_surface(&self) -> Option<Rc<WlSurface>> {
         None
     }
     fn tl_restack_popups(&self) {

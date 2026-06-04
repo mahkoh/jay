@@ -527,7 +527,7 @@ impl ToplevelNodeBase for Xwindow {
         self
     }
 
-    fn tl_scanout_surface(&self) -> Option<Rc<WlSurface>> {
+    fn tl_surface(&self) -> Option<Rc<WlSurface>> {
         Some(self.x.surface.clone())
     }
 

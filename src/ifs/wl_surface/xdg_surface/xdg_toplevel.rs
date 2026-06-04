@@ -754,7 +754,7 @@ impl ToplevelNodeBase for XdgToplevel {
         self
     }
 
-    fn tl_scanout_surface(&self) -> Option<Rc<WlSurface>> {
+    fn tl_surface(&self) -> Option<Rc<WlSurface>> {
         Some(self.xdg.surface.clone())
     }
 
