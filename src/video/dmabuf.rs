@@ -236,12 +236,12 @@ fn is_udmabuf(fd: &OwnedFd, ino: c::ino_t) -> bool {
 impl State {
     pub fn find_dmabuf_device(&self, buf: &DmaBuf) -> Option<Rc<DrmDevData>> {
         let is_on_device = |dev: &Rc<DrmDevData>| {
-            let Some(cd) = &dev.copy_device else {
+            let Some(cd) = &dev.id_device else {
                 return false;
             };
             cd.is_on_device(buf)
                 .inspect_err(|e| {
-                    log::warn!("Could not check if dmabuf is on device: {}", ErrorFmt(e));
+                    log::warn!("Could not check if dmabuf is on device: {}", ErrorFmt(&**e));
                 })
                 .unwrap_or(false)
         };
