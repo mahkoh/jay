@@ -72,7 +72,7 @@ use {
             },
             wl_surface::{
                 NoneSurfaceExt,
-                commit_timeline::commit_cache::CommitCache,
+                commit_timeline::CommitCache,
                 tray::TrayItemIds,
                 wl_subsurface::SubsurfaceIds,
                 x_surface::xwindow::{Xwindow, XwindowId},
@@ -315,7 +315,7 @@ pub struct State {
     pub toplevel_icons: CopyHashMap<ToplevelIconId, Weak<XdgToplevelIconV1>>,
     pub tree_serials: TreeSerials,
     pub configure_groups: ConfigureGroups,
-    pub commit_cache: Rc<CommitCache>,
+    pub commit_cache: CommitCache,
     pub dmabuf_feedback: DmaBufFeedbackState,
 }
 

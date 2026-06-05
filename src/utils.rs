@@ -6,6 +6,7 @@ pub mod binary_search_map;
 pub mod bindings;
 pub mod bitfield;
 pub mod bitflags;
+pub mod box_cache;
 pub mod box_ext;
 pub mod buf;
 pub mod buffd;
