@@ -64,6 +64,13 @@ impl Drop for AttachedBuffer {
     }
 }
 
+#[derive(Copy, Clone, PartialEq)]
+enum Ty {
+    Shm,
+    DmaBuf,
+    Spb,
+}
+
 pub struct WlBuffer {
     pub id: WlBufferId,
     destroyed: Cell<bool>,
@@ -75,7 +82,7 @@ pub struct WlBuffer {
     pub client_dmabuf_device: Option<Rc<DrmDevData>>,
     render_ctx_version: Cell<u32>,
     pub storage: RefCell<Option<WlBufferStorage>>,
-    shm: bool,
+    ty: Ty,
     pub color: Option<[u32; 4]>,
     width: i32,
     height: i32,
@@ -89,7 +96,7 @@ impl WlBuffer {
     }
 
     pub fn is_shm(&self) -> bool {
-        self.shm
+        self.ty == Ty::Shm
     }
 
     fn new(
@@ -101,7 +108,7 @@ impl WlBuffer {
         client_dmabuf: Option<Rc<DmaBuf>>,
         client_dmabuf_device: Option<Rc<DrmDevData>>,
         storage: Option<WlBufferStorage>,
-        shm: bool,
+        ty: Ty,
         color: Option<[u32; 4]>,
     ) -> Rc<Self> {
         let slf = Rc::new_cyclic(|slf| Self {
@@ -116,7 +123,7 @@ impl WlBuffer {
             client_dmabuf_device,
             render_ctx_version: Cell::new(client.state.render_ctx_version.get()),
             storage: RefCell::new(storage),
-            shm,
+            ty,
             tracker: Default::default(),
             color,
             gfx_ctx_changed: EventListener::new(slf.clone()),
@@ -145,7 +152,7 @@ impl WlBuffer {
                 tex: None,
                 fb: None,
             })),
-            false,
+            Ty::DmaBuf,
             None,
         )
     }
@@ -212,7 +219,7 @@ impl WlBuffer {
                 mem,
                 stride,
             }),
-            true,
+            Ty::Shm,
             None,
         ))
     }
@@ -234,7 +241,7 @@ impl WlBuffer {
             None,
             None,
             None,
-            false,
+            Ty::Spb,
             Some([r, g, b, a]),
         )
     }
