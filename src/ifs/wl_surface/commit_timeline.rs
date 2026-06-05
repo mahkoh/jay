@@ -16,7 +16,7 @@ use {
         },
         tree::BeforeLatchResult,
         utils::{
-            box_cache::{BoxCache, BoxUninit, CachedBox},
+            box_cache::{BoxCache, BoxReset, BoxUninit, CachedBox},
             copyhashmap::CopyHashMap,
             hash_map_ext::HashMapExt,
             numcell::NumCell,
@@ -31,7 +31,6 @@ use {
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
-        mem,
         ops::DerefMut,
         rc::{Rc, Weak},
         slice,
@@ -212,7 +211,7 @@ impl CommitTimeline {
     pub(super) fn commit(
         &self,
         surface: &Rc<WlSurface>,
-        pending: &mut Box<PendingState>,
+        pending: &mut CachedBox<PendingState, BoxReset>,
     ) -> Result<(), CommitTimelineError> {
         let mut collector = CommitDataCollector {
             acquire_points: Default::default(),
@@ -255,7 +254,7 @@ impl CommitTimeline {
             &self.shared,
             EntryKind::Commit(surface.client.state.commit_cache.cache.get(Commit {
                 surface: surface.clone(),
-                pending: RefCell::new(mem::take(pending)),
+                pending: RefCell::new(CachedBox::take(pending)),
                 syncobj: NumCell::new(points.len()),
                 wait_handles: Cell::new(Default::default()),
                 pending_uploads: NumCell::new(pending_uploads),
@@ -463,7 +462,7 @@ enum CommitTimesState {
 
 struct Commit {
     surface: Rc<WlSurface>,
-    pending: RefCell<Box<PendingState>>,
+    pending: RefCell<CachedBox<PendingState, BoxReset>>,
     syncobj: NumCell<usize>,
     wait_handles: Cell<SmallVec<[WaitForSyncobjHandle; 1]>>,
     pending_uploads: NumCell<usize>,

@@ -24,8 +24,13 @@ use {
             NodesStackElement, OutputNode, StackedNode, TreeSerial, WorkspaceNode, WorkspaceType,
         },
         utils::{
-            cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            hash_map_ext::HashMapExt, linkedlist::LinkedNode, option_ext::OptionExt,
+            box_cache::{BoxReset, CachedBox},
+            cell_ext::CellExt,
+            clonecell::CloneCell,
+            copyhashmap::CopyHashMap,
+            hash_map_ext::HashMapExt,
+            linkedlist::LinkedNode,
+            option_ext::OptionExt,
         },
         wire::{WlSurfaceId, XdgPopupId, XdgSurfaceId, xdg_surface::*},
     },
@@ -646,7 +651,10 @@ impl SurfaceExt for XdgSurface {
         ext.node_layer()
     }
 
-    fn commit_requested(self: Rc<Self>, _pending: &mut Box<PendingState>) -> CommitAction {
+    fn commit_requested(
+        self: Rc<Self>,
+        _pending: &mut CachedBox<PendingState, BoxReset>,
+    ) -> CommitAction {
         if let Some(ext) = self.ext.get() {
             ext.commit_requested();
         }

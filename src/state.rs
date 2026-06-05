@@ -71,7 +71,7 @@ use {
                 tablet::{TabletIds, TabletInit, TabletPadIds, TabletPadInit, TabletToolIds},
             },
             wl_surface::{
-                NoneSurfaceExt,
+                NoneSurfaceExt, PendingStateCache,
                 commit_timeline::CommitCache,
                 tray::TrayItemIds,
                 wl_subsurface::SubsurfaceIds,
@@ -317,6 +317,7 @@ pub struct State {
     pub configure_groups: ConfigureGroups,
     pub commit_cache: CommitCache,
     pub dmabuf_feedback: DmaBufFeedbackState,
+    pub surface_pending_cache: PendingStateCache,
 }
 
 // impl Drop for State {

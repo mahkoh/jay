@@ -411,6 +411,7 @@ fn start_compositor2(
         configure_groups: Default::default(),
         commit_cache: Default::default(),
         dmabuf_feedback: Default::default(),
+        surface_pending_cache: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

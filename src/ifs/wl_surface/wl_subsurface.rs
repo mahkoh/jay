@@ -9,6 +9,7 @@ use {
         object::{Object, Version},
         tree::{Node, NodeLayerLink, WorkspaceNode},
         utils::{
+            box_cache::{BoxReset, CachedBox},
             clonecell::CloneCell,
             linkedlist::{LinkedNode, NodeRef},
             numcell::NumCell,
@@ -18,7 +19,6 @@ use {
     std::{
         cell::{Cell, RefCell, RefMut},
         collections::hash_map::OccupiedEntry,
-        mem,
         rc::Rc,
     },
     thiserror::Error,
@@ -50,7 +50,7 @@ pub struct WlSubsurface {
 
 #[derive(Default)]
 pub struct PendingSubsurfaceData {
-    pub(super) state: Option<Box<PendingState>>,
+    pub(super) state: Option<CachedBox<PendingState, BoxReset>>,
     node: Option<LinkedNode<StackElement>>,
     position: Option<(i32, i32)>,
 }
@@ -395,11 +395,14 @@ impl SurfaceExt for WlSubsurface {
         self.parent.node_layer()
     }
 
-    fn commit_requested(self: Rc<Self>, pending: &mut Box<PendingState>) -> CommitAction {
+    fn commit_requested(
+        self: Rc<Self>,
+        pending: &mut CachedBox<PendingState, BoxReset>,
+    ) -> CommitAction {
         if self.sync() {
             let mut parent_pending = self.pending();
             match &mut parent_pending.state {
-                None => parent_pending.state = Some(mem::take(&mut *pending)),
+                None => parent_pending.state = Some(CachedBox::take(pending)),
                 Some(state) => state.merge(pending, &self.surface.client),
             }
             return CommitAction::AbortCommit;

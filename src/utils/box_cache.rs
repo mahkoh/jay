@@ -115,7 +115,6 @@ impl<T> CachedBox<T, BoxReset>
 where
     T: Reset,
 {
-    #[expect(dead_code)]
     pub fn take(self: &mut CachedBox<T, BoxReset>) -> CachedBox<T, BoxReset> {
         mem::replace(self, self.cache.get())
     }
