@@ -5,10 +5,7 @@ use {
         gfx_api::{AsyncShmGfxTextureCallback, GfxError, PendingShmTransfer, STAGING_UPLOAD},
         ifs::{
             wl_buffer::WlBufferStorage,
-            wl_surface::{
-                PendingState, WlSurface, WlSurfaceError,
-                commit_timeline::commit_cache::CachedCommit,
-            },
+            wl_surface::{PendingState, WlSurface, WlSurfaceError},
         },
         io_uring::{
             IoUring, IoUringError, PendingPoll, PendingTimeout, PollCallback, TimeoutCallback,
@@ -19,6 +16,7 @@ use {
         },
         tree::BeforeLatchResult,
         utils::{
+            box_cache::{BoxCache, BoxReset, BoxUninit, CachedBox},
             copyhashmap::CopyHashMap,
             hash_map_ext::HashMapExt,
             numcell::NumCell,
@@ -33,7 +31,6 @@ use {
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
-        mem,
         ops::DerefMut,
         rc::{Rc, Weak},
         slice,
@@ -41,8 +38,6 @@ use {
     thiserror::Error,
     uapi::{OwnedFd, c::c_short},
 };
-
-pub mod commit_cache;
 
 const MAX_TIMELINE_DEPTH: usize = 256;
 
@@ -71,6 +66,11 @@ pub struct CommitTimeline {
     fifo_waiter: Cell<Option<Rc<Inner>>>,
     commit_time_waiter: RefCell<Option<CommitTimeWaiter>>,
     toplevel_restored_waiter: Cell<Option<Rc<Inner>>>,
+}
+
+#[derive(Default)]
+pub struct CommitCache {
+    cache: Rc<BoxCache<Commit, BoxUninit>>,
 }
 
 struct Inner {
@@ -211,7 +211,7 @@ impl CommitTimeline {
     pub(super) fn commit(
         &self,
         surface: &Rc<WlSurface>,
-        pending: &mut Box<PendingState>,
+        pending: &mut CachedBox<PendingState, BoxReset>,
     ) -> Result<(), CommitTimelineError> {
         let mut collector = CommitDataCollector {
             acquire_points: Default::default(),
@@ -252,9 +252,9 @@ impl CommitTimeline {
         let entry = add_entry(
             &self.own_timeline,
             &self.shared,
-            EntryKind::Commit(surface.client.state.commit_cache.get(Commit {
+            EntryKind::Commit(surface.client.state.commit_cache.cache.get(Commit {
                 surface: surface.clone(),
-                pending: RefCell::new(mem::take(pending)),
+                pending: RefCell::new(CachedBox::take(pending)),
                 syncobj: NumCell::new(points.len()),
                 wait_handles: Cell::new(Default::default()),
                 pending_uploads: NumCell::new(pending_uploads),
@@ -442,7 +442,7 @@ struct Entry {
 }
 
 enum EntryKind {
-    Commit(CachedCommit),
+    Commit(CachedBox<Commit, BoxUninit>),
     Wait(Rc<Cell<bool>>),
     Signal(Rc<Inner>, Rc<Cell<bool>>),
     Gc(CommitTimelineId),
@@ -462,7 +462,7 @@ enum CommitTimesState {
 
 struct Commit {
     surface: Rc<WlSurface>,
-    pending: RefCell<Box<PendingState>>,
+    pending: RefCell<CachedBox<PendingState, BoxReset>>,
     syncobj: NumCell<usize>,
     wait_handles: Cell<SmallVec<[WaitForSyncobjHandle; 1]>>,
     pending_uploads: NumCell<usize>,
@@ -746,8 +746,7 @@ impl CommitDataCollector {
         if let Some(commit_time) = pending.commit_time.take() {
             self.commit_time = self.commit_time.max(commit_time);
         }
-        if let Some(xdg) = &mut pending.xdg_surface
-            && let Some(restored) = xdg.restored.take()
+        if let Some(restored) = pending.xdg_surface.restored.take()
             && !restored.get()
         {
             self.toplevel_restored = Some(restored);

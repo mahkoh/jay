@@ -88,9 +88,17 @@ use {
             VblankListener, WorkspaceNode,
         },
         utils::{
-            cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            double_buffered::DoubleBuffered, errorfmt::ErrorFmt, event_listener::EventListener,
-            linkedlist::LinkedList, numcell::NumCell, smallmap::SmallMap,
+            box_cache::{BoxCache, BoxReset, CachedBox},
+            cell_ext::CellExt,
+            clonecell::CloneCell,
+            copyhashmap::CopyHashMap,
+            double_buffered::DoubleBuffered,
+            errorfmt::ErrorFmt,
+            event_listener::EventListener,
+            linkedlist::LinkedList,
+            numcell::NumCell,
+            reset::Reset,
+            smallmap::SmallMap,
         },
         video::{
             dmabuf::DMA_BUF_SYNC_READ,
@@ -104,6 +112,7 @@ use {
     },
     ahash::AHashMap,
     isnt::std_1::{primitive::IsntSliceExt, vec::IsntVecExt},
+    jay_proc::Reset,
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -276,7 +285,7 @@ pub struct WlSurface {
     pub client: Rc<Client>,
     visible: Cell<bool>,
     role: Cell<SurfaceRole>,
-    pending: RefCell<Box<PendingState>>,
+    pending: RefCell<CachedBox<PendingState, BoxReset>>,
     input_region: CloneCell<Option<Rc<Region>>>,
     opaque_region: CloneCell<Option<Rc<Region>>>,
     buffer_points: RefCell<BufferPoints>,
@@ -369,7 +378,10 @@ enum CommitAction {
 trait SurfaceExt {
     fn node_layer(&self) -> NodeLayerLink;
 
-    fn commit_requested(self: Rc<Self>, pending: &mut Box<PendingState>) -> CommitAction {
+    fn commit_requested(
+        self: Rc<Self>,
+        pending: &mut CachedBox<PendingState, BoxReset>,
+    ) -> CommitAction {
         let _ = pending;
         CommitAction::ContinueCommit
     }
@@ -463,6 +475,11 @@ impl SurfaceExt for NoneSurfaceExt {
 }
 
 #[derive(Default)]
+pub struct PendingStateCache {
+    cache: Rc<BoxCache<PendingState, BoxReset>>,
+}
+
+#[derive(Default, Reset)]
 struct PendingState {
     buffer: Option<Option<AttachedBuffer>>,
     offset: (i32, i32),
@@ -480,8 +497,8 @@ struct PendingState {
     xwayland_serial: Option<u64>,
     tearing: Option<bool>,
     content_type: Option<Option<ContentType>>,
-    xdg_surface: Option<Box<PendingXdgSurfaceData>>,
-    layer_surface: Option<Box<PendingLayerSurfaceData>>,
+    xdg_surface: PendingXdgSurfaceData,
+    layer_surface: PendingLayerSurfaceData,
     subsurfaces: AHashMap<SubsurfaceId, AttachedSubsurfaceState>,
     acquire_point: Option<(Rc<Syncobj>, SyncobjPoint)>,
     release_point: Option<SyncobjRelease>,
@@ -572,13 +589,7 @@ impl PendingState {
         self.fifo_barrier_wait |= mem::take(&mut next.fifo_barrier_wait);
         macro_rules! merge_ext {
             ($name:ident) => {
-                if let Some(e) = &mut self.$name {
-                    if let Some(n) = &mut next.$name {
-                        e.merge(n);
-                    }
-                } else {
-                    self.$name = next.$name.take();
-                }
+                self.$name.merge(&mut next.$name);
             };
         }
         merge_ext!(xdg_surface);
@@ -633,14 +644,15 @@ pub struct StackElement {
 
 impl WlSurface {
     pub fn new(id: WlSurfaceId, client: &Rc<Client>, version: Version, slf: &Weak<Self>) -> Self {
-        let dummy_output = client.state.dummy_output.get().unwrap();
+        let state = &client.state;
+        let dummy_output = state.dummy_output.get().unwrap();
         Self {
             id,
-            node_id: client.state.node_ids.next(),
+            node_id: state.node_ids.next(),
             client: client.clone(),
             visible: Cell::new(false),
             role: Cell::new(SurfaceRole::None),
-            pending: Default::default(),
+            pending: RefCell::new(state.surface_pending_cache.cache.get()),
             input_region: Default::default(),
             opaque_region: Default::default(),
             buffer_points: Default::default(),
@@ -663,7 +675,7 @@ impl WlSurface {
             buf_x: Default::default(),
             buf_y: Default::default(),
             children: Default::default(),
-            ext: CloneCell::new(client.state.none_surface_ext.clone()),
+            ext: CloneCell::new(state.none_surface_ext.clone()),
             frame_requests: Default::default(),
             presentation_feedback: Default::default(),
             latched_presentation_feedback: Default::default(),
@@ -1145,7 +1157,8 @@ impl WlSurfaceRequestHandler for WlSurface {
 
     fn commit(&self, _req: Commit, slf: &Rc<Self>) -> Result<(), Self::Error> {
         let ext = self.ext.get();
-        let pending = &mut *self.pending.borrow_mut();
+        let cached_pending = &mut *self.pending.borrow_mut();
+        let pending = &mut **cached_pending;
         if let Some(Some(buffer)) = &mut pending.buffer
             && pending.release_point.is_none()
             && pending.sync_file_release.is_none()
@@ -1168,8 +1181,8 @@ impl WlSurfaceRequestHandler for WlSurface {
         {
             cd.ready();
         }
-        if ext.commit_requested(pending) == CommitAction::ContinueCommit {
-            self.commit_timeline.commit(slf, pending)?;
+        if ext.commit_requested(cached_pending) == CommitAction::ContinueCommit {
+            self.commit_timeline.commit(slf, cached_pending)?;
         }
         Ok(())
     }
@@ -1869,7 +1882,7 @@ impl Object for WlSurface {
         self.buffer.set(None);
         self.toplevel.set(None);
         self.idle_inhibitors.clear();
-        mem::take(self.pending.borrow_mut().deref_mut());
+        self.pending.borrow_mut().reset();
         self.presentation_feedback.borrow_mut().clear();
         self.latched_presentation_feedback.borrow_mut().clear();
         self.viewporter.take();

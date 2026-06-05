@@ -13,7 +13,7 @@ name = "jay"
 path = "src/main.rs"
 
 [workspace]
-members = ["jay-config", "toml-config", "algorithms", "toml-spec", "wire-to-xml", "xml-to-wire"]
+members = ["jay-config", "toml-config", "algorithms", "toml-spec", "wire-to-xml", "xml-to-wire", "jay-proc"]
 
 [profile.release]
 panic = "abort"
@@ -26,6 +26,7 @@ panic = "abort"
 jay-config = { version = "1.11.0", path = "jay-config" }
 jay-toml-config = { version = "0.13.0", path = "toml-config" }
 jay-algorithms = { version = "0.4.0", path = "algorithms" }
+jay-proc = { path = "jay-proc" }
 
 uapi = "0.2.13"
 thiserror = "2.0.11"
