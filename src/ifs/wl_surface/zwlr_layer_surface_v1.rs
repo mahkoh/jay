@@ -141,6 +141,7 @@ impl PendingLayerSurfaceData {
         opt!(margin);
         opt!(keyboard_interactivity);
         opt!(layer);
+        opt!(exclusive_edge);
     }
 }
 
