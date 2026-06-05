@@ -1,0 +1,15 @@
+[package]
+name = "jay-proc"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-only"
+description = "Internal dependency of the Jay compositor"
+repository = "https://github.com/mahkoh/jay"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0.106"
+syn = { version = "2.0.117", features = ["derive", "parsing", "full"] }
+quote = "1.0.45"

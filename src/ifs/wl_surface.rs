@@ -90,7 +90,7 @@ use {
         utils::{
             cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
             double_buffered::DoubleBuffered, errorfmt::ErrorFmt, event_listener::EventListener,
-            linkedlist::LinkedList, numcell::NumCell, smallmap::SmallMap,
+            linkedlist::LinkedList, numcell::NumCell, reset::Reset, smallmap::SmallMap,
         },
         video::{
             dmabuf::DMA_BUF_SYNC_READ,
@@ -104,6 +104,7 @@ use {
     },
     ahash::AHashMap,
     isnt::std_1::{primitive::IsntSliceExt, vec::IsntVecExt},
+    jay_proc::Reset,
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -462,7 +463,7 @@ impl SurfaceExt for NoneSurfaceExt {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Reset)]
 struct PendingState {
     buffer: Option<Option<AttachedBuffer>>,
     offset: (i32, i32),
@@ -1869,7 +1870,7 @@ impl Object for WlSurface {
         self.buffer.set(None);
         self.toplevel.set(None);
         self.idle_inhibitors.clear();
-        mem::take(self.pending.borrow_mut().deref_mut());
+        self.pending.borrow_mut().reset();
         self.presentation_feedback.borrow_mut().clear();
         self.latched_presentation_feedback.borrow_mut().clear();
         self.viewporter.take();

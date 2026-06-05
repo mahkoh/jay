@@ -56,6 +56,7 @@ pub mod ptr_ext;
 pub mod queue;
 pub mod rc_eq;
 pub mod refcounted;
+pub mod reset;
 pub mod run_toplevel;
 pub mod scroller;
 pub mod send_sync_rc;
