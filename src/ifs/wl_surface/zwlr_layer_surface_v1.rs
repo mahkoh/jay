@@ -24,10 +24,11 @@ use {
         },
         utils::{
             bitflags::BitflagsExt, copyhashmap::CopyHashMap, hash_map_ext::HashMapExt,
-            linkedlist::LinkedNode, option_ext::OptionExt,
+            linkedlist::LinkedNode,
         },
         wire::{WlSurfaceId, XdgPopupId, ZwlrLayerSurfaceV1Id, zwlr_layer_surface_v1::*},
     },
+    jay_proc::Reset,
     std::{
         cell::{Cell, RefCell, RefMut},
         rc::Rc,
@@ -114,7 +115,7 @@ struct Popup {
     stack_link: RefCell<NodesStackElement>,
 }
 
-#[derive(Default)]
+#[derive(Default, Reset)]
 pub struct PendingLayerSurfaceData {
     size: Option<(i32, i32)>,
     anchor: Option<u32>,
@@ -208,10 +209,8 @@ impl ZwlrLayerSurfaceV1 {
         self.client.event(Closed { self_id: self.id });
     }
 
-    fn pending(&self) -> RefMut<'_, Box<PendingLayerSurfaceData>> {
-        RefMut::map(self.surface.pending.borrow_mut(), |m| {
-            m.layer_surface.get_or_insert_default_ext()
-        })
+    fn pending(&self) -> RefMut<'_, PendingLayerSurfaceData> {
+        RefMut::map(self.surface.pending.borrow_mut(), |m| &mut m.layer_surface)
     }
 
     pub fn for_each_popup(&self, mut f: impl FnMut(&Rc<XdgPopup>)) {
@@ -403,7 +402,7 @@ impl ZwlrLayerSurfaceV1 {
         self: &Rc<Self>,
         pending: &mut PendingState,
     ) -> Result<(), ZwlrLayerSurfaceV1Error> {
-        let pending = pending.layer_surface.get_or_insert_default_ext();
+        let pending = &mut pending.layer_surface;
         if let Some(size) = pending.size.take() {
             self.size.set(size);
         }

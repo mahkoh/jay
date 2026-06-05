@@ -746,8 +746,7 @@ impl CommitDataCollector {
         if let Some(commit_time) = pending.commit_time.take() {
             self.commit_time = self.commit_time.max(commit_time);
         }
-        if let Some(xdg) = &mut pending.xdg_surface
-            && let Some(restored) = xdg.restored.take()
+        if let Some(restored) = pending.xdg_surface.restored.take()
             && !restored.get()
         {
             self.toplevel_restored = Some(restored);

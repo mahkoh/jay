@@ -30,10 +30,10 @@ use {
             copyhashmap::CopyHashMap,
             hash_map_ext::HashMapExt,
             linkedlist::LinkedNode,
-            option_ext::OptionExt,
         },
         wire::{WlSurfaceId, XdgPopupId, XdgSurfaceId, xdg_surface::*},
     },
+    jay_proc::Reset,
     std::{
         cell::{Cell, RefCell, RefMut},
         fmt::Debug,
@@ -189,7 +189,7 @@ impl XdgPopupParent for Popup {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Reset)]
 pub struct PendingXdgSurfaceData {
     geometry: Option<Rect>,
     pub restored: Option<Rc<Cell<bool>>>,
@@ -406,10 +406,8 @@ impl XdgSurface {
         Ok(())
     }
 
-    fn pending(&self) -> RefMut<'_, Box<PendingXdgSurfaceData>> {
-        RefMut::map(self.surface.pending.borrow_mut(), |p| {
-            p.xdg_surface.get_or_insert_default_ext()
-        })
+    fn pending(&self) -> RefMut<'_, PendingXdgSurfaceData> {
+        RefMut::map(self.surface.pending.borrow_mut(), |p| &mut p.xdg_surface)
     }
 
     pub fn set_popup_stack(&self, stack: &Rc<NodesStack>, stack_type: PopupStackType) {
@@ -666,13 +664,11 @@ impl SurfaceExt for XdgSurface {
         pending: &mut PendingState,
         _serial: Option<TreeSerial>,
     ) -> Result<(), WlSurfaceError> {
-        if let Some(pending) = &mut pending.xdg_surface {
-            if let Some(geometry) = pending.geometry.take() {
-                let prev = self.geometry.replace(Some(geometry));
-                if prev != Some(geometry) {
-                    self.update_effective_geometry();
-                    self.update_extents();
-                }
+        if let Some(geometry) = pending.xdg_surface.geometry.take() {
+            let prev = self.geometry.replace(Some(geometry));
+            if prev != Some(geometry) {
+                self.update_effective_geometry();
+                self.update_extents();
             }
         }
         Ok(())

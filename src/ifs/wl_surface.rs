@@ -497,8 +497,8 @@ struct PendingState {
     xwayland_serial: Option<u64>,
     tearing: Option<bool>,
     content_type: Option<Option<ContentType>>,
-    xdg_surface: Option<Box<PendingXdgSurfaceData>>,
-    layer_surface: Option<Box<PendingLayerSurfaceData>>,
+    xdg_surface: PendingXdgSurfaceData,
+    layer_surface: PendingLayerSurfaceData,
     subsurfaces: AHashMap<SubsurfaceId, AttachedSubsurfaceState>,
     acquire_point: Option<(Rc<Syncobj>, SyncobjPoint)>,
     release_point: Option<SyncobjRelease>,
@@ -589,13 +589,7 @@ impl PendingState {
         self.fifo_barrier_wait |= mem::take(&mut next.fifo_barrier_wait);
         macro_rules! merge_ext {
             ($name:ident) => {
-                if let Some(e) = &mut self.$name {
-                    if let Some(n) = &mut next.$name {
-                        e.merge(n);
-                    }
-                } else {
-                    self.$name = next.$name.take();
-                }
+                self.$name.merge(&mut next.$name);
             };
         }
         merge_ext!(xdg_surface);
