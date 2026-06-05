@@ -132,6 +132,7 @@ impl MetalBackend {
 
     fn handle_drm_device_removed(self: &Rc<Self>, dev: &Rc<MetalDrmDeviceData>) {
         self.state.copy_device_registry.remove(dev.dev.id);
+        self.state.buffer_id_device_registry.remove(dev.dev.devnum);
         log::info!("Device removed: {}", dev.dev.devnode.to_bytes().as_bstr());
     }
 

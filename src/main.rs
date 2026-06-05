@@ -51,6 +51,7 @@ mod allocator;
 mod async_engine;
 mod backend;
 mod backends;
+mod buffer_id_device;
 mod bugs;
 mod cli;
 mod client;

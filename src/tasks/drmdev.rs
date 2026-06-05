@@ -1,6 +1,7 @@
 use {
     crate::{
         backend::{BackendDrmDevice, DrmDeviceId, DrmEvent},
+        buffer_id_device::BufferIdDeviceDyn,
         ifs::wp_drm_lease_device_v1::WpDrmLeaseDeviceV1Global,
         state::{DrmDevData, State},
         tasks::udev_utils::udev_props,
@@ -31,6 +32,13 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn BackendDrmDevice>) {
             })
             .ok()
     });
+    let mut id_device = copy_device.clone().map(|d| d as Rc<dyn BufferIdDeviceDyn>);
+    if id_device.is_none() {
+        id_device = state
+            .buffer_id_device_registry
+            .get(dev_t)
+            .map(|v| v as Rc<dyn BufferIdDeviceDyn>);
+    }
     let data = Rc::new(DrmDevData {
         id,
         dev: dev.clone(),
@@ -44,6 +52,7 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn BackendDrmDevice>) {
         pci_id: props.pci_id,
         lease_global,
         copy_device,
+        id_device,
     });
     let oh = DrvDevHandler {
         id,

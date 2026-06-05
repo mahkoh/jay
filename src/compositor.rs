@@ -392,6 +392,7 @@ fn start_compositor2(
         udmabuf: Default::default(),
         gfx_ctx_changed: Default::default(),
         copy_device_registry: Rc::new(CopyDeviceRegistry::new(&ring, &engine, &eventfd_cache)),
+        buffer_id_device_registry: Default::default(),
         supports_presentation_feedback: Default::default(),
         eventfd_cache,
         lazy_event_sources: Default::default(),

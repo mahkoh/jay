@@ -2,6 +2,7 @@ use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
         backend::DrmDeviceId,
+        buffer_id_device::BufferIdDeviceDyn,
         eventfd_cache::EventfdCache,
         format::{FORMATS, Format},
         gfx_api::FdSync,
@@ -78,6 +79,7 @@ use {
     run_on_drop::on_drop,
     std::{
         cell::{Cell, RefCell},
+        error::Error,
         ffi::CStr,
         fmt::{Debug, Formatter},
         ops::Deref,
@@ -1435,6 +1437,12 @@ impl CopyDevice {
             }),
             dev: self.clone(),
         })
+    }
+}
+
+impl BufferIdDeviceDyn for CopyDevice {
+    fn is_on_device(&self, buf: &DmaBuf) -> Result<bool, Box<dyn Error>> {
+        self.is_on_device(buf).map_err(|e| Box::new(e) as _)
     }
 }
 

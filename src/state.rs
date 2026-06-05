@@ -10,6 +10,7 @@ use {
             MonitorInfo, transaction::BackendConnectorTransactionError,
         },
         backends::dummy::DummyBackend,
+        buffer_id_device::{BufferIdDeviceDyn, BufferIdDeviceRegistry},
         cli::RunArgs,
         client::{Client, ClientCaps, ClientId, Clients, NUM_CACHED_SERIAL_RANGES, SerialRange},
         clientmem::ClientMemOffset,
@@ -297,6 +298,7 @@ pub struct State {
     pub udmabuf: Rc<UdmabufHolder>,
     pub gfx_ctx_changed: EventSource<WlBuffer>,
     pub copy_device_registry: Rc<CopyDeviceRegistry>,
+    pub buffer_id_device_registry: BufferIdDeviceRegistry,
     pub supports_presentation_feedback: Cell<bool>,
     pub eventfd_cache: Rc<EventfdCache>,
     pub lazy_event_sources: Rc<LazyEventSources>,
@@ -476,7 +478,9 @@ pub struct DrmDevData {
     pub model: Option<String>,
     pub pci_id: Option<PciId>,
     pub lease_global: Rc<WpDrmLeaseDeviceV1Global>,
+    #[expect(dead_code)]
     pub copy_device: Option<Rc<CopyDevice>>,
+    pub id_device: Option<Rc<dyn BufferIdDeviceDyn>>,
 }
 
 impl ConnectorData {
