@@ -4,7 +4,6 @@ mod size;
 #[cfg(test)]
 mod tests;
 
-#[expect(unused_imports)]
 pub use {
     crate::rect::size::Size,
     region::{DamageQueue, DynamicDamageQueue, DynamicDamageQueueElement, RegionBuilder},

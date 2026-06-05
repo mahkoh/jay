@@ -293,7 +293,6 @@ pub trait ChainedCopyCallback {
 pub enum DmabufCopy {
     #[expect(dead_code)]
     Fixed(Rc<CopyDeviceCopy>),
-    #[expect(dead_code)]
     AdHoc(Rc<CopyDeviceSrcObject>, Rc<CopyDeviceDstObject>),
 }
 
@@ -386,7 +385,6 @@ impl ChainedCopy {
 }
 
 impl State {
-    #[expect(dead_code)]
     pub fn schedule_chained_copy(
         &self,
         steps: &[DmabufCopy],

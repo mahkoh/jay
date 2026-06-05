@@ -755,7 +755,6 @@ impl PhysicalCopyDevice {
         Ok(dev)
     }
 
-    #[expect(dead_code)]
     pub fn drm_device_id(&self) -> DrmDeviceId {
         self.id
     }
@@ -1398,7 +1397,6 @@ impl CopyDevice {
         Ok((on_device, fd_props))
     }
 
-    #[expect(dead_code)]
     pub fn create_src_object(
         self: &Rc<Self>,
         buf: &Rc<DmaBuf>,
@@ -1407,7 +1405,6 @@ impl CopyDevice {
             .map(|obj| CopyDeviceSrcObject { obj })
     }
 
-    #[expect(dead_code)]
     pub fn create_dst_object(
         self: &Rc<Self>,
         buf: &Rc<DmaBuf>,

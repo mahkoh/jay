@@ -176,6 +176,7 @@ pub struct State {
     pub render_ctx_drm_device: ObjAndId<Option<Rc<DrmDevData>>>,
     pub render_ctx_prime_copy_device: CloneCell<Option<Rc<CopyDevice>>>,
     pub render_ctx_prime_modifiers: CopyHashMap<Option<ConnectorId>, PrimeModifiers>,
+    pub render_ctx_prime_modifiers_stash: RefCell<Vec<Modifier>>,
     pub render_ctx_version: NumCell<u32>,
     pub render_ctx_ever_initialized: Cell<bool>,
     pub cursors: CloneCell<Option<Rc<ServerCursors>>>,
@@ -322,6 +323,7 @@ pub struct State {
     pub commit_cache: CommitCache,
     pub dmabuf_feedback: DmaBufFeedbackState,
     pub surface_pending_cache: PendingStateCache,
+    pub no_client_prime: bool,
 }
 
 // impl Drop for State {
@@ -772,10 +774,11 @@ impl State {
             for client in self.clients.clients.borrow_mut().values() {
                 for surface in client.data.objects.surfaces.lock().values() {
                     let had_shm_texture = surface.reset_shm_textures();
+                    let had_prime_texture = surface.prime.reset();
                     if let Some(buffer) = surface.buffer.get() {
                         let buf = &buffer.buffer.buf;
                         let had_buffer_texture = *updated_buffers.get(&Rc::as_ptr(buf)).unwrap();
-                        if had_shm_texture || had_buffer_texture {
+                        if had_shm_texture || had_prime_texture || had_buffer_texture {
                             buf.update_texture_or_log(surface, true);
                         }
                     }

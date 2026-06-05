@@ -363,7 +363,6 @@ impl Debug for DynamicDamageQueue {
 }
 
 impl DynamicDamageQueue {
-    #[expect(dead_code)]
     pub fn add_element(self: &Rc<Self>) -> DynamicDamageQueueElement {
         let datas = unsafe { self.datas.get().deref_mut() };
         for (idx, vec) in datas.iter_mut().enumerate() {
@@ -386,7 +385,6 @@ impl DynamicDamageQueue {
         }
     }
 
-    #[expect(dead_code)]
     pub fn damage(&self, rects: &[Rect]) {
         let datas = unsafe { self.datas.get().deref_mut() };
         for data in datas {
@@ -397,7 +395,6 @@ impl DynamicDamageQueue {
         }
     }
 
-    #[expect(dead_code)]
     pub fn clear_all(&self) {
         let datas = unsafe { self.datas.get().deref_mut() };
         for data in datas {
@@ -410,13 +407,11 @@ impl DynamicDamageQueue {
 }
 
 impl DynamicDamageQueueElement {
-    #[expect(dead_code)]
     pub fn clear(&self) {
         let damage = unsafe { self.damage.get().deref_mut() };
         damage.clear();
     }
 
-    #[expect(dead_code)]
     pub fn get(&self) -> Region {
         let damage = unsafe { self.damage.get().deref() };
         Region::from_rects2(damage)
