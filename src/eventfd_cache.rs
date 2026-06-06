@@ -1,7 +1,7 @@
 use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
-        io_uring::{IoUring, IoUringError},
+        io_uring::{IoUring, IoUringError, PendingPoll, PollCallback},
         utils::{
             buf::Buf,
             errorfmt::ErrorFmt,
@@ -10,7 +10,7 @@ use {
             stack::Stack,
         },
     },
-    std::{cell::Cell, future::poll_fn, pin::Pin, rc::Rc, slice, task::Poll},
+    std::{cell::Cell, ffi::c_short, future::poll_fn, pin::Pin, rc::Rc, slice, task::Poll},
     thiserror::Error,
     uapi::{OwnedFd, c},
 };
@@ -32,13 +32,26 @@ pub struct EventfdCache {
 struct Inner {
     ring: Rc<IoUring>,
     fds: Stack<Rc<OwnedFd>>,
+    signaled: Stack<Rc<Cell<bool>>>,
+    readable: Stack<Rc<Readable>>,
     recycle: AsyncQueue<Rc<OwnedFd>>,
 }
 
 pub struct Eventfd {
     cache: Rc<Inner>,
     pub fd: Rc<OwnedFd>,
-    signaled: Cell<bool>,
+    signaled: Rc<Cell<bool>>,
+}
+
+#[derive(Default)]
+struct Readable {
+    data: Cell<Option<ReadableData>>,
+}
+
+struct ReadableData {
+    cache: Rc<Inner>,
+    signaled: Rc<Cell<bool>>,
+    cb: Rc<dyn PollCallback>,
 }
 
 impl EventfdCache {
@@ -46,6 +59,8 @@ impl EventfdCache {
         let inner = Rc::new(Inner {
             ring: ring.clone(),
             fds: Default::default(),
+            signaled: Default::default(),
+            readable: Default::default(),
             recycle: Default::default(),
         });
         let task = eng.spawn("eventfd-cache", inner.clone().recycle());
@@ -62,7 +77,7 @@ impl EventfdCache {
         Ok(Eventfd {
             cache: self.inner.clone(),
             fd,
-            signaled: Default::default(),
+            signaled: self.inner.signaled.pop().unwrap_or_default(),
         })
     }
 }
@@ -93,6 +108,40 @@ impl Eventfd {
         uapi::poll(slice::from_mut(&mut pollfd), -1).to_os_error()?;
         self.signaled.set(true);
         Ok(())
+    }
+
+    pub fn signaled_external(
+        &self,
+        cb: Rc<dyn PollCallback>,
+    ) -> Result<Option<PendingPoll>, IoUringError> {
+        if self.signaled.get() {
+            return Ok(None);
+        }
+        let readable = self.cache.readable.pop().unwrap_or_default();
+        readable.data.set(Some(ReadableData {
+            cache: self.cache.clone(),
+            signaled: self.signaled.clone(),
+            cb,
+        }));
+        self.cache
+            .ring
+            .readable_external(&self.fd, readable)
+            .map(Some)
+    }
+}
+
+impl PollCallback for Readable {
+    fn completed(self: Rc<Self>, res: Result<c_short, OsError>) {
+        let Some(data) = self.data.take() else {
+            return;
+        };
+        data.cache.readable.push(self);
+        if data.cache.return_signaled(&data.signaled) {
+            // nothing
+        } else if res.is_ok() {
+            data.signaled.set(true);
+        }
+        data.cb.completed(res);
     }
 }
 
@@ -148,6 +197,15 @@ impl Inner {
             .await;
         }
     }
+
+    fn return_signaled(&self, signaled: &Rc<Cell<bool>>) -> bool {
+        let returned = Rc::strong_count(signaled) == 1;
+        if returned {
+            signaled.set(false);
+            self.signaled.push(signaled.clone());
+        }
+        returned
+    }
 }
 
 impl Drop for Eventfd {
@@ -155,5 +213,6 @@ impl Drop for Eventfd {
         if self.signaled.get() {
             self.cache.recycle.push(self.fd.clone());
         }
+        self.cache.return_signaled(&self.signaled);
     }
 }

@@ -4,6 +4,7 @@ pub mod dnd_icon;
 pub mod ext_session_lock_surface_v1;
 pub mod jay_sync_file_release;
 pub mod jay_sync_file_surface;
+pub mod prime;
 pub mod tray;
 pub mod wl_subsurface;
 pub mod wp_alpha_modifier_surface_v1;
@@ -56,6 +57,7 @@ use {
                 cursor::CursorSurface,
                 dnd_icon::DndIcon,
                 jay_sync_file_release::SyncFileRelease,
+                prime::{PrimeError, PrimeSurfaceBuffer, SurfacePrimeState},
                 tray::TrayItemId,
                 wl_subsurface::{PendingSubsurfaceData, SubsurfaceId, WlSubsurface},
                 wp_alpha_modifier_surface_v1::WpAlphaModifierSurfaceV1,
@@ -101,7 +103,7 @@ use {
             smallmap::SmallMap,
         },
         video::{
-            dmabuf::DMA_BUF_SYNC_READ,
+            dmabuf::{ChainedCopyError, DMA_BUF_SYNC_READ},
             drm::syncobj::{Syncobj, SyncobjPoint, merge_sync_files},
         },
         wire::{
@@ -302,6 +304,7 @@ pub struct WlSurface {
     pub buffer: CloneCell<Option<Rc<SurfaceBuffer>>>,
     pub shm_staging: CloneCell<Option<Rc<dyn GfxStagingBuffer>>>,
     pub shm_textures: DoubleBuffered<SurfaceShmTexture>,
+    pub prime: SurfacePrimeState,
     pub buf_x: NumCell<i32>,
     pub buf_y: NumCell<i32>,
     pub children: RefCell<Option<Box<ParentData>>>,
@@ -482,6 +485,7 @@ pub struct PendingStateCache {
 #[derive(Default, Reset)]
 struct PendingState {
     buffer: Option<Option<AttachedBuffer>>,
+    prime_buffer: Option<Rc<PrimeSurfaceBuffer>>,
     offset: (i32, i32),
     opaque_region: Option<Option<Rc<Region>>>,
     input_region: Option<Option<Rc<Region>>>,
@@ -672,6 +676,7 @@ impl WlSurface {
                 tex: Default::default(),
                 damage,
             })),
+            prime: Default::default(),
             buf_x: Default::default(),
             buf_y: Default::default(),
             children: Default::default(),
@@ -1079,6 +1084,7 @@ impl WlSurfaceRequestHandler for WlSurface {
         }
         self.buffer.set(None);
         self.reset_shm_textures();
+        self.prime.reset();
         if let Some(xwayland_serial) = self.xwayland_serial.get() {
             self.client
                 .surfaces_by_xwayland_serial
@@ -1304,10 +1310,14 @@ impl WlSurface {
             None,
             Direct,
             Shm,
+            Prime,
         }
         let handle_tex_type = |ty: TexType| {
             if ty != TexType::Shm {
                 self.reset_shm_textures();
+            }
+            if ty != TexType::Prime {
+                self.prime.reset();
             }
         };
         if let Some(buffer_change) = pending.buffer.take() {
@@ -1320,6 +1330,10 @@ impl WlSurface {
                     handle_tex_type(TexType::Shm);
                     self.shm_textures.flip();
                     self.shm_textures.front().damage.clear();
+                } else if let Some(buffer) = pending.prime_buffer.take() {
+                    handle_tex_type(TexType::Prime);
+                    buffer.clear_damage();
+                    self.prime.buffer.set(Some(buffer));
                 } else {
                     handle_tex_type(TexType::Direct);
                 }
@@ -1892,6 +1906,7 @@ impl Object for WlSurface {
         self.unset_ext();
         mem::take(self.frame_requests.borrow_mut().deref_mut());
         self.buffer.set(None);
+        self.prime.reset();
         self.toplevel.set(None);
         self.idle_inhibitors.clear();
         self.pending.borrow_mut().reset();
@@ -2301,6 +2316,10 @@ pub enum WlSurfaceError {
     SurfaceReleaseWithoutAttach,
     #[error("Content update contains sync file release but no non-null buffer")]
     SyncFileReleaseWithoutAttach,
+    #[error("Could not prepare prime copy")]
+    PreparePrimeCopy(#[source] PrimeError),
+    #[error("Could not perform prime copy")]
+    PrimeCopy(#[source] ChainedCopyError),
 }
 efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);

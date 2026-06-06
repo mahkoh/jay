@@ -41,7 +41,10 @@ use {
             jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
             wl_output::{BlendSpace, OutputId, PersistentOutputState, WlOutputGlobal},
             wl_seat::{handle_position_hint_requests, handle_warp_mouse_to_focus},
-            wl_surface::{NoneSurfaceExt, zwp_input_popup_surface_v2::input_popup_positioning},
+            wl_surface::{
+                NoneSurfaceExt, prime::no_client_prime,
+                zwp_input_popup_surface_v2::input_popup_positioning,
+            },
             wlr_output_manager::wlr_output_manager_done,
             workspace_manager::workspace_manager_done,
         },
@@ -66,6 +69,7 @@ use {
             container_render_titles, float_layout, float_titles, output_render_data,
             placeholder_render_textures,
         },
+        udmabuf::UdmabufHolder,
         user_session::import_environment,
         utils::{
             clone3::ensure_reaper,
@@ -233,6 +237,8 @@ fn start_compositor2(
         })
         .ok();
     let sm = sqlite.as_ref().map(SessionManager::new).map(Rc::new);
+    let udmabuf = Rc::new(UdmabufHolder::default());
+    let no_client_prime = no_client_prime(&udmabuf);
     let state = Rc::new(State {
         pid,
         kb_ctx,
@@ -242,6 +248,9 @@ fn start_compositor2(
         eng: engine.clone(),
         render_ctx: Default::default(),
         render_ctx_drm_device: Default::default(),
+        render_ctx_prime_copy_device: Default::default(),
+        render_ctx_prime_modifiers: Default::default(),
+        render_ctx_prime_modifiers_stash: Default::default(),
         render_ctx_version: NumCell::new(1),
         render_ctx_ever_initialized: Cell::new(false),
         cursors: Default::default(),
@@ -389,7 +398,7 @@ fn start_compositor2(
         enable_primary_selection: Cell::new(true),
         workspace_display_order: Cell::new(WorkspaceDisplayOrder::Manual),
         outputs_without_hc: Default::default(),
-        udmabuf: Default::default(),
+        udmabuf,
         gfx_ctx_changed: Default::default(),
         copy_device_registry: Rc::new(CopyDeviceRegistry::new(&ring, &engine, &eventfd_cache)),
         buffer_id_device_registry: Default::default(),
@@ -412,6 +421,7 @@ fn start_compositor2(
         commit_cache: Default::default(),
         dmabuf_feedback: Default::default(),
         surface_pending_cache: Default::default(),
+        no_client_prime,
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

@@ -2,9 +2,10 @@ use {
     crate::{
         client::{Client, ClientError},
         clientmem::{ClientMem, ClientMemError, ClientMemOffset},
+        copy_device::{CopyDevice, CopyDeviceError, CopyDeviceSrcObject},
         format::{ARGB8888, Format},
         gfx_api::{GfxBuffer, GfxContext, GfxError, GfxFramebuffer, GfxTexture},
-        ifs::wl_surface::WlSurface,
+        ifs::wl_surface::{WlSurface, prime::PrimeError},
         leaks::Tracker,
         object::{Object, Version},
         rect::{Rect, Region},
@@ -19,6 +20,7 @@ use {
     std::{
         cell::{Cell, RefCell},
         rc::Rc,
+        slice,
     },
     thiserror::Error,
     uapi::OwnedFd,
@@ -37,6 +39,7 @@ pub struct WlBufferDmabufStorage {
     pub dmabuf: Rc<DmaBuf>,
     pub tex: Option<Rc<dyn GfxTexture>>,
     pub fb: Option<Rc<dyn GfxFramebuffer>>,
+    pub copy_obj: Option<Option<Rc<CopyDeviceSrcObject>>>,
 }
 
 pub struct DmabufBufferParams {
@@ -78,14 +81,13 @@ pub struct WlBuffer {
     pub rect: Rect,
     pub format: &'static Format,
     pub client_dmabuf: Option<Rc<DmaBuf>>,
-    #[expect(dead_code)]
     pub client_dmabuf_device: Option<Rc<DrmDevData>>,
     render_ctx_version: Cell<u32>,
     pub storage: RefCell<Option<WlBufferStorage>>,
     ty: Ty,
     pub color: Option<[u32; 4]>,
-    width: i32,
-    height: i32,
+    pub width: i32,
+    pub height: i32,
     gfx_ctx_changed: EventListener<WlBuffer>,
     pub tracker: Tracker<Self>,
 }
@@ -97,6 +99,10 @@ impl WlBuffer {
 
     pub fn is_shm(&self) -> bool {
         self.ty == Ty::Shm
+    }
+
+    pub fn is_dmabuf(&self) -> bool {
+        self.ty == Ty::DmaBuf
     }
 
     fn new(
@@ -151,6 +157,7 @@ impl WlBuffer {
                 dmabuf: client_dmabuf,
                 tex: None,
                 fb: None,
+                copy_obj: None,
             })),
             Ty::DmaBuf,
             None,
@@ -286,6 +293,7 @@ impl WlBuffer {
                 let had_texture = storage.tex.is_some();
                 storage.tex = None;
                 storage.fb = None;
+                storage.copy_obj = None;
                 had_texture
             }
         }
@@ -446,13 +454,14 @@ impl WlBuffer {
         Some(tex_)
     }
 
-    fn update_texture(&self, surface: &WlSurface, sync_shm: bool) -> Result<(), WlBufferError> {
+    fn update_texture(&self, surface: &WlSurface, sync_copies: bool) -> Result<(), WlBufferError> {
         let storage = &mut *self.storage.borrow_mut();
         let storage = match storage {
             Some(s) => s,
             _ => return Ok(()),
         };
-        let Some(ctx) = self.client.state.render_ctx.get() else {
+        let state = &self.client.state;
+        let Some(ctx) = state.render_ctx.get() else {
             return Ok(());
         };
         match storage {
@@ -462,7 +471,7 @@ impl WlBuffer {
                 dmabuf_buffer_params,
                 ..
             } => {
-                if !sync_shm {
+                if !sync_copies {
                     return Ok(());
                 }
                 if ctx.fast_ram_access()
@@ -477,14 +486,46 @@ impl WlBuffer {
                     self.width,
                     self.height,
                     *stride,
-                    &self.client.state.cpu_worker,
+                    &state.cpu_worker,
                 )?;
                 mem.access(|mem| tex.clone().sync_upload(mem, Region::new(self.rect)))??;
                 surface.shm_textures.front().tex.set(Some(tex));
                 surface.shm_textures.front().damage.clear();
             }
             WlBufferStorage::Dmabuf(storage) => {
-                storage.ensure_tex(&ctx)?;
+                if sync_copies {
+                    let copies = surface
+                        .prepare_prime_copies(
+                            &ctx,
+                            state.render_ctx_prime_copy_device.get().as_ref(),
+                            self,
+                            storage,
+                            slice::from_ref(&self.rect),
+                        )
+                        .map_err(WlBufferError::PreparePrimeCopy)?;
+                    if let Some((copies, psb)) = copies {
+                        let mut syncs = psb.take_sync();
+                        while syncs.len() > 1
+                            && let Some(sync) = syncs.pop()
+                        {
+                            sync.signaled_blocking("prime");
+                        }
+                        for copy in &copies {
+                            let sync = copy
+                                .execute(syncs.last(), None)
+                                .map_err(WlBufferError::PerformPrimeCopy)?;
+                            syncs.extend(sync);
+                        }
+                        while let Some(sync) = syncs.pop() {
+                            sync.signaled_blocking("prime");
+                        }
+                        psb.clear_damage();
+                        surface.prime.buffer.set(Some(psb));
+                    }
+                }
+                if surface.prime.buffer.is_none() {
+                    storage.ensure_tex(&ctx)?;
+                }
             }
         }
         Ok(())
@@ -512,6 +553,15 @@ impl WlBuffer {
     fn send_release(&self) {
         self.client.event(Release { self_id: self.id })
     }
+
+    pub fn client_copy_device(&self) -> Option<&Rc<CopyDevice>> {
+        if let Some(dev) = &self.client_dmabuf_device
+            && let Some(dev) = &dev.copy_device
+        {
+            return Some(dev);
+        }
+        None
+    }
 }
 
 impl WlBufferDmabufStorage {
@@ -535,6 +585,31 @@ impl WlBufferDmabufStorage {
         }
         let fb = ctx.clone().dmabuf_fb(&self.dmabuf)?;
         Ok(self.fb.insert(fb).clone())
+    }
+
+    pub fn ensure_copy_object(
+        &mut self,
+        buf: &WlBuffer,
+        render_dev: Option<&Rc<CopyDevice>>,
+    ) -> Result<Option<Rc<CopyDeviceSrcObject>>, CopyDeviceError> {
+        if let Some(obj) = &self.copy_obj {
+            return Ok(obj.clone());
+        }
+        let client_dev = buf.client_copy_device();
+        let client_dev_id = client_dev.map(|d| d.drm_device_id());
+        let render_dev_id = render_dev.map(|d| d.drm_device_id());
+        if client_dev_id == render_dev_id {
+            return Ok(self.copy_obj.insert(None).clone());
+        }
+        let dev = if let Some(dev) = client_dev {
+            dev
+        } else if let Some(dev) = render_dev {
+            dev
+        } else {
+            return Ok(self.copy_obj.insert(None).clone());
+        };
+        let obj = dev.create_src_object(&self.dmabuf)?;
+        Ok(self.copy_obj.insert(Some(Rc::new(obj))).clone())
     }
 }
 
@@ -569,6 +644,10 @@ pub enum WlBufferError {
     GfxError(#[from] GfxError),
     #[error(transparent)]
     ClientError(Box<ClientError>),
+    #[error("Could not prepare prime copy")]
+    PreparePrimeCopy(#[source] PrimeError),
+    #[error("Could not perform a prime copy")]
+    PerformPrimeCopy(#[source] CopyDeviceError),
 }
 efrom!(WlBufferError, ClientMemError);
 efrom!(WlBufferError, ClientError);

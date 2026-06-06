@@ -6,7 +6,7 @@ mod tests;
 
 pub use {
     crate::rect::size::Size,
-    region::{DamageQueue, RegionBuilder},
+    region::{DamageQueue, DynamicDamageQueue, DynamicDamageQueueElement, RegionBuilder},
 };
 use {
     jay_algorithms::rect::{NoTag, RectRaw, Tag},

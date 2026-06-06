@@ -630,7 +630,9 @@ impl Renderer<'_> {
                 false,
             );
         };
-        if let Some(buffer) = surface.buffer.get() {
+        if let Some(prime) = surface.prime.buffer() {
+            render_texture(self, &prime.tex(), prime.clone(), ReleaseSync::Explicit);
+        } else if let Some(buffer) = surface.buffer.get() {
             let buf = &buffer.buffer.buf;
             if let Some(tex) = buf.get_texture(surface) {
                 render_texture(self, &tex, buffer.clone(), buffer.release_sync);
@@ -653,7 +655,7 @@ impl Renderer<'_> {
                 log::info!("client buffer has neither a texture nor is a single-pixel buffer");
             }
         } else {
-            log::info!("surface has no client buffer");
+            log::info!("surface has neither a prime nor a client buffer");
         }
     }
 

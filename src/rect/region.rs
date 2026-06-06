@@ -344,3 +344,94 @@ impl DamageQueue {
         Region::from_rects2(data)
     }
 }
+
+#[derive(Default)]
+pub struct DynamicDamageQueue {
+    datas: UnsafeCell<Vec<Option<Rc<UnsafeCell<Vec<Rect>>>>>>,
+}
+
+pub struct DynamicDamageQueueElement {
+    this: usize,
+    queue: Rc<DynamicDamageQueue>,
+    damage: Rc<UnsafeCell<Vec<Rect>>>,
+}
+
+impl Debug for DynamicDamageQueue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DynamicDamageQueue").finish_non_exhaustive()
+    }
+}
+
+impl DynamicDamageQueue {
+    pub fn add_element(self: &Rc<Self>) -> DynamicDamageQueueElement {
+        let datas = unsafe { self.datas.get().deref_mut() };
+        for (idx, vec) in datas.iter_mut().enumerate() {
+            if vec.is_none() {
+                let damage = vec.insert(Default::default());
+                return DynamicDamageQueueElement {
+                    this: idx,
+                    queue: self.clone(),
+                    damage: damage.clone(),
+                };
+            }
+        }
+        let idx = datas.len();
+        let damage: Rc<UnsafeCell<Vec<Rect>>> = Default::default();
+        datas.push(Some(damage.clone()));
+        DynamicDamageQueueElement {
+            this: idx,
+            queue: self.clone(),
+            damage,
+        }
+    }
+
+    pub fn damage(&self, rects: &[Rect]) {
+        let datas = unsafe { self.datas.get().deref_mut() };
+        for data in datas {
+            if let Some(data) = data {
+                let data = unsafe { data.get().deref_mut() };
+                data.extend_from_slice(rects);
+            }
+        }
+    }
+
+    pub fn clear_all(&self) {
+        let datas = unsafe { self.datas.get().deref_mut() };
+        for data in datas {
+            if let Some(data) = data {
+                let data = unsafe { data.get().deref_mut() };
+                data.clear();
+            }
+        }
+    }
+}
+
+impl DynamicDamageQueueElement {
+    pub fn clear(&self) {
+        let damage = unsafe { self.damage.get().deref_mut() };
+        damage.clear();
+    }
+
+    pub fn get(&self) -> Region {
+        let damage = unsafe { self.damage.get().deref() };
+        Region::from_rects2(damage)
+    }
+}
+
+impl Deref for DynamicDamageQueueElement {
+    type Target = DynamicDamageQueue;
+
+    fn deref(&self) -> &Self::Target {
+        &self.queue
+    }
+}
+
+impl Drop for DynamicDamageQueueElement {
+    fn drop(&mut self) {
+        let data = unsafe { self.queue.datas.get().deref_mut() };
+        data[self.this] = None;
+        while let Some(None) = data.last() {
+            data.pop();
+        }
+    }
+}

@@ -2,10 +2,13 @@ use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
         client::Client,
-        gfx_api::{AsyncShmGfxTextureCallback, GfxError, PendingShmTransfer, STAGING_UPLOAD},
+        copy_device::CopyDevice,
+        gfx_api::{
+            AsyncShmGfxTextureCallback, GfxContext, GfxError, PendingShmTransfer, STAGING_UPLOAD,
+        },
         ifs::{
             wl_buffer::WlBufferStorage,
-            wl_surface::{PendingState, WlSurface, WlSurfaceError},
+            wl_surface::{PendingState, WlSurface, WlSurfaceError, prime::PrimeValidity},
         },
         io_uring::{
             IoUring, IoUringError, PendingPoll, PendingTimeout, PollCallback, TimeoutCallback,
@@ -25,12 +28,15 @@ use {
             queue::AsyncQueue,
             syncqueue::SyncQueue,
         },
-        video::drm::syncobj::{Syncobj, SyncobjPoint},
+        video::{
+            dmabuf::{ChainedCopyCallback, ChainedCopyError, PendingChainedCopy},
+            drm::syncobj::{Syncobj, SyncobjPoint},
+        },
     },
     isnt::std_1::{primitive::IsntSliceExt, vec::IsntVecExt},
     smallvec::SmallVec,
     std::{
-        cell::{Cell, RefCell},
+        cell::{Cell, LazyCell, RefCell},
         ops::DerefMut,
         rc::{Rc, Weak},
         slice,
@@ -117,6 +123,8 @@ pub enum CommitTimelineError {
     PollDmabuf(#[source] OsError),
     #[error("Could not wait for the commit timeout")]
     CommitTimeout(#[source] OsError),
+    #[error("Could not perform prime copy")]
+    PrimeCopy(#[source] ChainedCopyError),
 }
 
 impl CommitTimelines {
@@ -177,6 +185,8 @@ fn break_loops(inner: &Rc<Inner>) {
         if let EntryKind::Commit(c) = &entry.kind {
             c.wait_handles.take();
             *c.shm_upload.borrow_mut() = ShmUploadState::None;
+            c.prime_copies.take();
+            c.prime_validities.take();
             c.pending_polls.take();
             *c.commit_times.borrow_mut() = CommitTimesState::Ready;
         }
@@ -213,9 +223,16 @@ impl CommitTimeline {
         surface: &Rc<WlSurface>,
         pending: &mut CachedBox<PendingState, BoxReset>,
     ) -> Result<(), CommitTimelineError> {
+        let state = &surface.client.state;
         let mut collector = CommitDataCollector {
+            render_ctx: LazyCell::new(|| {
+                let ctx = state.render_ctx.get()?;
+                Some((ctx, state.render_ctx_prime_copy_device.get()))
+            }),
             acquire_points: Default::default(),
             shm_uploads: 0,
+            has_dmabuf: Default::default(),
+            needs_prime_copies: Default::default(),
             acquire_files: Default::default(),
             commit_time: Default::default(),
             toplevel_restored: Default::default(),
@@ -223,12 +240,15 @@ impl CommitTimeline {
         collector.collect(pending);
         let points = collector.acquire_points;
         let pending_uploads = collector.shm_uploads;
+        let has_dmabuf = collector.has_dmabuf;
+        let needs_prime_copies = collector.needs_prime_copies;
         let acquire_files = collector.acquire_files;
         let commit_time = collector.commit_time;
         let toplevel_restored = collector.toplevel_restored;
         let has_commit_time = commit_time > 0;
         let has_dependencies = points.is_not_empty()
             || pending_uploads > 0
+            || needs_prime_copies
             || acquire_files.is_not_empty()
             || has_commit_time
             || toplevel_restored.is_some();
@@ -259,6 +279,10 @@ impl CommitTimeline {
                 wait_handles: Cell::new(Default::default()),
                 pending_uploads: NumCell::new(pending_uploads),
                 shm_upload: RefCell::new(ShmUploadState::None),
+                has_dmabuf,
+                pending_prime_copies: Default::default(),
+                prime_copies: Default::default(),
+                prime_validities: Default::default(),
                 num_pending_polls: NumCell::new(acquire_files.len()),
                 pending_polls: Cell::new(Default::default()),
                 fifo_state: Cell::new(commit_fifo_state),
@@ -285,6 +309,9 @@ impl CommitTimeline {
             }
             if pending_uploads > 0 {
                 *commit.shm_upload.borrow_mut() = ShmUploadState::Todo;
+                needs_flush = true;
+            }
+            if needs_prime_copies {
                 needs_flush = true;
             }
             if acquire_files.is_not_empty() {
@@ -399,6 +426,23 @@ impl AsyncShmGfxTextureCallback for Entry {
     }
 }
 
+impl ChainedCopyCallback for Entry {
+    fn completed(self: Rc<Self>, res: Result<(), ChainedCopyError>) {
+        let EntryKind::Commit(commit) = &self.kind else {
+            unreachable!();
+        };
+        if let Err(e) = res {
+            commit
+                .surface
+                .client
+                .error(CommitTimelineError::PrimeCopy(e));
+            return;
+        }
+        commit.pending_prime_copies.fetch_sub(1);
+        flush_commit(&self.inner, commit);
+    }
+}
+
 impl PollCallback for Entry {
     fn completed(self: Rc<Self>, res: Result<c_short, OsError>) {
         let EntryKind::Commit(commit) = &self.kind else {
@@ -467,6 +511,10 @@ struct Commit {
     wait_handles: Cell<SmallVec<[WaitForSyncobjHandle; 1]>>,
     pending_uploads: NumCell<usize>,
     shm_upload: RefCell<ShmUploadState>,
+    has_dmabuf: bool,
+    pending_prime_copies: NumCell<usize>,
+    prime_copies: Cell<Option<SmallVec<[PendingChainedCopy; 1]>>>,
+    prime_validities: RefCell<Option<SmallVec<[PrimeValidity; 1]>>>,
     num_pending_polls: NumCell<usize>,
     pending_polls: Cell<SmallVec<[PendingPoll; 1]>>,
     fifo_state: Cell<CommitFifoState>,
@@ -497,6 +545,10 @@ impl Entry {
                         check_shm_uploads(self, c)?;
                         has_unmet_dependencies |= c.pending_uploads.get() > 0;
                     }
+                    if c.has_dmabuf && c.pending_prime_copies.get() == 0 {
+                        check_prime_copies(self, c)?;
+                    }
+                    has_unmet_dependencies |= c.pending_prime_copies.get() > 0;
                 } else {
                     has_unmet_dependencies = true;
                 }
@@ -561,6 +613,29 @@ fn check_shm_uploads(entry: &Rc<Entry>, c: &Commit) -> Result<(), WlSurfaceError
         c.pending_uploads.set(pending.len());
         *state = ShmUploadState::Scheduled(pending);
     }
+    Ok(())
+}
+
+fn check_prime_copies(entry: &Rc<Entry>, c: &Commit) -> Result<(), WlSurfaceError> {
+    let validities = &mut *c.prime_validities.borrow_mut();
+    if let Some(validities) = validities
+        && validities.iter().all(|v| v.valid())
+    {
+        return Ok(());
+    }
+    let validities = validities.get_or_insert_default();
+    validities.clear();
+    let mut copies = c.prime_copies.take().unwrap_or_default();
+    copies.clear();
+    schedule_prime_copies(
+        entry,
+        &c.surface,
+        &mut c.pending.borrow_mut(),
+        &mut copies,
+        validities,
+    )?;
+    c.pending_prime_copies.set(copies.len());
+    c.prime_copies.set(Some(copies));
     Ok(())
 }
 
@@ -711,22 +786,132 @@ fn schedule_async_upload(
         .map_err(WlSurfaceError::PrepareAsyncUpload)
 }
 
+fn schedule_prime_copies(
+    entry: &Rc<Entry>,
+    surface: &WlSurface,
+    pending: &mut PendingState,
+    copies: &mut SmallVec<[PendingChainedCopy; 1]>,
+    validities: &mut SmallVec<[PrimeValidity; 1]>,
+) -> Result<(), WlSurfaceError> {
+    let state = &surface.client.state;
+    let Some(ctx) = state.render_ctx.get() else {
+        return Ok(());
+    };
+    let dev = state.render_ctx_prime_copy_device.get();
+    schedule_prime_copies_(
+        &ctx,
+        dev.as_ref(),
+        entry,
+        surface,
+        pending,
+        copies,
+        validities,
+    )
+}
+
+fn schedule_prime_copies_(
+    ctx: &Rc<dyn GfxContext>,
+    render_device: Option<&Rc<CopyDevice>>,
+    entry: &Rc<Entry>,
+    surface: &WlSurface,
+    pending: &mut PendingState,
+    copies: &mut SmallVec<[PendingChainedCopy; 1]>,
+    validities: &mut SmallVec<[PrimeValidity; 1]>,
+) -> Result<(), WlSurfaceError> {
+    let (copy, validity) = schedule_prime_copy(&ctx, render_device, entry, surface, pending)?;
+    if let Some(copy) = copy {
+        copies.push(copy);
+    }
+    if let Some(validity) = validity {
+        validities.push(validity);
+    }
+    for ss in pending.subsurfaces.values_mut() {
+        if let Some(state) = &mut ss.pending.state {
+            schedule_prime_copies_(
+                &ctx,
+                render_device,
+                entry,
+                &ss.subsurface.surface,
+                state,
+                copies,
+                validities,
+            )?;
+        }
+    }
+    Ok(())
+}
+
+fn schedule_prime_copy(
+    ctx: &Rc<dyn GfxContext>,
+    render_dev: Option<&Rc<CopyDevice>>,
+    entry: &Rc<Entry>,
+    surface: &WlSurface,
+    pending: &mut PendingState,
+) -> Result<(Option<PendingChainedCopy>, Option<PrimeValidity>), WlSurfaceError> {
+    let Some(Some(buf)) = &pending.buffer else {
+        return Ok((None, None));
+    };
+    let buf = &buf.buf;
+    if !buf.is_dmabuf() {
+        return Ok((None, None));
+    }
+    let Some(WlBufferStorage::Dmabuf(storage)) = &mut *buf.storage.borrow_mut() else {
+        return Ok((None, None));
+    };
+    let damage = if pending.damage_full || pending.surface_damage.is_not_empty() {
+        slice::from_ref(&buf.rect)
+    } else {
+        &pending.buffer_damage
+    };
+    let validity = surface.prime.validity();
+    let copies = surface
+        .prepare_prime_copies(ctx, render_dev, buf, storage, damage)
+        .map_err(WlSurfaceError::PreparePrimeCopy)?;
+    let Some((copies, psb)) = copies else {
+        pending.prime_buffer = None;
+        return Ok((None, Some(validity)));
+    };
+    let chain = surface
+        .client
+        .state
+        .schedule_chained_copy(&copies, entry.clone(), psb.take_sync(), Some(psb.damage()))
+        .map_err(WlSurfaceError::PrimeCopy)?;
+    pending.prime_buffer = Some(psb);
+    Ok((chain, Some(validity)))
+}
+
 type Point = (Rc<Syncobj>, SyncobjPoint);
 
-struct CommitDataCollector {
+type RenderCtx = (Rc<dyn GfxContext>, Option<Rc<CopyDevice>>);
+
+struct CommitDataCollector<F> {
+    render_ctx: LazyCell<Option<RenderCtx>, F>,
     acquire_points: SmallVec<[Point; 1]>,
     shm_uploads: usize,
+    has_dmabuf: bool,
+    needs_prime_copies: bool,
     acquire_files: SmallVec<[Rc<OwnedFd>; 1]>,
     commit_time: u64,
     toplevel_restored: Option<Rc<Cell<bool>>>,
 }
 
-impl CommitDataCollector {
+impl<F> CommitDataCollector<F>
+where
+    F: FnOnce() -> Option<RenderCtx>,
+{
     fn collect(&mut self, pending: &mut PendingState) {
         if let Some(Some(buffer)) = &pending.buffer {
             let buffer = &buffer.buf;
             if buffer.is_shm() {
                 self.shm_uploads += 1;
+            }
+            if buffer.is_dmabuf() {
+                self.has_dmabuf = true;
+                if let Some((ctx, cd)) = &*self.render_ctx
+                    && buffer.needs_prime_copy(ctx, cd.as_ref())
+                {
+                    self.needs_prime_copies = true;
+                }
             }
             if !pending.syncobj_sync
                 && pending.sync_file_acquire.is_none()

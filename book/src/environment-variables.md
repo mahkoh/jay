@@ -85,6 +85,16 @@ on unusual hardware or for diagnosing problems.
   order given; prefix a name with `-` to disable it. Any methods not mentioned
   remain enabled and are tried afterwards.
 
+`JAY_NO_CLIENT_PRIME`
+: Set to `1` to disable PRIME copies of client buffers. When an application
+  submits a buffer that lives on a different GPU than the one Jay renders with
+  (or that Jay cannot otherwise import directly), Jay normally copies it onto a
+  usable buffer so that it can be displayed. Setting this variable disables
+  those copies, which is mainly useful for diagnosing problems with the copy
+  path. This only affects client buffers; the copies of the composited frame
+  buffers that are scanned out to a monitor are controlled by
+  `JAY_PRIME_METHODS`.
+
 `JAY_NO_REALTIME`
 : Set to `1` to prevent Jay from requesting real-time scheduling priority.
 

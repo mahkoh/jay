@@ -1,9 +1,12 @@
 use {
     crate::{
+        copy_device::{CopyDeviceCopy, CopyDeviceDstObject, CopyDeviceError, CopyDeviceSrcObject},
         format::Format,
-        gfx_api::SyncFile,
+        gfx_api::{FdSync, SyncFile},
+        io_uring::{IoUring, IoUringError, PendingPoll, PollCallback},
+        rect::Region,
         state::{DrmDevData, State},
-        utils::{compat::IoctlNumber, errorfmt::ErrorFmt, oserror::OsError},
+        utils::{compat::IoctlNumber, errorfmt::ErrorFmt, numcell::NumCell, oserror::OsError},
         video::{
             LINEAR_MODIFIER, Modifier,
             drm::{DrmError, syncobj::merge_sync_files},
@@ -11,7 +14,15 @@ use {
     },
     arrayvec::ArrayVec,
     bstr::ByteSlice,
-    std::{cell::OnceCell, io::Read, rc::Rc, sync::OnceLock},
+    smallvec::SmallVec,
+    std::{
+        cell::{Cell, OnceCell, RefCell},
+        ffi::c_short,
+        io::Read,
+        rc::Rc,
+        sync::OnceLock,
+    },
+    thiserror::Error,
     uapi::{
         _IOW, _IOWR, OwnedFd,
         c::{self, dev_t, ioctl},
@@ -261,5 +272,138 @@ impl State {
             }
         }
         None
+    }
+}
+
+#[derive(Debug, Error)]
+pub enum ChainedCopyError {
+    #[error("Could not schedule copy")]
+    Copy(#[source] CopyDeviceError),
+    #[error("Could not schedule poll")]
+    SchedulePoll(#[source] IoUringError),
+    #[error("Could not wait for poll to complete")]
+    AwaitPoll(#[source] OsError),
+}
+
+pub trait ChainedCopyCallback {
+    fn completed(self: Rc<Self>, res: Result<(), ChainedCopyError>);
+}
+
+#[derive(Clone)]
+pub enum DmabufCopy {
+    #[expect(dead_code)]
+    Fixed(Rc<CopyDeviceCopy>),
+    AdHoc(Rc<CopyDeviceSrcObject>, Rc<CopyDeviceDstObject>),
+}
+
+pub struct PendingChainedCopy {
+    copy: Rc<ChainedCopy>,
+}
+
+struct ChainedCopy {
+    ring: Rc<IoUring>,
+    offset: NumCell<usize>,
+    steps: SmallVec<[DmabufCopy; 2]>,
+    cb: Cell<Option<Rc<dyn ChainedCopyCallback>>>,
+    poll: Cell<Option<PendingPoll>>,
+    region: Option<Region>,
+    sync: RefCell<SmallVec<[FdSync; 1]>>,
+}
+
+impl Drop for PendingChainedCopy {
+    fn drop(&mut self) {
+        self.copy.cb.take();
+        self.copy.poll.take();
+    }
+}
+
+impl PollCallback for ChainedCopy {
+    fn completed(self: Rc<Self>, res: Result<c_short, OsError>) {
+        self.poll.take();
+        if let Err(e) = res {
+            self.done(Err(ChainedCopyError::AwaitPoll(e)));
+            return;
+        }
+        match self.run() {
+            Ok(true) => self.done(Ok(())),
+            Ok(false) => {}
+            Err(e) => self.done(Err(e)),
+        }
+    }
+}
+
+impl DmabufCopy {
+    pub fn execute(
+        &self,
+        sync: Option<&FdSync>,
+        region: Option<&Region>,
+    ) -> Result<Option<FdSync>, CopyDeviceError> {
+        match self {
+            DmabufCopy::Fixed(c) => c.execute(sync, region),
+            DmabufCopy::AdHoc(src, dst) => src.copy_to(dst, sync, region),
+        }
+    }
+}
+
+impl ChainedCopy {
+    fn done(&self, res: Result<(), ChainedCopyError>) {
+        if let Some(cb) = self.cb.take() {
+            cb.completed(res);
+        }
+    }
+
+    fn run(self: &Rc<Self>) -> Result<bool, ChainedCopyError> {
+        let sync = &mut *self.sync.borrow_mut();
+        loop {
+            while sync.is_empty() {
+                let offset = self.offset.fetch_add(1);
+                let Some(step) = self.steps.get(offset) else {
+                    return Ok(true);
+                };
+                match step.execute(None, self.region.as_ref()) {
+                    Ok(s) => sync.extend(s),
+                    Err(e) => {
+                        return Err(ChainedCopyError::Copy(e));
+                    }
+                }
+            }
+            let Some(sync) = sync.pop() else {
+                return Ok(true);
+            };
+            match sync.signaled_external(&self.ring, self.clone()) {
+                Ok(Some(pending)) => {
+                    self.poll.set(Some(pending));
+                    return Ok(false);
+                }
+                Ok(None) => {}
+                Err(e) => {
+                    return Err(ChainedCopyError::SchedulePoll(e));
+                }
+            }
+        }
+    }
+}
+
+impl State {
+    pub fn schedule_chained_copy(
+        &self,
+        steps: &[DmabufCopy],
+        cb: Rc<dyn ChainedCopyCallback>,
+        sync: SmallVec<[FdSync; 1]>,
+        region: Option<Region>,
+    ) -> Result<Option<PendingChainedCopy>, ChainedCopyError> {
+        let copy = Rc::new(ChainedCopy {
+            ring: self.ring.clone(),
+            offset: Default::default(),
+            steps: steps.iter().cloned().collect(),
+            cb: Cell::new(Some(cb)),
+            poll: Default::default(),
+            region,
+            sync: RefCell::new(sync),
+        });
+        if copy.run()? {
+            return Ok(None);
+        }
+        Ok(Some(PendingChainedCopy { copy }))
     }
 }
