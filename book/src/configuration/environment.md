@@ -2,6 +2,11 @@
 
 Jay can set environment variables that are inherited by all programs it spawns.
 
+> [!NOTE]
+> This page covers variables you set *for spawned programs*. For the variables
+> that influence Jay's own behavior, see
+> [Env Variables Read by Jay](../environment-variables.md).
+
 ## Setting environment variables at startup
 
 Use the `[env]` table in your config to define variables that apply to every
