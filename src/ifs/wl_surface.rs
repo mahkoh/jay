@@ -1299,6 +1299,17 @@ impl WlSurface {
         let mut buffer_changed = false;
         let mut old_raw_size = None;
         let (mut dx, mut dy) = mem::take(&mut pending.offset);
+        enum TexType {
+            None,
+            Direct,
+            Shm,
+        }
+        let handle_tex_type = |ty: TexType| match ty {
+            TexType::None | TexType::Direct => {
+                self.reset_shm_textures();
+            }
+            TexType::Shm => {}
+        };
         if let Some(buffer_change) = pending.buffer.take() {
             buffer_changed = true;
             if let Some(buffer) = self.buffer.take() {
@@ -1306,10 +1317,11 @@ impl WlSurface {
             }
             if let Some(buffer) = buffer_change {
                 if buffer.buf.is_shm() {
+                    handle_tex_type(TexType::Shm);
                     self.shm_textures.flip();
                     self.shm_textures.front().damage.clear();
                 } else {
-                    self.reset_shm_textures();
+                    handle_tex_type(TexType::Direct);
                 }
                 buffer.buf.update_texture_or_log(self, false);
                 let mut release_sync = ReleaseSync::Implicit;
@@ -1326,7 +1338,7 @@ impl WlSurface {
                 };
                 self.buffer.set(Some(Rc::new(surface_buffer)));
             } else {
-                self.reset_shm_textures();
+                handle_tex_type(TexType::None);
                 self.buf_x.set(0);
                 self.buf_y.set(0);
                 for (_, cursor) in &self.cursors {
