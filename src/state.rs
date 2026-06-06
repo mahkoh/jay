@@ -130,6 +130,7 @@ use {
             hash_map_ext::HashMapExt,
             linkedlist::LinkedList,
             numcell::NumCell,
+            obj_and_id::{ObjAndId, ObjWithId},
             object_drop_queue::ObjectDropQueue,
             queue::AsyncQueue,
             refcounted::RefCounted,
@@ -171,7 +172,7 @@ pub struct State {
     pub default_keymap: Rc<KbvmMap>,
     pub eng: Rc<AsyncEngine>,
     pub render_ctx: CloneCell<Option<Rc<dyn GfxContext>>>,
-    pub render_ctx_drm_device_id: Cell<Option<DrmDeviceId>>,
+    pub render_ctx_drm_device: ObjAndId<Option<Rc<DrmDevData>>>,
     pub render_ctx_version: NumCell<u32>,
     pub render_ctx_ever_initialized: Cell<bool>,
     pub cursors: CloneCell<Option<Rc<ServerCursors>>>,
@@ -484,6 +485,14 @@ pub struct DrmDevData {
     pub id_device: Option<Rc<dyn BufferIdDeviceDyn>>,
 }
 
+impl ObjWithId for Rc<DrmDevData> {
+    type Id = DrmDeviceId;
+
+    fn id(&self) -> Self::Id {
+        self.id
+    }
+}
+
 impl ConnectorData {
     pub fn damage(&self) {
         if !self.damaged.replace(true) {
@@ -702,14 +711,13 @@ impl State {
         self.explicit_sync_supported.set(false);
         self.render_ctx.set(ctx.clone());
         self.render_ctx_version.fetch_add(1);
-        self.render_ctx_drm_device_id
-            .set(ctx.as_ref().and_then(|c| c.drm_device_id()));
         self.cursors.set(None);
         self.icons.clear();
         self.wait_for_syncobj
             .set_ctx(ctx.as_ref().and_then(|c| c.syncobj_ctx().cloned()));
         self.virtual_outputs.handle_render_ctx_change(self);
         self.dmabuf_feedback.update();
+        self.update_render_device();
 
         {
             struct Walker;
@@ -1311,7 +1319,7 @@ impl State {
         }
         self.globals.clear();
         self.render_ctx.set(None);
-        self.render_ctx_drm_device_id.set(None);
+        self.render_ctx_drm_device.set(None);
         self.root.clear();
         if let Some(output) = self.dummy_output.set(None) {
             output.clear();
@@ -2263,6 +2271,15 @@ impl State {
             return None;
         }
         Some(TreeSerial::from_raw(s))
+    }
+
+    pub fn update_render_device(&self) {
+        let id = self.render_ctx.get().and_then(|c| c.drm_device_id());
+        let drm_dev = id.and_then(|id| self.drm_devs.get(&id));
+        if drm_dev.id() == self.render_ctx_drm_device.id() {
+            return;
+        }
+        self.render_ctx_drm_device.set(drm_dev);
     }
 }
 

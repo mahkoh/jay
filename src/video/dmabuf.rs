@@ -245,15 +245,15 @@ impl State {
                 })
                 .unwrap_or(false)
         };
-        let render_dev = self.render_ctx_drm_device_id.get();
-        if let Some(id) = render_dev
-            && let Some(dev) = self.drm_devs.get(&id)
+        let render_dev = self.render_ctx_drm_device.get();
+        if let Some(dev) = render_dev
             && is_on_device(&dev)
         {
             return Some(dev);
         }
+        let render_dev_id = self.render_ctx_drm_device.id();
         for dev in self.drm_devs.lock().values() {
-            if render_dev == Some(dev.id) {
+            if render_dev_id == Some(dev.id) {
                 continue;
             }
             if is_on_device(dev) {
