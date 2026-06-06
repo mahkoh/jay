@@ -34,6 +34,7 @@ list and must be updated when adding a new chapter. Chapter-to-topic mapping:
 | `window-rules.md` | Window/client rules, privileges, capabilities |
 | `screen-sharing.md` | Screen sharing via xdg-desktop-portal, PipeWire |
 | `hdr.md` | HDR & color management walkthrough |
+| `environment-variables.md` | Environment variables Jay itself reads (system, cursor, X backend, CLI, `JAY_*` tuning) |
 | `control-center.md` | All control center panes (see pane list below) |
 | `cli.md` | All CLI subcommands, JSON output |
 

@@ -39,6 +39,7 @@
 - [Window & Client Rules](window-rules.md)
 - [Screen Sharing](screen-sharing.md)
 - [HDR & Color Management](hdr.md)
+- [Env Variables Read by Jay](environment-variables.md)
 
 # Reference
 
