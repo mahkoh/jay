@@ -1299,16 +1299,16 @@ impl WlSurface {
         let mut buffer_changed = false;
         let mut old_raw_size = None;
         let (mut dx, mut dy) = mem::take(&mut pending.offset);
+        #[derive(PartialEq)]
         enum TexType {
             None,
             Direct,
             Shm,
         }
-        let handle_tex_type = |ty: TexType| match ty {
-            TexType::None | TexType::Direct => {
+        let handle_tex_type = |ty: TexType| {
+            if ty != TexType::Shm {
                 self.reset_shm_textures();
             }
-            TexType::Shm => {}
         };
         if let Some(buffer_change) = pending.buffer.take() {
             buffer_changed = true;
