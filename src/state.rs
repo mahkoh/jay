@@ -173,6 +173,7 @@ pub struct State {
     pub eng: Rc<AsyncEngine>,
     pub render_ctx: CloneCell<Option<Rc<dyn GfxContext>>>,
     pub render_ctx_drm_device: ObjAndId<Option<Rc<DrmDevData>>>,
+    pub render_ctx_prime_copy_device: CloneCell<Option<Rc<CopyDevice>>>,
     pub render_ctx_version: NumCell<u32>,
     pub render_ctx_ever_initialized: Cell<bool>,
     pub cursors: CloneCell<Option<Rc<ServerCursors>>>,
@@ -480,7 +481,6 @@ pub struct DrmDevData {
     pub model: Option<String>,
     pub pci_id: Option<PciId>,
     pub lease_global: Rc<WpDrmLeaseDeviceV1Global>,
-    #[expect(dead_code)]
     pub copy_device: Option<Rc<CopyDevice>>,
     pub id_device: Option<Rc<dyn BufferIdDeviceDyn>>,
 }
@@ -1320,6 +1320,7 @@ impl State {
         self.globals.clear();
         self.render_ctx.set(None);
         self.render_ctx_drm_device.set(None);
+        self.render_ctx_prime_copy_device.set(None);
         self.root.clear();
         if let Some(output) = self.dummy_output.set(None) {
             output.clear();
@@ -2279,7 +2280,9 @@ impl State {
         if drm_dev.id() == self.render_ctx_drm_device.id() {
             return;
         }
+        let copy_dev = drm_dev.as_ref().and_then(|dev| dev.copy_device.clone());
         self.render_ctx_drm_device.set(drm_dev);
+        self.render_ctx_prime_copy_device.set(copy_dev);
     }
 }
 
