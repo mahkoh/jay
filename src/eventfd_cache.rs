@@ -1,7 +1,7 @@
 use {
     crate::{
         async_engine::{AsyncEngine, SpawnedFuture},
-        io_uring::{IoUring, IoUringError},
+        io_uring::{IoUring, IoUringError, PendingPoll, PollCallback},
         utils::{
             buf::Buf,
             errorfmt::ErrorFmt,
@@ -10,7 +10,7 @@ use {
             stack::Stack,
         },
     },
-    std::{cell::Cell, future::poll_fn, pin::Pin, rc::Rc, slice, task::Poll},
+    std::{cell::Cell, ffi::c_short, future::poll_fn, pin::Pin, rc::Rc, slice, task::Poll},
     thiserror::Error,
     uapi::{OwnedFd, c},
 };
@@ -33,6 +33,7 @@ struct Inner {
     ring: Rc<IoUring>,
     fds: Stack<Rc<OwnedFd>>,
     signaled: Stack<Rc<Cell<bool>>>,
+    readable: Stack<Rc<Readable>>,
     recycle: AsyncQueue<Rc<OwnedFd>>,
 }
 
@@ -42,12 +43,24 @@ pub struct Eventfd {
     signaled: Rc<Cell<bool>>,
 }
 
+#[derive(Default)]
+struct Readable {
+    data: Cell<Option<ReadableData>>,
+}
+
+struct ReadableData {
+    cache: Rc<Inner>,
+    signaled: Rc<Cell<bool>>,
+    cb: Rc<dyn PollCallback>,
+}
+
 impl EventfdCache {
     pub fn new(ring: &Rc<IoUring>, eng: &Rc<AsyncEngine>) -> Rc<Self> {
         let inner = Rc::new(Inner {
             ring: ring.clone(),
             fds: Default::default(),
             signaled: Default::default(),
+            readable: Default::default(),
             recycle: Default::default(),
         });
         let task = eng.spawn("eventfd-cache", inner.clone().recycle());
@@ -95,6 +108,41 @@ impl Eventfd {
         uapi::poll(slice::from_mut(&mut pollfd), -1).to_os_error()?;
         self.signaled.set(true);
         Ok(())
+    }
+
+    #[expect(dead_code)]
+    pub fn signaled_external(
+        &self,
+        cb: Rc<dyn PollCallback>,
+    ) -> Result<Option<PendingPoll>, IoUringError> {
+        if self.signaled.get() {
+            return Ok(None);
+        }
+        let readable = self.cache.readable.pop().unwrap_or_default();
+        readable.data.set(Some(ReadableData {
+            cache: self.cache.clone(),
+            signaled: self.signaled.clone(),
+            cb,
+        }));
+        self.cache
+            .ring
+            .readable_external(&self.fd, readable)
+            .map(Some)
+    }
+}
+
+impl PollCallback for Readable {
+    fn completed(self: Rc<Self>, res: Result<c_short, OsError>) {
+        let Some(data) = self.data.take() else {
+            return;
+        };
+        data.cache.readable.push(self);
+        if data.cache.return_signaled(&data.signaled) {
+            // nothing
+        } else if res.is_ok() {
+            data.signaled.set(true);
+        }
+        data.cb.completed(res);
     }
 }
 
