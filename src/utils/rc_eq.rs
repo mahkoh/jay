@@ -7,6 +7,15 @@ pub fn rc_eq<T: ?Sized>(a: &Rc<T>, b: &Rc<T>) -> bool {
     Rc::as_ptr(a) as *const u8 == Rc::as_ptr(b) as *const u8
 }
 
+#[expect(dead_code)]
+pub fn rc_opt_eq<T: ?Sized>(a: &Option<Rc<T>>, b: &Option<Rc<T>>) -> bool {
+    match (a, b) {
+        (Some(a), Some(b)) => rc_eq(a, b),
+        (None, None) => true,
+        _ => false,
+    }
+}
+
 pub fn rc_weak_eq<T: ?Sized>(a: &Rc<T>, b: &Weak<T>) -> bool {
     Rc::as_ptr(a) as *const u8 == b.as_ptr() as *const u8
 }
