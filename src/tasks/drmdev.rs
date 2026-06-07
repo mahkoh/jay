@@ -5,7 +5,11 @@ use {
         ifs::wp_drm_lease_device_v1::WpDrmLeaseDeviceV1Global,
         state::{DrmDevData, State},
         tasks::udev_utils::udev_props,
-        utils::{asyncevent::AsyncEvent, errorfmt::ErrorFmt},
+        utils::{
+            asyncevent::AsyncEvent,
+            errorfmt::ErrorFmt,
+            major_minor::{MajorMinor, major_minor},
+        },
     },
     std::{cell::Cell, rc::Rc},
 };
@@ -23,10 +27,9 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn BackendDrmDevice>) {
     let copy_device = state.copy_device_registry.get(id, dev_t).and_then(|d| {
         d.create_device()
             .inspect_err(|e| {
-                let maj = uapi::major(dev_t);
-                let min = uapi::minor(dev_t);
+                let MajorMinor { major, minor } = major_minor(dev_t);
                 log::warn!(
-                    "Could not create copy device for {maj}:{min}: {}",
+                    "Could not create copy device for {major}:{minor}: {}",
                     ErrorFmt(e),
                 );
             })

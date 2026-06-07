@@ -15,6 +15,7 @@ use {
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
             hash_map_ext::HashMapExt,
+            major_minor::{MajorMinor, major_minor},
             on_change::OnChange,
             oserror::{OsError, OsErrorExt2},
         },
@@ -29,7 +30,6 @@ use {
     uapi::{
         AsUstr, OwnedFd,
         c::{self, dev_t},
-        major, minor,
     },
 };
 
@@ -173,12 +173,8 @@ impl HeadlessBackend {
     fn handle_device_add(self: &Rc<Self>, dev: UdevDevice) {
         let num = dev.devnum();
         if let Err(e) = self.handle_device_add_(dev) {
-            log::error!(
-                "Could not add device {}:{}: {}",
-                major(num),
-                minor(num),
-                ErrorFmt(e),
-            );
+            let MajorMinor { major, minor } = major_minor(num);
+            log::error!("Could not add device {major}:{minor}: {}", ErrorFmt(e));
         }
     }
 
@@ -199,7 +195,7 @@ impl HeadlessBackend {
         if self.devs.contains(&devnum) {
             return Ok(());
         }
-        let nodes = get_drm_nodes_from_dev(major(devnum), minor(devnum)).map_err(GetDrmNodes)?;
+        let nodes = get_drm_nodes_from_dev(major_minor(devnum)).map_err(GetDrmNodes)?;
         let node = nodes[NodeType::Render]
             .as_ref()
             .or(nodes[NodeType::Primary].as_ref())

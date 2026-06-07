@@ -11,7 +11,12 @@ use {
             instance::VulkanInstance,
         },
         syncobj::SyncobjCtx,
-        utils::{bitflags::BitflagsExt, oserror::OsErrorExt2, page_alloc::PageAllocCtx},
+        utils::{
+            bitflags::BitflagsExt,
+            major_minor::{MajorMinor, major_minor},
+            oserror::OsErrorExt2,
+            page_alloc::PageAllocCtx,
+        },
         video::{
             dmabuf::DmaBufIds,
             drm::Drm,
@@ -180,11 +185,10 @@ impl VulkanInstance {
 
     fn find_dev(&self, drm: &Drm) -> Result<(PhysicalDevice, PhysicalDeviceType), VulkanError> {
         let dev = drm.dev();
+        let MajorMinor { major, minor } = major_minor(dev);
         log::log!(
             self.log_level,
-            "Searching for vulkan device with devnum {}:{}",
-            uapi::major(dev),
-            uapi::minor(dev)
+            "Searching for vulkan device with devnum {major}:{minor}",
         );
         let phy_devs = unsafe { self.instance.enumerate_physical_devices() };
         let phy_devs = match phy_devs {

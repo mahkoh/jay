@@ -9,6 +9,7 @@ use {
         syncobj::SyncobjCtx,
         utils::{
             errorfmt::ErrorFmt,
+            major_minor::{MajorMinor, major_minor},
             oserror::{OsError, OsErrorExt2},
             queue::AsyncQueue,
         },
@@ -441,14 +442,13 @@ impl EgvRenderer {
                         if device_extensions.not_contains_key(physical_device_drm::NAME) {
                             continue 'outer;
                         }
-                        let major = uapi::major(dev) as i64;
-                        let minor = uapi::minor(dev) as i64;
+                        let MajorMinor { major, minor } = major_minor(dev);
                         let matches = (drm_props.has_primary == vk::TRUE
-                            && drm_props.primary_major == major
-                            && drm_props.primary_minor == minor)
+                            && drm_props.primary_major == major as i64
+                            && drm_props.primary_minor == minor as i64)
                             || (drm_props.has_render == vk::TRUE
-                                && drm_props.render_major == major
-                                && drm_props.render_minor == minor);
+                                && drm_props.render_major == major as i64
+                                && drm_props.render_minor == minor as i64);
                         if matches {
                             break 'find_device;
                         }

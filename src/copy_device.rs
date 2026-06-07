@@ -13,6 +13,7 @@ use {
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
+            major_minor::{MajorMinor, major_minor},
             numcell::NumCell,
             oserror::{OsError, OsErrorExt2},
             queue::AsyncQueue,
@@ -497,14 +498,13 @@ impl PhysicalCopyDevice {
                     instance.get_physical_device_properties2(phy, &mut props);
                 }
                 let props = props.properties;
-                let major = uapi::major(dev) as i64;
-                let minor = uapi::minor(dev) as i64;
+                let MajorMinor { major, minor } = major_minor(dev);
                 let matches = (drm_props.has_primary == vk::TRUE
-                    && drm_props.primary_major == major
-                    && drm_props.primary_minor == minor)
+                    && drm_props.primary_major == major as i64
+                    && drm_props.primary_minor == minor as i64)
                     || (drm_props.has_render == vk::TRUE
-                        && drm_props.render_major == major
-                        && drm_props.render_minor == minor);
+                        && drm_props.render_major == major as i64
+                        && drm_props.render_minor == minor as i64);
                 if matches {
                     physical_device = phy;
                     device_extensions = exts;
@@ -2204,10 +2204,9 @@ impl CopyDeviceRegistry {
                 cd
             }
             Err(e) => {
-                let maj = uapi::major(dev);
-                let min = uapi::minor(dev);
+                let MajorMinor { major, minor } = major_minor(dev);
                 log::warn!(
-                    "Could not create physical copy device for {maj}:{min}: {}",
+                    "Could not create physical copy device for {major}:{minor}: {}",
                     ErrorFmt(e),
                 );
                 self.devs.set(id, None);

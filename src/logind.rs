@@ -1,7 +1,10 @@
 use {
     crate::{
         dbus::{DbusError, DbusSocket, FALSE, SignalHandler},
-        utils::errorfmt::ErrorFmt,
+        utils::{
+            errorfmt::ErrorFmt,
+            major_minor::{MajorMinor, major_minor},
+        },
         wire_dbus::{
             org,
             org::freedesktop::login1::{
@@ -104,12 +107,14 @@ impl Session {
     where
         F: FnOnce(Result<&TakeDeviceReply, DbusError>) + 'static,
     {
-        let major = uapi::major(dev) as _;
-        let minor = uapi::minor(dev) as _;
+        let MajorMinor { major, minor } = major_minor(dev);
         self.socket.call(
             LOGIND_NAME,
             &self.session_path,
-            org::freedesktop::login1::session::TakeDevice { major, minor },
+            org::freedesktop::login1::session::TakeDevice {
+                major: major as _,
+                minor: minor as _,
+            },
             f,
         );
     }
