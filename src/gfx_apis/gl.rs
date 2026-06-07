@@ -24,7 +24,7 @@ use {
         backend::DrmDeviceId,
         cmm::cmm_eotf::Eotf,
         gfx_api::{
-            AcquireSync, CopyTexture, FdSync, FramebufferRect, GfxApiOpt, GfxContext, GfxError,
+            AcquireSync, CopyTexture, FdSync, FramebufferRect, GfxApiOp, GfxContext, GfxError,
             GfxTexture, ReleaseSync, SyncFile,
         },
         gfx_apis::gl::{
@@ -185,7 +185,7 @@ struct GlFillRect {
     pub color: Color,
 }
 
-fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) -> Option<FdSync> {
+fn run_ops(fb: &Framebuffer, ops: &[GfxApiOp]) -> Option<FdSync> {
     let mut state = fb.ctx.gl_state.borrow_mut();
     let state = &mut *state;
     let mut fill_rect = state.fill_rect.take();
@@ -205,20 +205,20 @@ fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) -> Option<FdSync> {
         copy_tex.clear();
         while i < ops.len() {
             match &ops[i] {
-                GfxApiOpt::Sync => {
+                GfxApiOp::Sync => {
                     i += 1;
                     if has_ops!() {
                         break;
                     }
                 }
-                GfxApiOpt::FillRect(f) => {
+                GfxApiOp::FillRect(f) => {
                     fill_rect.push(GlFillRect {
                         rect: f.rect,
                         color: f.effective_color(),
                     });
                     i += 1;
                 }
-                GfxApiOpt::CopyTexture(c) => {
+                GfxApiOp::CopyTexture(c) => {
                     copy_tex.push(c);
                     i += 1;
                 }
@@ -268,7 +268,7 @@ fn run_ops(fb: &Framebuffer, ops: &[GfxApiOpt]) -> Option<FdSync> {
         let file = FdSync::SyncFile(file);
         let user = fb.ctx.buffer_resv_user;
         for op in ops {
-            if let GfxApiOpt::CopyTexture(ct) = op
+            if let GfxApiOp::CopyTexture(ct) = op
                 && ct.release_sync == ReleaseSync::Explicit
                 && let Some(resv) = &ct.buffer_resv
             {

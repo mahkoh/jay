@@ -9,7 +9,7 @@ use {
         },
         cpu_worker::PendingJob,
         gfx_api::{
-            AcquireSync, AlphaMode, BufferResv, BufferResvUser, FdSync, GfxApiOpt, GfxBlendBuffer,
+            AcquireSync, AlphaMode, BufferResv, BufferResvUser, FdSync, GfxApiOp, GfxBlendBuffer,
             GfxFormat, GfxTexture, GfxWriteModifier, ReleaseSync,
         },
         gfx_apis::vulkan::{
@@ -768,7 +768,7 @@ impl VulkanRenderer {
 
     fn convert_ops(
         &self,
-        opts: &[GfxApiOpt],
+        ops: &[GfxApiOp],
         blend_cd: &ColorDescription,
         fb_cd: &ColorDescription,
     ) -> Result<(), VulkanError> {
@@ -839,12 +839,12 @@ impl VulkanRenderer {
                 }
             }
         };
-        for (index, op) in opts.iter().enumerate() {
+        for (index, op) in ops.iter().enumerate() {
             match op {
-                GfxApiOpt::Sync => {
+                GfxApiOp::Sync => {
                     sync(memory);
                 }
-                GfxApiOpt::FillRect(fr) => {
+                GfxApiOp::FillRect(fr) => {
                     let target = fr.rect.to_points();
                     for pass in RenderPass::variants() {
                         let Some(bounds) = memory.paint_bounds[pass] else {
@@ -891,7 +891,7 @@ impl VulkanRenderer {
                         }));
                     }
                 }
-                GfxApiOpt::CopyTexture(ct) => {
+                GfxApiOp::CopyTexture(ct) => {
                     let tex = ct.tex.clone().into_vk(&self.device.device)?;
                     if tex.contents_are_undefined.get() {
                         log::warn!("Ignoring undefined texture");
@@ -2022,7 +2022,7 @@ impl VulkanRenderer {
         fb_acquire_sync: AcquireSync,
         fb_release_sync: ReleaseSync,
         fb_cd: &Rc<ColorDescription>,
-        opts: &[GfxApiOpt],
+        ops: &[GfxApiOp],
         clear: Option<&Color>,
         clear_cd: &Rc<LinearColorDescription>,
         region: &Region,
@@ -2035,7 +2035,7 @@ impl VulkanRenderer {
             fb_acquire_sync,
             fb_release_sync,
             fb_cd,
-            opts,
+            ops,
             clear,
             clear_cd,
             region,
@@ -2071,7 +2071,7 @@ impl VulkanRenderer {
     fn create_regions(
         &self,
         fb: &VulkanImage,
-        opts: &[GfxApiOpt],
+        ops: &[GfxApiOp],
         clear: Option<&Color>,
         region: &Region,
         bb: Option<&VulkanImage>,
@@ -2083,11 +2083,11 @@ impl VulkanRenderer {
         let width = fb.width as f32;
         let height = fb.height as f32;
         let mut tag = 0;
-        for opt in opts.iter().rev() {
-            let (opaque, fb_rect) = match opt {
-                GfxApiOpt::Sync => continue,
-                GfxApiOpt::FillRect(f) => (f.effective_color().is_opaque(), f.rect),
-                GfxApiOpt::CopyTexture(c) => {
+        for op in ops.iter().rev() {
+            let (opaque, fb_rect) = match op {
+                GfxApiOp::Sync => continue,
+                GfxApiOp::FillRect(f) => (f.effective_color().is_opaque(), f.rect),
+                GfxApiOp::CopyTexture(c) => {
                     let opaque = 'opaque: {
                         if let Some(a) = c.alpha
                             && a < 1.0
@@ -2304,7 +2304,7 @@ impl VulkanRenderer {
         fb_acquire_sync: AcquireSync,
         fb_release_sync: ReleaseSync,
         fb_cd: &Rc<ColorDescription>,
-        opts: &[GfxApiOpt],
+        ops: &[GfxApiOp],
         clear: Option<&Color>,
         clear_cd: &Rc<LinearColorDescription>,
         region: &Region,
@@ -2313,12 +2313,12 @@ impl VulkanRenderer {
     ) -> Result<(), VulkanError> {
         self.check_defunct()?;
         self.elide_blend_buffer1(&mut blend_buffer, bb_cd, fb_cd);
-        self.create_regions(fb, opts, clear, region, blend_buffer.as_deref())?;
+        self.create_regions(fb, ops, clear, region, blend_buffer.as_deref())?;
         self.elide_blend_buffer2(&mut blend_buffer);
         let bb = blend_buffer.as_deref();
         self.verify_render_targets(fb, bb)?;
         let buf = self.gfx_command_buffers.allocate()?;
-        self.convert_ops(opts, bb_cd, fb_cd)?;
+        self.convert_ops(ops, bb_cd, fb_cd)?;
         self.ensure_descriptor_heap_entries(bb)?;
         self.create_fixed_cm_data(bb, bb_cd, fb_cd);
         self.create_data_buffer()?;

@@ -7,7 +7,7 @@ use {
         format::{ARGB8888, Format, XRGB8888},
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback, CopyTexture, FdSync,
-            FillRect, FramebufferRect, GfxApi, GfxApiOpt, GfxBlendBuffer, GfxContext, GfxError,
+            FillRect, FramebufferRect, GfxApi, GfxApiOp, GfxBlendBuffer, GfxContext, GfxError,
             GfxFormat, GfxFramebuffer, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture,
             GfxWriteModifier, PendingShmTransfer, ReleaseSync, ResetStatus, ShmGfxTexture,
             ShmMemory,
@@ -398,7 +398,7 @@ impl GfxFramebuffer for TestGfxFb {
         _acquire_sync: AcquireSync,
         _release_sync: ReleaseSync,
         _cd: &Rc<ColorDescription>,
-        ops: &[GfxApiOpt],
+        ops: &[GfxApiOp],
         clear: Option<&Color>,
         _clear_cd: &Rc<LinearColorDescription>,
         _region: &Region,
@@ -542,9 +542,9 @@ impl GfxFramebuffer for TestGfxFb {
             copy_to_staging(staging);
             for op in ops {
                 match op {
-                    GfxApiOpt::Sync => {}
-                    GfxApiOpt::FillRect(f) => fill_rect(&f, staging),
-                    GfxApiOpt::CopyTexture(c) => copy_texture(&c, staging)?,
+                    GfxApiOp::Sync => {}
+                    GfxApiOp::FillRect(f) => fill_rect(&f, staging),
+                    GfxApiOp::CopyTexture(c) => copy_texture(&c, staging)?,
                 }
             }
             copy_from_staging(staging);

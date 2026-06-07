@@ -4,7 +4,7 @@ use {
         cmm::{cmm_eotf::Eotf, cmm_render_intent::RenderIntent},
         gfx_api::{
             AcquireSync, AlphaMode, AsyncShmGfxTextureCallback, CopyTexture, FramebufferRect,
-            GfxApiOpt, GfxContext, GfxError, GfxRenderPass, GfxTexture, PendingShmTransfer,
+            GfxApiOp, GfxContext, GfxError, GfxRenderPass, GfxTexture, PendingShmTransfer,
             ReleaseSync, STAGING_UPLOAD, SampleRect,
         },
         ifs::{
@@ -368,7 +368,7 @@ impl XdgToplevelIconV1 {
         let srgb = self.client.state.color_manager.srgb_gamma22();
         let format = source_tex.format();
         let render_pass = GfxRenderPass {
-            ops: vec![GfxApiOpt::CopyTexture(CopyTexture {
+            ops: vec![GfxApiOp::CopyTexture(CopyTexture {
                 tex: source_tex.clone(),
                 source: SampleRect::identity(),
                 target: FramebufferRect {

@@ -4,7 +4,7 @@ use {
         format::Format,
         gfx_api::{
             AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback,
-            AsyncShmGfxTextureTransferCancellable, FdSync, GfxApiOpt, GfxBlendBuffer, GfxBuffer,
+            AsyncShmGfxTextureTransferCancellable, FdSync, GfxApiOp, GfxBlendBuffer, GfxBuffer,
             GfxError, GfxFramebuffer, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture,
             PendingShmTransfer, ReleaseSync, ShmGfxTexture, ShmMemory,
         },
@@ -608,7 +608,7 @@ impl GfxFramebuffer for VulkanImage {
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
         cd: &Rc<ColorDescription>,
-        ops: &[GfxApiOpt],
+        ops: &[GfxApiOp],
         clear: Option<&Color>,
         clear_cd: &Rc<LinearColorDescription>,
         region: &Region,
