@@ -17,7 +17,7 @@ use {
         },
     },
     bstr::ByteSlice,
-    linearize::StaticMap,
+    linearize::{LinearizeExt, StaticMap},
     std::{
         ffi::CString,
         io::{BufRead, BufReader},
@@ -94,16 +94,16 @@ pub fn node_is_drm(dev_t: c::dev_t) -> bool {
 }
 
 pub fn get_minor_type(dev_t: c::dev_t) -> Result<NodeType, OsError> {
-    const DRM_NODE_PRIMARY: u64 = 0;
-    const DRM_NODE_CONTROL: u64 = 1;
-    const DRM_NODE_RENDER: u64 = 2;
-    let MajorMinor { minor, .. } = major_minor(dev_t);
-    match minor >> 6 {
-        DRM_NODE_PRIMARY => Ok(NodeType::Primary),
-        DRM_NODE_CONTROL => Ok(NodeType::Control),
-        DRM_NODE_RENDER => Ok(NodeType::Render),
-        _ => Err(OsError(c::ENODEV)),
+    let name = get_device_name_from_dev_t(dev_t)?;
+    let name = name.as_bytes();
+    if let Some(suffix) = name.strip_prefix(b"/dev/dri/") {
+        for ty in NodeType::variants() {
+            if suffix.starts_with(ty.name().as_bytes()) {
+                return Ok(ty);
+            }
+        }
     }
+    Err(OsError(c::ENODEV))
 }
 
 const DRM_DIR_NAME: &str = "/dev/dri";
@@ -148,6 +148,10 @@ fn is_drm(dev_t: c::dev_t, stat: &c::stat) -> bool {
 
 pub fn get_device_name_from_fd2(fd: c::c_int) -> Result<Ustring, OsError> {
     let (_, dev_t) = drm_stat(fd)?;
+    get_device_name_from_dev_t(dev_t)
+}
+
+fn get_device_name_from_dev_t(dev_t: c::dev_t) -> Result<Ustring, OsError> {
     let MajorMinor { major, minor } = major_minor(dev_t);
     let path = uapi::format_ustr!("/sys/dev/char/{major}:{minor}/uevent");
     let mut buf = vec![];
