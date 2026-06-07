@@ -505,6 +505,14 @@ pub struct DrmDevData {
     pub id_device: Option<Rc<dyn BufferIdDeviceDyn>>,
 }
 
+impl ObjWithId for Rc<ConnectorData> {
+    type Id = ConnectorId;
+
+    fn id(&self) -> Self::Id {
+        self.id
+    }
+}
+
 impl ObjWithId for Rc<DrmDevData> {
     type Id = DrmDeviceId;
 
@@ -2345,6 +2353,7 @@ impl State {
                 self.render_ctx_prime_modifiers.set(None, base.clone());
             }
         }
+        self.dmabuf_feedback.update();
     }
 
     pub fn update_prime_scanout_modifiers_id(&self, id: ConnectorId) {

@@ -12,8 +12,8 @@ use {
         state::PrimeModifiers,
         udmabuf::{UdmabufError, UdmabufHolder},
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, numcell::NumCell, rc_eq::rc_opt_eq,
-            smallmap::SmallMap, syncqueue::SyncQueue,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, numcell::NumCell,
+            obj_and_id::ObjWithId, rc_eq::rc_opt_eq, smallmap::SmallMap, syncqueue::SyncQueue,
         },
         video::dmabuf::{DmaBuf, DmabufCopy},
     },
@@ -238,19 +238,26 @@ impl WlSurface {
                 .map_err(PrimeError::CreateUdmabuf)
         };
         let client_copy_device = buf.client_copy_device();
-        let direct_scanout_device = self.fullscreen.get();
+        let mut direct_scanout_connector = self.fullscreen.get();
+        if let Some(con) = &direct_scanout_connector
+            && render_dev.map(|d| d.drm_device_id()) != con.drm_dev.id()
+        {
+            direct_scanout_connector = None;
+        }
         let use_bo = render_dev.is_some()
             && (!ctx.fast_ram_access()
                 || client_copy_device.is_none()
                 || udmabuf_dev.is_none()
-                || direct_scanout_device.is_some());
+                || direct_scanout_connector.is_some());
         let mut bo_flags = BufferUsage::none();
         let mut bo_modifiers = None;
         if use_bo {
-            if direct_scanout_device.is_some() {
+            if direct_scanout_connector.is_some() {
                 bo_flags = BO_USE_SCANOUT;
             }
-            bo_modifiers = state.render_ctx_prime_modifiers.get(&direct_scanout_device);
+            bo_modifiers = state
+                .render_ctx_prime_modifiers
+                .get(&direct_scanout_connector.id());
         }
         let spt = loop {
             let Some(spt) = prime.inner.storage.pop() else {

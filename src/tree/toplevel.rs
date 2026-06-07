@@ -1,6 +1,5 @@
 use {
     crate::{
-        backend::ConnectorId,
         client::{Client, ClientId},
         criteria::{
             CritDestroyListener, CritMatcherId,
@@ -30,7 +29,7 @@ use {
         },
         rect::Rect,
         sm::ToplevelSession,
-        state::State,
+        state::{ConnectorData, State},
         tree::{
             ContainerNode, ContainerSplit, ContainingNode, Direction, FloatNode, Node, NodeId,
             NodeLayerLink, OutputNode, PlaceholderNode, WorkspaceNode, WorkspaceType,
@@ -73,7 +72,7 @@ pub trait ToplevelNode: ToplevelNodeBase {
     fn tl_set_pinned(&self, self_pinned: bool, pinned: bool);
     fn tl_set_float(&self, float: Option<&Rc<FloatNode>>);
     fn tl_mark_ancestor_fullscreen(&self, fullscreen: bool);
-    fn tl_mark_fullscreen(&self, connector: Option<ConnectorId>);
+    fn tl_mark_fullscreen(&self, connector: Option<&Rc<ConnectorData>>);
     fn tl_resize(&self, dx1: i32, dy1: i32, dx2: i32, dy2: i32);
 }
 
@@ -269,7 +268,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         self.tl_mark_ancestor_fullscreen_ext(fullscreen);
     }
 
-    fn tl_mark_fullscreen(&self, connector: Option<ConnectorId>) {
+    fn tl_mark_fullscreen(&self, connector: Option<&Rc<ConnectorData>>) {
         let fullscreen = connector.is_some();
         self.tl_data().is_fullscreen.set(fullscreen);
         self.tl_mark_ancestor_fullscreen(fullscreen);
@@ -819,7 +818,7 @@ impl ToplevelData {
         });
         drop(data);
         let output = wns.output.get();
-        node.tl_mark_fullscreen(Some(output.global.connector.id));
+        node.tl_mark_fullscreen(Some(&output.global.connector));
         self.property_changed(TL_CHANGED_FULLSCREEN);
         node.tl_set_parent(ws.clone());
         ws.set_fullscreen_node(&node);

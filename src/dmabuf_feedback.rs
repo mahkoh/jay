@@ -2,6 +2,7 @@ use {
     crate::{
         backend::ConnectorId,
         client::ClientId,
+        format::formats,
         ifs::zwp_linux_dmabuf_feedback_v1::{FB_SAMPLING, FB_SCANOUT, ZwpLinuxDmabufFeedbackV1},
         object::Version,
         state::State,
@@ -15,9 +16,13 @@ use {
         video::Modifier,
         wire::ZwpLinuxDmabufFeedbackV1Id,
     },
+    ahash::AHashSet,
     byteorder::{NativeEndian, WriteBytesExt},
     indexmap::IndexSet,
-    isnt::std_1::primitive::IsntSliceExt,
+    isnt::std_1::{
+        collections::{IsntHashMapExt, IsntHashSetExt},
+        primitive::IsntSliceExt,
+    },
     std::{
         io::{self, Write},
         rc::Rc,
@@ -68,6 +73,7 @@ struct Tranche {
     pairs: Vec<Pair>,
     indices: Vec<u16>,
     ty: TrancheType,
+    prime: bool,
 }
 
 #[derive(Clone, PartialEq)]
@@ -116,12 +122,26 @@ impl State {
             self.dmabuf_feedback.fb.set(None);
             return Ok(None);
         };
-        let Some(dev) = ctx.drm_device_id().and_then(|id| self.drm_devs.get(&id)) else {
+        let Some(ctx_dev) = ctx.drm_device_id().and_then(|id| self.drm_devs.get(&id)) else {
             self.dmabuf_feedback.fb.set(None);
             return Ok(None);
         };
-        let main_dev = dev.dev_t;
+        let main_dev = ctx_dev.dev_t;
         let ctx_formats = ctx.formats();
+        let mut copy_src_formats = AHashSet::new();
+        if !self.no_client_prime {
+            for dev in self.drm_devs.lock().values() {
+                let Some(copy_dev) = &dev.copy_device else {
+                    continue;
+                };
+                for &format in formats().values() {
+                    for modifier in copy_dev.src_support(format) {
+                        copy_src_formats.insert((dev.id, format.drm, modifier.modifier));
+                    }
+                }
+            }
+        }
+        let prime_formats = self.render_ctx_prime_modifiers.get(&None);
         let mut tranches = vec![];
         let mut connectors: Vec<_> = self.connectors.lock().values().cloned().collect();
         connectors.sort_by_key(|c| c.id);
@@ -129,19 +149,34 @@ impl State {
             let Some(dev) = &connector.drm_dev else {
                 continue;
             };
-            if dev.dev_t != main_dev {
-                // TODO
-                continue;
-            }
-            let Some(formats) = connector.connector.scanout_formats() else {
+            let prime = dev.dev_t != main_dev;
+            let Some(scanout_formats) = connector.connector.scanout_formats() else {
                 continue;
             };
             let mut pairs = vec![];
-            for &(format, modifier) in &*formats {
-                if let Some(ctx_format) = ctx_formats.get(&format.drm)
-                    && ctx_format.read_modifiers.contains(&modifier)
-                {
+            if prime {
+                if self.no_client_prime {
+                    continue;
+                }
+                let Some(prime_formats) = &prime_formats else {
+                    continue;
+                };
+                for &(format, modifier) in &*scanout_formats {
+                    if prime_formats.not_contains_key(&format.drm) {
+                        continue;
+                    }
+                    if copy_src_formats.not_contains(&(dev.id, format.drm, modifier)) {
+                        continue;
+                    }
                     pairs.push((format.drm, modifier));
+                }
+            } else {
+                for &(format, modifier) in &*scanout_formats {
+                    if let Some(ctx_format) = ctx_formats.get(&format.drm)
+                        && ctx_format.read_modifiers.contains(&modifier)
+                    {
+                        pairs.push((format.drm, modifier));
+                    }
                 }
             }
             if pairs.is_not_empty() {
@@ -152,6 +187,7 @@ impl State {
                     ty: TrancheType::Scanout {
                         connector: connector.id,
                     },
+                    prime,
                 });
             }
         }
@@ -167,7 +203,40 @@ impl State {
                 pairs,
                 indices: Default::default(),
                 ty: TrancheType::Sampling,
+                prime: false,
             });
+        }
+        if !self.no_client_prime
+            && let Some(prime_formats) = &prime_formats
+        {
+            let mut devs: Vec<_> = self.drm_devs.lock().values().cloned().collect();
+            devs.sort_by_key(|d| d.id);
+            for dev in &devs {
+                if dev.id == ctx_dev.id {
+                    continue;
+                }
+                let Some(copy_dev) = &dev.copy_device else {
+                    continue;
+                };
+                let mut pairs = vec![];
+                for &format in formats().values() {
+                    if prime_formats.not_contains_key(&format.drm) {
+                        continue;
+                    }
+                    for support in copy_dev.src_support(format) {
+                        pairs.push((format.drm, support.modifier));
+                    }
+                }
+                if pairs.is_not_empty() {
+                    tranches.push(Tranche {
+                        dev_t: dev.dev_t,
+                        pairs,
+                        indices: Default::default(),
+                        ty: TrancheType::Sampling,
+                        prime: true,
+                    });
+                }
+            }
         }
         let indices = create_indices(&mut tranches)?;
         if let Some(old) = self.dmabuf_feedback.fb.get()
@@ -240,6 +309,9 @@ impl DmaBufFeedback {
             obj.send_main_device(self.main_dev);
         }
         for tranche in &self.tranches {
+            if tranche.prime && obj.version < SAMPLING_SINCE {
+                continue;
+            }
             let mut flags = match tranche.ty {
                 TrancheType::Scanout { connector } => {
                     if Some(connector) != fullscreen {

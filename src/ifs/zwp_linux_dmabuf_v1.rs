@@ -114,7 +114,7 @@ impl ZwpLinuxDmabufV1 {
         self.client.add_client_obj(&fb)?;
         let connector = if let Some(surface) = surface {
             surface.dmabuf_feedback.set(id, fb.clone());
-            surface.fullscreen.get()
+            surface.fullscreen.id()
         } else {
             self.client
                 .state
