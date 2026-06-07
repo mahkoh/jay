@@ -19,7 +19,7 @@ use {
         tree::OutputNode,
         utils::{errorfmt::ErrorFmt, oserror::OsError},
         video::{
-            dmabuf::DmaBufId,
+            dmabuf::{DmaBuf, DmaBufId},
             drm::{
                 DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_ASYNC, DRM_MODE_PAGE_FLIP_EVENT,
                 DrmCrtc, DrmError, DrmFb, DrmFramebuffer, DrmObject,
@@ -40,7 +40,7 @@ struct Latched {
 
 #[derive(Debug)]
 pub struct DirectScanoutCache {
-    tex: Weak<dyn GfxTexture>,
+    dmabuf: Weak<DmaBuf>,
     fb: Option<Rc<DrmFramebuffer>>,
 }
 
@@ -274,7 +274,7 @@ impl MetalConnector {
                     cache.insert(
                         dsd_id,
                         DirectScanoutCache {
-                            tex: buffer.tex,
+                            dmabuf: buffer.dmabuf,
                             fb: None,
                         },
                     );
@@ -623,7 +623,7 @@ impl MetalConnector {
     fn trim_scanout_cache(&self) {
         self.scanout_buffers
             .borrow_mut()
-            .retain(|_, buffer| buffer.tex.strong_count() > 0);
+            .retain(|_, buffer| buffer.dmabuf.strong_count() > 0);
     }
 
     fn prepare_direct_scanout(
@@ -647,7 +647,7 @@ impl MetalConnector {
         let mut cache = self.scanout_buffers.borrow_mut();
         if let Some(buffer) = cache.get(&dmabuf.id) {
             return buffer.fb.as_ref().map(|fb| DirectScanoutData {
-                tex: buffer.tex.upgrade().unwrap(),
+                tex: ct.tex.clone(),
                 acquire_sync: ct.acquire_sync.clone(),
                 release_sync: ct.release_sync,
                 resv: ct.buffer_resv.clone(),
@@ -692,7 +692,7 @@ impl MetalConnector {
         cache.insert(
             dmabuf.id,
             DirectScanoutCache {
-                tex: Rc::downgrade(&ct.tex),
+                dmabuf: Rc::downgrade(dmabuf),
                 fb: data.as_ref().map(|dsd| dsd.fb.clone()),
             },
         );
