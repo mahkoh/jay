@@ -23,7 +23,7 @@ use {
         slice,
     },
     thiserror::Error,
-    uapi::OwnedFd,
+    uapi::{OwnedFd, c},
 };
 
 pub enum WlBufferStorage {
@@ -143,8 +143,12 @@ impl WlBuffer {
         client: &Rc<Client>,
         format: &'static Format,
         client_dmabuf: Rc<DmaBuf>,
+        hint_dev_t: Option<c::dev_t>,
     ) -> Rc<Self> {
-        let device = client.state.find_dmabuf_device(&client_dmabuf);
+        let hint_dev = hint_dev_t.and_then(|d| client.state.drm_devs_by_dev_t.get(&d));
+        let device = client
+            .state
+            .find_dmabuf_device(&client_dmabuf, hint_dev.as_ref());
         Self::new(
             id,
             client,

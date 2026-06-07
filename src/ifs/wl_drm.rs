@@ -158,7 +158,7 @@ impl WlDrmRequestHandler for WlDrm {
             INVALID_MODIFIER,
             planes,
         );
-        let buffer = WlBuffer::new_dmabuf(req.id, &self.client, format, dmabuf);
+        let buffer = WlBuffer::new_dmabuf(req.id, &self.client, format, dmabuf, None);
         track!(self.client, buffer);
         self.client.add_client_obj(&buffer)?;
         Ok(())

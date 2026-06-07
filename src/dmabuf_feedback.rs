@@ -2,7 +2,8 @@ use {
     crate::{
         backend::ConnectorId,
         client::ClientId,
-        ifs::zwp_linux_dmabuf_feedback_v1::{FB_SCANOUT, ZwpLinuxDmabufFeedbackV1},
+        ifs::zwp_linux_dmabuf_feedback_v1::{FB_SAMPLING, FB_SCANOUT, ZwpLinuxDmabufFeedbackV1},
+        object::Version,
         state::State,
         utils::{
             asyncevent::AsyncEvent,
@@ -227,15 +228,19 @@ fn create_memfd(indices: &IndexSet<Pair>) -> Result<(Rc<OwnedFd>, u32), DmaBufFe
     Ok((Rc::new(memfd), size))
 }
 
+const SAMPLING_SINCE: Version = Version(6);
+
 impl DmaBufFeedback {
     pub fn send(&self, obj: &ZwpLinuxDmabufFeedbackV1, fullscreen: Option<ConnectorId>) {
         let id = Some(self.id);
         if obj.last_format_table.replace(id) != id {
             obj.send_format_table(&self.memfd, self.size);
         }
-        obj.send_main_device(self.main_dev);
+        if obj.version < SAMPLING_SINCE {
+            obj.send_main_device(self.main_dev);
+        }
         for tranche in &self.tranches {
-            let flags = match tranche.ty {
+            let mut flags = match tranche.ty {
                 TrancheType::Scanout { connector } => {
                     if Some(connector) != fullscreen {
                         continue;
@@ -244,6 +249,9 @@ impl DmaBufFeedback {
                 }
                 TrancheType::Sampling => 0,
             };
+            if obj.version >= SAMPLING_SINCE {
+                flags |= FB_SAMPLING;
+            }
             obj.send_tranche_target_device(tranche.dev_t);
             obj.send_tranche_formats(&tranche.indices);
             obj.send_tranche_flags(flags);

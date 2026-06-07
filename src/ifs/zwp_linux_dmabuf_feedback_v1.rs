@@ -13,6 +13,7 @@ use {
 };
 
 pub const FB_SCANOUT: u32 = 1;
+pub const FB_SAMPLING: u32 = 2;
 
 pub struct ZwpLinuxDmabufFeedbackV1 {
     pub id: ZwpLinuxDmabufFeedbackV1Id,
