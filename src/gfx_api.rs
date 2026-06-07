@@ -291,7 +291,6 @@ pub struct CopyTexture {
     pub cd: Rc<ColorDescription>,
     pub alpha_mode: AlphaMode,
     pub grayscale: bool,
-    #[expect(dead_code)]
     pub client_buf: Option<Rc<SurfaceBuffer>>,
 }
 
