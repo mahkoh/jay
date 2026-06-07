@@ -2353,6 +2353,7 @@ impl State {
                 self.render_ctx_prime_modifiers.set(None, base.clone());
             }
         }
+        self.dmabuf_feedback.update();
     }
 
     pub fn update_prime_scanout_modifiers_id(&self, id: ConnectorId) {
