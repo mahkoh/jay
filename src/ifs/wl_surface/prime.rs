@@ -205,7 +205,7 @@ impl WlBuffer {
         }
         if self.client_dmabuf_device.is_none()
             && ctx.fast_ram_access()
-            && storage.ensure_tex(ctx).is_ok()
+            && storage.ensure_tex(self, ctx).is_ok()
         {
             return Ok(None);
         }

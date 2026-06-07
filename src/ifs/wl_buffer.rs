@@ -41,7 +41,6 @@ pub enum WlBufferStorage {
 
 pub struct WlBufferDmabufStorage {
     pub dmabuf: Rc<DmaBuf>,
-    pub exclusive_device: Option<DrmDeviceId>,
     pub tex: Option<Rc<dyn GfxTexture>>,
     pub fb: Option<Rc<dyn GfxFramebuffer>>,
     pub copy_obj: Option<Option<Rc<CopyDeviceSrcObject>>>,
@@ -87,6 +86,7 @@ pub struct WlBuffer {
     pub format: &'static Format,
     pub client_dmabuf: Option<Rc<DmaBuf>>,
     pub client_dmabuf_device: Option<Rc<DrmDevData>>,
+    pub exclusive_device: Option<DrmDeviceId>,
     render_ctx_version: Cell<u32>,
     pub storage: RefCell<Option<WlBufferStorage>>,
     ty: Ty,
@@ -118,6 +118,7 @@ impl WlBuffer {
         height: i32,
         client_dmabuf: Option<Rc<DmaBuf>>,
         client_dmabuf_device: Option<Rc<DrmDevData>>,
+        exclusive_device: Option<DrmDeviceId>,
         storage: Option<WlBufferStorage>,
         ty: Ty,
         color: Option<[u32; 4]>,
@@ -132,6 +133,7 @@ impl WlBuffer {
             height,
             client_dmabuf,
             client_dmabuf_device,
+            exclusive_device,
             render_ctx_version: Cell::new(client.state.render_ctx_version.get()),
             storage: RefCell::new(storage),
             ty,
@@ -168,9 +170,9 @@ impl WlBuffer {
             client_dmabuf.height,
             Some(client_dmabuf.clone()),
             device,
+            exclusive_device,
             Some(WlBufferStorage::Dmabuf(WlBufferDmabufStorage {
                 dmabuf: client_dmabuf,
-                exclusive_device,
                 tex: None,
                 fb: None,
                 copy_obj: None,
@@ -237,6 +239,7 @@ impl WlBuffer {
             height,
             client_dmabuf,
             None,
+            None,
             Some(WlBufferStorage::Shm {
                 dmabuf_buffer_params,
                 mem,
@@ -261,6 +264,7 @@ impl WlBuffer {
             ARGB8888,
             1,
             1,
+            None,
             None,
             None,
             None,
@@ -540,7 +544,7 @@ impl WlBuffer {
                     }
                 }
                 if surface.prime.buffer.is_none() {
-                    storage.ensure_tex(&ctx)?;
+                    storage.ensure_tex(self, &ctx)?;
                 }
             }
         }
@@ -559,7 +563,7 @@ impl WlBuffer {
             }
             WlBufferStorage::Dmabuf(storage) => {
                 if let Some(ctx) = self.client.state.render_ctx.get() {
-                    storage.ensure_fb(&ctx)?;
+                    storage.ensure_fb(self, &ctx)?;
                 }
             }
         }
@@ -578,36 +582,38 @@ impl WlBuffer {
         }
         None
     }
-}
 
-impl WlBufferDmabufStorage {
     fn check_import(&self, target: Option<DrmDeviceId>) -> Result<(), WlBufferError> {
         if self.exclusive_device.is_some() && self.exclusive_device != target {
             return Err(WlBufferError::CrossDeviceImportDenied);
         }
         Ok(())
     }
+}
 
+impl WlBufferDmabufStorage {
     pub fn ensure_tex(
         &mut self,
+        buf: &WlBuffer,
         ctx: &Rc<dyn GfxContext>,
     ) -> Result<Rc<dyn GfxTexture>, WlBufferError> {
         if let Some(tex) = &self.tex {
             return Ok(tex.clone());
         }
-        self.check_import(ctx.drm_device_id())?;
+        buf.check_import(ctx.drm_device_id())?;
         let tex = ctx.clone().dmabuf_tex(&self.dmabuf)?;
         Ok(self.tex.insert(tex).clone())
     }
 
     pub fn ensure_fb(
         &mut self,
+        buf: &WlBuffer,
         ctx: &Rc<dyn GfxContext>,
     ) -> Result<Rc<dyn GfxFramebuffer>, WlBufferError> {
         if let Some(fb) = &self.fb {
             return Ok(fb.clone());
         }
-        self.check_import(ctx.drm_device_id())?;
+        buf.check_import(ctx.drm_device_id())?;
         let fb = ctx.clone().dmabuf_fb(&self.dmabuf)?;
         Ok(self.fb.insert(fb).clone())
     }
@@ -633,7 +639,7 @@ impl WlBufferDmabufStorage {
         } else {
             return Ok(self.copy_obj.insert(None).clone());
         };
-        if self.exclusive_device.is_some() && self.exclusive_device != Some(dev.drm_device_id()) {
+        if buf.exclusive_device.is_some() && buf.exclusive_device != Some(dev.drm_device_id()) {
             return Err(CopyDeviceError::CrossDeviceImportDenied);
         }
         let obj = dev.create_src_object(&self.dmabuf)?;

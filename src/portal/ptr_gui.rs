@@ -241,6 +241,7 @@ impl GuiElement for Button {
                 RenderIntent::Perceptual,
                 AlphaMode::PremultipliedElectrical,
                 false,
+                None,
             );
         }
     }
@@ -346,6 +347,7 @@ impl GuiElement for Label {
                 RenderIntent::Perceptual,
                 AlphaMode::PremultipliedElectrical,
                 false,
+                None,
             );
         }
     }

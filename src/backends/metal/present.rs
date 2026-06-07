@@ -19,7 +19,7 @@ use {
         tree::OutputNode,
         utils::{errorfmt::ErrorFmt, oserror::OsError},
         video::{
-            dmabuf::DmaBufId,
+            dmabuf::{DmaBuf, DmaBufId},
             drm::{
                 DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_ASYNC, DRM_MODE_PAGE_FLIP_EVENT,
                 DrmCrtc, DrmError, DrmFb, DrmFramebuffer, DrmObject,
@@ -40,7 +40,7 @@ struct Latched {
 
 #[derive(Debug)]
 pub struct DirectScanoutCache {
-    tex: Weak<dyn GfxTexture>,
+    dmabuf: Weak<DmaBuf>,
     fb: Option<Rc<DrmFramebuffer>>,
 }
 
@@ -274,7 +274,7 @@ impl MetalConnector {
                     cache.insert(
                         dsd_id,
                         DirectScanoutCache {
-                            tex: buffer.tex,
+                            dmabuf: buffer.dmabuf,
                             fb: None,
                         },
                     );
@@ -623,7 +623,7 @@ impl MetalConnector {
     fn trim_scanout_cache(&self) {
         self.scanout_buffers
             .borrow_mut()
-            .retain(|_, buffer| buffer.tex.strong_count() > 0);
+            .retain(|_, buffer| buffer.dmabuf.strong_count() > 0);
     }
 
     fn prepare_direct_scanout(
@@ -640,17 +640,40 @@ impl MetalConnector {
             cd,
             self.cursor_enabled.get(),
         )?;
-        let Some(dmabuf) = ct.tex.dmabuf() else {
+        let resv;
+        let dmabuf;
+        let release_sync;
+        match &ct.client_buf {
+            Some(buf) if buf.buffer.buf.exclusive_device == Some(self.dev.id) => {
+                resv = Some(buf.clone() as Rc<dyn BufferResv>);
+                dmabuf = buf.buffer.buf.client_dmabuf.as_ref();
+                release_sync = buf.release_sync;
+            }
+            _ if self.dev.is_render_device() => {
+                resv = ct.buffer_resv.clone();
+                dmabuf = ct.tex.dmabuf();
+                release_sync = ct.release_sync;
+            }
+            _ => {
+                // at least on AMD, using a FB on a different device for rendering will fail
+                // and destroy the render context. it's possible to work around this by waiting
+                // until the FB is no longer being scanned out, but if a notification pops up
+                // then we must be able to disable direct scanout immediately.
+                // https://gitlab.freedesktop.org/drm/amd/-/issues/3186
+                return None;
+            }
+        };
+        let Some(dmabuf) = dmabuf else {
             // Shm buffers cannot be scanned out.
             return None;
         };
         let mut cache = self.scanout_buffers.borrow_mut();
         if let Some(buffer) = cache.get(&dmabuf.id) {
             return buffer.fb.as_ref().map(|fb| DirectScanoutData {
-                tex: buffer.tex.upgrade().unwrap(),
+                tex: ct.tex.clone(),
                 acquire_sync: ct.acquire_sync.clone(),
-                release_sync: ct.release_sync,
-                resv: ct.buffer_resv.clone(),
+                release_sync,
+                resv,
                 fb: fb.clone(),
                 dma_buf_id: dmabuf.id,
                 position,
@@ -675,8 +698,8 @@ impl MetalConnector {
             Ok(fb) => Some(DirectScanoutData {
                 tex: ct.tex.clone(),
                 acquire_sync: ct.acquire_sync.clone(),
-                release_sync: ct.release_sync,
-                resv: ct.buffer_resv.clone(),
+                release_sync,
+                resv,
                 fb: Rc::new(fb),
                 dma_buf_id: dmabuf.id,
                 position,
@@ -692,7 +715,7 @@ impl MetalConnector {
         cache.insert(
             dmabuf.id,
             DirectScanoutCache {
-                tex: Rc::downgrade(&ct.tex),
+                dmabuf: Rc::downgrade(dmabuf),
                 fb: data.as_ref().map(|dsd| dsd.fb.clone()),
             },
         );
@@ -709,14 +732,7 @@ impl MetalConnector {
         try_direct_scanout: bool,
     ) -> Result<PresentFb, MetalError> {
         self.trim_scanout_cache();
-        let try_direct_scanout = try_direct_scanout
-            && self.dev.direct_scanout_enabled()
-            // at least on AMD, using a FB on a different device for rendering will fail
-            // and destroy the render context. it's possible to work around this by waiting
-            // until the FB is no longer being scanned out, but if a notification pops up
-            // then we must be able to disable direct scanout immediately.
-            // https://gitlab.freedesktop.org/drm/amd/-/issues/3186
-            && self.dev.is_render_device();
+        let try_direct_scanout = try_direct_scanout && self.dev.direct_scanout_enabled();
         let mut direct_scanout_data = None;
         if try_direct_scanout {
             direct_scanout_data = self.prepare_direct_scanout(&latched.pass, plane, blend_cd, cd);

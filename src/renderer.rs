@@ -6,7 +6,7 @@ use {
         },
         icons::{IconState, SizedBarIcons, SizedTitleIcons},
         ifs::wl_surface::{
-            WlSurface,
+            SurfaceBuffer, WlSurface,
             x_surface::xwindow::Xwindow,
             xdg_surface::{
                 XdgSurface,
@@ -190,6 +190,7 @@ impl Renderer<'_> {
                             perceptual,
                             AlphaMode::PremultipliedElectrical,
                             false,
+                            None,
                         );
                     }
                     let (x, y) = self.base.scale_point(x + title.tex_x, y + title.tex_y);
@@ -210,6 +211,7 @@ impl Renderer<'_> {
                         perceptual,
                         AlphaMode::PremultipliedElectrical,
                         false,
+                        None,
                     );
                 }
                 x += bar_rect.x1() - non_exclusive_rect_rel.x1();
@@ -235,6 +237,7 @@ impl Renderer<'_> {
                         perceptual,
                         AlphaMode::PremultipliedElectrical,
                         false,
+                        None,
                     );
                 }
                 for item in output.tray_items.iter() {
@@ -338,6 +341,7 @@ impl Renderer<'_> {
                 RenderIntent::Perceptual,
                 AlphaMode::PremultipliedElectrical,
                 false,
+                None,
             );
         }
         self.render_tl_aux(placeholder.tl_data(), bounds, true);
@@ -411,6 +415,7 @@ impl Renderer<'_> {
                                 perceptual,
                                 AlphaMode::PremultipliedElectrical,
                                 false,
+                                None,
                             );
                         }
                         x += th;
@@ -438,6 +443,7 @@ impl Renderer<'_> {
                             perceptual,
                             AlphaMode::PremultipliedElectrical,
                             false,
+                            None,
                         );
                     }
                 }
@@ -606,7 +612,8 @@ impl Renderer<'_> {
         let render_texture = |slf: &mut Renderer,
                               tex: &Rc<dyn GfxTexture>,
                               buffer: Rc<dyn BufferResv>,
-                              release_sync: ReleaseSync| {
+                              release_sync: ReleaseSync,
+                              client_buf: Option<Rc<SurfaceBuffer>>| {
             let mut opaque = surface.opaque();
             if !opaque && tex.format().has_alpha {
                 opaque = slf.bounds_are_opaque(x, y, bounds, surface);
@@ -628,14 +635,25 @@ impl Renderer<'_> {
                 intent,
                 alpha_mode,
                 false,
+                client_buf,
             );
         };
+        let Some(buffer) = surface.buffer.get() else {
+            log::info!("surface has no client buffer");
+            return;
+        };
+        let buf = &buffer.buffer.buf;
         if let Some(prime) = surface.prime.buffer() {
-            render_texture(self, &prime.tex(), prime.clone(), ReleaseSync::Explicit);
-        } else if let Some(buffer) = surface.buffer.get() {
-            let buf = &buffer.buffer.buf;
+            render_texture(
+                self,
+                &prime.tex(),
+                prime.clone(),
+                ReleaseSync::Explicit,
+                Some(buffer),
+            );
+        } else {
             if let Some(tex) = buf.get_texture(surface) {
-                render_texture(self, &tex, buffer.clone(), buffer.release_sync);
+                render_texture(self, &tex, buffer.clone(), buffer.release_sync, None);
             } else if let Some(color) = &buf.color {
                 if let Some(rect) = Rect::new_sized(x, y, tsize.0, tsize.1) {
                     let rect = match bounds {
@@ -654,8 +672,6 @@ impl Renderer<'_> {
             } else {
                 log::info!("client buffer has neither a texture nor is a single-pixel buffer");
             }
-        } else {
-            log::info!("surface has neither a prime nor a client buffer");
         }
     }
 
@@ -735,6 +751,7 @@ impl Renderer<'_> {
                     perceptual,
                     AlphaMode::PremultipliedElectrical,
                     false,
+                    None,
                 );
             }
             x1 += th;
@@ -771,6 +788,7 @@ impl Renderer<'_> {
                     perceptual,
                     AlphaMode::PremultipliedElectrical,
                     false,
+                    None,
                 );
             }
             x1 += th;
@@ -800,6 +818,7 @@ impl Renderer<'_> {
                 perceptual,
                 AlphaMode::PremultipliedElectrical,
                 false,
+                None,
             );
         }
         let body = Rect::new_sized_saturating(
@@ -875,6 +894,7 @@ impl Renderer<'_> {
                     perceptual,
                     AlphaMode::PremultipliedElectrical,
                     grayscale,
+                    None,
                 );
             }
         }
