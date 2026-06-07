@@ -260,7 +260,7 @@ impl XdgToplevelIconV1 {
             };
             let (mem, &mut stride, dmabuf_buffer_params) = match storage {
                 WlBufferStorage::Dmabuf(storage) => {
-                    let tex = match storage.ensure_tex(ctx) {
+                    let tex = match storage.ensure_tex(&buf, ctx) {
                         Ok(t) => t,
                         Err(e) => {
                             log::error!("Could not convert image to texture: {}", ErrorFmt(e));
