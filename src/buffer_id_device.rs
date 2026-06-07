@@ -1,8 +1,14 @@
 use {
     crate::{
-        utils::{copyhashmap::CopyHashMap, errorfmt::ErrorFmt},
+        utils::{
+            copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
+            major_minor::{MajorMinor, major_minor},
+        },
         video::dmabuf::{DmaBuf, PlaneVec},
-        vulkan_core::{VulkanCoreError, VulkanCoreInstance, map_extension_properties},
+        vulkan_core::{
+            VulkanCoreError, VulkanCoreInstance, map_extension_properties, vk_is_drm_dev,
+        },
     },
     ash::{
         Device,
@@ -102,15 +108,7 @@ impl BufferIdDevice {
                     instance.get_physical_device_properties2(phy, &mut props);
                 }
                 let props = props.properties;
-                let major = uapi::major(dev) as i64;
-                let minor = uapi::minor(dev) as i64;
-                let matches = (drm_props.has_primary == vk::TRUE
-                    && drm_props.primary_major == major
-                    && drm_props.primary_minor == minor)
-                    || (drm_props.has_render == vk::TRUE
-                        && drm_props.render_major == major
-                        && drm_props.render_minor == minor);
-                if matches {
+                if vk_is_drm_dev(&drm_props, dev) {
                     physical_device = phy;
                     device_extensions = exts;
                     device_properties = props;
@@ -216,10 +214,9 @@ impl BufferIdDeviceRegistry {
                 cd
             }
             Err(e) => {
-                let maj = uapi::major(dev);
-                let min = uapi::minor(dev);
+                let MajorMinor { major, minor } = major_minor(dev);
                 log::warn!(
-                    "Could not create buffer id device for {maj}:{min}: {}",
+                    "Could not create buffer id device for {major}:{minor}: {}",
                     ErrorFmt(e),
                 );
                 self.devs.set(dev, None);

@@ -13,6 +13,7 @@ use {
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
+            major_minor::{MajorMinor, major_minor},
             numcell::NumCell,
             oserror::{OsError, OsErrorExt2},
             queue::AsyncQueue,
@@ -26,7 +27,7 @@ use {
         vulkan_core::{
             self, VULKAN_API_VERSION, VulkanCoreError, VulkanCoreInstance, device::VulkanDeviceInf,
             map_extension_properties, sync::VulkanDeviceSyncExt,
-            timeline_semaphore::VulkanDeviceTimelineSemaphoreExt,
+            timeline_semaphore::VulkanDeviceTimelineSemaphoreExt, vk_is_drm_dev,
         },
     },
     ahash::{AHashMap, AHashSet},
@@ -497,15 +498,7 @@ impl PhysicalCopyDevice {
                     instance.get_physical_device_properties2(phy, &mut props);
                 }
                 let props = props.properties;
-                let major = uapi::major(dev) as i64;
-                let minor = uapi::minor(dev) as i64;
-                let matches = (drm_props.has_primary == vk::TRUE
-                    && drm_props.primary_major == major
-                    && drm_props.primary_minor == minor)
-                    || (drm_props.has_render == vk::TRUE
-                        && drm_props.render_major == major
-                        && drm_props.render_minor == minor);
-                if matches {
+                if vk_is_drm_dev(&drm_props, dev) {
                     physical_device = phy;
                     device_extensions = exts;
                     device_12_properties = props12;
@@ -2204,10 +2197,9 @@ impl CopyDeviceRegistry {
                 cd
             }
             Err(e) => {
-                let maj = uapi::major(dev);
-                let min = uapi::minor(dev);
+                let MajorMinor { major, minor } = major_minor(dev);
                 log::warn!(
-                    "Could not create physical copy device for {maj}:{min}: {}",
+                    "Could not create physical copy device for {major}:{minor}: {}",
                     ErrorFmt(e),
                 );
                 self.devs.set(id, None);

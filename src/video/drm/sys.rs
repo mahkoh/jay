@@ -6,6 +6,7 @@ use {
         utils::{
             bitflags::BitflagsExt,
             ioctl::ioctl,
+            major_minor::{MajorMinor, major_minor},
             oserror::{OsError, OsErrorExt},
         },
         video::drm::{
@@ -15,8 +16,8 @@ use {
             DrmVersion, NodeType,
         },
     },
-    ahash::AHashMap,
     bstr::ByteSlice,
+    linearize::{LinearizeExt, StaticMap},
     std::{
         ffi::CString,
         io::{BufRead, BufReader},
@@ -83,37 +84,39 @@ pub fn revoke_lease(fd: c::c_int, lessee_id: u32) -> Result<(), OsError> {
 }
 
 pub fn get_node_type_from_fd(fd: c::c_int) -> Result<NodeType, OsError> {
-    let (_, _, min) = drm_stat(fd)?;
-    get_minor_type(min)
+    let (_, dev_t) = drm_stat(fd)?;
+    get_minor_type(dev_t)
 }
 
-pub fn node_is_drm(maj: u64, min: u64) -> bool {
-    let path = device_dir(maj, min);
+pub fn node_is_drm(dev_t: c::dev_t) -> bool {
+    let path = device_dir(dev_t);
     uapi::stat(path).is_ok()
 }
 
-pub fn get_minor_type(min: u64) -> Result<NodeType, OsError> {
-    const DRM_NODE_PRIMARY: u64 = 0;
-    const DRM_NODE_CONTROL: u64 = 1;
-    const DRM_NODE_RENDER: u64 = 2;
-    match min >> 6 {
-        DRM_NODE_PRIMARY => Ok(NodeType::Primary),
-        DRM_NODE_CONTROL => Ok(NodeType::Control),
-        DRM_NODE_RENDER => Ok(NodeType::Render),
-        _ => Err(OsError(c::ENODEV)),
+pub fn get_minor_type(dev_t: c::dev_t) -> Result<NodeType, OsError> {
+    let name = get_device_name_from_dev_t(dev_t)?;
+    let name = name.as_bytes();
+    if let Some(suffix) = name.strip_prefix(b"/dev/dri/") {
+        for ty in NodeType::variants() {
+            if suffix.starts_with(ty.name().as_bytes()) {
+                return Ok(ty);
+            }
+        }
     }
+    Err(OsError(c::ENODEV))
 }
 
 const DRM_DIR_NAME: &str = "/dev/dri";
 
-fn device_dir(maj: u64, min: u64) -> Ustring {
-    uapi::format_ustr!("/sys/dev/char/{maj}:{min}/device/drm")
+fn device_dir(dev_t: c::dev_t) -> Ustring {
+    let MajorMinor { major, minor } = major_minor(dev_t);
+    uapi::format_ustr!("/sys/dev/char/{major}:{minor}/device/drm")
 }
 
 pub fn get_minor_name_from_fd(fd: c::c_int, ty: NodeType) -> Result<Ustring, OsError> {
-    let (_, maj, min) = drm_stat(fd)?;
+    let (_, mami) = drm_stat(fd)?;
 
-    let dir = device_dir(maj, min);
+    let dir = device_dir(mami);
     let mut dir = uapi::opendir(dir).to_os_error()?;
 
     while let Some(entry) = uapi::readdir(&mut dir) {
@@ -129,26 +132,28 @@ pub fn get_minor_name_from_fd(fd: c::c_int, ty: NodeType) -> Result<Ustring, OsE
     Err(OsError(c::ENOENT))
 }
 
-fn drm_stat(fd: c::c_int) -> Result<(c::stat, u64, u64), OsError> {
+fn drm_stat(fd: c::c_int) -> Result<(c::stat, c::dev_t), OsError> {
     let stat = uapi::fstat(fd).to_os_error()?;
 
-    let maj = uapi::major(stat.st_rdev);
-    let min = uapi::minor(stat.st_rdev);
-
-    if !is_drm(maj, min, &stat) {
+    if !is_drm(stat.st_rdev, &stat) {
         return Err(OsError(c::ENODEV));
     }
 
-    Ok((stat, maj, min))
+    Ok((stat, stat.st_rdev))
 }
 
-fn is_drm(maj: u64, min: u64, stat: &c::stat) -> bool {
-    stat.st_mode & c::S_IFMT == c::S_IFCHR && node_is_drm(maj, min)
+fn is_drm(dev_t: c::dev_t, stat: &c::stat) -> bool {
+    stat.st_mode & c::S_IFMT == c::S_IFCHR && node_is_drm(dev_t)
 }
 
 pub fn get_device_name_from_fd2(fd: c::c_int) -> Result<Ustring, OsError> {
-    let (_, maj, min) = drm_stat(fd)?;
-    let path = uapi::format_ustr!("/sys/dev/char/{maj}:{min}/uevent");
+    let (_, dev_t) = drm_stat(fd)?;
+    get_device_name_from_dev_t(dev_t)
+}
+
+fn get_device_name_from_dev_t(dev_t: c::dev_t) -> Result<Ustring, OsError> {
+    let MajorMinor { major, minor } = major_minor(dev_t);
+    let path = uapi::format_ustr!("/sys/dev/char/{major}:{minor}/uevent");
     let mut buf = vec![];
     let mut br = BufReader::new(uapi::open(path, c::O_RDONLY, 0).to_os_error()?);
     loop {
@@ -163,16 +168,18 @@ pub fn get_device_name_from_fd2(fd: c::c_int) -> Result<Ustring, OsError> {
     Err(OsError(c::ENOENT))
 }
 
-pub fn get_nodes(fd: c::c_int) -> Result<AHashMap<NodeType, CString>, OsError> {
-    let (_, maj, min) = drm_stat(fd)?;
-    get_drm_nodes_from_dev(maj, min)
+pub fn get_nodes(fd: c::c_int) -> Result<StaticMap<NodeType, Option<CString>>, OsError> {
+    let (_, dev) = drm_stat(fd)?;
+    get_drm_nodes_from_dev(dev)
 }
 
-pub fn get_drm_nodes_from_dev(maj: u64, min: u64) -> Result<AHashMap<NodeType, CString>, OsError> {
-    let dir = device_dir(maj, min);
+pub fn get_drm_nodes_from_dev(
+    dev_t: c::dev_t,
+) -> Result<StaticMap<NodeType, Option<CString>>, OsError> {
+    let dir = device_dir(dev_t);
     let mut dir = uapi::opendir(dir).to_os_error()?;
 
-    let mut res = AHashMap::new();
+    let mut res = StaticMap::default();
 
     'outer: while let Some(entry) = uapi::readdir(&mut dir) {
         let entry = entry.to_os_error()?;
@@ -185,12 +192,9 @@ pub fn get_drm_nodes_from_dev(maj: u64, min: u64) -> Result<AHashMap<NodeType, C
             }
             continue 'outer;
         };
-        res.insert(
-            ty,
-            uapi::format_ustr!("{}/{}", DRM_DIR_NAME, name.as_bstr())
-                .into_c_string()
-                .unwrap(),
-        );
+        res[ty] = uapi::format_ustr!("{}/{}", DRM_DIR_NAME, name.as_bstr())
+            .into_c_string()
+            .ok();
     }
 
     Ok(res)

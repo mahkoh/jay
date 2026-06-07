@@ -1,5 +1,9 @@
 use {
-    crate::{eventfd_cache::EventfdError, syncobj::SyncobjError},
+    crate::{
+        eventfd_cache::EventfdError,
+        syncobj::SyncobjError,
+        utils::major_minor::{MajorMinor, major_minor},
+    },
     ahash::{AHashMap, AHashSet},
     ash::{
         Entry, Instance, LoadingError,
@@ -10,10 +14,11 @@ use {
             DebugUtilsMessengerCreateInfoEXT, DebugUtilsMessengerEXT, ExtensionProperties,
             ExternalSemaphoreFeatureFlags, ExternalSemaphoreHandleTypeFlags,
             ExternalSemaphoreProperties, FALSE, InstanceCreateInfo, LayerProperties,
-            PhysicalDevice, PhysicalDeviceExternalSemaphoreInfo, PhysicalDeviceFeatures,
-            PhysicalDeviceFeatures2, PhysicalDeviceTimelineSemaphoreFeatures, SemaphoreType,
-            SemaphoreTypeCreateInfo, ValidationFeaturesEXT, api_version_major, api_version_minor,
-            api_version_patch, api_version_variant,
+            PhysicalDevice, PhysicalDeviceDrmPropertiesEXT, PhysicalDeviceExternalSemaphoreInfo,
+            PhysicalDeviceFeatures, PhysicalDeviceFeatures2,
+            PhysicalDeviceTimelineSemaphoreFeatures, SemaphoreType, SemaphoreTypeCreateInfo,
+            ValidationFeaturesEXT, api_version_major, api_version_minor, api_version_patch,
+            api_version_variant,
         },
     },
     dlopen_note::dlopen_note,
@@ -27,7 +32,7 @@ use {
         sync::{Arc, LazyLock},
     },
     thiserror::Error,
-    uapi::{Ustr, ustr},
+    uapi::{Ustr, c, ustr},
 };
 
 pub mod device;
@@ -330,3 +335,13 @@ impl Display for ApiVersionDisplay {
 }
 
 pub const VULKAN_API_VERSION: u32 = API_VERSION_1_3;
+
+pub fn vk_is_drm_dev(drm_props: &PhysicalDeviceDrmPropertiesEXT<'_>, dev: c::dev_t) -> bool {
+    let MajorMinor { major, minor } = major_minor(dev);
+    (drm_props.has_primary == vk::TRUE
+        && drm_props.primary_major == major as i64
+        && drm_props.primary_minor == minor as i64)
+        || (drm_props.has_render == vk::TRUE
+            && drm_props.render_major == major as i64
+            && drm_props.render_minor == minor as i64)
+}

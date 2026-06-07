@@ -37,6 +37,7 @@ use {
     ahash::AHashMap,
     bstr::{BString, ByteSlice},
     indexmap::IndexSet,
+    linearize::{Linearize, StaticMap},
     std::{
         cell::{Cell, RefCell},
         ffi::CString,
@@ -209,16 +210,15 @@ impl Drm {
         Self::reopen(self.fd.raw(), false)
     }
 
-    pub fn get_nodes(&self) -> Result<AHashMap<NodeType, CString>, DrmError> {
+    pub fn get_nodes(&self) -> Result<StaticMap<NodeType, Option<CString>>, DrmError> {
         get_nodes(self.fd.raw()).map_err(DrmError::GetNodes)
     }
 
     pub fn get_render_node(&self) -> Result<Option<CString>, DrmError> {
-        let nodes = self.get_nodes()?;
-        Ok(nodes
-            .get(&NodeType::Render)
-            .or_else(|| nodes.get(&NodeType::Primary))
-            .map(|c| c.to_owned()))
+        let mut nodes = self.get_nodes()?;
+        Ok(nodes[NodeType::Render]
+            .take()
+            .or(nodes[NodeType::Primary].take()))
     }
 
     pub fn version(&self) -> Result<DrmVersion, DrmError> {
@@ -644,7 +644,7 @@ impl Drop for DrmFramebuffer {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Linearize)]
 pub enum NodeType {
     Primary,
     Control,

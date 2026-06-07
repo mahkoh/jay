@@ -5,6 +5,7 @@ use {
         },
         egui_adapter::egui_platform::icons::{ICON_ADD, ICON_REMOVE},
         state::{DrmDevData, State},
+        utils::major_minor::{MajorMinor, major_minor},
     },
     egui::{Checkbox, CollapsingHeader, DragValue, TextFormat, Ui, Widget, text::LayoutJob},
     std::rc::Rc,
@@ -41,7 +42,8 @@ impl GpusPane {
             Some(t) => t,
             _ => {
                 let dev_t = dev.dev.dev_t();
-                title_buf = format!("{}:{}", uapi::major(dev_t), uapi::minor(dev_t));
+                let MajorMinor { major, minor } = major_minor(dev_t);
+                title_buf = format!("{major}:{minor}");
                 &title_buf
             }
         };
@@ -82,7 +84,8 @@ impl GpusPane {
                 }
                 {
                     let v = dev.dev.dev_t();
-                    label(ui, "Dev", format!("{}:{}", uapi::major(v), uapi::minor(v)));
+                    let MajorMinor { major, minor } = major_minor(v);
+                    label(ui, "Dev", format!("{major}:{minor}"));
                 }
                 combo_box(ui, "API", dev.dev.gfx_api(), |v| dev.dev.set_gfx_api(v));
                 row(ui, "Primary Device", |ui| {

@@ -20,6 +20,7 @@ use {
             map_extension_properties,
             sync::{VulkanDeviceSyncExt, VulkanSync},
             timeline_semaphore::{VulkanDeviceTimelineSemaphoreExt, VulkanTimelineSemaphore},
+            vk_is_drm_dev,
         },
     },
     ahash::AHashMap,
@@ -441,15 +442,7 @@ impl EgvRenderer {
                         if device_extensions.not_contains_key(physical_device_drm::NAME) {
                             continue 'outer;
                         }
-                        let major = uapi::major(dev) as i64;
-                        let minor = uapi::minor(dev) as i64;
-                        let matches = (drm_props.has_primary == vk::TRUE
-                            && drm_props.primary_major == major
-                            && drm_props.primary_minor == minor)
-                            || (drm_props.has_render == vk::TRUE
-                                && drm_props.render_major == major
-                                && drm_props.render_minor == minor);
-                        if matches {
+                        if vk_is_drm_dev(&drm_props, dev) {
                             break 'find_device;
                         }
                     } else {
