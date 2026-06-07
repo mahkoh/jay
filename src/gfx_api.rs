@@ -12,6 +12,7 @@ use {
         eventfd_cache::Eventfd,
         fixed::Fixed,
         format::Format,
+        ifs::wl_surface::SurfaceBuffer,
         io_uring::{IoUring, IoUringError, PendingPoll, PollCallback},
         rect::{Rect, Region},
         renderer::{Renderer, renderer_base::RendererBase},
@@ -290,6 +291,8 @@ pub struct CopyTexture {
     pub cd: Rc<ColorDescription>,
     pub alpha_mode: AlphaMode,
     pub grayscale: bool,
+    #[expect(dead_code)]
+    pub client_buf: Option<Rc<SurfaceBuffer>>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -526,6 +529,7 @@ impl dyn GfxFramebuffer {
             RenderIntent::Perceptual,
             AlphaMode::PremultipliedElectrical,
             false,
+            None,
         );
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
         self.render(

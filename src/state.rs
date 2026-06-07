@@ -1521,6 +1521,7 @@ impl State {
             RenderIntent::Perceptual,
             AlphaMode::PremultipliedElectrical,
             false,
+            None,
         );
         if render_hardware_cursors
             && let Some(cursor_user_group) = self.cursor_user_group_hardware_cursor.get()

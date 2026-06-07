@@ -8,6 +8,7 @@ use {
             AcquireSync, AlphaMode, BufferResv, CopyTexture, FillRect, FramebufferRect, GfxApiOp,
             GfxTexture, ReleaseSync, SampleRect,
         },
+        ifs::wl_surface::SurfaceBuffer,
         rect::Rect,
         scale::Scale,
         theme::Color,
@@ -199,6 +200,7 @@ impl RendererBase<'_> {
         render_intent: RenderIntent,
         alpha_mode: AlphaMode,
         grayscale: bool,
+        client_buf: Option<Rc<SurfaceBuffer>>,
     ) {
         // log::info!("rendering texture {:?}", std::ptr::from_ref(&**texture) as *const u8);
         // log::info!("{:?}", backtrace::Backtrace::new());
@@ -249,6 +251,7 @@ impl RendererBase<'_> {
             cd: cd.clone(),
             alpha_mode,
             grayscale,
+            client_buf,
         }));
     }
 

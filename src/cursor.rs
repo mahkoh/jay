@@ -437,6 +437,7 @@ fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer, x: Fixed
             RenderIntent::Perceptual,
             AlphaMode::PremultipliedElectrical,
             false,
+            None,
         );
     }
 }
@@ -465,6 +466,7 @@ impl Cursor for StaticCursor {
                 RenderIntent::Perceptual,
                 AlphaMode::PremultipliedElectrical,
                 false,
+                None,
             );
         }
     }
@@ -516,6 +518,7 @@ impl Cursor for AnimatedCursor {
                 RenderIntent::Perceptual,
                 AlphaMode::PremultipliedElectrical,
                 false,
+                None,
             );
         }
     }

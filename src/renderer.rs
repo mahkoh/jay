@@ -190,6 +190,7 @@ impl Renderer<'_> {
                             perceptual,
                             AlphaMode::PremultipliedElectrical,
                             false,
+                            None,
                         );
                     }
                     let (x, y) = self.base.scale_point(x + title.tex_x, y + title.tex_y);
@@ -210,6 +211,7 @@ impl Renderer<'_> {
                         perceptual,
                         AlphaMode::PremultipliedElectrical,
                         false,
+                        None,
                     );
                 }
                 x += bar_rect.x1() - non_exclusive_rect_rel.x1();
@@ -235,6 +237,7 @@ impl Renderer<'_> {
                         perceptual,
                         AlphaMode::PremultipliedElectrical,
                         false,
+                        None,
                     );
                 }
                 for item in output.tray_items.iter() {
@@ -338,6 +341,7 @@ impl Renderer<'_> {
                 RenderIntent::Perceptual,
                 AlphaMode::PremultipliedElectrical,
                 false,
+                None,
             );
         }
         self.render_tl_aux(placeholder.tl_data(), bounds, true);
@@ -411,6 +415,7 @@ impl Renderer<'_> {
                                 perceptual,
                                 AlphaMode::PremultipliedElectrical,
                                 false,
+                                None,
                             );
                         }
                         x += th;
@@ -438,6 +443,7 @@ impl Renderer<'_> {
                             perceptual,
                             AlphaMode::PremultipliedElectrical,
                             false,
+                            None,
                         );
                     }
                 }
@@ -628,6 +634,7 @@ impl Renderer<'_> {
                 intent,
                 alpha_mode,
                 false,
+                None,
             );
         };
         if let Some(prime) = surface.prime.buffer() {
@@ -735,6 +742,7 @@ impl Renderer<'_> {
                     perceptual,
                     AlphaMode::PremultipliedElectrical,
                     false,
+                    None,
                 );
             }
             x1 += th;
@@ -771,6 +779,7 @@ impl Renderer<'_> {
                     perceptual,
                     AlphaMode::PremultipliedElectrical,
                     false,
+                    None,
                 );
             }
             x1 += th;
@@ -800,6 +809,7 @@ impl Renderer<'_> {
                 perceptual,
                 AlphaMode::PremultipliedElectrical,
                 false,
+                None,
             );
         }
         let body = Rect::new_sized_saturating(
@@ -875,6 +885,7 @@ impl Renderer<'_> {
                     perceptual,
                     AlphaMode::PremultipliedElectrical,
                     grayscale,
+                    None,
                 );
             }
         }
