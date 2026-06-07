@@ -15,8 +15,8 @@ use {
             DrmVersion, NodeType,
         },
     },
-    ahash::AHashMap,
     bstr::ByteSlice,
+    linearize::StaticMap,
     std::{
         ffi::CString,
         io::{BufRead, BufReader},
@@ -163,16 +163,19 @@ pub fn get_device_name_from_fd2(fd: c::c_int) -> Result<Ustring, OsError> {
     Err(OsError(c::ENOENT))
 }
 
-pub fn get_nodes(fd: c::c_int) -> Result<AHashMap<NodeType, CString>, OsError> {
+pub fn get_nodes(fd: c::c_int) -> Result<StaticMap<NodeType, Option<CString>>, OsError> {
     let (_, maj, min) = drm_stat(fd)?;
     get_drm_nodes_from_dev(maj, min)
 }
 
-pub fn get_drm_nodes_from_dev(maj: u64, min: u64) -> Result<AHashMap<NodeType, CString>, OsError> {
+pub fn get_drm_nodes_from_dev(
+    maj: u64,
+    min: u64,
+) -> Result<StaticMap<NodeType, Option<CString>>, OsError> {
     let dir = device_dir(maj, min);
     let mut dir = uapi::opendir(dir).to_os_error()?;
 
-    let mut res = AHashMap::new();
+    let mut res = StaticMap::default();
 
     'outer: while let Some(entry) = uapi::readdir(&mut dir) {
         let entry = entry.to_os_error()?;
@@ -185,12 +188,9 @@ pub fn get_drm_nodes_from_dev(maj: u64, min: u64) -> Result<AHashMap<NodeType, C
             }
             continue 'outer;
         };
-        res.insert(
-            ty,
-            uapi::format_ustr!("{}/{}", DRM_DIR_NAME, name.as_bstr())
-                .into_c_string()
-                .unwrap(),
-        );
+        res[ty] = uapi::format_ustr!("{}/{}", DRM_DIR_NAME, name.as_bstr())
+            .into_c_string()
+            .ok();
     }
 
     Ok(res)

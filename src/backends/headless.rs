@@ -200,9 +200,9 @@ impl HeadlessBackend {
             return Ok(());
         }
         let nodes = get_drm_nodes_from_dev(major(devnum), minor(devnum)).map_err(GetDrmNodes)?;
-        let node = nodes
-            .get(&NodeType::Render)
-            .or_else(|| nodes.get(&NodeType::Primary))
+        let node = nodes[NodeType::Render]
+            .as_ref()
+            .or(nodes[NodeType::Primary].as_ref())
             .ok_or(NoDrmNodes)?;
         let fd = uapi::open(&**node, c::O_RDWR | c::O_CLOEXEC, 0).map_os_err(OpenDrmNode)?;
         let drm = Drm::open_existing(Rc::new(fd)).map_err(CreateDrm)?;

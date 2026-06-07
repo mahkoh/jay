@@ -111,9 +111,9 @@ impl DrmSyncobjCtx {
     pub fn from_dev_t(dev: c::dev_t) -> Result<Self, SyncobjError> {
         let nodes = get_drm_nodes_from_dev(uapi::major(dev), uapi::minor(dev))
             .map_err(DrmError::GetNodes)?;
-        let path = nodes
-            .get(&NodeType::Render)
-            .or_else(|| nodes.get(&NodeType::Primary))
+        let path = nodes[NodeType::Render]
+            .as_ref()
+            .or(nodes[NodeType::Primary].as_ref())
             .ok_or(DrmError::NoDeviceNodes)?;
         let device_fd = uapi::open(path.as_c_str(), c::O_RDWR | c::O_CLOEXEC, 0)
             .map(Rc::new)
