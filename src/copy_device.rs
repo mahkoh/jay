@@ -180,6 +180,8 @@ pub enum CopyDeviceError {
     CreateSyncobjCtx(#[source] SyncobjError),
     #[error("Objects don't belong to the same device")]
     DeviceMismatch,
+    #[error("Cross-device import has been disabled due to set sampling device")]
+    CrossDeviceImportDenied,
 }
 
 type Keyed<T> = StaticMap<TransferType, T>;
