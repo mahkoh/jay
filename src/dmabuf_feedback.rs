@@ -133,11 +133,11 @@ impl State {
                 // TODO
                 continue;
             }
-            let Some(formats) = connector.connector.scanout_formats() else {
+            let Some(scanout_formats) = connector.connector.scanout_formats() else {
                 continue;
             };
             let mut pairs = vec![];
-            for &(format, modifier) in &*formats {
+            for &(format, modifier) in &*scanout_formats {
                 if let Some(ctx_format) = ctx_formats.get(&format.drm)
                     && ctx_format.read_modifiers.contains(&modifier)
                 {
