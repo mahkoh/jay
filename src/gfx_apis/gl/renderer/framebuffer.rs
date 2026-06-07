@@ -6,7 +6,7 @@ use {
         },
         format::Format,
         gfx_api::{
-            AcquireSync, AsyncShmGfxTextureCallback, FdSync, GfxApiOpt, GfxBlendBuffer, GfxError,
+            AcquireSync, AsyncShmGfxTextureCallback, FdSync, GfxApiOp, GfxBlendBuffer, GfxError,
             GfxFramebuffer, GfxInternalFramebuffer, GfxStagingBuffer, PendingShmTransfer,
             ReleaseSync, ShmMemory,
         },
@@ -72,7 +72,7 @@ impl Framebuffer {
     pub fn render(
         &self,
         acquire_sync: AcquireSync,
-        ops: &[GfxApiOpt],
+        ops: &[GfxApiOp],
         clear: Option<&Color>,
     ) -> Result<Option<FdSync>, RenderError> {
         let gles = self.ctx.ctx.dpy.gles;
@@ -109,7 +109,7 @@ impl GfxFramebuffer for Framebuffer {
         acquire_sync: AcquireSync,
         _release_sync: ReleaseSync,
         _cd: &Rc<ColorDescription>,
-        ops: &[GfxApiOpt],
+        ops: &[GfxApiOp],
         clear: Option<&Color>,
         _clear_cd: &Rc<LinearColorDescription>,
         _region: &Region,

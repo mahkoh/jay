@@ -100,14 +100,14 @@ impl GfxApi {
     }
 }
 
-pub enum GfxApiOpt {
+pub enum GfxApiOp {
     Sync,
     FillRect(FillRect),
     CopyTexture(CopyTexture),
 }
 
 pub struct GfxRenderPass {
-    pub ops: Vec<GfxApiOpt>,
+    pub ops: Vec<GfxApiOp>,
     pub clear: Option<Color>,
     pub clear_cd: Rc<LinearColorDescription>,
 }
@@ -390,7 +390,7 @@ pub trait GfxFramebuffer: Debug {
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
         cd: &Rc<ColorDescription>,
-        ops: &[GfxApiOpt],
+        ops: &[GfxApiOp],
         clear: Option<&Color>,
         clear_cd: &Rc<LinearColorDescription>,
         region: &Region,
@@ -426,7 +426,7 @@ impl dyn GfxFramebuffer {
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
         cd: &Rc<ColorDescription>,
-        ops: &[GfxApiOpt],
+        ops: &[GfxApiOp],
         clear: Option<&Color>,
         clear_cd: &Rc<LinearColorDescription>,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
@@ -486,7 +486,7 @@ impl dyn GfxFramebuffer {
 
     pub fn renderer_base<'a>(
         &self,
-        ops: &'a mut Vec<GfxApiOpt>,
+        ops: &'a mut Vec<GfxApiOp>,
         scale: Scale,
         transform: Transform,
     ) -> RendererBase<'a> {
@@ -1103,7 +1103,7 @@ pub fn create_render_pass(
 
 pub fn renderer_base<'a>(
     physical_size: (i32, i32),
-    ops: &'a mut Vec<GfxApiOpt>,
+    ops: &'a mut Vec<GfxApiOp>,
     scale: Scale,
     transform: Transform,
 ) -> RendererBase<'a> {
@@ -1261,14 +1261,14 @@ impl GfxRenderPass {
         let ct = 'ct: {
             let mut ops = self.ops.iter().rev();
             let ct = 'ct2: {
-                for opt in &mut ops {
-                    match opt {
-                        GfxApiOpt::Sync => {}
-                        GfxApiOpt::FillRect(_) => {
+                for op in &mut ops {
+                    match op {
+                        GfxApiOp::Sync => {}
+                        GfxApiOp::FillRect(_) => {
                             // Top-most layer must be a texture.
                             return None;
                         }
-                        GfxApiOpt::CopyTexture(ct) => break 'ct2 ct,
+                        GfxApiOp::CopyTexture(ct) => break 'ct2 ct,
                     }
                 }
                 return None;
@@ -1293,10 +1293,10 @@ impl GfxRenderPass {
                 // Texture covers the entire screen and is opaque.
                 break 'ct ct;
             }
-            for opt in ops {
-                match opt {
-                    GfxApiOpt::Sync => {}
-                    GfxApiOpt::FillRect(fr) => {
+            for op in ops {
+                match op {
+                    GfxApiOp::Sync => {}
+                    GfxApiOp::FillRect(fr) => {
                         if fr.effective_color() == Color::SOLID_BLACK {
                             // Black fills can be ignored because this is the CRTC background color.
                             if fr.rect.is_covering() {
@@ -1308,7 +1308,7 @@ impl GfxRenderPass {
                             return None;
                         }
                     }
-                    GfxApiOpt::CopyTexture(_) => {
+                    GfxApiOp::CopyTexture(_) => {
                         // Texture could be visible.
                         return None;
                     }

@@ -2,7 +2,7 @@ use {
     crate::{
         cmm::cmm_render_intent::RenderIntent,
         gfx_api::{
-            AcquireSync, AlphaMode, BufferResv, GfxApiOpt, GfxTexture, ReleaseSync, SampleRect,
+            AcquireSync, AlphaMode, BufferResv, GfxApiOp, GfxTexture, ReleaseSync, SampleRect,
         },
         icons::{IconState, SizedBarIcons, SizedTitleIcons},
         ifs::wl_surface::{
@@ -77,7 +77,7 @@ impl Renderer<'_> {
                 for ls in $layer.iter() {
                     let pos = ls.output_extents();
                     self.render_layer_surface(ls.deref(), x + pos.x1(), y + pos.y1());
-                    self.base.ops.push(GfxApiOpt::Sync);
+                    self.base.ops.push(GfxApiOp::Sync);
                 }
             };
         }

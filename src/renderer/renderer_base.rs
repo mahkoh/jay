@@ -5,7 +5,7 @@ use {
             cmm_render_intent::RenderIntent,
         },
         gfx_api::{
-            AcquireSync, AlphaMode, BufferResv, CopyTexture, FillRect, FramebufferRect, GfxApiOpt,
+            AcquireSync, AlphaMode, BufferResv, CopyTexture, FillRect, FramebufferRect, GfxApiOp,
             GfxTexture, ReleaseSync, SampleRect,
         },
         rect::Rect,
@@ -17,7 +17,7 @@ use {
 };
 
 pub struct RendererBase<'a> {
-    pub ops: &'a mut Vec<GfxApiOpt>,
+    pub ops: &'a mut Vec<GfxApiOp>,
     pub scaled: bool,
     pub scale: Scale,
     pub scalef: f64,
@@ -120,7 +120,7 @@ impl RendererBase<'_> {
                 false => self.scale_rect(bx),
                 true => bx,
             };
-            self.ops.push(GfxApiOpt::FillRect(FillRect {
+            self.ops.push(GfxApiOp::FillRect(FillRect {
                 rect: FramebufferRect::new(
                     bx.x1() as f32,
                     bx.y1() as f32,
@@ -163,7 +163,7 @@ impl RendererBase<'_> {
         let (dx, dy) = self.scale_point_f(dx, dy);
         for bx in boxes {
             let (x1, y1, x2, y2) = self.scale_rect_f(*bx);
-            self.ops.push(GfxApiOpt::FillRect(FillRect {
+            self.ops.push(GfxApiOp::FillRect(FillRect {
                 rect: FramebufferRect::new(
                     x1 + dx,
                     y1 + dy,
@@ -236,7 +236,7 @@ impl RendererBase<'_> {
             self.fb_height,
         );
 
-        self.ops.push(GfxApiOpt::CopyTexture(CopyTexture {
+        self.ops.push(GfxApiOp::CopyTexture(CopyTexture {
             tex: texture.clone(),
             source: texcoord,
             target,
@@ -253,7 +253,7 @@ impl RendererBase<'_> {
     }
 
     pub fn sync(&mut self) {
-        self.ops.push(GfxApiOpt::Sync);
+        self.ops.push(GfxApiOp::Sync);
     }
 }
 
