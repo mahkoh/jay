@@ -25,7 +25,7 @@ pub mod zwp_input_popup_surface_v2;
 
 use {
     crate::{
-        backend::{ButtonState, ConnectorId, KeyState},
+        backend::{ButtonState, KeyState},
         client::{Client, ClientError},
         cmm::{cmm_description::ColorDescription, cmm_render_intent::RenderIntent},
         configurable::ConfigurableDataCore,
@@ -82,7 +82,7 @@ use {
         object::{Object, Version},
         rect::{DamageQueue, Rect, Region},
         renderer::Renderer,
-        state::State,
+        state::{ConnectorData, State},
         tree::{
             BeforeLatchListener, BeforeLatchResult, ContainerNode, FindTreeResult, FoundNode,
             LatchListener, Node, NodeId, NodeLayerLink, NodeLocation, NodeVisitor, NodeVisitorBase,
@@ -99,6 +99,7 @@ use {
             event_listener::EventListener,
             linkedlist::LinkedList,
             numcell::NumCell,
+            obj_and_id::{ObjAndId, ObjWithId},
             reset::Reset,
             smallmap::SmallMap,
         },
@@ -354,7 +355,7 @@ pub struct WlSurface {
     alpha_mode: Cell<AlphaMode>,
     requested_serial: Cell<TreeSerial>,
     flush_frame_requests: Cell<bool>,
-    pub fullscreen: Cell<Option<ConnectorId>>,
+    pub fullscreen: ObjAndId<Option<Rc<ConnectorData>>>,
     pub dmabuf_feedback: CopyHashMap<ZwpLinuxDmabufFeedbackV1Id, Rc<ZwpLinuxDmabufFeedbackV1>>,
 }
 
@@ -1868,19 +1869,24 @@ impl WlSurface {
 
     pub fn send_feedback(&self, fb: &DmaBufFeedback) {
         for consumer in self.dmabuf_feedback.lock().values() {
-            fb.send(consumer, self.fullscreen.get());
+            fb.send(consumer, self.fullscreen.id());
         }
     }
 
-    pub fn mark_fullscreen(&self, connector: Option<ConnectorId>) {
+    pub fn mark_fullscreen(&self, connector: Option<&Rc<ConnectorData>>) {
         let fb = self.client.state.dmabuf_feedback.fb.get();
         self.mark_fullscreen_(connector, fb.as_ref());
     }
 
-    fn mark_fullscreen_(&self, connector: Option<ConnectorId>, fb: Option<&Rc<DmaBufFeedback>>) {
-        if self.fullscreen.replace(connector) == connector {
+    fn mark_fullscreen_(
+        &self,
+        connector: Option<&Rc<ConnectorData>>,
+        fb: Option<&Rc<DmaBufFeedback>>,
+    ) {
+        if self.fullscreen.id() == connector.id() {
             return;
         }
+        self.fullscreen.set(connector.cloned());
         if let Some(fb) = fb {
             self.send_feedback(fb);
         }

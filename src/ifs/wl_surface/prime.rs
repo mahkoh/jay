@@ -238,7 +238,7 @@ impl WlSurface {
                 .map_err(PrimeError::CreateUdmabuf)
         };
         let client_copy_device = buf.client_copy_device();
-        let direct_scanout_device = self.fullscreen.get();
+        let direct_scanout_device = self.fullscreen.id();
         let use_bo = render_dev.is_some()
             && (!ctx.fast_ram_access()
                 || client_copy_device.is_none()

@@ -174,7 +174,7 @@ impl WorkspaceNode {
     pub fn set_output(&self, output: &Rc<OutputNode>) {
         let old = self.node_state.output.set(output.clone());
         if let Some(tl) = self.node_state.fullscreen.get() {
-            tl.tl_mark_fullscreen(Some(output.global.connector.id));
+            tl.tl_mark_fullscreen(Some(&output.global.connector));
         }
         for wh in self.ext_workspaces.lock().values() {
             wh.handle_new_output(output);

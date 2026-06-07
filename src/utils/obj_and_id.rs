@@ -6,7 +6,7 @@ use {
     std::cell::Cell,
 };
 
-pub trait ObjWithId: UnsafeCellCloneSafe {
+pub trait ObjWithId {
     type Id: Copy;
 
     fn id(&self) -> Self::Id;
@@ -20,6 +20,17 @@ where
 
     fn id(&self) -> Self::Id {
         self.as_ref().map(ObjWithId::id)
+    }
+}
+
+impl<T> ObjWithId for &T
+where
+    T: ObjWithId,
+{
+    type Id = T::Id;
+
+    fn id(&self) -> Self::Id {
+        <T as ObjWithId>::id(self)
     }
 }
 
@@ -52,7 +63,10 @@ where
     }
 
     #[inline]
-    pub fn get(&self) -> T {
+    pub fn get(&self) -> T
+    where
+        T: UnsafeCellCloneSafe,
+    {
         self.obj.get()
     }
 
