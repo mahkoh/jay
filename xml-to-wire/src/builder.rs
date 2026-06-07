@@ -142,6 +142,9 @@ fn handle_file_(path: &str) -> Result<(), BuilderError> {
                                 }
                                 ("xdg_toplevel", "configure", "states") => "array(u32)",
                                 ("xdg_toplevel", "wm_capabilities", "capabilities") => "array(u32)",
+                                ("zwp_linux_buffer_params_v1", "set_sampling_device", "device") => {
+                                    "pod(uapi::c::dev_t)"
+                                }
                                 ("zwp_linux_dmabuf_feedback_v1", "main_device", "device") => {
                                     "pod(uapi::c::dev_t)"
                                 }

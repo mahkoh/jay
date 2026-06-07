@@ -66,7 +66,7 @@ global_base!(
 
 impl Global for ZwpLinuxDmabufV1Global {
     fn version(&self) -> u32 {
-        5
+        6
     }
 
     fn exposed(&self, state: &State) -> bool {

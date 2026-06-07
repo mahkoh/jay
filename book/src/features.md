@@ -291,7 +291,7 @@ granted access. See
 | zwlr_virtual_pointer_manager_v1                      | 2       | Yes        |
 | zwp_idle_inhibit_manager_v1                          | 1       |            |
 | zwp_input_method_manager_v2                          | 1       | Yes        |
-| zwp_linux_dmabuf_v1                                  | 5       |            |
+| zwp_linux_dmabuf_v1                                  | 6       |            |
 | zwp_pointer_constraints_v1                           | 1       |            |
 | zwp_pointer_gestures_v1                              | 3       |            |
 | zwp_primary_selection_device_manager_v1              | 1       |            |

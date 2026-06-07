@@ -10,6 +10,7 @@ use {
             errorfmt::ErrorFmt,
             major_minor::{MajorMinor, major_minor},
         },
+        video::drm::get_drm_dev_ts,
     },
     std::{cell::Cell, rc::Rc},
 };
@@ -24,10 +25,10 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn BackendDrmDevice>) {
         bindings: Default::default(),
     });
     state.add_global(&lease_global);
+    let MajorMinor { major, minor } = major_minor(dev_t);
     let copy_device = state.copy_device_registry.get(id, dev_t).and_then(|d| {
         d.create_device()
             .inspect_err(|e| {
-                let MajorMinor { major, minor } = major_minor(dev_t);
                 log::warn!(
                     "Could not create copy device for {major}:{minor}: {}",
                     ErrorFmt(e),
@@ -42,12 +43,21 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn BackendDrmDevice>) {
             .get(dev_t)
             .map(|v| v as Rc<dyn BufferIdDeviceDyn>);
     }
+    let dev_ts = get_drm_dev_ts(dev_t)
+        .inspect_err(|e| {
+            log::warn!(
+                "Could not determine dev_ts of {major}:{minor}: {}",
+                ErrorFmt(e),
+            );
+        })
+        .unwrap_or_default();
     let data = Rc::new(DrmDevData {
         id,
         dev: dev.clone(),
         handler: Cell::new(None),
         connectors: Default::default(),
         dev_t,
+        dev_ts,
         syspath: props.syspath,
         devnode: props.devnode,
         vendor: props.vendor,
@@ -64,6 +74,19 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn BackendDrmDevice>) {
     };
     let future = state.eng.spawn("drmdev handler", oh.handle());
     data.handler.set(Some(future));
+    for &dev_t in data.dev_ts.values().flatten() {
+        let prev = state.drm_devs_by_dev_t.set(dev_t, data.clone());
+        if let Some(prev) = prev
+            && prev.id != data.id
+        {
+            let MajorMinor { major, minor } = major_minor(dev_t);
+            log::error!(
+                "{:?} and {:?} use the same dev_t: {major}:{minor}",
+                prev.devnode,
+                data.devnode,
+            );
+        }
+    }
     if state.drm_devs.set(id, data).is_some() {
         panic!("Drm device id has been reused");
     }
@@ -107,6 +130,13 @@ impl DrvDevHandler {
         let _ = self.state.remove_global(&self.data.lease_global);
         self.data.handler.set(None);
         self.state.drm_devs.remove(&self.id);
+        for dev_t in self.data.dev_ts.values().flatten() {
+            if let Some(dev) = self.state.drm_devs_by_dev_t.get(dev_t)
+                && dev.id == self.id
+            {
+                self.state.drm_devs_by_dev_t.remove(dev_t);
+            }
+        }
         self.state.update_render_device(false);
     }
 

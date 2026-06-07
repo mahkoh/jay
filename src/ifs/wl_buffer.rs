@@ -1,5 +1,6 @@
 use {
     crate::{
+        backend::DrmDeviceId,
         client::{Client, ClientError},
         clientmem::{ClientMem, ClientMemError, ClientMemOffset},
         copy_device::{CopyDevice, CopyDeviceError, CopyDeviceSrcObject},
@@ -10,7 +11,10 @@ use {
         object::{Object, Version},
         rect::{Rect, Region},
         state::DrmDevData,
-        utils::{errorfmt::ErrorFmt, event_listener::EventListener, page_size::page_size},
+        utils::{
+            errorfmt::ErrorFmt, event_listener::EventListener, page_size::page_size,
+            rc_eq::rc_opt_eq,
+        },
         video::{
             LINEAR_MODIFIER,
             dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
@@ -23,7 +27,7 @@ use {
         slice,
     },
     thiserror::Error,
-    uapi::OwnedFd,
+    uapi::{OwnedFd, c},
 };
 
 pub enum WlBufferStorage {
@@ -37,6 +41,7 @@ pub enum WlBufferStorage {
 
 pub struct WlBufferDmabufStorage {
     pub dmabuf: Rc<DmaBuf>,
+    pub exclusive_device: Option<DrmDeviceId>,
     pub tex: Option<Rc<dyn GfxTexture>>,
     pub fb: Option<Rc<dyn GfxFramebuffer>>,
     pub copy_obj: Option<Option<Rc<CopyDeviceSrcObject>>>,
@@ -143,8 +148,18 @@ impl WlBuffer {
         client: &Rc<Client>,
         format: &'static Format,
         client_dmabuf: Rc<DmaBuf>,
+        hint_dev_t: Option<c::dev_t>,
     ) -> Rc<Self> {
-        let device = client.state.find_dmabuf_device(&client_dmabuf);
+        let hint_dev = hint_dev_t.and_then(|d| client.state.drm_devs_by_dev_t.get(&d));
+        let device = client
+            .state
+            .find_dmabuf_device(&client_dmabuf, hint_dev.as_ref());
+        let mut exclusive_device = None;
+        if let Some(dev) = &hint_dev
+            && rc_opt_eq(&hint_dev, &device)
+        {
+            exclusive_device = Some(dev.id);
+        }
         Self::new(
             id,
             client,
@@ -155,6 +170,7 @@ impl WlBuffer {
             device,
             Some(WlBufferStorage::Dmabuf(WlBufferDmabufStorage {
                 dmabuf: client_dmabuf,
+                exclusive_device,
                 tex: None,
                 fb: None,
                 copy_obj: None,
@@ -565,6 +581,13 @@ impl WlBuffer {
 }
 
 impl WlBufferDmabufStorage {
+    fn check_import(&self, target: Option<DrmDeviceId>) -> Result<(), WlBufferError> {
+        if self.exclusive_device.is_some() && self.exclusive_device != target {
+            return Err(WlBufferError::CrossDeviceImportDenied);
+        }
+        Ok(())
+    }
+
     pub fn ensure_tex(
         &mut self,
         ctx: &Rc<dyn GfxContext>,
@@ -572,6 +595,7 @@ impl WlBufferDmabufStorage {
         if let Some(tex) = &self.tex {
             return Ok(tex.clone());
         }
+        self.check_import(ctx.drm_device_id())?;
         let tex = ctx.clone().dmabuf_tex(&self.dmabuf)?;
         Ok(self.tex.insert(tex).clone())
     }
@@ -583,6 +607,7 @@ impl WlBufferDmabufStorage {
         if let Some(fb) = &self.fb {
             return Ok(fb.clone());
         }
+        self.check_import(ctx.drm_device_id())?;
         let fb = ctx.clone().dmabuf_fb(&self.dmabuf)?;
         Ok(self.fb.insert(fb).clone())
     }
@@ -608,6 +633,9 @@ impl WlBufferDmabufStorage {
         } else {
             return Ok(self.copy_obj.insert(None).clone());
         };
+        if self.exclusive_device.is_some() && self.exclusive_device != Some(dev.drm_device_id()) {
+            return Err(CopyDeviceError::CrossDeviceImportDenied);
+        }
         let obj = dev.create_src_object(&self.dmabuf)?;
         Ok(self.copy_obj.insert(Some(Rc::new(obj))).clone())
     }
@@ -648,6 +676,8 @@ pub enum WlBufferError {
     PreparePrimeCopy(#[source] PrimeError),
     #[error("Could not perform a prime copy")]
     PerformPrimeCopy(#[source] CopyDeviceError),
+    #[error("Cross-device import has been disabled due to set sampling device")]
+    CrossDeviceImportDenied,
 }
 efrom!(WlBufferError, ClientMemError);
 efrom!(WlBufferError, ClientError);

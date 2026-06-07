@@ -30,3 +30,7 @@ request create_immed (since = 2) {
     format: u32,
     flags: u32,
 }
+
+request set_sampling_device (since = 6) {
+    device: pod(uapi::c::dev_t),
+}

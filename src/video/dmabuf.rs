@@ -245,7 +245,11 @@ fn is_udmabuf(fd: &OwnedFd, ino: c::ino_t) -> bool {
 }
 
 impl State {
-    pub fn find_dmabuf_device(&self, buf: &DmaBuf) -> Option<Rc<DrmDevData>> {
+    pub fn find_dmabuf_device(
+        &self,
+        buf: &DmaBuf,
+        hint_dev: Option<&Rc<DrmDevData>>,
+    ) -> Option<Rc<DrmDevData>> {
         let is_on_device = |dev: &Rc<DrmDevData>| {
             let Some(cd) = &dev.id_device else {
                 return false;
@@ -256,15 +260,22 @@ impl State {
                 })
                 .unwrap_or(false)
         };
-        let render_dev = self.render_ctx_drm_device.get();
-        if let Some(dev) = render_dev
+        let mut hint_dev_id = None;
+        if let Some(dev) = hint_dev {
+            hint_dev_id = Some(dev.id);
+            if is_on_device(&dev) {
+                return Some(dev.clone());
+            }
+        }
+        let render_dev_id = self.render_ctx_drm_device.id();
+        if render_dev_id != hint_dev_id
+            && let Some(dev) = self.render_ctx_drm_device.get()
             && is_on_device(&dev)
         {
             return Some(dev);
         }
-        let render_dev_id = self.render_ctx_drm_device.id();
         for dev in self.drm_devs.lock().values() {
-            if render_dev_id == Some(dev.id) {
+            if render_dev_id == Some(dev.id) || hint_dev_id == Some(dev.id) {
                 continue;
             }
             if is_on_device(dev) {

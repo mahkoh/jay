@@ -20,6 +20,7 @@ use {
         rc::Rc,
     },
     thiserror::Error,
+    uapi::c,
 };
 
 #[expect(dead_code)]
@@ -37,6 +38,7 @@ pub struct ZwpLinuxBufferParamsV1 {
     planes: RefCell<AHashMap<u32, Add>>,
     used: Cell<bool>,
     modifier: Cell<Option<u64>>,
+    sampling_device: Cell<Option<c::dev_t>>,
     pub tracker: Tracker<Self>,
 }
 
@@ -48,6 +50,7 @@ impl ZwpLinuxBufferParamsV1 {
             planes: RefCell::new(Default::default()),
             used: Cell::new(false),
             modifier: Cell::new(None),
+            sampling_device: Default::default(),
             tracker: Default::default(),
         }
     }
@@ -127,7 +130,13 @@ impl ZwpLinuxBufferParamsV1 {
                 Some((&p.fd, size)),
             )?
         } else {
-            WlBuffer::new_dmabuf(get_id()?, &self.parent.client, format, dmabuf)
+            WlBuffer::new_dmabuf(
+                get_id()?,
+                &self.parent.client,
+                format,
+                dmabuf,
+                self.sampling_device.get(),
+            )
         };
         track!(self.parent.client, buffer);
         if buffer_id.is_some() {
@@ -196,6 +205,15 @@ impl ZwpLinuxBufferParamsV1RequestHandler for ZwpLinuxBufferParamsV1 {
             req.format,
             req.flags,
         )?;
+        Ok(())
+    }
+
+    fn set_sampling_device(
+        &self,
+        req: SetSamplingDevice,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        self.sampling_device.set(Some(req.device));
         Ok(())
     }
 }

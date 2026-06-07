@@ -21,6 +21,7 @@ use {
     std::{
         ffi::CString,
         io::{BufRead, BufReader},
+        str::FromStr,
     },
     uapi::{
         OwnedFd, Pod, Ustring,
@@ -166,6 +167,33 @@ fn get_device_name_from_dev_t(dev_t: c::dev_t) -> Result<Ustring, OsError> {
         }
     }
     Err(OsError(c::ENOENT))
+}
+
+pub fn get_drm_dev_ts(dev_t: c::dev_t) -> Result<StaticMap<NodeType, Option<c::dev_t>>, OsError> {
+    let device_dir = device_dir(dev_t);
+    let mut dir = uapi::opendir(&device_dir).to_os_error()?;
+    let mut res = StaticMap::default();
+    'outer: while let Some(entry) = uapi::readdir(&mut dir) {
+        let entry = entry.to_os_error()?;
+        let name = entry.name().to_bytes();
+        let ty = 'ty: {
+            for ty in NodeType::variants() {
+                if name.starts_with_str(ty.name()) {
+                    break 'ty ty;
+                }
+            }
+            continue 'outer;
+        };
+        let dev = format!("{}/{}/dev", device_dir.as_bytes().as_bstr(), name.as_bstr());
+        let device = std::fs::read_to_string(&dev)?;
+        if let Some((major, minor)) = device.trim_ascii_end().split_once(":")
+            && let Ok(major) = u64::from_str(major)
+            && let Ok(minor) = u64::from_str(minor)
+        {
+            res[ty] = Some(uapi::makedev(major, minor));
+        }
+    }
+    Ok(res)
 }
 
 pub fn get_nodes(fd: c::c_int) -> Result<StaticMap<NodeType, Option<CString>>, OsError> {
