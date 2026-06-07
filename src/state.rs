@@ -136,7 +136,11 @@ use {
             refcounted::RefCounted,
             run_toplevel::RunToplevel,
         },
-        video::{Modifier, dmabuf::DmaBufIds, drm::Drm},
+        video::{
+            Modifier,
+            dmabuf::DmaBufIds,
+            drm::{Drm, NodeType},
+        },
         virtual_output::VirtualOutputs,
         wheel::Wheel,
         wire::{
@@ -149,6 +153,7 @@ use {
     bstr::ByteSlice,
     isnt::std_1::{collections::IsntHashMapExt, primitive::IsntSliceExt},
     jay_config::PciId,
+    linearize::StaticMap,
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
@@ -218,6 +223,7 @@ pub struct State {
     pub outputs: CopyHashMap<ConnectorId, Rc<OutputData>>,
     pub wlr_output_managers: WlrOutputManagerState,
     pub drm_devs: CopyHashMap<DrmDeviceId, Rc<DrmDevData>>,
+    pub drm_devs_by_dev_t: CopyHashMap<dev_t, Rc<DrmDevData>>,
     pub status: CloneCell<Rc<String>>,
     pub idle: IdleState,
     pub run_args: RunArgs,
@@ -488,6 +494,7 @@ pub struct DrmDevData {
     pub handler: Cell<Option<SpawnedFuture<()>>>,
     pub connectors: CopyHashMap<ConnectorId, Rc<ConnectorData>>,
     pub dev_t: dev_t,
+    pub dev_ts: StaticMap<NodeType, Option<dev_t>>,
     pub syspath: Option<String>,
     pub devnode: Option<String>,
     pub vendor: Option<String>,

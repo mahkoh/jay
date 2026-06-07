@@ -290,6 +290,7 @@ fn start_compositor2(
         outputs: Default::default(),
         wlr_output_managers: Default::default(),
         drm_devs: Default::default(),
+        drm_devs_by_dev_t: Default::default(),
         status: Default::default(),
         idle: IdleState {
             input: Default::default(),

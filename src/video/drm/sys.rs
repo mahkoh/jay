@@ -169,7 +169,6 @@ fn get_device_name_from_dev_t(dev_t: c::dev_t) -> Result<Ustring, OsError> {
     Err(OsError(c::ENOENT))
 }
 
-#[expect(dead_code)]
 pub fn get_drm_dev_ts(dev_t: c::dev_t) -> Result<StaticMap<NodeType, Option<c::dev_t>>, OsError> {
     let device_dir = device_dir(dev_t);
     let mut dir = uapi::opendir(&device_dir).to_os_error()?;
