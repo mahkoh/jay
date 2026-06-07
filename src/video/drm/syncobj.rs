@@ -8,7 +8,6 @@ use {
             errorfmt::ErrorFmt,
             hash_map_ext::HashMapExt,
             linkedlist::{LinkedList, LinkedNode},
-            major_minor::major_minor,
             oserror::OsErrorExt2,
         },
         video::drm::{
@@ -110,7 +109,7 @@ impl DrmSyncobjCtx {
     }
 
     pub fn from_dev_t(dev: c::dev_t) -> Result<Self, SyncobjError> {
-        let nodes = get_drm_nodes_from_dev(major_minor(dev)).map_err(DrmError::GetNodes)?;
+        let nodes = get_drm_nodes_from_dev(dev).map_err(DrmError::GetNodes)?;
         let path = nodes[NodeType::Render]
             .as_ref()
             .or(nodes[NodeType::Primary].as_ref())

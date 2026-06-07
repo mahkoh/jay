@@ -84,20 +84,20 @@ pub fn revoke_lease(fd: c::c_int, lessee_id: u32) -> Result<(), OsError> {
 }
 
 pub fn get_node_type_from_fd(fd: c::c_int) -> Result<NodeType, OsError> {
-    let (_, mami) = drm_stat(fd)?;
-    get_minor_type(mami)
+    let (_, dev_t) = drm_stat(fd)?;
+    get_minor_type(dev_t)
 }
 
-pub fn node_is_drm(mami: MajorMinor) -> bool {
-    let path = device_dir(mami);
+pub fn node_is_drm(dev_t: c::dev_t) -> bool {
+    let path = device_dir(dev_t);
     uapi::stat(path).is_ok()
 }
 
-pub fn get_minor_type(mami: MajorMinor) -> Result<NodeType, OsError> {
+pub fn get_minor_type(dev_t: c::dev_t) -> Result<NodeType, OsError> {
     const DRM_NODE_PRIMARY: u64 = 0;
     const DRM_NODE_CONTROL: u64 = 1;
     const DRM_NODE_RENDER: u64 = 2;
-    let MajorMinor { minor, .. } = mami;
+    let MajorMinor { minor, .. } = major_minor(dev_t);
     match minor >> 6 {
         DRM_NODE_PRIMARY => Ok(NodeType::Primary),
         DRM_NODE_CONTROL => Ok(NodeType::Control),
@@ -108,8 +108,8 @@ pub fn get_minor_type(mami: MajorMinor) -> Result<NodeType, OsError> {
 
 const DRM_DIR_NAME: &str = "/dev/dri";
 
-fn device_dir(mami: MajorMinor) -> Ustring {
-    let MajorMinor { major, minor } = mami;
+fn device_dir(dev_t: c::dev_t) -> Ustring {
+    let MajorMinor { major, minor } = major_minor(dev_t);
     uapi::format_ustr!("/sys/dev/char/{major}:{minor}/device/drm")
 }
 
@@ -132,24 +132,23 @@ pub fn get_minor_name_from_fd(fd: c::c_int, ty: NodeType) -> Result<Ustring, OsE
     Err(OsError(c::ENOENT))
 }
 
-fn drm_stat(fd: c::c_int) -> Result<(c::stat, MajorMinor), OsError> {
+fn drm_stat(fd: c::c_int) -> Result<(c::stat, c::dev_t), OsError> {
     let stat = uapi::fstat(fd).to_os_error()?;
 
-    let mami = major_minor(stat.st_rdev);
-
-    if !is_drm(mami, &stat) {
+    if !is_drm(stat.st_rdev, &stat) {
         return Err(OsError(c::ENODEV));
     }
 
-    Ok((stat, mami))
+    Ok((stat, stat.st_rdev))
 }
 
-fn is_drm(mami: MajorMinor, stat: &c::stat) -> bool {
-    stat.st_mode & c::S_IFMT == c::S_IFCHR && node_is_drm(mami)
+fn is_drm(dev_t: c::dev_t, stat: &c::stat) -> bool {
+    stat.st_mode & c::S_IFMT == c::S_IFCHR && node_is_drm(dev_t)
 }
 
 pub fn get_device_name_from_fd2(fd: c::c_int) -> Result<Ustring, OsError> {
-    let (_, MajorMinor { major, minor }) = drm_stat(fd)?;
+    let (_, dev_t) = drm_stat(fd)?;
+    let MajorMinor { major, minor } = major_minor(dev_t);
     let path = uapi::format_ustr!("/sys/dev/char/{major}:{minor}/uevent");
     let mut buf = vec![];
     let mut br = BufReader::new(uapi::open(path, c::O_RDONLY, 0).to_os_error()?);
@@ -166,14 +165,14 @@ pub fn get_device_name_from_fd2(fd: c::c_int) -> Result<Ustring, OsError> {
 }
 
 pub fn get_nodes(fd: c::c_int) -> Result<StaticMap<NodeType, Option<CString>>, OsError> {
-    let (_, mami) = drm_stat(fd)?;
-    get_drm_nodes_from_dev(mami)
+    let (_, dev) = drm_stat(fd)?;
+    get_drm_nodes_from_dev(dev)
 }
 
 pub fn get_drm_nodes_from_dev(
-    mami: MajorMinor,
+    dev_t: c::dev_t,
 ) -> Result<StaticMap<NodeType, Option<CString>>, OsError> {
-    let dir = device_dir(mami);
+    let dir = device_dir(dev_t);
     let mut dir = uapi::opendir(dir).to_os_error()?;
 
     let mut res = StaticMap::default();
