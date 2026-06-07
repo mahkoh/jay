@@ -27,7 +27,7 @@ use {
         vulkan_core::{
             self, VULKAN_API_VERSION, VulkanCoreError, VulkanCoreInstance, device::VulkanDeviceInf,
             map_extension_properties, sync::VulkanDeviceSyncExt,
-            timeline_semaphore::VulkanDeviceTimelineSemaphoreExt,
+            timeline_semaphore::VulkanDeviceTimelineSemaphoreExt, vk_is_drm_dev,
         },
     },
     ahash::{AHashMap, AHashSet},
@@ -498,14 +498,7 @@ impl PhysicalCopyDevice {
                     instance.get_physical_device_properties2(phy, &mut props);
                 }
                 let props = props.properties;
-                let MajorMinor { major, minor } = major_minor(dev);
-                let matches = (drm_props.has_primary == vk::TRUE
-                    && drm_props.primary_major == major as i64
-                    && drm_props.primary_minor == minor as i64)
-                    || (drm_props.has_render == vk::TRUE
-                        && drm_props.render_major == major as i64
-                        && drm_props.render_minor == minor as i64);
-                if matches {
+                if vk_is_drm_dev(&drm_props, dev) {
                     physical_device = phy;
                     device_extensions = exts;
                     device_12_properties = props12;
