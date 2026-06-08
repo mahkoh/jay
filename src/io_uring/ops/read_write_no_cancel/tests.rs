@@ -15,7 +15,7 @@ fn cancel(timeout: bool) {
     let ring2 = ring.clone();
     let ring3 = ring.clone();
     let wheel = Wheel::new(&eng, &ring).unwrap();
-    let queue = Rc::new(AsyncQueue::new());
+    let queue = Rc::new(AsyncQueue::default());
     let queue2 = queue.clone();
     let _fut1 = eng.spawn("", async move {
         let (read, _write) = uapi::pipe().unwrap();

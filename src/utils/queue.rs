@@ -17,18 +17,14 @@ pub struct AsyncQueue<T> {
 
 impl<T> Default for AsyncQueue<T> {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T> AsyncQueue<T> {
-    pub fn new() -> Self {
         Self {
             data: Default::default(),
             waiter: Default::default(),
         }
     }
+}
 
+impl<T> AsyncQueue<T> {
     pub fn push(&self, t: T) {
         unsafe {
             self.data.get().deref_mut().push_back(t);
