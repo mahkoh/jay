@@ -603,7 +603,7 @@ impl GfxFramebuffer for VulkanImage {
         (self.width as _, self.height as _)
     }
 
-    fn render_with_region(
+    fn render_with_region_impl(
         self: Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,

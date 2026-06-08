@@ -393,7 +393,7 @@ impl GfxFramebuffer for TestGfxFb {
         }
     }
 
-    fn render_with_region(
+    fn render_with_region_impl(
         self: Rc<Self>,
         _acquire_sync: AcquireSync,
         _release_sync: ReleaseSync,

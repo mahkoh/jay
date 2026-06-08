@@ -390,7 +390,7 @@ pub trait GfxBlendBuffer: Any + Debug {}
 pub trait GfxFramebuffer: Debug {
     fn physical_size(&self) -> (i32, i32);
 
-    fn render_with_region(
+    fn render_with_region_impl(
         self: Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
@@ -437,7 +437,7 @@ impl dyn GfxFramebuffer {
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
     ) -> Result<Option<FdSync>, GfxError> {
-        self.clone().render_with_region(
+        self.render_with_region(
             acquire_sync,
             release_sync,
             cd,
@@ -607,7 +607,7 @@ impl dyn GfxFramebuffer {
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
     ) -> Result<Option<FdSync>, GfxError> {
-        self.clone().render_with_region(
+        self.render_with_region(
             acquire_sync,
             release_sync,
             cd,
@@ -729,6 +729,31 @@ impl dyn GfxFramebuffer {
             &cd.linear,
             None,
             cd,
+        )
+    }
+
+    fn render_with_region(
+        self: &Rc<Self>,
+        acquire_sync: AcquireSync,
+        release_sync: ReleaseSync,
+        cd: &Rc<ColorDescription>,
+        ops: &[GfxApiOp],
+        clear: Option<&Color>,
+        clear_cd: &Rc<LinearColorDescription>,
+        region: &Region,
+        blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
+        blend_cd: &Rc<ColorDescription>,
+    ) -> Result<Option<FdSync>, GfxError> {
+        self.clone().render_with_region_impl(
+            acquire_sync,
+            release_sync,
+            cd,
+            ops,
+            clear,
+            clear_cd,
+            region,
+            blend_buffer,
+            blend_cd,
         )
     }
 }

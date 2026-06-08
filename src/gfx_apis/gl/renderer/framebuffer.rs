@@ -104,7 +104,7 @@ impl GfxFramebuffer for Framebuffer {
         (self.gl.width, self.gl.height)
     }
 
-    fn render_with_region(
+    fn render_with_region_impl(
         self: Rc<Self>,
         acquire_sync: AcquireSync,
         _release_sync: ReleaseSync,
