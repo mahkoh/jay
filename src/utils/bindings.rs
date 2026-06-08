@@ -5,6 +5,7 @@ use {
         utils::copyhashmap::{CopyHashMap, Locked},
     },
     ahash::AHashMap,
+    derivative::Derivative,
     std::{
         cell::{Ref, RefCell},
         collections::hash_map::Entry,
@@ -12,16 +13,10 @@ use {
     },
 };
 
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct Bindings<P> {
     bindings: CopyHashMap<(ClientId, ObjectId), Rc<P>>,
-}
-
-impl<P> Default for Bindings<P> {
-    fn default() -> Self {
-        Self {
-            bindings: Default::default(),
-        }
-    }
 }
 
 impl<P: Object> Bindings<P> {
@@ -43,16 +38,10 @@ impl<P: Object> Bindings<P> {
     }
 }
 
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct PerClientBindings<P> {
     bindings: RefCell<AHashMap<ClientId, AHashMap<ObjectId, Rc<P>>>>,
-}
-
-impl<P> Default for PerClientBindings<P> {
-    fn default() -> Self {
-        Self {
-            bindings: Default::default(),
-        }
-    }
 }
 
 impl<P: Object> PerClientBindings<P> {

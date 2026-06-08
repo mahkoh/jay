@@ -52,7 +52,7 @@ async fn run(screenshot: Rc<Screenshot>) {
         self_id: comp,
         id: sid,
     });
-    let result = Rc::new(AsyncQueue::new());
+    let result = Rc::new(AsyncQueue::default());
     Error::handle(tc, sid, result.clone(), |res, err| {
         res.push(Err(err.msg.to_owned()));
     });

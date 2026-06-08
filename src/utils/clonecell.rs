@@ -16,6 +16,7 @@ use {
     },
 };
 
+#[derive(Default)]
 pub struct CloneCell<T> {
     data: UnsafeCell<T>,
 }
@@ -72,12 +73,6 @@ impl<T> CloneCell<Option<T>> {
     #[inline(always)]
     pub fn is_none(&self) -> bool {
         unsafe { self.data.get().deref().is_none() }
-    }
-}
-
-impl<T: Default> Default for CloneCell<T> {
-    fn default() -> Self {
-        Self::new(Default::default())
     }
 }
 

@@ -3,6 +3,7 @@ use {
         clonecell::UnsafeCellCloneSafe,
         ptr_ext::{MutPtrExt, PtrExt},
     },
+    derivative::Derivative,
     std::{
         cell::{Cell, UnsafeCell},
         mem,
@@ -11,14 +12,10 @@ use {
     },
 };
 
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct Stack<T> {
     vec: UnsafeCell<Vec<T>>,
-}
-
-impl<T> Default for Stack<T> {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl<T> Stack<T> {
@@ -61,18 +58,11 @@ impl<T> Stack<T> {
     }
 }
 
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct AsyncStack<T> {
     stack: Stack<T>,
     waiter: Cell<Option<Waker>>,
-}
-
-impl<T> Default for AsyncStack<T> {
-    fn default() -> Self {
-        Self {
-            stack: Default::default(),
-            waiter: Default::default(),
-        }
-    }
 }
 
 impl<T> AsyncStack<T> {

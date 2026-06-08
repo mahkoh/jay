@@ -1,19 +1,13 @@
 use {
     crate::utils::ptr_ext::MutPtrExt,
+    derivative::Derivative,
     std::{cell::UnsafeCell, collections::VecDeque, mem},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct SyncQueue<T> {
     el: UnsafeCell<VecDeque<T>>,
-}
-
-impl<T> Default for SyncQueue<T> {
-    fn default() -> Self {
-        Self {
-            el: Default::default(),
-        }
-    }
 }
 
 impl<T> SyncQueue<T> {

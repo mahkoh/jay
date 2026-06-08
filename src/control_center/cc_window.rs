@@ -17,6 +17,7 @@ use {
         },
     },
     ahash::AHashMap,
+    derivative::Derivative,
     egui::{CollapsingHeader, Sense, TextFormat, Ui, Widget, cache::CacheTrait, text::LayoutJob},
     isnt::std_1::primitive::IsntStrExt,
     jay_config::window::{
@@ -29,8 +30,11 @@ use {
     },
 };
 
-enum WindowClit {
+#[derive(Derivative)]
+#[derivative(Default)]
+enum WindowCrit {
     Client(CcCriterion<ClientCrit>),
+    #[derivative(Default)]
     Title(CritRegex),
     AppId(CritRegex),
     Floating,
@@ -62,12 +66,6 @@ enum WindowCritTy {
     ContentTypes,
 }
 
-impl Default for WindowClit {
-    fn default() -> Self {
-        WindowClit::Title(Default::default())
-    }
-}
-
 impl StaticText for WindowCritTy {
     fn text(&self) -> &'static str {
         match self {
@@ -88,7 +86,7 @@ impl StaticText for WindowCritTy {
     }
 }
 
-impl CritImpl for WindowClit {
+impl CritImpl for WindowCrit {
     type Type = WindowCritTy;
     type Target = ToplevelData;
 
@@ -141,38 +139,38 @@ impl CritImpl for WindowClit {
 
     fn show(&mut self, ui: &mut Ui) -> bool {
         match self {
-            WindowClit::Client(v) => v.show(ui),
-            WindowClit::Title(v) => v.show(ui),
-            WindowClit::AppId(v) => v.show(ui),
-            WindowClit::Floating => false,
-            WindowClit::Visible => false,
-            WindowClit::Urgent => false,
-            WindowClit::Fullscreen => false,
-            WindowClit::Tag(v) => v.show(ui),
-            WindowClit::XClass(v) => v.show(ui),
-            WindowClit::XInstance(v) => v.show(ui),
-            WindowClit::XRole(v) => v.show(ui),
-            WindowClit::Workspace(v) => v.show(ui),
-            WindowClit::ContentTypes(v) => show_content_types(ui, v),
+            WindowCrit::Client(v) => v.show(ui),
+            WindowCrit::Title(v) => v.show(ui),
+            WindowCrit::AppId(v) => v.show(ui),
+            WindowCrit::Floating => false,
+            WindowCrit::Visible => false,
+            WindowCrit::Urgent => false,
+            WindowCrit::Fullscreen => false,
+            WindowCrit::Tag(v) => v.show(ui),
+            WindowCrit::XClass(v) => v.show(ui),
+            WindowCrit::XInstance(v) => v.show(ui),
+            WindowCrit::XRole(v) => v.show(ui),
+            WindowCrit::Workspace(v) => v.show(ui),
+            WindowCrit::ContentTypes(v) => show_content_types(ui, v),
         }
     }
 
     fn to_crit(&self, state: &Rc<State>) -> Option<Rc<dyn CritUpstreamNode<Self::Target>>> {
         let m = &state.tl_matcher_manager;
         let res = match self {
-            WindowClit::Client(v) => m.client(state, &v.to_crit(state)?),
-            WindowClit::Title(v) => m.title(v.to_crit()?),
-            WindowClit::AppId(v) => m.app_id(v.to_crit()?),
-            WindowClit::Floating => m.floating(),
-            WindowClit::Visible => m.visible(),
-            WindowClit::Urgent => m.urgent(),
-            WindowClit::Fullscreen => m.fullscreen(),
-            WindowClit::Tag(v) => m.tag(v.to_crit()?),
-            WindowClit::XClass(v) => m.class(v.to_crit()?),
-            WindowClit::XInstance(v) => m.instance(v.to_crit()?),
-            WindowClit::XRole(v) => m.role(v.to_crit()?),
-            WindowClit::Workspace(v) => m.workspace(v.to_crit()?),
-            WindowClit::ContentTypes(v) => m.content_type(*v),
+            WindowCrit::Client(v) => m.client(state, &v.to_crit(state)?),
+            WindowCrit::Title(v) => m.title(v.to_crit()?),
+            WindowCrit::AppId(v) => m.app_id(v.to_crit()?),
+            WindowCrit::Floating => m.floating(),
+            WindowCrit::Visible => m.visible(),
+            WindowCrit::Urgent => m.urgent(),
+            WindowCrit::Fullscreen => m.fullscreen(),
+            WindowCrit::Tag(v) => m.tag(v.to_crit()?),
+            WindowCrit::XClass(v) => m.class(v.to_crit()?),
+            WindowCrit::XInstance(v) => m.instance(v.to_crit()?),
+            WindowCrit::XRole(v) => m.role(v.to_crit()?),
+            WindowCrit::Workspace(v) => m.workspace(v.to_crit()?),
+            WindowCrit::ContentTypes(v) => m.content_type(*v),
         };
         Some(res)
     }
@@ -203,7 +201,7 @@ impl CritImpl for WindowClit {
 
 pub struct WindowSearchPane {
     state: Rc<State>,
-    criterion: CcCriterion<WindowClit>,
+    criterion: CcCriterion<WindowCrit>,
     matched: Rc<Matched>,
     leaf: Option<Rc<CritLeafMatcher<ToplevelData>>>,
 }
@@ -279,7 +277,7 @@ impl WindowSearchPane {
                 })
             });
             state.tl_matcher_manager.rematch_all(state);
-            if self.criterion.any(|c| matches!(c, WindowClit::Client(_))) {
+            if self.criterion.any(|c| matches!(c, WindowCrit::Client(_))) {
                 state.cl_matcher_manager.rematch_all(state);
             }
             self.leaf = Some(leaf);

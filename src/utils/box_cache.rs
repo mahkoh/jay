@@ -1,5 +1,6 @@
 use {
     crate::utils::{box_ext::BoxExt, reset::Reset, stack::Stack},
+    derivative::Derivative,
     std::{
         mem,
         mem::{ManuallyDrop, MaybeUninit},
@@ -38,6 +39,8 @@ where
     }
 }
 
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct BoxCache<T, M>
 where
     M: BoxCacheMethod<T>,
@@ -51,17 +54,6 @@ where
 {
     cache: Rc<BoxCache<T, M>>,
     boxed: ManuallyDrop<Box<T>>,
-}
-
-impl<T, M> Default for BoxCache<T, M>
-where
-    M: BoxCacheMethod<T>,
-{
-    fn default() -> Self {
-        Self {
-            boxes: Default::default(),
-        }
-    }
 }
 
 impl<T, M> Deref for CachedBox<T, M>

@@ -1,15 +1,9 @@
-use {crate::utils::clonecell::CloneCell, std::rc::Rc};
+use {crate::utils::clonecell::CloneCell, derivative::Derivative, std::rc::Rc};
 
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct Opt<T> {
     t: CloneCell<Option<Rc<T>>>,
-}
-
-impl<T> Default for Opt<T> {
-    fn default() -> Self {
-        Self {
-            t: Default::default(),
-        }
-    }
 }
 
 impl<T> Opt<T> {

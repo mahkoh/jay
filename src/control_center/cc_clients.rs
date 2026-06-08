@@ -14,6 +14,7 @@ use {
         utils::{copyhashmap::CopyHashMap, static_text::StaticText},
     },
     ahash::AHashMap,
+    derivative::Derivative,
     egui::{
         CollapsingHeader, DragValue, Sense, TextFormat, Ui, Widget, cache::CacheTrait,
         text::LayoutJob,
@@ -22,6 +23,8 @@ use {
     std::rc::{Rc, Weak},
 };
 
+#[derive(Derivative)]
+#[derivative(Default)]
 pub enum ClientCrit {
     SandboxEngine(CritRegex),
     SandboxAppId(CritRegex),
@@ -30,6 +33,7 @@ pub enum ClientCrit {
     Uid(i32),
     Pid(i32),
     IsXwayland,
+    #[derivative(Default)]
     Comm(CritRegex),
     Exe(CritRegex),
     Tag(CritRegex),
@@ -47,12 +51,6 @@ pub enum ClientCritTy {
     Comm,
     Exe,
     Tag,
-}
-
-impl Default for ClientCrit {
-    fn default() -> Self {
-        ClientCrit::Comm(Default::default())
-    }
 }
 
 impl StaticText for ClientCritTy {

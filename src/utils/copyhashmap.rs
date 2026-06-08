@@ -4,6 +4,7 @@ use {
         ptr_ext::{MutPtrExt, PtrExt},
     },
     ahash::AHashMap,
+    derivative::Derivative,
     std::{
         borrow::Borrow,
         cell::UnsafeCell,
@@ -14,6 +15,8 @@ use {
     },
 };
 
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct CopyHashMap<K, V> {
     map: UnsafeCell<AHashMap<K, V>>,
 }
@@ -21,14 +24,6 @@ pub struct CopyHashMap<K, V> {
 impl<K: Debug, V: Debug> Debug for CopyHashMap<K, V> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.map.fmt(f)
-    }
-}
-
-impl<K, V> Default for CopyHashMap<K, V> {
-    fn default() -> Self {
-        Self {
-            map: Default::default(),
-        }
     }
 }
 

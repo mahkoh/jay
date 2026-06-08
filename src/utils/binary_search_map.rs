@@ -1,5 +1,6 @@
 use {
     crate::utils::ptr_ext::{MutPtrExt, PtrExt},
+    derivative::Derivative,
     smallvec::SmallVec,
     std::{
         fmt::{Debug, Formatter},
@@ -7,6 +8,8 @@ use {
     },
 };
 
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct BinarySearchMap<K, V, const N: usize> {
     m: SmallVec<[(K, V); N]>,
 }
@@ -16,14 +19,6 @@ impl<K: Debug, V: Debug, const N: usize> Debug for BinarySearchMap<K, V, N> {
         f.debug_map()
             .entries(self.m.iter().map(|e| (&e.0, &e.1)))
             .finish()
-    }
-}
-
-impl<K, V, const N: usize> Default for BinarySearchMap<K, V, N> {
-    fn default() -> Self {
-        Self {
-            m: Default::default(),
-        }
     }
 }
 

@@ -6,6 +6,7 @@ use {
             queue::AsyncQueue,
         },
     },
+    derivative::Derivative,
     std::{
         cell::Cell,
         ops::Deref,
@@ -23,6 +24,8 @@ pub async fn handle_lazy_event_sources(state: Rc<State>) {
     }
 }
 
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct EventSource<T: ?Sized> {
     listeners: LinkedList<Weak<T>>,
     on_attach: Cell<Option<Box<dyn FnOnce()>>>,
@@ -45,15 +48,6 @@ pub struct LazyEventSource {
     sources: Rc<LazyEventSources>,
     queued: Cell<bool>,
     listeners: EventSource<dyn LazyEventSourceListener>,
-}
-
-impl<T: ?Sized> Default for EventSource<T> {
-    fn default() -> Self {
-        Self {
-            listeners: Default::default(),
-            on_attach: Default::default(),
-        }
-    }
 }
 
 impl<T: ?Sized> EventSource<T> {

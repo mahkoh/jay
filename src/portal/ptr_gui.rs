@@ -37,6 +37,7 @@ use {
         },
     },
     ahash::AHashSet,
+    derivative::Derivative,
     std::{
         cell::{Cell, RefCell},
         ops::Deref,
@@ -113,6 +114,8 @@ pub fn button_extents(
     }
 }
 
+#[derive(Derivative)]
+#[derivative(Default)]
 pub struct Button {
     pub data: GuiElementData,
     pub tex_off_x: Cell<f32>,
@@ -120,10 +123,14 @@ pub struct Button {
     pub hover: RefCell<AHashSet<GlobalName>>,
     pub padding: Cell<f32>,
     pub border: Cell<f32>,
+    #[derivative(Default(value = "Cell::new(Color::from_gray_srgb(0))"))]
     pub border_color: Cell<Color>,
+    #[derivative(Default(value = "Cell::new(Color::from_gray_srgb(255))"))]
     pub bg_color: Cell<Color>,
+    #[derivative(Default(value = "Cell::new(Color::from_gray_srgb(255))"))]
     pub bg_hover_color: Cell<Color>,
     pub text: RefCell<String>,
+    #[derivative(Default(value = "Arc::new(DEFAULT_FONT.to_string())"))]
     pub font: Arc<String>,
     pub tex: CloneCell<Option<Rc<dyn GfxTexture>>>,
     pub owner: CloneCell<Option<Rc<dyn ButtonOwner>>>,
@@ -131,26 +138,6 @@ pub struct Button {
 
 pub trait ButtonOwner {
     fn button(&self, seat: &PortalSeat, button: u32, state: u32);
-}
-
-impl Default for Button {
-    fn default() -> Self {
-        Self {
-            data: Default::default(),
-            tex_off_x: Cell::new(0.0),
-            tex_off_y: Cell::new(0.0),
-            hover: Default::default(),
-            padding: Default::default(),
-            border: Default::default(),
-            border_color: Cell::new(Color::from_gray_srgb(0)),
-            bg_color: Cell::new(Color::from_gray_srgb(255)),
-            bg_hover_color: Cell::new(Color::from_gray_srgb(255)),
-            text: Default::default(),
-            font: Arc::new(DEFAULT_FONT.to_string()),
-            tex: Default::default(),
-            owner: Default::default(),
-        }
-    }
 }
 
 impl GuiElement for Button {
@@ -262,22 +249,14 @@ impl GuiElement for Button {
 
 const DEFAULT_FONT: &str = "sans-serif 16";
 
+#[derive(Derivative)]
+#[derivative(Default)]
 pub struct Label {
     pub data: GuiElementData,
+    #[derivative(Default(value = "Arc::new(DEFAULT_FONT.into())"))]
     pub font: Arc<String>,
     pub text: RefCell<String>,
     pub tex: CloneCell<Option<Rc<dyn GfxTexture>>>,
-}
-
-impl Default for Label {
-    fn default() -> Self {
-        Self {
-            data: Default::default(),
-            font: Arc::new(DEFAULT_FONT.into()),
-            text: RefCell::new("".to_string()),
-            tex: Default::default(),
-        }
-    }
 }
 
 impl GuiElement for Label {

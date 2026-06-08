@@ -10,6 +10,7 @@ use {
         wire::WlSurfaceId,
     },
     ahash::AHashSet,
+    derivative::Derivative,
     smallvec::SmallVec,
     std::{
         any,
@@ -146,18 +147,11 @@ pub trait IpcVtable: Sized {
     fn device_client(dd: &Rc<Self::Device>) -> &Rc<Client>;
 }
 
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct DeviceData<O> {
     selection: CloneCell<Option<Rc<O>>>,
     dnd: CloneCell<Option<Rc<O>>>,
-}
-
-impl<O> Default for DeviceData<O> {
-    fn default() -> Self {
-        Self {
-            selection: Default::default(),
-            dnd: Default::default(),
-        }
-    }
 }
 
 pub struct OfferData<D> {
@@ -198,24 +192,15 @@ pub struct SourceData {
     shared: CloneCell<Rc<SharedState>>,
 }
 
+#[derive(Derivative)]
+#[derivative(Default)]
 struct SharedState {
     state: NumCell<u32>,
+    #[derivative(Default(value = "Cell::new(Role::Selection)"))]
     role: Cell<Role>,
     receiver_actions: Cell<u32>,
     receiver_preferred_action: Cell<u32>,
     selected_action: Cell<u32>,
-}
-
-impl Default for SharedState {
-    fn default() -> Self {
-        Self {
-            state: NumCell::new(0),
-            role: Cell::new(Role::Selection),
-            receiver_actions: Cell::new(0),
-            receiver_preferred_action: Cell::new(0),
-            selected_action: Cell::new(0),
-        }
-    }
 }
 
 impl SourceData {

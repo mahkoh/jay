@@ -246,7 +246,7 @@ impl ContainerNode {
         child: Rc<dyn ToplevelNode>,
         split: ContainerSplit,
     ) -> Rc<Self> {
-        let children = LinkedList::new();
+        let children = LinkedList::default();
         let child_node = children.add_last(ContainerChild {
             node: child.clone(),
             active: Default::default(),

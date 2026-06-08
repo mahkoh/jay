@@ -20,6 +20,7 @@ use {
         },
     },
     clap::{Args, Subcommand, ValueEnum, ValueHint},
+    derivative::Derivative,
     isnt::std_1::vec::IsntVecExt,
     std::{
         cell::RefCell,
@@ -37,20 +38,16 @@ pub struct InputArgs {
     pub command: Option<InputCmd>,
 }
 
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand, Debug, Derivative)]
+#[derivative(Default)]
 pub enum InputCmd {
     /// Show the current settings.
+    #[derivative(Default)]
     Show(ShowArgs),
     /// Modify the settings of a seat.
     Seat(SeatArgs),
     /// Modify the settings of a device.
     Device(DeviceArgs),
-}
-
-impl Default for InputCmd {
-    fn default() -> Self {
-        Self::Show(Default::default())
-    }
 }
 
 #[derive(Args, Debug, Default)]
@@ -76,9 +73,11 @@ pub struct DeviceArgs {
     pub command: Option<DeviceCommand>,
 }
 
-#[derive(Subcommand, Debug, Clone)]
+#[derive(Subcommand, Debug, Clone, Derivative)]
+#[derivative(Default)]
 pub enum SeatCommand {
     /// Show information about this seat.
+    #[derivative(Default)]
     Show(SeatShowArgs),
     /// Set the repeat rate of the keyboard.
     SetRepeatRate(SetRepeatRateArgs),
@@ -114,12 +113,6 @@ pub enum SimpleImCommand {
     ///
     /// This is useful if you change the XCompose files after starting the compositor.
     Reload,
-}
-
-impl Default for SeatCommand {
-    fn default() -> Self {
-        Self::Show(SeatShowArgs::default())
-    }
 }
 
 #[derive(Args, Debug, Default, Clone)]

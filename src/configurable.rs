@@ -11,6 +11,7 @@ use {
             stack::{AsyncStack, Stack},
         },
     },
+    derivative::Derivative,
     isnt::std_1::vec::IsntVecExt,
     run_on_drop::on_drop,
     std::{
@@ -47,6 +48,8 @@ trait ConfigurableDyn {
     fn flush(&self, nr: usize, serial: TreeSerial);
 }
 
+#[derive(Derivative)]
+#[derivative(Default)]
 pub struct ConfigureGroups {
     scheduled: AsyncStack<Rc<dyn ConfigurableDyn>>,
     ready: AsyncStack<Rc<dyn ConfigurableDyn>>,
@@ -54,6 +57,7 @@ pub struct ConfigureGroups {
     unused_groups: Stack<Rc<ConfigureGroup>>,
     groups_to_recycle: Stack<Rc<ConfigureGroup>>,
     timeout: AsyncQueue<ConfigurableTimeout>,
+    #[derivative(Default(value = "Cell::new(DEFAULT_TIMEOUT_NS)"))]
     timeout_ns: Cell<u64>,
     timeout_changed: AsyncEvent,
 }
@@ -133,21 +137,6 @@ impl<T> ConfigurableData<T> {
 
 // TODO: waiting for transaction logic
 const DEFAULT_TIMEOUT_NS: u64 = 0;
-
-impl Default for ConfigureGroups {
-    fn default() -> Self {
-        Self {
-            scheduled: Default::default(),
-            ready: Default::default(),
-            all_groups: Default::default(),
-            unused_groups: Default::default(),
-            groups_to_recycle: Default::default(),
-            timeout: Default::default(),
-            timeout_ns: Cell::new(DEFAULT_TIMEOUT_NS),
-            timeout_changed: Default::default(),
-        }
-    }
-}
 
 impl ConfigureGroups {
     pub fn clear(&self) {
