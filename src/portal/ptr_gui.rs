@@ -657,15 +657,17 @@ impl WindowData {
             return;
         };
 
+        let srgb_gamma22 = self.dpy.state.color_manager.srgb_gamma22();
         let res = buf.fb.render_custom(
             AcquireSync::Implicit,
             ReleaseSync::Implicit,
-            self.dpy.state.color_manager.srgb_gamma22(),
+            srgb_gamma22,
             self.scale.get(),
             Some(&Color::from_gray_srgb(0)),
-            &self.dpy.state.color_manager.srgb_gamma22().linear,
+            &srgb_gamma22.linear,
             None,
             self.dpy.state.color_manager.srgb_linear(),
+            srgb_gamma22,
             &mut |r| {
                 if let Some(content) = self.content.get() {
                     content.render_at(&self.dpy.state.color_manager, r, 0.0, 0.0)

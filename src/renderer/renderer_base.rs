@@ -25,6 +25,8 @@ pub struct RendererBase<'a> {
     pub transform: Transform,
     pub fb_width: f32,
     pub fb_height: f32,
+    #[expect(dead_code)]
+    pub default_cd: &'a Rc<ColorDescription>,
 }
 
 impl RendererBase<'_> {

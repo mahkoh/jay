@@ -1500,7 +1500,12 @@ impl State {
     ) -> Result<Option<FdSync>, GfxError> {
         let mut ops = vec![];
         let mut renderer = Renderer {
-            base: target.renderer_base(&mut ops, scale, target_transform),
+            base: target.renderer_base(
+                &mut ops,
+                scale,
+                target_transform,
+                self.color_manager.srgb_gamma22(),
+            ),
             state: self,
             logical_extents: position.at_point(0, 0),
             pixel_extents: {
