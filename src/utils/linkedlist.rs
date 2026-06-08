@@ -23,17 +23,13 @@ impl<T: Debug> Debug for LinkedList<T> {
 
 impl<T> Default for LinkedList<T> {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<T> LinkedList<T> {
-    pub fn new() -> Self {
         Self {
             root: LinkedNode::new(None),
         }
     }
+}
 
+impl<T> LinkedList<T> {
     #[expect(dead_code)]
     pub fn append_all(&self, other: &LinkedList<T>) {
         if other.is_empty() || self.root.data == other.root.data {
