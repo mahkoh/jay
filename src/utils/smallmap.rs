@@ -3,6 +3,7 @@ use {
         clonecell::UnsafeCellCloneSafe,
         ptr_ext::{MutPtrExt, PtrExt},
     },
+    derivative::Derivative,
     smallvec::SmallVec,
     std::{
         cell::UnsafeCell,
@@ -11,6 +12,8 @@ use {
     },
 };
 
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct SmallMap<K, V, const N: usize> {
     m: UnsafeCell<SmallMapMut<K, V, N>>,
 }
@@ -18,14 +21,6 @@ pub struct SmallMap<K, V, const N: usize> {
 impl<K: Debug, V: Debug, const N: usize> Debug for SmallMap<K, V, N> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         unsafe { self.m.get().deref().fmt(f) }
-    }
-}
-
-impl<K, V, const N: usize> Default for SmallMap<K, V, N> {
-    fn default() -> Self {
-        Self {
-            m: Default::default(),
-        }
     }
 }
 
@@ -133,6 +128,8 @@ impl<'a, K: Copy, V: UnsafeCellCloneSafe, const N: usize> Iterator for SmallMapI
     }
 }
 
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct SmallMapMut<K, V, const N: usize> {
     m: SmallVec<[(K, V); N]>,
 }
@@ -142,14 +139,6 @@ impl<K: Debug, V: Debug, const N: usize> Debug for SmallMapMut<K, V, N> {
         f.debug_map()
             .entries(self.m.iter().map(|e| (&e.0, &e.1)))
             .finish()
-    }
-}
-
-impl<K, V, const N: usize> Default for SmallMapMut<K, V, N> {
-    fn default() -> Self {
-        Self {
-            m: Default::default(),
-        }
     }
 }
 

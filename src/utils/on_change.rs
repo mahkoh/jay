@@ -1,11 +1,14 @@
 use {
     crate::utils::{clonecell::CloneCell, syncqueue::SyncQueue},
+    derivative::Derivative,
     std::{
         fmt::{Debug, Formatter},
         rc::Rc,
     },
 };
 
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct OnChange<T> {
     pub on_change: CloneCell<Option<Rc<dyn Fn()>>>,
     pub events: SyncQueue<T>,
@@ -21,15 +24,6 @@ impl<T> OnChange<T> {
         self.events.push(event);
         if let Some(cb) = self.on_change.get() {
             cb();
-        }
-    }
-}
-
-impl<T> Default for OnChange<T> {
-    fn default() -> Self {
-        Self {
-            on_change: Default::default(),
-            events: Default::default(),
         }
     }
 }

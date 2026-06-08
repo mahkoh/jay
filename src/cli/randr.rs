@@ -21,6 +21,7 @@ use {
         Args, Subcommand, ValueEnum,
         builder::{PossibleValue, PossibleValuesParser},
     },
+    derivative::Derivative,
     isnt::std_1::vec::IsntVecExt,
     jay_config::video::{TearingMode, VrrMode},
     linearize::LinearizeExt,
@@ -40,9 +41,11 @@ pub struct RandrArgs {
     pub command: Option<RandrCmd>,
 }
 
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand, Debug, Derivative)]
+#[derivative(Default)]
 pub enum RandrCmd {
     /// Show the current settings.
+    #[derivative(Default)]
     Show(ShowArgs),
     /// Modify the settings of a graphics card.
     Card(CardArgs),
@@ -50,12 +53,6 @@ pub enum RandrCmd {
     Output(OutputArgs),
     /// Modify virtual outputs.
     VirtualOutput(VirtualOutputArgs),
-}
-
-impl Default for RandrCmd {
-    fn default() -> Self {
-        Self::Show(Default::default())
-    }
 }
 
 #[derive(Args, Debug, Default)]

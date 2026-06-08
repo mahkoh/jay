@@ -8,6 +8,7 @@ use {
         time::Time,
         utils::{buf::Buf, compat::IovLength, vec_ext::UninitVecExt},
     },
+    derivative::Derivative,
     std::{mem::MaybeUninit, ptr, rc::Rc},
     uapi::{OwnedFd, c},
 };
@@ -84,9 +85,12 @@ struct SendmsgTaskData {
     res: PendingResult,
 }
 
+#[derive(Derivative)]
+#[derivative(Default)]
 pub struct SendmsgTask {
     id: IoUringTaskId,
     iovecs: Vec<c::iovec>,
+    #[derivative(Default(value = "uapi::pod_zeroed()"))]
     msghdr: c::msghdr,
     bufs: Vec<Buf>,
     fd: i32,
@@ -94,24 +98,6 @@ pub struct SendmsgTask {
     fds: Vec<Rc<OwnedFd>>,
     cmsg: Vec<MaybeUninit<u8>>,
     data: Option<SendmsgTaskData>,
-}
-
-impl Default for SendmsgTask {
-    fn default() -> Self {
-        unsafe {
-            SendmsgTask {
-                id: Default::default(),
-                iovecs: vec![],
-                msghdr: MaybeUninit::zeroed().assume_init(),
-                bufs: vec![],
-                fd: 0,
-                has_timeout: false,
-                fds: vec![],
-                cmsg: vec![],
-                data: None,
-            }
-        }
-    }
 }
 
 unsafe impl Task for SendmsgTask {

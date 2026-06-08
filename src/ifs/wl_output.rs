@@ -16,6 +16,7 @@ use {
         wire::{WlOutputId, ZxdgOutputV1Id, wl_output::*},
     },
     ahash::AHashMap,
+    derivative::Derivative,
     linearize::Linearize,
     std::{
         cell::{Cell, RefCell},
@@ -115,32 +116,21 @@ impl BlendSpace {
     }
 }
 
+#[derive(Derivative)]
+#[derivative(Default)]
 pub struct PersistentOutputState {
     pub transform: Cell<Transform>,
     pub scale: Cell<crate::scale::Scale>,
     pub pos: Cell<(i32, i32)>,
+    #[derivative(Default(value = "Cell::new(VrrMode::Never)"))]
     pub vrr_mode: Cell<VrrMode>,
     pub vrr_cursor_hz: Cell<Option<f64>>,
+    #[derivative(Default(value = "Cell::new(TearingMode::Never)"))]
     pub tearing_mode: Cell<TearingMode>,
     pub brightness: Cell<Option<f64>>,
+    #[derivative(Default(value = "Cell::new(BlendSpace::Srgb)"))]
     pub blend_space: Cell<BlendSpace>,
     pub use_native_gamut: Cell<bool>,
-}
-
-impl Default for PersistentOutputState {
-    fn default() -> Self {
-        Self {
-            transform: Default::default(),
-            scale: Default::default(),
-            pos: Default::default(),
-            vrr_mode: Cell::new(VrrMode::Never),
-            vrr_cursor_hz: Default::default(),
-            tearing_mode: Cell::new(TearingMode::Never),
-            brightness: Default::default(),
-            blend_space: Cell::new(BlendSpace::Srgb),
-            use_native_gamut: Cell::new(false),
-        }
-    }
 }
 
 #[derive(Eq, Debug)]

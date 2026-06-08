@@ -23,6 +23,7 @@ pub(super) struct MsgFds {
     pub(super) fds: Vec<Rc<OwnedFd>>,
 }
 
+#[derive(Default)]
 pub(super) struct OutBufferMeta {
     pub(super) read_pos: usize,
     pub(super) write_pos: usize,
@@ -37,11 +38,7 @@ pub struct OutBuffer {
 impl Default for OutBuffer {
     fn default() -> Self {
         Self {
-            meta: OutBufferMeta {
-                read_pos: 0,
-                write_pos: 0,
-                fds: Default::default(),
-            },
+            meta: Default::default(),
             buf: Buf::new(OUT_BUF_SIZE),
         }
     }

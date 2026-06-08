@@ -6,6 +6,7 @@ use {
         utils::{numcell::NumCell, static_text::StaticText},
     },
     ahash::AHashSet,
+    derivative::Derivative,
     egui::{ComboBox, DragValue, Ui, UiBuilder, Widget},
     isnt::std_1::collections::IsntHashSetExt,
     linearize::{Linearize, LinearizeExt},
@@ -13,20 +14,14 @@ use {
     std::rc::Rc,
 };
 
+#[derive(Derivative)]
+#[derivative(Default)]
 pub enum CcCriterion<T> {
     Not(Box<Self>),
     List(Vec<Self>, bool),
     Exactly(usize, Vec<Self>),
+    #[derivative(Default)]
     T(T),
-}
-
-impl<T> Default for CcCriterion<T>
-where
-    T: Default,
-{
-    fn default() -> Self {
-        Self::T(T::default())
-    }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Linearize)]

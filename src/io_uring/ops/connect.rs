@@ -4,6 +4,7 @@ use {
         pending_result::PendingResult,
         sys::{IORING_OP_CONNECT, io_uring_sqe},
     },
+    derivative::Derivative,
     std::{ptr, rc::Rc},
     uapi::{OwnedFd, SockAddr, c},
 };
@@ -36,24 +37,15 @@ struct Data {
     _fd: Rc<OwnedFd>,
 }
 
+#[derive(Derivative)]
+#[derivative(Default)]
 pub struct ConnectTask {
     id: IoUringTaskId,
     fd: i32,
+    #[derivative(Default(value = "uapi::pod_zeroed()"))]
     sockaddr: c::sockaddr_storage,
     addrlen: u64,
     data: Option<Data>,
-}
-
-impl Default for ConnectTask {
-    fn default() -> Self {
-        Self {
-            id: Default::default(),
-            fd: 0,
-            sockaddr: uapi::pod_zeroed(),
-            addrlen: 0,
-            data: None,
-        }
-    }
 }
 
 unsafe impl Task for ConnectTask {

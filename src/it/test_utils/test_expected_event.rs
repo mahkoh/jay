@@ -1,5 +1,6 @@
 use {
     crate::{it::test_error::TestResult, utils::clonecell::CloneCell},
+    derivative::Derivative,
     isnt::std_1::collections::IsntVecDequeExt,
     std::{cell::RefCell, collections::VecDeque, rc::Rc},
 };
@@ -32,19 +33,13 @@ impl<T> TestExpectedEvent<T> {
     }
 }
 
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct TestExpectedEventHolder<T> {
     data: CloneCell<Option<Rc<TestExpectedEventData<T>>>>,
 }
 
 pub type TEEH<T> = Rc<TestExpectedEventHolder<T>>;
-
-impl<T> Default for TestExpectedEventHolder<T> {
-    fn default() -> Self {
-        Self {
-            data: Default::default(),
-        }
-    }
-}
 
 impl<T> TestExpectedEventHolder<T> {
     pub fn expect(self: &Rc<Self>) -> TestResult<TestExpectedEvent<T>> {

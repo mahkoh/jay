@@ -1,13 +1,9 @@
-use std::ops::Deref;
+use {derivative::Derivative, std::ops::Deref};
 
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct VecSet<T> {
     vec: Vec<T>,
-}
-
-impl<T> Default for VecSet<T> {
-    fn default() -> Self {
-        Self { vec: vec![] }
-    }
 }
 
 impl<T> Deref for VecSet<T> {

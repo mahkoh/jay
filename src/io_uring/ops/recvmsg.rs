@@ -7,7 +7,8 @@ use {
         },
         utils::buf::Buf,
     },
-    std::{cell::Cell, collections::VecDeque, mem::MaybeUninit, rc::Rc},
+    derivative::Derivative,
+    std::{cell::Cell, collections::VecDeque, rc::Rc},
     uapi::{OwnedFd, c},
 };
 
@@ -84,28 +85,17 @@ struct Data {
     pr: PendingResult,
 }
 
+#[derive(Derivative)]
+#[derivative(Default)]
 pub struct RecvmsgTask {
     id: IoUringTaskId,
     fd: c::c_int,
     bufs: Vec<Buf>,
     iovecs: Vec<c::iovec>,
+    #[derivative(Default(value = "uapi::pod_zeroed()"))]
     msghdr: c::msghdr,
     cmsg_len: Rc<Cell<usize>>,
     data: Option<Data>,
-}
-
-impl Default for RecvmsgTask {
-    fn default() -> Self {
-        RecvmsgTask {
-            id: Default::default(),
-            fd: 0,
-            bufs: vec![],
-            iovecs: vec![],
-            msghdr: unsafe { MaybeUninit::zeroed().assume_init() },
-            cmsg_len: Rc::new(Cell::new(0)),
-            data: None,
-        }
-    }
 }
 
 unsafe impl Task for RecvmsgTask {

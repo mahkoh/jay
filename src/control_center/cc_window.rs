@@ -17,6 +17,7 @@ use {
         },
     },
     ahash::AHashMap,
+    derivative::Derivative,
     egui::{CollapsingHeader, Sense, TextFormat, Ui, Widget, cache::CacheTrait, text::LayoutJob},
     isnt::std_1::primitive::IsntStrExt,
     jay_config::window::{
@@ -29,8 +30,11 @@ use {
     },
 };
 
+#[derive(Derivative)]
+#[derivative(Default)]
 enum WindowCrit {
     Client(CcCriterion<ClientCrit>),
+    #[derivative(Default)]
     Title(CritRegex),
     AppId(CritRegex),
     Floating,
@@ -60,12 +64,6 @@ enum WindowCritTy {
     XRole,
     Workspace,
     ContentTypes,
-}
-
-impl Default for WindowCrit {
-    fn default() -> Self {
-        WindowCrit::Title(Default::default())
-    }
 }
 
 impl StaticText for WindowCritTy {

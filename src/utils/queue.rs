@@ -1,5 +1,6 @@
 use {
     crate::utils::ptr_ext::{MutPtrExt, PtrExt},
+    derivative::Derivative,
     std::{
         cell::{Cell, UnsafeCell},
         collections::VecDeque,
@@ -10,18 +11,11 @@ use {
     },
 };
 
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct AsyncQueue<T> {
     data: UnsafeCell<VecDeque<T>>,
     waiter: Cell<Option<Waker>>,
-}
-
-impl<T> Default for AsyncQueue<T> {
-    fn default() -> Self {
-        Self {
-            data: Default::default(),
-            waiter: Default::default(),
-        }
-    }
 }
 
 impl<T> AsyncQueue<T> {

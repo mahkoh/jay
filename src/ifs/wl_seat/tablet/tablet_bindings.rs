@@ -5,19 +5,14 @@ use {
         utils::copyhashmap::{CopyHashMap, Locked},
         wire::ZwpTabletSeatV2Id,
     },
+    derivative::Derivative,
     std::rc::Rc,
 };
 
+#[derive(Derivative)]
+#[derivative(Default(bound = ""))]
 pub struct TabletBindings<T> {
     bindings: CopyHashMap<(ClientId, ZwpTabletSeatV2Id), Rc<T>>,
-}
-
-impl<T> Default for TabletBindings<T> {
-    fn default() -> Self {
-        Self {
-            bindings: Default::default(),
-        }
-    }
 }
 
 impl<T> TabletBindings<T> {
