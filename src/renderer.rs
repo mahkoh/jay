@@ -1,9 +1,7 @@
 use {
     crate::{
         cmm::cmm_render_intent::RenderIntent,
-        gfx_api::{
-            AcquireSync, AlphaMode, BufferResv, GfxApiOp, GfxTexture, ReleaseSync, SampleRect,
-        },
+        gfx_api::{AcquireSync, BufferResv, GfxApiOp, GfxTexture, ReleaseSync, SampleRect},
         icons::{IconState, SizedBarIcons, SizedTitleIcons},
         ifs::wl_surface::{
             SurfaceBuffer, WlSurface,
@@ -15,7 +13,7 @@ use {
             zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
         },
         rect::Rect,
-        renderer::renderer_base::RendererBase,
+        renderer::renderer_base::{RenderTexture, RendererBase},
         scale::Scale,
         state::State,
         theme::Color,
@@ -175,43 +173,25 @@ impl Renderer<'_> {
                         let (x, y) = self.base.scale_point(x + icon_x, y + title.tex_y);
                         self.base.render_texture(
                             &icons.overlay,
-                            None,
                             x,
                             y,
-                            None,
-                            None,
-                            scale,
-                            Some(&bar_bg),
-                            None,
-                            AcquireSync::None,
-                            ReleaseSync::None,
-                            false,
-                            srgb_srgb,
-                            perceptual,
-                            AlphaMode::PremultipliedElectrical,
-                            false,
-                            None,
+                            RenderTexture {
+                                tscale: Some(scale),
+                                bounds: Some(&bar_bg),
+                                ..Default::default()
+                            },
                         );
                     }
                     let (x, y) = self.base.scale_point(x + title.tex_x, y + title.tex_y);
                     self.base.render_texture(
                         &title.tex,
-                        None,
                         x,
                         y,
-                        None,
-                        None,
-                        scale,
-                        Some(&bar_bg),
-                        None,
-                        AcquireSync::None,
-                        ReleaseSync::None,
-                        false,
-                        self.state.color_manager.srgb_gamma22(),
-                        perceptual,
-                        AlphaMode::PremultipliedElectrical,
-                        false,
-                        None,
+                        RenderTexture {
+                            tscale: Some(scale),
+                            bounds: Some(&bar_bg),
+                            ..Default::default()
+                        },
                     );
                 }
                 x += bar_rect.x1() - non_exclusive_rect_rel.x1();
@@ -222,22 +202,13 @@ impl Renderer<'_> {
                     let (x, y) = self.base.scale_point(x + status.tex_x, y);
                     self.base.render_texture(
                         &texture,
-                        None,
                         x,
                         y,
-                        None,
-                        None,
-                        scale,
-                        Some(&bar_bg),
-                        None,
-                        AcquireSync::None,
-                        ReleaseSync::None,
-                        false,
-                        srgb_srgb,
-                        perceptual,
-                        AlphaMode::PremultipliedElectrical,
-                        false,
-                        None,
+                        RenderTexture {
+                            tscale: Some(scale),
+                            bounds: Some(&bar_bg),
+                            ..Default::default()
+                        },
                     );
                 }
                 for item in output.tray_items.iter() {
@@ -326,22 +297,12 @@ impl Renderer<'_> {
             let y = y + (pos.height() - tex_height) / 2;
             self.base.render_texture(
                 &texture,
-                None,
                 x,
                 y,
-                None,
-                None,
-                self.base.scale,
-                bounds,
-                None,
-                AcquireSync::None,
-                ReleaseSync::None,
-                false,
-                self.state.color_manager.srgb_gamma22(),
-                RenderIntent::Perceptual,
-                AlphaMode::PremultipliedElectrical,
-                false,
-                None,
+                RenderTexture {
+                    bounds,
+                    ..Default::default()
+                },
             );
         }
         self.render_tl_aux(placeholder.tl_data(), bounds, true);
@@ -400,22 +361,12 @@ impl Renderer<'_> {
                             };
                             self.base.render_texture(
                                 icon,
-                                None,
                                 x,
                                 y,
-                                None,
-                                None,
-                                self.base.scale,
-                                Some(&bounds),
-                                None,
-                                AcquireSync::None,
-                                ReleaseSync::None,
-                                false,
-                                srgb_srgb,
-                                perceptual,
-                                AlphaMode::PremultipliedElectrical,
-                                false,
-                                None,
+                                RenderTexture {
+                                    bounds: Some(&bounds),
+                                    ..Default::default()
+                                },
                             );
                         }
                         x += th;
@@ -428,22 +379,12 @@ impl Renderer<'_> {
                         let (x, y) = self.base.scale_point(x, rect.y1());
                         self.base.render_texture(
                             tex,
-                            None,
                             x,
                             y,
-                            None,
-                            None,
-                            self.base.scale,
-                            Some(&bounds),
-                            None,
-                            AcquireSync::None,
-                            ReleaseSync::None,
-                            false,
-                            srgb_srgb,
-                            perceptual,
-                            AlphaMode::PremultipliedElectrical,
-                            false,
-                            None,
+                            RenderTexture {
+                                bounds: Some(&bounds),
+                                ..Default::default()
+                            },
                         );
                     }
                 }
@@ -620,22 +561,23 @@ impl Renderer<'_> {
             }
             slf.base.render_texture(
                 tex,
-                alpha,
                 x,
                 y,
-                Some(tpoints),
-                Some(tsize),
-                slf.base.scale,
-                bounds,
-                Some(buffer),
-                AcquireSync::Unnecessary,
-                release_sync,
-                opaque,
-                &cd,
-                intent,
-                alpha_mode,
-                false,
-                client_buf,
+                RenderTexture {
+                    alpha,
+                    tpoints: Some(tpoints),
+                    tsize: Some(tsize),
+                    bounds,
+                    buffer_resv: Some(buffer),
+                    acquire_sync: AcquireSync::Unnecessary,
+                    release_sync,
+                    opaque,
+                    cd: Some(&cd),
+                    render_intent: intent,
+                    alpha_mode,
+                    client_buf,
+                    ..Default::default()
+                },
             );
         };
         let Some(buffer) = surface.buffer.get() else {
@@ -736,22 +678,12 @@ impl Renderer<'_> {
                 let (x, y) = self.base.scale_point(x1, y1);
                 self.base.render_texture(
                     icon,
-                    None,
                     x,
                     y,
-                    None,
-                    None,
-                    self.base.scale,
-                    Some(&bounds),
-                    None,
-                    AcquireSync::None,
-                    ReleaseSync::None,
-                    false,
-                    srgb_srgb,
-                    perceptual,
-                    AlphaMode::PremultipliedElectrical,
-                    false,
-                    None,
+                    RenderTexture {
+                        bounds: Some(&bounds),
+                        ..Default::default()
+                    },
                 );
             }
             x1 += th;
@@ -773,22 +705,12 @@ impl Renderer<'_> {
                 };
                 self.base.render_texture(
                     &icon[state],
-                    None,
                     x,
                     y,
-                    None,
-                    None,
-                    self.base.scale,
-                    Some(&bounds),
-                    None,
-                    AcquireSync::None,
-                    ReleaseSync::None,
-                    false,
-                    srgb_srgb,
-                    perceptual,
-                    AlphaMode::PremultipliedElectrical,
-                    false,
-                    None,
+                    RenderTexture {
+                        bounds: Some(&bounds),
+                        ..Default::default()
+                    },
                 );
             }
             x1 += th;
@@ -803,22 +725,12 @@ impl Renderer<'_> {
             let (x, y) = self.base.scale_point(x1, y1);
             self.base.render_texture(
                 &texture,
-                None,
                 x,
                 y,
-                None,
-                None,
-                self.base.scale,
-                Some(&bounds),
-                None,
-                AcquireSync::None,
-                ReleaseSync::None,
-                false,
-                srgb_srgb,
-                perceptual,
-                AlphaMode::PremultipliedElectrical,
-                false,
-                None,
+                RenderTexture {
+                    bounds: Some(&bounds),
+                    ..Default::default()
+                },
             );
         }
         let body = Rect::new_sized_saturating(
@@ -879,22 +791,13 @@ impl Renderer<'_> {
             ToplevelIcon::Tex(tex) => {
                 self.base.render_texture(
                     &tex,
-                    None,
                     x,
                     y,
-                    None,
-                    None,
-                    self.base.scale,
-                    Some(bounds),
-                    None,
-                    AcquireSync::None,
-                    ReleaseSync::None,
-                    false,
-                    srgb,
-                    perceptual,
-                    AlphaMode::PremultipliedElectrical,
-                    grayscale,
-                    None,
+                    RenderTexture {
+                        bounds: Some(bounds),
+                        grayscale,
+                        ..Default::default()
+                    },
                 );
             }
         }

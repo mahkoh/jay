@@ -14,10 +14,7 @@ use {
         cli::RunArgs,
         client::{Client, ClientCaps, ClientId, Clients, NUM_CACHED_SERIAL_RANGES, SerialRange},
         clientmem::ClientMemOffset,
-        cmm::{
-            cmm_description::ColorDescription, cmm_manager::ColorManager,
-            cmm_render_intent::RenderIntent,
-        },
+        cmm::{cmm_description::ColorDescription, cmm_manager::ColorManager},
         compositor::{LIBEI_SOCKET, LogLevel},
         config::ConfigProxy,
         configurable::ConfigureGroups,
@@ -43,9 +40,9 @@ use {
         forker::ForkerProxy,
         format::Format,
         gfx_api::{
-            AcquireSync, AlphaMode, BufferResv, FdSync, GfxApi, GfxBlendBuffer, GfxContext,
-            GfxError, GfxFramebuffer, GfxTexture, PendingShmTransfer, ReleaseSync,
-            STAGING_DOWNLOAD, SampleRect,
+            AcquireSync, BufferResv, FdSync, GfxApi, GfxBlendBuffer, GfxContext, GfxError,
+            GfxFramebuffer, GfxTexture, PendingShmTransfer, ReleaseSync, STAGING_DOWNLOAD,
+            SampleRect,
         },
         gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, RemovableWaylandGlobal, WaylandGlobal},
@@ -100,7 +97,7 @@ use {
         logger::Logger,
         pr_caps::PrCapsThread,
         rect::{Rect, Region},
-        renderer::Renderer,
+        renderer::{Renderer, renderer_base::RenderTexture},
         scale::Scale,
         security_context_acceptor::SecurityContextAcceptors,
         sm::{SessionManager, SessionReason, ToplevelSession},
@@ -1519,22 +1516,18 @@ impl State {
         sample_rect.buffer_transform = transform;
         renderer.base.render_texture(
             src,
-            None,
             x_off,
             y_off,
-            Some(sample_rect),
-            size,
-            scale,
-            None,
-            resv.cloned(),
-            acquire_sync.clone(),
-            release_sync,
-            false,
-            src_cd,
-            RenderIntent::Perceptual,
-            AlphaMode::PremultipliedElectrical,
-            false,
-            None,
+            RenderTexture {
+                tpoints: Some(sample_rect),
+                tsize: size,
+                tscale: Some(scale),
+                buffer_resv: resv.cloned(),
+                acquire_sync: acquire_sync.clone(),
+                release_sync,
+                cd: Some(src_cd),
+                ..Default::default()
+            },
         );
         if render_hardware_cursors
             && let Some(cursor_user_group) = self.cursor_user_group_hardware_cursor.get()

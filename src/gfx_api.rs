@@ -15,7 +15,10 @@ use {
         ifs::wl_surface::SurfaceBuffer,
         io_uring::{IoUring, IoUringError, PendingPoll, PollCallback},
         rect::{Rect, Region},
-        renderer::{Renderer, renderer_base::RendererBase},
+        renderer::{
+            Renderer,
+            renderer_base::{RenderTexture, RendererBase},
+        },
         scale::Scale,
         state::State,
         syncobj::SyncobjCtx,
@@ -514,22 +517,16 @@ impl dyn GfxFramebuffer {
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None, texture_cd);
         renderer.render_texture(
             texture,
-            None,
             x,
             y,
-            None,
-            None,
-            scale,
-            None,
-            resv.cloned(),
-            acquire_sync,
-            release_sync,
-            false,
-            texture_cd,
-            RenderIntent::Perceptual,
-            AlphaMode::PremultipliedElectrical,
-            false,
-            None,
+            RenderTexture {
+                tscale: Some(scale),
+                buffer_resv: resv.cloned(),
+                acquire_sync,
+                release_sync,
+                cd: Some(texture_cd),
+                ..Default::default()
+            },
         );
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
         self.render(

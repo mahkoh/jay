@@ -14,6 +14,7 @@ use {
         theme::Color,
         tree::Transform,
     },
+    derivative::Derivative,
     std::rc::Rc,
 };
 
@@ -25,15 +26,33 @@ pub struct RendererBase<'a> {
     pub transform: Transform,
     pub fb_width: f32,
     pub fb_height: f32,
-    #[expect(dead_code)]
     pub default_cd: &'a Rc<ColorDescription>,
 }
 
-impl RendererBase<'_> {
-    pub fn scale(&self) -> Scale {
-        self.scale
-    }
+#[derive(Derivative)]
+#[derivative(Default)]
+pub struct RenderTexture<'a> {
+    pub alpha: Option<f32>,
+    pub tpoints: Option<SampleRect>,
+    pub tsize: Option<(i32, i32)>,
+    pub tscale: Option<Scale>,
+    pub bounds: Option<&'a Rect>,
+    pub buffer_resv: Option<Rc<dyn BufferResv>>,
+    #[derivative(Default(value = "AcquireSync::None"))]
+    pub acquire_sync: AcquireSync,
+    #[derivative(Default(value = "ReleaseSync::None"))]
+    pub release_sync: ReleaseSync,
+    pub opaque: bool,
+    pub cd: Option<&'a Rc<ColorDescription>>,
+    #[derivative(Default(value = "RenderIntent::Perceptual"))]
+    pub render_intent: RenderIntent,
+    #[derivative(Default(value = "AlphaMode::PremultipliedElectrical"))]
+    pub alpha_mode: AlphaMode,
+    pub grayscale: bool,
+    pub client_buf: Option<Rc<SurfaceBuffer>>,
+}
 
+impl RendererBase<'_> {
     pub fn scale_point(&self, mut x: i32, mut y: i32) -> (i32, i32) {
         if self.scaled {
             [x, y] = self.scale.pixel_size([x, y]);
@@ -187,25 +206,30 @@ impl RendererBase<'_> {
     pub fn render_texture(
         &mut self,
         texture: &Rc<dyn GfxTexture>,
-        alpha: Option<f32>,
         x: i32,
         y: i32,
-        tpoints: Option<SampleRect>,
-        tsize: Option<(i32, i32)>,
-        tscale: Scale,
-        bounds: Option<&Rect>,
-        buffer_resv: Option<Rc<dyn BufferResv>>,
-        acquire_sync: AcquireSync,
-        release_sync: ReleaseSync,
-        opaque: bool,
-        cd: &Rc<ColorDescription>,
-        render_intent: RenderIntent,
-        alpha_mode: AlphaMode,
-        grayscale: bool,
-        client_buf: Option<Rc<SurfaceBuffer>>,
+        args: RenderTexture,
     ) {
         // log::info!("rendering texture {:?}", std::ptr::from_ref(&**texture) as *const u8);
         // log::info!("{:?}", backtrace::Backtrace::new());
+
+        let RenderTexture {
+            alpha,
+            tpoints,
+            tsize,
+            tscale,
+            bounds,
+            buffer_resv,
+            acquire_sync,
+            release_sync,
+            opaque,
+            cd,
+            render_intent,
+            alpha_mode,
+            grayscale,
+            client_buf,
+        } = args;
+        let tscale = tscale.unwrap_or(self.scale);
 
         let mut texcoord = tpoints.unwrap_or_else(SampleRect::identity);
 
@@ -250,7 +274,7 @@ impl RendererBase<'_> {
             release_sync,
             opaque,
             render_intent,
-            cd: cd.clone(),
+            cd: cd.unwrap_or(self.default_cd).clone(),
             alpha_mode,
             grayscale,
             client_buf,
