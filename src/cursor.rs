@@ -1,12 +1,11 @@
 use {
     crate::{
         async_engine::AsyncEngine,
-        cmm::cmm_render_intent::RenderIntent,
         fixed::Fixed,
         format::ARGB8888,
-        gfx_api::{AcquireSync, AlphaMode, GfxContext, GfxError, GfxTexture, ReleaseSync},
+        gfx_api::{GfxContext, GfxError, GfxTexture},
         rect::Rect,
-        renderer::Renderer,
+        renderer::{Renderer, renderer_base::RenderTexture},
         scale::Scale,
         state::State,
         time::Time,
@@ -422,22 +421,9 @@ fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer, x: Fixed
     if extents.intersects(&renderer.pixel_extents()) {
         renderer.base.render_texture(
             &img.tex,
-            None,
             extents.x1(),
             extents.y1(),
-            None,
-            None,
-            scale,
-            None,
-            None,
-            AcquireSync::None,
-            ReleaseSync::None,
-            false,
-            renderer.state.color_manager.srgb_gamma22(),
-            RenderIntent::Perceptual,
-            AlphaMode::PremultipliedElectrical,
-            false,
-            None,
+            RenderTexture::default(),
         );
     }
 }
@@ -449,25 +435,9 @@ impl Cursor for StaticCursor {
 
     fn render_hardware_cursor(&self, renderer: &mut Renderer) {
         if let Some(img) = self.image.scales.get(&renderer.scale()) {
-            renderer.base.render_texture(
-                &img.tex,
-                None,
-                0,
-                0,
-                None,
-                None,
-                renderer.scale(),
-                None,
-                None,
-                AcquireSync::None,
-                ReleaseSync::None,
-                false,
-                renderer.state.color_manager.srgb_gamma22(),
-                RenderIntent::Perceptual,
-                AlphaMode::PremultipliedElectrical,
-                false,
-                None,
-            );
+            renderer
+                .base
+                .render_texture(&img.tex, 0, 0, RenderTexture::default());
         }
     }
 
@@ -501,25 +471,9 @@ impl Cursor for AnimatedCursor {
     fn render_hardware_cursor(&self, renderer: &mut Renderer) {
         let img = &self.images[self.idx.get()];
         if let Some(img) = img.scales.get(&renderer.scale()) {
-            renderer.base.render_texture(
-                &img.tex,
-                None,
-                0,
-                0,
-                None,
-                None,
-                renderer.scale(),
-                None,
-                None,
-                AcquireSync::None,
-                ReleaseSync::None,
-                false,
-                renderer.state.color_manager.srgb_gamma22(),
-                RenderIntent::Perceptual,
-                AlphaMode::PremultipliedElectrical,
-                false,
-                None,
-            );
+            renderer
+                .base
+                .render_texture(&img.tex, 0, 0, RenderTexture::default());
         }
     }
 

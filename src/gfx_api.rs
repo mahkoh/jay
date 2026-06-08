@@ -15,7 +15,10 @@ use {
         ifs::wl_surface::SurfaceBuffer,
         io_uring::{IoUring, IoUringError, PendingPoll, PollCallback},
         rect::{Rect, Region},
-        renderer::{Renderer, renderer_base::RendererBase},
+        renderer::{
+            Renderer,
+            renderer_base::{RenderTexture, RendererBase},
+        },
         scale::Scale,
         state::State,
         syncobj::SyncobjCtx,
@@ -491,8 +494,9 @@ impl dyn GfxFramebuffer {
         ops: &'a mut Vec<GfxApiOp>,
         scale: Scale,
         transform: Transform,
+        default_cd: &'a Rc<ColorDescription>,
     ) -> RendererBase<'a> {
-        renderer_base(self.physical_size(), ops, scale, transform)
+        renderer_base(self.physical_size(), ops, scale, transform, default_cd)
     }
 
     pub fn copy_texture(
@@ -510,25 +514,19 @@ impl dyn GfxFramebuffer {
     ) -> Result<Option<FdSync>, GfxError> {
         let mut ops = vec![];
         let scale = Scale::from_int(1);
-        let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
+        let mut renderer = self.renderer_base(&mut ops, scale, Transform::None, texture_cd);
         renderer.render_texture(
             texture,
-            None,
             x,
             y,
-            None,
-            None,
-            scale,
-            None,
-            resv.cloned(),
-            acquire_sync,
-            release_sync,
-            false,
-            texture_cd,
-            RenderIntent::Perceptual,
-            AlphaMode::PremultipliedElectrical,
-            false,
-            None,
+            RenderTexture {
+                tscale: Some(scale),
+                buffer_resv: resv.cloned(),
+                acquire_sync,
+                release_sync,
+                cd: Some(texture_cd),
+                ..Default::default()
+            },
         );
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
         self.render(
@@ -553,10 +551,11 @@ impl dyn GfxFramebuffer {
         clear_cd: &Rc<LinearColorDescription>,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
+        default_cd: &Rc<ColorDescription>,
         f: &mut dyn FnMut(&mut RendererBase),
     ) -> Result<Option<FdSync>, GfxError> {
         let mut ops = vec![];
-        let mut renderer = self.renderer_base(&mut ops, scale, Transform::None);
+        let mut renderer = self.renderer_base(&mut ops, scale, Transform::None, default_cd);
         f(&mut renderer);
         self.render(
             acquire_sync,
@@ -705,7 +704,12 @@ impl dyn GfxFramebuffer {
     ) -> Result<Option<FdSync>, GfxError> {
         let mut ops = vec![];
         let mut renderer = Renderer {
-            base: self.renderer_base(&mut ops, scale, transform),
+            base: self.renderer_base(
+                &mut ops,
+                scale,
+                transform,
+                state.color_manager.srgb_gamma22(),
+            ),
             state,
             logical_extents: Rect::new_empty(0, 0),
             pixel_extents: {
@@ -1028,16 +1032,17 @@ pub fn create_render_pass(
     transform: Transform,
     visualizer: Option<&DamageVisualizer>,
 ) -> GfxRenderPass {
+    let srgb_gamma22 = state.color_manager.srgb_gamma22();
     if fill_black_in_grace_period && state.idle.in_grace_period.get() {
         return GfxRenderPass {
             ops: vec![],
             clear: Some(Color::SOLID_BLACK),
-            clear_cd: state.color_manager.srgb_gamma22().linear.clone(),
+            clear_cd: srgb_gamma22.linear.clone(),
         };
     }
     let mut ops = vec![];
     let mut renderer = Renderer {
-        base: renderer_base(physical_size, &mut ops, scale, transform),
+        base: renderer_base(physical_size, &mut ops, scale, transform, srgb_gamma22),
         state,
         logical_extents: node.node_absolute_position().at_point(0, 0),
         pixel_extents: {
@@ -1109,6 +1114,7 @@ pub fn renderer_base<'a>(
     ops: &'a mut Vec<GfxApiOp>,
     scale: Scale,
     transform: Transform,
+    default_cd: &'a Rc<ColorDescription>,
 ) -> RendererBase<'a> {
     let (width, height) = logical_size(physical_size, transform);
     RendererBase {
@@ -1119,6 +1125,7 @@ pub fn renderer_base<'a>(
         transform,
         fb_width: width as _,
         fb_height: height as _,
+        default_cd,
     }
 }
 

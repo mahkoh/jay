@@ -7,8 +7,7 @@ use {
         fixed::Fixed,
         format::ARGB8888,
         gfx_api::{
-            AcquireSync, AlphaMode, GfxContext, GfxFramebuffer, GfxTexture, ReleaseSync,
-            needs_render_usage,
+            AcquireSync, GfxContext, GfxFramebuffer, GfxTexture, ReleaseSync, needs_render_usage,
         },
         globals::GlobalName,
         ifs::zwlr_layer_shell_v1::OVERLAY,
@@ -16,7 +15,7 @@ use {
             ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
             ptl_text::{self, TextMeasurement},
         },
-        renderer::renderer_base::RendererBase,
+        renderer::renderer_base::{RenderTexture, RendererBase},
         scale::Scale,
         theme::Color,
         utils::{
@@ -226,22 +225,9 @@ impl GuiElement for Button {
             let (tx, ty) = r.scale_point_f(x1 + self.tex_off_x.get(), y1 + self.tex_off_y.get());
             r.render_texture(
                 &tex,
-                None,
                 tx.round() as _,
                 ty.round() as _,
-                None,
-                None,
-                r.scale(),
-                None,
-                None,
-                AcquireSync::None,
-                ReleaseSync::None,
-                false,
-                srgb_srgb,
-                RenderIntent::Perceptual,
-                AlphaMode::PremultipliedElectrical,
-                false,
-                None,
+                RenderTexture::default(),
             );
         }
     }
@@ -327,27 +313,14 @@ impl GuiElement for Label {
         (width as f32 / scale, height as f32 / scale)
     }
 
-    fn render_at(&self, color_manager: &ColorManager, r: &mut RendererBase, x: f32, y: f32) {
+    fn render_at(&self, _color_manager: &ColorManager, r: &mut RendererBase, x: f32, y: f32) {
         if let Some(tex) = self.tex.get() {
             let (tx, ty) = r.scale_point_f(x, y);
             r.render_texture(
                 &tex,
-                None,
                 tx.round() as _,
                 ty.round() as _,
-                None,
-                None,
-                r.scale(),
-                None,
-                None,
-                AcquireSync::None,
-                ReleaseSync::None,
-                false,
-                color_manager.srgb_gamma22(),
-                RenderIntent::Perceptual,
-                AlphaMode::PremultipliedElectrical,
-                false,
-                None,
+                RenderTexture::default(),
             );
         }
     }
@@ -657,15 +630,17 @@ impl WindowData {
             return;
         };
 
+        let srgb_gamma22 = self.dpy.state.color_manager.srgb_gamma22();
         let res = buf.fb.render_custom(
             AcquireSync::Implicit,
             ReleaseSync::Implicit,
-            self.dpy.state.color_manager.srgb_gamma22(),
+            srgb_gamma22,
             self.scale.get(),
             Some(&Color::from_gray_srgb(0)),
-            &self.dpy.state.color_manager.srgb_gamma22().linear,
+            &srgb_gamma22.linear,
             None,
             self.dpy.state.color_manager.srgb_linear(),
+            srgb_gamma22,
             &mut |r| {
                 if let Some(content) = self.content.get() {
                     content.render_at(&self.dpy.state.color_manager, r, 0.0, 0.0)
