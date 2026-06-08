@@ -423,10 +423,7 @@ fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer, x: Fixed
             &img.tex,
             extents.x1(),
             extents.y1(),
-            RenderTexture {
-                tscale: Some(scale),
-                ..Default::default()
-            },
+            RenderTexture::default(),
         );
     }
 }
