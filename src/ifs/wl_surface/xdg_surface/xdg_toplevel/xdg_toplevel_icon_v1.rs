@@ -392,6 +392,7 @@ impl XdgToplevelIconV1 {
             })],
             clear: format.has_alpha.then_some(Color::TRANSPARENT),
             clear_cd: srgb.linear.clone(),
+            flags: Default::default(),
         };
         for &key in keys {
             let [size] = key.scale.pixel_size([key.size]);

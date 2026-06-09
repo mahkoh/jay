@@ -114,6 +114,7 @@ pub struct GfxRenderPass {
     pub ops: Vec<GfxApiOp>,
     pub clear: Option<Color>,
     pub clear_cd: Rc<LinearColorDescription>,
+    pub flags: GfxFlags,
 }
 
 #[derive(Default, Debug, Copy, Clone, PartialEq)]
@@ -298,6 +299,11 @@ pub struct CopyTexture {
     pub lazy: Option<Rc<dyn LazyTexture>>,
 }
 
+bitflags! {
+    GfxFlags: u32;
+       GFX_HAS_LAZY,
+}
+
 pub trait LazyTexture: Debug {}
 
 #[derive(Clone, Debug, PartialEq)]
@@ -435,6 +441,7 @@ impl dyn GfxFramebuffer {
         release_sync: ReleaseSync,
         cd: &Rc<ColorDescription>,
         ops: &[GfxApiOp],
+        flags: GfxFlags,
         clear: Option<&Color>,
         clear_cd: &Rc<LinearColorDescription>,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
@@ -445,6 +452,7 @@ impl dyn GfxFramebuffer {
             release_sync,
             cd,
             ops,
+            flags,
             clear,
             clear_cd,
             &self.full_region(),
@@ -481,6 +489,7 @@ impl dyn GfxFramebuffer {
             release_sync,
             cd,
             &[],
+            GfxFlags::none(),
             Some(color),
             color_cd,
             None,
@@ -532,11 +541,13 @@ impl dyn GfxFramebuffer {
             },
         );
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
+        let flags = renderer.flags;
         self.render(
             fb_acquire_sync,
             fb_release_sync,
             fb_cd,
             &ops,
+            flags,
             clear,
             &fb_cd.linear,
             None,
@@ -560,11 +571,13 @@ impl dyn GfxFramebuffer {
         let mut ops = vec![];
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None, default_cd);
         f(&mut renderer);
+        let flags = renderer.flags;
         self.render(
             acquire_sync,
             release_sync,
             cd,
             &ops,
+            flags,
             clear,
             clear_cd,
             blend_buffer,
@@ -615,6 +628,7 @@ impl dyn GfxFramebuffer {
             release_sync,
             cd,
             &pass.ops,
+            pass.flags,
             pass.clear.as_ref(),
             &pass.clear_cd,
             region,
@@ -723,11 +737,13 @@ impl dyn GfxFramebuffer {
             bar_icons: None,
         };
         cursor.render_hardware_cursor(&mut renderer);
+        let flags = renderer.base.flags;
         self.render(
             acquire_sync,
             release_sync,
             cd,
             &ops,
+            flags,
             Some(&Color::TRANSPARENT),
             &cd.linear,
             None,
@@ -741,6 +757,7 @@ impl dyn GfxFramebuffer {
         release_sync: ReleaseSync,
         cd: &Rc<ColorDescription>,
         ops: &[GfxApiOp],
+        _flags: GfxFlags,
         clear: Option<&Color>,
         clear_cd: &Rc<LinearColorDescription>,
         region: &Region,
@@ -1066,6 +1083,7 @@ pub fn create_render_pass(
             ops: vec![],
             clear: Some(Color::SOLID_BLACK),
             clear_cd: srgb_gamma22.linear.clone(),
+            flags: Default::default(),
         };
     }
     let mut ops = vec![];
@@ -1130,10 +1148,12 @@ pub fn create_render_pass(
         true => Color::SOLID_BLACK,
         false => state.theme.colors.background.get(),
     };
+    let flags = renderer.base.flags;
     GfxRenderPass {
         ops,
         clear: Some(c),
         clear_cd: state.color_manager.srgb_gamma22().linear.clone(),
+        flags,
     }
 }
 
@@ -1154,6 +1174,7 @@ pub fn renderer_base<'a>(
         fb_width: width as _,
         fb_height: height as _,
         default_cd,
+        flags: Default::default(),
     }
 }
 

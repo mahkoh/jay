@@ -1542,11 +1542,13 @@ impl State {
             y = y + y_off - Fixed::from_int(position.y1());
             cursor.render(&mut renderer, x, y);
         }
+        let flags = renderer.base.flags;
         target.render(
             target_acquire_sync,
             target_release_sync,
             target_cd,
             &ops,
+            flags,
             Some(&Color::SOLID_BLACK),
             &target_cd.linear,
             None,
