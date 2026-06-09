@@ -10,7 +10,7 @@ use {
         cmm::cmm_description::ColorDescription,
         gfx_api::{
             AcquireSync, BufferResv, DirectScanoutPosition, GfxRenderPass, GfxTexture, LazyTexture,
-            ReleaseSync, SyncFile, create_render_pass,
+            ReleaseSync, SyncFile, TextureUse, create_render_pass,
         },
         ifs::wl_output::BlendSpace,
         rect::Region,
@@ -776,6 +776,9 @@ impl MetalConnector {
                 tex = buffer.render.tex.clone();
             }
             Some(dsd) => {
+                if let Some(lazy) = &dsd.lazy {
+                    lazy.record_use(TextureUse::Scanout);
+                }
                 let sync = match &dsd.acquire_sync {
                     AcquireSync::None => None,
                     AcquireSync::Implicit => None,

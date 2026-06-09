@@ -304,7 +304,15 @@ bitflags! {
        GFX_HAS_LAZY,
 }
 
-pub trait LazyTexture: Debug {}
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Linearize)]
+pub enum TextureUse {
+    Render,
+    Scanout,
+}
+
+pub trait LazyTexture: Debug {
+    fn record_use(&self, ty: TextureUse);
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SyncFile(pub Rc<OwnedFd>);
@@ -757,13 +765,22 @@ impl dyn GfxFramebuffer {
         release_sync: ReleaseSync,
         cd: &Rc<ColorDescription>,
         ops: &[GfxApiOp],
-        _flags: GfxFlags,
+        flags: GfxFlags,
         clear: Option<&Color>,
         clear_cd: &Rc<LinearColorDescription>,
         region: &Region,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
     ) -> Result<Option<FdSync>, GfxError> {
+        if flags.intersects(GFX_HAS_LAZY) {
+            for op in ops {
+                if let GfxApiOp::CopyTexture(ct) = op
+                    && let Some(lazy) = &ct.lazy
+                {
+                    lazy.record_use(TextureUse::Render);
+                }
+            }
+        }
         self.clone().render_with_region_impl(
             acquire_sync,
             release_sync,

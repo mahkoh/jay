@@ -17,7 +17,7 @@ use {
         gfx_api::{
             AcquireSync, BufferResv, DirectScanoutPosition, FdSync, GfxBlendBuffer, GfxContext,
             GfxError, GfxFramebuffer, GfxRenderPass, GfxTexture, LazyTexture, ReleaseSync,
-            create_render_pass,
+            TextureUse, create_render_pass,
         },
         ifs::{
             wl_output::{BlendSpace, OutputId},
@@ -472,6 +472,9 @@ impl VirtualOutput {
             if let Some(latched) = &latched {
                 let sync;
                 if let Some(dsd) = self.prepare_direct_scanout(&be_state, blend_cd, &cd, latched) {
+                    if let Some(lazy) = &dsd.lazy {
+                        lazy.record_use(TextureUse::Scanout);
+                    }
                     sync = match dsd.acquire_sync.clone() {
                         AcquireSync::None => None,
                         AcquireSync::Implicit => None,
