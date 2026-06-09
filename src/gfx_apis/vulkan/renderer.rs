@@ -1817,11 +1817,26 @@ impl VulkanRenderer {
         &self,
         fb: &VulkanImage,
         fb_acquire_sync: &AcquireSync,
+        sync: &[FdSync],
     ) -> Result<(), VulkanError> {
         zone!("create_wait_semaphores");
         let mut memory = self.memory.borrow_mut();
         let memory = &mut *memory;
         memory.wait_semaphore_infos.clear();
+        let import_sync_file = |infos: &mut Vec<SemaphoreSubmitInfoKHR>,
+                                semaphores: &mut Vec<Rc<VulkanSemaphore>>,
+                                fd: OwnedFd|
+         -> Result<(), VulkanError> {
+            let semaphore = self.allocate_semaphore()?;
+            semaphore.import_sync_file(fd)?;
+            infos.push(
+                SemaphoreSubmitInfo::default()
+                    .semaphore(semaphore.semaphore)
+                    .stage_mask(PipelineStageFlags2::TOP_OF_PIPE),
+            );
+            semaphores.push(semaphore);
+            Ok(())
+        };
         let import = |infos: &mut Vec<SemaphoreSubmitInfoKHR>,
                       semaphores: &mut Vec<Rc<VulkanSemaphore>>,
                       img: &VulkanImage,
@@ -1830,15 +1845,7 @@ impl VulkanRenderer {
          -> Result<(), VulkanError> {
             if let VulkanImageMemory::DmaBuf(buf) = &img.ty {
                 let mut import_sync_file = |fd: OwnedFd| -> Result<(), VulkanError> {
-                    let semaphore = self.allocate_semaphore()?;
-                    semaphore.import_sync_file(fd)?;
-                    infos.push(
-                        SemaphoreSubmitInfo::default()
-                            .semaphore(semaphore.semaphore)
-                            .stage_mask(PipelineStageFlags2::TOP_OF_PIPE),
-                    );
-                    semaphores.push(semaphore);
-                    Ok(())
+                    import_sync_file(infos, semaphores, fd)
                 };
                 match sync {
                     AcquireSync::None => {}
@@ -1881,6 +1888,17 @@ impl VulkanRenderer {
             fb_acquire_sync,
             DMA_BUF_SYNC_WRITE,
         )?;
+        for sync in sync {
+            if let Some(sync_file) = sync.get_sync_file() {
+                let fd =
+                    uapi::fcntl_dupfd_cloexec(sync_file.raw(), 0).map_os_err(VulkanError::Dupfd)?;
+                import_sync_file(
+                    &mut memory.wait_semaphore_infos,
+                    &mut memory.wait_semaphores,
+                    fd,
+                )?;
+            }
+        }
         Ok(())
     }
 
@@ -2028,6 +2046,7 @@ impl VulkanRenderer {
         region: &Region,
         blend_buffer: Option<Rc<VulkanImage>>,
         blend_cd: &Rc<ColorDescription>,
+        sync: &[FdSync],
     ) -> Result<Option<FdSync>, VulkanError> {
         zone!("execute");
         let res = self.try_execute(
@@ -2041,6 +2060,7 @@ impl VulkanRenderer {
             region,
             blend_buffer,
             blend_cd,
+            sync,
         );
         let sync = {
             let mut memory = self.memory.borrow_mut();
@@ -2310,6 +2330,7 @@ impl VulkanRenderer {
         region: &Region,
         mut blend_buffer: Option<Rc<VulkanImage>>,
         bb_cd: &Rc<ColorDescription>,
+        sync: &[FdSync],
     ) -> Result<(), VulkanError> {
         self.check_defunct()?;
         self.elide_blend_buffer1(&mut blend_buffer, bb_cd, fb_cd);
@@ -2350,7 +2371,7 @@ impl VulkanRenderer {
         self.copy_bridge_to_dmabuf(buf.buffer, fb, region);
         self.final_barriers(buf.buffer, fb);
         self.end_command_buffer(buf.buffer)?;
-        self.create_wait_semaphores(fb, &fb_acquire_sync)?;
+        self.create_wait_semaphores(fb, &fb_acquire_sync, sync)?;
         self.submit(buf.buffer)?;
         self.import_release_semaphore(fb, fb_release_sync);
         self.store_layouts(fb, bb);

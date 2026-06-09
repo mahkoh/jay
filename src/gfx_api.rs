@@ -312,6 +312,8 @@ pub enum TextureUse {
 
 pub trait LazyTexture: Debug {
     fn record_use(&self, ty: TextureUse);
+    fn perform_lazy_work(&self, sync: &mut Vec<FdSync>) -> Result<(), Box<dyn Error + Send>>;
+    fn has_lazy_work(&self) -> bool;
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -418,6 +420,7 @@ pub trait GfxFramebuffer: Debug {
         region: &Region,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
+        sync: &[FdSync],
     ) -> Result<Option<FdSync>, GfxError>;
 
     fn format(&self) -> &'static Format;
@@ -772,12 +775,14 @@ impl dyn GfxFramebuffer {
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
     ) -> Result<Option<FdSync>, GfxError> {
+        let mut sync = vec![];
         if flags.intersects(GFX_HAS_LAZY) {
             for op in ops {
                 if let GfxApiOp::CopyTexture(ct) = op
                     && let Some(lazy) = &ct.lazy
                 {
                     lazy.record_use(TextureUse::Render);
+                    lazy.perform_lazy_work(&mut sync).map_err(GfxError)?;
                 }
             }
         }
@@ -791,6 +796,7 @@ impl dyn GfxFramebuffer {
             region,
             blend_buffer,
             blend_cd,
+            &sync,
         )
     }
 }
@@ -1000,6 +1006,11 @@ pub trait GfxContext: Debug {
         #[error("Host buffers are not supported")]
         struct E;
         Err(GfxError(Box::new(E)))
+    }
+
+    #[expect(dead_code)]
+    fn supports_wait_sync(&self) -> bool {
+        false
     }
 }
 

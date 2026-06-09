@@ -26,6 +26,7 @@ use {
     std::{
         cell::Cell,
         env,
+        error::Error,
         fmt::{Debug, Formatter},
         rc::Rc,
         slice,
@@ -183,6 +184,15 @@ impl Drop for PrimeSurfaceBuffer {
 impl LazyTexture for PrimeSurfaceBuffer {
     fn record_use(&self, ty: TextureUse) {
         self.inner.usage[ty].set(self.inner.state.now_nsec());
+    }
+
+    fn perform_lazy_work(&self, sync: &mut Vec<FdSync>) -> Result<(), Box<dyn Error + Send>> {
+        let _ = sync;
+        Ok(())
+    }
+
+    fn has_lazy_work(&self) -> bool {
+        false
     }
 }
 

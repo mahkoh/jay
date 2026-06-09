@@ -652,6 +652,14 @@ impl MetalConnector {
                 release_sync = buf.release_sync;
             }
             _ if self.dev.is_render_device() => {
+                if let Some(lazy) = &ct.lazy
+                    && lazy.has_lazy_work()
+                {
+                    // if there is lazy work, the tex dmabuf is not up-to-date. going into
+                    // the compositing path ensures that it's up-to-date on the next
+                    // frame.
+                    return None;
+                }
                 fb_resv = None;
                 dmabuf = ct.tex.dmabuf();
                 release_sync = ct.release_sync;

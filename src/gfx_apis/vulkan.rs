@@ -450,6 +450,10 @@ impl GfxContext for Context {
                 .create_dmabuf_buffer(dmabuf, offset as u64, size as u64, format)?;
         Ok(buffer)
     }
+
+    fn supports_wait_sync(&self) -> bool {
+        true
+    }
 }
 
 impl Drop for Context {
