@@ -416,6 +416,12 @@ impl DynamicDamageQueueElement {
         let damage = unsafe { self.damage.get().deref() };
         Region::from_rects2(damage)
     }
+
+    #[expect(dead_code)]
+    pub fn damage_self(&self, rects: &[Rect]) {
+        let damage = unsafe { self.damage.get().deref_mut() };
+        damage.extend_from_slice(rects);
+    }
 }
 
 impl Deref for DynamicDamageQueueElement {
