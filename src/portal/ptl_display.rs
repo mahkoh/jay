@@ -1,5 +1,6 @@
 use {
     crate::{
+        fixed::Fixed,
         gfx_api::{GfxApi, GfxFormat, cross_intersect_formats},
         gfx_apis::create_gfx_context,
         globals::GlobalName,
@@ -140,9 +141,9 @@ impl UsrWlPointerOwner for PortalSeat {
         self.pointer_focus.take();
     }
 
-    fn motion(self: Rc<Self>, ev: &wl_pointer::Motion) {
+    fn motion(self: Rc<Self>, x: Fixed, y: Fixed) {
         if let Some(window) = self.pointer_focus.get() {
-            window.motion(&self, ev.surface_x, ev.surface_y, false);
+            window.motion(&self, x, y, false);
         }
     }
 

@@ -1,5 +1,6 @@
 use {
     crate::{
+        fixed::Fixed,
         ifs::wl_seat::wl_pointer::PendingScroll,
         object::Version,
         utils::clonecell::CloneCell,
@@ -27,8 +28,9 @@ pub trait UsrWlPointerOwner {
         let _ = ev;
     }
 
-    fn motion(self: Rc<Self>, ev: &Motion) {
-        let _ = ev;
+    fn motion(self: Rc<Self>, x: Fixed, y: Fixed) {
+        let _ = x;
+        let _ = y;
     }
 
     fn button(self: Rc<Self>, ev: &Button) {
@@ -71,7 +73,7 @@ impl WlPointerEventHandler for UsrWlPointer {
 
     fn motion(&self, ev: Motion, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
-            owner.motion(&ev);
+            owner.motion(ev.surface_x, ev.surface_y);
         }
         Ok(())
     }
@@ -135,6 +137,13 @@ impl WlPointerEventHandler for UsrWlPointer {
         _ev: AxisRelativeDirection,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn warp(&self, ev: Warp, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        if let Some(owner) = self.owner.get() {
+            owner.motion(ev.surface_x, ev.surface_y);
+        }
         Ok(())
     }
 }

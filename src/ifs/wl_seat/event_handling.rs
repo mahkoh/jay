@@ -27,7 +27,8 @@ use {
                     self, AXIS_DISCRETE_SINCE_VERSION, AXIS_RELATIVE_DIRECTION_SINCE_VERSION,
                     AXIS_SOURCE_SINCE_VERSION, AXIS_STOP_SINCE_VERSION,
                     AXIS_VALUE120_SINCE_VERSION, IDENTICAL, INVERTED, POINTER_FRAME_SINCE_VERSION,
-                    PendingScroll, WHEEL_TILT, WHEEL_TILT_SINCE_VERSION, WlPointer,
+                    POINTER_WARP_SINCE_VERSION, PendingScroll, WHEEL_TILT,
+                    WHEEL_TILT_SINCE_VERSION, WlPointer,
                 },
                 wl_touch::WlTouch,
                 zwp_pointer_constraints_v1::{ConstraintType, SeatConstraintStatus},
@@ -1511,7 +1512,14 @@ impl WlSeatGlobal {
                 break 'send_motion;
             }
             let time = (self.pos_time_usec.get() / 1000) as u32;
-            self.surface_pointer_event(Version::ALL, n, |p| p.send_motion(time, x, y));
+            let warp = self.changes.get().not_contains(CHANGE_CURSOR_MOVED);
+            self.surface_pointer_event(Version::ALL, n, |p| {
+                if warp && p.seat.version >= POINTER_WARP_SINCE_VERSION {
+                    p.send_warp(x, y);
+                } else {
+                    p.send_motion(time, x, y);
+                }
+            });
         }
         self.surface_pointer_frame(n);
         self.maybe_constrain(n, x, y);

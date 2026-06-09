@@ -65,3 +65,8 @@ event axis_relative_direction (since = 9) {
     axis: u32,
     direction: u32,
 }
+
+event warp (since = 11) {
+    surface_x: fixed,
+    surface_y: fixed,
+}

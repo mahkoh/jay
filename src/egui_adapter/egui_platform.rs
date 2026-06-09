@@ -33,7 +33,7 @@ use {
         },
         wire::{
             WlSurfaceId,
-            wl_pointer::{Button, Enter, Leave, Motion},
+            wl_pointer::{Button, Enter, Leave},
             wp_fractional_scale_v1::PreferredScale,
         },
         wl_usr::{
@@ -1042,8 +1042,8 @@ impl UsrWlPointerOwner for EggSeatInner {
         (&self).leave();
     }
 
-    fn motion(self: Rc<Self>, ev: &Motion) {
-        (&self).motion(ev.surface_x, ev.surface_y);
+    fn motion(self: Rc<Self>, x: Fixed, y: Fixed) {
+        (&self).motion(x, y);
     }
 
     fn button(self: Rc<Self>, ev: &Button) {
