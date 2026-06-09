@@ -36,6 +36,7 @@ pub const AXIS_STOP_SINCE_VERSION: Version = Version(5);
 pub const WHEEL_TILT_SINCE_VERSION: Version = Version(6);
 pub const AXIS_VALUE120_SINCE_VERSION: Version = Version(8);
 pub const AXIS_RELATIVE_DIRECTION_SINCE_VERSION: Version = Version(9);
+pub const POINTER_WARP_SINCE_VERSION: Version = Version(11);
 
 #[derive(Default, Debug)]
 pub struct PendingScroll {
@@ -103,6 +104,18 @@ impl WlPointer {
             self_id: self.id,
             serial: serial as u32,
             surface,
+        })
+    }
+
+    pub fn send_warp(&self, mut x: Fixed, mut y: Fixed) {
+        if self.last_motion.replace((x, y)) == (x, y) {
+            return;
+        }
+        logical_to_client_wire_scale!(self.seat.client, x, y);
+        self.seat.client.event(Warp {
+            self_id: self.id,
+            surface_x: x,
+            surface_y: y,
         })
     }
 

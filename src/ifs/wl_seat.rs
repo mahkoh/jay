@@ -1748,7 +1748,7 @@ global_base!(WlSeatGlobal, WlSeat, WlSeatError);
 
 impl Global for WlSeatGlobal {
     fn version(&self) -> u32 {
-        10
+        11
     }
 }
 

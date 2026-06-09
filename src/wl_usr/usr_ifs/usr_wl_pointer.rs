@@ -139,6 +139,13 @@ impl WlPointerEventHandler for UsrWlPointer {
     ) -> Result<(), Self::Error> {
         Ok(())
     }
+
+    fn warp(&self, ev: Warp, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        if let Some(owner) = self.owner.get() {
+            owner.motion(ev.surface_x, ev.surface_y);
+        }
+        Ok(())
+    }
 }
 
 usr_object_base! {
