@@ -3,13 +3,16 @@ use {
         allocator::{AllocatorError, BO_USE_SCANOUT, BufferObject, BufferUsage},
         backend::DrmDeviceId,
         copy_device::{CopyDevice, CopyDeviceDstObject, CopyDeviceError, CopyDeviceSrcObject},
-        gfx_api::{BufferResv, BufferResvUser, FdSync, GfxContext, GfxError, GfxTexture},
+        gfx_api::{
+            BufferResv, BufferResvUser, FdSync, GfxContext, GfxError, GfxTexture, LazyTexture,
+            TextureUse,
+        },
         ifs::{
             wl_buffer::{WlBuffer, WlBufferDmabufStorage, WlBufferStorage},
             wl_surface::WlSurface,
         },
         rect::{DynamicDamageQueue, DynamicDamageQueueElement, Rect, Region},
-        state::PrimeModifiers,
+        state::{PrimeModifiers, State},
         udmabuf::{UdmabufError, UdmabufHolder},
         utils::{
             clonecell::CloneCell, copyhashmap::CopyHashMap, numcell::NumCell,
@@ -18,8 +21,10 @@ use {
         video::dmabuf::{DmaBuf, DmabufCopy},
     },
     arrayvec::ArrayVec,
+    linearize::StaticMap,
     smallvec::SmallVec,
     std::{
+        cell::Cell,
         env,
         fmt::{Debug, Formatter},
         rc::Rc,
@@ -50,7 +55,6 @@ pub enum PrimeError {
     CreateSrcObject(#[source] CopyDeviceError),
 }
 
-#[derive(Default)]
 pub struct SurfacePrimeState {
     pub buffer: CloneCell<Option<Rc<PrimeSurfaceBuffer>>>,
     inner: Rc<StateInner>,
@@ -60,10 +64,11 @@ pub struct SurfacePrimeState {
     udmabuf_dst_objects: CopyHashMap<DrmDeviceId, Rc<CopyDeviceDstObject>>,
 }
 
-#[derive(Default)]
 struct StateInner {
     version: NumCell<u64>,
     storage: SyncQueue<Rc<PrimeStorage>>,
+    state: Rc<State>,
+    usage: StaticMap<TextureUse, Cell<u64>>,
 }
 
 pub struct PrimeSurfaceBuffer {
@@ -115,6 +120,22 @@ impl PrimeValidity {
 }
 
 impl SurfacePrimeState {
+    pub fn new(state: &Rc<State>) -> Self {
+        Self {
+            buffer: Default::default(),
+            inner: Rc::new(StateInner {
+                version: Default::default(),
+                storage: Default::default(),
+                state: state.clone(),
+                usage: Default::default(),
+            }),
+            damage: Default::default(),
+            udmabuf: Default::default(),
+            udmabuf_src_object: Default::default(),
+            udmabuf_dst_objects: Default::default(),
+        }
+    }
+
     pub fn validity(&self) -> PrimeValidity {
         PrimeValidity {
             version: self.inner.version.get(),
@@ -156,6 +177,12 @@ impl Drop for PrimeSurfaceBuffer {
             return;
         }
         i.storage.push(self.storage.clone());
+    }
+}
+
+impl LazyTexture for PrimeSurfaceBuffer {
+    fn record_use(&self, ty: TextureUse) {
+        self.inner.usage[ty].set(self.inner.state.now_nsec());
     }
 }
 

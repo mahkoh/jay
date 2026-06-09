@@ -1,7 +1,9 @@
 use {
     crate::{
         cmm::cmm_render_intent::RenderIntent,
-        gfx_api::{AcquireSync, BufferResv, GfxApiOp, GfxTexture, ReleaseSync, SampleRect},
+        gfx_api::{
+            AcquireSync, BufferResv, GfxApiOp, GfxTexture, LazyTexture, ReleaseSync, SampleRect,
+        },
         icons::{IconState, SizedBarIcons, SizedTitleIcons},
         ifs::wl_surface::{
             SurfaceBuffer, WlSurface,
@@ -554,7 +556,8 @@ impl Renderer<'_> {
                               tex: &Rc<dyn GfxTexture>,
                               buffer: Rc<dyn BufferResv>,
                               release_sync: ReleaseSync,
-                              client_buf: Option<Rc<SurfaceBuffer>>| {
+                              client_buf: Option<Rc<SurfaceBuffer>>,
+                              lazy: Option<Rc<dyn LazyTexture>>| {
             let mut opaque = surface.opaque();
             if !opaque && tex.format().has_alpha {
                 opaque = slf.bounds_are_opaque(x, y, bounds, surface);
@@ -576,6 +579,7 @@ impl Renderer<'_> {
                     render_intent: intent,
                     alpha_mode,
                     client_buf,
+                    lazy,
                     ..Default::default()
                 },
             );
@@ -592,10 +596,11 @@ impl Renderer<'_> {
                 prime.clone(),
                 ReleaseSync::Explicit,
                 Some(buffer),
+                Some(prime.clone()),
             );
         } else {
             if let Some(tex) = buf.get_texture(surface) {
-                render_texture(self, &tex, buffer.clone(), buffer.release_sync, None);
+                render_texture(self, &tex, buffer.clone(), buffer.release_sync, None, None);
             } else if let Some(color) = &buf.color {
                 if let Some(rect) = Rect::new_sized(x, y, tsize.0, tsize.1) {
                     let rect = match bounds {
