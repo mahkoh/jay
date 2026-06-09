@@ -40,8 +40,8 @@ use {
         forker::ForkerProxy,
         format::Format,
         gfx_api::{
-            AcquireSync, BufferResv, FdSync, GfxApi, GfxBlendBuffer, GfxContext, GfxError,
-            GfxFramebuffer, GfxTexture, LazyTexture, PendingShmTransfer, ReleaseSync,
+            AcquireSync, BufferResv, BufferResvUser, FdSync, GfxApi, GfxBlendBuffer, GfxContext,
+            GfxError, GfxFramebuffer, GfxTexture, LazyTexture, PendingShmTransfer, ReleaseSync,
             STAGING_DOWNLOAD, SampleRect,
         },
         gfx_apis::create_gfx_context,
@@ -327,6 +327,7 @@ pub struct State {
     pub dmabuf_feedback: DmaBufFeedbackState,
     pub surface_pending_cache: PendingStateCache,
     pub no_client_prime: bool,
+    pub lazy_prime_buffer_resv_user: BufferResvUser,
 }
 
 // impl Drop for State {

@@ -176,7 +176,6 @@ where
         }
     }
 
-    #[cfg_attr(not(feature = "it"), expect(dead_code))]
     pub fn extents(&self) -> Rect {
         self.extents
     }
@@ -417,7 +416,6 @@ impl DynamicDamageQueueElement {
         Region::from_rects2(damage)
     }
 
-    #[expect(dead_code)]
     pub fn damage_self(&self, rects: &[Rect]) {
         let damage = unsafe { self.damage.get().deref_mut() };
         damage.extend_from_slice(rects);

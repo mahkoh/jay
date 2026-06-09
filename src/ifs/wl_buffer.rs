@@ -521,6 +521,7 @@ impl WlBuffer {
                             self,
                             storage,
                             slice::from_ref(&self.rect),
+                            false,
                         )
                         .map_err(WlBufferError::PreparePrimeCopy)?;
                     if let Some((copies, psb)) = copies {

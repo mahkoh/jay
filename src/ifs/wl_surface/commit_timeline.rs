@@ -864,8 +864,9 @@ fn schedule_prime_copy(
         &pending.buffer_damage
     };
     let validity = surface.prime.validity();
+    let allow_lazy = ctx.supports_wait_sync();
     let copies = surface
-        .prepare_prime_copies(ctx, render_dev, buf, storage, damage)
+        .prepare_prime_copies(ctx, render_dev, buf, storage, damage, allow_lazy)
         .map_err(WlSurfaceError::PreparePrimeCopy)?;
     let Some((copies, psb)) = copies else {
         pending.prime_buffer = None;

@@ -1008,7 +1008,6 @@ pub trait GfxContext: Debug {
         Err(GfxError(Box::new(E)))
     }
 
-    #[expect(dead_code)]
     fn supports_wait_sync(&self) -> bool {
         false
     }
