@@ -6,7 +6,7 @@ use {
         },
         gfx_api::{
             AcquireSync, AlphaMode, BufferResv, CopyTexture, FillRect, FramebufferRect, GfxApiOp,
-            GfxTexture, ReleaseSync, SampleRect,
+            GfxTexture, LazyTexture, ReleaseSync, SampleRect,
         },
         ifs::wl_surface::SurfaceBuffer,
         rect::Rect,
@@ -50,6 +50,7 @@ pub struct RenderTexture<'a> {
     pub alpha_mode: AlphaMode,
     pub grayscale: bool,
     pub client_buf: Option<Rc<SurfaceBuffer>>,
+    pub lazy: Option<Rc<dyn LazyTexture>>,
 }
 
 impl RendererBase<'_> {
@@ -228,6 +229,7 @@ impl RendererBase<'_> {
             alpha_mode,
             grayscale,
             client_buf,
+            lazy,
         } = args;
         let tscale = tscale.unwrap_or(self.scale);
 
@@ -278,6 +280,7 @@ impl RendererBase<'_> {
             alpha_mode,
             grayscale,
             client_buf,
+            lazy,
         }));
     }
 

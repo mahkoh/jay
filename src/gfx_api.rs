@@ -295,7 +295,10 @@ pub struct CopyTexture {
     pub alpha_mode: AlphaMode,
     pub grayscale: bool,
     pub client_buf: Option<Rc<SurfaceBuffer>>,
+    pub lazy: Option<Rc<dyn LazyTexture>>,
 }
+
+pub trait LazyTexture: Debug {}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SyncFile(pub Rc<OwnedFd>);

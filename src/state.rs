@@ -41,8 +41,8 @@ use {
         format::Format,
         gfx_api::{
             AcquireSync, BufferResv, FdSync, GfxApi, GfxBlendBuffer, GfxContext, GfxError,
-            GfxFramebuffer, GfxTexture, PendingShmTransfer, ReleaseSync, STAGING_DOWNLOAD,
-            SampleRect,
+            GfxFramebuffer, GfxTexture, LazyTexture, PendingShmTransfer, ReleaseSync,
+            STAGING_DOWNLOAD, SampleRect,
         },
         gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, RemovableWaylandGlobal, WaylandGlobal},
@@ -1465,6 +1465,7 @@ impl State {
             tex,
             cd,
             None,
+            None,
             &AcquireSync::Unnecessary,
             ReleaseSync::None,
             !render_hw_cursor,
@@ -1479,6 +1480,7 @@ impl State {
         &self,
         src: &Rc<dyn GfxTexture>,
         resv: Option<&Rc<dyn BufferResv>>,
+        lazy: Option<&Rc<dyn LazyTexture>>,
         acquire_sync: &AcquireSync,
         release_sync: ReleaseSync,
         src_cd: &Rc<ColorDescription>,
@@ -1526,6 +1528,7 @@ impl State {
                 acquire_sync: acquire_sync.clone(),
                 release_sync,
                 cd: Some(src_cd),
+                lazy: lazy.cloned(),
                 ..Default::default()
             },
         );
@@ -1556,6 +1559,7 @@ impl State {
         src: &Rc<dyn GfxTexture>,
         src_cd: &Rc<ColorDescription>,
         resv: Option<&Rc<dyn BufferResv>>,
+        lazy: Option<&Rc<dyn LazyTexture>>,
         acquire_sync: &AcquireSync,
         position: Rect,
         x_off: i32,
@@ -1584,6 +1588,7 @@ impl State {
         self.perform_screencopy(
             src,
             resv,
+            lazy,
             acquire_sync,
             ReleaseSync::None,
             src_cd,

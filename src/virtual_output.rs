@@ -16,7 +16,8 @@ use {
         format::{Format, XRGB8888},
         gfx_api::{
             AcquireSync, BufferResv, DirectScanoutPosition, FdSync, GfxBlendBuffer, GfxContext,
-            GfxError, GfxFramebuffer, GfxRenderPass, GfxTexture, ReleaseSync, create_render_pass,
+            GfxError, GfxFramebuffer, GfxRenderPass, GfxTexture, LazyTexture, ReleaseSync,
+            create_render_pass,
         },
         ifs::{
             wl_output::{BlendSpace, OutputId},
@@ -179,6 +180,7 @@ struct CursorChange<'a> {
 
 struct DirectScanoutData {
     buffer_resv: Option<Rc<dyn BufferResv>>,
+    lazy: Option<Rc<dyn LazyTexture>>,
     tex: Rc<dyn GfxTexture>,
     acquire_sync: AcquireSync,
     release_sync: ReleaseSync,
@@ -510,6 +512,7 @@ impl VirtualOutput {
                                 &fb.tex,
                                 &cd,
                                 None,
+                                None,
                                 &AcquireSync::Unnecessary,
                                 ReleaseSync::None,
                                 true,
@@ -523,6 +526,7 @@ impl VirtualOutput {
                                 &dsd.tex,
                                 &cd,
                                 dsd.buffer_resv.as_ref(),
+                                dsd.lazy.as_ref(),
                                 &dsd.acquire_sync,
                                 dsd.release_sync,
                                 true,
@@ -618,6 +622,7 @@ impl VirtualOutput {
         )?;
         Some(DirectScanoutData {
             buffer_resv: ct.buffer_resv.clone(),
+            lazy: ct.lazy.clone(),
             tex: ct.tex.clone(),
             acquire_sync: ct.acquire_sync.clone(),
             release_sync: ct.release_sync,
