@@ -5,8 +5,8 @@ use {
             cmm_render_intent::RenderIntent,
         },
         gfx_api::{
-            AcquireSync, AlphaMode, BufferResv, CopyTexture, FillRect, FramebufferRect, GfxApiOp,
-            GfxTexture, ReleaseSync, SampleRect,
+            AcquireSync, AlphaMode, BufferResv, CopyTexture, FillRect, FramebufferRect,
+            GFX_HAS_LAZY, GfxApiOp, GfxFlags, GfxTexture, LazyTexture, ReleaseSync, SampleRect,
         },
         ifs::wl_surface::SurfaceBuffer,
         rect::Rect,
@@ -27,6 +27,7 @@ pub struct RendererBase<'a> {
     pub fb_width: f32,
     pub fb_height: f32,
     pub default_cd: &'a Rc<ColorDescription>,
+    pub flags: GfxFlags,
 }
 
 #[derive(Derivative)]
@@ -50,6 +51,7 @@ pub struct RenderTexture<'a> {
     pub alpha_mode: AlphaMode,
     pub grayscale: bool,
     pub client_buf: Option<Rc<SurfaceBuffer>>,
+    pub lazy: Option<Rc<dyn LazyTexture>>,
 }
 
 impl RendererBase<'_> {
@@ -228,6 +230,7 @@ impl RendererBase<'_> {
             alpha_mode,
             grayscale,
             client_buf,
+            lazy,
         } = args;
         let tscale = tscale.unwrap_or(self.scale);
 
@@ -264,6 +267,10 @@ impl RendererBase<'_> {
             self.fb_height,
         );
 
+        if lazy.is_some() {
+            self.flags |= GFX_HAS_LAZY;
+        }
+
         self.ops.push(GfxApiOp::CopyTexture(CopyTexture {
             tex: texture.clone(),
             source: texcoord,
@@ -278,6 +285,7 @@ impl RendererBase<'_> {
             alpha_mode,
             grayscale,
             client_buf,
+            lazy,
         }));
     }
 

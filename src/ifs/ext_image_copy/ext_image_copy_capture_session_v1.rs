@@ -5,7 +5,7 @@ use {
         format::{FORMATS, Format},
         gfx_api::{
             AcquireSync, BufferResv, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture,
-            PendingShmTransfer, ReleaseSync,
+            LazyTexture, PendingShmTransfer, ReleaseSync,
         },
         ifs::{
             ext_image_capture_source_v1::ImageCaptureSource,
@@ -216,6 +216,7 @@ impl ExtImageCopyCaptureSessionV1 {
         texture: &Rc<dyn GfxTexture>,
         cd: &Rc<ColorDescription>,
         resv: Option<&Rc<dyn BufferResv>>,
+        lazy: Option<&Rc<dyn LazyTexture>>,
         acquire_sync: &AcquireSync,
         release_sync: ReleaseSync,
         render_hardware_cursors: bool,
@@ -231,6 +232,7 @@ impl ExtImageCopyCaptureSessionV1 {
                 texture,
                 cd,
                 resv,
+                lazy,
                 acquire_sync,
                 release_sync,
                 render_hardware_cursors,

@@ -5,7 +5,8 @@ use {
         cmm::cmm_description::ColorDescription,
         format::XRGB8888,
         gfx_api::{
-            AcquireSync, BufferResv, GfxContext, GfxError, GfxFramebuffer, GfxTexture, ReleaseSync,
+            AcquireSync, BufferResv, GfxContext, GfxError, GfxFramebuffer, GfxTexture, LazyTexture,
+            ReleaseSync,
         },
         ifs::{jay_output::JayOutput, jay_toplevel::JayToplevel, wl_buffer::WlBufferStorage},
         leaks::Tracker,
@@ -310,6 +311,7 @@ impl JayScreencast {
         texture: &Rc<dyn GfxTexture>,
         cd: &Rc<ColorDescription>,
         resv: Option<&Rc<dyn BufferResv>>,
+        lazy: Option<&Rc<dyn LazyTexture>>,
         acquire_sync: &AcquireSync,
         release_sync: ReleaseSync,
         render_hardware_cursors: bool,
@@ -336,6 +338,7 @@ impl JayScreencast {
                 let res = self.client.state.perform_screencopy(
                     texture,
                     resv,
+                    lazy,
                     acquire_sync,
                     release_sync,
                     cd,

@@ -677,7 +677,7 @@ impl WlSurface {
                 tex: Default::default(),
                 damage,
             })),
-            prime: Default::default(),
+            prime: SurfacePrimeState::new(state),
             buf_x: Default::default(),
             buf_y: Default::default(),
             children: Default::default(),

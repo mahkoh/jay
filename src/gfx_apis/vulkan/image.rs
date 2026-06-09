@@ -603,7 +603,7 @@ impl GfxFramebuffer for VulkanImage {
         (self.width as _, self.height as _)
     }
 
-    fn render_with_region(
+    fn render_with_region_impl(
         self: Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
@@ -614,6 +614,7 @@ impl GfxFramebuffer for VulkanImage {
         region: &Region,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
+        sync: &[FdSync],
     ) -> Result<Option<FdSync>, GfxError> {
         let mut blend_buffer = blend_buffer
             .map(|b| b.clone().into_vk(&self.renderer.device.device))
@@ -640,6 +641,7 @@ impl GfxFramebuffer for VulkanImage {
                 region,
                 blend_buffer,
                 blend_cd,
+                sync,
             )
             .map_err(|e| e.into())
     }

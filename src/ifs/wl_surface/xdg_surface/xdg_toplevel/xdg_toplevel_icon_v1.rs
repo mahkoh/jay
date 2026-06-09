@@ -388,9 +388,11 @@ impl XdgToplevelIconV1 {
                 alpha_mode: AlphaMode::PremultipliedElectrical,
                 grayscale: false,
                 client_buf: None,
+                lazy: None,
             })],
             clear: format.has_alpha.then_some(Color::TRANSPARENT),
             clear_cd: srgb.linear.clone(),
+            flags: Default::default(),
         };
         for &key in keys {
             let [size] = key.scale.pixel_size([key.size]);

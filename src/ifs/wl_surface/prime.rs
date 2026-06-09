@@ -3,24 +3,33 @@ use {
         allocator::{AllocatorError, BO_USE_SCANOUT, BufferObject, BufferUsage},
         backend::DrmDeviceId,
         copy_device::{CopyDevice, CopyDeviceDstObject, CopyDeviceError, CopyDeviceSrcObject},
-        gfx_api::{BufferResv, BufferResvUser, FdSync, GfxContext, GfxError, GfxTexture},
+        gfx_api::{
+            BufferResv, BufferResvUser, FdSync, GfxContext, GfxError, GfxTexture, LazyTexture,
+            TextureUse,
+        },
         ifs::{
             wl_buffer::{WlBuffer, WlBufferDmabufStorage, WlBufferStorage},
             wl_surface::WlSurface,
         },
+        io_uring::{PendingPoll, PollCallback},
         rect::{DynamicDamageQueue, DynamicDamageQueueElement, Rect, Region},
-        state::PrimeModifiers,
+        state::{PrimeModifiers, State},
         udmabuf::{UdmabufError, UdmabufHolder},
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, numcell::NumCell,
-            obj_and_id::ObjWithId, rc_eq::rc_opt_eq, smallmap::SmallMap, syncqueue::SyncQueue,
+            cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
+            numcell::NumCell, obj_and_id::ObjWithId, oserror::OsError, rc_eq::rc_opt_eq,
+            smallmap::SmallMap, syncqueue::SyncQueue,
         },
         video::dmabuf::{DmaBuf, DmabufCopy},
     },
     arrayvec::ArrayVec,
+    linearize::StaticMap,
     smallvec::SmallVec,
     std::{
+        cell::Cell,
         env,
+        error::Error,
+        ffi::c_short,
         fmt::{Debug, Formatter},
         rc::Rc,
         slice,
@@ -50,7 +59,6 @@ pub enum PrimeError {
     CreateSrcObject(#[source] CopyDeviceError),
 }
 
-#[derive(Default)]
 pub struct SurfacePrimeState {
     pub buffer: CloneCell<Option<Rc<PrimeSurfaceBuffer>>>,
     inner: Rc<StateInner>,
@@ -60,16 +68,19 @@ pub struct SurfacePrimeState {
     udmabuf_dst_objects: CopyHashMap<DrmDeviceId, Rc<CopyDeviceDstObject>>,
 }
 
-#[derive(Default)]
 struct StateInner {
     version: NumCell<u64>,
     storage: SyncQueue<Rc<PrimeStorage>>,
+    state: Rc<State>,
+    usage: StaticMap<TextureUse, Cell<u64>>,
 }
 
 pub struct PrimeSurfaceBuffer {
     inner: Rc<StateInner>,
     storage: Rc<PrimeStorage>,
     tex: Rc<dyn GfxTexture>,
+    lazy_copies: Cell<Option<(ArrayVec<DmabufCopy, 2>, Region)>>,
+    pending_lazy_copies: Cell<Option<PendingPoll>>,
 }
 
 struct PrimeStorage {
@@ -86,7 +97,8 @@ struct PrimeStorage {
     bo_flags: BufferUsage,
     bo_modifiers: Option<PrimeModifiers>,
 
-    syncs: SmallMap<BufferResvUser, FdSync, 1>,
+    syncs: SmallMap<BufferResvUser, FdSync, 2>,
+    lazy_sync: CloneCell<Option<FdSync>>,
 }
 
 pub struct PrimeValidity {
@@ -115,6 +127,22 @@ impl PrimeValidity {
 }
 
 impl SurfacePrimeState {
+    pub fn new(state: &Rc<State>) -> Self {
+        Self {
+            buffer: Default::default(),
+            inner: Rc::new(StateInner {
+                version: Default::default(),
+                storage: Default::default(),
+                state: state.clone(),
+                usage: Default::default(),
+            }),
+            damage: Default::default(),
+            udmabuf: Default::default(),
+            udmabuf_src_object: Default::default(),
+            udmabuf_dst_objects: Default::default(),
+        }
+    }
+
     pub fn validity(&self) -> PrimeValidity {
         PrimeValidity {
             version: self.inner.version.get(),
@@ -135,6 +163,16 @@ impl SurfacePrimeState {
         self.udmabuf_dst_objects.clear();
         self.buffer.take().is_some()
     }
+
+    fn use_lazy_copies(&self) -> bool {
+        const TWO_SECONDS: u64 = 2_000_000_000;
+        let inner = &self.inner;
+        let usage = &inner.usage;
+        let now = inner.state.now_nsec();
+        let render_age = now - usage[TextureUse::Render].get();
+        let scanout_age = now - usage[TextureUse::Scanout].get();
+        render_age > TWO_SECONDS && scanout_age <= TWO_SECONDS
+    }
 }
 
 impl Debug for PrimeSurfaceBuffer {
@@ -152,10 +190,69 @@ impl BufferResv for PrimeSurfaceBuffer {
 impl Drop for PrimeSurfaceBuffer {
     fn drop(&mut self) {
         let i = &self.inner;
-        if self.storage.version != i.version.get() {
+        let s = &self.storage;
+        if s.version != i.version.get() {
             return;
         }
-        i.storage.push(self.storage.clone());
+        i.storage.push(s.clone());
+        if let Some((_, damage)) = self.lazy_copies.take() {
+            let damage = damage.extents();
+            if damage.is_not_empty() {
+                s.damage.damage_self(&[damage]);
+            }
+        }
+        if let Some(sync) = s.lazy_sync.take() {
+            let user = self.inner.state.lazy_prime_buffer_resv_user;
+            s.syncs.insert(user, sync);
+        }
+    }
+}
+
+impl LazyTexture for PrimeSurfaceBuffer {
+    fn record_use(&self, ty: TextureUse) {
+        self.inner.usage[ty].set(self.inner.state.now_nsec());
+    }
+
+    fn perform_lazy_work(&self, sync: &mut Vec<FdSync>) -> Result<(), Box<dyn Error + Send>> {
+        if let Some((copies, damage)) = self.lazy_copies.take() {
+            let mut fd = None;
+            for copy in copies {
+                fd = copy
+                    .execute(fd.as_ref(), Some(&damage))
+                    .map_err(|e| Box::new(e) as Box<dyn Error + Send>)?;
+            }
+            if let Some(fd) = &fd {
+                let cb = fd
+                    .signaled_external(&self.inner.state.ring, self.storage.clone())
+                    .map_err(|e| Box::new(e) as Box<dyn Error + Send>)?;
+                self.pending_lazy_copies.set(cb);
+            }
+            self.storage.lazy_sync.set(fd);
+        }
+        if let Some(fd) = self.storage.lazy_sync.get() {
+            sync.push(fd);
+        }
+        Ok(())
+    }
+
+    fn has_lazy_work(&self) -> bool {
+        self.lazy_copies.is_some() || self.storage.lazy_sync.is_some()
+    }
+}
+
+impl PollCallback for PrimeStorage {
+    fn completed(self: Rc<Self>, res: Result<c_short, OsError>) {
+        match res {
+            Ok(_) => {
+                self.lazy_sync.take();
+            }
+            Err(e) => {
+                log::error!(
+                    "Could not wait for lazy prime copy to complete: {}",
+                    ErrorFmt(e),
+                );
+            }
+        }
     }
 }
 
@@ -223,6 +320,7 @@ impl WlSurface {
         buf: &WlBuffer,
         storage: &mut WlBufferDmabufStorage,
         damage: &[Rect],
+        allow_lazy: bool,
     ) -> Result<Option<(ArrayVec<DmabufCopy, 2>, Rc<PrimeSurfaceBuffer>)>, PrimeError> {
         let Some(src) = buf.classify_prime_(ctx, render_dev, storage)? else {
             return Ok(None);
@@ -272,6 +370,7 @@ impl WlSurface {
                     bo_flags,
                     bo_modifiers,
                     syncs: Default::default(),
+                    lazy_sync: Default::default(),
                 });
             };
             if use_bo {
@@ -450,10 +549,18 @@ impl WlSurface {
         } else {
             unreachable!();
         }
+        let mut lazy_copies = None;
+        if allow_lazy && prime.use_lazy_copies() {
+            lazy_copies = Some((copies, spt.damage.get()));
+            copies = ArrayVec::new();
+            spt.damage.clear();
+        }
         let buffer = Rc::new(PrimeSurfaceBuffer {
             inner: prime.inner.clone(),
             storage: spt,
             tex,
+            lazy_copies: Cell::new(lazy_copies),
+            pending_lazy_copies: Default::default(),
         });
         Ok(Some((copies, buffer)))
     }

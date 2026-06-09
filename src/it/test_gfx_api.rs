@@ -393,7 +393,7 @@ impl GfxFramebuffer for TestGfxFb {
         }
     }
 
-    fn render_with_region(
+    fn render_with_region_impl(
         self: Rc<Self>,
         _acquire_sync: AcquireSync,
         _release_sync: ReleaseSync,
@@ -404,6 +404,7 @@ impl GfxFramebuffer for TestGfxFb {
         _region: &Region,
         _blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         _blend_cd: &Rc<ColorDescription>,
+        _sync: &[FdSync],
     ) -> Result<Option<FdSync>, GfxError> {
         let fb_points = |width: i32, height: i32, rect: &FramebufferRect| {
             let points = rect.to_points();

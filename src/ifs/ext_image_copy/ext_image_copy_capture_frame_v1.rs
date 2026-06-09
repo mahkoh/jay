@@ -4,7 +4,7 @@ use {
         cmm::cmm_description::ColorDescription,
         gfx_api::{
             AcquireSync, AsyncShmGfxTextureCallback, BufferResv, FdSync, GfxError, GfxFramebuffer,
-            GfxTexture, ReleaseSync, STAGING_DOWNLOAD,
+            GfxTexture, LazyTexture, ReleaseSync, STAGING_DOWNLOAD,
         },
         ifs::{
             ext_image_capture_source_v1::ImageCaptureSource,
@@ -197,6 +197,7 @@ impl ExtImageCopyCaptureFrameV1 {
         texture: &Rc<dyn GfxTexture>,
         cd: &Rc<ColorDescription>,
         resv: Option<&Rc<dyn BufferResv>>,
+        lazy: Option<&Rc<dyn LazyTexture>>,
         acquire_sync: &AcquireSync,
         release_sync: ReleaseSync,
         render_hardware_cursors: bool,
@@ -210,6 +211,7 @@ impl ExtImageCopyCaptureFrameV1 {
             self.client.state.perform_screencopy(
                 texture,
                 resv,
+                lazy,
                 acquire_sync,
                 release_sync,
                 cd,

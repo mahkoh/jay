@@ -40,9 +40,9 @@ use {
         forker::ForkerProxy,
         format::Format,
         gfx_api::{
-            AcquireSync, BufferResv, FdSync, GfxApi, GfxBlendBuffer, GfxContext, GfxError,
-            GfxFramebuffer, GfxTexture, PendingShmTransfer, ReleaseSync, STAGING_DOWNLOAD,
-            SampleRect,
+            AcquireSync, BufferResv, BufferResvUser, FdSync, GfxApi, GfxBlendBuffer, GfxContext,
+            GfxError, GfxFramebuffer, GfxTexture, LazyTexture, PendingShmTransfer, ReleaseSync,
+            STAGING_DOWNLOAD, SampleRect,
         },
         gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, RemovableWaylandGlobal, WaylandGlobal},
@@ -327,6 +327,7 @@ pub struct State {
     pub dmabuf_feedback: DmaBufFeedbackState,
     pub surface_pending_cache: PendingStateCache,
     pub no_client_prime: bool,
+    pub lazy_prime_buffer_resv_user: BufferResvUser,
 }
 
 // impl Drop for State {
@@ -1465,6 +1466,7 @@ impl State {
             tex,
             cd,
             None,
+            None,
             &AcquireSync::Unnecessary,
             ReleaseSync::None,
             !render_hw_cursor,
@@ -1479,6 +1481,7 @@ impl State {
         &self,
         src: &Rc<dyn GfxTexture>,
         resv: Option<&Rc<dyn BufferResv>>,
+        lazy: Option<&Rc<dyn LazyTexture>>,
         acquire_sync: &AcquireSync,
         release_sync: ReleaseSync,
         src_cd: &Rc<ColorDescription>,
@@ -1526,6 +1529,7 @@ impl State {
                 acquire_sync: acquire_sync.clone(),
                 release_sync,
                 cd: Some(src_cd),
+                lazy: lazy.cloned(),
                 ..Default::default()
             },
         );
@@ -1539,11 +1543,13 @@ impl State {
             y = y + y_off - Fixed::from_int(position.y1());
             cursor.render(&mut renderer, x, y);
         }
+        let flags = renderer.base.flags;
         target.render(
             target_acquire_sync,
             target_release_sync,
             target_cd,
             &ops,
+            flags,
             Some(&Color::SOLID_BLACK),
             &target_cd.linear,
             None,
@@ -1556,6 +1562,7 @@ impl State {
         src: &Rc<dyn GfxTexture>,
         src_cd: &Rc<ColorDescription>,
         resv: Option<&Rc<dyn BufferResv>>,
+        lazy: Option<&Rc<dyn LazyTexture>>,
         acquire_sync: &AcquireSync,
         position: Rect,
         x_off: i32,
@@ -1584,6 +1591,7 @@ impl State {
         self.perform_screencopy(
             src,
             resv,
+            lazy,
             acquire_sync,
             ReleaseSync::None,
             src_cd,

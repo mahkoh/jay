@@ -9,8 +9,8 @@ use {
         },
         cmm::cmm_description::ColorDescription,
         gfx_api::{
-            AcquireSync, BufferResv, DirectScanoutPosition, GfxRenderPass, GfxTexture, ReleaseSync,
-            SyncFile, create_render_pass,
+            AcquireSync, BufferResv, DirectScanoutPosition, GfxRenderPass, GfxTexture, LazyTexture,
+            ReleaseSync, SyncFile, TextureUse, create_render_pass,
         },
         ifs::wl_output::BlendSpace,
         rect::Region,
@@ -51,6 +51,7 @@ pub struct DirectScanoutData {
     acquire_sync: AcquireSync,
     release_sync: ReleaseSync,
     _fb_resv: Option<Rc<dyn BufferResv>>,
+    lazy: Option<Rc<dyn LazyTexture>>,
     fb: Rc<DrmFramebuffer>,
     dma_buf_id: DmaBufId,
     position: DirectScanoutPosition,
@@ -651,6 +652,14 @@ impl MetalConnector {
                 release_sync = buf.release_sync;
             }
             _ if self.dev.is_render_device() => {
+                if let Some(lazy) = &ct.lazy
+                    && lazy.has_lazy_work()
+                {
+                    // if there is lazy work, the tex dmabuf is not up-to-date. going into
+                    // the compositing path ensures that it's up-to-date on the next
+                    // frame.
+                    return None;
+                }
                 fb_resv = None;
                 dmabuf = ct.tex.dmabuf();
                 release_sync = ct.release_sync;
@@ -676,6 +685,7 @@ impl MetalConnector {
                 acquire_sync: ct.acquire_sync.clone(),
                 release_sync,
                 _fb_resv: fb_resv,
+                lazy: ct.lazy.clone(),
                 fb: fb.clone(),
                 dma_buf_id: dmabuf.id,
                 position,
@@ -703,6 +713,7 @@ impl MetalConnector {
                 acquire_sync: ct.acquire_sync.clone(),
                 release_sync,
                 _fb_resv: fb_resv,
+                lazy: ct.lazy.clone(),
                 fb: Rc::new(fb),
                 dma_buf_id: dmabuf.id,
                 position,
@@ -773,6 +784,9 @@ impl MetalConnector {
                 tex = buffer.render.tex.clone();
             }
             Some(dsd) => {
+                if let Some(lazy) = &dsd.lazy {
+                    lazy.record_use(TextureUse::Scanout);
+                }
                 let sync = match &dsd.acquire_sync {
                     AcquireSync::None => None,
                     AcquireSync::Implicit => None,
@@ -817,6 +831,7 @@ impl MetalConnector {
                     &fb.tex,
                     cd,
                     None,
+                    None,
                     &AcquireSync::Unnecessary,
                     ReleaseSync::None,
                     render_hardware_cursor,
@@ -830,6 +845,7 @@ impl MetalConnector {
                     &dsd.tex,
                     cd,
                     dsd.tex_resv.as_ref(),
+                    dsd.lazy.as_ref(),
                     &dsd.acquire_sync,
                     dsd.release_sync,
                     render_hardware_cursor,

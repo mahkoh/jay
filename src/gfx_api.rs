@@ -114,6 +114,7 @@ pub struct GfxRenderPass {
     pub ops: Vec<GfxApiOp>,
     pub clear: Option<Color>,
     pub clear_cd: Rc<LinearColorDescription>,
+    pub flags: GfxFlags,
 }
 
 #[derive(Default, Debug, Copy, Clone, PartialEq)]
@@ -295,6 +296,24 @@ pub struct CopyTexture {
     pub alpha_mode: AlphaMode,
     pub grayscale: bool,
     pub client_buf: Option<Rc<SurfaceBuffer>>,
+    pub lazy: Option<Rc<dyn LazyTexture>>,
+}
+
+bitflags! {
+    GfxFlags: u32;
+       GFX_HAS_LAZY,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Linearize)]
+pub enum TextureUse {
+    Render,
+    Scanout,
+}
+
+pub trait LazyTexture: Debug {
+    fn record_use(&self, ty: TextureUse);
+    fn perform_lazy_work(&self, sync: &mut Vec<FdSync>) -> Result<(), Box<dyn Error + Send>>;
+    fn has_lazy_work(&self) -> bool;
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -390,7 +409,7 @@ pub trait GfxBlendBuffer: Any + Debug {}
 pub trait GfxFramebuffer: Debug {
     fn physical_size(&self) -> (i32, i32);
 
-    fn render_with_region(
+    fn render_with_region_impl(
         self: Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
@@ -401,6 +420,7 @@ pub trait GfxFramebuffer: Debug {
         region: &Region,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
+        sync: &[FdSync],
     ) -> Result<Option<FdSync>, GfxError>;
 
     fn format(&self) -> &'static Format;
@@ -432,16 +452,18 @@ impl dyn GfxFramebuffer {
         release_sync: ReleaseSync,
         cd: &Rc<ColorDescription>,
         ops: &[GfxApiOp],
+        flags: GfxFlags,
         clear: Option<&Color>,
         clear_cd: &Rc<LinearColorDescription>,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
     ) -> Result<Option<FdSync>, GfxError> {
-        self.clone().render_with_region(
+        self.render_with_region(
             acquire_sync,
             release_sync,
             cd,
             ops,
+            flags,
             clear,
             clear_cd,
             &self.full_region(),
@@ -478,6 +500,7 @@ impl dyn GfxFramebuffer {
             release_sync,
             cd,
             &[],
+            GfxFlags::none(),
             Some(color),
             color_cd,
             None,
@@ -529,11 +552,13 @@ impl dyn GfxFramebuffer {
             },
         );
         let clear = self.format().has_alpha.then_some(&Color::TRANSPARENT);
+        let flags = renderer.flags;
         self.render(
             fb_acquire_sync,
             fb_release_sync,
             fb_cd,
             &ops,
+            flags,
             clear,
             &fb_cd.linear,
             None,
@@ -557,11 +582,13 @@ impl dyn GfxFramebuffer {
         let mut ops = vec![];
         let mut renderer = self.renderer_base(&mut ops, scale, Transform::None, default_cd);
         f(&mut renderer);
+        let flags = renderer.flags;
         self.render(
             acquire_sync,
             release_sync,
             cd,
             &ops,
+            flags,
             clear,
             clear_cd,
             blend_buffer,
@@ -607,11 +634,12 @@ impl dyn GfxFramebuffer {
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
     ) -> Result<Option<FdSync>, GfxError> {
-        self.clone().render_with_region(
+        self.render_with_region(
             acquire_sync,
             release_sync,
             cd,
             &pass.ops,
+            pass.flags,
             pass.clear.as_ref(),
             &pass.clear_cd,
             region,
@@ -720,15 +748,55 @@ impl dyn GfxFramebuffer {
             bar_icons: None,
         };
         cursor.render_hardware_cursor(&mut renderer);
+        let flags = renderer.base.flags;
         self.render(
             acquire_sync,
             release_sync,
             cd,
             &ops,
+            flags,
             Some(&Color::TRANSPARENT),
             &cd.linear,
             None,
             cd,
+        )
+    }
+
+    fn render_with_region(
+        self: &Rc<Self>,
+        acquire_sync: AcquireSync,
+        release_sync: ReleaseSync,
+        cd: &Rc<ColorDescription>,
+        ops: &[GfxApiOp],
+        flags: GfxFlags,
+        clear: Option<&Color>,
+        clear_cd: &Rc<LinearColorDescription>,
+        region: &Region,
+        blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
+        blend_cd: &Rc<ColorDescription>,
+    ) -> Result<Option<FdSync>, GfxError> {
+        let mut sync = vec![];
+        if flags.intersects(GFX_HAS_LAZY) {
+            for op in ops {
+                if let GfxApiOp::CopyTexture(ct) = op
+                    && let Some(lazy) = &ct.lazy
+                {
+                    lazy.record_use(TextureUse::Render);
+                    lazy.perform_lazy_work(&mut sync).map_err(GfxError)?;
+                }
+            }
+        }
+        self.clone().render_with_region_impl(
+            acquire_sync,
+            release_sync,
+            cd,
+            ops,
+            clear,
+            clear_cd,
+            region,
+            blend_buffer,
+            blend_cd,
+            &sync,
         )
     }
 }
@@ -939,6 +1007,10 @@ pub trait GfxContext: Debug {
         struct E;
         Err(GfxError(Box::new(E)))
     }
+
+    fn supports_wait_sync(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -1038,6 +1110,7 @@ pub fn create_render_pass(
             ops: vec![],
             clear: Some(Color::SOLID_BLACK),
             clear_cd: srgb_gamma22.linear.clone(),
+            flags: Default::default(),
         };
     }
     let mut ops = vec![];
@@ -1102,10 +1175,12 @@ pub fn create_render_pass(
         true => Color::SOLID_BLACK,
         false => state.theme.colors.background.get(),
     };
+    let flags = renderer.base.flags;
     GfxRenderPass {
         ops,
         clear: Some(c),
         clear_cd: state.color_manager.srgb_gamma22().linear.clone(),
+        flags,
     }
 }
 
@@ -1126,6 +1201,7 @@ pub fn renderer_base<'a>(
         fb_width: width as _,
         fb_height: height as _,
         default_cd,
+        flags: Default::default(),
     }
 }
 
