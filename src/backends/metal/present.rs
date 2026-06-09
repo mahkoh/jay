@@ -47,9 +47,10 @@ pub struct DirectScanoutCache {
 #[derive(Debug)]
 pub struct DirectScanoutData {
     tex: Rc<dyn GfxTexture>,
+    tex_resv: Option<Rc<dyn BufferResv>>,
     acquire_sync: AcquireSync,
     release_sync: ReleaseSync,
-    resv: Option<Rc<dyn BufferResv>>,
+    _fb_resv: Option<Rc<dyn BufferResv>>,
     fb: Rc<DrmFramebuffer>,
     dma_buf_id: DmaBufId,
     position: DirectScanoutPosition,
@@ -640,17 +641,17 @@ impl MetalConnector {
             cd,
             self.cursor_enabled.get(),
         )?;
-        let resv;
+        let fb_resv;
         let dmabuf;
         let release_sync;
         match &ct.client_buf {
             Some(buf) if buf.buffer.buf.exclusive_device == Some(self.dev.id) => {
-                resv = Some(buf.clone() as Rc<dyn BufferResv>);
+                fb_resv = Some(buf.clone() as Rc<dyn BufferResv>);
                 dmabuf = buf.buffer.buf.client_dmabuf.as_ref();
                 release_sync = buf.release_sync;
             }
             _ if self.dev.is_render_device() => {
-                resv = ct.buffer_resv.clone();
+                fb_resv = None;
                 dmabuf = ct.tex.dmabuf();
                 release_sync = ct.release_sync;
             }
@@ -671,9 +672,10 @@ impl MetalConnector {
         if let Some(buffer) = cache.get(&dmabuf.id) {
             return buffer.fb.as_ref().map(|fb| DirectScanoutData {
                 tex: ct.tex.clone(),
+                tex_resv: ct.buffer_resv.clone(),
                 acquire_sync: ct.acquire_sync.clone(),
                 release_sync,
-                resv,
+                _fb_resv: fb_resv,
                 fb: fb.clone(),
                 dma_buf_id: dmabuf.id,
                 position,
@@ -697,9 +699,10 @@ impl MetalConnector {
         let data = match self.dev.master.add_fb(dmabuf, Some(format.format)) {
             Ok(fb) => Some(DirectScanoutData {
                 tex: ct.tex.clone(),
+                tex_resv: ct.buffer_resv.clone(),
                 acquire_sync: ct.acquire_sync.clone(),
                 release_sync,
-                resv,
+                _fb_resv: fb_resv,
                 fb: Rc::new(fb),
                 dma_buf_id: dmabuf.id,
                 position,
@@ -826,7 +829,7 @@ impl MetalConnector {
                 output.perform_screencopies(
                     &dsd.tex,
                     cd,
-                    dsd.resv.as_ref(),
+                    dsd.tex_resv.as_ref(),
                     &dsd.acquire_sync,
                     dsd.release_sync,
                     render_hardware_cursor,
