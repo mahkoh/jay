@@ -496,6 +496,7 @@ impl OutputNode {
                         let res = self.state.perform_shm_screencopy(
                             tex,
                             cd,
+                            resv,
                             acquire_sync,
                             ns.pos.get(),
                             x_off,

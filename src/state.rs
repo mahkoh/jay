@@ -1555,6 +1555,7 @@ impl State {
         &self,
         src: &Rc<dyn GfxTexture>,
         src_cd: &Rc<ColorDescription>,
+        resv: Option<&Rc<dyn BufferResv>>,
         acquire_sync: &AcquireSync,
         position: Rect,
         x_off: i32,
@@ -1582,7 +1583,7 @@ impl State {
             .map_err(ShmScreencopyError::CreateTemporaryFb)?;
         self.perform_screencopy(
             src,
-            None,
+            resv,
             acquire_sync,
             ReleaseSync::None,
             src_cd,
