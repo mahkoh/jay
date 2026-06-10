@@ -3047,6 +3047,16 @@ impl ConfigProxyHandler {
         res
     }
 
+    fn handle_set_visualize_compositing(&self, visualize: bool) {
+        self.state.set_visualize_compositing(visualize);
+    }
+
+    fn handle_get_visualize_compositing(&self) {
+        self.respond(Response::GetVisualizeCompositing {
+            visualize: self.state.visualize_compositing.get(),
+        });
+    }
+
     pub fn handle_request(self: &Rc<Self>, msg: &[u8]) {
         if let Err(e) = self.handle_request_(msg) {
             log::error!("Could not handle client request: {}", ErrorFmt(e));
@@ -3757,6 +3767,10 @@ impl ConfigProxyHandler {
             ClientMessage::SetWindowIconsGrayscale { grayscale } => {
                 self.state.set_window_icons_grayscale(grayscale)
             }
+            ClientMessage::SetVisualizeCompositing { visualize } => {
+                self.handle_set_visualize_compositing(visualize)
+            }
+            ClientMessage::GetVisualizeCompositing => self.handle_get_visualize_compositing(),
         }
         Ok(())
     }

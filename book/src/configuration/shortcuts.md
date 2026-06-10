@@ -147,6 +147,10 @@ alt-shift-r = "reload-config-toml"
   (the next pressed key identifies the mark). See [Marks](#marks) below.
 - `enable-window-management`, `disable-window-management` -- programmatically
   enable or disable [window management mode](../floating.md#window-management-mode)
+- `enable-visualize-compositing`, `disable-visualize-compositing`,
+  `toggle-visualize-compositing` -- show or hide an overlay icon in the
+  top-left corner of each output while the compositor is compositing. The icon
+  disappears when content is shown via direct scanout.
 - `reload-config-so` -- reload the shared-library configuration (`config.so`)
 
 See the [specification](https://github.com/mahkoh/jay/blob/master/toml-spec/spec/spec.generated.md) for the full list of simple

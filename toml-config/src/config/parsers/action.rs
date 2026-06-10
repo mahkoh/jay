@@ -184,6 +184,9 @@ impl ActionParser<'_> {
             "open-control-center" => OpenControlCenter,
             "warp-mouse-to-focus" => WarpMouseToFocus,
             "hide-overlays" => HideOverlays,
+            "enable-visualize-compositing" => SetVisualizeCompositing(true),
+            "disable-visualize-compositing" => SetVisualizeCompositing(false),
+            "toggle-visualize-compositing" => ToggleVisualizeCompositing,
             _ => {
                 return Err(
                     ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span)

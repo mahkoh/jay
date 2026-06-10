@@ -600,6 +600,7 @@ impl VirtualOutput {
             true,
             on.global.persistent.transform.get(),
             Some(&self.state.damage_visualizer),
+            true,
         );
         Some(Latched {
             pass,

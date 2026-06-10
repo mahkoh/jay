@@ -41,6 +41,7 @@ use {
         set_float_above_fullscreen, set_idle, set_idle_grace_period,
         set_middle_click_paste_enabled, set_session_management_enabled, set_show_bar,
         set_show_float_pin_icon, set_show_titles, set_ui_drag_enabled, set_ui_drag_threshold,
+        set_visualize_compositing,
         status::{set_i3bar_separator, set_status, set_status_command, unset_status_command},
         switch_to_vt,
         tasks::{self, JoinHandle},
@@ -50,6 +51,7 @@ use {
             set_title_font, set_window_icons_grayscale,
         },
         toggle_float_above_fullscreen, toggle_show_bar, toggle_show_titles,
+        toggle_visualize_compositing,
         video::{
             ColorSpace, Connector, DrmDevice, Eotf, connectors, create_virtual_output, drm_devices,
             on_connector_connected, on_connector_disconnected, on_graphics_initialized,
@@ -253,6 +255,10 @@ impl Action {
                     b.new(move || persistent.seat.warp_mouse_to_focus())
                 }
                 SimpleCommand::HideOverlays => b.new(hide_overlays),
+                SimpleCommand::SetVisualizeCompositing(v) => {
+                    b.new(move || set_visualize_compositing(v))
+                }
+                SimpleCommand::ToggleVisualizeCompositing => b.new(toggle_visualize_compositing),
             },
             Action::Multi { actions } => {
                 let actions: Vec<_> = actions.into_iter().map(|a| a.into_fn(state)).collect();

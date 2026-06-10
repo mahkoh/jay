@@ -297,6 +297,7 @@ pub struct CopyTexture {
     pub grayscale: bool,
     pub client_buf: Option<Rc<SurfaceBuffer>>,
     pub lazy: Option<Rc<dyn LazyTexture>>,
+    pub skip_for_scanout: bool,
 }
 
 bitflags! {
@@ -608,6 +609,7 @@ impl dyn GfxFramebuffer {
         fill_black_in_grace_period: bool,
         transform: Transform,
         visualizer: Option<&DamageVisualizer>,
+        visualize_compositing: bool,
     ) -> GfxRenderPass {
         create_render_pass(
             self.physical_size(),
@@ -621,6 +623,7 @@ impl dyn GfxFramebuffer {
             fill_black_in_grace_period,
             transform,
             visualizer,
+            visualize_compositing,
         )
     }
 
@@ -661,6 +664,7 @@ impl dyn GfxFramebuffer {
         fill_black_in_grace_period: bool,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
+        visualize_compositing: bool,
     ) -> Result<Option<FdSync>, GfxError> {
         self.render_node(
             acquire_sync,
@@ -677,6 +681,7 @@ impl dyn GfxFramebuffer {
             node.global.persistent.transform.get(),
             blend_buffer,
             blend_cd,
+            visualize_compositing,
         )
     }
 
@@ -696,6 +701,7 @@ impl dyn GfxFramebuffer {
         transform: Transform,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
+        visualize_compositing: bool,
     ) -> Result<Option<FdSync>, GfxError> {
         let pass = self.create_render_pass(
             node,
@@ -708,6 +714,7 @@ impl dyn GfxFramebuffer {
             fill_black_in_grace_period,
             transform,
             None,
+            visualize_compositing,
         );
         self.perform_render_pass(
             acquire_sync,
@@ -1103,6 +1110,7 @@ pub fn create_render_pass(
     fill_black_in_grace_period: bool,
     transform: Transform,
     visualizer: Option<&DamageVisualizer>,
+    visualize_compositing: bool,
 ) -> GfxRenderPass {
     let srgb_gamma22 = state.color_manager.srgb_gamma22();
     if fill_black_in_grace_period && state.idle.in_grace_period.get() {
@@ -1170,6 +1178,20 @@ pub fn create_render_pass(
         && let Some(cursor_rect) = cursor_rect
     {
         visualizer.render(&cursor_rect, &mut renderer.base);
+    }
+    if visualize_compositing
+        && state.visualize_compositing.get()
+        && let Some(icon) = state.icons.get_compositing_icon(state, scale)
+    {
+        renderer.base.render_texture(
+            &icon.icon,
+            0,
+            0,
+            RenderTexture {
+                skip_for_scanout: true,
+                ..Default::default()
+            },
+        );
     }
     let c = match black_background {
         true => Color::SOLID_BLACK,
@@ -1354,7 +1376,11 @@ impl GfxRenderPass {
                             // Top-most layer must be a texture.
                             return None;
                         }
-                        GfxApiOp::CopyTexture(ct) => break 'ct2 ct,
+                        GfxApiOp::CopyTexture(ct) => {
+                            if !ct.skip_for_scanout {
+                                break 'ct2 ct;
+                            }
+                        }
                     }
                 }
                 return None;

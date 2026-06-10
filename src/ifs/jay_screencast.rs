@@ -208,6 +208,7 @@ impl JayScreencast {
                     Transform::None,
                     None,
                     self.client.state.color_manager.srgb_linear(),
+                    false,
                 );
                 match res {
                     Ok(_) => {
