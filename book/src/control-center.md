@@ -74,6 +74,11 @@ Session Management
 : Toggle the `xdg_session_manager_v1` protocol (see
   [Session Management](configuration/misc.md#session-management))
 
+Visualize Compositing
+: Toggle an overlay icon in the top-left corner of each output, shown while the
+  compositor is compositing. The icon hides during direct scanout, making it a
+  quick way to check whether direct scanout is active.
+
 Buttons at the bottom:
 
 - **Quit** -- stop the compositor.

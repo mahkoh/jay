@@ -524,3 +524,23 @@ pub fn set_middle_click_paste_enabled(enabled: bool) {
 pub fn open_control_center() {
     get!().open_control_center();
 }
+
+/// Sets whether compositing is visualized with an overlay icon in the top left.
+///
+/// Regardless of this setting, the icon is hidden if direct scanout is active. This
+/// allows detecting direct scanout.
+///
+/// The default is `false`.
+pub fn set_visualize_compositing(visualize: bool) {
+    get!().set_visualize_compositing(visualize);
+}
+
+/// Gets whether compositing is visualized with an overlay icon in the top left.
+pub fn get_visualize_compositing() -> bool {
+    get!().get_visualize_compositing()
+}
+
+/// Toggles whether compositing is visualized with an overlay icon in the top left.
+pub fn toggle_visualize_compositing() {
+    set_visualize_compositing(!get_visualize_compositing());
+}

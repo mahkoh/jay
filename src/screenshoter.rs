@@ -91,6 +91,7 @@ pub fn take_screenshot(
         Transform::None,
         None,
         state.color_manager.srgb_linear(),
+        false,
     )?;
     let drm = match allocator.drm() {
         Some(drm) => Some(drm.dup_render()?.fd().clone()),

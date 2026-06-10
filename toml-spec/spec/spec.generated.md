@@ -4944,6 +4944,22 @@ The string should have one of the following values:
 
   Hides all overlays.
 
+- `enable-visualize-compositing`:
+
+  Visualizes compositing with an overlay icon in the top left.
+  
+  The icon is hidden if direct scanout is active. This allows detecting direct
+  scanout.
+
+- `disable-visualize-compositing`:
+
+  Disables the compositing visualizer previously enabled with
+  `enable-visualize-compositing`.
+
+- `toggle-visualize-compositing`:
+
+  Toggles the compositing visualizer.
+
 
 
 <a name="types-SimpleIm"></a>

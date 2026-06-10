@@ -76,6 +76,12 @@ impl CompositorPane {
                 s.session_management_enabled.get(),
                 |v| s.set_session_management_enabled(v),
             );
+            bool(
+                ui,
+                "Visualize Compositing",
+                s.visualize_compositing.get(),
+                |v| s.set_visualize_compositing(v),
+            );
         });
         if ui.button("Quit").clicked() {
             s.quit();

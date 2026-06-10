@@ -2201,7 +2201,10 @@
         "enable-unicode-input",
         "open-control-center",
         "warp-mouse-to-focus",
-        "hide-overlays"
+        "hide-overlays",
+        "enable-visualize-compositing",
+        "disable-visualize-compositing",
+        "toggle-visualize-compositing"
       ]
     },
     "SimpleIm": {

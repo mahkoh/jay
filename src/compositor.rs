@@ -424,6 +424,7 @@ fn start_compositor2(
         surface_pending_cache: Default::default(),
         no_client_prime,
         lazy_prime_buffer_resv_user: Default::default(),
+        visualize_compositing: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

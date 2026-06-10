@@ -389,6 +389,7 @@ impl XdgToplevelIconV1 {
                 grayscale: false,
                 client_buf: None,
                 lazy: None,
+                skip_for_scanout: false,
             })],
             clear: format.has_alpha.then_some(Color::TRANSPARENT),
             clear_cd: srgb.linear.clone(),

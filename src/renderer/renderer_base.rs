@@ -52,6 +52,7 @@ pub struct RenderTexture<'a> {
     pub grayscale: bool,
     pub client_buf: Option<Rc<SurfaceBuffer>>,
     pub lazy: Option<Rc<dyn LazyTexture>>,
+    pub skip_for_scanout: bool,
 }
 
 impl RendererBase<'_> {
@@ -231,6 +232,7 @@ impl RendererBase<'_> {
             grayscale,
             client_buf,
             lazy,
+            skip_for_scanout,
         } = args;
         let tscale = tscale.unwrap_or(self.scale);
 
@@ -286,6 +288,7 @@ impl RendererBase<'_> {
             grayscale,
             client_buf,
             lazy,
+            skip_for_scanout,
         }));
     }
 

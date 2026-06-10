@@ -328,6 +328,7 @@ pub struct State {
     pub surface_pending_cache: PendingStateCache,
     pub no_client_prime: bool,
     pub lazy_prime_buffer_resv_user: BufferResvUser,
+    pub visualize_compositing: Cell<bool>,
 }
 
 // impl Drop for State {
@@ -1460,6 +1461,7 @@ impl State {
             true,
             blend_buffer,
             blend_cd,
+            true,
         )?;
         output.latched(false);
         output.perform_screencopies(
@@ -2411,6 +2413,14 @@ impl State {
         } else {
             Rc::new(res)
         }
+    }
+
+    pub fn set_visualize_compositing(&self, visualize: bool) {
+        if self.visualize_compositing.replace(visualize) == visualize {
+            return;
+        }
+        self.damage(self.root.extents.get());
+        self.trigger_cci(CCI_COMPOSITOR);
     }
 }
 

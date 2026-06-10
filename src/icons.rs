@@ -21,6 +21,7 @@ use {
 pub struct Icons {
     title_icons: CopyHashMap<i32, Option<Rc<SizedTitleIcons>>>,
     bar_icons: CopyHashMap<i32, Option<Rc<SizedBarIcons>>>,
+    compositing_icon: CopyHashMap<i32, Option<Rc<SizedCompositingIcon>>>,
 }
 
 #[derive(Copy, Clone, Debug, Linearize)]
@@ -43,6 +44,10 @@ pub struct SizedBarIcons {
     pub overlay: Rc<dyn GfxTexture>,
 }
 
+pub struct SizedCompositingIcon {
+    pub icon: Rc<dyn GfxTexture>,
+}
+
 #[derive(Debug, Error)]
 pub enum IconsError {
     #[error("Could not create a pixmap")]
@@ -59,6 +64,7 @@ impl Icons {
     pub fn update_sizes(&self, state: &State) {
         self.update_sizes_(state, state.theme.title_height(), &self.title_icons);
         self.update_sizes_(state, state.theme.sizes.bar_height(), &self.bar_icons);
+        self.update_sizes_(state, 100, &self.compositing_icon);
     }
 
     fn update_sizes_(&self, state: &State, height: i32, map: &CopyHashMap<i32, impl Sized>) {
@@ -75,6 +81,7 @@ impl Icons {
     pub fn clear(&self) {
         self.title_icons.clear();
         self.bar_icons.clear();
+        self.compositing_icon.clear();
     }
 
     pub fn get_title_icons(&self, state: &State, scale: Scale) -> Option<Rc<SizedTitleIcons>> {
@@ -94,6 +101,20 @@ impl Icons {
             state.theme.sizes.bar_height(),
             &self.bar_icons,
             create_bar_icons,
+        )
+    }
+
+    pub fn get_compositing_icon(
+        &self,
+        state: &State,
+        scale: Scale,
+    ) -> Option<Rc<SizedCompositingIcon>> {
+        self.get(
+            state,
+            scale,
+            100,
+            &self.compositing_icon,
+            create_compositing_icon,
         )
     }
 
@@ -203,6 +224,36 @@ pub fn create_bar_icons(
     Ok(SizedBarIcons { overlay })
 }
 
+pub fn create_compositing_icon(
+    size: i32,
+    _theme: &Theme,
+    ctx: &Rc<dyn GfxContext>,
+) -> Result<SizedCompositingIcon, IconsError> {
+    if size <= 0 {
+        return Err(IconsError::NonPositiveSize);
+    }
+    let mut fg = Color::WHITE;
+    fg.set_alpha(0.5);
+    let mut bg = Color::BLACK;
+    bg.set_alpha(0.5);
+    let mut paint = Paint::default();
+    paint.set_color(fg);
+    let size = size as u32;
+    let s = size as f32 / 100.0;
+    let transform = Transform::from_scale(s, s);
+    let mut pixmap = Pixmap::new(size, size).ok_or(IconsError::CreatePixmap)?;
+    pixmap.fill(bg);
+    pixmap.fill_path(
+        &*COMPOSITING_PATH,
+        &paint,
+        FillRule::EvenOdd,
+        transform,
+        None,
+    );
+    let icon = upload_pixmap(pixmap, ctx)?;
+    Ok(SizedCompositingIcon { icon })
+}
+
 fn upload_pixmap(
     pixmap: Pixmap,
     ctx: &Rc<dyn GfxContext>,
@@ -300,6 +351,37 @@ static OVERLAY_PATH: LazyLock<Path> = LazyLock::new(|| {
 #[test]
 fn overlay_path() {
     let _path = &*OVERLAY_PATH;
+}
+
+static COMPOSITING_PATH: LazyLock<Path> = LazyLock::new(|| {
+    let mut path = PathBuilder::new();
+    let mut draw_square = |d: f32| {
+        path.move_to(5.0 + d, 5.0 + d);
+        path.line_to(95.0 - d, 5.0 + d);
+        path.line_to(95.0 - d, 95.0 - d);
+        path.line_to(5.0 + d, 95.0 - d);
+        path.close();
+    };
+    draw_square(0.0);
+    draw_square(10.0);
+    let mut draw_c = |d: f32| {
+        path.move_to(80.0 - d, 80.0);
+        path.arc_cw_to(80.0 - d, 50.0, 50.0 - d, 50.0);
+        path.arc_cw_to(80.0 - d, 50.0, 80.0 - d, 20.0);
+        path.line_to(80.0 - d, 30.0);
+        path.move_to(80.0 - d, 70.0);
+        path.arc_cw_to(80.0 - d, 50.0, 60.0 - d, 50.0);
+        path.arc_cw_to(80.0 - d, 50.0, 80.0 - d, 30.0);
+        path.close();
+    };
+    draw_c(0.0);
+    draw_c(30.0);
+    path.finish().unwrap()
+});
+
+#[test]
+fn compositing_path() {
+    let _path = &*COMPOSITING_PATH;
 }
 
 trait PathBuilderExt {

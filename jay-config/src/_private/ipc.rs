@@ -923,6 +923,10 @@ pub enum ClientMessage<'a> {
     SetWindowIconsGrayscale {
         grayscale: bool,
     },
+    SetVisualizeCompositing {
+        visualize: bool,
+    },
+    GetVisualizeCompositing,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1187,6 +1191,9 @@ pub enum Response {
     },
     ParseKeymap2 {
         keymap: Keymap,
+    },
+    GetVisualizeCompositing {
+        visualize: bool,
     },
 }
 

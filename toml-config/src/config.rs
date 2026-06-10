@@ -96,6 +96,8 @@ pub enum SimpleCommand {
     OpenControlCenter,
     WarpMouseToFocus,
     HideOverlays,
+    SetVisualizeCompositing(bool),
+    ToggleVisualizeCompositing,
 }
 
 #[derive(Debug, Clone)]

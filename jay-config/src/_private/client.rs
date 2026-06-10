@@ -2122,6 +2122,16 @@ impl ConfigClient {
         self.send(&ClientMessage::SetWindowIconsGrayscale { grayscale });
     }
 
+    pub fn set_visualize_compositing(&self, visualize: bool) {
+        self.send(&ClientMessage::SetVisualizeCompositing { visualize });
+    }
+
+    pub fn get_visualize_compositing(&self) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetVisualizeCompositing);
+        get_response!(res, false, GetVisualizeCompositing { visualize });
+        visualize
+    }
+
     fn handle_msg(&self, msg: &[u8]) {
         self.handle_msg2(msg);
         self.dispatch_futures();

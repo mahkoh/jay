@@ -1335,6 +1335,18 @@ SimpleActionName:
         Warps the cursor to the center of the currently focused window.
     - value: hide-overlays
       description: Hides all overlays.
+    - value: enable-visualize-compositing
+      description: |
+        Visualizes compositing with an overlay icon in the top left.
+        
+        The icon is hidden if direct scanout is active. This allows detecting direct
+        scanout.
+    - value: disable-visualize-compositing
+      description: |
+        Disables the compositing visualizer previously enabled with
+        `enable-visualize-compositing`.
+    - value: toggle-visualize-compositing
+      description: Toggles the compositing visualizer.
 
 
 Color:
