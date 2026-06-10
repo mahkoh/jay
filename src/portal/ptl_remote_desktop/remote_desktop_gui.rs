@@ -4,11 +4,11 @@ use {
         ifs::wl_seat::{BTN_LEFT, wl_pointer::PRESSED},
         portal::{
             ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
-            ptl_remote_desktop::{PortalSession, RemoteDesktopPhase},
-            ptr_gui::{
+            ptl_gui::{
                 Align, Button, ButtonOwner, Flow, GuiElement, Label, Orientation, OverlayWindow,
                 OverlayWindowOwner,
             },
+            ptl_remote_desktop::{PortalSession, RemoteDesktopPhase},
         },
         theme::Color,
         utils::{copyhashmap::CopyHashMap, hash_map_ext::HashMapExt},
