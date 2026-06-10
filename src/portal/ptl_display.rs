@@ -8,9 +8,9 @@ use {
         object::Version,
         portal::{
             PortalState,
+            ptl_gui::WindowData,
             ptl_render_ctx::{PortalRenderCtx, PortalServerRenderCtx},
             ptl_session::PortalSession,
-            ptr_gui::WindowData,
         },
         utils::{
             bitflags::BitflagsExt,
