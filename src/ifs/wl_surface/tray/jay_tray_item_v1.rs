@@ -174,7 +174,7 @@ impl Configurable for JayTrayItemV1 {
         self.data.destroyed.get()
     }
 
-    fn surface(&self) -> &WlSurface {
+    fn surface(&self) -> &Rc<WlSurface> {
         &self.data.surface
     }
 

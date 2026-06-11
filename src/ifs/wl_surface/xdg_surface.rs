@@ -752,7 +752,7 @@ impl Configurable for XdgSurface {
         self.destroyed.get() || self.ext.is_none()
     }
 
-    fn surface(&self) -> &WlSurface {
+    fn surface(&self) -> &Rc<WlSurface> {
         &self.surface
     }
 
