@@ -51,7 +51,7 @@ trait ConfigurableDyn {
 #[derive(Derivative)]
 #[derivative(Default)]
 pub struct ConfigureGroups {
-    scheduled: AsyncStack<Rc<dyn ConfigurableDyn>>,
+    scheduled: Stack<Rc<dyn ConfigurableDyn>>,
     ready: AsyncStack<Rc<dyn ConfigurableDyn>>,
     all_groups: Stack<Rc<ConfigureGroup>>,
     unused_groups: Stack<Rc<ConfigureGroup>>,
@@ -89,6 +89,11 @@ struct ConfigureGroup {
     num_not_ready2: NumCell<usize>,
 }
 
+#[derive(Default)]
+pub struct ConfigureGroupsWork {
+    scheduled: Vec<Rc<dyn ConfigurableDyn>>,
+}
+
 impl<T> ConfigurableExt for T
 where
     T: Configurable,
@@ -98,8 +103,9 @@ where
         if d.core.scheduled.replace(true) {
             return;
         }
-        let cgs = &d.core.state.configure_groups;
-        cgs.scheduled.push(self.clone());
+        let state = &d.core.state;
+        state.configure_groups.scheduled.push(self.clone());
+        state.tree_serial_groups.trigger();
     }
 }
 
@@ -140,7 +146,7 @@ const DEFAULT_TIMEOUT_NS: u64 = 0;
 
 impl ConfigureGroups {
     pub fn clear(&self) {
-        self.scheduled.clear();
+        self.scheduled.take();
         self.ready.clear();
         self.unused_groups.take();
         self.groups_to_recycle.take();
@@ -233,16 +239,14 @@ where
     }
 }
 
-pub async fn handle_configurables_commit(state: Rc<State>) {
-    let cgs = &state.configure_groups;
-    let mut scheduled = vec![];
-    loop {
-        cgs.scheduled.non_empty().await;
-        cgs.scheduled.swap(&mut scheduled);
+impl ConfigureGroups {
+    pub fn run_scheduled(&self, work: &mut ConfigureGroupsWork, serial: TreeSerial) {
+        let scheduled = &mut work.scheduled;
+        let cgs = self;
+        cgs.scheduled.swap(scheduled);
         if scheduled.is_empty() {
-            continue;
+            return;
         }
-        let serial = state.next_tree_serial();
         let cg = match cgs.unused_groups.pop() {
             Some(i) => i,
             _ => {
@@ -265,10 +269,10 @@ pub async fn handle_configurables_commit(state: Rc<State>) {
         }
         if members.is_empty() {
             cgs.unused_groups.push(cg.clone());
-            continue;
+            return;
         }
         if cg.num_not_ready.get() > 0 {
-            continue;
+            return;
         }
         cgs.groups_to_recycle.push(cg.clone());
         for member in members {

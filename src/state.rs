@@ -114,6 +114,7 @@ use {
             VrrMode, WorkspaceDisplayOrder, WorkspaceNode, WorkspaceType, WsMoveConfig,
             generic_node_visitor, move_ws_to_output,
         },
+        tree_serial_groups::TreeSerialGroups,
         udmabuf::UdmabufHolder,
         utils::{
             asyncevent::AsyncEvent,
@@ -323,6 +324,7 @@ pub struct State {
     pub toplevel_icon_ids: ToplevelIconIds,
     pub toplevel_icons: CopyHashMap<ToplevelIconId, Weak<XdgToplevelIconV1>>,
     pub tree_serials: TreeSerials,
+    pub tree_serial_groups: TreeSerialGroups,
     pub configure_groups: ConfigureGroups,
     pub commit_cache: CommitCache,
     pub dmabuf_feedback: DmaBufFeedbackState,

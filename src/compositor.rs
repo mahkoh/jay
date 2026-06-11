@@ -14,9 +14,7 @@ use {
         clientmem::{self, ClientMemError},
         cmm::{cmm_manager::ColorManager, cmm_primaries::Primaries},
         config::ConfigProxy,
-        configurable::{
-            handle_configurables_apply, handle_configurables_commit, handle_configurables_timeout,
-        },
+        configurable::{handle_configurables_apply, handle_configurables_timeout},
         control_center::redraw_control_centers,
         copy_device::CopyDeviceRegistry,
         cpu_worker::{CpuWorker, CpuWorkerError},
@@ -69,6 +67,7 @@ use {
             container_render_titles, float_layout, float_titles, output_render_data,
             placeholder_render_textures,
         },
+        tree_serial_groups::handle_tree_serial_groups_scheduled,
         udmabuf::UdmabufHolder,
         user_session::{import_environment, start_graphical_session},
         utils::{
@@ -430,6 +429,7 @@ fn start_compositor2(
         toplevel_icon_ids: Default::default(),
         toplevel_icons: Default::default(),
         tree_serials: Default::default(),
+        tree_serial_groups: Default::default(),
         configure_groups: Default::default(),
         commit_cache: Default::default(),
         dmabuf_feedback: Default::default(),
@@ -651,9 +651,9 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             flush_toplevel_sessions(state.clone()),
         ),
         eng.spawn2(
-            "configurables commit",
+            "tree serial groups scheduled",
             Phase::PostLayout,
-            handle_configurables_commit(state.clone()),
+            handle_tree_serial_groups_scheduled(state.clone()),
         ),
         eng.spawn2(
             "configurables apply",

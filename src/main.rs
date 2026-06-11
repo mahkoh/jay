@@ -113,6 +113,7 @@ mod theme;
 mod time;
 mod tools;
 mod tree;
+mod tree_serial_groups;
 mod udev;
 mod udmabuf;
 mod user_session;
