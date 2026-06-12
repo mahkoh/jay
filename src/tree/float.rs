@@ -487,7 +487,7 @@ impl FloatNode {
         }
         self.location.set(ws.location());
         if update_visible {
-            self.stacked_set_visible(ws.float_visible());
+            self.set_visible(ws.float_visible());
         }
         if update_pinned && let Some(pl) = &*self.pinned_link.borrow_mut() {
             ws.node_state.output.get().pinned.add_last_existing(pl);
@@ -1122,8 +1122,8 @@ impl ContainingNode for FloatNode {
     }
 }
 
-impl StackedNode for FloatNode {
-    fn stacked_set_visible(&self, visible: bool) {
+impl FloatNode {
+    fn set_visible(self: &Rc<Self>, visible: bool) {
         let ns = &self.node_state;
         if ns.visible.replace(visible) != visible {
             self.state.damage(ns.position.get());
@@ -1134,7 +1134,13 @@ impl StackedNode for FloatNode {
         if let Some(child) = ns.child.get() {
             child.tl_set_visible(visible);
         }
-        self.seat_state.set_visible(self, visible);
+        self.seat_state.set_visible(&**self, visible);
+    }
+}
+
+impl StackedNode for FloatNode {
+    fn stacked_set_visible(self: Rc<Self>, visible: bool) {
+        self.set_visible(visible);
     }
 
     fn stacked_has_workspace_link(&self) -> bool {

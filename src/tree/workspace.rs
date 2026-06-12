@@ -316,7 +316,10 @@ impl WorkspaceNode {
         }
         for stacked in self.stacked.iter() {
             if stacked.stacked_needs_set_visible() {
-                stacked.stacked_set_visible(self.float_visible());
+                stacked
+                    .deref()
+                    .clone()
+                    .stacked_set_visible(self.float_visible());
             }
         }
         self.seat_state.set_visible(self, visible);
