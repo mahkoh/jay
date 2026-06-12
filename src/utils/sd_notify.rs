@@ -1,6 +1,6 @@
 use std::{
     env,
-    ffi::OsStr,
+    ffi::{OsStr, OsString},
     io,
     os::{
         linux::net::SocketAddrExt,
@@ -12,21 +12,27 @@ use std::{
     path::Path,
 };
 
+const NOTIFY_SOCKET: &str = "NOTIFY_SOCKET";
+
 pub fn send_sd_notify_if_enabled(msg: &[u8]) {
     match env::var_os("NOTIFY_SOCKET") {
         Some(notify_socket) => {
-            if let Err(e) = try_send_sd_notify(msg, notify_socket.as_os_str()) {
-                // TODO: This could be logging, but is eprintln! right now, while things are racy.
-                eprintln!(
-                    "Failed to send systemd notification `{}`: {e}",
-                    String::from_utf8_lossy(msg)
-                );
-            }
+            send_sd_notify(msg, notify_socket.as_os_str());
         }
         None => {
             // TODO: This could be logging, but is eprintln! right now, while things are racy.
             eprintln!("Not sending sd notification, NOTIFY_SOCKET not set");
         }
+    }
+}
+
+pub fn send_sd_notify(msg: &[u8], path: &OsStr) {
+    if let Err(e) = try_send_sd_notify(msg, path) {
+        // TODO: This could be logging, but is eprintln! right now, while things are racy.
+        eprintln!(
+            "Failed to send systemd notification `{}`: {e}",
+            String::from_utf8_lossy(msg)
+        );
     }
 }
 
@@ -39,4 +45,16 @@ fn try_send_sd_notify(msg: &[u8], path: &OsStr) -> io::Result<()> {
     sock.send_to_addr(msg, &addr)?;
 
     Ok(())
+}
+
+pub fn get_notify_socket() -> Option<OsString> {
+    env::var_os(NOTIFY_SOCKET)
+}
+
+pub fn take_notify_socket() -> Option<OsString> {
+    let notify_socket = get_notify_socket()?;
+    unsafe {
+        env::remove_var(NOTIFY_SOCKET);
+    }
+    Some(notify_socket)
 }

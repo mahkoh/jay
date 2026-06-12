@@ -3,8 +3,10 @@ use {
         forker::ForkerError,
         pr_caps::drop_all_pr_caps,
         utils::{
-            errorfmt::ErrorFmt, oserror::OsErrorExt2, process_name::set_process_name,
-            sd_notify::send_sd_notify_if_enabled,
+            errorfmt::ErrorFmt,
+            oserror::OsErrorExt2,
+            process_name::set_process_name,
+            sd_notify::{get_notify_socket, send_sd_notify, send_sd_notify_if_enabled},
         },
     },
     run_on_drop::on_drop,
@@ -111,10 +113,14 @@ pub fn ensure_reaper() -> c::pid_t {
         set_deathsig();
         return reaper_pid;
     };
-    // TODO: This is racy in theory. A fast compositor (or unlucky scheduling) could initialize
-    //       graphics before MAINPID={} is through.
-    let main_pid_msg = format!("MAINPID={}", main_process_id);
-    send_sd_notify_if_enabled(main_pid_msg.as_ref());
+
+    if let Some(socket) = get_notify_socket() {
+        // TODO: This is racy in theory. A fast compositor (or unlucky scheduling) could initialize
+        //       graphics before MAINPID={} is through.
+        let main_pid_msg = format!("MAINPID={}", main_process_id);
+        send_sd_notify(main_pid_msg.as_ref(), socket.as_os_str());
+    }
+
     drop_all_pr_caps();
     set_process_name("jay reaper");
     while let Ok((pid, status)) = uapi::wait() {
