@@ -1,7 +1,7 @@
 use {
     crate::{
         it::{test_error::TestError, testrun::TestRun},
-        tree::ToplevelNodeBase,
+        tree::{ToplevelNodeBase, TreeTimeline::LiveTL},
     },
     std::rc::Rc,
 };
@@ -34,7 +34,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
         _ => bail!("Toplevel doesn't have a parent"),
     };
 
-    tassert!(container.node_state.active.get());
+    tassert!(container.node_state[LiveTL].active.get());
 
     Ok(())
 }

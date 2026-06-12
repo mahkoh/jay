@@ -2,6 +2,7 @@ use {
     crate::{
         ifs::wl_seat::BTN_LEFT,
         it::{test_error::TestResult, testrun::TestRun},
+        tree::TreeTimeline::LiveTL,
     },
     std::rc::Rc,
 };
@@ -25,8 +26,8 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     {
         let parent = win1.tl.float_parent()?;
-        let rect = parent.node_state.position.get();
-        parent.node_state.position.set(rect.at_point(100, 100));
+        let rect = parent.node_state[LiveTL].position.get();
+        parent.set_ns_position(rect.at_point(100, 100));
         parent.schedule_layout();
     }
 

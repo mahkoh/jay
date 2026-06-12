@@ -623,7 +623,7 @@ impl Renderer<'_> {
     }
 
     pub fn render_floating(&mut self, floating: &FloatNode, x: i32, y: i32) {
-        let ns = &floating.node_state;
+        let ns = &floating.node_state[LiveTL];
         let child = match ns.child.get() {
             Some(c) => c,
             _ => return,

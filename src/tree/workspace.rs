@@ -415,7 +415,7 @@ impl WorkspaceNode {
             .stacked
             .rev_iter()
             .filter_map(|node| (*node).clone().node_into_float())
-            .find_map(|float| float.node_state.child.get())
+            .find_map(|float| float.node_state[LiveTL].child.get())
         {
             child.node_do_focus_dyn(seat, direction);
         } else if self.ty == WorkspaceType::Normal {
