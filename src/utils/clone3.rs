@@ -114,12 +114,12 @@ pub fn ensure_reaper() -> c::pid_t {
         ..
     } = res
     else {
-        wait_for_pipe_close(main_pid_transferred);
-
         unsafe {
             env::set_var(REAPER_VAR, reaper_pid.to_string());
         }
         set_deathsig();
+
+        wait_for_pipe_close(main_pid_transferred);
         return reaper_pid;
     };
 
