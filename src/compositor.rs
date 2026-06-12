@@ -2,7 +2,6 @@ use std::ffi::OsString;
 
 #[cfg(feature = "it")]
 use crate::it::test_backend::TestBackend;
-use crate::utils::sd_notify::take_notify_socket;
 use {
     crate::{
         acceptor::{Acceptor, AcceptorError},
@@ -88,6 +87,7 @@ use {
             rc_eq::RcEq,
             refcounted::RefCounted,
             run_toplevel::RunToplevel,
+            sd_notify::take_notify_socket,
             static_text::StaticText,
             tri::Try,
         },
