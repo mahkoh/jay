@@ -105,6 +105,7 @@ where
         }
         let state = &d.core.state.tree;
         state.configure_groups.scheduled.push(self.clone());
+        state.transactions.add_surface(self.surface());
         state.serial_groups.trigger();
     }
 }

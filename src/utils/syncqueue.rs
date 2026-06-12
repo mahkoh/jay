@@ -34,7 +34,6 @@ impl<T> SyncQueue<T> {
         unsafe { self.el.get().deref_mut().pop_front() }
     }
 
-    #[expect(dead_code)]
     #[inline]
     pub fn pop_back(&self) -> Option<T> {
         unsafe { self.el.get().deref_mut().pop_back() }
@@ -66,7 +65,6 @@ impl<T> SyncQueue<T> {
         }
     }
 
-    #[expect(dead_code)]
     pub fn len(&self) -> usize {
         unsafe { self.el.get().deref().len() }
     }

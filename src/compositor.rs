@@ -57,10 +57,11 @@ use {
         sighand::{self, SighandError},
         sm::{SessionManager, flush_toplevel_sessions},
         sqlite::{Sqlite, handle_sqlite_optimize},
-        state::{ConnectorData, IdleState, ScreenlockState, State, XWaylandState},
+        state::{ConnectorData, IdleState, ScreenlockState, State, TreeState, XWaylandState},
         syncobj::wait_for_syncobj::WaitForSyncobj,
         tasks::{self, handle_const_40hz_latch, idle},
         tracy::enable_profiler,
+        transactions::{TransactionData, handle_transactions_apply, handle_transactions_timeout},
         tree::{
             DisplayNode, NodeIds, OutputNode, TearingMode, Transform, VrrMode,
             WorkspaceDisplayOrder, container_layout, container_render_positions,
@@ -250,6 +251,7 @@ fn start_compositor2(
     let sm = sqlite.as_ref().map(SessionManager::new).map(Rc::new);
     let udmabuf = Rc::new(UdmabufHolder::default());
     let no_client_prime = no_client_prime(&udmabuf);
+    let tree = Rc::new(TreeState::default());
     let state = Rc::new(State {
         pid,
         kb_ctx,
@@ -428,7 +430,8 @@ fn start_compositor2(
         fallback_output: Default::default(),
         toplevel_icon_ids: Default::default(),
         toplevel_icons: Default::default(),
-        tree: Default::default(),
+        transaction_data: TransactionData::new(&tree),
+        tree,
         commit_cache: Default::default(),
         dmabuf_feedback: Default::default(),
         surface_pending_cache: Default::default(),
@@ -666,6 +669,14 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
         eng.spawn(
             "dmabuf feedback changes",
             handle_dmabuf_feedback_changes(state.clone()),
+        ),
+        eng.spawn(
+            "transactions apply",
+            handle_transactions_apply(state.clone()),
+        ),
+        eng.spawn(
+            "transactions timeout",
+            handle_transactions_timeout(state.clone()),
         ),
     ]
 }

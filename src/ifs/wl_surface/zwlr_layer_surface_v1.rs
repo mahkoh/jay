@@ -487,6 +487,9 @@ impl ZwlrLayerSurfaceV1 {
                 let serial = state.next_tree_serial();
                 self.send_configure(serial, width as _, height as _);
                 self.surface.set_requested_serial(serial);
+                self.surface
+                    .surface_transaction
+                    .unblock_commits_until(serial, state.now_nsec());
             } else {
                 self.schedule_configure();
             }

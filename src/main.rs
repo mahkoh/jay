@@ -112,6 +112,7 @@ mod text;
 mod theme;
 mod time;
 mod tools;
+mod transactions;
 mod tree;
 mod tree_serial_groups;
 mod udev;

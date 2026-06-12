@@ -83,6 +83,7 @@ use {
         rect::{DamageQueue, Rect, Region},
         renderer::Renderer,
         state::{ConnectorData, State},
+        transactions::{SurfaceTransaction, TransactionData, Transactionable},
         tree::{
             BeforeLatchListener, BeforeLatchResult, ContainerNode, FindTreeResult, FoundNode,
             LatchListener, Node, NodeBase, NodeId, NodeLayerLink, NodeLocation, NodeVisitor,
@@ -357,6 +358,8 @@ pub struct WlSurface {
     flush_frame_requests: Cell<bool>,
     pub fullscreen: ObjAndId<Option<Rc<ConnectorData>>>,
     pub dmabuf_feedback: CopyHashMap<ZwpLinuxDmabufFeedbackV1Id, Rc<ZwpLinuxDmabufFeedbackV1>>,
+    transaction_data: TransactionData<WlSurfaceTransactionOp>,
+    pub surface_transaction: SurfaceTransaction,
 }
 
 impl Debug for WlSurface {
@@ -728,6 +731,8 @@ impl WlSurface {
             flush_frame_requests: Default::default(),
             fullscreen: Default::default(),
             dmabuf_feedback: Default::default(),
+            transaction_data: TransactionData::new(&state.tree),
+            surface_transaction: Default::default(),
         }
     }
 
@@ -2466,5 +2471,27 @@ impl Drop for SurfaceRelease {
     fn drop(&mut self) {
         self.cb.send_done(0);
         let _ = self.cb.client.remove_obj(&*self.cb);
+    }
+}
+
+pub enum WlSurfaceTransactionOp {
+    UnblockCommitsUntil(TreeSerial, u64),
+}
+
+impl Transactionable for WlSurface {
+    type T = WlSurfaceTransactionOp;
+
+    fn data(&self) -> &TransactionData<Self::T> {
+        &self.transaction_data
+    }
+
+    fn apply(self: &Rc<Self>, op: Self::T) {
+        match op {
+            WlSurfaceTransactionOp::UnblockCommitsUntil(serial, start_ns) => {
+                self.surface_transaction
+                    .unblock_commits_until(serial, start_ns);
+                self.commit_timeline.serial_unblocked();
+            }
+        }
     }
 }

@@ -106,6 +106,7 @@ use {
         tagged_acceptor::TaggedAcceptors,
         theme::{BarPosition, Color, Theme, ThemeColor, ThemeSized},
         time::Time,
+        transactions::{TransactionData, Transactionable, Transactions},
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FindTreeUsecase, FloatNode,
             FoundNode, LatchListener, NodeBase, NodeIds, NodeVisitor, NodeVisitorBase, OutputNode,
@@ -331,6 +332,7 @@ pub struct State {
     pub lazy_prime_buffer_resv_user: BufferResvUser,
     pub visualize_compositing: Cell<bool>,
     pub sleeper: Option<Sleeper>,
+    pub transaction_data: TransactionData<StateTransactionOp>,
 }
 
 // impl Drop for State {
@@ -350,6 +352,7 @@ pub struct TreeState {
     pub serials: TreeSerials,
     pub serial_groups: TreeSerialGroups,
     pub configure_groups: ConfigureGroups,
+    pub transactions: Transactions,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -1294,7 +1297,7 @@ impl State {
         self.damage_full();
     }
 
-    pub fn clear(&self) {
+    pub fn clear(self: &Rc<Self>) {
         self.lock.lock.take();
         self.xwayland.handler.borrow_mut().take();
         self.clients.clear();
@@ -1328,11 +1331,7 @@ impl State {
         self.wlr_output_managers.clear();
         self.dbus.clear();
         self.pending_container_layout.clear();
-        self.pending_container_render_positions.clear();
-        self.pending_container_render_title.clear();
-        self.pending_output_render_data.clear();
         self.pending_float_layout.clear();
-        self.pending_float_titles.clear();
         self.pending_input_popup_positioning.clear();
         self.pending_toplevel_screencasts.clear();
         self.pending_screencast_reallocs_or_reconfigures.clear();
@@ -1395,6 +1394,7 @@ impl State {
             sqlite.clear();
         }
         self.tree.configure_groups.clear();
+        self.tree.transactions.clear(self);
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {
@@ -2449,4 +2449,27 @@ pub enum ShmScreencopyError {
     CopyToTemporary(#[source] GfxError),
     #[error("Could not read pixels from texture")]
     ReadPixels(#[source] GfxError),
+}
+
+pub enum StateTransactionOp {
+    Clear,
+}
+
+impl Transactionable for State {
+    type T = StateTransactionOp;
+
+    fn data(&self) -> &TransactionData<Self::T> {
+        &self.transaction_data
+    }
+
+    fn apply(self: &Rc<Self>, op: Self::T) {
+        match op {
+            StateTransactionOp::Clear => {
+                self.pending_container_render_positions.clear();
+                self.pending_container_render_title.clear();
+                self.pending_output_render_data.clear();
+                self.pending_float_titles.clear();
+            }
+        }
+    }
 }
