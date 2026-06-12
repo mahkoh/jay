@@ -17,7 +17,10 @@ pub fn send_sd_notify_if_enabled(msg: &[u8]) {
         Some(notify_socket) => {
             if let Err(e) = try_send_sd_notify(msg, notify_socket.as_os_str()) {
                 // TODO: This could be logging, but is eprintln! right now, while things are racy.
-                eprintln!("Failed to send systemd ready notification: {e}");
+                eprintln!(
+                    "Failed to send systemd notification `{}`: {e}",
+                    String::from_utf8_lossy(msg)
+                );
             }
         }
         None => {
