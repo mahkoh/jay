@@ -46,10 +46,11 @@ use {
     std::{
         cell::{Cell, RefCell},
         collections::{HashMap, VecDeque, hash_map::Entry},
+        env,
         future::Future,
         mem,
         ops::Deref,
-        os::fd::IntoRawFd,
+        os::{fd::IntoRawFd, unix::net::UnixDatagram},
         panic::{AssertUnwindSafe, catch_unwind},
         pin::Pin,
         ptr,
@@ -2332,6 +2333,11 @@ impl ConfigClient {
                 }
             }
             ServerMessage::GraphicsInitialized => {
+                if let Ok(addr) = env::var("NOTIFY_SOCKET") {
+                    let sock = UnixDatagram::unbound().expect("TODO: handle error");
+                    sock.send_to(b"READY=1", addr).expect("TODO: handle error");
+                }
+                // TODO: Send SD_NOTIFY here.
                 if let Some(handler) = self.on_graphics_initialized.take() {
                     ignore_panic("graphics initialized", handler);
                 }
