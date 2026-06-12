@@ -121,7 +121,7 @@ pub const MAX_SCALE: Scale = Scale::from_int(16);
 pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
     sighand::reset_all();
     let reaper_pid = ensure_reaper();
-    let notify_socket = take_notify_socket();
+    let notify_socket = unsafe { take_notify_socket() };
     let caps = pr_caps().into_comp();
     let caps_thread = if caps.has_nice() {
         elevate_scheduler();

@@ -39,7 +39,7 @@ pub fn get_notify_socket() -> Option<OsString> {
     env::var_os(NOTIFY_SOCKET)
 }
 
-pub fn take_notify_socket() -> Option<OsString> {
+pub unsafe fn take_notify_socket() -> Option<OsString> {
     let notify_socket = get_notify_socket()?;
     unsafe {
         env::remove_var(NOTIFY_SOCKET);
