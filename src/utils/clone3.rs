@@ -100,7 +100,7 @@ pub fn ensure_reaper() -> c::pid_t {
 
     let main_pid_transferred = match pipe() {
         Ok(p) => p,
-        Err(e) => fatal!("could not create signaling pipe {}", ErrorFmt(e)),
+        Err(e) => fatal!("Could not create signaling pipe {}", ErrorFmt(e)),
     };
 
     let res = match fork_with_pidfd(false) {
