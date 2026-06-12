@@ -244,7 +244,7 @@ pub fn create_compositing_icon(
     let mut pixmap = Pixmap::new(size, size).ok_or(IconsError::CreatePixmap)?;
     pixmap.fill(bg);
     pixmap.fill_path(
-        &*COMPOSITING_PATH,
+        &COMPOSITING_PATH,
         &paint,
         FillRule::EvenOdd,
         transform,
