@@ -16,11 +16,13 @@ pub fn send_sd_notify_if_enabled(msg: &[u8]) {
     match env::var_os("NOTIFY_SOCKET") {
         Some(notify_socket) => {
             if let Err(e) = try_send_sd_notify(msg, notify_socket.as_os_str()) {
-                log::error!("Failed to send systemd ready notification: {e}");
+                // TODO: This could be logging, but is eprintln! right now, while things are racy.
+                eprintln!("Failed to send systemd ready notification: {e}");
             }
         }
         None => {
-            log::debug!("Not sending sd notification, NOTIFY_SOCKET not set");
+            // TODO: This could be logging, but is eprintln! right now, while things are racy.
+            eprintln!("Not sending sd notification, NOTIFY_SOCKET not set");
         }
     }
 }
