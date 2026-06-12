@@ -132,6 +132,7 @@ use {
             queue::AsyncQueue,
             refcounted::RefCounted,
             run_toplevel::RunToplevel,
+            sd_notify::send_sd_notify_if_enabled,
         },
         video::{
             Modifier,
@@ -820,10 +821,12 @@ impl State {
             {
                 self.explicit_sync_supported.set(true);
             }
-            if !self.render_ctx_ever_initialized.replace(true)
-                && let Some(config) = self.config.get()
-            {
-                config.graphics_initialized();
+            if !self.render_ctx_ever_initialized.replace(true) {
+                send_sd_notify_if_enabled(b"READY=1");
+
+                if let Some(config) = self.config.get() {
+                    config.graphics_initialized();
+                }
             }
         }
 
