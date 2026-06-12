@@ -47,15 +47,20 @@ use {
         cell::{Cell, RefCell},
         collections::{HashMap, VecDeque, hash_map::Entry},
         env,
+        ffi::OsStr,
         future::Future,
         io, mem,
         ops::Deref,
         os::{
             fd::IntoRawFd,
             linux::net::SocketAddrExt,
-            unix::net::{SocketAddr, UnixDatagram},
+            unix::{
+                ffi::OsStrExt,
+                net::{SocketAddr, UnixDatagram},
+            },
         },
         panic::{AssertUnwindSafe, catch_unwind},
+        path::Path,
         pin::Pin,
         ptr,
         rc::Rc,
@@ -85,7 +90,7 @@ fn run_cb<T>(name: &str, cb: &Callback<T>, t: T) {
 fn send_sd_notify_if_enabled(msg: &[u8]) {
     match env::var("NOTIFY_SOCKET") {
         Ok(addr) => {
-            if let Err(e) = try_send_sd_notify(msg, addr) {
+            if let Err(e) = try_send_sd_notify(msg, addr.as_ref()) {
                 log::error!("Failed to send systemd ready notification: {e}");
             }
         }
@@ -95,8 +100,11 @@ fn send_sd_notify_if_enabled(msg: &[u8]) {
     }
 }
 
-fn try_send_sd_notify<P: AsRef<[u8]>>(msg: &[u8], path: P) -> io::Result<()> {
-    let addr = SocketAddr::from_abstract_name(path)?;
+fn try_send_sd_notify(msg: &[u8], path: &[u8]) -> io::Result<()> {
+    let addr = match path.strip_prefix(b"@") {
+        Some(abs) => SocketAddr::from_abstract_name(abs)?,
+        None => SocketAddr::from_pathname(Path::new(OsStr::from_bytes(path)))?,
+    };
     let sock = UnixDatagram::unbound()?;
     sock.send_to_addr(msg, &addr)?;
 
