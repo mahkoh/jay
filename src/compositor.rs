@@ -163,7 +163,15 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
 
 #[cfg(feature = "it")]
 pub fn start_compositor_for_test(future: TestFuture) -> Result<(), CompositorError> {
-    let res = start_compositor2(None, None, None, RunArgs::default(), Some(future), None);
+    let res = start_compositor2(
+        None,
+        None,
+        None,
+        RunArgs::default(),
+        Some(future),
+        None,
+        None,
+    );
     leaks::log_leaked();
     res
 }
