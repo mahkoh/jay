@@ -50,9 +50,12 @@ use {
         future::Future,
         io, mem,
         ops::Deref,
-        os::{fd::IntoRawFd, unix::net::UnixDatagram},
+        os::{
+            fd::IntoRawFd,
+            linux::net::SocketAddrExt,
+            unix::net::{SocketAddr, UnixDatagram},
+        },
         panic::{AssertUnwindSafe, catch_unwind},
-        path::Path,
         pin::Pin,
         ptr,
         rc::Rc,
@@ -92,9 +95,10 @@ fn send_sd_notify_if_enabled(msg: &[u8]) {
     }
 }
 
-fn try_send_sd_notify<P: AsRef<Path>>(msg: &[u8], path: P) -> io::Result<()> {
+fn try_send_sd_notify<P: AsRef<[u8]>>(msg: &[u8], path: P) -> io::Result<()> {
+    let addr = SocketAddr::from_abstract_name(path)?;
     let sock = UnixDatagram::unbound()?;
-    sock.send_to(msg, path)?;
+    sock.send_to_addr(msg, &addr)?;
 
     Ok(())
 }
