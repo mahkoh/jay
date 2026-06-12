@@ -1,5 +1,5 @@
 use {
-    crate::utils::ptr_ext::MutPtrExt,
+    crate::utils::ptr_ext::{MutPtrExt, PtrExt},
     derivative::Derivative,
     std::{cell::UnsafeCell, collections::VecDeque, mem},
 };
@@ -34,6 +34,12 @@ impl<T> SyncQueue<T> {
         unsafe { self.el.get().deref_mut().pop_front() }
     }
 
+    #[expect(dead_code)]
+    #[inline]
+    pub fn pop_back(&self) -> Option<T> {
+        unsafe { self.el.get().deref_mut().pop_back() }
+    }
+
     pub fn is_empty(&self) -> bool {
         unsafe { self.el.get().deref_mut().is_empty() }
     }
@@ -58,5 +64,10 @@ impl<T> SyncQueue<T> {
         unsafe {
             self.el.get().deref_mut().clear();
         }
+    }
+
+    #[expect(dead_code)]
+    pub fn len(&self) -> usize {
+        unsafe { self.el.get().deref().len() }
     }
 }

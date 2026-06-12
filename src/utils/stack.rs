@@ -56,6 +56,20 @@ impl<T> Stack<T> {
     pub fn swap(&self, vec: &mut Vec<T>) {
         unsafe { mem::swap(self.vec.get().deref_mut(), vec) }
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    #[expect(dead_code)]
+    pub fn clear(&self) {
+        let mut vec = vec![];
+        self.swap(&mut vec);
+        vec.clear();
+        if self.is_empty() {
+            self.swap(&mut vec);
+        }
+    }
 }
 
 #[derive(Derivative)]
