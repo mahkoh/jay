@@ -2,7 +2,10 @@ use {
     crate::{
         forker::ForkerError,
         pr_caps::drop_all_pr_caps,
-        utils::{errorfmt::ErrorFmt, oserror::OsErrorExt2, process_name::set_process_name},
+        utils::{
+            errorfmt::ErrorFmt, oserror::OsErrorExt2, process_name::set_process_name,
+            sd_notify::send_sd_notify_if_enabled,
+        },
     },
     run_on_drop::on_drop,
     std::{env, mem::MaybeUninit, process, slice, str::FromStr},
@@ -108,6 +111,10 @@ pub fn ensure_reaper() -> c::pid_t {
         set_deathsig();
         return reaper_pid;
     };
+    // TODO: This is racy in theory. A fast compositor (or unlucky scheduling) could initialize
+    //       graphics before MAINPID={} is through.
+    let main_pid_msg = format!("MAINPID={}", main_process_id);
+    send_sd_notify_if_enabled(main_pid_msg.as_ref());
     drop_all_pr_caps();
     set_process_name("jay reaper");
     while let Ok((pid, status)) = uapi::wait() {
