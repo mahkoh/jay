@@ -16,7 +16,6 @@ const NOTIFY_SOCKET: &str = "NOTIFY_SOCKET";
 
 pub fn send_sd_notify(msg: &[u8], path: &OsStr) {
     if let Err(e) = try_send_sd_notify(msg, path) {
-        // TODO: This could be logging, but is eprintln! right now, while things are racy.
         eprintln!(
             "Failed to send systemd notification `{}`: {e}",
             String::from_utf8_lossy(msg)

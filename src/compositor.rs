@@ -1,5 +1,3 @@
-use std::ffi::OsString;
-
 #[cfg(feature = "it")]
 use crate::it::test_backend::TestBackend;
 use {
@@ -103,6 +101,7 @@ use {
     std::{
         cell::{Cell, RefCell},
         env,
+        ffi::OsString,
         future::Future,
         ops::Deref,
         rc::Rc,
