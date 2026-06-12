@@ -48,10 +48,11 @@ use {
         collections::{HashMap, VecDeque, hash_map::Entry},
         env,
         future::Future,
-        mem,
+        io, mem,
         ops::Deref,
         os::{fd::IntoRawFd, unix::net::UnixDatagram},
         panic::{AssertUnwindSafe, catch_unwind},
+        path::Path,
         pin::Pin,
         ptr,
         rc::Rc,
@@ -76,6 +77,26 @@ fn run_cb<T>(name: &str, cb: &Callback<T>, t: T) {
         Ok(mut cb) => ignore_panic(name, || cb(t)),
         Err(_) => log::error!("Cannot invoke {name} callback because it is already running"),
     }
+}
+
+fn send_sd_notify_if_enabled(msg: &[u8]) {
+    match env::var("NOTIFY_SOCKET") {
+        Ok(addr) => {
+            if let Err(e) = try_send_sd_notify(msg, addr) {
+                log::error!("Failed to send systemd ready notification: {e}");
+            }
+        }
+        Err(e) => {
+            log::debug!("Not sending sd notification, NOTIFY_SOCKET not readable: {e}");
+        }
+    }
+}
+
+fn try_send_sd_notify<P: AsRef<Path>>(msg: &[u8], path: P) -> io::Result<()> {
+    let sock = UnixDatagram::unbound()?;
+    sock.send_to(msg, path)?;
+
+    Ok(())
 }
 
 fn ignore_panic(name: &str, f: impl FnOnce()) {
@@ -2333,11 +2354,7 @@ impl ConfigClient {
                 }
             }
             ServerMessage::GraphicsInitialized => {
-                if let Ok(addr) = env::var("NOTIFY_SOCKET") {
-                    let sock = UnixDatagram::unbound().expect("TODO: handle error");
-                    sock.send_to(b"READY=1", addr).expect("TODO: handle error");
-                }
-                // TODO: Send SD_NOTIFY here.
+                send_sd_notify_if_enabled(b"READY=1");
                 if let Some(handler) = self.on_graphics_initialized.take() {
                     ignore_panic("graphics initialized", handler);
                 }
