@@ -6,7 +6,7 @@ use {
             errorfmt::ErrorFmt,
             oserror::OsErrorExt2,
             process_name::set_process_name,
-            sd_notify::{get_notify_socket, send_sd_notify, send_sd_notify_if_enabled},
+            sd_notify::{get_notify_socket, send_sd_notify},
         },
     },
     run_on_drop::on_drop,

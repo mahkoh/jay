@@ -14,18 +14,6 @@ use std::{
 
 const NOTIFY_SOCKET: &str = "NOTIFY_SOCKET";
 
-pub fn send_sd_notify_if_enabled(msg: &[u8]) {
-    match env::var_os("NOTIFY_SOCKET") {
-        Some(notify_socket) => {
-            send_sd_notify(msg, notify_socket.as_os_str());
-        }
-        None => {
-            // TODO: This could be logging, but is eprintln! right now, while things are racy.
-            eprintln!("Not sending sd notification, NOTIFY_SOCKET not set");
-        }
-    }
-}
-
 pub fn send_sd_notify(msg: &[u8], path: &OsStr) {
     if let Err(e) = try_send_sd_notify(msg, path) {
         // TODO: This could be logging, but is eprintln! right now, while things are racy.
