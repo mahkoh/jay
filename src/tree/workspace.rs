@@ -610,7 +610,7 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
     if let Some(visible) = sns.workspace.id()
         && visible == ws.id
     {
-        sns.workspace.set(None);
+        source.set_ns_workspace(None);
     }
     let mut new_source_ws = None;
     if !config.source_is_destroyed && !source.is_dummy && sns.workspace.is_none() {

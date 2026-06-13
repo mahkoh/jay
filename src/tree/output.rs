@@ -70,7 +70,7 @@ use {
             on_drop_event::OnDropEvent,
             ordered_float::F64,
             scroller::Scroller,
-            type_wrapper::{CellWrapper, TypeWrapper},
+            type_wrapper::{CellWrapper, NoWrapper, TypeWrapper},
         },
         wire::{
             ExtImageCopyCaptureSessionV1Id, JayOutputId, JayScreencastId,
@@ -155,7 +155,7 @@ pub struct OutputNodeState {
     pub rects: OutputNodeRects<CellWrapper>,
 }
 
-#[derive(Clone, Derivative)]
+#[derive(Derivative)]
 #[derivative(Default(bound = ""))]
 pub struct OutputNodeRects<W>
 where
@@ -285,20 +285,12 @@ impl OutputNode {
             active_zwlr_gamma_control: Default::default(),
             cursor_users: Default::default(),
             color_description_listeners: Default::default(),
-            node_state: OutputNodeState {
-                pos: Cell::new(Rect::new_sized_saturating(x, y, width, height)),
-                legacy_scale: Cell::new(scale.round_up()),
-                damage_matrix: Default::default(),
-                btf: Cell::new(connector_state.eotf),
-                bcs: Cell::new(connector_state.color_space),
-                color_description: CloneCell::new(state.color_manager.srgb_gamma22().clone()),
-                linear_color_description: CloneCell::new(state.color_manager.srgb_linear().clone()),
-                workspace: Default::default(),
-                overlay: Default::default(),
-                lock_surface: Default::default(),
-                rects: Default::default(),
-            },
+            node_state: OutputNodeState::new(state),
         });
+        on.set_ns_pos(Rect::new_sized_saturating(x, y, width, height));
+        on.set_ns_legacy_scale(scale.round_up());
+        on.set_ns_btf(connector_state.eotf);
+        on.set_ns_bcs(connector_state.color_space);
         on.update_visible();
         on.update_rects();
         on.update_damage_matrix();
@@ -625,7 +617,7 @@ impl OutputNode {
             return;
         }
         let legacy_scale = scale.round_up();
-        if self.node_state.legacy_scale.replace(legacy_scale) != legacy_scale {
+        if self.set_ns_legacy_scale(legacy_scale) != legacy_scale {
             self.global.send_mode();
         }
         self.state.remove_output_scale(old_scale);
@@ -895,7 +887,7 @@ impl OutputNode {
         if ns.workspace.id() == Some(ws.id) {
             return false;
         }
-        let old = ns.workspace.set(Some(ws.clone()));
+        let old = self.set_ns_workspace(Some(ws));
         if ns.overlay.is_none() {
             for user in self.cursor_users.lock().values() {
                 user.workspace_changed(self, Some(ws));
@@ -948,7 +940,7 @@ impl OutputNode {
         let mut seats = SmallVec::new();
         let wns = &ws.node_state;
         wns.output.get().hide_overlay2(false, &mut seats);
-        let old = ns.overlay.set(Some(ws.clone()));
+        let old = self.set_ns_overlay(Some(ws));
         if let Some(old) = &old {
             old.collect_kb_foci2(&mut seats);
         }
@@ -1012,7 +1004,7 @@ impl OutputNode {
         clear_old: bool,
         seats: &mut SmallVec<[Rc<WlSeatGlobal>; 3]>,
     ) {
-        let Some(ws) = self.node_state.overlay.set(None) else {
+        let Some(ws) = self.set_ns_overlay(None) else {
             return;
         };
         self.move_pinned_to_normal_workspace();
@@ -1135,16 +1127,18 @@ impl OutputNode {
             bar_separator_rel = to_rel(bar_separator);
             workspace_rel = to_rel(workspace);
         }
-        ns.rects.non_exclusive.set(non_exclusive);
-        ns.rects.non_exclusive_rel.set(non_exclusive_rel);
-        ns.rects.bar.set(bar);
-        ns.rects.bar_rel.set(bar_rel);
-        ns.rects.bar_with_separator.set(bar_with_separator);
-        ns.rects.bar_with_separator_rel.set(bar_with_separator_rel);
-        ns.rects.bar_separator.set(bar_separator);
-        ns.rects.bar_separator_rel.set(bar_separator_rel);
-        ns.rects.workspace.set(workspace);
-        ns.rects.workspace_rel.set(workspace_rel);
+        self.set_ns_rects(OutputNodeRects {
+            non_exclusive,
+            non_exclusive_rel,
+            workspace,
+            workspace_rel,
+            bar,
+            bar_rel,
+            bar_with_separator,
+            bar_with_separator_rel,
+            bar_separator,
+            bar_separator_rel,
+        });
         self.update_tray_positions();
         self.schedule_update_render_data();
     }
@@ -1232,7 +1226,7 @@ impl OutputNode {
             self.state.damage(old_pos);
         }
         self.global.persistent.pos.set((rect.x1(), rect.y1()));
-        ns.pos.set(*rect);
+        self.set_ns_pos(*rect);
         self.update_damage_matrix();
         if visible {
             self.state.damage(*rect);
@@ -1278,17 +1272,16 @@ impl OutputNode {
         self.global.format.set(state.format);
     }
 
-    fn update_btf_and_bcs(&self, btf: BackendEotfs, bcs: BackendColorSpace) {
-        let ns = &self.node_state;
-        let old_btf = ns.btf.replace(btf);
-        let old_bcs = ns.bcs.replace(bcs);
+    fn update_btf_and_bcs(self: &Rc<Self>, btf: BackendEotfs, bcs: BackendColorSpace) {
+        let old_btf = self.set_ns_btf(btf);
+        let old_bcs = self.set_ns_bcs(bcs);
         if (old_btf, old_bcs) == (btf, bcs) {
             return;
         }
         self.update_color_description();
     }
 
-    fn update_color_description(&self) {
+    fn update_color_description(self: &Rc<Self>) {
         if self.update_color_description_() {
             self.state.damage(self.node_state.pos.get());
             if let Some(hc) = self.hardware_cursor.get() {
@@ -1319,7 +1312,7 @@ impl OutputNode {
         }
     }
 
-    pub fn set_brightness(&self, brightness: Option<f64>) {
+    pub fn set_brightness(self: &Rc<Self>, brightness: Option<f64>) {
         let old = self.global.persistent.brightness.replace(brightness);
         if old != brightness {
             self.update_color_description();
@@ -1331,7 +1324,7 @@ impl OutputNode {
         }
     }
 
-    pub fn set_use_native_gamut(&self, use_native_gamut: bool) {
+    pub fn set_use_native_gamut(self: &Rc<Self>, use_native_gamut: bool) {
         let old = self
             .global
             .persistent
@@ -1451,10 +1444,10 @@ impl OutputNode {
     }
 
     pub fn set_lock_surface(
-        &self,
+        self: &Rc<Self>,
         surface: Option<Rc<ExtSessionLockSurfaceV1>>,
     ) -> Option<Rc<ExtSessionLockSurfaceV1>> {
-        let prev = self.node_state.lock_surface.set(surface);
+        let prev = self.set_ns_lock_surface(surface.as_ref());
         self.update_visible();
         prev
     }
@@ -1969,7 +1962,7 @@ impl OutputNode {
             .maybe_swap((mode.width, mode.height))
     }
 
-    fn update_damage_matrix(&self) {
+    fn update_damage_matrix(self: &Rc<Self>) {
         let ns = &self.node_state;
         let pos = ns.pos.get();
         let mode = self.global.mode.get();
@@ -1982,7 +1975,7 @@ impl OutputNode {
             mode.width,
             mode.height,
         );
-        ns.damage_matrix.set(matrix);
+        self.set_ns_damage_matrix(matrix);
         self.global
             .connector
             .damage_intersect
@@ -2006,7 +1999,7 @@ impl OutputNode {
         self.state.damage_visualizer.copy_damage(self);
     }
 
-    fn update_color_description_(&self) -> bool {
+    fn update_color_description_(self: &Rc<Self>) -> bool {
         let ns = &self.node_state;
         let (mut luminance, tf) = match ns.btf.get() {
             BackendEotfs::Default => (Luminance::SRGB, Eotf::Gamma22),
@@ -2059,8 +2052,58 @@ impl OutputNode {
             max_fall,
         );
         let cd_linear = self.state.color_manager.get_with_tf(&cd, Eotf::Linear);
-        ns.linear_color_description.set(cd_linear.clone());
-        ns.color_description.set(cd.clone()).id != cd.id
+        self.set_ns_linear_color_description(&cd_linear);
+        self.set_ns_color_description(&cd).id != cd.id
+    }
+
+    fn set_ns_pos(self: &Rc<Self>, v: Rect) {
+        self.node_state.pos.set(v);
+    }
+
+    fn set_ns_legacy_scale(self: &Rc<Self>, v: u32) -> u32 {
+        self.node_state.legacy_scale.replace(v)
+    }
+
+    pub fn set_ns_workspace(
+        self: &Rc<Self>,
+        v: Option<&Rc<WorkspaceNode>>,
+    ) -> Option<Rc<WorkspaceNode>> {
+        self.node_state.workspace.set(v.cloned())
+    }
+
+    fn set_ns_overlay(self: &Rc<Self>, v: Option<&Rc<WorkspaceNode>>) -> Option<Rc<WorkspaceNode>> {
+        self.node_state.overlay.set(v.cloned())
+    }
+
+    pub fn set_ns_lock_surface(
+        self: &Rc<Self>,
+        v: Option<&Rc<ExtSessionLockSurfaceV1>>,
+    ) -> Option<Rc<ExtSessionLockSurfaceV1>> {
+        self.node_state.lock_surface.set(v.cloned())
+    }
+
+    fn set_ns_btf(self: &Rc<Self>, v: BackendEotfs) -> BackendEotfs {
+        self.node_state.btf.replace(v)
+    }
+
+    fn set_ns_bcs(self: &Rc<Self>, v: BackendColorSpace) -> BackendColorSpace {
+        self.node_state.bcs.replace(v)
+    }
+
+    fn set_ns_color_description(self: &Rc<Self>, v: &Rc<ColorDescription>) -> Rc<ColorDescription> {
+        self.node_state.color_description.set(v.clone())
+    }
+
+    fn set_ns_linear_color_description(self: &Rc<Self>, v: &Rc<ColorDescription>) {
+        self.node_state.linear_color_description.set(v.clone());
+    }
+
+    fn set_ns_damage_matrix(self: &Rc<Self>, v: DamageMatrix) {
+        self.node_state.damage_matrix.set(v);
+    }
+
+    fn set_ns_rects(self: &Rc<Self>, v: OutputNodeRects<NoWrapper>) {
+        self.node_state.rects.set(&v);
     }
 }
 
@@ -2680,5 +2723,48 @@ impl OutputNodeOrPersistent {
 impl PartialEq for OutputNode {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
+    }
+}
+
+impl OutputNodeRects<CellWrapper> {
+    fn set(&self, v: &OutputNodeRects<NoWrapper>) {
+        macro_rules! set {
+            ($($field:ident,)*) => {
+                let OutputNodeRects {
+                    $($field,)*
+                } = *v;
+                $(self.$field.set($field);)*
+            };
+        }
+        set! {
+            non_exclusive,
+            non_exclusive_rel,
+            workspace,
+            workspace_rel,
+            bar,
+            bar_rel,
+            bar_with_separator,
+            bar_with_separator_rel,
+            bar_separator,
+            bar_separator_rel,
+        }
+    }
+}
+
+impl OutputNodeState {
+    fn new(state: &Rc<State>) -> Self {
+        Self {
+            pos: Default::default(),
+            legacy_scale: Default::default(),
+            workspace: Default::default(),
+            overlay: Default::default(),
+            lock_surface: Default::default(),
+            btf: Default::default(),
+            bcs: Default::default(),
+            color_description: CloneCell::new(state.color_manager.srgb_gamma22().clone()),
+            linear_color_description: CloneCell::new(state.color_manager.srgb_linear().clone()),
+            damage_matrix: Default::default(),
+            rects: Default::default(),
+        }
     }
 }
