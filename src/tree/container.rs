@@ -266,10 +266,7 @@ impl ContainerNode {
         let id = state.node_ids.next();
         let slf = Rc::new_cyclic(|weak| Self {
             id,
-            node_state: ContainerNodeState {
-                split: Cell::new(split),
-                ..Default::default()
-            },
+            node_state: Default::default(),
             sum_factors: Cell::new(1.0),
             layout_scheduled: Cell::new(false),
             compute_render_positions_scheduled: Cell::new(false),
@@ -295,6 +292,7 @@ impl ContainerNode {
             ),
             attention_requests: Default::default(),
         });
+        slf.set_ns_split(split);
         child.tl_set_parent(slf.clone());
         slf.pull_child_properties(&child_node_ref);
         slf
@@ -472,8 +470,7 @@ impl ContainerNode {
             .node
             .clone()
             .tl_change_extents(&mb.move_(ns.abs_x1.get(), ns.abs_y1.get()));
-        ns.mono_content
-            .set(child.node_state.content.get().at_point(mb.x1(), mb.y1()));
+        self.set_ns_mono_content(child.node_state.content.get().at_point(mb.x1(), mb.y1()));
 
         let th = self.state.theme.title_height();
         let bw = self.state.theme.sizes.border_width.get();
@@ -598,7 +595,7 @@ impl ContainerNode {
         }
     }
 
-    fn update_content_size(&self) {
+    fn update_content_size(self: &Rc<Self>) {
         let border_width = self.state.theme.sizes.border_width.get();
         let title_plus_underline_height = self.state.theme.title_plus_underline_height();
         let nc = self.num_children.get();
@@ -606,9 +603,8 @@ impl ContainerNode {
         match ns.split.get() {
             ContainerSplit::Horizontal => {
                 let new_content_size = ns.width.get().sub((nc - 1) as i32 * border_width).max(0);
-                ns.content_width.set(new_content_size);
-                ns.content_height
-                    .set(ns.height.get().sub(title_plus_underline_height).max(0));
+                self.set_ns_content_width(new_content_size);
+                self.set_ns_content_height(ns.height.get().sub(title_plus_underline_height).max(0));
             }
             ContainerSplit::Vertical => {
                 let new_content_size = ns
@@ -619,11 +615,11 @@ impl ContainerNode {
                             + (nc - 1) as i32 * (border_width + title_plus_underline_height),
                     )
                     .max(0);
-                ns.content_height.set(new_content_size);
-                ns.content_width.set(ns.width.get());
+                self.set_ns_content_height(new_content_size);
+                self.set_ns_content_width(ns.width.get());
             }
         }
-        ns.mono_body.set(Rect::new_sized_saturating(
+        self.set_ns_mono_body(Rect::new_sized_saturating(
             0,
             title_plus_underline_height,
             ns.width.get(),
@@ -990,7 +986,7 @@ impl ContainerNode {
                         .node_do_focus(&seat, Direction::Unspecified);
                 }
             }
-            ns.mono_child.set(Some(child.clone()));
+            self.set_ns_mono_child(Some(child.clone()));
             if self.toplevel_data.visible.get() {
                 child.node.tl_set_visible(true);
             }
@@ -1041,14 +1037,14 @@ impl ContainerNode {
                 }
             }
         }
-        ns.mono_child.set(child);
+        self.set_ns_mono_child(child);
         // log::info!("set_mono");
         self.schedule_layout();
         self.update_title();
     }
 
     pub fn set_split(self: &Rc<Self>, split: ContainerSplit) {
-        if self.node_state.split.replace(split) != split {
+        if self.set_ns_split(split) != split {
             self.update_content_size();
             // log::info!("set_split");
             self.schedule_layout();
@@ -1279,7 +1275,7 @@ impl ContainerNode {
         }
     }
 
-    fn update_child_size(&self, node: &NodeRef<ContainerChild>, width: i32, height: i32) {
+    fn update_child_size(self: &Rc<Self>, node: &NodeRef<ContainerChild>, width: i32, height: i32) {
         let rect = Rect::new_saturating(0, 0, width, height);
         node.node_state.content.set(rect);
         node.position_content();
@@ -1288,7 +1284,7 @@ impl ContainerNode {
             && mono.node.node_id() == node.node.node_id()
         {
             let body = ns.mono_body.get();
-            ns.mono_content.set(rect.at_point(body.x1(), body.y1()));
+            self.set_ns_mono_content(rect.at_point(body.x1(), body.y1()));
         }
     }
 
@@ -1663,6 +1659,46 @@ impl ContainerNode {
             });
         }
         None
+    }
+
+    fn set_ns_split(self: &Rc<Self>, v: ContainerSplit) -> ContainerSplit {
+        self.node_state.split.replace(v)
+    }
+
+    fn set_ns_mono_child(self: &Rc<Self>, v: Option<NodeRef<ContainerChild>>) {
+        self.node_state.mono_child.set(v);
+    }
+
+    fn set_ns_mono_body(self: &Rc<Self>, v: Rect) {
+        self.node_state.mono_body.set(v);
+    }
+
+    fn set_ns_mono_content(self: &Rc<Self>, v: Rect) {
+        self.node_state.mono_content.set(v);
+    }
+
+    fn set_ns_abs_x1(self: &Rc<Self>, v: i32) {
+        self.node_state.abs_x1.set(v);
+    }
+
+    fn set_ns_abs_y1(self: &Rc<Self>, v: i32) {
+        self.node_state.abs_y1.set(v);
+    }
+
+    fn set_ns_width(self: &Rc<Self>, v: i32) -> i32 {
+        self.node_state.width.replace(v)
+    }
+
+    fn set_ns_height(self: &Rc<Self>, v: i32) -> i32 {
+        self.node_state.height.replace(v)
+    }
+
+    fn set_ns_content_width(self: &Rc<Self>, v: i32) {
+        self.node_state.content_width.set(v);
+    }
+
+    fn set_ns_content_height(self: &Rc<Self>, v: i32) {
+        self.node_state.content_height.set(v);
     }
 }
 
@@ -2064,7 +2100,7 @@ impl ContainingNode for ContainerNode {
         drop(node);
         let mut body = None;
         if was_mc {
-            ns.mono_child.set(Some(link.to_ref()));
+            self.set_ns_mono_child(Some(link.to_ref()));
             link.node.tl_restack_popups();
             body = Some(ns.mono_body.get());
         } else if !have_mc {
@@ -2369,11 +2405,11 @@ impl ToplevelNodeBase for ContainerNode {
     fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect) {
         self.toplevel_data.content_size.set(*rect);
         let ns = &self.node_state;
-        ns.abs_x1.set(rect.x1());
-        ns.abs_y1.set(rect.y1());
+        self.set_ns_abs_x1(rect.x1());
+        self.set_ns_abs_y1(rect.y1());
         let mut size_changed = false;
-        size_changed |= ns.width.replace(rect.width()) != rect.width();
-        size_changed |= ns.height.replace(rect.height()) != rect.height();
+        size_changed |= self.set_ns_width(rect.width()) != rect.width();
+        size_changed |= self.set_ns_height(rect.height()) != rect.height();
         if size_changed {
             self.update_content_size();
             // log::info!("tl_change_extents");
