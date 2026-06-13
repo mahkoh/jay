@@ -85,6 +85,7 @@ use {
             rc_eq::RcEq,
             refcounted::RefCounted,
             run_toplevel::RunToplevel,
+            sd_notify::take_notify_socket,
             static_text::StaticText,
             tri::Try,
         },
@@ -100,6 +101,7 @@ use {
     std::{
         cell::{Cell, RefCell},
         env,
+        ffi::OsString,
         future::Future,
         ops::Deref,
         rc::Rc,
@@ -118,6 +120,7 @@ pub const MAX_SCALE: Scale = Scale::from_int(16);
 pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
     sighand::reset_all();
     let reaper_pid = ensure_reaper();
+    let notify_socket = unsafe { take_notify_socket() };
     let caps = pr_caps().into_comp();
     let caps_thread = if caps.has_nice() {
         elevate_scheduler();
@@ -144,6 +147,7 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
         args,
         None,
         caps_thread,
+        notify_socket,
     );
     leaks::log_leaked();
     if let Err(e) = res {
@@ -158,7 +162,15 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
 
 #[cfg(feature = "it")]
 pub fn start_compositor_for_test(future: TestFuture) -> Result<(), CompositorError> {
-    let res = start_compositor2(None, None, None, RunArgs::default(), Some(future), None);
+    let res = start_compositor2(
+        None,
+        None,
+        None,
+        RunArgs::default(),
+        Some(future),
+        None,
+        None,
+    );
     leaks::log_leaked();
     res
 }
@@ -205,6 +217,7 @@ fn start_compositor2(
     run_args: RunArgs,
     test_future: Option<TestFuture>,
     caps_thread: Option<PrCapsThread>,
+    notify_socket: Option<OsString>,
 ) -> Result<(), CompositorError> {
     let pid = uapi::getpid();
     log::info!("pid = {pid}");
@@ -244,6 +257,7 @@ fn start_compositor2(
         kb_ctx,
         backend: CloneCell::new(Rc::new(DummyBackend)),
         forker: Default::default(),
+        notify_socket,
         default_keymap: kb_keymap,
         eng: engine.clone(),
         render_ctx: Default::default(),

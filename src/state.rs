@@ -132,6 +132,7 @@ use {
             queue::AsyncQueue,
             refcounted::RefCounted,
             run_toplevel::RunToplevel,
+            sd_notify::send_sd_notify,
         },
         video::{
             Modifier,
@@ -153,6 +154,7 @@ use {
     linearize::StaticMap,
     std::{
         cell::{Cell, RefCell},
+        ffi::OsString,
         fmt::{Debug, Formatter},
         mem,
         ops::{Deref, DerefMut},
@@ -172,6 +174,7 @@ pub struct State {
     pub kb_ctx: KbvmContext,
     pub backend: CloneCell<Rc<dyn Backend>>,
     pub forker: CloneCell<Option<Rc<ForkerProxy>>>,
+    pub notify_socket: Option<OsString>,
     pub default_keymap: Rc<KbvmMap>,
     pub eng: Rc<AsyncEngine>,
     pub render_ctx: CloneCell<Option<Rc<dyn GfxContext>>>,
@@ -820,10 +823,14 @@ impl State {
             {
                 self.explicit_sync_supported.set(true);
             }
-            if !self.render_ctx_ever_initialized.replace(true)
-                && let Some(config) = self.config.get()
-            {
-                config.graphics_initialized();
+            if !self.render_ctx_ever_initialized.replace(true) {
+                if let Some(ref notify_socket) = self.notify_socket {
+                    send_sd_notify(b"READY=1", notify_socket);
+                }
+
+                if let Some(config) = self.config.get() {
+                    config.graphics_initialized();
+                }
             }
         }
 

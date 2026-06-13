@@ -2,11 +2,17 @@ use {
     crate::{
         forker::ForkerError,
         pr_caps::drop_all_pr_caps,
-        utils::{errorfmt::ErrorFmt, oserror::OsErrorExt2, process_name::set_process_name},
+        utils::{
+            errorfmt::ErrorFmt,
+            oserror::OsErrorExt2,
+            pipe::{Pipe, pipe},
+            process_name::set_process_name,
+            sd_notify::{get_notify_socket, send_sd_notify},
+        },
     },
     run_on_drop::on_drop,
     std::{env, mem::MaybeUninit, process, slice, str::FromStr},
-    uapi::{Msghdr, MsghdrMut, OwnedFd, c},
+    uapi::{Errno, Msghdr, MsghdrMut, OwnedFd, c},
 };
 
 pub enum Forked {
@@ -91,6 +97,12 @@ pub fn ensure_reaper() -> c::pid_t {
     unsafe {
         c::prctl(c::PR_SET_CHILD_SUBREAPER, 1);
     }
+
+    let main_pid_transferred = match pipe() {
+        Ok(p) => p,
+        Err(e) => fatal!("Could not create signaling pipe {}", ErrorFmt(e)),
+    };
+
     let res = match fork_with_pidfd(false) {
         Ok(r) => r,
         Err(e) => {
@@ -106,8 +118,19 @@ pub fn ensure_reaper() -> c::pid_t {
             env::set_var(REAPER_VAR, reaper_pid.to_string());
         }
         set_deathsig();
+
+        wait_for_pipe_close(main_pid_transferred);
         return reaper_pid;
     };
+
+    if let Some(socket) = get_notify_socket() {
+        // TODO: This is racy in theory. A fast compositor (or unlucky scheduling) could initialize
+        //       graphics before MAINPID={} is through.
+        let main_pid_msg = format!("MAINPID={}", main_process_id);
+        send_sd_notify(main_pid_msg.as_ref(), socket.as_os_str());
+    }
+    drop(main_pid_transferred);
+
     drop_all_pr_caps();
     set_process_name("jay reaper");
     while let Ok((pid, status)) = uapi::wait() {
@@ -159,4 +182,17 @@ fn recv_pidfd(socket: &OwnedFd) -> Result<OwnedFd, ForkerError> {
         return Err(ForkerError::InvalidCmsg);
     };
     Ok(OwnedFd::new(fd))
+}
+
+fn wait_for_pipe_close(pipe: Pipe<OwnedFd, OwnedFd>) {
+    drop(pipe.write);
+    let mut buf = [0u8; 8];
+
+    loop {
+        match uapi::read(pipe.read.raw(), &mut buf[..]) {
+            Ok([]) => break,
+            Ok(_) | Err(Errno(c::EINTR)) => {}
+            Err(_) => break,
+        }
+    }
 }
