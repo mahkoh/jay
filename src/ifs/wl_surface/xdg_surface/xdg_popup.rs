@@ -462,7 +462,7 @@ impl StackedNode for XdgPopup {
         self.set_visible_prepared.get()
     }
 
-    fn stacked_set_visible(&self, visible: bool) {
+    fn stacked_set_visible(self: Rc<Self>, visible: bool) {
         if visible {
             if let Some(parent) = self.parent.get()
                 && !parent.visible()

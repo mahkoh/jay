@@ -72,6 +72,7 @@ pub mod thread_local_data;
 pub mod threshold_counter;
 pub mod timer;
 pub mod tri;
+pub mod type_wrapper;
 pub mod vec_ext;
 pub mod vecdeque_ext;
 pub mod vecset;
