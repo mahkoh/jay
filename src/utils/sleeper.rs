@@ -11,11 +11,9 @@ use {
 
 pub struct Sleeper {
     _blocker: FdBlocker,
-    #[expect(dead_code)]
     pub pidfd: Rc<OwnedFd>,
 }
 
-#[expect(dead_code)]
 pub fn start_sleeper() -> Sleeper {
     let (blocker, barrier) = match create_fd_blocker() {
         Ok(r) => r,

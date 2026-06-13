@@ -1,8 +1,8 @@
 use {
     crate::{
-        dbus::{BUS_DEST, BUS_PATH, DbusError, DictEntry},
+        dbus::{BUS_DEST, BUS_PATH, DbusError, DictEntry, DynamicType, prelude::Variant},
         state::State,
-        utils::errorfmt::ErrorFmt,
+        utils::{errorfmt::ErrorFmt, opaque::opaque, sleeper::Sleeper},
         wire_dbus::org,
     },
     std::{borrow::Cow, rc::Rc},
@@ -80,5 +80,46 @@ async fn import_environment_(
             }
         },
     );
+    Ok(())
+}
+
+pub async fn start_graphical_session(state: &Rc<State>) {
+    let Some(sleeper) = &state.sleeper else {
+        log::warn!("Cannot start graphical session because there is no sleeper");
+        return;
+    };
+    if let Err(e) = start_graphical_session_(state, sleeper).await {
+        log::error!("Could not start graphical session unit: {}", ErrorFmt(e));
+    }
+}
+
+async fn start_graphical_session_(state: &Rc<State>, sleeper: &Sleeper) -> Result<(), DbusError> {
+    let session = state.dbus.session().await?;
+    let name = format!("jay-{}.scope", opaque());
+    let properties = [
+        (
+            Cow::Borrowed("Upholds"),
+            Variant::Array(
+                DynamicType::String,
+                vec![Variant::String(Cow::Borrowed("graphical-session.target"))],
+            ),
+        ),
+        (
+            Cow::Borrowed("PIDFDs"),
+            Variant::Array(DynamicType::Fd, vec![Variant::Fd(sleeper.pidfd.clone())]),
+        ),
+    ];
+    session
+        .call_async(
+            SYSTEMD_DEST,
+            SYSTEMD_PATH,
+            org::freedesktop::systemd1::manager::StartTransientUnit {
+                name: Cow::Borrowed(&name),
+                mode: Cow::Borrowed("fail"),
+                properties: Cow::Borrowed(&properties),
+                aux: Default::default(),
+            },
+        )
+        .await?;
     Ok(())
 }

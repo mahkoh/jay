@@ -70,7 +70,7 @@ use {
             placeholder_render_textures,
         },
         udmabuf::UdmabufHolder,
-        user_session::import_environment,
+        user_session::{import_environment, start_graphical_session},
         utils::{
             clone3::ensure_reaper,
             clonecell::CloneCell,
@@ -85,6 +85,7 @@ use {
             rc_eq::RcEq,
             refcounted::RefCounted,
             run_toplevel::RunToplevel,
+            sleeper::{Sleeper, start_sleeper},
             static_text::StaticText,
             tri::Try,
         },
@@ -128,6 +129,7 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
     };
     let forker = create_forker(reaper_pid);
     let portal = portal::run_from_compositor(global.log_level);
+    let sleeper = start_sleeper();
     enable_profiler();
     let logger = Logger::install_compositor(global.log_level);
     let portal = match portal {
@@ -139,6 +141,7 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
     };
     let res = start_compositor2(
         Some(forker),
+        Some(sleeper),
         portal,
         Some(logger.clone()),
         args,
@@ -158,7 +161,15 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
 
 #[cfg(feature = "it")]
 pub fn start_compositor_for_test(future: TestFuture) -> Result<(), CompositorError> {
-    let res = start_compositor2(None, None, None, RunArgs::default(), Some(future), None);
+    let res = start_compositor2(
+        None,
+        None,
+        None,
+        None,
+        RunArgs::default(),
+        Some(future),
+        None,
+    );
     leaks::log_leaked();
     res
 }
@@ -200,6 +211,7 @@ pub type TestFuture = Box<dyn Fn(&Rc<State>) -> Box<dyn Future<Output = ()>>>;
 
 fn start_compositor2(
     forker: Option<Rc<ForkerProxy>>,
+    sleeper: Option<Sleeper>,
     portal: Option<PortalStartup>,
     logger: Option<Arc<Logger>>,
     run_args: RunArgs,
@@ -425,6 +437,7 @@ fn start_compositor2(
         no_client_prime,
         lazy_prime_buffer_resv_user: Default::default(),
         visualize_compositing: Default::default(),
+        sleeper,
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -477,6 +490,8 @@ async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
             import_environment(&state, key, val).await;
         }
     }
+
+    start_graphical_session(&state).await;
 
     let config = load_config(&state, is_test);
     config.configure(false);
