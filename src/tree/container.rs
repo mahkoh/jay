@@ -1822,7 +1822,7 @@ impl Node for ContainerNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn node_child_size_changed(&self, child: &dyn Node, width: i32, height: i32) {
+    fn node_child_size_changed(self: Rc<Self>, child: &dyn Node, width: i32, height: i32) {
         let cn = self.child_nodes.borrow();
         if let Some(node) = cn.get(&child.node_id()) {
             self.update_child_size(node, width, height);
