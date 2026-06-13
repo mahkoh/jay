@@ -70,6 +70,7 @@ use {
             on_drop_event::OnDropEvent,
             ordered_float::F64,
             scroller::Scroller,
+            type_wrapper::{CellWrapper, TypeWrapper},
         },
         wire::{
             ExtImageCopyCaptureSessionV1Id, JayOutputId, JayScreencastId,
@@ -77,6 +78,7 @@ use {
         },
     },
     ahash::AHashMap,
+    derivative::Derivative,
     jay_config::video::{TearingMode as ConfigTearingMode, VrrMode as ConfigVrrMode},
     numeric_sort::cmp,
     smallvec::SmallVec,
@@ -150,21 +152,25 @@ pub struct OutputNodeState {
     pub color_description: CloneCell<Rc<ColorDescription>>,
     pub linear_color_description: CloneCell<Rc<ColorDescription>>,
     pub damage_matrix: Cell<DamageMatrix>,
-    pub rects: OutputNodeRects,
+    pub rects: OutputNodeRects<CellWrapper>,
 }
 
-#[derive(Default)]
-pub struct OutputNodeRects {
-    pub non_exclusive: Cell<Rect>,
-    pub non_exclusive_rel: Cell<Rect>,
-    pub workspace: Cell<Rect>,
-    pub workspace_rel: Cell<Rect>,
-    pub bar: Cell<Rect>,
-    pub bar_rel: Cell<Rect>,
-    pub bar_with_separator: Cell<Rect>,
-    pub bar_with_separator_rel: Cell<Rect>,
-    pub bar_separator: Cell<Rect>,
-    pub bar_separator_rel: Cell<Rect>,
+#[derive(Clone, Derivative)]
+#[derivative(Default(bound = ""))]
+pub struct OutputNodeRects<W>
+where
+    W: TypeWrapper,
+{
+    pub non_exclusive: W::D<Rect>,
+    pub non_exclusive_rel: W::D<Rect>,
+    pub workspace: W::D<Rect>,
+    pub workspace_rel: W::D<Rect>,
+    pub bar: W::D<Rect>,
+    pub bar_rel: W::D<Rect>,
+    pub bar_with_separator: W::D<Rect>,
+    pub bar_with_separator_rel: W::D<Rect>,
+    pub bar_separator: W::D<Rect>,
+    pub bar_separator_rel: W::D<Rect>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
