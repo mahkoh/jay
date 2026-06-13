@@ -221,9 +221,9 @@ impl ContainerRenderData {
     }
 }
 
-impl ContainerChild {
-    fn position_content(&self) {
-        let cns = &self.node_state;
+impl ContainerNode {
+    fn position_child_content(self: &Rc<Self>, child: &NodeRef<ContainerChild>) {
+        let cns = &child.node_state;
         let mut content = cns.content.get();
         let body = cns.body.get();
         let width = content.width();
@@ -235,7 +235,7 @@ impl ContainerChild {
         content = Rect::new_sized_saturating(x1, y1, width, height);
         // log::debug!("body: {:?}", body);
         // log::debug!("content: {:?}", content);
-        cns.content.set(content);
+        self.set_child_ns_content(child, content);
     }
 }
 
@@ -531,7 +531,7 @@ impl ContainerNode {
                 ),
             };
             let body = Rect::new_sized_saturating(x1, y1, width, height);
-            child.node_state.body.set(body);
+            self.set_child_ns_body(&child, body);
             pos += body_size + border_width;
             if split == ContainerSplit::Vertical {
                 pos += title_plus_underline_height;
@@ -572,7 +572,7 @@ impl ContainerNode {
                     }
                 };
                 body = Rect::new_sized_saturating(x1, y1, width, height);
-                cns.body.set(body);
+                self.set_child_ns_body(&child, body);
                 pos += size + border_width;
                 if split == ContainerSplit::Vertical {
                     pos += title_plus_underline_height;
@@ -583,15 +583,18 @@ impl ContainerNode {
         for child in self.children.iter() {
             let cns = &child.node_state;
             let body = cns.body.get();
-            cns.title_rect.set(Rect::new_sized_saturating(
-                body.x1(),
-                body.y1() - title_plus_underline_height,
-                body.width(),
-                title_height_tmp,
-            ));
+            self.set_child_ns_title_rect(
+                &child,
+                Rect::new_sized_saturating(
+                    body.x1(),
+                    body.y1() - title_plus_underline_height,
+                    body.width(),
+                    title_height_tmp,
+                ),
+            );
             let body = body.move_(ns.abs_x1.get(), ns.abs_y1.get());
             child.node.clone().tl_change_extents(&body);
-            child.position_content();
+            self.position_child_content(&child);
         }
     }
 
@@ -772,7 +775,7 @@ impl ContainerNode {
         }
     }
 
-    fn update_child_types(&self) {
+    fn update_child_types(self: &Rc<Self>) {
         if self.child_types_valid.replace(true) {
             return;
         }
@@ -788,11 +791,11 @@ impl ContainerNode {
             } else {
                 ContainerChildType::Other
             };
-            child.node_state.ty.set(ty);
+            self.set_child_ns_ty(&child, ty);
         }
     }
 
-    fn render_titles(&self) -> Rc<AsyncEvent> {
+    fn render_titles(self: &Rc<Self>) -> Rc<AsyncEvent> {
         let on_completed = Rc::new(OnDropEvent::default());
         let Some(ctx) = self.state.render_ctx.get() else {
             return on_completed.event();
@@ -893,7 +896,7 @@ impl ContainerNode {
         }
     }
 
-    fn compute_render_positions(&self) {
+    fn compute_render_positions(self: &Rc<Self>) {
         self.compute_render_positions_scheduled.set(false);
         let mut rd = self.render_data.borrow_mut();
         let rd = rd.deref_mut();
@@ -1277,8 +1280,8 @@ impl ContainerNode {
 
     fn update_child_size(self: &Rc<Self>, node: &NodeRef<ContainerChild>, width: i32, height: i32) {
         let rect = Rect::new_saturating(0, 0, width, height);
-        node.node_state.content.set(rect);
-        node.position_content();
+        self.set_child_ns_content(node, rect);
+        self.position_child_content(node);
         let ns = &self.node_state;
         if let Some(mono) = ns.mono_child.get()
             && mono.node.node_id() == node.node.node_id()
@@ -1700,6 +1703,22 @@ impl ContainerNode {
     fn set_ns_content_height(self: &Rc<Self>, v: i32) {
         self.node_state.content_height.set(v);
     }
+
+    fn set_child_ns_title_rect(self: &Rc<Self>, child: &NodeRef<ContainerChild>, v: Rect) {
+        child.node_state.title_rect.set(v);
+    }
+
+    fn set_child_ns_ty(self: &Rc<Self>, child: &NodeRef<ContainerChild>, v: ContainerChildType) {
+        child.node_state.ty.set(v);
+    }
+
+    fn set_child_ns_body(self: &Rc<Self>, child: &NodeRef<ContainerChild>, v: Rect) {
+        child.node_state.body.set(v);
+    }
+
+    fn set_child_ns_content(self: &Rc<Self>, child: &NodeRef<ContainerChild>, v: Rect) {
+        child.node_state.content.set(v);
+    }
 }
 
 struct SeatOp {
@@ -2079,12 +2098,7 @@ impl ContainingNode for ContainerNode {
         let link = node.append(ContainerChild {
             node: new.clone(),
             active: Cell::new(false),
-            node_state: ContainerChildNodeState {
-                ty: Default::default(),
-                title_rect: Cell::new(node.node_state.title_rect.get()),
-                body: Cell::new(node.node_state.body.get()),
-                content: Default::default(),
-            },
+            node_state: Default::default(),
             factor: Cell::new(node.factor.get()),
             title: Default::default(),
             title_tex: Default::default(),
@@ -2093,6 +2107,8 @@ impl ContainingNode for ContainerNode {
             focus_history: Cell::new(None),
             attention_requested: Cell::new(false),
         });
+        self.set_child_ns_title_rect(&link, node.node_state.title_rect.get());
+        self.set_child_ns_body(&link, node.node_state.body.get());
         if let Some(fh) = node.focus_history.take() {
             link.focus_history.set(Some(fh.append(link.to_ref())));
         }
