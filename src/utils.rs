@@ -22,6 +22,7 @@ pub mod double_buffered;
 pub mod double_click_state;
 pub mod errorfmt;
 pub mod event_listener;
+pub mod fd_blocker;
 pub mod fdcloser;
 pub mod free_list;
 pub mod geometric_decay;
