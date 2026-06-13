@@ -979,7 +979,7 @@ impl ConfigProxyHandler {
             .outputs
             .lock()
             .values()
-            .filter(|o| o.node_state.overlay.is_some())
+            .filter(|o| o.node_state[LiveTL].overlay.is_some())
             .cloned()
             .collect();
         for output in outputs {
@@ -1519,7 +1519,7 @@ impl ConfigProxyHandler {
 
     fn handle_connector_size(&self, connector: Connector) -> Result<(), CphError> {
         let connector = self.get_output_node(connector)?;
-        let pos = connector.node_state.pos.get();
+        let pos = connector.node_state[LiveTL].pos.get();
         self.respond(Response::ConnectorSize {
             width: pos.width(),
             height: pos.height(),
@@ -1845,8 +1845,7 @@ impl ConfigProxyHandler {
 
     fn handle_get_connector_active_workspace(&self, connector: Connector) -> Result<(), CphError> {
         let output = self.get_output_node(connector)?;
-        let workspace = output
-            .node_state
+        let workspace = output.node_state[LiveTL]
             .workspace
             .get()
             .map(|ws| self.get_workspace_by_name(&ws.name, ws.ty))

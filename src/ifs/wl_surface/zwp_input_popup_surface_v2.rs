@@ -9,7 +9,7 @@ use {
         object::{Object, Version},
         rect::Rect,
         state::State,
-        tree::{NodeLayerLink, WorkspaceNode},
+        tree::{NodeLayerLink, TreeTimeline::LiveTL, WorkspaceNode},
         wire::{WlSurfaceId, ZwpInputPopupSurfaceV2Id, zwp_input_popup_surface_v2::*},
     },
     std::{cell::Cell, rc::Rc},
@@ -96,7 +96,7 @@ impl ZwpInputPopupSurfaceV2 {
             log::warn!("Popup has no connection but is visible");
             return;
         };
-        let output = con.surface.output.get().node_state.pos.get();
+        let output = con.surface.output.get().node_state[LiveTL].pos.get();
         let surface_rect = con.surface.buffer_abs_pos.get();
         let cursor_rect = con
             .text_input

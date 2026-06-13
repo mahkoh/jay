@@ -81,7 +81,7 @@ impl DisplayNode {
         let mut x2 = i32::MIN;
         let mut y2 = i32::MIN;
         for output in outputs.values() {
-            let pos = output.node_state.pos.get();
+            let pos = output.node_state[LiveTL].pos.get();
             x1 = x1.min(pos.x1());
             y1 = y1.min(pos.y1());
             x2 = x2.max(pos.x2());
@@ -217,7 +217,7 @@ impl NodeBase for DisplayNode {
     ) -> FindTreeResult {
         let outputs = self.outputs.lock();
         for output in outputs.values() {
-            let pos = output.node_state.pos.get();
+            let pos = output.node_state[LiveTL].pos.get();
             if pos.contains(x, y) {
                 let (x, y) = pos.translate(x, y);
                 tree.push(FoundNode {

@@ -6,7 +6,7 @@ use {
         ifs::wl_output::{BlendSpace, PersistentOutputState},
         scale::Scale,
         state::{OutputData, State},
-        tree::{OutputNode, TearingMode, Transform, VrrMode},
+        tree::{OutputNode, TearingMode, Transform, TreeTimeline::LiveTL, VrrMode},
         utils::rc_eq::RcEq,
     },
     std::{
@@ -158,7 +158,7 @@ impl HeadManager {
 
     pub fn handle_position_size_change(&self, node: &OutputNode) {
         let state = &mut *self.state.borrow_mut();
-        let pos = node.node_state.pos.get();
+        let pos = node.node_state[LiveTL].pos.get();
         state.position = pos.position();
         state.size = pos.size();
     }

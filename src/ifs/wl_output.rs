@@ -11,7 +11,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         state::{ConnectorData, State},
-        tree::{NodeBase, OutputNode, TearingMode, Transform, VrrMode},
+        tree::{NodeBase, OutputNode, TearingMode, Transform, TreeTimeline::LiveTL, VrrMode},
         utils::{cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, rc_eq::rc_eq},
         wire::{WlOutputId, ZxdgOutputV1Id, wl_output::*},
     },
@@ -365,7 +365,7 @@ impl WlOutput {
             return;
         };
         let global = &node.global;
-        let pos = node.node_state.pos.get();
+        let pos = node.node_state[LiveTL].pos.get();
         let mut x = pos.x1();
         let mut y = pos.y1();
         logical_to_client_wire_scale!(self.client, x, y);
@@ -378,7 +378,7 @@ impl WlOutput {
             subpixel: SP_UNKNOWN,
             make: &global.output_id.manufacturer,
             model: &global.output_id.model,
-            transform: node.node_state.transform.get().to_wl(),
+            transform: node.node_state[LiveTL].transform.get().to_wl(),
         };
         self.client.event(event);
     }
@@ -405,7 +405,7 @@ impl WlOutput {
         };
         let factor = match self.client.wire_scale.is_some() {
             true => 1,
-            false => node.node_state.legacy_scale.get() as _,
+            false => node.node_state[LiveTL].legacy_scale.get() as _,
         };
         let event = Scale {
             self_id: self.id,

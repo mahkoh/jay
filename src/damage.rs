@@ -8,7 +8,7 @@ use {
         state::State,
         theme::Color,
         time::Time,
-        tree::{OutputNode, Transform},
+        tree::{OutputNode, Transform, TreeTimeline::LiveTL},
         utils::{asyncevent::AsyncEvent, errorfmt::ErrorFmt, timer::TimerFd},
     },
     isnt::std_1::primitive::IsntSliceExt,
@@ -187,7 +187,7 @@ impl DamageVisualizer {
         }
         self.trim();
         let entries = &*self.entries.borrow();
-        let pos = output.node_state.pos.get();
+        let pos = output.node_state[LiveTL].pos.get();
         for entry in entries {
             if entry.rect.intersects(&pos) {
                 output.add_damage_area(&entry.rect);

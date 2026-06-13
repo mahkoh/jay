@@ -7,7 +7,7 @@ use {
                 test_workspace_node_ext::TestWorkspaceNodeExt,
             },
         },
-        tree::{OutputNode, ToplevelNode, WorkspaceNode},
+        tree::{OutputNode, ToplevelNode, TreeTimeline::LiveTL, WorkspaceNode},
     },
     std::rc::Rc,
 };
@@ -19,7 +19,7 @@ pub trait TestOutputNodeExt {
 
 impl TestOutputNodeExt for OutputNode {
     fn workspace2(&self) -> TestResult<Rc<WorkspaceNode>> {
-        match self.node_state.workspace.get() {
+        match self.node_state[LiveTL].workspace.get() {
             None => bail!("Output node does not have a container"),
             Some(w) => Ok(w),
         }

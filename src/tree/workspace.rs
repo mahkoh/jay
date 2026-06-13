@@ -178,7 +178,7 @@ impl WorkspaceNode {
         }
         if self.has_capture.replace(has_capture) != has_capture {
             output.schedule_update_render_data();
-            output.state.damage(output.node_state.pos.get());
+            output.state.damage(output.node_state[LiveTL].pos.get());
         }
     }
 
@@ -194,7 +194,7 @@ impl WorkspaceNode {
             jw.send_output(output);
         }
         self.update_has_captures();
-        self.change_extents(&output.node_state.rects.workspace.get(), output);
+        self.change_extents(&output.node_state[LiveTL].rects.workspace.get(), output);
         struct OutputSetter<'a> {
             ws: &'a WorkspaceNode,
             old: &'a Rc<OutputNode>,
@@ -513,7 +513,7 @@ impl NodeBase for WorkspaceNode {
     fn node_active_changed(&self, _active: bool) {
         let output = self.node_state.output.get();
         self.state
-            .damage(output.node_state.rects.bar_separator.get());
+            .damage(output.node_state[LiveTL].rects.bar_separator.get());
     }
 
     fn node_find_tree_at(
@@ -645,7 +645,7 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
         return;
     }
     let source = ns.output.get();
-    let sns = &source.node_state;
+    let sns = &source.node_state[LiveTL];
     if let Some(visible) = sns.workspace.id()
         && visible == ws.id
     {
@@ -694,7 +694,7 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
         }
     };
     ws.set_ns_output_link(Some(link));
-    let tns = &target.node_state;
+    let tns = &target.node_state[LiveTL];
     let make_visible = !target.is_dummy
         && (config.make_visible_always
             || (config.make_visible_if_empty && tns.workspace.is_none()));

@@ -92,7 +92,7 @@ impl ExtSessionLockSurfaceV1RequestHandler for ExtSessionLockSurfaceV1 {
 impl ExtSessionLockSurfaceV1 {
     pub fn destroy_node(&self) {
         if let Some(output) = &self.output.node()
-            && let Some(ls) = output.node_state.lock_surface.get()
+            && let Some(ls) = output.node_state[LiveTL].lock_surface.get()
             && ls.node_id == self.node_id
         {
             output.set_lock_surface(None);

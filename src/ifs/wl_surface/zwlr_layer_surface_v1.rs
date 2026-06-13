@@ -454,7 +454,7 @@ impl ZwlrLayerSurfaceV1 {
         let Some(node) = self.output.node() else {
             return;
         };
-        let ons = &node.node_state;
+        let ons = &node.node_state[LiveTL];
         let (mut width, mut height) = self.size.get();
         let (mt, mr, mb, ml) = self.margin.get();
         let (mut available_width, mut available_height) = match self.exclusive_zone.get() {
@@ -512,7 +512,7 @@ impl ZwlrLayerSurfaceV1 {
             anchor = LEFT | RIGHT | TOP | BOTTOM;
         }
         let (mt, mr, mb, ml) = self.margin.get();
-        let ons = &output.node_state;
+        let ons = &output.node_state[LiveTL];
         let opos = ons.pos.get();
         let rect = match self.exclusive_zone.get() {
             ExclusiveZone::MoveSelf => ons.rects.non_exclusive.get(),

@@ -770,13 +770,14 @@ impl WlSurface {
         }
         output.global.send_enter(self);
         old.global.send_leave(self);
-        if old.node_state.scale.get() != output.node_state.scale.get() {
+        if old.node_state[LiveTL].scale.get() != output.node_state[LiveTL].scale.get() {
             self.on_scale_change();
         }
-        if old.node_state.transform.get() != output.node_state.transform.get() {
+        if old.node_state[LiveTL].transform.get() != output.node_state[LiveTL].transform.get() {
             self.send_preferred_buffer_transform();
         }
-        if old.node_state.color_description.get().id != output.node_state.color_description.get().id
+        if old.node_state[LiveTL].color_description.get().id
+            != output.node_state[LiveTL].color_description.get().id
         {
             self.send_preferred_color_description();
         }
@@ -872,7 +873,7 @@ impl WlSurface {
         if self.version >= BUFFER_SCALE_SINCE {
             let factor = match self.client.wire_scale.is_some() {
                 true => 1,
-                false => self.output.get().node_state.legacy_scale.get() as _,
+                false => self.output.get().node_state[LiveTL].legacy_scale.get() as _,
             };
             self.client.event(PreferredBufferScale {
                 self_id: self.id,
@@ -885,7 +886,7 @@ impl WlSurface {
         if self.version >= TRANSFORM_SINCE {
             self.client.event(PreferredBufferTransform {
                 self_id: self.id,
-                transform: self.output.get().node_state.transform.get().to_wl() as _,
+                transform: self.output.get().node_state[LiveTL].transform.get().to_wl() as _,
             });
         }
     }
@@ -1570,7 +1571,7 @@ impl WlSurface {
             } else if has_new_frame_requests && output.schedule.vrr_enabled() {
                 // Frame requests must be dispatched at the highest possible frame rate.
                 // Therefore we must trigger a vsync of the output as soon as possible.
-                let rect = output.node_state.pos.get();
+                let rect = output.node_state[LiveTL].pos.get();
                 self.client.state.damage(rect);
             }
         } else {
@@ -1868,7 +1869,7 @@ impl WlSurface {
         if self.color_management_feedback.is_empty() {
             return;
         }
-        let cd = self.output.get().node_state.color_description.get();
+        let cd = self.output.get().node_state[LiveTL].color_description.get();
         for fb in self.color_management_feedback.lock().values() {
             fb.send_preferred_changed(&cd);
         }

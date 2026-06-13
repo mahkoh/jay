@@ -10,7 +10,7 @@ use {
         },
         output_schedule::OutputSchedule,
         state::{ConnectorData, OutputData, State},
-        tree::{OutputNode, Transform, WsMoveConfig, move_ws_to_output},
+        tree::{OutputNode, Transform, TreeTimeline::LiveTL, WsMoveConfig, move_ws_to_output},
         utils::{asyncevent::AsyncEvent, hash_map_ext::HashMapExt, rc_eq::RcEq},
     },
     std::{
@@ -189,7 +189,8 @@ impl ConnectorHandler {
             output: global.opt.clone(),
         });
         let on = OutputNode::new(self.state.node_ids.next(), &global, &schedule);
-        self.state.add_output_scale(on.node_state.scale.get());
+        self.state
+            .add_output_scale(on.node_state[LiveTL].scale.get());
         let output_data = Rc::new(OutputData {
             connector: self.data.clone(),
             monitor_info: Rc::new(info),
@@ -248,7 +249,7 @@ impl ConnectorHandler {
             .handle_output_connected(&self.state, &output_data);
         self.state.trigger_cci(CCI_OUTPUTS);
         self.state.wlr_output_managers.announce_head(&output_data);
-        let ons = &on.node_state;
+        let ons = &on.node_state[LiveTL];
         on.add_damage_area(&ons.pos.get());
         self.data.damage();
         'outer: loop {
@@ -334,7 +335,8 @@ impl ConnectorHandler {
         for item in on.tray_items.iter() {
             item.destroy_node();
         }
-        self.state.remove_output_scale(on.node_state.scale.get());
+        self.state
+            .remove_output_scale(on.node_state[LiveTL].scale.get());
         if let Some(zwlr_gamma_control) = on.active_zwlr_gamma_control.take() {
             zwlr_gamma_control.send_failed();
         }

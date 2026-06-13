@@ -513,7 +513,7 @@ impl FloatNode {
         }
         let ns = &self.node_state[LiveTL];
         let pos = ns.position.get();
-        let opos = output.node_state.pos.get();
+        let opos = output.node_state[LiveTL].pos.get();
         if pos.intersects(&opos) {
             return;
         }

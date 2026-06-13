@@ -10,6 +10,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         rect::Rect,
+        tree::TreeTimeline::LiveTL,
         utils::errorfmt::ErrorFmt,
         wire::{WlBufferId, ZwlrScreencopyFrameV1Id, zwlr_screencopy_frame_v1::*},
     },
@@ -49,7 +50,7 @@ impl ZwlrScreencopyFrameV1 {
 
     pub fn send_damage(&self) {
         if let Some(output) = self.output.node() {
-            let pos = output.node_state.pos.get();
+            let pos = output.node_state[LiveTL].pos.get();
             self.client.event(Damage {
                 self_id: self.id,
                 x: 0,

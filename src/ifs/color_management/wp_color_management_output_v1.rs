@@ -7,6 +7,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::TreeTimeline::LiveTL,
         wire::{WpColorManagementOutputV1Id, wp_color_management_output_v1::*},
     },
     std::rc::Rc,
@@ -58,7 +59,7 @@ impl WpColorManagementOutputV1RequestHandler for WpColorManagementOutputV1 {
             description: self
                 .output
                 .node()
-                .map(|o| o.node_state.color_description.get()),
+                .map(|o| o.node_state[LiveTL].color_description.get()),
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;

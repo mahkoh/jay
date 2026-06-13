@@ -1153,7 +1153,7 @@ impl WlSeatGlobal {
             ws.and_then(|w| w.node_state.fullscreen.get())
                 .map(|n| n as Rc<dyn Node>)
         };
-        let ons = &output.node_state;
+        let ons = &output.node_state[LiveTL];
         let ws = ons.workspace.get();
         let overlay = ons.overlay.get();
         let first = next_layer(current_layer.layer());
@@ -1225,7 +1225,7 @@ impl WlSeatGlobal {
         let Some(output) = current.node_output() else {
             return;
         };
-        let ons = &output.node_state;
+        let ons = &output.node_state[LiveTL];
         for layer in [&ons.overlay, &ons.workspace] {
             let Some(ws) = layer.get() else {
                 continue;
@@ -2007,7 +2007,7 @@ impl DeviceHandlerData {
         if let Some(output) = self.output.get()
             && let Some(output) = output.node()
         {
-            return output.node_state.pos.get();
+            return output.node_state[LiveTL].pos.get();
         }
         state.root.node_state.extents.get()
     }

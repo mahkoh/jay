@@ -189,7 +189,7 @@ impl JayScreencast {
         };
         let scale = match tl.tl_data().workspace.get() {
             None => Scale::default(),
-            Some(w) => w.node_state.output.get().node_state.scale.get(),
+            Some(w) => w.node_state.output.get().node_state[LiveTL].scale.get(),
         };
         let mut buffer = self.buffers.borrow_mut();
         for (idx, buffer) in buffer.deref_mut().iter_mut().enumerate() {
@@ -324,7 +324,7 @@ impl JayScreencast {
         if !self.running.get() {
             return;
         }
-        let ons = &on.node_state;
+        let ons = &on.node_state[LiveTL];
         if !self.show_all.get() {
             let ws = match ons.workspace.get() {
                 Some(ws) => ws,
@@ -354,8 +354,8 @@ impl JayScreencast {
                     x_off,
                     y_off,
                     size,
-                    on.node_state.transform.get(),
-                    on.node_state.scale.get(),
+                    on.node_state[LiveTL].transform.get(),
+                    on.node_state[LiveTL].scale.get(),
                 );
                 match res {
                     Ok(_) => {
@@ -481,7 +481,7 @@ impl JayScreencast {
     fn damage(&self) {
         if let Some(target) = self.target.get() {
             let rect = match target {
-                Target::Output(o) => o.node_state.pos.get(),
+                Target::Output(o) => o.node_state[LiveTL].pos.get(),
                 Target::Toplevel(t) => {
                     if !t.node_visible(LiveTL) {
                         return;

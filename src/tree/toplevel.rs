@@ -552,7 +552,7 @@ impl ToplevelData {
     }
 
     pub fn float_size(&self, ws: &WorkspaceNode) -> (i32, i32) {
-        let output = ws.node_state.output.get().node_state.pos.get();
+        let output = ws.node_state.output.get().node_state[LiveTL].pos.get();
         let mut width = self.float_width.get();
         let mut height = self.float_height.get();
         if width == 0 {
@@ -832,7 +832,8 @@ impl ToplevelData {
         self.property_changed(TL_CHANGED_FULLSCREEN);
         node.tl_set_parent(ws.clone());
         ws.set_fullscreen_node(&node);
-        node.clone().tl_change_extents(&output.node_state.pos.get());
+        node.clone()
+            .tl_change_extents(&output.node_state[LiveTL].pos.get());
         for seat in kb_foci {
             node.clone()
                 .node_do_focus_dyn(&seat, Direction::Unspecified);
@@ -950,7 +951,7 @@ impl ToplevelData {
     pub fn desired_pixel_size(&self) -> (i32, i32) {
         let (dw, dh) = self.desired_extents.get().size();
         if let Some(ws) = self.workspace.get() {
-            let scale = ws.node_state.output.get().node_state.scale.get();
+            let scale = ws.node_state.output.get().node_state[LiveTL].scale.get();
             return scale.pixel_size([dw, dh]).to_tuple();
         };
         (0, 0)

@@ -55,14 +55,14 @@ impl Renderer<'_> {
         let ext = display.node_state.extents.get();
         let outputs = display.outputs.lock();
         for output in outputs.values() {
-            let opos = output.node_state.pos.get();
+            let opos = output.node_state[LiveTL].pos.get();
             let (ox, oy) = ext.translate(opos.x1(), opos.y1());
             self.render_output(output, x + ox, y + oy);
         }
     }
 
     pub fn render_output(&mut self, output: &OutputNode, x: i32, y: i32) {
-        let ns = &output.node_state;
+        let ns = &output.node_state[LiveTL];
         if self.state.lock.locked.get() {
             if let Some(surface) = ns.lock_surface.get()
                 && surface.surface.buffer.is_some()
@@ -167,7 +167,7 @@ impl Renderer<'_> {
                     x,
                     y,
                 );
-                let scale = output.node_state.scale.get();
+                let scale = output.node_state[LiveTL].scale.get();
                 for title in &rd.titles {
                     if let Some(icon_x) = title.icon_x
                         && let Some(icons) = &self.bar_icons

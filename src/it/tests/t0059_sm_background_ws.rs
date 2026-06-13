@@ -2,6 +2,7 @@ use {
     crate::{
         ifs::xdg_session_manager_v1::{REASON_LAUNCH, REASON_RECOVER},
         it::{test_error::TestError, testrun::TestRun},
+        tree::TreeTimeline::LiveTL,
     },
     std::rc::Rc,
 };
@@ -17,7 +18,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let ws3 = setup.outputs[1].node.create_normal_workspace("3");
 
     tassert_eq!(
-        setup.outputs[1].node.node_state.workspace.id(),
+        setup.outputs[1].node.node_state[LiveTL].workspace.id(),
         Some(ws2.id)
     );
 

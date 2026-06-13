@@ -10,7 +10,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::{OutputNode, WorkspaceNode},
+        tree::{OutputNode, TreeTimeline::LiveTL, WorkspaceNode},
         utils::{clonecell::CloneCell, opt::Opt},
         wire::{ExtWorkspaceHandleV1Id, ext_workspace_handle_v1::*},
     },
@@ -77,7 +77,7 @@ impl ExtWorkspaceHandleV1 {
         };
         let mut state = 0;
         let output = ws.node_state.output.get();
-        if let Some(active) = output.node_state.workspace.get()
+        if let Some(active) = output.node_state[LiveTL].workspace.get()
             && active.id == ws.id
         {
             state |= STATE_ACTIVE;
