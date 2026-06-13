@@ -132,6 +132,7 @@ use {
             queue::AsyncQueue,
             refcounted::RefCounted,
             run_toplevel::RunToplevel,
+            sleeper::Sleeper,
         },
         video::{
             Modifier,
@@ -329,6 +330,7 @@ pub struct State {
     pub no_client_prime: bool,
     pub lazy_prime_buffer_resv_user: BufferResvUser,
     pub visualize_compositing: Cell<bool>,
+    pub sleeper: Option<Sleeper>,
 }
 
 // impl Drop for State {
