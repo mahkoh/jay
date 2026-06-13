@@ -1,17 +1,19 @@
 use std::cell::Cell;
 
 pub trait TypeWrapper {
-    type D<T: Default>: Default;
+    type D<T>;
 }
 
+#[derive(Copy, Clone, Default)]
 pub struct CellWrapper;
 
 impl TypeWrapper for CellWrapper {
-    type D<T: Default> = Cell<T>;
+    type D<T> = Cell<T>;
 }
 
+#[derive(Copy, Clone, Default)]
 pub struct NoWrapper;
 
 impl TypeWrapper for NoWrapper {
-    type D<T: Default> = T;
+    type D<T> = T;
 }

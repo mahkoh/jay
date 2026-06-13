@@ -78,7 +78,6 @@ use {
         },
     },
     ahash::AHashMap,
-    derivative::Derivative,
     jay_config::video::{TearingMode as ConfigTearingMode, VrrMode as ConfigVrrMode},
     numeric_sort::cmp,
     smallvec::SmallVec,
@@ -155,8 +154,7 @@ pub struct OutputNodeState {
     pub rects: OutputNodeRects<CellWrapper>,
 }
 
-#[derive(Derivative)]
-#[derivative(Default(bound = ""))]
+#[derive(Clone, Default)]
 pub struct OutputNodeRects<W>
 where
     W: TypeWrapper,
