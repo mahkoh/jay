@@ -123,14 +123,7 @@ impl WorkspaceNode {
             render_highlight: Default::default(),
             ext_workspaces: Default::default(),
             opt: Default::default(),
-            node_state: WorkspaceNodeState {
-                output: ObjAndId::new(output.clone()),
-                position: Default::default(),
-                container: Default::default(),
-                output_link: Default::default(),
-                visible: Default::default(),
-                fullscreen: Default::default(),
-            },
+            node_state: WorkspaceNodeState::new(output),
         });
         slf.seat_state.disable_focus_history();
         slf
@@ -171,8 +164,8 @@ impl WorkspaceNode {
         }
     }
 
-    pub fn set_output(&self, output: &Rc<OutputNode>) {
-        let old = self.node_state.output.set(output.clone());
+    pub fn set_output(self: &Rc<Self>, output: &Rc<OutputNode>) {
+        let old = self.set_ns_output(output);
         if let Some(tl) = self.node_state.fullscreen.get() {
             tl.tl_mark_fullscreen(Some(&output.global.connector));
         }
@@ -243,7 +236,7 @@ impl WorkspaceNode {
         container.clone().tl_change_extents(&pos);
         container.tl_set_parent(self.clone());
         container.tl_set_visible(self.container_visible());
-        ns.container.set(Some(container.clone()));
+        self.set_ns_container(Some(container));
         self.state.damage(ns.position.get());
     }
 
@@ -262,12 +255,12 @@ impl WorkspaceNode {
         ns.visible.get() && (ns.fullscreen.is_none() || self.state.float_above_fullscreen.get())
     }
 
-    pub fn change_extents(&self, rect: &Rect, output: &Rc<OutputNode>) {
+    pub fn change_extents(self: &Rc<Self>, rect: &Rect, output: &Rc<OutputNode>) {
         if output.is_dummy {
             return;
         }
         let ns = &self.node_state;
-        let old = ns.position.replace(*rect);
+        let old = self.set_ns_position(*rect);
         if let Some(c) = ns.container.get() {
             c.tl_change_extents(rect);
         }
@@ -296,9 +289,9 @@ impl WorkspaceNode {
         }
     }
 
-    pub fn set_visible(&self, visible: bool) {
+    pub fn set_visible(self: &Rc<Self>, visible: bool) {
         let ns = &self.node_state;
-        ns.visible.set(visible);
+        self.set_ns_visible(visible);
         for jw in self.jay_workspaces.lock().values() {
             jw.send_visible(visible);
         }
@@ -322,13 +315,13 @@ impl WorkspaceNode {
                     .stacked_set_visible(self.float_visible());
             }
         }
-        self.seat_state.set_visible(self, visible);
+        self.seat_state.set_visible(&**self, visible);
         self.state.trigger_cci(CCI_WORKSPACES);
     }
 
-    pub fn set_fullscreen_node(&self, node: &Rc<dyn ToplevelNode>) {
+    pub fn set_fullscreen_node(self: &Rc<Self>, node: &Rc<dyn ToplevelNode>) {
         let ns = &self.node_state;
-        if let Some(prev) = ns.fullscreen.set(Some(node.clone())) {
+        if let Some(prev) = self.set_ns_fullscreen(Some(node)) {
             self.discard_child_properties(&*prev);
         }
         self.pull_child_properties(&**node);
@@ -340,9 +333,9 @@ impl WorkspaceNode {
         ns.output.get().update_presentation_type();
     }
 
-    pub fn remove_fullscreen_node(&self) {
+    pub fn remove_fullscreen_node(self: &Rc<Self>) {
         let ns = &self.node_state;
-        if let Some(node) = ns.fullscreen.take() {
+        if let Some(node) = self.set_ns_fullscreen(None) {
             self.discard_child_properties(&*node);
             if ns.visible.get() {
                 ns.output.get().fullscreen_changed();
@@ -413,6 +406,33 @@ impl WorkspaceNode {
             return false;
         }
         true
+    }
+
+    fn set_ns_output(self: &Rc<Self>, v: &Rc<OutputNode>) -> Rc<OutputNode> {
+        self.node_state.output.set(v.clone())
+    }
+
+    fn set_ns_position(self: &Rc<Self>, v: Rect) -> Rect {
+        self.node_state.position.replace(v)
+    }
+
+    fn set_ns_container(self: &Rc<Self>, v: Option<&Rc<ContainerNode>>) {
+        self.node_state.container.set(v.cloned());
+    }
+
+    pub fn set_ns_output_link(self: &Rc<Self>, v: Option<LinkedNode<Rc<WorkspaceNode>>>) {
+        *self.node_state.output_link.borrow_mut() = v;
+    }
+
+    fn set_ns_visible(self: &Rc<Self>, v: bool) {
+        self.node_state.visible.set(v);
+    }
+
+    fn set_ns_fullscreen(
+        self: &Rc<Self>,
+        v: Option<&Rc<dyn ToplevelNode>>,
+    ) -> Option<Rc<dyn ToplevelNode>> {
+        self.node_state.fullscreen.set(v.cloned())
     }
 }
 
@@ -558,7 +578,7 @@ impl ContainingNode for WorkspaceNode {
             && container.node_id() == child.node_id()
         {
             self.discard_child_properties(&*container);
-            ns.container.set(None);
+            self.set_ns_container(None);
             self.state.damage(ns.position.get());
             return;
         }
@@ -684,4 +704,17 @@ pub struct WorkspaceDragDestination {
     pub highlight: Rect,
     pub output: Rc<OutputNode>,
     pub before: Option<Rc<WorkspaceNode>>,
+}
+
+impl WorkspaceNodeState {
+    fn new(output: &Rc<OutputNode>) -> Self {
+        Self {
+            output: ObjAndId::new(output.clone()),
+            position: Default::default(),
+            container: Default::default(),
+            output_link: Default::default(),
+            visible: Default::default(),
+            fullscreen: Default::default(),
+        }
+    }
 }

@@ -1060,7 +1060,7 @@ impl OutputNode {
         } else {
             self.workspaces.add_last(ws.clone())
         };
-        *ws.node_state.output_link.borrow_mut() = Some(link);
+        ws.set_ns_output_link(Some(link));
         self.state.workspaces.set(name.to_string(), ws.clone());
         self.state.trigger_cci(CCI_WORKSPACES);
         if self.node_state.workspace.is_none() {
