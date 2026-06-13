@@ -11,7 +11,6 @@ pub struct FdBlocker(#[expect(dead_code)] pub Rc<OwnedFd>);
 
 pub struct FdBarrier(pub Rc<OwnedFd>);
 
-#[expect(dead_code)]
 pub fn create_fd_blocker() -> Result<(FdBlocker, FdBarrier), OsError> {
     let pipe = pipe()?;
     let blocker = FdBlocker(Rc::new(pipe.read));
@@ -20,7 +19,6 @@ pub fn create_fd_blocker() -> Result<(FdBlocker, FdBarrier), OsError> {
 }
 
 impl FdBarrier {
-    #[expect(dead_code)]
     pub fn wait_blocking(&self) -> Result<(), OsError> {
         loop {
             let mut pollfd = c::pollfd {

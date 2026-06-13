@@ -118,7 +118,7 @@ pub fn ensure_reaper() -> c::pid_t {
     process::exit(1);
 }
 
-fn set_deathsig() {
+pub fn set_deathsig() {
     unsafe {
         c::prctl(c::PR_SET_PDEATHSIG, c::SIGKILL as c::c_ulong);
     }

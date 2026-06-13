@@ -63,6 +63,7 @@ pub mod reset;
 pub mod run_toplevel;
 pub mod scroller;
 pub mod send_sync_rc;
+pub mod sleeper;
 pub mod smallmap;
 pub mod stack;
 pub mod static_text;
