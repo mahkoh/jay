@@ -1100,53 +1100,51 @@ impl OutputNode {
         let x1 = rect.x1() + exclusive.left;
         let width = (x2 - x1).max(0);
         let height = (y2 - y1).max(0);
-        let non_exclusive_rect = Rect::new_sized_saturating(x1, y1, width, height);
-        let non_exclusive_rect_rel =
+        let non_exclusive = Rect::new_sized_saturating(x1, y1, width, height);
+        let non_exclusive_rel =
             Rect::new_sized_saturating(exclusive.left, exclusive.top, width, height);
-        let mut bar_rect = Rect::default();
-        let mut bar_rect_rel = Rect::default();
-        let mut bar_rect_with_separator = Rect::default();
-        let mut bar_rect_with_separator_rel = Rect::default();
-        let mut bar_separator_rect = Rect::default();
-        let mut bar_separator_rect_rel = Rect::default();
-        let mut workspace_rect = non_exclusive_rect;
-        let mut workspace_rect_rel = non_exclusive_rect_rel;
+        let mut bar = Rect::default();
+        let mut bar_rel = Rect::default();
+        let mut bar_with_separator = Rect::default();
+        let mut bar_with_separator_rel = Rect::default();
+        let mut bar_separator = Rect::default();
+        let mut bar_separator_rel = Rect::default();
+        let mut workspace = non_exclusive;
+        let mut workspace_rel = non_exclusive_rel;
         if self.state.show_bar.get() {
             match self.state.theme.bar_position.get() {
                 BarPosition::Bottom => {
-                    workspace_rect = Rect::new_sized_saturating(x1, y1, width, height - bh - bsw);
-                    bar_rect_with_separator =
+                    workspace = Rect::new_sized_saturating(x1, y1, width, height - bh - bsw);
+                    bar_with_separator =
                         Rect::new_sized_saturating(x1, y1 + height - bh - bsw, width, bh + bsw);
-                    bar_separator_rect =
+                    bar_separator =
                         Rect::new_sized_saturating(x1, y1 + height - bh - bsw, width, bsw);
-                    bar_rect = Rect::new_sized_saturating(x1, y1 + height - bh, width, bh);
+                    bar = Rect::new_sized_saturating(x1, y1 + height - bh, width, bh);
                 }
                 BarPosition::Top => {
-                    bar_rect = Rect::new_sized_saturating(x1, y1, width, bh);
-                    bar_separator_rect = Rect::new_sized_saturating(x1, y1 + bh, width, bsw);
-                    bar_rect_with_separator = Rect::new_sized_saturating(x1, y1, width, bh + bsw);
-                    workspace_rect =
+                    bar = Rect::new_sized_saturating(x1, y1, width, bh);
+                    bar_separator = Rect::new_sized_saturating(x1, y1 + bh, width, bsw);
+                    bar_with_separator = Rect::new_sized_saturating(x1, y1, width, bh + bsw);
+                    workspace =
                         Rect::new_sized_saturating(x1, y1 + bh + bsw, width, height - bh - bsw);
                 }
             }
             let to_rel = |r: Rect| r.move_(-rect.x1(), -rect.y1());
-            bar_rect_rel = to_rel(bar_rect);
-            bar_rect_with_separator_rel = to_rel(bar_rect_with_separator);
-            bar_separator_rect_rel = to_rel(bar_separator_rect);
-            workspace_rect_rel = to_rel(workspace_rect);
+            bar_rel = to_rel(bar);
+            bar_with_separator_rel = to_rel(bar_with_separator);
+            bar_separator_rel = to_rel(bar_separator);
+            workspace_rel = to_rel(workspace);
         }
-        ns.rects.non_exclusive.set(non_exclusive_rect);
-        ns.rects.non_exclusive_rel.set(non_exclusive_rect_rel);
-        ns.rects.bar.set(bar_rect);
-        ns.rects.bar_rel.set(bar_rect_rel);
-        ns.rects.bar_with_separator.set(bar_rect_with_separator);
-        ns.rects
-            .bar_with_separator_rel
-            .set(bar_rect_with_separator_rel);
-        ns.rects.bar_separator.set(bar_separator_rect);
-        ns.rects.bar_separator_rel.set(bar_separator_rect_rel);
-        ns.rects.workspace.set(workspace_rect);
-        ns.rects.workspace_rel.set(workspace_rect_rel);
+        ns.rects.non_exclusive.set(non_exclusive);
+        ns.rects.non_exclusive_rel.set(non_exclusive_rel);
+        ns.rects.bar.set(bar);
+        ns.rects.bar_rel.set(bar_rel);
+        ns.rects.bar_with_separator.set(bar_with_separator);
+        ns.rects.bar_with_separator_rel.set(bar_with_separator_rel);
+        ns.rects.bar_separator.set(bar_separator);
+        ns.rects.bar_separator_rel.set(bar_separator_rel);
+        ns.rects.workspace.set(workspace);
+        ns.rects.workspace_rel.set(workspace_rel);
         self.update_tray_positions();
         self.schedule_update_render_data();
     }
