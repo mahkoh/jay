@@ -16,6 +16,7 @@ pub mod clamp_ext;
 pub mod clone3;
 pub mod clonecell;
 pub mod compat;
+pub mod condition;
 pub mod copyhashmap;
 pub mod data_dir;
 pub mod double_buffered;
