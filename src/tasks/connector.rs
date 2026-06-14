@@ -17,7 +17,6 @@ use {
         cell::{Cell, RefCell},
         collections::VecDeque,
         fmt,
-        ops::Deref,
         rc::Rc,
     },
 };
@@ -212,7 +211,7 @@ impl ConnectorHandler {
             }
             let dummy = self.state.dummy_output.get().unwrap();
             for ws in dummy.workspaces.iter() {
-                ws_to_move.push_back(ws.deref().clone());
+                ws_to_move.push_back(ws.ws.clone());
             }
         }
         for source in self.state.root.outputs.lock().values() {
@@ -221,7 +220,7 @@ impl ConnectorHandler {
             }
             for ws in source.workspaces.iter() {
                 if ws.desired_output.get() == global.output_id {
-                    ws_to_move.push_back(ws.deref().clone());
+                    ws_to_move.push_back(ws.ws.clone());
                 }
             }
         }

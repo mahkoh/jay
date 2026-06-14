@@ -54,8 +54,8 @@ use {
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
             NodeLocation, NodesStack, PinnedNode, TddType, TileDragDestination, Transform,
-            WorkspaceDisplayOrder, WorkspaceDragDestination, WorkspaceNode, WorkspaceType,
-            walker::NodeVisitor,
+            WorkspaceDisplayOrder, WorkspaceDragDestination, WorkspaceNode, WorkspaceOutputLink,
+            WorkspaceType, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -94,7 +94,7 @@ pub struct OutputNode {
     pub id: OutputNodeId,
     pub global: Rc<WlOutputGlobal>,
     pub jay_outputs: CopyHashMap<(ClientId, JayOutputId), Rc<JayOutput>>,
-    pub workspaces: LinkedList<Rc<WorkspaceNode>>,
+    pub workspaces: LinkedList<WorkspaceOutputLink>,
     pub seat_state: NodeSeatState,
     pub layers: [LinkedList<Rc<ZwlrLayerSurfaceV1>>; 4],
     pub exclusive_zones: Cell<ExclusiveSize>,
@@ -843,7 +843,7 @@ impl OutputNode {
         if self.is_dummy
             && let Some(ws) = self.workspaces.last()
         {
-            return ws.deref().clone();
+            return ws.ws.clone();
         }
         self.generate_normal_workspace()
     }
@@ -1038,7 +1038,10 @@ impl OutputNode {
         }
     }
 
-    pub fn find_workspace_insertion_point(&self, name: &str) -> Option<NodeRef<Rc<WorkspaceNode>>> {
+    pub fn find_workspace_insertion_point(
+        &self,
+        name: &str,
+    ) -> Option<NodeRef<WorkspaceOutputLink>> {
         if self.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
             for existing_ws in self.workspaces.iter() {
                 if cmp(name, &existing_ws.name) == std::cmp::Ordering::Less {
@@ -1053,10 +1056,11 @@ impl OutputNode {
         let ws = WorkspaceNode::new(self, name, WorkspaceType::Normal);
         ws.opt.set(Some(ws.clone()));
         ws.update_has_captures();
+        let data = WorkspaceOutputLink { ws: ws.clone() };
         let link = if let Some(before) = self.find_workspace_insertion_point(name) {
-            before.prepend(ws.clone())
+            before.prepend(data)
         } else {
-            self.workspaces.add_last(ws.clone())
+            self.workspaces.add_last(data)
         };
         ws.set_ns_output_link(Some(link));
         self.state.workspaces.set(name.to_string(), ws.clone());

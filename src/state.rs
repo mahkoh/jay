@@ -2269,7 +2269,7 @@ impl State {
         self.root.clone().node_visit(visitor);
         if let Some(output) = self.dummy_output.get() {
             for ws in output.workspaces.iter() {
-                ws.deref().clone().node_visit(visitor);
+                visitor.visit_workspace(&ws);
             }
             for ws in self.workspaces.lock().values() {
                 if ws.ty == WorkspaceType::Overlay && ws.node_state.output.id() == output.id {
