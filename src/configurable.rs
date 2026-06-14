@@ -30,7 +30,7 @@ pub trait Configurable: 'static {
     fn merge(first: &mut Self::T, second: Self::T);
     fn visible(&self) -> bool;
     fn destroyed(&self) -> bool;
-    fn surface(&self) -> &WlSurface;
+    fn surface(&self) -> &Rc<WlSurface>;
     fn flush(&self, serial: TreeSerial, data: Self::T);
 }
 

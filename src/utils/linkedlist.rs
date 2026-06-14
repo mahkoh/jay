@@ -288,6 +288,39 @@ impl<T> NodeRef<T> {
         self.peer(|d| &d.next)
     }
 
+    fn peer_with<F, G>(&self, peer: F, with: G) -> Option<NodeRef<T>>
+    where
+        F: Fn(&NodeData<T>) -> &Cell<NonNull<NodeData<T>>>,
+        G: Fn(&T) -> bool,
+    {
+        let mut cur = self.peer(&peer)?;
+        loop {
+            if cur.data == self.data {
+                return None;
+            }
+            if with(&cur) {
+                return Some(cur);
+            }
+            cur = cur.peer(&peer)?;
+        }
+    }
+
+    #[expect(dead_code)]
+    pub fn prev_with<G>(&self, with: G) -> Option<NodeRef<T>>
+    where
+        G: Fn(&T) -> bool,
+    {
+        self.peer_with(|d| &d.prev, with)
+    }
+
+    #[expect(dead_code)]
+    pub fn next_with<G>(&self, with: G) -> Option<NodeRef<T>>
+    where
+        G: Fn(&T) -> bool,
+    {
+        self.peer_with(|d| &d.next, with)
+    }
+
     pub fn detach(&self) {
         unsafe {
             let data = self.data.as_ref();

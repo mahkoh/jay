@@ -848,7 +848,7 @@ impl Configurable for ZwlrLayerSurfaceV1 {
         self.destroyed.get()
     }
 
-    fn surface(&self) -> &WlSurface {
+    fn surface(&self) -> &Rc<WlSurface> {
         &self.surface
     }
 
