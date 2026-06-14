@@ -547,7 +547,7 @@ pub fn toggle_visualize_compositing() {
 
 /// Sets the timeout for desktop transactions.
 ///
-/// The default is 0.
+/// The default is 50 milliseconds.
 ///
 /// See the book for details.
 pub fn set_transaction_timeout(timeout: Duration) {
@@ -556,7 +556,7 @@ pub fn set_transaction_timeout(timeout: Duration) {
 
 /// Sets the timeout for configuration sequences.
 ///
-/// The default is 0.
+/// The default is 50 milliseconds.
 ///
 /// See the book for details.
 pub fn set_configure_timeout(timeout: Duration) {

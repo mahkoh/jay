@@ -57,7 +57,7 @@ struct TransactionableTransaction {
     ops: usize,
 }
 
-const DEFAULT_TIMEOUT_NS: u64 = 0;
+const DEFAULT_TIMEOUT_NS: u64 = 50_000_000;
 
 #[derive(Derivative)]
 #[derivative(Default)]

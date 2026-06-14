@@ -505,6 +505,11 @@ async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
     state.perform_clean_logs_older_than();
     state.update_ei_acceptor();
 
+    if is_test {
+        state.set_configure_timeout_ns(0);
+        state.set_transaction_timeout_ns(0);
+    }
+
     let _geh = start_global_event_handlers(&state);
     state.start_xwayland();
 

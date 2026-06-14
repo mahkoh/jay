@@ -143,8 +143,7 @@ impl<T> ConfigurableData<T> {
     }
 }
 
-// TODO: waiting for transaction logic
-const DEFAULT_TIMEOUT_NS: u64 = 0;
+const DEFAULT_TIMEOUT_NS: u64 = 50_000_000;
 
 impl ConfigureGroups {
     pub fn clear(&self) {
