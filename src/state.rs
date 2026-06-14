@@ -323,9 +323,7 @@ pub struct State {
     pub fallback_output: Cell<Option<ConnectorId>>,
     pub toplevel_icon_ids: ToplevelIconIds,
     pub toplevel_icons: CopyHashMap<ToplevelIconId, Weak<XdgToplevelIconV1>>,
-    pub tree_serials: TreeSerials,
-    pub tree_serial_groups: TreeSerialGroups,
-    pub configure_groups: ConfigureGroups,
+    pub tree: Rc<TreeState>,
     pub commit_cache: CommitCache,
     pub dmabuf_feedback: DmaBufFeedbackState,
     pub surface_pending_cache: PendingStateCache,
@@ -345,6 +343,13 @@ impl Debug for State {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("State").finish_non_exhaustive()
     }
+}
+
+#[derive(Default)]
+pub struct TreeState {
+    pub serials: TreeSerials,
+    pub serial_groups: TreeSerialGroups,
+    pub configure_groups: ConfigureGroups,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -1389,7 +1394,7 @@ impl State {
         if let Some(sqlite) = &self.sqlite {
             sqlite.clear();
         }
-        self.configure_groups.clear();
+        self.tree.configure_groups.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {
@@ -2293,16 +2298,16 @@ impl State {
     }
 
     pub fn next_tree_serial(&self) -> TreeSerial {
-        let mut s = self.tree_serials.next();
+        let mut s = self.tree.serials.next();
         if s.raw() as u32 == 0 {
-            s = self.tree_serials.next();
+            s = self.tree.serials.next();
         }
         s
     }
 
     pub fn map_tree_serial32(&self, s: u32) -> TreeSerial {
         const MASK: u64 = u32::MAX as u64;
-        let last = self.tree_serials.last().raw();
+        let last = self.tree.serials.last().raw();
         let mut serial = last & !MASK | s as u64;
         if serial > last {
             serial = serial.saturating_sub(MASK + 1);
@@ -2312,7 +2317,7 @@ impl State {
 
     #[expect(dead_code)]
     pub fn validate_tree_serial(&self, s: u64) -> Option<TreeSerial> {
-        let last = self.tree_serials.last().raw();
+        let last = self.tree.serials.last().raw();
         if s > last {
             return None;
         }

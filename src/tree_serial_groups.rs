@@ -15,8 +15,8 @@ impl TreeSerialGroups {
 }
 
 pub async fn handle_tree_serial_groups_scheduled(state: Rc<State>) {
-    let tsgs = &state.tree_serial_groups;
-    let cgs = &state.configure_groups;
+    let tsgs = &state.tree.serial_groups;
+    let cgs = &state.tree.configure_groups;
     let mut cgsw = ConfigureGroupsWork::default();
     loop {
         tsgs.scheduled.triggered().await;

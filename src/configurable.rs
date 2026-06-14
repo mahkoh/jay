@@ -103,9 +103,9 @@ where
         if d.core.scheduled.replace(true) {
             return;
         }
-        let state = &d.core.state;
+        let state = &d.core.state.tree;
         state.configure_groups.scheduled.push(self.clone());
-        state.tree_serial_groups.trigger();
+        state.serial_groups.trigger();
     }
 }
 
@@ -182,7 +182,7 @@ impl ConfigurableDataCore {
         if cg.num_not_ready.sub_fetch(1) > 0 {
             return;
         }
-        let cgs = &self.state.configure_groups;
+        let cgs = &self.state.tree.configure_groups;
         cgs.groups_to_recycle.push(cg.clone());
         for member in &*cg.members.borrow() {
             cgs.ready.push(member.clone());
@@ -282,11 +282,11 @@ impl ConfigureGroups {
 }
 
 pub async fn handle_configurables_timeout(state: Rc<State>) {
-    let cgs = &state.configure_groups;
+    let cgs = &state.tree.configure_groups;
     loop {
         let state2 = state.clone();
         let _timeout = state.eng.spawn("configurables timeout impl", async move {
-            let cgs = &state2.configure_groups;
+            let cgs = &state2.tree.configure_groups;
             let timeout_ns = cgs.timeout_ns.get();
             loop {
                 let t = cgs.timeout.pop().await;
@@ -310,7 +310,7 @@ pub async fn handle_configurables_timeout(state: Rc<State>) {
 }
 
 pub async fn handle_configurables_apply(state: Rc<State>) {
-    let cgs = &state.configure_groups;
+    let cgs = &state.tree.configure_groups;
     let ready = &cgs.ready;
     let to_recycle = &cgs.groups_to_recycle;
     let mut all_with_ready = vec![];
