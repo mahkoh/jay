@@ -86,7 +86,7 @@ impl Idle {
         if self.state.idle.in_grace_period.replace(val) == val {
             return;
         }
-        self.state.damage(self.state.root.extents.get());
+        self.state.damage_full();
         self.state.damage_hardware_cursors(false);
     }
 

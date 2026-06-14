@@ -1283,7 +1283,7 @@ impl State {
             }
         }
         self.tree_changed();
-        self.damage(self.root.extents.get());
+        self.damage_full();
     }
 
     pub fn clear(&self) {
@@ -2000,7 +2000,7 @@ impl State {
             }
         }
         self.visit_all_nodes(&mut V);
-        self.damage(self.root.extents.get());
+        self.damage_full();
         self.icons.clear();
         self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
@@ -2065,7 +2065,7 @@ impl State {
             }
         }
         self.visit_all_nodes(&mut V);
-        self.damage(self.root.extents.get());
+        self.damage_full();
         self.icons.update_sizes(self);
         for client in self.clients.clients.borrow().values() {
             let mgrs = &client.data.objects.xdg_toplevel_icon_managers;
@@ -2106,7 +2106,7 @@ impl State {
 
     pub fn set_window_icons_grayscale(&self, show: bool) {
         self.theme.window_icons_grayscale.set(show);
-        self.damage(self.root.extents.get());
+        self.damage_full();
         self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
@@ -2421,8 +2421,12 @@ impl State {
         if self.visualize_compositing.replace(visualize) == visualize {
             return;
         }
-        self.damage(self.root.extents.get());
+        self.damage_full();
         self.trigger_cci(CCI_COMPOSITOR);
+    }
+
+    pub fn damage_full(&self) {
+        self.damage(self.root.node_state.extents.get());
     }
 }
 
