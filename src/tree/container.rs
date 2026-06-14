@@ -171,7 +171,6 @@ impl Debug for ContainerNode {
 #[derive(Default)]
 pub struct ContainerChildNodeState {
     pub title_rect: Cell<Rect>,
-    ty: Cell<ContainerChildType>,
     // fields below only valid in tabbed layout
     pub body: Cell<Rect>,
     pub content: Cell<Rect>,
@@ -186,6 +185,7 @@ pub struct ContainerChild {
     pub icon: ToplevelIconUser,
     pub icons: SmallMap<Scale, ToplevelIcon, 2>,
     focus_history: Cell<Option<LinkedNode<NodeRef<ContainerChild>>>>,
+    ty: Cell<ContainerChildType>,
     pub node_state: ContainerChildNodeState,
     factor: Cell<f64>,
 }
@@ -215,7 +215,7 @@ impl ContainerRenderData {
                 rect,
                 tex,
                 icon,
-                ty: child.node_state.ty.get(),
+                ty: child.ty.get(),
             })
         }
     }
@@ -257,6 +257,7 @@ impl ContainerNode {
             icons: Default::default(),
             focus_history: Default::default(),
             attention_requested: Cell::new(false),
+            ty: Default::default(),
             node_state: Default::default(),
         });
         child.tl_update_icon(&child_node.icon);
@@ -372,6 +373,7 @@ impl ContainerNode {
                 icons: Default::default(),
                 focus_history: Default::default(),
                 attention_requested: Default::default(),
+                ty: Default::default(),
                 node_state: Default::default(),
             });
             let r = link.to_ref();
@@ -791,7 +793,7 @@ impl ContainerNode {
             } else {
                 ContainerChildType::Other
             };
-            self.set_child_ns_ty(&child, ty);
+            child.ty.set(ty);
         }
     }
 
@@ -809,7 +811,7 @@ impl ContainerNode {
         for child in self.children.iter() {
             let cns = &child.node_state;
             let rect = cns.title_rect.get();
-            let color = match cns.ty.get() {
+            let color = match child.ty.get() {
                 ContainerChildType::Active => theme.colors.focused_title_text.get(),
                 ContainerChildType::AttentionRequested => theme.colors.unfocused_title_text.get(),
                 ContainerChildType::LastActive => theme.colors.focused_inactive_title_text.get(),
@@ -943,7 +945,7 @@ impl ContainerNode {
                 };
                 rd.border_rects.push(rect);
             }
-            match cns.ty.get() {
+            match child.ty.get() {
                 ContainerChildType::Active => rd.active_title_rects.push(rect),
                 ContainerChildType::AttentionRequested => rd.attention_title_rects.push(rect),
                 ContainerChildType::LastActive => rd.last_active_rect = Some(rect),
@@ -1708,10 +1710,6 @@ impl ContainerNode {
         child.node_state.title_rect.set(v);
     }
 
-    fn set_child_ns_ty(self: &Rc<Self>, child: &NodeRef<ContainerChild>, v: ContainerChildType) {
-        child.node_state.ty.set(v);
-    }
-
     fn set_child_ns_body(self: &Rc<Self>, child: &NodeRef<ContainerChild>, v: Rect) {
         child.node_state.body.set(v);
     }
@@ -2106,6 +2104,7 @@ impl ContainingNode for ContainerNode {
             icons: Default::default(),
             focus_history: Cell::new(None),
             attention_requested: Cell::new(false),
+            ty: Default::default(),
         });
         self.set_child_ns_title_rect(&link, node.node_state.title_rect.get());
         self.set_child_ns_body(&link, node.node_state.body.get());
