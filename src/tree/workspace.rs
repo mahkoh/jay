@@ -29,7 +29,7 @@ use {
         utils::{
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
-            linkedlist::{LinkedList, LinkedNode},
+            linkedlist::{LinkedList, LinkedNode, NodeRef},
             numcell::NumCell,
             obj_and_id::{ObjAndId, ObjWithId},
             opt::Opt,
@@ -76,13 +76,14 @@ pub struct WorkspaceNode {
     pub ext_workspaces: CopyHashMap<WorkspaceManagerId, Rc<ExtWorkspaceHandleV1>>,
     pub opt: Rc<Opt<WorkspaceNode>>,
     pub node_state: WorkspaceNodeState,
+    pub output_link: Cell<Option<LinkedNode<WorkspaceOutputLink>>>,
 }
 
 pub struct WorkspaceNodeState {
     pub output: ObjAndId<Rc<OutputNode>>,
     pub position: Cell<Rect>,
     pub container: CloneCell<Option<Rc<ContainerNode>>>,
-    pub output_link: RefCell<Option<LinkedNode<Rc<WorkspaceNode>>>>,
+    pub output_link: CloneCell<Option<NodeRef<WorkspaceOutputLink>>>,
     pub visible: Cell<bool>,
     pub fullscreen: CloneCell<Option<Rc<dyn ToplevelNode>>>,
 }
@@ -92,6 +93,18 @@ impl WorkspaceNodeState {
         self.container.take();
         self.output_link.take();
         self.fullscreen.take();
+    }
+}
+
+pub struct WorkspaceOutputLink {
+    pub ws: Rc<WorkspaceNode>,
+}
+
+impl Deref for WorkspaceOutputLink {
+    type Target = Rc<WorkspaceNode>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.ws
     }
 }
 
@@ -124,6 +137,7 @@ impl WorkspaceNode {
             ext_workspaces: Default::default(),
             opt: Default::default(),
             node_state: WorkspaceNodeState::new(output),
+            output_link: Default::default(),
         });
         slf.seat_state.disable_focus_history();
         slf
@@ -131,6 +145,7 @@ impl WorkspaceNode {
 
     pub fn clear(&self) {
         self.seat_state.destroy_node(self);
+        self.output_link.take();
         self.node_state.clear();
         self.jay_workspaces.clear();
         self.ext_workspaces.clear();
@@ -420,8 +435,10 @@ impl WorkspaceNode {
         self.node_state.container.set(v.cloned());
     }
 
-    pub fn set_ns_output_link(self: &Rc<Self>, v: Option<LinkedNode<Rc<WorkspaceNode>>>) {
-        *self.node_state.output_link.borrow_mut() = v;
+    pub fn set_ns_output_link(self: &Rc<Self>, v: Option<LinkedNode<WorkspaceOutputLink>>) {
+        let ref_ = v.as_ref().map(|v| v.to_ref());
+        self.node_state.output_link.set(ref_);
+        self.output_link.set(v);
     }
 
     fn set_ns_visible(self: &Rc<Self>, v: bool) {
@@ -621,10 +638,9 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
         return;
     }
     let ns = &ws.node_state;
-    let ws = &match &*ns.output_link.borrow() {
-        None => return,
-        Some(l) => l.to_ref(),
-    };
+    if ns.output_link.is_none() {
+        return;
+    }
     let source = ns.output.get();
     let sns = &source.node_state;
     if let Some(visible) = sns.workspace.id()
@@ -638,7 +654,7 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
             .workspaces
             .iter()
             .find(|c| c.id != ws.id)
-            .map(|c| (*c).clone());
+            .map(|c| c.ws.clone());
         if new_source_ws.is_none() && source.pinned.is_not_empty() {
             new_source_ws = Some(source.generate_normal_workspace());
         }
@@ -660,19 +676,21 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
     let before = if target.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
         target
             .find_workspace_insertion_point(&ws.name)
-            .map(|nr| nr.deref().clone())
+            .map(|nr| nr.ws.clone())
     } else {
         config.before
     };
-    'link: {
+    let link = {
+        let data = WorkspaceOutputLink { ws: ws.clone() };
         if let Some(before) = before
-            && let Some(link) = &*before.node_state.output_link.borrow()
+            && let Some(link) = before.node_state.output_link.get()
         {
-            link.prepend_existing(ws);
-            break 'link;
+            link.prepend(data)
+        } else {
+            target.workspaces.add_last(data)
         }
-        target.workspaces.add_last_existing(&ws);
-    }
+    };
+    ws.set_ns_output_link(Some(link));
     let tns = &target.node_state;
     let make_visible = !target.is_dummy
         && (config.make_visible_always
