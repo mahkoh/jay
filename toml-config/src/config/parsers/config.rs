@@ -158,7 +158,7 @@ impl Parser for ConfigParser<'_> {
                 clean_logs_older_than_val,
                 mouse_follows_focus,
             ),
-            (session_management_val, workspaces_val),
+            (session_management_val, workspaces_val, flatten_tree),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -220,7 +220,11 @@ impl Parser for ConfigParser<'_> {
                 opt(val("clean-logs-older-than")),
                 recover(opt(bol("unstable-mouse-follows-focus"))),
             ),
-            (opt(val("session-management")), opt(val("workspaces"))),
+            (
+                opt(val("session-management")),
+                opt(val("workspaces")),
+                recover(opt(bol("flatten-tree"))),
+            ),
         ))?;
         let mut keymap = None;
         if let Some(value) = keymap_val {
@@ -633,6 +637,7 @@ impl Parser for ConfigParser<'_> {
             use_hardware_cursor: use_hardware_cursor.despan(),
             show_bar: show_bar.despan(),
             show_titles: show_titles.despan(),
+            flatten_tree: flatten_tree.despan(),
             focus_history,
             middle_click_paste: middle_click_paste.despan(),
             input_modes,

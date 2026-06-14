@@ -299,6 +299,10 @@ impl ContainerNode {
         slf
     }
 
+    pub fn num_children(&self) -> usize {
+        self.num_children.get()
+    }
+
     pub fn prepend_child(self: &Rc<Self>, new: Rc<dyn ToplevelNode>) {
         if let Some(child) = self.children.first() {
             self.add_child_before_(&child, new);
@@ -2164,6 +2168,24 @@ impl ContainingNode for ContainerNode {
         if num_children == 0 {
             self.tl_destroy();
             return;
+        }
+        if num_children == 1 && self.state.flatten_tree.get() {
+            if let Some(parent) = self.toplevel_data.parent.get()
+                && !self.toplevel_data.is_fullscreen.get()
+            {
+                let remaining = {
+                    let cn = self.child_nodes.borrow();
+                    let (_, v) = cn.iter().next().unwrap();
+                    v.node.clone()
+                };
+                if parent.cnode_accepts_child(&*remaining) {
+                    parent.cnode_replace_child(self.deref(), remaining);
+                    self.toplevel_data.parent.take();
+                    self.child_nodes.borrow_mut().clear();
+                    self.tl_destroy();
+                    return;
+                }
+            }
         }
         self.update_content_size();
         let rem = 1.0 - node.factor.get();

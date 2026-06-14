@@ -2461,6 +2461,21 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `flatten-tree` (optional):
+
+  Configures whether containers with only a single child are automatically
+  collapsed by replacing them with their child, keeping the window tree
+  flat.
+  
+  When a window is moved away from a container and the container ends up
+  with a single remaining window, enabling this option removes the
+  container and places the remaining window directly in the parent
+  container.
+  
+  The default is `false`.
+
+  The value of this field should be a boolean.
+
 - `focus-history` (optional):
 
   Configures the focus-history settings.

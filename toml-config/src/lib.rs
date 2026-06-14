@@ -38,7 +38,7 @@ use {
         logging::{clean_logs_older_than, set_log_level},
         on_devices_enumerated, on_idle, on_unload, open_control_center, quit, reload,
         set_color_management_enabled, set_default_workspace_capture, set_explicit_sync_enabled,
-        set_float_above_fullscreen, set_idle, set_idle_grace_period,
+        set_flatten_tree, set_float_above_fullscreen, set_idle, set_idle_grace_period,
         set_middle_click_paste_enabled, set_session_management_enabled, set_show_bar,
         set_show_float_pin_icon, set_show_titles, set_ui_drag_enabled, set_ui_drag_threshold,
         set_visualize_compositing,
@@ -1682,6 +1682,9 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     }
     if let Some(v) = config.show_titles {
         set_show_titles(v);
+    }
+    if let Some(v) = config.flatten_tree {
+        set_flatten_tree(v);
     }
     if let Some(v) = config.theme.bar_position {
         set_bar_position(v);

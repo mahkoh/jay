@@ -3261,6 +3261,20 @@ Config:
         Configures whether title bars on windows are shown.
         
         The default is `true`.
+    flatten-tree:
+      kind: boolean
+      required: false
+      description: |
+        Configures whether containers with only a single child are automatically
+        collapsed by replacing them with their child, keeping the window tree
+        flat.
+
+        When a window is moved away from a container and the container ends up
+        with a single remaining window, enabling this option removes the
+        container and places the remaining window directly in the parent
+        container.
+
+        The default is `false`.
     focus-history:
       ref: FocusHistory
       required: false
