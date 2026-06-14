@@ -392,7 +392,7 @@ impl Renderer<'_> {
                 }
             }
         }
-        let ns = &container.node_state;
+        let ns = &container.node_state[LiveTL];
         if let Some(child) = ns.mono_child.get() {
             let body = ns.mono_body.get().move_(x, y);
             let body = self.base.scale_rect(body);
@@ -402,7 +402,7 @@ impl Renderer<'_> {
                 .node_render(self, x + content.x1(), y + content.y1(), Some(&body));
         } else {
             for child in container.children.iter() {
-                let cns = &child.node_state;
+                let cns = &child.node_state[LiveTL];
                 let body = cns.body.get();
                 if body.x1() >= ns.width.get() || body.y1() >= ns.height.get() {
                     break;

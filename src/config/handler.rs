@@ -1937,7 +1937,7 @@ impl ConfigProxyHandler {
         let window = self.get_window(window)?;
         self.respond(Response::GetWindowMono {
             mono: toplevel_parent_container(&*window)
-                .map(|c| c.node_state.mono_child.is_some())
+                .map(|c| c.node_state[LiveTL].mono_child.is_some())
                 .unwrap_or(false),
         });
         Ok(())
@@ -1972,7 +1972,7 @@ impl ConfigProxyHandler {
         let window = self.get_window(window)?;
         self.respond(Response::GetWindowSplit {
             axis: toplevel_parent_container(&*window)
-                .map(|c| c.node_state.split.get())
+                .map(|c| c.node_state[LiveTL].split.get())
                 .unwrap_or(ContainerSplit::Horizontal)
                 .into(),
         });
