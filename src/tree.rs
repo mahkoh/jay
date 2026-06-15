@@ -32,7 +32,7 @@ use {
         window::TileState as ConfigTileState,
         workspace::WorkspaceDisplayOrder as ConfigWorkspaceDisplayOrder,
     },
-    linearize::{Linearize, LinearizeExt},
+    linearize::{Linearize, LinearizeExt, StaticMap},
     std::{
         fmt::{Debug, Display},
         rc::Rc,
@@ -946,3 +946,13 @@ pub struct FoundNode {
     pub x: i32,
     pub y: i32,
 }
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Linearize)]
+#[linearize(const)]
+pub enum TreeTimeline {
+    LiveTL,
+    RenderTL,
+}
+
+#[expect(dead_code)]
+pub type SplitView<T> = StaticMap<TreeTimeline, T>;
