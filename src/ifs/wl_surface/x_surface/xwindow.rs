@@ -372,11 +372,11 @@ impl NodeBase for Xwindow {
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
-        self.toplevel_data.output_opt()
+        self.toplevel_data.output_opt(LiveTL)
     }
 
     fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
-        self.toplevel_data.workspace.get()
+        self.toplevel_data.workspace[LiveTL].get()
     }
 
     fn node_location(&self) -> Option<NodeLocation> {

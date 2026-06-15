@@ -172,7 +172,7 @@ impl JayTreeQuery {
             self_id: self.id,
             title: &data.title.borrow(),
         });
-        if let Some(w) = data.workspace.get() {
+        if let Some(w) = data.workspace[LiveTL].get() {
             self.send_workspace_name(&w.name);
         }
         match &data.kind {
@@ -241,7 +241,7 @@ impl JayTreeQuery {
         if data.is_fullscreen[LiveTL].get() {
             self.client.event(Fullscreen { self_id: self.id });
         }
-        if let Some(ws) = data.workspace.get() {
+        if let Some(ws) = data.workspace[LiveTL].get() {
             self.client.event(Workspace {
                 self_id: self.id,
                 name: &ws.name,

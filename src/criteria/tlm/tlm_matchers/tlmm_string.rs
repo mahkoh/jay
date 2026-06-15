@@ -3,7 +3,7 @@ use crate::{
         crit_matchers::critm_string::{CritMatchString, StringAccess},
         tlm::{RootMatchers, TlmRootMatcherMap},
     },
-    tree::{ToplevelData, ToplevelType},
+    tree::{ToplevelData, ToplevelType, TreeTimeline::LiveTL},
 };
 
 pub type TlmMatchString<T> = CritMatchString<ToplevelData, T>;
@@ -98,7 +98,7 @@ impl StringAccess<ToplevelData> for RoleAccess {
 
 impl StringAccess<ToplevelData> for WorkspaceAccess {
     fn with_string(data: &ToplevelData, f: impl FnOnce(&str) -> bool) -> bool {
-        if let Some(ws) = data.workspace.get() {
+        if let Some(ws) = data.workspace[LiveTL].get() {
             return f(&ws.name);
         }
         false

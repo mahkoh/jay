@@ -1607,7 +1607,7 @@ impl UiDragUsecase for TileDragUsecase {
                 let Some(pn) = data.parent.get() else {
                     return;
                 };
-                let Some(ws) = data.workspace.get() else {
+                let Some(ws) = data.workspace[LiveTL].get() else {
                     return;
                 };
                 let placeholder = detach();

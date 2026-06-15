@@ -2926,10 +2926,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_get_window_workspace(&self, window: Window) -> Result<(), CphError> {
-        let workspace = self
-            .get_window(window)?
-            .tl_data()
-            .workspace
+        let workspace = self.get_window(window)?.tl_data().workspace[LiveTL]
             .get()
             .map(|ws| self.get_workspace_by_name(&ws.name, ws.ty))
             .unwrap_or(Workspace(0));

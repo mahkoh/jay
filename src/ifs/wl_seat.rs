@@ -844,7 +844,7 @@ impl WlSeatGlobal {
         } else {
             let data = tl.tl_data();
             if data.is_fullscreen[LiveTL].get()
-                && let Some(output) = data.output_opt()
+                && let Some(output) = data.output_opt(LiveTL)
                 && let Some(target) = self.state.find_output_in_direction(&output, direction)
             {
                 target.take_keyboard_navigation_focus(self, direction);
@@ -883,7 +883,7 @@ impl WlSeatGlobal {
         };
         let data = tl.tl_data();
         if data.is_fullscreen[LiveTL].get()
-            && let Some(output) = data.output_opt()
+            && let Some(output) = data.output_opt(LiveTL)
             && let Some(target) = self.state.find_output_in_direction(&output, direction)
         {
             let ws = target.ensure_workspace();

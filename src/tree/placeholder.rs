@@ -179,11 +179,11 @@ impl NodeBase for PlaceholderNode {
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
-        self.toplevel.output_opt()
+        self.toplevel.output_opt(LiveTL)
     }
 
     fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
-        self.toplevel.workspace.get()
+        self.toplevel.workspace[LiveTL].get()
     }
 
     fn node_location(&self) -> Option<NodeLocation> {

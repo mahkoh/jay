@@ -17,7 +17,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         time::Time,
-        tree::{LatchListener, OutputNode, PresentationListener},
+        tree::{LatchListener, OutputNode, PresentationListener, TreeTimeline::LiveTL},
         utils::{cell_ext::CellExt, clonecell::CloneCell, event_listener::EventListener},
         video::Modifier,
         wire::{ExtImageCopyCaptureSessionV1Id, ext_image_copy_capture_session_v1::*},
@@ -195,7 +195,7 @@ impl ExtImageCopyCaptureSessionV1 {
         };
         let data = tl.tl_data();
         if data.visible.get() {
-            self.latch_listener.attach(&data.output().latch_event);
+            self.latch_listener.attach(&data.output(LiveTL).latch_event);
         } else {
             self.latch_listener.detach();
         }

@@ -510,7 +510,7 @@ impl ToplevelSession {
 
     pub fn set_float_pos(self: &Rc<Self>, data: &ToplevelData) {
         let rect = if data.parent_is_float.get() {
-            let on = data.output();
+            let on = data.output(LiveTL);
             if on.is_dummy {
                 None
             } else {

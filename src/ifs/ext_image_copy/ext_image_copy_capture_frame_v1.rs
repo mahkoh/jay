@@ -335,7 +335,7 @@ impl ExtImageCopyCaptureFrameV1RequestHandler for ExtImageCopyCaptureFrameV1 {
                 }
                 ImageCaptureSource::Toplevel(tl) => {
                     if let Some(tl) = tl.get() {
-                        tl.tl_data().output().global.connector.damage();
+                        tl.tl_data().output(LiveTL).global.connector.damage();
                     }
                 }
             }

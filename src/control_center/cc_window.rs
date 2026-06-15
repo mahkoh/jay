@@ -358,7 +358,7 @@ pub fn show_window(behavior: &mut CcBehavior<'_>, ui: &mut Ui, window: &dyn Topl
     grid(ui, ("window", data.identifier.get()), |ui| {
         label(ui, "ID", &*data.identifier.get().to_string());
         label(ui, "Title", &*data.title.borrow());
-        if let Some(w) = data.workspace.get() {
+        if let Some(w) = data.workspace[LiveTL].get() {
             label(ui, "Workspace", &*w.name);
         }
         match &data.kind {

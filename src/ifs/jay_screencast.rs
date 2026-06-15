@@ -187,7 +187,7 @@ impl JayScreencast {
             log::warn!("Tried to perform window screencast for output screencast");
             return;
         };
-        let scale = match tl.tl_data().workspace.get() {
+        let scale = match tl.tl_data().workspace[LiveTL].get() {
             None => Scale::default(),
             Some(w) => w.node_state[LiveTL].output.get().node_state[LiveTL]
                 .scale
@@ -501,7 +501,7 @@ impl JayScreencast {
         };
         let data = tl.tl_data();
         if data.visible.get() {
-            self.latch_listener.attach(&data.output().latch_event);
+            self.latch_listener.attach(&data.output(LiveTL).latch_event);
         } else {
             self.latch_listener.detach();
         }
@@ -620,7 +620,7 @@ impl JayScreencastRequestHandler for JayScreencast {
                         data.jay_screencasts
                             .set((self.client.id, self.id), slf.clone());
                         if data.visible.get() {
-                            self.latch_listener.attach(&data.output().latch_event);
+                            self.latch_listener.attach(&data.output(LiveTL).latch_event);
                         }
                         new_target = Some(Target::Toplevel(t));
                     }
