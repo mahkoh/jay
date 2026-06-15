@@ -25,8 +25,10 @@ use {
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
             NodeBase, NodeId, NodeLayerLink, NodeLocation, OutputNode, TddType,
             TileDragDestination, ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType,
+            TreeTimeline::{self, LiveTL},
             WorkspaceChangeReason, WorkspaceNode, default_tile_drag_bounds, toplevel_set_floating,
-            toplevel_set_workspace, walker::NodeVisitor,
+            toplevel_set_workspace,
+            walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -1780,11 +1782,11 @@ impl NodeBase for ContainerNode {
         }
     }
 
-    fn node_visible(&self) -> bool {
+    fn node_visible(&self, _tl: TreeTimeline) -> bool {
         self.toplevel_data.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {
         let ns = &self.node_state;
         Rect::new_sized_saturating(
             ns.abs_x1.get(),
@@ -2111,7 +2113,7 @@ impl ContainingNode for ContainerNode {
         if let Some(fh) = node.focus_history.take() {
             link.focus_history.set(Some(fh.append(link.to_ref())));
         }
-        let visible = node.node.node_visible();
+        let visible = node.node.node_visible(LiveTL);
         drop(node);
         let mut body = None;
         if was_mc {
@@ -2219,7 +2221,7 @@ impl ContainingNode for ContainerNode {
             return;
         };
         self.toplevel_data.make_visible(&*self);
-        if !self.node_visible() {
+        if !self.node_visible(LiveTL) {
             return;
         }
         let Some(cur) = self.node_state.mono_child.get() else {
@@ -2351,7 +2353,7 @@ impl ContainingNode for ContainerNode {
                 self.schedule_layout();
             }
         }
-        let pos = self.node_absolute_position();
+        let pos = self.node_absolute_position(LiveTL);
         let mut x1 = None;
         let mut x2 = None;
         let mut y1 = None;

@@ -23,8 +23,11 @@ use {
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
             NodeBase, NodeId, NodeLayerLink, NodeLocation, NodeVisitorBase, OutputNode,
-            PlaceholderNode, StackedNode, ToplevelNode, WorkspaceDisplayOrder,
-            container::ContainerNode, walker::NodeVisitor,
+            PlaceholderNode, StackedNode, ToplevelNode,
+            TreeTimeline::{self, LiveTL},
+            WorkspaceDisplayOrder,
+            container::ContainerNode,
+            walker::NodeVisitor,
         },
         utils::{
             clonecell::CloneCell,
@@ -476,11 +479,11 @@ impl NodeBase for WorkspaceNode {
         }
     }
 
-    fn node_visible(&self) -> bool {
+    fn node_visible(&self, _tl: TreeTimeline) -> bool {
         self.node_state.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {
         self.node_state.position.get()
     }
 
@@ -710,10 +713,10 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
     if !source.is_dummy {
         source.schedule_update_render_data();
     }
-    if source.node_visible() {
+    if source.node_visible(LiveTL) {
         target.state.damage(sns.pos.get());
     }
-    if target.node_visible() {
+    if target.node_visible(LiveTL) {
         target.state.damage(tns.pos.get());
     }
 }

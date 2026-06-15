@@ -17,7 +17,9 @@ use {
         theme::BarPosition,
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId, NodeLayerLink,
-            NodeLocation, NodeVisitor, NodesStackElement, OutputNode, TreeSerial, WorkspaceNode,
+            NodeLocation, NodeVisitor, NodesStackElement, OutputNode, TreeSerial,
+            TreeTimeline::{self, LiveTL},
+            WorkspaceNode,
         },
         utils::{
             cell_ext::CellExt, copyhashmap::CopyHashMap, hash_map_ext::HashMapExt,
@@ -220,7 +222,7 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
     }
 
     fn visible(&self) -> bool {
-        self.parent.node_visible()
+        self.parent.node_visible(LiveTL)
     }
 
     fn make_visible(self: Rc<Self>) {
@@ -328,12 +330,12 @@ impl<T: TrayItem> NodeBase for T {
         self.tray_item_data().surface.node_visit(visitor);
     }
 
-    fn node_visible(&self) -> bool {
+    fn node_visible(&self, _tl: TreeTimeline) -> bool {
         self.tray_item_data().surface.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
-        self.tray_item_data().surface.node_absolute_position()
+    fn node_absolute_position(&self, tl: TreeTimeline) -> Rect {
+        self.tray_item_data().surface.node_absolute_position(tl)
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {

@@ -9,8 +9,10 @@ use {
         state::State,
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, NodeBase, NodeId, NodeLayerLink,
-            NodeLocation, OutputNode, StackedNode, TileDragDestination, WorkspaceDragDestination,
-            WorkspaceNode, walker::NodeVisitor,
+            NodeLocation, OutputNode, StackedNode, TileDragDestination,
+            TreeTimeline::{self, LiveTL},
+            WorkspaceDragDestination, WorkspaceNode,
+            walker::NodeVisitor,
         },
         utils::{
             copyhashmap::CopyHashMap,
@@ -129,7 +131,7 @@ impl DisplayNode {
         y: i32,
     ) -> Option<TileDragDestination> {
         for output in self.outputs.lock().values() {
-            let pos = output.node_absolute_position();
+            let pos = output.node_absolute_position(LiveTL);
             if pos.contains(x, y) {
                 return output.tile_drag_destination(source, x, y);
             }
@@ -144,7 +146,7 @@ impl DisplayNode {
         y: i32,
     ) -> Option<WorkspaceDragDestination> {
         for output in self.outputs.lock().values() {
-            let pos = output.node_absolute_position();
+            let pos = output.node_absolute_position(LiveTL);
             if pos.contains(x, y) {
                 return output.workspace_drag_destination(source, x, y);
             }
@@ -182,11 +184,11 @@ impl NodeBase for DisplayNode {
         }
     }
 
-    fn node_visible(&self) -> bool {
+    fn node_visible(&self, _tl: TreeTimeline) -> bool {
         true
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {
         self.node_state.extents.get()
     }
 
@@ -307,7 +309,7 @@ impl NodesStackElement {
             self.stack.stacked.add_last_existing(link);
         }
         if let Some(link) = &self.visible
-            && link.node_visible()
+            && link.node_visible(LiveTL)
         {
             self.stack.visible.add_last_existing(link);
         }
@@ -335,7 +337,7 @@ fn next_visible(
 ) -> Option<NodeRef<Rc<dyn StackedNode>>> {
     loop {
         let v = iter.next()?;
-        if v.node_visible() {
+        if v.node_visible(LiveTL) {
             return Some(v);
         }
         v.detach();

@@ -2,7 +2,7 @@ use {
     crate::{
         ifs::wl_seat::BTN_LEFT,
         it::{test_error::TestResult, testrun::TestRun},
-        tree::NodeBase,
+        tree::{NodeBase, TreeTimeline::LiveTL},
     },
     std::rc::Rc,
 };
@@ -21,7 +21,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     client.sync().await;
 
     for i in ["1", "2"] {
-        let (x, y) = win1.tl.server.node_absolute_position().position();
+        let (x, y) = win1.tl.server.node_absolute_position(LiveTL).position();
         ds.move_to(x + 10, y - 3);
         ds.mouse.click(BTN_LEFT);
         ds.mouse.click(BTN_LEFT);

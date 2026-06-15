@@ -23,7 +23,7 @@ use {
         io_uring::{IoUring, IoUringError},
         rect::Rect,
         state::State,
-        tree::{NodeBase, ToplevelNode},
+        tree::{NodeBase, ToplevelNode, TreeTimeline::LiveTL},
         utils::{
             bitflags::BitflagsExt,
             buf::Buf,
@@ -1907,7 +1907,7 @@ impl Wm {
             if prev_pid.is_some()
                 && prev_pid == new_pid
                 && revent.serial() >= self.last_input_serial
-                && w.x.surface.node_visible()
+                && w.x.surface.node_visible(LiveTL)
             {
                 // log::info!("xwm ACCEPT");
                 focus_window = new_window;

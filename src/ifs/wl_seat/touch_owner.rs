@@ -2,7 +2,7 @@ use {
     crate::{
         fixed::Fixed,
         ifs::wl_seat::WlSeatGlobal,
-        tree::Node,
+        tree::{Node, TreeTimeline::LiveTL},
         utils::{clonecell::CloneCell, smallmap::SmallMap},
     },
     std::rc::Rc,
@@ -101,7 +101,10 @@ impl GrabTouchOwner {
     fn translate(&self, x: Fixed, y: Fixed) -> (Fixed, Fixed) {
         let x_int = x.round_down();
         let y_int = y.round_down();
-        let (x_int, y_int) = self.node.node_absolute_position().translate(x_int, y_int);
+        let (x_int, y_int) = self
+            .node
+            .node_absolute_position(LiveTL)
+            .translate(x_int, y_int);
         (x.apply_fract(x_int), y.apply_fract(y_int))
     }
 

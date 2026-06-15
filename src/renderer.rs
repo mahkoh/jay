@@ -21,7 +21,7 @@ use {
         theme::Color,
         tree::{
             ContainerChildType, ContainerNode, DisplayNode, FloatNode, OutputNode, PlaceholderNode,
-            ToplevelData, ToplevelNodeBase, WorkspaceNode, WorkspaceType,
+            ToplevelData, ToplevelNodeBase, TreeTimeline::LiveTL, WorkspaceNode, WorkspaceType,
         },
     },
     std::{ops::Deref, rc::Rc, slice},
@@ -232,7 +232,7 @@ impl Renderer<'_> {
             ($stack:expr) => {
                 for stacked in $stack.iter_visible() {
                     self.base.sync();
-                    let pos = stacked.node_absolute_position();
+                    let pos = stacked.node_absolute_position(LiveTL);
                     if pos.intersects(&opos) {
                         let (x, y) = opos.translate(pos.x1(), pos.y1());
                         stacked.node_render(self, x, y, None);

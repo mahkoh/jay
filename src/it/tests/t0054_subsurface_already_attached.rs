@@ -2,7 +2,7 @@ use {
     crate::{
         it::{test_error::TestError, testrun::TestRun},
         theme::Color,
-        tree::NodeBase,
+        tree::{NodeBase, TreeTimeline::LiveTL},
     },
     std::rc::Rc,
 };
@@ -41,7 +41,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
         .await?;
     parent.map().await?;
 
-    tassert!(child.server.node_visible());
+    tassert!(child.server.node_visible(LiveTL));
 
     Ok(())
 }

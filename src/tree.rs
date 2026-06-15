@@ -430,8 +430,8 @@ pub trait NodeBase: 'static {
     where
         Self: Sized;
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor);
-    fn node_visible(&self) -> bool;
-    fn node_absolute_position(&self) -> Rect;
+    fn node_visible(&self, tl: TreeTimeline) -> bool;
+    fn node_absolute_position(&self, tl: TreeTimeline) -> Rect;
     fn node_output(&self) -> Option<Rc<OutputNode>>;
     fn node_workspace(&self) -> Option<Rc<WorkspaceNode>>;
     fn node_location(&self) -> Option<NodeLocation>;

@@ -86,8 +86,9 @@ use {
         tree::{
             ContainerNode, ContainerSplit, Direction, FoundNode, Node, NodeBase, NodeLayer,
             NodeLayerLink, NodeLocation, NodesStack, OutputNode, StackedNode, ToplevelNode,
-            WorkspaceChangeReason, WorkspaceNode, generic_node_visitor, toplevel_create_split,
-            toplevel_parent_container, toplevel_set_floating, toplevel_set_workspace,
+            TreeTimeline::LiveTL, WorkspaceChangeReason, WorkspaceNode, generic_node_visitor,
+            toplevel_create_split, toplevel_parent_container, toplevel_set_floating,
+            toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -1012,7 +1013,7 @@ impl WlSeatGlobal {
         });
         if !visible {
             node.clone().node_make_visible_dyn();
-            if !node.node_visible() {
+            if !node.node_visible(LiveTL) {
                 return;
             }
         }
@@ -1062,7 +1063,7 @@ impl WlSeatGlobal {
         SI: Iterator<Item = NodeRef<Rc<dyn StackedNode>>>,
     {
         fn node_viable(n: &(impl Node + ?Sized)) -> bool {
-            n.node_visible() && n.node_accepts_focus()
+            n.node_visible(LiveTL) && n.node_accepts_focus()
         }
 
         let current = self.keyboard_node.get();
@@ -1236,7 +1237,7 @@ impl WlSeatGlobal {
                     _ => continue,
                 },
             };
-            if node.node_visible() && node.node_accepts_focus() {
+            if node.node_visible(LiveTL) && node.node_accepts_focus() {
                 node.node_do_focus_dyn(self, Direction::Unspecified);
                 self.maybe_schedule_warp_mouse_to_focus();
                 break;
@@ -2121,9 +2122,9 @@ pub async fn handle_warp_mouse_to_focus(state: Rc<State>) {
             if node.node_is_display() {
                 continue;
             }
-            let (mut x, mut y) = node.node_absolute_position().center();
+            let (mut x, mut y) = node.node_absolute_position(LiveTL).center();
             if let Some(tl) = node.node_toplevel() {
-                (x, y) = tl.node_absolute_position().center();
+                (x, y) = tl.node_absolute_position(LiveTL).center();
             }
             let (x, y) = (Fixed::from_int(x), Fixed::from_int(y));
             seat.motion_event_abs(state.now_usec(), x, y, Warp);

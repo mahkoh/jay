@@ -88,7 +88,9 @@ use {
             BeforeLatchListener, BeforeLatchResult, ContainerNode, FindTreeResult, FoundNode,
             LatchListener, Node, NodeBase, NodeId, NodeLayerLink, NodeLocation, NodeVisitor,
             NodeVisitorBase, OutputNode, PlaceholderNode, PresentationListener, ToplevelNode,
-            Transform, TreeSerial, VblankListener, WorkspaceNode,
+            Transform, TreeSerial,
+            TreeTimeline::{self, LiveTL},
+            VblankListener, WorkspaceNode,
         },
         utils::{
             box_cache::{BoxCache, BoxReset, CachedBox},
@@ -1542,7 +1544,7 @@ impl WlSurface {
             let mut damage =
                 buffer_abs_pos.with_size_saturating(max_surface_size.0, max_surface_size.1);
             if let Some(tl) = self.toplevel.get() {
-                damage = damage.intersect(tl.node_absolute_position());
+                damage = damage.intersect(tl.node_absolute_position(LiveTL));
             }
             self.client.state.damage(damage);
         }
@@ -1964,11 +1966,11 @@ impl NodeBase for WlSurface {
         }
     }
 
-    fn node_visible(&self) -> bool {
+    fn node_visible(&self, _tl: TreeTimeline) -> bool {
         self.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {
         self.buffer_abs_pos.get()
     }
 

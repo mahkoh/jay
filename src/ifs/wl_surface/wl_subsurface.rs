@@ -7,7 +7,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::{Node, NodeBase, NodeLayerLink, WorkspaceNode},
+        tree::{Node, NodeBase, NodeLayerLink, TreeTimeline::LiveTL, WorkspaceNode},
         utils::{
             box_cache::{BoxReset, CachedBox},
             clonecell::CloneCell,
@@ -288,7 +288,7 @@ impl WlSubsurface {
         let (x, y) = self.surface.buffer_abs_pos.get().position();
         let mut rect = self.surface.extents.get().move_(x, y);
         if let Some(tl) = self.surface.toplevel.get() {
-            rect = rect.intersect(tl.node_absolute_position());
+            rect = rect.intersect(tl.node_absolute_position(LiveTL));
         }
         self.surface.client.state.damage(rect);
     }

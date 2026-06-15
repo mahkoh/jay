@@ -32,7 +32,8 @@ use {
         state::{ConnectorData, State},
         tree::{
             ContainerNode, ContainerSplit, ContainingNode, Direction, FloatNode, Node, NodeBase,
-            NodeId, NodeLayerLink, OutputNode, PlaceholderNode, WorkspaceNode, WorkspaceType,
+            NodeId, NodeLayerLink, OutputNode, PlaceholderNode, TreeTimeline::LiveTL,
+            WorkspaceNode, WorkspaceType,
         },
         utils::{
             array_to_tuple::ArrayToTuple, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -292,7 +293,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         let Some(parent) = self.tl_data().parent.get() else {
             return;
         };
-        let pos = self.node_absolute_position();
+        let pos = self.node_absolute_position(LiveTL);
         let x1 = (dx1 != 0).then_some(pos.x1().saturating_add(dx1));
         let y1 = (dy1 != 0).then_some(pos.y1().saturating_add(dy1));
         let x2 = (dx2 != 0).then_some(pos.x2().saturating_add(dx2));
@@ -358,7 +359,7 @@ pub trait ToplevelNodeBase: Node {
         self.tl_data()
             .parent
             .is_some()
-            .then_some(self.node_absolute_position())
+            .then_some(self.node_absolute_position(LiveTL))
     }
 
     fn tl_push_float(&self, float: Option<&Rc<FloatNode>>) {
@@ -879,7 +880,7 @@ impl ToplevelData {
         let parent = fd.placeholder.tl_data().parent.take().unwrap();
         parent.clone().cnode_make_visible(&*fd.placeholder);
         parent.cnode_replace_child(fd.placeholder.deref(), node.clone());
-        if node.node_visible() {
+        if node.node_visible(LiveTL) {
             let kb_foci = collect_kb_foci(fd.placeholder.clone());
             for seat in kb_foci {
                 node.clone()
@@ -1056,8 +1057,8 @@ pub enum TddType {
 pub fn default_tile_drag_bounds<T: ToplevelNodeBase + ?Sized>(t: &T, split: ContainerSplit) -> i32 {
     const FACTOR: i32 = 5;
     match split {
-        ContainerSplit::Horizontal => t.node_absolute_position().width() / FACTOR,
-        ContainerSplit::Vertical => t.node_absolute_position().height() / FACTOR,
+        ContainerSplit::Horizontal => t.node_absolute_position(LiveTL).width() / FACTOR,
+        ContainerSplit::Vertical => t.node_absolute_position(LiveTL).height() / FACTOR,
     }
 }
 

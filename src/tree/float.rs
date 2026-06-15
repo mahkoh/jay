@@ -21,8 +21,9 @@ use {
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase,
             NodeId, NodeLayerLink, NodeLocation, NodesStack, NodesStackElement, OutputNode,
-            PinnedNode, StackedNode, TileDragDestination, ToplevelNode, WorkspaceChangeReason,
-            WorkspaceNode, WorkspaceType, toplevel_set_floating, walker::NodeVisitor,
+            PinnedNode, StackedNode, TileDragDestination, ToplevelNode, TreeTimeline,
+            WorkspaceChangeReason, WorkspaceNode, WorkspaceType, toplevel_set_floating,
+            walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -790,11 +791,11 @@ impl NodeBase for FloatNode {
         }
     }
 
-    fn node_visible(&self) -> bool {
+    fn node_visible(&self, _tl: TreeTimeline) -> bool {
         self.node_state.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {
         self.node_state.position.get()
     }
 

@@ -17,7 +17,7 @@ use {
         tree::{
             self, ContainerNode, DisplayNode, FloatNode, Node, NodeBase, NodeVisitor, OutputNode,
             PlaceholderNode, ToplevelData, ToplevelIdentifier, ToplevelNodeBase, ToplevelType,
-            WorkspaceNode, WorkspaceType,
+            TreeTimeline::LiveTL, WorkspaceNode, WorkspaceType,
         },
         utils::{opaque::OpaqueError, opt::Opt},
         wire::{
@@ -80,7 +80,7 @@ impl JayTreeQuery {
     }
 
     fn send_node_position(&self, node: &dyn Node) {
-        let rect = node.node_absolute_position();
+        let rect = node.node_absolute_position(LiveTL);
         self.send_position(rect);
     }
 

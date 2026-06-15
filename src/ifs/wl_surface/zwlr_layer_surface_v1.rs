@@ -21,6 +21,7 @@ use {
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId,
             NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode, TreeSerial,
+            TreeTimeline::{self, LiveTL},
             WorkspaceNode,
         },
         utils::{
@@ -701,11 +702,11 @@ impl NodeBase for ZwlrLayerSurfaceV1 {
         visitor.visit_surface(&self.surface);
     }
 
-    fn node_visible(&self) -> bool {
+    fn node_visible(&self, _tl: TreeTimeline) -> bool {
         true
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {
         self.pos.get()
     }
 
@@ -793,7 +794,7 @@ impl XdgPopupParent for Popup {
     }
 
     fn visible(&self) -> bool {
-        self.parent.node_visible()
+        self.parent.node_visible(LiveTL)
     }
 
     fn make_visible(self: Rc<Self>) {

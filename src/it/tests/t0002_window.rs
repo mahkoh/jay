@@ -2,7 +2,7 @@ use {
     crate::{
         it::{test_error::TestError, testrun::TestRun},
         rect::Rect,
-        tree::NodeBase,
+        tree::{NodeBase, TreeTimeline::LiveTL},
     },
     std::rc::Rc,
 };
@@ -25,7 +25,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     );
 
     tassert_eq!(
-        window.tl.server.node_absolute_position(),
+        window.tl.server.node_absolute_position(LiveTL),
         Rect::new_sized(
             0,
             2 * run.state.theme.title_plus_underline_height(),

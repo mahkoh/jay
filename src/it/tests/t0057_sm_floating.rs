@@ -2,7 +2,7 @@ use {
     crate::{
         ifs::xdg_session_manager_v1::REASON_LAUNCH,
         it::{test_error::TestError, testrun::TestRun},
-        tree::{NodeBase, ToplevelNode, ToplevelNodeBase},
+        tree::{NodeBase, ToplevelNode, ToplevelNodeBase, TreeTimeline::LiveTL},
     },
     std::rc::Rc,
 };
@@ -23,10 +23,10 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     tassert_eq!(win.workspace_id(), Some(ws1.id));
     win.set_workspace(&ws2);
     win.set_floating(true);
-    let old = win.tl.server.node_absolute_position();
+    let old = win.tl.server.node_absolute_position(LiveTL);
     win.tl.server.tl_resize(-10, -10, -10, -10);
     run.sync().await;
-    let new = win.tl.server.node_absolute_position();
+    let new = win.tl.server.node_absolute_position(LiveTL);
     tassert_ne!(old, new);
     let session = sm.get_session(REASON_LAUNCH, None)?;
     session.add_toplevel(&win, "win")?.destroy()?;
@@ -36,7 +36,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     win.map().await?;
     tassert_eq!(win.workspace_id(), Some(ws2.id));
     tassert!(win.tl.server.tl_data().parent_is_float.get());
-    tassert_eq!(win.tl.server.node_absolute_position(), new);
+    tassert_eq!(win.tl.server.node_absolute_position(LiveTL), new);
 
     Ok(())
 }

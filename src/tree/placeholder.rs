@@ -12,8 +12,9 @@ use {
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, NodeBase,
             NodeId, NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
-            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode,
-            default_tile_drag_destination,
+            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType,
+            TreeTimeline::{self, LiveTL},
+            WorkspaceNode, default_tile_drag_destination,
         },
         utils::{
             asyncevent::AsyncEvent, errorfmt::ErrorFmt, on_drop_event::OnDropEvent,
@@ -142,8 +143,8 @@ impl PlaceholderNode {
                 log::warn!("Could not render fullscreen texture: {}", ErrorFmt(e));
             }
         }
-        if self.node_visible() {
-            self.state.damage(self.node_absolute_position());
+        if self.node_visible(LiveTL) {
+            self.state.damage(self.node_absolute_position(LiveTL));
         }
     }
 }
@@ -165,11 +166,11 @@ impl NodeBase for PlaceholderNode {
         // nothing
     }
 
-    fn node_visible(&self) -> bool {
+    fn node_visible(&self, _tl: TreeTimeline) -> bool {
         self.toplevel.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {
         self.toplevel.content_size.get()
     }
 

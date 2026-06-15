@@ -13,7 +13,9 @@ use {
         rect::{Rect, Size},
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId, NodeLayerLink,
-            NodeLocation, NodeVisitor, OutputNode, TreeSerial, WorkspaceNode,
+            NodeLocation, NodeVisitor, OutputNode, TreeSerial,
+            TreeTimeline::{self, LiveTL},
+            WorkspaceNode,
         },
         wire::{ExtSessionLockSurfaceV1Id, WlSurfaceId, ext_session_lock_surface_v1::*},
     },
@@ -141,12 +143,12 @@ impl NodeBase for ExtSessionLockSurfaceV1 {
         visitor.visit_surface(&self.surface);
     }
 
-    fn node_visible(&self) -> bool {
+    fn node_visible(&self, _tl: TreeTimeline) -> bool {
         true
     }
 
-    fn node_absolute_position(&self) -> Rect {
-        self.surface.node_absolute_position()
+    fn node_absolute_position(&self, tl: TreeTimeline) -> Rect {
+        self.surface.node_absolute_position(tl)
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
@@ -211,7 +213,7 @@ impl Configurable for ExtSessionLockSurfaceV1 {
     }
 
     fn visible(&self) -> bool {
-        self.node_visible()
+        self.node_visible(LiveTL)
     }
 
     fn destroyed(&self) -> bool {

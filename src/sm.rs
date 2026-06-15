@@ -25,7 +25,8 @@ use {
         sqlite::{Sqlite, SqliteError, SqliteUsage},
         state::State,
         tree::{
-            NodeBase, OutputNode, ToplevelData, WorkspaceNameHash, WorkspaceNode, WorkspaceType,
+            NodeBase, OutputNode, ToplevelData, TreeTimeline::LiveTL, WorkspaceNameHash,
+            WorkspaceNode, WorkspaceType,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -513,7 +514,7 @@ impl ToplevelSession {
             if on.is_dummy {
                 None
             } else {
-                let on = on.node_absolute_position();
+                let on = on.node_absolute_position(LiveTL);
                 let rect = data.desired_extents.get().move_(-on.x1(), -on.y1());
                 Some(rect)
             }

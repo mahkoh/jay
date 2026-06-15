@@ -21,9 +21,9 @@ use {
         time::Time,
         tree::{
             ContainerNode, ContainerSplit, ContainingNode, FindTreeUsecase, FoundNode, Node,
-            NodeBase, OutputNode, PlaceholderNode, TddType, ToplevelNode, WorkspaceChangeReason,
-            WorkspaceDragDestination, WorkspaceNode, WsMoveConfig, move_ws_to_output,
-            toplevel_set_workspace,
+            NodeBase, OutputNode, PlaceholderNode, TddType, ToplevelNode, TreeTimeline::LiveTL,
+            WorkspaceChangeReason, WorkspaceDragDestination, WorkspaceNode, WsMoveConfig,
+            move_ws_to_output, toplevel_set_workspace,
         },
         utils::{bitflags::BitflagsExt, clonecell::CloneCell, smallmap::SmallMap},
     },
@@ -546,7 +546,7 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
 
     fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) {
         let (x, y) = seat.pointer_cursor.position();
-        let pos = self.node.node_absolute_position();
+        let pos = self.node.node_absolute_position(LiveTL);
         let (x_int, y_int) = pos.translate(x.round_down(), y.round_down());
         // log::info!("apply_changes");
         self.node
@@ -992,7 +992,7 @@ impl SimplePointerOwnerUsecase for DefaultPointerUsecase {
     ) {
         let (x, y) = seat.pointer_cursor.position();
         let (dx, dy) = popup
-            .node_absolute_position()
+            .node_absolute_position(LiveTL)
             .translate(x.round_down(), y.round_down());
         self.start_popup_usecase(
             grab,
@@ -1024,7 +1024,7 @@ impl SimplePointerOwnerUsecase for DefaultPointerUsecase {
             _ => return,
         };
         let (x, y) = seat.pointer_cursor.position();
-        let pos = popup.node_absolute_position();
+        let pos = popup.node_absolute_position(LiveTL);
         let (mut dx, mut dy) = pos.translate(x.round_down(), y.round_down());
         if edges.right {
             dx = pos.width() - dx;
@@ -1126,11 +1126,11 @@ impl<S: ToplevelSelector> NodeSelectorUsecase for SelectToplevelUsecase<S> {
             if !tl.tl_admits_children() {
                 seat.pointer_cursor().set_known(KnownCursor::Pointer);
             }
-            seat.state.damage(tl.node_absolute_position());
+            seat.state.damage(tl.node_absolute_position(LiveTL));
         }
         if let Some(prev) = self.latest.set(tl) {
             prev.tl_data().render_highlight.fetch_sub(1);
-            seat.state.damage(prev.node_absolute_position());
+            seat.state.damage(prev.node_absolute_position(LiveTL));
         }
     }
 }
@@ -1140,7 +1140,7 @@ impl<S: ?Sized> Drop for SelectToplevelUsecase<S> {
         if let Some(prev) = self.latest.take() {
             prev.tl_data().render_highlight.fetch_sub(1);
             if let Some(seat) = self.seat.upgrade() {
-                seat.state.damage(prev.node_absolute_position());
+                seat.state.damage(prev.node_absolute_position(LiveTL));
             }
         }
     }
@@ -1169,11 +1169,11 @@ impl<S: WorkspaceSelector> NodeSelectorUsecase for SelectWorkspaceUsecase<S> {
         if let Some(ws) = &ws {
             ws.render_highlight.fetch_add(1);
             seat.pointer_cursor().set_known(KnownCursor::Pointer);
-            seat.state.damage(ws.node_state.position.get());
+            seat.state.damage(ws.node_absolute_position(LiveTL));
         }
         if let Some(prev) = self.latest.set(ws) {
             prev.render_highlight.fetch_sub(1);
-            seat.state.damage(prev.node_state.position.get());
+            seat.state.damage(prev.node_absolute_position(LiveTL));
         }
     }
 }
@@ -1183,7 +1183,7 @@ impl<S: ?Sized> Drop for SelectWorkspaceUsecase<S> {
         if let Some(prev) = self.latest.take() {
             prev.render_highlight.fetch_sub(1);
             if let Some(seat) = self.seat.upgrade() {
-                seat.state.damage(prev.node_state.position.get());
+                seat.state.damage(prev.node_absolute_position(LiveTL));
             }
         }
     }
@@ -1200,7 +1200,7 @@ impl SimplePointerOwnerUsecase for WindowManagementUsecase {
         button: u32,
         pn: &Rc<dyn Node>,
     ) -> bool {
-        let pos = pn.node_absolute_position();
+        let pos = pn.node_absolute_position(LiveTL);
         let (x, y) = seat.pointer_cursor.position();
         let (x, y) = (x.round_down(), y.round_down());
         let (mut dx, mut dy) = pos.translate(x, y);
@@ -1430,7 +1430,7 @@ impl WindowManagementGrabUsecase for ResizeToplevelGrabPointerOwner {
     ) {
         let (x, y) = seat.pointer_cursor.position();
         let (x, y) = (x.round_down(), y.round_down());
-        let pos = tl.node_absolute_position();
+        let pos = tl.node_absolute_position(LiveTL);
         let mut x1 = None;
         let mut x2 = None;
         let mut y1 = None;
@@ -1820,7 +1820,7 @@ impl PopupPointerOwnerUsecase for PopupPointerOwnerMoveUsecase {
     fn apply_changes(&self, popup: &Rc<XdgPopup>, seat: &Rc<WlSeatGlobal>) {
         let (x, y) = seat.pointer_cursor.position();
         let (x, y) = (x.round_down(), y.round_down());
-        let pos = popup.node_absolute_position();
+        let pos = popup.node_absolute_position(LiveTL);
         let (x, y) = pos.translate(x, y);
         if (x, y) != (self.dx, self.dy) {
             popup.move_(x - self.dx, y - self.dy);
@@ -1839,7 +1839,7 @@ impl PopupPointerOwnerUsecase for PopupPointerOwnerResizeUsecase {
     fn apply_changes(&self, popup: &Rc<XdgPopup>, seat: &Rc<WlSeatGlobal>) {
         let (x, y) = seat.pointer_cursor.position();
         let (x, y) = (x.round_down(), y.round_down());
-        let pos = popup.node_absolute_position();
+        let pos = popup.node_absolute_position(LiveTL);
         let (x, y) = pos.translate(x, y);
         let mut dx1 = 0;
         let mut dx2 = 0;

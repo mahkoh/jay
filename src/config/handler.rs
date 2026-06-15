@@ -29,9 +29,9 @@ use {
         theme::{ThemeColor, ThemeSized},
         tree::{
             ContainerSplit, OutputNode, OutputNodeOrPersistent, TearingMode, TileState,
-            ToplevelData, ToplevelIdentifier, ToplevelNode, VrrMode, WorkspaceNode, WorkspaceType,
-            WsMoveConfig, move_ws_to_output, toplevel_create_split, toplevel_parent_container,
-            toplevel_set_floating, toplevel_set_workspace,
+            ToplevelData, ToplevelIdentifier, ToplevelNode, TreeTimeline::LiveTL, VrrMode,
+            WorkspaceNode, WorkspaceType, WsMoveConfig, move_ws_to_output, toplevel_create_split,
+            toplevel_parent_container, toplevel_set_floating, toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -2832,7 +2832,7 @@ impl ConfigProxyHandler {
     fn handle_seat_focus_window(&self, seat: Seat, window_id: Window) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let window = self.get_window(window_id)?;
-        if !window.node_visible() {
+        if !window.node_visible(LiveTL) {
             return Err(CphError::WindowNotVisible(window_id));
         }
         seat.focus_toplevel(window);
@@ -2895,7 +2895,7 @@ impl ConfigProxyHandler {
     fn handle_get_window_is_visible(&self, window: Window) -> Result<(), CphError> {
         let window = self.get_window(window)?;
         self.respond(Response::GetWindowIsVisible {
-            visible: window.node_visible(),
+            visible: window.node_visible(LiveTL),
         });
         Ok(())
     }

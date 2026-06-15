@@ -1,4 +1,4 @@
-use crate::tree::ToplevelNode;
+use crate::tree::{ToplevelNode, TreeTimeline::LiveTL};
 
 pub trait TestToplevelNodeExt {
     fn center(&self) -> (i32, i32);
@@ -6,6 +6,6 @@ pub trait TestToplevelNodeExt {
 
 impl TestToplevelNodeExt for dyn ToplevelNode {
     fn center(&self) -> (i32, i32) {
-        self.node_absolute_position().center()
+        self.node_absolute_position(LiveTL).center()
     }
 }

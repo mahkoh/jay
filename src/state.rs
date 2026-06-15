@@ -112,8 +112,8 @@ use {
             FoundNode, LatchListener, NodeBase, NodeIds, NodeVisitor, NodeVisitorBase, OutputNode,
             OutputNodeId, PlaceholderNode, TearingMode, TileState, ToplevelData,
             ToplevelIdentifier, ToplevelNode, ToplevelNodeBase, Transform, TreeSerial, TreeSerials,
-            VrrMode, WorkspaceDisplayOrder, WorkspaceNode, WorkspaceType, WsMoveConfig,
-            generic_node_visitor, move_ws_to_output,
+            TreeTimeline::LiveTL, VrrMode, WorkspaceDisplayOrder, WorkspaceNode, WorkspaceType,
+            WsMoveConfig, generic_node_visitor, move_ws_to_output,
         },
         tree_serial_groups::TreeSerialGroups,
         udmabuf::UdmabufHolder,
@@ -985,7 +985,7 @@ impl State {
             let Some(ws) = ws() else {
                 return false;
             };
-            let op = ws.node_state.output.get().node_absolute_position();
+            let op = ws.node_state.output.get().node_absolute_position(LiveTL);
             self.map_floating(
                 node.clone(),
                 pos.width(),
@@ -1088,7 +1088,7 @@ impl State {
     }
 
     fn focus_after_map(&self, node: Rc<dyn ToplevelNode>, seat: Option<&Rc<WlSeatGlobal>>) {
-        if !node.node_visible() {
+        if !node.node_visible(LiveTL) {
             return;
         }
         let Some(seat) = seat else {

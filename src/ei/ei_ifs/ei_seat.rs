@@ -22,7 +22,7 @@ use {
         },
         keyboard::{DynKeyboardState, KeyboardState, KeyboardStateId},
         leaks::Tracker,
-        tree::NodeBase,
+        tree::{NodeBase, TreeTimeline::LiveTL},
         utils::{array, bitflags::BitflagsExt, clonecell::CloneCell},
         wire_ei::{
             EiSeatId,
@@ -372,7 +372,7 @@ impl EiSeat {
         for output in self.client.state.root.outputs.lock().values() {
             device.send_region_mapping_id(&output.global.connector.name);
             device.send_region(
-                output.node_absolute_position(),
+                output.node_absolute_position(LiveTL),
                 output.node_state.scale.get(),
             );
         }

@@ -41,7 +41,7 @@ use {
         object::Version,
         rect::Rect,
         state::DeviceHandlerData,
-        tree::{Direction, Node, NodeBase, ToplevelNode},
+        tree::{Direction, Node, NodeBase, ToplevelNode, TreeTimeline::LiveTL},
         utils::{
             bitflags::BitflagsExt,
             hash_map_ext::HashMapExt,
@@ -123,7 +123,7 @@ impl NodeSeatState {
             let hist = &mut *self.kb_focus_histories.borrow_mut();
             let hist = hist.get_or_insert_with(seat.id, || {
                 seat.focus_history.add_last(FocusHistoryData {
-                    visible: Cell::new(node.node_visible()),
+                    visible: Cell::new(node.node_visible(LiveTL)),
                     node: Rc::downgrade(node),
                 })
             });
@@ -1085,9 +1085,9 @@ impl WlSeatGlobal {
             && node.node_accepts_focus()
             && node.node_id() != self.keyboard_node.get().node_id()
         {
-            if !node.node_visible() {
+            if !node.node_visible(LiveTL) {
                 node.clone().node_make_visible_dyn();
-                if !node.node_visible() {
+                if !node.node_visible(LiveTL) {
                     return;
                 }
             }

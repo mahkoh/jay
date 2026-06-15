@@ -27,6 +27,7 @@ use {
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId,
             NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode, StackedNode,
+            TreeTimeline::{self, LiveTL},
             WorkspaceNode,
         },
         utils::{clonecell::CloneCell, smallmap::SmallMap},
@@ -367,11 +368,11 @@ impl NodeBase for XdgPopup {
         visitor.visit_surface(&self.xdg.surface);
     }
 
-    fn node_visible(&self) -> bool {
+    fn node_visible(&self, _tl: TreeTimeline) -> bool {
         self.xdg.surface.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {
         self.xdg.absolute_desired_extents.get()
     }
 
@@ -485,7 +486,7 @@ impl StackedNode for XdgPopup {
     }
 
     fn stacked_validate(self: Rc<Self>) {
-        if self.node_visible()
+        if self.node_visible(LiveTL)
             && let Some(parent) = self.parent.get()
         {
             parent

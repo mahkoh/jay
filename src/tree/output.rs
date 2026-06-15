@@ -54,8 +54,10 @@ use {
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, NodeBase, NodeId, NodeLayerLink,
             NodeLocation, NodesStack, PinnedNode, TddType, TileDragDestination, Transform,
+            TreeTimeline::{self, LiveTL},
             WorkspaceDisplayOrder, WorkspaceDragDestination, WorkspaceNode, WorkspaceOutputLink,
-            WorkspaceType, walker::NodeVisitor,
+            WorkspaceType,
+            walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -378,7 +380,7 @@ impl OutputNode {
                     c.change_extents(&ns.rects.workspace.get(), self);
                 }
             }
-            if self.node_visible() {
+            if self.node_visible(LiveTL) {
                 self.state.damage(ns.pos.get());
             }
         }
@@ -923,7 +925,7 @@ impl OutputNode {
         for seat in seats {
             ws.do_focus(&seat, Direction::Unspecified);
         }
-        if self.node_visible() {
+        if self.node_visible(LiveTL) {
             self.state.damage(ns.pos.get());
         }
         true
@@ -961,7 +963,7 @@ impl OutputNode {
             ws.node_do_focus(&seat, Direction::Unspecified);
         }
         self.schedule_update_render_data();
-        if self.node_visible() {
+        if self.node_visible(LiveTL) {
             self.state.damage(ns.pos.get());
         }
         true
@@ -994,7 +996,7 @@ impl OutputNode {
         self.hide_overlay3(clear_old, seats);
         self.update_visible();
         self.update_presentation_type();
-        if self.node_visible() {
+        if self.node_visible(LiveTL) {
             self.state.damage(ns.pos.get());
         }
     }
@@ -1224,7 +1226,7 @@ impl OutputNode {
     }
 
     fn change_extents_(self: &Rc<Self>, rect: &Rect) {
-        let visible = self.node_visible();
+        let visible = self.node_visible(LiveTL);
         let ns = &self.node_state;
         if visible {
             let old_pos = ns.pos.get();
@@ -1369,7 +1371,7 @@ impl OutputNode {
         }
         let (x_abs, y_abs) = self.node_state.pos.get().translate_inv(x, y);
         for stacked in stack.iter_visible_rev() {
-            let ext = stacked.node_absolute_position();
+            let ext = stacked.node_absolute_position(LiveTL);
             if stacked.stacked_absolute_position_constrains_input() && !ext.contains(x_abs, y_abs) {
                 // TODO: make constrain always true
                 continue;
@@ -1459,7 +1461,7 @@ impl OutputNode {
 
     pub fn fullscreen_changed(&self) {
         self.update_visible();
-        if self.node_visible() {
+        if self.node_visible(LiveTL) {
             self.state.damage(self.node_state.pos.get());
         }
     }
@@ -1671,7 +1673,7 @@ impl OutputNode {
                 let Some(float) = stacked.deref().clone().node_into_float() else {
                     continue;
                 };
-                let pos = float.node_absolute_position();
+                let pos = float.node_absolute_position(LiveTL);
                 if !pos.contains(x_abs, y_abs) {
                     continue;
                 }
@@ -1923,17 +1925,17 @@ impl OutputNode {
             };
             let wns = &ws.node_state;
             if let Some(fs) = wns.fullscreen.get() {
-                if fs.node_visible() {
+                if fs.node_visible(LiveTL) {
                     fs.node_do_focus_dyn(seat, direction);
                     return;
                 }
             } else if let Some(c) = wns.container.get() {
-                if c.node_visible() {
+                if c.node_visible(LiveTL) {
                     c.node_do_focus(seat, direction);
                     return;
                 }
             } else if ws.ty == WorkspaceType::Normal {
-                if ws.node_visible() {
+                if ws.node_visible(LiveTL) {
                     seat.focus_node(ws);
                     return;
                 }
@@ -2197,11 +2199,11 @@ impl NodeBase for OutputNode {
         }
     }
 
-    fn node_visible(&self) -> bool {
+    fn node_visible(&self, _tl: TreeTimeline) -> bool {
         self.state.root_visible()
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {
         self.node_state.pos.get()
     }
 

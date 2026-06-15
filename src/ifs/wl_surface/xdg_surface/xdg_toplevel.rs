@@ -32,6 +32,7 @@ use {
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase,
             NodeId, NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
             TileState, ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId, ToplevelType,
+            TreeTimeline::{self, LiveTL},
             WorkspaceNode, WorkspaceType, default_tile_drag_destination,
         },
         utils::{
@@ -464,7 +465,7 @@ impl XdgToplevel {
 
     pub fn after_toplevel_drag(self: &Rc<Self>, output: &Rc<OutputNode>, x: i32, y: i32) {
         assert!(self.toplevel_data.parent.is_none());
-        if self.node_visible() {
+        if self.node_visible(LiveTL) {
             self.xdg.damage();
         }
         let extents = match self.xdg.geometry.get() {
@@ -572,11 +573,11 @@ impl NodeBase for XdgToplevel {
         visitor.visit_surface(&self.xdg.surface);
     }
 
-    fn node_visible(&self) -> bool {
+    fn node_visible(&self, _tl: TreeTimeline) -> bool {
         self.xdg.surface.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {
         self.xdg.absolute_desired_extents.get()
     }
 
@@ -812,7 +813,7 @@ impl XdgSurfaceExt for XdgToplevel {
             .surface
             .client
             .state
-            .damage(self.node_absolute_position());
+            .damage(self.node_absolute_position(LiveTL));
     }
 
     fn effective_geometry(&self, geometry: Rect) -> Rect {

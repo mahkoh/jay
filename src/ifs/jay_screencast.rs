@@ -14,7 +14,8 @@ use {
         scale::Scale,
         state::State,
         tree::{
-            LatchListener, OutputNode, ToplevelNode, Transform, WorkspaceNode, WorkspaceNodeId,
+            LatchListener, OutputNode, ToplevelNode, Transform, TreeTimeline::LiveTL,
+            WorkspaceNode, WorkspaceNodeId,
         },
         utils::{
             clonecell::{CloneCell, UnsafeCellCloneSafe},
@@ -199,7 +200,7 @@ impl JayScreencast {
                     self.client.state.color_manager.srgb_gamma22(),
                     &*tl,
                     &self.client.state,
-                    Some(tl.node_absolute_position()),
+                    Some(tl.node_absolute_position(LiveTL)),
                     scale,
                     true,
                     true,
@@ -482,10 +483,10 @@ impl JayScreencast {
             let rect = match target {
                 Target::Output(o) => o.node_state.pos.get(),
                 Target::Toplevel(t) => {
-                    if !t.node_visible() {
+                    if !t.node_visible(LiveTL) {
                         return;
                     }
-                    t.node_absolute_position()
+                    t.node_absolute_position(LiveTL)
                 }
             };
             self.client.state.damage(rect);

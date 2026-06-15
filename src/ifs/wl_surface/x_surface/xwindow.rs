@@ -14,8 +14,9 @@ use {
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase,
             NodeId, NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode,
             StackedNode, TileDragDestination, TileState, ToplevelData, ToplevelNode,
-            ToplevelNodeBase, ToplevelType, WorkspaceNode, WorkspaceType,
-            default_tile_drag_destination,
+            ToplevelNodeBase, ToplevelType,
+            TreeTimeline::{self, LiveTL},
+            WorkspaceNode, WorkspaceType, default_tile_drag_destination,
         },
         utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode},
         wire::WlSurfaceId,
@@ -359,11 +360,11 @@ impl NodeBase for Xwindow {
         visitor.visit_surface(&self.x.surface);
     }
 
-    fn node_visible(&self) -> bool {
+    fn node_visible(&self, _tl: TreeTimeline) -> bool {
         self.x.surface.visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {
         self.data.info.extents.get()
     }
 
@@ -559,7 +560,7 @@ impl StackedNode for Xwindow {
     }
 
     fn stacked_validate(self: Rc<Self>) {
-        if self.node_visible() {
+        if self.node_visible(LiveTL) {
             self.display_link.borrow_mut().add_last_visible(&self);
         }
     }
