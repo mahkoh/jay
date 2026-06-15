@@ -83,7 +83,7 @@ pub struct XdgSurface {
     geometry: Cell<Option<Rect>>,
     extents: Cell<Rect>,
     effective_geometry: SplitView<Cell<Rect>>,
-    pub absolute_desired_extents: Cell<Rect>,
+    pub absolute_desired_extents: SplitView<Cell<Rect>>,
     ext: CloneCell<Option<Rc<dyn XdgSurfaceExt>>>,
     popup_display_stack: CloneCell<Rc<NodesStack>>,
     popup_stack_type: Cell<PopupStackType>,
@@ -113,7 +113,7 @@ struct Popup {
 
 impl XdgPopupParent for Popup {
     fn position(&self) -> Rect {
-        self.parent.absolute_desired_extents.get()
+        self.parent.absolute_desired_extents[LiveTL].get()
     }
 
     fn remove_popup(&self) {
@@ -283,7 +283,7 @@ impl XdgSurface {
             geometry: Cell::new(None),
             extents: Cell::new(surface.extents.get()),
             effective_geometry: Default::default(),
-            absolute_desired_extents: Cell::new(Default::default()),
+            absolute_desired_extents: Default::default(),
             ext: Default::default(),
             popup_display_stack: CloneCell::new(surface.client.state.root.stacked.clone()),
             popup_stack_type: Cell::new(PopupStackType::Normal),
@@ -298,7 +298,7 @@ impl XdgSurface {
     }
 
     fn update_surface_position(&self) {
-        let (mut x1, mut y1) = self.absolute_desired_extents.get().position();
+        let (mut x1, mut y1) = self.absolute_desired_extents[LiveTL].get().position();
         let geo = self.effective_geometry[LiveTL].get();
         x1 -= geo.x1();
         y1 -= geo.y1();
@@ -306,10 +306,15 @@ impl XdgSurface {
         self.update_popup_positions();
     }
 
-    fn set_absolute_desired_extents(&self, ext: &Rect) {
-        let prev = self.absolute_desired_extents.replace(*ext);
-        if ext.position() != prev.position() {
-            self.update_surface_position();
+    fn set_absolute_desired_extents(&self, rect: &Rect) {
+        let prev = self.absolute_desired_extents[LiveTL].replace(*rect);
+        if *rect != prev {
+            if rect.position() != prev.position() {
+                self.update_surface_position();
+            }
+            if let Some(ext) = self.ext.get() {
+                ext.schedule_xdg_op(XdgSurfaceTransactionOp::SetAbsoluteDesiredExtents(*rect));
+            }
         }
     }
 
@@ -438,6 +443,9 @@ impl XdgSurface {
         match op {
             XdgSurfaceTransactionOp::UpdateGeometry => {
                 self.update_effective_geometry(UpdateGeometryReason::FullscreenRender);
+            }
+            XdgSurfaceTransactionOp::SetAbsoluteDesiredExtents(v) => {
+                self.absolute_desired_extents[RenderTL].set(v);
             }
         }
     }
@@ -847,4 +855,5 @@ efrom!(XdgSurfaceError, ClientError);
 
 pub enum XdgSurfaceTransactionOp {
     UpdateGeometry,
+    SetAbsoluteDesiredExtents(Rect),
 }

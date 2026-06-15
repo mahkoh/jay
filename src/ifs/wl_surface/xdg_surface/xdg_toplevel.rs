@@ -581,8 +581,8 @@ impl NodeBase for XdgToplevel {
         self.xdg.surface.visible.get()
     }
 
-    fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {
-        self.xdg.absolute_desired_extents.get()
+    fn node_absolute_position(&self, tl: TreeTimeline) -> Rect {
+        self.xdg.absolute_desired_extents[tl].get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
@@ -696,7 +696,7 @@ impl ToplevelNodeBase for XdgToplevel {
         self.extents_set.set(true);
         let nw = rect.width();
         let nh = rect.height();
-        let de = self.xdg.absolute_desired_extents.get();
+        let de = self.xdg.absolute_desired_extents[LiveTL].get();
         self.xdg.set_absolute_desired_extents(rect);
         if de.width() != nw || de.height() != nh {
             self.xdg.schedule_configure();
@@ -830,7 +830,7 @@ impl XdgSurfaceExt for XdgToplevel {
         if !self.toplevel_data.is_fullscreen[tl].get() {
             return geometry;
         }
-        let output = self.xdg.absolute_desired_extents.get();
+        let output = self.xdg.absolute_desired_extents[tl].get();
         let x_overflow = output.width() - geometry.width();
         let y_overflow = output.height() - geometry.height();
         output.at_point(
@@ -848,7 +848,7 @@ impl XdgSurfaceExt for XdgToplevel {
             return XdgSurfaceConfigureData::Toplevel(None);
         }
         let initial = self.xdg.initial_commit_state.get() == InitialCommitState::Unmapped;
-        let size = self.xdg.absolute_desired_extents.get().size2();
+        let size = self.xdg.absolute_desired_extents[LiveTL].get().size2();
         let mut w = size.width();
         let mut h = size.height();
         if initial {

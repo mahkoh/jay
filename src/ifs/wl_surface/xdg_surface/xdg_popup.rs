@@ -376,8 +376,8 @@ impl NodeBase for XdgPopup {
         self.xdg.surface.visible.get()
     }
 
-    fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {
-        self.xdg.absolute_desired_extents.get()
+    fn node_absolute_position(&self, tl: TreeTimeline) -> Rect {
+        self.xdg.absolute_desired_extents[tl].get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {

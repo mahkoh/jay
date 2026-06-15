@@ -58,7 +58,7 @@ impl XdgToplevelDragV1 {
             if damage_initial && tl.node_visible(LiveTL) {
                 tl.xdg.damage();
             }
-            let extents = tl.xdg.absolute_desired_extents.get();
+            let extents = tl.xdg.absolute_desired_extents[LiveTL].get();
             let extents = extents.at_point(x - self.x_off.get(), y - self.y_off.get());
             tl.clone().tl_change_extents(&extents);
             if tl.node_visible(LiveTL) {
@@ -75,7 +75,7 @@ impl XdgToplevelDragV1 {
         if let Some(tl) = self.toplevel.get()
             && tl.xdg.surface.buffer.get().is_some()
         {
-            let (x, y) = tl.xdg.absolute_desired_extents.get().position();
+            let (x, y) = tl.xdg.absolute_desired_extents[LiveTL].get().position();
             let (x, y) = cursor_rect.translate(x, y);
             renderer.render_xdg_surface(&tl.xdg, x, y, None)
         }
