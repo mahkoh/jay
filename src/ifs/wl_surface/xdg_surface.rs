@@ -21,7 +21,8 @@ use {
         rect::Rect,
         tree::{
             FindTreeResult, FoundNode, Node, NodeLayerLink, NodeLocation, NodesStack,
-            NodesStackElement, OutputNode, StackedNode, TreeSerial, TreeTimeline::LiveTL,
+            NodesStackElement, OutputNode, SplitView, StackedNode, TreeSerial,
+            TreeTimeline::{self, LiveTL, RenderTL},
             WorkspaceNode, WorkspaceType,
         },
         utils::{
@@ -81,7 +82,7 @@ pub struct XdgSurface {
     acked_serial: Cell<Option<TreeSerial>>,
     geometry: Cell<Option<Rect>>,
     extents: Cell<Rect>,
-    effective_geometry: Cell<Rect>,
+    effective_geometry: SplitView<Cell<Rect>>,
     pub absolute_desired_extents: Cell<Rect>,
     ext: CloneCell<Option<Rc<dyn XdgSurfaceExt>>>,
     popup_display_stack: CloneCell<Rc<NodesStack>>,
@@ -239,11 +240,11 @@ pub trait XdgSurfaceExt: Node + Debug {
         None
     }
 
-    fn effective_geometry(&self, geometry: Rect) -> Rect {
+    fn effective_geometry(&self, geometry: Rect, tl: TreeTimeline) -> Rect {
+        let _ = tl;
         geometry
     }
 
-    #[expect(dead_code)]
     fn schedule_xdg_op(self: Rc<Self>, op: XdgSurfaceTransactionOp);
 
     fn configure_data(&self) -> XdgSurfaceConfigureData;
@@ -298,7 +299,7 @@ impl XdgSurface {
 
     fn update_surface_position(&self) {
         let (mut x1, mut y1) = self.absolute_desired_extents.get().position();
-        let geo = self.effective_geometry.get();
+        let geo = self.effective_geometry[LiveTL].get();
         x1 -= geo.x1();
         y1 -= geo.y1();
         self.surface.set_absolute_position(x1, y1);
@@ -386,8 +387,8 @@ impl XdgSurface {
         self.surface.client.state.damage(extents.move_(x, y));
     }
 
-    pub fn geometry(&self) -> Rect {
-        self.effective_geometry.get()
+    pub fn geometry(&self, tl: TreeTimeline) -> Rect {
+        self.effective_geometry[tl].get()
     }
 
     pub fn send_configure(&self, serial: TreeSerial) {
@@ -434,7 +435,11 @@ impl XdgSurface {
     }
 
     fn run_op(&self, op: XdgSurfaceTransactionOp) {
-        match op {}
+        match op {
+            XdgSurfaceTransactionOp::UpdateGeometry => {
+                self.update_effective_geometry(UpdateGeometryReason::FullscreenRender);
+            }
+        }
     }
 }
 
@@ -553,23 +558,61 @@ impl XdgSurfaceRequestHandler for XdgSurface {
     }
 }
 
+enum UpdateGeometryReason {
+    FullscreenLive,
+    FullscreenRender,
+    Commit,
+}
+
 impl XdgSurface {
-    fn update_effective_geometry(&self) {
+    fn update_effective_geometry(&self, reason: UpdateGeometryReason) {
+        let ext = self.ext.get();
+        let mut todo = SplitView::default();
+        match reason {
+            UpdateGeometryReason::FullscreenLive => {
+                todo[LiveTL] = true;
+                if let Some(ext) = &ext {
+                    ext.clone()
+                        .schedule_xdg_op(XdgSurfaceTransactionOp::UpdateGeometry);
+                }
+            }
+            UpdateGeometryReason::FullscreenRender => {
+                todo[RenderTL] = true;
+            }
+            UpdateGeometryReason::Commit => {
+                todo[LiveTL] = true;
+                todo[RenderTL] = true;
+            }
+        }
+        if todo[LiveTL] {
+            let v = self.calculate_effective_geometry(ext.as_ref(), LiveTL);
+            if self.effective_geometry[LiveTL].replace(v) != v {
+                self.update_surface_position();
+                if let Some(ext) = &ext {
+                    ext.geometry_changed();
+                }
+            }
+        }
+        if todo[RenderTL] {
+            let v = self.calculate_effective_geometry(ext.as_ref(), RenderTL);
+            self.effective_geometry[RenderTL].set(v);
+        }
+    }
+
+    fn calculate_effective_geometry(
+        &self,
+        ext: Option<&Rc<dyn XdgSurfaceExt>>,
+        tl: TreeTimeline,
+    ) -> Rect {
         let geometry = self
             .geometry
             .get()
             .unwrap_or_else(|| self.surface.extents.get());
         let mut effective_geometry = geometry;
-        let ext = self.ext.get();
         if let Some(ext) = &ext {
-            effective_geometry = ext.effective_geometry(geometry);
+            effective_geometry = ext.effective_geometry(geometry, tl);
         }
-        if self.effective_geometry.replace(effective_geometry) != effective_geometry {
-            self.update_surface_position();
-            if let Some(ext) = &ext {
-                ext.geometry_changed();
-            }
-        }
+        effective_geometry
     }
 
     fn update_extents(&self) {
@@ -581,7 +624,7 @@ impl XdgSurface {
         self.extents.set(new_extents);
         if old_extents != new_extents {
             if self.geometry.is_none() {
-                self.update_effective_geometry();
+                self.update_effective_geometry(UpdateGeometryReason::Commit);
             }
             if let Some(ext) = self.ext.get() {
                 ext.extents_changed();
@@ -590,7 +633,7 @@ impl XdgSurface {
     }
 
     fn find_tree_at(&self, mut x: i32, mut y: i32, tree: &mut Vec<FoundNode>) -> FindTreeResult {
-        let geo = self.effective_geometry.get();
+        let geo = self.effective_geometry[LiveTL].get();
         (x, y) = geo.translate_inv(x, y);
         self.surface.find_tree_at_(x, y, tree)
     }
@@ -671,7 +714,7 @@ impl SurfaceExt for XdgSurface {
         if let Some(geometry) = pending.xdg_surface.geometry.take() {
             let prev = self.geometry.replace(Some(geometry));
             if prev != Some(geometry) {
-                self.update_effective_geometry();
+                self.update_effective_geometry(UpdateGeometryReason::Commit);
                 self.update_extents();
             }
         }
@@ -802,4 +845,6 @@ pub enum XdgSurfaceError {
 efrom!(XdgSurfaceError, WlSurfaceError);
 efrom!(XdgSurfaceError, ClientError);
 
-pub enum XdgSurfaceTransactionOp {}
+pub enum XdgSurfaceTransactionOp {
+    UpdateGeometry,
+}

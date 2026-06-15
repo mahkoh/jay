@@ -12,8 +12,8 @@ use {
             wl_surface::{
                 WlSurface,
                 xdg_surface::{
-                    InitialCommitState, XdgSurface, XdgSurfaceConfigureData, XdgSurfaceExt,
-                    XdgSurfaceTransactionOp, XdgToplevelConfigureData,
+                    InitialCommitState, UpdateGeometryReason, XdgSurface, XdgSurfaceConfigureData,
+                    XdgSurfaceExt, XdgSurfaceTransactionOp, XdgToplevelConfigureData,
                     xdg_toplevel::{
                         xdg_dialog_v1::XdgDialogV1,
                         xdg_toplevel_icon_v1::{ToplevelIconUser, XdgToplevelIconV1},
@@ -701,7 +701,8 @@ impl ToplevelNodeBase for XdgToplevel {
         if de.width() != nw || de.height() != nh {
             self.xdg.schedule_configure();
             if self.toplevel_data.is_fullscreen[LiveTL].get() {
-                self.xdg.update_effective_geometry();
+                self.xdg
+                    .update_effective_geometry(UpdateGeometryReason::FullscreenLive);
             }
             // self.xdg.surface.client.flush();
         }
@@ -786,7 +787,8 @@ impl ToplevelNodeBase for XdgToplevel {
     }
 
     fn tl_mark_fullscreen_ext(&self) {
-        self.xdg.update_effective_geometry();
+        self.xdg
+            .update_effective_geometry(UpdateGeometryReason::FullscreenLive);
     }
 
     fn tl_update_icon(&self, user: &ToplevelIconUser) {
@@ -824,8 +826,8 @@ impl XdgSurfaceExt for XdgToplevel {
             .damage(self.node_absolute_position(LiveTL));
     }
 
-    fn effective_geometry(&self, geometry: Rect) -> Rect {
-        if !self.toplevel_data.is_fullscreen[LiveTL].get() {
+    fn effective_geometry(&self, geometry: Rect, tl: TreeTimeline) -> Rect {
+        if !self.toplevel_data.is_fullscreen[tl].get() {
             return geometry;
         }
         let output = self.xdg.absolute_desired_extents.get();

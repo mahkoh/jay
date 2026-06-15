@@ -436,7 +436,7 @@ impl Renderer<'_> {
         bounds: Option<&Rect>,
     ) {
         let surface = &xdg.surface;
-        let geo = xdg.geometry();
+        let geo = xdg.geometry(LiveTL);
         (x, y) = geo.translate(x, y);
         self.render_surface(surface, x, y, bounds);
     }
