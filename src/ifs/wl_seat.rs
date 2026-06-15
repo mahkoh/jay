@@ -2009,7 +2009,7 @@ impl DeviceHandlerData {
         {
             return output.node_state[LiveTL].pos.get();
         }
-        state.root.node_state.extents.get()
+        state.root.node_state[LiveTL].extents.get()
     }
 
     pub fn set_accel_profile(&self, state: &State, v: InputDeviceAccelProfile) {

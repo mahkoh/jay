@@ -6,11 +6,12 @@ use {
         ifs::wl_seat::{NodeSeatState, WlSeatGlobal, tablet::TabletTool},
         rect::Rect,
         renderer::Renderer,
-        state::State,
+        state::{State, TreeState},
+        transactions::{TransactionData, Transactionable, TransactionableExt},
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, NodeBase, NodeId, NodeLayerLink,
-            NodeLocation, OutputNode, StackedNode, TileDragDestination,
-            TreeTimeline::{self, LiveTL},
+            NodeLocation, OutputNode, SplitView, StackedNode, TileDragDestination,
+            TreeTimeline::{self, LiveTL, RenderTL},
             WorkspaceDragDestination, WorkspaceNode,
             walker::NodeVisitor,
         },
@@ -28,12 +29,13 @@ use {
 
 pub struct DisplayNode {
     pub id: NodeId,
-    pub node_state: DisplayNodeState,
+    pub node_state: SplitView<DisplayNodeState>,
     pub outputs: CopyHashMap<ConnectorId, Rc<OutputNode>>,
     pub stacked: Rc<NodesStack>,
     pub stacked_above_layers: Rc<NodesStack>,
     pub stacked_in_overlay: Rc<NodesStack>,
     pub seat_state: NodeSeatState,
+    pub transaction_data: TransactionData<DisplayTransactionOp>,
 }
 
 #[derive(Default)]
@@ -55,7 +57,7 @@ pub struct NodesStackElement {
 }
 
 impl DisplayNode {
-    pub fn new(id: NodeId) -> Self {
+    pub fn new(tree: &Rc<TreeState>, id: NodeId) -> Self {
         let slf = Self {
             id,
             node_state: Default::default(),
@@ -64,6 +66,7 @@ impl DisplayNode {
             stacked_above_layers: Default::default(),
             stacked_in_overlay: Default::default(),
             seat_state: Default::default(),
+            transaction_data: TransactionData::new(tree),
         };
         slf.seat_state.disable_focus_history();
         slf
@@ -74,7 +77,7 @@ impl DisplayNode {
         self.seat_state.clear();
     }
 
-    pub fn update_extents(&self) {
+    pub fn update_extents(self: &Rc<Self>) {
         let outputs = self.outputs.lock();
         let mut x1 = i32::MAX;
         let mut y1 = i32::MAX;
@@ -95,9 +98,9 @@ impl DisplayNode {
             y1 = 0;
             y2 = 0;
         }
-        self.node_state
-            .extents
-            .set(Rect::new_saturating(x1, y1, x2, y2));
+        let v = Rect::new_saturating(x1, y1, x2, y2);
+        self.node_state[LiveTL].extents.set(v);
+        self.add_transaction_op(DisplayTransactionOp::SetExtents(v));
     }
 
     pub fn update_visible(&self, state: &State) {
@@ -188,8 +191,8 @@ impl NodeBase for DisplayNode {
         true
     }
 
-    fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {
-        self.node_state.extents.get()
+    fn node_absolute_position(&self, tl: TreeTimeline) -> Rect {
+        self.node_state[tl].extents.get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
@@ -365,5 +368,26 @@ impl Iterator for RevNodeStackVisibleIter {
 
     fn next(&mut self) -> Option<Self::Item> {
         next_visible(&mut self.iter)
+    }
+}
+
+pub enum DisplayTransactionOp {
+    SetExtents(Rect),
+}
+
+impl Transactionable for DisplayNode {
+    type T = DisplayTransactionOp;
+
+    fn data(&self) -> &TransactionData<Self::T> {
+        &self.transaction_data
+    }
+
+    fn apply(self: &Rc<Self>, op: Self::T) {
+        let s = &self.node_state[RenderTL];
+        match op {
+            DisplayTransactionOp::SetExtents(v) => {
+                s.extents.set(v);
+            }
+        }
     }
 }

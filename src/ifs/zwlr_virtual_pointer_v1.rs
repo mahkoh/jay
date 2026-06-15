@@ -114,7 +114,7 @@ impl ZwlrVirtualPointerV1RequestHandler for ZwlrVirtualPointerV1 {
                         .as_ref()
                         .and_then(|c| c.node())
                         .map(|g| g.node_state[LiveTL].pos.get())
-                        .unwrap_or_else(|| self.client.state.root.node_state.extents.get());
+                        .unwrap_or_else(|| self.client.state.root.node_state[LiveTL].extents.get());
                     self.seat.motion_absolute_event(ms_to_us(time), rect, x, y);
                 }
                 Event::Button(time, button, state) => {

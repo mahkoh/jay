@@ -271,7 +271,7 @@ fn start_compositor2(
         clients: Clients::new(),
         globals: Globals::new(),
         connector_ids: Default::default(),
-        root: Rc::new(DisplayNode::new(node_ids.next())),
+        root: Rc::new(DisplayNode::new(&tree, node_ids.next())),
         workspaces: Default::default(),
         dummy_output_id: node_ids.next(),
         dummy_output: Default::default(),

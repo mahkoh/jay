@@ -52,7 +52,7 @@ impl Renderer<'_> {
     }
 
     pub fn render_display(&mut self, display: &DisplayNode, x: i32, y: i32) {
-        let ext = display.node_state.extents.get();
+        let ext = display.node_state[LiveTL].extents.get();
         let outputs = display.outputs.lock();
         for output in outputs.values() {
             let opos = output.node_state[LiveTL].pos.get();

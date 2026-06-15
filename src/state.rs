@@ -2435,7 +2435,7 @@ impl State {
     }
 
     pub fn damage_full(&self) {
-        self.damage(self.root.node_state.extents.get());
+        self.damage(self.root.node_state[LiveTL].extents.get());
     }
 }
 
