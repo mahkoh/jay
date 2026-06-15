@@ -633,7 +633,7 @@ impl WlSeatGlobal {
 
     pub fn get_fullscreen(&self) -> bool {
         if let Some(tl) = self.keyboard_node.get().node_toplevel() {
-            return tl.tl_data().is_fullscreen.get();
+            return tl.tl_data().is_fullscreen[LiveTL].get();
         }
         false
     }
@@ -843,7 +843,7 @@ impl WlSeatGlobal {
             tl.node_do_focus_dyn(self, direction);
         } else {
             let data = tl.tl_data();
-            if data.is_fullscreen.get()
+            if data.is_fullscreen[LiveTL].get()
                 && let Some(output) = data.output_opt()
                 && let Some(target) = self.state.find_output_in_direction(&output, direction)
             {
@@ -882,7 +882,7 @@ impl WlSeatGlobal {
             return;
         };
         let data = tl.tl_data();
-        if data.is_fullscreen.get()
+        if data.is_fullscreen[LiveTL].get()
             && let Some(output) = data.output_opt()
             && let Some(target) = self.state.find_output_in_direction(&output, direction)
         {

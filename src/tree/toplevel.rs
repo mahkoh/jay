@@ -32,7 +32,8 @@ use {
         state::{ConnectorData, State},
         tree::{
             ContainerNode, ContainerSplit, ContainingNode, Direction, FloatNode, Node, NodeBase,
-            NodeId, NodeLayerLink, OutputNode, PlaceholderNode, TreeTimeline::LiveTL,
+            NodeId, NodeLayerLink, OutputNode, PlaceholderNode, SplitView,
+            TreeTimeline::{LiveTL, RenderTL},
             WorkspaceNode, WorkspaceType,
         },
         utils::{
@@ -118,7 +119,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
 
     fn tl_set_parent(&self, parent: Rc<dyn ContainingNode>) {
         let data = self.tl_data();
-        if !data.is_fullscreen.get() {
+        if !data.is_fullscreen[LiveTL].get() {
             self.tl_mark_ancestor_fullscreen(parent.cnode_self_or_ancestor_fullscreen());
         }
         data.is_root_container.set(false);
@@ -278,7 +279,9 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
 
     fn tl_mark_fullscreen(&self, connector: Option<&Rc<ConnectorData>>) {
         let fullscreen = connector.is_some();
-        self.tl_data().is_fullscreen.set(fullscreen);
+        self.tl_data().is_fullscreen[LiveTL].set(fullscreen);
+        self.tl_data()
+            .schedule_op(ToplevelDataTransactionOp::SetIsFullscreen(fullscreen));
         self.tl_mark_ancestor_fullscreen(fullscreen);
         self.tl_mark_fullscreen_ext();
         if let Some(session) = self.tl_data().session.get() {
@@ -381,7 +384,9 @@ pub trait ToplevelNodeBase: Node {
     fn tl_schedule_data_op(self: Rc<Self>, op: ToplevelDataTransactionOp);
 }
 
-pub enum ToplevelDataTransactionOp {}
+pub enum ToplevelDataTransactionOp {
+    SetIsFullscreen(bool),
+}
 
 pub struct FullscreenedData {
     pub placeholder: Rc<PlaceholderNode>,
@@ -436,7 +441,7 @@ pub struct ToplevelData {
     pub float_width: Cell<i32>,
     pub float_height: Cell<i32>,
     pub pinned: Cell<bool>,
-    pub is_fullscreen: Cell<bool>,
+    pub is_fullscreen: SplitView<Cell<bool>>,
     pub self_or_ancestor_is_fullscreen: Cell<bool>,
     pub fullscrceen_data: RefCell<Option<FullscreenedData>>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
@@ -545,7 +550,7 @@ impl ToplevelData {
                 parent.node_child_active_changed(tl, active_new, 1);
             }
             for handle in self.manager_handles.borrow().lock().values() {
-                handle.send_state(active_new, self.is_fullscreen.get());
+                handle.send_state(active_new, self.is_fullscreen[LiveTL].get());
                 handle.send_done();
             }
         }
@@ -644,7 +649,7 @@ impl ToplevelData {
         let title = self.title.borrow();
         let app_id = self.app_id.borrow();
         let activated = self.active();
-        let fullscreen = self.is_fullscreen.get();
+        let fullscreen = self.is_fullscreen[LiveTL].get();
         let class;
         let manager_app_id = match &self.kind {
             ToplevelType::XWindow(w) => {
@@ -706,7 +711,7 @@ impl ToplevelData {
     ) {
         let title = self.title.borrow();
         let activated = self.active();
-        let fullscreen = self.is_fullscreen.get();
+        let fullscreen = self.is_fullscreen[LiveTL].get();
         let app_id;
         let class;
         let manager_app_id = match &self.kind {
@@ -851,7 +856,7 @@ impl ToplevelData {
     }
 
     pub fn unset_fullscreen(&self, state: &Rc<State>, node: Rc<dyn ToplevelNode>) {
-        if !self.is_fullscreen.get() {
+        if !self.is_fullscreen[LiveTL].get() {
             log::warn!("Cannot unset fullscreen on a node that is not fullscreen");
             return;
         }
@@ -1016,7 +1021,7 @@ impl ToplevelData {
             if self.parent_is_float.get() {
                 session.set_float_pos(self);
             }
-            session.set_fullscreen(self.is_fullscreen.get());
+            session.set_fullscreen(self.is_fullscreen[LiveTL].get());
         }
         self.session.set(Some(session.clone()));
     }
@@ -1027,7 +1032,6 @@ impl ToplevelData {
         }
     }
 
-    #[expect(dead_code)]
     pub fn schedule_op(&self, op: ToplevelDataTransactionOp) {
         if let Some(slf) = self.slf.upgrade() {
             slf.tl_schedule_data_op(op);
@@ -1035,7 +1039,11 @@ impl ToplevelData {
     }
 
     pub fn run_op(&self, op: ToplevelDataTransactionOp) {
-        match op {}
+        match op {
+            ToplevelDataTransactionOp::SetIsFullscreen(v) => {
+                self.is_fullscreen[RenderTL].set(v);
+            }
+        }
     }
 }
 
@@ -1094,7 +1102,7 @@ pub fn toplevel_parent_container(tl: &dyn ToplevelNode) -> Option<Rc<ContainerNo
 }
 
 pub fn toplevel_create_split(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, axis: ContainerSplit) {
-    if tl.tl_data().is_fullscreen.get() {
+    if tl.tl_data().is_fullscreen[LiveTL].get() {
         return;
     }
     let ws = match tl.tl_data().workspace.get() {
@@ -1113,7 +1121,7 @@ pub fn toplevel_create_split(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, axis: 
 
 pub fn toplevel_set_floating(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, floating: bool) {
     let data = tl.tl_data();
-    if data.is_fullscreen.get() {
+    if data.is_fullscreen[LiveTL].get() {
         return;
     }
     if data.parent_is_float.get() == floating {
@@ -1142,7 +1150,7 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
         return;
     }
     let data = tl.tl_data();
-    let fullscreen = data.is_fullscreen.get();
+    let fullscreen = data.is_fullscreen[LiveTL].get();
     let wns = &ws.node_state[LiveTL];
     if fullscreen {
         if let Some(old) = wns.fullscreen.get() {
@@ -1152,7 +1160,7 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
             return;
         }
         tl.clone().tl_set_fullscreen(false, None);
-        if data.is_fullscreen.get() {
+        if data.is_fullscreen[LiveTL].get() {
             return;
         }
     }

@@ -700,7 +700,7 @@ impl ToplevelNodeBase for XdgToplevel {
         self.xdg.set_absolute_desired_extents(rect);
         if de.width() != nw || de.height() != nh {
             self.xdg.schedule_configure();
-            if self.toplevel_data.is_fullscreen.get() {
+            if self.toplevel_data.is_fullscreen[LiveTL].get() {
                 self.xdg.update_effective_geometry();
             }
             // self.xdg.surface.client.flush();
@@ -825,7 +825,7 @@ impl XdgSurfaceExt for XdgToplevel {
     }
 
     fn effective_geometry(&self, geometry: Rect) -> Rect {
-        if !self.toplevel_data.is_fullscreen.get() {
+        if !self.toplevel_data.is_fullscreen[LiveTL].get() {
             return geometry;
         }
         let output = self.xdg.absolute_desired_extents.get();

@@ -452,7 +452,7 @@ impl ConfigProxyHandler {
     fn handle_get_window_fullscreen(&self, window: Window) -> Result<(), CphError> {
         let tl = self.get_window(window)?;
         self.respond(Response::GetWindowFullscreen {
-            fullscreen: tl.tl_data().is_fullscreen.get(),
+            fullscreen: tl.tl_data().is_fullscreen[LiveTL].get(),
         });
         Ok(())
     }

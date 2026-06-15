@@ -238,7 +238,7 @@ impl JayTreeQuery {
                 }
             }
         }
-        if data.is_fullscreen.get() {
+        if data.is_fullscreen[LiveTL].get() {
             self.client.event(Fullscreen { self_id: self.id });
         }
         if let Some(ws) = data.workspace.get() {

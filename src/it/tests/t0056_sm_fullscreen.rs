@@ -2,7 +2,7 @@ use {
     crate::{
         ifs::xdg_session_manager_v1::REASON_LAUNCH,
         it::{test_error::TestError, testrun::TestRun},
-        tree::{ToplevelNode, ToplevelNodeBase},
+        tree::{ToplevelNode, ToplevelNodeBase, TreeTimeline::LiveTL},
     },
     std::rc::Rc,
 };
@@ -30,7 +30,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let (win, _ts) = client.restore_window(&session, "win").await?;
     win.map().await?;
     tassert_eq!(win.workspace_id(), Some(ws2.id));
-    tassert!(win.tl.server.tl_data().is_fullscreen.get());
+    tassert!(win.tl.server.tl_data().is_fullscreen[LiveTL].get());
 
     Ok(())
 }

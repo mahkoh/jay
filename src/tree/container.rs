@@ -1192,7 +1192,7 @@ impl ContainerNode {
         // CASE 1: This is the only child of the container. Replace the container by the child.
         if self.num_children.get() == 1 {
             if let Some(parent) = self.toplevel_data.parent.get()
-                && !self.toplevel_data.is_fullscreen.get()
+                && !self.toplevel_data.is_fullscreen[LiveTL].get()
             {
                 if parent.cnode_accepts_child(&*child) {
                     parent.cnode_replace_child(self.deref(), child.clone());

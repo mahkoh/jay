@@ -1,7 +1,7 @@
 use {
     crate::{
         it::{test_error::TestError, testrun::TestRun},
-        tree::ToplevelNodeBase,
+        tree::{ToplevelNodeBase, TreeTimeline::LiveTL},
     },
     std::rc::Rc,
 };
@@ -18,15 +18,15 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let window = client.create_window().await?;
     window.map().await?;
 
-    tassert!(!window.tl.server.tl_data().is_fullscreen.get());
+    tassert!(!window.tl.server.tl_data().is_fullscreen[LiveTL].get());
 
     run.cfg.set_fullscreen(ds.seat.id(), true)?;
 
-    tassert!(window.tl.server.tl_data().is_fullscreen.get());
+    tassert!(window.tl.server.tl_data().is_fullscreen[LiveTL].get());
 
     run.cfg.set_fullscreen(ds.seat.id(), false)?;
 
-    tassert!(!window.tl.server.tl_data().is_fullscreen.get());
+    tassert!(!window.tl.server.tl_data().is_fullscreen[LiveTL].get());
 
     let container = match window.tl.server.tl_data().parent.get() {
         Some(p) => match p.node_into_container() {

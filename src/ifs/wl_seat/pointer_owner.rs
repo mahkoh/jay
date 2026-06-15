@@ -1210,7 +1210,7 @@ impl SimplePointerOwnerUsecase for WindowManagementUsecase {
                     return false;
                 }
                 seat.pointer_cursor.set_known(KnownCursor::Move);
-                if tl.tl_data().is_fullscreen.get() {
+                if tl.tl_data().is_fullscreen[LiveTL].get() {
                     Rc::new(ToplevelGrabPointerOwner {
                         tl,
                         usecase: MoveFullscreenToplevelGrabPointerOwner,
@@ -1472,7 +1472,7 @@ impl WindowManagementGrabUsecase for MoveFullscreenToplevelGrabPointerOwner {
 
     fn on_drop(&self, seat: &Rc<WlSeatGlobal>, tl: &Rc<dyn ToplevelNode>) {
         let data = tl.tl_data();
-        if !data.is_fullscreen.get() {
+        if !data.is_fullscreen[LiveTL].get() {
             return;
         }
         let output = 'output: {

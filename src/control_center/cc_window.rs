@@ -9,7 +9,10 @@ use {
         criteria::{CritMgrExt, CritUpstreamNode, crit_leaf::CritLeafMatcher},
         egui_adapter::egui_platform::icons::ICON_OPEN_IN_NEW,
         state::State,
-        tree::{NodeId, ToplevelData, ToplevelIdentifier, ToplevelNode, ToplevelType},
+        tree::{
+            NodeId, ToplevelData, ToplevelIdentifier, ToplevelNode, ToplevelType,
+            TreeTimeline::LiveTL,
+        },
         utils::{
             copyhashmap::CopyHashMap,
             event_listener::{EventListener, LazyEventSourceListener},
@@ -392,7 +395,7 @@ pub fn show_window(behavior: &mut CcBehavior<'_>, ui: &mut Ui, window: &dyn Topl
         read_only_bool(ui, "Floating", data.parent_is_float.get());
         read_only_bool(ui, "Visible", data.visible.get());
         read_only_bool(ui, "Urgent", data.wants_attention.get());
-        read_only_bool(ui, "Fullscreen", data.is_fullscreen.get());
+        read_only_bool(ui, "Fullscreen", data.is_fullscreen[LiveTL].get());
         if let Some(ct) = data.content_type.get() {
             label(ui, "Content Type", ct.text());
         }

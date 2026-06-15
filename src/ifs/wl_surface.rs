@@ -1586,7 +1586,7 @@ impl WlSurface {
         pending.fifo_barrier_wait = false;
         if tearing_changed
             && let Some(tl) = self.toplevel.get()
-            && tl.tl_data().is_fullscreen.get()
+            && tl.tl_data().is_fullscreen[LiveTL].get()
         {
             self.output.get().update_presentation_type();
         }
