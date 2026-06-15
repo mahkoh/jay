@@ -1098,8 +1098,10 @@ impl ContainerNode {
         if self.toplevel_data.float.is_some() {
             return None;
         }
-        self.state
-            .find_output_in_direction(&self.workspace.get().node_state.output.get(), direction)
+        self.state.find_output_in_direction(
+            &self.workspace.get().node_state[LiveTL].output.get(),
+            direction,
+        )
     }
 
     pub fn move_focus_from_child(
@@ -1174,7 +1176,7 @@ impl ContainerNode {
             if move_foci {
                 collect_kb_foci2(child.clone(), &mut foci);
             }
-            if let Some(c) = ws.node_state.container.get() {
+            if let Some(c) = ws.node_state[LiveTL].container.get() {
                 self.clone().cnode_remove_child2(&*child, true);
                 c.insert_child(child, direction);
             } else {

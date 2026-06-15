@@ -84,14 +84,14 @@ impl Renderer<'_> {
         let mut fullscreen = None;
         let mut fullscreen_is_overlay = false;
         if let Some(ws) = ns.overlay.get() {
-            let wns = &ws.node_state;
+            let wns = &ws.node_state[LiveTL];
             fullscreen = wns.fullscreen.get();
             fullscreen_is_overlay = wns.fullscreen.is_some();
         }
         if fullscreen.is_none()
             && let Some(ws) = ns.workspace.get()
         {
-            fullscreen = ws.node_state.fullscreen.get();
+            fullscreen = ws.node_state[LiveTL].fullscreen.get();
         }
         let theme = &self.state.theme;
         let srgb_srgb = self.state.color_manager.srgb_gamma22();
@@ -272,7 +272,7 @@ impl Renderer<'_> {
     }
 
     pub fn render_workspace(&mut self, workspace: &WorkspaceNode, x: i32, y: i32) {
-        if let Some(node) = workspace.node_state.container.get() {
+        if let Some(node) = workspace.node_state[LiveTL].container.get() {
             self.render_container(&node, x, y)
         }
     }

@@ -11,7 +11,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::{OutputNode, WorkspaceNode, WsMoveConfig, move_ws_to_output},
+        tree::{OutputNode, TreeTimeline::LiveTL, WorkspaceNode, WsMoveConfig, move_ws_to_output},
         utils::{clonecell::CloneCell, opt::Opt, syncqueue::SyncQueue},
         wire::{ExtWorkspaceManagerV1Id, ext_workspace_manager_v1::*},
     },
@@ -243,7 +243,7 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
                     let Some(ws) = w.get() else {
                         continue;
                     };
-                    let output = ws.node_state.output.get();
+                    let output = ws.node_state[LiveTL].output.get();
                     let seat = self.client.state.seat_queue.last().as_deref().cloned();
                     self.client
                         .state

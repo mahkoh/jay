@@ -2,7 +2,7 @@ use {
     crate::{
         control_center::{ControlCenterInner, bool, grid, label, row},
         state::State,
-        tree::{NodeBase, WorkspaceType},
+        tree::{NodeBase, TreeTimeline::LiveTL, WorkspaceType},
     },
     egui::{CollapsingHeader, ComboBox, TextFormat, Ui, text::LayoutJob},
     std::rc::Rc,
@@ -31,7 +31,7 @@ impl WorkspacesPane {
         let mut outputs: Vec<_> = self.state.root.outputs.lock().values().cloned().collect();
         outputs.sort_unstable_by_key(|o| o.global.connector.name.clone());
         for ws in ws {
-            let ns = &ws.node_state;
+            let ns = &ws.node_state[LiveTL];
             let output = ns.output.get();
             let ty = match ws.ty {
                 WorkspaceType::Normal => "Normal",

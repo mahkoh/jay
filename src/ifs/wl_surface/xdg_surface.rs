@@ -21,7 +21,8 @@ use {
         rect::Rect,
         tree::{
             FindTreeResult, FoundNode, Node, NodeLayerLink, NodeLocation, NodesStack,
-            NodesStackElement, OutputNode, StackedNode, TreeSerial, WorkspaceNode, WorkspaceType,
+            NodesStackElement, OutputNode, StackedNode, TreeSerial, TreeTimeline::LiveTL,
+            WorkspaceNode, WorkspaceType,
         },
         utils::{
             box_cache::{BoxReset, CachedBox},
@@ -322,7 +323,7 @@ impl XdgSurface {
             }
         }
         self.surface
-            .set_output(&ws.node_state.output.get(), ws.location());
+            .set_output(&ws.node_state[LiveTL].output.get(), ws.location());
         let pu = self.popups.lock();
         for pu in pu.values() {
             pu.popup.xdg.set_workspace(ws);

@@ -922,7 +922,7 @@ impl OutputNode {
         }
         self.update_visible();
         self.update_presentation_type();
-        if let Some(fs) = ws.node_state.fullscreen.get() {
+        if let Some(fs) = ws.node_state[LiveTL].fullscreen.get() {
             fs.tl_change_extents(&ns.pos.get());
         }
         ws.change_extents(&ns.rects.workspace.get(), self);
@@ -944,7 +944,7 @@ impl OutputNode {
             self.move_pinned_to_normal_workspace();
         }
         let mut seats = SmallVec::new();
-        let wns = &ws.node_state;
+        let wns = &ws.node_state[LiveTL];
         wns.output.get().hide_overlay2(false, &mut seats);
         let old = self.set_ns_overlay(Some(ws));
         if let Some(old) = &old {
@@ -1249,7 +1249,7 @@ impl OutputNode {
         }
         for layer in [&ns.workspace, &ns.overlay] {
             if let Some(c) = layer.get() {
-                if let Some(fs) = c.node_state.fullscreen.get() {
+                if let Some(fs) = c.node_state[LiveTL].fullscreen.get() {
                     fs.tl_change_extents(rect);
                 }
                 c.change_extents(&ns.rects.workspace.get(), self);
@@ -1445,12 +1445,12 @@ impl OutputNode {
         let ns = &self.node_state[LiveTL];
         ns.workspace
             .get()
-            .map(|w| w.node_state.fullscreen.is_some())
+            .map(|w| w.node_state[LiveTL].fullscreen.is_some())
             .unwrap_or(false)
             || ns
                 .overlay
                 .get()
-                .map(|w| w.node_state.fullscreen.is_some())
+                .map(|w| w.node_state[LiveTL].fullscreen.is_some())
                 .unwrap_or(false)
     }
 
@@ -1501,11 +1501,11 @@ impl OutputNode {
         let mut have_fullscreen = false;
         let mut have_overlay_fullscreen = false;
         if let Some(ws) = ns.overlay.get() {
-            have_fullscreen = ws.node_state.fullscreen.is_some();
+            have_fullscreen = ws.node_state[LiveTL].fullscreen.is_some();
             have_overlay_fullscreen = have_fullscreen;
         }
         if !have_fullscreen && let Some(ws) = ns.workspace.get() {
-            have_fullscreen = ws.node_state.fullscreen.is_some();
+            have_fullscreen = ws.node_state[LiveTL].fullscreen.is_some();
         }
         let lower_visible = visible && !have_fullscreen;
         self.title_visible.set(lower_visible);
@@ -1544,7 +1544,7 @@ impl OutputNode {
             return true;
         };
         if ws.ty == WorkspaceType::Overlay && button == BTN_MIDDLE {
-            ws.node_state.output.get().hide_overlay();
+            ws.node_state[LiveTL].output.get().hide_overlay();
         } else {
             self.state.show_workspace2(Some(seat), self, &ws);
         }
@@ -1591,7 +1591,7 @@ impl OutputNode {
                     let Some(ws) = layer.get() else {
                         continue;
                     };
-                    let Some(tl) = ws.node_state.fullscreen.get() else {
+                    let Some(tl) = ws.node_state[LiveTL].fullscreen.get() else {
                         continue;
                     };
                     if let Some(req) = surface {
@@ -1634,7 +1634,7 @@ impl OutputNode {
                     let Some(ws) = layer.get() else {
                         continue;
                     };
-                    let Some(tl) = ws.node_state.fullscreen.get() else {
+                    let Some(tl) = ws.node_state[LiveTL].fullscreen.get() else {
                         continue;
                     };
                     if let Some(req) = surface {
@@ -1687,7 +1687,7 @@ impl OutputNode {
         }
         let ns = &self.node_state[LiveTL];
         if let Some(ws) = ns.overlay.get() {
-            let wns = &ws.node_state;
+            let wns = &ws.node_state[LiveTL];
             if wns.fullscreen.is_some() {
                 return None;
             }
@@ -1714,7 +1714,7 @@ impl OutputNode {
                 },
             });
         };
-        let wns = &ws.node_state;
+        let wns = &ws.node_state[LiveTL];
         if wns.fullscreen.is_some() {
             return None;
         }
@@ -1928,7 +1928,7 @@ impl OutputNode {
             let Some(ws) = layer.get() else {
                 continue;
             };
-            let wns = &ws.node_state;
+            let wns = &ws.node_state[LiveTL];
             if let Some(fs) = wns.fullscreen.get() {
                 if fs.node_visible(LiveTL) {
                     fs.node_do_focus_dyn(seat, direction);
@@ -2305,7 +2305,7 @@ impl NodeBase for OutputNode {
             }
         }
         if let Some(ws) = ns.overlay.get() {
-            if let Some(fs) = ws.node_state.fullscreen.get() {
+            if let Some(fs) = ws.node_state[LiveTL].fullscreen.get() {
                 tree.push(FoundNode {
                     node: fs.clone(),
                     x,
@@ -2337,7 +2337,7 @@ impl NodeBase for OutputNode {
         }
         let mut fullscreen = None;
         if let Some(ws) = ns.workspace.get() {
-            fullscreen = ws.node_state.fullscreen.get();
+            fullscreen = ws.node_state[LiveTL].fullscreen.get();
         }
         {
             let mut layers = &[OVERLAY, TOP][..];

@@ -314,7 +314,7 @@ impl ConnectorHandler {
             _ => self.state.dummy_output.get().unwrap(),
         };
         for ws in on.workspaces.iter() {
-            let wns = &ws.node_state;
+            let wns = &ws.node_state[LiveTL];
             if ws.desired_output.get() == output_id {
                 ws.visible_on_desired_output.set(wns.visible.get());
             }

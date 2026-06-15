@@ -476,7 +476,7 @@ impl ToplevelNodeBase for Xwindow {
     fn tl_set_workspace_ext(&self, ws: &Rc<WorkspaceNode>) {
         self.x
             .surface
-            .set_output(&ws.node_state.output.get(), ws.location());
+            .set_output(&ws.node_state[LiveTL].output.get(), ws.location());
     }
 
     fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect) {

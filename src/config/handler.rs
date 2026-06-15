@@ -991,7 +991,7 @@ impl ConfigProxyHandler {
         let Some(ws) = self.get_existing_workspace(workspace)? else {
             return Ok(());
         };
-        let wns = &ws.node_state;
+        let wns = &ws.node_state[LiveTL];
         if ws.ty == WorkspaceType::Overlay && wns.output.id() != self.state.dummy_output_id {
             wns.output.get().hide_overlay();
         }
@@ -1207,7 +1207,7 @@ impl ConfigProxyHandler {
                 seat = get_seat(&mut seat_opt)?;
             }
             if let Some(ws) = self.state.workspaces.get(&ws.name) {
-                let wns = &ws.node_state;
+                let wns = &ws.node_state[LiveTL];
                 if ws.ty == WorkspaceType::Overlay {
                     if wns.output.id() == self.state.dummy_output_id {
                         move_to_connector = true;
@@ -1868,7 +1868,7 @@ impl ConfigProxyHandler {
     fn handle_get_workspace_connector(&self, workspace: Workspace) -> Result<(), CphError> {
         let connector = self
             .get_existing_workspace(workspace)?
-            .map(|ws| ws.node_state.output.get())
+            .map(|ws| ws.node_state[LiveTL].output.get())
             .filter(|o| !o.is_dummy)
             .map(|o| Connector(o.global.connector.id.raw() as _))
             .unwrap_or(Connector(0));
@@ -2810,7 +2810,7 @@ impl ConfigProxyHandler {
     fn handle_get_workspace_window(&self, ws: Workspace) -> Result<(), CphError> {
         let window = self
             .get_existing_workspace(ws)?
-            .and_then(|ws| ws.node_state.container.get())
+            .and_then(|ws| ws.node_state[LiveTL].container.get())
             .map(|c| self.tl_to_window(&*c))
             .unwrap_or(Window(0));
         self.respond(Response::GetWorkspaceWindow { window });
