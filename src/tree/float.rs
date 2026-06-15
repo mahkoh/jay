@@ -21,8 +21,9 @@ use {
         transactions::{TransactionData, Transactionable, TransactionableExt},
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase,
-            NodeId, NodeLayerLink, NodeLocation, NodesStack, NodesStackElement, OutputNode,
-            PinnedNode, SplitView, StackedNode, TileDragDestination, ToplevelNode,
+            NodeId, NodeLayerLink, NodeLocation, NodeStackTransactionOp, NodesStack,
+            NodesStackElement, OutputNode, PinnedNode, SplitView, StackedNode, TileDragDestination,
+            ToplevelNode,
             TreeTimeline::{self, LiveTL, RenderTL},
             WorkspaceChangeReason, WorkspaceNode, WorkspaceType, toplevel_set_floating,
             walker::NodeVisitor,
@@ -1202,10 +1203,14 @@ impl StackedNode for FloatNode {
         true
     }
 
-    fn stacked_validate(self: Rc<Self>) {
-        if self.node_state[LiveTL].visible.get() {
-            self.display_link.borrow_mut().add_last_visible(&self);
+    fn stacked_validate(self: Rc<Self>, tl: TreeTimeline) {
+        if self.node_state[tl].visible.get() {
+            self.display_link.borrow_mut().add_last_visible(&self, tl);
         }
+    }
+
+    fn stacked_add_stack_op(self: Rc<Self>, op: NodeStackTransactionOp) {
+        self.add_transaction_op(FloatTransactionOp::NodeStack(op));
     }
 }
 
@@ -1234,6 +1239,7 @@ pub enum FloatTransactionOp {
     SetActive(bool),
     SetAttentionRequested(bool),
     SetPinned(bool),
+    NodeStack(NodeStackTransactionOp),
 }
 
 impl Transactionable for FloatNode {
@@ -1269,6 +1275,9 @@ impl Transactionable for FloatNode {
             }
             FloatTransactionOp::SetPinned(v) => {
                 s.pinned.set(v);
+            }
+            FloatTransactionOp::NodeStack(v) => {
+                self.display_link.borrow_mut().run_op(v);
             }
         }
     }

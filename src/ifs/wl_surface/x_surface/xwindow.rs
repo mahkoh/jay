@@ -13,9 +13,9 @@ use {
         transactions::{TransactionData, Transactionable, TransactionableExt},
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase,
-            NodeId, NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode,
-            StackedNode, TileDragDestination, TileState, ToplevelData, ToplevelDataTransactionOp,
-            ToplevelNode, ToplevelNodeBase, ToplevelType,
+            NodeId, NodeLayerLink, NodeLocation, NodeStackTransactionOp, NodeVisitor,
+            NodesStackElement, OutputNode, StackedNode, TileDragDestination, TileState,
+            ToplevelData, ToplevelDataTransactionOp, ToplevelNode, ToplevelNodeBase, ToplevelType,
             TreeTimeline::{self, LiveTL},
             WorkspaceNode, WorkspaceType, default_tile_drag_destination,
         },
@@ -566,10 +566,14 @@ impl StackedNode for Xwindow {
         false
     }
 
-    fn stacked_validate(self: Rc<Self>) {
-        if self.node_visible(LiveTL) {
-            self.display_link.borrow_mut().add_last_visible(&self);
+    fn stacked_validate(self: Rc<Self>, tl: TreeTimeline) {
+        if self.node_visible(tl) {
+            self.display_link.borrow_mut().add_last_visible(&self, tl);
         }
+    }
+
+    fn stacked_add_stack_op(self: Rc<Self>, op: NodeStackTransactionOp) {
+        self.add_transaction_op(XwindowTransactionOp::NodeStack(op));
     }
 }
 
@@ -583,6 +587,7 @@ pub enum XWindowError {
 
 pub enum XwindowTransactionOp {
     ToplevelData(ToplevelDataTransactionOp),
+    NodeStack(NodeStackTransactionOp),
 }
 
 impl Transactionable for Xwindow {
@@ -596,6 +601,9 @@ impl Transactionable for Xwindow {
         match op {
             XwindowTransactionOp::ToplevelData(v) => {
                 self.toplevel_data.run_op(v);
+            }
+            XwindowTransactionOp::NodeStack(v) => {
+                self.display_link.borrow_mut().run_op(v);
             }
         }
     }

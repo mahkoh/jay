@@ -1200,7 +1200,7 @@ impl WlSeatGlobal {
             |n| n.prev(),
             |n| n.prev(),
             |l| l.rev_iter(),
-            |l| l.iter_visible_rev(),
+            |l| l.iter_visible_rev(LiveTL),
         );
     }
 
@@ -1210,7 +1210,7 @@ impl WlSeatGlobal {
             |n| n.next(),
             |n| n.next(),
             |l| l.iter(),
-            |l| l.iter_visible(),
+            |l| l.iter_visible(LiveTL),
         );
     }
 

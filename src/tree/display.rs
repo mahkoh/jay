@@ -20,6 +20,7 @@ use {
             linkedlist::{LinkedList, LinkedListIter, LinkedNode, NodeRef, RevLinkedListIter},
         },
     },
+    linearize::LinearizeExt,
     std::{
         cell::{Cell, RefCell},
         ops::Deref,
@@ -46,14 +47,14 @@ pub struct DisplayNodeState {
 #[derive(Default)]
 pub struct NodesStack {
     pub stacked: LinkedList<Rc<dyn StackedNode>>,
-    visible: LinkedList<Rc<dyn StackedNode>>,
-    visible_valid: Cell<bool>,
+    visible: SplitView<LinkedList<Rc<dyn StackedNode>>>,
+    visible_valid: SplitView<Cell<bool>>,
 }
 
 pub struct NodesStackElement {
     pub stack: Rc<NodesStack>,
     pub link: Option<LinkedNode<Rc<dyn StackedNode>>>,
-    visible: Option<LinkedNode<Rc<dyn StackedNode>>>,
+    visible: SplitView<Option<LinkedNode<Rc<dyn StackedNode>>>>,
 }
 
 impl DisplayNode {
@@ -260,26 +261,28 @@ impl NodeBase for DisplayNode {
 }
 
 impl NodesStack {
-    fn validate(&self) {
-        if self.visible_valid.replace(true) {
+    fn validate(&self, tl: TreeTimeline) {
+        if self.visible_valid[tl].replace(true) {
             return;
         }
         for node in self.stacked.iter() {
-            node.deref().clone().stacked_validate();
+            node.deref().clone().stacked_validate(tl);
         }
     }
 
-    pub fn iter_visible(&self) -> NodeStackVisibleIter {
-        self.validate();
+    pub fn iter_visible(&self, tl: TreeTimeline) -> NodeStackVisibleIter {
+        self.validate(tl);
         NodeStackVisibleIter {
-            iter: self.visible.iter(),
+            tl,
+            iter: self.visible[tl].iter(),
         }
     }
 
-    pub fn iter_visible_rev(&self) -> RevNodeStackVisibleIter {
-        self.validate();
+    pub fn iter_visible_rev(&self, tl: TreeTimeline) -> RevNodeStackVisibleIter {
+        self.validate(tl);
         RevNodeStackVisibleIter {
-            iter: self.visible.rev_iter(),
+            tl,
+            iter: self.visible[tl].rev_iter(),
         }
     }
 
@@ -291,30 +294,34 @@ impl NodesStack {
         })
     }
 
-    pub fn maybe_has_visible(&self) -> bool {
-        self.validate();
-        self.visible.is_not_empty()
+    pub fn maybe_has_visible(&self, tl: TreeTimeline) -> bool {
+        self.validate(tl);
+        self.visible[tl].is_not_empty()
     }
 
-    pub fn definitely_has_no_visible(&self) -> bool {
-        !self.maybe_has_visible()
+    pub fn definitely_has_no_visible(&self, tl: TreeTimeline) -> bool {
+        !self.maybe_has_visible(tl)
     }
 }
 
 impl NodesStackElement {
     pub fn clear(&mut self) {
         self.link.take();
-        self.visible.take();
+        for v in self.visible.values_mut() {
+            v.take();
+        }
     }
 
     pub fn restack(&self) {
         if let Some(link) = &self.link {
             self.stack.stacked.add_last_existing(link);
         }
-        if let Some(link) = &self.visible
-            && link.node_visible(LiveTL)
-        {
-            self.stack.visible.add_last_existing(link);
+        for tl in TreeTimeline::variants() {
+            if let Some(link) = &self.visible[tl]
+                && link.node_visible(tl)
+            {
+                self.stack.visible[tl].add_last_existing(link);
+            }
         }
     }
 
@@ -323,24 +330,37 @@ impl NodesStackElement {
         self.restack();
     }
 
-    pub fn add_last_visible(&mut self, slf: &Rc<impl StackedNode>) {
-        let link = self
-            .visible
-            .get_or_insert_with(|| LinkedNode::detached(slf.clone()));
-        self.stack.visible.add_last_existing(link);
+    pub fn add_last_visible(&mut self, slf: &Rc<impl StackedNode>, tl: TreeTimeline) {
+        let link = self.visible[tl].get_or_insert_with(|| LinkedNode::detached(slf.clone()));
+        self.stack.visible[tl].add_last_existing(link);
     }
 
     pub fn invalidate(&self) {
-        self.stack.visible_valid.set(false);
+        self.stack.visible_valid[LiveTL].set(false);
+        if let Some(v) = &self.link {
+            v.deref()
+                .deref()
+                .clone()
+                .stacked_add_stack_op(NodeStackTransactionOp::Invalidate);
+        }
+    }
+
+    pub fn run_op(&self, op: NodeStackTransactionOp) {
+        match op {
+            NodeStackTransactionOp::Invalidate => {
+                self.stack.visible_valid[RenderTL].set(false);
+            }
+        }
     }
 }
 
 fn next_visible(
     iter: &mut impl Iterator<Item = NodeRef<Rc<dyn StackedNode>>>,
+    tl: TreeTimeline,
 ) -> Option<NodeRef<Rc<dyn StackedNode>>> {
     loop {
         let v = iter.next()?;
-        if v.node_visible(LiveTL) {
+        if v.node_visible(tl) {
             return Some(v);
         }
         v.detach();
@@ -348,6 +368,7 @@ fn next_visible(
 }
 
 pub struct NodeStackVisibleIter {
+    tl: TreeTimeline,
     iter: LinkedListIter<Rc<dyn StackedNode>>,
 }
 
@@ -355,11 +376,12 @@ impl Iterator for NodeStackVisibleIter {
     type Item = NodeRef<Rc<dyn StackedNode>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        next_visible(&mut self.iter)
+        next_visible(&mut self.iter, self.tl)
     }
 }
 
 pub struct RevNodeStackVisibleIter {
+    tl: TreeTimeline,
     iter: RevLinkedListIter<Rc<dyn StackedNode>>,
 }
 
@@ -367,7 +389,7 @@ impl Iterator for RevNodeStackVisibleIter {
     type Item = NodeRef<Rc<dyn StackedNode>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        next_visible(&mut self.iter)
+        next_visible(&mut self.iter, self.tl)
     }
 }
 
@@ -390,4 +412,8 @@ impl Transactionable for DisplayNode {
             }
         }
     }
+}
+
+pub enum NodeStackTransactionOp {
+    Invalidate,
 }

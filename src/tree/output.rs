@@ -1370,11 +1370,11 @@ impl OutputNode {
         tree: &mut Vec<FoundNode>,
         usecase: FindTreeUsecase,
     ) -> FindTreeResult {
-        if stack.definitely_has_no_visible() {
+        if stack.definitely_has_no_visible(LiveTL) {
             return FindTreeResult::Other;
         }
         let (x_abs, y_abs) = self.node_state[LiveTL].pos.get().translate_inv(x, y);
-        for stacked in stack.iter_visible_rev() {
+        for stacked in stack.iter_visible_rev(LiveTL) {
             let ext = stacked.node_absolute_position(LiveTL);
             if stacked.stacked_absolute_position_constrains_input() && !ext.contains(x_abs, y_abs) {
                 // TODO: make constrain always true
@@ -1674,7 +1674,7 @@ impl OutputNode {
             &self.state.root.stacked_in_overlay,
             &self.state.root.stacked,
         ] {
-            for stacked in list.iter_visible_rev() {
+            for stacked in list.iter_visible_rev(LiveTL) {
                 let Some(float) = stacked.deref().clone().node_into_float() else {
                     continue;
                 };

@@ -230,7 +230,7 @@ impl Renderer<'_> {
         }
         macro_rules! render_stacked {
             ($stack:expr) => {
-                for stacked in $stack.iter_visible() {
+                for stacked in $stack.iter_visible(LiveTL) {
                     self.base.sync();
                     let pos = stacked.node_absolute_position(LiveTL);
                     if pos.intersects(&opos) {

@@ -27,7 +27,8 @@ use {
         transactions::{TransactionData, Transactionable, TransactionableExt},
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId,
-            NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode, StackedNode,
+            NodeLayerLink, NodeLocation, NodeStackTransactionOp, NodeVisitor, NodesStackElement,
+            OutputNode, StackedNode,
             TreeTimeline::{self, LiveTL},
             WorkspaceNode,
         },
@@ -489,15 +490,19 @@ impl StackedNode for XdgPopup {
         }
     }
 
-    fn stacked_validate(self: Rc<Self>) {
-        if self.node_visible(LiveTL)
+    fn stacked_validate(self: Rc<Self>, tl: TreeTimeline) {
+        if self.node_visible(tl)
             && let Some(parent) = self.parent.get()
         {
             parent
                 .nodes_stack_element()
                 .borrow_mut()
-                .add_last_visible(&self);
+                .add_last_visible(&self, tl);
         }
+    }
+
+    fn stacked_add_stack_op(self: Rc<Self>, op: NodeStackTransactionOp) {
+        self.add_transaction_op(XdgPopupTransactionOp::NodeStack(op));
     }
 
     fn stacked_absolute_position_constrains_input(&self) -> bool {
@@ -577,6 +582,7 @@ efrom!(XdgPopupError, ClientError);
 
 pub enum XdgPopupTransactionOp {
     XdgOp(XdgSurfaceTransactionOp),
+    NodeStack(NodeStackTransactionOp),
 }
 
 impl Transactionable for XdgPopup {
@@ -590,6 +596,11 @@ impl Transactionable for XdgPopup {
         match op {
             XdgPopupTransactionOp::XdgOp(v) => {
                 self.xdg.run_op(v);
+            }
+            XdgPopupTransactionOp::NodeStack(v) => {
+                if let Some(parent) = self.parent.get() {
+                    parent.nodes_stack_element().borrow_mut().run_op(v);
+                }
             }
         }
     }
