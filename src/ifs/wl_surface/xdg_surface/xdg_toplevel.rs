@@ -13,7 +13,7 @@ use {
                 WlSurface,
                 xdg_surface::{
                     InitialCommitState, XdgSurface, XdgSurfaceConfigureData, XdgSurfaceExt,
-                    XdgToplevelConfigureData,
+                    XdgSurfaceTransactionOp, XdgToplevelConfigureData,
                     xdg_toplevel::{
                         xdg_dialog_v1::XdgDialogV1,
                         xdg_toplevel_icon_v1::{ToplevelIconUser, XdgToplevelIconV1},
@@ -837,6 +837,10 @@ impl XdgSurfaceExt for XdgToplevel {
         )
     }
 
+    fn schedule_xdg_op(self: Rc<Self>, op: XdgSurfaceTransactionOp) {
+        self.add_transaction_op(XdgToplevelTransactionOp::XdgOp(op));
+    }
+
     fn configure_data(&self) -> XdgSurfaceConfigureData {
         if self.drag.is_some() {
             return XdgSurfaceConfigureData::Toplevel(None);
@@ -919,6 +923,7 @@ pub struct ResizeEdges {
 
 pub enum XdgToplevelTransactionOp {
     ToplevelData(ToplevelDataTransactionOp),
+    XdgOp(XdgSurfaceTransactionOp),
 }
 
 impl Transactionable for XdgToplevel {
@@ -932,6 +937,9 @@ impl Transactionable for XdgToplevel {
         match op {
             XdgToplevelTransactionOp::ToplevelData(v) => {
                 self.toplevel_data.run_op(v);
+            }
+            XdgToplevelTransactionOp::XdgOp(v) => {
+                self.xdg.run_op(v);
             }
         }
     }

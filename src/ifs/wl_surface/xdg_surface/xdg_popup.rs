@@ -12,7 +12,7 @@ use {
                 tray::TrayItemId,
                 xdg_surface::{
                     XdgPopupConfigureData, XdgSurface, XdgSurfaceConfigureData, XdgSurfaceExt,
-                    xdg_popup::jay_popup_ext_v1::JayPopupExtV1,
+                    XdgSurfaceTransactionOp, xdg_popup::jay_popup_ext_v1::JayPopupExtV1,
                 },
             },
             xdg_positioner::{
@@ -24,6 +24,7 @@ use {
         object::Object,
         rect::Rect,
         renderer::Renderer,
+        transactions::{TransactionData, Transactionable, TransactionableExt},
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId,
             NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode, StackedNode,
@@ -77,6 +78,7 @@ pub struct XdgPopup {
     jay_popup_ext: CloneCell<Option<Rc<JayPopupExtV1>>>,
     interactive_moves: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     reposition_token: Cell<Option<u32>>,
+    transaction_data: TransactionData<XdgPopupTransactionOp>,
 }
 
 impl Debug for XdgPopup {
@@ -95,9 +97,10 @@ impl XdgPopup {
         if !pos.is_complete() {
             return Err(XdgPopupError::Incomplete);
         }
+        let state = &xdg.surface.client.state;
         Ok(Self {
             id,
-            node_id: xdg.surface.client.state.node_ids.next(),
+            node_id: state.node_ids.next(),
             xdg: xdg.clone(),
             parent: Default::default(),
             relative_position: Cell::new(Default::default()),
@@ -108,6 +111,7 @@ impl XdgPopup {
             jay_popup_ext: Default::default(),
             interactive_moves: Default::default(),
             reposition_token: Default::default(),
+            transaction_data: TransactionData::new(&state.tree),
         })
     }
 
@@ -533,6 +537,10 @@ impl XdgSurfaceExt for XdgPopup {
         self.parent.get()?.tray_item()
     }
 
+    fn schedule_xdg_op(self: Rc<Self>, op: XdgSurfaceTransactionOp) {
+        self.add_transaction_op(XdgPopupTransactionOp::XdgOp(op));
+    }
+
     fn configure_data(&self) -> XdgSurfaceConfigureData {
         XdgSurfaceConfigureData::Popup(XdgPopupConfigureData {
             repositioned: self.reposition_token.take(),
@@ -566,3 +574,23 @@ pub enum XdgPopupError {
     HasJayPopupExt,
 }
 efrom!(XdgPopupError, ClientError);
+
+pub enum XdgPopupTransactionOp {
+    XdgOp(XdgSurfaceTransactionOp),
+}
+
+impl Transactionable for XdgPopup {
+    type T = XdgPopupTransactionOp;
+
+    fn data(&self) -> &TransactionData<Self::T> {
+        &self.transaction_data
+    }
+
+    fn apply(self: &Rc<Self>, op: Self::T) {
+        match op {
+            XdgPopupTransactionOp::XdgOp(v) => {
+                self.xdg.run_op(v);
+            }
+        }
+    }
+}

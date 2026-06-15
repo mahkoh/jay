@@ -243,6 +243,9 @@ pub trait XdgSurfaceExt: Node + Debug {
         geometry
     }
 
+    #[expect(dead_code)]
+    fn schedule_xdg_op(self: Rc<Self>, op: XdgSurfaceTransactionOp);
+
     fn configure_data(&self) -> XdgSurfaceConfigureData;
 
     fn send_configure(&self, data: XdgSurfaceConfigureData);
@@ -428,6 +431,10 @@ impl XdgSurface {
         self.ext.set(None);
         self.configure_data.ready();
         self.surface.set_dummy_output();
+    }
+
+    fn run_op(&self, op: XdgSurfaceTransactionOp) {
+        match op {}
     }
 }
 
@@ -794,3 +801,5 @@ pub enum XdgSurfaceError {
 }
 efrom!(XdgSurfaceError, WlSurfaceError);
 efrom!(XdgSurfaceError, ClientError);
+
+pub enum XdgSurfaceTransactionOp {}
