@@ -26,12 +26,17 @@ use {
 
 pub struct DisplayNode {
     pub id: NodeId,
-    pub extents: Cell<Rect>,
+    pub node_state: DisplayNodeState,
     pub outputs: CopyHashMap<ConnectorId, Rc<OutputNode>>,
     pub stacked: Rc<NodesStack>,
     pub stacked_above_layers: Rc<NodesStack>,
     pub stacked_in_overlay: Rc<NodesStack>,
     pub seat_state: NodeSeatState,
+}
+
+#[derive(Default)]
+pub struct DisplayNodeState {
+    pub extents: Cell<Rect>,
 }
 
 #[derive(Default)]
@@ -51,7 +56,7 @@ impl DisplayNode {
     pub fn new(id: NodeId) -> Self {
         let slf = Self {
             id,
-            extents: Default::default(),
+            node_state: Default::default(),
             outputs: Default::default(),
             stacked: Default::default(),
             stacked_above_layers: Default::default(),
@@ -88,7 +93,9 @@ impl DisplayNode {
             y1 = 0;
             y2 = 0;
         }
-        self.extents.set(Rect::new_saturating(x1, y1, x2, y2));
+        self.node_state
+            .extents
+            .set(Rect::new_saturating(x1, y1, x2, y2));
     }
 
     pub fn update_visible(&self, state: &State) {
@@ -111,7 +118,7 @@ impl DisplayNode {
             seat.set_visible(visible);
         }
         if visible {
-            state.damage(self.extents.get());
+            state.damage_full();
         }
     }
 
@@ -180,7 +187,7 @@ impl Node for DisplayNode {
     }
 
     fn node_absolute_position(&self) -> Rect {
-        self.extents.get()
+        self.node_state.extents.get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
