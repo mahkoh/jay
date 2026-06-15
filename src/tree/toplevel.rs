@@ -377,7 +377,11 @@ pub trait ToplevelNodeBase: Node {
     fn tl_update_icon(&self, user: &ToplevelIconUser) {
         user.clear();
     }
+
+    fn tl_schedule_data_op(self: Rc<Self>, op: ToplevelDataTransactionOp);
 }
+
+pub enum ToplevelDataTransactionOp {}
 
 pub struct FullscreenedData {
     pub placeholder: Rc<PlaceholderNode>,
@@ -1021,6 +1025,17 @@ impl ToplevelData {
         if let Some(session) = self.session.take() {
             session.disown_to_peer();
         }
+    }
+
+    #[expect(dead_code)]
+    pub fn schedule_op(&self, op: ToplevelDataTransactionOp) {
+        if let Some(slf) = self.slf.upgrade() {
+            slf.tl_schedule_data_op(op);
+        }
+    }
+
+    pub fn run_op(&self, op: ToplevelDataTransactionOp) {
+        match op {}
     }
 }
 

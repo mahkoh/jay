@@ -25,8 +25,8 @@ use {
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
             NodeBase, NodeId, NodeLayerLink, NodeLocation, OutputNode, SplitView, TddType,
-            TileDragDestination, ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType,
-            TreeLink,
+            TileDragDestination, ToplevelData, ToplevelDataTransactionOp, ToplevelNode,
+            ToplevelNodeBase, ToplevelType, TreeLink,
             TreeTimeline::{self, LiveTL, RenderTL},
             WorkspaceChangeReason, WorkspaceNode, default_tile_drag_bounds, toplevel_set_floating,
             toplevel_set_workspace,
@@ -2584,6 +2584,10 @@ impl ToplevelNodeBase for ContainerNode {
             child.node.tl_mark_ancestor_fullscreen(fullscreen);
         }
     }
+
+    fn tl_schedule_data_op(self: Rc<Self>, op: ToplevelDataTransactionOp) {
+        self.add_transaction_op(ContainerTransactionOp::ToplevelData(op));
+    }
 }
 
 fn direction_to_split(dir: Direction) -> (ContainerSplit, bool) {
@@ -2724,6 +2728,7 @@ pub enum ContainerTransactionOp {
     SetContentHeight(i32),
     ChildOp(NodeRef<ContainerChild>, ContainerChildTransactionOp),
     Unlink(LinkedNode<ContainerChild>),
+    ToplevelData(ToplevelDataTransactionOp),
 }
 
 pub enum ContainerChildTransactionOp {
@@ -2792,6 +2797,9 @@ impl Transactionable for ContainerNode {
             }
             ContainerTransactionOp::Unlink(v) => {
                 drop(v);
+            }
+            ContainerTransactionOp::ToplevelData(v) => {
+                self.toplevel_data.run_op(v);
             }
         }
     }

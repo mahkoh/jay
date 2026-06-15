@@ -9,10 +9,11 @@ use {
         scale::Scale,
         state::State,
         text::TextTexture,
+        transactions::{TransactionData, Transactionable, TransactionableExt},
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, NodeBase,
             NodeId, NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
-            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType,
+            ToplevelData, ToplevelDataTransactionOp, ToplevelNode, ToplevelNodeBase, ToplevelType,
             TreeTimeline::{self, LiveTL},
             WorkspaceNode, default_tile_drag_destination,
         },
@@ -39,6 +40,7 @@ pub struct PlaceholderNode {
     state: Rc<State>,
     location: Cell<Option<NodeLocation>>,
     pub textures: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
+    transaction_data: TransactionData<PlaceholderTransactionOp>,
 }
 
 pub async fn placeholder_render_textures(state: Rc<State>) {
@@ -68,6 +70,7 @@ impl PlaceholderNode {
             state: state.clone(),
             location: Cell::new(node.node_location()),
             textures: Default::default(),
+            transaction_data: TransactionData::new(&state.tree),
         }
     }
 
@@ -88,6 +91,7 @@ impl PlaceholderNode {
             state: state.clone(),
             location: Default::default(),
             textures: Default::default(),
+            transaction_data: TransactionData::new(&state.tree),
         }
     }
 
@@ -287,5 +291,29 @@ impl ToplevelNodeBase for PlaceholderNode {
         y: i32,
     ) -> Option<TileDragDestination> {
         default_tile_drag_destination(self, source, split, abs_bounds, x, y)
+    }
+
+    fn tl_schedule_data_op(self: Rc<Self>, op: ToplevelDataTransactionOp) {
+        self.add_transaction_op(PlaceholderTransactionOp::ToplevelData(op));
+    }
+}
+
+pub enum PlaceholderTransactionOp {
+    ToplevelData(ToplevelDataTransactionOp),
+}
+
+impl Transactionable for PlaceholderNode {
+    type T = PlaceholderTransactionOp;
+
+    fn data(&self) -> &TransactionData<Self::T> {
+        &self.transaction_data
+    }
+
+    fn apply(self: &Rc<Self>, op: Self::T) {
+        match op {
+            PlaceholderTransactionOp::ToplevelData(v) => {
+                self.toplevel.run_op(v);
+            }
+        }
     }
 }

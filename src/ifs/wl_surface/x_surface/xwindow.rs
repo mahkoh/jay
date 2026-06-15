@@ -10,11 +10,12 @@ use {
         rect::Rect,
         renderer::Renderer,
         state::State,
+        transactions::{TransactionData, Transactionable, TransactionableExt},
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase,
             NodeId, NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode,
-            StackedNode, TileDragDestination, TileState, ToplevelData, ToplevelNode,
-            ToplevelNodeBase, ToplevelType,
+            StackedNode, TileDragDestination, TileState, ToplevelData, ToplevelDataTransactionOp,
+            ToplevelNode, ToplevelNodeBase, ToplevelType,
             TreeTimeline::{self, LiveTL},
             WorkspaceNode, WorkspaceType, default_tile_drag_destination,
         },
@@ -134,6 +135,7 @@ pub struct Xwindow {
     pub x: Rc<XSurface>,
     pub display_link: RefCell<NodesStackElement>,
     pub toplevel_data: ToplevelData,
+    pub transaction_data: TransactionData<XwindowTransactionOp>,
 }
 
 impl XwindowData {
@@ -221,6 +223,7 @@ impl Xwindow {
                 display_link: data.state.root.stacked.element(),
                 toplevel_data: tld,
                 x: xsurface,
+                transaction_data: TransactionData::new(&data.state.tree),
             }
         });
         slf.x.xwindow.set(Some(slf.clone()));
@@ -547,6 +550,10 @@ impl ToplevelNodeBase for Xwindow {
     ) -> Option<TileDragDestination> {
         default_tile_drag_destination(self, source, split, abs_bounds, abs_x, abs_y)
     }
+
+    fn tl_schedule_data_op(self: Rc<Self>, op: ToplevelDataTransactionOp) {
+        self.add_transaction_op(XwindowTransactionOp::ToplevelData(op));
+    }
 }
 
 impl StackedNode for Xwindow {
@@ -572,4 +579,24 @@ pub enum XWindowError {
     AlreadyAttached,
     #[error(transparent)]
     WlSurfaceError(#[from] WlSurfaceError),
+}
+
+pub enum XwindowTransactionOp {
+    ToplevelData(ToplevelDataTransactionOp),
+}
+
+impl Transactionable for Xwindow {
+    type T = XwindowTransactionOp;
+
+    fn data(&self) -> &TransactionData<Self::T> {
+        &self.transaction_data
+    }
+
+    fn apply(self: &Rc<Self>, op: Self::T) {
+        match op {
+            XwindowTransactionOp::ToplevelData(v) => {
+                self.toplevel_data.run_op(v);
+            }
+        }
+    }
 }

@@ -28,10 +28,12 @@ use {
         rect::Rect,
         renderer::Renderer,
         state::State,
+        transactions::{TransactionData, Transactionable, TransactionableExt},
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase,
             NodeId, NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
-            TileState, ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId, ToplevelType,
+            TileState, ToplevelData, ToplevelDataTransactionOp, ToplevelNode, ToplevelNodeBase,
+            ToplevelNodeId, ToplevelType,
             TreeTimeline::{self, LiveTL},
             WorkspaceNode, WorkspaceType, default_tile_drag_destination,
         },
@@ -129,6 +131,7 @@ pub struct XdgToplevel {
     pub data: Rc<XdgToplevelToplevelData>,
     committed: Cell<bool>,
     icon: ObjAndId<Option<Rc<XdgToplevelIconV1>>>,
+    transaction_data: TransactionData<XdgToplevelTransactionOp>,
 }
 
 impl Debug for XdgToplevel {
@@ -194,6 +197,7 @@ impl XdgToplevel {
             data,
             committed: Default::default(),
             icon: Default::default(),
+            transaction_data: TransactionData::new(&state.tree),
         }
     }
 
@@ -792,6 +796,10 @@ impl ToplevelNodeBase for XdgToplevel {
         };
         icon.update_user(user);
     }
+
+    fn tl_schedule_data_op(self: Rc<Self>, op: ToplevelDataTransactionOp) {
+        self.add_transaction_op(XdgToplevelTransactionOp::ToplevelData(op));
+    }
 }
 
 impl XdgSurfaceExt for XdgToplevel {
@@ -907,4 +915,24 @@ pub struct ResizeEdges {
     pub left: bool,
     pub right: bool,
     pub bottom: bool,
+}
+
+pub enum XdgToplevelTransactionOp {
+    ToplevelData(ToplevelDataTransactionOp),
+}
+
+impl Transactionable for XdgToplevel {
+    type T = XdgToplevelTransactionOp;
+
+    fn data(&self) -> &TransactionData<Self::T> {
+        &self.transaction_data
+    }
+
+    fn apply(self: &Rc<Self>, op: Self::T) {
+        match op {
+            XdgToplevelTransactionOp::ToplevelData(v) => {
+                self.toplevel_data.run_op(v);
+            }
+        }
+    }
 }
