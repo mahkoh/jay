@@ -13,6 +13,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         rect::{Rect, Region},
+        tree::TreeTimeline::LiveTL,
         utils::clonecell::CloneCell,
         wire::{
             WlPointerId, WlRegionId, WlSurfaceId, ZwpPointerConstraintsV1Id,
@@ -87,7 +88,7 @@ impl SeatConstraint {
         if !apply {
             return;
         }
-        let buffer = self.surface.buffer_abs_pos.get();
+        let buffer = self.surface.buffer_abs_pos[LiveTL].get();
         let (x_int, y_int) = buffer.translate_inv(x.round_down(), y.round_down());
         self.client
             .state
@@ -125,7 +126,7 @@ impl SeatConstraint {
                 }
             }
         } else {
-            best_rect = self.surface.buffer_abs_pos.get().at_point(0, 0);
+            best_rect = self.surface.buffer_abs_pos[LiveTL].get().at_point(0, 0);
         }
         if x_int < best_rect.x1() {
             x = Fixed::from_int(best_rect.x1());

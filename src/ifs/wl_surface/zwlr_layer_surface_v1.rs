@@ -656,7 +656,7 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
         if self.mapped.get() != was_mapped {
             output.update_visible();
             if self.mapped.get() {
-                let (x, y) = self.surface.buffer_abs_pos.get().position();
+                let (x, y) = self.surface.buffer_abs_pos[LiveTL].get().position();
                 let extents = self.surface.extents.get().move_(x, y);
                 self.client.state.damage(extents);
             }

@@ -7,7 +7,11 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::{Node, NodeBase, NodeLayerLink, TreeTimeline::LiveTL, WorkspaceNode},
+        tree::{
+            Node, NodeBase, NodeLayerLink,
+            TreeTimeline::{self, LiveTL},
+            WorkspaceNode,
+        },
         utils::{
             box_cache::{BoxReset, CachedBox},
             clonecell::CloneCell,
@@ -16,6 +20,7 @@ use {
         },
         wire::{WlSubsurfaceId, wl_subsurface::*},
     },
+    linearize::LinearizeExt,
     std::{
         cell::{Cell, RefCell, RefMut},
         collections::hash_map::OccupiedEntry,
@@ -149,9 +154,11 @@ impl WlSubsurface {
             }
             client_wire_scale_to_logical!(self.surface.client, x, y);
             self.position.set((x, y));
-            let (parent_x, parent_y) = self.parent.buffer_abs_pos.get().position();
-            self.surface
-                .set_absolute_position(parent_x + x, parent_y + y);
+            for tl in TreeTimeline::variants() {
+                let (parent_x, parent_y) = self.parent.buffer_abs_pos[tl].get().position();
+                self.surface
+                    .set_absolute_position_(parent_x + x, parent_y + y, tl);
+            }
             self.parent.need_extents_update.set(true);
             position_changed = true;
         }
@@ -192,8 +199,10 @@ impl WlSubsurface {
         self.surface.set_toplevel(self.parent.toplevel.get());
         self.surface.ext.set(self.clone());
         update_children_attach(self)?;
-        let (x, y) = self.parent.buffer_abs_pos.get().position();
-        self.surface.set_absolute_position(x, y);
+        for tl in TreeTimeline::variants() {
+            let (x, y) = self.parent.buffer_abs_pos[tl].get().position();
+            self.surface.set_absolute_position_(x, y, tl);
+        }
         self.surface
             .set_output(&self.parent.output.get(), self.parent.location.get());
         self.surface
@@ -285,7 +294,7 @@ impl WlSubsurface {
         if !self.surface.visible.get() {
             return;
         }
-        let (x, y) = self.surface.buffer_abs_pos.get().position();
+        let (x, y) = self.surface.buffer_abs_pos[LiveTL].get().position();
         let mut rect = self.surface.extents.get().move_(x, y);
         if let Some(tl) = self.surface.toplevel.get() {
             rect = rect.intersect(tl.node_absolute_position(LiveTL));

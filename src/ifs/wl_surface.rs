@@ -83,13 +83,13 @@ use {
         rect::{DamageQueue, Rect, Region},
         renderer::Renderer,
         state::{ConnectorData, State},
-        transactions::{SurfaceTransaction, TransactionData, Transactionable},
+        transactions::{SurfaceTransaction, TransactionData, Transactionable, TransactionableExt},
         tree::{
             BeforeLatchListener, BeforeLatchResult, ContainerNode, FindTreeResult, FoundNode,
             LatchListener, Node, NodeBase, NodeId, NodeLayerLink, NodeLocation, NodeVisitor,
-            NodeVisitorBase, OutputNode, PlaceholderNode, PresentationListener, ToplevelNode,
-            Transform, TreeSerial,
-            TreeTimeline::{self, LiveTL},
+            NodeVisitorBase, OutputNode, PlaceholderNode, PresentationListener, SplitView,
+            ToplevelNode, Transform, TreeSerial,
+            TreeTimeline::{self, LiveTL, RenderTL},
             VblankListener, WorkspaceNode,
         },
         utils::{
@@ -119,6 +119,7 @@ use {
     ahash::AHashMap,
     isnt::std_1::{primitive::IsntSliceExt, vec::IsntVecExt},
     jay_proc::Reset,
+    linearize::LinearizeExt,
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -303,7 +304,7 @@ pub struct WlSurface {
     src_rect: Cell<Option<[Fixed; 4]>>,
     dst_size: Cell<Option<(i32, i32)>>,
     pub extents: Cell<Rect>,
-    pub buffer_abs_pos: Cell<Rect>,
+    pub buffer_abs_pos: SplitView<Cell<Rect>>,
     pub need_extents_update: Cell<bool>,
     need_extents_propagation: Cell<bool>,
     pub buffer: CloneCell<Option<Rc<SurfaceBuffer>>>,
@@ -675,7 +676,7 @@ impl WlSurface {
             src_rect: Cell::new(None),
             dst_size: Cell::new(None),
             extents: Default::default(),
-            buffer_abs_pos: Cell::new(Default::default()),
+            buffer_abs_pos: Default::default(),
             need_extents_update: Default::default(),
             need_extents_propagation: Default::default(),
             buffer: Default::default(),
@@ -806,23 +807,35 @@ impl WlSurface {
         self.xwayland_serial.get()
     }
 
-    fn set_absolute_position(&self, x1: i32, y1: i32) {
-        let old_pos = self.buffer_abs_pos.get();
+    fn set_absolute_position(self: &Rc<Self>, x1: i32, y1: i32) {
+        self.set_absolute_position_(x1, y1, LiveTL);
+        if self.transactional.get() {
+            self.add_transaction_op(WlSurfaceTransactionOp::SetPos(x1, y1));
+        } else {
+            self.set_absolute_position_(x1, y1, RenderTL);
+        }
+    }
+
+    fn set_absolute_position_(&self, x1: i32, y1: i32, tl: TreeTimeline) {
+        let old_pos = self.buffer_abs_pos[tl].get();
         let new_pos = old_pos.at_point(x1, y1);
-        if self.visible.get() && self.toplevel.is_none() {
+        if tl == LiveTL && self.visible.get() && self.toplevel.is_none() {
             self.client.state.damage(old_pos);
             self.client.state.damage(new_pos);
         }
-        self.buffer_abs_pos.set(new_pos);
+        self.buffer_abs_pos[tl].set(new_pos);
         if let Some(children) = self.children.borrow_mut().deref_mut() {
             for ss in children.subsurfaces.values() {
                 let pos = ss.position.get();
-                ss.surface.set_absolute_position(x1 + pos.0, y1 + pos.1);
+                ss.surface
+                    .set_absolute_position_(x1 + pos.0, y1 + pos.1, tl);
             }
         }
-        for (_, con) in &self.text_input_connections {
-            for (_, popup) in con.input_method.popups() {
-                popup.schedule_positioning();
+        if tl == LiveTL {
+            for (_, con) in &self.text_input_connections {
+                for (_, popup) in con.input_method.popups() {
+                    popup.schedule_positioning();
+                }
             }
         }
     }
@@ -954,7 +967,7 @@ impl WlSurface {
 
     fn calculate_extents(&self, propagate: bool) {
         let old_extents = self.extents.get();
-        let mut extents = self.buffer_abs_pos.get().at_point(0, 0);
+        let mut extents = self.buffer_abs_pos[LiveTL].get().at_point(0, 0);
         let children = self.children.borrow();
         if let Some(children) = &*children {
             for ss in children.subsurfaces.values() {
@@ -1310,8 +1323,8 @@ impl WlSurface {
             alpha_changed = true;
             self.alpha.set(alpha);
         }
-        let buffer_abs_pos = self.buffer_abs_pos.get();
-        let mut max_surface_size = buffer_abs_pos.size();
+        let buffer_abs_pos_size = self.buffer_abs_pos[LiveTL].get().size();
+        let mut max_surface_size = buffer_abs_pos_size;
         let mut damage_full = scale_changed
             || buffer_transform_changed
             || viewport_changed
@@ -1471,11 +1484,16 @@ impl WlSurface {
             }
             let (mut width, mut height) = new_size.unwrap_or_default();
             client_wire_scale_to_logical!(self.client, width, height);
-            let (old_width, old_height) = buffer_abs_pos.size();
+            let (old_width, old_height) = buffer_abs_pos_size;
             if (width, height) != (old_width, old_height) {
                 self.need_extents_update.set(true);
-                self.buffer_abs_pos
-                    .set(buffer_abs_pos.with_size_saturating(width, height));
+                for tl in TreeTimeline::variants() {
+                    self.buffer_abs_pos[tl].set(
+                        self.buffer_abs_pos[tl]
+                            .get()
+                            .with_size_saturating(width, height),
+                    );
+                }
                 max_surface_size = (width.max(old_width), height.max(old_height));
                 damage_full = true;
                 buffer_abs_pos_size_changed = true;
@@ -1507,7 +1525,7 @@ impl WlSurface {
             }
         }
         if opaque_region_changed || buffer_abs_pos_size_changed {
-            let pos = self.buffer_abs_pos.get().at_point(0, 0);
+            let pos = self.buffer_abs_pos[LiveTL].get().at_point(0, 0);
             let is_opaque = match self.opaque_region.get() {
                 None => false,
                 Some(o) => o.contains_rect(&pos),
@@ -1549,8 +1567,9 @@ impl WlSurface {
             self.commit_timeline.set_fifo_barrier();
         }
         if damage_full && (self.visible.get() || was_visible) {
-            let mut damage =
-                buffer_abs_pos.with_size_saturating(max_surface_size.0, max_surface_size.1);
+            let mut damage = self.buffer_abs_pos[LiveTL]
+                .get()
+                .with_size_saturating(max_surface_size.0, max_surface_size.1);
             if let Some(tl) = self.toplevel.get() {
                 damage = damage.intersect(tl.node_absolute_position(LiveTL));
             }
@@ -1616,7 +1635,7 @@ impl WlSurface {
 
     fn apply_damage(&self, pending: &PendingState) {
         let bounds = self.toplevel.get().and_then(|tl| tl.tl_render_bounds());
-        let pos = self.buffer_abs_pos.get();
+        let pos = self.buffer_abs_pos[LiveTL].get();
         let apply_damage = |pos: Rect| {
             if pending.damage_full {
                 let mut damage = pos;
@@ -1695,7 +1714,7 @@ impl WlSurface {
     }
 
     fn accepts_input_at(&self, mut x: i32, mut y: i32) -> bool {
-        let rect = self.buffer_abs_pos.get().at_point(0, 0);
+        let rect = self.buffer_abs_pos[LiveTL].get().at_point(0, 0);
         if !rect.contains(x, y) {
             return false;
         }
@@ -1804,7 +1823,7 @@ impl WlSurface {
         }
         self.seat_state.destroy_node(self);
         if self.visible.get() && self.toplevel.is_none() {
-            self.client.state.damage(self.buffer_abs_pos.get());
+            self.client.state.damage(self.buffer_abs_pos[LiveTL].get());
         }
         if set_invisible {
             self.visible.set(false);
@@ -1978,8 +1997,8 @@ impl NodeBase for WlSurface {
         self.visible.get()
     }
 
-    fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {
-        self.buffer_abs_pos.get()
+    fn node_absolute_position(&self, tl: TreeTimeline) -> Rect {
+        self.buffer_abs_pos[tl].get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
@@ -2486,6 +2505,7 @@ impl Drop for SurfaceRelease {
 
 pub enum WlSurfaceTransactionOp {
     UnblockCommitsUntil(TreeSerial, u64),
+    SetPos(i32, i32),
 }
 
 impl Transactionable for WlSurface {
@@ -2501,6 +2521,9 @@ impl Transactionable for WlSurface {
                 self.surface_transaction
                     .unblock_commits_until(serial, start_ns);
                 self.commit_timeline.serial_unblocked();
+            }
+            WlSurfaceTransactionOp::SetPos(x, y) => {
+                self.set_absolute_position_(x, y, RenderTL);
             }
         }
     }

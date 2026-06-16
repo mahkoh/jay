@@ -599,7 +599,7 @@ impl WlSeatGlobal {
             && let Some(surface) = pn.node_into_surface()
         {
             let (mut x, mut y) = self.pointer_cursor.position();
-            let (sx, sy) = surface.buffer_abs_pos.get().position();
+            let (sx, sy) = surface.buffer_abs_pos[LiveTL].get().position();
             x -= Fixed::from_int(sx);
             y -= Fixed::from_int(sy);
             self.maybe_constrain(&surface, x, y);
@@ -1809,8 +1809,7 @@ impl WlSeatRequestHandler for WlSeat {
             && surface.client.id == self.client.id
         {
             let (x, y) = self.global.pointer_cursor.position();
-            let (x_int, y_int) = surface
-                .buffer_abs_pos
+            let (x_int, y_int) = surface.buffer_abs_pos[LiveTL]
                 .get()
                 .translate(x.round_down(), y.round_down());
             p.send_enter(

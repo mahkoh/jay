@@ -332,7 +332,7 @@ impl Xwindow {
             return;
         }
         let extents = self.x.surface.extents.get();
-        let (x, y) = self.x.surface.buffer_abs_pos.get().position();
+        let (x, y) = self.x.surface.buffer_abs_pos[LiveTL].get().position();
         let extents = extents.move_(x, y);
         self.data.state.damage(extents);
     }
@@ -415,7 +415,7 @@ impl NodeBase for Xwindow {
             FindTreeUsecase::SelectToplevelOrPopup => return FindTreeResult::AcceptsInput,
             FindTreeUsecase::SelectNormalWorkspace => return FindTreeResult::Other,
         }
-        let rect = self.x.surface.buffer_abs_pos.get();
+        let rect = self.x.surface.buffer_abs_pos[LiveTL].get();
         if x < rect.width() && y < rect.height() {
             return self.x.surface.find_tree_at_(x, y, tree);
         }

@@ -387,7 +387,7 @@ impl XdgSurface {
     }
 
     pub fn damage(&self) {
-        let (x, y) = self.surface.buffer_abs_pos.get().position();
+        let (x, y) = self.surface.buffer_abs_pos[LiveTL].get().position();
         let extents = self.surface.extents.get();
         self.surface.client.state.damage(extents.move_(x, y));
     }

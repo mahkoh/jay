@@ -1141,7 +1141,7 @@ pub fn create_render_pass(
             if let Some(im) = seat.input_method() {
                 for (_, popup) in im.popups() {
                     if popup.surface.node_visible(LiveTL) {
-                        let pos = popup.surface.buffer_abs_pos.get();
+                        let pos = popup.surface.buffer_abs_pos[LiveTL].get();
                         let extents = popup.surface.extents.get().move_(pos.x1(), pos.y1());
                         if extents.intersects(&rect) {
                             let (x, y) = rect.translate(pos.x1(), pos.y1());

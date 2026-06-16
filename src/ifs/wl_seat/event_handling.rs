@@ -659,7 +659,7 @@ impl WlSeatGlobal {
             x += dx;
             y += dy;
             if let Some(c) = &constraint {
-                let surface_pos = c.surface.buffer_abs_pos.get();
+                let surface_pos = c.surface.buffer_abs_pos[LiveTL].get();
                 let (x_rel, y_rel) = (x - surface_pos.x1(), y - surface_pos.y1());
                 let contained = surface_pos.contains(x.round_down(), y.round_down())
                     && c.contains(x_rel.round_down(), y_rel.round_down());

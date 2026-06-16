@@ -314,7 +314,7 @@ impl XdgPopup {
     pub fn set_visible(&self, visible: bool) {
         let surface = &self.xdg.surface;
         let extents = surface.extents.get();
-        let (x, y) = surface.buffer_abs_pos.get().position();
+        let (x, y) = surface.buffer_abs_pos[LiveTL].get().position();
         surface.client.state.damage(extents.move_(x, y));
 
         // log::info!("set visible = {}", visible);

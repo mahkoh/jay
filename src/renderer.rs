@@ -503,7 +503,7 @@ impl Renderer<'_> {
             return;
         }
         let tpoints = surface.buffer_points_norm.borrow_mut();
-        let mut size = surface.buffer_abs_pos.get().size();
+        let mut size = surface.buffer_abs_pos[LiveTL].get().size();
         if let Some((x_rel, y_rel)) = pos_rel {
             let (x, y) = self.base.scale_point(x_rel, y_rel);
             let (w, h) = self.base.scale_point(x_rel + size.0, y_rel + size.1);
@@ -766,7 +766,7 @@ impl Renderer<'_> {
         let Some(region) = surface.opaque_region() else {
             return false;
         };
-        let surface_size = surface.buffer_abs_pos.get().at_point(0, 0);
+        let surface_size = surface.buffer_abs_pos[LiveTL].get().at_point(0, 0);
         let surface_size = self.base.scale_rect(surface_size);
         let bounds = bounds.move_(-x, -y).intersect(surface_size);
         region.contains_rect2(&bounds, |r| self.base.scale_rect(*r))
