@@ -716,7 +716,8 @@ impl State {
             config.devices_enumerated()
         }
         if self.render_ctx.is_none() {
-            for dev in self.drm_devs.lock().values() {
+            let drm_devs: Vec<_> = self.drm_devs.lock().values().cloned().collect();
+            for dev in &drm_devs {
                 if let Ok(version) = dev.dev.version()
                     && version.name.contains_str("nvidia")
                 {
@@ -728,7 +729,7 @@ impl State {
                 }
             }
             if self.render_ctx.is_none()
-                && let Some(dev) = self.drm_devs.lock().values().next()
+                && let Some(dev) = drm_devs.first()
             {
                 dev.make_render_device();
             }
