@@ -363,8 +363,8 @@ impl NodeBase for Xwindow {
         visitor.visit_surface(&self.x.surface);
     }
 
-    fn node_visible(&self, _tl: TreeTimeline) -> bool {
-        self.x.surface.visible.get()
+    fn node_visible(&self, tl: TreeTimeline) -> bool {
+        self.x.surface.visible[tl].get()
     }
 
     fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {

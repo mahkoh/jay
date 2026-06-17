@@ -9,7 +9,7 @@ use {
         object::{Object, Version},
         tree::{
             Node, NodeBase, NodeLayerLink,
-            TreeTimeline::{self, LiveTL},
+            TreeTimeline::{self, LiveTL, RenderTL},
             WorkspaceNode,
         },
         utils::{
@@ -291,7 +291,7 @@ impl WlSubsurface {
     }
 
     fn damage(&self) {
-        if !self.surface.visible.get() {
+        if !self.surface.visible[LiveTL].get() {
             return;
         }
         let (x, y) = self.surface.buffer_abs_pos[LiveTL].get().position();
@@ -306,9 +306,12 @@ impl WlSubsurface {
         let has_buffer = self.surface.buffer.is_some();
         if self.had_buffer.replace(has_buffer) != has_buffer {
             if has_buffer {
-                if self.parent.visible.get() {
-                    self.surface.set_visible(true);
+                if self.parent.visible[LiveTL].get() {
+                    self.surface.set_visible_(true);
                     self.damage();
+                }
+                if self.parent.visible[RenderTL].get() {
+                    self.surface.set_rendered_(true);
                 }
             } else {
                 if self.surface.toplevel.is_some() {

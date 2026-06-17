@@ -373,8 +373,8 @@ impl NodeBase for XdgPopup {
         visitor.visit_surface(&self.xdg.surface);
     }
 
-    fn node_visible(&self, _tl: TreeTimeline) -> bool {
-        self.xdg.surface.visible.get()
+    fn node_visible(&self, tl: TreeTimeline) -> bool {
+        self.xdg.surface.visible[tl].get()
     }
 
     fn node_absolute_position(&self, tl: TreeTimeline) -> Rect {

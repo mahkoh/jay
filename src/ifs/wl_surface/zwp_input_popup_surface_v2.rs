@@ -38,7 +38,7 @@ impl SurfaceExt for ZwpInputPopupSurfaceV2 {
 
     fn after_apply_commit(self: Rc<Self>) {
         self.update_visible();
-        if self.surface.visible.get() {
+        if self.surface.visible[LiveTL].get() {
             self.schedule_positioning();
         }
     }
@@ -65,7 +65,7 @@ impl ZwpInputPopupSurfaceV2 {
     }
 
     pub fn update_visible(self: &Rc<Self>) {
-        let was_visible = self.surface.visible.get();
+        let was_visible = self.surface.visible[LiveTL].get();
         let is_visible = self.surface.buffer.is_some()
             && self.input_method.connection.is_some()
             && self.client.state.root_visible();
@@ -81,7 +81,7 @@ impl ZwpInputPopupSurfaceV2 {
     }
 
     pub fn schedule_positioning(self: &Rc<Self>) {
-        if self.surface.visible.get() {
+        if self.surface.visible[LiveTL].get() {
             if !self.positioning_scheduled.replace(true) {
                 self.client
                     .state
@@ -93,7 +93,7 @@ impl ZwpInputPopupSurfaceV2 {
 
     fn position(&self) {
         self.positioning_scheduled.set(false);
-        if !self.surface.visible.get() {
+        if !self.surface.visible[LiveTL].get() {
             return;
         }
         let Some(con) = self.input_method.connection.get() else {
@@ -159,7 +159,7 @@ impl ZwpInputPopupSurfaceV2 {
     }
 
     fn detach(&self) {
-        if self.surface.visible.get() {
+        if self.surface.visible[LiveTL].get() {
             self.damage();
         }
         self.surface.destroy_node();

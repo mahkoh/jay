@@ -3,6 +3,7 @@ use {
         ifs::{wl_seat::WlSeatGlobal, wl_surface::WlSurface},
         rect::Rect,
         renderer::Renderer,
+        tree::TreeTimeline::LiveTL,
     },
     std::rc::Rc,
 };
@@ -18,7 +19,7 @@ impl DndIcon {
     }
 
     fn update_visible(&self) {
-        let was_visible = self.surface.visible.get();
+        let was_visible = self.surface.visible[LiveTL].get();
         let is_visible =
             self.surface.dnd_icons.is_not_empty() && self.surface.client.state.root_visible();
         self.surface.set_visible(is_visible);

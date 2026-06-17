@@ -290,7 +290,7 @@ pub struct WlSurface {
     pub id: WlSurfaceId,
     pub node_id: SurfaceNodeId,
     pub client: Rc<Client>,
-    visible: Cell<bool>,
+    visible: SplitView<Cell<bool>>,
     role: Cell<SurfaceRole>,
     transactional: Cell<bool>,
     pending: RefCell<CachedBox<PendingState, BoxReset>>,
@@ -662,7 +662,7 @@ impl WlSurface {
             id,
             node_id: state.node_ids.next(),
             client: client.clone(),
-            visible: Cell::new(false),
+            visible: Default::default(),
             role: Cell::new(SurfaceRole::None),
             transactional: Default::default(),
             pending: RefCell::new(state.surface_pending_cache.cache.get()),
@@ -768,7 +768,7 @@ impl WlSurface {
         if old.id == output.id {
             return;
         }
-        if self.visible.get() {
+        if self.visible[LiveTL].get() {
             self.attach_events_to_output(output);
         }
         output.global.send_enter(self);
@@ -819,7 +819,7 @@ impl WlSurface {
     fn set_absolute_position_(&self, x1: i32, y1: i32, tl: TreeTimeline) {
         let old_pos = self.buffer_abs_pos[tl].get();
         let new_pos = old_pos.at_point(x1, y1);
-        if tl == LiveTL && self.visible.get() && self.toplevel.is_none() {
+        if tl == LiveTL && self.visible[LiveTL].get() && self.toplevel.is_none() {
             self.client.state.damage(old_pos);
             self.client.state.damage(new_pos);
         }
@@ -1015,7 +1015,7 @@ impl WlSurface {
     fn unset_dnd_icons(&self) {
         while let Some((_, dnd_icon)) = self.dnd_icons.pop() {
             dnd_icon.seat.remove_dnd_icon();
-            if self.visible.get() {
+            if self.visible[LiveTL].get() {
                 dnd_icon.damage();
             }
         }
@@ -1096,12 +1096,12 @@ const MAX_DAMAGE: usize = 32;
 impl WlSurfaceRequestHandler for WlSurface {
     type Error = WlSurfaceError;
 
-    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn destroy(&self, _req: Destroy, slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.commit_timeline.clear(ClearReason::Destroy);
         self.unset_dnd_icons();
         self.unset_cursors();
         self.ext.get().on_surface_destroy()?;
-        self.destroy_node();
+        slf.destroy_node();
         {
             let mut children = self.children.borrow_mut();
             if let Some(children) = &mut *children {
@@ -1271,7 +1271,7 @@ impl WlSurface {
         if self.destroyed.get() {
             return Ok(());
         }
-        let was_visible = self.visible.get();
+        let was_visible = self.visible[LiveTL].get();
         let serial = pending.serial.take();
         if let Some(serial) = serial
             && serial >= self.requested_serial.get()
@@ -1566,7 +1566,7 @@ impl WlSurface {
         if fifo_barrier_set {
             self.commit_timeline.set_fifo_barrier();
         }
-        if damage_full && (self.visible.get() || was_visible) {
+        if damage_full && (self.visible[LiveTL].get() || was_visible) {
             let mut damage = self.buffer_abs_pos[LiveTL]
                 .get()
                 .with_size_saturating(max_surface_size.0, max_surface_size.1);
@@ -1575,7 +1575,7 @@ impl WlSurface {
             }
             self.client.state.damage(damage);
         }
-        if self.visible.get() {
+        if self.visible[LiveTL].get() {
             let output = self.output.get();
             if has_new_frame_requests {
                 self.vblank_listener.attach(&output.vblank_event);
@@ -1783,9 +1783,17 @@ impl WlSurface {
         self.latch_listener.attach(&output.latch_event);
     }
 
-    pub fn set_visible(&self, visible: bool) {
-        if self.visible.replace(visible) == visible {
+    pub fn set_visible(self: &Rc<Self>, visible: bool) {
+        let changed = self.set_visible_(visible);
+        if !changed {
             return;
+        }
+        self.set_rendered(visible);
+    }
+
+    fn set_visible_(&self, visible: bool) -> bool {
+        if self.visible[LiveTL].replace(visible) == visible {
+            return false;
         }
         if visible {
             self.attach_events_to_output(&self.output.get());
@@ -1801,14 +1809,49 @@ impl WlSurface {
         if let Some(children) = children.deref() {
             for child in children.subsurfaces.values() {
                 if child.surface.buffer.is_some() {
-                    child.surface.set_visible(visible);
+                    child.surface.set_visible_(visible);
                 }
             }
         }
         self.seat_state.set_visible(self, visible);
+        true
     }
 
-    pub fn detach_node(&self, set_invisible: bool) {
+    fn set_rendered(self: &Rc<Self>, visible: bool) {
+        if self.transactional.get() {
+            self.add_transaction_op(WlSurfaceTransactionOp::SetRendered(visible));
+        } else {
+            self.set_rendered_(visible);
+        }
+    }
+
+    fn set_rendered_(&self, visible: bool) {
+        if self.visible[RenderTL].replace(visible) == visible {
+            return;
+        }
+        let children = self.children.borrow_mut();
+        if let Some(children) = children.deref() {
+            for child in children.subsurfaces.values() {
+                if child.surface.buffer.is_some() {
+                    child.surface.set_rendered_(visible);
+                }
+            }
+        }
+    }
+
+    pub fn detach_node(self: &Rc<Self>, set_invisible: bool) {
+        if self.visible[LiveTL].get() && self.toplevel.is_none() {
+            let rect = self.extents.get();
+            let (x, y) = self.buffer_abs_pos[LiveTL].get().position();
+            self.client.state.damage(rect.move_(x, y));
+        }
+        self.detach_node_(set_invisible);
+        if set_invisible {
+            self.set_rendered(false);
+        }
+    }
+
+    fn detach_node_(&self, set_invisible: bool) {
         for (_, constraint) in &self.constraints {
             constraint.deactivate(true);
         }
@@ -1818,19 +1861,16 @@ impl WlSurface {
         let children = self.children.borrow();
         if let Some(ch) = children.deref() {
             for ss in ch.subsurfaces.values() {
-                ss.surface.detach_node(set_invisible);
+                ss.surface.detach_node_(set_invisible);
             }
         }
         self.seat_state.destroy_node(self);
-        if self.visible.get() && self.toplevel.is_none() {
-            self.client.state.damage(self.buffer_abs_pos[LiveTL].get());
-        }
         if set_invisible {
-            self.visible.set(false);
+            self.visible[LiveTL].set(false);
         }
     }
 
-    pub fn destroy_node(&self) {
+    pub fn destroy_node(self: &Rc<Self>) {
         self.detach_node(true);
     }
 
@@ -1993,8 +2033,8 @@ impl NodeBase for WlSurface {
         }
     }
 
-    fn node_visible(&self, _tl: TreeTimeline) -> bool {
-        self.visible.get()
+    fn node_visible(&self, tl: TreeTimeline) -> bool {
+        self.visible[tl].get()
     }
 
     fn node_absolute_position(&self, tl: TreeTimeline) -> Rect {
@@ -2368,7 +2408,7 @@ efrom!(WlSurfaceError, CommitTimelineError);
 
 impl VblankListener for WlSurface {
     fn after_vblank(self: Rc<Self>) {
-        if self.visible.get() {
+        if self.visible[LiveTL].get() {
             self.flush_frame_requests(&mut self.frame_requests.borrow_mut());
         }
         if self.clear_fifo_on_vblank.take() {
@@ -2386,7 +2426,7 @@ impl BeforeLatchListener for WlSurface {
 
 impl LatchListener for WlSurface {
     fn after_latch(self: Rc<Self>, _on: &OutputNode, tearing: bool) {
-        if self.visible.get() {
+        if self.visible[LiveTL].get() {
             if self.latched_commit_version.get() < self.commit_version.get() {
                 let latched = &mut *self.latched_presentation_feedback.borrow_mut();
                 latched.clear();
@@ -2398,7 +2438,7 @@ impl LatchListener for WlSurface {
                 self.latched_commit_version.set(self.commit_version.get());
             }
         }
-        if tearing && self.visible.get() {
+        if tearing && self.visible[LiveTL].get() {
             if self.commit_timeline.has_fifo_barrier() {
                 self.vblank_listener.attach(&self.output.get().vblank_event);
                 self.clear_fifo_on_vblank.set(true);
@@ -2506,6 +2546,7 @@ impl Drop for SurfaceRelease {
 pub enum WlSurfaceTransactionOp {
     UnblockCommitsUntil(TreeSerial, u64),
     SetPos(i32, i32),
+    SetRendered(bool),
 }
 
 impl Transactionable for WlSurface {
@@ -2524,6 +2565,9 @@ impl Transactionable for WlSurface {
             }
             WlSurfaceTransactionOp::SetPos(x, y) => {
                 self.set_absolute_position_(x, y, RenderTL);
+            }
+            WlSurfaceTransactionOp::SetRendered(v) => {
+                self.set_rendered_(v);
             }
         }
     }

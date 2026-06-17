@@ -20,8 +20,9 @@ use {
         state::State,
         theme::Color,
         tree::{
-            ContainerChildType, ContainerNode, DisplayNode, FloatNode, OutputNode, PlaceholderNode,
-            ToplevelData, ToplevelNodeBase, TreeTimeline::LiveTL, WorkspaceNode, WorkspaceType,
+            ContainerChildType, ContainerNode, DisplayNode, FloatNode, NodeBase, OutputNode,
+            PlaceholderNode, ToplevelData, ToplevelNodeBase, TreeTimeline::LiveTL, WorkspaceNode,
+            WorkspaceType,
         },
     },
     std::{ops::Deref, rc::Rc, slice},
@@ -501,6 +502,9 @@ impl Renderer<'_> {
                 log::warn!("surface has no buffer attached");
             }
             return;
+        }
+        if !surface.node_visible(LiveTL) {
+            log::warn!("node is invisible");
         }
         let tpoints = surface.buffer_points_norm.borrow_mut();
         let mut size = surface.buffer_abs_pos[LiveTL].get().size();

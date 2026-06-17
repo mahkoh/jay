@@ -788,12 +788,13 @@ impl XdgPopupParent for Popup {
         let state = &surface.client.state;
         if surface.buffer.is_some() {
             if dl.link.is_none() {
-                if self.parent.surface.visible.get() {
+                if self.parent.surface.visible[LiveTL].get() {
                     self.popup.xdg.set_output(&output);
                     dl.link = Some(dl.stack.stacked.add_last(self.popup.clone()));
                     state.tree_changed();
                     drop(dl);
-                    self.popup.set_visible(self.parent.surface.visible.get());
+                    self.popup
+                        .set_visible(self.parent.surface.visible[LiveTL].get());
                 } else {
                     self.popup.destroy_node();
                 }
@@ -860,7 +861,7 @@ impl Configurable for ZwlrLayerSurfaceV1 {
     }
 
     fn visible(&self) -> bool {
-        self.surface.visible.get()
+        self.surface.visible[LiveTL].get()
     }
 
     fn destroyed(&self) -> bool {

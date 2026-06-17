@@ -219,7 +219,7 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
         if surface.buffer.is_some() {
             if dl.link.is_none() {
                 let data = self.parent.tray_item_data();
-                if data.surface.visible.get() {
+                if data.surface.visible[LiveTL].get() {
                     dl.link = Some(dl.stack.stacked.add_last(self.popup.clone()));
                     drop(dl);
                     self.popup.set_visible(true);
@@ -294,7 +294,7 @@ impl<T: TrayItem> SurfaceExt for T {
 
     fn after_apply_commit(self: Rc<Self>) {
         let data = self.tray_item_data();
-        if data.surface.visible.get() {
+        if data.surface.visible[LiveTL].get() {
             if data.surface.buffer.is_none() {
                 self.destroy_node();
             }
@@ -319,7 +319,7 @@ impl<T: TrayItem> SurfaceExt for T {
 
     fn extents_changed(&self) {
         let data = self.tray_item_data();
-        if data.surface.visible.get() {
+        if data.surface.visible[LiveTL].get() {
             data.client.state.tree_changed();
         }
     }
@@ -354,8 +354,8 @@ impl<T: TrayItem> NodeBase for T {
         self.tray_item_data().surface.node_visit(visitor);
     }
 
-    fn node_visible(&self, _tl: TreeTimeline) -> bool {
-        self.tray_item_data().surface.visible.get()
+    fn node_visible(&self, tl: TreeTimeline) -> bool {
+        self.tray_item_data().surface.visible[tl].get()
     }
 
     fn node_absolute_position(&self, tl: TreeTimeline) -> Rect {

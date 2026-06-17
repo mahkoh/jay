@@ -149,7 +149,8 @@ impl XdgPopupParent for Popup {
             if any_set {
                 state.tree_changed();
                 drop(dl);
-                self.popup.set_visible(self.parent.surface.visible.get());
+                self.popup
+                    .set_visible(self.parent.surface.visible[LiveTL].get());
             }
         } else {
             if wl.take().is_some() {
@@ -162,7 +163,7 @@ impl XdgPopupParent for Popup {
     }
 
     fn visible(&self) -> bool {
-        self.parent.surface.visible.get()
+        self.parent.surface.visible[LiveTL].get()
     }
 
     fn make_visible(self: Rc<Self>) {
@@ -668,7 +669,7 @@ impl XdgSurface {
             return;
         }
         for popup in self.popups.lock().values() {
-            if self.surface.visible.get() {
+            if self.surface.visible[LiveTL].get() {
                 popup.popup.xdg.damage();
             }
             popup.display_link.borrow().restack();
@@ -800,7 +801,7 @@ impl Configurable for XdgSurface {
     }
 
     fn visible(&self) -> bool {
-        self.surface.visible.get()
+        self.surface.visible[LiveTL].get()
     }
 
     fn destroyed(&self) -> bool {
