@@ -26,6 +26,7 @@ use {
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
             NodeBase, NodeId, NodeLayerLink, NodeLocation, OutputNode, SplitView, TddType,
             TileDragDestination, ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType,
+            TreeLink,
             TreeTimeline::{self, LiveTL, RenderTL},
             WorkspaceChangeReason, WorkspaceNode, default_tile_drag_bounds, toplevel_set_floating,
             toplevel_set_workspace,
@@ -180,7 +181,9 @@ pub struct ContainerChildNodeState {
     pub content: Cell<Rect>,
 }
 
-pub struct ContainerChild {
+pub type ContainerChild = TreeLink<ContainerChildInner>;
+
+pub struct ContainerChildInner {
     pub node: Rc<dyn ToplevelNode>,
     pub active: Cell<bool>,
     pub attention_requested: Cell<bool>,
@@ -251,7 +254,7 @@ impl ContainerNode {
         split: ContainerSplit,
     ) -> Rc<Self> {
         let children = LinkedList::default();
-        let child_node = children.add_last(ContainerChild {
+        let child_node = children.add_last(TreeLink::new(ContainerChildInner {
             node: child.clone(),
             active: Default::default(),
             factor: Cell::new(1.0),
@@ -263,7 +266,7 @@ impl ContainerNode {
             attention_requested: Cell::new(false),
             ty: Default::default(),
             node_state: Default::default(),
-        });
+        }));
         child.tl_update_icon(&child_node.icon);
         let child_node_ref = child_node.clone();
         let mut child_nodes = AHashMap::new();
@@ -301,7 +304,23 @@ impl ContainerNode {
         slf.set_ns_split(split);
         child.tl_set_parent(slf.clone());
         slf.pull_child_properties(&child_node_ref);
+        slf.schedule_validate_child(&child_node_ref);
         slf
+    }
+
+    fn schedule_validate_child(self: &Rc<Self>, child: &NodeRef<ContainerChild>) {
+        self.add_child_op(child, ContainerChildTransactionOp::SetValid);
+    }
+
+    fn schedule_unlink_child(
+        self: &Rc<Self>,
+        child: LinkedNode<ContainerChild>,
+    ) -> NodeRef<ContainerChild> {
+        child.set_invalid();
+        child.focus_history.take();
+        let ref_ = child.to_ref();
+        self.add_transaction_op(ContainerTransactionOp::Unlink(child));
+        ref_
     }
 
     pub fn prepend_child(self: &Rc<Self>, new: Rc<dyn ToplevelNode>) {
@@ -368,7 +387,7 @@ impl ContainerNode {
                 log::error!("Tried to add a child to a container that already contains the child");
                 return;
             }
-            let link = f(ContainerChild {
+            let link = f(TreeLink::new(ContainerChildInner {
                 node: new.clone(),
                 active: Default::default(),
                 factor: Default::default(),
@@ -380,11 +399,12 @@ impl ContainerNode {
                 attention_requested: Default::default(),
                 ty: Default::default(),
                 node_state: Default::default(),
-            });
+            }));
             let r = link.to_ref();
             links.insert(new.node_id(), link);
             r
         };
+        self.schedule_validate_child(&new_ref);
         new.tl_update_icon(&new_ref.icon);
         new.tl_set_parent(self.clone());
         self.pull_child_properties(&new_ref);
@@ -393,7 +413,7 @@ impl ContainerNode {
         self.update_content_size();
         let new_child_factor = 1.0 / num_children as f64;
         let mut sum_factors = 0.0;
-        for child in self.children.iter() {
+        for child in self.children.iter_valid(LiveTL) {
             let factor = if rc_eq(&child.node, &new) {
                 new_child_factor
             } else {
@@ -491,7 +511,7 @@ impl ContainerNode {
         let width_per_child = content_width / num_children;
         let mut rem = content_width % num_children;
         let mut pos = 0;
-        for child in self.children.iter() {
+        for child in self.children.iter_valid(LiveTL) {
             let mut width = width_per_child;
             if rem > 0 {
                 width += 1;
@@ -519,7 +539,7 @@ impl ContainerNode {
         }
         let mut pos = 0;
         let mut remaining_content_size = content_size;
-        for child in self.children.iter() {
+        for child in self.children.iter_valid(LiveTL) {
             let factor = child.factor.get() / sum_factors;
             child.factor.set(factor);
             let mut body_size = (content_size as f64 * factor).round() as i32;
@@ -550,7 +570,7 @@ impl ContainerNode {
             let size_per = remaining_content_size / num_children as i32;
             let mut rem = remaining_content_size % num_children as i32;
             pos = 0;
-            for child in self.children.iter() {
+            for child in self.children.iter_valid(LiveTL) {
                 let cns = &child.node_state[LiveTL];
                 let mut body = cns.body.get();
                 let mut add = size_per;
@@ -589,7 +609,7 @@ impl ContainerNode {
             }
         }
         self.sum_factors.set(1.0);
-        for child in self.children.iter() {
+        for child in self.children.iter_valid(LiveTL) {
             let cns = &child.node_state[LiveTL];
             let body = cns.body.get();
             self.set_child_ns_title_rect(
@@ -682,7 +702,7 @@ impl ContainerNode {
                     dist_left,
                     dist_right,
                 } => {
-                    let prev = op.child.prev().unwrap();
+                    let prev = op.child.prev_valid(LiveTL).unwrap();
                     let prev_body = prev.node_state[LiveTL].body.get();
                     let child_body = op.child.node_state[LiveTL].body.get();
                     let (prev_factor, child_factor) = match ns.split.get() {
@@ -730,7 +750,7 @@ impl ContainerNode {
             }
         } else {
             let mut cursor = KnownCursor::Default;
-            for child in self.children.iter() {
+            for child in self.children.iter_valid(LiveTL) {
                 let body = child.node_state[LiveTL].body.get();
                 if body.y1() > y {
                     if body.y1() - y > title_plus_underline_height {
@@ -759,7 +779,7 @@ impl ContainerNode {
         };
         title.push_str(split);
         title.push_str("[");
-        for (i, c) in self.children.iter().enumerate() {
+        for (i, c) in self.children.iter_valid(LiveTL).enumerate() {
             if i > 0 {
                 title.push_str(", ");
             }
@@ -789,8 +809,8 @@ impl ContainerNode {
             return;
         }
         let last_active = self.last_active();
-        let have_active = self.children.iter().any(|c| c.active.get());
-        for child in self.children.iter() {
+        let have_active = self.children.iter_valid(LiveTL).any(|c| c.active.get());
+        for child in self.children.iter_valid(LiveTL) {
             let ty = if child.active.get() {
                 ContainerChildType::Active
             } else if child.attention_requested.get() {
@@ -815,7 +835,7 @@ impl ContainerNode {
         let scales = self.state.scales.lock();
         let draw_overlay_icon = self.toplevel_data.is_overlay_root_container.get();
         self.update_child_types();
-        for child in self.children.iter() {
+        for child in self.children.iter_valid(LiveTL) {
             let cns = &child.node_state[LiveTL];
             let rect = cns.title_rect.get();
             let color = match child.ty.get() {
@@ -879,7 +899,7 @@ impl ContainerNode {
         let ns = &self.node_state[LiveTL];
         let abs_x = ns.abs_x1.get();
         let abs_y = ns.abs_y1.get();
-        for child in self.children.iter() {
+        for child in self.children.iter_valid(LiveTL) {
             let rect = child.node_state[LiveTL].title_rect.get();
             if self.toplevel_data.visible.get() {
                 self.state.damage(rect.move_(abs_x, abs_y));
@@ -931,7 +951,7 @@ impl ContainerNode {
         let abs_x = ns.abs_x1.get();
         let abs_y = ns.abs_y1.get();
         self.update_child_types();
-        for (i, child) in self.children.iter().enumerate() {
+        for (i, child) in self.children.iter_valid(LiveTL).enumerate() {
             let cns = &child.node_state[LiveTL];
             let rect = cns.title_rect.get();
             if self.toplevel_data.visible.get() && !mono && split != ContainerSplit::Horizontal {
@@ -1030,7 +1050,7 @@ impl ContainerNode {
             if let Some(child) = &child {
                 let child_id = child.node.node_id();
                 let mut seats = SmallVec::<[_; 3]>::new();
-                for other in self.children.iter() {
+                for other in self.children.iter_valid(LiveTL) {
                     if other.node.node_id() != child_id {
                         collect_kb_foci2(other.node.clone(), &mut seats);
                         other.node.tl_set_visible(false);
@@ -1044,7 +1064,7 @@ impl ContainerNode {
                 }
                 child.node.tl_restack_popups();
             } else {
-                for child in self.children.iter() {
+                for child in self.children.iter_valid(LiveTL) {
                     child.node.tl_set_visible(true);
                 }
             }
@@ -1125,8 +1145,8 @@ impl ContainerNode {
             Direction::Unspecified => true,
         };
         let sibling = match prev {
-            true => child.prev(),
-            false => child.next(),
+            true => child.prev_valid(LiveTL),
+            false => child.next_valid(LiveTL),
         };
         let sibling = match sibling {
             Some(s) => s,
@@ -1175,7 +1195,9 @@ impl ContainerNode {
                 if parent.cnode_accepts_child(&*child) {
                     parent.cnode_replace_child(self.deref(), child.clone());
                     self.toplevel_data.parent.take();
-                    self.child_nodes.borrow_mut().clear();
+                    for cn in self.child_nodes.borrow_mut().drain_values() {
+                        self.schedule_unlink_child(cn);
+                    }
                     self.tl_destroy();
                 } else {
                     move_to_neighboring_output(child);
@@ -1194,8 +1216,8 @@ impl ContainerNode {
                 None => return,
             };
             let neighbor = match prev {
-                true => cc.prev(),
-                false => cc.next(),
+                true => cc.prev_valid(LiveTL),
+                false => cc.next_valid(LiveTL),
             };
             if let Some(neighbor) = neighbor {
                 if let Some(cn) = neighbor.node.clone().node_into_container()
@@ -1361,7 +1383,7 @@ impl ContainerNode {
                     self.toggle_mono();
                 }
             } else {
-                for child in self.children.iter() {
+                for child in self.children.iter_valid(LiveTL) {
                     if child.node_state[LiveTL]
                         .title_rect
                         .get()
@@ -1382,7 +1404,7 @@ impl ContainerNode {
             }
             let (kind, child) = 'res: {
                 let mono = ns.mono_child.is_some();
-                for child in self.children.iter() {
+                for child in self.children.iter_valid(LiveTL) {
                     let cns = &child.node_state[LiveTL];
                     let rect = cns.title_rect.get();
                     if rect.contains(seat_data.x, seat_data.y) {
@@ -1398,7 +1420,7 @@ impl ContainerNode {
                                 break 'res (
                                     SeatOpKind::Resize {
                                         dist_left: seat_data.x
-                                            - child.prev().unwrap().node_state[LiveTL]
+                                            - child.prev_valid(LiveTL).unwrap().node_state[LiveTL]
                                                 .body
                                                 .get()
                                                 .x2(),
@@ -1412,7 +1434,7 @@ impl ContainerNode {
                                 break 'res (
                                     SeatOpKind::Resize {
                                         dist_left: seat_data.y
-                                            - child.prev().unwrap().node_state[LiveTL]
+                                            - child.prev_valid(LiveTL).unwrap().node_state[LiveTL]
                                                 .body
                                                 .get()
                                                 .y2(),
@@ -1457,7 +1479,7 @@ impl ContainerNode {
         let mut prev_is_source = false;
         let mut prev_center = 0;
         let ns = &self.node_state[LiveTL];
-        for child in self.children.iter() {
+        for child in self.children.iter_valid(LiveTL) {
             if child.node.node_id() == source {
                 prev_is_source = true;
                 continue;
@@ -1485,7 +1507,7 @@ impl ContainerNode {
         if prev_is_source {
             return None;
         }
-        let last = self.children.last()?;
+        let last = self.children.last_valid(LiveTL)?;
         let rect = Rect::new(
             prev_center,
             0,
@@ -1579,7 +1601,7 @@ impl ContainerNode {
         let mut prev_is_source = false;
         let mut prev_border_start = 0;
         let split = ns.split.get();
-        for child in self.children.iter() {
+        for child in self.children.iter_valid(LiveTL) {
             if child.node.node_id() == source {
                 prev_is_source = true;
                 continue;
@@ -1653,7 +1675,7 @@ impl ContainerNode {
         if prev_is_source {
             return None;
         }
-        let last = self.children.last()?;
+        let last = self.children.last_valid(LiveTL)?;
         let body = last.node_state[LiveTL].body.get();
         let right_border_rect = match split {
             ContainerSplit::Horizontal => {
@@ -1808,7 +1830,7 @@ impl NodeBase for ContainerNode {
     }
 
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor) {
-        for child in self.children.iter() {
+        for child in self.children.iter_valid(LiveTL) {
             child.node.clone().node_visit_dyn(visitor);
         }
     }
@@ -1856,13 +1878,13 @@ impl NodeBase for ContainerNode {
         } else {
             let split = ns.split.get();
             match (direction, split) {
-                (Direction::Left, ContainerSplit::Horizontal) => self.children.last(),
-                (Direction::Down, ContainerSplit::Vertical) => self.children.first(),
-                (Direction::Up, ContainerSplit::Vertical) => self.children.last(),
-                (Direction::Right, ContainerSplit::Horizontal) => self.children.first(),
+                (Direction::Left, ContainerSplit::Horizontal) => self.children.last_valid(LiveTL),
+                (Direction::Down, ContainerSplit::Vertical) => self.children.first_valid(LiveTL),
+                (Direction::Up, ContainerSplit::Vertical) => self.children.last_valid(LiveTL),
+                (Direction::Right, ContainerSplit::Horizontal) => self.children.first_valid(LiveTL),
                 _ => match self.focus_history.last() {
                     Some(n) => Some(n.deref().clone()),
-                    None => self.children.last(),
+                    None => self.children.last_valid(LiveTL),
                 },
             }
         };
@@ -1897,7 +1919,7 @@ impl NodeBase for ContainerNode {
         if let Some(child) = ns.mono_child.get() {
             recurse(ns.mono_content.get(), child);
         } else {
-            for child in self.children.iter() {
+            for child in self.children.iter_valid(LiveTL) {
                 let cns = &child.node_state[LiveTL];
                 if cns.body.get().contains(x, y) {
                     recurse(cns.content.get(), child);
@@ -1987,9 +2009,9 @@ impl NodeBase for ContainerNode {
         let mut new_mc = cur_mc.clone();
         for _ in 0..discrete.abs() {
             let new = if discrete < 0 {
-                new_mc.prev()
+                new_mc.prev_valid(LiveTL)
             } else {
-                new_mc.next()
+                new_mc.next_valid(LiveTL)
             };
             new_mc = match new {
                 Some(n) => n,
@@ -2126,7 +2148,7 @@ impl ContainingNode for ContainerNode {
             Some(mc) => (true, mc.node.node_id() == old.node_id()),
         };
         self.discard_child_properties(&node);
-        let link = node.append(ContainerChild {
+        let link = node.append(TreeLink::new(ContainerChildInner {
             node: new.clone(),
             active: Cell::new(false),
             node_state: Default::default(),
@@ -2138,14 +2160,14 @@ impl ContainingNode for ContainerNode {
             focus_history: Cell::new(None),
             attention_requested: Cell::new(false),
             ty: Default::default(),
-        });
+        }));
         self.set_child_ns_title_rect(&link, node.node_state[LiveTL].title_rect.get());
         self.set_child_ns_body(&link, node.node_state[LiveTL].body.get());
         if let Some(fh) = node.focus_history.take() {
             link.focus_history.set(Some(fh.append(link.to_ref())));
         }
         let visible = node.node.node_visible(LiveTL);
-        drop(node);
+        self.schedule_unlink_child(node);
         let mut body = None;
         if was_mc {
             self.set_ns_mono_child(Some(link.to_ref()));
@@ -2155,6 +2177,7 @@ impl ContainingNode for ContainerNode {
             body = Some(link.node_state[LiveTL].body.get());
         };
         let link_ref = link.to_ref();
+        self.schedule_validate_child(&link);
         self.child_nodes.borrow_mut().insert(new.node_id(), link);
         new.tl_update_icon(&link_ref.icon);
         new.tl_set_parent(self.clone());
@@ -2178,9 +2201,9 @@ impl ContainingNode for ContainerNode {
             if mono.node.node_id() == child.node_id() {
                 let mut new = self.focus_history.last().map(|n| n.deref().clone());
                 if new.is_none() {
-                    new = node.next();
+                    new = node.next_valid(LiveTL);
                     if new.is_none() {
-                        new = node.prev();
+                        new = node.prev_valid(LiveTL);
                     }
                 }
                 if let Some(child) = &new {
@@ -2188,11 +2211,7 @@ impl ContainingNode for ContainerNode {
                 }
             }
         }
-        let node = {
-            let node = node;
-            node.focus_history.set(None);
-            node.to_ref()
-        };
+        let node = self.schedule_unlink_child(node);
         let num_children = self.num_children.fetch_sub(1) - 1;
         if num_children == 0 {
             self.tl_destroy();
@@ -2203,12 +2222,12 @@ impl ContainingNode for ContainerNode {
         let mut sum = 0.0;
         if rem <= 0.0 {
             let factor = 1.0 / num_children as f64;
-            for child in self.children.iter() {
+            for child in self.children.iter_valid(LiveTL) {
                 child.factor.set(factor)
             }
             sum = 1.0;
         } else {
-            for child in self.children.iter() {
+            for child in self.children.iter_valid(LiveTL) {
                 let factor = child.factor.get() / rem;
                 child.factor.set(factor);
                 sum += factor;
@@ -2335,7 +2354,7 @@ impl ContainingNode for ContainerNode {
             let (orig_i1, orig_i2) = (i1, i2);
             let mut sum_factors = self.sum_factors.get();
             if let Some(new_i1) = new_i1 {
-                if let Some(peer) = child.prev() {
+                if let Some(peer) = child.prev_valid(LiveTL) {
                     let peer_pos = peer.node_state[LiveTL].body.get();
                     let peer_i1 = match ns.split.get() {
                         ContainerSplit::Horizontal => peer_pos.x1(),
@@ -2356,7 +2375,7 @@ impl ContainingNode for ContainerNode {
                 }
             }
             if let Some(new_i2) = new_i2 {
-                if let Some(peer) = child.next() {
+                if let Some(peer) = child.next_valid(LiveTL) {
                     let peer_pos = peer.node_state[LiveTL].body.get();
                     let peer_i2 = match ns.split.get() {
                         ContainerSplit::Horizontal => peer_pos.x2(),
@@ -2445,7 +2464,7 @@ impl ToplevelNodeBase for ContainerNode {
     fn tl_set_workspace_ext(&self, ws: &Rc<WorkspaceNode>) {
         self.workspace.set(ws.clone());
         self.location.set(ws.location());
-        for child in self.children.iter() {
+        for child in self.children.iter_valid(LiveTL) {
             child.node.clone().tl_set_workspace(ws);
         }
     }
@@ -2471,7 +2490,7 @@ impl ToplevelNodeBase for ContainerNode {
                 let body = ns.mono_body.get().move_(ns.abs_x1.get(), ns.abs_y1.get());
                 c.node.clone().tl_change_extents(&body);
             } else {
-                for child in self.children.iter() {
+                for child in self.children.iter_valid(LiveTL) {
                     let body = child.node_state[LiveTL]
                         .body
                         .get()
@@ -2483,7 +2502,7 @@ impl ToplevelNodeBase for ContainerNode {
     }
 
     fn tl_close(self: Rc<Self>) {
-        for child in self.children.iter() {
+        for child in self.children.iter_valid(LiveTL) {
             child.node.clone().tl_close();
         }
     }
@@ -2492,7 +2511,7 @@ impl ToplevelNodeBase for ContainerNode {
         if let Some(mc) = self.node_state[LiveTL].mono_child.get() {
             mc.node.tl_set_visible(visible);
         } else {
-            for child in self.children.iter() {
+            for child in self.children.iter_valid(LiveTL) {
                 child.node.tl_set_visible(visible);
             }
         }
@@ -2517,7 +2536,7 @@ impl ToplevelNodeBase for ContainerNode {
         if let Some(mc) = self.node_state[LiveTL].mono_child.get() {
             mc.node.tl_restack_popups();
         } else {
-            for child in self.children.iter() {
+            for child in self.children.iter_valid(LiveTL) {
                 child.node.tl_restack_popups();
             }
         }
@@ -2543,8 +2562,8 @@ impl ToplevelNodeBase for ContainerNode {
             return default_tile_drag_bounds(self, split);
         }
         let child = match start {
-            true => self.children.first(),
-            false => self.children.last(),
+            true => self.children.first_valid(LiveTL),
+            false => self.children.last_valid(LiveTL),
         };
         let Some(child) = child else {
             return 0;
@@ -2553,13 +2572,13 @@ impl ToplevelNodeBase for ContainerNode {
     }
 
     fn tl_push_float(&self, float: Option<&Rc<FloatNode>>) {
-        for child in self.children.iter() {
+        for child in self.children.iter_valid(LiveTL) {
             child.node.tl_set_float(float);
         }
     }
 
     fn tl_mark_ancestor_fullscreen_ext(&self, fullscreen: bool) {
-        for child in self.children.iter() {
+        for child in self.children.iter_valid(LiveTL) {
             child.node.tl_mark_ancestor_fullscreen(fullscreen);
         }
     }
@@ -2702,12 +2721,14 @@ pub enum ContainerTransactionOp {
     SetContentWidth(i32),
     SetContentHeight(i32),
     ChildOp(NodeRef<ContainerChild>, ContainerChildTransactionOp),
+    Unlink(LinkedNode<ContainerChild>),
 }
 
 pub enum ContainerChildTransactionOp {
     SetTitleRect(Rect),
     SetBody(Rect),
     SetContent(Rect),
+    SetValid,
 }
 
 impl Transactionable for ContainerNode {
@@ -2762,7 +2783,13 @@ impl Transactionable for ContainerNode {
                     ContainerChildTransactionOp::SetContent(v) => {
                         cs.content.set(v);
                     }
+                    ContainerChildTransactionOp::SetValid => {
+                        child.set_valid();
+                    }
                 }
+            }
+            ContainerTransactionOp::Unlink(v) => {
+                drop(v);
             }
         }
     }

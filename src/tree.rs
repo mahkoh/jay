@@ -969,7 +969,6 @@ pub struct TreeLink<T> {
 }
 
 impl<T> TreeLink<T> {
-    #[expect(dead_code)]
     pub fn new(t: T) -> Self {
         Self {
             item: t,
@@ -980,12 +979,10 @@ impl<T> TreeLink<T> {
         }
     }
 
-    #[expect(dead_code)]
     pub fn set_valid(&self) {
         self.valid[RenderTL].set(true);
     }
 
-    #[expect(dead_code)]
     pub fn set_invalid(&self) {
         self.valid[LiveTL].set(false);
     }
@@ -1000,12 +997,10 @@ impl<T> Deref for TreeLink<T> {
 }
 
 impl<T> NodeRef<TreeLink<T>> {
-    #[expect(dead_code)]
     pub fn prev_valid(&self, tl: TreeTimeline) -> Option<Self> {
         self.prev_with(|c| c.valid[tl].get())
     }
 
-    #[expect(dead_code)]
     pub fn next_valid(&self, tl: TreeTimeline) -> Option<Self> {
         self.next_with(|c| c.valid[tl].get())
     }
@@ -1026,12 +1021,10 @@ impl<T> LinkedList<TreeLink<T>> {
         self.rev_iter().filter(move |c| c.valid[tl].get())
     }
 
-    #[expect(dead_code)]
     pub fn first_valid(&self, tl: TreeTimeline) -> Option<NodeRef<TreeLink<T>>> {
         self.iter_valid(tl).next()
     }
 
-    #[expect(dead_code)]
     pub fn last_valid(&self, tl: TreeTimeline) -> Option<NodeRef<TreeLink<T>>> {
         self.rev_iter_valid(tl).next()
     }

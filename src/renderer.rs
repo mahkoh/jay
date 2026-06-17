@@ -401,7 +401,7 @@ impl Renderer<'_> {
                 .node
                 .node_render(self, x + content.x1(), y + content.y1(), Some(&body));
         } else {
-            for child in container.children.iter() {
+            for child in container.children.iter_valid(LiveTL) {
                 let cns = &child.node_state[LiveTL];
                 let body = cns.body.get();
                 if body.x1() >= ns.width.get() || body.y1() >= ns.height.get() {
