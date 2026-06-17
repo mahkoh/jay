@@ -19,7 +19,7 @@ use {
             },
             wl_surface::{
                 WlSurface, tray::TrayItemId, xdg_surface::xdg_popup::XdgPopup,
-                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+                zwlr_layer_surface_v1::LayerSurfaceLink,
             },
         },
         keyboard::KeyboardState,
@@ -347,15 +347,15 @@ const NODE_LAYER_LAST: NodeLayer = NodeLayer::OverlayStacked;
 
 pub enum NodeLayerLink {
     Display,
-    Layer0(NodeRef<Rc<ZwlrLayerSurfaceV1>>),
-    Layer1(NodeRef<Rc<ZwlrLayerSurfaceV1>>),
+    Layer0(NodeRef<LayerSurfaceLink>),
+    Layer1(NodeRef<LayerSurfaceLink>),
     Output,
     Workspace,
     Tiled,
     Fullscreen,
     Stacked(NodeRef<Rc<dyn StackedNode>>),
-    Layer2(NodeRef<Rc<ZwlrLayerSurfaceV1>>),
-    Layer3(NodeRef<Rc<ZwlrLayerSurfaceV1>>),
+    Layer2(NodeRef<LayerSurfaceLink>),
+    Layer3(NodeRef<LayerSurfaceLink>),
     StackedAboveLayers(NodeRef<Rc<dyn StackedNode>>),
     Lock,
     InputMethod,

@@ -32,7 +32,7 @@ use {
                 SurfaceSendPreferredTransformVisitor,
                 ext_session_lock_surface_v1::ExtSessionLockSurfaceV1,
                 tray::DynTrayItem,
-                zwlr_layer_surface_v1::{ExclusiveSize, ZwlrLayerSurfaceV1},
+                zwlr_layer_surface_v1::{ExclusiveSize, LayerSurfaceLink},
             },
             workspace_manager::{
                 ext_workspace_group_handle_v1::ExtWorkspaceGroupHandleV1,
@@ -100,7 +100,7 @@ pub struct OutputNode {
     pub jay_outputs: CopyHashMap<(ClientId, JayOutputId), Rc<JayOutput>>,
     pub workspaces: LinkedList<WorkspaceOutputLink>,
     pub seat_state: NodeSeatState,
-    pub layers: [LinkedList<Rc<ZwlrLayerSurfaceV1>>; 4],
+    pub layers: [LinkedList<LayerSurfaceLink>; 4],
     pub exclusive_zones: Cell<ExclusiveSize>,
     pub render_data: RefCell<OutputRenderData>,
     pub state: Rc<State>,
@@ -367,14 +367,14 @@ impl OutputNode {
     pub fn update_exclusive_zones(self: &Rc<Self>) {
         let mut exclusive = ExclusiveSize::default();
         for layer in &self.layers {
-            for surface in layer.iter() {
+            for surface in layer.iter_valid(LiveTL) {
                 exclusive = exclusive.max(&surface.exclusive_size());
             }
         }
         if self.exclusive_zones.replace(exclusive) != exclusive {
             self.update_rects();
             for layer in &self.layers {
-                for surface in layer.iter() {
+                for surface in layer.iter_valid(LiveTL) {
                     surface.exclusive_zones_changed();
                 }
             }
@@ -1256,7 +1256,7 @@ impl OutputNode {
             }
         }
         for layer in &self.layers {
-            for surface in layer.iter() {
+            for surface in layer.iter_valid(LiveTL) {
                 surface.output_resized();
             }
         }
@@ -1415,7 +1415,7 @@ impl OutputNode {
         }
         let len = tree.len();
         for layer in layers.iter().copied() {
-            for surface in self.layers[layer as usize].rev_iter() {
+            for surface in self.layers[layer as usize].rev_iter_valid(LiveTL) {
                 let pos = surface.output_extents();
                 if pos.contains(x, y) {
                     let (x, y) = pos.translate(x, y);
@@ -1493,7 +1493,7 @@ impl OutputNode {
         }
         macro_rules! set_layer_visible {
             ($layer:expr, $visible:expr) => {
-                for ls in $layer.iter() {
+                for ls in $layer.iter_valid(LiveTL) {
                     ls.set_visible($visible);
                 }
             };
@@ -2213,7 +2213,7 @@ impl NodeBase for OutputNode {
             visitor.visit_workspace(&ws);
         }
         for layers in &self.layers {
-            for surface in layers.iter() {
+            for surface in layers.iter_valid(LiveTL) {
                 visitor.visit_layer_surface(surface.deref());
             }
         }

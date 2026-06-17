@@ -73,7 +73,7 @@ use {
                 dnd_icon::DndIcon,
                 tray::{DynTrayItem, TrayItemId},
                 xdg_surface::{xdg_popup::XdgPopup, xdg_toplevel::ResizeEdges},
-                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+                zwlr_layer_surface_v1::LayerSurfaceLink,
             },
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
@@ -1051,16 +1051,14 @@ impl WlSeatGlobal {
     fn focus_layer_rel<LI, SI>(
         self: &Rc<Self>,
         next_layer: impl Fn(NodeLayer) -> NodeLayer,
-        layer_node_next: impl Fn(
-            &NodeRef<Rc<ZwlrLayerSurfaceV1>>,
-        ) -> Option<NodeRef<Rc<ZwlrLayerSurfaceV1>>>,
+        layer_node_next: impl Fn(&NodeRef<LayerSurfaceLink>) -> Option<NodeRef<LayerSurfaceLink>>,
         stacked_node_next: impl Fn(
             &NodeRef<Rc<dyn StackedNode>>,
         ) -> Option<NodeRef<Rc<dyn StackedNode>>>,
-        layer_list_iter: impl Fn(&LinkedList<Rc<ZwlrLayerSurfaceV1>>) -> LI,
+        layer_list_iter: impl Fn(&LinkedList<LayerSurfaceLink>) -> LI,
         stacked_list_iter: impl Fn(&NodesStack) -> SI,
     ) where
-        LI: Iterator<Item = NodeRef<Rc<ZwlrLayerSurfaceV1>>>,
+        LI: Iterator<Item = NodeRef<LayerSurfaceLink>>,
         SI: Iterator<Item = NodeRef<Rc<dyn StackedNode>>>,
     {
         fn node_viable(n: &(impl Node + ?Sized)) -> bool {
@@ -1078,7 +1076,7 @@ impl WlSeatGlobal {
             | NodeLayerLink::Layer2(l)
             | NodeLayerLink::Layer3(l) => {
                 if let Some(n) = layer_node_next(l)
-                    && node_viable(&**n)
+                    && node_viable(&*n.item)
                 {
                     n.node_do_focus(self, Direction::Unspecified);
                     self.maybe_schedule_warp_mouse_to_focus();
@@ -1111,10 +1109,10 @@ impl WlSeatGlobal {
             NodeLayerLink::OverlayTiled => {}
             NodeLayerLink::OverlayFullscreen => {}
         }
-        let handle_layer_shell = |l: &LinkedList<Rc<ZwlrLayerSurfaceV1>>| {
+        let handle_layer_shell = |l: &LinkedList<LayerSurfaceLink>| {
             for n in layer_list_iter(l) {
-                if node_viable(&**n) {
-                    return Some(n.deref().clone() as Rc<dyn Node>);
+                if node_viable(&*n.item) {
+                    return Some(n.item.clone() as Rc<dyn Node>);
                 }
             }
             None
@@ -1197,9 +1195,9 @@ impl WlSeatGlobal {
     pub fn focus_layer_below(self: &Rc<Self>) {
         self.focus_layer_rel(
             |l| l.prev(),
+            |n| n.prev_valid(LiveTL),
             |n| n.prev(),
-            |n| n.prev(),
-            |l| l.rev_iter(),
+            |l| l.rev_iter_valid(LiveTL),
             |l| l.iter_visible_rev(LiveTL),
         );
     }
@@ -1207,9 +1205,9 @@ impl WlSeatGlobal {
     pub fn focus_layer_above(self: &Rc<Self>) {
         self.focus_layer_rel(
             |l| l.next(),
+            |n| n.next_valid(LiveTL),
             |n| n.next(),
-            |n| n.next(),
-            |l| l.iter(),
+            |l| l.iter_valid(LiveTL),
             |l| l.iter_visible(LiveTL),
         );
     }

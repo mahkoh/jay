@@ -301,7 +301,7 @@ impl ConnectorHandler {
         {
             let mut surfaces = vec![];
             for layer in &on.layers {
-                surfaces.extend(layer.iter());
+                surfaces.extend(layer.iter_valid(LiveTL));
             }
             for surface in surfaces {
                 surface.destroy_node();

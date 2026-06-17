@@ -74,7 +74,7 @@ impl Renderer<'_> {
         let opos = ns.pos.get();
         macro_rules! render_layer {
             ($layer:expr) => {
-                for ls in $layer.iter() {
+                for ls in $layer.iter_valid(LiveTL) {
                     let pos = ls.output_extents();
                     self.render_layer_surface(ls.deref(), x + pos.x1(), y + pos.y1());
                     self.base.ops.push(GfxApiOp::Sync);
