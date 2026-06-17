@@ -210,17 +210,17 @@ impl ConnectorHandler {
                 seat.cursor_group().first_output_connected(&on);
             }
             let dummy = self.state.dummy_output.get().unwrap();
-            for ws in dummy.workspaces.iter() {
-                ws_to_move.push_back(ws.ws.clone());
+            for ws in dummy.workspaces.iter_valid(LiveTL) {
+                ws_to_move.push_back(ws.item.clone());
             }
         }
         for source in self.state.root.outputs.lock().values() {
             if source.id == on.id {
                 continue;
             }
-            for ws in source.workspaces.iter() {
+            for ws in source.workspaces.iter_valid(LiveTL) {
                 if ws.desired_output.get() == global.output_id {
-                    ws_to_move.push_back(ws.ws.clone());
+                    ws_to_move.push_back(ws.item.clone());
                 }
             }
         }
@@ -313,7 +313,7 @@ impl ConnectorHandler {
             Some(o) => o.clone(),
             _ => self.state.dummy_output.get().unwrap(),
         };
-        for ws in on.workspaces.iter() {
+        for ws in on.workspaces.iter_valid(LiveTL) {
             let wns = &ws.node_state[LiveTL];
             if ws.desired_output.get() == output_id {
                 ws.visible_on_desired_output.set(wns.visible.get());

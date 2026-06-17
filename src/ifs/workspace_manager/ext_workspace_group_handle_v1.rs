@@ -12,6 +12,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::TreeTimeline::LiveTL,
         utils::opt::Opt,
         wire::{ExtWorkspaceGroupHandleV1Id, ext_workspace_group_handle_v1::*},
     },
@@ -140,7 +141,7 @@ impl ExtWorkspaceGroupHandleV1RequestHandler for ExtWorkspaceGroupHandleV1 {
             && let Some(node) = self.output.node()
         {
             let mut sent_any = false;
-            for ws in node.workspaces.iter() {
+            for ws in node.workspaces.iter_valid(LiveTL) {
                 if let Some(ws) = ws.ext_workspaces.get(&self.manager_id) {
                     self.send_workspace_leave(&ws);
                     sent_any = true;

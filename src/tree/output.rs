@@ -55,7 +55,7 @@ use {
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, NodeBase, NodeId, NodeLayerLink,
             NodeLocation, NodesStack, PinnedNode, SplitView, TddType, TileDragDestination,
-            Transform,
+            Transform, TreeLink,
             TreeTimeline::{self, LiveTL, RenderTL},
             WorkspaceDisplayOrder, WorkspaceDragDestination, WorkspaceNode, WorkspaceOutputLink,
             WorkspaceType,
@@ -401,7 +401,7 @@ impl OutputNode {
     }
 
     pub fn screencast_changed(&self) {
-        for ws in self.workspaces.iter() {
+        for ws in self.workspaces.iter_valid(LiveTL) {
             ws.update_has_captures();
         }
     }
@@ -584,7 +584,7 @@ impl OutputNode {
         self.set_ns_workspace(None);
         self.set_ns_overlay(None);
         self.cursor_users.clear();
-        let workspaces: Vec<_> = self.workspaces.iter().collect();
+        let workspaces: Vec<_> = self.workspaces.iter_valid(LiveTL).collect();
         for workspace in workspaces {
             workspace.clear();
         }
@@ -671,7 +671,7 @@ impl OutputNode {
         }
         let ns = &self.node_state[LiveTL];
         let active_id = ns.workspace.id();
-        for ws in self.workspaces.iter() {
+        for ws in self.workspaces.iter_valid(LiveTL) {
             let tex = &mut *ws.title_texture.borrow_mut();
             let tex = tex.get_or_insert_with(|| TextTexture::new(&self.state, &ctx));
             let tc = match active_id == Some(ws.id) {
@@ -813,7 +813,7 @@ impl OutputNode {
             }
             pos += title_width;
         };
-        for ws in self.workspaces.iter() {
+        for ws in self.workspaces.iter_valid(LiveTL) {
             handle_workspace(&ws, false);
         }
         if let Some(ws) = ns.overlay.get() {
@@ -849,9 +849,9 @@ impl OutputNode {
             return ws;
         }
         if self.is_dummy
-            && let Some(ws) = self.workspaces.last()
+            && let Some(ws) = self.workspaces.last_valid(LiveTL)
         {
-            return ws.ws.clone();
+            return ws.item.clone();
         }
         self.generate_normal_workspace()
     }
@@ -1051,7 +1051,7 @@ impl OutputNode {
         name: &str,
     ) -> Option<NodeRef<WorkspaceOutputLink>> {
         if self.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
-            for existing_ws in self.workspaces.iter() {
+            for existing_ws in self.workspaces.iter_valid(LiveTL) {
                 if cmp(name, &existing_ws.name) == std::cmp::Ordering::Less {
                     return Some(existing_ws);
                 }
@@ -1064,7 +1064,7 @@ impl OutputNode {
         let ws = WorkspaceNode::new(self, name, WorkspaceType::Normal);
         ws.opt.set(Some(ws.clone()));
         ws.update_has_captures();
-        let data = WorkspaceOutputLink { ws: ws.clone() };
+        let data = TreeLink::new(ws.clone());
         let link = if let Some(before) = self.find_workspace_insertion_point(name) {
             before.prepend(data)
         } else {
@@ -1472,7 +1472,7 @@ impl OutputNode {
 
     pub fn handle_workspace_display_order_update(self: &Rc<Self>) {
         if self.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
-            let mut workspaces: Vec<_> = self.workspaces.iter().collect();
+            let mut workspaces: Vec<_> = self.workspaces.iter_valid(LiveTL).collect();
             workspaces.sort_by(|a, b| cmp(&a.name, &b.name));
             for ws_ref in workspaces {
                 ws_ref.detach();
@@ -1791,7 +1791,11 @@ impl OutputNode {
             });
         }
         if self.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
-            if self.workspaces.iter().any(|ws| ws.id == source.id) {
+            if self
+                .workspaces
+                .iter_valid(LiveTL)
+                .any(|ws| ws.id == source.id)
+            {
                 return None;
             }
             return Some(WorkspaceDragDestination {
@@ -2202,7 +2206,7 @@ impl NodeBase for OutputNode {
         if let Some(ls) = ns.lock_surface.get() {
             visitor.visit_lock_surface(&ls);
         }
-        for ws in self.workspaces.iter() {
+        for ws in self.workspaces.iter_valid(LiveTL) {
             visitor.visit_workspace(ws.deref());
         }
         if let Some(ws) = ns.overlay.get() {
@@ -2440,7 +2444,7 @@ impl NodeBase for OutputNode {
             _ => return,
         };
         let mut ws = 'ws: {
-            for r in self.workspaces.iter() {
+            for r in self.workspaces.iter_valid(LiveTL) {
                 if r.id == ws.id {
                     break 'ws r;
                 }
@@ -2448,7 +2452,11 @@ impl NodeBase for OutputNode {
             return;
         };
         for _ in 0..steps.abs() {
-            let new = if steps < 0 { ws.prev() } else { ws.next() };
+            let new = if steps < 0 {
+                ws.prev_valid(LiveTL)
+            } else {
+                ws.next_valid(LiveTL)
+            };
             ws = match new {
                 Some(n) => n,
                 None => break,

@@ -2283,7 +2283,7 @@ impl State {
     pub fn visit_all_nodes(&self, visitor: &mut dyn NodeVisitor) {
         self.root.node_visit(visitor);
         if let Some(output) = self.dummy_output.get() {
-            for ws in output.workspaces.iter() {
+            for ws in output.workspaces.iter_valid(LiveTL) {
                 visitor.visit_workspace(&ws);
             }
             for ws in self.workspaces.lock().values() {

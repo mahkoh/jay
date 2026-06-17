@@ -1858,7 +1858,7 @@ impl ConfigProxyHandler {
         let output = self.get_output_node(connector)?;
         let workspaces = output
             .workspaces
-            .iter()
+            .iter_valid(LiveTL)
             .map(|ws| self.get_workspace_by_name(&ws.name, ws.ty))
             .collect::<Vec<_>>();
         self.respond(Response::GetConnectorWorkspaces { workspaces });

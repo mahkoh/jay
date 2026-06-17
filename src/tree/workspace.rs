@@ -24,7 +24,7 @@ use {
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
             NodeBase, NodeId, NodeLayerLink, NodeLocation, NodeVisitorBase, OutputNode,
-            PlaceholderNode, SplitView, StackedNode, ToplevelNode,
+            PlaceholderNode, SplitView, StackedNode, ToplevelNode, TreeLink,
             TreeTimeline::{self, LiveTL, RenderTL},
             WorkspaceDisplayOrder,
             container::ContainerNode,
@@ -93,17 +93,7 @@ pub struct WorkspaceNodeState {
     pub fullscreen: CloneCell<Option<Rc<dyn ToplevelNode>>>,
 }
 
-pub struct WorkspaceOutputLink {
-    pub ws: Rc<WorkspaceNode>,
-}
-
-impl Deref for WorkspaceOutputLink {
-    type Target = Rc<WorkspaceNode>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.ws
-    }
-}
+pub type WorkspaceOutputLink = TreeLink<Rc<WorkspaceNode>>;
 
 impl ObjWithId for Rc<WorkspaceNode> {
     type Id = WorkspaceNodeId;
@@ -444,7 +434,10 @@ impl WorkspaceNode {
         let ref_ = v.as_ref().map(|v| v.to_ref());
         self.add_transaction_op(WorkspaceTransactionOp::SetOutputLink(ref_.clone()));
         self.node_state[LiveTL].output_link.set(ref_);
-        self.output_link.set(v);
+        if let Some(old) = self.output_link.replace(v) {
+            old.set_invalid();
+            self.add_transaction_op(WorkspaceTransactionOp::Unlink(old));
+        }
     }
 
     fn set_ns_visible(self: &Rc<Self>, v: bool) {
@@ -660,9 +653,9 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
     if !config.source_is_destroyed && !source.is_dummy && sns.workspace.is_none() {
         new_source_ws = source
             .workspaces
-            .iter()
+            .iter_valid(LiveTL)
             .find(|c| c.id != ws.id)
-            .map(|c| c.ws.clone());
+            .map(|c| c.item.clone());
         if new_source_ws.is_none() && source.pinned.is_not_empty() {
             new_source_ws = Some(source.generate_normal_workspace());
         }
@@ -684,12 +677,12 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
     let before = if target.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
         target
             .find_workspace_insertion_point(&ws.name)
-            .map(|nr| nr.ws.clone())
+            .map(|nr| nr.item.clone())
     } else {
         config.before
     };
     let link = {
-        let data = WorkspaceOutputLink { ws: ws.clone() };
+        let data = TreeLink::new(ws.clone());
         if let Some(before) = before
             && let Some(link) = before.node_state[LiveTL].output_link.get()
         {
@@ -753,6 +746,7 @@ pub enum WorkspaceTransactionOp {
     SetVisible(bool),
     SetFullscreen(Option<Rc<dyn ToplevelNode>>),
     ClearTitleTexture,
+    Unlink(LinkedNode<WorkspaceOutputLink>),
 }
 
 impl Transactionable for WorkspaceNode {
@@ -775,6 +769,9 @@ impl Transactionable for WorkspaceNode {
                 s.container.set(v);
             }
             WorkspaceTransactionOp::SetOutputLink(v) => {
+                if let Some(v) = &v {
+                    v.set_valid();
+                }
                 s.output_link.set(v);
             }
             WorkspaceTransactionOp::SetVisible(v) => {
@@ -785,6 +782,9 @@ impl Transactionable for WorkspaceNode {
             }
             WorkspaceTransactionOp::ClearTitleTexture => {
                 self.title_texture.take();
+            }
+            WorkspaceTransactionOp::Unlink(v) => {
+                drop(v);
             }
         }
     }
