@@ -291,6 +291,7 @@ pub struct WlSurface {
     pub client: Rc<Client>,
     visible: Cell<bool>,
     role: Cell<SurfaceRole>,
+    transactional: Cell<bool>,
     pending: RefCell<CachedBox<PendingState, BoxReset>>,
     input_region: CloneCell<Option<Rc<Region>>>,
     opaque_region: CloneCell<Option<Rc<Region>>>,
@@ -662,6 +663,7 @@ impl WlSurface {
             client: client.clone(),
             visible: Cell::new(false),
             role: Cell::new(SurfaceRole::None),
+            transactional: Default::default(),
             pending: RefCell::new(state.surface_pending_cache.cache.get()),
             input_region: Default::default(),
             opaque_region: Default::default(),
@@ -920,6 +922,11 @@ impl WlSurface {
             }
         }
         self.role.set(role);
+        let transactional = match role {
+            XdgSurface | XSurface | ZwlrLayerSurface | ExtSessionLockSurface | TrayItem => true,
+            None | Subsurface | Cursor | DndIcon | InputPopup => false,
+        };
+        self.transactional.set(transactional);
         Ok(())
     }
 
