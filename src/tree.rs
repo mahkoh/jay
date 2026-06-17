@@ -25,16 +25,23 @@ use {
         keyboard::KeyboardState,
         rect::Rect,
         renderer::Renderer,
-        utils::{linkedlist::NodeRef, numcell::NumCell, static_text::StaticText},
+        tree::TreeTimeline::{LiveTL, RenderTL},
+        utils::{
+            linkedlist::{LinkedList, NodeRef},
+            numcell::NumCell,
+            static_text::StaticText,
+        },
     },
     jay_config::{
         Direction as JayDirection, video::Transform as ConfigTransform,
         window::TileState as ConfigTileState,
         workspace::WorkspaceDisplayOrder as ConfigWorkspaceDisplayOrder,
     },
-    linearize::{Linearize, LinearizeExt, StaticMap},
+    linearize::{Linearize, LinearizeExt, StaticMap, static_map},
     std::{
+        cell::Cell,
         fmt::{Debug, Display},
+        ops::Deref,
         rc::Rc,
     },
 };
@@ -954,5 +961,78 @@ pub enum TreeTimeline {
     RenderTL,
 }
 
-#[expect(dead_code)]
 pub type SplitView<T> = StaticMap<TreeTimeline, T>;
+
+pub struct TreeLink<T> {
+    pub item: T,
+    valid: SplitView<Cell<bool>>,
+}
+
+impl<T> TreeLink<T> {
+    #[expect(dead_code)]
+    pub fn new(t: T) -> Self {
+        Self {
+            item: t,
+            valid: static_map! {
+                LiveTL => Cell::new(true),
+                RenderTL => Cell::new(false),
+            },
+        }
+    }
+
+    #[expect(dead_code)]
+    pub fn set_valid(&self) {
+        self.valid[RenderTL].set(true);
+    }
+
+    #[expect(dead_code)]
+    pub fn set_invalid(&self) {
+        self.valid[LiveTL].set(false);
+    }
+}
+
+impl<T> Deref for TreeLink<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.item
+    }
+}
+
+impl<T> NodeRef<TreeLink<T>> {
+    #[expect(dead_code)]
+    pub fn prev_valid(&self, tl: TreeTimeline) -> Option<Self> {
+        self.prev_with(|c| c.valid[tl].get())
+    }
+
+    #[expect(dead_code)]
+    pub fn next_valid(&self, tl: TreeTimeline) -> Option<Self> {
+        self.next_with(|c| c.valid[tl].get())
+    }
+}
+
+impl<T> LinkedList<TreeLink<T>> {
+    pub fn iter_valid(
+        &self,
+        tl: TreeTimeline,
+    ) -> impl Iterator<Item = NodeRef<TreeLink<T>>> + use<T> {
+        self.iter().filter(move |c| c.valid[tl].get())
+    }
+
+    pub fn rev_iter_valid(
+        &self,
+        tl: TreeTimeline,
+    ) -> impl Iterator<Item = NodeRef<TreeLink<T>>> + use<T> {
+        self.rev_iter().filter(move |c| c.valid[tl].get())
+    }
+
+    #[expect(dead_code)]
+    pub fn first_valid(&self, tl: TreeTimeline) -> Option<NodeRef<TreeLink<T>>> {
+        self.iter_valid(tl).next()
+    }
+
+    #[expect(dead_code)]
+    pub fn last_valid(&self, tl: TreeTimeline) -> Option<NodeRef<TreeLink<T>>> {
+        self.rev_iter_valid(tl).next()
+    }
+}
