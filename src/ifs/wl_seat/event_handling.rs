@@ -966,7 +966,7 @@ impl WlSeatGlobal {
                     if sym == self.revert_key.get().0 && mods == 0 {
                         revert_pointer_to_default = true;
                     }
-                    if !self.state.lock.locked.get()
+                    if !self.state.lock.locked[LiveTL].get()
                         && let Some(key_mods) = scs.get(&sym)
                     {
                         for (key_mods, mask) in key_mods {

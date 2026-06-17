@@ -342,7 +342,7 @@ fn start_compositor2(
         drm_dev_ids: Default::default(),
         ring: ring.clone(),
         lock: ScreenlockState {
-            locked: Cell::new(false),
+            locked: Default::default(),
             lock: Default::default(),
         },
         scales,

@@ -1485,7 +1485,7 @@ impl OutputNode {
     pub fn update_visible(&self) {
         let mut visible = self.state.root_visible();
         let ns = &self.node_state[LiveTL];
-        if self.state.lock.locked.get() {
+        if self.state.lock.locked[LiveTL].get() {
             if let Some(surface) = ns.lock_surface.get() {
                 surface.set_visible(visible);
             }
@@ -1667,7 +1667,7 @@ impl OutputNode {
         x_abs: i32,
         y_abs: i32,
     ) -> Option<TileDragDestination> {
-        if self.state.lock.locked.get() {
+        if self.state.lock.locked[LiveTL].get() {
             return None;
         }
         for list in [
@@ -2247,7 +2247,7 @@ impl NodeBase for OutputNode {
     }
 
     fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
-        if self.state.lock.locked.get() {
+        if self.state.lock.locked[LiveTL].get() {
             if let Some(lock) = self.node_state[LiveTL].lock_surface.get() {
                 seat.focus_node(lock.surface.clone());
             }
@@ -2266,7 +2266,7 @@ impl NodeBase for OutputNode {
         usecase: FindTreeUsecase,
     ) -> FindTreeResult {
         let ns = &self.node_state[LiveTL];
-        if self.state.lock.locked.get() {
+        if self.state.lock.locked[LiveTL].get() {
             let allow_surface = match usecase {
                 FindTreeUsecase::None => true,
                 FindTreeUsecase::SelectToplevel => false,

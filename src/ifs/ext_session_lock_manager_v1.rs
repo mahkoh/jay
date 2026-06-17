@@ -5,6 +5,7 @@ use {
         ifs::ext_session_lock_v1::ExtSessionLockV1,
         leaks::Tracker,
         object::{Object, Version},
+        tree::TreeTimeline::LiveTL,
         wire::{ExtSessionLockManagerV1Id, ext_session_lock_manager_v1::*},
     },
     std::{cell::Cell, rc::Rc},
@@ -54,7 +55,7 @@ impl ExtSessionLockManagerV1RequestHandler for ExtSessionLockManagerV1 {
     }
 
     fn lock(&self, req: Lock, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let did_lock = self.client.state.lock.locked.get() == false;
+        let did_lock = self.client.state.lock.locked[LiveTL].get() == false;
         let new = Rc::new(ExtSessionLockV1 {
             id: req.id,
             client: self.client.clone(),
@@ -72,7 +73,7 @@ impl ExtSessionLockManagerV1RequestHandler for ExtSessionLockManagerV1 {
             for seat in state.globals.seats.lock().values() {
                 seat.prepare_for_lock();
             }
-            state.lock.locked.set(true);
+            state.set_locked(true);
             state.lock.lock.set(Some(new.clone()));
             state.tree_changed();
             state.damage_full();

@@ -31,7 +31,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         screenshoter::take_screenshot,
-        tree::ToplevelIdentifier,
+        tree::{ToplevelIdentifier, TreeTimeline::LiveTL},
         utils::errorfmt::ErrorFmt,
         wire::{
             JayCompositorId, JayScreenshotId,
@@ -234,7 +234,7 @@ impl JayCompositorRequestHandler for JayCompositor {
 
     fn unlock(&self, _req: Unlock, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let state = &self.client.state;
-        if state.lock.locked.get() {
+        if state.lock.locked[LiveTL].get() {
             if let Some(lock) = state.lock.lock.get() {
                 lock.finish();
             }

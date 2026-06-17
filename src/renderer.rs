@@ -63,7 +63,7 @@ impl Renderer<'_> {
 
     pub fn render_output(&mut self, output: &OutputNode, x: i32, y: i32) {
         let ns = &output.node_state[LiveTL];
-        if self.state.lock.locked.get() {
+        if self.state.lock.locked[LiveTL].get() {
             if let Some(surface) = ns.lock_surface.get()
                 && surface.surface.buffer.is_some()
             {

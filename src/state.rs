@@ -106,14 +106,15 @@ use {
         tagged_acceptor::TaggedAcceptors,
         theme::{BarPosition, Color, Theme, ThemeColor, ThemeSized},
         time::Time,
-        transactions::{TransactionData, Transactionable, Transactions},
+        transactions::{TransactionData, Transactionable, TransactionableExt, Transactions},
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FindTreeUsecase, FloatNode,
             FoundNode, LatchListener, NodeBase, NodeIds, NodeVisitor, NodeVisitorBase, OutputNode,
-            OutputNodeId, PlaceholderNode, TearingMode, TileState, ToplevelData,
+            OutputNodeId, PlaceholderNode, SplitView, TearingMode, TileState, ToplevelData,
             ToplevelIdentifier, ToplevelNode, ToplevelNodeBase, Transform, TreeSerial, TreeSerials,
-            TreeTimeline::LiveTL, VrrMode, WorkspaceDisplayOrder, WorkspaceNode, WorkspaceType,
-            WsMoveConfig, generic_node_visitor, move_ws_to_output,
+            TreeTimeline::{LiveTL, RenderTL},
+            VrrMode, WorkspaceDisplayOrder, WorkspaceNode, WorkspaceType, WsMoveConfig,
+            generic_node_visitor, move_ws_to_output,
         },
         tree_serial_groups::TreeSerialGroups,
         udmabuf::UdmabufHolder,
@@ -365,7 +366,7 @@ pub struct PrimeModifier {
 pub type PrimeModifiers = Rc<AHashMap<u32, Vec<PrimeModifier>>>;
 
 pub struct ScreenlockState {
-    pub locked: Cell<bool>,
+    pub locked: SplitView<Cell<bool>>,
     pub lock: CloneCell<Option<Rc<ExtSessionLockV1>>>,
 }
 
@@ -1291,8 +1292,13 @@ impl State {
         }
     }
 
-    pub fn do_unlock(&self) {
-        self.lock.locked.set(false);
+    pub fn set_locked(self: &Rc<Self>, locked: bool) {
+        self.lock.locked[LiveTL].set(locked);
+        self.add_transaction_op(StateTransactionOp::SetLocked(locked));
+    }
+
+    pub fn do_unlock(self: &Rc<Self>) {
+        self.set_locked(false);
         self.lock.lock.take();
         for output in self.root.outputs.lock().values() {
             if let Some(surface) = output.set_lock_surface(None) {
@@ -2460,6 +2466,7 @@ pub enum ShmScreencopyError {
 
 pub enum StateTransactionOp {
     Clear,
+    SetLocked(bool),
 }
 
 impl Transactionable for State {
@@ -2476,6 +2483,9 @@ impl Transactionable for State {
                 self.pending_container_render_title.clear();
                 self.pending_output_render_data.clear();
                 self.pending_float_titles.clear();
+            }
+            StateTransactionOp::SetLocked(v) => {
+                self.lock.locked[RenderTL].set(v);
             }
         }
     }

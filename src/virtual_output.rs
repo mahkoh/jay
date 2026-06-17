@@ -606,7 +606,7 @@ impl VirtualOutput {
             pass,
             damage_count,
             damage,
-            locked: self.state.lock.locked.get(),
+            locked: self.state.lock.locked[LiveTL].get(),
         })
     }
 
