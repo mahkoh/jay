@@ -213,7 +213,7 @@ impl Renderer<'_> {
                         },
                     );
                 }
-                for item in output.tray_items.iter() {
+                for item in output.tray_items.iter_valid(LiveTL) {
                     let data = item.data();
                     if data.surface.buffer.is_some() {
                         let rect = data.rel_pos.get().move_(x, y);

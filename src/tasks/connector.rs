@@ -332,8 +332,8 @@ impl ConnectorHandler {
         for seat in self.state.globals.seats.lock().values() {
             seat.cursor_group().output_disconnected(&on, &target);
         }
-        for item in on.tray_items.iter() {
-            item.destroy_node();
+        for item in on.tray_items.iter_valid(LiveTL) {
+            item.item.clone().destroy_node();
         }
         self.state
             .remove_output_scale(on.node_state[LiveTL].scale.get());

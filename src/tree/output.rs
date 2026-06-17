@@ -31,7 +31,7 @@ use {
                 SurfaceSendPreferredColorDescription, SurfaceSendPreferredScaleVisitor,
                 SurfaceSendPreferredTransformVisitor,
                 ext_session_lock_surface_v1::ExtSessionLockSurfaceV1,
-                tray::DynTrayItem,
+                tray::TrayItemLink,
                 zwlr_layer_surface_v1::{ExclusiveSize, LayerSurfaceLink},
             },
             workspace_manager::{
@@ -125,7 +125,7 @@ pub struct OutputNode {
         CopyHashMap<(ClientId, ExtImageCopyCaptureSessionV1Id), Rc<ExtImageCopyCaptureSessionV1>>,
     pub before_latch_event: EventSource<dyn BeforeLatchListener>,
     pub tray_start_rel: Cell<i32>,
-    pub tray_items: LinkedList<Rc<dyn DynTrayItem>>,
+    pub tray_items: LinkedList<TrayItemLink>,
     pub ext_workspace_groups: CopyHashMap<WorkspaceManagerId, Rc<ExtWorkspaceGroupHandleV1>>,
     pub pinned: LinkedList<Rc<dyn PinnedNode>>,
     pub tearing: Cell<bool>,
@@ -609,8 +609,8 @@ impl OutputNode {
                 c.change_extents(&ns.rects.workspace.get(), self);
             }
         }
-        for item in self.tray_items.iter() {
-            item.deref().clone().send_current_configure();
+        for item in self.tray_items.iter_valid(LiveTL) {
+            item.item.clone().send_current_configure();
         }
     }
 
@@ -1512,7 +1512,7 @@ impl OutputNode {
         set_layer_visible!(self.layers[0], lower_visible);
         set_layer_visible!(self.layers[1], lower_visible);
         set_layer_visible!(self.layers[2], lower_visible);
-        for item in self.tray_items.iter() {
+        for item in self.tray_items.iter_valid(LiveTL) {
             item.set_visible(lower_visible);
         }
         let ws_visible = visible && !have_overlay_fullscreen;
@@ -1856,7 +1856,7 @@ impl OutputNode {
         let mut right = bar_rect.width();
         let mut have_any = false;
         let icon_size = self.state.tray_icon_size();
-        for item in self.tray_items.rev_iter() {
+        for item in self.tray_items.rev_iter_valid(LiveTL) {
             if item.data().surface.buffer.is_none() {
                 continue;
             }
@@ -2217,8 +2217,8 @@ impl NodeBase for OutputNode {
                 visitor.visit_layer_surface(surface.deref());
             }
         }
-        for item in self.tray_items.iter() {
-            item.deref().clone().node_visit_dyn(visitor);
+        for item in self.tray_items.iter_valid(LiveTL) {
+            item.item.clone().node_visit_dyn(visitor);
         }
     }
 
@@ -2372,13 +2372,13 @@ impl NodeBase for OutputNode {
             if bar_rect_rel.contains(x, y) {
                 let (x, y) = bar_rect_rel.translate(x, y);
                 search_layers = false;
-                for item in self.tray_items.iter() {
+                for item in self.tray_items.iter_valid(LiveTL) {
                     let data = item.data();
                     let pos = data.rel_pos.get();
                     if pos.contains(x, y) {
                         let (x, y) = pos.translate(x, y);
                         tree.push(FoundNode {
-                            node: item.deref().clone(),
+                            node: item.item.clone(),
                             x,
                             y,
                         });
