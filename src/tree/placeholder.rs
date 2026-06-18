@@ -265,7 +265,7 @@ impl ToplevelNodeBase for PlaceholderNode {
         // nothing
     }
 
-    fn tl_destroy_impl(&self) {
+    fn tl_destroy_impl(self: &Rc<Self>) {
         self.destroyed.set(true);
     }
 
