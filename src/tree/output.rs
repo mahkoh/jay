@@ -135,6 +135,7 @@ pub struct OutputNode {
         CopyHashMap<(ClientId, WpColorManagementOutputV1Id), Rc<WpColorManagementOutputV1>>,
     pub node_state: SplitView<OutputNodeState>,
     pub transaction_data: TransactionData<OutputTransactionOp>,
+    pub damage_scheduled: Cell<bool>,
 }
 
 impl ObjWithId for Rc<OutputNode> {
@@ -292,6 +293,7 @@ impl OutputNode {
             color_description_listeners: Default::default(),
             node_state: SplitView::from_fn(|_| OutputNodeState::new(state)),
             transaction_data: TransactionData::new(&state.tree),
+            damage_scheduled: Default::default(),
         });
         on.set_ns_pos(Rect::new_sized_saturating(x, y, width, height));
         on.set_ns_scale(scale);
@@ -384,9 +386,6 @@ impl OutputNode {
                     c.change_extents(&ns.rects.workspace.get(), self);
                 }
             }
-            if self.node_visible(LiveTL) {
-                self.state.damage(ns.pos.get());
-            }
         }
     }
 
@@ -419,7 +418,7 @@ impl OutputNode {
         y_off: i32,
         size: Option<(i32, i32)>,
     ) {
-        if let Some(workspace) = self.node_state[LiveTL].workspace.get() {
+        if let Some(workspace) = self.node_state[RenderTL].workspace.get() {
             if !workspace.may_capture.get() {
                 return;
             }
@@ -484,7 +483,7 @@ impl OutputNode {
         if self.screencopies.is_empty() {
             return;
         }
-        let ns = &self.node_state[LiveTL];
+        let ns = &self.node_state[RenderTL];
         let now = self.state.now();
         for capture in self.screencopies.lock().drain_values() {
             let wl_buffer = match capture.buffer.take() {
@@ -517,8 +516,8 @@ impl OutputNode {
                             mem,
                             *stride,
                             wl_buffer.format,
-                            self.node_state[LiveTL].transform.get(),
-                            self.node_state[LiveTL].scale.get(),
+                            self.node_state[RenderTL].transform.get(),
+                            self.node_state[RenderTL].scale.get(),
                         );
                         match res {
                             Ok(p) => {
@@ -551,15 +550,15 @@ impl OutputNode {
                             &fb,
                             AcquireSync::Implicit,
                             ReleaseSync::Implicit,
-                            self.node_state[LiveTL].transform.get(),
+                            self.node_state[RenderTL].transform.get(),
                             self.state.color_manager.srgb_gamma22(),
                             ns.pos.get(),
                             render_hardware_cursors,
                             x_off - capture.rect.x1(),
                             y_off - capture.rect.y1(),
                             size,
-                            self.node_state[LiveTL].transform.get(),
-                            self.node_state[LiveTL].scale.get(),
+                            self.node_state[RenderTL].transform.get(),
+                            self.node_state[RenderTL].scale.get(),
                         );
                         if let Err(e) = res {
                             log::warn!("Could not perform screencopy: {}", ErrorFmt(e));
@@ -643,9 +642,7 @@ impl OutputNode {
     }
 
     pub fn schedule_update_render_data(self: &Rc<Self>) {
-        if !self.update_render_data_scheduled.replace(true) {
-            self.state.pending_output_render_data.push(self.clone());
-        }
+        self.add_transaction_op(OutputTransactionOp::ScheduleUpdateRenderData);
     }
 
     fn update_render_data_phase1(self: &Rc<Self>) -> Rc<AsyncEvent> {
@@ -658,8 +655,8 @@ impl OutputNode {
         };
         let font = self.state.theme.bar_font();
         let theme = &self.state.theme;
-        let bh = theme.sizes.bar_height(LiveTL);
-        let scale = self.node_state[LiveTL].scale.get();
+        let bh = theme.sizes.bar_height(RenderTL);
+        let scale = self.node_state[RenderTL].scale.get();
         let scale = if scale != 1 {
             Some(scale.to_f64())
         } else {
@@ -669,9 +666,9 @@ impl OutputNode {
         if let Some(scale) = scale {
             texture_height = (bh as f64 * scale).round() as _;
         }
-        let ns = &self.node_state[LiveTL];
+        let ns = &self.node_state[RenderTL];
         let active_id = ns.workspace.id();
-        for ws in self.workspaces.iter_valid(LiveTL) {
+        for ws in self.workspaces.iter_valid(RenderTL) {
             let tex = &mut *ws.title_texture.borrow_mut();
             let tex = tex.get_or_insert_with(|| TextTexture::new(&self.state, &ctx));
             let tc = match active_id == Some(ws.id) {
@@ -733,11 +730,11 @@ impl OutputNode {
             return;
         }
         let mut pos = 0;
-        let ns = &self.node_state[LiveTL];
+        let ns = &self.node_state[RenderTL];
         let bar_rect_rel = ns.rects.bar_rel.get();
         let non_exclusive_rect_rel = ns.rects.non_exclusive_rel.get();
         let y1 = bar_rect_rel.y1() - non_exclusive_rect_rel.y1();
-        let scale = self.node_state[LiveTL].scale.get();
+        let scale = self.node_state[RenderTL].scale.get();
         let scale = if scale != 1 {
             Some(scale.to_f64())
         } else {
@@ -813,7 +810,7 @@ impl OutputNode {
             }
             pos += title_width;
         };
-        for ws in self.workspaces.iter_valid(LiveTL) {
+        for ws in self.workspaces.iter_valid(RenderTL) {
             handle_workspace(&ws, false);
         }
         if let Some(ws) = ns.overlay.get() {
@@ -929,9 +926,6 @@ impl OutputNode {
         for seat in seats {
             ws.do_focus(&seat, Direction::Unspecified);
         }
-        if self.node_visible(LiveTL) {
-            self.state.damage(ns.pos.get());
-        }
         true
     }
 
@@ -967,9 +961,6 @@ impl OutputNode {
             ws.node_do_focus(&seat, Direction::Unspecified);
         }
         self.schedule_update_render_data();
-        if self.node_visible(LiveTL) {
-            self.state.damage(ns.pos.get());
-        }
         true
     }
 
@@ -1000,9 +991,6 @@ impl OutputNode {
         self.hide_overlay3(clear_old, seats);
         self.update_visible();
         self.update_presentation_type();
-        if self.node_visible(LiveTL) {
-            self.state.damage(ns.pos.get());
-        }
     }
 
     fn hide_overlay3(
@@ -1230,18 +1218,10 @@ impl OutputNode {
     }
 
     fn change_extents_(self: &Rc<Self>, rect: &Rect) {
-        let visible = self.node_visible(LiveTL);
         let ns = &self.node_state[LiveTL];
-        if visible {
-            let old_pos = ns.pos.get();
-            self.state.damage(old_pos);
-        }
         self.global.persistent.pos.set((rect.x1(), rect.y1()));
         self.set_ns_pos(*rect);
         self.update_damage_matrix();
-        if visible {
-            self.state.damage(*rect);
-        }
         self.state.output_extents_changed();
         self.update_rects();
         if let Some(ls) = ns.lock_surface.get() {
@@ -1294,7 +1274,6 @@ impl OutputNode {
 
     fn update_color_description(self: &Rc<Self>) {
         if self.update_color_description_() {
-            self.state.damage(self.node_state[LiveTL].pos.get());
             if let Some(hc) = self.hardware_cursor.get() {
                 self.hardware_cursor_needs_render.set(true);
                 hc.damage();
@@ -1351,10 +1330,10 @@ impl OutputNode {
         }
     }
 
-    pub fn set_blend_space(&self, blend_space: BlendSpace) {
+    pub fn set_blend_space(self: &Rc<Self>, blend_space: BlendSpace) {
         let old = self.global.persistent.blend_space.replace(blend_space);
         if old != blend_space {
-            self.state.damage(self.node_state[LiveTL].pos.get());
+            self.schedule_damage();
             self.global
                 .connector
                 .head_manager
@@ -1441,16 +1420,16 @@ impl OutputNode {
             .set(id, (x.round_down(), y.round_down()));
     }
 
-    pub fn has_fullscreen(&self) -> bool {
-        let ns = &self.node_state[LiveTL];
+    pub fn has_fullscreen(&self, tl: TreeTimeline) -> bool {
+        let ns = &self.node_state[tl];
         ns.workspace
             .get()
-            .map(|w| w.node_state[LiveTL].fullscreen.is_some())
+            .map(|w| w.node_state[tl].fullscreen.is_some())
             .unwrap_or(false)
             || ns
                 .overlay
                 .get()
-                .map(|w| w.node_state[LiveTL].fullscreen.is_some())
+                .map(|w| w.node_state[tl].fullscreen.is_some())
                 .unwrap_or(false)
     }
 
@@ -1463,11 +1442,9 @@ impl OutputNode {
         prev
     }
 
-    pub fn fullscreen_changed(&self) {
+    pub fn fullscreen_changed(self: &Rc<Self>) {
         self.update_visible();
-        if self.node_visible(LiveTL) {
-            self.state.damage(self.node_state[LiveTL].pos.get());
-        }
+        self.schedule_damage();
     }
 
     pub fn handle_workspace_display_order_update(self: &Rc<Self>) {
@@ -1871,16 +1848,7 @@ impl OutputNode {
         }
         let prev_right = self.tray_start_rel.replace(right);
         if prev_right != right {
-            {
-                let min = prev_right.min(right);
-                let rect = Rect::new_saturating(
-                    bar_rect.x1() + min,
-                    bar_rect.y1(),
-                    bar_rect.x2(),
-                    bar_rect.y2(),
-                );
-                self.state.damage(rect);
-            }
+            self.schedule_damage();
             self.schedule_update_render_data();
         }
         self.state.tree_changed();
@@ -2138,6 +2106,13 @@ impl OutputNode {
     fn set_ns_rects(self: &Rc<Self>, v: OutputNodeRects<NoWrapper>) {
         self.add_transaction_op(OutputTransactionOp::SetRects(Box::new(v.clone())));
         self.node_state[LiveTL].rects.set(&v);
+    }
+
+    pub fn schedule_damage(self: &Rc<Self>) {
+        if self.damage_scheduled.replace(true) {
+            return;
+        }
+        self.add_transaction_op(OutputTransactionOp::Damage);
     }
 }
 
@@ -2823,6 +2798,8 @@ pub enum OutputTransactionOp {
     SetDamageMatrix(Box<DamageMatrix>),
     SetRects(Box<OutputNodeRects<NoWrapper>>),
     ClearRenderData,
+    Damage,
+    ScheduleUpdateRenderData,
 }
 
 impl Transactionable for OutputNode {
@@ -2875,6 +2852,22 @@ impl Transactionable for OutputNode {
             OutputTransactionOp::ClearRenderData => {
                 self.render_data.borrow_mut().clear();
             }
+            OutputTransactionOp::Damage => {}
+            OutputTransactionOp::ScheduleUpdateRenderData => {
+                if !self.update_render_data_scheduled.replace(true) {
+                    self.state.pending_output_render_data.push(self.clone());
+                }
+            }
+        }
+    }
+
+    fn committed(&self) {
+        self.damage_scheduled.set(false);
+    }
+
+    fn after_apply(self: &Rc<Self>) {
+        if self.node_visible(RenderTL) {
+            self.state.damage(self.node_state[RenderTL].pos.get());
         }
     }
 }

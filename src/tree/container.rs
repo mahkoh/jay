@@ -458,14 +458,18 @@ impl ContainerNode {
         self.schedule_compute_render_positions();
     }
 
-    fn damage(&self) {
+    fn damage(self: &Rc<Self>) {
         let ns = &self.node_state[LiveTL];
-        self.state.damage(Rect::new_sized_saturating(
+        self.schedule_damage(Rect::new_sized_saturating(
             ns.abs_x1.get(),
             ns.abs_y1.get(),
             ns.width.get(),
             ns.height.get(),
         ));
+    }
+
+    fn schedule_damage(self: &Rc<Self>, rect: Rect) {
+        self.add_transaction_op(ContainerTransactionOp::Damage(rect));
     }
 
     fn schedule_layout(self: &Rc<Self>) {
@@ -794,10 +798,7 @@ impl ContainerNode {
     }
 
     pub fn schedule_render_titles(self: &Rc<Self>) {
-        self.child_types_valid.set(false);
-        if !self.render_titles_scheduled.replace(true) {
-            self.state.pending_container_render_title.push(self.clone());
-        }
+        self.add_transaction_op(ContainerTransactionOp::ScheduleRenderTitles);
     }
 
     fn last_active(&self) -> Option<NodeId> {
@@ -833,13 +834,13 @@ impl ContainerNode {
             return on_completed.event();
         };
         let theme = &self.state.theme;
-        let th = theme.title_height(LiveTL);
+        let th = theme.title_height(RenderTL);
         let font = theme.title_font();
         let scales = self.state.scales.lock();
         let draw_overlay_icon = self.toplevel_data.is_overlay_root_container.get();
         self.update_child_types();
-        for child in self.children.iter_valid(LiveTL) {
-            let cns = &child.node_state[LiveTL];
+        for child in self.children.iter_valid(RenderTL) {
+            let cns = &child.node_state[RenderTL];
             let rect = cns.title_rect.get();
             let color = match child.ty.get() {
                 ContainerChildType::Active => theme.colors.focused_title_text.get(),
@@ -899,12 +900,12 @@ impl ContainerNode {
         for (_, v) in rd.titles.iter_mut() {
             v.clear();
         }
-        let ns = &self.node_state[LiveTL];
+        let ns = &self.node_state[RenderTL];
         let abs_x = ns.abs_x1.get();
         let abs_y = ns.abs_y1.get();
-        for child in self.children.iter_valid(LiveTL) {
-            let rect = child.node_state[LiveTL].title_rect.get();
-            if self.toplevel_data.visible[LiveTL].get() {
+        for child in self.children.iter_valid(RenderTL) {
+            let rect = child.node_state[RenderTL].title_rect.get();
+            if self.toplevel_data.visible[RenderTL].get() {
                 self.state.damage(rect.move_(abs_x, abs_y));
             }
             let title = child.title.borrow_mut();
@@ -920,12 +921,7 @@ impl ContainerNode {
     }
 
     fn schedule_compute_render_positions(self: &Rc<Self>) {
-        self.child_types_valid.set(false);
-        if !self.compute_render_positions_scheduled.replace(true) {
-            self.state
-                .pending_container_render_positions
-                .push(self.clone());
-        }
+        self.add_transaction_op(ContainerTransactionOp::ScheduleComputeRenderPositions);
     }
 
     fn compute_render_positions(self: &Rc<Self>) {
@@ -933,11 +929,11 @@ impl ContainerNode {
         let mut rd = self.render_data.borrow_mut();
         let rd = rd.deref_mut();
         let theme = &self.state.theme;
-        let th = theme.title_height(LiveTL);
-        let tpuh = theme.title_plus_underline_height(LiveTL);
-        let tuh = theme.title_underline_height(LiveTL);
-        let bw = theme.sizes.border_width.get(LiveTL);
-        let ns = &self.node_state[LiveTL];
+        let th = theme.title_height(RenderTL);
+        let tpuh = theme.title_plus_underline_height(RenderTL);
+        let tuh = theme.title_underline_height(RenderTL);
+        let bw = theme.sizes.border_width.get(RenderTL);
+        let ns = &self.node_state[RenderTL];
         let cwidth = ns.width.get();
         let cheight = ns.height.get();
         for (_, v) in rd.titles.iter_mut() {
@@ -954,10 +950,10 @@ impl ContainerNode {
         let abs_x = ns.abs_x1.get();
         let abs_y = ns.abs_y1.get();
         self.update_child_types();
-        for (i, child) in self.children.iter_valid(LiveTL).enumerate() {
-            let cns = &child.node_state[LiveTL];
+        for (i, child) in self.children.iter_valid(RenderTL).enumerate() {
+            let cns = &child.node_state[RenderTL];
             let rect = cns.title_rect.get();
-            if self.toplevel_data.visible[LiveTL].get()
+            if self.toplevel_data.visible[RenderTL].get()
                 && !mono
                 && split != ContainerSplit::Horizontal
             {
@@ -997,7 +993,8 @@ impl ContainerNode {
             rd.underline_rects
                 .push(Rect::new_sized_saturating(0, th, cwidth, tuh));
         }
-        if self.toplevel_data.visible[LiveTL].get() && (mono || split == ContainerSplit::Horizontal)
+        if self.toplevel_data.visible[RenderTL].get()
+            && (mono || split == ContainerSplit::Horizontal)
         {
             self.state
                 .damage(Rect::new_sized_saturating(abs_x, abs_y, cwidth, tpuh));
@@ -2195,7 +2192,7 @@ impl ContainingNode for ContainerNode {
         if let Some(body) = body {
             let body = body.move_(ns.abs_x1.get(), ns.abs_y1.get());
             new.clone().tl_change_extents(&body);
-            self.state.damage(body);
+            self.schedule_damage(body);
         }
     }
 
@@ -2736,6 +2733,9 @@ pub enum ContainerTransactionOp {
     ChildOp(NodeRef<ContainerChild>, ContainerChildTransactionOp),
     Unlink(LinkedNode<ContainerChild>),
     ToplevelData(ToplevelDataTransactionOp),
+    ScheduleRenderTitles,
+    ScheduleComputeRenderPositions,
+    Damage(Rect),
 }
 
 pub enum ContainerChildTransactionOp {
@@ -2807,6 +2807,23 @@ impl Transactionable for ContainerNode {
             }
             ContainerTransactionOp::ToplevelData(v) => {
                 self.toplevel_data.run_op(v);
+            }
+            ContainerTransactionOp::ScheduleRenderTitles => {
+                self.child_types_valid.set(false);
+                if !self.render_titles_scheduled.replace(true) {
+                    self.state.pending_container_render_title.push(self.clone());
+                }
+            }
+            ContainerTransactionOp::ScheduleComputeRenderPositions => {
+                self.child_types_valid.set(false);
+                if !self.compute_render_positions_scheduled.replace(true) {
+                    self.state
+                        .pending_container_render_positions
+                        .push(self.clone());
+                }
+            }
+            ContainerTransactionOp::Damage(v) => {
+                self.state.damage(v);
             }
         }
     }

@@ -164,7 +164,7 @@ impl WorkspaceNode {
         }
         if self.has_capture.replace(has_capture) != has_capture {
             output.schedule_update_render_data();
-            output.state.damage(output.node_state[LiveTL].pos.get());
+            output.schedule_damage();
         }
     }
 
@@ -241,7 +241,6 @@ impl WorkspaceNode {
         container.tl_set_parent(self.clone());
         container.tl_set_visible(self.container_visible());
         self.set_ns_container(Some(container));
-        self.state.damage(ns.position.get());
     }
 
     pub fn is_empty(&self) -> bool {
@@ -511,7 +510,7 @@ impl NodeBase for WorkspaceNode {
     fn node_active_changed(&self, _active: bool) {
         let output = self.node_state[LiveTL].output.get();
         self.state
-            .damage(output.node_state[LiveTL].rects.bar_separator.get());
+            .schedule_damage(output.node_state[LiveTL].rects.bar_separator.get());
     }
 
     fn node_find_tree_at(
@@ -597,7 +596,6 @@ impl ContainingNode for WorkspaceNode {
         {
             self.discard_child_properties(&*container);
             self.set_ns_container(None);
-            self.state.damage(ns.position.get());
             return;
         }
         if let Some(fs) = ns.fullscreen.get()
@@ -712,10 +710,10 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
         source.schedule_update_render_data();
     }
     if source.node_visible(LiveTL) {
-        target.state.damage(sns.pos.get());
+        source.schedule_damage();
     }
     if target.node_visible(LiveTL) {
-        target.state.damage(tns.pos.get());
+        target.schedule_damage();
     }
 }
 
@@ -767,6 +765,7 @@ impl Transactionable for WorkspaceNode {
             }
             WorkspaceTransactionOp::SetContainer(v) => {
                 s.container.set(v);
+                self.state.damage(s.position.get());
             }
             WorkspaceTransactionOp::SetOutputLink(v) => {
                 if let Some(v) = &v {

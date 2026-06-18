@@ -363,7 +363,7 @@ pub trait ToplevelNodeBase: Node {
         self.tl_data()
             .parent
             .is_some()
-            .then_some(self.node_absolute_position(LiveTL))
+            .then_some(self.node_absolute_position(RenderTL))
     }
 
     fn tl_push_float(&self, float: Option<&Rc<FloatNode>>) {
@@ -966,12 +966,10 @@ impl ToplevelData {
             .map(|ws| ws.node_state[tl].output.get())
     }
 
-    pub fn desired_pixel_size(&self) -> (i32, i32) {
+    pub fn desired_pixel_size(&self, tl: TreeTimeline) -> (i32, i32) {
         let (dw, dh) = self.desired_extents.get().size();
-        if let Some(ws) = self.workspace[LiveTL].get() {
-            let scale = ws.node_state[LiveTL].output.get().node_state[LiveTL]
-                .scale
-                .get();
+        if let Some(ws) = self.workspace[tl].get() {
+            let scale = ws.node_state[tl].output.get().node_state[tl].scale.get();
             return scale.pixel_size([dw, dh]).to_tuple();
         };
         (0, 0)

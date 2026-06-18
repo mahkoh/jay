@@ -282,11 +282,11 @@ impl XdgPopup {
 impl XdgPopupRequestHandler for XdgPopup {
     type Error = XdgPopupError;
 
-    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn destroy(&self, _req: Destroy, slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.jay_popup_ext.is_some() {
             return Err(XdgPopupError::HasJayPopupExt);
         }
-        self.destroy_node();
+        slf.destroy_node();
         self.xdg.unset_ext();
         self.xdg.surface.client.remove_obj(self)?;
         Ok(())
@@ -315,7 +315,7 @@ impl XdgPopup {
         let surface = &self.xdg.surface;
         let extents = surface.extents.get();
         let (x, y) = surface.buffer_abs_pos[LiveTL].get().position();
-        surface.client.state.damage(extents.move_(x, y));
+        surface.damage(extents.move_(x, y), LiveTL);
 
         // log::info!("set visible = {}", visible);
         self.set_visible_prepared.set(false);
@@ -327,11 +327,12 @@ impl XdgPopup {
         }
     }
 
-    pub fn destroy_node(&self) {
+    pub fn destroy_node(self: &Rc<Self>) {
         self.xdg.destroy_node();
-        self.seat_state.destroy_node(self);
+        self.seat_state.destroy_node(&**self);
         if let Some(parent) = self.parent.take() {
             parent.remove_popup();
+            self.add_transaction_op(XdgPopupTransactionOp::DropParent(parent));
         }
         self.send_popup_done();
     }
@@ -583,6 +584,7 @@ efrom!(XdgPopupError, ClientError);
 pub enum XdgPopupTransactionOp {
     XdgOp(XdgSurfaceTransactionOp),
     NodeStack(NodeStackTransactionOp),
+    DropParent(Rc<dyn XdgPopupParent>),
 }
 
 impl Transactionable for XdgPopup {
@@ -601,6 +603,9 @@ impl Transactionable for XdgPopup {
                 if let Some(parent) = self.parent.get() {
                     parent.nodes_stack_element().borrow_mut().run_op(v);
                 }
+            }
+            XdgPopupTransactionOp::DropParent(v) => {
+                drop(v);
             }
         }
     }

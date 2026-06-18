@@ -104,7 +104,7 @@ impl DisplayNode {
         self.add_transaction_op(DisplayTransactionOp::SetExtents(v));
     }
 
-    pub fn update_visible(&self, state: &State) {
+    pub fn update_visible(&self, state: &Rc<State>) {
         let visible = state.root_visible();
         for output in self.outputs.lock().values() {
             output.update_visible();
@@ -124,7 +124,7 @@ impl DisplayNode {
             seat.set_visible(visible);
         }
         if visible {
-            state.damage_full();
+            state.damage_full(LiveTL);
         }
     }
 

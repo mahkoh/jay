@@ -20,7 +20,7 @@ use {
         object::Object,
         rect::Rect,
         tree::{
-            FindTreeResult, FoundNode, Node, NodeLayerLink, NodeLocation, NodesStack,
+            FindTreeResult, FoundNode, Node, NodeBase, NodeLayerLink, NodeLocation, NodesStack,
             NodesStackElement, OutputNode, SplitView, StackedNode, TreeSerial,
             TreeTimeline::{self, LiveTL, RenderTL},
             WorkspaceNode, WorkspaceType,
@@ -387,10 +387,14 @@ impl XdgSurface {
         }
     }
 
-    pub fn damage(&self) {
-        let (x, y) = self.surface.buffer_abs_pos[LiveTL].get().position();
+    pub fn damage(&self, tt: TreeTimeline) {
+        let (x, y) = self.surface.buffer_abs_pos[tt].get().position();
         let extents = self.surface.extents.get();
-        self.surface.client.state.damage(extents.move_(x, y));
+        let rect = extents.move_(x, y);
+        match tt {
+            LiveTL => self.surface.damage(rect, LiveTL),
+            RenderTL => self.surface.client.state.damage(rect),
+        }
     }
 
     pub fn geometry(&self, tl: TreeTimeline) -> Rect {
@@ -423,6 +427,9 @@ impl XdgSurface {
         }
         self.popup_display_stack.set(stack.clone());
         for popup in self.popups.lock().values() {
+            if popup.popup.xdg.surface.node_visible(RenderTL) {
+                popup.popup.xdg.damage(RenderTL);
+            }
             popup.display_link.borrow_mut().restack_on(stack);
             popup.popup.xdg.set_popup_stack(stack, stack_type);
         }
@@ -597,14 +604,15 @@ impl XdgSurface {
             let v = self.calculate_effective_geometry(ext.as_ref(), LiveTL);
             if self.effective_geometry[LiveTL].replace(v) != v {
                 self.update_surface_position();
-                if let Some(ext) = &ext {
-                    ext.geometry_changed();
-                }
             }
         }
         if todo[RenderTL] {
             let v = self.calculate_effective_geometry(ext.as_ref(), RenderTL);
-            self.effective_geometry[RenderTL].set(v);
+            if self.effective_geometry[RenderTL].replace(v) != v
+                && let Some(ext) = &ext
+            {
+                ext.geometry_changed();
+            }
         }
     }
 
@@ -669,8 +677,8 @@ impl XdgSurface {
             return;
         }
         for popup in self.popups.lock().values() {
-            if self.surface.visible[LiveTL].get() {
-                popup.popup.xdg.damage();
+            if self.surface.visible[RenderTL].get() {
+                popup.popup.xdg.damage(RenderTL);
             }
             popup.display_link.borrow().restack();
             popup.popup.xdg.restack_popups();

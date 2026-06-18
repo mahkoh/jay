@@ -76,7 +76,7 @@ impl ExtSessionLockManagerV1RequestHandler for ExtSessionLockManagerV1 {
             state.set_locked(true);
             state.lock.lock.set(Some(new.clone()));
             state.tree_changed();
-            state.damage_full();
+            state.damage_full(LiveTL);
             new.check_locked();
         } else {
             new.finish();

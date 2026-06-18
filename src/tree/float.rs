@@ -190,7 +190,6 @@ impl FloatNode {
         child.tl_restack_popups();
         floater.schedule_layout();
         if ns.visible.get() {
-            state.damage(position);
             floater.display_link.borrow().invalidate();
         }
         if child.tl_data().pinned.get() {
@@ -243,15 +242,13 @@ impl FloatNode {
     }
 
     pub fn schedule_render_titles(self: &Rc<Self>) {
-        if !self.render_titles_scheduled.replace(true) {
-            self.state.pending_float_titles.push(self.clone());
-        }
+        self.add_transaction_op(FloatTransactionOp::ScheduleRenderTitles);
     }
 
     fn render_title_phase1(&self) -> Rc<AsyncEvent> {
         let on_completed = Rc::new(OnDropEvent::default());
         let theme = &self.state.theme;
-        let tc = match self.node_state[LiveTL].active.get() {
+        let tc = match self.node_state[RenderTL].active.get() {
             true => theme.colors.focused_title_text.get(),
             false => theme.colors.unfocused_title_text.get(),
         };
@@ -262,7 +259,7 @@ impl FloatNode {
             _ => return on_completed.event(),
         };
         let scales = self.state.scales.lock();
-        let tr = self.node_state[LiveTL].title_rect.get();
+        let tr = self.node_state[RenderTL].title_rect.get();
         let tt = &mut *self.title_textures.borrow_mut();
         self.icons.clear();
         for (scale, _) in scales.iter() {
@@ -281,7 +278,7 @@ impl FloatNode {
                 width = (width - th).max(0);
                 self.icons.insert(*scale, icon);
             }
-            if self.node_state[LiveTL].workspace_ty.get() == WorkspaceType::Overlay {
+            if self.node_state[RenderTL].workspace_ty.get() == WorkspaceType::Overlay {
                 width = (width - th).max(0);
             }
             if self.state.show_pin_icon.get() || self.pinned_link.borrow().is_some() {
@@ -313,8 +310,8 @@ impl FloatNode {
 
     fn render_title_phase2(&self) {
         let theme = &self.state.theme;
-        let th = theme.title_height(LiveTL);
-        let bw = theme.sizes.border_width.get(LiveTL);
+        let th = theme.title_height(RenderTL);
+        let bw = theme.sizes.border_width.get(RenderTL);
         let title = self.title.borrow();
         let tt = &*self.title_textures.borrow();
         for (_, tt) in tt {
@@ -322,7 +319,7 @@ impl FloatNode {
                 log::error!("Could not render title {}: {}", title, ErrorFmt(e));
             }
         }
-        let ns = &self.node_state[LiveTL];
+        let ns = &self.node_state[RenderTL];
         let pos = ns.position.get();
         if ns.visible.get() && pos.width() >= 2 * bw {
             let tr =
@@ -417,10 +414,6 @@ impl FloatNode {
             }
             let new_pos = Rect::new_saturating(x1, y1, x2, y2);
             self.set_ns_position(new_pos);
-            if ns.visible.get() {
-                self.state.damage(pos);
-                self.state.damage(new_pos);
-            }
             self.schedule_layout();
             return;
         }
@@ -489,8 +482,8 @@ impl FloatNode {
             self.display_link
                 .borrow_mut()
                 .restack_on(self.state.float_stack(ws.ty));
-            if ns.visible.get() {
-                self.state.damage(ns.position.get());
+            if self.node_visible(RenderTL) {
+                self.state.damage(self.node_absolute_position(RenderTL));
             }
         }
         self.location.set(ws.location());
@@ -549,10 +542,6 @@ impl FloatNode {
         }
         let new_pos = Rect::new_saturating(x1, y1, x2, y2);
         self.set_ns_position(new_pos);
-        if ns.visible.get() {
-            self.state.damage(pos);
-            self.state.damage(new_pos);
-        }
         self.schedule_layout();
     }
 
@@ -561,10 +550,6 @@ impl FloatNode {
         let old_pos = ns.position.get();
         let new_pos = old_pos.move_(dx, dy);
         self.set_ns_position(new_pos);
-        if ns.visible.get() {
-            self.state.damage(old_pos);
-            self.state.damage(new_pos);
-        }
         self.schedule_layout();
     }
 
@@ -609,14 +594,16 @@ impl FloatNode {
         }
     }
 
-    fn restack(&self) {
+    fn restack(self: &Rc<Self>) {
         let dl = &*self.display_link.borrow();
         if let Some(link) = &dl.link {
             if link.next().is_none() {
                 return;
             }
             let ns = &self.node_state[LiveTL];
-            self.state.damage(ns.position.get());
+            if self.node_visible(RenderTL) {
+                self.state.damage(self.node_absolute_position(RenderTL));
+            }
             dl.restack();
             if let Some(tl) = ns.child.get() {
                 tl.tl_restack_popups();
@@ -1062,22 +1049,16 @@ impl ContainingNode for FloatNode {
         self.pull_child_properties();
         new.tl_set_visible(ns.visible.get());
         self.schedule_layout();
-        if ns.visible.get() {
-            self.state.damage(ns.position.get());
-        }
     }
 
     fn cnode_remove_child2(self: Rc<Self>, _child: &dyn Node, _preserve_focus: bool) {
-        let ns = &self.node_state[LiveTL];
         self.discard_child_properties();
+        self.set_ns_visible(false);
         self.set_ns_child(None);
-        self.display_link.borrow_mut().clear();
+        self.add_transaction_op(FloatTransactionOp::ClearLink);
         self.workspace_link.set(None);
         self.pinned_link.take();
         self.set_ns_pinned(false);
-        if ns.visible.get() {
-            self.state.damage(ns.position.get());
-        }
     }
 
     fn cnode_accepts_child(&self, _node: &dyn Node) -> bool {
@@ -1111,8 +1092,6 @@ impl ContainingNode for FloatNode {
         if pos.position() != (x, y) {
             let new_pos = pos.at_point(x, y);
             self.set_ns_position(new_pos);
-            self.state.damage(pos);
-            self.state.damage(new_pos);
             self.schedule_layout();
         }
     }
@@ -1149,10 +1128,6 @@ impl ContainingNode for FloatNode {
         let new_pos = Rect::new_saturating(x1, y1, x2, y2);
         if new_pos != pos {
             self.set_ns_position(new_pos);
-            if ns.visible.get() {
-                self.state.damage(pos);
-                self.state.damage(new_pos);
-            }
             self.schedule_layout();
         }
     }
@@ -1182,7 +1157,7 @@ impl FloatNode {
     fn set_visible(self: &Rc<Self>, visible: bool) {
         let ns = &self.node_state[LiveTL];
         if self.set_ns_visible(visible) != visible {
-            self.state.damage(ns.position.get());
+            self.add_transaction_op(FloatTransactionOp::Damage);
             if visible {
                 self.display_link.borrow().invalidate();
             }
@@ -1240,6 +1215,9 @@ pub enum FloatTransactionOp {
     SetAttentionRequested(bool),
     SetPinned(bool),
     NodeStack(NodeStackTransactionOp),
+    Damage,
+    ScheduleRenderTitles,
+    ClearLink,
 }
 
 impl Transactionable for FloatNode {
@@ -1251,33 +1229,70 @@ impl Transactionable for FloatNode {
 
     fn apply(self: &Rc<Self>, op: Self::T) {
         let s = &self.node_state[RenderTL];
+        let dmg = |r| self.state.damage(r);
+        let dmg_rel = |r: Rect| {
+            let (x, y) = s.position.get().position();
+            dmg(r.move_(x, y));
+        };
         match op {
             FloatTransactionOp::SetVisible(v) => {
-                s.visible.set(v);
+                if s.visible.replace(v) != v {
+                    dmg(s.position.get());
+                }
             }
             FloatTransactionOp::SetPosition(v) => {
-                s.position.set(v);
+                let old = s.position.replace(v);
+                if s.visible.get() && old != v {
+                    dmg(old);
+                    dmg(v);
+                }
             }
             FloatTransactionOp::SetChild(v) => {
                 s.child.set(v);
+                if s.visible.get() {
+                    dmg(s.position.get());
+                }
+            }
+            FloatTransactionOp::Damage => {
+                dmg(s.position.get());
+            }
+            FloatTransactionOp::ScheduleRenderTitles => {
+                if !self.render_titles_scheduled.replace(true) {
+                    self.state.pending_float_titles.push(self.clone());
+                }
             }
             FloatTransactionOp::SetWorkspaceType(v) => {
-                s.workspace_ty.set(v);
+                if s.workspace_ty.replace(v) != v {
+                    dmg_rel(s.title_rect.get());
+                }
             }
             FloatTransactionOp::SetTitleRect(v) => {
-                s.title_rect.set(v);
+                let old = s.title_rect.replace(v);
+                if old != v {
+                    dmg_rel(old);
+                    dmg_rel(v);
+                }
             }
             FloatTransactionOp::SetActive(v) => {
-                s.active.set(v);
+                if s.active.replace(v) != v {
+                    dmg_rel(s.title_rect.get());
+                }
             }
             FloatTransactionOp::SetAttentionRequested(v) => {
-                s.attention_requested.set(v);
+                if s.attention_requested.replace(v) != v {
+                    dmg_rel(s.title_rect.get());
+                }
             }
             FloatTransactionOp::SetPinned(v) => {
-                s.pinned.set(v);
+                if s.pinned.replace(v) != v {
+                    dmg_rel(s.title_rect.get());
+                }
             }
             FloatTransactionOp::NodeStack(v) => {
                 self.display_link.borrow_mut().run_op(v);
+            }
+            FloatTransactionOp::ClearLink => {
+                self.display_link.borrow_mut().clear();
             }
         }
     }

@@ -17,7 +17,10 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         time::Time,
-        tree::{LatchListener, OutputNode, PresentationListener, TreeTimeline::LiveTL},
+        tree::{
+            LatchListener, OutputNode, PresentationListener,
+            TreeTimeline::{LiveTL, RenderTL},
+        },
         utils::{cell_ext::CellExt, clonecell::CloneCell, event_listener::EventListener},
         video::Modifier,
         wire::{ExtImageCopyCaptureSessionV1Id, ext_image_copy_capture_session_v1::*},
@@ -100,7 +103,7 @@ impl ExtImageCopyCaptureSessionV1 {
                 let Some(node) = o.get() else {
                     return;
                 };
-                node.tl_data().desired_pixel_size()
+                node.tl_data().desired_pixel_size(LiveTL)
             }
         };
         self.send_buffer_size(width, height);
@@ -282,7 +285,7 @@ impl LatchListener for ExtImageCopyCaptureSessionV1 {
             return;
         };
         let data = tl.tl_data();
-        if !data.visible[LiveTL].get() {
+        if !data.visible[RenderTL].get() {
             return;
         }
         let Some(frame) = self.frame.get() else {
@@ -293,7 +296,7 @@ impl LatchListener for ExtImageCopyCaptureSessionV1 {
             self.force_capture.set(true);
             return;
         }
-        frame.copy_node(on, &*tl, data.desired_pixel_size());
+        frame.copy_node(on, &*tl, data.desired_pixel_size(RenderTL));
     }
 }
 

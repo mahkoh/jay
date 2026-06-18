@@ -1269,6 +1269,18 @@ impl State {
         serial as _
     }
 
+    pub fn damage_full(self: &Rc<Self>, tt: TreeTimeline) {
+        let rect = self.root.node_state[tt].extents.get();
+        match tt {
+            LiveTL => self.schedule_damage(rect),
+            RenderTL => self.damage(rect),
+        }
+    }
+
+    pub fn schedule_damage(self: &Rc<Self>, rect: Rect) {
+        self.add_transaction_op(StateTransactionOp::Damage(rect));
+    }
+
     pub fn damage(&self, rect: Rect) {
         self.damage2(false, false, rect);
     }
@@ -1279,7 +1291,7 @@ impl State {
         }
         self.damage_visualizer.add(rect);
         for output in self.root.outputs.lock().values() {
-            if output.node_state[LiveTL].pos.get().intersects(&rect) {
+            if output.node_state[RenderTL].pos.get().intersects(&rect) {
                 if skip_hc && output.hardware_cursor.is_some() {
                     continue;
                 }
@@ -1307,7 +1319,7 @@ impl State {
             }
         }
         self.tree_changed();
-        self.damage_full();
+        self.damage_full(LiveTL);
     }
 
     pub fn clear(self: &Rc<Self>) {
@@ -1479,8 +1491,8 @@ impl State {
             cd,
             output,
             self,
-            Some(output.node_state[LiveTL].pos.get()),
-            output.node_state[LiveTL].scale.get(),
+            Some(output.node_state[RenderTL].pos.get()),
+            output.node_state[RenderTL].scale.get(),
             render_hw_cursor,
             true,
             blend_buffer,
@@ -1656,7 +1668,7 @@ impl State {
         seat
     }
 
-    pub fn set_backend_idle(&self, idle: bool) {
+    pub fn set_backend_idle(self: &Rc<Self>, idle: bool) {
         if self.idle.backend_idle.replace(idle) != idle {
             self.root.update_visible(self);
         }
@@ -2003,7 +2015,7 @@ impl State {
         }
     }
 
-    fn colors_changed(&self) {
+    fn colors_changed(self: &Rc<Self>) {
         struct V;
         impl NodeVisitorBase for V {
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
@@ -2022,12 +2034,13 @@ impl State {
             }
         }
         self.visit_all_nodes(&mut V);
-        self.damage_full();
+        self.damage_full(LiveTL);
+        self.damage_full(RenderTL);
         self.icons.clear();
         self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
-    pub fn reset_colors(&self) {
+    pub fn reset_colors(self: &Rc<Self>) {
         self.theme.colors.reset();
         self.colors_changed();
     }
@@ -2070,7 +2083,7 @@ impl State {
         self.trigger_cci(CCI_COMPOSITOR);
     }
 
-    fn spaces_changed(&self) {
+    fn spaces_changed(self: &Rc<Self>) {
         struct V;
         impl NodeVisitorBase for V {
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
@@ -2087,7 +2100,8 @@ impl State {
             }
         }
         self.visit_all_nodes(&mut V);
-        self.damage_full();
+        self.damage_full(LiveTL);
+        self.damage_full(RenderTL);
         self.icons.update_sizes(self);
         for client in self.clients.clients.borrow().values() {
             let mgrs = &client.data.objects.xdg_toplevel_icon_managers;
@@ -2099,7 +2113,7 @@ impl State {
         self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
-    pub fn set_show_bar(&self, show: bool) {
+    pub fn set_show_bar(self: &Rc<Self>, show: bool) {
         self.show_bar.set(show);
         self.spaces_changed();
     }
@@ -2127,9 +2141,9 @@ impl State {
         self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
-    pub fn set_window_icons_grayscale(&self, show: bool) {
+    pub fn set_window_icons_grayscale(self: &Rc<Self>, show: bool) {
         self.theme.window_icons_grayscale.set(show);
-        self.damage_full();
+        self.damage_full(RenderTL);
         self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
@@ -2154,7 +2168,7 @@ impl State {
         }
     }
 
-    pub fn set_float_above_fullscreen(&self, v: bool) {
+    pub fn set_float_above_fullscreen(self: &Rc<Self>, v: bool) {
         self.float_above_fullscreen.set(v);
         self.trigger_cci(CCI_LOOK_AND_FEEL);
         for seat in self.globals.seats.lock().values() {
@@ -2244,7 +2258,7 @@ impl State {
         self.add_transaction_op(StateTransactionOp::SetSize(sized, size));
     }
 
-    pub fn set_color(&self, colored: ThemeColor, v: Color) {
+    pub fn set_color(self: &Rc<Self>, colored: ThemeColor, v: Color) {
         colored.field(&self.theme).set(v);
         self.colors_changed();
     }
@@ -2448,16 +2462,12 @@ impl State {
         }
     }
 
-    pub fn set_visualize_compositing(&self, visualize: bool) {
+    pub fn set_visualize_compositing(self: &Rc<Self>, visualize: bool) {
         if self.visualize_compositing.replace(visualize) == visualize {
             return;
         }
-        self.damage_full();
+        self.damage_full(RenderTL);
         self.trigger_cci(CCI_COMPOSITOR);
-    }
-
-    pub fn damage_full(&self) {
-        self.damage(self.root.node_state[LiveTL].extents.get());
     }
 }
 
@@ -2480,6 +2490,7 @@ pub enum StateTransactionOp {
     ResetSizes,
     SetBarPosition(BarPosition),
     SetSize(ThemeSized, i32),
+    Damage(Rect),
 }
 
 impl Transactionable for State {
@@ -2511,6 +2522,9 @@ impl Transactionable for State {
             }
             StateTransactionOp::SetSize(sized, size) => {
                 self.set_size_(RenderTL, sized, size);
+            }
+            StateTransactionOp::Damage(v) => {
+                self.damage(v);
             }
         }
     }

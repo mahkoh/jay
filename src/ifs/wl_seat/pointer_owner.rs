@@ -21,7 +21,8 @@ use {
         time::Time,
         tree::{
             ContainerNode, ContainerSplit, ContainingNode, FindTreeUsecase, FoundNode, Node,
-            NodeBase, OutputNode, PlaceholderNode, TddType, ToplevelNode, TreeTimeline::LiveTL,
+            NodeBase, OutputNode, PlaceholderNode, TddType, ToplevelNode,
+            TreeTimeline::{LiveTL, RenderTL},
             WorkspaceChangeReason, WorkspaceDragDestination, WorkspaceNode, WsMoveConfig,
             move_ws_to_output, toplevel_set_workspace,
         },
@@ -1126,11 +1127,11 @@ impl<S: ToplevelSelector> NodeSelectorUsecase for SelectToplevelUsecase<S> {
             if !tl.tl_admits_children() {
                 seat.pointer_cursor().set_known(KnownCursor::Pointer);
             }
-            seat.state.damage(tl.node_absolute_position(LiveTL));
+            seat.state.damage(tl.node_absolute_position(RenderTL));
         }
         if let Some(prev) = self.latest.set(tl) {
             prev.tl_data().render_highlight.fetch_sub(1);
-            seat.state.damage(prev.node_absolute_position(LiveTL));
+            seat.state.damage(prev.node_absolute_position(RenderTL));
         }
     }
 }
@@ -1140,7 +1141,7 @@ impl<S: ?Sized> Drop for SelectToplevelUsecase<S> {
         if let Some(prev) = self.latest.take() {
             prev.tl_data().render_highlight.fetch_sub(1);
             if let Some(seat) = self.seat.upgrade() {
-                seat.state.damage(prev.node_absolute_position(LiveTL));
+                seat.state.damage(prev.node_absolute_position(RenderTL));
             }
         }
     }
@@ -1169,11 +1170,11 @@ impl<S: WorkspaceSelector> NodeSelectorUsecase for SelectWorkspaceUsecase<S> {
         if let Some(ws) = &ws {
             ws.render_highlight.fetch_add(1);
             seat.pointer_cursor().set_known(KnownCursor::Pointer);
-            seat.state.damage(ws.node_absolute_position(LiveTL));
+            seat.state.damage(ws.node_absolute_position(RenderTL));
         }
         if let Some(prev) = self.latest.set(ws) {
             prev.render_highlight.fetch_sub(1);
-            seat.state.damage(prev.node_absolute_position(LiveTL));
+            seat.state.damage(prev.node_absolute_position(RenderTL));
         }
     }
 }
@@ -1183,7 +1184,7 @@ impl<S: ?Sized> Drop for SelectWorkspaceUsecase<S> {
         if let Some(prev) = self.latest.take() {
             prev.render_highlight.fetch_sub(1);
             if let Some(seat) = self.seat.upgrade() {
-                seat.state.damage(prev.node_absolute_position(LiveTL));
+                seat.state.damage(prev.node_absolute_position(RenderTL));
             }
         }
     }

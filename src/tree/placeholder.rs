@@ -14,7 +14,7 @@ use {
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, NodeBase,
             NodeId, NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
             ToplevelData, ToplevelDataTransactionOp, ToplevelNode, ToplevelNodeBase, ToplevelType,
-            TreeTimeline::{self, LiveTL},
+            TreeTimeline::{self, LiveTL, RenderTL},
             WorkspaceNode, default_tile_drag_destination,
         },
         utils::{
@@ -147,8 +147,8 @@ impl PlaceholderNode {
                 log::warn!("Could not render fullscreen texture: {}", ErrorFmt(e));
             }
         }
-        if self.node_visible(LiveTL) {
-            self.state.damage(self.node_absolute_position(LiveTL));
+        if self.node_visible(RenderTL) {
+            self.state.damage(self.node_absolute_position(RenderTL));
         }
     }
 }

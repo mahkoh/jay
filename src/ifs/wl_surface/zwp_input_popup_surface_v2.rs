@@ -59,7 +59,7 @@ pub async fn input_popup_positioning(state: Rc<State>) {
 
 impl ZwpInputPopupSurfaceV2 {
     fn damage(&self) {
-        let (x, y) = self.surface.buffer_abs_pos[LiveTL].get().position();
+        let (x, y) = self.surface.buffer_abs_pos[RenderTL].get().position();
         let extents = self.surface.extents.get();
         self.client.state.damage(extents.move_(x, y));
     }

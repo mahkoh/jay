@@ -23,7 +23,10 @@ use {
         state::State,
         syncobj::SyncobjCtx,
         theme::Color,
-        tree::{Node, NodeBase, OutputNode, Transform, TreeTimeline::LiveTL},
+        tree::{
+            Node, NodeBase, OutputNode, Transform,
+            TreeTimeline::{LiveTL, RenderTL},
+        },
         utils::{
             clonecell::UnsafeCellCloneSafe, errorfmt::ErrorFmt, oserror::OsErrorExt,
             static_text::StaticText,
@@ -676,9 +679,9 @@ impl dyn GfxFramebuffer {
             scale,
             true,
             render_hardware_cursor,
-            node.has_fullscreen(),
+            node.has_fullscreen(RenderTL),
             fill_black_in_grace_period,
-            node.node_state[LiveTL].transform.get(),
+            node.node_state[RenderTL].transform.get(),
             blend_buffer,
             blend_cd,
             visualize_compositing,
@@ -1141,7 +1144,7 @@ pub fn create_render_pass(
             if let Some(im) = seat.input_method() {
                 for (_, popup) in im.popups() {
                     if popup.surface.node_visible(LiveTL) {
-                        let pos = popup.surface.buffer_abs_pos[LiveTL].get();
+                        let pos = popup.surface.buffer_abs_pos[RenderTL].get();
                         let extents = popup.surface.extents.get().move_(pos.x1(), pos.y1());
                         if extents.intersects(&rect) {
                             let (x, y) = rect.translate(pos.x1(), pos.y1());

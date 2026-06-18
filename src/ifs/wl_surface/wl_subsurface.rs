@@ -291,13 +291,13 @@ impl WlSubsurface {
     }
 
     fn damage(&self) {
-        if !self.surface.visible[LiveTL].get() {
+        if !self.surface.visible[RenderTL].get() {
             return;
         }
-        let (x, y) = self.surface.buffer_abs_pos[LiveTL].get().position();
+        let (x, y) = self.surface.buffer_abs_pos[RenderTL].get().position();
         let mut rect = self.surface.extents.get().move_(x, y);
         if let Some(tl) = self.surface.toplevel.get() {
-            rect = rect.intersect(tl.node_absolute_position(LiveTL));
+            rect = rect.intersect(tl.node_absolute_position(RenderTL));
         }
         self.surface.client.state.damage(rect);
     }
@@ -308,10 +308,10 @@ impl WlSubsurface {
             if has_buffer {
                 if self.parent.visible[LiveTL].get() {
                     self.surface.set_visible_(true);
-                    self.damage();
                 }
                 if self.parent.visible[RenderTL].get() {
                     self.surface.set_rendered_(true);
+                    self.damage();
                 }
             } else {
                 if self.surface.toplevel.is_some() {

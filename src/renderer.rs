@@ -21,7 +21,7 @@ use {
         theme::Color,
         tree::{
             ContainerChildType, ContainerNode, DisplayNode, FloatNode, NodeBase, OutputNode,
-            PlaceholderNode, ToplevelData, ToplevelNodeBase, TreeTimeline::LiveTL, WorkspaceNode,
+            PlaceholderNode, ToplevelData, ToplevelNodeBase, TreeTimeline::RenderTL, WorkspaceNode,
             WorkspaceType,
         },
     },
@@ -53,18 +53,18 @@ impl Renderer<'_> {
     }
 
     pub fn render_display(&mut self, display: &DisplayNode, x: i32, y: i32) {
-        let ext = display.node_state[LiveTL].extents.get();
+        let ext = display.node_state[RenderTL].extents.get();
         let outputs = display.outputs.lock();
         for output in outputs.values() {
-            let opos = output.node_state[LiveTL].pos.get();
+            let opos = output.node_state[RenderTL].pos.get();
             let (ox, oy) = ext.translate(opos.x1(), opos.y1());
             self.render_output(output, x + ox, y + oy);
         }
     }
 
     pub fn render_output(&mut self, output: &OutputNode, x: i32, y: i32) {
-        let ns = &output.node_state[LiveTL];
-        if self.state.lock.locked[LiveTL].get() {
+        let ns = &output.node_state[RenderTL];
+        if self.state.lock.locked[RenderTL].get() {
             if let Some(surface) = ns.lock_surface.get()
                 && surface.surface.buffer.is_some()
             {
@@ -75,7 +75,7 @@ impl Renderer<'_> {
         let opos = ns.pos.get();
         macro_rules! render_layer {
             ($layer:expr) => {
-                for ls in $layer.iter_valid(LiveTL) {
+                for ls in $layer.iter_valid(RenderTL) {
                     let pos = ls.output_extents();
                     self.render_layer_surface(ls.deref(), x + pos.x1(), y + pos.y1());
                     self.base.ops.push(GfxApiOp::Sync);
@@ -85,14 +85,14 @@ impl Renderer<'_> {
         let mut fullscreen = None;
         let mut fullscreen_is_overlay = false;
         if let Some(ws) = ns.overlay.get() {
-            let wns = &ws.node_state[LiveTL];
+            let wns = &ws.node_state[RenderTL];
             fullscreen = wns.fullscreen.get();
             fullscreen_is_overlay = wns.fullscreen.is_some();
         }
         if fullscreen.is_none()
             && let Some(ws) = ns.workspace.get()
         {
-            fullscreen = ws.node_state[LiveTL].fullscreen.get();
+            fullscreen = ws.node_state[RenderTL].fullscreen.get();
         }
         let theme = &self.state.theme;
         let srgb_srgb = self.state.color_manager.srgb_gamma22();
@@ -168,7 +168,7 @@ impl Renderer<'_> {
                     x,
                     y,
                 );
-                let scale = output.node_state[LiveTL].scale.get();
+                let scale = output.node_state[RenderTL].scale.get();
                 for title in &rd.titles {
                     if let Some(icon_x) = title.icon_x
                         && let Some(icons) = &self.bar_icons
@@ -214,10 +214,10 @@ impl Renderer<'_> {
                         },
                     );
                 }
-                for item in output.tray_items.iter_valid(LiveTL) {
+                for item in output.tray_items.iter_valid(RenderTL) {
                     let data = item.data();
                     if data.surface.buffer.is_some() {
-                        let rect = data.rel_pos[LiveTL].get().move_(x, y);
+                        let rect = data.rel_pos[RenderTL].get().move_(x, y);
                         let bounds = self.base.scale_rect(rect);
                         self.render_surface(&data.surface, rect.x1(), rect.y1(), Some(&bounds));
                     }
@@ -231,9 +231,9 @@ impl Renderer<'_> {
         }
         macro_rules! render_stacked {
             ($stack:expr) => {
-                for stacked in $stack.iter_visible(LiveTL) {
+                for stacked in $stack.iter_visible(RenderTL) {
                     self.base.sync();
-                    let pos = stacked.node_absolute_position(LiveTL);
+                    let pos = stacked.node_absolute_position(RenderTL);
                     if pos.intersects(&opos) {
                         let (x, y) = opos.translate(pos.x1(), pos.y1());
                         stacked.node_render(self, x, y, None);
@@ -273,7 +273,7 @@ impl Renderer<'_> {
     }
 
     pub fn render_workspace(&mut self, workspace: &WorkspaceNode, x: i32, y: i32) {
-        if let Some(node) = workspace.node_state[LiveTL].container.get() {
+        if let Some(node) = workspace.node_state[RenderTL].container.get() {
             self.render_container(&node, x, y)
         }
     }
@@ -343,7 +343,7 @@ impl Renderer<'_> {
                     .fill_boxes2(std::slice::from_ref(lar), &c, srgb, perceptual, x, y);
             }
             let draw_overlay_icon = container.tl_data().is_overlay_root_container.get();
-            let th = self.state.theme.title_height(LiveTL);
+            let th = self.state.theme.title_height(RenderTL);
             if let Some(titles) = rd.titles.get(&self.base.scale) {
                 for title in titles {
                     let rect = title.rect.move_(x, y);
@@ -393,7 +393,7 @@ impl Renderer<'_> {
                 }
             }
         }
-        let ns = &container.node_state[LiveTL];
+        let ns = &container.node_state[RenderTL];
         if let Some(child) = ns.mono_child.get() {
             let body = ns.mono_body.get().move_(x, y);
             let body = self.base.scale_rect(body);
@@ -402,8 +402,8 @@ impl Renderer<'_> {
                 .node
                 .node_render(self, x + content.x1(), y + content.y1(), Some(&body));
         } else {
-            for child in container.children.iter_valid(LiveTL) {
-                let cns = &child.node_state[LiveTL];
+            for child in container.children.iter_valid(RenderTL) {
+                let cns = &child.node_state[RenderTL];
                 let body = cns.body.get();
                 if body.x1() >= ns.width.get() || body.y1() >= ns.height.get() {
                     break;
@@ -437,7 +437,7 @@ impl Renderer<'_> {
         bounds: Option<&Rect>,
     ) {
         let surface = &xdg.surface;
-        let geo = xdg.geometry(LiveTL);
+        let geo = xdg.geometry(RenderTL);
         (x, y) = geo.translate(x, y);
         self.render_surface(surface, x, y, bounds);
     }
@@ -503,11 +503,11 @@ impl Renderer<'_> {
             }
             return;
         }
-        if !surface.node_visible(LiveTL) {
+        if !surface.node_visible(RenderTL) {
             log::warn!("node is invisible");
         }
         let tpoints = surface.buffer_points_norm.borrow_mut();
-        let mut size = surface.buffer_abs_pos[LiveTL].get().size();
+        let mut size = surface.buffer_abs_pos[RenderTL].get().size();
         if let Some((x_rel, y_rel)) = pos_rel {
             let (x, y) = self.base.scale_point(x_rel, y_rel);
             let (w, h) = self.base.scale_point(x_rel + size.0, y_rel + size.1);
@@ -627,17 +627,17 @@ impl Renderer<'_> {
     }
 
     pub fn render_floating(&mut self, floating: &FloatNode, x: i32, y: i32) {
-        let ns = &floating.node_state[LiveTL];
+        let ns = &floating.node_state[RenderTL];
         let child = match ns.child.get() {
             Some(c) => c,
             _ => return,
         };
         let pos = ns.position.get();
         let theme = &self.state.theme;
-        let th = theme.title_height(LiveTL);
-        let tpuh = theme.title_plus_underline_height(LiveTL);
-        let tuh = theme.title_underline_height(LiveTL);
-        let bw = theme.sizes.border_width.get(LiveTL);
+        let th = theme.title_height(RenderTL);
+        let tpuh = theme.title_plus_underline_height(RenderTL);
+        let tuh = theme.title_underline_height(RenderTL);
+        let bw = theme.sizes.border_width.get(RenderTL);
         let bc = theme.colors.border.get();
         let tc = if ns.active.get() {
             theme.colors.focused_title_background.get()
@@ -770,7 +770,7 @@ impl Renderer<'_> {
         let Some(region) = surface.opaque_region() else {
             return false;
         };
-        let surface_size = surface.buffer_abs_pos[LiveTL].get().at_point(0, 0);
+        let surface_size = surface.buffer_abs_pos[RenderTL].get().at_point(0, 0);
         let surface_size = self.base.scale_rect(surface_size);
         let bounds = bounds.move_(-x, -y).intersect(surface_size);
         region.contains_rect2(&bounds, |r| self.base.scale_rect(*r))
@@ -783,7 +783,7 @@ impl Renderer<'_> {
         let perceptual = RenderIntent::Perceptual;
         match icon {
             ToplevelIcon::Srgb(color) => {
-                let tis = self.state.theme.title_icon_size(LiveTL) + 1;
+                let tis = self.state.theme.title_icon_size(RenderTL) + 1;
                 let (x2, y2) = self.base.scale_point(x1 + tis, y1 + tis);
                 let color = match grayscale {
                     true => color.to_grayscale(),

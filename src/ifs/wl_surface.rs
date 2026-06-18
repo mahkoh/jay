@@ -819,7 +819,7 @@ impl WlSurface {
     fn set_absolute_position_(&self, x1: i32, y1: i32, tl: TreeTimeline) {
         let old_pos = self.buffer_abs_pos[tl].get();
         let new_pos = old_pos.at_point(x1, y1);
-        if tl == LiveTL && self.visible[LiveTL].get() && self.toplevel.is_none() {
+        if tl == RenderTL && self.visible[RenderTL].get() && self.toplevel.is_none() {
             self.client.state.damage(old_pos);
             self.client.state.damage(new_pos);
         }
@@ -1111,9 +1111,7 @@ impl WlSurfaceRequestHandler for WlSurface {
             }
             *children = None;
         }
-        self.buffer.set(None);
-        self.reset_shm_textures();
-        self.prime.reset();
+        slf.add_transaction_op(WlSurfaceTransactionOp::Clear);
         if let Some(xwayland_serial) = self.xwayland_serial.get() {
             self.client
                 .surfaces_by_xwayland_serial
@@ -1271,7 +1269,7 @@ impl WlSurface {
         if self.destroyed.get() {
             return Ok(());
         }
-        let was_visible = self.visible[LiveTL].get();
+        let was_visible = self.visible[RenderTL].get();
         let serial = pending.serial.take();
         if let Some(serial) = serial
             && serial >= self.requested_serial.get()
@@ -1566,12 +1564,12 @@ impl WlSurface {
         if fifo_barrier_set {
             self.commit_timeline.set_fifo_barrier();
         }
-        if damage_full && (self.visible[LiveTL].get() || was_visible) {
-            let mut damage = self.buffer_abs_pos[LiveTL]
+        if damage_full && (self.visible[RenderTL].get() || was_visible) {
+            let mut damage = self.buffer_abs_pos[RenderTL]
                 .get()
                 .with_size_saturating(max_surface_size.0, max_surface_size.1);
             if let Some(tl) = self.toplevel.get() {
-                damage = damage.intersect(tl.node_absolute_position(LiveTL));
+                damage = damage.intersect(tl.node_absolute_position(RenderTL));
             }
             self.client.state.damage(damage);
         }
@@ -1598,7 +1596,7 @@ impl WlSurface {
                 // Frame requests must be dispatched at the highest possible frame rate.
                 // Therefore we must trigger a vsync of the output as soon as possible.
                 let rect = output.node_state[LiveTL].pos.get();
-                self.client.state.damage(rect);
+                self.damage(rect, LiveTL);
             }
         } else {
             if fifo_barrier_set {
@@ -1635,7 +1633,7 @@ impl WlSurface {
 
     fn apply_damage(&self, pending: &PendingState) {
         let bounds = self.toplevel.get().and_then(|tl| tl.tl_render_bounds());
-        let pos = self.buffer_abs_pos[LiveTL].get();
+        let pos = self.buffer_abs_pos[RenderTL].get();
         let apply_damage = |pos: Rect| {
             if pending.damage_full {
                 let mut damage = pos;
@@ -1843,7 +1841,7 @@ impl WlSurface {
         if self.visible[LiveTL].get() && self.toplevel.is_none() {
             let rect = self.extents.get();
             let (x, y) = self.buffer_abs_pos[LiveTL].get().position();
-            self.client.state.damage(rect.move_(x, y));
+            self.damage(rect.move_(x, y), LiveTL);
         }
         self.detach_node_(set_invisible);
         if set_invisible {
@@ -1970,6 +1968,16 @@ impl WlSurface {
             }
         }
     }
+
+    fn damage(self: &Rc<Self>, damage: Rect, mut tt: TreeTimeline) {
+        if !self.transactional.get() {
+            tt = RenderTL;
+        }
+        match tt {
+            LiveTL => self.add_transaction_op(WlSurfaceTransactionOp::Damage(damage)),
+            RenderTL => self.client.state.damage(damage),
+        }
+    }
 }
 
 object_base! {
@@ -1985,8 +1993,7 @@ impl Object for WlSurface {
         *self.children.borrow_mut() = None;
         self.unset_ext();
         mem::take(self.frame_requests.borrow_mut().deref_mut());
-        self.buffer.set(None);
-        self.prime.reset();
+        self.add_transaction_op(WlSurfaceTransactionOp::Clear);
         self.toplevel.set(None);
         self.idle_inhibitors.clear();
         self.pending.borrow_mut().reset();
@@ -2547,6 +2554,8 @@ pub enum WlSurfaceTransactionOp {
     UnblockCommitsUntil(TreeSerial, u64),
     SetPos(i32, i32),
     SetRendered(bool),
+    Damage(Rect),
+    Clear,
 }
 
 impl Transactionable for WlSurface {
@@ -2568,6 +2577,14 @@ impl Transactionable for WlSurface {
             }
             WlSurfaceTransactionOp::SetRendered(v) => {
                 self.set_rendered_(v);
+            }
+            WlSurfaceTransactionOp::Damage(v) => {
+                self.client.state.damage(v);
+            }
+            WlSurfaceTransactionOp::Clear => {
+                self.buffer.take();
+                self.reset_shm_textures();
+                self.prime.reset();
             }
         }
     }

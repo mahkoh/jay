@@ -34,7 +34,7 @@ use {
             NodeId, NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
             TileState, ToplevelData, ToplevelDataTransactionOp, ToplevelNode, ToplevelNodeBase,
             ToplevelNodeId, ToplevelType,
-            TreeTimeline::{self, LiveTL},
+            TreeTimeline::{self, LiveTL, RenderTL},
             WorkspaceNode, WorkspaceType, default_tile_drag_destination,
         },
         utils::{
@@ -469,8 +469,8 @@ impl XdgToplevel {
 
     pub fn after_toplevel_drag(self: &Rc<Self>, output: &Rc<OutputNode>, x: i32, y: i32) {
         assert!(self.toplevel_data.parent.is_none());
-        if self.node_visible(LiveTL) {
-            self.xdg.damage();
+        if self.node_visible(RenderTL) {
+            self.xdg.damage(RenderTL);
         }
         let extents = match self.xdg.geometry.get() {
             None => self.xdg.extents.get(),
@@ -497,13 +497,13 @@ impl XdgToplevel {
                     }
                     self.toplevel_data.broadcast(self.clone());
                     self.tl_set_visible(self.state.root_visible());
-                    self.xdg.damage();
+                    self.xdg.damage(LiveTL);
                 }
                 self.extents_changed();
             } else {
                 if self.is_mapped.replace(false) {
                     self.tl_set_visible(false);
-                    self.xdg.damage();
+                    self.xdg.damage(LiveTL);
                 }
             }
             return;
@@ -730,7 +730,7 @@ impl ToplevelNodeBase for XdgToplevel {
 
     fn tl_destroy_impl(self: &Rc<Self>) {
         if let Some(drag) = self.drag.take() {
-            self.xdg.damage();
+            self.xdg.damage(RenderTL);
             drag.toplevel.take();
         }
         self.xdg.destroy_node();
@@ -823,7 +823,7 @@ impl XdgSurfaceExt for XdgToplevel {
             .surface
             .client
             .state
-            .damage(self.node_absolute_position(LiveTL));
+            .damage(self.node_absolute_position(RenderTL));
     }
 
     fn effective_geometry(&self, geometry: Rect, tl: TreeTimeline) -> Rect {

@@ -334,7 +334,7 @@ impl Xwindow {
         let extents = self.x.surface.extents.get();
         let (x, y) = self.x.surface.buffer_abs_pos[LiveTL].get().position();
         let extents = extents.move_(x, y);
-        self.data.state.damage(extents);
+        self.x.surface.damage(extents, LiveTL);
     }
 
     pub fn update_toplevel(self: &Rc<Self>) {
@@ -524,7 +524,7 @@ impl ToplevelNodeBase for Xwindow {
     }
 
     fn tl_destroy_impl(self: &Rc<Self>) {
-        self.display_link.borrow_mut().clear();
+        self.add_transaction_op(XwindowTransactionOp::ClearLink);
         self.x.surface.destroy_node();
     }
 
@@ -588,6 +588,7 @@ pub enum XWindowError {
 pub enum XwindowTransactionOp {
     ToplevelData(ToplevelDataTransactionOp),
     NodeStack(NodeStackTransactionOp),
+    ClearLink,
 }
 
 impl Transactionable for Xwindow {
@@ -604,6 +605,9 @@ impl Transactionable for Xwindow {
             }
             XwindowTransactionOp::NodeStack(v) => {
                 self.display_link.borrow_mut().run_op(v);
+            }
+            XwindowTransactionOp::ClearLink => {
+                self.display_link.borrow_mut().clear();
             }
         }
     }

@@ -344,7 +344,7 @@ impl ConnectorHandler {
         let _ = self.state.remove_global(&global);
         let _ = self.state.remove_global(&tray);
         self.state.tree_changed();
-        self.state.damage_full();
+        self.state.damage_full(LiveTL);
     }
 
     async fn handle_non_desktop_connected(&self, monitor_info: MonitorInfo) {

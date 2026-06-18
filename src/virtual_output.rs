@@ -28,7 +28,10 @@ use {
         rect::Region,
         state::State,
         tasks::handle_connector,
-        tree::{OutputNode, TreeTimeline::LiveTL},
+        tree::{
+            OutputNode,
+            TreeTimeline::{LiveTL, RenderTL},
+        },
         utils::{
             asyncevent::AsyncEvent, cell_ext::CellExt, clonecell::CloneCell,
             copyhashmap::CopyHashMap, errorfmt::ErrorFmt, geometric_decay::GeometricDecay,
@@ -592,13 +595,13 @@ impl VirtualOutput {
             on.global.mode.get().size(),
             &**on,
             &self.state,
-            Some(on.node_state[LiveTL].pos.get()),
-            on.node_state[LiveTL].scale.get(),
+            Some(on.node_state[RenderTL].pos.get()),
+            on.node_state[RenderTL].scale.get(),
             true,
             false,
-            on.has_fullscreen(),
+            on.has_fullscreen(RenderTL),
             true,
-            on.node_state[LiveTL].transform.get(),
+            on.node_state[RenderTL].transform.get(),
             Some(&self.state.damage_visualizer),
             true,
         );
@@ -606,7 +609,7 @@ impl VirtualOutput {
             pass,
             damage_count,
             damage,
-            locked: self.state.lock.locked[LiveTL].get(),
+            locked: self.state.lock.locked[RenderTL].get(),
         })
     }
 
