@@ -2413,7 +2413,7 @@ impl Wm {
             Some(w) => w,
             _ => return Ok(()),
         };
-        if win.toplevel_data.visible.get() {
+        if win.toplevel_data.visible[LiveTL].get() {
             let seats = self.state.globals.seats.lock();
             for (_, seat) in seats.deref() {
                 seat.focus_toplevel(win.clone());

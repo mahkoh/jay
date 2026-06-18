@@ -194,7 +194,7 @@ impl ExtImageCopyCaptureSessionV1 {
             return;
         };
         let data = tl.tl_data();
-        if data.visible.get() {
+        if data.visible[LiveTL].get() {
             self.latch_listener.attach(&data.output(LiveTL).latch_event);
         } else {
             self.latch_listener.detach();
@@ -282,7 +282,7 @@ impl LatchListener for ExtImageCopyCaptureSessionV1 {
             return;
         };
         let data = tl.tl_data();
-        if !data.visible.get() {
+        if !data.visible[LiveTL].get() {
             return;
         }
         let Some(frame) = self.frame.get() else {

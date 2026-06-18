@@ -85,7 +85,7 @@ impl ExtImageCopyCaptureManagerV1RequestHandler for ExtImageCopyCaptureManagerV1
                     };
                     let data = node.tl_data();
                     data.ext_copy_sessions.set(id, obj.clone());
-                    if data.visible.get() {
+                    if data.visible[LiveTL].get() {
                         obj.latch_listener.attach(&data.output(LiveTL).latch_event);
                     }
                 }

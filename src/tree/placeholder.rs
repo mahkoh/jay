@@ -170,8 +170,8 @@ impl NodeBase for PlaceholderNode {
         // nothing
     }
 
-    fn node_visible(&self, _tl: TreeTimeline) -> bool {
-        self.toplevel.visible.get()
+    fn node_visible(&self, tl: TreeTimeline) -> bool {
+        self.toplevel.visible[tl].get()
     }
 
     fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {

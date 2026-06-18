@@ -408,7 +408,7 @@ impl ContainerNode {
         new.tl_update_icon(&new_ref.icon);
         new.tl_set_parent(self.clone());
         self.pull_child_properties(&new_ref);
-        new.tl_set_visible(self.toplevel_data.visible.get());
+        new.tl_set_visible(self.toplevel_data.visible[LiveTL].get());
         let num_children = self.num_children.fetch_add(1) + 1;
         self.update_content_size();
         let new_child_factor = 1.0 / num_children as f64;
@@ -468,7 +468,7 @@ impl ContainerNode {
     fn schedule_layout(self: &Rc<Self>) {
         if !self.layout_scheduled.replace(true) {
             self.state.pending_container_layout.push(self.clone());
-            if self.toplevel_data.visible.get() {
+            if self.toplevel_data.visible[LiveTL].get() {
                 self.damage();
             }
         }
@@ -901,7 +901,7 @@ impl ContainerNode {
         let abs_y = ns.abs_y1.get();
         for child in self.children.iter_valid(LiveTL) {
             let rect = child.node_state[LiveTL].title_rect.get();
-            if self.toplevel_data.visible.get() {
+            if self.toplevel_data.visible[LiveTL].get() {
                 self.state.damage(rect.move_(abs_x, abs_y));
             }
             let title = child.title.borrow_mut();
@@ -954,7 +954,10 @@ impl ContainerNode {
         for (i, child) in self.children.iter_valid(LiveTL).enumerate() {
             let cns = &child.node_state[LiveTL];
             let rect = cns.title_rect.get();
-            if self.toplevel_data.visible.get() && !mono && split != ContainerSplit::Horizontal {
+            if self.toplevel_data.visible[LiveTL].get()
+                && !mono
+                && split != ContainerSplit::Horizontal
+            {
                 self.state.damage(Rect::new_sized_saturating(
                     abs_x,
                     abs_y + rect.y1(),
@@ -991,7 +994,8 @@ impl ContainerNode {
             rd.underline_rects
                 .push(Rect::new_sized_saturating(0, th, cwidth, tuh));
         }
-        if self.toplevel_data.visible.get() && (mono || split == ContainerSplit::Horizontal) {
+        if self.toplevel_data.visible[LiveTL].get() && (mono || split == ContainerSplit::Horizontal)
+        {
             self.state
                 .damage(Rect::new_sized_saturating(abs_x, abs_y, cwidth, tpuh));
         }
@@ -1019,7 +1023,7 @@ impl ContainerNode {
                 }
             }
             self.set_ns_mono_child(Some(child.clone()));
-            if self.toplevel_data.visible.get() {
+            if self.toplevel_data.visible[LiveTL].get() {
                 child.node.tl_set_visible(true);
             }
             child.node.tl_restack_popups();
@@ -1046,7 +1050,7 @@ impl ContainerNode {
                 _ => None,
             }
         };
-        if self.toplevel_data.visible.get() {
+        if self.toplevel_data.visible[LiveTL].get() {
             if let Some(child) = &child {
                 let child_id = child.node.node_id();
                 let mut seats = SmallVec::<[_; 3]>::new();
@@ -1837,8 +1841,8 @@ impl NodeBase for ContainerNode {
         }
     }
 
-    fn node_visible(&self, _tl: TreeTimeline) -> bool {
-        self.toplevel_data.visible.get()
+    fn node_visible(&self, tl: TreeTimeline) -> bool {
+        self.toplevel_data.visible[tl].get()
     }
 
     fn node_absolute_position(&self, tl: TreeTimeline) -> Rect {

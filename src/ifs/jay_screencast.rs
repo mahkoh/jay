@@ -500,7 +500,7 @@ impl JayScreencast {
             return;
         };
         let data = tl.tl_data();
-        if data.visible.get() {
+        if data.visible[LiveTL].get() {
             self.latch_listener.attach(&data.output(LiveTL).latch_event);
         } else {
             self.latch_listener.detach();
@@ -619,7 +619,7 @@ impl JayScreencastRequestHandler for JayScreencast {
                         let data = t.tl_data();
                         data.jay_screencasts
                             .set((self.client.id, self.id), slf.clone());
-                        if data.visible.get() {
+                        if data.visible[LiveTL].get() {
                             self.latch_listener.attach(&data.output(LiveTL).latch_event);
                         }
                         new_target = Some(Target::Toplevel(t));

@@ -222,7 +222,7 @@ impl JayTreeQuery {
         if data.parent_is_float.get() {
             self.client.event(Floating { self_id: self.id });
         }
-        if data.visible.get() {
+        if data.visible[LiveTL].get() {
             self.client.event(Visible { self_id: self.id });
         }
         if data.wants_attention.get() {

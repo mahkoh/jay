@@ -388,6 +388,7 @@ pub trait ToplevelNodeBase: Node {
 pub enum ToplevelDataTransactionOp {
     SetIsFullscreen(bool),
     SetWorkspace(Option<Rc<WorkspaceNode>>),
+    SetVisible(bool),
 }
 
 pub struct FullscreenedData {
@@ -437,7 +438,7 @@ pub struct ToplevelData {
     pub client: Option<Rc<Client>>,
     pub state: Rc<State>,
     pub active_surfaces: ThresholdCounter,
-    pub visible: Cell<bool>,
+    pub visible: SplitView<Cell<bool>>,
     pub parent_is_float: Cell<bool>,
     pub float: CloneCell<Option<Rc<FloatNode>>>,
     pub float_width: Cell<i32>,
@@ -498,7 +499,7 @@ impl ToplevelData {
             client,
             state: state.clone(),
             active_surfaces: Default::default(),
-            visible: Cell::new(false),
+            visible: Default::default(),
             parent_is_float: Default::default(),
             float: Default::default(),
             float_width: Default::default(),
@@ -910,8 +911,9 @@ impl ToplevelData {
     }
 
     pub fn set_visible(&self, node: &dyn Node, visible: bool) {
-        if self.visible.replace(visible) != visible {
+        if self.visible[LiveTL].replace(visible) != visible {
             self.property_changed(TL_CHANGED_VISIBLE);
+            self.schedule_op(ToplevelDataTransactionOp::SetVisible(visible));
         }
         self.seat_state.set_visible(node, visible);
         for sc in self.jay_screencasts.lock().values() {
@@ -933,7 +935,7 @@ impl ToplevelData {
     }
 
     pub fn request_attention(&self, node: &dyn Node) {
-        if self.visible.get() {
+        if self.visible[LiveTL].get() {
             return;
         }
         if self.requested_attention.replace(true) {
@@ -986,7 +988,7 @@ impl ToplevelData {
     }
 
     pub fn make_visible(&self, slf: &dyn Node) {
-        if self.visible.get() {
+        if self.visible[LiveTL].get() {
             return;
         }
         if let Some(parent) = self.parent.get() {
@@ -1052,6 +1054,9 @@ impl ToplevelData {
                 let ty = v.as_ref().map(|v| v.ty);
                 self.workspace_type[RenderTL].set(ty);
                 self.workspace[RenderTL].set(v);
+            }
+            ToplevelDataTransactionOp::SetVisible(v) => {
+                self.visible[RenderTL].set(v);
             }
         }
     }
