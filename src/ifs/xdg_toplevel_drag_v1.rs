@@ -71,11 +71,12 @@ impl XdgToplevelDragV1 {
         self.move2(x, y, true);
     }
 
-    pub fn render(&self, renderer: &mut Renderer<'_>, cursor_rect: &Rect, x: i32, y: i32) {
+    pub fn render(&self, renderer: &mut Renderer<'_>, cursor_rect: &Rect) {
         if let Some(tl) = self.toplevel.get()
             && tl.xdg.surface.buffer.get().is_some()
         {
-            let (x, y) = cursor_rect.translate(x - self.x_off.get(), y - self.y_off.get());
+            let (x, y) = tl.xdg.absolute_desired_extents.get().position();
+            let (x, y) = cursor_rect.translate(x, y);
             renderer.render_xdg_surface(&tl.xdg, x, y, None)
         }
     }
