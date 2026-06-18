@@ -19,7 +19,7 @@ use {
         object::{Object, Version},
         theme::BarPosition,
         transactions::{TransactionData, Transactionable},
-        tree::{NodeVisitor, TreeSerial},
+        tree::{NodeVisitor, TreeSerial, TreeTimeline::RenderTL},
         utils::copyhashmap::CopyHashMap,
         wire::{JayTrayItemV1Id, XdgPopupId, jay_tray_item_v1::*},
     },
@@ -202,6 +202,9 @@ impl Transactionable for JayTrayItemV1 {
             }
             TrayItemTransactionOp::Unlink(v) => {
                 drop(v);
+            }
+            TrayItemTransactionOp::SetRelPos(v) => {
+                self.data.rel_pos[RenderTL].set(v);
             }
         }
     }

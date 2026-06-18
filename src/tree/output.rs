@@ -1864,7 +1864,7 @@ impl OutputNode {
             right -= bar_rect.height();
             let rel_pos = Rect::new_sized_saturating(right, 1, icon_size, icon_size);
             let abs_pos = rel_pos.move_(bar_rect.x1(), bar_rect.y1());
-            item.set_position(abs_pos, rel_pos);
+            item.item.clone().set_position(abs_pos, rel_pos);
         }
         if have_any {
             right -= 2;
@@ -2374,7 +2374,7 @@ impl NodeBase for OutputNode {
                 search_layers = false;
                 for item in self.tray_items.iter_valid(LiveTL) {
                     let data = item.data();
-                    let pos = data.rel_pos.get();
+                    let pos = data.rel_pos[LiveTL].get();
                     if pos.contains(x, y) {
                         let (x, y) = pos.translate(x, y);
                         tree.push(FoundNode {

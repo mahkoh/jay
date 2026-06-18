@@ -18,7 +18,8 @@ use {
         transactions::{TransactionData, Transactionable, TransactionableExt},
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId, NodeLayerLink,
-            NodeLocation, NodeVisitor, NodesStackElement, OutputNode, TreeLink, TreeSerial,
+            NodeLocation, NodeVisitor, NodesStackElement, OutputNode, SplitView, TreeLink,
+            TreeSerial,
             TreeTimeline::{self, LiveTL},
             WorkspaceNode,
         },
@@ -55,7 +56,7 @@ pub struct TrayItemData {
     applied_serial: Cell<Option<TreeSerial>>,
     linked_node: Cell<Option<LinkedNode<TrayItemLink>>>,
     abs_pos: Cell<Rect>,
-    pub rel_pos: Cell<Rect>,
+    pub rel_pos: SplitView<Cell<Rect>>,
     destroyed: Cell<bool>,
     configurable: ConfigurableData<TrayItemConfigureData>,
     transaction_data: TransactionData<TrayItemTransactionOp>,
@@ -94,7 +95,7 @@ pub type TrayItemLink = TreeLink<Rc<dyn DynTrayItem>>;
 pub trait DynTrayItem: Node {
     fn send_current_configure(self: Rc<Self>);
     fn data(&self) -> &TrayItemData;
-    fn set_position(&self, abs_pos: Rect, rel_pos: Rect);
+    fn set_position(self: Rc<Self>, abs_pos: Rect, rel_pos: Rect);
     fn destroy_popups(&self);
     fn destroy_node(self: Rc<Self>);
     fn set_visible(&self, visible: bool);
@@ -109,11 +110,12 @@ impl<T: TrayItem> DynTrayItem for T {
         <Self as TrayItem>::tray_item_data(self)
     }
 
-    fn set_position(&self, abs_pos: Rect, rel_pos: Rect) {
+    fn set_position(self: Rc<Self>, abs_pos: Rect, rel_pos: Rect) {
         let data = self.tray_item_data();
         data.surface
             .set_absolute_position(abs_pos.x1(), abs_pos.y1());
-        data.rel_pos.set(rel_pos);
+        data.rel_pos[LiveTL].set(rel_pos);
+        self.add_transaction_op(TrayItemTransactionOp::SetRelPos(rel_pos));
         if data.abs_pos.replace(abs_pos) != abs_pos {
             for popup in self.popups().lock().values() {
                 popup.popup.update_absolute_position();
@@ -157,6 +159,7 @@ impl<T: TrayItem> DynTrayItem for T {
 pub enum TrayItemTransactionOp {
     SetValid(NodeRef<TrayItemLink>),
     Unlink(LinkedNode<TrayItemLink>),
+    SetRelPos(Rect),
 }
 
 pub struct TrayItemConfigureData {

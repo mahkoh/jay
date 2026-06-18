@@ -216,7 +216,7 @@ impl Renderer<'_> {
                 for item in output.tray_items.iter_valid(LiveTL) {
                     let data = item.data();
                     if data.surface.buffer.is_some() {
-                        let rect = data.rel_pos.get().move_(x, y);
+                        let rect = data.rel_pos[LiveTL].get().move_(x, y);
                         let bounds = self.base.scale_rect(rect);
                         self.render_surface(&data.surface, rect.x1(), rect.y1(), Some(&bounds));
                     }
