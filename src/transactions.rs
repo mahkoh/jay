@@ -355,7 +355,6 @@ impl SurfaceTransaction {
         self.unblocked_commit.get() < serial
     }
 
-    #[expect(dead_code)]
     pub fn is_tardy(&self) -> bool {
         self.tardy.get()
     }

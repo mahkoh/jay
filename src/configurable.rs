@@ -45,7 +45,7 @@ trait ConfigurableDyn {
         group: &Rc<ConfigureGroup>,
         members: &mut Vec<Rc<dyn ConfigurableDyn>>,
     );
-    fn flush(&self, nr: usize, serial: TreeSerial);
+    fn flush(&self, nr: usize, serial: TreeSerial) -> bool;
 }
 
 #[derive(Derivative)]
@@ -218,7 +218,7 @@ where
         members.push(self);
     }
 
-    fn flush(&self, nr: usize, serial: TreeSerial) {
+    fn flush(&self, nr: usize, serial: TreeSerial) -> bool {
         let d = self.data();
         let data = {
             let requests = &mut *d.requests.borrow_mut();
@@ -237,6 +237,7 @@ where
             self.flush(serial, data);
             self.surface().set_requested_serial(serial);
         }
+        self.surface().surface_transaction.is_tardy()
     }
 }
 
@@ -394,12 +395,16 @@ fn run_iteration(
             .map(|r| r.serial.get())
             .max()
             .unwrap();
-        member.flush(nr, serial);
-        cgs.timeout.push(ConfigurableTimeout {
-            num_idle_calls: d.num_idle_calls.get(),
-            configurable: member,
-            start_ns: now_ns,
-        });
+        let tardy = member.flush(nr, serial);
+        if tardy {
+            d.ready();
+        } else {
+            cgs.timeout.push(ConfigurableTimeout {
+                num_idle_calls: d.num_idle_calls.get(),
+                configurable: member,
+                start_ns: now_ns,
+            });
+        }
     }
     for group in groups_to_recycle.drain(..) {
         group.members.borrow_mut().clear();
