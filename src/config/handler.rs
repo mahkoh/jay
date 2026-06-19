@@ -43,6 +43,7 @@ use {
             timer::{TimerError, TimerFd},
         },
     },
+    az::SaturatingCast,
     bincode::Options,
     jay_config::{
         _private::{
@@ -3057,6 +3058,16 @@ impl ConfigProxyHandler {
         });
     }
 
+    fn handle_set_transaction_timeout(&self, timeout: Duration) {
+        self.state
+            .set_transaction_timeout_ns(timeout.as_nanos().saturating_cast());
+    }
+
+    fn handle_set_configure_timeout(&self, timeout: Duration) {
+        self.state
+            .set_configure_timeout_ns(timeout.as_nanos().saturating_cast());
+    }
+
     pub fn handle_request(self: &Rc<Self>, msg: &[u8]) {
         if let Err(e) = self.handle_request_(msg) {
             log::error!("Could not handle client request: {}", ErrorFmt(e));
@@ -3771,6 +3782,12 @@ impl ConfigProxyHandler {
                 self.handle_set_visualize_compositing(visualize)
             }
             ClientMessage::GetVisualizeCompositing => self.handle_get_visualize_compositing(),
+            ClientMessage::SetTransactionTimeout { timeout } => {
+                self.handle_set_transaction_timeout(timeout)
+            }
+            ClientMessage::SetConfigureTimeout { timeout } => {
+                self.handle_set_configure_timeout(timeout)
+            }
         }
         Ok(())
     }

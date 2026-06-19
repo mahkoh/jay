@@ -18,6 +18,7 @@ use {
                 float::Float,
                 focus_history::FocusHistory,
                 session_management::SessionManagement,
+                transactions::Transactions,
                 workspace::{WorkspaceSlot, WorkspaceType},
             },
         },
@@ -582,6 +583,7 @@ pub struct Config {
     pub simple_im: Option<SimpleIm>,
     pub fallback_output_mode: Option<FallbackOutputMode>,
     pub mouse_follows_focus: Option<bool>,
+    pub transactions: Option<Transactions>,
 }
 
 #[derive(Debug, Error)]

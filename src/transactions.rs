@@ -1,5 +1,6 @@
 use {
     crate::{
+        control_center::CCI_COMPOSITOR,
         ifs::wl_surface::{WlSurface, WlSurfaceTransactionOp},
         state::{State, StateTransactionOp, TreeState},
         tree::TreeSerial,
@@ -272,15 +273,20 @@ impl Transactions {
         }
     }
 
-    #[expect(dead_code)]
     pub fn timeout_ns(&self) -> u64 {
         self.timeout_ns.get()
     }
 
-    #[expect(dead_code)]
     fn set_timeout_ns(&self, timeout: u64) {
         self.timeout_ns.set(timeout);
         self.timeout_changed.trigger();
+    }
+}
+
+impl State {
+    pub fn set_transaction_timeout_ns(&self, timeout: u64) {
+        self.tree.transactions.set_timeout_ns(timeout);
+        self.trigger_cci(CCI_COMPOSITOR);
     }
 }
 

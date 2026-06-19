@@ -37,11 +37,11 @@ use {
         keyboard::Keymap,
         logging::{clean_logs_older_than, set_log_level},
         on_devices_enumerated, on_idle, on_unload, open_control_center, quit, reload,
-        set_color_management_enabled, set_default_workspace_capture, set_explicit_sync_enabled,
-        set_float_above_fullscreen, set_idle, set_idle_grace_period,
+        set_color_management_enabled, set_configure_timeout, set_default_workspace_capture,
+        set_explicit_sync_enabled, set_float_above_fullscreen, set_idle, set_idle_grace_period,
         set_middle_click_paste_enabled, set_session_management_enabled, set_show_bar,
-        set_show_float_pin_icon, set_show_titles, set_ui_drag_enabled, set_ui_drag_threshold,
-        set_visualize_compositing,
+        set_show_float_pin_icon, set_show_titles, set_transaction_timeout, set_ui_drag_enabled,
+        set_ui_drag_threshold, set_visualize_compositing,
         status::{set_i3bar_separator, set_status, set_status_command, unset_status_command},
         switch_to_vt,
         tasks::{self, JoinHandle},
@@ -1719,6 +1719,14 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
         persistent
             .seat
             .unstable_set_mouse_follows_focus(mouse_follows_focus);
+    }
+    if let Some(v) = config.transactions {
+        if let Some(v) = v.transaction_timeout {
+            set_transaction_timeout(v);
+        }
+        if let Some(v) = v.configure_timeout {
+            set_configure_timeout(v);
+        }
     }
 }
 

@@ -1280,6 +1280,10 @@
             "description": "",
             "$ref": "#/$defs/Workspace"
           }
+        },
+        "transactions": {
+          "description": "The transaction settings.",
+          "$ref": "#/$defs/Transactions"
         }
       },
       "required": []
@@ -2379,6 +2383,42 @@
         "tiled",
         "floating"
       ]
+    },
+    "Timeout": {
+      "description": "A timeout. All fields default to 0.\n",
+      "type": "object",
+      "properties": {
+        "millis": {
+          "type": "integer",
+          "description": "The milliseconds.",
+          "minimum": 0.0
+        },
+        "micros": {
+          "type": "integer",
+          "description": "The microseconds.",
+          "minimum": 0.0
+        }
+      },
+      "required": []
+    },
+    "Transactions": {
+      "description": "The transaction settings.\n\nThe timeout field can be used to set both timeouts at the same time.\n\nSee the book for more details about transactions.\n\n- Example\n\n  ```toml\n  [transactions]\n  timeout.millis = 30\n  ```\n",
+      "type": "object",
+      "properties": {
+        "timeout": {
+          "description": "Sets both timeouts at the same time.",
+          "$ref": "#/$defs/Timeout"
+        },
+        "transaction-timeout": {
+          "description": "The timeout for desktop transactions.",
+          "$ref": "#/$defs/Timeout"
+        },
+        "configure-timeout": {
+          "description": "The timeout for configuration sequences.",
+          "$ref": "#/$defs/Timeout"
+        }
+      },
+      "required": []
     },
     "Transform": {
       "type": "string",

@@ -73,6 +73,7 @@ egui_tiles = { version = "0.15.0", default-features = false }
 numeric-sort = "0.1.5"
 dlopen-note = "0.1.0"
 derivative = "2.2.0"
+az = "1.3.0"
 
 [build-dependencies]
 repc = "0.1.1"

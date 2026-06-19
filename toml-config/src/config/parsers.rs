@@ -48,6 +48,7 @@ mod status;
 mod tearing;
 mod theme;
 mod tile_state;
+pub mod transactions;
 mod ui_drag;
 mod vrr;
 mod window_match;

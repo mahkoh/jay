@@ -1,5 +1,6 @@
 use {
     crate::{
+        control_center::CCI_COMPOSITOR,
         ifs::wl_surface::WlSurface,
         state::State,
         tree::TreeSerial,
@@ -158,15 +159,20 @@ impl ConfigureGroups {
         }
     }
 
-    #[expect(dead_code)]
     pub fn timeout_ns(&self) -> u64 {
         self.timeout_ns.get()
     }
 
-    #[expect(dead_code)]
-    pub fn set_timeout_ns(&self, timeout: u64) {
+    fn set_timeout_ns(&self, timeout: u64) {
         self.timeout_ns.set(timeout);
         self.timeout_changed.trigger();
+    }
+}
+
+impl State {
+    pub fn set_configure_timeout_ns(&self, timeout: u64) {
+        self.tree.configure_groups.set_timeout_ns(timeout);
+        self.trigger_cci(CCI_COMPOSITOR);
     }
 }
 
