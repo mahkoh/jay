@@ -1154,7 +1154,7 @@ pub fn create_render_pass(
                 renderer.render_highlight(&highlight.move_(-rect.x1(), -rect.y1()));
             }
             if let Some(drag) = seat.toplevel_drag() {
-                drag.render(&mut renderer, &rect, x, y);
+                drag.render(&mut renderer, &rect);
             }
             if let Some(dnd_icon) = seat.dnd_icon() {
                 dnd_icon.render(&mut renderer, &rect, x, y);

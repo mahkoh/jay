@@ -226,12 +226,12 @@ impl Xwindow {
         Ok(slf)
     }
 
-    pub fn destroy(&self) {
+    pub fn destroy(self: &Rc<Self>) {
         self.break_loops();
         self.data.window.take();
     }
 
-    pub fn break_loops(&self) {
+    pub fn break_loops(self: &Rc<Self>) {
         self.tl_destroy();
         self.x.surface.set_toplevel(None);
         self.x.xwindow.set(None);
@@ -518,7 +518,7 @@ impl ToplevelNodeBase for Xwindow {
         }
     }
 
-    fn tl_destroy_impl(&self) {
+    fn tl_destroy_impl(self: &Rc<Self>) {
         self.display_link.borrow_mut().clear();
         self.x.surface.destroy_node();
     }

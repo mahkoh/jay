@@ -67,7 +67,10 @@ pub trait ToplevelNode: ToplevelNodeBase {
     fn tl_workspace_output_changed(&self, prev: &Rc<OutputNode>, new: &Rc<OutputNode>);
     fn tl_change_extents(self: Rc<Self>, rect: &Rect);
     fn tl_set_visible(&self, visible: bool);
-    fn tl_destroy(&self);
+    fn tl_destroy(self: &Rc<Self>)
+    where
+        Self: Sized;
+    fn tl_destroy_dyn(self: Rc<Self>);
     fn tl_pinned(&self) -> bool;
     fn tl_set_pinned(&self, self_pinned: bool, pinned: bool);
     fn tl_set_float(&self, float: Option<&Rc<FloatNode>>);
@@ -229,9 +232,13 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         self.tl_data().set_visible(self, visible);
     }
 
-    fn tl_destroy(&self) {
-        self.tl_data().destroy_node(self);
+    fn tl_destroy(self: &Rc<Self>) {
+        self.tl_data().destroy_node(&**self);
         self.tl_destroy_impl();
+    }
+
+    fn tl_destroy_dyn(self: Rc<Self>) {
+        self.tl_destroy();
     }
 
     fn tl_pinned(&self) -> bool {
@@ -318,7 +325,9 @@ pub trait ToplevelNodeBase: Node {
     fn tl_close(self: Rc<Self>);
 
     fn tl_set_visible_impl(&self, visible: bool);
-    fn tl_destroy_impl(&self);
+    fn tl_destroy_impl(self: &Rc<Self>)
+    where
+        Self: Sized;
 
     fn tl_last_active_child(self: Rc<Self>) -> Rc<dyn ToplevelNode>;
 

@@ -2466,11 +2466,11 @@ impl ToplevelNodeBase for ContainerNode {
         }
     }
 
-    fn tl_destroy_impl(&self) {
+    fn tl_destroy_impl(self: &Rc<Self>) {
         mem::take(self.cursors.borrow_mut().deref_mut());
         let mut cn = self.child_nodes.borrow_mut();
         for n in cn.drain_values() {
-            n.node.tl_destroy();
+            n.node.clone().tl_destroy_dyn();
         }
     }
 

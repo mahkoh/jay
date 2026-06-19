@@ -241,9 +241,9 @@ impl XdgToplevel {
 impl XdgToplevelRequestHandler for XdgToplevel {
     type Error = XdgToplevelError;
 
-    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn destroy(&self, _req: Destroy, slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.toplevel_data.disown_session();
-        self.tl_destroy();
+        slf.tl_destroy();
         self.xdg.unset_ext();
         {
             let mut children = self.children.borrow_mut();
@@ -719,7 +719,7 @@ impl ToplevelNodeBase for XdgToplevel {
         }
     }
 
-    fn tl_destroy_impl(&self) {
+    fn tl_destroy_impl(self: &Rc<Self>) {
         if let Some(drag) = self.drag.take() {
             self.xdg.damage();
             drag.toplevel.take();

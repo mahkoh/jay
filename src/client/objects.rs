@@ -164,7 +164,7 @@ impl Objects {
     pub fn destroy(&self) {
         for surface in self.surfaces.lock().values() {
             if let Some(tl) = surface.get_toplevel() {
-                tl.tl_destroy();
+                tl.tl_destroy_dyn();
             }
         }
         for obj in self.registry.lock().drain_values() {
