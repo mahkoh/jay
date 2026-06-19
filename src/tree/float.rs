@@ -877,11 +877,11 @@ impl NodeBase for FloatNode {
         renderer.render_floating(self, x, y)
     }
 
-    fn node_make_visible(self: Rc<Self>) {
+    fn node_make_visible(self: &Rc<Self>) {
         if self.node_state.visible.get() {
             return;
         }
-        self.workspace.get().cnode_make_visible(&*self);
+        self.workspace.get().cnode_make_visible(&**self);
     }
 
     fn node_grab_workspace_changed(

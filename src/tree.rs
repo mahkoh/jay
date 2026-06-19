@@ -496,7 +496,10 @@ pub trait NodeBase: 'static {
         None
     }
 
-    fn node_make_visible(self: Rc<Self>) {
+    fn node_make_visible(self: &Rc<Self>)
+    where
+        Self: Sized,
+    {
         // nothing
     }
 
@@ -914,6 +917,7 @@ pub trait NodeBase: 'static {
 pub trait Node: NodeBase {
     fn node_visit_dyn(self: Rc<Self>, visitor: &mut dyn NodeVisitor);
     fn node_do_focus_dyn(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction);
+    fn node_make_visible_dyn(self: Rc<Self>);
 }
 
 impl<T> Node for T
@@ -926,6 +930,10 @@ where
 
     fn node_do_focus_dyn(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         self.node_do_focus(seat, direction);
+    }
+
+    fn node_make_visible_dyn(self: Rc<Self>) {
+        self.node_make_visible();
     }
 }
 

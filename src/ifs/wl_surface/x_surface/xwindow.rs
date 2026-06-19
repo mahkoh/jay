@@ -430,8 +430,8 @@ impl NodeBase for Xwindow {
         Some(self)
     }
 
-    fn node_make_visible(self: Rc<Self>) {
-        self.toplevel_data.make_visible(&*self);
+    fn node_make_visible(self: &Rc<Self>) {
+        self.toplevel_data.make_visible(&**self);
     }
 
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {

@@ -2005,9 +2005,9 @@ impl NodeBase for WlSurface {
         self.ext.get().tray_item()
     }
 
-    fn node_make_visible(self: Rc<Self>) {
+    fn node_make_visible(self: &Rc<Self>) {
         if let Some(tl) = self.toplevel.get() {
-            tl.node_make_visible();
+            tl.node_make_visible_dyn();
         }
     }
 

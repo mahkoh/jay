@@ -535,12 +535,12 @@ impl NodeBase for WorkspaceNode {
         renderer.render_workspace(self, x, y);
     }
 
-    fn node_make_visible(self: Rc<Self>) {
+    fn node_make_visible(self: &Rc<Self>) {
         if self.ty != WorkspaceType::Normal {
             return;
         }
         self.state
-            .show_workspace2(None, &self.node_state.output.get(), &self);
+            .show_workspace2(None, &self.node_state.output.get(), self);
     }
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {

@@ -1011,7 +1011,7 @@ impl WlSeatGlobal {
             self.focus_history_rotate.fetch_sub(1);
         });
         if !visible {
-            node.clone().node_make_visible();
+            node.clone().node_make_visible_dyn();
             if !node.node_visible() {
                 return;
             }

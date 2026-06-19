@@ -1896,8 +1896,8 @@ impl NodeBase for ContainerNode {
         Some(self)
     }
 
-    fn node_make_visible(self: Rc<Self>) {
-        self.toplevel_data.make_visible(&*self);
+    fn node_make_visible(self: &Rc<Self>) {
+        self.toplevel_data.make_visible(&**self);
     }
 
     fn node_grab_workspace_changed(

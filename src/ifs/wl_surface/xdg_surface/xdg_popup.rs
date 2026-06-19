@@ -424,7 +424,7 @@ impl NodeBase for XdgPopup {
         Some(self.xdg.surface.client.clone())
     }
 
-    fn node_make_visible(self: Rc<Self>) {
+    fn node_make_visible(self: &Rc<Self>) {
         if let Some(parent) = self.parent.get() {
             parent.make_visible();
         }
