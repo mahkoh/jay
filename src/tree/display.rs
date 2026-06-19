@@ -162,7 +162,7 @@ impl NodeBase for DisplayNode {
         &self.seat_state
     }
 
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
         visitor.visit_display(&self);
     }
 
@@ -177,7 +177,7 @@ impl NodeBase for DisplayNode {
             &self.stacked_in_overlay,
         ] {
             for stacked in layer.stacked.iter() {
-                stacked.deref().clone().node_visit(visitor);
+                stacked.deref().clone().node_visit_dyn(visitor);
             }
         }
     }

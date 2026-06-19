@@ -564,7 +564,7 @@ impl NodeBase for XdgToplevel {
         &self.toplevel_data.seat_state
     }
 
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
         visitor.visit_toplevel(&self);
     }
 

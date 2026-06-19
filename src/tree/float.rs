@@ -780,13 +780,13 @@ impl NodeBase for FloatNode {
         &self.seat_state
     }
 
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
         visitor.visit_float(&self);
     }
 
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor) {
         if let Some(c) = self.node_state.child.get() {
-            c.node_visit(visitor);
+            c.node_visit_dyn(visitor);
         }
     }
 

@@ -1770,13 +1770,13 @@ impl NodeBase for ContainerNode {
         &self.toplevel_data.seat_state
     }
 
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
         visitor.visit_container(&self);
     }
 
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor) {
         for child in self.children.iter() {
-            child.node.clone().node_visit(visitor);
+            child.node.clone().node_visit_dyn(visitor);
         }
     }
 

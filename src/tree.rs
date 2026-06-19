@@ -415,7 +415,9 @@ linear_ids!(TreeSerials, TreeSerial, u64);
 pub trait NodeBase: 'static {
     fn node_id(&self) -> NodeId;
     fn node_seat_state(&self) -> &NodeSeatState;
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor);
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor)
+    where
+        Self: Sized;
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor);
     fn node_visible(&self) -> bool;
     fn node_absolute_position(&self) -> Rect;
@@ -906,9 +908,18 @@ pub trait NodeBase: 'static {
     }
 }
 
-pub trait Node: NodeBase {}
+pub trait Node: NodeBase {
+    fn node_visit_dyn(self: Rc<Self>, visitor: &mut dyn NodeVisitor);
+}
 
-impl<T> Node for T where T: NodeBase + Sized {}
+impl<T> Node for T
+where
+    T: NodeBase + Sized,
+{
+    fn node_visit_dyn(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        self.node_visit(visitor);
+    }
+}
 
 pub struct FoundNode {
     pub node: Rc<dyn Node>,

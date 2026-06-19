@@ -1309,7 +1309,7 @@ impl OutputNode {
                 if stacked.node_output_id() != Some(self.id) {
                     continue;
                 }
-                stacked.deref().clone().node_visit(visitor);
+                stacked.deref().clone().node_visit_dyn(visitor);
             }
         }
     }
@@ -2165,7 +2165,7 @@ impl NodeBase for OutputNode {
         &self.seat_state
     }
 
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
         visitor.visit_output(&self);
     }
 
@@ -2186,7 +2186,7 @@ impl NodeBase for OutputNode {
             }
         }
         for item in self.tray_items.iter() {
-            item.deref().clone().node_visit(visitor);
+            item.deref().clone().node_visit_dyn(visitor);
         }
     }
 

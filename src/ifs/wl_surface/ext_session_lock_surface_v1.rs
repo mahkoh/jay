@@ -133,7 +133,7 @@ impl NodeBase for ExtSessionLockSurfaceV1 {
         &self.seat_state
     }
 
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
         visitor.visit_lock_surface(&self);
     }
 

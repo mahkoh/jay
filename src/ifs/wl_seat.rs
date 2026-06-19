@@ -1909,7 +1909,7 @@ efrom!(WlSeatError, ClientError);
 efrom!(WlSeatError, WlKeyboardError);
 
 pub fn collect_kb_foci2(node: Rc<dyn Node>, seats: &mut SmallVec<[Rc<WlSeatGlobal>; 3]>) {
-    node.node_visit(&mut generic_node_visitor(|node| {
+    node.node_visit_dyn(&mut generic_node_visitor(|node| {
         node.node_seat_state().for_each_kb_focus(|s| seats.push(s));
     }));
 }

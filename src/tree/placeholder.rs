@@ -157,7 +157,7 @@ impl NodeBase for PlaceholderNode {
         &self.toplevel.seat_state
     }
 
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
         visitor.visit_placeholder(&self);
     }
 

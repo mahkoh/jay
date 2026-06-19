@@ -690,7 +690,7 @@ impl NodeBase for ZwlrLayerSurfaceV1 {
         &self.seat_state
     }
 
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
         visitor.visit_layer_surface(&self);
     }
 

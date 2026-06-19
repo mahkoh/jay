@@ -1106,7 +1106,7 @@ impl State {
                 pinned
                     .deref()
                     .clone()
-                    .node_visit(&mut generic_node_visitor(|node| {
+                    .node_visit_dyn(&mut generic_node_visitor(|node| {
                         node.node_seat_state().for_each_kb_focus(|s| {
                             pinned_is_focused |= s.id() == seat.id();
                         });
@@ -2267,14 +2267,14 @@ impl State {
     }
 
     pub fn visit_all_nodes(&self, visitor: &mut dyn NodeVisitor) {
-        self.root.clone().node_visit(visitor);
+        self.root.node_visit(visitor);
         if let Some(output) = self.dummy_output.get() {
             for ws in output.workspaces.iter() {
                 visitor.visit_workspace(&ws);
             }
             for ws in self.workspaces.lock().values() {
                 if ws.ty == WorkspaceType::Overlay && ws.node_state.output.id() == output.id {
-                    ws.clone().node_visit(visitor);
+                    ws.node_visit(visitor);
                 }
             }
         }

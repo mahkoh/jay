@@ -236,7 +236,7 @@ impl WorkspaceNode {
         };
         self.node_visit_children(&mut visitor);
         for stacked in self.stacked.iter() {
-            stacked.deref().clone().node_visit(&mut visitor);
+            stacked.deref().clone().node_visit_dyn(&mut visitor);
         }
         self.state.trigger_cci(CCI_WORKSPACES);
     }
@@ -462,7 +462,7 @@ impl NodeBase for WorkspaceNode {
         &self.seat_state
     }
 
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
         visitor.visit_workspace(&self);
     }
 
@@ -472,7 +472,7 @@ impl NodeBase for WorkspaceNode {
             visitor.visit_container(&c);
         }
         if let Some(fs) = ns.fullscreen.get() {
-            fs.node_visit(visitor);
+            fs.node_visit_dyn(visitor);
         }
     }
 
