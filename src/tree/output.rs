@@ -52,7 +52,7 @@ use {
         text::TextTexture,
         theme::BarPosition,
         tree::{
-            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
+            Direction, FindTreeResult, FindTreeUsecase, FoundNode, NodeBase, NodeId, NodeLayerLink,
             NodeLocation, NodesStack, PinnedNode, TddType, TileDragDestination, Transform,
             WorkspaceDisplayOrder, WorkspaceDragDestination, WorkspaceNode, WorkspaceOutputLink,
             WorkspaceType, walker::NodeVisitor,
@@ -956,7 +956,7 @@ impl OutputNode {
         }
         ws.change_extents(&ns.rects.workspace.get(), self);
         for seat in seats {
-            ws.clone().node_do_focus(&seat, Direction::Unspecified);
+            ws.node_do_focus(&seat, Direction::Unspecified);
         }
         self.schedule_update_render_data();
         if self.node_visible() {
@@ -973,7 +973,7 @@ impl OutputNode {
         self.hide_overlay2(true, &mut seats);
         if let Some(ws) = self.workspace() {
             for seat in seats {
-                ws.clone().node_do_focus(&seat, Direction::Unspecified);
+                ws.node_do_focus(&seat, Direction::Unspecified);
             }
         }
         self.schedule_update_render_data();
@@ -1309,7 +1309,7 @@ impl OutputNode {
                 if stacked.node_output_id() != Some(self.id) {
                     continue;
                 }
-                stacked.deref().clone().node_visit(visitor);
+                stacked.deref().clone().node_visit_dyn(visitor);
             }
         }
     }
@@ -1921,7 +1921,7 @@ impl OutputNode {
             let wns = &ws.node_state;
             if let Some(fs) = wns.fullscreen.get() {
                 if fs.node_visible() {
-                    fs.node_do_focus(seat, direction);
+                    fs.node_do_focus_dyn(seat, direction);
                     return;
                 }
             } else if let Some(c) = wns.container.get() {
@@ -2156,7 +2156,7 @@ impl Debug for OutputNode {
     }
 }
 
-impl Node for OutputNode {
+impl NodeBase for OutputNode {
     fn node_id(&self) -> NodeId {
         self.id.into()
     }
@@ -2165,7 +2165,7 @@ impl Node for OutputNode {
         &self.seat_state
     }
 
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
         visitor.visit_output(&self);
     }
 
@@ -2186,7 +2186,7 @@ impl Node for OutputNode {
             }
         }
         for item in self.tray_items.iter() {
-            item.deref().clone().node_visit(visitor);
+            item.deref().clone().node_visit_dyn(visitor);
         }
     }
 
@@ -2214,7 +2214,7 @@ impl Node for OutputNode {
         NodeLayerLink::Output
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+    fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         if self.state.lock.locked.get() {
             if let Some(lock) = self.node_state.lock_surface.get() {
                 seat.focus_node(lock.surface.clone());

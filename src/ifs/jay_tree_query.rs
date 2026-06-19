@@ -15,7 +15,7 @@ use {
         object::{Object, Version},
         rect::Rect,
         tree::{
-            self, ContainerNode, DisplayNode, FloatNode, Node, NodeVisitor, OutputNode,
+            self, ContainerNode, DisplayNode, FloatNode, Node, NodeBase, NodeVisitor, OutputNode,
             PlaceholderNode, ToplevelData, ToplevelIdentifier, ToplevelNodeBase, ToplevelType,
             WorkspaceNode, WorkspaceType,
         },
@@ -292,7 +292,7 @@ impl JayTreeQueryRequestHandler for JayTreeQuery {
                 .get(id)
                 .and_then(|t| t.upgrade())
             {
-                Some(t) => t.node_visit(&mut Visitor(self)),
+                Some(t) => t.node_visit_dyn(&mut Visitor(self)),
                 None => self.send_not_found(),
             },
         }
@@ -400,7 +400,7 @@ impl tree::NodeVisitorBase for Visitor<'_> {
                     if stacked.stacked_has_workspace_link() {
                         continue;
                     }
-                    stacked.deref().clone().node_visit(self);
+                    stacked.deref().clone().node_visit_dyn(self);
                 }
             }
         }
@@ -444,7 +444,7 @@ impl tree::NodeVisitorBase for Visitor<'_> {
             if stacked.stacked_is_xdg_popup() {
                 continue;
             }
-            stacked.deref().clone().node_visit(self);
+            stacked.deref().clone().node_visit_dyn(self);
         }
         if s.recursive.get() {
             node.node_visit_children(self);

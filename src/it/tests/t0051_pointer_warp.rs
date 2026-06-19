@@ -2,7 +2,7 @@ use {
     crate::{
         fixed::Fixed,
         it::{test_error::TestResult, testrun::TestRun},
-        tree::Node,
+        tree::NodeBase,
     },
     std::rc::Rc,
 };

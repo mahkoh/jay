@@ -22,9 +22,9 @@ use {
         text::TextTexture,
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
-            NodeId, NodeLayerLink, NodeLocation, NodeVisitorBase, OutputNode, PlaceholderNode,
-            StackedNode, ToplevelNode, WorkspaceDisplayOrder, container::ContainerNode,
-            walker::NodeVisitor,
+            NodeBase, NodeId, NodeLayerLink, NodeLocation, NodeVisitorBase, OutputNode,
+            PlaceholderNode, StackedNode, ToplevelNode, WorkspaceDisplayOrder,
+            container::ContainerNode, walker::NodeVisitor,
         },
         utils::{
             clonecell::CloneCell,
@@ -236,7 +236,7 @@ impl WorkspaceNode {
         };
         self.node_visit_children(&mut visitor);
         for stacked in self.stacked.iter() {
-            stacked.deref().clone().node_visit(&mut visitor);
+            stacked.deref().clone().node_visit_dyn(&mut visitor);
         }
         self.state.trigger_cci(CCI_WORKSPACES);
     }
@@ -401,7 +401,7 @@ impl WorkspaceNode {
     pub fn do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) -> bool {
         let ns = &self.node_state;
         if let Some(fs) = ns.fullscreen.get() {
-            fs.node_do_focus(seat, direction);
+            fs.node_do_focus_dyn(seat, direction);
         } else if self.stacked.is_not_empty()
             && let Some(last) = seat.get_last_focus_on_workspace(&self)
         {
@@ -414,7 +414,7 @@ impl WorkspaceNode {
             .filter_map(|node| (*node).clone().node_into_float())
             .find_map(|float| float.node_state.child.get())
         {
-            child.node_do_focus(seat, direction);
+            child.node_do_focus_dyn(seat, direction);
         } else if self.ty == WorkspaceType::Normal {
             seat.focus_node(self.clone());
         } else {
@@ -453,7 +453,7 @@ impl WorkspaceNode {
     }
 }
 
-impl Node for WorkspaceNode {
+impl NodeBase for WorkspaceNode {
     fn node_id(&self) -> NodeId {
         self.id.into()
     }
@@ -462,7 +462,7 @@ impl Node for WorkspaceNode {
         &self.seat_state
     }
 
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
         visitor.visit_workspace(&self);
     }
 
@@ -472,7 +472,7 @@ impl Node for WorkspaceNode {
             visitor.visit_container(&c);
         }
         if let Some(fs) = ns.fullscreen.get() {
-            fs.node_visit(visitor);
+            fs.node_visit_dyn(visitor);
         }
     }
 
@@ -503,7 +503,7 @@ impl Node for WorkspaceNode {
         NodeLayerLink::Workspace
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+    fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         self.do_focus(seat, direction);
     }
 
@@ -535,12 +535,12 @@ impl Node for WorkspaceNode {
         renderer.render_workspace(self, x, y);
     }
 
-    fn node_make_visible(self: Rc<Self>) {
+    fn node_make_visible(self: &Rc<Self>) {
         if self.ty != WorkspaceType::Normal {
             return;
         }
         self.state
-            .show_workspace2(None, &self.node_state.output.get(), &self);
+            .show_workspace2(None, &self.node_state.output.get(), self);
     }
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {

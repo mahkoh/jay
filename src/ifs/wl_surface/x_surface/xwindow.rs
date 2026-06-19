@@ -11,10 +11,11 @@ use {
         renderer::Renderer,
         state::State,
         tree::{
-            ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode, StackedNode,
-            TileDragDestination, TileState, ToplevelData, ToplevelNode, ToplevelNodeBase,
-            ToplevelType, WorkspaceNode, WorkspaceType, default_tile_drag_destination,
+            ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase,
+            NodeId, NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode,
+            StackedNode, TileDragDestination, TileState, ToplevelData, ToplevelNode,
+            ToplevelNodeBase, ToplevelType, WorkspaceNode, WorkspaceType,
+            default_tile_drag_destination,
         },
         utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode},
         wire::WlSurfaceId,
@@ -341,7 +342,7 @@ impl Xwindow {
     }
 }
 
-impl Node for Xwindow {
+impl NodeBase for Xwindow {
     fn node_id(&self) -> NodeId {
         self.id.into()
     }
@@ -350,7 +351,7 @@ impl Node for Xwindow {
         &self.toplevel_data.seat_state
     }
 
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
         visitor.visit_xwindow(&self);
     }
 
@@ -389,7 +390,7 @@ impl Node for Xwindow {
         self.tl_accepts_keyboard_focus()
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
+    fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_toplevel(self.clone());
     }
 
@@ -429,8 +430,8 @@ impl Node for Xwindow {
         Some(self)
     }
 
-    fn node_make_visible(self: Rc<Self>) {
-        self.toplevel_data.make_visible(&*self);
+    fn node_make_visible(self: &Rc<Self>) {
+        self.toplevel_data.make_visible(&**self);
     }
 
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {

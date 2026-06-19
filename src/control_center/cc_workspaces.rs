@@ -2,7 +2,7 @@ use {
     crate::{
         control_center::{ControlCenterInner, bool, grid, label, row},
         state::State,
-        tree::{Node, WorkspaceType},
+        tree::{NodeBase, WorkspaceType},
     },
     egui::{CollapsingHeader, ComboBox, TextFormat, Ui, text::LayoutJob},
     std::rc::Rc,
@@ -73,7 +73,7 @@ impl WorkspacesPane {
                     });
                     bool(ui, "Visible", ns.visible.get(), |v| {
                         if v {
-                            ws.clone().node_make_visible();
+                            ws.node_make_visible();
                         } else if ws.ty == WorkspaceType::Overlay {
                             ns.output.get().hide_overlay();
                         }

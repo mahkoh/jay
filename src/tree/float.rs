@@ -19,10 +19,10 @@ use {
         state::State,
         text::TextTexture,
         tree::{
-            ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeLayerLink, NodeLocation, NodesStack, NodesStackElement, OutputNode, PinnedNode,
-            StackedNode, TileDragDestination, ToplevelNode, WorkspaceChangeReason, WorkspaceNode,
-            WorkspaceType, toplevel_set_floating, walker::NodeVisitor,
+            ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase,
+            NodeId, NodeLayerLink, NodeLocation, NodesStack, NodesStackElement, OutputNode,
+            PinnedNode, StackedNode, TileDragDestination, ToplevelNode, WorkspaceChangeReason,
+            WorkspaceNode, WorkspaceType, toplevel_set_floating, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -680,7 +680,7 @@ impl FloatNode {
             if cursor_data.op_type == OpType::Move
                 && let Some(tl) = ns.child.get()
             {
-                tl.node_do_focus(seat, Direction::Unspecified);
+                tl.node_do_focus_dyn(seat, Direction::Unspecified);
             }
             if cursor_data.double_click_state.click(
                 &self.state,
@@ -771,7 +771,7 @@ impl Debug for FloatNode {
     }
 }
 
-impl Node for FloatNode {
+impl NodeBase for FloatNode {
     fn node_id(&self) -> NodeId {
         self.id.into()
     }
@@ -780,13 +780,13 @@ impl Node for FloatNode {
         &self.seat_state
     }
 
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
         visitor.visit_float(&self);
     }
 
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor) {
         if let Some(c) = self.node_state.child.get() {
-            c.node_visit(visitor);
+            c.node_visit_dyn(visitor);
         }
     }
 
@@ -831,9 +831,9 @@ impl Node for FloatNode {
         false
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+    fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         if let Some(c) = self.node_state.child.get() {
-            c.node_do_focus(seat, direction);
+            c.node_do_focus_dyn(seat, direction);
         }
     }
 
@@ -877,11 +877,11 @@ impl Node for FloatNode {
         renderer.render_floating(self, x, y)
     }
 
-    fn node_make_visible(self: Rc<Self>) {
+    fn node_make_visible(self: &Rc<Self>) {
         if self.node_state.visible.get() {
             return;
         }
-        self.workspace.get().cnode_make_visible(&*self);
+        self.workspace.get().cnode_make_visible(&**self);
     }
 
     fn node_grab_workspace_changed(

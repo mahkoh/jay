@@ -16,8 +16,8 @@ use {
         rect::Rect,
         theme::BarPosition,
         tree::{
-            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
-            NodeVisitor, NodesStackElement, OutputNode, TreeSerial, WorkspaceNode,
+            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId, NodeLayerLink,
+            NodeLocation, NodeVisitor, NodesStackElement, OutputNode, TreeSerial, WorkspaceNode,
         },
         utils::{
             cell_ext::CellExt, copyhashmap::CopyHashMap, hash_map_ext::HashMapExt,
@@ -150,7 +150,7 @@ pub struct TrayItemConfigureData {
 trait TrayItem: Configurable<T = TrayItemConfigureData> + Sized + 'static {
     fn tray_item_data(&self) -> &TrayItemData;
     fn popups(&self) -> &CopyHashMap<XdgPopupId, Rc<Popup<Self>>>;
-    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor);
+    fn visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor);
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -311,7 +311,7 @@ impl<T: TrayItem> SurfaceExt for T {
     }
 }
 
-impl<T: TrayItem> Node for T {
+impl<T: TrayItem> NodeBase for T {
     fn node_id(&self) -> NodeId {
         self.tray_item_data().node_id.into()
     }
@@ -320,12 +320,12 @@ impl<T: TrayItem> Node for T {
         &self.tray_item_data().seat_state
     }
 
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
         self.visit(visitor);
     }
 
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor) {
-        self.tray_item_data().surface.clone().node_visit(visitor);
+        self.tray_item_data().surface.node_visit(visitor);
     }
 
     fn node_visible(&self) -> bool {

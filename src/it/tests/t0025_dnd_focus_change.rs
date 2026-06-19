@@ -2,7 +2,7 @@ use {
     crate::{
         ifs::wl_seat::BTN_LEFT,
         it::{test_error::TestResult, testrun::TestRun},
-        tree::Node,
+        tree::NodeBase,
     },
     std::rc::Rc,
 };

@@ -2,7 +2,7 @@ use {
     crate::{
         it::{test_error::TestError, testrun::TestRun},
         theme::Color,
-        tree::Node,
+        tree::NodeBase,
     },
     std::rc::Rc,
 };

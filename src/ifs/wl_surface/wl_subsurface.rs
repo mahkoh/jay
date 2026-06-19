@@ -7,7 +7,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::{Node, NodeLayerLink, WorkspaceNode},
+        tree::{Node, NodeBase, NodeLayerLink, WorkspaceNode},
         utils::{
             box_cache::{BoxReset, CachedBox},
             clonecell::CloneCell,

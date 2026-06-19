@@ -8,9 +8,9 @@ use {
         renderer::Renderer,
         state::State,
         tree::{
-            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
-            OutputNode, StackedNode, TileDragDestination, WorkspaceDragDestination, WorkspaceNode,
-            walker::NodeVisitor,
+            FindTreeResult, FindTreeUsecase, FoundNode, NodeBase, NodeId, NodeLayerLink,
+            NodeLocation, OutputNode, StackedNode, TileDragDestination, WorkspaceDragDestination,
+            WorkspaceNode, walker::NodeVisitor,
         },
         utils::{
             copyhashmap::CopyHashMap,
@@ -153,7 +153,7 @@ impl DisplayNode {
     }
 }
 
-impl Node for DisplayNode {
+impl NodeBase for DisplayNode {
     fn node_id(&self) -> NodeId {
         self.id
     }
@@ -162,7 +162,7 @@ impl Node for DisplayNode {
         &self.seat_state
     }
 
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
         visitor.visit_display(&self);
     }
 
@@ -177,7 +177,7 @@ impl Node for DisplayNode {
             &self.stacked_in_overlay,
         ] {
             for stacked in layer.stacked.iter() {
-                stacked.deref().clone().node_visit(visitor);
+                stacked.deref().clone().node_visit_dyn(visitor);
             }
         }
     }

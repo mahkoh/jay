@@ -10,8 +10,8 @@ use {
         state::State,
         text::TextTexture,
         tree::{
-            ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
+            ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, NodeBase,
+            NodeId, NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
             ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode,
             default_tile_drag_destination,
         },
@@ -148,7 +148,7 @@ impl PlaceholderNode {
     }
 }
 
-impl Node for PlaceholderNode {
+impl NodeBase for PlaceholderNode {
     fn node_id(&self) -> NodeId {
         self.id.into()
     }
@@ -157,7 +157,7 @@ impl Node for PlaceholderNode {
         &self.toplevel.seat_state
     }
 
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
         visitor.visit_placeholder(&self);
     }
 
@@ -189,7 +189,7 @@ impl Node for PlaceholderNode {
         self.toplevel.node_layer()
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
+    fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_toplevel(self.clone());
     }
 
@@ -219,8 +219,8 @@ impl Node for PlaceholderNode {
         Some(self)
     }
 
-    fn node_make_visible(self: Rc<Self>) {
-        self.toplevel.make_visible(&*self);
+    fn node_make_visible(self: &Rc<Self>) {
+        self.toplevel.make_visible(&**self);
     }
 
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {

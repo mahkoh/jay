@@ -41,7 +41,7 @@ use {
         object::Version,
         rect::Rect,
         state::DeviceHandlerData,
-        tree::{Direction, Node, ToplevelNode},
+        tree::{Direction, Node, NodeBase, ToplevelNode},
         utils::{
             bitflags::BitflagsExt,
             hash_map_ext::HashMapExt,
@@ -1086,7 +1086,7 @@ impl WlSeatGlobal {
             && node.node_id() != self.keyboard_node.get().node_id()
         {
             if !node.node_visible() {
-                node.clone().node_make_visible();
+                node.clone().node_make_visible_dyn();
                 if !node.node_visible() {
                     return;
                 }

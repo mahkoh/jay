@@ -11,7 +11,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         state::{ConnectorData, State},
-        tree::{Node, OutputNode, TearingMode, Transform, VrrMode},
+        tree::{NodeBase, OutputNode, TearingMode, Transform, VrrMode},
         utils::{cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, rc_eq::rc_eq},
         wire::{WlOutputId, ZxdgOutputV1Id, wl_output::*},
     },

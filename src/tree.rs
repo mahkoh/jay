@@ -412,10 +412,12 @@ pub enum WorkspaceChangeReason {
 
 linear_ids!(TreeSerials, TreeSerial, u64);
 
-pub trait Node: 'static {
+pub trait NodeBase: 'static {
     fn node_id(&self) -> NodeId;
     fn node_seat_state(&self) -> &NodeSeatState;
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor);
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor)
+    where
+        Self: Sized;
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor);
     fn node_visible(&self) -> bool;
     fn node_absolute_position(&self) -> Rect;
@@ -437,7 +439,10 @@ pub trait Node: 'static {
         true
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+    fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction)
+    where
+        Self: Sized,
+    {
         let _ = seat;
         let _ = direction;
     }
@@ -491,7 +496,10 @@ pub trait Node: 'static {
         None
     }
 
-    fn node_make_visible(self: Rc<Self>) {
+    fn node_make_visible(self: &Rc<Self>)
+    where
+        Self: Sized,
+    {
         // nothing
     }
 
@@ -903,6 +911,29 @@ pub trait Node: 'static {
 
     fn node_is_placeholder(&self) -> bool {
         false
+    }
+}
+
+pub trait Node: NodeBase {
+    fn node_visit_dyn(self: Rc<Self>, visitor: &mut dyn NodeVisitor);
+    fn node_do_focus_dyn(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction);
+    fn node_make_visible_dyn(self: Rc<Self>);
+}
+
+impl<T> Node for T
+where
+    T: NodeBase + Sized,
+{
+    fn node_visit_dyn(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        self.node_visit(visitor);
+    }
+
+    fn node_do_focus_dyn(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        self.node_do_focus(seat, direction);
+    }
+
+    fn node_make_visible_dyn(self: Rc<Self>) {
+        self.node_make_visible();
     }
 }
 

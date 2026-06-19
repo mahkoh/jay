@@ -29,9 +29,9 @@ use {
         renderer::Renderer,
         state::State,
         tree::{
-            ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination, TileState,
-            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId, ToplevelType,
+            ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase,
+            NodeId, NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
+            TileState, ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId, ToplevelType,
             WorkspaceNode, WorkspaceType, default_tile_drag_destination,
         },
         utils::{
@@ -555,7 +555,7 @@ impl Object for XdgToplevel {
 
 dedicated_add_obj!(XdgToplevel, XdgToplevelId, xdg_toplevel);
 
-impl Node for XdgToplevel {
+impl NodeBase for XdgToplevel {
     fn node_id(&self) -> NodeId {
         self.node_id.into()
     }
@@ -564,7 +564,7 @@ impl Node for XdgToplevel {
         &self.toplevel_data.seat_state
     }
 
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
         visitor.visit_toplevel(&self);
     }
 
@@ -596,7 +596,7 @@ impl Node for XdgToplevel {
         self.toplevel_data.node_layer()
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
+    fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_toplevel(self.clone());
     }
 
@@ -632,8 +632,8 @@ impl Node for XdgToplevel {
         Some(self)
     }
 
-    fn node_make_visible(self: Rc<Self>) {
-        self.toplevel_data.make_visible(&*self)
+    fn node_make_visible(self: &Rc<Self>) {
+        self.toplevel_data.make_visible(&**self)
     }
 
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
@@ -827,14 +827,6 @@ impl XdgSurfaceExt for XdgToplevel {
             geometry.x1() - x_overflow / 2,
             geometry.y1() - y_overflow / 2,
         )
-    }
-
-    fn make_visible(self: Rc<Self>) {
-        self.node_make_visible();
-    }
-
-    fn node_layer(&self) -> NodeLayerLink {
-        self.toplevel_data.node_layer()
     }
 
     fn configure_data(&self) -> XdgSurfaceConfigureData {

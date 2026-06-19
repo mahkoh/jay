@@ -25,8 +25,9 @@ use {
         rect::Rect,
         renderer::Renderer,
         tree::{
-            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
-            NodeLocation, NodeVisitor, NodesStackElement, OutputNode, StackedNode, WorkspaceNode,
+            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId,
+            NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode, StackedNode,
+            WorkspaceNode,
         },
         utils::{clonecell::CloneCell, smallmap::SmallMap},
         wire::{XdgPopupId, xdg_popup::*},
@@ -349,7 +350,7 @@ impl Object for XdgPopup {
 
 dedicated_add_obj!(XdgPopup, XdgPopupId, xdg_popups);
 
-impl Node for XdgPopup {
+impl NodeBase for XdgPopup {
     fn node_id(&self) -> NodeId {
         self.node_id.into()
     }
@@ -358,7 +359,7 @@ impl Node for XdgPopup {
         &self.seat_state
     }
 
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
         visitor.visit_popup(&self);
     }
 
@@ -387,10 +388,13 @@ impl Node for XdgPopup {
     }
 
     fn node_layer(&self) -> NodeLayerLink {
-        XdgSurfaceExt::node_layer(self)
+        let Some(parent) = self.parent.get() else {
+            return NodeLayerLink::Display;
+        };
+        parent.node_layer()
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
+    fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_node(self.xdg.surface.clone());
     }
 
@@ -423,7 +427,7 @@ impl Node for XdgPopup {
         Some(self.xdg.surface.client.clone())
     }
 
-    fn node_make_visible(self: Rc<Self>) {
+    fn node_make_visible(self: &Rc<Self>) {
         if let Some(parent) = self.parent.get() {
             parent.make_visible();
         }
@@ -526,17 +530,6 @@ impl XdgSurfaceExt for XdgPopup {
 
     fn tray_item(&self) -> Option<TrayItemId> {
         self.parent.get()?.tray_item()
-    }
-
-    fn make_visible(self: Rc<Self>) {
-        self.node_make_visible();
-    }
-
-    fn node_layer(&self) -> NodeLayerLink {
-        let Some(parent) = self.parent.get() else {
-            return NodeLayerLink::Display;
-        };
-        parent.node_layer()
     }
 
     fn configure_data(&self) -> XdgSurfaceConfigureData {

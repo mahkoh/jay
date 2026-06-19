@@ -23,10 +23,10 @@ use {
         text::TextTexture,
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
-            NodeId, NodeLayerLink, NodeLocation, OutputNode, TddType, TileDragDestination,
-            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceChangeReason,
-            WorkspaceNode, default_tile_drag_bounds, toplevel_set_floating, toplevel_set_workspace,
-            walker::NodeVisitor,
+            NodeBase, NodeId, NodeLayerLink, NodeLocation, OutputNode, TddType,
+            TileDragDestination, ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType,
+            WorkspaceChangeReason, WorkspaceNode, default_tile_drag_bounds, toplevel_set_floating,
+            toplevel_set_workspace, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -988,7 +988,7 @@ impl ContainerNode {
                     child
                         .node
                         .clone()
-                        .node_do_focus(&seat, Direction::Unspecified);
+                        .node_do_focus_dyn(&seat, Direction::Unspecified);
                 }
             }
             self.set_ns_mono_child(Some(child.clone()));
@@ -1033,7 +1033,7 @@ impl ContainerNode {
                     child
                         .node
                         .clone()
-                        .node_do_focus(&seat, Direction::Unspecified);
+                        .node_do_focus_dyn(&seat, Direction::Unspecified);
                 }
                 child.node.tl_restack_popups();
             } else {
@@ -1131,7 +1131,7 @@ impl ContainerNode {
         if mc.is_some() {
             self.activate_child(&sibling);
         } else {
-            sibling.node.clone().node_do_focus(seat, direction);
+            sibling.node.clone().node_do_focus_dyn(seat, direction);
         }
     }
 
@@ -1384,7 +1384,7 @@ impl ContainerNode {
                         child
                             .node
                             .clone()
-                            .node_do_focus(seat, Direction::Unspecified);
+                            .node_do_focus_dyn(seat, Direction::Unspecified);
                         break 'res (SeatOpKind::Move, child);
                     } else if !mono {
                         if ns.split.get() == ContainerSplit::Horizontal {
@@ -1761,7 +1761,7 @@ pub async fn container_render_titles(state: Rc<State>) {
     }
 }
 
-impl Node for ContainerNode {
+impl NodeBase for ContainerNode {
     fn node_id(&self) -> NodeId {
         self.id.into()
     }
@@ -1770,13 +1770,13 @@ impl Node for ContainerNode {
         &self.toplevel_data.seat_state
     }
 
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
         visitor.visit_container(&self);
     }
 
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor) {
         for child in self.children.iter() {
-            child.node.clone().node_visit(visitor);
+            child.node.clone().node_visit_dyn(visitor);
         }
     }
 
@@ -1816,7 +1816,7 @@ impl Node for ContainerNode {
         }
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+    fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         let ns = &self.node_state;
         let node = if let Some(cn) = ns.mono_child.get() {
             Some(cn)
@@ -1834,7 +1834,7 @@ impl Node for ContainerNode {
             }
         };
         if let Some(node) = node {
-            node.node.clone().node_do_focus(seat, direction);
+            node.node.clone().node_do_focus_dyn(seat, direction);
         }
     }
 
@@ -1896,8 +1896,8 @@ impl Node for ContainerNode {
         Some(self)
     }
 
-    fn node_make_visible(self: Rc<Self>) {
-        self.toplevel_data.make_visible(&*self);
+    fn node_make_visible(self: &Rc<Self>) {
+        self.toplevel_data.make_visible(&**self);
     }
 
     fn node_grab_workspace_changed(
@@ -1967,7 +1967,7 @@ impl Node for ContainerNode {
         new_mc
             .node
             .clone()
-            .node_do_focus(seat, Direction::Unspecified);
+            .node_do_focus_dyn(seat, Direction::Unspecified);
     }
 
     fn node_on_leave(&self, seat: &WlSeatGlobal) {

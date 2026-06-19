@@ -128,8 +128,8 @@ impl TrayItem for JayTrayItemV1 {
         &self.popups
     }
 
-    fn visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
-        visitor.visit_tray_item(&self);
+    fn visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
+        visitor.visit_tray_item(self);
     }
 }
 

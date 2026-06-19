@@ -19,8 +19,9 @@ use {
         rect::{Rect, Size},
         renderer::Renderer,
         tree::{
-            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
-            NodeLocation, NodeVisitor, NodesStackElement, OutputNode, TreeSerial, WorkspaceNode,
+            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId,
+            NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode, TreeSerial,
+            WorkspaceNode,
         },
         utils::{
             bitflags::BitflagsExt, copyhashmap::CopyHashMap, hash_map_ext::HashMapExt,
@@ -680,7 +681,7 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
     }
 }
 
-impl Node for ZwlrLayerSurfaceV1 {
+impl NodeBase for ZwlrLayerSurfaceV1 {
     fn node_id(&self) -> NodeId {
         self.node_id.into()
     }
@@ -689,7 +690,7 @@ impl Node for ZwlrLayerSurfaceV1 {
         &self.seat_state
     }
 
-    fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
+    fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor) {
         visitor.visit_layer_surface(&self);
     }
 
@@ -725,7 +726,7 @@ impl Node for ZwlrLayerSurfaceV1 {
         self.keyboard_interactivity.get() != KI_NONE
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
+    fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_node(self.surface.clone())
     }
 

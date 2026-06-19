@@ -2,7 +2,7 @@ use {
     crate::{
         ifs::wl_seat::{BTN_LEFT, ToplevelSelector},
         it::{test_error::TestResult, testrun::TestRun},
-        tree::{Node, ToplevelNode},
+        tree::{NodeBase, ToplevelNode},
         utils::clonecell::CloneCell,
     },
     std::rc::Rc,

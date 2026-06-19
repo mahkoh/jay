@@ -2,7 +2,7 @@ use {
     crate::{
         fixed::Fixed,
         ifs::wl_seat::tablet::{TabletTool, TabletToolChanges, ToolButtonState},
-        tree::{FindTreeUsecase, FoundNode, Node},
+        tree::{FindTreeUsecase, FoundNode, Node, NodeBase},
         utils::{clonecell::CloneCell, smallmap::SmallMap},
     },
     std::rc::Rc,

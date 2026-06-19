@@ -1,7 +1,7 @@
 use {
     crate::{
         it::{test_error::TestError, test_utils::test_window::TestWindow, testrun::TestRun},
-        tree::{Node, ToplevelNodeBase},
+        tree::{NodeBase, ToplevelNodeBase},
     },
     std::rc::Rc,
 };

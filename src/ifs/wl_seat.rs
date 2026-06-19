@@ -84,10 +84,10 @@ use {
         rect::Rect,
         state::{DeviceHandlerData, State},
         tree::{
-            ContainerNode, ContainerSplit, Direction, FoundNode, Node, NodeLayer, NodeLayerLink,
-            NodeLocation, NodesStack, OutputNode, StackedNode, ToplevelNode, WorkspaceChangeReason,
-            WorkspaceNode, generic_node_visitor, toplevel_create_split, toplevel_parent_container,
-            toplevel_set_floating, toplevel_set_workspace,
+            ContainerNode, ContainerSplit, Direction, FoundNode, Node, NodeBase, NodeLayer,
+            NodeLayerLink, NodeLocation, NodesStack, OutputNode, StackedNode, ToplevelNode,
+            WorkspaceChangeReason, WorkspaceNode, generic_node_visitor, toplevel_create_split,
+            toplevel_parent_container, toplevel_set_floating, toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -838,7 +838,7 @@ impl WlSeatGlobal {
             }
         };
         if direction == Direction::Down && tl.node_is_container() {
-            tl.node_do_focus(self, direction);
+            tl.node_do_focus_dyn(self, direction);
         } else {
             let data = tl.tl_data();
             if data.is_fullscreen.get()
@@ -1011,7 +1011,7 @@ impl WlSeatGlobal {
             self.focus_history_rotate.fetch_sub(1);
         });
         if !visible {
-            node.clone().node_make_visible();
+            node.clone().node_make_visible_dyn();
             if !node.node_visible() {
                 return;
             }
@@ -1078,9 +1078,7 @@ impl WlSeatGlobal {
                 if let Some(n) = layer_node_next(l)
                     && node_viable(&**n)
                 {
-                    n.deref()
-                        .clone()
-                        .node_do_focus(self, Direction::Unspecified);
+                    n.node_do_focus(self, Direction::Unspecified);
                     self.maybe_schedule_warp_mouse_to_focus();
                     return;
                 }
@@ -1093,7 +1091,7 @@ impl WlSeatGlobal {
                     if node_viable(&**n) && n.node_output().map(|o| o.id) == Some(output.id) {
                         n.deref()
                             .clone()
-                            .node_do_focus(self, Direction::Unspecified);
+                            .node_do_focus_dyn(self, Direction::Unspecified);
                         self.maybe_schedule_warp_mouse_to_focus();
                         return;
                     }
@@ -1182,7 +1180,7 @@ impl WlSeatGlobal {
             };
             if let Some(n) = node {
                 if node_viable(&*n) {
-                    n.node_do_focus(self, Direction::Unspecified);
+                    n.node_do_focus_dyn(self, Direction::Unspecified);
                     self.maybe_schedule_warp_mouse_to_focus();
                     return;
                 }
@@ -1239,7 +1237,7 @@ impl WlSeatGlobal {
                 },
             };
             if node.node_visible() && node.node_accepts_focus() {
-                node.node_do_focus(self, Direction::Unspecified);
+                node.node_do_focus_dyn(self, Direction::Unspecified);
                 self.maybe_schedule_warp_mouse_to_focus();
                 break;
             }
@@ -1909,7 +1907,7 @@ efrom!(WlSeatError, ClientError);
 efrom!(WlSeatError, WlKeyboardError);
 
 pub fn collect_kb_foci2(node: Rc<dyn Node>, seats: &mut SmallVec<[Rc<WlSeatGlobal>; 3]>) {
-    node.node_visit(&mut generic_node_visitor(|node| {
+    node.node_visit_dyn(&mut generic_node_visitor(|node| {
         node.node_seat_state().for_each_kb_focus(|s| seats.push(s));
     }));
 }
