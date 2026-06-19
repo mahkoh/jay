@@ -680,7 +680,7 @@ impl FloatNode {
             if cursor_data.op_type == OpType::Move
                 && let Some(tl) = ns.child.get()
             {
-                tl.node_do_focus(seat, Direction::Unspecified);
+                tl.node_do_focus_dyn(seat, Direction::Unspecified);
             }
             if cursor_data.double_click_state.click(
                 &self.state,
@@ -831,9 +831,9 @@ impl NodeBase for FloatNode {
         false
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+    fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         if let Some(c) = self.node_state.child.get() {
-            c.node_do_focus(seat, direction);
+            c.node_do_focus_dyn(seat, direction);
         }
     }
 

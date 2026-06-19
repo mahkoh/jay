@@ -838,7 +838,7 @@ impl WlSeatGlobal {
             }
         };
         if direction == Direction::Down && tl.node_is_container() {
-            tl.node_do_focus(self, direction);
+            tl.node_do_focus_dyn(self, direction);
         } else {
             let data = tl.tl_data();
             if data.is_fullscreen.get()
@@ -1078,9 +1078,7 @@ impl WlSeatGlobal {
                 if let Some(n) = layer_node_next(l)
                     && node_viable(&**n)
                 {
-                    n.deref()
-                        .clone()
-                        .node_do_focus(self, Direction::Unspecified);
+                    n.node_do_focus(self, Direction::Unspecified);
                     self.maybe_schedule_warp_mouse_to_focus();
                     return;
                 }
@@ -1093,7 +1091,7 @@ impl WlSeatGlobal {
                     if node_viable(&**n) && n.node_output().map(|o| o.id) == Some(output.id) {
                         n.deref()
                             .clone()
-                            .node_do_focus(self, Direction::Unspecified);
+                            .node_do_focus_dyn(self, Direction::Unspecified);
                         self.maybe_schedule_warp_mouse_to_focus();
                         return;
                     }
@@ -1182,7 +1180,7 @@ impl WlSeatGlobal {
             };
             if let Some(n) = node {
                 if node_viable(&*n) {
-                    n.node_do_focus(self, Direction::Unspecified);
+                    n.node_do_focus_dyn(self, Direction::Unspecified);
                     self.maybe_schedule_warp_mouse_to_focus();
                     return;
                 }
@@ -1239,7 +1237,7 @@ impl WlSeatGlobal {
                 },
             };
             if node.node_visible() && node.node_accepts_focus() {
-                node.node_do_focus(self, Direction::Unspecified);
+                node.node_do_focus_dyn(self, Direction::Unspecified);
                 self.maybe_schedule_warp_mouse_to_focus();
                 break;
             }

@@ -956,7 +956,7 @@ impl OutputNode {
         }
         ws.change_extents(&ns.rects.workspace.get(), self);
         for seat in seats {
-            ws.clone().node_do_focus(&seat, Direction::Unspecified);
+            ws.node_do_focus(&seat, Direction::Unspecified);
         }
         self.schedule_update_render_data();
         if self.node_visible() {
@@ -973,7 +973,7 @@ impl OutputNode {
         self.hide_overlay2(true, &mut seats);
         if let Some(ws) = self.workspace() {
             for seat in seats {
-                ws.clone().node_do_focus(&seat, Direction::Unspecified);
+                ws.node_do_focus(&seat, Direction::Unspecified);
             }
         }
         self.schedule_update_render_data();
@@ -1921,7 +1921,7 @@ impl OutputNode {
             let wns = &ws.node_state;
             if let Some(fs) = wns.fullscreen.get() {
                 if fs.node_visible() {
-                    fs.node_do_focus(seat, direction);
+                    fs.node_do_focus_dyn(seat, direction);
                     return;
                 }
             } else if let Some(c) = wns.container.get() {
@@ -2214,7 +2214,7 @@ impl NodeBase for OutputNode {
         NodeLayerLink::Output
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+    fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         if self.state.lock.locked.get() {
             if let Some(lock) = self.node_state.lock_surface.get() {
                 seat.focus_node(lock.surface.clone());

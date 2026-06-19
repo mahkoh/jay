@@ -390,7 +390,7 @@ impl NodeBase for Xwindow {
         self.tl_accepts_keyboard_focus()
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
+    fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_toplevel(self.clone());
     }
 

@@ -833,7 +833,8 @@ impl ToplevelData {
         ws.set_fullscreen_node(&node);
         node.clone().tl_change_extents(&output.node_state.pos.get());
         for seat in kb_foci {
-            node.clone().node_do_focus(&seat, Direction::Unspecified);
+            node.clone()
+                .node_do_focus_dyn(&seat, Direction::Unspecified);
         }
         for handle in self.manager_handles.lock().values() {
             handle.send_state(self.active(), true);
@@ -881,7 +882,8 @@ impl ToplevelData {
         if node.node_visible() {
             let kb_foci = collect_kb_foci(fd.placeholder.clone());
             for seat in kb_foci {
-                node.clone().node_do_focus(&seat, Direction::Unspecified);
+                node.clone()
+                    .node_do_focus_dyn(&seat, Direction::Unspecified);
             }
         }
         fd.placeholder.tl_destroy();

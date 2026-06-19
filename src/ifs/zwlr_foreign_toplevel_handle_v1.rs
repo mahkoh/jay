@@ -69,7 +69,7 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
                 }
             }
             let seat = self.client.lookup(req.seat)?;
-            toplevel.node_do_focus(&seat.global, Direction::Unspecified);
+            toplevel.node_do_focus_dyn(&seat.global, Direction::Unspecified);
         }
         Ok(())
     }

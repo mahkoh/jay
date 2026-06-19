@@ -988,7 +988,7 @@ impl ContainerNode {
                     child
                         .node
                         .clone()
-                        .node_do_focus(&seat, Direction::Unspecified);
+                        .node_do_focus_dyn(&seat, Direction::Unspecified);
                 }
             }
             self.set_ns_mono_child(Some(child.clone()));
@@ -1033,7 +1033,7 @@ impl ContainerNode {
                     child
                         .node
                         .clone()
-                        .node_do_focus(&seat, Direction::Unspecified);
+                        .node_do_focus_dyn(&seat, Direction::Unspecified);
                 }
                 child.node.tl_restack_popups();
             } else {
@@ -1131,7 +1131,7 @@ impl ContainerNode {
         if mc.is_some() {
             self.activate_child(&sibling);
         } else {
-            sibling.node.clone().node_do_focus(seat, direction);
+            sibling.node.clone().node_do_focus_dyn(seat, direction);
         }
     }
 
@@ -1384,7 +1384,7 @@ impl ContainerNode {
                         child
                             .node
                             .clone()
-                            .node_do_focus(seat, Direction::Unspecified);
+                            .node_do_focus_dyn(seat, Direction::Unspecified);
                         break 'res (SeatOpKind::Move, child);
                     } else if !mono {
                         if ns.split.get() == ContainerSplit::Horizontal {
@@ -1816,7 +1816,7 @@ impl NodeBase for ContainerNode {
         }
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+    fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         let ns = &self.node_state;
         let node = if let Some(cn) = ns.mono_child.get() {
             Some(cn)
@@ -1834,7 +1834,7 @@ impl NodeBase for ContainerNode {
             }
         };
         if let Some(node) = node {
-            node.node.clone().node_do_focus(seat, direction);
+            node.node.clone().node_do_focus_dyn(seat, direction);
         }
     }
 
@@ -1967,7 +1967,7 @@ impl NodeBase for ContainerNode {
         new_mc
             .node
             .clone()
-            .node_do_focus(seat, Direction::Unspecified);
+            .node_do_focus_dyn(seat, Direction::Unspecified);
     }
 
     fn node_on_leave(&self, seat: &WlSeatGlobal) {

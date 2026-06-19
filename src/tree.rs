@@ -439,7 +439,10 @@ pub trait NodeBase: 'static {
         true
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+    fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction)
+    where
+        Self: Sized,
+    {
         let _ = seat;
         let _ = direction;
     }
@@ -910,6 +913,7 @@ pub trait NodeBase: 'static {
 
 pub trait Node: NodeBase {
     fn node_visit_dyn(self: Rc<Self>, visitor: &mut dyn NodeVisitor);
+    fn node_do_focus_dyn(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction);
 }
 
 impl<T> Node for T
@@ -918,6 +922,10 @@ where
 {
     fn node_visit_dyn(self: Rc<Self>, visitor: &mut dyn NodeVisitor) {
         self.node_visit(visitor);
+    }
+
+    fn node_do_focus_dyn(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+        self.node_do_focus(seat, direction);
     }
 }
 

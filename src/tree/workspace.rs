@@ -401,7 +401,7 @@ impl WorkspaceNode {
     pub fn do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) -> bool {
         let ns = &self.node_state;
         if let Some(fs) = ns.fullscreen.get() {
-            fs.node_do_focus(seat, direction);
+            fs.node_do_focus_dyn(seat, direction);
         } else if self.stacked.is_not_empty()
             && let Some(last) = seat.get_last_focus_on_workspace(&self)
         {
@@ -414,7 +414,7 @@ impl WorkspaceNode {
             .filter_map(|node| (*node).clone().node_into_float())
             .find_map(|float| float.node_state.child.get())
         {
-            child.node_do_focus(seat, direction);
+            child.node_do_focus_dyn(seat, direction);
         } else if self.ty == WorkspaceType::Normal {
             seat.focus_node(self.clone());
         } else {
@@ -503,7 +503,7 @@ impl NodeBase for WorkspaceNode {
         NodeLayerLink::Workspace
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
+    fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {
         self.do_focus(seat, direction);
     }
 

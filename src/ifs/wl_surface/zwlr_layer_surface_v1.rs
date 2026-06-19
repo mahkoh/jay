@@ -726,7 +726,7 @@ impl NodeBase for ZwlrLayerSurfaceV1 {
         self.keyboard_interactivity.get() != KI_NONE
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
+    fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_node(self.surface.clone())
     }
 

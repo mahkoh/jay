@@ -1089,7 +1089,7 @@ impl State {
         {
             return;
         }
-        node.node_do_focus(&seat, Direction::Unspecified);
+        node.node_do_focus_dyn(&seat, Direction::Unspecified);
     }
 
     pub fn show_workspace2(

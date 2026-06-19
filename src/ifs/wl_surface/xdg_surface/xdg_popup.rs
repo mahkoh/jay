@@ -391,7 +391,7 @@ impl NodeBase for XdgPopup {
         XdgSurfaceExt::node_layer(self)
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
+    fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_node(self.xdg.surface.clone());
     }
 

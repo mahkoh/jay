@@ -189,7 +189,7 @@ impl NodeBase for PlaceholderNode {
         self.toplevel.node_layer()
     }
 
-    fn node_do_focus(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
+    fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
         seat.focus_toplevel(self.clone());
     }
 
