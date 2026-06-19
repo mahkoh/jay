@@ -9,7 +9,8 @@ use {
             zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
         },
         tree::{
-            ContainerNode, DisplayNode, FloatNode, Node, OutputNode, PlaceholderNode, WorkspaceNode,
+            ContainerNode, DisplayNode, FloatNode, Node, NodeBase, OutputNode, PlaceholderNode,
+            WorkspaceNode,
         },
     },
     std::rc::Rc,

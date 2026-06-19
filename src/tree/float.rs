@@ -19,10 +19,10 @@ use {
         state::State,
         text::TextTexture,
         tree::{
-            ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeLayerLink, NodeLocation, NodesStack, NodesStackElement, OutputNode, PinnedNode,
-            StackedNode, TileDragDestination, ToplevelNode, WorkspaceChangeReason, WorkspaceNode,
-            WorkspaceType, toplevel_set_floating, walker::NodeVisitor,
+            ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase,
+            NodeId, NodeLayerLink, NodeLocation, NodesStack, NodesStackElement, OutputNode,
+            PinnedNode, StackedNode, TileDragDestination, ToplevelNode, WorkspaceChangeReason,
+            WorkspaceNode, WorkspaceType, toplevel_set_floating, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -771,7 +771,7 @@ impl Debug for FloatNode {
     }
 }
 
-impl Node for FloatNode {
+impl NodeBase for FloatNode {
     fn node_id(&self) -> NodeId {
         self.id.into()
     }

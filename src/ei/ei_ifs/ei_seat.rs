@@ -22,7 +22,7 @@ use {
         },
         keyboard::{DynKeyboardState, KeyboardState, KeyboardStateId},
         leaks::Tracker,
-        tree::Node,
+        tree::NodeBase,
         utils::{array, bitflags::BitflagsExt, clonecell::CloneCell},
         wire_ei::{
             EiSeatId,

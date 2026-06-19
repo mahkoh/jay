@@ -31,8 +31,8 @@ use {
         sm::ToplevelSession,
         state::{ConnectorData, State},
         tree::{
-            ContainerNode, ContainerSplit, ContainingNode, Direction, FloatNode, Node, NodeId,
-            NodeLayerLink, OutputNode, PlaceholderNode, WorkspaceNode, WorkspaceType,
+            ContainerNode, ContainerSplit, ContainingNode, Direction, FloatNode, Node, NodeBase,
+            NodeId, NodeLayerLink, OutputNode, PlaceholderNode, WorkspaceNode, WorkspaceType,
         },
         utils::{
             array_to_tuple::ArrayToTuple, clonecell::CloneCell, copyhashmap::CopyHashMap,

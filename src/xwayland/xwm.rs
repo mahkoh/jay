@@ -23,7 +23,7 @@ use {
         io_uring::{IoUring, IoUringError},
         rect::Rect,
         state::State,
-        tree::{Node, ToplevelNode},
+        tree::{NodeBase, ToplevelNode},
         utils::{
             bitflags::BitflagsExt,
             buf::Buf,

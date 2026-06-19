@@ -12,8 +12,8 @@ use {
         object::{Object, Version},
         rect::{Rect, Size},
         tree::{
-            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
-            NodeVisitor, OutputNode, TreeSerial, WorkspaceNode,
+            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId, NodeLayerLink,
+            NodeLocation, NodeVisitor, OutputNode, TreeSerial, WorkspaceNode,
         },
         wire::{ExtSessionLockSurfaceV1Id, WlSurfaceId, ext_session_lock_surface_v1::*},
     },
@@ -124,7 +124,7 @@ impl SurfaceExt for ExtSessionLockSurfaceV1 {
 }
 
 tree_id!(ExtSessionLockSurfaceV1NodeId);
-impl Node for ExtSessionLockSurfaceV1 {
+impl NodeBase for ExtSessionLockSurfaceV1 {
     fn node_id(&self) -> NodeId {
         self.node_id.into()
     }

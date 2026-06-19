@@ -5,7 +5,7 @@ use {
         ifs::wl_seat::PositionHintRequest,
         leaks::Tracker,
         object::{Object, Version},
-        tree::Node,
+        tree::NodeBase,
         wire::{
             WpPointerWarpV1Id,
             wp_pointer_warp_v1::{Destroy, WarpPointer, WpPointerWarpV1RequestHandler},

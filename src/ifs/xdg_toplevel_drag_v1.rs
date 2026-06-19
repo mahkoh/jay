@@ -9,7 +9,7 @@ use {
         object::{Object, Version},
         rect::Rect,
         renderer::Renderer,
-        tree::{Node, ToplevelNode},
+        tree::{NodeBase, ToplevelNode},
         utils::clonecell::CloneCell,
         wire::{XdgToplevelDragV1Id, xdg_toplevel_drag_v1::*},
     },

@@ -22,9 +22,9 @@ use {
         text::TextTexture,
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
-            NodeId, NodeLayerLink, NodeLocation, NodeVisitorBase, OutputNode, PlaceholderNode,
-            StackedNode, ToplevelNode, WorkspaceDisplayOrder, container::ContainerNode,
-            walker::NodeVisitor,
+            NodeBase, NodeId, NodeLayerLink, NodeLocation, NodeVisitorBase, OutputNode,
+            PlaceholderNode, StackedNode, ToplevelNode, WorkspaceDisplayOrder,
+            container::ContainerNode, walker::NodeVisitor,
         },
         utils::{
             clonecell::CloneCell,
@@ -453,7 +453,7 @@ impl WorkspaceNode {
     }
 }
 
-impl Node for WorkspaceNode {
+impl NodeBase for WorkspaceNode {
     fn node_id(&self) -> NodeId {
         self.id.into()
     }

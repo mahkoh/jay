@@ -10,8 +10,8 @@ use {
         state::State,
         text::TextTexture,
         tree::{
-            ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
+            ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, NodeBase,
+            NodeId, NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
             ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode,
             default_tile_drag_destination,
         },
@@ -148,7 +148,7 @@ impl PlaceholderNode {
     }
 }
 
-impl Node for PlaceholderNode {
+impl NodeBase for PlaceholderNode {
     fn node_id(&self) -> NodeId {
         self.id.into()
     }

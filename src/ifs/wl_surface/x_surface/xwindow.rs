@@ -11,10 +11,11 @@ use {
         renderer::Renderer,
         state::State,
         tree::{
-            ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode, StackedNode,
-            TileDragDestination, TileState, ToplevelData, ToplevelNode, ToplevelNodeBase,
-            ToplevelType, WorkspaceNode, WorkspaceType, default_tile_drag_destination,
+            ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase,
+            NodeId, NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode,
+            StackedNode, TileDragDestination, TileState, ToplevelData, ToplevelNode,
+            ToplevelNodeBase, ToplevelType, WorkspaceNode, WorkspaceType,
+            default_tile_drag_destination,
         },
         utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode},
         wire::WlSurfaceId,
@@ -341,7 +342,7 @@ impl Xwindow {
     }
 }
 
-impl Node for Xwindow {
+impl NodeBase for Xwindow {
     fn node_id(&self) -> NodeId {
         self.id.into()
     }

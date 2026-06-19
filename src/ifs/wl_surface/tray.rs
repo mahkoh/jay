@@ -16,8 +16,8 @@ use {
         rect::Rect,
         theme::BarPosition,
         tree::{
-            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink, NodeLocation,
-            NodeVisitor, NodesStackElement, OutputNode, TreeSerial, WorkspaceNode,
+            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId, NodeLayerLink,
+            NodeLocation, NodeVisitor, NodesStackElement, OutputNode, TreeSerial, WorkspaceNode,
         },
         utils::{
             cell_ext::CellExt, copyhashmap::CopyHashMap, hash_map_ext::HashMapExt,
@@ -311,7 +311,7 @@ impl<T: TrayItem> SurfaceExt for T {
     }
 }
 
-impl<T: TrayItem> Node for T {
+impl<T: TrayItem> NodeBase for T {
     fn node_id(&self) -> NodeId {
         self.tray_item_data().node_id.into()
     }

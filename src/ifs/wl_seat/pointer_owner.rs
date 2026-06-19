@@ -21,7 +21,7 @@ use {
         time::Time,
         tree::{
             ContainerNode, ContainerSplit, ContainingNode, FindTreeUsecase, FoundNode, Node,
-            OutputNode, PlaceholderNode, TddType, ToplevelNode, WorkspaceChangeReason,
+            NodeBase, OutputNode, PlaceholderNode, TddType, ToplevelNode, WorkspaceChangeReason,
             WorkspaceDragDestination, WorkspaceNode, WsMoveConfig, move_ws_to_output,
             toplevel_set_workspace,
         },

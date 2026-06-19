@@ -29,9 +29,9 @@ use {
         renderer::Renderer,
         state::State,
         tree::{
-            ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId,
-            NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination, TileState,
-            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId, ToplevelType,
+            ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase,
+            NodeId, NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
+            TileState, ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId, ToplevelType,
             WorkspaceNode, WorkspaceType, default_tile_drag_destination,
         },
         utils::{
@@ -555,7 +555,7 @@ impl Object for XdgToplevel {
 
 dedicated_add_obj!(XdgToplevel, XdgToplevelId, xdg_toplevel);
 
-impl Node for XdgToplevel {
+impl NodeBase for XdgToplevel {
     fn node_id(&self) -> NodeId {
         self.node_id.into()
     }

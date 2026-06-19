@@ -2,7 +2,7 @@ use {
     crate::{
         control_center::{ControlCenterInner, bool, grid, label, row},
         state::State,
-        tree::{Node, WorkspaceType},
+        tree::{NodeBase, WorkspaceType},
     },
     egui::{CollapsingHeader, ComboBox, TextFormat, Ui, text::LayoutJob},
     std::rc::Rc,

@@ -5,7 +5,7 @@ use {
             x_surface::{xwayland_surface_v1::XwaylandSurfaceV1, xwindow::Xwindow},
         },
         leaks::Tracker,
-        tree::{Node, NodeLayerLink, ToplevelNode, ToplevelNodeBase, WorkspaceNode},
+        tree::{Node, NodeBase, NodeLayerLink, ToplevelNode, ToplevelNodeBase, WorkspaceNode},
         utils::clonecell::CloneCell,
         xwayland::XWaylandEvent,
     },

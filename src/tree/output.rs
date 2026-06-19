@@ -52,7 +52,7 @@ use {
         text::TextTexture,
         theme::BarPosition,
         tree::{
-            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
+            Direction, FindTreeResult, FindTreeUsecase, FoundNode, NodeBase, NodeId, NodeLayerLink,
             NodeLocation, NodesStack, PinnedNode, TddType, TileDragDestination, Transform,
             WorkspaceDisplayOrder, WorkspaceDragDestination, WorkspaceNode, WorkspaceOutputLink,
             WorkspaceType, walker::NodeVisitor,
@@ -2156,7 +2156,7 @@ impl Debug for OutputNode {
     }
 }
 
-impl Node for OutputNode {
+impl NodeBase for OutputNode {
     fn node_id(&self) -> NodeId {
         self.id.into()
     }

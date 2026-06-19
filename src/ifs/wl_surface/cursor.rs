@@ -8,7 +8,7 @@ use {
         rect::Rect,
         renderer::Renderer,
         scale::Scale,
-        tree::{Node, NodeLocation, NodeVisitorBase, OutputNode},
+        tree::{NodeBase, NodeLocation, NodeVisitorBase, OutputNode},
     },
     std::{cell::Cell, rc::Rc},
 };

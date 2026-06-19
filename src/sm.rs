@@ -24,7 +24,9 @@ use {
         },
         sqlite::{Sqlite, SqliteError, SqliteUsage},
         state::State,
-        tree::{Node, OutputNode, ToplevelData, WorkspaceNameHash, WorkspaceNode, WorkspaceType},
+        tree::{
+            NodeBase, OutputNode, ToplevelData, WorkspaceNameHash, WorkspaceNode, WorkspaceType,
+        },
         utils::{
             asyncevent::AsyncEvent,
             cell_ext::CellExt,

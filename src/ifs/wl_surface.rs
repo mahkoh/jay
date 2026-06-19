@@ -85,9 +85,9 @@ use {
         state::{ConnectorData, State},
         tree::{
             BeforeLatchListener, BeforeLatchResult, ContainerNode, FindTreeResult, FoundNode,
-            LatchListener, Node, NodeId, NodeLayerLink, NodeLocation, NodeVisitor, NodeVisitorBase,
-            OutputNode, PlaceholderNode, PresentationListener, ToplevelNode, Transform, TreeSerial,
-            VblankListener, WorkspaceNode,
+            LatchListener, Node, NodeBase, NodeId, NodeLayerLink, NodeLocation, NodeVisitor,
+            NodeVisitorBase, OutputNode, PlaceholderNode, PresentationListener, ToplevelNode,
+            Transform, TreeSerial, VblankListener, WorkspaceNode,
         },
         utils::{
             box_cache::{BoxCache, BoxReset, CachedBox},
@@ -1937,7 +1937,7 @@ impl Object for WlSurface {
 dedicated_add_obj!(WlSurface, WlSurfaceId, surfaces);
 
 tree_id!(SurfaceNodeId);
-impl Node for WlSurface {
+impl NodeBase for WlSurface {
     fn node_id(&self) -> NodeId {
         self.node_id.into()
     }

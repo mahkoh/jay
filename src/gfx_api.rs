@@ -23,7 +23,7 @@ use {
         state::State,
         syncobj::SyncobjCtx,
         theme::Color,
-        tree::{Node, OutputNode, Transform},
+        tree::{Node, NodeBase, OutputNode, Transform},
         utils::{
             clonecell::UnsafeCellCloneSafe, errorfmt::ErrorFmt, oserror::OsErrorExt,
             static_text::StaticText,

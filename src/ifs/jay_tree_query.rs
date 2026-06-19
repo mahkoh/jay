@@ -15,7 +15,7 @@ use {
         object::{Object, Version},
         rect::Rect,
         tree::{
-            self, ContainerNode, DisplayNode, FloatNode, Node, NodeVisitor, OutputNode,
+            self, ContainerNode, DisplayNode, FloatNode, Node, NodeBase, NodeVisitor, OutputNode,
             PlaceholderNode, ToplevelData, ToplevelIdentifier, ToplevelNodeBase, ToplevelType,
             WorkspaceNode, WorkspaceType,
         },

@@ -412,7 +412,7 @@ pub enum WorkspaceChangeReason {
 
 linear_ids!(TreeSerials, TreeSerial, u64);
 
-pub trait Node: 'static {
+pub trait NodeBase: 'static {
     fn node_id(&self) -> NodeId;
     fn node_seat_state(&self) -> &NodeSeatState;
     fn node_visit(self: Rc<Self>, visitor: &mut dyn NodeVisitor);
@@ -905,6 +905,10 @@ pub trait Node: 'static {
         false
     }
 }
+
+pub trait Node: NodeBase {}
+
+impl<T> Node for T where T: NodeBase + Sized {}
 
 pub struct FoundNode {
     pub node: Rc<dyn Node>,

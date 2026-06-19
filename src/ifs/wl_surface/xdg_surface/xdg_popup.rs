@@ -25,8 +25,9 @@ use {
         rect::Rect,
         renderer::Renderer,
         tree::{
-            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeId, NodeLayerLink,
-            NodeLocation, NodeVisitor, NodesStackElement, OutputNode, StackedNode, WorkspaceNode,
+            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId,
+            NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode, StackedNode,
+            WorkspaceNode,
         },
         utils::{clonecell::CloneCell, smallmap::SmallMap},
         wire::{XdgPopupId, xdg_popup::*},
@@ -349,7 +350,7 @@ impl Object for XdgPopup {
 
 dedicated_add_obj!(XdgPopup, XdgPopupId, xdg_popups);
 
-impl Node for XdgPopup {
+impl NodeBase for XdgPopup {
     fn node_id(&self) -> NodeId {
         self.node_id.into()
     }

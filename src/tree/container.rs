@@ -23,10 +23,10 @@ use {
         text::TextTexture,
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
-            NodeId, NodeLayerLink, NodeLocation, OutputNode, TddType, TileDragDestination,
-            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceChangeReason,
-            WorkspaceNode, default_tile_drag_bounds, toplevel_set_floating, toplevel_set_workspace,
-            walker::NodeVisitor,
+            NodeBase, NodeId, NodeLayerLink, NodeLocation, OutputNode, TddType,
+            TileDragDestination, ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType,
+            WorkspaceChangeReason, WorkspaceNode, default_tile_drag_bounds, toplevel_set_floating,
+            toplevel_set_workspace, walker::NodeVisitor,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -1761,7 +1761,7 @@ pub async fn container_render_titles(state: Rc<State>) {
     }
 }
 
-impl Node for ContainerNode {
+impl NodeBase for ContainerNode {
     fn node_id(&self) -> NodeId {
         self.id.into()
     }

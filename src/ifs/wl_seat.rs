@@ -84,10 +84,10 @@ use {
         rect::Rect,
         state::{DeviceHandlerData, State},
         tree::{
-            ContainerNode, ContainerSplit, Direction, FoundNode, Node, NodeLayer, NodeLayerLink,
-            NodeLocation, NodesStack, OutputNode, StackedNode, ToplevelNode, WorkspaceChangeReason,
-            WorkspaceNode, generic_node_visitor, toplevel_create_split, toplevel_parent_container,
-            toplevel_set_floating, toplevel_set_workspace,
+            ContainerNode, ContainerSplit, Direction, FoundNode, Node, NodeBase, NodeLayer,
+            NodeLayerLink, NodeLocation, NodesStack, OutputNode, StackedNode, ToplevelNode,
+            WorkspaceChangeReason, WorkspaceNode, generic_node_visitor, toplevel_create_split,
+            toplevel_parent_container, toplevel_set_floating, toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent,
