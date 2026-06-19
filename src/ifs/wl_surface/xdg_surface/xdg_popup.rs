@@ -388,7 +388,10 @@ impl NodeBase for XdgPopup {
     }
 
     fn node_layer(&self) -> NodeLayerLink {
-        XdgSurfaceExt::node_layer(self)
+        let Some(parent) = self.parent.get() else {
+            return NodeLayerLink::Display;
+        };
+        parent.node_layer()
     }
 
     fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
@@ -527,17 +530,6 @@ impl XdgSurfaceExt for XdgPopup {
 
     fn tray_item(&self) -> Option<TrayItemId> {
         self.parent.get()?.tray_item()
-    }
-
-    fn make_visible(self: Rc<Self>) {
-        self.node_make_visible();
-    }
-
-    fn node_layer(&self) -> NodeLayerLink {
-        let Some(parent) = self.parent.get() else {
-            return NodeLayerLink::Display;
-        };
-        parent.node_layer()
     }
 
     fn configure_data(&self) -> XdgSurfaceConfigureData {

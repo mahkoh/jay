@@ -829,14 +829,6 @@ impl XdgSurfaceExt for XdgToplevel {
         )
     }
 
-    fn make_visible(self: Rc<Self>) {
-        self.node_make_visible();
-    }
-
-    fn node_layer(&self) -> NodeLayerLink {
-        self.toplevel_data.node_layer()
-    }
-
     fn configure_data(&self) -> XdgSurfaceConfigureData {
         if self.drag.is_some() {
             return XdgSurfaceConfigureData::Toplevel(None);

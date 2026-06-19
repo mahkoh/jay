@@ -165,7 +165,7 @@ impl XdgPopupParent for Popup {
 
     fn make_visible(self: Rc<Self>) {
         if let Some(ext) = self.parent.ext.get() {
-            ext.make_visible();
+            ext.node_make_visible_dyn();
         }
     }
 
@@ -209,7 +209,7 @@ impl PendingXdgSurfaceData {
     }
 }
 
-pub trait XdgSurfaceExt: Debug {
+pub trait XdgSurfaceExt: Node + Debug {
     fn initial_configure(self: Rc<Self>) {
         // nothing
     }
@@ -241,10 +241,6 @@ pub trait XdgSurfaceExt: Debug {
     fn effective_geometry(&self, geometry: Rect) -> Rect {
         geometry
     }
-
-    fn make_visible(self: Rc<Self>);
-
-    fn node_layer(&self) -> NodeLayerLink;
 
     fn configure_data(&self) -> XdgSurfaceConfigureData;
 
