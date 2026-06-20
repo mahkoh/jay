@@ -25,6 +25,7 @@ list and must be updated when adding a new chapter. Chapter-to-topic mapping:
 | `configuration/status-bar.md` | Status bar config |
 | `configuration/xwayland.md` | Xwayland |
 | `configuration/environment.md` | Environment variables |
+| `configuration/transactions.md` | Transactions: atomic/glitch-free layout updates, transaction & configure timeouts |
 | `configuration/misc.md` | Color management, libei, floating defaults, ui-drag |
 | `tiling.md` | i3-like tiling layout, splitting containers |
 | `workspaces.md` | Virtual desktops, workspace management, multi-monitor |

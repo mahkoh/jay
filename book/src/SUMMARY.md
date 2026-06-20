@@ -26,6 +26,7 @@
 - [Theme & Appearance](configuration/theme.md)
 - [Status Bar](configuration/status-bar.md)
 - [Xwayland](configuration/xwayland.md)
+- [Transactions](configuration/transactions.md)
 - [Miscellaneous](configuration/misc.md)
 
 # Using Jay
