@@ -167,7 +167,7 @@ impl Renderer<'_> {
                     x,
                     y,
                 );
-                let scale = output.global.persistent.scale.get();
+                let scale = output.node_state.scale.get();
                 for title in &rd.titles {
                     if let Some(icon_x) = title.icon_x
                         && let Some(icons) = &self.bar_icons

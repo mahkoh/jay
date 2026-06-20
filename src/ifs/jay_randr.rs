@@ -106,12 +106,12 @@ impl JayRandr {
         let pos = ons.pos.get();
         self.client.event(Output {
             self_id: self.id,
-            scale: global.persistent.scale.get().to_wl(),
+            scale: ons.scale.get().to_wl(),
             width: pos.width(),
             height: pos.height(),
             x: pos.x1(),
             y: pos.y1(),
-            transform: global.persistent.transform.get().to_wl(),
+            transform: ons.transform.get().to_wl(),
             manufacturer: &output.monitor_info.output_id.manufacturer,
             product: &output.monitor_info.output_id.model,
             serial_number: &output.monitor_info.output_id.serial_number,

@@ -188,7 +188,7 @@ impl JayScreencast {
         };
         let scale = match tl.tl_data().workspace.get() {
             None => Scale::default(),
-            Some(w) => w.node_state.output.get().global.persistent.scale.get(),
+            Some(w) => w.node_state.output.get().node_state.scale.get(),
         };
         let mut buffer = self.buffers.borrow_mut();
         for (idx, buffer) in buffer.deref_mut().iter_mut().enumerate() {
@@ -353,8 +353,8 @@ impl JayScreencast {
                     x_off,
                     y_off,
                     size,
-                    on.global.persistent.transform.get(),
-                    on.global.persistent.scale.get(),
+                    on.node_state.transform.get(),
+                    on.node_state.scale.get(),
                 );
                 match res {
                     Ok(_) => {

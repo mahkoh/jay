@@ -949,7 +949,7 @@ impl ToplevelData {
     pub fn desired_pixel_size(&self) -> (i32, i32) {
         let (dw, dh) = self.desired_extents.get().size();
         if let Some(ws) = self.workspace.get() {
-            let scale = ws.node_state.output.get().global.persistent.scale.get();
+            let scale = ws.node_state.output.get().node_state.scale.get();
             return scale.pixel_size([dw, dh]).to_tuple();
         };
         (0, 0)

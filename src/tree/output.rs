@@ -142,7 +142,9 @@ impl ObjWithId for Rc<OutputNode> {
 
 pub struct OutputNodeState {
     pub pos: Cell<Rect>,
+    pub scale: Cell<Scale>,
     pub legacy_scale: Cell<u32>,
+    pub transform: Cell<Transform>,
     pub workspace: ObjAndId<Option<Rc<WorkspaceNode>>>,
     pub overlay: ObjAndId<Option<Rc<WorkspaceNode>>>,
     pub lock_surface: CloneCell<Option<Rc<ExtSessionLockSurfaceV1>>>,
@@ -286,7 +288,8 @@ impl OutputNode {
             node_state: OutputNodeState::new(state),
         });
         on.set_ns_pos(Rect::new_sized_saturating(x, y, width, height));
-        on.set_ns_legacy_scale(scale.round_up());
+        on.set_ns_scale(scale);
+        on.set_ns_transform(global.persistent.transform.get());
         on.set_ns_btf(connector_state.eotf);
         on.set_ns_bcs(connector_state.color_space);
         on.update_visible();
@@ -508,8 +511,8 @@ impl OutputNode {
                             mem,
                             *stride,
                             wl_buffer.format,
-                            self.global.persistent.transform.get(),
-                            self.global.persistent.scale.get(),
+                            self.node_state.transform.get(),
+                            self.node_state.scale.get(),
                         );
                         match res {
                             Ok(p) => {
@@ -542,15 +545,15 @@ impl OutputNode {
                             &fb,
                             AcquireSync::Implicit,
                             ReleaseSync::Implicit,
-                            self.global.persistent.transform.get(),
+                            self.node_state.transform.get(),
                             self.state.color_manager.srgb_gamma22(),
                             ns.pos.get(),
                             render_hardware_cursors,
                             x_off - capture.rect.x1(),
                             y_off - capture.rect.y1(),
                             size,
-                            self.global.persistent.transform.get(),
-                            self.global.persistent.scale.get(),
+                            self.node_state.transform.get(),
+                            self.node_state.scale.get(),
                         );
                         if let Err(e) = res {
                             log::warn!("Could not perform screencopy: {}", ErrorFmt(e));
@@ -614,8 +617,7 @@ impl OutputNode {
         if scale == old_scale {
             return;
         }
-        let legacy_scale = scale.round_up();
-        if self.set_ns_legacy_scale(legacy_scale) != legacy_scale {
+        if self.set_ns_scale(scale) != scale {
             self.global.send_mode();
         }
         self.state.remove_output_scale(old_scale);
@@ -651,7 +653,7 @@ impl OutputNode {
         let font = self.state.theme.bar_font();
         let theme = &self.state.theme;
         let bh = theme.sizes.bar_height();
-        let scale = self.global.persistent.scale.get();
+        let scale = self.node_state.scale.get();
         let scale = if scale != 1 {
             Some(scale.to_f64())
         } else {
@@ -729,7 +731,7 @@ impl OutputNode {
         let bar_rect_rel = ns.rects.bar_rel.get();
         let non_exclusive_rect_rel = ns.rects.non_exclusive_rel.get();
         let y1 = bar_rect_rel.y1() - non_exclusive_rect_rel.y1();
-        let scale = self.global.persistent.scale.get();
+        let scale = self.node_state.scale.get();
         let scale = if scale != 1 {
             Some(scale.to_f64())
         } else {
@@ -1158,7 +1160,7 @@ impl OutputNode {
     }
 
     pub fn update_mode(self: &Rc<Self>, mode: Mode) {
-        self.update_mode_and_transform(mode, self.global.persistent.transform.get());
+        self.update_mode_and_transform(mode, self.node_state.transform.get());
     }
 
     pub fn update_transform(self: &Rc<Self>, transform: Transform) {
@@ -1167,7 +1169,7 @@ impl OutputNode {
 
     pub fn update_mode_and_transform(self: &Rc<Self>, mode: Mode, transform: Transform) {
         let old_mode = self.global.mode.get();
-        let old_transform = self.global.persistent.transform.get();
+        let old_transform = self.node_state.transform.get();
         if (old_mode, old_transform) == (mode, transform) {
             return;
         }
@@ -1175,6 +1177,7 @@ impl OutputNode {
         self.global.mode.set(mode);
         self.global.refresh_nsec.set(mode.refresh_nsec());
         self.global.persistent.transform.set(transform);
+        self.set_ns_transform(transform);
         let (new_width, new_height) = self.pixel_size();
         self.change_extents_(&self.calculate_extents());
 
@@ -1204,8 +1207,8 @@ impl OutputNode {
     fn calculate_extents(&self) -> Rect {
         Self::calculate_extents_(
             self.global.mode.get(),
-            self.global.persistent.transform.get(),
-            self.global.persistent.scale.get(),
+            self.node_state.transform.get(),
+            self.node_state.scale.get(),
             self.node_state.pos.get().position(),
         )
     }
@@ -1957,8 +1960,7 @@ impl OutputNode {
 
     pub fn pixel_size(&self) -> (i32, i32) {
         let mode = self.global.mode.get();
-        self.global
-            .persistent
+        self.node_state
             .transform
             .get()
             .maybe_swap((mode.width, mode.height))
@@ -1969,7 +1971,7 @@ impl OutputNode {
         let pos = ns.pos.get();
         let mode = self.global.mode.get();
         let matrix = DamageMatrix::new(
-            self.global.persistent.transform.get().inverse(),
+            self.node_state.transform.get().inverse(),
             1,
             pos.width(),
             pos.height(),
@@ -2062,8 +2064,13 @@ impl OutputNode {
         self.node_state.pos.set(v);
     }
 
-    fn set_ns_legacy_scale(self: &Rc<Self>, v: u32) -> u32 {
-        self.node_state.legacy_scale.replace(v)
+    fn set_ns_scale(self: &Rc<Self>, v: Scale) -> Scale {
+        self.node_state.legacy_scale.set(v.round_up());
+        self.node_state.scale.replace(v)
+    }
+
+    fn set_ns_transform(self: &Rc<Self>, v: Transform) {
+        self.node_state.transform.set(v);
     }
 
     pub fn set_ns_workspace(
@@ -2757,7 +2764,9 @@ impl OutputNodeState {
     fn new(state: &Rc<State>) -> Self {
         Self {
             pos: Default::default(),
+            scale: Default::default(),
             legacy_scale: Default::default(),
+            transform: Default::default(),
             workspace: Default::default(),
             overlay: Default::default(),
             lock_surface: Default::default(),
