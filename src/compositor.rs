@@ -459,8 +459,9 @@ fn start_compositor2(
             portal.spawn(engine.clone(), ring.clone(), logger.clone()),
         ));
     }
-    let _compositor = engine.spawn("compositor", start_compositor3(state.clone(), test_future));
+    let compositor = engine.spawn("compositor", start_compositor3(state.clone(), test_future));
     ring.run()?;
+    drop(compositor);
     state.clear();
     engine.clear();
     Ok(())
