@@ -919,12 +919,12 @@ impl<'a> EdidParser<'a> {
         let _ctx = self.push_ctx(EdidParseContext::Descriptor);
         let b = self.read_n::<18>()?;
         let str = || {
-            let mut s = &b[5..];
-            if let Some(n) = s.find_byte(b'\n') {
-                s = &s[..n];
-            };
+            let s = &b[5..];
             let mut res = String::new();
             for &b in s {
+                if b == 0 || b == b'\n' {
+                    break;
+                }
                 res.push_str(CP437[b as usize]);
             }
             res
