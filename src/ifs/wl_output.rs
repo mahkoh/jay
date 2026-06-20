@@ -378,7 +378,7 @@ impl WlOutput {
             subpixel: SP_UNKNOWN,
             make: &global.output_id.manufacturer,
             model: &global.output_id.model,
-            transform: global.persistent.transform.get().to_wl(),
+            transform: node.node_state.transform.get().to_wl(),
         };
         self.client.event(event);
     }

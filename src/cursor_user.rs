@@ -495,9 +495,9 @@ impl CursorUser {
             return;
         };
         let (x, y) = self.pos.get();
-        let transform = output.global.persistent.transform.get();
+        let transform = output.node_state.transform.get();
         let render = output.hardware_cursor_needs_render.take();
-        let scale = output.global.persistent.scale.get();
+        let scale = output.node_state.scale.get();
         let cd = output.node_state.color_description.get();
         if render {
             cursor.tick();

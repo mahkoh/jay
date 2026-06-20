@@ -189,8 +189,7 @@ impl ConnectorHandler {
             output: global.opt.clone(),
         });
         let on = OutputNode::new(self.state.node_ids.next(), &global, &schedule);
-        self.state
-            .add_output_scale(on.global.persistent.scale.get());
+        self.state.add_output_scale(on.node_state.scale.get());
         let output_data = Rc::new(OutputData {
             connector: self.data.clone(),
             monitor_info: Rc::new(info),
@@ -335,8 +334,7 @@ impl ConnectorHandler {
         for item in on.tray_items.iter() {
             item.destroy_node();
         }
-        self.state
-            .remove_output_scale(on.global.persistent.scale.get());
+        self.state.remove_output_scale(on.node_state.scale.get());
         if let Some(zwlr_gamma_control) = on.active_zwlr_gamma_control.take() {
             zwlr_gamma_control.send_failed();
         }

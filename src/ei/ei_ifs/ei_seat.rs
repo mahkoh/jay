@@ -373,7 +373,7 @@ impl EiSeat {
             device.send_region_mapping_id(&output.global.connector.name);
             device.send_region(
                 output.node_absolute_position(),
-                output.global.persistent.scale.get(),
+                output.node_state.scale.get(),
             );
         }
         if let Some(kb) = self.keyboard.get() {

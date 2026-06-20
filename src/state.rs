@@ -1459,7 +1459,7 @@ impl State {
             output,
             self,
             Some(output.node_state.pos.get()),
-            output.global.persistent.scale.get(),
+            output.node_state.scale.get(),
             render_hw_cursor,
             true,
             blend_buffer,
