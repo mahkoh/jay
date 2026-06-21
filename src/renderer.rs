@@ -637,7 +637,7 @@ impl Renderer<'_> {
         let bc = theme.colors.border.get();
         let tc = if ns.active.get() {
             theme.colors.focused_title_background.get()
-        } else if floating.attention_requested.get() {
+        } else if ns.attention_requested.get() {
             theme.colors.attention_requested_background.get()
         } else {
             theme.colors.unfocused_title_background.get()
@@ -675,7 +675,7 @@ impl Renderer<'_> {
             if let Some(icons) = &self.title_icons {
                 let icon = if ns.active.get() {
                     &icons.overlay_focused_title
-                } else if floating.attention_requested.get() {
+                } else if ns.attention_requested.get() {
                     &icons.overlay_attention_requested
                 } else {
                     &icons.overlay_unfocused_title
@@ -699,7 +699,7 @@ impl Renderer<'_> {
             if let Some(icons) = &self.title_icons {
                 let icon = if ns.active.get() {
                     &icons.pin_focused_title
-                } else if floating.attention_requested.get() {
+                } else if ns.attention_requested.get() {
                     &icons.pin_attention_requested
                 } else {
                     &icons.pin_unfocused_title

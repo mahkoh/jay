@@ -65,7 +65,6 @@ pub struct FloatNode {
     pub icon: ToplevelIconUser,
     pub icons: SmallMap<Scale, ToplevelIcon, 2>,
     cursors: RefCell<AHashMap<CursorType, CursorState>>,
-    pub attention_requested: Cell<bool>,
 }
 
 #[derive(Derivative)]
@@ -78,6 +77,7 @@ pub struct FloatNodeState {
     pub workspace_ty: Cell<WorkspaceType>,
     pub title_rect: Cell<Rect>,
     pub active: Cell<bool>,
+    pub attention_requested: Cell<bool>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -164,7 +164,6 @@ impl FloatNode {
             icon: state.toplevel_icon_user(),
             icons: Default::default(),
             cursors: Default::default(),
-            attention_requested: Cell::new(false),
         });
         floater.set_ns_visible(ws.float_visible());
         floater.set_ns_position(position);
@@ -582,7 +581,7 @@ impl FloatNode {
         };
         let data = child.tl_data();
         let activation_requested = data.wants_attention.get();
-        self.attention_requested.set(activation_requested);
+        self.set_ns_attention_requested(activation_requested);
         if activation_requested {
             self.workspace
                 .get()
@@ -593,7 +592,7 @@ impl FloatNode {
     }
 
     fn discard_child_properties(&self) {
-        if self.attention_requested.get() {
+        if self.node_state.attention_requested.get() {
             self.workspace
                 .get()
                 .cnode_child_attention_request_changed(self, false);
@@ -778,6 +777,10 @@ impl FloatNode {
 
     fn set_ns_active(self: &Rc<Self>, v: bool) {
         self.node_state.active.set(v);
+    }
+
+    fn set_ns_attention_requested(self: &Rc<Self>, v: bool) {
+        self.node_state.attention_requested.set(v);
     }
 }
 
@@ -1058,7 +1061,8 @@ impl ContainingNode for FloatNode {
     }
 
     fn cnode_child_attention_request_changed(self: Rc<Self>, _node: &dyn Node, set: bool) {
-        if self.attention_requested.replace(set) != set {
+        if self.node_state.attention_requested.get() != set {
+            self.set_ns_attention_requested(set);
             self.workspace
                 .get()
                 .cnode_child_attention_request_changed(&*self, set);
