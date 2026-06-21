@@ -635,7 +635,7 @@ impl Renderer<'_> {
         let tuh = theme.title_underline_height();
         let bw = theme.sizes.border_width.get();
         let bc = theme.colors.border.get();
-        let tc = if floating.active.get() {
+        let tc = if ns.active.get() {
             theme.colors.focused_title_background.get()
         } else if floating.attention_requested.get() {
             theme.colors.attention_requested_background.get()
@@ -673,7 +673,7 @@ impl Renderer<'_> {
         let (mut x1, y1) = rect.position();
         if ns.workspace_ty.get() == WorkspaceType::Overlay {
             if let Some(icons) = &self.title_icons {
-                let icon = if floating.active.get() {
+                let icon = if ns.active.get() {
                     &icons.overlay_focused_title
                 } else if floating.attention_requested.get() {
                     &icons.overlay_attention_requested
@@ -697,7 +697,7 @@ impl Renderer<'_> {
         if is_pinned || self.state.show_pin_icon.get() {
             let (x, y) = self.base.scale_point(x1, y1);
             if let Some(icons) = &self.title_icons {
-                let icon = if floating.active.get() {
+                let icon = if ns.active.get() {
                     &icons.pin_focused_title
                 } else if floating.attention_requested.get() {
                     &icons.pin_attention_requested

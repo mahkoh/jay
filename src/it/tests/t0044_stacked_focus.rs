@@ -34,7 +34,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
         _ => bail!("Toplevel doesn't have a parent"),
     };
 
-    tassert!(container.active.get());
+    tassert!(container.node_state.active.get());
 
     Ok(())
 }

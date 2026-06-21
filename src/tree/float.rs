@@ -57,7 +57,6 @@ pub struct FloatNode {
     pub pinned_link: RefCell<Option<LinkedNode<Rc<dyn PinnedNode>>>>,
     pub workspace: CloneCell<Rc<WorkspaceNode>>,
     pub location: Cell<NodeLocation>,
-    pub active: Cell<bool>,
     pub seat_state: NodeSeatState,
     pub layout_scheduled: Cell<bool>,
     pub render_titles_scheduled: Cell<bool>,
@@ -78,6 +77,7 @@ pub struct FloatNodeState {
     #[derivative(Default(value = "Cell::new(WorkspaceType::Normal)"))]
     pub workspace_ty: Cell<WorkspaceType>,
     pub title_rect: Cell<Rect>,
+    pub active: Cell<bool>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -156,7 +156,6 @@ impl FloatNode {
             pinned_link: RefCell::new(None),
             workspace: CloneCell::new(ws.clone()),
             location: Cell::new(ws.location()),
-            active: Cell::new(false),
             seat_state: Default::default(),
             layout_scheduled: Cell::new(false),
             render_titles_scheduled: Cell::new(false),
@@ -247,7 +246,7 @@ impl FloatNode {
     fn render_title_phase1(&self) -> Rc<AsyncEvent> {
         let on_completed = Rc::new(OnDropEvent::default());
         let theme = &self.state.theme;
-        let tc = match self.active.get() {
+        let tc = match self.node_state.active.get() {
             true => theme.colors.focused_title_text.get(),
             false => theme.colors.unfocused_title_text.get(),
         };
@@ -570,7 +569,8 @@ impl FloatNode {
     }
 
     fn update_child_active(self: &Rc<Self>, active: bool) {
-        if self.active.replace(active) != active {
+        if self.node_state.active.get() != active {
+            self.set_ns_active(active);
             self.schedule_render_titles();
         }
     }
@@ -774,6 +774,10 @@ impl FloatNode {
 
     fn set_ns_title_rect(self: &Rc<Self>, v: Rect) {
         self.node_state.title_rect.set(v);
+    }
+
+    fn set_ns_active(self: &Rc<Self>, v: bool) {
+        self.node_state.active.set(v);
     }
 }
 
