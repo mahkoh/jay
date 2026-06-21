@@ -396,6 +396,7 @@ fn start_compositor2(
         color_management_enabled: Cell::new(false),
         color_manager,
         float_above_fullscreen: Cell::new(false),
+        flatten_tree: Cell::new(false),
         icons: Default::default(),
         show_pin_icon: Cell::new(false),
         cl_matcher_manager: ClMatcherManager::new(&crit_ids),

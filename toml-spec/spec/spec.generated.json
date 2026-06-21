@@ -1237,6 +1237,10 @@
           "type": "boolean",
           "description": "Configures whether title bars on windows are shown.\n\nThe default is `true`.\n"
         },
+        "flatten-tree": {
+          "type": "boolean",
+          "description": "Configures whether containers with only a single child are automatically\ncollapsed by replacing them with their child, keeping the window tree\nflat.\n\nWhen a window is moved away from a container and the container ends up\nwith a single remaining window, enabling this option removes the\ncontainer and places the remaining window directly in the parent\ncontainer.\n\nThe default is `false`.\n"
+        },
         "focus-history": {
           "description": "Configures the focus-history settings.\n\n- Example:\n\n  ```toml\n  [focus-history]\n  only-visible: true\n  same-workspace: true\n  ```\n",
           "$ref": "#/$defs/FocusHistory"
