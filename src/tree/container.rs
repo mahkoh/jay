@@ -440,7 +440,10 @@ impl ContainerNode {
 
     pub fn on_spaces_changed(self: &Rc<Self>) {
         for child in self.child_nodes.borrow().values() {
-            if child.icon.set_size(self.state.theme.title_icon_size()) {
+            if child
+                .icon
+                .set_size(self.state.theme.title_icon_size(LiveTL))
+            {
                 child.node.tl_update_icon(&child.icon);
             }
         }
@@ -504,8 +507,8 @@ impl ContainerNode {
                 .at_point(mb.x1(), mb.y1()),
         );
 
-        let th = self.state.theme.title_height();
-        let bw = self.state.theme.sizes.border_width.get();
+        let th = self.state.theme.title_height(LiveTL);
+        let bw = self.state.theme.sizes.border_width.get(LiveTL);
         let num_children = self.num_children.get() as i32;
         let content_width = ns.width.get().sub(bw * (num_children - 1)).max(0);
         let width_per_child = content_width / num_children;
@@ -524,9 +527,9 @@ impl ContainerNode {
 
     fn perform_split_layout(self: &Rc<Self>) {
         let sum_factors = self.sum_factors.get();
-        let border_width = self.state.theme.sizes.border_width.get();
-        let title_height_tmp = self.state.theme.title_height();
-        let title_plus_underline_height = self.state.theme.title_plus_underline_height();
+        let border_width = self.state.theme.sizes.border_width.get(LiveTL);
+        let title_height_tmp = self.state.theme.title_height(LiveTL);
+        let title_plus_underline_height = self.state.theme.title_plus_underline_height(LiveTL);
         let ns = &self.node_state[LiveTL];
         let split = ns.split.get();
         let (content_size, other_content_size) = match split {
@@ -628,8 +631,8 @@ impl ContainerNode {
     }
 
     fn update_content_size(self: &Rc<Self>) {
-        let border_width = self.state.theme.sizes.border_width.get();
-        let title_plus_underline_height = self.state.theme.title_plus_underline_height();
+        let border_width = self.state.theme.sizes.border_width.get(LiveTL);
+        let title_plus_underline_height = self.state.theme.title_plus_underline_height(LiveTL);
         let nc = self.num_children.get();
         let ns = &self.node_state[LiveTL];
         match ns.split.get() {
@@ -670,7 +673,7 @@ impl ContainerNode {
     ) {
         let mut x = x.round_down();
         let mut y = y.round_down();
-        let title_plus_underline_height = self.state.theme.title_plus_underline_height();
+        let title_plus_underline_height = self.state.theme.title_plus_underline_height(LiveTL);
         let mut seats = self.cursors.borrow_mut();
         let seat_state = seats.entry(id).or_insert_with(|| CursorState {
             cursor: KnownCursor::Default,
@@ -830,7 +833,7 @@ impl ContainerNode {
             return on_completed.event();
         };
         let theme = &self.state.theme;
-        let th = theme.title_height();
+        let th = theme.title_height(LiveTL);
         let font = theme.title_font();
         let scales = self.state.scales.lock();
         let draw_overlay_icon = self.toplevel_data.is_overlay_root_container.get();
@@ -930,10 +933,10 @@ impl ContainerNode {
         let mut rd = self.render_data.borrow_mut();
         let rd = rd.deref_mut();
         let theme = &self.state.theme;
-        let th = theme.title_height();
-        let tpuh = theme.title_plus_underline_height();
-        let tuh = theme.title_underline_height();
-        let bw = theme.sizes.border_width.get();
+        let th = theme.title_height(LiveTL);
+        let tpuh = theme.title_plus_underline_height(LiveTL);
+        let tuh = theme.title_underline_height(LiveTL);
+        let bw = theme.sizes.border_width.get(LiveTL);
         let ns = &self.node_state[LiveTL];
         let cwidth = ns.width.get();
         let cheight = ns.height.get();
@@ -1385,7 +1388,7 @@ impl ContainerNode {
         let ns = &self.node_state[LiveTL];
         if button == BTN_RIGHT && pressed {
             if ns.mono_child.is_some() || ns.split.get() == ContainerSplit::Horizontal {
-                if seat_data.y < self.state.theme.title_height() {
+                if seat_data.y < self.state.theme.title_height(LiveTL) {
                     self.toggle_mono();
                 }
             } else {
@@ -1518,7 +1521,7 @@ impl ContainerNode {
             prev_center,
             0,
             ns.width.get(),
-            self.state.theme.title_height(),
+            self.state.theme.title_height(LiveTL),
         )?
         .move_(ns.abs_x1.get(), ns.abs_y1.get())
         .intersect(abs_bounds);
@@ -1543,7 +1546,7 @@ impl ContainerNode {
         abs_x: i32,
         abs_y: i32,
     ) -> Option<TileDragDestination> {
-        let th = self.state.theme.title_height();
+        let th = self.state.theme.title_height(LiveTL);
         let ns = &self.node_state[LiveTL];
         if abs_y < ns.abs_y1.get() + th {
             return self.tile_drag_destination_mono_titles(source, abs_bounds, abs_x, abs_y);
@@ -2001,7 +2004,7 @@ impl NodeBase for ContainerNode {
             Some(s) => s,
             _ => return,
         };
-        if seat_data.y > self.state.theme.title_height() {
+        if seat_data.y > self.state.theme.title_height(LiveTL) {
             return;
         }
         let cur_mc = match self.node_state[LiveTL].mono_child.get() {
@@ -2293,7 +2296,7 @@ impl ContainingNode for ContainerNode {
         let Some(parent) = self.toplevel_data.parent.get() else {
             return;
         };
-        let tpuh = self.state.theme.title_plus_underline_height();
+        let tpuh = self.state.theme.title_plus_underline_height(LiveTL);
         if self.node_state[LiveTL].mono_child.is_some() {
             parent.cnode_set_child_position(&*self, x, y - tpuh);
         } else {
@@ -2316,8 +2319,8 @@ impl ContainingNode for ContainerNode {
         new_y2: Option<i32>,
     ) {
         let theme = &self.state.theme;
-        let tpuh = theme.title_plus_underline_height();
-        let bw = theme.sizes.border_width.get();
+        let tpuh = theme.title_plus_underline_height(LiveTL);
+        let bw = theme.sizes.border_width.get(LiveTL);
         let mut left_outside = false;
         let mut right_outside = false;
         let mut top_outside = false;

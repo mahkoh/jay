@@ -21,8 +21,8 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let window2 = client.create_window().await?;
     window2.map().await?;
 
-    let otop = 2 * run.state.theme.title_plus_underline_height();
-    let bw = run.state.theme.sizes.border_width.get();
+    let otop = 2 * run.state.theme.title_plus_underline_height(LiveTL);
+    let bw = run.state.theme.sizes.border_width.get(LiveTL);
 
     tassert_eq!(
         window.tl.server.node_absolute_position(LiveTL),

@@ -658,7 +658,7 @@ impl OutputNode {
         };
         let font = self.state.theme.bar_font();
         let theme = &self.state.theme;
-        let bh = theme.sizes.bar_height();
+        let bh = theme.sizes.bar_height(LiveTL);
         let scale = self.node_state[LiveTL].scale.get();
         let scale = if scale != 1 {
             Some(scale.to_f64())
@@ -1093,8 +1093,8 @@ impl OutputNode {
     pub fn update_rects(self: &Rc<Self>) {
         let ns = &self.node_state[LiveTL];
         let rect = ns.pos.get();
-        let bh = self.state.theme.sizes.bar_height();
-        let bsw = self.state.theme.sizes.bar_separator_width();
+        let bh = self.state.theme.sizes.bar_height(LiveTL);
+        let bsw = self.state.theme.sizes.bar_separator_width(LiveTL);
         let exclusive = self.exclusive_zones.get();
         let y1 = rect.y1() + exclusive.top;
         let x2 = rect.x2() - exclusive.right;
@@ -1114,7 +1114,7 @@ impl OutputNode {
         let mut workspace = non_exclusive;
         let mut workspace_rel = non_exclusive_rel;
         if self.state.show_bar.get() {
-            match self.state.theme.bar_position.get() {
+            match self.state.theme.bar_position[LiveTL].get() {
                 BarPosition::Bottom => {
                     workspace = Rect::new_sized_saturating(x1, y1, width, height - bh - bsw);
                     bar_with_separator =

@@ -19,7 +19,10 @@ use {
         object::{Object, Version},
         theme::BarPosition,
         transactions::{TransactionData, Transactionable},
-        tree::{NodeVisitor, TreeSerial, TreeTimeline::RenderTL},
+        tree::{
+            NodeVisitor, TreeSerial,
+            TreeTimeline::{LiveTL, RenderTL},
+        },
         utils::copyhashmap::CopyHashMap,
         wire::{JayTrayItemV1Id, XdgPopupId, jay_tray_item_v1::*},
     },
@@ -160,7 +163,7 @@ impl Configurable for JayTrayItemV1 {
     fn configure_data(&self) -> Self::T {
         let state = &self.tray_item_data().client.state;
         let size = state.tray_icon_size().max(1);
-        let bar_position = state.theme.bar_position.get();
+        let bar_position = state.theme.bar_position[LiveTL].get();
         TrayItemConfigureData { size, bar_position }
     }
 

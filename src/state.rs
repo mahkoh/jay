@@ -112,7 +112,7 @@ use {
             FoundNode, LatchListener, NodeBase, NodeIds, NodeVisitor, NodeVisitorBase, OutputNode,
             OutputNodeId, PlaceholderNode, SplitView, TearingMode, TileState, ToplevelData,
             ToplevelIdentifier, ToplevelNode, ToplevelNodeBase, Transform, TreeSerial, TreeSerials,
-            TreeTimeline::{LiveTL, RenderTL},
+            TreeTimeline::{self, LiveTL, RenderTL},
             VrrMode, WorkspaceDisplayOrder, WorkspaceNode, WorkspaceType, WsMoveConfig,
             generic_node_visitor, move_ws_to_output,
         },
@@ -1063,17 +1063,18 @@ impl State {
         workspace: &Rc<WorkspaceNode>,
         abs_pos: Option<(i32, i32)>,
     ) {
-        let mut width = inner_width + 2 * self.theme.sizes.border_width.get();
+        let mut width = inner_width + 2 * self.theme.sizes.border_width.get(LiveTL);
         let mut height = inner_height
-            + 2 * self.theme.sizes.border_width.get()
-            + self.theme.title_plus_underline_height();
+            + 2 * self.theme.sizes.border_width.get(LiveTL)
+            + self.theme.title_plus_underline_height(LiveTL);
         let output = workspace.node_state[LiveTL].output.get();
         let output_rect = output.node_state[LiveTL].pos.get();
         let position = if let Some((mut x1, mut y1)) = abs_pos {
             y1 = y1.clamp_saturating(output_rect.y1() + 1, output_rect.y2());
             x1 = x1.clamp_saturating(output_rect.x1() - inner_width + 1, output_rect.x2() - 1);
-            y1 -= self.theme.sizes.border_width.get() + self.theme.title_plus_underline_height();
-            x1 -= self.theme.sizes.border_width.get();
+            y1 -= self.theme.sizes.border_width.get(LiveTL)
+                + self.theme.title_plus_underline_height(LiveTL);
+            x1 -= self.theme.sizes.border_width.get(LiveTL);
             Rect::new_sized_saturating(x1, y1, width, height)
         } else {
             let mut x1 = output_rect.x1();
@@ -1833,7 +1834,7 @@ impl State {
         if !self.show_bar.get() {
             return 0;
         }
-        (self.theme.sizes.bar_height() - 2).max(0)
+        (self.theme.sizes.bar_height(LiveTL) - 2).max(0)
     }
 
     pub fn color_management_available(&self) -> bool {
@@ -2103,9 +2104,10 @@ impl State {
         self.spaces_changed();
     }
 
-    pub fn set_show_titles(&self, show: bool) {
-        self.theme.show_titles.set(show);
+    pub fn set_show_titles(self: &Rc<Self>, show: bool) {
+        self.theme.show_titles[LiveTL].set(show);
         self.spaces_changed();
+        self.add_transaction_op(StateTransactionOp::SetShowTitles(show));
     }
 
     pub fn set_show_window_icons(&self, show: bool) {
@@ -2162,9 +2164,10 @@ impl State {
         self.root.update_visible(self);
     }
 
-    pub fn reset_sizes(&self) {
-        self.theme.sizes.reset();
+    pub fn reset_sizes(self: &Rc<Self>) {
+        self.theme.sizes.reset(LiveTL);
         self.spaces_changed();
+        self.add_transaction_op(StateTransactionOp::ResetSizes);
     }
 
     fn fonts_changed(&self) {
@@ -2223,16 +2226,22 @@ impl State {
         self.fonts_changed();
     }
 
-    pub fn set_bar_position(&self, p: BarPosition) {
-        self.theme.bar_position.set(p);
+    pub fn set_bar_position(self: &Rc<Self>, p: BarPosition) {
+        self.theme.bar_position[LiveTL].set(p);
         self.spaces_changed();
+        self.add_transaction_op(StateTransactionOp::SetBarPosition(p));
     }
 
-    pub fn set_size(&self, sized: ThemeSized, size: i32) {
+    fn set_size_(&self, tl: TreeTimeline, sized: ThemeSized, size: i32) {
         let field = sized.field(&self.theme);
-        field.val.set(size);
-        field.set.set(true);
+        field.val[tl].set(size);
+        field.set[tl].set(true);
+    }
+
+    pub fn set_size(self: &Rc<Self>, sized: ThemeSized, size: i32) {
+        self.set_size_(LiveTL, sized, size);
         self.spaces_changed();
+        self.add_transaction_op(StateTransactionOp::SetSize(sized, size));
     }
 
     pub fn set_color(&self, colored: ThemeColor, v: Color) {
@@ -2467,6 +2476,10 @@ pub enum ShmScreencopyError {
 pub enum StateTransactionOp {
     Clear,
     SetLocked(bool),
+    SetShowTitles(bool),
+    ResetSizes,
+    SetBarPosition(BarPosition),
+    SetSize(ThemeSized, i32),
 }
 
 impl Transactionable for State {
@@ -2486,6 +2499,18 @@ impl Transactionable for State {
             }
             StateTransactionOp::SetLocked(v) => {
                 self.lock.locked[RenderTL].set(v);
+            }
+            StateTransactionOp::SetShowTitles(v) => {
+                self.theme.show_titles[RenderTL].set(v);
+            }
+            StateTransactionOp::ResetSizes => {
+                self.theme.sizes.reset(RenderTL);
+            }
+            StateTransactionOp::SetBarPosition(v) => {
+                self.theme.bar_position[RenderTL].set(v);
+            }
+            StateTransactionOp::SetSize(sized, size) => {
+                self.set_size_(RenderTL, sized, size);
             }
         }
     }

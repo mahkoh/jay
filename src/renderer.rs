@@ -343,7 +343,7 @@ impl Renderer<'_> {
                     .fill_boxes2(std::slice::from_ref(lar), &c, srgb, perceptual, x, y);
             }
             let draw_overlay_icon = container.tl_data().is_overlay_root_container.get();
-            let th = self.state.theme.title_height();
+            let th = self.state.theme.title_height(LiveTL);
             if let Some(titles) = rd.titles.get(&self.base.scale) {
                 for title in titles {
                     let rect = title.rect.move_(x, y);
@@ -634,10 +634,10 @@ impl Renderer<'_> {
         };
         let pos = ns.position.get();
         let theme = &self.state.theme;
-        let th = theme.title_height();
-        let tpuh = theme.title_plus_underline_height();
-        let tuh = theme.title_underline_height();
-        let bw = theme.sizes.border_width.get();
+        let th = theme.title_height(LiveTL);
+        let tpuh = theme.title_plus_underline_height(LiveTL);
+        let tuh = theme.title_underline_height(LiveTL);
+        let bw = theme.sizes.border_width.get(LiveTL);
         let bc = theme.colors.border.get();
         let tc = if ns.active.get() {
             theme.colors.focused_title_background.get()
@@ -783,7 +783,7 @@ impl Renderer<'_> {
         let perceptual = RenderIntent::Perceptual;
         match icon {
             ToplevelIcon::Srgb(color) => {
-                let tis = self.state.theme.title_icon_size() + 1;
+                let tis = self.state.theme.title_icon_size(LiveTL) + 1;
                 let (x2, y2) = self.base.scale_point(x1 + tis, y1 + tis);
                 let color = match grayscale {
                     true => color.to_grayscale(),

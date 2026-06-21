@@ -5,6 +5,7 @@ use {
         ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::XdgToplevelIconV1,
         leaks::Tracker,
         object::{Object, Version},
+        tree::TreeTimeline::LiveTL,
         wire::{XdgToplevelIconManagerV1Id, xdg_toplevel_icon_manager_v1::*},
     },
     std::{cell::Cell, rc::Rc},
@@ -64,7 +65,7 @@ pub struct XdgToplevelIconManagerV1 {
 
 impl XdgToplevelIconManagerV1 {
     pub fn send_sizes(&self) {
-        let size = self.client.state.theme.title_icon_size();
+        let size = self.client.state.theme.title_icon_size(LiveTL);
         if self.last_size.replace(Some(size)) == Some(size) {
             return;
         }

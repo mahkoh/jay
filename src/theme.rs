@@ -4,6 +4,7 @@ use {
     crate::{
         cmm::cmm_eotf::{Eotf, bt1886_eotf_args, bt1886_inv_eotf_args},
         gfx_api::AlphaMode,
+        tree::{SplitView, TreeTimeline},
         utils::{clonecell::CloneCell, static_text::StaticText},
     },
     jay_config::theme::BarPosition as ConfigBarPosition,
@@ -489,13 +490,13 @@ impl StaticText for ThemeColor {
 }
 
 pub struct ThemeSize {
-    pub val: Cell<i32>,
-    pub set: Cell<bool>,
+    pub val: SplitView<Cell<i32>>,
+    pub set: SplitView<Cell<bool>>,
 }
 
 impl ThemeSize {
-    pub fn get(&self) -> i32 {
-        self.val.get()
+    pub fn get(&self, tl: TreeTimeline) -> i32 {
+        self.val[tl].get()
     }
 }
 
@@ -551,11 +552,11 @@ macro_rules! sizes {
         }
 
         impl ThemeSizes {
-            pub fn reset(&self) {
+            pub fn reset(&self, tl: TreeTimeline) {
                 let default = Self::default();
                 $(
-                    self.$name.val.set(default.$name.val.get());
-                    self.$name.set.set(false);
+                    self.$name.val[tl].set(default.$name.val[tl].get());
+                    self.$name.set[tl].set(false);
                 )*
             }
         }
@@ -565,8 +566,8 @@ macro_rules! sizes {
                 Self {
                     $(
                         $name: ThemeSize {
-                            val: Cell::new($def),
-                            set: Cell::new(false),
+                            val: SplitView::from_fn(|_| Cell::new($def)),
+                            set: Default::default(),
                         },
                     )*
                 }
@@ -576,16 +577,16 @@ macro_rules! sizes {
 }
 
 impl ThemeSizes {
-    pub fn bar_height(&self) -> i32 {
-        if self.bar_height.set.get() {
-            self.bar_height.val.get()
+    pub fn bar_height(&self, tl: TreeTimeline) -> i32 {
+        if self.bar_height.set[tl].get() {
+            self.bar_height.val[tl].get()
         } else {
-            self.title_height.val.get()
+            self.title_height.val[tl].get()
         }
     }
 
-    pub fn bar_separator_width(&self) -> i32 {
-        self.bar_separator_width.get()
+    pub fn bar_separator_width(&self, tl: TreeTimeline) -> i32 {
+        self.bar_separator_width.get(tl)
     }
 }
 
@@ -654,8 +655,8 @@ pub struct Theme {
     pub bar_font: CloneCell<Option<Arc<String>>>,
     pub title_font: CloneCell<Option<Arc<String>>>,
     pub default_font: Arc<String>,
-    pub show_titles: Cell<bool>,
-    pub bar_position: Cell<BarPosition>,
+    pub show_titles: SplitView<Cell<bool>>,
+    pub bar_position: SplitView<Cell<BarPosition>>,
     pub show_window_icons: Cell<bool>,
     pub window_icons_grayscale: Cell<bool>,
 }
@@ -670,7 +671,7 @@ impl Default for Theme {
             bar_font: Default::default(),
             title_font: Default::default(),
             default_font,
-            show_titles: Cell::new(true),
+            show_titles: SplitView::from_fn(|_| Cell::new(true)),
             bar_position: Default::default(),
             show_window_icons: Cell::new(true),
             window_icons_grayscale: Cell::new(false),
@@ -687,25 +688,25 @@ impl Theme {
         self.bar_font.get().unwrap_or_else(|| self.font.get())
     }
 
-    pub fn title_height(&self) -> i32 {
-        if self.show_titles.get() {
-            self.sizes.title_height.get()
+    pub fn title_height(&self, tl: TreeTimeline) -> i32 {
+        if self.show_titles[tl].get() {
+            self.sizes.title_height.get(tl)
         } else {
             0
         }
     }
 
-    pub fn title_icon_size(&self) -> i32 {
-        (self.title_height() - 2).max(0)
+    pub fn title_icon_size(&self, tl: TreeTimeline) -> i32 {
+        (self.title_height(tl) - 2).max(0)
     }
 
-    pub fn title_underline_height(&self) -> i32 {
-        if self.show_titles.get() { 1 } else { 0 }
+    pub fn title_underline_height(&self, tl: TreeTimeline) -> i32 {
+        if self.show_titles[tl].get() { 1 } else { 0 }
     }
 
-    pub fn title_plus_underline_height(&self) -> i32 {
-        if self.show_titles.get() {
-            self.sizes.title_height.get() + 1
+    pub fn title_plus_underline_height(&self, tl: TreeTimeline) -> i32 {
+        if self.show_titles[tl].get() {
+            self.sizes.title_height.get(tl) + 1
         } else {
             0
         }
