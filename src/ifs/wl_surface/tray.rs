@@ -132,6 +132,7 @@ impl<T: TrayItem> DynTrayItem for T {
     fn destroy_node(self: Rc<Self>) {
         let data = self.tray_item_data();
         if let Some(old) = data.linked_node.take() {
+            old.set_invalid();
             self.add_transaction_op(TrayItemTransactionOp::Unlink(old));
         }
         data.attached.set(false);
