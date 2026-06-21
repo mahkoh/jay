@@ -695,6 +695,9 @@ impl ToplevelNodeBase for XdgToplevel {
         self.xdg.set_absolute_desired_extents(rect);
         if de.width() != nw || de.height() != nh {
             self.xdg.schedule_configure();
+            if self.toplevel_data.is_fullscreen.get() {
+                self.xdg.update_effective_geometry();
+            }
             // self.xdg.surface.client.flush();
         }
     }
@@ -816,11 +819,7 @@ impl XdgSurfaceExt for XdgToplevel {
         if !self.toplevel_data.is_fullscreen.get() {
             return geometry;
         }
-        let output = self
-            .toplevel_data
-            .output()
-            .node_absolute_position()
-            .at_point(0, 0);
+        let output = self.xdg.absolute_desired_extents.get();
         let x_overflow = output.width() - geometry.width();
         let y_overflow = output.height() - geometry.height();
         output.at_point(
