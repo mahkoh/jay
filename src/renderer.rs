@@ -671,7 +671,7 @@ impl Renderer<'_> {
         let rect = floating.title_rect.get().move_(x, y);
         let bounds = self.base.scale_rect(rect);
         let (mut x1, y1) = rect.position();
-        if floating.workspace_ty.get() == WorkspaceType::Overlay {
+        if ns.workspace_ty.get() == WorkspaceType::Overlay {
             if let Some(icons) = &self.title_icons {
                 let icon = if floating.active.get() {
                     &icons.overlay_focused_title

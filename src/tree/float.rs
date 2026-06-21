@@ -37,6 +37,7 @@ use {
     },
     ahash::AHashMap,
     arrayvec::ArrayVec,
+    derivative::Derivative,
     std::{
         cell::{Cell, RefCell},
         fmt::{Debug, Formatter},
@@ -55,7 +56,6 @@ pub struct FloatNode {
     pub workspace_link: Cell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
     pub pinned_link: RefCell<Option<LinkedNode<Rc<dyn PinnedNode>>>>,
     pub workspace: CloneCell<Rc<WorkspaceNode>>,
-    pub workspace_ty: Cell<WorkspaceType>,
     pub location: Cell<NodeLocation>,
     pub active: Cell<bool>,
     pub seat_state: NodeSeatState,
@@ -70,11 +70,14 @@ pub struct FloatNode {
     pub attention_requested: Cell<bool>,
 }
 
-#[derive(Default)]
+#[derive(Derivative)]
+#[derivative(Default)]
 pub struct FloatNodeState {
     pub visible: Cell<bool>,
     pub position: Cell<Rect>,
     pub child: CloneCell<Option<Rc<dyn ToplevelNode>>>,
+    #[derivative(Default(value = "Cell::new(WorkspaceType::Normal)"))]
+    pub workspace_ty: Cell<WorkspaceType>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -152,7 +155,6 @@ impl FloatNode {
             workspace_link: Cell::new(None),
             pinned_link: RefCell::new(None),
             workspace: CloneCell::new(ws.clone()),
-            workspace_ty: Cell::new(ws.ty),
             location: Cell::new(ws.location()),
             active: Cell::new(false),
             seat_state: Default::default(),
@@ -169,6 +171,7 @@ impl FloatNode {
         floater.set_ns_visible(ws.float_visible());
         floater.set_ns_position(position);
         floater.set_ns_child(Some(&child));
+        floater.set_ns_workspace_type(ws.ty);
         child.tl_update_icon(&floater.icon);
         floater.pull_child_properties();
         {
@@ -275,7 +278,7 @@ impl FloatNode {
                 width = (width - th).max(0);
                 self.icons.insert(*scale, icon);
             }
-            if self.workspace_ty.get() == WorkspaceType::Overlay {
+            if self.node_state.workspace_ty.get() == WorkspaceType::Overlay {
                 width = (width - th).max(0);
             }
             if self.state.show_pin_icon.get() || self.pinned_link.borrow().is_some() {
@@ -478,7 +481,8 @@ impl FloatNode {
         self.workspace_link
             .set(Some(ws.stacked.add_last(self.clone())));
         self.workspace.set(ws.clone());
-        if self.workspace_ty.replace(ws.ty) != ws.ty {
+        if self.node_state.workspace_ty.get() != ws.ty {
+            self.set_ns_workspace_type(ws.ty);
             self.display_link
                 .borrow_mut()
                 .restack_on(self.state.float_stack(ws.ty));
@@ -650,7 +654,7 @@ impl FloatNode {
                 Pin,
             }
             let mut icons = ArrayVec::<FloatIcon, 2>::new();
-            if self.workspace_ty.get() == WorkspaceType::Overlay {
+            if self.node_state.workspace_ty.get() == WorkspaceType::Overlay {
                 icons.push(FloatIcon::Overlay);
             }
             if self.state.show_pin_icon.get() || self.pinned_link.borrow().is_some() {
@@ -764,6 +768,10 @@ impl FloatNode {
     fn set_ns_child(self: &Rc<Self>, child: Option<&Rc<dyn ToplevelNode>>) {
         self.node_state.child.set(child.cloned());
     }
+
+    fn set_ns_workspace_type(self: &Rc<Self>, v: WorkspaceType) {
+        self.node_state.workspace_ty.set(v);
+    }
 }
 
 impl Debug for FloatNode {
@@ -815,7 +823,7 @@ impl NodeBase for FloatNode {
         let Some(l) = self.display_link.borrow().link.as_ref().map(|l| l.to_ref()) else {
             return NodeLayerLink::Display;
         };
-        match self.workspace_ty.get() {
+        match self.node_state.workspace_ty.get() {
             WorkspaceType::Normal => NodeLayerLink::Stacked(l),
             WorkspaceType::Overlay => NodeLayerLink::OverlayStacked(l),
         }
