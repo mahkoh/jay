@@ -78,6 +78,7 @@ pub struct FloatNodeState {
     pub title_rect: Cell<Rect>,
     pub active: Cell<bool>,
     pub attention_requested: Cell<bool>,
+    pub pinned: Cell<bool>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -626,6 +627,7 @@ impl FloatNode {
         if let Some(tl) = self.node_state.child.get() {
             tl.tl_data().pinned.set(pl.is_some());
         }
+        self.set_ns_pinned(pl.is_some());
         self.schedule_render_titles();
     }
 
@@ -781,6 +783,10 @@ impl FloatNode {
 
     fn set_ns_attention_requested(self: &Rc<Self>, v: bool) {
         self.node_state.attention_requested.set(v);
+    }
+
+    fn set_ns_pinned(self: &Rc<Self>, v: bool) {
+        self.node_state.pinned.set(v);
     }
 }
 
@@ -1051,6 +1057,7 @@ impl ContainingNode for FloatNode {
         self.display_link.borrow_mut().clear();
         self.workspace_link.set(None);
         self.pinned_link.take();
+        self.set_ns_pinned(false);
         if ns.visible.get() {
             self.state.damage(ns.position.get());
         }

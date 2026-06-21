@@ -693,7 +693,7 @@ impl Renderer<'_> {
             }
             x1 += th;
         }
-        let is_pinned = floating.pinned_link.borrow().is_some();
+        let is_pinned = ns.pinned.get();
         if is_pinned || self.state.show_pin_icon.get() {
             let (x, y) = self.base.scale_point(x1, y1);
             if let Some(icons) = &self.title_icons {
