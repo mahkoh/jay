@@ -1309,6 +1309,7 @@ impl State {
             drm_dev.handler.take();
             drm_dev.connectors.clear();
         }
+        self.drm_devs_by_dev_t.clear();
         for connector in self.connectors.lock().drain_values() {
             connector.handler.take();
             connector.async_event.clear();

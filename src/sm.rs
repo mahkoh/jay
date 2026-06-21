@@ -250,6 +250,7 @@ impl SessionManager {
                 }
             }
         }
+        self.updated_toplevels.clear();
     }
 
     pub fn get(
