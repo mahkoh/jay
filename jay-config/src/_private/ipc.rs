@@ -927,6 +927,12 @@ pub enum ClientMessage<'a> {
         visualize: bool,
     },
     GetVisualizeCompositing,
+    SetTransactionTimeout {
+        timeout: Duration,
+    },
+    SetConfigureTimeout {
+        timeout: Duration,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

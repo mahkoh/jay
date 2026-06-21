@@ -9,7 +9,11 @@ use {
         object::{Object, Version},
         rect::Rect,
         state::State,
-        tree::{NodeLayerLink, WorkspaceNode},
+        tree::{
+            NodeLayerLink,
+            TreeTimeline::{LiveTL, RenderTL},
+            WorkspaceNode,
+        },
         wire::{WlSurfaceId, ZwpInputPopupSurfaceV2Id, zwp_input_popup_surface_v2::*},
     },
     std::{cell::Cell, rc::Rc},
@@ -34,7 +38,7 @@ impl SurfaceExt for ZwpInputPopupSurfaceV2 {
 
     fn after_apply_commit(self: Rc<Self>) {
         self.update_visible();
-        if self.surface.visible.get() {
+        if self.surface.visible[LiveTL].get() {
             self.schedule_positioning();
         }
     }
@@ -55,13 +59,13 @@ pub async fn input_popup_positioning(state: Rc<State>) {
 
 impl ZwpInputPopupSurfaceV2 {
     fn damage(&self) {
-        let (x, y) = self.surface.buffer_abs_pos.get().position();
+        let (x, y) = self.surface.buffer_abs_pos[RenderTL].get().position();
         let extents = self.surface.extents.get();
         self.client.state.damage(extents.move_(x, y));
     }
 
     pub fn update_visible(self: &Rc<Self>) {
-        let was_visible = self.surface.visible.get();
+        let was_visible = self.surface.visible[LiveTL].get();
         let is_visible = self.surface.buffer.is_some()
             && self.input_method.connection.is_some()
             && self.client.state.root_visible();
@@ -77,7 +81,7 @@ impl ZwpInputPopupSurfaceV2 {
     }
 
     pub fn schedule_positioning(self: &Rc<Self>) {
-        if self.surface.visible.get() {
+        if self.surface.visible[LiveTL].get() {
             if !self.positioning_scheduled.replace(true) {
                 self.client
                     .state
@@ -89,15 +93,15 @@ impl ZwpInputPopupSurfaceV2 {
 
     fn position(&self) {
         self.positioning_scheduled.set(false);
-        if !self.surface.visible.get() {
+        if !self.surface.visible[LiveTL].get() {
             return;
         }
         let Some(con) = self.input_method.connection.get() else {
             log::warn!("Popup has no connection but is visible");
             return;
         };
-        let output = con.surface.output.get().node_state.pos.get();
-        let surface_rect = con.surface.buffer_abs_pos.get();
+        let output = con.surface.output.get().node_state[LiveTL].pos.get();
+        let surface_rect = con.surface.buffer_abs_pos[LiveTL].get();
         let cursor_rect = con
             .text_input
             .cursor_rect()
@@ -118,12 +122,13 @@ impl ZwpInputPopupSurfaceV2 {
                 rect = rect2;
             }
         }
-        let old = self.surface.buffer_abs_pos.get();
+        let old = self.surface.buffer_abs_pos[LiveTL].get();
         let new = old.at_point(rect.x1() - extents.x1(), rect.y1() - extents.y1());
         if self.was_on_screen.get() && new != old {
             self.damage();
         }
-        self.surface.buffer_abs_pos.set(new);
+        self.surface.buffer_abs_pos[LiveTL].set(new);
+        self.surface.buffer_abs_pos[RenderTL].set(new);
         if !self.was_on_screen.get() || new != old {
             self.damage();
         }
@@ -154,7 +159,7 @@ impl ZwpInputPopupSurfaceV2 {
     }
 
     fn detach(&self) {
-        if self.surface.visible.get() {
+        if self.surface.visible[LiveTL].get() {
             self.damage();
         }
         self.surface.destroy_node();

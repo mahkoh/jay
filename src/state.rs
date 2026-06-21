@@ -106,14 +106,17 @@ use {
         tagged_acceptor::TaggedAcceptors,
         theme::{BarPosition, Color, Theme, ThemeColor, ThemeSized},
         time::Time,
+        transactions::{TransactionData, Transactionable, TransactionableExt, Transactions},
         tree::{
             ContainerNode, ContainerSplit, Direction, DisplayNode, FindTreeUsecase, FloatNode,
             FoundNode, LatchListener, NodeBase, NodeIds, NodeVisitor, NodeVisitorBase, OutputNode,
-            OutputNodeId, PlaceholderNode, TearingMode, TileState, ToplevelData,
+            OutputNodeId, PlaceholderNode, SplitView, TearingMode, TileState, ToplevelData,
             ToplevelIdentifier, ToplevelNode, ToplevelNodeBase, Transform, TreeSerial, TreeSerials,
+            TreeTimeline::{self, LiveTL, RenderTL},
             VrrMode, WorkspaceDisplayOrder, WorkspaceNode, WorkspaceType, WsMoveConfig,
             generic_node_visitor, move_ws_to_output,
         },
+        tree_serial_groups::TreeSerialGroups,
         udmabuf::UdmabufHolder,
         utils::{
             asyncevent::AsyncEvent,
@@ -322,8 +325,7 @@ pub struct State {
     pub fallback_output: Cell<Option<ConnectorId>>,
     pub toplevel_icon_ids: ToplevelIconIds,
     pub toplevel_icons: CopyHashMap<ToplevelIconId, Weak<XdgToplevelIconV1>>,
-    pub tree_serials: TreeSerials,
-    pub configure_groups: ConfigureGroups,
+    pub tree: Rc<TreeState>,
     pub commit_cache: CommitCache,
     pub dmabuf_feedback: DmaBufFeedbackState,
     pub surface_pending_cache: PendingStateCache,
@@ -331,6 +333,7 @@ pub struct State {
     pub lazy_prime_buffer_resv_user: BufferResvUser,
     pub visualize_compositing: Cell<bool>,
     pub sleeper: Option<Sleeper>,
+    pub transaction_data: TransactionData<StateTransactionOp>,
 }
 
 // impl Drop for State {
@@ -345,6 +348,14 @@ impl Debug for State {
     }
 }
 
+#[derive(Default)]
+pub struct TreeState {
+    pub serials: TreeSerials,
+    pub serial_groups: TreeSerialGroups,
+    pub configure_groups: ConfigureGroups,
+    pub transactions: Transactions,
+}
+
 #[derive(Copy, Clone, PartialEq)]
 pub struct PrimeModifier {
     pub modifier: Modifier,
@@ -355,7 +366,7 @@ pub struct PrimeModifier {
 pub type PrimeModifiers = Rc<AHashMap<u32, Vec<PrimeModifier>>>;
 
 pub struct ScreenlockState {
-    pub locked: Cell<bool>,
+    pub locked: SplitView<Cell<bool>>,
     pub lock: CloneCell<Option<Rc<ExtSessionLockV1>>>,
 }
 
@@ -941,12 +952,12 @@ impl State {
                     match ty {
                         WorkspaceType::Normal => {
                             if ws.ty == ty {
-                                let ws_on = ws.node_state.output.get();
+                                let ws_on = ws.node_state[LiveTL].output.get();
                                 if ws_on.global.output_id.hash == o {
                                     if session.session.reason() == SessionReason::Recover {
                                         return Some(ws);
                                     }
-                                    if ws_on.node_state.workspace.id() == Some(ws.id) {
+                                    if ws_on.node_state[LiveTL].workspace.id() == Some(ws.id) {
                                         return Some(ws);
                                     }
                                 }
@@ -962,7 +973,7 @@ impl State {
                         if session.session.reason() == SessionReason::Recover {
                             return Some(on.create_normal_workspace(&name));
                         }
-                        if let Some(ws) = on.node_state.workspace.get() {
+                        if let Some(ws) = on.node_state[LiveTL].workspace.get() {
                             return Some(ws);
                         }
                         Some(on.create_normal_workspace(&name))
@@ -975,7 +986,10 @@ impl State {
             let Some(ws) = ws() else {
                 return false;
             };
-            let op = ws.node_state.output.get().node_absolute_position();
+            let op = ws.node_state[LiveTL]
+                .output
+                .get()
+                .node_absolute_position(LiveTL);
             self.map_floating(
                 node.clone(),
                 pos.width(),
@@ -1001,7 +1015,10 @@ impl State {
             return false;
         };
         if ws.ty == WorkspaceType::Normal
-            && ws.node_state.output.get().node_state.workspace.id() != Some(ws.id)
+            && ws.node_state[LiveTL].output.get().node_state[LiveTL]
+                .workspace
+                .id()
+                != Some(ws.id)
         {
             data.request_attention(&*node);
         }
@@ -1020,7 +1037,7 @@ impl State {
     }
 
     pub fn map_tiled_on(self: &Rc<Self>, node: Rc<dyn ToplevelNode>, ws: &Rc<WorkspaceNode>) {
-        if let Some(c) = ws.node_state.container.get() {
+        if let Some(c) = ws.node_state[LiveTL].container.get() {
             let la = c.clone().tl_last_active_child();
             let lap = la
                 .tl_data()
@@ -1046,17 +1063,18 @@ impl State {
         workspace: &Rc<WorkspaceNode>,
         abs_pos: Option<(i32, i32)>,
     ) {
-        let mut width = inner_width + 2 * self.theme.sizes.border_width.get();
+        let mut width = inner_width + 2 * self.theme.sizes.border_width.get(LiveTL);
         let mut height = inner_height
-            + 2 * self.theme.sizes.border_width.get()
-            + self.theme.title_plus_underline_height();
-        let output = workspace.node_state.output.get();
-        let output_rect = output.node_state.pos.get();
+            + 2 * self.theme.sizes.border_width.get(LiveTL)
+            + self.theme.title_plus_underline_height(LiveTL);
+        let output = workspace.node_state[LiveTL].output.get();
+        let output_rect = output.node_state[LiveTL].pos.get();
         let position = if let Some((mut x1, mut y1)) = abs_pos {
             y1 = y1.clamp_saturating(output_rect.y1() + 1, output_rect.y2());
             x1 = x1.clamp_saturating(output_rect.x1() - inner_width + 1, output_rect.x2() - 1);
-            y1 -= self.theme.sizes.border_width.get() + self.theme.title_plus_underline_height();
-            x1 -= self.theme.sizes.border_width.get();
+            y1 -= self.theme.sizes.border_width.get(LiveTL)
+                + self.theme.title_plus_underline_height(LiveTL);
+            x1 -= self.theme.sizes.border_width.get(LiveTL);
             Rect::new_sized_saturating(x1, y1, width, height)
         } else {
             let mut x1 = output_rect.x1();
@@ -1078,7 +1096,7 @@ impl State {
     }
 
     fn focus_after_map(&self, node: Rc<dyn ToplevelNode>, seat: Option<&Rc<WlSeatGlobal>>) {
-        if !node.node_visible() {
+        if !node.node_visible(LiveTL) {
             return;
         }
         let Some(seat) = seat else {
@@ -1156,7 +1174,7 @@ impl State {
             },
         };
         let output = match ty {
-            WorkspaceType::Normal => ws.node_state.output.get(),
+            WorkspaceType::Normal => ws.node_state[LiveTL].output.get(),
             WorkspaceType::Overlay => output(),
         };
         self.show_workspace2(Some(seat), &output, &ws);
@@ -1251,6 +1269,18 @@ impl State {
         serial as _
     }
 
+    pub fn damage_full(self: &Rc<Self>, tt: TreeTimeline) {
+        let rect = self.root.node_state[tt].extents.get();
+        match tt {
+            LiveTL => self.schedule_damage(rect),
+            RenderTL => self.damage(rect),
+        }
+    }
+
+    pub fn schedule_damage(self: &Rc<Self>, rect: Rect) {
+        self.add_transaction_op(StateTransactionOp::Damage(rect));
+    }
+
     pub fn damage(&self, rect: Rect) {
         self.damage2(false, false, rect);
     }
@@ -1261,7 +1291,7 @@ impl State {
         }
         self.damage_visualizer.add(rect);
         for output in self.root.outputs.lock().values() {
-            if output.node_state.pos.get().intersects(&rect) {
+            if output.node_state[RenderTL].pos.get().intersects(&rect) {
                 if skip_hc && output.hardware_cursor.is_some() {
                     continue;
                 }
@@ -1275,8 +1305,13 @@ impl State {
         }
     }
 
-    pub fn do_unlock(&self) {
-        self.lock.locked.set(false);
+    pub fn set_locked(self: &Rc<Self>, locked: bool) {
+        self.lock.locked[LiveTL].set(locked);
+        self.add_transaction_op(StateTransactionOp::SetLocked(locked));
+    }
+
+    pub fn do_unlock(self: &Rc<Self>) {
+        self.set_locked(false);
         self.lock.lock.take();
         for output in self.root.outputs.lock().values() {
             if let Some(surface) = output.set_lock_surface(None) {
@@ -1284,10 +1319,10 @@ impl State {
             }
         }
         self.tree_changed();
-        self.damage_full();
+        self.damage_full(LiveTL);
     }
 
-    pub fn clear(&self) {
+    pub fn clear(self: &Rc<Self>) {
         self.lock.lock.take();
         self.xwayland.handler.borrow_mut().take();
         self.clients.clear();
@@ -1321,11 +1356,7 @@ impl State {
         self.wlr_output_managers.clear();
         self.dbus.clear();
         self.pending_container_layout.clear();
-        self.pending_container_render_positions.clear();
-        self.pending_container_render_title.clear();
-        self.pending_output_render_data.clear();
         self.pending_float_layout.clear();
-        self.pending_float_titles.clear();
         self.pending_input_popup_positioning.clear();
         self.pending_toplevel_screencasts.clear();
         self.pending_screencast_reallocs_or_reconfigures.clear();
@@ -1387,7 +1418,8 @@ impl State {
         if let Some(sqlite) = &self.sqlite {
             sqlite.clear();
         }
-        self.configure_groups.clear();
+        self.tree.configure_groups.clear();
+        self.tree.transactions.clear(self);
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {
@@ -1459,8 +1491,8 @@ impl State {
             cd,
             output,
             self,
-            Some(output.node_state.pos.get()),
-            output.node_state.scale.get(),
+            Some(output.node_state[RenderTL].pos.get()),
+            output.node_state[RenderTL].scale.get(),
             render_hw_cursor,
             true,
             blend_buffer,
@@ -1636,7 +1668,7 @@ impl State {
         seat
     }
 
-    pub fn set_backend_idle(&self, idle: bool) {
+    pub fn set_backend_idle(self: &Rc<Self>, idle: bool) {
         if self.idle.backend_idle.replace(idle) != idle {
             self.root.update_visible(self);
         }
@@ -1651,7 +1683,7 @@ impl State {
         let mut optimal_output = None;
         let outputs = self.root.outputs.lock();
         for output in outputs.values() {
-            let pos = output.node_state.pos.get();
+            let pos = output.node_state[LiveTL].pos.get();
             let dist = pos.dist_squared(x, y);
             if dist == 0 {
                 if pos.contains(x, y) {
@@ -1664,7 +1696,7 @@ impl State {
             }
         }
         if let Some(output) = optimal_output {
-            let pos = output.node_state.pos.get();
+            let pos = output.node_state[LiveTL].pos.get();
             if pos.is_empty() {
                 return (output, pos.x1(), pos.y1());
             }
@@ -1814,7 +1846,7 @@ impl State {
         if !self.show_bar.get() {
             return 0;
         }
-        (self.theme.sizes.bar_height() - 2).max(0)
+        (self.theme.sizes.bar_height(LiveTL) - 2).max(0)
     }
 
     pub fn color_management_available(&self) -> bool {
@@ -1853,7 +1885,7 @@ impl State {
 
         let outputs = self.root.outputs.lock();
 
-        let ref_box = source_output.node_state.pos.get();
+        let ref_box = source_output.node_state[LiveTL].pos.get();
         let ref_x1 = ref_box.x1();
         let ref_y1 = ref_box.y1();
         let ref_x2 = ref_box.x2();
@@ -1871,7 +1903,7 @@ impl State {
                 continue;
             }
 
-            let box_pos = output.node_state.pos.get();
+            let box_pos = output.node_state[LiveTL].pos.get();
             let box_x1 = box_pos.x1();
             let box_y1 = box_pos.y1();
             let box_x2 = box_pos.x2();
@@ -1927,7 +1959,7 @@ impl State {
         if output.is_dummy {
             return;
         }
-        if ws.node_state.output.id() == output.id {
+        if ws.node_state[LiveTL].output.id() == output.id {
             return;
         }
         let config = WsMoveConfig {
@@ -1983,7 +2015,7 @@ impl State {
         }
     }
 
-    fn colors_changed(&self) {
+    fn colors_changed(self: &Rc<Self>) {
         struct V;
         impl NodeVisitorBase for V {
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
@@ -2002,12 +2034,13 @@ impl State {
             }
         }
         self.visit_all_nodes(&mut V);
-        self.damage_full();
+        self.damage_full(LiveTL);
+        self.damage_full(RenderTL);
         self.icons.clear();
         self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
-    pub fn reset_colors(&self) {
+    pub fn reset_colors(self: &Rc<Self>) {
         self.theme.colors.reset();
         self.colors_changed();
     }
@@ -2050,7 +2083,7 @@ impl State {
         self.trigger_cci(CCI_COMPOSITOR);
     }
 
-    fn spaces_changed(&self) {
+    fn spaces_changed(self: &Rc<Self>) {
         struct V;
         impl NodeVisitorBase for V {
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
@@ -2067,7 +2100,8 @@ impl State {
             }
         }
         self.visit_all_nodes(&mut V);
-        self.damage_full();
+        self.damage_full(LiveTL);
+        self.damage_full(RenderTL);
         self.icons.update_sizes(self);
         for client in self.clients.clients.borrow().values() {
             let mgrs = &client.data.objects.xdg_toplevel_icon_managers;
@@ -2079,14 +2113,15 @@ impl State {
         self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
-    pub fn set_show_bar(&self, show: bool) {
+    pub fn set_show_bar(self: &Rc<Self>, show: bool) {
         self.show_bar.set(show);
         self.spaces_changed();
     }
 
-    pub fn set_show_titles(&self, show: bool) {
-        self.theme.show_titles.set(show);
+    pub fn set_show_titles(self: &Rc<Self>, show: bool) {
+        self.theme.show_titles[LiveTL].set(show);
         self.spaces_changed();
+        self.add_transaction_op(StateTransactionOp::SetShowTitles(show));
     }
 
     pub fn set_show_window_icons(&self, show: bool) {
@@ -2106,9 +2141,9 @@ impl State {
         self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
-    pub fn set_window_icons_grayscale(&self, show: bool) {
+    pub fn set_window_icons_grayscale(self: &Rc<Self>, show: bool) {
         self.theme.window_icons_grayscale.set(show);
-        self.damage_full();
+        self.damage_full(RenderTL);
         self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
@@ -2133,7 +2168,7 @@ impl State {
         }
     }
 
-    pub fn set_float_above_fullscreen(&self, v: bool) {
+    pub fn set_float_above_fullscreen(self: &Rc<Self>, v: bool) {
         self.float_above_fullscreen.set(v);
         self.trigger_cci(CCI_LOOK_AND_FEEL);
         for seat in self.globals.seats.lock().values() {
@@ -2143,9 +2178,10 @@ impl State {
         self.root.update_visible(self);
     }
 
-    pub fn reset_sizes(&self) {
-        self.theme.sizes.reset();
+    pub fn reset_sizes(self: &Rc<Self>) {
+        self.theme.sizes.reset(LiveTL);
         self.spaces_changed();
+        self.add_transaction_op(StateTransactionOp::ResetSizes);
     }
 
     fn fonts_changed(&self) {
@@ -2204,19 +2240,25 @@ impl State {
         self.fonts_changed();
     }
 
-    pub fn set_bar_position(&self, p: BarPosition) {
-        self.theme.bar_position.set(p);
+    pub fn set_bar_position(self: &Rc<Self>, p: BarPosition) {
+        self.theme.bar_position[LiveTL].set(p);
         self.spaces_changed();
+        self.add_transaction_op(StateTransactionOp::SetBarPosition(p));
     }
 
-    pub fn set_size(&self, sized: ThemeSized, size: i32) {
+    fn set_size_(&self, tl: TreeTimeline, sized: ThemeSized, size: i32) {
         let field = sized.field(&self.theme);
-        field.val.set(size);
-        field.set.set(true);
-        self.spaces_changed();
+        field.val[tl].set(size);
+        field.set[tl].set(true);
     }
 
-    pub fn set_color(&self, colored: ThemeColor, v: Color) {
+    pub fn set_size(self: &Rc<Self>, sized: ThemeSized, size: i32) {
+        self.set_size_(LiveTL, sized, size);
+        self.spaces_changed();
+        self.add_transaction_op(StateTransactionOp::SetSize(sized, size));
+    }
+
+    pub fn set_color(self: &Rc<Self>, colored: ThemeColor, v: Color) {
         colored.field(&self.theme).set(v);
         self.colors_changed();
     }
@@ -2242,7 +2284,7 @@ impl State {
             .outputs
             .lock()
             .values()
-            .map(|o| o.node_state.pos.get().x2())
+            .map(|o| o.node_state[LiveTL].pos.get().x2())
             .max()
             .unwrap_or(0);
         Rc::new(PersistentOutputState {
@@ -2270,11 +2312,12 @@ impl State {
     pub fn visit_all_nodes(&self, visitor: &mut dyn NodeVisitor) {
         self.root.node_visit(visitor);
         if let Some(output) = self.dummy_output.get() {
-            for ws in output.workspaces.iter() {
+            for ws in output.workspaces.iter_valid(LiveTL) {
                 visitor.visit_workspace(&ws);
             }
             for ws in self.workspaces.lock().values() {
-                if ws.ty == WorkspaceType::Overlay && ws.node_state.output.id() == output.id {
+                if ws.ty == WorkspaceType::Overlay && ws.node_state[LiveTL].output.id() == output.id
+                {
                     ws.node_visit(visitor);
                 }
             }
@@ -2291,16 +2334,16 @@ impl State {
     }
 
     pub fn next_tree_serial(&self) -> TreeSerial {
-        let mut s = self.tree_serials.next();
+        let mut s = self.tree.serials.next();
         if s.raw() as u32 == 0 {
-            s = self.tree_serials.next();
+            s = self.tree.serials.next();
         }
         s
     }
 
     pub fn map_tree_serial32(&self, s: u32) -> TreeSerial {
         const MASK: u64 = u32::MAX as u64;
-        let last = self.tree_serials.last().raw();
+        let last = self.tree.serials.last().raw();
         let mut serial = last & !MASK | s as u64;
         if serial > last {
             serial = serial.saturating_sub(MASK + 1);
@@ -2310,7 +2353,7 @@ impl State {
 
     #[expect(dead_code)]
     pub fn validate_tree_serial(&self, s: u64) -> Option<TreeSerial> {
-        let last = self.tree_serials.last().raw();
+        let last = self.tree.serials.last().raw();
         if s > last {
             return None;
         }
@@ -2419,16 +2462,12 @@ impl State {
         }
     }
 
-    pub fn set_visualize_compositing(&self, visualize: bool) {
+    pub fn set_visualize_compositing(self: &Rc<Self>, visualize: bool) {
         if self.visualize_compositing.replace(visualize) == visualize {
             return;
         }
-        self.damage_full();
+        self.damage_full(RenderTL);
         self.trigger_cci(CCI_COMPOSITOR);
-    }
-
-    pub fn damage_full(&self) {
-        self.damage(self.root.node_state.extents.get());
     }
 }
 
@@ -2442,4 +2481,51 @@ pub enum ShmScreencopyError {
     CopyToTemporary(#[source] GfxError),
     #[error("Could not read pixels from texture")]
     ReadPixels(#[source] GfxError),
+}
+
+pub enum StateTransactionOp {
+    Clear,
+    SetLocked(bool),
+    SetShowTitles(bool),
+    ResetSizes,
+    SetBarPosition(BarPosition),
+    SetSize(ThemeSized, i32),
+    Damage(Rect),
+}
+
+impl Transactionable for State {
+    type T = StateTransactionOp;
+
+    fn data(&self) -> &TransactionData<Self::T> {
+        &self.transaction_data
+    }
+
+    fn apply(self: &Rc<Self>, op: Self::T) {
+        match op {
+            StateTransactionOp::Clear => {
+                self.pending_container_render_positions.clear();
+                self.pending_container_render_title.clear();
+                self.pending_output_render_data.clear();
+                self.pending_float_titles.clear();
+            }
+            StateTransactionOp::SetLocked(v) => {
+                self.lock.locked[RenderTL].set(v);
+            }
+            StateTransactionOp::SetShowTitles(v) => {
+                self.theme.show_titles[RenderTL].set(v);
+            }
+            StateTransactionOp::ResetSizes => {
+                self.theme.sizes.reset(RenderTL);
+            }
+            StateTransactionOp::SetBarPosition(v) => {
+                self.theme.bar_position[RenderTL].set(v);
+            }
+            StateTransactionOp::SetSize(sized, size) => {
+                self.set_size_(RenderTL, sized, size);
+            }
+            StateTransactionOp::Damage(v) => {
+                self.damage(v);
+            }
+        }
+    }
 }

@@ -5,6 +5,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         scale::Scale,
+        tree::TreeTimeline::LiveTL,
         utils::cell_ext::CellExt,
         wire::{WpFractionalScaleV1Id, wp_fractional_scale_v1::*},
     },
@@ -42,7 +43,7 @@ impl WpFractionalScaleV1 {
     pub fn send_preferred_scale(&self) {
         let scale = match self.client.wire_scale.is_some() {
             true => Scale::from_int(1),
-            false => self.surface.output.get().node_state.scale.get(),
+            false => self.surface.output.get().node_state[LiveTL].scale.get(),
         };
         self.client.event(PreferredScale {
             self_id: self.id,

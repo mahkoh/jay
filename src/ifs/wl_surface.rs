@@ -83,11 +83,14 @@ use {
         rect::{DamageQueue, Rect, Region},
         renderer::Renderer,
         state::{ConnectorData, State},
+        transactions::{SurfaceTransaction, TransactionData, Transactionable, TransactionableExt},
         tree::{
             BeforeLatchListener, BeforeLatchResult, ContainerNode, FindTreeResult, FoundNode,
             LatchListener, Node, NodeBase, NodeId, NodeLayerLink, NodeLocation, NodeVisitor,
-            NodeVisitorBase, OutputNode, PlaceholderNode, PresentationListener, ToplevelNode,
-            Transform, TreeSerial, VblankListener, WorkspaceNode,
+            NodeVisitorBase, OutputNode, PlaceholderNode, PresentationListener, SplitView,
+            ToplevelNode, Transform, TreeSerial,
+            TreeTimeline::{self, LiveTL, RenderTL},
+            VblankListener, WorkspaceNode,
         },
         utils::{
             box_cache::{BoxCache, BoxReset, CachedBox},
@@ -116,6 +119,7 @@ use {
     ahash::AHashMap,
     isnt::std_1::{primitive::IsntSliceExt, vec::IsntVecExt},
     jay_proc::Reset,
+    linearize::LinearizeExt,
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -286,8 +290,9 @@ pub struct WlSurface {
     pub id: WlSurfaceId,
     pub node_id: SurfaceNodeId,
     pub client: Rc<Client>,
-    visible: Cell<bool>,
+    visible: SplitView<Cell<bool>>,
     role: Cell<SurfaceRole>,
+    transactional: Cell<bool>,
     pending: RefCell<CachedBox<PendingState, BoxReset>>,
     input_region: CloneCell<Option<Rc<Region>>>,
     opaque_region: CloneCell<Option<Rc<Region>>>,
@@ -299,7 +304,7 @@ pub struct WlSurface {
     src_rect: Cell<Option<[Fixed; 4]>>,
     dst_size: Cell<Option<(i32, i32)>>,
     pub extents: Cell<Rect>,
-    pub buffer_abs_pos: Cell<Rect>,
+    pub buffer_abs_pos: SplitView<Cell<Rect>>,
     pub need_extents_update: Cell<bool>,
     need_extents_propagation: Cell<bool>,
     pub buffer: CloneCell<Option<Rc<SurfaceBuffer>>>,
@@ -357,6 +362,8 @@ pub struct WlSurface {
     flush_frame_requests: Cell<bool>,
     pub fullscreen: ObjAndId<Option<Rc<ConnectorData>>>,
     pub dmabuf_feedback: CopyHashMap<ZwpLinuxDmabufFeedbackV1Id, Rc<ZwpLinuxDmabufFeedbackV1>>,
+    transaction_data: TransactionData<WlSurfaceTransactionOp>,
+    pub surface_transaction: SurfaceTransaction,
 }
 
 impl Debug for WlSurface {
@@ -655,8 +662,9 @@ impl WlSurface {
             id,
             node_id: state.node_ids.next(),
             client: client.clone(),
-            visible: Cell::new(false),
+            visible: Default::default(),
             role: Cell::new(SurfaceRole::None),
+            transactional: Default::default(),
             pending: RefCell::new(state.surface_pending_cache.cache.get()),
             input_region: Default::default(),
             opaque_region: Default::default(),
@@ -668,7 +676,7 @@ impl WlSurface {
             src_rect: Cell::new(None),
             dst_size: Cell::new(None),
             extents: Default::default(),
-            buffer_abs_pos: Cell::new(Default::default()),
+            buffer_abs_pos: Default::default(),
             need_extents_update: Default::default(),
             need_extents_propagation: Default::default(),
             buffer: Default::default(),
@@ -728,6 +736,8 @@ impl WlSurface {
             flush_frame_requests: Default::default(),
             fullscreen: Default::default(),
             dmabuf_feedback: Default::default(),
+            transaction_data: TransactionData::new(&state.tree),
+            surface_transaction: Default::default(),
         }
     }
 
@@ -758,18 +768,19 @@ impl WlSurface {
         if old.id == output.id {
             return;
         }
-        if self.visible.get() {
+        if self.visible[LiveTL].get() {
             self.attach_events_to_output(output);
         }
         output.global.send_enter(self);
         old.global.send_leave(self);
-        if old.node_state.scale.get() != output.node_state.scale.get() {
+        if old.node_state[LiveTL].scale.get() != output.node_state[LiveTL].scale.get() {
             self.on_scale_change();
         }
-        if old.node_state.transform.get() != output.node_state.transform.get() {
+        if old.node_state[LiveTL].transform.get() != output.node_state[LiveTL].transform.get() {
             self.send_preferred_buffer_transform();
         }
-        if old.node_state.color_description.get().id != output.node_state.color_description.get().id
+        if old.node_state[LiveTL].color_description.get().id
+            != output.node_state[LiveTL].color_description.get().id
         {
             self.send_preferred_color_description();
         }
@@ -796,23 +807,35 @@ impl WlSurface {
         self.xwayland_serial.get()
     }
 
-    fn set_absolute_position(&self, x1: i32, y1: i32) {
-        let old_pos = self.buffer_abs_pos.get();
+    fn set_absolute_position(self: &Rc<Self>, x1: i32, y1: i32) {
+        self.set_absolute_position_(x1, y1, LiveTL);
+        if self.transactional.get() {
+            self.add_transaction_op(WlSurfaceTransactionOp::SetPos(x1, y1));
+        } else {
+            self.set_absolute_position_(x1, y1, RenderTL);
+        }
+    }
+
+    fn set_absolute_position_(&self, x1: i32, y1: i32, tl: TreeTimeline) {
+        let old_pos = self.buffer_abs_pos[tl].get();
         let new_pos = old_pos.at_point(x1, y1);
-        if self.visible.get() && self.toplevel.is_none() {
+        if tl == RenderTL && self.visible[RenderTL].get() && self.toplevel.is_none() {
             self.client.state.damage(old_pos);
             self.client.state.damage(new_pos);
         }
-        self.buffer_abs_pos.set(new_pos);
+        self.buffer_abs_pos[tl].set(new_pos);
         if let Some(children) = self.children.borrow_mut().deref_mut() {
             for ss in children.subsurfaces.values() {
                 let pos = ss.position.get();
-                ss.surface.set_absolute_position(x1 + pos.0, y1 + pos.1);
+                ss.surface
+                    .set_absolute_position_(x1 + pos.0, y1 + pos.1, tl);
             }
         }
-        for (_, con) in &self.text_input_connections {
-            for (_, popup) in con.input_method.popups() {
-                popup.schedule_positioning();
+        if tl == LiveTL {
+            for (_, con) in &self.text_input_connections {
+                for (_, popup) in con.input_method.popups() {
+                    popup.schedule_positioning();
+                }
             }
         }
     }
@@ -865,7 +888,7 @@ impl WlSurface {
         if self.version >= BUFFER_SCALE_SINCE {
             let factor = match self.client.wire_scale.is_some() {
                 true => 1,
-                false => self.output.get().node_state.legacy_scale.get() as _,
+                false => self.output.get().node_state[LiveTL].legacy_scale.get() as _,
             };
             self.client.event(PreferredBufferScale {
                 self_id: self.id,
@@ -878,7 +901,7 @@ impl WlSurface {
         if self.version >= TRANSFORM_SINCE {
             self.client.event(PreferredBufferTransform {
                 self_id: self.id,
-                transform: self.output.get().node_state.transform.get().to_wl() as _,
+                transform: self.output.get().node_state[LiveTL].transform.get().to_wl() as _,
             });
         }
     }
@@ -912,6 +935,11 @@ impl WlSurface {
             }
         }
         self.role.set(role);
+        let transactional = match role {
+            XdgSurface | XSurface | ZwlrLayerSurface | ExtSessionLockSurface | TrayItem => true,
+            None | Subsurface | Cursor | DndIcon | InputPopup => false,
+        };
+        self.transactional.set(transactional);
         Ok(())
     }
 
@@ -939,7 +967,7 @@ impl WlSurface {
 
     fn calculate_extents(&self, propagate: bool) {
         let old_extents = self.extents.get();
-        let mut extents = self.buffer_abs_pos.get().at_point(0, 0);
+        let mut extents = self.buffer_abs_pos[LiveTL].get().at_point(0, 0);
         let children = self.children.borrow();
         if let Some(children) = &*children {
             for ss in children.subsurfaces.values() {
@@ -987,7 +1015,7 @@ impl WlSurface {
     fn unset_dnd_icons(&self) {
         while let Some((_, dnd_icon)) = self.dnd_icons.pop() {
             dnd_icon.seat.remove_dnd_icon();
-            if self.visible.get() {
+            if self.visible[LiveTL].get() {
                 dnd_icon.damage();
             }
         }
@@ -1068,12 +1096,12 @@ const MAX_DAMAGE: usize = 32;
 impl WlSurfaceRequestHandler for WlSurface {
     type Error = WlSurfaceError;
 
-    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn destroy(&self, _req: Destroy, slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.commit_timeline.clear(ClearReason::Destroy);
         self.unset_dnd_icons();
         self.unset_cursors();
         self.ext.get().on_surface_destroy()?;
-        self.destroy_node();
+        slf.destroy_node();
         {
             let mut children = self.children.borrow_mut();
             if let Some(children) = &mut *children {
@@ -1083,9 +1111,7 @@ impl WlSurfaceRequestHandler for WlSurface {
             }
             *children = None;
         }
-        self.buffer.set(None);
-        self.reset_shm_textures();
-        self.prime.reset();
+        slf.add_transaction_op(WlSurfaceTransactionOp::Clear);
         if let Some(xwayland_serial) = self.xwayland_serial.get() {
             self.client
                 .surfaces_by_xwayland_serial
@@ -1243,7 +1269,7 @@ impl WlSurface {
         if self.destroyed.get() {
             return Ok(());
         }
-        let was_visible = self.visible.get();
+        let was_visible = self.visible[RenderTL].get();
         let serial = pending.serial.take();
         if let Some(serial) = serial
             && serial >= self.requested_serial.get()
@@ -1295,8 +1321,8 @@ impl WlSurface {
             alpha_changed = true;
             self.alpha.set(alpha);
         }
-        let buffer_abs_pos = self.buffer_abs_pos.get();
-        let mut max_surface_size = buffer_abs_pos.size();
+        let buffer_abs_pos_size = self.buffer_abs_pos[LiveTL].get().size();
+        let mut max_surface_size = buffer_abs_pos_size;
         let mut damage_full = scale_changed
             || buffer_transform_changed
             || viewport_changed
@@ -1456,11 +1482,16 @@ impl WlSurface {
             }
             let (mut width, mut height) = new_size.unwrap_or_default();
             client_wire_scale_to_logical!(self.client, width, height);
-            let (old_width, old_height) = buffer_abs_pos.size();
+            let (old_width, old_height) = buffer_abs_pos_size;
             if (width, height) != (old_width, old_height) {
                 self.need_extents_update.set(true);
-                self.buffer_abs_pos
-                    .set(buffer_abs_pos.with_size_saturating(width, height));
+                for tl in TreeTimeline::variants() {
+                    self.buffer_abs_pos[tl].set(
+                        self.buffer_abs_pos[tl]
+                            .get()
+                            .with_size_saturating(width, height),
+                    );
+                }
                 max_surface_size = (width.max(old_width), height.max(old_height));
                 damage_full = true;
                 buffer_abs_pos_size_changed = true;
@@ -1492,7 +1523,7 @@ impl WlSurface {
             }
         }
         if opaque_region_changed || buffer_abs_pos_size_changed {
-            let pos = self.buffer_abs_pos.get().at_point(0, 0);
+            let pos = self.buffer_abs_pos[LiveTL].get().at_point(0, 0);
             let is_opaque = match self.opaque_region.get() {
                 None => false,
                 Some(o) => o.contains_rect(&pos),
@@ -1533,15 +1564,16 @@ impl WlSurface {
         if fifo_barrier_set {
             self.commit_timeline.set_fifo_barrier();
         }
-        if damage_full && (self.visible.get() || was_visible) {
-            let mut damage =
-                buffer_abs_pos.with_size_saturating(max_surface_size.0, max_surface_size.1);
+        if damage_full && (self.visible[RenderTL].get() || was_visible) {
+            let mut damage = self.buffer_abs_pos[RenderTL]
+                .get()
+                .with_size_saturating(max_surface_size.0, max_surface_size.1);
             if let Some(tl) = self.toplevel.get() {
-                damage = damage.intersect(tl.node_absolute_position());
+                damage = damage.intersect(tl.node_absolute_position(RenderTL));
             }
             self.client.state.damage(damage);
         }
-        if self.visible.get() {
+        if self.visible[LiveTL].get() {
             let output = self.output.get();
             if has_new_frame_requests {
                 self.vblank_listener.attach(&output.vblank_event);
@@ -1563,8 +1595,8 @@ impl WlSurface {
             } else if has_new_frame_requests && output.schedule.vrr_enabled() {
                 // Frame requests must be dispatched at the highest possible frame rate.
                 // Therefore we must trigger a vsync of the output as soon as possible.
-                let rect = output.node_state.pos.get();
-                self.client.state.damage(rect);
+                let rect = output.node_state[LiveTL].pos.get();
+                self.damage(rect, LiveTL);
             }
         } else {
             if fifo_barrier_set {
@@ -1578,7 +1610,7 @@ impl WlSurface {
         pending.fifo_barrier_wait = false;
         if tearing_changed
             && let Some(tl) = self.toplevel.get()
-            && tl.tl_data().is_fullscreen.get()
+            && tl.tl_data().is_fullscreen[LiveTL].get()
         {
             self.output.get().update_presentation_type();
         }
@@ -1601,7 +1633,7 @@ impl WlSurface {
 
     fn apply_damage(&self, pending: &PendingState) {
         let bounds = self.toplevel.get().and_then(|tl| tl.tl_render_bounds());
-        let pos = self.buffer_abs_pos.get();
+        let pos = self.buffer_abs_pos[RenderTL].get();
         let apply_damage = |pos: Rect| {
             if pending.damage_full {
                 let mut damage = pos;
@@ -1680,7 +1712,7 @@ impl WlSurface {
     }
 
     fn accepts_input_at(&self, mut x: i32, mut y: i32) -> bool {
-        let rect = self.buffer_abs_pos.get().at_point(0, 0);
+        let rect = self.buffer_abs_pos[LiveTL].get().at_point(0, 0);
         if !rect.contains(x, y) {
             return false;
         }
@@ -1749,9 +1781,17 @@ impl WlSurface {
         self.latch_listener.attach(&output.latch_event);
     }
 
-    pub fn set_visible(&self, visible: bool) {
-        if self.visible.replace(visible) == visible {
+    pub fn set_visible(self: &Rc<Self>, visible: bool) {
+        let changed = self.set_visible_(visible);
+        if !changed {
             return;
+        }
+        self.set_rendered(visible);
+    }
+
+    fn set_visible_(&self, visible: bool) -> bool {
+        if self.visible[LiveTL].replace(visible) == visible {
+            return false;
         }
         if visible {
             self.attach_events_to_output(&self.output.get());
@@ -1767,14 +1807,49 @@ impl WlSurface {
         if let Some(children) = children.deref() {
             for child in children.subsurfaces.values() {
                 if child.surface.buffer.is_some() {
-                    child.surface.set_visible(visible);
+                    child.surface.set_visible_(visible);
                 }
             }
         }
         self.seat_state.set_visible(self, visible);
+        true
     }
 
-    pub fn detach_node(&self, set_invisible: bool) {
+    fn set_rendered(self: &Rc<Self>, visible: bool) {
+        if self.transactional.get() {
+            self.add_transaction_op(WlSurfaceTransactionOp::SetRendered(visible));
+        } else {
+            self.set_rendered_(visible);
+        }
+    }
+
+    fn set_rendered_(&self, visible: bool) {
+        if self.visible[RenderTL].replace(visible) == visible {
+            return;
+        }
+        let children = self.children.borrow_mut();
+        if let Some(children) = children.deref() {
+            for child in children.subsurfaces.values() {
+                if child.surface.buffer.is_some() {
+                    child.surface.set_rendered_(visible);
+                }
+            }
+        }
+    }
+
+    pub fn detach_node(self: &Rc<Self>, set_invisible: bool) {
+        if self.visible[LiveTL].get() && self.toplevel.is_none() {
+            let rect = self.extents.get();
+            let (x, y) = self.buffer_abs_pos[LiveTL].get().position();
+            self.damage(rect.move_(x, y), LiveTL);
+        }
+        self.detach_node_(set_invisible);
+        if set_invisible {
+            self.set_rendered(false);
+        }
+    }
+
+    fn detach_node_(&self, set_invisible: bool) {
         for (_, constraint) in &self.constraints {
             constraint.deactivate(true);
         }
@@ -1784,19 +1859,16 @@ impl WlSurface {
         let children = self.children.borrow();
         if let Some(ch) = children.deref() {
             for ss in ch.subsurfaces.values() {
-                ss.surface.detach_node(set_invisible);
+                ss.surface.detach_node_(set_invisible);
             }
         }
         self.seat_state.destroy_node(self);
-        if self.visible.get() && self.toplevel.is_none() {
-            self.client.state.damage(self.buffer_abs_pos.get());
-        }
         if set_invisible {
-            self.visible.set(false);
+            self.visible[LiveTL].set(false);
         }
     }
 
-    pub fn destroy_node(&self) {
+    pub fn destroy_node(self: &Rc<Self>) {
         self.detach_node(true);
     }
 
@@ -1861,7 +1933,7 @@ impl WlSurface {
         if self.color_management_feedback.is_empty() {
             return;
         }
-        let cd = self.output.get().node_state.color_description.get();
+        let cd = self.output.get().node_state[LiveTL].color_description.get();
         for fb in self.color_management_feedback.lock().values() {
             fb.send_preferred_changed(&cd);
         }
@@ -1896,6 +1968,16 @@ impl WlSurface {
             }
         }
     }
+
+    fn damage(self: &Rc<Self>, damage: Rect, mut tt: TreeTimeline) {
+        if !self.transactional.get() {
+            tt = RenderTL;
+        }
+        match tt {
+            LiveTL => self.add_transaction_op(WlSurfaceTransactionOp::Damage(damage)),
+            RenderTL => self.client.state.damage(damage),
+        }
+    }
 }
 
 object_base! {
@@ -1911,8 +1993,7 @@ impl Object for WlSurface {
         *self.children.borrow_mut() = None;
         self.unset_ext();
         mem::take(self.frame_requests.borrow_mut().deref_mut());
-        self.buffer.set(None);
-        self.prime.reset();
+        self.add_transaction_op(WlSurfaceTransactionOp::Clear);
         self.toplevel.set(None);
         self.idle_inhibitors.clear();
         self.pending.borrow_mut().reset();
@@ -1959,12 +2040,12 @@ impl NodeBase for WlSurface {
         }
     }
 
-    fn node_visible(&self) -> bool {
-        self.visible.get()
+    fn node_visible(&self, tl: TreeTimeline) -> bool {
+        self.visible[tl].get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
-        self.buffer_abs_pos.get()
+    fn node_absolute_position(&self, tl: TreeTimeline) -> Rect {
+        self.buffer_abs_pos[tl].get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
@@ -2334,7 +2415,7 @@ efrom!(WlSurfaceError, CommitTimelineError);
 
 impl VblankListener for WlSurface {
     fn after_vblank(self: Rc<Self>) {
-        if self.visible.get() {
+        if self.visible[LiveTL].get() {
             self.flush_frame_requests(&mut self.frame_requests.borrow_mut());
         }
         if self.clear_fifo_on_vblank.take() {
@@ -2352,7 +2433,7 @@ impl BeforeLatchListener for WlSurface {
 
 impl LatchListener for WlSurface {
     fn after_latch(self: Rc<Self>, _on: &OutputNode, tearing: bool) {
-        if self.visible.get() {
+        if self.visible[LiveTL].get() {
             if self.latched_commit_version.get() < self.commit_version.get() {
                 let latched = &mut *self.latched_presentation_feedback.borrow_mut();
                 latched.clear();
@@ -2364,7 +2445,7 @@ impl LatchListener for WlSurface {
                 self.latched_commit_version.set(self.commit_version.get());
             }
         }
-        if tearing && self.visible.get() {
+        if tearing && self.visible[LiveTL].get() {
             if self.commit_timeline.has_fifo_barrier() {
                 self.vblank_listener.attach(&self.output.get().vblank_event);
                 self.clear_fifo_on_vblank.set(true);
@@ -2466,5 +2547,45 @@ impl Drop for SurfaceRelease {
     fn drop(&mut self) {
         self.cb.send_done(0);
         let _ = self.cb.client.remove_obj(&*self.cb);
+    }
+}
+
+pub enum WlSurfaceTransactionOp {
+    UnblockCommitsUntil(TreeSerial, u64),
+    SetPos(i32, i32),
+    SetRendered(bool),
+    Damage(Rect),
+    Clear,
+}
+
+impl Transactionable for WlSurface {
+    type T = WlSurfaceTransactionOp;
+
+    fn data(&self) -> &TransactionData<Self::T> {
+        &self.transaction_data
+    }
+
+    fn apply(self: &Rc<Self>, op: Self::T) {
+        match op {
+            WlSurfaceTransactionOp::UnblockCommitsUntil(serial, start_ns) => {
+                self.surface_transaction
+                    .unblock_commits_until(serial, start_ns);
+                self.commit_timeline.serial_unblocked();
+            }
+            WlSurfaceTransactionOp::SetPos(x, y) => {
+                self.set_absolute_position_(x, y, RenderTL);
+            }
+            WlSurfaceTransactionOp::SetRendered(v) => {
+                self.set_rendered_(v);
+            }
+            WlSurfaceTransactionOp::Damage(v) => {
+                self.client.state.damage(v);
+            }
+            WlSurfaceTransactionOp::Clear => {
+                self.buffer.take();
+                self.reset_shm_textures();
+                self.prime.reset();
+            }
+        }
     }
 }

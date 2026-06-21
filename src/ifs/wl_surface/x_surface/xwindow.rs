@@ -10,12 +10,14 @@ use {
         rect::Rect,
         renderer::Renderer,
         state::State,
+        transactions::{TransactionData, Transactionable, TransactionableExt},
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase,
-            NodeId, NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode,
-            StackedNode, TileDragDestination, TileState, ToplevelData, ToplevelNode,
-            ToplevelNodeBase, ToplevelType, WorkspaceNode, WorkspaceType,
-            default_tile_drag_destination,
+            NodeId, NodeLayerLink, NodeLocation, NodeStackTransactionOp, NodeVisitor,
+            NodesStackElement, OutputNode, StackedNode, TileDragDestination, TileState,
+            ToplevelData, ToplevelDataTransactionOp, ToplevelNode, ToplevelNodeBase, ToplevelType,
+            TreeTimeline::{self, LiveTL},
+            WorkspaceNode, WorkspaceType, default_tile_drag_destination,
         },
         utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode},
         wire::WlSurfaceId,
@@ -133,6 +135,7 @@ pub struct Xwindow {
     pub x: Rc<XSurface>,
     pub display_link: RefCell<NodesStackElement>,
     pub toplevel_data: ToplevelData,
+    pub transaction_data: TransactionData<XwindowTransactionOp>,
 }
 
 impl XwindowData {
@@ -220,6 +223,7 @@ impl Xwindow {
                 display_link: data.state.root.stacked.element(),
                 toplevel_data: tld,
                 x: xsurface,
+                transaction_data: TransactionData::new(&data.state.tree),
             }
         });
         slf.x.xwindow.set(Some(slf.clone()));
@@ -328,9 +332,9 @@ impl Xwindow {
             return;
         }
         let extents = self.x.surface.extents.get();
-        let (x, y) = self.x.surface.buffer_abs_pos.get().position();
+        let (x, y) = self.x.surface.buffer_abs_pos[LiveTL].get().position();
         let extents = extents.move_(x, y);
-        self.data.state.damage(extents);
+        self.x.surface.damage(extents, LiveTL);
     }
 
     pub fn update_toplevel(self: &Rc<Self>) {
@@ -359,20 +363,20 @@ impl NodeBase for Xwindow {
         visitor.visit_surface(&self.x.surface);
     }
 
-    fn node_visible(&self) -> bool {
-        self.x.surface.visible.get()
+    fn node_visible(&self, tl: TreeTimeline) -> bool {
+        self.x.surface.visible[tl].get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {
         self.data.info.extents.get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
-        self.toplevel_data.output_opt()
+        self.toplevel_data.output_opt(LiveTL)
     }
 
     fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
-        self.toplevel_data.workspace.get()
+        self.toplevel_data.workspace[LiveTL].get()
     }
 
     fn node_location(&self) -> Option<NodeLocation> {
@@ -411,7 +415,7 @@ impl NodeBase for Xwindow {
             FindTreeUsecase::SelectToplevelOrPopup => return FindTreeResult::AcceptsInput,
             FindTreeUsecase::SelectNormalWorkspace => return FindTreeResult::Other,
         }
-        let rect = self.x.surface.buffer_abs_pos.get();
+        let rect = self.x.surface.buffer_abs_pos[LiveTL].get();
         if x < rect.width() && y < rect.height() {
             return self.x.surface.find_tree_at_(x, y, tree);
         }
@@ -475,7 +479,7 @@ impl ToplevelNodeBase for Xwindow {
     fn tl_set_workspace_ext(&self, ws: &Rc<WorkspaceNode>) {
         self.x
             .surface
-            .set_output(&ws.node_state.output.get(), ws.location());
+            .set_output(&ws.node_state[LiveTL].output.get(), ws.location());
     }
 
     fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect) {
@@ -520,7 +524,7 @@ impl ToplevelNodeBase for Xwindow {
     }
 
     fn tl_destroy_impl(self: &Rc<Self>) {
-        self.display_link.borrow_mut().clear();
+        self.add_transaction_op(XwindowTransactionOp::ClearLink);
         self.x.surface.destroy_node();
     }
 
@@ -546,6 +550,10 @@ impl ToplevelNodeBase for Xwindow {
     ) -> Option<TileDragDestination> {
         default_tile_drag_destination(self, source, split, abs_bounds, abs_x, abs_y)
     }
+
+    fn tl_schedule_data_op(self: Rc<Self>, op: ToplevelDataTransactionOp) {
+        self.add_transaction_op(XwindowTransactionOp::ToplevelData(op));
+    }
 }
 
 impl StackedNode for Xwindow {
@@ -558,10 +566,14 @@ impl StackedNode for Xwindow {
         false
     }
 
-    fn stacked_validate(self: Rc<Self>) {
-        if self.node_visible() {
-            self.display_link.borrow_mut().add_last_visible(&self);
+    fn stacked_validate(self: Rc<Self>, tl: TreeTimeline) {
+        if self.node_visible(tl) {
+            self.display_link.borrow_mut().add_last_visible(&self, tl);
         }
+    }
+
+    fn stacked_add_stack_op(self: Rc<Self>, op: NodeStackTransactionOp) {
+        self.add_transaction_op(XwindowTransactionOp::NodeStack(op));
     }
 }
 
@@ -571,4 +583,32 @@ pub enum XWindowError {
     AlreadyAttached,
     #[error(transparent)]
     WlSurfaceError(#[from] WlSurfaceError),
+}
+
+pub enum XwindowTransactionOp {
+    ToplevelData(ToplevelDataTransactionOp),
+    NodeStack(NodeStackTransactionOp),
+    ClearLink,
+}
+
+impl Transactionable for Xwindow {
+    type T = XwindowTransactionOp;
+
+    fn data(&self) -> &TransactionData<Self::T> {
+        &self.transaction_data
+    }
+
+    fn apply(self: &Rc<Self>, op: Self::T) {
+        match op {
+            XwindowTransactionOp::ToplevelData(v) => {
+                self.toplevel_data.run_op(v);
+            }
+            XwindowTransactionOp::NodeStack(v) => {
+                self.display_link.borrow_mut().run_op(v);
+            }
+            XwindowTransactionOp::ClearLink => {
+                self.display_link.borrow_mut().clear();
+            }
+        }
+    }
 }

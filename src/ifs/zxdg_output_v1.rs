@@ -4,6 +4,7 @@ use {
         ifs::wl_output::{SEND_DONE_SINCE, WlOutput},
         leaks::Tracker,
         object::{Object, Version},
+        tree::TreeTimeline::LiveTL,
         wire::{ZxdgOutputV1Id, zxdg_output_v1::*},
     },
     std::rc::Rc,
@@ -64,7 +65,7 @@ impl ZxdgOutputV1 {
             return;
         };
         let global = &node.global;
-        let pos = node.node_state.pos.get();
+        let pos = node.node_state[LiveTL].pos.get();
         self.send_logical_position(pos.x1(), pos.y1());
         self.send_logical_size(pos.width(), pos.height());
         if initial {

@@ -11,7 +11,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::{OutputNode, WorkspaceNode, WsMoveConfig, move_ws_to_output},
+        tree::{OutputNode, TreeTimeline::LiveTL, WorkspaceNode, WsMoveConfig, move_ws_to_output},
         utils::{clonecell::CloneCell, opt::Opt, syncqueue::SyncQueue},
         wire::{ExtWorkspaceManagerV1Id, ext_workspace_manager_v1::*},
     },
@@ -72,7 +72,7 @@ impl ExtWorkspaceManagerV1Global {
             .managers
             .set(obj.manager_id, obj.clone());
         let dummy_output = client.state.dummy_output.get().unwrap();
-        for ws in dummy_output.workspaces.iter() {
+        for ws in dummy_output.workspaces.iter_valid(LiveTL) {
             obj.announce_workspace(&dummy_output, &ws);
         }
         for output in client.state.root.outputs.lock().values() {
@@ -113,7 +113,7 @@ impl ExtWorkspaceManagerV1 {
                 group.send_output_enter(wl_output);
             }
         }
-        for ws in node.workspaces.iter() {
+        for ws in node.workspaces.iter_valid(LiveTL) {
             if let Some(ws) = ws.ext_workspaces.get(&self.manager_id) {
                 ws.handle_new_output(node);
             } else {
@@ -243,7 +243,7 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
                     let Some(ws) = w.get() else {
                         continue;
                     };
-                    let output = ws.node_state.output.get();
+                    let output = ws.node_state[LiveTL].output.get();
                     let seat = self.client.state.seat_queue.last().as_deref().cloned();
                     self.client
                         .state

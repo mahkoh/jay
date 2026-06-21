@@ -61,7 +61,6 @@ impl<T> Stack<T> {
         self.len() == 0
     }
 
-    #[expect(dead_code)]
     pub fn clear(&self) {
         let mut vec = vec![];
         self.swap(&mut vec);

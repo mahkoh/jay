@@ -3386,6 +3386,10 @@ Config:
       required: false
       description: |
         The workspaces.
+    transactions:
+      ref: Transactions
+      required: false
+      description: The transaction settings.
 
 
 Idle:
@@ -4927,3 +4931,52 @@ KeymapGroup:
       description: A 0-based group index.
       integer_only: true
       minimum: 0
+
+
+Transactions:
+  kind: table
+  description: |
+    The transaction settings.
+    
+    The timeout field can be used to set both timeouts at the same time.
+    
+    See the book for more details about transactions.
+    
+    - Example
+    
+      ```toml
+      [transactions]
+      timeout.millis = 30
+      ```
+  fields:
+    timeout:
+      ref: Timeout
+      required: false
+      description: Sets both timeouts at the same time.
+    transaction-timeout:
+      ref: Timeout
+      required: false
+      description: The timeout for desktop transactions.
+    configure-timeout:
+      ref: Timeout
+      required: false
+      description: The timeout for configuration sequences.
+
+
+Timeout:
+  kind: table
+  description: |
+    A timeout. All fields default to 0.
+  fields:
+    millis:
+      kind: number
+      integer_only: true
+      minimum: 0
+      required: false
+      description: The milliseconds.
+    micros:
+      kind: number
+      integer_only: true
+      minimum: 0
+      required: false
+      description: The microseconds.

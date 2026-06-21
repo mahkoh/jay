@@ -19,22 +19,29 @@ use {
             },
             wl_surface::{
                 WlSurface, tray::TrayItemId, xdg_surface::xdg_popup::XdgPopup,
-                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+                zwlr_layer_surface_v1::LayerSurfaceLink,
             },
         },
         keyboard::KeyboardState,
         rect::Rect,
         renderer::Renderer,
-        utils::{linkedlist::NodeRef, numcell::NumCell, static_text::StaticText},
+        tree::TreeTimeline::{LiveTL, RenderTL},
+        utils::{
+            linkedlist::{LinkedList, NodeRef},
+            numcell::NumCell,
+            static_text::StaticText,
+        },
     },
     jay_config::{
         Direction as JayDirection, video::Transform as ConfigTransform,
         window::TileState as ConfigTileState,
         workspace::WorkspaceDisplayOrder as ConfigWorkspaceDisplayOrder,
     },
-    linearize::{Linearize, LinearizeExt},
+    linearize::{Linearize, LinearizeExt, StaticMap, static_map},
     std::{
+        cell::Cell,
         fmt::{Debug, Display},
+        ops::Deref,
         rc::Rc,
     },
 };
@@ -340,15 +347,15 @@ const NODE_LAYER_LAST: NodeLayer = NodeLayer::OverlayStacked;
 
 pub enum NodeLayerLink {
     Display,
-    Layer0(NodeRef<Rc<ZwlrLayerSurfaceV1>>),
-    Layer1(NodeRef<Rc<ZwlrLayerSurfaceV1>>),
+    Layer0(NodeRef<LayerSurfaceLink>),
+    Layer1(NodeRef<LayerSurfaceLink>),
     Output,
     Workspace,
     Tiled,
     Fullscreen,
     Stacked(NodeRef<Rc<dyn StackedNode>>),
-    Layer2(NodeRef<Rc<ZwlrLayerSurfaceV1>>),
-    Layer3(NodeRef<Rc<ZwlrLayerSurfaceV1>>),
+    Layer2(NodeRef<LayerSurfaceLink>),
+    Layer3(NodeRef<LayerSurfaceLink>),
     StackedAboveLayers(NodeRef<Rc<dyn StackedNode>>),
     Lock,
     InputMethod,
@@ -412,6 +419,10 @@ pub enum WorkspaceChangeReason {
 
 linear_ids!(TreeSerials, TreeSerial, u64);
 
+impl TreeSerial {
+    pub const NONE: Self = Self(0);
+}
+
 pub trait NodeBase: 'static {
     fn node_id(&self) -> NodeId;
     fn node_seat_state(&self) -> &NodeSeatState;
@@ -419,8 +430,8 @@ pub trait NodeBase: 'static {
     where
         Self: Sized;
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor);
-    fn node_visible(&self) -> bool;
-    fn node_absolute_position(&self) -> Rect;
+    fn node_visible(&self, tl: TreeTimeline) -> bool;
+    fn node_absolute_position(&self, tl: TreeTimeline) -> Rect;
     fn node_output(&self) -> Option<Rc<OutputNode>>;
     fn node_workspace(&self) -> Option<Rc<WorkspaceNode>>;
     fn node_location(&self) -> Option<NodeLocation>;
@@ -941,4 +952,80 @@ pub struct FoundNode {
     pub node: Rc<dyn Node>,
     pub x: i32,
     pub y: i32,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Linearize)]
+#[linearize(const)]
+pub enum TreeTimeline {
+    LiveTL,
+    RenderTL,
+}
+
+pub type SplitView<T> = StaticMap<TreeTimeline, T>;
+
+pub struct TreeLink<T> {
+    pub item: T,
+    valid: SplitView<Cell<bool>>,
+}
+
+impl<T> TreeLink<T> {
+    pub fn new(t: T) -> Self {
+        Self {
+            item: t,
+            valid: static_map! {
+                LiveTL => Cell::new(true),
+                RenderTL => Cell::new(false),
+            },
+        }
+    }
+
+    pub fn set_valid(&self) {
+        self.valid[RenderTL].set(true);
+    }
+
+    pub fn set_invalid(&self) {
+        self.valid[LiveTL].set(false);
+    }
+}
+
+impl<T> Deref for TreeLink<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.item
+    }
+}
+
+impl<T> NodeRef<TreeLink<T>> {
+    pub fn prev_valid(&self, tl: TreeTimeline) -> Option<Self> {
+        self.prev_with(|c| c.valid[tl].get())
+    }
+
+    pub fn next_valid(&self, tl: TreeTimeline) -> Option<Self> {
+        self.next_with(|c| c.valid[tl].get())
+    }
+}
+
+impl<T> LinkedList<TreeLink<T>> {
+    pub fn iter_valid(
+        &self,
+        tl: TreeTimeline,
+    ) -> impl Iterator<Item = NodeRef<TreeLink<T>>> + use<T> {
+        self.iter().filter(move |c| c.valid[tl].get())
+    }
+
+    pub fn rev_iter_valid(
+        &self,
+        tl: TreeTimeline,
+    ) -> impl Iterator<Item = NodeRef<TreeLink<T>>> + use<T> {
+        self.rev_iter().filter(move |c| c.valid[tl].get())
+    }
+
+    pub fn first_valid(&self, tl: TreeTimeline) -> Option<NodeRef<TreeLink<T>>> {
+        self.iter_valid(tl).next()
+    }
+
+    pub fn last_valid(&self, tl: TreeTimeline) -> Option<NodeRef<TreeLink<T>>> {
+        self.rev_iter_valid(tl).next()
+    }
 }

@@ -17,7 +17,7 @@ use {
         tree::{
             self, ContainerNode, DisplayNode, FloatNode, Node, NodeBase, NodeVisitor, OutputNode,
             PlaceholderNode, ToplevelData, ToplevelIdentifier, ToplevelNodeBase, ToplevelType,
-            WorkspaceNode, WorkspaceType,
+            TreeTimeline::LiveTL, WorkspaceNode, WorkspaceType,
         },
         utils::{opaque::OpaqueError, opt::Opt},
         wire::{
@@ -80,7 +80,7 @@ impl JayTreeQuery {
     }
 
     fn send_node_position(&self, node: &dyn Node) {
-        let rect = node.node_absolute_position();
+        let rect = node.node_absolute_position(LiveTL);
         self.send_position(rect);
     }
 
@@ -172,7 +172,7 @@ impl JayTreeQuery {
             self_id: self.id,
             title: &data.title.borrow(),
         });
-        if let Some(w) = data.workspace.get() {
+        if let Some(w) = data.workspace[LiveTL].get() {
             self.send_workspace_name(&w.name);
         }
         match &data.kind {
@@ -222,7 +222,7 @@ impl JayTreeQuery {
         if data.parent_is_float.get() {
             self.client.event(Floating { self_id: self.id });
         }
-        if data.visible.get() {
+        if data.visible[LiveTL].get() {
             self.client.event(Visible { self_id: self.id });
         }
         if data.wants_attention.get() {
@@ -238,10 +238,10 @@ impl JayTreeQuery {
                 }
             }
         }
-        if data.is_fullscreen.get() {
+        if data.is_fullscreen[LiveTL].get() {
             self.client.event(Fullscreen { self_id: self.id });
         }
-        if let Some(ws) = data.workspace.get() {
+        if let Some(ws) = data.workspace[LiveTL].get() {
             self.client.event(Workspace {
                 self_id: self.id,
                 name: &ws.name,
@@ -433,7 +433,7 @@ impl tree::NodeVisitorBase for Visitor<'_> {
         s.send_start(TREE_TY_WORKSPACE);
         s.send_node_position(&**node);
         s.send_workspace_name(&node.name);
-        let o = node.node_state.output.get();
+        let o = node.node_state[LiveTL].output.get();
         if !o.is_dummy {
             s.send_output_name(&o.global.connector.name);
         }

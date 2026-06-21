@@ -1,5 +1,6 @@
 use {
     crate::{
+        control_center::CCI_COMPOSITOR,
         ifs::wl_surface::WlSurface,
         state::State,
         tree::TreeSerial,
@@ -45,13 +46,13 @@ trait ConfigurableDyn {
         group: &Rc<ConfigureGroup>,
         members: &mut Vec<Rc<dyn ConfigurableDyn>>,
     );
-    fn flush(&self, nr: usize, serial: TreeSerial);
+    fn flush(&self, nr: usize, serial: TreeSerial) -> bool;
 }
 
 #[derive(Derivative)]
 #[derivative(Default)]
 pub struct ConfigureGroups {
-    scheduled: AsyncStack<Rc<dyn ConfigurableDyn>>,
+    scheduled: Stack<Rc<dyn ConfigurableDyn>>,
     ready: AsyncStack<Rc<dyn ConfigurableDyn>>,
     all_groups: Stack<Rc<ConfigureGroup>>,
     unused_groups: Stack<Rc<ConfigureGroup>>,
@@ -89,6 +90,11 @@ struct ConfigureGroup {
     num_not_ready2: NumCell<usize>,
 }
 
+#[derive(Default)]
+pub struct ConfigureGroupsWork {
+    scheduled: Vec<Rc<dyn ConfigurableDyn>>,
+}
+
 impl<T> ConfigurableExt for T
 where
     T: Configurable,
@@ -98,8 +104,10 @@ where
         if d.core.scheduled.replace(true) {
             return;
         }
-        let cgs = &d.core.state.configure_groups;
-        cgs.scheduled.push(self.clone());
+        let state = &d.core.state.tree;
+        state.configure_groups.scheduled.push(self.clone());
+        state.transactions.add_surface(self.surface());
+        state.serial_groups.trigger();
     }
 }
 
@@ -135,12 +143,11 @@ impl<T> ConfigurableData<T> {
     }
 }
 
-// TODO: waiting for transaction logic
-const DEFAULT_TIMEOUT_NS: u64 = 0;
+const DEFAULT_TIMEOUT_NS: u64 = 50_000_000;
 
 impl ConfigureGroups {
     pub fn clear(&self) {
-        self.scheduled.clear();
+        self.scheduled.take();
         self.ready.clear();
         self.unused_groups.take();
         self.groups_to_recycle.take();
@@ -151,15 +158,20 @@ impl ConfigureGroups {
         }
     }
 
-    #[expect(dead_code)]
     pub fn timeout_ns(&self) -> u64 {
         self.timeout_ns.get()
     }
 
-    #[expect(dead_code)]
-    pub fn set_timeout_ns(&self, timeout: u64) {
+    fn set_timeout_ns(&self, timeout: u64) {
         self.timeout_ns.set(timeout);
         self.timeout_changed.trigger();
+    }
+}
+
+impl State {
+    pub fn set_configure_timeout_ns(&self, timeout: u64) {
+        self.tree.configure_groups.set_timeout_ns(timeout);
+        self.trigger_cci(CCI_COMPOSITOR);
     }
 }
 
@@ -176,7 +188,7 @@ impl ConfigurableDataCore {
         if cg.num_not_ready.sub_fetch(1) > 0 {
             return;
         }
-        let cgs = &self.state.configure_groups;
+        let cgs = &self.state.tree.configure_groups;
         cgs.groups_to_recycle.push(cg.clone());
         for member in &*cg.members.borrow() {
             cgs.ready.push(member.clone());
@@ -211,7 +223,7 @@ where
         members.push(self);
     }
 
-    fn flush(&self, nr: usize, serial: TreeSerial) {
+    fn flush(&self, nr: usize, serial: TreeSerial) -> bool {
         let d = self.data();
         let data = {
             let requests = &mut *d.requests.borrow_mut();
@@ -230,19 +242,18 @@ where
             self.flush(serial, data);
             self.surface().set_requested_serial(serial);
         }
+        self.surface().surface_transaction.is_tardy()
     }
 }
 
-pub async fn handle_configurables_commit(state: Rc<State>) {
-    let cgs = &state.configure_groups;
-    let mut scheduled = vec![];
-    loop {
-        cgs.scheduled.non_empty().await;
-        cgs.scheduled.swap(&mut scheduled);
+impl ConfigureGroups {
+    pub fn run_scheduled(&self, work: &mut ConfigureGroupsWork, serial: TreeSerial) {
+        let scheduled = &mut work.scheduled;
+        let cgs = self;
+        cgs.scheduled.swap(scheduled);
         if scheduled.is_empty() {
-            continue;
+            return;
         }
-        let serial = state.next_tree_serial();
         let cg = match cgs.unused_groups.pop() {
             Some(i) => i,
             _ => {
@@ -265,10 +276,10 @@ pub async fn handle_configurables_commit(state: Rc<State>) {
         }
         if members.is_empty() {
             cgs.unused_groups.push(cg.clone());
-            continue;
+            return;
         }
         if cg.num_not_ready.get() > 0 {
-            continue;
+            return;
         }
         cgs.groups_to_recycle.push(cg.clone());
         for member in members {
@@ -278,11 +289,11 @@ pub async fn handle_configurables_commit(state: Rc<State>) {
 }
 
 pub async fn handle_configurables_timeout(state: Rc<State>) {
-    let cgs = &state.configure_groups;
+    let cgs = &state.tree.configure_groups;
     loop {
         let state2 = state.clone();
         let _timeout = state.eng.spawn("configurables timeout impl", async move {
-            let cgs = &state2.configure_groups;
+            let cgs = &state2.tree.configure_groups;
             let timeout_ns = cgs.timeout_ns.get();
             loop {
                 let t = cgs.timeout.pop().await;
@@ -306,7 +317,7 @@ pub async fn handle_configurables_timeout(state: Rc<State>) {
 }
 
 pub async fn handle_configurables_apply(state: Rc<State>) {
-    let cgs = &state.configure_groups;
+    let cgs = &state.tree.configure_groups;
     let ready = &cgs.ready;
     let to_recycle = &cgs.groups_to_recycle;
     let mut all_with_ready = vec![];
@@ -389,12 +400,16 @@ fn run_iteration(
             .map(|r| r.serial.get())
             .max()
             .unwrap();
-        member.flush(nr, serial);
-        cgs.timeout.push(ConfigurableTimeout {
-            num_idle_calls: d.num_idle_calls.get(),
-            configurable: member,
-            start_ns: now_ns,
-        });
+        let tardy = member.flush(nr, serial);
+        if tardy {
+            d.ready();
+        } else {
+            cgs.timeout.push(ConfigurableTimeout {
+                num_idle_calls: d.num_idle_calls.get(),
+                configurable: member,
+                start_ns: now_ns,
+            });
+        }
     }
     for group in groups_to_recycle.drain(..) {
         group.members.borrow_mut().clear();

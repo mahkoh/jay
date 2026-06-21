@@ -6,6 +6,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         rect::Rect,
+        tree::TreeTimeline::LiveTL,
         wire::{
             WlOutputId, ZwlrScreencopyFrameV1Id, ZwlrScreencopyManagerV1Id,
             zwlr_screencopy_manager_v1::*,
@@ -108,7 +109,7 @@ impl ZwlrScreencopyManagerV1 {
         let mode = global.mode.get();
         let mut rect = Rect::new_sized_saturating(0, 0, mode.width, mode.height);
         if let Some(region) = region {
-            let scale = node.node_state.scale.get().to_f64();
+            let scale = node.node_state[LiveTL].scale.get().to_f64();
             let x1 = (region.x1() as f64 * scale).round() as i32;
             let y1 = (region.y1() as f64 * scale).round() as i32;
             let x2 = (region.x2() as f64 * scale).round() as i32;

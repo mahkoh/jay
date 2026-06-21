@@ -25,7 +25,8 @@ use {
         sqlite::{Sqlite, SqliteError, SqliteUsage},
         state::State,
         tree::{
-            NodeBase, OutputNode, ToplevelData, WorkspaceNameHash, WorkspaceNode, WorkspaceType,
+            NodeBase, OutputNode, ToplevelData, TreeTimeline::LiveTL, WorkspaceNameHash,
+            WorkspaceNode, WorkspaceType,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -494,7 +495,7 @@ impl ToplevelSession {
         self.state.workspace.set(Some(ws.name.clone()));
         self.state.workspace_ty.set(ty);
         self.state_changed();
-        self.set_output(&ws.node_state.output.get(), data);
+        self.set_output(&ws.node_state[LiveTL].output.get(), data);
     }
 
     pub fn set_output(self: &Rc<Self>, on: &OutputNode, data: &ToplevelData) {
@@ -509,11 +510,11 @@ impl ToplevelSession {
 
     pub fn set_float_pos(self: &Rc<Self>, data: &ToplevelData) {
         let rect = if data.parent_is_float.get() {
-            let on = data.output();
+            let on = data.output(LiveTL);
             if on.is_dummy {
                 None
             } else {
-                let on = on.node_absolute_position();
+                let on = on.node_absolute_position(LiveTL);
                 let rect = data.desired_extents.get().move_(-on.x1(), -on.y1());
                 Some(rect)
             }

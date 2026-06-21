@@ -2,6 +2,7 @@ use {
     crate::{
         ifs::wl_seat::BTN_LEFT,
         it::{test_error::TestResult, testrun::TestRun},
+        tree::TreeTimeline::LiveTL,
     },
     std::rc::Rc,
 };
@@ -27,9 +28,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     client.sync().await;
 
-    let name = ds
-        .output
-        .node_state
+    let name = ds.output.node_state[LiveTL]
         .workspace
         .get()
         .map(|ws| ws.name.clone());
@@ -44,9 +43,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     client.sync().await;
 
-    let name = ds
-        .output
-        .node_state
+    let name = ds.output.node_state[LiveTL]
         .workspace
         .get()
         .map(|ws| ws.name.clone());

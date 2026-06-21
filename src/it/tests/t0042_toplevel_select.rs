@@ -2,7 +2,7 @@ use {
     crate::{
         ifs::wl_seat::{BTN_LEFT, ToplevelSelector},
         it::{test_error::TestResult, testrun::TestRun},
-        tree::{NodeBase, ToplevelNode},
+        tree::{NodeBase, ToplevelNode, TreeTimeline::LiveTL},
         utils::clonecell::CloneCell,
     },
     std::rc::Rc,
@@ -20,8 +20,8 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     win2.map2().await?;
     client.sync().await;
 
-    let win1pos = win1.tl.server.node_absolute_position().position();
-    let win2pos = win2.tl.server.node_absolute_position().position();
+    let win1pos = win1.tl.server.node_absolute_position(LiveTL).position();
+    let win2pos = win2.tl.server.node_absolute_position(LiveTL).position();
     ds.mouse.abs(
         &ds.connector,
         win1pos.0 as f64 + 2.0,

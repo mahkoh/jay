@@ -17,6 +17,7 @@ use {
         },
         format::{ARGB8888, Format},
         gfx_api::SyncFile,
+        tree::TreeTimeline::RenderTL,
         utils::{
             binary_search_map::BinarySearchMap, cell_ext::CellExt, errorfmt::ErrorFmt, rc_eq::rc_eq,
         },
@@ -574,7 +575,7 @@ impl MetalDeviceTransaction {
                 plane.new.fb_id = DrmFb::NONE;
                 if plane.obj.ty == PlaneType::Primary || fb_id.is_some() {
                     plane.new.crtc_id = crtc.obj.id;
-                    let locked = slf.dev.dev.backend.state.lock.locked.get();
+                    let locked = slf.dev.dev.backend.state.lock.locked[RenderTL].get();
                     let may_show_current_fb = !crtc.new.active
                         || connector.new.locked
                         || !locked

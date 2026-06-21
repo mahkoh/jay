@@ -7,7 +7,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::NodeLocation,
+        tree::{NodeLocation, TreeTimeline::LiveTL},
         wire::{ExtSessionLockV1Id, ext_session_lock_v1::*},
     },
     std::{cell::Cell, rc::Rc},
@@ -85,7 +85,7 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
         if !self.finished.get()
             && let Some(node) = output.global.node()
         {
-            let ons = &node.node_state;
+            let ons = &node.node_state[LiveTL];
             if ons.lock_surface.is_some() {
                 return Err(ExtSessionLockV1Error::OutputAlreadyLocked);
             }

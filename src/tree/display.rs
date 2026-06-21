@@ -6,17 +6,21 @@ use {
         ifs::wl_seat::{NodeSeatState, WlSeatGlobal, tablet::TabletTool},
         rect::Rect,
         renderer::Renderer,
-        state::State,
+        state::{State, TreeState},
+        transactions::{TransactionData, Transactionable, TransactionableExt},
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, NodeBase, NodeId, NodeLayerLink,
-            NodeLocation, OutputNode, StackedNode, TileDragDestination, WorkspaceDragDestination,
-            WorkspaceNode, walker::NodeVisitor,
+            NodeLocation, OutputNode, SplitView, StackedNode, TileDragDestination,
+            TreeTimeline::{self, LiveTL, RenderTL},
+            WorkspaceDragDestination, WorkspaceNode,
+            walker::NodeVisitor,
         },
         utils::{
             copyhashmap::CopyHashMap,
             linkedlist::{LinkedList, LinkedListIter, LinkedNode, NodeRef, RevLinkedListIter},
         },
     },
+    linearize::LinearizeExt,
     std::{
         cell::{Cell, RefCell},
         ops::Deref,
@@ -26,12 +30,13 @@ use {
 
 pub struct DisplayNode {
     pub id: NodeId,
-    pub node_state: DisplayNodeState,
+    pub node_state: SplitView<DisplayNodeState>,
     pub outputs: CopyHashMap<ConnectorId, Rc<OutputNode>>,
     pub stacked: Rc<NodesStack>,
     pub stacked_above_layers: Rc<NodesStack>,
     pub stacked_in_overlay: Rc<NodesStack>,
     pub seat_state: NodeSeatState,
+    pub transaction_data: TransactionData<DisplayTransactionOp>,
 }
 
 #[derive(Default)]
@@ -42,18 +47,18 @@ pub struct DisplayNodeState {
 #[derive(Default)]
 pub struct NodesStack {
     pub stacked: LinkedList<Rc<dyn StackedNode>>,
-    visible: LinkedList<Rc<dyn StackedNode>>,
-    visible_valid: Cell<bool>,
+    visible: SplitView<LinkedList<Rc<dyn StackedNode>>>,
+    visible_valid: SplitView<Cell<bool>>,
 }
 
 pub struct NodesStackElement {
     pub stack: Rc<NodesStack>,
     pub link: Option<LinkedNode<Rc<dyn StackedNode>>>,
-    visible: Option<LinkedNode<Rc<dyn StackedNode>>>,
+    visible: SplitView<Option<LinkedNode<Rc<dyn StackedNode>>>>,
 }
 
 impl DisplayNode {
-    pub fn new(id: NodeId) -> Self {
+    pub fn new(tree: &Rc<TreeState>, id: NodeId) -> Self {
         let slf = Self {
             id,
             node_state: Default::default(),
@@ -62,6 +67,7 @@ impl DisplayNode {
             stacked_above_layers: Default::default(),
             stacked_in_overlay: Default::default(),
             seat_state: Default::default(),
+            transaction_data: TransactionData::new(tree),
         };
         slf.seat_state.disable_focus_history();
         slf
@@ -72,14 +78,14 @@ impl DisplayNode {
         self.seat_state.clear();
     }
 
-    pub fn update_extents(&self) {
+    pub fn update_extents(self: &Rc<Self>) {
         let outputs = self.outputs.lock();
         let mut x1 = i32::MAX;
         let mut y1 = i32::MAX;
         let mut x2 = i32::MIN;
         let mut y2 = i32::MIN;
         for output in outputs.values() {
-            let pos = output.node_state.pos.get();
+            let pos = output.node_state[LiveTL].pos.get();
             x1 = x1.min(pos.x1());
             y1 = y1.min(pos.y1());
             x2 = x2.max(pos.x2());
@@ -93,12 +99,12 @@ impl DisplayNode {
             y1 = 0;
             y2 = 0;
         }
-        self.node_state
-            .extents
-            .set(Rect::new_saturating(x1, y1, x2, y2));
+        let v = Rect::new_saturating(x1, y1, x2, y2);
+        self.node_state[LiveTL].extents.set(v);
+        self.add_transaction_op(DisplayTransactionOp::SetExtents(v));
     }
 
-    pub fn update_visible(&self, state: &State) {
+    pub fn update_visible(&self, state: &Rc<State>) {
         let visible = state.root_visible();
         for output in self.outputs.lock().values() {
             output.update_visible();
@@ -118,7 +124,7 @@ impl DisplayNode {
             seat.set_visible(visible);
         }
         if visible {
-            state.damage_full();
+            state.damage_full(LiveTL);
         }
     }
 
@@ -129,7 +135,7 @@ impl DisplayNode {
         y: i32,
     ) -> Option<TileDragDestination> {
         for output in self.outputs.lock().values() {
-            let pos = output.node_absolute_position();
+            let pos = output.node_absolute_position(LiveTL);
             if pos.contains(x, y) {
                 return output.tile_drag_destination(source, x, y);
             }
@@ -144,7 +150,7 @@ impl DisplayNode {
         y: i32,
     ) -> Option<WorkspaceDragDestination> {
         for output in self.outputs.lock().values() {
-            let pos = output.node_absolute_position();
+            let pos = output.node_absolute_position(LiveTL);
             if pos.contains(x, y) {
                 return output.workspace_drag_destination(source, x, y);
             }
@@ -182,12 +188,12 @@ impl NodeBase for DisplayNode {
         }
     }
 
-    fn node_visible(&self) -> bool {
+    fn node_visible(&self, _tl: TreeTimeline) -> bool {
         true
     }
 
-    fn node_absolute_position(&self) -> Rect {
-        self.node_state.extents.get()
+    fn node_absolute_position(&self, tl: TreeTimeline) -> Rect {
+        self.node_state[tl].extents.get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
@@ -215,7 +221,7 @@ impl NodeBase for DisplayNode {
     ) -> FindTreeResult {
         let outputs = self.outputs.lock();
         for output in outputs.values() {
-            let pos = output.node_state.pos.get();
+            let pos = output.node_state[LiveTL].pos.get();
             if pos.contains(x, y) {
                 let (x, y) = pos.translate(x, y);
                 tree.push(FoundNode {
@@ -255,26 +261,28 @@ impl NodeBase for DisplayNode {
 }
 
 impl NodesStack {
-    fn validate(&self) {
-        if self.visible_valid.replace(true) {
+    fn validate(&self, tl: TreeTimeline) {
+        if self.visible_valid[tl].replace(true) {
             return;
         }
         for node in self.stacked.iter() {
-            node.deref().clone().stacked_validate();
+            node.deref().clone().stacked_validate(tl);
         }
     }
 
-    pub fn iter_visible(&self) -> NodeStackVisibleIter {
-        self.validate();
+    pub fn iter_visible(&self, tl: TreeTimeline) -> NodeStackVisibleIter {
+        self.validate(tl);
         NodeStackVisibleIter {
-            iter: self.visible.iter(),
+            tl,
+            iter: self.visible[tl].iter(),
         }
     }
 
-    pub fn iter_visible_rev(&self) -> RevNodeStackVisibleIter {
-        self.validate();
+    pub fn iter_visible_rev(&self, tl: TreeTimeline) -> RevNodeStackVisibleIter {
+        self.validate(tl);
         RevNodeStackVisibleIter {
-            iter: self.visible.rev_iter(),
+            tl,
+            iter: self.visible[tl].rev_iter(),
         }
     }
 
@@ -286,30 +294,34 @@ impl NodesStack {
         })
     }
 
-    pub fn maybe_has_visible(&self) -> bool {
-        self.validate();
-        self.visible.is_not_empty()
+    pub fn maybe_has_visible(&self, tl: TreeTimeline) -> bool {
+        self.validate(tl);
+        self.visible[tl].is_not_empty()
     }
 
-    pub fn definitely_has_no_visible(&self) -> bool {
-        !self.maybe_has_visible()
+    pub fn definitely_has_no_visible(&self, tl: TreeTimeline) -> bool {
+        !self.maybe_has_visible(tl)
     }
 }
 
 impl NodesStackElement {
     pub fn clear(&mut self) {
         self.link.take();
-        self.visible.take();
+        for v in self.visible.values_mut() {
+            v.take();
+        }
     }
 
     pub fn restack(&self) {
         if let Some(link) = &self.link {
             self.stack.stacked.add_last_existing(link);
         }
-        if let Some(link) = &self.visible
-            && link.node_visible()
-        {
-            self.stack.visible.add_last_existing(link);
+        for tl in TreeTimeline::variants() {
+            if let Some(link) = &self.visible[tl]
+                && link.node_visible(tl)
+            {
+                self.stack.visible[tl].add_last_existing(link);
+            }
         }
     }
 
@@ -318,24 +330,37 @@ impl NodesStackElement {
         self.restack();
     }
 
-    pub fn add_last_visible(&mut self, slf: &Rc<impl StackedNode>) {
-        let link = self
-            .visible
-            .get_or_insert_with(|| LinkedNode::detached(slf.clone()));
-        self.stack.visible.add_last_existing(link);
+    pub fn add_last_visible(&mut self, slf: &Rc<impl StackedNode>, tl: TreeTimeline) {
+        let link = self.visible[tl].get_or_insert_with(|| LinkedNode::detached(slf.clone()));
+        self.stack.visible[tl].add_last_existing(link);
     }
 
     pub fn invalidate(&self) {
-        self.stack.visible_valid.set(false);
+        self.stack.visible_valid[LiveTL].set(false);
+        if let Some(v) = &self.link {
+            v.deref()
+                .deref()
+                .clone()
+                .stacked_add_stack_op(NodeStackTransactionOp::Invalidate);
+        }
+    }
+
+    pub fn run_op(&self, op: NodeStackTransactionOp) {
+        match op {
+            NodeStackTransactionOp::Invalidate => {
+                self.stack.visible_valid[RenderTL].set(false);
+            }
+        }
     }
 }
 
 fn next_visible(
     iter: &mut impl Iterator<Item = NodeRef<Rc<dyn StackedNode>>>,
+    tl: TreeTimeline,
 ) -> Option<NodeRef<Rc<dyn StackedNode>>> {
     loop {
         let v = iter.next()?;
-        if v.node_visible() {
+        if v.node_visible(tl) {
             return Some(v);
         }
         v.detach();
@@ -343,6 +368,7 @@ fn next_visible(
 }
 
 pub struct NodeStackVisibleIter {
+    tl: TreeTimeline,
     iter: LinkedListIter<Rc<dyn StackedNode>>,
 }
 
@@ -350,11 +376,12 @@ impl Iterator for NodeStackVisibleIter {
     type Item = NodeRef<Rc<dyn StackedNode>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        next_visible(&mut self.iter)
+        next_visible(&mut self.iter, self.tl)
     }
 }
 
 pub struct RevNodeStackVisibleIter {
+    tl: TreeTimeline,
     iter: RevLinkedListIter<Rc<dyn StackedNode>>,
 }
 
@@ -362,6 +389,31 @@ impl Iterator for RevNodeStackVisibleIter {
     type Item = NodeRef<Rc<dyn StackedNode>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        next_visible(&mut self.iter)
+        next_visible(&mut self.iter, self.tl)
     }
+}
+
+pub enum DisplayTransactionOp {
+    SetExtents(Rect),
+}
+
+impl Transactionable for DisplayNode {
+    type T = DisplayTransactionOp;
+
+    fn data(&self) -> &TransactionData<Self::T> {
+        &self.transaction_data
+    }
+
+    fn apply(self: &Rc<Self>, op: Self::T) {
+        let s = &self.node_state[RenderTL];
+        match op {
+            DisplayTransactionOp::SetExtents(v) => {
+                s.extents.set(v);
+            }
+        }
+    }
+}
+
+pub enum NodeStackTransactionOp {
+    Invalidate,
 }

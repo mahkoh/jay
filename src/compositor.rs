@@ -14,9 +14,7 @@ use {
         clientmem::{self, ClientMemError},
         cmm::{cmm_manager::ColorManager, cmm_primaries::Primaries},
         config::ConfigProxy,
-        configurable::{
-            handle_configurables_apply, handle_configurables_commit, handle_configurables_timeout,
-        },
+        configurable::{handle_configurables_apply, handle_configurables_timeout},
         control_center::redraw_control_centers,
         copy_device::CopyDeviceRegistry,
         cpu_worker::{CpuWorker, CpuWorkerError},
@@ -59,16 +57,18 @@ use {
         sighand::{self, SighandError},
         sm::{SessionManager, flush_toplevel_sessions},
         sqlite::{Sqlite, handle_sqlite_optimize},
-        state::{ConnectorData, IdleState, ScreenlockState, State, XWaylandState},
+        state::{ConnectorData, IdleState, ScreenlockState, State, TreeState, XWaylandState},
         syncobj::wait_for_syncobj::WaitForSyncobj,
         tasks::{self, handle_const_40hz_latch, idle},
         tracy::enable_profiler,
+        transactions::{TransactionData, handle_transactions_apply, handle_transactions_timeout},
         tree::{
             DisplayNode, NodeIds, OutputNode, TearingMode, Transform, VrrMode,
             WorkspaceDisplayOrder, container_layout, container_render_positions,
             container_render_titles, float_layout, float_titles, output_render_data,
             placeholder_render_textures,
         },
+        tree_serial_groups::handle_tree_serial_groups_scheduled,
         udmabuf::UdmabufHolder,
         user_session::{import_environment, start_graphical_session},
         utils::{
@@ -251,6 +251,7 @@ fn start_compositor2(
     let sm = sqlite.as_ref().map(SessionManager::new).map(Rc::new);
     let udmabuf = Rc::new(UdmabufHolder::default());
     let no_client_prime = no_client_prime(&udmabuf);
+    let tree = Rc::new(TreeState::default());
     let state = Rc::new(State {
         pid,
         kb_ctx,
@@ -270,7 +271,7 @@ fn start_compositor2(
         clients: Clients::new(),
         globals: Globals::new(),
         connector_ids: Default::default(),
-        root: Rc::new(DisplayNode::new(node_ids.next())),
+        root: Rc::new(DisplayNode::new(&tree, node_ids.next())),
         workspaces: Default::default(),
         dummy_output_id: node_ids.next(),
         dummy_output: Default::default(),
@@ -341,7 +342,7 @@ fn start_compositor2(
         drm_dev_ids: Default::default(),
         ring: ring.clone(),
         lock: ScreenlockState {
-            locked: Cell::new(false),
+            locked: Default::default(),
             lock: Default::default(),
         },
         scales,
@@ -429,8 +430,8 @@ fn start_compositor2(
         fallback_output: Default::default(),
         toplevel_icon_ids: Default::default(),
         toplevel_icons: Default::default(),
-        tree_serials: Default::default(),
-        configure_groups: Default::default(),
+        transaction_data: TransactionData::new(&tree),
+        tree,
         commit_cache: Default::default(),
         dmabuf_feedback: Default::default(),
         surface_pending_cache: Default::default(),
@@ -503,6 +504,11 @@ async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
     }
     state.perform_clean_logs_older_than();
     state.update_ei_acceptor();
+
+    if is_test {
+        state.set_configure_timeout_ns(0);
+        state.set_transaction_timeout_ns(0);
+    }
 
     let _geh = start_global_event_handlers(&state);
     state.start_xwayland();
@@ -651,9 +657,9 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             flush_toplevel_sessions(state.clone()),
         ),
         eng.spawn2(
-            "configurables commit",
+            "tree serial groups scheduled",
             Phase::PostLayout,
-            handle_configurables_commit(state.clone()),
+            handle_tree_serial_groups_scheduled(state.clone()),
         ),
         eng.spawn2(
             "configurables apply",
@@ -668,6 +674,14 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
         eng.spawn(
             "dmabuf feedback changes",
             handle_dmabuf_feedback_changes(state.clone()),
+        ),
+        eng.spawn(
+            "transactions apply",
+            handle_transactions_apply(state.clone()),
+        ),
+        eng.spawn(
+            "transactions timeout",
+            handle_transactions_timeout(state.clone()),
         ),
     ]
 }

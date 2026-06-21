@@ -12,7 +12,7 @@ use {
                 tray::TrayItemId,
                 xdg_surface::{
                     XdgPopupConfigureData, XdgSurface, XdgSurfaceConfigureData, XdgSurfaceExt,
-                    xdg_popup::jay_popup_ext_v1::JayPopupExtV1,
+                    XdgSurfaceTransactionOp, xdg_popup::jay_popup_ext_v1::JayPopupExtV1,
                 },
             },
             xdg_positioner::{
@@ -24,9 +24,12 @@ use {
         object::Object,
         rect::Rect,
         renderer::Renderer,
+        transactions::{TransactionData, Transactionable, TransactionableExt},
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId,
-            NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode, StackedNode,
+            NodeLayerLink, NodeLocation, NodeStackTransactionOp, NodeVisitor, NodesStackElement,
+            OutputNode, StackedNode,
+            TreeTimeline::{self, LiveTL},
             WorkspaceNode,
         },
         utils::{clonecell::CloneCell, smallmap::SmallMap},
@@ -76,6 +79,7 @@ pub struct XdgPopup {
     jay_popup_ext: CloneCell<Option<Rc<JayPopupExtV1>>>,
     interactive_moves: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     reposition_token: Cell<Option<u32>>,
+    transaction_data: TransactionData<XdgPopupTransactionOp>,
 }
 
 impl Debug for XdgPopup {
@@ -94,9 +98,10 @@ impl XdgPopup {
         if !pos.is_complete() {
             return Err(XdgPopupError::Incomplete);
         }
+        let state = &xdg.surface.client.state;
         Ok(Self {
             id,
-            node_id: xdg.surface.client.state.node_ids.next(),
+            node_id: state.node_ids.next(),
             xdg: xdg.clone(),
             parent: Default::default(),
             relative_position: Cell::new(Default::default()),
@@ -107,6 +112,7 @@ impl XdgPopup {
             jay_popup_ext: Default::default(),
             interactive_moves: Default::default(),
             reposition_token: Default::default(),
+            transaction_data: TransactionData::new(&state.tree),
         })
     }
 
@@ -140,7 +146,7 @@ impl XdgPopup {
         let mut rel_pos = positioner.get_position(false, false);
         let mut abs_pos = rel_pos.move_(parent_abs.x1(), parent_abs.y1());
         {
-            let output_pos = parent.output().node_state.pos.get();
+            let output_pos = parent.output().node_state[LiveTL].pos.get();
             let mut overflow = output_pos.get_overflow(&abs_pos);
             if !overflow.is_contained() {
                 let mut flip_x = positioner.ca.contains(CA_FLIP_X) && overflow.x_overflow();
@@ -276,11 +282,11 @@ impl XdgPopup {
 impl XdgPopupRequestHandler for XdgPopup {
     type Error = XdgPopupError;
 
-    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn destroy(&self, _req: Destroy, slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.jay_popup_ext.is_some() {
             return Err(XdgPopupError::HasJayPopupExt);
         }
-        self.destroy_node();
+        slf.destroy_node();
         self.xdg.unset_ext();
         self.xdg.surface.client.remove_obj(self)?;
         Ok(())
@@ -308,8 +314,8 @@ impl XdgPopup {
     pub fn set_visible(&self, visible: bool) {
         let surface = &self.xdg.surface;
         let extents = surface.extents.get();
-        let (x, y) = surface.buffer_abs_pos.get().position();
-        surface.client.state.damage(extents.move_(x, y));
+        let (x, y) = surface.buffer_abs_pos[LiveTL].get().position();
+        surface.damage(extents.move_(x, y), LiveTL);
 
         // log::info!("set visible = {}", visible);
         self.set_visible_prepared.set(false);
@@ -321,11 +327,12 @@ impl XdgPopup {
         }
     }
 
-    pub fn destroy_node(&self) {
+    pub fn destroy_node(self: &Rc<Self>) {
         self.xdg.destroy_node();
-        self.seat_state.destroy_node(self);
+        self.seat_state.destroy_node(&**self);
         if let Some(parent) = self.parent.take() {
             parent.remove_popup();
+            self.add_transaction_op(XdgPopupTransactionOp::DropParent(parent));
         }
         self.send_popup_done();
     }
@@ -367,12 +374,12 @@ impl NodeBase for XdgPopup {
         visitor.visit_surface(&self.xdg.surface);
     }
 
-    fn node_visible(&self) -> bool {
-        self.xdg.surface.visible.get()
+    fn node_visible(&self, tl: TreeTimeline) -> bool {
+        self.xdg.surface.visible[tl].get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
-        self.xdg.absolute_desired_extents.get()
+    fn node_absolute_position(&self, tl: TreeTimeline) -> Rect {
+        self.xdg.absolute_desired_extents[tl].get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
@@ -484,15 +491,19 @@ impl StackedNode for XdgPopup {
         }
     }
 
-    fn stacked_validate(self: Rc<Self>) {
-        if self.node_visible()
+    fn stacked_validate(self: Rc<Self>, tl: TreeTimeline) {
+        if self.node_visible(tl)
             && let Some(parent) = self.parent.get()
         {
             parent
                 .nodes_stack_element()
                 .borrow_mut()
-                .add_last_visible(&self);
+                .add_last_visible(&self, tl);
         }
+    }
+
+    fn stacked_add_stack_op(self: Rc<Self>, op: NodeStackTransactionOp) {
+        self.add_transaction_op(XdgPopupTransactionOp::NodeStack(op));
     }
 
     fn stacked_absolute_position_constrains_input(&self) -> bool {
@@ -532,6 +543,10 @@ impl XdgSurfaceExt for XdgPopup {
         self.parent.get()?.tray_item()
     }
 
+    fn schedule_xdg_op(self: Rc<Self>, op: XdgSurfaceTransactionOp) {
+        self.add_transaction_op(XdgPopupTransactionOp::XdgOp(op));
+    }
+
     fn configure_data(&self) -> XdgSurfaceConfigureData {
         XdgSurfaceConfigureData::Popup(XdgPopupConfigureData {
             repositioned: self.reposition_token.take(),
@@ -565,3 +580,33 @@ pub enum XdgPopupError {
     HasJayPopupExt,
 }
 efrom!(XdgPopupError, ClientError);
+
+pub enum XdgPopupTransactionOp {
+    XdgOp(XdgSurfaceTransactionOp),
+    NodeStack(NodeStackTransactionOp),
+    DropParent(Rc<dyn XdgPopupParent>),
+}
+
+impl Transactionable for XdgPopup {
+    type T = XdgPopupTransactionOp;
+
+    fn data(&self) -> &TransactionData<Self::T> {
+        &self.transaction_data
+    }
+
+    fn apply(self: &Rc<Self>, op: Self::T) {
+        match op {
+            XdgPopupTransactionOp::XdgOp(v) => {
+                self.xdg.run_op(v);
+            }
+            XdgPopupTransactionOp::NodeStack(v) => {
+                if let Some(parent) = self.parent.get() {
+                    parent.nodes_stack_element().borrow_mut().run_op(v);
+                }
+            }
+            XdgPopupTransactionOp::DropParent(v) => {
+                drop(v);
+            }
+        }
+    }
+}

@@ -15,13 +15,19 @@ use {
         },
         rect::Rect,
         theme::BarPosition,
+        transactions::{TransactionData, Transactionable, TransactionableExt},
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId, NodeLayerLink,
-            NodeLocation, NodeVisitor, NodesStackElement, OutputNode, TreeSerial, WorkspaceNode,
+            NodeLocation, NodeVisitor, NodesStackElement, OutputNode, SplitView, TreeLink,
+            TreeSerial,
+            TreeTimeline::{self, LiveTL},
+            WorkspaceNode,
         },
         utils::{
-            cell_ext::CellExt, copyhashmap::CopyHashMap, hash_map_ext::HashMapExt,
-            linkedlist::LinkedNode,
+            cell_ext::CellExt,
+            copyhashmap::CopyHashMap,
+            hash_map_ext::HashMapExt,
+            linkedlist::{LinkedNode, NodeRef},
         },
         wire::{WlSeatId, XdgPopupId},
     },
@@ -48,21 +54,23 @@ pub struct TrayItemData {
     attached: Cell<bool>,
     sent_serial: Cell<Option<TreeSerial>>,
     applied_serial: Cell<Option<TreeSerial>>,
-    linked_node: Cell<Option<LinkedNode<Rc<dyn DynTrayItem>>>>,
+    linked_node: Cell<Option<LinkedNode<TrayItemLink>>>,
     abs_pos: Cell<Rect>,
-    pub rel_pos: Cell<Rect>,
+    pub rel_pos: SplitView<Cell<Rect>>,
     destroyed: Cell<bool>,
     configurable: ConfigurableData<TrayItemConfigureData>,
+    transaction_data: TransactionData<TrayItemTransactionOp>,
 }
 
 impl TrayItemData {
     fn new(surface: &Rc<WlSurface>, output: &Rc<OutputGlobalOpt>) -> Self {
+        let state = &surface.client.state;
         TrayItemData {
-            node_id: surface.client.state.node_ids.next(),
-            tray_item_id: surface.client.state.tray_item_ids.next(),
+            node_id: state.node_ids.next(),
+            tray_item_id: state.tray_item_ids.next(),
             seat_state: Default::default(),
             client: surface.client.clone(),
-            visible: Cell::new(surface.client.state.root_visible()),
+            visible: Cell::new(state.root_visible()),
             surface: surface.clone(),
             output: output.clone(),
             attached: Default::default(),
@@ -72,7 +80,8 @@ impl TrayItemData {
             abs_pos: Default::default(),
             rel_pos: Default::default(),
             destroyed: Default::default(),
-            configurable: ConfigurableData::new(&surface.client.state),
+            configurable: ConfigurableData::new(state),
+            transaction_data: TransactionData::new(&state.tree),
         }
     }
 
@@ -81,12 +90,14 @@ impl TrayItemData {
     }
 }
 
+pub type TrayItemLink = TreeLink<Rc<dyn DynTrayItem>>;
+
 pub trait DynTrayItem: Node {
     fn send_current_configure(self: Rc<Self>);
     fn data(&self) -> &TrayItemData;
-    fn set_position(&self, abs_pos: Rect, rel_pos: Rect);
+    fn set_position(self: Rc<Self>, abs_pos: Rect, rel_pos: Rect);
     fn destroy_popups(&self);
-    fn destroy_node(&self);
+    fn destroy_node(self: Rc<Self>);
     fn set_visible(&self, visible: bool);
 }
 
@@ -99,11 +110,12 @@ impl<T: TrayItem> DynTrayItem for T {
         <Self as TrayItem>::tray_item_data(self)
     }
 
-    fn set_position(&self, abs_pos: Rect, rel_pos: Rect) {
+    fn set_position(self: Rc<Self>, abs_pos: Rect, rel_pos: Rect) {
         let data = self.tray_item_data();
         data.surface
             .set_absolute_position(abs_pos.x1(), abs_pos.y1());
-        data.rel_pos.set(rel_pos);
+        data.rel_pos[LiveTL].set(rel_pos);
+        self.add_transaction_op(TrayItemTransactionOp::SetRelPos(rel_pos));
         if data.abs_pos.replace(abs_pos) != abs_pos {
             for popup in self.popups().lock().values() {
                 popup.popup.update_absolute_position();
@@ -117,13 +129,15 @@ impl<T: TrayItem> DynTrayItem for T {
         }
     }
 
-    fn destroy_node(&self) {
+    fn destroy_node(self: Rc<Self>) {
         let data = self.tray_item_data();
-        data.linked_node.take();
+        if let Some(old) = data.linked_node.take() {
+            self.add_transaction_op(TrayItemTransactionOp::Unlink(old));
+        }
         data.attached.set(false);
         self.destroy_popups();
         data.surface.destroy_node();
-        data.seat_state.destroy_node(self);
+        data.seat_state.destroy_node(&*self);
         data.client.state.tree_changed();
         if let Some(node) = data.output.node() {
             node.update_tray_positions();
@@ -142,12 +156,23 @@ impl<T: TrayItem> DynTrayItem for T {
     }
 }
 
+pub enum TrayItemTransactionOp {
+    SetValid(NodeRef<TrayItemLink>),
+    Unlink(LinkedNode<TrayItemLink>),
+    SetRelPos(Rect),
+}
+
 pub struct TrayItemConfigureData {
     pub size: i32,
     pub bar_position: BarPosition,
 }
 
-trait TrayItem: Configurable<T = TrayItemConfigureData> + Sized + 'static {
+trait TrayItem:
+    Configurable<T = TrayItemConfigureData>
+    + Transactionable<T = TrayItemTransactionOp>
+    + Sized
+    + 'static
+{
     fn tray_item_data(&self) -> &TrayItemData;
     fn popups(&self) -> &CopyHashMap<XdgPopupId, Rc<Popup<Self>>>;
     fn visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor);
@@ -194,7 +219,7 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
         if surface.buffer.is_some() {
             if dl.link.is_none() {
                 let data = self.parent.tray_item_data();
-                if data.surface.visible.get() {
+                if data.surface.visible[LiveTL].get() {
                     dl.link = Some(dl.stack.stacked.add_last(self.popup.clone()));
                     drop(dl);
                     self.popup.set_visible(true);
@@ -220,7 +245,7 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
     }
 
     fn visible(&self) -> bool {
-        self.parent.node_visible()
+        self.parent.node_visible(LiveTL)
     }
 
     fn make_visible(self: Rc<Self>) {
@@ -269,7 +294,7 @@ impl<T: TrayItem> SurfaceExt for T {
 
     fn after_apply_commit(self: Rc<Self>) {
         let data = self.tray_item_data();
-        if data.surface.visible.get() {
+        if data.surface.visible[LiveTL].get() {
             if data.surface.buffer.is_none() {
                 self.destroy_node();
             }
@@ -283,7 +308,8 @@ impl<T: TrayItem> SurfaceExt for T {
                 if let Some(node) = data.output.node()
                     && !data.attached.replace(true)
                 {
-                    let link = node.tray_items.add_last(self.clone());
+                    let link = node.tray_items.add_last(TreeLink::new(self.clone()));
+                    self.add_transaction_op(TrayItemTransactionOp::SetValid(link.to_ref()));
                     data.linked_node.set(Some(link));
                     node.update_tray_positions();
                 }
@@ -293,7 +319,7 @@ impl<T: TrayItem> SurfaceExt for T {
 
     fn extents_changed(&self) {
         let data = self.tray_item_data();
-        if data.surface.visible.get() {
+        if data.surface.visible[LiveTL].get() {
             data.client.state.tree_changed();
         }
     }
@@ -328,12 +354,12 @@ impl<T: TrayItem> NodeBase for T {
         self.tray_item_data().surface.node_visit(visitor);
     }
 
-    fn node_visible(&self) -> bool {
-        self.tray_item_data().surface.visible.get()
+    fn node_visible(&self, tl: TreeTimeline) -> bool {
+        self.tray_item_data().surface.visible[tl].get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
-        self.tray_item_data().surface.node_absolute_position()
+    fn node_absolute_position(&self, tl: TreeTimeline) -> Rect {
+        self.tray_item_data().surface.node_absolute_position(tl)
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
@@ -387,11 +413,11 @@ fn install<T: TrayItem>(item: &Rc<T>) -> Result<(), TrayItemError> {
     Ok(())
 }
 
-fn destroy<T: TrayItem>(item: &T) -> Result<(), TrayItemError> {
+fn destroy<T: TrayItem>(item: &Rc<T>) -> Result<(), TrayItemError> {
     if item.popups().is_not_empty() {
         return Err(TrayItemError::HasPopups);
     }
-    item.destroy_node();
+    item.clone().destroy_node();
     item.tray_item_data().surface.unset_ext();
     item.tray_item_data().surface.set_visible(false);
     item.tray_item_data().destroyed.set(true);

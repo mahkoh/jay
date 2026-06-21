@@ -2,7 +2,7 @@ use {
     crate::{
         it::{test_error::TestError, testrun::TestRun},
         rect::Rect,
-        tree::NodeBase,
+        tree::{NodeBase, TreeTimeline::LiveTL},
     },
     std::rc::Rc,
 };
@@ -21,16 +21,16 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let window2 = client.create_window().await?;
     window2.map().await?;
 
-    let otop = 2 * run.state.theme.title_plus_underline_height();
-    let bw = run.state.theme.sizes.border_width.get();
+    let otop = 2 * run.state.theme.title_plus_underline_height(LiveTL);
+    let bw = run.state.theme.sizes.border_width.get(LiveTL);
 
     tassert_eq!(
-        window.tl.server.node_absolute_position(),
+        window.tl.server.node_absolute_position(LiveTL),
         Rect::new_sized(0, otop, (800 - bw) / 2, 600 - otop).unwrap()
     );
 
     tassert_eq!(
-        window2.tl.server.node_absolute_position(),
+        window2.tl.server.node_absolute_position(LiveTL),
         Rect::new_sized((800 - bw) / 2 + bw, otop, (800 - bw) / 2, 600 - otop).unwrap()
     );
 

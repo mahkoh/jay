@@ -1,7 +1,7 @@
 use {
     crate::{
         it::{test_error::TestError, test_utils::test_window::TestWindow, testrun::TestRun},
-        tree::{NodeBase, ToplevelNodeBase},
+        tree::{NodeBase, ToplevelNodeBase, TreeTimeline::LiveTL},
     },
     std::rc::Rc,
 };
@@ -25,13 +25,13 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     window2.map().await?;
 
     let assert_visible = |w: &TestWindow| {
-        tassert!(w.tl.server.node_visible());
+        tassert!(w.tl.server.node_visible(LiveTL));
         tassert_eq!(w.tl.server.node_output_id(), Some(ds.output.id));
         Ok(())
     };
 
     let assert_invisible = |w: &TestWindow| {
-        tassert!(!w.tl.server.node_visible());
+        tassert!(!w.tl.server.node_visible(LiveTL));
         tassert_eq!(
             w.tl.server.node_output_id(),
             Some(run.state.dummy_output_id),

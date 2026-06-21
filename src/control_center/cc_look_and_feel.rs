@@ -8,6 +8,7 @@ use {
         gfx_api::AlphaMode,
         state::State,
         theme::{Color, ThemeColor, ThemeSized},
+        tree::TreeTimeline::LiveTL,
         utils::static_text::StaticText,
     },
     egui::Ui,
@@ -39,10 +40,10 @@ impl LookAndFeelPane {
             bool(ui, "Show Bar", self.state.show_bar.get(), |v| {
                 self.state.set_show_bar(v)
             });
-            combo_box(ui, "Bar Position", t.bar_position.get(), |p| {
+            combo_box(ui, "Bar Position", t.bar_position[LiveTL].get(), |p| {
                 self.state.set_bar_position(p);
             });
-            bool(ui, "Show Titles", t.show_titles.get(), |v| {
+            bool(ui, "Show Titles", t.show_titles[LiveTL].get(), |v| {
                 self.state.set_show_titles(v)
             });
             bool(ui, "Show Window Icons", t.show_window_icons.get(), |v| {
@@ -150,7 +151,7 @@ impl LookAndFeelPane {
             grid(ui, "Sizes", |ui| {
                 for v in ThemeSized::variants() {
                     let f = v.field(&self.state.theme);
-                    drag_value(ui, v.text(), f.get(), v.min()..=v.max(), 1.0, |i| {
+                    drag_value(ui, v.text(), f.get(LiveTL), v.min()..=v.max(), 1.0, |i| {
                         self.state.set_size(v, i);
                     });
                 }

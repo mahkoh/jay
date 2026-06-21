@@ -2,6 +2,7 @@ use {
     crate::{
         backend::transaction::{BackendConnectorTransactionError, ConnectorTransaction},
         state::State,
+        tree::TreeTimeline::RenderTL,
         utils::{
             errorfmt::ErrorFmt,
             timer::{TimerError, TimerFd},
@@ -86,7 +87,7 @@ impl Idle {
         if self.state.idle.in_grace_period.replace(val) == val {
             return;
         }
-        self.state.damage_full();
+        self.state.damage_full(RenderTL);
         self.state.damage_hardware_cursors(false);
     }
 

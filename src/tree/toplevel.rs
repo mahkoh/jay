@@ -32,7 +32,9 @@ use {
         state::{ConnectorData, State},
         tree::{
             ContainerNode, ContainerSplit, ContainingNode, Direction, FloatNode, Node, NodeBase,
-            NodeId, NodeLayerLink, OutputNode, PlaceholderNode, WorkspaceNode, WorkspaceType,
+            NodeId, NodeLayerLink, OutputNode, PlaceholderNode, SplitView,
+            TreeTimeline::{self, LiveTL, RenderTL},
+            WorkspaceNode, WorkspaceType,
         },
         utils::{
             array_to_tuple::ArrayToTuple, clonecell::CloneCell, copyhashmap::CopyHashMap,
@@ -90,7 +92,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
     fn tl_set_fullscreen(self: Rc<Self>, fullscreen: bool, ws: Option<Rc<WorkspaceNode>>) {
         let data = self.tl_data();
         if fullscreen {
-            if let Some(ws) = ws.or_else(|| data.workspace.get()) {
+            if let Some(ws) = ws.or_else(|| data.workspace[LiveTL].get()) {
                 data.set_fullscreen(&data.state, self.clone(), &ws);
             }
         } else {
@@ -117,7 +119,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
 
     fn tl_set_parent(&self, parent: Rc<dyn ContainingNode>) {
         let data = self.tl_data();
-        if !data.is_fullscreen.get() {
+        if !data.is_fullscreen[LiveTL].get() {
             self.tl_mark_ancestor_fullscreen(parent.cnode_self_or_ancestor_fullscreen());
         }
         data.is_root_container.set(false);
@@ -169,18 +171,19 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
 
     fn tl_set_workspace(&self, ws: &Rc<WorkspaceNode>) {
         let data = self.tl_data();
-        data.workspace_type.set(Some(ws.ty));
-        let prev = data.workspace.set(Some(ws.clone()));
+        data.workspace_type[LiveTL].set(Some(ws.ty));
+        let prev = data.workspace[LiveTL].set(Some(ws.clone()));
+        data.schedule_op(ToplevelDataTransactionOp::SetWorkspace(Some(ws.clone())));
         self.tl_set_workspace_ext(ws);
         self.tl_data().property_changed(TL_CHANGED_WORKSPACE);
         if let Some(session) = data.session.get() {
             session.set_workspace(ws, data);
         }
         let prev_output = match &prev {
-            Some(n) => n.node_state.output.get(),
+            Some(n) => n.node_state[LiveTL].output.get(),
             _ => ws.state.dummy_output.get().unwrap(),
         };
-        let new_output = ws.node_state.output.get();
+        let new_output = ws.node_state[LiveTL].output.get();
         if prev.is_none() || prev_output.id != new_output.id {
             self.tl_workspace_output_changed(&prev_output, &new_output);
         }
@@ -277,7 +280,9 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
 
     fn tl_mark_fullscreen(&self, connector: Option<&Rc<ConnectorData>>) {
         let fullscreen = connector.is_some();
-        self.tl_data().is_fullscreen.set(fullscreen);
+        self.tl_data().is_fullscreen[LiveTL].set(fullscreen);
+        self.tl_data()
+            .schedule_op(ToplevelDataTransactionOp::SetIsFullscreen(fullscreen));
         self.tl_mark_ancestor_fullscreen(fullscreen);
         self.tl_mark_fullscreen_ext();
         if let Some(session) = self.tl_data().session.get() {
@@ -292,7 +297,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         let Some(parent) = self.tl_data().parent.get() else {
             return;
         };
-        let pos = self.node_absolute_position();
+        let pos = self.node_absolute_position(LiveTL);
         let x1 = (dx1 != 0).then_some(pos.x1().saturating_add(dx1));
         let y1 = (dy1 != 0).then_some(pos.y1().saturating_add(dy1));
         let x2 = (dx2 != 0).then_some(pos.x2().saturating_add(dx2));
@@ -358,7 +363,7 @@ pub trait ToplevelNodeBase: Node {
         self.tl_data()
             .parent
             .is_some()
-            .then_some(self.node_absolute_position())
+            .then_some(self.node_absolute_position(RenderTL))
     }
 
     fn tl_push_float(&self, float: Option<&Rc<FloatNode>>) {
@@ -376,6 +381,14 @@ pub trait ToplevelNodeBase: Node {
     fn tl_update_icon(&self, user: &ToplevelIconUser) {
         user.clear();
     }
+
+    fn tl_schedule_data_op(self: Rc<Self>, op: ToplevelDataTransactionOp);
+}
+
+pub enum ToplevelDataTransactionOp {
+    SetIsFullscreen(bool),
+    SetWorkspace(Option<Rc<WorkspaceNode>>),
+    SetVisible(bool),
 }
 
 pub struct FullscreenedData {
@@ -425,17 +438,17 @@ pub struct ToplevelData {
     pub client: Option<Rc<Client>>,
     pub state: Rc<State>,
     pub active_surfaces: ThresholdCounter,
-    pub visible: Cell<bool>,
+    pub visible: SplitView<Cell<bool>>,
     pub parent_is_float: Cell<bool>,
     pub float: CloneCell<Option<Rc<FloatNode>>>,
     pub float_width: Cell<i32>,
     pub float_height: Cell<i32>,
     pub pinned: Cell<bool>,
-    pub is_fullscreen: Cell<bool>,
+    pub is_fullscreen: SplitView<Cell<bool>>,
     pub self_or_ancestor_is_fullscreen: Cell<bool>,
     pub fullscrceen_data: RefCell<Option<FullscreenedData>>,
-    pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
-    pub workspace_type: Cell<Option<WorkspaceType>>,
+    pub workspace: SplitView<CloneCell<Option<Rc<WorkspaceNode>>>>,
+    pub workspace_type: SplitView<Cell<Option<WorkspaceType>>>,
     pub title: RefCell<String>,
     pub parent: CloneCell<Option<Rc<dyn ContainingNode>>>,
     pub mapped_during_iteration: Cell<u64>,
@@ -486,7 +499,7 @@ impl ToplevelData {
             client,
             state: state.clone(),
             active_surfaces: Default::default(),
-            visible: Cell::new(false),
+            visible: Default::default(),
             parent_is_float: Default::default(),
             float: Default::default(),
             float_width: Default::default(),
@@ -540,7 +553,7 @@ impl ToplevelData {
                 parent.node_child_active_changed(tl, active_new, 1);
             }
             for handle in self.manager_handles.borrow().lock().values() {
-                handle.send_state(active_new, self.is_fullscreen.get());
+                handle.send_state(active_new, self.is_fullscreen[LiveTL].get());
                 handle.send_done();
             }
         }
@@ -551,7 +564,9 @@ impl ToplevelData {
     }
 
     pub fn float_size(&self, ws: &WorkspaceNode) -> (i32, i32) {
-        let output = ws.node_state.output.get().node_state.pos.get();
+        let output = ws.node_state[LiveTL].output.get().node_state[LiveTL]
+            .pos
+            .get();
         let mut width = self.float_width.get();
         let mut height = self.float_height.get();
         if width == 0 {
@@ -625,8 +640,9 @@ impl ToplevelData {
             parent.cnode_remove_child(node);
         }
         self.float.take();
-        self.workspace.take();
-        self.workspace_type.take();
+        self.workspace[LiveTL].take();
+        self.workspace_type[LiveTL].take();
+        self.schedule_op(ToplevelDataTransactionOp::SetWorkspace(None));
         self.seat_state.destroy_node(node);
         self.is_overlay_root_container.set(false);
         self.is_root_container.set(false);
@@ -637,7 +653,7 @@ impl ToplevelData {
         let title = self.title.borrow();
         let app_id = self.app_id.borrow();
         let activated = self.active();
-        let fullscreen = self.is_fullscreen.get();
+        let fullscreen = self.is_fullscreen[LiveTL].get();
         let class;
         let manager_app_id = match &self.kind {
             ToplevelType::XWindow(w) => {
@@ -699,7 +715,7 @@ impl ToplevelData {
     ) {
         let title = self.title.borrow();
         let activated = self.active();
-        let fullscreen = self.is_fullscreen.get();
+        let fullscreen = self.is_fullscreen[LiveTL].get();
         let app_id;
         let class;
         let manager_app_id = match &self.kind {
@@ -745,7 +761,7 @@ impl ToplevelData {
         if !title.is_empty() {
             handle.send_title(title);
         }
-        handle.enter_output(&self.output());
+        handle.enter_output(&self.output(LiveTL));
         handle.send_state(activated, fullscreen);
         handle.send_done();
         self.manager_handles
@@ -787,7 +803,7 @@ impl ToplevelData {
         node: Rc<dyn ToplevelNode>,
         ws: &Rc<WorkspaceNode>,
     ) {
-        let wns = &ws.node_state;
+        let wns = &ws.node_state[LiveTL];
         if wns.fullscreen.is_some() {
             log::info!(
                 "Cannot fullscreen a node on a workspace that already has a fullscreen node attached"
@@ -831,7 +847,8 @@ impl ToplevelData {
         self.property_changed(TL_CHANGED_FULLSCREEN);
         node.tl_set_parent(ws.clone());
         ws.set_fullscreen_node(&node);
-        node.clone().tl_change_extents(&output.node_state.pos.get());
+        node.clone()
+            .tl_change_extents(&output.node_state[LiveTL].pos.get());
         for seat in kb_foci {
             node.clone()
                 .node_do_focus_dyn(&seat, Direction::Unspecified);
@@ -843,7 +860,7 @@ impl ToplevelData {
     }
 
     pub fn unset_fullscreen(&self, state: &Rc<State>, node: Rc<dyn ToplevelNode>) {
-        if !self.is_fullscreen.get() {
+        if !self.is_fullscreen[LiveTL].get() {
             log::warn!("Cannot unset fullscreen on a node that is not fullscreen");
             return;
         }
@@ -856,7 +873,7 @@ impl ToplevelData {
         };
         node.tl_mark_fullscreen(None);
         self.property_changed(TL_CHANGED_FULLSCREEN);
-        match fd.workspace.node_state.fullscreen.get() {
+        match fd.workspace.node_state[LiveTL].fullscreen.get() {
             None => {
                 log::error!(
                     "Node is supposed to be fullscreened on a workspace but workspace has not fullscreen node."
@@ -879,7 +896,7 @@ impl ToplevelData {
         let parent = fd.placeholder.tl_data().parent.take().unwrap();
         parent.clone().cnode_make_visible(&*fd.placeholder);
         parent.cnode_replace_child(fd.placeholder.deref(), node.clone());
-        if node.node_visible() {
+        if node.node_visible(LiveTL) {
             let kb_foci = collect_kb_foci(fd.placeholder.clone());
             for seat in kb_foci {
                 node.clone()
@@ -894,8 +911,9 @@ impl ToplevelData {
     }
 
     pub fn set_visible(&self, node: &dyn Node, visible: bool) {
-        if self.visible.replace(visible) != visible {
+        if self.visible[LiveTL].replace(visible) != visible {
             self.property_changed(TL_CHANGED_VISIBLE);
+            self.schedule_op(ToplevelDataTransactionOp::SetVisible(visible));
         }
         self.seat_state.set_visible(node, visible);
         for sc in self.jay_screencasts.lock().values() {
@@ -917,7 +935,7 @@ impl ToplevelData {
     }
 
     pub fn request_attention(&self, node: &dyn Node) {
-        if self.visible.get() {
+        if self.visible[LiveTL].get() {
             return;
         }
         if self.requested_attention.replace(true) {
@@ -935,21 +953,23 @@ impl ToplevelData {
         }
     }
 
-    pub fn output(&self) -> Rc<OutputNode> {
-        match self.output_opt() {
+    pub fn output(&self, tl: TreeTimeline) -> Rc<OutputNode> {
+        match self.output_opt(tl) {
             None => self.state.dummy_output.get().unwrap(),
             Some(o) => o,
         }
     }
 
-    pub fn output_opt(&self) -> Option<Rc<OutputNode>> {
-        self.workspace.get().map(|ws| ws.node_state.output.get())
+    pub fn output_opt(&self, tl: TreeTimeline) -> Option<Rc<OutputNode>> {
+        self.workspace[tl]
+            .get()
+            .map(|ws| ws.node_state[tl].output.get())
     }
 
-    pub fn desired_pixel_size(&self) -> (i32, i32) {
+    pub fn desired_pixel_size(&self, tl: TreeTimeline) -> (i32, i32) {
         let (dw, dh) = self.desired_extents.get().size();
-        if let Some(ws) = self.workspace.get() {
-            let scale = ws.node_state.output.get().node_state.scale.get();
+        if let Some(ws) = self.workspace[tl].get() {
+            let scale = ws.node_state[tl].output.get().node_state[tl].scale.get();
             return scale.pixel_size([dw, dh]).to_tuple();
         };
         (0, 0)
@@ -966,7 +986,7 @@ impl ToplevelData {
     }
 
     pub fn make_visible(&self, slf: &dyn Node) {
-        if self.visible.get() {
+        if self.visible[LiveTL].get() {
             return;
         }
         if let Some(parent) = self.parent.get() {
@@ -975,7 +995,9 @@ impl ToplevelData {
     }
 
     pub fn node_layer(&self) -> NodeLayerLink {
-        let ty = self.workspace_type.get().unwrap_or(WorkspaceType::Normal);
+        let ty = self.workspace_type[LiveTL]
+            .get()
+            .unwrap_or(WorkspaceType::Normal);
         if self.self_or_ancestor_is_fullscreen.get() {
             return match ty {
                 WorkspaceType::Normal => NodeLayerLink::Fullscreen,
@@ -998,13 +1020,13 @@ impl ToplevelData {
 
     pub fn set_session(&self, session: &Rc<ToplevelSession>, restore: bool) {
         if !restore {
-            if let Some(ws) = &self.workspace.get() {
+            if let Some(ws) = &self.workspace[LiveTL].get() {
                 session.set_workspace(&ws, self);
             }
             if self.parent_is_float.get() {
                 session.set_float_pos(self);
             }
-            session.set_fullscreen(self.is_fullscreen.get());
+            session.set_fullscreen(self.is_fullscreen[LiveTL].get());
         }
         self.session.set(Some(session.clone()));
     }
@@ -1012,6 +1034,28 @@ impl ToplevelData {
     pub fn disown_session(&self) {
         if let Some(session) = self.session.take() {
             session.disown_to_peer();
+        }
+    }
+
+    pub fn schedule_op(&self, op: ToplevelDataTransactionOp) {
+        if let Some(slf) = self.slf.upgrade() {
+            slf.tl_schedule_data_op(op);
+        }
+    }
+
+    pub fn run_op(&self, op: ToplevelDataTransactionOp) {
+        match op {
+            ToplevelDataTransactionOp::SetIsFullscreen(v) => {
+                self.is_fullscreen[RenderTL].set(v);
+            }
+            ToplevelDataTransactionOp::SetWorkspace(v) => {
+                let ty = v.as_ref().map(|v| v.ty);
+                self.workspace_type[RenderTL].set(ty);
+                self.workspace[RenderTL].set(v);
+            }
+            ToplevelDataTransactionOp::SetVisible(v) => {
+                self.visible[RenderTL].set(v);
+            }
         }
     }
 }
@@ -1056,8 +1100,8 @@ pub enum TddType {
 pub fn default_tile_drag_bounds<T: ToplevelNodeBase + ?Sized>(t: &T, split: ContainerSplit) -> i32 {
     const FACTOR: i32 = 5;
     match split {
-        ContainerSplit::Horizontal => t.node_absolute_position().width() / FACTOR,
-        ContainerSplit::Vertical => t.node_absolute_position().height() / FACTOR,
+        ContainerSplit::Horizontal => t.node_absolute_position(LiveTL).width() / FACTOR,
+        ContainerSplit::Vertical => t.node_absolute_position(LiveTL).height() / FACTOR,
     }
 }
 
@@ -1071,10 +1115,10 @@ pub fn toplevel_parent_container(tl: &dyn ToplevelNode) -> Option<Rc<ContainerNo
 }
 
 pub fn toplevel_create_split(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, axis: ContainerSplit) {
-    if tl.tl_data().is_fullscreen.get() {
+    if tl.tl_data().is_fullscreen[LiveTL].get() {
         return;
     }
-    let ws = match tl.tl_data().workspace.get() {
+    let ws = match tl.tl_data().workspace[LiveTL].get() {
         Some(ws) => ws,
         _ => return,
     };
@@ -1090,7 +1134,7 @@ pub fn toplevel_create_split(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, axis: 
 
 pub fn toplevel_set_floating(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, floating: bool) {
     let data = tl.tl_data();
-    if data.is_fullscreen.get() {
+    if data.is_fullscreen[LiveTL].get() {
         return;
     }
     if data.parent_is_float.get() == floating {
@@ -1103,7 +1147,7 @@ pub fn toplevel_set_floating(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, floati
     if !floating {
         parent.cnode_remove_child2(&*tl, true);
         state.map_tiled(tl);
-    } else if let Some(ws) = data.workspace.get() {
+    } else if let Some(ws) = data.workspace[LiveTL].get() {
         parent.cnode_remove_child2(&*tl, true);
         let (width, height) = data.float_size(&ws);
         state.map_floating(tl, width, height, &ws, None);
@@ -1111,7 +1155,7 @@ pub fn toplevel_set_floating(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, floati
 }
 
 pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &Rc<WorkspaceNode>) {
-    let old_ws = match tl.tl_data().workspace.get() {
+    let old_ws = match tl.tl_data().workspace[LiveTL].get() {
         Some(ws) => ws,
         _ => return,
     };
@@ -1119,8 +1163,8 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
         return;
     }
     let data = tl.tl_data();
-    let fullscreen = data.is_fullscreen.get();
-    let wns = &ws.node_state;
+    let fullscreen = data.is_fullscreen[LiveTL].get();
+    let wns = &ws.node_state[LiveTL];
     if fullscreen {
         if let Some(old) = wns.fullscreen.get() {
             old.tl_set_fullscreen(false, None);
@@ -1129,7 +1173,7 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
             return;
         }
         tl.clone().tl_set_fullscreen(false, None);
-        if data.is_fullscreen.get() {
+        if data.is_fullscreen[LiveTL].get() {
             return;
         }
     }

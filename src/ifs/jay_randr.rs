@@ -10,7 +10,7 @@ use {
         object::{Object, Version},
         scale::Scale,
         state::{ConnectorData, DrmDevData, OutputData, State},
-        tree::{OutputNode, TearingMode, Transform, VrrMode},
+        tree::{OutputNode, TearingMode, Transform, TreeTimeline::LiveTL, VrrMode},
         utils::errorfmt::ErrorFmt,
         wire::{JayRandrId, jay_randr::*},
     },
@@ -102,7 +102,7 @@ impl JayRandr {
             }
         };
         let global = &node.global;
-        let ons = &node.node_state;
+        let ons = &node.node_state[LiveTL];
         let pos = ons.pos.get();
         self.client.event(Output {
             self_id: self.id,

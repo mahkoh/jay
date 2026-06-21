@@ -41,7 +41,7 @@ use {
         object::Version,
         rect::Rect,
         state::DeviceHandlerData,
-        tree::{Direction, Node, NodeBase, ToplevelNode},
+        tree::{Direction, Node, NodeBase, ToplevelNode, TreeTimeline::LiveTL},
         utils::{
             bitflags::BitflagsExt,
             hash_map_ext::HashMapExt,
@@ -123,7 +123,7 @@ impl NodeSeatState {
             let hist = &mut *self.kb_focus_histories.borrow_mut();
             let hist = hist.get_or_insert_with(seat.id, || {
                 seat.focus_history.add_last(FocusHistoryData {
-                    visible: Cell::new(node.node_visible()),
+                    visible: Cell::new(node.node_visible(LiveTL)),
                     node: Rc::downgrade(node),
                 })
             });
@@ -602,7 +602,7 @@ impl WlSeatGlobal {
             Some(o) => o,
             _ => return,
         };
-        let pos = output.node_state.pos.get();
+        let pos = output.node_state[LiveTL].pos.get();
         x += Fixed::from_int(pos.x1());
         y += Fixed::from_int(pos.y1());
         self.motion_event_abs(time_usec, x, y, Motion);
@@ -659,7 +659,7 @@ impl WlSeatGlobal {
             x += dx;
             y += dy;
             if let Some(c) = &constraint {
-                let surface_pos = c.surface.buffer_abs_pos.get();
+                let surface_pos = c.surface.buffer_abs_pos[LiveTL].get();
                 let (x_rel, y_rel) = (x - surface_pos.x1(), y - surface_pos.y1());
                 let contained = surface_pos.contains(x.round_down(), y.round_down())
                     && c.contains(x_rel.round_down(), y_rel.round_down());
@@ -966,7 +966,7 @@ impl WlSeatGlobal {
                     if sym == self.revert_key.get().0 && mods == 0 {
                         revert_pointer_to_default = true;
                     }
-                    if !self.state.lock.locked.get()
+                    if !self.state.lock.locked[LiveTL].get()
                         && let Some(key_mods) = scs.get(&sym)
                     {
                         for (key_mods, mask) in key_mods {
@@ -1085,9 +1085,9 @@ impl WlSeatGlobal {
             && node.node_accepts_focus()
             && node.node_id() != self.keyboard_node.get().node_id()
         {
-            if !node.node_visible() {
+            if !node.node_visible(LiveTL) {
                 node.clone().node_make_visible_dyn();
-                if !node.node_visible() {
+                if !node.node_visible(LiveTL) {
                     return;
                 }
             }

@@ -12,8 +12,8 @@ use {
             wl_surface::{
                 WlSurface,
                 xdg_surface::{
-                    InitialCommitState, XdgSurface, XdgSurfaceConfigureData, XdgSurfaceExt,
-                    XdgToplevelConfigureData,
+                    InitialCommitState, UpdateGeometryReason, XdgSurface, XdgSurfaceConfigureData,
+                    XdgSurfaceExt, XdgSurfaceTransactionOp, XdgToplevelConfigureData,
                     xdg_toplevel::{
                         xdg_dialog_v1::XdgDialogV1,
                         xdg_toplevel_icon_v1::{ToplevelIconUser, XdgToplevelIconV1},
@@ -28,10 +28,13 @@ use {
         rect::Rect,
         renderer::Renderer,
         state::State,
+        transactions::{TransactionData, Transactionable, TransactionableExt},
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase,
             NodeId, NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
-            TileState, ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelNodeId, ToplevelType,
+            TileState, ToplevelData, ToplevelDataTransactionOp, ToplevelNode, ToplevelNodeBase,
+            ToplevelNodeId, ToplevelType,
+            TreeTimeline::{self, LiveTL, RenderTL},
             WorkspaceNode, WorkspaceType, default_tile_drag_destination,
         },
         utils::{
@@ -128,6 +131,7 @@ pub struct XdgToplevel {
     pub data: Rc<XdgToplevelToplevelData>,
     committed: Cell<bool>,
     icon: ObjAndId<Option<Rc<XdgToplevelIconV1>>>,
+    transaction_data: TransactionData<XdgToplevelTransactionOp>,
 }
 
 impl Debug for XdgToplevel {
@@ -193,6 +197,7 @@ impl XdgToplevel {
             data,
             committed: Default::default(),
             icon: Default::default(),
+            transaction_data: TransactionData::new(&state.tree),
         }
     }
 
@@ -360,7 +365,7 @@ impl XdgToplevelRequestHandler for XdgToplevel {
                     }
                 }
             } else if let Some(ws) = self.xdg.workspace.get() {
-                ws.node_state.output.get()
+                ws.node_state[LiveTL].output.get()
             } else {
                 break 'set_fullscreen;
             };
@@ -464,8 +469,8 @@ impl XdgToplevel {
 
     pub fn after_toplevel_drag(self: &Rc<Self>, output: &Rc<OutputNode>, x: i32, y: i32) {
         assert!(self.toplevel_data.parent.is_none());
-        if self.node_visible() {
-            self.xdg.damage();
+        if self.node_visible(RenderTL) {
+            self.xdg.damage(RenderTL);
         }
         let extents = match self.xdg.geometry.get() {
             None => self.xdg.extents.get(),
@@ -492,13 +497,13 @@ impl XdgToplevel {
                     }
                     self.toplevel_data.broadcast(self.clone());
                     self.tl_set_visible(self.state.root_visible());
-                    self.xdg.damage();
+                    self.xdg.damage(LiveTL);
                 }
                 self.extents_changed();
             } else {
                 if self.is_mapped.replace(false) {
                     self.tl_set_visible(false);
-                    self.xdg.damage();
+                    self.xdg.damage(LiveTL);
                 }
             }
             return;
@@ -520,7 +525,7 @@ impl XdgToplevel {
             self.map(self.parent.get().as_deref(), pos);
             self.extents_changed();
             if let Some(workspace) = self.xdg.workspace.get() {
-                let output = workspace.node_state.output.get();
+                let output = workspace.node_state[LiveTL].output.get();
                 surface.set_output(&output, workspace.location());
             }
             // {
@@ -572,20 +577,20 @@ impl NodeBase for XdgToplevel {
         visitor.visit_surface(&self.xdg.surface);
     }
 
-    fn node_visible(&self) -> bool {
-        self.xdg.surface.visible.get()
+    fn node_visible(&self, tl: TreeTimeline) -> bool {
+        self.xdg.surface.visible[tl].get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
-        self.xdg.absolute_desired_extents.get()
+    fn node_absolute_position(&self, tl: TreeTimeline) -> Rect {
+        self.xdg.absolute_desired_extents[tl].get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
-        self.toplevel_data.output_opt()
+        self.toplevel_data.output_opt(LiveTL)
     }
 
     fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
-        self.toplevel_data.workspace.get()
+        self.toplevel_data.workspace[LiveTL].get()
     }
 
     fn node_location(&self) -> Option<NodeLocation> {
@@ -691,12 +696,13 @@ impl ToplevelNodeBase for XdgToplevel {
         self.extents_set.set(true);
         let nw = rect.width();
         let nh = rect.height();
-        let de = self.xdg.absolute_desired_extents.get();
+        let de = self.xdg.absolute_desired_extents[LiveTL].get();
         self.xdg.set_absolute_desired_extents(rect);
         if de.width() != nw || de.height() != nh {
             self.xdg.schedule_configure();
-            if self.toplevel_data.is_fullscreen.get() {
-                self.xdg.update_effective_geometry();
+            if self.toplevel_data.is_fullscreen[LiveTL].get() {
+                self.xdg
+                    .update_effective_geometry(UpdateGeometryReason::FullscreenLive);
             }
             // self.xdg.surface.client.flush();
         }
@@ -724,7 +730,7 @@ impl ToplevelNodeBase for XdgToplevel {
 
     fn tl_destroy_impl(self: &Rc<Self>) {
         if let Some(drag) = self.drag.take() {
-            self.xdg.damage();
+            self.xdg.damage(RenderTL);
             drag.toplevel.take();
         }
         self.xdg.destroy_node();
@@ -781,7 +787,8 @@ impl ToplevelNodeBase for XdgToplevel {
     }
 
     fn tl_mark_fullscreen_ext(&self) {
-        self.xdg.update_effective_geometry();
+        self.xdg
+            .update_effective_geometry(UpdateGeometryReason::FullscreenLive);
     }
 
     fn tl_update_icon(&self, user: &ToplevelIconUser) {
@@ -790,6 +797,10 @@ impl ToplevelNodeBase for XdgToplevel {
             return;
         };
         icon.update_user(user);
+    }
+
+    fn tl_schedule_data_op(self: Rc<Self>, op: ToplevelDataTransactionOp) {
+        self.add_transaction_op(XdgToplevelTransactionOp::ToplevelData(op));
     }
 }
 
@@ -812,14 +823,14 @@ impl XdgSurfaceExt for XdgToplevel {
             .surface
             .client
             .state
-            .damage(self.node_absolute_position());
+            .damage(self.node_absolute_position(RenderTL));
     }
 
-    fn effective_geometry(&self, geometry: Rect) -> Rect {
-        if !self.toplevel_data.is_fullscreen.get() {
+    fn effective_geometry(&self, geometry: Rect, tl: TreeTimeline) -> Rect {
+        if !self.toplevel_data.is_fullscreen[tl].get() {
             return geometry;
         }
-        let output = self.xdg.absolute_desired_extents.get();
+        let output = self.xdg.absolute_desired_extents[tl].get();
         let x_overflow = output.width() - geometry.width();
         let y_overflow = output.height() - geometry.height();
         output.at_point(
@@ -828,12 +839,16 @@ impl XdgSurfaceExt for XdgToplevel {
         )
     }
 
+    fn schedule_xdg_op(self: Rc<Self>, op: XdgSurfaceTransactionOp) {
+        self.add_transaction_op(XdgToplevelTransactionOp::XdgOp(op));
+    }
+
     fn configure_data(&self) -> XdgSurfaceConfigureData {
         if self.drag.is_some() {
             return XdgSurfaceConfigureData::Toplevel(None);
         }
         let initial = self.xdg.initial_commit_state.get() == InitialCommitState::Unmapped;
-        let size = self.xdg.absolute_desired_extents.get().size2();
+        let size = self.xdg.absolute_desired_extents[LiveTL].get().size2();
         let mut w = size.width();
         let mut h = size.height();
         if initial {
@@ -906,4 +921,28 @@ pub struct ResizeEdges {
     pub left: bool,
     pub right: bool,
     pub bottom: bool,
+}
+
+pub enum XdgToplevelTransactionOp {
+    ToplevelData(ToplevelDataTransactionOp),
+    XdgOp(XdgSurfaceTransactionOp),
+}
+
+impl Transactionable for XdgToplevel {
+    type T = XdgToplevelTransactionOp;
+
+    fn data(&self) -> &TransactionData<Self::T> {
+        &self.transaction_data
+    }
+
+    fn apply(self: &Rc<Self>, op: Self::T) {
+        match op {
+            XdgToplevelTransactionOp::ToplevelData(v) => {
+                self.toplevel_data.run_op(v);
+            }
+            XdgToplevelTransactionOp::XdgOp(v) => {
+                self.xdg.run_op(v);
+            }
+        }
+    }
 }

@@ -11,6 +11,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::TreeTimeline::LiveTL,
         wire::{ExtImageCopyCaptureManagerV1Id, ext_image_copy_capture_manager_v1::*},
     },
     std::rc::Rc,
@@ -84,8 +85,8 @@ impl ExtImageCopyCaptureManagerV1RequestHandler for ExtImageCopyCaptureManagerV1
                     };
                     let data = node.tl_data();
                     data.ext_copy_sessions.set(id, obj.clone());
-                    if data.visible.get() {
-                        obj.latch_listener.attach(&data.output().latch_event);
+                    if data.visible[LiveTL].get() {
+                        obj.latch_listener.attach(&data.output(LiveTL).latch_event);
                     }
                 }
             }

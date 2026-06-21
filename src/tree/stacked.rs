@@ -1,5 +1,5 @@
 use {
-    crate::tree::{Node, WorkspaceNode},
+    crate::tree::{Node, NodeStackTransactionOp, TreeTimeline, WorkspaceNode},
     std::rc::Rc,
 };
 
@@ -12,7 +12,8 @@ pub trait StackedNode: Node {
     }
     fn stacked_set_visible(self: Rc<Self>, visible: bool);
     fn stacked_has_workspace_link(&self) -> bool;
-    fn stacked_validate(self: Rc<Self>);
+    fn stacked_validate(self: Rc<Self>, tl: TreeTimeline);
+    fn stacked_add_stack_op(self: Rc<Self>, op: NodeStackTransactionOp);
 
     fn stacked_absolute_position_constrains_input(&self) -> bool {
         true

@@ -2591,6 +2591,12 @@ The table has the following fields:
 
   The value of this field should be a table whose values are [Workspaces](#types-Workspace).
 
+- `transactions` (optional):
+
+  The transaction settings.
+
+  The value of this field should be a [Transactions](#types-Transactions).
+
 
 <a name="types-Connector"></a>
 ### `Connector`
@@ -5285,6 +5291,75 @@ The string should have one of the following values:
 
   The window is floating.
 
+
+
+<a name="types-Timeout"></a>
+### `Timeout`
+
+A timeout. All fields default to 0.
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `millis` (optional):
+
+  The milliseconds.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+  The numbers should be greater than or equal to 0.
+
+- `micros` (optional):
+
+  The microseconds.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+  The numbers should be greater than or equal to 0.
+
+
+<a name="types-Transactions"></a>
+### `Transactions`
+
+The transaction settings.
+
+The timeout field can be used to set both timeouts at the same time.
+
+See the book for more details about transactions.
+
+- Example
+
+  ```toml
+  [transactions]
+  timeout.millis = 30
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `timeout` (optional):
+
+  Sets both timeouts at the same time.
+
+  The value of this field should be a [Timeout](#types-Timeout).
+
+- `transaction-timeout` (optional):
+
+  The timeout for desktop transactions.
+
+  The value of this field should be a [Timeout](#types-Timeout).
+
+- `configure-timeout` (optional):
+
+  The timeout for configuration sequences.
+
+  The value of this field should be a [Timeout](#types-Timeout).
 
 
 <a name="types-Transform"></a>

@@ -79,6 +79,15 @@ Visualize Compositing
   compositor is compositing. The icon hides during direct scanout, making it a
   quick way to check whether direct scanout is active.
 
+Transaction Timeout
+: How long the compositor delays showing a layout change while waiting for the
+  affected applications to redraw (see
+  [Transactions](configuration/transactions.md))
+
+Configure Timeout
+: How long the compositor waits for an application to acknowledge a size change
+  (see [Transactions](configuration/transactions.md))
+
 Buttons at the bottom:
 
 - **Quit** -- stop the compositor.

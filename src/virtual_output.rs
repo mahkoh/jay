@@ -28,7 +28,10 @@ use {
         rect::Region,
         state::State,
         tasks::handle_connector,
-        tree::OutputNode,
+        tree::{
+            OutputNode,
+            TreeTimeline::{LiveTL, RenderTL},
+        },
         utils::{
             asyncevent::AsyncEvent, cell_ext::CellExt, clonecell::CloneCell,
             copyhashmap::CopyHashMap, errorfmt::ErrorFmt, geometric_decay::GeometricDecay,
@@ -447,7 +450,7 @@ impl VirtualOutput {
                 continue;
             };
             let fb = &fbs.fbs[FbType::Primary];
-            let ns = &on.node_state;
+            let ns = &on.node_state[LiveTL];
             let cd = ns.color_description.get();
             let linear_cd = ns.linear_color_description.get();
             let blend_cd = match on.global.persistent.blend_space.get() {
@@ -592,13 +595,13 @@ impl VirtualOutput {
             on.global.mode.get().size(),
             &**on,
             &self.state,
-            Some(on.node_state.pos.get()),
-            on.node_state.scale.get(),
+            Some(on.node_state[RenderTL].pos.get()),
+            on.node_state[RenderTL].scale.get(),
             true,
             false,
-            on.has_fullscreen(),
+            on.has_fullscreen(RenderTL),
             true,
-            on.node_state.transform.get(),
+            on.node_state[RenderTL].transform.get(),
             Some(&self.state.damage_visualizer),
             true,
         );
@@ -606,7 +609,7 @@ impl VirtualOutput {
             pass,
             damage_count,
             damage,
-            locked: self.state.lock.locked.get(),
+            locked: self.state.lock.locked[RenderTL].get(),
         })
     }
 
@@ -981,7 +984,7 @@ impl PreparedTransaction {
                 ]);
                 o.damage();
                 if let Some(on) = self.state.root.outputs.get(&o.id) {
-                    on.add_damage_area(&on.node_state.pos.get());
+                    on.add_damage_area(&on.node_state[LiveTL].pos.get());
                     on.global.connector.damage();
                 }
             } else {

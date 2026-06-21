@@ -4,7 +4,7 @@ use {
         ifs::wl_output::WlOutput,
         leaks::Tracker,
         object::{Object, Version},
-        tree::{Direction, OutputNode, ToplevelOpt},
+        tree::{Direction, OutputNode, ToplevelOpt, TreeTimeline::LiveTL},
         wire::{ZwlrForeignToplevelHandleV1Id, zwlr_foreign_toplevel_handle_v1::*},
     },
     arrayvec::ArrayVec,
@@ -62,9 +62,9 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
 
     fn activate(&self, req: Activate, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(toplevel) = self.toplevel.get() {
-            if !toplevel.node_visible() {
+            if !toplevel.node_visible(LiveTL) {
                 toplevel.clone().node_make_visible_dyn();
-                if !toplevel.node_visible() {
+                if !toplevel.node_visible(LiveTL) {
                     return Ok(());
                 }
             }

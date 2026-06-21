@@ -14,7 +14,10 @@ use {
         leaks::Tracker,
         object::Object,
         rect::Region,
-        tree::{self, Node, OutputNode},
+        tree::{
+            self, Node, OutputNode,
+            TreeTimeline::{LiveTL, RenderTL},
+        },
         utils::{cell_ext::CellExt, errorfmt::ErrorFmt},
         wire::{ExtImageCopyCaptureFrameV1Id, ext_image_copy_capture_frame_v1::*},
     },
@@ -205,7 +208,7 @@ impl ExtImageCopyCaptureFrameV1 {
         y_off: i32,
         size: Option<(i32, i32)>,
     ) {
-        let transform = on.node_state.transform.get();
+        let transform = on.node_state[RenderTL].transform.get();
         let req_size = size.unwrap_or(transform.maybe_swap(texture.size()));
         self.copy(on, req_size, |fb, aq, re| {
             self.client.state.perform_screencopy(
@@ -220,19 +223,19 @@ impl ExtImageCopyCaptureFrameV1 {
                 re,
                 tree::Transform::None,
                 self.client.state.color_manager.srgb_gamma22(),
-                on.node_state.pos.get(),
+                on.node_state[RenderTL].pos.get(),
                 render_hardware_cursors,
                 x_off,
                 y_off,
                 size,
                 transform,
-                on.node_state.scale.get(),
+                on.node_state[RenderTL].scale.get(),
             )
         });
     }
 
     pub(super) fn copy_node(self: &Rc<Self>, on: &OutputNode, node: &dyn Node, size: (i32, i32)) {
-        let scale = on.node_state.scale.get();
+        let scale = on.node_state[RenderTL].scale.get();
         self.copy(on, size, |fb, aq, re| {
             fb.render_node(
                 aq,
@@ -240,7 +243,7 @@ impl ExtImageCopyCaptureFrameV1 {
                 self.client.state.color_manager.srgb_gamma22(),
                 node,
                 &self.client.state,
-                Some(node.node_absolute_position()),
+                Some(node.node_absolute_position(RenderTL)),
                 scale,
                 true,
                 true,
@@ -335,7 +338,7 @@ impl ExtImageCopyCaptureFrameV1RequestHandler for ExtImageCopyCaptureFrameV1 {
                 }
                 ImageCaptureSource::Toplevel(tl) => {
                     if let Some(tl) = tl.get() {
-                        tl.tl_data().output().global.connector.damage();
+                        tl.tl_data().output(LiveTL).global.connector.damage();
                     }
                 }
             }

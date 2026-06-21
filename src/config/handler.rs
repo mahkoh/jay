@@ -29,9 +29,9 @@ use {
         theme::{ThemeColor, ThemeSized},
         tree::{
             ContainerSplit, OutputNode, OutputNodeOrPersistent, TearingMode, TileState,
-            ToplevelData, ToplevelIdentifier, ToplevelNode, VrrMode, WorkspaceNode, WorkspaceType,
-            WsMoveConfig, move_ws_to_output, toplevel_create_split, toplevel_parent_container,
-            toplevel_set_floating, toplevel_set_workspace,
+            ToplevelData, ToplevelIdentifier, ToplevelNode, TreeTimeline::LiveTL, VrrMode,
+            WorkspaceNode, WorkspaceType, WsMoveConfig, move_ws_to_output, toplevel_create_split,
+            toplevel_parent_container, toplevel_set_floating, toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -43,6 +43,7 @@ use {
             timer::{TimerError, TimerFd},
         },
     },
+    az::SaturatingCast,
     bincode::Options,
     jay_config::{
         _private::{
@@ -451,7 +452,7 @@ impl ConfigProxyHandler {
     fn handle_get_window_fullscreen(&self, window: Window) -> Result<(), CphError> {
         let tl = self.get_window(window)?;
         self.respond(Response::GetWindowFullscreen {
-            fullscreen: tl.tl_data().is_fullscreen.get(),
+            fullscreen: tl.tl_data().is_fullscreen[LiveTL].get(),
         });
         Ok(())
     }
@@ -978,7 +979,7 @@ impl ConfigProxyHandler {
             .outputs
             .lock()
             .values()
-            .filter(|o| o.node_state.overlay.is_some())
+            .filter(|o| o.node_state[LiveTL].overlay.is_some())
             .cloned()
             .collect();
         for output in outputs {
@@ -990,7 +991,7 @@ impl ConfigProxyHandler {
         let Some(ws) = self.get_existing_workspace(workspace)? else {
             return Ok(());
         };
-        let wns = &ws.node_state;
+        let wns = &ws.node_state[LiveTL];
         if ws.ty == WorkspaceType::Overlay && wns.output.id() != self.state.dummy_output_id {
             wns.output.get().hide_overlay();
         }
@@ -1206,7 +1207,7 @@ impl ConfigProxyHandler {
                 seat = get_seat(&mut seat_opt)?;
             }
             if let Some(ws) = self.state.workspaces.get(&ws.name) {
-                let wns = &ws.node_state;
+                let wns = &ws.node_state[LiveTL];
                 if ws.ty == WorkspaceType::Overlay {
                     if wns.output.id() == self.state.dummy_output_id {
                         move_to_connector = true;
@@ -1518,7 +1519,7 @@ impl ConfigProxyHandler {
 
     fn handle_connector_size(&self, connector: Connector) -> Result<(), CphError> {
         let connector = self.get_output_node(connector)?;
-        let pos = connector.node_state.pos.get();
+        let pos = connector.node_state[LiveTL].pos.get();
         self.respond(Response::ConnectorSize {
             width: pos.width(),
             height: pos.height(),
@@ -1649,7 +1650,7 @@ impl ConfigProxyHandler {
 
     fn handle_get_show_titles(&self) {
         self.respond(Response::GetShowTitles {
-            show: self.state.theme.show_titles.get(),
+            show: self.state.theme.show_titles[LiveTL].get(),
         });
     }
 
@@ -1663,7 +1664,7 @@ impl ConfigProxyHandler {
 
     fn handle_get_bar_position(&self) {
         self.respond(Response::GetBarPosition {
-            position: self.state.theme.bar_position.get().into(),
+            position: self.state.theme.bar_position[LiveTL].get().into(),
         });
     }
 
@@ -1844,8 +1845,7 @@ impl ConfigProxyHandler {
 
     fn handle_get_connector_active_workspace(&self, connector: Connector) -> Result<(), CphError> {
         let output = self.get_output_node(connector)?;
-        let workspace = output
-            .node_state
+        let workspace = output.node_state[LiveTL]
             .workspace
             .get()
             .map(|ws| self.get_workspace_by_name(&ws.name, ws.ty))
@@ -1858,7 +1858,7 @@ impl ConfigProxyHandler {
         let output = self.get_output_node(connector)?;
         let workspaces = output
             .workspaces
-            .iter()
+            .iter_valid(LiveTL)
             .map(|ws| self.get_workspace_by_name(&ws.name, ws.ty))
             .collect::<Vec<_>>();
         self.respond(Response::GetConnectorWorkspaces { workspaces });
@@ -1868,7 +1868,7 @@ impl ConfigProxyHandler {
     fn handle_get_workspace_connector(&self, workspace: Workspace) -> Result<(), CphError> {
         let connector = self
             .get_existing_workspace(workspace)?
-            .map(|ws| ws.node_state.output.get())
+            .map(|ws| ws.node_state[LiveTL].output.get())
             .filter(|o| !o.is_dummy)
             .map(|o| Connector(o.global.connector.id.raw() as _))
             .unwrap_or(Connector(0));
@@ -1936,7 +1936,7 @@ impl ConfigProxyHandler {
         let window = self.get_window(window)?;
         self.respond(Response::GetWindowMono {
             mono: toplevel_parent_container(&*window)
-                .map(|c| c.node_state.mono_child.is_some())
+                .map(|c| c.node_state[LiveTL].mono_child.is_some())
                 .unwrap_or(false),
         });
         Ok(())
@@ -1971,7 +1971,7 @@ impl ConfigProxyHandler {
         let window = self.get_window(window)?;
         self.respond(Response::GetWindowSplit {
             axis: toplevel_parent_container(&*window)
-                .map(|c| c.node_state.split.get())
+                .map(|c| c.node_state[LiveTL].split.get())
                 .unwrap_or(ContainerSplit::Horizontal)
                 .into(),
         });
@@ -2677,7 +2677,7 @@ impl ConfigProxyHandler {
 
     fn handle_get_size(&self, sized: Resizable) -> Result<(), CphError> {
         let sized = self.get_sized(sized)?;
-        let size = sized.field(&self.state.theme).val.get();
+        let size = sized.field(&self.state.theme).val[LiveTL].get();
         self.respond(Response::GetSize { size });
         Ok(())
     }
@@ -2810,7 +2810,7 @@ impl ConfigProxyHandler {
     fn handle_get_workspace_window(&self, ws: Workspace) -> Result<(), CphError> {
         let window = self
             .get_existing_workspace(ws)?
-            .and_then(|ws| ws.node_state.container.get())
+            .and_then(|ws| ws.node_state[LiveTL].container.get())
             .map(|c| self.tl_to_window(&*c))
             .unwrap_or(Window(0));
         self.respond(Response::GetWorkspaceWindow { window });
@@ -2831,7 +2831,7 @@ impl ConfigProxyHandler {
     fn handle_seat_focus_window(&self, seat: Seat, window_id: Window) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let window = self.get_window(window_id)?;
-        if !window.node_visible() {
+        if !window.node_visible(LiveTL) {
             return Err(CphError::WindowNotVisible(window_id));
         }
         seat.focus_toplevel(window);
@@ -2894,7 +2894,7 @@ impl ConfigProxyHandler {
     fn handle_get_window_is_visible(&self, window: Window) -> Result<(), CphError> {
         let window = self.get_window(window)?;
         self.respond(Response::GetWindowIsVisible {
-            visible: window.node_visible(),
+            visible: window.node_visible(LiveTL),
         });
         Ok(())
     }
@@ -2926,10 +2926,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_get_window_workspace(&self, window: Window) -> Result<(), CphError> {
-        let workspace = self
-            .get_window(window)?
-            .tl_data()
-            .workspace
+        let workspace = self.get_window(window)?.tl_data().workspace[LiveTL]
             .get()
             .map(|ws| self.get_workspace_by_name(&ws.name, ws.ty))
             .unwrap_or(Workspace(0));
@@ -2940,7 +2937,7 @@ impl ConfigProxyHandler {
     fn handle_get_window_children(&self, window: Window) -> Result<(), CphError> {
         let mut windows = vec![];
         if let Some(c) = self.get_window(window)?.node_into_container() {
-            for c in c.children.iter() {
+            for c in c.children.iter_valid(LiveTL) {
                 windows.push(self.tl_to_window(&*c.node));
             }
         }
@@ -3055,6 +3052,16 @@ impl ConfigProxyHandler {
         self.respond(Response::GetVisualizeCompositing {
             visualize: self.state.visualize_compositing.get(),
         });
+    }
+
+    fn handle_set_transaction_timeout(&self, timeout: Duration) {
+        self.state
+            .set_transaction_timeout_ns(timeout.as_nanos().saturating_cast());
+    }
+
+    fn handle_set_configure_timeout(&self, timeout: Duration) {
+        self.state
+            .set_configure_timeout_ns(timeout.as_nanos().saturating_cast());
     }
 
     pub fn handle_request(self: &Rc<Self>, msg: &[u8]) {
@@ -3771,6 +3778,12 @@ impl ConfigProxyHandler {
                 self.handle_set_visualize_compositing(visualize)
             }
             ClientMessage::GetVisualizeCompositing => self.handle_get_visualize_compositing(),
+            ClientMessage::SetTransactionTimeout { timeout } => {
+                self.handle_set_transaction_timeout(timeout)
+            }
+            ClientMessage::SetConfigureTimeout { timeout } => {
+                self.handle_set_configure_timeout(timeout)
+            }
         }
         Ok(())
     }

@@ -37,6 +37,7 @@ use {
                 status::StatusParser,
                 tearing::TearingParser,
                 theme::ThemeParser,
+                transactions::TransactionsParser,
                 ui_drag::UiDragParser,
                 vrr::VrrParser,
                 window_rule::WindowRulesParser,
@@ -158,7 +159,7 @@ impl Parser for ConfigParser<'_> {
                 clean_logs_older_than_val,
                 mouse_follows_focus,
             ),
-            (session_management_val, workspaces_val),
+            (session_management_val, workspaces_val, transactions_val),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -220,7 +221,11 @@ impl Parser for ConfigParser<'_> {
                 opt(val("clean-logs-older-than")),
                 recover(opt(bol("unstable-mouse-follows-focus"))),
             ),
-            (opt(val("session-management")), opt(val("workspaces"))),
+            (
+                opt(val("session-management")),
+                opt(val("workspaces")),
+                opt(val("transactions")),
+            ),
         ))?;
         let mut keymap = None;
         if let Some(value) = keymap_val {
@@ -589,6 +594,18 @@ impl Parser for ConfigParser<'_> {
                 log::warn!("Could not parse the workspaces: {}", self.0.error(e),);
             }
         }
+        let mut transactions = None;
+        if let Some(value) = transactions_val {
+            match value.parse(&mut TransactionsParser(self.0)) {
+                Ok(v) => transactions = Some(v),
+                Err(e) => {
+                    log::warn!(
+                        "Could not parse the transaction settings: {}",
+                        self.0.error(e)
+                    );
+                }
+            }
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -640,6 +657,7 @@ impl Parser for ConfigParser<'_> {
             simple_im,
             fallback_output_mode,
             mouse_follows_focus: mouse_follows_focus.despan(),
+            transactions,
         })
     }
 }

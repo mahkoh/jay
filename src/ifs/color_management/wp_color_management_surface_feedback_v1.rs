@@ -10,6 +10,7 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
+        tree::TreeTimeline::LiveTL,
         wire::{
             WpColorManagementSurfaceFeedbackV1Id, WpImageDescriptionV1Id,
             wp_color_management_surface_feedback_v1::*,
@@ -37,7 +38,11 @@ impl WpColorManagementSurfaceFeedbackV1 {
             client: self.client.clone(),
             version: self.version,
             tracker: Default::default(),
-            description: Some(self.surface.get_output().node_state.color_description.get()),
+            description: Some(
+                self.surface.get_output().node_state[LiveTL]
+                    .color_description
+                    .get(),
+            ),
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;

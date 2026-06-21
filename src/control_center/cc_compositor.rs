@@ -1,7 +1,7 @@
 use {
     crate::{
         compositor::{LIBEI_SOCKET, WAYLAND_DISPLAY},
-        control_center::{ControlCenterInner, bool, combo_box, grid, label, row},
+        control_center::{ControlCenterInner, bool, combo_box, grid, label, row, row_ui, tip},
         state::State,
         version::VERSION,
     },
@@ -81,6 +81,48 @@ impl CompositorPane {
                 "Visualize Compositing",
                 s.visualize_compositing.get(),
                 |v| s.set_visualize_compositing(v),
+            );
+            let mut timeout = |name: &str, label: &str, old: u64, set: &dyn Fn(u64)| {
+                row_ui(
+                    ui,
+                    &format!("{name} Timeout"),
+                    |ui| {
+                        tip(ui, |ui| {
+                            ui.label(format!("The timeout for {label}."));
+                            ui.label("See the book for more details.");
+                        });
+                    },
+                    |ui| {
+                        ui.horizontal(|ui| {
+                            let micros = old / 1_000;
+                            let mut millis = micros / 1_000;
+                            let mut micros = micros % 1_000;
+                            let mut changed = false;
+                            changed |= DragValue::new(&mut millis).ui(ui).changed();
+                            ui.label("millis");
+                            changed |= DragValue::new(&mut micros).ui(ui).changed();
+                            ui.label("micros");
+                            if changed {
+                                let ns = millis
+                                    .saturating_mul(1_000_000)
+                                    .saturating_add(micros.saturating_mul(1_000));
+                                set(ns);
+                            }
+                        })
+                    },
+                )
+            };
+            timeout(
+                "Transaction",
+                "desktop transactions",
+                s.tree.transactions.timeout_ns(),
+                &|v| s.set_transaction_timeout_ns(v),
+            );
+            timeout(
+                "Configure",
+                "configure requests",
+                s.tree.configure_groups.timeout_ns(),
+                &|v| s.set_configure_timeout_ns(v),
             );
         });
         if ui.button("Quit").clicked() {

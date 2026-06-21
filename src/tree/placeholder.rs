@@ -9,11 +9,13 @@ use {
         scale::Scale,
         state::State,
         text::TextTexture,
+        transactions::{TransactionData, Transactionable, TransactionableExt},
         tree::{
             ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, NodeBase,
             NodeId, NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
-            ToplevelData, ToplevelNode, ToplevelNodeBase, ToplevelType, WorkspaceNode,
-            default_tile_drag_destination,
+            ToplevelData, ToplevelDataTransactionOp, ToplevelNode, ToplevelNodeBase, ToplevelType,
+            TreeTimeline::{self, LiveTL, RenderTL},
+            WorkspaceNode, default_tile_drag_destination,
         },
         utils::{
             asyncevent::AsyncEvent, errorfmt::ErrorFmt, on_drop_event::OnDropEvent,
@@ -38,6 +40,7 @@ pub struct PlaceholderNode {
     state: Rc<State>,
     location: Cell<Option<NodeLocation>>,
     pub textures: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
+    transaction_data: TransactionData<PlaceholderTransactionOp>,
 }
 
 pub async fn placeholder_render_textures(state: Rc<State>) {
@@ -67,6 +70,7 @@ impl PlaceholderNode {
             state: state.clone(),
             location: Cell::new(node.node_location()),
             textures: Default::default(),
+            transaction_data: TransactionData::new(&state.tree),
         }
     }
 
@@ -87,6 +91,7 @@ impl PlaceholderNode {
             state: state.clone(),
             location: Default::default(),
             textures: Default::default(),
+            transaction_data: TransactionData::new(&state.tree),
         }
     }
 
@@ -142,8 +147,8 @@ impl PlaceholderNode {
                 log::warn!("Could not render fullscreen texture: {}", ErrorFmt(e));
             }
         }
-        if self.node_visible() {
-            self.state.damage(self.node_absolute_position());
+        if self.node_visible(RenderTL) {
+            self.state.damage(self.node_absolute_position(RenderTL));
         }
     }
 }
@@ -165,20 +170,20 @@ impl NodeBase for PlaceholderNode {
         // nothing
     }
 
-    fn node_visible(&self) -> bool {
-        self.toplevel.visible.get()
+    fn node_visible(&self, tl: TreeTimeline) -> bool {
+        self.toplevel.visible[tl].get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {
         self.toplevel.content_size.get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
-        self.toplevel.output_opt()
+        self.toplevel.output_opt(LiveTL)
     }
 
     fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
-        self.toplevel.workspace.get()
+        self.toplevel.workspace[LiveTL].get()
     }
 
     fn node_location(&self) -> Option<NodeLocation> {
@@ -286,5 +291,29 @@ impl ToplevelNodeBase for PlaceholderNode {
         y: i32,
     ) -> Option<TileDragDestination> {
         default_tile_drag_destination(self, source, split, abs_bounds, x, y)
+    }
+
+    fn tl_schedule_data_op(self: Rc<Self>, op: ToplevelDataTransactionOp) {
+        self.add_transaction_op(PlaceholderTransactionOp::ToplevelData(op));
+    }
+}
+
+pub enum PlaceholderTransactionOp {
+    ToplevelData(ToplevelDataTransactionOp),
+}
+
+impl Transactionable for PlaceholderNode {
+    type T = PlaceholderTransactionOp;
+
+    fn data(&self) -> &TransactionData<Self::T> {
+        &self.transaction_data
+    }
+
+    fn apply(self: &Rc<Self>, op: Self::T) {
+        match op {
+            PlaceholderTransactionOp::ToplevelData(v) => {
+                self.toplevel.run_op(v);
+            }
+        }
     }
 }

@@ -1,7 +1,7 @@
 use {
     crate::{
         it::{test_error::TestResult, testrun::TestRun},
-        tree::NodeBase,
+        tree::{NodeBase, TreeTimeline::LiveTL},
     },
     std::rc::Rc,
 };
@@ -20,12 +20,12 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     win2.map2().await?;
 
     client.sync().await;
-    let (x, y) = win2.tl.server.node_absolute_position().center();
+    let (x, y) = win2.tl.server.node_absolute_position(LiveTL).center();
     ds.move_to(x, y);
     client.sync().await;
     run.cfg.set_floating(ds.seat.id(), true)?;
     client.sync().await;
-    let (x, y) = win2.tl.server.node_absolute_position().center();
+    let (x, y) = win2.tl.server.node_absolute_position(LiveTL).center();
     ds.move_to(x, y);
     win2.map2().await?;
 

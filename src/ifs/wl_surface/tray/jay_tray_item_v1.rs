@@ -7,7 +7,8 @@ use {
                 WlSurface,
                 tray::{
                     DynTrayItem, FocusHint, Popup, TrayItem, TrayItemConfigureData, TrayItemData,
-                    TrayItemError, ack_configure, destroy, get_popup, install,
+                    TrayItemError, TrayItemTransactionOp, ack_configure, destroy, get_popup,
+                    install,
                 },
             },
             xdg_positioner::{
@@ -17,7 +18,11 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         theme::BarPosition,
-        tree::{NodeVisitor, TreeSerial},
+        transactions::{TransactionData, Transactionable},
+        tree::{
+            NodeVisitor, TreeSerial,
+            TreeTimeline::{LiveTL, RenderTL},
+        },
         utils::copyhashmap::CopyHashMap,
         wire::{JayTrayItemV1Id, XdgPopupId, jay_tray_item_v1::*},
     },
@@ -96,8 +101,8 @@ impl JayTrayItemV1 {
 impl JayTrayItemV1RequestHandler for JayTrayItemV1 {
     type Error = JayTrayItemV1Error;
 
-    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        destroy(self)?;
+    fn destroy(&self, _req: Destroy, slf: &Rc<Self>) -> Result<(), Self::Error> {
+        destroy(slf)?;
         Ok(())
     }
 
@@ -140,7 +145,7 @@ object_base! {
 
 impl Object for JayTrayItemV1 {
     fn break_loops(self: Rc<Self>) {
-        self.destroy_node();
+        self.clone().destroy_node();
         self.data.destroyed.set(true);
         self.data.configurable.ready();
     }
@@ -158,7 +163,7 @@ impl Configurable for JayTrayItemV1 {
     fn configure_data(&self) -> Self::T {
         let state = &self.tray_item_data().client.state;
         let size = state.tray_icon_size().max(1);
-        let bar_position = state.theme.bar_position.get();
+        let bar_position = state.theme.bar_position[LiveTL].get();
         TrayItemConfigureData { size, bar_position }
     }
 
@@ -183,6 +188,28 @@ impl Configurable for JayTrayItemV1 {
         self.send_preferred_gravity(data.bar_position);
         self.send_configure_size(data.size, data.size);
         self.send_configure(serial);
+    }
+}
+
+impl Transactionable for JayTrayItemV1 {
+    type T = TrayItemTransactionOp;
+
+    fn data(&self) -> &TransactionData<Self::T> {
+        &self.data.transaction_data
+    }
+
+    fn apply(self: &Rc<Self>, op: Self::T) {
+        match op {
+            TrayItemTransactionOp::SetValid(v) => {
+                v.set_valid();
+            }
+            TrayItemTransactionOp::Unlink(v) => {
+                drop(v);
+            }
+            TrayItemTransactionOp::SetRelPos(v) => {
+                self.data.rel_pos[RenderTL].set(v);
+            }
+        }
     }
 }
 

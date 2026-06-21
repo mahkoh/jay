@@ -18,14 +18,19 @@ use {
         object::Object,
         rect::{Rect, Size},
         renderer::Renderer,
+        transactions::{TransactionData, Transactionable, TransactionableExt},
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId,
-            NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode, TreeSerial,
+            NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode, TreeLink,
+            TreeSerial,
+            TreeTimeline::{self, LiveTL},
             WorkspaceNode,
         },
         utils::{
-            bitflags::BitflagsExt, copyhashmap::CopyHashMap, hash_map_ext::HashMapExt,
-            linkedlist::LinkedNode,
+            bitflags::BitflagsExt,
+            copyhashmap::CopyHashMap,
+            hash_map_ext::HashMapExt,
+            linkedlist::{LinkedNode, NodeRef},
         },
         wire::{WlSurfaceId, XdgPopupId, ZwlrLayerSurfaceV1Id, zwlr_layer_surface_v1::*},
     },
@@ -65,7 +70,7 @@ pub struct ZwlrLayerSurfaceV1 {
     exclusive_zone: Cell<ExclusiveZone>,
     margin: Cell<(i32, i32, i32, i32)>,
     keyboard_interactivity: Cell<u32>,
-    link: RefCell<Option<LinkedNode<Rc<Self>>>>,
+    link: RefCell<Option<LinkedNode<LayerSurfaceLink>>>,
     seat_state: NodeSeatState,
     last_configure: Cell<(i32, i32)>,
     exclusive_edge: Cell<Option<u32>>,
@@ -74,6 +79,7 @@ pub struct ZwlrLayerSurfaceV1 {
     need_position_update: Cell<bool>,
     configurable_data: ConfigurableData<Size>,
     destroyed: Cell<bool>,
+    transaction_data: TransactionData<LayerSurfaceTransactionOp>,
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
@@ -146,6 +152,8 @@ impl PendingLayerSurfaceData {
     }
 }
 
+pub type LayerSurfaceLink = TreeLink<Rc<ZwlrLayerSurfaceV1>>;
+
 impl ZwlrLayerSurfaceV1 {
     pub fn new(
         id: ZwlrLayerSurfaceV1Id,
@@ -155,6 +163,7 @@ impl ZwlrLayerSurfaceV1 {
         layer: u32,
         namespace: &str,
     ) -> Self {
+        let state = &surface.client.state;
         Self {
             id,
             node_id: shell.client.state.node_ids.next(),
@@ -180,8 +189,9 @@ impl ZwlrLayerSurfaceV1 {
             exclusive_size: Default::default(),
             popups: Default::default(),
             need_position_update: Default::default(),
-            configurable_data: ConfigurableData::new(&surface.client.state),
+            configurable_data: ConfigurableData::new(state),
             destroyed: Cell::new(false),
+            transaction_data: TransactionData::new(&state.tree),
         }
     }
 
@@ -313,13 +323,13 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
         Ok(())
     }
 
-    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn destroy(&self, _req: Destroy, slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.destroyed.set(true);
         self.configurable_data.ready();
         if self.popups.is_not_empty() {
             return Err(ZwlrLayerSurfaceV1Error::HasPopups);
         }
-        self.destroy_node();
+        slf.destroy_node();
         self.client.remove_obj(self)?;
         self.surface.unset_ext();
         Ok(())
@@ -453,7 +463,7 @@ impl ZwlrLayerSurfaceV1 {
         let Some(node) = self.output.node() else {
             return;
         };
-        let ons = &node.node_state;
+        let ons = &node.node_state[LiveTL];
         let (mut width, mut height) = self.size.get();
         let (mt, mr, mb, ml) = self.margin.get();
         let (mut available_width, mut available_height) = match self.exclusive_zone.get() {
@@ -487,6 +497,9 @@ impl ZwlrLayerSurfaceV1 {
                 let serial = state.next_tree_serial();
                 self.send_configure(serial, width as _, height as _);
                 self.surface.set_requested_serial(serial);
+                self.surface
+                    .surface_transaction
+                    .unblock_commits_until(serial, state.now_nsec());
             } else {
                 self.schedule_configure();
             }
@@ -508,7 +521,7 @@ impl ZwlrLayerSurfaceV1 {
             anchor = LEFT | RIGHT | TOP | BOTTOM;
         }
         let (mt, mr, mb, ml) = self.margin.get();
-        let ons = &output.node_state;
+        let ons = &output.node_state[LiveTL];
         let opos = ons.pos.get();
         let rect = match self.exclusive_zone.get() {
             ExclusiveZone::MoveSelf => ons.rects.non_exclusive.get(),
@@ -559,11 +572,14 @@ impl ZwlrLayerSurfaceV1 {
         self.output_resized();
     }
 
-    pub fn destroy_node(&self) {
-        self.link.borrow_mut().take();
+    pub fn destroy_node(self: &Rc<Self>) {
+        if let Some(link) = self.link.borrow_mut().take() {
+            link.set_invalid();
+            self.add_transaction_op(LayerSurfaceTransactionOp::Unlink(link));
+        }
         self.mapped.set(false);
         self.surface.destroy_node();
-        self.seat_state.destroy_node(self);
+        self.seat_state.destroy_node(&**self);
         self.client.state.tree_changed();
         self.last_configure.take();
         if self.exclusive_size.take().is_not_empty()
@@ -630,7 +646,9 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
             }
         } else if buffer_is_some {
             let layer = &output.layers[self.layer.get() as usize];
-            *self.link.borrow_mut() = Some(layer.add_last(self.clone()));
+            let link = layer.add_last(TreeLink::new(self.clone()));
+            self.add_transaction_op(LayerSurfaceTransactionOp::SetValid(link.to_ref()));
+            *self.link.borrow_mut() = Some(link);
             self.mapped.set(true);
             self.compute_position();
             self.update_exclusive_size();
@@ -638,9 +656,9 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
         if self.mapped.get() != was_mapped {
             output.update_visible();
             if self.mapped.get() {
-                let (x, y) = self.surface.buffer_abs_pos.get().position();
+                let (x, y) = self.surface.buffer_abs_pos[LiveTL].get().position();
                 let extents = self.surface.extents.get().move_(x, y);
-                self.client.state.damage(extents);
+                self.surface.damage(extents, LiveTL);
             }
         }
         if self.mapped.get() {
@@ -698,11 +716,11 @@ impl NodeBase for ZwlrLayerSurfaceV1 {
         visitor.visit_surface(&self.surface);
     }
 
-    fn node_visible(&self) -> bool {
+    fn node_visible(&self, _tl: TreeTimeline) -> bool {
         true
     }
 
-    fn node_absolute_position(&self) -> Rect {
+    fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {
         self.pos.get()
     }
 
@@ -770,12 +788,13 @@ impl XdgPopupParent for Popup {
         let state = &surface.client.state;
         if surface.buffer.is_some() {
             if dl.link.is_none() {
-                if self.parent.surface.visible.get() {
+                if self.parent.surface.visible[LiveTL].get() {
                     self.popup.xdg.set_output(&output);
                     dl.link = Some(dl.stack.stacked.add_last(self.popup.clone()));
                     state.tree_changed();
                     drop(dl);
-                    self.popup.set_visible(self.parent.surface.visible.get());
+                    self.popup
+                        .set_visible(self.parent.surface.visible[LiveTL].get());
                 } else {
                     self.popup.destroy_node();
                 }
@@ -790,7 +809,7 @@ impl XdgPopupParent for Popup {
     }
 
     fn visible(&self) -> bool {
-        self.parent.node_visible()
+        self.parent.node_visible(LiveTL)
     }
 
     fn make_visible(self: Rc<Self>) {
@@ -842,7 +861,7 @@ impl Configurable for ZwlrLayerSurfaceV1 {
     }
 
     fn visible(&self) -> bool {
-        self.surface.visible.get()
+        self.surface.visible[LiveTL].get()
     }
 
     fn destroyed(&self) -> bool {
@@ -895,3 +914,27 @@ pub enum ZwlrLayerSurfaceV1Error {
 }
 efrom!(ZwlrLayerSurfaceV1Error, WlSurfaceError);
 efrom!(ZwlrLayerSurfaceV1Error, ClientError);
+
+pub enum LayerSurfaceTransactionOp {
+    SetValid(NodeRef<LayerSurfaceLink>),
+    Unlink(LinkedNode<LayerSurfaceLink>),
+}
+
+impl Transactionable for ZwlrLayerSurfaceV1 {
+    type T = LayerSurfaceTransactionOp;
+
+    fn data(&self) -> &TransactionData<Self::T> {
+        &self.transaction_data
+    }
+
+    fn apply(self: &Rc<Self>, op: Self::T) {
+        match op {
+            LayerSurfaceTransactionOp::SetValid(v) => {
+                v.set_valid();
+            }
+            LayerSurfaceTransactionOp::Unlink(v) => {
+                drop(v);
+            }
+        }
+    }
+}

@@ -8,6 +8,7 @@ use {
         scale::Scale,
         state::State,
         theme::Theme,
+        tree::TreeTimeline::LiveTL,
         utils::{copyhashmap::CopyHashMap, windows::WindowsExt},
     },
     ahash::AHashSet,
@@ -62,8 +63,8 @@ pub enum IconsError {
 
 impl Icons {
     pub fn update_sizes(&self, state: &State) {
-        self.update_sizes_(state, state.theme.title_height(), &self.title_icons);
-        self.update_sizes_(state, state.theme.sizes.bar_height(), &self.bar_icons);
+        self.update_sizes_(state, state.theme.title_height(LiveTL), &self.title_icons);
+        self.update_sizes_(state, state.theme.sizes.bar_height(LiveTL), &self.bar_icons);
         self.update_sizes_(state, 100, &self.compositing_icon);
     }
 
@@ -88,7 +89,7 @@ impl Icons {
         self.get(
             state,
             scale,
-            state.theme.title_height(),
+            state.theme.title_height(LiveTL),
             &self.title_icons,
             create_title_icons,
         )
@@ -98,7 +99,7 @@ impl Icons {
         self.get(
             state,
             scale,
-            state.theme.sizes.bar_height(),
+            state.theme.sizes.bar_height(LiveTL),
             &self.bar_icons,
             create_bar_icons,
         )

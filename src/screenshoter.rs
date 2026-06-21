@@ -5,7 +5,7 @@ use {
         gfx_api::{AcquireSync, GfxError, ReleaseSync, needs_render_usage},
         scale::Scale,
         state::State,
-        tree::Transform,
+        tree::{Transform, TreeTimeline::RenderTL},
         video::drm::DrmError,
     },
     indexmap::IndexMap,
@@ -45,7 +45,7 @@ pub fn take_screenshot(
         Some(ctx) => ctx,
         _ => return Err(ScreenshooterError::NoRenderContext),
     };
-    let extents = state.root.node_state.extents.get();
+    let extents = state.root.node_state[RenderTL].extents.get();
     if extents.is_empty() {
         return Err(ScreenshooterError::EmptyDisplay);
     }
@@ -82,7 +82,7 @@ pub fn take_screenshot(
         state.color_manager.srgb_gamma22(),
         state.root.deref(),
         state,
-        Some(state.root.node_state.extents.get()),
+        Some(state.root.node_state[RenderTL].extents.get()),
         Scale::from_int(1),
         include_cursor,
         true,

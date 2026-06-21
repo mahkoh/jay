@@ -6,8 +6,8 @@ use {
             test_utils::test_surface_ext::TestSurfaceExt,
         },
         tree::{
-            ToplevelNodeBase, WorkspaceNode, WorkspaceNodeId, toplevel_set_floating,
-            toplevel_set_workspace,
+            ToplevelNodeBase, TreeTimeline::LiveTL, WorkspaceNode, WorkspaceNodeId,
+            toplevel_set_floating, toplevel_set_workspace,
         },
     },
     std::rc::Rc,
@@ -48,6 +48,8 @@ impl TestWindow {
     }
 
     pub fn workspace_id(&self) -> Option<WorkspaceNodeId> {
-        self.tl.server.tl_data().workspace.get().map(|w| w.id)
+        self.tl.server.tl_data().workspace[LiveTL]
+            .get()
+            .map(|w| w.id)
     }
 }

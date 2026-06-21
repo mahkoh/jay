@@ -2,6 +2,7 @@ use {
     crate::{
         it::{test_error::TestResult, testrun::TestRun},
         rect::Rect,
+        tree::TreeTimeline::LiveTL,
     },
     std::rc::Rc,
 };
@@ -130,7 +131,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     client.sync().await;
 
     // Get the surface's absolute position for damage calculation
-    let surface_pos = window.surface.server.buffer_abs_pos.get();
+    let surface_pos = window.surface.server.buffer_abs_pos[LiveTL].get();
 
     // Clear any existing output damage
     connector_data.damage.borrow_mut().clear();
@@ -414,7 +415,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     client.sync().await;
 
     // Get the rotated surface position for damage coordinate verification
-    let rotation_surface_pos = rotation_window.surface.server.buffer_abs_pos.get();
+    let rotation_surface_pos = rotation_window.surface.server.buffer_abs_pos[LiveTL].get();
 
     // Clear damage immediately before the commit we want to test
     connector_data.damage.borrow_mut().clear();

@@ -16,7 +16,7 @@ use {
         rect::Region,
         time::Time,
         tracy::FrameName,
-        tree::OutputNode,
+        tree::{OutputNode, TreeTimeline::RenderTL},
         utils::{errorfmt::ErrorFmt, oserror::OsError},
         video::{
             dmabuf::{DmaBuf, DmaBufId},
@@ -197,7 +197,7 @@ impl MetalConnector {
         let next_buffer_idx = ((connector_drm_state.fb_idx + 1) % buffers.len() as u64) as usize;
         let buffer = &buffers[next_buffer_idx];
 
-        let ons = &node.node_state;
+        let ons = &node.node_state[RenderTL];
         let cd = ons.color_description.get();
         let linear_cd = ons.linear_color_description.get();
         let blend_cd = match node.global.persistent.blend_space.get() {
@@ -605,13 +605,13 @@ impl MetalConnector {
             (mode.width, mode.height),
             &**node,
             &self.state,
-            Some(node.node_state.pos.get()),
-            node.node_state.scale.get(),
+            Some(node.node_state[RenderTL].pos.get()),
+            node.node_state[RenderTL].scale.get(),
             true,
             render_hw_cursor,
-            node.has_fullscreen(),
+            node.has_fullscreen(RenderTL),
             true,
-            node.node_state.transform.get(),
+            node.node_state[RenderTL].transform.get(),
             Some(&self.state.damage_visualizer),
             true,
         );
@@ -619,7 +619,7 @@ impl MetalConnector {
             pass,
             damage_count,
             damage,
-            locked: self.state.lock.locked.get(),
+            locked: self.state.lock.locked[RenderTL].get(),
         })
     }
 

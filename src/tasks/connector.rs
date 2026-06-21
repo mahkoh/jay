@@ -10,7 +10,7 @@ use {
         },
         output_schedule::OutputSchedule,
         state::{ConnectorData, OutputData, State},
-        tree::{OutputNode, Transform, WsMoveConfig, move_ws_to_output},
+        tree::{OutputNode, Transform, TreeTimeline::LiveTL, WsMoveConfig, move_ws_to_output},
         utils::{asyncevent::AsyncEvent, hash_map_ext::HashMapExt, rc_eq::RcEq},
     },
     std::{
@@ -189,7 +189,8 @@ impl ConnectorHandler {
             output: global.opt.clone(),
         });
         let on = OutputNode::new(self.state.node_ids.next(), &global, &schedule);
-        self.state.add_output_scale(on.node_state.scale.get());
+        self.state
+            .add_output_scale(on.node_state[LiveTL].scale.get());
         let output_data = Rc::new(OutputData {
             connector: self.data.clone(),
             monitor_info: Rc::new(info),
@@ -209,17 +210,17 @@ impl ConnectorHandler {
                 seat.cursor_group().first_output_connected(&on);
             }
             let dummy = self.state.dummy_output.get().unwrap();
-            for ws in dummy.workspaces.iter() {
-                ws_to_move.push_back(ws.ws.clone());
+            for ws in dummy.workspaces.iter_valid(LiveTL) {
+                ws_to_move.push_back(ws.item.clone());
             }
         }
         for source in self.state.root.outputs.lock().values() {
             if source.id == on.id {
                 continue;
             }
-            for ws in source.workspaces.iter() {
+            for ws in source.workspaces.iter_valid(LiveTL) {
                 if ws.desired_output.get() == global.output_id {
-                    ws_to_move.push_back(ws.ws.clone());
+                    ws_to_move.push_back(ws.item.clone());
                 }
             }
         }
@@ -248,7 +249,7 @@ impl ConnectorHandler {
             .handle_output_connected(&self.state, &output_data);
         self.state.trigger_cci(CCI_OUTPUTS);
         self.state.wlr_output_managers.announce_head(&output_data);
-        let ons = &on.node_state;
+        let ons = &on.node_state[LiveTL];
         on.add_damage_area(&ons.pos.get());
         self.data.damage();
         'outer: loop {
@@ -300,7 +301,7 @@ impl ConnectorHandler {
         {
             let mut surfaces = vec![];
             for layer in &on.layers {
-                surfaces.extend(layer.iter());
+                surfaces.extend(layer.iter_valid(LiveTL));
             }
             for surface in surfaces {
                 surface.destroy_node();
@@ -312,8 +313,8 @@ impl ConnectorHandler {
             Some(o) => o.clone(),
             _ => self.state.dummy_output.get().unwrap(),
         };
-        for ws in on.workspaces.iter() {
-            let wns = &ws.node_state;
+        for ws in on.workspaces.iter_valid(LiveTL) {
+            let wns = &ws.node_state[LiveTL];
             if ws.desired_output.get() == output_id {
                 ws.visible_on_desired_output.set(wns.visible.get());
             }
@@ -331,10 +332,11 @@ impl ConnectorHandler {
         for seat in self.state.globals.seats.lock().values() {
             seat.cursor_group().output_disconnected(&on, &target);
         }
-        for item in on.tray_items.iter() {
-            item.destroy_node();
+        for item in on.tray_items.iter_valid(LiveTL) {
+            item.item.clone().destroy_node();
         }
-        self.state.remove_output_scale(on.node_state.scale.get());
+        self.state
+            .remove_output_scale(on.node_state[LiveTL].scale.get());
         if let Some(zwlr_gamma_control) = on.active_zwlr_gamma_control.take() {
             zwlr_gamma_control.send_failed();
         }
@@ -342,7 +344,7 @@ impl ConnectorHandler {
         let _ = self.state.remove_global(&global);
         let _ = self.state.remove_global(&tray);
         self.state.tree_changed();
-        self.state.damage_full();
+        self.state.damage_full(LiveTL);
     }
 
     async fn handle_non_desktop_connected(&self, monitor_info: MonitorInfo) {

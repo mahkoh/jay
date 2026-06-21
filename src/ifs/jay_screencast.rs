@@ -14,7 +14,9 @@ use {
         scale::Scale,
         state::State,
         tree::{
-            LatchListener, OutputNode, ToplevelNode, Transform, WorkspaceNode, WorkspaceNodeId,
+            LatchListener, OutputNode, ToplevelNode, Transform,
+            TreeTimeline::{LiveTL, RenderTL},
+            WorkspaceNode, WorkspaceNodeId,
         },
         utils::{
             clonecell::{CloneCell, UnsafeCellCloneSafe},
@@ -186,9 +188,11 @@ impl JayScreencast {
             log::warn!("Tried to perform window screencast for output screencast");
             return;
         };
-        let scale = match tl.tl_data().workspace.get() {
+        let scale = match tl.tl_data().workspace[RenderTL].get() {
             None => Scale::default(),
-            Some(w) => w.node_state.output.get().node_state.scale.get(),
+            Some(w) => w.node_state[RenderTL].output.get().node_state[RenderTL]
+                .scale
+                .get(),
         };
         let mut buffer = self.buffers.borrow_mut();
         for (idx, buffer) in buffer.deref_mut().iter_mut().enumerate() {
@@ -199,7 +203,7 @@ impl JayScreencast {
                     self.client.state.color_manager.srgb_gamma22(),
                     &*tl,
                     &self.client.state,
-                    Some(tl.node_absolute_position()),
+                    Some(tl.node_absolute_position(RenderTL)),
                     scale,
                     true,
                     true,
@@ -323,7 +327,7 @@ impl JayScreencast {
         if !self.running.get() {
             return;
         }
-        let ons = &on.node_state;
+        let ons = &on.node_state[RenderTL];
         if !self.show_all.get() {
             let ws = match ons.workspace.get() {
                 Some(ws) => ws,
@@ -353,8 +357,8 @@ impl JayScreencast {
                     x_off,
                     y_off,
                     size,
-                    on.node_state.transform.get(),
-                    on.node_state.scale.get(),
+                    on.node_state[RenderTL].transform.get(),
+                    on.node_state[RenderTL].scale.get(),
                 );
                 match res {
                     Ok(_) => {
@@ -480,15 +484,15 @@ impl JayScreencast {
     fn damage(&self) {
         if let Some(target) = self.target.get() {
             let rect = match target {
-                Target::Output(o) => o.node_state.pos.get(),
+                Target::Output(o) => o.node_state[LiveTL].pos.get(),
                 Target::Toplevel(t) => {
-                    if !t.node_visible() {
+                    if !t.node_visible(LiveTL) {
                         return;
                     }
-                    t.node_absolute_position()
+                    t.node_absolute_position(LiveTL)
                 }
             };
-            self.client.state.damage(rect);
+            self.client.state.schedule_damage(rect);
         }
     }
 
@@ -497,8 +501,8 @@ impl JayScreencast {
             return;
         };
         let data = tl.tl_data();
-        if data.visible.get() {
-            self.latch_listener.attach(&data.output().latch_event);
+        if data.visible[LiveTL].get() {
+            self.latch_listener.attach(&data.output(LiveTL).latch_event);
         } else {
             self.latch_listener.detach();
         }
@@ -616,8 +620,8 @@ impl JayScreencastRequestHandler for JayScreencast {
                         let data = t.tl_data();
                         data.jay_screencasts
                             .set((self.client.id, self.id), slf.clone());
-                        if data.visible.get() {
-                            self.latch_listener.attach(&data.output().latch_event);
+                        if data.visible[LiveTL].get() {
+                            self.latch_listener.attach(&data.output(LiveTL).latch_event);
                         }
                         new_target = Some(Target::Toplevel(t));
                     }
@@ -796,7 +800,7 @@ fn target_size(target: Option<&Target>) -> (i32, i32) {
     if let Some(target) = target {
         return match target {
             Target::Output(o) => o.pixel_size(),
-            Target::Toplevel(t) => t.tl_data().desired_pixel_size(),
+            Target::Toplevel(t) => t.tl_data().desired_pixel_size(LiveTL),
         };
     }
     (0, 0)

@@ -20,11 +20,15 @@ use {
         renderer::Renderer,
         state::State,
         text::TextTexture,
+        transactions::{TransactionData, Transactionable, TransactionableExt},
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
             NodeBase, NodeId, NodeLayerLink, NodeLocation, NodeVisitorBase, OutputNode,
-            PlaceholderNode, StackedNode, ToplevelNode, WorkspaceDisplayOrder,
-            container::ContainerNode, walker::NodeVisitor,
+            PlaceholderNode, SplitView, StackedNode, ToplevelNode, TreeLink,
+            TreeTimeline::{self, LiveTL, RenderTL},
+            WorkspaceDisplayOrder,
+            container::ContainerNode,
+            walker::NodeVisitor,
         },
         utils::{
             clonecell::CloneCell,
@@ -75,8 +79,9 @@ pub struct WorkspaceNode {
     pub render_highlight: NumCell<u32>,
     pub ext_workspaces: CopyHashMap<WorkspaceManagerId, Rc<ExtWorkspaceHandleV1>>,
     pub opt: Rc<Opt<WorkspaceNode>>,
-    pub node_state: WorkspaceNodeState,
+    pub node_state: SplitView<WorkspaceNodeState>,
     pub output_link: Cell<Option<LinkedNode<WorkspaceOutputLink>>>,
+    pub transaction_data: TransactionData<WorkspaceTransactionOp>,
 }
 
 pub struct WorkspaceNodeState {
@@ -88,25 +93,7 @@ pub struct WorkspaceNodeState {
     pub fullscreen: CloneCell<Option<Rc<dyn ToplevelNode>>>,
 }
 
-impl WorkspaceNodeState {
-    fn clear(&self) {
-        self.container.take();
-        self.output_link.take();
-        self.fullscreen.take();
-    }
-}
-
-pub struct WorkspaceOutputLink {
-    pub ws: Rc<WorkspaceNode>,
-}
-
-impl Deref for WorkspaceOutputLink {
-    type Target = Rc<WorkspaceNode>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.ws
-    }
-}
+pub type WorkspaceOutputLink = TreeLink<Rc<WorkspaceNode>>;
 
 impl ObjWithId for Rc<WorkspaceNode> {
     type Id = WorkspaceNodeId;
@@ -136,21 +123,23 @@ impl WorkspaceNode {
             render_highlight: Default::default(),
             ext_workspaces: Default::default(),
             opt: Default::default(),
-            node_state: WorkspaceNodeState::new(output),
+            node_state: SplitView::from_fn(|_| WorkspaceNodeState::new(output)),
             output_link: Default::default(),
+            transaction_data: TransactionData::new(&output.state.tree),
         });
         slf.seat_state.disable_focus_history();
         slf
     }
 
-    pub fn clear(&self) {
-        self.seat_state.destroy_node(self);
-        self.output_link.take();
-        self.node_state.clear();
+    pub fn clear(self: &Rc<Self>) {
+        self.seat_state.destroy_node(&**self);
+        self.set_ns_container(None);
+        self.set_ns_output_link(None);
+        self.set_ns_fullscreen(None);
         self.jay_workspaces.clear();
         self.ext_workspaces.clear();
         self.opt.set(None);
-        self.title_texture.take();
+        self.add_transaction_op(WorkspaceTransactionOp::ClearTitleTexture);
     }
 
     pub fn update_has_captures(&self) {
@@ -158,7 +147,7 @@ impl WorkspaceNode {
             return;
         }
         let mut has_capture = false;
-        let output = self.node_state.output.get();
+        let output = self.node_state[LiveTL].output.get();
         'update: {
             if !self.may_capture.get() {
                 break 'update;
@@ -175,13 +164,13 @@ impl WorkspaceNode {
         }
         if self.has_capture.replace(has_capture) != has_capture {
             output.schedule_update_render_data();
-            output.state.damage(output.node_state.pos.get());
+            output.schedule_damage();
         }
     }
 
     pub fn set_output(self: &Rc<Self>, output: &Rc<OutputNode>) {
         let old = self.set_ns_output(output);
-        if let Some(tl) = self.node_state.fullscreen.get() {
+        if let Some(tl) = self.node_state[LiveTL].fullscreen.get() {
             tl.tl_mark_fullscreen(Some(&output.global.connector));
         }
         for wh in self.ext_workspaces.lock().values() {
@@ -191,7 +180,7 @@ impl WorkspaceNode {
             jw.send_output(output);
         }
         self.update_has_captures();
-        self.change_extents(&output.node_state.rects.workspace.get(), output);
+        self.change_extents(&output.node_state[LiveTL].rects.workspace.get(), output);
         struct OutputSetter<'a> {
             ws: &'a WorkspaceNode,
             old: &'a Rc<OutputNode>,
@@ -242,7 +231,7 @@ impl WorkspaceNode {
     }
 
     pub fn set_container(self: &Rc<Self>, container: &Rc<ContainerNode>) {
-        let ns = &self.node_state;
+        let ns = &self.node_state[LiveTL];
         if let Some(prev) = ns.container.get() {
             self.discard_child_properties(&*prev);
         }
@@ -252,21 +241,20 @@ impl WorkspaceNode {
         container.tl_set_parent(self.clone());
         container.tl_set_visible(self.container_visible());
         self.set_ns_container(Some(container));
-        self.state.damage(ns.position.get());
     }
 
     pub fn is_empty(&self) -> bool {
-        let ns = &self.node_state;
+        let ns = &self.node_state[LiveTL];
         self.stacked.is_empty() && ns.fullscreen.is_none() && ns.container.is_none()
     }
 
     pub fn container_visible(&self) -> bool {
-        let ns = &self.node_state;
+        let ns = &self.node_state[LiveTL];
         ns.visible.get() && ns.fullscreen.is_none()
     }
 
     pub fn float_visible(&self) -> bool {
-        let ns = &self.node_state;
+        let ns = &self.node_state[LiveTL];
         ns.visible.get() && (ns.fullscreen.is_none() || self.state.float_above_fullscreen.get())
     }
 
@@ -274,7 +262,7 @@ impl WorkspaceNode {
         if output.is_dummy {
             return;
         }
-        let ns = &self.node_state;
+        let ns = &self.node_state[LiveTL];
         let old = self.set_ns_position(*rect);
         if let Some(c) = ns.container.get() {
             c.tl_change_extents(rect);
@@ -305,7 +293,7 @@ impl WorkspaceNode {
     }
 
     pub fn set_visible(self: &Rc<Self>, visible: bool) {
-        let ns = &self.node_state;
+        let ns = &self.node_state[LiveTL];
         self.set_ns_visible(visible);
         for jw in self.jay_workspaces.lock().values() {
             jw.send_visible(visible);
@@ -335,7 +323,7 @@ impl WorkspaceNode {
     }
 
     pub fn set_fullscreen_node(self: &Rc<Self>, node: &Rc<dyn ToplevelNode>) {
-        let ns = &self.node_state;
+        let ns = &self.node_state[LiveTL];
         if let Some(prev) = self.set_ns_fullscreen(Some(node)) {
             self.discard_child_properties(&*prev);
         }
@@ -349,7 +337,7 @@ impl WorkspaceNode {
     }
 
     pub fn remove_fullscreen_node(self: &Rc<Self>) {
-        let ns = &self.node_state;
+        let ns = &self.node_state[LiveTL];
         if let Some(node) = self.set_ns_fullscreen(None) {
             self.discard_child_properties(&*node);
             if ns.visible.get() {
@@ -377,12 +365,15 @@ impl WorkspaceNode {
             for wh in self.ext_workspaces.lock().values() {
                 wh.handle_urgent_changed();
             }
-            self.node_state.output.get().schedule_update_render_data();
+            self.node_state[LiveTL]
+                .output
+                .get()
+                .schedule_update_render_data();
         }
     }
 
     pub fn location(&self) -> NodeLocation {
-        NodeLocation::Workspace(self.node_state.output.id(), self.id)
+        NodeLocation::Workspace(self.node_state[LiveTL].output.id(), self.id)
     }
 
     pub fn collect_kb_foci(self: &Rc<Self>) -> SmallVec<[Rc<WlSeatGlobal>; 3]> {
@@ -399,7 +390,7 @@ impl WorkspaceNode {
     }
 
     pub fn do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) -> bool {
-        let ns = &self.node_state;
+        let ns = &self.node_state[LiveTL];
         if let Some(fs) = ns.fullscreen.get() {
             fs.node_do_focus_dyn(seat, direction);
         } else if self.stacked.is_not_empty()
@@ -412,7 +403,7 @@ impl WorkspaceNode {
             .stacked
             .rev_iter()
             .filter_map(|node| (*node).clone().node_into_float())
-            .find_map(|float| float.node_state.child.get())
+            .find_map(|float| float.node_state[LiveTL].child.get())
         {
             child.node_do_focus_dyn(seat, direction);
         } else if self.ty == WorkspaceType::Normal {
@@ -424,32 +415,41 @@ impl WorkspaceNode {
     }
 
     fn set_ns_output(self: &Rc<Self>, v: &Rc<OutputNode>) -> Rc<OutputNode> {
-        self.node_state.output.set(v.clone())
+        self.add_transaction_op(WorkspaceTransactionOp::SetOutput(v.clone()));
+        self.node_state[LiveTL].output.set(v.clone())
     }
 
     fn set_ns_position(self: &Rc<Self>, v: Rect) -> Rect {
-        self.node_state.position.replace(v)
+        self.add_transaction_op(WorkspaceTransactionOp::SetPosition(v));
+        self.node_state[LiveTL].position.replace(v)
     }
 
     fn set_ns_container(self: &Rc<Self>, v: Option<&Rc<ContainerNode>>) {
-        self.node_state.container.set(v.cloned());
+        self.add_transaction_op(WorkspaceTransactionOp::SetContainer(v.cloned()));
+        self.node_state[LiveTL].container.set(v.cloned());
     }
 
     pub fn set_ns_output_link(self: &Rc<Self>, v: Option<LinkedNode<WorkspaceOutputLink>>) {
         let ref_ = v.as_ref().map(|v| v.to_ref());
-        self.node_state.output_link.set(ref_);
-        self.output_link.set(v);
+        self.add_transaction_op(WorkspaceTransactionOp::SetOutputLink(ref_.clone()));
+        self.node_state[LiveTL].output_link.set(ref_);
+        if let Some(old) = self.output_link.replace(v) {
+            old.set_invalid();
+            self.add_transaction_op(WorkspaceTransactionOp::Unlink(old));
+        }
     }
 
     fn set_ns_visible(self: &Rc<Self>, v: bool) {
-        self.node_state.visible.set(v);
+        self.add_transaction_op(WorkspaceTransactionOp::SetVisible(v));
+        self.node_state[LiveTL].visible.set(v);
     }
 
     fn set_ns_fullscreen(
         self: &Rc<Self>,
         v: Option<&Rc<dyn ToplevelNode>>,
     ) -> Option<Rc<dyn ToplevelNode>> {
-        self.node_state.fullscreen.set(v.cloned())
+        self.add_transaction_op(WorkspaceTransactionOp::SetFullscreen(v.cloned()));
+        self.node_state[LiveTL].fullscreen.set(v.cloned())
     }
 }
 
@@ -467,7 +467,7 @@ impl NodeBase for WorkspaceNode {
     }
 
     fn node_visit_children(&self, visitor: &mut dyn NodeVisitor) {
-        let ns = &self.node_state;
+        let ns = &self.node_state[LiveTL];
         if let Some(c) = ns.container.get() {
             visitor.visit_container(&c);
         }
@@ -476,16 +476,16 @@ impl NodeBase for WorkspaceNode {
         }
     }
 
-    fn node_visible(&self) -> bool {
-        self.node_state.visible.get()
+    fn node_visible(&self, tl: TreeTimeline) -> bool {
+        self.node_state[tl].visible.get()
     }
 
-    fn node_absolute_position(&self) -> Rect {
-        self.node_state.position.get()
+    fn node_absolute_position(&self, tl: TreeTimeline) -> Rect {
+        self.node_state[tl].position.get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
-        Some(self.node_state.output.get())
+        Some(self.node_state[LiveTL].output.get())
     }
 
     fn node_workspace(&self) -> Option<Rc<WorkspaceNode>> {
@@ -508,9 +508,9 @@ impl NodeBase for WorkspaceNode {
     }
 
     fn node_active_changed(&self, _active: bool) {
-        let output = self.node_state.output.get();
+        let output = self.node_state[LiveTL].output.get();
         self.state
-            .damage(output.node_state.rects.bar_separator.get());
+            .schedule_damage(output.node_state[LiveTL].rects.bar_separator.get());
     }
 
     fn node_find_tree_at(
@@ -520,7 +520,7 @@ impl NodeBase for WorkspaceNode {
         tree: &mut Vec<FoundNode>,
         usecase: FindTreeUsecase,
     ) -> FindTreeResult {
-        if let Some(n) = self.node_state.container.get() {
+        if let Some(n) = self.node_state[LiveTL].container.get() {
             tree.push(FoundNode {
                 node: n.clone(),
                 x,
@@ -540,7 +540,7 @@ impl NodeBase for WorkspaceNode {
             return;
         }
         self.state
-            .show_workspace2(None, &self.node_state.output.get(), self);
+            .show_workspace2(None, &self.node_state[LiveTL].output.get(), self);
     }
 
     fn node_on_pointer_focus(&self, seat: &Rc<WlSeatGlobal>) {
@@ -573,7 +573,7 @@ impl NodeBase for WorkspaceNode {
 
 impl ContainingNode for WorkspaceNode {
     fn cnode_replace_child(self: Rc<Self>, old: &dyn Node, new: Rc<dyn ToplevelNode>) {
-        if let Some(container) = self.node_state.container.get()
+        if let Some(container) = self.node_state[LiveTL].container.get()
             && container.node_id() == old.node_id()
         {
             let new = match new.node_into_container() {
@@ -590,13 +590,12 @@ impl ContainingNode for WorkspaceNode {
     }
 
     fn cnode_remove_child2(self: Rc<Self>, child: &dyn Node, _preserve_focus: bool) {
-        let ns = &self.node_state;
+        let ns = &self.node_state[LiveTL];
         if let Some(container) = ns.container.get()
             && container.node_id() == child.node_id()
         {
             self.discard_child_properties(&*container);
             self.set_ns_container(None);
-            self.state.damage(ns.position.get());
             return;
         }
         if let Some(fs) = ns.fullscreen.get()
@@ -637,12 +636,12 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
         target.show_workspace(&ws);
         return;
     }
-    let ns = &ws.node_state;
+    let ns = &ws.node_state[LiveTL];
     if ns.output_link.is_none() {
         return;
     }
     let source = ns.output.get();
-    let sns = &source.node_state;
+    let sns = &source.node_state[LiveTL];
     if let Some(visible) = sns.workspace.id()
         && visible == ws.id
     {
@@ -652,9 +651,9 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
     if !config.source_is_destroyed && !source.is_dummy && sns.workspace.is_none() {
         new_source_ws = source
             .workspaces
-            .iter()
+            .iter_valid(LiveTL)
             .find(|c| c.id != ws.id)
-            .map(|c| c.ws.clone());
+            .map(|c| c.item.clone());
         if new_source_ws.is_none() && source.pinned.is_not_empty() {
             new_source_ws = Some(source.generate_normal_workspace());
         }
@@ -676,14 +675,14 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
     let before = if target.state.workspace_display_order.get() == WorkspaceDisplayOrder::Sorted {
         target
             .find_workspace_insertion_point(&ws.name)
-            .map(|nr| nr.ws.clone())
+            .map(|nr| nr.item.clone())
     } else {
         config.before
     };
     let link = {
-        let data = WorkspaceOutputLink { ws: ws.clone() };
+        let data = TreeLink::new(ws.clone());
         if let Some(before) = before
-            && let Some(link) = before.node_state.output_link.get()
+            && let Some(link) = before.node_state[LiveTL].output_link.get()
         {
             link.prepend(data)
         } else {
@@ -691,7 +690,7 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
         }
     };
     ws.set_ns_output_link(Some(link));
-    let tns = &target.node_state;
+    let tns = &target.node_state[LiveTL];
     let make_visible = !target.is_dummy
         && (config.make_visible_always
             || (config.make_visible_if_empty && tns.workspace.is_none()));
@@ -710,11 +709,11 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
     if !source.is_dummy {
         source.schedule_update_render_data();
     }
-    if source.node_visible() {
-        target.state.damage(sns.pos.get());
+    if source.node_visible(LiveTL) {
+        source.schedule_damage();
     }
-    if target.node_visible() {
-        target.state.damage(tns.pos.get());
+    if target.node_visible(LiveTL) {
+        target.schedule_damage();
     }
 }
 
@@ -733,6 +732,59 @@ impl WorkspaceNodeState {
             output_link: Default::default(),
             visible: Default::default(),
             fullscreen: Default::default(),
+        }
+    }
+}
+
+pub enum WorkspaceTransactionOp {
+    SetOutput(Rc<OutputNode>),
+    SetPosition(Rect),
+    SetContainer(Option<Rc<ContainerNode>>),
+    SetOutputLink(Option<NodeRef<WorkspaceOutputLink>>),
+    SetVisible(bool),
+    SetFullscreen(Option<Rc<dyn ToplevelNode>>),
+    ClearTitleTexture,
+    Unlink(LinkedNode<WorkspaceOutputLink>),
+}
+
+impl Transactionable for WorkspaceNode {
+    type T = WorkspaceTransactionOp;
+
+    fn data(&self) -> &TransactionData<Self::T> {
+        &self.transaction_data
+    }
+
+    fn apply(self: &Rc<Self>, op: Self::T) {
+        let s = &self.node_state[RenderTL];
+        match op {
+            WorkspaceTransactionOp::SetOutput(v) => {
+                s.output.set(v);
+            }
+            WorkspaceTransactionOp::SetPosition(v) => {
+                s.position.set(v);
+            }
+            WorkspaceTransactionOp::SetContainer(v) => {
+                s.container.set(v);
+                self.state.damage(s.position.get());
+            }
+            WorkspaceTransactionOp::SetOutputLink(v) => {
+                if let Some(v) = &v {
+                    v.set_valid();
+                }
+                s.output_link.set(v);
+            }
+            WorkspaceTransactionOp::SetVisible(v) => {
+                s.visible.set(v);
+            }
+            WorkspaceTransactionOp::SetFullscreen(v) => {
+                s.fullscreen.set(v);
+            }
+            WorkspaceTransactionOp::ClearTitleTexture => {
+                self.title_texture.take();
+            }
+            WorkspaceTransactionOp::Unlink(v) => {
+                drop(v);
+            }
         }
     }
 }

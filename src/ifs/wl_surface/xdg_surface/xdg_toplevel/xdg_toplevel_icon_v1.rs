@@ -18,6 +18,7 @@ use {
         scale::Scale,
         state::State,
         theme::Color,
+        tree::TreeTimeline::LiveTL,
         utils::{
             clonecell::UnsafeCellCloneSafe, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
             numcell::NumCell, obj_and_id::ObjWithId, oserror::OsError, smallmap::SmallMap,
@@ -88,7 +89,7 @@ impl ToplevelIconUser {
 
 impl State {
     pub fn toplevel_icon_user(&self) -> ToplevelIconUser {
-        ToplevelIconUser::new(self.theme.title_icon_size())
+        ToplevelIconUser::new(self.theme.title_icon_size(LiveTL))
     }
 }
 
@@ -164,7 +165,7 @@ impl XdgToplevelIconV1 {
         let Some(ctx) = state.render_ctx.get() else {
             return;
         };
-        let th = state.theme.title_icon_size();
+        let th = state.theme.title_icon_size(LiveTL);
         let cs = Some((th, state.scales.version()));
         if self.considered_sizes.replace(cs) == cs {
             return;
@@ -183,7 +184,7 @@ impl XdgToplevelIconV1 {
         let buf_to_icon = &mut *self.buf_key_to_icon_key.borrow_mut();
         buf_to_icon.clear();
         let mut buf_keys = AHashSet::new();
-        let th = state.theme.title_icon_size();
+        let th = state.theme.title_icon_size(LiveTL);
         for &(scale, _) in &*state.scales.lock() {
             let [buffer_th] = scale.pixel_size([th]);
             let scalef = scale.to_f64();

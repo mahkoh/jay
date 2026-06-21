@@ -2132,6 +2132,14 @@ impl ConfigClient {
         visualize
     }
 
+    pub fn set_transaction_timeout(&self, timeout: Duration) {
+        self.send(&ClientMessage::SetTransactionTimeout { timeout });
+    }
+
+    pub fn set_configure_timeout(&self, timeout: Duration) {
+        self.send(&ClientMessage::SetConfigureTimeout { timeout });
+    }
+
     fn handle_msg(&self, msg: &[u8]) {
         self.handle_msg2(msg);
         self.dispatch_futures();

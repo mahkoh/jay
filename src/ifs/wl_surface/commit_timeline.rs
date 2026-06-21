@@ -17,7 +17,7 @@ use {
             SyncobjError,
             wait_for_syncobj::{SyncobjWaiter, WaitForSyncobj, WaitForSyncobjHandle},
         },
-        tree::BeforeLatchResult,
+        tree::{BeforeLatchResult, TreeSerial},
         utils::{
             box_cache::{BoxCache, BoxReset, BoxUninit, CachedBox},
             copyhashmap::CopyHashMap,
@@ -72,6 +72,7 @@ pub struct CommitTimeline {
     fifo_waiter: Cell<Option<Rc<Inner>>>,
     commit_time_waiter: RefCell<Option<CommitTimeWaiter>>,
     toplevel_restored_waiter: Cell<Option<Rc<Inner>>>,
+    serial_waiter: Cell<Option<Rc<Inner>>>,
 }
 
 #[derive(Default)]
@@ -164,6 +165,7 @@ impl CommitTimelines {
             fifo_waiter: Default::default(),
             commit_time_waiter: Default::default(),
             toplevel_restored_waiter: Default::default(),
+            serial_waiter: Default::default(),
         }
     }
 
@@ -200,6 +202,7 @@ impl CommitTimeline {
                 self.fifo_waiter.take();
                 self.commit_time_waiter.take();
                 self.toplevel_restored_waiter.take();
+                self.serial_waiter.take();
                 break_loops(&self.own_timeline)
             }
             ClearReason::Destroy => {
@@ -246,12 +249,14 @@ impl CommitTimeline {
         let commit_time = collector.commit_time;
         let toplevel_restored = collector.toplevel_restored;
         let has_commit_time = commit_time > 0;
+        let serial = pending.serial;
         let has_dependencies = points.is_not_empty()
             || pending_uploads > 0
             || needs_prime_copies
             || acquire_files.is_not_empty()
             || has_commit_time
-            || toplevel_restored.is_some();
+            || toplevel_restored.is_some()
+            || serial.is_some();
         let must_be_queued = has_dependencies
             || self.own_timeline.entries.is_not_empty()
             || (pending.fifo_barrier_wait && self.fifo_barrier_set.get());
@@ -288,6 +293,7 @@ impl CommitTimeline {
                 fifo_state: Cell::new(commit_fifo_state),
                 commit_times: RefCell::new(CommitTimesState::Ready),
                 toplevel_restored,
+                serial,
             })),
         );
         let mut needs_flush = commit_fifo_state == CommitFifoState::Queued;
@@ -333,6 +339,9 @@ impl CommitTimeline {
             if commit.toplevel_restored.is_some() {
                 needs_flush = true;
             }
+            if serial.is_some() {
+                needs_flush = true;
+            }
         }
         if needs_flush && queue_was_empty {
             flush_list(&self.own_timeline).map_err(CommitTimelineError::DelayedCommit)?;
@@ -357,6 +366,12 @@ impl CommitTimeline {
 
     pub fn toplevel_restored(&self) {
         if let Some(waiter) = self.toplevel_restored_waiter.take() {
+            self.shared.flush_requests.flush_waiters.push(waiter);
+        }
+    }
+
+    pub fn serial_unblocked(&self) {
+        if let Some(waiter) = self.serial_waiter.take() {
             self.shared.flush_requests.flush_waiters.push(waiter);
         }
     }
@@ -520,6 +535,7 @@ struct Commit {
     fifo_state: Cell<CommitFifoState>,
     commit_times: RefCell<CommitTimesState>,
     toplevel_restored: Option<Rc<Cell<bool>>>,
+    serial: Option<TreeSerial>,
 }
 
 fn flush_list(inner: &Rc<Inner>) -> Result<(), WlSurfaceError> {
@@ -584,6 +600,13 @@ impl Entry {
                 {
                     tl.toplevel_restored_waiter.set(Some(self.inner.clone()));
                     has_unmet_dependencies = true;
+                }
+                if !has_unmet_dependencies && let Some(serial) = c.serial {
+                    c.surface.unblock_transactions_until(serial);
+                    if c.surface.surface_transaction.commit_is_blocked(serial) {
+                        tl.serial_waiter.set(Some(self.inner.clone()));
+                        has_unmet_dependencies = true;
+                    }
                 }
                 if has_unmet_dependencies {
                     return Ok(false);

@@ -5,7 +5,7 @@ use {
         ifs::wl_seat::PositionHintRequest,
         leaks::Tracker,
         object::{Object, Version},
-        tree::NodeBase,
+        tree::{NodeBase, TreeTimeline::LiveTL},
         wire::{
             WpPointerWarpV1Id,
             wp_pointer_warp_v1::{Destroy, WarpPointer, WpPointerWarpV1RequestHandler},
@@ -84,7 +84,7 @@ impl WpPointerWarpV1RequestHandler for WpPointerWarpV1 {
         }
         let (x, y) = (req.x, req.y);
         let surface = self.client.lookup(req.surface)?;
-        let buffer = surface.node_absolute_position();
+        let buffer = surface.node_absolute_position(LiveTL);
         let (x_int, y_int) = buffer.translate_inv(x.round_down(), y.round_down());
         self.client
             .state

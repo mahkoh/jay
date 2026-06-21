@@ -73,7 +73,7 @@ use {
                 dnd_icon::DndIcon,
                 tray::{DynTrayItem, TrayItemId},
                 xdg_surface::{xdg_popup::XdgPopup, xdg_toplevel::ResizeEdges},
-                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
+                zwlr_layer_surface_v1::LayerSurfaceLink,
             },
             xdg_toplevel_drag_v1::XdgToplevelDragV1,
         },
@@ -86,8 +86,9 @@ use {
         tree::{
             ContainerNode, ContainerSplit, Direction, FoundNode, Node, NodeBase, NodeLayer,
             NodeLayerLink, NodeLocation, NodesStack, OutputNode, StackedNode, ToplevelNode,
-            WorkspaceChangeReason, WorkspaceNode, generic_node_visitor, toplevel_create_split,
-            toplevel_parent_container, toplevel_set_floating, toplevel_set_workspace,
+            TreeTimeline::LiveTL, WorkspaceChangeReason, WorkspaceNode, generic_node_visitor,
+            toplevel_create_split, toplevel_parent_container, toplevel_set_floating,
+            toplevel_set_workspace,
         },
         utils::{
             asyncevent::AsyncEvent,
@@ -598,7 +599,7 @@ impl WlSeatGlobal {
             && let Some(surface) = pn.node_into_surface()
         {
             let (mut x, mut y) = self.pointer_cursor.position();
-            let (sx, sy) = surface.buffer_abs_pos.get().position();
+            let (sx, sy) = surface.buffer_abs_pos[LiveTL].get().position();
             x -= Fixed::from_int(sx);
             y -= Fixed::from_int(sy);
             self.maybe_constrain(&surface, x, y);
@@ -632,7 +633,7 @@ impl WlSeatGlobal {
 
     pub fn get_fullscreen(&self) -> bool {
         if let Some(tl) = self.keyboard_node.get().node_toplevel() {
-            return tl.tl_data().is_fullscreen.get();
+            return tl.tl_data().is_fullscreen[LiveTL].get();
         }
         false
     }
@@ -735,11 +736,12 @@ impl WlSeatGlobal {
 
     pub fn get_mono(&self) -> Option<bool> {
         self.kb_parent_container()
-            .map(|c| c.node_state.mono_child.is_some())
+            .map(|c| c.node_state[LiveTL].mono_child.is_some())
     }
 
     pub fn get_split(&self) -> Option<ContainerSplit> {
-        self.kb_parent_container().map(|c| c.node_state.split.get())
+        self.kb_parent_container()
+            .map(|c| c.node_state[LiveTL].split.get())
     }
 
     pub fn set_mono(&self, mono: bool) {
@@ -829,7 +831,7 @@ impl WlSeatGlobal {
                 if let Some(ws) = self.keyboard_node.get().node_into_workspace()
                     && let Some(target) = self
                         .state
-                        .find_output_in_direction(&ws.node_state.output.get(), direction)
+                        .find_output_in_direction(&ws.node_state[LiveTL].output.get(), direction)
                 {
                     target.take_keyboard_navigation_focus(self, direction);
                     self.maybe_schedule_warp_mouse_to_focus();
@@ -841,8 +843,8 @@ impl WlSeatGlobal {
             tl.node_do_focus_dyn(self, direction);
         } else {
             let data = tl.tl_data();
-            if data.is_fullscreen.get()
-                && let Some(output) = data.output_opt()
+            if data.is_fullscreen[LiveTL].get()
+                && let Some(output) = data.output_opt(LiveTL)
                 && let Some(target) = self.state.find_output_in_direction(&output, direction)
             {
                 target.take_keyboard_navigation_focus(self, direction);
@@ -873,15 +875,15 @@ impl WlSeatGlobal {
             if let Some(ws) = self.keyboard_node.get().node_into_workspace()
                 && let Some(target) = self
                     .state
-                    .find_output_in_direction(&ws.node_state.output.get(), direction)
+                    .find_output_in_direction(&ws.node_state[LiveTL].output.get(), direction)
             {
                 self.state.move_ws_to_output(&ws, &target);
             }
             return;
         };
         let data = tl.tl_data();
-        if data.is_fullscreen.get()
-            && let Some(output) = data.output_opt()
+        if data.is_fullscreen[LiveTL].get()
+            && let Some(output) = data.output_opt(LiveTL)
             && let Some(target) = self.state.find_output_in_direction(&output, direction)
         {
             let ws = target.ensure_workspace();
@@ -1012,7 +1014,7 @@ impl WlSeatGlobal {
         });
         if !visible {
             node.clone().node_make_visible_dyn();
-            if !node.node_visible() {
+            if !node.node_visible(LiveTL) {
                 return;
             }
         }
@@ -1049,20 +1051,18 @@ impl WlSeatGlobal {
     fn focus_layer_rel<LI, SI>(
         self: &Rc<Self>,
         next_layer: impl Fn(NodeLayer) -> NodeLayer,
-        layer_node_next: impl Fn(
-            &NodeRef<Rc<ZwlrLayerSurfaceV1>>,
-        ) -> Option<NodeRef<Rc<ZwlrLayerSurfaceV1>>>,
+        layer_node_next: impl Fn(&NodeRef<LayerSurfaceLink>) -> Option<NodeRef<LayerSurfaceLink>>,
         stacked_node_next: impl Fn(
             &NodeRef<Rc<dyn StackedNode>>,
         ) -> Option<NodeRef<Rc<dyn StackedNode>>>,
-        layer_list_iter: impl Fn(&LinkedList<Rc<ZwlrLayerSurfaceV1>>) -> LI,
+        layer_list_iter: impl Fn(&LinkedList<LayerSurfaceLink>) -> LI,
         stacked_list_iter: impl Fn(&NodesStack) -> SI,
     ) where
-        LI: Iterator<Item = NodeRef<Rc<ZwlrLayerSurfaceV1>>>,
+        LI: Iterator<Item = NodeRef<LayerSurfaceLink>>,
         SI: Iterator<Item = NodeRef<Rc<dyn StackedNode>>>,
     {
         fn node_viable(n: &(impl Node + ?Sized)) -> bool {
-            n.node_visible() && n.node_accepts_focus()
+            n.node_visible(LiveTL) && n.node_accepts_focus()
         }
 
         let current = self.keyboard_node.get();
@@ -1076,7 +1076,7 @@ impl WlSeatGlobal {
             | NodeLayerLink::Layer2(l)
             | NodeLayerLink::Layer3(l) => {
                 if let Some(n) = layer_node_next(l)
-                    && node_viable(&**n)
+                    && node_viable(&*n.item)
                 {
                     n.node_do_focus(self, Direction::Unspecified);
                     self.maybe_schedule_warp_mouse_to_focus();
@@ -1109,10 +1109,10 @@ impl WlSeatGlobal {
             NodeLayerLink::OverlayTiled => {}
             NodeLayerLink::OverlayFullscreen => {}
         }
-        let handle_layer_shell = |l: &LinkedList<Rc<ZwlrLayerSurfaceV1>>| {
+        let handle_layer_shell = |l: &LinkedList<LayerSurfaceLink>| {
             for n in layer_list_iter(l) {
-                if node_viable(&**n) {
-                    return Some(n.deref().clone() as Rc<dyn Node>);
+                if node_viable(&*n.item) {
+                    return Some(n.item.clone() as Rc<dyn Node>);
                 }
             }
             None
@@ -1144,14 +1144,14 @@ impl WlSeatGlobal {
             }};
         }
         let handle_tiled = |ws: Option<&Rc<WorkspaceNode>>| {
-            ws.and_then(|w| w.node_state.container.get())
+            ws.and_then(|w| w.node_state[LiveTL].container.get())
                 .map(|n| n as Rc<dyn Node>)
         };
         let handle_fullscreen = |ws: Option<&Rc<WorkspaceNode>>| {
-            ws.and_then(|w| w.node_state.fullscreen.get())
+            ws.and_then(|w| w.node_state[LiveTL].fullscreen.get())
                 .map(|n| n as Rc<dyn Node>)
         };
-        let ons = &output.node_state;
+        let ons = &output.node_state[LiveTL];
         let ws = ons.workspace.get();
         let overlay = ons.overlay.get();
         let first = next_layer(current_layer.layer());
@@ -1195,20 +1195,20 @@ impl WlSeatGlobal {
     pub fn focus_layer_below(self: &Rc<Self>) {
         self.focus_layer_rel(
             |l| l.prev(),
+            |n| n.prev_valid(LiveTL),
             |n| n.prev(),
-            |n| n.prev(),
-            |l| l.rev_iter(),
-            |l| l.iter_visible_rev(),
+            |l| l.rev_iter_valid(LiveTL),
+            |l| l.iter_visible_rev(LiveTL),
         );
     }
 
     pub fn focus_layer_above(self: &Rc<Self>) {
         self.focus_layer_rel(
             |l| l.next(),
+            |n| n.next_valid(LiveTL),
             |n| n.next(),
-            |n| n.next(),
-            |l| l.iter(),
-            |l| l.iter_visible(),
+            |l| l.iter_valid(LiveTL),
+            |l| l.iter_visible(LiveTL),
         );
     }
 
@@ -1223,12 +1223,12 @@ impl WlSeatGlobal {
         let Some(output) = current.node_output() else {
             return;
         };
-        let ons = &output.node_state;
+        let ons = &output.node_state[LiveTL];
         for layer in [&ons.overlay, &ons.workspace] {
             let Some(ws) = layer.get() else {
                 continue;
             };
-            let wns = &ws.node_state;
+            let wns = &ws.node_state[LiveTL];
             let node = match wns.fullscreen.get() {
                 Some(fs) => fs as Rc<dyn Node>,
                 _ => match wns.container.get() {
@@ -1236,7 +1236,7 @@ impl WlSeatGlobal {
                     _ => continue,
                 },
             };
-            if node.node_visible() && node.node_accepts_focus() {
+            if node.node_visible(LiveTL) && node.node_accepts_focus() {
                 node.node_do_focus_dyn(self, Direction::Unspecified);
                 self.maybe_schedule_warp_mouse_to_focus();
                 break;
@@ -1809,8 +1809,7 @@ impl WlSeatRequestHandler for WlSeat {
             && surface.client.id == self.client.id
         {
             let (x, y) = self.global.pointer_cursor.position();
-            let (x_int, y_int) = surface
-                .buffer_abs_pos
+            let (x_int, y_int) = surface.buffer_abs_pos[LiveTL]
                 .get()
                 .translate(x.round_down(), y.round_down());
             p.send_enter(
@@ -2005,9 +2004,9 @@ impl DeviceHandlerData {
         if let Some(output) = self.output.get()
             && let Some(output) = output.node()
         {
-            return output.node_state.pos.get();
+            return output.node_state[LiveTL].pos.get();
         }
-        state.root.node_state.extents.get()
+        state.root.node_state[LiveTL].extents.get()
     }
 
     pub fn set_accel_profile(&self, state: &State, v: InputDeviceAccelProfile) {
@@ -2121,9 +2120,9 @@ pub async fn handle_warp_mouse_to_focus(state: Rc<State>) {
             if node.node_is_display() {
                 continue;
             }
-            let (mut x, mut y) = node.node_absolute_position().center();
+            let (mut x, mut y) = node.node_absolute_position(LiveTL).center();
             if let Some(tl) = node.node_toplevel() {
-                (x, y) = tl.node_absolute_position().center();
+                (x, y) = tl.node_absolute_position(LiveTL).center();
             }
             let (x, y) = (Fixed::from_int(x), Fixed::from_int(y));
             seat.motion_event_abs(state.now_usec(), x, y, Warp);

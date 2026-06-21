@@ -14,6 +14,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         state::OutputData,
+        tree::TreeTimeline::LiveTL,
         utils::{copyhashmap::CopyHashMap, numcell::NumCell},
         wire::{ZwlrOutputManagerV1Id, zwlr_output_manager_v1::*},
     },
@@ -195,9 +196,9 @@ impl ZwlrOutputManagerV1 {
         }
         if let Some(node) = &output.node {
             let p = &node.global.persistent;
-            head.send_scale(node.node_state.scale.get());
+            head.send_scale(node.node_state[LiveTL].scale.get());
             head.send_position(p.pos.get().0, p.pos.get().1);
-            head.send_transform(node.node_state.transform.get());
+            head.send_transform(node.node_state[LiveTL].transform.get());
             if head.version >= ADAPTIVE_SYNC_SINCE {
                 head.send_adaptive_sync(&p.vrr_mode.get());
             }

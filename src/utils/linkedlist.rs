@@ -305,7 +305,6 @@ impl<T> NodeRef<T> {
         }
     }
 
-    #[expect(dead_code)]
     pub fn prev_with<G>(&self, with: G) -> Option<NodeRef<T>>
     where
         G: Fn(&T) -> bool,
@@ -313,7 +312,6 @@ impl<T> NodeRef<T> {
         self.peer_with(|d| &d.prev, with)
     }
 
-    #[expect(dead_code)]
     pub fn next_with<G>(&self, with: G) -> Option<NodeRef<T>>
     where
         G: Fn(&T) -> bool,

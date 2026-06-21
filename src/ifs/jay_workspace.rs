@@ -3,7 +3,7 @@ use {
         client::{Client, ClientError},
         leaks::Tracker,
         object::{Object, Version},
-        tree::{OutputNode, WorkspaceNode},
+        tree::{OutputNode, TreeTimeline::LiveTL, WorkspaceNode},
         utils::clonecell::CloneCell,
         wire::{JayWorkspaceId, jay_workspace::*},
     },
@@ -20,7 +20,7 @@ pub struct JayWorkspace {
 
 impl JayWorkspace {
     pub fn send_initial_properties(&self, workspace: &WorkspaceNode) {
-        let ns = &workspace.node_state;
+        let ns = &workspace.node_state[LiveTL];
         self.send_linear_id(workspace);
         self.send_name(workspace);
         self.send_output(&ns.output.get());
