@@ -61,7 +61,6 @@ pub struct FloatNode {
     pub seat_state: NodeSeatState,
     pub layout_scheduled: Cell<bool>,
     pub render_titles_scheduled: Cell<bool>,
-    pub title_rect: Cell<Rect>,
     pub title: RefCell<String>,
     pub title_textures: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
     pub icon: ToplevelIconUser,
@@ -78,6 +77,7 @@ pub struct FloatNodeState {
     pub child: CloneCell<Option<Rc<dyn ToplevelNode>>>,
     #[derivative(Default(value = "Cell::new(WorkspaceType::Normal)"))]
     pub workspace_ty: Cell<WorkspaceType>,
+    pub title_rect: Cell<Rect>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -160,7 +160,6 @@ impl FloatNode {
             seat_state: Default::default(),
             layout_scheduled: Cell::new(false),
             render_titles_scheduled: Cell::new(false),
-            title_rect: Default::default(),
             title: Default::default(),
             title_textures: Default::default(),
             icon: state.toplevel_icon_user(),
@@ -234,7 +233,7 @@ impl FloatNode {
         );
         let tr = Rect::new_sized_saturating(bw, bw, pos.width() - 2 * bw, th);
         child.clone().tl_change_extents(&cpos);
-        self.title_rect.set(tr);
+        self.set_ns_title_rect(tr);
         self.layout_scheduled.set(false);
         self.schedule_render_titles();
     }
@@ -259,7 +258,7 @@ impl FloatNode {
             _ => return on_completed.event(),
         };
         let scales = self.state.scales.lock();
-        let tr = self.title_rect.get();
+        let tr = self.node_state.title_rect.get();
         let tt = &mut *self.title_textures.borrow_mut();
         self.icons.clear();
         for (scale, _) in scales.iter() {
@@ -771,6 +770,10 @@ impl FloatNode {
 
     fn set_ns_workspace_type(self: &Rc<Self>, v: WorkspaceType) {
         self.node_state.workspace_ty.set(v);
+    }
+
+    fn set_ns_title_rect(self: &Rc<Self>, v: Rect) {
+        self.node_state.title_rect.set(v);
     }
 }
 

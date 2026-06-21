@@ -668,7 +668,7 @@ impl Renderer<'_> {
         )];
         self.base
             .fill_boxes(&title_underline, &uc, srgb, perceptual);
-        let rect = floating.title_rect.get().move_(x, y);
+        let rect = ns.title_rect.get().move_(x, y);
         let bounds = self.base.scale_rect(rect);
         let (mut x1, y1) = rect.position();
         if ns.workspace_ty.get() == WorkspaceType::Overlay {
