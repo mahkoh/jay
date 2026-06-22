@@ -195,6 +195,7 @@ pub struct ContainerChildInner {
     ty: Cell<ContainerChildType>,
     pub node_state: SplitView<ContainerChildNodeState>,
     factor: Cell<f64>,
+    resize_handle: Cell<Option<Rect>>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -266,6 +267,7 @@ impl ContainerNode {
             attention_requested: Cell::new(false),
             ty: Default::default(),
             node_state: Default::default(),
+            resize_handle: Default::default(),
         }));
         child.tl_update_icon(&child_node.icon);
         let child_node_ref = child_node.clone();
@@ -399,6 +401,7 @@ impl ContainerNode {
                 attention_requested: Default::default(),
                 ty: Default::default(),
                 node_state: Default::default(),
+                resize_handle: Default::default(),
             }));
             let r = link.to_ref();
             links.insert(new.node_id(), link);
@@ -616,6 +619,7 @@ impl ContainerNode {
             }
         }
         self.sum_factors.set(1.0);
+        let mut resize_handle = None;
         for child in self.children.iter_valid(LiveTL) {
             let cns = &child.node_state[LiveTL];
             let body = cns.body.get();
@@ -628,6 +632,15 @@ impl ContainerNode {
                     title_height_tmp,
                 ),
             );
+            child.resize_handle.set(resize_handle);
+            resize_handle = Some(match split {
+                ContainerSplit::Horizontal => {
+                    Rect::new_sized_saturating(body.x2(), body.y1(), border_width, body.height())
+                }
+                ContainerSplit::Vertical => {
+                    Rect::new_sized_saturating(body.x1(), body.y2(), body.width(), border_width)
+                }
+            });
             let body = body.move_(ns.abs_x1.get(), ns.abs_y1.get());
             child.node.clone().tl_change_extents(&body);
             self.position_child_content(&child);
@@ -677,7 +690,6 @@ impl ContainerNode {
     ) {
         let mut x = x.round_down();
         let mut y = y.round_down();
-        let title_plus_underline_height = self.state.theme.title_plus_underline_height(LiveTL);
         let mut seats = self.cursors.borrow_mut();
         let seat_state = seats.entry(id).or_insert_with(|| CursorState {
             cursor: KnownCursor::Default,
@@ -749,20 +761,16 @@ impl ContainerNode {
         }
         let new_cursor = if ns.mono_child.is_some() {
             KnownCursor::Default
-        } else if ns.split.get() == ContainerSplit::Horizontal {
-            if y < title_plus_underline_height {
-                KnownCursor::Default
-            } else {
-                KnownCursor::EwResize
-            }
         } else {
             let mut cursor = KnownCursor::Default;
             for child in self.children.iter_valid(LiveTL) {
-                let body = child.node_state[LiveTL].body.get();
-                if body.y1() > y {
-                    if body.y1() - y > title_plus_underline_height {
-                        cursor = KnownCursor::NsResize
-                    }
+                if let Some(rect) = child.resize_handle.get()
+                    && rect.contains(x, y)
+                {
+                    cursor = match ns.split.get() {
+                        ContainerSplit::Horizontal => KnownCursor::EwResize,
+                        ContainerSplit::Vertical => KnownCursor::NsResize,
+                    };
                     break;
                 }
             }
@@ -1420,36 +1428,22 @@ impl ContainerNode {
                             .clone()
                             .node_do_focus_dyn(seat, Direction::Unspecified);
                         break 'res (SeatOpKind::Move, child);
-                    } else if !mono {
-                        if ns.split.get() == ContainerSplit::Horizontal {
-                            if seat_data.x < rect.x1() {
-                                break 'res (
-                                    SeatOpKind::Resize {
-                                        dist_left: seat_data.x
-                                            - child.prev_valid(LiveTL).unwrap().node_state[LiveTL]
-                                                .body
-                                                .get()
-                                                .x2(),
-                                        dist_right: cns.body.get().x1() - seat_data.x,
-                                    },
-                                    child,
-                                );
+                    } else if !mono
+                        && let Some(resize_handle) = child.resize_handle.get()
+                        && resize_handle.contains(seat_data.x, seat_data.y)
+                    {
+                        let op = if ns.split.get() == ContainerSplit::Horizontal {
+                            SeatOpKind::Resize {
+                                dist_left: seat_data.x - resize_handle.x1(),
+                                dist_right: cns.body.get().x1() - seat_data.x,
                             }
                         } else {
-                            if seat_data.y < rect.y1() {
-                                break 'res (
-                                    SeatOpKind::Resize {
-                                        dist_left: seat_data.y
-                                            - child.prev_valid(LiveTL).unwrap().node_state[LiveTL]
-                                                .body
-                                                .get()
-                                                .y2(),
-                                        dist_right: cns.body.get().y1() - seat_data.y,
-                                    },
-                                    child,
-                                );
+                            SeatOpKind::Resize {
+                                dist_left: seat_data.y - resize_handle.y1(),
+                                dist_right: cns.body.get().y1() - seat_data.y,
                             }
-                        }
+                        };
+                        break 'res (op, child);
                     }
                 }
                 return;
@@ -2166,6 +2160,7 @@ impl ContainingNode for ContainerNode {
             focus_history: Cell::new(None),
             attention_requested: Cell::new(false),
             ty: Default::default(),
+            resize_handle: Cell::new(node.resize_handle.get()),
         }));
         self.set_child_ns_title_rect(&link, node.node_state[LiveTL].title_rect.get());
         self.set_child_ns_body(&link, node.node_state[LiveTL].body.get());
