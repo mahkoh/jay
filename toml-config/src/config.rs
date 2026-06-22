@@ -36,7 +36,7 @@ use {
         keyboard::{Keymap, ModifiedKeySym, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
         status::MessageFormat,
-        theme::{BarPosition, Color},
+        theme::{BarPosition, Color, ContainerBorders},
         video::{BlendSpace, ColorSpace, Eotf, Format, GfxApi, TearingMode, Transform, VrrMode},
         window::{ContentType, TileState, WindowType},
         workspace::WorkspaceDisplayOrder,
@@ -219,6 +219,7 @@ pub struct Theme {
     pub bar_bg_color: Option<Color>,
     pub bar_status_text_color: Option<Color>,
     pub border_color: Option<Color>,
+    pub focused_border_color: Option<Color>,
     pub captured_focused_title_bg_color: Option<Color>,
     pub captured_unfocused_title_bg_color: Option<Color>,
     pub focused_inactive_title_bg_color: Option<Color>,
@@ -239,6 +240,7 @@ pub struct Theme {
     pub bar_separator_width: Option<i32>,
     pub show_window_icons: Option<bool>,
     pub window_icons_grayscale: Option<bool>,
+    pub container_borders: Option<ContainerBorders>,
 }
 
 #[derive(Debug, Clone, Default)]

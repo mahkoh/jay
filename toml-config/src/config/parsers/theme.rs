@@ -13,7 +13,7 @@ use {
         },
     },
     indexmap::IndexMap,
-    jay_config::theme::BarPosition,
+    jay_config::theme::{BarPosition, ContainerBorders},
     thiserror::Error,
 };
 
@@ -69,6 +69,8 @@ impl Parser for ThemeParser<'_> {
                 bar_separator_width,
                 show_window_icons,
                 window_icons_grayscale,
+                container_borders_val,
+                focused_border_color,
             ),
         ) = ext.extract((
             (
@@ -101,6 +103,8 @@ impl Parser for ThemeParser<'_> {
                 recover(opt(s32("bar-separator-width"))),
                 recover(opt(bol("show-window-icons"))),
                 recover(opt(bol("window-icons-grayscale"))),
+                recover(opt(str("container-borders"))),
+                opt(val("focused-border-color")),
             ),
         ))?;
         macro_rules! color {
@@ -130,12 +134,26 @@ impl Parser for ThemeParser<'_> {
                     None
                 }
             });
+        let container_borders =
+            container_borders_val.and_then(|value| match value.value.to_lowercase().as_str() {
+                "separators" => Some(ContainerBorders::Separators),
+                "full" => Some(ContainerBorders::Full),
+                _ => {
+                    log::warn!(
+                        "Unknown container borders '{}': {}",
+                        value.value,
+                        self.0.error3(value.span)
+                    );
+                    None
+                }
+            });
         Ok(Theme {
             attention_requested_bg_color: color!(attention_requested_bg_color),
             bg_color: color!(bg_color),
             bar_bg_color: color!(bar_bg_color),
             bar_status_text_color: color!(bar_status_text_color),
             border_color: color!(border_color),
+            focused_border_color: color!(focused_border_color),
             captured_focused_title_bg_color: color!(captured_focused_title_bg_color),
             captured_unfocused_title_bg_color: color!(captured_unfocused_title_bg_color),
             focused_inactive_title_bg_color: color!(focused_inactive_title_bg_color),
@@ -156,6 +174,7 @@ impl Parser for ThemeParser<'_> {
             bar_separator_width: bar_separator_width.despan(),
             show_window_icons: show_window_icons.despan(),
             window_icons_grayscale: window_icons_grayscale.despan(),
+            container_borders,
         })
     }
 }

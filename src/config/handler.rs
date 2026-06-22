@@ -68,7 +68,7 @@ use {
         },
         keyboard::{Group, Keymap, mods::Modifiers, syms::KeySym},
         logging::LogLevel as ConfigLogLevel,
-        theme::{BarPosition, colors::Colorable, sized::Resizable},
+        theme::{BarPosition, ContainerBorders, colors::Colorable, sized::Resizable},
         timer::Timer as JayTimer,
         video::{
             BlendSpace as ConfigBlendSpace, ColorSpace, Connector, DrmDevice, Eotf as ConfigEotf,
@@ -2747,6 +2747,7 @@ impl ConfigProxyHandler {
             BAR_STATUS_TEXT_COLOR => ThemeColored::bar_text,
             ATTENTION_REQUESTED_BACKGROUND_COLOR => ThemeColored::attention_requested_background,
             HIGHLIGHT_COLOR => ThemeColored::highlight,
+            FOCUSED_BORDER_COLOR => ThemeColored::focused_border,
             _ => return Err(CphError::UnknownColor(colorable.0)),
         };
         Ok(colorable)
@@ -3062,6 +3063,20 @@ impl ConfigProxyHandler {
     fn handle_set_configure_timeout(&self, timeout: Duration) {
         self.state
             .set_configure_timeout_ns(timeout.as_nanos().saturating_cast());
+    }
+
+    fn handle_set_container_borders(&self, borders: ContainerBorders) -> Result<(), CphError> {
+        let Ok(borders) = borders.try_into() else {
+            return Err(CphError::UnknownContainerBorders(borders));
+        };
+        self.state.set_container_borders(borders);
+        Ok(())
+    }
+
+    fn handle_get_container_borders(&self) {
+        self.respond(Response::GetContainerBorders {
+            borders: self.state.theme.container_borders[LiveTL].get().into(),
+        });
     }
 
     pub fn handle_request(self: &Rc<Self>, msg: &[u8]) {
@@ -3784,6 +3799,10 @@ impl ConfigProxyHandler {
             ClientMessage::SetConfigureTimeout { timeout } => {
                 self.handle_set_configure_timeout(timeout)
             }
+            ClientMessage::SetContainerBorders { borders } => self
+                .handle_set_container_borders(borders)
+                .wrn("set_container_borders")?,
+            ClientMessage::GetContainerBorders => self.handle_get_container_borders(),
         }
         Ok(())
     }
@@ -3943,6 +3962,8 @@ enum CphError {
     CreateTaggedAcceptor(#[source] TaggedAcceptorError),
     #[error("Keymap must be defined through a map or rmlvo names")]
     MissingKeymapKind,
+    #[error("Unknown container borders {0:?}")]
+    UnknownContainerBorders(ContainerBorders),
 }
 
 trait WithRequestName {

@@ -2477,6 +2477,16 @@ Theme:
       ref: Color
       required: false
       description: The color of the borders between windows.
+    focused-border-color:
+      ref: Color
+      required: false
+      description: |
+        The color of the borders between windows where at least one of the windows is
+        focused.
+        
+        Requires the `full` container borders style for containers.
+        
+        Defaults to the same color as the border color.
     captured-focused-title-bg-color:
       ref: Color
       required: false
@@ -2573,6 +2583,10 @@ Theme:
         The default is `false`.
       kind: boolean
       required: false
+    container-borders:
+      ref: ContainerBorders
+      required: false
+      description: The container border style. Defaults to `separators` if not set.
 
 
 Config:
@@ -4980,3 +4994,13 @@ Timeout:
       minimum: 0
       required: false
       description: The microseconds.
+
+
+ContainerBorders:
+  kind: string
+  description: The container border style.
+  values:
+    - value: separators
+      description: Only separators are drawn between children.
+    - value: full
+      description: A border is drawn around the entire container.

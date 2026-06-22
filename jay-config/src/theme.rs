@@ -197,6 +197,28 @@ pub fn get_bar_position() -> BarPosition {
     get!(BarPosition::Top).get_bar_position()
 }
 
+#[non_exhaustive]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Default)]
+pub enum ContainerBorders {
+    /// Only separators are drawn between children.
+    #[default]
+    Separators,
+    /// A border is drawn around the entire container.
+    Full,
+}
+
+/// Sets the container border style.
+///
+/// Default: `Separators`.
+pub fn set_container_borders(borders: ContainerBorders) {
+    get!().set_container_borders(borders);
+}
+
+/// Gets the container border style.
+pub fn get_container_borders() -> ContainerBorders {
+    get!(ContainerBorders::Separators).get_container_borders()
+}
+
 /// Sets the proportional fonts used by egui windows.
 ///
 /// The default is `["sans-serif", "Noto Sans", "Noto Color Emoji"]`.
@@ -332,6 +354,13 @@ pub mod colors {
         ///
         /// Default: `#9d28c67f`.
         const 15 => HIGHLIGHT_COLOR,
+        /// The color of the border between windows where at least one of the windows is
+        /// focused.
+        ///
+        /// For containers, this requires `Full` [`ContainerBorders`].
+        ///
+        /// Default: The `BORDER` color.
+        const 16 => FOCUSED_BORDER_COLOR,
     }
 
     /// Sets the color of GUI element.

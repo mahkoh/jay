@@ -104,7 +104,7 @@ use {
         sqlite::Sqlite,
         syncobj::wait_for_syncobj::WaitForSyncobj,
         tagged_acceptor::TaggedAcceptors,
-        theme::{BarPosition, Color, Theme, ThemeColored, ThemeSized},
+        theme::{BarPosition, Color, ContainerBorders, Theme, ThemeColored, ThemeSized},
         time::Time,
         transactions::{TransactionData, Transactionable, TransactionableExt, Transactions},
         tree::{
@@ -2246,6 +2246,12 @@ impl State {
         self.add_transaction_op(StateTransactionOp::SetBarPosition(p));
     }
 
+    pub fn set_container_borders(self: &Rc<Self>, p: ContainerBorders) {
+        self.theme.container_borders[LiveTL].set(p);
+        self.spaces_changed();
+        self.add_transaction_op(StateTransactionOp::SetContainerBorders(p));
+    }
+
     fn set_size_(&self, tl: TreeTimeline, sized: ThemeSized, size: i32) {
         let field = sized.field(&self.theme);
         field.val[tl].set(size);
@@ -2493,6 +2499,7 @@ pub enum StateTransactionOp {
     SetBarPosition(BarPosition),
     SetSize(ThemeSized, i32),
     Damage(Rect),
+    SetContainerBorders(ContainerBorders),
 }
 
 impl Transactionable for State {
@@ -2527,6 +2534,9 @@ impl Transactionable for State {
             }
             StateTransactionOp::Damage(v) => {
                 self.damage(v);
+            }
+            StateTransactionOp::SetContainerBorders(v) => {
+                self.theme.container_borders[RenderTL].set(v);
             }
         }
     }

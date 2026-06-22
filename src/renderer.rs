@@ -329,6 +329,9 @@ impl Renderer<'_> {
             let c = self.state.theme.colors.separator.get();
             self.base
                 .fill_boxes2(&rd.underline_rects, &c, srgb, perceptual, x, y);
+            let c = self.state.theme.focused_border_color();
+            self.base
+                .fill_boxes2(&rd.active_border_rects, &c, srgb, perceptual, x, y);
             let c = self.state.theme.colors.border.get();
             self.base
                 .fill_boxes2(&rd.border_rects, &c, srgb, perceptual, x, y);
@@ -638,7 +641,10 @@ impl Renderer<'_> {
         let tpuh = theme.title_plus_underline_height(RenderTL);
         let tuh = theme.title_underline_height(RenderTL);
         let bw = theme.sizes.border_width.get(RenderTL);
-        let bc = theme.colors.border.get();
+        let bc = match ns.active.get() {
+            true => theme.focused_border_color(),
+            false => theme.colors.border.get(),
+        };
         let tc = if ns.active.get() {
             theme.colors.focused_title_background.get()
         } else if ns.attention_requested.get() {
