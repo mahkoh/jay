@@ -2573,6 +2573,10 @@ Theme:
         The default is `false`.
       kind: boolean
       required: false
+    container-borders:
+      ref: ContainerBorders
+      required: false
+      description: The container border style. Defaults to `separators` if not set.
 
 
 Config:
@@ -4980,3 +4984,13 @@ Timeout:
       minimum: 0
       required: false
       description: The microseconds.
+
+
+ContainerBorders:
+  kind: string
+  description: The container border style.
+  values:
+    - value: separators
+      description: Only separators are drawn between children.
+    - value: full
+      description: A border is drawn around the entire container.

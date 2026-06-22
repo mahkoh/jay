@@ -137,6 +137,12 @@ impl LookAndFeelPane {
                     self.state.set_bar_font(v.is_not_empty().then_some(&v));
                 }
             });
+            combo_box(
+                ui,
+                "Container Borders",
+                t.container_borders[LiveTL].get(),
+                |p| self.state.set_container_borders(p),
+            );
         });
         if ui.button("Reset Sizes").clicked() {
             self.state.reset_sizes();

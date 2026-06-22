@@ -7,7 +7,9 @@ use {
         tree::{SplitView, TreeTimeline},
         utils::{clonecell::CloneCell, static_text::StaticText},
     },
-    jay_config::theme::BarPosition as ConfigBarPosition,
+    jay_config::theme::{
+        BarPosition as ConfigBarPosition, ContainerBorders as ConfigContainerBorders,
+    },
     linearize::Linearize,
     num_traits::Float,
     std::{
@@ -667,6 +669,44 @@ impl Into<ConfigBarPosition> for BarPosition {
     }
 }
 
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Linearize)]
+pub enum ContainerBorders {
+    #[default]
+    Separators,
+    Full,
+}
+
+impl StaticText for ContainerBorders {
+    fn text(&self) -> &'static str {
+        match self {
+            ContainerBorders::Separators => "Separators",
+            ContainerBorders::Full => "Full",
+        }
+    }
+}
+
+impl TryFrom<ConfigContainerBorders> for ContainerBorders {
+    type Error = ();
+
+    fn try_from(value: ConfigContainerBorders) -> Result<Self, Self::Error> {
+        let v = match value {
+            ConfigContainerBorders::Separators => ContainerBorders::Separators,
+            ConfigContainerBorders::Full => ContainerBorders::Full,
+            _ => return Err(()),
+        };
+        Ok(v)
+    }
+}
+
+impl Into<ConfigContainerBorders> for ContainerBorders {
+    fn into(self) -> ConfigContainerBorders {
+        match self {
+            ContainerBorders::Separators => ConfigContainerBorders::Separators,
+            ContainerBorders::Full => ConfigContainerBorders::Full,
+        }
+    }
+}
+
 pub struct Theme {
     pub colors: ThemeColors,
     pub sizes: ThemeSizes,
@@ -678,6 +718,7 @@ pub struct Theme {
     pub bar_position: SplitView<Cell<BarPosition>>,
     pub show_window_icons: Cell<bool>,
     pub window_icons_grayscale: Cell<bool>,
+    pub container_borders: SplitView<Cell<ContainerBorders>>,
 }
 
 impl Default for Theme {
@@ -694,6 +735,7 @@ impl Default for Theme {
             bar_position: Default::default(),
             show_window_icons: Cell::new(true),
             window_icons_grayscale: Cell::new(false),
+            container_borders: Default::default(),
         }
     }
 }

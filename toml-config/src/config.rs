@@ -36,7 +36,7 @@ use {
         keyboard::{Keymap, ModifiedKeySym, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
         status::MessageFormat,
-        theme::{BarPosition, Color},
+        theme::{BarPosition, Color, ContainerBorders},
         video::{BlendSpace, ColorSpace, Eotf, Format, GfxApi, TearingMode, Transform, VrrMode},
         window::{ContentType, TileState, WindowType},
         workspace::WorkspaceDisplayOrder,
@@ -239,6 +239,7 @@ pub struct Theme {
     pub bar_separator_width: Option<i32>,
     pub show_window_icons: Option<bool>,
     pub window_icons_grayscale: Option<bool>,
+    pub container_borders: Option<ContainerBorders>,
 }
 
 #[derive(Debug, Clone, Default)]

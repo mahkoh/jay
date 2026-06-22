@@ -13,7 +13,7 @@ use {
         },
         keyboard::{Group, Keymap, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
-        theme::{BarPosition, Color, colors::Colorable, sized::Resizable},
+        theme::{BarPosition, Color, ContainerBorders, colors::Colorable, sized::Resizable},
         timer::Timer,
         video::{
             BlendSpace, ColorSpace, Connector, DrmDevice, Eotf, Format, GfxApi, TearingMode,
@@ -933,6 +933,10 @@ pub enum ClientMessage<'a> {
     SetConfigureTimeout {
         timeout: Duration,
     },
+    SetContainerBorders {
+        borders: ContainerBorders,
+    },
+    GetContainerBorders,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1200,6 +1204,9 @@ pub enum Response {
     },
     GetVisualizeCompositing {
         visualize: bool,
+    },
+    GetContainerBorders {
+        borders: ContainerBorders,
     },
 }
 

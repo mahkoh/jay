@@ -13,7 +13,7 @@ use {
         },
     },
     indexmap::IndexMap,
-    jay_config::theme::BarPosition,
+    jay_config::theme::{BarPosition, ContainerBorders},
     thiserror::Error,
 };
 
@@ -69,6 +69,7 @@ impl Parser for ThemeParser<'_> {
                 bar_separator_width,
                 show_window_icons,
                 window_icons_grayscale,
+                container_borders_val,
             ),
         ) = ext.extract((
             (
@@ -101,6 +102,7 @@ impl Parser for ThemeParser<'_> {
                 recover(opt(s32("bar-separator-width"))),
                 recover(opt(bol("show-window-icons"))),
                 recover(opt(bol("window-icons-grayscale"))),
+                recover(opt(str("container-borders"))),
             ),
         ))?;
         macro_rules! color {
@@ -124,6 +126,19 @@ impl Parser for ThemeParser<'_> {
                 _ => {
                     log::warn!(
                         "Unknown bar position '{}': {}",
+                        value.value,
+                        self.0.error3(value.span)
+                    );
+                    None
+                }
+            });
+        let container_borders =
+            container_borders_val.and_then(|value| match value.value.to_lowercase().as_str() {
+                "separators" => Some(ContainerBorders::Separators),
+                "full" => Some(ContainerBorders::Full),
+                _ => {
+                    log::warn!(
+                        "Unknown container borders '{}': {}",
                         value.value,
                         self.0.error3(value.span)
                     );
@@ -156,6 +171,7 @@ impl Parser for ThemeParser<'_> {
             bar_separator_width: bar_separator_width.despan(),
             show_window_icons: show_window_icons.despan(),
             window_icons_grayscale: window_icons_grayscale.despan(),
+            container_borders,
         })
     }
 }

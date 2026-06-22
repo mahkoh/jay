@@ -47,8 +47,8 @@ use {
         tasks::{self, JoinHandle},
         theme::{
             reset_colors, reset_font, reset_sizes, set_bar_font, set_bar_position,
-            set_egui_monospace_fonts, set_egui_proportional_fonts, set_font, set_show_window_icons,
-            set_title_font, set_window_icons_grayscale,
+            set_container_borders, set_egui_monospace_fonts, set_egui_proportional_fonts, set_font,
+            set_show_window_icons, set_title_font, set_window_icons_grayscale,
         },
         toggle_float_above_fullscreen, toggle_show_bar, toggle_show_titles,
         toggle_visualize_compositing,
@@ -1727,6 +1727,9 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
         if let Some(v) = v.configure_timeout {
             set_configure_timeout(v);
         }
+    }
+    if let Some(v) = config.theme.container_borders {
+        set_container_borders(v);
     }
 }
 

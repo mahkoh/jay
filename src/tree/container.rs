@@ -21,6 +21,7 @@ use {
         scale::Scale,
         state::State,
         text::TextTexture,
+        theme::ContainerBorders,
         transactions::{TransactionData, Transactionable, TransactionableExt},
         tree::{
             ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
@@ -514,29 +515,35 @@ impl ContainerNode {
                 .at_point(mb.x1(), mb.y1()),
         );
 
-        let th = self.state.theme.title_height(LiveTL);
-        let bw = self.state.theme.sizes.border_width.get(LiveTL);
+        let theme = &self.state.theme;
+        let th = theme.title_height(LiveTL);
+        let bw = theme.sizes.border_width.get(LiveTL);
         let num_children = self.num_children.get() as i32;
-        let content_width = ns.width.get().sub(bw * (num_children - 1)).max(0);
+        let sp = match theme.container_borders[LiveTL].get() {
+            ContainerBorders::Separators => 0,
+            ContainerBorders::Full => bw,
+        };
+        let content_width = ns.width.get().sub(bw * (num_children - 1) + 2 * sp).max(0);
         let width_per_child = content_width / num_children;
         let mut rem = content_width % num_children;
-        let mut pos = 0;
+        let mut pos = sp;
         for child in self.children.iter_valid(LiveTL) {
             let mut width = width_per_child;
             if rem > 0 {
                 width += 1;
                 rem -= 1;
             }
-            self.set_child_ns_title_rect(&child, Rect::new_sized_saturating(pos, 0, width, th));
+            self.set_child_ns_title_rect(&child, Rect::new_sized_saturating(pos, sp, width, th));
             pos += width + bw;
         }
     }
 
     fn perform_split_layout(self: &Rc<Self>) {
         let sum_factors = self.sum_factors.get();
-        let border_width = self.state.theme.sizes.border_width.get(LiveTL);
-        let title_height_tmp = self.state.theme.title_height(LiveTL);
-        let title_plus_underline_height = self.state.theme.title_plus_underline_height(LiveTL);
+        let theme = &self.state.theme;
+        let border_width = theme.sizes.border_width.get(LiveTL);
+        let title_height_tmp = theme.title_height(LiveTL);
+        let title_plus_underline_height = theme.title_plus_underline_height(LiveTL);
         let ns = &self.node_state[LiveTL];
         let split = ns.split.get();
         let (content_size, other_content_size) = match split {
@@ -547,7 +554,11 @@ impl ContainerNode {
         if num_children == 0 {
             return;
         }
-        let mut pos = 0;
+        let sp = match theme.container_borders[LiveTL].get() {
+            ContainerBorders::Separators => 0,
+            ContainerBorders::Full => border_width,
+        };
+        let mut pos = sp;
         let mut remaining_content_size = content_size;
         for child in self.children.iter_valid(LiveTL) {
             let factor = child.factor.get() / sum_factors;
@@ -558,12 +569,12 @@ impl ContainerNode {
             let (x1, y1, width, height) = match split {
                 ContainerSplit::Horizontal => (
                     pos,
-                    title_plus_underline_height,
+                    title_plus_underline_height + sp,
                     body_size,
                     other_content_size,
                 ),
                 _ => (
-                    0,
+                    sp,
                     pos + title_plus_underline_height,
                     other_content_size,
                     body_size,
@@ -579,7 +590,7 @@ impl ContainerNode {
         if remaining_content_size > 0 {
             let size_per = remaining_content_size / num_children as i32;
             let mut rem = remaining_content_size % num_children as i32;
-            pos = 0;
+            pos = sp;
             for child in self.children.iter_valid(LiveTL) {
                 let cns = &child.node_state[LiveTL];
                 let mut body = cns.body.get();
@@ -593,7 +604,7 @@ impl ContainerNode {
                         let width = body.width() + add;
                         (
                             pos,
-                            title_plus_underline_height,
+                            title_plus_underline_height + sp,
                             width,
                             other_content_size,
                             width,
@@ -602,7 +613,7 @@ impl ContainerNode {
                     _ => {
                         let height = body.height() + add;
                         (
-                            0,
+                            sp,
                             pos + title_plus_underline_height,
                             other_content_size,
                             height,
@@ -648,35 +659,36 @@ impl ContainerNode {
     }
 
     fn update_content_size(self: &Rc<Self>) {
-        let border_width = self.state.theme.sizes.border_width.get(LiveTL);
-        let title_plus_underline_height = self.state.theme.title_plus_underline_height(LiveTL);
+        let theme = &self.state.theme;
+        let border_width = theme.sizes.border_width.get(LiveTL);
+        let title_plus_underline_height = theme.title_plus_underline_height(LiveTL);
         let nc = self.num_children.get();
         let ns = &self.node_state[LiveTL];
+        let mut mono_x = 0;
+        let mut mono_y = title_plus_underline_height;
+        let mut width = ns.width.get();
+        let mut height = ns.height.get() - title_plus_underline_height;
+        if theme.container_borders[LiveTL].get() == ContainerBorders::Full {
+            mono_x += border_width;
+            mono_y += border_width;
+            width -= 2 * border_width;
+            height -= 2 * border_width;
+        }
         match ns.split.get() {
             ContainerSplit::Horizontal => {
-                let new_content_size = ns.width.get().sub((nc - 1) as i32 * border_width).max(0);
+                let new_content_size = width.sub((nc - 1) as i32 * border_width).max(0);
                 self.set_ns_content_width(new_content_size);
-                self.set_ns_content_height(ns.height.get().sub(title_plus_underline_height).max(0));
+                self.set_ns_content_height(height.max(0));
             }
             ContainerSplit::Vertical => {
-                let new_content_size = ns
-                    .height
-                    .get()
-                    .sub(
-                        title_plus_underline_height
-                            + (nc - 1) as i32 * (border_width + title_plus_underline_height),
-                    )
+                let new_content_size = height
+                    .sub((nc - 1) as i32 * (border_width + title_plus_underline_height))
                     .max(0);
                 self.set_ns_content_height(new_content_size);
-                self.set_ns_content_width(ns.width.get());
+                self.set_ns_content_width(width.max(0));
             }
         }
-        self.set_ns_mono_body(Rect::new_sized_saturating(
-            0,
-            title_plus_underline_height,
-            ns.width.get(),
-            ns.height.get() - title_plus_underline_height,
-        ));
+        self.set_ns_mono_body(Rect::new_sized_saturating(mono_x, mono_y, width, height));
     }
 
     fn pointer_move(
@@ -942,8 +954,15 @@ impl ContainerNode {
         let tuh = theme.title_underline_height(RenderTL);
         let bw = theme.sizes.border_width.get(RenderTL);
         let ns = &self.node_state[RenderTL];
-        let cwidth = ns.width.get();
-        let cheight = ns.height.get();
+        let cb = theme.container_borders[RenderTL].get();
+        let sp = match cb {
+            ContainerBorders::Separators => 0,
+            ContainerBorders::Full => bw,
+        };
+        let fwidth = ns.width.get();
+        let fheight = ns.height.get();
+        let cwidth = fwidth.sub(2 * sp).max(0);
+        let cheight = fheight.sub(2 * sp).max(0);
         for (_, v) in rd.titles.iter_mut() {
             v.clear();
         }
@@ -966,7 +985,7 @@ impl ContainerNode {
                 && split != ContainerSplit::Horizontal
             {
                 self.state.damage(Rect::new_sized_saturating(
-                    abs_x,
+                    abs_x + rect.x1(),
                     abs_y + rect.y1(),
                     cwidth,
                     rect.height() + tuh,
@@ -974,11 +993,11 @@ impl ContainerNode {
             }
             if i > 0 {
                 let rect = if mono {
-                    Rect::new_sized_saturating(rect.x1() - bw, 0, bw, th)
+                    Rect::new_sized_saturating(rect.x1() - bw, rect.y1(), bw, th)
                 } else if split == ContainerSplit::Horizontal {
-                    Rect::new_sized_saturating(rect.x1() - bw, 0, bw, cheight)
+                    Rect::new_sized_saturating(rect.x1() - bw, rect.y1(), bw, cheight)
                 } else {
-                    Rect::new_sized_saturating(0, rect.y1() - bw, cwidth, bw)
+                    Rect::new_sized_saturating(rect.x1(), rect.y1() - bw, cwidth, bw)
                 };
                 rd.border_rects.push(rect);
             }
@@ -997,15 +1016,30 @@ impl ContainerNode {
                 rd.add_title(rect, &child, scale, tex);
             }
         }
+        if cb == ContainerBorders::Full {
+            let full_border = || {
+                [
+                    Rect::new_sized_saturating(0, 0, fwidth, bw),
+                    Rect::new_sized_saturating(0, fheight - bw, fwidth, bw),
+                    Rect::new_sized_saturating(0, bw, bw, cheight),
+                    Rect::new_sized_saturating(fwidth - bw, bw, bw, cheight),
+                ]
+            };
+            rd.border_rects.extend_from_slice(&full_border());
+        }
         if mono {
             rd.underline_rects
-                .push(Rect::new_sized_saturating(0, th, cwidth, tuh));
+                .push(Rect::new_sized_saturating(sp, sp + th, cwidth, tuh));
         }
         if self.toplevel_data.visible[RenderTL].get()
             && (mono || split == ContainerSplit::Horizontal)
         {
-            self.state
-                .damage(Rect::new_sized_saturating(abs_x, abs_y, cwidth, tpuh));
+            self.state.damage(Rect::new_sized_saturating(
+                abs_x + sp,
+                abs_y + sp,
+                cwidth,
+                tpuh,
+            ));
         }
         rd.titles.remove_if(|_, v| v.is_empty());
     }
@@ -1392,19 +1426,13 @@ impl ContainerNode {
         };
         let ns = &self.node_state[LiveTL];
         if button == BTN_RIGHT && pressed {
-            if ns.mono_child.is_some() || ns.split.get() == ContainerSplit::Horizontal {
-                if seat_data.y < self.state.theme.title_height(LiveTL) {
+            for child in self.children.iter_valid(LiveTL) {
+                if child.node_state[LiveTL]
+                    .title_rect
+                    .get()
+                    .contains(seat_data.x, seat_data.y)
+                {
                     self.toggle_mono();
-                }
-            } else {
-                for child in self.children.iter_valid(LiveTL) {
-                    if child.node_state[LiveTL]
-                        .title_rect
-                        .get()
-                        .contains(seat_data.x, seat_data.y)
-                    {
-                        self.toggle_mono();
-                    }
                 }
             }
             return;
@@ -1995,13 +2023,14 @@ impl NodeBase for ContainerNode {
             Some(s) => s,
             _ => return,
         };
-        if seat_data.y > self.state.theme.title_height(LiveTL) {
-            return;
-        }
         let cur_mc = match self.node_state[LiveTL].mono_child.get() {
             Some(mc) => mc,
             _ => return,
         };
+        let title_rect = cur_mc.node_state[LiveTL].title_rect.get();
+        if seat_data.y < title_rect.y1() || seat_data.y >= title_rect.y2() {
+            return;
+        }
         let discrete = match self.scroller.handle(event) {
             Some(d) => d,
             _ => return,

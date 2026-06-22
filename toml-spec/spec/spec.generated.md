@@ -2669,6 +2669,25 @@ The table has the following fields:
   The value of this field should be a string.
 
 
+<a name="types-ContainerBorders"></a>
+### `ContainerBorders`
+
+The container border style.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `separators`:
+
+  Only separators are drawn between children.
+
+- `full`:
+
+  A border is drawn around the entire container.
+
+
+
 <a name="types-ContentTypeMask"></a>
 ### `ContentTypeMask`
 
@@ -5272,6 +5291,12 @@ The table has the following fields:
   The default is `false`.
 
   The value of this field should be a boolean.
+
+- `container-borders` (optional):
+
+  The container border style. Defaults to `separators` if not set.
+
+  The value of this field should be a [ContainerBorders](#types-ContainerBorders).
 
 
 <a name="types-TileState"></a>

@@ -137,6 +137,26 @@ of each output. The default is `top`.
 bar-position = "bottom"
 ```
 
+## Container Borders
+
+The `container-borders` field controls how borders are drawn within tiled
+containers:
+
+`separators`
+: Only separators are drawn between the children of a container (default).
+
+`full`
+: A border is drawn around the entire container, in addition to the separators
+  between children.
+
+```toml
+[theme]
+container-borders = "full"
+```
+
+The width and color of these borders are controlled by `border-width` and
+`border-color`.
+
 ## Changing the Theme at Runtime
 
 Use the `set-theme` action in a shortcut to change theme properties on the fly:

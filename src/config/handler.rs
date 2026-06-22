@@ -68,7 +68,7 @@ use {
         },
         keyboard::{Group, Keymap, mods::Modifiers, syms::KeySym},
         logging::LogLevel as ConfigLogLevel,
-        theme::{BarPosition, colors::Colorable, sized::Resizable},
+        theme::{BarPosition, ContainerBorders, colors::Colorable, sized::Resizable},
         timer::Timer as JayTimer,
         video::{
             BlendSpace as ConfigBlendSpace, ColorSpace, Connector, DrmDevice, Eotf as ConfigEotf,
@@ -3064,6 +3064,20 @@ impl ConfigProxyHandler {
             .set_configure_timeout_ns(timeout.as_nanos().saturating_cast());
     }
 
+    fn handle_set_container_borders(&self, borders: ContainerBorders) -> Result<(), CphError> {
+        let Ok(borders) = borders.try_into() else {
+            return Err(CphError::UnknownContainerBorders(borders));
+        };
+        self.state.set_container_borders(borders);
+        Ok(())
+    }
+
+    fn handle_get_container_borders(&self) {
+        self.respond(Response::GetContainerBorders {
+            borders: self.state.theme.container_borders[LiveTL].get().into(),
+        });
+    }
+
     pub fn handle_request(self: &Rc<Self>, msg: &[u8]) {
         if let Err(e) = self.handle_request_(msg) {
             log::error!("Could not handle client request: {}", ErrorFmt(e));
@@ -3784,6 +3798,10 @@ impl ConfigProxyHandler {
             ClientMessage::SetConfigureTimeout { timeout } => {
                 self.handle_set_configure_timeout(timeout)
             }
+            ClientMessage::SetContainerBorders { borders } => self
+                .handle_set_container_borders(borders)
+                .wrn("set_container_borders")?,
+            ClientMessage::GetContainerBorders => self.handle_get_container_borders(),
         }
         Ok(())
     }
@@ -3943,6 +3961,8 @@ enum CphError {
     CreateTaggedAcceptor(#[source] TaggedAcceptorError),
     #[error("Keymap must be defined through a map or rmlvo names")]
     MissingKeymapKind,
+    #[error("Unknown container borders {0:?}")]
+    UnknownContainerBorders(ContainerBorders),
 }
 
 trait WithRequestName {

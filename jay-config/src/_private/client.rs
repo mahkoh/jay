@@ -26,7 +26,7 @@ use {
         },
         logging::LogLevel,
         tasks::{JoinHandle, JoinSlot},
-        theme::{BarPosition, Color, colors::Colorable, sized::Resizable},
+        theme::{BarPosition, Color, ContainerBorders, colors::Colorable, sized::Resizable},
         timer::Timer,
         video::{
             BlendSpace, ColorSpace, Connector, DrmDevice, Eotf, Format, GfxApi, Mode, TearingMode,
@@ -2214,6 +2214,20 @@ impl ConfigClient {
 
     pub fn abort_task(&self, id: u64) {
         let _tmp = self.tasks.tasks.borrow_mut().remove(&id);
+    }
+
+    pub fn set_container_borders(&self, borders: ContainerBorders) {
+        self.send(&ClientMessage::SetContainerBorders { borders });
+    }
+
+    pub fn get_container_borders(&self) -> ContainerBorders {
+        let res = self.send_with_response(&ClientMessage::GetContainerBorders);
+        get_response!(
+            res,
+            ContainerBorders::Separators,
+            GetContainerBorders { borders }
+        );
+        borders
     }
 
     fn handle_invoke_shortcut(

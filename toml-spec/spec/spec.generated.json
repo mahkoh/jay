@@ -1329,6 +1329,14 @@
         }
       ]
     },
+    "ContainerBorders": {
+      "type": "string",
+      "description": "The container border style.",
+      "enum": [
+        "separators",
+        "full"
+      ]
+    },
     "ContentTypeMask": {
       "description": "A mask of content types.\n",
       "anyOf": [
@@ -2372,6 +2380,10 @@
         "window-icons-grayscale": {
           "type": "boolean",
           "description": "Whether window icons are rendered grayscale.\n\nThis is only supported on the Vulkan renderer.\n\nThe default is `false`.\n"
+        },
+        "container-borders": {
+          "description": "The container border style. Defaults to `separators` if not set.",
+          "$ref": "#/$defs/ContainerBorders"
         }
       },
       "required": []
