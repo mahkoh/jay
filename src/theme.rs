@@ -403,13 +403,13 @@ macro_rules! colors {
 
         #[derive(Copy, Clone, Debug, Linearize)]
         #[expect(non_camel_case_types)]
-        pub enum ThemeColor {
+        pub enum ThemeColored {
             $(
                 $name,
             )*
         }
 
-        impl ThemeColor {
+        impl ThemeColored {
             pub fn field(self, theme: &Theme) -> &Cell<Color> {
                 let colors = &theme.colors;
                 match self {
@@ -465,26 +465,30 @@ colors! {
     highlight = (0x9d, 0x28, 0xc6, 0x7f),
 }
 
-impl StaticText for ThemeColor {
+impl StaticText for ThemeColored {
     fn text(&self) -> &'static str {
         match self {
-            ThemeColor::background => "Background",
-            ThemeColor::unfocused_title_background => "Title Background (unfocused)",
-            ThemeColor::focused_title_background => "Title Background (focused)",
-            ThemeColor::captured_unfocused_title_background => {
+            ThemeColored::background => "Background",
+            ThemeColored::unfocused_title_background => "Title Background (unfocused)",
+            ThemeColored::focused_title_background => "Title Background (focused)",
+            ThemeColored::captured_unfocused_title_background => {
                 "Title Background (unfocused, captured)"
             }
-            ThemeColor::captured_focused_title_background => "Title Background (focused, captured)",
-            ThemeColor::focused_inactive_title_background => "Title Background (focused, inactive)",
-            ThemeColor::unfocused_title_text => "Title Text (unfocused)",
-            ThemeColor::focused_title_text => "Title Text (focused)",
-            ThemeColor::focused_inactive_title_text => "Title Text (focused, inactive)",
-            ThemeColor::separator => "Separator",
-            ThemeColor::border => "Border",
-            ThemeColor::bar_background => "Bar Background",
-            ThemeColor::bar_text => "Bar Text",
-            ThemeColor::attention_requested_background => "Attention Requested",
-            ThemeColor::highlight => "Highlight",
+            ThemeColored::captured_focused_title_background => {
+                "Title Background (focused, captured)"
+            }
+            ThemeColored::focused_inactive_title_background => {
+                "Title Background (focused, inactive)"
+            }
+            ThemeColored::unfocused_title_text => "Title Text (unfocused)",
+            ThemeColored::focused_title_text => "Title Text (focused)",
+            ThemeColored::focused_inactive_title_text => "Title Text (focused, inactive)",
+            ThemeColored::separator => "Separator",
+            ThemeColored::border => "Border",
+            ThemeColored::bar_background => "Bar Background",
+            ThemeColored::bar_text => "Bar Text",
+            ThemeColored::attention_requested_background => "Attention Requested",
+            ThemeColored::highlight => "Highlight",
         }
     }
 }

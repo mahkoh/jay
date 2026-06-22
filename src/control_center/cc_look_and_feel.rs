@@ -7,7 +7,7 @@ use {
         },
         gfx_api::AlphaMode,
         state::State,
-        theme::{Color, ThemeColor, ThemeSized},
+        theme::{Color, ThemeColored, ThemeSized},
         tree::TreeTimeline::LiveTL,
         utils::static_text::StaticText,
     },
@@ -159,7 +159,7 @@ impl LookAndFeelPane {
         });
         ui.collapsing("Colors", |ui| {
             grid(ui, "Colors", |ui| {
-                for tc in ThemeColor::variants() {
+                for tc in ThemeColored::variants() {
                     let f = tc.field(t);
                     let mut v = f.get().to_array(Eotf::Linear);
                     grid_label(ui, tc.text());
