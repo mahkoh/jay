@@ -26,7 +26,7 @@ use {
         scale::Scale,
         state::{ConnectorData, DeviceHandlerData, DrmDevData, OutputData, State},
         tagged_acceptor::TaggedAcceptorError,
-        theme::{ThemeColor, ThemeSized},
+        theme::{ThemeColored, ThemeSized},
         tree::{
             ContainerSplit, OutputNode, OutputNodeOrPersistent, TearingMode, TileState,
             ToplevelData, ToplevelIdentifier, ToplevelNode, TreeTimeline::LiveTL, VrrMode,
@@ -2723,30 +2723,30 @@ impl ConfigProxyHandler {
         self.respond(Response::GetFont { font });
     }
 
-    fn get_color(&self, colorable: Colorable) -> Result<ThemeColor, CphError> {
+    fn get_color(&self, colorable: Colorable) -> Result<ThemeColored, CphError> {
         use jay_config::theme::colors::*;
         let colorable = match colorable {
-            UNFOCUSED_TITLE_BACKGROUND_COLOR => ThemeColor::unfocused_title_background,
-            FOCUSED_TITLE_BACKGROUND_COLOR => ThemeColor::focused_title_background,
+            UNFOCUSED_TITLE_BACKGROUND_COLOR => ThemeColored::unfocused_title_background,
+            FOCUSED_TITLE_BACKGROUND_COLOR => ThemeColored::focused_title_background,
             CAPTURED_UNFOCUSED_TITLE_BACKGROUND_COLOR => {
-                ThemeColor::captured_unfocused_title_background
+                ThemeColored::captured_unfocused_title_background
             }
             CAPTURED_FOCUSED_TITLE_BACKGROUND_COLOR => {
-                ThemeColor::captured_focused_title_background
+                ThemeColored::captured_focused_title_background
             }
             FOCUSED_INACTIVE_TITLE_BACKGROUND_COLOR => {
-                ThemeColor::focused_inactive_title_background
+                ThemeColored::focused_inactive_title_background
             }
-            BACKGROUND_COLOR => ThemeColor::background,
-            BAR_BACKGROUND_COLOR => ThemeColor::bar_background,
-            SEPARATOR_COLOR => ThemeColor::separator,
-            BORDER_COLOR => ThemeColor::border,
-            UNFOCUSED_TITLE_TEXT_COLOR => ThemeColor::unfocused_title_text,
-            FOCUSED_TITLE_TEXT_COLOR => ThemeColor::focused_title_text,
-            FOCUSED_INACTIVE_TITLE_TEXT_COLOR => ThemeColor::focused_inactive_title_text,
-            BAR_STATUS_TEXT_COLOR => ThemeColor::bar_text,
-            ATTENTION_REQUESTED_BACKGROUND_COLOR => ThemeColor::attention_requested_background,
-            HIGHLIGHT_COLOR => ThemeColor::highlight,
+            BACKGROUND_COLOR => ThemeColored::background,
+            BAR_BACKGROUND_COLOR => ThemeColored::bar_background,
+            SEPARATOR_COLOR => ThemeColored::separator,
+            BORDER_COLOR => ThemeColored::border,
+            UNFOCUSED_TITLE_TEXT_COLOR => ThemeColored::unfocused_title_text,
+            FOCUSED_TITLE_TEXT_COLOR => ThemeColored::focused_title_text,
+            FOCUSED_INACTIVE_TITLE_TEXT_COLOR => ThemeColored::focused_inactive_title_text,
+            BAR_STATUS_TEXT_COLOR => ThemeColored::bar_text,
+            ATTENTION_REQUESTED_BACKGROUND_COLOR => ThemeColored::attention_requested_background,
+            HIGHLIGHT_COLOR => ThemeColored::highlight,
             _ => return Err(CphError::UnknownColor(colorable.0)),
         };
         Ok(colorable)

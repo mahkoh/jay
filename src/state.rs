@@ -104,7 +104,7 @@ use {
         sqlite::Sqlite,
         syncobj::wait_for_syncobj::WaitForSyncobj,
         tagged_acceptor::TaggedAcceptors,
-        theme::{BarPosition, Color, Theme, ThemeColor, ThemeSized},
+        theme::{BarPosition, Color, Theme, ThemeColored, ThemeSized},
         time::Time,
         transactions::{TransactionData, Transactionable, TransactionableExt, Transactions},
         tree::{
@@ -2258,8 +2258,10 @@ impl State {
         self.add_transaction_op(StateTransactionOp::SetSize(sized, size));
     }
 
-    pub fn set_color(self: &Rc<Self>, colored: ThemeColor, v: Color) {
-        colored.field(&self.theme).set(v);
+    pub fn set_color(self: &Rc<Self>, colored: ThemeColored, v: Color) {
+        let field = colored.field(&self.theme);
+        field.val.set(v);
+        field.set.set(true);
         self.colors_changed();
     }
 
