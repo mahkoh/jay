@@ -70,6 +70,7 @@ impl Parser for ThemeParser<'_> {
                 show_window_icons,
                 window_icons_grayscale,
                 container_borders_val,
+                focused_border_color,
             ),
         ) = ext.extract((
             (
@@ -103,6 +104,7 @@ impl Parser for ThemeParser<'_> {
                 recover(opt(bol("show-window-icons"))),
                 recover(opt(bol("window-icons-grayscale"))),
                 recover(opt(str("container-borders"))),
+                opt(val("focused-border-color")),
             ),
         ))?;
         macro_rules! color {
@@ -151,6 +153,7 @@ impl Parser for ThemeParser<'_> {
             bar_bg_color: color!(bar_bg_color),
             bar_status_text_color: color!(bar_status_text_color),
             border_color: color!(border_color),
+            focused_border_color: color!(focused_border_color),
             captured_focused_title_bg_color: color!(captured_focused_title_bg_color),
             captured_unfocused_title_bg_color: color!(captured_unfocused_title_bg_color),
             focused_inactive_title_bg_color: color!(focused_inactive_title_bg_color),

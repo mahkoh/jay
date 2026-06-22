@@ -2297,6 +2297,10 @@
           "description": "The color of the borders between windows.",
           "$ref": "#/$defs/Color"
         },
+        "focused-border-color": {
+          "description": "The color of the borders between windows where at least one of the windows is\nfocused.\n\nRequires the `full` container borders style for containers.\n\nDefaults to the same color as the border color.\n",
+          "$ref": "#/$defs/Color"
+        },
         "captured-focused-title-bg-color": {
           "description": "The background color of focused titles that are being recorded.",
           "$ref": "#/$defs/Color"

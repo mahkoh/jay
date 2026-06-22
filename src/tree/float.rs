@@ -1275,7 +1275,7 @@ impl Transactionable for FloatNode {
             }
             FloatTransactionOp::SetActive(v) => {
                 if s.active.replace(v) != v {
-                    dmg_rel(s.title_rect.get());
+                    dmg(s.position.get());
                 }
             }
             FloatTransactionOp::SetAttentionRequested(v) => {

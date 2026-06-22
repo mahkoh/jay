@@ -414,7 +414,7 @@ macro_rules! colors {
             )*
         }
 
-        #[derive(Copy, Clone, Debug, Linearize)]
+        #[derive(Copy, Clone, Debug, Linearize, PartialEq)]
         #[expect(non_camel_case_types)]
         pub enum ThemeColored {
             $(
@@ -476,6 +476,7 @@ colors! {
     focused_inactive_title_text = (0xff, 0xff, 0xff),
     separator = (0x33, 0x33, 0x33),
     border = (0x3f, 0x47, 0x4a),
+    focused_border = (0x3f, 0x47, 0x4a),
     bar_background = (0x00, 0x00, 0x00),
     bar_text = (0xff, 0xff, 0xff),
     attention_requested_background = (0x23, 0x09, 0x2c),
@@ -502,6 +503,7 @@ impl StaticText for ThemeColored {
             ThemeColored::focused_inactive_title_text => "Title Text (focused, inactive)",
             ThemeColored::separator => "Separator",
             ThemeColored::border => "Border",
+            ThemeColored::focused_border => "Focused Border",
             ThemeColored::bar_background => "Bar Background",
             ThemeColored::bar_text => "Bar Text",
             ThemeColored::attention_requested_background => "Attention Requested",
@@ -770,6 +772,15 @@ impl Theme {
             self.sizes.title_height.get(tl) + 1
         } else {
             0
+        }
+    }
+
+    pub fn focused_border_color(&self) -> Color {
+        let c = &self.colors;
+        if c.focused_border.set.get() {
+            c.focused_border.val.get()
+        } else {
+            c.border.val.get()
         }
     }
 }

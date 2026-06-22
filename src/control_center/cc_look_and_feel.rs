@@ -2,7 +2,7 @@ use {
     crate::{
         cmm::cmm_eotf::Eotf,
         control_center::{
-            ControlCenterInner, bool, bool_ui, combo_box, drag_value, grid, grid_label, row,
+            ControlCenterInner, bool, bool_ui, combo_box, drag_value, grid, grid_label_ui, row,
             text_edit, tip,
         },
         gfx_api::AlphaMode,
@@ -168,7 +168,14 @@ impl LookAndFeelPane {
                 for tc in ThemeColored::variants() {
                     let f = tc.field(t);
                     let mut v = f.get().to_array(Eotf::Linear);
-                    grid_label(ui, tc.text());
+                    grid_label_ui(ui, |ui| {
+                        ui.label(tc.text());
+                        if tc == ThemeColored::focused_border {
+                            tip(ui, |ui| {
+                                ui.label("Requires `Full` border style for containers.");
+                            });
+                        }
+                    });
                     let changed = ui.color_edit_button_rgba_premultiplied(&mut v).changed();
                     ui.end_row();
                     if changed {

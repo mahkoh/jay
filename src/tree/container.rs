@@ -126,9 +126,18 @@ pub struct ContainerRenderData {
     pub active_title_rects: Vec<Rect>,
     pub attention_title_rects: Vec<Rect>,
     pub last_active_rect: Option<Rect>,
+    pub active_border_rects: Vec<Rect>,
     pub border_rects: Vec<Rect>,
     pub underline_rects: Vec<Rect>,
     pub titles: SmallMapMut<Scale, Vec<ContainerTitle>, 2>,
+    main_axis_ranges: Vec<MainAxisRange>,
+}
+
+#[derive(Copy, Clone)]
+struct MainAxisRange {
+    lo: i32,
+    hi: i32,
+    active: bool,
 }
 
 #[derive(Default)]
@@ -970,17 +979,64 @@ impl ContainerNode {
         rd.active_title_rects.clear();
         rd.attention_title_rects.clear();
         rd.border_rects.clear();
+        rd.active_border_rects.clear();
         rd.underline_rects.clear();
         rd.last_active_rect.take();
+        rd.main_axis_ranges.clear();
         let mono = ns.mono_child.is_some();
         let split = ns.split.get();
         let abs_x = ns.abs_x1.get();
         let abs_y = ns.abs_y1.get();
         self.update_child_types();
+        let use_active_border_rects = cb == ContainerBorders::Full
+            && theme.colors.border.get() != theme.focused_border_color();
+        let fill_active_borders = !mono && use_active_border_rects;
+        let add_border = |rd: &mut ContainerRenderData,
+                          x1: i32,
+                          y1: i32,
+                          active: bool,
+                          prev_active: bool,
+                          last: bool| {
+            let rect = if mono {
+                Rect::new_sized_saturating(x1 - bw, y1, bw, th)
+            } else if split == ContainerSplit::Horizontal {
+                Rect::new_sized_saturating(x1 - bw, y1, bw, cheight)
+            } else {
+                Rect::new_sized_saturating(x1, y1 - bw, cwidth, bw)
+            };
+            if fill_active_borders && (active || prev_active) {
+                rd.active_border_rects.push(rect);
+            } else {
+                rd.border_rects.push(rect);
+            }
+            if fill_active_borders {
+                let active = prev_active;
+                let mut hi = match split {
+                    ContainerSplit::Horizontal => x1,
+                    ContainerSplit::Vertical => y1,
+                };
+                if !active && !last {
+                    hi -= bw;
+                };
+                if let Some(last) = rd.main_axis_ranges.last_mut() {
+                    if last.active == active {
+                        last.hi = hi;
+                    } else if hi > last.hi {
+                        let lo = last.hi;
+                        rd.main_axis_ranges.push(MainAxisRange { lo, hi, active });
+                    }
+                } else if hi > 0 {
+                    let lo = 0;
+                    rd.main_axis_ranges.push(MainAxisRange { lo, hi, active });
+                }
+            }
+        };
+        let mut prev_active = false;
         for (i, child) in self.children.iter_valid(RenderTL).enumerate() {
             let cns = &child.node_state[RenderTL];
             let rect = cns.title_rect.get();
-            if self.toplevel_data.visible[RenderTL].get()
+            if !use_active_border_rects
+                && self.toplevel_data.visible[RenderTL].get()
                 && !mono
                 && split != ContainerSplit::Horizontal
             {
@@ -991,16 +1047,11 @@ impl ContainerNode {
                     rect.height() + tuh,
                 ));
             }
-            if i > 0 {
-                let rect = if mono {
-                    Rect::new_sized_saturating(rect.x1() - bw, rect.y1(), bw, th)
-                } else if split == ContainerSplit::Horizontal {
-                    Rect::new_sized_saturating(rect.x1() - bw, rect.y1(), bw, cheight)
-                } else {
-                    Rect::new_sized_saturating(rect.x1(), rect.y1() - bw, cwidth, bw)
-                };
-                rd.border_rects.push(rect);
+            let active = child.ty.get() == ContainerChildType::Active;
+            if i > 0 || fill_active_borders {
+                add_border(rd, rect.x1(), rect.y1(), active, prev_active, false);
             }
+            prev_active = active;
             match child.ty.get() {
                 ContainerChildType::Active => rd.active_title_rects.push(rect),
                 ContainerChildType::AttentionRequested => rd.attention_title_rects.push(rect),
@@ -1025,13 +1076,46 @@ impl ContainerNode {
                     Rect::new_sized_saturating(fwidth - bw, bw, bw, cheight),
                 ]
             };
-            rd.border_rects.extend_from_slice(&full_border());
+            if !use_active_border_rects {
+                rd.border_rects.extend_from_slice(&full_border());
+            } else if let Some(child) = ns.mono_child.get() {
+                let active = child.ty.get() == ContainerChildType::Active;
+                let dst = match active {
+                    true => &mut rd.active_border_rects,
+                    false => &mut rd.border_rects,
+                };
+                dst.extend_from_slice(&full_border());
+            } else {
+                let (x, y) = match split {
+                    ContainerSplit::Horizontal => (fwidth, sp),
+                    ContainerSplit::Vertical => (sp, fheight),
+                };
+                add_border(rd, x, y, false, prev_active, true);
+                for MainAxisRange { lo, hi, active } in rd.main_axis_ranges.iter().copied() {
+                    let rects = match split {
+                        ContainerSplit::Horizontal => [
+                            Rect::new_saturating(lo, 0, hi, bw),
+                            Rect::new_saturating(lo, fheight - bw, hi, fheight),
+                        ],
+                        ContainerSplit::Vertical => [
+                            Rect::new_saturating(0, lo, bw, hi),
+                            Rect::new_saturating(fwidth - bw, lo, fwidth, hi),
+                        ],
+                    };
+                    if active {
+                        rd.active_border_rects.extend_from_slice(&rects);
+                    } else {
+                        rd.border_rects.extend_from_slice(&rects);
+                    }
+                }
+            }
         }
         if mono {
             rd.underline_rects
                 .push(Rect::new_sized_saturating(sp, sp + th, cwidth, tuh));
         }
-        if self.toplevel_data.visible[RenderTL].get()
+        if !use_active_border_rects
+            && self.toplevel_data.visible[RenderTL].get()
             && (mono || split == ContainerSplit::Horizontal)
         {
             self.state.damage(Rect::new_sized_saturating(
@@ -1042,6 +1126,9 @@ impl ContainerNode {
             ));
         }
         rd.titles.remove_if(|_, v| v.is_empty());
+        if use_active_border_rects {
+            self.state.damage(self.node_absolute_position(RenderTL));
+        }
     }
 
     fn activate_child(self: &Rc<Self>, child: &NodeRef<ContainerChild>) {

@@ -35,6 +35,13 @@ The available color keys in the `[theme]` table are:
 `border-color`
 : Borders between tiled windows
 
+`focused-border-color`
+: Border color used where at least one of the adjacent windows is focused. This
+  applies to the border of a focused floating window, and -- when the `full`
+  [container border style](#container-borders) is enabled -- to the borders
+  touching the focused window inside a container. Defaults to the same color as
+  `border-color`.
+
 `focused-title-bg-color`
 : Background of the focused window's title
 

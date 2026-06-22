@@ -219,6 +219,7 @@ pub struct Theme {
     pub bar_bg_color: Option<Color>,
     pub bar_status_text_color: Option<Color>,
     pub border_color: Option<Color>,
+    pub focused_border_color: Option<Color>,
     pub captured_focused_title_bg_color: Option<Color>,
     pub captured_unfocused_title_bg_color: Option<Color>,
     pub focused_inactive_title_bg_color: Option<Color>,

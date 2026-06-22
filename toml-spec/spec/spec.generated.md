@@ -5150,6 +5150,17 @@ The table has the following fields:
 
   The value of this field should be a [Color](#types-Color).
 
+- `focused-border-color` (optional):
+
+  The color of the borders between windows where at least one of the windows is
+  focused.
+  
+  Requires the `full` container borders style for containers.
+  
+  Defaults to the same color as the border color.
+
+  The value of this field should be a [Color](#types-Color).
+
 - `captured-focused-title-bg-color` (optional):
 
   The background color of focused titles that are being recorded.

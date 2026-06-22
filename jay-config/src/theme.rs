@@ -354,6 +354,13 @@ pub mod colors {
         ///
         /// Default: `#9d28c67f`.
         const 15 => HIGHLIGHT_COLOR,
+        /// The color of the border between windows where at least one of the windows is
+        /// focused.
+        ///
+        /// For containers, this requires `Full` [`ContainerBorders`].
+        ///
+        /// Default: The `BORDER` color.
+        const 16 => FOCUSED_BORDER_COLOR,
     }
 
     /// Sets the color of GUI element.

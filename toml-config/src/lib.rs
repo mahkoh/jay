@@ -1006,6 +1006,7 @@ impl State {
         color!(BAR_BACKGROUND_COLOR, bar_bg_color);
         color!(BAR_STATUS_TEXT_COLOR, bar_status_text_color);
         color!(BORDER_COLOR, border_color);
+        color!(FOCUSED_BORDER_COLOR, focused_border_color);
         color!(
             CAPTURED_FOCUSED_TITLE_BACKGROUND_COLOR,
             captured_focused_title_bg_color

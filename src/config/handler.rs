@@ -2747,6 +2747,7 @@ impl ConfigProxyHandler {
             BAR_STATUS_TEXT_COLOR => ThemeColored::bar_text,
             ATTENTION_REQUESTED_BACKGROUND_COLOR => ThemeColored::attention_requested_background,
             HIGHLIGHT_COLOR => ThemeColored::highlight,
+            FOCUSED_BORDER_COLOR => ThemeColored::focused_border,
             _ => return Err(CphError::UnknownColor(colorable.0)),
         };
         Ok(colorable)

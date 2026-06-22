@@ -2477,6 +2477,16 @@ Theme:
       ref: Color
       required: false
       description: The color of the borders between windows.
+    focused-border-color:
+      ref: Color
+      required: false
+      description: |
+        The color of the borders between windows where at least one of the windows is
+        focused.
+        
+        Requires the `full` container borders style for containers.
+        
+        Defaults to the same color as the border color.
     captured-focused-title-bg-color:
       ref: Color
       required: false
