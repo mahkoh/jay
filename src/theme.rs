@@ -393,11 +393,22 @@ impl From<jay_config::theme::Color> for Color {
     }
 }
 
+pub struct ThemeColor {
+    pub val: Cell<Color>,
+    pub set: Cell<bool>,
+}
+
+impl ThemeColor {
+    pub fn get(&self) -> Color {
+        self.val.get()
+    }
+}
+
 macro_rules! colors {
     ($($name:ident = $colors:tt,)*) => {
         pub struct ThemeColors {
             $(
-                pub $name: Cell<Color>,
+                pub $name: ThemeColor,
             )*
         }
 
@@ -410,7 +421,7 @@ macro_rules! colors {
         }
 
         impl ThemeColored {
-            pub fn field(self, theme: &Theme) -> &Cell<Color> {
+            pub fn field(self, theme: &Theme) -> &ThemeColor {
                 let colors = &theme.colors;
                 match self {
                     $(
@@ -424,7 +435,8 @@ macro_rules! colors {
             pub fn reset(&self) {
                 let default = Self::default();
                 $(
-                    self.$name.set(default.$name.get());
+                    self.$name.val.set(default.$name.get());
+                    self.$name.set.set(false);
                 )*
             }
         }
@@ -433,7 +445,10 @@ macro_rules! colors {
             fn default() -> Self {
                 Self {
                     $(
-                        $name: Cell::new(colors!(@colors $colors)),
+                        $name: ThemeColor {
+                            val: Cell::new(colors!(@colors $colors)),
+                            set: Default::default(),
+                        },
                     )*
                 }
             }

@@ -2259,7 +2259,9 @@ impl State {
     }
 
     pub fn set_color(self: &Rc<Self>, colored: ThemeColored, v: Color) {
-        colored.field(&self.theme).set(v);
+        let field = colored.field(&self.theme);
+        field.val.set(v);
+        field.set.set(true);
         self.colors_changed();
     }
 
