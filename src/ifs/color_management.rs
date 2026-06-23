@@ -13,6 +13,7 @@ pub mod wp_image_description_v1;
 const UNIQUE_CM_IDS_SINCE: Version = Version(2);
 const SRGB_DEPRECATED_SINCE: Version = Version(2);
 const COMPOUND_POWER_2_4_SINCE: Version = Version(2);
+const WINDOWS_BT2100_SINCE: Version = Version(3);
 pub const ABSOLUTE_NO_ADAPTATION_SINCE: Version = Version(2);
 
 const PRIMARIES_MUL: f64 = 1_000_000.0;
@@ -38,6 +39,7 @@ mod consts {
     pub const FEATURE_SET_MASTERING_DISPLAY_PRIMARIES: u32 = 5;
     pub const FEATURE_EXTENDED_TARGET_VOLUME: u32 = 6;
     pub const FEATURE_WINDOWS_SCRGB: u32 = 7;
+    pub const FEATURE_WINDOWS_BT2100: u32 = 8;
 
     pub const PRIMARIES_SRGB: u32 = 1;
     pub const PRIMARIES_PAL_M: u32 = 2;

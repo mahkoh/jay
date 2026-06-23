@@ -22,6 +22,7 @@ pub struct ColorManager {
     srgb_gamma22: Rc<ColorDescription>,
     srgb_linear: Rc<ColorDescription>,
     windows_scrgb: Rc<ColorDescription>,
+    windows_bt2100: Rc<ColorDescription>,
 }
 
 #[derive(Debug, Default)]
@@ -90,6 +91,20 @@ impl ColorManager {
             None,
             None,
         );
+        let windows_bt2100 = get_description(
+            &shared,
+            &linear_descriptions,
+            &complete_descriptions,
+            &linear_ids,
+            Some(NamedPrimaries::Bt2020),
+            Primaries::BT2020,
+            Luminance::ST2084_PQ,
+            Eotf::St2084Pq,
+            Primaries::BT2020,
+            Luminance::ST2084_PQ.to_target(),
+            None,
+            None,
+        );
         Rc::new(Self {
             linear_ids,
             linear_descriptions,
@@ -98,6 +113,7 @@ impl ColorManager {
             srgb_gamma22,
             srgb_linear,
             windows_scrgb,
+            windows_bt2100,
         })
     }
 
@@ -111,6 +127,10 @@ impl ColorManager {
 
     pub fn windows_scrgb(&self) -> &Rc<ColorDescription> {
         &self.windows_scrgb
+    }
+
+    pub fn windows_bt2100(&self) -> &Rc<ColorDescription> {
+        &self.windows_bt2100
     }
 
     pub fn get_description(
