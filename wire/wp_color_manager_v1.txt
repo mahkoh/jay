@@ -51,3 +51,7 @@ request get_image_description (since = 2) {
     image_description: id(wp_image_description_v1) (new),
     reference: id(wp_image_description_reference_v1),
 }
+
+request create_windows_bt2100 (since = 3) {
+    image_description: id(wp_image_description_v1) (new),
+}

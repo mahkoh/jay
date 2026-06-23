@@ -6,9 +6,9 @@ use {
             color_management::{
                 ABSOLUTE_NO_ADAPTATION_SINCE, COMPOUND_POWER_2_4_SINCE,
                 FEATURE_EXTENDED_TARGET_VOLUME, FEATURE_SET_MASTERING_DISPLAY_PRIMARIES,
-                FEATURE_SET_TF_POWER, RENDER_INTENT_ABSOLUTE_NO_ADAPTATION, RENDER_INTENT_RELATIVE,
-                RENDER_INTENT_RELATIVE_BPC, SRGB_DEPRECATED_SINCE,
-                TRANSFER_FUNCTION_COMPOUND_POWER_2_4,
+                FEATURE_SET_TF_POWER, FEATURE_WINDOWS_BT2100, RENDER_INTENT_ABSOLUTE_NO_ADAPTATION,
+                RENDER_INTENT_RELATIVE, RENDER_INTENT_RELATIVE_BPC, SRGB_DEPRECATED_SINCE,
+                TRANSFER_FUNCTION_COMPOUND_POWER_2_4, WINDOWS_BT2100_SINCE,
                 consts::{
                     FEATURE_PARAMETRIC, FEATURE_SET_LUMINANCES, FEATURE_SET_PRIMARIES,
                     FEATURE_WINDOWS_SCRGB, PRIMARIES_ADOBE_RGB, PRIMARIES_BT2020,
@@ -91,6 +91,9 @@ impl WpColorManagerV1 {
         self.send_supported_feature(FEATURE_SET_TF_POWER);
         self.send_supported_feature(FEATURE_EXTENDED_TARGET_VOLUME);
         self.send_supported_feature(FEATURE_WINDOWS_SCRGB);
+        if self.version >= WINDOWS_BT2100_SINCE {
+            self.send_supported_feature(FEATURE_WINDOWS_BT2100);
+        }
         self.send_supported_tf_named(TRANSFER_FUNCTION_BT1886);
         self.send_supported_tf_named(TRANSFER_FUNCTION_GAMMA22);
         self.send_supported_tf_named(TRANSFER_FUNCTION_GAMMA28);
@@ -280,6 +283,24 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
         obj.send_ready();
         Ok(())
     }
+
+    fn create_windows_bt2100(
+        &self,
+        req: CreateWindowsBt2100,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let obj = Rc::new(WpImageDescriptionV1 {
+            id: req.image_description,
+            client: self.client.clone(),
+            version: self.version,
+            tracker: Default::default(),
+            description: Some(self.client.state.color_manager.windows_bt2100().clone()),
+        });
+        track!(self.client, obj);
+        self.client.add_client_obj(&obj)?;
+        obj.send_ready();
+        Ok(())
+    }
 }
 
 global_base!(
@@ -290,7 +311,7 @@ global_base!(
 
 impl Global for WpColorManagerV1Global {
     fn version(&self) -> u32 {
-        2
+        3
     }
 
     fn exposed(&self, state: &State) -> bool {
