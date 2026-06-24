@@ -6,3 +6,5 @@
 !/.github
 /target
 /testruns
+/result
+/flake.lock
