@@ -223,6 +223,15 @@ impl Workspace {
     pub fn hide(self) {
         get!().hide_workspace(self);
     }
+
+    /// Sets the connector on which this workspace is initially created.
+    ///
+    /// This setting can be overwritten with [`WorkspaceShowOp::connector`]. If that
+    /// function is not used or the workspace is created via some other mechanism, it will
+    /// be created on the connector set via this function, if possible.
+    pub fn set_initial_connector(self, connector: Option<Connector>) {
+        get!().set_workspace_initial_connector(self, connector);
+    }
 }
 
 /// Returns the workspace with the given name.

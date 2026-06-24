@@ -937,6 +937,10 @@ pub enum ClientMessage<'a> {
         borders: ContainerBorders,
     },
     GetContainerBorders,
+    SetWorkspaceInitialConnector {
+        workspace: Workspace,
+        connector: Option<Connector>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

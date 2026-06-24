@@ -164,6 +164,7 @@ pub struct ConfigWorkspace {
     id: u64,
     name: String,
     ty: Cell<WorkspaceType>,
+    initial_connector: Cell<Option<Connector>>,
 }
 
 pub struct Pollable {
@@ -255,6 +256,7 @@ impl ConfigProxyHandler {
                     id,
                     name: name.to_string(),
                     ty: Cell::new(ty),
+                    initial_connector: Default::default(),
                 });
                 self.workspaces_by_name.set(name.clone(), ws.clone());
                 self.workspaces_by_id.set(id, ws);
@@ -1141,7 +1143,13 @@ impl ConfigProxyHandler {
     ) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let ws = self.get_workspace(ws)?;
-        let output = output.map(|o| self.get_output_node(o)).transpose()?;
+        let mut output = output.map(|o| self.get_output_node(o)).transpose()?;
+        if output.is_none() {
+            output = ws
+                .initial_connector
+                .get()
+                .and_then(|o| self.get_output_node(o).ok());
+        }
         self.state
             .show_workspace(&seat, &ws.name, ws.ty.get(), output);
         Ok(())
@@ -1178,7 +1186,18 @@ impl ConfigProxyHandler {
             output,
             seat,
         } = 'params: {
-            let get_output = || connector.map(|o| self.get_output_node(o)).transpose();
+            let ws = self.get_workspace(workspace)?;
+            let get_output = || {
+                if let Some(c) = connector {
+                    return self.get_output_node(c).map(Some);
+                }
+                if let Some(c) = ws.initial_connector.get()
+                    && let Ok(o) = self.get_output_node(c)
+                {
+                    return Ok(Some(o));
+                }
+                Ok(None)
+            };
             let mut seat_opt = None::<Option<_>>;
             let get_seat = |seat_opt: &mut Option<Option<_>>| -> Result<_, CphError> {
                 Ok(match seat_opt {
@@ -1201,7 +1220,6 @@ impl ConfigProxyHandler {
                 };
                 Ok(Some(o))
             };
-            let ws = self.get_workspace(workspace)?;
             let mut seat = None;
             if focus {
                 seat = get_seat(&mut seat_opt)?;
@@ -1282,7 +1300,14 @@ impl ConfigProxyHandler {
             Some(ws) => ws,
             _ => match ws.ty.get() {
                 WorkspaceType::Normal => {
-                    seat.get_fallback_output().create_normal_workspace(&ws.name)
+                    let output = if let Some(connector) = ws.initial_connector.get()
+                        && let Ok(output) = self.get_output_node(connector)
+                    {
+                        output
+                    } else {
+                        seat.get_fallback_output()
+                    };
+                    output.create_normal_workspace(&ws.name)
                 }
                 WorkspaceType::Overlay => self.state.create_overlay_workspace(&ws.name),
             },
@@ -1297,10 +1322,18 @@ impl ConfigProxyHandler {
         let workspace = match self.state.workspaces.get(&ws.name) {
             Some(ws) => ws,
             _ => match ws.ty.get() {
-                WorkspaceType::Normal => match window.node_output() {
-                    Some(o) => o.create_normal_workspace(&ws.name),
-                    _ => return Ok(()),
-                },
+                WorkspaceType::Normal => {
+                    let o = if let Some(connector) = ws.initial_connector.get()
+                        && let Ok(output) = self.get_output_node(connector)
+                    {
+                        output
+                    } else if let Some(output) = window.node_output() {
+                        output
+                    } else {
+                        return Ok(());
+                    };
+                    o.create_normal_workspace(&ws.name)
+                }
                 WorkspaceType::Overlay => self.state.create_overlay_workspace(&ws.name),
             },
         };
@@ -3079,6 +3112,16 @@ impl ConfigProxyHandler {
         });
     }
 
+    fn handle_set_workspace_initial_connector(
+        &self,
+        workspace: Workspace,
+        connector: Option<Connector>,
+    ) -> Result<(), CphError> {
+        let ws = self.get_workspace(workspace)?;
+        ws.initial_connector.set(connector);
+        Ok(())
+    }
+
     pub fn handle_request(self: &Rc<Self>, msg: &[u8]) {
         if let Err(e) = self.handle_request_(msg) {
             log::error!("Could not handle client request: {}", ErrorFmt(e));
@@ -3803,6 +3846,12 @@ impl ConfigProxyHandler {
                 .handle_set_container_borders(borders)
                 .wrn("set_container_borders")?,
             ClientMessage::GetContainerBorders => self.handle_get_container_borders(),
+            ClientMessage::SetWorkspaceInitialConnector {
+                workspace,
+                connector,
+            } => self
+                .handle_set_workspace_initial_connector(workspace, connector)
+                .wrn("set_workspace_initial_connector")?,
         }
         Ok(())
     }
@@ -3823,6 +3872,12 @@ impl ConfigProxyHandler {
             }
         }
         None
+    }
+
+    pub fn initial_output_for_workspace(&self, name: &str) -> Option<Option<Rc<OutputNode>>> {
+        let ws = self.workspaces_by_name.get(name)?;
+        let connector = ws.initial_connector.get()?;
+        Some(self.get_output_node(connector).ok())
     }
 
     pub fn update_capabilities(

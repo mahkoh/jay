@@ -9,7 +9,7 @@ use {
         config::handler::ConfigProxyHandler,
         ifs::wl_seat::SeatId,
         state::State,
-        tree::{TileState, ToplevelData, ToplevelIdentifier},
+        tree::{OutputNode, TileState, ToplevelData, ToplevelIdentifier},
         utils::{
             clonecell::CloneCell,
             nice::{JAY_NO_REALTIME, dont_allow_unprivileged_config_so},
@@ -195,6 +195,10 @@ impl ConfigProxy {
 
     pub fn initial_tile_state(&self, data: &ToplevelData) -> Option<TileState> {
         self.handler.get()?.initial_tile_state(data)
+    }
+
+    pub fn initial_output_for_workspace(&self, name: &str) -> Option<Option<Rc<OutputNode>>> {
+        self.handler.get()?.initial_output_for_workspace(name)
     }
 
     pub fn update_capabilities(

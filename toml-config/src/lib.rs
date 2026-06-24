@@ -15,7 +15,7 @@ use {
         config::{
             Action, ClientRule, Config, ConfigConnector, ConfigDrmDevice, ConfigKeymap,
             ConnectorMatch, DrmDeviceMatch, Exec, Input, InputMatch, Output, OutputMatch,
-            SimpleCommand, Status, Theme, WindowRule, parse_config,
+            SimpleCommand, Status, Theme, TomlWorkspace, WindowRule, parse_config,
         },
         rules::{MatcherTemp, RuleMapper},
         shortcuts::ModeState,
@@ -23,6 +23,7 @@ use {
     ahash::{AHashMap, AHashSet},
     error_reporter::Report,
     jay_config::{
+        Workspace,
         client::Client,
         config, config_dir,
         exec::{Command, set_env, unset_env},
@@ -944,6 +945,8 @@ struct State {
     client: Cell<Option<Client>>,
 
     window: Cell<Option<Option<Window>>>,
+
+    workspaces: Vec<TomlWorkspace>,
 }
 
 impl Drop for State {
@@ -1170,6 +1173,7 @@ struct PersistentState {
     mode_state: ModeState,
     watcher_handle: RefCell<Option<JoinHandle<()>>>,
     last_config: RefCell<Option<Vec<u8>>>,
+    workspaces_with_initial_outputs: RefCell<AHashSet<Workspace>>,
 }
 
 async fn watch_config(persistent: Rc<PersistentState>) {
@@ -1353,6 +1357,7 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     let mut path = PathBuf::from(config_dir());
     path.push(CONFIG_TOML);
     let mut last_config = persistent.last_config.borrow_mut();
+    let mut workspaces = Default::default();
     let mut config = match std::fs::read(&path) {
         Ok(input) => {
             if auto_reload {
@@ -1361,7 +1366,7 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
                 }
                 log::info!("Auto reloading config")
             }
-            let parsed = parse_config(&input, &persistent.mark_names, |e| {
+            let parsed = parse_config(&input, &persistent.mark_names, &mut workspaces, |e| {
                 log::warn!("Error while parsing {}: {}", path.display(), Report::new(e))
             });
             *last_config = Some(input);
@@ -1394,6 +1399,13 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
         }
     };
     drop(last_config);
+    for ws in persistent
+        .workspaces_with_initial_outputs
+        .borrow_mut()
+        .drain()
+    {
+        ws.set_initial_connector(None);
+    }
     if let Some(auto_reload) = config.auto_reload {
         if auto_reload {
             let handle = &mut *persistent.watcher_handle.borrow_mut();
@@ -1459,6 +1471,7 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
         action_depth: Cell::new(0),
         client: Default::default(),
         window: Default::default(),
+        workspaces: workspaces.values().map(|v| v.to_toml()).collect(),
     });
     state.clear_modes_after_reload();
     let (client_rules, client_rule_mapper) = state.create_rules(&config.client_rules);
@@ -1524,12 +1537,18 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
                     }
                 }
             }
+            for ws in &state.workspaces {
+                ws.handle_connector_connected(&state, c);
+            }
         }
     });
     on_connector_disconnected({
         let state = state.clone();
         move |c| {
             state.io_outputs.borrow_mut().remove(&c);
+            for ws in &state.workspaces {
+                ws.handle_connector_disconnected(&state, c);
+            }
         }
     });
     set_default_workspace_capture(config.workspace_capture);
@@ -1610,8 +1629,12 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
             state.io_inputs.borrow_mut().remove(&c);
         }
     });
-    for c in connectors() {
+    let connectors = connectors();
+    for &c in &connectors {
         state.add_io_output(c);
+    }
+    for ws in &state.workspaces {
+        ws.determine_initial_output2(&state, &connectors);
     }
     for c in jay_config::input::input_devices() {
         state.add_io_input(c);
@@ -1755,7 +1778,7 @@ pub const DEFAULT: &[u8] = include_bytes!("default-config.toml");
 
 pub fn configure() {
     let mark_names = Default::default();
-    let default = parse_config(DEFAULT, &mark_names, |e| {
+    let default = parse_config(DEFAULT, &mark_names, &mut Default::default(), |e| {
         panic!("Could not parse the default config: {}", Report::new(e))
     });
     let persistent = Rc::new(PersistentState {
@@ -1770,6 +1793,7 @@ pub fn configure() {
         mode_state: Default::default(),
         watcher_handle: Default::default(),
         last_config: Default::default(),
+        workspaces_with_initial_outputs: Default::default(),
     });
     {
         let p = persistent.clone();

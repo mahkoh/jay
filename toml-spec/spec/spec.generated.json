@@ -2716,6 +2716,10 @@
         "type": {
           "description": "The type of the workspace.",
           "$ref": "#/$defs/WorkspaceType"
+        },
+        "initial-output": {
+          "description": "The initial output of the workspace.\n\nThis setting can be overwritten with the `output` field in `show-workspace`\nactions. If that field is not used or the workspace is created via some other\nmechanism, it will be created on the output set via this setting, if possible.\n\nIf the matcher matches multiple outputs, the selected output is undefined.\n\nIf this setting is not used, then the initial output will be inferred from the\noutput set in a `show-workspace` action, if possible.\n",
+          "$ref": "#/$defs/OutputMatch"
         }
       },
       "required": []
