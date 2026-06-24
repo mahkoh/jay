@@ -2091,6 +2091,17 @@ impl ConfigClient {
         self.send(&ClientMessage::HideWorkspace { workspace })
     }
 
+    pub fn set_workspace_initial_connector(
+        &self,
+        workspace: Workspace,
+        connector: Option<Connector>,
+    ) {
+        self.send(&ClientMessage::SetWorkspaceInitialConnector {
+            workspace,
+            connector,
+        });
+    }
+
     pub fn parse_keymap_2(&self, builder: KeymapBuilder<'_>) -> Keymap {
         if self.feat_parse_keymap_2.get() {
             let res = self.send_with_response(&ClientMessage::ParseKeymap2 { v1: builder.v1 });

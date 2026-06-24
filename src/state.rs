@@ -976,7 +976,14 @@ impl State {
                         if let Some(ws) = on.node_state[LiveTL].workspace.get() {
                             return Some(ws);
                         }
-                        Some(on.create_normal_workspace(&name))
+                        let ws = if let Some(initial) = self.initial_workspace_output_id(&name)
+                            && initial != Some(on.id)
+                        {
+                            on.ensure_workspace()
+                        } else {
+                            on.create_normal_workspace(&name)
+                        };
+                        Some(ws)
                     }
                     WorkspaceType::Overlay => Some(self.create_overlay_workspace(&name)),
                 },
@@ -2476,6 +2483,12 @@ impl State {
         }
         self.damage_full(RenderTL);
         self.trigger_cci(CCI_COMPOSITOR);
+    }
+
+    pub fn initial_workspace_output_id(&self, name: &str) -> Option<Option<OutputNodeId>> {
+        let config = self.config.get()?;
+        let initial = config.initial_output_for_workspace(name)?;
+        Some(initial.map(|o| o.id))
     }
 }
 

@@ -857,9 +857,15 @@ impl OutputNode {
         let name = 'name: {
             for i in 1.. {
                 let name = i.to_string();
-                if !self.state.workspaces.contains(&name) {
-                    break 'name name;
+                if self.state.workspaces.contains(&name) {
+                    continue;
                 }
+                if let Some(initial) = self.state.initial_workspace_output_id(&name)
+                    && initial != Some(self.id)
+                {
+                    continue;
+                }
+                break 'name name;
             }
             unreachable!();
         };

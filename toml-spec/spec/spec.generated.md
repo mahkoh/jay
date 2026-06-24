@@ -5977,6 +5977,21 @@ The table has the following fields:
 
   The value of this field should be a [WorkspaceType](#types-WorkspaceType).
 
+- `initial-output` (optional):
+
+  The initial output of the workspace.
+  
+  This setting can be overwritten with the `output` field in `show-workspace`
+  actions. If that field is not used or the workspace is created via some other
+  mechanism, it will be created on the output set via this setting, if possible.
+  
+  If the matcher matches multiple outputs, the selected output is undefined.
+  
+  If this setting is not used, then the initial output will be inferred from the
+  output set in a `show-workspace` action, if possible.
+
+  The value of this field should be a [OutputMatch](#types-OutputMatch).
+
 
 <a name="types-WorkspaceDisplayOrder"></a>
 ### `WorkspaceDisplayOrder`

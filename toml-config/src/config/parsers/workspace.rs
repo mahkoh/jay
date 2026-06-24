@@ -1,9 +1,12 @@
 use {
     crate::{
+        State,
         config::{
+            OutputMatch, TomlWorkspace,
             context::Context,
-            extractor::{Extractor, ExtractorError, opt, recover, str},
+            extractor::{Extractor, ExtractorError, opt, recover, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
+            parsers::output_match::OutputMatchParser,
         },
         toml::{
             toml_span::{Span, Spanned},
@@ -12,8 +15,16 @@ use {
     },
     ahash::AHashMap,
     indexmap::IndexMap,
-    jay_config::Workspace,
-    std::{cell::Cell, collections::hash_map::Entry, fmt::Debug, rc::Rc},
+    jay_config::{
+        Workspace,
+        video::{Connector, connectors},
+    },
+    std::{
+        cell::{Cell, RefCell},
+        collections::hash_map::Entry,
+        fmt::Debug,
+        rc::Rc,
+    },
     thiserror::Error,
 };
 
@@ -22,6 +33,76 @@ pub struct WorkspaceSlot {
     pub ws: Cell<Workspace>,
     pub implicit_ty: Cell<WorkspaceType>,
     pub explicit_ty: Cell<Option<WorkspaceType>>,
+    pub implicit_output: RefCell<Option<Rc<OutputMatch>>>,
+    pub explicit_output: RefCell<Option<Rc<OutputMatch>>>,
+}
+
+impl WorkspaceSlot {
+    pub fn to_toml(&self) -> TomlWorkspace {
+        TomlWorkspace {
+            ws: self.ws.get(),
+            _ty: self.explicit_ty.get().unwrap_or(self.implicit_ty.get()),
+            output: self
+                .explicit_output
+                .borrow()
+                .clone()
+                .or(self.implicit_output.borrow().clone()),
+            output_matched: Default::default(),
+        }
+    }
+}
+
+impl TomlWorkspace {
+    pub fn handle_connector_connected(&self, state: &State, c: Connector) {
+        if self.output_matched.get().is_some() {
+            return;
+        }
+        if let Some(matcher) = &self.output
+            && matcher.matches(c, state)
+        {
+            self.set_initial_output(state, Some(c));
+        }
+    }
+
+    pub fn handle_connector_disconnected(&self, state: &State, c: Connector) {
+        if self.output_matched.get() != Some(c) {
+            return;
+        }
+        self.determine_initial_output(state);
+    }
+
+    pub fn determine_initial_output(&self, state: &State) {
+        self.determine_initial_output2(state, &connectors());
+    }
+
+    pub fn determine_initial_output2(&self, state: &State, connectors: &[Connector]) {
+        if let Some(matcher) = &self.output {
+            for &c in connectors {
+                if matcher.matches(c, state) {
+                    self.set_initial_output(state, Some(c));
+                    return;
+                }
+            }
+        }
+        self.set_initial_output(state, None);
+    }
+
+    fn set_initial_output(&self, state: &State, connector: Option<Connector>) {
+        if self.output_matched.get() == connector {
+            return;
+        }
+        self.output_matched.set(connector);
+        self.ws.set_initial_connector(connector);
+        let wwio = &mut *state
+            .persistent
+            .workspaces_with_initial_outputs
+            .borrow_mut();
+        if connector.is_some() {
+            wwio.insert(self.ws);
+        } else {
+            wwio.remove(&self.ws);
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -40,6 +121,8 @@ impl Context<'_> {
             ws: Cell::new(Workspace(0)),
             implicit_ty: Cell::new(WorkspaceType::Normal),
             explicit_ty: Default::default(),
+            implicit_output: Default::default(),
+            explicit_output: Default::default(),
         });
         map.insert(name.to_string(), ws.clone());
         ws
@@ -108,8 +191,17 @@ impl Parser for WorkspaceParser<'_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (ty_str,) = ext.extract((recover(opt(str("type"))),))?;
+        let (ty_str, initial_output) =
+            ext.extract((recover(opt(str("type"))), opt(val("initial-output"))))?;
         let ws = self.cx.get_workspace_slot(self.name);
+        if let Some(v) = initial_output {
+            match v.parse(&mut OutputMatchParser(self.cx)) {
+                Ok(v) => *ws.explicit_output.borrow_mut() = Some(Rc::new(v)),
+                Err(e) => {
+                    log::error!("Could not parse initial output: {}", self.cx.error(e));
+                }
+            }
+        }
         'ty: {
             if let Some(ty_str) = ty_str {
                 let ty = match ty_str.value {

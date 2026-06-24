@@ -26,7 +26,7 @@ use {
     },
     ahash::AHashMap,
     jay_config::{
-        Axis, Direction,
+        Axis, Direction, Workspace,
         client::ClientCapabilities,
         get_overlay, get_workspace,
         input::{
@@ -37,13 +37,16 @@ use {
         logging::LogLevel,
         status::MessageFormat,
         theme::{BarPosition, Color, ContainerBorders},
-        video::{BlendSpace, ColorSpace, Eotf, Format, GfxApi, TearingMode, Transform, VrrMode},
+        video::{
+            BlendSpace, ColorSpace, Connector, Eotf, Format, GfxApi, TearingMode, Transform,
+            VrrMode,
+        },
         window::{ContentType, TileState, WindowType},
         workspace::WorkspaceDisplayOrder,
         xwayland::XScalingMode,
     },
     std::{
-        cell::RefCell,
+        cell::{Cell, RefCell},
         error::Error,
         fmt::{Display, Formatter},
         rc::Rc,
@@ -155,7 +158,7 @@ pub enum Action {
     },
     ShowWorkspace {
         ws: Rc<WorkspaceSlot>,
-        output: Option<OutputMatch>,
+        output: Option<Rc<OutputMatch>>,
         move_to_output: Option<bool>,
         fallback_output_mode: Option<FallbackOutputMode>,
         focus: Option<bool>,
@@ -210,6 +213,14 @@ pub enum Action {
     HideOverlay {
         ws: Rc<WorkspaceSlot>,
     },
+}
+
+#[derive(Debug)]
+pub struct TomlWorkspace {
+    pub ws: Workspace,
+    pub _ty: WorkspaceType,
+    pub output: Option<Rc<OutputMatch>>,
+    pub output_matched: Cell<Option<Connector>>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -599,6 +610,7 @@ pub enum ConfigError {
 pub fn parse_config<F>(
     input: &[u8],
     mark_names: &RefCell<AHashMap<String, u32>>,
+    workspaces: &mut AHashMap<String, Rc<WorkspaceSlot>>,
     handle_error: F,
 ) -> Option<Config>
 where
@@ -608,7 +620,7 @@ where
         input,
         used: Default::default(),
         mark_names,
-        workspaces: Default::default(),
+        workspaces: RefCell::new(workspaces),
     };
     macro_rules! fatal {
         ($e:expr) => {{
@@ -645,11 +657,11 @@ where
     check_defined!("DRM device", drm_devices, defined_drm_devices);
     check_defined!("Output", outputs, defined_outputs);
     check_defined!("Input", inputs, defined_inputs);
-    for (name, ws) in cx.workspaces.take() {
+    for (name, ws) in &**cx.workspaces.borrow() {
         let ty = ws.explicit_ty.get().unwrap_or(ws.implicit_ty.get());
         let id = match ty {
-            WorkspaceType::Normal => get_workspace(&name),
-            WorkspaceType::Overlay => get_overlay(&name),
+            WorkspaceType::Normal => get_workspace(name),
+            WorkspaceType::Overlay => get_overlay(name),
         };
         ws.ws.set(id);
     }
@@ -659,5 +671,5 @@ where
 #[test]
 fn default_config_parses() {
     let input = include_bytes!("default-config.toml");
-    parse_config(input, &Default::default(), |_| ()).unwrap();
+    parse_config(input, &Default::default(), &mut Default::default(), |_| ()).unwrap();
 }

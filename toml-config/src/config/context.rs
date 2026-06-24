@@ -1,6 +1,6 @@
 use {
     crate::{
-        config::{error::SpannedError, parsers::workspace::WorkspaceSlot},
+        config::{WorkspaceSlot, error::SpannedError},
         toml::{
             toml_parser::{ErrorHandler, ParserError},
             toml_span::{Span, Spanned},
@@ -15,7 +15,7 @@ pub struct Context<'a> {
     pub input: &'a [u8],
     pub used: RefCell<Used>,
     pub mark_names: &'a RefCell<AHashMap<String, u32>>,
-    pub workspaces: RefCell<AHashMap<String, Rc<WorkspaceSlot>>>,
+    pub workspaces: RefCell<&'a mut AHashMap<String, Rc<WorkspaceSlot>>>,
 }
 
 #[derive(Default)]

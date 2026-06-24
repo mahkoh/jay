@@ -83,6 +83,38 @@ alt-F1 = {
 
 You can also scroll over the bar to cycle through workspaces on that output.
 
+## Assigning a Workspace to an Output
+
+By default, a workspace is created on whichever output is active when you first
+switch to it (the output containing the cursor). If you want a workspace to
+always appear on a specific monitor, set its `initial-output` in the
+`[workspaces]` table:
+
+```toml
+[workspaces."1"]
+initial-output.name = "left"
+
+[workspaces."2"]
+initial-output.connector = "DP-1"
+```
+
+The value is an [output match](configuration/outputs.md#matching-outputs), so
+you can target a monitor by name, connector, serial number, manufacturer, or
+model. The workspace is then created on that output no matter how it comes into
+existence — via a `show-workspace` shortcut, by moving a window to it, or
+automatically.
+
+`initial-output`
+: The output on which the workspace is created by default. If the matcher
+  matches multiple outputs, the chosen output is undefined.
+
+> [!NOTE]
+> The `output` field of a `show-workspace` action overrides `initial-output`.
+> Conversely, if you do not set `initial-output` but do set `output` in a
+> `show-workspace` action, that output is used as the initial output
+> automatically — so an explicit `initial-output` is only needed when the
+> workspace can be created through other means (such as moving a window to it).
+
 ## Moving Windows to Workspaces
 
 Use the `move-to-workspace` action to send the focused window to a different

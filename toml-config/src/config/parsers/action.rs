@@ -39,6 +39,7 @@ use {
         Direction,
         input::{LayerDirection, Timeline},
     },
+    std::rc::Rc,
     thiserror::Error,
 };
 
@@ -250,7 +251,8 @@ impl ActionParser<'_, '_> {
                     .map_spanned_err(ShowWorkspaceError::OutputMatchParser)
                     .map_spanned_err(map_err)
             })
-            .transpose()?;
+            .transpose()?
+            .map(Rc::new);
         let fallback_output_mode = fallback_output_mode
             .map(|o| {
                 o.parse(&mut FallbackOutputModeParser)
@@ -258,6 +260,9 @@ impl ActionParser<'_, '_> {
                     .map_spanned_err(map_err)
             })
             .transpose()?;
+        if let Some(v) = &output {
+            *ws.implicit_output.borrow_mut() = Some(v.clone());
+        }
         Ok(Action::ShowWorkspace {
             ws,
             output,
