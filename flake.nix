@@ -4,34 +4,52 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    # Jay requires the latest stable version of Rust.
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
     {
       self,
       nixpkgs,
+      rust-overlay,
     }:
     let
-      jay-package =
+      inherit (nixpkgs) lib;
+      systems = lib.intersectLists lib.systems.flakeExposed lib.platforms.linux;
+      forAllSystems =
+        f:
+        lib.genAttrs systems (
+          system:
+          f (
+            import nixpkgs {
+              inherit system;
+              overlays = [ (import rust-overlay) ];
+            }
+          )
+        );
+
+      jayPackage =
         {
           lib,
           stdenv,
           rustPlatform,
-          fetchFromGitHub,
-          libGL,
-          libinput,
-          pkgconf,
-          xkeyboard_config,
-          libgbm,
-          pango,
-          fontconfig,
-          udev,
-          libglvnd,
-          vulkan-loader,
           autoPatchelfHook,
           installShellFiles,
+          pkgconf,
+          fontconfig,
+          libgbm,
+          libinput,
+          pango,
+          udev,
+          xkeyboard-config,
+          libglvnd,
+          sqlite,
+          vulkan-loader,
         }:
-
         rustPlatform.buildRustPackage {
           pname = "jay";
           version = self.shortRev or self.dirtyShortRev or "unknown";
@@ -45,6 +63,7 @@
               ./Cargo.toml
               ./etc
               ./jay-config
+              ./jay-proc
               ./rustfmt.toml
               ./src
               ./toml-config
@@ -69,18 +88,28 @@
           ];
 
           buildInputs = [
-            libGL
-            xkeyboard_config
-            libgbm
-            pango
             fontconfig
-            udev
+            libgbm
             libinput
+            pango
+            udev
+            xkeyboard-config
           ];
 
           runtimeDependencies = [
             libglvnd
+            sqlite.out
             vulkan-loader
+          ];
+
+          # Jay uses https://docs.rs/dlopen-note/latest/dlopen_note/ to declare its optional runtime
+          # dependencies in ELF metadata (https://uapi-group.org/specifications/specs/elf_dlopen_metadata/).
+          # However, auto-patchelf fails if these dependencies are not present at compile time.
+          autoPatchelfIgnoreMissingDeps = [
+            "libGLESv2.so.2"
+            "libEGL.so.1"
+            "libsqlite3.so.0"
+            "libvulkan.so.1"
           ];
 
           checkFlags = [
@@ -117,44 +146,39 @@
           };
         };
 
-      inherit (nixpkgs) lib;
-      # Support all Linux systems that the nixpkgs flake exposes
-      systems = lib.intersectLists lib.systems.flakeExposed lib.platforms.linux;
-
-      forAllSystems = lib.genAttrs systems;
-      nixpkgsFor = forAllSystems (system: nixpkgs.legacyPackages.${system});
     in
     {
-      devShells = forAllSystems (
-        system:
-        let
-          pkgs = nixpkgsFor.${system};
-          inherit (self.packages.${system}) jay;
-        in
-        {
-          default = pkgs.mkShell {
-            packages = [
-              pkgs.rustc
-              pkgs.cargo
-              pkgs.clippy
-              pkgs.rustfmt
-            ];
-
-            nativeBuildInputs = [
-              pkgs.pkg-config
-            ];
-
-            buildInputs = jay.buildInputs;
+      devShells = forAllSystems (pkgs: {
+        default =
+          let
+            inherit (self.packages.${pkgs.system}) jay;
+            rust = pkgs.rust-bin.stable.latest.default.override {
+              extensions = [
+                "rust-src"
+                "clippy"
+                "rustfmt"
+              ];
+            };
+          in
+          pkgs.mkShell {
+            inputsFrom = [ jay ];
+            packages = [ rust ];
           };
-        }
-      );
+      });
 
-      formatter = forAllSystems (system: nixpkgsFor.${system}.nixfmt-rfc-style);
+      formatter = forAllSystems (pkgs: pkgs.nixfmt);
 
       packages = forAllSystems (
-        system:
+        pkgs:
         let
-          jay = nixpkgsFor.${system}.callPackage jay-package { };
+          rust = pkgs.rust-bin.stable.latest.default;
+          rustPlatform = pkgs.makeRustPlatform {
+            cargo = rust;
+            rustc = rust;
+          };
+          jay = pkgs.callPackage jayPackage {
+            inherit rustPlatform;
+          };
         in
         {
           inherit jay;
@@ -162,8 +186,6 @@
         }
       );
 
-      overlays.default = final: _: {
-        jay = final.callPackage jay-package { };
-      };
+      overlays.default = final: _: { inherit (self.packages.${final.system}) jay; };
     };
 }
