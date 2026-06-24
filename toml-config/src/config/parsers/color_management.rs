@@ -22,14 +22,14 @@ pub enum ColorManagementParserError {
     Extract(#[from] ExtractorError),
 }
 
-pub struct ColorManagementParser<'a>(pub &'a Context<'a>);
+pub struct ColorManagementParser<'a, 'b>(pub &'a Context<'b>);
 
 #[derive(Clone, Debug)]
 pub struct ColorManagement {
     pub enabled: Option<bool>,
 }
 
-impl Parser for ColorManagementParser<'_> {
+impl Parser for ColorManagementParser<'_, '_> {
     type Value = ColorManagement;
     type Error = ColorManagementParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

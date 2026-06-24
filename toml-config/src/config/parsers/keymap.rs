@@ -38,12 +38,12 @@ pub enum KeymapParserError {
     UnknownShortcutsGroup,
 }
 
-pub struct KeymapParser<'a> {
-    pub cx: &'a Context<'a>,
+pub struct KeymapParser<'a, 'b> {
+    pub cx: &'a Context<'b>,
     pub definition: bool,
 }
 
-impl Parser for KeymapParser<'_> {
+impl Parser for KeymapParser<'_, '_> {
     type Value = ConfigKeymap;
     type Error = KeymapParserError;
     const EXPECTED: &'static [DataType] = &[DataType::String, DataType::Table];
@@ -157,9 +157,9 @@ impl Parser for KeymapParser<'_> {
     }
 }
 
-struct RmlvoParser<'a>(&'a Context<'a>, Option<u32>);
+struct RmlvoParser<'a, 'b>(&'a Context<'b>, Option<u32>);
 
-impl Parser for RmlvoParser<'_> {
+impl Parser for RmlvoParser<'_, '_> {
     type Value = Keymap;
     type Error = KeymapParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

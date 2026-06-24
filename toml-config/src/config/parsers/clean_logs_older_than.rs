@@ -27,9 +27,9 @@ pub enum CleanLogsOlderThanParserError {
     InvalidDuration(#[source] TryFromFloatSecsError),
 }
 
-pub struct CleanLogsOlderThanParser<'a>(pub &'a Context<'a>);
+pub struct CleanLogsOlderThanParser<'a, 'b>(pub &'a Context<'b>);
 
-impl Parser for CleanLogsOlderThanParser<'_> {
+impl Parser for CleanLogsOlderThanParser<'_, '_> {
     type Value = Duration;
     type Error = CleanLogsOlderThanParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

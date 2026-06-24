@@ -23,9 +23,9 @@ pub enum ClientMatchParserError {
     Extract(#[from] ExtractorError),
 }
 
-pub struct ClientMatchParser<'a>(pub &'a Context<'a>);
+pub struct ClientMatchParser<'a, 'b>(pub &'a Context<'b>);
 
-impl Parser for ClientMatchParser<'_> {
+impl Parser for ClientMatchParser<'_, '_> {
     type Value = ClientMatch;
     type Error = ClientMatchParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -140,9 +140,9 @@ impl Parser for ClientMatchParser<'_> {
     }
 }
 
-pub struct ClientMatchExactlyParser<'a>(pub &'a Context<'a>);
+pub struct ClientMatchExactlyParser<'a, 'b>(pub &'a Context<'b>);
 
-impl Parser for ClientMatchExactlyParser<'_> {
+impl Parser for ClientMatchExactlyParser<'_, '_> {
     type Value = MatchExactly<ClientMatch>;
     type Error = ClientMatchParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

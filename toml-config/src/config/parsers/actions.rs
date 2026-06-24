@@ -25,13 +25,13 @@ pub enum ActionsParserError {
     ExtractorError(#[from] ExtractorError),
 }
 
-pub struct ActionsParser<'a, 'b> {
-    pub cx: &'a Context<'a>,
+pub struct ActionsParser<'a, 'b, 'c> {
+    pub cx: &'a Context<'c>,
     pub used_names: HashSet<Spanned<Rc<String>>>,
     pub actions: &'b mut Vec<NamedAction>,
 }
 
-impl Parser for ActionsParser<'_, '_> {
+impl Parser for ActionsParser<'_, '_, '_> {
     type Value = ();
     type Error = ActionsParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

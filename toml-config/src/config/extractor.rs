@@ -12,17 +12,17 @@ use {
     thiserror::Error,
 };
 
-pub struct Extractor<'v> {
-    cx: &'v Context<'v>,
+pub struct Extractor<'v, 'w> {
+    cx: &'v Context<'w>,
     table: &'v IndexMap<Spanned<String>, Spanned<Value>>,
     used: Vec<&'static str>,
     log_unused: bool,
     span: Span,
 }
 
-impl<'v> Extractor<'v> {
+impl<'v, 'w> Extractor<'v, 'w> {
     pub fn new(
-        cx: &'v Context<'v>,
+        cx: &'v Context<'w>,
         span: Span,
         table: &'v IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> Self {
@@ -51,14 +51,14 @@ impl<'v> Extractor<'v> {
         self.span
     }
 
-    pub fn extract<E: Extractable<'v>, U>(&mut self, e: E) -> Result<E::Output, Spanned<U>>
+    pub fn extract<E: Extractable<'v, 'w>, U>(&mut self, e: E) -> Result<E::Output, Spanned<U>>
     where
         ExtractorError: Into<U>,
     {
         e.extract(self).map_err(|e| e.map(|e| e.into()))
     }
 
-    pub fn extract_or_ignore<E: Extractable<'v>, U>(
+    pub fn extract_or_ignore<E: Extractable<'v, 'w>, U>(
         &mut self,
         e: E,
     ) -> Result<E::Output, Spanned<U>>
@@ -73,7 +73,7 @@ impl<'v> Extractor<'v> {
     }
 }
 
-impl Drop for Extractor<'_> {
+impl Drop for Extractor<'_, '_> {
     fn drop(&mut self) {
         if !self.log_unused {
             return;
@@ -108,24 +108,24 @@ pub enum ExtractorError {
     I32,
 }
 
-pub trait Extractable<'v> {
+pub trait Extractable<'v, 'w> {
     type Output;
 
     fn extract(
         self,
-        extractor: &mut Extractor<'v>,
+        extractor: &mut Extractor<'v, 'w>,
     ) -> Result<Self::Output, Spanned<ExtractorError>>;
 }
 
-impl<'v, T, F> Extractable<'v> for F
+impl<'v, 'w, T, F> Extractable<'v, 'w> for F
 where
-    F: FnOnce(&mut Extractor<'v>) -> Result<T, Spanned<ExtractorError>>,
+    F: FnOnce(&mut Extractor<'v, 'w>) -> Result<T, Spanned<ExtractorError>>,
 {
     type Output = T;
 
     fn extract(
         self,
-        extractor: &mut Extractor<'v>,
+        extractor: &mut Extractor<'v, 'w>,
     ) -> Result<Self::Output, Spanned<ExtractorError>> {
         self(extractor)
     }
@@ -133,7 +133,7 @@ where
 
 pub fn val(
     name: &'static str,
-) -> impl for<'v> FnOnce(&mut Extractor<'v>) -> Result<Spanned<&'v Value>, Spanned<ExtractorError>>
+) -> impl for<'v, 'w> FnOnce(&mut Extractor<'v, 'w>) -> Result<Spanned<&'v Value>, Spanned<ExtractorError>>
 {
     move |extractor: &mut Extractor| match extractor.get(name) {
         None => Err(ExtractorError::MissingField(name).spanned(extractor.span)),
@@ -145,7 +145,9 @@ macro_rules! ty {
     ($f:ident, $lt:lifetime, $ty:ident, $ret:ty, $v:ident, $map:expr, $name:expr) => {
         pub fn $f(
             name: &'static str,
-        ) -> impl for<$lt> FnOnce(&mut Extractor<$lt>) -> Result<Spanned<$ret>, Spanned<ExtractorError>> {
+        ) -> impl for<$lt, 'w> FnOnce(
+            &mut Extractor<$lt, 'w>,
+        ) -> Result<Spanned<$ret>, Spanned<ExtractorError>> {
             move |extractor: &mut Extractor| {
                 val(name)(extractor).and_then(|v| match v.value {
                     Value::$ty($v) => Ok($map.spanned(v.span)),
@@ -165,7 +167,8 @@ ty!(arr, 'a, Array, &'a [Spanned<Value>], v, &**v, "an array");
 
 pub fn fltorint(
     name: &'static str,
-) -> impl for<'a> FnOnce(&mut Extractor<'a>) -> Result<Spanned<f64>, Spanned<ExtractorError>> {
+) -> impl for<'a, 'b> FnOnce(&mut Extractor<'a, 'b>) -> Result<Spanned<f64>, Spanned<ExtractorError>>
+{
     move |extractor: &mut Extractor| {
         val(name)(extractor).and_then(|v| match *v.value {
             Value::Float(f) => Ok(f.spanned(v.span)),
@@ -181,7 +184,9 @@ macro_rules! int {
     ($f:ident, $ty:ident, $err:ident) => {
         pub fn $f(
             name: &'static str,
-        ) -> impl for<'v> FnOnce(&mut Extractor<'v>) -> Result<Spanned<$ty>, Spanned<ExtractorError>> {
+        ) -> impl for<'v, 'w> FnOnce(
+            &mut Extractor<'v, 'w>,
+        ) -> Result<Spanned<$ty>, Spanned<ExtractorError>> {
             move |extractor: &mut Extractor| {
                 int(name)(extractor).and_then(|v| {
                     v.value
@@ -204,22 +209,22 @@ pub fn recover<F>(f: F) -> Recover<F> {
 
 pub struct Recover<E>(E);
 
-impl<'v, E> Extractable<'v> for Recover<E>
+impl<'v, 'w, E> Extractable<'v, 'w> for Recover<E>
 where
-    E: Extractable<'v>,
-    <E as Extractable<'v>>::Output: Default,
+    E: Extractable<'v, 'w>,
+    <E as Extractable<'v, 'w>>::Output: Default,
 {
-    type Output = <E as Extractable<'v>>::Output;
+    type Output = <E as Extractable<'v, 'w>>::Output;
 
     fn extract(
         self,
-        extractor: &mut Extractor<'v>,
+        extractor: &mut Extractor<'v, 'w>,
     ) -> Result<Self::Output, Spanned<ExtractorError>> {
         match self.0.extract(extractor) {
             Ok(v) => Ok(v),
             Err(e) => {
                 log::warn!("{}", extractor.cx.error(e));
-                Ok(<E as Extractable<'v>>::Output::default())
+                Ok(<E as Extractable<'v, 'w>>::Output::default())
             }
         }
     }
@@ -231,15 +236,15 @@ pub fn opt<F>(f: F) -> Opt<F> {
 
 pub struct Opt<E>(E);
 
-impl<'v, E> Extractable<'v> for Opt<E>
+impl<'v, 'w, E> Extractable<'v, 'w> for Opt<E>
 where
-    E: Extractable<'v>,
+    E: Extractable<'v, 'w>,
 {
-    type Output = Option<<E as Extractable<'v>>::Output>;
+    type Output = Option<<E as Extractable<'v, 'w>>::Output>;
 
     fn extract(
         self,
-        extractor: &mut Extractor<'v>,
+        extractor: &mut Extractor<'v, 'w>,
     ) -> Result<Self::Output, Spanned<ExtractorError>> {
         match self.0.extract(extractor) {
             Ok(v) => Ok(Some(v)),
@@ -251,13 +256,13 @@ where
 
 macro_rules! tuples {
     ($($idx:tt: $name:ident,)*) => {
-        impl<'v, $($name,)*> Extractable<'v> for ($($name,)*)
-            where $($name: Extractable<'v>,)*
+        impl<'v, 'w, $($name,)*> Extractable<'v, 'w> for ($($name,)*)
+            where $($name: Extractable<'v, 'w>,)*
         {
             type Output = ($($name::Output,)*);
 
             #[expect(non_snake_case)]
-            fn extract(self, extractor: &mut Extractor<'v>) -> Result<Self::Output, Spanned<ExtractorError>> {
+            fn extract(self, extractor: &mut Extractor<'v, 'w>) -> Result<Self::Output, Spanned<ExtractorError>> {
                 $(
                     let $name = self.$idx.extract(extractor);
                 )*

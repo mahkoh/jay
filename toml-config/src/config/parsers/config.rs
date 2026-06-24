@@ -70,9 +70,9 @@ pub enum ConfigParserError {
     ParseShortcuts(#[source] ShortcutsParserError),
 }
 
-pub struct ConfigParser<'a>(pub &'a Context<'a>);
+pub struct ConfigParser<'a, 'b>(pub &'a Context<'b>);
 
-impl ConfigParser<'_> {
+impl ConfigParser<'_, '_> {
     fn parse_action(&self, name: &str, action: Option<Spanned<&Value>>) -> Option<Action> {
         match action {
             None => None,
@@ -87,7 +87,7 @@ impl ConfigParser<'_> {
     }
 }
 
-impl Parser for ConfigParser<'_> {
+impl Parser for ConfigParser<'_, '_> {
     type Value = Config;
     type Error = ConfigParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

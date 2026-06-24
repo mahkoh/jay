@@ -29,12 +29,12 @@ pub enum DrmDeviceParserError {
     Match(#[from] DrmDeviceMatchParserError),
 }
 
-pub struct DrmDeviceParser<'a> {
-    pub cx: &'a Context<'a>,
+pub struct DrmDeviceParser<'a, 'b> {
+    pub cx: &'a Context<'b>,
     pub name_ok: bool,
 }
 
-impl Parser for DrmDeviceParser<'_> {
+impl Parser for DrmDeviceParser<'_, '_> {
     type Value = ConfigDrmDevice;
     type Error = DrmDeviceParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -87,9 +87,9 @@ impl Parser for DrmDeviceParser<'_> {
     }
 }
 
-pub struct DrmDevicesParser<'a>(pub &'a Context<'a>);
+pub struct DrmDevicesParser<'a, 'b>(pub &'a Context<'b>);
 
-impl Parser for DrmDevicesParser<'_> {
+impl Parser for DrmDevicesParser<'_, '_> {
     type Value = Vec<ConfigDrmDevice>;
     type Error = DrmDeviceParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table, DataType::Array];

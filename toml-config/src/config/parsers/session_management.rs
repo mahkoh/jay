@@ -22,14 +22,14 @@ pub enum SessionManagementParserError {
     Extract(#[from] ExtractorError),
 }
 
-pub struct SessionManagementParser<'a>(pub &'a Context<'a>);
+pub struct SessionManagementParser<'a, 'b>(pub &'a Context<'b>);
 
 #[derive(Clone, Debug)]
 pub struct SessionManagement {
     pub enabled: Option<bool>,
 }
 
-impl Parser for SessionManagementParser<'_> {
+impl Parser for SessionManagementParser<'_, '_> {
     type Value = SessionManagement;
     type Error = SessionManagementParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
