@@ -29,9 +29,9 @@ pub enum StatusParserError {
     UnknownFormat(String),
 }
 
-pub struct StatusParser<'a>(pub &'a Context<'a>);
+pub struct StatusParser<'a, 'b>(pub &'a Context<'b>);
 
-impl Parser for StatusParser<'_> {
+impl Parser for StatusParser<'_, '_> {
     type Value = Status;
     type Error = StatusParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

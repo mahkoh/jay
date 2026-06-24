@@ -15,7 +15,7 @@ use {
     thiserror::Error,
 };
 
-pub struct EguiParser<'a>(pub &'a Context<'a>);
+pub struct EguiParser<'a, 'b>(pub &'a Context<'b>);
 
 #[derive(Debug, Error)]
 pub enum EguiParserError {
@@ -25,7 +25,7 @@ pub enum EguiParserError {
     Extractor(#[from] ExtractorError),
 }
 
-impl Parser for EguiParser<'_> {
+impl Parser for EguiParser<'_, '_> {
     type Value = Egui;
     type Error = EguiParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

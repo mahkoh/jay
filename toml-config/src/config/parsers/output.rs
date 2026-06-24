@@ -33,12 +33,12 @@ pub enum OutputParserError {
     Match(#[from] OutputMatchParserError),
 }
 
-pub struct OutputParser<'a> {
-    pub cx: &'a Context<'a>,
+pub struct OutputParser<'a, 'b> {
+    pub cx: &'a Context<'b>,
     pub name_ok: bool,
 }
 
-impl Parser for OutputParser<'_> {
+impl Parser for OutputParser<'_, '_> {
     type Value = Output;
     type Error = OutputParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -216,9 +216,9 @@ impl Parser for OutputParser<'_> {
     }
 }
 
-pub struct OutputsParser<'a>(pub &'a Context<'a>);
+pub struct OutputsParser<'a, 'b>(pub &'a Context<'b>);
 
-impl Parser for OutputsParser<'_> {
+impl Parser for OutputsParser<'_, '_> {
     type Value = Vec<Output>;
     type Error = OutputParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table, DataType::Array];

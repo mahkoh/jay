@@ -35,9 +35,9 @@ pub enum ClientRuleParserError {
     Latch(ActionParserError),
 }
 
-pub struct ClientRuleParser<'a>(pub &'a Context<'a>);
+pub struct ClientRuleParser<'a, 'b>(pub &'a Context<'b>);
 
-impl Parser for ClientRuleParser<'_> {
+impl Parser for ClientRuleParser<'_, '_> {
     type Value = ClientRule;
     type Error = ClientRuleParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -109,9 +109,9 @@ impl Parser for ClientRuleParser<'_> {
     }
 }
 
-pub struct ClientRulesParser<'a>(pub &'a Context<'a>);
+pub struct ClientRulesParser<'a, 'b>(pub &'a Context<'b>);
 
-impl Parser for ClientRulesParser<'_> {
+impl Parser for ClientRulesParser<'_, '_> {
     type Value = Vec<ClientRule>;
     type Error = ClientRuleParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Array];

@@ -23,9 +23,9 @@ pub enum LibeiParserError {
     Extract(#[from] ExtractorError),
 }
 
-pub struct LibeiParser<'a>(pub &'a Context<'a>);
+pub struct LibeiParser<'a, 'b>(pub &'a Context<'b>);
 
-impl Parser for LibeiParser<'_> {
+impl Parser for LibeiParser<'_, '_> {
     type Value = Libei;
     type Error = LibeiParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

@@ -17,7 +17,7 @@ use {
     thiserror::Error,
 };
 
-pub struct ThemeParser<'a>(pub &'a Context<'a>);
+pub struct ThemeParser<'a, 'b>(pub &'a Context<'b>);
 
 #[derive(Debug, Error)]
 pub enum ThemeParserError {
@@ -27,7 +27,7 @@ pub enum ThemeParserError {
     Extractor(#[from] ExtractorError),
 }
 
-impl Parser for ThemeParser<'_> {
+impl Parser for ThemeParser<'_, '_> {
     type Value = Theme;
     type Error = ThemeParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

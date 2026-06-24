@@ -54,9 +54,9 @@ pub enum WorkspaceParserError {
     Extract(#[from] ExtractorError),
 }
 
-pub struct WorkspacesParser<'a>(pub &'a Context<'a>);
+pub struct WorkspacesParser<'a, 'b>(pub &'a Context<'b>);
 
-impl Parser for WorkspacesParser<'_> {
+impl Parser for WorkspacesParser<'_, '_> {
     type Value = ();
     type Error = WorkspaceParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -92,12 +92,12 @@ impl Parser for WorkspacesParser<'_> {
     }
 }
 
-pub struct WorkspaceParser<'a> {
+pub struct WorkspaceParser<'a, 'b> {
     name: &'a str,
-    cx: &'a Context<'a>,
+    cx: &'a Context<'b>,
 }
 
-impl Parser for WorkspaceParser<'_> {
+impl Parser for WorkspaceParser<'_, '_> {
     type Value = ();
     type Error = WorkspaceParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

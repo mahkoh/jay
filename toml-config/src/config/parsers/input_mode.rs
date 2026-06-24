@@ -35,9 +35,9 @@ pub struct InputMode {
     pub shortcuts: Vec<Shortcut>,
 }
 
-pub struct InputModesParser<'a>(pub &'a Context<'a>);
+pub struct InputModesParser<'a, 'b>(pub &'a Context<'b>);
 
-impl Parser for InputModesParser<'_> {
+impl Parser for InputModesParser<'_, '_> {
     type Value = AHashMap<String, InputMode>;
     type Error = InputModeParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -68,9 +68,9 @@ impl Parser for InputModesParser<'_> {
     }
 }
 
-pub struct InputModeParser<'a>(pub &'a Context<'a>);
+pub struct InputModeParser<'a, 'b>(pub &'a Context<'b>);
 
-impl Parser for InputModeParser<'_> {
+impl Parser for InputModeParser<'_, '_> {
     type Value = InputMode;
     type Error = InputModeParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

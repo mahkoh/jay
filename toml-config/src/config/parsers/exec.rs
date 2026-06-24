@@ -40,9 +40,9 @@ pub enum ExecParserError {
     ArgsForShell,
 }
 
-pub struct ExecParser<'a>(pub &'a Context<'a>);
+pub struct ExecParser<'a, 'b>(pub &'a Context<'b>);
 
-impl Parser for ExecParser<'_> {
+impl Parser for ExecParser<'_, '_> {
     type Value = Exec;
     type Error = ExecParserError;
     const EXPECTED: &'static [DataType] = &[DataType::String, DataType::Array, DataType::Table];

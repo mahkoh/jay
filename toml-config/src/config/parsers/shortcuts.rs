@@ -38,13 +38,13 @@ pub enum ShortcutsParserError {
     LatchError(#[source] ActionParserError),
 }
 
-pub struct ShortcutsParser<'a, 'b> {
-    pub cx: &'a Context<'a>,
+pub struct ShortcutsParser<'a, 'b, 'c> {
+    pub cx: &'a Context<'c>,
     pub used_keys: &'b mut HashSet<Spanned<ModifiedKeySym>>,
     pub shortcuts: &'b mut Vec<Shortcut>,
 }
 
-impl Parser for ShortcutsParser<'_, '_> {
+impl Parser for ShortcutsParser<'_, '_, '_> {
     type Value = ();
     type Error = ShortcutsParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -74,13 +74,13 @@ impl Parser for ShortcutsParser<'_, '_> {
     }
 }
 
-pub struct ComplexShortcutsParser<'a, 'b> {
-    pub cx: &'a Context<'a>,
+pub struct ComplexShortcutsParser<'a, 'b, 'c> {
+    pub cx: &'a Context<'c>,
     pub used_keys: &'b mut HashSet<Spanned<ModifiedKeySym>>,
     pub shortcuts: &'b mut Vec<Shortcut>,
 }
 
-impl Parser for ComplexShortcutsParser<'_, '_> {
+impl Parser for ComplexShortcutsParser<'_, '_, '_> {
     type Value = ();
     type Error = ShortcutsParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -116,12 +116,12 @@ impl Parser for ComplexShortcutsParser<'_, '_> {
     }
 }
 
-struct ComplexShortcutParser<'a> {
+struct ComplexShortcutParser<'a, 'b> {
     pub keysym: ModifiedKeySym,
-    pub cx: &'a Context<'a>,
+    pub cx: &'a Context<'b>,
 }
 
-impl Parser for ComplexShortcutParser<'_> {
+impl Parser for ComplexShortcutParser<'_, '_> {
     type Value = Shortcut;
     type Error = ShortcutsParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

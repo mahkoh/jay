@@ -110,9 +110,9 @@ pub enum ShowWorkspaceError {
     FallbackOutputModeParser(FallbackOutputModeParserError),
 }
 
-pub struct ActionParser<'a>(pub &'a Context<'a>);
+pub struct ActionParser<'a, 'b>(pub &'a Context<'b>);
 
-impl ActionParser<'_> {
+impl ActionParser<'_, '_> {
     fn parse_simple_cmd(&self, span: Span, string: &str) -> ParseResult<Self> {
         use {crate::config::SimpleCommand::*, jay_config::Direction::*};
         if let Some(name) = string.strip_prefix("$") {
@@ -204,7 +204,7 @@ impl ActionParser<'_> {
         Ok(Action::Multi { actions })
     }
 
-    fn parse_exec(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_exec(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let exec = ext
             .extract(val("exec"))?
             .parse_map(&mut ExecParser(self.0))
@@ -212,14 +212,14 @@ impl ActionParser<'_> {
         Ok(Action::Exec { exec })
     }
 
-    fn parse_switch_to_vt(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_switch_to_vt(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let num = ext.extract(n32("num"))?.value;
         Ok(Action::SwitchToVt { num })
     }
 
     fn parse_show_workspace_(
         &mut self,
-        ext: &mut Extractor<'_>,
+        ext: &mut Extractor<'_, '_>,
         map_err: &dyn Fn(ShowWorkspaceError) -> ActionParserError,
         defaults: ShowWorkspaceDefaults,
     ) -> ParseResult<Self> {
@@ -268,7 +268,7 @@ impl ActionParser<'_> {
         })
     }
 
-    fn parse_show_workspace(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_show_workspace(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let def = ShowWorkspaceDefaults {
             move_to_output: None,
             toggle: None,
@@ -277,7 +277,7 @@ impl ActionParser<'_> {
         self.parse_show_workspace_(ext, &ActionParserError::ShowWorkspace, def)
     }
 
-    fn parse_show_overlay(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_show_overlay(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let def = ShowWorkspaceDefaults {
             move_to_output: Some(true),
             toggle: Some(false),
@@ -286,7 +286,7 @@ impl ActionParser<'_> {
         self.parse_show_workspace_(ext, &ActionParserError::ShowOverlay, def)
     }
 
-    fn parse_toggle_overlay(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_toggle_overlay(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let def = ShowWorkspaceDefaults {
             move_to_output: Some(false),
             toggle: Some(true),
@@ -295,13 +295,13 @@ impl ActionParser<'_> {
         self.parse_show_workspace_(ext, &ActionParserError::ToggleOverlay, def)
     }
 
-    fn parse_move_to_workspace(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_move_to_workspace(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let name = ext.extract(str("name"))?.value;
         let ws = self.0.get_workspace_slot(name);
         Ok(Action::MoveToWorkspace { ws })
     }
 
-    fn parse_configure_connector(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_configure_connector(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let con = ext
             .extract(val("connector"))?
             .parse_map(&mut ConnectorParser(self.0))
@@ -309,7 +309,7 @@ impl ActionParser<'_> {
         Ok(Action::ConfigureConnector { con })
     }
 
-    fn parse_configure_input(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_configure_input(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let input = ext
             .extract(val("input"))?
             .parse_map(&mut InputParser {
@@ -322,7 +322,7 @@ impl ActionParser<'_> {
         })
     }
 
-    fn parse_configure_idle(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_configure_idle(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let idle = ext
             .extract(val("idle"))?
             .parse_map(&mut IdleParser(self.0))
@@ -333,7 +333,7 @@ impl ActionParser<'_> {
         })
     }
 
-    fn parse_configure_output(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_configure_output(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let out = ext
             .extract(val("output"))?
             .parse_map(&mut OutputParser {
@@ -344,7 +344,7 @@ impl ActionParser<'_> {
         Ok(Action::ConfigureOutput { out })
     }
 
-    fn parse_set_env(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_set_env(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let env = ext
             .extract(val("env"))?
             .parse_map(&mut EnvParser)
@@ -352,7 +352,7 @@ impl ActionParser<'_> {
         Ok(Action::SetEnv { env })
     }
 
-    fn parse_unset_env(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_unset_env(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         struct P;
         impl Parser for P {
             type Value = Vec<String>;
@@ -375,7 +375,7 @@ impl ActionParser<'_> {
         Ok(Action::UnsetEnv { env })
     }
 
-    fn parse_set_keymap(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_set_keymap(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let map = ext
             .extract(val("map"))?
             .parse_map(&mut KeymapParser {
@@ -386,7 +386,7 @@ impl ActionParser<'_> {
         Ok(Action::SetKeymap { map })
     }
 
-    fn parse_set_status(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_set_status(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let status = match ext.extract(opt(val("status")))? {
             None => None,
             Some(v) => Some(
@@ -397,7 +397,7 @@ impl ActionParser<'_> {
         Ok(Action::SetStatus { status })
     }
 
-    fn parse_set_theme(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_set_theme(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let theme = ext
             .extract(val("theme"))?
             .parse_map(&mut ThemeParser(self.0))
@@ -407,7 +407,7 @@ impl ActionParser<'_> {
         })
     }
 
-    fn parse_set_log_level(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_set_log_level(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let level = ext
             .extract(val("level"))?
             .parse_map(&mut LogLevelParser)
@@ -415,7 +415,7 @@ impl ActionParser<'_> {
         Ok(Action::SetLogLevel { level })
     }
 
-    fn parse_set_gfx_api(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_set_gfx_api(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let api = ext
             .extract(val("api"))?
             .parse_map(&mut GfxApiParser)
@@ -423,7 +423,7 @@ impl ActionParser<'_> {
         Ok(Action::SetGfxApi { api })
     }
 
-    fn parse_set_render_device(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_set_render_device(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let dev = ext
             .extract(val("dev"))?
             .parse_map(&mut DrmDeviceMatchParser(self.0))
@@ -431,12 +431,12 @@ impl ActionParser<'_> {
         Ok(Action::SetRenderDevice { dev: Box::new(dev) })
     }
 
-    fn parse_configure_direct_scanout(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_configure_direct_scanout(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let enabled = ext.extract(bol("enabled"))?.value;
         Ok(Action::ConfigureDirectScanout { enabled })
     }
 
-    fn parse_configure_drm_device(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_configure_drm_device(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let dev = ext
             .extract(val("dev"))?
             .parse_map(&mut DrmDeviceParser {
@@ -458,7 +458,7 @@ impl ActionParser<'_> {
         }
     }
 
-    fn parse_move_to_output(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_move_to_output(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let (ws, output_val, direction_val) = ext.extract((
             opt(str("workspace")),
             opt(val("output")),
@@ -484,7 +484,7 @@ impl ActionParser<'_> {
         })
     }
 
-    fn parse_set_repeat_rate(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_set_repeat_rate(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let rate = ext
             .extract(val("rate"))?
             .parse_map(&mut RepeatRateParser(self.0))
@@ -492,14 +492,14 @@ impl ActionParser<'_> {
         Ok(Action::SetRepeatRate { rate })
     }
 
-    fn parse_undefine_action(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_undefine_action(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let (name,) = ext.extract((str("name"),))?;
         Ok(Action::UndefineAction {
             name: name.value.to_string(),
         })
     }
 
-    fn parse_define_action(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_define_action(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let (name, action) = ext.extract((str("name"), val("action")))?;
         Ok(Action::DefineAction {
             name: name.value.to_string(),
@@ -507,14 +507,14 @@ impl ActionParser<'_> {
         })
     }
 
-    fn parse_named_action(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_named_action(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let (name,) = ext.extract((str("name"),))?;
         Ok(Action::NamedAction {
             name: name.value.to_string(),
         })
     }
 
-    fn parse_create_mark(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_create_mark(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let (id,) = ext.extract((opt(val("id")),))?;
         let Some(id) = id else {
             return Ok(Action::SimpleCommand {
@@ -527,7 +527,7 @@ impl ActionParser<'_> {
         Ok(Action::CreateMark(id))
     }
 
-    fn parse_jump_to_mark(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_jump_to_mark(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let (id,) = ext.extract((opt(val("id")),))?;
         let Some(id) = id else {
             return Ok(Action::SimpleCommand {
@@ -540,7 +540,7 @@ impl ActionParser<'_> {
         Ok(Action::JumpToMark(id))
     }
 
-    fn parse_copy_mark(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_copy_mark(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let (src, dst) = ext.extract((val("src"), val("dst")))?;
         let src = src
             .parse(&mut MarkIdParser(self.0))
@@ -551,7 +551,7 @@ impl ActionParser<'_> {
         Ok(Action::CopyMark(src, dst))
     }
 
-    fn parse_push_mode(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_push_mode(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let (name,) = ext.extract((str("name"),))?;
         Ok(Action::SetMode {
             name: name.value.to_string(),
@@ -559,7 +559,7 @@ impl ActionParser<'_> {
         })
     }
 
-    fn parse_latch_mode(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_latch_mode(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let (name,) = ext.extract((str("name"),))?;
         Ok(Action::SetMode {
             name: name.value.to_string(),
@@ -567,21 +567,21 @@ impl ActionParser<'_> {
         })
     }
 
-    fn parse_create_virtual_output(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_create_virtual_output(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let (name,) = ext.extract((str("name"),))?;
         Ok(Action::CreateVirtualOutput {
             name: name.value.to_string(),
         })
     }
 
-    fn parse_remove_virtual_output(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_remove_virtual_output(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let (name,) = ext.extract((str("name"),))?;
         Ok(Action::RemoveVirtualOutput {
             name: name.value.to_string(),
         })
     }
 
-    fn parse_resize(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_resize(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let (dx1, dy1, dx2, dy2) = ext.extract((
             opt(s32("dx1")),
             opt(s32("dy1")),
@@ -596,7 +596,7 @@ impl ActionParser<'_> {
         })
     }
 
-    fn parse_hide_overlay(&mut self, ext: &mut Extractor<'_>) -> ParseResult<Self> {
+    fn parse_hide_overlay(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let (name,) = ext.extract((str("name"),))?;
         let ws = self.0.get_workspace_slot(name.value);
         Ok(Action::HideOverlay { ws })
@@ -609,7 +609,7 @@ struct ShowWorkspaceDefaults {
     ty: Option<WorkspaceType>,
 }
 
-impl Parser for ActionParser<'_> {
+impl Parser for ActionParser<'_, '_> {
     type Value = Action;
     type Error = ActionParserError;
     const EXPECTED: &'static [DataType] = &[DataType::String, DataType::Array, DataType::Table];

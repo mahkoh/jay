@@ -24,9 +24,9 @@ pub enum TearingParserError {
     Extract(#[from] ExtractorError),
 }
 
-pub struct TearingParser<'a>(pub &'a Context<'a>);
+pub struct TearingParser<'a, 'b>(pub &'a Context<'b>);
 
-impl Parser for TearingParser<'_> {
+impl Parser for TearingParser<'_, '_> {
     type Value = Tearing;
     type Error = TearingParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
