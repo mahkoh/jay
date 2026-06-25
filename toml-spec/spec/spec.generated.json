@@ -1284,6 +1284,10 @@
         "transactions": {
           "description": "The transaction settings.",
           "$ref": "#/$defs/Transactions"
+        },
+        "cursor-size": {
+          "type": "integer",
+          "description": "Sets the size of the cursor theme.\n\nDefault: 16.\n"
         }
       },
       "required": []

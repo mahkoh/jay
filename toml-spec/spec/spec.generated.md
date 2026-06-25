@@ -2597,6 +2597,16 @@ The table has the following fields:
 
   The value of this field should be a [Transactions](#types-Transactions).
 
+- `cursor-size` (optional):
+
+  Sets the size of the cursor theme.
+  
+  Default: 16.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
 
 <a name="types-Connector"></a>
 ### `Connector`

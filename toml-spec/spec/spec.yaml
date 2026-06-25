@@ -3404,6 +3404,14 @@ Config:
       ref: Transactions
       required: false
       description: The transaction settings.
+    cursor-size:
+      kind: number
+      integer_only: true
+      required: false
+      description: |
+        Sets the size of the cursor theme.
+
+        Default: 16.
 
 
 Idle:
