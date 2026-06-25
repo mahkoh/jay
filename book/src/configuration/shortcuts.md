@@ -23,9 +23,9 @@ Key combinations follow the pattern `MODIFIER-MODIFIER-KEYSYM`:
 (MOD-)*KEYSYM
 ```
 
-**Keysym names** are unmodified XKB keysym names from [xkbcommon-keysyms.h](https://github.com/xkbcommon/libxkbcommon/blob/master/include/xkbcommon/xkbcommon-keysyms.h)
-with the `XKB_KEY_` prefix removed. Use the unmodified keysym -- write
-`shift-q`, not `shift-Q`.
+**Keysym names** are unmodified XKB keysym names from
+[KBVM](https://docs.rs/kbvm/latest/kbvm/syms/index.html). Use the unmodified keysym --
+write `shift-q`, not `shift-Q`.
 
 ### Modifiers
 
