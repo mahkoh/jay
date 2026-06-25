@@ -1755,6 +1755,9 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
             set_configure_timeout(v);
         }
     }
+    if let Some(v) = config.cursor_size {
+        persistent.seat.set_cursor_size(v);
+    }
 }
 
 fn create_command(exec: &Exec) -> Command {

@@ -597,6 +597,7 @@ pub struct Config {
     pub fallback_output_mode: Option<FallbackOutputMode>,
     pub mouse_follows_focus: Option<bool>,
     pub transactions: Option<Transactions>,
+    pub cursor_size: Option<i32>,
 }
 
 #[derive(Debug, Error)]

@@ -3,7 +3,7 @@ use {
         config::{
             Action, Config, Egui, Libei, Theme, UiDrag,
             context::Context,
-            extractor::{Extractor, ExtractorError, arr, bol, int, opt, recover, str, val},
+            extractor::{Extractor, ExtractorError, arr, bol, int, opt, recover, s32, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 action::ActionParser,
@@ -159,7 +159,7 @@ impl Parser for ConfigParser<'_, '_> {
                 clean_logs_older_than_val,
                 mouse_follows_focus,
             ),
-            (session_management_val, workspaces_val, transactions_val),
+            (session_management_val, workspaces_val, transactions_val, cursor_size),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -225,6 +225,7 @@ impl Parser for ConfigParser<'_, '_> {
                 opt(val("session-management")),
                 opt(val("workspaces")),
                 opt(val("transactions")),
+                recover(opt(s32("cursor-size"))),
             ),
         ))?;
         let mut keymap = None;
@@ -658,6 +659,7 @@ impl Parser for ConfigParser<'_, '_> {
             fallback_output_mode,
             mouse_follows_focus: mouse_follows_focus.despan(),
             transactions,
+            cursor_size: cursor_size.despan(),
         })
     }
 }
