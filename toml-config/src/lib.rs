@@ -1059,6 +1059,9 @@ impl State {
         if let Some(v) = theme.window_icons_grayscale {
             set_window_icons_grayscale(v);
         }
+        if let Some(v) = theme.container_borders {
+            set_container_borders(v);
+        }
     }
 
     fn handle_switch_device(self: &Rc<Self>, dev: InputDevice, actions: &Rc<SwitchActions>) {
@@ -1751,9 +1754,6 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
         if let Some(v) = v.configure_timeout {
             set_configure_timeout(v);
         }
-    }
-    if let Some(v) = config.theme.container_borders {
-        set_container_borders(v);
     }
 }
 
