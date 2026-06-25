@@ -1859,11 +1859,11 @@ The table has the following fields:
   released.
   
   `KEYSYM` should be the name of a keysym. The authorative location for these names
-  is [1] with the `XKB_KEY_` prefix removed.
+  is [1].
   
   The keysym should be the unmodified keysym. E.g. `shift-q` not `shift-Q`.
   
-  [1]: https://github.com/xkbcommon/libxkbcommon/blob/master/include/xkbcommon/xkbcommon-keysyms.h
+  [1]: https://docs.rs/kbvm/latest/kbvm/syms/index.html
   
   - Example:
   
@@ -2425,9 +2425,9 @@ The table has the following fields:
   this functionality.
   
   The value of the string should be the name of a keysym. The authoritative location
-  for these names is [1] with the `XKB_KEY_` prefix removed.
+  for these names is [1].
   
-  [1]: https://github.com/xkbcommon/libxkbcommon/blob/master/include/xkbcommon/xkbcommon-keysyms.h
+  [1]: https://docs.rs/kbvm/latest/kbvm/syms/index.html
   
   - Example:
   

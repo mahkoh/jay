@@ -182,9 +182,8 @@ resizes any window.
 window-management-key = "Alt_L"
 ```
 
-The value should be a keysym name (see the
-[xkbcommon keysym list](https://github.com/xkbcommon/libxkbcommon/blob/master/include/xkbcommon/xkbcommon-keysyms.h)
-with the `XKB_KEY_` prefix removed).
+The value should be a keysym name from
+[KBVM](https://docs.rs/kbvm/latest/kbvm/syms/index.html).
 
 ## Middle-Click Paste
 
