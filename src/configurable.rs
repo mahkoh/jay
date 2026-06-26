@@ -242,7 +242,7 @@ where
             self.flush(serial, data);
             self.surface().set_requested_serial(serial);
         }
-        self.surface().surface_transaction.is_tardy()
+        self.surface().surface_transaction.is_disabled()
     }
 }
 
@@ -400,8 +400,8 @@ fn run_iteration(
             .map(|r| r.serial.get())
             .max()
             .unwrap();
-        let tardy = member.flush(nr, serial);
-        if tardy {
+        let disabled = member.flush(nr, serial);
+        if disabled {
             d.ready();
         } else {
             cgs.timeout.push(ConfigurableTimeout {

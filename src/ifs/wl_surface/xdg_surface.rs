@@ -19,6 +19,7 @@ use {
         leaks::Tracker,
         object::Object,
         rect::Rect,
+        transactions::EnabledSurfaceTransactions,
         tree::{
             FindTreeResult, FoundNode, Node, NodeBase, NodeLayerLink, NodeLocation, NodesStack,
             NodesStackElement, OutputNode, SplitView, StackedNode, TreeSerial,
@@ -94,6 +95,7 @@ pub struct XdgSurface {
     initial_commit_state: Cell<InitialCommitState>,
     destroyed: Cell<bool>,
     configure_data: ConfigurableData<XdgSurfaceConfigureData>,
+    enabled_transactions: Cell<Option<EnabledSurfaceTransactions>>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
@@ -307,6 +309,7 @@ impl XdgSurface {
             initial_commit_state: Default::default(),
             destroyed: Default::default(),
             configure_data: ConfigurableData::new(&surface.client.state),
+            enabled_transactions: Default::default(),
         }
     }
 
@@ -386,6 +389,7 @@ impl XdgSurface {
             popup.popup.destroy_node();
         }
         self.configure_data.ready();
+        self.enabled_transactions.take();
     }
 
     fn detach_node(&self) {
@@ -456,6 +460,7 @@ impl XdgSurface {
     fn unset_ext(&self) {
         self.ext.set(None);
         self.configure_data.ready();
+        self.enabled_transactions.take();
         self.surface.set_dummy_output();
     }
 
@@ -679,8 +684,14 @@ impl XdgSurface {
         for popup in self.popups.lock().values() {
             popup.popup.set_visible(visible);
         }
-        if !visible {
+        let et = &self.enabled_transactions;
+        if visible {
+            if et.is_none() {
+                et.set(Some(self.surface.enable_transactions()));
+            }
+        } else {
             self.configure_data.ready();
+            et.take();
         }
     }
 

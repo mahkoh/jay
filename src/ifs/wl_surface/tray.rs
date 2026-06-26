@@ -15,7 +15,9 @@ use {
         },
         rect::Rect,
         theme::BarPosition,
-        transactions::{TransactionData, Transactionable, TransactionableExt},
+        transactions::{
+            EnabledSurfaceTransactions, TransactionData, Transactionable, TransactionableExt,
+        },
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId, NodeLayerLink,
             NodeLocation, NodeVisitor, NodesStackElement, OutputNode, SplitView, TreeLink,
@@ -60,6 +62,7 @@ pub struct TrayItemData {
     destroyed: Cell<bool>,
     configurable: ConfigurableData<TrayItemConfigureData>,
     transaction_data: TransactionData<TrayItemTransactionOp>,
+    enabled_transactions: Cell<Option<EnabledSurfaceTransactions>>,
 }
 
 impl TrayItemData {
@@ -82,6 +85,7 @@ impl TrayItemData {
             destroyed: Default::default(),
             configurable: ConfigurableData::new(state),
             transaction_data: TransactionData::new(&state.tree),
+            enabled_transactions: Default::default(),
         }
     }
 
@@ -143,6 +147,7 @@ impl<T: TrayItem> DynTrayItem for T {
         if let Some(node) = data.output.node() {
             node.update_tray_positions();
         }
+        data.enabled_transactions.take();
     }
 
     fn set_visible(&self, visible: bool) {
@@ -313,6 +318,8 @@ impl<T: TrayItem> SurfaceExt for T {
                     self.add_transaction_op(TrayItemTransactionOp::SetValid(link.to_ref()));
                     data.linked_node.set(Some(link));
                     node.update_tray_positions();
+                    data.enabled_transactions
+                        .set(Some(data.surface.enable_transactions()));
                 }
             }
         }
