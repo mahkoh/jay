@@ -118,10 +118,6 @@ pub struct XdgToplevel {
     states: NumCell<u32>,
     pub decoration: Cell<Decoration>,
     bugs: Cell<&'static Bugs>,
-    min_width: Cell<Option<i32>>,
-    min_height: Cell<Option<i32>>,
-    max_width: Cell<Option<i32>>,
-    max_height: Cell<Option<i32>>,
     pub tracker: Tracker<Self>,
     toplevel_data: ToplevelData,
     pub drag: CloneCell<Option<Rc<XdgToplevelDragV1>>>,
@@ -184,10 +180,6 @@ impl XdgToplevel {
             states: NumCell::new(states),
             decoration: Cell::new(Decoration::Server),
             bugs: Cell::new(&bugs::NONE),
-            min_width: Cell::new(None),
-            min_height: Cell::new(None),
-            max_width: Cell::new(None),
-            max_height: Cell::new(None),
             tracker: Default::default(),
             toplevel_data,
             drag: Default::default(),
@@ -799,12 +791,13 @@ impl XdgSurfaceExt for XdgToplevel {
         self: Rc<Self>,
         pending: &mut PendingState,
     ) -> Result<(), WlSurfaceError> {
+        let data = &self.toplevel_data;
         let mut changed = false;
         macro_rules! map {
             ($pending:ident, $width:ident, $height:ident) => {
                 if let Some((width, height)) = pending.xdg_surface.$pending.take() {
-                    self.$width.set(width);
-                    self.$height.set(height);
+                    data.$width.set(width);
+                    data.$height.set(height);
                     changed = true;
                 }
             };
@@ -814,7 +807,7 @@ impl XdgSurfaceExt for XdgToplevel {
         if changed {
             macro_rules! check {
                 ($min:ident, $max:ident) => {
-                    if let (Some(min), Some(max)) = (self.$min.get(), self.$max.get())
+                    if let (Some(min), Some(max)) = (data.$min.get(), data.$max.get())
                         && min > max
                     {
                         return Err(XdgToplevelError::MinGreaterMax.into());
@@ -884,10 +877,10 @@ impl XdgSurfaceExt for XdgToplevel {
                             $field = $field.max(min);
                         }
                         if bugs.respect_min_max_size {
-                            if let Some(min) = self.$min.get() {
+                            if let Some(min) = self.toplevel_data.$min.get() {
                                 $field = $field.max(min);
                             }
-                            if let Some(max) = self.$max.get() {
+                            if let Some(max) = self.toplevel_data.$max.get() {
                                 $field = $field.min(max);
                             }
                         }
