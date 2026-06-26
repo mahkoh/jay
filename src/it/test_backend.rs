@@ -6,8 +6,8 @@ use {
             AxisSource, Backend, BackendConnectorState, BackendDrmDevice, BackendEvent,
             ButtonState, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId,
             DrmEvent, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
-            InputDeviceClickMethod, InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo,
-            ScanoutFormats, ScrollAxis, TransformMatrix,
+            InputDeviceClickMethod, InputDeviceId, InputDeviceScrollMethod, InputEvent, KeyState,
+            Mode, MonitorInfo, ScanoutFormats, ScrollAxis, TransformMatrix,
             transaction::{
                 BackendAppliedConnectorTransaction, BackendConnectorTransaction,
                 BackendConnectorTransactionError, BackendConnectorTransactionType,
@@ -651,6 +651,10 @@ trait TestInputDevice: InputDevice {
     fn set_middle_button_emulation_enabled(&self, enabled: bool) {
         let _ = enabled;
     }
+
+    fn set_scroll_method(&self, method: InputDeviceScrollMethod) {
+        let _ = method;
+    }
 }
 
 impl<T: TestInputDevice> InputDevice for T {
@@ -724,6 +728,10 @@ impl<T: TestInputDevice> InputDevice for T {
 
     fn set_middle_button_emulation_enabled(&self, enabled: bool) {
         <Self as TestInputDevice>::set_middle_button_emulation_enabled(self, enabled)
+    }
+
+    fn set_scroll_method(&self, method: InputDeviceScrollMethod) {
+        <Self as TestInputDevice>::set_scroll_method(self, method)
     }
 }
 

@@ -122,6 +122,14 @@ unsafe extern "C" {
         device: *mut libinput_device,
         method: libinput_config_click_method,
     ) -> libinput_config_status;
+    pub fn libinput_device_config_scroll_get_methods(device: *mut libinput_device) -> u32;
+    pub fn libinput_device_config_scroll_get_method(
+        device: *mut libinput_device,
+    ) -> libinput_config_scroll_method;
+    pub fn libinput_device_config_scroll_set_method(
+        device: *mut libinput_device,
+        method: libinput_config_scroll_method,
+    ) -> libinput_config_status;
 
     pub fn libinput_device_config_middle_emulation_set_enabled(
         device: *mut libinput_device,

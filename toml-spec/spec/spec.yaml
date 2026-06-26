@@ -2036,6 +2036,13 @@ Input:
           [[inputs]]
           calibration-matrix = [[0, 1, 0], [-1, 0, 1]]
           ```
+    scroll-method:
+      ref: ScrollMethod
+      required: false
+      description: |
+        Defines the scroll method of the device.
+        
+        See the libinput documentation for more details.
 
 
 AccelProfile:
@@ -5026,3 +5033,20 @@ ContainerBorders:
       description: Only separators are drawn between children.
     - value: full
       description: A border is drawn around the entire container.
+
+
+ScrollMethod:
+  kind: string
+  values:
+    - value: no-scroll
+      description: Never send scroll events instead of pointer motion events.
+    - value: two-fingers
+      description: Send scroll events when two fingers are logically down on the device.
+    - value: edge
+      description: Send scroll events when a finger moves along the bottom or right edge of a device.
+    - value: on-button-down
+      description: Send scroll events when a button is down and the device moves along a scroll-capable axis.
+  description: |
+    The scroll method to apply to an input device.
+    
+    See the libinput documentation for more details.

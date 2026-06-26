@@ -1,19 +1,27 @@
 use {
     crate::{
-        backend::{InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod},
+        backend::{
+            InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod,
+            InputDeviceScrollMethod,
+        },
         cli::{
             GlobalArgs,
             json::{JsonInputData, JsonInputDevice, JsonSeat, jsonl},
         },
         clientmem::ClientMem,
         libinput::consts::{
-            ConfigClickMethod, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
+            ConfigClickMethod, ConfigScrollMethod, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
             LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT, LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS,
             LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER, LIBINPUT_CONFIG_CLICK_METHOD_NONE,
+            LIBINPUT_CONFIG_SCROLL_2FG, LIBINPUT_CONFIG_SCROLL_EDGE,
+            LIBINPUT_CONFIG_SCROLL_NO_SCROLL, LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN,
         },
         object::Version,
         tools::tool_client::{Handle, ToolClient, with_tool_client},
-        utils::{errorfmt::ErrorFmt, static_text::StaticText, string_ext::StringExt},
+        utils::{
+            bitflags::BitflagsExt, errorfmt::ErrorFmt, static_text::StaticText,
+            string_ext::StringExt,
+        },
         wire::{
             JayCompositorId, JayInputId, JayKeymapBuilderId, jay_compositor, jay_input,
             jay_keymap_builder,
@@ -24,6 +32,7 @@ use {
     isnt::std_1::vec::IsntVecExt,
     std::{
         cell::RefCell,
+        fmt,
         io::{Read, Write, stdin, stdout},
         mem,
         ops::DerefMut,
@@ -167,6 +176,8 @@ pub enum DeviceCommand {
     SetClickMethod(SetClickMethodArgs),
     /// Set whether the device uses middle button emulation.
     SetMiddleButtonEmulation(SetMiddleButtonEmulationArgs),
+    /// Set the scroll method.
+    SetScrollMethod(SetScrollMethodArgs),
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -263,6 +274,20 @@ pub enum ClickMethod {
 pub struct SetClickMethodArgs {
     /// The method.
     pub method: ClickMethod,
+}
+
+#[derive(ValueEnum, Debug, Clone)]
+pub enum ScrollMethod {
+    NoScroll,
+    TwoFingers,
+    Edge,
+    OnButtonDown,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SetScrollMethodArgs {
+    /// The method.
+    pub method: ScrollMethod,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -377,6 +402,8 @@ struct InputDevice {
     pub calibration_matrix: Option<[[f32; 3]; 2]>,
     pub click_method: Option<InputDeviceClickMethod>,
     pub middle_button_emulation_enabled: Option<bool>,
+    pub scroll_methods: Option<u32>,
+    pub scroll_method: Option<InputDeviceScrollMethod>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -889,6 +916,22 @@ impl Input {
                     });
                 }
             }
+            DeviceCommand::SetScrollMethod(a) => {
+                let method = match a.method {
+                    ScrollMethod::NoScroll => LIBINPUT_CONFIG_SCROLL_NO_SCROLL,
+                    ScrollMethod::TwoFingers => LIBINPUT_CONFIG_SCROLL_2FG,
+                    ScrollMethod::Edge => LIBINPUT_CONFIG_SCROLL_EDGE,
+                    ScrollMethod::OnButtonDown => LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN,
+                };
+                self.handle_error(input, |e| {
+                    eprintln!("Could not set the scroll method: {}", e);
+                });
+                tc.send(jay_input::SetScrollMethod {
+                    self_id: input,
+                    id: args.device,
+                    method: method.0,
+                });
+            }
         }
         tc.round_trip().await;
     }
@@ -1027,6 +1070,34 @@ impl Input {
         if let Some(v) = &device.middle_button_emulation_enabled {
             println!("{prefix}  middle button emulation: {}", v);
         }
+        if let Some(v) = &device.scroll_method {
+            let name = match v {
+                InputDeviceScrollMethod::NoScroll => "no-scroll",
+                InputDeviceScrollMethod::TwoFingers => "two-fingers",
+                InputDeviceScrollMethod::Edge => "edge",
+                InputDeviceScrollMethod::OnButtonDown => "on-button-down",
+            };
+            println!("{prefix}  scroll method: {}", name);
+        }
+        if let Some(v) = device.scroll_methods {
+            println!(
+                "{prefix}  scroll methods: {}",
+                fmt::from_fn(|f| {
+                    f.write_str("no-scroll")?;
+                    for (name, const_) in [
+                        ("two-fingers", LIBINPUT_CONFIG_SCROLL_2FG),
+                        ("edge", LIBINPUT_CONFIG_SCROLL_EDGE),
+                        ("on-button-down", LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN),
+                    ] {
+                        if v.contains(const_.0 as u32) {
+                            f.write_str(",")?;
+                            f.write_str(name)?;
+                        }
+                    }
+                    Ok(())
+                })
+            );
+        }
     }
 
     fn print_data_json(&self, mut data: Data) {
@@ -1126,6 +1197,8 @@ impl Input {
                 calibration_matrix: None,
                 click_method: None,
                 middle_button_emulation_enabled: None,
+                scroll_methods: None,
+                scroll_method: None,
             });
         });
         jay_input::InputDeviceOutput::handle(tc, input, data.clone(), |data, msg| {
@@ -1162,6 +1235,20 @@ impl Input {
             if let Some(last) = data.input_device.last_mut() {
                 last.middle_button_emulation_enabled =
                     Some(msg.middle_button_emulation_enabled != 0);
+            }
+        });
+        jay_input::ScrollMethods::handle(tc, input, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            if let Some(last) = data.input_device.last_mut() {
+                last.scroll_methods = Some(msg.scroll_methods);
+            }
+        });
+        jay_input::ScrollMethod::handle(tc, input, data.clone(), |data, msg| {
+            let scroll_method =
+                InputDeviceScrollMethod::from_libinput(ConfigScrollMethod(msg.scroll_method));
+            let mut data = data.borrow_mut();
+            if let Some(last) = data.input_device.last_mut() {
+                last.scroll_method = scroll_method;
             }
         });
         tc.round_trip().await;

@@ -1760,6 +1760,10 @@
               "description": ""
             }
           }
+        },
+        "scroll-method": {
+          "description": "Defines the scroll method of the device.\n\nSee the libinput documentation for more details.\n",
+          "$ref": "#/$defs/ScrollMethod"
         }
       },
       "required": [
@@ -2138,6 +2142,16 @@
         }
       },
       "required": []
+    },
+    "ScrollMethod": {
+      "type": "string",
+      "description": "The scroll method to apply to an input device.\n\nSee the libinput documentation for more details.\n",
+      "enum": [
+        "no-scroll",
+        "two-fingers",
+        "edge",
+        "on-button-down"
+      ]
     },
     "SessionManagement": {
       "description": "Describes session-management settings.\n\n- Example:\n\n  ```toml\n  [session-management]\n  enabled = false\n  ```\n",

@@ -23,6 +23,10 @@ use {
         SwitchEvent,
         acceleration::{ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT},
         clickmethod::{CLICK_METHOD_BUTTON_AREAS, CLICK_METHOD_CLICKFINGER, CLICK_METHOD_NONE},
+        scrollmethod::{
+            SCROLL_METHOD_EDGE, SCROLL_METHOD_NO_SCROLL, SCROLL_METHOD_ON_BUTTON_DOWN,
+            SCROLL_METHOD_TWO_FINGERS,
+        },
     },
     thiserror::Error,
 };
@@ -90,7 +94,7 @@ impl Parser for InputParser<'_, '_> {
                 calibration_matrix,
                 click_method,
             ),
-            (middle_button_emulation, px_scroll_multiplier),
+            (middle_button_emulation, px_scroll_multiplier, scroll_method),
         ) = ext.extract((
             (
                 opt(str("tag")),
@@ -119,6 +123,7 @@ impl Parser for InputParser<'_, '_> {
             (
                 recover(opt(bol("middle-button-emulation"))),
                 recover(opt(fltorint("px-scroll-multiplier"))),
+                recover(opt(str("scroll-method"))),
             ),
         ))?;
         let accel_profile = match accel_profile {
@@ -252,6 +257,19 @@ impl Parser for InputParser<'_, '_> {
                 }
             },
         };
+        let scroll_method = match scroll_method {
+            None => None,
+            Some(p) => match p.value.to_ascii_lowercase().as_str() {
+                "no-scroll" => Some(SCROLL_METHOD_NO_SCROLL),
+                "two-fingers" => Some(SCROLL_METHOD_TWO_FINGERS),
+                "edge" => Some(SCROLL_METHOD_EDGE),
+                "on-button-down" => Some(SCROLL_METHOD_ON_BUTTON_DOWN),
+                v => {
+                    log::warn!("Unknown scroll-method {v}: {}", self.cx.error3(p.span));
+                    None
+                }
+            },
+        };
         Ok(Input {
             tag: tag.despan_into(),
             match_: match_val.parse_map(&mut InputMatchParser(self.cx))?,
@@ -271,6 +289,7 @@ impl Parser for InputParser<'_, '_> {
             switch_actions,
             output,
             calibration_matrix,
+            scroll_method,
         })
     }
 }

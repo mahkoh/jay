@@ -17,7 +17,7 @@ use {
         input::{
             FallbackOutputMode, FocusFollowsMouseMode, InputDevice, LayerDirection, Seat,
             SwitchEvent, Timeline, acceleration::AccelProfile, capability::Capability,
-            clickmethod::ClickMethod,
+            clickmethod::ClickMethod, scrollmethod::ScrollMethod,
         },
         keyboard::{
             Group, Keymap, KeymapBuilder,
@@ -1426,6 +1426,10 @@ impl ConfigClient {
 
     pub fn set_input_middle_button_emulation_enabled(&self, device: InputDevice, enabled: bool) {
         self.send(&ClientMessage::SetMiddleButtonEmulationEnabled { device, enabled })
+    }
+
+    pub fn set_input_scroll_method(&self, device: InputDevice, method: ScrollMethod) {
+        self.send(&ClientMessage::SetScrollMethod { device, method })
     }
 
     pub fn device_name(&self, device: InputDevice) -> String {

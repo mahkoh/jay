@@ -480,6 +480,15 @@ Toggle middle button emulation:
 ~$ jay input device 42 set-middle-button-emulation true
 ```
 
+Set the scroll method:
+
+```shell
+~$ jay input device 42 set-scroll-method two-fingers
+~$ jay input device 42 set-scroll-method edge
+~$ jay input device 42 set-scroll-method on-button-down
+~$ jay input device 42 set-scroll-method no-scroll
+```
+
 Set a per-device keymap:
 
 ```shell

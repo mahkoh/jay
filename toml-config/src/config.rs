@@ -31,7 +31,7 @@ use {
         get_overlay, get_workspace,
         input::{
             FallbackOutputMode, LayerDirection, SwitchEvent, Timeline, acceleration::AccelProfile,
-            clickmethod::ClickMethod,
+            clickmethod::ClickMethod, scrollmethod::ScrollMethod,
         },
         keyboard::{Keymap, ModifiedKeySym, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
@@ -464,6 +464,7 @@ pub struct Input {
     pub switch_actions: AHashMap<SwitchEvent, Action>,
     pub output: Option<Option<OutputMatch>>,
     pub calibration_matrix: Option<[[f32; 3]; 2]>,
+    pub scroll_method: Option<ScrollMethod>,
 }
 
 #[derive(Debug, Clone)]

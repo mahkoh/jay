@@ -25,7 +25,8 @@ use {
     crate::{
         async_engine::SpawnedFuture,
         backend::{
-            ButtonState, InputDeviceAccelProfile, InputDeviceClickMethod, Leds, TransformMatrix,
+            ButtonState, InputDeviceAccelProfile, InputDeviceClickMethod, InputDeviceScrollMethod,
+            Leds, TransformMatrix,
         },
         client::{Client, ClientError, ClientId},
         control_center::CCI_INPUT,
@@ -2071,6 +2072,11 @@ impl DeviceHandlerData {
 
     pub fn set_middle_button_emulation_enabled(&self, state: &State, v: bool) {
         self.device.set_middle_button_emulation_enabled(v);
+        state.trigger_cci(CCI_INPUT);
+    }
+
+    pub fn set_scroll_method(&self, state: &State, v: InputDeviceScrollMethod) {
+        self.device.set_scroll_method(v);
         state.trigger_cci(CCI_INPUT);
     }
 }

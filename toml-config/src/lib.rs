@@ -764,6 +764,9 @@ impl Input {
         if let Some(v) = self.middle_button_emulation {
             c.set_middle_button_emulation_enabled(v);
         }
+        if let Some(v) = self.scroll_method {
+            c.set_scroll_method(v);
+        }
     }
 }
 

@@ -186,6 +186,30 @@ px-scroll-multiplier = 2.0
 The default is `1.0`. This has no effect on scroll events created by a scroll
 wheel.
 
+## Scroll method
+
+Choose how a device produces scroll events:
+
+```toml
+[[inputs]]
+match.is-pointer = true
+scroll-method = "two-fingers"
+```
+
+`no-scroll`
+: Never produce scroll events; motion is reported as pointer motion.
+
+`two-fingers`
+: Scroll while two fingers are logically down on the device (touchpads).
+
+`edge`
+: Scroll while a finger moves along the bottom or right edge of the device.
+
+`on-button-down`
+: Scroll while a button is held and the device moves along a scroll-capable axis.
+
+Only the methods supported by the device have any effect.
+
 ## Transform matrix
 
 Apply a 2x2 matrix to relative motion events. This is useful for adjusting
@@ -338,6 +362,7 @@ type flags, and current settings.
 ~$ jay input device <id> set-tap-enabled true
 ~$ jay input device <id> set-left-handed true
 ~$ jay input device <id> set-natural-scrolling true
+~$ jay input device <id> set-scroll-method two-fingers
 ~$ jay input device <id> set-transform-matrix 0.35 0 0 0.35
 ```
 

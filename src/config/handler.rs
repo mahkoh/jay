@@ -4,7 +4,7 @@ use {
         backend::{
             self, BackendColorSpace, BackendEotfs, ConnectorId, DrmDeviceId,
             InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod, InputDeviceId,
-            MonitorInfo, transaction::BackendConnectorTransactionError,
+            InputDeviceScrollMethod, MonitorInfo, transaction::BackendConnectorTransactionError,
         },
         client::{CAP_JAY_COMPOSITOR, Client, ClientCaps, ClientId},
         cmm::cmm_eotf::Eotf,
@@ -64,6 +64,10 @@ use {
             },
             clickmethod::{
                 CLICK_METHOD_BUTTON_AREAS, CLICK_METHOD_CLICKFINGER, CLICK_METHOD_NONE, ClickMethod,
+            },
+            scrollmethod::{
+                SCROLL_METHOD_EDGE, SCROLL_METHOD_NO_SCROLL, SCROLL_METHOD_ON_BUTTON_DOWN,
+                SCROLL_METHOD_TWO_FINGERS, ScrollMethod,
             },
         },
         keyboard::{Group, Keymap, mods::Modifiers, syms::KeySym},
@@ -945,6 +949,23 @@ impl ConfigProxyHandler {
             _ => return Err(CphError::UnknownClickMethod(click_method)),
         };
         dev.set_click_method(&self.state, method);
+        Ok(())
+    }
+
+    fn handle_set_scroll_method(
+        &self,
+        device: InputDevice,
+        scroll_method: ScrollMethod,
+    ) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(device)?;
+        let method = match scroll_method {
+            SCROLL_METHOD_NO_SCROLL => InputDeviceScrollMethod::NoScroll,
+            SCROLL_METHOD_TWO_FINGERS => InputDeviceScrollMethod::TwoFingers,
+            SCROLL_METHOD_EDGE => InputDeviceScrollMethod::Edge,
+            SCROLL_METHOD_ON_BUTTON_DOWN => InputDeviceScrollMethod::OnButtonDown,
+            _ => return Err(CphError::UnknownScrollMethod(scroll_method)),
+        };
+        dev.set_scroll_method(&self.state, method);
         Ok(())
     }
 
@@ -3852,6 +3873,9 @@ impl ConfigProxyHandler {
             } => self
                 .handle_set_workspace_initial_connector(workspace, connector)
                 .wrn("set_workspace_initial_connector")?,
+            ClientMessage::SetScrollMethod { device, method } => self
+                .handle_set_scroll_method(device, method)
+                .wrn("set_scroll_method")?,
         }
         Ok(())
     }
@@ -4019,6 +4043,8 @@ enum CphError {
     MissingKeymapKind,
     #[error("Unknown container borders {0:?}")]
     UnknownContainerBorders(ContainerBorders),
+    #[error("Tried to set an unknown scroll method: {}", (.0).0)]
+    UnknownScrollMethod(ScrollMethod),
 }
 
 trait WithRequestName {

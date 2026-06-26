@@ -6,8 +6,8 @@ use {
             AXIS_120, AxisSource, Backend, BackendConnectorState, BackendDrmDevice, BackendEvent,
             ButtonState, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId,
             DrmEvent, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
-            InputDeviceClickMethod, InputDeviceId, InputEvent, KeyState, Mode, MonitorInfo,
-            ScrollAxis, TransformMatrix,
+            InputDeviceClickMethod, InputDeviceId, InputDeviceScrollMethod, InputEvent, KeyState,
+            Mode, MonitorInfo, ScrollAxis, TransformMatrix,
             transaction::{
                 BackendAppliedConnectorTransaction, BackendConnectorTransaction,
                 BackendConnectorTransactionError, BackendConnectorTransactionType,
@@ -1319,6 +1319,10 @@ impl InputDevice for XSeatKeyboard {
     fn set_middle_button_emulation_enabled(&self, enabled: bool) {
         let _ = enabled;
     }
+
+    fn set_scroll_method(&self, method: InputDeviceScrollMethod) {
+        let _ = method;
+    }
 }
 
 impl InputDevice for XSeatMouse {
@@ -1395,5 +1399,9 @@ impl InputDevice for XSeatMouse {
 
     fn set_middle_button_emulation_enabled(&self, enabled: bool) {
         let _ = enabled;
+    }
+
+    fn set_scroll_method(&self, method: InputDeviceScrollMethod) {
+        let _ = method;
     }
 }
