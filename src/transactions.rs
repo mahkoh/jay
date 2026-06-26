@@ -224,7 +224,7 @@ impl Transactions {
         });
         while let Some(surface) = surfaces.pop() {
             if !surface.surface_transaction.tardy.get() {
-                let st = &surface.surface_transaction;
+            let st = &surface.surface_transaction;
                 if st.transaction_blockers.is_empty() {
                     st.first_transaction_blocker.set(Some(serial));
                 }
@@ -314,6 +314,11 @@ impl WlSurface {
 }
 
 impl SurfaceTransaction {
+    pub fn unblock_all_transactions(&self) {
+        self.first_transaction_blocker.take();
+        self.transaction_blockers.clear();
+    }
+
     fn unblock_transactions_until(&self, state: &Rc<State>, serial: TreeSerial) {
         if self.tardy.get() {
             if serial > self.unblocked_commit.get() {

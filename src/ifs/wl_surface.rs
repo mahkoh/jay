@@ -2015,6 +2015,7 @@ impl Object for WlSurface {
         self.color_management_feedback.clear();
         self.color_representation_surface.take();
         self.dmabuf_feedback.clear();
+        self.surface_transaction.unblock_all_transactions();
     }
 }
 
