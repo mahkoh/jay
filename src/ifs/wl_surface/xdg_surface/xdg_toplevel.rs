@@ -10,7 +10,7 @@ use {
             ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
             wl_seat::{NodeSeatState, WlSeatGlobal, tablet::TabletTool},
             wl_surface::{
-                WlSurface,
+                PendingState, WlSurface, WlSurfaceError,
                 xdg_surface::{
                     InitialCommitState, UpdateGeometryReason, XdgSurface, XdgSurfaceConfigureData,
                     XdgSurfaceExt, XdgSurfaceTransactionOp, XdgToplevelConfigureData,
@@ -118,10 +118,6 @@ pub struct XdgToplevel {
     states: NumCell<u32>,
     pub decoration: Cell<Decoration>,
     bugs: Cell<&'static Bugs>,
-    min_width: Cell<Option<i32>>,
-    min_height: Cell<Option<i32>>,
-    max_width: Cell<Option<i32>>,
-    max_height: Cell<Option<i32>>,
     pub tracker: Tracker<Self>,
     toplevel_data: ToplevelData,
     pub drag: CloneCell<Option<Rc<XdgToplevelDragV1>>>,
@@ -184,10 +180,6 @@ impl XdgToplevel {
             states: NumCell::new(states),
             decoration: Cell::new(Decoration::Server),
             bugs: Cell::new(&bugs::NONE),
-            min_width: Cell::new(None),
-            min_height: Cell::new(None),
-            max_width: Cell::new(None),
-            max_height: Cell::new(None),
             tracker: Default::default(),
             toplevel_data,
             drag: Default::default(),
@@ -314,16 +306,9 @@ impl XdgToplevelRequestHandler for XdgToplevel {
         if req.height < 0 || req.width < 0 {
             return Err(XdgToplevelError::NonNegative);
         }
-        self.max_width.set(if req.width == 0 {
-            None
-        } else {
-            Some(req.width)
-        });
-        self.max_height.set(if req.height == 0 {
-            None
-        } else {
-            Some(req.height)
-        });
+        let width = (req.width != 0).then_some(req.width);
+        let height = (req.height != 0).then_some(req.height);
+        self.xdg.pending().max_size = Some((width, height));
         Ok(())
     }
 
@@ -331,16 +316,9 @@ impl XdgToplevelRequestHandler for XdgToplevel {
         if req.height < 0 || req.width < 0 {
             return Err(XdgToplevelError::NonNegative);
         }
-        self.min_width.set(if req.width == 0 {
-            None
-        } else {
-            Some(req.width)
-        });
-        self.min_height.set(if req.height == 0 {
-            None
-        } else {
-            Some(req.height)
-        });
+        let width = (req.width != 0).then_some(req.width);
+        let height = (req.height != 0).then_some(req.height);
+        self.xdg.pending().min_size = Some((width, height));
         Ok(())
     }
 
@@ -425,10 +403,16 @@ impl XdgToplevel {
             self.map_floating(&ws, None);
             return;
         }
-        match parent {
-            None => self.map_tiled(),
-            Some(p) => self.map_child(p, pos),
+        if let Some(p) = parent {
+            self.map_child(p, pos);
+            return;
         }
+        if self.toplevel_data.is_fixed_size_in_any_dimension() {
+            let ws = self.state.ensure_map_workspace(None);
+            self.map_floating(&ws, None);
+            return;
+        }
+        self.map_tiled();
     }
 
     fn map_floating(self: &Rc<Self>, workspace: &Rc<WorkspaceNode>, abs_pos: Option<(i32, i32)>) {
@@ -809,6 +793,39 @@ impl XdgSurfaceExt for XdgToplevel {
         self.committed.set(true);
     }
 
+    fn before_apply_commit(
+        self: Rc<Self>,
+        pending: &mut PendingState,
+    ) -> Result<(), WlSurfaceError> {
+        let data = &self.toplevel_data;
+        let mut changed = false;
+        macro_rules! map {
+            ($pending:ident, $width:ident, $height:ident) => {
+                if let Some((width, height)) = pending.xdg_surface.$pending.take() {
+                    data.$width.set(width);
+                    data.$height.set(height);
+                    changed = true;
+                }
+            };
+        }
+        map!(max_size, max_width, max_height);
+        map!(min_size, min_width, min_height);
+        if changed {
+            macro_rules! check {
+                ($min:ident, $max:ident) => {
+                    if let (Some(min), Some(max)) = (data.$min.get(), data.$max.get())
+                        && min > max
+                    {
+                        return Err(XdgToplevelError::MinGreaterMax.into());
+                    }
+                };
+            }
+            check!(min_width, max_width);
+            check!(min_height, max_height);
+        }
+        Ok(())
+    }
+
     fn post_commit(self: Rc<Self>) {
         self.after_commit(None);
     }
@@ -866,10 +883,10 @@ impl XdgSurfaceExt for XdgToplevel {
                             $field = $field.max(min);
                         }
                         if bugs.respect_min_max_size {
-                            if let Some(min) = self.$min.get() {
+                            if let Some(min) = self.toplevel_data.$min.get() {
                                 $field = $field.max(min);
                             }
-                            if let Some(max) = self.$max.get() {
+                            if let Some(max) = self.toplevel_data.$max.get() {
                                 $field = $field.min(max);
                             }
                         }
@@ -900,6 +917,8 @@ pub enum XdgToplevelError {
     ClientError(Box<ClientError>),
     #[error("width/height must be non-negative")]
     NonNegative,
+    #[error("The minimum width/height must not be greater than the maximum width/height")]
+    MinGreaterMax,
 }
 efrom!(XdgToplevelError, ClientError);
 

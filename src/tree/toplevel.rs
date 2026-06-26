@@ -443,6 +443,10 @@ pub struct ToplevelData {
     pub float: CloneCell<Option<Rc<FloatNode>>>,
     pub float_width: Cell<i32>,
     pub float_height: Cell<i32>,
+    pub min_width: Cell<Option<i32>>,
+    pub min_height: Cell<Option<i32>>,
+    pub max_width: Cell<Option<i32>>,
+    pub max_height: Cell<Option<i32>>,
     pub pinned: Cell<bool>,
     pub is_fullscreen: SplitView<Cell<bool>>,
     pub self_or_ancestor_is_fullscreen: Cell<bool>,
@@ -504,6 +508,10 @@ impl ToplevelData {
             float: Default::default(),
             float_width: Default::default(),
             float_height: Default::default(),
+            min_width: Default::default(),
+            min_height: Default::default(),
+            max_width: Default::default(),
+            max_height: Default::default(),
             pinned: Cell::new(false),
             is_fullscreen: Default::default(),
             self_or_ancestor_is_fullscreen: Default::default(),
@@ -575,7 +583,37 @@ impl ToplevelData {
         if height == 0 {
             height = output.height() / 2;
         }
+        macro_rules! constrain {
+            ($val:ident, $min:ident, $max:ident) => {
+                if let Some(min) = self.$min.get()
+                    && $val < min
+                {
+                    $val = min;
+                } else if let Some(max) = self.$max.get()
+                    && $val > max
+                {
+                    $val = max;
+                }
+            };
+        }
+        constrain!(width, min_width, max_width);
+        constrain!(height, min_height, max_height);
         (width, height)
+    }
+
+    pub fn is_fixed_size_in_any_dimension(&self) -> bool {
+        macro_rules! check {
+            ($min:ident, $max:ident) => {
+                if let (Some(min), Some(max)) = (self.$min.get(), self.$max.get())
+                    && min == max
+                {
+                    return true;
+                }
+            };
+        }
+        check!(min_width, max_width);
+        check!(min_height, max_height);
+        false
     }
 
     fn trigger_property_source(&self) {
