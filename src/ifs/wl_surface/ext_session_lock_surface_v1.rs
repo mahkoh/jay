@@ -125,6 +125,10 @@ impl SurfaceExt for ExtSessionLockSurfaceV1 {
     fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
         None
     }
+
+    fn unmap(self: Rc<Self>) {
+        // nothing
+    }
 }
 
 tree_id!(ExtSessionLockSurfaceV1NodeId);

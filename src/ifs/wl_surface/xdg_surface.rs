@@ -154,13 +154,15 @@ impl XdgPopupParent for Popup {
                 self.popup
                     .set_visible(self.parent.surface.visible[LiveTL].get());
             }
-        } else {
-            if wl.take().is_some() {
-                drop(wl);
-                drop(dl);
-                self.popup.set_visible(false);
-                self.popup.destroy_node();
-            }
+        }
+    }
+
+    fn unmap(&self) {
+        let mut wl = self.workspace_link.borrow_mut();
+        if wl.take().is_some() {
+            drop(wl);
+            self.popup.set_visible(false);
+            self.popup.destroy_node();
         }
     }
 
@@ -265,6 +267,8 @@ trait XdgSurfaceExt: Node + Debug {
     fn configure_data(&self) -> XdgSurfaceConfigureData;
 
     fn send_configure(&self, data: XdgSurfaceConfigureData);
+
+    fn unmap(self: Rc<Self>);
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -807,6 +811,12 @@ impl SurfaceExt for XdgSurface {
 
     fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
         self.workspace.get()
+    }
+
+    fn unmap(self: Rc<Self>) {
+        if let Some(ext) = self.ext.get() {
+            ext.unmap();
+        }
     }
 }
 

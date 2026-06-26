@@ -367,6 +367,7 @@ pub struct WlSurface {
     pub dmabuf_feedback: CopyHashMap<ZwpLinuxDmabufFeedbackV1Id, Rc<ZwpLinuxDmabufFeedbackV1>>,
     transaction_data: TransactionData<WlSurfaceTransactionOp>,
     pub surface_transaction: SurfaceTransaction,
+    pub unmap_scheduled: Cell<bool>,
 }
 
 impl Debug for WlSurface {
@@ -470,6 +471,8 @@ trait SurfaceExt {
     }
 
     fn workspace(&self) -> Option<Rc<WorkspaceNode>>;
+
+    fn unmap(self: Rc<Self>);
 }
 
 pub struct NoneSurfaceExt;
@@ -485,6 +488,10 @@ impl SurfaceExt for NoneSurfaceExt {
 
     fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
         None
+    }
+
+    fn unmap(self: Rc<Self>) {
+        // nothing
     }
 }
 
@@ -741,6 +748,7 @@ impl WlSurface {
             dmabuf_feedback: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
             surface_transaction: Default::default(),
+            unmap_scheduled: Default::default(),
         }
     }
 
@@ -1091,6 +1099,15 @@ impl WlSurface {
         self.requested_serial.set(serial);
         self.flush_frame_requests.set(true);
         self.flush_frame_requests(&mut self.frame_requests.borrow_mut());
+    }
+
+    pub fn unmap(self: &Rc<Self>) {
+        self.ext.get().unmap();
+        if self.transactional.get() {
+            self.surface_transaction.unblock_all_transactions();
+            self.unmap_scheduled.set(true);
+            self.add_transaction_op(WlSurfaceTransactionOp::UnblockUnmap);
+        }
     }
 }
 
@@ -2563,6 +2580,7 @@ pub enum WlSurfaceTransactionOp {
     SetRendered(bool),
     Damage(Rect),
     Clear,
+    UnblockUnmap,
 }
 
 impl Transactionable for WlSurface {
@@ -2592,6 +2610,10 @@ impl Transactionable for WlSurface {
                 self.buffer.take();
                 self.reset_shm_textures();
                 self.prime.reset();
+            }
+            WlSurfaceTransactionOp::UnblockUnmap => {
+                self.unmap_scheduled.set(false);
+                self.commit_timeline.unmap_unblocked();
             }
         }
     }

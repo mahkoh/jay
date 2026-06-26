@@ -241,12 +241,15 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
                     self.popup.destroy_node();
                 }
             }
-        } else {
-            if dl.link.take().is_some() {
-                drop(dl);
-                self.popup.set_visible(false);
-                self.popup.destroy_node();
-            }
+        }
+    }
+
+    fn unmap(&self) {
+        let mut dl = self.stack_link.borrow_mut();
+        if dl.link.take().is_some() {
+            drop(dl);
+            self.popup.set_visible(false);
+            self.popup.destroy_node();
         }
     }
 
@@ -300,11 +303,7 @@ impl<T: TrayItem> SurfaceExt for T {
 
     fn after_apply_commit(self: Rc<Self>) {
         let data = self.tray_item_data();
-        if data.surface.visible[LiveTL].get() {
-            if data.surface.buffer.is_none() {
-                self.destroy_node();
-            }
-        } else {
+        if !data.surface.visible[LiveTL].get() {
             if data.applied_serial.is_none() || data.applied_serial.get() != data.sent_serial.get()
             {
                 return;
@@ -342,6 +341,13 @@ impl<T: TrayItem> SurfaceExt for T {
 
     fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
         None
+    }
+
+    fn unmap(self: Rc<Self>) {
+        let data = self.tray_item_data();
+        if data.surface.visible[LiveTL].get() {
+            self.destroy_node();
+        }
     }
 }
 

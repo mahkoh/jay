@@ -257,8 +257,12 @@ impl Xwindow {
         self.x.surface.buffer.is_some() && self.data.info.mapped.get()
     }
 
-    fn map_change(&self) -> Change {
-        match (self.may_be_mapped(), self.is_mapped()) {
+    fn map_change(&self, is_unmap: bool) -> Change {
+        let is_mapped = self.is_mapped();
+        if is_mapped && is_unmap {
+            return Change::Unmap;
+        }
+        match (self.may_be_mapped(), is_mapped) {
             (true, false) => Change::Map,
             (false, true) => Change::Unmap,
             _ => Change::None,
@@ -266,7 +270,11 @@ impl Xwindow {
     }
 
     pub fn map_status_changed(self: &Rc<Self>) {
-        let map_change = self.map_change();
+        self.map_status_changed_(false);
+    }
+
+    pub(super) fn map_status_changed_(self: &Rc<Self>, is_unmap: bool) {
+        let map_change = self.map_change(is_unmap);
         let override_redirect = self.data.info.override_redirect.get();
         let state = &self.toplevel_data.state;
         let map_floating = match state.initial_tile_state(&self.toplevel_data) {

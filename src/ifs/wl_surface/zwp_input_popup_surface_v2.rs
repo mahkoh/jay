@@ -46,6 +46,12 @@ impl SurfaceExt for ZwpInputPopupSurfaceV2 {
     fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
         None
     }
+
+    fn unmap(self: Rc<Self>) {
+        if self.surface.visible[LiveTL].get() {
+            self.update_visible_(true);
+        }
+    }
 }
 
 pub async fn input_popup_positioning(state: Rc<State>) {
@@ -65,10 +71,15 @@ impl ZwpInputPopupSurfaceV2 {
     }
 
     pub fn update_visible(self: &Rc<Self>) {
+        self.update_visible_(false);
+    }
+
+    fn update_visible_(self: &Rc<Self>, is_unmap: bool) {
         let was_visible = self.surface.visible[LiveTL].get();
         let is_visible = self.surface.buffer.is_some()
             && self.input_method.connection.is_some()
-            && self.client.state.root_visible();
+            && self.client.state.root_visible()
+            && !is_unmap;
         self.surface.set_visible(is_visible);
         if was_visible != is_visible {
             self.was_on_screen.set(false);

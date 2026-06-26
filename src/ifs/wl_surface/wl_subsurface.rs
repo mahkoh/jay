@@ -469,6 +469,10 @@ impl SurfaceExt for WlSubsurface {
     fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
         self.parent.node_workspace()
     }
+
+    fn unmap(self: Rc<Self>) {
+        // nothing
+    }
 }
 
 #[derive(Debug, Error)]
