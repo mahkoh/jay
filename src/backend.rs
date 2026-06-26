@@ -20,7 +20,11 @@ use {
                 wl_pointer::{CONTINUOUS, FINGER, HORIZONTAL_SCROLL, VERTICAL_SCROLL, WHEEL},
             },
         },
-        libinput::consts::DeviceCapability,
+        libinput::consts::{
+            ConfigScrollMethod, DeviceCapability, LIBINPUT_CONFIG_SCROLL_2FG,
+            LIBINPUT_CONFIG_SCROLL_EDGE, LIBINPUT_CONFIG_SCROLL_NO_SCROLL,
+            LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN,
+        },
         utils::static_text::StaticText,
         video::{
             Modifier,
@@ -32,7 +36,7 @@ use {
         },
     },
     jay_config::input::SwitchEvent,
-    linearize::Linearize,
+    linearize::{Linearize, StaticCopyMap},
     std::{
         any::Any,
         error::Error,
@@ -268,6 +272,14 @@ pub trait InputDevice {
     fn set_enabled_leds(&self, leds: Leds) {
         let _ = leds;
     }
+
+    fn scroll_methods(&self) -> StaticCopyMap<InputDeviceScrollMethod, bool> {
+        Default::default()
+    }
+    fn scroll_method(&self) -> Option<InputDeviceScrollMethod> {
+        None
+    }
+    fn set_scroll_method(&self, method: InputDeviceScrollMethod);
 }
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Linearize)]
@@ -339,6 +351,47 @@ impl StaticText for InputDeviceClickMethod {
             InputDeviceClickMethod::ButtonAreas => "button-areas",
             InputDeviceClickMethod::Clickfinger => "clickfinger",
         }
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Linearize)]
+pub enum InputDeviceScrollMethod {
+    NoScroll,
+    TwoFingers,
+    Edge,
+    OnButtonDown,
+}
+
+impl StaticText for InputDeviceScrollMethod {
+    fn text(&self) -> &'static str {
+        match self {
+            InputDeviceScrollMethod::NoScroll => "No Scroll",
+            InputDeviceScrollMethod::TwoFingers => "Two Fingers",
+            InputDeviceScrollMethod::Edge => "Edge",
+            InputDeviceScrollMethod::OnButtonDown => "On Button Down",
+        }
+    }
+}
+
+impl InputDeviceScrollMethod {
+    pub fn to_libinput(self) -> ConfigScrollMethod {
+        match self {
+            InputDeviceScrollMethod::NoScroll => LIBINPUT_CONFIG_SCROLL_NO_SCROLL,
+            InputDeviceScrollMethod::TwoFingers => LIBINPUT_CONFIG_SCROLL_2FG,
+            InputDeviceScrollMethod::Edge => LIBINPUT_CONFIG_SCROLL_EDGE,
+            InputDeviceScrollMethod::OnButtonDown => LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN,
+        }
+    }
+
+    pub fn from_libinput(v: ConfigScrollMethod) -> Option<Self> {
+        let m = match v {
+            LIBINPUT_CONFIG_SCROLL_NO_SCROLL => InputDeviceScrollMethod::NoScroll,
+            LIBINPUT_CONFIG_SCROLL_2FG => InputDeviceScrollMethod::TwoFingers,
+            LIBINPUT_CONFIG_SCROLL_EDGE => InputDeviceScrollMethod::Edge,
+            LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN => InputDeviceScrollMethod::OnButtonDown,
+            _ => return None,
+        };
+        Some(m)
     }
 }
 

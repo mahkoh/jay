@@ -3,7 +3,7 @@ use {
         LibInput,
         consts::{
             AccelProfile, ConfigClickMethod, ConfigDragLockState, ConfigDragState,
-            ConfigMiddleEmulationState, ConfigTapState, DeviceCapability,
+            ConfigMiddleEmulationState, ConfigScrollMethod, ConfigTapState, DeviceCapability,
             LIBINPUT_CONFIG_DRAG_DISABLED, LIBINPUT_CONFIG_DRAG_ENABLED,
             LIBINPUT_CONFIG_DRAG_LOCK_DISABLED, LIBINPUT_CONFIG_DRAG_LOCK_ENABLED,
             LIBINPUT_CONFIG_MIDDLE_EMULATION_DISABLED, LIBINPUT_CONFIG_MIDDLE_EMULATION_ENABLED,
@@ -23,8 +23,10 @@ use {
             libinput_device_config_middle_emulation_get_enabled,
             libinput_device_config_middle_emulation_is_available,
             libinput_device_config_middle_emulation_set_enabled,
+            libinput_device_config_scroll_get_method, libinput_device_config_scroll_get_methods,
             libinput_device_config_scroll_get_natural_scroll_enabled,
             libinput_device_config_scroll_has_natural_scroll,
+            libinput_device_config_scroll_set_method,
             libinput_device_config_scroll_set_natural_scroll_enabled,
             libinput_device_config_tap_get_drag_enabled,
             libinput_device_config_tap_get_drag_lock_enabled,
@@ -228,6 +230,24 @@ impl<'a> LibInputDevice<'a> {
     pub fn set_click_method(&self, method: ConfigClickMethod) {
         unsafe {
             libinput_device_config_click_set_method(self.dev, method.raw() as _);
+        }
+    }
+
+    pub fn has_scroll_methods(&self) -> bool {
+        self.scroll_methods() != 0
+    }
+
+    pub fn scroll_methods(&self) -> u32 {
+        unsafe { libinput_device_config_scroll_get_methods(self.dev) }
+    }
+
+    pub fn scroll_method(&self) -> ConfigScrollMethod {
+        unsafe { ConfigScrollMethod(libinput_device_config_scroll_get_method(self.dev)) }
+    }
+
+    pub fn set_scroll_method(&self, method: ConfigScrollMethod) {
+        unsafe {
+            libinput_device_config_scroll_set_method(self.dev, method.raw() as _);
         }
     }
 

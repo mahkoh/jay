@@ -36,7 +36,8 @@
     clippy::unnecessary_cast,
     clippy::manual_flatten,
     clippy::manual_bits,
-    clippy::manual_is_multiple_of
+    clippy::manual_is_multiple_of,
+    clippy::obfuscated_if_else
 )]
 #![warn(clippy::allow_attributes, unsafe_op_in_unsafe_fn)]
 

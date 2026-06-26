@@ -10,8 +10,9 @@ use {
         async_engine::SpawnedFuture,
         backend::{
             Backend, ButtonState, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
-            InputDeviceClickMethod, InputDeviceGroupId, InputDeviceId, InputEvent, KeyState, Leds,
-            TransformMatrix, transaction::BackendConnectorTransactionError,
+            InputDeviceClickMethod, InputDeviceGroupId, InputDeviceId, InputDeviceScrollMethod,
+            InputEvent, KeyState, Leds, TransformMatrix,
+            transaction::BackendConnectorTransactionError,
         },
         backends::metal::{
             allocator::{RenderBufferError, ScanoutBufferError, ScanoutBufferErrors},
@@ -31,8 +32,9 @@ use {
         libinput::{
             LibInput, LibInputAdapter, LibInputError,
             consts::{
-                AccelProfile, ConfigClickMethod, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
-                LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT, LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS,
+                AccelProfile, ConfigClickMethod, ConfigScrollMethod,
+                LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE, LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT,
+                LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS,
                 LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER, LIBINPUT_CONFIG_CLICK_METHOD_NONE,
                 LIBINPUT_DEVICE_CAP_TABLET_PAD, LIBINPUT_DEVICE_CAP_TABLET_TOOL, Led,
             },
@@ -42,6 +44,7 @@ use {
         state::State,
         udev::{Udev, UdevError, UdevMonitor},
         utils::{
+            bitflags::BitflagsExt,
             clonecell::{CloneCell, UnsafeCellCloneSafe},
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
@@ -54,6 +57,7 @@ use {
         video::{drm::DrmError, gbm::GbmError},
     },
     bstr::ByteSlice,
+    linearize::{LinearizeExt, StaticCopyMap},
     std::{
         cell::{Cell, RefCell},
         error::Error,
@@ -360,6 +364,7 @@ struct InputDeviceProperties {
     click_method: Cell<Option<ConfigClickMethod>>,
     middle_button_emulation_enabled: Cell<Option<bool>>,
     enabled_leds: Cell<Option<Led>>,
+    scroll_method: Cell<Option<ConfigScrollMethod>>,
 }
 
 #[derive(Clone)]
@@ -428,6 +433,9 @@ impl MetalInputDevice {
         if let Some(led) = self.desired.enabled_leds.get() {
             self.set_enabled_leds_(led);
         }
+        if let Some(method) = self.desired.scroll_method.get() {
+            self.set_scroll_method_(method);
+        }
         self.fetch_effective();
     }
 
@@ -470,6 +478,11 @@ impl MetalInputDevice {
                 .middle_button_emulation_enabled
                 .set(Some(device.middle_button_emulation_enabled()));
         }
+        if device.has_scroll_methods() {
+            self.effective
+                .scroll_method
+                .set(Some(device.scroll_method()));
+        }
     }
 
     fn pre_pause(&self) {
@@ -511,6 +524,18 @@ impl MetalInputDevice {
             self.effective
                 .click_method
                 .set(Some(dev.device().click_method()));
+        }
+    }
+
+    fn set_scroll_method_(&self, method: ConfigScrollMethod) {
+        self.desired.scroll_method.set(Some(method));
+        if let Some(dev) = self.inputdev.get()
+            && dev.device().has_scroll_methods()
+        {
+            dev.device().set_scroll_method(method);
+            self.effective
+                .scroll_method
+                .set(Some(dev.device().scroll_method()));
         }
     }
 
@@ -808,6 +833,32 @@ impl InputDevice for MetalInputDevice {
     fn set_enabled_leds(&self, leds: Leds) {
         let led = Led(leds.0 as _);
         self.set_enabled_leds_(led);
+    }
+
+    fn scroll_methods(&self) -> StaticCopyMap<InputDeviceScrollMethod, bool> {
+        let mut res = StaticCopyMap::default();
+        let Some(dev) = self.inputdev.get() else {
+            return res;
+        };
+        let dev = dev.device();
+        let methods = dev.scroll_methods();
+        if methods != 0 {
+            for method in InputDeviceScrollMethod::variants() {
+                res[method] = methods.contains(method.to_libinput().0 as u32);
+            }
+        }
+        res
+    }
+
+    fn scroll_method(&self) -> Option<InputDeviceScrollMethod> {
+        self.effective
+            .scroll_method
+            .get()
+            .and_then(InputDeviceScrollMethod::from_libinput)
+    }
+
+    fn set_scroll_method(&self, method: InputDeviceScrollMethod) {
+        self.set_scroll_method_(method.to_libinput());
     }
 }
 

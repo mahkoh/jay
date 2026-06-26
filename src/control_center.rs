@@ -31,7 +31,7 @@ use {
         TextBuffer, TextEdit, Ui, UiBuilder, Visuals, Widget, WidgetText, emath::Numeric, vec2,
     },
     egui_tiles::{ResizeState, TabState, Tile, TileId, Tiles, Tree},
-    linearize::{Linearize, LinearizeExt},
+    linearize::{Linearize, LinearizeExt, StaticCopyMap},
     std::{
         cell::RefCell,
         hash::Hash,
@@ -589,9 +589,34 @@ where
     combo_box_ui(ui, name, |_| (), old, set);
 }
 
+fn combo_box_filtered<T>(
+    ui: &mut Ui,
+    name: &str,
+    filter: StaticCopyMap<T, bool>,
+    old: T,
+    set: impl FnOnce(T),
+) where
+    T: StaticText + Linearize + PartialEq + Copy,
+{
+    combo_box_ui_filtered(ui, name, filter, |_| (), old, set);
+}
+
 fn combo_box_ui<R, T>(
     ui: &mut Ui,
     name: &str,
+    label: impl FnOnce(&mut Ui) -> R,
+    v: T,
+    set: impl FnOnce(T),
+) where
+    T: StaticText + Linearize + PartialEq + Copy,
+{
+    combo_box_ui_filtered(ui, name, StaticCopyMap::from_fn(|_| true), label, v, set)
+}
+
+fn combo_box_ui_filtered<R, T>(
+    ui: &mut Ui,
+    name: &str,
+    filter: StaticCopyMap<T, bool>,
     label: impl FnOnce(&mut Ui) -> R,
     mut v: T,
     set: impl FnOnce(T),
@@ -604,7 +629,9 @@ fn combo_box_ui<R, T>(
             .selected_text(v.text())
             .show_ui(ui, |ui| {
                 for s in T::variants() {
-                    ui.selectable_value(&mut v, s, s.text());
+                    if filter[s] {
+                        ui.selectable_value(&mut v, s, s.text());
+                    }
                 }
             });
         if old != v {

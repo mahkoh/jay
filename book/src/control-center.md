@@ -400,6 +400,9 @@ Left Handed
 Middle Button Emulation
 : Simultaneous left+right produces middle click. Shown for devices that support it.
 
+Scroll Method
+: Dropdown: no-scroll, two-fingers, edge, on-button-down. Only methods the device supports are selectable. Shown for devices that support it.
+
 Output
 : Dropdown to map the device to a specific output (only has effect for touch and tablet devices), with a Detach button. Shown for all devices.
 

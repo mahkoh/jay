@@ -144,6 +144,11 @@ pub fn main() -> anyhow::Result<()> {
         libinput::LIBINPUT_CONFIG_MIDDLE_EMULATION_STATE,
         "libinput_config_middle_emulation_state",
     )?;
+    write_ty(
+        &mut f,
+        libinput::LIBINPUT_CONFIG_SCROLL_METHOD,
+        "libinput_config_scroll_method",
+    )?;
 
     let mut f = open("pango_tys.rs")?;
     write_ty(&mut f, pango::CAIRO_FORMATS, "cairo_format_t")?;

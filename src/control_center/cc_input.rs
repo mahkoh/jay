@@ -2,8 +2,9 @@ use {
     crate::{
         backend::{InputDeviceCapability, InputDeviceId},
         control_center::{
-            ControlCenterInner, GridExt, PaneState, bool, bool_ui, combo_box, combo_box_ui,
-            drag_value, drag_value_ui, grid, grid_label, grid_label_ui, label, text_edit, tip,
+            ControlCenterInner, GridExt, PaneState, bool, bool_ui, combo_box, combo_box_filtered,
+            combo_box_ui, drag_value, drag_value_ui, grid, grid_label, grid_label_ui, label,
+            text_edit, tip,
         },
         egui_adapter::egui_platform::icons::ICON_PENDING,
         ifs::{
@@ -436,6 +437,11 @@ impl InputPane {
                     if let Some(old) = dev.device.middle_button_emulation_enabled() {
                         bool(ui, "Middle Button Emulation", old, |v| {
                             dev.set_middle_button_emulation_enabled(&self.state, v)
+                        });
+                    }
+                    if let Some(old) = dev.device.scroll_method() {
+                        combo_box_filtered(ui, "Scroll Method", dev.scroll_methods, old, |v| {
+                            dev.set_scroll_method(&self.state, v)
                         });
                     }
                     {

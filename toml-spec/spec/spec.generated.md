@@ -3686,6 +3686,14 @@ The table has the following fields:
 
   The value of this field should be an array of arrays of numbers.
 
+- `scroll-method` (optional):
+
+  Defines the scroll method of the device.
+  
+  See the libinput documentation for more details.
+
+  The value of this field should be a [ScrollMethod](#types-ScrollMethod).
+
 
 <a name="types-InputMatch"></a>
 ### `InputMatch`
@@ -4610,6 +4618,35 @@ The table has the following fields:
   A comma-separated list of options.
 
   The value of this field should be a string.
+
+
+<a name="types-ScrollMethod"></a>
+### `ScrollMethod`
+
+The scroll method to apply to an input device.
+
+See the libinput documentation for more details.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `no-scroll`:
+
+  Never send scroll events instead of pointer motion events.
+
+- `two-fingers`:
+
+  Send scroll events when two fingers are logically down on the device.
+
+- `edge`:
+
+  Send scroll events when a finger moves along the bottom or right edge of a device.
+
+- `on-button-down`:
+
+  Send scroll events when a button is down and the device moves along a scroll-capable axis.
+
 
 
 <a name="types-SessionManagement"></a>

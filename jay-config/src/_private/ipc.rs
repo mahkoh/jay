@@ -9,7 +9,7 @@ use {
         input::{
             FallbackOutputMode, FocusFollowsMouseMode, InputDevice, LayerDirection, Seat,
             SwitchEvent, Timeline, acceleration::AccelProfile, capability::Capability,
-            clickmethod::ClickMethod,
+            clickmethod::ClickMethod, scrollmethod::ScrollMethod,
         },
         keyboard::{Group, Keymap, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
@@ -940,6 +940,10 @@ pub enum ClientMessage<'a> {
     SetWorkspaceInitialConnector {
         workspace: Workspace,
         connector: Option<Connector>,
+    },
+    SetScrollMethod {
+        device: InputDevice,
+        method: ScrollMethod,
     },
 }
 

@@ -176,6 +176,11 @@ request set_px_scroll_multiplier (since = 33) {
     mul: pod(f64),
 }
 
+request set_scroll_method (since = 34) {
+    id: u32,
+    method: i32,
+}
+
 # events
 
 event seat {
@@ -236,4 +241,12 @@ event click_method (since = 19) {
 
 event middle_button_emulation (since = 19) {
     middle_button_emulation_enabled: u32,
+}
+
+event scroll_methods (since = 34) {
+    scroll_methods: u32,
+}
+
+event scroll_method (since = 34) {
+    scroll_method: i32,
 }

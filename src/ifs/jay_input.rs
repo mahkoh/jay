@@ -2,6 +2,7 @@ use {
     crate::{
         backend::{
             InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod, InputDeviceId,
+            InputDeviceScrollMethod,
         },
         client::{Client, ClientError},
         clientmem::{ClientMem, ClientMemError},
@@ -9,9 +10,10 @@ use {
         kbvm::{KbvmError, KbvmMap},
         leaks::Tracker,
         libinput::consts::{
-            AccelProfile, ConfigClickMethod, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
-            LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT, LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS,
-            LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER, LIBINPUT_CONFIG_CLICK_METHOD_NONE,
+            AccelProfile, ConfigClickMethod, ConfigScrollMethod,
+            LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE, LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT,
+            LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS, LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER,
+            LIBINPUT_CONFIG_CLICK_METHOD_NONE,
         },
         object::{Object, Version},
         state::{DeviceHandlerData, InputDeviceData, State},
@@ -37,6 +39,7 @@ pub struct JayInput {
 const CALIBRATION_MATRIX_SINCE: Version = Version(4);
 const CLICK_METHOD_SINCE: Version = Version(19);
 const MIDDLE_BUTTON_EMULATION_SINCE: Version = Version(19);
+const SCROLL_METHOD_SINCE: Version = Version(34);
 
 impl JayInput {
     pub fn new(id: JayInputId, client: &Rc<Client>, version: Version) -> Self {
@@ -185,6 +188,25 @@ impl JayInput {
                 self_id: self.id,
                 middle_button_emulation_enabled: middle_button_emulation as _,
             });
+        }
+        if self.version >= SCROLL_METHOD_SINCE {
+            if let Some(scroll_method) = dev.scroll_method() {
+                self.client.event(ScrollMethod {
+                    self_id: self.id,
+                    scroll_method: scroll_method.to_libinput().0,
+                });
+            }
+            let methods = dev
+                .scroll_methods()
+                .map(|m, v| v.then_some(m.to_libinput().0 as u32).unwrap_or_default())
+                .into_values()
+                .fold(0, |acc, m| acc | m);
+            if methods != 0 {
+                self.client.event(ScrollMethods {
+                    self_id: self.id,
+                    scroll_methods: methods,
+                });
+            }
         }
     }
 
@@ -693,6 +715,19 @@ impl JayInputRequestHandler for JayInput {
             Ok(())
         })
     }
+
+    fn set_scroll_method(&self, req: SetScrollMethod, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.or_error(|| {
+            let dev = self.device(req.id)?;
+            let Some(method) =
+                InputDeviceScrollMethod::from_libinput(ConfigScrollMethod(req.method))
+            else {
+                return Err(JayInputError::UnknownScrollMethod(req.method));
+            };
+            dev.set_scroll_method(&self.state, method);
+            Ok(())
+        })
+    }
 }
 
 object_base! {
@@ -728,5 +763,7 @@ pub enum JayInputError {
     OutputNotConnected,
     #[error("Keymap builder has neither a map nor names set")]
     EmptyBuilder,
+    #[error("There is no scroll method with id {0}")]
+    UnknownScrollMethod(i32),
 }
 efrom!(JayInputError, ClientError);
