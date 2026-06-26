@@ -403,10 +403,16 @@ impl XdgToplevel {
             self.map_floating(&ws, None);
             return;
         }
-        match parent {
-            None => self.map_tiled(),
-            Some(p) => self.map_child(p, pos),
+        if let Some(p) = parent {
+            self.map_child(p, pos);
+            return;
         }
+        if self.toplevel_data.is_fixed_size_in_any_dimension() {
+            let ws = self.state.ensure_map_workspace(None);
+            self.map_floating(&ws, None);
+            return;
+        }
+        self.map_tiled();
     }
 
     fn map_floating(self: &Rc<Self>, workspace: &Rc<WorkspaceNode>, abs_pos: Option<(i32, i32)>) {
