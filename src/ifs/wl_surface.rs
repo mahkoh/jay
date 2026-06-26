@@ -69,7 +69,10 @@ use {
                 wp_tearing_control_v1::WpTearingControlV1,
                 wp_viewport::WpViewport,
                 x_surface::{XSurface, xwindow::Xwindow},
-                xdg_surface::{PendingXdgSurfaceData, XdgSurfaceError, xdg_toplevel::XdgToplevel},
+                xdg_surface::{
+                    PendingXdgSurfaceData, XdgSurfaceError,
+                    xdg_toplevel::{XdgToplevel, XdgToplevelError},
+                },
                 zwlr_layer_surface_v1::{PendingLayerSurfaceData, ZwlrLayerSurfaceV1Error},
             },
             wp_content_type_v1::ContentType,
@@ -2365,6 +2368,8 @@ pub enum WlSurfaceError {
     ZwlrLayerSurfaceV1Error(Box<ZwlrLayerSurfaceV1Error>),
     #[error(transparent)]
     XdgSurfaceError(Box<XdgSurfaceError>),
+    #[error(transparent)]
+    XdgToplevelError(Box<XdgToplevelError>),
     #[error("Surface {} cannot be assigned the role {} because it already has the role {}", .id, .new.name(), .old.name())]
     IncompatibleRole {
         id: WlSurfaceId,
@@ -2410,6 +2415,7 @@ pub enum WlSurfaceError {
 }
 efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);
+efrom!(WlSurfaceError, XdgToplevelError);
 efrom!(WlSurfaceError, ZwlrLayerSurfaceV1Error);
 efrom!(WlSurfaceError, CommitTimelineError);
 

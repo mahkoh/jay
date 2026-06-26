@@ -196,6 +196,8 @@ impl XdgPopupParent for Popup {
 pub struct PendingXdgSurfaceData {
     geometry: Option<Rect>,
     pub restored: Option<Rc<Cell<bool>>>,
+    min_size: Option<(Option<i32>, Option<i32>)>,
+    max_size: Option<(Option<i32>, Option<i32>)>,
 }
 
 impl PendingXdgSurfaceData {
@@ -209,16 +211,26 @@ impl PendingXdgSurfaceData {
         }
         opt!(geometry);
         opt!(restored);
+        opt!(min_size);
+        opt!(max_size);
     }
 }
 
-pub trait XdgSurfaceExt: Node + Debug {
+trait XdgSurfaceExt: Node + Debug {
     fn initial_configure(self: Rc<Self>) {
         // nothing
     }
 
     fn commit_requested(&self) {
         // nothing
+    }
+
+    fn before_apply_commit(
+        self: Rc<Self>,
+        pending: &mut PendingState,
+    ) -> Result<(), WlSurfaceError> {
+        let _ = pending;
+        Ok(())
     }
 
     fn post_commit(self: Rc<Self>) {
@@ -734,6 +746,9 @@ impl SurfaceExt for XdgSurface {
                 self.update_effective_geometry(UpdateGeometryReason::Commit);
                 self.update_extents();
             }
+        }
+        if let Some(ext) = self.ext.get() {
+            ext.before_apply_commit(pending)?;
         }
         Ok(())
     }
