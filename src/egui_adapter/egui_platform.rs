@@ -919,9 +919,8 @@ impl UsrXdgSurfaceOwner for EggWindowInner {
                 self.update_physical_size();
             }
         }
-        if self.initial_commit_pending.take() {
-            self.want_frame();
-        }
+        self.initial_commit_pending.take();
+        self.want_frame();
     }
 }
 
