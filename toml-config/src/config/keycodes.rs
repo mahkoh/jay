@@ -1,6 +1,9 @@
 use phf::phf_map;
 
-pub static KEYCODES: phf::Map<&'static str, u32> = phf_map! {
+#[cfg(test)]
+mod tests;
+
+static KEYCODES: phf::Map<&'static str, u32> = phf_map! {
     "esc" => 1,
     "1" => 2,
     "2" => 3,
@@ -518,3 +521,7 @@ pub static KEYCODES: phf::Map<&'static str, u32> = phf_map! {
     "kbd_lcd_menu4" => 0x2bb,
     "kbd_lcd_menu5" => 0x2bc,
 };
+
+pub fn keycode_from_name(name: &str) -> Option<u32> {
+    KEYCODES.get(name).copied()
+}

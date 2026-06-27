@@ -3,7 +3,7 @@ use {
         config::{
             context::Context,
             extractor::{Extractor, ExtractorError, opt, str},
-            keycodes::KEYCODES,
+            keycodes::keycode_from_name,
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
         },
         toml::{
@@ -45,8 +45,8 @@ impl Parser for MarkIdParser<'_, '_> {
             (None, None) | (Some(_), Some(_)) => {
                 return Err(MarkIdParserError::ExactlyOneField.spanned(span));
             }
-            (Some(key), _) => match KEYCODES.get(key.value) {
-                Some(c) => *c,
+            (Some(key), _) => match keycode_from_name(key.value) {
+                Some(c) => c,
                 _ => return Err(key.map(|s| MarkIdParserError::UnknownKey(s.to_string()))),
             },
             (_, Some(name)) => {
