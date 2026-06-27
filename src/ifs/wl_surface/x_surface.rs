@@ -90,4 +90,10 @@ impl SurfaceExt for XSurface {
     fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
         self.xwindow.get()?.toplevel_data.workspace[LiveTL].get()
     }
+
+    fn unmap(self: Rc<Self>) {
+        if let Some(xwindow) = self.xwindow.get() {
+            xwindow.map_status_changed_(true);
+        }
+    }
 }

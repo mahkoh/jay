@@ -102,6 +102,7 @@ pub struct SurfaceTransaction {
     unblocked_commit_start_ns: Cell<u64>,
 
     tardy: Cell<bool>,
+    enabled: NumCell<u64>,
 }
 
 #[derive(Clone)]
@@ -109,6 +110,10 @@ struct TransactionTimeout {
     t: Rc<Transaction>,
     version: u64,
     start_ns: u64,
+}
+
+pub struct EnabledSurfaceTransactions {
+    surface: Rc<WlSurface>,
 }
 
 const LOG_TARDY: bool = false;
@@ -223,8 +228,9 @@ impl Transactions {
             transaction: t.clone(),
         });
         while let Some(surface) = surfaces.pop() {
-            if !surface.surface_transaction.tardy.get() {
-                let st = &surface.surface_transaction;
+            let st = &surface.surface_transaction;
+            let skip_enqueue = st.is_disabled();
+            if !skip_enqueue {
                 if st.transaction_blockers.is_empty() {
                     st.first_transaction_blocker.set(Some(serial));
                 }
@@ -314,6 +320,11 @@ impl WlSurface {
 }
 
 impl SurfaceTransaction {
+    pub fn unblock_all_transactions(&self) {
+        self.first_transaction_blocker.take();
+        self.transaction_blockers.clear();
+    }
+
     fn unblock_transactions_until(&self, state: &Rc<State>, serial: TreeSerial) {
         if self.tardy.get() {
             if serial > self.unblocked_commit.get() {
@@ -361,8 +372,23 @@ impl SurfaceTransaction {
         self.unblocked_commit.get() < serial
     }
 
-    pub fn is_tardy(&self) -> bool {
-        self.tardy.get()
+    pub fn is_disabled(&self) -> bool {
+        self.tardy.get() || self.enabled.get() == 0
+    }
+}
+
+impl WlSurface {
+    pub fn enable_transactions(self: &Rc<Self>) -> EnabledSurfaceTransactions {
+        self.surface_transaction.enabled.fetch_add(1);
+        EnabledSurfaceTransactions {
+            surface: self.clone(),
+        }
+    }
+}
+
+impl Drop for EnabledSurfaceTransactions {
+    fn drop(&mut self) {
+        self.surface.surface_transaction.enabled.fetch_sub(1);
     }
 }
 

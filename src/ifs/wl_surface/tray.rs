@@ -15,7 +15,9 @@ use {
         },
         rect::Rect,
         theme::BarPosition,
-        transactions::{TransactionData, Transactionable, TransactionableExt},
+        transactions::{
+            EnabledSurfaceTransactions, TransactionData, Transactionable, TransactionableExt,
+        },
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId, NodeLayerLink,
             NodeLocation, NodeVisitor, NodesStackElement, OutputNode, SplitView, TreeLink,
@@ -60,6 +62,7 @@ pub struct TrayItemData {
     destroyed: Cell<bool>,
     configurable: ConfigurableData<TrayItemConfigureData>,
     transaction_data: TransactionData<TrayItemTransactionOp>,
+    enabled_transactions: Cell<Option<EnabledSurfaceTransactions>>,
 }
 
 impl TrayItemData {
@@ -82,6 +85,7 @@ impl TrayItemData {
             destroyed: Default::default(),
             configurable: ConfigurableData::new(state),
             transaction_data: TransactionData::new(&state.tree),
+            enabled_transactions: Default::default(),
         }
     }
 
@@ -143,6 +147,7 @@ impl<T: TrayItem> DynTrayItem for T {
         if let Some(node) = data.output.node() {
             node.update_tray_positions();
         }
+        data.enabled_transactions.take();
     }
 
     fn set_visible(&self, visible: bool) {
@@ -236,12 +241,15 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
                     self.popup.destroy_node();
                 }
             }
-        } else {
-            if dl.link.take().is_some() {
-                drop(dl);
-                self.popup.set_visible(false);
-                self.popup.destroy_node();
-            }
+        }
+    }
+
+    fn unmap(&self) {
+        let mut dl = self.stack_link.borrow_mut();
+        if dl.link.take().is_some() {
+            drop(dl);
+            self.popup.set_visible(false);
+            self.popup.destroy_node();
         }
     }
 
@@ -295,11 +303,7 @@ impl<T: TrayItem> SurfaceExt for T {
 
     fn after_apply_commit(self: Rc<Self>) {
         let data = self.tray_item_data();
-        if data.surface.visible[LiveTL].get() {
-            if data.surface.buffer.is_none() {
-                self.destroy_node();
-            }
-        } else {
+        if !data.surface.visible[LiveTL].get() {
             if data.applied_serial.is_none() || data.applied_serial.get() != data.sent_serial.get()
             {
                 return;
@@ -313,6 +317,8 @@ impl<T: TrayItem> SurfaceExt for T {
                     self.add_transaction_op(TrayItemTransactionOp::SetValid(link.to_ref()));
                     data.linked_node.set(Some(link));
                     node.update_tray_positions();
+                    data.enabled_transactions
+                        .set(Some(data.surface.enable_transactions()));
                 }
             }
         }
@@ -335,6 +341,13 @@ impl<T: TrayItem> SurfaceExt for T {
 
     fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
         None
+    }
+
+    fn unmap(self: Rc<Self>) {
+        let data = self.tray_item_data();
+        if data.surface.visible[LiveTL].get() {
+            self.destroy_node();
+        }
     }
 }
 

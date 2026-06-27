@@ -18,7 +18,9 @@ use {
         object::Object,
         rect::{Rect, Size},
         renderer::Renderer,
-        transactions::{TransactionData, Transactionable, TransactionableExt},
+        transactions::{
+            EnabledSurfaceTransactions, TransactionData, Transactionable, TransactionableExt,
+        },
         tree::{
             Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId,
             NodeLayerLink, NodeLocation, NodeVisitor, NodesStackElement, OutputNode, TreeLink,
@@ -28,6 +30,7 @@ use {
         },
         utils::{
             bitflags::BitflagsExt,
+            cell_ext::CellExt,
             copyhashmap::CopyHashMap,
             hash_map_ext::HashMapExt,
             linkedlist::{LinkedNode, NodeRef},
@@ -80,6 +83,7 @@ pub struct ZwlrLayerSurfaceV1 {
     configurable_data: ConfigurableData<Size>,
     destroyed: Cell<bool>,
     transaction_data: TransactionData<LayerSurfaceTransactionOp>,
+    enabled_transactions: Cell<Option<EnabledSurfaceTransactions>>,
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
@@ -192,6 +196,7 @@ impl ZwlrLayerSurfaceV1 {
             configurable_data: ConfigurableData::new(state),
             destroyed: Cell::new(false),
             transaction_data: TransactionData::new(&state.tree),
+            enabled_transactions: Default::default(),
         }
     }
 
@@ -590,16 +595,23 @@ impl ZwlrLayerSurfaceV1 {
         for popup in self.popups.lock().drain_values() {
             popup.popup.destroy_node();
         }
+        self.enabled_transactions.take();
     }
 
     pub fn set_visible(&self, visible: bool) {
         self.surface.set_visible(visible);
-        if !visible {
+        let et = &self.enabled_transactions;
+        if visible {
+            if et.is_none() {
+                et.set(Some(self.surface.enable_transactions()));
+            }
+        } else {
             for popup in self.popups.lock().drain_values() {
                 popup.popup.set_visible(false);
                 popup.popup.destroy_node();
             }
             self.configurable_data.ready();
+            et.take();
         }
     }
 }
@@ -633,9 +645,7 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
         let buffer_is_some = self.surface.buffer.is_some();
         let was_mapped = self.mapped.get();
         if self.mapped.get() {
-            if !buffer_is_some {
-                self.destroy_node();
-            } else {
+            if buffer_is_some {
                 if self.surface.extents.get().size() != self.pos.get().size() {
                     self.need_position_update.set(true);
                 }
@@ -696,6 +706,16 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
 
     fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
         None
+    }
+
+    fn unmap(self: Rc<Self>) {
+        let Some(output) = self.output.node() else {
+            return;
+        };
+        if self.mapped.get() {
+            self.destroy_node();
+            output.update_visible();
+        }
     }
 }
 
@@ -799,12 +819,15 @@ impl XdgPopupParent for Popup {
                     self.popup.destroy_node();
                 }
             }
-        } else {
-            if dl.link.take().is_some() {
-                drop(dl);
-                self.popup.set_visible(false);
-                self.popup.destroy_node();
-            }
+        }
+    }
+
+    fn unmap(&self) {
+        let mut dl = self.stack_link.borrow_mut();
+        if dl.link.take().is_some() {
+            drop(dl);
+            self.popup.set_visible(false);
+            self.popup.destroy_node();
         }
     }
 

@@ -19,6 +19,7 @@ use {
         leaks::Tracker,
         object::Object,
         rect::Rect,
+        transactions::EnabledSurfaceTransactions,
         tree::{
             FindTreeResult, FoundNode, Node, NodeBase, NodeLayerLink, NodeLocation, NodesStack,
             NodesStackElement, OutputNode, SplitView, StackedNode, TreeSerial,
@@ -94,6 +95,7 @@ pub struct XdgSurface {
     initial_commit_state: Cell<InitialCommitState>,
     destroyed: Cell<bool>,
     configure_data: ConfigurableData<XdgSurfaceConfigureData>,
+    enabled_transactions: Cell<Option<EnabledSurfaceTransactions>>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
@@ -152,13 +154,15 @@ impl XdgPopupParent for Popup {
                 self.popup
                     .set_visible(self.parent.surface.visible[LiveTL].get());
             }
-        } else {
-            if wl.take().is_some() {
-                drop(wl);
-                drop(dl);
-                self.popup.set_visible(false);
-                self.popup.destroy_node();
-            }
+        }
+    }
+
+    fn unmap(&self) {
+        let mut wl = self.workspace_link.borrow_mut();
+        if wl.take().is_some() {
+            drop(wl);
+            self.popup.set_visible(false);
+            self.popup.destroy_node();
         }
     }
 
@@ -263,6 +267,8 @@ trait XdgSurfaceExt: Node + Debug {
     fn configure_data(&self) -> XdgSurfaceConfigureData;
 
     fn send_configure(&self, data: XdgSurfaceConfigureData);
+
+    fn unmap(self: Rc<Self>);
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -307,6 +313,7 @@ impl XdgSurface {
             initial_commit_state: Default::default(),
             destroyed: Default::default(),
             configure_data: ConfigurableData::new(&surface.client.state),
+            enabled_transactions: Default::default(),
         }
     }
 
@@ -386,6 +393,7 @@ impl XdgSurface {
             popup.popup.destroy_node();
         }
         self.configure_data.ready();
+        self.enabled_transactions.take();
     }
 
     fn detach_node(&self) {
@@ -456,6 +464,7 @@ impl XdgSurface {
     fn unset_ext(&self) {
         self.ext.set(None);
         self.configure_data.ready();
+        self.enabled_transactions.take();
         self.surface.set_dummy_output();
     }
 
@@ -679,8 +688,14 @@ impl XdgSurface {
         for popup in self.popups.lock().values() {
             popup.popup.set_visible(visible);
         }
-        if !visible {
+        let et = &self.enabled_transactions;
+        if visible {
+            if et.is_none() {
+                et.set(Some(self.surface.enable_transactions()));
+            }
+        } else {
             self.configure_data.ready();
+            et.take();
         }
     }
 
@@ -796,6 +811,12 @@ impl SurfaceExt for XdgSurface {
 
     fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
         self.workspace.get()
+    }
+
+    fn unmap(self: Rc<Self>) {
+        if let Some(ext) = self.ext.get() {
+            ext.unmap();
+        }
     }
 }
 

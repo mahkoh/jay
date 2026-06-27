@@ -54,6 +54,7 @@ pub trait XdgPopupParent {
     fn output(&self) -> Rc<OutputNode>;
     fn has_workspace_link(&self) -> bool;
     fn post_commit(&self);
+    fn unmap(&self);
     fn visible(&self) -> bool;
     fn make_visible(self: Rc<Self>);
     fn node_layer(&self) -> NodeLayerLink;
@@ -567,6 +568,12 @@ impl XdgSurfaceExt for XdgPopup {
             data.rect.width(),
             data.rect.height(),
         );
+    }
+
+    fn unmap(self: Rc<Self>) {
+        if let Some(parent) = self.parent.get() {
+            parent.unmap();
+        }
     }
 }
 

@@ -70,6 +70,7 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
             id: req.id,
             node_id: self.client.state.node_ids.next(),
             client: self.client.clone(),
+            _enabled_transactions: surface.enable_transactions(),
             surface,
             tracker: Default::default(),
             output: output.global.clone(),

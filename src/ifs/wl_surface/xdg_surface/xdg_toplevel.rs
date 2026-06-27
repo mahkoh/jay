@@ -484,28 +484,13 @@ impl XdgToplevel {
                     self.xdg.damage(LiveTL);
                 }
                 self.extents_changed();
-            } else {
-                if self.is_mapped.replace(false) {
-                    self.tl_set_visible(false);
-                    self.xdg.damage(LiveTL);
-                }
             }
             return;
         }
         if self.is_mapped.replace(should_be_mapped) == should_be_mapped {
             return;
         }
-        if !should_be_mapped {
-            self.tl_destroy();
-            {
-                let new_parent = self.parent.get();
-                let mut children = self.children.borrow_mut();
-                for child in children.drain_values() {
-                    child.parent.set(new_parent.clone());
-                }
-            }
-            self.state.tree_changed();
-        } else {
+        if should_be_mapped {
             self.map(self.parent.get().as_deref(), pos);
             self.extents_changed();
             if let Some(workspace) = self.xdg.workspace.get() {
@@ -908,6 +893,28 @@ impl XdgSurfaceExt for XdgToplevel {
             return;
         };
         self.send_configure(data.w, data.h, data.state);
+    }
+
+    fn unmap(self: Rc<Self>) {
+        if !self.is_mapped.replace(false) {
+            return;
+        }
+        if let Some(drag) = self.drag.get()
+            && drag.is_ongoing()
+        {
+            self.tl_set_visible(false);
+            self.xdg.damage(LiveTL);
+            return;
+        }
+        self.tl_destroy();
+        {
+            let new_parent = self.parent.get();
+            let mut children = self.children.borrow_mut();
+            for child in children.drain_values() {
+                child.parent.set(new_parent.clone());
+            }
+        }
+        self.state.tree_changed();
     }
 }
 

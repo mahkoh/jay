@@ -11,6 +11,7 @@ use {
         leaks::Tracker,
         object::{Object, Version},
         rect::{Rect, Size},
+        transactions::EnabledSurfaceTransactions,
         tree::{
             FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId, NodeLayerLink,
             NodeLocation, NodeVisitor, OutputNode, TreeSerial,
@@ -35,6 +36,7 @@ pub struct ExtSessionLockSurfaceV1 {
     pub destroyed: Cell<bool>,
     pub configurable_data: ConfigurableData<Size>,
     pub desired_size: Cell<Size>,
+    pub _enabled_transactions: EnabledSurfaceTransactions,
 }
 
 impl ExtSessionLockSurfaceV1 {
@@ -122,6 +124,10 @@ impl SurfaceExt for ExtSessionLockSurfaceV1 {
 
     fn workspace(&self) -> Option<Rc<WorkspaceNode>> {
         None
+    }
+
+    fn unmap(self: Rc<Self>) {
+        // nothing
     }
 }
 
