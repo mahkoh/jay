@@ -32,6 +32,7 @@ use {
         control_center::CCI_INPUT,
         cursor_user::{CursorUser, CursorUserGroup, CursorUserOwner},
         ei::ei_ifs::ei_seat::EiSeat,
+        evdev::input_event_codes::InputEventCode,
         fixed::Fixed,
         globals::{Global, GlobalName},
         ifs::{
@@ -2077,6 +2078,11 @@ impl DeviceHandlerData {
 
     pub fn set_scroll_method(&self, state: &State, v: InputDeviceScrollMethod) {
         self.device.set_scroll_method(v);
+        state.trigger_cci(CCI_INPUT);
+    }
+
+    pub fn set_scroll_button(&self, state: &State, v: Option<InputEventCode>) {
+        self.device.set_scroll_button(v);
         state.trigger_cci(CCI_INPUT);
     }
 }

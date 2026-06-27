@@ -12,6 +12,7 @@ use {
                 output_match::OutputMatchParser,
             },
         },
+        input_event_code_from_name,
         toml::{
             toml_span::{DespanExt, Span, Spanned, SpannedExt},
             toml_value::Value,
@@ -20,7 +21,7 @@ use {
     ahash::AHashMap,
     indexmap::IndexMap,
     jay_config::input::{
-        SwitchEvent,
+        InputEventCode, SwitchEvent,
         acceleration::{ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT},
         clickmethod::{CLICK_METHOD_BUTTON_AREAS, CLICK_METHOD_CLICKFINGER, CLICK_METHOD_NONE},
         scrollmethod::{
@@ -94,7 +95,7 @@ impl Parser for InputParser<'_, '_> {
                 calibration_matrix,
                 click_method,
             ),
-            (middle_button_emulation, px_scroll_multiplier, scroll_method),
+            (middle_button_emulation, px_scroll_multiplier, scroll_method, scroll_button),
         ) = ext.extract((
             (
                 opt(str("tag")),
@@ -124,6 +125,7 @@ impl Parser for InputParser<'_, '_> {
                 recover(opt(bol("middle-button-emulation"))),
                 recover(opt(fltorint("px-scroll-multiplier"))),
                 recover(opt(str("scroll-method"))),
+                recover(opt(str("scroll-button"))),
             ),
         ))?;
         let accel_profile = match accel_profile {
@@ -270,6 +272,21 @@ impl Parser for InputParser<'_, '_> {
                 }
             },
         };
+        let scroll_button = match scroll_button {
+            None => None,
+            Some(p) if p.value == "none" => Some(InputEventCode::NONE),
+            Some(p) => match input_event_code_from_name(p.value) {
+                None => {
+                    log::warn!(
+                        "Unknown input-event-code: {}: {}",
+                        p.value,
+                        self.cx.error3(p.span)
+                    );
+                    None
+                }
+                Some(v) => Some(InputEventCode(v)),
+            },
+        };
         Ok(Input {
             tag: tag.despan_into(),
             match_: match_val.parse_map(&mut InputMatchParser(self.cx))?,
@@ -290,6 +307,7 @@ impl Parser for InputParser<'_, '_> {
             output,
             calibration_matrix,
             scroll_method,
+            scroll_button,
         })
     }
 }

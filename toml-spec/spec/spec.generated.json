@@ -1764,6 +1764,10 @@
         "scroll-method": {
           "description": "Defines the scroll method of the device.\n\nSee the libinput documentation for more details.\n",
           "$ref": "#/$defs/ScrollMethod"
+        },
+        "scroll-button": {
+          "type": "string",
+          "description": "The name of the scroll button to use for the on-button-down scroll method.\n\nThis should be one of the button names from input-event-codes.h, e.g.\n`BTN_MIDDLE`, or `none` to disable the scroll button.\n"
         }
       },
       "required": [

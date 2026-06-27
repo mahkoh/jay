@@ -2043,6 +2043,14 @@ Input:
         Defines the scroll method of the device.
         
         See the libinput documentation for more details.
+    scroll-button:
+      kind: string
+      required: false
+      description: |
+        The name of the scroll button to use for the on-button-down scroll method.
+        
+        This should be one of the button names from input-event-codes.h, e.g.
+        `BTN_MIDDLE`, or `none` to disable the scroll button.
 
 
 AccelProfile:

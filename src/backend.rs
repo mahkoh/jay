@@ -6,6 +6,7 @@ use {
             BackendConnectorTransactionType, BackendConnectorTransactionTypeDyn,
         },
         cmm::cmm_primaries::Primaries,
+        evdev::input_event_codes::InputEventCode,
         fixed::Fixed,
         format::Format,
         gfx_api::{FdSync, GfxApi, GfxFramebuffer},
@@ -280,6 +281,13 @@ pub trait InputDevice {
         None
     }
     fn set_scroll_method(&self, method: InputDeviceScrollMethod);
+    fn input_event_codes(&self) -> Vec<InputEventCode> {
+        vec![]
+    }
+    fn scroll_button(&self) -> Option<InputEventCode> {
+        None
+    }
+    fn set_scroll_button(&self, button: Option<InputEventCode>);
 }
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Linearize)]

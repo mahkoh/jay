@@ -489,6 +489,14 @@ Set the scroll method:
 ~$ jay input device 42 set-scroll-method no-scroll
 ```
 
+Set the scroll button used by the `on-button-down` scroll method. The argument
+is a button name from `input-event-codes.h`, or `none` to clear it:
+
+```shell
+~$ jay input device 42 set-scroll-button BTN_MIDDLE
+~$ jay input device 42 set-scroll-button none
+```
+
 Set a per-device keymap:
 
 ```shell

@@ -6,6 +6,7 @@ use {
         },
         client::{Client, ClientError},
         clientmem::{ClientMem, ClientMemError},
+        evdev::input_event_codes::InputEventCode,
         ifs::{jay_keymap_builder::MapKind, wl_seat::WlSeatGlobal},
         kbvm::{KbvmError, KbvmMap},
         leaks::Tracker,
@@ -40,6 +41,7 @@ const CALIBRATION_MATRIX_SINCE: Version = Version(4);
 const CLICK_METHOD_SINCE: Version = Version(19);
 const MIDDLE_BUTTON_EMULATION_SINCE: Version = Version(19);
 const SCROLL_METHOD_SINCE: Version = Version(34);
+const SCROLL_BUTTON_SINCE: Version = Version(35);
 
 impl JayInput {
     pub fn new(id: JayInputId, client: &Rc<Client>, version: Version) -> Self {
@@ -196,8 +198,8 @@ impl JayInput {
                     scroll_method: scroll_method.to_libinput().0,
                 });
             }
-            let methods = dev
-                .scroll_methods()
+            let scroll_methods = dev.scroll_methods();
+            let methods = scroll_methods
                 .map(|m, v| v.then_some(m.to_libinput().0 as u32).unwrap_or_default())
                 .into_values()
                 .fold(0, |acc, m| acc | m);
@@ -205,6 +207,15 @@ impl JayInput {
                 self.client.event(ScrollMethods {
                     self_id: self.id,
                     scroll_methods: methods,
+                });
+            }
+            if self.version >= SCROLL_BUTTON_SINCE
+                && scroll_methods[InputDeviceScrollMethod::OnButtonDown]
+            {
+                let button = dev.scroll_button().map(|c| c.raw()).unwrap_or(0);
+                self.client.event(ScrollButton {
+                    self_id: self.id,
+                    scroll_button: button,
                 });
             }
         }
@@ -728,6 +739,21 @@ impl JayInputRequestHandler for JayInput {
             Ok(())
         })
     }
+
+    fn set_scroll_button(&self, req: SetScrollButton, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.or_error(|| {
+            let dev = self.device(req.id)?;
+            let button = if req.button == 0 {
+                None
+            } else if let Some(button) = InputEventCode::from_raw(req.button) {
+                Some(button)
+            } else {
+                return Err(JayInputError::UnknownInputEventCode(req.button));
+            };
+            dev.set_scroll_button(&self.state, button);
+            Ok(())
+        })
+    }
 }
 
 object_base! {
@@ -765,5 +791,7 @@ pub enum JayInputError {
     EmptyBuilder,
     #[error("There is no scroll method with id {0}")]
     UnknownScrollMethod(i32),
+    #[error("There is no input event code with id {0}")]
+    UnknownInputEventCode(u32),
 }
 efrom!(JayInputError, ClientError);

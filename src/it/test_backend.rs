@@ -16,6 +16,7 @@ use {
         },
         cmm::cmm_primaries::Primaries,
         compositor::TestFuture,
+        evdev::input_event_codes::InputEventCode,
         fixed::Fixed,
         format::XRGB8888,
         gfx_api::{GfxApi, GfxError},
@@ -655,6 +656,10 @@ trait TestInputDevice: InputDevice {
     fn set_scroll_method(&self, method: InputDeviceScrollMethod) {
         let _ = method;
     }
+
+    fn set_scroll_button(&self, button: Option<InputEventCode>) {
+        let _ = button;
+    }
 }
 
 impl<T: TestInputDevice> InputDevice for T {
@@ -732,6 +737,10 @@ impl<T: TestInputDevice> InputDevice for T {
 
     fn set_scroll_method(&self, method: InputDeviceScrollMethod) {
         <Self as TestInputDevice>::set_scroll_method(self, method)
+    }
+
+    fn set_scroll_button(&self, button: Option<InputEventCode>) {
+        <Self as TestInputDevice>::set_scroll_button(self, button)
     }
 }
 

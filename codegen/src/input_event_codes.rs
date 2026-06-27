@@ -1,4 +1,11 @@
-use {crate::generate_map, anyhow::Result, indexmap::IndexMap, regex::Regex, std::fmt::Write};
+use {
+    crate::generate_map,
+    anyhow::Result,
+    indexmap::IndexMap,
+    linearize::{Linearize, LinearizeExt},
+    regex::Regex,
+    std::{fmt, fmt::Write},
+};
 
 const HEADER: &str = include_str!("input-event-codes.h");
 
@@ -11,6 +18,8 @@ pub fn main() -> Result<()> {
     "#,
     )?;
     let mut codes = IndexMap::new();
+    let mut by_value = IndexMap::new();
+    let mut max = 0;
     for capture in regex.captures_iter(HEADER) {
         let name = capture.name("name").unwrap().as_str();
         let value = capture.name("value").unwrap().as_str();
@@ -32,8 +41,15 @@ pub fn main() -> Result<()> {
             continue;
         }
         codes.insert(name, value);
+        by_value.entry(value).or_insert_with(Vec::new).push(name);
+        max = max.max(value);
     }
-    {
+    #[derive(Linearize)]
+    enum MappingType {
+        Keycode,
+        InputEventCode,
+    }
+    for ty in MappingType::variants() {
         #[derive(Debug)]
         #[expect(dead_code)]
         struct MappedKey<'a> {
@@ -43,8 +59,12 @@ pub fn main() -> Result<()> {
         let mut keys = vec![];
         let mut values = vec![];
         for (name, value) in codes.iter() {
-            let Some(name) = name.strip_prefix("KEY_") else {
-                continue;
+            let name = match ty {
+                MappingType::Keycode => match name.strip_prefix("KEY_") {
+                    Some(n) => n,
+                    _ => continue,
+                },
+                MappingType::InputEventCode => *name,
             };
             keys.push(name);
             values.push(MappedKey {
@@ -58,10 +78,111 @@ pub fn main() -> Result<()> {
         writeln!(out, "use crate::phf_map::PhfMap;")?;
         writeln!(out)?;
         writeln!(out, "{}", map)?;
+        let file = match ty {
+            MappingType::Keycode => {
+                concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/../toml-config/src/config/keycodes/generated.rs",
+                )
+            }
+            MappingType::InputEventCode => {
+                concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/../toml-config/src/config/input_event_codes/generated.rs",
+                )
+            }
+        };
+        std::fs::write(file, out)?;
+    }
+    {
+        let mut out = String::new();
+        writeln!(out, "pub const MAX_INPUT_EVENT_CODE: usize = {max};")?;
+        writeln!(out)?;
+        writeln!(
+            out,
+            "#[derive(Copy, Clone, Debug, Eq, PartialEq, linearize::Linearize)]"
+        )?;
+        writeln!(out, "#[expect(non_camel_case_types)]")?;
+        writeln!(out, "pub enum InputEventCode {{")?;
+        for names in by_value.values() {
+            writeln!(out, "    {},", names[0])?;
+        }
+        writeln!(out, "}}")?;
+        writeln!(out)?;
+        writeln!(out, "impl InputEventCode {{")?;
+        writeln!(out, "    pub fn raw(self) -> u32 {{")?;
+        writeln!(out, "        match self {{")?;
+        for (value, names) in by_value.iter() {
+            writeln!(out, "            Self::{} => {value},", names[0])?;
+        }
+        writeln!(out, "        }}")?;
+        writeln!(out, "    }}")?;
+        writeln!(out)?;
+        writeln!(out, "    pub fn from_raw(raw: u32) -> Option<Self> {{")?;
+        writeln!(
+            out,
+            "        static MAP: [Option<InputEventCode>; {}] = [",
+            max + 1
+        )?;
+        for i in 0..=max {
+            if let Some(value) = by_value.get(&i) {
+                writeln!(out, "            Some(InputEventCode::{}),", value[0])?;
+            } else {
+                writeln!(out, "            None,")?;
+            }
+        }
+        writeln!(out, "        ];")?;
+        writeln!(out, "        MAP.get(raw as usize).copied().flatten()")?;
+        writeln!(out, "    }}")?;
+        writeln!(out, "}}")?;
+        writeln!(out)?;
+        writeln!(
+            out,
+            "impl crate::utils::static_text::StaticText for InputEventCode {{"
+        )?;
+        writeln!(out, "    fn text(&self) -> &'static str {{")?;
+        writeln!(out, "        match self {{")?;
+        for names in by_value.values() {
+            writeln!(
+                out,
+                "            Self::{} => \"{}\",",
+                names[0],
+                fmt::from_fn(|f| {
+                    for (idx, name) in names.iter().enumerate() {
+                        if idx > 0 {
+                            f.write_str(",")?;
+                        }
+                        f.write_str(name)?;
+                    }
+                    Ok(())
+                })
+            )?;
+        }
+        writeln!(out, "        }}")?;
+        writeln!(out, "    }}")?;
+        writeln!(out, "}}")?;
         std::fs::write(
             concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/../toml-config/src/config/keycodes/generated.rs",
+                "/../src/evdev/input_event_codes.rs",
+            ),
+            out,
+        )?;
+    }
+    {
+        let mut out = String::new();
+        writeln!(out, "use super::InputEventCode;")?;
+        writeln!(out)?;
+        for (name, value) in &codes {
+            writeln!(
+                out,
+                "pub const {name}: InputEventCode = InputEventCode({value});"
+            )?;
+        }
+        std::fs::write(
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../jay-config/src/input/input_event_codes.rs",
             ),
             out,
         )?;

@@ -9,3 +9,4 @@ permutation = "0.4.1"
 anyhow = "1.0.103"
 indexmap = "2.14.0"
 regex = "1.12.4"
+linearize = { version = "0.1.7", features = ["derive"] }

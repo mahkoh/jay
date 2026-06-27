@@ -181,6 +181,11 @@ request set_scroll_method (since = 34) {
     method: i32,
 }
 
+request set_scroll_button (since = 35) {
+    id: u32,
+    button: u32,
+}
+
 # events
 
 event seat {
@@ -249,4 +254,8 @@ event scroll_methods (since = 34) {
 
 event scroll_method (since = 34) {
     scroll_method: i32,
+}
+
+event scroll_button (since = 35) {
+    scroll_button: u32,
 }

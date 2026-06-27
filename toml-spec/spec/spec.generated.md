@@ -3694,6 +3694,15 @@ The table has the following fields:
 
   The value of this field should be a [ScrollMethod](#types-ScrollMethod).
 
+- `scroll-button` (optional):
+
+  The name of the scroll button to use for the on-button-down scroll method.
+  
+  This should be one of the button names from input-event-codes.h, e.g.
+  `BTN_MIDDLE`, or `none` to disable the scroll button.
+
+  The value of this field should be a string.
+
 
 <a name="types-InputMatch"></a>
 ### `InputMatch`

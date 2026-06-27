@@ -12,6 +12,7 @@ mod rules;
 mod shortcuts;
 mod toml;
 
+pub use config::input_event_codes::input_event_code_from_name;
 use {
     crate::{
         config::{
@@ -768,6 +769,9 @@ impl Input {
         }
         if let Some(v) = self.scroll_method {
             c.set_scroll_method(v);
+        }
+        if let Some(v) = self.scroll_button {
+            c.set_scroll_button(v);
         }
     }
 }

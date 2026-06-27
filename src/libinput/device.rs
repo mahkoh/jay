@@ -1,53 +1,61 @@
 use {
-    crate::libinput::{
-        LibInput,
-        consts::{
-            AccelProfile, ConfigClickMethod, ConfigDragLockState, ConfigDragState,
-            ConfigMiddleEmulationState, ConfigScrollMethod, ConfigTapState, DeviceCapability,
-            LIBINPUT_CONFIG_DRAG_DISABLED, LIBINPUT_CONFIG_DRAG_ENABLED,
-            LIBINPUT_CONFIG_DRAG_LOCK_DISABLED, LIBINPUT_CONFIG_DRAG_LOCK_ENABLED,
-            LIBINPUT_CONFIG_MIDDLE_EMULATION_DISABLED, LIBINPUT_CONFIG_MIDDLE_EMULATION_ENABLED,
-            LIBINPUT_CONFIG_TAP_DISABLED, LIBINPUT_CONFIG_TAP_ENABLED, Led,
-        },
-        sys::{
-            libinput_device, libinput_device_config_accel_get_profile,
-            libinput_device_config_accel_get_speed, libinput_device_config_accel_is_available,
-            libinput_device_config_accel_set_profile, libinput_device_config_accel_set_speed,
-            libinput_device_config_calibration_get_matrix,
-            libinput_device_config_calibration_has_matrix,
-            libinput_device_config_calibration_set_matrix, libinput_device_config_click_get_method,
-            libinput_device_config_click_get_methods, libinput_device_config_click_set_method,
-            libinput_device_config_left_handed_get,
-            libinput_device_config_left_handed_is_available,
-            libinput_device_config_left_handed_set,
-            libinput_device_config_middle_emulation_get_enabled,
-            libinput_device_config_middle_emulation_is_available,
-            libinput_device_config_middle_emulation_set_enabled,
-            libinput_device_config_scroll_get_method, libinput_device_config_scroll_get_methods,
-            libinput_device_config_scroll_get_natural_scroll_enabled,
-            libinput_device_config_scroll_has_natural_scroll,
-            libinput_device_config_scroll_set_method,
-            libinput_device_config_scroll_set_natural_scroll_enabled,
-            libinput_device_config_tap_get_drag_enabled,
-            libinput_device_config_tap_get_drag_lock_enabled,
-            libinput_device_config_tap_get_enabled, libinput_device_config_tap_get_finger_count,
-            libinput_device_config_tap_set_drag_enabled,
-            libinput_device_config_tap_set_drag_lock_enabled,
-            libinput_device_config_tap_set_enabled, libinput_device_get_device_group,
-            libinput_device_get_id_bustype, libinput_device_get_id_product,
-            libinput_device_get_id_vendor, libinput_device_get_name, libinput_device_get_user_data,
-            libinput_device_group, libinput_device_group_get_user_data,
-            libinput_device_group_set_user_data, libinput_device_has_capability,
-            libinput_device_led_update, libinput_device_set_user_data,
-            libinput_device_tablet_pad_get_mode_group, libinput_device_tablet_pad_get_num_buttons,
-            libinput_device_tablet_pad_get_num_dials,
-            libinput_device_tablet_pad_get_num_mode_groups,
-            libinput_device_tablet_pad_get_num_rings, libinput_device_tablet_pad_get_num_strips,
-            libinput_device_unref, libinput_path_remove_device, libinput_tablet_pad_mode_group,
-            libinput_tablet_pad_mode_group_get_index, libinput_tablet_pad_mode_group_get_mode,
-            libinput_tablet_pad_mode_group_get_num_modes,
-            libinput_tablet_pad_mode_group_has_button, libinput_tablet_pad_mode_group_has_dial,
-            libinput_tablet_pad_mode_group_has_ring, libinput_tablet_pad_mode_group_has_strip,
+    crate::{
+        evdev::input_event_codes::InputEventCode,
+        libinput::{
+            LibInput,
+            consts::{
+                AccelProfile, ConfigClickMethod, ConfigDragLockState, ConfigDragState,
+                ConfigMiddleEmulationState, ConfigScrollMethod, ConfigTapState, DeviceCapability,
+                LIBINPUT_CONFIG_DRAG_DISABLED, LIBINPUT_CONFIG_DRAG_ENABLED,
+                LIBINPUT_CONFIG_DRAG_LOCK_DISABLED, LIBINPUT_CONFIG_DRAG_LOCK_ENABLED,
+                LIBINPUT_CONFIG_MIDDLE_EMULATION_DISABLED,
+                LIBINPUT_CONFIG_MIDDLE_EMULATION_ENABLED, LIBINPUT_CONFIG_TAP_DISABLED,
+                LIBINPUT_CONFIG_TAP_ENABLED, Led,
+            },
+            sys::{
+                libinput_device, libinput_device_config_accel_get_profile,
+                libinput_device_config_accel_get_speed, libinput_device_config_accel_is_available,
+                libinput_device_config_accel_set_profile, libinput_device_config_accel_set_speed,
+                libinput_device_config_calibration_get_matrix,
+                libinput_device_config_calibration_has_matrix,
+                libinput_device_config_calibration_set_matrix,
+                libinput_device_config_click_get_method, libinput_device_config_click_get_methods,
+                libinput_device_config_click_set_method, libinput_device_config_left_handed_get,
+                libinput_device_config_left_handed_is_available,
+                libinput_device_config_left_handed_set,
+                libinput_device_config_middle_emulation_get_enabled,
+                libinput_device_config_middle_emulation_is_available,
+                libinput_device_config_middle_emulation_set_enabled,
+                libinput_device_config_scroll_get_button, libinput_device_config_scroll_get_method,
+                libinput_device_config_scroll_get_methods,
+                libinput_device_config_scroll_get_natural_scroll_enabled,
+                libinput_device_config_scroll_has_natural_scroll,
+                libinput_device_config_scroll_set_button, libinput_device_config_scroll_set_method,
+                libinput_device_config_scroll_set_natural_scroll_enabled,
+                libinput_device_config_tap_get_drag_enabled,
+                libinput_device_config_tap_get_drag_lock_enabled,
+                libinput_device_config_tap_get_enabled,
+                libinput_device_config_tap_get_finger_count,
+                libinput_device_config_tap_set_drag_enabled,
+                libinput_device_config_tap_set_drag_lock_enabled,
+                libinput_device_config_tap_set_enabled, libinput_device_get_device_group,
+                libinput_device_get_id_bustype, libinput_device_get_id_product,
+                libinput_device_get_id_vendor, libinput_device_get_name,
+                libinput_device_get_user_data, libinput_device_group,
+                libinput_device_group_get_user_data, libinput_device_group_set_user_data,
+                libinput_device_has_capability, libinput_device_led_update,
+                libinput_device_set_user_data, libinput_device_tablet_pad_get_mode_group,
+                libinput_device_tablet_pad_get_num_buttons,
+                libinput_device_tablet_pad_get_num_dials,
+                libinput_device_tablet_pad_get_num_mode_groups,
+                libinput_device_tablet_pad_get_num_rings,
+                libinput_device_tablet_pad_get_num_strips, libinput_device_unref,
+                libinput_path_remove_device, libinput_tablet_pad_mode_group,
+                libinput_tablet_pad_mode_group_get_index, libinput_tablet_pad_mode_group_get_mode,
+                libinput_tablet_pad_mode_group_get_num_modes,
+                libinput_tablet_pad_mode_group_has_button, libinput_tablet_pad_mode_group_has_dial,
+                libinput_tablet_pad_mode_group_has_ring, libinput_tablet_pad_mode_group_has_strip,
+            },
         },
     },
     bstr::ByteSlice,
@@ -248,6 +256,20 @@ impl<'a> LibInputDevice<'a> {
     pub fn set_scroll_method(&self, method: ConfigScrollMethod) {
         unsafe {
             libinput_device_config_scroll_set_method(self.dev, method.raw() as _);
+        }
+    }
+
+    pub fn scroll_button(&self) -> Option<InputEventCode> {
+        let button = unsafe { libinput_device_config_scroll_get_button(self.dev) };
+        InputEventCode::from_raw(button)
+    }
+
+    pub fn set_scroll_button(&self, button: Option<InputEventCode>) {
+        unsafe {
+            libinput_device_config_scroll_set_button(
+                self.dev,
+                button.map(|b| b.raw()).unwrap_or(0),
+            );
         }
     }
 

@@ -1,6 +1,7 @@
 mod context;
 pub mod error;
 mod extractor;
+pub mod input_event_codes;
 mod keycodes;
 mod parser;
 mod parsers;
@@ -30,8 +31,8 @@ use {
         client::ClientCapabilities,
         get_overlay, get_workspace,
         input::{
-            FallbackOutputMode, LayerDirection, SwitchEvent, Timeline, acceleration::AccelProfile,
-            clickmethod::ClickMethod, scrollmethod::ScrollMethod,
+            FallbackOutputMode, InputEventCode, LayerDirection, SwitchEvent, Timeline,
+            acceleration::AccelProfile, clickmethod::ClickMethod, scrollmethod::ScrollMethod,
         },
         keyboard::{Keymap, ModifiedKeySym, mods::Modifiers, syms::KeySym},
         logging::LogLevel,
@@ -465,6 +466,7 @@ pub struct Input {
     pub output: Option<Option<OutputMatch>>,
     pub calibration_matrix: Option<[[f32; 3]; 2]>,
     pub scroll_method: Option<ScrollMethod>,
+    pub scroll_button: Option<InputEventCode>,
 }
 
 #[derive(Debug, Clone)]
