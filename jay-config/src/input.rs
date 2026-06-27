@@ -3,6 +3,7 @@
 pub mod acceleration;
 pub mod capability;
 pub mod clickmethod;
+pub mod input_event_codes;
 pub mod scrollmethod;
 
 use {
@@ -166,6 +167,13 @@ impl InputDevice {
     /// See <https://wayland.freedesktop.org/libinput/doc/latest/scrolling.html>
     pub fn set_scroll_method(self, method: ScrollMethod) {
         get!().set_input_scroll_method(self, method);
+    }
+
+    /// Sets the scroll button of the device.
+    ///
+    /// See <https://wayland.freedesktop.org/libinput/doc/latest/scrolling.html>
+    pub fn set_scroll_button(self, button: InputEventCode) {
+        get!().set_input_scroll_button(self, button);
     }
 
     /// Returns the syspath of this device.
@@ -835,4 +843,11 @@ pub enum SwitchEvent {
 /// The default is `false`.
 pub fn set_libei_socket_enabled(enabled: bool) {
     get!().set_ei_socket_enabled(enabled);
+}
+
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub struct InputEventCode(pub u32);
+
+impl InputEventCode {
+    pub const NONE: Self = Self(0);
 }

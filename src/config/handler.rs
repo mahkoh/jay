@@ -14,6 +14,7 @@ use {
             clm::ClmLeafMatcher,
             tlm::{TlmLeafMatcher, TlmUpstreamNode},
         },
+        evdev::input_event_codes::InputEventCode,
         format::config_formats,
         ifs::{
             wl_output::{BlendSpace, PersistentOutputState},
@@ -56,7 +57,8 @@ use {
         Axis, Direction, Workspace, WorkspaceKind,
         client::{Client as ConfigClient, ClientCapabilities, ClientMatcher},
         input::{
-            FallbackOutputMode, FocusFollowsMouseMode, InputDevice, LayerDirection, Seat, Timeline,
+            FallbackOutputMode, FocusFollowsMouseMode, InputDevice,
+            InputEventCode as ConfigInputEventCode, LayerDirection, Seat, Timeline,
             acceleration::{ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT, AccelProfile},
             capability::{
                 CAP_GESTURE, CAP_KEYBOARD, CAP_POINTER, CAP_SWITCH, CAP_TABLET_PAD,
@@ -966,6 +968,23 @@ impl ConfigProxyHandler {
             _ => return Err(CphError::UnknownScrollMethod(scroll_method)),
         };
         dev.set_scroll_method(&self.state, method);
+        Ok(())
+    }
+
+    fn handle_set_scroll_button(
+        &self,
+        device: InputDevice,
+        button: ConfigInputEventCode,
+    ) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(device)?;
+        let button = if button.0 == 0 {
+            None
+        } else if let Some(button) = InputEventCode::from_raw(button.0) {
+            Some(button)
+        } else {
+            return Err(CphError::UnknownScrollButton(button));
+        };
+        dev.set_scroll_button(&self.state, button);
         Ok(())
     }
 
@@ -3876,6 +3895,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetScrollMethod { device, method } => self
                 .handle_set_scroll_method(device, method)
                 .wrn("set_scroll_method")?,
+            ClientMessage::SetScrollButton { device, button } => self
+                .handle_set_scroll_button(device, button)
+                .wrn("set_scroll_button")?,
         }
         Ok(())
     }
@@ -4045,6 +4067,8 @@ enum CphError {
     UnknownContainerBorders(ContainerBorders),
     #[error("Tried to set an unknown scroll method: {}", (.0).0)]
     UnknownScrollMethod(ScrollMethod),
+    #[error("Tried to set an unknown scroll button: {}", (.0).0)]
+    UnknownScrollButton(ConfigInputEventCode),
 }
 
 trait WithRequestName {

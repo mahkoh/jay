@@ -7,8 +7,8 @@ use {
         Axis, Direction, PciId, Workspace, WorkspaceKind,
         client::{Client, ClientCapabilities, ClientMatcher},
         input::{
-            FallbackOutputMode, FocusFollowsMouseMode, InputDevice, LayerDirection, Seat,
-            SwitchEvent, Timeline, acceleration::AccelProfile, capability::Capability,
+            FallbackOutputMode, FocusFollowsMouseMode, InputDevice, InputEventCode, LayerDirection,
+            Seat, SwitchEvent, Timeline, acceleration::AccelProfile, capability::Capability,
             clickmethod::ClickMethod, scrollmethod::ScrollMethod,
         },
         keyboard::{Group, Keymap, mods::Modifiers, syms::KeySym},
@@ -944,6 +944,10 @@ pub enum ClientMessage<'a> {
     SetScrollMethod {
         device: InputDevice,
         method: ScrollMethod,
+    },
+    SetScrollButton {
+        device: InputDevice,
+        button: InputEventCode,
     },
 }
 

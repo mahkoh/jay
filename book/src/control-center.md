@@ -403,6 +403,9 @@ Middle Button Emulation
 Scroll Method
 : Dropdown: no-scroll, two-fingers, edge, on-button-down. Only methods the device supports are selectable. Shown for devices that support it.
 
+Scroll Button
+: Dropdown to choose the button used by the on-button-down scroll method, listing None plus the buttons the device reports. Shown for devices that support the on-button-down scroll method.
+
 Output
 : Dropdown to map the device to a specific output (only has effect for touch and tablet devices), with a Detach button. Shown for all devices.
 

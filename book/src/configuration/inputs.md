@@ -210,6 +210,34 @@ scroll-method = "two-fingers"
 
 Only the methods supported by the device have any effect.
 
+## Scroll button
+
+When the scroll method is `on-button-down`, choose which button is held to
+produce scroll events:
+
+```toml
+[[inputs]]
+match.is-pointer = true
+scroll-method = "on-button-down"
+scroll-button = "BTN_MIDDLE"
+```
+
+The value is a button name from
+[`input-event-codes.h`](https://github.com/torvalds/linux/blob/master/include/uapi/linux/input-event-codes.h),
+e.g. `BTN_MIDDLE`, `BTN_RIGHT`, or `BTN_SIDE`. The names are matched
+case-insensitively.
+
+Use `none` to clear the setting and fall back to the libinput default:
+
+```toml
+[[inputs]]
+match.is-pointer = true
+scroll-button = "none"
+```
+
+This setting only has an effect when the device uses the `on-button-down`
+scroll method.
+
 ## Transform matrix
 
 Apply a 2x2 matrix to relative motion events. This is useful for adjusting

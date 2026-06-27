@@ -22,6 +22,7 @@ use {
             },
         },
         dbus::{DbusError, SignalHandler},
+        evdev::{eviocgbit_key, input_event_codes::InputEventCode},
         gfx_api::{GfxError, SyncFile},
         ifs::{
             wl_output::OutputId,
@@ -365,6 +366,7 @@ struct InputDeviceProperties {
     middle_button_emulation_enabled: Cell<Option<bool>>,
     enabled_leds: Cell<Option<Led>>,
     scroll_method: Cell<Option<ConfigScrollMethod>>,
+    scroll_button: Cell<Option<Option<InputEventCode>>>,
 }
 
 #[derive(Clone)]
@@ -436,6 +438,9 @@ impl MetalInputDevice {
         if let Some(method) = self.desired.scroll_method.get() {
             self.set_scroll_method_(method);
         }
+        if let Some(method) = self.desired.scroll_button.get() {
+            self.set_scroll_button_(method);
+        }
         self.fetch_effective();
     }
 
@@ -483,6 +488,9 @@ impl MetalInputDevice {
                 .scroll_method
                 .set(Some(device.scroll_method()));
         }
+        self.effective
+            .scroll_button
+            .set(Some(device.scroll_button()));
     }
 
     fn pre_pause(&self) {
@@ -536,6 +544,16 @@ impl MetalInputDevice {
             self.effective
                 .scroll_method
                 .set(Some(dev.device().scroll_method()));
+        }
+    }
+
+    fn set_scroll_button_(&self, button: Option<InputEventCode>) {
+        self.desired.scroll_button.set(Some(button));
+        if let Some(dev) = self.inputdev.get() {
+            dev.device().set_scroll_button(button);
+            self.effective
+                .scroll_button
+                .set(Some(dev.device().scroll_button()));
         }
     }
 
@@ -859,6 +877,24 @@ impl InputDevice for MetalInputDevice {
 
     fn set_scroll_method(&self, method: InputDeviceScrollMethod) {
         self.set_scroll_method_(method.to_libinput());
+    }
+
+    fn input_event_codes(&self) -> Vec<InputEventCode> {
+        let Some(fd) = self.fd.get() else {
+            return Default::default();
+        };
+        eviocgbit_key(&fd).unwrap_or_else(|e| {
+            log::error!("Could not fetch device input event codes: {}", ErrorFmt(e));
+            Default::default()
+        })
+    }
+
+    fn scroll_button(&self) -> Option<InputEventCode> {
+        self.effective.scroll_button.get().flatten()
+    }
+
+    fn set_scroll_button(&self, button: Option<InputEventCode>) {
+        self.set_scroll_button_(button);
     }
 }
 

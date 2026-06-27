@@ -9,6 +9,7 @@ use {
             json::{JsonInputData, JsonInputDevice, JsonSeat, jsonl},
         },
         clientmem::ClientMem,
+        evdev::input_event_codes::InputEventCode,
         libinput::consts::{
             ConfigClickMethod, ConfigScrollMethod, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
             LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT, LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS,
@@ -30,6 +31,7 @@ use {
     clap::{Args, Subcommand, ValueEnum, ValueHint},
     derivative::Derivative,
     isnt::std_1::vec::IsntVecExt,
+    jay_toml_config::input_event_code_from_name,
     std::{
         cell::RefCell,
         fmt,
@@ -38,6 +40,7 @@ use {
         ops::DerefMut,
         rc::Rc,
     },
+    thiserror::Error,
     uapi::{OwnedFd, c},
 };
 
@@ -178,6 +181,8 @@ pub enum DeviceCommand {
     SetMiddleButtonEmulation(SetMiddleButtonEmulationArgs),
     /// Set the scroll method.
     SetScrollMethod(SetScrollMethodArgs),
+    /// Set the scroll button.
+    SetScrollButton(SetScrollButtonArgs),
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -288,6 +293,24 @@ pub enum ScrollMethod {
 pub struct SetScrollMethodArgs {
     /// The method.
     pub method: ScrollMethod,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SetScrollButtonArgs {
+    /// The name of a button from input-event-codes.h or `none` to unset the button.
+    #[clap(value_parser = parse_button)]
+    pub button: u32,
+}
+
+#[derive(Debug, Error)]
+#[error("Value is neither `none` nor the name of a known button")]
+struct ParseButtonError;
+
+fn parse_button(s: &str) -> Result<u32, ParseButtonError> {
+    if s == "none" {
+        return Ok(0);
+    }
+    input_event_code_from_name(s).ok_or(ParseButtonError)
 }
 
 #[derive(Args, Debug, Clone)]
@@ -404,6 +427,7 @@ struct InputDevice {
     pub middle_button_emulation_enabled: Option<bool>,
     pub scroll_methods: Option<u32>,
     pub scroll_method: Option<InputDeviceScrollMethod>,
+    pub scroll_button: Option<Option<InputEventCode>>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -932,6 +956,16 @@ impl Input {
                     method: method.0,
                 });
             }
+            DeviceCommand::SetScrollButton(a) => {
+                self.handle_error(input, |e| {
+                    eprintln!("Could not set the scroll button: {}", e);
+                });
+                tc.send(jay_input::SetScrollButton {
+                    self_id: input,
+                    id: args.device,
+                    button: a.button,
+                });
+            }
         }
         tc.round_trip().await;
     }
@@ -1098,6 +1132,10 @@ impl Input {
                 })
             );
         }
+        if let Some(v) = &device.scroll_button {
+            let name = v.map(|v| v.text()).unwrap_or("none");
+            println!("{prefix}  scroll button: {}", name);
+        }
     }
 
     fn print_data_json(&self, mut data: Data) {
@@ -1199,6 +1237,7 @@ impl Input {
                 middle_button_emulation_enabled: None,
                 scroll_methods: None,
                 scroll_method: None,
+                scroll_button: None,
             });
         });
         jay_input::InputDeviceOutput::handle(tc, input, data.clone(), |data, msg| {
@@ -1249,6 +1288,13 @@ impl Input {
             let mut data = data.borrow_mut();
             if let Some(last) = data.input_device.last_mut() {
                 last.scroll_method = scroll_method;
+            }
+        });
+        jay_input::ScrollButton::handle(tc, input, data.clone(), |data, msg| {
+            let button = InputEventCode::from_raw(msg.scroll_button);
+            let mut data = data.borrow_mut();
+            if let Some(last) = data.input_device.last_mut() {
+                last.scroll_button = Some(button);
             }
         });
         tc.round_trip().await;

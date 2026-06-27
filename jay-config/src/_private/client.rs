@@ -15,8 +15,8 @@ use {
         client::{Client, ClientCapabilities, ClientCriterion, ClientMatcher, MatchedClient},
         exec::Command,
         input::{
-            FallbackOutputMode, FocusFollowsMouseMode, InputDevice, LayerDirection, Seat,
-            SwitchEvent, Timeline, acceleration::AccelProfile, capability::Capability,
+            FallbackOutputMode, FocusFollowsMouseMode, InputDevice, InputEventCode, LayerDirection,
+            Seat, SwitchEvent, Timeline, acceleration::AccelProfile, capability::Capability,
             clickmethod::ClickMethod, scrollmethod::ScrollMethod,
         },
         keyboard::{
@@ -1430,6 +1430,10 @@ impl ConfigClient {
 
     pub fn set_input_scroll_method(&self, device: InputDevice, method: ScrollMethod) {
         self.send(&ClientMessage::SetScrollMethod { device, method })
+    }
+
+    pub fn set_input_scroll_button(&self, device: InputDevice, button: InputEventCode) {
+        self.send(&ClientMessage::SetScrollButton { device, button })
     }
 
     pub fn device_name(&self, device: InputDevice) -> String {

@@ -1,12 +1,13 @@
 use {
     crate::{
-        backend::{InputDeviceCapability, InputDeviceId},
+        backend::{InputDeviceCapability, InputDeviceId, InputDeviceScrollMethod},
         control_center::{
             ControlCenterInner, GridExt, PaneState, bool, bool_ui, combo_box, combo_box_filtered,
-            combo_box_ui, drag_value, drag_value_ui, grid, grid_label, grid_label_ui, label,
+            combo_box_ui, drag_value, drag_value_ui, grid, grid_label, grid_label_ui, label, row,
             text_edit, tip,
         },
         egui_adapter::egui_platform::icons::ICON_PENDING,
+        evdev::input_event_codes::InputEventCode,
         ifs::{
             wl_output::WlOutputGlobal,
             wl_seat::{SeatId, WlSeatGlobal},
@@ -441,7 +442,28 @@ impl InputPane {
                     }
                     if let Some(old) = dev.device.scroll_method() {
                         combo_box_filtered(ui, "Scroll Method", dev.scroll_methods, old, |v| {
-                            dev.set_scroll_method(&self.state, v)
+                            dev.set_scroll_method(&self.state, v);
+                        });
+                    }
+                    if dev.scroll_methods[InputDeviceScrollMethod::OnButtonDown] {
+                        let name = "Scroll Button";
+                        fn text(code: Option<InputEventCode>) -> &'static str {
+                            code.map(|c| c.text()).unwrap_or("None")
+                        }
+                        row(ui, name, |ui| {
+                            let old = dev.device.scroll_button();
+                            let mut v = old;
+                            ComboBox::from_id_salt(name)
+                                .selected_text(text(old))
+                                .show_ui(ui, |ui| {
+                                    ui.selectable_value(&mut v, None, text(None));
+                                    for &s in &dev.input_event_codes {
+                                        ui.selectable_value(&mut v, Some(s), text(Some(s)));
+                                    }
+                                });
+                            if old != v {
+                                dev.set_scroll_button(&self.state, v);
+                            }
                         });
                     }
                     {

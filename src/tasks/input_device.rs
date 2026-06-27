@@ -31,6 +31,7 @@ pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
         tablet_init: dev.tablet_info(),
         tablet_pad_init: dev.tablet_pad_info(),
         scroll_methods: dev.scroll_methods(),
+        input_event_codes: dev.input_event_codes(),
         is_touch: dev.has_capability(InputDeviceCapability::Touch),
         is_kb: dev.has_capability(InputDeviceCapability::Keyboard),
         mods_listener: EventListener::new(slf.clone()),

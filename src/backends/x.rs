@@ -15,6 +15,7 @@ use {
             },
         },
         cmm::cmm_primaries::Primaries,
+        evdev::input_event_codes::InputEventCode,
         fixed::Fixed,
         format::{Format, XRGB8888},
         gfx_api::{
@@ -1323,6 +1324,10 @@ impl InputDevice for XSeatKeyboard {
     fn set_scroll_method(&self, method: InputDeviceScrollMethod) {
         let _ = method;
     }
+
+    fn set_scroll_button(&self, button: Option<InputEventCode>) {
+        let _ = button;
+    }
 }
 
 impl InputDevice for XSeatMouse {
@@ -1403,5 +1408,9 @@ impl InputDevice for XSeatMouse {
 
     fn set_scroll_method(&self, method: InputDeviceScrollMethod) {
         let _ = method;
+    }
+
+    fn set_scroll_button(&self, button: Option<InputEventCode>) {
+        let _ = button;
     }
 }
