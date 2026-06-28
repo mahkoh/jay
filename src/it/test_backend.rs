@@ -660,6 +660,10 @@ trait TestInputDevice: InputDevice {
     fn set_scroll_button(&self, button: Option<InputEventCode>) {
         let _ = button;
     }
+
+    fn set_scroll_button_lock(&self, enabled: bool) {
+        let _ = enabled;
+    }
 }
 
 impl<T: TestInputDevice> InputDevice for T {
@@ -741,6 +745,10 @@ impl<T: TestInputDevice> InputDevice for T {
 
     fn set_scroll_button(&self, button: Option<InputEventCode>) {
         <Self as TestInputDevice>::set_scroll_button(self, button)
+    }
+
+    fn set_scroll_button_lock(&self, enabled: bool) {
+        <Self as TestInputDevice>::set_scroll_button_lock(self, enabled)
     }
 }
 

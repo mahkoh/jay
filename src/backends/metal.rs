@@ -367,6 +367,7 @@ struct InputDeviceProperties {
     enabled_leds: Cell<Option<Led>>,
     scroll_method: Cell<Option<ConfigScrollMethod>>,
     scroll_button: Cell<Option<Option<InputEventCode>>>,
+    scroll_button_lock: Cell<Option<bool>>,
 }
 
 #[derive(Clone)]
@@ -441,6 +442,9 @@ impl MetalInputDevice {
         if let Some(method) = self.desired.scroll_button.get() {
             self.set_scroll_button_(method);
         }
+        if let Some(enabled) = self.desired.scroll_button_lock.get() {
+            self.set_scroll_button_lock(enabled);
+        }
         self.fetch_effective();
     }
 
@@ -491,6 +495,9 @@ impl MetalInputDevice {
         self.effective
             .scroll_button
             .set(Some(device.scroll_button()));
+        self.effective
+            .scroll_button_lock
+            .set(Some(device.scroll_button_lock_enabled()));
     }
 
     fn pre_pause(&self) {
@@ -895,6 +902,20 @@ impl InputDevice for MetalInputDevice {
 
     fn set_scroll_button(&self, button: Option<InputEventCode>) {
         self.set_scroll_button_(button);
+    }
+
+    fn scroll_button_lock(&self) -> Option<bool> {
+        self.effective.scroll_button_lock.get()
+    }
+
+    fn set_scroll_button_lock(&self, enabled: bool) {
+        self.desired.scroll_button_lock.set(Some(enabled));
+        if let Some(dev) = self.inputdev.get() {
+            dev.device().set_scroll_button_lock_enabled(enabled);
+            self.effective
+                .scroll_button_lock
+                .set(Some(dev.device().scroll_button_lock_enabled()));
+        }
     }
 }
 

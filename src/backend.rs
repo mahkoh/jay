@@ -288,6 +288,10 @@ pub trait InputDevice {
         None
     }
     fn set_scroll_button(&self, button: Option<InputEventCode>);
+    fn scroll_button_lock(&self) -> Option<bool> {
+        None
+    }
+    fn set_scroll_button_lock(&self, enabled: bool);
 }
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Linearize)]

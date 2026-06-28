@@ -2051,6 +2051,13 @@ Input:
         
         This should be one of the button names from input-event-codes.h, e.g.
         `BTN_MIDDLE`, or `none` to disable the scroll button.
+    scroll-button-lock:
+      kind: boolean
+      required: false
+      description: |
+        Whether scroll button locking is enabled for the device.
+        
+        See the libinput documentation for more details.
 
 
 AccelProfile:

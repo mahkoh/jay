@@ -465,6 +465,11 @@ impl InputPane {
                                 dev.set_scroll_button(&self.state, v);
                             }
                         });
+                        if let Some(old) = dev.device.scroll_button_lock() {
+                            bool(ui, "Scroll Button Lock", old, |v| {
+                                dev.set_scroll_button_lock(&self.state, v)
+                            });
+                        }
                     }
                     {
                         let ui = &mut *ui.row();

@@ -238,6 +238,24 @@ scroll-button = "none"
 This setting only has an effect when the device uses the `on-button-down`
 scroll method.
 
+## Scroll button lock
+
+By default the scroll button must be held down for as long as you want to
+scroll. Enable scroll button lock to toggle scrolling instead: press and
+release the scroll button once to start scrolling, then press and release it
+again to stop.
+
+```toml
+[[inputs]]
+match.is-pointer = true
+scroll-method = "on-button-down"
+scroll-button = "BTN_MIDDLE"
+scroll-button-lock = true
+```
+
+Like the scroll button, this only has an effect when the device uses the
+`on-button-down` scroll method.
+
 ## Transform matrix
 
 Apply a 2x2 matrix to relative motion events. This is useful for adjusting

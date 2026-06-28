@@ -5,11 +5,13 @@ use {
             LibInput,
             consts::{
                 AccelProfile, ConfigClickMethod, ConfigDragLockState, ConfigDragState,
-                ConfigMiddleEmulationState, ConfigScrollMethod, ConfigTapState, DeviceCapability,
-                LIBINPUT_CONFIG_DRAG_DISABLED, LIBINPUT_CONFIG_DRAG_ENABLED,
-                LIBINPUT_CONFIG_DRAG_LOCK_DISABLED, LIBINPUT_CONFIG_DRAG_LOCK_ENABLED,
-                LIBINPUT_CONFIG_MIDDLE_EMULATION_DISABLED,
-                LIBINPUT_CONFIG_MIDDLE_EMULATION_ENABLED, LIBINPUT_CONFIG_TAP_DISABLED,
+                ConfigMiddleEmulationState, ConfigScrollButtonLockState, ConfigScrollMethod,
+                ConfigTapState, DeviceCapability, LIBINPUT_CONFIG_DRAG_DISABLED,
+                LIBINPUT_CONFIG_DRAG_ENABLED, LIBINPUT_CONFIG_DRAG_LOCK_DISABLED,
+                LIBINPUT_CONFIG_DRAG_LOCK_ENABLED, LIBINPUT_CONFIG_MIDDLE_EMULATION_DISABLED,
+                LIBINPUT_CONFIG_MIDDLE_EMULATION_ENABLED,
+                LIBINPUT_CONFIG_SCROLL_BUTTON_LOCK_DISABLED,
+                LIBINPUT_CONFIG_SCROLL_BUTTON_LOCK_ENABLED, LIBINPUT_CONFIG_TAP_DISABLED,
                 LIBINPUT_CONFIG_TAP_ENABLED, Led,
             },
             sys::{
@@ -26,11 +28,15 @@ use {
                 libinput_device_config_middle_emulation_get_enabled,
                 libinput_device_config_middle_emulation_is_available,
                 libinput_device_config_middle_emulation_set_enabled,
-                libinput_device_config_scroll_get_button, libinput_device_config_scroll_get_method,
+                libinput_device_config_scroll_get_button,
+                libinput_device_config_scroll_get_button_lock,
+                libinput_device_config_scroll_get_method,
                 libinput_device_config_scroll_get_methods,
                 libinput_device_config_scroll_get_natural_scroll_enabled,
                 libinput_device_config_scroll_has_natural_scroll,
-                libinput_device_config_scroll_set_button, libinput_device_config_scroll_set_method,
+                libinput_device_config_scroll_set_button,
+                libinput_device_config_scroll_set_button_lock,
+                libinput_device_config_scroll_set_method,
                 libinput_device_config_scroll_set_natural_scroll_enabled,
                 libinput_device_config_tap_get_drag_enabled,
                 libinput_device_config_tap_get_drag_lock_enabled,
@@ -270,6 +276,23 @@ impl<'a> LibInputDevice<'a> {
                 self.dev,
                 button.map(|b| b.raw()).unwrap_or(0),
             );
+        }
+    }
+
+    pub fn scroll_button_lock_enabled(&self) -> bool {
+        let enabled = unsafe {
+            ConfigScrollButtonLockState(libinput_device_config_scroll_get_button_lock(self.dev))
+        };
+        enabled == LIBINPUT_CONFIG_SCROLL_BUTTON_LOCK_ENABLED
+    }
+
+    pub fn set_scroll_button_lock_enabled(&self, enabled: bool) {
+        let enabled = match enabled {
+            true => LIBINPUT_CONFIG_SCROLL_BUTTON_LOCK_ENABLED,
+            false => LIBINPUT_CONFIG_SCROLL_BUTTON_LOCK_DISABLED,
+        };
+        unsafe {
+            libinput_device_config_scroll_set_button_lock(self.dev, enabled.raw() as _);
         }
     }
 

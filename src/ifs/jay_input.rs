@@ -42,6 +42,7 @@ const CLICK_METHOD_SINCE: Version = Version(19);
 const MIDDLE_BUTTON_EMULATION_SINCE: Version = Version(19);
 const SCROLL_METHOD_SINCE: Version = Version(34);
 const SCROLL_BUTTON_SINCE: Version = Version(35);
+const SCROLL_BUTTON_LOCK_SINCE: Version = Version(36);
 
 impl JayInput {
     pub fn new(id: JayInputId, client: &Rc<Client>, version: Version) -> Self {
@@ -217,6 +218,14 @@ impl JayInput {
                     self_id: self.id,
                     scroll_button: button,
                 });
+                if self.version >= SCROLL_BUTTON_LOCK_SINCE
+                    && let Some(v) = dev.scroll_button_lock()
+                {
+                    self.client.event(ScrollButtonLock {
+                        self_id: self.id,
+                        enabled: v as u32,
+                    });
+                }
             }
         }
     }
@@ -751,6 +760,18 @@ impl JayInputRequestHandler for JayInput {
                 return Err(JayInputError::UnknownInputEventCode(req.button));
             };
             dev.set_scroll_button(&self.state, button);
+            Ok(())
+        })
+    }
+
+    fn set_scroll_button_lock(
+        &self,
+        req: SetScrollButtonLock,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        self.or_error(|| {
+            let dev = self.device(req.id)?;
+            dev.set_scroll_button_lock(&self.state, req.enabled != 0);
             Ok(())
         })
     }

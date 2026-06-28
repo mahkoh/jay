@@ -3703,6 +3703,14 @@ The table has the following fields:
 
   The value of this field should be a string.
 
+- `scroll-button-lock` (optional):
+
+  Whether scroll button locking is enabled for the device.
+  
+  See the libinput documentation for more details.
+
+  The value of this field should be a boolean.
+
 
 <a name="types-InputMatch"></a>
 ### `InputMatch`
