@@ -35,7 +35,6 @@ use {
     jay_toml_config::input_event_code_from_name,
     std::{
         cell::RefCell,
-        fmt,
         io::{Read, Write, stdin, stdout},
         mem,
         ops::{Deref, DerefMut},
@@ -1126,36 +1125,16 @@ impl Input {
             println!("{prefix}  middle button emulation: {}", v);
         }
         if let Some(v) = &device.scroll_method {
-            let name = match v {
-                InputDeviceScrollMethod::NoScroll => "no-scroll",
-                InputDeviceScrollMethod::TwoFingers => "two-fingers",
-                InputDeviceScrollMethod::Edge => "edge",
-                InputDeviceScrollMethod::OnButtonDown => "on-button-down",
-            };
-            println!("{prefix}  scroll method: {}", name);
+            println!("{prefix}  scroll method: {}", scroll_method_name(*v));
         }
         if let Some(v) = device.scroll_methods {
             println!(
                 "{prefix}  scroll methods: {}",
-                fmt::from_fn(|f| {
-                    f.write_str("no-scroll")?;
-                    for (name, const_) in [
-                        ("two-fingers", LIBINPUT_CONFIG_SCROLL_2FG),
-                        ("edge", LIBINPUT_CONFIG_SCROLL_EDGE),
-                        ("on-button-down", LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN),
-                    ] {
-                        if v.contains(const_.0 as u32) {
-                            f.write_str(",")?;
-                            f.write_str(name)?;
-                        }
-                    }
-                    Ok(())
-                })
+                supported_scroll_method_names(v).join(","),
             );
         }
         if let Some(v) = &device.scroll_button {
-            let name = v.map(|v| v.text()).unwrap_or("none");
-            println!("{prefix}  scroll button: {}", name);
+            println!("{prefix}  scroll button: {}", scroll_button_name(*v));
         }
         if let Some(v) = &device.scroll_button_lock {
             println!("{prefix}  scroll button lock: {v}");
@@ -1346,6 +1325,33 @@ impl Input {
     }
 }
 
+fn scroll_method_name(method: InputDeviceScrollMethod) -> &'static str {
+    match method {
+        InputDeviceScrollMethod::NoScroll => "no-scroll",
+        InputDeviceScrollMethod::TwoFingers => "two-fingers",
+        InputDeviceScrollMethod::Edge => "edge",
+        InputDeviceScrollMethod::OnButtonDown => "on-button-down",
+    }
+}
+
+fn supported_scroll_method_names(methods: u32) -> Vec<&'static str> {
+    let mut names = vec!["no-scroll"];
+    for (name, const_) in [
+        ("two-fingers", LIBINPUT_CONFIG_SCROLL_2FG),
+        ("edge", LIBINPUT_CONFIG_SCROLL_EDGE),
+        ("on-button-down", LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN),
+    ] {
+        if methods.contains(const_.0 as u32) {
+            names.push(name);
+        }
+    }
+    names
+}
+
+fn scroll_button_name(button: Option<InputEventCode>) -> &'static str {
+    button.map(|v| v.text()).unwrap_or("none")
+}
+
 fn make_json_device(device: &InputDevice) -> JsonInputDevice<'_> {
     JsonInputDevice {
         input_device_id: device.id,
@@ -1367,5 +1373,9 @@ fn make_json_device(device: &InputDevice) -> JsonInputDevice<'_> {
         calibration_matrix: device.calibration_matrix,
         click_method: device.click_method.as_ref().map(|v| v.text()),
         middle_button_emulation: device.middle_button_emulation_enabled,
+        scroll_method: device.scroll_method.map(scroll_method_name),
+        supported_scroll_methods: device.scroll_methods.map(supported_scroll_method_names),
+        scroll_button: device.scroll_button.map(scroll_button_name),
+        scroll_button_lock: device.scroll_button_lock,
     }
 }
