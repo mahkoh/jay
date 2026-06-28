@@ -776,6 +776,13 @@ impl Input {
         if let Some(v) = self.scroll_button_lock {
             c.set_scroll_button_lock(v);
         }
+        if let Some(v) = self.detached {
+            let seat = match v {
+                true => Seat::INVALID,
+                false => state.persistent.seat,
+            };
+            c.set_seat(seat);
+        }
     }
 }
 

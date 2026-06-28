@@ -3729,6 +3729,15 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `detached` (optional):
+
+  Whether the device is detached.
+  
+  A detached device does not generate any events. This effectively disables the
+  device.
+
+  The value of this field should be a boolean.
+
 
 <a name="types-InputMatch"></a>
 ### `InputMatch`

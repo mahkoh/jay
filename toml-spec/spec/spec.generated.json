@@ -1776,6 +1776,10 @@
         "scroll-button-lock": {
           "type": "boolean",
           "description": "Whether scroll button locking is enabled for the device.\n\nSee the libinput documentation for more details.\n"
+        },
+        "detached": {
+          "type": "boolean",
+          "description": "Whether the device is detached.\n\nA detached device does not generate any events. This effectively disables the\ndevice.\n"
         }
       },
       "required": [
