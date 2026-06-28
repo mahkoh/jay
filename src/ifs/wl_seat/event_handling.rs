@@ -983,7 +983,9 @@ impl WlSeatGlobal {
                         && let Some(key_mods) = scs.get(&sym)
                     {
                         for (&key_mods, sc) in key_mods {
-                            if mods & sc.mask == key_mods && key_state != KeyState::Repeated {
+                            if mods & sc.mask == key_mods
+                                && (sc.repeat || key_state != KeyState::Repeated)
+                            {
                                 shortcuts.push(InvokedShortcut {
                                     unmasked_mods: Modifiers(mods),
                                     effective_mods: Modifiers(key_mods),
@@ -1340,7 +1342,13 @@ impl WlSeatGlobal {
             .borrow_mut()
             .entry(keysym.0)
             .or_default()
-            .insert(mods.0, Shortcut { mask: mod_mask.0 });
+            .insert(
+                mods.0,
+                Shortcut {
+                    mask: mod_mask.0,
+                    repeat: Default::default(),
+                },
+            );
     }
 
     pub fn remove_shortcut(&self, mods: Modifiers, keysym: KeySym) {
@@ -1349,6 +1357,14 @@ impl WlSeatGlobal {
             if oe.get().is_empty() {
                 oe.remove();
             }
+        }
+    }
+
+    pub fn set_shortcut_repeat(&self, mods: Modifiers, keysym: KeySym, repeat: bool) {
+        if let Some(scs) = self.shortcuts.borrow_mut().get_mut(&keysym.0)
+            && let Some(sc) = scs.get_mut(&mods.0)
+        {
+            sc.repeat = repeat;
         }
     }
 

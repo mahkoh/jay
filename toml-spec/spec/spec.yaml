@@ -3615,6 +3615,23 @@ ComplexShortcut:
         
           Audio will be un-muted once `x` key is released, regardless of any other keys
           that are pressed at the time.
+    repeat:
+      kind: boolean
+      required: false
+      description: |
+        Whether this shortcut repeats.
+        
+        - Example:
+        
+          ```toml
+          [complex-shortcuts]
+          alt-h = { action = "focus-left", repeat = true }
+          alt-j = { action = "focus-down", repeat = true }
+          alt-k = { action = "focus-up", repeat = true }
+          alt-l = { action = "focus-right", repeat = true }
+          ```
+
+        The default is `false`.
 
 
 Vrr:

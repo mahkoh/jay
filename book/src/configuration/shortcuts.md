@@ -397,6 +397,8 @@ table. They support:
   Set to `""` to ignore all modifiers.
 - **`action`** -- the action to run on key press (defaults to `"none"`).
 - **`latch`** -- an action to run when the key is **released**.
+- **`repeat`** -- whether the action fires repeatedly while the key is held
+  (defaults to `false`). See [Repeating shortcuts](#repeating-shortcuts).
 
 ### Volume keys regardless of modifiers
 
@@ -436,6 +438,29 @@ latch = {
 
 The `latch` action fires when the triggering key (`x` in this case) is
 released, regardless of any other keys pressed at that time.
+
+### Repeating shortcuts
+
+By default a shortcut fires only once, when the key is pressed, no matter how
+long you hold the key. Set `repeat = true` to make the action fire repeatedly
+while the key is held, following the configured
+[keyboard repeat rate and delay](keymaps.md#repeat-rate):
+
+```toml
+[complex-shortcuts]
+alt-l = { action = "focus-right", repeat = true }
+```
+
+This is useful for actions you may want to trigger many times in a row, such as
+moving focus, resizing a window, or adjusting the volume.
+
+Repeating is only available on complex shortcuts; entries in the plain
+`[shortcuts]` table always fire once per key press.
+
+> [!NOTE]
+> A shortcut only repeats if the underlying key repeats according to the active
+> keymap. Keys that the keymap marks as non-repeating never trigger repeats,
+> even with `repeat = true`.
 
 ## Marks
 

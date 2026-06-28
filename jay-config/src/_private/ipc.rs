@@ -953,6 +953,12 @@ pub enum ClientMessage<'a> {
         device: InputDevice,
         enabled: bool,
     },
+    SetRepeatShortcut {
+        seat: Seat,
+        mods: Modifiers,
+        sym: KeySym,
+        repeat: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

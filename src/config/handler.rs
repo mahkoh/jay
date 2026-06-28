@@ -2092,6 +2092,18 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_shortcut_repeat(
+        &self,
+        seat: Seat,
+        mods: Modifiers,
+        sym: KeySym,
+        repeat: bool,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_shortcut_repeat(mods, sym, repeat);
+        Ok(())
+    }
+
     fn handle_get_input_devices(&self, seat: Option<Seat>) {
         let id = seat.map(|s| SeatId::from_raw(s.0 as _));
         let matches = |dhd: &DeviceHandlerData| {
@@ -3911,6 +3923,14 @@ impl ConfigProxyHandler {
             ClientMessage::SetScrollButtonLock { device, enabled } => self
                 .handle_set_scroll_button_lock(device, enabled)
                 .wrn("set_scroll_button_lock")?,
+            ClientMessage::SetRepeatShortcut {
+                seat,
+                mods,
+                sym,
+                repeat,
+            } => self
+                .handle_set_shortcut_repeat(seat, mods, sym, repeat)
+                .wrn("set_shortcut_repeat")?,
         }
         Ok(())
     }

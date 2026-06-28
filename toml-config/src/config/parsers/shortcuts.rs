@@ -3,7 +3,7 @@ use {
         config::{
             Action, Shortcut, SimpleCommand,
             context::Context,
-            extractor::{Extractor, ExtractorError, opt, str, val},
+            extractor::{Extractor, ExtractorError, bol, opt, recover, str, val},
             parser::{DataType, ParseResult, Parser, UnexpectedDataType},
             parsers::{
                 action::{ActionParser, ActionParserError},
@@ -14,7 +14,7 @@ use {
             spanned::SpannedErrorExt,
         },
         toml::{
-            toml_span::{Span, Spanned, SpannedExt},
+            toml_span::{DespanExt, Span, Spanned, SpannedExt},
             toml_value::Value,
         },
     },
@@ -66,6 +66,7 @@ impl Parser for ShortcutsParser<'_, '_, '_> {
             self.shortcuts.push(Shortcut {
                 mask: Modifiers(!0),
                 keysym,
+                repeat: false,
                 action,
                 latch: None,
             });
@@ -132,8 +133,12 @@ impl Parser for ComplexShortcutParser<'_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (mod_mask_val, action_val, latch_val) =
-            ext.extract((opt(str("mod-mask")), opt(val("action")), opt(val("latch"))))?;
+        let (mod_mask_val, action_val, latch_val, repeat) = ext.extract((
+            opt(str("mod-mask")),
+            opt(val("action")),
+            opt(val("latch")),
+            recover(opt(bol("repeat"))),
+        ))?;
         let mod_mask = match mod_mask_val {
             None => Modifiers(!0),
             Some(v) => ModifiersParser
@@ -158,6 +163,7 @@ impl Parser for ComplexShortcutParser<'_, '_> {
         Ok(Shortcut {
             mask: mod_mask,
             keysym: self.keysym,
+            repeat: repeat.despan().unwrap_or(false),
             action,
             latch,
         })

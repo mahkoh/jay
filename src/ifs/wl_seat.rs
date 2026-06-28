@@ -275,6 +275,7 @@ impl PartialEq for WlSeatGlobal {
 
 struct Shortcut {
     mask: u32,
+    repeat: bool,
 }
 
 #[derive(Copy, Clone)]
