@@ -228,7 +228,7 @@ pub struct WlSeatGlobal {
     gesture_owner: GestureOwnerHolder,
     touch_owner: TouchOwnerHolder,
     dropped_dnd: RefCell<Option<DroppedDnd>>,
-    shortcuts: RefCell<AHashMap<u32, SmallMapMut<u32, u32, 2>>>,
+    shortcuts: RefCell<AHashMap<u32, SmallMapMut<u32, Shortcut, 2>>>,
     queue_link: RefCell<Option<LinkedNode<Rc<Self>>>>,
     tree_changed_handler: Cell<Option<SpawnedFuture<()>>>,
     changes: NumCell<u32>,
@@ -270,6 +270,10 @@ impl PartialEq for WlSeatGlobal {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
+}
+
+struct Shortcut {
+    mask: u32,
 }
 
 #[derive(Copy, Clone)]

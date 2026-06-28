@@ -19,7 +19,7 @@ use {
             },
             wl_seat::{
                 CHANGE_CURSOR_MOVED, CHANGE_TREE, CursorPositionType, Dnd, MarkMode, SeatId,
-                WlSeat, WlSeatGlobal,
+                Shortcut, WlSeat, WlSeatGlobal,
                 tablet::{TabletPad, TabletPadId, TabletTool, TabletToolId},
                 text_input::TextDisconnectReason,
                 wl_keyboard::WlKeyboard,
@@ -969,8 +969,8 @@ impl WlSeatGlobal {
                     if !self.state.lock.locked[LiveTL].get()
                         && let Some(key_mods) = scs.get(&sym)
                     {
-                        for (&key_mods, &mask) in key_mods {
-                            if mods & mask == key_mods {
+                        for (&key_mods, sc) in key_mods {
+                            if mods & sc.mask == key_mods {
                                 shortcuts.push(InvokedShortcut {
                                     unmasked_mods: Modifiers(mods),
                                     effective_mods: Modifiers(key_mods),
@@ -1325,7 +1325,7 @@ impl WlSeatGlobal {
             .borrow_mut()
             .entry(keysym.0)
             .or_default()
-            .insert(mods.0, mod_mask.0);
+            .insert(mods.0, Shortcut { mask: mod_mask.0 });
     }
 
     pub fn remove_shortcut(&self, mods: Modifiers, keysym: KeySym) {
