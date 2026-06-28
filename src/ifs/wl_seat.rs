@@ -101,7 +101,7 @@ use {
             linkedlist::{LinkedList, LinkedNode, NodeRef},
             numcell::NumCell,
             rc_eq::{rc_eq, rc_weak_eq},
-            smallmap::SmallMap,
+            smallmap::{SmallMap, SmallMapMut},
             static_text::StaticText,
         },
         wire::{
@@ -228,7 +228,7 @@ pub struct WlSeatGlobal {
     gesture_owner: GestureOwnerHolder,
     touch_owner: TouchOwnerHolder,
     dropped_dnd: RefCell<Option<DroppedDnd>>,
-    shortcuts: RefCell<AHashMap<u32, SmallMap<u32, u32, 2>>>,
+    shortcuts: RefCell<AHashMap<u32, SmallMapMut<u32, u32, 2>>>,
     queue_link: RefCell<Option<LinkedNode<Rc<Self>>>>,
     tree_changed_handler: Cell<Option<SpawnedFuture<()>>>,
     changes: NumCell<u32>,

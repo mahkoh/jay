@@ -969,7 +969,7 @@ impl WlSeatGlobal {
                     if !self.state.lock.locked[LiveTL].get()
                         && let Some(key_mods) = scs.get(&sym)
                     {
-                        for (key_mods, mask) in key_mods {
+                        for (&key_mods, &mask) in key_mods {
                             if mods & mask == key_mods {
                                 shortcuts.push(InvokedShortcut {
                                     unmasked_mods: Modifiers(mods),
