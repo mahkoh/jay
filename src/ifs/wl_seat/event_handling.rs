@@ -989,6 +989,7 @@ impl WlSeatGlobal {
             self.state.for_each_seat_tester(|t| {
                 t.send_key(self.id, time_usec, kc.to_evdev(), key_state);
             });
+            self.forward.set(true);
             if shortcuts.is_not_empty() {
                 self.forward.set(key_state == KeyState::Released);
                 if let Some(config) = self.state.config.get() {
@@ -1003,17 +1004,7 @@ impl WlSeatGlobal {
                         return;
                     }
                 }
-                if !self.forward.get() {
-                    update_pressed_keys(&mut kbvm_state);
-                    continue;
-                }
             }
-            self.send_components(&mut components_changed, &kbvm_state);
-            self.send_key(time_usec, kc, key_state, &kbvm_state.kb_state);
-            self.for_each_ei_seat(|ei_seat| {
-                ei_seat.handle_key(time_usec, kc.to_evdev(), key_state, &kbvm_state.kb_state);
-            });
-            update_pressed_keys(&mut kbvm_state);
             match key_state {
                 KeyState::Released => {
                     if self.repeat_key.get() == Some(kc) {
@@ -1027,6 +1018,16 @@ impl WlSeatGlobal {
                 }
                 KeyState::Repeated => {}
             }
+            if !self.forward.get() {
+                update_pressed_keys(&mut kbvm_state);
+                continue;
+            }
+            self.send_components(&mut components_changed, &kbvm_state);
+            self.send_key(time_usec, kc, key_state, &kbvm_state.kb_state);
+            self.for_each_ei_seat(|ei_seat| {
+                ei_seat.handle_key(time_usec, kc.to_evdev(), key_state, &kbvm_state.kb_state);
+            });
+            update_pressed_keys(&mut kbvm_state);
         }
         self.send_components(&mut components_changed, &kbvm_state);
     }
