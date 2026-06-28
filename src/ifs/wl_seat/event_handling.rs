@@ -36,7 +36,7 @@ use {
             },
             wl_surface::{WlSurface, xdg_surface::xdg_popup::XdgPopup},
         },
-        kbvm::KbvmState,
+        kbvm::{EventOrRepeat, KbvmState},
         keyboard::KeyboardState,
         object::Version,
         rect::Rect,
@@ -906,7 +906,7 @@ impl WlSeatGlobal {
     pub fn key_events(
         self: &Rc<Self>,
         time_usec: u64,
-        events: &SyncQueue<Event>,
+        events: &SyncQueue<EventOrRepeat>,
         kbvm_state_rc: &Rc<RefCell<KbvmState>>,
     ) {
         let mut kbvm_state = kbvm_state_rc.borrow_mut();
@@ -915,18 +915,27 @@ impl WlSeatGlobal {
         let mut shortcuts = SmallVec::<[_; 1]>::new();
         let mut components_changed = false;
         while let Some(event) = events.pop() {
-            components_changed |= kbvm_state.kb_state.apply_event(event);
             let (key_state, kc) = match event {
-                Event::KeyDown(kc) => (KeyState::Pressed, kc),
-                Event::KeyUp(kc) => (KeyState::Released, kc),
-                _ => continue,
+                EventOrRepeat::Event(event) => {
+                    components_changed |= kbvm_state.kb_state.apply_event(event);
+                    match event {
+                        Event::KeyDown(kc) => (KeyState::Pressed, kc),
+                        Event::KeyUp(kc) => (KeyState::Released, kc),
+                        _ => continue,
+                    }
+                }
+                EventOrRepeat::Repeat(kc) => (KeyState::Repeated, kc),
             };
             let update_pressed_keys = |kbvm_state: &mut KbvmState| {
                 let pk = &mut kbvm_state.kb_state.pressed_keys;
                 match key_state {
-                    KeyState::Released => pk.remove(&kc.to_evdev()),
-                    KeyState::Pressed => pk.insert(kc.to_evdev()),
-                    KeyState::Repeated => unreachable!(),
+                    KeyState::Released => {
+                        pk.remove(&kc.to_evdev());
+                    }
+                    KeyState::Pressed => {
+                        pk.insert(kc.to_evdev());
+                    }
+                    KeyState::Repeated => {}
                 }
             };
             if key_state == KeyState::Pressed
@@ -970,7 +979,7 @@ impl WlSeatGlobal {
                         && let Some(key_mods) = scs.get(&sym)
                     {
                         for (&key_mods, sc) in key_mods {
-                            if mods & sc.mask == key_mods {
+                            if mods & sc.mask == key_mods && key_state != KeyState::Repeated {
                                 shortcuts.push(InvokedShortcut {
                                     unmasked_mods: Modifiers(mods),
                                     effective_mods: Modifiers(key_mods),
@@ -1381,6 +1390,7 @@ impl WlSeatGlobal {
         let delay_subsequent_repeat_ns = 1_000_000_000 / rate as u64;
         let slf = self.clone();
         let handle = self.state.eng.spawn("key repeat", async move {
+            let events = SyncQueue::default();
             'outer: loop {
                 let Some(key) = slf.repeat_key.get() else {
                     slf.have_repeat_key.triggered().await;
@@ -1400,12 +1410,8 @@ impl WlSeatGlobal {
                 slf.state.ring.timeout(target_ns).await.unwrap();
                 check_version!();
                 let send_key = |now_ns: u64| {
-                    slf.send_key(
-                        now_ns / 1_000,
-                        key,
-                        KeyState::Repeated,
-                        &kbvm_state.borrow().kb_state,
-                    );
+                    events.push(EventOrRepeat::Repeat(key));
+                    slf.key_events(now_ns / 1_000, &events, &kbvm_state);
                 };
                 send_key(target_ns);
                 base_ns = target_ns;
