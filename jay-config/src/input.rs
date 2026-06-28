@@ -307,6 +307,15 @@ impl Seat {
         get!().bind_masked(self, mod_mask, mod_sym.into(), f)
     }
 
+    /// Configures whether the given bind repeats.
+    ///
+    /// The default is `false`.
+    ///
+    /// Binding resets the value to the default.
+    pub fn set_repeat_bind<T: Into<ModifiedKeySym>>(self, mod_sym: T, repeat: bool) {
+        get!().set_repeat_bind(self, mod_sym.into(), repeat);
+    }
+
     /// Registers a callback to be executed when the currently pressed key is released.
     ///
     /// This should only be called in callbacks for key-press binds.

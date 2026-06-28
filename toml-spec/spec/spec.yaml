@@ -2718,8 +2718,8 @@ Config:
         Using the `release` modifier causes the shortcut to trigger when the key is
         released.
         
-        `KEYSYM` should be the name of a keysym. The authorative location for these names
-        is [1].
+        `KEYSYM` should be the name of a keysym. The authoritative location for these
+        names is [1].
         
         The keysym should be the unmodified keysym. E.g. `shift-q` not `shift-Q`.
         
@@ -3615,6 +3615,23 @@ ComplexShortcut:
         
           Audio will be un-muted once `x` key is released, regardless of any other keys
           that are pressed at the time.
+    repeat:
+      kind: boolean
+      required: false
+      description: |
+        Whether this shortcut repeats.
+        
+        - Example:
+        
+          ```toml
+          [complex-shortcuts]
+          alt-h = { action = "focus-left", repeat = true }
+          alt-j = { action = "focus-down", repeat = true }
+          alt-k = { action = "focus-up", repeat = true }
+          alt-l = { action = "focus-right", repeat = true }
+          ```
+
+        The default is `false`.
 
 
 Vrr:

@@ -101,7 +101,7 @@ use {
             linkedlist::{LinkedList, LinkedNode, NodeRef},
             numcell::NumCell,
             rc_eq::{rc_eq, rc_weak_eq},
-            smallmap::SmallMap,
+            smallmap::{SmallMap, SmallMapMut},
             static_text::StaticText,
         },
         wire::{
@@ -208,6 +208,7 @@ pub struct WlSeatGlobal {
     repeat_key_state: CloneCell<Option<Rc<RefCell<KbvmState>>>>,
     repeat_key_version: NumCell<u64>,
     repeat_key_start_ns: Cell<u64>,
+    repeat_key_shortcuts_only: Cell<bool>,
     have_repeat_key: AsyncEvent,
     seat_kb_map: CloneCell<Rc<KbvmMap>>,
     seat_kb_state: CloneCell<Rc<RefCell<KbvmState>>>,
@@ -228,7 +229,7 @@ pub struct WlSeatGlobal {
     gesture_owner: GestureOwnerHolder,
     touch_owner: TouchOwnerHolder,
     dropped_dnd: RefCell<Option<DroppedDnd>>,
-    shortcuts: RefCell<AHashMap<u32, SmallMap<u32, u32, 2>>>,
+    shortcuts: RefCell<AHashMap<u32, SmallMapMut<u32, Shortcut, 2>>>,
     queue_link: RefCell<Option<LinkedNode<Rc<Self>>>>,
     tree_changed_handler: Cell<Option<SpawnedFuture<()>>>,
     changes: NumCell<u32>,
@@ -270,6 +271,11 @@ impl PartialEq for WlSeatGlobal {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id
     }
+}
+
+struct Shortcut {
+    mask: u32,
+    repeat: bool,
 }
 
 #[derive(Copy, Clone)]
@@ -352,6 +358,7 @@ impl WlSeatGlobal {
             repeat_key_state: Default::default(),
             repeat_key_version: Default::default(),
             repeat_key_start_ns: Default::default(),
+            repeat_key_shortcuts_only: Default::default(),
             have_repeat_key: Default::default(),
             seat_kb_map: CloneCell::new(state.default_keymap.clone()),
             seat_kb_state: CloneCell::new(seat_kb_state.clone()),

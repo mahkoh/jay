@@ -1688,6 +1688,15 @@ impl ConfigClient {
         }
     }
 
+    pub fn set_repeat_bind(&self, seat: Seat, mod_sym: ModifiedKeySym, repeat: bool) {
+        self.send(&ClientMessage::SetRepeatShortcut {
+            seat,
+            mods: mod_sym.mods,
+            sym: mod_sym.sym,
+            repeat,
+        });
+    }
+
     pub fn log(&self, level: LogLevel, msg: &str, file: Option<&str>, line: Option<u32>) {
         self.send(&ClientMessage::Log {
             level,

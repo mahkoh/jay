@@ -68,6 +68,12 @@ pub struct KbvmMap {
     pub shortcuts_group: Option<GroupIndex>,
 }
 
+#[derive(Copy, Clone)]
+pub enum EventOrRepeat {
+    Event(Event),
+    Repeat(Keycode, bool),
+}
+
 pub struct KbvmState {
     pub map: Rc<KbvmMap>,
     pub state: state_machine::State,
@@ -77,7 +83,7 @@ pub struct KbvmState {
 pub struct PhysicalKeyboardState {
     state: Rc<RefCell<KbvmState>>,
     inner: RefCell<PkInner>,
-    events: SyncQueue<Event>,
+    events: SyncQueue<EventOrRepeat>,
     flushing: Cell<bool>,
 }
 
@@ -239,9 +245,12 @@ impl KbvmMap {
 }
 
 impl KbvmState {
-    pub fn apply_events(&mut self, events: &SyncQueue<Event>) {
+    pub fn apply_events(&mut self, events: &SyncQueue<EventOrRepeat>) {
         let state = &mut self.kb_state;
         while let Some(event) = events.pop() {
+            let EventOrRepeat::Event(event) = event else {
+                continue;
+            };
             state.apply_event(event);
             match event {
                 Event::KeyDown(kc) => {
@@ -303,7 +312,9 @@ impl PhysicalKeyboardState {
                     KeyState::Repeated => unreachable!(),
                 },
             );
-            self.events.append(&mut inner.event_stash);
+            for event in inner.event_stash.drain(..) {
+                self.events.push(EventOrRepeat::Event(event));
+            }
         }
         self.flush(time_usec, seat);
     }
@@ -321,7 +332,9 @@ impl PhysicalKeyboardState {
                     Direction::Up,
                 );
             }
-            self.events.append(&mut inner.event_stash);
+            for event in inner.event_stash.drain(..) {
+                self.events.push(EventOrRepeat::Event(event));
+            }
         }
         self.flush(time_usec, seat);
     }

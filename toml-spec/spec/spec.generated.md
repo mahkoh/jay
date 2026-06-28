@@ -1748,6 +1748,24 @@ The table has the following fields:
 
   The value of this field should be a [Action](#types-Action).
 
+- `repeat` (optional):
+
+  Whether this shortcut repeats.
+  
+  - Example:
+  
+    ```toml
+    [complex-shortcuts]
+    alt-h = { action = "focus-left", repeat = true }
+    alt-j = { action = "focus-down", repeat = true }
+    alt-k = { action = "focus-up", repeat = true }
+    alt-l = { action = "focus-right", repeat = true }
+    ```
+  
+  The default is `false`.
+
+  The value of this field should be a boolean.
+
 
 <a name="types-Config"></a>
 ### `Config`
@@ -1858,8 +1876,8 @@ The table has the following fields:
   Using the `release` modifier causes the shortcut to trigger when the key is
   released.
   
-  `KEYSYM` should be the name of a keysym. The authorative location for these names
-  is [1].
+  `KEYSYM` should be the name of a keysym. The authoritative location for these
+  names is [1].
   
   The keysym should be the unmodified keysym. E.g. `shift-q` not `shift-Q`.
   

@@ -538,6 +538,7 @@ pub struct Libei {
 pub struct Shortcut {
     pub mask: Modifiers,
     pub keysym: ModifiedKeySym,
+    pub repeat: bool,
     pub action: Action,
     pub latch: Option<Action>,
 }
