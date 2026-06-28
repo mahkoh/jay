@@ -253,8 +253,10 @@ pub struct JsonInputData<'a> {
 #[derive(Serialize)]
 pub struct JsonSeat<'a> {
     pub name: &'a str,
-    pub repeat_rate: i32,
-    pub repeat_delay: i32,
+    #[serde(skip_serializing_if = "is_none")]
+    pub repeat_rate: Option<i32>,
+    #[serde(skip_serializing_if = "is_none")]
+    pub repeat_delay: Option<i32>,
     #[serde(skip_serializing_if = "is_false")]
     pub hardware_cursor: bool,
     #[serde(skip_serializing_if = "is_empty")]

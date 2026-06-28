@@ -28,6 +28,7 @@ use {
             jay_keymap_builder,
         },
     },
+    ahash::AHashMap,
     clap::{Args, Subcommand, ValueEnum, ValueHint},
     derivative::Derivative,
     isnt::std_1::vec::IsntVecExt,
@@ -37,7 +38,7 @@ use {
         fmt,
         io::{Read, Write, stdin, stdout},
         mem,
-        ops::DerefMut,
+        ops::{Deref, DerefMut},
         rc::Rc,
     },
     thiserror::Error,
@@ -1164,28 +1165,41 @@ impl Input {
     fn print_data_json(&self, mut data: Data) {
         data.seats.sort_by(|l, r| l.name.cmp(&r.name));
         data.input_device.sort_by_key(|l| l.id);
-        let mut seats = Vec::new();
+        let mut seats = AHashMap::new();
+        let mut detached_devices = vec![];
         for seat in &data.seats {
-            let devices = data
-                .input_device
-                .iter()
-                .filter(|c| c.seat.as_ref() == Some(&seat.name))
-                .map(make_json_device)
-                .collect();
-            seats.push(JsonSeat {
-                name: &seat.name,
-                repeat_rate: seat.repeat_rate,
-                repeat_delay: seat.repeat_delay,
-                hardware_cursor: seat.hardware_cursor,
-                devices,
-            });
+            seats.insert(
+                seat.name.deref(),
+                JsonSeat {
+                    name: &seat.name,
+                    repeat_rate: Some(seat.repeat_rate),
+                    repeat_delay: Some(seat.repeat_delay),
+                    hardware_cursor: seat.hardware_cursor,
+                    devices: Default::default(),
+                },
+            );
         }
-        let detached_devices = data
-            .input_device
-            .iter()
-            .filter(|c| c.seat.is_none())
-            .map(make_json_device)
-            .collect();
+        for device in &data.input_device {
+            let device = make_json_device(device);
+            if let Some(seat) = device.seat {
+                let seat = seats.entry(seat).or_insert(JsonSeat {
+                    name: seat,
+                    repeat_rate: Default::default(),
+                    repeat_delay: Default::default(),
+                    hardware_cursor: Default::default(),
+                    devices: Default::default(),
+                });
+                seat.devices.push(device);
+            } else {
+                detached_devices.push(device);
+            }
+        }
+        let mut seats: Vec<_> = seats.into_values().collect();
+        seats.sort_by_key(|s| s.name);
+        for seat in &mut seats {
+            seat.devices.sort_by_key(|d| d.input_device_id);
+        }
+        detached_devices.sort_by_key(|d| d.input_device_id);
         let json = JsonInputData {
             seats,
             detached_devices,
