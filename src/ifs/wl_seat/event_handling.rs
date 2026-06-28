@@ -914,6 +914,7 @@ impl WlSeatGlobal {
         self.latest_kb_state_id.set(kbvm_state.kb_state.id);
         let mut shortcuts = SmallVec::<[_; 1]>::new();
         let mut components_changed = false;
+        let mut shortcuts_only = false;
         while let Some(event) = events.pop() {
             let (key_state, kc) = match event {
                 EventOrRepeat::Event(event) => {
@@ -924,7 +925,10 @@ impl WlSeatGlobal {
                         _ => continue,
                     }
                 }
-                EventOrRepeat::Repeat(kc) => (KeyState::Repeated, kc),
+                EventOrRepeat::Repeat(kc, so) => {
+                    shortcuts_only = so;
+                    (KeyState::Repeated, kc)
+                }
             };
             let update_pressed_keys = |kbvm_state: &mut KbvmState| {
                 let pk = &mut kbvm_state.kb_state.pressed_keys;
@@ -1022,12 +1026,13 @@ impl WlSeatGlobal {
                 }
                 KeyState::Pressed => {
                     if repeats {
-                        self.set_repeat_key(kc, kbvm_state_rc);
+                        let shortcuts_only = !self.forward.get();
+                        self.set_repeat_key(kc, kbvm_state_rc, shortcuts_only);
                     }
                 }
                 KeyState::Repeated => {}
             }
-            if !self.forward.get() {
+            if shortcuts_only || !self.forward.get() {
                 update_pressed_keys(&mut kbvm_state);
                 continue;
             }
@@ -1363,10 +1368,16 @@ impl WlSeatGlobal {
         self.changes.set(0);
     }
 
-    pub(super) fn set_repeat_key(&self, key: Keycode, state: &Rc<RefCell<KbvmState>>) {
+    pub(super) fn set_repeat_key(
+        &self,
+        key: Keycode,
+        state: &Rc<RefCell<KbvmState>>,
+        shortcuts_only: bool,
+    ) {
         self.repeat_key_version.fetch_add(1);
         self.repeat_key_start_ns.set(self.state.now_nsec());
         self.repeat_key_state.set(Some(state.clone()));
+        self.repeat_key_shortcuts_only.set(shortcuts_only);
         let old = self.repeat_key.replace(Some(key));
         if old.is_none() {
             self.have_repeat_key.trigger();
@@ -1399,6 +1410,7 @@ impl WlSeatGlobal {
                 let mut base_ns = slf.repeat_key_start_ns.get();
                 let kbvm_state = slf.repeat_key_state.get().unwrap();
                 let version = slf.repeat_key_version.get();
+                let shortcuts_only = slf.repeat_key_shortcuts_only.get();
                 macro_rules! check_version {
                     () => {
                         if slf.repeat_key_version.get() != version {
@@ -1410,7 +1422,7 @@ impl WlSeatGlobal {
                 slf.state.ring.timeout(target_ns).await.unwrap();
                 check_version!();
                 let send_key = |now_ns: u64| {
-                    events.push(EventOrRepeat::Repeat(key));
+                    events.push(EventOrRepeat::Repeat(key, shortcuts_only));
                     slf.key_events(now_ns / 1_000, &events, &kbvm_state);
                 };
                 send_key(target_ns);

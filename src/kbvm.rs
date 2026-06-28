@@ -71,7 +71,7 @@ pub struct KbvmMap {
 #[derive(Copy, Clone)]
 pub enum EventOrRepeat {
     Event(Event),
-    Repeat(Keycode),
+    Repeat(Keycode, bool),
 }
 
 pub struct KbvmState {
