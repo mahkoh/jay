@@ -95,7 +95,13 @@ impl Parser for InputParser<'_, '_> {
                 calibration_matrix,
                 click_method,
             ),
-            (middle_button_emulation, px_scroll_multiplier, scroll_method, scroll_button),
+            (
+                middle_button_emulation,
+                px_scroll_multiplier,
+                scroll_method,
+                scroll_button,
+                scroll_button_lock,
+            ),
         ) = ext.extract((
             (
                 opt(str("tag")),
@@ -126,6 +132,7 @@ impl Parser for InputParser<'_, '_> {
                 recover(opt(fltorint("px-scroll-multiplier"))),
                 recover(opt(str("scroll-method"))),
                 recover(opt(str("scroll-button"))),
+                recover(opt(bol("scroll-button-lock"))),
             ),
         ))?;
         let accel_profile = match accel_profile {
@@ -308,6 +315,7 @@ impl Parser for InputParser<'_, '_> {
             calibration_matrix,
             scroll_method,
             scroll_button,
+            scroll_button_lock: scroll_button_lock.despan(),
         })
     }
 }

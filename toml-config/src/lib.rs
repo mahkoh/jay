@@ -773,6 +773,9 @@ impl Input {
         if let Some(v) = self.scroll_button {
             c.set_scroll_button(v);
         }
+        if let Some(v) = self.scroll_button_lock {
+            c.set_scroll_button_lock(v);
+        }
     }
 }
 

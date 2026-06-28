@@ -406,6 +406,9 @@ Scroll Method
 Scroll Button
 : Dropdown to choose the button used by the on-button-down scroll method, listing None plus the buttons the device reports. Shown for devices that support the on-button-down scroll method.
 
+Scroll Button Lock
+: Toggle whether the scroll button toggles scrolling on release instead of having to be held down. Shown for devices that report it.
+
 Output
 : Dropdown to map the device to a specific output (only has effect for touch and tablet devices), with a Detach button. Shown for all devices.
 

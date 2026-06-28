@@ -1328,6 +1328,10 @@ impl InputDevice for XSeatKeyboard {
     fn set_scroll_button(&self, button: Option<InputEventCode>) {
         let _ = button;
     }
+
+    fn set_scroll_button_lock(&self, enabled: bool) {
+        let _ = enabled;
+    }
 }
 
 impl InputDevice for XSeatMouse {
@@ -1412,5 +1416,9 @@ impl InputDevice for XSeatMouse {
 
     fn set_scroll_button(&self, button: Option<InputEventCode>) {
         let _ = button;
+    }
+
+    fn set_scroll_button_lock(&self, enabled: bool) {
+        let _ = enabled;
     }
 }

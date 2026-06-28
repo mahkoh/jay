@@ -2085,6 +2085,11 @@ impl DeviceHandlerData {
         self.device.set_scroll_button(v);
         state.trigger_cci(CCI_INPUT);
     }
+
+    pub fn set_scroll_button_lock(&self, state: &State, v: bool) {
+        self.device.set_scroll_button_lock(v);
+        state.trigger_cci(CCI_INPUT);
+    }
 }
 
 impl LedsListener for DeviceHandlerData {

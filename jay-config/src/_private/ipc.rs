@@ -949,6 +949,10 @@ pub enum ClientMessage<'a> {
         device: InputDevice,
         button: InputEventCode,
     },
+    SetScrollButtonLock {
+        device: InputDevice,
+        enabled: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

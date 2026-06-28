@@ -467,6 +467,7 @@ pub struct Input {
     pub calibration_matrix: Option<[[f32; 3]; 2]>,
     pub scroll_method: Option<ScrollMethod>,
     pub scroll_button: Option<InputEventCode>,
+    pub scroll_button_lock: Option<bool>,
 }
 
 #[derive(Debug, Clone)]

@@ -988,6 +988,16 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_scroll_button_lock(
+        &self,
+        device: InputDevice,
+        enabled: bool,
+    ) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(device)?;
+        dev.set_scroll_button_lock(&self.state, enabled);
+        Ok(())
+    }
+
     fn handle_set_middle_button_emulation_enabled(
         &self,
         device: InputDevice,
@@ -3898,6 +3908,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetScrollButton { device, button } => self
                 .handle_set_scroll_button(device, button)
                 .wrn("set_scroll_button")?,
+            ClientMessage::SetScrollButtonLock { device, enabled } => self
+                .handle_set_scroll_button_lock(device, enabled)
+                .wrn("set_scroll_button_lock")?,
         }
         Ok(())
     }

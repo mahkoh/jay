@@ -183,6 +183,8 @@ pub enum DeviceCommand {
     SetScrollMethod(SetScrollMethodArgs),
     /// Set the scroll button.
     SetScrollButton(SetScrollButtonArgs),
+    /// Set the scroll button locking.
+    SetScrollButtonLock(SetScrollButtonLockArgs),
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -300,6 +302,13 @@ pub struct SetScrollButtonArgs {
     /// The name of a button from input-event-codes.h or `none` to unset the button.
     #[clap(value_parser = parse_button)]
     pub button: u32,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SetScrollButtonLockArgs {
+    /// Whether scroll button locking is enabled.
+    #[arg(action = clap::ArgAction::Set)]
+    pub enabled: bool,
 }
 
 #[derive(Debug, Error)]
@@ -428,6 +437,7 @@ struct InputDevice {
     pub scroll_methods: Option<u32>,
     pub scroll_method: Option<InputDeviceScrollMethod>,
     pub scroll_button: Option<Option<InputEventCode>>,
+    pub scroll_button_lock: Option<bool>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -966,6 +976,16 @@ impl Input {
                     button: a.button,
                 });
             }
+            DeviceCommand::SetScrollButtonLock(a) => {
+                self.handle_error(input, |e| {
+                    eprintln!("Could not set the scroll button lock: {}", e);
+                });
+                tc.send(jay_input::SetScrollButtonLock {
+                    self_id: input,
+                    id: args.device,
+                    enabled: a.enabled as u32,
+                });
+            }
         }
         tc.round_trip().await;
     }
@@ -1136,6 +1156,9 @@ impl Input {
             let name = v.map(|v| v.text()).unwrap_or("none");
             println!("{prefix}  scroll button: {}", name);
         }
+        if let Some(v) = &device.scroll_button_lock {
+            println!("{prefix}  scroll button lock: {v}");
+        }
     }
 
     fn print_data_json(&self, mut data: Data) {
@@ -1238,6 +1261,7 @@ impl Input {
                 scroll_methods: None,
                 scroll_method: None,
                 scroll_button: None,
+                scroll_button_lock: None,
             });
         });
         jay_input::InputDeviceOutput::handle(tc, input, data.clone(), |data, msg| {
@@ -1295,6 +1319,12 @@ impl Input {
             let mut data = data.borrow_mut();
             if let Some(last) = data.input_device.last_mut() {
                 last.scroll_button = Some(button);
+            }
+        });
+        jay_input::ScrollButtonLock::handle(tc, input, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            if let Some(last) = data.input_device.last_mut() {
+                last.scroll_button_lock = Some(msg.enabled != 0);
             }
         });
         tc.round_trip().await;

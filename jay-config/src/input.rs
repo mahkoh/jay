@@ -176,6 +176,13 @@ impl InputDevice {
         get!().set_input_scroll_button(self, button);
     }
 
+    /// Sets whether scroll button locking is enabled for the device.
+    ///
+    /// See <https://wayland.freedesktop.org/libinput/doc/latest/scrolling.html>
+    pub fn set_scroll_button_lock(self, enabled: bool) {
+        get!().set_input_scroll_button_lock(self, enabled);
+    }
+
     /// Returns the syspath of this device.
     ///
     /// E.g. `/sys/devices/pci0000:00/0000:00:08.1/0000:14:00.4/usb5/5-1/5-1.1/5-1.1.3/5-1.1.3:1.0`.

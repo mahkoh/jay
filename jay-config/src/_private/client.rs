@@ -1436,6 +1436,10 @@ impl ConfigClient {
         self.send(&ClientMessage::SetScrollButton { device, button })
     }
 
+    pub fn set_input_scroll_button_lock(&self, device: InputDevice, enabled: bool) {
+        self.send(&ClientMessage::SetScrollButtonLock { device, enabled })
+    }
+
     pub fn device_name(&self, device: InputDevice) -> String {
         let res = self.send_with_response(&ClientMessage::GetDeviceName { device });
         get_response!(res, String::new(), GetDeviceName { name });

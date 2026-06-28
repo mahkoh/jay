@@ -135,6 +135,13 @@ unsafe extern "C" {
         device: *mut libinput_device,
         button: u32,
     ) -> libinput_config_status;
+    pub fn libinput_device_config_scroll_get_button_lock(
+        device: *mut libinput_device,
+    ) -> libinput_config_scroll_button_lock_state;
+    pub fn libinput_device_config_scroll_set_button_lock(
+        device: *mut libinput_device,
+        state: libinput_config_scroll_button_lock_state,
+    ) -> libinput_config_status;
     pub fn libinput_device_config_middle_emulation_set_enabled(
         device: *mut libinput_device,
         enable: libinput_config_middle_emulation_state,

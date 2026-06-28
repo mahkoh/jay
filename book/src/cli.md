@@ -497,6 +497,14 @@ is a button name from `input-event-codes.h`, or `none` to clear it:
 ~$ jay input device 42 set-scroll-button none
 ```
 
+Toggle scroll button lock, so the scroll button starts and stops scrolling on
+release instead of having to be held down:
+
+```shell
+~$ jay input device 42 set-scroll-button-lock true
+~$ jay input device 42 set-scroll-button-lock false
+```
+
 Set a per-device keymap:
 
 ```shell
