@@ -28,16 +28,16 @@ use {
             jay_keymap_builder,
         },
     },
+    ahash::AHashMap,
     clap::{Args, Subcommand, ValueEnum, ValueHint},
     derivative::Derivative,
     isnt::std_1::vec::IsntVecExt,
     jay_toml_config::input_event_code_from_name,
     std::{
         cell::RefCell,
-        fmt,
         io::{Read, Write, stdin, stdout},
         mem,
-        ops::DerefMut,
+        ops::{Deref, DerefMut},
         rc::Rc,
     },
     thiserror::Error,
@@ -1125,36 +1125,16 @@ impl Input {
             println!("{prefix}  middle button emulation: {}", v);
         }
         if let Some(v) = &device.scroll_method {
-            let name = match v {
-                InputDeviceScrollMethod::NoScroll => "no-scroll",
-                InputDeviceScrollMethod::TwoFingers => "two-fingers",
-                InputDeviceScrollMethod::Edge => "edge",
-                InputDeviceScrollMethod::OnButtonDown => "on-button-down",
-            };
-            println!("{prefix}  scroll method: {}", name);
+            println!("{prefix}  scroll method: {}", scroll_method_name(*v));
         }
         if let Some(v) = device.scroll_methods {
             println!(
                 "{prefix}  scroll methods: {}",
-                fmt::from_fn(|f| {
-                    f.write_str("no-scroll")?;
-                    for (name, const_) in [
-                        ("two-fingers", LIBINPUT_CONFIG_SCROLL_2FG),
-                        ("edge", LIBINPUT_CONFIG_SCROLL_EDGE),
-                        ("on-button-down", LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN),
-                    ] {
-                        if v.contains(const_.0 as u32) {
-                            f.write_str(",")?;
-                            f.write_str(name)?;
-                        }
-                    }
-                    Ok(())
-                })
+                supported_scroll_method_names(v).join(","),
             );
         }
         if let Some(v) = &device.scroll_button {
-            let name = v.map(|v| v.text()).unwrap_or("none");
-            println!("{prefix}  scroll button: {}", name);
+            println!("{prefix}  scroll button: {}", scroll_button_name(*v));
         }
         if let Some(v) = &device.scroll_button_lock {
             println!("{prefix}  scroll button lock: {v}");
@@ -1164,28 +1144,41 @@ impl Input {
     fn print_data_json(&self, mut data: Data) {
         data.seats.sort_by(|l, r| l.name.cmp(&r.name));
         data.input_device.sort_by_key(|l| l.id);
-        let mut seats = Vec::new();
+        let mut seats = AHashMap::new();
+        let mut detached_devices = vec![];
         for seat in &data.seats {
-            let devices = data
-                .input_device
-                .iter()
-                .filter(|c| c.seat.as_ref() == Some(&seat.name))
-                .map(make_json_device)
-                .collect();
-            seats.push(JsonSeat {
-                name: &seat.name,
-                repeat_rate: seat.repeat_rate,
-                repeat_delay: seat.repeat_delay,
-                hardware_cursor: seat.hardware_cursor,
-                devices,
-            });
+            seats.insert(
+                seat.name.deref(),
+                JsonSeat {
+                    name: &seat.name,
+                    repeat_rate: Some(seat.repeat_rate),
+                    repeat_delay: Some(seat.repeat_delay),
+                    hardware_cursor: seat.hardware_cursor,
+                    devices: Default::default(),
+                },
+            );
         }
-        let detached_devices = data
-            .input_device
-            .iter()
-            .filter(|c| c.seat.is_none())
-            .map(make_json_device)
-            .collect();
+        for device in &data.input_device {
+            let device = make_json_device(device);
+            if let Some(seat) = device.seat {
+                let seat = seats.entry(seat).or_insert(JsonSeat {
+                    name: seat,
+                    repeat_rate: Default::default(),
+                    repeat_delay: Default::default(),
+                    hardware_cursor: Default::default(),
+                    devices: Default::default(),
+                });
+                seat.devices.push(device);
+            } else {
+                detached_devices.push(device);
+            }
+        }
+        let mut seats: Vec<_> = seats.into_values().collect();
+        seats.sort_by_key(|s| s.name);
+        for seat in &mut seats {
+            seat.devices.sort_by_key(|d| d.input_device_id);
+        }
+        detached_devices.sort_by_key(|d| d.input_device_id);
         let json = JsonInputData {
             seats,
             detached_devices,
@@ -1332,6 +1325,33 @@ impl Input {
     }
 }
 
+fn scroll_method_name(method: InputDeviceScrollMethod) -> &'static str {
+    match method {
+        InputDeviceScrollMethod::NoScroll => "no-scroll",
+        InputDeviceScrollMethod::TwoFingers => "two-fingers",
+        InputDeviceScrollMethod::Edge => "edge",
+        InputDeviceScrollMethod::OnButtonDown => "on-button-down",
+    }
+}
+
+fn supported_scroll_method_names(methods: u32) -> Vec<&'static str> {
+    let mut names = vec!["no-scroll"];
+    for (name, const_) in [
+        ("two-fingers", LIBINPUT_CONFIG_SCROLL_2FG),
+        ("edge", LIBINPUT_CONFIG_SCROLL_EDGE),
+        ("on-button-down", LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN),
+    ] {
+        if methods.contains(const_.0 as u32) {
+            names.push(name);
+        }
+    }
+    names
+}
+
+fn scroll_button_name(button: Option<InputEventCode>) -> &'static str {
+    button.map(|v| v.text()).unwrap_or("none")
+}
+
 fn make_json_device(device: &InputDevice) -> JsonInputDevice<'_> {
     JsonInputDevice {
         input_device_id: device.id,
@@ -1353,5 +1373,9 @@ fn make_json_device(device: &InputDevice) -> JsonInputDevice<'_> {
         calibration_matrix: device.calibration_matrix,
         click_method: device.click_method.as_ref().map(|v| v.text()),
         middle_button_emulation: device.middle_button_emulation_enabled,
+        scroll_method: device.scroll_method.map(scroll_method_name),
+        supported_scroll_methods: device.scroll_methods.map(supported_scroll_method_names),
+        scroll_button: device.scroll_button.map(scroll_button_name),
+        scroll_button_lock: device.scroll_button_lock,
     }
 }

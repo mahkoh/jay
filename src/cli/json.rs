@@ -253,8 +253,10 @@ pub struct JsonInputData<'a> {
 #[derive(Serialize)]
 pub struct JsonSeat<'a> {
     pub name: &'a str,
-    pub repeat_rate: i32,
-    pub repeat_delay: i32,
+    #[serde(skip_serializing_if = "is_none")]
+    pub repeat_rate: Option<i32>,
+    #[serde(skip_serializing_if = "is_none")]
+    pub repeat_delay: Option<i32>,
     #[serde(skip_serializing_if = "is_false")]
     pub hardware_cursor: bool,
     #[serde(skip_serializing_if = "is_empty")]
@@ -299,6 +301,14 @@ pub struct JsonInputDevice<'a> {
     pub click_method: Option<&'a str>,
     #[serde(skip_serializing_if = "is_none")]
     pub middle_button_emulation: Option<bool>,
+    #[serde(skip_serializing_if = "is_none")]
+    pub scroll_method: Option<&'a str>,
+    #[serde(skip_serializing_if = "is_none")]
+    pub supported_scroll_methods: Option<Vec<&'a str>>,
+    #[serde(skip_serializing_if = "is_none")]
+    pub scroll_button: Option<&'a str>,
+    #[serde(skip_serializing_if = "is_none")]
+    pub scroll_button_lock: Option<bool>,
 }
 
 pub struct JsonTreeNodeType(pub u32);
