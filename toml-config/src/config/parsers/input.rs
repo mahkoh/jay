@@ -101,6 +101,7 @@ impl Parser for InputParser<'_, '_> {
                 scroll_method,
                 scroll_button,
                 scroll_button_lock,
+                detached,
             ),
         ) = ext.extract((
             (
@@ -133,6 +134,7 @@ impl Parser for InputParser<'_, '_> {
                 recover(opt(str("scroll-method"))),
                 recover(opt(str("scroll-button"))),
                 recover(opt(bol("scroll-button-lock"))),
+                recover(opt(bol("detached"))),
             ),
         ))?;
         let accel_profile = match accel_profile {
@@ -316,6 +318,7 @@ impl Parser for InputParser<'_, '_> {
             scroll_method,
             scroll_button,
             scroll_button_lock: scroll_button_lock.despan(),
+            detached: detached.despan(),
         })
     }
 }

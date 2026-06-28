@@ -2058,6 +2058,14 @@ Input:
         Whether scroll button locking is enabled for the device.
         
         See the libinput documentation for more details.
+    detached:
+      kind: boolean
+      required: false
+      description: |
+        Whether the device is detached.
+        
+        A detached device does not generate any events. This effectively disables the
+        device.
 
 
 AccelProfile:

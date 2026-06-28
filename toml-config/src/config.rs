@@ -468,6 +468,7 @@ pub struct Input {
     pub scroll_method: Option<ScrollMethod>,
     pub scroll_button: Option<InputEventCode>,
     pub scroll_button_lock: Option<bool>,
+    pub detached: Option<bool>,
 }
 
 #[derive(Debug, Clone)]

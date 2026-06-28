@@ -349,6 +349,37 @@ alt-x = {
 }
 ```
 
+## Detaching devices
+
+Set `detached = true` to detach a device. A detached device is not assigned to
+any seat and does not generate any events, which effectively disables it:
+
+```toml
+[[inputs]]
+match.name = "Logitech G300s Optical Gaming Mouse"
+detached = true
+```
+
+Set `detached = false` to reattach the device.
+
+This pairs well with the `configure-input` action to toggle a device on and off
+at runtime:
+
+```toml
+[[inputs]]
+tag = "mouse"
+match.is-pointer = true
+
+[shortcuts]
+alt-d = {
+    type = "configure-input",
+    input = {
+        match.tag = "mouse",
+        detached = true,
+    },
+}
+```
+
 ## Lid switch events
 
 Lid switch devices report when a laptop lid is opened or closed. Use the
