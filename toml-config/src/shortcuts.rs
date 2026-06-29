@@ -48,7 +48,12 @@ pub struct ModeSlot {
 }
 
 enum ModeDiff {
-    Bind(ModifiedKeySym, Modifiers, bool, Rc<dyn Fn()>),
+    Bind {
+        key: ModifiedKeySym,
+        mask: Modifiers,
+        repeat: bool,
+        f: Rc<dyn Fn()>,
+    },
     Unbind(ModifiedKeySym),
 }
 
@@ -232,7 +237,12 @@ impl State {
         let seat = &self.persistent.seat;
         for diff in &*diffs {
             match diff {
-                ModeDiff::Bind(key, mask, repeat, f) => {
+                ModeDiff::Bind {
+                    key,
+                    mask,
+                    repeat,
+                    f,
+                } => {
                     let f = f.clone();
                     seat.bind_masked(*mask, *key, move || f());
                     if *repeat {
@@ -260,12 +270,12 @@ impl State {
                 let mut diffs = vec![];
                 for (key, sc) in new.iter() {
                     if old.get(key) != Some(sc) {
-                        diffs.push(ModeDiff::Bind(
-                            *key,
-                            sc.mask,
-                            sc.repeat,
-                            sc.shortcut.clone(),
-                        ));
+                        diffs.push(ModeDiff::Bind {
+                            key: *key,
+                            mask: sc.mask,
+                            repeat: sc.repeat,
+                            f: sc.shortcut.clone(),
+                        });
                     }
                 }
                 for key in old.keys() {
