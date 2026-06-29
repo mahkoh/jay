@@ -7,7 +7,9 @@ device, choosing a graphics API, and tuning per-device settings.
 > [!NOTE]
 > DRM device configuration in `config.toml` is only applied when a device is
 > first discovered after the configuration is loaded. To change settings at
-> runtime, use `jay randr` or the `configure-drm-device` action.
+> runtime, use `jay randr` or the `configure-drm-device` action. Set
+> [`device-config-filter`](misc.md#device-configuration-filter) to `"all"` to
+> instead re-apply the configuration to every device on each reload.
 
 ## Matching GPUs
 

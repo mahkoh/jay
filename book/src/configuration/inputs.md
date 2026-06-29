@@ -8,6 +8,8 @@ and device-to-output mapping.
 > Input configuration defined in `config.toml` is only applied to devices
 > connected after the configuration is loaded. To change settings for
 > already-connected devices, use `jay input` or the `configure-input` action.
+> Set [`device-config-filter`](misc.md#device-configuration-filter) to `"all"`
+> to instead re-apply the configuration to every device on each reload.
 
 ## Matching input devices
 

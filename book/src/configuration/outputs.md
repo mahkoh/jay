@@ -7,7 +7,9 @@ mode, and color management.
 > [!NOTE]
 > Output configuration defined in `config.toml` is only applied the first time
 > a matching output is connected after the compositor starts. To change
-> settings at runtime, use `jay randr` or the `configure-output` action.
+> settings at runtime, use `jay randr` or the `configure-output` action. Set
+> [`device-config-filter`](misc.md#device-configuration-filter) to `"all"` to
+> instead re-apply the configuration to every output on each reload.
 
 ## Matching outputs
 
@@ -401,7 +403,9 @@ enabled = false
 ```
 
 Connector configuration is applied when the connector is first discovered by
-the compositor, which typically happens only at startup.
+the compositor, which typically happens only at startup. Setting
+[`device-config-filter`](misc.md#device-configuration-filter) to `"all"`
+re-applies it on every reload as well.
 
 ### Precedence
 

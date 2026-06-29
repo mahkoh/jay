@@ -953,6 +953,7 @@ struct State {
     input_devices: AHashMap<String, InputMatch>,
     persistent: Rc<PersistentState>,
     keymaps: AHashMap<String, Keymap>,
+    configure_all_devices: bool,
 
     io_maps: Vec<(InputMatch, OutputMatch)>,
     io_inputs: RefCell<AHashMap<InputDevice, Vec<bool>>>,
@@ -1486,6 +1487,7 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
         input_devices,
         persistent: persistent.clone(),
         keymaps,
+        configure_all_devices: config.configure_all_devices,
         io_maps,
         io_inputs: Default::default(),
         io_outputs: Default::default(),
@@ -1535,13 +1537,32 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
             .seat
             .set_repeat_rate(repeat_rate.rate, repeat_rate.delay);
     }
-    on_new_connector(move |c| {
+    let apply_connectors = move |c: Connector| {
         for connector in &config.connectors {
             if connector.match_.matches(c) {
                 connector.apply(c);
             }
         }
-    });
+    };
+    let apply_outputs = {
+        let state = state.clone();
+        move |c: Connector| {
+            for output in &config.outputs {
+                if output.match_.matches(c, &state) {
+                    output.apply(c);
+                }
+            }
+        }
+    };
+    if state.configure_all_devices {
+        for c in connectors() {
+            apply_connectors(c);
+            if c.connected() {
+                apply_outputs(c);
+            }
+        }
+    }
+    on_new_connector(apply_connectors);
     on_connector_connected({
         let state = state.clone();
         move |c| {
@@ -1552,12 +1573,9 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
                 model: c.model(),
                 serial_number: c.serial_number(),
             };
-            if state.persistent.seen_outputs.borrow_mut().insert(id) {
-                for output in &config.outputs {
-                    if output.match_.matches(c, &state) {
-                        output.apply(c);
-                    }
-                }
+            if state.persistent.seen_outputs.borrow_mut().insert(id) || state.configure_all_devices
+            {
+                apply_outputs(c);
             }
             for ws in &state.workspaces {
                 ws.handle_connector_connected(&state, c);
@@ -1622,26 +1640,43 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     if let Some(ese) = config.explicit_sync_enabled {
         set_explicit_sync_enabled(ese);
     }
-    on_new_drm_device({
+    let apply_drm_devices = {
         let state = state.clone();
-        move |d| {
+        move |d: DrmDevice| {
             for dev in &config.drm_devices {
                 if dev.match_.matches(d, &state) {
                     dev.apply(d);
                 }
             }
         }
-    });
-    on_new_input_device({
+    };
+    if state.configure_all_devices {
+        for d in drm_devices() {
+            apply_drm_devices(d);
+        }
+    }
+    on_new_drm_device(apply_drm_devices);
+    let apply_inputs = {
         let state = state.clone();
-        let switch_actions = switch_actions.clone();
-        move |c| {
-            state.add_io_input(c);
+        move |c: InputDevice| {
             for input in &config.inputs {
                 if input.match_.matches(c, &state) {
                     input.apply(c, &state);
                 }
             }
+        }
+    };
+    if state.configure_all_devices {
+        for c in jay_config::input::input_devices() {
+            apply_inputs(c);
+        }
+    }
+    on_new_input_device({
+        let state = state.clone();
+        let switch_actions = switch_actions.clone();
+        move |c| {
+            state.add_io_input(c);
+            apply_inputs(c);
             state.handle_switch_device(c, &switch_actions);
         }
     });
