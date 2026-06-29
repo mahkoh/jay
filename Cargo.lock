@@ -910,6 +910,7 @@ version = "0.13.0"
 dependencies = [
  "ahash",
  "bstr",
+ "derivative",
  "error_reporter",
  "indexmap",
  "jay-config",

@@ -4,6 +4,7 @@ use {
         config::{Action, InputMode, Shortcut, SimpleCommand},
     },
     ahash::{AHashMap, AHashSet},
+    derivative::Derivative,
     jay_config::keyboard::{ModifiedKeySym, mods::Modifiers},
     std::{
         cell::{Cell, RefCell},
@@ -32,10 +33,12 @@ impl ModeState {
 
 pub type ConvertedShortcuts = AHashMap<ModifiedKeySym, ConvertedShortcut>;
 
-#[derive(Clone)]
+#[derive(Clone, Derivative)]
+#[derivative(PartialEq)]
 pub struct ConvertedShortcut {
     mask: Modifiers,
     repeat: bool,
+    #[derivative(PartialEq(compare_with = "Rc::ptr_eq"))]
     shortcut: Rc<dyn Fn()>,
 }
 
@@ -47,18 +50,6 @@ pub struct ModeSlot {
 enum ModeDiff {
     Bind(ModifiedKeySym, Modifiers, bool, Rc<dyn Fn()>),
     Unbind(ModifiedKeySym),
-}
-
-impl PartialEq for ConvertedShortcut {
-    fn eq(&self, other: &Self) -> bool {
-        if self.mask != other.mask {
-            return false;
-        }
-        if self.repeat != other.repeat {
-            return false;
-        }
-        Rc::ptr_eq(&self.shortcut, &other.shortcut)
-    }
 }
 
 impl State {
