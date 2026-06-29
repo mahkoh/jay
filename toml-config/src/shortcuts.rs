@@ -4,6 +4,7 @@ use {
         config::{Action, InputMode, Shortcut, SimpleCommand},
     },
     ahash::{AHashMap, AHashSet},
+    derivative::Derivative,
     jay_config::keyboard::{ModifiedKeySym, mods::Modifiers},
     std::{
         cell::{Cell, RefCell},
@@ -32,10 +33,13 @@ impl ModeState {
 
 pub type ConvertedShortcuts = AHashMap<ModifiedKeySym, ConvertedShortcut>;
 
-#[derive(Clone)]
+#[derive(Clone, Derivative)]
+#[derivative(PartialEq)]
 pub struct ConvertedShortcut {
     mask: Modifiers,
     repeat: bool,
+    allow_locked: bool,
+    #[derivative(PartialEq(compare_with = "Rc::ptr_eq"))]
     shortcut: Rc<dyn Fn()>,
 }
 
@@ -45,20 +49,14 @@ pub struct ModeSlot {
 }
 
 enum ModeDiff {
-    Bind(ModifiedKeySym, Modifiers, bool, Rc<dyn Fn()>),
+    Bind {
+        key: ModifiedKeySym,
+        mask: Modifiers,
+        repeat: bool,
+        allow_locked: bool,
+        f: Rc<dyn Fn()>,
+    },
     Unbind(ModifiedKeySym),
-}
-
-impl PartialEq for ConvertedShortcut {
-    fn eq(&self, other: &Self) -> bool {
-        if self.mask != other.mask {
-            return false;
-        }
-        if self.repeat != other.repeat {
-            return false;
-        }
-        Rc::ptr_eq(&self.shortcut, &other.shortcut)
-    }
 }
 
 impl State {
@@ -230,6 +228,7 @@ impl State {
         Some(ConvertedShortcut {
             mask: shortcut.mask,
             repeat: shortcut.repeat,
+            allow_locked: shortcut.allow_locked,
             shortcut: f,
         })
     }
@@ -241,11 +240,20 @@ impl State {
         let seat = &self.persistent.seat;
         for diff in &*diffs {
             match diff {
-                ModeDiff::Bind(key, mask, repeat, f) => {
+                ModeDiff::Bind {
+                    key,
+                    mask,
+                    repeat,
+                    allow_locked,
+                    f,
+                } => {
                     let f = f.clone();
                     seat.bind_masked(*mask, *key, move || f());
                     if *repeat {
                         seat.set_repeat_bind(*key, true);
+                    }
+                    if *allow_locked {
+                        seat.set_bind_allow_locked(*key, true);
                     }
                 }
                 ModeDiff::Unbind(key) => {
@@ -269,12 +277,13 @@ impl State {
                 let mut diffs = vec![];
                 for (key, sc) in new.iter() {
                     if old.get(key) != Some(sc) {
-                        diffs.push(ModeDiff::Bind(
-                            *key,
-                            sc.mask,
-                            sc.repeat,
-                            sc.shortcut.clone(),
-                        ));
+                        diffs.push(ModeDiff::Bind {
+                            key: *key,
+                            mask: sc.mask,
+                            repeat: sc.repeat,
+                            allow_locked: sc.allow_locked,
+                            f: sc.shortcut.clone(),
+                        });
                     }
                 }
                 for key in old.keys() {

@@ -38,6 +38,7 @@ impl ServerFeature {
     pub const SHOW_WORKSPACE_3: Self = Self(3);
     pub const SHOW_WORKSPACE_4: Self = Self(4);
     pub const PARSE_KEYMAP_2: Self = Self(5);
+    pub const LOCKED_SHORTCUTS: Self = Self(6);
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -962,6 +963,7 @@ pub enum ClientMessage<'a> {
         sym: KeySym,
         repeat: bool,
     },
+    EnableLockedShortcuts,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

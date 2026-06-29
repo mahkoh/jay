@@ -1020,6 +1020,10 @@
         "repeat": {
           "type": "boolean",
           "description": "Whether this shortcut repeats.\n\n- Example:\n\n  ```toml\n  [complex-shortcuts]\n  alt-h = { action = \"focus-left\", repeat = true }\n  alt-j = { action = \"focus-down\", repeat = true }\n  alt-k = { action = \"focus-up\", repeat = true }\n  alt-l = { action = \"focus-right\", repeat = true }\n  ```\n\nThe default is `false`.\n"
+        },
+        "allow-locked": {
+          "type": "boolean",
+          "description": "Whether this shortcut will be executed even if the screen is locked.\n\n- Example:\n\n  ```toml\n  [complex-shortcuts]\n  XF86AudioRaiseVolume = {\n      action.type = \"exec\",\n      action.exec.shell = \"pactl set-sink-volume 0 +10%\",\n      repeat = true,\n      allow-locked = true,\n  }\n  XF86AudioLowerVolume = {\n      action.type = \"exec\",\n      action.exec.shell = \"pactl set-sink-volume 0 -10%\",\n      repeat = true,\n      allow-locked = true,\n  }\n  ```\n\nThe default is `false`.\n"
         }
       },
       "required": []

@@ -207,6 +207,7 @@ pub struct State {
     pub none_surface_ext: Rc<NoneSurfaceExt>,
     pub tree_changed_sent: Cell<bool>,
     pub config: CloneCell<Option<Rc<ConfigProxy>>>,
+    pub config_locked_shortcuts: Cell<bool>,
     pub theme: Theme,
     pub pending_container_layout: AsyncQueue<Rc<ContainerNode>>,
     pub pending_container_render_positions: AsyncQueue<Rc<ContainerNode>>,
@@ -2078,6 +2079,7 @@ impl State {
                 seat.clear_shortcuts();
             }
         }
+        self.config_locked_shortcuts.set(false);
         config.configure(true);
         let config = Rc::new(config);
         self.config.set(Some(config.clone()));

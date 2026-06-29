@@ -3931,6 +3931,7 @@ impl ConfigProxyHandler {
             } => self
                 .handle_set_shortcut_repeat(seat, mods, sym, repeat)
                 .wrn("set_shortcut_repeat")?,
+            ClientMessage::EnableLockedShortcuts => self.state.config_locked_shortcuts.set(true),
         }
         Ok(())
     }

@@ -3640,6 +3640,31 @@ ComplexShortcut:
           ```
 
         The default is `false`.
+    allow-locked:
+      kind: boolean
+      required: false
+      description: |
+        Whether this shortcut will be executed even if the screen is locked.
+        
+        - Example:
+        
+          ```toml
+          [complex-shortcuts]
+          XF86AudioRaiseVolume = {
+              action.type = "exec",
+              action.exec.shell = "pactl set-sink-volume 0 +10%",
+              repeat = true,
+              allow-locked = true,
+          }
+          XF86AudioLowerVolume = {
+              action.type = "exec",
+              action.exec.shell = "pactl set-sink-volume 0 -10%",
+              repeat = true,
+              allow-locked = true,
+          }
+          ```
+
+        The default is `false`.
 
 
 Vrr:

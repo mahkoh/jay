@@ -1766,6 +1766,32 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `allow-locked` (optional):
+
+  Whether this shortcut will be executed even if the screen is locked.
+  
+  - Example:
+  
+    ```toml
+    [complex-shortcuts]
+    XF86AudioRaiseVolume = {
+        action.type = "exec",
+        action.exec.shell = "pactl set-sink-volume 0 +10%",
+        repeat = true,
+        allow-locked = true,
+    }
+    XF86AudioLowerVolume = {
+        action.type = "exec",
+        action.exec.shell = "pactl set-sink-volume 0 -10%",
+        repeat = true,
+        allow-locked = true,
+    }
+    ```
+  
+  The default is `false`.
+
+  The value of this field should be a boolean.
+
 
 <a name="types-Config"></a>
 ### `Config`
