@@ -1318,6 +1318,9 @@ impl State {
     pub fn set_locked(self: &Rc<Self>, locked: bool) {
         self.lock.locked[LiveTL].set(locked);
         self.add_transaction_op(StateTransactionOp::SetLocked(locked));
+        if let Some(config) = self.config.get() {
+            config.locked(locked);
+        }
     }
 
     pub fn do_unlock(self: &Rc<Self>) {
@@ -2076,7 +2079,11 @@ impl State {
             }
         }
         config.configure(true);
-        self.config.set(Some(Rc::new(config)));
+        let config = Rc::new(config);
+        self.config.set(Some(config.clone()));
+        if self.lock.locked[LiveTL].get() {
+            config.locked(true);
+        }
     }
 
     pub fn set_ei_socket_enabled(self: &Rc<Self>, enabled: bool) {
