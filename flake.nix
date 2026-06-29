@@ -56,25 +56,7 @@
 
           src = lib.fileset.toSource {
             root = ./.;
-            fileset = lib.fileset.unions [
-              ./algorithms
-              ./build
-              ./Cargo.lock
-              ./Cargo.toml
-              ./etc
-              ./jay-config
-              ./jay-proc
-              ./rustfmt.toml
-              ./src
-              ./toml-config
-              ./toml-spec
-              ./wire
-              ./wire-dbus
-              ./wire-ei
-              ./wire-to-xml
-              ./wire-xcon
-              ./xml-to-wire
-            ];
+            fileset = lib.fileset.gitTracked ./.;
           };
 
           cargoLock = {
