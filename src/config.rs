@@ -309,6 +309,7 @@ impl ConfigProxy {
                 ServerFeature::SHOW_WORKSPACE_3,
                 ServerFeature::SHOW_WORKSPACE_4,
                 ServerFeature::PARSE_KEYMAP_2,
+                ServerFeature::LOCKED_SHORTCUTS,
             ],
         });
         self.send(&ServerMessage::Configure { reload });

@@ -88,6 +88,7 @@ struct KeyHandler {
     cb_mask: Modifiers,
     cb: Option<Callback>,
     latched: Vec<Box<dyn FnOnce()>>,
+    locked: bool,
 }
 
 pub(crate) struct ConfigClient {
@@ -122,12 +123,14 @@ pub(crate) struct ConfigClient {
     pressed_keysym: Cell<Option<KeySym>>,
     client_match_handlers: RefCell<HashMap<ClientMatcher, ClientMatchHandler>>,
     window_match_handlers: RefCell<HashMap<WindowMatcher, WindowMatchHandler>>,
+    locked: Cell<bool>,
 
     feat_mod_mask: Cell<bool>,
     feat_show_workspace_on: Cell<bool>,
     feat_show_workspace_3: Cell<bool>,
     feat_show_workspace_4: Cell<bool>,
     feat_parse_keymap_2: Cell<bool>,
+    feat_locked_shortcuts: Cell<bool>,
 }
 
 struct ClientMatchHandler {
@@ -272,11 +275,13 @@ pub unsafe extern "C" fn init(
         pressed_keysym: Cell::new(None),
         client_match_handlers: Default::default(),
         window_match_handlers: Default::default(),
+        locked: Default::default(),
         feat_mod_mask: Cell::new(false),
         feat_show_workspace_on: Cell::new(false),
         feat_show_workspace_3: Cell::new(false),
         feat_show_workspace_4: Cell::new(false),
         feat_parse_keymap_2: Cell::new(false),
+        feat_locked_shortcuts: Cell::new(false),
     });
     let init = unsafe { slice::from_raw_parts(init, size) };
     client.handle_init_msg(init);
@@ -1627,6 +1632,7 @@ impl ConfigClient {
                         registered_mask: mods,
                         cb: None,
                         latched: vec![f],
+                        locked: false,
                     });
                     true
                 }
@@ -1658,6 +1664,7 @@ impl ConfigClient {
                     let o = o.get_mut();
                     o.cb = Some(cb);
                     o.cb_mask = mod_mask;
+                    o.locked = false;
                     let register = o.latched.is_empty() && o.registered_mask != o.cb_mask;
                     if register {
                         o.registered_mask = o.cb_mask;
@@ -1670,6 +1677,7 @@ impl ConfigClient {
                         registered_mask: mod_mask,
                         cb: Some(cb),
                         latched: vec![],
+                        locked: false,
                     });
                     true
                 }
@@ -1701,6 +1709,12 @@ impl ConfigClient {
             sym: mod_sym.sym,
             repeat,
         });
+    }
+
+    pub fn set_bind_locked(&self, seat: Seat, mod_sym: ModifiedKeySym, locked: bool) {
+        if let Some(bind) = self.key_handlers.borrow_mut().get_mut(&(seat, mod_sym)) {
+            bind.locked = locked;
+        }
     }
 
     pub fn log(&self, level: LogLevel, msg: &str, file: Option<&str>, line: Option<u32>) {
@@ -2286,9 +2300,9 @@ impl ConfigClient {
                 } else {
                     None
                 };
-                (mem::take(&mut kh.latched), cb)
+                (mem::take(&mut kh.latched), cb, kh.locked)
             });
-        let Some((latched, handler)) = handler else {
+        let Some((latched, handler, locked)) = handler else {
             return;
         };
         let was_latched = !latched.is_empty();
@@ -2298,7 +2312,9 @@ impl ConfigClient {
         for latched in latched {
             ignore_panic("latch", latched);
         }
-        if let Some(handler) = handler {
+        if (locked || !self.locked.get())
+            && let Some(handler) = handler
+        {
             run_cb("shortcut", &handler, ());
         }
         self.pressed_keysym.set(None);
@@ -2444,8 +2460,12 @@ impl ConfigClient {
                         ServerFeature::SHOW_WORKSPACE_3 => self.feat_show_workspace_3.set(true),
                         ServerFeature::SHOW_WORKSPACE_4 => self.feat_show_workspace_4.set(true),
                         ServerFeature::PARSE_KEYMAP_2 => self.feat_parse_keymap_2.set(true),
+                        ServerFeature::LOCKED_SHORTCUTS => self.feat_locked_shortcuts.set(true),
                         _ => {}
                     }
+                }
+                if self.feat_locked_shortcuts.get() {
+                    self.send(&ClientMessage::EnableLockedShortcuts);
                 }
             }
             ServerMessage::SwitchEvent {
@@ -2508,6 +2528,7 @@ impl ConfigClient {
                 cb();
             }
             ServerMessage::Locked { locked } => {
+                self.locked.set(locked);
                 let handler = self.on_locked.borrow().clone();
                 if let Some(handler) = handler {
                     run_cb("locked", &handler, locked);

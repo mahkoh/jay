@@ -316,6 +316,15 @@ impl Seat {
         get!().set_repeat_bind(self, mod_sym.into(), repeat);
     }
 
+    /// Configures whether the given bind executes even if the screen is locked.
+    ///
+    /// The default is `false`.
+    ///
+    /// Binding resets the value to the default.
+    pub fn set_bind_allow_locked<T: Into<ModifiedKeySym>>(self, mod_sym: T, locked: bool) {
+        get!().set_bind_locked(self, mod_sym.into(), locked);
+    }
+
     /// Registers a callback to be executed when the currently pressed key is released.
     ///
     /// This should only be called in callbacks for key-press binds.

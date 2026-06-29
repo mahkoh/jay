@@ -67,6 +67,7 @@ impl Parser for ShortcutsParser<'_, '_, '_> {
                 mask: Modifiers(!0),
                 keysym,
                 repeat: false,
+                allow_locked: false,
                 action,
                 latch: None,
             });
@@ -133,11 +134,12 @@ impl Parser for ComplexShortcutParser<'_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (mod_mask_val, action_val, latch_val, repeat) = ext.extract((
+        let (mod_mask_val, action_val, latch_val, repeat, allow_locked) = ext.extract((
             opt(str("mod-mask")),
             opt(val("action")),
             opt(val("latch")),
             recover(opt(bol("repeat"))),
+            recover(opt(bol("allow-locked"))),
         ))?;
         let mod_mask = match mod_mask_val {
             None => Modifiers(!0),
@@ -164,6 +166,7 @@ impl Parser for ComplexShortcutParser<'_, '_> {
             mask: mod_mask,
             keysym: self.keysym,
             repeat: repeat.despan().unwrap_or(false),
+            allow_locked: allow_locked.despan().unwrap_or(false),
             action,
             latch,
         })

@@ -399,6 +399,8 @@ table. They support:
 - **`latch`** -- an action to run when the key is **released**.
 - **`repeat`** -- whether the action fires repeatedly while the key is held
   (defaults to `false`). See [Repeating shortcuts](#repeating-shortcuts).
+- **`allow-locked`** -- whether the shortcut fires even while the screen is
+  locked (defaults to `false`). See [Shortcuts while locked](#shortcuts-while-the-screen-is-locked).
 
 ### Volume keys regardless of modifiers
 
@@ -461,6 +463,32 @@ Repeating is only available on complex shortcuts; entries in the plain
 > A shortcut only repeats if the underlying key repeats according to the active
 > keymap. Keys that the keymap marks as non-repeating never trigger repeats,
 > even with `repeat = true`.
+
+### Shortcuts while the screen is locked
+
+By default, shortcuts do not fire while the [screen is locked](idle.md#screen-locking) --
+all keyboard input goes to the screen locker so it can read your password. Set
+`allow-locked = true` to let a shortcut fire even while locked. This is most
+useful for media keys such as volume and brightness control:
+
+```toml
+[complex-shortcuts]
+XF86AudioRaiseVolume = {
+    action.type = "exec",
+    action.exec.shell = "pactl set-sink-volume 0 +10%",
+    repeat = true,
+    allow-locked = true,
+}
+XF86AudioLowerVolume = {
+    action.type = "exec",
+    action.exec.shell = "pactl set-sink-volume 0 -10%",
+    repeat = true,
+    allow-locked = true,
+}
+```
+
+`allow-locked` is only available on complex shortcuts; entries in the plain
+`[shortcuts]` table never fire while locked.
 
 ## Marks
 

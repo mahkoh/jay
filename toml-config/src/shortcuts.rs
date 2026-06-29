@@ -38,6 +38,7 @@ pub type ConvertedShortcuts = AHashMap<ModifiedKeySym, ConvertedShortcut>;
 pub struct ConvertedShortcut {
     mask: Modifiers,
     repeat: bool,
+    allow_locked: bool,
     #[derivative(PartialEq(compare_with = "Rc::ptr_eq"))]
     shortcut: Rc<dyn Fn()>,
 }
@@ -52,6 +53,7 @@ enum ModeDiff {
         key: ModifiedKeySym,
         mask: Modifiers,
         repeat: bool,
+        allow_locked: bool,
         f: Rc<dyn Fn()>,
     },
     Unbind(ModifiedKeySym),
@@ -226,6 +228,7 @@ impl State {
         Some(ConvertedShortcut {
             mask: shortcut.mask,
             repeat: shortcut.repeat,
+            allow_locked: shortcut.allow_locked,
             shortcut: f,
         })
     }
@@ -241,12 +244,16 @@ impl State {
                     key,
                     mask,
                     repeat,
+                    allow_locked,
                     f,
                 } => {
                     let f = f.clone();
                     seat.bind_masked(*mask, *key, move || f());
                     if *repeat {
                         seat.set_repeat_bind(*key, true);
+                    }
+                    if *allow_locked {
+                        seat.set_bind_allow_locked(*key, true);
                     }
                 }
                 ModeDiff::Unbind(key) => {
@@ -274,6 +281,7 @@ impl State {
                             key: *key,
                             mask: sc.mask,
                             repeat: sc.repeat,
+                            allow_locked: sc.allow_locked,
                             f: sc.shortcut.clone(),
                         });
                     }

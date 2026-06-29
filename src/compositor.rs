@@ -283,6 +283,7 @@ fn start_compositor2(
         none_surface_ext: Rc::new(NoneSurfaceExt),
         tree_changed_sent: Cell::new(false),
         config: Default::default(),
+        config_locked_shortcuts: Default::default(),
         input_device_ids: Default::default(),
         input_device_handlers: Default::default(),
         theme: Default::default(),
