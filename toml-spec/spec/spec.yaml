@@ -3442,6 +3442,10 @@ Config:
         Sets the size of the cursor theme.
 
         Default: 16.
+    device-config-filter:
+      ref: DeviceConfigFilter
+      required: false
+      description: Determines which devices are automatically configured.
 
 
 Idle:
@@ -5115,3 +5119,21 @@ ScrollMethod:
     The scroll method to apply to an input device.
     
     See the libinput documentation for more details.
+
+
+DeviceConfigFilter:
+  kind: string
+  description: A filter to apply before device configuration.
+  values:
+    - value: new
+      description: |
+        Only new devices are automatically configured.
+        
+        This is the default.
+    - value: all
+      description: |
+        All devices are automatically configured whenever they appear or the config is
+        reloaded.
+        
+        Reloading the config undoes all changes made on the command line or in the control
+        center.

@@ -1296,6 +1296,10 @@
         "cursor-size": {
           "type": "integer",
           "description": "Sets the size of the cursor theme.\n\nDefault: 16.\n"
+        },
+        "device-config-filter": {
+          "description": "Determines which devices are automatically configured.",
+          "$ref": "#/$defs/DeviceConfigFilter"
         }
       },
       "required": []
@@ -1371,6 +1375,14 @@
             "$ref": "#/$defs/ContentTypeMask"
           }
         }
+      ]
+    },
+    "DeviceConfigFilter": {
+      "type": "string",
+      "description": "A filter to apply before device configuration.",
+      "enum": [
+        "new",
+        "all"
       ]
     },
     "Direction": {

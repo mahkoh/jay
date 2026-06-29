@@ -159,7 +159,13 @@ impl Parser for ConfigParser<'_, '_> {
                 clean_logs_older_than_val,
                 mouse_follows_focus,
             ),
-            (session_management_val, workspaces_val, transactions_val, cursor_size),
+            (
+                session_management_val,
+                workspaces_val,
+                transactions_val,
+                cursor_size,
+                device_config_filter,
+            ),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -226,6 +232,7 @@ impl Parser for ConfigParser<'_, '_> {
                 opt(val("workspaces")),
                 opt(val("transactions")),
                 recover(opt(s32("cursor-size"))),
+                recover(opt(str("device-config-filter"))),
             ),
         ))?;
         let mut keymap = None;
@@ -607,6 +614,19 @@ impl Parser for ConfigParser<'_, '_> {
                 }
             }
         }
+        let mut configure_all_devices = false;
+        if let Some(value) = device_config_filter {
+            match value.value {
+                "new" => {}
+                "all" => configure_all_devices = true,
+                _ => {
+                    log::warn!(
+                        "Unknown device-config-filter: {}",
+                        self.0.error3(value.span),
+                    );
+                }
+            }
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -660,6 +680,7 @@ impl Parser for ConfigParser<'_, '_> {
             mouse_follows_focus: mouse_follows_focus.despan(),
             transactions,
             cursor_size: cursor_size.despan(),
+            configure_all_devices,
         })
     }
 }

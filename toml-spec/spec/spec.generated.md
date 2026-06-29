@@ -2651,6 +2651,12 @@ The table has the following fields:
 
   The numbers should be integers.
 
+- `device-config-filter` (optional):
+
+  Determines which devices are automatically configured.
+
+  The value of this field should be a [DeviceConfigFilter](#types-DeviceConfigFilter).
+
 
 <a name="types-Connector"></a>
 ### `Connector`
@@ -2781,6 +2787,31 @@ The string should have one of the following values:
 An array of masks that are OR'd.
 
 Each element of this array should be a [ContentTypeMask](#types-ContentTypeMask).
+
+
+<a name="types-DeviceConfigFilter"></a>
+### `DeviceConfigFilter`
+
+A filter to apply before device configuration.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `new`:
+
+  Only new devices are automatically configured.
+  
+  This is the default.
+
+- `all`:
+
+  All devices are automatically configured whenever they appear or the config is
+  reloaded.
+  
+  Reloading the config undoes all changes made on the command line or in the control
+  center.
+
 
 
 <a name="types-Direction"></a>

@@ -53,6 +53,35 @@ enabled = false
 The control center's **Compositor** pane has a **Session Management** toggle
 that flips this setting at runtime.
 
+## Device Configuration Filter
+
+Determines which devices Jay automatically configures from `config.toml`. This
+applies to connectors, outputs, GPUs, and input devices alike.
+
+```toml
+device-config-filter = "new"  # default
+```
+
+`new`
+: Only newly appearing devices are configured. A matching `[[outputs]]`,
+  `[[connectors]]`, `[[inputs]]`, or `[[drm-devices]]` entry is applied the
+  first time each device appears, but not again afterwards. Changes made at
+  runtime with the CLI, the control center, or `configure-*` actions are
+  preserved across configuration reloads. This is the default.
+
+`all`
+: Every matching device is configured whenever it appears **and** every time
+  the configuration is reloaded.
+
+```toml
+device-config-filter = "all"
+```
+
+> [!WARNING]
+> With `"all"`, reloading the configuration re-applies the file to all devices
+> and therefore discards any changes you made at runtime via the CLI or the
+> control center.
+
 ## Libei
 
 [libei](https://gitlab.freedesktop.org/libinput/libei) allows applications to

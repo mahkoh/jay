@@ -605,6 +605,7 @@ pub struct Config {
     pub mouse_follows_focus: Option<bool>,
     pub transactions: Option<Transactions>,
     pub cursor_size: Option<i32>,
+    pub configure_all_devices: bool,
 }
 
 #[derive(Debug, Error)]
