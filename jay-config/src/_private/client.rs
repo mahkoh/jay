@@ -111,6 +111,7 @@ pub(crate) struct ConfigClient {
     on_idle: RefCell<Option<Callback>>,
     on_switch_event: RefCell<HashMap<InputDevice, Callback<SwitchEvent>>>,
     on_unload: Cell<Option<OnDrop<Box<dyn FnOnce()>>>>,
+    on_locked: RefCell<Option<Callback<bool>>>,
     bufs: RefCell<Vec<Vec<u8>>>,
     reload: Cell<bool>,
     read_interests: RefCell<HashMap<PollableId, Interest>>,
@@ -260,6 +261,7 @@ pub unsafe extern "C" fn init(
         on_idle: Default::default(),
         on_switch_event: Default::default(),
         on_unload: Default::default(),
+        on_locked: Default::default(),
         bufs: Default::default(),
         reload: Cell::new(false),
         read_interests: Default::default(),
@@ -1339,6 +1341,10 @@ impl ConfigClient {
 
     pub fn on_devices_enumerated<F: FnOnce() + 'static>(&self, f: F) {
         self.on_devices_enumerated.set(Some(Box::new(f)));
+    }
+
+    pub fn on_locked<F: FnMut(bool) + 'static>(&self, f: F) {
+        *self.on_locked.borrow_mut() = Some(cb(f));
     }
 
     pub fn config_dir(&self) -> String {
@@ -2500,6 +2506,12 @@ impl ConfigClient {
                     cb
                 };
                 cb();
+            }
+            ServerMessage::Locked { locked } => {
+                let handler = self.on_locked.borrow().clone();
+                if let Some(handler) = handler {
+                    run_cb("locked", &handler, locked);
+                }
             }
         }
     }

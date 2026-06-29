@@ -571,3 +571,11 @@ pub fn set_transaction_timeout(timeout: Duration) {
 pub fn set_configure_timeout(timeout: Duration) {
     get!().set_configure_timeout(timeout);
 }
+
+/// Sets the callback to be called when the screen is locked or unlocked.
+///
+/// When the config is reloaded and the screen is already locked, this callback is called
+/// immediately after the initial configuration.
+pub fn on_locked<F: FnMut(bool) + 'static>(f: F) {
+    get!().on_locked(f)
+}

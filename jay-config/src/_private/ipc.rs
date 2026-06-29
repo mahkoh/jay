@@ -119,6 +119,9 @@ pub enum ServerMessage {
         matcher: WindowMatcher,
         window: Window,
     },
+    Locked {
+        locked: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

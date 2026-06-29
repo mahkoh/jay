@@ -169,6 +169,10 @@ impl ConfigProxy {
         self.send(&ServerMessage::Idle);
     }
 
+    pub fn locked(&self, locked: bool) {
+        self.send(&ServerMessage::Locked { locked });
+    }
+
     pub fn switch_event(&self, seat: SeatId, input_device: InputDeviceId, event: SwitchEvent) {
         self.send(&ServerMessage::SwitchEvent {
             seat: Seat(seat.raw() as _),
