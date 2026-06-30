@@ -141,6 +141,28 @@ scale = 1.5
 
 Common values: `1.0` (no scaling), `1.25`, `1.5`, `2.0`.
 
+## Scaling Filter
+
+Choose how textures are filtered when they are scaled to the output:
+
+`linear`
+: Bilinear filtering, producing smooth results. This is the default.
+
+`nearest`
+: Nearest-neighbor filtering, producing sharp, blocky results. Useful for
+  pixel art and retro games where you want to preserve hard pixel edges.
+
+```toml
+[[outputs]]
+match.serial-number = "33K03894SL0"
+scaling-filter = "nearest"
+```
+
+> [!NOTE]
+> Nearest filtering usually only looks good when the scale is an integer (for
+> example `1.0` or `2.0`). With a fractional scale such as `1.5`, source pixels
+> map unevenly onto output pixels, producing uneven pixel sizes.
+
 ## Transform
 
 Rotate or flip the output. The available values are:

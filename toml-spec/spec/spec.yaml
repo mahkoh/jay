@@ -2300,6 +2300,11 @@ Output:
       required: false
       description: |
         The scale of the output.
+    scaling-filter:
+      ref: ScalingFilter
+      required: false
+      description: |
+        The scaling filter of the output.
     transform:
       ref: Transform
       required: false
@@ -5137,3 +5142,13 @@ DeviceConfigFilter:
         
         Reloading the config undoes all changes made on the command line or in the control
         center.
+
+
+ScalingFilter:
+  kind: string
+  description: A scaling filter.
+  values:
+    - value: linear
+      description: Linear filtering.
+    - value: nearest
+      description: Nearest filtering.

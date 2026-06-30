@@ -4,7 +4,7 @@ use {
         control_center::CCI_INPUT,
         cursor::{Cursor, DEFAULT_CURSOR_SIZE, KnownCursor},
         fixed::Fixed,
-        gfx_api::{AcquireSync, ReleaseSync, ScalingFilter},
+        gfx_api::{AcquireSync, ReleaseSync},
         rect::Rect,
         state::State,
         tree::{OutputNode, TreeTimeline::LiveTL, WorkspaceNode},
@@ -537,7 +537,7 @@ impl CursorUser {
                 cursor.deref(),
                 &self.group.state,
                 scale,
-                ScalingFilter::Linear,
+                output.global.persistent.scaling_filter.get(),
                 transform,
                 &cd,
             );

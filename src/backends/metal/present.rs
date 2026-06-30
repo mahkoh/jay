@@ -10,7 +10,7 @@ use {
         cmm::cmm_description::ColorDescription,
         gfx_api::{
             AcquireSync, BufferResv, DirectScanoutPosition, GfxRenderPass, GfxTexture, LazyTexture,
-            ReleaseSync, ScalingFilter, SyncFile, TextureUse, create_render_pass,
+            ReleaseSync, SyncFile, TextureUse, create_render_pass,
         },
         ifs::wl_output::BlendSpace,
         rect::Region,
@@ -607,7 +607,7 @@ impl MetalConnector {
             &self.state,
             Some(node.node_state[RenderTL].pos.get()),
             node.node_state[RenderTL].scale.get(),
-            ScalingFilter::Linear,
+            node.global.persistent.scaling_filter.get(),
             true,
             render_hw_cursor,
             node.has_fullscreen(RenderTL),

@@ -518,7 +518,7 @@ impl OutputNode {
                             wl_buffer.format,
                             self.node_state[RenderTL].transform.get(),
                             self.node_state[RenderTL].scale.get(),
-                            ScalingFilter::Linear,
+                            self.global.persistent.scaling_filter.get(),
                         );
                         match res {
                             Ok(p) => {
@@ -560,7 +560,7 @@ impl OutputNode {
                             size,
                             self.node_state[RenderTL].transform.get(),
                             self.node_state[RenderTL].scale.get(),
-                            ScalingFilter::Linear,
+                            self.global.persistent.scaling_filter.get(),
                         );
                         if let Err(e) = res {
                             log::warn!("Could not perform screencopy: {}", ErrorFmt(e));
@@ -641,6 +641,24 @@ impl OutputNode {
         for head in self.global.connector.wlr_output_heads.lock().values() {
             head.handle_new_scale(scale);
         }
+    }
+
+    pub fn set_scaling_filter(self: &Rc<Self>, scaling_filter: ScalingFilter) {
+        let old = self
+            .global
+            .persistent
+            .scaling_filter
+            .replace(scaling_filter);
+        if old == scaling_filter {
+            return;
+        }
+        self.global
+            .connector
+            .head_manager
+            .handle_scaling_filter_change(scaling_filter);
+        self.state.trigger_cci(CCI_OUTPUTS);
+        self.state.damage(self.node_state[RenderTL].pos.get());
+        self.damage_hardware_cursor(true);
     }
 
     pub fn schedule_update_render_data(self: &Rc<Self>) {
@@ -2692,6 +2710,13 @@ impl OutputNodeOrPersistent {
         match self {
             OutputNodeOrPersistent::Node(n) => n.set_preferred_scale(scale),
             OutputNodeOrPersistent::Persistent(p) => p.scale.set(scale),
+        }
+    }
+
+    pub fn set_scaling_filter(&self, scaling_filter: ScalingFilter) {
+        match self {
+            OutputNodeOrPersistent::Node(n) => n.set_scaling_filter(scaling_filter),
+            OutputNodeOrPersistent::Persistent(p) => p.scaling_filter.set(scaling_filter),
         }
     }
 

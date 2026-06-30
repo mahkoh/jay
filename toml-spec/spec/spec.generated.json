@@ -2041,6 +2041,10 @@
           "description": "The scale of the output.\n",
           "exclusiveMinimum": 0.0
         },
+        "scaling-filter": {
+          "description": "The scaling filter of the output.\n",
+          "$ref": "#/$defs/ScalingFilter"
+        },
         "transform": {
           "description": "The transform of the output.\n",
           "$ref": "#/$defs/Transform"
@@ -2174,6 +2178,14 @@
         }
       },
       "required": []
+    },
+    "ScalingFilter": {
+      "type": "string",
+      "description": "A scaling filter.",
+      "enum": [
+        "linear",
+        "nearest"
+      ]
     },
     "ScrollMethod": {
       "type": "string",

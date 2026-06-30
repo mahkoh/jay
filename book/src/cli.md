@@ -242,6 +242,14 @@ Set the scale (fractional scaling supported):
 ~$ jay randr output DP-1 scale --round-to-float 1.333
 ```
 
+Set the scaling filter (`linear` for smooth scaling, `nearest` for sharp,
+blocky scaling):
+
+```shell
+~$ jay randr output DP-1 scaling-filter linear
+~$ jay randr output DP-1 scaling-filter nearest
+```
+
 Set the mode (width, height, refresh rate in Hz):
 
 ```shell

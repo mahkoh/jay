@@ -189,8 +189,10 @@ impl JayScreencast {
             return;
         };
         let mut scale = Scale::default();
+        let mut scaling_filter = ScalingFilter::Linear;
         if let Some(o) = tl.tl_data().output_opt(RenderTL) {
             scale = o.node_state[RenderTL].scale.get();
+            scaling_filter = o.global.persistent.scaling_filter.get();
         }
         let mut buffer = self.buffers.borrow_mut();
         for (idx, buffer) in buffer.deref_mut().iter_mut().enumerate() {
@@ -203,7 +205,7 @@ impl JayScreencast {
                     &self.client.state,
                     Some(tl.node_absolute_position(RenderTL)),
                     scale,
-                    ScalingFilter::Linear,
+                    scaling_filter,
                     true,
                     true,
                     false,
@@ -358,7 +360,7 @@ impl JayScreencast {
                     size,
                     on.node_state[RenderTL].transform.get(),
                     on.node_state[RenderTL].scale.get(),
-                    ScalingFilter::Linear,
+                    on.global.persistent.scaling_filter.get(),
                 );
                 match res {
                     Ok(_) => {

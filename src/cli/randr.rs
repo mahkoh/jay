@@ -10,6 +10,7 @@ use {
         },
         cmm::cmm_primaries::Primaries,
         format::{Format, XRGB8888},
+        gfx_api::ScalingFilter,
         ifs::wl_output::BlendSpace,
         scale::Scale,
         tools::tool_client::{Handle, ToolClient, with_tool_client},
@@ -23,7 +24,7 @@ use {
     },
     derivative::Derivative,
     isnt::std_1::vec::IsntVecExt,
-    jay_config::video::{TearingMode, VrrMode},
+    jay_config::video::{ScalingFilter as ConfigScalingFilter, TearingMode, VrrMode},
     linearize::LinearizeExt,
     std::{
         cell::RefCell,
@@ -152,6 +153,8 @@ pub enum OutputCommand {
     Transform(TransformArgs),
     /// Modify the scale of the output.
     Scale(ScaleArgs),
+    /// Modify the scaling filter of the output.
+    ScalingFilter(ScalingFilterArgs),
     /// Modify the mode of the output.
     Mode(ModeArgs),
     /// Modify the position of the output.
@@ -330,6 +333,20 @@ pub struct ScaleArgs {
     pub round_to_float: bool,
     /// The new scale.
     pub scale: f64,
+}
+
+#[derive(ValueEnum, Debug, Clone)]
+pub enum CliScalingFilter {
+    /// Linear scaling.
+    Linear,
+    /// Nearest scaling.
+    Nearest,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct ScalingFilterArgs {
+    /// The scaling filter.
+    scaling_filter: CliScalingFilter,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -559,6 +576,7 @@ struct Output {
     pub native_gamut: Option<Primaries>,
     pub use_native_gamut: bool,
     pub arbitrary_modes: bool,
+    pub scaling_filter: Option<ScalingFilter>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -876,6 +894,19 @@ impl Randr {
                     use_native_gamut: a.use_native_gamut as _,
                 });
             }
+            OutputCommand::ScalingFilter(a) => {
+                self.handle_error(randr, move |msg| {
+                    eprintln!("Could not change the scaling filter: {}", msg,);
+                });
+                tc.send(jay_randr::SetScalingFilter {
+                    self_id: randr,
+                    output: &args.output,
+                    scaling_filter: match a.scaling_filter {
+                        CliScalingFilter::Linear => ConfigScalingFilter::LINEAR.0,
+                        CliScalingFilter::Nearest => ConfigScalingFilter::NEAREST.0,
+                    },
+                });
+            }
         }
         tc.round_trip().await;
     }
@@ -1120,6 +1151,9 @@ impl Randr {
         }
         if o.scale != 1.0 {
             println!("        scale: {}", o.scale);
+        }
+        if let Some(v) = &o.scaling_filter {
+            println!("        scaling filter: {}", v.text());
         }
         if o.transform != Transform::None {
             println!("        transform: {}", o.transform.text());
@@ -1392,6 +1426,13 @@ impl Randr {
             let output = c.output.as_mut().unwrap();
             output.arbitrary_modes = true;
         });
+        jay_randr::ScalingFilter::handle(tc, randr, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            let c = data.connectors.last_mut().unwrap();
+            let output = c.output.as_mut().unwrap();
+            output.scaling_filter =
+                ScalingFilter::from_config(ConfigScalingFilter(msg.scaling_filter));
+        });
         tc.round_trip().await;
         data.borrow_mut().clone()
     }
@@ -1418,6 +1459,7 @@ fn make_json_connector(c: &Connector) -> JsonConnector<'_> {
             height_mm: o.height_mm,
             non_desktop: o.non_desktop,
             scale: o.scale,
+            scaling_filter: o.scaling_filter.map(|f| f.text()),
             x: o.x,
             y: o.y,
             width: o.width,

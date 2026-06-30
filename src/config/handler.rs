@@ -16,6 +16,7 @@ use {
         },
         evdev::input_event_codes::InputEventCode,
         format::config_formats,
+        gfx_api::ScalingFilter,
         ifs::{
             wl_output::{BlendSpace, PersistentOutputState},
             wl_seat::{SeatId, WlSeatGlobal},
@@ -78,8 +79,8 @@ use {
         timer::Timer as JayTimer,
         video::{
             BlendSpace as ConfigBlendSpace, ColorSpace, Connector, DrmDevice, Eotf as ConfigEotf,
-            Format as ConfigFormat, GfxApi, TearingMode as ConfigTearingMode, Transform,
-            VrrMode as ConfigVrrMode,
+            Format as ConfigFormat, GfxApi, ScalingFilter as ConfigScalingFilter,
+            TearingMode as ConfigTearingMode, Transform, VrrMode as ConfigVrrMode,
         },
         window::{TileState as ConfigTileState, Window, WindowMatcher},
         workspace::WorkspaceDisplayOrder,
@@ -1628,6 +1629,19 @@ impl ConfigProxyHandler {
         let scale = Scale::from_f64(scale);
         let connector = self.get_output_node_or_persistent(connector)?;
         connector.set_preferred_scale(scale);
+        Ok(())
+    }
+
+    fn handle_connector_set_scaling_filter(
+        &self,
+        connector: Connector,
+        scaling_filter: ConfigScalingFilter,
+    ) -> Result<(), CphError> {
+        let Some(scaling_filter) = ScalingFilter::from_config(scaling_filter) else {
+            return Err(CphError::UnknownScalingFilter(scaling_filter));
+        };
+        let connector = self.get_output_node_or_persistent(connector)?;
+        connector.set_scaling_filter(scaling_filter);
         Ok(())
     }
 
@@ -3932,6 +3946,12 @@ impl ConfigProxyHandler {
                 .handle_set_shortcut_repeat(seat, mods, sym, repeat)
                 .wrn("set_shortcut_repeat")?,
             ClientMessage::EnableLockedShortcuts => self.state.config_locked_shortcuts.set(true),
+            ClientMessage::ConnectorSetScalingFilter {
+                connector,
+                scaling_filter,
+            } => self
+                .handle_connector_set_scaling_filter(connector, scaling_filter)
+                .wrn("set_scaling_filter")?,
         }
         Ok(())
     }
@@ -4103,6 +4123,8 @@ enum CphError {
     UnknownScrollMethod(ScrollMethod),
     #[error("Tried to set an unknown scroll button: {}", (.0).0)]
     UnknownScrollButton(ConfigInputEventCode),
+    #[error("Tried to set an unknown scaling filter: {}", (.0).0)]
+    UnknownScalingFilter(ConfigScalingFilter),
 }
 
 trait WithRequestName {

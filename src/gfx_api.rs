@@ -39,7 +39,7 @@ use {
     },
     ahash::AHashMap,
     indexmap::{IndexMap, IndexSet},
-    jay_config::video::GfxApi as ConfigGfxApi,
+    jay_config::video::{GfxApi as ConfigGfxApi, ScalingFilter as ConfigScalingFilter},
     linearize::Linearize,
     std::{
         any::Any,
@@ -334,6 +334,24 @@ impl StaticText for ScalingFilter {
             ScalingFilter::Linear => "linear",
             ScalingFilter::Nearest => "nearest",
         }
+    }
+}
+
+impl ScalingFilter {
+    pub fn to_config(self) -> ConfigScalingFilter {
+        match self {
+            ScalingFilter::Linear => ConfigScalingFilter::LINEAR,
+            ScalingFilter::Nearest => ConfigScalingFilter::NEAREST,
+        }
+    }
+
+    pub fn from_config(v: ConfigScalingFilter) -> Option<Self> {
+        let v = match v {
+            ConfigScalingFilter::LINEAR => ScalingFilter::Linear,
+            ConfigScalingFilter::NEAREST => ScalingFilter::Nearest,
+            _ => return None,
+        };
+        Some(v)
     }
 }
 
@@ -712,7 +730,7 @@ impl dyn GfxFramebuffer {
             state,
             cursor_rect,
             scale,
-            ScalingFilter::Linear,
+            node.global.persistent.scaling_filter.get(),
             true,
             render_hardware_cursor,
             node.has_fullscreen(RenderTL),

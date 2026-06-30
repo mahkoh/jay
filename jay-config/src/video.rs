@@ -371,6 +371,13 @@ impl Connector {
     pub fn set_use_native_gamut(self, use_native_gamut: bool) {
         get!().connector_set_use_native_gamut(self, use_native_gamut);
     }
+
+    /// Sets the scaling filter of the output.
+    ///
+    /// The default is [`ScalingFilter::LINEAR`]
+    pub fn set_scaling_filter(self, scaling_filter: ScalingFilter) {
+        get!().connector_set_scaling_filter(self, scaling_filter);
+    }
 }
 
 /// Returns all available DRM devices.
@@ -834,4 +841,15 @@ impl BlendSpace {
     /// The linear blend space performs blending in linear space, which is more physically
     /// correct but leads to much lighter output when blending light and dark colors.
     pub const LINEAR: Self = Self(1);
+}
+
+/// How textures are scaled.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct ScalingFilter(pub u32);
+
+impl ScalingFilter {
+    /// Bilinear filtering.
+    pub const LINEAR: Self = Self(0);
+    /// Nearest filtering.
+    pub const NEAREST: Self = Self(1);
 }

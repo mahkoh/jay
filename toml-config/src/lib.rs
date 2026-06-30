@@ -884,6 +884,9 @@ impl Output {
         if let Some(scale) = self.scale {
             c.set_scale(scale);
         }
+        if let Some(scaling_filter) = self.scaling_filter {
+            c.set_scaling_filter(scaling_filter);
+        }
         if let Some(transform) = self.transform {
             c.set_transform(transform);
         }

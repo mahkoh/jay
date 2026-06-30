@@ -2316,6 +2316,7 @@ impl State {
         Rc::new(PersistentOutputState {
             transform: Default::default(),
             scale: Default::default(),
+            scaling_filter: Default::default(),
             pos: Cell::new((x1, 0)),
             vrr_mode: Cell::new(self.default_vrr_mode.get()),
             vrr_cursor_hz: Cell::new(self.default_vrr_cursor_hz.get()),

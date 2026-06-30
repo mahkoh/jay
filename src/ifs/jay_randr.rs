@@ -4,7 +4,7 @@ use {
         client::{Client, ClientError},
         compositor::MAX_EXTENTS,
         format::named_formats,
-        gfx_api::GfxApi,
+        gfx_api::{self, GfxApi},
         ifs::wl_output,
         leaks::Tracker,
         object::{Object, Version},
@@ -14,7 +14,10 @@ use {
         utils::errorfmt::ErrorFmt,
         wire::{JayRandrId, jay_randr::*},
     },
-    jay_config::video::{TearingMode as ConfigTearingMode, VrrMode as ConfigVrrMode},
+    jay_config::video::{
+        ScalingFilter as ConfigScalingFilter, TearingMode as ConfigTearingMode,
+        VrrMode as ConfigVrrMode,
+    },
     linearize::LinearizeExt,
     std::{rc::Rc, slice},
     thiserror::Error,
@@ -37,6 +40,7 @@ const BRIGHTNESS_SINCE: Version = Version(16);
 const BLEND_SPACE_SINCE: Version = Version(21);
 const NATIVE_GAMUT_SINCE: Version = Version(23);
 const ARBITRARY_MODES_SINCE: Version = Version(29);
+const SCALING_FILTER_SINCE: Version = Version(37);
 
 impl JayRandr {
     pub fn new(id: JayRandrId, client: &Rc<Client>, version: Version) -> Self {
@@ -240,6 +244,12 @@ impl JayRandr {
         }
         if self.version >= ARBITRARY_MODES_SINCE && global.modes.is_none() {
             self.client.event(ArbitraryModes { self_id: self.id });
+        }
+        if self.version >= SCALING_FILTER_SINCE {
+            self.client.event(ScalingFilter {
+                self_id: self.id,
+                scaling_filter: global.persistent.scaling_filter.get().to_config().0,
+            });
         }
     }
 
@@ -619,6 +629,24 @@ impl JayRandrRequestHandler for JayRandr {
         self.state
             .virtual_outputs
             .remove_output(&self.state, req.name);
+        Ok(())
+    }
+
+    fn set_scaling_filter(
+        &self,
+        req: SetScalingFilter<'_>,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let Some(scaling_filter) =
+            gfx_api::ScalingFilter::from_config(ConfigScalingFilter(req.scaling_filter))
+        else {
+            self.send_error(&format!("Unknown scaling filter: {}", req.scaling_filter));
+            return Ok(());
+        };
+        let Some(c) = self.get_output_node(req.output) else {
+            return Ok(());
+        };
+        c.set_scaling_filter(scaling_filter);
         Ok(())
     }
 }

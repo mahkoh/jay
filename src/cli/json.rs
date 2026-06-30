@@ -174,6 +174,8 @@ pub struct JsonOutput<'a> {
     #[serde(skip_serializing_if = "is_false")]
     pub non_desktop: bool,
     pub scale: f64,
+    #[serde(skip_serializing_if = "is_none")]
+    pub scaling_filter: Option<&'a str>,
     pub x: i32,
     pub y: i32,
     pub width: i32,
