@@ -26,13 +26,13 @@ pub const GL_FLOAT: GLenum = 0x1406;
 pub const GL_FRAGMENT_SHADER: GLenum = 0x8B30;
 pub const GL_FRAMEBUFFER_COMPLETE: GLenum = 0x8CD5;
 pub const GL_FRAMEBUFFER: GLenum = 0x8D40;
+pub const GL_NEAREST: GLint = 0x2600;
 pub const GL_LINEAR: GLint = 0x2601;
 pub const GL_LINK_STATUS: GLenum = 0x8B82;
 pub const GL_RENDERBUFFER: GLenum = 0x8D41;
 pub const GL_TEXTURE0: GLenum = 0x84C0;
 pub const GL_TEXTURE_2D: GLenum = 0x0DE1;
 pub const GL_TEXTURE_EXTERNAL_OES: GLenum = 0x8D65;
-#[expect(dead_code)]
 pub const GL_TEXTURE_MAG_FILTER: GLenum = 0x2800;
 pub const GL_TEXTURE_MIN_FILTER: GLenum = 0x2801;
 pub const GL_TEXTURE_WRAP_S: GLenum = 0x2802;
