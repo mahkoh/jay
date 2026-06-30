@@ -2,7 +2,6 @@ use {
     crate::gfx_apis::vulkan::{
         VulkanError,
         device::{DescriptorBufferDevice, VulkanDevice},
-        sampler::VulkanSampler,
     },
     arrayvec::ArrayVec,
     ash::vk::{
@@ -17,7 +16,6 @@ pub(super) struct VulkanDescriptorSetLayout {
     pub(super) layout: DescriptorSetLayout,
     pub(super) size: DeviceSize,
     pub(super) offsets: ArrayVec<DeviceSize, 4>,
-    pub(super) _sampler: Option<Rc<VulkanSampler>>,
 }
 
 impl Drop for VulkanDescriptorSetLayout {
@@ -48,18 +46,14 @@ impl VulkanDevice {
             layout,
             size: 0,
             offsets: Default::default(),
-            _sampler: None,
         }))
     }
 
     pub(super) fn create_tex_sampler_descriptor_set_layout(
         self: &Rc<Self>,
-        sampler: &Rc<VulkanSampler>,
     ) -> Result<Rc<VulkanDescriptorSetLayout>, VulkanError> {
-        let immutable_sampler = [sampler.sampler];
         let binding = DescriptorSetLayoutBinding::default()
             .stage_flags(ShaderStageFlags::FRAGMENT)
-            .immutable_samplers(&immutable_sampler)
             .descriptor_count(1)
             .descriptor_type(DescriptorType::SAMPLER);
         let create_info = DescriptorSetLayoutCreateInfo::default()
@@ -81,7 +75,6 @@ impl VulkanDevice {
             layout,
             size,
             offsets,
-            _sampler: Some(sampler.clone()),
         }))
     }
 
@@ -130,7 +123,6 @@ impl VulkanDevice {
             layout,
             size,
             offsets,
-            _sampler: None,
         }))
     }
 }

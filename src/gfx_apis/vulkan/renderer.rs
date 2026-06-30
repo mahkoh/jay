@@ -68,7 +68,7 @@ use {
     },
     isnt::std_1::{collections::IsntHashMapExt, primitive::IsntSliceExt},
     jay_algorithms::rect::Tag,
-    linearize::{Linearize, LinearizeExt, StaticMap, static_map},
+    linearize::{Linearize, LinearizeExt, StaticCopyMap, StaticMap, static_map},
     std::{
         any::Any,
         borrow::Cow,
@@ -127,7 +127,7 @@ pub struct VulkanRenderer {
 
 pub(super) struct DescriptorBufferRenderer {
     pub(super) device: Rc<DescriptorBufferDevice>,
-    pub(super) sampler_descriptor: Box<[u8]>,
+    pub(super) sampler_descriptors: StaticMap<ScalingFilter, Box<[u8]>>,
     pub(super) sampler_descriptor_buffer_cache: Rc<VulkanBufferCache>,
     pub(super) resource_descriptor_buffer_cache: Rc<VulkanBufferCache>,
 }
@@ -197,6 +197,7 @@ pub(super) struct Memory {
     blend_buffer_inv_eotf_args_address: Option<DeviceSize>,
     fb_inv_eotf_args_address: Option<DeviceSize>,
     blend_buffer_descriptor_heap_offset: u32,
+    sampler_descriptor_buffer_offsets: StaticCopyMap<ScalingFilter, DeviceAddress>,
 }
 
 type Point = [[f32; 2]; 4];
@@ -314,11 +315,7 @@ impl VulkanDevice {
             out_vert_shader = Some(self.create_shader(OUT_VERT)?);
             out_frag_shader = Some(self.create_shader(OUT_FRAG)?);
             if self.descriptor_buffer.is_some() {
-                tex_descriptor_set_layouts.push(
-                    self.create_tex_sampler_descriptor_set_layout(
-                        &samplers[ScalingFilter::Linear],
-                    )?,
-                );
+                tex_descriptor_set_layouts.push(self.create_tex_sampler_descriptor_set_layout()?);
                 tex_descriptor_set_layouts.push(self.create_tex_resource_descriptor_set_layout()?);
             }
         } else {
@@ -392,10 +389,13 @@ impl VulkanDevice {
                 VulkanBufferCache::for_descriptor_buffer(self, &allocator, true);
             let resource_descriptor_buffer_cache =
                 VulkanBufferCache::for_descriptor_buffer(self, &allocator, false);
+            let sampler_descriptors = samplers
+                .each_ref()
+                .into_static_map()
+                .map_values(|s| db.create_sampler_descriptor(s.sampler));
             DescriptorBufferRenderer {
                 device: db.clone(),
-                sampler_descriptor: db
-                    .create_sampler_descriptor(samplers[ScalingFilter::Linear].sampler),
+                sampler_descriptors,
                 sampler_descriptor_buffer_cache,
                 resource_descriptor_buffer_cache,
             }
@@ -649,13 +649,18 @@ impl VulkanRenderer {
         let memory = &mut *self.memory.borrow_mut();
         let sampler_writer = &mut memory.sampler_descriptor_buffer_writer;
         sampler_writer.clear();
-        {
-            let mut writer = sampler_writer.add_set(&self.tex_descriptor_set_layouts[0]);
-            writer.write(
-                self.tex_descriptor_set_layouts[0].offsets[0],
-                &db.sampler_descriptor,
-            );
-        }
+        memory.sampler_descriptor_buffer_offsets =
+            db.sampler_descriptors
+                .each_ref()
+                .map_values(|sampler_descriptor| {
+                    let offset = sampler_writer.next_offset();
+                    let mut writer = sampler_writer.add_set(&self.tex_descriptor_set_layouts[0]);
+                    writer.write(
+                        self.tex_descriptor_set_layouts[0].offsets[0],
+                        sampler_descriptor,
+                    );
+                    offset
+                });
         let resource_writer = &mut memory.resource_descriptor_buffer_writer;
         resource_writer.clear();
         macro_rules! ub_descriptor_cache {
@@ -1520,7 +1525,10 @@ impl VulkanRenderer {
                                 pipeline.pipeline_layout,
                                 0,
                                 &[0, 1],
-                                &[0, c.resource_descriptor_buffer_offset],
+                                &[
+                                    memory.sampler_descriptor_buffer_offsets[c.scaling_filter],
+                                    c.resource_descriptor_buffer_offset,
+                                ],
                             );
                             dev.cmd_push_constants(
                                 buf,
