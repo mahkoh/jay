@@ -230,6 +230,7 @@ impl ExtImageCopyCaptureFrameV1 {
                 size,
                 transform,
                 on.node_state[RenderTL].scale.get(),
+                on.global.persistent.scaling_filter.get(),
             )
         });
     }
@@ -245,6 +246,7 @@ impl ExtImageCopyCaptureFrameV1 {
                 &self.client.state,
                 Some(node.node_absolute_position(RenderTL)),
                 scale,
+                on.global.persistent.scaling_filter.get(),
                 true,
                 true,
                 true,

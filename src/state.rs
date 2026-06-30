@@ -43,7 +43,7 @@ use {
         gfx_api::{
             AcquireSync, BufferResv, BufferResvUser, FdSync, GfxApi, GfxBlendBuffer, GfxContext,
             GfxError, GfxFramebuffer, GfxTexture, LazyTexture, PendingShmTransfer, ReleaseSync,
-            STAGING_DOWNLOAD, SampleRect,
+            STAGING_DOWNLOAD, SampleRect, ScalingFilter,
         },
         gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, RemovableWaylandGlobal, WaylandGlobal},
@@ -1445,12 +1445,7 @@ impl State {
 
     pub fn damage_hardware_cursors(&self, render: bool) {
         for output in self.root.outputs.lock().values() {
-            if let Some(hc) = output.hardware_cursor.get() {
-                if render {
-                    output.hardware_cursor_needs_render.set(true);
-                }
-                hc.damage();
-            }
+            output.damage_hardware_cursor(render);
         }
     }
 
@@ -1549,12 +1544,14 @@ impl State {
         size: Option<(i32, i32)>,
         transform: Transform,
         scale: Scale,
+        scaling_filter: ScalingFilter,
     ) -> Result<Option<FdSync>, GfxError> {
         let mut ops = vec![];
         let mut renderer = Renderer {
             base: target.renderer_base(
                 &mut ops,
                 scale,
+                scaling_filter,
                 target_transform,
                 self.color_manager.srgb_gamma22(),
             ),
@@ -1626,6 +1623,7 @@ impl State {
         format: &'static Format,
         transform: Transform,
         scale: Scale,
+        scaling_filter: ScalingFilter,
     ) -> Result<Option<PendingShmTransfer>, ShmScreencopyError> {
         let Some(ctx) = self.render_ctx.get() else {
             return Err(ShmScreencopyError::NoRenderContext);
@@ -1659,6 +1657,7 @@ impl State {
             size,
             transform,
             scale,
+            scaling_filter,
         )
         .map_err(ShmScreencopyError::CopyToTemporary)?;
         let staging = ctx.create_staging_buffer(fb.staging_size(), STAGING_DOWNLOAD);
@@ -2317,6 +2316,7 @@ impl State {
         Rc::new(PersistentOutputState {
             transform: Default::default(),
             scale: Default::default(),
+            scaling_filter: Default::default(),
             pos: Cell::new((x1, 0)),
             vrr_mode: Cell::new(self.default_vrr_mode.get()),
             vrr_cursor_hz: Cell::new(self.default_vrr_cursor_hz.get()),

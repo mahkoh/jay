@@ -14,7 +14,7 @@ use {
         cursor_user::{CursorUser, CursorUserId},
         damage::DamageMatrix,
         fixed::Fixed,
-        gfx_api::{AcquireSync, BufferResv, GfxTexture, LazyTexture, ReleaseSync},
+        gfx_api::{AcquireSync, BufferResv, GfxTexture, LazyTexture, ReleaseSync, ScalingFilter},
         ifs::{
             color_management::wp_color_management_output_v1::WpColorManagementOutputV1,
             ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
@@ -518,6 +518,7 @@ impl OutputNode {
                             wl_buffer.format,
                             self.node_state[RenderTL].transform.get(),
                             self.node_state[RenderTL].scale.get(),
+                            self.global.persistent.scaling_filter.get(),
                         );
                         match res {
                             Ok(p) => {
@@ -559,6 +560,7 @@ impl OutputNode {
                             size,
                             self.node_state[RenderTL].transform.get(),
                             self.node_state[RenderTL].scale.get(),
+                            self.global.persistent.scaling_filter.get(),
                         );
                         if let Err(e) = res {
                             log::warn!("Could not perform screencopy: {}", ErrorFmt(e));
@@ -639,6 +641,24 @@ impl OutputNode {
         for head in self.global.connector.wlr_output_heads.lock().values() {
             head.handle_new_scale(scale);
         }
+    }
+
+    pub fn set_scaling_filter(self: &Rc<Self>, scaling_filter: ScalingFilter) {
+        let old = self
+            .global
+            .persistent
+            .scaling_filter
+            .replace(scaling_filter);
+        if old == scaling_filter {
+            return;
+        }
+        self.global
+            .connector
+            .head_manager
+            .handle_scaling_filter_change(scaling_filter);
+        self.state.trigger_cci(CCI_OUTPUTS);
+        self.state.damage(self.node_state[RenderTL].pos.get());
+        self.damage_hardware_cursor(true);
     }
 
     pub fn schedule_update_render_data(self: &Rc<Self>) {
@@ -1280,10 +1300,7 @@ impl OutputNode {
 
     fn update_color_description(self: &Rc<Self>) {
         if self.update_color_description_() {
-            if let Some(hc) = self.hardware_cursor.get() {
-                self.hardware_cursor_needs_render.set(true);
-                hc.damage();
-            }
+            self.damage_hardware_cursor(true);
             for fb in self.color_description_listeners.lock().values() {
                 fb.send_image_description_changed();
             }
@@ -2120,6 +2137,15 @@ impl OutputNode {
         }
         self.add_transaction_op(OutputTransactionOp::Damage);
     }
+
+    pub fn damage_hardware_cursor(&self, render: bool) {
+        if let Some(hc) = self.hardware_cursor.get() {
+            if render {
+                self.hardware_cursor_needs_render.set(true);
+            }
+            hc.damage();
+        }
+    }
 }
 
 pub struct OutputTitle {
@@ -2684,6 +2710,13 @@ impl OutputNodeOrPersistent {
         match self {
             OutputNodeOrPersistent::Node(n) => n.set_preferred_scale(scale),
             OutputNodeOrPersistent::Persistent(p) => p.scale.set(scale),
+        }
+    }
+
+    pub fn set_scaling_filter(&self, scaling_filter: ScalingFilter) {
+        match self {
+            OutputNodeOrPersistent::Node(n) => n.set_scaling_filter(scaling_filter),
+            OutputNodeOrPersistent::Persistent(p) => p.scaling_filter.set(scaling_filter),
         }
     }
 

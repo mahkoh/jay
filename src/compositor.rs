@@ -773,6 +773,7 @@ fn create_dummy_output(state: &Rc<State>) {
         connected: false,
         transform: Transform::None,
         scale: Default::default(),
+        scaling_filter: Default::default(),
         wl_output: None,
         connector_enabled: true,
         in_compositor_space: false,

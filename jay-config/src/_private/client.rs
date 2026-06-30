@@ -29,8 +29,8 @@ use {
         theme::{BarPosition, Color, ContainerBorders, colors::Colorable, sized::Resizable},
         timer::Timer,
         video::{
-            BlendSpace, ColorSpace, Connector, DrmDevice, Eotf, Format, GfxApi, Mode, TearingMode,
-            Transform, VrrMode,
+            BlendSpace, ColorSpace, Connector, DrmDevice, Eotf, Format, GfxApi, Mode,
+            ScalingFilter, TearingMode, Transform, VrrMode,
             connector_type::{CON_UNKNOWN, ConnectorType},
         },
         window::{
@@ -1220,6 +1220,17 @@ impl ConfigClient {
         self.send(&ClientMessage::ConnectorSetUseNativeGamut {
             connector,
             use_native_gamut,
+        });
+    }
+
+    pub fn connector_set_scaling_filter(
+        &self,
+        connector: Connector,
+        scaling_filter: ScalingFilter,
+    ) {
+        self.send(&ClientMessage::ConnectorSetScalingFilter {
+            connector,
+            scaling_filter,
         });
     }
 

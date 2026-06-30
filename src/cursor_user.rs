@@ -537,6 +537,7 @@ impl CursorUser {
                 cursor.deref(),
                 &self.group.state,
                 scale,
+                output.global.persistent.scaling_filter.get(),
                 transform,
                 &cd,
             );

@@ -6,7 +6,7 @@ use {
         format::XRGB8888,
         gfx_api::{
             AcquireSync, BufferResv, GfxContext, GfxError, GfxFramebuffer, GfxTexture, LazyTexture,
-            ReleaseSync,
+            ReleaseSync, ScalingFilter,
         },
         ifs::{jay_output::JayOutput, jay_toplevel::JayToplevel, wl_buffer::WlBufferStorage},
         leaks::Tracker,
@@ -188,12 +188,12 @@ impl JayScreencast {
             log::warn!("Tried to perform window screencast for output screencast");
             return;
         };
-        let scale = match tl.tl_data().workspace[RenderTL].get() {
-            None => Scale::default(),
-            Some(w) => w.node_state[RenderTL].output.get().node_state[RenderTL]
-                .scale
-                .get(),
-        };
+        let mut scale = Scale::default();
+        let mut scaling_filter = ScalingFilter::Linear;
+        if let Some(o) = tl.tl_data().output_opt(RenderTL) {
+            scale = o.node_state[RenderTL].scale.get();
+            scaling_filter = o.global.persistent.scaling_filter.get();
+        }
         let mut buffer = self.buffers.borrow_mut();
         for (idx, buffer) in buffer.deref_mut().iter_mut().enumerate() {
             if buffer.free {
@@ -205,6 +205,7 @@ impl JayScreencast {
                     &self.client.state,
                     Some(tl.node_absolute_position(RenderTL)),
                     scale,
+                    scaling_filter,
                     true,
                     true,
                     false,
@@ -359,6 +360,7 @@ impl JayScreencast {
                     size,
                     on.node_state[RenderTL].transform.get(),
                     on.node_state[RenderTL].scale.get(),
+                    on.global.persistent.scaling_filter.get(),
                 );
                 match res {
                     Ok(_) => {

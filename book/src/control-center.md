@@ -171,6 +171,9 @@ Position
 Scale
 : Fractional scaling factor, with +/- buttons for fine adjustment
 
+Scaling Filter
+: How textures are filtered when scaled to the output (linear or nearest)
+
 Mode
 : Resolution and refresh rate (dropdown when multiple modes are available)
 

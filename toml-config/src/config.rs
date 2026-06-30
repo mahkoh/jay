@@ -39,8 +39,8 @@ use {
         status::MessageFormat,
         theme::{BarPosition, Color, ContainerBorders},
         video::{
-            BlendSpace, ColorSpace, Connector, Eotf, Format, GfxApi, TearingMode, Transform,
-            VrrMode,
+            BlendSpace, ColorSpace, Connector, Eotf, Format, GfxApi, ScalingFilter, TearingMode,
+            Transform, VrrMode,
         },
         window::{ContentType, TileState, WindowType},
         workspace::WorkspaceDisplayOrder,
@@ -408,6 +408,7 @@ pub struct Output {
     pub x: Option<i32>,
     pub y: Option<i32>,
     pub scale: Option<f64>,
+    pub scaling_filter: Option<ScalingFilter>,
     pub transform: Option<Transform>,
     pub mode: Option<Mode>,
     pub vrr: Option<Vrr>,

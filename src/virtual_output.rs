@@ -597,6 +597,7 @@ impl VirtualOutput {
             &self.state,
             Some(on.node_state[RenderTL].pos.get()),
             on.node_state[RenderTL].scale.get(),
+            on.global.persistent.scaling_filter.get(),
             true,
             false,
             on.has_fullscreen(RenderTL),

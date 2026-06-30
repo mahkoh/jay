@@ -19,7 +19,7 @@ use {
         },
     },
     indexmap::IndexMap,
-    jay_config::video::{BlendSpace, ColorSpace, Eotf, Transform},
+    jay_config::video::{BlendSpace, ColorSpace, Eotf, ScalingFilter, Transform},
     thiserror::Error,
 };
 
@@ -51,7 +51,15 @@ impl Parser for OutputParser<'_, '_> {
         let mut ext = Extractor::new(self.cx, span, table);
         let (
             (name, match_val, x, y, scale, transform, mode, vrr_val, tearing_val, format_val),
-            (color_space, eotf, brightness_val, blend_space, use_native_gamut, enabled),
+            (
+                color_space,
+                eotf,
+                brightness_val,
+                blend_space,
+                use_native_gamut,
+                enabled,
+                scaling_filter,
+            ),
         ) = ext.extract((
             (
                 opt(str("name")),
@@ -72,6 +80,7 @@ impl Parser for OutputParser<'_, '_> {
                 recover(opt(str("blend-space"))),
                 recover(opt(bol("use-native-gamut"))),
                 recover(opt(bol("enabled"))),
+                recover(opt(str("scaling-filter"))),
             ),
         ))?;
         let transform = match transform {
@@ -195,12 +204,28 @@ impl Parser for OutputParser<'_, '_> {
                 }
             },
         };
+        let scaling_filter = match scaling_filter {
+            None => None,
+            Some(t) => match t.value {
+                "linear" => Some(ScalingFilter::LINEAR),
+                "nearest" => Some(ScalingFilter::NEAREST),
+                _ => {
+                    log::warn!(
+                        "Unknown scaling filter {}: {}",
+                        t.value,
+                        self.cx.error3(t.span)
+                    );
+                    None
+                }
+            },
+        };
         Ok(Output {
             name: name.despan().map(|v| v.to_string()),
             match_: match_val.parse_map(&mut OutputMatchParser(self.cx))?,
             x: x.despan(),
             y: y.despan(),
             scale: scale.despan(),
+            scaling_filter,
             transform,
             mode,
             vrr,

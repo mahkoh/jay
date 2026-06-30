@@ -2,6 +2,7 @@ use {
     crate::{
         backend::{BackendColorSpace, BackendEotfs, ConnectorId, Mode, MonitorInfo},
         format::Format,
+        gfx_api::ScalingFilter,
         globals::GlobalName,
         ifs::wl_output::{BlendSpace, PersistentOutputState},
         scale::Scale,
@@ -32,6 +33,7 @@ pub struct HeadState {
     pub mode: Mode,
     pub transform: Transform,
     pub scale: Scale,
+    pub scaling_filter: ScalingFilter,
     pub monitor_info: Option<RcEq<MonitorInfo>>,
     pub inherent_non_desktop: bool,
     pub override_non_desktop: Option<bool>,
@@ -93,6 +95,7 @@ impl HeadState {
             self.use_native_gamut = ds.use_native_gamut.get();
             self.vrr_cursor_hz = ds.vrr_cursor_hz.get();
             self.scale = ds.scale.get();
+            self.scaling_filter = ds.scaling_filter.get();
             self.persistent_state = Some(RcEq(ds));
             if let Some(c) = state.connectors.get(&self.connector_id) {
                 self.mode = c.state.borrow().mode;
@@ -176,6 +179,11 @@ impl HeadManager {
     pub fn handle_scale_change(&self, scale: Scale) {
         let state = &mut *self.state.borrow_mut();
         state.scale = scale;
+    }
+
+    pub fn handle_scaling_filter_change(&self, scaling_filter: ScalingFilter) {
+        let state = &mut *self.state.borrow_mut();
+        state.scaling_filter = scaling_filter;
     }
 
     pub fn handle_enabled_change(&self, s: &State, enabled: bool) {

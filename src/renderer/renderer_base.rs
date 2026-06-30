@@ -7,6 +7,7 @@ use {
         gfx_api::{
             AcquireSync, AlphaMode, BufferResv, CopyTexture, FillRect, FramebufferRect,
             GFX_HAS_LAZY, GfxApiOp, GfxFlags, GfxTexture, LazyTexture, ReleaseSync, SampleRect,
+            ScalingFilter,
         },
         ifs::wl_surface::SurfaceBuffer,
         rect::Rect,
@@ -23,6 +24,7 @@ pub struct RendererBase<'a> {
     pub scaled: bool,
     pub scale: Scale,
     pub scalef: f64,
+    pub scaling_filter: ScalingFilter,
     pub transform: Transform,
     pub fb_width: f32,
     pub fb_height: f32,
@@ -289,6 +291,7 @@ impl RendererBase<'_> {
             client_buf,
             lazy,
             skip_for_scanout,
+            scaling_filter: self.scaling_filter,
         }));
     }
 

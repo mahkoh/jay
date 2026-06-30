@@ -4392,6 +4392,12 @@ The table has the following fields:
 
   The numbers should be strictly greater than 0.
 
+- `scaling-filter` (optional):
+
+  The scaling filter of the output.
+
+  The value of this field should be a [ScalingFilter](#types-ScalingFilter).
+
 - `transform` (optional):
 
   The transform of the output.
@@ -4719,6 +4725,25 @@ The table has the following fields:
   A comma-separated list of options.
 
   The value of this field should be a string.
+
+
+<a name="types-ScalingFilter"></a>
+### `ScalingFilter`
+
+A scaling filter.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `linear`:
+
+  Linear filtering.
+
+- `nearest`:
+
+  Nearest filtering.
+
 
 
 <a name="types-ScrollMethod"></a>

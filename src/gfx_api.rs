@@ -39,7 +39,7 @@ use {
     },
     ahash::AHashMap,
     indexmap::{IndexMap, IndexSet},
-    jay_config::video::GfxApi as ConfigGfxApi,
+    jay_config::video::{GfxApi as ConfigGfxApi, ScalingFilter as ConfigScalingFilter},
     linearize::Linearize,
     std::{
         any::Any,
@@ -301,6 +301,7 @@ pub struct CopyTexture {
     pub client_buf: Option<Rc<SurfaceBuffer>>,
     pub lazy: Option<Rc<dyn LazyTexture>>,
     pub skip_for_scanout: bool,
+    pub scaling_filter: ScalingFilter,
 }
 
 bitflags! {
@@ -318,6 +319,40 @@ pub trait LazyTexture: Debug {
     fn record_use(&self, ty: TextureUse);
     fn perform_lazy_work(&self, sync: &mut Vec<FdSync>) -> Result<(), Box<dyn Error + Send>>;
     fn has_lazy_work(&self) -> bool;
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Linearize, Default)]
+pub enum ScalingFilter {
+    #[default]
+    Linear,
+    Nearest,
+}
+
+impl StaticText for ScalingFilter {
+    fn text(&self) -> &'static str {
+        match self {
+            ScalingFilter::Linear => "linear",
+            ScalingFilter::Nearest => "nearest",
+        }
+    }
+}
+
+impl ScalingFilter {
+    pub fn to_config(self) -> ConfigScalingFilter {
+        match self {
+            ScalingFilter::Linear => ConfigScalingFilter::LINEAR,
+            ScalingFilter::Nearest => ConfigScalingFilter::NEAREST,
+        }
+    }
+
+    pub fn from_config(v: ConfigScalingFilter) -> Option<Self> {
+        let v = match v {
+            ConfigScalingFilter::LINEAR => ScalingFilter::Linear,
+            ConfigScalingFilter::NEAREST => ScalingFilter::Nearest,
+            _ => return None,
+        };
+        Some(v)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -520,10 +555,18 @@ impl dyn GfxFramebuffer {
         &self,
         ops: &'a mut Vec<GfxApiOp>,
         scale: Scale,
+        scaling_filter: ScalingFilter,
         transform: Transform,
         default_cd: &'a Rc<ColorDescription>,
     ) -> RendererBase<'a> {
-        renderer_base(self.physical_size(), ops, scale, transform, default_cd)
+        renderer_base(
+            self.physical_size(),
+            ops,
+            scale,
+            scaling_filter,
+            transform,
+            default_cd,
+        )
     }
 
     pub fn copy_texture(
@@ -541,7 +584,13 @@ impl dyn GfxFramebuffer {
     ) -> Result<Option<FdSync>, GfxError> {
         let mut ops = vec![];
         let scale = Scale::from_int(1);
-        let mut renderer = self.renderer_base(&mut ops, scale, Transform::None, texture_cd);
+        let mut renderer = self.renderer_base(
+            &mut ops,
+            scale,
+            ScalingFilter::Linear,
+            Transform::None,
+            texture_cd,
+        );
         renderer.render_texture(
             texture,
             x,
@@ -576,6 +625,7 @@ impl dyn GfxFramebuffer {
         release_sync: ReleaseSync,
         cd: &Rc<ColorDescription>,
         scale: Scale,
+        scaling_filter: ScalingFilter,
         clear: Option<&Color>,
         clear_cd: &Rc<LinearColorDescription>,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
@@ -584,7 +634,8 @@ impl dyn GfxFramebuffer {
         f: &mut dyn FnMut(&mut RendererBase),
     ) -> Result<Option<FdSync>, GfxError> {
         let mut ops = vec![];
-        let mut renderer = self.renderer_base(&mut ops, scale, Transform::None, default_cd);
+        let mut renderer =
+            self.renderer_base(&mut ops, scale, scaling_filter, Transform::None, default_cd);
         f(&mut renderer);
         let flags = renderer.flags;
         self.render(
@@ -606,6 +657,7 @@ impl dyn GfxFramebuffer {
         state: &State,
         cursor_rect: Option<Rect>,
         scale: Scale,
+        scaling_filter: ScalingFilter,
         render_cursor: bool,
         render_hardware_cursor: bool,
         black_background: bool,
@@ -620,6 +672,7 @@ impl dyn GfxFramebuffer {
             state,
             cursor_rect,
             scale,
+            scaling_filter,
             render_cursor,
             render_hardware_cursor,
             black_background,
@@ -677,6 +730,7 @@ impl dyn GfxFramebuffer {
             state,
             cursor_rect,
             scale,
+            node.global.persistent.scaling_filter.get(),
             true,
             render_hardware_cursor,
             node.has_fullscreen(RenderTL),
@@ -697,6 +751,7 @@ impl dyn GfxFramebuffer {
         state: &State,
         cursor_rect: Option<Rect>,
         scale: Scale,
+        scaling_filter: ScalingFilter,
         render_cursor: bool,
         render_hardware_cursor: bool,
         black_background: bool,
@@ -711,6 +766,7 @@ impl dyn GfxFramebuffer {
             state,
             cursor_rect,
             scale,
+            scaling_filter,
             render_cursor,
             render_hardware_cursor,
             black_background,
@@ -737,6 +793,7 @@ impl dyn GfxFramebuffer {
         cursor: &dyn Cursor,
         state: &State,
         scale: Scale,
+        scaling_filter: ScalingFilter,
         transform: Transform,
         cd: &Rc<ColorDescription>,
     ) -> Result<Option<FdSync>, GfxError> {
@@ -745,6 +802,7 @@ impl dyn GfxFramebuffer {
             base: self.renderer_base(
                 &mut ops,
                 scale,
+                scaling_filter,
                 transform,
                 state.color_manager.srgb_gamma22(),
             ),
@@ -1107,6 +1165,7 @@ pub fn create_render_pass(
     state: &State,
     cursor_rect: Option<Rect>,
     scale: Scale,
+    scaling_filter: ScalingFilter,
     render_cursor: bool,
     render_hardware_cursor: bool,
     black_background: bool,
@@ -1126,7 +1185,14 @@ pub fn create_render_pass(
     }
     let mut ops = vec![];
     let mut renderer = Renderer {
-        base: renderer_base(physical_size, &mut ops, scale, transform, srgb_gamma22),
+        base: renderer_base(
+            physical_size,
+            &mut ops,
+            scale,
+            scaling_filter,
+            transform,
+            srgb_gamma22,
+        ),
         state,
         logical_extents: node.node_absolute_position(LiveTL).at_point(0, 0),
         pixel_extents: {
@@ -1213,6 +1279,7 @@ pub fn renderer_base<'a>(
     physical_size: (i32, i32),
     ops: &'a mut Vec<GfxApiOp>,
     scale: Scale,
+    scaling_filter: ScalingFilter,
     transform: Transform,
     default_cd: &'a Rc<ColorDescription>,
 ) -> RendererBase<'a> {
@@ -1222,6 +1289,7 @@ pub fn renderer_base<'a>(
         scaled: scale != 1,
         scale,
         scalef: scale.to_f64(),
+        scaling_filter,
         transform,
         fb_width: width as _,
         fb_height: height as _,
@@ -1367,7 +1435,7 @@ impl GfxRenderPass {
         mode_h: i32,
         blend_cd: &Rc<ColorDescription>,
         cd: &Rc<ColorDescription>,
-        no_scaling: bool,
+        mut no_scaling: bool,
     ) -> Option<(&CopyTexture, DirectScanoutPosition)> {
         let ct = 'ct: {
             let mut ops = self.ops.iter().rev();
@@ -1472,6 +1540,10 @@ impl GfxRenderPass {
         if crtc_w < 0.0 || crtc_h < 0.0 {
             // Flipping x or y axis is not supported.
             return None;
+        }
+        if ct.scaling_filter == ScalingFilter::Nearest {
+            // Nearest scaling is not supported.
+            no_scaling = true;
         }
         if no_scaling && (tex_w as f32, tex_h as f32) != (crtc_w, crtc_h) {
             // If scaling is not supported, we cannot scale the texture.

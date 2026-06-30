@@ -72,8 +72,8 @@ unsafe impl Packed for HeapTexPushConstants {}
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 pub struct HeapTexSet {
+    pub sampler_descriptor_offset: u32,
     pub tex_descriptor_offset: u32,
-    pub _pad: u32,
     pub color_management_data_addr: DeviceAddress,
     pub eotf_args_addr: DeviceAddress,
     pub inv_eotf_args_addr: DeviceAddress,

@@ -1,7 +1,10 @@
 use {
-    crate::gfx_apis::vulkan::{
-        VulkanError,
-        device::{DescriptorHeapDevice, VulkanDevice},
+    crate::{
+        gfx_api::ScalingFilter,
+        gfx_apis::vulkan::{
+            VulkanError,
+            device::{DescriptorHeapDevice, VulkanDevice},
+        },
     },
     ash::vk::{
         BorderColor, Filter, HostAddressRangeEXT, Sampler, SamplerAddressMode, SamplerCreateInfo,
@@ -17,10 +20,17 @@ pub struct VulkanSampler {
 }
 
 impl VulkanDevice {
-    pub(super) fn create_sampler(self: &Rc<Self>) -> Result<Rc<VulkanSampler>, VulkanError> {
+    pub(super) fn create_sampler(
+        self: &Rc<Self>,
+        filter: ScalingFilter,
+    ) -> Result<Rc<VulkanSampler>, VulkanError> {
+        let filter = match filter {
+            ScalingFilter::Linear => Filter::LINEAR,
+            ScalingFilter::Nearest => Filter::NEAREST,
+        };
         let create_info = SamplerCreateInfo::default()
-            .mag_filter(Filter::LINEAR)
-            .min_filter(Filter::LINEAR)
+            .mag_filter(filter)
+            .min_filter(filter)
             .mipmap_mode(SamplerMipmapMode::NEAREST)
             .address_mode_u(SamplerAddressMode::CLAMP_TO_EDGE)
             .address_mode_v(SamplerAddressMode::CLAMP_TO_EDGE)

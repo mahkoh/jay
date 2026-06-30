@@ -14,6 +14,7 @@ use {
             egui_oklch::Color32Ext,
             egui_platform::icons::{ICON_ADD, ICON_REMOVE},
         },
+        gfx_api::ScalingFilter,
         ifs::{
             head_management::{HeadName, HeadState, ReadOnlyHeadState},
             wl_output::BlendSpace,
@@ -848,6 +849,7 @@ impl OutputsPaneInner {
             {
                 node.set_position(desired.position.0, desired.position.1);
                 node.set_preferred_scale(desired.scale);
+                node.set_scaling_filter(desired.scaling_filter);
                 node.update_transform(desired.transform);
                 node.set_vrr_mode(&desired.vrr_mode);
                 node.set_tearing_mode(&desired.tearing_mode);
@@ -861,6 +863,7 @@ impl OutputsPaneInner {
                 let pos = pos.lock().entry(mi.output_id.clone()).or_default().clone();
                 pos.pos.set(desired.position);
                 pos.scale.set(desired.scale);
+                pos.scaling_filter.set(desired.scaling_filter);
                 pos.transform.set(desired.transform);
                 pos.vrr_mode.set(desired.vrr_mode);
                 pos.tearing_mode.set(desired.tearing_mode);
@@ -961,6 +964,7 @@ fn show_connector(state: &State, settings: &Settings, head: &mut CompleteHead, u
                 diff |= show_enablement(state, ui, m, t);
                 diff |= show_position(ui, m, t);
                 diff |= show_scale(ui, m, t);
+                diff |= show_scaling_filter(ui, m, t);
                 diff |= show_mode(ui, m, t);
                 diff |= show_size(ui, m, t);
                 diff |= show_transform(ui, m, t);
@@ -1074,6 +1078,32 @@ fn show_scale(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool {
     let diff = m.scale != v;
     if diff {
         ui.label(format!("{}", m.scale.to_f64()));
+    }
+    diff
+}
+
+fn show_scaling_filter(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool {
+    if !effective!(m, t).in_compositor_space {
+        return false;
+    }
+    let ui = &mut *ui.row();
+    grid_label(ui, "Scaling Filter");
+    let mut v = effective!(m, t).scaling_filter;
+    let mut changed = false;
+    ComboBox::from_id_salt("scaling filter")
+        .selected_text(v.text())
+        .show_ui(ui, |ui| {
+            for s in ScalingFilter::variants() {
+                changed |= ui.selectable_value(&mut v, s, s.text()).changed();
+            }
+        });
+    if changed {
+        let t = modify!(m, t);
+        t.scaling_filter = v;
+    }
+    let diff = m.scaling_filter != v;
+    if diff {
+        ui.label(m.scaling_filter.text());
     }
     diff
 }

@@ -10,7 +10,7 @@ use {
         cpu_worker::PendingJob,
         gfx_api::{
             AcquireSync, AlphaMode, BufferResv, BufferResvUser, FdSync, GfxApiOp, GfxBlendBuffer,
-            GfxFormat, GfxTexture, GfxWriteModifier, ReleaseSync,
+            GfxFormat, GfxTexture, GfxWriteModifier, ReleaseSync, ScalingFilter,
         },
         gfx_apis::vulkan::{
             VulkanError, VulkanSync, VulkanTimelineSemaphore,
@@ -56,8 +56,7 @@ use {
             CommandBufferBeginInfo, CommandBufferSubmitInfo, CommandBufferUsageFlags,
             CopyImageInfo2, DependencyInfoKHR, DescriptorAddressInfoEXT,
             DescriptorBufferBindingInfoEXT, DescriptorDataEXT, DescriptorGetInfoEXT,
-            DescriptorImageInfo, DescriptorMappingSourceConstantOffsetEXT,
-            DescriptorMappingSourceDataEXT, DescriptorMappingSourceEXT,
+            DescriptorImageInfo, DescriptorMappingSourceDataEXT, DescriptorMappingSourceEXT,
             DescriptorMappingSourcePushIndexEXT, DescriptorSetAndBindingMappingEXT, DescriptorType,
             DeviceAddress, DeviceSize, Extent2D, Extent3D, ImageAspectFlags, ImageCopy2,
             ImageLayout, ImageMemoryBarrier2, ImageSubresourceLayers, ImageSubresourceRange,
@@ -69,7 +68,7 @@ use {
     },
     isnt::std_1::{collections::IsntHashMapExt, primitive::IsntSliceExt},
     jay_algorithms::rect::Tag,
-    linearize::{Linearize, LinearizeExt, StaticMap, static_map},
+    linearize::{Linearize, LinearizeExt, StaticCopyMap, StaticMap, static_map},
     std::{
         any::Any,
         borrow::Cow,
@@ -116,7 +115,7 @@ pub struct VulkanRenderer {
     pub(super) defunct: Cell<bool>,
     pub(super) pending_cpu_jobs: CopyHashMap<u64, PendingJob>,
     pub(super) shm_allocator: Rc<VulkanThreadedAllocator>,
-    pub(super) _sampler: Rc<VulkanSampler>,
+    pub(super) samplers: StaticMap<ScalingFilter, Rc<VulkanSampler>>,
     pub(super) blend_buffers: RefCell<AHashMap<(u32, u32), Weak<VulkanImage>>>,
     pub(super) shader_buffer_cache: Rc<VulkanBufferCache>,
     pub(super) uniform_buffer_cache: Rc<VulkanBufferCache>,
@@ -128,7 +127,7 @@ pub struct VulkanRenderer {
 
 pub(super) struct DescriptorBufferRenderer {
     pub(super) device: Rc<DescriptorBufferDevice>,
-    pub(super) sampler_descriptor: Box<[u8]>,
+    pub(super) sampler_descriptors: StaticMap<ScalingFilter, Box<[u8]>>,
     pub(super) sampler_descriptor_buffer_cache: Rc<VulkanBufferCache>,
     pub(super) resource_descriptor_buffer_cache: Rc<VulkanBufferCache>,
 }
@@ -136,7 +135,7 @@ pub(super) struct DescriptorBufferRenderer {
 pub(super) struct DescriptorHeapRenderer {
     pub(super) device: Rc<DescriptorHeapDevice>,
     pub(super) sampler_heap: Rc<DescriptorHeap>,
-    pub(super) _sampler_heap_entry: Rc<PageAllocEntry>,
+    pub(super) samplers: StaticMap<ScalingFilter, Rc<PageAllocEntry>>,
     pub(super) resource_heap: CloneCell<Option<Rc<DescriptorHeap>>>,
 }
 
@@ -198,6 +197,7 @@ pub(super) struct Memory {
     blend_buffer_inv_eotf_args_address: Option<DeviceSize>,
     fb_inv_eotf_args_address: Option<DeviceSize>,
     blend_buffer_descriptor_heap_offset: u32,
+    sampler_descriptor_buffer_offsets: StaticCopyMap<ScalingFilter, DeviceAddress>,
 }
 
 type Point = [[f32; 2]; 4];
@@ -226,6 +226,7 @@ struct VulkanTexOp {
     resource_descriptor_buffer_offset: DeviceAddress,
     resource_descriptor_heap_offset: u32,
     grayscale: bool,
+    scaling_filter: ScalingFilter,
 }
 
 struct VulkanFillOp {
@@ -296,7 +297,9 @@ impl VulkanDevice {
         eng: &Rc<AsyncEngine>,
         ring: &Rc<IoUring>,
     ) -> Result<Rc<VulkanRenderer>, VulkanError> {
-        let sampler = self.create_sampler()?;
+        let samplers = static_map! {
+            f => self.create_sampler(f)?,
+        };
         let fill_vert_shader;
         let fill_frag_shader;
         let tex_vert_shader;
@@ -312,8 +315,7 @@ impl VulkanDevice {
             out_vert_shader = Some(self.create_shader(OUT_VERT)?);
             out_frag_shader = Some(self.create_shader(OUT_FRAG)?);
             if self.descriptor_buffer.is_some() {
-                tex_descriptor_set_layouts
-                    .push(self.create_tex_sampler_descriptor_set_layout(&sampler)?);
+                tex_descriptor_set_layouts.push(self.create_tex_sampler_descriptor_set_layout()?);
                 tex_descriptor_set_layouts.push(self.create_tex_resource_descriptor_set_layout()?);
             }
         } else {
@@ -323,8 +325,7 @@ impl VulkanDevice {
             fill_frag_shader = self.create_shader(LEGACY_FILL_FRAG)?;
             out_vert_shader = None;
             out_frag_shader = None;
-            tex_descriptor_set_layouts
-                .push(self.create_tex_legacy_descriptor_set_layout(&sampler)?);
+            tex_descriptor_set_layouts.push(self.create_tex_legacy_descriptor_set_layout()?);
         }
         let out_descriptor_set_layout = self
             .descriptor_buffer
@@ -388,28 +389,35 @@ impl VulkanDevice {
                 VulkanBufferCache::for_descriptor_buffer(self, &allocator, true);
             let resource_descriptor_buffer_cache =
                 VulkanBufferCache::for_descriptor_buffer(self, &allocator, false);
+            let sampler_descriptors = samplers
+                .each_ref()
+                .into_static_map()
+                .map_values(|s| db.create_sampler_descriptor(s.sampler));
             DescriptorBufferRenderer {
                 device: db.clone(),
-                sampler_descriptor: db.create_sampler_descriptor(sampler.sampler),
+                sampler_descriptors,
                 sampler_descriptor_buffer_cache,
                 resource_descriptor_buffer_cache,
             }
         });
         let mut descriptor_heap = None;
         if let Some(dh) = &self.descriptor_heap {
-            let desc = dh.create_sampler_descriptor(&sampler.create_info)?;
+            let descs: StaticMap<ScalingFilter, _> = static_map! {
+                f => dh.create_sampler_descriptor(&samplers[f].create_info)?,
+            };
             let heap = self.allocate_descriptor_heap(
                 dh,
                 &allocator,
-                dh.sampler_descriptor_size,
+                2 * dh.sampler_descriptor_size,
                 DescriptorHeapType::Sampler,
             )?;
-            let entry = heap.allocate(&desc)?.unwrap();
-            assert_eq!(entry.offset(), 0);
+            let samplers: StaticMap<ScalingFilter, _> = static_map! {
+                f => heap.allocate(&descs[f])?.unwrap(),
+            };
             descriptor_heap = Some(DescriptorHeapRenderer {
                 device: dh.clone(),
                 sampler_heap: heap,
-                _sampler_heap_entry: entry,
+                samplers,
                 resource_heap: Default::default(),
             });
         }
@@ -454,7 +462,7 @@ impl VulkanDevice {
             defunct: Cell::new(false),
             pending_cpu_jobs: Default::default(),
             shm_allocator,
-            _sampler: sampler,
+            samplers,
             blend_buffers: Default::default(),
             shader_buffer_cache,
             uniform_buffer_cache,
@@ -641,13 +649,18 @@ impl VulkanRenderer {
         let memory = &mut *self.memory.borrow_mut();
         let sampler_writer = &mut memory.sampler_descriptor_buffer_writer;
         sampler_writer.clear();
-        {
-            let mut writer = sampler_writer.add_set(&self.tex_descriptor_set_layouts[0]);
-            writer.write(
-                self.tex_descriptor_set_layouts[0].offsets[0],
-                &db.sampler_descriptor,
-            );
-        }
+        memory.sampler_descriptor_buffer_offsets =
+            db.sampler_descriptors
+                .each_ref()
+                .map_values(|sampler_descriptor| {
+                    let offset = sampler_writer.next_offset();
+                    let mut writer = sampler_writer.add_set(&self.tex_descriptor_set_layouts[0]);
+                    writer.write(
+                        self.tex_descriptor_set_layouts[0].offsets[0],
+                        sampler_descriptor,
+                    );
+                    offset
+                });
         let resource_writer = &mut memory.resource_descriptor_buffer_writer;
         resource_writer.clear();
         macro_rules! ub_descriptor_cache {
@@ -989,6 +1002,7 @@ impl VulkanRenderer {
                             resource_descriptor_buffer_offset: 0,
                             resource_descriptor_heap_offset: 0,
                             grayscale: ct.grayscale,
+                            scaling_filter: ct.scaling_filter,
                         }));
                     }
                 }
@@ -1477,7 +1491,7 @@ impl VulkanRenderer {
                         c.grayscale,
                     )?;
                     bind(&pipeline);
-                    if let Some(dh) = &self.device.descriptor_heap {
+                    if let Some(dh) = &self.descriptor_heap {
                         let push = HeapTexPushConstants {
                             push: TexPushConstants {
                                 vertices: c.range_address,
@@ -1485,8 +1499,8 @@ impl VulkanRenderer {
                                 _pad: Default::default(),
                             },
                             heap_tex_set: HeapTexSet {
+                                sampler_descriptor_offset: dh.samplers[c.scaling_filter].offset(),
                                 tex_descriptor_offset: c.resource_descriptor_heap_offset,
-                                _pad: 0,
                                 color_management_data_addr: c
                                     .color_management_data_address
                                     .unwrap_or_default(),
@@ -1495,7 +1509,7 @@ impl VulkanRenderer {
                             },
                         };
                         unsafe {
-                            dh.push_data(buf, &push);
+                            dh.device.push_data(buf, &push);
                             dev.cmd_draw(buf, 4, c.instances, 0, 0);
                         }
                     } else if let Some(db) = &self.device.descriptor_buffer {
@@ -1511,7 +1525,10 @@ impl VulkanRenderer {
                                 pipeline.pipeline_layout,
                                 0,
                                 &[0, 1],
-                                &[0, c.resource_descriptor_buffer_offset],
+                                &[
+                                    memory.sampler_descriptor_buffer_offsets[c.scaling_filter],
+                                    c.resource_descriptor_buffer_offset,
+                                ],
                             );
                             dev.cmd_push_constants(
                                 buf,
@@ -1524,6 +1541,7 @@ impl VulkanRenderer {
                         }
                     } else {
                         let image_info = DescriptorImageInfo::default()
+                            .sampler(self.samplers[c.scaling_filter].sampler)
                             .image_view(tex.texture_view.unwrap())
                             .image_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
                         let write_descriptor_set = WriteDescriptorSet::default()
@@ -1607,12 +1625,12 @@ impl VulkanRenderer {
         let dev = &self.device.device;
         unsafe {
             dev.cmd_bind_pipeline(buf, PipelineBindPoint::GRAPHICS, pipeline.pipeline);
-            if let Some(dh) = &self.device.descriptor_heap {
+            if let Some(dh) = &self.descriptor_heap {
                 let push = HeapOutPushConstants {
                     push,
                     heap_tex_set: HeapTexSet {
+                        sampler_descriptor_offset: dh.samplers[ScalingFilter::Nearest].offset(),
                         tex_descriptor_offset: memory.blend_buffer_descriptor_heap_offset,
-                        _pad: 0,
                         color_management_data_addr: memory
                             .blend_buffer_color_management_data_address
                             .unwrap_or_default(),
@@ -1620,7 +1638,7 @@ impl VulkanRenderer {
                         inv_eotf_args_addr: memory.fb_inv_eotf_args_address.unwrap_or_default(),
                     },
                 };
-                dh.push_data(buf, &push);
+                dh.device.push_data(buf, &push);
             } else if let Some(db) = &self.device.descriptor_buffer {
                 db.device.cmd_set_descriptor_buffer_offsets(
                     buf,
@@ -2760,10 +2778,14 @@ fn create_tex_frag_bindings(sampler_set: Option<u32>, tex_set: u32, offset: usiz
                 .first_binding(0)
                 .binding_count(1)
                 .resource_mask(SpirvResourceTypeFlagsEXT::SAMPLER)
-                .source(DescriptorMappingSourceEXT::HEAP_WITH_CONSTANT_OFFSET)
+                .source(DescriptorMappingSourceEXT::HEAP_WITH_PUSH_INDEX)
                 .source_data(DescriptorMappingSourceDataEXT {
-                    constant_offset: DescriptorMappingSourceConstantOffsetEXT::default()
-                        .heap_offset(0),
+                    push_index: DescriptorMappingSourcePushIndexEXT::default()
+                        .heap_offset(0)
+                        .push_offset(
+                            offset + offset_of!(HeapTexSet, sampler_descriptor_offset) as u32,
+                        )
+                        .heap_index_stride(1),
                 }),
         );
     }

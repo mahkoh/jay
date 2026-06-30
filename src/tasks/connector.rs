@@ -41,6 +41,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         connected: false,
         transform: Transform::None,
         scale: Default::default(),
+        scaling_filter: Default::default(),
         wl_output: None,
         connector_enabled: backend_state.enabled,
         in_compositor_space: false,

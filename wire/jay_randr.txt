@@ -113,6 +113,11 @@ request remove_virtual_output (since = 30) {
     name: str,
 }
 
+request set_scaling_filter (since = 37) {
+    output: str,
+    scaling_filter: u32,
+}
+
 # events
 
 event global {
@@ -239,4 +244,8 @@ event use_native_gamut (since = 23) {
 }
 
 event arbitrary_modes (since = 29) {
+}
+
+event scaling_filter (since = 37) {
+    scaling_filter: u32,
 }

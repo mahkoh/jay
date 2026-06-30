@@ -16,8 +16,8 @@ use {
         theme::{BarPosition, Color, ContainerBorders, colors::Colorable, sized::Resizable},
         timer::Timer,
         video::{
-            BlendSpace, ColorSpace, Connector, DrmDevice, Eotf, Format, GfxApi, TearingMode,
-            Transform, VrrMode, connector_type::ConnectorType,
+            BlendSpace, ColorSpace, Connector, DrmDevice, Eotf, Format, GfxApi, ScalingFilter,
+            TearingMode, Transform, VrrMode, connector_type::ConnectorType,
         },
         window::{ContentType, TileState, Window, WindowMatcher, WindowType},
         workspace::WorkspaceDisplayOrder,
@@ -964,6 +964,10 @@ pub enum ClientMessage<'a> {
         repeat: bool,
     },
     EnableLockedShortcuts,
+    ConnectorSetScalingFilter {
+        connector: Connector,
+        scaling_filter: ScalingFilter,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

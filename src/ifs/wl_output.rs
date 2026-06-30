@@ -6,6 +6,7 @@ use {
         client::{Client, ClientError, ClientId},
         cmm::cmm_primaries::Primaries,
         format::{Format, XRGB8888},
+        gfx_api::ScalingFilter,
         globals::{Global, GlobalName},
         ifs::{wl_surface::WlSurface, zxdg_output_v1::ZxdgOutputV1},
         leaks::Tracker,
@@ -121,6 +122,7 @@ impl BlendSpace {
 pub struct PersistentOutputState {
     pub transform: Cell<Transform>,
     pub scale: Cell<crate::scale::Scale>,
+    pub scaling_filter: Cell<ScalingFilter>,
     pub pos: Cell<(i32, i32)>,
     #[derivative(Default(value = "Cell::new(VrrMode::Never)"))]
     pub vrr_mode: Cell<VrrMode>,

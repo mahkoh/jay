@@ -25,7 +25,7 @@ use {
         cmm::cmm_eotf::Eotf,
         gfx_api::{
             AcquireSync, CopyTexture, FdSync, FramebufferRect, GfxApiOp, GfxContext, GfxError,
-            GfxTexture, ReleaseSync, SyncFile,
+            GfxTexture, ReleaseSync, ScalingFilter, SyncFile,
         },
         gfx_apis::gl::{
             egl::image::EglImage,
@@ -36,8 +36,8 @@ use {
                 texture::Texture,
             },
             sys::{
-                GL_BLEND, GL_FALSE, GL_FLOAT, GL_LINEAR, GL_TEXTURE_MIN_FILTER, GL_TEXTURE0,
-                GL_TRIANGLE_STRIP, GL_TRIANGLES,
+                GL_BLEND, GL_FALSE, GL_FLOAT, GL_LINEAR, GL_NEAREST, GL_TEXTURE_MAG_FILTER,
+                GL_TEXTURE_MIN_FILTER, GL_TEXTURE0, GL_TRIANGLE_STRIP, GL_TRIANGLES,
             },
         },
         theme::Color,
@@ -309,6 +309,10 @@ fn render_texture(ctx: &GlRenderContext, tex: &CopyTexture) {
         log::error!("Ignoring texture with invalid contents");
         return;
     }
+    let filter = match tex.scaling_filter {
+        ScalingFilter::Linear => GL_LINEAR,
+        ScalingFilter::Nearest => GL_NEAREST,
+    };
     assert!(rc_eq(&ctx.ctx, &texture.ctx.ctx));
     let gles = ctx.ctx.dpy.gles;
     unsafe {
@@ -319,7 +323,8 @@ fn render_texture(ctx: &GlRenderContext, tex: &CopyTexture) {
         let target = image_target(texture.gl.external_only);
 
         (gles.glBindTexture)(target, texture.gl.tex);
-        (gles.glTexParameteri)(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        (gles.glTexParameteri)(target, GL_TEXTURE_MIN_FILTER, filter);
+        (gles.glTexParameteri)(target, GL_TEXTURE_MAG_FILTER, filter);
 
         let progs = match texture.gl.external_only {
             true => match &ctx.tex_external {

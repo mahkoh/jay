@@ -607,6 +607,7 @@ impl MetalConnector {
             &self.state,
             Some(node.node_state[RenderTL].pos.get()),
             node.node_state[RenderTL].scale.get(),
+            node.global.persistent.scaling_filter.get(),
             true,
             render_hw_cursor,
             node.has_fullscreen(RenderTL),
