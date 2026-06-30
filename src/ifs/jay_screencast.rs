@@ -6,7 +6,7 @@ use {
         format::XRGB8888,
         gfx_api::{
             AcquireSync, BufferResv, GfxContext, GfxError, GfxFramebuffer, GfxTexture, LazyTexture,
-            ReleaseSync,
+            ReleaseSync, ScalingFilter,
         },
         ifs::{jay_output::JayOutput, jay_toplevel::JayToplevel, wl_buffer::WlBufferStorage},
         leaks::Tracker,
@@ -205,6 +205,7 @@ impl JayScreencast {
                     &self.client.state,
                     Some(tl.node_absolute_position(RenderTL)),
                     scale,
+                    ScalingFilter::Linear,
                     true,
                     true,
                     false,
@@ -359,6 +360,7 @@ impl JayScreencast {
                     size,
                     on.node_state[RenderTL].transform.get(),
                     on.node_state[RenderTL].scale.get(),
+                    ScalingFilter::Linear,
                 );
                 match res {
                     Ok(_) => {

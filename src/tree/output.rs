@@ -14,7 +14,7 @@ use {
         cursor_user::{CursorUser, CursorUserId},
         damage::DamageMatrix,
         fixed::Fixed,
-        gfx_api::{AcquireSync, BufferResv, GfxTexture, LazyTexture, ReleaseSync},
+        gfx_api::{AcquireSync, BufferResv, GfxTexture, LazyTexture, ReleaseSync, ScalingFilter},
         ifs::{
             color_management::wp_color_management_output_v1::WpColorManagementOutputV1,
             ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
@@ -518,6 +518,7 @@ impl OutputNode {
                             wl_buffer.format,
                             self.node_state[RenderTL].transform.get(),
                             self.node_state[RenderTL].scale.get(),
+                            ScalingFilter::Linear,
                         );
                         match res {
                             Ok(p) => {
@@ -559,6 +560,7 @@ impl OutputNode {
                             size,
                             self.node_state[RenderTL].transform.get(),
                             self.node_state[RenderTL].scale.get(),
+                            ScalingFilter::Linear,
                         );
                         if let Err(e) = res {
                             log::warn!("Could not perform screencopy: {}", ErrorFmt(e));

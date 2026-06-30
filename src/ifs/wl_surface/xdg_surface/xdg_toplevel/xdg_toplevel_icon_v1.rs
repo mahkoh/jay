@@ -5,7 +5,7 @@ use {
         gfx_api::{
             AcquireSync, AlphaMode, AsyncShmGfxTextureCallback, CopyTexture, FramebufferRect,
             GfxApiOp, GfxContext, GfxError, GfxRenderPass, GfxTexture, PendingShmTransfer,
-            ReleaseSync, STAGING_UPLOAD, SampleRect,
+            ReleaseSync, STAGING_UPLOAD, SampleRect, ScalingFilter,
         },
         ifs::{
             wl_buffer::{WlBuffer, WlBufferStorage},
@@ -391,6 +391,7 @@ impl XdgToplevelIconV1 {
                 client_buf: None,
                 lazy: None,
                 skip_for_scanout: false,
+                scaling_filter: ScalingFilter::Linear,
             })],
             clear: format.has_alpha.then_some(Color::TRANSPARENT),
             clear_cd: srgb.linear.clone(),

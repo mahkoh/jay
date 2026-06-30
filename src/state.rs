@@ -43,7 +43,7 @@ use {
         gfx_api::{
             AcquireSync, BufferResv, BufferResvUser, FdSync, GfxApi, GfxBlendBuffer, GfxContext,
             GfxError, GfxFramebuffer, GfxTexture, LazyTexture, PendingShmTransfer, ReleaseSync,
-            STAGING_DOWNLOAD, SampleRect,
+            STAGING_DOWNLOAD, SampleRect, ScalingFilter,
         },
         gfx_apis::create_gfx_context,
         globals::{Globals, GlobalsError, RemovableWaylandGlobal, WaylandGlobal},
@@ -1549,12 +1549,14 @@ impl State {
         size: Option<(i32, i32)>,
         transform: Transform,
         scale: Scale,
+        scaling_filter: ScalingFilter,
     ) -> Result<Option<FdSync>, GfxError> {
         let mut ops = vec![];
         let mut renderer = Renderer {
             base: target.renderer_base(
                 &mut ops,
                 scale,
+                scaling_filter,
                 target_transform,
                 self.color_manager.srgb_gamma22(),
             ),
@@ -1626,6 +1628,7 @@ impl State {
         format: &'static Format,
         transform: Transform,
         scale: Scale,
+        scaling_filter: ScalingFilter,
     ) -> Result<Option<PendingShmTransfer>, ShmScreencopyError> {
         let Some(ctx) = self.render_ctx.get() else {
             return Err(ShmScreencopyError::NoRenderContext);
@@ -1659,6 +1662,7 @@ impl State {
             size,
             transform,
             scale,
+            scaling_filter,
         )
         .map_err(ShmScreencopyError::CopyToTemporary)?;
         let staging = ctx.create_staging_buffer(fb.staging_size(), STAGING_DOWNLOAD);

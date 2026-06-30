@@ -2,7 +2,7 @@ use {
     crate::{
         allocator::{AllocatorError, BO_USE_RENDERING, BufferObject, BufferUsage},
         format::XRGB8888,
-        gfx_api::{AcquireSync, GfxError, ReleaseSync, needs_render_usage},
+        gfx_api::{AcquireSync, GfxError, ReleaseSync, ScalingFilter, needs_render_usage},
         scale::Scale,
         state::State,
         tree::{Transform, TreeTimeline::RenderTL},
@@ -84,6 +84,7 @@ pub fn take_screenshot(
         state,
         Some(state.root.node_state[RenderTL].extents.get()),
         Scale::from_int(1),
+        ScalingFilter::Linear,
         include_cursor,
         true,
         false,

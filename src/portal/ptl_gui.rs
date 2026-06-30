@@ -7,7 +7,8 @@ use {
         fixed::Fixed,
         format::ARGB8888,
         gfx_api::{
-            AcquireSync, GfxContext, GfxFramebuffer, GfxTexture, ReleaseSync, needs_render_usage,
+            AcquireSync, GfxContext, GfxFramebuffer, GfxTexture, ReleaseSync, ScalingFilter,
+            needs_render_usage,
         },
         globals::GlobalName,
         ifs::zwlr_layer_shell_v1::OVERLAY,
@@ -615,6 +616,7 @@ impl WindowData {
             ReleaseSync::Implicit,
             srgb_gamma22,
             self.scale.get(),
+            ScalingFilter::Linear,
             Some(&Color::from_gray_srgb(0)),
             &srgb_gamma22.linear,
             None,

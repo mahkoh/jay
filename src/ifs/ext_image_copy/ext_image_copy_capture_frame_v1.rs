@@ -4,7 +4,7 @@ use {
         cmm::cmm_description::ColorDescription,
         gfx_api::{
             AcquireSync, AsyncShmGfxTextureCallback, BufferResv, FdSync, GfxError, GfxFramebuffer,
-            GfxTexture, LazyTexture, ReleaseSync, STAGING_DOWNLOAD,
+            GfxTexture, LazyTexture, ReleaseSync, STAGING_DOWNLOAD, ScalingFilter,
         },
         ifs::{
             ext_image_capture_source_v1::ImageCaptureSource,
@@ -230,6 +230,7 @@ impl ExtImageCopyCaptureFrameV1 {
                 size,
                 transform,
                 on.node_state[RenderTL].scale.get(),
+                ScalingFilter::Linear,
             )
         });
     }
@@ -245,6 +246,7 @@ impl ExtImageCopyCaptureFrameV1 {
                 &self.client.state,
                 Some(node.node_absolute_position(RenderTL)),
                 scale,
+                ScalingFilter::Linear,
                 true,
                 true,
                 true,

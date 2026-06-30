@@ -17,7 +17,7 @@ use {
         gfx_api::{
             AcquireSync, BufferResv, DirectScanoutPosition, FdSync, GfxBlendBuffer, GfxContext,
             GfxError, GfxFramebuffer, GfxRenderPass, GfxTexture, LazyTexture, ReleaseSync,
-            TextureUse, create_render_pass,
+            ScalingFilter, TextureUse, create_render_pass,
         },
         ifs::{
             wl_output::{BlendSpace, OutputId},
@@ -597,6 +597,7 @@ impl VirtualOutput {
             &self.state,
             Some(on.node_state[RenderTL].pos.get()),
             on.node_state[RenderTL].scale.get(),
+            ScalingFilter::Linear,
             true,
             false,
             on.has_fullscreen(RenderTL),
