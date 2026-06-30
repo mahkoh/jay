@@ -56,8 +56,7 @@ use {
             CommandBufferBeginInfo, CommandBufferSubmitInfo, CommandBufferUsageFlags,
             CopyImageInfo2, DependencyInfoKHR, DescriptorAddressInfoEXT,
             DescriptorBufferBindingInfoEXT, DescriptorDataEXT, DescriptorGetInfoEXT,
-            DescriptorImageInfo, DescriptorMappingSourceConstantOffsetEXT,
-            DescriptorMappingSourceDataEXT, DescriptorMappingSourceEXT,
+            DescriptorImageInfo, DescriptorMappingSourceDataEXT, DescriptorMappingSourceEXT,
             DescriptorMappingSourcePushIndexEXT, DescriptorSetAndBindingMappingEXT, DescriptorType,
             DeviceAddress, DeviceSize, Extent2D, Extent3D, ImageAspectFlags, ImageCopy2,
             ImageLayout, ImageMemoryBarrier2, ImageSubresourceLayers, ImageSubresourceRange,
@@ -136,7 +135,7 @@ pub(super) struct DescriptorBufferRenderer {
 pub(super) struct DescriptorHeapRenderer {
     pub(super) device: Rc<DescriptorHeapDevice>,
     pub(super) sampler_heap: Rc<DescriptorHeap>,
-    pub(super) _sampler_heap_entry: Rc<PageAllocEntry>,
+    pub(super) samplers: StaticMap<ScalingFilter, Rc<PageAllocEntry>>,
     pub(super) resource_heap: CloneCell<Option<Rc<DescriptorHeap>>>,
 }
 
@@ -226,7 +225,6 @@ struct VulkanTexOp {
     resource_descriptor_buffer_offset: DeviceAddress,
     resource_descriptor_heap_offset: u32,
     grayscale: bool,
-    #[expect(dead_code)]
     scaling_filter: ScalingFilter,
 }
 
@@ -406,20 +404,22 @@ impl VulkanDevice {
         });
         let mut descriptor_heap = None;
         if let Some(dh) = &self.descriptor_heap {
-            let desc =
-                dh.create_sampler_descriptor(&samplers[ScalingFilter::Linear].create_info)?;
+            let descs: StaticMap<ScalingFilter, _> = static_map! {
+                f => dh.create_sampler_descriptor(&samplers[f].create_info)?,
+            };
             let heap = self.allocate_descriptor_heap(
                 dh,
                 &allocator,
-                dh.sampler_descriptor_size,
+                2 * dh.sampler_descriptor_size,
                 DescriptorHeapType::Sampler,
             )?;
-            let entry = heap.allocate(&desc)?.unwrap();
-            assert_eq!(entry.offset(), 0);
+            let samplers: StaticMap<ScalingFilter, _> = static_map! {
+                f => heap.allocate(&descs[f])?.unwrap(),
+            };
             descriptor_heap = Some(DescriptorHeapRenderer {
                 device: dh.clone(),
                 sampler_heap: heap,
-                _sampler_heap_entry: entry,
+                samplers,
                 resource_heap: Default::default(),
             });
         }
@@ -1488,7 +1488,7 @@ impl VulkanRenderer {
                         c.grayscale,
                     )?;
                     bind(&pipeline);
-                    if let Some(dh) = &self.device.descriptor_heap {
+                    if let Some(dh) = &self.descriptor_heap {
                         let push = HeapTexPushConstants {
                             push: TexPushConstants {
                                 vertices: c.range_address,
@@ -1496,8 +1496,8 @@ impl VulkanRenderer {
                                 _pad: Default::default(),
                             },
                             heap_tex_set: HeapTexSet {
+                                sampler_descriptor_offset: dh.samplers[c.scaling_filter].offset(),
                                 tex_descriptor_offset: c.resource_descriptor_heap_offset,
-                                _pad: 0,
                                 color_management_data_addr: c
                                     .color_management_data_address
                                     .unwrap_or_default(),
@@ -1506,7 +1506,7 @@ impl VulkanRenderer {
                             },
                         };
                         unsafe {
-                            dh.push_data(buf, &push);
+                            dh.device.push_data(buf, &push);
                             dev.cmd_draw(buf, 4, c.instances, 0, 0);
                         }
                     } else if let Some(db) = &self.device.descriptor_buffer {
@@ -1618,12 +1618,12 @@ impl VulkanRenderer {
         let dev = &self.device.device;
         unsafe {
             dev.cmd_bind_pipeline(buf, PipelineBindPoint::GRAPHICS, pipeline.pipeline);
-            if let Some(dh) = &self.device.descriptor_heap {
+            if let Some(dh) = &self.descriptor_heap {
                 let push = HeapOutPushConstants {
                     push,
                     heap_tex_set: HeapTexSet {
+                        sampler_descriptor_offset: dh.samplers[ScalingFilter::Nearest].offset(),
                         tex_descriptor_offset: memory.blend_buffer_descriptor_heap_offset,
-                        _pad: 0,
                         color_management_data_addr: memory
                             .blend_buffer_color_management_data_address
                             .unwrap_or_default(),
@@ -1631,7 +1631,7 @@ impl VulkanRenderer {
                         inv_eotf_args_addr: memory.fb_inv_eotf_args_address.unwrap_or_default(),
                     },
                 };
-                dh.push_data(buf, &push);
+                dh.device.push_data(buf, &push);
             } else if let Some(db) = &self.device.descriptor_buffer {
                 db.device.cmd_set_descriptor_buffer_offsets(
                     buf,
@@ -2771,10 +2771,14 @@ fn create_tex_frag_bindings(sampler_set: Option<u32>, tex_set: u32, offset: usiz
                 .first_binding(0)
                 .binding_count(1)
                 .resource_mask(SpirvResourceTypeFlagsEXT::SAMPLER)
-                .source(DescriptorMappingSourceEXT::HEAP_WITH_CONSTANT_OFFSET)
+                .source(DescriptorMappingSourceEXT::HEAP_WITH_PUSH_INDEX)
                 .source_data(DescriptorMappingSourceDataEXT {
-                    constant_offset: DescriptorMappingSourceConstantOffsetEXT::default()
-                        .heap_offset(0),
+                    push_index: DescriptorMappingSourcePushIndexEXT::default()
+                        .heap_offset(0)
+                        .push_offset(
+                            offset + offset_of!(HeapTexSet, sampler_descriptor_offset) as u32,
+                        )
+                        .heap_index_stride(1),
                 }),
         );
     }
