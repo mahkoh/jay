@@ -1282,10 +1282,7 @@ impl OutputNode {
 
     fn update_color_description(self: &Rc<Self>) {
         if self.update_color_description_() {
-            if let Some(hc) = self.hardware_cursor.get() {
-                self.hardware_cursor_needs_render.set(true);
-                hc.damage();
-            }
+            self.damage_hardware_cursor(true);
             for fb in self.color_description_listeners.lock().values() {
                 fb.send_image_description_changed();
             }
@@ -2121,6 +2118,15 @@ impl OutputNode {
             return;
         }
         self.add_transaction_op(OutputTransactionOp::Damage);
+    }
+
+    pub fn damage_hardware_cursor(&self, render: bool) {
+        if let Some(hc) = self.hardware_cursor.get() {
+            if render {
+                self.hardware_cursor_needs_render.set(true);
+            }
+            hc.damage();
+        }
     }
 }
 

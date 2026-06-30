@@ -1445,12 +1445,7 @@ impl State {
 
     pub fn damage_hardware_cursors(&self, render: bool) {
         for output in self.root.outputs.lock().values() {
-            if let Some(hc) = output.hardware_cursor.get() {
-                if render {
-                    output.hardware_cursor_needs_render.set(true);
-                }
-                hc.damage();
-            }
+            output.damage_hardware_cursor(render);
         }
     }
 
