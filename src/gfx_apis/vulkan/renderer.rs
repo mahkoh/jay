@@ -115,7 +115,7 @@ pub struct VulkanRenderer {
     pub(super) defunct: Cell<bool>,
     pub(super) pending_cpu_jobs: CopyHashMap<u64, PendingJob>,
     pub(super) shm_allocator: Rc<VulkanThreadedAllocator>,
-    pub(super) _samplers: StaticMap<ScalingFilter, Rc<VulkanSampler>>,
+    pub(super) samplers: StaticMap<ScalingFilter, Rc<VulkanSampler>>,
     pub(super) blend_buffers: RefCell<AHashMap<(u32, u32), Weak<VulkanImage>>>,
     pub(super) shader_buffer_cache: Rc<VulkanBufferCache>,
     pub(super) uniform_buffer_cache: Rc<VulkanBufferCache>,
@@ -328,9 +328,7 @@ impl VulkanDevice {
             fill_frag_shader = self.create_shader(LEGACY_FILL_FRAG)?;
             out_vert_shader = None;
             out_frag_shader = None;
-            tex_descriptor_set_layouts.push(
-                self.create_tex_legacy_descriptor_set_layout(&samplers[ScalingFilter::Linear])?,
-            );
+            tex_descriptor_set_layouts.push(self.create_tex_legacy_descriptor_set_layout()?);
         }
         let out_descriptor_set_layout = self
             .descriptor_buffer
@@ -464,7 +462,7 @@ impl VulkanDevice {
             defunct: Cell::new(false),
             pending_cpu_jobs: Default::default(),
             shm_allocator,
-            _samplers: samplers,
+            samplers,
             blend_buffers: Default::default(),
             shader_buffer_cache,
             uniform_buffer_cache,
@@ -1535,6 +1533,7 @@ impl VulkanRenderer {
                         }
                     } else {
                         let image_info = DescriptorImageInfo::default()
+                            .sampler(self.samplers[c.scaling_filter].sampler)
                             .image_view(tex.texture_view.unwrap())
                             .image_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL);
                         let write_descriptor_set = WriteDescriptorSet::default()
