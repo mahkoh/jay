@@ -10,7 +10,7 @@ use {
         cpu_worker::PendingJob,
         gfx_api::{
             AcquireSync, AlphaMode, BufferResv, BufferResvUser, FdSync, GfxApiOp, GfxBlendBuffer,
-            GfxFormat, GfxTexture, GfxWriteModifier, ReleaseSync,
+            GfxFormat, GfxTexture, GfxWriteModifier, ReleaseSync, ScalingFilter,
         },
         gfx_apis::vulkan::{
             VulkanError, VulkanSync, VulkanTimelineSemaphore,
@@ -116,7 +116,7 @@ pub struct VulkanRenderer {
     pub(super) defunct: Cell<bool>,
     pub(super) pending_cpu_jobs: CopyHashMap<u64, PendingJob>,
     pub(super) shm_allocator: Rc<VulkanThreadedAllocator>,
-    pub(super) _sampler: Rc<VulkanSampler>,
+    pub(super) _samplers: StaticMap<ScalingFilter, Rc<VulkanSampler>>,
     pub(super) blend_buffers: RefCell<AHashMap<(u32, u32), Weak<VulkanImage>>>,
     pub(super) shader_buffer_cache: Rc<VulkanBufferCache>,
     pub(super) uniform_buffer_cache: Rc<VulkanBufferCache>,
@@ -226,6 +226,8 @@ struct VulkanTexOp {
     resource_descriptor_buffer_offset: DeviceAddress,
     resource_descriptor_heap_offset: u32,
     grayscale: bool,
+    #[expect(dead_code)]
+    scaling_filter: ScalingFilter,
 }
 
 struct VulkanFillOp {
@@ -296,7 +298,9 @@ impl VulkanDevice {
         eng: &Rc<AsyncEngine>,
         ring: &Rc<IoUring>,
     ) -> Result<Rc<VulkanRenderer>, VulkanError> {
-        let sampler = self.create_sampler()?;
+        let samplers = static_map! {
+            f => self.create_sampler(f)?,
+        };
         let fill_vert_shader;
         let fill_frag_shader;
         let tex_vert_shader;
@@ -312,8 +316,11 @@ impl VulkanDevice {
             out_vert_shader = Some(self.create_shader(OUT_VERT)?);
             out_frag_shader = Some(self.create_shader(OUT_FRAG)?);
             if self.descriptor_buffer.is_some() {
-                tex_descriptor_set_layouts
-                    .push(self.create_tex_sampler_descriptor_set_layout(&sampler)?);
+                tex_descriptor_set_layouts.push(
+                    self.create_tex_sampler_descriptor_set_layout(
+                        &samplers[ScalingFilter::Linear],
+                    )?,
+                );
                 tex_descriptor_set_layouts.push(self.create_tex_resource_descriptor_set_layout()?);
             }
         } else {
@@ -323,8 +330,9 @@ impl VulkanDevice {
             fill_frag_shader = self.create_shader(LEGACY_FILL_FRAG)?;
             out_vert_shader = None;
             out_frag_shader = None;
-            tex_descriptor_set_layouts
-                .push(self.create_tex_legacy_descriptor_set_layout(&sampler)?);
+            tex_descriptor_set_layouts.push(
+                self.create_tex_legacy_descriptor_set_layout(&samplers[ScalingFilter::Linear])?,
+            );
         }
         let out_descriptor_set_layout = self
             .descriptor_buffer
@@ -390,14 +398,16 @@ impl VulkanDevice {
                 VulkanBufferCache::for_descriptor_buffer(self, &allocator, false);
             DescriptorBufferRenderer {
                 device: db.clone(),
-                sampler_descriptor: db.create_sampler_descriptor(sampler.sampler),
+                sampler_descriptor: db
+                    .create_sampler_descriptor(samplers[ScalingFilter::Linear].sampler),
                 sampler_descriptor_buffer_cache,
                 resource_descriptor_buffer_cache,
             }
         });
         let mut descriptor_heap = None;
         if let Some(dh) = &self.descriptor_heap {
-            let desc = dh.create_sampler_descriptor(&sampler.create_info)?;
+            let desc =
+                dh.create_sampler_descriptor(&samplers[ScalingFilter::Linear].create_info)?;
             let heap = self.allocate_descriptor_heap(
                 dh,
                 &allocator,
@@ -454,7 +464,7 @@ impl VulkanDevice {
             defunct: Cell::new(false),
             pending_cpu_jobs: Default::default(),
             shm_allocator,
-            _sampler: sampler,
+            _samplers: samplers,
             blend_buffers: Default::default(),
             shader_buffer_cache,
             uniform_buffer_cache,
@@ -989,6 +999,7 @@ impl VulkanRenderer {
                             resource_descriptor_buffer_offset: 0,
                             resource_descriptor_heap_offset: 0,
                             grayscale: ct.grayscale,
+                            scaling_filter: ct.scaling_filter,
                         }));
                     }
                 }
