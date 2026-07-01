@@ -801,6 +801,12 @@ impl WlSurface {
                 ss.surface.set_output(output, location);
             }
         }
+        for (_, con) in &self.text_input_connections {
+            for (_, popup) in con.input_method.popups() {
+                let location = NodeLocation::Output(output.id);
+                popup.surface.set_output(output, location);
+            }
+        }
     }
 
     fn on_scale_change(&self) {
@@ -2057,6 +2063,11 @@ impl NodeBase for WlSurface {
         if let Some(c) = children.deref() {
             for child in c.subsurfaces.values() {
                 visitor.visit_surface(&child.surface);
+            }
+        }
+        for (_, con) in &self.text_input_connections {
+            for (_, popup) in con.input_method.popups() {
+                visitor.visit_surface(&popup.surface);
             }
         }
     }
