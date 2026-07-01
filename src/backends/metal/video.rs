@@ -2084,7 +2084,10 @@ impl MetalBackend {
             futures,
         });
 
-        self.init_drm_device(&slf)?;
+        if let Err(e) = self.init_drm_device(&slf) {
+            log::warn!("Could not initialize new DRM device: {}", ErrorFmt(e));
+            log::info!("Device might be paused. Will try to reinit on unpause.");
+        }
 
         self.state
             .backend_events
