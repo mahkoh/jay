@@ -16,6 +16,7 @@ use {
         keyboard::KeyboardStateId,
         leaks::Tracker,
         object::{Object, Version},
+        tree::NodeLocation,
         utils::{clonecell::CloneCell, numcell::NumCell, smallmap::SmallMap},
         wire::{ZwpInputMethodV2Id, ZwpInputPopupSurfaceV2Id, zwp_input_method_v2::*},
     },
@@ -107,6 +108,13 @@ impl ZwpInputMethodV2 {
 impl InputMethod for ZwpInputMethodV2 {
     fn set_connection(&self, con: Option<&Rc<TextInputConnection>>) {
         self.connection.set(con.cloned());
+        let output = con
+            .map(|c| c.surface.get_output())
+            .unwrap_or_else(|| self.client.state.dummy_output.get().unwrap());
+        let location = NodeLocation::Output(output.id);
+        for (_, popup) in &self.popups {
+            popup.surface.set_output(&output, location);
+        }
     }
 
     fn popups(&self) -> &SmallMap<ZwpInputPopupSurfaceV2Id, Rc<ZwpInputPopupSurfaceV2>, 1> {

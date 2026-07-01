@@ -10,7 +10,7 @@ use {
         rect::Rect,
         state::State,
         tree::{
-            NodeLayerLink,
+            NodeLayerLink, NodeLocation,
             TreeTimeline::{LiveTL, RenderTL},
             WorkspaceNode,
         },
@@ -155,6 +155,11 @@ impl ZwpInputPopupSurfaceV2 {
         }
         self.surface.ext.set(self.clone());
         self.input_method.popups.insert(self.id, self.clone());
+        if let Some(con) = self.input_method.connection.get() {
+            let output = con.surface.output.get();
+            let location = NodeLocation::Output(output.id);
+            self.surface.set_output(&output, location);
+        }
         Ok(())
     }
 
