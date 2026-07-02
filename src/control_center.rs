@@ -26,9 +26,10 @@ use {
         },
     },
     egui::{
-        Align, CentralPanel, Checkbox, Color32, ComboBox, CursorIcon, DragValue, Frame, Grid, Id,
-        InnerResponse, Label, Layout, Panel, Response, Rgba, RichText, ScrollArea, Sense, Stroke,
-        TextBuffer, TextEdit, Ui, UiBuilder, Visuals, Widget, WidgetText, emath::Numeric, vec2,
+        Align, AsIdSalt, CentralPanel, Checkbox, Color32, ComboBox, CursorIcon, DragValue, Frame,
+        Grid, Id, InnerResponse, Label, Layout, Panel, Response, Rgba, RichText, ScrollArea, Sense,
+        Stroke, TextBuffer, TextEdit, Ui, UiBuilder, Visuals, Widget, WidgetText, emath::Numeric,
+        vec2,
     },
     egui_tiles::{ResizeState, TabState, Tile, TileId, Tiles, Tree},
     linearize::{Linearize, LinearizeExt, StaticCopyMap},
@@ -346,14 +347,14 @@ impl EggWindowOwner for ControlCenterInner {
 
     fn render(self: Rc<Self>, ui: &mut Ui) {
         let settings = &mut *self.tree.borrow_mut();
-        Panel::left("sidebar").show_inside(ui, |ui| self.show_sidebar(&mut settings.tree, ui));
+        Panel::left("sidebar").show(ui, |ui| self.show_sidebar(&mut settings.tree, ui));
         CentralPanel::default()
             .frame(
                 Frame::central_panel(&ui.global_style())
                     .outer_margin(0.0)
                     .inner_margin(0.0),
             )
-            .show_inside(ui, |ui| {
+            .show(ui, |ui| {
                 let tree = &mut settings.tree;
                 let mut behavior = CcBehavior {
                     cc: &self,
@@ -528,7 +529,7 @@ fn show_errors(ui: &mut Ui, pane: &mut PaneState) {
 
 fn grid<R>(
     ui: &mut Ui,
-    id_salt: impl Hash,
+    id_salt: impl AsIdSalt,
     add_contents: impl FnOnce(&mut Ui) -> R,
 ) -> InnerResponse<R> {
     let mut spacing = ui.spacing().item_spacing;
