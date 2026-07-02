@@ -1,5 +1,290 @@
 # Unreleased
 
+## Fixes
+
+As always, this release contains many bug fixes. Thanks to the following people
+for reporting or fixing bugs:
+
+- @effects3d
+- @jfrob
+- @khyperia
+- @kotarac
+- @krakow10
+- @Ktrompfl
+- @Nojike
+- @polycatenane
+- @Stoppedpuma
+
+## Every Frame is Perfect
+
+Wayland allows compositors and clients to coordinate changes such that every
+frame is perfect. For example, when resizing two tiles, the transition can be
+coordinated so that each window fills its respective tile at all times.
+
+Until now, Jay did not make use of this. When resizing a window from the left,
+the right side of the window might disappear below the border or might appear
+detached from the border.
+
+Jay will now try to make every frame perfect. This is accomplished by delaying
+changes on screen until all affected clients have also updated themselves. A
+timeout is used so that a slow client does not cause the entire system to lag.
+
+The default timeout is 50 milliseconds, which is ambitious. Sway uses a timeout
+of 200 milliseconds and niri uses a timeout of 300 milliseconds.
+
+The timeout can be adjusted in the config and in the control center:
+
+```toml
+[transactions]
+timeout.millis = 200
+```
+
+Note that transactions only affect what is displayed on screen. The cursor
+interacts with the actual state, which might be newer. The timeout determines
+the maximum input lag of this mechanism, so to speak. In most cases applications
+will respond far sooner than the timeout and the difference will be
+imperceptible.
+
+Setting the timeout to 0 will give you the previous behavior of Jay, except that
+in some rare situations a change might be delayed by one frame where it
+previously wouldn't have been.
+
+## Improved Prime Handling
+
+On multi-GPU systems, Jay will now always ensure that buffers rendered on
+secondary GPUs are copied to the primary GPU before they are used by the
+compositor. This ensures that such copies are not performed implicitly when
+rendering, which would increase whole-system latency.
+
+As a side effect, this means that it is now possible to seamlessly switch the
+primary GPU at runtime. Previously, this often required applications to be
+restarted. For example, on a gaming laptop, you might want to normally run on
+the integrated GPU to save energy. But while gaming, you might want to run on
+the dedicated GPU instead, to reduce latency.
+
+For clients using version 6 of the wayland dmabuf protocol, Jay is also able to
+perform the following optimization: If an application runs on a secondary GPU
+and is being scanned out on a display connected to the secondary GPU, Jay will
+skip the copy to the primary GPU. This can significantly improve the performance
+of such applications. Note that mesa does not yet support version 6 of the
+protocol.
+
+All of this can be disabled by setting the environment variable
+`JAY_NO_CLIENT_PRIME=1` before starting Jay.
+
+## Repeating and Locked Shortcuts
+
+Shortcuts can now be configured to repeat:
+
+```toml
+[complex-shortcuts]
+XF86AudioRaiseVolume = {
+    action.type = "exec",
+    action.exec.shell = "pactl set-sink-volume 0 +10%",
+    repeat = true,
+}
+```
+
+A repeating shortcut fires according to the configured repeat rate and delay.
+
+Setting `allow-locked = true` allows a shortcut to execute while the screen is
+locked. Care must be taken to not apply this to shortcuts that would allow one
+to circumvent the lock screen.
+
+Thanks to @GK-Gaming for suggesting this.
+
+## Auto Floating of Fixed-Size Windows
+
+When a client hints that a native wayland window is fixed-size, it will now
+automatically be mapped floating instead of tiled. This behavior can be
+overridden with window rules.
+
+This can improve the handling of some windows such as splash screens. If you
+encounter a window where this behavior is incorrect, please open an issue.
+
+Furthermore, when mapping a floating window, the size will now be adjusted to
+fall within the min/max size hinted by the client. The user can still resize the
+window to any size.
+
+Thanks to @effects3d for suggesting this.
+
+## Focused Border Color
+
+Containers can now be configured to have borders drawn around them:
+
+```toml
+[theme]
+container-borders = "full"
+```
+
+When this setting is active, focused windows can be given a dedicated border
+color:
+
+```toml
+[theme]
+focused-border-color = "#840"
+```
+
+This makes it possible to see which window has the focus when window titles are
+disabled.
+
+Thanks to @Stoppedpuma for suggesting this.
+
+## Scroll Methods
+
+The libinput scroll method of pointer devices can now be configured:
+
+```toml
+[[inputs]]
+match.is-pointer = true
+scroll-method = "on-button-down"
+scroll-button = "BTN_MIDDLE"
+```
+
+This does not affect scroll wheels but rather devices where pointer movements
+and scroll events are generated via the same input surface. For example, if the
+configuration above were applied to a touchpad, it would generate scroll events
+instead of relative motion events while the middle mouse button is pressed.
+
+In the control center, the possible `scroll-button` values are visible via a
+dropdown menu.
+
+Thanks to @GK-Gaming for suggesting this.
+
+## Scaling with Nearest Filtering
+
+Outputs can now be configured to use nearest filtering instead of linear
+filtering:
+
+```toml
+[[outputs]]
+match.serial-number = "ETW1M02062SL0"
+scale = 2.0
+scaling-filter = "nearest"
+```
+
+This produces a clearer picture when the scaling factor is an integer.
+
+This should only affect applications running via Xwayland. Native wayland
+applications should scale themselves.
+
+Thanks to @David-Isenah for suggesting this.
+
+## Setting Initial Workspace Outputs
+
+When creating new workspaces implicitly, such as by executing a
+`move-to-workspace` action, the workspace would previously always be created on
+the fallback output. Workspaces can now be configured ahead of time to be
+created on a specific output:
+
+```toml
+[workspaces."1"]
+initial-output.name = "left"
+
+[workspaces."2"]
+initial-output.name = "right"
+```
+
+Thanks to @Stoppedpuma for suggesting this.
+
+## Toml Improvements
+
+The following improvements expose existing settings via the toml config.
+
+### Applying Device Configuration Every Time
+
+The toml config now has a setting to apply device configurations on reload:
+
+```toml
+device-config-filter = "all"
+```
+
+By default, configuration changes are not applied to existing devices so as not
+to overwrite changes made via the command line or the control center.
+
+Thanks to @Stoppedpuma for suggesting this.
+
+### Disabling Input Devices
+
+Input devices can now be disabled from the toml config:
+
+```toml
+[[inputs]]
+match.name = "Sony Interactive Entertainment Wireless Controller Touchpad"
+detached = true
+```
+
+Thanks to @ArthurHeymans for suggesting this.
+
+### Configuring the Cursor Size
+
+The cursor size can now be configured via the toml config:
+
+```toml
+cursor-size = 30
+```
+
+This only affects cursors rendered by the compositor.
+
+Thanks to @GK-Gaming for suggesting this.
+
+## Visualizing Compositing
+
+Sometimes it is useful to know if direct scanout is active or inactive, for
+example, to diagnose performance issues. Jay can now display a watermark on
+screen while it is compositing; the watermark disappears automatically when
+direct scanout is active:
+
+```toml
+[shortcuts]
+alt-x = "toggle-visualize-compositing"
+```
+
+## Upholding the graphical-session.target
+
+Jay will now ensure that the systemd `graphical-session.target` is active while
+it is running. This works around a recent regression in xdg-desktop-portal that
+otherwise prevents screencasts and similar features from working under most
+compositors.
+
+Thanks to @krakow10 for reporting this.
+
+## Jay Environment Variables
+
+Jay reads a number of environment variables at startup to configure itself.
+These variables are now documented in the book in the _Env Variables Read by
+Jay_ section.
+
+## `dlopen()` Metadata
+
+The Jay executable now contains `dlopen` metadata that can be used by packagers
+to determine which libraries Jay will try to load at runtime and for which
+purpose:
+
+```shell
+~$ systemd-analyze dlopen-metadata $(which jay)
+FEATURE DESCRIPTION                      SONAME          PRIORITY
+sqlite  required for session management  libsqlite3.so.0 recommended
+opengl  required for the opengl renderer libGLESv2.so.2  recommended
+opengl  required for the opengl renderer libEGL.so.1     recommended
+vulkan  required for the vulkan renderer libvulkan.so.1  recommended
+```
+
+## Windows BT.2100 Color Descriptions
+
+Jay now supports version 3 of the color management protocol and BT.2100 color
+descriptions used by Wine.
+
+## Protocol Updates and Additions
+
+This version of Jay supports the following new and improved protocols:
+
+| Global              | Old | New |
+|---------------------|:----|:----|
+| wl_seat             | 10  | 11  |
+| wp_color_manager_v1 | 2   | 3   |
+| zwp_linux_dmabuf_v1 | 5   | 6   |
+
 # 1.13.0 (2026-05-08)
 
 ## Fixes
