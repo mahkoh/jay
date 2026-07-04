@@ -81,6 +81,10 @@ impl WlKeyboard {
         self.send_modifiers(serial, &kb_state.mods);
     }
 
+    pub fn send_initial_keymap(self: &Rc<Self>, state: &KeyboardState) {
+        self.send_keymap(state);
+    }
+
     fn send_keymap(self: &Rc<Self>, state: &KeyboardState) {
         let fd = match self.seat.keymap_fd(state) {
             Ok(fd) => fd,

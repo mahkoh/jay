@@ -1836,14 +1836,18 @@ impl WlSeatRequestHandler for WlSeat {
         track!(self.client, p);
         self.client.add_client_obj(&p)?;
         self.keyboards.set(req.id, p.clone());
+        let kb_state = self.global.seat_kb_state.get();
+        let kb_state = kb_state.borrow();
         if let Some(surface) = self.global.keyboard_node.get().node_into_surface()
             && surface.client.id == self.client.id
         {
             p.enter(
                 self.client.next_serial(),
                 surface.id,
-                &self.global.seat_kb_state.get().borrow().kb_state,
+                &kb_state.kb_state,
             );
+        } else {
+            p.send_initial_keymap(&kb_state.kb_state);
         }
         if self.version >= REPEAT_INFO_SINCE {
             let (rate, delay) = self.global.repeat_rate.get();
