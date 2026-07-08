@@ -1464,7 +1464,8 @@ impl GfxRenderPass {
                 // Direct scanout requires embeddable color descriptions.
                 return None;
             }
-            if !ct.opaque && !ct.cd.embeds_into(blend_cd) {
+            let has_alpha = ct.tex.format().has_alpha;
+            if has_alpha && !ct.opaque && !ct.cd.embeds_into(blend_cd) {
                 // Blending changes the appearance of translucent buffers.
                 return None;
             }
@@ -1472,7 +1473,7 @@ impl GfxRenderPass {
                 // Direct scanout with alpha factor is not supported.
                 return None;
             }
-            if !ct.tex.format().has_alpha && ct.target.is_covering() {
+            if !has_alpha && ct.target.is_covering() {
                 // Texture covers the entire screen and is opaque.
                 break 'ct ct;
             }
