@@ -293,13 +293,13 @@ pub mod logic {
             client::ClientError,
             ifs::{
                 ipc::{
-                    IpcLocation, add_data_source_mime_type, break_device_loops, break_offer_loops,
-                    break_source_loops,
+                    IpcLocation, OfferDestroyReason, add_data_source_mime_type, break_device_loops,
+                    break_offer_loops, break_source_loops,
                     data_control::private::{
                         Clipboard, DataControlDevice, DataControlOffer, DataControlSource,
                         PrimarySelection, Source, SourceId,
                     },
-                    destroy_data_device, destroy_data_offer, destroy_data_source,
+                    destroy_data_device, destroy_data_offer_with_reason, destroy_data_source,
                     receive_data_offer,
                 },
                 wl_seat::WlSeatError,
@@ -396,9 +396,14 @@ pub mod logic {
     }
 
     pub fn data_offer_destroy<O: DataControlOffer>(o: &O) -> Result<(), DataControlError> {
+        macro_rules! destroy {
+            ($t:ident) => {
+                destroy_data_offer_with_reason::<$t<O::Ipc>>(o, OfferDestroyReason::OfferClient)
+            };
+        }
         match o.data().location {
-            IpcLocation::Clipboard => destroy_data_offer::<Clipboard<O::Ipc>>(o),
-            IpcLocation::PrimarySelection => destroy_data_offer::<PrimarySelection<O::Ipc>>(o),
+            IpcLocation::Clipboard => destroy!(Clipboard),
+            IpcLocation::PrimarySelection => destroy!(PrimarySelection),
         }
         o.data().client.remove_obj(o)?;
         Ok(())

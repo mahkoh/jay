@@ -3,8 +3,9 @@ use {
         client::{Client, ClientError, ClientId},
         ifs::{
             ipc::{
-                DataOffer, DataOfferId, DynDataOffer, OfferData, break_offer_loops, cancel_offer,
-                destroy_data_offer, receive_data_offer,
+                DataOffer, DataOfferId, DynDataOffer, OfferData, OfferDestroyReason,
+                break_offer_loops, cancel_offer, destroy_data_offer_with_reason,
+                receive_data_offer,
                 zwp_primary_selection_device_v1::{
                     PrimarySelectionIpc, ZwpPrimarySelectionDeviceV1,
                 },
@@ -77,7 +78,10 @@ impl ZwpPrimarySelectionOfferV1RequestHandler for ZwpPrimarySelectionOfferV1 {
     }
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        destroy_data_offer::<PrimarySelectionIpc>(self);
+        destroy_data_offer_with_reason::<PrimarySelectionIpc>(
+            self,
+            OfferDestroyReason::OfferClient,
+        );
         self.client.remove_obj(self)?;
         Ok(())
     }

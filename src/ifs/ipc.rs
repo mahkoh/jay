@@ -379,13 +379,25 @@ pub fn destroy_data_source<T: IpcVtable>(src: &T::Source) {
     }
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum OfferDestroyReason {
+    OfferClient,
+    Other,
+}
+
 pub fn destroy_data_offer<T: IpcVtable>(offer: &T::Offer) {
+    destroy_data_offer_with_reason::<T>(offer, OfferDestroyReason::Other)
+}
+
+pub fn destroy_data_offer_with_reason<T: IpcVtable>(offer: &T::Offer, reason: OfferDestroyReason) {
     let data = offer.offer_data();
     if let Some(device) = data.device.take() {
         let device_data = T::get_device_data(&device);
         match data.shared.role.get() {
             Role::Selection => {
-                T::send_selection(&device, None);
+                if reason != OfferDestroyReason::OfferClient {
+                    T::send_selection(&device, None);
+                }
                 device_data.selection.take();
             }
             Role::Dnd => {

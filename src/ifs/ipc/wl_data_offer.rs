@@ -5,8 +5,9 @@ use {
         ifs::{
             ipc::{
                 DataOffer, DataOfferId, DynDataOffer, OFFER_STATE_ACCEPTED, OFFER_STATE_DROPPED,
-                OFFER_STATE_FINISHED, OfferData, Role, SOURCE_STATE_FINISHED, break_offer_loops,
-                cancel_offer, destroy_data_offer, receive_data_offer,
+                OFFER_STATE_FINISHED, OfferData, OfferDestroyReason, Role, SOURCE_STATE_FINISHED,
+                break_offer_loops, cancel_offer, destroy_data_offer_with_reason,
+                receive_data_offer,
                 wl_data_device::{ClipboardIpc, WlDataDevice},
                 wl_data_device_manager::DND_ALL,
             },
@@ -138,7 +139,7 @@ impl WlDataOfferRequestHandler for WlDataOffer {
     }
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        destroy_data_offer::<ClipboardIpc>(self);
+        destroy_data_offer_with_reason::<ClipboardIpc>(self, OfferDestroyReason::OfferClient);
         self.client.remove_obj(self)?;
         Ok(())
     }
