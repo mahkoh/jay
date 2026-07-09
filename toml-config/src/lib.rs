@@ -518,6 +518,12 @@ impl Action {
             Action::Resize { dx1, dy1, dx2, dy2 } => {
                 window_or_seat!(s, s.resize(dx1, dy1, dx2, dy2))
             }
+            Action::SetSize { width, height } => {
+                window_or_seat!(s, s.set_size(width, height))
+            }
+            Action::SetPosition { x, y } => {
+                window_or_seat!(s, s.set_position(x, y))
+            }
             Action::HideOverlay { ws } => {
                 let workspace = ws.ws.get();
                 b.new(move || workspace.hide())

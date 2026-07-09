@@ -601,6 +601,22 @@ impl ActionParser<'_, '_> {
         })
     }
 
+    fn parse_set_size(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
+        let (width, height) = ext.extract((s32("width"), s32("height")))?;
+        Ok(Action::SetSize {
+            width: width.value,
+            height: height.value,
+        })
+    }
+
+    fn parse_set_position(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
+        let (x, y) = ext.extract((s32("x"), s32("y")))?;
+        Ok(Action::SetPosition {
+            x: x.value,
+            y: y.value,
+        })
+    }
+
     fn parse_hide_overlay(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let (name,) = ext.extract((str("name"),))?;
         let ws = self.0.get_workspace_slot(name.value);
@@ -674,6 +690,8 @@ impl Parser for ActionParser<'_, '_> {
             "create-virtual-output" => self.parse_create_virtual_output(&mut ext),
             "remove-virtual-output" => self.parse_remove_virtual_output(&mut ext),
             "resize" => self.parse_resize(&mut ext),
+            "set-size" => self.parse_set_size(&mut ext),
+            "set-position" => self.parse_set_position(&mut ext),
             "hide-overlay" => self.parse_hide_overlay(&mut ext),
             "show-overlay" => self.parse_show_overlay(&mut ext),
             "toggle-overlay" => self.parse_toggle_overlay(&mut ext),

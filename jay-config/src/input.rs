@@ -713,6 +713,18 @@ impl Seat {
         self.window().resize(dx1, dy1, dx2, dy2);
     }
 
+    /// Resizes the focused window to an absolute size.
+    pub fn set_size(self, width: i32, height: i32) {
+        self.window().set_size(width, height);
+    }
+
+    /// Sets the position of the focused window to an absolute value.
+    ///
+    /// This only has an effect if the window is floating.
+    pub fn set_position(self, x: i32, y: i32) {
+        self.window().set_position(x, y);
+    }
+
     /// Sets whether the cursor should automatically move to the center of a window
     /// when focus changes via keyboard commands (move-left, focus-right, show-workspace, etc.).
     ///

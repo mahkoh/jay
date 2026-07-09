@@ -350,6 +350,12 @@ impl Rule for WindowRule {
         if let Some(tile_state) = self.initial_tile_state {
             matcher.set_initial_tile_state(tile_state);
         }
+        if let Some((width, height)) = self.initial_floating_size {
+            matcher.set_initial_floating_size(width, height);
+        }
+        if let Some((x, y)) = self.initial_floating_position {
+            matcher.set_initial_floating_position(x, y);
+        }
     }
 
     fn gen_matcher(m: Self::Matcher) -> Self::Criterion<'static> {

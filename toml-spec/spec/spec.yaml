@@ -981,6 +981,53 @@ Action:
               required: false
               kind: number
               integer_only: true
+        set-size:
+          description: |
+            Resizes the focused window to an absolute size.
+
+            This has the same effect as `resize` but takes the target size instead of a
+            delta.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-x = { type = "set-size", width = 800, height = 600 }
+              ```
+          fields:
+            width:
+              description: The new width of the window.
+              required: true
+              kind: number
+              integer_only: true
+            height:
+              description: The new height of the window.
+              required: true
+              kind: number
+              integer_only: true
+        set-position:
+          description: |
+            Sets the position of the focused window to an absolute value.
+
+            This only has an effect if the window is floating.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-x = { type = "set-position", x = 100, y = 100 }
+              ```
+          fields:
+            x:
+              description: The new x coordinate of the window.
+              required: true
+              kind: number
+              integer_only: true
+            y:
+              description: The new y coordinate of the window.
+              required: true
+              kind: number
+              integer_only: true
         hide-overlay:
           description: Hides an overlay if it is visible.
           fields:
@@ -4440,6 +4487,70 @@ WindowRule:
       ref: TileState
       required: false
       description: Specifies if the window is initially mapped tiled or floating.
+    initial-floating-size:
+      ref: WindowFloatingSize
+      required: false
+      description: |
+        Specifies the initial size of the window while it is floating.
+
+        If multiple matching rules specify this field, the used size is unspecified.
+    initial-floating-position:
+      ref: WindowFloatingPosition
+      required: false
+      description: |
+        Specifies the initial position of the window while it is floating.
+
+        If multiple matching rules specify this field, the used position is unspecified.
+
+
+WindowFloatingSize:
+  kind: table
+  description: |
+    The initial size of a floating window.
+
+    - Example:
+
+      ```toml
+      [[windows]]
+      match.app-id = "mpv"
+      initial-floating-size = { width = 800, height = 600 }
+      ```
+  fields:
+    width:
+      kind: number
+      integer_only: true
+      required: true
+      description: The width of the window.
+    height:
+      kind: number
+      integer_only: true
+      required: true
+      description: The height of the window.
+
+
+WindowFloatingPosition:
+  kind: table
+  description: |
+    The initial position of a floating window.
+
+    - Example:
+
+      ```toml
+      [[windows]]
+      match.app-id = "mpv"
+      initial-floating-position = { x = 100, y = 100 }
+      ```
+  fields:
+    x:
+      kind: number
+      integer_only: true
+      required: true
+      description: The x coordinate of the window.
+    y:
+      kind: number
+      integer_only: true
+      required: true
+      description: The y coordinate of the window.
 
 
 WindowMatch:

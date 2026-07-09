@@ -414,7 +414,11 @@ impl XdgToplevel {
     }
 
     fn map_floating(self: &Rc<Self>, workspace: &Rc<WorkspaceNode>, abs_pos: Option<(i32, i32)>) {
-        let (width, height) = self.toplevel_data.float_size(workspace);
+        let (width, height) = self
+            .state
+            .initial_floating_size(&self.toplevel_data)
+            .unwrap_or_else(|| self.toplevel_data.float_size(workspace));
+        let abs_pos = abs_pos.or_else(|| self.state.initial_floating_position(&self.toplevel_data));
         self.state
             .map_floating(self.clone(), width, height, workspace, abs_pos);
     }

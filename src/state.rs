@@ -1876,6 +1876,14 @@ impl State {
         self.config.get()?.initial_tile_state(data)
     }
 
+    pub fn initial_floating_size(&self, data: &ToplevelData) -> Option<(i32, i32)> {
+        self.config.get()?.initial_floating_size(data)
+    }
+
+    pub fn initial_floating_position(&self, data: &ToplevelData) -> Option<(i32, i32)> {
+        self.config.get()?.initial_floating_position(data)
+    }
+
     pub fn update_capabilities(
         &self,
         data: &Rc<Client>,

@@ -1050,6 +1050,69 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
     The numbers should be integers.
 
+- `set-size`:
+
+  Resizes the focused window to an absolute size.
+  
+  This has the same effect as `resize` but takes the target size instead of a
+  delta.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-x = { type = "set-size", width = 800, height = 600 }
+    ```
+
+  The table has the following fields:
+
+  - `width` (required):
+
+    The new width of the window.
+
+    The value of this field should be a number.
+
+    The numbers should be integers.
+
+  - `height` (required):
+
+    The new height of the window.
+
+    The value of this field should be a number.
+
+    The numbers should be integers.
+
+- `set-position`:
+
+  Sets the position of the focused window to an absolute value.
+  
+  This only has an effect if the window is floating.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-x = { type = "set-position", x = 100, y = 100 }
+    ```
+
+  The table has the following fields:
+
+  - `x` (required):
+
+    The new x coordinate of the window.
+
+    The value of this field should be a number.
+
+    The numbers should be integers.
+
+  - `y` (required):
+
+    The new y coordinate of the window.
+
+    The value of this field should be a number.
+
+    The numbers should be integers.
+
 - `hide-overlay`:
 
   Hides an overlay if it is visible.
@@ -5769,6 +5832,74 @@ The string should have one of the following values:
 
 
 
+<a name="types-WindowFloatingPosition"></a>
+### `WindowFloatingPosition`
+
+The initial position of a floating window.
+
+- Example:
+
+  ```toml
+  [[windows]]
+  match.app-id = "mpv"
+  initial-floating-position = { x = 100, y = 100 }
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `x` (required):
+
+  The x coordinate of the window.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+- `y` (required):
+
+  The y coordinate of the window.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+
+<a name="types-WindowFloatingSize"></a>
+### `WindowFloatingSize`
+
+The initial size of a floating window.
+
+- Example:
+
+  ```toml
+  [[windows]]
+  match.app-id = "mpv"
+  initial-floating-size = { width = 800, height = 600 }
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `width` (required):
+
+  The width of the window.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+- `height` (required):
+
+  The height of the window.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+
 <a name="types-WindowMatch"></a>
 ### `WindowMatch`
 
@@ -6088,6 +6219,22 @@ The table has the following fields:
   Specifies if the window is initially mapped tiled or floating.
 
   The value of this field should be a [TileState](#types-TileState).
+
+- `initial-floating-size` (optional):
+
+  Specifies the initial size of the window while it is floating.
+  
+  If multiple matching rules specify this field, the used size is unspecified.
+
+  The value of this field should be a [WindowFloatingSize](#types-WindowFloatingSize).
+
+- `initial-floating-position` (optional):
+
+  Specifies the initial position of the window while it is floating.
+  
+  If multiple matching rules specify this field, the used position is unspecified.
+
+  The value of this field should be a [WindowFloatingPosition](#types-WindowFloatingPosition).
 
 
 <a name="types-WindowTypeMask"></a>

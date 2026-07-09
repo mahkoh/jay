@@ -201,6 +201,14 @@ impl ConfigProxy {
         self.handler.get()?.initial_tile_state(data)
     }
 
+    pub fn initial_floating_size(&self, data: &ToplevelData) -> Option<(i32, i32)> {
+        self.handler.get()?.initial_floating_size(data)
+    }
+
+    pub fn initial_floating_position(&self, data: &ToplevelData) -> Option<(i32, i32)> {
+        self.handler.get()?.initial_floating_position(data)
+    }
+
     pub fn initial_output_for_workspace(&self, name: &str) -> Option<Option<Rc<OutputNode>>> {
         self.handler.get()?.initial_output_for_workspace(name)
     }
@@ -281,6 +289,8 @@ impl ConfigProxy {
             window_matcher_std_kinds: state.tl_matcher_manager.kind(window::CLIENT_WINDOW),
             window_matcher_no_auto_focus: Default::default(),
             window_matcher_initial_tile_state: Default::default(),
+            window_matcher_initial_floating_size: Default::default(),
+            window_matcher_initial_floating_position: Default::default(),
         });
         let init_msg = bincode_ops()
             .serialize(&InitMessage::V1(V1InitMessage {}))

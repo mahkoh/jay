@@ -306,11 +306,14 @@ impl Xwindow {
                 self.data.state.tree_changed();
             }
             Change::Map if map_floating => {
-                let ws = self.data.state.float_map_ws();
                 let ext = self.data.info.pending_extents.get();
-                self.data
-                    .state
-                    .map_floating(self.clone(), ext.width(), ext.height(), &ws, None);
+                let state = &self.data.state;
+                let ws = state.float_map_ws();
+                let (width, height) = state
+                    .initial_floating_size(&self.toplevel_data)
+                    .unwrap_or_else(|| (ext.width(), ext.height()));
+                let abs_pos = state.initial_floating_position(&self.toplevel_data);
+                state.map_floating(self.clone(), width, height, &ws, abs_pos);
                 self.data.title_changed();
             }
             Change::Map => {

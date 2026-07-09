@@ -595,6 +595,42 @@ impl ConfigClient {
         workspace
     }
 
+    pub fn get_window_position(&self, window: Window) -> (i32, i32) {
+        let res = self.send_with_response(&ClientMessage::GetWindowPosition { window });
+        get_response!(res, (0, 0), GetWindowPosition { x, y });
+        (x, y)
+    }
+
+    pub fn get_window_size(&self, window: Window) -> (i32, i32) {
+        let res = self.send_with_response(&ClientMessage::GetWindowSize { window });
+        get_response!(res, (0, 0), GetWindowSize { width, height });
+        (width, height)
+    }
+
+    pub fn set_window_size(&self, window: Window, width: i32, height: i32) {
+        self.send(&ClientMessage::SetWindowSize {
+            window,
+            width,
+            height,
+        });
+    }
+
+    pub fn set_window_position(&self, window: Window, x: i32, y: i32) {
+        self.send(&ClientMessage::SetWindowPosition { window, x, y });
+    }
+
+    pub fn get_workspace_position(&self, workspace: Workspace) -> (i32, i32) {
+        let res = self.send_with_response(&ClientMessage::GetWorkspacePosition { workspace });
+        get_response!(res, (0, 0), GetWorkspacePosition { x, y });
+        (x, y)
+    }
+
+    pub fn get_workspace_size(&self, workspace: Workspace) -> (i32, i32) {
+        let res = self.send_with_response(&ClientMessage::GetWorkspaceSize { workspace });
+        get_response!(res, (0, 0), GetWorkspaceSize { width, height });
+        (width, height)
+    }
+
     pub fn get_seat_keyboard_workspace(&self, seat: Seat) -> Workspace {
         let res = self.send_with_response(&ClientMessage::GetSeatKeyboardWorkspace { seat });
         get_response!(res, Workspace(0), GetSeatKeyboardWorkspace { workspace });
@@ -2106,6 +2142,28 @@ impl ConfigClient {
             matcher,
             tile_state,
         });
+    }
+
+    pub fn set_window_matcher_initial_floating_size(
+        &self,
+        matcher: WindowMatcher,
+        width: i32,
+        height: i32,
+    ) {
+        self.send(&ClientMessage::SetWindowMatcherInitialFloatingSize {
+            matcher,
+            width,
+            height,
+        });
+    }
+
+    pub fn set_window_matcher_initial_floating_position(
+        &self,
+        matcher: WindowMatcher,
+        x: i32,
+        y: i32,
+    ) {
+        self.send(&ClientMessage::SetWindowMatcherInitialFloatingPosition { matcher, x, y });
     }
 
     pub fn set_window_matcher_latch_handler(

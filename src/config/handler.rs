@@ -30,7 +30,7 @@ use {
         tagged_acceptor::TaggedAcceptorError,
         theme::{ThemeColored, ThemeSized},
         tree::{
-            ContainerSplit, OutputNode, OutputNodeOrPersistent, TearingMode, TileState,
+            ContainerSplit, NodeBase, OutputNode, OutputNodeOrPersistent, TearingMode, TileState,
             ToplevelData, ToplevelIdentifier, ToplevelNode, TreeTimeline::LiveTL, VrrMode,
             WorkspaceNode, WorkspaceType, WsMoveConfig, move_ws_to_output, toplevel_create_split,
             toplevel_parent_container, toplevel_set_floating, toplevel_set_workspace,
@@ -163,6 +163,20 @@ pub(super) struct ConfigProxyHandler {
         (
             Rc<CachedCriterion<WindowCriterionIpc, ToplevelData>>,
             TileState,
+        ),
+    >,
+    pub window_matcher_initial_floating_size: CopyHashMap<
+        WindowMatcher,
+        (
+            Rc<CachedCriterion<WindowCriterionIpc, ToplevelData>>,
+            (i32, i32),
+        ),
+    >,
+    pub window_matcher_initial_floating_position: CopyHashMap<
+        WindowMatcher,
+        (
+            Rc<CachedCriterion<WindowCriterionIpc, ToplevelData>>,
+            (i32, i32),
         ),
     >,
 }
@@ -2590,6 +2604,9 @@ impl ConfigProxyHandler {
         self.window_matcher_leafs.remove(&matcher);
         self.window_matcher_no_auto_focus.remove(&matcher);
         self.window_matcher_initial_tile_state.remove(&matcher);
+        self.window_matcher_initial_floating_size.remove(&matcher);
+        self.window_matcher_initial_floating_position
+            .remove(&matcher);
     }
 
     fn handle_enable_window_matcher_events(
@@ -2644,6 +2661,33 @@ impl ConfigProxyHandler {
         let m = self.get_window_matcher(matcher)?;
         self.window_matcher_initial_tile_state
             .set(matcher, (m, tile_state));
+        Ok(())
+    }
+
+    fn handle_set_window_matcher_initial_floating_size(
+        &self,
+        matcher: WindowMatcher,
+        width: i32,
+        height: i32,
+    ) -> Result<(), CphError> {
+        if width <= 0 || height <= 0 {
+            return Err(CphError::InvalidWindowSize(width, height));
+        }
+        let m = self.get_window_matcher(matcher)?;
+        self.window_matcher_initial_floating_size
+            .set(matcher, (m, (width, height)));
+        Ok(())
+    }
+
+    fn handle_set_window_matcher_initial_floating_position(
+        &self,
+        matcher: WindowMatcher,
+        x: i32,
+        y: i32,
+    ) -> Result<(), CphError> {
+        let m = self.get_window_matcher(matcher)?;
+        self.window_matcher_initial_floating_position
+            .set(matcher, (m, (x, y)));
         Ok(())
     }
 
@@ -2981,6 +3025,66 @@ impl ConfigProxyHandler {
         dy2: i32,
     ) -> Result<(), CphError> {
         self.get_window(window)?.tl_resize(dx1, dy1, dx2, dy2);
+        Ok(())
+    }
+
+    fn handle_get_window_position(&self, window: Window) -> Result<(), CphError> {
+        let pos = self.get_window(window)?.node_absolute_position(LiveTL);
+        self.respond(Response::GetWindowPosition {
+            x: pos.x1(),
+            y: pos.y1(),
+        });
+        Ok(())
+    }
+
+    fn handle_get_window_size(&self, window: Window) -> Result<(), CphError> {
+        let pos = self.get_window(window)?.node_absolute_position(LiveTL);
+        self.respond(Response::GetWindowSize {
+            width: pos.width(),
+            height: pos.height(),
+        });
+        Ok(())
+    }
+
+    fn handle_set_window_size(
+        &self,
+        window: Window,
+        width: i32,
+        height: i32,
+    ) -> Result<(), CphError> {
+        if width <= 0 || height <= 0 {
+            return Err(CphError::InvalidWindowSize(width, height));
+        }
+        self.get_window(window)?.tl_set_size(width, height);
+        Ok(())
+    }
+
+    fn handle_set_window_position(&self, window: Window, x: i32, y: i32) -> Result<(), CphError> {
+        self.get_window(window)?.tl_set_position(x, y);
+        Ok(())
+    }
+
+    fn handle_get_workspace_position(&self, workspace: Workspace) -> Result<(), CphError> {
+        let pos = self
+            .get_existing_workspace(workspace)?
+            .map(|ws| ws.node_absolute_position(LiveTL))
+            .unwrap_or_default();
+        self.respond(Response::GetWorkspacePosition {
+            x: pos.x1(),
+            y: pos.y1(),
+        });
+        Ok(())
+    }
+
+    fn handle_get_workspace_size(&self, workspace: Workspace) -> Result<(), CphError> {
+        let pos = self
+            .get_existing_workspace(workspace)?
+            .map(|ws| ws.node_absolute_position(LiveTL))
+            .unwrap_or_default();
+        self.respond(Response::GetWorkspaceSize {
+            width: pos.width(),
+            height: pos.height(),
+        });
         Ok(())
     }
 
@@ -3735,6 +3839,16 @@ impl ConfigProxyHandler {
             } => self
                 .handle_set_window_matcher_initial_tile_state(matcher, tile_state)
                 .wrn("set_window_matcher_initial_tile_state")?,
+            ClientMessage::SetWindowMatcherInitialFloatingSize {
+                matcher,
+                width,
+                height,
+            } => self
+                .handle_set_window_matcher_initial_floating_size(matcher, width, height)
+                .wrn("set_window_matcher_initial_floating_size")?,
+            ClientMessage::SetWindowMatcherInitialFloatingPosition { matcher, x, y } => self
+                .handle_set_window_matcher_initial_floating_position(matcher, x, y)
+                .wrn("set_window_matcher_initial_floating_position")?,
             ClientMessage::SetPointerRevertKey { seat, key } => self
                 .handle_set_pointer_revert_key(seat, key)
                 .wrn("set_pointer_revert_key")?,
@@ -3875,6 +3989,28 @@ impl ConfigProxyHandler {
             } => self
                 .handle_window_resize(window, dx1, dy1, dx2, dy2)
                 .wrn("window_resize")?,
+            ClientMessage::GetWindowPosition { window } => self
+                .handle_get_window_position(window)
+                .wrn("get_window_position")?,
+            ClientMessage::GetWindowSize { window } => {
+                self.handle_get_window_size(window).wrn("get_window_size")?
+            }
+            ClientMessage::SetWindowSize {
+                window,
+                width,
+                height,
+            } => self
+                .handle_set_window_size(window, width, height)
+                .wrn("set_window_size")?,
+            ClientMessage::SetWindowPosition { window, x, y } => self
+                .handle_set_window_position(window, x, y)
+                .wrn("set_window_position")?,
+            ClientMessage::GetWorkspacePosition { workspace } => self
+                .handle_get_workspace_position(workspace)
+                .wrn("get_workspace_position")?,
+            ClientMessage::GetWorkspaceSize { workspace } => self
+                .handle_get_workspace_size(workspace)
+                .wrn("get_workspace_size")?,
             ClientMessage::SetSessionManagementEnabled { enabled } => {
                 self.handle_set_session_management_enabled(enabled)
             }
@@ -3974,6 +4110,28 @@ impl ConfigProxyHandler {
         None
     }
 
+    pub fn initial_floating_size(&self, data: &ToplevelData) -> Option<(i32, i32)> {
+        for (matcher, size) in self.window_matcher_initial_floating_size.lock().values() {
+            if matcher.node.pull(data) {
+                return Some(*size);
+            }
+        }
+        None
+    }
+
+    pub fn initial_floating_position(&self, data: &ToplevelData) -> Option<(i32, i32)> {
+        for (matcher, pos) in self
+            .window_matcher_initial_floating_position
+            .lock()
+            .values()
+        {
+            if matcher.node.pull(data) {
+                return Some(*pos);
+            }
+        }
+        None
+    }
+
     pub fn initial_output_for_workspace(&self, name: &str) -> Option<Option<Rc<OutputNode>>> {
         let ws = self.workspaces_by_name.get(name)?;
         let connector = ws.initial_connector.get()?;
@@ -4047,6 +4205,8 @@ enum CphError {
     OutputIsNotDesktop(Connector),
     #[error("{0}x{1} is not a valid connector position")]
     InvalidConnectorPosition(i32, i32),
+    #[error("{0}x{1} is not a valid window size")]
+    InvalidWindowSize(i32, i32),
     #[error("Keymap {0:?} does not exist")]
     KeymapDoesNotExist(Keymap),
     #[error("Seat {0:?} does not exist")]

@@ -241,6 +241,31 @@ impl Window {
     pub fn resize(self, dx1: i32, dy1: i32, dx2: i32, dy2: i32) {
         get!().resize_window(self, dx1, dy1, dx2, dy2);
     }
+
+    /// Returns the position of the window in the global compositor space.
+    pub fn position(self) -> (i32, i32) {
+        get!((0, 0)).get_window_position(self)
+    }
+
+    /// Returns the size of the window.
+    pub fn size(self) -> (i32, i32) {
+        get!((0, 0)).get_window_size(self)
+    }
+
+    /// Resizes the window to an absolute size.
+    ///
+    /// This has the same effect as [`resize`](Self::resize) but takes the target size
+    /// instead of a delta.
+    pub fn set_size(self, width: i32, height: i32) {
+        get!().set_window_size(self, width, height);
+    }
+
+    /// Sets the position of the window in the global compositor space.
+    ///
+    /// This only has an effect if the window is floating.
+    pub fn set_position(self, x: i32, y: i32) {
+        get!().set_window_position(self, x, y);
+    }
 }
 
 /// A window matcher.
@@ -354,6 +379,24 @@ impl WindowCriterion<'_> {
     pub fn set_initial_tile_state(self, tile_state: TileState) {
         self.to_matcher().set_initial_tile_state(tile_state);
     }
+
+    /// Sets the initial size of matched windows while they are floating.
+    ///
+    /// If multiple such window matchers match a window, the used size is unspecified.
+    ///
+    /// This leaks the matcher.
+    pub fn set_initial_floating_size(self, width: i32, height: i32) {
+        self.to_matcher().set_initial_floating_size(width, height);
+    }
+
+    /// Sets the initial position of matched windows while they are floating.
+    ///
+    /// If multiple such window matchers match a window, the used position is unspecified.
+    ///
+    /// This leaks the matcher.
+    pub fn set_initial_floating_position(self, x: i32, y: i32) {
+        self.to_matcher().set_initial_floating_position(x, y);
+    }
 }
 
 impl WindowMatcher {
@@ -386,6 +429,20 @@ impl WindowMatcher {
     /// unspecified.
     pub fn set_initial_tile_state(self, tile_state: TileState) {
         get!().set_window_matcher_initial_tile_state(self, tile_state);
+    }
+
+    /// Sets the initial size of matched windows while they are floating.
+    ///
+    /// If multiple such window matchers match a window, the used size is unspecified.
+    pub fn set_initial_floating_size(self, width: i32, height: i32) {
+        get!().set_window_matcher_initial_floating_size(self, width, height);
+    }
+
+    /// Sets the initial position of matched windows while they are floating.
+    ///
+    /// If multiple such window matchers match a window, the used position is unspecified.
+    pub fn set_initial_floating_position(self, x: i32, y: i32) {
+        get!().set_window_matcher_initial_floating_position(self, x, y);
     }
 }
 

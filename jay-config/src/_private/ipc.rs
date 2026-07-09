@@ -968,6 +968,38 @@ pub enum ClientMessage<'a> {
         connector: Connector,
         scaling_filter: ScalingFilter,
     },
+    SetWindowMatcherInitialFloatingSize {
+        matcher: WindowMatcher,
+        width: i32,
+        height: i32,
+    },
+    SetWindowMatcherInitialFloatingPosition {
+        matcher: WindowMatcher,
+        x: i32,
+        y: i32,
+    },
+    GetWindowPosition {
+        window: Window,
+    },
+    GetWindowSize {
+        window: Window,
+    },
+    SetWindowSize {
+        window: Window,
+        width: i32,
+        height: i32,
+    },
+    SetWindowPosition {
+        window: Window,
+        x: i32,
+        y: i32,
+    },
+    GetWorkspacePosition {
+        workspace: Workspace,
+    },
+    GetWorkspaceSize {
+        workspace: Workspace,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1238,6 +1270,22 @@ pub enum Response {
     },
     GetContainerBorders {
         borders: ContainerBorders,
+    },
+    GetWindowPosition {
+        x: i32,
+        y: i32,
+    },
+    GetWindowSize {
+        width: i32,
+        height: i32,
+    },
+    GetWorkspacePosition {
+        x: i32,
+        y: i32,
+    },
+    GetWorkspaceSize {
+        width: i32,
+        height: i32,
     },
 }
 
