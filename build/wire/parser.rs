@@ -257,24 +257,34 @@ struct Parser<'a> {
 
 #[derive(Debug)]
 pub struct ParseResult {
+    pub dead: bool,
     pub requests: Vec<Lined<Message>>,
     pub events: Vec<Lined<Message>>,
 }
 
 impl<'a> Parser<'a> {
     fn parse(&mut self) -> Result<ParseResult> {
+        let mut dead = false;
         let mut requests = vec![];
         let mut events = vec![];
         while !self.eof() {
             let (line, ty) = self.expect_ident()?;
             let res = match ty.as_bytes() {
+                b"dead" => {
+                    dead = true;
+                    continue;
+                }
                 b"request" => &mut requests,
                 b"event" => &mut events,
                 _ => bail!("In line {}: Unexpected entry {:?}", line, ty),
             };
             res.push(self.parse_message(res.len() as _)?);
         }
-        Ok(ParseResult { requests, events })
+        Ok(ParseResult {
+            dead,
+            requests,
+            events,
+        })
     }
 
     fn eof(&self) -> bool {

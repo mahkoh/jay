@@ -305,7 +305,7 @@ impl XBackend {
                 id: self.drm_device_id,
                 dev: self.drm_dev,
             })));
-        for (_, output) in self.outputs.lock().iter() {
+        for output in self.outputs.lock().values() {
             self.active_output(output).await;
         }
 
