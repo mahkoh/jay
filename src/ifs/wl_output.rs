@@ -316,6 +316,12 @@ impl WlOutputGlobal {
                     surface.send_enter(obj.id);
                 }
             }
+            for handle in client.objects.wlr_foreign_toplevel_handles.lock().values() {
+                if handle.output.get() == node.id {
+                    handle.send_output_enter(&obj);
+                    handle.send_done();
+                }
+            }
         }
         Ok(())
     }

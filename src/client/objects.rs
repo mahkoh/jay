@@ -47,6 +47,7 @@ use {
             wp_linux_drm_syncobj_timeline_v1::WpLinuxDrmSyncobjTimelineV1,
             xdg_positioner::XdgPositioner,
             xdg_wm_base::XdgWmBase,
+            zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1,
         },
         object::{Object, ObjectId},
         utils::{
@@ -62,8 +63,9 @@ use {
             WlSurfaceId, WpDrmLeaseConnectorV1Id, WpImageDescriptionReferenceV1Id,
             WpImageDescriptionV1Id, WpLinuxDrmSyncobjTimelineV1Id, XdgPopupId, XdgPositionerId,
             XdgSurfaceId, XdgToplevelIconManagerV1Id, XdgToplevelIconV1Id, XdgToplevelId,
-            XdgWmBaseId, ZwlrDataControlSourceV1Id, ZwlrOutputHeadV1Id, ZwlrOutputModeV1Id,
-            ZwpPrimarySelectionSourceV1Id, ZwpTabletToolV2Id,
+            XdgWmBaseId, ZwlrDataControlSourceV1Id, ZwlrForeignToplevelHandleV1Id,
+            ZwlrOutputHeadV1Id, ZwlrOutputModeV1Id, ZwpPrimarySelectionSourceV1Id,
+            ZwpTabletToolV2Id,
         },
     },
     std::{cell::RefCell, rc::Rc},
@@ -100,6 +102,8 @@ pub struct Objects {
     pub image_capture_sources: CopyHashMap<ExtImageCaptureSourceV1Id, Rc<ExtImageCaptureSourceV1>>,
     pub foreign_toplevel_handles:
         CopyHashMap<ExtForeignToplevelHandleV1Id, Rc<ExtForeignToplevelHandleV1>>,
+    pub wlr_foreign_toplevel_handles:
+        CopyHashMap<ZwlrForeignToplevelHandleV1Id, Rc<ZwlrForeignToplevelHandleV1>>,
     pub ext_copy_sessions:
         CopyHashMap<ExtImageCopyCaptureSessionV1Id, Rc<ExtImageCopyCaptureSessionV1>>,
     pub ext_data_sources: CopyHashMap<ExtDataControlSourceV1Id, Rc<ExtDataControlSourceV1>>,
@@ -149,6 +153,7 @@ impl Objects {
             xdg_popups: Default::default(),
             image_capture_sources: Default::default(),
             foreign_toplevel_handles: Default::default(),
+            wlr_foreign_toplevel_handles: Default::default(),
             ext_copy_sessions: Default::default(),
             ext_data_sources: Default::default(),
             ext_workspace_groups: Default::default(),
@@ -197,6 +202,7 @@ impl Objects {
         self.xdg_popups.clear();
         self.image_capture_sources.clear();
         self.foreign_toplevel_handles.clear();
+        self.wlr_foreign_toplevel_handles.clear();
         self.ext_copy_sessions.clear();
         self.ext_data_sources.clear();
         self.ext_workspace_groups.clear();
