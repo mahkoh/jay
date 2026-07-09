@@ -1372,9 +1372,7 @@ where
     }
 
     fn grab_node_removed(&self, seat: &Rc<WlSeatGlobal>) {
-        if let Some(rect) = seat.ui_drag_highlight.take() {
-            seat.state.damage(rect);
-        }
+        handle_ui_drag_highlight(seat, None);
         seat.pointer_cursor.set_known(KnownCursor::Default);
         seat.pointer_owner.owner.set(Rc::new(SimplePointerOwner {
             usecase: WindowManagementUsecase,
@@ -1384,9 +1382,7 @@ where
     }
 
     fn disable_window_management(&self, seat: &Rc<WlSeatGlobal>) {
-        if let Some(rect) = seat.ui_drag_highlight.take() {
-            seat.state.damage(rect);
-        }
+        handle_ui_drag_highlight(seat, None);
         self.tl.node_seat_state().remove_pointer_grab(seat);
         seat.pointer_owner.set_default_pointer_owner(seat);
         seat.apply_changes();
@@ -1511,9 +1507,7 @@ where
 {
     fn do_revert_to_default(&self, seat: &Rc<WlSeatGlobal>, needs_layout: bool) {
         self.usecase.node_seat_state().remove_ui_drag(seat);
-        if let Some(rect) = seat.ui_drag_highlight.take() {
-            seat.state.damage(rect);
-        }
+        handle_ui_drag_highlight(seat, None);
         seat.pointer_owner.set_default_pointer_owner(seat);
         seat.trigger_tree_changed(needs_layout);
     }
