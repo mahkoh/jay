@@ -4,11 +4,11 @@ use {
         ifs::wl_output::WlOutput,
         leaks::Tracker,
         object::{Object, Version},
-        tree::{Direction, OutputNode, ToplevelOpt, TreeTimeline::LiveTL},
+        tree::{Direction, OutputNode, OutputNodeId, ToplevelOpt, TreeTimeline::LiveTL},
         wire::{ZwlrForeignToplevelHandleV1Id, zwlr_foreign_toplevel_handle_v1::*},
     },
     arrayvec::ArrayVec,
-    std::rc::Rc,
+    std::{cell::Cell, rc::Rc},
     thiserror::Error,
 };
 
@@ -23,6 +23,7 @@ pub struct ZwlrForeignToplevelHandleV1 {
     pub tracker: Tracker<Self>,
     pub toplevel: ToplevelOpt,
     pub version: Version,
+    pub output: Cell<OutputNodeId>,
 }
 
 impl ZwlrForeignToplevelHandleV1 {
@@ -111,6 +112,7 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
 
 impl ZwlrForeignToplevelHandleV1 {
     pub fn leave_output(&self, output: &Rc<OutputNode>) {
+        self.output.set(OutputNodeId::none());
         let bindings = output.global.bindings.borrow();
         if let Some(bindings) = bindings.get(&self.client.id) {
             for binding in bindings.values() {
@@ -120,6 +122,7 @@ impl ZwlrForeignToplevelHandleV1 {
     }
 
     pub fn enter_output(&self, output: &Rc<OutputNode>) {
+        self.output.set(output.id);
         let bindings = output.global.bindings.borrow();
         if let Some(bindings) = bindings.get(&self.client.id) {
             for binding in bindings.values() {
@@ -200,7 +203,11 @@ impl Object for ZwlrForeignToplevelHandleV1 {
     }
 }
 
-simple_add_obj!(ZwlrForeignToplevelHandleV1);
+dedicated_add_obj!(
+    ZwlrForeignToplevelHandleV1,
+    ZwlrForeignToplevelHandleV1Id,
+    wlr_foreign_toplevel_handles
+);
 
 #[derive(Debug, Error)]
 pub enum ZwlrForeignToplevelHandleV1Error {

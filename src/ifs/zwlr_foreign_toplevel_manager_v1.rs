@@ -8,10 +8,10 @@ use {
         },
         leaks::Tracker,
         object::{Object, Version},
-        tree::{NodeVisitorBase, ToplevelOpt},
+        tree::{NodeVisitorBase, OutputNodeId, ToplevelOpt},
         wire::{ZwlrForeignToplevelManagerV1Id, zwlr_foreign_toplevel_manager_v1::*},
     },
-    std::rc::Rc,
+    std::{cell::Cell, rc::Rc},
     thiserror::Error,
 };
 
@@ -113,6 +113,7 @@ impl ZwlrForeignToplevelManagerV1 {
             tracker: Default::default(),
             version: self.version,
             toplevel: tl,
+            output: Cell::new(OutputNodeId::none()),
         });
         track!(self.client, handle);
         self.client.add_server_obj(&handle);
