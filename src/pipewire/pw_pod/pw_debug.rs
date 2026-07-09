@@ -349,7 +349,7 @@ impl<'a> Debug for PwPodObject<'a> {
                         Err(e) => {
                             let e = ErrorFmt(e);
                             l.entry(&fmt::from_fn(|f| {
-                                write!(f, "Could not read object property: {}", &e)
+                                write!(f, "Could not read object property: {e}")
                             }));
                             break;
                         }
@@ -377,7 +377,7 @@ impl<'a> Debug for PwPodSequence<'a> {
                         Err(e) => {
                             let e = ErrorFmt(e);
                             l.entry(&fmt::from_fn(|f| {
-                                write!(f, "Could not read control element: {}", &e)
+                                write!(f, "Could not read control element: {e}")
                             }));
                             break;
                         }
@@ -407,7 +407,7 @@ impl<'a> Debug for PwPodStruct<'a> {
                     let e = ErrorFmt(e);
                     s.field(
                         &field,
-                        &fmt::from_fn(|f| write!(f, "Could not parse struct field: {}", &e)),
+                        &fmt::from_fn(|f| write!(f, "Could not parse struct field: {e}")),
                     );
                     break;
                 }
@@ -427,7 +427,7 @@ impl<'a> Debug for PwPodArray<'a> {
                 Err(e) => {
                     let e = ErrorFmt(e);
                     list.entry(&fmt::from_fn(|f| {
-                        write!(f, "Could not parse array element: {}", &e)
+                        write!(f, "Could not parse array element: {e}")
                     }));
                     break;
                 }

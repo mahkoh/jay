@@ -56,24 +56,34 @@ struct Parser<'a> {
 }
 
 struct ParseResult {
+    dead: bool,
     requests: Vec<Lined<Message>>,
     events: Vec<Lined<Message>>,
 }
 
 impl<'a> Parser<'a> {
     fn parse(&mut self) -> Result<ParseResult> {
+        let mut dead = false;
         let mut requests = vec![];
         let mut events = vec![];
         while !self.eof() {
             let (line, ty) = self.expect_ident()?;
             let res = match ty.as_bytes() {
+                b"dead" => {
+                    dead = true;
+                    continue;
+                }
                 b"request" => &mut requests,
                 b"event" => &mut events,
                 _ => bail!("In line {}: Unexpected entry {:?}", line, ty),
             };
             res.push(self.parse_message(res.len() as _)?);
         }
-        Ok(ParseResult { requests, events })
+        Ok(ParseResult {
+            dead,
+            requests,
+            events,
+        })
     }
 
     fn eof(&self) -> bool {
@@ -476,6 +486,9 @@ fn write_request_handler<W: Write>(
     messages: &ParseResult,
 ) -> Result<()> {
     writeln!(f)?;
+    if messages.dead {
+        writeln!(f, "    #[expect(dead_code)]")?;
+    }
     writeln!(
         f,
         "    pub trait {camel_obj_name}RequestHandler: crate::ei::ei_object::EiObject + Sized {{"

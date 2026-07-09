@@ -38,6 +38,7 @@ ei_object_base! {
 impl EiObject for EiPingpong {}
 
 #[derive(Debug, Error)]
+#[expect(dead_code)]
 pub enum EiPingpongError {
     #[error(transparent)]
     EiClientError(Box<EiClientError>),

@@ -285,6 +285,7 @@ fn write_request_handler<W: Write>(
     camel_obj_name: &str,
     messages: &[Lined<Message>],
     direction: RequestHandlerDirection,
+    dead: bool,
 ) -> Result<()> {
     let snake_direction;
     let camel_direction;
@@ -301,6 +302,9 @@ fn write_request_handler<W: Write>(
             parser = "crate::client::Client";
             error = "crate::client::ClientError";
             param = "req";
+            if dead {
+                writeln!(f, "#[expect(dead_code)]")?;
+            }
         }
         RequestHandlerDirection::Event => {
             snake_direction = "event";
@@ -396,6 +400,8 @@ fn write_file<W: Write>(
     let obj_name = file_name.split(".").next().unwrap();
     let camel_obj_name = to_camel(obj_name);
     interface_names.push(camel_obj_name.clone());
+    let contents = std::fs::read(file.path())?;
+    let messages = parse_messages(&contents)?;
     writeln!(f)?;
     writeln!(f, "id!({}Id);", camel_obj_name)?;
     writeln!(f)?;
@@ -404,8 +410,6 @@ fn write_file<W: Write>(
         "pub const {}: Interface = Interface(\"{}\");",
         camel_obj_name, obj_name
     )?;
-    let contents = std::fs::read(file.path())?;
-    let messages = parse_messages(&contents)?;
     writeln!(f)?;
     writeln!(f, "pub mod {};", obj_name)?;
     {
@@ -419,12 +423,14 @@ fn write_file<W: Write>(
             &camel_obj_name,
             &messages.requests,
             RequestHandlerDirection::Request,
+            messages.dead,
         )?;
         write_request_handler(
             f,
             &camel_obj_name,
             &messages.events,
             RequestHandlerDirection::Event,
+            messages.dead,
         )?;
     }
     Ok(())
