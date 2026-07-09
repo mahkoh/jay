@@ -49,6 +49,7 @@ use crate::video::Transform;
 use crate::video::VrrMode;
 use crate::video::connector_type::ConnectorType;
 use crate::window::ContentType;
+use crate::window::Coordinate;
 use crate::window::TileState;
 use crate::window::Window;
 use crate::window::WindowMatcher;
@@ -1008,6 +1009,37 @@ pub enum ClientMessage<'a> {
     GetPlaneColorPipelinesEnabled {
         device: DrmDevice,
     },
+    SetWindowMatcherInitialFloatingSize {
+        matcher: WindowMatcher,
+        width: i32,
+        height: i32,
+    },
+    SetWindowMatcherInitialFloatingPosition {
+        matcher: WindowMatcher,
+        x: i32,
+        y: i32,
+    },
+    GetWindowPosition {
+        window: Window,
+    },
+    GetWindowSize {
+        window: Window,
+    },
+    SetWindowPosition {
+        window: Window,
+        x1: Option<Coordinate>,
+        y1: Option<Coordinate>,
+        x2: Option<Coordinate>,
+        y2: Option<Coordinate>,
+        width: Option<Coordinate>,
+        height: Option<Coordinate>,
+    },
+    GetWorkspacePosition {
+        workspace: Workspace,
+    },
+    GetWorkspaceSize {
+        workspace: Workspace,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1281,6 +1313,22 @@ pub enum Response {
     },
     GetPlaneColorPipelinesEnabled {
         enabled: bool,
+    },
+    GetWindowPosition {
+        x: i32,
+        y: i32,
+    },
+    GetWindowSize {
+        width: i32,
+        height: i32,
+    },
+    GetWorkspacePosition {
+        x: i32,
+        y: i32,
+    },
+    GetWorkspaceSize {
+        width: i32,
+        height: i32,
     },
 }
 
