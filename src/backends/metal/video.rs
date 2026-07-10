@@ -16,7 +16,7 @@ use {
             allocator::RenderBuffer,
             present::{
                 DEFAULT_POST_COMMIT_MARGIN, DEFAULT_PRE_COMMIT_MARGIN, DirectScanoutCache,
-                POST_COMMIT_MARGIN_DELTA, PresentFb,
+                POST_COMMIT_MARGIN_DELTA, PresentFbCore,
             },
             transaction::{
                 DrmConnectorState, DrmConnectorStateProps, DrmCrtcState, DrmCrtcStateProps,
@@ -526,6 +526,7 @@ pub struct MetalConnector {
     pub connector_id: ConnectorId,
 
     pub buffers: CloneCell<Option<Rc<[RenderBuffer; 2]>>>,
+
     pub color_description: CloneCell<Rc<ColorDescription>>,
 
     pub lease: Cell<Option<MetalLeaseId>>,
@@ -558,8 +559,8 @@ pub struct MetalConnector {
     pub cursor_sync: CloneCell<Option<FdSync>>,
 
     pub scanout_buffers: RefCell<BHashMap<DmaBufId, DirectScanoutCache>>,
-    pub active_framebuffer: RefCell<Option<PresentFb>>,
-    pub next_framebuffer: OpaqueCell<Option<PresentFb>>,
+    pub active_framebuffer: RefCell<Option<PresentFbCore>>,
+    pub next_framebuffer: OpaqueCell<Option<PresentFbCore>>,
     pub direct_scanout_active: Cell<bool>,
 
     pub version: NumCell<u64>,

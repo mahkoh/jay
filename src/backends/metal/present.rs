@@ -61,12 +61,16 @@ struct DirectScanoutDataCore {
     position: DirectScanoutPosition,
 }
 
-pub struct PresentFb {
+struct PresentFb {
+    copy: RenderBufferCopy,
+    direct_scanout_id: Option<DmaBufId>,
+    core: PresentFbCore,
+}
+
+pub struct PresentFbCore {
     fb: Rc<DrmFramebuffer>,
     tex: Rc<dyn GfxTexture>,
     direct_scanout_data: Option<DirectScanoutDataCore>,
-    copy: RenderBufferCopy,
-    direct_scanout_id: Option<DmaBufId>,
     pub locked: bool,
 }
 
@@ -313,14 +317,14 @@ impl MetalConnector {
             }
             if let Some(fb) = present_fb {
                 self.presentation_is_zero_copy
-                    .set(fb.direct_scanout_data.is_some());
-                if fb.direct_scanout_data.is_none() {
+                    .set(fb.core.direct_scanout_data.is_some());
+                if fb.core.direct_scanout_data.is_none() {
                     buffer.damage_queue.clear();
                 } else {
                     reset_damage();
                 }
-                buffer.locked.set(fb.locked);
-                self.next_framebuffer.set(Some(fb));
+                buffer.locked.set(fb.core.locked);
+                self.next_framebuffer.set(Some(fb.core));
             }
             if let Some(programming) = cursor_programming
                 && let CursorProgrammingType::Enable { swap: true, .. } = &programming.ty
@@ -377,7 +381,7 @@ impl MetalConnector {
         let mut connector_state = connector_drm_state.clone();
         if let Some(fb) = new_fb {
             let (crtc_x, crtc_y, crtc_w, crtc_h, src_width, src_height) =
-                match &fb.direct_scanout_data {
+                match &fb.core.direct_scanout_data {
                     None => {
                         let plane_w = plane.mode_w.get();
                         let plane_h = plane.mode_h.get();
@@ -396,11 +400,11 @@ impl MetalConnector {
                     }
                 };
             changes.change_object(plane.id, |c| {
-                c.change(drm_state.fb_id.id, fb.fb.id());
-                drm_state.fb_id.value = fb.fb.id();
-                connector_state.fb = fb.fb.id();
-                connector_state.locked = fb.locked;
-                if fb.direct_scanout_data.is_none() {
+                c.change(drm_state.fb_id.id, fb.core.fb.id());
+                drm_state.fb_id.value = fb.core.fb.id();
+                connector_state.fb = fb.core.fb.id();
+                connector_state.locked = fb.core.locked;
+                if fb.core.direct_scanout_data.is_none() {
                     connector_state.fb_idx += 1;
                 }
                 macro_rules! change {
@@ -823,12 +827,14 @@ impl MetalConnector {
             }
         };
         Ok(PresentFb {
-            fb,
-            tex,
-            direct_scanout_data: dsd_core,
             copy,
             direct_scanout_id,
-            locked: latched.locked,
+            core: PresentFbCore {
+                fb,
+                tex,
+                direct_scanout_data: dsd_core,
+                locked: latched.locked,
+            },
         })
     }
 
@@ -840,7 +846,7 @@ impl MetalConnector {
     ) {
         let active_fb;
         let fb = match &new_fb {
-            Some(f) => f,
+            Some(f) => &f.core,
             None => {
                 active_fb = self.active_framebuffer.borrow();
                 match &*active_fb {
