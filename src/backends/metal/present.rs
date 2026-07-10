@@ -45,7 +45,12 @@ pub struct DirectScanoutCache {
 }
 
 #[derive(Debug)]
-pub struct DirectScanoutData {
+struct DirectScanoutData {
+    dma_buf_id: DmaBufId,
+}
+
+#[derive(Debug)]
+struct DirectScanoutDataCore {
     tex: Rc<dyn GfxTexture>,
     tex_resv: Option<Rc<dyn BufferResv>>,
     acquire_sync: AcquireSync,
@@ -53,15 +58,15 @@ pub struct DirectScanoutData {
     _fb_resv: Option<Rc<dyn BufferResv>>,
     lazy: Option<Rc<dyn LazyTexture>>,
     fb: Rc<DrmFramebuffer>,
-    dma_buf_id: DmaBufId,
     position: DirectScanoutPosition,
 }
 
 pub struct PresentFb {
     fb: Rc<DrmFramebuffer>,
     tex: Rc<dyn GfxTexture>,
-    direct_scanout_data: Option<DirectScanoutData>,
+    direct_scanout_data: Option<DirectScanoutDataCore>,
     copy: RenderBufferCopy,
+    direct_scanout_id: Option<DmaBufId>,
     pub locked: bool,
 }
 
@@ -221,7 +226,7 @@ impl MetalConnector {
         let mut direct_scanout_id = None;
         if let Some(latched) = &latched {
             let fb = self.prepare_present_fb(&cd, blend_cd, buffer, &plane, latched, true)?;
-            direct_scanout_id = fb.direct_scanout_data.as_ref().map(|d| d.dma_buf_id);
+            direct_scanout_id = fb.direct_scanout_id;
             present_fb = Some(fb);
         }
         self.await_present_fb(present_fb.as_mut(), PresentFbWait::Render)
@@ -636,7 +641,7 @@ impl MetalConnector {
         plane: &Rc<MetalPlane>,
         blend_cd: &Rc<ColorDescription>,
         cd: &Rc<ColorDescription>,
-    ) -> Option<DirectScanoutData> {
+    ) -> Option<(DirectScanoutData, DirectScanoutDataCore)> {
         let (ct, position) = pass.prepare_direct_scanout(
             plane.mode_w.get(),
             plane.mode_h.get(),
@@ -684,16 +689,21 @@ impl MetalConnector {
         };
         let mut cache = self.scanout_buffers.borrow_mut();
         if let Some(buffer) = cache.get(&dmabuf.id) {
-            return buffer.fb.as_ref().map(|fb| DirectScanoutData {
-                tex: ct.tex.clone(),
-                tex_resv: ct.buffer_resv.clone(),
-                acquire_sync: ct.acquire_sync.clone(),
-                release_sync,
-                _fb_resv: fb_resv,
-                lazy: ct.lazy.clone(),
-                fb: fb.clone(),
-                dma_buf_id: dmabuf.id,
-                position,
+            return buffer.fb.as_ref().map(|fb| {
+                let data = DirectScanoutData {
+                    dma_buf_id: dmabuf.id,
+                };
+                let core = DirectScanoutDataCore {
+                    tex: ct.tex.clone(),
+                    tex_resv: ct.buffer_resv.clone(),
+                    acquire_sync: ct.acquire_sync.clone(),
+                    release_sync,
+                    _fb_resv: fb_resv,
+                    lazy: ct.lazy.clone(),
+                    fb: fb.clone(),
+                    position,
+                };
+                (data, core)
             });
         }
         let format = 'format: {
@@ -712,17 +722,22 @@ impl MetalConnector {
             return None;
         }
         let data = match self.dev.master.add_fb(dmabuf, Some(format.format)) {
-            Ok(fb) => Some(DirectScanoutData {
-                tex: ct.tex.clone(),
-                tex_resv: ct.buffer_resv.clone(),
-                acquire_sync: ct.acquire_sync.clone(),
-                release_sync,
-                _fb_resv: fb_resv,
-                lazy: ct.lazy.clone(),
-                fb: Rc::new(fb),
-                dma_buf_id: dmabuf.id,
-                position,
-            }),
+            Ok(fb) => {
+                let data = DirectScanoutData {
+                    dma_buf_id: dmabuf.id,
+                };
+                let core = DirectScanoutDataCore {
+                    tex: ct.tex.clone(),
+                    tex_resv: ct.buffer_resv.clone(),
+                    acquire_sync: ct.acquire_sync.clone(),
+                    release_sync,
+                    _fb_resv: fb_resv,
+                    lazy: ct.lazy.clone(),
+                    fb: Rc::new(fb),
+                    position,
+                };
+                Some((data, core))
+            }
             Err(e) => {
                 log::debug!(
                     "Could not import dmabuf for direct scanout: {}",
@@ -735,7 +750,7 @@ impl MetalConnector {
             dmabuf.id,
             DirectScanoutCache {
                 dmabuf: Rc::downgrade(dmabuf),
-                fb: data.as_ref().map(|dsd| dsd.fb.clone()),
+                fb: data.as_ref().map(|dsd| dsd.1.fb.clone()),
             },
         );
         data
@@ -767,22 +782,25 @@ impl MetalConnector {
         let copy;
         let fb;
         let tex;
-        match &direct_scanout_data {
-            Some(dsd) => {
-                if let Some(lazy) = &dsd.lazy {
+        let direct_scanout_id;
+        let (dsd, mut dsd_core) = direct_scanout_data.unzip();
+        match (dsd, &mut dsd_core) {
+            (Some(dsd), Some(core)) => {
+                if let Some(lazy) = &core.lazy {
                     lazy.record_use(TextureUse::Scanout);
                 }
-                let sync = match &dsd.acquire_sync {
+                let sync = match &core.acquire_sync {
                     AcquireSync::None => None,
                     AcquireSync::Implicit => None,
                     AcquireSync::FdSync(sync) => Some(sync.clone()),
                     AcquireSync::Unnecessary => None,
                 };
                 copy = RenderBufferCopy::for_both(sync);
-                fb = dsd.fb.clone();
-                tex = dsd.tex.clone();
+                fb = core.fb.clone();
+                direct_scanout_id = Some(dsd.dma_buf_id);
+                tex = core.tex.clone();
             }
-            None => {
+            _ => {
                 let sf = buffer
                     .render
                     .fb
@@ -800,14 +818,16 @@ impl MetalConnector {
                     .copy_to_dev(cd, Some(&latched.damage), sf)
                     .map_err(MetalError::CopyToDev)?;
                 fb = buffer.drm.clone();
+                direct_scanout_id = None;
                 tex = buffer.render.tex.clone();
             }
         };
         Ok(PresentFb {
             fb,
             tex,
-            direct_scanout_data,
+            direct_scanout_data: dsd_core,
             copy,
+            direct_scanout_id,
             locked: latched.locked,
         })
     }
