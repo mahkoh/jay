@@ -768,6 +768,20 @@ impl MetalConnector {
         let fb;
         let tex;
         match &direct_scanout_data {
+            Some(dsd) => {
+                if let Some(lazy) = &dsd.lazy {
+                    lazy.record_use(TextureUse::Scanout);
+                }
+                let sync = match &dsd.acquire_sync {
+                    AcquireSync::None => None,
+                    AcquireSync::Implicit => None,
+                    AcquireSync::FdSync(sync) => Some(sync.clone()),
+                    AcquireSync::Unnecessary => None,
+                };
+                copy = RenderBufferCopy::for_both(sync);
+                fb = dsd.fb.clone();
+                tex = dsd.tex.clone();
+            }
             None => {
                 let sf = buffer
                     .render
@@ -787,20 +801,6 @@ impl MetalConnector {
                     .map_err(MetalError::CopyToDev)?;
                 fb = buffer.drm.clone();
                 tex = buffer.render.tex.clone();
-            }
-            Some(dsd) => {
-                if let Some(lazy) = &dsd.lazy {
-                    lazy.record_use(TextureUse::Scanout);
-                }
-                let sync = match &dsd.acquire_sync {
-                    AcquireSync::None => None,
-                    AcquireSync::Implicit => None,
-                    AcquireSync::FdSync(sync) => Some(sync.clone()),
-                    AcquireSync::Unnecessary => None,
-                };
-                copy = RenderBufferCopy::for_both(sync);
-                fb = dsd.fb.clone();
-                tex = dsd.tex.clone();
             }
         };
         Ok(PresentFb {
