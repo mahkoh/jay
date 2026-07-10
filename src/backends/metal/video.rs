@@ -23,7 +23,10 @@ use {
                 DrmPlaneState, DrmPlaneStateProps, MetalDeviceTransaction,
             },
         },
-        cmm::{cmm_description::ColorDescription, cmm_primaries::Primaries},
+        cmm::{
+            cmm_description::ColorDescription, cmm_primaries::Primaries,
+            cmm_render_intent::RenderIntent,
+        },
         copy_device::{CopyDevice, CopyDeviceRegistry},
         edid::{CtaDataBlock, Descriptor, EdidExtension},
         format::{Format, XRGB8888},
@@ -528,6 +531,8 @@ pub struct MetalConnector {
     pub buffers: CloneCell<Option<Rc<[RenderBuffer; 2]>>>,
 
     pub color_description: CloneCell<Rc<ColorDescription>>,
+    pub fb_color_description: CloneCell<Rc<ColorDescription>>,
+    pub fb_render_intent: Cell<RenderIntent>,
 
     pub lease: Cell<Option<MetalLeaseId>>,
 
@@ -1077,6 +1082,7 @@ fn create_connector(
         display.connector_id,
         dev.devnode.as_bytes().as_bstr(),
     );
+    let srgb_gamma22 = backend.state.color_manager.srgb_gamma22();
     let slf = Rc::new(MetalConnector {
         id: connector,
         kernel_id: Cell::new(display.connector_id),
@@ -1086,7 +1092,9 @@ fn create_connector(
         backend: backend.clone(),
         connector_id: backend.state.connector_ids.next(),
         buffers: Default::default(),
-        color_description: CloneCell::new(backend.state.color_manager.srgb_gamma22().clone()),
+        color_description: CloneCell::new(srgb_gamma22.clone()),
+        fb_color_description: CloneCell::new(srgb_gamma22.clone()),
+        fb_render_intent: Default::default(),
         lease: Cell::new(None),
         buffers_idle: Cell::new(true),
         crtc_idle: Cell::new(true),

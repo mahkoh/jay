@@ -7,7 +7,7 @@ use {
             transaction::{DrmConnectorState, DrmPlaneState},
             video::{MetalConnector, MetalCrtc, MetalHardwareCursorChange, MetalPlane},
         },
-        cmm::cmm_description::ColorDescription,
+        cmm::{cmm_description::ColorDescription, cmm_render_intent::RenderIntent},
         gfx_api::{
             AcquireSync, BufferResv, DirectScanoutPosition, GfxRenderPass, GfxTexture, LazyTexture,
             ReleaseSync, SyncFile, TextureUse, create_render_pass,
@@ -46,6 +46,8 @@ pub struct DirectScanoutCache {
 
 #[derive(Debug)]
 struct DirectScanoutData {
+    fb_cd: Rc<ColorDescription>,
+    fb_intent: RenderIntent,
     dma_buf_id: DmaBufId,
 }
 
@@ -62,6 +64,7 @@ struct DirectScanoutDataCore {
 }
 
 struct PresentFb {
+    fb_intent: RenderIntent,
     copy: RenderBufferCopy,
     direct_scanout_id: Option<DmaBufId>,
     core: PresentFbCore,
@@ -69,6 +72,7 @@ struct PresentFb {
 
 pub struct PresentFbCore {
     fb: Rc<DrmFramebuffer>,
+    fb_cd: Rc<ColorDescription>,
     tex: Rc<dyn GfxTexture>,
     direct_scanout_data: Option<DirectScanoutDataCore>,
     pub locked: bool,
@@ -316,6 +320,8 @@ impl MetalConnector {
                 *plane.plane.drm_state.borrow_mut() = plane.state;
             }
             if let Some(fb) = present_fb {
+                self.fb_color_description.set(fb.core.fb_cd.clone());
+                self.fb_render_intent.set(fb.fb_intent);
                 self.presentation_is_zero_copy
                     .set(fb.core.direct_scanout_data.is_some());
                 if fb.core.direct_scanout_data.is_none() {
@@ -695,6 +701,8 @@ impl MetalConnector {
         if let Some(buffer) = cache.get(&dmabuf.id) {
             return buffer.fb.as_ref().map(|fb| {
                 let data = DirectScanoutData {
+                    fb_cd: ct.cd.clone(),
+                    fb_intent: ct.render_intent,
                     dma_buf_id: dmabuf.id,
                 };
                 let core = DirectScanoutDataCore {
@@ -728,6 +736,8 @@ impl MetalConnector {
         let data = match self.dev.master.add_fb(dmabuf, Some(format.format)) {
             Ok(fb) => {
                 let data = DirectScanoutData {
+                    fb_cd: ct.cd.clone(),
+                    fb_intent: ct.render_intent,
                     dma_buf_id: dmabuf.id,
                 };
                 let core = DirectScanoutDataCore {
@@ -785,6 +795,8 @@ impl MetalConnector {
         }
         let copy;
         let fb;
+        let fb_cd;
+        let fb_intent;
         let tex;
         let direct_scanout_id;
         let (dsd, mut dsd_core) = direct_scanout_data.unzip();
@@ -801,6 +813,8 @@ impl MetalConnector {
                 };
                 copy = RenderBufferCopy::for_both(sync);
                 fb = core.fb.clone();
+                fb_cd = dsd.fb_cd;
+                fb_intent = dsd.fb_intent;
                 direct_scanout_id = Some(dsd.dma_buf_id);
                 tex = core.tex.clone();
             }
@@ -822,15 +836,19 @@ impl MetalConnector {
                     .copy_to_dev(cd, Some(&latched.damage), sf)
                     .map_err(MetalError::CopyToDev)?;
                 fb = buffer.drm.clone();
+                fb_cd = cd.clone();
+                fb_intent = RenderIntent::Perceptual;
                 direct_scanout_id = None;
                 tex = buffer.render.tex.clone();
             }
         };
         Ok(PresentFb {
+            fb_intent,
             copy,
             direct_scanout_id,
             core: PresentFbCore {
                 fb,
+                fb_cd,
                 tex,
                 direct_scanout_data: dsd_core,
                 locked: latched.locked,
