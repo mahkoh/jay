@@ -244,7 +244,7 @@ impl MetalConnector {
         // could interfere with scanout. However, perform_screencopies just uses the
         // current PresentFb if present_fb is None, potentially mutating the fb that is
         // currently being scanned out, which would render such a wait absurd.
-        self.perform_screencopies(&present_fb, &node, &cd);
+        self.perform_screencopies(&present_fb, &node);
         if let Some(sync) = self.cursor_sync.take() {
             sync.signaled(&self.state.ring, "cursor").await;
         }
@@ -856,12 +856,7 @@ impl MetalConnector {
         })
     }
 
-    fn perform_screencopies(
-        &self,
-        new_fb: &Option<PresentFb>,
-        output: &OutputNode,
-        cd: &Rc<ColorDescription>,
-    ) {
+    fn perform_screencopies(&self, new_fb: &Option<PresentFb>, output: &OutputNode) {
         let active_fb;
         let fb = match &new_fb {
             Some(f) => &f.core,
@@ -878,7 +873,7 @@ impl MetalConnector {
             None => {
                 output.perform_screencopies(
                     &fb.tex,
-                    cd,
+                    &fb.fb_cd,
                     None,
                     None,
                     &AcquireSync::Unnecessary,
@@ -892,7 +887,7 @@ impl MetalConnector {
             Some(dsd) => {
                 output.perform_screencopies(
                     &dsd.tex,
-                    cd,
+                    &fb.fb_cd,
                     dsd.tex_resv.as_ref(),
                     dsd.lazy.as_ref(),
                     &dsd.acquire_sync,
