@@ -3046,21 +3046,24 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_set_window_size(
+    fn handle_set_window_position(
         &self,
         window: Window,
-        width: i32,
-        height: i32,
+        x1: Option<i32>,
+        y1: Option<i32>,
+        x2: Option<i32>,
+        y2: Option<i32>,
+        width: Option<i32>,
+        height: Option<i32>,
     ) -> Result<(), CphError> {
-        if width <= 0 || height <= 0 {
-            return Err(CphError::InvalidWindowSize(width, height));
+        let tl = self.get_window(window)?;
+        let pos = tl.node_absolute_position(LiveTL);
+        let (x1, x2) = resolve_geometry_axis(x1, x2, width, pos.x1(), pos.x2())?;
+        let (y1, y2) = resolve_geometry_axis(y1, y2, height, pos.y1(), pos.y2())?;
+        if x2 - x1 <= 0 || y2 - y1 <= 0 {
+            return Err(CphError::InvalidWindowSize(x2 - x1, y2 - y1));
         }
-        self.get_window(window)?.tl_set_size(width, height);
-        Ok(())
-    }
-
-    fn handle_set_window_position(&self, window: Window, x: i32, y: i32) -> Result<(), CphError> {
-        self.get_window(window)?.tl_set_position(x, y);
+        tl.tl_set_geometry(x1, y1, x2, y2);
         Ok(())
     }
 
@@ -3995,15 +3998,16 @@ impl ConfigProxyHandler {
             ClientMessage::GetWindowSize { window } => {
                 self.handle_get_window_size(window).wrn("get_window_size")?
             }
-            ClientMessage::SetWindowSize {
+            ClientMessage::SetWindowPosition {
                 window,
+                x1,
+                y1,
+                x2,
+                y2,
                 width,
                 height,
             } => self
-                .handle_set_window_size(window, width, height)
-                .wrn("set_window_size")?,
-            ClientMessage::SetWindowPosition { window, x, y } => self
-                .handle_set_window_position(window, x, y)
+                .handle_set_window_position(window, x1, y1, x2, y2, width, height)
                 .wrn("set_window_position")?,
             ClientMessage::GetWorkspacePosition { workspace } => self
                 .handle_get_workspace_position(workspace)
@@ -4175,6 +4179,42 @@ impl ConfigProxyHandler {
     }
 }
 
+/// Resolves the constraints on a single axis (x1/x2/width or y1/y2/height) of
+/// [`ConfigProxyHandler::handle_set_window_position`] into a concrete `(c1, c2)` pair.
+///
+/// `c1`, `c2` and `size` are constrained to their contained value if they are `Some(_)` and
+/// are otherwise unconstrained.
+///
+/// If two of the three are constrained, the third is derived from them. If only one is
+/// constrained, the window keeps its current size (if `c1` or `c2` is constrained) or its
+/// current position (if only `size` is constrained). If none are constrained, the axis is
+/// left unchanged. If all three are constrained but not self-consistent, an error is returned.
+fn resolve_geometry_axis(
+    c1: Option<i32>,
+    c2: Option<i32>,
+    size: Option<i32>,
+    cur_c1: i32,
+    cur_c2: i32,
+) -> Result<(i32, i32), CphError> {
+    let cur_size = cur_c2.saturating_sub(cur_c1);
+    let res = match (c1, c2, size) {
+        (Some(c1), Some(c2), Some(size)) => {
+            if c2.saturating_sub(c1) != size {
+                return Err(CphError::InconsistentWindowGeometry);
+            }
+            (c1, c2)
+        }
+        (Some(c1), Some(c2), None) => (c1, c2),
+        (Some(c1), None, Some(size)) => (c1, c1.saturating_add(size)),
+        (None, Some(c2), Some(size)) => (c2.saturating_sub(size), c2),
+        (Some(c1), None, None) => (c1, c1.saturating_add(cur_size)),
+        (None, Some(c2), None) => (c2.saturating_sub(cur_size), c2),
+        (None, None, Some(size)) => (cur_c1, cur_c1.saturating_add(size)),
+        (None, None, None) => (cur_c1, cur_c2),
+    };
+    Ok(res)
+}
+
 #[derive(Debug, Error)]
 enum CphError {
     #[error("Tried to set an unknown accel profile: {}", (.0).0)]
@@ -4207,6 +4247,8 @@ enum CphError {
     InvalidConnectorPosition(i32, i32),
     #[error("{0}x{1} is not a valid window size")]
     InvalidWindowSize(i32, i32),
+    #[error("The given x1/x2/width or y1/y2/height constraints are not self-consistent")]
+    InconsistentWindowGeometry,
     #[error("Keymap {0:?} does not exist")]
     KeymapDoesNotExist(Keymap),
     #[error("Seat {0:?} does not exist")]

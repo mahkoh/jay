@@ -712,47 +712,39 @@
               ]
             },
             {
-              "description": "Resizes the focused window to an absolute size.\n\nThis has the same effect as `resize` but takes the target size instead of a\ndelta.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"set-size\", width = 800, height = 600 }\n  ```\n",
-              "type": "object",
-              "properties": {
-                "type": {
-                  "const": "set-size"
-                },
-                "width": {
-                  "type": "integer",
-                  "description": "The new width of the window."
-                },
-                "height": {
-                  "type": "integer",
-                  "description": "The new height of the window."
-                }
-              },
-              "required": [
-                "type",
-                "width",
-                "height"
-              ]
-            },
-            {
-              "description": "Sets the position of the focused window to an absolute value.\n\nThis only has an effect if the window is floating.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"set-position\", x = 100, y = 100 }\n  ```\n",
+              "description": "Sets the position and/or size of the focused window to an absolute value.\n\nThis only has an effect if the window is floating.\n\nEvery field is optional and can be omitted or set to the string `\"keep\"` to leave\nit unconstrained by this action. Fields that are set to a number are constrained\nto that value.\n\nSince `x2 = x1 + width` (and analogously for the y axis), not every combination\nof constraints is satisfiable. For example, setting `x1 = 0`, `x2 = 100`, and\n`width = 50` is not satisfiable and has no effect.\n\nIf fewer than two of `x1`, `x2`, `width` are constrained (and analogously for\n`y1`, `y2`, `height`), the missing values default to preserving the window's\ncurrent size, e.g. setting only `width` keeps `x1` fixed and moves `x2`, while\nsetting only `x1` keeps the width fixed and moves `x2` along with it.\n\n- Example 1 (Resizing the window while keeping its top-left corner fixed):\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"set-position\", width = 800, height = 600 }\n  ```\n\n- Example 2 (Moving the window while keeping its size):\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"set-position\", x1 = 100, y1 = 100 }\n  ```\n\n- Example 3 (Placing the window at an exact rectangle):\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"set-position\", x1 = 0, y1 = 0, x2 = 800, y2 = 600 }\n  ```\n",
               "type": "object",
               "properties": {
                 "type": {
                   "const": "set-position"
                 },
-                "x": {
-                  "type": "integer",
-                  "description": "The new x coordinate of the window."
+                "x1": {
+                  "description": "The x coordinate of the left edge.",
+                  "$ref": "#/$defs/Coordinate"
                 },
-                "y": {
-                  "type": "integer",
-                  "description": "The new y coordinate of the window."
+                "y1": {
+                  "description": "The y coordinate of the top edge.",
+                  "$ref": "#/$defs/Coordinate"
+                },
+                "x2": {
+                  "description": "The x coordinate of the right edge.",
+                  "$ref": "#/$defs/Coordinate"
+                },
+                "y2": {
+                  "description": "The y coordinate of the bottom edge.",
+                  "$ref": "#/$defs/Coordinate"
+                },
+                "width": {
+                  "description": "The width of the window.",
+                  "$ref": "#/$defs/Coordinate"
+                },
+                "height": {
+                  "description": "The height of the window.",
+                  "$ref": "#/$defs/Coordinate"
                 }
               },
               "required": [
-                "type",
-                "x",
-                "y"
+                "type"
               ]
             },
             {
@@ -1418,6 +1410,19 @@
             "description": "",
             "$ref": "#/$defs/ContentTypeMask"
           }
+        }
+      ]
+    },
+    "Coordinate": {
+      "description": "A coordinate or size constraint used by the `set-position` action.\n\n- Example 1:\n\n  ```toml\n  x1 = 100\n  ```\n\n- Example 2:\n\n  ```toml\n  x1 = \"keep\"\n  ```\n",
+      "anyOf": [
+        {
+          "type": "string",
+          "description": "The string `keep` can be used to explicitly leave this field unconstrained. This has\nthe same effect as omitting the field.\n"
+        },
+        {
+          "type": "integer",
+          "description": "The value that this field should be constrained to."
         }
       ]
     },

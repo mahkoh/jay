@@ -1050,68 +1050,83 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
     The numbers should be integers.
 
-- `set-size`:
-
-  Resizes the focused window to an absolute size.
-  
-  This has the same effect as `resize` but takes the target size instead of a
-  delta.
-  
-  - Example:
-  
-    ```toml
-    [shortcuts]
-    alt-x = { type = "set-size", width = 800, height = 600 }
-    ```
-
-  The table has the following fields:
-
-  - `width` (required):
-
-    The new width of the window.
-
-    The value of this field should be a number.
-
-    The numbers should be integers.
-
-  - `height` (required):
-
-    The new height of the window.
-
-    The value of this field should be a number.
-
-    The numbers should be integers.
-
 - `set-position`:
 
-  Sets the position of the focused window to an absolute value.
+  Sets the position and/or size of the focused window to an absolute value.
   
   This only has an effect if the window is floating.
   
-  - Example:
+  Every field is optional and can be omitted or set to the string `"keep"` to leave
+  it unconstrained by this action. Fields that are set to a number are constrained
+  to that value.
+  
+  Since `x2 = x1 + width` (and analogously for the y axis), not every combination
+  of constraints is satisfiable. For example, setting `x1 = 0`, `x2 = 100`, and
+  `width = 50` is not satisfiable and has no effect.
+  
+  If fewer than two of `x1`, `x2`, `width` are constrained (and analogously for
+  `y1`, `y2`, `height`), the missing values default to preserving the window's
+  current size, e.g. setting only `width` keeps `x1` fixed and moves `x2`, while
+  setting only `x1` keeps the width fixed and moves `x2` along with it.
+  
+  - Example 1 (Resizing the window while keeping its top-left corner fixed):
   
     ```toml
     [shortcuts]
-    alt-x = { type = "set-position", x = 100, y = 100 }
+    alt-x = { type = "set-position", width = 800, height = 600 }
+    ```
+  
+  - Example 2 (Moving the window while keeping its size):
+  
+    ```toml
+    [shortcuts]
+    alt-x = { type = "set-position", x1 = 100, y1 = 100 }
+    ```
+  
+  - Example 3 (Placing the window at an exact rectangle):
+  
+    ```toml
+    [shortcuts]
+    alt-x = { type = "set-position", x1 = 0, y1 = 0, x2 = 800, y2 = 600 }
     ```
 
   The table has the following fields:
 
-  - `x` (required):
+  - `x1` (optional):
 
-    The new x coordinate of the window.
+    The x coordinate of the left edge.
 
-    The value of this field should be a number.
+    The value of this field should be a [Coordinate](#types-Coordinate).
 
-    The numbers should be integers.
+  - `y1` (optional):
 
-  - `y` (required):
+    The y coordinate of the top edge.
 
-    The new y coordinate of the window.
+    The value of this field should be a [Coordinate](#types-Coordinate).
 
-    The value of this field should be a number.
+  - `x2` (optional):
 
-    The numbers should be integers.
+    The x coordinate of the right edge.
+
+    The value of this field should be a [Coordinate](#types-Coordinate).
+
+  - `y2` (optional):
+
+    The y coordinate of the bottom edge.
+
+    The value of this field should be a [Coordinate](#types-Coordinate).
+
+  - `width` (optional):
+
+    The width of the window.
+
+    The value of this field should be a [Coordinate](#types-Coordinate).
+
+  - `height` (optional):
+
+    The height of the window.
+
+    The value of this field should be a [Coordinate](#types-Coordinate).
 
 - `hide-overlay`:
 
@@ -2850,6 +2865,37 @@ The string should have one of the following values:
 An array of masks that are OR'd.
 
 Each element of this array should be a [ContentTypeMask](#types-ContentTypeMask).
+
+
+<a name="types-Coordinate"></a>
+### `Coordinate`
+
+A coordinate or size constraint used by the `set-position` action.
+
+- Example 1:
+
+  ```toml
+  x1 = 100
+  ```
+
+- Example 2:
+
+  ```toml
+  x1 = "keep"
+  ```
+
+Values of this type should have one of the following forms:
+
+#### A string
+
+The string `keep` can be used to explicitly leave this field unconstrained. This has
+the same effect as omitting the field.
+
+#### A number
+
+The value that this field should be constrained to.
+
+The numbers should be integers.
 
 
 <a name="types-DeviceConfigFilter"></a>

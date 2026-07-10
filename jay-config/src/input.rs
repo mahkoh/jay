@@ -713,16 +713,19 @@ impl Seat {
         self.window().resize(dx1, dy1, dx2, dy2);
     }
 
-    /// Resizes the focused window to an absolute size.
-    pub fn set_size(self, width: i32, height: i32) {
-        self.window().set_size(width, height);
-    }
-
-    /// Sets the position of the focused window to an absolute value.
+    /// Sets the position and/or size of the focused window.
     ///
-    /// This only has an effect if the window is floating.
-    pub fn set_position(self, x: i32, y: i32) {
-        self.window().set_position(x, y);
+    /// See [`Window::set_position`](crate::window::Window::set_position) for details.
+    pub fn set_position(
+        self,
+        x1: Option<i32>,
+        y1: Option<i32>,
+        x2: Option<i32>,
+        y2: Option<i32>,
+        width: Option<i32>,
+        height: Option<i32>,
+    ) {
+        self.window().set_position(x1, y1, x2, y2, width, height);
     }
 
     /// Sets whether the cursor should automatically move to the center of a window

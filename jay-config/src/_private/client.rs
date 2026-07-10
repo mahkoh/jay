@@ -607,16 +607,26 @@ impl ConfigClient {
         (width, height)
     }
 
-    pub fn set_window_size(&self, window: Window, width: i32, height: i32) {
-        self.send(&ClientMessage::SetWindowSize {
+    #[expect(clippy::too_many_arguments)]
+    pub fn set_window_position(
+        &self,
+        window: Window,
+        x1: Option<i32>,
+        y1: Option<i32>,
+        x2: Option<i32>,
+        y2: Option<i32>,
+        width: Option<i32>,
+        height: Option<i32>,
+    ) {
+        self.send(&ClientMessage::SetWindowPosition {
             window,
+            x1,
+            y1,
+            x2,
+            y2,
             width,
             height,
         });
-    }
-
-    pub fn set_window_position(&self, window: Window, x: i32, y: i32) {
-        self.send(&ClientMessage::SetWindowPosition { window, x, y });
     }
 
     pub fn get_workspace_position(&self, workspace: Workspace) -> (i32, i32) {

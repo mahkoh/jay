@@ -111,6 +111,28 @@ pub enum ShowWorkspaceError {
     FallbackOutputModeParser(FallbackOutputModeParserError),
 }
 
+/// Extracts a field that should either be an integer or the string `"keep"`.
+///
+/// `"keep"` is represented as `None`, an integer `n` is represented as `Some(n)`.
+fn coordinate(
+    name: &'static str,
+) -> impl for<'v, 'w> FnOnce(
+    &mut Extractor<'v, 'w>,
+) -> Result<Spanned<Option<i32>>, Spanned<ExtractorError>> {
+    move |extractor: &mut Extractor| {
+        val(name)(extractor).and_then(|v| match v.value {
+            Value::String(s) if s.as_str() == "keep" => Ok(None.spanned(v.span)),
+            Value::Integer(i) => match i32::try_from(*i) {
+                Ok(n) => Ok(Some(n).spanned(v.span)),
+                Err(_) => Err(ExtractorError::I32.spanned(v.span)),
+            },
+            _ => Err(
+                ExtractorError::Expected("an integer or \"keep\"", v.value.name()).spanned(v.span),
+            ),
+        })
+    }
+}
+
 pub struct ActionParser<'a, 'b>(pub &'a Context<'b>);
 
 impl ActionParser<'_, '_> {
@@ -601,19 +623,22 @@ impl ActionParser<'_, '_> {
         })
     }
 
-    fn parse_set_size(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
-        let (width, height) = ext.extract((s32("width"), s32("height")))?;
-        Ok(Action::SetSize {
-            width: width.value,
-            height: height.value,
-        })
-    }
-
     fn parse_set_position(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
-        let (x, y) = ext.extract((s32("x"), s32("y")))?;
+        let (x1, y1, x2, y2, width, height) = ext.extract((
+            opt(coordinate("x1")),
+            opt(coordinate("y1")),
+            opt(coordinate("x2")),
+            opt(coordinate("y2")),
+            opt(coordinate("width")),
+            opt(coordinate("height")),
+        ))?;
         Ok(Action::SetPosition {
-            x: x.value,
-            y: y.value,
+            x1: x1.despan().flatten(),
+            y1: y1.despan().flatten(),
+            x2: x2.despan().flatten(),
+            y2: y2.despan().flatten(),
+            width: width.despan().flatten(),
+            height: height.despan().flatten(),
         })
     }
 
@@ -690,7 +715,6 @@ impl Parser for ActionParser<'_, '_> {
             "create-virtual-output" => self.parse_create_virtual_output(&mut ext),
             "remove-virtual-output" => self.parse_remove_virtual_output(&mut ext),
             "resize" => self.parse_resize(&mut ext),
-            "set-size" => self.parse_set_size(&mut ext),
             "set-position" => self.parse_set_position(&mut ext),
             "hide-overlay" => self.parse_hide_overlay(&mut ext),
             "show-overlay" => self.parse_show_overlay(&mut ext),

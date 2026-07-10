@@ -252,19 +252,31 @@ impl Window {
         get!((0, 0)).get_window_size(self)
     }
 
-    /// Resizes the window to an absolute size.
-    ///
-    /// This has the same effect as [`resize`](Self::resize) but takes the target size
-    /// instead of a delta.
-    pub fn set_size(self, width: i32, height: i32) {
-        get!().set_window_size(self, width, height);
-    }
-
-    /// Sets the position of the window in the global compositor space.
+    /// Sets the position and/or size of the window.
     ///
     /// This only has an effect if the window is floating.
-    pub fn set_position(self, x: i32, y: i32) {
-        get!().set_window_position(self, x, y);
+    ///
+    /// Every argument that is `None` is left unconstrained by this call. Every argument that
+    /// is `Some(_)` is constrained to that value.
+    ///
+    /// Since `x2 = x1 + width` (and analogously for the y axis), not every combination of
+    /// constraints is satisfiable. If `x1`, `x2`, and `width` are all constrained but not
+    /// self-consistent (and analogously for `y1`, `y2`, `height`), this call has no effect.
+    ///
+    /// If fewer than two of `x1`, `x2`, `width` are constrained (and analogously for `y1`,
+    /// `y2`, `height`), the missing values default to preserving the window's current size,
+    /// e.g. setting only `width` keeps `x1` fixed and moves `x2`, while setting only `x1` keeps
+    /// the width fixed and moves `x2` along with it.
+    pub fn set_position(
+        self,
+        x1: Option<i32>,
+        y1: Option<i32>,
+        x2: Option<i32>,
+        y2: Option<i32>,
+        width: Option<i32>,
+        height: Option<i32>,
+    ) {
+        get!().set_window_position(self, x1, y1, x2, y2, width, height);
     }
 }
 

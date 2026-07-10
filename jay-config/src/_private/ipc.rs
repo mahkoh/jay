@@ -984,15 +984,14 @@ pub enum ClientMessage<'a> {
     GetWindowSize {
         window: Window,
     },
-    SetWindowSize {
-        window: Window,
-        width: i32,
-        height: i32,
-    },
     SetWindowPosition {
         window: Window,
-        x: i32,
-        y: i32,
+        x1: Option<i32>,
+        y1: Option<i32>,
+        x2: Option<i32>,
+        y2: Option<i32>,
+        width: Option<i32>,
+        height: Option<i32>,
     },
     GetWorkspacePosition {
         workspace: Workspace,

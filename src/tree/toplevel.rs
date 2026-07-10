@@ -79,8 +79,7 @@ pub trait ToplevelNode: ToplevelNodeBase {
     fn tl_mark_ancestor_fullscreen(&self, fullscreen: bool);
     fn tl_mark_fullscreen(&self, connector: Option<&Rc<ConnectorData>>);
     fn tl_resize(&self, dx1: i32, dy1: i32, dx2: i32, dy2: i32);
-    fn tl_set_size(&self, width: i32, height: i32);
-    fn tl_set_position(&self, x: i32, y: i32);
+    fn tl_set_geometry(&self, x1: i32, y1: i32, x2: i32, y2: i32);
 }
 
 impl<T: ToplevelNodeBase> ToplevelNode for T {
@@ -307,21 +306,11 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         parent.cnode_resize_child(self, x1, y1, x2, y2);
     }
 
-    fn tl_set_size(&self, width: i32, height: i32) {
+    fn tl_set_geometry(&self, x1: i32, y1: i32, x2: i32, y2: i32) {
         let Some(parent) = self.tl_data().parent.get() else {
             return;
         };
-        let pos = self.node_absolute_position(LiveTL);
-        let x2 = pos.x1().saturating_add(width);
-        let y2 = pos.y1().saturating_add(height);
-        parent.cnode_resize_child(self, None, None, Some(x2), Some(y2));
-    }
-
-    fn tl_set_position(&self, x: i32, y: i32) {
-        let Some(parent) = self.tl_data().parent.get() else {
-            return;
-        };
-        parent.cnode_set_child_position(self, x, y);
+        parent.cnode_resize_child(self, Some(x1), Some(y1), Some(x2), Some(y2));
     }
 }
 

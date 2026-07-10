@@ -211,16 +211,16 @@ pub enum Action {
         dx2: i32,
         dy2: i32,
     },
-    SetSize {
-        width: i32,
-        height: i32,
-    },
-    SetPosition {
-        x: i32,
-        y: i32,
-    },
     HideOverlay {
         ws: Rc<WorkspaceSlot>,
+    },
+    SetPosition {
+        x1: Option<i32>,
+        y1: Option<i32>,
+        x2: Option<i32>,
+        y2: Option<i32>,
+        width: Option<i32>,
+        height: Option<i32>,
     },
 }
 
