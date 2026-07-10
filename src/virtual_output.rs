@@ -624,9 +624,12 @@ impl VirtualOutput {
             be_state.mode.width,
             be_state.mode.height,
             blend_cd,
-            &cd,
             true,
         )?;
+        if !ct.cd.embeds_into(cd, ct.render_intent) {
+            // Direct scanout requires embeddable color descriptions.
+            return None;
+        }
         Some(DirectScanoutData {
             buffer_resv: ct.buffer_resv.clone(),
             lazy: ct.lazy.clone(),
