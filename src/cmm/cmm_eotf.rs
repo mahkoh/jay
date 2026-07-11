@@ -40,23 +40,3 @@ impl EotfPow {
         MUL_F32 / self.0 as f32
     }
 }
-
-pub fn bt1886_eotf_args(c: F32) -> [f32; 4] {
-    let c = c.0;
-    let gamma = 1.0 / 2.4;
-    let a1 = 1.0 / (1.0 - c);
-    let a2 = 1.0 - c.powf(gamma);
-    let a3 = c.powf(gamma);
-    let a4 = c;
-    [a1, a2, a3, a4]
-}
-
-pub fn bt1886_inv_eotf_args(c: F32) -> [f32; 4] {
-    let c = c.0;
-    let gamma = 1.0 / 2.4;
-    let a1 = 1.0 / (1.0 - c.powf(gamma));
-    let a2 = 1.0 - c;
-    let a3 = c;
-    let a4 = c.powf(gamma);
-    [a1, a2, a3, a4]
-}
