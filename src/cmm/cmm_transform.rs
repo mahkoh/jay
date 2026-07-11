@@ -89,6 +89,15 @@ fn format_matrix<'a>(m: &'a [[F64; 4]; 3]) -> impl Debug + use<'a> {
     })
 }
 
+impl<T, U> ColorMatrix<T, U> {
+    #[expect(dead_code)]
+    pub const IDENTITY: Self = Self::new([
+        [1.0, 0.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0, 0.0],
+        [0.0, 0.0, 1.0, 0.0],
+    ]);
+}
+
 impl<T, U, V> Mul<ColorMatrix<U, T>> for ColorMatrix<V, U> {
     type Output = ColorMatrix<V, T>;
 
