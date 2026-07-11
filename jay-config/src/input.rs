@@ -429,7 +429,7 @@ impl Seat {
 
     /// Toggles the split axis of the parent-container of the currently focused window.
     pub fn toggle_split(self) {
-        self.set_split(self.split().other());
+        self.set_split(Axis::Auto);
     }
 
     /// Returns the input devices assigned to this seat.
