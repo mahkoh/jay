@@ -22,9 +22,8 @@ use {
         scale::{SCALE_BASE, SCALE_BASEF, Scale},
         state::State,
         tree::{TearingMode, Transform, VrrMode},
-        utils::{errorfmt::ErrorFmt, static_text::StaticText},
+        utils::{bhash::BHashMap, errorfmt::ErrorFmt, static_text::StaticText},
     },
-    ahash::AHashMap,
     egui::{
         Align, Button, Checkbox, CollapsingHeader, Color32, ComboBox, DragValue, EventFilter,
         FontId, Frame, Grid, Id, Key, Layout, PointerButton, Rect, ScrollArea, Sense, Shadow,
@@ -56,7 +55,7 @@ pub struct OutputsPane {
 struct OutputsPaneInner {
     state: Rc<State>,
     in_transaction: Cell<bool>,
-    heads: AHashMap<HeadName, CompleteHead>,
+    heads: BHashMap<HeadName, CompleteHead>,
     ui: UiSettings,
     settings: Settings,
     seed: u64,

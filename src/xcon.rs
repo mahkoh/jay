@@ -10,6 +10,7 @@ use {
         io_uring::IoUringError,
         state::State,
         utils::{
+            bhash::BHashMap,
             buf::DynamicBuf,
             bufio::{BufIo, BufIoError, BufIoMessage},
             clonecell::CloneCell,
@@ -33,7 +34,6 @@ use {
             xauthority::{LOCAL, MIT_MAGIC_COOKIE, XAuthority},
         },
     },
-    ahash::AHashMap,
     bstr::{BString, ByteSlice},
     std::{
         any::TypeId,
@@ -148,7 +148,7 @@ struct ExtensionIdRange {
 struct ExtensionData {
     opcodes: [Option<u8>; EXTENSIONS.len()],
     first_event: [Option<u8>; EXTENSIONS.len()],
-    ext_by_opcode: AHashMap<u8, Extension>,
+    ext_by_opcode: BHashMap<u8, Extension>,
     events: Vec<ExtensionIdRange>,
     errors: Vec<ExtensionIdRange>,
 }
@@ -866,7 +866,7 @@ impl XconData {
     }
 
     async fn fetch_extension_data(self: &Rc<Self>) -> Result<Rc<ExtensionData>, XconError> {
-        let mut ext_by_name = AHashMap::new();
+        let mut ext_by_name = BHashMap::default();
         for e in EXTENSIONS.iter().copied() {
             ext_by_name.insert(e.name().as_bytes().as_bstr(), e);
         }

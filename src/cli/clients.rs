@@ -5,9 +5,9 @@ use {
             json::{JsonClient, jsonl},
         },
         tools::tool_client::{Handle, ToolClient, with_tool_client},
+        utils::bhash::BHashMap,
         wire::{JayClientQueryId, jay_client_query, jay_compositor},
     },
-    ahash::AHashMap,
     clap::{Args, Subcommand},
     std::{cell::RefCell, mem, rc::Rc},
     uapi::c,
@@ -173,7 +173,7 @@ pub struct Client {
 pub async fn handle_client_query(
     tl: &Rc<ToolClient>,
     id: JayClientQueryId,
-) -> AHashMap<u64, Client> {
+) -> BHashMap<u64, Client> {
     use jay_client_query::*;
     let c = Rc::new(RefCell::new(Vec::<Client>::new()));
     macro_rules! last {

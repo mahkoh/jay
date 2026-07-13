@@ -8,21 +8,19 @@ use {
         state::State,
         utils::{
             asyncevent::AsyncEvent,
+            bhash::BHashSet,
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
+            hash_map_ext::{HashMapExt, HashSetExt},
             oserror::{OsError, OsErrorExt2},
         },
         video::Modifier,
         wire::ZwpLinuxDmabufFeedbackV1Id,
     },
-    ahash::AHashSet,
     byteorder::{NativeEndian, WriteBytesExt},
     indexmap::IndexSet,
-    isnt::std_1::{
-        collections::{IsntHashMapExt, IsntHashSetExt},
-        primitive::IsntSliceExt,
-    },
+    isnt::std_1::primitive::IsntSliceExt,
     std::{
         io::{self, Write},
         rc::Rc,
@@ -128,7 +126,7 @@ impl State {
         };
         let main_dev = ctx_dev.dev_t;
         let ctx_formats = ctx.formats();
-        let mut copy_src_formats = AHashSet::new();
+        let mut copy_src_formats = BHashSet::default();
         if !self.no_client_prime {
             for dev in self.drm_devs.lock().values() {
                 let Some(copy_dev) = &dev.copy_device else {

@@ -12,9 +12,9 @@ use {
         },
         rect::Rect,
         tools::tool_client::{Handle, ToolClient, with_tool_client},
+        utils::bhash::{BHashMap, BHashSet},
         wire::{JayCompositorId, JayTreeQueryId, jay_client_query, jay_compositor, jay_tree_query},
     },
-    ahash::{AHashMap, AHashSet},
     clap::{Args, Subcommand},
     isnt::std_1::primitive::IsntSliceExt,
     std::{cell::RefCell, rc::Rc},
@@ -111,7 +111,7 @@ struct Queried {
     not_found: bool,
     roots: Vec<Node>,
     stack: Vec<Node>,
-    client_ids: AHashSet<u64>,
+    client_ids: BHashSet<u64>,
 }
 
 #[derive(Debug, Default)]
@@ -323,7 +323,7 @@ impl Query<'_> {
     }
 }
 
-fn make_json_tree_node<'b>(clients: &'b AHashMap<u64, Client>, node: &'b Node) -> JsonTreeNode<'b> {
+fn make_json_tree_node<'b>(clients: &'b BHashMap<u64, Client>, node: &'b Node) -> JsonTreeNode<'b> {
     let position = node.position.map(|r| JsonRect {
         x1: r.x1(),
         y1: r.y1(),
@@ -366,8 +366,8 @@ fn make_json_tree_node<'b>(clients: &'b AHashMap<u64, Client>, node: &'b Node) -
 }
 
 struct Printer {
-    clients: AHashMap<u64, Client>,
-    printed_clients: AHashSet<u64>,
+    clients: BHashMap<u64, Client>,
+    printed_clients: BHashSet<u64>,
     verbose: bool,
     prefix: String,
     output_depth: u32,

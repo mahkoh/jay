@@ -1,16 +1,18 @@
 #![allow(non_upper_case_globals)]
 
 use {
-    crate::pipewire::pw_pod::{
-        PW_CHOICE_None, PW_TYPE_Array, PW_TYPE_Bitmap, PW_TYPE_Bool, PW_TYPE_Bytes, PW_TYPE_Choice,
-        PW_TYPE_Double, PW_TYPE_Fd, PW_TYPE_Float, PW_TYPE_Fraction, PW_TYPE_Id, PW_TYPE_Int,
-        PW_TYPE_Long, PW_TYPE_None, PW_TYPE_Object, PW_TYPE_Pod, PW_TYPE_Pointer,
-        PW_TYPE_Rectangle, PW_TYPE_Sequence, PW_TYPE_String, PW_TYPE_Struct, PwChoiceType,
-        PwControlType, PwPod, PwPodArray, PwPodChoice, PwPodControl, PwPodFraction, PwPodObject,
-        PwPodObjectType, PwPodPointer, PwPodRectangle, PwPodSequence, PwPodStruct, PwPodType,
-        PwPointerType, PwProp, PwPropFlag,
+    crate::{
+        pipewire::pw_pod::{
+            PW_CHOICE_None, PW_TYPE_Array, PW_TYPE_Bitmap, PW_TYPE_Bool, PW_TYPE_Bytes,
+            PW_TYPE_Choice, PW_TYPE_Double, PW_TYPE_Fd, PW_TYPE_Float, PW_TYPE_Fraction,
+            PW_TYPE_Id, PW_TYPE_Int, PW_TYPE_Long, PW_TYPE_None, PW_TYPE_Object, PW_TYPE_Pod,
+            PW_TYPE_Pointer, PW_TYPE_Rectangle, PW_TYPE_Sequence, PW_TYPE_String, PW_TYPE_Struct,
+            PwChoiceType, PwControlType, PwPod, PwPodArray, PwPodChoice, PwPodControl,
+            PwPodFraction, PwPodObject, PwPodObjectType, PwPodPointer, PwPodRectangle,
+            PwPodSequence, PwPodStruct, PwPodType, PwPointerType, PwProp, PwPropFlag,
+        },
+        utils::bhash::BHashMap,
     },
-    ahash::AHashMap,
     bstr::{BStr, BString, ByteSlice},
     std::{fmt::Debug, mem::MaybeUninit, rc::Rc},
     thiserror::Error,
@@ -85,11 +87,11 @@ impl<'a> PwParser<'a> {
         })
     }
 
-    pub fn read_dict_struct(&mut self) -> Result<AHashMap<BString, BString>, PwParserError> {
+    pub fn read_dict_struct(&mut self) -> Result<BHashMap<BString, BString>, PwParserError> {
         let s2 = self.read_struct()?;
         let mut p3 = s2.fields;
         let num_dict_entries = p3.read_int()?;
-        let mut de = AHashMap::new();
+        let mut de = BHashMap::default();
         for _ in 0..num_dict_entries {
             de.insert(p3.read_string()?.to_owned(), p3.read_string()?.to_owned());
         }

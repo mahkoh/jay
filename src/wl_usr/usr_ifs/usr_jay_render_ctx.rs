@@ -4,12 +4,11 @@ use {
         gfx_api::{GfxFormat, GfxWriteModifier},
         ifs::jay_render_ctx::FORMATS_SINCE,
         object::Version,
-        utils::clonecell::CloneCell,
+        utils::{bhash::BHashMap, clonecell::CloneCell},
         video::Modifier,
         wire::{JayRenderCtxId, jay_render_ctx::*},
         wl_usr::{UsrCon, usr_object::UsrObject},
     },
-    ahash::AHashMap,
     std::{cell::RefCell, convert::Infallible, rc::Rc},
     uapi::OwnedFd,
 };
@@ -19,12 +18,12 @@ pub struct UsrJayRenderCtx {
     pub con: Rc<UsrCon>,
     pub owner: CloneCell<Option<Rc<dyn UsrJayRenderCtxOwner>>>,
     pub version: Version,
-    pub formats: RefCell<AHashMap<u32, GfxFormat>>,
+    pub formats: RefCell<BHashMap<u32, GfxFormat>>,
 }
 
 pub trait UsrJayRenderCtxOwner {
     fn no_device(&self) {}
-    fn device(&self, fd: Rc<OwnedFd>, server_formats: Option<AHashMap<u32, GfxFormat>>) {
+    fn device(&self, fd: Rc<OwnedFd>, server_formats: Option<BHashMap<u32, GfxFormat>>) {
         let _ = fd;
         let _ = server_formats;
     }

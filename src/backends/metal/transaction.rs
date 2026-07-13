@@ -19,7 +19,8 @@ use {
         gfx_api::SyncFile,
         tree::TreeTimeline::RenderTL,
         utils::{
-            binary_search_map::BinarySearchMap, cell_ext::CellExt, errorfmt::ErrorFmt, rc_eq::rc_eq,
+            binary_search_map::BinarySearchMap, cell_ext::CellExt, errorfmt::ErrorFmt,
+            hash_map_ext::HashMapExt, rc_eq::rc_eq,
         },
         video::drm::{
             Change, ConnectorStatus, DRM_LINK_STATUS_GOOD, DRM_MODE_ATOMIC_ALLOW_MODESET, DrmBlob,
@@ -29,7 +30,6 @@ use {
     },
     arrayvec::ArrayVec,
     bstr::ByteSlice,
-    isnt::std_1::collections::IsntHashMapExt,
     std::{any::Any, cell::Cell, mem, rc::Rc, slice},
     uapi::c,
 };

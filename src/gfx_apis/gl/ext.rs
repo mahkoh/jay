@@ -1,22 +1,24 @@
 use {
-    crate::gfx_apis::gl::{
-        RenderError,
-        egl::sys::{EGL_EXTENSIONS, EGLDisplay},
-        gl::sys::GL_EXTENSIONS,
-        proc::ExtProc,
-        sys::{EGL, EGL_DEVICE_EXT, EGL_TRUE, EGLDeviceEXT, GLESV2},
+    crate::{
+        gfx_apis::gl::{
+            RenderError,
+            egl::sys::{EGL_EXTENSIONS, EGLDisplay},
+            gl::sys::GL_EXTENSIONS,
+            proc::ExtProc,
+            sys::{EGL, EGL_DEVICE_EXT, EGL_TRUE, EGLDeviceEXT, GLESV2},
+        },
+        utils::bhash::BHashSet,
     },
-    ahash::AHashSet,
     bstr::ByteSlice,
     std::{ffi::CStr, ops::BitOrAssign, str},
     uapi::c,
 };
 
-unsafe fn get_extensions(ext: *const c::c_char) -> Option<AHashSet<String>> {
+unsafe fn get_extensions(ext: *const c::c_char) -> Option<BHashSet<String>> {
     if ext.is_null() {
         return None;
     }
-    let mut res = AHashSet::new();
+    let mut res = BHashSet::default();
     let ext = unsafe { CStr::from_ptr(ext).to_bytes() };
     for part in ext.split_str(" ") {
         let name = part.trim_ascii();
@@ -29,14 +31,14 @@ unsafe fn get_extensions(ext: *const c::c_char) -> Option<AHashSet<String>> {
     Some(res)
 }
 
-unsafe fn get_dpy_extensions(dpy: EGLDisplay) -> Option<AHashSet<String>> {
+unsafe fn get_dpy_extensions(dpy: EGLDisplay) -> Option<BHashSet<String>> {
     unsafe {
         let ext = (EGL.as_ref()?.eglQueryString)(dpy, EGL_EXTENSIONS);
         get_extensions(ext)
     }
 }
 
-fn get_typed_ext<T>(exts: &AHashSet<String>, mut base: T, map: &[(&str, T)]) -> T
+fn get_typed_ext<T>(exts: &BHashSet<String>, mut base: T, map: &[(&str, T)]) -> T
 where
     T: BitOrAssign + Copy,
 {

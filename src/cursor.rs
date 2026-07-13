@@ -10,9 +10,13 @@ use {
         state::State,
         time::Time,
         tree::OutputNode,
-        utils::{errorfmt::ErrorFmt, numcell::NumCell, smallmap::SmallMapMut},
+        utils::{
+            bhash::{BHashMap, BHashSet},
+            errorfmt::ErrorFmt,
+            numcell::NumCell,
+            smallmap::SmallMapMut,
+        },
     },
-    ahash::{AHashMap, AHashSet},
     bstr::{BStr, BString, ByteSlice, ByteVec},
     byteorder::{LittleEndian, ReadBytesExt},
     isnt::std_1::primitive::IsntSliceExt,
@@ -217,7 +221,7 @@ impl ServerCursors {
 
 pub struct ServerCursorTemplate {
     var: ServerCursorTemplateVariant,
-    pub xcursor: Vec<AHashMap<(Scale, u32), Rc<XCursorImage>>>,
+    pub xcursor: Vec<BHashMap<(Scale, u32), Rc<XCursorImage>>>,
 }
 
 enum ServerCursorTemplateVariant {
@@ -513,7 +517,7 @@ impl Cursor for AnimatedCursor {
 }
 
 struct OpenCursorResult {
-    images: Vec<AHashMap<(Scale, u32), Rc<XCursorImage>>>,
+    images: Vec<BHashMap<(Scale, u32), Rc<XCursorImage>>>,
 }
 
 fn open_cursor(
@@ -524,7 +528,7 @@ fn open_cursor(
     paths: &[BString],
 ) -> Result<OpenCursorResult, CursorError> {
     let mut file = None;
-    let mut pairs_tested = AHashSet::new();
+    let mut pairs_tested = BHashSet::default();
     if let Some(theme) = theme {
         for name in names {
             let name = name.as_bytes().as_bstr();
@@ -552,7 +556,7 @@ fn open_cursor(
 }
 
 fn open_cursor_file<'a>(
-    pairs_tested: &mut AHashSet<(BString, &'a BStr)>,
+    pairs_tested: &mut BHashSet<(BString, &'a BStr)>,
     paths: &[BString],
     theme: &BStr,
     name: &'a BStr,
@@ -729,7 +733,7 @@ fn parser_cursor_file<R: BufRead + Seek>(
             });
         }
     }
-    let mut sizes = AHashSet::new();
+    let mut sizes = BHashSet::default();
     for _ in 0..ntoc {
         let [type_, size, position] = read_u32_n(r)?;
         if type_ != XCURSOR_IMAGE_TYPE {
@@ -748,14 +752,14 @@ fn parser_cursor_file<R: BufRead + Seek>(
             }
         }
     }
-    let positions: AHashSet<_> = targets
+    let positions: BHashSet<_> = targets
         .iter()
         .flat_map(|t| t.positions.iter().copied())
         .collect();
     if positions.is_empty() {
         return Err(CursorError::EmptyXcursorFile);
     }
-    let mut images = AHashMap::new();
+    let mut images = BHashMap::default();
     for position in positions {
         r.seek(SeekFrom::Start(position as u64))?;
         let [
@@ -798,7 +802,7 @@ fn parser_cursor_file<R: BufRead + Seek>(
     }
     let mut res = vec![];
     for i in 0..num {
-        let mut idx_images = AHashMap::new();
+        let mut idx_images = BHashMap::default();
         for target in &targets {
             let image = images.get(&target.positions[i]).unwrap();
             idx_images.insert((target.scale, target.size), image.clone());

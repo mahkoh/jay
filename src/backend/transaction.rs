@@ -5,14 +5,13 @@ use {
             ConnectorKernelId, Mode,
         },
         state::State,
-        utils::{errorfmt::ErrorFmt, hash_map_ext::HashMapExt},
+        utils::{bhash::BHashMap, errorfmt::ErrorFmt, hash_map_ext::HashMapExt},
         video::drm::DrmError,
     },
-    ahash::AHashMap,
+    hashbrown::hash_map::Entry,
     std::{
         any::{Any, TypeId},
         cell::{Cell, RefCell},
-        collections::hash_map::Entry,
         error::Error,
         hash::{Hash, Hasher},
         rc::Rc,
@@ -158,13 +157,13 @@ pub trait BackendAppliedConnectorTransaction {
 
 struct Common {
     state: Rc<State>,
-    states: AHashMap<ConnectorId, BackendConnectorState>,
+    states: BHashMap<ConnectorId, BackendConnectorState>,
 }
 
 pub struct ConnectorTransaction {
     common: Common,
     parts:
-        AHashMap<Box<dyn BackendConnectorTransactionTypeDyn>, Box<dyn BackendConnectorTransaction>>,
+        BHashMap<Box<dyn BackendConnectorTransactionTypeDyn>, Box<dyn BackendConnectorTransaction>>,
 }
 
 pub struct PreparedConnectorTransaction {

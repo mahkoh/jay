@@ -13,8 +13,9 @@ use {
         ImageTiling, ImageType, ImageViewCreateInfo, ImageViewType, SampleCountFlags, SharingMode,
     },
     gpu_alloc::UsageFlags,
+    hashbrown::hash_map::Entry,
     run_on_drop::on_drop,
-    std::{cell::Cell, collections::hash_map::Entry, rc::Rc},
+    std::{cell::Cell, rc::Rc},
 };
 
 impl VulkanRenderer {
@@ -113,7 +114,7 @@ impl VulkanRenderer {
             descriptor_buffer: self.descriptor_buffer_image(usage, view),
             descriptor_heap,
         });
-        cached.insert_entry(Rc::downgrade(&img));
+        cached.insert(Rc::downgrade(&img));
         Ok(img)
     }
 }

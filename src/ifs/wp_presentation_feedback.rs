@@ -4,9 +4,9 @@ use {
         ifs::{wl_output::WlOutput, wl_surface::WlSurface},
         leaks::Tracker,
         object::{Object, Version},
+        utils::bhash::BHashMap,
         wire::{WlOutputId, WpPresentationFeedbackId, wp_presentation_feedback::*},
     },
-    ahash::AHashMap,
     std::{convert::Infallible, rc::Rc},
 };
 
@@ -21,7 +21,7 @@ impl PresentationFeedback {
 
     pub fn presented(
         mut self,
-        outputs: Option<&AHashMap<WlOutputId, Rc<WlOutput>>>,
+        outputs: Option<&BHashMap<WlOutputId, Rc<WlOutput>>>,
         tv_sec: u64,
         tv_nsec: u32,
         mut refresh: u32,

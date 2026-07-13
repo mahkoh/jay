@@ -1,9 +1,11 @@
 use {
-    crate::criteria::{
-        CritMatcherId,
-        crit_graph::{CritTarget, CritTargetOwner, WeakCritTargetOwner},
+    crate::{
+        criteria::{
+            CritMatcherId,
+            crit_graph::{CritTarget, CritTargetOwner, WeakCritTargetOwner},
+        },
+        utils::bhash::BHashMap,
     },
-    ahash::AHashMap,
     std::{
         cell::{RefCell, RefMut},
         ops::{Deref, DerefMut},
@@ -17,7 +19,7 @@ where
 {
     id: CritMatcherId,
     slf: Weak<dyn CritDestroyListener<Target>>,
-    data: RefCell<AHashMap<Target::Id, PerTreeNodeData<Target, T>>>,
+    data: RefCell<BHashMap<Target::Id, PerTreeNodeData<Target, T>>>,
 }
 
 pub struct PerTreeNodeData<Target, T>
@@ -90,7 +92,7 @@ where
         }
     }
 
-    pub fn borrow_mut(&self) -> RefMut<'_, AHashMap<Target::Id, PerTreeNodeData<Target, T>>> {
+    pub fn borrow_mut(&self) -> RefMut<'_, BHashMap<Target::Id, PerTreeNodeData<Target, T>>> {
         self.data.borrow_mut()
     }
 }

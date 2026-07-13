@@ -27,14 +27,15 @@ use {
             Node, NodeBase, OutputNode, Transform,
             TreeTimeline::{LiveTL, RenderTL},
         },
-        utils::{errorfmt::ErrorFmt, oserror::OsErrorExt, static_text::StaticText},
+        utils::{
+            bhash::BHashMap, errorfmt::ErrorFmt, oserror::OsErrorExt, static_text::StaticText,
+        },
         video::{
             Modifier,
             dmabuf::{DmaBuf, DmaBufIds},
             drm::syncobj::{Syncobj, SyncobjPoint},
         },
     },
-    ahash::AHashMap,
     indexmap::{IndexMap, IndexSet},
     jay_config::video::{GfxApi as ConfigGfxApi, ScalingFilter as ConfigScalingFilter},
     jay_proc::{jay_clone, jay_hash},
@@ -972,7 +973,7 @@ pub trait GfxContext: Debug {
 
     fn render_node(&self) -> Option<Rc<CString>>;
 
-    fn formats(&self) -> &Rc<AHashMap<u32, GfxFormat>>;
+    fn formats(&self) -> &Rc<BHashMap<u32, GfxFormat>>;
 
     fn fast_ram_access(&self) -> bool;
 
@@ -1129,10 +1130,10 @@ impl GfxFormat {
 }
 
 pub fn cross_intersect_formats(
-    local: &AHashMap<u32, GfxFormat>,
-    remote: &AHashMap<u32, GfxFormat>,
-) -> AHashMap<u32, GfxFormat> {
-    let mut res = AHashMap::new();
+    local: &BHashMap<u32, GfxFormat>,
+    remote: &BHashMap<u32, GfxFormat>,
+) -> BHashMap<u32, GfxFormat> {
+    let mut res = BHashMap::default();
     for lf in local.values() {
         if let Some(rf) = remote.get(&lf.format.drm) {
             let f = lf.cross_intersect(rf);

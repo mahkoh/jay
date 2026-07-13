@@ -19,13 +19,12 @@ use {
             WorkspaceNode, WorkspaceNodeId,
         },
         utils::{
-            clonecell::CloneCell, errorfmt::ErrorFmt, event_listener::EventListener,
-            numcell::NumCell, option_ext::OptionExt,
+            bhash::BHashSet, clonecell::CloneCell, errorfmt::ErrorFmt,
+            event_listener::EventListener, numcell::NumCell, option_ext::OptionExt,
         },
         video::{INVALID_MODIFIER, LINEAR_MODIFIER, dmabuf::DmaBuf},
         wire::{JayScreencastId, jay_screencast::*},
     },
-    ahash::AHashSet,
     jay_proc::jay_clone,
     std::{
         cell::{Cell, RefCell},
@@ -77,7 +76,7 @@ pub struct JayScreencast {
     destroyed: Cell<bool>,
     running: Cell<bool>,
     show_all: Cell<bool>,
-    show_workspaces: RefCell<AHashSet<WorkspaceNodeId>>,
+    show_workspaces: RefCell<BHashSet<WorkspaceNodeId>>,
     linear: Cell<bool>,
     pending: Pending,
     need_realloc_or_reconfigure: Cell<bool>,
@@ -108,7 +107,7 @@ struct Pending {
     running: Cell<Option<bool>>,
     target: Cell<Option<Option<PendingTarget>>>,
     show_all: Cell<Option<bool>>,
-    show_workspaces: RefCell<Option<AHashSet<WorkspaceNodeId>>>,
+    show_workspaces: RefCell<Option<BHashSet<WorkspaceNodeId>>>,
     clear_buffers: Cell<bool>,
     buffers: RefCell<Vec<Rc<dyn GfxFramebuffer>>>,
 }

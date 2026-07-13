@@ -1,9 +1,9 @@
 use {
     crate::{
         it::{test_error::TestResult, testrun::TestRun},
+        utils::bhash::BHashSet,
         wire::WlBufferId,
     },
-    ahash::AHashSet,
     std::rc::Rc,
 };
 
@@ -31,7 +31,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     tassert_eq!(tls[0].title.take().as_deref(), Some("a"));
     tassert_eq!(tls[1].title.take().as_deref(), Some("b"));
 
-    let mut ids = AHashSet::new();
+    let mut ids = BHashSet::default();
     ids.insert(tls[0].identifier.take().unwrap());
     ids.insert(tls[1].identifier.take().unwrap());
 

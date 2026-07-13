@@ -8,6 +8,7 @@ use {
         io_uring::IoUring,
         state::State,
         utils::{
+            bhash::BHashMap,
             buffd::BufFdError,
             clone3::{Forked, double_fork, fork_with_pidfd},
             copyhashmap::CopyHashMap,
@@ -20,7 +21,6 @@ use {
         },
         xwayland,
     },
-    ahash::AHashMap,
     bincode::Options,
     jay_config::_private::bincode_ops,
     log::Level,
@@ -585,8 +585,8 @@ fn setup_deathsig(ppid: c::pid_t) {
 fn map_fds(fds: Vec<(i32, OwnedFd)>) -> Result<Vec<OwnedFd>, SpawnError> {
     let mut desired: Vec<_> = fds.iter().map(|v| v.0).collect();
     desired.sort_by(|a, b| b.cmp(a));
-    let mut existing_to_desired: AHashMap<_, _> = fds.iter().map(|v| (v.1.raw(), v.0)).collect();
-    let mut desired_to_existing: AHashMap<_, _> = fds.into_iter().map(|v| (v.0, v.1)).collect();
+    let mut existing_to_desired: BHashMap<_, _> = fds.iter().map(|v| (v.1.raw(), v.0)).collect();
+    let mut desired_to_existing: BHashMap<_, _> = fds.into_iter().map(|v| (v.0, v.1)).collect();
     for desired in desired {
         let existing = desired_to_existing.get(&desired).unwrap().raw();
         if existing == desired {

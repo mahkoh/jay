@@ -9,10 +9,9 @@ use {
             testrun::ParseFull,
         },
         tree::{ContainerNode, ContainingNode, FloatNode, ToplevelNodeBase},
-        utils::buffd::MsgParser,
+        utils::{bhash::BHashSet, buffd::MsgParser},
         wire::{XdgToplevelId, xdg_toplevel::*},
     },
-    ahash::AHashSet,
     std::{
         cell::{Cell, RefCell},
         future::poll_fn,
@@ -31,7 +30,7 @@ pub struct TestXdgToplevelCore {
 
     pub width: Cell<i32>,
     pub height: Cell<i32>,
-    pub states: RefCell<AHashSet<u32>>,
+    pub states: RefCell<BHashSet<u32>>,
 
     pub close_requested: Cell<bool>,
 }

@@ -25,6 +25,7 @@ use {
         state::State,
         tree::{NodeBase, ToplevelNode, TreeTimeline::LiveTL},
         utils::{
+            bhash::{BHashMap, BHashSet},
             bitflags::BitflagsExt,
             buf::Buf,
             cell_ext::CellExt,
@@ -68,7 +69,6 @@ use {
         },
         xwayland::{XWaylandError, XWaylandEvent},
     },
-    ahash::{AHashMap, AHashSet},
     bstr::{ByteSlice, ByteVec},
     futures_util::{FutureExt, select},
     smallvec::SmallVec,
@@ -229,21 +229,21 @@ pub struct Wm {
     state: Rc<State>,
     c: Rc<Xcon>,
     atoms: Atoms,
-    never_focus: AHashSet<u32>,
+    never_focus: BHashSet<u32>,
     root: u32,
     xwin: u32,
     client: Rc<Client>,
-    windows: AHashMap<u32, Rc<XwindowData>>,
-    windows_by_surface_id: AHashMap<WlSurfaceId, Rc<XwindowData>>,
-    windows_by_surface_serial: AHashMap<u64, Rc<XwindowData>>,
+    windows: BHashMap<u32, Rc<XwindowData>>,
+    windows_by_surface_id: BHashMap<WlSurfaceId, Rc<XwindowData>>,
+    windows_by_surface_serial: BHashMap<u64, Rc<XwindowData>>,
     last_surface_serial: u64,
     focus_window: Option<Rc<XwindowData>>,
     last_input_serial: u64,
-    atom_cache: AHashMap<String, u32>,
-    atom_name_cache: AHashMap<u32, String>,
+    atom_cache: BHashMap<String, u32>,
+    atom_name_cache: BHashMap<u32, String>,
 
     transfer_ids: NumCell<u64>,
-    known_seats: AHashMap<SeatId, Rc<WlSeatGlobal>>,
+    known_seats: BHashMap<SeatId, Rc<WlSeatGlobal>>,
     shared: Rc<XwmShared>,
 
     stack_list: LinkedList<Rc<XwindowData>>,
@@ -301,7 +301,7 @@ impl Wm {
             Err(e) => return Err(XWaylandError::LoadAtoms(e)),
         };
         let never_focus = {
-            let mut nf = AHashSet::new();
+            let mut nf = BHashSet::default();
             nf.insert(atoms._NET_WM_WINDOW_TYPE_COMBO);
             nf.insert(atoms._NET_WM_WINDOW_TYPE_DND);
             nf.insert(atoms._NET_WM_WINDOW_TYPE_DROPDOWN_MENU);
@@ -540,7 +540,7 @@ impl Wm {
     }
 
     fn seats_changed(&mut self) {
-        let current_seats: AHashMap<_, _> = self
+        let current_seats: BHashMap<_, _> = self
             .state
             .globals
             .seats

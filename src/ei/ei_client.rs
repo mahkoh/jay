@@ -14,6 +14,7 @@ use {
         state::State,
         utils::{
             asyncevent::AsyncEvent,
+            bhash::BHashMap,
             buffd::{EiMsgFormatter, EiMsgParser, EiMsgParserError, OutBufferSwapchain},
             clonecell::CloneCell,
             errorfmt::ErrorFmt,
@@ -22,7 +23,6 @@ use {
         },
         wire_ei::EiInterfaceVersions,
     },
-    ahash::AHashMap,
     std::{
         cell::{Cell, RefCell},
         error::Error,
@@ -39,8 +39,8 @@ mod ei_objects;
 mod ei_tasks;
 
 pub struct EiClients {
-    pub clients: RefCell<AHashMap<ClientId, EiClientHolder>>,
-    shutdown_clients: RefCell<AHashMap<ClientId, EiClientHolder>>,
+    pub clients: RefCell<BHashMap<ClientId, EiClientHolder>>,
+    shutdown_clients: RefCell<BHashMap<ClientId, EiClientHolder>>,
 }
 
 impl EiClients {

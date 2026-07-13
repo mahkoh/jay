@@ -15,8 +15,9 @@ use {
             },
         },
     },
+    hashbrown::hash_map::Entry,
     jay_proc::jay_clone,
-    std::{collections::hash_map::Entry, rc::Rc},
+    std::rc::Rc,
     thiserror::Error,
 };
 

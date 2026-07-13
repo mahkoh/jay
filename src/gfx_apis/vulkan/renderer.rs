@@ -38,15 +38,15 @@ use {
         rect::{Rect, Region},
         theme::Color,
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
-            ordered_float::F32, oserror::OsErrorExt2, page_alloc::PageAllocEntry, stack::Stack,
+            bhash::BHashMap, clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
+            hash_map_ext::HashMapExt, numcell::NumCell, ordered_float::F32, oserror::OsErrorExt2,
+            page_alloc::PageAllocEntry, stack::Stack,
         },
         video::dmabuf::{DMA_BUF_SYNC_READ, DMA_BUF_SYNC_WRITE, dma_buf_export_sync_file},
         vulkan_core::{
             sync::VulkanDeviceSyncExt, timeline_semaphore::VulkanDeviceTimelineSemaphoreExt,
         },
     },
-    ahash::AHashMap,
     arrayvec::ArrayVec,
     ash::{
         Device,
@@ -66,7 +66,8 @@ use {
             Viewport, WriteDescriptorSet,
         },
     },
-    isnt::std_1::{collections::IsntHashMapExt, primitive::IsntSliceExt},
+    hashbrown::hash_map::Entry,
+    isnt::std_1::primitive::IsntSliceExt,
     jay_algorithms::rect::Tag,
     jay_proc::jay_hash,
     linearize::{Linearize, LinearizeExt, StaticCopyMap, StaticMap, static_map},
@@ -74,7 +75,6 @@ use {
         any::Any,
         borrow::Cow,
         cell::{Cell, LazyCell, RefCell},
-        collections::hash_map::Entry,
         fmt::{Debug, Formatter},
         mem::{self, offset_of},
         ops::Range,
@@ -86,7 +86,7 @@ use {
 };
 
 pub struct VulkanRenderer {
-    pub(super) formats: Rc<AHashMap<u32, GfxFormat>>,
+    pub(super) formats: Rc<BHashMap<u32, GfxFormat>>,
     pub(super) device: Rc<VulkanDevice>,
     pub(super) fill_pipelines: CopyHashMap<vk::Format, FillPipelines>,
     pub(super) tex_pipelines: StaticMap<VulkanEotf, CopyHashMap<vk::Format, Rc<TexPipelines>>>,
@@ -117,7 +117,7 @@ pub struct VulkanRenderer {
     pub(super) pending_cpu_jobs: CopyHashMap<u64, PendingJob>,
     pub(super) shm_allocator: Rc<VulkanThreadedAllocator>,
     pub(super) samplers: StaticMap<ScalingFilter, Rc<VulkanSampler>>,
-    pub(super) blend_buffers: RefCell<AHashMap<(u32, u32), Weak<VulkanImage>>>,
+    pub(super) blend_buffers: RefCell<BHashMap<(u32, u32), Weak<VulkanImage>>>,
     pub(super) shader_buffer_cache: Rc<VulkanBufferCache>,
     pub(super) uniform_buffer_cache: Rc<VulkanBufferCache>,
     pub(super) render_tls: Option<Rc<VulkanTimelineSemaphore>>,
@@ -342,7 +342,7 @@ impl VulkanDevice {
             .distinct_transfer_queue_family_idx
             .map(|idx| self.create_command_pool(idx))
             .transpose()?;
-        let formats: AHashMap<u32, _> = self
+        let formats: BHashMap<u32, _> = self
             .formats
             .iter()
             .map(|(drm, vk)| {
@@ -2636,7 +2636,7 @@ where
 
 #[derive(Default)]
 struct ColorTransforms {
-    map: AHashMap<([LinearColorDescriptionId; 2], RenderIntent), ColorTransform>,
+    map: BHashMap<([LinearColorDescriptionId; 2], RenderIntent), ColorTransform>,
 }
 
 struct ColorTransform {
@@ -2703,7 +2703,7 @@ impl ColorTransforms {
 
 #[derive(Default)]
 struct EotfArgsCache {
-    map: AHashMap<(EotfCacheKey, bool), EotfArg>,
+    map: BHashMap<(EotfCacheKey, bool), EotfArg>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]

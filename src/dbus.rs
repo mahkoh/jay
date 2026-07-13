@@ -8,6 +8,7 @@ use {
         },
         io_uring::{IoUring, IoUringError},
         utils::{
+            bhash::BHashMap,
             buf::DynamicBuf,
             bufio::{BufIo, BufIoError},
             clonecell::CloneCell,
@@ -24,7 +25,6 @@ use {
             org::freedesktop::dbus::properties::{GetAll, GetAllReply, PropertiesChanged},
         },
     },
-    ahash::AHashMap,
     jay_proc::jay_hash,
     std::{
         borrow::{Borrow, Cow},
@@ -280,7 +280,7 @@ pub struct DbusSocket {
     dead: Cell<bool>,
     headers: RefCell<VecStorage<(u8, Variant<'static>)>>,
     run_toplevel: Rc<RunToplevel>,
-    signal_handlers: RefCell<AHashMap<(&'static str, &'static str), InterfaceSignalHandlers>>,
+    signal_handlers: RefCell<BHashMap<(&'static str, &'static str), InterfaceSignalHandlers>>,
     objects: CopyHashMap<Cow<'static, str>, Rc<DbusObjectData>>,
 }
 
@@ -650,7 +650,7 @@ impl Drop for SignalHandler {
 
 struct InterfaceSignalHandlers {
     unconditional: Option<Rc<dyn SignalHandlerApi>>,
-    conditional: AHashMap<String, Rc<dyn SignalHandlerApi>>,
+    conditional: BHashMap<String, Rc<dyn SignalHandlerApi>>,
 }
 
 struct DbusObjectData {

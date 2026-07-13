@@ -7,12 +7,12 @@ use {
             testrun::ParseFull,
         },
         utils::{
+            bhash::BHashSet,
             buffd::MsgParser,
             pipe::{Pipe, pipe},
         },
         wire::{ZwlrDataControlOfferV1Id, zwlr_data_control_offer_v1::*},
     },
-    ahash::AHashSet,
     std::{
         cell::{Cell, RefCell},
         rc::Rc,
@@ -24,7 +24,7 @@ pub struct TestDataControlOffer {
     pub id: ZwlrDataControlOfferV1Id,
     pub tran: Rc<TestTransport>,
     pub destroyed: Cell<bool>,
-    pub offers: RefCell<AHashSet<String>>,
+    pub offers: RefCell<BHashSet<String>>,
 }
 
 impl TestDataControlOffer {

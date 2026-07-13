@@ -1,9 +1,9 @@
 use {
     crate::utils::{
+        bhash::BHashMap,
         markers::{JayClone, JayHash},
         ptr_ext::{MutPtrExt, PtrExt},
     },
-    ahash::AHashMap,
     derivative::Derivative,
     std::{
         borrow::Borrow,
@@ -18,7 +18,7 @@ use {
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]
 pub struct CopyHashMap<K, V> {
-    map: UnsafeCell<AHashMap<K, V>>,
+    map: UnsafeCell<BHashMap<K, V>>,
 }
 
 impl<K: Debug, V: Debug> Debug for CopyHashMap<K, V> {
@@ -79,7 +79,7 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
         }
     }
 
-    pub fn clear(&self) -> AHashMap<K, V> {
+    pub fn clear(&self) -> BHashMap<K, V> {
         unsafe { mem::take(self.map.get().deref_mut()) }
     }
 
@@ -98,7 +98,7 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
 
 pub struct Locked<'a, K, V> {
     source: &'a CopyHashMap<K, V>,
-    map: AHashMap<K, V>,
+    map: BHashMap<K, V>,
 }
 
 impl<'a, K, V> Drop for Locked<'a, K, V> {
@@ -110,7 +110,7 @@ impl<'a, K, V> Drop for Locked<'a, K, V> {
 }
 
 impl<'a, K, V> Deref for Locked<'a, K, V> {
-    type Target = AHashMap<K, V>;
+    type Target = BHashMap<K, V>;
 
     fn deref(&self) -> &Self::Target {
         &self.map

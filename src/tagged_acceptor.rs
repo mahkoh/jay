@@ -5,13 +5,13 @@ use {
         security_context_acceptor::AcceptorMetadata,
         state::State,
         utils::{
+            bhash::BHashMap,
             errorfmt::ErrorFmt,
             numcell::NumCell,
             oserror::{OsError, OsErrorExt, OsErrorExt2},
             xrd::xrd,
         },
     },
-    ahash::AHashMap,
     std::{
         cell::{Cell, RefCell},
         rc::Rc,
@@ -42,7 +42,7 @@ pub enum TaggedAcceptorError {
 
 #[derive(Default)]
 pub struct TaggedAcceptors {
-    acceptors: RefCell<AHashMap<String, Rc<Acceptor>>>,
+    acceptors: RefCell<BHashMap<String, Rc<Acceptor>>>,
     next_name: NumCell<u64>,
 }
 

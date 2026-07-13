@@ -2,9 +2,12 @@ use {
     crate::{
         eventfd_cache::EventfdError,
         syncobj::SyncobjError,
-        utils::major_minor::{MajorMinor, major_minor},
+        utils::{
+            bhash::{BHashMap, BHashSet},
+            hash_map_ext::HashMapExt,
+            major_minor::{MajorMinor, major_minor},
+        },
     },
-    ahash::{AHashMap, AHashSet},
     ash::{
         Entry, Instance, LoadingError,
         ext::{debug_utils, validation_features},
@@ -22,7 +25,6 @@ use {
         },
     },
     dlopen_note::dlopen_note,
-    isnt::std_1::collections::IsntHashMapExt,
     log::Level,
     run_on_drop::on_drop,
     std::{
@@ -250,7 +252,7 @@ const REQUIRED_INSTANCE_EXTENSIONS: &[&CStr] = &[debug_utils::NAME];
 
 const VALIDATION_LAYER: &CStr = c"VK_LAYER_KHRONOS_validation";
 
-pub type Extensions = AHashMap<CString, u32>;
+pub type Extensions = BHashMap<CString, u32>;
 
 fn get_instance_extensions(
     entry: &Entry,
@@ -264,7 +266,7 @@ fn get_instance_extensions(
     }
 }
 
-fn get_available_layers(entry: &Entry) -> Result<AHashSet<CString>, VulkanCoreError> {
+fn get_available_layers(entry: &Entry) -> Result<BHashSet<CString>, VulkanCoreError> {
     unsafe {
         entry
             .enumerate_instance_layer_properties()
@@ -273,7 +275,7 @@ fn get_available_layers(entry: &Entry) -> Result<AHashSet<CString>, VulkanCoreEr
     }
 }
 
-fn map_layer_properties(props: Vec<LayerProperties>) -> AHashSet<CString> {
+fn map_layer_properties(props: Vec<LayerProperties>) -> BHashSet<CString> {
     props
         .into_iter()
         .map(|e| unsafe { CStr::from_ptr(e.layer_name.as_ptr()).to_owned() })

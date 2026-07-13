@@ -14,10 +14,8 @@ use {
         utils::{bufio::BufIoMessage, errorfmt::ErrorFmt},
         wire_dbus::org,
     },
-    std::{
-        borrow::Cow, cell::Cell, collections::hash_map::Entry, fmt::Write, marker::PhantomData,
-        mem, ops::DerefMut, rc::Rc,
-    },
+    hashbrown::hash_map::Entry,
+    std::{borrow::Cow, cell::Cell, fmt::Write, marker::PhantomData, mem, ops::DerefMut, rc::Rc},
     uapi::c,
 };
 

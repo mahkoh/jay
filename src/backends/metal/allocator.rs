@@ -16,7 +16,7 @@ use {
         },
         rect::{DamageQueue, Rect, Region},
         udmabuf::{Udmabuf, UdmabufError},
-        utils::{errorfmt::ErrorFmt, rc_eq::rc_eq},
+        utils::{bhash::BHashSet, errorfmt::ErrorFmt, rc_eq::rc_eq},
         video::{
             LINEAR_MODIFIER, Modifier,
             dmabuf::DmaBuf,
@@ -24,7 +24,6 @@ use {
             gbm::{GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT, GbmBo, GbmError},
         },
     },
-    ahash::HashSet,
     arrayvec::ArrayVec,
     bstr::ByteSlice,
     indexmap::{IndexMap, IndexSet},
@@ -1557,7 +1556,7 @@ fn intersect_modifiers<'a>(
     left: impl IntoIterator<Item = &'a Modifier>,
     right: impl IntoIterator<Item = &'a Modifier>,
 ) -> Vec<Modifier> {
-    let right: HashSet<_> = right.into_iter().copied().collect();
+    let right: BHashSet<_> = right.into_iter().copied().collect();
     left.into_iter()
         .copied()
         .filter(|m| right.contains(m))

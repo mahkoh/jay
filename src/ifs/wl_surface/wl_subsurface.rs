@@ -20,10 +20,10 @@ use {
         },
         wire::{WlSubsurfaceId, wl_subsurface::*},
     },
+    hashbrown::hash_map::OccupiedEntry,
     linearize::LinearizeExt,
     std::{
         cell::{Cell, RefCell, RefMut},
-        collections::hash_map::OccupiedEntry,
         rc::Rc,
     },
     thiserror::Error,
@@ -448,7 +448,7 @@ impl SurfaceExt for WlSubsurface {
         surface: &WlSurface,
         child: SubsurfaceId,
         consume: &mut dyn FnMut(
-            OccupiedEntry<SubsurfaceId, AttachedSubsurfaceState>,
+            OccupiedEntry<SubsurfaceId, AttachedSubsurfaceState, ahash::RandomState>,
         ) -> Result<(), WlSurfaceError>,
     ) -> Result<(), WlSurfaceError> {
         self.parent

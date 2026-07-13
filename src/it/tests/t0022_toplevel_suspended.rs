@@ -8,8 +8,8 @@ use {
             },
             testrun::TestRun,
         },
+        utils::hash_map_ext::HashSetExt,
     },
-    isnt::std_1::collections::IsntHashSetExt,
     std::rc::Rc,
 };
 

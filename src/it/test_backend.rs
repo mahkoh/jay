@@ -28,6 +28,7 @@ use {
         state::State,
         udmabuf::Udmabuf,
         utils::{
+            bhash::BHashMap,
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
@@ -41,7 +42,6 @@ use {
             gbm::{GbmDevice, GbmError},
         },
     },
-    ahash::AHashMap,
     bstr::ByteSlice,
     std::{
         any::Any,
@@ -401,7 +401,7 @@ impl BackendConnectorTransactionType for TestBackendTransactionType {}
 
 #[derive(Default)]
 struct TestBackendTransaction {
-    connectors: AHashMap<ConnectorId, (Rc<TestConnector>, BackendConnectorState)>,
+    connectors: BHashMap<ConnectorId, (Rc<TestConnector>, BackendConnectorState)>,
 }
 impl BackendConnectorTransaction for TestBackendTransaction {
     fn add(

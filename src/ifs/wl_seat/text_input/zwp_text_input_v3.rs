@@ -17,7 +17,8 @@ use {
         utils::{clonecell::CloneCell, numcell::NumCell},
         wire::{ZwpTextInputV3Id, zwp_text_input_v3::*},
     },
-    std::{cell::RefCell, collections::hash_map::Entry, mem, rc::Rc},
+    hashbrown::hash_map::Entry,
+    std::{cell::RefCell, mem, rc::Rc},
     thiserror::Error,
 };
 

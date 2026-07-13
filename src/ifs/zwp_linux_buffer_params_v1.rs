@@ -10,11 +10,10 @@ use {
         },
         leaks::Tracker,
         object::Object,
-        utils::{errorfmt::ErrorFmt, hash_map_ext::HashMapExt},
+        utils::{bhash::BHashMap, errorfmt::ErrorFmt, hash_map_ext::HashMapExt},
         video::dmabuf::{DmaBuf, DmaBufPlane, MAX_PLANES, PlaneVec},
         wire::{WlBufferId, ZwpLinuxBufferParamsV1Id, zwp_linux_buffer_params_v1::*},
     },
-    ahash::AHashMap,
     std::{
         cell::{Cell, RefCell},
         rc::Rc,
@@ -35,7 +34,7 @@ const MAX_PLANE: u32 = MAX_PLANES as u32 - 1;
 pub struct ZwpLinuxBufferParamsV1 {
     pub id: ZwpLinuxBufferParamsV1Id,
     pub parent: Rc<ZwpLinuxDmabufV1>,
-    planes: RefCell<AHashMap<u32, Add>>,
+    planes: RefCell<BHashMap<u32, Add>>,
     used: Cell<bool>,
     modifier: Cell<Option<u64>>,
     sampling_device: Cell<Option<c::dev_t>>,

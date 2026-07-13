@@ -15,12 +15,12 @@ use {
         rect::{Rect, Region},
         syncobj::SyncobjCtx,
         theme::Color,
+        utils::bhash::BHashMap,
         video::{
             LINEAR_MODIFIER,
             dmabuf::{DmaBuf, DmaBufIds},
         },
     },
-    ahash::AHashMap,
     indexmap::IndexSet,
     std::{
         any::Any,
@@ -54,7 +54,7 @@ impl From<TestGfxError> for GfxError {
 }
 
 pub struct TestGfxCtx {
-    formats: Rc<AHashMap<u32, GfxFormat>>,
+    formats: Rc<BHashMap<u32, GfxFormat>>,
     allocator: Rc<dyn Allocator>,
     drm_device_id: Option<DrmDeviceId>,
 }
@@ -66,7 +66,7 @@ impl TestGfxCtx {
     ) -> Result<Rc<Self>, GfxError> {
         let mut modifiers = IndexSet::new();
         modifiers.insert(LINEAR_MODIFIER);
-        let mut formats = AHashMap::new();
+        let mut formats = BHashMap::default();
         for f in [XRGB8888, ARGB8888] {
             formats.insert(
                 f.drm,
@@ -126,7 +126,7 @@ impl GfxContext for TestGfxCtx {
         None
     }
 
-    fn formats(&self) -> &Rc<AHashMap<u32, GfxFormat>> {
+    fn formats(&self) -> &Rc<BHashMap<u32, GfxFormat>> {
         &self.formats
     }
 

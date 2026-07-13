@@ -40,7 +40,7 @@ use {
                 EGL_LOSE_CONTEXT_ON_RESET_EXT, EGL_PLATFORM_GBM_KHR, Egl, GLESV2, GlesV2,
             },
         },
-        utils::bitflags::BitflagsExt,
+        utils::{bhash::BHashMap, bitflags::BitflagsExt},
         video::{
             INVALID_MODIFIER, Modifier,
             dmabuf::{DmaBuf, DmaBufIds},
@@ -48,7 +48,6 @@ use {
             gbm::{GBM_BO_USE_RENDERING, GbmDevice},
         },
     },
-    ahash::AHashMap,
     indexmap::{IndexMap, IndexSet},
     std::{ptr, rc::Rc},
     uapi::c::O_RDWR,
@@ -74,7 +73,7 @@ pub struct EglDisplay {
     pub gles: &'static GlesV2,
     pub procs: &'static ExtProc,
     pub exts: DisplayExt,
-    pub formats: AHashMap<u32, EglFormat>,
+    pub formats: BHashMap<u32, EglFormat>,
     pub gbm: Rc<GbmDevice>,
     pub dpy: EGLDisplay,
     pub explicit_sync: bool,
@@ -115,7 +114,7 @@ impl EglDisplay {
                 gles,
                 procs,
                 exts: DisplayExt::none(),
-                formats: AHashMap::new(),
+                formats: BHashMap::default(),
                 gbm: Rc::new(gbm),
                 dpy,
                 explicit_sync: false,
@@ -213,7 +212,7 @@ impl EglDisplay {
             return Err(RenderError::OesEglImage);
         }
         ctx.formats = {
-            let mut formats = AHashMap::new();
+            let mut formats = BHashMap::default();
             let supports_external_only = ctx.ext.contains(GL_OES_EGL_IMAGE_EXTERNAL);
             for (&drm, format) in &self.formats {
                 if format.implicit_external_only && !supports_external_only {
@@ -356,7 +355,7 @@ impl Drop for EglDisplay {
 unsafe fn query_formats(
     procs: &ExtProc,
     dpy: EGLDisplay,
-) -> Result<AHashMap<u32, EglFormat>, RenderError> {
+) -> Result<BHashMap<u32, EglFormat>, RenderError> {
     let mut vec = vec![];
     let mut num = 0;
     let res = unsafe { procs.eglQueryDmaBufFormatsEXT(dpy, num, ptr::null_mut(), &mut num) };
@@ -371,7 +370,7 @@ unsafe fn query_formats(
     unsafe {
         vec.set_len(num as usize);
     }
-    let mut res = AHashMap::new();
+    let mut res = BHashMap::default();
     let formats = formats();
     for fmt in vec {
         if let Some(format) = formats.get(&(fmt as u32)) {

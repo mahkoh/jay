@@ -2,9 +2,9 @@ use {
     crate::{
         format::{ABGR16161616F, FORMATS, Format},
         gfx_apis::vulkan::{VulkanError, instance::VulkanInstance},
+        utils::{bhash::BHashMap, hash_map_ext::HashMapExt},
         video::{LINEAR_MODIFIER, Modifier},
     },
-    ahash::AHashMap,
     ash::{
         vk,
         vk::{
@@ -16,14 +16,13 @@ use {
             PhysicalDeviceImageFormatInfo2, SharingMode,
         },
     },
-    isnt::std_1::collections::IsntHashMapExt,
     std::cmp::min,
 };
 
 #[derive(Debug)]
 pub struct VulkanFormat {
     pub format: &'static Format,
-    pub modifiers: AHashMap<Modifier, VulkanModifier>,
+    pub modifiers: BHashMap<Modifier, VulkanModifier>,
     pub shm: Option<VulkanInternalFormat>,
     pub rw: Option<VulkanInternalFormat>,
 }
@@ -104,8 +103,8 @@ impl VulkanInstance {
     pub(super) fn load_formats(
         &self,
         phy_dev: PhysicalDevice,
-    ) -> Result<AHashMap<u32, VulkanFormat>, VulkanError> {
-        let mut res = AHashMap::new();
+    ) -> Result<BHashMap<u32, VulkanFormat>, VulkanError> {
+        let mut res = BHashMap::default();
         for format in FORMATS {
             self.load_format(phy_dev, format, &mut res)?;
         }
@@ -116,7 +115,7 @@ impl VulkanInstance {
         &self,
         phy_dev: PhysicalDevice,
         format: &'static Format,
-        dst: &mut AHashMap<u32, VulkanFormat>,
+        dst: &mut BHashMap<u32, VulkanFormat>,
     ) -> Result<(), VulkanError> {
         let mut modifier_props = DrmFormatModifierPropertiesListEXT::default();
         let mut format_properties = FormatProperties2::default().push_next(&mut modifier_props);
@@ -235,9 +234,9 @@ impl VulkanInstance {
         format: &Format,
         internal_format_properties: &FormatProperties,
         props: &DrmFormatModifierPropertiesListEXT,
-    ) -> Result<AHashMap<Modifier, VulkanModifier>, VulkanError> {
+    ) -> Result<BHashMap<Modifier, VulkanModifier>, VulkanError> {
         if props.drm_format_modifier_count == 0 {
-            return Ok(AHashMap::new());
+            return Ok(BHashMap::default());
         }
         let mut drm_mods = vec![
             DrmFormatModifierPropertiesEXT::default();
@@ -253,7 +252,7 @@ impl VulkanInstance {
                 &mut format_properties,
             );
         };
-        let mut mods = AHashMap::new();
+        let mut mods = BHashMap::default();
         for modifier in drm_mods {
             let mut render_limits = self.get_max_extents(
                 phy_dev,

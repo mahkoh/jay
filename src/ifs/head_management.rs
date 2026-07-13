@@ -10,9 +10,9 @@ use {
         tree::{OutputNode, TearingMode, Transform, TreeTimeline::LiveTL, VrrMode},
         utils::rc_eq::RcEq,
     },
+    hashbrown::hash_map::Entry,
     std::{
         cell::{Ref, RefCell},
-        collections::hash_map::Entry,
         rc::Rc,
     },
 };

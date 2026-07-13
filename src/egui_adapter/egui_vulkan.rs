@@ -8,7 +8,9 @@ use {
         io_uring::IoUring,
         syncobj::SyncobjCtx,
         utils::{
+            bhash::BHashMap,
             errorfmt::ErrorFmt,
+            hash_map_ext::HashMapExt,
             oserror::{OsError, OsErrorExt2},
             queue::AsyncQueue,
         },
@@ -23,7 +25,6 @@ use {
             vk_is_drm_dev,
         },
     },
-    ahash::AHashMap,
     arrayvec::ArrayVec,
     ash::{
         Device,
@@ -89,12 +90,12 @@ use {
         AllocationError, Config, GpuAllocator, MapError, MemoryBlock, Request, UsageFlags,
     },
     gpu_alloc_types::MemoryPropertyFlags,
-    isnt::std_1::{collections::IsntHashMapExt, primitive::IsntSliceExt},
+    hashbrown::hash_map::Entry,
+    isnt::std_1::primitive::IsntSliceExt,
     log::Level,
     run_on_drop::on_drop,
     std::{
         cell::{Cell, RefCell},
-        collections::hash_map::Entry,
         ffi::CStr,
         io::{self, Cursor},
         mem::{ManuallyDrop, offset_of},
@@ -270,8 +271,8 @@ struct EgvRendererInner {
 #[derive(Default)]
 struct EgvRendererCache {
     device_local_buffers: Vec<EgvBuffer>,
-    samplers: AHashMap<TextureOptions, Rc<VkSampler>>,
-    images: AHashMap<(EgvContextId, TextureId), EgvSampledImage>,
+    samplers: BHashMap<TextureOptions, Rc<VkSampler>>,
+    images: BHashMap<(EgvContextId, TextureId), EgvSampledImage>,
     upload_todos: Vec<(Rc<EgvImage<EgvAllocatedMemory>>, EgvBuffer, ImageDelta)>,
     buffer_memory_barriers: Vec<BufferMemoryBarrier2<'static>>,
     initial_image_memory_barriers: Vec<ImageMemoryBarrier2<'static>>,
@@ -1139,7 +1140,7 @@ impl EgvRenderer {
 
     fn get_sampler(
         self: &Rc<Self>,
-        samplers: &mut AHashMap<TextureOptions, Rc<VkSampler>>,
+        samplers: &mut BHashMap<TextureOptions, Rc<VkSampler>>,
         options: &TextureOptions,
     ) -> Result<Rc<VkSampler>, EgvError> {
         let sampler = match samplers.entry(*options) {

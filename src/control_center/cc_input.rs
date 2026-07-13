@@ -14,9 +14,8 @@ use {
         },
         kbvm::KbvmMap,
         state::{DeviceHandlerData, State},
-        utils::{errorfmt::ErrorFmt, static_text::StaticText},
+        utils::{bhash::BHashMap, errorfmt::ErrorFmt, static_text::StaticText},
     },
-    ahash::AHashMap,
     egui::{
         CollapsingHeader, ComboBox, DragValue, Event, Grid, Id, TextBuffer, TextFormat, Ui,
         UiBuilder, ViewportCommand, Widget, emath::Numeric, text::LayoutJob,
@@ -32,7 +31,7 @@ use {
 pub struct InputPane {
     state: Rc<State>,
     paste_requested: Option<Id>,
-    keymaps: AHashMap<Key, KeymapState>,
+    keymaps: BHashMap<Key, KeymapState>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]

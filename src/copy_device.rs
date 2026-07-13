@@ -10,9 +10,11 @@ use {
         rect::{Rect, Region},
         syncobj::{SyncobjCtx, SyncobjError},
         utils::{
+            bhash::{BHashMap, BHashSet},
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
+            hash_map_ext::HashMapExt,
             major_minor::{MajorMinor, major_minor},
             numcell::NumCell,
             oserror::{OsError, OsErrorExt2},
@@ -30,7 +32,6 @@ use {
             timeline_semaphore::VulkanDeviceTimelineSemaphoreExt, vk_is_drm_dev,
         },
     },
-    ahash::{AHashMap, AHashSet},
     arrayvec::ArrayVec,
     ash::{
         Device,
@@ -74,7 +75,6 @@ use {
         },
     },
     bstr::ByteSlice,
-    isnt::std_1::collections::IsntHashMapExt,
     linearize::{Linearize, LinearizeExt, StaticCopyMap, StaticMap, static_copy_map, static_map},
     log::Level,
     run_on_drop::on_drop,
@@ -195,7 +195,7 @@ pub struct PhysicalCopyDevice {
     sync_ctx: Rc<SyncobjCtx>,
     instance: VulkanCoreInstance,
     physical_device: PhysicalDevice,
-    support: AHashMap<u32, StaticMap<Dir, Vec<CopyDeviceSupport>>>,
+    support: BHashMap<u32, StaticMap<Dir, Vec<CopyDeviceSupport>>>,
     queues_to_allocate: Vec<QueueToAllocate>,
     queues: KeyedCopy<QueueIndex>,
     supports_dmabuf_export: bool,
@@ -633,7 +633,7 @@ impl PhysicalCopyDevice {
             let gfx = gfx.ok_or(CopyDeviceError::NoGfxQueueFamily)?;
             allocate_queues(gfx, compute_only, transfer_only)
         };
-        let mut support = AHashMap::default();
+        let mut support = BHashMap::default();
         for format in FORMATS {
             let mut list = vec![];
             for attach in [false, true] {
@@ -2369,7 +2369,7 @@ fn allocate_queues(
 ) -> (Vec<QueueToAllocate>, KeyedCopy<QueueIndex>) {
     let intra = compute_only.unwrap_or(gfx);
     let cross = transfer_only.unwrap_or(intra);
-    let mut distinct_families = AHashSet::default();
+    let mut distinct_families = BHashSet::default();
     distinct_families.insert(cross);
     distinct_families.insert(intra);
     distinct_families.insert(gfx);

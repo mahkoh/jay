@@ -121,6 +121,7 @@ use {
         udmabuf::UdmabufHolder,
         utils::{
             asyncevent::AsyncEvent,
+            bhash::{BHashMap, BHashSet},
             bindings::Bindings,
             clamp_ext::ClampExt,
             clonecell::CloneCell,
@@ -151,9 +152,8 @@ use {
         },
         xwayland::{self, XWaylandEvent},
     },
-    ahash::{AHashMap, AHashSet},
     bstr::ByteSlice,
-    isnt::std_1::{collections::IsntHashMapExt, primitive::IsntSliceExt},
+    isnt::std_1::primitive::IsntSliceExt,
     jay_config::PciId,
     linearize::{StaticCopyMap, StaticMap},
     std::{
@@ -201,7 +201,7 @@ pub struct State {
     pub dummy_output_id: OutputNodeId,
     pub dummy_output: CloneCell<Option<Rc<OutputNode>>>,
     pub backend_events: AsyncQueue<BackendEvent>,
-    pub input_device_handlers: RefCell<AHashMap<InputDeviceId, InputDeviceData>>,
+    pub input_device_handlers: RefCell<BHashMap<InputDeviceId, InputDeviceData>>,
     pub seat_queue: LinkedList<Rc<WlSeatGlobal>>,
     pub slow_clients: AsyncQueue<Rc<Client>>,
     pub none_surface_ext: Rc<NoneSurfaceExt>,
@@ -243,7 +243,7 @@ pub struct State {
     pub scales: RefCounted<Scale>,
     pub cursor_sizes: RefCounted<u32>,
     pub hardware_tick_cursor: AsyncQueue<Option<Rc<dyn Cursor>>>,
-    pub testers: RefCell<AHashMap<(ClientId, JaySeatEventsId), Rc<JaySeatEvents>>>,
+    pub testers: RefCell<BHashMap<(ClientId, JaySeatEventsId), Rc<JaySeatEvents>>>,
     pub render_ctx_watchers: CopyHashMap<(ClientId, JayRenderCtxId), Rc<JayRenderCtx>>,
     pub workspace_watchers: CopyHashMap<(ClientId, JayWorkspaceWatcherId), Rc<JayWorkspaceWatcher>>,
     pub default_workspace_capture: Cell<bool>,
@@ -365,7 +365,7 @@ pub struct PrimeModifier {
     pub max_height: u32,
 }
 
-pub type PrimeModifiers = Rc<AHashMap<u32, Vec<PrimeModifier>>>;
+pub type PrimeModifiers = Rc<BHashMap<u32, Vec<PrimeModifier>>>;
 
 pub struct ScreenlockState {
     pub locked: SplitView<Cell<bool>>,
@@ -798,7 +798,7 @@ impl State {
                 }
             }
             self.visit_all_nodes(&mut Walker);
-            let mut updated_buffers = AHashMap::new();
+            let mut updated_buffers = BHashMap::default();
             for buffer in self.gfx_ctx_changed.iter() {
                 let had_buffer_texture = buffer.handle_gfx_context_change();
                 updated_buffers.insert(Rc::as_ptr(&buffer), had_buffer_texture);
@@ -2401,9 +2401,9 @@ impl State {
         if let Some(ctx) = &ctx
             && let Some(copy_dev) = &copy_dev
         {
-            let mut res = AHashMap::new();
+            let mut res = BHashMap::default();
             for format in ctx.formats().values() {
-                let supported_mods: AHashMap<_, _> = copy_dev
+                let supported_mods: BHashMap<_, _> = copy_dev
                     .dst_support(format.format)
                     .iter()
                     .map(|s| {
@@ -2465,11 +2465,11 @@ impl State {
         let Some(supported) = connector.connector.scanout_formats() else {
             return base.clone();
         };
-        let supported: AHashSet<_> = supported
+        let supported: BHashSet<_> = supported
             .iter()
             .map(|&(fmt, modifier)| (fmt.drm, modifier))
             .collect();
-        let mut res = AHashMap::new();
+        let mut res = BHashMap::default();
         for (&format, modifiers) in &**base {
             let mut mods = vec![];
             for &modifier in modifiers {

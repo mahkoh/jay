@@ -14,12 +14,12 @@ use {
             TreeTimeline::LiveTL,
         },
         utils::{
+            bhash::BHashMap,
             copyhashmap::CopyHashMap,
             event_listener::{EventListener, LazyEventSourceListener},
             static_text::StaticText,
         },
     },
-    ahash::AHashMap,
     derivative::Derivative,
     egui::{CollapsingHeader, Sense, TextFormat, Ui, Widget, cache::CacheTrait, text::LayoutJob},
     isnt::std_1::primitive::IsntStrExt,
@@ -416,7 +416,7 @@ fn ensure_listener(ui: &mut Ui, behavior: &CcBehavior<'_>, data: &ToplevelData) 
 #[derive(Default)]
 struct WindowPropertyListeners {
     generation: u64,
-    listeners: AHashMap<NodeId, WindowPropertyListener>,
+    listeners: BHashMap<NodeId, WindowPropertyListener>,
 }
 
 struct WindowPropertyListener {

@@ -20,8 +20,8 @@ use {
         scale::Scale,
         theme::Color,
         utils::{
-            asyncevent::AsyncEvent, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt, hash_map_ext::HashMapExt, rc_eq::rc_eq,
+            asyncevent::AsyncEvent, bhash::BHashSet, clonecell::CloneCell,
+            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, hash_map_ext::HashMapExt, rc_eq::rc_eq,
         },
         wire::{
             ZwpLinuxBufferParamsV1Id, wp_fractional_scale_v1::PreferredScale,
@@ -37,7 +37,6 @@ use {
             usr_wp_viewport::UsrWpViewport,
         },
     },
-    ahash::AHashSet,
     derivative::Derivative,
     std::{
         cell::{Cell, RefCell},
@@ -121,7 +120,7 @@ pub struct Button {
     pub data: GuiElementData,
     pub tex_off_x: Cell<f32>,
     pub tex_off_y: Cell<f32>,
-    pub hover: RefCell<AHashSet<GlobalName>>,
+    pub hover: RefCell<BHashSet<GlobalName>>,
     pub padding: Cell<f32>,
     pub border: Cell<f32>,
     #[derivative(Default(value = "Cell::new(Color::from_gray_srgb(0))"))]

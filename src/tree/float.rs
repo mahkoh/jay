@@ -30,6 +30,7 @@ use {
         },
         utils::{
             asyncevent::AsyncEvent,
+            bhash::BHashMap,
             clonecell::CloneCell,
             double_click_state::DoubleClickState,
             errorfmt::ErrorFmt,
@@ -38,7 +39,6 @@ use {
             smallmap::{SmallMap, SmallMapMut},
         },
     },
-    ahash::AHashMap,
     arrayvec::ArrayVec,
     derivative::Derivative,
     std::{
@@ -67,7 +67,7 @@ pub struct FloatNode {
     pub title_textures: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
     pub icon: ToplevelIconUser,
     pub icons: SmallMap<Scale, ToplevelIcon, 2>,
-    cursors: RefCell<AHashMap<CursorType, CursorState>>,
+    cursors: RefCell<BHashMap<CursorType, CursorState>>,
     transaction_data: TransactionData<FloatTransactionOp>,
 }
 

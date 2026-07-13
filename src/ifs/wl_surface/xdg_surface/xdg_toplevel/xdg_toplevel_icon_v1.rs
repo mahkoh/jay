@@ -20,13 +20,17 @@ use {
         theme::Color,
         tree::TreeTimeline::LiveTL,
         utils::{
-            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, obj_and_id::ObjWithId,
-            oserror::OsError, smallmap::SmallMap,
+            bhash::{BHashMap, BHashSet},
+            copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
+            numcell::NumCell,
+            obj_and_id::ObjWithId,
+            oserror::OsError,
+            smallmap::SmallMap,
         },
         video::dmabuf::PlaneVec,
         wire::{XdgToplevelIconV1Id, XdgToplevelId, xdg_toplevel_icon_v1::*},
     },
-    ahash::{AHashMap, AHashSet},
     jay_proc::{jay_clone, jay_hash},
     smallvec::SmallVec,
     std::{
@@ -50,7 +54,7 @@ pub struct XdgToplevelIconV1 {
     considered_sizes: Cell<Option<(i32, u64)>>,
     buffers: CopyHashMap<BufferKey, Rc<WlBuffer>>,
     pending: CopyHashMap<BufferKey, AsyncOp>,
-    buf_key_to_icon_key: RefCell<AHashMap<BufferKey, SmallVec<[IconKey; 2]>>>,
+    buf_key_to_icon_key: RefCell<BHashMap<BufferKey, SmallVec<[IconKey; 2]>>>,
     icons: CopyHashMap<IconKey, ToplevelIcon>,
 }
 
@@ -180,11 +184,11 @@ impl XdgToplevelIconV1 {
         self.pending_changed();
     }
 
-    fn compute_buf_keys(&self) -> AHashSet<BufferKey> {
+    fn compute_buf_keys(&self) -> BHashSet<BufferKey> {
         let state = &self.client.state;
         let buf_to_icon = &mut *self.buf_key_to_icon_key.borrow_mut();
         buf_to_icon.clear();
-        let mut buf_keys = AHashSet::new();
+        let mut buf_keys = BHashSet::default();
         let th = state.theme.title_icon_size(LiveTL);
         for &(scale, _) in &*state.scales.lock() {
             let [buffer_th] = scale.pixel_size([th]);
@@ -238,7 +242,7 @@ impl XdgToplevelIconV1 {
         buf_keys
     }
 
-    fn create_textures(self: &Rc<Self>, ctx: &Rc<dyn GfxContext>, buf_keys: AHashSet<BufferKey>) {
+    fn create_textures(self: &Rc<Self>, ctx: &Rc<dyn GfxContext>, buf_keys: BHashSet<BufferKey>) {
         let state = &self.client.state;
         let fast_ram_access = ctx.fast_ram_access();
         'outer: for key in buf_keys {

@@ -63,6 +63,7 @@ use {
         },
         utils::{
             asyncevent::AsyncEvent,
+            bhash::BHashMap,
             bitflags::BitflagsExt,
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
@@ -81,7 +82,6 @@ use {
             WpColorManagementOutputV1Id, ZwlrScreencopyFrameV1Id,
         },
     },
-    ahash::AHashMap,
     jay_config::video::{TearingMode as ConfigTearingMode, VrrMode as ConfigVrrMode},
     jay_proc::jay_hash,
     numeric_sort::cmp,
@@ -1092,7 +1092,7 @@ impl OutputNode {
         if self.node_state[LiveTL].workspace.is_none() {
             self.show_workspace(&ws);
         }
-        let mut clients_to_kill = AHashMap::new();
+        let mut clients_to_kill = BHashMap::default();
         for watcher in self.state.workspace_watchers.lock().values() {
             if let Err(e) = watcher.send_workspace(&ws) {
                 clients_to_kill.insert(watcher.client.id, (watcher.client.clone(), e));

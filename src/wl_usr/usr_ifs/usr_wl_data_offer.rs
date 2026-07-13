@@ -1,10 +1,10 @@
 use {
     crate::{
         object::Version,
+        utils::bhash::BHashSet,
         wire::{WlDataOfferId, wl_data_offer::*},
         wl_usr::{UsrCon, usr_object::UsrObject},
     },
-    ahash::AHashSet,
     std::{cell::RefCell, convert::Infallible, rc::Rc},
     uapi::OwnedFd,
 };
@@ -13,7 +13,7 @@ pub struct UsrWlDataOffer {
     pub id: WlDataOfferId,
     pub con: Rc<UsrCon>,
     pub version: Version,
-    pub mime_types: RefCell<AHashSet<String>>,
+    pub mime_types: RefCell<BHashSet<String>>,
 }
 
 impl UsrWlDataOffer {
