@@ -106,7 +106,8 @@ macro_rules! global_base {
 
 macro_rules! id {
     ($name:ident) => {
-        #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+        #[jay_proc::jay_hash]
+        #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq)]
         pub struct $name(u32);
 
         #[expect(dead_code)]
@@ -155,7 +156,8 @@ macro_rules! shared_ids {
         shared_ids!($id, u32);
     };
     ($id:ident, $ty:ty) => {
-        #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+        #[jay_proc::jay_hash]
+        #[derive(Copy, Clone, Debug, Eq)]
         pub struct $id($ty);
 
         impl $id {
@@ -214,7 +216,8 @@ macro_rules! linear_ids {
             }
         }
 
-        #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+        #[jay_proc::jay_hash]
+        #[derive(Copy, Clone, Debug, Eq, Ord, PartialOrd)]
         pub struct $id($ty);
 
         impl $id {
@@ -281,7 +284,8 @@ macro_rules! bitor {
 
 macro_rules! tree_id {
     ($id:ident) => {
-        #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+        #[jay_proc::jay_hash]
+        #[derive(Copy, Clone, Debug, Eq)]
         pub struct $id(u32);
 
         impl $id {
@@ -719,7 +723,8 @@ macro_rules! pw_object_base {
 
 macro_rules! ei_id {
     ($name:ident) => {
-        #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+        #[jay_proc::jay_hash]
+        #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq)]
         pub struct $name(u64);
 
         #[expect(dead_code)]
@@ -915,10 +920,10 @@ macro_rules! dynload {
 
 macro_rules! opaque {
     ($ty:ident, $fun:ident) => {
-        #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Ord, PartialOrd)]
+        #[jay_proc::jay_clone(Copy)]
+        #[jay_proc::jay_hash]
+        #[derive(Debug, Eq, Ord, PartialOrd)]
         pub struct $ty(crate::utils::opaque::Opaque);
-
-        unsafe impl crate::utils::clonecell::UnsafeCellCloneSafe for $ty {}
 
         pub fn $fun() -> $ty {
             $ty(crate::utils::opaque::opaque())
@@ -949,7 +954,8 @@ macro_rules! opaque {
 
 macro_rules! hash_type {
     ($name:ident) => {
-        #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+        #[jay_proc::jay_hash]
+        #[derive(Copy, Clone, Debug, Eq)]
         pub struct $name(pub [u8; 32]);
 
         impl $name {

@@ -33,10 +33,21 @@ use {
         tree::OutputNode,
         udev::UdevDevice,
         utils::{
-            asyncevent::AsyncEvent, binary_search_map::BinarySearchMap, bitflags::BitflagsExt,
-            cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
-            geometric_decay::GeometricDecay, numcell::NumCell, on_change::OnChange,
-            opaque_cell::OpaqueCell, ordered_float::F64, oserror::OsError,
+            asyncevent::AsyncEvent,
+            bhash::{BHashMap, BHashSet},
+            binary_search_map::BinarySearchMap,
+            bitflags::BitflagsExt,
+            cell_ext::CellExt,
+            clonecell::CloneCell,
+            copyhashmap::CopyHashMap,
+            errorfmt::ErrorFmt,
+            geometric_decay::GeometricDecay,
+            hash_map_ext::HashMapExt,
+            numcell::NumCell,
+            on_change::OnChange,
+            opaque_cell::OpaqueCell,
+            ordered_float::F64,
+            oserror::OsError,
         },
         video::{
             INVALID_MODIFIER, Modifier,
@@ -52,13 +63,11 @@ use {
             gbm::GbmDevice,
         },
     },
-    ahash::{AHashMap, AHashSet},
     bstr::{BString, ByteSlice},
+    hashbrown::hash_map::Entry,
     indexmap::{IndexSet, indexset},
-    isnt::std_1::collections::IsntHashMapExt,
     std::{
         cell::{Cell, OnceCell, RefCell},
-        collections::hash_map::Entry,
         ffi::CString,
         fmt::{Debug, Formatter},
         mem,
@@ -106,9 +115,9 @@ pub struct MetalDrmDevice {
     pub devnode: CString,
     pub master: Rc<DrmMaster>,
     pub supports_kms: bool,
-    pub crtcs: AHashMap<DrmCrtc, Rc<MetalCrtc>>,
-    pub encoders: AHashMap<DrmEncoder, Rc<MetalEncoder>>,
-    pub planes: AHashMap<DrmPlane, Rc<MetalPlane>>,
+    pub crtcs: BHashMap<DrmCrtc, Rc<MetalCrtc>>,
+    pub encoders: BHashMap<DrmEncoder, Rc<MetalEncoder>>,
+    pub planes: BHashMap<DrmPlane, Rc<MetalPlane>>,
     pub cursor_width: u64,
     pub cursor_height: u64,
     pub supports_async_commit: bool,
@@ -199,8 +208,8 @@ impl BackendDrmDevice for MetalDrmDevice {
             return;
         };
         let mut connectors = vec![];
-        let mut crtcs = AHashMap::new();
-        let mut planes = AHashMap::new();
+        let mut crtcs = BHashMap::default();
+        let mut planes = BHashMap::default();
         let mut ids = vec![];
         for id in connector_ids {
             let Some(connector) = data
@@ -366,7 +375,7 @@ pub struct ConnectorDisplayData {
     pub vrr_capable: bool,
     pub _vrr_refresh_max_nsec: u64,
     pub default_properties: Vec<DefaultProperty>,
-    pub untyped_properties: AHashMap<DrmProperty, u64>,
+    pub untyped_properties: BHashMap<DrmProperty, u64>,
 
     pub connector_id: ConnectorKernelId,
     pub output_id: Rc<OutputId>,
@@ -544,7 +553,7 @@ pub struct MetalConnector {
     pub cursor_swap_buffer: Cell<bool>,
     pub cursor_sync: CloneCell<Option<FdSync>>,
 
-    pub scanout_buffers: RefCell<AHashMap<DmaBufId, DirectScanoutCache>>,
+    pub scanout_buffers: RefCell<BHashMap<DmaBufId, DirectScanoutCache>>,
     pub active_framebuffer: RefCell<Option<PresentFb>>,
     pub next_framebuffer: OpaqueCell<Option<PresentFb>>,
     pub direct_scanout_active: Cell<bool>,
@@ -896,7 +905,7 @@ pub struct MetalCrtc {
     pub idx: usize,
     pub master: Rc<DrmMaster>,
     pub default_properties: Vec<DefaultProperty>,
-    pub untyped_properties: RefCell<AHashMap<DrmProperty, u64>>,
+    pub untyped_properties: RefCell<BHashMap<DrmProperty, u64>>,
 
     pub lease: Cell<Option<MetalLeaseId>>,
 
@@ -927,7 +936,7 @@ impl Debug for MetalCrtc {
 #[derive(Debug)]
 pub struct MetalEncoder {
     pub id: DrmEncoder,
-    pub crtcs: AHashMap<DrmCrtc, Rc<MetalCrtc>>,
+    pub crtcs: BHashMap<DrmCrtc, Rc<MetalCrtc>>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -947,12 +956,12 @@ pub struct MetalPlane {
     pub id: DrmPlane,
     pub master: Rc<DrmMaster>,
     pub default_properties: Vec<DefaultProperty>,
-    pub untyped_properties: RefCell<AHashMap<DrmProperty, u64>>,
+    pub untyped_properties: RefCell<BHashMap<DrmProperty, u64>>,
 
     pub ty: PlaneType,
 
     pub possible_crtcs: u32,
-    pub formats: AHashMap<u32, PlaneFormat>,
+    pub formats: BHashMap<u32, PlaneFormat>,
     pub scanout_formats: ScanoutFormats,
 
     pub lease: Cell<Option<MetalLeaseId>>,
@@ -1445,10 +1454,10 @@ fn create_connector_display_data(
 fn create_encoder(
     encoder: DrmEncoder,
     master: &Rc<DrmMaster>,
-    crtcs: &AHashMap<DrmCrtc, Rc<MetalCrtc>>,
+    crtcs: &BHashMap<DrmCrtc, Rc<MetalCrtc>>,
 ) -> Result<MetalEncoder, DrmError> {
     let info = master.get_encoder_info(encoder)?;
-    let mut possible = AHashMap::new();
+    let mut possible = BHashMap::default();
     for crtc in crtcs.values() {
         if info.possible_crtcs.contains(1 << crtc.idx) {
             possible.insert(crtc.id, crtc.clone());
@@ -1464,7 +1473,7 @@ fn create_crtc(
     crtc: DrmCrtc,
     idx: usize,
     master: &Rc<DrmMaster>,
-    planes: &AHashMap<DrmPlane, Rc<MetalPlane>>,
+    planes: &BHashMap<DrmPlane, Rc<MetalPlane>>,
 ) -> Result<MetalCrtc, DrmError> {
     let mask = 1 << idx;
     let mut possible_planes = BinarySearchMap::new();
@@ -1541,7 +1550,7 @@ fn create_crtc(
 fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, DrmError> {
     let info = master.get_plane_info(plane)?;
     let props = collect_properties(master, plane)?;
-    let mut formats = AHashMap::new();
+    let mut formats = BHashMap::default();
     let mut scanout_formats = Vec::new();
     if let Some((_, v)) = props.props.get(b"IN_FORMATS".as_bstr()) {
         for format in master.get_in_formats(*v as _)? {
@@ -1671,7 +1680,7 @@ fn collect_properties<T: DrmObject>(
     master: &Rc<DrmMaster>,
     t: T,
 ) -> Result<CollectedProperties, DrmError> {
-    let mut props = AHashMap::new();
+    let mut props = BHashMap::default();
     for prop in master.get_properties(t)? {
         let def = master.get_property(prop.id)?;
         props.insert(def.name.clone(), (def, prop.value));
@@ -1682,7 +1691,7 @@ fn collect_properties<T: DrmObject>(
 fn collect_untyped_properties<T: DrmObject>(
     master: &Rc<DrmMaster>,
     t: T,
-    props: &mut AHashMap<DrmProperty, u64>,
+    props: &mut BHashMap<DrmProperty, u64>,
 ) -> Result<(), DrmError> {
     props.clear();
     for prop in master.get_properties(t)? {
@@ -1692,7 +1701,7 @@ fn collect_untyped_properties<T: DrmObject>(
 }
 
 struct CollectedProperties {
-    props: AHashMap<BString, (DrmPropertyDefinition, u64)>,
+    props: BHashMap<BString, (DrmPropertyDefinition, u64)>,
 }
 
 impl CollectedProperties {
@@ -1706,8 +1715,8 @@ impl CollectedProperties {
         }
     }
 
-    fn to_untyped(&self) -> AHashMap<DrmProperty, u64> {
-        let mut res = AHashMap::new();
+    fn to_untyped(&self) -> BHashMap<DrmProperty, u64> {
+        let mut res = BHashMap::default();
         for (def, val) in self.props.values() {
             res.insert(def.id, *val);
         }
@@ -1801,9 +1810,9 @@ impl MetalBackend {
             return Err(MetalError::UpdateProperties(e));
         }
         let res = dev.dev.master.get_resources()?;
-        let current_connectors: AHashSet<_> = res.connectors.iter().copied().collect();
-        let mut new_connectors = AHashSet::new();
-        let mut removed_connectors = AHashSet::new();
+        let current_connectors: BHashSet<_> = res.connectors.iter().copied().collect();
+        let mut new_connectors = BHashSet::default();
+        let mut removed_connectors = BHashSet::default();
         for c in &res.connectors {
             if !dev.connectors.contains(c) {
                 new_connectors.insert(*c);
@@ -1957,9 +1966,9 @@ impl MetalBackend {
         master: &Rc<DrmMaster>,
     ) -> Result<Rc<MetalDrmDeviceData>, MetalError> {
         let mut resources = DrmCardResources::default();
-        let mut planes = AHashMap::new();
-        let mut crtcs = AHashMap::new();
-        let mut encoders = AHashMap::new();
+        let mut planes = BHashMap::default();
+        let mut crtcs = BHashMap::default();
+        let mut encoders = BHashMap::default();
         let (mut cursor_width, mut cursor_height) = (1, 1);
         let supports_kms = master.supports_get_resources()?;
         if supports_kms {
@@ -2128,7 +2137,7 @@ impl MetalBackend {
 
 impl MetalConnector {
     fn update_properties(&self) -> Result<(), DrmError> {
-        let get = |p: &AHashMap<DrmProperty, _>, k: DrmProperty| match p.get(&k) {
+        let get = |p: &BHashMap<DrmProperty, _>, k: DrmProperty| match p.get(&k) {
             Some(v) => Ok(*v),
             _ => todo!(),
         };
@@ -2169,7 +2178,7 @@ impl MetalConnector {
 
 impl MetalCrtc {
     fn update_properties(&self) -> Result<(), DrmError> {
-        let get = |p: &AHashMap<DrmProperty, _>, k: DrmProperty| match p.get(&k) {
+        let get = |p: &BHashMap<DrmProperty, _>, k: DrmProperty| match p.get(&k) {
             Some(v) => Ok(*v),
             _ => todo!(),
         };
@@ -2221,7 +2230,7 @@ impl MetalCrtc {
 
 impl MetalPlane {
     fn update_properties(&self) -> Result<(), DrmError> {
-        let get = |p: &AHashMap<DrmProperty, _>, k: DrmProperty| match p.get(&k) {
+        let get = |p: &BHashMap<DrmProperty, _>, k: DrmProperty| match p.get(&k) {
             Some(v) => Ok(*v),
             _ => todo!(),
         };

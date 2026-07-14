@@ -4,12 +4,11 @@ use {
         fixed::Fixed,
         ifs::{ipc::x_data_device::XIpcDevice, wl_seat::WlSeatGlobal},
         utils::{
-            bitflags::BitflagsExt, cell_ext::CellExt, clonecell::CloneCell, numcell::NumCell,
-            smallmap::SmallMap,
+            bhash::BHashSet, bitflags::BitflagsExt, cell_ext::CellExt, clonecell::CloneCell,
+            numcell::NumCell, smallmap::SmallMap,
         },
         wire::WlSurfaceId,
     },
-    ahash::AHashSet,
     derivative::Derivative,
     smallvec::SmallVec,
     std::{
@@ -184,7 +183,7 @@ pub struct SourceData {
     pub seat: CloneCell<Option<Rc<WlSeatGlobal>>>,
     pub id: DataSourceId,
     offers: SmallMap<DataOfferId, Rc<dyn DynDataOffer>, 1>,
-    mime_types: RefCell<AHashSet<String>>,
+    mime_types: RefCell<BHashSet<String>>,
     pub client: Rc<Client>,
     state: NumCell<u32>,
     actions: Cell<Option<u32>>,

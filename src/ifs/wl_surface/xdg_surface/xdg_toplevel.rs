@@ -1,7 +1,6 @@
 use {
     crate::{
-        bugs,
-        bugs::Bugs,
+        bugs::{self, Bugs},
         client::{Client, ClientError},
         configurable::ConfigurableExt,
         cursor::KnownCursor,
@@ -38,12 +37,11 @@ use {
             WorkspaceNode, WorkspaceType, default_tile_drag_destination,
         },
         utils::{
-            bitflags::BitflagsExt, clonecell::CloneCell, hash_map_ext::HashMapExt,
+            bhash::BHashMap, bitflags::BitflagsExt, clonecell::CloneCell, hash_map_ext::HashMapExt,
             numcell::NumCell, obj_and_id::ObjAndId,
         },
         wire::{XdgToplevelId, xdg_toplevel::*},
     },
-    ahash::AHashMap,
     arrayvec::ArrayVec,
     std::{
         cell::{Cell, RefCell},
@@ -114,7 +112,7 @@ pub struct XdgToplevel {
     pub xdg: Rc<XdgSurface>,
     pub node_id: ToplevelNodeId,
     pub parent: CloneCell<Option<Rc<XdgToplevel>>>,
-    pub children: RefCell<AHashMap<XdgToplevelId, Rc<XdgToplevel>>>,
+    pub children: RefCell<BHashMap<XdgToplevelId, Rc<XdgToplevel>>>,
     states: NumCell<u32>,
     pub decoration: Cell<Decoration>,
     bugs: Cell<&'static Bugs>,

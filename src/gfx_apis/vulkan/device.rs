@@ -12,7 +12,9 @@ use {
         },
         syncobj::SyncobjCtx,
         utils::{
+            bhash::BHashMap,
             bitflags::BitflagsExt,
+            hash_map_ext::HashMapExt,
             major_minor::{MajorMinor, major_minor},
             oserror::OsErrorExt2,
             page_alloc::PageAllocCtx,
@@ -27,7 +29,6 @@ use {
             device::VulkanDeviceInf, map_extension_properties,
         },
     },
-    ahash::AHashMap,
     arrayvec::ArrayVec,
     ash::{
         Device,
@@ -58,7 +59,6 @@ use {
         },
     },
     bstr::ByteSlice,
-    isnt::std_1::collections::IsntHashMapExt,
     linearize::{StaticMap, static_map},
     run_on_drop::on_drop,
     std::{
@@ -85,7 +85,7 @@ pub struct VulkanDevice {
     pub(super) external_fence_fd: external_fence_fd::Device,
     pub(super) push_descriptor: push_descriptor::Device,
     pub(super) image_drm_format_modifier: image_drm_format_modifier::Device,
-    pub(super) formats: AHashMap<u32, VulkanFormat>,
+    pub(super) formats: BHashMap<u32, VulkanFormat>,
     pub(super) blend_limits: VulkanBlendBufferLimits,
     pub(super) memory_types: ArrayVec<MemoryType, MAX_MEMORY_TYPES>,
     pub(super) graphics_queue: Queue,

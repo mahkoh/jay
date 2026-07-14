@@ -13,8 +13,8 @@ use {
                 GL_UNKNOWN_CONTEXT_RESET_ARB,
             },
         },
+        utils::bhash::BHashMap,
     },
-    ahash::AHashMap,
     std::{cell::Cell, rc::Rc},
 };
 
@@ -23,7 +23,7 @@ pub struct EglContext {
     pub dpy: Rc<EglDisplay>,
     pub ext: GlExt,
     pub ctx: EGLContext,
-    pub formats: Rc<AHashMap<u32, GfxFormat>>,
+    pub formats: Rc<BHashMap<u32, GfxFormat>>,
 }
 
 impl Drop for EglContext {

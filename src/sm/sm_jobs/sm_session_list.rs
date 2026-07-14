@@ -10,9 +10,8 @@ use {
             },
         },
         sqlite::{SqliteCtx, SqliteError, SqliteJob, SqliteWork, sqlite_api::SqliteStep},
-        utils::{errorfmt::ErrorFmt, opaque::Opaque, stack::Stack, tri::Try},
+        utils::{bhash::BHashMap, errorfmt::ErrorFmt, opaque::Opaque, stack::Stack, tri::Try},
     },
-    ahash::AHashMap,
     std::{
         cell::Cell,
         error::Error,
@@ -116,7 +115,7 @@ impl SessionListWork {
             };
             ts.ok_or(SessionListError::AtimeOverflow)
         };
-        let mut sessions = AHashMap::new();
+        let mut sessions = BHashMap::default();
         let mut stmt = s.s.session_list.activate();
         while stmt.step()? == SqliteStep::Row {
             let res = SessionListError::tri(|| {

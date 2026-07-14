@@ -9,6 +9,7 @@ use {
             CONTINUOUS, FINGER, HORIZONTAL_SCROLL, PendingScroll, VERTICAL_SCROLL, WHEEL,
         },
         tools::tool_client::{Handle, ToolClient, with_tool_client},
+        utils::bhash::BHashMap,
         wire::{
             jay_compositor::{GetSeats, Seat, SeatEvents},
             jay_seat_events::{
@@ -25,7 +26,6 @@ use {
             },
         },
     },
-    ahash::AHashMap,
     std::{cell::RefCell, future::pending, ops::Deref, rc::Rc},
 };
 
@@ -43,7 +43,7 @@ pub fn main(global: GlobalArgs, args: SeatTestArgs) {
 struct SeatTest {
     tc: Rc<ToolClient>,
     args: SeatTestArgs,
-    names: RefCell<AHashMap<u32, Rc<String>>>,
+    names: RefCell<BHashMap<u32, Rc<String>>>,
 }
 
 impl SeatTest {

@@ -8,6 +8,7 @@ use {
         object::{ObjectId, Version, WL_DISPLAY_ID},
         utils::{
             asyncevent::AsyncEvent,
+            bhash::BHashMap,
             bitfield::Bitfield,
             buffd::{
                 BufFdError, BufFdOut, MsgFormatter, MsgParser, MsgParserError, OutBuffer,
@@ -27,7 +28,6 @@ use {
             wl_registry,
         },
     },
-    ahash::AHashMap,
     isnt::std_1::primitive::IsntSliceExt,
     std::{
         cell::{Cell, RefCell},
@@ -74,14 +74,14 @@ pub struct ToolClient {
     pub eng: Rc<AsyncEngine>,
     obj_ids: RefCell<Bitfield>,
     handlers: RefCell<
-        AHashMap<
+        BHashMap<
             ObjectId,
-            AHashMap<u32, Rc<dyn Fn(&mut MsgParser) -> Result<(), ToolClientError>>>,
+            BHashMap<u32, Rc<dyn Fn(&mut MsgParser) -> Result<(), ToolClientError>>>,
         >,
     >,
     swapchain: Rc<RefCell<OutBufferSwapchain>>,
     flush_request: AsyncEvent,
-    pending_futures: RefCell<AHashMap<u32, SpawnedFuture<()>>>,
+    pending_futures: RefCell<BHashMap<u32, SpawnedFuture<()>>>,
     next_id: NumCell<u32>,
     incoming: Cell<Option<SpawnedFuture<()>>>,
     outgoing: Cell<Option<SpawnedFuture<()>>>,

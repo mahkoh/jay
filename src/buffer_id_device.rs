@@ -3,6 +3,7 @@ use {
         utils::{
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
+            hash_map_ext::HashMapExt,
             major_minor::{MajorMinor, major_minor},
         },
         video::dmabuf::{DmaBuf, PlaneVec},
@@ -21,7 +22,6 @@ use {
         },
     },
     bstr::ByteSlice,
-    isnt::std_1::collections::IsntHashMapExt,
     log::Level,
     run_on_drop::on_drop,
     std::{

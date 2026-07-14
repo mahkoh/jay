@@ -43,12 +43,12 @@ mod leaks {
         crate::{
             client::ClientId,
             utils::{
+                bhash::{BHashMap, BHashSet},
                 hash_map_ext::HashMapExt,
                 ptr_ext::{MutPtrExt, PtrExt},
                 windows::WindowsExt,
             },
         },
-        ahash::{AHashMap, AHashSet},
         backtrace::Backtrace,
         std::{
             alloc::{GlobalAlloc, Layout},
@@ -61,7 +61,7 @@ mod leaks {
     };
 
     thread_local! {
-        static MAP: Cell<*mut AHashMap<u64, Tracked>> = const { Cell::new(ptr::null_mut()) };
+        static MAP: Cell<*mut BHashMap<u64, Tracked>> = const { Cell::new(ptr::null_mut()) };
         static ID: Cell<u64> = const { Cell::new(0) };
     }
 
@@ -69,8 +69,8 @@ mod leaks {
         if INITIALIZED.get() {
             return;
         }
-        MAP.set(Box::into_raw(Box::new(AHashMap::new())));
-        ALLOCATIONS.set(Box::into_raw(Box::new(AHashMap::new())));
+        MAP.set(Box::into_raw(Box::new(BHashMap::default())));
+        ALLOCATIONS.set(Box::into_raw(Box::new(BHashMap::default())));
         IN_ALLOCATOR.set(0);
         INITIALIZED.set(true);
     }
@@ -79,7 +79,7 @@ mod leaks {
         prefix: &str,
         allocation: &mut Allocation,
         offset: usize,
-        logged: &mut AHashSet<*mut u8>,
+        logged: &mut BHashSet<*mut u8>,
     ) {
         log::info!(
             "{}Contained in allocation {:?} at offset {}. Backtrace:",
@@ -151,7 +151,7 @@ mod leaks {
     pub fn log_leaked() {
         unsafe {
             IN_ALLOCATOR.set(IN_ALLOCATOR.get() + 1);
-            let mut map: AHashMap<ClientId, Vec<(u64, Tracked)>> = AHashMap::new();
+            let mut map: BHashMap<ClientId, Vec<(u64, Tracked)>> = BHashMap::default();
             for (id, obj) in MAP.get().deref_mut().drain() {
                 map.entry(obj.client).or_default().push((id, obj));
             }
@@ -171,7 +171,7 @@ mod leaks {
                     log::info!("  [{}] {}", time.format("%H:%M:%S%.3f"), obj.ty,);
                     match find_allocation_containing(obj.addr) {
                         Some(mut alloc) => {
-                            log_containers("    ", &mut alloc, 0, &mut AHashSet::new())
+                            log_containers("    ", &mut alloc, 0, &mut BHashSet::default())
                         }
                         _ => log::error!("    Not contained in any allocation??"),
                     }
@@ -264,7 +264,7 @@ mod leaks {
     }
 
     thread_local! {
-        static ALLOCATIONS: Cell<*mut AHashMap<*mut u8, Allocation>> = const { Cell::new(ptr::null_mut()) };
+        static ALLOCATIONS: Cell<*mut BHashMap<*mut u8, Allocation>> = const { Cell::new(ptr::null_mut()) };
         static IN_ALLOCATOR: Cell<u32> = const { Cell::new(1) };
         static INITIALIZED: Cell<bool> = const { Cell::new(false) };
     }

@@ -43,7 +43,7 @@ use {
         pr_caps::PrCapsThread,
         rect::Rect,
         syncobj::SyncobjCtx,
-        utils::{errorfmt::ErrorFmt, oserror::OsError},
+        utils::{bhash::BHashMap, errorfmt::ErrorFmt, oserror::OsError},
         video::{
             dmabuf::{DmaBuf, DmaBufIds},
             drm::{Drm, DrmError},
@@ -51,7 +51,6 @@ use {
         },
         vulkan_core::{self, VulkanCoreError},
     },
-    ahash::AHashMap,
     ash::vk,
     gpu_alloc::{AllocationError, MapError},
     log::Level,
@@ -287,7 +286,7 @@ impl GfxContext for Context {
         Some(self.0.device.render_node.clone())
     }
 
-    fn formats(&self) -> &Rc<AHashMap<u32, GfxFormat>> {
+    fn formats(&self) -> &Rc<BHashMap<u32, GfxFormat>> {
         &self.0.formats
     }
 

@@ -35,6 +35,7 @@ use {
         },
         utils::{
             asyncevent::AsyncEvent,
+            bhash::BHashMap,
             clonecell::CloneCell,
             double_click_state::DoubleClickState,
             errorfmt::ErrorFmt,
@@ -48,7 +49,6 @@ use {
             threshold_counter::ThresholdCounter,
         },
     },
-    ahash::AHashMap,
     jay_config::Axis,
     smallvec::SmallVec,
     std::{
@@ -165,10 +165,10 @@ pub struct ContainerNode {
     pub children: LinkedList<ContainerChild>,
     child_types_valid: Cell<bool>,
     focus_history: LinkedList<NodeRef<ContainerChild>>,
-    child_nodes: RefCell<AHashMap<NodeId, LinkedNode<ContainerChild>>>,
+    child_nodes: RefCell<BHashMap<NodeId, LinkedNode<ContainerChild>>>,
     workspace: CloneCell<Rc<WorkspaceNode>>,
     location: Cell<NodeLocation>,
-    cursors: RefCell<AHashMap<CursorType, CursorState>>,
+    cursors: RefCell<BHashMap<CursorType, CursorState>>,
     state: Rc<State>,
     pub render_data: RefCell<ContainerRenderData>,
     scroller: Scroller,
@@ -281,7 +281,7 @@ impl ContainerNode {
         }));
         child.tl_update_icon(&child_node.icon);
         let child_node_ref = child_node.clone();
-        let mut child_nodes = AHashMap::new();
+        let mut child_nodes = BHashMap::default();
         child_nodes.insert(child.node_id(), child_node);
         let id = state.node_ids.next();
         let slf = Rc::new_cyclic(|weak| Self {

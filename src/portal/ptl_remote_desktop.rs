@@ -11,10 +11,7 @@ use {
             ptl_screencast::ScreencastPhase,
             ptl_session::{PortalSession, PortalSessionReply},
         },
-        utils::{
-            clonecell::{CloneCell, UnsafeCellCloneSafe},
-            copyhashmap::CopyHashMap,
-        },
+        utils::{clonecell::CloneCell, copyhashmap::CopyHashMap},
         wire_dbus::{
             org,
             org::freedesktop::impl_::portal::{
@@ -27,11 +24,12 @@ use {
         },
         wl_usr::usr_ifs::usr_jay_ei_session::{UsrJayEiSession, UsrJayEiSessionOwner},
     },
+    jay_proc::jay_clone,
     std::{cell::Cell, ops::Deref, rc::Rc},
     uapi::OwnedFd,
 };
 
-#[derive(Clone)]
+#[jay_clone]
 pub enum RemoteDesktopPhase {
     Init,
     DevicesSelected,
@@ -40,8 +38,6 @@ pub enum RemoteDesktopPhase {
     Started(Rc<StartedRemoteDesktop>),
     Terminated,
 }
-
-unsafe impl UnsafeCellCloneSafe for RemoteDesktopPhase {}
 
 pub struct SelectingDisplay {
     pub session: Rc<PortalSession>,

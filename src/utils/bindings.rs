@@ -2,13 +2,15 @@ use {
     crate::{
         client::{Client, ClientId},
         object::{Object, ObjectId, Version},
-        utils::copyhashmap::{CopyHashMap, Locked},
+        utils::{
+            bhash::BHashMap,
+            copyhashmap::{CopyHashMap, Locked},
+        },
     },
-    ahash::AHashMap,
     derivative::Derivative,
+    hashbrown::hash_map::Entry,
     std::{
         cell::{Ref, RefCell},
-        collections::hash_map::Entry,
         rc::Rc,
     },
 };
@@ -41,7 +43,7 @@ impl<P: Object> Bindings<P> {
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]
 pub struct PerClientBindings<P> {
-    bindings: RefCell<AHashMap<ClientId, AHashMap<ObjectId, Rc<P>>>>,
+    bindings: RefCell<BHashMap<ClientId, BHashMap<ObjectId, Rc<P>>>>,
 }
 
 impl<P: Object> PerClientBindings<P> {
@@ -78,7 +80,7 @@ impl<P: Object> PerClientBindings<P> {
         }
     }
 
-    pub fn borrow(&self) -> Ref<'_, AHashMap<ClientId, AHashMap<ObjectId, Rc<P>>>> {
+    pub fn borrow(&self) -> Ref<'_, BHashMap<ClientId, BHashMap<ObjectId, Rc<P>>>> {
         self.bindings.borrow()
     }
 }

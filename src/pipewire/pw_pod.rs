@@ -14,7 +14,8 @@ use {
 
 macro_rules! ty {
     ($name:ident; $($id:ident = $val:expr,)*) => {
-        #[derive(Copy, Clone, Eq, PartialEq, Hash)]
+        #[jay_proc::jay_hash]
+        #[derive(Copy, Clone, Eq)]
         #[repr(transparent)]
         pub struct $name(pub u32);
 

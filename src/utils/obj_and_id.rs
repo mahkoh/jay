@@ -1,8 +1,5 @@
 use {
-    crate::utils::{
-        cell_ext::CellExt,
-        clonecell::{CloneCell, UnsafeCellCloneSafe},
-    },
+    crate::utils::{cell_ext::CellExt, clonecell::CloneCell, markers::JayClone},
     std::cell::Cell,
 };
 
@@ -65,7 +62,7 @@ where
     #[inline]
     pub fn get(&self) -> T
     where
-        T: UnsafeCellCloneSafe,
+        T: JayClone,
     {
         self.obj.get()
     }

@@ -1,4 +1,4 @@
-use {crate::cmm::cmm_eotf::Eotf, linearize::Linearize};
+use {crate::cmm::cmm_eotf::Eotf, jay_proc::jay_hash, linearize::Linearize};
 
 pub const EOTF_LINEAR: u32 = 1;
 pub const EOTF_ST2084_PQ: u32 = 2;
@@ -13,7 +13,8 @@ pub const EOTF_POW: u32 = 11;
 pub const EOTF_GAMMA24: u32 = 12;
 pub const EOTF_COMPOUND_POWER_2_4: u32 = 13;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Linearize)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq, Linearize)]
 pub enum VulkanEotf {
     Linear,
     St2084Pq,

@@ -20,6 +20,7 @@ use {
         state::State,
         utils::{
             asyncevent::AsyncEvent,
+            bhash::BHashMap,
             buffd::{MsgFormatter, MsgParser, MsgParserError, OutBufferSwapchain},
             copyhashmap::{CopyHashMap, Locked},
             errorfmt::ErrorFmt,
@@ -32,7 +33,7 @@ use {
         },
         wire::WlRegistryId,
     },
-    ahash::AHashMap,
+    jay_proc::jay_hash,
     std::{
         cell::{Cell, RefCell},
         collections::VecDeque,
@@ -99,7 +100,8 @@ impl StaticText for ClientCapsEnum {
 pub const CAPS_DEFAULT: ClientCaps = ClientCaps(CAP_LAYER_SHELL.0 | CAP_DRM_LEASE.0);
 pub const CAPS_DEFAULT_SANDBOXED: ClientCaps = ClientCaps(CAP_DRM_LEASE.0);
 
-#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+#[jay_hash]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq)]
 pub struct ClientId(u64);
 
 impl ClientId {
@@ -120,8 +122,8 @@ impl Display for ClientId {
 
 pub struct Clients {
     next_client_id: NumCell<u64>,
-    pub clients: RefCell<AHashMap<ClientId, ClientHolder>>,
-    shutdown_clients: RefCell<AHashMap<ClientId, ClientHolder>>,
+    pub clients: RefCell<BHashMap<ClientId, ClientHolder>>,
+    shutdown_clients: RefCell<BHashMap<ClientId, ClientHolder>>,
 }
 
 impl Clients {

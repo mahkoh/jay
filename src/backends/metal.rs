@@ -46,7 +46,7 @@ use {
         udev::{Udev, UdevError, UdevMonitor},
         utils::{
             bitflags::BitflagsExt,
-            clonecell::{CloneCell, UnsafeCellCloneSafe},
+            clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
             hash_map_ext::HashMapExt,
@@ -58,6 +58,7 @@ use {
         video::{drm::DrmError, gbm::GbmError},
     },
     bstr::ByteSlice,
+    jay_proc::jay_clone,
     linearize::{LinearizeExt, StaticCopyMap},
     std::{
         cell::{Cell, RefCell},
@@ -370,13 +371,11 @@ struct InputDeviceProperties {
     scroll_button_lock: Cell<Option<bool>>,
 }
 
-#[derive(Clone)]
+#[jay_clone]
 enum MetalDevice {
     Input(Rc<MetalInputDevice>),
     Drm(Rc<MetalDrmDeviceData>),
 }
-
-unsafe impl UnsafeCellCloneSafe for MetalDevice {}
 
 struct DeviceHolder {
     devices: CopyHashMap<c::dev_t, MetalDevice>,

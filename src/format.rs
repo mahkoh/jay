@@ -9,8 +9,8 @@ use {
             SPA_VIDEO_FORMAT_UNKNOWN, SPA_VIDEO_FORMAT_xBGR_210LE, SPA_VIDEO_FORMAT_xRGB_210LE,
             SpaVideoFormat,
         },
+        utils::bhash::BHashMap,
     },
-    ahash::AHashMap,
     ash::vk,
     jay_config::video::Format as ConfigFormat,
     std::{
@@ -65,16 +65,16 @@ impl PartialEq for Format {
 
 impl Eq for Format {}
 
-static FORMATS_MAP: LazyLock<AHashMap<u32, &'static Format>> = LazyLock::new(|| {
-    let mut map = AHashMap::new();
+static FORMATS_MAP: LazyLock<BHashMap<u32, &'static Format>> = LazyLock::new(|| {
+    let mut map = BHashMap::default();
     for format in FORMATS {
         assert!(map.insert(format.drm, format).is_none());
     }
     map
 });
 
-static PW_FORMATS_MAP: LazyLock<AHashMap<SpaVideoFormat, &'static Format>> = LazyLock::new(|| {
-    let mut map = AHashMap::new();
+static PW_FORMATS_MAP: LazyLock<BHashMap<SpaVideoFormat, &'static Format>> = LazyLock::new(|| {
+    let mut map = BHashMap::default();
     for format in FORMATS {
         if format.pipewire != SPA_VIDEO_FORMAT_UNKNOWN {
             assert!(map.insert(format.pipewire, format).is_none());
@@ -85,16 +85,16 @@ static PW_FORMATS_MAP: LazyLock<AHashMap<SpaVideoFormat, &'static Format>> = Laz
 
 static FORMATS_REFS: LazyLock<Vec<&'static Format>> = LazyLock::new(|| FORMATS.iter().collect());
 
-static FORMATS_NAMES: LazyLock<AHashMap<&'static str, &'static Format>> = LazyLock::new(|| {
-    let mut map = AHashMap::new();
+static FORMATS_NAMES: LazyLock<BHashMap<&'static str, &'static Format>> = LazyLock::new(|| {
+    let mut map = BHashMap::default();
     for format in FORMATS {
         assert!(map.insert(format.name, format).is_none());
     }
     map
 });
 
-static FORMATS_CONFIG: LazyLock<AHashMap<ConfigFormat, &'static Format>> = LazyLock::new(|| {
-    let mut map = AHashMap::new();
+static FORMATS_CONFIG: LazyLock<BHashMap<ConfigFormat, &'static Format>> = LazyLock::new(|| {
+    let mut map = BHashMap::default();
     for format in FORMATS {
         assert!(map.insert(format.config, format).is_none());
     }
@@ -109,11 +109,11 @@ fn formats_dont_panic() {
     config_formats();
 }
 
-pub fn formats() -> &'static AHashMap<u32, &'static Format> {
+pub fn formats() -> &'static BHashMap<u32, &'static Format> {
     &FORMATS_MAP
 }
 
-pub fn pw_formats() -> &'static AHashMap<SpaVideoFormat, &'static Format> {
+pub fn pw_formats() -> &'static BHashMap<SpaVideoFormat, &'static Format> {
     &PW_FORMATS_MAP
 }
 
@@ -121,11 +121,11 @@ pub fn ref_formats() -> &'static [&'static Format] {
     &FORMATS_REFS
 }
 
-pub fn named_formats() -> &'static AHashMap<&'static str, &'static Format> {
+pub fn named_formats() -> &'static BHashMap<&'static str, &'static Format> {
     &FORMATS_NAMES
 }
 
-pub fn config_formats() -> &'static AHashMap<ConfigFormat, &'static Format> {
+pub fn config_formats() -> &'static BHashMap<ConfigFormat, &'static Format> {
     &FORMATS_CONFIG
 }
 

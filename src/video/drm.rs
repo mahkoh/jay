@@ -7,6 +7,7 @@ use {
         format::Format,
         io_uring::{IoUring, IoUringError},
         utils::{
+            bhash::BHashMap,
             buf::Buf,
             errorfmt::ErrorFmt,
             oserror::{OsError, OsErrorExt2},
@@ -34,7 +35,6 @@ use {
             },
         },
     },
-    ahash::AHashMap,
     bstr::{BString, ByteSlice},
     indexmap::IndexSet,
     linearize::{Linearize, StaticMap},
@@ -247,7 +247,7 @@ pub struct DrmMaster {
     drm: Drm,
     u32_bufs: Stack<Vec<u32>>,
     u64_bufs: Stack<Vec<u64>>,
-    gem_handles: RefCell<AHashMap<u32, Weak<GemHandle>>>,
+    gem_handles: RefCell<BHashMap<u32, Weak<GemHandle>>>,
     events: SyncQueue<DrmEvent>,
     ring: Rc<IoUring>,
     buf: RefCell<Buf>,
@@ -712,8 +712,9 @@ pub trait DrmObject {
 
 macro_rules! drm_obj {
     ($name:ident, $ty:expr) => {
+        #[jay_proc::jay_hash]
         #[repr(transparent)]
-        #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Default, Ord, PartialOrd)]
+        #[derive(Copy, Clone, Debug, Eq, Default, Ord, PartialOrd)]
         pub struct $name(pub u32);
 
         impl DrmObject for $name {

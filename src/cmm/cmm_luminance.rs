@@ -1,19 +1,24 @@
-use crate::{
-    cmm::{
-        cmm_render_intent::RenderIntent,
-        cmm_transform::{ColorMatrix, Xyz},
+use {
+    crate::{
+        cmm::{
+            cmm_render_intent::RenderIntent,
+            cmm_transform::{ColorMatrix, Xyz},
+        },
+        utils::ordered_float::F64,
     },
-    utils::ordered_float::F64,
+    jay_proc::jay_hash,
 };
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq)]
 pub struct Luminance {
     pub min: F64,
     pub max: F64,
     pub white: F64,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq)]
 pub struct TargetLuminance {
     pub min: F64,
     pub max: F64,

@@ -1,6 +1,7 @@
-use crate::utils::ordered_float::F32;
+use {crate::utils::ordered_float::F32, jay_proc::jay_hash};
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq)]
 pub enum Eotf {
     Linear,
     St2084Pq,
@@ -19,7 +20,8 @@ pub enum Eotf {
 const MUL: u32 = 10_000;
 const MUL_F32: f32 = MUL as f32;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq, Ord, PartialOrd)]
 pub struct EotfPow(pub u32);
 
 impl EotfPow {

@@ -33,14 +33,13 @@ use {
             TreeTimeline::{LiveTL, RenderTL},
         },
         utils::{
-            asyncevent::AsyncEvent, cell_ext::CellExt, clonecell::CloneCell,
+            asyncevent::AsyncEvent, bhash::BHashMap, cell_ext::CellExt, clonecell::CloneCell,
             copyhashmap::CopyHashMap, errorfmt::ErrorFmt, geometric_decay::GeometricDecay,
             hash_map_ext::HashMapExt, numcell::NumCell, on_change::OnChange, rc_eq::rc_eq,
             timer::TimerFd,
         },
         video::drm::ConnectorType,
     },
-    ahash::AHashMap,
     linearize::{Linearize, LinearizeExt, StaticMap, static_map},
     std::{
         any::Any,
@@ -145,7 +144,7 @@ struct VoFb {
 
 struct Transaction {
     state: Rc<State>,
-    changes: AHashMap<ConnectorId, TransactionChange>,
+    changes: BHashMap<ConnectorId, TransactionChange>,
 }
 
 struct TransactionChange {

@@ -52,6 +52,7 @@ use {
         wire::WlDataOfferId,
     },
     CursorPositionType::Motion,
+    hashbrown::hash_map::Entry,
     isnt::std_1::primitive::IsntSliceExt,
     jay_config::{
         input::SwitchEvent,
@@ -65,7 +66,6 @@ use {
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
-        collections::hash_map::Entry,
         mem,
         rc::{Rc, Weak},
     },

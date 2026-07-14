@@ -1,6 +1,8 @@
 use {
-    crate::gfx_api::{GfxContext, GfxFormat},
-    ahash::AHashMap,
+    crate::{
+        gfx_api::{GfxContext, GfxFormat},
+        utils::bhash::BHashMap,
+    },
     std::rc::Rc,
     uapi::c,
 };
@@ -12,6 +14,6 @@ pub struct PortalRenderCtx {
 
 pub struct PortalServerRenderCtx {
     pub ctx: Rc<PortalRenderCtx>,
-    pub usable_formats: Rc<AHashMap<u32, GfxFormat>>,
-    pub server_formats: Option<AHashMap<u32, GfxFormat>>,
+    pub usable_formats: Rc<BHashMap<u32, GfxFormat>>,
+    pub server_formats: Option<BHashMap<u32, GfxFormat>>,
 }

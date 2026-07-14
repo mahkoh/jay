@@ -1,9 +1,9 @@
 use {
     crate::utils::{
-        clonecell::UnsafeCellCloneSafe,
+        bhash::BHashMap,
+        markers::{JayClone, JayHash},
         ptr_ext::{MutPtrExt, PtrExt},
     },
-    ahash::AHashMap,
     derivative::Derivative,
     std::{
         borrow::Borrow,
@@ -18,7 +18,7 @@ use {
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]
 pub struct CopyHashMap<K, V> {
-    map: UnsafeCell<AHashMap<K, V>>,
+    map: UnsafeCell<BHashMap<K, V>>,
 }
 
 impl<K: Debug, V: Debug> Debug for CopyHashMap<K, V> {
@@ -32,14 +32,17 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
         Self::default()
     }
 
-    pub fn set(&self, k: K, v: V) -> Option<V> {
+    pub fn set(&self, k: K, v: V) -> Option<V>
+    where
+        K: JayHash,
+    {
         unsafe { self.map.get().deref_mut().insert(k, v) }
     }
 
     pub fn get<Q>(&self, k: &Q) -> Option<V>
     where
-        V: UnsafeCellCloneSafe,
-        Q: Hash + Eq + ?Sized,
+        V: JayClone,
+        Q: JayHash + Eq + ?Sized,
         K: Borrow<Q>,
     {
         unsafe { self.map.get().deref().get(k).cloned() }
@@ -47,7 +50,7 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
 
     pub fn remove<Q>(&self, k: &Q) -> Option<V>
     where
-        Q: Hash + Eq + ?Sized,
+        Q: JayHash + Eq + ?Sized,
         K: Borrow<Q>,
     {
         unsafe { self.map.get().deref_mut().remove(k) }
@@ -55,7 +58,7 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
 
     pub fn contains<Q>(&self, k: &Q) -> bool
     where
-        Q: Hash + Eq + ?Sized,
+        Q: JayHash + Eq + ?Sized,
         K: Borrow<Q>,
     {
         unsafe { self.map.get().deref().contains_key(k) }
@@ -63,7 +66,7 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
 
     pub fn not_contains<Q>(&self, k: &Q) -> bool
     where
-        Q: Hash + Eq + ?Sized,
+        Q: JayHash + Eq + ?Sized,
         K: Borrow<Q>,
     {
         !self.contains(k)
@@ -76,7 +79,7 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
         }
     }
 
-    pub fn clear(&self) -> AHashMap<K, V> {
+    pub fn clear(&self) -> BHashMap<K, V> {
         unsafe { mem::take(self.map.get().deref_mut()) }
     }
 
@@ -95,7 +98,7 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
 
 pub struct Locked<'a, K, V> {
     source: &'a CopyHashMap<K, V>,
-    map: AHashMap<K, V>,
+    map: BHashMap<K, V>,
 }
 
 impl<'a, K, V> Drop for Locked<'a, K, V> {
@@ -107,7 +110,7 @@ impl<'a, K, V> Drop for Locked<'a, K, V> {
 }
 
 impl<'a, K, V> Deref for Locked<'a, K, V> {
-    type Target = AHashMap<K, V>;
+    type Target = BHashMap<K, V>;
 
     fn deref(&self) -> &Self::Target {
         &self.map

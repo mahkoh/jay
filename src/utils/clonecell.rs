@@ -1,18 +1,12 @@
 use {
-    crate::{
-        tree::NodeId,
-        utils::{
-            linkedlist::NodeRef,
-            ptr_ext::{MutPtrExt, PtrExt},
-        },
+    crate::utils::{
+        markers::JayClone,
+        ptr_ext::{MutPtrExt, PtrExt},
     },
-    jay_config::{keyboard::mods::Modifiers, window::Window},
     std::{
         cell::UnsafeCell,
         fmt::{Debug, Formatter},
         mem,
-        rc::{Rc, Weak},
-        sync::Arc,
     },
 };
 
@@ -21,7 +15,7 @@ pub struct CloneCell<T> {
     data: UnsafeCell<T>,
 }
 
-impl<T: UnsafeCellCloneSafe> Clone for CloneCell<T> {
+impl<T: JayClone> Clone for CloneCell<T> {
     fn clone(&self) -> Self {
         Self {
             data: UnsafeCell::new(self.get()),
@@ -29,7 +23,7 @@ impl<T: UnsafeCellCloneSafe> Clone for CloneCell<T> {
     }
 }
 
-impl<T: UnsafeCellCloneSafe + Debug> Debug for CloneCell<T> {
+impl<T: JayClone + Debug> Debug for CloneCell<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.get().fmt(f)
     }
@@ -45,7 +39,7 @@ impl<T> CloneCell<T> {
     #[inline(always)]
     pub fn get(&self) -> T
     where
-        T: UnsafeCellCloneSafe,
+        T: JayClone,
     {
         unsafe { self.data.get().deref().clone() }
     }
@@ -75,27 +69,3 @@ impl<T> CloneCell<Option<T>> {
         unsafe { self.data.get().deref().is_none() }
     }
 }
-
-pub unsafe trait UnsafeCellCloneSafe: Clone {}
-
-unsafe impl<T: UnsafeCellCloneSafe> UnsafeCellCloneSafe for Option<T> {}
-
-unsafe impl<T: ?Sized> UnsafeCellCloneSafe for Rc<T> {}
-unsafe impl<T: ?Sized> UnsafeCellCloneSafe for Weak<T> {}
-unsafe impl<T: ?Sized> UnsafeCellCloneSafe for Arc<T> {}
-
-unsafe impl<T> UnsafeCellCloneSafe for NodeRef<T> {}
-
-unsafe impl UnsafeCellCloneSafe for () {}
-unsafe impl UnsafeCellCloneSafe for u64 {}
-unsafe impl UnsafeCellCloneSafe for i32 {}
-unsafe impl UnsafeCellCloneSafe for u32 {}
-unsafe impl UnsafeCellCloneSafe for usize {}
-
-unsafe impl<A: UnsafeCellCloneSafe, B: UnsafeCellCloneSafe> UnsafeCellCloneSafe for (A, B) {}
-
-unsafe impl UnsafeCellCloneSafe for Modifiers {}
-
-unsafe impl UnsafeCellCloneSafe for NodeId {}
-
-unsafe impl UnsafeCellCloneSafe for Window {}

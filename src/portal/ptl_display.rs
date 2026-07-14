@@ -13,6 +13,7 @@ use {
             ptl_session::PortalSession,
         },
         utils::{
+            bhash::BHashMap,
             bitflags::BitflagsExt,
             clonecell::CloneCell,
             copyhashmap::CopyHashMap,
@@ -47,7 +48,6 @@ use {
             },
         },
     },
-    ahash::AHashMap,
     std::{
         cell::{Cell, RefCell},
         ops::Deref,
@@ -62,7 +62,7 @@ struct PortalDisplayPrelude {
     con: Rc<UsrCon>,
     state: Rc<PortalState>,
     registry: Rc<UsrWlRegistry>,
-    globals: RefCell<AHashMap<String, Vec<(GlobalName, u32)>>>,
+    globals: RefCell<BHashMap<String, Vec<(GlobalName, u32)>>>,
 }
 
 shared_ids!(PortalDisplayId);
@@ -169,7 +169,7 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
         self.render_ctx.take();
     }
 
-    fn device(&self, fd: Rc<OwnedFd>, server_formats: Option<AHashMap<u32, GfxFormat>>) {
+    fn device(&self, fd: Rc<OwnedFd>, server_formats: Option<BHashMap<u32, GfxFormat>>) {
         self.render_ctx.take();
         let drm = match Drm::open_existing(fd) {
             Ok(d) => d,

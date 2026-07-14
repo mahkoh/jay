@@ -9,6 +9,7 @@ use {
             vecset::VecSet,
         },
     },
+    jay_proc::jay_hash,
     kbvm::{
         GroupIndex, Keycode,
         lookup::LookupTable,
@@ -49,7 +50,8 @@ impl Default for KbvmContext {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq)]
 pub struct KbvmMapId([u8; 32]);
 
 pub struct KbvmMap {

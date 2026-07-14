@@ -1,7 +1,7 @@
-use {ahash::AHashMap, std::sync::LazyLock};
+use {crate::utils::bhash::BHashMap, std::sync::LazyLock};
 
-static APP_ID_BUGS: LazyLock<AHashMap<&'static str, Bugs>> = LazyLock::new(|| {
-    let mut map = AHashMap::new();
+static APP_ID_BUGS: LazyLock<BHashMap<&'static str, Bugs>> = LazyLock::new(|| {
+    let mut map = BHashMap::default();
     map.insert(
         "chromium",
         Bugs {
@@ -20,8 +20,8 @@ static APP_ID_BUGS: LazyLock<AHashMap<&'static str, Bugs>> = LazyLock::new(|| {
     map
 });
 
-static COMM_BUGS: LazyLock<AHashMap<&'static str, Bugs>> = LazyLock::new(|| {
-    let mut map = AHashMap::new();
+static COMM_BUGS: LazyLock<BHashMap<&'static str, Bugs>> = LazyLock::new(|| {
+    let mut map = BHashMap::default();
     map.insert(
         "bemenu-run",
         Bugs {

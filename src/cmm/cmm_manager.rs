@@ -11,6 +11,7 @@ use {
         },
         utils::{copyhashmap::CopyHashMap, numcell::NumCell, ordered_float::F64},
     },
+    jay_proc::jay_hash,
     std::rc::{Rc, Weak},
 };
 
@@ -32,7 +33,8 @@ pub(super) struct Shared {
     pub(super) complete_ids: ColorDescriptionIds,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq)]
 struct LinearDescriptionKey {
     primaries: Primaries,
     luminance: Luminance,
@@ -42,7 +44,8 @@ struct LinearDescriptionKey {
     max_fall: Option<F64>,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq)]
 struct CompleteDescriptionKey {
     linear: LinearColorDescriptionId,
     named_primaries: Option<NamedPrimaries>,

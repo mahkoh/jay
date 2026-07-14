@@ -1,5 +1,5 @@
 use {
-    ahash::AHashMap,
+    crate::utils::bhash::BHashMap,
     parking_lot::Mutex,
     std::{
         ffi::{CStr, CString},
@@ -28,7 +28,7 @@ struct ZoneNameData {
 unsafe impl Sync for ZoneNameData {}
 unsafe impl Send for ZoneNameData {}
 
-static CACHE: LazyLock<Mutex<AHashMap<String, ZoneName>>> = LazyLock::new(Default::default);
+static CACHE: LazyLock<Mutex<BHashMap<String, ZoneName>>> = LazyLock::new(Default::default);
 
 impl ZoneName {
     pub fn __get(name: &str) -> Self {
@@ -120,7 +120,7 @@ pub struct FrameName {
     name: &'static CString,
 }
 
-static FRAME_CACHE: LazyLock<Mutex<AHashMap<String, FrameName>>> = LazyLock::new(Default::default);
+static FRAME_CACHE: LazyLock<Mutex<BHashMap<String, FrameName>>> = LazyLock::new(Default::default);
 
 impl FrameName {
     pub fn get(name: &str) -> Self {

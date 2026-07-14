@@ -20,7 +20,7 @@ use {
         object::Version,
         tools::tool_client::{Handle, ToolClient, with_tool_client},
         utils::{
-            bitflags::BitflagsExt, errorfmt::ErrorFmt, static_text::StaticText,
+            bhash::BHashMap, bitflags::BitflagsExt, errorfmt::ErrorFmt, static_text::StaticText,
             string_ext::StringExt,
         },
         wire::{
@@ -28,7 +28,6 @@ use {
             jay_keymap_builder,
         },
     },
-    ahash::AHashMap,
     clap::{Args, Subcommand, ValueEnum, ValueHint},
     derivative::Derivative,
     isnt::std_1::vec::IsntVecExt,
@@ -1144,7 +1143,7 @@ impl Input {
     fn print_data_json(&self, mut data: Data) {
         data.seats.sort_by(|l, r| l.name.cmp(&r.name));
         data.input_device.sort_by_key(|l| l.id);
-        let mut seats = AHashMap::new();
+        let mut seats = BHashMap::default();
         let mut detached_devices = vec![];
         for seat in &data.seats {
             seats.insert(

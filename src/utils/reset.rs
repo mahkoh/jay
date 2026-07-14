@@ -1,5 +1,5 @@
 use {
-    ahash::AHashMap,
+    crate::utils::bhash::BHashMap,
     smallvec::{Array, SmallVec},
 };
 
@@ -26,7 +26,7 @@ impl<T> Reset for Vec<T> {
     }
 }
 
-impl<K, V> Reset for AHashMap<K, V> {
+impl<K, V> Reset for BHashMap<K, V> {
     fn reset(&mut self) {
         self.clear();
     }

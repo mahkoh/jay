@@ -25,8 +25,8 @@ use {
         state::State,
         time::Time,
         utils::{
-            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell,
-            queue::AsyncQueue, syncqueue::SyncQueue,
+            bhash::BHashMap, clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
+            numcell::NumCell, queue::AsyncQueue, syncqueue::SyncQueue,
         },
         video::{
             drm::{ConnectorType, Drm, DrmError, DrmVersion},
@@ -59,7 +59,6 @@ use {
             },
         },
     },
-    ahash::AHashMap,
     std::{
         any::Any,
         borrow::Cow,
@@ -1130,7 +1129,7 @@ impl BackendConnectorTransactionType for XTransactionType {}
 
 #[derive(Default)]
 struct XTransaction {
-    connectors: AHashMap<ConnectorId, Rc<XOutput>>,
+    connectors: BHashMap<ConnectorId, Rc<XOutput>>,
 }
 impl XTransaction {
     fn send_state(&self) {

@@ -20,13 +20,13 @@ use {
         },
         rect::Rect,
         syncobj::SyncobjCtx,
+        utils::bhash::BHashMap,
         video::{
             dmabuf::{DmaBuf, DmaBufIds},
             drm::Drm,
             gbm::GbmDevice,
         },
     },
-    ahash::AHashMap,
     linearize::{Linearize, StaticMap, static_map},
     std::{
         cell::{Cell, RefCell},
@@ -190,7 +190,7 @@ impl GlRenderContext {
         self.render_node.clone()
     }
 
-    pub fn formats(&self) -> &Rc<AHashMap<u32, GfxFormat>> {
+    pub fn formats(&self) -> &Rc<BHashMap<u32, GfxFormat>> {
         &self.ctx.formats
     }
 
@@ -269,7 +269,7 @@ impl GfxContext for GlRenderContext {
         Some(self.render_node())
     }
 
-    fn formats(&self) -> &Rc<AHashMap<u32, GfxFormat>> {
+    fn formats(&self) -> &Rc<BHashMap<u32, GfxFormat>> {
         self.formats()
     }
 

@@ -11,9 +11,8 @@ use {
         egui_adapter::egui_platform::icons::ICON_OPEN_IN_NEW,
         state::State,
         tree::{ToplevelData, ToplevelIdentifier},
-        utils::{copyhashmap::CopyHashMap, static_text::StaticText},
+        utils::{bhash::BHashMap, copyhashmap::CopyHashMap, static_text::StaticText},
     },
-    ahash::AHashMap,
     derivative::Derivative,
     egui::{
         CollapsingHeader, DragValue, Sense, TextFormat, Ui, Widget, cache::CacheTrait,
@@ -384,7 +383,7 @@ pub fn show_client(behavior: &mut CcBehavior<'_>, ui: &mut Ui, client: &Client) 
 #[derive(Default)]
 struct ClientWindowMatchersCache {
     generation: u64,
-    matchers: AHashMap<ClientId, CachedWindowMatcher>,
+    matchers: BHashMap<ClientId, CachedWindowMatcher>,
 }
 
 struct CachedWindowMatcher {

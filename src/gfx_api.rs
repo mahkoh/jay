@@ -28,8 +28,7 @@ use {
             TreeTimeline::{LiveTL, RenderTL},
         },
         utils::{
-            clonecell::UnsafeCellCloneSafe, errorfmt::ErrorFmt, oserror::OsErrorExt,
-            static_text::StaticText,
+            bhash::BHashMap, errorfmt::ErrorFmt, oserror::OsErrorExt, static_text::StaticText,
         },
         video::{
             Modifier,
@@ -37,9 +36,9 @@ use {
             drm::syncobj::{Syncobj, SyncobjPoint},
         },
     },
-    ahash::AHashMap,
     indexmap::{IndexMap, IndexSet},
     jay_config::video::{GfxApi as ConfigGfxApi, ScalingFilter as ConfigScalingFilter},
+    jay_proc::{jay_clone, jay_hash},
     linearize::Linearize,
     std::{
         any::Any,
@@ -355,7 +354,8 @@ impl ScalingFilter {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[jay_clone]
+#[derive(Debug, PartialEq)]
 pub struct SyncFile(pub Rc<OwnedFd>);
 
 impl Deref for SyncFile {
@@ -365,8 +365,6 @@ impl Deref for SyncFile {
         &self.0
     }
 }
-
-unsafe impl UnsafeCellCloneSafe for SyncFile {}
 
 #[derive(Clone)]
 pub enum AcquireSync {
@@ -435,7 +433,8 @@ pub enum ResetStatus {
     Other(u32),
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Default)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq, Default)]
 pub enum AlphaMode {
     #[default]
     PremultipliedElectrical,
@@ -974,7 +973,7 @@ pub trait GfxContext: Debug {
 
     fn render_node(&self) -> Option<Rc<CString>>;
 
-    fn formats(&self) -> &Rc<AHashMap<u32, GfxFormat>>;
+    fn formats(&self) -> &Rc<BHashMap<u32, GfxFormat>>;
 
     fn fast_ram_access(&self) -> bool;
 
@@ -1131,10 +1130,10 @@ impl GfxFormat {
 }
 
 pub fn cross_intersect_formats(
-    local: &AHashMap<u32, GfxFormat>,
-    remote: &AHashMap<u32, GfxFormat>,
-) -> AHashMap<u32, GfxFormat> {
-    let mut res = AHashMap::new();
+    local: &BHashMap<u32, GfxFormat>,
+    remote: &BHashMap<u32, GfxFormat>,
+) -> BHashMap<u32, GfxFormat> {
+    let mut res = BHashMap::default();
     for lf in local.values() {
         if let Some(rf) = remote.get(&lf.format.drm) {
             let f = lf.cross_intersect(rf);
@@ -1319,13 +1318,12 @@ impl Debug for ReservedSyncobjPoint {
     }
 }
 
-#[derive(Clone, Debug)]
+#[jay_clone]
+#[derive(Debug)]
 pub enum FdSync {
     SyncFile(SyncFile),
     Syncobj(Rc<ReservedSyncobjPoint>),
 }
-
-unsafe impl UnsafeCellCloneSafe for FdSync {}
 
 impl FdSync {
     pub async fn try_signaled(&self, ring: &Rc<IoUring>) -> Result<(), IoUringError> {

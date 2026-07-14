@@ -96,6 +96,7 @@ use {
             VblankListener, WorkspaceNode,
         },
         utils::{
+            bhash::BHashMap,
             box_cache::{BoxCache, BoxReset, CachedBox},
             cell_ext::CellExt,
             clonecell::CloneCell,
@@ -119,14 +120,13 @@ use {
         },
         xwayland::XWaylandEvent,
     },
-    ahash::AHashMap,
+    hashbrown::hash_map::{Entry, OccupiedEntry},
     isnt::std_1::{primitive::IsntSliceExt, vec::IsntVecExt},
     jay_proc::Reset,
     linearize::LinearizeExt,
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
-        collections::hash_map::{Entry, OccupiedEntry},
         fmt::{Debug, Formatter},
         mem,
         ops::{Deref, DerefMut},
@@ -456,7 +456,7 @@ trait SurfaceExt {
         surface: &WlSurface,
         child: SubsurfaceId,
         consume: &mut dyn FnMut(
-            OccupiedEntry<SubsurfaceId, AttachedSubsurfaceState>,
+            OccupiedEntry<SubsurfaceId, AttachedSubsurfaceState, ahash::RandomState>,
         ) -> Result<(), WlSurfaceError>,
     ) -> Result<(), WlSurfaceError> {
         surface.pending.borrow_mut().consume_child(child, consume)
@@ -521,7 +521,7 @@ struct PendingState {
     content_type: Option<Option<ContentType>>,
     xdg_surface: PendingXdgSurfaceData,
     layer_surface: PendingLayerSurfaceData,
-    subsurfaces: AHashMap<SubsurfaceId, AttachedSubsurfaceState>,
+    subsurfaces: BHashMap<SubsurfaceId, AttachedSubsurfaceState>,
     acquire_point: Option<(Rc<Syncobj>, SyncobjPoint)>,
     release_point: Option<SyncobjRelease>,
     sync_file_acquire: Option<Option<SyncFile>>,
@@ -632,7 +632,7 @@ impl PendingState {
         &mut self,
         child: SubsurfaceId,
         consume: impl FnOnce(
-            OccupiedEntry<SubsurfaceId, AttachedSubsurfaceState>,
+            OccupiedEntry<SubsurfaceId, AttachedSubsurfaceState, ahash::RandomState>,
         ) -> Result<(), WlSurfaceError>,
     ) -> Result<(), WlSurfaceError> {
         match self.subsurfaces.entry(child) {
@@ -654,7 +654,7 @@ impl PendingState {
 
 #[derive(Default)]
 pub struct ParentData {
-    subsurfaces: AHashMap<WlSurfaceId, Rc<WlSubsurface>>,
+    subsurfaces: BHashMap<WlSurfaceId, Rc<WlSubsurface>>,
     pub below: LinkedList<StackElement>,
     pub above: LinkedList<StackElement>,
 }
@@ -1912,7 +1912,7 @@ impl WlSurface {
         &self,
         child: SubsurfaceId,
         mut consume: impl FnMut(
-            OccupiedEntry<SubsurfaceId, AttachedSubsurfaceState>,
+            OccupiedEntry<SubsurfaceId, AttachedSubsurfaceState, ahash::RandomState>,
         ) -> Result<(), WlSurfaceError>,
     ) -> Result<(), WlSurfaceError> {
         self.ext

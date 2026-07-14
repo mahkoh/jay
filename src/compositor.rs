@@ -72,6 +72,7 @@ use {
         udmabuf::UdmabufHolder,
         user_session::{import_environment, start_graphical_session},
         utils::{
+            bhash::BHashSet,
             clone3::ensure_reaper,
             clonecell::CloneCell,
             errorfmt::ErrorFmt,
@@ -92,7 +93,6 @@ use {
         version::VERSION,
         wheel::{Wheel, WheelError},
     },
-    ahash::AHashSet,
     clap::ValueEnum,
     forker::ForkerProxy,
     jay_config::{_private::DEFAULT_SEAT_NAME, logging::LogLevel as ConfigLogLevel},
@@ -699,7 +699,7 @@ async fn create_backend(
     if backends.is_empty() {
         backends = &[CliBackend::X11, CliBackend::Metal];
     }
-    let mut tried_backends = AHashSet::new();
+    let mut tried_backends = BHashSet::default();
     for &backend in backends {
         if !tried_backends.insert(backend) {
             continue;

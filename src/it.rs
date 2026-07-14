@@ -8,11 +8,11 @@ use {
             tests::TestCase,
         },
         leaks,
-        utils::{errorfmt::ErrorFmt, num_cpus::num_cpus},
+        utils::{
+            bhash::BHashMap, errorfmt::ErrorFmt, hash_map_ext::HashMapExt, num_cpus::num_cpus,
+        },
     },
-    ahash::AHashMap,
     futures_util::{future, future::Either},
-    isnt::std_1::collections::IsntHashMapExt,
     log::Level,
     parking_lot::Mutex,
     std::{
@@ -108,7 +108,7 @@ fn run_tests_(tests: Vec<&'static dyn TestCase>) {
 
 struct ItRun {
     path: String,
-    failed: Mutex<AHashMap<&'static str, Vec<String>>>,
+    failed: Mutex<BHashMap<&'static str, Vec<String>>>,
 }
 
 fn run_test(it_run: &ItRun, test: &'static dyn TestCase, cfg: Rc<TestConfig>) {

@@ -3,12 +3,12 @@ use {
         criteria::{CritLiteralOrRegex, CritUpstreamNode},
         egui_adapter::egui_platform::icons::ICON_CLOSE,
         state::State,
-        utils::{numcell::NumCell, static_text::StaticText},
+        utils::{
+            bhash::BHashSet, hash_map_ext::HashSetExt, numcell::NumCell, static_text::StaticText,
+        },
     },
-    ahash::AHashSet,
     derivative::Derivative,
     egui::{ComboBox, DragValue, Ui, UiBuilder, Widget},
-    isnt::std_1::collections::IsntHashSetExt,
     linearize::{Linearize, LinearizeExt},
     regex::Regex,
     std::rc::Rc,
@@ -139,7 +139,7 @@ where
                 CcCriterion::Not(_) => {}
                 CcCriterion::List(v, _) | CcCriterion::Exactly(_, v) => {
                     ui.indent("compound", |ui| {
-                        let mut to_remove = AHashSet::new();
+                        let mut to_remove = BHashSet::default();
                         for (idx, v) in v.iter_mut().enumerate() {
                             ui.horizontal(|ui| {
                                 if ui.button(ICON_CLOSE).clicked() {

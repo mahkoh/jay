@@ -27,10 +27,7 @@ use {
             ptl_session::{PortalSession, PortalSessionReply},
         },
         utils::{
-            clonecell::{CloneCell, UnsafeCellCloneSafe},
-            copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
-            opaque::Opaque,
+            clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt, opaque::Opaque,
         },
         video::{LINEAR_MODIFIER, Modifier, dmabuf::DmaBuf},
         wire::jay_screencast::Ready,
@@ -56,6 +53,7 @@ use {
             usr_wl_buffer::UsrWlBuffer,
         },
     },
+    jay_proc::jay_clone,
     serde::{Deserialize, Serialize},
     std::{
         borrow::Cow,
@@ -67,7 +65,7 @@ use {
     thiserror::Error,
 };
 
-#[derive(Clone)]
+#[jay_clone]
 pub enum ScreencastPhase {
     Init,
     SourcesSelected(Rc<SourcesSelectedScreencast>),
@@ -78,8 +76,6 @@ pub enum ScreencastPhase {
     Started(Rc<StartedScreencast>),
     Terminated,
 }
-
-unsafe impl UnsafeCellCloneSafe for ScreencastPhase {}
 
 pub struct SourcesSelectedScreencast {
     pub restore_data: Cell<Option<Result<RestoreData, RestoreError>>>,

@@ -74,6 +74,7 @@ numeric-sort = "0.1.5"
 dlopen-note = "0.1.0"
 derivative = "2.2.0"
 az = "1.3.0"
+hashbrown = { version = "0.17.1", default-features = false }
 
 [build-dependencies]
 repc = "0.1.1"

@@ -9,9 +9,8 @@ use {
         state::State,
         theme::Theme,
         tree::TreeTimeline::LiveTL,
-        utils::{copyhashmap::CopyHashMap, windows::WindowsExt},
+        utils::{bhash::BHashSet, copyhashmap::CopyHashMap, windows::WindowsExt},
     },
-    ahash::AHashSet,
     linearize::{Linearize, StaticMap, static_map},
     std::{cell::Cell, f32::consts::PI, mem, rc::Rc, sync::LazyLock},
     thiserror::Error,
@@ -69,7 +68,7 @@ impl Icons {
     }
 
     fn update_sizes_(&self, state: &State, height: i32, map: &CopyHashMap<i32, impl Sized>) {
-        let mut sizes = AHashSet::new();
+        let mut sizes = BHashSet::default();
         for &(scale, _) in &*state.scales.lock() {
             let [size] = scale.pixel_size([height]);
             if size > 0 {

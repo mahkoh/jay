@@ -13,15 +13,17 @@ use {
         object::{Object, Version},
         state::{ConnectorData, State},
         tree::{NodeBase, OutputNode, TearingMode, Transform, TreeTimeline::LiveTL, VrrMode},
-        utils::{cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, rc_eq::rc_eq},
+        utils::{
+            bhash::BHashMap, cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
+            markers::JayHash, rc_eq::rc_eq,
+        },
         wire::{WlOutputId, ZxdgOutputV1Id, wl_output::*},
     },
-    ahash::AHashMap,
     derivative::Derivative,
+    hashbrown::hash_map::Entry,
     linearize::Linearize,
     std::{
         cell::{Cell, RefCell},
-        collections::hash_map::Entry,
         hash::{Hash, Hasher},
         rc::Rc,
     },
@@ -69,7 +71,7 @@ pub struct WlOutputGlobal {
     pub color_spaces: Vec<BackendColorSpace>,
     pub primaries: Primaries,
     pub luminance: Option<BackendLuminance>,
-    pub bindings: RefCell<AHashMap<ClientId, AHashMap<WlOutputId, Rc<WlOutput>>>>,
+    pub bindings: RefCell<BHashMap<ClientId, BHashMap<WlOutputId, Rc<WlOutput>>>>,
     pub destroyed: Cell<bool>,
     pub persistent: Rc<PersistentOutputState>,
     pub opt: Rc<OutputGlobalOpt>,
@@ -157,6 +159,8 @@ impl Hash for OutputId {
         self.hash.hash(state);
     }
 }
+
+unsafe impl JayHash for OutputId {}
 
 impl OutputId {
     pub fn new(

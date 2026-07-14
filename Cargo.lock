@@ -864,6 +864,7 @@ dependencies = [
  "futures-util",
  "gpu-alloc",
  "gpu-alloc-types",
+ "hashbrown 0.17.1",
  "humantime",
  "indexmap",
  "isnt 0.2.0",
