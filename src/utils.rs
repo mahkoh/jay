@@ -60,6 +60,7 @@ pub mod pipe;
 pub mod process_name;
 pub mod ptr_ext;
 pub mod queue;
+pub mod random_cache;
 pub mod rc_eq;
 pub mod refcounted;
 pub mod reset;
