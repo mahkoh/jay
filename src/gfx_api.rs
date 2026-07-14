@@ -37,7 +37,7 @@ use {
     ahash::AHashMap,
     indexmap::{IndexMap, IndexSet},
     jay_config::video::{GfxApi as ConfigGfxApi, ScalingFilter as ConfigScalingFilter},
-    jay_proc::jay_clone,
+    jay_proc::{jay_clone, jay_hash},
     linearize::Linearize,
     std::{
         any::Any,
@@ -432,7 +432,8 @@ pub enum ResetStatus {
     Other(u32),
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Default)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq, Default)]
 pub enum AlphaMode {
     #[default]
     PremultipliedElectrical,

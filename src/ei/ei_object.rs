@@ -7,6 +7,7 @@ use {
         utils::buffd::EiMsgParser,
         wire_ei::EiHandshakeId,
     },
+    jay_proc::jay_hash,
     std::{
         cmp::Ordering,
         fmt::{Display, Formatter, LowerHex},
@@ -16,7 +17,8 @@ use {
 
 pub const EI_HANDSHAKE_ID: EiHandshakeId = EiHandshakeId::from_raw(0);
 
-#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+#[jay_hash]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq)]
 pub struct EiObjectId(u64);
 
 impl EiObjectId {

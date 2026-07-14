@@ -1,7 +1,7 @@
 use {
     crate::utils::array,
     arrayvec::ArrayString,
-    jay_proc::jay_clone,
+    jay_proc::{jay_clone, jay_hash},
     rand::{RngExt, rng},
     serde::{Deserialize, Deserializer, Serialize, Serializer, de},
     std::{
@@ -17,7 +17,8 @@ use {
 mod tests;
 
 #[jay_clone(Copy)]
-#[derive(Eq, PartialEq, Hash, Ord, PartialOrd)]
+#[jay_hash]
+#[derive(Eq, Ord, PartialOrd)]
 #[repr(transparent)]
 pub struct Opaque {
     v: [u64; 3],

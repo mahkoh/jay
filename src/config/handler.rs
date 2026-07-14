@@ -39,6 +39,7 @@ use {
             asyncevent::AsyncEvent,
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
+            markers::JayHash,
             numcell::NumCell,
             oserror::OsErrorExt,
             stack::Stack,
@@ -94,7 +95,6 @@ use {
     std::{
         cell::Cell,
         fmt,
-        hash::Hash,
         ops::Deref,
         rc::{Rc, Weak},
         time::{Duration, SystemTime},
@@ -192,7 +192,7 @@ pub type CriterionCache<K, T> = Rc<CopyHashMap<K, Weak<CachedCriterion<K, T>>>>;
 
 pub struct CachedCriterion<K, T>
 where
-    K: Hash + Eq,
+    K: JayHash + Eq,
     T: CritTarget,
 {
     crit: K,
@@ -203,7 +203,7 @@ where
 
 impl<K, T> Drop for CachedCriterion<K, T>
 where
-    K: Hash + Eq,
+    K: JayHash + Eq,
     T: CritTarget,
 {
     fn drop(&mut self) {
@@ -213,7 +213,7 @@ where
 
 impl<K, T> CachedCriterion<K, T>
 where
-    K: Hash + Eq,
+    K: JayHash + Eq,
     T: CritTarget,
 {
     fn any(&self, v: &impl Fn(&K) -> bool) -> bool {
@@ -2380,7 +2380,7 @@ impl ConfigProxyHandler {
         get_matcher: impl Fn(&Matcher) -> Result<Rc<CachedCriterion<Crit, Mgr::Target>>, CphError>,
     ) -> Result<Rc<dyn CritUpstreamNode<Mgr::Target>>, CphError>
     where
-        Crit: Clone + Hash + Eq,
+        Crit: Clone + JayHash + Eq,
         Mgr: CritMgrExt,
     {
         let mut get_upstream = |m: &Matcher| -> Result<_, CphError> {

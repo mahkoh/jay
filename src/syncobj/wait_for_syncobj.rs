@@ -9,6 +9,7 @@ use {
         },
         video::drm::syncobj::{Syncobj, SyncobjPoint},
     },
+    jay_proc::jay_hash,
     std::{cell::Cell, rc::Rc},
     uapi::{OwnedFd, c},
 };
@@ -22,7 +23,8 @@ pub trait SyncobjWaiter {
     fn done(self: Rc<Self>, result: Result<(), SyncobjError>);
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq)]
 struct JobId(u64);
 
 #[must_use]

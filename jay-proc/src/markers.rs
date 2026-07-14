@@ -8,6 +8,7 @@ use {
 };
 
 pub mod clone;
+pub mod hash;
 
 struct Input {
     item: Item,

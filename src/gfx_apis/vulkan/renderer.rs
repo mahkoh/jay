@@ -68,6 +68,7 @@ use {
     },
     isnt::std_1::{collections::IsntHashMapExt, primitive::IsntSliceExt},
     jay_algorithms::rect::Tag,
+    jay_proc::jay_hash,
     linearize::{Linearize, LinearizeExt, StaticCopyMap, StaticMap, static_map},
     std::{
         any::Any,
@@ -146,13 +147,15 @@ pub(super) struct UsedTexture {
     release_sync: ReleaseSync,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Linearize)]
+#[jay_hash]
+#[derive(Copy, Clone, Eq, Debug, Linearize)]
 pub(super) enum TexCopyType {
     Identity,
     Multiply,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Linearize)]
+#[jay_hash]
+#[derive(Copy, Clone, Eq, Debug, Linearize)]
 pub(super) enum TexSourceType {
     Opaque,
     HasAlpha,
@@ -268,7 +271,8 @@ pub(super) struct PendingFrame {
 
 type FillPipelines = Rc<StaticMap<TexSourceType, Rc<VulkanPipeline>>>;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq)]
 struct TexPipelineKey {
     tex_copy_type: TexCopyType,
     tex_source_type: TexSourceType,
@@ -284,7 +288,8 @@ pub(super) struct TexPipelines {
     pipelines: CopyHashMap<TexPipelineKey, Rc<VulkanPipeline>>,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq)]
 pub(super) struct OutPipelineKey {
     format: vk::Format,
     eotf: VulkanEotf,

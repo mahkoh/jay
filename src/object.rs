@@ -4,6 +4,7 @@ use {
         utils::buffd::MsgParser,
         wire::WlDisplayId,
     },
+    jay_proc::jay_hash,
     std::{
         any::Any,
         cmp::Ordering,
@@ -14,7 +15,8 @@ use {
 
 pub const WL_DISPLAY_ID: WlDisplayId = WlDisplayId::from_raw(1);
 
-#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+#[jay_hash]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq)]
 pub struct ObjectId(u32);
 
 impl ObjectId {

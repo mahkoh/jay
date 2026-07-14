@@ -85,6 +85,7 @@ use {
         },
     },
     arrayvec::ArrayVec,
+    jay_proc::jay_hash,
     linearize::{Linearize, StaticMap},
     std::{
         cell::Cell,
@@ -113,7 +114,8 @@ pub struct GlobalError {
     pub error: Box<dyn Error>,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq)]
 pub struct GlobalName(u32);
 
 impl GlobalName {

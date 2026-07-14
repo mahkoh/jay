@@ -1,6 +1,7 @@
-use {crate::utils::ordered_float::F64, std::hash::Hash};
+use {crate::utils::ordered_float::F64, jay_proc::jay_hash, std::hash::Hash};
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq)]
 pub enum NamedPrimaries {
     Srgb,
     PalM,
@@ -14,7 +15,8 @@ pub enum NamedPrimaries {
     AdobeRgb,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq)]
 pub struct Primaries {
     pub r: (F64, F64),
     pub g: (F64, F64),

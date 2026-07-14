@@ -37,6 +37,7 @@ use {
         },
     },
     jay_config::input::SwitchEvent,
+    jay_proc::jay_hash,
     linearize::{Linearize, StaticCopyMap},
     std::{
         any::Any,
@@ -77,7 +78,8 @@ pub trait Backend: Any {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Default, Eq)]
 pub struct Mode {
     pub width: i32,
     pub height: i32,
@@ -294,7 +296,8 @@ pub trait InputDevice {
     fn set_scroll_button_lock(&self, enabled: bool);
 }
 
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Linearize)]
+#[jay_hash]
+#[derive(Debug, Copy, Clone, Eq, Linearize)]
 pub enum InputDeviceCapability {
     Keyboard,
     Pointer,

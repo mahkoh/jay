@@ -1,10 +1,14 @@
-use std::fmt::{Debug, Display, Formatter};
+use {
+    jay_proc::jay_hash,
+    std::fmt::{Debug, Display, Formatter},
+};
 
 pub const SCALE_BASE: u32 = 120;
 const BASE64: i64 = SCALE_BASE as i64;
 pub const SCALE_BASEF: f64 = SCALE_BASE as f64;
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[jay_hash]
+#[derive(Copy, Clone, Eq, Ord, PartialOrd)]
 #[repr(transparent)]
 pub struct Scale(u32);
 

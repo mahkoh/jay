@@ -1,6 +1,6 @@
 use {
     crate::utils::{
-        markers::JayClone,
+        markers::{JayClone, JayHash},
         ptr_ext::{MutPtrExt, PtrExt},
     },
     ahash::AHashMap,
@@ -32,14 +32,17 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
         Self::default()
     }
 
-    pub fn set(&self, k: K, v: V) -> Option<V> {
+    pub fn set(&self, k: K, v: V) -> Option<V>
+    where
+        K: JayHash,
+    {
         unsafe { self.map.get().deref_mut().insert(k, v) }
     }
 
     pub fn get<Q>(&self, k: &Q) -> Option<V>
     where
         V: JayClone,
-        Q: Hash + Eq + ?Sized,
+        Q: JayHash + Eq + ?Sized,
         K: Borrow<Q>,
     {
         unsafe { self.map.get().deref().get(k).cloned() }
@@ -47,7 +50,7 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
 
     pub fn remove<Q>(&self, k: &Q) -> Option<V>
     where
-        Q: Hash + Eq + ?Sized,
+        Q: JayHash + Eq + ?Sized,
         K: Borrow<Q>,
     {
         unsafe { self.map.get().deref_mut().remove(k) }
@@ -55,7 +58,7 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
 
     pub fn contains<Q>(&self, k: &Q) -> bool
     where
-        Q: Hash + Eq + ?Sized,
+        Q: JayHash + Eq + ?Sized,
         K: Borrow<Q>,
     {
         unsafe { self.map.get().deref().contains_key(k) }
@@ -63,7 +66,7 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
 
     pub fn not_contains<Q>(&self, k: &Q) -> bool
     where
-        Q: Hash + Eq + ?Sized,
+        Q: JayHash + Eq + ?Sized,
         K: Borrow<Q>,
     {
         !self.contains(k)

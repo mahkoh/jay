@@ -25,6 +25,7 @@ use {
         },
     },
     ahash::AHashMap,
+    jay_proc::jay_hash,
     std::{
         borrow::{Borrow, Cow},
         cell::{Cell, RefCell},
@@ -283,12 +284,14 @@ pub struct DbusSocket {
     objects: CopyHashMap<Cow<'static, str>, Rc<DbusObjectData>>,
 }
 
-#[derive(Hash, Eq, PartialEq)]
+#[jay_hash]
+#[derive(Eq)]
 struct MemberHandlerOwnedKey {
     key: MemberHandlerKey<'static>,
 }
 
-#[derive(Hash, Eq, PartialEq)]
+#[jay_hash]
+#[derive(Eq)]
 struct MemberHandlerKey<'a> {
     interface: &'a str,
     member: &'a str,

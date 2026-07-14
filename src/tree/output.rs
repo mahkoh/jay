@@ -83,6 +83,7 @@ use {
     },
     ahash::AHashMap,
     jay_config::video::{TearingMode as ConfigTearingMode, VrrMode as ConfigVrrMode},
+    jay_proc::jay_hash,
     numeric_sort::cmp,
     smallvec::SmallVec,
     std::{
@@ -218,7 +219,8 @@ pub trait PresentationListener {
     );
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq)]
 pub enum PointerType {
     Seat(SeatId),
     TabletTool(TabletToolId),

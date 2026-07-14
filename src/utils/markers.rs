@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{hash::Hash, marker::PhantomData};
 
 pub struct AssertJayClone<T: JayClone>(PhantomData<T>);
 
@@ -8,11 +8,30 @@ pub unsafe trait JayClone: Clone {
     }
 }
 
+#[expect(dead_code)]
+pub struct AssertJayHash<T: JayHash>(PhantomData<T>);
+
+pub unsafe trait JayHash: Hash + PartialEq {
+    fn _assert(&self) {
+        // nothing
+    }
+}
+
 mod impls {
     use {
-        crate::{tree::NodeId, utils::markers::JayClone},
-        jay_config::{keyboard::mods::Modifiers, window::Window},
+        crate::{
+            tree::NodeId,
+            utils::markers::{JayClone, JayHash},
+        },
+        jay_config::{
+            _private::{ClientCriterionIpc, PollableId, WindowCriterionIpc},
+            client::ClientMatcher,
+            keyboard::{Keymap, ModifiedKeySym, mods::Modifiers},
+            window::{Window, WindowMatcher},
+        },
+        kbvm::Keycode,
         std::{
+            borrow::Cow,
             rc::{Rc, Weak},
             sync::Arc,
         },
@@ -39,4 +58,42 @@ mod impls {
     unsafe impl JayClone for NodeId {}
 
     unsafe impl JayClone for Window {}
+
+    unsafe impl JayHash for u8 {}
+    unsafe impl JayHash for u16 {}
+    unsafe impl JayHash for i32 {}
+    unsafe impl JayHash for u32 {}
+    unsafe impl JayHash for u64 {}
+    unsafe impl JayHash for usize {}
+    unsafe impl JayHash for str {}
+    unsafe impl JayHash for bool {}
+    unsafe impl JayHash for String {}
+    unsafe impl JayHash for &'_ str {}
+    unsafe impl JayHash for Cow<'_, str> {}
+    unsafe impl JayHash for ash::vk::Format {}
+    unsafe impl<T> JayHash for Option<T> where T: JayHash {}
+    unsafe impl<T> JayHash for Rc<T> where T: JayHash {}
+    unsafe impl JayHash for ClientCriterionIpc {}
+    unsafe impl JayHash for WindowCriterionIpc {}
+    unsafe impl JayHash for Keymap {}
+    unsafe impl JayHash for PollableId {}
+    unsafe impl JayHash for Window {}
+    unsafe impl JayHash for ClientMatcher {}
+    unsafe impl JayHash for WindowMatcher {}
+    unsafe impl JayHash for Keycode {}
+    unsafe impl JayHash for ModifiedKeySym {}
+    unsafe impl<T, U> JayHash for (T, U)
+    where
+        T: JayHash,
+        U: JayHash,
+    {
+    }
+    unsafe impl<T, U, V> JayHash for (T, U, V)
+    where
+        T: JayHash,
+        U: JayHash,
+        V: JayHash,
+    {
+    }
+    unsafe impl<T, const N: usize> JayHash for [T; N] where T: JayHash {}
 }

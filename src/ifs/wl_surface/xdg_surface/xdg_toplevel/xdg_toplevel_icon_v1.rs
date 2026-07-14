@@ -27,7 +27,7 @@ use {
         wire::{XdgToplevelIconV1Id, XdgToplevelId, xdg_toplevel_icon_v1::*},
     },
     ahash::{AHashMap, AHashSet},
-    jay_proc::jay_clone,
+    jay_proc::{jay_clone, jay_hash},
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -100,7 +100,8 @@ impl ObjWithId for Rc<XdgToplevelIconV1> {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq)]
 struct IconKey {
     size: i32,
     scale: Scale,
@@ -118,7 +119,8 @@ enum AsyncOp {
     Transfer(#[expect(dead_code)] PendingShmTransfer),
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq)]
 struct BufferKey {
     size: i32,
     scale: i32,

@@ -13,7 +13,10 @@ use {
         object::{Object, Version},
         state::{ConnectorData, State},
         tree::{NodeBase, OutputNode, TearingMode, Transform, TreeTimeline::LiveTL, VrrMode},
-        utils::{cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, rc_eq::rc_eq},
+        utils::{
+            cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, markers::JayHash,
+            rc_eq::rc_eq,
+        },
         wire::{WlOutputId, ZxdgOutputV1Id, wl_output::*},
     },
     ahash::AHashMap,
@@ -157,6 +160,8 @@ impl Hash for OutputId {
         self.hash.hash(state);
     }
 }
+
+unsafe impl JayHash for OutputId {}
 
 impl OutputId {
     pub fn new(

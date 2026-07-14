@@ -1,7 +1,10 @@
-use std::{
-    fmt::{Debug, Display, Formatter},
-    hash::{Hash, Hasher},
-    ops::{Add, Div, Mul, Sub},
+use {
+    crate::utils::markers::JayHash,
+    std::{
+        fmt::{Debug, Display, Formatter},
+        hash::{Hash, Hasher},
+        ops::{Add, Div, Mul, Sub},
+    },
 };
 
 macro_rules! define {
@@ -67,6 +70,8 @@ macro_rules! define {
                 Debug::fmt(&self.0, f)
             }
         }
+
+        unsafe impl JayHash for $big {}
     };
 }
 

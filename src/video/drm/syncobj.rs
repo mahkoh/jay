@@ -23,7 +23,7 @@ use {
             },
         },
     },
-    jay_proc::jay_clone,
+    jay_proc::{jay_clone, jay_hash},
     std::{
         cell::OnceCell,
         rc::Rc,
@@ -34,7 +34,8 @@ use {
 
 static SYNCOBJ_ID: AtomicU64 = AtomicU64::new(0);
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq)]
 pub struct SyncobjId(u64);
 
 #[jay_clone(Copy)]
