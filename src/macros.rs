@@ -915,10 +915,9 @@ macro_rules! dynload {
 
 macro_rules! opaque {
     ($ty:ident, $fun:ident) => {
-        #[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Ord, PartialOrd)]
+        #[jay_proc::jay_clone(Copy)]
+        #[derive(Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
         pub struct $ty(crate::utils::opaque::Opaque);
-
-        unsafe impl crate::utils::clonecell::UnsafeCellCloneSafe for $ty {}
 
         pub fn $fun() -> $ty {
             $ty(crate::utils::opaque::opaque())

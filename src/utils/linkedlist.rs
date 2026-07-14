@@ -1,5 +1,5 @@
 use {
-    crate::utils::numcell::NumCell,
+    crate::utils::{markers::JayClone, numcell::NumCell},
     std::{
         cell::Cell,
         fmt::{Debug, Formatter},
@@ -246,6 +246,8 @@ impl<T> Clone for NodeRef<T> {
         }
     }
 }
+
+unsafe impl<T> JayClone for NodeRef<T> {}
 
 impl<T> NodeRef<T> {
     pub fn prepend(&self, t: T) -> LinkedNode<T> {

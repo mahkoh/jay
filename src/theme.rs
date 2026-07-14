@@ -10,6 +10,7 @@ use {
     jay_config::theme::{
         BarPosition as ConfigBarPosition, ContainerBorders as ConfigContainerBorders,
     },
+    jay_proc::jay_clone,
     linearize::Linearize,
     num_traits::Float,
     std::{
@@ -20,7 +21,8 @@ use {
     },
 };
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[jay_clone(Copy)]
+#[derive(Debug, PartialEq)]
 pub struct Color {
     r: f32,
     g: f32,

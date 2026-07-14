@@ -19,16 +19,14 @@ use {
             WorkspaceNode, WorkspaceNodeId,
         },
         utils::{
-            clonecell::{CloneCell, UnsafeCellCloneSafe},
-            errorfmt::ErrorFmt,
-            event_listener::EventListener,
-            numcell::NumCell,
-            option_ext::OptionExt,
+            clonecell::CloneCell, errorfmt::ErrorFmt, event_listener::EventListener,
+            numcell::NumCell, option_ext::OptionExt,
         },
         video::{INVALID_MODIFIER, LINEAR_MODIFIER, dmabuf::DmaBuf},
         wire::{JayScreencastId, jay_screencast::*},
     },
     ahash::AHashSet,
+    jay_proc::jay_clone,
     std::{
         cell::{Cell, RefCell},
         ops::DerefMut,
@@ -87,7 +85,7 @@ pub struct JayScreencast {
     latch_listener: EventListener<dyn LatchListener>,
 }
 
-#[derive(Clone)]
+#[jay_clone]
 enum Target {
     Output(Rc<OutputNode>),
     Toplevel(Rc<dyn ToplevelNode>),
@@ -98,8 +96,6 @@ impl LatchListener for JayScreencast {
         self.schedule_toplevel_screencast();
     }
 }
-
-unsafe impl UnsafeCellCloneSafe for Target {}
 
 enum PendingTarget {
     Output(Rc<JayOutput>),

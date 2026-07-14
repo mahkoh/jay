@@ -1,6 +1,6 @@
 use {
     crate::utils::{
-        clonecell::UnsafeCellCloneSafe,
+        markers::JayClone,
         ptr_ext::{MutPtrExt, PtrExt},
     },
     derivative::Derivative,
@@ -37,7 +37,7 @@ impl<T> Stack<T> {
 
     pub fn to_vec(&self) -> Vec<T>
     where
-        T: UnsafeCellCloneSafe,
+        T: JayClone,
     {
         unsafe {
             let v = self.vec.get().deref();

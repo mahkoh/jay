@@ -1,6 +1,6 @@
 use {
     crate::utils::{
-        clonecell::UnsafeCellCloneSafe,
+        markers::JayClone,
         ptr_ext::{MutPtrExt, PtrExt},
     },
     derivative::Derivative,
@@ -84,7 +84,7 @@ impl<K: Eq, V, const N: usize> SmallMap<K, V, N> {
     }
 }
 
-impl<K: Eq, V: UnsafeCellCloneSafe, const N: usize> SmallMap<K, V, N> {
+impl<K: Eq, V: JayClone, const N: usize> SmallMap<K, V, N> {
     pub fn get(&self, k: &K) -> Option<V> {
         unsafe {
             let m = &self.m.get().deref().m;
@@ -98,7 +98,7 @@ impl<K: Eq, V: UnsafeCellCloneSafe, const N: usize> SmallMap<K, V, N> {
     }
 }
 
-impl<'a, K: Copy, V: UnsafeCellCloneSafe, const N: usize> IntoIterator for &'a SmallMap<K, V, N> {
+impl<'a, K: Copy, V: JayClone, const N: usize> IntoIterator for &'a SmallMap<K, V, N> {
     type Item = (K, V);
     type IntoIter = SmallMapIter<'a, K, V, N>;
 
@@ -112,7 +112,7 @@ pub struct SmallMapIter<'a, K, V, const N: usize> {
     map: &'a SmallMap<K, V, N>,
 }
 
-impl<'a, K: Copy, V: UnsafeCellCloneSafe, const N: usize> Iterator for SmallMapIter<'a, K, V, N> {
+impl<'a, K: Copy, V: JayClone, const N: usize> Iterator for SmallMapIter<'a, K, V, N> {
     type Item = (K, V);
 
     fn next(&mut self) -> Option<Self::Item> {

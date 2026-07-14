@@ -20,13 +20,14 @@ use {
         theme::Color,
         tree::TreeTimeline::LiveTL,
         utils::{
-            clonecell::UnsafeCellCloneSafe, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
-            numcell::NumCell, obj_and_id::ObjWithId, oserror::OsError, smallmap::SmallMap,
+            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, numcell::NumCell, obj_and_id::ObjWithId,
+            oserror::OsError, smallmap::SmallMap,
         },
         video::dmabuf::PlaneVec,
         wire::{XdgToplevelIconV1Id, XdgToplevelId, xdg_toplevel_icon_v1::*},
     },
     ahash::{AHashMap, AHashSet},
+    jay_proc::jay_clone,
     smallvec::SmallVec,
     std::{
         cell::{Cell, RefCell},
@@ -58,13 +59,11 @@ pub struct ToplevelIconUser {
     icons: SmallMap<Scale, ToplevelIcon, 2>,
 }
 
-#[derive(Clone)]
+#[jay_clone]
 pub enum ToplevelIcon {
     Srgb(Color),
     Tex(Rc<dyn GfxTexture>),
 }
-
-unsafe impl UnsafeCellCloneSafe for ToplevelIcon {}
 
 impl ToplevelIconUser {
     pub fn new(size: i32) -> Self {

@@ -1,8 +1,7 @@
 use {
-    crate::utils::{
-        bitflags::BitflagsExt, clonecell::UnsafeCellCloneSafe, ptr_ext::PtrExt, stack::Stack,
-    },
+    crate::utils::{bitflags::BitflagsExt, ptr_ext::PtrExt, stack::Stack},
     bstr::{BString, ByteSlice},
+    jay_proc::jay_clone,
     std::{
         fmt::{Debug, Formatter},
         rc::Rc,
@@ -391,7 +390,8 @@ macro_rules! bail {
     }};
 }
 
-#[derive(Clone, Debug)]
+#[jay_clone]
+#[derive(Debug)]
 pub enum EdidParseContext {
     #[expect(dead_code)]
     ReadingBytes(usize),
@@ -409,8 +409,6 @@ pub enum EdidParseContext {
     IdManufacturerName,
     VideoInputDefinition,
 }
-
-unsafe impl UnsafeCellCloneSafe for EdidParseContext {}
 
 struct EdidPushedContext {
     stack: Rc<Stack<(usize, EdidParseContext)>>,

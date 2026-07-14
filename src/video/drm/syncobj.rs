@@ -3,7 +3,7 @@ use {
         gfx_api::SyncFile,
         syncobj::SyncobjError,
         utils::{
-            clonecell::{CloneCell, UnsafeCellCloneSafe},
+            clonecell::CloneCell,
             copyhashmap::CopyHashMap,
             errorfmt::ErrorFmt,
             hash_map_ext::HashMapExt,
@@ -23,6 +23,7 @@ use {
             },
         },
     },
+    jay_proc::jay_clone,
     std::{
         cell::OnceCell,
         rc::Rc,
@@ -36,10 +37,9 @@ static SYNCOBJ_ID: AtomicU64 = AtomicU64::new(0);
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct SyncobjId(u64);
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[jay_clone(Copy)]
+#[derive(Debug, Eq, PartialEq, Hash)]
 struct SyncobjHandle(u32);
-
-unsafe impl UnsafeCellCloneSafe for SyncobjHandle {}
 
 pub struct Syncobj {
     id: SyncobjId,

@@ -33,6 +33,7 @@ pub mod line_logger;
 pub mod linkedlist;
 pub mod log_on_drop;
 pub mod major_minor;
+pub mod markers;
 pub mod mmap;
 pub mod nice;
 pub mod nonblock;

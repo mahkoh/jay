@@ -7,7 +7,6 @@ use {
         },
         fixed::Fixed,
         leaks::Tracker,
-        utils::clonecell::UnsafeCellCloneSafe,
         wire_ei::{
             EiTouchscreenId,
             ei_touchscreen::{
@@ -16,6 +15,7 @@ use {
             },
         },
     },
+    jay_proc::jay_clone,
     std::{collections::hash_map::Entry, rc::Rc},
     thiserror::Error,
 };
@@ -28,15 +28,14 @@ pub struct EiTouchscreen {
     pub device: Rc<EiDevice>,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[jay_clone(Copy)]
+#[derive(Debug)]
 pub enum TouchChange {
     Down(f32, f32),
     Motion(f32, f32),
     Up,
     Cancel,
 }
-
-unsafe impl UnsafeCellCloneSafe for TouchChange {}
 
 ei_device_interface!(EiTouchscreen, ei_touchscreen, touchscreen);
 

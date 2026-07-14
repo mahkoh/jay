@@ -1,6 +1,6 @@
 use {
     crate::utils::{
-        clonecell::UnsafeCellCloneSafe,
+        markers::JayClone,
         ptr_ext::{MutPtrExt, PtrExt},
     },
     ahash::AHashMap,
@@ -38,7 +38,7 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
 
     pub fn get<Q>(&self, k: &Q) -> Option<V>
     where
-        V: UnsafeCellCloneSafe,
+        V: JayClone,
         Q: Hash + Eq + ?Sized,
         K: Borrow<Q>,
     {

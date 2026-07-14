@@ -27,10 +27,7 @@ use {
             Node, NodeBase, OutputNode, Transform,
             TreeTimeline::{LiveTL, RenderTL},
         },
-        utils::{
-            clonecell::UnsafeCellCloneSafe, errorfmt::ErrorFmt, oserror::OsErrorExt,
-            static_text::StaticText,
-        },
+        utils::{errorfmt::ErrorFmt, oserror::OsErrorExt, static_text::StaticText},
         video::{
             Modifier,
             dmabuf::{DmaBuf, DmaBufIds},
@@ -40,6 +37,7 @@ use {
     ahash::AHashMap,
     indexmap::{IndexMap, IndexSet},
     jay_config::video::{GfxApi as ConfigGfxApi, ScalingFilter as ConfigScalingFilter},
+    jay_proc::jay_clone,
     linearize::Linearize,
     std::{
         any::Any,
@@ -355,7 +353,8 @@ impl ScalingFilter {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[jay_clone]
+#[derive(Debug, PartialEq)]
 pub struct SyncFile(pub Rc<OwnedFd>);
 
 impl Deref for SyncFile {
@@ -365,8 +364,6 @@ impl Deref for SyncFile {
         &self.0
     }
 }
-
-unsafe impl UnsafeCellCloneSafe for SyncFile {}
 
 #[derive(Clone)]
 pub enum AcquireSync {
@@ -1319,13 +1316,12 @@ impl Debug for ReservedSyncobjPoint {
     }
 }
 
-#[derive(Clone, Debug)]
+#[jay_clone]
+#[derive(Debug)]
 pub enum FdSync {
     SyncFile(SyncFile),
     Syncobj(Rc<ReservedSyncobjPoint>),
 }
-
-unsafe impl UnsafeCellCloneSafe for FdSync {}
 
 impl FdSync {
     pub async fn try_signaled(&self, ring: &Rc<IoUring>) -> Result<(), IoUringError> {
