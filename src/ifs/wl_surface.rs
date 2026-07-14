@@ -1807,6 +1807,10 @@ impl WlSurface {
         self.latch_listener.attach(&output.latch_event);
     }
 
+    pub fn is_visible(&self) -> bool {
+        self.visible[LiveTL].get()
+    }
+
     pub fn set_visible(self: &Rc<Self>, visible: bool) {
         let changed = self.set_visible_(visible);
         if !changed {
@@ -1822,12 +1826,8 @@ impl WlSurface {
         if visible {
             self.attach_events_to_output(&self.output.get());
         }
-        for (_, inhibitor) in &self.idle_inhibitors {
-            if visible {
-                inhibitor.activate();
-            } else {
-                inhibitor.deactivate();
-            }
+        if self.idle_inhibitors.len() > 0 {
+            self.client.state.idle.inhibitors_changed(&self.client.state);
         }
         let children = self.children.borrow_mut();
         if let Some(children) = children.deref() {
@@ -1878,9 +1878,6 @@ impl WlSurface {
     fn detach_node_(&self, set_invisible: bool) {
         for (_, constraint) in &self.constraints {
             constraint.deactivate(true);
-        }
-        for (_, inhibitor) in &self.idle_inhibitors {
-            inhibitor.deactivate();
         }
         let children = self.children.borrow();
         if let Some(ch) = children.deref() {

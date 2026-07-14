@@ -430,7 +430,7 @@ impl IdleState {
         }
     }
 
-    fn inhibitors_changed(&self, state: &State) {
+    pub fn inhibitors_changed(&self, state: &State) {
         self.inhibitors_changed.set(true);
         self.change.trigger();
         state.trigger_cci(CCI_IDLE);

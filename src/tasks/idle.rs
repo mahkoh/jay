@@ -93,7 +93,10 @@ impl Idle {
 
     fn handle_idle_changes(&mut self) {
         if self.state.idle.inhibitors_changed.replace(false) {
-            let is_inhibited = self.state.idle.inhibitors.len() > 0;
+            let is_inhibited = {
+                let inhibitors = self.state.idle.inhibitors.lock();
+                inhibitors.values().any(|i| i.surface.is_visible())
+            };
             if self.is_inhibited != is_inhibited {
                 self.is_inhibited = is_inhibited;
                 if !self.is_inhibited {

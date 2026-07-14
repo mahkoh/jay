@@ -4,7 +4,6 @@ use {
         ifs::wl_surface::WlSurface,
         leaks::Tracker,
         object::{Object, Version},
-        tree::TreeTimeline::LiveTL,
         wire::{ZwpIdleInhibitorV1Id, zwp_idle_inhibitor_v1::*},
     },
     std::rc::Rc,
@@ -37,9 +36,7 @@ impl ZwpIdleInhibitorV1RequestHandler for ZwpIdleInhibitorV1 {
 impl ZwpIdleInhibitorV1 {
     pub fn install(self: &Rc<Self>) -> Result<(), ZwpIdleInhibitorV1Error> {
         self.surface.idle_inhibitors.insert(self.id, self.clone());
-        if self.surface.visible[LiveTL].get() {
-            self.activate();
-        }
+        self.activate();
         Ok(())
     }
 
