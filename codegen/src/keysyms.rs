@@ -5,7 +5,7 @@ pub fn main() -> Result<()> {
     for sym in Keysym::all() {
         syms.push((sym.name().unwrap(), sym));
     }
-    syms.sort_by_cached_key(|s| s.0.to_string() + ":");
+    syms.sort_by_key(|s| s.0);
     let mut res = String::new();
     writeln!(res, r#"use super::KeySym;"#)?;
     writeln!(res)?;
