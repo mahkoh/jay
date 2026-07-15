@@ -4,8 +4,10 @@ use crate::ifs::color_management::RENDER_INTENT_PERCEPTUAL;
 use crate::ifs::color_management::RENDER_INTENT_RELATIVE;
 use crate::ifs::color_management::RENDER_INTENT_RELATIVE_BPC;
 use crate::object::Version;
+use jay_proc::jay_hash;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Default)]
+#[jay_hash]
+#[derive(Copy, Clone, Debug, Eq, Default)]
 pub enum RenderIntent {
     #[default]
     Perceptual,

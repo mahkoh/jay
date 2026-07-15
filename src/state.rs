@@ -729,6 +729,20 @@ impl DrmDevData {
         self.dev.set_flip_margin(margin);
         state.trigger_cci(CCI_GPUS);
     }
+
+    pub fn set_use_plane_color_pipelines(
+        &self,
+        state: &Rc<State>,
+        mut use_plane_color_pipelines: bool,
+    ) {
+        if !self.dev.supports_plane_color_pipelines() {
+            use_plane_color_pipelines = false;
+        }
+        self.dev
+            .set_use_plane_color_pipelines(use_plane_color_pipelines);
+        state.trigger_cci(CCI_GPUS);
+        state.damage_full(RenderTL);
+    }
 }
 
 struct UpdateTextTexturesVisitor;

@@ -125,12 +125,12 @@ pub enum BackendConnectorTransactionError {
     AtomicTestFailed(#[source] DrmError),
     #[error("Commit failed")]
     AtomicCommitFailed(#[source] DrmError),
-    #[error("Could not create a gamma lut blob")]
-    CreateGammaLutBlob(#[source] DrmError),
     #[error("Connector {} does not support gamma lut", .0)]
     GammaLutNotSupported(ConnectorKernelId),
     #[error("There is no render context")]
     NoRenderContext,
+    #[error("There is no viable color management programming for this configuration")]
+    NoColorManagementProgramming,
 }
 
 pub trait BackendConnectorTransaction {

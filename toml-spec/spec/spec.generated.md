@@ -2895,6 +2895,15 @@ The table has the following fields:
 
   The value of this field should be a number.
 
+- `plane-color-pipelines` (optional):
+
+  If specified, enables or disables the use of plane color pipelines for this
+  device.
+  
+  The default is `false`.
+
+  The value of this field should be a boolean.
+
 
 <a name="types-DrmDeviceMatch"></a>
 ### `DrmDeviceMatch`

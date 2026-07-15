@@ -112,6 +112,14 @@ impl GpusPane {
                     dev.dev.direct_scanout_enabled(),
                     |v| dev.set_direct_scanout_enabled(&self.state, v),
                 );
+                if dev.dev.supports_plane_color_pipelines() {
+                    bool(
+                        ui,
+                        "Color Pipelines",
+                        dev.dev.use_plane_color_pipelines(),
+                        |v| dev.set_use_plane_color_pipelines(&self.state, v),
+                    );
+                }
                 if let Some(mut v) = dev.dev.flip_margin() {
                     let ui = &mut *ui.row();
                     grid_label(ui, "Flip Margin");

@@ -149,6 +149,8 @@ pub enum MetalError {
     CopyToDev(#[source] RenderBufferError),
     #[error("The render device does not support the format")]
     RenderUnsupportedFormat,
+    #[error("There is no color programming that supports the current state")]
+    NoCmProgramming,
 }
 
 pub struct MetalBackend {

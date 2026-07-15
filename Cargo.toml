@@ -85,7 +85,7 @@ blake3 = "1.8.2"
 walkdir = "2.5.0"
 
 [profile.dev.package]
-jay-algorithms = { opt-level = 3 }
+jay-algorithms = { opt-level = 3, codegen-units = 1, incremental = false }
 smallvec = { opt-level = 3 }
 egui = { opt-level = 3, debug = "line-tables-only" }
 emath = { opt-level = 3, debug = "line-tables-only" }

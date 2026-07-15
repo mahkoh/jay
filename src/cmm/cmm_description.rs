@@ -72,7 +72,6 @@ impl LinearColorDescription {
         true
     }
 
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn target_contained_in_primary(&self) -> bool {
         *self.target_contained_in_primary.get_or_init(|| {
             if self.target_luminance.min.0 < self.luminance.min.0

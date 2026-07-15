@@ -1,7 +1,6 @@
 #[cfg(test)]
 pub mod tests;
 
-#[cfg_attr(not(test), expect(dead_code))]
 pub trait FloatExt {
     const MAX_SAFE_INT: u64;
 }

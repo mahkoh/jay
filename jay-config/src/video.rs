@@ -647,6 +647,23 @@ impl DrmDevice {
     pub fn set_flip_margin(self, margin: Duration) {
         get!().set_flip_margin(self, margin);
     }
+
+    /// Enables or disables the use of plane color pipelines for this device.
+    ///
+    /// The default is `false`.
+    pub fn set_plane_color_pipelines_enabled(self, enabled: bool) {
+        get!().set_plane_color_pipelines_enabled(self, enabled);
+    }
+
+    /// Returns whether plane color pipelines are used for this device.
+    pub fn plane_color_pipelines_enabled(self) -> bool {
+        get!().get_plane_color_pipelines_enabled(self)
+    }
+
+    /// Toggles whether plane color pipelines are used for this device.
+    pub fn toggle_plane_color_pipelines_enabled(self) {
+        self.set_plane_color_pipelines_enabled(!self.plane_color_pipelines_enabled());
+    }
 }
 
 /// A graphics API.

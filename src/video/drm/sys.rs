@@ -316,7 +316,7 @@ pub fn mode_getproperty(
             get(&mut prop)?;
             if ty == DRM_MODE_PROP_RANGE {
                 DrmPropertyType::Range {
-                    _min: vals[0],
+                    min: vals[0],
                     max: vals[1],
                 }
             } else {
@@ -443,6 +443,7 @@ pub const DRM_MODE_OBJECT_PROPERTY: u32 = 0xb0b0b0b0;
 pub const DRM_MODE_OBJECT_FB: u32 = 0xfbfbfbfb;
 pub const DRM_MODE_OBJECT_BLOB: u32 = 0xbbbbbbbb;
 pub const DRM_MODE_OBJECT_PLANE: u32 = 0xeeeeeeee;
+pub const DRM_MODE_OBJECT_COLOROP: u32 = 0xfafafafa;
 #[expect(dead_code)]
 pub const DRM_MODE_OBJECT_ANY: u32 = 0;
 

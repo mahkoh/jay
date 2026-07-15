@@ -94,6 +94,8 @@ pub enum CardCommand {
     DirectScanout(DirectScanoutArgs),
     /// Modify timing settings of the card.
     Timing(TimingArgs),
+    /// Modify the plane color pipelines setting of the card.
+    PlaneColorPipelines(PlaneColorPipelinesArgs),
 }
 
 #[derive(Args, Debug, Clone)]
@@ -146,6 +148,20 @@ pub enum DirectScanoutCmd {
     /// Enable direct scanout.
     Enable,
     /// Disable direct scanout.
+    Disable,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct PlaneColorPipelinesArgs {
+    #[clap(subcommand)]
+    pub cmd: PlaneColorPipelinesCmd,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum PlaneColorPipelinesCmd {
+    /// Enables plane color pipelines.
+    Enable,
+    /// Disables plane color pipelines.
     Disable,
 }
 
@@ -541,6 +557,8 @@ struct Device {
     pub model_name: String,
     pub gfx_api: String,
     pub render_device: bool,
+    pub use_plane_color_pipelines: bool,
+    pub plane_color_pipelines_supported: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -997,6 +1015,19 @@ impl Randr {
                     });
                 }
             },
+            CardCommand::PlaneColorPipelines(ps) => {
+                self.handle_error(randr, |msg| {
+                    eprintln!("Could not modify plane-color-pipelines settings: {}", msg);
+                });
+                tc.send(jay_randr::SetPlaneColorPipelines {
+                    self_id: randr,
+                    dev: &args.card,
+                    enabled: match ps.cmd {
+                        PlaneColorPipelinesCmd::Enable => 1,
+                        PlaneColorPipelinesCmd::Disable => 0,
+                    },
+                });
+            }
         }
         tc.round_trip().await;
     }
@@ -1029,6 +1060,8 @@ impl Randr {
                 model_name: &dev.model_name,
                 gfx_api: &dev.gfx_api,
                 render_device: dev.render_device,
+                use_plane_color_pipelines: dev.use_plane_color_pipelines,
+                plane_color_pipelines_supported: dev.plane_color_pipelines_supported,
                 connectors: connectors.into_iter().map(make_json_connector).collect(),
             });
         }
@@ -1087,6 +1120,20 @@ impl Randr {
         if dev.render_device {
             println!("    primary device");
         }
+        println!(
+            "    plane-color-pipelines: {}",
+            fmt::from_fn(|f| {
+                let s = match dev.use_plane_color_pipelines {
+                    true => "enabled",
+                    false => "disabled",
+                };
+                write!(f, "{}", s)?;
+                if !dev.plane_color_pipelines_supported {
+                    write!(f, " (unsupported)")?;
+                }
+                Ok(())
+            })
+        );
     }
 
     fn print_connector(&self, connector: &Connector, modes: bool, formats: bool) {
@@ -1274,7 +1321,15 @@ impl Randr {
                 model_name: msg.model_name.to_string(),
                 gfx_api: msg.gfx_api.to_string(),
                 render_device: msg.render_device != 0,
+                use_plane_color_pipelines: false,
+                plane_color_pipelines_supported: false,
             });
+        });
+        jay_randr::PlaneColorPipelines::handle(tc, randr, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            let d = data.drm_devices.last_mut().unwrap();
+            d.use_plane_color_pipelines = msg.enabled != 0;
+            d.plane_color_pipelines_supported = msg.supported != 0;
         });
         jay_randr::Connector::handle(tc, randr, data.clone(), |data, msg| {
             let mut data = data.borrow_mut();

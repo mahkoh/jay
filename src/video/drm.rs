@@ -28,6 +28,7 @@ use crate::video::drm::sys::DRM_DISPLAY_MODE_LEN;
 use crate::video::drm::sys::DRM_MODE_ATOMIC_TEST_ONLY;
 use crate::video::drm::sys::DRM_MODE_FB_MODIFIERS;
 use crate::video::drm::sys::DRM_MODE_OBJECT_BLOB;
+use crate::video::drm::sys::DRM_MODE_OBJECT_COLOROP;
 use crate::video::drm::sys::DRM_MODE_OBJECT_CONNECTOR;
 use crate::video::drm::sys::DRM_MODE_OBJECT_CRTC;
 use crate::video::drm::sys::DRM_MODE_OBJECT_ENCODER;
@@ -716,7 +717,7 @@ pub struct DrmPropertyDefinition {
 #[derive(Debug, Clone)]
 pub enum DrmPropertyType {
     Range {
-        _min: u64,
+        min: u64,
         max: u64,
     },
     SignedRange {
@@ -805,6 +806,7 @@ drm_obj!(DrmProperty, DRM_MODE_OBJECT_PROPERTY);
 drm_obj!(DrmFb, DRM_MODE_OBJECT_FB);
 drm_obj!(DrmBlob, DRM_MODE_OBJECT_BLOB);
 drm_obj!(DrmPlane, DRM_MODE_OBJECT_PLANE);
+drm_obj!(DrmColorop, DRM_MODE_OBJECT_COLOROP);
 
 #[derive(Debug, Default)]
 pub struct DrmCardResources {
@@ -1427,7 +1429,6 @@ pub struct Logging {
 
 pub trait PrepareDrmObjectProperties {
     fn update(&mut self, p: &BHashMap<DrmProperty, u64>);
-    #[expect(dead_code)]
     fn prepare(&self, change: &mut ObjectChange<'_>, logging: Option<&Logging>);
     fn differs(&self, old: &Self) -> bool;
     fn prepare_conditional(

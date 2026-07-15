@@ -292,6 +292,9 @@ Primary Device
 Direct Scanout
 : Toggle direct scanout (bypasses composition for lower latency)
 
+Color Pipelines
+: Toggle offloading color conversion to the display hardware's color pipeline. Only shown for devices that support it.
+
 Flip Margin
 : Adjust the page-flip margin in milliseconds, with +/- buttons for 0.1 ms steps
 

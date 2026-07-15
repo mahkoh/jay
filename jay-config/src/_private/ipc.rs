@@ -1001,6 +1001,13 @@ pub enum ClientMessage<'a> {
         connector: Connector,
         scaling_filter: ScalingFilter,
     },
+    SetPlaneColorPipelinesEnabled {
+        device: DrmDevice,
+        enabled: bool,
+    },
+    GetPlaneColorPipelinesEnabled {
+        device: DrmDevice,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1271,6 +1278,9 @@ pub enum Response {
     },
     GetContainerBorders {
         borders: ContainerBorders,
+    },
+    GetPlaneColorPipelinesEnabled {
+        enabled: bool,
     },
 }
 

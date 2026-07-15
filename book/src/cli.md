@@ -230,6 +230,14 @@ Toggle direct scanout:
 ~$ jay randr card card0 direct-scanout disable
 ```
 
+Toggle plane color pipelines (offloads color conversion to the display
+hardware; only effective on supported devices):
+
+```shell
+~$ jay randr card card0 plane-color-pipelines enable
+~$ jay randr card card0 plane-color-pipelines disable
+```
+
 Adjust the page-flip margin (in milliseconds, default 1.5):
 
 ```shell

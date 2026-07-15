@@ -12,3 +12,4 @@ regex = { version = "1.12.4", default-features = false, features = ["std", "unic
 linearize = { version = "0.1.7", default-features = false, features = ["derive"] }
 kbvm = { version = "0.1.7", default-features = false }
 tempfile = { version = "3.27.0", default-features = false }
+with_builtin_macros = { version = "0.1.0", default-features = false }

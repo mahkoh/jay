@@ -118,6 +118,8 @@ pub struct JsonDrmDevice<'a> {
     pub gfx_api: &'a str,
     #[serde(skip_serializing_if = "is_false")]
     pub render_device: bool,
+    pub use_plane_color_pipelines: bool,
+    pub plane_color_pipelines_supported: bool,
     #[serde(skip_serializing_if = "is_empty")]
     pub connectors: Vec<JsonConnector<'a>>,
 }

@@ -325,6 +325,7 @@ dependencies = [
  "rand 0.10.2",
  "regex",
  "tempfile",
+ "with_builtin_macros",
 ]
 
 [[package]]

@@ -1085,6 +1085,16 @@ impl ConfigClient {
         self.send(&ClientMessage::SetDirectScanoutEnabled { device, enabled });
     }
 
+    pub fn set_plane_color_pipelines_enabled(&self, device: DrmDevice, enabled: bool) {
+        self.send(&ClientMessage::SetPlaneColorPipelinesEnabled { device, enabled });
+    }
+
+    pub fn get_plane_color_pipelines_enabled(&self, device: DrmDevice) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetPlaneColorPipelinesEnabled { device });
+        get_response!(res, false, GetPlaneColorPipelinesEnabled { enabled });
+        enabled
+    }
+
     pub fn set_flip_margin(&self, device: DrmDevice, margin: Duration) {
         self.send(&ClientMessage::SetFlipMargin { device, margin });
     }

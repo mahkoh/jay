@@ -1,4 +1,5 @@
 use crate::utils::ordered_float::F32;
+use jay_algorithms::tf::AlgoEotf;
 use jay_proc::jay_hash;
 
 #[jay_hash]
@@ -39,5 +40,24 @@ impl EotfPow {
 
     pub fn inv_eotf_f32(self) -> f32 {
         MUL_F32 / self.0 as f32
+    }
+}
+
+impl Eotf {
+    pub fn to_algo(self) -> AlgoEotf {
+        match self {
+            Eotf::Linear => AlgoEotf::Linear,
+            Eotf::St2084Pq => AlgoEotf::St2084Pq,
+            Eotf::Bt1886(p) => AlgoEotf::Bt1886(p.0),
+            Eotf::Gamma22 => AlgoEotf::Gamma22,
+            Eotf::Gamma24 => AlgoEotf::Gamma24,
+            Eotf::Gamma28 => AlgoEotf::Gamma28,
+            Eotf::St240 => AlgoEotf::St240,
+            Eotf::Log100 => AlgoEotf::Log100,
+            Eotf::Log316 => AlgoEotf::Log316,
+            Eotf::St428 => AlgoEotf::St428,
+            Eotf::Pow(p) => AlgoEotf::Pow(p.eotf_f32()),
+            Eotf::CompoundPower24 => AlgoEotf::CompoundPower24,
+        }
     }
 }

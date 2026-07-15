@@ -1418,6 +1418,10 @@
         "flip-margin-ms": {
           "type": "number",
           "description": "If specified, sets the flip margin of this device.\n\nThis is duration between the compositor initiating a page flip and the output's\nvblank event. This determines the minimum input latency. The default is 1.5 ms.\n\nNote that if the margin is too small, the compositor will dynamically increase it.\n"
+        },
+        "plane-color-pipelines": {
+          "type": "boolean",
+          "description": "If specified, enables or disables the use of plane color pipelines for this\ndevice.\n\nThe default is `false`.\n"
         }
       },
       "required": [

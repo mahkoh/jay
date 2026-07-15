@@ -669,6 +669,15 @@ pub trait BackendDrmDevice {
     fn flip_margin(&self) -> Option<u64> {
         None
     }
+    fn set_use_plane_color_pipelines(&self, use_plane_color_pipelines: bool) {
+        let _ = use_plane_color_pipelines;
+    }
+    fn use_plane_color_pipelines(&self) -> bool {
+        false
+    }
+    fn supports_plane_color_pipelines(&self) -> bool {
+        false
+    }
 }
 
 pub trait BackendDrmLease {
