@@ -26,7 +26,7 @@ use {
             LIBINPUT_CONFIG_SCROLL_EDGE, LIBINPUT_CONFIG_SCROLL_NO_SCROLL,
             LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN,
         },
-        utils::static_text::StaticText,
+        utils::{obj_and_id::ObjWithId, static_text::StaticText},
         video::{
             Modifier,
             drm::{
@@ -737,9 +737,11 @@ pub struct BackendGammaLutElement {
 unsafe impl Pod for BackendGammaLutElement {}
 unsafe impl Packed for BackendGammaLutElement {}
 
+pub type BackendGammaLutId = [u8; 32];
+
 #[derive(Debug, Eq)]
 pub struct BackendGammaLut {
-    id: [u8; 32],
+    id: BackendGammaLutId,
     pub gamma_lut: Vec<BackendGammaLutElement>,
 }
 
@@ -751,6 +753,14 @@ impl BackendGammaLut {
         let gamma_lut_bytes = uapi::as_bytes(&gamma_lut as &[_]);
         let id = *blake3::hash(gamma_lut_bytes).as_bytes();
         Self { id, gamma_lut }
+    }
+}
+
+impl ObjWithId for Rc<BackendGammaLut> {
+    type Id = BackendGammaLutId;
+
+    fn id(&self) -> Self::Id {
+        self.id
     }
 }
 
