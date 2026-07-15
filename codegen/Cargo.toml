@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-rand = "0.10.1"
-permutation = "0.4.1"
-anyhow = "1.0.103"
-indexmap = "2.14.0"
-regex = "1.12.4"
-linearize = { version = "0.1.7", features = ["derive"] }
+rand = { version = "0.10.1", default-features = false }
+permutation = { version = "0.4.1", default-features = false }
+anyhow = { version = "1.0.103", default-features = false, features = ["std"] }
+indexmap = { version = "2.14.0", default-features = false, features = ["std"] }
+regex = { version = "1.12.4", default-features = false, features = ["std", "unicode-perl"] }
+linearize = { version = "0.1.7", default-features = false, features = ["derive"] }
