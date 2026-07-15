@@ -319,6 +319,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "indexmap",
+ "kbvm",
  "linearize",
  "permutation",
  "rand 0.10.2",
