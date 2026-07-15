@@ -3,12 +3,14 @@
 use {crate::phf::PhfHash, anyhow::Result, permutation::Permutation, std::fmt::Debug};
 
 mod input_event_codes;
+mod keysyms;
 #[path = "../../toml-config/src/phf.rs"]
 mod phf;
 mod phf_generator;
 
 fn main() -> Result<()> {
     input_event_codes::main()?;
+    keysyms::main()?;
     Ok(())
 }
 
