@@ -1,8 +1,11 @@
-use crate::utils::{ptr_ext::PtrExt, random_cache::RandomCache};
+use crate::utils::{
+    object_registry::{ObjectRegistry, ObjectRegistryCache},
+    ptr_ext::PtrExt,
+};
 
 #[test]
 fn insert() {
-    let cache = RandomCache::new(16);
+    let cache = ObjectRegistry::with_cache(16);
 
     cache.insert(1, "a");
     assert_eq!(cache.get(&1).unwrap().value, "a");
@@ -10,7 +13,7 @@ fn insert() {
 
 #[test]
 fn last_retained() {
-    let cache = RandomCache::new(16);
+    let cache = ObjectRegistry::with_cache(16);
 
     for i in 0..64 {
         cache.insert(i, -i);
@@ -19,10 +22,10 @@ fn last_retained() {
     assert_eq!(cache.get(&63).unwrap().value, -63);
 }
 
-#[test]
-fn last_stored_retained() {
-    let cache = RandomCache::new(16);
-
+fn test_retained<H, const CACHED: bool>(cache: ObjectRegistry<i32, i32, H>)
+where
+    H: ObjectRegistryCache<i32, i32>,
+{
     let mut cached = vec![];
 
     for i in 0..64 {
@@ -43,19 +46,36 @@ fn last_stored_retained() {
 
     let mut present = 0;
     for i in 0..64 {
-        present += cache.get(&i).is_some() as u32;
+        present += cache.get(&i).is_some() as usize;
     }
 
-    assert_eq!(present, 16);
-    unsafe {
-        assert_eq!(cache.inner.mut_.get().deref().map.len(), 16);
+    if CACHED {
+        assert_eq!(present, 16);
+    } else {
+        assert_eq!(present, 0);
     }
+
+    unsafe {
+        assert_eq!(cache.inner.mut_.get().deref().map.len(), present);
+    }
+}
+
+#[test]
+fn last_stored_retained() {
+    let cache = ObjectRegistry::with_cache(16);
+    test_retained::<_, true>(cache);
+}
+
+#[test]
+fn uncached() {
+    let cache = ObjectRegistry::uncached();
+    test_retained::<_, false>(cache);
 }
 
 #[test]
 fn some_present() {
     loop {
-        let cache = RandomCache::new(16);
+        let cache = ObjectRegistry::with_cache(16);
 
         for i in 0..1024 {
             cache.insert(i, -i);
@@ -75,7 +95,7 @@ fn some_present() {
 
 #[test]
 fn mark_used() {
-    let cache = RandomCache::new(16);
+    let cache = ObjectRegistry::with_cache(16);
 
     for i in 0..1024 {
         cache.insert(i, -i);
@@ -91,7 +111,7 @@ fn perf() {
     use std::time::Instant;
 
     const SIZE: usize = 128;
-    let cache = RandomCache::new(SIZE);
+    let cache = ObjectRegistry::with_cache(SIZE);
 
     const COUNT: u32 = 1_000_000;
     for i in 0..COUNT {
