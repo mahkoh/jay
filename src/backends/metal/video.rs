@@ -16,7 +16,7 @@ use {
             allocator::RenderBuffer,
             present::{
                 DEFAULT_POST_COMMIT_MARGIN, DEFAULT_PRE_COMMIT_MARGIN, DirectScanoutCache,
-                POST_COMMIT_MARGIN_DELTA, PresentFbCore,
+                DirectScanoutKey, POST_COMMIT_MARGIN_DELTA, PresentFbCore,
             },
             transaction::{
                 DrmConnectorState, DrmConnectorStateProps, DrmCrtcState, DrmCrtcStateProps,
@@ -50,6 +50,7 @@ use {
             geometric_decay::GeometricDecay,
             hash_map_ext::HashMapExt,
             numcell::NumCell,
+            object_registry::{CachedObjectRegistry, ObjectRegistry},
             on_change::OnChange,
             opaque_cell::OpaqueCell,
             ordered_float::F64,
@@ -564,6 +565,7 @@ pub struct MetalConnector {
     pub cursor_sync: CloneCell<Option<FdSync>>,
 
     pub scanout_buffers: RefCell<BHashMap<DmaBufId, DirectScanoutCache>>,
+    pub scanout_impossible_cache: CachedObjectRegistry<DirectScanoutKey, ()>,
     pub active_framebuffer: RefCell<Option<PresentFbCore>>,
     pub next_framebuffer: OpaqueCell<Option<PresentFbCore>>,
     pub direct_scanout_active: Cell<bool>,
@@ -1115,6 +1117,7 @@ fn create_connector(
         cursor_swap_buffer: Cell::new(false),
         cursor_sync: Default::default(),
         scanout_buffers: Default::default(),
+        scanout_impossible_cache: ObjectRegistry::with_cache(32),
         active_framebuffer: Default::default(),
         next_framebuffer: Default::default(),
         direct_scanout_active: Cell::new(false),

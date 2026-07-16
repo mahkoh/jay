@@ -96,7 +96,6 @@ impl<K, V> CachedObjectRegistry<K, V>
 where
     K: JayHash,
 {
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn with_cache(size: usize) -> Self {
         Self::new(ObjectRegistryRandomCache::new(size))
     }
@@ -119,7 +118,6 @@ where
         }
     }
 
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn insert(&self, key: K, value: V) -> Rc<RegisteredObject<K, V, H>> {
         let inner = &self.inner;
         let hash = inner.random_state.hash_one(&key);
@@ -140,7 +138,6 @@ where
         rc
     }
 
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn get<Q>(&self, key: &Q) -> Option<Rc<RegisteredObject<K, V, H>>>
     where
         Q: JayHash,
@@ -168,7 +165,6 @@ where
     K: JayHash,
     H: ObjectRegistryCache<K, V>,
 {
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn mark_used(&self) {
         let mut_ = unsafe { self.inner.mut_.get().deref_mut() };
         self.serial.set(mut_.cache.serial());

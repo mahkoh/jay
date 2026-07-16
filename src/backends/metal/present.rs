@@ -27,6 +27,7 @@ use {
         },
     },
     arrayvec::ArrayVec,
+    jay_proc::jay_hash,
     std::rc::{Rc, Weak},
     uapi::{OwnedFd, c},
 };
@@ -44,11 +45,18 @@ pub struct DirectScanoutCache {
     fb: Option<Rc<DrmFramebuffer>>,
 }
 
+#[jay_hash]
+#[derive(Copy, Clone, Debug)]
+pub struct DirectScanoutKey {
+    dma_buf_id: DmaBufId,
+    has_cursor_plane: bool,
+}
+
 #[derive(Debug)]
 struct DirectScanoutData {
     fb_cd: Rc<ColorDescription>,
     fb_intent: RenderIntent,
-    dma_buf_id: DmaBufId,
+    key: DirectScanoutKey,
 }
 
 #[derive(Debug)]
@@ -66,7 +74,7 @@ struct DirectScanoutDataCore {
 struct PresentFb {
     fb_intent: RenderIntent,
     copy: RenderBufferCopy,
-    direct_scanout_id: Option<DmaBufId>,
+    direct_scanout_key: Option<DirectScanoutKey>,
     core: PresentFbCore,
 }
 
@@ -231,10 +239,10 @@ impl MetalConnector {
         }
 
         let mut present_fb = None;
-        let mut direct_scanout_id = None;
+        let mut direct_scanout_key = None;
         if let Some(latched) = &latched {
             let fb = self.prepare_present_fb(&cd, blend_cd, buffer, &plane, latched, true)?;
-            direct_scanout_id = fb.direct_scanout_id;
+            direct_scanout_key = fb.direct_scanout_key;
             present_fb = Some(fb);
         }
         self.await_present_fb(present_fb.as_mut(), PresentFbWait::Render)
@@ -261,7 +269,7 @@ impl MetalConnector {
             &mut connector_drm_state,
         );
         if res.is_err()
-            && let Some(dsd_id) = direct_scanout_id
+            && let Some(dsk) = direct_scanout_key
         {
             let fb = self.prepare_present_fb(
                 &cd,
@@ -284,16 +292,7 @@ impl MetalConnector {
                 &mut connector_drm_state,
             );
             if res.is_ok() {
-                let mut cache = self.scanout_buffers.borrow_mut();
-                if let Some(buffer) = cache.remove(&dsd_id) {
-                    cache.insert(
-                        dsd_id,
-                        DirectScanoutCache {
-                            dmabuf: buffer.dmabuf,
-                            fb: None,
-                        },
-                    );
-                }
+                self.scanout_impossible_cache.insert(dsk, ());
             }
         }
         let reset_damage = || {
@@ -697,12 +696,23 @@ impl MetalConnector {
             // Shm buffers cannot be scanned out.
             return None;
         };
+        let key = DirectScanoutKey {
+            dma_buf_id: dmabuf.id,
+            has_cursor_plane: self.cursor_enabled.get(),
+        };
+        if let Some(v) = self.scanout_impossible_cache.get(&key) {
+            v.mark_used();
+            return None;
+        }
         let res = self.prepare_direct_scanout3(plane, dmabuf);
+        if res.is_none() {
+            self.scanout_impossible_cache.insert(key, ());
+        }
         res.map(|fb| {
             let data = DirectScanoutData {
                 fb_cd: ct.cd.clone(),
                 fb_intent: ct.render_intent,
-                dma_buf_id: dmabuf.id,
+                key,
             };
             let core = DirectScanoutDataCore {
                 tex: ct.tex.clone(),
@@ -790,7 +800,7 @@ impl MetalConnector {
         let fb_cd;
         let fb_intent;
         let tex;
-        let direct_scanout_id;
+        let direct_scanout_key;
         let (dsd, mut dsd_core) = direct_scanout_data.unzip();
         match (dsd, &mut dsd_core) {
             (Some(dsd), Some(core)) => {
@@ -807,7 +817,7 @@ impl MetalConnector {
                 fb = core.fb.clone();
                 fb_cd = dsd.fb_cd;
                 fb_intent = dsd.fb_intent;
-                direct_scanout_id = Some(dsd.dma_buf_id);
+                direct_scanout_key = Some(dsd.key);
                 tex = core.tex.clone();
             }
             _ => {
@@ -830,14 +840,14 @@ impl MetalConnector {
                 fb = buffer.drm.clone();
                 fb_cd = cd.clone();
                 fb_intent = RenderIntent::Perceptual;
-                direct_scanout_id = None;
+                direct_scanout_key = None;
                 tex = buffer.render.tex.clone();
             }
         };
         Ok(PresentFb {
             fb_intent,
             copy,
-            direct_scanout_id,
+            direct_scanout_key,
             core: PresentFbCore {
                 fb,
                 fb_cd,
