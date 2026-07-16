@@ -67,6 +67,19 @@ impl Luminance {
             max: self.max,
         }
     }
+
+    pub fn embeds_into(&self, other: &Self, intent: RenderIntent) -> bool {
+        const EPSILON: f64 = 0.001;
+        let scaler = scaler(self, other);
+        if (scaler - 1.0).abs() > EPSILON {
+            return false;
+        }
+        let offset = offset(self, other, intent);
+        if offset.abs() > EPSILON {
+            return false;
+        }
+        true
+    }
 }
 
 impl Default for Luminance {

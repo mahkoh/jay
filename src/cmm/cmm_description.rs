@@ -56,14 +56,14 @@ impl LinearColorDescription {
         mat * self.xyz_from_local
     }
 
-    pub fn embeds_into(&self, target: &Self) -> bool {
+    pub fn embeds_into(&self, target: &Self, intent: RenderIntent) -> bool {
         if self.id == target.id {
             return true;
         }
-        if self.primaries != target.primaries {
+        if !self.primaries.about_equal(&target.primaries) {
             return false;
         }
-        if self.luminance != target.luminance {
+        if !self.luminance.embeds_into(&target.luminance, intent) {
             return false;
         }
         true
@@ -71,8 +71,8 @@ impl LinearColorDescription {
 }
 
 impl ColorDescription {
-    pub fn embeds_into(&self, target: &Self) -> bool {
-        self.eotf == target.eotf && self.linear.embeds_into(&target.linear)
+    pub fn embeds_into(&self, target: &Self, intent: RenderIntent) -> bool {
+        self.eotf == target.eotf && self.linear.embeds_into(&target.linear, intent)
     }
 }
 

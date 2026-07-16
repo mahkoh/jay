@@ -1458,12 +1458,12 @@ impl GfxRenderPass {
                 // Direct scanout requires premultiplied electrical alpha.
                 return None;
             }
-            if !ct.cd.embeds_into(cd) {
+            if !ct.cd.embeds_into(cd, ct.render_intent) {
                 // Direct scanout requires embeddable color descriptions.
                 return None;
             }
             let has_alpha = ct.tex.format().has_alpha;
-            if has_alpha && !ct.opaque && !ct.cd.embeds_into(blend_cd) {
+            if has_alpha && !ct.opaque && !ct.cd.embeds_into(blend_cd, ct.render_intent) {
                 // Blending changes the appearance of translucent buffers.
                 return None;
             }
