@@ -2,9 +2,9 @@
 
 use {
     crate::{
+        Axis, Direction, Workspace,
         client::{Client, ClientCriterion},
         input::Seat,
-        Axis, Direction, Workspace,
     },
     serde::{Deserialize, Serialize},
     std::ops::Deref,
