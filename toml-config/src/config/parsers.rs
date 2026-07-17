@@ -18,6 +18,7 @@ pub mod config;
 mod connector;
 mod connector_match;
 mod content_type;
+mod coordinate;
 mod drm_device;
 mod drm_device_match;
 mod egui;

@@ -83,7 +83,7 @@ use {
             Format as ConfigFormat, GfxApi, ScalingFilter as ConfigScalingFilter,
             TearingMode as ConfigTearingMode, Transform, VrrMode as ConfigVrrMode,
         },
-        window::{TileState as ConfigTileState, Window, WindowMatcher},
+        window::{Coordinate, TileState as ConfigTileState, Window, WindowMatcher},
         workspace::WorkspaceDisplayOrder,
         xwayland::XScalingMode,
     },
@@ -3049,12 +3049,12 @@ impl ConfigProxyHandler {
     fn handle_set_window_position(
         &self,
         window: Window,
-        x1: Option<i32>,
-        y1: Option<i32>,
-        x2: Option<i32>,
-        y2: Option<i32>,
-        width: Option<i32>,
-        height: Option<i32>,
+        x1: Option<Coordinate>,
+        y1: Option<Coordinate>,
+        x2: Option<Coordinate>,
+        y2: Option<Coordinate>,
+        width: Option<Coordinate>,
+        height: Option<Coordinate>,
     ) -> Result<(), CphError> {
         let tl = self.get_window(window)?;
         let pos = tl.node_absolute_position(LiveTL);
@@ -4179,24 +4179,22 @@ impl ConfigProxyHandler {
     }
 }
 
-/// Resolves the constraints on a single axis (x1/x2/width or y1/y2/height) of
-/// [`ConfigProxyHandler::handle_set_window_position`] into a concrete `(c1, c2)` pair.
-///
-/// `c1`, `c2` and `size` are constrained to their contained value if they are `Some(_)` and
-/// are otherwise unconstrained.
-///
-/// If two of the three are constrained, the third is derived from them. If only one is
-/// constrained, the window keeps its current size (if `c1` or `c2` is constrained) or its
-/// current position (if only `size` is constrained). If none are constrained, the axis is
-/// left unchanged. If all three are constrained but not self-consistent, an error is returned.
 fn resolve_geometry_axis(
-    c1: Option<i32>,
-    c2: Option<i32>,
-    size: Option<i32>,
+    c1: Option<Coordinate>,
+    c2: Option<Coordinate>,
+    size: Option<Coordinate>,
     cur_c1: i32,
     cur_c2: i32,
 ) -> Result<(i32, i32), CphError> {
     let cur_size = cur_c2.saturating_sub(cur_c1);
+    let resolve = |c: Option<Coordinate>, cur: i32| match c {
+        Some(Coordinate::Set(v)) => Some(v),
+        Some(Coordinate::Keep) => Some(cur),
+        None => None,
+    };
+    let c1 = resolve(c1, cur_c1);
+    let c2 = resolve(c2, cur_c2);
+    let size = resolve(size, cur_size);
     let res = match (c1, c2, size) {
         (Some(c1), Some(c2), Some(size)) => {
             if c2.saturating_sub(c1) != size {
@@ -4207,8 +4205,8 @@ fn resolve_geometry_axis(
         (Some(c1), Some(c2), None) => (c1, c2),
         (Some(c1), None, Some(size)) => (c1, c1.saturating_add(size)),
         (None, Some(c2), Some(size)) => (c2.saturating_sub(size), c2),
-        (Some(c1), None, None) => (c1, c1.saturating_add(cur_size)),
-        (None, Some(c2), None) => (c2.saturating_sub(cur_size), c2),
+        (Some(c1), None, None) => (c1, cur_c2),
+        (None, Some(c2), None) => (cur_c1, c2),
         (None, None, Some(size)) => (cur_c1, cur_c1.saturating_add(size)),
         (None, None, None) => (cur_c1, cur_c2),
     };

@@ -712,7 +712,7 @@
               ]
             },
             {
-              "description": "Sets the position and/or size of the focused window to an absolute value.\n\nThis only has an effect if the window is floating.\n\nEvery field is optional and can be omitted or set to the string `\"keep\"` to leave\nit unconstrained by this action. Fields that are set to a number are constrained\nto that value.\n\nSince `x2 = x1 + width` (and analogously for the y axis), not every combination\nof constraints is satisfiable. For example, setting `x1 = 0`, `x2 = 100`, and\n`width = 50` is not satisfiable and has no effect.\n\nIf fewer than two of `x1`, `x2`, `width` are constrained (and analogously for\n`y1`, `y2`, `height`), the missing values default to preserving the window's\ncurrent size, e.g. setting only `width` keeps `x1` fixed and moves `x2`, while\nsetting only `x1` keeps the width fixed and moves `x2` along with it.\n\n- Example 1 (Resizing the window while keeping its top-left corner fixed):\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"set-position\", width = 800, height = 600 }\n  ```\n\n- Example 2 (Moving the window while keeping its size):\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"set-position\", x1 = 100, y1 = 100 }\n  ```\n\n- Example 3 (Placing the window at an exact rectangle):\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"set-position\", x1 = 0, y1 = 0, x2 = 800, y2 = 600 }\n  ```\n",
+              "description": "Sets the position and/or size of the focused window to an absolute value.\n\nThis only has an effect if the window is floating.\n\nFor each axis (`x1`/`x2`/`width`, and analogously `y1`/`y2`/`height`), missing\nconstraints (fewer than two given) are inferred, preserving the window's current\nposition rather than its size; if all three are given but unsatisfiable, this is\na no-op.\n\n- Example 1 (Resizing the window while keeping its top-left corner fixed):\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"set-position\", width = 800, height = 600 }\n  ```\n\n- Example 2 (Moving the window while keeping its size):\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"set-position\", x1 = 100, y1 = 100, width = \"keep\", height = \"keep\" }\n  ```\n\n- Example 3 (Placing the window at an exact rectangle):\n\n  ```toml\n  [shortcuts]\n  alt-x = { type = \"set-position\", x1 = 0, y1 = 0, x2 = 800, y2 = 600 }\n  ```\n",
               "type": "object",
               "properties": {
                 "type": {
@@ -1418,7 +1418,7 @@
       "anyOf": [
         {
           "type": "string",
-          "description": "The string `keep` can be used to explicitly leave this field unconstrained. This has\nthe same effect as omitting the field.\n"
+          "description": "The string `keep` constrains this field to the window's current value for it. Unlike\nomitting the field, this is a hard constraint that is never overridden by the other\nfields on the same axis.\n"
         },
         {
           "type": "integer",

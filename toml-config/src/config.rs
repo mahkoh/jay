@@ -42,7 +42,7 @@ use {
             BlendSpace, ColorSpace, Connector, Eotf, Format, GfxApi, ScalingFilter, TearingMode,
             Transform, VrrMode,
         },
-        window::{ContentType, TileState, WindowType},
+        window::{ContentType, Coordinate, TileState, WindowType},
         workspace::WorkspaceDisplayOrder,
         xwayland::XScalingMode,
     },
@@ -215,12 +215,12 @@ pub enum Action {
         ws: Rc<WorkspaceSlot>,
     },
     SetPosition {
-        x1: Option<i32>,
-        y1: Option<i32>,
-        x2: Option<i32>,
-        y2: Option<i32>,
-        width: Option<i32>,
-        height: Option<i32>,
+        x1: Option<Coordinate>,
+        y1: Option<Coordinate>,
+        x2: Option<Coordinate>,
+        y2: Option<Coordinate>,
+        width: Option<Coordinate>,
+        height: Option<Coordinate>,
     },
 }
 

@@ -987,18 +987,10 @@ Action:
 
             This only has an effect if the window is floating.
 
-            Every field is optional and can be omitted or set to the string `"keep"` to leave
-            it unconstrained by this action. Fields that are set to a number are constrained
-            to that value.
-
-            Since `x2 = x1 + width` (and analogously for the y axis), not every combination
-            of constraints is satisfiable. For example, setting `x1 = 0`, `x2 = 100`, and
-            `width = 50` is not satisfiable and has no effect.
-
-            If fewer than two of `x1`, `x2`, `width` are constrained (and analogously for
-            `y1`, `y2`, `height`), the missing values default to preserving the window's
-            current size, e.g. setting only `width` keeps `x1` fixed and moves `x2`, while
-            setting only `x1` keeps the width fixed and moves `x2` along with it.
+            For each axis (`x1`/`x2`/`width`, and analogously `y1`/`y2`/`height`), missing
+            constraints (fewer than two given) are inferred, preserving the window's current
+            position rather than its size; if all three are given but unsatisfiable, this is
+            a no-op.
 
             - Example 1 (Resizing the window while keeping its top-left corner fixed):
 
@@ -1011,7 +1003,7 @@ Action:
 
               ```toml
               [shortcuts]
-              alt-x = { type = "set-position", x1 = 100, y1 = 100 }
+              alt-x = { type = "set-position", x1 = 100, y1 = 100, width = "keep", height = "keep" }
               ```
 
             - Example 3 (Placing the window at an exact rectangle):
@@ -1073,8 +1065,9 @@ Coordinate:
   variants:
     - kind: string
       description: |
-        The string `keep` can be used to explicitly leave this field unconstrained. This has
-        the same effect as omitting the field.
+        The string `keep` constrains this field to the window's current value for it. Unlike
+        omitting the field, this is a hard constraint that is never overridden by the other
+        fields on the same axis.
     - kind: number
       integer_only: true
       description: The value that this field should be constrained to.

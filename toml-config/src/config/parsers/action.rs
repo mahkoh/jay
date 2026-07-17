@@ -8,6 +8,7 @@ use {
             parsers::{
                 StringParser, StringParserError,
                 connector::{ConnectorParser, ConnectorParserError},
+                coordinate::{CoordinateParser, CoordinateParserError},
                 drm_device::{DrmDeviceParser, DrmDeviceParserError},
                 drm_device_match::{DrmDeviceMatchParser, DrmDeviceMatchParserError},
                 env::{EnvParser, EnvParserError},
@@ -97,6 +98,8 @@ pub enum ActionParserError {
     ShowOverlay(#[source] ShowWorkspaceError),
     #[error("Could not parse a toggle-overlay action")]
     ToggleOverlay(#[source] ShowWorkspaceError),
+    #[error("Could not parse a coordinate")]
+    Coordinate(#[source] CoordinateParserError),
     #[error("Unknown direction {0}")]
     UnknownDirection(String),
     #[error("Exactly one of `output` or `direction` must be specified")]
@@ -109,28 +112,6 @@ pub enum ShowWorkspaceError {
     OutputMatchParser(OutputMatchParserError),
     #[error(transparent)]
     FallbackOutputModeParser(FallbackOutputModeParserError),
-}
-
-/// Extracts a field that should either be an integer or the string `"keep"`.
-///
-/// `"keep"` is represented as `None`, an integer `n` is represented as `Some(n)`.
-fn coordinate(
-    name: &'static str,
-) -> impl for<'v, 'w> FnOnce(
-    &mut Extractor<'v, 'w>,
-) -> Result<Spanned<Option<i32>>, Spanned<ExtractorError>> {
-    move |extractor: &mut Extractor| {
-        val(name)(extractor).and_then(|v| match v.value {
-            Value::String(s) if s.as_str() == "keep" => Ok(None.spanned(v.span)),
-            Value::Integer(i) => match i32::try_from(*i) {
-                Ok(n) => Ok(Some(n).spanned(v.span)),
-                Err(_) => Err(ExtractorError::I32.spanned(v.span)),
-            },
-            _ => Err(
-                ExtractorError::Expected("an integer or \"keep\"", v.value.name()).spanned(v.span),
-            ),
-        })
-    }
 }
 
 pub struct ActionParser<'a, 'b>(pub &'a Context<'b>);
@@ -625,20 +606,27 @@ impl ActionParser<'_, '_> {
 
     fn parse_set_position(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let (x1, y1, x2, y2, width, height) = ext.extract((
-            opt(coordinate("x1")),
-            opt(coordinate("y1")),
-            opt(coordinate("x2")),
-            opt(coordinate("y2")),
-            opt(coordinate("width")),
-            opt(coordinate("height")),
+            opt(val("x1")),
+            opt(val("y1")),
+            opt(val("x2")),
+            opt(val("y2")),
+            opt(val("width")),
+            opt(val("height")),
         ))?;
+        let coordinate = |v: Option<Spanned<&Value>>| match v {
+            None => Ok(None),
+            Some(v) => v
+                .parse_map(&mut CoordinateParser)
+                .map_spanned_err(ActionParserError::Coordinate)
+                .map(Some),
+        };
         Ok(Action::SetPosition {
-            x1: x1.despan().flatten(),
-            y1: y1.despan().flatten(),
-            x2: x2.despan().flatten(),
-            y2: y2.despan().flatten(),
-            width: width.despan().flatten(),
-            height: height.despan().flatten(),
+            x1: coordinate(x1)?,
+            y1: coordinate(y1)?,
+            x2: coordinate(x2)?,
+            y2: coordinate(y2)?,
+            width: coordinate(width)?,
+            height: coordinate(height)?,
         })
     }
 

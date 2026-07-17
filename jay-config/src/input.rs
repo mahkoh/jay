@@ -16,7 +16,7 @@ use {
         },
         keyboard::{Keymap, mods::Modifiers, syms::KeySym},
         video::Connector,
-        window::Window,
+        window::{Coordinate, Window},
     },
     serde::{Deserialize, Serialize},
     std::time::Duration,
@@ -718,12 +718,12 @@ impl Seat {
     /// See [`Window::set_position`](crate::window::Window::set_position) for details.
     pub fn set_position(
         self,
-        x1: Option<i32>,
-        y1: Option<i32>,
-        x2: Option<i32>,
-        y2: Option<i32>,
-        width: Option<i32>,
-        height: Option<i32>,
+        x1: Option<Coordinate>,
+        y1: Option<Coordinate>,
+        x2: Option<Coordinate>,
+        y2: Option<Coordinate>,
+        width: Option<Coordinate>,
+        height: Option<Coordinate>,
     ) {
         self.window().set_position(x1, y1, x2, y2, width, height);
     }

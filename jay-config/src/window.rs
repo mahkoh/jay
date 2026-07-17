@@ -2,9 +2,9 @@
 
 use {
     crate::{
-        Axis, Direction, Workspace,
         client::{Client, ClientCriterion},
         input::Seat,
+        Axis, Direction, Workspace,
     },
     serde::{Deserialize, Serialize},
     std::ops::Deref,
@@ -64,6 +64,15 @@ pub enum TileState {
     Tiled,
     /// The window is floating.
     Floating,
+}
+
+/// A constraint on a coordinate or size passed to [`Window::set_position`].
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum Coordinate {
+    /// Constrain this field to the window's current value for it.
+    Keep,
+    /// Constrain this field to this value.
+    Set(i32),
 }
 
 /// A window created by a client.
@@ -256,25 +265,17 @@ impl Window {
     ///
     /// This only has an effect if the window is floating.
     ///
-    /// Every argument that is `None` is left unconstrained by this call. Every argument that
-    /// is `Some(_)` is constrained to that value.
-    ///
-    /// Since `x2 = x1 + width` (and analogously for the y axis), not every combination of
-    /// constraints is satisfiable. If `x1`, `x2`, and `width` are all constrained but not
-    /// self-consistent (and analogously for `y1`, `y2`, `height`), this call has no effect.
-    ///
-    /// If fewer than two of `x1`, `x2`, `width` are constrained (and analogously for `y1`,
-    /// `y2`, `height`), the missing values default to preserving the window's current size,
-    /// e.g. setting only `width` keeps `x1` fixed and moves `x2`, while setting only `x1` keeps
-    /// the width fixed and moves `x2` along with it.
+    /// For each axis, missing constraints (fewer than two given) are inferred,
+    /// preserving the window's current position rather than its size; if all
+    /// three are given but unsatisfiable for an axis, this is a no-op.
     pub fn set_position(
         self,
-        x1: Option<i32>,
-        y1: Option<i32>,
-        x2: Option<i32>,
-        y2: Option<i32>,
-        width: Option<i32>,
-        height: Option<i32>,
+        x1: Option<Coordinate>,
+        y1: Option<Coordinate>,
+        x2: Option<Coordinate>,
+        y2: Option<Coordinate>,
+        width: Option<Coordinate>,
+        height: Option<Coordinate>,
     ) {
         get!().set_window_position(self, x1, y1, x2, y2, width, height);
     }

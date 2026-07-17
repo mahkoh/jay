@@ -34,8 +34,8 @@ use {
             connector_type::{CON_UNKNOWN, ConnectorType},
         },
         window::{
-            ContentType, MatchedWindow, TileState, Window, WindowCriterion, WindowMatcher,
-            WindowType,
+            ContentType, Coordinate, MatchedWindow, TileState, Window, WindowCriterion,
+            WindowMatcher, WindowType,
         },
         workspace::WorkspaceDisplayOrder,
         xwayland::XScalingMode,
@@ -611,12 +611,12 @@ impl ConfigClient {
     pub fn set_window_position(
         &self,
         window: Window,
-        x1: Option<i32>,
-        y1: Option<i32>,
-        x2: Option<i32>,
-        y2: Option<i32>,
-        width: Option<i32>,
-        height: Option<i32>,
+        x1: Option<Coordinate>,
+        y1: Option<Coordinate>,
+        x2: Option<Coordinate>,
+        y2: Option<Coordinate>,
+        width: Option<Coordinate>,
+        height: Option<Coordinate>,
     ) {
         self.send(&ClientMessage::SetWindowPosition {
             window,
