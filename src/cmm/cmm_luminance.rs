@@ -51,12 +51,12 @@ impl Luminance {
     };
 
     pub const WINDOWS_SCRGB: Self = Self {
-        min: Self::ST2084_PQ.min,
-        max: Self::ST2084_PQ.max,
+        min: F64(0.0),
+        max: F64(80.0),
         // This causes the white balance formula (with target ST2084_PQ) to simplify to
         // `Y * 80 / 10000`, meaning that sRGB pure white maps to a luminance of
         // 80 cd/m^2.
-        white: F64(Self::ST2084_PQ.white.0 / 80.0 * Self::ST2084_PQ.max.0),
+        white: F64(203.0),
     };
 }
 
