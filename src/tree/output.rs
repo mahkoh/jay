@@ -1,8 +1,9 @@
 use {
     crate::{
         backend::{
-            BackendColorSpace, BackendConnectorState, BackendEotfs, BackendGammaLut, ButtonState,
-            HardwareCursor, Mode, transaction::BackendConnectorTransactionError,
+            BackendColorSpace, BackendConnectorState, BackendEotfs, BackendGammaLut,
+            BackendLuminance, ButtonState, HardwareCursor, Mode,
+            transaction::BackendConnectorTransactionError,
         },
         client::ClientId,
         cmm::{
@@ -2019,9 +2020,16 @@ impl OutputNode {
         let mut target_luminance = luminance.to_target();
         let mut max_cll = None;
         let mut max_fall = None;
-        if let Some(l) = self.global.luminance
-            && ns.btf.get() == BackendEotfs::Pq
-        {
+        if ns.btf.get() == BackendEotfs::Pq {
+            let l = self.global.luminance.unwrap_or({
+                // Assume something reasonable. This is currently only used for scaling
+                // LUTs.
+                BackendLuminance {
+                    min: 0.0,
+                    max: 1000.0,
+                    max_fall: 1000.0,
+                }
+            });
             target_luminance.min = F64(l.min);
             target_luminance.max = F64(l.max);
             max_cll = Some(F64(l.max));
