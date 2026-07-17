@@ -10,7 +10,8 @@ use {
         },
         utils::ordered_float::F64,
     },
-    std::rc::Rc,
+    jay_algorithms::triangles::triangle_contains_points,
+    std::{cell::OnceCell, rc::Rc},
 };
 
 linear_ids!(LinearColorDescriptionIds, LinearColorDescriptionId, u64);
@@ -25,6 +26,7 @@ pub struct LinearColorDescription {
     pub luminance: Luminance,
     pub target_primaries: Primaries,
     pub target_luminance: TargetLuminance,
+    pub target_contained_in_primary: OnceCell<bool>,
     pub max_cll: Option<F64>,
     pub max_fall: Option<F64>,
     pub(super) shared: Rc<Shared>,
@@ -67,6 +69,24 @@ impl LinearColorDescription {
             return false;
         }
         true
+    }
+
+    #[cfg_attr(not(test), expect(dead_code))]
+    pub fn target_contained_in_primary(&self) -> bool {
+        *self.target_contained_in_primary.get_or_init(|| {
+            if self.target_luminance.min.0 < self.luminance.min.0
+                || self.target_luminance.max.0 > self.luminance.max.0
+            {
+                return false;
+            }
+            #[rustfmt::skip]
+            let extract = |p: &Primaries| [
+                [p.r.0.0, p.r.1.0],
+                [p.g.0.0, p.g.1.0],
+                [p.b.0.0, p.b.1.0],
+            ];
+            triangle_contains_points(extract(&self.primaries), extract(&self.target_primaries))
+        })
     }
 }
 

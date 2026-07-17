@@ -1,3 +1,7 @@
+use crate::cmm::{
+    cmm_eotf::Eotf, cmm_luminance::Luminance, cmm_manager::ColorManager, cmm_primaries::Primaries,
+};
+
 mod matrices {
     use crate::{cmm::cmm_primaries::Primaries, utils::ordered_float::F64};
 
@@ -210,5 +214,135 @@ mod transforms {
                 [0.016771, 0.071040, 0.912189, 0.0],
             ],
         )
+    }
+}
+
+#[test]
+fn target_contained() {
+    let cm = ColorManager::new();
+    assert!(cm.srgb_gamma22().linear.target_contained_in_primary());
+    assert!(!cm.windows_scrgb().linear.target_contained_in_primary());
+    assert!(cm.windows_bt2100().linear.target_contained_in_primary());
+
+    let get_description =
+        |p, l, tp, tl| cm.get_description(None, p, l, Eotf::Linear, tp, tl, None, None);
+
+    {
+        let mut srgb_modified = Primaries::SRGB;
+        srgb_modified.r.0.0 += 0.001;
+        let desc = get_description(
+            Primaries::SRGB,
+            Luminance::SRGB,
+            srgb_modified,
+            Luminance::SRGB.to_target(),
+        );
+        assert!(!desc.linear.target_contained_in_primary());
+    }
+
+    {
+        let mut srgb_modified = Primaries::SRGB;
+        srgb_modified.r.0.0 -= 0.001;
+        let desc = get_description(
+            Primaries::SRGB,
+            Luminance::SRGB,
+            srgb_modified,
+            Luminance::SRGB.to_target(),
+        );
+        assert!(desc.linear.target_contained_in_primary());
+    }
+
+    {
+        let desc = get_description(
+            Primaries::DCI_P3,
+            Luminance::SRGB,
+            Primaries::SRGB,
+            Luminance::SRGB.to_target(),
+        );
+        assert!(desc.linear.target_contained_in_primary());
+    }
+
+    {
+        let mut srgb_modified = Primaries::SRGB;
+        srgb_modified.r = Primaries::BT2020.r;
+        let desc = get_description(
+            Primaries::DCI_P3,
+            Luminance::SRGB,
+            srgb_modified,
+            Luminance::SRGB.to_target(),
+        );
+        assert!(!desc.linear.target_contained_in_primary());
+    }
+
+    {
+        let mut bt2020_modified = Primaries::BT2020;
+        bt2020_modified.r.1.0 *= -1.0;
+        bt2020_modified.g.1.0 *= -1.0;
+        bt2020_modified.b.1.0 *= -1.0;
+        let mut srgb_modified = Primaries::SRGB;
+        srgb_modified.r.1.0 *= -1.0;
+        srgb_modified.g.1.0 *= -1.0;
+        srgb_modified.b.1.0 *= -1.0;
+        let desc = get_description(
+            Primaries::BT2020,
+            Luminance::SRGB,
+            Primaries::SRGB,
+            Luminance::SRGB.to_target(),
+        );
+        assert!(desc.linear.target_contained_in_primary());
+        let desc = get_description(
+            bt2020_modified,
+            Luminance::SRGB,
+            srgb_modified,
+            Luminance::SRGB.to_target(),
+        );
+        assert!(desc.linear.target_contained_in_primary());
+    }
+
+    {
+        let mut srgb_modified = Luminance::SRGB;
+        srgb_modified.min.0 -= 0.001;
+        let desc = get_description(
+            Primaries::SRGB,
+            Luminance::SRGB,
+            Primaries::SRGB,
+            srgb_modified.to_target(),
+        );
+        assert!(!desc.linear.target_contained_in_primary());
+    }
+
+    {
+        let mut srgb_modified = Luminance::SRGB;
+        srgb_modified.min.0 += 0.001;
+        let desc = get_description(
+            Primaries::SRGB,
+            Luminance::SRGB,
+            Primaries::SRGB,
+            srgb_modified.to_target(),
+        );
+        assert!(desc.linear.target_contained_in_primary());
+    }
+
+    {
+        let mut srgb_modified = Luminance::SRGB;
+        srgb_modified.max.0 -= 0.001;
+        let desc = get_description(
+            Primaries::SRGB,
+            Luminance::SRGB,
+            Primaries::SRGB,
+            srgb_modified.to_target(),
+        );
+        assert!(desc.linear.target_contained_in_primary());
+    }
+
+    {
+        let mut srgb_modified = Luminance::SRGB;
+        srgb_modified.max.0 += 0.001;
+        let desc = get_description(
+            Primaries::SRGB,
+            Luminance::SRGB,
+            Primaries::SRGB,
+            srgb_modified.to_target(),
+        );
+        assert!(!desc.linear.target_contained_in_primary());
     }
 }
