@@ -367,10 +367,11 @@ pub struct PersistentDisplayData {
 }
 
 #[derive(Debug)]
-pub struct DefaultProperty {
+pub struct DefaultProperty<T = ()> {
     pub name: &'static str,
     pub prop: DrmProperty,
     pub value: u64,
+    pub t: T,
 }
 
 #[derive(Debug)]
@@ -1022,12 +1023,15 @@ enum DefaultValue {
     RangeMax,
 }
 
-fn create_default_properties(
+fn create_default_properties<T>(
     props: &CollectedProperties,
-    defaults: &[(&'static str, DefaultValue)],
-) -> Vec<DefaultProperty> {
+    defaults: &[(&'static str, DefaultValue, T)],
+) -> Vec<DefaultProperty<T>>
+where
+    T: Copy,
+{
     let mut res = vec![];
-    'outer: for &(name, def) in defaults {
+    'outer: for &(name, def, t) in defaults {
         if let Some((definition, _)) = props.props.get(name.as_bytes().as_bstr()) {
             let value = match def {
                 DefaultValue::Fixed(v) => v,
@@ -1067,6 +1071,7 @@ fn create_default_properties(
                 name,
                 prop: definition.id,
                 value,
+                t,
             });
         }
     }
@@ -1368,14 +1373,14 @@ fn create_connector_display_data(
     let default_properties = create_default_properties(
         &props,
         &[
-            ("Broadcast RGB", DefaultValue::Enum("Automatic")),
-            ("HDR_SOURCE_METADATA", DefaultValue::Fixed(0)),
-            ("Output format", DefaultValue::Enum("Default")),
-            ("WRITEBACK_FB_ID", DefaultValue::Fixed(0)),
-            ("WRITEBACK_OUT_FENCE_PTR", DefaultValue::Fixed(0)),
-            ("content type", DefaultValue::Enum("No Data")),
-            ("dither", DefaultValue::Enum("off")),
-            ("max bpc", DefaultValue::RangeMax),
+            ("Broadcast RGB", DefaultValue::Enum("Automatic"), ()),
+            ("HDR_SOURCE_METADATA", DefaultValue::Fixed(0), ()),
+            ("Output format", DefaultValue::Enum("Default"), ()),
+            ("WRITEBACK_FB_ID", DefaultValue::Fixed(0), ()),
+            ("WRITEBACK_OUT_FENCE_PTR", DefaultValue::Fixed(0), ()),
+            ("content type", DefaultValue::Enum("No Data"), ()),
+            ("dither", DefaultValue::Enum("off"), ()),
+            ("max bpc", DefaultValue::RangeMax, ()),
         ],
     );
     let hdr_metadata_prop = props
@@ -1484,10 +1489,10 @@ fn create_crtc(
     let default_properties = create_default_properties(
         &props,
         &[
-            ("AMD_CRTC_REGAMMA_TF", DefaultValue::Enum("Default")),
-            ("CTM", DefaultValue::Fixed(0)),
-            ("DEGAMMA_LUT", DefaultValue::Fixed(0)),
-            ("OUT_FENCE_PTR", DefaultValue::Fixed(0)),
+            ("AMD_CRTC_REGAMMA_TF", DefaultValue::Enum("Default"), ()),
+            ("CTM", DefaultValue::Fixed(0), ()),
+            ("DEGAMMA_LUT", DefaultValue::Fixed(0), ()),
+            ("OUT_FENCE_PTR", DefaultValue::Fixed(0), ()),
         ],
     );
     let mode_id = props.get("MODE_ID")?.map(|v| DrmBlob(v as u32));
@@ -1604,18 +1609,18 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
     let default_properties = create_default_properties(
         &props,
         &[
-            ("AMD_PLANE_BLEND_LUT", DefaultValue::Fixed(0)),
-            ("AMD_PLANE_BLEND_TF", DefaultValue::Enum("Default")),
-            ("AMD_PLANE_CTM", DefaultValue::Fixed(0)),
-            ("AMD_PLANE_DEGAMMA_LUT", DefaultValue::Fixed(0)),
-            ("AMD_PLANE_HDR_MULT", DefaultValue::Fixed(0)),
-            ("AMD_PLANE_LUT3D", DefaultValue::Fixed(0)),
-            ("AMD_PLANE_SHAPER_LUT", DefaultValue::Fixed(0)),
-            ("AMD_PLANE_SHAPER_TF", DefaultValue::Enum("Default")),
-            ("alpha", DefaultValue::RangeMax),
-            ("pixel blend mode", DefaultValue::Enum("Pre-multiplied")),
-            ("rotation", DefaultValue::Bitmask(&["rotate-0"])),
-            ("COLOR_PIPELINE", DefaultValue::Enum("Bypass")),
+            ("AMD_PLANE_BLEND_LUT", DefaultValue::Fixed(0), ()),
+            ("AMD_PLANE_BLEND_TF", DefaultValue::Enum("Default"), ()),
+            ("AMD_PLANE_CTM", DefaultValue::Fixed(0), ()),
+            ("AMD_PLANE_DEGAMMA_LUT", DefaultValue::Fixed(0), ()),
+            ("AMD_PLANE_HDR_MULT", DefaultValue::Fixed(0), ()),
+            ("AMD_PLANE_LUT3D", DefaultValue::Fixed(0), ()),
+            ("AMD_PLANE_SHAPER_LUT", DefaultValue::Fixed(0), ()),
+            ("AMD_PLANE_SHAPER_TF", DefaultValue::Enum("Default"), ()),
+            ("alpha", DefaultValue::RangeMax, ()),
+            ("pixel blend mode", DefaultValue::Enum("Pre-multiplied"), ()),
+            ("rotation", DefaultValue::Bitmask(&["rotate-0"]), ()),
+            ("COLOR_PIPELINE", DefaultValue::Enum("Bypass"), ()),
         ],
     );
     let in_fence_fd = props.get("IN_FENCE_FD")?;
