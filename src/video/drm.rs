@@ -11,6 +11,7 @@ use {
             buf::Buf,
             errorfmt::ErrorFmt,
             oserror::{OsError, OsErrorExt2},
+            reset::Reset,
             stack::Stack,
             syncqueue::SyncQueue,
             vec_ext::VecExt,
@@ -38,6 +39,7 @@ use {
     bstr::{BString, ByteSlice},
     indexmap::IndexSet,
     linearize::{Linearize, StaticMap},
+    log::Level,
     std::{
         cell::{Cell, RefCell},
         ffi::CString,
@@ -696,16 +698,26 @@ pub struct DrmPropertyEnumValue {
     pub name: BString,
 }
 
-#[derive(Debug)]
-pub struct DrmPropertyValue {
+#[derive(Copy, Clone, Debug)]
+pub struct DrmPropertyValue<T = u64> {
     pub id: DrmProperty,
-    pub value: u64,
+    pub value: T,
+}
+
+impl<T> DrmPropertyValue<T> {
+    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> DrmPropertyValue<U> {
+        DrmPropertyValue {
+            id: self.id,
+            value: f(self.value),
+        }
+    }
 }
 
 pub trait DrmObject {
     const TYPE: u32;
     const NONE: Self;
     fn id(&self) -> u32;
+    fn from_id(id: u32) -> Self;
     fn is_some(&self) -> bool;
     fn is_none(&self) -> bool;
 }
@@ -725,12 +737,22 @@ macro_rules! drm_obj {
                 self.0
             }
 
+            fn from_id(v: u32) -> Self {
+                Self(v)
+            }
+
             fn is_some(&self) -> bool {
                 self.0 != 0
             }
 
             fn is_none(&self) -> bool {
                 self.0 == 0
+            }
+        }
+
+        impl Reset for $name {
+            fn reset(&mut self) {
+                *self = Self::NONE;
             }
         }
     };
@@ -1082,12 +1104,17 @@ impl Drop for Change {
 }
 
 pub trait ObjectChangeValue {
+    fn from_u64(v: u64) -> Self;
     fn into_u64(self) -> u64;
 }
 
 macro_rules! num {
     ($ty:ty) => {
         impl ObjectChangeValue for $ty {
+            fn from_u64(v: u64) -> Self {
+                v as Self
+            }
+
             fn into_u64(self) -> u64 {
                 self as u64
             }
@@ -1100,12 +1127,25 @@ num!(i32);
 num!(u32);
 num!(i64);
 num!(u64);
-num!(bool);
+
+impl ObjectChangeValue for bool {
+    fn from_u64(v: u64) -> Self {
+        v != 0
+    }
+
+    fn into_u64(self) -> u64 {
+        self as u64
+    }
+}
 
 impl<T> ObjectChangeValue for T
 where
     T: DrmObject,
 {
+    fn from_u64(v: u64) -> Self {
+        DrmObject::from_id(v as _)
+    }
+
     fn into_u64(self) -> u64 {
         self.id() as u64
     }
@@ -1311,6 +1351,131 @@ impl Drop for GemHandle {
         self.master.gem_handles.borrow_mut().remove(&self.handle);
         if let Err(e) = gem_close(self.master.raw(), self.handle) {
             log::error!("Could not close gem handle: {}", ErrorFmt(e));
+        }
+    }
+}
+
+pub struct Logging {
+    pub target: &'static str,
+    pub level: Level,
+}
+
+pub trait PrepareDrmObjectProperties {
+    fn update(&mut self, p: &BHashMap<DrmProperty, u64>);
+    #[expect(dead_code)]
+    fn prepare(&self, change: &mut ObjectChange<'_>, logging: Option<&Logging>);
+    fn differs(&self, old: &Self) -> bool;
+    fn prepare_conditional(
+        &self,
+        old: &Self,
+        change: &mut ObjectChange<'_>,
+        logging: Option<&Logging>,
+    );
+}
+
+pub trait PrepareDrmObjectProperty {
+    fn reset(&mut self);
+    fn update(&mut self, p: &BHashMap<DrmProperty, u64>);
+    fn prepare(&self, change: &mut ObjectChange<'_>, name: &str, logging: Option<&Logging>);
+    fn differs(&self, old: &Self) -> bool;
+    fn prepare_conditional(
+        &self,
+        old: &Self,
+        change: &mut ObjectChange<'_>,
+        name: &str,
+        logging: Option<&Logging>,
+    );
+}
+
+impl<T> PrepareDrmObjectProperty for Option<T>
+where
+    T: PrepareDrmObjectProperty,
+{
+    fn reset(&mut self) {
+        if let Some(v) = self {
+            v.reset();
+        }
+    }
+
+    fn update(&mut self, p: &BHashMap<DrmProperty, u64>) {
+        if let Some(v) = self {
+            v.update(p);
+        }
+    }
+
+    fn prepare(&self, change: &mut ObjectChange<'_>, name: &str, logging: Option<&Logging>) {
+        if let Some(v) = self {
+            v.prepare(change, name, logging);
+        }
+    }
+
+    fn differs(&self, old: &Self) -> bool {
+        if let Some(n) = self
+            && let Some(o) = old
+        {
+            return n.differs(o);
+        }
+        false
+    }
+
+    fn prepare_conditional(
+        &self,
+        old: &Self,
+        change: &mut ObjectChange<'_>,
+        name: &str,
+        logging: Option<&Logging>,
+    ) {
+        if let Some(n) = self
+            && let Some(o) = old
+        {
+            n.prepare_conditional(o, change, name, logging);
+        }
+    }
+}
+
+impl<T> PrepareDrmObjectProperty for DrmPropertyValue<T>
+where
+    T: ObjectChangeValue + Debug + Copy,
+{
+    fn reset(&mut self) {
+        self.value = T::from_u64(0);
+    }
+
+    fn update(&mut self, p: &BHashMap<DrmProperty, u64>) {
+        if let Some(v) = p.get(&self.id) {
+            self.value = T::from_u64(*v);
+        }
+    }
+
+    fn prepare(&self, change: &mut ObjectChange<'_>, name: &str, logging: Option<&Logging>) {
+        if let Some(logging) = logging {
+            log::log!(target: logging.target, logging.level, "    setting {name} to {:?}", self.value);
+        }
+        change.change(self.id, self.value);
+    }
+
+    fn differs(&self, old: &Self) -> bool {
+        self.value.into_u64() != old.value.into_u64()
+    }
+
+    fn prepare_conditional(
+        &self,
+        old: &Self,
+        change: &mut ObjectChange<'_>,
+        name: &str,
+        logging: Option<&Logging>,
+    ) {
+        if self.differs(old) {
+            if let Some(logging) = logging {
+                log::log!(
+                    target: logging.target,
+                    logging.level,
+                    "    changing {name} from {:?} to {:?}",
+                    old.value,
+                    self.value,
+                );
+            }
+            change.change(self.id, self.value);
         }
     }
 }

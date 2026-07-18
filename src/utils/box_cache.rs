@@ -92,7 +92,7 @@ impl<T> BoxCache<T, BoxUninit> {
 
 impl<T> BoxCache<T, BoxReset>
 where
-    T: Reset,
+    T: Reset + Default,
 {
     pub fn get(self: &Rc<Self>) -> CachedBox<T, BoxReset> {
         let c = self.boxes.pop().unwrap_or_default();
@@ -105,7 +105,7 @@ where
 
 impl<T> CachedBox<T, BoxReset>
 where
-    T: Reset,
+    T: Reset + Default,
 {
     pub fn take(self: &mut CachedBox<T, BoxReset>) -> CachedBox<T, BoxReset> {
         mem::replace(self, self.cache.get())

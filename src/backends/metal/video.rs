@@ -18,7 +18,10 @@ use {
                 DEFAULT_POST_COMMIT_MARGIN, DEFAULT_PRE_COMMIT_MARGIN, DirectScanoutCache,
                 POST_COMMIT_MARGIN_DELTA, PresentFb,
             },
-            transaction::{DrmConnectorState, DrmCrtcState, DrmPlaneState, MetalDeviceTransaction},
+            transaction::{
+                DrmConnectorState, DrmConnectorStateProps, DrmCrtcState, DrmCrtcStateProps,
+                DrmPlaneState, DrmPlaneStateProps, MetalDeviceTransaction,
+            },
         },
         cmm::{cmm_description::ColorDescription, cmm_primaries::Primaries},
         copy_device::{CopyDevice, CopyDeviceRegistry},
@@ -57,8 +60,8 @@ use {
                 DRM_CLIENT_CAP_PLANE_COLOR_PIPELINE, DrmBlob, DrmCardResources, DrmConnector,
                 DrmCrtc, DrmEncoder, DrmError, DrmEvent, DrmFb, DrmLease, DrmMaster, DrmModeInfo,
                 DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition, DrmPropertyType,
-                DrmVersion, HDMI_EOTF_TRADITIONAL_GAMMA_SDR, drm_mode_modeinfo,
-                hdr_output_metadata,
+                DrmPropertyValue, DrmVersion, HDMI_EOTF_TRADITIONAL_GAMMA_SDR,
+                PrepareDrmObjectProperties, drm_mode_modeinfo, hdr_output_metadata,
             },
             gbm::GbmDevice,
         },
@@ -363,8 +366,6 @@ pub struct DefaultProperty {
 
 #[derive(Debug)]
 pub struct ConnectorDisplayData {
-    pub link_status: DrmProperty,
-    pub crtc_id: DrmProperty,
     pub crtcs: BinarySearchMap<DrmCrtc, Rc<MetalCrtc>, 8>,
     pub first_mode: Mode,
     pub modes: Vec<DrmModeInfo>,
@@ -390,18 +391,16 @@ pub struct ConnectorDisplayData {
     pub primaries: Primaries,
     pub luminance: Option<BackendLuminance>,
 
-    pub colorspace: Option<DrmProperty>,
-    pub hdr_metadata: Option<DrmProperty>,
     pub drm_state: DrmConnectorState,
 }
 
 impl ConnectorDisplayData {
     fn update_refresh(&mut self, dev: &MetalDrmDevice) {
         self.refresh = 0;
-        if self.drm_state.crtc_id.is_none() {
+        if self.drm_state.crtc_id.value.is_none() {
             return;
         }
-        let Some(crtc) = dev.crtcs.get(&self.drm_state.crtc_id) else {
+        let Some(crtc) = dev.crtcs.get(&self.drm_state.crtc_id.value) else {
             return;
         };
         let drm_state = &*crtc.drm_state.borrow();
@@ -914,11 +913,7 @@ pub struct MetalCrtc {
     pub connector: CloneCell<Option<Rc<MetalConnector>>>,
     pub pending_flip: CloneCell<Option<Rc<MetalConnector>>>,
 
-    pub active: DrmProperty,
-    pub mode_id: DrmProperty,
-    pub vrr_enabled: DrmProperty,
     pub out_fence_ptr: DrmProperty,
-    pub gamma_lut: Option<DrmProperty>,
     pub gamma_lut_size: Option<u32>,
     pub drm_state: RefCell<DrmCrtcState>,
 
@@ -969,17 +964,7 @@ pub struct MetalPlane {
     pub mode_w: Cell<i32>,
     pub mode_h: Cell<i32>,
 
-    pub crtc_id: DrmProperty,
-    pub crtc_x: DrmProperty,
-    pub crtc_y: DrmProperty,
-    pub crtc_w: DrmProperty,
-    pub crtc_h: DrmProperty,
-    pub src_x: DrmProperty,
-    pub src_y: DrmProperty,
-    pub src_w: DrmProperty,
-    pub src_h: DrmProperty,
     pub in_fence_fd: DrmProperty,
-    pub fb_id: DrmProperty,
 
     pub drm_state: RefCell<DrmPlaneState>,
 }
@@ -1381,9 +1366,7 @@ fn create_connector_display_data(
         .map(|p| p.map(|v| DrmBlob(v as _)))
         .ok();
     let mut hdr_metadata = None;
-    let mut hdr_metadata_blob_id = DrmBlob::NONE;
     if let Some(p) = &hdr_metadata_prop {
-        hdr_metadata_blob_id = p.value;
         hdr_metadata = Some(hdr_output_metadata::from_eotf(
             HDMI_EOTF_TRADITIONAL_GAMMA_SDR,
         ));
@@ -1400,11 +1383,7 @@ fn create_connector_display_data(
     let link_status = props.get("link-status")?;
     let crtc_id = props.get("CRTC_ID")?.map(|v| DrmCrtc(v as _));
     let drm_state = DrmConnectorState {
-        link_status: link_status.value,
-        crtc_id: crtc_id.value,
-        color_space: colorspace_prop.map(|p| p.value),
         hdr_metadata,
-        hdr_metadata_blob_id,
         hdr_metadata_blob: None,
         locked: true,
         fb: DrmFb::NONE,
@@ -1420,10 +1399,14 @@ fn create_connector_display_data(
         crtc_y: 0,
         crtc_w: 0,
         crtc_h: 0,
+        props: DrmConnectorStateProps {
+            link_status,
+            crtc_id,
+            color_space: colorspace_prop,
+            hdr_metadata_blob_id: hdr_metadata_prop,
+        },
     };
     Ok(ConnectorDisplayData {
-        link_status: link_status.id,
-        crtc_id: props.get("CRTC_ID")?.id,
         crtcs,
         first_mode,
         modes: info.modes,
@@ -1445,8 +1428,6 @@ fn create_connector_display_data(
         luminance,
         connector_id,
         output_id,
-        colorspace: colorspace_prop.map(|p| p.id),
-        hdr_metadata: hdr_metadata_prop.map(|p| p.id),
         drm_state,
     })
 }
@@ -1492,9 +1473,7 @@ fn create_crtc(
             ("OUT_FENCE_PTR", DefaultValue::Fixed(0)),
         ],
     );
-    let active = props.get("ACTIVE")?.map(|v| v == 1);
     let mode_id = props.get("MODE_ID")?.map(|v| DrmBlob(v as u32));
-    let vrr_enabled = props.get("VRR_ENABLED")?.map(|v| v == 1);
     let out_fence_ptr = props.get("OUT_FENCE_PTR")?;
     let gamma_lut = props
         .get("GAMMA_LUT")
@@ -1514,15 +1493,17 @@ fn create_crtc(
         }
     }
     let state = DrmCrtcState {
-        active: active.value,
         mode,
-        mode_blob_id: mode_id.value,
         mode_blob: None,
-        vrr_enabled: vrr_enabled.value,
         assigned_connector: DrmConnector::NONE,
         gamma_lut: None,
-        gamma_lut_blob_id: gamma_lut.map_or(DrmBlob::NONE, |v| v.value),
         gamma_lut_blob: None,
+        props: DrmCrtcStateProps {
+            active: props.get("ACTIVE")?.map(|v| v == 1),
+            mode_blob_id: mode_id,
+            vrr_enabled: props.get("VRR_ENABLED")?.map(|v| v == 1),
+            gamma_lut_blob_id: gamma_lut,
+        },
     };
     Ok(MetalCrtc {
         id: crtc,
@@ -1535,11 +1516,7 @@ fn create_crtc(
         connector: Default::default(),
         pending_flip: Default::default(),
         drm_state: RefCell::new(state),
-        active: active.id,
-        mode_id: mode_id.id,
-        vrr_enabled: vrr_enabled.id,
         out_fence_ptr: out_fence_ptr.id,
-        gamma_lut: gamma_lut.map(|v| v.id),
         gamma_lut_size,
         sequence: Cell::new(0),
         have_queued_sequence: Cell::new(false),
@@ -1624,30 +1601,22 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
             ("COLOR_PIPELINE", DefaultValue::Enum("Bypass")),
         ],
     );
-    let fb_id = props.get("FB_ID")?.map(|v| DrmFb(v as _));
-    let crtc_id = props.get("CRTC_ID")?.map(|v| DrmCrtc(v as _));
-    let crtc_x = props.get("CRTC_X")?.map(|v| v as i32);
-    let crtc_y = props.get("CRTC_Y")?.map(|v| v as i32);
-    let crtc_w = props.get("CRTC_W")?.map(|v| v as i32);
-    let crtc_h = props.get("CRTC_H")?.map(|v| v as i32);
-    let src_x = props.get("SRC_X")?.map(|v| v as u32);
-    let src_y = props.get("SRC_Y")?.map(|v| v as u32);
-    let src_w = props.get("SRC_W")?.map(|v| v as u32);
-    let src_h = props.get("SRC_H")?.map(|v| v as u32);
     let in_fence_fd = props.get("IN_FENCE_FD")?;
     let state = DrmPlaneState {
-        fb_id: fb_id.value,
-        src_x: src_x.value,
-        src_y: src_y.value,
-        src_w: src_w.value,
-        src_h: src_h.value,
         assigned_crtc: DrmCrtc::NONE,
-        crtc_id: crtc_id.value,
-        crtc_x: crtc_x.value,
-        crtc_y: crtc_y.value,
-        crtc_w: crtc_w.value,
-        crtc_h: crtc_h.value,
         buffers: None,
+        props: DrmPlaneStateProps {
+            fb_id: props.get("FB_ID")?.map(|v| DrmFb(v as _)),
+            src_x: props.get("SRC_X")?.map(|v| v as u32),
+            src_y: props.get("SRC_Y")?.map(|v| v as u32),
+            src_w: props.get("SRC_W")?.map(|v| v as u32),
+            src_h: props.get("SRC_H")?.map(|v| v as u32),
+            crtc_id: props.get("CRTC_ID")?.map(|v| DrmCrtc(v as _)),
+            crtc_x: props.get("CRTC_X")?.map(|v| v as i32),
+            crtc_y: props.get("CRTC_Y")?.map(|v| v as i32),
+            crtc_w: props.get("CRTC_W")?.map(|v| v as i32),
+            crtc_h: props.get("CRTC_H")?.map(|v| v as i32),
+        },
     };
     Ok(MetalPlane {
         id: plane,
@@ -1659,16 +1628,6 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
         formats,
         scanout_formats: Rc::new(scanout_formats),
         drm_state: RefCell::new(state),
-        fb_id: fb_id.id,
-        crtc_id: crtc_id.id,
-        crtc_x: crtc_x.id,
-        crtc_y: crtc_y.id,
-        crtc_w: crtc_w.id,
-        crtc_h: crtc_h.id,
-        src_x: src_x.id,
-        src_y: src_y.id,
-        src_w: src_w.id,
-        src_h: src_h.id,
         in_fence_fd: in_fence_fd.id,
         mode_w: Cell::new(0),
         mode_h: Cell::new(0),
@@ -1705,9 +1664,9 @@ struct CollectedProperties {
 }
 
 impl CollectedProperties {
-    fn get(&self, name: &str) -> Result<TypedProperty<u64>, DrmError> {
+    fn get(&self, name: &str) -> Result<DrmPropertyValue, DrmError> {
         match self.props.get(name.as_bytes().as_bstr()) {
-            Some((def, value)) => Ok(TypedProperty {
+            Some((def, value)) => Ok(DrmPropertyValue {
                 id: def.id,
                 value: *value,
             }),
@@ -1721,24 +1680,6 @@ impl CollectedProperties {
             res.insert(def.id, *val);
         }
         res
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct TypedProperty<T> {
-    pub id: DrmProperty,
-    pub value: T,
-}
-
-impl<T: Copy> TypedProperty<T> {
-    fn map<U, F>(self, f: F) -> TypedProperty<U>
-    where
-        F: FnOnce(T) -> U,
-    {
-        TypedProperty {
-            id: self.id,
-            value: f(self.value),
-        }
     }
 }
 
@@ -2137,31 +2078,23 @@ impl MetalBackend {
 
 impl MetalConnector {
     fn update_properties(&self) -> Result<(), DrmError> {
-        let get = |p: &BHashMap<DrmProperty, _>, k: DrmProperty| match p.get(&k) {
-            Some(v) => Ok(*v),
-            _ => todo!(),
-        };
         let master = &self.dev.master;
         let dd = &mut *self.display.borrow_mut();
         collect_untyped_properties(master, self.id, &mut dd.untyped_properties)?;
         let props = &dd.untyped_properties;
         let state = &mut dd.drm_state;
-        state.link_status = get(props, dd.link_status)?;
-        state.crtc_id = DrmCrtc(get(props, dd.crtc_id)? as _);
-        if let Some(cs) = dd.colorspace {
-            state.color_space = Some(get(props, cs)?);
-        } else {
-            state.color_space = None;
-        }
-        if let Some(meta) = dd.hdr_metadata {
-            let id = DrmBlob(get(props, meta)? as _);
-            let old = state.hdr_metadata_blob_id;
-            state.hdr_metadata_blob_id = id;
-            if old != id {
+        let old_hdr_metadata_id = state
+            .hdr_metadata_blob_id
+            .map(|v| v.value)
+            .unwrap_or_default();
+        state.update(props);
+        if let Some(prop) = &state.props.hdr_metadata_blob_id {
+            let new_hdr_metadata_id = prop.value;
+            if old_hdr_metadata_id != new_hdr_metadata_id {
                 state.hdr_metadata = None;
                 state.hdr_metadata_blob = None;
-                if id.is_some() {
-                    match master.getblob::<hdr_output_metadata>(id) {
+                if new_hdr_metadata_id.is_some() {
+                    match master.getblob::<hdr_output_metadata>(new_hdr_metadata_id) {
                         Ok(b) => {
                             state.hdr_metadata = Some(b);
                         }
@@ -2178,24 +2111,19 @@ impl MetalConnector {
 
 impl MetalCrtc {
     fn update_properties(&self) -> Result<(), DrmError> {
-        let get = |p: &BHashMap<DrmProperty, _>, k: DrmProperty| match p.get(&k) {
-            Some(v) => Ok(*v),
-            _ => todo!(),
-        };
         let master = &self.master;
         let props = &mut *self.untyped_properties.borrow_mut();
         collect_untyped_properties(master, self.id, props)?;
         let state = &mut *self.drm_state.borrow_mut();
-        state.active = get(&props, self.active)? != 0;
-        state.vrr_enabled = get(&props, self.vrr_enabled)? != 0;
-        let id = DrmBlob(get(props, self.mode_id)? as _);
-        let old = state.mode_blob_id;
-        state.mode_blob_id = id;
-        if old != id {
+        let old_mode_id = state.mode_blob_id.value;
+        let old_gamma_lut_id = state.gamma_lut_blob_id.map(|v| v.value).unwrap_or_default();
+        state.props.update(props);
+        let new_mode_id = state.props.mode_blob_id.value;
+        if old_mode_id != new_mode_id {
             state.mode = None;
             state.mode_blob = None;
-            if id.is_some() {
-                match master.getblob::<drm_mode_modeinfo>(id) {
+            if new_mode_id.is_some() {
+                match master.getblob::<drm_mode_modeinfo>(new_mode_id) {
                     Ok(b) => {
                         state.mode = Some(b.into());
                     }
@@ -2205,15 +2133,13 @@ impl MetalCrtc {
                 }
             }
         }
-        if let Some(gamma_lut) = self.gamma_lut {
-            let id = DrmBlob(get(props, gamma_lut)? as _);
-            let old = state.gamma_lut_blob_id;
-            state.gamma_lut_blob_id = id;
-            if old != id {
+        if let Some(prop) = &state.gamma_lut_blob_id {
+            let new_gamma_lut_id = prop.value;
+            if old_gamma_lut_id != new_gamma_lut_id {
                 state.gamma_lut = None;
                 state.gamma_lut_blob = None;
-                if id.is_some() {
-                    match master.getblob_vec::<BackendGammaLutElement>(id) {
+                if new_gamma_lut_id.is_some() {
+                    match master.getblob_vec::<BackendGammaLutElement>(new_gamma_lut_id) {
                         Ok(b) => {
                             state.gamma_lut = Some(Rc::new(BackendGammaLut::new(b)));
                         }
@@ -2230,23 +2156,9 @@ impl MetalCrtc {
 
 impl MetalPlane {
     fn update_properties(&self) -> Result<(), DrmError> {
-        let get = |p: &BHashMap<DrmProperty, _>, k: DrmProperty| match p.get(&k) {
-            Some(v) => Ok(*v),
-            _ => todo!(),
-        };
         let props = &mut *self.untyped_properties.borrow_mut();
         collect_untyped_properties(&self.master, self.id, props)?;
-        let state = &mut *self.drm_state.borrow_mut();
-        state.fb_id = DrmFb(get(props, self.fb_id)? as _);
-        state.src_x = get(props, self.src_x)? as _;
-        state.src_y = get(props, self.src_y)? as _;
-        state.src_w = get(props, self.src_w)? as _;
-        state.src_h = get(props, self.src_h)? as _;
-        state.crtc_id = DrmCrtc(get(props, self.crtc_id)? as _);
-        state.crtc_x = get(props, self.crtc_x)? as _;
-        state.crtc_y = get(props, self.crtc_y)? as _;
-        state.crtc_w = get(props, self.crtc_w)? as _;
-        state.crtc_h = get(props, self.crtc_h)? as _;
+        self.drm_state.borrow_mut().props.update(props);
         Ok(())
     }
 }

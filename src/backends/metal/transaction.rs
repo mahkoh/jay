@@ -12,66 +12,86 @@ use {
         backends::metal::{
             allocator::RenderBuffer,
             video::{
-                FrontState, MetalConnector, MetalCrtc, MetalDrmDeviceData, MetalPlane, PlaneType,
+                DefaultProperty, FrontState, MetalConnector, MetalCrtc, MetalDrmDeviceData,
+                MetalPlane, PlaneType,
             },
         },
         format::{ARGB8888, Format},
         gfx_api::SyncFile,
         tree::TreeTimeline::RenderTL,
         utils::{
-            binary_search_map::BinarySearchMap, cell_ext::CellExt, errorfmt::ErrorFmt,
-            hash_map_ext::HashMapExt, rc_eq::rc_eq,
+            bhash::BHashMap, binary_search_map::BinarySearchMap, cell_ext::CellExt,
+            errorfmt::ErrorFmt, hash_map_ext::HashMapExt, rc_eq::rc_eq, reset::Reset,
         },
         video::drm::{
             Change, ConnectorStatus, DRM_LINK_STATUS_GOOD, DRM_MODE_ATOMIC_ALLOW_MODESET, DrmBlob,
-            DrmConnector, DrmCrtc, DrmFb, DrmModeInfo, DrmObject, DrmPlane, PropBlob,
-            hdr_output_metadata,
+            DrmConnector, DrmCrtc, DrmFb, DrmModeInfo, DrmObject, DrmPlane, DrmProperty,
+            DrmPropertyValue, Logging, PrepareDrmObjectProperties, PropBlob, hdr_output_metadata,
         },
     },
     arrayvec::ArrayVec,
     bstr::ByteSlice,
-    std::{any::Any, cell::Cell, mem, rc::Rc, slice},
+    jay_proc::{PrepareDrmObjectProperties, Reset},
+    std::{
+        any::Any,
+        cell::Cell,
+        mem,
+        ops::{Deref, DerefMut},
+        rc::Rc,
+        slice,
+    },
     uapi::c,
 };
 
 const LEVEL: log::Level = log::Level::Debug;
 
-#[derive(Default, Clone, Debug)]
+const LOGGING: Option<&Logging> = Some(&Logging {
+    target: module_path!(),
+    level: LEVEL,
+});
+
+#[derive(Clone, Debug, Reset)]
 pub struct DrmPlaneState {
-    pub fb_id: DrmFb,
-    pub src_x: u32,
-    pub src_y: u32,
-    pub src_w: u32,
-    pub src_h: u32,
     pub assigned_crtc: DrmCrtc,
-    pub crtc_id: DrmCrtc,
-    pub crtc_x: i32,
-    pub crtc_y: i32,
-    pub crtc_w: i32,
-    pub crtc_h: i32,
     pub buffers: Option<Rc<[RenderBuffer; 2]>>,
+    pub props: DrmPlaneStateProps,
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone, Debug, PrepareDrmObjectProperties)]
+pub struct DrmPlaneStateProps {
+    pub fb_id: DrmPropertyValue<DrmFb>,
+    pub src_x: DrmPropertyValue<u32>,
+    pub src_y: DrmPropertyValue<u32>,
+    pub src_w: DrmPropertyValue<u32>,
+    pub src_h: DrmPropertyValue<u32>,
+    pub crtc_id: DrmPropertyValue<DrmCrtc>,
+    pub crtc_x: DrmPropertyValue<i32>,
+    pub crtc_y: DrmPropertyValue<i32>,
+    pub crtc_w: DrmPropertyValue<i32>,
+    pub crtc_h: DrmPropertyValue<i32>,
+}
+
+#[derive(Clone, Reset)]
 pub struct DrmCrtcState {
-    pub active: bool,
     pub mode: Option<DrmModeInfo>,
-    pub mode_blob_id: DrmBlob,
     pub mode_blob: Option<Rc<PropBlob>>,
-    pub vrr_enabled: bool,
     pub assigned_connector: DrmConnector,
     pub gamma_lut: Option<Rc<BackendGammaLut>>,
-    pub gamma_lut_blob_id: DrmBlob,
     pub gamma_lut_blob: Option<Rc<PropBlob>>,
+    pub props: DrmCrtcStateProps,
 }
 
-#[derive(Default, Clone, Debug)]
+#[derive(Clone, Debug, PrepareDrmObjectProperties)]
+pub struct DrmCrtcStateProps {
+    pub active: DrmPropertyValue<bool>,
+    pub mode_blob_id: DrmPropertyValue<DrmBlob>,
+    pub vrr_enabled: DrmPropertyValue<bool>,
+    pub gamma_lut_blob_id: Option<DrmPropertyValue<DrmBlob>>,
+}
+
+#[derive(Clone, Debug, Reset)]
 pub struct DrmConnectorState {
-    pub link_status: u64,
-    pub crtc_id: DrmCrtc,
-    pub color_space: Option<u64>,
     pub hdr_metadata: Option<hdr_output_metadata>,
-    pub hdr_metadata_blob_id: DrmBlob,
     pub hdr_metadata_blob: Option<Rc<PropBlob>>,
     pub locked: bool,
     pub fb: DrmFb,
@@ -87,6 +107,15 @@ pub struct DrmConnectorState {
     pub crtc_y: i32,
     pub crtc_w: i32,
     pub crtc_h: i32,
+    pub props: DrmConnectorStateProps,
+}
+
+#[derive(Clone, Debug, PrepareDrmObjectProperties)]
+pub struct DrmConnectorStateProps {
+    pub link_status: DrmPropertyValue,
+    pub crtc_id: DrmPropertyValue<DrmCrtc>,
+    pub color_space: Option<DrmPropertyValue>,
+    pub hdr_metadata_blob_id: Option<DrmPropertyValue<DrmBlob>>,
 }
 
 struct PlaneConfig {
@@ -136,6 +165,28 @@ pub struct MetalDeviceTransactionWithChange {
 pub struct MetalDeviceAppliedTransaction {
     rollback: MetalDeviceTransactionWithDrmState,
 }
+
+macro_rules! impl_props_deref {
+    ($outer:ident, $inner:ident) => {
+        impl Deref for $outer {
+            type Target = $inner;
+
+            fn deref(&self) -> &Self::Target {
+                &self.props
+            }
+        }
+
+        impl DerefMut for $outer {
+            fn deref_mut(&mut self) -> &mut Self::Target {
+                &mut self.props
+            }
+        }
+    };
+}
+
+impl_props_deref!(DrmPlaneState, DrmPlaneStateProps);
+impl_props_deref!(DrmCrtcState, DrmCrtcStateProps);
+impl_props_deref!(DrmConnectorState, DrmConnectorStateProps);
 
 impl MetalConnector {
     pub fn create_transaction(
@@ -254,8 +305,8 @@ impl MetalDeviceTransaction {
             unused_crtcs.insert(crtc.obj.id, ());
         }
         for (_, connector) in &slf.connectors {
-            unused_crtcs.remove(&connector.new.crtc_id);
-            if let Some(crtc) = slf.crtcs.get_mut(&connector.new.crtc_id)
+            unused_crtcs.remove(&connector.new.crtc_id.value);
+            if let Some(crtc) = slf.crtcs.get_mut(&connector.new.crtc_id.value)
                 && crtc.changed.is_empty()
             {
                 crtc.changed.push(connector.changed.clone());
@@ -265,13 +316,13 @@ impl MetalDeviceTransaction {
             if let Some(crtc) = slf.crtcs.get_mut(&plane.new.assigned_crtc) {
                 plane.changed.extend(crtc.changed.iter().cloned());
             }
-            if plane.new.crtc_id.is_some() {
-                plane.new.assigned_crtc = plane.new.crtc_id;
+            if plane.new.crtc_id.value.is_some() {
+                plane.new.assigned_crtc = plane.new.crtc_id.value;
             }
             macro_rules! discard_plane {
                 () => {
                     unused_planes.insert(plane.obj.id, ());
-                    plane.new.crtc_id = DrmCrtc::NONE;
+                    plane.new.crtc_id.value = DrmCrtc::NONE;
                     plane.new.assigned_crtc = DrmCrtc::NONE;
                 };
             }
@@ -311,26 +362,26 @@ impl MetalDeviceTransaction {
                 || dd.connection != ConnectorStatus::Connected
                 || state.non_desktop_override.unwrap_or(dd.non_desktop)
             {
-                if connector.new.crtc_id.is_some() {
-                    unused_crtcs.insert(connector.new.crtc_id, ());
-                    if let Some(crtc) = slf.crtcs.get(&connector.new.crtc_id) {
+                if connector.new.crtc_id.value.is_some() {
+                    unused_crtcs.insert(connector.new.crtc_id.value, ());
+                    if let Some(crtc) = slf.crtcs.get(&connector.new.crtc_id.value) {
                         let planes = crtc_planes.get_mut(&crtc.obj.id).unwrap();
                         for plane in [&mut planes.primary, &mut planes.cursor] {
                             if plane.is_some() {
                                 unused_planes.insert(*plane, ());
                                 let plane = slf.planes.get_mut(plane).unwrap();
-                                plane.new.crtc_id = DrmCrtc::NONE;
+                                plane.new.crtc_id.value = DrmCrtc::NONE;
                                 plane.new.assigned_crtc = DrmCrtc::NONE;
                             }
                         }
                         *planes = CrtcPlanes::default();
                     }
                 }
-                connector.new = DrmConnectorState::default();
+                connector.new.reset();
                 continue;
             }
-            connector.new.link_status = DRM_LINK_STATUS_GOOD;
-            if connector.new.crtc_id.is_none() {
+            connector.new.link_status.value = DRM_LINK_STATUS_GOOD;
+            if connector.new.crtc_id.value.is_none() {
                 let crtc_id = 'crtc_id: {
                     for (crtc, _) in &dd.crtcs {
                         if unused_crtcs.contains(crtc) {
@@ -342,10 +393,10 @@ impl MetalDeviceTransaction {
                     ));
                 };
                 unused_crtcs.remove(crtc_id);
-                connector.new.crtc_id = *crtc_id;
+                connector.new.crtc_id.value = *crtc_id;
             }
-            let crtc = slf.crtcs.get_mut(&connector.new.crtc_id).unwrap();
-            crtc.new.active = state.active;
+            let crtc = slf.crtcs.get_mut(&connector.new.crtc_id.value).unwrap();
+            crtc.new.active.value = state.active;
             crtc.new.assigned_connector = connector.obj.id;
             crtc.changed.push(connector.changed.clone());
             let crtc_planes = crtc_planes.get_mut(&crtc.obj.id).unwrap();
@@ -426,11 +477,13 @@ impl MetalDeviceTransaction {
                     .master
                     .create_blob(&mode.to_raw())
                     .map_err(BackendConnectorTransactionError::CreateModeBlob)?;
-                crtc.new.mode_blob_id = blob.id();
+                crtc.new.mode_blob_id.value = blob.id();
                 crtc.new.mode_blob = Some(Rc::new(blob));
                 mode.clone()
             };
-            if crtc.new.gamma_lut != state.gamma_lut {
+            if crtc.new.gamma_lut != state.gamma_lut
+                && let Some(prop) = &mut crtc.new.gamma_lut_blob_id
+            {
                 if let Some(gamma_lut) = &state.gamma_lut {
                     let blob = slf
                         .dev
@@ -438,10 +491,10 @@ impl MetalDeviceTransaction {
                         .master
                         .create_blob(&gamma_lut.gamma_lut as &[_])
                         .map_err(BackendConnectorTransactionError::CreateGammaLutBlob)?;
-                    crtc.new.gamma_lut_blob_id = blob.id();
+                    prop.value = blob.id();
                     crtc.new.gamma_lut_blob = Some(Rc::new(blob));
                 } else {
-                    crtc.new.gamma_lut_blob_id = DrmBlob::NONE;
+                    prop.value = DrmBlob::NONE;
                     crtc.new.gamma_lut_blob = None;
                 }
                 crtc.new.gamma_lut = state.gamma_lut.clone();
@@ -473,14 +526,14 @@ impl MetalDeviceTransaction {
                     }
                 };
                 plane.new.buffers = old_buffers.clone();
-                plane.new.src_x = 0;
-                plane.new.src_y = 0;
-                plane.new.src_w = (width as u32) << 16;
-                plane.new.src_h = (height as u32) << 16;
-                plane.new.crtc_x = x;
-                plane.new.crtc_y = y;
-                plane.new.crtc_w = width;
-                plane.new.crtc_h = height;
+                plane.new.src_x.value = 0;
+                plane.new.src_y.value = 0;
+                plane.new.src_w.value = (width as u32) << 16;
+                plane.new.src_h.value = (height as u32) << 16;
+                plane.new.crtc_x.value = x;
+                plane.new.crtc_y.value = y;
+                plane.new.crtc_w.value = width;
+                plane.new.crtc_h.value = height;
                 if let Some(b) = &plane.new.buffers {
                     'discard: {
                         macro_rules! discard {
@@ -540,7 +593,7 @@ impl MetalDeviceTransaction {
                                 connector.obj.kernel_id(),
                                 ErrorFmt(e),
                             );
-                            plane.new = DrmPlaneState::default();
+                            plane.new.reset();
                             unused_planes.insert(*plane_id, ());
                             *plane_id = DrmPlane::NONE;
                             continue;
@@ -571,12 +624,12 @@ impl MetalDeviceTransaction {
                         (connector.new.cursor_fb, &mut connector.new.cursor_fb_idx)
                     }
                 };
-                plane.new.crtc_id = DrmCrtc::NONE;
-                plane.new.fb_id = DrmFb::NONE;
+                plane.new.crtc_id.value = DrmCrtc::NONE;
+                plane.new.fb_id.value = DrmFb::NONE;
                 if plane.obj.ty == PlaneType::Primary || fb_id.is_some() {
-                    plane.new.crtc_id = crtc.obj.id;
+                    plane.new.crtc_id.value = crtc.obj.id;
                     let locked = slf.dev.dev.backend.state.lock.locked[RenderTL].get();
-                    let may_show_current_fb = !crtc.new.active
+                    let may_show_current_fb = !crtc.new.active.value
                         || connector.new.locked
                         || !locked
                         || plane.obj.ty != PlaneType::Primary;
@@ -585,10 +638,10 @@ impl MetalDeviceTransaction {
                         && self.allow_direct_scanout
                         && may_show_current_fb
                     {
-                        plane.new.fb_id = fb_id;
+                        plane.new.fb_id.value = fb_id;
                         macro_rules! copy {
                             ($field:ident) => {
-                                plane.new.$field = connector.new.$field;
+                                plane.new.$field.value = connector.new.$field;
                             };
                         }
                         copy!(src_w);
@@ -600,10 +653,10 @@ impl MetalDeviceTransaction {
                     } else if current_buffers.iter().any(|b| b.drm.id() == fb_id)
                         && may_show_current_fb
                     {
-                        plane.new.fb_id = fb_id;
+                        plane.new.fb_id.value = fb_id;
                     } else if let Some(new_buffers) = &new_buffers {
                         let new_buffer = &new_buffers[0];
-                        plane.new.fb_id = new_buffer.drm.id();
+                        plane.new.fb_id.value = new_buffer.drm.id();
                         *fb_idx = 0;
                         let cd = connector.obj.color_description.get();
                         let res = if let Some(prev) = &old_buffers
@@ -629,12 +682,12 @@ impl MetalDeviceTransaction {
                     } else {
                         if may_show_current_fb {
                             let idx = *fb_idx % current_buffers.len() as u64;
-                            plane.new.fb_id = current_buffers[idx as usize].drm.id();
+                            plane.new.fb_id.value = current_buffers[idx as usize].drm.id();
                         } else {
                             let idx = (*fb_idx + 1) % current_buffers.len() as u64;
                             *fb_idx = idx;
                             let buffer = &current_buffers[idx as usize];
-                            plane.new.fb_id = buffer.drm.id();
+                            plane.new.fb_id.value = buffer.drm.id();
                             if !buffer.locked.get() {
                                 if !connector.obj.buffers_idle.get()
                                     && let Some(fd) = &connector.new.out_fd
@@ -675,7 +728,7 @@ impl MetalDeviceTransaction {
                 if plane.obj.ty == PlaneType::Primary {
                     macro_rules! copy {
                         ($field:ident) => {
-                            connector.new.$field = plane.new.$field;
+                            connector.new.$field = plane.new.$field.value;
                         };
                     }
                     copy!(src_w);
@@ -691,7 +744,7 @@ impl MetalDeviceTransaction {
                     connector.obj.kernel_id(),
                 ));
             }
-            crtc.new.vrr_enabled = state.vrr;
+            crtc.new.vrr_enabled.value = state.vrr;
             if state.tearing && !slf.dev.dev.supports_async_commit {
                 return Err(BackendConnectorTransactionError::TearingNotSupported(
                     connector.obj.kernel_id(),
@@ -720,9 +773,9 @@ impl MetalDeviceTransaction {
                 }
             }
             if let Some(cs) = &mut connector.new.color_space {
-                *cs = state.color_space.to_drm();
+                cs.value = state.color_space.to_drm();
             }
-            if dd.hdr_metadata.is_some() {
+            if let Some(prop) = &mut connector.new.props.hdr_metadata_blob_id {
                 let new = if state.eotf == BackendEotfs::Default {
                     None
                 } else {
@@ -736,27 +789,27 @@ impl MetalDeviceTransaction {
                             .master
                             .create_blob(new)
                             .map_err(BackendConnectorTransactionError::CreateHdrMetadataBlob)?;
-                        connector.new.hdr_metadata_blob_id = blob.id();
+                        prop.value = blob.id();
                         connector.new.hdr_metadata_blob = Some(Rc::new(blob));
                     } else {
-                        connector.new.hdr_metadata_blob_id = DrmBlob::NONE;
+                        prop.value = DrmBlob::NONE;
                         connector.new.hdr_metadata_blob = None;
                     }
                     connector.new.hdr_metadata = new;
                 } else if new.is_none() {
-                    connector.new.hdr_metadata_blob_id = DrmBlob::NONE;
+                    prop.value = DrmBlob::NONE;
                     connector.new.hdr_metadata_blob = None;
                 }
             }
         }
         for (crtc, _) in &unused_crtcs {
             if let Some(crtc) = slf.crtcs.get_mut(crtc) {
-                crtc.new = DrmCrtcState::default();
+                crtc.new.reset();
             }
         }
         for (plane, _) in &unused_planes {
             if let Some(plane) = slf.planes.get_mut(plane) {
-                plane.new = DrmPlaneState::default();
+                plane.new.reset();
             }
         }
         for sync in syncs {
@@ -768,36 +821,41 @@ impl MetalDeviceTransaction {
     }
 }
 
-macro_rules! log_change {
-    ($o:expr, $n:expr, $field:ident) => {
-        log::log!(
-            LEVEL,
-            "changed {}: {:?} -> {:?}",
-            stringify!($field),
-            $o.$field,
-            $n.$field
-        );
-    };
-}
-
 impl MetalDeviceTransactionWithDrmState {
     pub fn calculate_change(
         mut self,
         test: bool,
         reset_default_properties: bool,
     ) -> Result<MetalDeviceTransactionWithChange, BackendConnectorTransactionError> {
+        fn for_each_changed_default_property(
+            props: &BHashMap<DrmProperty, u64>,
+            defaults: &[DefaultProperty],
+            mut f: impl FnMut(u64, &DefaultProperty),
+        ) {
+            for dp in defaults {
+                let old = props.get(&dp.prop).copied().unwrap_or_default();
+                let new = dp.value;
+                if old != new {
+                    f(old, dp);
+                }
+            }
+        }
+        macro_rules! need_reset_default_properties {
+            ($props:expr, $defaults:expr $(,)?) => {{
+                let mut changed = false;
+                if reset_default_properties {
+                    for_each_changed_default_property($props, $defaults, |_, _| changed = true);
+                }
+                changed
+            }};
+        }
         macro_rules! reset_default_properties {
             ($c:expr, $props:expr, $defaults:expr $(,)?) => {{
                 if reset_default_properties {
-                    let props = $props;
-                    for dp in $defaults {
-                        let old = props.get(&dp.prop).copied().unwrap_or_default();
-                        let new = dp.value;
-                        if old != new {
-                            log::log!(LEVEL, "changed {}: {old} -> {new}", dp.name);
-                            $c.change(dp.prop, new);
-                        }
-                    }
+                    for_each_changed_default_property($props, $defaults, |old, dp| {
+                        log::log!(LEVEL, "    changing {} from {old} to {}", dp.name, dp.value);
+                        $c.change(dp.prop, dp.value);
+                    });
                 }
             }};
         }
@@ -806,123 +864,73 @@ impl MetalDeviceTransactionWithDrmState {
         let mut c = slf.dev.dev.master.change();
         for (_, connector) in &mut slf.connectors {
             let dd = &*connector.obj.display.borrow();
-            let n = &mut connector.new;
-            let o = &dd.drm_state;
-            let changed = c.change_object(connector.obj.id, |c| {
-                if n.link_status != o.link_status {
-                    log_change!(o, n, link_status);
-                    c.change(dd.link_status, n.link_status);
-                }
-                if n.crtc_id != o.crtc_id {
-                    log_change!(o, n, crtc_id);
-                    c.change(dd.crtc_id, n.crtc_id);
-                }
-                if let Some(prop) = &dd.colorspace
-                    && let Some(new_cs) = n.color_space
-                    && let Some(old_cs) = o.color_space
-                    && new_cs != old_cs
-                {
-                    log_change!(o, n, color_space);
-                    c.change(*prop, new_cs);
-                }
-                if let Some(prop) = &dd.hdr_metadata
-                    && n.hdr_metadata_blob_id != o.hdr_metadata_blob_id
-                {
-                    log_change!(o, n, hdr_metadata_blob_id);
-                    c.change(*prop, n.hdr_metadata_blob_id);
-                }
-                reset_default_properties!(c, &dd.untyped_properties, &dd.default_properties);
-            });
-            if changed {
-                connector.changed.set(true);
-            }
+            let n = &connector.new.props;
+            let o = &dd.drm_state.props;
+            let untyped_properties = &dd.untyped_properties;
+            let default_properties = &dd.default_properties;
+            let changed = n.differs(o)
+                || need_reset_default_properties!(untyped_properties, default_properties);
             log::log!(
                 LEVEL,
                 "connector {:?} (crtc {:?}) {}changed",
-                connector.obj.id,
-                connector.new.crtc_id,
+                connector.obj.id.0,
+                connector.new.crtc_id.value.0,
                 if changed { "" } else { "un" },
             );
+            if changed {
+                c.change_object(connector.obj.id, |c| {
+                    n.prepare_conditional(o, c, LOGGING);
+                    reset_default_properties!(c, untyped_properties, default_properties);
+                });
+                connector.changed.set(true);
+            }
         }
         for (_, crtc) in &mut slf.crtcs {
-            let n = &mut crtc.new;
-            let o = &*crtc.obj.drm_state.borrow();
-            let changed = c.change_object(crtc.obj.id, |c| {
-                if n.active != o.active {
-                    log_change!(o, n, active);
-                    c.change(crtc.obj.active, n.active);
-                }
-                if n.vrr_enabled != o.vrr_enabled {
-                    log_change!(o, n, vrr_enabled);
-                    c.change(crtc.obj.vrr_enabled, n.vrr_enabled);
-                }
-                if n.mode_blob_id != o.mode_blob_id {
-                    log_change!(o, n, mode_blob_id);
-                    c.change(crtc.obj.mode_id, n.mode_blob_id);
-                }
-                if let Some(gamma_lut) = crtc.obj.gamma_lut
-                    && n.gamma_lut_blob_id != o.gamma_lut_blob_id
-                {
-                    log_change!(o, n, gamma_lut_blob_id);
-                    c.change(gamma_lut, n.gamma_lut_blob_id);
-                }
-                reset_default_properties!(
-                    c,
-                    &*crtc.obj.untyped_properties.borrow(),
-                    &crtc.obj.default_properties,
-                );
-            });
+            let n = &crtc.new.props;
+            let o = &crtc.obj.drm_state.borrow().props;
+            let untyped_properties = &*crtc.obj.untyped_properties.borrow();
+            let default_properties = &crtc.obj.default_properties;
+            let changed = n.differs(o)
+                || need_reset_default_properties!(untyped_properties, default_properties);
+            log::log!(
+                LEVEL,
+                "crtc {:?} {}changed",
+                crtc.obj.id.0,
+                if changed { "" } else { "un" },
+            );
             if changed {
-                log::log!(LEVEL, "crtc {:?} changed", crtc.obj.id);
+                c.change_object(crtc.obj.id, |c| {
+                    n.prepare_conditional(o, c, LOGGING);
+                    reset_default_properties!(c, untyped_properties, default_properties);
+                });
                 crtc.changed.iter().for_each(|c| c.set(true));
             }
         }
         for (_, plane) in &mut slf.planes {
-            let n = &mut plane.new;
-            let o = &*plane.obj.drm_state.borrow();
-            let changed = c.change_object(plane.obj.id, |c| {
-                if n.fb_id != o.fb_id {
-                    log_change!(o, n, fb_id);
-                    c.change(plane.obj.fb_id, n.fb_id);
-                    c.change(plane.obj.in_fence_fd, -1i32);
-                }
-                if n.crtc_id != o.crtc_id {
-                    log_change!(o, n, crtc_id);
-                    c.change(plane.obj.crtc_id, n.crtc_id);
-                }
-                macro_rules! change {
-                    ($field:ident) => {
-                        if n.$field != o.$field {
-                            log_change!(o, n, $field);
-                            c.change(plane.obj.$field, n.$field);
-                        }
-                    };
-                }
-                change!(src_x);
-                change!(src_y);
-                change!(src_w);
-                change!(src_h);
-                change!(crtc_x);
-                change!(crtc_y);
-                change!(crtc_w);
-                change!(crtc_h);
-                reset_default_properties!(
-                    c,
-                    &*plane.obj.untyped_properties.borrow(),
-                    &plane.obj.default_properties,
-                );
-            });
-            if changed {
-                plane.changed.iter().for_each(|c| c.set(true));
-            }
+            let n = &plane.new.props;
+            let o = &plane.obj.drm_state.borrow().props;
+            let untyped_properties = &*plane.obj.untyped_properties.borrow();
+            let default_properties = &plane.obj.default_properties;
+            let changed = n.differs(o)
+                || need_reset_default_properties!(untyped_properties, default_properties);
             log::log!(
                 LEVEL,
                 "plane {:?} (crtc {:?}) (ty {:?}) {}changed",
-                plane.obj.id,
-                plane.new.crtc_id,
+                plane.obj.id.0,
+                plane.new.crtc_id.value.0,
                 plane.obj.ty,
                 if changed { "" } else { "un" },
             );
+            if changed {
+                c.change_object(plane.obj.id, |c| {
+                    if n.fb_id.value != o.fb_id.value {
+                        c.change(plane.obj.in_fence_fd, -1i32);
+                    }
+                    n.prepare_conditional(o, c, LOGGING);
+                    reset_default_properties!(c, untyped_properties, default_properties);
+                });
+                plane.changed.iter().for_each(|c| c.set(true));
+            }
         }
         log::log!(
             LEVEL,
@@ -992,14 +1000,14 @@ impl MetalDeviceTransactionWithChange {
                 continue;
             }
             connector.obj.version.fetch_add(1);
-            if connector.new.crtc_id.is_none() {
+            if connector.new.crtc_id.value.is_none() {
                 connector.obj.crtc.set(None);
                 connector.obj.primary_plane.set(None);
                 connector.obj.cursor_plane.set(None);
                 connector.obj.buffers.set(None);
                 connector.obj.cursor_buffers.set(None);
             } else {
-                let crtc = slf.crtcs.get(&connector.new.crtc_id).unwrap();
+                let crtc = slf.crtcs.get(&connector.new.crtc_id.value).unwrap();
                 crtc.obj.connector.set(Some(connector.obj.clone()));
                 connector.obj.crtc.set(Some(crtc.obj.clone()));
                 connector.obj.crtc_idle.set(crtc.obj.pending_flip.is_none());
@@ -1026,12 +1034,12 @@ impl MetalDeviceTransactionWithChange {
                         PlaneType::Primary => {
                             connector.obj.primary_plane.set(Some(plane.obj.clone()));
                             connector.obj.buffers.set(plane.new.buffers.clone());
-                            connector.new.fb = plane.new.fb_id;
+                            connector.new.fb = plane.new.fb_id.value;
                         }
                         PlaneType::Cursor => {
                             connector.obj.cursor_plane.set(Some(plane.obj.clone()));
                             connector.obj.cursor_buffers.set(plane.new.buffers.clone());
-                            connector.new.cursor_fb = plane.new.fb_id;
+                            connector.new.cursor_fb = plane.new.fb_id.value;
                         }
                     }
                 }
