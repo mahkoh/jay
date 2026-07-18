@@ -19,8 +19,8 @@ use {
                 POST_COMMIT_MARGIN_DELTA, PresentFb,
             },
             transaction::{
-                DrmConnectorState, DrmCrtcState, DrmCrtcStateProps, DrmPlaneState,
-                DrmPlaneStateProps, MetalDeviceTransaction,
+                DrmConnectorState, DrmConnectorStateProps, DrmCrtcState, DrmCrtcStateProps,
+                DrmPlaneState, DrmPlaneStateProps, MetalDeviceTransaction,
             },
         },
         cmm::{cmm_description::ColorDescription, cmm_primaries::Primaries},
@@ -366,8 +366,6 @@ pub struct DefaultProperty {
 
 #[derive(Debug)]
 pub struct ConnectorDisplayData {
-    pub link_status: DrmProperty,
-    pub crtc_id: DrmProperty,
     pub crtcs: BinarySearchMap<DrmCrtc, Rc<MetalCrtc>, 8>,
     pub first_mode: Mode,
     pub modes: Vec<DrmModeInfo>,
@@ -393,18 +391,16 @@ pub struct ConnectorDisplayData {
     pub primaries: Primaries,
     pub luminance: Option<BackendLuminance>,
 
-    pub colorspace: Option<DrmProperty>,
-    pub hdr_metadata: Option<DrmProperty>,
     pub drm_state: DrmConnectorState,
 }
 
 impl ConnectorDisplayData {
     fn update_refresh(&mut self, dev: &MetalDrmDevice) {
         self.refresh = 0;
-        if self.drm_state.crtc_id.is_none() {
+        if self.drm_state.crtc_id.value.is_none() {
             return;
         }
-        let Some(crtc) = dev.crtcs.get(&self.drm_state.crtc_id) else {
+        let Some(crtc) = dev.crtcs.get(&self.drm_state.crtc_id.value) else {
             return;
         };
         let drm_state = &*crtc.drm_state.borrow();
@@ -1370,9 +1366,7 @@ fn create_connector_display_data(
         .map(|p| p.map(|v| DrmBlob(v as _)))
         .ok();
     let mut hdr_metadata = None;
-    let mut hdr_metadata_blob_id = DrmBlob::NONE;
     if let Some(p) = &hdr_metadata_prop {
-        hdr_metadata_blob_id = p.value;
         hdr_metadata = Some(hdr_output_metadata::from_eotf(
             HDMI_EOTF_TRADITIONAL_GAMMA_SDR,
         ));
@@ -1389,11 +1383,7 @@ fn create_connector_display_data(
     let link_status = props.get("link-status")?;
     let crtc_id = props.get("CRTC_ID")?.map(|v| DrmCrtc(v as _));
     let drm_state = DrmConnectorState {
-        link_status: link_status.value,
-        crtc_id: crtc_id.value,
-        color_space: colorspace_prop.map(|p| p.value),
         hdr_metadata,
-        hdr_metadata_blob_id,
         hdr_metadata_blob: None,
         locked: true,
         fb: DrmFb::NONE,
@@ -1409,10 +1399,14 @@ fn create_connector_display_data(
         crtc_y: 0,
         crtc_w: 0,
         crtc_h: 0,
+        props: DrmConnectorStateProps {
+            link_status,
+            crtc_id,
+            color_space: colorspace_prop,
+            hdr_metadata_blob_id: hdr_metadata_prop,
+        },
     };
     Ok(ConnectorDisplayData {
-        link_status: link_status.id,
-        crtc_id: props.get("CRTC_ID")?.id,
         crtcs,
         first_mode,
         modes: info.modes,
@@ -1434,8 +1428,6 @@ fn create_connector_display_data(
         luminance,
         connector_id,
         output_id,
-        colorspace: colorspace_prop.map(|p| p.id),
-        hdr_metadata: hdr_metadata_prop.map(|p| p.id),
         drm_state,
     })
 }
@@ -2086,31 +2078,23 @@ impl MetalBackend {
 
 impl MetalConnector {
     fn update_properties(&self) -> Result<(), DrmError> {
-        let get = |p: &BHashMap<DrmProperty, _>, k: DrmProperty| match p.get(&k) {
-            Some(v) => Ok(*v),
-            _ => todo!(),
-        };
         let master = &self.dev.master;
         let dd = &mut *self.display.borrow_mut();
         collect_untyped_properties(master, self.id, &mut dd.untyped_properties)?;
         let props = &dd.untyped_properties;
         let state = &mut dd.drm_state;
-        state.link_status = get(props, dd.link_status)?;
-        state.crtc_id = DrmCrtc(get(props, dd.crtc_id)? as _);
-        if let Some(cs) = dd.colorspace {
-            state.color_space = Some(get(props, cs)?);
-        } else {
-            state.color_space = None;
-        }
-        if let Some(meta) = dd.hdr_metadata {
-            let id = DrmBlob(get(props, meta)? as _);
-            let old = state.hdr_metadata_blob_id;
-            state.hdr_metadata_blob_id = id;
-            if old != id {
+        let old_hdr_metadata_id = state
+            .hdr_metadata_blob_id
+            .map(|v| v.value)
+            .unwrap_or_default();
+        state.update(props);
+        if let Some(prop) = &state.props.hdr_metadata_blob_id {
+            let new_hdr_metadata_id = prop.value;
+            if old_hdr_metadata_id != new_hdr_metadata_id {
                 state.hdr_metadata = None;
                 state.hdr_metadata_blob = None;
-                if id.is_some() {
-                    match master.getblob::<hdr_output_metadata>(id) {
+                if new_hdr_metadata_id.is_some() {
+                    match master.getblob::<hdr_output_metadata>(new_hdr_metadata_id) {
                         Ok(b) => {
                             state.hdr_metadata = Some(b);
                         }

@@ -38,11 +38,19 @@ impl Reset for bool {
     }
 }
 
-impl Reset for i32 {
-    fn reset(&mut self) {
-        *self = 0;
-    }
+macro_rules! num {
+    ($ty:ty) => {
+        impl Reset for $ty {
+            fn reset(&mut self) {
+                *self = 0;
+            }
+        }
+    };
 }
+
+num!(i32);
+num!(u32);
+num!(u64);
 
 macro_rules! tuples {
     ($($id:ident,)*) => {

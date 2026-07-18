@@ -89,13 +89,9 @@ pub struct DrmCrtcStateProps {
     pub gamma_lut_blob_id: Option<DrmPropertyValue<DrmBlob>>,
 }
 
-#[derive(Default, Clone, Debug)]
+#[derive(Clone, Debug, Reset)]
 pub struct DrmConnectorState {
-    pub link_status: u64,
-    pub crtc_id: DrmCrtc,
-    pub color_space: Option<u64>,
     pub hdr_metadata: Option<hdr_output_metadata>,
-    pub hdr_metadata_blob_id: DrmBlob,
     pub hdr_metadata_blob: Option<Rc<PropBlob>>,
     pub locked: bool,
     pub fb: DrmFb,
@@ -111,6 +107,15 @@ pub struct DrmConnectorState {
     pub crtc_y: i32,
     pub crtc_w: i32,
     pub crtc_h: i32,
+    pub props: DrmConnectorStateProps,
+}
+
+#[derive(Clone, Debug, PrepareDrmObjectProperties)]
+pub struct DrmConnectorStateProps {
+    pub link_status: DrmPropertyValue,
+    pub crtc_id: DrmPropertyValue<DrmCrtc>,
+    pub color_space: Option<DrmPropertyValue>,
+    pub hdr_metadata_blob_id: Option<DrmPropertyValue<DrmBlob>>,
 }
 
 struct PlaneConfig {
@@ -181,6 +186,7 @@ macro_rules! impl_props_deref {
 
 impl_props_deref!(DrmPlaneState, DrmPlaneStateProps);
 impl_props_deref!(DrmCrtcState, DrmCrtcStateProps);
+impl_props_deref!(DrmConnectorState, DrmConnectorStateProps);
 
 impl MetalConnector {
     pub fn create_transaction(
@@ -299,8 +305,8 @@ impl MetalDeviceTransaction {
             unused_crtcs.insert(crtc.obj.id, ());
         }
         for (_, connector) in &slf.connectors {
-            unused_crtcs.remove(&connector.new.crtc_id);
-            if let Some(crtc) = slf.crtcs.get_mut(&connector.new.crtc_id)
+            unused_crtcs.remove(&connector.new.crtc_id.value);
+            if let Some(crtc) = slf.crtcs.get_mut(&connector.new.crtc_id.value)
                 && crtc.changed.is_empty()
             {
                 crtc.changed.push(connector.changed.clone());
@@ -356,9 +362,9 @@ impl MetalDeviceTransaction {
                 || dd.connection != ConnectorStatus::Connected
                 || state.non_desktop_override.unwrap_or(dd.non_desktop)
             {
-                if connector.new.crtc_id.is_some() {
-                    unused_crtcs.insert(connector.new.crtc_id, ());
-                    if let Some(crtc) = slf.crtcs.get(&connector.new.crtc_id) {
+                if connector.new.crtc_id.value.is_some() {
+                    unused_crtcs.insert(connector.new.crtc_id.value, ());
+                    if let Some(crtc) = slf.crtcs.get(&connector.new.crtc_id.value) {
                         let planes = crtc_planes.get_mut(&crtc.obj.id).unwrap();
                         for plane in [&mut planes.primary, &mut planes.cursor] {
                             if plane.is_some() {
@@ -371,11 +377,11 @@ impl MetalDeviceTransaction {
                         *planes = CrtcPlanes::default();
                     }
                 }
-                connector.new = DrmConnectorState::default();
+                connector.new.reset();
                 continue;
             }
-            connector.new.link_status = DRM_LINK_STATUS_GOOD;
-            if connector.new.crtc_id.is_none() {
+            connector.new.link_status.value = DRM_LINK_STATUS_GOOD;
+            if connector.new.crtc_id.value.is_none() {
                 let crtc_id = 'crtc_id: {
                     for (crtc, _) in &dd.crtcs {
                         if unused_crtcs.contains(crtc) {
@@ -387,9 +393,9 @@ impl MetalDeviceTransaction {
                     ));
                 };
                 unused_crtcs.remove(crtc_id);
-                connector.new.crtc_id = *crtc_id;
+                connector.new.crtc_id.value = *crtc_id;
             }
-            let crtc = slf.crtcs.get_mut(&connector.new.crtc_id).unwrap();
+            let crtc = slf.crtcs.get_mut(&connector.new.crtc_id.value).unwrap();
             crtc.new.active.value = state.active;
             crtc.new.assigned_connector = connector.obj.id;
             crtc.changed.push(connector.changed.clone());
@@ -767,9 +773,9 @@ impl MetalDeviceTransaction {
                 }
             }
             if let Some(cs) = &mut connector.new.color_space {
-                *cs = state.color_space.to_drm();
+                cs.value = state.color_space.to_drm();
             }
-            if dd.hdr_metadata.is_some() {
+            if let Some(prop) = &mut connector.new.props.hdr_metadata_blob_id {
                 let new = if state.eotf == BackendEotfs::Default {
                     None
                 } else {
@@ -783,15 +789,15 @@ impl MetalDeviceTransaction {
                             .master
                             .create_blob(new)
                             .map_err(BackendConnectorTransactionError::CreateHdrMetadataBlob)?;
-                        connector.new.hdr_metadata_blob_id = blob.id();
+                        prop.value = blob.id();
                         connector.new.hdr_metadata_blob = Some(Rc::new(blob));
                     } else {
-                        connector.new.hdr_metadata_blob_id = DrmBlob::NONE;
+                        prop.value = DrmBlob::NONE;
                         connector.new.hdr_metadata_blob = None;
                     }
                     connector.new.hdr_metadata = new;
                 } else if new.is_none() {
-                    connector.new.hdr_metadata_blob_id = DrmBlob::NONE;
+                    prop.value = DrmBlob::NONE;
                     connector.new.hdr_metadata_blob = None;
                 }
             }
@@ -813,18 +819,6 @@ impl MetalDeviceTransaction {
             common: self.common,
         })
     }
-}
-
-macro_rules! log_change {
-    ($o:expr, $n:expr, $field:ident) => {
-        log::log!(
-            LEVEL,
-            "changed {}: {:?} -> {:?}",
-            stringify!($field),
-            $o.$field,
-            $n.$field
-        );
-    };
 }
 
 impl MetalDeviceTransactionWithDrmState {
@@ -870,43 +864,26 @@ impl MetalDeviceTransactionWithDrmState {
         let mut c = slf.dev.dev.master.change();
         for (_, connector) in &mut slf.connectors {
             let dd = &*connector.obj.display.borrow();
-            let n = &mut connector.new;
-            let o = &dd.drm_state;
-            let changed = c.change_object(connector.obj.id, |c| {
-                if n.link_status != o.link_status {
-                    log_change!(o, n, link_status);
-                    c.change(dd.link_status, n.link_status);
-                }
-                if n.crtc_id != o.crtc_id {
-                    log_change!(o, n, crtc_id);
-                    c.change(dd.crtc_id, n.crtc_id);
-                }
-                if let Some(prop) = &dd.colorspace
-                    && let Some(new_cs) = n.color_space
-                    && let Some(old_cs) = o.color_space
-                    && new_cs != old_cs
-                {
-                    log_change!(o, n, color_space);
-                    c.change(*prop, new_cs);
-                }
-                if let Some(prop) = &dd.hdr_metadata
-                    && n.hdr_metadata_blob_id != o.hdr_metadata_blob_id
-                {
-                    log_change!(o, n, hdr_metadata_blob_id);
-                    c.change(*prop, n.hdr_metadata_blob_id);
-                }
-                reset_default_properties!(c, &dd.untyped_properties, &dd.default_properties);
-            });
-            if changed {
-                connector.changed.set(true);
-            }
+            let n = &connector.new.props;
+            let o = &dd.drm_state.props;
+            let untyped_properties = &dd.untyped_properties;
+            let default_properties = &dd.default_properties;
+            let changed = n.differs(o)
+                || need_reset_default_properties!(untyped_properties, default_properties);
             log::log!(
                 LEVEL,
                 "connector {:?} (crtc {:?}) {}changed",
-                connector.obj.id,
-                connector.new.crtc_id,
+                connector.obj.id.0,
+                connector.new.crtc_id.value.0,
                 if changed { "" } else { "un" },
             );
+            if changed {
+                c.change_object(connector.obj.id, |c| {
+                    n.prepare_conditional(o, c, LOGGING);
+                    reset_default_properties!(c, untyped_properties, default_properties);
+                });
+                connector.changed.set(true);
+            }
         }
         for (_, crtc) in &mut slf.crtcs {
             let n = &crtc.new.props;
@@ -1023,14 +1000,14 @@ impl MetalDeviceTransactionWithChange {
                 continue;
             }
             connector.obj.version.fetch_add(1);
-            if connector.new.crtc_id.is_none() {
+            if connector.new.crtc_id.value.is_none() {
                 connector.obj.crtc.set(None);
                 connector.obj.primary_plane.set(None);
                 connector.obj.cursor_plane.set(None);
                 connector.obj.buffers.set(None);
                 connector.obj.cursor_buffers.set(None);
             } else {
-                let crtc = slf.crtcs.get(&connector.new.crtc_id).unwrap();
+                let crtc = slf.crtcs.get(&connector.new.crtc_id.value).unwrap();
                 crtc.obj.connector.set(Some(connector.obj.clone()));
                 connector.obj.crtc.set(Some(crtc.obj.clone()));
                 connector.obj.crtc_idle.set(crtc.obj.pending_flip.is_none());
