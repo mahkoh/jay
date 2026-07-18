@@ -94,6 +94,17 @@ impl Primaries {
         b: (F64(0.15), F64(0.06)),
         wp: (F64(0.3127), F64(0.3290)),
     };
+
+    pub fn about_equal(&self, other: &Self) -> bool {
+        const EPSILON: f64 = 0.001;
+        macro_rules! ae {
+            ($field:ident) => {
+                (self.$field.0.0 - other.$field.0.0).abs() < EPSILON
+                    && (self.$field.1.0 - other.$field.1.0).abs() < EPSILON
+            };
+        }
+        ae!(r) && ae!(g) && ae!(b) && ae!(wp)
+    }
 }
 impl NamedPrimaries {
     pub const fn primaries(self) -> Primaries {

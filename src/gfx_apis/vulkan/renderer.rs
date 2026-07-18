@@ -2243,7 +2243,7 @@ impl VulkanRenderer {
         if blend_buffer.is_none() {
             return;
         }
-        if bb_cd.embeds_into(fb_cd) {
+        if bb_cd.embeds_into(fb_cd, RenderIntent::Perceptual) {
             *blend_buffer = None;
         }
     }
@@ -2651,7 +2651,7 @@ impl ColorTransforms {
         dst: &ColorDescription,
         intent: RenderIntent,
     ) -> Option<&mut ColorTransform> {
-        if src.embeds_into(&dst.linear) {
+        if src.embeds_into(&dst.linear, intent) {
             return None;
         }
         let ct = match self.map.entry(([src.id, dst.linear.id], intent)) {

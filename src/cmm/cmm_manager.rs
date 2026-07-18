@@ -225,6 +225,7 @@ fn get_description(
         luminance,
         target_primaries,
         target_luminance,
+        target_contained_in_primary: Default::default(),
         max_cll,
         max_fall,
         shared: shared.clone(),

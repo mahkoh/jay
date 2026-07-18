@@ -7,4 +7,5 @@
 
 pub mod qoi;
 pub mod rect;
+pub mod triangles;
 mod windows;
