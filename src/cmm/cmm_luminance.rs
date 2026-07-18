@@ -82,13 +82,8 @@ pub fn white_balance(
     w_to: (F64, F64),
     intent: RenderIntent,
 ) -> ColorMatrix<Xyz, Xyz> {
-    let a = ((from.max - from.min) / (to.max - to.min) * (to.white - to.min)
-        / (from.white - from.min))
-        .0;
-    let d = match intent.black_point_compensation() {
-        true => 0.0,
-        false => ((from.min - to.min) / (to.max - to.min)).0,
-    };
+    let a = scaler(from, to);
+    let d = offset(from, to, intent);
     let s = a - d;
     let (F64(x_to), F64(y_to)) = w_to;
     let X_to = x_to / y_to;
@@ -99,4 +94,17 @@ pub fn white_balance(
         [0.0, s, 0.0, d * Y_to],
         [0.0, 0.0, s, d * Z_to],
     ])
+}
+
+fn scaler(from: &Luminance, to: &Luminance) -> f64 {
+    let a =
+        (from.max - from.min) / (to.max - to.min) * (to.white - to.min) / (from.white - from.min);
+    a.0
+}
+
+fn offset(from: &Luminance, to: &Luminance, intent: RenderIntent) -> f64 {
+    match intent.black_point_compensation() {
+        true => 0.0,
+        false => ((from.min - to.min) / (to.max - to.min)).0,
+    }
 }
