@@ -16,14 +16,17 @@ use {
             allocator::RenderBuffer,
             present::{
                 DEFAULT_POST_COMMIT_MARGIN, DEFAULT_PRE_COMMIT_MARGIN, DirectScanoutCache,
-                POST_COMMIT_MARGIN_DELTA, PresentFb,
+                DirectScanoutKey, POST_COMMIT_MARGIN_DELTA, PresentFbCore,
             },
             transaction::{
                 DrmConnectorState, DrmConnectorStateProps, DrmCrtcState, DrmCrtcStateProps,
                 DrmPlaneState, DrmPlaneStateProps, MetalDeviceTransaction,
             },
         },
-        cmm::{cmm_description::ColorDescription, cmm_primaries::Primaries},
+        cmm::{
+            cmm_description::ColorDescription, cmm_primaries::Primaries,
+            cmm_render_intent::RenderIntent,
+        },
         copy_device::{CopyDevice, CopyDeviceRegistry},
         edid::{CtaDataBlock, Descriptor, EdidExtension},
         format::{Format, XRGB8888},
@@ -47,6 +50,7 @@ use {
             geometric_decay::GeometricDecay,
             hash_map_ext::HashMapExt,
             numcell::NumCell,
+            object_registry::{CachedObjectRegistry, ObjectRegistry},
             on_change::OnChange,
             opaque_cell::OpaqueCell,
             ordered_float::F64,
@@ -111,6 +115,12 @@ impl Debug for CopyDeviceHolder {
     }
 }
 
+#[derive(Default)]
+pub struct MetalDrmVendor {
+    pub is_nvidia: bool,
+    pub is_amd: bool,
+}
+
 pub struct MetalDrmDevice {
     pub backend: Rc<MetalBackend>,
     pub id: DrmDeviceId,
@@ -130,8 +140,7 @@ pub struct MetalDrmDevice {
     pub copy_device: Rc<CopyDeviceHolder>,
     pub on_change: OnChange<crate::backend::DrmEvent>,
     pub direct_scanout_enabled: Cell<Option<bool>>,
-    pub is_nvidia: bool,
-    pub _is_amd: bool,
+    pub vendor: MetalDrmVendor,
     pub lease_ids: MetalLeaseIds,
     pub leases: CopyHashMap<MetalLeaseId, MetalLeaseData>,
     pub leases_to_break: CopyHashMap<MetalLeaseId, MetalLeaseData>,
@@ -358,10 +367,11 @@ pub struct PersistentDisplayData {
 }
 
 #[derive(Debug)]
-pub struct DefaultProperty {
+pub struct DefaultProperty<T = ()> {
     pub name: &'static str,
     pub prop: DrmProperty,
     pub value: u64,
+    pub t: T,
 }
 
 #[derive(Debug)]
@@ -521,7 +531,10 @@ pub struct MetalConnector {
     pub connector_id: ConnectorId,
 
     pub buffers: CloneCell<Option<Rc<[RenderBuffer; 2]>>>,
+
     pub color_description: CloneCell<Rc<ColorDescription>>,
+    pub fb_color_description: CloneCell<Rc<ColorDescription>>,
+    pub fb_render_intent: Cell<RenderIntent>,
 
     pub lease: Cell<Option<MetalLeaseId>>,
 
@@ -553,8 +566,9 @@ pub struct MetalConnector {
     pub cursor_sync: CloneCell<Option<FdSync>>,
 
     pub scanout_buffers: RefCell<BHashMap<DmaBufId, DirectScanoutCache>>,
-    pub active_framebuffer: RefCell<Option<PresentFb>>,
-    pub next_framebuffer: OpaqueCell<Option<PresentFb>>,
+    pub scanout_impossible_cache: CachedObjectRegistry<DirectScanoutKey, ()>,
+    pub active_framebuffer: RefCell<Option<PresentFbCore>>,
+    pub next_framebuffer: OpaqueCell<Option<PresentFbCore>>,
     pub direct_scanout_active: Cell<bool>,
 
     pub version: NumCell<u64>,
@@ -1009,12 +1023,15 @@ enum DefaultValue {
     RangeMax,
 }
 
-fn create_default_properties(
+fn create_default_properties<T>(
     props: &CollectedProperties,
-    defaults: &[(&'static str, DefaultValue)],
-) -> Vec<DefaultProperty> {
+    defaults: &[(&'static str, DefaultValue, T)],
+) -> Vec<DefaultProperty<T>>
+where
+    T: Copy,
+{
     let mut res = vec![];
-    'outer: for &(name, def) in defaults {
+    'outer: for &(name, def, t) in defaults {
         if let Some((definition, _)) = props.props.get(name.as_bytes().as_bstr()) {
             let value = match def {
                 DefaultValue::Fixed(v) => v,
@@ -1054,6 +1071,7 @@ fn create_default_properties(
                 name,
                 prop: definition.id,
                 value,
+                t,
             });
         }
     }
@@ -1071,6 +1089,7 @@ fn create_connector(
         display.connector_id,
         dev.devnode.as_bytes().as_bstr(),
     );
+    let srgb_gamma22 = backend.state.color_manager.srgb_gamma22();
     let slf = Rc::new(MetalConnector {
         id: connector,
         kernel_id: Cell::new(display.connector_id),
@@ -1080,7 +1099,9 @@ fn create_connector(
         backend: backend.clone(),
         connector_id: backend.state.connector_ids.next(),
         buffers: Default::default(),
-        color_description: CloneCell::new(backend.state.color_manager.srgb_gamma22().clone()),
+        color_description: CloneCell::new(srgb_gamma22.clone()),
+        fb_color_description: CloneCell::new(srgb_gamma22.clone()),
+        fb_render_intent: Default::default(),
         lease: Cell::new(None),
         buffers_idle: Cell::new(true),
         crtc_idle: Cell::new(true),
@@ -1101,6 +1122,7 @@ fn create_connector(
         cursor_swap_buffer: Cell::new(false),
         cursor_sync: Default::default(),
         scanout_buffers: Default::default(),
+        scanout_impossible_cache: ObjectRegistry::with_cache(32),
         active_framebuffer: Default::default(),
         next_framebuffer: Default::default(),
         direct_scanout_active: Cell::new(false),
@@ -1351,14 +1373,14 @@ fn create_connector_display_data(
     let default_properties = create_default_properties(
         &props,
         &[
-            ("Broadcast RGB", DefaultValue::Enum("Automatic")),
-            ("HDR_SOURCE_METADATA", DefaultValue::Fixed(0)),
-            ("Output format", DefaultValue::Enum("Default")),
-            ("WRITEBACK_FB_ID", DefaultValue::Fixed(0)),
-            ("WRITEBACK_OUT_FENCE_PTR", DefaultValue::Fixed(0)),
-            ("content type", DefaultValue::Enum("No Data")),
-            ("dither", DefaultValue::Enum("off")),
-            ("max bpc", DefaultValue::RangeMax),
+            ("Broadcast RGB", DefaultValue::Enum("Automatic"), ()),
+            ("HDR_SOURCE_METADATA", DefaultValue::Fixed(0), ()),
+            ("Output format", DefaultValue::Enum("Default"), ()),
+            ("WRITEBACK_FB_ID", DefaultValue::Fixed(0), ()),
+            ("WRITEBACK_OUT_FENCE_PTR", DefaultValue::Fixed(0), ()),
+            ("content type", DefaultValue::Enum("No Data"), ()),
+            ("dither", DefaultValue::Enum("off"), ()),
+            ("max bpc", DefaultValue::RangeMax, ()),
         ],
     );
     let hdr_metadata_prop = props
@@ -1467,10 +1489,10 @@ fn create_crtc(
     let default_properties = create_default_properties(
         &props,
         &[
-            ("AMD_CRTC_REGAMMA_TF", DefaultValue::Enum("Default")),
-            ("CTM", DefaultValue::Fixed(0)),
-            ("DEGAMMA_LUT", DefaultValue::Fixed(0)),
-            ("OUT_FENCE_PTR", DefaultValue::Fixed(0)),
+            ("AMD_CRTC_REGAMMA_TF", DefaultValue::Enum("Default"), ()),
+            ("CTM", DefaultValue::Fixed(0), ()),
+            ("DEGAMMA_LUT", DefaultValue::Fixed(0), ()),
+            ("OUT_FENCE_PTR", DefaultValue::Fixed(0), ()),
         ],
     );
     let mode_id = props.get("MODE_ID")?.map(|v| DrmBlob(v as u32));
@@ -1587,18 +1609,18 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
     let default_properties = create_default_properties(
         &props,
         &[
-            ("AMD_PLANE_BLEND_LUT", DefaultValue::Fixed(0)),
-            ("AMD_PLANE_BLEND_TF", DefaultValue::Enum("Default")),
-            ("AMD_PLANE_CTM", DefaultValue::Fixed(0)),
-            ("AMD_PLANE_DEGAMMA_LUT", DefaultValue::Fixed(0)),
-            ("AMD_PLANE_HDR_MULT", DefaultValue::Fixed(0)),
-            ("AMD_PLANE_LUT3D", DefaultValue::Fixed(0)),
-            ("AMD_PLANE_SHAPER_LUT", DefaultValue::Fixed(0)),
-            ("AMD_PLANE_SHAPER_TF", DefaultValue::Enum("Default")),
-            ("alpha", DefaultValue::RangeMax),
-            ("pixel blend mode", DefaultValue::Enum("Pre-multiplied")),
-            ("rotation", DefaultValue::Bitmask(&["rotate-0"])),
-            ("COLOR_PIPELINE", DefaultValue::Enum("Bypass")),
+            ("AMD_PLANE_BLEND_LUT", DefaultValue::Fixed(0), ()),
+            ("AMD_PLANE_BLEND_TF", DefaultValue::Enum("Default"), ()),
+            ("AMD_PLANE_CTM", DefaultValue::Fixed(0), ()),
+            ("AMD_PLANE_DEGAMMA_LUT", DefaultValue::Fixed(0), ()),
+            ("AMD_PLANE_HDR_MULT", DefaultValue::Fixed(0), ()),
+            ("AMD_PLANE_LUT3D", DefaultValue::Fixed(0), ()),
+            ("AMD_PLANE_SHAPER_LUT", DefaultValue::Fixed(0), ()),
+            ("AMD_PLANE_SHAPER_TF", DefaultValue::Enum("Default"), ()),
+            ("alpha", DefaultValue::RangeMax, ()),
+            ("pixel blend mode", DefaultValue::Enum("Pre-multiplied"), ()),
+            ("rotation", DefaultValue::Bitmask(&["rotate-0"]), ()),
+            ("COLOR_PIPELINE", DefaultValue::Enum("Bypass"), ()),
         ],
     );
     let in_fence_fd = props.get("IN_FENCE_FD")?;
@@ -1906,6 +1928,23 @@ impl MetalBackend {
         pending: PendingDrmDevice,
         master: &Rc<DrmMaster>,
     ) -> Result<Rc<MetalDrmDeviceData>, MetalError> {
+        let mut vendor = MetalDrmVendor::default();
+        match master.version() {
+            Ok(v) => {
+                vendor.is_nvidia = v.name.contains_str("nvidia");
+                vendor.is_amd = v.name.contains_str("amdgpu");
+                if vendor.is_nvidia {
+                    log::warn!(
+                        "Device {} use the nvidia driver. IN_FENCE_FD will not be used.",
+                        pending.devnode.as_bytes().as_bstr(),
+                    );
+                }
+            }
+            Err(e) => {
+                log::warn!("Could not fetch DRM version information: {}", ErrorFmt(e));
+            }
+        }
+
         let mut resources = DrmCardResources::default();
         let mut planes = BHashMap::default();
         let mut crtcs = BHashMap::default();
@@ -1974,24 +2013,6 @@ impl MetalBackend {
             copy_device: copy_device.clone(),
         });
 
-        let mut is_nvidia = false;
-        let mut is_amd = false;
-        match gbm.drm.version() {
-            Ok(v) => {
-                is_nvidia = v.name.contains_str("nvidia");
-                is_amd = v.name.contains_str("amdgpu");
-                if is_nvidia {
-                    log::warn!(
-                        "Device {} use the nvidia driver. IN_FENCE_FD will not be used.",
-                        pending.devnode.as_bytes().as_bstr(),
-                    );
-                }
-            }
-            Err(e) => {
-                log::warn!("Could not fetch DRM version information: {}", ErrorFmt(e));
-            }
-        }
-
         let dev = Rc::new(MetalDrmDevice {
             backend: self.clone(),
             id: pending.id,
@@ -2013,8 +2034,7 @@ impl MetalBackend {
             copy_device,
             on_change: Default::default(),
             direct_scanout_enabled: Default::default(),
-            is_nvidia,
-            _is_amd: is_amd,
+            vendor,
             lease_ids: Default::default(),
             leases: Default::default(),
             leases_to_break: Default::default(),

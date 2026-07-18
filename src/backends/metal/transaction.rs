@@ -827,32 +827,41 @@ impl MetalDeviceTransactionWithDrmState {
         test: bool,
         reset_default_properties: bool,
     ) -> Result<MetalDeviceTransactionWithChange, BackendConnectorTransactionError> {
-        fn for_each_changed_default_property(
+        fn for_each_changed_default_property<T>(
             props: &BHashMap<DrmProperty, u64>,
-            defaults: &[DefaultProperty],
-            mut f: impl FnMut(u64, &DefaultProperty),
+            defaults: &[DefaultProperty<T>],
+            filter: impl Fn(&T) -> bool,
+            mut f: impl FnMut(u64, &DefaultProperty<T>),
         ) {
             for dp in defaults {
-                let old = props.get(&dp.prop).copied().unwrap_or_default();
-                let new = dp.value;
-                if old != new {
-                    f(old, dp);
+                if filter(&dp.t) {
+                    let old = props.get(&dp.prop).copied().unwrap_or_default();
+                    let new = dp.value;
+                    if old != new {
+                        f(old, dp);
+                    }
                 }
             }
         }
         macro_rules! need_reset_default_properties {
-            ($props:expr, $defaults:expr $(,)?) => {{
+            ($props:expr, $defaults:expr $(,)?) => {{ need_reset_default_properties!($props, $defaults, |_: &()| true) }};
+            ($props:expr, $defaults:expr, $filter:expr $(,)?) => {{
                 let mut changed = false;
                 if reset_default_properties {
-                    for_each_changed_default_property($props, $defaults, |_, _| changed = true);
+                    for_each_changed_default_property($props, $defaults, $filter, |_, _| {
+                        changed = true
+                    });
                 }
                 changed
             }};
         }
         macro_rules! reset_default_properties {
             ($c:expr, $props:expr, $defaults:expr $(,)?) => {{
+                reset_default_properties!($c, $props, $defaults, |_: &()| true);
+            }};
+            ($c:expr, $props:expr, $defaults:expr, $filter:expr $(,)?) => {{
                 if reset_default_properties {
-                    for_each_changed_default_property($props, $defaults, |old, dp| {
+                    for_each_changed_default_property($props, $defaults, $filter, |old, dp| {
                         log::log!(LEVEL, "    changing {} from {old} to {}", dp.name, dp.value);
                         $c.change(dp.prop, dp.value);
                     });
