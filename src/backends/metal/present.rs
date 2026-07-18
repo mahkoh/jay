@@ -697,26 +697,35 @@ impl MetalConnector {
             // Shm buffers cannot be scanned out.
             return None;
         };
+        let res = self.prepare_direct_scanout3(plane, dmabuf);
+        res.map(|fb| {
+            let data = DirectScanoutData {
+                fb_cd: ct.cd.clone(),
+                fb_intent: ct.render_intent,
+                dma_buf_id: dmabuf.id,
+            };
+            let core = DirectScanoutDataCore {
+                tex: ct.tex.clone(),
+                tex_resv: ct.buffer_resv.clone(),
+                acquire_sync: ct.acquire_sync.clone(),
+                release_sync,
+                _fb_resv: fb_resv,
+                lazy: ct.lazy.clone(),
+                fb,
+                position,
+            };
+            (data, core)
+        })
+    }
+
+    fn prepare_direct_scanout3(
+        &self,
+        plane: &Rc<MetalPlane>,
+        dmabuf: &Rc<DmaBuf>,
+    ) -> Option<Rc<DrmFramebuffer>> {
         let mut cache = self.scanout_buffers.borrow_mut();
         if let Some(buffer) = cache.get(&dmabuf.id) {
-            return buffer.fb.as_ref().map(|fb| {
-                let data = DirectScanoutData {
-                    fb_cd: ct.cd.clone(),
-                    fb_intent: ct.render_intent,
-                    dma_buf_id: dmabuf.id,
-                };
-                let core = DirectScanoutDataCore {
-                    tex: ct.tex.clone(),
-                    tex_resv: ct.buffer_resv.clone(),
-                    acquire_sync: ct.acquire_sync.clone(),
-                    release_sync,
-                    _fb_resv: fb_resv,
-                    lazy: ct.lazy.clone(),
-                    fb: fb.clone(),
-                    position,
-                };
-                (data, core)
-            });
+            return buffer.fb.clone();
         }
         let format = 'format: {
             if let Some(f) = plane.formats.get(&dmabuf.format.drm) {
@@ -733,25 +742,8 @@ impl MetalConnector {
         if !format.modifiers.contains(&dmabuf.modifier) {
             return None;
         }
-        let data = match self.dev.master.add_fb(dmabuf, Some(format.format)) {
-            Ok(fb) => {
-                let data = DirectScanoutData {
-                    fb_cd: ct.cd.clone(),
-                    fb_intent: ct.render_intent,
-                    dma_buf_id: dmabuf.id,
-                };
-                let core = DirectScanoutDataCore {
-                    tex: ct.tex.clone(),
-                    tex_resv: ct.buffer_resv.clone(),
-                    acquire_sync: ct.acquire_sync.clone(),
-                    release_sync,
-                    _fb_resv: fb_resv,
-                    lazy: ct.lazy.clone(),
-                    fb: Rc::new(fb),
-                    position,
-                };
-                Some((data, core))
-            }
+        let fb = match self.dev.master.add_fb(dmabuf, Some(format.format)) {
+            Ok(fb) => Some(Rc::new(fb)),
             Err(e) => {
                 log::debug!(
                     "Could not import dmabuf for direct scanout: {}",
@@ -764,10 +756,10 @@ impl MetalConnector {
             dmabuf.id,
             DirectScanoutCache {
                 dmabuf: Rc::downgrade(dmabuf),
-                fb: data.as_ref().map(|dsd| dsd.1.fb.clone()),
+                fb: fb.clone(),
             },
         );
-        data
+        fb
     }
 
     fn prepare_present_fb(
