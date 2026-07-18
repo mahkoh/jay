@@ -1,6 +1,11 @@
 #![expect(clippy::from_str_radix_10)]
 
-use {crate::phf::PhfHash, anyhow::Result, permutation::Permutation, std::fmt::Debug};
+use {
+    crate::phf::PhfHash,
+    anyhow::Result,
+    permutation::Permutation,
+    std::{fmt::Debug, io},
+};
 
 mod input_event_codes;
 mod keysyms;
@@ -43,4 +48,13 @@ fn generate_map(
     writeln!(res, "    _phantom: core::marker::PhantomData,")?;
     writeln!(res, "}};")?;
     Ok(res)
+}
+
+fn update(file: &str, data: &str) -> io::Result<()> {
+    if let Ok(current) = std::fs::read_to_string(file)
+        && current == data
+    {
+        return Ok(());
+    }
+    std::fs::write(file, data)
 }

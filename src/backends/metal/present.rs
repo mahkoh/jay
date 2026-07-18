@@ -641,9 +641,12 @@ impl MetalConnector {
             plane.mode_w.get(),
             plane.mode_h.get(),
             blend_cd,
-            cd,
             self.cursor_enabled.get(),
         )?;
+        if !ct.cd.embeds_into(cd, ct.render_intent) {
+            // Direct scanout requires embeddable color descriptions.
+            return None;
+        }
         let fb_resv;
         let dmabuf;
         let release_sync;

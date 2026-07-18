@@ -497,7 +497,7 @@ macro_rules! bitflags {
         }
     };
     ($name:ident: $rep:ty; $enum_name:ident; $($var:ident = $val:expr,)*) => {
-        #[derive(Copy, Clone, Eq, PartialEq, Default)]
+        #[derive(Copy, Clone, Eq, PartialEq, Hash, Default)]
         pub struct $name(pub $rep);
 
         $(

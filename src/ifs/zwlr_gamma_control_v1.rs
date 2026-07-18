@@ -78,12 +78,7 @@ fn wayland_gamma_lut_to_drm_gamma_lut(data: &[u16]) -> Vec<BackendGammaLutElemen
         .copied()
         .zip(green.iter().copied())
         .zip(blue.iter().copied())
-        .map(|((red, green), blue)| BackendGammaLutElement {
-            red,
-            green,
-            blue,
-            reserved: 0,
-        })
+        .map(|((red, green), blue)| [red, green, blue, 0])
         .collect()
 }
 

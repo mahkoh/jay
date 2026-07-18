@@ -1,93 +1,131 @@
+pub use cache::{ObjectRegistryNoCache, ObjectRegistryRandomCache};
 use {
     crate::utils::{
         markers::JayHash,
-        numcell::NumCell,
+        object_registry::cache::Cache,
         ptr_ext::{MutPtrExt, PtrExt},
     },
     hashbrown::HashTable,
-    rand::{RngExt, rngs::SmallRng},
     std::{
         borrow::Borrow,
         cell::{Cell, UnsafeCell},
         fmt::{Debug, Formatter},
-        mem,
         ops::Deref,
         ptr,
         rc::{Rc, Weak},
     },
 };
 
+mod cache;
 #[cfg(test)]
 mod tests;
 
-pub struct RandomCache<K, V>
+pub trait ObjectRegistryCache<K, V>: Cache<K, V>
 where
     K: JayHash,
 {
-    inner: Rc<Inner<K, V>>,
 }
 
-struct Inner<K, V>
+pub struct ObjectRegistry<K, V, H>
 where
     K: JayHash,
+    H: ObjectRegistryCache<K, V>,
 {
-    serial: NumCell<u64>,
+    inner: Rc<Inner<K, V, H>>,
+}
+
+pub type CachedObjectRegistry<K, V> = ObjectRegistry<K, V, ObjectRegistryRandomCache<K, V>>;
+
+pub type UncachedObjectRegistry<K, V> = ObjectRegistry<K, V, ObjectRegistryNoCache>;
+
+struct Inner<K, V, H>
+where
+    K: JayHash,
+    H: ObjectRegistryCache<K, V>,
+{
     random_state: ahash::RandomState,
-    mut_: UnsafeCell<Mut<K, V>>,
+    mut_: UnsafeCell<Mut<K, V, H>>,
 }
 
-struct Mut<K, V>
+struct Mut<K, V, H>
 where
     K: JayHash,
+    H: ObjectRegistryCache<K, V>,
 {
-    map: HashTable<(u64, Weak<RandomCached<K, V>>)>,
-    heap: Heap<K, V>,
+    map: HashTable<(u64, Weak<RegisteredObject<K, V, H>>)>,
+    cache: H,
 }
 
-pub struct RandomCached<K, V>
+pub struct RegisteredObject<K, V, H>
 where
     K: JayHash,
+    H: ObjectRegistryCache<K, V>,
 {
-    inner: Rc<Inner<K, V>>,
-    serial: Cell<u64>,
+    inner: Rc<Inner<K, V, H>>,
+    serial: Cell<H::Serial>,
     hash: u64,
     key: K,
     value: V,
 }
 
-struct Heap<K, V>
+#[expect(dead_code)]
+pub type CachedRegisteredObject<K, V> = RegisteredObject<K, V, ObjectRegistryRandomCache<K, V>>;
+
+#[expect(dead_code)]
+pub type UncachedRegisteredObject<K, V> = RegisteredObject<K, V, ObjectRegistryNoCache>;
+
+impl<K, V> UncachedObjectRegistry<K, V>
 where
     K: JayHash,
 {
-    map: Box<[Option<Rc<RandomCached<K, V>>>]>,
-    rng: SmallRng,
+    pub fn uncached() -> Self {
+        Self::new(ObjectRegistryNoCache)
+    }
 }
 
-impl<K, V> RandomCache<K, V>
+impl<K, V> Default for UncachedObjectRegistry<K, V>
+where
+    K: JayHash,
+{
+    fn default() -> Self {
+        Self::uncached()
+    }
+}
+
+impl<K, V> CachedObjectRegistry<K, V>
 where
     K: JayHash,
 {
     #[cfg_attr(not(test), expect(dead_code))]
-    pub fn new(size: usize) -> Self {
+    pub fn with_cache(size: usize) -> Self {
+        Self::new(ObjectRegistryRandomCache::new(size))
+    }
+}
+
+impl<K, V, H> ObjectRegistry<K, V, H>
+where
+    K: JayHash,
+    H: ObjectRegistryCache<K, V>,
+{
+    fn new(cache: H) -> Self {
         Self {
             inner: Rc::new(Inner {
-                serial: Default::default(),
                 random_state: Default::default(),
                 mut_: UnsafeCell::new(Mut {
                     map: Default::default(),
-                    heap: Heap::new(size),
+                    cache,
                 }),
             }),
         }
     }
 
     #[cfg_attr(not(test), expect(dead_code))]
-    pub fn insert(&self, key: K, value: V) -> Rc<RandomCached<K, V>> {
+    pub fn insert(&self, key: K, value: V) -> Rc<RegisteredObject<K, V, H>> {
         let inner = &self.inner;
         let hash = inner.random_state.hash_one(&key);
-        let rc = Rc::new(RandomCached {
+        let rc = Rc::new(RegisteredObject {
             inner: inner.clone(),
-            serial: Cell::new(inner.serial.fetch_add(1)),
+            serial: Default::default(),
             hash,
             key,
             value,
@@ -97,13 +135,13 @@ where
             mut_.map
                 .entry(hash, is_match(&rc.key), |(h, _)| *h)
                 .insert((hash, Rc::downgrade(&rc)));
-            mut_.heap.insert(rc.clone())
+            mut_.cache.insert(&rc)
         };
         rc
     }
 
     #[cfg_attr(not(test), expect(dead_code))]
-    pub fn get<Q>(&self, key: &Q) -> Option<Rc<RandomCached<K, V>>>
+    pub fn get<Q>(&self, key: &Q) -> Option<Rc<RegisteredObject<K, V, H>>>
     where
         Q: JayHash,
         K: Borrow<Q>,
@@ -117,23 +155,23 @@ where
     }
 
     pub fn clear(&self) {
-        let _heap = {
+        let _cache = {
             let mut_ = unsafe { self.inner.mut_.get().deref_mut() };
             mut_.map.clear();
-            let mut heap = Heap::new(mut_.heap.map.len());
-            mem::swap(&mut heap, &mut mut_.heap);
-            heap
+            mut_.cache.clear()
         };
     }
 }
 
-impl<K, V> RandomCached<K, V>
+impl<K, V, H> RegisteredObject<K, V, H>
 where
     K: JayHash,
+    H: ObjectRegistryCache<K, V>,
 {
     #[cfg_attr(not(test), expect(dead_code))]
     pub fn mark_used(&self) {
-        self.serial.set(self.inner.serial.fetch_add(1));
+        let mut_ = unsafe { self.inner.mut_.get().deref_mut() };
+        self.serial.set(mut_.cache.serial());
     }
 
     #[cfg_attr(not(test), expect(dead_code))]
@@ -142,9 +180,10 @@ where
     }
 }
 
-impl<K, V> Deref for RandomCached<K, V>
+impl<K, V, H> Deref for RegisteredObject<K, V, H>
 where
     K: JayHash,
+    H: ObjectRegistryCache<K, V>,
 {
     type Target = V;
 
@@ -153,71 +192,31 @@ where
     }
 }
 
-impl<K, V> Debug for RandomCached<K, V>
+impl<K, V, H> Debug for RegisteredObject<K, V, H>
 where
     K: JayHash + Debug,
     V: Debug,
+    H: ObjectRegistryCache<K, V>,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_map().entry(&self.key, &self.value).finish()
     }
 }
 
-impl<K, V> Heap<K, V>
+impl<K, V, H> Drop for ObjectRegistry<K, V, H>
 where
     K: JayHash,
-{
-    fn new(size: usize) -> Self {
-        let size = size.next_power_of_two().max(16);
-        Self {
-            map: (0..size).map(|_| None).collect(),
-            rng: rand::make_rng(),
-        }
-    }
-
-    fn insert(&mut self, value: Rc<RandomCached<K, V>>) -> Option<Rc<RandomCached<K, V>>> {
-        let r1 = self.rng.random::<u64>() as usize;
-        let r2 = self.rng.random::<u64>() as usize;
-        let offsets = [r1, r2, r2.wrapping_add(1)];
-        let entries = unsafe {
-            let mask = self.map.len() - 1;
-            let ptr = self.map.as_mut_ptr();
-            offsets.map(|idx| ptr.add(idx & mask))
-        };
-        let mut min_entry = ptr::null_mut();
-        let mut min_serial = u64::MAX;
-        for entry in entries {
-            match unsafe { &mut *entry } {
-                e @ None => {
-                    *e = Some(value);
-                    return None;
-                }
-                Some(e) => {
-                    let serial = e.serial.get();
-                    if serial < min_serial {
-                        min_entry = e;
-                        min_serial = serial;
-                    }
-                }
-            }
-        }
-        let old = unsafe { mem::replace(&mut *min_entry, value) };
-        Some(old)
-    }
-}
-
-impl<K, V> Drop for RandomCache<K, V>
-where
-    K: JayHash,
+    H: ObjectRegistryCache<K, V>,
 {
     fn drop(&mut self) {
         self.clear();
     }
 }
 
-impl<K, V> Drop for RandomCached<K, V>
+impl<K, V, H> Drop for RegisteredObject<K, V, H>
 where
     K: JayHash,
+    H: ObjectRegistryCache<K, V>,
 {
     fn drop(&mut self) {
         let is_match = |(_, v): &(_, Weak<_>)| v.as_ptr() == ptr::from_ref(self);
@@ -228,10 +227,11 @@ where
     }
 }
 
-fn is_match<Q, K, V>(key: &Q) -> impl Fn(&(u64, Weak<RandomCached<K, V>>)) -> bool
+fn is_match<Q, K, V, H>(key: &Q) -> impl Fn(&(u64, Weak<RegisteredObject<K, V, H>>)) -> bool
 where
     Q: JayHash,
     K: JayHash + Borrow<Q>,
+    H: ObjectRegistryCache<K, V>,
 {
     move |(_, k)| k.upgrade().map(|k| k.key.borrow() == key).unwrap_or(false)
 }

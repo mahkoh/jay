@@ -3,7 +3,7 @@ use {
         async_engine::{AsyncEngine, SpawnedFuture},
         cmm::{
             cmm_description::{ColorDescription, LinearColorDescription, LinearColorDescriptionId},
-            cmm_eotf::{Eotf, EotfPow, bt1886_eotf_args, bt1886_inv_eotf_args},
+            cmm_eotf::{Eotf, EotfPow},
             cmm_render_intent::RenderIntent,
             cmm_transform::ColorMatrix,
         },
@@ -68,7 +68,10 @@ use {
     },
     hashbrown::hash_map::Entry,
     isnt::std_1::primitive::IsntSliceExt,
-    jay_algorithms::rect::Tag,
+    jay_algorithms::{
+        rect::Tag,
+        tf::{bt1886_eotf_args, bt1886_inv_eotf_args},
+    },
     jay_proc::jay_hash,
     linearize::{Linearize, LinearizeExt, StaticCopyMap, StaticMap, static_map},
     std::{
@@ -2738,7 +2741,7 @@ impl EotfArgsCache {
                     match key {
                         EotfCacheKey::Pow(pow) => arg1 = pow.inv_eotf_f32(),
                         EotfCacheKey::Bt1886(c) => {
-                            [arg1, arg2, arg3, arg4] = bt1886_inv_eotf_args(c);
+                            [arg1, arg2, arg3, arg4] = bt1886_inv_eotf_args::<()>(c.0);
                         }
                     }
                     let data = InvEotfArgs {
@@ -2753,7 +2756,7 @@ impl EotfArgsCache {
                     match key {
                         EotfCacheKey::Pow(pow) => arg1 = pow.eotf_f32(),
                         EotfCacheKey::Bt1886(c) => {
-                            [arg1, arg2, arg3, arg4] = bt1886_eotf_args(c);
+                            [arg1, arg2, arg3, arg4] = bt1886_eotf_args::<()>(c.0);
                         }
                     }
                     let data = EotfArgs {

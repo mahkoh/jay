@@ -1,4 +1,4 @@
-use {anyhow::Result, kbvm::Keysym, std::fmt::Write};
+use {crate::update, anyhow::Result, kbvm::Keysym, std::fmt::Write};
 
 pub fn main() -> Result<()> {
     let mut syms = vec![];
@@ -16,12 +16,12 @@ pub fn main() -> Result<()> {
             sym.0
         )?;
     }
-    std::fs::write(
+    update(
         concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../jay-config/src/keyboard/syms/generated.rs",
         ),
-        res,
+        &res,
     )?;
     Ok(())
 }

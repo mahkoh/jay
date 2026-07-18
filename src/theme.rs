@@ -2,17 +2,17 @@
 
 use {
     crate::{
-        cmm::cmm_eotf::{Eotf, bt1886_eotf_args, bt1886_inv_eotf_args},
+        cmm::cmm_eotf::Eotf,
         gfx_api::AlphaMode,
         tree::{SplitView, TreeTimeline},
         utils::{clonecell::CloneCell, static_text::StaticText},
     },
+    jay_algorithms::tf::{eotfs, inv_eotfs},
     jay_config::theme::{
         BarPosition as ConfigBarPosition, ContainerBorders as ConfigContainerBorders,
     },
     jay_proc::jay_clone,
     linearize::Linearize,
-    num_traits::Float,
     std::{
         cell::Cell,
         cmp::Ordering,
@@ -105,62 +105,24 @@ impl Color {
                 *c /= a;
             }
         }
-        #[inline(always)]
-        fn linear(c: f32) -> f32 {
-            c
-        }
-        fn st2084_pq(c: f32) -> f32 {
-            let cp = c.powf(1.0 / 78.84375);
-            let num = (cp - 0.8359375).max(0.0);
-            let den = 18.8515625 - 18.6875 * cp;
-            (num / den).powf(1.0 / 0.1593017578125)
-        }
-        fn st240(c: f32) -> f32 {
-            if c < 0.0913 {
-                c / 4.0
-            } else {
-                ((c + 0.1115) / 1.1115).powf(1.0 / 0.45)
-            }
-        }
-        fn log100(c: f32) -> f32 {
-            10.0.powf(2.0 * (c - 1.0))
-        }
-        fn log316(c: f32) -> f32 {
-            10.0.powf(2.5 * (c - 1.0))
-        }
-        fn st428(c: f32) -> f32 {
-            c.powf(2.6) * 52.37 / 48.0
-        }
-        fn gamma22(c: f32) -> f32 {
-            c.signum() * c.abs().powf(2.2)
-        }
-        fn gamma24(c: f32) -> f32 {
-            c.signum() * c.abs().powf(2.4)
-        }
-        fn gamma28(c: f32) -> f32 {
-            c.signum() * c.abs().powf(2.8)
-        }
-        fn compound_power_2_4(c: f32) -> f32 {
-            if c < 0.04045 {
-                c / 12.92
-            } else {
-                ((c + 0.055) / 1.055).powf(2.4)
-            }
-        }
-        macro_rules! convert {
-            ($tf:ident) => {{
+        macro_rules! convert2 {
+            ($tf:path) => {{
                 r = $tf(r);
                 g = $tf(g);
                 b = $tf(b);
             }};
         }
+        macro_rules! convert {
+            ($tf:ident) => {
+                convert2!(eotfs::$tf::<()>)
+            };
+        }
         match eotf {
             Eotf::Linear => convert!(linear),
             Eotf::St2084Pq => convert!(st2084_pq),
             Eotf::Bt1886(c) => {
-                let [a1, a2, a3, a4] = bt1886_eotf_args(c);
-                let bt1886 = |c: f32| -> f32 { a1 * ((a2 * c + a3).powf(2.4) - a4) };
-                convert!(bt1886)
+                let bt1886 = eotfs::bt1886::<()>(c.0);
+                convert2!(bt1886)
             }
             Eotf::Gamma22 => convert!(gamma22),
             Eotf::Gamma24 => convert!(gamma24),
@@ -170,9 +132,8 @@ impl Color {
             Eotf::Log316 => convert!(log316),
             Eotf::St428 => convert!(st428),
             Eotf::Pow(n) => {
-                let e = n.eotf_f32();
-                let pow = |c: f32| -> f32 { c.signum() * c.abs().powf(e) };
-                convert!(pow)
+                let pow = eotfs::pow::<()>(n.eotf_f32());
+                convert2!(pow)
             }
             Eotf::CompoundPower24 => convert!(compound_power_2_4),
         }
@@ -243,59 +204,17 @@ impl Color {
 
     pub fn to_array2(self, eotf: Eotf, alpha: Option<f32>) -> [f32; 4] {
         let mut res = [self.r, self.g, self.b, self.a];
-        fn linear(c: f32) -> f32 {
-            c
-        }
-        fn st2084_pq(c: f32) -> f32 {
-            let c = c.clamp(0.0, 1.0);
-            let num = 0.8359375 + 18.8515625 * c.powf(0.1593017578125);
-            let den = 1.0 + 18.6875 * c.powf(0.1593017578125);
-            (num / den).powf(78.84375)
-        }
-        fn st240(c: f32) -> f32 {
-            if c < 0.0228 {
-                4.0 * c
-            } else {
-                1.1115 * c.powf(0.45) - 0.1115
-            }
-        }
-        fn log100(c: f32) -> f32 {
-            let c = c.clamp(0.0, 1.0);
-            if c < 0.01 { 0.0 } else { 1.0 + c.log10() / 2.0 }
-        }
-        fn log316(c: f32) -> f32 {
-            let c = c.clamp(0.0, 1.0);
-            if c < 10.0.sqrt() / 1000.0 {
-                0.0
-            } else {
-                1.0 + c.log10() / 2.5
-            }
-        }
-        fn st428(c: f32) -> f32 {
-            (48.0 * c / 52.37).powf(1.0 / 2.6)
-        }
-        fn gamma22(c: f32) -> f32 {
-            c.signum() * c.abs().powf(1.0 / 2.2)
-        }
-        fn gamma24(c: f32) -> f32 {
-            c.signum() * c.abs().powf(1.0 / 2.4)
-        }
-        fn gamma28(c: f32) -> f32 {
-            c.signum() * c.abs().powf(1.0 / 2.8)
-        }
-        fn compound_power_2_4(c: f32) -> f32 {
-            if c < 0.0031308 {
-                12.92 * c
-            } else {
-                1.055 * c.powf(1.0 / 2.4) - 0.055
-            }
-        }
-        macro_rules! convert {
-            ($tf:ident) => {{
+        macro_rules! convert2 {
+            ($tf:path) => {{
                 for c in &mut res[..3] {
                     *c = $tf(*c);
                 }
             }};
+        }
+        macro_rules! convert {
+            ($tf:ident) => {
+                convert2!(inv_eotfs::$tf::<()>)
+            };
         }
         if eotf != Eotf::Linear {
             if self.a < 1.0 && self.a > 0.0 {
@@ -307,9 +226,8 @@ impl Color {
                 Eotf::Linear => convert!(linear),
                 Eotf::St2084Pq => convert!(st2084_pq),
                 Eotf::Bt1886(c) => {
-                    let [a1, a2, a3, a4] = bt1886_inv_eotf_args(c);
-                    let bt1886 = |c: f32| -> f32 { a1 * ((a2 * c + a3).powf(1.0 / 2.4) - a4) };
-                    convert!(bt1886)
+                    let bt1886 = inv_eotfs::bt1886::<()>(c.0);
+                    convert2!(bt1886);
                 }
                 Eotf::Gamma22 => convert!(gamma22),
                 Eotf::Gamma24 => convert!(gamma24),
@@ -319,9 +237,8 @@ impl Color {
                 Eotf::Log316 => convert!(log316),
                 Eotf::St428 => convert!(st428),
                 Eotf::Pow(n) => {
-                    let e = n.inv_eotf_f32();
-                    let pow = |c: f32| -> f32 { c.signum() * c.abs().powf(e) };
-                    convert!(pow)
+                    let pow = inv_eotfs::pow::<()>(n.eotf_f32());
+                    convert2!(pow);
                 }
                 Eotf::CompoundPower24 => convert!(compound_power_2_4),
             }

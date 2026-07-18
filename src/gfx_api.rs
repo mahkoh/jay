@@ -1432,7 +1432,6 @@ impl GfxRenderPass {
         mode_w: i32,
         mode_h: i32,
         blend_cd: &Rc<ColorDescription>,
-        cd: &Rc<ColorDescription>,
         mut no_scaling: bool,
     ) -> Option<(&CopyTexture, DirectScanoutPosition)> {
         let ct = 'ct: {
@@ -1456,10 +1455,6 @@ impl GfxRenderPass {
             };
             if ct.alpha_mode != AlphaMode::PremultipliedElectrical {
                 // Direct scanout requires premultiplied electrical alpha.
-                return None;
-            }
-            if !ct.cd.embeds_into(cd, ct.render_intent) {
-                // Direct scanout requires embeddable color descriptions.
                 return None;
             }
             let has_alpha = ct.tex.format().has_alpha;

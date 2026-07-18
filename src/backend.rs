@@ -26,7 +26,7 @@ use {
             LIBINPUT_CONFIG_SCROLL_EDGE, LIBINPUT_CONFIG_SCROLL_NO_SCROLL,
             LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN,
         },
-        utils::static_text::StaticText,
+        utils::{obj_and_id::ObjWithId, static_text::StaticText},
         video::{
             Modifier,
             drm::{
@@ -46,7 +46,7 @@ use {
         hash::Hash,
         rc::Rc,
     },
-    uapi::{OwnedFd, Packed, Pod, c},
+    uapi::{OwnedFd, c},
 };
 
 pub mod transaction;
@@ -725,32 +725,31 @@ impl BackendColorSpace {
 }
 
 // kernel: struct drm_color_lut
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash)]
-#[repr(C)]
-pub struct BackendGammaLutElement {
-    pub red: u16,
-    pub green: u16,
-    pub blue: u16,
-    pub reserved: u16,
-}
-
-unsafe impl Pod for BackendGammaLutElement {}
-unsafe impl Packed for BackendGammaLutElement {}
+pub type BackendGammaLutElement = [u16; 4];
+pub type BackendGammaLutId = [u8; 32];
 
 #[derive(Debug, Eq)]
 pub struct BackendGammaLut {
-    id: [u8; 32],
+    id: BackendGammaLutId,
     pub gamma_lut: Vec<BackendGammaLutElement>,
 }
 
 impl BackendGammaLut {
     pub fn new(mut gamma_lut: Vec<BackendGammaLutElement>) -> Self {
         for element in &mut gamma_lut {
-            element.reserved = 0;
+            element[3] = 0;
         }
         let gamma_lut_bytes = uapi::as_bytes(&gamma_lut as &[_]);
         let id = *blake3::hash(gamma_lut_bytes).as_bytes();
         Self { id, gamma_lut }
+    }
+}
+
+impl ObjWithId for Rc<BackendGammaLut> {
+    type Id = BackendGammaLutId;
+
+    fn id(&self) -> Self::Id {
+        self.id
     }
 }
 

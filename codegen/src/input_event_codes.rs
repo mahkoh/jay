@@ -1,5 +1,5 @@
 use {
-    crate::generate_map,
+    crate::{generate_map, update},
     anyhow::Result,
     indexmap::IndexMap,
     linearize::{Linearize, LinearizeExt},
@@ -92,7 +92,7 @@ pub fn main() -> Result<()> {
                 )
             }
         };
-        std::fs::write(file, out)?;
+        update(file, &out)?;
     }
     {
         let mut out = String::new();
@@ -161,12 +161,12 @@ pub fn main() -> Result<()> {
         writeln!(out, "        }}")?;
         writeln!(out, "    }}")?;
         writeln!(out, "}}")?;
-        std::fs::write(
+        update(
             concat!(
                 env!("CARGO_MANIFEST_DIR"),
                 "/../src/evdev/input_event_codes.rs",
             ),
-            out,
+            &out,
         )?;
     }
     {
@@ -179,12 +179,12 @@ pub fn main() -> Result<()> {
                 "pub const {name}: InputEventCode = InputEventCode({value});"
             )?;
         }
-        std::fs::write(
+        update(
             concat!(
                 env!("CARGO_MANIFEST_DIR"),
                 "/../jay-config/src/input/input_event_codes.rs",
             ),
-            out,
+            &out,
         )?;
     }
     Ok(())
