@@ -4,7 +4,7 @@ use {
 };
 
 #[allow(clippy::allow_attributes, dead_code)]
-pub trait Reset: Default {
+pub trait Reset {
     fn reset(&mut self);
 }
 
