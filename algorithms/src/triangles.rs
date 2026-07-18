@@ -35,6 +35,7 @@ pub fn triangle_contains_points(triangle: [[f64; 2]; 3], points: [[f64; 2]; 3]) 
         }
     }
     let mut bad = false;
+    #[expect(clippy::needless_range_loop)]
     for i in 0..3 {
         bad |= class[i] == 0b11;
     }
