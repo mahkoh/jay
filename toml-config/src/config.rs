@@ -42,7 +42,7 @@ use {
             BlendSpace, ColorSpace, Connector, Eotf, Format, GfxApi, ScalingFilter, TearingMode,
             Transform, VrrMode,
         },
-        window::{ContentType, TileState, WindowType},
+        window::{ContentType, Coordinate, TileState, WindowType},
         workspace::WorkspaceDisplayOrder,
         xwayland::XScalingMode,
     },
@@ -214,6 +214,14 @@ pub enum Action {
     HideOverlay {
         ws: Rc<WorkspaceSlot>,
     },
+    SetPosition {
+        x1: Option<Coordinate>,
+        y1: Option<Coordinate>,
+        x2: Option<Coordinate>,
+        y2: Option<Coordinate>,
+        width: Option<Coordinate>,
+        height: Option<Coordinate>,
+    },
 }
 
 #[derive(Debug)]
@@ -340,6 +348,8 @@ pub struct WindowRule {
     pub latch: Option<Action>,
     pub auto_focus: Option<bool>,
     pub initial_tile_state: Option<TileState>,
+    pub initial_floating_size: Option<(i32, i32)>,
+    pub initial_floating_position: Option<(i32, i32)>,
 }
 
 #[derive(Default, Debug, Clone)]

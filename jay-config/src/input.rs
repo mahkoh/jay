@@ -16,7 +16,7 @@ use {
         },
         keyboard::{Keymap, mods::Modifiers, syms::KeySym},
         video::Connector,
-        window::Window,
+        window::{Coordinate, Window},
     },
     serde::{Deserialize, Serialize},
     std::time::Duration,
@@ -711,6 +711,21 @@ impl Seat {
     /// Resizes the focused window.
     pub fn resize(self, dx1: i32, dy1: i32, dx2: i32, dy2: i32) {
         self.window().resize(dx1, dy1, dx2, dy2);
+    }
+
+    /// Sets the position and/or size of the focused window.
+    ///
+    /// See [`Window::set_position`](crate::window::Window::set_position) for details.
+    pub fn set_position(
+        self,
+        x1: Option<Coordinate>,
+        y1: Option<Coordinate>,
+        x2: Option<Coordinate>,
+        y2: Option<Coordinate>,
+        width: Option<Coordinate>,
+        height: Option<Coordinate>,
+    ) {
+        self.window().set_position(x1, y1, x2, y2, width, height);
     }
 
     /// Sets whether the cursor should automatically move to the center of a window

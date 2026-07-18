@@ -981,6 +981,62 @@ Action:
               required: false
               kind: number
               integer_only: true
+        set-position:
+          description: |
+            Sets the position and/or size of the focused window to an absolute value.
+
+            This only has an effect if the window is floating.
+
+            For each axis (`x1`/`x2`/`width`, and analogously `y1`/`y2`/`height`), missing
+            constraints (fewer than two given) are inferred, preserving the window's current
+            position rather than its size; if all three are given but unsatisfiable, this is
+            a no-op.
+
+            - Example 1 (Resizing the window while keeping its top-left corner fixed):
+
+              ```toml
+              [shortcuts]
+              alt-x = { type = "set-position", width = 800, height = 600 }
+              ```
+
+            - Example 2 (Moving the window while keeping its size):
+
+              ```toml
+              [shortcuts]
+              alt-x = { type = "set-position", x1 = 100, y1 = 100, width = "keep", height = "keep" }
+              ```
+
+            - Example 3 (Placing the window at an exact rectangle):
+
+              ```toml
+              [shortcuts]
+              alt-x = { type = "set-position", x1 = 0, y1 = 0, x2 = 800, y2 = 600 }
+              ```
+          fields:
+            x1:
+              ref: Coordinate
+              description: The x coordinate of the left edge.
+              required: false
+            y1:
+              ref: Coordinate
+              description: The y coordinate of the top edge.
+              required: false
+            x2:
+              ref: Coordinate
+              description: The x coordinate of the right edge.
+              required: false
+            y2:
+              ref: Coordinate
+              description: The y coordinate of the bottom edge.
+              required: false
+            width:
+              ref: Coordinate
+              description: The width of the window.
+              required: false
+            height:
+              ref: Coordinate
+              description: The height of the window.
+              required: false
         hide-overlay:
           description: Hides an overlay if it is visible.
           fields:
@@ -988,6 +1044,33 @@ Action:
               description: The name of the overlay.
               required: true
               kind: string
+
+
+Coordinate:
+  description: |
+    A coordinate or size constraint used by the `set-position` action.
+
+    - Example 1:
+
+      ```toml
+      x1 = 100
+      ```
+
+    - Example 2:
+
+      ```toml
+      x1 = "keep"
+      ```
+  kind: variable
+  variants:
+    - kind: string
+      description: |
+        The string `keep` constrains this field to the window's current value for it. Unlike
+        omitting the field, this is a hard constraint that is never overridden by the other
+        fields on the same axis.
+    - kind: number
+      integer_only: true
+      description: The value that this field should be constrained to.
 
 
 Exec:
@@ -4440,6 +4523,70 @@ WindowRule:
       ref: TileState
       required: false
       description: Specifies if the window is initially mapped tiled or floating.
+    initial-floating-size:
+      ref: WindowFloatingSize
+      required: false
+      description: |
+        Specifies the initial size of the window while it is floating.
+
+        If multiple matching rules specify this field, the used size is unspecified.
+    initial-floating-position:
+      ref: WindowFloatingPosition
+      required: false
+      description: |
+        Specifies the initial position of the window while it is floating.
+
+        If multiple matching rules specify this field, the used position is unspecified.
+
+
+WindowFloatingSize:
+  kind: table
+  description: |
+    The initial size of a floating window.
+
+    - Example:
+
+      ```toml
+      [[windows]]
+      match.app-id = "mpv"
+      initial-floating-size = { width = 800, height = 600 }
+      ```
+  fields:
+    width:
+      kind: number
+      integer_only: true
+      required: true
+      description: The width of the window.
+    height:
+      kind: number
+      integer_only: true
+      required: true
+      description: The height of the window.
+
+
+WindowFloatingPosition:
+  kind: table
+  description: |
+    The initial position of a floating window.
+
+    - Example:
+
+      ```toml
+      [[windows]]
+      match.app-id = "mpv"
+      initial-floating-position = { x = 100, y = 100 }
+      ```
+  fields:
+    x:
+      kind: number
+      integer_only: true
+      required: true
+      description: The x coordinate of the window.
+    y:
+      kind: number
+      integer_only: true
+      required: true
+      description: The y coordinate of the window.
 
 
 WindowMatch:

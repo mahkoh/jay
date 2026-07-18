@@ -8,6 +8,7 @@ use {
             parsers::{
                 StringParser, StringParserError,
                 connector::{ConnectorParser, ConnectorParserError},
+                coordinate::{CoordinateParser, CoordinateParserError},
                 drm_device::{DrmDeviceParser, DrmDeviceParserError},
                 drm_device_match::{DrmDeviceMatchParser, DrmDeviceMatchParserError},
                 env::{EnvParser, EnvParserError},
@@ -97,6 +98,8 @@ pub enum ActionParserError {
     ShowOverlay(#[source] ShowWorkspaceError),
     #[error("Could not parse a toggle-overlay action")]
     ToggleOverlay(#[source] ShowWorkspaceError),
+    #[error("Could not parse a coordinate")]
+    Coordinate(#[source] CoordinateParserError),
     #[error("Unknown direction {0}")]
     UnknownDirection(String),
     #[error("Exactly one of `output` or `direction` must be specified")]
@@ -601,6 +604,32 @@ impl ActionParser<'_, '_> {
         })
     }
 
+    fn parse_set_position(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
+        let (x1, y1, x2, y2, width, height) = ext.extract((
+            opt(val("x1")),
+            opt(val("y1")),
+            opt(val("x2")),
+            opt(val("y2")),
+            opt(val("width")),
+            opt(val("height")),
+        ))?;
+        let coordinate = |v: Option<Spanned<&Value>>| match v {
+            None => Ok(None),
+            Some(v) => v
+                .parse_map(&mut CoordinateParser)
+                .map_spanned_err(ActionParserError::Coordinate)
+                .map(Some),
+        };
+        Ok(Action::SetPosition {
+            x1: coordinate(x1)?,
+            y1: coordinate(y1)?,
+            x2: coordinate(x2)?,
+            y2: coordinate(y2)?,
+            width: coordinate(width)?,
+            height: coordinate(height)?,
+        })
+    }
+
     fn parse_hide_overlay(&mut self, ext: &mut Extractor<'_, '_>) -> ParseResult<Self> {
         let (name,) = ext.extract((str("name"),))?;
         let ws = self.0.get_workspace_slot(name.value);
@@ -674,6 +703,7 @@ impl Parser for ActionParser<'_, '_> {
             "create-virtual-output" => self.parse_create_virtual_output(&mut ext),
             "remove-virtual-output" => self.parse_remove_virtual_output(&mut ext),
             "resize" => self.parse_resize(&mut ext),
+            "set-position" => self.parse_set_position(&mut ext),
             "hide-overlay" => self.parse_hide_overlay(&mut ext),
             "show-overlay" => self.parse_show_overlay(&mut ext),
             "toggle-overlay" => self.parse_toggle_overlay(&mut ext),

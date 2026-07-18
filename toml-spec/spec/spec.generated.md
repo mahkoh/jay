@@ -1050,6 +1050,76 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
     The numbers should be integers.
 
+- `set-position`:
+
+  Sets the position and/or size of the focused window to an absolute value.
+  
+  This only has an effect if the window is floating.
+  
+  For each axis (`x1`/`x2`/`width`, and analogously `y1`/`y2`/`height`), missing
+  constraints (fewer than two given) are inferred, preserving the window's current
+  position rather than its size; if all three are given but unsatisfiable, this is
+  a no-op.
+  
+  - Example 1 (Resizing the window while keeping its top-left corner fixed):
+  
+    ```toml
+    [shortcuts]
+    alt-x = { type = "set-position", width = 800, height = 600 }
+    ```
+  
+  - Example 2 (Moving the window while keeping its size):
+  
+    ```toml
+    [shortcuts]
+    alt-x = { type = "set-position", x1 = 100, y1 = 100, width = "keep", height = "keep" }
+    ```
+  
+  - Example 3 (Placing the window at an exact rectangle):
+  
+    ```toml
+    [shortcuts]
+    alt-x = { type = "set-position", x1 = 0, y1 = 0, x2 = 800, y2 = 600 }
+    ```
+
+  The table has the following fields:
+
+  - `x1` (optional):
+
+    The x coordinate of the left edge.
+
+    The value of this field should be a [Coordinate](#types-Coordinate).
+
+  - `y1` (optional):
+
+    The y coordinate of the top edge.
+
+    The value of this field should be a [Coordinate](#types-Coordinate).
+
+  - `x2` (optional):
+
+    The x coordinate of the right edge.
+
+    The value of this field should be a [Coordinate](#types-Coordinate).
+
+  - `y2` (optional):
+
+    The y coordinate of the bottom edge.
+
+    The value of this field should be a [Coordinate](#types-Coordinate).
+
+  - `width` (optional):
+
+    The width of the window.
+
+    The value of this field should be a [Coordinate](#types-Coordinate).
+
+  - `height` (optional):
+
+    The height of the window.
+
+    The value of this field should be a [Coordinate](#types-Coordinate).
+
 - `hide-overlay`:
 
   Hides an overlay if it is visible.
@@ -2787,6 +2857,38 @@ The string should have one of the following values:
 An array of masks that are OR'd.
 
 Each element of this array should be a [ContentTypeMask](#types-ContentTypeMask).
+
+
+<a name="types-Coordinate"></a>
+### `Coordinate`
+
+A coordinate or size constraint used by the `set-position` action.
+
+- Example 1:
+
+  ```toml
+  x1 = 100
+  ```
+
+- Example 2:
+
+  ```toml
+  x1 = "keep"
+  ```
+
+Values of this type should have one of the following forms:
+
+#### A string
+
+The string `keep` constrains this field to the window's current value for it. Unlike
+omitting the field, this is a hard constraint that is never overridden by the other
+fields on the same axis.
+
+#### A number
+
+The value that this field should be constrained to.
+
+The numbers should be integers.
 
 
 <a name="types-DeviceConfigFilter"></a>
@@ -5769,6 +5871,74 @@ The string should have one of the following values:
 
 
 
+<a name="types-WindowFloatingPosition"></a>
+### `WindowFloatingPosition`
+
+The initial position of a floating window.
+
+- Example:
+
+  ```toml
+  [[windows]]
+  match.app-id = "mpv"
+  initial-floating-position = { x = 100, y = 100 }
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `x` (required):
+
+  The x coordinate of the window.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+- `y` (required):
+
+  The y coordinate of the window.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+
+<a name="types-WindowFloatingSize"></a>
+### `WindowFloatingSize`
+
+The initial size of a floating window.
+
+- Example:
+
+  ```toml
+  [[windows]]
+  match.app-id = "mpv"
+  initial-floating-size = { width = 800, height = 600 }
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `width` (required):
+
+  The width of the window.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+- `height` (required):
+
+  The height of the window.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+
 <a name="types-WindowMatch"></a>
 ### `WindowMatch`
 
@@ -6088,6 +6258,22 @@ The table has the following fields:
   Specifies if the window is initially mapped tiled or floating.
 
   The value of this field should be a [TileState](#types-TileState).
+
+- `initial-floating-size` (optional):
+
+  Specifies the initial size of the window while it is floating.
+  
+  If multiple matching rules specify this field, the used size is unspecified.
+
+  The value of this field should be a [WindowFloatingSize](#types-WindowFloatingSize).
+
+- `initial-floating-position` (optional):
+
+  Specifies the initial position of the window while it is floating.
+  
+  If multiple matching rules specify this field, the used position is unspecified.
+
+  The value of this field should be a [WindowFloatingPosition](#types-WindowFloatingPosition).
 
 
 <a name="types-WindowTypeMask"></a>

@@ -34,8 +34,8 @@ use {
             connector_type::{CON_UNKNOWN, ConnectorType},
         },
         window::{
-            ContentType, MatchedWindow, TileState, Window, WindowCriterion, WindowMatcher,
-            WindowType,
+            ContentType, Coordinate, MatchedWindow, TileState, Window, WindowCriterion,
+            WindowMatcher, WindowType,
         },
         workspace::WorkspaceDisplayOrder,
         xwayland::XScalingMode,
@@ -593,6 +593,52 @@ impl ConfigClient {
         let res = self.send_with_response(&ClientMessage::GetWindowWorkspace { window });
         get_response!(res, Workspace(0), GetWindowWorkspace { workspace });
         workspace
+    }
+
+    pub fn get_window_position(&self, window: Window) -> (i32, i32) {
+        let res = self.send_with_response(&ClientMessage::GetWindowPosition { window });
+        get_response!(res, (0, 0), GetWindowPosition { x, y });
+        (x, y)
+    }
+
+    pub fn get_window_size(&self, window: Window) -> (i32, i32) {
+        let res = self.send_with_response(&ClientMessage::GetWindowSize { window });
+        get_response!(res, (0, 0), GetWindowSize { width, height });
+        (width, height)
+    }
+
+    #[expect(clippy::too_many_arguments)]
+    pub fn set_window_position(
+        &self,
+        window: Window,
+        x1: Option<Coordinate>,
+        y1: Option<Coordinate>,
+        x2: Option<Coordinate>,
+        y2: Option<Coordinate>,
+        width: Option<Coordinate>,
+        height: Option<Coordinate>,
+    ) {
+        self.send(&ClientMessage::SetWindowPosition {
+            window,
+            x1,
+            y1,
+            x2,
+            y2,
+            width,
+            height,
+        });
+    }
+
+    pub fn get_workspace_position(&self, workspace: Workspace) -> (i32, i32) {
+        let res = self.send_with_response(&ClientMessage::GetWorkspacePosition { workspace });
+        get_response!(res, (0, 0), GetWorkspacePosition { x, y });
+        (x, y)
+    }
+
+    pub fn get_workspace_size(&self, workspace: Workspace) -> (i32, i32) {
+        let res = self.send_with_response(&ClientMessage::GetWorkspaceSize { workspace });
+        get_response!(res, (0, 0), GetWorkspaceSize { width, height });
+        (width, height)
     }
 
     pub fn get_seat_keyboard_workspace(&self, seat: Seat) -> Workspace {
@@ -2106,6 +2152,28 @@ impl ConfigClient {
             matcher,
             tile_state,
         });
+    }
+
+    pub fn set_window_matcher_initial_floating_size(
+        &self,
+        matcher: WindowMatcher,
+        width: i32,
+        height: i32,
+    ) {
+        self.send(&ClientMessage::SetWindowMatcherInitialFloatingSize {
+            matcher,
+            width,
+            height,
+        });
+    }
+
+    pub fn set_window_matcher_initial_floating_position(
+        &self,
+        matcher: WindowMatcher,
+        x: i32,
+        y: i32,
+    ) {
+        self.send(&ClientMessage::SetWindowMatcherInitialFloatingPosition { matcher, x, y });
     }
 
     pub fn set_window_matcher_latch_handler(

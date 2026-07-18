@@ -184,6 +184,16 @@ impl Connector {
         get!().connector_size(self).1
     }
 
+    /// Returns the logical size of the connector.
+    ///
+    /// This is a shortcut for `(width(), height())` that only performs a single round-trip.
+    pub fn size(self) -> (i32, i32) {
+        if !self.exists() {
+            return (0, 0);
+        }
+        get!((0, 0)).connector_size(self)
+    }
+
     /// Returns the refresh rate in mhz of the current mode of the connector.
     ///
     /// This is a shortcut for `mode().refresh_rate()`.

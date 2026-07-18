@@ -79,6 +79,7 @@ pub trait ToplevelNode: ToplevelNodeBase {
     fn tl_mark_ancestor_fullscreen(&self, fullscreen: bool);
     fn tl_mark_fullscreen(&self, connector: Option<&Rc<ConnectorData>>);
     fn tl_resize(&self, dx1: i32, dy1: i32, dx2: i32, dy2: i32);
+    fn tl_set_geometry(&self, x1: i32, y1: i32, x2: i32, y2: i32);
 }
 
 impl<T: ToplevelNodeBase> ToplevelNode for T {
@@ -303,6 +304,13 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         let x2 = (dx2 != 0).then_some(pos.x2().saturating_add(dx2));
         let y2 = (dy2 != 0).then_some(pos.y2().saturating_add(dy2));
         parent.cnode_resize_child(self, x1, y1, x2, y2);
+    }
+
+    fn tl_set_geometry(&self, x1: i32, y1: i32, x2: i32, y2: i32) {
+        let Some(parent) = self.tl_data().parent.get() else {
+            return;
+        };
+        parent.cnode_resize_child(self, Some(x1), Some(y1), Some(x2), Some(y2));
     }
 }
 

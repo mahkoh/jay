@@ -19,7 +19,7 @@ use {
             BlendSpace, ColorSpace, Connector, DrmDevice, Eotf, Format, GfxApi, ScalingFilter,
             TearingMode, Transform, VrrMode, connector_type::ConnectorType,
         },
-        window::{ContentType, TileState, Window, WindowMatcher, WindowType},
+        window::{ContentType, Coordinate, TileState, Window, WindowMatcher, WindowType},
         workspace::WorkspaceDisplayOrder,
         xwayland::XScalingMode,
     },
@@ -968,6 +968,37 @@ pub enum ClientMessage<'a> {
         connector: Connector,
         scaling_filter: ScalingFilter,
     },
+    SetWindowMatcherInitialFloatingSize {
+        matcher: WindowMatcher,
+        width: i32,
+        height: i32,
+    },
+    SetWindowMatcherInitialFloatingPosition {
+        matcher: WindowMatcher,
+        x: i32,
+        y: i32,
+    },
+    GetWindowPosition {
+        window: Window,
+    },
+    GetWindowSize {
+        window: Window,
+    },
+    SetWindowPosition {
+        window: Window,
+        x1: Option<Coordinate>,
+        y1: Option<Coordinate>,
+        x2: Option<Coordinate>,
+        y2: Option<Coordinate>,
+        width: Option<Coordinate>,
+        height: Option<Coordinate>,
+    },
+    GetWorkspacePosition {
+        workspace: Workspace,
+    },
+    GetWorkspaceSize {
+        workspace: Workspace,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1238,6 +1269,22 @@ pub enum Response {
     },
     GetContainerBorders {
         borders: ContainerBorders,
+    },
+    GetWindowPosition {
+        x: i32,
+        y: i32,
+    },
+    GetWindowSize {
+        width: i32,
+        height: i32,
+    },
+    GetWorkspacePosition {
+        x: i32,
+        y: i32,
+    },
+    GetWorkspaceSize {
+        width: i32,
+        height: i32,
     },
 }
 
