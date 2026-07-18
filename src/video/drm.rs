@@ -11,6 +11,7 @@ use {
             buf::Buf,
             errorfmt::ErrorFmt,
             oserror::{OsError, OsErrorExt2},
+            reset::Reset,
             stack::Stack,
             syncqueue::SyncQueue,
             vec_ext::VecExt,
@@ -736,6 +737,12 @@ macro_rules! drm_obj {
 
             fn is_none(&self) -> bool {
                 self.0 == 0
+            }
+        }
+
+        impl Reset for $name {
+            fn reset(&mut self) {
+                *self = Self::NONE;
             }
         }
     };
