@@ -391,8 +391,8 @@ impl MetalConnector {
                     }
                 };
             changes.change_object(plane.id, |c| {
-                c.change(plane.fb_id, fb.fb.id());
-                drm_state.fb_id = fb.fb.id();
+                c.change(drm_state.fb_id.id, fb.fb.id());
+                drm_state.fb_id.value = fb.fb.id();
                 connector_state.fb = fb.fb.id();
                 connector_state.locked = fb.locked;
                 if fb.direct_scanout_data.is_none() {
@@ -400,12 +400,12 @@ impl MetalConnector {
                 }
                 macro_rules! change {
                     ($prop:ident, $new:expr) => {{
-                        if drm_state.$prop != $new {
-                            c.change(plane.$prop, $new as u64);
+                        if drm_state.$prop.value != $new {
+                            c.change(drm_state.$prop.id, $new as u64);
                             try_async_flip = false;
-                            drm_state.$prop = $new;
+                            drm_state.$prop.value = $new;
                         }
-                        connector_state.$prop = drm_state.$prop;
+                        connector_state.$prop = drm_state.$prop.value;
                     }};
                 }
                 change!(src_w, (src_width as u32) << 16);
@@ -427,8 +427,8 @@ impl MetalConnector {
             changes.change_object(plane.id, |c| {
                 macro_rules! change {
                     ($prop:ident, $new:expr) => {{
-                        c.change(plane.$prop, $new);
-                        drm_state.$prop = $new;
+                        c.change(drm_state.$prop.id, $new);
+                        drm_state.$prop.value = $new;
                     }};
                 }
                 match &cursor.ty {

@@ -18,7 +18,10 @@ use {
                 DEFAULT_POST_COMMIT_MARGIN, DEFAULT_PRE_COMMIT_MARGIN, DirectScanoutCache,
                 POST_COMMIT_MARGIN_DELTA, PresentFb,
             },
-            transaction::{DrmConnectorState, DrmCrtcState, DrmPlaneState, MetalDeviceTransaction},
+            transaction::{
+                DrmConnectorState, DrmCrtcState, DrmPlaneState, DrmPlaneStateProps,
+                MetalDeviceTransaction,
+            },
         },
         cmm::{cmm_description::ColorDescription, cmm_primaries::Primaries},
         copy_device::{CopyDevice, CopyDeviceRegistry},
@@ -57,8 +60,8 @@ use {
                 DRM_CLIENT_CAP_PLANE_COLOR_PIPELINE, DrmBlob, DrmCardResources, DrmConnector,
                 DrmCrtc, DrmEncoder, DrmError, DrmEvent, DrmFb, DrmLease, DrmMaster, DrmModeInfo,
                 DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition, DrmPropertyType,
-                DrmPropertyValue, DrmVersion, HDMI_EOTF_TRADITIONAL_GAMMA_SDR, drm_mode_modeinfo,
-                hdr_output_metadata,
+                DrmPropertyValue, DrmVersion, HDMI_EOTF_TRADITIONAL_GAMMA_SDR,
+                PrepareDrmObjectProperties, drm_mode_modeinfo, hdr_output_metadata,
             },
             gbm::GbmDevice,
         },
@@ -969,17 +972,7 @@ pub struct MetalPlane {
     pub mode_w: Cell<i32>,
     pub mode_h: Cell<i32>,
 
-    pub crtc_id: DrmProperty,
-    pub crtc_x: DrmProperty,
-    pub crtc_y: DrmProperty,
-    pub crtc_w: DrmProperty,
-    pub crtc_h: DrmProperty,
-    pub src_x: DrmProperty,
-    pub src_y: DrmProperty,
-    pub src_w: DrmProperty,
-    pub src_h: DrmProperty,
     pub in_fence_fd: DrmProperty,
-    pub fb_id: DrmProperty,
 
     pub drm_state: RefCell<DrmPlaneState>,
 }
@@ -1624,30 +1617,22 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
             ("COLOR_PIPELINE", DefaultValue::Enum("Bypass")),
         ],
     );
-    let fb_id = props.get("FB_ID")?.map(|v| DrmFb(v as _));
-    let crtc_id = props.get("CRTC_ID")?.map(|v| DrmCrtc(v as _));
-    let crtc_x = props.get("CRTC_X")?.map(|v| v as i32);
-    let crtc_y = props.get("CRTC_Y")?.map(|v| v as i32);
-    let crtc_w = props.get("CRTC_W")?.map(|v| v as i32);
-    let crtc_h = props.get("CRTC_H")?.map(|v| v as i32);
-    let src_x = props.get("SRC_X")?.map(|v| v as u32);
-    let src_y = props.get("SRC_Y")?.map(|v| v as u32);
-    let src_w = props.get("SRC_W")?.map(|v| v as u32);
-    let src_h = props.get("SRC_H")?.map(|v| v as u32);
     let in_fence_fd = props.get("IN_FENCE_FD")?;
     let state = DrmPlaneState {
-        fb_id: fb_id.value,
-        src_x: src_x.value,
-        src_y: src_y.value,
-        src_w: src_w.value,
-        src_h: src_h.value,
         assigned_crtc: DrmCrtc::NONE,
-        crtc_id: crtc_id.value,
-        crtc_x: crtc_x.value,
-        crtc_y: crtc_y.value,
-        crtc_w: crtc_w.value,
-        crtc_h: crtc_h.value,
         buffers: None,
+        props: DrmPlaneStateProps {
+            fb_id: props.get("FB_ID")?.map(|v| DrmFb(v as _)),
+            src_x: props.get("SRC_X")?.map(|v| v as u32),
+            src_y: props.get("SRC_Y")?.map(|v| v as u32),
+            src_w: props.get("SRC_W")?.map(|v| v as u32),
+            src_h: props.get("SRC_H")?.map(|v| v as u32),
+            crtc_id: props.get("CRTC_ID")?.map(|v| DrmCrtc(v as _)),
+            crtc_x: props.get("CRTC_X")?.map(|v| v as i32),
+            crtc_y: props.get("CRTC_Y")?.map(|v| v as i32),
+            crtc_w: props.get("CRTC_W")?.map(|v| v as i32),
+            crtc_h: props.get("CRTC_H")?.map(|v| v as i32),
+        },
     };
     Ok(MetalPlane {
         id: plane,
@@ -1659,16 +1644,6 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
         formats,
         scanout_formats: Rc::new(scanout_formats),
         drm_state: RefCell::new(state),
-        fb_id: fb_id.id,
-        crtc_id: crtc_id.id,
-        crtc_x: crtc_x.id,
-        crtc_y: crtc_y.id,
-        crtc_w: crtc_w.id,
-        crtc_h: crtc_h.id,
-        src_x: src_x.id,
-        src_y: src_y.id,
-        src_w: src_w.id,
-        src_h: src_h.id,
         in_fence_fd: in_fence_fd.id,
         mode_w: Cell::new(0),
         mode_h: Cell::new(0),
@@ -2212,23 +2187,9 @@ impl MetalCrtc {
 
 impl MetalPlane {
     fn update_properties(&self) -> Result<(), DrmError> {
-        let get = |p: &BHashMap<DrmProperty, _>, k: DrmProperty| match p.get(&k) {
-            Some(v) => Ok(*v),
-            _ => todo!(),
-        };
         let props = &mut *self.untyped_properties.borrow_mut();
         collect_untyped_properties(&self.master, self.id, props)?;
-        let state = &mut *self.drm_state.borrow_mut();
-        state.fb_id = DrmFb(get(props, self.fb_id)? as _);
-        state.src_x = get(props, self.src_x)? as _;
-        state.src_y = get(props, self.src_y)? as _;
-        state.src_w = get(props, self.src_w)? as _;
-        state.src_h = get(props, self.src_h)? as _;
-        state.crtc_id = DrmCrtc(get(props, self.crtc_id)? as _);
-        state.crtc_x = get(props, self.crtc_x)? as _;
-        state.crtc_y = get(props, self.crtc_y)? as _;
-        state.crtc_w = get(props, self.crtc_w)? as _;
-        state.crtc_h = get(props, self.crtc_h)? as _;
+        self.drm_state.borrow_mut().props.update(props);
         Ok(())
     }
 }

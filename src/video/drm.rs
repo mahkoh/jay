@@ -1360,9 +1360,9 @@ pub struct Logging {
     pub level: Level,
 }
 
-#[expect(dead_code)]
 pub trait PrepareDrmObjectProperties {
     fn update(&mut self, p: &BHashMap<DrmProperty, u64>);
+    #[expect(dead_code)]
     fn prepare(&self, change: &mut ObjectChange<'_>, logging: Option<&Logging>);
     fn differs(&self, old: &Self) -> bool;
     fn prepare_conditional(
@@ -1373,7 +1373,6 @@ pub trait PrepareDrmObjectProperties {
     );
 }
 
-#[expect(dead_code)]
 pub trait PrepareDrmObjectProperty {
     fn reset(&mut self);
     fn update(&mut self, p: &BHashMap<DrmProperty, u64>);
