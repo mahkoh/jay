@@ -182,7 +182,7 @@ impl MetalConnector {
         if !self.backend.check_render_context(&self.dev) {
             return Ok(());
         }
-        if !crtc.drm_state.borrow().active {
+        if !crtc.drm_state.borrow().active.value {
             return Ok(());
         }
         let plane = match self.primary_plane.get() {

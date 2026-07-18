@@ -71,17 +71,22 @@ pub struct DrmPlaneStateProps {
     pub crtc_h: DrmPropertyValue<i32>,
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone, Reset)]
 pub struct DrmCrtcState {
-    pub active: bool,
     pub mode: Option<DrmModeInfo>,
-    pub mode_blob_id: DrmBlob,
     pub mode_blob: Option<Rc<PropBlob>>,
-    pub vrr_enabled: bool,
     pub assigned_connector: DrmConnector,
     pub gamma_lut: Option<Rc<BackendGammaLut>>,
-    pub gamma_lut_blob_id: DrmBlob,
     pub gamma_lut_blob: Option<Rc<PropBlob>>,
+    pub props: DrmCrtcStateProps,
+}
+
+#[derive(Clone, Debug, PrepareDrmObjectProperties)]
+pub struct DrmCrtcStateProps {
+    pub active: DrmPropertyValue<bool>,
+    pub mode_blob_id: DrmPropertyValue<DrmBlob>,
+    pub vrr_enabled: DrmPropertyValue<bool>,
+    pub gamma_lut_blob_id: Option<DrmPropertyValue<DrmBlob>>,
 }
 
 #[derive(Default, Clone, Debug)]
@@ -175,6 +180,7 @@ macro_rules! impl_props_deref {
 }
 
 impl_props_deref!(DrmPlaneState, DrmPlaneStateProps);
+impl_props_deref!(DrmCrtcState, DrmCrtcStateProps);
 
 impl MetalConnector {
     pub fn create_transaction(
@@ -384,7 +390,7 @@ impl MetalDeviceTransaction {
                 connector.new.crtc_id = *crtc_id;
             }
             let crtc = slf.crtcs.get_mut(&connector.new.crtc_id).unwrap();
-            crtc.new.active = state.active;
+            crtc.new.active.value = state.active;
             crtc.new.assigned_connector = connector.obj.id;
             crtc.changed.push(connector.changed.clone());
             let crtc_planes = crtc_planes.get_mut(&crtc.obj.id).unwrap();
@@ -465,11 +471,13 @@ impl MetalDeviceTransaction {
                     .master
                     .create_blob(&mode.to_raw())
                     .map_err(BackendConnectorTransactionError::CreateModeBlob)?;
-                crtc.new.mode_blob_id = blob.id();
+                crtc.new.mode_blob_id.value = blob.id();
                 crtc.new.mode_blob = Some(Rc::new(blob));
                 mode.clone()
             };
-            if crtc.new.gamma_lut != state.gamma_lut {
+            if crtc.new.gamma_lut != state.gamma_lut
+                && let Some(prop) = &mut crtc.new.gamma_lut_blob_id
+            {
                 if let Some(gamma_lut) = &state.gamma_lut {
                     let blob = slf
                         .dev
@@ -477,10 +485,10 @@ impl MetalDeviceTransaction {
                         .master
                         .create_blob(&gamma_lut.gamma_lut as &[_])
                         .map_err(BackendConnectorTransactionError::CreateGammaLutBlob)?;
-                    crtc.new.gamma_lut_blob_id = blob.id();
+                    prop.value = blob.id();
                     crtc.new.gamma_lut_blob = Some(Rc::new(blob));
                 } else {
-                    crtc.new.gamma_lut_blob_id = DrmBlob::NONE;
+                    prop.value = DrmBlob::NONE;
                     crtc.new.gamma_lut_blob = None;
                 }
                 crtc.new.gamma_lut = state.gamma_lut.clone();
@@ -615,7 +623,7 @@ impl MetalDeviceTransaction {
                 if plane.obj.ty == PlaneType::Primary || fb_id.is_some() {
                     plane.new.crtc_id.value = crtc.obj.id;
                     let locked = slf.dev.dev.backend.state.lock.locked[RenderTL].get();
-                    let may_show_current_fb = !crtc.new.active
+                    let may_show_current_fb = !crtc.new.active.value
                         || connector.new.locked
                         || !locked
                         || plane.obj.ty != PlaneType::Primary;
@@ -730,7 +738,7 @@ impl MetalDeviceTransaction {
                     connector.obj.kernel_id(),
                 ));
             }
-            crtc.new.vrr_enabled = state.vrr;
+            crtc.new.vrr_enabled.value = state.vrr;
             if state.tearing && !slf.dev.dev.supports_async_commit {
                 return Err(BackendConnectorTransactionError::TearingNotSupported(
                     connector.obj.kernel_id(),
@@ -790,7 +798,7 @@ impl MetalDeviceTransaction {
         }
         for (crtc, _) in &unused_crtcs {
             if let Some(crtc) = slf.crtcs.get_mut(crtc) {
-                crtc.new = DrmCrtcState::default();
+                crtc.new.reset();
             }
         }
         for (plane, _) in &unused_planes {
@@ -901,35 +909,23 @@ impl MetalDeviceTransactionWithDrmState {
             );
         }
         for (_, crtc) in &mut slf.crtcs {
-            let n = &mut crtc.new;
-            let o = &*crtc.obj.drm_state.borrow();
-            let changed = c.change_object(crtc.obj.id, |c| {
-                if n.active != o.active {
-                    log_change!(o, n, active);
-                    c.change(crtc.obj.active, n.active);
-                }
-                if n.vrr_enabled != o.vrr_enabled {
-                    log_change!(o, n, vrr_enabled);
-                    c.change(crtc.obj.vrr_enabled, n.vrr_enabled);
-                }
-                if n.mode_blob_id != o.mode_blob_id {
-                    log_change!(o, n, mode_blob_id);
-                    c.change(crtc.obj.mode_id, n.mode_blob_id);
-                }
-                if let Some(gamma_lut) = crtc.obj.gamma_lut
-                    && n.gamma_lut_blob_id != o.gamma_lut_blob_id
-                {
-                    log_change!(o, n, gamma_lut_blob_id);
-                    c.change(gamma_lut, n.gamma_lut_blob_id);
-                }
-                reset_default_properties!(
-                    c,
-                    &*crtc.obj.untyped_properties.borrow(),
-                    &crtc.obj.default_properties,
-                );
-            });
+            let n = &crtc.new.props;
+            let o = &crtc.obj.drm_state.borrow().props;
+            let untyped_properties = &*crtc.obj.untyped_properties.borrow();
+            let default_properties = &crtc.obj.default_properties;
+            let changed = n.differs(o)
+                || need_reset_default_properties!(untyped_properties, default_properties);
+            log::log!(
+                LEVEL,
+                "crtc {:?} {}changed",
+                crtc.obj.id.0,
+                if changed { "" } else { "un" },
+            );
             if changed {
-                log::log!(LEVEL, "crtc {:?} changed", crtc.obj.id);
+                c.change_object(crtc.obj.id, |c| {
+                    n.prepare_conditional(o, c, LOGGING);
+                    reset_default_properties!(c, untyped_properties, default_properties);
+                });
                 crtc.changed.iter().for_each(|c| c.set(true));
             }
         }

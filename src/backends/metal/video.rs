@@ -19,8 +19,8 @@ use {
                 POST_COMMIT_MARGIN_DELTA, PresentFb,
             },
             transaction::{
-                DrmConnectorState, DrmCrtcState, DrmPlaneState, DrmPlaneStateProps,
-                MetalDeviceTransaction,
+                DrmConnectorState, DrmCrtcState, DrmCrtcStateProps, DrmPlaneState,
+                DrmPlaneStateProps, MetalDeviceTransaction,
             },
         },
         cmm::{cmm_description::ColorDescription, cmm_primaries::Primaries},
@@ -917,11 +917,7 @@ pub struct MetalCrtc {
     pub connector: CloneCell<Option<Rc<MetalConnector>>>,
     pub pending_flip: CloneCell<Option<Rc<MetalConnector>>>,
 
-    pub active: DrmProperty,
-    pub mode_id: DrmProperty,
-    pub vrr_enabled: DrmProperty,
     pub out_fence_ptr: DrmProperty,
-    pub gamma_lut: Option<DrmProperty>,
     pub gamma_lut_size: Option<u32>,
     pub drm_state: RefCell<DrmCrtcState>,
 
@@ -1485,9 +1481,7 @@ fn create_crtc(
             ("OUT_FENCE_PTR", DefaultValue::Fixed(0)),
         ],
     );
-    let active = props.get("ACTIVE")?.map(|v| v == 1);
     let mode_id = props.get("MODE_ID")?.map(|v| DrmBlob(v as u32));
-    let vrr_enabled = props.get("VRR_ENABLED")?.map(|v| v == 1);
     let out_fence_ptr = props.get("OUT_FENCE_PTR")?;
     let gamma_lut = props
         .get("GAMMA_LUT")
@@ -1507,15 +1501,17 @@ fn create_crtc(
         }
     }
     let state = DrmCrtcState {
-        active: active.value,
         mode,
-        mode_blob_id: mode_id.value,
         mode_blob: None,
-        vrr_enabled: vrr_enabled.value,
         assigned_connector: DrmConnector::NONE,
         gamma_lut: None,
-        gamma_lut_blob_id: gamma_lut.map_or(DrmBlob::NONE, |v| v.value),
         gamma_lut_blob: None,
+        props: DrmCrtcStateProps {
+            active: props.get("ACTIVE")?.map(|v| v == 1),
+            mode_blob_id: mode_id,
+            vrr_enabled: props.get("VRR_ENABLED")?.map(|v| v == 1),
+            gamma_lut_blob_id: gamma_lut,
+        },
     };
     Ok(MetalCrtc {
         id: crtc,
@@ -1528,11 +1524,7 @@ fn create_crtc(
         connector: Default::default(),
         pending_flip: Default::default(),
         drm_state: RefCell::new(state),
-        active: active.id,
-        mode_id: mode_id.id,
-        vrr_enabled: vrr_enabled.id,
         out_fence_ptr: out_fence_ptr.id,
-        gamma_lut: gamma_lut.map(|v| v.id),
         gamma_lut_size,
         sequence: Cell::new(0),
         have_queued_sequence: Cell::new(false),
@@ -2135,24 +2127,19 @@ impl MetalConnector {
 
 impl MetalCrtc {
     fn update_properties(&self) -> Result<(), DrmError> {
-        let get = |p: &BHashMap<DrmProperty, _>, k: DrmProperty| match p.get(&k) {
-            Some(v) => Ok(*v),
-            _ => todo!(),
-        };
         let master = &self.master;
         let props = &mut *self.untyped_properties.borrow_mut();
         collect_untyped_properties(master, self.id, props)?;
         let state = &mut *self.drm_state.borrow_mut();
-        state.active = get(&props, self.active)? != 0;
-        state.vrr_enabled = get(&props, self.vrr_enabled)? != 0;
-        let id = DrmBlob(get(props, self.mode_id)? as _);
-        let old = state.mode_blob_id;
-        state.mode_blob_id = id;
-        if old != id {
+        let old_mode_id = state.mode_blob_id.value;
+        let old_gamma_lut_id = state.gamma_lut_blob_id.map(|v| v.value).unwrap_or_default();
+        state.props.update(props);
+        let new_mode_id = state.props.mode_blob_id.value;
+        if old_mode_id != new_mode_id {
             state.mode = None;
             state.mode_blob = None;
-            if id.is_some() {
-                match master.getblob::<drm_mode_modeinfo>(id) {
+            if new_mode_id.is_some() {
+                match master.getblob::<drm_mode_modeinfo>(new_mode_id) {
                     Ok(b) => {
                         state.mode = Some(b.into());
                     }
@@ -2162,15 +2149,13 @@ impl MetalCrtc {
                 }
             }
         }
-        if let Some(gamma_lut) = self.gamma_lut {
-            let id = DrmBlob(get(props, gamma_lut)? as _);
-            let old = state.gamma_lut_blob_id;
-            state.gamma_lut_blob_id = id;
-            if old != id {
+        if let Some(prop) = &state.gamma_lut_blob_id {
+            let new_gamma_lut_id = prop.value;
+            if old_gamma_lut_id != new_gamma_lut_id {
                 state.gamma_lut = None;
                 state.gamma_lut_blob = None;
-                if id.is_some() {
-                    match master.getblob_vec::<BackendGammaLutElement>(id) {
+                if new_gamma_lut_id.is_some() {
+                    match master.getblob_vec::<BackendGammaLutElement>(new_gamma_lut_id) {
                         Ok(b) => {
                             state.gamma_lut = Some(Rc::new(BackendGammaLut::new(b)));
                         }
