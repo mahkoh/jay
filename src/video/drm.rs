@@ -706,6 +706,7 @@ pub trait DrmObject {
     const TYPE: u32;
     const NONE: Self;
     fn id(&self) -> u32;
+    fn from_id(id: u32) -> Self;
     fn is_some(&self) -> bool;
     fn is_none(&self) -> bool;
 }
@@ -723,6 +724,10 @@ macro_rules! drm_obj {
 
             fn id(&self) -> u32 {
                 self.0
+            }
+
+            fn from_id(v: u32) -> Self {
+                Self(v)
             }
 
             fn is_some(&self) -> bool {
@@ -1082,12 +1087,18 @@ impl Drop for Change {
 }
 
 pub trait ObjectChangeValue {
+    #[expect(dead_code)]
+    fn from_u64(v: u64) -> Self;
     fn into_u64(self) -> u64;
 }
 
 macro_rules! num {
     ($ty:ty) => {
         impl ObjectChangeValue for $ty {
+            fn from_u64(v: u64) -> Self {
+                v as Self
+            }
+
             fn into_u64(self) -> u64 {
                 self as u64
             }
@@ -1100,12 +1111,25 @@ num!(i32);
 num!(u32);
 num!(i64);
 num!(u64);
-num!(bool);
+
+impl ObjectChangeValue for bool {
+    fn from_u64(v: u64) -> Self {
+        v != 0
+    }
+
+    fn into_u64(self) -> u64 {
+        self as u64
+    }
+}
 
 impl<T> ObjectChangeValue for T
 where
     T: DrmObject,
 {
+    fn from_u64(v: u64) -> Self {
+        DrmObject::from_id(v as _)
+    }
+
     fn into_u64(self) -> u64 {
         self.id() as u64
     }
