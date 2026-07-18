@@ -697,10 +697,19 @@ pub struct DrmPropertyEnumValue {
     pub name: BString,
 }
 
-#[derive(Debug)]
-pub struct DrmPropertyValue {
+#[derive(Copy, Clone, Debug)]
+pub struct DrmPropertyValue<T = u64> {
     pub id: DrmProperty,
-    pub value: u64,
+    pub value: T,
+}
+
+impl<T> DrmPropertyValue<T> {
+    pub fn map<U>(self, f: impl FnOnce(T) -> U) -> DrmPropertyValue<U> {
+        DrmPropertyValue {
+            id: self.id,
+            value: f(self.value),
+        }
+    }
 }
 
 pub trait DrmObject {

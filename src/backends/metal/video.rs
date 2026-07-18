@@ -57,7 +57,7 @@ use {
                 DRM_CLIENT_CAP_PLANE_COLOR_PIPELINE, DrmBlob, DrmCardResources, DrmConnector,
                 DrmCrtc, DrmEncoder, DrmError, DrmEvent, DrmFb, DrmLease, DrmMaster, DrmModeInfo,
                 DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition, DrmPropertyType,
-                DrmVersion, HDMI_EOTF_TRADITIONAL_GAMMA_SDR, drm_mode_modeinfo,
+                DrmPropertyValue, DrmVersion, HDMI_EOTF_TRADITIONAL_GAMMA_SDR, drm_mode_modeinfo,
                 hdr_output_metadata,
             },
             gbm::GbmDevice,
@@ -1705,9 +1705,9 @@ struct CollectedProperties {
 }
 
 impl CollectedProperties {
-    fn get(&self, name: &str) -> Result<TypedProperty<u64>, DrmError> {
+    fn get(&self, name: &str) -> Result<DrmPropertyValue, DrmError> {
         match self.props.get(name.as_bytes().as_bstr()) {
-            Some((def, value)) => Ok(TypedProperty {
+            Some((def, value)) => Ok(DrmPropertyValue {
                 id: def.id,
                 value: *value,
             }),
@@ -1721,24 +1721,6 @@ impl CollectedProperties {
             res.insert(def.id, *val);
         }
         res
-    }
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct TypedProperty<T> {
-    pub id: DrmProperty,
-    pub value: T,
-}
-
-impl<T: Copy> TypedProperty<T> {
-    fn map<U, F>(self, f: F) -> TypedProperty<U>
-    where
-        F: FnOnce(T) -> U,
-    {
-        TypedProperty {
-            id: self.id,
-            value: f(self.value),
-        }
     }
 }
 
