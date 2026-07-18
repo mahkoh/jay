@@ -111,6 +111,12 @@ impl Debug for CopyDeviceHolder {
     }
 }
 
+#[derive(Default)]
+pub struct MetalDrmVendor {
+    pub is_nvidia: bool,
+    pub is_amd: bool,
+}
+
 pub struct MetalDrmDevice {
     pub backend: Rc<MetalBackend>,
     pub id: DrmDeviceId,
@@ -130,8 +136,7 @@ pub struct MetalDrmDevice {
     pub copy_device: Rc<CopyDeviceHolder>,
     pub on_change: OnChange<crate::backend::DrmEvent>,
     pub direct_scanout_enabled: Cell<Option<bool>>,
-    pub is_nvidia: bool,
-    pub _is_amd: bool,
+    pub vendor: MetalDrmVendor,
     pub lease_ids: MetalLeaseIds,
     pub leases: CopyHashMap<MetalLeaseId, MetalLeaseData>,
     pub leases_to_break: CopyHashMap<MetalLeaseId, MetalLeaseData>,
@@ -1906,6 +1911,23 @@ impl MetalBackend {
         pending: PendingDrmDevice,
         master: &Rc<DrmMaster>,
     ) -> Result<Rc<MetalDrmDeviceData>, MetalError> {
+        let mut vendor = MetalDrmVendor::default();
+        match master.version() {
+            Ok(v) => {
+                vendor.is_nvidia = v.name.contains_str("nvidia");
+                vendor.is_amd = v.name.contains_str("amdgpu");
+                if vendor.is_nvidia {
+                    log::warn!(
+                        "Device {} use the nvidia driver. IN_FENCE_FD will not be used.",
+                        pending.devnode.as_bytes().as_bstr(),
+                    );
+                }
+            }
+            Err(e) => {
+                log::warn!("Could not fetch DRM version information: {}", ErrorFmt(e));
+            }
+        }
+
         let mut resources = DrmCardResources::default();
         let mut planes = BHashMap::default();
         let mut crtcs = BHashMap::default();
@@ -1974,24 +1996,6 @@ impl MetalBackend {
             copy_device: copy_device.clone(),
         });
 
-        let mut is_nvidia = false;
-        let mut is_amd = false;
-        match gbm.drm.version() {
-            Ok(v) => {
-                is_nvidia = v.name.contains_str("nvidia");
-                is_amd = v.name.contains_str("amdgpu");
-                if is_nvidia {
-                    log::warn!(
-                        "Device {} use the nvidia driver. IN_FENCE_FD will not be used.",
-                        pending.devnode.as_bytes().as_bstr(),
-                    );
-                }
-            }
-            Err(e) => {
-                log::warn!("Could not fetch DRM version information: {}", ErrorFmt(e));
-            }
-        }
-
         let dev = Rc::new(MetalDrmDevice {
             backend: self.clone(),
             id: pending.id,
@@ -2013,8 +2017,7 @@ impl MetalBackend {
             copy_device,
             on_change: Default::default(),
             direct_scanout_enabled: Default::default(),
-            is_nvidia,
-            _is_amd: is_amd,
+            vendor,
             lease_ids: Default::default(),
             leases: Default::default(),
             leases_to_break: Default::default(),

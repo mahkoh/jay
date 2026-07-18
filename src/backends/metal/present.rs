@@ -456,7 +456,7 @@ impl MetalConnector {
                         change!(src_y, 0);
                         change!(src_w, (*width as u32) << 16);
                         change!(src_h, (*height as u32) << 16);
-                        if !self.dev.is_nvidia
+                        if !self.dev.vendor.is_nvidia
                             && let Some(sf) = self.backend.signaled_sync_file.get()
                         {
                             c.change(plane.in_fence_fd, sf.0.raw() as u64);
@@ -489,7 +489,7 @@ impl MetalConnector {
                 }
             }
             self.presentation_is_sync.set(true);
-            if !self.dev.is_nvidia {
+            if !self.dev.vendor.is_nvidia {
                 if new_fb.is_some()
                     && let Some(sf) = self.backend.signaled_sync_file.get()
                 {
