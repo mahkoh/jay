@@ -27,6 +27,7 @@ use crate::utils::binary_search_map::BinarySearchMap;
 use crate::utils::cell_ext::CellExt;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::obj_and_id::ObjWithId;
 use crate::utils::rc_eq::rc_eq;
 use crate::utils::reset::Reset;
 use crate::video::drm::Change;

@@ -10,7 +10,6 @@ pub trait ObjWithId {
     fn id(&self) -> Self::Id;
 }
 
-#[expect(dead_code)]
 pub trait ObjWithIdOptExt {
     type Id: Copy;
 

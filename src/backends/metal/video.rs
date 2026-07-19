@@ -73,6 +73,7 @@ use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::geometric_decay::GeometricDecay;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::numcell::NumCell;
+use crate::utils::obj_and_id::ObjWithIdOptExt;
 use crate::utils::object_registry::CachedObjectRegistry;
 use crate::utils::object_registry::ObjectRegistry;
 use crate::utils::on_change::OnChange;
@@ -2139,18 +2140,14 @@ impl MetalConnector {
         collect_untyped_properties(master, self.id, &mut dd.untyped_properties)?;
         let props = &dd.untyped_properties;
         let state = &mut dd.drm_state;
-        let old_hdr_metadata_id = state
-            .hdr_metadata_blob_id
-            .map(|v| v.value)
-            .unwrap_or_default();
         state.update(props);
         if let Some(prop) = &state.props.hdr_metadata_blob_id {
-            let new_hdr_metadata_id = prop.value;
-            if old_hdr_metadata_id != new_hdr_metadata_id {
+            let id = prop.value;
+            if id != state.hdr_metadata_blob.id_or_default() {
                 state.hdr_metadata = None;
                 state.hdr_metadata_blob = None;
-                if new_hdr_metadata_id.is_some() {
-                    match master.getblob::<hdr_output_metadata>(new_hdr_metadata_id) {
+                if id.is_some() {
+                    match master.getblob::<hdr_output_metadata>(id) {
                         Ok(b) => {
                             state.hdr_metadata = Some(b);
                         }
@@ -2171,11 +2168,9 @@ impl MetalCrtc {
         let props = &mut *self.untyped_properties.borrow_mut();
         collect_untyped_properties(master, self.id, props)?;
         let state = &mut *self.drm_state.borrow_mut();
-        let old_mode_id = state.mode_blob_id.value;
-        let old_gamma_lut_id = state.gamma_lut_blob_id.map(|v| v.value).unwrap_or_default();
         state.props.update(props);
         let new_mode_id = state.props.mode_blob_id.value;
-        if old_mode_id != new_mode_id {
+        if new_mode_id != state.mode_blob.id_or_default() {
             state.mode = None;
             state.mode_blob = None;
             if new_mode_id.is_some() {
@@ -2190,12 +2185,12 @@ impl MetalCrtc {
             }
         }
         if let Some(prop) = &state.gamma_lut_blob_id {
-            let new_gamma_lut_id = prop.value;
-            if old_gamma_lut_id != new_gamma_lut_id {
+            let id = prop.value;
+            if id != state.gamma_lut_blob.id_or_default() {
                 state.gamma_lut = None;
                 state.gamma_lut_blob = None;
-                if new_gamma_lut_id.is_some() {
-                    match master.getblob_vec::<BackendGammaLutElement>(new_gamma_lut_id) {
+                if id.is_some() {
+                    match master.getblob_vec::<BackendGammaLutElement>(id) {
                         Ok(b) => {
                             state.gamma_lut = Some(Rc::new(BackendGammaLut::new(b)));
                         }
