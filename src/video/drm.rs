@@ -2,12 +2,15 @@ pub mod syncobj;
 mod sys;
 
 use crate::backend;
+use crate::backend::BackendLuminance;
+use crate::cmm::cmm_primaries::Primaries;
 use crate::format::Format;
 use crate::io_uring::IoUring;
 use crate::io_uring::IoUringError;
 use crate::utils::bhash::BHashMap;
 use crate::utils::buf::Buf;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::ordered_float::F64;
 use crate::utils::oserror::OsError;
 use crate::utils::oserror::OsErrorExt2;
 use crate::utils::reset::Reset;
@@ -909,11 +912,33 @@ impl hdr_output_metadata {
         }
     }
 
-    pub fn from_eotf(eotf: u8) -> Self {
+    pub fn from_eotf(
+        eotf: u8,
+        primaries: &Primaries,
+        luminance: Option<&BackendLuminance>,
+    ) -> Self {
+        let map = |v: F64| (v.0 / 0.00002).round() as u16;
+        let map_coordinate = |(x, y): (F64, F64)| hdr_metadata_primary {
+            x: map(x),
+            y: map(y),
+        };
+        let (min, max) = match luminance {
+            None => (0, 0),
+            Some(v) => ((v.min / 0.0001).round() as u16, v.max_fall.round() as u16),
+        };
         Self::new(hdr_metadata_infoframe {
             eotf,
             metadata_type: 0,
-            ..hdr_metadata_infoframe::default()
+            display_primaries: [
+                map_coordinate(primaries.r),
+                map_coordinate(primaries.g),
+                map_coordinate(primaries.b),
+            ],
+            white_point: map_coordinate(primaries.wp),
+            max_display_mastering_luminance: max,
+            min_display_mastering_luminance: min,
+            max_cll: max,
+            max_fall: max,
         })
     }
 }

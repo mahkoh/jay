@@ -1431,6 +1431,8 @@ fn create_connector_display_data(
     if let Some(p) = &hdr_metadata_prop {
         hdr_metadata = Some(hdr_output_metadata::from_eotf(
             HDMI_EOTF_TRADITIONAL_GAMMA_SDR,
+            &primaries,
+            luminance.as_ref(),
         ));
         if p.value.is_some() {
             match dev.master.getblob::<hdr_output_metadata>(p.value) {
