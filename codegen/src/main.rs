@@ -7,6 +7,25 @@ use {
     std::{fmt::Debug, io, path::PathBuf},
 };
 
+macro_rules! define_w {
+    ($w:ident) => {
+        define_w!($w, $);
+    };
+    ($w:ident, $dol:tt) => {
+        #[allow(unused_macros)]
+        macro_rules! w {
+            ($dol($arg:tt)*) => {
+                write!($w, $dol($arg)*)?;
+            };
+        }
+        macro_rules! wl {
+            ($dol($arg:tt)*) => {
+                writeln!($w, $dol($arg)*)?;
+            };
+        }
+    };
+}
+
 mod input_event_codes;
 mod keysyms;
 #[path = "../../toml-config/src/phf.rs"]
@@ -30,23 +49,21 @@ fn generate_map(
     let state = phf_generator::generate_hash(keys);
     Permutation::oneline(state.map).apply_inv_slice_in_place(values);
     let mut res = String::new();
-    writeln!(
-        res,
-        "pub(super) static {name}: PhfMap<{key_type}, {value_type}> = PhfMap {{"
-    )?;
-    writeln!(res, "    key: {},", state.key)?;
-    writeln!(res, "    disps: &[")?;
+    define_w!(res);
+    wl!("pub(super) static {name}: PhfMap<{key_type}, {value_type}> = PhfMap {{");
+    wl!("    key: {},", state.key);
+    wl!("    disps: &[");
     for disp in state.disps {
-        writeln!(res, "        {disp:?},")?;
+        wl!("        {disp:?},");
     }
-    writeln!(res, "    ],")?;
-    writeln!(res, "    map: &[")?;
+    wl!("    ],");
+    wl!("    map: &[");
     for value in values {
-        writeln!(res, "        {value:?},")?;
+        wl!("        {value:?},");
     }
-    writeln!(res, "    ],")?;
-    writeln!(res, "    _phantom: core::marker::PhantomData,")?;
-    writeln!(res, "}};")?;
+    wl!("    ],");
+    wl!("    _phantom: core::marker::PhantomData,");
+    wl!("}};");
     Ok(res)
 }
 

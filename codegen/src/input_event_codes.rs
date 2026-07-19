@@ -74,10 +74,11 @@ pub fn main() -> Result<()> {
         }
         let map = generate_map("KEYCODES", "str", "MappedKey", &keys, &mut values)?;
         let mut out = String::new();
-        writeln!(out, "use super::MappedKey;")?;
-        writeln!(out, "use crate::phf_map::PhfMap;")?;
-        writeln!(out)?;
-        writeln!(out, "{}", map)?;
+        define_w!(out);
+        wl!("use super::MappedKey;");
+        wl!("use crate::phf_map::PhfMap;");
+        wl!();
+        wl!("{}", map);
         let file = match ty {
             MappingType::Keycode => "toml-config/src/config/keycodes/generated.rs",
             MappingType::InputEventCode => "toml-config/src/config/input_event_codes/generated.rs",
@@ -86,55 +87,48 @@ pub fn main() -> Result<()> {
     }
     {
         let mut out = String::new();
-        writeln!(out, "pub const MAX_INPUT_EVENT_CODE: usize = {max};")?;
-        writeln!(out)?;
-        writeln!(
-            out,
-            "#[derive(Copy, Clone, Debug, Eq, PartialEq, linearize::Linearize)]"
-        )?;
-        writeln!(out, "#[expect(non_camel_case_types)]")?;
-        writeln!(out, "pub enum InputEventCode {{")?;
+        define_w!(out);
+        wl!("pub const MAX_INPUT_EVENT_CODE: usize = {max};");
+        wl!();
+        wl!("#[derive(Copy, Clone, Debug, Eq, PartialEq, linearize::Linearize)]");
+        wl!("#[expect(non_camel_case_types)]");
+        wl!("pub enum InputEventCode {{");
         for names in by_value.values() {
-            writeln!(out, "    {},", names[0])?;
+            wl!("    {},", names[0]);
         }
-        writeln!(out, "}}")?;
-        writeln!(out)?;
-        writeln!(out, "impl InputEventCode {{")?;
-        writeln!(out, "    pub fn raw(self) -> u32 {{")?;
-        writeln!(out, "        match self {{")?;
+        wl!("}}");
+        wl!();
+        wl!("impl InputEventCode {{");
+        wl!("    pub fn raw(self) -> u32 {{");
+        wl!("        match self {{");
         for (value, names) in by_value.iter() {
-            writeln!(out, "            Self::{} => {value},", names[0])?;
+            wl!("            Self::{} => {value},", names[0]);
         }
-        writeln!(out, "        }}")?;
-        writeln!(out, "    }}")?;
-        writeln!(out)?;
-        writeln!(out, "    pub fn from_raw(raw: u32) -> Option<Self> {{")?;
-        writeln!(
-            out,
+        wl!("        }}");
+        wl!("    }}");
+        wl!();
+        wl!("    pub fn from_raw(raw: u32) -> Option<Self> {{");
+        wl!(
             "        static MAP: [Option<InputEventCode>; {}] = [",
             max + 1
-        )?;
+        );
         for i in 0..=max {
             if let Some(value) = by_value.get(&i) {
-                writeln!(out, "            Some(InputEventCode::{}),", value[0])?;
+                wl!("            Some(InputEventCode::{}),", value[0]);
             } else {
-                writeln!(out, "            None,")?;
+                wl!("            None,");
             }
         }
-        writeln!(out, "        ];")?;
-        writeln!(out, "        MAP.get(raw as usize).copied().flatten()")?;
-        writeln!(out, "    }}")?;
-        writeln!(out, "}}")?;
-        writeln!(out)?;
-        writeln!(
-            out,
-            "impl crate::utils::static_text::StaticText for InputEventCode {{"
-        )?;
-        writeln!(out, "    fn text(&self) -> &'static str {{")?;
-        writeln!(out, "        match self {{")?;
+        wl!("        ];");
+        wl!("        MAP.get(raw as usize).copied().flatten()");
+        wl!("    }}");
+        wl!("}}");
+        wl!();
+        wl!("impl crate::utils::static_text::StaticText for InputEventCode {{");
+        wl!("    fn text(&self) -> &'static str {{");
+        wl!("        match self {{");
         for names in by_value.values() {
-            writeln!(
-                out,
+            wl!(
                 "            Self::{} => \"{}\",",
                 names[0],
                 fmt::from_fn(|f| {
@@ -146,22 +140,20 @@ pub fn main() -> Result<()> {
                     }
                     Ok(())
                 })
-            )?;
+            );
         }
-        writeln!(out, "        }}")?;
-        writeln!(out, "    }}")?;
-        writeln!(out, "}}")?;
+        wl!("        }}");
+        wl!("    }}");
+        wl!("}}");
         update("src/evdev/input_event_codes.rs", &out)?;
     }
     {
         let mut out = String::new();
-        writeln!(out, "use super::InputEventCode;")?;
-        writeln!(out)?;
+        define_w!(out);
+        wl!("use super::InputEventCode;");
+        wl!();
         for (name, value) in &codes {
-            writeln!(
-                out,
-                "pub const {name}: InputEventCode = InputEventCode({value});"
-            )?;
+            wl!("pub const {name}: InputEventCode = InputEventCode({value});");
         }
         update("jay-config/src/input/input_event_codes.rs", &out)?;
     }
