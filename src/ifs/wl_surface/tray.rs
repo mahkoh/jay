@@ -424,11 +424,7 @@ impl<T: TrayItem> NodeBase for T {
 
 fn install<T: TrayItem>(item: &Rc<T>) -> Result<(), TrayItemError> {
     let data = item.tray_item_data();
-    data.surface.set_role(SurfaceRole::TrayItem)?;
-    if data.surface.ext.get().is_some() {
-        return Err(TrayItemError::Exists);
-    }
-    data.surface.ext.set(item.clone());
+    data.surface.set_ext(SurfaceRole::TrayItem, item.clone())?;
     data.surface.set_visible(false);
     if let Some(node) = data.output.node() {
         data.surface
@@ -496,8 +492,6 @@ fn get_popup<T: TrayItem>(
 pub enum TrayItemError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error("The surface already has a tray item role object")]
-    Exists,
     #[error(transparent)]
     WlSurfaceError(#[from] WlSurfaceError),
     #[error("Popup already has a parent")]

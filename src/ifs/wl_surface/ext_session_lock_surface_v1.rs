@@ -33,7 +33,6 @@ use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::{self};
 use crate::tree::WorkspaceNode;
 use crate::wire::ExtSessionLockSurfaceV1Id;
-use crate::wire::WlSurfaceId;
 use crate::wire::ext_session_lock_surface_v1::*;
 use std::cell::Cell;
 use std::rc::Rc;
@@ -56,13 +55,8 @@ pub struct ExtSessionLockSurfaceV1 {
 
 impl ExtSessionLockSurfaceV1 {
     pub fn install(self: &Rc<Self>) -> Result<(), ExtSessionLockSurfaceV1Error> {
-        self.surface.set_role(SurfaceRole::ExtSessionLockSurface)?;
-        if self.surface.ext.get().is_some() {
-            return Err(ExtSessionLockSurfaceV1Error::AlreadyAttached(
-                self.surface.id,
-            ));
-        }
-        self.surface.ext.set(self.clone());
+        self.surface
+            .set_ext(SurfaceRole::ExtSessionLockSurface, self.clone())?;
         Ok(())
     }
 
@@ -256,9 +250,5 @@ pub enum ExtSessionLockSurfaceV1Error {
     ClientError(Box<ClientError>),
     #[error(transparent)]
     WlSurfaceError(#[from] WlSurfaceError),
-    #[error(
-        "Surface {0} cannot be turned into an ext_session_lock_surface because it already has an attached ext_session_lock_surface"
-    )]
-    AlreadyAttached(WlSurfaceId),
 }
 efrom!(ExtSessionLockSurfaceV1Error, ClientError);

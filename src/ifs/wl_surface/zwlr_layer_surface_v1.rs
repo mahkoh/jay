@@ -49,7 +49,6 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::linkedlist::NodeRef;
-use crate::wire::WlSurfaceId;
 use crate::wire::XdgPopupId;
 use crate::wire::ZwlrLayerSurfaceV1Id;
 use crate::wire::zwlr_layer_surface_v1::*;
@@ -216,11 +215,8 @@ impl ZwlrLayerSurfaceV1 {
     }
 
     pub fn install(self: &Rc<Self>) -> Result<(), ZwlrLayerSurfaceV1Error> {
-        self.surface.set_role(SurfaceRole::ZwlrLayerSurface)?;
-        if self.surface.ext.get().is_some() {
-            return Err(ZwlrLayerSurfaceV1Error::AlreadyAttached(self.surface.id));
-        }
-        self.surface.ext.set(self.clone());
+        self.surface
+            .set_ext(SurfaceRole::ZwlrLayerSurface, self.clone())?;
         if let Some(output) = self.output.node() {
             self.surface
                 .set_output(&output, NodeLocation::Output(output.id));
@@ -920,10 +916,6 @@ impl Configurable for ZwlrLayerSurfaceV1 {
 
 #[derive(Debug, Error)]
 pub enum ZwlrLayerSurfaceV1Error {
-    #[error(
-        "Surface {0} cannot be turned into a zwlr_layer_surface because it already has an attached zwlr_layer_surface"
-    )]
-    AlreadyAttached(WlSurfaceId),
     #[error("Width was set to 0 but anchor did not contain LEFT and RIGHT")]
     WidthZero,
     #[error("Height was set to 0 but anchor did not contain TOP and BOTTOM")]

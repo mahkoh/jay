@@ -987,7 +987,7 @@ impl WlSurface {
         self.toplevel.set(tl);
     }
 
-    pub fn set_role(&self, role: SurfaceRole) -> Result<(), WlSurfaceError> {
+    fn set_role(&self, role: SurfaceRole) -> Result<(), WlSurfaceError> {
         use SurfaceRole::*;
         match (self.role.get(), role) {
             (None, _) => {}
@@ -1007,6 +1007,19 @@ impl WlSurface {
         };
         self.transactional.set(transactional);
         Ok(())
+    }
+
+    fn set_ext(&self, role: SurfaceRole, ext: Rc<dyn SurfaceExt>) -> Result<(), WlSurfaceError> {
+        self.set_role(role)?;
+        if self.ext.get().is_some() {
+            return Err(WlSurfaceError::HasExt);
+        }
+        self.set_ext_unchecked(ext);
+        Ok(())
+    }
+
+    fn set_ext_unchecked(&self, ext: Rc<dyn SurfaceExt>) {
+        self.ext.set(ext);
     }
 
     pub fn into_dnd_icon(
@@ -2491,6 +2504,8 @@ pub enum WlSurfaceError {
     PreparePrimeCopy(#[source] PrimeError),
     #[error("Could not perform prime copy")]
     PrimeCopy(#[source] ChainedCopyError),
+    #[error("The surface already has an extension object")]
+    HasExt,
 }
 efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);

@@ -204,7 +204,7 @@ impl WlSubsurface {
         self.latest_node.set(Some(node.to_ref()));
         self.pending().node = Some(node);
         self.surface.set_toplevel(self.parent.toplevel.get());
-        self.surface.ext.set(self.clone());
+        self.surface.set_ext_unchecked(self.clone());
         update_children_attach(self)?;
         for tl in TreeTimeline::variants() {
             let (x, y) = self.parent.buffer_abs_pos[tl].get().position();
