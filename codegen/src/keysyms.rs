@@ -16,12 +16,6 @@ pub fn main() -> Result<()> {
             sym.0
         )?;
     }
-    update(
-        concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../jay-config/src/keyboard/syms/generated.rs",
-        ),
-        &res,
-    )?;
+    update("jay-config/src/keyboard/syms/generated.rs", &res)?;
     Ok(())
 }

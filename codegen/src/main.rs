@@ -4,7 +4,7 @@ use {
     crate::phf::PhfHash,
     anyhow::Result,
     permutation::Permutation,
-    std::{fmt::Debug, io},
+    std::{fmt::Debug, io, path::PathBuf},
 };
 
 mod input_event_codes;
@@ -51,10 +51,12 @@ fn generate_map(
 }
 
 fn update(file: &str, data: &str) -> io::Result<()> {
-    if let Ok(current) = std::fs::read_to_string(file)
+    let mut path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/.."));
+    path.push(file);
+    if let Ok(current) = std::fs::read_to_string(&file)
         && current == data
     {
         return Ok(());
     }
-    std::fs::write(file, data)
+    std::fs::write(&file, data)
 }

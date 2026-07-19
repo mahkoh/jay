@@ -79,18 +79,8 @@ pub fn main() -> Result<()> {
         writeln!(out)?;
         writeln!(out, "{}", map)?;
         let file = match ty {
-            MappingType::Keycode => {
-                concat!(
-                    env!("CARGO_MANIFEST_DIR"),
-                    "/../toml-config/src/config/keycodes/generated.rs",
-                )
-            }
-            MappingType::InputEventCode => {
-                concat!(
-                    env!("CARGO_MANIFEST_DIR"),
-                    "/../toml-config/src/config/input_event_codes/generated.rs",
-                )
-            }
+            MappingType::Keycode => "toml-config/src/config/keycodes/generated.rs",
+            MappingType::InputEventCode => "toml-config/src/config/input_event_codes/generated.rs",
         };
         update(file, &out)?;
     }
@@ -161,13 +151,7 @@ pub fn main() -> Result<()> {
         writeln!(out, "        }}")?;
         writeln!(out, "    }}")?;
         writeln!(out, "}}")?;
-        update(
-            concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../src/evdev/input_event_codes.rs",
-            ),
-            &out,
-        )?;
+        update("src/evdev/input_event_codes.rs", &out)?;
     }
     {
         let mut out = String::new();
@@ -179,13 +163,7 @@ pub fn main() -> Result<()> {
                 "pub const {name}: InputEventCode = InputEventCode({value});"
             )?;
         }
-        update(
-            concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../jay-config/src/input/input_event_codes.rs",
-            ),
-            &out,
-        )?;
+        update("jay-config/src/input/input_event_codes.rs", &out)?;
     }
     Ok(())
 }
