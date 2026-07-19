@@ -237,7 +237,7 @@ impl CommitTimeline {
     pub(super) fn commit(
         &self,
         surface: &Rc<WlSurface>,
-        pending: &mut CachedBox<PendingState, BoxReset>,
+        mut pending: CachedBox<PendingState, BoxReset>,
     ) -> Result<(), CommitTimelineError> {
         let state = &surface.client.state;
         let mut collector = CommitDataCollector {
@@ -253,7 +253,7 @@ impl CommitTimeline {
             commit_time: Default::default(),
             toplevel_restored: Default::default(),
         };
-        collector.collect(pending);
+        collector.collect(&mut pending);
         let points = collector.acquire_points;
         let pending_uploads = collector.shm_uploads;
         let has_dmabuf = collector.has_dmabuf;
@@ -277,13 +277,13 @@ impl CommitTimeline {
             || (pending.fifo_barrier_wait && self.fifo_barrier_set.get());
         if !must_be_queued {
             return surface
-                .apply_state(pending)
+                .apply_state(&mut pending)
                 .map_err(CommitTimelineError::ImmediateCommit);
         }
         if self.shared.depth.get() >= MAX_TIMELINE_DEPTH {
             return Err(CommitTimelineError::Depth);
         }
-        set_effective_timeline(self, pending, &self.own_timeline);
+        set_effective_timeline(self, &pending, &self.own_timeline);
         let queue_was_empty = self.own_timeline.entries.is_empty();
         let commit_fifo_state = match pending.fifo_barrier_wait {
             true => CommitFifoState::Queued,
@@ -294,7 +294,7 @@ impl CommitTimeline {
             &self.shared,
             EntryKind::Commit(surface.client.state.commit_cache.cache.get(Commit {
                 surface: surface.clone(),
-                pending: RefCell::new(CachedBox::take(pending)),
+                pending: RefCell::new(pending),
                 syncobj: NumCell::new(points.len()),
                 wait_handles: Cell::new(Default::default()),
                 pending_uploads: NumCell::new(pending_uploads),

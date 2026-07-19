@@ -1290,7 +1290,8 @@ impl WlSurfaceRequestHandler for WlSurface {
             cd.ready();
         }
         if ext.commit_requested(cached_pending) == CommitAction::ContinueCommit {
-            self.commit_timeline.commit(slf, cached_pending)?;
+            let pending = CachedBox::take(cached_pending);
+            self.commit_timeline.commit(slf, pending)?;
         }
         Ok(())
     }

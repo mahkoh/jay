@@ -288,11 +288,9 @@ impl WlSubsurface {
         let committed = &mut *self.parent.pending.borrow_mut();
         let committed = committed.subsurfaces.get_mut(&self.unique_id);
         if let Some(ps) = committed
-            && let Some(mut state) = ps.pending.state.take()
+            && let Some(state) = ps.pending.state.take()
         {
-            self.surface
-                .commit_timeline
-                .commit(&self.surface, &mut state)?;
+            self.surface.commit_timeline.commit(&self.surface, state)?;
         }
         Ok(())
     }
@@ -337,10 +335,8 @@ impl WlSubsurfaceRequestHandler for WlSubsurface {
         self.surface.unset_ext();
         self.parent.consume_pending_child(self.unique_id, |oe| {
             let oe = oe.remove();
-            if let Some(mut state) = oe.pending.state {
-                self.surface
-                    .commit_timeline
-                    .commit(&self.surface, &mut state)?;
+            if let Some(state) = oe.pending.state {
+                self.surface.commit_timeline.commit(&self.surface, state)?;
             }
             Ok(())
         })?;
