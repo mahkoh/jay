@@ -1323,7 +1323,7 @@ fn create_connector_display_data(
                                 luminance = Some(BackendLuminance {
                                     min: h.min_luminance.unwrap_or(0.0),
                                     max,
-                                    max_fall: h.max_luminance.unwrap_or(max),
+                                    max_fall: h.max_frame_average_luminance.unwrap_or(max),
                                 });
                             }
                         }
