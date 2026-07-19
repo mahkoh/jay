@@ -2,9 +2,9 @@
 
 use {
     crate::phf::PhfHash,
-    anyhow::Result,
+    anyhow::{Context, Result, bail},
     permutation::Permutation,
-    std::{fmt::Debug, io, path::PathBuf},
+    std::{fmt::Debug, io::Write, path::PathBuf, process::Command},
 };
 
 macro_rules! define_w {
@@ -67,13 +67,31 @@ fn generate_map(
     Ok(res)
 }
 
-fn update(file: &str, data: &str) -> io::Result<()> {
-    let mut path = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/.."));
-    path.push(file);
-    if let Ok(current) = std::fs::read_to_string(&file)
-        && current == data
+fn update(relative: &str, raw: &str) -> Result<()> {
+    let mut absolute = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/.."));
+    absolute.push(relative);
+
+    let formatted = {
+        let dir = absolute.parent().context("file path has no parent")?;
+        let mut tmp = tempfile::Builder::default().tempfile_in(dir)?;
+        tmp.write_all(raw.as_bytes())?;
+        let status = Command::new("rustfmt")
+            .arg("+nightly")
+            .arg("--edition=2024")
+            .arg(tmp.path())
+            .status()?;
+        if !status.success() {
+            bail!("rustfmt failed");
+        }
+        std::fs::read_to_string(&tmp)?
+    };
+
+    if let Ok(current) = std::fs::read_to_string(&absolute)
+        && current == formatted
     {
         return Ok(());
     }
-    std::fs::write(&file, data)
+    std::fs::write(&absolute, formatted)?;
+
+    Ok(())
 }

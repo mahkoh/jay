@@ -11,3 +11,4 @@ indexmap = { version = "2.14.0", default-features = false, features = ["std"] }
 regex = { version = "1.12.4", default-features = false, features = ["std", "unicode-perl"] }
 linearize = { version = "0.1.7", default-features = false, features = ["derive"] }
 kbvm = { version = "0.1.7", default-features = false }
+tempfile = { version = "3.27.0", default-features = false }
