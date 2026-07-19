@@ -1,18 +1,19 @@
-use {
-    crate::{
-        backend::{BackendGammaLut, BackendGammaLutElement},
-        client::{Client, ClientError, ClientId},
-        clientmem::{ClientMem, ClientMemError},
-        ifs::{
-            wl_output::OutputGlobalOpt, zwlr_gamma_control_manager_v1::ZwlrGammaControlManagerV1,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwlrGammaControlV1Id, zwlr_gamma_control_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::backend::BackendGammaLut;
+use crate::backend::BackendGammaLutElement;
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::client::ClientId;
+use crate::clientmem::ClientMem;
+use crate::clientmem::ClientMemError;
+use crate::ifs::wl_output::OutputGlobalOpt;
+use crate::ifs::zwlr_gamma_control_manager_v1::ZwlrGammaControlManagerV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwlrGammaControlV1Id;
+use crate::wire::zwlr_gamma_control_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwlrGammaControlV1 {
     id: ZwlrGammaControlV1Id,

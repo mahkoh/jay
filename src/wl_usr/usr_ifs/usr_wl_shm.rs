@@ -1,14 +1,15 @@
-use {
-    crate::{
-        format::{formats, map_wayland_format_id},
-        object::Version,
-        utils::copyhashmap::CopyHashMap,
-        wire::{WlShmId, wl_shm::*},
-        wl_usr::{UsrCon, usr_ifs::usr_wl_shm_pool::UsrWlShmPool, usr_object::UsrObject},
-    },
-    std::{convert::Infallible, rc::Rc},
-    uapi::OwnedFd,
-};
+use crate::format::formats;
+use crate::format::map_wayland_format_id;
+use crate::object::Version;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::wire::WlShmId;
+use crate::wire::wl_shm::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_ifs::usr_wl_shm_pool::UsrWlShmPool;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 pub struct UsrWlShm {
     pub id: WlShmId,

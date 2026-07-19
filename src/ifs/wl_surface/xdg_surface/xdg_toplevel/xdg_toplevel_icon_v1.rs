@@ -1,45 +1,57 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        cmm::{cmm_eotf::Eotf, cmm_render_intent::RenderIntent},
-        gfx_api::{
-            AcquireSync, AlphaMode, AsyncShmGfxTextureCallback, CopyTexture, FramebufferRect,
-            GfxApiOp, GfxContext, GfxError, GfxRenderPass, GfxTexture, PendingShmTransfer,
-            ReleaseSync, STAGING_UPLOAD, SampleRect, ScalingFilter,
-        },
-        ifs::{
-            wl_buffer::{WlBuffer, WlBufferStorage},
-            wl_surface::xdg_surface::xdg_toplevel::XdgToplevel,
-        },
-        io_uring::{PendingPoll, PollCallback},
-        leaks::Tracker,
-        object::{Object, Version},
-        rect::{Rect, Region},
-        scale::Scale,
-        state::State,
-        theme::Color,
-        tree::TreeTimeline::LiveTL,
-        utils::{
-            bhash::{BHashMap, BHashSet},
-            copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
-            numcell::NumCell,
-            obj_and_id::ObjWithId,
-            oserror::OsError,
-            smallmap::SmallMap,
-        },
-        video::dmabuf::PlaneVec,
-        wire::{XdgToplevelIconV1Id, XdgToplevelId, xdg_toplevel_icon_v1::*},
-    },
-    jay_proc::{jay_clone, jay_hash},
-    smallvec::SmallVec,
-    std::{
-        cell::{Cell, RefCell},
-        ffi::c_short,
-        rc::{Rc, Weak},
-    },
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::cmm::cmm_eotf::Eotf;
+use crate::cmm::cmm_render_intent::RenderIntent;
+use crate::gfx_api::AcquireSync;
+use crate::gfx_api::AlphaMode;
+use crate::gfx_api::AsyncShmGfxTextureCallback;
+use crate::gfx_api::CopyTexture;
+use crate::gfx_api::FramebufferRect;
+use crate::gfx_api::GfxApiOp;
+use crate::gfx_api::GfxContext;
+use crate::gfx_api::GfxError;
+use crate::gfx_api::GfxRenderPass;
+use crate::gfx_api::GfxTexture;
+use crate::gfx_api::PendingShmTransfer;
+use crate::gfx_api::ReleaseSync;
+use crate::gfx_api::STAGING_UPLOAD;
+use crate::gfx_api::SampleRect;
+use crate::gfx_api::ScalingFilter;
+use crate::ifs::wl_buffer::WlBuffer;
+use crate::ifs::wl_buffer::WlBufferStorage;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::io_uring::PendingPoll;
+use crate::io_uring::PollCallback;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::rect::Rect;
+use crate::rect::Region;
+use crate::scale::Scale;
+use crate::state::State;
+use crate::theme::Color;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::utils::bhash::BHashMap;
+use crate::utils::bhash::BHashSet;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::numcell::NumCell;
+use crate::utils::obj_and_id::ObjWithId;
+use crate::utils::oserror::OsError;
+use crate::utils::smallmap::SmallMap;
+use crate::video::dmabuf::PlaneVec;
+use crate::wire::XdgToplevelIconV1Id;
+use crate::wire::XdgToplevelId;
+use crate::wire::xdg_toplevel_icon_v1::*;
+use jay_proc::jay_clone;
+use jay_proc::jay_hash;
+use smallvec::SmallVec;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::ffi::c_short;
+use std::rc::Rc;
+use std::rc::Weak;
+use thiserror::Error;
 
 linear_ids!(ToplevelIconIds, ToplevelIconId, u64);
 

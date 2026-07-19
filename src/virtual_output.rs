@@ -1,57 +1,83 @@
-use {
-    crate::{
-        allocator::{AllocatorError, BO_USE_RENDERING, BufferObject, BufferUsage},
-        async_engine::{Phase, SpawnedFuture},
-        backend::{
-            BackendConnectorState, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId,
-            DrmDeviceId, HardwareCursor, HardwareCursorUpdate, Mode, MonitorInfo,
-            transaction::{
-                BackendAppliedConnectorTransaction, BackendConnectorTransaction,
-                BackendConnectorTransactionError, BackendConnectorTransactionType,
-                BackendConnectorTransactionTypeDyn, BackendPreparedConnectorTransaction,
-            },
-        },
-        cmm::{cmm_description::ColorDescription, cmm_primaries::Primaries},
-        control_center::CCI_VIRTUAL_OUTPUTS,
-        format::{Format, XRGB8888},
-        gfx_api::{
-            AcquireSync, BufferResv, DirectScanoutPosition, FdSync, GfxBlendBuffer, GfxContext,
-            GfxError, GfxFramebuffer, GfxRenderPass, GfxTexture, LazyTexture, ReleaseSync,
-            TextureUse, create_render_pass,
-        },
-        ifs::{
-            wl_output::{BlendSpace, OutputId},
-            wp_presentation_feedback::{
-                KIND_HW_CLOCK, KIND_HW_COMPLETION, KIND_VSYNC, KIND_ZERO_COPY,
-            },
-        },
-        rect::Region,
-        state::State,
-        tasks::handle_connector,
-        tree::{
-            OutputNode,
-            TreeTimeline::{LiveTL, RenderTL},
-        },
-        utils::{
-            asyncevent::AsyncEvent, bhash::BHashMap, cell_ext::CellExt, clonecell::CloneCell,
-            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, geometric_decay::GeometricDecay,
-            hash_map_ext::HashMapExt, numcell::NumCell, on_change::OnChange, rc_eq::rc_eq,
-            timer::TimerFd,
-        },
-        video::drm::ConnectorType,
-    },
-    linearize::{Linearize, LinearizeExt, StaticMap, static_map},
-    std::{
-        any::Any,
-        cell::{Cell, RefCell},
-        fmt::{Debug, Formatter},
-        mem,
-        rc::Rc,
-        time::Duration,
-    },
-    thiserror::Error,
-    uapi::c,
-};
+use crate::allocator::AllocatorError;
+use crate::allocator::BO_USE_RENDERING;
+use crate::allocator::BufferObject;
+use crate::allocator::BufferUsage;
+use crate::async_engine::Phase;
+use crate::async_engine::SpawnedFuture;
+use crate::backend::BackendConnectorState;
+use crate::backend::Connector;
+use crate::backend::ConnectorEvent;
+use crate::backend::ConnectorId;
+use crate::backend::ConnectorKernelId;
+use crate::backend::DrmDeviceId;
+use crate::backend::HardwareCursor;
+use crate::backend::HardwareCursorUpdate;
+use crate::backend::Mode;
+use crate::backend::MonitorInfo;
+use crate::backend::transaction::BackendAppliedConnectorTransaction;
+use crate::backend::transaction::BackendConnectorTransaction;
+use crate::backend::transaction::BackendConnectorTransactionError;
+use crate::backend::transaction::BackendConnectorTransactionType;
+use crate::backend::transaction::BackendConnectorTransactionTypeDyn;
+use crate::backend::transaction::BackendPreparedConnectorTransaction;
+use crate::cmm::cmm_description::ColorDescription;
+use crate::cmm::cmm_primaries::Primaries;
+use crate::control_center::CCI_VIRTUAL_OUTPUTS;
+use crate::format::Format;
+use crate::format::XRGB8888;
+use crate::gfx_api::AcquireSync;
+use crate::gfx_api::BufferResv;
+use crate::gfx_api::DirectScanoutPosition;
+use crate::gfx_api::FdSync;
+use crate::gfx_api::GfxBlendBuffer;
+use crate::gfx_api::GfxContext;
+use crate::gfx_api::GfxError;
+use crate::gfx_api::GfxFramebuffer;
+use crate::gfx_api::GfxRenderPass;
+use crate::gfx_api::GfxTexture;
+use crate::gfx_api::LazyTexture;
+use crate::gfx_api::ReleaseSync;
+use crate::gfx_api::TextureUse;
+use crate::gfx_api::create_render_pass;
+use crate::ifs::wl_output::BlendSpace;
+use crate::ifs::wl_output::OutputId;
+use crate::ifs::wp_presentation_feedback::KIND_HW_CLOCK;
+use crate::ifs::wp_presentation_feedback::KIND_HW_COMPLETION;
+use crate::ifs::wp_presentation_feedback::KIND_VSYNC;
+use crate::ifs::wp_presentation_feedback::KIND_ZERO_COPY;
+use crate::rect::Region;
+use crate::state::State;
+use crate::tasks::handle_connector;
+use crate::tree::OutputNode;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::bhash::BHashMap;
+use crate::utils::cell_ext::CellExt;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::geometric_decay::GeometricDecay;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::numcell::NumCell;
+use crate::utils::on_change::OnChange;
+use crate::utils::rc_eq::rc_eq;
+use crate::utils::timer::TimerFd;
+use crate::video::drm::ConnectorType;
+use linearize::Linearize;
+use linearize::LinearizeExt;
+use linearize::StaticMap;
+use linearize::static_map;
+use std::any::Any;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::mem;
+use std::rc::Rc;
+use std::time::Duration;
+use thiserror::Error;
+use uapi::c;
 
 #[derive(Default)]
 pub struct VirtualOutputs {

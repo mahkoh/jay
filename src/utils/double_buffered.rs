@@ -1,4 +1,5 @@
-use std::{cell::Cell, ops::Deref};
+use std::cell::Cell;
+use std::ops::Deref;
 
 #[derive(Default)]
 pub struct DoubleBuffered<T> {

@@ -1,17 +1,15 @@
-use {
-    crate::{
-        gfx_api::SyncFile,
-        io_uring::IoUringError,
-        utils::oserror::OsError,
-        video::drm::{
-            DrmError,
-            syncobj::{DrmSyncobjCtx, Syncobj, SyncobjPoint, merge_sync_files},
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-    uapi::{OwnedFd, c},
-};
+use crate::gfx_api::SyncFile;
+use crate::io_uring::IoUringError;
+use crate::utils::oserror::OsError;
+use crate::video::drm::DrmError;
+use crate::video::drm::syncobj::DrmSyncobjCtx;
+use crate::video::drm::syncobj::Syncobj;
+use crate::video::drm::syncobj::SyncobjPoint;
+use crate::video::drm::syncobj::merge_sync_files;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c;
 
 pub mod wait_for_syncobj;
 

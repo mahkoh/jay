@@ -1,13 +1,12 @@
-use {
-    crate::{
-        it::{
-            test_error::TestError, test_ifs::test_surface::TestSurface, test_object::TestObject,
-            test_transport::TestTransport,
-        },
-        wire::{WpFifoManagerV1Id, WpFifoV1Id, wp_fifo_manager_v1::*, wp_fifo_v1},
-    },
-    std::rc::Rc,
-};
+use crate::it::test_error::TestError;
+use crate::it::test_ifs::test_surface::TestSurface;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::WpFifoManagerV1Id;
+use crate::wire::WpFifoV1Id;
+use crate::wire::wp_fifo_manager_v1::*;
+use crate::wire::wp_fifo_v1;
+use std::rc::Rc;
 
 pub struct TestFifoManager {
     pub id: WpFifoManagerV1Id,

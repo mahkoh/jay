@@ -1,20 +1,19 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::{
-            wl_seat::tablet::{
-                PadButtonState, TabletPad, zwp_tablet_pad_group_v2::ZwpTabletPadGroupV2,
-                zwp_tablet_seat_v2::ZwpTabletSeatV2, zwp_tablet_v2::ZwpTabletV2,
-            },
-            wl_surface::WlSurface,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwpTabletPadV2Id, zwp_tablet_pad_v2::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_seat::tablet::PadButtonState;
+use crate::ifs::wl_seat::tablet::TabletPad;
+use crate::ifs::wl_seat::tablet::zwp_tablet_pad_group_v2::ZwpTabletPadGroupV2;
+use crate::ifs::wl_seat::tablet::zwp_tablet_seat_v2::ZwpTabletSeatV2;
+use crate::ifs::wl_seat::tablet::zwp_tablet_v2::ZwpTabletV2;
+use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwpTabletPadV2Id;
+use crate::wire::zwp_tablet_pad_v2::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpTabletPadV2 {
     pub id: ZwpTabletPadV2Id,

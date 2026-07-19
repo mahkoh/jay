@@ -5,31 +5,36 @@ pub mod device;
 pub mod event;
 mod sys;
 
-use {
-    crate::{
-        libinput::{
-            consts::{
-                LIBINPUT_LOG_PRIORITY_DEBUG, LIBINPUT_LOG_PRIORITY_ERROR,
-                LIBINPUT_LOG_PRIORITY_INFO, LogPriority,
-            },
-            device::RegisteredDevice,
-            event::LibInputEvent,
-            sys::{
-                libinput, libinput_device_ref, libinput_dispatch, libinput_get_event,
-                libinput_get_fd, libinput_interface, libinput_log_priority,
-                libinput_log_set_handler, libinput_log_set_priority, libinput_path_add_device,
-                libinput_path_create_context, libinput_unref,
-            },
-        },
-        udev::UdevError,
-        utils::{errorfmt::ErrorFmt, oserror::OsError, ptr_ext::PtrExt},
-    },
-    bstr::ByteSlice,
-    isnt::std_1::primitive::IsntConstPtrExt,
-    std::{ffi::CStr, rc::Rc},
-    thiserror::Error,
-    uapi::{IntoUstr, OwnedFd, c},
-};
+use crate::libinput::consts::LIBINPUT_LOG_PRIORITY_DEBUG;
+use crate::libinput::consts::LIBINPUT_LOG_PRIORITY_ERROR;
+use crate::libinput::consts::LIBINPUT_LOG_PRIORITY_INFO;
+use crate::libinput::consts::LogPriority;
+use crate::libinput::device::RegisteredDevice;
+use crate::libinput::event::LibInputEvent;
+use crate::libinput::sys::libinput;
+use crate::libinput::sys::libinput_device_ref;
+use crate::libinput::sys::libinput_dispatch;
+use crate::libinput::sys::libinput_get_event;
+use crate::libinput::sys::libinput_get_fd;
+use crate::libinput::sys::libinput_interface;
+use crate::libinput::sys::libinput_log_priority;
+use crate::libinput::sys::libinput_log_set_handler;
+use crate::libinput::sys::libinput_log_set_priority;
+use crate::libinput::sys::libinput_path_add_device;
+use crate::libinput::sys::libinput_path_create_context;
+use crate::libinput::sys::libinput_unref;
+use crate::udev::UdevError;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::oserror::OsError;
+use crate::utils::ptr_ext::PtrExt;
+use bstr::ByteSlice;
+use isnt::std_1::primitive::IsntConstPtrExt;
+use std::ffi::CStr;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::IntoUstr;
+use uapi::OwnedFd;
+use uapi::c;
 
 static INTERFACE: libinput_interface = libinput_interface {
     open_restricted,

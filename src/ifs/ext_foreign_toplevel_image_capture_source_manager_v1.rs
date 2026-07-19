@@ -1,18 +1,16 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::ext_image_capture_source_v1::{ExtImageCaptureSourceV1, ImageCaptureSource},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{
-            ExtForeignToplevelImageCaptureSourceManagerV1Id,
-            ext_foreign_toplevel_image_capture_source_manager_v1::*,
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::ext_image_capture_source_v1::ExtImageCaptureSourceV1;
+use crate::ifs::ext_image_capture_source_v1::ImageCaptureSource;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ExtForeignToplevelImageCaptureSourceManagerV1Id;
+use crate::wire::ext_foreign_toplevel_image_capture_source_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ExtForeignToplevelImageCaptureSourceManagerV1Global {
     pub name: GlobalName,

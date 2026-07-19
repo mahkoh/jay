@@ -1,13 +1,12 @@
-use {
-    crate::{
-        it::{
-            test_error::TestError, test_ifs::test_subsurface::TestSubsurface,
-            test_object::TestObject, test_transport::TestTransport,
-        },
-        wire::{WlSubcompositorId, WlSurfaceId, wl_subcompositor::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestError;
+use crate::it::test_ifs::test_subsurface::TestSubsurface;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::WlSubcompositorId;
+use crate::wire::WlSurfaceId;
+use crate::wire::wl_subcompositor::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestSubcompositor {
     pub id: WlSubcompositorId,

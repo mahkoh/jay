@@ -1,15 +1,16 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wl_surface::wp_tearing_control_v1::{WpTearingControlV1, WpTearingControlV1Error},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WpTearingControlManagerV1Id, wp_tearing_control_manager_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_surface::wp_tearing_control_v1::WpTearingControlV1;
+use crate::ifs::wl_surface::wp_tearing_control_v1::WpTearingControlV1Error;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WpTearingControlManagerV1Id;
+use crate::wire::wp_tearing_control_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpTearingControlManagerV1Global {
     name: GlobalName,

@@ -1,19 +1,18 @@
 #![allow(non_upper_case_globals)]
 
-use {
-    crate::{
-        pipewire::{
-            pw_con::PwCon,
-            pw_mem::{PwMem, PwMemType},
-            pw_object::{PwObject, PwObjectData},
-            pw_parser::{PwParser, PwParserError},
-            pw_pod::{SPA_DATA_DmaBuf, SPA_DATA_MemFd, SpaDataType},
-        },
-        utils::bitflags::BitflagsExt,
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::pipewire::pw_con::PwCon;
+use crate::pipewire::pw_mem::PwMem;
+use crate::pipewire::pw_mem::PwMemType;
+use crate::pipewire::pw_object::PwObject;
+use crate::pipewire::pw_object::PwObjectData;
+use crate::pipewire::pw_parser::PwParser;
+use crate::pipewire::pw_parser::PwParserError;
+use crate::pipewire::pw_pod::SPA_DATA_DmaBuf;
+use crate::pipewire::pw_pod::SPA_DATA_MemFd;
+use crate::pipewire::pw_pod::SpaDataType;
+use crate::utils::bitflags::BitflagsExt;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct PwCore {
     pub data: PwObjectData,

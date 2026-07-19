@@ -1,16 +1,15 @@
-use {
-    crate::{
-        backend::ConnectorId as BackendConnectorId,
-        client::{Client, ClientError},
-        ifs::wp_drm_lease_device_v1::WpDrmLeaseDeviceV1,
-        leaks::Tracker,
-        object::{Object, Version},
-        utils::bindings::Bindings,
-        wire::{WpDrmLeaseConnectorV1Id, wp_drm_lease_connector_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::backend::ConnectorId as BackendConnectorId;
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wp_drm_lease_device_v1::WpDrmLeaseDeviceV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::utils::bindings::Bindings;
+use crate::wire::WpDrmLeaseConnectorV1Id;
+use crate::wire::wp_drm_lease_connector_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpDrmLeaseConnectorV1 {
     pub id: WpDrmLeaseConnectorV1Id,

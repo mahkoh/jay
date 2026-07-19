@@ -1,18 +1,18 @@
-use {
-    crate::{
-        format::XRGB8888,
-        it::{test_error::TestError, test_object::TestObject, testrun::ParseFull},
-        state::State,
-        utils::buffd::MsgParser,
-        video::dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
-        wire::{JayScreenshotId, jay_screenshot::*},
-    },
-    std::{
-        cell::{Cell, RefCell},
-        rc::Rc,
-    },
-    uapi::OwnedFd,
-};
+use crate::format::XRGB8888;
+use crate::it::test_error::TestError;
+use crate::it::test_object::TestObject;
+use crate::it::testrun::ParseFull;
+use crate::state::State;
+use crate::utils::buffd::MsgParser;
+use crate::video::dmabuf::DmaBuf;
+use crate::video::dmabuf::DmaBufPlane;
+use crate::video::dmabuf::PlaneVec;
+use crate::wire::JayScreenshotId;
+use crate::wire::jay_screenshot::*;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 pub struct TestJayScreenshot {
     pub id: JayScreenshotId,

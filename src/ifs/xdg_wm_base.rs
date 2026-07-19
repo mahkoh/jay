@@ -1,19 +1,19 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::{
-            wl_surface::xdg_surface::{XdgSurface, XdgSurfaceError},
-            xdg_positioner::XdgPositioner,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        utils::copyhashmap::CopyHashMap,
-        wire::{XdgSurfaceId, XdgWmBaseId, xdg_wm_base::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_surface::xdg_surface::XdgSurface;
+use crate::ifs::wl_surface::xdg_surface::XdgSurfaceError;
+use crate::ifs::xdg_positioner::XdgPositioner;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::wire::XdgSurfaceId;
+use crate::wire::XdgWmBaseId;
+use crate::wire::xdg_wm_base::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[expect(dead_code)]
 const ROLE: u32 = 0;

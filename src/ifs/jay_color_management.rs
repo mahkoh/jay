@@ -1,13 +1,12 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{JayColorManagementId, jay_color_management::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::JayColorManagementId;
+use crate::wire::jay_color_management::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct JayColorManagement {
     pub id: JayColorManagementId,

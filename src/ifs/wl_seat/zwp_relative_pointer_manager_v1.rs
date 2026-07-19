@@ -1,15 +1,15 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wl_seat::zwp_relative_pointer_v1::ZwpRelativePointerV1,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwpRelativePointerManagerV1Id, zwp_relative_pointer_manager_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_seat::zwp_relative_pointer_v1::ZwpRelativePointerV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwpRelativePointerManagerV1Id;
+use crate::wire::zwp_relative_pointer_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpRelativePointerManagerV1Global {
     pub name: GlobalName,

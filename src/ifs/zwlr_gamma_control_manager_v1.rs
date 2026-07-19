@@ -1,15 +1,17 @@
-use {
-    crate::{
-        client::{CAP_GAMMA_CONTROL_MANAGER, Client, ClientCaps, ClientError},
-        globals::{Global, GlobalName},
-        ifs::zwlr_gamma_control_v1::*,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwlrGammaControlManagerV1Id, zwlr_gamma_control_manager_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::CAP_GAMMA_CONTROL_MANAGER;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::zwlr_gamma_control_v1::*;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwlrGammaControlManagerV1Id;
+use crate::wire::zwlr_gamma_control_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwlrGammaControlManagerV1Global {
     name: GlobalName,

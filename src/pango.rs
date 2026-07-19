@@ -1,17 +1,16 @@
 #![allow(non_camel_case_types)]
 
-use {
-    crate::{
-        pango::consts::{CairoFormat, CairoOperator, PangoEllipsizeMode},
-        rect::Rect,
-    },
-    std::{cell::Cell, ptr, rc::Rc},
-    thiserror::Error,
-    uapi::{
-        IntoUstr,
-        c::{self, memset},
-    },
-};
+use crate::pango::consts::CairoFormat;
+use crate::pango::consts::CairoOperator;
+use crate::pango::consts::PangoEllipsizeMode;
+use crate::rect::Rect;
+use std::cell::Cell;
+use std::ptr;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::IntoUstr;
+use uapi::c::memset;
+use uapi::c::{self};
 
 pub mod consts;
 

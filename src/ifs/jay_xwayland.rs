@@ -1,14 +1,13 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{JayXwaylandId, jay_xwayland::*},
-    },
-    jay_config::xwayland::XScalingMode,
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::JayXwaylandId;
+use crate::wire::jay_xwayland::*;
+use jay_config::xwayland::XScalingMode;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct JayXwayland {
     pub id: JayXwaylandId,

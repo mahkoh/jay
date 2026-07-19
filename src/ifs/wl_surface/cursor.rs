@@ -1,17 +1,17 @@
-use {
-    crate::{
-        cursor::Cursor,
-        cursor_user::CursorUser,
-        fixed::Fixed,
-        ifs::wl_surface::WlSurface,
-        leaks::Tracker,
-        rect::Rect,
-        renderer::Renderer,
-        scale::Scale,
-        tree::{NodeBase, NodeLocation, NodeVisitorBase, OutputNode},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::cursor::Cursor;
+use crate::cursor_user::CursorUser;
+use crate::fixed::Fixed;
+use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
+use crate::rect::Rect;
+use crate::renderer::Renderer;
+use crate::scale::Scale;
+use crate::tree::NodeBase;
+use crate::tree::NodeLocation;
+use crate::tree::NodeVisitorBase;
+use crate::tree::OutputNode;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct CursorSurface {
     user: Rc<CursorUser>,

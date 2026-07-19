@@ -1,25 +1,26 @@
-use {
-    crate::{
-        async_engine::AsyncEngine,
-        cmm::{cmm_manager::ColorManager, cmm_render_intent::RenderIntent},
-        fixed::Fixed,
-        rect::{Rect, Region},
-        renderer::renderer_base::RendererBase,
-        state::State,
-        theme::Color,
-        time::Time,
-        tree::{OutputNode, Transform, TreeTimeline::LiveTL},
-        utils::{asyncevent::AsyncEvent, errorfmt::ErrorFmt, timer::TimerFd},
-    },
-    isnt::std_1::primitive::IsntSliceExt,
-    std::{
-        cell::{Cell, RefCell},
-        collections::VecDeque,
-        rc::Rc,
-        time::Duration,
-    },
-    uapi::c::CLOCK_MONOTONIC,
-};
+use crate::async_engine::AsyncEngine;
+use crate::cmm::cmm_manager::ColorManager;
+use crate::cmm::cmm_render_intent::RenderIntent;
+use crate::fixed::Fixed;
+use crate::rect::Rect;
+use crate::rect::Region;
+use crate::renderer::renderer_base::RendererBase;
+use crate::state::State;
+use crate::theme::Color;
+use crate::time::Time;
+use crate::tree::OutputNode;
+use crate::tree::Transform;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::timer::TimerFd;
+use isnt::std_1::primitive::IsntSliceExt;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::rc::Rc;
+use std::time::Duration;
+use uapi::c::CLOCK_MONOTONIC;
 
 pub async fn visualize_damage(state: Rc<State>) {
     let timer = match TimerFd::new(CLOCK_MONOTONIC) {

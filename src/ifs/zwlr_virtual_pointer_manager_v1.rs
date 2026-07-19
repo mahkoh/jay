@@ -1,18 +1,21 @@
-use {
-    crate::{
-        client::{CAP_VIRTUAL_POINTER_MANAGER, Client, ClientCaps, ClientError},
-        globals::{Global, GlobalName},
-        ifs::zwlr_virtual_pointer_v1::ZwlrVirtualPointerV1,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{
-            WlOutputId, WlSeatId, ZwlrVirtualPointerManagerV1Id, ZwlrVirtualPointerV1Id,
-            zwlr_virtual_pointer_manager_v1::*,
-        },
-    },
-    std::{ops::Deref, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::CAP_VIRTUAL_POINTER_MANAGER;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::zwlr_virtual_pointer_v1::ZwlrVirtualPointerV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WlOutputId;
+use crate::wire::WlSeatId;
+use crate::wire::ZwlrVirtualPointerManagerV1Id;
+use crate::wire::ZwlrVirtualPointerV1Id;
+use crate::wire::zwlr_virtual_pointer_manager_v1::*;
+use std::ops::Deref;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwlrVirtualPointerManagerV1Global {
     name: GlobalName,

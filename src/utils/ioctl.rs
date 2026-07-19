@@ -1,7 +1,6 @@
-use {
-    crate::utils::{compat::IoctlNumber, oserror::OsError},
-    uapi::c,
-};
+use crate::utils::compat::IoctlNumber;
+use crate::utils::oserror::OsError;
+use uapi::c;
 
 pub unsafe fn ioctl<T>(fd: c::c_int, request: c::c_ulong, t: &mut T) -> Result<c::c_int, OsError> {
     let mut ret;

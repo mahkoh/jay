@@ -1,13 +1,13 @@
-use {
-    crate::{
-        object::Version,
-        utils::bhash::BHashSet,
-        wire::{WlDataOfferId, wl_data_offer::*},
-        wl_usr::{UsrCon, usr_object::UsrObject},
-    },
-    std::{cell::RefCell, convert::Infallible, rc::Rc},
-    uapi::OwnedFd,
-};
+use crate::object::Version;
+use crate::utils::bhash::BHashSet;
+use crate::wire::WlDataOfferId;
+use crate::wire::wl_data_offer::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_object::UsrObject;
+use std::cell::RefCell;
+use std::convert::Infallible;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 pub struct UsrWlDataOffer {
     pub id: WlDataOfferId,

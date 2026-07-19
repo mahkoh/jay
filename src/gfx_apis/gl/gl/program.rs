@@ -1,14 +1,14 @@
-use {
-    crate::gfx_apis::gl::{
-        RenderError,
-        egl::context::EglContext,
-        gl::{
-            shader::GlShader,
-            sys::{GL_FALSE, GL_FRAGMENT_SHADER, GL_LINK_STATUS, GL_VERTEX_SHADER, GLint, GLuint},
-        },
-    },
-    std::{ffi::CStr, rc::Rc},
-};
+use crate::gfx_apis::gl::RenderError;
+use crate::gfx_apis::gl::egl::context::EglContext;
+use crate::gfx_apis::gl::gl::shader::GlShader;
+use crate::gfx_apis::gl::gl::sys::GL_FALSE;
+use crate::gfx_apis::gl::gl::sys::GL_FRAGMENT_SHADER;
+use crate::gfx_apis::gl::gl::sys::GL_LINK_STATUS;
+use crate::gfx_apis::gl::gl::sys::GL_VERTEX_SHADER;
+use crate::gfx_apis::gl::gl::sys::GLint;
+use crate::gfx_apis::gl::gl::sys::GLuint;
+use std::ffi::CStr;
+use std::rc::Rc;
 
 pub struct GlProgram {
     pub ctx: Rc<EglContext>,

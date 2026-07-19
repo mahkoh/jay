@@ -1,16 +1,20 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::wl_output::WlOutput,
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::{Direction, OutputNode, OutputNodeId, ToplevelOpt, TreeTimeline::LiveTL},
-        wire::{ZwlrForeignToplevelHandleV1Id, zwlr_foreign_toplevel_handle_v1::*},
-    },
-    arrayvec::ArrayVec,
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_output::WlOutput;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::Direction;
+use crate::tree::OutputNode;
+use crate::tree::OutputNodeId;
+use crate::tree::ToplevelOpt;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::wire::ZwlrForeignToplevelHandleV1Id;
+use crate::wire::zwlr_foreign_toplevel_handle_v1::*;
+use arrayvec::ArrayVec;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 const STATE_ACTIVATED: u32 = 2;
 const STATE_FULLSCREEN: u32 = 3;

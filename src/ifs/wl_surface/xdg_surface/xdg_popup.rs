@@ -1,47 +1,63 @@
 pub mod jay_popup_ext_v1;
 
-use {
-    crate::{
-        client::{Client, ClientError},
-        configurable::ConfigurableExt,
-        cursor::KnownCursor,
-        fixed::Fixed,
-        ifs::{
-            wl_seat::{NodeSeatState, SeatId, WlSeatGlobal, tablet::TabletTool},
-            wl_surface::{
-                tray::TrayItemId,
-                xdg_surface::{
-                    XdgPopupConfigureData, XdgSurface, XdgSurfaceConfigureData, XdgSurfaceExt,
-                    XdgSurfaceTransactionOp, xdg_popup::jay_popup_ext_v1::JayPopupExtV1,
-                },
-            },
-            xdg_positioner::{
-                CA_FLIP_X, CA_FLIP_Y, CA_RESIZE_X, CA_RESIZE_Y, CA_SLIDE_X, CA_SLIDE_Y,
-                XdgPositioned, XdgPositioner,
-            },
-        },
-        leaks::Tracker,
-        object::Object,
-        rect::Rect,
-        renderer::Renderer,
-        transactions::{TransactionData, Transactionable, TransactionableExt},
-        tree::{
-            Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId,
-            NodeLayerLink, NodeLocation, NodeStackTransactionOp, NodeVisitor, NodesStackElement,
-            OutputNode, StackedNode,
-            TreeTimeline::{self, LiveTL},
-            WorkspaceNode,
-        },
-        utils::{clonecell::CloneCell, smallmap::SmallMap},
-        wire::{XdgPopupId, xdg_popup::*},
-    },
-    std::{
-        cell::{Cell, RefCell},
-        fmt::{Debug, Formatter},
-        rc::Rc,
-    },
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::configurable::ConfigurableExt;
+use crate::cursor::KnownCursor;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::NodeSeatState;
+use crate::ifs::wl_seat::SeatId;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::tablet::TabletTool;
+use crate::ifs::wl_surface::tray::TrayItemId;
+use crate::ifs::wl_surface::xdg_surface::XdgPopupConfigureData;
+use crate::ifs::wl_surface::xdg_surface::XdgSurface;
+use crate::ifs::wl_surface::xdg_surface::XdgSurfaceConfigureData;
+use crate::ifs::wl_surface::xdg_surface::XdgSurfaceExt;
+use crate::ifs::wl_surface::xdg_surface::XdgSurfaceTransactionOp;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::jay_popup_ext_v1::JayPopupExtV1;
+use crate::ifs::xdg_positioner::CA_FLIP_X;
+use crate::ifs::xdg_positioner::CA_FLIP_Y;
+use crate::ifs::xdg_positioner::CA_RESIZE_X;
+use crate::ifs::xdg_positioner::CA_RESIZE_Y;
+use crate::ifs::xdg_positioner::CA_SLIDE_X;
+use crate::ifs::xdg_positioner::CA_SLIDE_Y;
+use crate::ifs::xdg_positioner::XdgPositioned;
+use crate::ifs::xdg_positioner::XdgPositioner;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::rect::Rect;
+use crate::renderer::Renderer;
+use crate::transactions::TransactionData;
+use crate::transactions::Transactionable;
+use crate::transactions::TransactionableExt;
+use crate::tree::Direction;
+use crate::tree::FindTreeResult;
+use crate::tree::FindTreeUsecase;
+use crate::tree::FoundNode;
+use crate::tree::Node;
+use crate::tree::NodeBase;
+use crate::tree::NodeId;
+use crate::tree::NodeLayerLink;
+use crate::tree::NodeLocation;
+use crate::tree::NodeStackTransactionOp;
+use crate::tree::NodeVisitor;
+use crate::tree::NodesStackElement;
+use crate::tree::OutputNode;
+use crate::tree::StackedNode;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::{self};
+use crate::tree::WorkspaceNode;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::smallmap::SmallMap;
+use crate::wire::XdgPopupId;
+use crate::wire::xdg_popup::*;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[expect(dead_code)]
 const INVALID_GRAB: u32 = 1;

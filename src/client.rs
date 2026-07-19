@@ -1,54 +1,60 @@
-use {
-    crate::{
-        async_engine::SpawnedFuture,
-        client::{error::LookupError, objects::Objects},
-        criteria::{
-            CritDestroyListener, CritMatcherId,
-            clm::{CL_CHANGED_DESTROYED, CL_CHANGED_NEW, ClMatcherChange},
-        },
-        ifs::{
-            wl_display::WlDisplay,
-            wl_registry::WlRegistry,
-            wl_surface::{WlSurface, commit_timeline::CommitTimelines},
-            xdg_activation_token_v1::ActivationToken,
-            xdg_session_v1::XdgSessionV1,
-        },
-        leaks::Tracker,
-        object::{Interface, Object, ObjectId, WL_DISPLAY_ID},
-        security_context_acceptor::AcceptorMetadata,
-        sqlite::SqliteAccounting,
-        state::State,
-        utils::{
-            asyncevent::AsyncEvent,
-            bhash::BHashMap,
-            buffd::{MsgFormatter, MsgParser, MsgParserError, OutBufferSwapchain},
-            copyhashmap::{CopyHashMap, Locked},
-            errorfmt::ErrorFmt,
-            linkedlist::LinkedList,
-            numcell::NumCell,
-            pending_serial::PendingSerial,
-            pid_info::{PidInfo, get_pid_info, get_socket_creds},
-            pidfd_send_signal::pidfd_send_signal,
-            static_text::StaticText,
-        },
-        wire::WlRegistryId,
-    },
-    jay_proc::jay_hash,
-    std::{
-        cell::{Cell, RefCell},
-        collections::VecDeque,
-        error::Error,
-        fmt::{Debug, Display, Formatter},
-        mem,
-        ops::DerefMut,
-        rc::{Rc, Weak},
-    },
-    uapi::{OwnedFd, c},
-};
-pub use {
-    error::{ClientError, ParserError},
-    objects::MIN_SERVER_ID,
-};
+use crate::async_engine::SpawnedFuture;
+use crate::client::error::LookupError;
+use crate::client::objects::Objects;
+use crate::criteria::CritDestroyListener;
+use crate::criteria::CritMatcherId;
+use crate::criteria::clm::CL_CHANGED_DESTROYED;
+use crate::criteria::clm::CL_CHANGED_NEW;
+use crate::criteria::clm::ClMatcherChange;
+use crate::ifs::wl_display::WlDisplay;
+use crate::ifs::wl_registry::WlRegistry;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::commit_timeline::CommitTimelines;
+use crate::ifs::xdg_activation_token_v1::ActivationToken;
+use crate::ifs::xdg_session_v1::XdgSessionV1;
+use crate::leaks::Tracker;
+use crate::object::Interface;
+use crate::object::Object;
+use crate::object::ObjectId;
+use crate::object::WL_DISPLAY_ID;
+use crate::security_context_acceptor::AcceptorMetadata;
+use crate::sqlite::SqliteAccounting;
+use crate::state::State;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::bhash::BHashMap;
+use crate::utils::buffd::MsgFormatter;
+use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
+use crate::utils::buffd::OutBufferSwapchain;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::copyhashmap::Locked;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::linkedlist::LinkedList;
+use crate::utils::numcell::NumCell;
+use crate::utils::pending_serial::PendingSerial;
+use crate::utils::pid_info::PidInfo;
+use crate::utils::pid_info::get_pid_info;
+use crate::utils::pid_info::get_socket_creds;
+use crate::utils::pidfd_send_signal::pidfd_send_signal;
+use crate::utils::static_text::StaticText;
+use crate::wire::WlRegistryId;
+pub use error::ClientError;
+pub use error::ParserError;
+use jay_proc::jay_hash;
+pub use objects::MIN_SERVER_ID;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::error::Error;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::mem;
+use std::ops::DerefMut;
+use std::rc::Rc;
+use std::rc::Weak;
+use uapi::OwnedFd;
+use uapi::c;
 
 mod error;
 mod objects;

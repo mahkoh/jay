@@ -1,13 +1,9 @@
-use {
-    crate::it::{
-        test_error::{TestErrorExt, TestResult},
-        testrun::TestRun,
-    },
-    std::{
-        io::{Read, Write},
-        rc::Rc,
-    },
-};
+use crate::it::test_error::TestErrorExt;
+use crate::it::test_error::TestResult;
+use crate::it::testrun::TestRun;
+use std::io::Read;
+use std::io::Write;
+use std::rc::Rc;
 
 testcase!();
 

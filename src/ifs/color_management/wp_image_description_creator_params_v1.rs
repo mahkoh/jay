@@ -1,40 +1,58 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        cmm::{
-            cmm_eotf::{Eotf, EotfPow},
-            cmm_luminance::{Luminance, TargetLuminance},
-            cmm_primaries::{NamedPrimaries, Primaries},
-        },
-        ifs::color_management::{
-            COMPOUND_POWER_2_4_SINCE, MIN_LUM_MUL_INV, PRIMARIES_MUL_INV, SRGB_DEPRECATED_SINCE,
-            TRANSFER_FUNCTION_COMPOUND_POWER_2_4,
-            consts::{
-                PRIMARIES_ADOBE_RGB, PRIMARIES_BT2020, PRIMARIES_CIE1931_XYZ, PRIMARIES_DCI_P3,
-                PRIMARIES_DISPLAY_P3, PRIMARIES_GENERIC_FILM, PRIMARIES_NTSC, PRIMARIES_PAL,
-                PRIMARIES_PAL_M, PRIMARIES_SRGB, TRANSFER_FUNCTION_BT1886,
-                TRANSFER_FUNCTION_EXT_LINEAR, TRANSFER_FUNCTION_EXT_SRGB,
-                TRANSFER_FUNCTION_GAMMA22, TRANSFER_FUNCTION_GAMMA28, TRANSFER_FUNCTION_LOG_100,
-                TRANSFER_FUNCTION_LOG_316, TRANSFER_FUNCTION_SRGB, TRANSFER_FUNCTION_ST240,
-                TRANSFER_FUNCTION_ST428, TRANSFER_FUNCTION_ST2084_PQ,
-            },
-            wp_image_description_v1::WpImageDescriptionV1,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        utils::ordered_float::{F32, F64},
-        wire::{
-            WpImageDescriptionCreatorParamsV1Id,
-            wp_image_description_creator_params_v1::{
-                Create, SetLuminances, SetMasteringDisplayPrimaries, SetMasteringLuminance,
-                SetMaxCll, SetMaxFall, SetPrimaries, SetPrimariesNamed, SetTfNamed, SetTfPower,
-                WpImageDescriptionCreatorParamsV1RequestHandler,
-            },
-        },
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::cmm::cmm_eotf::Eotf;
+use crate::cmm::cmm_eotf::EotfPow;
+use crate::cmm::cmm_luminance::Luminance;
+use crate::cmm::cmm_luminance::TargetLuminance;
+use crate::cmm::cmm_primaries::NamedPrimaries;
+use crate::cmm::cmm_primaries::Primaries;
+use crate::ifs::color_management::COMPOUND_POWER_2_4_SINCE;
+use crate::ifs::color_management::MIN_LUM_MUL_INV;
+use crate::ifs::color_management::PRIMARIES_MUL_INV;
+use crate::ifs::color_management::SRGB_DEPRECATED_SINCE;
+use crate::ifs::color_management::TRANSFER_FUNCTION_COMPOUND_POWER_2_4;
+use crate::ifs::color_management::consts::PRIMARIES_ADOBE_RGB;
+use crate::ifs::color_management::consts::PRIMARIES_BT2020;
+use crate::ifs::color_management::consts::PRIMARIES_CIE1931_XYZ;
+use crate::ifs::color_management::consts::PRIMARIES_DCI_P3;
+use crate::ifs::color_management::consts::PRIMARIES_DISPLAY_P3;
+use crate::ifs::color_management::consts::PRIMARIES_GENERIC_FILM;
+use crate::ifs::color_management::consts::PRIMARIES_NTSC;
+use crate::ifs::color_management::consts::PRIMARIES_PAL;
+use crate::ifs::color_management::consts::PRIMARIES_PAL_M;
+use crate::ifs::color_management::consts::PRIMARIES_SRGB;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_BT1886;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_EXT_LINEAR;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_EXT_SRGB;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_GAMMA22;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_GAMMA28;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_LOG_100;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_LOG_316;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_SRGB;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_ST240;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_ST428;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_ST2084_PQ;
+use crate::ifs::color_management::wp_image_description_v1::WpImageDescriptionV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::utils::ordered_float::F32;
+use crate::utils::ordered_float::F64;
+use crate::wire::WpImageDescriptionCreatorParamsV1Id;
+use crate::wire::wp_image_description_creator_params_v1::Create;
+use crate::wire::wp_image_description_creator_params_v1::SetLuminances;
+use crate::wire::wp_image_description_creator_params_v1::SetMasteringDisplayPrimaries;
+use crate::wire::wp_image_description_creator_params_v1::SetMasteringLuminance;
+use crate::wire::wp_image_description_creator_params_v1::SetMaxCll;
+use crate::wire::wp_image_description_creator_params_v1::SetMaxFall;
+use crate::wire::wp_image_description_creator_params_v1::SetPrimaries;
+use crate::wire::wp_image_description_creator_params_v1::SetPrimariesNamed;
+use crate::wire::wp_image_description_creator_params_v1::SetTfNamed;
+use crate::wire::wp_image_description_creator_params_v1::SetTfPower;
+use crate::wire::wp_image_description_creator_params_v1::WpImageDescriptionCreatorParamsV1RequestHandler;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpImageDescriptionCreatorParamsV1 {
     pub id: WpImageDescriptionCreatorParamsV1Id,

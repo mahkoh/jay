@@ -1,14 +1,13 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::wl_surface::WlSurface,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WpAlphaModifierSurfaceV1Id, wp_alpha_modifier_surface_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WpAlphaModifierSurfaceV1Id;
+use crate::wire::wp_alpha_modifier_surface_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpAlphaModifierSurfaceV1 {
     pub id: WpAlphaModifierSurfaceV1Id,

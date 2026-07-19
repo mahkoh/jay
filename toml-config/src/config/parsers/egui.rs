@@ -1,19 +1,18 @@
-use {
-    crate::{
-        config::{
-            Egui,
-            context::Context,
-            extractor::{Extractor, ExtractorError, arr, opt},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-        },
-        toml::{
-            toml_span::{Span, Spanned},
-            toml_value::Value,
-        },
-    },
-    indexmap::IndexMap,
-    thiserror::Error,
-};
+use crate::config::Egui;
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::arr;
+use crate::config::extractor::opt;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_value::Value;
+use indexmap::IndexMap;
+use thiserror::Error;
 
 pub struct EguiParser<'a, 'b>(pub &'a Context<'b>);
 

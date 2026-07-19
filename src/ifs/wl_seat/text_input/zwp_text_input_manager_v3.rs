@@ -1,15 +1,15 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wl_seat::text_input::zwp_text_input_v3::ZwpTextInputV3,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwpTextInputManagerV3Id, zwp_text_input_manager_v3::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_seat::text_input::zwp_text_input_v3::ZwpTextInputV3;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwpTextInputManagerV3Id;
+use crate::wire::zwp_text_input_manager_v3::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpTextInputManagerV3Global {
     pub name: GlobalName,

@@ -1,14 +1,14 @@
-use {
-    crate::{
-        client::ClientError,
-        ifs::wl_surface::WlSurface,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WlSurfaceId, WpTearingControlV1Id, wp_tearing_control_v1::*},
-    },
-    std::{fmt::Debug, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::ClientError;
+use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WlSurfaceId;
+use crate::wire::WpTearingControlV1Id;
+use crate::wire::wp_tearing_control_v1::*;
+use std::fmt::Debug;
+use std::rc::Rc;
+use thiserror::Error;
 
 const VSYNC: u32 = 0;
 const ASYNC: u32 = 1;

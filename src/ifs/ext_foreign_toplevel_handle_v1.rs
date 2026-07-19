@@ -1,14 +1,13 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::ToplevelOpt,
-        wire::{ExtForeignToplevelHandleV1Id, ext_foreign_toplevel_handle_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::ToplevelOpt;
+use crate::wire::ExtForeignToplevelHandleV1Id;
+use crate::wire::ext_foreign_toplevel_handle_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ExtForeignToplevelHandleV1 {
     pub id: ExtForeignToplevelHandleV1Id,

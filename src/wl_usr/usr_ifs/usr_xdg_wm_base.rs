@@ -1,15 +1,12 @@
-use {
-    crate::{
-        object::Version,
-        wire::{XdgWmBaseId, xdg_wm_base::*},
-        wl_usr::{
-            UsrCon,
-            usr_ifs::{usr_wl_surface::UsrWlSurface, usr_xdg_surface::UsrXdgSurface},
-            usr_object::UsrObject,
-        },
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::object::Version;
+use crate::wire::XdgWmBaseId;
+use crate::wire::xdg_wm_base::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_ifs::usr_wl_surface::UsrWlSurface;
+use crate::wl_usr::usr_ifs::usr_xdg_surface::UsrXdgSurface;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrXdgWmBase {
     pub id: XdgWmBaseId,

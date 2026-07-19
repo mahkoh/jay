@@ -1,14 +1,24 @@
-use {
-    super::{
-        TY_ARRAY, TY_BOOLEAN, TY_BYTE, TY_DOUBLE, TY_INT16, TY_INT32, TY_INT64, TY_OBJECT_PATH,
-        TY_SIGNATURE, TY_STRING, TY_UINT16, TY_UINT32, TY_UINT64, TY_UNIX_FD, TY_VARIANT,
-    },
-    crate::{
-        dbus::{DbusError, DynamicType, Parser, types::Variant},
-        utils::buf::DynamicBuf,
-    },
-    std::ops::Deref,
-};
+use super::TY_ARRAY;
+use super::TY_BOOLEAN;
+use super::TY_BYTE;
+use super::TY_DOUBLE;
+use super::TY_INT16;
+use super::TY_INT32;
+use super::TY_INT64;
+use super::TY_OBJECT_PATH;
+use super::TY_SIGNATURE;
+use super::TY_STRING;
+use super::TY_UINT16;
+use super::TY_UINT32;
+use super::TY_UINT64;
+use super::TY_UNIX_FD;
+use super::TY_VARIANT;
+use crate::dbus::DbusError;
+use crate::dbus::DynamicType;
+use crate::dbus::Parser;
+use crate::dbus::types::Variant;
+use crate::utils::buf::DynamicBuf;
+use std::ops::Deref;
 
 impl DynamicType {
     pub fn from_signature<'a>(mut s: &'a [u8]) -> Result<(DynamicType, &'a [u8]), DbusError> {

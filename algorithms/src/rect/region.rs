@@ -1,10 +1,13 @@
-use {
-    crate::{
-        rect::{Container, NoTag, RectRaw, Tag},
-        windows::WindowsExt,
-    },
-    std::{cmp::Ordering, collections::BinaryHeap, marker::PhantomData, mem, ops::Deref},
-};
+use crate::rect::Container;
+use crate::rect::NoTag;
+use crate::rect::RectRaw;
+use crate::rect::Tag;
+use crate::windows::WindowsExt;
+use std::cmp::Ordering;
+use std::collections::BinaryHeap;
+use std::marker::PhantomData;
+use std::mem;
+use std::ops::Deref;
 
 pub fn union(left: &Container, right: &Container) -> Container {
     op::<_, _, _, Union>(left, right)

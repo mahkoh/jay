@@ -1,14 +1,15 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName, RemovableWaylandGlobal},
-        ifs::wl_output::{OUTPUT_VERSION, WlOutput, WlOutputGlobal},
-        object::Version,
-        wire::WlOutputId,
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::globals::RemovableWaylandGlobal;
+use crate::ifs::wl_output::OUTPUT_VERSION;
+use crate::ifs::wl_output::WlOutput;
+use crate::ifs::wl_output::WlOutputGlobal;
+use crate::object::Version;
+use crate::wire::WlOutputId;
+use std::rc::Rc;
+use thiserror::Error;
 
 struct RemovedOutputGlobal {
     name: GlobalName,

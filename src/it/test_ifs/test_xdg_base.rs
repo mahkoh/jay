@@ -1,14 +1,14 @@
-use {
-    crate::{
-        it::{
-            test_error::TestError, test_ifs::test_xdg_surface::TestXdgSurface,
-            test_object::TestObject, test_transport::TestTransport, testrun::ParseFull,
-        },
-        utils::buffd::MsgParser,
-        wire::{WlSurfaceId, XdgWmBaseId, xdg_wm_base::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestError;
+use crate::it::test_ifs::test_xdg_surface::TestXdgSurface;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::testrun::ParseFull;
+use crate::utils::buffd::MsgParser;
+use crate::wire::WlSurfaceId;
+use crate::wire::XdgWmBaseId;
+use crate::wire::xdg_wm_base::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestXdgWmBase {
     pub id: XdgWmBaseId,

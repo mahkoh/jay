@@ -1,12 +1,10 @@
-use {
-    crate::{
-        cli::{GlobalArgs, SetLogArgs},
-        tools::tool_client::{ToolClient, with_tool_client},
-        wire::jay_compositor::SetLogLevel,
-    },
-    linearize::Linearize,
-    std::rc::Rc,
-};
+use crate::cli::GlobalArgs;
+use crate::cli::SetLogArgs;
+use crate::tools::tool_client::ToolClient;
+use crate::tools::tool_client::with_tool_client;
+use crate::wire::jay_compositor::SetLogLevel;
+use linearize::Linearize;
+use std::rc::Rc;
 
 pub fn main(global: GlobalArgs, args: SetLogArgs) {
     with_tool_client(global.log_level, |tc| async move {

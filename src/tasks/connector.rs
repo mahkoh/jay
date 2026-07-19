@@ -1,25 +1,31 @@
-use {
-    crate::{
-        backend::{Connector, ConnectorEvent, ConnectorId, MonitorInfo},
-        control_center::CCI_OUTPUTS,
-        globals::GlobalName,
-        ifs::{
-            head_management::{HeadManager, HeadState},
-            jay_tray_v1::JayTrayV1Global,
-            wl_output::{BlendSpace, WlOutputGlobal},
-        },
-        output_schedule::OutputSchedule,
-        state::{ConnectorData, OutputData, State},
-        tree::{OutputNode, Transform, TreeTimeline::LiveTL, WsMoveConfig, move_ws_to_output},
-        utils::{asyncevent::AsyncEvent, hash_map_ext::HashMapExt, rc_eq::RcEq},
-    },
-    std::{
-        cell::{Cell, RefCell},
-        collections::VecDeque,
-        fmt,
-        rc::Rc,
-    },
-};
+use crate::backend::Connector;
+use crate::backend::ConnectorEvent;
+use crate::backend::ConnectorId;
+use crate::backend::MonitorInfo;
+use crate::control_center::CCI_OUTPUTS;
+use crate::globals::GlobalName;
+use crate::ifs::head_management::HeadManager;
+use crate::ifs::head_management::HeadState;
+use crate::ifs::jay_tray_v1::JayTrayV1Global;
+use crate::ifs::wl_output::BlendSpace;
+use crate::ifs::wl_output::WlOutputGlobal;
+use crate::output_schedule::OutputSchedule;
+use crate::state::ConnectorData;
+use crate::state::OutputData;
+use crate::state::State;
+use crate::tree::OutputNode;
+use crate::tree::Transform;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::WsMoveConfig;
+use crate::tree::move_ws_to_output;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::rc_eq::RcEq;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::fmt;
+use std::rc::Rc;
 
 pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
     let mut drm_dev = None;

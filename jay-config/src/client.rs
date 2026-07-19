@@ -1,9 +1,8 @@
 //! Tools for inspecting and manipulating clients.
 
-use {
-    serde::{Deserialize, Serialize},
-    std::ops::Deref,
-};
+use serde::Deserialize;
+use serde::Serialize;
+use std::ops::Deref;
 
 /// A client connected to the compositor.
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]

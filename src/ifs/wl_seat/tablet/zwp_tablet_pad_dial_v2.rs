@@ -1,14 +1,14 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::wl_seat::tablet::{TabletPadDial, zwp_tablet_seat_v2::ZwpTabletSeatV2},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwpTabletPadDialV2Id, zwp_tablet_pad_dial_v2::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_seat::tablet::TabletPadDial;
+use crate::ifs::wl_seat::tablet::zwp_tablet_seat_v2::ZwpTabletSeatV2;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwpTabletPadDialV2Id;
+use crate::wire::zwp_tablet_pad_dial_v2::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpTabletPadDialV2 {
     pub id: ZwpTabletPadDialV2Id,

@@ -1,4 +1,5 @@
-use {derivative::Derivative, std::ops::Deref};
+use derivative::Derivative;
+use std::ops::Deref;
 
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]

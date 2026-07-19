@@ -1,20 +1,19 @@
-use {
-    crate::{
-        it::{
-            test_error::TestResult, test_object::TestObject, test_transport::TestTransport,
-            test_utils::test_expected_event::TEEH, testrun::ParseFull,
-        },
-        utils::{buffd::MsgParser, clonecell::CloneCell},
-        wire::{ZwpLinuxDmabufFeedbackV1Id, zwp_linux_dmabuf_feedback_v1::*},
-    },
-    std::{
-        cell::{Cell, RefCell},
-        mem,
-        ops::DerefMut,
-        rc::Rc,
-    },
-    uapi::{OwnedFd, c},
-};
+use crate::it::test_error::TestResult;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::test_utils::test_expected_event::TEEH;
+use crate::it::testrun::ParseFull;
+use crate::utils::buffd::MsgParser;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::ZwpLinuxDmabufFeedbackV1Id;
+use crate::wire::zwp_linux_dmabuf_feedback_v1::*;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::mem;
+use std::ops::DerefMut;
+use std::rc::Rc;
+use uapi::OwnedFd;
+use uapi::c;
 
 pub struct TestDmabufFeedback {
     pub id: ZwpLinuxDmabufFeedbackV1Id,

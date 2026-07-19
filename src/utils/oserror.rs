@@ -1,14 +1,10 @@
-use {
-    std::{
-        error::Error,
-        fmt::{Display, Formatter},
-        sync::LazyLock,
-    },
-    uapi::{
-        Errno,
-        c::{self, c_int},
-    },
-};
+use std::error::Error;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::sync::LazyLock;
+use uapi::Errno;
+use uapi::c::c_int;
+use uapi::c::{self};
 
 static ERRORS: LazyLock<&'static [Option<&'static str>]> = LazyLock::new(|| {
     static MSGS: &[(c::c_int, &str)] = &[

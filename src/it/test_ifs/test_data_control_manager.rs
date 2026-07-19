@@ -1,18 +1,13 @@
-use {
-    crate::{
-        it::{
-            test_error::TestResult,
-            test_ifs::{
-                test_data_control_device::TestDataControlDevice,
-                test_data_control_source::TestDataControlSource, test_seat::TestSeat,
-            },
-            test_object::TestObject,
-            test_transport::TestTransport,
-        },
-        wire::{ZwlrDataControlManagerV1Id, zwlr_data_control_manager_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_data_control_device::TestDataControlDevice;
+use crate::it::test_ifs::test_data_control_source::TestDataControlSource;
+use crate::it::test_ifs::test_seat::TestSeat;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::ZwlrDataControlManagerV1Id;
+use crate::wire::zwlr_data_control_manager_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestDataControlManager {
     pub id: ZwlrDataControlManagerV1Id,

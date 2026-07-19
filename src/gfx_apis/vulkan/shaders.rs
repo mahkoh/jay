@@ -1,9 +1,10 @@
-use {
-    crate::gfx_apis::vulkan::{VulkanError, device::VulkanDevice},
-    ash::vk::{DeviceAddress, ShaderModule, ShaderModuleCreateInfo},
-    std::rc::Rc,
-    uapi::Packed,
-};
+use crate::gfx_apis::vulkan::VulkanError;
+use crate::gfx_apis::vulkan::device::VulkanDevice;
+use ash::vk::DeviceAddress;
+use ash::vk::ShaderModule;
+use ash::vk::ShaderModuleCreateInfo;
+use std::rc::Rc;
+use uapi::Packed;
 
 pub const FILL_VERT: &[u8] = include_bytes!("shaders_bin/fill.vert.spv");
 pub const FILL_FRAG: &[u8] = include_bytes!("shaders_bin/fill.frag.spv");

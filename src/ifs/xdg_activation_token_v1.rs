@@ -1,13 +1,13 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{XdgActivationTokenV1Id, xdg_activation_token_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::XdgActivationTokenV1Id;
+use crate::wire::xdg_activation_token_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 opaque!(ActivationToken, activation_token);
 

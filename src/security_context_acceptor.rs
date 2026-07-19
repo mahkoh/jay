@@ -1,17 +1,15 @@
-use {
-    crate::{
-        async_engine::SpawnedFuture,
-        client::ClientCaps,
-        state::State,
-        utils::{copyhashmap::CopyHashMap, errorfmt::ErrorFmt, hash_map_ext::HashMapExt},
-    },
-    std::{
-        cell::Cell,
-        fmt::{Display, Formatter},
-        rc::Rc,
-    },
-    uapi::{OwnedFd, c},
-};
+use crate::async_engine::SpawnedFuture;
+use crate::client::ClientCaps;
+use crate::state::State;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::hash_map_ext::HashMapExt;
+use std::cell::Cell;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::rc::Rc;
+use uapi::OwnedFd;
+use uapi::c;
 
 #[derive(Default)]
 pub struct SecurityContextAcceptors {

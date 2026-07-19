@@ -1,4 +1,5 @@
-use std::{mem::MaybeUninit, ptr};
+use std::mem::MaybeUninit;
+use std::ptr;
 
 pub trait BoxExt: Sized {
     type T;

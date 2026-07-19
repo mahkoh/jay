@@ -1,16 +1,17 @@
-use {
-    crate::{
-        backend::{BackendDrmLease, BackendDrmLessee},
-        client::{Client, ClientError},
-        leaks::Tracker,
-        object::{Object, Version},
-        utils::clonecell::CloneCell,
-        wire::{WpDrmLeaseV1Id, wp_drm_lease_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-    uapi::OwnedFd,
-};
+use crate::backend::BackendDrmLease;
+use crate::backend::BackendDrmLessee;
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::WpDrmLeaseV1Id;
+use crate::wire::wp_drm_lease_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
 
 pub struct WpDrmLeaseV1Lessee {
     pub obj: Rc<WpDrmLeaseV1>,

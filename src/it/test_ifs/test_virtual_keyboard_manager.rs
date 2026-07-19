@@ -1,15 +1,12 @@
-use {
-    crate::{
-        it::{
-            test_error::TestResult,
-            test_ifs::{test_seat::TestSeat, test_virtual_keyboard::TestVirtualKeyboard},
-            test_object::TestObject,
-            test_transport::TestTransport,
-        },
-        wire::{ZwpVirtualKeyboardManagerV1Id, zwp_virtual_keyboard_manager_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_seat::TestSeat;
+use crate::it::test_ifs::test_virtual_keyboard::TestVirtualKeyboard;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::ZwpVirtualKeyboardManagerV1Id;
+use crate::wire::zwp_virtual_keyboard_manager_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestVirtualKeyboardManager {
     pub id: ZwpVirtualKeyboardManagerV1Id,

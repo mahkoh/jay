@@ -1,14 +1,11 @@
-use {
-    crate::toml::toml_span::Span,
-    bstr::ByteSlice,
-    error_reporter::Report,
-    std::{
-        borrow::Cow,
-        error::Error,
-        fmt::{Display, Formatter},
-        ops::Deref,
-    },
-};
+use crate::toml::toml_span::Span;
+use bstr::ByteSlice;
+use error_reporter::Report;
+use std::borrow::Cow;
+use std::error::Error;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::ops::Deref;
 
 #[derive(Debug)]
 pub struct SpannedError<'a, E> {

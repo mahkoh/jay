@@ -1,17 +1,19 @@
-use {
-    crate::{
-        cmm::cmm_eotf::Eotf,
-        format::ARGB8888,
-        gfx_api::{GfxContext, GfxTexture},
-        pango::{
-            CairoContext, CairoImageSurface, PangoCairoContext, PangoFontDescription, PangoLayout,
-            consts::{CAIRO_FORMAT_ARGB32, CAIRO_OPERATOR_SOURCE},
-        },
-        rect::Rect,
-        theme::Color,
-    },
-    std::{ops::Neg, rc::Rc, sync::Arc},
-};
+use crate::cmm::cmm_eotf::Eotf;
+use crate::format::ARGB8888;
+use crate::gfx_api::GfxContext;
+use crate::gfx_api::GfxTexture;
+use crate::pango::CairoContext;
+use crate::pango::CairoImageSurface;
+use crate::pango::PangoCairoContext;
+use crate::pango::PangoFontDescription;
+use crate::pango::PangoLayout;
+use crate::pango::consts::CAIRO_FORMAT_ARGB32;
+use crate::pango::consts::CAIRO_OPERATOR_SOURCE;
+use crate::rect::Rect;
+use crate::theme::Color;
+use std::ops::Neg;
+use std::rc::Rc;
+use std::sync::Arc;
 
 struct Data {
     image: Rc<CairoImageSurface>,

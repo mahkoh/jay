@@ -1,21 +1,33 @@
 #![allow(clippy::excessive_precision)]
 
-use {
-    crate::{
-        cmm::cmm_eotf::Eotf,
-        format::ARGB8888,
-        gfx_api::{GfxContext, GfxError, GfxTexture},
-        scale::Scale,
-        state::State,
-        theme::Theme,
-        tree::TreeTimeline::LiveTL,
-        utils::{bhash::BHashSet, copyhashmap::CopyHashMap, windows::WindowsExt},
-    },
-    linearize::{Linearize, StaticMap, static_map},
-    std::{cell::Cell, f32::consts::PI, mem, rc::Rc, sync::LazyLock},
-    thiserror::Error,
-    tiny_skia::{Color, FillRule, Paint, Path, PathBuilder, Pixmap, Transform},
-};
+use crate::cmm::cmm_eotf::Eotf;
+use crate::format::ARGB8888;
+use crate::gfx_api::GfxContext;
+use crate::gfx_api::GfxError;
+use crate::gfx_api::GfxTexture;
+use crate::scale::Scale;
+use crate::state::State;
+use crate::theme::Theme;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::utils::bhash::BHashSet;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::windows::WindowsExt;
+use linearize::Linearize;
+use linearize::StaticMap;
+use linearize::static_map;
+use std::cell::Cell;
+use std::f32::consts::PI;
+use std::mem;
+use std::rc::Rc;
+use std::sync::LazyLock;
+use thiserror::Error;
+use tiny_skia::Color;
+use tiny_skia::FillRule;
+use tiny_skia::Paint;
+use tiny_skia::Path;
+use tiny_skia::PathBuilder;
+use tiny_skia::Pixmap;
+use tiny_skia::Transform;
 
 #[derive(Default)]
 pub struct Icons {

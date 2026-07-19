@@ -1,15 +1,16 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wl_surface::wp_fifo_v1::{WpFifoV1, WpFifoV1Error},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WpFifoManagerV1Id, wp_fifo_manager_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_surface::wp_fifo_v1::WpFifoV1;
+use crate::ifs::wl_surface::wp_fifo_v1::WpFifoV1Error;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WpFifoManagerV1Id;
+use crate::wire::wp_fifo_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpFifoManagerV1Global {
     pub name: GlobalName,

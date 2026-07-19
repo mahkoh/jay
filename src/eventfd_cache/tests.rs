@@ -1,10 +1,10 @@
-use {
-    crate::{
-        async_engine::AsyncEngine, eventfd_cache::EventfdCache, io_uring::IoUring, utils::array,
-    },
-    std::{rc::Rc, slice},
-    uapi::c,
-};
+use crate::async_engine::AsyncEngine;
+use crate::eventfd_cache::EventfdCache;
+use crate::io_uring::IoUring;
+use crate::utils::array;
+use std::rc::Rc;
+use std::slice;
+use uapi::c;
 
 #[test]
 fn test() {

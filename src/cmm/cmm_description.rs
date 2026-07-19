@@ -1,18 +1,19 @@
-use {
-    crate::{
-        cmm::{
-            cmm_eotf::Eotf,
-            cmm_luminance::{Luminance, TargetLuminance, white_balance},
-            cmm_manager::Shared,
-            cmm_primaries::{NamedPrimaries, Primaries},
-            cmm_render_intent::RenderIntent,
-            cmm_transform::{ColorMatrix, Local, Xyz, bradford_adjustment},
-        },
-        utils::ordered_float::F64,
-    },
-    jay_algorithms::triangles::triangle_contains_points,
-    std::{cell::OnceCell, rc::Rc},
-};
+use crate::cmm::cmm_eotf::Eotf;
+use crate::cmm::cmm_luminance::Luminance;
+use crate::cmm::cmm_luminance::TargetLuminance;
+use crate::cmm::cmm_luminance::white_balance;
+use crate::cmm::cmm_manager::Shared;
+use crate::cmm::cmm_primaries::NamedPrimaries;
+use crate::cmm::cmm_primaries::Primaries;
+use crate::cmm::cmm_render_intent::RenderIntent;
+use crate::cmm::cmm_transform::ColorMatrix;
+use crate::cmm::cmm_transform::Local;
+use crate::cmm::cmm_transform::Xyz;
+use crate::cmm::cmm_transform::bradford_adjustment;
+use crate::utils::ordered_float::F64;
+use jay_algorithms::triangles::triangle_contains_points;
+use std::cell::OnceCell;
+use std::rc::Rc;
 
 linear_ids!(LinearColorDescriptionIds, LinearColorDescriptionId, u64);
 linear_ids!(ColorDescriptionIds, ColorDescriptionId, u64);

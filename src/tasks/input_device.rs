@@ -1,17 +1,17 @@
-use {
-    crate::{
-        backend::{InputDevice, InputDeviceCapability},
-        ifs::wl_seat::PX_PER_SCROLL,
-        state::{DeviceHandlerData, InputDeviceData, State},
-        tasks::udev_utils::{UdevProps, udev_props},
-        utils::{asyncevent::AsyncEvent, event_listener::EventListener},
-    },
-    jay_config::_private::DEFAULT_SEAT_NAME,
-    std::{
-        cell::Cell,
-        rc::{Rc, Weak},
-    },
-};
+use crate::backend::InputDevice;
+use crate::backend::InputDeviceCapability;
+use crate::ifs::wl_seat::PX_PER_SCROLL;
+use crate::state::DeviceHandlerData;
+use crate::state::InputDeviceData;
+use crate::state::State;
+use crate::tasks::udev_utils::UdevProps;
+use crate::tasks::udev_utils::udev_props;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::event_listener::EventListener;
+use jay_config::_private::DEFAULT_SEAT_NAME;
+use std::cell::Cell;
+use std::rc::Rc;
+use std::rc::Weak;
 
 pub fn handle(state: &Rc<State>, dev: Rc<dyn InputDevice>) {
     let props = match dev.dev_t() {

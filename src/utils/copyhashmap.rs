@@ -1,19 +1,17 @@
-use {
-    crate::utils::{
-        bhash::BHashMap,
-        markers::{JayClone, JayHash},
-        ptr_ext::{MutPtrExt, PtrExt},
-    },
-    derivative::Derivative,
-    std::{
-        borrow::Borrow,
-        cell::UnsafeCell,
-        fmt::{Debug, Formatter},
-        hash::Hash,
-        mem,
-        ops::{Deref, DerefMut},
-    },
-};
+use crate::utils::bhash::BHashMap;
+use crate::utils::markers::JayClone;
+use crate::utils::markers::JayHash;
+use crate::utils::ptr_ext::MutPtrExt;
+use crate::utils::ptr_ext::PtrExt;
+use derivative::Derivative;
+use std::borrow::Borrow;
+use std::cell::UnsafeCell;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::hash::Hash;
+use std::mem;
+use std::ops::Deref;
+use std::ops::DerefMut;
 
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]

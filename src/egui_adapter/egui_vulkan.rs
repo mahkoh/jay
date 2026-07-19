@@ -1,111 +1,228 @@
-use {
-    crate::{
-        allocator::BufferObject,
-        async_engine::{AsyncEngine, SpawnedFuture},
-        eventfd_cache::EventfdCache,
-        format::XRGB8888,
-        gfx_api::{FdSync, SyncFile},
-        io_uring::IoUring,
-        syncobj::SyncobjCtx,
-        utils::{
-            bhash::BHashMap,
-            errorfmt::ErrorFmt,
-            hash_map_ext::HashMapExt,
-            oserror::{OsError, OsErrorExt2},
-            queue::AsyncQueue,
-        },
-        video::{Modifier, dmabuf::PlaneVec},
-        vulkan_core::{
-            VULKAN_API_VERSION, VulkanCoreError, VulkanCoreInstance, VulkanDeviceFeatures,
-            device::VulkanDeviceInf,
-            gpu_alloc_ash::AshMemoryDevice,
-            map_extension_properties,
-            sync::{VulkanDeviceSyncExt, VulkanSync},
-            timeline_semaphore::{VulkanDeviceTimelineSemaphoreExt, VulkanTimelineSemaphore},
-            vk_is_drm_dev,
-        },
-    },
-    arrayvec::ArrayVec,
-    ash::{
-        Device,
-        ext::{
-            external_memory_dma_buf, image_drm_format_modifier, physical_device_drm,
-            queue_family_foreign,
-        },
-        khr::{external_fence_fd, external_memory_fd, external_semaphore_fd, push_descriptor},
-        util::read_spv,
-        vk::{
-            self, AccessFlags2, AttachmentLoadOp, AttachmentStoreOp, BindImageMemoryInfo,
-            BindImagePlaneMemoryInfo, BlendFactor, BlendOp, BorderColor, Buffer, BufferCreateInfo,
-            BufferImageCopy2, BufferMemoryBarrier2, BufferUsageFlags, ColorComponentFlags,
-            CommandBuffer, CommandBufferAllocateInfo, CommandBufferBeginInfo, CommandBufferLevel,
-            CommandBufferSubmitInfo, CommandBufferUsageFlags, CommandPool, CommandPoolCreateFlags,
-            CommandPoolCreateInfo, ComponentMapping, ComponentSwizzle, CopyBufferToImageInfo2,
-            CullModeFlags, DependencyInfo, DescriptorImageInfo, DescriptorSetLayout,
-            DescriptorSetLayoutBinding, DescriptorSetLayoutCreateFlags,
-            DescriptorSetLayoutCreateInfo, DescriptorType, DeviceCreateInfo, DeviceMemory,
-            DeviceQueueCreateInfo, DrmFormatModifierPropertiesEXT,
-            DrmFormatModifierPropertiesListEXT, DynamicState, Extent2D, Extent3D,
-            ExternalFenceFeatureFlags, ExternalFenceHandleTypeFlags, ExternalFenceProperties,
-            ExternalImageFormatPropertiesKHR, ExternalMemoryFeatureFlags,
-            ExternalMemoryHandleTypeFlags, ExternalMemoryImageCreateInfo,
-            ExternalSemaphoreFeatureFlags, ExternalSemaphoreHandleTypeFlags,
-            ExternalSemaphoreProperties, Filter, Format, FormatFeatureFlags, FormatProperties2,
-            FrontFace, GraphicsPipelineCreateInfo, Image, ImageAspectFlags, ImageCreateFlags,
-            ImageCreateInfo, ImageDrmFormatModifierExplicitCreateInfoEXT, ImageFormatProperties2,
-            ImageLayout, ImageMemoryBarrier2, ImageMemoryRequirementsInfo2,
-            ImagePlaneMemoryRequirementsInfo, ImageSubresourceLayers, ImageSubresourceRange,
-            ImageTiling, ImageType, ImageUsageFlags, ImageView, ImageViewCreateInfo, ImageViewType,
-            ImportMemoryFdInfoKHR, ImportSemaphoreFdInfoKHR, IndexType, MappedMemoryRange,
-            MemoryAllocateInfo, MemoryDedicatedAllocateInfo, MemoryFdPropertiesKHR,
-            MemoryRequirements, MemoryRequirements2, Offset2D, Offset3D,
-            PhysicalDeviceDrmPropertiesEXT, PhysicalDeviceDynamicRenderingFeatures,
-            PhysicalDeviceExternalFenceInfo, PhysicalDeviceExternalImageFormatInfoKHR,
-            PhysicalDeviceExternalSemaphoreInfo, PhysicalDeviceFeatures2,
-            PhysicalDeviceImageDrmFormatModifierInfoEXT, PhysicalDeviceImageFormatInfo2,
-            PhysicalDeviceProperties2, PhysicalDeviceSynchronization2Features,
-            PhysicalDeviceTimelineSemaphoreFeatures, PhysicalDeviceType,
-            PhysicalDeviceVulkan13Properties, Pipeline, PipelineBindPoint, PipelineCache,
-            PipelineColorBlendAttachmentState, PipelineColorBlendStateCreateInfo,
-            PipelineDynamicStateCreateInfo, PipelineInputAssemblyStateCreateInfo, PipelineLayout,
-            PipelineLayoutCreateInfo, PipelineMultisampleStateCreateInfo,
-            PipelineRasterizationStateCreateInfo, PipelineRenderingCreateInfo,
-            PipelineShaderStageCreateInfo, PipelineStageFlags2, PipelineVertexInputStateCreateInfo,
-            PipelineViewportStateCreateInfo, PolygonMode, PrimitiveTopology,
-            QUEUE_FAMILY_FOREIGN_EXT, Queue, QueueFlags, Rect2D, RenderingAttachmentInfo,
-            RenderingInfoKHR, SampleCountFlags, Sampler, SamplerAddressMode, SamplerCreateInfo,
-            SamplerMipmapMode, Semaphore, SemaphoreCreateInfo, SemaphoreImportFlags,
-            SemaphoreSubmitInfo, ShaderModule, ShaderModuleCreateInfo, ShaderStageFlags,
-            SharingMode, SubmitInfo2, SubresourceLayout, VertexInputAttributeDescription,
-            VertexInputBindingDescription, VertexInputRate, Viewport, WHOLE_SIZE,
-            WriteDescriptorSet,
-        },
-    },
-    bstr::ByteSlice,
-    egui::epaint::{
-        ClippedPrimitive, ImageData, ImageDelta, Primitive, TextureId, Vertex,
-        textures::{TextureFilter, TextureOptions, TextureWrapMode, TexturesDelta},
-    },
-    gpu_alloc::{
-        AllocationError, Config, GpuAllocator, MapError, MemoryBlock, Request, UsageFlags,
-    },
-    gpu_alloc_types::MemoryPropertyFlags,
-    hashbrown::hash_map::Entry,
-    isnt::std_1::primitive::IsntSliceExt,
-    log::Level,
-    run_on_drop::on_drop,
-    std::{
-        cell::{Cell, RefCell},
-        ffi::CStr,
-        io::{self, Cursor},
-        mem::{ManuallyDrop, offset_of},
-        ptr,
-        rc::Rc,
-        slice,
-    },
-    thiserror::Error,
-    uapi::{AsUstr, AssertPacked, Packed, Pod, c},
-};
+use crate::allocator::BufferObject;
+use crate::async_engine::AsyncEngine;
+use crate::async_engine::SpawnedFuture;
+use crate::eventfd_cache::EventfdCache;
+use crate::format::XRGB8888;
+use crate::gfx_api::FdSync;
+use crate::gfx_api::SyncFile;
+use crate::io_uring::IoUring;
+use crate::syncobj::SyncobjCtx;
+use crate::utils::bhash::BHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt2;
+use crate::utils::queue::AsyncQueue;
+use crate::video::Modifier;
+use crate::video::dmabuf::PlaneVec;
+use crate::vulkan_core::VULKAN_API_VERSION;
+use crate::vulkan_core::VulkanCoreError;
+use crate::vulkan_core::VulkanCoreInstance;
+use crate::vulkan_core::VulkanDeviceFeatures;
+use crate::vulkan_core::device::VulkanDeviceInf;
+use crate::vulkan_core::gpu_alloc_ash::AshMemoryDevice;
+use crate::vulkan_core::map_extension_properties;
+use crate::vulkan_core::sync::VulkanDeviceSyncExt;
+use crate::vulkan_core::sync::VulkanSync;
+use crate::vulkan_core::timeline_semaphore::VulkanDeviceTimelineSemaphoreExt;
+use crate::vulkan_core::timeline_semaphore::VulkanTimelineSemaphore;
+use crate::vulkan_core::vk_is_drm_dev;
+use arrayvec::ArrayVec;
+use ash::Device;
+use ash::ext::external_memory_dma_buf;
+use ash::ext::image_drm_format_modifier;
+use ash::ext::physical_device_drm;
+use ash::ext::queue_family_foreign;
+use ash::khr::external_fence_fd;
+use ash::khr::external_memory_fd;
+use ash::khr::external_semaphore_fd;
+use ash::khr::push_descriptor;
+use ash::util::read_spv;
+use ash::vk::AccessFlags2;
+use ash::vk::AttachmentLoadOp;
+use ash::vk::AttachmentStoreOp;
+use ash::vk::BindImageMemoryInfo;
+use ash::vk::BindImagePlaneMemoryInfo;
+use ash::vk::BlendFactor;
+use ash::vk::BlendOp;
+use ash::vk::BorderColor;
+use ash::vk::Buffer;
+use ash::vk::BufferCreateInfo;
+use ash::vk::BufferImageCopy2;
+use ash::vk::BufferMemoryBarrier2;
+use ash::vk::BufferUsageFlags;
+use ash::vk::ColorComponentFlags;
+use ash::vk::CommandBuffer;
+use ash::vk::CommandBufferAllocateInfo;
+use ash::vk::CommandBufferBeginInfo;
+use ash::vk::CommandBufferLevel;
+use ash::vk::CommandBufferSubmitInfo;
+use ash::vk::CommandBufferUsageFlags;
+use ash::vk::CommandPool;
+use ash::vk::CommandPoolCreateFlags;
+use ash::vk::CommandPoolCreateInfo;
+use ash::vk::ComponentMapping;
+use ash::vk::ComponentSwizzle;
+use ash::vk::CopyBufferToImageInfo2;
+use ash::vk::CullModeFlags;
+use ash::vk::DependencyInfo;
+use ash::vk::DescriptorImageInfo;
+use ash::vk::DescriptorSetLayout;
+use ash::vk::DescriptorSetLayoutBinding;
+use ash::vk::DescriptorSetLayoutCreateFlags;
+use ash::vk::DescriptorSetLayoutCreateInfo;
+use ash::vk::DescriptorType;
+use ash::vk::DeviceCreateInfo;
+use ash::vk::DeviceMemory;
+use ash::vk::DeviceQueueCreateInfo;
+use ash::vk::DrmFormatModifierPropertiesEXT;
+use ash::vk::DrmFormatModifierPropertiesListEXT;
+use ash::vk::DynamicState;
+use ash::vk::Extent2D;
+use ash::vk::Extent3D;
+use ash::vk::ExternalFenceFeatureFlags;
+use ash::vk::ExternalFenceHandleTypeFlags;
+use ash::vk::ExternalFenceProperties;
+use ash::vk::ExternalImageFormatPropertiesKHR;
+use ash::vk::ExternalMemoryFeatureFlags;
+use ash::vk::ExternalMemoryHandleTypeFlags;
+use ash::vk::ExternalMemoryImageCreateInfo;
+use ash::vk::ExternalSemaphoreFeatureFlags;
+use ash::vk::ExternalSemaphoreHandleTypeFlags;
+use ash::vk::ExternalSemaphoreProperties;
+use ash::vk::Filter;
+use ash::vk::Format;
+use ash::vk::FormatFeatureFlags;
+use ash::vk::FormatProperties2;
+use ash::vk::FrontFace;
+use ash::vk::GraphicsPipelineCreateInfo;
+use ash::vk::Image;
+use ash::vk::ImageAspectFlags;
+use ash::vk::ImageCreateFlags;
+use ash::vk::ImageCreateInfo;
+use ash::vk::ImageDrmFormatModifierExplicitCreateInfoEXT;
+use ash::vk::ImageFormatProperties2;
+use ash::vk::ImageLayout;
+use ash::vk::ImageMemoryBarrier2;
+use ash::vk::ImageMemoryRequirementsInfo2;
+use ash::vk::ImagePlaneMemoryRequirementsInfo;
+use ash::vk::ImageSubresourceLayers;
+use ash::vk::ImageSubresourceRange;
+use ash::vk::ImageTiling;
+use ash::vk::ImageType;
+use ash::vk::ImageUsageFlags;
+use ash::vk::ImageView;
+use ash::vk::ImageViewCreateInfo;
+use ash::vk::ImageViewType;
+use ash::vk::ImportMemoryFdInfoKHR;
+use ash::vk::ImportSemaphoreFdInfoKHR;
+use ash::vk::IndexType;
+use ash::vk::MappedMemoryRange;
+use ash::vk::MemoryAllocateInfo;
+use ash::vk::MemoryDedicatedAllocateInfo;
+use ash::vk::MemoryFdPropertiesKHR;
+use ash::vk::MemoryRequirements;
+use ash::vk::MemoryRequirements2;
+use ash::vk::Offset2D;
+use ash::vk::Offset3D;
+use ash::vk::PhysicalDeviceDrmPropertiesEXT;
+use ash::vk::PhysicalDeviceDynamicRenderingFeatures;
+use ash::vk::PhysicalDeviceExternalFenceInfo;
+use ash::vk::PhysicalDeviceExternalImageFormatInfoKHR;
+use ash::vk::PhysicalDeviceExternalSemaphoreInfo;
+use ash::vk::PhysicalDeviceFeatures2;
+use ash::vk::PhysicalDeviceImageDrmFormatModifierInfoEXT;
+use ash::vk::PhysicalDeviceImageFormatInfo2;
+use ash::vk::PhysicalDeviceProperties2;
+use ash::vk::PhysicalDeviceSynchronization2Features;
+use ash::vk::PhysicalDeviceTimelineSemaphoreFeatures;
+use ash::vk::PhysicalDeviceType;
+use ash::vk::PhysicalDeviceVulkan13Properties;
+use ash::vk::Pipeline;
+use ash::vk::PipelineBindPoint;
+use ash::vk::PipelineCache;
+use ash::vk::PipelineColorBlendAttachmentState;
+use ash::vk::PipelineColorBlendStateCreateInfo;
+use ash::vk::PipelineDynamicStateCreateInfo;
+use ash::vk::PipelineInputAssemblyStateCreateInfo;
+use ash::vk::PipelineLayout;
+use ash::vk::PipelineLayoutCreateInfo;
+use ash::vk::PipelineMultisampleStateCreateInfo;
+use ash::vk::PipelineRasterizationStateCreateInfo;
+use ash::vk::PipelineRenderingCreateInfo;
+use ash::vk::PipelineShaderStageCreateInfo;
+use ash::vk::PipelineStageFlags2;
+use ash::vk::PipelineVertexInputStateCreateInfo;
+use ash::vk::PipelineViewportStateCreateInfo;
+use ash::vk::PolygonMode;
+use ash::vk::PrimitiveTopology;
+use ash::vk::QUEUE_FAMILY_FOREIGN_EXT;
+use ash::vk::Queue;
+use ash::vk::QueueFlags;
+use ash::vk::Rect2D;
+use ash::vk::RenderingAttachmentInfo;
+use ash::vk::RenderingInfoKHR;
+use ash::vk::SampleCountFlags;
+use ash::vk::Sampler;
+use ash::vk::SamplerAddressMode;
+use ash::vk::SamplerCreateInfo;
+use ash::vk::SamplerMipmapMode;
+use ash::vk::Semaphore;
+use ash::vk::SemaphoreCreateInfo;
+use ash::vk::SemaphoreImportFlags;
+use ash::vk::SemaphoreSubmitInfo;
+use ash::vk::ShaderModule;
+use ash::vk::ShaderModuleCreateInfo;
+use ash::vk::ShaderStageFlags;
+use ash::vk::SharingMode;
+use ash::vk::SubmitInfo2;
+use ash::vk::SubresourceLayout;
+use ash::vk::VertexInputAttributeDescription;
+use ash::vk::VertexInputBindingDescription;
+use ash::vk::VertexInputRate;
+use ash::vk::Viewport;
+use ash::vk::WHOLE_SIZE;
+use ash::vk::WriteDescriptorSet;
+use ash::vk::{self};
+use bstr::ByteSlice;
+use egui::epaint::ClippedPrimitive;
+use egui::epaint::ImageData;
+use egui::epaint::ImageDelta;
+use egui::epaint::Primitive;
+use egui::epaint::TextureId;
+use egui::epaint::Vertex;
+use egui::epaint::textures::TextureFilter;
+use egui::epaint::textures::TextureOptions;
+use egui::epaint::textures::TextureWrapMode;
+use egui::epaint::textures::TexturesDelta;
+use gpu_alloc::AllocationError;
+use gpu_alloc::Config;
+use gpu_alloc::GpuAllocator;
+use gpu_alloc::MapError;
+use gpu_alloc::MemoryBlock;
+use gpu_alloc::Request;
+use gpu_alloc::UsageFlags;
+use gpu_alloc_types::MemoryPropertyFlags;
+use hashbrown::hash_map::Entry;
+use isnt::std_1::primitive::IsntSliceExt;
+use log::Level;
+use run_on_drop::on_drop;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::ffi::CStr;
+use std::io::Cursor;
+use std::io::{self};
+use std::mem::ManuallyDrop;
+use std::mem::offset_of;
+use std::ptr;
+use std::rc::Rc;
+use std::slice;
+use thiserror::Error;
+use uapi::AsUstr;
+use uapi::AssertPacked;
+use uapi::Packed;
+use uapi::Pod;
+use uapi::c;
 
 #[derive(Debug, Error)]
 pub enum EgvError {

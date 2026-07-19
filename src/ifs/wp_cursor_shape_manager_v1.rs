@@ -1,15 +1,17 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wp_cursor_shape_device_v1::{CursorShapeCursorUser, WpCursorShapeDeviceV1},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WpCursorShapeDeviceV1Id, WpCursorShapeManagerV1Id, wp_cursor_shape_manager_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wp_cursor_shape_device_v1::CursorShapeCursorUser;
+use crate::ifs::wp_cursor_shape_device_v1::WpCursorShapeDeviceV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WpCursorShapeDeviceV1Id;
+use crate::wire::WpCursorShapeManagerV1Id;
+use crate::wire::wp_cursor_shape_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpCursorShapeManagerV1Global {
     pub name: GlobalName,

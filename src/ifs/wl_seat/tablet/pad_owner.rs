@@ -1,11 +1,9 @@
-use {
-    crate::{
-        ifs::wl_seat::tablet::{PadButtonState, TabletPad},
-        tree::Node,
-        utils::{clonecell::CloneCell, smallmap::SmallMap},
-    },
-    std::rc::Rc,
-};
+use crate::ifs::wl_seat::tablet::PadButtonState;
+use crate::ifs::wl_seat::tablet::TabletPad;
+use crate::tree::Node;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::smallmap::SmallMap;
+use std::rc::Rc;
 
 pub struct PadOwnerHolder {
     default: Rc<DefaultPadOwner>,

@@ -1,15 +1,17 @@
-use {
-    crate::{
-        client::{CAP_INPUT_METHOD, Client, ClientCaps, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wl_seat::text_input::zwp_input_method_v2::ZwpInputMethodV2,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwpInputMethodManagerV2Id, zwp_input_method_manager_v2::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::CAP_INPUT_METHOD;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_seat::text_input::zwp_input_method_v2::ZwpInputMethodV2;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwpInputMethodManagerV2Id;
+use crate::wire::zwp_input_method_manager_v2::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpInputMethodManagerV2Global {
     pub name: GlobalName,

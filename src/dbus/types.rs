@@ -1,15 +1,30 @@
-use {
-    crate::{
-        dbus::{
-            DbusError, DbusType, DynamicType, Formatter, Parser, TY_ARRAY, TY_BOOLEAN, TY_BYTE,
-            TY_DOUBLE, TY_INT16, TY_INT32, TY_INT64, TY_OBJECT_PATH, TY_SIGNATURE, TY_STRING,
-            TY_UINT16, TY_UINT32, TY_UINT64, TY_UNIX_FD, TY_VARIANT,
-        },
-        utils::buf::DynamicBuf,
-    },
-    std::{borrow::Cow, ops::Deref, rc::Rc},
-    uapi::{OwnedFd, Packed, Pod},
-};
+use crate::dbus::DbusError;
+use crate::dbus::DbusType;
+use crate::dbus::DynamicType;
+use crate::dbus::Formatter;
+use crate::dbus::Parser;
+use crate::dbus::TY_ARRAY;
+use crate::dbus::TY_BOOLEAN;
+use crate::dbus::TY_BYTE;
+use crate::dbus::TY_DOUBLE;
+use crate::dbus::TY_INT16;
+use crate::dbus::TY_INT32;
+use crate::dbus::TY_INT64;
+use crate::dbus::TY_OBJECT_PATH;
+use crate::dbus::TY_SIGNATURE;
+use crate::dbus::TY_STRING;
+use crate::dbus::TY_UINT16;
+use crate::dbus::TY_UINT32;
+use crate::dbus::TY_UINT64;
+use crate::dbus::TY_UNIX_FD;
+use crate::dbus::TY_VARIANT;
+use crate::utils::buf::DynamicBuf;
+use std::borrow::Cow;
+use std::ops::Deref;
+use std::rc::Rc;
+use uapi::OwnedFd;
+use uapi::Packed;
+use uapi::Pod;
 
 macro_rules! consume_signature_body {
     ($s:expr, $ty:expr) => {{

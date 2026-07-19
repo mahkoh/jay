@@ -1,17 +1,12 @@
-use {
-    crate::{
-        object::Version,
-        wire::{WpFractionalScaleManagerV1Id, wp_fractional_scale_manager_v1::*},
-        wl_usr::{
-            UsrCon,
-            usr_ifs::{
-                usr_wl_surface::UsrWlSurface, usr_wp_fractional_scale::UsrWpFractionalScale,
-            },
-            usr_object::UsrObject,
-        },
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::object::Version;
+use crate::wire::WpFractionalScaleManagerV1Id;
+use crate::wire::wp_fractional_scale_manager_v1::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_ifs::usr_wl_surface::UsrWlSurface;
+use crate::wl_usr::usr_ifs::usr_wp_fractional_scale::UsrWpFractionalScale;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrWpFractionalScaleManager {
     pub id: WpFractionalScaleManagerV1Id,

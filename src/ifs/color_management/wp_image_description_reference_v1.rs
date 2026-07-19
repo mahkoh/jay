@@ -1,14 +1,13 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        cmm::cmm_description::ColorDescription,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WpImageDescriptionReferenceV1Id, wp_image_description_reference_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::cmm::cmm_description::ColorDescription;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WpImageDescriptionReferenceV1Id;
+use crate::wire::wp_image_description_reference_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[expect(dead_code)]
 pub struct WpImageDescriptionReferenceV1 {

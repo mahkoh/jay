@@ -1,11 +1,9 @@
-use {
-    error_reporter::Report,
-    indexmap::IndexMap,
-    serde::{
-        Deserialize, Deserializer,
-        de::{DeserializeOwned, Error},
-    },
-};
+use error_reporter::Report;
+use indexmap::IndexMap;
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::de::DeserializeOwned;
+use serde::de::Error;
 
 #[derive(Debug, Deserialize)]
 pub struct Described<T> {

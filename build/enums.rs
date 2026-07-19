@@ -1,8 +1,8 @@
-use {
-    crate::open,
-    repc::layout::{Type, TypeVariant},
-    std::{env, io::Write},
-};
+use crate::open;
+use repc::layout::Type;
+use repc::layout::TypeVariant;
+use std::env;
+use std::io::Write;
 
 #[expect(unused_macros)]
 #[macro_use]

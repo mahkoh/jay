@@ -1,10 +1,8 @@
-use {
-    crate::utils::errorfmt::ErrorFmt,
-    std::{
-        error::Error,
-        fmt::{Debug, Display, Formatter},
-    },
-};
+use crate::utils::errorfmt::ErrorFmt;
+use std::error::Error;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
 pub type TestResult<T = ()> = Result<T, TestError>;
 

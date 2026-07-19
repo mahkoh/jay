@@ -1,40 +1,52 @@
-use {
-    crate::{
-        allocator::{Allocator, BO_USE_RENDERING, BufferObject, BufferUsage},
-        backend::DrmDeviceId,
-        cpu_worker::CpuWorker,
-        format::{Format, XRGB8888},
-        gfx_api::{
-            AsyncShmGfxTexture, BufferResvUser, GfxApi, GfxBlendBuffer, GfxContext, GfxError,
-            GfxFormat, GfxFramebuffer, GfxInternalFramebuffer, GfxTexture, ResetStatus,
-            ShmGfxTexture,
-        },
-        gfx_apis::gl::{
-            GfxGlState, RenderError, Texture,
-            egl::{context::EglContext, display::EglDisplay, image::EglImage},
-            ext::GL_OES_EGL_IMAGE_EXTERNAL,
-            gl::{
-                program::GlProgram, render_buffer::GlRenderBuffer, sys::GLint, texture::GlTexture,
-            },
-            renderer::{framebuffer::Framebuffer, image::Image},
-        },
-        rect::Rect,
-        syncobj::SyncobjCtx,
-        utils::bhash::BHashMap,
-        video::{
-            dmabuf::{DmaBuf, DmaBufIds},
-            drm::Drm,
-            gbm::GbmDevice,
-        },
-    },
-    linearize::{Linearize, StaticMap, static_map},
-    std::{
-        cell::{Cell, RefCell},
-        ffi::CString,
-        fmt::{Debug, Formatter},
-        rc::Rc,
-    },
-};
+use crate::allocator::Allocator;
+use crate::allocator::BO_USE_RENDERING;
+use crate::allocator::BufferObject;
+use crate::allocator::BufferUsage;
+use crate::backend::DrmDeviceId;
+use crate::cpu_worker::CpuWorker;
+use crate::format::Format;
+use crate::format::XRGB8888;
+use crate::gfx_api::AsyncShmGfxTexture;
+use crate::gfx_api::BufferResvUser;
+use crate::gfx_api::GfxApi;
+use crate::gfx_api::GfxBlendBuffer;
+use crate::gfx_api::GfxContext;
+use crate::gfx_api::GfxError;
+use crate::gfx_api::GfxFormat;
+use crate::gfx_api::GfxFramebuffer;
+use crate::gfx_api::GfxInternalFramebuffer;
+use crate::gfx_api::GfxTexture;
+use crate::gfx_api::ResetStatus;
+use crate::gfx_api::ShmGfxTexture;
+use crate::gfx_apis::gl::GfxGlState;
+use crate::gfx_apis::gl::RenderError;
+use crate::gfx_apis::gl::Texture;
+use crate::gfx_apis::gl::egl::context::EglContext;
+use crate::gfx_apis::gl::egl::display::EglDisplay;
+use crate::gfx_apis::gl::egl::image::EglImage;
+use crate::gfx_apis::gl::ext::GL_OES_EGL_IMAGE_EXTERNAL;
+use crate::gfx_apis::gl::gl::program::GlProgram;
+use crate::gfx_apis::gl::gl::render_buffer::GlRenderBuffer;
+use crate::gfx_apis::gl::gl::sys::GLint;
+use crate::gfx_apis::gl::gl::texture::GlTexture;
+use crate::gfx_apis::gl::renderer::framebuffer::Framebuffer;
+use crate::gfx_apis::gl::renderer::image::Image;
+use crate::rect::Rect;
+use crate::syncobj::SyncobjCtx;
+use crate::utils::bhash::BHashMap;
+use crate::video::dmabuf::DmaBuf;
+use crate::video::dmabuf::DmaBufIds;
+use crate::video::drm::Drm;
+use crate::video::gbm::GbmDevice;
+use linearize::Linearize;
+use linearize::StaticMap;
+use linearize::static_map;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::ffi::CString;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::rc::Rc;
 
 pub(crate) struct TexProg {
     pub(crate) prog: GlProgram,

@@ -1,13 +1,13 @@
 //! Tools affecting the keyboard behavior.
 
-use {
-    crate::{
-        _private::{KeymapBuildParamsV1, KeymapBuildParamsV1Kind},
-        keyboard::{mods::Modifiers, syms::KeySym},
-    },
-    serde::{Deserialize, Serialize},
-    std::ops::{BitOr, BitOrAssign},
-};
+use crate::_private::KeymapBuildParamsV1;
+use crate::_private::KeymapBuildParamsV1Kind;
+use crate::keyboard::mods::Modifiers;
+use crate::keyboard::syms::KeySym;
+use serde::Deserialize;
+use serde::Serialize;
+use std::ops::BitOr;
+use std::ops::BitOrAssign;
 
 pub mod mods;
 pub mod syms;

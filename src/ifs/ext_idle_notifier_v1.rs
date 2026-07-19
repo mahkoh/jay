@@ -1,16 +1,21 @@
-use {
-    crate::{
-        client::{CAP_IDLE_NOTIFIER, Client, ClientCaps, ClientError},
-        globals::{Global, GlobalName},
-        ifs::ext_idle_notification_v1::ExtIdleNotificationV1,
-        leaks::Tracker,
-        object::{Object, Version},
-        utils::errorfmt::ErrorFmt,
-        wire::{ExtIdleNotificationV1Id, ExtIdleNotifierV1Id, WlSeatId, ext_idle_notifier_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::CAP_IDLE_NOTIFIER;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::ext_idle_notification_v1::ExtIdleNotificationV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::wire::ExtIdleNotificationV1Id;
+use crate::wire::ExtIdleNotifierV1Id;
+use crate::wire::WlSeatId;
+use crate::wire::ext_idle_notifier_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ExtIdleNotifierV1Global {
     pub name: GlobalName,

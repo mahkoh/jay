@@ -1,12 +1,11 @@
-use {
-    crate::gfx_apis::gl::{
-        RenderError,
-        egl::context::EglContext,
-        gl::sys::{GL_COMPILE_STATUS, GL_FALSE, GLenum, GLuint},
-        sys::GLint,
-    },
-    std::rc::Rc,
-};
+use crate::gfx_apis::gl::RenderError;
+use crate::gfx_apis::gl::egl::context::EglContext;
+use crate::gfx_apis::gl::gl::sys::GL_COMPILE_STATUS;
+use crate::gfx_apis::gl::gl::sys::GL_FALSE;
+use crate::gfx_apis::gl::gl::sys::GLenum;
+use crate::gfx_apis::gl::gl::sys::GLuint;
+use crate::gfx_apis::gl::sys::GLint;
+use std::rc::Rc;
 
 pub struct GlShader {
     pub ctx: Rc<EglContext>,

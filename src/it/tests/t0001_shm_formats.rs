@@ -1,10 +1,8 @@
-use {
-    crate::{
-        format::{ARGB8888, XRGB8888},
-        it::{test_error::TestError, testrun::TestRun},
-    },
-    std::rc::Rc,
-};
+use crate::format::ARGB8888;
+use crate::format::XRGB8888;
+use crate::it::test_error::TestError;
+use crate::it::testrun::TestRun;
+use std::rc::Rc;
 
 testcase!();
 

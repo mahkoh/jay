@@ -1,15 +1,14 @@
-use {
-    crate::{
-        io_uring::IoUring,
-        utils::{
-            buf::Buf,
-            buffd::{BUF_SIZE, BufFdError, MAX_IN_FD},
-        },
-    },
-    smallvec::SmallVec,
-    std::{collections::VecDeque, mem::MaybeUninit, rc::Rc},
-    uapi::{OwnedFd, Pod},
-};
+use crate::io_uring::IoUring;
+use crate::utils::buf::Buf;
+use crate::utils::buffd::BUF_SIZE;
+use crate::utils::buffd::BufFdError;
+use crate::utils::buffd::MAX_IN_FD;
+use smallvec::SmallVec;
+use std::collections::VecDeque;
+use std::mem::MaybeUninit;
+use std::rc::Rc;
+use uapi::OwnedFd;
+use uapi::Pod;
 
 pub struct BufFdIn {
     fd: Rc<OwnedFd>,

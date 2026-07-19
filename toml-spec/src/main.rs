@@ -1,12 +1,9 @@
-use {
-    crate::{
-        json_schema::generate_json_schema,
-        markdown::generate_markdown,
-        types::{Described, TopLevelTypeSpec},
-    },
-    anyhow::Result,
-    indexmap::IndexMap,
-};
+use crate::json_schema::generate_json_schema;
+use crate::markdown::generate_markdown;
+use crate::types::Described;
+use crate::types::TopLevelTypeSpec;
+use anyhow::Result;
+use indexmap::IndexMap;
 
 mod json_schema;
 mod markdown;

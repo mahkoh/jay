@@ -1,15 +1,25 @@
-use {
-    crate::{
-        control_center::{
-            ControlCenterInner, GridExt, bool, combo_box, grid, grid_label, label, row,
-        },
-        egui_adapter::egui_platform::icons::{ICON_ADD, ICON_REMOVE},
-        state::{DrmDevData, State},
-        utils::major_minor::{MajorMinor, major_minor},
-    },
-    egui::{Checkbox, CollapsingHeader, DragValue, TextFormat, Ui, Widget, text::LayoutJob},
-    std::rc::Rc,
-};
+use crate::control_center::ControlCenterInner;
+use crate::control_center::GridExt;
+use crate::control_center::bool;
+use crate::control_center::combo_box;
+use crate::control_center::grid;
+use crate::control_center::grid_label;
+use crate::control_center::label;
+use crate::control_center::row;
+use crate::egui_adapter::egui_platform::icons::ICON_ADD;
+use crate::egui_adapter::egui_platform::icons::ICON_REMOVE;
+use crate::state::DrmDevData;
+use crate::state::State;
+use crate::utils::major_minor::MajorMinor;
+use crate::utils::major_minor::major_minor;
+use egui::Checkbox;
+use egui::CollapsingHeader;
+use egui::DragValue;
+use egui::TextFormat;
+use egui::Ui;
+use egui::Widget;
+use egui::text::LayoutJob;
+use std::rc::Rc;
 
 pub struct GpusPane {
     state: Rc<State>,

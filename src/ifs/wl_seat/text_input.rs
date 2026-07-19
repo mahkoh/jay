@@ -1,20 +1,14 @@
-use {
-    crate::{
-        backend::KeyState,
-        control_center::CCI_INPUT,
-        ifs::{
-            wl_seat::{
-                WlSeatGlobal,
-                text_input::{simple_im::SimpleIm, zwp_text_input_v3::ZwpTextInputV3},
-            },
-            wl_surface::{WlSurface, zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2},
-        },
-        keyboard::KeyboardState,
-        utils::smallmap::SmallMap,
-        wire::ZwpInputPopupSurfaceV2Id,
-    },
-    std::rc::Rc,
-};
+use crate::backend::KeyState;
+use crate::control_center::CCI_INPUT;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::text_input::simple_im::SimpleIm;
+use crate::ifs::wl_seat::text_input::zwp_text_input_v3::ZwpTextInputV3;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2;
+use crate::keyboard::KeyboardState;
+use crate::utils::smallmap::SmallMap;
+use crate::wire::ZwpInputPopupSurfaceV2Id;
+use std::rc::Rc;
 
 pub mod simple_im;
 pub mod zwp_input_method_keyboard_grab_v2;

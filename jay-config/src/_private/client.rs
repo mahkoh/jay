@@ -1,68 +1,116 @@
 #![allow(clippy::declare_interior_mutable_const, clippy::type_complexity)]
 
-use {
-    crate::{
-        _private::{
-            ClientCriterionIpc, ClientCriterionStringField, Config, ConfigEntry, ConfigEntryGen,
-            GenericCriterionIpc, KeymapBuildParamsV1Kind, PollableId, VERSION, WindowCriterionIpc,
-            WindowCriterionStringField, WireMode, bincode_ops,
-            ipc::{
-                ClientMessage, InitMessage, Response, ServerFeature, ServerMessage, WorkspaceSource,
-            },
-            logging,
-        },
-        Axis, Direction, ModifiedKeySym, PciId, Workspace, WorkspaceKind, WorkspaceShowOp,
-        client::{Client, ClientCapabilities, ClientCriterion, ClientMatcher, MatchedClient},
-        exec::Command,
-        input::{
-            FallbackOutputMode, FocusFollowsMouseMode, InputDevice, InputEventCode, LayerDirection,
-            Seat, SwitchEvent, Timeline, acceleration::AccelProfile, capability::Capability,
-            clickmethod::ClickMethod, scrollmethod::ScrollMethod,
-        },
-        keyboard::{
-            Group, Keymap, KeymapBuilder,
-            mods::{Modifiers, RELEASE},
-            syms::KeySym,
-        },
-        logging::LogLevel,
-        tasks::{JoinHandle, JoinSlot},
-        theme::{BarPosition, Color, ContainerBorders, colors::Colorable, sized::Resizable},
-        timer::Timer,
-        video::{
-            BlendSpace, ColorSpace, Connector, DrmDevice, Eotf, Format, GfxApi, Mode,
-            ScalingFilter, TearingMode, Transform, VrrMode,
-            connector_type::{CON_UNKNOWN, ConnectorType},
-        },
-        window::{
-            ContentType, MatchedWindow, TileState, Window, WindowCriterion, WindowMatcher,
-            WindowType,
-        },
-        workspace::WorkspaceDisplayOrder,
-        xwayland::XScalingMode,
-    },
-    bincode::Options,
-    futures_util::task::ArcWake,
-    run_on_drop::{OnDrop, on_drop},
-    std::{
-        cell::{Cell, RefCell},
-        collections::{HashMap, VecDeque, hash_map::Entry},
-        future::Future,
-        mem,
-        ops::Deref,
-        os::fd::IntoRawFd,
-        panic::{AssertUnwindSafe, catch_unwind},
-        pin::Pin,
-        ptr,
-        rc::Rc,
-        slice,
-        sync::{
-            Arc, Mutex,
-            atomic::{AtomicBool, Ordering::Relaxed},
-        },
-        task::{Context, Poll, Waker},
-        time::{Duration, SystemTime},
-    },
-};
+use crate::_private::ClientCriterionIpc;
+use crate::_private::ClientCriterionStringField;
+use crate::_private::Config;
+use crate::_private::ConfigEntry;
+use crate::_private::ConfigEntryGen;
+use crate::_private::GenericCriterionIpc;
+use crate::_private::KeymapBuildParamsV1Kind;
+use crate::_private::PollableId;
+use crate::_private::VERSION;
+use crate::_private::WindowCriterionIpc;
+use crate::_private::WindowCriterionStringField;
+use crate::_private::WireMode;
+use crate::_private::bincode_ops;
+use crate::_private::ipc::ClientMessage;
+use crate::_private::ipc::InitMessage;
+use crate::_private::ipc::Response;
+use crate::_private::ipc::ServerFeature;
+use crate::_private::ipc::ServerMessage;
+use crate::_private::ipc::WorkspaceSource;
+use crate::_private::logging;
+use crate::Axis;
+use crate::Direction;
+use crate::ModifiedKeySym;
+use crate::PciId;
+use crate::Workspace;
+use crate::WorkspaceKind;
+use crate::WorkspaceShowOp;
+use crate::client::Client;
+use crate::client::ClientCapabilities;
+use crate::client::ClientCriterion;
+use crate::client::ClientMatcher;
+use crate::client::MatchedClient;
+use crate::exec::Command;
+use crate::input::FallbackOutputMode;
+use crate::input::FocusFollowsMouseMode;
+use crate::input::InputDevice;
+use crate::input::InputEventCode;
+use crate::input::LayerDirection;
+use crate::input::Seat;
+use crate::input::SwitchEvent;
+use crate::input::Timeline;
+use crate::input::acceleration::AccelProfile;
+use crate::input::capability::Capability;
+use crate::input::clickmethod::ClickMethod;
+use crate::input::scrollmethod::ScrollMethod;
+use crate::keyboard::Group;
+use crate::keyboard::Keymap;
+use crate::keyboard::KeymapBuilder;
+use crate::keyboard::mods::Modifiers;
+use crate::keyboard::mods::RELEASE;
+use crate::keyboard::syms::KeySym;
+use crate::logging::LogLevel;
+use crate::tasks::JoinHandle;
+use crate::tasks::JoinSlot;
+use crate::theme::BarPosition;
+use crate::theme::Color;
+use crate::theme::ContainerBorders;
+use crate::theme::colors::Colorable;
+use crate::theme::sized::Resizable;
+use crate::timer::Timer;
+use crate::video::BlendSpace;
+use crate::video::ColorSpace;
+use crate::video::Connector;
+use crate::video::DrmDevice;
+use crate::video::Eotf;
+use crate::video::Format;
+use crate::video::GfxApi;
+use crate::video::Mode;
+use crate::video::ScalingFilter;
+use crate::video::TearingMode;
+use crate::video::Transform;
+use crate::video::VrrMode;
+use crate::video::connector_type::CON_UNKNOWN;
+use crate::video::connector_type::ConnectorType;
+use crate::window::ContentType;
+use crate::window::MatchedWindow;
+use crate::window::TileState;
+use crate::window::Window;
+use crate::window::WindowCriterion;
+use crate::window::WindowMatcher;
+use crate::window::WindowType;
+use crate::workspace::WorkspaceDisplayOrder;
+use crate::xwayland::XScalingMode;
+use bincode::Options;
+use futures_util::task::ArcWake;
+use run_on_drop::OnDrop;
+use run_on_drop::on_drop;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::collections::VecDeque;
+use std::collections::hash_map::Entry;
+use std::future::Future;
+use std::mem;
+use std::ops::Deref;
+use std::os::fd::IntoRawFd;
+use std::panic::AssertUnwindSafe;
+use std::panic::catch_unwind;
+use std::pin::Pin;
+use std::ptr;
+use std::rc::Rc;
+use std::slice;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::Relaxed;
+use std::task::Context;
+use std::task::Poll;
+use std::task::Waker;
+use std::time::Duration;
+use std::time::SystemTime;
 
 type Callback<T = ()> = Rc<RefCell<dyn FnMut(T)>>;
 

@@ -1,17 +1,16 @@
-use {
-    crate::{
-        async_engine::SpawnedFuture,
-        state::State,
-        utils::{
-            errorfmt::ErrorFmt,
-            oserror::{OsError, OsErrorExt, OsErrorExt2},
-            xrd::xrd,
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-    uapi::{OwnedFd, Ustring, c, format_ustr},
-};
+use crate::async_engine::SpawnedFuture;
+use crate::state::State;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt;
+use crate::utils::oserror::OsErrorExt2;
+use crate::utils::xrd::xrd;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::Ustring;
+use uapi::c;
+use uapi::format_ustr;
 
 #[derive(Debug, Error)]
 pub enum EiAcceptorError {

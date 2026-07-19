@@ -1,21 +1,22 @@
-use {
-    crate::{
-        sm::{
-            SessionId, SessionManager, ToplevelSession, ToplevelSessionId, ToplevelSessionName,
-            sm_jobs::{
-                SmDbStateHolder, SmJob, SmPending,
-                sm_common::{CreateDbStateError, SessionOwnerError},
-            },
-        },
-        sqlite::{SqliteCtx, SqliteError, SqliteJob, SqliteWork},
-        utils::stack::Stack,
-    },
-    std::{
-        rc::{Rc, Weak},
-        sync::Arc,
-    },
-    thiserror::Error,
-};
+use crate::sm::SessionId;
+use crate::sm::SessionManager;
+use crate::sm::ToplevelSession;
+use crate::sm::ToplevelSessionId;
+use crate::sm::ToplevelSessionName;
+use crate::sm::sm_jobs::SmDbStateHolder;
+use crate::sm::sm_jobs::SmJob;
+use crate::sm::sm_jobs::SmPending;
+use crate::sm::sm_jobs::sm_common::CreateDbStateError;
+use crate::sm::sm_jobs::sm_common::SessionOwnerError;
+use crate::sqlite::SqliteCtx;
+use crate::sqlite::SqliteError;
+use crate::sqlite::SqliteJob;
+use crate::sqlite::SqliteWork;
+use crate::utils::stack::Stack;
+use std::rc::Rc;
+use std::rc::Weak;
+use std::sync::Arc;
+use thiserror::Error;
 
 pub struct ToplevelRenameJob {
     pub work: ToplevelRenameWork,

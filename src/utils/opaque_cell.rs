@@ -1,8 +1,8 @@
-use std::{
-    cell::Cell,
-    fmt::{Debug, Formatter},
-    ops::{Deref, DerefMut},
-};
+use std::cell::Cell;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::ops::Deref;
+use std::ops::DerefMut;
 
 #[derive(Default)]
 pub struct OpaqueCell<T>(Cell<T>);

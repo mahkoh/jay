@@ -1,15 +1,15 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        cursor::KnownCursor,
-        ifs::wl_seat::{WlSeatGlobal, tablet::TabletToolOpt},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WpCursorShapeDeviceV1Id, wp_cursor_shape_device_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::cursor::KnownCursor;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::tablet::TabletToolOpt;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WpCursorShapeDeviceV1Id;
+use crate::wire::wp_cursor_shape_device_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 const DEFAULT: u32 = 1;
 const CONTEXT_MENU: u32 = 2;

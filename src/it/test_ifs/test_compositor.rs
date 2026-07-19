@@ -1,18 +1,13 @@
-use {
-    crate::{
-        it::{
-            test_error::TestError,
-            test_ifs::{test_region::TestRegion, test_surface::TestSurface},
-            test_object::TestObject,
-            test_transport::TestTransport,
-        },
-        wire::{
-            WlCompositorId,
-            wl_compositor::{CreateRegion, CreateSurface},
-        },
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestError;
+use crate::it::test_ifs::test_region::TestRegion;
+use crate::it::test_ifs::test_surface::TestSurface;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::WlCompositorId;
+use crate::wire::wl_compositor::CreateRegion;
+use crate::wire::wl_compositor::CreateSurface;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestCompositor {
     pub id: WlCompositorId,

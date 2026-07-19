@@ -6,56 +6,62 @@ mod ptl_screencast;
 mod ptl_session;
 mod ptl_text;
 
-use {
-    crate::{
-        async_engine::AsyncEngine,
-        cli::GlobalArgs,
-        cmm::cmm_manager::ColorManager,
-        compositor::LogLevel,
-        dbus::{
-            BUS_DEST, BUS_PATH, DBUS_NAME_FLAG_DO_NOT_QUEUE, DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER,
-            Dbus, DbusSocket,
-        },
-        eventfd_cache::EventfdCache,
-        forker::ForkerError,
-        io_uring::IoUring,
-        logger::Logger,
-        pipewire::pw_con::{PwCon, PwConHolder, PwConOwner},
-        portal::{
-            ptl_display::{PortalDisplay, PortalDisplayId, watch_displays},
-            ptl_remote_desktop::add_remote_desktop_dbus_members,
-            ptl_render_ctx::PortalRenderCtx,
-            ptl_screencast::add_screencast_dbus_members,
-            ptl_session::PortalSession,
-        },
-        utils::{
-            clone3::{Forked, fork_with_pidfd},
-            copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
-            line_logger::log_lines,
-            numcell::NumCell,
-            oserror::{OsError, OsErrorExt},
-            pipe::{Pipe, pipe},
-            process_name::set_process_name,
-            run_toplevel::RunToplevel,
-            xrd::xrd,
-        },
-        version::VERSION,
-        video::dmabuf::DmaBufIds,
-        wheel::Wheel,
-        wire_dbus::org,
-    },
-    std::{
-        ffi::OsStr,
-        io::{BufReader, BufWriter},
-        os::unix::{ffi::OsStrExt, process::CommandExt},
-        process::{Command, exit},
-        rc::{Rc, Weak},
-        sync::Arc,
-    },
-    thiserror::Error,
-    uapi::{OwnedFd, WEXITSTATUS, c, getpid},
-};
+use crate::async_engine::AsyncEngine;
+use crate::cli::GlobalArgs;
+use crate::cmm::cmm_manager::ColorManager;
+use crate::compositor::LogLevel;
+use crate::dbus::BUS_DEST;
+use crate::dbus::BUS_PATH;
+use crate::dbus::DBUS_NAME_FLAG_DO_NOT_QUEUE;
+use crate::dbus::DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER;
+use crate::dbus::Dbus;
+use crate::dbus::DbusSocket;
+use crate::eventfd_cache::EventfdCache;
+use crate::forker::ForkerError;
+use crate::io_uring::IoUring;
+use crate::logger::Logger;
+use crate::pipewire::pw_con::PwCon;
+use crate::pipewire::pw_con::PwConHolder;
+use crate::pipewire::pw_con::PwConOwner;
+use crate::portal::ptl_display::PortalDisplay;
+use crate::portal::ptl_display::PortalDisplayId;
+use crate::portal::ptl_display::watch_displays;
+use crate::portal::ptl_remote_desktop::add_remote_desktop_dbus_members;
+use crate::portal::ptl_render_ctx::PortalRenderCtx;
+use crate::portal::ptl_screencast::add_screencast_dbus_members;
+use crate::portal::ptl_session::PortalSession;
+use crate::utils::clone3::Forked;
+use crate::utils::clone3::fork_with_pidfd;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::line_logger::log_lines;
+use crate::utils::numcell::NumCell;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt;
+use crate::utils::pipe::Pipe;
+use crate::utils::pipe::pipe;
+use crate::utils::process_name::set_process_name;
+use crate::utils::run_toplevel::RunToplevel;
+use crate::utils::xrd::xrd;
+use crate::version::VERSION;
+use crate::video::dmabuf::DmaBufIds;
+use crate::wheel::Wheel;
+use crate::wire_dbus::org;
+use std::ffi::OsStr;
+use std::io::BufReader;
+use std::io::BufWriter;
+use std::os::unix::ffi::OsStrExt;
+use std::os::unix::process::CommandExt;
+use std::process::Command;
+use std::process::exit;
+use std::rc::Rc;
+use std::rc::Weak;
+use std::sync::Arc;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::WEXITSTATUS;
+use uapi::c;
+use uapi::getpid;
 
 const PORTAL_SUCCESS: u32 = 0;
 #[expect(dead_code)]

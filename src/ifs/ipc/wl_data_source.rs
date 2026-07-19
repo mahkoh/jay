@@ -1,28 +1,38 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::{
-            ipc::{
-                DataSource, DynDataOffer, DynDataSource, OFFER_STATE_ACCEPTED, OFFER_STATE_DROPPED,
-                SOURCE_STATE_CANCELLED, SOURCE_STATE_DROPPED, SharedState, SourceData,
-                add_data_source_mime_type, break_source_loops, cancel_offers, destroy_data_source,
-                detach_seat, offer_source_to_x,
-                wl_data_device::ClipboardIpc,
-                wl_data_device_manager::{DND_ALL, DND_NONE},
-                x_data_device::{XClipboardIpc, XIpcDevice},
-            },
-            wl_seat::WlSeatGlobal,
-            xdg_toplevel_drag_v1::XdgToplevelDragV1,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        utils::{bitflags::BitflagsExt, cell_ext::CellExt, clonecell::CloneCell},
-        wire::{WlDataSourceId, wl_data_source::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-    uapi::OwnedFd,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::ipc::DataSource;
+use crate::ifs::ipc::DynDataOffer;
+use crate::ifs::ipc::DynDataSource;
+use crate::ifs::ipc::OFFER_STATE_ACCEPTED;
+use crate::ifs::ipc::OFFER_STATE_DROPPED;
+use crate::ifs::ipc::SOURCE_STATE_CANCELLED;
+use crate::ifs::ipc::SOURCE_STATE_DROPPED;
+use crate::ifs::ipc::SharedState;
+use crate::ifs::ipc::SourceData;
+use crate::ifs::ipc::add_data_source_mime_type;
+use crate::ifs::ipc::break_source_loops;
+use crate::ifs::ipc::cancel_offers;
+use crate::ifs::ipc::destroy_data_source;
+use crate::ifs::ipc::detach_seat;
+use crate::ifs::ipc::offer_source_to_x;
+use crate::ifs::ipc::wl_data_device::ClipboardIpc;
+use crate::ifs::ipc::wl_data_device_manager::DND_ALL;
+use crate::ifs::ipc::wl_data_device_manager::DND_NONE;
+use crate::ifs::ipc::x_data_device::XClipboardIpc;
+use crate::ifs::ipc::x_data_device::XIpcDevice;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::xdg_toplevel_drag_v1::XdgToplevelDragV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::utils::bitflags::BitflagsExt;
+use crate::utils::cell_ext::CellExt;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::WlDataSourceId;
+use crate::wire::wl_data_source::*;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
 
 #[expect(dead_code)]
 const INVALID_ACTION_MASK: u32 = 0;

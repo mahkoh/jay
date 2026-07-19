@@ -1,25 +1,25 @@
-use {
-    crate::{
-        client::{Client, ClientError, ClientId},
-        fixed::Fixed,
-        ifs::{ipc::x_data_device::XIpcDevice, wl_seat::WlSeatGlobal},
-        utils::{
-            bhash::BHashSet, bitflags::BitflagsExt, cell_ext::CellExt, clonecell::CloneCell,
-            numcell::NumCell, smallmap::SmallMap,
-        },
-        wire::WlSurfaceId,
-    },
-    derivative::Derivative,
-    smallvec::SmallVec,
-    std::{
-        any,
-        cell::{Cell, RefCell},
-        ops::Deref,
-        rc::Rc,
-    },
-    thiserror::Error,
-    uapi::OwnedFd,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::client::ClientId;
+use crate::fixed::Fixed;
+use crate::ifs::ipc::x_data_device::XIpcDevice;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::utils::bhash::BHashSet;
+use crate::utils::bitflags::BitflagsExt;
+use crate::utils::cell_ext::CellExt;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::numcell::NumCell;
+use crate::utils::smallmap::SmallMap;
+use crate::wire::WlSurfaceId;
+use derivative::Derivative;
+use smallvec::SmallVec;
+use std::any;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::ops::Deref;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
 
 pub mod data_control;
 pub mod wl_data_device;

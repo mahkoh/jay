@@ -1,19 +1,19 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wl_seat::PositionHintRequest,
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::{NodeBase, TreeTimeline::LiveTL},
-        wire::{
-            WpPointerWarpV1Id,
-            wp_pointer_warp_v1::{Destroy, WarpPointer, WpPointerWarpV1RequestHandler},
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_seat::PositionHintRequest;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::NodeBase;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::wire::WpPointerWarpV1Id;
+use crate::wire::wp_pointer_warp_v1::Destroy;
+use crate::wire::wp_pointer_warp_v1::WarpPointer;
+use crate::wire::wp_pointer_warp_v1::WpPointerWarpV1RequestHandler;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpPointerWarpV1Global {
     name: GlobalName,

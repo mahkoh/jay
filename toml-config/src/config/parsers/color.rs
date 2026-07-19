@@ -1,15 +1,14 @@
-use {
-    crate::{
-        config::{
-            extractor::ExtractorError,
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-        },
-        toml::toml_span::{Span, SpannedExt},
-    },
-    jay_config::theme::Color,
-    std::{num::ParseIntError, ops::Range},
-    thiserror::Error,
-};
+use crate::config::extractor::ExtractorError;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::SpannedExt;
+use jay_config::theme::Color;
+use std::num::ParseIntError;
+use std::ops::Range;
+use thiserror::Error;
 
 pub struct ColorParser;
 

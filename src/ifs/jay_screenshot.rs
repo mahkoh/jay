@@ -1,14 +1,14 @@
-use {
-    crate::{
-        client::Client,
-        leaks::Tracker,
-        object::{Object, Version},
-        video::dmabuf::{DmaBuf, DmaBufPlane},
-        wire::{JayScreenshotId, jay_screenshot::*},
-    },
-    std::{convert::Infallible, rc::Rc},
-    uapi::OwnedFd,
-};
+use crate::client::Client;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::video::dmabuf::DmaBuf;
+use crate::video::dmabuf::DmaBufPlane;
+use crate::wire::JayScreenshotId;
+use crate::wire::jay_screenshot::*;
+use std::convert::Infallible;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 pub struct JayScreenshot {
     pub id: JayScreenshotId,

@@ -1,11 +1,8 @@
-use {
-    crate::utils::thread_id::ThreadId,
-    std::{
-        fmt::{Debug, Formatter},
-        ops::Deref,
-        rc::Rc,
-    },
-};
+use crate::utils::thread_id::ThreadId;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::ops::Deref;
+use std::rc::Rc;
 
 pub struct SendSyncRc<T> {
     tid: ThreadId,

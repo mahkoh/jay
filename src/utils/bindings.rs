@@ -1,19 +1,16 @@
-use {
-    crate::{
-        client::{Client, ClientId},
-        object::{Object, ObjectId, Version},
-        utils::{
-            bhash::BHashMap,
-            copyhashmap::{CopyHashMap, Locked},
-        },
-    },
-    derivative::Derivative,
-    hashbrown::hash_map::Entry,
-    std::{
-        cell::{Ref, RefCell},
-        rc::Rc,
-    },
-};
+use crate::client::Client;
+use crate::client::ClientId;
+use crate::object::Object;
+use crate::object::ObjectId;
+use crate::object::Version;
+use crate::utils::bhash::BHashMap;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::copyhashmap::Locked;
+use derivative::Derivative;
+use hashbrown::hash_map::Entry;
+use std::cell::Ref;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]

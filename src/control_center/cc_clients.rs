@@ -1,26 +1,38 @@
-use {
-    crate::{
-        client::{Client, ClientId},
-        control_center::{
-            CcBehavior, ControlCenterInner, PaneType,
-            cc_criterion::{CcCriterion, CritImpl, CritRegex},
-            cc_window::show_window_collapsible,
-            grid, icon_label, label, read_only_bool,
-        },
-        criteria::{CritMgrExt, CritUpstreamNode, crit_leaf::CritLeafMatcher},
-        egui_adapter::egui_platform::icons::ICON_OPEN_IN_NEW,
-        state::State,
-        tree::{ToplevelData, ToplevelIdentifier},
-        utils::{bhash::BHashMap, copyhashmap::CopyHashMap, static_text::StaticText},
-    },
-    derivative::Derivative,
-    egui::{
-        CollapsingHeader, DragValue, Sense, TextFormat, Ui, Widget, cache::CacheTrait,
-        text::LayoutJob,
-    },
-    linearize::Linearize,
-    std::rc::{Rc, Weak},
-};
+use crate::client::Client;
+use crate::client::ClientId;
+use crate::control_center::CcBehavior;
+use crate::control_center::ControlCenterInner;
+use crate::control_center::PaneType;
+use crate::control_center::cc_criterion::CcCriterion;
+use crate::control_center::cc_criterion::CritImpl;
+use crate::control_center::cc_criterion::CritRegex;
+use crate::control_center::cc_window::show_window_collapsible;
+use crate::control_center::grid;
+use crate::control_center::icon_label;
+use crate::control_center::label;
+use crate::control_center::read_only_bool;
+use crate::criteria::CritMgrExt;
+use crate::criteria::CritUpstreamNode;
+use crate::criteria::crit_leaf::CritLeafMatcher;
+use crate::egui_adapter::egui_platform::icons::ICON_OPEN_IN_NEW;
+use crate::state::State;
+use crate::tree::ToplevelData;
+use crate::tree::ToplevelIdentifier;
+use crate::utils::bhash::BHashMap;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::static_text::StaticText;
+use derivative::Derivative;
+use egui::CollapsingHeader;
+use egui::DragValue;
+use egui::Sense;
+use egui::TextFormat;
+use egui::Ui;
+use egui::Widget;
+use egui::cache::CacheTrait;
+use egui::text::LayoutJob;
+use linearize::Linearize;
+use std::rc::Rc;
+use std::rc::Weak;
 
 #[derive(Derivative)]
 #[derivative(Default)]

@@ -1,96 +1,180 @@
-use {
-    crate::{
-        async_engine::{AsyncEngine, SpawnedFuture},
-        backend::DrmDeviceId,
-        buffer_id_device::BufferIdDeviceDyn,
-        eventfd_cache::EventfdCache,
-        format::{FORMATS, Format},
-        gfx_api::FdSync,
-        io_uring::IoUring,
-        rect::{Rect, Region},
-        syncobj::{SyncobjCtx, SyncobjError},
-        utils::{
-            bhash::{BHashMap, BHashSet},
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
-            hash_map_ext::HashMapExt,
-            major_minor::{MajorMinor, major_minor},
-            numcell::NumCell,
-            oserror::{OsError, OsErrorExt2},
-            queue::AsyncQueue,
-            rc_eq::rc_eq,
-            stack::Stack,
-        },
-        video::{
-            LINEAR_MODIFIER, LINEAR_STRIDE_ALIGN, Modifier,
-            dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
-        },
-        vulkan_core::{
-            self, VULKAN_API_VERSION, VulkanCoreError, VulkanCoreInstance, device::VulkanDeviceInf,
-            map_extension_properties, sync::VulkanDeviceSyncExt,
-            timeline_semaphore::VulkanDeviceTimelineSemaphoreExt, vk_is_drm_dev,
-        },
-    },
-    arrayvec::ArrayVec,
-    ash::{
-        Device,
-        ext::{
-            external_memory_dma_buf, image_drm_format_modifier, physical_device_drm,
-            queue_family_foreign,
-        },
-        khr::{external_fence_fd, external_memory_fd, external_semaphore_fd},
-        vk::{
-            self, AccessFlags2, BindImageMemoryInfo, BindImagePlaneMemoryInfo, BlitImageInfo2,
-            BufferCopy2, BufferCreateInfo, BufferImageCopy2, BufferMemoryBarrier2,
-            BufferUsageFlags, CommandBuffer, CommandBufferAllocateInfo, CommandBufferBeginInfo,
-            CommandBufferSubmitInfo, CommandBufferUsageFlags, CommandPoolCreateFlags,
-            CommandPoolCreateInfo, CopyBufferInfo2, CopyBufferToImageInfo2, CopyImageInfo2,
-            CopyImageToBufferInfo2, DependencyInfo, DeviceCreateInfo, DeviceMemory,
-            DeviceQueueCreateInfo, DriverId, DrmFormatModifierPropertiesEXT,
-            DrmFormatModifierPropertiesListEXT, ExportMemoryAllocateInfo, Extent3D,
-            ExternalBufferProperties, ExternalFenceFeatureFlags, ExternalFenceHandleTypeFlags,
-            ExternalFenceProperties, ExternalImageFormatPropertiesKHR,
-            ExternalMemoryBufferCreateInfo, ExternalMemoryBufferCreateInfoKHR,
-            ExternalMemoryFeatureFlags, ExternalMemoryHandleTypeFlags,
-            ExternalMemoryImageCreateInfo, ExternalSemaphoreFeatureFlags,
-            ExternalSemaphoreHandleTypeFlags, ExternalSemaphoreProperties, Filter,
-            FormatFeatureFlags, FormatProperties2, Handle, ImageAspectFlags, ImageBlit2,
-            ImageCopy2, ImageCreateFlags, ImageCreateInfo,
-            ImageDrmFormatModifierExplicitCreateInfoEXT, ImageFormatProperties2, ImageLayout,
-            ImageMemoryBarrier2, ImageMemoryRequirementsInfo2, ImagePlaneMemoryRequirementsInfo,
-            ImageSubresourceLayers, ImageSubresourceRange, ImageTiling, ImageType, ImageUsageFlags,
-            ImportMemoryFdInfoKHR, ImportSemaphoreFdInfoKHR, MemoryAllocateInfo,
-            MemoryDedicatedAllocateInfo, MemoryFdPropertiesKHR, MemoryGetFdInfoKHR,
-            MemoryPropertyFlags, MemoryRequirements2, MemoryType, Offset3D, PhysicalDevice,
-            PhysicalDeviceDrmPropertiesEXT, PhysicalDeviceExternalBufferInfo,
-            PhysicalDeviceExternalFenceInfo, PhysicalDeviceExternalImageFormatInfoKHR,
-            PhysicalDeviceExternalSemaphoreInfo, PhysicalDeviceFeatures2,
-            PhysicalDeviceImageDrmFormatModifierInfoEXT, PhysicalDeviceImageFormatInfo2,
-            PhysicalDeviceProperties2, PhysicalDeviceSynchronization2Features,
-            PhysicalDeviceTimelineSemaphoreFeatures, PhysicalDeviceType,
-            PhysicalDeviceVulkan12Properties, PipelineStageFlags2, QUEUE_FAMILY_FOREIGN_EXT, Queue,
-            QueueFlags, SampleCountFlags, SemaphoreCreateInfo, SemaphoreImportFlags,
-            SemaphoreSubmitInfo, SharingMode, SubmitInfo2, SubresourceLayout, WHOLE_SIZE,
-        },
-    },
-    bstr::ByteSlice,
-    linearize::{Linearize, LinearizeExt, StaticCopyMap, StaticMap, static_copy_map, static_map},
-    log::Level,
-    run_on_drop::on_drop,
-    std::{
-        cell::{Cell, RefCell},
-        error::Error,
-        ffi::CStr,
-        fmt::{Debug, Formatter},
-        ops::Deref,
-        rc::Rc,
-        slice,
-    },
-    thiserror::Error,
-    uapi::{AsUstr, OwnedFd, c},
-    vk::{Buffer, CommandPool, Image, Semaphore},
-};
+use crate::async_engine::AsyncEngine;
+use crate::async_engine::SpawnedFuture;
+use crate::backend::DrmDeviceId;
+use crate::buffer_id_device::BufferIdDeviceDyn;
+use crate::eventfd_cache::EventfdCache;
+use crate::format::FORMATS;
+use crate::format::Format;
+use crate::gfx_api::FdSync;
+use crate::io_uring::IoUring;
+use crate::rect::Rect;
+use crate::rect::Region;
+use crate::syncobj::SyncobjCtx;
+use crate::syncobj::SyncobjError;
+use crate::utils::bhash::BHashMap;
+use crate::utils::bhash::BHashSet;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::major_minor::MajorMinor;
+use crate::utils::major_minor::major_minor;
+use crate::utils::numcell::NumCell;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt2;
+use crate::utils::queue::AsyncQueue;
+use crate::utils::rc_eq::rc_eq;
+use crate::utils::stack::Stack;
+use crate::video::LINEAR_MODIFIER;
+use crate::video::LINEAR_STRIDE_ALIGN;
+use crate::video::Modifier;
+use crate::video::dmabuf::DmaBuf;
+use crate::video::dmabuf::DmaBufIds;
+use crate::video::dmabuf::DmaBufPlane;
+use crate::video::dmabuf::PlaneVec;
+use crate::vulkan_core::VULKAN_API_VERSION;
+use crate::vulkan_core::VulkanCoreError;
+use crate::vulkan_core::VulkanCoreInstance;
+use crate::vulkan_core::device::VulkanDeviceInf;
+use crate::vulkan_core::map_extension_properties;
+use crate::vulkan_core::sync::VulkanDeviceSyncExt;
+use crate::vulkan_core::timeline_semaphore::VulkanDeviceTimelineSemaphoreExt;
+use crate::vulkan_core::vk_is_drm_dev;
+use crate::vulkan_core::{self};
+use arrayvec::ArrayVec;
+use ash::Device;
+use ash::ext::external_memory_dma_buf;
+use ash::ext::image_drm_format_modifier;
+use ash::ext::physical_device_drm;
+use ash::ext::queue_family_foreign;
+use ash::khr::external_fence_fd;
+use ash::khr::external_memory_fd;
+use ash::khr::external_semaphore_fd;
+use ash::vk::AccessFlags2;
+use ash::vk::BindImageMemoryInfo;
+use ash::vk::BindImagePlaneMemoryInfo;
+use ash::vk::BlitImageInfo2;
+use ash::vk::BufferCopy2;
+use ash::vk::BufferCreateInfo;
+use ash::vk::BufferImageCopy2;
+use ash::vk::BufferMemoryBarrier2;
+use ash::vk::BufferUsageFlags;
+use ash::vk::CommandBuffer;
+use ash::vk::CommandBufferAllocateInfo;
+use ash::vk::CommandBufferBeginInfo;
+use ash::vk::CommandBufferSubmitInfo;
+use ash::vk::CommandBufferUsageFlags;
+use ash::vk::CommandPoolCreateFlags;
+use ash::vk::CommandPoolCreateInfo;
+use ash::vk::CopyBufferInfo2;
+use ash::vk::CopyBufferToImageInfo2;
+use ash::vk::CopyImageInfo2;
+use ash::vk::CopyImageToBufferInfo2;
+use ash::vk::DependencyInfo;
+use ash::vk::DeviceCreateInfo;
+use ash::vk::DeviceMemory;
+use ash::vk::DeviceQueueCreateInfo;
+use ash::vk::DriverId;
+use ash::vk::DrmFormatModifierPropertiesEXT;
+use ash::vk::DrmFormatModifierPropertiesListEXT;
+use ash::vk::ExportMemoryAllocateInfo;
+use ash::vk::Extent3D;
+use ash::vk::ExternalBufferProperties;
+use ash::vk::ExternalFenceFeatureFlags;
+use ash::vk::ExternalFenceHandleTypeFlags;
+use ash::vk::ExternalFenceProperties;
+use ash::vk::ExternalImageFormatPropertiesKHR;
+use ash::vk::ExternalMemoryBufferCreateInfo;
+use ash::vk::ExternalMemoryBufferCreateInfoKHR;
+use ash::vk::ExternalMemoryFeatureFlags;
+use ash::vk::ExternalMemoryHandleTypeFlags;
+use ash::vk::ExternalMemoryImageCreateInfo;
+use ash::vk::ExternalSemaphoreFeatureFlags;
+use ash::vk::ExternalSemaphoreHandleTypeFlags;
+use ash::vk::ExternalSemaphoreProperties;
+use ash::vk::Filter;
+use ash::vk::FormatFeatureFlags;
+use ash::vk::FormatProperties2;
+use ash::vk::Handle;
+use ash::vk::ImageAspectFlags;
+use ash::vk::ImageBlit2;
+use ash::vk::ImageCopy2;
+use ash::vk::ImageCreateFlags;
+use ash::vk::ImageCreateInfo;
+use ash::vk::ImageDrmFormatModifierExplicitCreateInfoEXT;
+use ash::vk::ImageFormatProperties2;
+use ash::vk::ImageLayout;
+use ash::vk::ImageMemoryBarrier2;
+use ash::vk::ImageMemoryRequirementsInfo2;
+use ash::vk::ImagePlaneMemoryRequirementsInfo;
+use ash::vk::ImageSubresourceLayers;
+use ash::vk::ImageSubresourceRange;
+use ash::vk::ImageTiling;
+use ash::vk::ImageType;
+use ash::vk::ImageUsageFlags;
+use ash::vk::ImportMemoryFdInfoKHR;
+use ash::vk::ImportSemaphoreFdInfoKHR;
+use ash::vk::MemoryAllocateInfo;
+use ash::vk::MemoryDedicatedAllocateInfo;
+use ash::vk::MemoryFdPropertiesKHR;
+use ash::vk::MemoryGetFdInfoKHR;
+use ash::vk::MemoryPropertyFlags;
+use ash::vk::MemoryRequirements2;
+use ash::vk::MemoryType;
+use ash::vk::Offset3D;
+use ash::vk::PhysicalDevice;
+use ash::vk::PhysicalDeviceDrmPropertiesEXT;
+use ash::vk::PhysicalDeviceExternalBufferInfo;
+use ash::vk::PhysicalDeviceExternalFenceInfo;
+use ash::vk::PhysicalDeviceExternalImageFormatInfoKHR;
+use ash::vk::PhysicalDeviceExternalSemaphoreInfo;
+use ash::vk::PhysicalDeviceFeatures2;
+use ash::vk::PhysicalDeviceImageDrmFormatModifierInfoEXT;
+use ash::vk::PhysicalDeviceImageFormatInfo2;
+use ash::vk::PhysicalDeviceProperties2;
+use ash::vk::PhysicalDeviceSynchronization2Features;
+use ash::vk::PhysicalDeviceTimelineSemaphoreFeatures;
+use ash::vk::PhysicalDeviceType;
+use ash::vk::PhysicalDeviceVulkan12Properties;
+use ash::vk::PipelineStageFlags2;
+use ash::vk::QUEUE_FAMILY_FOREIGN_EXT;
+use ash::vk::Queue;
+use ash::vk::QueueFlags;
+use ash::vk::SampleCountFlags;
+use ash::vk::SemaphoreCreateInfo;
+use ash::vk::SemaphoreImportFlags;
+use ash::vk::SemaphoreSubmitInfo;
+use ash::vk::SharingMode;
+use ash::vk::SubmitInfo2;
+use ash::vk::SubresourceLayout;
+use ash::vk::WHOLE_SIZE;
+use ash::vk::{self};
+use bstr::ByteSlice;
+use linearize::Linearize;
+use linearize::LinearizeExt;
+use linearize::StaticCopyMap;
+use linearize::StaticMap;
+use linearize::static_copy_map;
+use linearize::static_map;
+use log::Level;
+use run_on_drop::on_drop;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::error::Error;
+use std::ffi::CStr;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::ops::Deref;
+use std::rc::Rc;
+use std::slice;
+use thiserror::Error;
+use uapi::AsUstr;
+use uapi::OwnedFd;
+use uapi::c;
+use vk::Buffer;
+use vk::CommandPool;
+use vk::Image;
+use vk::Semaphore;
 
 #[derive(Debug, Error)]
 pub enum CopyDeviceError {
@@ -1996,7 +2080,8 @@ fn record_command_buffer(
                     });
                 regions.push(region);
             }
-            use {AccessFlags2 as A, ImageLayout as L};
+            use AccessFlags2 as A;
+            use ImageLayout as L;
             let initial_barriers = initial_image_barriers![
                 src, L::TRANSFER_SRC_OPTIMAL, A::TRANSFER_READ;
                 dst, L::TRANSFER_DST_OPTIMAL, A::TRANSFER_WRITE;
@@ -2040,7 +2125,8 @@ fn record_command_buffer(
                     .dst_offsets(offsets);
                 regions.push(region);
             }
-            use {AccessFlags2 as A, ImageLayout as L};
+            use AccessFlags2 as A;
+            use ImageLayout as L;
             let initial_barriers = initial_image_barriers![
                 src, L::TRANSFER_SRC_OPTIMAL, A::TRANSFER_READ;
                 dst, L::TRANSFER_DST_OPTIMAL, A::TRANSFER_WRITE;

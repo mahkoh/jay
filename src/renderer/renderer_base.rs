@@ -1,23 +1,27 @@
-use {
-    crate::{
-        cmm::{
-            cmm_description::{ColorDescription, LinearColorDescription},
-            cmm_render_intent::RenderIntent,
-        },
-        gfx_api::{
-            AcquireSync, AlphaMode, BufferResv, CopyTexture, FillRect, FramebufferRect,
-            GFX_HAS_LAZY, GfxApiOp, GfxFlags, GfxTexture, LazyTexture, ReleaseSync, SampleRect,
-            ScalingFilter,
-        },
-        ifs::wl_surface::SurfaceBuffer,
-        rect::Rect,
-        scale::Scale,
-        theme::Color,
-        tree::Transform,
-    },
-    derivative::Derivative,
-    std::rc::Rc,
-};
+use crate::cmm::cmm_description::ColorDescription;
+use crate::cmm::cmm_description::LinearColorDescription;
+use crate::cmm::cmm_render_intent::RenderIntent;
+use crate::gfx_api::AcquireSync;
+use crate::gfx_api::AlphaMode;
+use crate::gfx_api::BufferResv;
+use crate::gfx_api::CopyTexture;
+use crate::gfx_api::FillRect;
+use crate::gfx_api::FramebufferRect;
+use crate::gfx_api::GFX_HAS_LAZY;
+use crate::gfx_api::GfxApiOp;
+use crate::gfx_api::GfxFlags;
+use crate::gfx_api::GfxTexture;
+use crate::gfx_api::LazyTexture;
+use crate::gfx_api::ReleaseSync;
+use crate::gfx_api::SampleRect;
+use crate::gfx_api::ScalingFilter;
+use crate::ifs::wl_surface::SurfaceBuffer;
+use crate::rect::Rect;
+use crate::scale::Scale;
+use crate::theme::Color;
+use crate::tree::Transform;
+use derivative::Derivative;
+use std::rc::Rc;
 
 pub struct RendererBase<'a> {
     pub ops: &'a mut Vec<GfxApiOp>,

@@ -1,15 +1,11 @@
-use {
-    crate::{
-        it::{
-            test_error::TestResult,
-            test_ifs::{test_surface::TestSurface, test_viewport::TestViewport},
-            test_object::TestObject,
-            test_transport::TestTransport,
-        },
-        wire::{WpViewporterId, wp_viewporter::*},
-    },
-    std::rc::Rc,
-};
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_surface::TestSurface;
+use crate::it::test_ifs::test_viewport::TestViewport;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::WpViewporterId;
+use crate::wire::wp_viewporter::*;
+use std::rc::Rc;
 
 pub struct TestViewporter {
     pub id: WpViewporterId,

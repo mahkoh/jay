@@ -1,4 +1,6 @@
-use {crate::utils::ordered_float::F64, jay_proc::jay_hash, std::hash::Hash};
+use crate::utils::ordered_float::F64;
+use jay_proc::jay_hash;
+use std::hash::Hash;
 
 #[jay_hash]
 #[derive(Copy, Clone, Debug, Eq)]

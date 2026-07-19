@@ -1,13 +1,15 @@
-use {
-    crate::{
-        cli::{GlobalArgs, color::parse_color, duration::parse_duration},
-        cmm::cmm_eotf::Eotf,
-        tools::tool_client::{ToolClient, with_tool_client},
-        wire::jay_damage_tracking::{SetVisualizerColor, SetVisualizerDecay, SetVisualizerEnabled},
-    },
-    clap::{Args, Subcommand},
-    std::rc::Rc,
-};
+use crate::cli::GlobalArgs;
+use crate::cli::color::parse_color;
+use crate::cli::duration::parse_duration;
+use crate::cmm::cmm_eotf::Eotf;
+use crate::tools::tool_client::ToolClient;
+use crate::tools::tool_client::with_tool_client;
+use crate::wire::jay_damage_tracking::SetVisualizerColor;
+use crate::wire::jay_damage_tracking::SetVisualizerDecay;
+use crate::wire::jay_damage_tracking::SetVisualizerEnabled;
+use clap::Args;
+use clap::Subcommand;
+use std::rc::Rc;
 
 #[derive(Args, Debug)]
 pub struct DamageTrackingArgs {

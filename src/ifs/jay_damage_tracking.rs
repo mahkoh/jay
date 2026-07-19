@@ -1,23 +1,24 @@
-use {
-    crate::{
-        client::{CAP_JAY_COMPOSITOR, Client, ClientCaps, ClientError},
-        cmm::cmm_eotf::Eotf,
-        gfx_api::AlphaMode,
-        globals::{Global, GlobalName},
-        leaks::Tracker,
-        object::{Object, Version},
-        theme::Color,
-        wire::{
-            JayCompositorId,
-            jay_damage_tracking::{
-                Destroy, JayDamageTrackingRequestHandler, SetVisualizerColor, SetVisualizerDecay,
-                SetVisualizerEnabled,
-            },
-        },
-    },
-    std::{rc::Rc, time::Duration},
-    thiserror::Error,
-};
+use crate::client::CAP_JAY_COMPOSITOR;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::cmm::cmm_eotf::Eotf;
+use crate::gfx_api::AlphaMode;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::theme::Color;
+use crate::wire::JayCompositorId;
+use crate::wire::jay_damage_tracking::Destroy;
+use crate::wire::jay_damage_tracking::JayDamageTrackingRequestHandler;
+use crate::wire::jay_damage_tracking::SetVisualizerColor;
+use crate::wire::jay_damage_tracking::SetVisualizerDecay;
+use crate::wire::jay_damage_tracking::SetVisualizerEnabled;
+use std::rc::Rc;
+use std::time::Duration;
+use thiserror::Error;
 
 pub struct JayDamageTrackingGlobal {
     name: GlobalName,

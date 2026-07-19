@@ -1,14 +1,13 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::wl_output::OutputGlobalOpt,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{JayOutputId, jay_output::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_output::OutputGlobalOpt;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::JayOutputId;
+use crate::wire::jay_output::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct JayOutput {
     pub id: JayOutputId,

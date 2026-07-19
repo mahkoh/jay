@@ -1,13 +1,12 @@
-use {
-    crate::utils::{
-        clone3::{double_fork, set_deathsig},
-        errorfmt::ErrorFmt,
-        fd_blocker::{FdBlocker, create_fd_blocker},
-        process_name::set_process_name,
-    },
-    std::rc::Rc,
-    uapi::{OwnedFd, c},
-};
+use crate::utils::clone3::double_fork;
+use crate::utils::clone3::set_deathsig;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::fd_blocker::FdBlocker;
+use crate::utils::fd_blocker::create_fd_blocker;
+use crate::utils::process_name::set_process_name;
+use std::rc::Rc;
+use uapi::OwnedFd;
+use uapi::c;
 
 pub struct Sleeper {
     _blocker: FdBlocker,

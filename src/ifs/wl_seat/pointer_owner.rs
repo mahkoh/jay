@@ -1,39 +1,54 @@
-use {
-    crate::{
-        backend::{AXIS_120, AxisSource, ButtonState, ScrollAxis},
-        cursor::KnownCursor,
-        fixed::Fixed,
-        ifs::{
-            ipc,
-            ipc::wl_data_source::WlDataSource,
-            wl_seat::{
-                BTN_LEFT, BTN_RIGHT, CHANGE_CURSOR_MOVED, CHANGE_TREE, Dnd, DroppedDnd,
-                NodeSeatState, WlSeatError, WlSeatGlobal, wl_pointer::PendingScroll,
-            },
-            wl_surface::{
-                WlSurface,
-                dnd_icon::DndIcon,
-                xdg_surface::{xdg_popup::XdgPopup, xdg_toplevel::ResizeEdges},
-            },
-            xdg_toplevel_drag_v1::XdgToplevelDragV1,
-        },
-        rect::Rect,
-        time::Time,
-        tree::{
-            ContainerNode, ContainerSplit, ContainingNode, FindTreeUsecase, FoundNode, Node,
-            NodeBase, OutputNode, PlaceholderNode, TddType, ToplevelNode,
-            TreeTimeline::{LiveTL, RenderTL},
-            WorkspaceChangeReason, WorkspaceDragDestination, WorkspaceNode, WsMoveConfig,
-            move_ws_to_output, toplevel_set_workspace,
-        },
-        utils::{bitflags::BitflagsExt, clonecell::CloneCell, smallmap::SmallMap},
-    },
-    linearize::LinearizeExt,
-    std::{
-        cell::Cell,
-        rc::{Rc, Weak},
-    },
-};
+use crate::backend::AXIS_120;
+use crate::backend::AxisSource;
+use crate::backend::ButtonState;
+use crate::backend::ScrollAxis;
+use crate::cursor::KnownCursor;
+use crate::fixed::Fixed;
+use crate::ifs::ipc;
+use crate::ifs::ipc::wl_data_source::WlDataSource;
+use crate::ifs::wl_seat::BTN_LEFT;
+use crate::ifs::wl_seat::BTN_RIGHT;
+use crate::ifs::wl_seat::CHANGE_CURSOR_MOVED;
+use crate::ifs::wl_seat::CHANGE_TREE;
+use crate::ifs::wl_seat::Dnd;
+use crate::ifs::wl_seat::DroppedDnd;
+use crate::ifs::wl_seat::NodeSeatState;
+use crate::ifs::wl_seat::WlSeatError;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::wl_pointer::PendingScroll;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::dnd_icon::DndIcon;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::ResizeEdges;
+use crate::ifs::xdg_toplevel_drag_v1::XdgToplevelDragV1;
+use crate::rect::Rect;
+use crate::time::Time;
+use crate::tree::ContainerNode;
+use crate::tree::ContainerSplit;
+use crate::tree::ContainingNode;
+use crate::tree::FindTreeUsecase;
+use crate::tree::FoundNode;
+use crate::tree::Node;
+use crate::tree::NodeBase;
+use crate::tree::OutputNode;
+use crate::tree::PlaceholderNode;
+use crate::tree::TddType;
+use crate::tree::ToplevelNode;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::tree::WorkspaceChangeReason;
+use crate::tree::WorkspaceDragDestination;
+use crate::tree::WorkspaceNode;
+use crate::tree::WsMoveConfig;
+use crate::tree::move_ws_to_output;
+use crate::tree::toplevel_set_workspace;
+use crate::utils::bitflags::BitflagsExt;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::smallmap::SmallMap;
+use linearize::LinearizeExt;
+use std::cell::Cell;
+use std::rc::Rc;
+use std::rc::Weak;
 
 pub struct PointerOwnerHolder {
     default: Rc<SimplePointerOwner<DefaultPointerUsecase>>,

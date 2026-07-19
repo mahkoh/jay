@@ -1,11 +1,8 @@
-use {
-    crate::it::{
-        test_error::{TestError, TestErrorExt},
-        testrun::TestRun,
-    },
-    jay_config::Direction,
-    std::rc::Rc,
-};
+use crate::it::test_error::TestError;
+use crate::it::test_error::TestErrorExt;
+use crate::it::testrun::TestRun;
+use jay_config::Direction;
+use std::rc::Rc;
 
 testcase!();
 

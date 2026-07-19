@@ -1,18 +1,20 @@
 #[cfg(test)]
 mod tests;
 
-use {
-    crate::{
-        io_uring::{
-            IoUring, IoUringData, IoUringError, IoUringTaskId, Task, TaskResultExt,
-            pending_result::PendingResult,
-            sys::{IORING_OP_READ, IORING_OP_WRITE, io_uring_sqe},
-        },
-        time::Time,
-    },
-    run_on_drop::on_drop,
-    uapi::{Fd, c},
-};
+use crate::io_uring::IoUring;
+use crate::io_uring::IoUringData;
+use crate::io_uring::IoUringError;
+use crate::io_uring::IoUringTaskId;
+use crate::io_uring::Task;
+use crate::io_uring::TaskResultExt;
+use crate::io_uring::pending_result::PendingResult;
+use crate::io_uring::sys::IORING_OP_READ;
+use crate::io_uring::sys::IORING_OP_WRITE;
+use crate::io_uring::sys::io_uring_sqe;
+use crate::time::Time;
+use run_on_drop::on_drop;
+use uapi::Fd;
+use uapi::c;
 
 impl IoUring {
     pub async fn read_no_cancel(

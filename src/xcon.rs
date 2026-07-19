@@ -1,57 +1,72 @@
-pub use crate::xcon::{
-    formatter::Formatter,
-    parser::Parser,
-    wire_type::{Message, Request, XEvent},
-};
-use {
-    crate::{
-        async_engine::{Phase, SpawnedFuture},
-        compositor::DISPLAY,
-        io_uring::IoUringError,
-        state::State,
-        utils::{
-            bhash::BHashMap,
-            buf::DynamicBuf,
-            bufio::{BufIo, BufIoError, BufIoMessage},
-            clonecell::CloneCell,
-            errorfmt::ErrorFmt,
-            numcell::NumCell,
-            oserror::{OsError, OsErrorExt2},
-            queue::AsyncQueue,
-            stack::Stack,
-            vec_ext::VecExt,
-        },
-        wire_xcon::{
-            CreateGC, CreatePixmap, EXTENSIONS, Extension, FreeGC, FreePixmap, GetInputFocus,
-            GetProperty, ListExtensions, PutImage, QueryExtension, RenderCreateCursor,
-            RenderCreatePicture, RenderQueryPictFormats, Setup,
-        },
-        xcon::{
-            consts::{IMAGE_FORMAT_Z_PIXMAP, RENDER_PICT_TYPE_DIRECT},
-            incoming::handle_incoming,
-            outgoing::handle_outgoing,
-            wire_type::SendEvent,
-            xauthority::{LOCAL, MIT_MAGIC_COOKIE, XAuthority},
-        },
-    },
-    bstr::{BString, ByteSlice},
-    std::{
-        any::TypeId,
-        cell::{Cell, RefCell},
-        collections::VecDeque,
-        fmt::Debug,
-        future::Future,
-        io::Write,
-        mem::{self, MaybeUninit},
-        ops::{Deref, DerefMut},
-        pin::Pin,
-        ptr,
-        rc::{Rc, Weak},
-        task::{Context, Poll, Waker},
-    },
-    thiserror::Error,
-    uapi::{OwnedFd, c},
-};
+use crate::async_engine::Phase;
+use crate::async_engine::SpawnedFuture;
+use crate::compositor::DISPLAY;
+use crate::io_uring::IoUringError;
+use crate::state::State;
+use crate::utils::bhash::BHashMap;
+use crate::utils::buf::DynamicBuf;
+use crate::utils::bufio::BufIo;
+use crate::utils::bufio::BufIoError;
+use crate::utils::bufio::BufIoMessage;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::numcell::NumCell;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt2;
+use crate::utils::queue::AsyncQueue;
+use crate::utils::stack::Stack;
+use crate::utils::vec_ext::VecExt;
+use crate::wire_xcon::CreateGC;
+use crate::wire_xcon::CreatePixmap;
+use crate::wire_xcon::EXTENSIONS;
+use crate::wire_xcon::Extension;
+use crate::wire_xcon::FreeGC;
+use crate::wire_xcon::FreePixmap;
+use crate::wire_xcon::GetInputFocus;
+use crate::wire_xcon::GetProperty;
+use crate::wire_xcon::ListExtensions;
+use crate::wire_xcon::PutImage;
+use crate::wire_xcon::QueryExtension;
+use crate::wire_xcon::RenderCreateCursor;
+use crate::wire_xcon::RenderCreatePicture;
+use crate::wire_xcon::RenderQueryPictFormats;
+use crate::wire_xcon::Setup;
+use crate::xcon::consts::IMAGE_FORMAT_Z_PIXMAP;
+use crate::xcon::consts::RENDER_PICT_TYPE_DIRECT;
+pub use crate::xcon::formatter::Formatter;
+use crate::xcon::incoming::handle_incoming;
+use crate::xcon::outgoing::handle_outgoing;
+pub use crate::xcon::parser::Parser;
+pub use crate::xcon::wire_type::Message;
+pub use crate::xcon::wire_type::Request;
+use crate::xcon::wire_type::SendEvent;
+pub use crate::xcon::wire_type::XEvent;
+use crate::xcon::xauthority::LOCAL;
+use crate::xcon::xauthority::MIT_MAGIC_COOKIE;
+use crate::xcon::xauthority::XAuthority;
+use bstr::BString;
+use bstr::ByteSlice;
+use std::any::TypeId;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::fmt::Debug;
+use std::future::Future;
+use std::io::Write;
+use std::mem::MaybeUninit;
+use std::mem::{self};
+use std::ops::Deref;
+use std::ops::DerefMut;
+use std::pin::Pin;
+use std::ptr;
+use std::rc::Rc;
+use std::rc::Weak;
+use std::task::Context;
+use std::task::Poll;
+use std::task::Waker;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c;
 
 pub mod consts;
 mod formatter;

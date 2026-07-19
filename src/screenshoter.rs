@@ -1,18 +1,23 @@
-use {
-    crate::{
-        allocator::{AllocatorError, BO_USE_RENDERING, BufferObject, BufferUsage},
-        format::XRGB8888,
-        gfx_api::{AcquireSync, GfxError, ReleaseSync, ScalingFilter, needs_render_usage},
-        scale::Scale,
-        state::State,
-        tree::{Transform, TreeTimeline::RenderTL},
-        video::drm::DrmError,
-    },
-    indexmap::IndexMap,
-    std::{ops::Deref, rc::Rc},
-    thiserror::Error,
-    uapi::OwnedFd,
-};
+use crate::allocator::AllocatorError;
+use crate::allocator::BO_USE_RENDERING;
+use crate::allocator::BufferObject;
+use crate::allocator::BufferUsage;
+use crate::format::XRGB8888;
+use crate::gfx_api::AcquireSync;
+use crate::gfx_api::GfxError;
+use crate::gfx_api::ReleaseSync;
+use crate::gfx_api::ScalingFilter;
+use crate::gfx_api::needs_render_usage;
+use crate::scale::Scale;
+use crate::state::State;
+use crate::tree::Transform;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::video::drm::DrmError;
+use indexmap::IndexMap;
+use std::ops::Deref;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
 
 #[derive(Debug, Error)]
 pub enum ScreenshooterError {

@@ -1,19 +1,14 @@
-use {
-    crate::{
-        it::{
-            test_error::TestResult,
-            test_ifs::{
-                test_surface::TestSurface, test_syncobj_surface::TestSyncobjSurface,
-                test_syncobj_timeline::TestSyncobjTimeline,
-            },
-            test_object::TestObject,
-            test_transport::TestTransport,
-        },
-        video::drm::syncobj::Syncobj,
-        wire::{WpLinuxDrmSyncobjManagerV1Id, wp_linux_drm_syncobj_manager_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_surface::TestSurface;
+use crate::it::test_ifs::test_syncobj_surface::TestSyncobjSurface;
+use crate::it::test_ifs::test_syncobj_timeline::TestSyncobjTimeline;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::video::drm::syncobj::Syncobj;
+use crate::wire::WpLinuxDrmSyncobjManagerV1Id;
+use crate::wire::wp_linux_drm_syncobj_manager_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestSyncobjManager {
     pub id: WpLinuxDrmSyncobjManagerV1Id,

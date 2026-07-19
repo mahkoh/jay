@@ -1,14 +1,9 @@
-use {
-    crate::{
-        it::{
-            test_error::{TestErrorExt, TestResult},
-            testrun::TestRun,
-        },
-        tree::ToplevelNodeBase,
-    },
-    jay_config::Axis,
-    std::rc::Rc,
-};
+use crate::it::test_error::TestErrorExt;
+use crate::it::test_error::TestResult;
+use crate::it::testrun::TestRun;
+use crate::tree::ToplevelNodeBase;
+use jay_config::Axis;
+use std::rc::Rc;
 
 testcase!();
 

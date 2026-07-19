@@ -1,14 +1,14 @@
-use {
-    crate::{
-        config::parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-        toml::{
-            toml_span::{Span, Spanned, SpannedExt},
-            toml_value::Value,
-        },
-    },
-    jay_config::{window, window::WindowType},
-    thiserror::Error,
-};
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_span::SpannedExt;
+use crate::toml::toml_value::Value;
+use jay_config::window;
+use jay_config::window::WindowType;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum WindowTypeParserError {

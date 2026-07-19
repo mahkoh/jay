@@ -8,54 +8,66 @@ mod parsers;
 mod spanned;
 mod value;
 
+use crate::config::context::Context;
+use crate::config::parsers::color_management::ColorManagement;
+use crate::config::parsers::config::ConfigParser;
+use crate::config::parsers::config::ConfigParserError;
+use crate::config::parsers::float::Float;
+use crate::config::parsers::focus_history::FocusHistory;
 pub use crate::config::parsers::input_mode::InputMode;
-use {
-    crate::{
-        config::{
-            context::Context,
-            parsers::{
-                color_management::ColorManagement,
-                config::{ConfigParser, ConfigParserError},
-                float::Float,
-                focus_history::FocusHistory,
-                session_management::SessionManagement,
-                transactions::Transactions,
-                workspace::{WorkspaceSlot, WorkspaceType},
-            },
-        },
-        toml::{self},
-    },
-    ahash::AHashMap,
-    jay_config::{
-        Axis, Direction, Workspace,
-        client::ClientCapabilities,
-        get_overlay, get_workspace,
-        input::{
-            FallbackOutputMode, InputEventCode, LayerDirection, SwitchEvent, Timeline,
-            acceleration::AccelProfile, clickmethod::ClickMethod, scrollmethod::ScrollMethod,
-        },
-        keyboard::{Keymap, ModifiedKeySym, mods::Modifiers, syms::KeySym},
-        logging::LogLevel,
-        status::MessageFormat,
-        theme::{BarPosition, Color, ContainerBorders},
-        video::{
-            BlendSpace, ColorSpace, Connector, Eotf, Format, GfxApi, ScalingFilter, TearingMode,
-            Transform, VrrMode,
-        },
-        window::{ContentType, TileState, WindowType},
-        workspace::WorkspaceDisplayOrder,
-        xwayland::XScalingMode,
-    },
-    std::{
-        cell::{Cell, RefCell},
-        error::Error,
-        fmt::{Display, Formatter},
-        rc::Rc,
-        time::Duration,
-    },
-    thiserror::Error,
-    toml::toml_parser,
-};
+use crate::config::parsers::session_management::SessionManagement;
+use crate::config::parsers::transactions::Transactions;
+use crate::config::parsers::workspace::WorkspaceSlot;
+use crate::config::parsers::workspace::WorkspaceType;
+use crate::toml::{self};
+use ahash::AHashMap;
+use jay_config::Axis;
+use jay_config::Direction;
+use jay_config::Workspace;
+use jay_config::client::ClientCapabilities;
+use jay_config::get_overlay;
+use jay_config::get_workspace;
+use jay_config::input::FallbackOutputMode;
+use jay_config::input::InputEventCode;
+use jay_config::input::LayerDirection;
+use jay_config::input::SwitchEvent;
+use jay_config::input::Timeline;
+use jay_config::input::acceleration::AccelProfile;
+use jay_config::input::clickmethod::ClickMethod;
+use jay_config::input::scrollmethod::ScrollMethod;
+use jay_config::keyboard::Keymap;
+use jay_config::keyboard::ModifiedKeySym;
+use jay_config::keyboard::mods::Modifiers;
+use jay_config::keyboard::syms::KeySym;
+use jay_config::logging::LogLevel;
+use jay_config::status::MessageFormat;
+use jay_config::theme::BarPosition;
+use jay_config::theme::Color;
+use jay_config::theme::ContainerBorders;
+use jay_config::video::BlendSpace;
+use jay_config::video::ColorSpace;
+use jay_config::video::Connector;
+use jay_config::video::Eotf;
+use jay_config::video::Format;
+use jay_config::video::GfxApi;
+use jay_config::video::ScalingFilter;
+use jay_config::video::TearingMode;
+use jay_config::video::Transform;
+use jay_config::video::VrrMode;
+use jay_config::window::ContentType;
+use jay_config::window::TileState;
+use jay_config::window::WindowType;
+use jay_config::workspace::WorkspaceDisplayOrder;
+use jay_config::xwayland::XScalingMode;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::error::Error;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::rc::Rc;
+use std::time::Duration;
+use thiserror::Error;
+use toml::toml_parser;
 
 #[derive(Debug, Copy, Clone)]
 pub enum SimpleCommand {

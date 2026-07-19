@@ -1,11 +1,8 @@
-use {
-    crate::{
-        it::{test_error::TestResult, testrun::TestRun},
-        theme::Color,
-        wire::WlBufferId,
-    },
-    std::rc::Rc,
-};
+use crate::it::test_error::TestResult;
+use crate::it::testrun::TestRun;
+use crate::theme::Color;
+use crate::wire::WlBufferId;
+use std::rc::Rc;
 
 testcase!();
 

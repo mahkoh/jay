@@ -1,34 +1,44 @@
-use {
-    crate::{
-        backend::DrmDeviceId,
-        client::{Client, ClientError},
-        clientmem::{ClientMem, ClientMemError, ClientMemOffset},
-        copy_device::{CopyDevice, CopyDeviceError, CopyDeviceSrcObject},
-        format::{ARGB8888, Format},
-        gfx_api::{GfxBuffer, GfxContext, GfxError, GfxFramebuffer, GfxTexture},
-        ifs::wl_surface::{WlSurface, prime::PrimeError},
-        leaks::Tracker,
-        object::{Object, Version},
-        rect::{Rect, Region},
-        state::DrmDevData,
-        utils::{
-            errorfmt::ErrorFmt, event_listener::EventListener, page_size::page_size,
-            rc_eq::rc_opt_eq,
-        },
-        video::{
-            LINEAR_MODIFIER,
-            dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
-        },
-        wire::{WlBufferId, wl_buffer::*},
-    },
-    std::{
-        cell::{Cell, RefCell},
-        rc::Rc,
-        slice,
-    },
-    thiserror::Error,
-    uapi::{OwnedFd, c},
-};
+use crate::backend::DrmDeviceId;
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::clientmem::ClientMem;
+use crate::clientmem::ClientMemError;
+use crate::clientmem::ClientMemOffset;
+use crate::copy_device::CopyDevice;
+use crate::copy_device::CopyDeviceError;
+use crate::copy_device::CopyDeviceSrcObject;
+use crate::format::ARGB8888;
+use crate::format::Format;
+use crate::gfx_api::GfxBuffer;
+use crate::gfx_api::GfxContext;
+use crate::gfx_api::GfxError;
+use crate::gfx_api::GfxFramebuffer;
+use crate::gfx_api::GfxTexture;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::prime::PrimeError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::rect::Rect;
+use crate::rect::Region;
+use crate::state::DrmDevData;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::event_listener::EventListener;
+use crate::utils::page_size::page_size;
+use crate::utils::rc_eq::rc_opt_eq;
+use crate::video::LINEAR_MODIFIER;
+use crate::video::dmabuf::DmaBuf;
+use crate::video::dmabuf::DmaBufPlane;
+use crate::video::dmabuf::PlaneVec;
+use crate::wire::WlBufferId;
+use crate::wire::wl_buffer::*;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::rc::Rc;
+use std::slice;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c;
 
 pub enum WlBufferStorage {
     Shm {

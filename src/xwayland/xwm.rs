@@ -1,88 +1,150 @@
 #![allow(clippy::await_holding_refcell_ref)] // all borrows are to data that is only used by this task
 
-use {
-    crate::{
-        async_engine::SpawnedFuture,
-        client::Client,
-        criteria::tlm::{TL_CHANGED_CLASS_INST, TL_CHANGED_ROLE},
-        ifs::{
-            ipc::{
-                DataOfferId, DataSourceId, DynDataOffer, DynDataSource, IpcLocation, IpcVtable,
-                SourceData, add_data_source_mime_type, destroy_data_device, destroy_data_offer,
-                destroy_data_source, receive_data_offer,
-                x_data_device::{XClipboardIpc, XIpc, XIpcDevice, XPrimarySelectionIpc},
-                x_data_offer::XDataOffer,
-                x_data_source::XDataSource,
-            },
-            wl_seat::{SeatId, WlSeatGlobal},
-            wl_surface::{
-                WlSurface,
-                x_surface::xwindow::{XInputModel, Xwindow, XwindowData},
-            },
-        },
-        io_uring::{IoUring, IoUringError},
-        rect::Rect,
-        state::State,
-        tree::{NodeBase, ToplevelNode, TreeTimeline::LiveTL},
-        utils::{
-            bhash::{BHashMap, BHashSet},
-            bitflags::BitflagsExt,
-            buf::Buf,
-            cell_ext::CellExt,
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
-            hash_map_ext::HashMapExt,
-            linkedlist::LinkedList,
-            numcell::NumCell,
-            oserror::OsError,
-            pipe::{Pipe, pipe},
-            rc_eq::rc_eq,
-        },
-        wire::WlSurfaceId,
-        wire_xcon::{
-            ChangeProperty, ChangeWindowAttributes, ClientMessage, CompositeRedirectSubwindows,
-            ConfigureNotify, ConfigureRequest, ConfigureWindow, ConfigureWindowValues,
-            ConvertSelection, CreateNotify, CreateWindow, CreateWindowValues, DestroyNotify,
-            Extension, FocusIn, GetAtomName, GetGeometry, InternAtom, KillClient, MapNotify,
-            MapRequest, MapWindow, PropertyNotify, ResClientIdSpec, ResQueryClientIds,
-            SelectSelectionInput, SelectionNotify, SelectionRequest, SetInputFocus,
-            SetSelectionOwner, UnmapNotify, XfixesQueryVersion, XfixesSelectionNotify,
-        },
-        xcon::{
-            Event, XEvent, Xcon, XconError,
-            consts::{
-                _NET_WM_STATE_ADD, _NET_WM_STATE_REMOVE, _NET_WM_STATE_TOGGLE, ATOM_ATOM,
-                ATOM_NONE, ATOM_STRING, ATOM_WINDOW, ATOM_WM_CLASS, ATOM_WM_NAME,
-                ATOM_WM_SIZE_HINTS, ATOM_WM_TRANSIENT_FOR, COMPOSITE_REDIRECT_MANUAL,
-                CONFIG_WINDOW_HEIGHT, CONFIG_WINDOW_WIDTH, CONFIG_WINDOW_X, CONFIG_WINDOW_Y,
-                EVENT_MASK_FOCUS_CHANGE, EVENT_MASK_PROPERTY_CHANGE,
-                EVENT_MASK_SUBSTRUCTURE_NOTIFY, EVENT_MASK_SUBSTRUCTURE_REDIRECT,
-                ICCCM_WM_HINT_INPUT, ICCCM_WM_STATE_ICONIC, ICCCM_WM_STATE_NORMAL,
-                ICCCM_WM_STATE_WITHDRAWN, INPUT_FOCUS_POINTER_ROOT, MWM_HINTS_DECORATIONS_FIELD,
-                MWM_HINTS_FLAGS_FIELD, NOTIFY_DETAIL_POINTER, NOTIFY_MODE_GRAB, NOTIFY_MODE_UNGRAB,
-                PROP_MODE_APPEND, PROP_MODE_REPLACE, RES_CLIENT_ID_MASK_LOCAL_CLIENT_PID,
-                SELECTION_CLIENT_CLOSE_MASK, SELECTION_WINDOW_DESTROY_MASK,
-                SET_SELECTION_OWNER_MASK, STACK_MODE_ABOVE, STACK_MODE_BELOW,
-                WINDOW_CLASS_INPUT_OUTPUT,
-            },
-        },
-        xwayland::{XWaylandError, XWaylandEvent},
-    },
-    bstr::{ByteSlice, ByteVec},
-    futures_util::{FutureExt, select},
-    smallvec::SmallVec,
-    std::{
-        borrow::Cow,
-        cell::{Cell, RefCell},
-        marker::PhantomData,
-        mem::{self},
-        ops::{Deref, DerefMut},
-        rc::Rc,
-        time::Duration,
-    },
-    uapi::{OwnedFd, c},
-};
+use crate::async_engine::SpawnedFuture;
+use crate::client::Client;
+use crate::criteria::tlm::TL_CHANGED_CLASS_INST;
+use crate::criteria::tlm::TL_CHANGED_ROLE;
+use crate::ifs::ipc::DataOfferId;
+use crate::ifs::ipc::DataSourceId;
+use crate::ifs::ipc::DynDataOffer;
+use crate::ifs::ipc::DynDataSource;
+use crate::ifs::ipc::IpcLocation;
+use crate::ifs::ipc::IpcVtable;
+use crate::ifs::ipc::SourceData;
+use crate::ifs::ipc::add_data_source_mime_type;
+use crate::ifs::ipc::destroy_data_device;
+use crate::ifs::ipc::destroy_data_offer;
+use crate::ifs::ipc::destroy_data_source;
+use crate::ifs::ipc::receive_data_offer;
+use crate::ifs::ipc::x_data_device::XClipboardIpc;
+use crate::ifs::ipc::x_data_device::XIpc;
+use crate::ifs::ipc::x_data_device::XIpcDevice;
+use crate::ifs::ipc::x_data_device::XPrimarySelectionIpc;
+use crate::ifs::ipc::x_data_offer::XDataOffer;
+use crate::ifs::ipc::x_data_source::XDataSource;
+use crate::ifs::wl_seat::SeatId;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::x_surface::xwindow::XInputModel;
+use crate::ifs::wl_surface::x_surface::xwindow::Xwindow;
+use crate::ifs::wl_surface::x_surface::xwindow::XwindowData;
+use crate::io_uring::IoUring;
+use crate::io_uring::IoUringError;
+use crate::rect::Rect;
+use crate::state::State;
+use crate::tree::NodeBase;
+use crate::tree::ToplevelNode;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::utils::bhash::BHashMap;
+use crate::utils::bhash::BHashSet;
+use crate::utils::bitflags::BitflagsExt;
+use crate::utils::buf::Buf;
+use crate::utils::cell_ext::CellExt;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::linkedlist::LinkedList;
+use crate::utils::numcell::NumCell;
+use crate::utils::oserror::OsError;
+use crate::utils::pipe::Pipe;
+use crate::utils::pipe::pipe;
+use crate::utils::rc_eq::rc_eq;
+use crate::wire::WlSurfaceId;
+use crate::wire_xcon::ChangeProperty;
+use crate::wire_xcon::ChangeWindowAttributes;
+use crate::wire_xcon::ClientMessage;
+use crate::wire_xcon::CompositeRedirectSubwindows;
+use crate::wire_xcon::ConfigureNotify;
+use crate::wire_xcon::ConfigureRequest;
+use crate::wire_xcon::ConfigureWindow;
+use crate::wire_xcon::ConfigureWindowValues;
+use crate::wire_xcon::ConvertSelection;
+use crate::wire_xcon::CreateNotify;
+use crate::wire_xcon::CreateWindow;
+use crate::wire_xcon::CreateWindowValues;
+use crate::wire_xcon::DestroyNotify;
+use crate::wire_xcon::Extension;
+use crate::wire_xcon::FocusIn;
+use crate::wire_xcon::GetAtomName;
+use crate::wire_xcon::GetGeometry;
+use crate::wire_xcon::InternAtom;
+use crate::wire_xcon::KillClient;
+use crate::wire_xcon::MapNotify;
+use crate::wire_xcon::MapRequest;
+use crate::wire_xcon::MapWindow;
+use crate::wire_xcon::PropertyNotify;
+use crate::wire_xcon::ResClientIdSpec;
+use crate::wire_xcon::ResQueryClientIds;
+use crate::wire_xcon::SelectSelectionInput;
+use crate::wire_xcon::SelectionNotify;
+use crate::wire_xcon::SelectionRequest;
+use crate::wire_xcon::SetInputFocus;
+use crate::wire_xcon::SetSelectionOwner;
+use crate::wire_xcon::UnmapNotify;
+use crate::wire_xcon::XfixesQueryVersion;
+use crate::wire_xcon::XfixesSelectionNotify;
+use crate::xcon::Event;
+use crate::xcon::XEvent;
+use crate::xcon::Xcon;
+use crate::xcon::XconError;
+use crate::xcon::consts::_NET_WM_STATE_ADD;
+use crate::xcon::consts::_NET_WM_STATE_REMOVE;
+use crate::xcon::consts::_NET_WM_STATE_TOGGLE;
+use crate::xcon::consts::ATOM_ATOM;
+use crate::xcon::consts::ATOM_NONE;
+use crate::xcon::consts::ATOM_STRING;
+use crate::xcon::consts::ATOM_WINDOW;
+use crate::xcon::consts::ATOM_WM_CLASS;
+use crate::xcon::consts::ATOM_WM_NAME;
+use crate::xcon::consts::ATOM_WM_SIZE_HINTS;
+use crate::xcon::consts::ATOM_WM_TRANSIENT_FOR;
+use crate::xcon::consts::COMPOSITE_REDIRECT_MANUAL;
+use crate::xcon::consts::CONFIG_WINDOW_HEIGHT;
+use crate::xcon::consts::CONFIG_WINDOW_WIDTH;
+use crate::xcon::consts::CONFIG_WINDOW_X;
+use crate::xcon::consts::CONFIG_WINDOW_Y;
+use crate::xcon::consts::EVENT_MASK_FOCUS_CHANGE;
+use crate::xcon::consts::EVENT_MASK_PROPERTY_CHANGE;
+use crate::xcon::consts::EVENT_MASK_SUBSTRUCTURE_NOTIFY;
+use crate::xcon::consts::EVENT_MASK_SUBSTRUCTURE_REDIRECT;
+use crate::xcon::consts::ICCCM_WM_HINT_INPUT;
+use crate::xcon::consts::ICCCM_WM_STATE_ICONIC;
+use crate::xcon::consts::ICCCM_WM_STATE_NORMAL;
+use crate::xcon::consts::ICCCM_WM_STATE_WITHDRAWN;
+use crate::xcon::consts::INPUT_FOCUS_POINTER_ROOT;
+use crate::xcon::consts::MWM_HINTS_DECORATIONS_FIELD;
+use crate::xcon::consts::MWM_HINTS_FLAGS_FIELD;
+use crate::xcon::consts::NOTIFY_DETAIL_POINTER;
+use crate::xcon::consts::NOTIFY_MODE_GRAB;
+use crate::xcon::consts::NOTIFY_MODE_UNGRAB;
+use crate::xcon::consts::PROP_MODE_APPEND;
+use crate::xcon::consts::PROP_MODE_REPLACE;
+use crate::xcon::consts::RES_CLIENT_ID_MASK_LOCAL_CLIENT_PID;
+use crate::xcon::consts::SELECTION_CLIENT_CLOSE_MASK;
+use crate::xcon::consts::SELECTION_WINDOW_DESTROY_MASK;
+use crate::xcon::consts::SET_SELECTION_OWNER_MASK;
+use crate::xcon::consts::STACK_MODE_ABOVE;
+use crate::xcon::consts::STACK_MODE_BELOW;
+use crate::xcon::consts::WINDOW_CLASS_INPUT_OUTPUT;
+use crate::xwayland::XWaylandError;
+use crate::xwayland::XWaylandEvent;
+use bstr::ByteSlice;
+use bstr::ByteVec;
+use futures_util::FutureExt;
+use futures_util::select;
+use smallvec::SmallVec;
+use std::borrow::Cow;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::marker::PhantomData;
+use std::mem::{self};
+use std::ops::Deref;
+use std::ops::DerefMut;
+use std::rc::Rc;
+use std::time::Duration;
+use uapi::OwnedFd;
+use uapi::c;
 
 atoms! {
     Atoms;

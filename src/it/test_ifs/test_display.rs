@@ -1,16 +1,13 @@
-use {
-    crate::{
-        client::MIN_SERVER_ID,
-        it::{
-            test_error::TestError, test_object::TestObject, test_transport::TestTransport,
-            testrun::ParseFull,
-        },
-        object::ObjectId,
-        utils::buffd::MsgParser,
-        wire::{WlDisplayId, wl_display::*},
-    },
-    std::rc::Rc,
-};
+use crate::client::MIN_SERVER_ID;
+use crate::it::test_error::TestError;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::testrun::ParseFull;
+use crate::object::ObjectId;
+use crate::utils::buffd::MsgParser;
+use crate::wire::WlDisplayId;
+use crate::wire::wl_display::*;
+use std::rc::Rc;
 
 pub struct TestDisplay {
     pub tran: Rc<TestTransport>,

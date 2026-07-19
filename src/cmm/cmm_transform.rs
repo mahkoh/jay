@@ -1,18 +1,16 @@
-use {
-    crate::{
-        cmm::{cmm_eotf::Eotf, cmm_primaries::Primaries},
-        gfx_api::AlphaMode,
-        theme::Color,
-        utils::ordered_float::F64,
-    },
-    std::{
-        fmt,
-        fmt::{Debug, Formatter},
-        hash::{Hash, Hasher},
-        marker::PhantomData,
-        ops::{Mul, MulAssign},
-    },
-};
+use crate::cmm::cmm_eotf::Eotf;
+use crate::cmm::cmm_primaries::Primaries;
+use crate::gfx_api::AlphaMode;
+use crate::theme::Color;
+use crate::utils::ordered_float::F64;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::marker::PhantomData;
+use std::ops::Mul;
+use std::ops::MulAssign;
 
 pub struct ColorMatrix<To = Local, From = Local>(pub [[F64; 4]; 3], PhantomData<(To, From)>);
 

@@ -1,7 +1,6 @@
-use {
-    crate::ifs::ipc::{DynDataSource, IpcLocation},
-    std::rc::Rc,
-};
+use crate::ifs::ipc::DynDataSource;
+use crate::ifs::ipc::IpcLocation;
+use std::rc::Rc;
 
 pub mod ext_data_control_device_v1;
 pub mod ext_data_control_manager_v1;

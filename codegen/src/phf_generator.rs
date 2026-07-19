@@ -1,7 +1,9 @@
-use {
-    crate::{phf, phf::PhfHash},
-    rand::{RngExt, SeedableRng, distr::StandardUniform, rngs::Xoshiro128PlusPlus},
-};
+use crate::phf;
+use crate::phf::PhfHash;
+use rand::RngExt;
+use rand::SeedableRng;
+use rand::distr::StandardUniform;
+use rand::rngs::Xoshiro128PlusPlus;
 
 const DEFAULT_LAMBDA: usize = 5;
 

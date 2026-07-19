@@ -1,19 +1,14 @@
-use {
-    crate::{
-        ei::{
-            EiContext,
-            ei_client::{EiClient, EiClientError},
-        },
-        utils::buffd::EiMsgParser,
-        wire_ei::EiHandshakeId,
-    },
-    jay_proc::jay_hash,
-    std::{
-        cmp::Ordering,
-        fmt::{Display, Formatter, LowerHex},
-        rc::Rc,
-    },
-};
+use crate::ei::EiContext;
+use crate::ei::ei_client::EiClient;
+use crate::ei::ei_client::EiClientError;
+use crate::utils::buffd::EiMsgParser;
+use crate::wire_ei::EiHandshakeId;
+use jay_proc::jay_hash;
+use std::cmp::Ordering;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::LowerHex;
+use std::rc::Rc;
 
 pub const EI_HANDSHAKE_ID: EiHandshakeId = EiHandshakeId::from_raw(0);
 

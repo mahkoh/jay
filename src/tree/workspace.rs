@@ -1,55 +1,67 @@
-use {
-    crate::{
-        client::ClientId,
-        control_center::CCI_WORKSPACES,
-        cursor::KnownCursor,
-        fixed::Fixed,
-        ifs::{
-            jay_workspace::JayWorkspace,
-            wl_output::OutputId,
-            wl_seat::{NodeSeatState, WlSeatGlobal, collect_kb_foci2, tablet::TabletTool},
-            wl_surface::{
-                WlSurface, x_surface::xwindow::Xwindow, xdg_surface::xdg_toplevel::XdgToplevel,
-            },
-            workspace_manager::{
-                ext_workspace_handle_v1::ExtWorkspaceHandleV1,
-                ext_workspace_manager_v1::WorkspaceManagerId,
-            },
-        },
-        rect::Rect,
-        renderer::Renderer,
-        state::State,
-        text::TextTexture,
-        transactions::{TransactionData, Transactionable, TransactionableExt},
-        tree::{
-            ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
-            NodeBase, NodeId, NodeLayerLink, NodeLocation, NodeVisitorBase, OutputNode,
-            PlaceholderNode, SplitView, StackedNode, ToplevelNode, TreeLink,
-            TreeTimeline::{self, LiveTL, RenderTL},
-            WorkspaceDisplayOrder,
-            container::ContainerNode,
-            walker::NodeVisitor,
-        },
-        utils::{
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            linkedlist::{LinkedList, LinkedNode, NodeRef},
-            numcell::NumCell,
-            obj_and_id::{ObjAndId, ObjWithId},
-            opt::Opt,
-            threshold_counter::ThresholdCounter,
-        },
-        wire::JayWorkspaceId,
-    },
-    linearize::Linearize,
-    smallvec::SmallVec,
-    std::{
-        cell::{Cell, RefCell},
-        fmt::Debug,
-        ops::Deref,
-        rc::Rc,
-    },
-};
+use crate::client::ClientId;
+use crate::control_center::CCI_WORKSPACES;
+use crate::cursor::KnownCursor;
+use crate::fixed::Fixed;
+use crate::ifs::jay_workspace::JayWorkspace;
+use crate::ifs::wl_output::OutputId;
+use crate::ifs::wl_seat::NodeSeatState;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::collect_kb_foci2;
+use crate::ifs::wl_seat::tablet::TabletTool;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::x_surface::xwindow::Xwindow;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::ifs::workspace_manager::ext_workspace_handle_v1::ExtWorkspaceHandleV1;
+use crate::ifs::workspace_manager::ext_workspace_manager_v1::WorkspaceManagerId;
+use crate::rect::Rect;
+use crate::renderer::Renderer;
+use crate::state::State;
+use crate::text::TextTexture;
+use crate::transactions::TransactionData;
+use crate::transactions::Transactionable;
+use crate::transactions::TransactionableExt;
+use crate::tree::ContainingNode;
+use crate::tree::Direction;
+use crate::tree::FindTreeResult;
+use crate::tree::FindTreeUsecase;
+use crate::tree::FloatNode;
+use crate::tree::FoundNode;
+use crate::tree::Node;
+use crate::tree::NodeBase;
+use crate::tree::NodeId;
+use crate::tree::NodeLayerLink;
+use crate::tree::NodeLocation;
+use crate::tree::NodeVisitorBase;
+use crate::tree::OutputNode;
+use crate::tree::PlaceholderNode;
+use crate::tree::SplitView;
+use crate::tree::StackedNode;
+use crate::tree::ToplevelNode;
+use crate::tree::TreeLink;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::tree::TreeTimeline::{self};
+use crate::tree::WorkspaceDisplayOrder;
+use crate::tree::container::ContainerNode;
+use crate::tree::walker::NodeVisitor;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::linkedlist::LinkedList;
+use crate::utils::linkedlist::LinkedNode;
+use crate::utils::linkedlist::NodeRef;
+use crate::utils::numcell::NumCell;
+use crate::utils::obj_and_id::ObjAndId;
+use crate::utils::obj_and_id::ObjWithId;
+use crate::utils::opt::Opt;
+use crate::utils::threshold_counter::ThresholdCounter;
+use crate::wire::JayWorkspaceId;
+use linearize::Linearize;
+use smallvec::SmallVec;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::fmt::Debug;
+use std::ops::Deref;
+use std::rc::Rc;
 
 tree_id!(WorkspaceNodeId);
 

@@ -1,4 +1,5 @@
-use {crate::utils::bhash::BHashMap, std::sync::LazyLock};
+use crate::utils::bhash::BHashMap;
+use std::sync::LazyLock;
 
 static APP_ID_BUGS: LazyLock<BHashMap<&'static str, Bugs>> = LazyLock::new(|| {
     let mut map = BHashMap::default();

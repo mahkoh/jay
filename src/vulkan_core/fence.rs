@@ -1,15 +1,13 @@
-use {
-    crate::{
-        gfx_api::SyncFile,
-        vulkan_core::{VulkanCoreError, device::VulkanDeviceInf},
-    },
-    ash::vk::{
-        ExportFenceCreateInfo, ExternalFenceHandleTypeFlags, Fence, FenceCreateInfo,
-        FenceGetFdInfoKHR,
-    },
-    std::rc::Rc,
-    uapi::OwnedFd,
-};
+use crate::gfx_api::SyncFile;
+use crate::vulkan_core::VulkanCoreError;
+use crate::vulkan_core::device::VulkanDeviceInf;
+use ash::vk::ExportFenceCreateInfo;
+use ash::vk::ExternalFenceHandleTypeFlags;
+use ash::vk::Fence;
+use ash::vk::FenceCreateInfo;
+use ash::vk::FenceGetFdInfoKHR;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 pub struct VulkanFence<D>
 where

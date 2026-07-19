@@ -1,20 +1,21 @@
-use {
-    crate::{
-        async_engine::AsyncEngine,
-        backend::HardwareCursor,
-        control_center::CCI_OUTPUTS,
-        ifs::wl_output::PersistentOutputState,
-        io_uring::{IoUring, IoUringError},
-        state::{ConnectorData, State},
-        utils::{
-            asyncevent::AsyncEvent, cell_ext::CellExt, clonecell::CloneCell, errorfmt::ErrorFmt,
-            numcell::NumCell,
-        },
-    },
-    futures_util::{FutureExt, select},
-    num_traits::ToPrimitive,
-    std::{cell::Cell, rc::Rc},
-};
+use crate::async_engine::AsyncEngine;
+use crate::backend::HardwareCursor;
+use crate::control_center::CCI_OUTPUTS;
+use crate::ifs::wl_output::PersistentOutputState;
+use crate::io_uring::IoUring;
+use crate::io_uring::IoUringError;
+use crate::state::ConnectorData;
+use crate::state::State;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::cell_ext::CellExt;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::numcell::NumCell;
+use futures_util::FutureExt;
+use futures_util::select;
+use num_traits::ToPrimitive;
+use std::cell::Cell;
+use std::rc::Rc;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum Change {

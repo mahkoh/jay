@@ -1,6 +1,7 @@
 //! Tools for configuring Xwayland.
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 /// Sets whether Xwayland is enabled
 ///

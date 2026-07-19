@@ -1,25 +1,26 @@
-use {
-    crate::{
-        ei::{
-            ei_client::{EiClient, EiClientError},
-            ei_ifs::ei_device::{EiDevice, EiDeviceInterface},
-            ei_object::{EiObject, EiVersion},
-        },
-        fixed::Fixed,
-        leaks::Tracker,
-        wire_ei::{
-            EiTouchscreenId,
-            ei_touchscreen::{
-                ClientCancel, ClientDown, ClientMotion, ClientUp, EiTouchscreenRequestHandler,
-                Release, ServerCancel, ServerDown, ServerMotion, ServerUp,
-            },
-        },
-    },
-    hashbrown::hash_map::Entry,
-    jay_proc::jay_clone,
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::ei::ei_client::EiClient;
+use crate::ei::ei_client::EiClientError;
+use crate::ei::ei_ifs::ei_device::EiDevice;
+use crate::ei::ei_ifs::ei_device::EiDeviceInterface;
+use crate::ei::ei_object::EiObject;
+use crate::ei::ei_object::EiVersion;
+use crate::fixed::Fixed;
+use crate::leaks::Tracker;
+use crate::wire_ei::EiTouchscreenId;
+use crate::wire_ei::ei_touchscreen::ClientCancel;
+use crate::wire_ei::ei_touchscreen::ClientDown;
+use crate::wire_ei::ei_touchscreen::ClientMotion;
+use crate::wire_ei::ei_touchscreen::ClientUp;
+use crate::wire_ei::ei_touchscreen::EiTouchscreenRequestHandler;
+use crate::wire_ei::ei_touchscreen::Release;
+use crate::wire_ei::ei_touchscreen::ServerCancel;
+use crate::wire_ei::ei_touchscreen::ServerDown;
+use crate::wire_ei::ei_touchscreen::ServerMotion;
+use crate::wire_ei::ei_touchscreen::ServerUp;
+use hashbrown::hash_map::Entry;
+use jay_proc::jay_clone;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct EiTouchscreen {
     pub id: EiTouchscreenId,

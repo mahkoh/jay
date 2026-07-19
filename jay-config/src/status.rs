@@ -1,14 +1,16 @@
 //! Knobs for changing the status text.
 
-use {
-    crate::{exec::Command, io::Async, tasks::spawn},
-    bstr::ByteSlice,
-    error_reporter::Report,
-    futures_util::{AsyncBufReadExt, io::BufReader},
-    serde::Deserialize,
-    std::borrow::BorrowMut,
-    uapi::{OwnedFd, c},
-};
+use crate::exec::Command;
+use crate::io::Async;
+use crate::tasks::spawn;
+use bstr::ByteSlice;
+use error_reporter::Report;
+use futures_util::AsyncBufReadExt;
+use futures_util::io::BufReader;
+use serde::Deserialize;
+use std::borrow::BorrowMut;
+use uapi::OwnedFd;
+use uapi::c;
 
 /// Sets the status text.
 ///

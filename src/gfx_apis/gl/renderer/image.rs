@@ -1,13 +1,11 @@
-use {
-    crate::{
-        allocator::BufferObject,
-        gfx_apis::gl::{
-            Framebuffer, GlRenderContext, RenderError, Texture, egl::image::EglImage,
-            gl::texture::GlTexture,
-        },
-    },
-    std::rc::Rc,
-};
+use crate::allocator::BufferObject;
+use crate::gfx_apis::gl::Framebuffer;
+use crate::gfx_apis::gl::GlRenderContext;
+use crate::gfx_apis::gl::RenderError;
+use crate::gfx_apis::gl::Texture;
+use crate::gfx_apis::gl::egl::image::EglImage;
+use crate::gfx_apis::gl::gl::texture::GlTexture;
+use std::rc::Rc;
 
 pub struct Image {
     pub(in crate::gfx_apis::gl) ctx: Rc<GlRenderContext>,

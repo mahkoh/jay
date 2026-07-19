@@ -1,13 +1,13 @@
-use {
-    crate::utils::{bitflags::BitflagsExt, ptr_ext::PtrExt, stack::Stack},
-    bstr::{BString, ByteSlice},
-    jay_proc::jay_clone,
-    std::{
-        fmt::{Debug, Formatter},
-        rc::Rc,
-    },
-    thiserror::Error,
-};
+use crate::utils::bitflags::BitflagsExt;
+use crate::utils::ptr_ext::PtrExt;
+use crate::utils::stack::Stack;
+use bstr::BString;
+use bstr::ByteSlice;
+use jay_proc::jay_clone;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[derive(Copy, Clone, Debug)]
 pub enum ColorBitDepth {

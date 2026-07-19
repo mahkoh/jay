@@ -1,14 +1,13 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::wl_surface::WlSurface,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WpViewportId, wp_viewport::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WpViewportId;
+use crate::wire::wp_viewport::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpViewport {
     pub id: WpViewportId,

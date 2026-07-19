@@ -1,10 +1,7 @@
-use {
-    crate::{
-        it::test_error::TestResult,
-        tree::{ContainerNode, ToplevelNode},
-    },
-    std::rc::Rc,
-};
+use crate::it::test_error::TestResult;
+use crate::tree::ContainerNode;
+use crate::tree::ToplevelNode;
+use std::rc::Rc;
 
 pub trait TestContainerExt {
     fn first_toplevel(&self) -> TestResult<Rc<dyn ToplevelNode>>;

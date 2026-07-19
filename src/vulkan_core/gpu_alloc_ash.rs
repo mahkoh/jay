@@ -2,21 +2,24 @@
 // Author: Zakarum <zakarumych@ya.ru>
 // https://github.com/zakarumych/gpu-alloc
 
-use {
-    ash::{
-        Device, Instance,
-        vk::{
-            self, PhysicalDeviceFeatures2, PhysicalDeviceProperties2,
-            PhysicalDeviceVulkan11Properties,
-        },
-    },
-    gpu_alloc_types::{
-        AllocationFlags, DeviceMapError, DeviceProperties, MappedMemoryRange, MemoryDevice,
-        MemoryHeap, MemoryPropertyFlags, MemoryType, OutOfMemory,
-    },
-    smallvec::SmallVec,
-    std::{mem, ptr::NonNull},
-};
+use ash::Device;
+use ash::Instance;
+use ash::vk::PhysicalDeviceFeatures2;
+use ash::vk::PhysicalDeviceProperties2;
+use ash::vk::PhysicalDeviceVulkan11Properties;
+use ash::vk::{self};
+use gpu_alloc_types::AllocationFlags;
+use gpu_alloc_types::DeviceMapError;
+use gpu_alloc_types::DeviceProperties;
+use gpu_alloc_types::MappedMemoryRange;
+use gpu_alloc_types::MemoryDevice;
+use gpu_alloc_types::MemoryHeap;
+use gpu_alloc_types::MemoryPropertyFlags;
+use gpu_alloc_types::MemoryType;
+use gpu_alloc_types::OutOfMemory;
+use smallvec::SmallVec;
+use std::mem;
+use std::ptr::NonNull;
 
 #[repr(transparent)]
 pub struct AshMemoryDevice {

@@ -1,11 +1,10 @@
-use {
-    crate::{
-        dbus::{DbusType, Formatter, types::Variant},
-        utils::buf::DynamicBuf,
-    },
-    std::rc::Rc,
-    uapi::{OwnedFd, Packed},
-};
+use crate::dbus::DbusType;
+use crate::dbus::Formatter;
+use crate::dbus::types::Variant;
+use crate::utils::buf::DynamicBuf;
+use std::rc::Rc;
+use uapi::OwnedFd;
+use uapi::Packed;
 
 impl<'a> Formatter<'a> {
     pub fn new(fds: &'a mut Vec<Rc<OwnedFd>>, buf: &'a mut DynamicBuf) -> Self {

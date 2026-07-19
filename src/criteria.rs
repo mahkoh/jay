@@ -5,23 +5,22 @@ mod crit_matchers;
 mod crit_per_target_data;
 pub mod tlm;
 
-use {
-    crate::{
-        criteria::{
-            crit_graph::{CritMgr, CritMiddle, CritRoot, CritRootCriterion, CritRootFixed},
-            crit_leaf::CritLeafMatcher,
-            crit_matchers::{critm_any_or_all::CritMatchAnyOrAll, critm_exactly::CritMatchExactly},
-        },
-        utils::copyhashmap::CopyHashMap,
-    },
-    linearize::StaticMap,
-    regex::Regex,
-    std::rc::{Rc, Weak},
-};
-pub use {
-    crit_graph::{CritTarget, CritUpstreamNode},
-    crit_per_target_data::CritDestroyListener,
-};
+use crate::criteria::crit_graph::CritMgr;
+use crate::criteria::crit_graph::CritMiddle;
+use crate::criteria::crit_graph::CritRoot;
+use crate::criteria::crit_graph::CritRootCriterion;
+use crate::criteria::crit_graph::CritRootFixed;
+use crate::criteria::crit_leaf::CritLeafMatcher;
+use crate::criteria::crit_matchers::critm_any_or_all::CritMatchAnyOrAll;
+use crate::criteria::crit_matchers::critm_exactly::CritMatchExactly;
+use crate::utils::copyhashmap::CopyHashMap;
+pub use crit_graph::CritTarget;
+pub use crit_graph::CritUpstreamNode;
+pub use crit_per_target_data::CritDestroyListener;
+use linearize::StaticMap;
+use regex::Regex;
+use std::rc::Rc;
+use std::rc::Weak;
 
 linear_ids!(CritMatcherIds, CritMatcherId, u64);
 

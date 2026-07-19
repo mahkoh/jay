@@ -1,13 +1,20 @@
-use {
-    crate::{
-        compositor::{LIBEI_SOCKET, WAYLAND_DISPLAY},
-        control_center::{ControlCenterInner, bool, combo_box, grid, label, row, row_ui, tip},
-        state::State,
-        version::VERSION,
-    },
-    egui::{DragValue, OpenUrl, Ui, Widget},
-    std::rc::Rc,
-};
+use crate::compositor::LIBEI_SOCKET;
+use crate::compositor::WAYLAND_DISPLAY;
+use crate::control_center::ControlCenterInner;
+use crate::control_center::bool;
+use crate::control_center::combo_box;
+use crate::control_center::grid;
+use crate::control_center::label;
+use crate::control_center::row;
+use crate::control_center::row_ui;
+use crate::control_center::tip;
+use crate::state::State;
+use crate::version::VERSION;
+use egui::DragValue;
+use egui::OpenUrl;
+use egui::Ui;
+use egui::Widget;
+use std::rc::Rc;
 
 pub struct CompositorPane {
     state: Rc<State>,

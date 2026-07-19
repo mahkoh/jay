@@ -1,19 +1,19 @@
-use {
-    crate::{
-        format::ARGB8888,
-        it::{
-            test_error::{TestError, TestResult},
-            test_ifs::{test_shm_buffer::TestShmBuffer, test_shm_pool::TestShmPool},
-            test_mem::TestMem,
-            test_object::TestObject,
-            test_transport::TestTransport,
-            testrun::ParseFull,
-        },
-        utils::{buffd::MsgParser, clonecell::CloneCell, copyhashmap::CopyHashMap},
-        wire::{WlShmId, wl_shm::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::format::ARGB8888;
+use crate::it::test_error::TestError;
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_shm_buffer::TestShmBuffer;
+use crate::it::test_ifs::test_shm_pool::TestShmPool;
+use crate::it::test_mem::TestMem;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::testrun::ParseFull;
+use crate::utils::buffd::MsgParser;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::wire::WlShmId;
+use crate::wire::wl_shm::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestShm {
     pub id: WlShmId,

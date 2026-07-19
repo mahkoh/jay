@@ -1,15 +1,15 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wl_buffer::WlBuffer,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WpSinglePixelBufferManagerV1Id, wp_single_pixel_buffer_manager_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_buffer::WlBuffer;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WpSinglePixelBufferManagerV1Id;
+use crate::wire::wp_single_pixel_buffer_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpSinglePixelBufferManagerV1Global {
     name: GlobalName,

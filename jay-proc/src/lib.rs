@@ -1,7 +1,6 @@
-use {
-    markers::{clone, hash},
-    proc_macro::TokenStream,
-};
+use markers::clone;
+use markers::hash;
+use proc_macro::TokenStream;
 
 mod drm_object_properties;
 mod markers;

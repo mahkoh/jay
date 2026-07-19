@@ -1,12 +1,11 @@
-use {
-    crate::{
-        cursor::KnownCursor,
-        object::Version,
-        wire::{JayPointerId, jay_pointer::*},
-        wl_usr::{UsrCon, usr_object::UsrObject},
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::cursor::KnownCursor;
+use crate::object::Version;
+use crate::wire::JayPointerId;
+use crate::wire::jay_pointer::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrJayPointer {
     pub id: JayPointerId,

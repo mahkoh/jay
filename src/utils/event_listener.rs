@@ -1,18 +1,13 @@
-use {
-    crate::{
-        state::State,
-        utils::{
-            linkedlist::{LinkedList, LinkedListIter, LinkedNode},
-            queue::AsyncQueue,
-        },
-    },
-    derivative::Derivative,
-    std::{
-        cell::Cell,
-        ops::Deref,
-        rc::{Rc, Weak},
-    },
-};
+use crate::state::State;
+use crate::utils::linkedlist::LinkedList;
+use crate::utils::linkedlist::LinkedListIter;
+use crate::utils::linkedlist::LinkedNode;
+use crate::utils::queue::AsyncQueue;
+use derivative::Derivative;
+use std::cell::Cell;
+use std::ops::Deref;
+use std::rc::Rc;
+use std::rc::Weak;
 
 pub async fn handle_lazy_event_sources(state: Rc<State>) {
     loop {

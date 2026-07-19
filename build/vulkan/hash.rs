@@ -1,4 +1,5 @@
-use {std::fmt::Write, walkdir::WalkDir};
+use std::fmt::Write;
+use walkdir::WalkDir;
 
 #[allow(dead_code)]
 pub struct Tree {

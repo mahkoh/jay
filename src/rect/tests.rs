@@ -1,7 +1,7 @@
-use {
-    crate::rect::{Rect, Region},
-    jay_algorithms::rect::{NoTag, RectRaw},
-};
+use crate::rect::Rect;
+use crate::rect::Region;
+use jay_algorithms::rect::NoTag;
+use jay_algorithms::rect::RectRaw;
 
 #[test]
 fn union1() {

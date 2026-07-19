@@ -1,45 +1,60 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::{
-            color_management::{
-                ABSOLUTE_NO_ADAPTATION_SINCE, COMPOUND_POWER_2_4_SINCE,
-                FEATURE_EXTENDED_TARGET_VOLUME, FEATURE_SET_MASTERING_DISPLAY_PRIMARIES,
-                FEATURE_SET_TF_POWER, FEATURE_WINDOWS_BT2100, RENDER_INTENT_ABSOLUTE_NO_ADAPTATION,
-                RENDER_INTENT_RELATIVE, RENDER_INTENT_RELATIVE_BPC, SRGB_DEPRECATED_SINCE,
-                TRANSFER_FUNCTION_COMPOUND_POWER_2_4, WINDOWS_BT2100_SINCE,
-                consts::{
-                    FEATURE_PARAMETRIC, FEATURE_SET_LUMINANCES, FEATURE_SET_PRIMARIES,
-                    FEATURE_WINDOWS_SCRGB, PRIMARIES_ADOBE_RGB, PRIMARIES_BT2020,
-                    PRIMARIES_CIE1931_XYZ, PRIMARIES_DCI_P3, PRIMARIES_DISPLAY_P3,
-                    PRIMARIES_GENERIC_FILM, PRIMARIES_NTSC, PRIMARIES_PAL, PRIMARIES_PAL_M,
-                    PRIMARIES_SRGB, RENDER_INTENT_PERCEPTUAL, TRANSFER_FUNCTION_BT1886,
-                    TRANSFER_FUNCTION_EXT_LINEAR, TRANSFER_FUNCTION_EXT_SRGB,
-                    TRANSFER_FUNCTION_GAMMA22, TRANSFER_FUNCTION_GAMMA28,
-                    TRANSFER_FUNCTION_LOG_100, TRANSFER_FUNCTION_LOG_316, TRANSFER_FUNCTION_SRGB,
-                    TRANSFER_FUNCTION_ST240, TRANSFER_FUNCTION_ST428, TRANSFER_FUNCTION_ST2084_PQ,
-                },
-                wp_color_management_output_v1::WpColorManagementOutputV1,
-                wp_color_management_surface_feedback_v1::WpColorManagementSurfaceFeedbackV1,
-                wp_image_description_creator_params_v1::WpImageDescriptionCreatorParamsV1,
-                wp_image_description_v1::WpImageDescriptionV1,
-            },
-            wl_surface::wp_color_management_surface_v1::{
-                WpColorManagementSurfaceV1, WpColorManagementSurfaceV1Error,
-            },
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        state::State,
-        wire::{
-            WpColorManagerV1Id,
-            wp_color_manager_v1::{SupportedIntent, *},
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::color_management::ABSOLUTE_NO_ADAPTATION_SINCE;
+use crate::ifs::color_management::COMPOUND_POWER_2_4_SINCE;
+use crate::ifs::color_management::FEATURE_EXTENDED_TARGET_VOLUME;
+use crate::ifs::color_management::FEATURE_SET_MASTERING_DISPLAY_PRIMARIES;
+use crate::ifs::color_management::FEATURE_SET_TF_POWER;
+use crate::ifs::color_management::FEATURE_WINDOWS_BT2100;
+use crate::ifs::color_management::RENDER_INTENT_ABSOLUTE_NO_ADAPTATION;
+use crate::ifs::color_management::RENDER_INTENT_RELATIVE;
+use crate::ifs::color_management::RENDER_INTENT_RELATIVE_BPC;
+use crate::ifs::color_management::SRGB_DEPRECATED_SINCE;
+use crate::ifs::color_management::TRANSFER_FUNCTION_COMPOUND_POWER_2_4;
+use crate::ifs::color_management::WINDOWS_BT2100_SINCE;
+use crate::ifs::color_management::consts::FEATURE_PARAMETRIC;
+use crate::ifs::color_management::consts::FEATURE_SET_LUMINANCES;
+use crate::ifs::color_management::consts::FEATURE_SET_PRIMARIES;
+use crate::ifs::color_management::consts::FEATURE_WINDOWS_SCRGB;
+use crate::ifs::color_management::consts::PRIMARIES_ADOBE_RGB;
+use crate::ifs::color_management::consts::PRIMARIES_BT2020;
+use crate::ifs::color_management::consts::PRIMARIES_CIE1931_XYZ;
+use crate::ifs::color_management::consts::PRIMARIES_DCI_P3;
+use crate::ifs::color_management::consts::PRIMARIES_DISPLAY_P3;
+use crate::ifs::color_management::consts::PRIMARIES_GENERIC_FILM;
+use crate::ifs::color_management::consts::PRIMARIES_NTSC;
+use crate::ifs::color_management::consts::PRIMARIES_PAL;
+use crate::ifs::color_management::consts::PRIMARIES_PAL_M;
+use crate::ifs::color_management::consts::PRIMARIES_SRGB;
+use crate::ifs::color_management::consts::RENDER_INTENT_PERCEPTUAL;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_BT1886;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_EXT_LINEAR;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_EXT_SRGB;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_GAMMA22;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_GAMMA28;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_LOG_100;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_LOG_316;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_SRGB;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_ST240;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_ST428;
+use crate::ifs::color_management::consts::TRANSFER_FUNCTION_ST2084_PQ;
+use crate::ifs::color_management::wp_color_management_output_v1::WpColorManagementOutputV1;
+use crate::ifs::color_management::wp_color_management_surface_feedback_v1::WpColorManagementSurfaceFeedbackV1;
+use crate::ifs::color_management::wp_image_description_creator_params_v1::WpImageDescriptionCreatorParamsV1;
+use crate::ifs::color_management::wp_image_description_v1::WpImageDescriptionV1;
+use crate::ifs::wl_surface::wp_color_management_surface_v1::WpColorManagementSurfaceV1;
+use crate::ifs::wl_surface::wp_color_management_surface_v1::WpColorManagementSurfaceV1Error;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::state::State;
+use crate::wire::WpColorManagerV1Id;
+use crate::wire::wp_color_manager_v1::SupportedIntent;
+use crate::wire::wp_color_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpColorManagerV1Global {
     pub name: GlobalName,

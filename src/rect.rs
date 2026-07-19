@@ -4,15 +4,17 @@ mod size;
 #[cfg(test)]
 mod tests;
 
-pub use {
-    crate::rect::size::Size,
-    region::{DamageQueue, DynamicDamageQueue, DynamicDamageQueueElement, RegionBuilder},
-};
-use {
-    jay_algorithms::rect::{NoTag, RectRaw, Tag},
-    smallvec::SmallVec,
-    std::fmt::{Debug, Formatter},
-};
+pub use crate::rect::size::Size;
+use jay_algorithms::rect::NoTag;
+use jay_algorithms::rect::RectRaw;
+use jay_algorithms::rect::Tag;
+pub use region::DamageQueue;
+pub use region::DynamicDamageQueue;
+pub use region::DynamicDamageQueueElement;
+pub use region::RegionBuilder;
+use smallvec::SmallVec;
+use std::fmt::Debug;
+use std::fmt::Formatter;
 
 #[derive(Copy, Clone, Eq, PartialEq, Default)]
 #[repr(transparent)]

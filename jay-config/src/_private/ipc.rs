@@ -1,31 +1,64 @@
-use {
-    crate::{
-        _private::{
-            ClientCriterionIpc, KeymapBuildParamsV1, PollableId, WindowCriterionIpc, WireMode,
-            WorkspaceShowOpV1, WorkspaceShowOpV2,
-        },
-        Axis, Direction, PciId, Workspace, WorkspaceKind,
-        client::{Client, ClientCapabilities, ClientMatcher},
-        input::{
-            FallbackOutputMode, FocusFollowsMouseMode, InputDevice, InputEventCode, LayerDirection,
-            Seat, SwitchEvent, Timeline, acceleration::AccelProfile, capability::Capability,
-            clickmethod::ClickMethod, scrollmethod::ScrollMethod,
-        },
-        keyboard::{Group, Keymap, mods::Modifiers, syms::KeySym},
-        logging::LogLevel,
-        theme::{BarPosition, Color, ContainerBorders, colors::Colorable, sized::Resizable},
-        timer::Timer,
-        video::{
-            BlendSpace, ColorSpace, Connector, DrmDevice, Eotf, Format, GfxApi, ScalingFilter,
-            TearingMode, Transform, VrrMode, connector_type::ConnectorType,
-        },
-        window::{ContentType, TileState, Window, WindowMatcher, WindowType},
-        workspace::WorkspaceDisplayOrder,
-        xwayland::XScalingMode,
-    },
-    serde::{Deserialize, Serialize},
-    std::time::{Duration, SystemTime},
-};
+use crate::_private::ClientCriterionIpc;
+use crate::_private::KeymapBuildParamsV1;
+use crate::_private::PollableId;
+use crate::_private::WindowCriterionIpc;
+use crate::_private::WireMode;
+use crate::_private::WorkspaceShowOpV1;
+use crate::_private::WorkspaceShowOpV2;
+use crate::Axis;
+use crate::Direction;
+use crate::PciId;
+use crate::Workspace;
+use crate::WorkspaceKind;
+use crate::client::Client;
+use crate::client::ClientCapabilities;
+use crate::client::ClientMatcher;
+use crate::input::FallbackOutputMode;
+use crate::input::FocusFollowsMouseMode;
+use crate::input::InputDevice;
+use crate::input::InputEventCode;
+use crate::input::LayerDirection;
+use crate::input::Seat;
+use crate::input::SwitchEvent;
+use crate::input::Timeline;
+use crate::input::acceleration::AccelProfile;
+use crate::input::capability::Capability;
+use crate::input::clickmethod::ClickMethod;
+use crate::input::scrollmethod::ScrollMethod;
+use crate::keyboard::Group;
+use crate::keyboard::Keymap;
+use crate::keyboard::mods::Modifiers;
+use crate::keyboard::syms::KeySym;
+use crate::logging::LogLevel;
+use crate::theme::BarPosition;
+use crate::theme::Color;
+use crate::theme::ContainerBorders;
+use crate::theme::colors::Colorable;
+use crate::theme::sized::Resizable;
+use crate::timer::Timer;
+use crate::video::BlendSpace;
+use crate::video::ColorSpace;
+use crate::video::Connector;
+use crate::video::DrmDevice;
+use crate::video::Eotf;
+use crate::video::Format;
+use crate::video::GfxApi;
+use crate::video::ScalingFilter;
+use crate::video::TearingMode;
+use crate::video::Transform;
+use crate::video::VrrMode;
+use crate::video::connector_type::ConnectorType;
+use crate::window::ContentType;
+use crate::window::TileState;
+use crate::window::Window;
+use crate::window::WindowMatcher;
+use crate::window::WindowType;
+use crate::workspace::WorkspaceDisplayOrder;
+use crate::xwayland::XScalingMode;
+use serde::Deserialize;
+use serde::Serialize;
+use std::time::Duration;
+use std::time::SystemTime;
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq)]
 #[serde(transparent)]

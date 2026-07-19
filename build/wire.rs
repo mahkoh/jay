@@ -1,13 +1,20 @@
 mod parser;
 
-use {
-    crate::{
-        open,
-        wire::parser::{Field, Lined, Message, Type, parse_messages, to_camel},
-    },
-    anyhow::{Context, Result},
-    std::{env, fmt, fs::DirEntry, io::Write, os::unix::ffi::OsStrExt, path::Path},
-};
+use crate::open;
+use crate::wire::parser::Field;
+use crate::wire::parser::Lined;
+use crate::wire::parser::Message;
+use crate::wire::parser::Type;
+use crate::wire::parser::parse_messages;
+use crate::wire::parser::to_camel;
+use anyhow::Context;
+use anyhow::Result;
+use std::env;
+use std::fmt;
+use std::fs::DirEntry;
+use std::io::Write;
+use std::os::unix::ffi::OsStrExt;
+use std::path::Path;
 
 fn write_type<W: Write>(f: &mut W, ty: &Type) -> Result<()> {
     match ty {

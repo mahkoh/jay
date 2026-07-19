@@ -1,21 +1,21 @@
-use {
-    crate::{
-        client::Client,
-        criteria::{
-            CritMatcherId, CritUpstreamNode,
-            clm::ClmUpstreamNode,
-            crit_graph::{
-                CritDownstream, CritDownstreamData, CritMgr, CritUpstreamData,
-                CritUpstreamNodeBase, CritUpstreamNodeData,
-            },
-            crit_per_target_data::{CritDestroyListenerBase, CritPerTargetData},
-            tlm::TlMatcherManager,
-        },
-        state::State,
-        tree::{ToplevelData, ToplevelNodeBase},
-    },
-    std::{rc::Rc, slice},
-};
+use crate::client::Client;
+use crate::criteria::CritMatcherId;
+use crate::criteria::CritUpstreamNode;
+use crate::criteria::clm::ClmUpstreamNode;
+use crate::criteria::crit_graph::CritDownstream;
+use crate::criteria::crit_graph::CritDownstreamData;
+use crate::criteria::crit_graph::CritMgr;
+use crate::criteria::crit_graph::CritUpstreamData;
+use crate::criteria::crit_graph::CritUpstreamNodeBase;
+use crate::criteria::crit_graph::CritUpstreamNodeData;
+use crate::criteria::crit_per_target_data::CritDestroyListenerBase;
+use crate::criteria::crit_per_target_data::CritPerTargetData;
+use crate::criteria::tlm::TlMatcherManager;
+use crate::state::State;
+use crate::tree::ToplevelData;
+use crate::tree::ToplevelNodeBase;
+use std::rc::Rc;
+use std::slice;
 
 pub struct TlmMatchClient {
     id: CritMatcherId,

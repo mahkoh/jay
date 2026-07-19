@@ -1,33 +1,46 @@
-use {
-    crate::{
-        allocator::{Allocator, AllocatorError, BufferUsage, MappedBuffer},
-        cli::{GlobalArgs, ScreenshotArgs, ScreenshotFormat},
-        eventfd_cache::EventfdCache,
-        format::XRGB8888,
-        gfx_apis,
-        tools::tool_client::{Handle, ToolClient, with_tool_client},
-        udmabuf::{Udmabuf, UdmabufError},
-        utils::{errorfmt::ErrorFmt, queue::AsyncQueue, windows::WindowsExt},
-        video::{
-            dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
-            drm::{Drm, DrmError},
-            gbm::{GbmDevice, GbmError},
-        },
-        wire::{
-            jay_compositor::TakeScreenshot,
-            jay_screenshot::{Dmabuf, Dmabuf2, DrmDev, Error, Plane},
-        },
-    },
-    chrono::Local,
-    jay_algorithms::qoi::xrgb8888_encode_qoi,
-    png::{BitDepth, ColorType, Encoder, SrgbRenderingIntent},
-    std::{
-        cell::{Cell, RefCell},
-        rc::Rc,
-    },
-    thiserror::Error,
-    uapi::OwnedFd,
-};
+use crate::allocator::Allocator;
+use crate::allocator::AllocatorError;
+use crate::allocator::BufferUsage;
+use crate::allocator::MappedBuffer;
+use crate::cli::GlobalArgs;
+use crate::cli::ScreenshotArgs;
+use crate::cli::ScreenshotFormat;
+use crate::eventfd_cache::EventfdCache;
+use crate::format::XRGB8888;
+use crate::gfx_apis;
+use crate::tools::tool_client::Handle;
+use crate::tools::tool_client::ToolClient;
+use crate::tools::tool_client::with_tool_client;
+use crate::udmabuf::Udmabuf;
+use crate::udmabuf::UdmabufError;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::queue::AsyncQueue;
+use crate::utils::windows::WindowsExt;
+use crate::video::dmabuf::DmaBuf;
+use crate::video::dmabuf::DmaBufIds;
+use crate::video::dmabuf::DmaBufPlane;
+use crate::video::dmabuf::PlaneVec;
+use crate::video::drm::Drm;
+use crate::video::drm::DrmError;
+use crate::video::gbm::GbmDevice;
+use crate::video::gbm::GbmError;
+use crate::wire::jay_compositor::TakeScreenshot;
+use crate::wire::jay_screenshot::Dmabuf;
+use crate::wire::jay_screenshot::Dmabuf2;
+use crate::wire::jay_screenshot::DrmDev;
+use crate::wire::jay_screenshot::Error;
+use crate::wire::jay_screenshot::Plane;
+use chrono::Local;
+use jay_algorithms::qoi::xrgb8888_encode_qoi;
+use png::BitDepth;
+use png::ColorType;
+use png::Encoder;
+use png::SrgbRenderingIntent;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
 
 pub fn main(global: GlobalArgs, args: ScreenshotArgs) {
     with_tool_client(global.log_level, |tc| async move {

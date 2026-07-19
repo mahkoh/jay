@@ -1,115 +1,154 @@
+use crate::acceptor::Acceptor;
+use crate::acceptor::AcceptorError;
+use crate::async_engine::AsyncEngine;
+use crate::async_engine::Phase;
+use crate::async_engine::SpawnedFuture;
+use crate::backend::Backend;
+use crate::backend::Connector;
+use crate::backends::dummy::DummyBackend;
+use crate::backends::dummy::DummyOutput;
+use crate::backends::headless;
+use crate::backends::metal;
+use crate::backends::x;
+use crate::cli::CliBackend;
+use crate::cli::GlobalArgs;
+use crate::cli::RunArgs;
+use crate::client::ClientId;
+use crate::client::Clients;
+use crate::clientmem::ClientMemError;
+use crate::clientmem::{self};
+use crate::cmm::cmm_manager::ColorManager;
+use crate::cmm::cmm_primaries::Primaries;
+use crate::config::ConfigProxy;
+use crate::configurable::handle_configurables_apply;
+use crate::configurable::handle_configurables_timeout;
+use crate::control_center::redraw_control_centers;
+use crate::copy_device::CopyDeviceRegistry;
+use crate::cpu_worker::CpuWorker;
+use crate::cpu_worker::CpuWorkerError;
+use crate::criteria::CritMatcherIds;
+use crate::criteria::clm::ClMatcherManager;
+use crate::criteria::clm::handle_cl_changes;
+use crate::criteria::clm::handle_cl_leaf_events;
+use crate::criteria::tlm::TlMatcherManager;
+use crate::criteria::tlm::handle_tl_changes;
+use crate::criteria::tlm::handle_tl_just_mapped;
+use crate::criteria::tlm::handle_tl_leaf_events;
+use crate::damage::DamageVisualizer;
+use crate::damage::visualize_damage;
+use crate::dbus::Dbus;
+use crate::dmabuf_feedback::handle_dmabuf_feedback_changes;
+use crate::ei::ei_client::EiClients;
+use crate::eventfd_cache::EventfdCache;
+use crate::forker;
+use crate::format::XRGB8888;
+use crate::gfx_api::GfxApi;
+use crate::globals::Globals;
+use crate::ifs::head_management::HeadManager;
+use crate::ifs::head_management::HeadState;
+use crate::ifs::jay_screencast::perform_screencast_realloc;
+use crate::ifs::jay_screencast::perform_toplevel_screencasts;
+use crate::ifs::wl_output::BlendSpace;
+use crate::ifs::wl_output::OutputId;
+use crate::ifs::wl_output::PersistentOutputState;
+use crate::ifs::wl_output::WlOutputGlobal;
+use crate::ifs::wl_seat::handle_position_hint_requests;
+use crate::ifs::wl_seat::handle_warp_mouse_to_focus;
+use crate::ifs::wl_surface::NoneSurfaceExt;
+use crate::ifs::wl_surface::prime::no_client_prime;
+use crate::ifs::wl_surface::zwp_input_popup_surface_v2::input_popup_positioning;
+use crate::ifs::wlr_output_manager::wlr_output_manager_done;
+use crate::ifs::workspace_manager::workspace_manager_done;
+use crate::io_uring::IoUring;
+use crate::io_uring::IoUringError;
 #[cfg(feature = "it")]
 use crate::it::test_backend::TestBackend;
-use {
-    crate::{
-        acceptor::{Acceptor, AcceptorError},
-        async_engine::{AsyncEngine, Phase, SpawnedFuture},
-        backend::{Backend, Connector},
-        backends::{
-            dummy::{DummyBackend, DummyOutput},
-            headless, metal, x,
-        },
-        cli::{CliBackend, GlobalArgs, RunArgs},
-        client::{ClientId, Clients},
-        clientmem::{self, ClientMemError},
-        cmm::{cmm_manager::ColorManager, cmm_primaries::Primaries},
-        config::ConfigProxy,
-        configurable::{handle_configurables_apply, handle_configurables_timeout},
-        control_center::redraw_control_centers,
-        copy_device::CopyDeviceRegistry,
-        cpu_worker::{CpuWorker, CpuWorkerError},
-        criteria::{
-            CritMatcherIds,
-            clm::{ClMatcherManager, handle_cl_changes, handle_cl_leaf_events},
-            tlm::{
-                TlMatcherManager, handle_tl_changes, handle_tl_just_mapped, handle_tl_leaf_events,
-            },
-        },
-        damage::{DamageVisualizer, visualize_damage},
-        dbus::Dbus,
-        dmabuf_feedback::handle_dmabuf_feedback_changes,
-        ei::ei_client::EiClients,
-        eventfd_cache::EventfdCache,
-        forker,
-        format::XRGB8888,
-        gfx_api::GfxApi,
-        globals::Globals,
-        ifs::{
-            head_management::{HeadManager, HeadState},
-            jay_screencast::{perform_screencast_realloc, perform_toplevel_screencasts},
-            wl_output::{BlendSpace, OutputId, PersistentOutputState, WlOutputGlobal},
-            wl_seat::{handle_position_hint_requests, handle_warp_mouse_to_focus},
-            wl_surface::{
-                NoneSurfaceExt, prime::no_client_prime,
-                zwp_input_popup_surface_v2::input_popup_positioning,
-            },
-            wlr_output_manager::wlr_output_manager_done,
-            workspace_manager::workspace_manager_done,
-        },
-        io_uring::{IoUring, IoUringError},
-        kbvm::KbvmContext,
-        leaks,
-        logger::Logger,
-        output_schedule::OutputSchedule,
-        portal::{self, PortalStartup},
-        pr_caps::{PrCapsThread, pr_caps},
-        scale::Scale,
-        sighand::{self, SighandError},
-        sm::{SessionManager, flush_toplevel_sessions},
-        sqlite::{Sqlite, handle_sqlite_optimize},
-        state::{ConnectorData, IdleState, ScreenlockState, State, TreeState, XWaylandState},
-        syncobj::wait_for_syncobj::WaitForSyncobj,
-        tasks::{self, handle_const_40hz_latch, idle},
-        tracy::enable_profiler,
-        transactions::{TransactionData, handle_transactions_apply, handle_transactions_timeout},
-        tree::{
-            DisplayNode, NodeIds, OutputNode, TearingMode, Transform, VrrMode,
-            WorkspaceDisplayOrder, container_layout, container_render_positions,
-            container_render_titles, float_layout, float_titles, output_render_data,
-            placeholder_render_textures,
-        },
-        tree_serial_groups::handle_tree_serial_groups_scheduled,
-        udmabuf::UdmabufHolder,
-        user_session::{import_environment, start_graphical_session},
-        utils::{
-            bhash::BHashSet,
-            clone3::ensure_reaper,
-            clonecell::CloneCell,
-            errorfmt::ErrorFmt,
-            event_listener::handle_lazy_event_sources,
-            fdcloser::FdCloser,
-            nice::{did_elevate_scheduler, elevate_scheduler},
-            numcell::NumCell,
-            object_drop_queue::ObjectDropQueue,
-            oserror::{OsError, OsErrorExt},
-            queue::AsyncQueue,
-            rc_eq::RcEq,
-            refcounted::RefCounted,
-            run_toplevel::RunToplevel,
-            sleeper::{Sleeper, start_sleeper},
-            static_text::StaticText,
-            tri::Try,
-        },
-        version::VERSION,
-        wheel::{Wheel, WheelError},
-    },
-    clap::ValueEnum,
-    forker::ForkerProxy,
-    jay_config::{_private::DEFAULT_SEAT_NAME, logging::LogLevel as ConfigLogLevel},
-    linearize::Linearize,
-    log::LevelFilter,
-    std::{
-        cell::{Cell, RefCell},
-        env,
-        future::Future,
-        ops::Deref,
-        rc::Rc,
-        sync::Arc,
-        time::Duration,
-    },
-    thiserror::Error,
-    uapi::c,
-};
+use crate::kbvm::KbvmContext;
+use crate::leaks;
+use crate::logger::Logger;
+use crate::output_schedule::OutputSchedule;
+use crate::portal::PortalStartup;
+use crate::portal::{self};
+use crate::pr_caps::PrCapsThread;
+use crate::pr_caps::pr_caps;
+use crate::scale::Scale;
+use crate::sighand::SighandError;
+use crate::sighand::{self};
+use crate::sm::SessionManager;
+use crate::sm::flush_toplevel_sessions;
+use crate::sqlite::Sqlite;
+use crate::sqlite::handle_sqlite_optimize;
+use crate::state::ConnectorData;
+use crate::state::IdleState;
+use crate::state::ScreenlockState;
+use crate::state::State;
+use crate::state::TreeState;
+use crate::state::XWaylandState;
+use crate::syncobj::wait_for_syncobj::WaitForSyncobj;
+use crate::tasks::handle_const_40hz_latch;
+use crate::tasks::idle;
+use crate::tasks::{self};
+use crate::tracy::enable_profiler;
+use crate::transactions::TransactionData;
+use crate::transactions::handle_transactions_apply;
+use crate::transactions::handle_transactions_timeout;
+use crate::tree::DisplayNode;
+use crate::tree::NodeIds;
+use crate::tree::OutputNode;
+use crate::tree::TearingMode;
+use crate::tree::Transform;
+use crate::tree::VrrMode;
+use crate::tree::WorkspaceDisplayOrder;
+use crate::tree::container_layout;
+use crate::tree::container_render_positions;
+use crate::tree::container_render_titles;
+use crate::tree::float_layout;
+use crate::tree::float_titles;
+use crate::tree::output_render_data;
+use crate::tree::placeholder_render_textures;
+use crate::tree_serial_groups::handle_tree_serial_groups_scheduled;
+use crate::udmabuf::UdmabufHolder;
+use crate::user_session::import_environment;
+use crate::user_session::start_graphical_session;
+use crate::utils::bhash::BHashSet;
+use crate::utils::clone3::ensure_reaper;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::event_listener::handle_lazy_event_sources;
+use crate::utils::fdcloser::FdCloser;
+use crate::utils::nice::did_elevate_scheduler;
+use crate::utils::nice::elevate_scheduler;
+use crate::utils::numcell::NumCell;
+use crate::utils::object_drop_queue::ObjectDropQueue;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt;
+use crate::utils::queue::AsyncQueue;
+use crate::utils::rc_eq::RcEq;
+use crate::utils::refcounted::RefCounted;
+use crate::utils::run_toplevel::RunToplevel;
+use crate::utils::sleeper::Sleeper;
+use crate::utils::sleeper::start_sleeper;
+use crate::utils::static_text::StaticText;
+use crate::utils::tri::Try;
+use crate::version::VERSION;
+use crate::wheel::Wheel;
+use crate::wheel::WheelError;
+use clap::ValueEnum;
+use forker::ForkerProxy;
+use jay_config::_private::DEFAULT_SEAT_NAME;
+use jay_config::logging::LogLevel as ConfigLogLevel;
+use linearize::Linearize;
+use log::LevelFilter;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::env;
+use std::future::Future;
+use std::ops::Deref;
+use std::rc::Rc;
+use std::sync::Arc;
+use std::time::Duration;
+use thiserror::Error;
+use uapi::c;
 
 pub const MAX_EXTENTS: i32 = (1 << 22) - 1;
 

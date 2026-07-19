@@ -1,18 +1,13 @@
-use {
-    crate::{
-        ei::{
-            ei_client::{EiClient, EiClientError},
-            ei_object::{EiObject, EiVersion},
-        },
-        leaks::Tracker,
-        wire_ei::{
-            EiPingpongId,
-            ei_pingpong::{Done, EiPingpongRequestHandler},
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::ei::ei_client::EiClient;
+use crate::ei::ei_client::EiClientError;
+use crate::ei::ei_object::EiObject;
+use crate::ei::ei_object::EiVersion;
+use crate::leaks::Tracker;
+use crate::wire_ei::EiPingpongId;
+use crate::wire_ei::ei_pingpong::Done;
+use crate::wire_ei::ei_pingpong::EiPingpongRequestHandler;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[expect(dead_code)]
 pub struct EiPingpong {

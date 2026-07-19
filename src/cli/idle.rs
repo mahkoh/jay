@@ -1,17 +1,22 @@
-use {
-    crate::{
-        cli::{
-            GlobalArgs, IdleArgs,
-            duration::parse_duration,
-            json::{JsonIdle, JsonIdleInhibitor, jsonl},
-        },
-        tools::tool_client::{Handle, ToolClient, with_tool_client},
-        utils::stack::Stack,
-        wire::{JayIdleId, WlSurfaceId, jay_compositor, jay_idle},
-    },
-    clap::{Args, Subcommand},
-    std::{cell::Cell, fmt, rc::Rc},
-};
+use crate::cli::GlobalArgs;
+use crate::cli::IdleArgs;
+use crate::cli::duration::parse_duration;
+use crate::cli::json::JsonIdle;
+use crate::cli::json::JsonIdleInhibitor;
+use crate::cli::json::jsonl;
+use crate::tools::tool_client::Handle;
+use crate::tools::tool_client::ToolClient;
+use crate::tools::tool_client::with_tool_client;
+use crate::utils::stack::Stack;
+use crate::wire::JayIdleId;
+use crate::wire::WlSurfaceId;
+use crate::wire::jay_compositor;
+use crate::wire::jay_idle;
+use clap::Args;
+use clap::Subcommand;
+use std::cell::Cell;
+use std::fmt;
+use std::rc::Rc;
 
 #[derive(Subcommand, Debug, Default)]
 pub enum IdleCmd {

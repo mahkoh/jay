@@ -1,59 +1,65 @@
-use {
-    crate::{
-        allocator::Allocator,
-        backend::DrmDeviceId,
-        cmm::{
-            cmm_description::{ColorDescription, LinearColorDescription},
-            cmm_render_intent::RenderIntent,
-        },
-        cpu_worker::CpuWorker,
-        cursor::Cursor,
-        damage::DamageVisualizer,
-        eventfd_cache::Eventfd,
-        fixed::Fixed,
-        format::Format,
-        ifs::wl_surface::SurfaceBuffer,
-        io_uring::{IoUring, IoUringError, PendingPoll, PollCallback},
-        rect::{Rect, Region},
-        renderer::{
-            Renderer,
-            renderer_base::{RenderTexture, RendererBase},
-        },
-        scale::Scale,
-        state::State,
-        syncobj::SyncobjCtx,
-        theme::Color,
-        tree::{
-            Node, NodeBase, OutputNode, Transform,
-            TreeTimeline::{LiveTL, RenderTL},
-        },
-        utils::{
-            bhash::BHashMap, errorfmt::ErrorFmt, oserror::OsErrorExt, static_text::StaticText,
-        },
-        video::{
-            Modifier,
-            dmabuf::{DmaBuf, DmaBufIds},
-            drm::syncobj::{Syncobj, SyncobjPoint},
-        },
-    },
-    indexmap::{IndexMap, IndexSet},
-    jay_config::video::{GfxApi as ConfigGfxApi, ScalingFilter as ConfigScalingFilter},
-    jay_proc::{jay_clone, jay_hash},
-    linearize::Linearize,
-    std::{
-        any::Any,
-        cell::{Cell, OnceCell},
-        error::Error,
-        ffi::CString,
-        fmt::{Debug, Formatter},
-        ops::Deref,
-        rc::Rc,
-        slice,
-        sync::atomic::{AtomicU64, Ordering::Relaxed},
-    },
-    thiserror::Error,
-    uapi::{OwnedFd, c},
-};
+use crate::allocator::Allocator;
+use crate::backend::DrmDeviceId;
+use crate::cmm::cmm_description::ColorDescription;
+use crate::cmm::cmm_description::LinearColorDescription;
+use crate::cmm::cmm_render_intent::RenderIntent;
+use crate::cpu_worker::CpuWorker;
+use crate::cursor::Cursor;
+use crate::damage::DamageVisualizer;
+use crate::eventfd_cache::Eventfd;
+use crate::fixed::Fixed;
+use crate::format::Format;
+use crate::ifs::wl_surface::SurfaceBuffer;
+use crate::io_uring::IoUring;
+use crate::io_uring::IoUringError;
+use crate::io_uring::PendingPoll;
+use crate::io_uring::PollCallback;
+use crate::rect::Rect;
+use crate::rect::Region;
+use crate::renderer::Renderer;
+use crate::renderer::renderer_base::RenderTexture;
+use crate::renderer::renderer_base::RendererBase;
+use crate::scale::Scale;
+use crate::state::State;
+use crate::syncobj::SyncobjCtx;
+use crate::theme::Color;
+use crate::tree::Node;
+use crate::tree::NodeBase;
+use crate::tree::OutputNode;
+use crate::tree::Transform;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::utils::bhash::BHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::oserror::OsErrorExt;
+use crate::utils::static_text::StaticText;
+use crate::video::Modifier;
+use crate::video::dmabuf::DmaBuf;
+use crate::video::dmabuf::DmaBufIds;
+use crate::video::drm::syncobj::Syncobj;
+use crate::video::drm::syncobj::SyncobjPoint;
+use indexmap::IndexMap;
+use indexmap::IndexSet;
+use jay_config::video::GfxApi as ConfigGfxApi;
+use jay_config::video::ScalingFilter as ConfigScalingFilter;
+use jay_proc::jay_clone;
+use jay_proc::jay_hash;
+use linearize::Linearize;
+use std::any::Any;
+use std::cell::Cell;
+use std::cell::OnceCell;
+use std::error::Error;
+use std::ffi::CString;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::ops::Deref;
+use std::rc::Rc;
+use std::slice;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering::Relaxed;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c;
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Linearize)]
 pub enum GfxApi {

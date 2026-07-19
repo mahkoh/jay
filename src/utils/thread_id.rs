@@ -1,7 +1,6 @@
-use std::{
-    cell::Cell,
-    sync::atomic::{AtomicU64, Ordering::Relaxed},
-};
+use std::cell::Cell;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering::Relaxed;
 
 #[cfg(test)]
 mod tests;

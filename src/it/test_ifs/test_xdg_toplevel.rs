@@ -1,24 +1,24 @@
-use {
-    crate::{
-        ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel,
-        it::{
-            test_error::{TestError, TestResult},
-            test_object::TestObject,
-            test_transport::TestTransport,
-            test_utils::test_window::TestWindow,
-            testrun::ParseFull,
-        },
-        tree::{ContainerNode, ContainingNode, FloatNode, ToplevelNodeBase},
-        utils::{bhash::BHashSet, buffd::MsgParser},
-        wire::{XdgToplevelId, xdg_toplevel::*},
-    },
-    std::{
-        cell::{Cell, RefCell},
-        future::poll_fn,
-        rc::Rc,
-        task::{Poll, Waker},
-    },
-};
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::it::test_error::TestError;
+use crate::it::test_error::TestResult;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::test_utils::test_window::TestWindow;
+use crate::it::testrun::ParseFull;
+use crate::tree::ContainerNode;
+use crate::tree::ContainingNode;
+use crate::tree::FloatNode;
+use crate::tree::ToplevelNodeBase;
+use crate::utils::bhash::BHashSet;
+use crate::utils::buffd::MsgParser;
+use crate::wire::XdgToplevelId;
+use crate::wire::xdg_toplevel::*;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::future::poll_fn;
+use std::rc::Rc;
+use std::task::Poll;
+use std::task::Waker;
 
 pub struct TestXdgToplevelCore {
     pub id: XdgToplevelId,

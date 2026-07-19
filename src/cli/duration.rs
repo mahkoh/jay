@@ -1,7 +1,7 @@
-use {
-    crate::utils::errorfmt::ErrorFmt,
-    std::{collections::VecDeque, str::FromStr, time::Duration},
-};
+use crate::utils::errorfmt::ErrorFmt;
+use std::collections::VecDeque;
+use std::str::FromStr;
+use std::time::Duration;
 
 #[derive(Debug)]
 enum Component {

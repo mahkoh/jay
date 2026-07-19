@@ -1,24 +1,20 @@
-use {
-    crate::{
-        client::Client,
-        ifs::ipc::{
-            IpcLocation, SourceData,
-            data_control::{
-                ext_data_control_device_v1::ExtDataControlIpc,
-                private::{
-                    DataControlSource, DataControlSourceData,
-                    logic::{self, DataControlError},
-                },
-            },
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ExtDataControlSourceV1Id, ext_data_control_source_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-    uapi::OwnedFd,
-};
+use crate::client::Client;
+use crate::ifs::ipc::IpcLocation;
+use crate::ifs::ipc::SourceData;
+use crate::ifs::ipc::data_control::ext_data_control_device_v1::ExtDataControlIpc;
+use crate::ifs::ipc::data_control::private::DataControlSource;
+use crate::ifs::ipc::data_control::private::DataControlSourceData;
+use crate::ifs::ipc::data_control::private::logic::DataControlError;
+use crate::ifs::ipc::data_control::private::logic::{self};
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ExtDataControlSourceV1Id;
+use crate::wire::ext_data_control_source_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
 
 pub struct ExtDataControlSourceV1 {
     pub id: ExtDataControlSourceV1Id,

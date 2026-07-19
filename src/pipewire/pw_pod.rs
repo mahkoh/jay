@@ -2,15 +2,15 @@
 
 mod pw_debug;
 
-use {
-    crate::pipewire::pw_parser::{PwParser, PwParserError},
-    bstr::BStr,
-    std::{
-        fmt::{Debug, Formatter},
-        sync::atomic::{AtomicI32, AtomicU32},
-    },
-    uapi::{Pod, c},
-};
+use crate::pipewire::pw_parser::PwParser;
+use crate::pipewire::pw_parser::PwParserError;
+use bstr::BStr;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::sync::atomic::AtomicI32;
+use std::sync::atomic::AtomicU32;
+use uapi::Pod;
+use uapi::c;
 
 macro_rules! ty {
     ($name:ident; $($id:ident = $val:expr,)*) => {

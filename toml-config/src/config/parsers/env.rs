@@ -1,17 +1,14 @@
-use {
-    crate::{
-        config::{
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-            parsers::{StringParser, StringParserError},
-        },
-        toml::{
-            toml_span::{Span, Spanned},
-            toml_value::Value,
-        },
-    },
-    indexmap::IndexMap,
-    thiserror::Error,
-};
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::config::parsers::StringParser;
+use crate::config::parsers::StringParserError;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_value::Value;
+use indexmap::IndexMap;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum EnvParserError {

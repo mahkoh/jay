@@ -1,14 +1,16 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        leaks::Tracker,
-        object::{Object, Version},
-        rect::{Rect, Region, RegionBuilder},
-        wire::{WlRegionId, wl_region::*},
-    },
-    std::{cell::RefCell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::rect::Rect;
+use crate::rect::Region;
+use crate::rect::RegionBuilder;
+use crate::wire::WlRegionId;
+use crate::wire::wl_region::*;
+use std::cell::RefCell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WlRegion {
     id: WlRegionId,

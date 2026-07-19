@@ -1,23 +1,26 @@
-use {
-    crate::{
-        config::{
-            ConfigDrmDevice,
-            context::Context,
-            extractor::{Extractor, ExtractorError, bol, fltorint, opt, recover, str, val},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-            parsers::{
-                drm_device_match::{DrmDeviceMatchParser, DrmDeviceMatchParserError},
-                gfx_api::GfxApiParser,
-            },
-        },
-        toml::{
-            toml_span::{DespanExt, Span, Spanned},
-            toml_value::Value,
-        },
-    },
-    indexmap::IndexMap,
-    thiserror::Error,
-};
+use crate::config::ConfigDrmDevice;
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::bol;
+use crate::config::extractor::fltorint;
+use crate::config::extractor::opt;
+use crate::config::extractor::recover;
+use crate::config::extractor::str;
+use crate::config::extractor::val;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::config::parsers::drm_device_match::DrmDeviceMatchParser;
+use crate::config::parsers::drm_device_match::DrmDeviceMatchParserError;
+use crate::config::parsers::gfx_api::GfxApiParser;
+use crate::toml::toml_span::DespanExt;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_value::Value;
+use indexmap::IndexMap;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum DrmDeviceParserError {

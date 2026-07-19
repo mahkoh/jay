@@ -1,15 +1,18 @@
-use {
-    crate::{
-        client::Client,
-        globals::{Global, GlobalName, GlobalsError, Singleton},
-        leaks::Tracker,
-        object::{Interface, Object, Version},
-        wire::{WlRegistryId, wl_registry::*},
-    },
-    linearize::StaticMap,
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::globals::GlobalsError;
+use crate::globals::Singleton;
+use crate::leaks::Tracker;
+use crate::object::Interface;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WlRegistryId;
+use crate::wire::wl_registry::*;
+use linearize::StaticMap;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WlRegistry {
     id: WlRegistryId,

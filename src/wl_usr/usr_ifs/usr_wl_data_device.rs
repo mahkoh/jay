@@ -1,16 +1,13 @@
-use {
-    crate::{
-        object::Version,
-        utils::clonecell::CloneCell,
-        wire::{WlDataDeviceId, wl_data_device::*},
-        wl_usr::{
-            UsrCon,
-            usr_ifs::{usr_wl_data_offer::UsrWlDataOffer, usr_wl_data_source::UsrWlDataSource},
-            usr_object::UsrObject,
-        },
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::object::Version;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::WlDataDeviceId;
+use crate::wire::wl_data_device::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_ifs::usr_wl_data_offer::UsrWlDataOffer;
+use crate::wl_usr::usr_ifs::usr_wl_data_source::UsrWlDataSource;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrWlDataDevice {
     pub id: WlDataDeviceId,

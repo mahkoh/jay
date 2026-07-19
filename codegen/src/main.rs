@@ -1,11 +1,14 @@
 #![expect(clippy::from_str_radix_10)]
 
-use {
-    crate::phf::PhfHash,
-    anyhow::{Context, Result, bail},
-    permutation::Permutation,
-    std::{fmt::Debug, io::Write, path::PathBuf, process::Command},
-};
+use crate::phf::PhfHash;
+use anyhow::Context;
+use anyhow::Result;
+use anyhow::bail;
+use permutation::Permutation;
+use std::fmt::Debug;
+use std::io::Write;
+use std::path::PathBuf;
+use std::process::Command;
 
 macro_rules! define_w {
     ($w:ident) => {

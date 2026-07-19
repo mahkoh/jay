@@ -1,13 +1,10 @@
-use {
-    crate::{
-        client::ClientId,
-        ifs::wl_seat::tablet::zwp_tablet_seat_v2::ZwpTabletSeatV2,
-        utils::copyhashmap::{CopyHashMap, Locked},
-        wire::ZwpTabletSeatV2Id,
-    },
-    derivative::Derivative,
-    std::rc::Rc,
-};
+use crate::client::ClientId;
+use crate::ifs::wl_seat::tablet::zwp_tablet_seat_v2::ZwpTabletSeatV2;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::copyhashmap::Locked;
+use crate::wire::ZwpTabletSeatV2Id;
+use derivative::Derivative;
+use std::rc::Rc;
 
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]

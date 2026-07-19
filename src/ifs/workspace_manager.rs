@@ -1,18 +1,15 @@
-use {
-    crate::{
-        client::Client,
-        ifs::workspace_manager::{
-            ext_workspace_group_handle_v1::ExtWorkspaceGroupHandleV1,
-            ext_workspace_manager_v1::{
-                ExtWorkspaceManagerV1, WorkspaceManagerId, WorkspaceManagerIds,
-            },
-        },
-        state::State,
-        tree::{OutputNode, WorkspaceNode},
-        utils::{copyhashmap::CopyHashMap, opt::Opt, queue::AsyncQueue},
-    },
-    std::rc::Rc,
-};
+use crate::client::Client;
+use crate::ifs::workspace_manager::ext_workspace_group_handle_v1::ExtWorkspaceGroupHandleV1;
+use crate::ifs::workspace_manager::ext_workspace_manager_v1::ExtWorkspaceManagerV1;
+use crate::ifs::workspace_manager::ext_workspace_manager_v1::WorkspaceManagerId;
+use crate::ifs::workspace_manager::ext_workspace_manager_v1::WorkspaceManagerIds;
+use crate::state::State;
+use crate::tree::OutputNode;
+use crate::tree::WorkspaceNode;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::opt::Opt;
+use crate::utils::queue::AsyncQueue;
+use std::rc::Rc;
 
 pub mod ext_workspace_group_handle_v1;
 pub mod ext_workspace_handle_v1;

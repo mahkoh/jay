@@ -1,15 +1,14 @@
-use {
-    crate::criteria::{
-        CritUpstreamNode,
-        crit_graph::{
-            CritDownstream, CritDownstreamData, CritTarget, CritUpstreamData,
-            crit_target::CritMgr,
-            crit_upstream::{CritUpstreamNodeBase, CritUpstreamNodeData},
-        },
-        crit_per_target_data::{CritDestroyListenerBase, CritPerTargetData},
-    },
-    std::rc::Rc,
-};
+use crate::criteria::CritUpstreamNode;
+use crate::criteria::crit_graph::CritDownstream;
+use crate::criteria::crit_graph::CritDownstreamData;
+use crate::criteria::crit_graph::CritTarget;
+use crate::criteria::crit_graph::CritUpstreamData;
+use crate::criteria::crit_graph::crit_target::CritMgr;
+use crate::criteria::crit_graph::crit_upstream::CritUpstreamNodeBase;
+use crate::criteria::crit_graph::crit_upstream::CritUpstreamNodeData;
+use crate::criteria::crit_per_target_data::CritDestroyListenerBase;
+use crate::criteria::crit_per_target_data::CritPerTargetData;
+use std::rc::Rc;
 
 pub struct CritMiddle<Target, T>
 where

@@ -1,23 +1,53 @@
 #![allow(non_upper_case_globals)]
 
-use {
-    crate::{
-        pipewire::pw_pod::{
-            PW_CHOICE_None, PW_TYPE_Array, PW_TYPE_Bitmap, PW_TYPE_Bool, PW_TYPE_Bytes,
-            PW_TYPE_Choice, PW_TYPE_Double, PW_TYPE_Fd, PW_TYPE_Float, PW_TYPE_Fraction,
-            PW_TYPE_Id, PW_TYPE_Int, PW_TYPE_Long, PW_TYPE_None, PW_TYPE_Object, PW_TYPE_Pod,
-            PW_TYPE_Pointer, PW_TYPE_Rectangle, PW_TYPE_Sequence, PW_TYPE_String, PW_TYPE_Struct,
-            PwChoiceType, PwControlType, PwPod, PwPodArray, PwPodChoice, PwPodControl,
-            PwPodFraction, PwPodObject, PwPodObjectType, PwPodPointer, PwPodRectangle,
-            PwPodSequence, PwPodStruct, PwPodType, PwPointerType, PwProp, PwPropFlag,
-        },
-        utils::bhash::BHashMap,
-    },
-    bstr::{BStr, BString, ByteSlice},
-    std::{fmt::Debug, mem::MaybeUninit, rc::Rc},
-    thiserror::Error,
-    uapi::{OwnedFd, Pod},
-};
+use crate::pipewire::pw_pod::PW_CHOICE_None;
+use crate::pipewire::pw_pod::PW_TYPE_Array;
+use crate::pipewire::pw_pod::PW_TYPE_Bitmap;
+use crate::pipewire::pw_pod::PW_TYPE_Bool;
+use crate::pipewire::pw_pod::PW_TYPE_Bytes;
+use crate::pipewire::pw_pod::PW_TYPE_Choice;
+use crate::pipewire::pw_pod::PW_TYPE_Double;
+use crate::pipewire::pw_pod::PW_TYPE_Fd;
+use crate::pipewire::pw_pod::PW_TYPE_Float;
+use crate::pipewire::pw_pod::PW_TYPE_Fraction;
+use crate::pipewire::pw_pod::PW_TYPE_Id;
+use crate::pipewire::pw_pod::PW_TYPE_Int;
+use crate::pipewire::pw_pod::PW_TYPE_Long;
+use crate::pipewire::pw_pod::PW_TYPE_None;
+use crate::pipewire::pw_pod::PW_TYPE_Object;
+use crate::pipewire::pw_pod::PW_TYPE_Pod;
+use crate::pipewire::pw_pod::PW_TYPE_Pointer;
+use crate::pipewire::pw_pod::PW_TYPE_Rectangle;
+use crate::pipewire::pw_pod::PW_TYPE_Sequence;
+use crate::pipewire::pw_pod::PW_TYPE_String;
+use crate::pipewire::pw_pod::PW_TYPE_Struct;
+use crate::pipewire::pw_pod::PwChoiceType;
+use crate::pipewire::pw_pod::PwControlType;
+use crate::pipewire::pw_pod::PwPod;
+use crate::pipewire::pw_pod::PwPodArray;
+use crate::pipewire::pw_pod::PwPodChoice;
+use crate::pipewire::pw_pod::PwPodControl;
+use crate::pipewire::pw_pod::PwPodFraction;
+use crate::pipewire::pw_pod::PwPodObject;
+use crate::pipewire::pw_pod::PwPodObjectType;
+use crate::pipewire::pw_pod::PwPodPointer;
+use crate::pipewire::pw_pod::PwPodRectangle;
+use crate::pipewire::pw_pod::PwPodSequence;
+use crate::pipewire::pw_pod::PwPodStruct;
+use crate::pipewire::pw_pod::PwPodType;
+use crate::pipewire::pw_pod::PwPointerType;
+use crate::pipewire::pw_pod::PwProp;
+use crate::pipewire::pw_pod::PwPropFlag;
+use crate::utils::bhash::BHashMap;
+use bstr::BStr;
+use bstr::BString;
+use bstr::ByteSlice;
+use std::fmt::Debug;
+use std::mem::MaybeUninit;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::Pod;
 
 #[derive(Debug, Error)]
 pub enum PwParserError {

@@ -1,11 +1,9 @@
-use {
-    crate::{
-        it::{test_error::TestError, testrun::TestRun},
-        tree::TreeTimeline::LiveTL,
-    },
-    jay_config::theme::sized::{BORDER_WIDTH, TITLE_HEIGHT},
-    std::rc::Rc,
-};
+use crate::it::test_error::TestError;
+use crate::it::testrun::TestRun;
+use crate::tree::TreeTimeline::LiveTL;
+use jay_config::theme::sized::BORDER_WIDTH;
+use jay_config::theme::sized::TITLE_HEIGHT;
+use std::rc::Rc;
 
 testcase!();
 

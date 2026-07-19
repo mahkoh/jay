@@ -1,24 +1,24 @@
-use {
-    crate::{
-        cursor::KnownCursor,
-        fixed::Fixed,
-        ifs::{
-            wl_seat::{
-                WlSeatGlobal,
-                tablet::{
-                    TabletTool, TabletToolChanges, TabletToolId, TabletToolInit, TabletToolOpt,
-                    TabletToolType, ToolButtonState, normalizei, normalizeu,
-                    zwp_tablet_tool_v2::ZwpTabletToolV2, zwp_tablet_v2::ZwpTabletV2,
-                },
-            },
-            wl_surface::WlSurface,
-        },
-        rect::Rect,
-        time::usec_to_msec,
-        utils::{clonecell::CloneCell, hash_map_ext::HashMapExt},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::cursor::KnownCursor;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::tablet::TabletTool;
+use crate::ifs::wl_seat::tablet::TabletToolChanges;
+use crate::ifs::wl_seat::tablet::TabletToolId;
+use crate::ifs::wl_seat::tablet::TabletToolInit;
+use crate::ifs::wl_seat::tablet::TabletToolOpt;
+use crate::ifs::wl_seat::tablet::TabletToolType;
+use crate::ifs::wl_seat::tablet::ToolButtonState;
+use crate::ifs::wl_seat::tablet::normalizei;
+use crate::ifs::wl_seat::tablet::normalizeu;
+use crate::ifs::wl_seat::tablet::zwp_tablet_tool_v2::ZwpTabletToolV2;
+use crate::ifs::wl_seat::tablet::zwp_tablet_v2::ZwpTabletV2;
+use crate::ifs::wl_surface::WlSurface;
+use crate::rect::Rect;
+use crate::time::usec_to_msec;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::hash_map_ext::HashMapExt;
+use std::cell::Cell;
+use std::rc::Rc;
 
 impl WlSeatGlobal {
     pub fn tablet_handle_remove_tool(self: &Rc<Self>, time_usec: u64, id: TabletToolId) {

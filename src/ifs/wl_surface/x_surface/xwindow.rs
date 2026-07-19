@@ -1,37 +1,58 @@
-use {
-    crate::{
-        client::Client,
-        cursor::KnownCursor,
-        fixed::Fixed,
-        ifs::{
-            wl_seat::{NodeSeatState, WlSeatGlobal, tablet::TabletTool},
-            wl_surface::{WlSurface, WlSurfaceError, x_surface::XSurface},
-        },
-        rect::Rect,
-        renderer::Renderer,
-        state::State,
-        transactions::{TransactionData, Transactionable, TransactionableExt},
-        tree::{
-            ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase,
-            NodeId, NodeLayerLink, NodeLocation, NodeStackTransactionOp, NodeVisitor,
-            NodesStackElement, OutputNode, StackedNode, TileDragDestination, TileState,
-            ToplevelData, ToplevelDataTransactionOp, ToplevelNode, ToplevelNodeBase, ToplevelType,
-            TreeTimeline::{self, LiveTL},
-            WorkspaceNode, WorkspaceType, default_tile_drag_destination,
-        },
-        utils::{clonecell::CloneCell, copyhashmap::CopyHashMap, linkedlist::LinkedNode},
-        wire::WlSurfaceId,
-        wire_xcon::CreateNotify,
-        xwayland::XWaylandEvent,
-    },
-    bstr::BString,
-    std::{
-        cell::{Cell, RefCell},
-        ops::{Deref, Not},
-        rc::Rc,
-    },
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::cursor::KnownCursor;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::NodeSeatState;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::tablet::TabletTool;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::WlSurfaceError;
+use crate::ifs::wl_surface::x_surface::XSurface;
+use crate::rect::Rect;
+use crate::renderer::Renderer;
+use crate::state::State;
+use crate::transactions::TransactionData;
+use crate::transactions::Transactionable;
+use crate::transactions::TransactionableExt;
+use crate::tree::ContainerSplit;
+use crate::tree::Direction;
+use crate::tree::FindTreeResult;
+use crate::tree::FindTreeUsecase;
+use crate::tree::FoundNode;
+use crate::tree::Node;
+use crate::tree::NodeBase;
+use crate::tree::NodeId;
+use crate::tree::NodeLayerLink;
+use crate::tree::NodeLocation;
+use crate::tree::NodeStackTransactionOp;
+use crate::tree::NodeVisitor;
+use crate::tree::NodesStackElement;
+use crate::tree::OutputNode;
+use crate::tree::StackedNode;
+use crate::tree::TileDragDestination;
+use crate::tree::TileState;
+use crate::tree::ToplevelData;
+use crate::tree::ToplevelDataTransactionOp;
+use crate::tree::ToplevelNode;
+use crate::tree::ToplevelNodeBase;
+use crate::tree::ToplevelType;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::{self};
+use crate::tree::WorkspaceNode;
+use crate::tree::WorkspaceType;
+use crate::tree::default_tile_drag_destination;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::linkedlist::LinkedNode;
+use crate::wire::WlSurfaceId;
+use crate::wire_xcon::CreateNotify;
+use crate::xwayland::XWaylandEvent;
+use bstr::BString;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::ops::Deref;
+use std::ops::Not;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub enum XInputModel {

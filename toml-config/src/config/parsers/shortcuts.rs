@@ -1,28 +1,34 @@
-use {
-    crate::{
-        config::{
-            Action, Shortcut, SimpleCommand,
-            context::Context,
-            extractor::{Extractor, ExtractorError, bol, opt, recover, str, val},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-            parsers::{
-                action::{ActionParser, ActionParserError},
-                modified_keysym::{
-                    ModifiedKeysymParser, ModifiedKeysymParserError, ModifiersParser,
-                },
-            },
-            spanned::SpannedErrorExt,
-        },
-        toml::{
-            toml_span::{DespanExt, Span, Spanned, SpannedExt},
-            toml_value::Value,
-        },
-    },
-    indexmap::IndexMap,
-    jay_config::keyboard::{ModifiedKeySym, mods::Modifiers},
-    std::collections::HashSet,
-    thiserror::Error,
-};
+use crate::config::Action;
+use crate::config::Shortcut;
+use crate::config::SimpleCommand;
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::bol;
+use crate::config::extractor::opt;
+use crate::config::extractor::recover;
+use crate::config::extractor::str;
+use crate::config::extractor::val;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::config::parsers::action::ActionParser;
+use crate::config::parsers::action::ActionParserError;
+use crate::config::parsers::modified_keysym::ModifiedKeysymParser;
+use crate::config::parsers::modified_keysym::ModifiedKeysymParserError;
+use crate::config::parsers::modified_keysym::ModifiersParser;
+use crate::config::spanned::SpannedErrorExt;
+use crate::toml::toml_span::DespanExt;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_span::SpannedExt;
+use crate::toml::toml_value::Value;
+use indexmap::IndexMap;
+use jay_config::keyboard::ModifiedKeySym;
+use jay_config::keyboard::mods::Modifiers;
+use std::collections::HashSet;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ShortcutsParserError {

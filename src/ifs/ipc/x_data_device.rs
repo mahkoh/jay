@@ -1,19 +1,17 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::{
-            ipc::{
-                DeviceData, IpcLocation, IpcVtable, OfferData, Role, x_data_offer::XDataOffer,
-                x_data_source::XDataSource,
-            },
-            wl_seat::WlSeatGlobal,
-        },
-        state::State,
-        xwayland::XWaylandEvent,
-    },
-    XWaylandEvent::IpcSetOffer,
-    std::rc::Rc,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::ipc::DeviceData;
+use crate::ifs::ipc::IpcLocation;
+use crate::ifs::ipc::IpcVtable;
+use crate::ifs::ipc::OfferData;
+use crate::ifs::ipc::Role;
+use crate::ifs::ipc::x_data_offer::XDataOffer;
+use crate::ifs::ipc::x_data_source::XDataSource;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::state::State;
+use crate::xwayland::XWaylandEvent;
+use XWaylandEvent::IpcSetOffer;
+use std::rc::Rc;
 
 linear_ids!(XIpcDeviceIds, XIpcDeviceId, u64);
 

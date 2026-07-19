@@ -1,20 +1,22 @@
-use {
-    crate::{
-        config::{
-            UiDrag,
-            context::Context,
-            extractor::{Extractor, ExtractorError, bol, int, opt, recover},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-            parsers::exec::ExecParserError,
-        },
-        toml::{
-            toml_span::{DespanExt, Span, Spanned},
-            toml_value::Value,
-        },
-    },
-    indexmap::IndexMap,
-    thiserror::Error,
-};
+use crate::config::UiDrag;
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::bol;
+use crate::config::extractor::int;
+use crate::config::extractor::opt;
+use crate::config::extractor::recover;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::config::parsers::exec::ExecParserError;
+use crate::toml::toml_span::DespanExt;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_value::Value;
+use indexmap::IndexMap;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum UiDragParserError {

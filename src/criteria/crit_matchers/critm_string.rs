@@ -1,10 +1,8 @@
-use {
-    crate::criteria::{
-        CritLiteralOrRegex, RootMatcherMap,
-        crit_graph::{CritRootCriterion, CritTarget},
-    },
-    std::marker::PhantomData,
-};
+use crate::criteria::CritLiteralOrRegex;
+use crate::criteria::RootMatcherMap;
+use crate::criteria::crit_graph::CritRootCriterion;
+use crate::criteria::crit_graph::CritTarget;
+use std::marker::PhantomData;
 
 pub struct CritMatchString<Target, A> {
     string: CritLiteralOrRegex,

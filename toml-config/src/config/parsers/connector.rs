@@ -1,20 +1,22 @@
-use {
-    crate::{
-        config::{
-            ConfigConnector,
-            context::Context,
-            extractor::{Extractor, ExtractorError, bol, opt, val},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-            parsers::connector_match::{ConnectorMatchParser, ConnectorMatchParserError},
-        },
-        toml::{
-            toml_span::{DespanExt, Span, Spanned},
-            toml_value::Value,
-        },
-    },
-    indexmap::IndexMap,
-    thiserror::Error,
-};
+use crate::config::ConfigConnector;
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::bol;
+use crate::config::extractor::opt;
+use crate::config::extractor::val;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::config::parsers::connector_match::ConnectorMatchParser;
+use crate::config::parsers::connector_match::ConnectorMatchParserError;
+use crate::toml::toml_span::DespanExt;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_value::Value;
+use indexmap::IndexMap;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ConnectorParserError {

@@ -1,47 +1,59 @@
-use {
-    crate::{
-        backend::{
-            InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod,
-            InputDeviceScrollMethod,
-        },
-        cli::{
-            GlobalArgs,
-            json::{JsonInputData, JsonInputDevice, JsonSeat, jsonl},
-        },
-        clientmem::ClientMem,
-        evdev::input_event_codes::InputEventCode,
-        libinput::consts::{
-            ConfigClickMethod, ConfigScrollMethod, LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE,
-            LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT, LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS,
-            LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER, LIBINPUT_CONFIG_CLICK_METHOD_NONE,
-            LIBINPUT_CONFIG_SCROLL_2FG, LIBINPUT_CONFIG_SCROLL_EDGE,
-            LIBINPUT_CONFIG_SCROLL_NO_SCROLL, LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN,
-        },
-        object::Version,
-        tools::tool_client::{Handle, ToolClient, with_tool_client},
-        utils::{
-            bhash::BHashMap, bitflags::BitflagsExt, errorfmt::ErrorFmt, static_text::StaticText,
-            string_ext::StringExt,
-        },
-        wire::{
-            JayCompositorId, JayInputId, JayKeymapBuilderId, jay_compositor, jay_input,
-            jay_keymap_builder,
-        },
-    },
-    clap::{Args, Subcommand, ValueEnum, ValueHint},
-    derivative::Derivative,
-    isnt::std_1::vec::IsntVecExt,
-    jay_toml_config::input_event_code_from_name,
-    std::{
-        cell::RefCell,
-        io::{Read, Write, stdin, stdout},
-        mem,
-        ops::{Deref, DerefMut},
-        rc::Rc,
-    },
-    thiserror::Error,
-    uapi::{OwnedFd, c},
-};
+use crate::backend::InputDeviceAccelProfile;
+use crate::backend::InputDeviceCapability;
+use crate::backend::InputDeviceClickMethod;
+use crate::backend::InputDeviceScrollMethod;
+use crate::cli::GlobalArgs;
+use crate::cli::json::JsonInputData;
+use crate::cli::json::JsonInputDevice;
+use crate::cli::json::JsonSeat;
+use crate::cli::json::jsonl;
+use crate::clientmem::ClientMem;
+use crate::evdev::input_event_codes::InputEventCode;
+use crate::libinput::consts::ConfigClickMethod;
+use crate::libinput::consts::ConfigScrollMethod;
+use crate::libinput::consts::LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE;
+use crate::libinput::consts::LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT;
+use crate::libinput::consts::LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS;
+use crate::libinput::consts::LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER;
+use crate::libinput::consts::LIBINPUT_CONFIG_CLICK_METHOD_NONE;
+use crate::libinput::consts::LIBINPUT_CONFIG_SCROLL_2FG;
+use crate::libinput::consts::LIBINPUT_CONFIG_SCROLL_EDGE;
+use crate::libinput::consts::LIBINPUT_CONFIG_SCROLL_NO_SCROLL;
+use crate::libinput::consts::LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN;
+use crate::object::Version;
+use crate::tools::tool_client::Handle;
+use crate::tools::tool_client::ToolClient;
+use crate::tools::tool_client::with_tool_client;
+use crate::utils::bhash::BHashMap;
+use crate::utils::bitflags::BitflagsExt;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::static_text::StaticText;
+use crate::utils::string_ext::StringExt;
+use crate::wire::JayCompositorId;
+use crate::wire::JayInputId;
+use crate::wire::JayKeymapBuilderId;
+use crate::wire::jay_compositor;
+use crate::wire::jay_input;
+use crate::wire::jay_keymap_builder;
+use clap::Args;
+use clap::Subcommand;
+use clap::ValueEnum;
+use clap::ValueHint;
+use derivative::Derivative;
+use isnt::std_1::vec::IsntVecExt;
+use jay_toml_config::input_event_code_from_name;
+use std::cell::RefCell;
+use std::io::Read;
+use std::io::Write;
+use std::io::stdin;
+use std::io::stdout;
+use std::mem;
+use std::ops::Deref;
+use std::ops::DerefMut;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c;
 
 #[derive(Args, Debug)]
 pub struct InputArgs {
@@ -1197,7 +1209,8 @@ impl Input {
             });
         });
         jay_input::InputDevice::handle(tc, input, data.clone(), |data, msg| {
-            use crate::{backend::InputDeviceCapability::*, libinput::consts::*};
+            use crate::backend::InputDeviceCapability::*;
+            use crate::libinput::consts::*;
             let mut capabilities = vec![];
             let mut is_pointer = false;
             for cap in msg.capabilities {

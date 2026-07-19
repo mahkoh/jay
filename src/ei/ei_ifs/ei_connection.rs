@@ -1,31 +1,36 @@
-use {
-    crate::{
-        ei::{
-            EiContext,
-            ei_client::{EiClient, EiClientError},
-            ei_ifs::{
-                ei_callback::EiCallback,
-                ei_pingpong::EiPingpong,
-                ei_seat::{
-                    EI_CAP_BUTTON, EI_CAP_KEYBOARD, EI_CAP_POINTER, EI_CAP_POINTER_ABSOLUTE,
-                    EI_CAP_SCROLL, EI_CAP_TOUCHSCREEN, EiSeat,
-                },
-            },
-            ei_object::{EiObject, EiObjectId, EiVersion},
-        },
-        ifs::wl_seat::WlSeatGlobal,
-        leaks::Tracker,
-        wire_ei::{
-            EiButton, EiConnectionId, EiKeyboard, EiPointer, EiPointerAbsolute, EiScroll,
-            EiTouchscreen,
-            ei_connection::{
-                Disconnect, Disconnected, EiConnectionRequestHandler, InvalidObject, Ping, Seat,
-            },
-        },
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::ei::EiContext;
+use crate::ei::ei_client::EiClient;
+use crate::ei::ei_client::EiClientError;
+use crate::ei::ei_ifs::ei_callback::EiCallback;
+use crate::ei::ei_ifs::ei_pingpong::EiPingpong;
+use crate::ei::ei_ifs::ei_seat::EI_CAP_BUTTON;
+use crate::ei::ei_ifs::ei_seat::EI_CAP_KEYBOARD;
+use crate::ei::ei_ifs::ei_seat::EI_CAP_POINTER;
+use crate::ei::ei_ifs::ei_seat::EI_CAP_POINTER_ABSOLUTE;
+use crate::ei::ei_ifs::ei_seat::EI_CAP_SCROLL;
+use crate::ei::ei_ifs::ei_seat::EI_CAP_TOUCHSCREEN;
+use crate::ei::ei_ifs::ei_seat::EiSeat;
+use crate::ei::ei_object::EiObject;
+use crate::ei::ei_object::EiObjectId;
+use crate::ei::ei_object::EiVersion;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::leaks::Tracker;
+use crate::wire_ei::EiButton;
+use crate::wire_ei::EiConnectionId;
+use crate::wire_ei::EiKeyboard;
+use crate::wire_ei::EiPointer;
+use crate::wire_ei::EiPointerAbsolute;
+use crate::wire_ei::EiScroll;
+use crate::wire_ei::EiTouchscreen;
+use crate::wire_ei::ei_connection::Disconnect;
+use crate::wire_ei::ei_connection::Disconnected;
+use crate::wire_ei::ei_connection::EiConnectionRequestHandler;
+use crate::wire_ei::ei_connection::InvalidObject;
+use crate::wire_ei::ei_connection::Ping;
+use crate::wire_ei::ei_connection::Seat;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct EiConnection {
     pub id: EiConnectionId,

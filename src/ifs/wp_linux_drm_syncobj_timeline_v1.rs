@@ -1,14 +1,13 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        leaks::Tracker,
-        object::{Object, Version},
-        video::drm::syncobj::Syncobj,
-        wire::{WpLinuxDrmSyncobjTimelineV1Id, wp_linux_drm_syncobj_timeline_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::video::drm::syncobj::Syncobj;
+use crate::wire::WpLinuxDrmSyncobjTimelineV1Id;
+use crate::wire::wp_linux_drm_syncobj_timeline_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpLinuxDrmSyncobjTimelineV1 {
     id: WpLinuxDrmSyncobjTimelineV1Id,

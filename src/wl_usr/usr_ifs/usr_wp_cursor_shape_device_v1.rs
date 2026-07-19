@@ -1,12 +1,11 @@
-use {
-    crate::{
-        cursor::KnownCursor,
-        object::Version,
-        wire::{WpCursorShapeDeviceV1Id, wp_cursor_shape_device_v1::*},
-        wl_usr::{UsrCon, usr_object::UsrObject},
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::cursor::KnownCursor;
+use crate::object::Version;
+use crate::wire::WpCursorShapeDeviceV1Id;
+use crate::wire::wp_cursor_shape_device_v1::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrWpCursorShapeDeviceV1 {
     pub id: WpCursorShapeDeviceV1Id,

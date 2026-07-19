@@ -2,7 +2,8 @@
 //!
 //! See the libinput documentation for the meanings of these constants.
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 /// A capability of an input device.
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]

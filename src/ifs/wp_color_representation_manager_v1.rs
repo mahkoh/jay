@@ -1,24 +1,26 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wl_surface::wp_color_representation_surface_v1::{
-            AM_PREMULTIPLIED_ELECTRICAL, AM_PREMULTIPLIED_OPTICAL, AM_STRAIGHT, COEF_IDENTITY,
-            RANGE_FULL, WpColorRepresentationSurfaceV1, WpColorRepresentationSurfaceV1Error,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{
-            WpColorRepresentationManagerV1Id,
-            wp_color_representation_manager_v1::{
-                Destroy, Done, GetSurface, SupportedAlphaMode, SupportedCoefficientsAndRanges,
-                WpColorRepresentationManagerV1RequestHandler,
-            },
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_surface::wp_color_representation_surface_v1::AM_PREMULTIPLIED_ELECTRICAL;
+use crate::ifs::wl_surface::wp_color_representation_surface_v1::AM_PREMULTIPLIED_OPTICAL;
+use crate::ifs::wl_surface::wp_color_representation_surface_v1::AM_STRAIGHT;
+use crate::ifs::wl_surface::wp_color_representation_surface_v1::COEF_IDENTITY;
+use crate::ifs::wl_surface::wp_color_representation_surface_v1::RANGE_FULL;
+use crate::ifs::wl_surface::wp_color_representation_surface_v1::WpColorRepresentationSurfaceV1;
+use crate::ifs::wl_surface::wp_color_representation_surface_v1::WpColorRepresentationSurfaceV1Error;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WpColorRepresentationManagerV1Id;
+use crate::wire::wp_color_representation_manager_v1::Destroy;
+use crate::wire::wp_color_representation_manager_v1::Done;
+use crate::wire::wp_color_representation_manager_v1::GetSurface;
+use crate::wire::wp_color_representation_manager_v1::SupportedAlphaMode;
+use crate::wire::wp_color_representation_manager_v1::SupportedCoefficientsAndRanges;
+use crate::wire::wp_color_representation_manager_v1::WpColorRepresentationManagerV1RequestHandler;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpColorRepresentationManagerV1Global {
     pub name: GlobalName,

@@ -1,9 +1,10 @@
 //! Timers for one-time or repeated actions.
 
-use {
-    serde::{Deserialize, Serialize},
-    std::time::{Duration, SystemTime, UNIX_EPOCH},
-};
+use serde::Deserialize;
+use serde::Serialize;
+use std::time::Duration;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
 /// A timer.
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]

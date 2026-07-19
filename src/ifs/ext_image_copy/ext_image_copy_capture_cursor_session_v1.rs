@@ -1,17 +1,15 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::{
-            ext_image_capture_source_v1::ImageCaptureSource,
-            ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ExtImageCopyCaptureCursorSessionV1Id, ext_image_copy_capture_cursor_session_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::ext_image_capture_source_v1::ImageCaptureSource;
+use crate::ifs::ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ExtImageCopyCaptureCursorSessionV1Id;
+use crate::wire::ext_image_copy_capture_cursor_session_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ExtImageCopyCaptureCursorSessionV1 {
     pub(super) id: ExtImageCopyCaptureCursorSessionV1Id,

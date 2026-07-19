@@ -1,24 +1,24 @@
-use {
-    crate::{
-        ei::{
-            ei_client::{EiClient, EiClientError},
-            ei_ifs::ei_device::{EiDevice, EiDeviceInterface},
-            ei_object::{EiObject, EiVersion},
-        },
-        fixed::Fixed,
-        ifs::wl_seat::wl_pointer::{HORIZONTAL_SCROLL, VERTICAL_SCROLL},
-        leaks::Tracker,
-        wire_ei::{
-            EiScrollId,
-            ei_scroll::{
-                ClientScroll, ClientScrollDiscrete, ClientScrollStop, EiScrollRequestHandler,
-                Release, ServerScroll, ServerScrollDiscrete, ServerScrollStop,
-            },
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::ei::ei_client::EiClient;
+use crate::ei::ei_client::EiClientError;
+use crate::ei::ei_ifs::ei_device::EiDevice;
+use crate::ei::ei_ifs::ei_device::EiDeviceInterface;
+use crate::ei::ei_object::EiObject;
+use crate::ei::ei_object::EiVersion;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::wl_pointer::HORIZONTAL_SCROLL;
+use crate::ifs::wl_seat::wl_pointer::VERTICAL_SCROLL;
+use crate::leaks::Tracker;
+use crate::wire_ei::EiScrollId;
+use crate::wire_ei::ei_scroll::ClientScroll;
+use crate::wire_ei::ei_scroll::ClientScrollDiscrete;
+use crate::wire_ei::ei_scroll::ClientScrollStop;
+use crate::wire_ei::ei_scroll::EiScrollRequestHandler;
+use crate::wire_ei::ei_scroll::Release;
+use crate::wire_ei::ei_scroll::ServerScroll;
+use crate::wire_ei::ei_scroll::ServerScrollDiscrete;
+use crate::wire_ei::ei_scroll::ServerScrollStop;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct EiScroll {
     pub id: EiScrollId,

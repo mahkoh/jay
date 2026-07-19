@@ -1,12 +1,12 @@
-use {
-    crate::{
-        ifs::wl_seat::{BTN_LEFT, ToplevelSelector},
-        it::{test_error::TestResult, testrun::TestRun},
-        tree::{NodeBase, ToplevelNode, TreeTimeline::LiveTL},
-        utils::clonecell::CloneCell,
-    },
-    std::rc::Rc,
-};
+use crate::ifs::wl_seat::BTN_LEFT;
+use crate::ifs::wl_seat::ToplevelSelector;
+use crate::it::test_error::TestResult;
+use crate::it::testrun::TestRun;
+use crate::tree::NodeBase;
+use crate::tree::ToplevelNode;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::utils::clonecell::CloneCell;
+use std::rc::Rc;
 
 testcase!();
 

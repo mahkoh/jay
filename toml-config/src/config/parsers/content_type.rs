@@ -1,16 +1,17 @@
-use {
-    crate::{
-        config::parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-        toml::{
-            toml_span::{Span, Spanned, SpannedExt},
-            toml_value::Value,
-        },
-    },
-    jay_config::window::{
-        ContentType, GAME_CONTENT, NO_CONTENT_TYPE, PHOTO_CONTENT, VIDEO_CONTENT,
-    },
-    thiserror::Error,
-};
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_span::SpannedExt;
+use crate::toml::toml_value::Value;
+use jay_config::window::ContentType;
+use jay_config::window::GAME_CONTENT;
+use jay_config::window::NO_CONTENT_TYPE;
+use jay_config::window::PHOTO_CONTENT;
+use jay_config::window::VIDEO_CONTENT;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ContentTypeParserError {

@@ -1,8 +1,7 @@
-use {
-    crate::it::{test_error::TestResult, testrun::TestRun},
-    jay_config::keyboard::syms::SYM_F13,
-    std::rc::Rc,
-};
+use crate::it::test_error::TestResult;
+use crate::it::testrun::TestRun;
+use jay_config::keyboard::syms::SYM_F13;
+use std::rc::Rc;
 
 testcase!();
 

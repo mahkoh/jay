@@ -1,21 +1,36 @@
-use {
-    crate::{
-        client::{Client, ClientError, ClientId, WaylandObject, WaylandObjectLookup},
-        ifs::{
-            ipc::{
-                DataOffer, DataOfferId, DataSource, DeviceData, DynDataOffer, DynDataSource,
-                IpcLocation, IpcVtable, OfferData, Role, SourceData, cancel_offer, cancel_offers,
-                data_control::{DataControlDeviceId, DynDataControlDevice},
-                detach_seat, offer_source_to_data_control_device, offer_source_to_x,
-                x_data_device::{XClipboardIpc, XIpcDevice, XPrimarySelectionIpc},
-            },
-            wl_seat::WlSeatGlobal,
-        },
-        object::{ObjectId, Version},
-    },
-    std::{cell::Cell, marker::PhantomData, rc::Rc},
-    uapi::OwnedFd,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::client::ClientId;
+use crate::client::WaylandObject;
+use crate::client::WaylandObjectLookup;
+use crate::ifs::ipc::DataOffer;
+use crate::ifs::ipc::DataOfferId;
+use crate::ifs::ipc::DataSource;
+use crate::ifs::ipc::DeviceData;
+use crate::ifs::ipc::DynDataOffer;
+use crate::ifs::ipc::DynDataSource;
+use crate::ifs::ipc::IpcLocation;
+use crate::ifs::ipc::IpcVtable;
+use crate::ifs::ipc::OfferData;
+use crate::ifs::ipc::Role;
+use crate::ifs::ipc::SourceData;
+use crate::ifs::ipc::cancel_offer;
+use crate::ifs::ipc::cancel_offers;
+use crate::ifs::ipc::data_control::DataControlDeviceId;
+use crate::ifs::ipc::data_control::DynDataControlDevice;
+use crate::ifs::ipc::detach_seat;
+use crate::ifs::ipc::offer_source_to_data_control_device;
+use crate::ifs::ipc::offer_source_to_x;
+use crate::ifs::ipc::x_data_device::XClipboardIpc;
+use crate::ifs::ipc::x_data_device::XIpcDevice;
+use crate::ifs::ipc::x_data_device::XPrimarySelectionIpc;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::object::ObjectId;
+use crate::object::Version;
+use std::cell::Cell;
+use std::marker::PhantomData;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 struct ClipboardCore<T>(PhantomData<T>);
 struct PrimarySelectionCore<T>(PhantomData<T>);
@@ -288,27 +303,28 @@ impl<T: DataControlOffer> DynDataOffer for T {
 }
 
 pub mod logic {
-    use {
-        crate::{
-            client::ClientError,
-            ifs::{
-                ipc::{
-                    IpcLocation, OfferDestroyReason, add_data_source_mime_type, break_device_loops,
-                    break_offer_loops, break_source_loops,
-                    data_control::private::{
-                        Clipboard, DataControlDevice, DataControlOffer, DataControlSource,
-                        PrimarySelection, Source, SourceId,
-                    },
-                    destroy_data_device, destroy_data_offer_with_reason, destroy_data_source,
-                    receive_data_offer,
-                },
-                wl_seat::WlSeatError,
-            },
-        },
-        std::rc::Rc,
-        thiserror::Error,
-        uapi::OwnedFd,
-    };
+    use crate::client::ClientError;
+    use crate::ifs::ipc::IpcLocation;
+    use crate::ifs::ipc::OfferDestroyReason;
+    use crate::ifs::ipc::add_data_source_mime_type;
+    use crate::ifs::ipc::break_device_loops;
+    use crate::ifs::ipc::break_offer_loops;
+    use crate::ifs::ipc::break_source_loops;
+    use crate::ifs::ipc::data_control::private::Clipboard;
+    use crate::ifs::ipc::data_control::private::DataControlDevice;
+    use crate::ifs::ipc::data_control::private::DataControlOffer;
+    use crate::ifs::ipc::data_control::private::DataControlSource;
+    use crate::ifs::ipc::data_control::private::PrimarySelection;
+    use crate::ifs::ipc::data_control::private::Source;
+    use crate::ifs::ipc::data_control::private::SourceId;
+    use crate::ifs::ipc::destroy_data_device;
+    use crate::ifs::ipc::destroy_data_offer_with_reason;
+    use crate::ifs::ipc::destroy_data_source;
+    use crate::ifs::ipc::receive_data_offer;
+    use crate::ifs::wl_seat::WlSeatError;
+    use std::rc::Rc;
+    use thiserror::Error;
+    use uapi::OwnedFd;
 
     pub fn data_device_break_loops<D: DataControlDevice>(d: &D) {
         break_device_loops::<Clipboard<D::Ipc>>(d);

@@ -1,20 +1,19 @@
-use {
-    crate::{
-        ifs::wl_surface::{
-            WlSurface,
-            ext_session_lock_surface_v1::ExtSessionLockSurfaceV1,
-            tray::jay_tray_item_v1::JayTrayItemV1,
-            x_surface::xwindow::Xwindow,
-            xdg_surface::{xdg_popup::XdgPopup, xdg_toplevel::XdgToplevel},
-            zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
-        },
-        tree::{
-            ContainerNode, DisplayNode, FloatNode, Node, NodeBase, OutputNode, PlaceholderNode,
-            WorkspaceNode,
-        },
-    },
-    std::rc::Rc,
-};
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::ext_session_lock_surface_v1::ExtSessionLockSurfaceV1;
+use crate::ifs::wl_surface::tray::jay_tray_item_v1::JayTrayItemV1;
+use crate::ifs::wl_surface::x_surface::xwindow::Xwindow;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1;
+use crate::tree::ContainerNode;
+use crate::tree::DisplayNode;
+use crate::tree::FloatNode;
+use crate::tree::Node;
+use crate::tree::NodeBase;
+use crate::tree::OutputNode;
+use crate::tree::PlaceholderNode;
+use crate::tree::WorkspaceNode;
+use std::rc::Rc;
 
 pub trait NodeVisitorBase: Sized {
     fn visit_surface(&mut self, node: &Rc<WlSurface>) {

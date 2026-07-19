@@ -1,12 +1,11 @@
-use {
-    crate::{
-        object::Version,
-        utils::clonecell::CloneCell,
-        wire::{JayOutputId, jay_output::*},
-        wl_usr::{UsrCon, usr_object::UsrObject},
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::object::Version;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::JayOutputId;
+use crate::wire::jay_output::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrJayOutput {
     pub id: JayOutputId,

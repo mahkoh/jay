@@ -16,12 +16,12 @@
 
 extern crate core;
 
-use std::{
-    env,
-    fs::{File, OpenOptions},
-    io::{self, BufWriter},
-    path::PathBuf,
-};
+use std::env;
+use std::fs::File;
+use std::fs::OpenOptions;
+use std::io::BufWriter;
+use std::io::{self};
+use std::path::PathBuf;
 
 mod egl;
 mod enums;

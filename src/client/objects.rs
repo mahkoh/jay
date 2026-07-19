@@ -1,75 +1,84 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::{
-            color_management::{
-                wp_image_description_reference_v1::WpImageDescriptionReferenceV1,
-                wp_image_description_v1::WpImageDescriptionV1,
-            },
-            ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
-            ext_image_capture_source_v1::ExtImageCaptureSourceV1,
-            ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
-            ipc::{
-                data_control::{
-                    ext_data_control_source_v1::ExtDataControlSourceV1,
-                    zwlr_data_control_source_v1::ZwlrDataControlSourceV1,
-                },
-                wl_data_source::WlDataSource,
-                zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
-            },
-            jay_keymap_builder::JayKeymapBuilder,
-            jay_output::JayOutput,
-            jay_screencast::JayScreencast,
-            jay_toplevel::JayToplevel,
-            jay_workspace::JayWorkspace,
-            wl_buffer::WlBuffer,
-            wl_display::WlDisplay,
-            wl_output::WlOutput,
-            wl_region::WlRegion,
-            wl_registry::WlRegistry,
-            wl_seat::{WlSeat, tablet::zwp_tablet_tool_v2::ZwpTabletToolV2, wl_pointer::WlPointer},
-            wl_surface::{
-                WlSurface,
-                xdg_surface::{
-                    XdgSurface,
-                    xdg_popup::XdgPopup,
-                    xdg_toplevel::{
-                        XdgToplevel, xdg_toplevel_icon_manager_v1::XdgToplevelIconManagerV1,
-                        xdg_toplevel_icon_v1::XdgToplevelIconV1,
-                    },
-                },
-            },
-            wlr_output_manager::{
-                zwlr_output_head_v1::ZwlrOutputHeadV1, zwlr_output_mode_v1::ZwlrOutputModeV1,
-            },
-            workspace_manager::ext_workspace_group_handle_v1::ExtWorkspaceGroupHandleV1,
-            wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1,
-            wp_linux_drm_syncobj_timeline_v1::WpLinuxDrmSyncobjTimelineV1,
-            xdg_positioner::XdgPositioner,
-            xdg_wm_base::XdgWmBase,
-            zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1,
-        },
-        object::{Object, ObjectId},
-        utils::{
-            clonecell::CloneCell,
-            copyhashmap::{CopyHashMap, Locked},
-            hash_map_ext::HashMapExt,
-        },
-        wire::{
-            ExtDataControlSourceV1Id, ExtForeignToplevelHandleV1Id, ExtImageCaptureSourceV1Id,
-            ExtImageCopyCaptureSessionV1Id, ExtWorkspaceGroupHandleV1Id, JayKeymapBuilderId,
-            JayOutputId, JayScreencastId, JayToplevelId, JayWorkspaceId, WlBufferId,
-            WlDataSourceId, WlOutputId, WlPointerId, WlRegionId, WlRegistryId, WlSeatId,
-            WlSurfaceId, WpDrmLeaseConnectorV1Id, WpImageDescriptionReferenceV1Id,
-            WpImageDescriptionV1Id, WpLinuxDrmSyncobjTimelineV1Id, XdgPopupId, XdgPositionerId,
-            XdgSurfaceId, XdgToplevelIconManagerV1Id, XdgToplevelIconV1Id, XdgToplevelId,
-            XdgWmBaseId, ZwlrDataControlSourceV1Id, ZwlrForeignToplevelHandleV1Id,
-            ZwlrOutputHeadV1Id, ZwlrOutputModeV1Id, ZwpPrimarySelectionSourceV1Id,
-            ZwpTabletToolV2Id,
-        },
-    },
-    std::{cell::RefCell, rc::Rc},
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::color_management::wp_image_description_reference_v1::WpImageDescriptionReferenceV1;
+use crate::ifs::color_management::wp_image_description_v1::WpImageDescriptionV1;
+use crate::ifs::ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1;
+use crate::ifs::ext_image_capture_source_v1::ExtImageCaptureSourceV1;
+use crate::ifs::ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1;
+use crate::ifs::ipc::data_control::ext_data_control_source_v1::ExtDataControlSourceV1;
+use crate::ifs::ipc::data_control::zwlr_data_control_source_v1::ZwlrDataControlSourceV1;
+use crate::ifs::ipc::wl_data_source::WlDataSource;
+use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
+use crate::ifs::jay_keymap_builder::JayKeymapBuilder;
+use crate::ifs::jay_output::JayOutput;
+use crate::ifs::jay_screencast::JayScreencast;
+use crate::ifs::jay_toplevel::JayToplevel;
+use crate::ifs::jay_workspace::JayWorkspace;
+use crate::ifs::wl_buffer::WlBuffer;
+use crate::ifs::wl_display::WlDisplay;
+use crate::ifs::wl_output::WlOutput;
+use crate::ifs::wl_region::WlRegion;
+use crate::ifs::wl_registry::WlRegistry;
+use crate::ifs::wl_seat::WlSeat;
+use crate::ifs::wl_seat::tablet::zwp_tablet_tool_v2::ZwpTabletToolV2;
+use crate::ifs::wl_seat::wl_pointer::WlPointer;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::xdg_surface::XdgSurface;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_manager_v1::XdgToplevelIconManagerV1;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::XdgToplevelIconV1;
+use crate::ifs::wlr_output_manager::zwlr_output_head_v1::ZwlrOutputHeadV1;
+use crate::ifs::wlr_output_manager::zwlr_output_mode_v1::ZwlrOutputModeV1;
+use crate::ifs::workspace_manager::ext_workspace_group_handle_v1::ExtWorkspaceGroupHandleV1;
+use crate::ifs::wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1;
+use crate::ifs::wp_linux_drm_syncobj_timeline_v1::WpLinuxDrmSyncobjTimelineV1;
+use crate::ifs::xdg_positioner::XdgPositioner;
+use crate::ifs::xdg_wm_base::XdgWmBase;
+use crate::ifs::zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1;
+use crate::object::Object;
+use crate::object::ObjectId;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::copyhashmap::Locked;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::wire::ExtDataControlSourceV1Id;
+use crate::wire::ExtForeignToplevelHandleV1Id;
+use crate::wire::ExtImageCaptureSourceV1Id;
+use crate::wire::ExtImageCopyCaptureSessionV1Id;
+use crate::wire::ExtWorkspaceGroupHandleV1Id;
+use crate::wire::JayKeymapBuilderId;
+use crate::wire::JayOutputId;
+use crate::wire::JayScreencastId;
+use crate::wire::JayToplevelId;
+use crate::wire::JayWorkspaceId;
+use crate::wire::WlBufferId;
+use crate::wire::WlDataSourceId;
+use crate::wire::WlOutputId;
+use crate::wire::WlPointerId;
+use crate::wire::WlRegionId;
+use crate::wire::WlRegistryId;
+use crate::wire::WlSeatId;
+use crate::wire::WlSurfaceId;
+use crate::wire::WpDrmLeaseConnectorV1Id;
+use crate::wire::WpImageDescriptionReferenceV1Id;
+use crate::wire::WpImageDescriptionV1Id;
+use crate::wire::WpLinuxDrmSyncobjTimelineV1Id;
+use crate::wire::XdgPopupId;
+use crate::wire::XdgPositionerId;
+use crate::wire::XdgSurfaceId;
+use crate::wire::XdgToplevelIconManagerV1Id;
+use crate::wire::XdgToplevelIconV1Id;
+use crate::wire::XdgToplevelId;
+use crate::wire::XdgWmBaseId;
+use crate::wire::ZwlrDataControlSourceV1Id;
+use crate::wire::ZwlrForeignToplevelHandleV1Id;
+use crate::wire::ZwlrOutputHeadV1Id;
+use crate::wire::ZwlrOutputModeV1Id;
+use crate::wire::ZwpPrimarySelectionSourceV1Id;
+use crate::wire::ZwpTabletToolV2Id;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct Objects {
     pub display: CloneCell<Option<Rc<WlDisplay>>>,

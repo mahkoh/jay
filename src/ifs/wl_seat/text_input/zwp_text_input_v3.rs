@@ -1,26 +1,25 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::{
-            wl_seat::{
-                WlSeatGlobal,
-                text_input::{
-                    InputMethod, MAX_TEXT_SIZE, TextConnectReason, TextDisconnectReason,
-                    TextInputConnection,
-                },
-            },
-            wl_surface::WlSurface,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        rect::Rect,
-        utils::{clonecell::CloneCell, numcell::NumCell},
-        wire::{ZwpTextInputV3Id, zwp_text_input_v3::*},
-    },
-    hashbrown::hash_map::Entry,
-    std::{cell::RefCell, mem, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::text_input::InputMethod;
+use crate::ifs::wl_seat::text_input::MAX_TEXT_SIZE;
+use crate::ifs::wl_seat::text_input::TextConnectReason;
+use crate::ifs::wl_seat::text_input::TextDisconnectReason;
+use crate::ifs::wl_seat::text_input::TextInputConnection;
+use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::rect::Rect;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::numcell::NumCell;
+use crate::wire::ZwpTextInputV3Id;
+use crate::wire::zwp_text_input_v3::*;
+use hashbrown::hash_map::Entry;
+use std::cell::RefCell;
+use std::mem;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpTextInputV3 {
     pub id: ZwpTextInputV3Id,

@@ -1,23 +1,21 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ei::ei_client::EiClientError,
-        ifs::jay_ei_session::JayEiSession,
-        leaks::Tracker,
-        object::{Object, Version},
-        utils::{
-            errorfmt::ErrorFmt,
-            oserror::{OsError, OsErrorExt2},
-        },
-        wire::{
-            JayEiSessionBuilderId,
-            jay_ei_session_builder::{Commit, JayEiSessionBuilderRequestHandler, SetAppId},
-        },
-    },
-    std::{cell::RefCell, rc::Rc},
-    thiserror::Error,
-    uapi::c,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ei::ei_client::EiClientError;
+use crate::ifs::jay_ei_session::JayEiSession;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt2;
+use crate::wire::JayEiSessionBuilderId;
+use crate::wire::jay_ei_session_builder::Commit;
+use crate::wire::jay_ei_session_builder::JayEiSessionBuilderRequestHandler;
+use crate::wire::jay_ei_session_builder::SetAppId;
+use std::cell::RefCell;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::c;
 
 pub struct JayEiSessionBuilder {
     pub id: JayEiSessionBuilderId,

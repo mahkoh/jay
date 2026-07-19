@@ -1,11 +1,10 @@
-use {
-    crate::utils::{
-        oserror::{OsError, OsErrorExt},
-        pipe::pipe,
-    },
-    std::{rc::Rc, slice},
-    uapi::{OwnedFd, c},
-};
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt;
+use crate::utils::pipe::pipe;
+use std::rc::Rc;
+use std::slice;
+use uapi::OwnedFd;
+use uapi::c;
 
 pub struct FdBlocker(#[expect(dead_code)] pub Rc<OwnedFd>);
 

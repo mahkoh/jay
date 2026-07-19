@@ -1,6 +1,7 @@
 //! Tools for configuring the look of the compositor.
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 /// A color.
 ///
@@ -251,10 +252,9 @@ pub fn set_window_icons_grayscale(grayscale: bool) {
 
 /// Elements of the compositor whose color can be changed.
 pub mod colors {
-    use {
-        crate::theme::Color,
-        serde::{Deserialize, Serialize},
-    };
+    use crate::theme::Color;
+    use serde::Deserialize;
+    use serde::Serialize;
 
     /// An element of the GUI whose color can be changed.
     #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
@@ -376,7 +376,8 @@ pub mod colors {
 
 /// Elements of the compositor whose size can be changed.
 pub mod sized {
-    use serde::{Deserialize, Serialize};
+    use serde::Deserialize;
+    use serde::Serialize;
 
     /// An element of the GUI whose size can be changed.
     #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]

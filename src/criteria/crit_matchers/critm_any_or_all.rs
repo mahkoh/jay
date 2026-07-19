@@ -1,7 +1,8 @@
-use {
-    crate::criteria::crit_graph::{CritMiddleCriterion, CritTarget, CritUpstreamNode},
-    std::{marker::PhantomData, rc::Rc},
-};
+use crate::criteria::crit_graph::CritMiddleCriterion;
+use crate::criteria::crit_graph::CritTarget;
+use crate::criteria::crit_graph::CritUpstreamNode;
+use std::marker::PhantomData;
+use std::rc::Rc;
 
 pub struct CritMatchAnyOrAll<Target>
 where

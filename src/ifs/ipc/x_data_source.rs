@@ -1,18 +1,17 @@
-use {
-    crate::{
-        ifs::{
-            ipc::{
-                DataSource, DynDataSource, IpcLocation, SourceData, cancel_offers, detach_seat,
-                x_data_device::XIpcDevice,
-            },
-            wl_seat::WlSeatGlobal,
-        },
-        state::State,
-        xwayland::XWaylandEvent::{IpcCancelSource, IpcSendSource, IpcSetSelection},
-    },
-    std::rc::Rc,
-    uapi::OwnedFd,
-};
+use crate::ifs::ipc::DataSource;
+use crate::ifs::ipc::DynDataSource;
+use crate::ifs::ipc::IpcLocation;
+use crate::ifs::ipc::SourceData;
+use crate::ifs::ipc::cancel_offers;
+use crate::ifs::ipc::detach_seat;
+use crate::ifs::ipc::x_data_device::XIpcDevice;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::state::State;
+use crate::xwayland::XWaylandEvent::IpcCancelSource;
+use crate::xwayland::XWaylandEvent::IpcSendSource;
+use crate::xwayland::XWaylandEvent::IpcSetSelection;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 pub struct XDataSource {
     pub state: Rc<State>,

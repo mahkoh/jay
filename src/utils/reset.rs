@@ -1,7 +1,6 @@
-use {
-    crate::utils::bhash::BHashMap,
-    smallvec::{Array, SmallVec},
-};
+use crate::utils::bhash::BHashMap;
+use smallvec::Array;
+use smallvec::SmallVec;
 
 #[allow(clippy::allow_attributes, dead_code)]
 pub trait Reset {

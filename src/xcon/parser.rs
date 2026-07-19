@@ -1,12 +1,12 @@
-use {
-    crate::{
-        utils::ptr_ext::PtrExt,
-        xcon::{XconError, wire_type::Message},
-    },
-    bstr::{BStr, ByteSlice},
-    std::{borrow::Cow, rc::Rc},
-    uapi::{OwnedFd, Pod},
-};
+use crate::utils::ptr_ext::PtrExt;
+use crate::xcon::XconError;
+use crate::xcon::wire_type::Message;
+use bstr::BStr;
+use bstr::ByteSlice;
+use std::borrow::Cow;
+use std::rc::Rc;
+use uapi::OwnedFd;
+use uapi::Pod;
 
 pub struct Parser<'a> {
     pos: usize,

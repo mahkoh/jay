@@ -1,31 +1,28 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::{
-            wl_seat::{
-                WlSeatGlobal,
-                text_input::{
-                    InputMethod, MAX_TEXT_SIZE, TextDisconnectReason, TextInputConnection,
-                    zwp_input_method_keyboard_grab_v2::ZwpInputMethodKeyboardGrabV2,
-                },
-            },
-            wl_surface::zwp_input_popup_surface_v2::{
-                ZwpInputPopupSurfaceV2, ZwpInputPopupSurfaceV2Error,
-            },
-        },
-        keyboard::KeyboardStateId,
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::NodeLocation,
-        utils::{clonecell::CloneCell, numcell::NumCell, smallmap::SmallMap},
-        wire::{ZwpInputMethodV2Id, ZwpInputPopupSurfaceV2Id, zwp_input_method_v2::*},
-    },
-    std::{
-        cell::{Cell, RefCell},
-        rc::Rc,
-    },
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::text_input::InputMethod;
+use crate::ifs::wl_seat::text_input::MAX_TEXT_SIZE;
+use crate::ifs::wl_seat::text_input::TextDisconnectReason;
+use crate::ifs::wl_seat::text_input::TextInputConnection;
+use crate::ifs::wl_seat::text_input::zwp_input_method_keyboard_grab_v2::ZwpInputMethodKeyboardGrabV2;
+use crate::ifs::wl_surface::zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2;
+use crate::ifs::wl_surface::zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2Error;
+use crate::keyboard::KeyboardStateId;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::NodeLocation;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::numcell::NumCell;
+use crate::utils::smallmap::SmallMap;
+use crate::wire::ZwpInputMethodV2Id;
+use crate::wire::ZwpInputPopupSurfaceV2Id;
+use crate::wire::zwp_input_method_v2::*;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpInputMethodV2 {
     pub id: ZwpInputMethodV2Id,

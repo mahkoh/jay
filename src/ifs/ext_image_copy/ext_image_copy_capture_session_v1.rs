@@ -1,37 +1,41 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        cmm::cmm_description::ColorDescription,
-        format::{FORMATS, Format},
-        gfx_api::{
-            AcquireSync, BufferResv, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture,
-            LazyTexture, PendingShmTransfer, ReleaseSync,
-        },
-        ifs::{
-            ext_image_capture_source_v1::ImageCaptureSource,
-            ext_image_copy::ext_image_copy_capture_frame_v1::{
-                ExtImageCopyCaptureFrameV1, FrameFailureReason, FrameStatus,
-            },
-            wl_buffer::WlBuffer,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        time::Time,
-        tree::{
-            LatchListener, OutputNode, PresentationListener,
-            TreeTimeline::{LiveTL, RenderTL},
-        },
-        utils::{cell_ext::CellExt, clonecell::CloneCell, event_listener::EventListener},
-        video::Modifier,
-        wire::{ExtImageCopyCaptureSessionV1Id, ext_image_copy_capture_session_v1::*},
-    },
-    std::{
-        cell::Cell,
-        rc::{Rc, Weak},
-    },
-    thiserror::Error,
-    uapi::c,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::cmm::cmm_description::ColorDescription;
+use crate::format::FORMATS;
+use crate::format::Format;
+use crate::gfx_api::AcquireSync;
+use crate::gfx_api::BufferResv;
+use crate::gfx_api::GfxInternalFramebuffer;
+use crate::gfx_api::GfxStagingBuffer;
+use crate::gfx_api::GfxTexture;
+use crate::gfx_api::LazyTexture;
+use crate::gfx_api::PendingShmTransfer;
+use crate::gfx_api::ReleaseSync;
+use crate::ifs::ext_image_capture_source_v1::ImageCaptureSource;
+use crate::ifs::ext_image_copy::ext_image_copy_capture_frame_v1::ExtImageCopyCaptureFrameV1;
+use crate::ifs::ext_image_copy::ext_image_copy_capture_frame_v1::FrameFailureReason;
+use crate::ifs::ext_image_copy::ext_image_copy_capture_frame_v1::FrameStatus;
+use crate::ifs::wl_buffer::WlBuffer;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::time::Time;
+use crate::tree::LatchListener;
+use crate::tree::OutputNode;
+use crate::tree::PresentationListener;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::utils::cell_ext::CellExt;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::event_listener::EventListener;
+use crate::video::Modifier;
+use crate::wire::ExtImageCopyCaptureSessionV1Id;
+use crate::wire::ext_image_copy_capture_session_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use std::rc::Weak;
+use thiserror::Error;
+use uapi::c;
 
 pub struct ExtImageCopyCaptureSessionV1 {
     pub(super) id: ExtImageCopyCaptureSessionV1Id,

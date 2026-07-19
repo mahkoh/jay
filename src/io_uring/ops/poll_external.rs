@@ -1,14 +1,15 @@
-use {
-    crate::{
-        io_uring::{
-            IoUring, IoUringData, IoUringError, IoUringTaskId, Task,
-            sys::{IORING_OP_POLL_ADD, io_uring_sqe},
-        },
-        utils::oserror::OsError,
-    },
-    std::{cell::Cell, rc::Rc},
-    uapi::{OwnedFd, c},
-};
+use crate::io_uring::IoUring;
+use crate::io_uring::IoUringData;
+use crate::io_uring::IoUringError;
+use crate::io_uring::IoUringTaskId;
+use crate::io_uring::Task;
+use crate::io_uring::sys::IORING_OP_POLL_ADD;
+use crate::io_uring::sys::io_uring_sqe;
+use crate::utils::oserror::OsError;
+use std::cell::Cell;
+use std::rc::Rc;
+use uapi::OwnedFd;
+use uapi::c;
 
 pub trait PollCallback {
     fn completed(self: Rc<Self>, res: Result<c::c_short, OsError>);

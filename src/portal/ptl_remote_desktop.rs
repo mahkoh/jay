@@ -1,33 +1,36 @@
 mod remote_desktop_gui;
 
-use {
-    crate::{
-        dbus::{DbusObject, PendingReply, prelude::Variant},
-        ifs::jay_compositor::CREATE_EI_SESSION_SINCE,
-        portal::{
-            PORTAL_SUCCESS, PortalState,
-            ptl_display::{PortalDisplay, PortalDisplayId},
-            ptl_remote_desktop::remote_desktop_gui::SelectionGui,
-            ptl_screencast::ScreencastPhase,
-            ptl_session::{PortalSession, PortalSessionReply},
-        },
-        utils::{clonecell::CloneCell, copyhashmap::CopyHashMap},
-        wire_dbus::{
-            org,
-            org::freedesktop::impl_::portal::{
-                remote_desktop::{
-                    ConnectToEIS, ConnectToEISReply, CreateSession, CreateSessionReply,
-                    SelectDevices, SelectDevicesReply, Start, StartReply,
-                },
-                session::CloseReply as SessionCloseReply,
-            },
-        },
-        wl_usr::usr_ifs::usr_jay_ei_session::{UsrJayEiSession, UsrJayEiSessionOwner},
-    },
-    jay_proc::jay_clone,
-    std::{cell::Cell, ops::Deref, rc::Rc},
-    uapi::OwnedFd,
-};
+use crate::dbus::DbusObject;
+use crate::dbus::PendingReply;
+use crate::dbus::prelude::Variant;
+use crate::ifs::jay_compositor::CREATE_EI_SESSION_SINCE;
+use crate::portal::PORTAL_SUCCESS;
+use crate::portal::PortalState;
+use crate::portal::ptl_display::PortalDisplay;
+use crate::portal::ptl_display::PortalDisplayId;
+use crate::portal::ptl_remote_desktop::remote_desktop_gui::SelectionGui;
+use crate::portal::ptl_screencast::ScreencastPhase;
+use crate::portal::ptl_session::PortalSession;
+use crate::portal::ptl_session::PortalSessionReply;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::wire_dbus::org;
+use crate::wire_dbus::org::freedesktop::impl_::portal::remote_desktop::ConnectToEIS;
+use crate::wire_dbus::org::freedesktop::impl_::portal::remote_desktop::ConnectToEISReply;
+use crate::wire_dbus::org::freedesktop::impl_::portal::remote_desktop::CreateSession;
+use crate::wire_dbus::org::freedesktop::impl_::portal::remote_desktop::CreateSessionReply;
+use crate::wire_dbus::org::freedesktop::impl_::portal::remote_desktop::SelectDevices;
+use crate::wire_dbus::org::freedesktop::impl_::portal::remote_desktop::SelectDevicesReply;
+use crate::wire_dbus::org::freedesktop::impl_::portal::remote_desktop::Start;
+use crate::wire_dbus::org::freedesktop::impl_::portal::remote_desktop::StartReply;
+use crate::wire_dbus::org::freedesktop::impl_::portal::session::CloseReply as SessionCloseReply;
+use crate::wl_usr::usr_ifs::usr_jay_ei_session::UsrJayEiSession;
+use crate::wl_usr::usr_ifs::usr_jay_ei_session::UsrJayEiSessionOwner;
+use jay_proc::jay_clone;
+use std::cell::Cell;
+use std::ops::Deref;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 #[jay_clone]
 pub enum RemoteDesktopPhase {

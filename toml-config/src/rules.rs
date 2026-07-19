@@ -1,15 +1,17 @@
-use {
-    crate::{
-        State,
-        config::{ClientMatch, ClientRule, GenericMatch, WindowMatch, WindowRule},
-    },
-    ahash::{AHashMap, AHashSet},
-    jay_config::{
-        client::{ClientCriterion, ClientMatcher},
-        window::{WindowCriterion, WindowMatcher},
-    },
-    std::{mem::ManuallyDrop, rc::Rc},
-};
+use crate::State;
+use crate::config::ClientMatch;
+use crate::config::ClientRule;
+use crate::config::GenericMatch;
+use crate::config::WindowMatch;
+use crate::config::WindowRule;
+use ahash::AHashMap;
+use ahash::AHashSet;
+use jay_config::client::ClientCriterion;
+use jay_config::client::ClientMatcher;
+use jay_config::window::WindowCriterion;
+use jay_config::window::WindowMatcher;
+use std::mem::ManuallyDrop;
+use std::rc::Rc;
 
 impl State {
     pub fn create_rules<R>(self: &Rc<Self>, rules: &[R]) -> (Vec<MatcherTemp<R>>, RuleMapper<R>)

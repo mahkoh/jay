@@ -1,13 +1,8 @@
-use {
-    crate::{
-        backend::AXIS_120,
-        ifs::wl_seat::{
-            PX_PER_SCROLL,
-            wl_pointer::{PendingScroll, VERTICAL_SCROLL},
-        },
-    },
-    std::cell::Cell,
-};
+use crate::backend::AXIS_120;
+use crate::ifs::wl_seat::PX_PER_SCROLL;
+use crate::ifs::wl_seat::wl_pointer::PendingScroll;
+use crate::ifs::wl_seat::wl_pointer::VERTICAL_SCROLL;
+use std::cell::Cell;
 
 #[derive(Default)]
 pub struct Scroller {

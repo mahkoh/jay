@@ -1,14 +1,16 @@
-use {
-    crate::utils::{numcell::NumCell, oserror::OsError, ptr_ext::PtrExt, stack::Stack},
-    std::{
-        cell::Cell,
-        future::Future,
-        pin::Pin,
-        rc::{Rc, Weak},
-        task::{Context, Poll, Waker},
-    },
-    uapi::c,
-};
+use crate::utils::numcell::NumCell;
+use crate::utils::oserror::OsError;
+use crate::utils::ptr_ext::PtrExt;
+use crate::utils::stack::Stack;
+use std::cell::Cell;
+use std::future::Future;
+use std::pin::Pin;
+use std::rc::Rc;
+use std::rc::Weak;
+use std::task::Context;
+use std::task::Poll;
+use std::task::Waker;
+use uapi::c;
 
 #[derive(Default)]
 pub struct PendingResults {

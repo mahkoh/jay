@@ -1,22 +1,19 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::{
-            wl_surface::wp_linux_drm_syncobj_surface_v1::{
-                WpLinuxDrmSyncobjSurfaceV1, WpLinuxDrmSyncobjSurfaceV1Error,
-            },
-            wp_linux_drm_syncobj_timeline_v1::WpLinuxDrmSyncobjTimelineV1,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        state::State,
-        video::drm::syncobj::Syncobj,
-        wire::{WpLinuxDrmSyncobjManagerV1Id, wp_linux_drm_syncobj_manager_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_surface::wp_linux_drm_syncobj_surface_v1::WpLinuxDrmSyncobjSurfaceV1;
+use crate::ifs::wl_surface::wp_linux_drm_syncobj_surface_v1::WpLinuxDrmSyncobjSurfaceV1Error;
+use crate::ifs::wp_linux_drm_syncobj_timeline_v1::WpLinuxDrmSyncobjTimelineV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::state::State;
+use crate::video::drm::syncobj::Syncobj;
+use crate::wire::WpLinuxDrmSyncobjManagerV1Id;
+use crate::wire::wp_linux_drm_syncobj_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpLinuxDrmSyncobjManagerV1Global {
     pub name: GlobalName,

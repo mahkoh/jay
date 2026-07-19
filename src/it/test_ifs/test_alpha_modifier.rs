@@ -1,17 +1,12 @@
-use {
-    crate::{
-        it::{
-            test_error::TestResult,
-            test_ifs::{
-                test_alpha_modifier_surface::TestAlphaModifierSurface, test_surface::TestSurface,
-            },
-            test_object::TestObject,
-            test_transport::TestTransport,
-        },
-        wire::{WpAlphaModifierV1Id, wp_alpha_modifier_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_alpha_modifier_surface::TestAlphaModifierSurface;
+use crate::it::test_ifs::test_surface::TestSurface;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::WpAlphaModifierV1Id;
+use crate::wire::wp_alpha_modifier_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestAlphaModifier {
     pub id: WpAlphaModifierV1Id,

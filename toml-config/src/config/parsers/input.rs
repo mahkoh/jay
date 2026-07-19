@@ -1,36 +1,42 @@
-use {
-    crate::{
-        config::{
-            Input,
-            context::Context,
-            extractor::{Extractor, ExtractorError, bol, fltorint, opt, recover, str, val},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-            parsers::{
-                action::ActionParser,
-                input_match::{InputMatchParser, InputMatchParserError},
-                keymap::KeymapParser,
-                output_match::OutputMatchParser,
-            },
-        },
-        input_event_code_from_name,
-        toml::{
-            toml_span::{DespanExt, Span, Spanned, SpannedExt},
-            toml_value::Value,
-        },
-    },
-    ahash::AHashMap,
-    indexmap::IndexMap,
-    jay_config::input::{
-        InputEventCode, SwitchEvent,
-        acceleration::{ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT},
-        clickmethod::{CLICK_METHOD_BUTTON_AREAS, CLICK_METHOD_CLICKFINGER, CLICK_METHOD_NONE},
-        scrollmethod::{
-            SCROLL_METHOD_EDGE, SCROLL_METHOD_NO_SCROLL, SCROLL_METHOD_ON_BUTTON_DOWN,
-            SCROLL_METHOD_TWO_FINGERS,
-        },
-    },
-    thiserror::Error,
-};
+use crate::config::Input;
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::bol;
+use crate::config::extractor::fltorint;
+use crate::config::extractor::opt;
+use crate::config::extractor::recover;
+use crate::config::extractor::str;
+use crate::config::extractor::val;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::config::parsers::action::ActionParser;
+use crate::config::parsers::input_match::InputMatchParser;
+use crate::config::parsers::input_match::InputMatchParserError;
+use crate::config::parsers::keymap::KeymapParser;
+use crate::config::parsers::output_match::OutputMatchParser;
+use crate::input_event_code_from_name;
+use crate::toml::toml_span::DespanExt;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_span::SpannedExt;
+use crate::toml::toml_value::Value;
+use ahash::AHashMap;
+use indexmap::IndexMap;
+use jay_config::input::InputEventCode;
+use jay_config::input::SwitchEvent;
+use jay_config::input::acceleration::ACCEL_PROFILE_ADAPTIVE;
+use jay_config::input::acceleration::ACCEL_PROFILE_FLAT;
+use jay_config::input::clickmethod::CLICK_METHOD_BUTTON_AREAS;
+use jay_config::input::clickmethod::CLICK_METHOD_CLICKFINGER;
+use jay_config::input::clickmethod::CLICK_METHOD_NONE;
+use jay_config::input::scrollmethod::SCROLL_METHOD_EDGE;
+use jay_config::input::scrollmethod::SCROLL_METHOD_NO_SCROLL;
+use jay_config::input::scrollmethod::SCROLL_METHOD_ON_BUTTON_DOWN;
+use jay_config::input::scrollmethod::SCROLL_METHOD_TWO_FINGERS;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum InputParserError {

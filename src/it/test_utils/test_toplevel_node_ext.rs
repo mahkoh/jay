@@ -1,4 +1,5 @@
-use crate::tree::{ToplevelNode, TreeTimeline::LiveTL};
+use crate::tree::ToplevelNode;
+use crate::tree::TreeTimeline::LiveTL;
 
 pub trait TestToplevelNodeExt {
     fn center(&self) -> (i32, i32);

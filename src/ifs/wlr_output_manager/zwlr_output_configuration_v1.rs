@@ -1,25 +1,22 @@
-use {
-    crate::{
-        backend::{
-            ConnectorId,
-            transaction::{
-                BackendConnectorTransactionError, ConnectorTransaction,
-                PreparedConnectorTransaction,
-            },
-        },
-        client::{Client, ClientError},
-        ifs::wlr_output_manager::{
-            zwlr_output_configuration_head::ZwlrOutputConfigurationHeadV1,
-            zwlr_output_manager_v1::ZwlrOutputManagerV1,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        utils::{copyhashmap::CopyHashMap, errorfmt::ErrorFmt, hash_map_ext::HashMapExt},
-        wire::{ZwlrOutputConfigurationV1Id, zwlr_output_configuration_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::backend::ConnectorId;
+use crate::backend::transaction::BackendConnectorTransactionError;
+use crate::backend::transaction::ConnectorTransaction;
+use crate::backend::transaction::PreparedConnectorTransaction;
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wlr_output_manager::zwlr_output_configuration_head::ZwlrOutputConfigurationHeadV1;
+use crate::ifs::wlr_output_manager::zwlr_output_manager_v1::ZwlrOutputManagerV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::wire::ZwlrOutputConfigurationV1Id;
+use crate::wire::zwlr_output_configuration_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwlrOutputConfigurationV1 {
     pub(super) id: ZwlrOutputConfigurationV1Id,

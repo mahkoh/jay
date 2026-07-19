@@ -1,13 +1,12 @@
-use {
-    crate::utils::numcell::NumCell,
-    std::{
-        cell::Cell,
-        fmt::{Debug, Formatter},
-        future::Future,
-        pin::Pin,
-        task::{Context, Poll, Waker},
-    },
-};
+use crate::utils::numcell::NumCell;
+use std::cell::Cell;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::future::Future;
+use std::pin::Pin;
+use std::task::Context;
+use std::task::Poll;
+use std::task::Waker;
 
 #[derive(Default)]
 pub struct AsyncEvent {

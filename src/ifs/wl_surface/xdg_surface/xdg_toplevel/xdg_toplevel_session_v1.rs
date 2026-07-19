@@ -1,24 +1,25 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::{
-            wl_surface::xdg_surface::xdg_toplevel::XdgToplevel,
-            xdg_session_v1::{XdgSessionV1, XdgSessionV1Error},
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        sm::{SessionGetStatus, SessionManagementError, ToplevelSession, ToplevelSessionOwner},
-        utils::clonecell::CloneCell,
-        wire::{
-            XdgToplevelId, XdgToplevelSessionV1Id,
-            xdg_toplevel_session_v1::{
-                Destroy, Rename, Restored, XdgToplevelSessionV1RequestHandler,
-            },
-        },
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::ifs::xdg_session_v1::XdgSessionV1;
+use crate::ifs::xdg_session_v1::XdgSessionV1Error;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::sm::SessionGetStatus;
+use crate::sm::SessionManagementError;
+use crate::sm::ToplevelSession;
+use crate::sm::ToplevelSessionOwner;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::XdgToplevelId;
+use crate::wire::XdgToplevelSessionV1Id;
+use crate::wire::xdg_toplevel_session_v1::Destroy;
+use crate::wire::xdg_toplevel_session_v1::Rename;
+use crate::wire::xdg_toplevel_session_v1::Restored;
+use crate::wire::xdg_toplevel_session_v1::XdgToplevelSessionV1RequestHandler;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct XdgToplevelSessionV1 {
     id: XdgToplevelSessionV1Id,

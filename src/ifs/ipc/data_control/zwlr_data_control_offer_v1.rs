@@ -1,19 +1,14 @@
-use {
-    crate::{
-        ifs::ipc::data_control::{
-            private::{
-                DataControlOffer, DataControlOfferData,
-                logic::{self, DataControlError},
-            },
-            zwlr_data_control_device_v1::WlrDataControlIpc,
-        },
-        leaks::Tracker,
-        object::Object,
-        wire::{ZwlrDataControlOfferV1Id, zwlr_data_control_offer_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::ifs::ipc::data_control::private::DataControlOffer;
+use crate::ifs::ipc::data_control::private::DataControlOfferData;
+use crate::ifs::ipc::data_control::private::logic::DataControlError;
+use crate::ifs::ipc::data_control::private::logic::{self};
+use crate::ifs::ipc::data_control::zwlr_data_control_device_v1::WlrDataControlIpc;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::wire::ZwlrDataControlOfferV1Id;
+use crate::wire::zwlr_data_control_offer_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwlrDataControlOfferV1 {
     pub id: ZwlrDataControlOfferV1Id,

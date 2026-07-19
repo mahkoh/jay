@@ -1,13 +1,19 @@
-use {
-    proc_macro2::{Ident, Span, TokenStream},
-    quote::{quote, quote_spanned},
-    syn::{
-        Error, Generics, Item, ItemStruct, LitInt, Type,
-        parse::{Parse, ParseStream},
-        parse_macro_input, parse_quote,
-        spanned::Spanned,
-    },
-};
+use proc_macro2::Ident;
+use proc_macro2::Span;
+use proc_macro2::TokenStream;
+use quote::quote;
+use quote::quote_spanned;
+use syn::Error;
+use syn::Generics;
+use syn::Item;
+use syn::ItemStruct;
+use syn::LitInt;
+use syn::Type;
+use syn::parse::Parse;
+use syn::parse::ParseStream;
+use syn::parse_macro_input;
+use syn::parse_quote;
+use syn::spanned::Spanned;
 
 pub fn derive_reset(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut input: Input = parse_macro_input!(input as Input);

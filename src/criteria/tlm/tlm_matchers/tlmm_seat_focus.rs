@@ -1,11 +1,8 @@
-use crate::{
-    criteria::{
-        crit_graph::CritRootCriterion,
-        tlm::{RootMatchers, TlmRootMatcherMap},
-    },
-    ifs::wl_seat::SeatId,
-    tree::ToplevelData,
-};
+use crate::criteria::crit_graph::CritRootCriterion;
+use crate::criteria::tlm::RootMatchers;
+use crate::criteria::tlm::TlmRootMatcherMap;
+use crate::ifs::wl_seat::SeatId;
+use crate::tree::ToplevelData;
 
 pub struct TlmMatchSeatFocus {
     id: SeatId,

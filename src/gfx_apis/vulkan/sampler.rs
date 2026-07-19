@@ -1,17 +1,16 @@
-use {
-    crate::{
-        gfx_api::ScalingFilter,
-        gfx_apis::vulkan::{
-            VulkanError,
-            device::{DescriptorHeapDevice, VulkanDevice},
-        },
-    },
-    ash::vk::{
-        BorderColor, Filter, HostAddressRangeEXT, Sampler, SamplerAddressMode, SamplerCreateInfo,
-        SamplerMipmapMode,
-    },
-    std::{rc::Rc, slice},
-};
+use crate::gfx_api::ScalingFilter;
+use crate::gfx_apis::vulkan::VulkanError;
+use crate::gfx_apis::vulkan::device::DescriptorHeapDevice;
+use crate::gfx_apis::vulkan::device::VulkanDevice;
+use ash::vk::BorderColor;
+use ash::vk::Filter;
+use ash::vk::HostAddressRangeEXT;
+use ash::vk::Sampler;
+use ash::vk::SamplerAddressMode;
+use ash::vk::SamplerCreateInfo;
+use ash::vk::SamplerMipmapMode;
+use std::rc::Rc;
+use std::slice;
 
 pub struct VulkanSampler {
     pub(super) device: Rc<VulkanDevice>,

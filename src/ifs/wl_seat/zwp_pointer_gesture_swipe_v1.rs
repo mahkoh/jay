@@ -1,15 +1,15 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        fixed::Fixed,
-        ifs::{wl_seat::WlSeatGlobal, wl_surface::WlSurface},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwpPointerGestureSwipeV1Id, zwp_pointer_gesture_swipe_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwpPointerGestureSwipeV1Id;
+use crate::wire::zwp_pointer_gesture_swipe_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpPointerGestureSwipeV1 {
     pub id: ZwpPointerGestureSwipeV1Id,

@@ -1,15 +1,18 @@
-use {
-    crate::{
-        cli::GlobalArgs,
-        compositor::WAYLAND_DISPLAY,
-        tools::tool_client::{Handle, ToolClient, with_tool_client},
-        utils::{errorfmt::ErrorFmt, oserror::OsErrorExt},
-        wire::{jay_acceptor_request, jay_compositor},
-    },
-    clap::{Args, ValueHint},
-    std::{cell::Cell, env, rc::Rc},
-    uapi::UstrPtr,
-};
+use crate::cli::GlobalArgs;
+use crate::compositor::WAYLAND_DISPLAY;
+use crate::tools::tool_client::Handle;
+use crate::tools::tool_client::ToolClient;
+use crate::tools::tool_client::with_tool_client;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::oserror::OsErrorExt;
+use crate::wire::jay_acceptor_request;
+use crate::wire::jay_compositor;
+use clap::Args;
+use clap::ValueHint;
+use std::cell::Cell;
+use std::env;
+use std::rc::Rc;
+use uapi::UstrPtr;
 
 #[derive(Args, Debug)]
 pub struct RunTaggedArgs {

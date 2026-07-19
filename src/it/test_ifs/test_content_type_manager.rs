@@ -1,15 +1,13 @@
-use {
-    crate::{
-        it::{
-            test_error::{TestError, TestResult},
-            test_ifs::{test_content_type::TestContentType, test_surface::TestSurface},
-            test_object::TestObject,
-            test_transport::TestTransport,
-        },
-        wire::{WpContentTypeManagerV1Id, wp_content_type_manager_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestError;
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_content_type::TestContentType;
+use crate::it::test_ifs::test_surface::TestSurface;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::WpContentTypeManagerV1Id;
+use crate::wire::wp_content_type_manager_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestContentTypeManager {
     pub id: WpContentTypeManagerV1Id,

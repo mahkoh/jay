@@ -1,46 +1,48 @@
+use crate::async_engine::AsyncEngine;
+use crate::async_engine::SpawnedFuture;
+use crate::dbus::property::Get;
+use crate::dbus::property::GetReply;
+use crate::dbus::types::ObjectPath;
+use crate::dbus::types::Signature;
+use crate::dbus::types::Variant;
+use crate::io_uring::IoUring;
+use crate::io_uring::IoUringError;
+use crate::utils::bhash::BHashMap;
+use crate::utils::buf::DynamicBuf;
+use crate::utils::bufio::BufIo;
+use crate::utils::bufio::BufIoError;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::numcell::NumCell;
+use crate::utils::oserror::OsError;
+use crate::utils::run_toplevel::RunToplevel;
+use crate::utils::stack::Stack;
+use crate::utils::vecstorage::VecStorage;
+use crate::utils::xrd::XRD;
+use crate::utils::xrd::xrd;
+use crate::wire_dbus::org;
+use crate::wire_dbus::org::freedesktop::dbus::properties::GetAll;
+use crate::wire_dbus::org::freedesktop::dbus::properties::GetAllReply;
+use crate::wire_dbus::org::freedesktop::dbus::properties::PropertiesChanged;
+use jay_proc::jay_hash;
+use std::borrow::Borrow;
+use std::borrow::Cow;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::future::Future;
+use std::marker::PhantomData;
+use std::mem;
+use std::ops::Deref;
+use std::pin::Pin;
+use std::rc::Rc;
+use std::task::Context;
+use std::task::Poll;
+use std::task::Waker;
+use thiserror::Error;
 pub use types::*;
-use {
-    crate::{
-        async_engine::{AsyncEngine, SpawnedFuture},
-        dbus::{
-            property::{Get, GetReply},
-            types::{ObjectPath, Signature, Variant},
-        },
-        io_uring::{IoUring, IoUringError},
-        utils::{
-            bhash::BHashMap,
-            buf::DynamicBuf,
-            bufio::{BufIo, BufIoError},
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            numcell::NumCell,
-            oserror::OsError,
-            run_toplevel::RunToplevel,
-            stack::Stack,
-            vecstorage::VecStorage,
-            xrd::{XRD, xrd},
-        },
-        wire_dbus::{
-            org,
-            org::freedesktop::dbus::properties::{GetAll, GetAllReply, PropertiesChanged},
-        },
-    },
-    jay_proc::jay_hash,
-    std::{
-        borrow::{Borrow, Cow},
-        cell::{Cell, RefCell},
-        fmt::{Debug, Display},
-        future::Future,
-        marker::PhantomData,
-        mem,
-        ops::Deref,
-        pin::Pin,
-        rc::Rc,
-        task::{Context, Poll, Waker},
-    },
-    thiserror::Error,
-    uapi::OwnedFd,
-};
+use uapi::OwnedFd;
 
 mod auth;
 mod dynamic_type;
@@ -918,12 +920,19 @@ impl MethodHandlerApi for PropertyGetAllHandlerProxy {
 }
 
 pub mod prelude {
-    pub use {
-        super::{
-            DbusError, DbusType, Formatter, Message, MethodCall, Parser, Property, Signal,
-            types::{Bool, DictEntry, ObjectPath, Variant},
-        },
-        std::{borrow::Cow, rc::Rc},
-        uapi::OwnedFd,
-    };
+    pub use super::DbusError;
+    pub use super::DbusType;
+    pub use super::Formatter;
+    pub use super::Message;
+    pub use super::MethodCall;
+    pub use super::Parser;
+    pub use super::Property;
+    pub use super::Signal;
+    pub use super::types::Bool;
+    pub use super::types::DictEntry;
+    pub use super::types::ObjectPath;
+    pub use super::types::Variant;
+    pub use std::borrow::Cow;
+    pub use std::rc::Rc;
+    pub use uapi::OwnedFd;
 }

@@ -1,16 +1,14 @@
-use {
-    crate::{
-        client::ClientError,
-        ifs::wl_seat::zwp_pointer_constraints_v1::{
-            ConstraintOwner, SeatConstraint, ZwpPointerConstraintsV1Error,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwpLockedPointerV1Id, zwp_locked_pointer_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::ClientError;
+use crate::ifs::wl_seat::zwp_pointer_constraints_v1::ConstraintOwner;
+use crate::ifs::wl_seat::zwp_pointer_constraints_v1::SeatConstraint;
+use crate::ifs::wl_seat::zwp_pointer_constraints_v1::ZwpPointerConstraintsV1Error;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwpLockedPointerV1Id;
+use crate::wire::zwp_locked_pointer_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpLockedPointerV1 {
     pub id: ZwpLockedPointerV1Id,

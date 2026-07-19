@@ -1,11 +1,10 @@
-use {
-    crate::utils::{rc_eq::rc_eq, thread_id::ThreadId, thread_local_data::ThreadLocalData},
-    std::{
-        rc::Rc,
-        sync::atomic::{AtomicUsize, Ordering::Relaxed},
-        thread,
-    },
-};
+use crate::utils::rc_eq::rc_eq;
+use crate::utils::thread_id::ThreadId;
+use crate::utils::thread_local_data::ThreadLocalData;
+use std::rc::Rc;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering::Relaxed;
+use std::thread;
 
 #[test]
 fn test() {

@@ -1,16 +1,16 @@
-use {
-    crate::{
-        async_engine::SpawnedFuture,
-        client::{Client, ClientError},
-        ifs::wl_seat::WlSeatGlobal,
-        leaks::Tracker,
-        object::{Object, Version},
-        utils::asyncevent::AsyncEvent,
-        wire::{ExtIdleNotificationV1Id, ext_idle_notification_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::async_engine::SpawnedFuture;
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::wire::ExtIdleNotificationV1Id;
+use crate::wire::ext_idle_notification_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ExtIdleNotificationV1 {
     pub id: ExtIdleNotificationV1Id,

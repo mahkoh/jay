@@ -1,33 +1,75 @@
-use {
-    crate::{
-        cli::{
-            GlobalArgs, SeatTestArgs,
-            json::{JsonAxisData, JsonSeatEvent, jsonl},
-        },
-        fixed::Fixed,
-        ifs::wl_seat::wl_pointer::{
-            CONTINUOUS, FINGER, HORIZONTAL_SCROLL, PendingScroll, VERTICAL_SCROLL, WHEEL,
-        },
-        tools::tool_client::{Handle, ToolClient, with_tool_client},
-        utils::bhash::BHashMap,
-        wire::{
-            jay_compositor::{GetSeats, Seat, SeatEvents},
-            jay_seat_events::{
-                Axis120, AxisFrame, AxisInverted, AxisPx, AxisSource, AxisStop, Button, HoldBegin,
-                HoldEnd, Key, Modifiers, PinchBegin, PinchEnd, PinchUpdate, PointerAbs, PointerRel,
-                SwipeBegin, SwipeEnd, SwipeUpdate, SwitchEvent, TabletPadButton,
-                TabletPadDialDelta, TabletPadDialFrame, TabletPadModeSwitch, TabletPadRingAngle,
-                TabletPadRingFrame, TabletPadRingSource, TabletPadRingStop, TabletPadStripFrame,
-                TabletPadStripPosition, TabletPadStripSource, TabletPadStripStop, TabletToolButton,
-                TabletToolDistance, TabletToolDown, TabletToolFrame, TabletToolMotion,
-                TabletToolPressure, TabletToolProximityIn, TabletToolProximityOut,
-                TabletToolRotation, TabletToolSlider, TabletToolTilt, TabletToolUp,
-                TabletToolWheel, TouchCancel, TouchDown, TouchMotion, TouchUp,
-            },
-        },
-    },
-    std::{cell::RefCell, future::pending, ops::Deref, rc::Rc},
-};
+use crate::cli::GlobalArgs;
+use crate::cli::SeatTestArgs;
+use crate::cli::json::JsonAxisData;
+use crate::cli::json::JsonSeatEvent;
+use crate::cli::json::jsonl;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::wl_pointer::CONTINUOUS;
+use crate::ifs::wl_seat::wl_pointer::FINGER;
+use crate::ifs::wl_seat::wl_pointer::HORIZONTAL_SCROLL;
+use crate::ifs::wl_seat::wl_pointer::PendingScroll;
+use crate::ifs::wl_seat::wl_pointer::VERTICAL_SCROLL;
+use crate::ifs::wl_seat::wl_pointer::WHEEL;
+use crate::tools::tool_client::Handle;
+use crate::tools::tool_client::ToolClient;
+use crate::tools::tool_client::with_tool_client;
+use crate::utils::bhash::BHashMap;
+use crate::wire::jay_compositor::GetSeats;
+use crate::wire::jay_compositor::Seat;
+use crate::wire::jay_compositor::SeatEvents;
+use crate::wire::jay_seat_events::Axis120;
+use crate::wire::jay_seat_events::AxisFrame;
+use crate::wire::jay_seat_events::AxisInverted;
+use crate::wire::jay_seat_events::AxisPx;
+use crate::wire::jay_seat_events::AxisSource;
+use crate::wire::jay_seat_events::AxisStop;
+use crate::wire::jay_seat_events::Button;
+use crate::wire::jay_seat_events::HoldBegin;
+use crate::wire::jay_seat_events::HoldEnd;
+use crate::wire::jay_seat_events::Key;
+use crate::wire::jay_seat_events::Modifiers;
+use crate::wire::jay_seat_events::PinchBegin;
+use crate::wire::jay_seat_events::PinchEnd;
+use crate::wire::jay_seat_events::PinchUpdate;
+use crate::wire::jay_seat_events::PointerAbs;
+use crate::wire::jay_seat_events::PointerRel;
+use crate::wire::jay_seat_events::SwipeBegin;
+use crate::wire::jay_seat_events::SwipeEnd;
+use crate::wire::jay_seat_events::SwipeUpdate;
+use crate::wire::jay_seat_events::SwitchEvent;
+use crate::wire::jay_seat_events::TabletPadButton;
+use crate::wire::jay_seat_events::TabletPadDialDelta;
+use crate::wire::jay_seat_events::TabletPadDialFrame;
+use crate::wire::jay_seat_events::TabletPadModeSwitch;
+use crate::wire::jay_seat_events::TabletPadRingAngle;
+use crate::wire::jay_seat_events::TabletPadRingFrame;
+use crate::wire::jay_seat_events::TabletPadRingSource;
+use crate::wire::jay_seat_events::TabletPadRingStop;
+use crate::wire::jay_seat_events::TabletPadStripFrame;
+use crate::wire::jay_seat_events::TabletPadStripPosition;
+use crate::wire::jay_seat_events::TabletPadStripSource;
+use crate::wire::jay_seat_events::TabletPadStripStop;
+use crate::wire::jay_seat_events::TabletToolButton;
+use crate::wire::jay_seat_events::TabletToolDistance;
+use crate::wire::jay_seat_events::TabletToolDown;
+use crate::wire::jay_seat_events::TabletToolFrame;
+use crate::wire::jay_seat_events::TabletToolMotion;
+use crate::wire::jay_seat_events::TabletToolPressure;
+use crate::wire::jay_seat_events::TabletToolProximityIn;
+use crate::wire::jay_seat_events::TabletToolProximityOut;
+use crate::wire::jay_seat_events::TabletToolRotation;
+use crate::wire::jay_seat_events::TabletToolSlider;
+use crate::wire::jay_seat_events::TabletToolTilt;
+use crate::wire::jay_seat_events::TabletToolUp;
+use crate::wire::jay_seat_events::TabletToolWheel;
+use crate::wire::jay_seat_events::TouchCancel;
+use crate::wire::jay_seat_events::TouchDown;
+use crate::wire::jay_seat_events::TouchMotion;
+use crate::wire::jay_seat_events::TouchUp;
+use std::cell::RefCell;
+use std::future::pending;
+use std::ops::Deref;
+use std::rc::Rc;
 
 pub fn main(global: GlobalArgs, args: SeatTestArgs) {
     with_tool_client(global.log_level, |tc| async move {

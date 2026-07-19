@@ -1,34 +1,50 @@
-use {
-    crate::{
-        backend::{AxisSource, ButtonState, InputEvent, KeyState, ScrollAxis},
-        backends::metal::MetalBackend,
-        fixed::Fixed,
-        ifs::wl_seat::tablet::{
-            PadButtonState, TabletRingEventSource, TabletStripEventSource, TabletTool2dChange,
-            TabletToolCapability, TabletToolChanges, TabletToolId, TabletToolInit,
-            TabletToolPositionChange, TabletToolType, TabletToolWheelChange, ToolButtonState,
-        },
-        libinput::{
-            consts::{
-                LIBINPUT_BUTTON_STATE_PRESSED, LIBINPUT_BUTTON_STATE_RELEASED,
-                LIBINPUT_KEY_STATE_PRESSED, LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL,
-                LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL, LIBINPUT_SWITCH_LID,
-                LIBINPUT_SWITCH_STATE_OFF, LIBINPUT_SWITCH_STATE_ON, LIBINPUT_SWITCH_TABLET_MODE,
-                LIBINPUT_TABLET_PAD_RING_SOURCE_FINGER, LIBINPUT_TABLET_PAD_STRIP_SOURCE_FINGER,
-                LIBINPUT_TABLET_TOOL_PROXIMITY_STATE_IN, LIBINPUT_TABLET_TOOL_TIP_DOWN,
-                LIBINPUT_TABLET_TOOL_TIP_UP, LIBINPUT_TABLET_TOOL_TYPE_AIRBRUSH,
-                LIBINPUT_TABLET_TOOL_TYPE_BRUSH, LIBINPUT_TABLET_TOOL_TYPE_ERASER,
-                LIBINPUT_TABLET_TOOL_TYPE_LENS, LIBINPUT_TABLET_TOOL_TYPE_MOUSE,
-                LIBINPUT_TABLET_TOOL_TYPE_PEN, LIBINPUT_TABLET_TOOL_TYPE_PENCIL,
-            },
-            event::{LibInputEvent, LibInputEventTabletTool},
-        },
-        utils::{bitflags::BitflagsExt, errorfmt::ErrorFmt},
-    },
-    jay_config::input::SwitchEvent,
-    std::rc::Rc,
-    uapi::c,
-};
+use crate::backend::AxisSource;
+use crate::backend::ButtonState;
+use crate::backend::InputEvent;
+use crate::backend::KeyState;
+use crate::backend::ScrollAxis;
+use crate::backends::metal::MetalBackend;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::tablet::PadButtonState;
+use crate::ifs::wl_seat::tablet::TabletRingEventSource;
+use crate::ifs::wl_seat::tablet::TabletStripEventSource;
+use crate::ifs::wl_seat::tablet::TabletTool2dChange;
+use crate::ifs::wl_seat::tablet::TabletToolCapability;
+use crate::ifs::wl_seat::tablet::TabletToolChanges;
+use crate::ifs::wl_seat::tablet::TabletToolId;
+use crate::ifs::wl_seat::tablet::TabletToolInit;
+use crate::ifs::wl_seat::tablet::TabletToolPositionChange;
+use crate::ifs::wl_seat::tablet::TabletToolType;
+use crate::ifs::wl_seat::tablet::TabletToolWheelChange;
+use crate::ifs::wl_seat::tablet::ToolButtonState;
+use crate::libinput::consts::LIBINPUT_BUTTON_STATE_PRESSED;
+use crate::libinput::consts::LIBINPUT_BUTTON_STATE_RELEASED;
+use crate::libinput::consts::LIBINPUT_KEY_STATE_PRESSED;
+use crate::libinput::consts::LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL;
+use crate::libinput::consts::LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL;
+use crate::libinput::consts::LIBINPUT_SWITCH_LID;
+use crate::libinput::consts::LIBINPUT_SWITCH_STATE_OFF;
+use crate::libinput::consts::LIBINPUT_SWITCH_STATE_ON;
+use crate::libinput::consts::LIBINPUT_SWITCH_TABLET_MODE;
+use crate::libinput::consts::LIBINPUT_TABLET_PAD_RING_SOURCE_FINGER;
+use crate::libinput::consts::LIBINPUT_TABLET_PAD_STRIP_SOURCE_FINGER;
+use crate::libinput::consts::LIBINPUT_TABLET_TOOL_PROXIMITY_STATE_IN;
+use crate::libinput::consts::LIBINPUT_TABLET_TOOL_TIP_DOWN;
+use crate::libinput::consts::LIBINPUT_TABLET_TOOL_TIP_UP;
+use crate::libinput::consts::LIBINPUT_TABLET_TOOL_TYPE_AIRBRUSH;
+use crate::libinput::consts::LIBINPUT_TABLET_TOOL_TYPE_BRUSH;
+use crate::libinput::consts::LIBINPUT_TABLET_TOOL_TYPE_ERASER;
+use crate::libinput::consts::LIBINPUT_TABLET_TOOL_TYPE_LENS;
+use crate::libinput::consts::LIBINPUT_TABLET_TOOL_TYPE_MOUSE;
+use crate::libinput::consts::LIBINPUT_TABLET_TOOL_TYPE_PEN;
+use crate::libinput::consts::LIBINPUT_TABLET_TOOL_TYPE_PENCIL;
+use crate::libinput::event::LibInputEvent;
+use crate::libinput::event::LibInputEventTabletTool;
+use crate::utils::bitflags::BitflagsExt;
+use crate::utils::errorfmt::ErrorFmt;
+use jay_config::input::SwitchEvent;
+use std::rc::Rc;
+use uapi::c;
 
 macro_rules! unpack {
     ($slf:expr, $ev:expr) => {{

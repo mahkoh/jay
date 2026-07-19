@@ -1,10 +1,9 @@
-use {
-    crate::{
-        criteria::tlm::TL_CHANGED_SEAT_FOCI, ifs::wl_seat::WlSeatGlobal, tree::Node,
-        utils::clonecell::CloneCell, xwayland::XWaylandEvent,
-    },
-    std::rc::Rc,
-};
+use crate::criteria::tlm::TL_CHANGED_SEAT_FOCI;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::tree::Node;
+use crate::utils::clonecell::CloneCell;
+use crate::xwayland::XWaylandEvent;
+use std::rc::Rc;
 
 pub struct KbOwnerHolder {
     default: Rc<DefaultKbOwner>,

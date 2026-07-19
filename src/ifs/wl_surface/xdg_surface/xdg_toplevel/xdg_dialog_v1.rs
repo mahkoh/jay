@@ -1,14 +1,15 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{XdgDialogV1Id, XdgToplevelId, xdg_dialog_v1::*},
-    },
-    std::{fmt::Debug, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::XdgDialogV1Id;
+use crate::wire::XdgToplevelId;
+use crate::wire::xdg_dialog_v1::*;
+use std::fmt::Debug;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct XdgDialogV1 {
     pub id: XdgDialogV1Id,

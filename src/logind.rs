@@ -1,22 +1,18 @@
-use {
-    crate::{
-        dbus::{DbusError, DbusSocket, FALSE, SignalHandler},
-        utils::{
-            errorfmt::ErrorFmt,
-            major_minor::{MajorMinor, major_minor},
-        },
-        wire_dbus::{
-            org,
-            org::freedesktop::login1::{
-                seat::SwitchToReply,
-                session::{PauseDevice, ResumeDevice, TakeDeviceReply},
-            },
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-    uapi::c,
-};
+use crate::dbus::DbusError;
+use crate::dbus::DbusSocket;
+use crate::dbus::FALSE;
+use crate::dbus::SignalHandler;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::major_minor::MajorMinor;
+use crate::utils::major_minor::major_minor;
+use crate::wire_dbus::org;
+use crate::wire_dbus::org::freedesktop::login1::seat::SwitchToReply;
+use crate::wire_dbus::org::freedesktop::login1::session::PauseDevice;
+use crate::wire_dbus::org::freedesktop::login1::session::ResumeDevice;
+use crate::wire_dbus::org::freedesktop::login1::session::TakeDeviceReply;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::c;
 
 const LOGIND_NAME: &str = "org.freedesktop.login1";
 const MANAGER_PATH: &str = "/org/freedesktop/login1";

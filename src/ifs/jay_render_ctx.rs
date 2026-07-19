@@ -1,15 +1,14 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        gfx_api::GfxContext,
-        leaks::Tracker,
-        object::{Object, Version},
-        utils::errorfmt::ErrorFmt,
-        wire::{JayRenderCtxId, jay_render_ctx::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::gfx_api::GfxContext;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::wire::JayRenderCtxId;
+use crate::wire::jay_render_ctx::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub const FORMATS_SINCE: Version = Version(7);
 pub const WRITE_MODIFIER_2_SINCE: Version = Version(9);

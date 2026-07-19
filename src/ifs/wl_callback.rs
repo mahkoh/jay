@@ -1,12 +1,11 @@
-use {
-    crate::{
-        client::Client,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WlCallbackId, wl_callback::*},
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::client::Client;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WlCallbackId;
+use crate::wire::wl_callback::*;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct WlCallback {
     pub client: Rc<Client>,

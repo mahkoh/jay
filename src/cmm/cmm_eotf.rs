@@ -1,4 +1,5 @@
-use {crate::utils::ordered_float::F32, jay_proc::jay_hash};
+use crate::utils::ordered_float::F32;
+use jay_proc::jay_hash;
 
 #[jay_hash]
 #[derive(Copy, Clone, Debug, Eq)]

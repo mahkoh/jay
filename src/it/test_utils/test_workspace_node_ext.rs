@@ -1,10 +1,8 @@
-use {
-    crate::{
-        it::test_error::TestResult,
-        tree::{ContainerNode, TreeTimeline::LiveTL, WorkspaceNode},
-    },
-    std::rc::Rc,
-};
+use crate::it::test_error::TestResult;
+use crate::tree::ContainerNode;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::WorkspaceNode;
+use std::rc::Rc;
 
 pub trait TestWorkspaceNodeExt {
     fn container(&self) -> TestResult<Rc<ContainerNode>>;

@@ -1,7 +1,6 @@
-use {
-    crate::gfx_apis::vulkan::descriptor::VulkanDescriptorSetLayout, ash::vk::DeviceSize,
-    std::ops::Deref,
-};
+use crate::gfx_apis::vulkan::descriptor::VulkanDescriptorSetLayout;
+use ash::vk::DeviceSize;
+use std::ops::Deref;
 
 #[derive(Default)]
 pub struct VulkanDescriptorBufferWriter {

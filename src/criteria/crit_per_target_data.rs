@@ -1,17 +1,13 @@
-use {
-    crate::{
-        criteria::{
-            CritMatcherId,
-            crit_graph::{CritTarget, CritTargetOwner, WeakCritTargetOwner},
-        },
-        utils::bhash::BHashMap,
-    },
-    std::{
-        cell::{RefCell, RefMut},
-        ops::{Deref, DerefMut},
-        rc::Weak,
-    },
-};
+use crate::criteria::CritMatcherId;
+use crate::criteria::crit_graph::CritTarget;
+use crate::criteria::crit_graph::CritTargetOwner;
+use crate::criteria::crit_graph::WeakCritTargetOwner;
+use crate::utils::bhash::BHashMap;
+use std::cell::RefCell;
+use std::cell::RefMut;
+use std::ops::Deref;
+use std::ops::DerefMut;
+use std::rc::Weak;
 
 pub struct CritPerTargetData<Target, T>
 where

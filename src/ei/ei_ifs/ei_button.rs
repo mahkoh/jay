@@ -1,20 +1,18 @@
-use {
-    crate::{
-        backend::ButtonState,
-        ei::{
-            ei_client::{EiClient, EiClientError},
-            ei_ifs::ei_device::{EiDevice, EiDeviceInterface},
-            ei_object::{EiObject, EiVersion},
-        },
-        leaks::Tracker,
-        wire_ei::{
-            EiButtonId,
-            ei_button::{ClientButton, EiButtonRequestHandler, Release, ServerButton},
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::backend::ButtonState;
+use crate::ei::ei_client::EiClient;
+use crate::ei::ei_client::EiClientError;
+use crate::ei::ei_ifs::ei_device::EiDevice;
+use crate::ei::ei_ifs::ei_device::EiDeviceInterface;
+use crate::ei::ei_object::EiObject;
+use crate::ei::ei_object::EiVersion;
+use crate::leaks::Tracker;
+use crate::wire_ei::EiButtonId;
+use crate::wire_ei::ei_button::ClientButton;
+use crate::wire_ei::ei_button::EiButtonRequestHandler;
+use crate::wire_ei::ei_button::Release;
+use crate::wire_ei::ei_button::ServerButton;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct EiButton {
     pub id: EiButtonId,

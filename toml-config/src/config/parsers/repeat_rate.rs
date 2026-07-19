@@ -1,19 +1,17 @@
-use {
-    crate::{
-        config::{
-            RepeatRate,
-            context::Context,
-            extractor::{Extractor, ExtractorError, s32},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-        },
-        toml::{
-            toml_span::{Span, Spanned},
-            toml_value::Value,
-        },
-    },
-    indexmap::IndexMap,
-    thiserror::Error,
-};
+use crate::config::RepeatRate;
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::s32;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_value::Value;
+use indexmap::IndexMap;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum RepeatRateParserError {

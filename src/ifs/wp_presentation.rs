@@ -1,17 +1,18 @@
-pub use crate::wire::{WpPresentationId, wp_presentation::*};
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wp_presentation_feedback::{PresentationFeedback, WpPresentationFeedback},
-        leaks::Tracker,
-        object::{Object, Version},
-        state::State,
-    },
-    std::rc::Rc,
-    thiserror::Error,
-    uapi::c,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wp_presentation_feedback::PresentationFeedback;
+use crate::ifs::wp_presentation_feedback::WpPresentationFeedback;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::state::State;
+pub use crate::wire::WpPresentationId;
+pub use crate::wire::wp_presentation::*;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::c;
 
 pub struct WpPresentationGlobal {
     pub name: GlobalName,

@@ -1,6 +1,8 @@
 //! Tools for spawning programs.
 
-use std::{cell::RefCell, collections::HashMap, os::fd::OwnedFd};
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::os::fd::OwnedFd;
 
 /// Sets an environment variable.
 ///

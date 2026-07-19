@@ -1,12 +1,11 @@
-use {
-    crate::markers::Input,
-    quote::quote,
-    syn::{
-        GenericParam, TypeParam,
-        parse::{Parse, ParseStream},
-        parse_macro_input, parse_quote,
-    },
-};
+use crate::markers::Input;
+use quote::quote;
+use syn::GenericParam;
+use syn::TypeParam;
+use syn::parse::Parse;
+use syn::parse::ParseStream;
+use syn::parse_macro_input;
+use syn::parse_quote;
 
 pub fn derive_jay_hash(
     attr: proc_macro::TokenStream,

@@ -1,15 +1,17 @@
-use {
-    crate::{
-        client::{CAP_SEAT_MANAGER, Client, ClientCaps, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wl_seat::ext_transient_seat_v1::ExtTransientSeatV1,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ExtTransientSeatManagerV1Id, ext_transient_seat_manager_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::CAP_SEAT_MANAGER;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_seat::ext_transient_seat_v1::ExtTransientSeatV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ExtTransientSeatManagerV1Id;
+use crate::wire::ext_transient_seat_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ExtTransientSeatManagerV1Global {
     pub name: GlobalName,

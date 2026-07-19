@@ -1,17 +1,12 @@
-use {
-    crate::{
-        it::{
-            test_error::TestResult,
-            test_ifs::{
-                test_cursor_shape_device::TestCursorShapeDevice, test_pointer::TestPointer,
-            },
-            test_object::TestObject,
-            test_transport::TestTransport,
-        },
-        wire::{WpCursorShapeManagerV1Id, wp_cursor_shape_manager_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_cursor_shape_device::TestCursorShapeDevice;
+use crate::it::test_ifs::test_pointer::TestPointer;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::WpCursorShapeManagerV1Id;
+use crate::wire::wp_cursor_shape_manager_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestCursorShapeManager {
     pub id: WpCursorShapeManagerV1Id,

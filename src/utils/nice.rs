@@ -1,15 +1,15 @@
-use {
-    crate::{
-        compositor::config_dir,
-        config::{is_unprivileged_config_so, open_config_so},
-    },
-    c::sched_setscheduler,
-    std::{
-        env, mem,
-        sync::atomic::{AtomicBool, Ordering::Relaxed},
-    },
-    uapi::c::{self, SCHED_RESET_ON_FORK, SCHED_RR, sched_param},
-};
+use crate::compositor::config_dir;
+use crate::config::is_unprivileged_config_so;
+use crate::config::open_config_so;
+use c::sched_setscheduler;
+use std::env;
+use std::mem;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::Relaxed;
+use uapi::c::SCHED_RESET_ON_FORK;
+use uapi::c::SCHED_RR;
+use uapi::c::sched_param;
+use uapi::c::{self};
 
 static DID_ELEVATE_SCHEDULER: AtomicBool = AtomicBool::new(false);
 

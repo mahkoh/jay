@@ -1,17 +1,12 @@
-use {
-    crate::{
-        object::Version,
-        wire::{ZwlrScreencopyManagerV1Id, zwlr_screencopy_manager_v1::*},
-        wl_usr::{
-            UsrCon,
-            usr_ifs::{
-                usr_wl_output::UsrWlOutput, usr_zwlr_screencopy_frame::UsrZwlrScreencopyFrame,
-            },
-            usr_object::UsrObject,
-        },
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::object::Version;
+use crate::wire::ZwlrScreencopyManagerV1Id;
+use crate::wire::zwlr_screencopy_manager_v1::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_ifs::usr_wl_output::UsrWlOutput;
+use crate::wl_usr::usr_ifs::usr_zwlr_screencopy_frame::UsrZwlrScreencopyFrame;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrZwlrScreencopyManager {
     pub id: ZwlrScreencopyManagerV1Id,

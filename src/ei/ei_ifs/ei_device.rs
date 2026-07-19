@@ -1,32 +1,44 @@
-use {
-    crate::{
-        backend::{ButtonState, KeyState, ScrollAxis},
-        ei::{
-            ei_client::{EiClient, EiClientError},
-            ei_ifs::{ei_seat::EiSeat, ei_touchscreen::TouchChange},
-            ei_object::{EiObject, EiVersion},
-        },
-        fixed::Fixed,
-        ifs::wl_seat::{CursorPositionType, PX_PER_SCROLL},
-        leaks::Tracker,
-        rect::Rect,
-        scale::Scale,
-        utils::{copyhashmap::CopyHashMap, syncqueue::SyncQueue},
-        wire_ei::{
-            EiDeviceId,
-            ei_device::{
-                ClientFrame, ClientStartEmulating, ClientStopEmulating, Destroyed, DeviceType,
-                Dimensions, Done, EiDeviceRequestHandler, Interface, Name, Paused, Region,
-                RegionMappingId, Release, Resumed, ServerFrame, ServerStartEmulating,
-                ServerStopEmulating,
-            },
-        },
-    },
-    CursorPositionType::Motion,
-    linearize::LinearizeExt,
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::backend::ButtonState;
+use crate::backend::KeyState;
+use crate::backend::ScrollAxis;
+use crate::ei::ei_client::EiClient;
+use crate::ei::ei_client::EiClientError;
+use crate::ei::ei_ifs::ei_seat::EiSeat;
+use crate::ei::ei_ifs::ei_touchscreen::TouchChange;
+use crate::ei::ei_object::EiObject;
+use crate::ei::ei_object::EiVersion;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::CursorPositionType;
+use crate::ifs::wl_seat::PX_PER_SCROLL;
+use crate::leaks::Tracker;
+use crate::rect::Rect;
+use crate::scale::Scale;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::syncqueue::SyncQueue;
+use crate::wire_ei::EiDeviceId;
+use crate::wire_ei::ei_device::ClientFrame;
+use crate::wire_ei::ei_device::ClientStartEmulating;
+use crate::wire_ei::ei_device::ClientStopEmulating;
+use crate::wire_ei::ei_device::Destroyed;
+use crate::wire_ei::ei_device::DeviceType;
+use crate::wire_ei::ei_device::Dimensions;
+use crate::wire_ei::ei_device::Done;
+use crate::wire_ei::ei_device::EiDeviceRequestHandler;
+use crate::wire_ei::ei_device::Interface;
+use crate::wire_ei::ei_device::Name;
+use crate::wire_ei::ei_device::Paused;
+use crate::wire_ei::ei_device::Region;
+use crate::wire_ei::ei_device::RegionMappingId;
+use crate::wire_ei::ei_device::Release;
+use crate::wire_ei::ei_device::Resumed;
+use crate::wire_ei::ei_device::ServerFrame;
+use crate::wire_ei::ei_device::ServerStartEmulating;
+use crate::wire_ei::ei_device::ServerStopEmulating;
+use CursorPositionType::Motion;
+use linearize::LinearizeExt;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub const EI_DEVICE_TYPE_VIRTUAL: u32 = 1;
 #[expect(dead_code)]

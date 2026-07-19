@@ -1,75 +1,96 @@
-use {
-    crate::{
-        backend::{
-            AXIS_120, AxisSource, ButtonState, ConnectorId, InputDeviceId, InputEvent, KeyState,
-            ScrollAxis,
-        },
-        client::ClientId,
-        config::InvokedShortcut,
-        ei::ei_ifs::ei_seat::EiSeat,
-        fixed::Fixed,
-        ifs::{
-            ipc::{
-                offer_source_to_regular_client,
-                wl_data_device::{ClipboardIpc, WlDataDevice},
-                x_data_device::{XClipboardIpc, XPrimarySelectionIpc},
-                zwp_primary_selection_device_v1::{
-                    PrimarySelectionIpc, ZwpPrimarySelectionDeviceV1,
-                },
-            },
-            wl_seat::{
-                CHANGE_CURSOR_MOVED, CHANGE_TREE, CursorPositionType, Dnd, MarkMode, SeatId,
-                Shortcut, WlSeat, WlSeatGlobal,
-                tablet::{TabletPad, TabletPadId, TabletTool, TabletToolId},
-                text_input::TextDisconnectReason,
-                wl_keyboard::WlKeyboard,
-                wl_pointer::{
-                    self, AXIS_DISCRETE_SINCE_VERSION, AXIS_RELATIVE_DIRECTION_SINCE_VERSION,
-                    AXIS_SOURCE_SINCE_VERSION, AXIS_STOP_SINCE_VERSION,
-                    AXIS_VALUE120_SINCE_VERSION, IDENTICAL, INVERTED, POINTER_FRAME_SINCE_VERSION,
-                    POINTER_WARP_SINCE_VERSION, PendingScroll, WHEEL_TILT,
-                    WHEEL_TILT_SINCE_VERSION, WlPointer,
-                },
-                wl_touch::WlTouch,
-                zwp_pointer_constraints_v1::{ConstraintType, SeatConstraintStatus},
-                zwp_relative_pointer_v1::ZwpRelativePointerV1,
-            },
-            wl_surface::{WlSurface, xdg_surface::xdg_popup::XdgPopup},
-        },
-        kbvm::{EventOrRepeat, KbvmState},
-        keyboard::KeyboardState,
-        object::Version,
-        rect::Rect,
-        state::DeviceHandlerData,
-        tree::{Direction, Node, NodeBase, ToplevelNode, TreeTimeline::LiveTL},
-        utils::{
-            bitflags::BitflagsExt,
-            hash_map_ext::HashMapExt,
-            linkedlist::{LinkedNode, NodeRef},
-            smallmap::{SmallMap, SmallMapMut},
-            syncqueue::SyncQueue,
-        },
-        wire::WlDataOfferId,
-    },
-    CursorPositionType::Motion,
-    hashbrown::hash_map::Entry,
-    isnt::std_1::primitive::IsntSliceExt,
-    jay_config::{
-        input::SwitchEvent,
-        keyboard::{
-            mods::{CAPS, Modifiers, NUM, RELEASE},
-            syms::KeySym,
-        },
-    },
-    kbvm::{Keycode, ModifierMask, evdev, state_machine::Event},
-    linearize::LinearizeExt,
-    smallvec::SmallVec,
-    std::{
-        cell::{Cell, RefCell},
-        mem,
-        rc::{Rc, Weak},
-    },
-};
+use crate::backend::AXIS_120;
+use crate::backend::AxisSource;
+use crate::backend::ButtonState;
+use crate::backend::ConnectorId;
+use crate::backend::InputDeviceId;
+use crate::backend::InputEvent;
+use crate::backend::KeyState;
+use crate::backend::ScrollAxis;
+use crate::client::ClientId;
+use crate::config::InvokedShortcut;
+use crate::ei::ei_ifs::ei_seat::EiSeat;
+use crate::fixed::Fixed;
+use crate::ifs::ipc::offer_source_to_regular_client;
+use crate::ifs::ipc::wl_data_device::ClipboardIpc;
+use crate::ifs::ipc::wl_data_device::WlDataDevice;
+use crate::ifs::ipc::x_data_device::XClipboardIpc;
+use crate::ifs::ipc::x_data_device::XPrimarySelectionIpc;
+use crate::ifs::ipc::zwp_primary_selection_device_v1::PrimarySelectionIpc;
+use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
+use crate::ifs::wl_seat::CHANGE_CURSOR_MOVED;
+use crate::ifs::wl_seat::CHANGE_TREE;
+use crate::ifs::wl_seat::CursorPositionType;
+use crate::ifs::wl_seat::Dnd;
+use crate::ifs::wl_seat::MarkMode;
+use crate::ifs::wl_seat::SeatId;
+use crate::ifs::wl_seat::Shortcut;
+use crate::ifs::wl_seat::WlSeat;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::tablet::TabletPad;
+use crate::ifs::wl_seat::tablet::TabletPadId;
+use crate::ifs::wl_seat::tablet::TabletTool;
+use crate::ifs::wl_seat::tablet::TabletToolId;
+use crate::ifs::wl_seat::text_input::TextDisconnectReason;
+use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
+use crate::ifs::wl_seat::wl_pointer::AXIS_DISCRETE_SINCE_VERSION;
+use crate::ifs::wl_seat::wl_pointer::AXIS_RELATIVE_DIRECTION_SINCE_VERSION;
+use crate::ifs::wl_seat::wl_pointer::AXIS_SOURCE_SINCE_VERSION;
+use crate::ifs::wl_seat::wl_pointer::AXIS_STOP_SINCE_VERSION;
+use crate::ifs::wl_seat::wl_pointer::AXIS_VALUE120_SINCE_VERSION;
+use crate::ifs::wl_seat::wl_pointer::IDENTICAL;
+use crate::ifs::wl_seat::wl_pointer::INVERTED;
+use crate::ifs::wl_seat::wl_pointer::POINTER_FRAME_SINCE_VERSION;
+use crate::ifs::wl_seat::wl_pointer::POINTER_WARP_SINCE_VERSION;
+use crate::ifs::wl_seat::wl_pointer::PendingScroll;
+use crate::ifs::wl_seat::wl_pointer::WHEEL_TILT;
+use crate::ifs::wl_seat::wl_pointer::WHEEL_TILT_SINCE_VERSION;
+use crate::ifs::wl_seat::wl_pointer::WlPointer;
+use crate::ifs::wl_seat::wl_pointer::{self};
+use crate::ifs::wl_seat::wl_touch::WlTouch;
+use crate::ifs::wl_seat::zwp_pointer_constraints_v1::ConstraintType;
+use crate::ifs::wl_seat::zwp_pointer_constraints_v1::SeatConstraintStatus;
+use crate::ifs::wl_seat::zwp_relative_pointer_v1::ZwpRelativePointerV1;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
+use crate::kbvm::EventOrRepeat;
+use crate::kbvm::KbvmState;
+use crate::keyboard::KeyboardState;
+use crate::object::Version;
+use crate::rect::Rect;
+use crate::state::DeviceHandlerData;
+use crate::tree::Direction;
+use crate::tree::Node;
+use crate::tree::NodeBase;
+use crate::tree::ToplevelNode;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::utils::bitflags::BitflagsExt;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::linkedlist::LinkedNode;
+use crate::utils::linkedlist::NodeRef;
+use crate::utils::smallmap::SmallMap;
+use crate::utils::smallmap::SmallMapMut;
+use crate::utils::syncqueue::SyncQueue;
+use crate::wire::WlDataOfferId;
+use CursorPositionType::Motion;
+use hashbrown::hash_map::Entry;
+use isnt::std_1::primitive::IsntSliceExt;
+use jay_config::input::SwitchEvent;
+use jay_config::keyboard::mods::CAPS;
+use jay_config::keyboard::mods::Modifiers;
+use jay_config::keyboard::mods::NUM;
+use jay_config::keyboard::mods::RELEASE;
+use jay_config::keyboard::syms::KeySym;
+use kbvm::Keycode;
+use kbvm::ModifierMask;
+use kbvm::evdev;
+use kbvm::state_machine::Event;
+use linearize::LinearizeExt;
+use smallvec::SmallVec;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::mem;
+use std::rc::Rc;
+use std::rc::Weak;
 
 #[derive(Default)]
 pub struct NodeSeatState {

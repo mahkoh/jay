@@ -1,15 +1,16 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::{OutputNode, TreeTimeline::LiveTL, WorkspaceNode},
-        utils::clonecell::CloneCell,
-        wire::{JayWorkspaceId, jay_workspace::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::OutputNode;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::WorkspaceNode;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::JayWorkspaceId;
+use crate::wire::jay_workspace::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct JayWorkspace {
     pub id: JayWorkspaceId,

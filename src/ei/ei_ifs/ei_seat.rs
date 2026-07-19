@@ -1,39 +1,47 @@
-use {
-    crate::{
-        backend::{ButtonState, KeyState},
-        ei::{
-            EiContext,
-            ei_client::{EiClient, EiClientError},
-            ei_ifs::{
-                ei_button::EiButton,
-                ei_device::{EI_DEVICE_TYPE_VIRTUAL, EiDevice, EiDeviceInterface},
-                ei_keyboard::EiKeyboard,
-                ei_pointer::EiPointer,
-                ei_pointer_absolute::EiPointerAbsolute,
-                ei_scroll::EiScroll,
-                ei_touchscreen::EiTouchscreen,
-            },
-            ei_object::{EiInterface, EiObject, EiVersion},
-        },
-        fixed::Fixed,
-        ifs::wl_seat::{
-            PhysicalKeyboardId, WlSeatGlobal,
-            wl_pointer::{HORIZONTAL_SCROLL, PendingScroll, VERTICAL_SCROLL},
-        },
-        keyboard::{DynKeyboardState, KeyboardState, KeyboardStateId},
-        leaks::Tracker,
-        tree::{NodeBase, TreeTimeline::LiveTL},
-        utils::{array, bitflags::BitflagsExt, clonecell::CloneCell},
-        wire_ei::{
-            EiSeatId,
-            ei_seat::{
-                Bind, Capability, Destroyed, Device, Done, EiSeatRequestHandler, Name, Release,
-            },
-        },
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::backend::ButtonState;
+use crate::backend::KeyState;
+use crate::ei::EiContext;
+use crate::ei::ei_client::EiClient;
+use crate::ei::ei_client::EiClientError;
+use crate::ei::ei_ifs::ei_button::EiButton;
+use crate::ei::ei_ifs::ei_device::EI_DEVICE_TYPE_VIRTUAL;
+use crate::ei::ei_ifs::ei_device::EiDevice;
+use crate::ei::ei_ifs::ei_device::EiDeviceInterface;
+use crate::ei::ei_ifs::ei_keyboard::EiKeyboard;
+use crate::ei::ei_ifs::ei_pointer::EiPointer;
+use crate::ei::ei_ifs::ei_pointer_absolute::EiPointerAbsolute;
+use crate::ei::ei_ifs::ei_scroll::EiScroll;
+use crate::ei::ei_ifs::ei_touchscreen::EiTouchscreen;
+use crate::ei::ei_object::EiInterface;
+use crate::ei::ei_object::EiObject;
+use crate::ei::ei_object::EiVersion;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::PhysicalKeyboardId;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::wl_pointer::HORIZONTAL_SCROLL;
+use crate::ifs::wl_seat::wl_pointer::PendingScroll;
+use crate::ifs::wl_seat::wl_pointer::VERTICAL_SCROLL;
+use crate::keyboard::DynKeyboardState;
+use crate::keyboard::KeyboardState;
+use crate::keyboard::KeyboardStateId;
+use crate::leaks::Tracker;
+use crate::tree::NodeBase;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::utils::array;
+use crate::utils::bitflags::BitflagsExt;
+use crate::utils::clonecell::CloneCell;
+use crate::wire_ei::EiSeatId;
+use crate::wire_ei::ei_seat::Bind;
+use crate::wire_ei::ei_seat::Capability;
+use crate::wire_ei::ei_seat::Destroyed;
+use crate::wire_ei::ei_seat::Device;
+use crate::wire_ei::ei_seat::Done;
+use crate::wire_ei::ei_seat::EiSeatRequestHandler;
+use crate::wire_ei::ei_seat::Name;
+use crate::wire_ei::ei_seat::Release;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub const EI_CAP_POINTER: u64 = 1 << 0;
 pub const EI_CAP_POINTER_ABSOLUTE: u64 = 1 << 1;

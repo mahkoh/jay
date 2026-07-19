@@ -1,34 +1,48 @@
-use {
-    crate::{
-        client::Client,
-        cursor::KnownCursor,
-        fixed::Fixed,
-        ifs::wl_seat::{NodeSeatState, WlSeatGlobal},
-        rect::Rect,
-        renderer::Renderer,
-        scale::Scale,
-        state::State,
-        text::TextTexture,
-        transactions::{TransactionData, Transactionable, TransactionableExt},
-        tree::{
-            ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, NodeBase,
-            NodeId, NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
-            ToplevelData, ToplevelDataTransactionOp, ToplevelNode, ToplevelNodeBase, ToplevelType,
-            TreeTimeline::{self, LiveTL, RenderTL},
-            WorkspaceNode, default_tile_drag_destination,
-        },
-        utils::{
-            asyncevent::AsyncEvent, errorfmt::ErrorFmt, on_drop_event::OnDropEvent,
-            smallmap::SmallMapMut,
-        },
-    },
-    std::{
-        cell::{Cell, RefCell},
-        ops::Deref,
-        rc::{Rc, Weak},
-        sync::Arc,
-    },
-};
+use crate::client::Client;
+use crate::cursor::KnownCursor;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::NodeSeatState;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::rect::Rect;
+use crate::renderer::Renderer;
+use crate::scale::Scale;
+use crate::state::State;
+use crate::text::TextTexture;
+use crate::transactions::TransactionData;
+use crate::transactions::Transactionable;
+use crate::transactions::TransactionableExt;
+use crate::tree::ContainerSplit;
+use crate::tree::Direction;
+use crate::tree::FindTreeResult;
+use crate::tree::FindTreeUsecase;
+use crate::tree::FoundNode;
+use crate::tree::NodeBase;
+use crate::tree::NodeId;
+use crate::tree::NodeLayerLink;
+use crate::tree::NodeLocation;
+use crate::tree::NodeVisitor;
+use crate::tree::OutputNode;
+use crate::tree::TileDragDestination;
+use crate::tree::ToplevelData;
+use crate::tree::ToplevelDataTransactionOp;
+use crate::tree::ToplevelNode;
+use crate::tree::ToplevelNodeBase;
+use crate::tree::ToplevelType;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::tree::TreeTimeline::{self};
+use crate::tree::WorkspaceNode;
+use crate::tree::default_tile_drag_destination;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::on_drop_event::OnDropEvent;
+use crate::utils::smallmap::SmallMapMut;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::ops::Deref;
+use std::rc::Rc;
+use std::rc::Weak;
+use std::sync::Arc;
 
 tree_id!(PlaceholderNodeId);
 

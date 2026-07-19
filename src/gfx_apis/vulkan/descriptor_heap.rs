@@ -1,19 +1,18 @@
-use {
-    crate::{
-        gfx_apis::vulkan::{
-            VulkanError,
-            allocator::VulkanAllocator,
-            buffer_cache::VulkanBufferUncached,
-            device::{DescriptorHeapDevice, VulkanDevice},
-        },
-        utils::page_alloc::{PAGE_ALLOC_PAGE_SIZE, PageAlloc, PageAllocEntry},
-    },
-    ash::vk::{
-        BindHeapInfoEXT, BufferUsageFlags, CommandBuffer, DeviceAddressRangeEXT, DeviceSize,
-    },
-    linearize::Linearize,
-    std::rc::Rc,
-};
+use crate::gfx_apis::vulkan::VulkanError;
+use crate::gfx_apis::vulkan::allocator::VulkanAllocator;
+use crate::gfx_apis::vulkan::buffer_cache::VulkanBufferUncached;
+use crate::gfx_apis::vulkan::device::DescriptorHeapDevice;
+use crate::gfx_apis::vulkan::device::VulkanDevice;
+use crate::utils::page_alloc::PAGE_ALLOC_PAGE_SIZE;
+use crate::utils::page_alloc::PageAlloc;
+use crate::utils::page_alloc::PageAllocEntry;
+use ash::vk::BindHeapInfoEXT;
+use ash::vk::BufferUsageFlags;
+use ash::vk::CommandBuffer;
+use ash::vk::DeviceAddressRangeEXT;
+use ash::vk::DeviceSize;
+use linearize::Linearize;
+use std::rc::Rc;
 
 pub struct DescriptorHeap {
     ty: DescriptorHeapType,

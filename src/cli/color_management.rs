@@ -1,15 +1,16 @@
-use {
-    crate::{
-        cli::{
-            GlobalArgs,
-            json::{JsonColorManagementStatus, jsonl},
-        },
-        tools::tool_client::{Handle, ToolClient, with_tool_client},
-        wire::{JayColorManagementId, jay_color_management, jay_compositor},
-    },
-    clap::{Args, Subcommand},
-    std::{cell::Cell, rc::Rc},
-};
+use crate::cli::GlobalArgs;
+use crate::cli::json::JsonColorManagementStatus;
+use crate::cli::json::jsonl;
+use crate::tools::tool_client::Handle;
+use crate::tools::tool_client::ToolClient;
+use crate::tools::tool_client::with_tool_client;
+use crate::wire::JayColorManagementId;
+use crate::wire::jay_color_management;
+use crate::wire::jay_compositor;
+use clap::Args;
+use clap::Subcommand;
+use std::cell::Cell;
+use std::rc::Rc;
 
 #[derive(Args, Debug)]
 pub struct ColorManagementArgs {

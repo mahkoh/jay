@@ -1,17 +1,13 @@
-use {
-    crate::{
-        client::Client,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{
-            WpImageDescriptionCreatorIccV1Id,
-            wp_image_description_creator_icc_v1::{
-                Create, SetIccFile, WpImageDescriptionCreatorIccV1RequestHandler,
-            },
-        },
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::client::Client;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WpImageDescriptionCreatorIccV1Id;
+use crate::wire::wp_image_description_creator_icc_v1::Create;
+use crate::wire::wp_image_description_creator_icc_v1::SetIccFile;
+use crate::wire::wp_image_description_creator_icc_v1::WpImageDescriptionCreatorIccV1RequestHandler;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 #[expect(dead_code)]
 pub struct WpImageDescriptionCreatorIccV1 {

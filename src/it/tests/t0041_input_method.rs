@@ -1,22 +1,15 @@
-use {
-    crate::{
-        it::{
-            test_client::{DefaultSeat, TestClient},
-            test_error::TestResult,
-            test_ifs::{
-                test_input_method::TestInputMethod,
-                test_input_popup_surface::TestInputPopupSurface, test_text_input::TestTextInput,
-            },
-            test_utils::{
-                test_expected_event::TestExpectedEvent, test_surface_ext::TestSurfaceExt,
-                test_window::TestWindow,
-            },
-            testrun::TestRun,
-        },
-        wire::zwp_text_input_v3,
-    },
-    std::rc::Rc,
-};
+use crate::it::test_client::DefaultSeat;
+use crate::it::test_client::TestClient;
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_input_method::TestInputMethod;
+use crate::it::test_ifs::test_input_popup_surface::TestInputPopupSurface;
+use crate::it::test_ifs::test_text_input::TestTextInput;
+use crate::it::test_utils::test_expected_event::TestExpectedEvent;
+use crate::it::test_utils::test_surface_ext::TestSurfaceExt;
+use crate::it::test_utils::test_window::TestWindow;
+use crate::it::testrun::TestRun;
+use crate::wire::zwp_text_input_v3;
+use std::rc::Rc;
 
 testcase!();
 

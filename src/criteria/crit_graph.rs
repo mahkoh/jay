@@ -4,15 +4,20 @@ mod crit_root;
 mod crit_target;
 mod crit_upstream;
 
-pub use {
-    crit_downstream::{CritDownstream, CritDownstreamData},
-    crit_middle::{CritMiddle, CritMiddleCriterion},
-    crit_root::{
-        CritFixedRootCriterion, CritFixedRootCriterionBase, CritRoot, CritRootCriterion,
-        CritRootFixed,
-    },
-    crit_target::{CritMgr, CritTarget, CritTargetOwner, WeakCritTargetOwner},
-    crit_upstream::{
-        CritUpstreamData, CritUpstreamNode, CritUpstreamNodeBase, CritUpstreamNodeData,
-    },
-};
+pub use crit_downstream::CritDownstream;
+pub use crit_downstream::CritDownstreamData;
+pub use crit_middle::CritMiddle;
+pub use crit_middle::CritMiddleCriterion;
+pub use crit_root::CritFixedRootCriterion;
+pub use crit_root::CritFixedRootCriterionBase;
+pub use crit_root::CritRoot;
+pub use crit_root::CritRootCriterion;
+pub use crit_root::CritRootFixed;
+pub use crit_target::CritMgr;
+pub use crit_target::CritTarget;
+pub use crit_target::CritTargetOwner;
+pub use crit_target::WeakCritTargetOwner;
+pub use crit_upstream::CritUpstreamData;
+pub use crit_upstream::CritUpstreamNode;
+pub use crit_upstream::CritUpstreamNodeBase;
+pub use crit_upstream::CritUpstreamNodeData;

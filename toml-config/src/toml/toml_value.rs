@@ -1,11 +1,8 @@
-use {
-    crate::toml::toml_span::Spanned,
-    indexmap::IndexMap,
-    std::{
-        cmp::Ordering,
-        fmt::{Debug, Formatter},
-    },
-};
+use crate::toml::toml_span::Spanned;
+use indexmap::IndexMap;
+use std::cmp::Ordering;
+use std::fmt::Debug;
+use std::fmt::Formatter;
 
 pub enum Value {
     String(String),

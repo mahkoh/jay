@@ -1,14 +1,14 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::ToplevelNode,
-        wire::{JayToplevelId, jay_toplevel::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::ToplevelNode;
+use crate::wire::JayToplevelId;
+use crate::wire::jay_toplevel::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub const ID_SINCE: Version = Version(12);
 pub const CLIENT_ID_SINCE: Version = Version(18);

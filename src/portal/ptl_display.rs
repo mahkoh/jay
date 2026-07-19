@@ -1,62 +1,69 @@
-use {
-    crate::{
-        fixed::Fixed,
-        gfx_api::{GfxApi, GfxFormat, cross_intersect_formats},
-        gfx_apis::create_gfx_context,
-        globals::GlobalName,
-        ifs::wl_seat::POINTER,
-        object::Version,
-        portal::{
-            PortalState,
-            ptl_gui::WindowData,
-            ptl_render_ctx::{PortalRenderCtx, PortalServerRenderCtx},
-            ptl_session::PortalSession,
-        },
-        utils::{
-            bhash::BHashMap,
-            bitflags::BitflagsExt,
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
-            hash_map_ext::HashMapExt,
-            opaque::{Opaque, opaque},
-            oserror::OsErrorExt,
-        },
-        video::drm::Drm,
-        wire::{
-            JayCompositor, WlCompositor, WlOutput, WlSeat, WlSurfaceId, WpFractionalScaleManagerV1,
-            WpViewporter, ZwlrLayerShellV1, ZwpLinuxDmabufV1, wl_pointer,
-        },
-        wl_usr::{
-            UsrCon, UsrConOwner,
-            usr_ifs::{
-                usr_jay_compositor::UsrJayCompositor,
-                usr_jay_output::{UsrJayOutput, UsrJayOutputOwner},
-                usr_jay_pointer::UsrJayPointer,
-                usr_jay_render_ctx::UsrJayRenderCtxOwner,
-                usr_jay_workspace::{UsrJayWorkspace, UsrJayWorkspaceOwner},
-                usr_jay_workspace_watcher::{UsrJayWorkspaceWatcher, UsrJayWorkspaceWatcherOwner},
-                usr_linux_dmabuf::UsrLinuxDmabuf,
-                usr_wl_compositor::UsrWlCompositor,
-                usr_wl_output::{UsrWlOutput, UsrWlOutputOwner},
-                usr_wl_pointer::{UsrWlPointer, UsrWlPointerOwner},
-                usr_wl_registry::{UsrWlRegistry, UsrWlRegistryOwner},
-                usr_wl_seat::{UsrWlSeat, UsrWlSeatOwner},
-                usr_wlr_layer_shell::UsrWlrLayerShell,
-                usr_wp_fractional_scale_manager::UsrWpFractionalScaleManager,
-                usr_wp_viewporter::UsrWpViewporter,
-            },
-        },
-    },
-    std::{
-        cell::{Cell, RefCell},
-        ops::Deref,
-        os::unix::ffi::OsStrExt,
-        rc::Rc,
-        str::FromStr,
-    },
-    uapi::{AsUstr, OwnedFd, c},
-};
+use crate::fixed::Fixed;
+use crate::gfx_api::GfxApi;
+use crate::gfx_api::GfxFormat;
+use crate::gfx_api::cross_intersect_formats;
+use crate::gfx_apis::create_gfx_context;
+use crate::globals::GlobalName;
+use crate::ifs::wl_seat::POINTER;
+use crate::object::Version;
+use crate::portal::PortalState;
+use crate::portal::ptl_gui::WindowData;
+use crate::portal::ptl_render_ctx::PortalRenderCtx;
+use crate::portal::ptl_render_ctx::PortalServerRenderCtx;
+use crate::portal::ptl_session::PortalSession;
+use crate::utils::bhash::BHashMap;
+use crate::utils::bitflags::BitflagsExt;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::opaque::Opaque;
+use crate::utils::opaque::opaque;
+use crate::utils::oserror::OsErrorExt;
+use crate::video::drm::Drm;
+use crate::wire::JayCompositor;
+use crate::wire::WlCompositor;
+use crate::wire::WlOutput;
+use crate::wire::WlSeat;
+use crate::wire::WlSurfaceId;
+use crate::wire::WpFractionalScaleManagerV1;
+use crate::wire::WpViewporter;
+use crate::wire::ZwlrLayerShellV1;
+use crate::wire::ZwpLinuxDmabufV1;
+use crate::wire::wl_pointer;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::UsrConOwner;
+use crate::wl_usr::usr_ifs::usr_jay_compositor::UsrJayCompositor;
+use crate::wl_usr::usr_ifs::usr_jay_output::UsrJayOutput;
+use crate::wl_usr::usr_ifs::usr_jay_output::UsrJayOutputOwner;
+use crate::wl_usr::usr_ifs::usr_jay_pointer::UsrJayPointer;
+use crate::wl_usr::usr_ifs::usr_jay_render_ctx::UsrJayRenderCtxOwner;
+use crate::wl_usr::usr_ifs::usr_jay_workspace::UsrJayWorkspace;
+use crate::wl_usr::usr_ifs::usr_jay_workspace::UsrJayWorkspaceOwner;
+use crate::wl_usr::usr_ifs::usr_jay_workspace_watcher::UsrJayWorkspaceWatcher;
+use crate::wl_usr::usr_ifs::usr_jay_workspace_watcher::UsrJayWorkspaceWatcherOwner;
+use crate::wl_usr::usr_ifs::usr_linux_dmabuf::UsrLinuxDmabuf;
+use crate::wl_usr::usr_ifs::usr_wl_compositor::UsrWlCompositor;
+use crate::wl_usr::usr_ifs::usr_wl_output::UsrWlOutput;
+use crate::wl_usr::usr_ifs::usr_wl_output::UsrWlOutputOwner;
+use crate::wl_usr::usr_ifs::usr_wl_pointer::UsrWlPointer;
+use crate::wl_usr::usr_ifs::usr_wl_pointer::UsrWlPointerOwner;
+use crate::wl_usr::usr_ifs::usr_wl_registry::UsrWlRegistry;
+use crate::wl_usr::usr_ifs::usr_wl_registry::UsrWlRegistryOwner;
+use crate::wl_usr::usr_ifs::usr_wl_seat::UsrWlSeat;
+use crate::wl_usr::usr_ifs::usr_wl_seat::UsrWlSeatOwner;
+use crate::wl_usr::usr_ifs::usr_wlr_layer_shell::UsrWlrLayerShell;
+use crate::wl_usr::usr_ifs::usr_wp_fractional_scale_manager::UsrWpFractionalScaleManager;
+use crate::wl_usr::usr_ifs::usr_wp_viewporter::UsrWpViewporter;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::ops::Deref;
+use std::os::unix::ffi::OsStrExt;
+use std::rc::Rc;
+use std::str::FromStr;
+use uapi::AsUstr;
+use uapi::OwnedFd;
+use uapi::c;
 
 struct PortalDisplayPrelude {
     con: Rc<UsrCon>,

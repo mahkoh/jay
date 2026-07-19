@@ -1,15 +1,13 @@
-use {
-    crate::{
-        cmm::cmm_eotf::Eotf,
-        it::{
-            test_error::TestResult, test_ifs::test_buffer::TestBuffer, test_object::TestObject,
-            test_transport::TestTransport,
-        },
-        theme::Color,
-        wire::{WpSinglePixelBufferManagerV1Id, wp_single_pixel_buffer_manager_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::cmm::cmm_eotf::Eotf;
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_buffer::TestBuffer;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::theme::Color;
+use crate::wire::WpSinglePixelBufferManagerV1Id;
+use crate::wire::wp_single_pixel_buffer_manager_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestSinglePixelBufferManager {
     pub id: WpSinglePixelBufferManagerV1Id,

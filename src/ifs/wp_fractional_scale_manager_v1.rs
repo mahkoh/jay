@@ -1,15 +1,16 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wl_surface::wp_fractional_scale_v1::{WpFractionalScaleError, WpFractionalScaleV1},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WpFractionalScaleManagerV1Id, wp_fractional_scale_manager_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_surface::wp_fractional_scale_v1::WpFractionalScaleError;
+use crate::ifs::wl_surface::wp_fractional_scale_v1::WpFractionalScaleV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WpFractionalScaleManagerV1Id;
+use crate::wire::wp_fractional_scale_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpFractionalScaleManagerV1Global {
     pub name: GlobalName,

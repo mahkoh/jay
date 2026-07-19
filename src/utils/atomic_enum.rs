@@ -1,10 +1,7 @@
-use {
-    linearize::Linearize,
-    std::{
-        marker::PhantomData,
-        sync::atomic::{AtomicUsize, Ordering},
-    },
-};
+use linearize::Linearize;
+use std::marker::PhantomData;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 
 pub struct AtomicEnum<T> {
     v: AtomicUsize,

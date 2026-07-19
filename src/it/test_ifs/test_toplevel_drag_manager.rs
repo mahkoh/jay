@@ -1,15 +1,13 @@
-use {
-    crate::{
-        it::{
-            test_error::{TestError, TestResult},
-            test_ifs::{test_data_source::TestDataSource, test_toplevel_drag::TestToplevelDrag},
-            test_object::TestObject,
-            test_transport::TestTransport,
-        },
-        wire::{XdgToplevelDragManagerV1Id, xdg_toplevel_drag_manager_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestError;
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_data_source::TestDataSource;
+use crate::it::test_ifs::test_toplevel_drag::TestToplevelDrag;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::XdgToplevelDragManagerV1Id;
+use crate::wire::xdg_toplevel_drag_manager_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestToplevelDragManager {
     pub id: XdgToplevelDragManagerV1Id,

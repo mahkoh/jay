@@ -1,23 +1,23 @@
-use {
-    crate::{
-        backend::{self, ConnectorId},
-        client::{Client, ClientError},
-        fixed::Fixed,
-        ifs::wlr_output_manager::{
-            zwlr_output_manager_v1::{WlrOutputManagerId, ZwlrOutputManagerV1},
-            zwlr_output_mode_v1::ZwlrOutputModeV1,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        scale,
-        state::OutputData,
-        tree::{self, VrrMode},
-        utils::copyhashmap::CopyHashMap,
-        wire::{ZwlrOutputHeadV1Id, zwlr_output_head_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::backend::ConnectorId;
+use crate::backend::{self};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::fixed::Fixed;
+use crate::ifs::wlr_output_manager::zwlr_output_manager_v1::WlrOutputManagerId;
+use crate::ifs::wlr_output_manager::zwlr_output_manager_v1::ZwlrOutputManagerV1;
+use crate::ifs::wlr_output_manager::zwlr_output_mode_v1::ZwlrOutputModeV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::scale;
+use crate::state::OutputData;
+use crate::tree::VrrMode;
+use crate::tree::{self};
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::wire::ZwlrOutputHeadV1Id;
+use crate::wire::zwlr_output_head_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub const MAKE_SINCE: Version = Version(2);
 pub const MODEL_SINCE: Version = Version(2);

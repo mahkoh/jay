@@ -1,4 +1,5 @@
-use crate::{criteria::crit_graph::CritFixedRootCriterion, tree::ToplevelData};
+use crate::criteria::crit_graph::CritFixedRootCriterion;
+use crate::tree::ToplevelData;
 
 pub struct TlmMatchUrgent(pub bool);
 

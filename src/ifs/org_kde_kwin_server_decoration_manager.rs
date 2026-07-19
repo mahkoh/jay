@@ -1,17 +1,16 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::org_kde_kwin_server_decoration::{
-            OrgKdeKwinServerDecoration, OrgKdeKwinServerDecorationError,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{OrgKdeKwinServerDecorationManagerId, org_kde_kwin_server_decoration_manager::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::org_kde_kwin_server_decoration::OrgKdeKwinServerDecoration;
+use crate::ifs::org_kde_kwin_server_decoration::OrgKdeKwinServerDecorationError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::OrgKdeKwinServerDecorationManagerId;
+use crate::wire::org_kde_kwin_server_decoration_manager::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[expect(dead_code)]
 const NONE: u32 = 0;

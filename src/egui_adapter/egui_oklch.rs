@@ -1,10 +1,9 @@
-use {
-    crate::{
-        cmm::cmm_eotf::Eotf,
-        theme::{Color, Oklab, Oklch},
-    },
-    egui::{Color32, Rgba},
-};
+use crate::cmm::cmm_eotf::Eotf;
+use crate::theme::Color;
+use crate::theme::Oklab;
+use crate::theme::Oklch;
+use egui::Color32;
+use egui::Rgba;
 
 pub trait Color32Ext {
     fn to_oklab(self) -> Oklab;

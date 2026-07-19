@@ -1,11 +1,10 @@
-use {
-    crate::{
-        ifs::xdg_session_manager_v1::REASON_LAUNCH,
-        it::{test_error::TestError, testrun::TestRun},
-        tree::{ToplevelNode, ToplevelNodeBase, TreeTimeline::LiveTL},
-    },
-    std::rc::Rc,
-};
+use crate::ifs::xdg_session_manager_v1::REASON_LAUNCH;
+use crate::it::test_error::TestError;
+use crate::it::testrun::TestRun;
+use crate::tree::ToplevelNode;
+use crate::tree::ToplevelNodeBase;
+use crate::tree::TreeTimeline::LiveTL;
+use std::rc::Rc;
 
 testcase!();
 

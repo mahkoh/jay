@@ -1,21 +1,20 @@
-use {
-    crate::{
-        client::{CAP_DATA_CONTROL_MANAGER, Client, ClientCaps, ClientError},
-        globals::{Global, GlobalName},
-        ifs::ipc::{
-            IpcLocation,
-            data_control::{
-                DynDataControlDevice, ext_data_control_device_v1::ExtDataControlDeviceV1,
-                ext_data_control_source_v1::ExtDataControlSourceV1,
-            },
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ExtDataControlManagerV1Id, ext_data_control_manager_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::CAP_DATA_CONTROL_MANAGER;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::ipc::IpcLocation;
+use crate::ifs::ipc::data_control::DynDataControlDevice;
+use crate::ifs::ipc::data_control::ext_data_control_device_v1::ExtDataControlDeviceV1;
+use crate::ifs::ipc::data_control::ext_data_control_source_v1::ExtDataControlSourceV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ExtDataControlManagerV1Id;
+use crate::wire::ext_data_control_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ExtDataControlManagerV1Global {
     name: GlobalName,

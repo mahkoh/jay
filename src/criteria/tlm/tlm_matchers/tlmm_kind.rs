@@ -1,14 +1,9 @@
-use {
-    crate::{
-        criteria::{
-            crit_graph::CritRootCriterion,
-            tlm::{RootMatchers, TlmRootMatcherMap},
-        },
-        tree::ToplevelData,
-        utils::bitflags::BitflagsExt,
-    },
-    jay_config::window::WindowType,
-};
+use crate::criteria::crit_graph::CritRootCriterion;
+use crate::criteria::tlm::RootMatchers;
+use crate::criteria::tlm::TlmRootMatcherMap;
+use crate::tree::ToplevelData;
+use crate::utils::bitflags::BitflagsExt;
+use jay_config::window::WindowType;
 
 pub struct TlmMatchKind {
     kind: WindowType,

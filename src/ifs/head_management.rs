@@ -1,21 +1,26 @@
-use {
-    crate::{
-        backend::{BackendColorSpace, BackendEotfs, ConnectorId, Mode, MonitorInfo},
-        format::Format,
-        gfx_api::ScalingFilter,
-        globals::GlobalName,
-        ifs::wl_output::{BlendSpace, PersistentOutputState},
-        scale::Scale,
-        state::{OutputData, State},
-        tree::{OutputNode, TearingMode, Transform, TreeTimeline::LiveTL, VrrMode},
-        utils::rc_eq::RcEq,
-    },
-    hashbrown::hash_map::Entry,
-    std::{
-        cell::{Ref, RefCell},
-        rc::Rc,
-    },
-};
+use crate::backend::BackendColorSpace;
+use crate::backend::BackendEotfs;
+use crate::backend::ConnectorId;
+use crate::backend::Mode;
+use crate::backend::MonitorInfo;
+use crate::format::Format;
+use crate::gfx_api::ScalingFilter;
+use crate::globals::GlobalName;
+use crate::ifs::wl_output::BlendSpace;
+use crate::ifs::wl_output::PersistentOutputState;
+use crate::scale::Scale;
+use crate::state::OutputData;
+use crate::state::State;
+use crate::tree::OutputNode;
+use crate::tree::TearingMode;
+use crate::tree::Transform;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::VrrMode;
+use crate::utils::rc_eq::RcEq;
+use hashbrown::hash_map::Entry;
+use std::cell::Ref;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 linear_ids!(HeadNames, HeadName, u64);
 

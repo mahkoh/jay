@@ -1,32 +1,47 @@
-use {
-    crate::{
-        gfx_api::AlphaMode,
-        gfx_apis::vulkan::{
-            VulkanError, descriptor::VulkanDescriptorSetLayout, device::VulkanDevice,
-            shaders::VulkanShader,
-        },
-    },
-    arrayvec::ArrayVec,
-    ash::{
-        vk,
-        vk::{
-            BlendFactor, BlendOp, ColorComponentFlags, CullModeFlags,
-            DescriptorSetAndBindingMappingEXT, DynamicState, FrontFace, GraphicsPipelineCreateInfo,
-            Handle, Pipeline, PipelineCache, PipelineColorBlendAttachmentState,
-            PipelineColorBlendStateCreateInfo, PipelineCreateFlags, PipelineCreateFlags2,
-            PipelineCreateFlags2CreateInfo, PipelineDynamicStateCreateInfo,
-            PipelineInputAssemblyStateCreateInfo, PipelineLayout, PipelineLayoutCreateInfo,
-            PipelineMultisampleStateCreateInfo, PipelineRasterizationStateCreateInfo,
-            PipelineRenderingCreateInfo, PipelineShaderStageCreateInfo,
-            PipelineVertexInputStateCreateInfo, PipelineViewportStateCreateInfo, PolygonMode,
-            PrimitiveTopology, PushConstantRange, SampleCountFlags,
-            ShaderDescriptorSetAndBindingMappingInfoEXT, ShaderStageFlags, SpecializationInfo,
-            SpecializationMapEntry,
-        },
-    },
-    run_on_drop::on_drop,
-    std::{rc::Rc, slice},
-};
+use crate::gfx_api::AlphaMode;
+use crate::gfx_apis::vulkan::VulkanError;
+use crate::gfx_apis::vulkan::descriptor::VulkanDescriptorSetLayout;
+use crate::gfx_apis::vulkan::device::VulkanDevice;
+use crate::gfx_apis::vulkan::shaders::VulkanShader;
+use arrayvec::ArrayVec;
+use ash::vk;
+use ash::vk::BlendFactor;
+use ash::vk::BlendOp;
+use ash::vk::ColorComponentFlags;
+use ash::vk::CullModeFlags;
+use ash::vk::DescriptorSetAndBindingMappingEXT;
+use ash::vk::DynamicState;
+use ash::vk::FrontFace;
+use ash::vk::GraphicsPipelineCreateInfo;
+use ash::vk::Handle;
+use ash::vk::Pipeline;
+use ash::vk::PipelineCache;
+use ash::vk::PipelineColorBlendAttachmentState;
+use ash::vk::PipelineColorBlendStateCreateInfo;
+use ash::vk::PipelineCreateFlags;
+use ash::vk::PipelineCreateFlags2;
+use ash::vk::PipelineCreateFlags2CreateInfo;
+use ash::vk::PipelineDynamicStateCreateInfo;
+use ash::vk::PipelineInputAssemblyStateCreateInfo;
+use ash::vk::PipelineLayout;
+use ash::vk::PipelineLayoutCreateInfo;
+use ash::vk::PipelineMultisampleStateCreateInfo;
+use ash::vk::PipelineRasterizationStateCreateInfo;
+use ash::vk::PipelineRenderingCreateInfo;
+use ash::vk::PipelineShaderStageCreateInfo;
+use ash::vk::PipelineVertexInputStateCreateInfo;
+use ash::vk::PipelineViewportStateCreateInfo;
+use ash::vk::PolygonMode;
+use ash::vk::PrimitiveTopology;
+use ash::vk::PushConstantRange;
+use ash::vk::SampleCountFlags;
+use ash::vk::ShaderDescriptorSetAndBindingMappingInfoEXT;
+use ash::vk::ShaderStageFlags;
+use ash::vk::SpecializationInfo;
+use ash::vk::SpecializationMapEntry;
+use run_on_drop::on_drop;
+use std::rc::Rc;
+use std::slice;
 
 pub(super) struct VulkanPipeline {
     pub(super) vert: Rc<VulkanShader>,

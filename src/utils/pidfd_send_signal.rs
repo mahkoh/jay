@@ -1,13 +1,14 @@
-use {
-    crate::utils::oserror::{OsError, OsErrorExt},
-    c::{c_int, syscall},
-    std::{ptr, rc::Rc},
-    uapi::{
-        OwnedFd,
-        c::{self, SYS_pidfd_send_signal, siginfo_t},
-        map_err,
-    },
-};
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt;
+use c::c_int;
+use c::syscall;
+use std::ptr;
+use std::rc::Rc;
+use uapi::OwnedFd;
+use uapi::c::SYS_pidfd_send_signal;
+use uapi::c::siginfo_t;
+use uapi::c::{self};
+use uapi::map_err;
 
 pub fn pidfd_send_signal(pidfd: &Rc<OwnedFd>, signal: c_int) -> Result<(), OsError> {
     let res = unsafe {

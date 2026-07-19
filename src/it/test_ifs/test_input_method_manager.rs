@@ -1,15 +1,12 @@
-use {
-    crate::{
-        it::{
-            test_error::TestResult,
-            test_ifs::{test_input_method::TestInputMethod, test_seat::TestSeat},
-            test_object::TestObject,
-            test_transport::TestTransport,
-        },
-        wire::{ZwpInputMethodManagerV2Id, zwp_input_method_manager_v2::GetInputMethod},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_input_method::TestInputMethod;
+use crate::it::test_ifs::test_seat::TestSeat;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::ZwpInputMethodManagerV2Id;
+use crate::wire::zwp_input_method_manager_v2::GetInputMethod;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestInputMethodManager {
     pub id: ZwpInputMethodManagerV2Id,

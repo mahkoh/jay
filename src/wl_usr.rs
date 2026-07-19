@@ -1,46 +1,50 @@
 pub mod usr_ifs;
 pub mod usr_object;
 
-use {
-    crate::{
-        async_engine::{AsyncEngine, SpawnedFuture},
-        client::{EventFormatter, MIN_SERVER_ID, RequestParser},
-        io_uring::{IoUring, IoUringError},
-        object::{Interface, ObjectId, Version, WL_DISPLAY_ID},
-        utils::{
-            asyncevent::AsyncEvent,
-            bitfield::Bitfield,
-            buffd::{
-                BufFdError, BufFdOut, MsgFormatter, MsgParser, MsgParserError, OutBuffer,
-                OutBufferSwapchain, WlBufFdIn, WlMessage,
-            },
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
-            hash_map_ext::HashMapExt,
-            oserror::{OsError, OsErrorExt2},
-        },
-        video::dmabuf::DmaBufIds,
-        wheel::Wheel,
-        wire::wl_display,
-        wl_usr::{
-            usr_ifs::{
-                usr_wl_callback::UsrWlCallback, usr_wl_display::UsrWlDisplay,
-                usr_wl_registry::UsrWlRegistry,
-            },
-            usr_object::UsrObject,
-        },
-    },
-    std::{
-        cell::{Cell, RefCell},
-        collections::VecDeque,
-        error::Error,
-        mem,
-        rc::Rc,
-    },
-    thiserror::Error,
-    uapi::{OwnedFd, c},
-};
+use crate::async_engine::AsyncEngine;
+use crate::async_engine::SpawnedFuture;
+use crate::client::EventFormatter;
+use crate::client::MIN_SERVER_ID;
+use crate::client::RequestParser;
+use crate::io_uring::IoUring;
+use crate::io_uring::IoUringError;
+use crate::object::Interface;
+use crate::object::ObjectId;
+use crate::object::Version;
+use crate::object::WL_DISPLAY_ID;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::bitfield::Bitfield;
+use crate::utils::buffd::BufFdError;
+use crate::utils::buffd::BufFdOut;
+use crate::utils::buffd::MsgFormatter;
+use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
+use crate::utils::buffd::OutBuffer;
+use crate::utils::buffd::OutBufferSwapchain;
+use crate::utils::buffd::WlBufFdIn;
+use crate::utils::buffd::WlMessage;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt2;
+use crate::video::dmabuf::DmaBufIds;
+use crate::wheel::Wheel;
+use crate::wire::wl_display;
+use crate::wl_usr::usr_ifs::usr_wl_callback::UsrWlCallback;
+use crate::wl_usr::usr_ifs::usr_wl_display::UsrWlDisplay;
+use crate::wl_usr::usr_ifs::usr_wl_registry::UsrWlRegistry;
+use crate::wl_usr::usr_object::UsrObject;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::error::Error;
+use std::mem;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c;
 
 #[derive(Debug, Error)]
 pub enum UsrConError {

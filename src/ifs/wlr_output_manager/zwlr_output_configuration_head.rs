@@ -1,20 +1,21 @@
-use {
-    crate::{
-        backend::Mode,
-        client::{Client, ClientError},
-        fixed::Fixed,
-        ifs::wlr_output_manager::zwlr_output_head_v1::{
-            ADAPTIVE_SYNC_STATE_DISABLED, ADAPTIVE_SYNC_STATE_ENABLED, WlrOutputHeadId,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        scale::Scale,
-        tree::{Transform, VrrMode},
-        wire::{ZwlrOutputConfigurationHeadV1Id, zwlr_output_configuration_head_v1::*},
-    },
-    std::{cell::RefCell, rc::Rc},
-    thiserror::Error,
-};
+use crate::backend::Mode;
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::fixed::Fixed;
+use crate::ifs::wlr_output_manager::zwlr_output_head_v1::ADAPTIVE_SYNC_STATE_DISABLED;
+use crate::ifs::wlr_output_manager::zwlr_output_head_v1::ADAPTIVE_SYNC_STATE_ENABLED;
+use crate::ifs::wlr_output_manager::zwlr_output_head_v1::WlrOutputHeadId;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::scale::Scale;
+use crate::tree::Transform;
+use crate::tree::VrrMode;
+use crate::wire::ZwlrOutputConfigurationHeadV1Id;
+use crate::wire::zwlr_output_configuration_head_v1::*;
+use std::cell::RefCell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwlrOutputConfigurationHeadV1 {
     pub(super) id: ZwlrOutputConfigurationHeadV1Id,

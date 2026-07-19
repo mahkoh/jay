@@ -1,20 +1,25 @@
-use {
-    crate::{
-        dbus::{DbusObject, DictEntry, DynamicType, FALSE, PendingReply, prelude::Variant},
-        pipewire::pw_con::PwCon,
-        portal::{
-            PORTAL_SUCCESS, PortalState,
-            ptl_remote_desktop::{DeviceTypes, RemoteDesktopPhase},
-            ptl_screencast::{ScreencastPhase, ScreencastTarget},
-        },
-        utils::{clonecell::CloneCell, hash_map_ext::HashMapExt},
-        wire_dbus::org::freedesktop::impl_::portal::{
-            remote_desktop::StartReply as RdStartReply, screen_cast::StartReply as ScStartReply,
-            session::Closed,
-        },
-    },
-    std::{borrow::Cow, cell::Cell, ops::Deref, rc::Rc},
-};
+use crate::dbus::DbusObject;
+use crate::dbus::DictEntry;
+use crate::dbus::DynamicType;
+use crate::dbus::FALSE;
+use crate::dbus::PendingReply;
+use crate::dbus::prelude::Variant;
+use crate::pipewire::pw_con::PwCon;
+use crate::portal::PORTAL_SUCCESS;
+use crate::portal::PortalState;
+use crate::portal::ptl_remote_desktop::DeviceTypes;
+use crate::portal::ptl_remote_desktop::RemoteDesktopPhase;
+use crate::portal::ptl_screencast::ScreencastPhase;
+use crate::portal::ptl_screencast::ScreencastTarget;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::wire_dbus::org::freedesktop::impl_::portal::remote_desktop::StartReply as RdStartReply;
+use crate::wire_dbus::org::freedesktop::impl_::portal::screen_cast::StartReply as ScStartReply;
+use crate::wire_dbus::org::freedesktop::impl_::portal::session::Closed;
+use std::borrow::Cow;
+use std::cell::Cell;
+use std::ops::Deref;
+use std::rc::Rc;
 
 shared_ids!(SessionId);
 pub struct PortalSession {

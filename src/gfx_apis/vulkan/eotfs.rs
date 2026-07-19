@@ -1,4 +1,6 @@
-use {crate::cmm::cmm_eotf::Eotf, jay_proc::jay_hash, linearize::Linearize};
+use crate::cmm::cmm_eotf::Eotf;
+use jay_proc::jay_hash;
+use linearize::Linearize;
 
 pub const EOTF_LINEAR: u32 = 1;
 pub const EOTF_ST2084_PQ: u32 = 2;

@@ -1,10 +1,10 @@
-use {
-    crate::{
-        it::{test_error::TestError, test_object::TestObject, test_transport::TestTransport},
-        wire::{ZwpInputPopupSurfaceV2Id, zwp_input_popup_surface_v2::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestError;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::ZwpInputPopupSurfaceV2Id;
+use crate::wire::zwp_input_popup_surface_v2::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestInputPopupSurface {
     pub id: ZwpInputPopupSurfaceV2Id,

@@ -1,23 +1,20 @@
-use {
-    crate::{
-        cpu_worker::CpuWorker,
-        gfx_api::GfxStagingBuffer,
-        gfx_apis::vulkan::{
-            VulkanError,
-            allocator::{VulkanAllocation, VulkanAllocator},
-            device::VulkanDevice,
-            renderer::VulkanRenderer,
-        },
-        utils::clonecell::CloneCell,
-    },
-    ash::{
-        Device,
-        vk::{Buffer, BufferCreateInfo, BufferUsageFlags},
-    },
-    gpu_alloc::UsageFlags,
-    run_on_drop::on_drop,
-    std::{any::Any, cell::Cell, rc::Rc},
-};
+use crate::cpu_worker::CpuWorker;
+use crate::gfx_api::GfxStagingBuffer;
+use crate::gfx_apis::vulkan::VulkanError;
+use crate::gfx_apis::vulkan::allocator::VulkanAllocation;
+use crate::gfx_apis::vulkan::allocator::VulkanAllocator;
+use crate::gfx_apis::vulkan::device::VulkanDevice;
+use crate::gfx_apis::vulkan::renderer::VulkanRenderer;
+use crate::utils::clonecell::CloneCell;
+use ash::Device;
+use ash::vk::Buffer;
+use ash::vk::BufferCreateInfo;
+use ash::vk::BufferUsageFlags;
+use gpu_alloc::UsageFlags;
+use run_on_drop::on_drop;
+use std::any::Any;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct VulkanStagingBuffer {
     pub(super) device: Rc<VulkanDevice>,

@@ -1,19 +1,21 @@
-use {
-    crate::{
-        config::{
-            context::Context,
-            extractor::{Extractor, ExtractorError, fltorint, opt},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-        },
-        toml::{
-            toml_span::{DespanExt, Span, Spanned, SpannedExt},
-            toml_value::Value,
-        },
-    },
-    indexmap::IndexMap,
-    std::time::{Duration, TryFromFloatSecsError},
-    thiserror::Error,
-};
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::fltorint;
+use crate::config::extractor::opt;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::toml::toml_span::DespanExt;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_span::SpannedExt;
+use crate::toml::toml_value::Value;
+use indexmap::IndexMap;
+use std::time::Duration;
+use std::time::TryFromFloatSecsError;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum CleanLogsOlderThanParserError {

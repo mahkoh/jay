@@ -1,18 +1,19 @@
-use {
-    crate::{
-        backend::{
-            BackendConnectorState, BackendDrmDevice, BackendEvent, ConnectorEvent,
-            ConnectorKernelId, MonitorInfo,
-        },
-        cmm::cmm_primaries::Primaries,
-        format::XRGB8888,
-        ifs::wl_output::OutputId,
-        it::{test_backend::TestConnector, test_error::TestResult, testrun::TestRun},
-        utils::numcell::NumCell,
-        video::drm::ConnectorType,
-    },
-    std::{cell::RefCell, rc::Rc},
-};
+use crate::backend::BackendConnectorState;
+use crate::backend::BackendDrmDevice;
+use crate::backend::BackendEvent;
+use crate::backend::ConnectorEvent;
+use crate::backend::ConnectorKernelId;
+use crate::backend::MonitorInfo;
+use crate::cmm::cmm_primaries::Primaries;
+use crate::format::XRGB8888;
+use crate::ifs::wl_output::OutputId;
+use crate::it::test_backend::TestConnector;
+use crate::it::test_error::TestResult;
+use crate::it::testrun::TestRun;
+use crate::utils::numcell::NumCell;
+use crate::video::drm::ConnectorType;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 testcase!();
 

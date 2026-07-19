@@ -1,27 +1,29 @@
-use {
-    crate::{
-        backend::{BackendEvent, ConnectorEvent},
-        backends::metal::{
-            MetalBackend, MetalDevice, MetalError, MetalInputDevice,
-            video::{FrontState, MetalDrmDeviceData, PendingDrmDevice},
-        },
-        dbus::{DbusError, TRUE},
-        udev::UdevDevice,
-        utils::{
-            bitflags::BitflagsExt,
-            cell_ext::CellExt,
-            errorfmt::ErrorFmt,
-            nonblock::{set_block, set_nonblock},
-        },
-        video::drm::DrmMaster,
-        wire_dbus::org::freedesktop::login1::session::{
-            PauseDevice, ResumeDevice, TakeDeviceReply,
-        },
-    },
-    bstr::ByteSlice,
-    std::{cell::Cell, rc::Rc},
-    uapi::{OwnedFd, c},
-};
+use crate::backend::BackendEvent;
+use crate::backend::ConnectorEvent;
+use crate::backends::metal::MetalBackend;
+use crate::backends::metal::MetalDevice;
+use crate::backends::metal::MetalError;
+use crate::backends::metal::MetalInputDevice;
+use crate::backends::metal::video::FrontState;
+use crate::backends::metal::video::MetalDrmDeviceData;
+use crate::backends::metal::video::PendingDrmDevice;
+use crate::dbus::DbusError;
+use crate::dbus::TRUE;
+use crate::udev::UdevDevice;
+use crate::utils::bitflags::BitflagsExt;
+use crate::utils::cell_ext::CellExt;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::nonblock::set_block;
+use crate::utils::nonblock::set_nonblock;
+use crate::video::drm::DrmMaster;
+use crate::wire_dbus::org::freedesktop::login1::session::PauseDevice;
+use crate::wire_dbus::org::freedesktop::login1::session::ResumeDevice;
+use crate::wire_dbus::org::freedesktop::login1::session::TakeDeviceReply;
+use bstr::ByteSlice;
+use std::cell::Cell;
+use std::rc::Rc;
+use uapi::OwnedFd;
+use uapi::c;
 
 const DRM: &[u8] = b"drm";
 const INPUT: &[u8] = b"input";

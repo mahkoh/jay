@@ -1,19 +1,17 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::ipc::{
-            zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1,
-            zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        state::State,
-        wire::{ZwpPrimarySelectionDeviceManagerV1Id, zwp_primary_selection_device_manager_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
+use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::state::State;
+use crate::wire::ZwpPrimarySelectionDeviceManagerV1Id;
+use crate::wire::zwp_primary_selection_device_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpPrimarySelectionDeviceManagerV1Global {
     name: GlobalName,

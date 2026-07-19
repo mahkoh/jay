@@ -1,10 +1,9 @@
-use crate::{
-    ifs::color_management::{
-        ABSOLUTE_NO_ADAPTATION_SINCE, RENDER_INTENT_ABSOLUTE_NO_ADAPTATION,
-        RENDER_INTENT_PERCEPTUAL, RENDER_INTENT_RELATIVE, RENDER_INTENT_RELATIVE_BPC,
-    },
-    object::Version,
-};
+use crate::ifs::color_management::ABSOLUTE_NO_ADAPTATION_SINCE;
+use crate::ifs::color_management::RENDER_INTENT_ABSOLUTE_NO_ADAPTATION;
+use crate::ifs::color_management::RENDER_INTENT_PERCEPTUAL;
+use crate::ifs::color_management::RENDER_INTENT_RELATIVE;
+use crate::ifs::color_management::RENDER_INTENT_RELATIVE_BPC;
+use crate::object::Version;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Default)]
 pub enum RenderIntent {

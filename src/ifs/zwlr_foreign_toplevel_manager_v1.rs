@@ -1,19 +1,23 @@
-use {
-    crate::{
-        client::{CAP_FOREIGN_TOPLEVEL_MANAGER, Client, ClientCaps, ClientError},
-        globals::{Global, GlobalName},
-        ifs::{
-            wl_surface::{x_surface::xwindow::Xwindow, xdg_surface::xdg_toplevel::XdgToplevel},
-            zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::{NodeVisitorBase, OutputNodeId, ToplevelOpt},
-        wire::{ZwlrForeignToplevelManagerV1Id, zwlr_foreign_toplevel_manager_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::CAP_FOREIGN_TOPLEVEL_MANAGER;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_surface::x_surface::xwindow::Xwindow;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::ifs::zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::NodeVisitorBase;
+use crate::tree::OutputNodeId;
+use crate::tree::ToplevelOpt;
+use crate::wire::ZwlrForeignToplevelManagerV1Id;
+use crate::wire::zwlr_foreign_toplevel_manager_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwlrForeignToplevelManagerV1Global {
     name: GlobalName,

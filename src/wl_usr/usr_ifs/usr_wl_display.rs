@@ -1,11 +1,9 @@
-use {
-    crate::{
-        object::Version,
-        wire::{WlDisplayId, wl_display::*},
-        wl_usr::{UsrCon, usr_object::UsrObject},
-    },
-    std::rc::Rc,
-};
+use crate::object::Version;
+use crate::wire::WlDisplayId;
+use crate::wire::wl_display::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_object::UsrObject;
+use std::rc::Rc;
 
 pub struct UsrWlDisplay {
     pub id: WlDisplayId,

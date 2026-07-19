@@ -1,15 +1,14 @@
-use {
-    crate::{
-        ast::{ArgType, Message, MessageType},
-        parser::{ParserError, parse},
-    },
-    std::{
-        fs::File,
-        io::{self, BufWriter, Write},
-        mem,
-    },
-    thiserror::Error,
-};
+use crate::ast::ArgType;
+use crate::ast::Message;
+use crate::ast::MessageType;
+use crate::parser::ParserError;
+use crate::parser::parse;
+use std::fs::File;
+use std::io::BufWriter;
+use std::io::Write;
+use std::io::{self};
+use std::mem;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum BuilderError {

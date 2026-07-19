@@ -1,4 +1,5 @@
-use {crate::ei::ei_object::EiVersion, std::cell::Cell};
+use crate::ei::ei_object::EiVersion;
+use std::cell::Cell;
 
 pub mod ei_acceptor;
 pub mod ei_client;

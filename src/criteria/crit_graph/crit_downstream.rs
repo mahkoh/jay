@@ -1,10 +1,7 @@
-use {
-    crate::criteria::{
-        CritMatcherId,
-        crit_graph::{CritTarget, crit_upstream::CritUpstreamNode},
-    },
-    std::rc::Rc,
-};
+use crate::criteria::CritMatcherId;
+use crate::criteria::crit_graph::CritTarget;
+use crate::criteria::crit_graph::crit_upstream::CritUpstreamNode;
+use std::rc::Rc;
 
 pub struct CritDownstreamData<Target>
 where

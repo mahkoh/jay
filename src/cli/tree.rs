@@ -1,24 +1,39 @@
-use {
-    crate::{
-        cli::{
-            GlobalArgs,
-            clients::{Client, ClientPrinter, handle_client_query, make_json_client},
-            json::{JsonRect, JsonTreeNode, JsonTreeNodeType, jsonl},
-        },
-        ifs::jay_tree_query::{
-            TREE_TY_CONTAINER, TREE_TY_DISPLAY, TREE_TY_FLOAT, TREE_TY_LAYER_SURFACE,
-            TREE_TY_LOCK_SURFACE, TREE_TY_OUTPUT, TREE_TY_PLACEHOLDER, TREE_TY_WORKSPACE,
-            TREE_TY_X_WINDOW, TREE_TY_XDG_POPUP, TREE_TY_XDG_TOPLEVEL,
-        },
-        rect::Rect,
-        tools::tool_client::{Handle, ToolClient, with_tool_client},
-        utils::bhash::{BHashMap, BHashSet},
-        wire::{JayCompositorId, JayTreeQueryId, jay_client_query, jay_compositor, jay_tree_query},
-    },
-    clap::{Args, Subcommand},
-    isnt::std_1::primitive::IsntSliceExt,
-    std::{cell::RefCell, rc::Rc},
-};
+use crate::cli::GlobalArgs;
+use crate::cli::clients::Client;
+use crate::cli::clients::ClientPrinter;
+use crate::cli::clients::handle_client_query;
+use crate::cli::clients::make_json_client;
+use crate::cli::json::JsonRect;
+use crate::cli::json::JsonTreeNode;
+use crate::cli::json::JsonTreeNodeType;
+use crate::cli::json::jsonl;
+use crate::ifs::jay_tree_query::TREE_TY_CONTAINER;
+use crate::ifs::jay_tree_query::TREE_TY_DISPLAY;
+use crate::ifs::jay_tree_query::TREE_TY_FLOAT;
+use crate::ifs::jay_tree_query::TREE_TY_LAYER_SURFACE;
+use crate::ifs::jay_tree_query::TREE_TY_LOCK_SURFACE;
+use crate::ifs::jay_tree_query::TREE_TY_OUTPUT;
+use crate::ifs::jay_tree_query::TREE_TY_PLACEHOLDER;
+use crate::ifs::jay_tree_query::TREE_TY_WORKSPACE;
+use crate::ifs::jay_tree_query::TREE_TY_X_WINDOW;
+use crate::ifs::jay_tree_query::TREE_TY_XDG_POPUP;
+use crate::ifs::jay_tree_query::TREE_TY_XDG_TOPLEVEL;
+use crate::rect::Rect;
+use crate::tools::tool_client::Handle;
+use crate::tools::tool_client::ToolClient;
+use crate::tools::tool_client::with_tool_client;
+use crate::utils::bhash::BHashMap;
+use crate::utils::bhash::BHashSet;
+use crate::wire::JayCompositorId;
+use crate::wire::JayTreeQueryId;
+use crate::wire::jay_client_query;
+use crate::wire::jay_compositor;
+use crate::wire::jay_tree_query;
+use clap::Args;
+use clap::Subcommand;
+use isnt::std_1::primitive::IsntSliceExt;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Args, Debug)]
 pub struct TreeArgs {

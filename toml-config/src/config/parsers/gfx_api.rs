@@ -1,11 +1,11 @@
-use {
-    crate::{
-        config::parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-        toml::toml_span::{Span, SpannedExt},
-    },
-    jay_config::video::GfxApi,
-    thiserror::Error,
-};
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::SpannedExt;
+use jay_config::video::GfxApi;
+use thiserror::Error;
 
 pub struct GfxApiParser;
 

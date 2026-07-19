@@ -1,10 +1,8 @@
-use {
-    crate::gfx_apis::gl::{
-        egl::context::EglContext,
-        gl::{render_buffer::GlRenderBuffer, sys::GLuint, texture::GlTexture},
-    },
-    std::rc::Rc,
-};
+use crate::gfx_apis::gl::egl::context::EglContext;
+use crate::gfx_apis::gl::gl::render_buffer::GlRenderBuffer;
+use crate::gfx_apis::gl::gl::sys::GLuint;
+use crate::gfx_apis::gl::gl::texture::GlTexture;
+use std::rc::Rc;
 
 pub struct GlFrameBuffer {
     pub rb: Rc<GlRenderBuffer>,

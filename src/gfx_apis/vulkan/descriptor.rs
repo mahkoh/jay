@@ -1,15 +1,16 @@
-use {
-    crate::gfx_apis::vulkan::{
-        VulkanError,
-        device::{DescriptorBufferDevice, VulkanDevice},
-    },
-    arrayvec::ArrayVec,
-    ash::vk::{
-        DescriptorSetLayout, DescriptorSetLayoutBinding, DescriptorSetLayoutCreateFlags,
-        DescriptorSetLayoutCreateInfo, DescriptorType, DeviceSize, ShaderStageFlags,
-    },
-    std::{rc::Rc, slice},
-};
+use crate::gfx_apis::vulkan::VulkanError;
+use crate::gfx_apis::vulkan::device::DescriptorBufferDevice;
+use crate::gfx_apis::vulkan::device::VulkanDevice;
+use arrayvec::ArrayVec;
+use ash::vk::DescriptorSetLayout;
+use ash::vk::DescriptorSetLayoutBinding;
+use ash::vk::DescriptorSetLayoutCreateFlags;
+use ash::vk::DescriptorSetLayoutCreateInfo;
+use ash::vk::DescriptorType;
+use ash::vk::DeviceSize;
+use ash::vk::ShaderStageFlags;
+use std::rc::Rc;
+use std::slice;
 
 pub(super) struct VulkanDescriptorSetLayout {
     pub(super) device: Rc<VulkanDevice>,

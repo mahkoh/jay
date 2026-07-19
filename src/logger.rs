@@ -1,33 +1,39 @@
-use {
-    crate::{
-        compositor::LogLevel,
-        utils::{
-            atomic_enum::AtomicEnum,
-            data_dir::data_dir,
-            errorfmt::ErrorFmt,
-            oserror::{OsError, OsErrorExt, OsErrorExt2},
-        },
-    },
-    backtrace::Backtrace,
-    bstr::{BStr, BString, ByteSlice},
-    log::{LevelFilter, Log, Metadata, Record},
-    parking_lot::Mutex,
-    std::{
-        cell::Cell,
-        fs::DirBuilder,
-        io::Write,
-        os::unix::{ffi::OsStringExt, fs::DirBuilderExt},
-        ptr,
-        sync::{
-            Arc,
-            atomic::{AtomicI32, AtomicU32, Ordering::Relaxed},
-        },
-        thread,
-        time::SystemTime,
-    },
-    thiserror::Error,
-    uapi::{AsUstr, Dirent, Fd, OwnedFd, Ustring, c, format_ustr},
-};
+use crate::compositor::LogLevel;
+use crate::utils::atomic_enum::AtomicEnum;
+use crate::utils::data_dir::data_dir;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt;
+use crate::utils::oserror::OsErrorExt2;
+use backtrace::Backtrace;
+use bstr::BStr;
+use bstr::BString;
+use bstr::ByteSlice;
+use log::LevelFilter;
+use log::Log;
+use log::Metadata;
+use log::Record;
+use parking_lot::Mutex;
+use std::cell::Cell;
+use std::fs::DirBuilder;
+use std::io::Write;
+use std::os::unix::ffi::OsStringExt;
+use std::os::unix::fs::DirBuilderExt;
+use std::ptr;
+use std::sync::Arc;
+use std::sync::atomic::AtomicI32;
+use std::sync::atomic::AtomicU32;
+use std::sync::atomic::Ordering::Relaxed;
+use std::thread;
+use std::time::SystemTime;
+use thiserror::Error;
+use uapi::AsUstr;
+use uapi::Dirent;
+use uapi::Fd;
+use uapi::OwnedFd;
+use uapi::Ustring;
+use uapi::c;
+use uapi::format_ustr;
 
 thread_local! {
     static BUFFER: Cell<*mut Vec<u8>> = const { Cell::new(ptr::null_mut()) };

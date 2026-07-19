@@ -1,19 +1,19 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::wl_surface::WlSurface,
-        leaks::Tracker,
-        object::{Object, Version},
-        utils::static_text::StaticText,
-        wire::{WpContentTypeV1Id, wp_content_type_v1::*},
-    },
-    jay_config::window::{
-        ContentType as ConfigContentType, GAME_CONTENT, NO_CONTENT_TYPE, PHOTO_CONTENT,
-        VIDEO_CONTENT,
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::utils::static_text::StaticText;
+use crate::wire::WpContentTypeV1Id;
+use crate::wire::wp_content_type_v1::*;
+use jay_config::window::ContentType as ConfigContentType;
+use jay_config::window::GAME_CONTENT;
+use jay_config::window::NO_CONTENT_TYPE;
+use jay_config::window::PHOTO_CONTENT;
+use jay_config::window::VIDEO_CONTENT;
+use std::rc::Rc;
+use thiserror::Error;
 
 const NONE: u32 = 0;
 const PHOTO: u32 = 1;

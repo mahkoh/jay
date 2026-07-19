@@ -1,8 +1,10 @@
-use {
-    crate::logging::LogLevel,
-    backtrace::Backtrace,
-    log::{Level, LevelFilter, Log, Metadata, Record},
-};
+use crate::logging::LogLevel;
+use backtrace::Backtrace;
+use log::Level;
+use log::LevelFilter;
+use log::Log;
+use log::Metadata;
+use log::Record;
 
 pub fn init() {
     let _ = log::set_logger(&Logger);

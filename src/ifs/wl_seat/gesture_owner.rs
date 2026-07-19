@@ -1,7 +1,8 @@
-use {
-    crate::{fixed::Fixed, ifs::wl_seat::WlSeatGlobal, tree::Node, utils::clonecell::CloneCell},
-    std::rc::Rc,
-};
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::tree::Node;
+use crate::utils::clonecell::CloneCell;
+use std::rc::Rc;
 
 pub struct GestureOwnerHolder {
     default: Rc<NoGesture>,

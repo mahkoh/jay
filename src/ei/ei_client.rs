@@ -1,38 +1,40 @@
-pub use crate::ei::ei_client::ei_error::{EiClientError, EiParserError};
-use {
-    crate::{
-        async_engine::SpawnedFuture,
-        client::ClientId,
-        ei::{
-            EiContext, EiInterfaceVersion,
-            ei_client::ei_objects::EiObjects,
-            ei_ifs::{ei_connection::EiConnection, ei_handshake::EiHandshake},
-            ei_object::{EiInterface, EiObject, EiObjectId},
-        },
-        ifs::wl_seat::WlSeatGlobal,
-        leaks::Tracker,
-        state::State,
-        utils::{
-            asyncevent::AsyncEvent,
-            bhash::BHashMap,
-            buffd::{EiMsgFormatter, EiMsgParser, EiMsgParserError, OutBufferSwapchain},
-            clonecell::CloneCell,
-            errorfmt::ErrorFmt,
-            numcell::NumCell,
-            pid_info::{PidInfo, get_pid_info, get_socket_creds},
-        },
-        wire_ei::EiInterfaceVersions,
-    },
-    std::{
-        cell::{Cell, RefCell},
-        error::Error,
-        fmt::{self, Debug},
-        mem,
-        ops::DerefMut,
-        rc::Rc,
-    },
-    uapi::OwnedFd,
-};
+use crate::async_engine::SpawnedFuture;
+use crate::client::ClientId;
+use crate::ei::EiContext;
+use crate::ei::EiInterfaceVersion;
+pub use crate::ei::ei_client::ei_error::EiClientError;
+pub use crate::ei::ei_client::ei_error::EiParserError;
+use crate::ei::ei_client::ei_objects::EiObjects;
+use crate::ei::ei_ifs::ei_connection::EiConnection;
+use crate::ei::ei_ifs::ei_handshake::EiHandshake;
+use crate::ei::ei_object::EiInterface;
+use crate::ei::ei_object::EiObject;
+use crate::ei::ei_object::EiObjectId;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::leaks::Tracker;
+use crate::state::State;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::bhash::BHashMap;
+use crate::utils::buffd::EiMsgFormatter;
+use crate::utils::buffd::EiMsgParser;
+use crate::utils::buffd::EiMsgParserError;
+use crate::utils::buffd::OutBufferSwapchain;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::numcell::NumCell;
+use crate::utils::pid_info::PidInfo;
+use crate::utils::pid_info::get_pid_info;
+use crate::utils::pid_info::get_socket_creds;
+use crate::wire_ei::EiInterfaceVersions;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::error::Error;
+use std::fmt::Debug;
+use std::fmt::{self};
+use std::mem;
+use std::ops::DerefMut;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 mod ei_error;
 mod ei_objects;

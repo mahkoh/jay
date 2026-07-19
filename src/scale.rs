@@ -1,7 +1,7 @@
-use {
-    jay_proc::jay_hash,
-    std::fmt::{Debug, Display, Formatter},
-};
+use jay_proc::jay_hash;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
 pub const SCALE_BASE: u32 = 120;
 const BASE64: i64 = SCALE_BASE as i64;

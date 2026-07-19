@@ -1,107 +1,173 @@
-use {
-    crate::{
-        async_engine::SpawnedFuture,
-        backend::{
-            self, BackendColorSpace, BackendEotfs, ConnectorId, DrmDeviceId,
-            InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod, InputDeviceId,
-            InputDeviceScrollMethod, MonitorInfo, transaction::BackendConnectorTransactionError,
-        },
-        client::{CAP_JAY_COMPOSITOR, Client, ClientCaps, ClientId},
-        cmm::cmm_eotf::Eotf,
-        compositor::{MAX_EXTENTS, WAYLAND_DISPLAY},
-        criteria::{
-            CritLiteralOrRegex, CritMgrExt, CritTarget, CritUpstreamNode,
-            clm::ClmLeafMatcher,
-            tlm::{TlmLeafMatcher, TlmUpstreamNode},
-        },
-        evdev::input_event_codes::InputEventCode,
-        format::config_formats,
-        gfx_api::ScalingFilter,
-        ifs::{
-            wl_output::{BlendSpace, PersistentOutputState},
-            wl_seat::{SeatId, WlSeatGlobal},
-            wp_content_type_v1::ContentTypeExt,
-        },
-        io_uring::TaskResultExt,
-        kbvm::{KbvmError, KbvmMap},
-        output_schedule::map_cursor_hz,
-        scale::Scale,
-        state::{ConnectorData, DeviceHandlerData, DrmDevData, OutputData, State},
-        tagged_acceptor::TaggedAcceptorError,
-        theme::{ThemeColored, ThemeSized},
-        tree::{
-            ContainerSplit, OutputNode, OutputNodeOrPersistent, TearingMode, TileState,
-            ToplevelData, ToplevelIdentifier, ToplevelNode, TreeTimeline::LiveTL, VrrMode,
-            WorkspaceNode, WorkspaceType, WsMoveConfig, move_ws_to_output, toplevel_create_split,
-            toplevel_parent_container, toplevel_set_floating, toplevel_set_workspace,
-        },
-        utils::{
-            asyncevent::AsyncEvent,
-            copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
-            markers::JayHash,
-            numcell::NumCell,
-            oserror::OsErrorExt,
-            stack::Stack,
-            timer::{TimerError, TimerFd},
-        },
-    },
-    az::SaturatingCast,
-    bincode::Options,
-    jay_config::{
-        _private::{
-            ClientCriterionIpc, ClientCriterionStringField, GenericCriterionIpc,
-            KeymapBuildParamsV1, KeymapBuildParamsV1Kind, PollableId, WindowCriterionIpc,
-            WindowCriterionStringField, WireMode, WorkspaceShowOpV1, WorkspaceShowOpV2,
-            bincode_ops,
-            ipc::{ClientMessage, Response, ServerMessage, WorkspaceSource},
-        },
-        Axis, Direction, Workspace, WorkspaceKind,
-        client::{Client as ConfigClient, ClientCapabilities, ClientMatcher},
-        input::{
-            FallbackOutputMode, FocusFollowsMouseMode, InputDevice,
-            InputEventCode as ConfigInputEventCode, LayerDirection, Seat, Timeline,
-            acceleration::{ACCEL_PROFILE_ADAPTIVE, ACCEL_PROFILE_FLAT, AccelProfile},
-            capability::{
-                CAP_GESTURE, CAP_KEYBOARD, CAP_POINTER, CAP_SWITCH, CAP_TABLET_PAD,
-                CAP_TABLET_TOOL, CAP_TOUCH, Capability,
-            },
-            clickmethod::{
-                CLICK_METHOD_BUTTON_AREAS, CLICK_METHOD_CLICKFINGER, CLICK_METHOD_NONE, ClickMethod,
-            },
-            scrollmethod::{
-                SCROLL_METHOD_EDGE, SCROLL_METHOD_NO_SCROLL, SCROLL_METHOD_ON_BUTTON_DOWN,
-                SCROLL_METHOD_TWO_FINGERS, ScrollMethod,
-            },
-        },
-        keyboard::{Group, Keymap, mods::Modifiers, syms::KeySym},
-        logging::LogLevel as ConfigLogLevel,
-        theme::{BarPosition, ContainerBorders, colors::Colorable, sized::Resizable},
-        timer::Timer as JayTimer,
-        video::{
-            BlendSpace as ConfigBlendSpace, ColorSpace, Connector, DrmDevice, Eotf as ConfigEotf,
-            Format as ConfigFormat, GfxApi, ScalingFilter as ConfigScalingFilter,
-            TearingMode as ConfigTearingMode, Transform, VrrMode as ConfigVrrMode,
-        },
-        window::{TileState as ConfigTileState, Window, WindowMatcher},
-        workspace::WorkspaceDisplayOrder,
-        xwayland::XScalingMode,
-    },
-    kbvm::{GroupIndex, Keycode},
-    libloading::Library,
-    log::Level,
-    regex::Regex,
-    smallvec::SmallVec,
-    std::{
-        cell::Cell,
-        fmt,
-        ops::Deref,
-        rc::{Rc, Weak},
-        time::{Duration, SystemTime},
-    },
-    thiserror::Error,
-    uapi::{OwnedFd, c, fcntl_dupfd_cloexec},
-};
+use crate::async_engine::SpawnedFuture;
+use crate::backend::BackendColorSpace;
+use crate::backend::BackendEotfs;
+use crate::backend::ConnectorId;
+use crate::backend::DrmDeviceId;
+use crate::backend::InputDeviceAccelProfile;
+use crate::backend::InputDeviceCapability;
+use crate::backend::InputDeviceClickMethod;
+use crate::backend::InputDeviceId;
+use crate::backend::InputDeviceScrollMethod;
+use crate::backend::MonitorInfo;
+use crate::backend::transaction::BackendConnectorTransactionError;
+use crate::backend::{self};
+use crate::client::CAP_JAY_COMPOSITOR;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientId;
+use crate::cmm::cmm_eotf::Eotf;
+use crate::compositor::MAX_EXTENTS;
+use crate::compositor::WAYLAND_DISPLAY;
+use crate::criteria::CritLiteralOrRegex;
+use crate::criteria::CritMgrExt;
+use crate::criteria::CritTarget;
+use crate::criteria::CritUpstreamNode;
+use crate::criteria::clm::ClmLeafMatcher;
+use crate::criteria::tlm::TlmLeafMatcher;
+use crate::criteria::tlm::TlmUpstreamNode;
+use crate::evdev::input_event_codes::InputEventCode;
+use crate::format::config_formats;
+use crate::gfx_api::ScalingFilter;
+use crate::ifs::wl_output::BlendSpace;
+use crate::ifs::wl_output::PersistentOutputState;
+use crate::ifs::wl_seat::SeatId;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wp_content_type_v1::ContentTypeExt;
+use crate::io_uring::TaskResultExt;
+use crate::kbvm::KbvmError;
+use crate::kbvm::KbvmMap;
+use crate::output_schedule::map_cursor_hz;
+use crate::scale::Scale;
+use crate::state::ConnectorData;
+use crate::state::DeviceHandlerData;
+use crate::state::DrmDevData;
+use crate::state::OutputData;
+use crate::state::State;
+use crate::tagged_acceptor::TaggedAcceptorError;
+use crate::theme::ThemeColored;
+use crate::theme::ThemeSized;
+use crate::tree::ContainerSplit;
+use crate::tree::OutputNode;
+use crate::tree::OutputNodeOrPersistent;
+use crate::tree::TearingMode;
+use crate::tree::TileState;
+use crate::tree::ToplevelData;
+use crate::tree::ToplevelIdentifier;
+use crate::tree::ToplevelNode;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::VrrMode;
+use crate::tree::WorkspaceNode;
+use crate::tree::WorkspaceType;
+use crate::tree::WsMoveConfig;
+use crate::tree::move_ws_to_output;
+use crate::tree::toplevel_create_split;
+use crate::tree::toplevel_parent_container;
+use crate::tree::toplevel_set_floating;
+use crate::tree::toplevel_set_workspace;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::markers::JayHash;
+use crate::utils::numcell::NumCell;
+use crate::utils::oserror::OsErrorExt;
+use crate::utils::stack::Stack;
+use crate::utils::timer::TimerError;
+use crate::utils::timer::TimerFd;
+use az::SaturatingCast;
+use bincode::Options;
+use jay_config::_private::ClientCriterionIpc;
+use jay_config::_private::ClientCriterionStringField;
+use jay_config::_private::GenericCriterionIpc;
+use jay_config::_private::KeymapBuildParamsV1;
+use jay_config::_private::KeymapBuildParamsV1Kind;
+use jay_config::_private::PollableId;
+use jay_config::_private::WindowCriterionIpc;
+use jay_config::_private::WindowCriterionStringField;
+use jay_config::_private::WireMode;
+use jay_config::_private::WorkspaceShowOpV1;
+use jay_config::_private::WorkspaceShowOpV2;
+use jay_config::_private::bincode_ops;
+use jay_config::_private::ipc::ClientMessage;
+use jay_config::_private::ipc::Response;
+use jay_config::_private::ipc::ServerMessage;
+use jay_config::_private::ipc::WorkspaceSource;
+use jay_config::Axis;
+use jay_config::Direction;
+use jay_config::Workspace;
+use jay_config::WorkspaceKind;
+use jay_config::client::Client as ConfigClient;
+use jay_config::client::ClientCapabilities;
+use jay_config::client::ClientMatcher;
+use jay_config::input::FallbackOutputMode;
+use jay_config::input::FocusFollowsMouseMode;
+use jay_config::input::InputDevice;
+use jay_config::input::InputEventCode as ConfigInputEventCode;
+use jay_config::input::LayerDirection;
+use jay_config::input::Seat;
+use jay_config::input::Timeline;
+use jay_config::input::acceleration::ACCEL_PROFILE_ADAPTIVE;
+use jay_config::input::acceleration::ACCEL_PROFILE_FLAT;
+use jay_config::input::acceleration::AccelProfile;
+use jay_config::input::capability::CAP_GESTURE;
+use jay_config::input::capability::CAP_KEYBOARD;
+use jay_config::input::capability::CAP_POINTER;
+use jay_config::input::capability::CAP_SWITCH;
+use jay_config::input::capability::CAP_TABLET_PAD;
+use jay_config::input::capability::CAP_TABLET_TOOL;
+use jay_config::input::capability::CAP_TOUCH;
+use jay_config::input::capability::Capability;
+use jay_config::input::clickmethod::CLICK_METHOD_BUTTON_AREAS;
+use jay_config::input::clickmethod::CLICK_METHOD_CLICKFINGER;
+use jay_config::input::clickmethod::CLICK_METHOD_NONE;
+use jay_config::input::clickmethod::ClickMethod;
+use jay_config::input::scrollmethod::SCROLL_METHOD_EDGE;
+use jay_config::input::scrollmethod::SCROLL_METHOD_NO_SCROLL;
+use jay_config::input::scrollmethod::SCROLL_METHOD_ON_BUTTON_DOWN;
+use jay_config::input::scrollmethod::SCROLL_METHOD_TWO_FINGERS;
+use jay_config::input::scrollmethod::ScrollMethod;
+use jay_config::keyboard::Group;
+use jay_config::keyboard::Keymap;
+use jay_config::keyboard::mods::Modifiers;
+use jay_config::keyboard::syms::KeySym;
+use jay_config::logging::LogLevel as ConfigLogLevel;
+use jay_config::theme::BarPosition;
+use jay_config::theme::ContainerBorders;
+use jay_config::theme::colors::Colorable;
+use jay_config::theme::sized::Resizable;
+use jay_config::timer::Timer as JayTimer;
+use jay_config::video::BlendSpace as ConfigBlendSpace;
+use jay_config::video::ColorSpace;
+use jay_config::video::Connector;
+use jay_config::video::DrmDevice;
+use jay_config::video::Eotf as ConfigEotf;
+use jay_config::video::Format as ConfigFormat;
+use jay_config::video::GfxApi;
+use jay_config::video::ScalingFilter as ConfigScalingFilter;
+use jay_config::video::TearingMode as ConfigTearingMode;
+use jay_config::video::Transform;
+use jay_config::video::VrrMode as ConfigVrrMode;
+use jay_config::window::TileState as ConfigTileState;
+use jay_config::window::Window;
+use jay_config::window::WindowMatcher;
+use jay_config::workspace::WorkspaceDisplayOrder;
+use jay_config::xwayland::XScalingMode;
+use kbvm::GroupIndex;
+use kbvm::Keycode;
+use libloading::Library;
+use log::Level;
+use regex::Regex;
+use smallvec::SmallVec;
+use std::cell::Cell;
+use std::fmt;
+use std::ops::Deref;
+use std::rc::Rc;
+use std::rc::Weak;
+use std::time::Duration;
+use std::time::SystemTime;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c;
+use uapi::fcntl_dupfd_cloexec;
 
 pub(super) struct ConfigProxyHandler {
     pub client_data: Cell<*const u8>,

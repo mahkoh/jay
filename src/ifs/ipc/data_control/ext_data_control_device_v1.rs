@@ -1,27 +1,22 @@
-use {
-    crate::{
-        client::Client,
-        ifs::{
-            ipc::data_control::{
-                ext_data_control_offer_v1::ExtDataControlOfferV1,
-                ext_data_control_source_v1::ExtDataControlSourceV1,
-                private::{
-                    DataControlDevice, DataControlDeviceData, DataControlIpc, DataControlOfferData,
-                    logic::{self, DataControlError},
-                },
-            },
-            wl_seat::WlSeatGlobal,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{
-            ExtDataControlDeviceV1Id, ExtDataControlOfferV1Id, ExtDataControlSourceV1Id,
-            ext_data_control_device_v1::*,
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::ifs::ipc::data_control::ext_data_control_offer_v1::ExtDataControlOfferV1;
+use crate::ifs::ipc::data_control::ext_data_control_source_v1::ExtDataControlSourceV1;
+use crate::ifs::ipc::data_control::private::DataControlDevice;
+use crate::ifs::ipc::data_control::private::DataControlDeviceData;
+use crate::ifs::ipc::data_control::private::DataControlIpc;
+use crate::ifs::ipc::data_control::private::DataControlOfferData;
+use crate::ifs::ipc::data_control::private::logic::DataControlError;
+use crate::ifs::ipc::data_control::private::logic::{self};
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ExtDataControlDeviceV1Id;
+use crate::wire::ExtDataControlOfferV1Id;
+use crate::wire::ExtDataControlSourceV1Id;
+use crate::wire::ext_data_control_device_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ExtDataControlDeviceV1 {
     pub id: ExtDataControlDeviceV1Id,

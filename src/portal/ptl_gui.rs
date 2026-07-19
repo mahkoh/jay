@@ -1,50 +1,58 @@
-use {
-    crate::{
-        allocator::{BO_USE_RENDERING, BufferObject, BufferUsage},
-        async_engine::{Phase, SpawnedFuture},
-        cmm::{cmm_manager::ColorManager, cmm_render_intent::RenderIntent},
-        cursor::KnownCursor,
-        fixed::Fixed,
-        format::ARGB8888,
-        gfx_api::{
-            AcquireSync, GfxContext, GfxFramebuffer, GfxTexture, ReleaseSync, ScalingFilter,
-            needs_render_usage,
-        },
-        globals::GlobalName,
-        ifs::zwlr_layer_shell_v1::OVERLAY,
-        portal::{
-            ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
-            ptl_text::{self, TextMeasurement},
-        },
-        renderer::renderer_base::{RenderTexture, RendererBase},
-        scale::Scale,
-        theme::Color,
-        utils::{
-            asyncevent::AsyncEvent, bhash::BHashSet, clonecell::CloneCell,
-            copyhashmap::CopyHashMap, errorfmt::ErrorFmt, hash_map_ext::HashMapExt, rc_eq::rc_eq,
-        },
-        wire::{
-            ZwpLinuxBufferParamsV1Id, wp_fractional_scale_v1::PreferredScale,
-            zwlr_layer_surface_v1::Configure,
-        },
-        wl_usr::usr_ifs::{
-            usr_linux_buffer_params::{UsrLinuxBufferParams, UsrLinuxBufferParamsOwner},
-            usr_wl_buffer::{UsrWlBuffer, UsrWlBufferOwner},
-            usr_wl_callback::UsrWlCallbackOwner,
-            usr_wl_surface::UsrWlSurface,
-            usr_wlr_layer_surface::{UsrWlrLayerSurface, UsrWlrLayerSurfaceOwner},
-            usr_wp_fractional_scale::{UsrWpFractionalScale, UsrWpFractionalScaleOwner},
-            usr_wp_viewport::UsrWpViewport,
-        },
-    },
-    derivative::Derivative,
-    std::{
-        cell::{Cell, RefCell},
-        ops::Deref,
-        rc::Rc,
-        sync::Arc,
-    },
-};
+use crate::allocator::BO_USE_RENDERING;
+use crate::allocator::BufferObject;
+use crate::allocator::BufferUsage;
+use crate::async_engine::Phase;
+use crate::async_engine::SpawnedFuture;
+use crate::cmm::cmm_manager::ColorManager;
+use crate::cmm::cmm_render_intent::RenderIntent;
+use crate::cursor::KnownCursor;
+use crate::fixed::Fixed;
+use crate::format::ARGB8888;
+use crate::gfx_api::AcquireSync;
+use crate::gfx_api::GfxContext;
+use crate::gfx_api::GfxFramebuffer;
+use crate::gfx_api::GfxTexture;
+use crate::gfx_api::ReleaseSync;
+use crate::gfx_api::ScalingFilter;
+use crate::gfx_api::needs_render_usage;
+use crate::globals::GlobalName;
+use crate::ifs::zwlr_layer_shell_v1::OVERLAY;
+use crate::portal::ptl_display::PortalDisplay;
+use crate::portal::ptl_display::PortalOutput;
+use crate::portal::ptl_display::PortalSeat;
+use crate::portal::ptl_text::TextMeasurement;
+use crate::portal::ptl_text::{self};
+use crate::renderer::renderer_base::RenderTexture;
+use crate::renderer::renderer_base::RendererBase;
+use crate::scale::Scale;
+use crate::theme::Color;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::bhash::BHashSet;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::rc_eq::rc_eq;
+use crate::wire::ZwpLinuxBufferParamsV1Id;
+use crate::wire::wp_fractional_scale_v1::PreferredScale;
+use crate::wire::zwlr_layer_surface_v1::Configure;
+use crate::wl_usr::usr_ifs::usr_linux_buffer_params::UsrLinuxBufferParams;
+use crate::wl_usr::usr_ifs::usr_linux_buffer_params::UsrLinuxBufferParamsOwner;
+use crate::wl_usr::usr_ifs::usr_wl_buffer::UsrWlBuffer;
+use crate::wl_usr::usr_ifs::usr_wl_buffer::UsrWlBufferOwner;
+use crate::wl_usr::usr_ifs::usr_wl_callback::UsrWlCallbackOwner;
+use crate::wl_usr::usr_ifs::usr_wl_surface::UsrWlSurface;
+use crate::wl_usr::usr_ifs::usr_wlr_layer_surface::UsrWlrLayerSurface;
+use crate::wl_usr::usr_ifs::usr_wlr_layer_surface::UsrWlrLayerSurfaceOwner;
+use crate::wl_usr::usr_ifs::usr_wp_fractional_scale::UsrWpFractionalScale;
+use crate::wl_usr::usr_ifs::usr_wp_fractional_scale::UsrWpFractionalScaleOwner;
+use crate::wl_usr::usr_ifs::usr_wp_viewport::UsrWpViewport;
+use derivative::Derivative;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::ops::Deref;
+use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Default)]
 pub struct GuiElementData {

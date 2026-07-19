@@ -1,19 +1,36 @@
 //! Tools for configuring graphics cards and monitors.
 
-use {
-    crate::{
-        _private::WireMode,
-        Direction, PciId, Workspace,
-        video::connector_type::{
-            CON_9PIN_DIN, CON_COMPONENT, CON_COMPOSITE, CON_DISPLAY_PORT, CON_DPI, CON_DSI,
-            CON_DVIA, CON_DVID, CON_DVII, CON_EDP, CON_EMBEDDED_WINDOW, CON_HDMIA, CON_HDMIB,
-            CON_LVDS, CON_SPI, CON_SVIDEO, CON_TV, CON_UNKNOWN, CON_USB, CON_VGA, CON_VIRTUAL,
-            CON_WRITEBACK, ConnectorType,
-        },
-    },
-    serde::{Deserialize, Serialize},
-    std::{str::FromStr, time::Duration},
-};
+use crate::_private::WireMode;
+use crate::Direction;
+use crate::PciId;
+use crate::Workspace;
+use crate::video::connector_type::CON_9PIN_DIN;
+use crate::video::connector_type::CON_COMPONENT;
+use crate::video::connector_type::CON_COMPOSITE;
+use crate::video::connector_type::CON_DISPLAY_PORT;
+use crate::video::connector_type::CON_DPI;
+use crate::video::connector_type::CON_DSI;
+use crate::video::connector_type::CON_DVIA;
+use crate::video::connector_type::CON_DVID;
+use crate::video::connector_type::CON_DVII;
+use crate::video::connector_type::CON_EDP;
+use crate::video::connector_type::CON_EMBEDDED_WINDOW;
+use crate::video::connector_type::CON_HDMIA;
+use crate::video::connector_type::CON_HDMIB;
+use crate::video::connector_type::CON_LVDS;
+use crate::video::connector_type::CON_SPI;
+use crate::video::connector_type::CON_SVIDEO;
+use crate::video::connector_type::CON_TV;
+use crate::video::connector_type::CON_UNKNOWN;
+use crate::video::connector_type::CON_USB;
+use crate::video::connector_type::CON_VGA;
+use crate::video::connector_type::CON_VIRTUAL;
+use crate::video::connector_type::CON_WRITEBACK;
+use crate::video::connector_type::ConnectorType;
+use serde::Deserialize;
+use serde::Serialize;
+use std::str::FromStr;
+use std::time::Duration;
 
 /// The mode of a connector.
 ///
@@ -523,7 +540,8 @@ impl ToConnectorId for &'_ str {
 
 /// Module containing all known connector types.
 pub mod connector_type {
-    use serde::{Deserialize, Serialize};
+    use serde::Deserialize;
+    use serde::Serialize;
 
     /// The type of a connector.
     #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]

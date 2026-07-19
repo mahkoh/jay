@@ -1,27 +1,21 @@
-use {
-    crate::{
-        control_center::CCI_COMPOSITOR,
-        ifs::wl_surface::WlSurface,
-        state::State,
-        tree::TreeSerial,
-        utils::{
-            asyncevent::AsyncEvent,
-            errorfmt::ErrorFmt,
-            numcell::NumCell,
-            queue::AsyncQueue,
-            stack::{AsyncStack, Stack},
-        },
-    },
-    derivative::Derivative,
-    isnt::std_1::vec::IsntVecExt,
-    run_on_drop::on_drop,
-    std::{
-        cell::{Cell, RefCell},
-        collections::VecDeque,
-        mem,
-        rc::Rc,
-    },
-};
+use crate::control_center::CCI_COMPOSITOR;
+use crate::ifs::wl_surface::WlSurface;
+use crate::state::State;
+use crate::tree::TreeSerial;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::numcell::NumCell;
+use crate::utils::queue::AsyncQueue;
+use crate::utils::stack::AsyncStack;
+use crate::utils::stack::Stack;
+use derivative::Derivative;
+use isnt::std_1::vec::IsntVecExt;
+use run_on_drop::on_drop;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::mem;
+use std::rc::Rc;
 
 pub trait Configurable: 'static {
     type T: Sized;

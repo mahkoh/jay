@@ -1,12 +1,10 @@
-use {
-    crate::pipewire::{
-        pw_con::PwCon,
-        pw_object::{PwObject, PwObjectData},
-        pw_parser::{PwParser, PwParserError},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::pipewire::pw_con::PwCon;
+use crate::pipewire::pw_object::PwObject;
+use crate::pipewire::pw_object::PwObjectData;
+use crate::pipewire::pw_parser::PwParser;
+use crate::pipewire::pw_parser::PwParserError;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub const PW_REGISTRY_VERSION: i32 = 3;
 

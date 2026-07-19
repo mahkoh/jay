@@ -1,12 +1,9 @@
-use {
-    super::drmdev,
-    crate::{
-        backend::BackendEvent,
-        state::State,
-        tasks::{connector, input_device},
-    },
-    std::rc::Rc,
-};
+use super::drmdev;
+use crate::backend::BackendEvent;
+use crate::state::State;
+use crate::tasks::connector;
+use crate::tasks::input_device;
+use std::rc::Rc;
 
 pub struct BackendEventHandler {
     pub state: Rc<State>,

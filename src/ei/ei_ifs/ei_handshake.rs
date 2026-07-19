@@ -1,24 +1,26 @@
-use {
-    crate::{
-        ei::{
-            EiContext,
-            ei_client::{EiClient, EiClientError},
-            ei_ifs::ei_connection::EiConnection,
-            ei_object::{EI_HANDSHAKE_ID, EiInterface, EiObject, EiVersion},
-        },
-        leaks::Tracker,
-        wire_ei::{
-            EiHandshake, EiHandshakeId,
-            ei_handshake::{
-                ClientHandshakeVersion, ClientInterfaceVersion, Connection, ContextType,
-                EiHandshakeRequestHandler, Finish, Name, ServerHandshakeVersion,
-                ServerInterfaceVersion,
-            },
-        },
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::ei::EiContext;
+use crate::ei::ei_client::EiClient;
+use crate::ei::ei_client::EiClientError;
+use crate::ei::ei_ifs::ei_connection::EiConnection;
+use crate::ei::ei_object::EI_HANDSHAKE_ID;
+use crate::ei::ei_object::EiInterface;
+use crate::ei::ei_object::EiObject;
+use crate::ei::ei_object::EiVersion;
+use crate::leaks::Tracker;
+use crate::wire_ei::EiHandshake;
+use crate::wire_ei::EiHandshakeId;
+use crate::wire_ei::ei_handshake::ClientHandshakeVersion;
+use crate::wire_ei::ei_handshake::ClientInterfaceVersion;
+use crate::wire_ei::ei_handshake::Connection;
+use crate::wire_ei::ei_handshake::ContextType;
+use crate::wire_ei::ei_handshake::EiHandshakeRequestHandler;
+use crate::wire_ei::ei_handshake::Finish;
+use crate::wire_ei::ei_handshake::Name;
+use crate::wire_ei::ei_handshake::ServerHandshakeVersion;
+use crate::wire_ei::ei_handshake::ServerInterfaceVersion;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct EiHandshake {
     pub id: EiHandshakeId,

@@ -3,7 +3,8 @@
 #![allow(non_upper_case_globals)]
 
 pub use generated::*;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 mod generated;
 

@@ -1,16 +1,17 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::{wl_region::WlRegion, wl_surface::WlSurface},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WlCompositorId, wl_compositor::*},
-        xwayland::XWaylandEvent,
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_region::WlRegion;
+use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WlCompositorId;
+use crate::wire::wl_compositor::*;
+use crate::xwayland::XWaylandEvent;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WlCompositorGlobal {
     name: GlobalName,

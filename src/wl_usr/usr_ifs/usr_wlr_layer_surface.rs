@@ -1,12 +1,11 @@
-use {
-    crate::{
-        object::Version,
-        utils::clonecell::CloneCell,
-        wire::{ZwlrLayerSurfaceV1Id, zwlr_layer_surface_v1::*},
-        wl_usr::{UsrCon, usr_object::UsrObject},
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::object::Version;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::ZwlrLayerSurfaceV1Id;
+use crate::wire::zwlr_layer_surface_v1::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrWlrLayerSurface {
     pub id: ZwlrLayerSurfaceV1Id,

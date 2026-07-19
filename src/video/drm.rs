@@ -1,64 +1,101 @@
 pub mod syncobj;
 mod sys;
 
-use {
-    crate::{
-        backend,
-        format::Format,
-        io_uring::{IoUring, IoUringError},
-        utils::{
-            bhash::BHashMap,
-            buf::Buf,
-            errorfmt::ErrorFmt,
-            oserror::{OsError, OsErrorExt2},
-            reset::Reset,
-            stack::Stack,
-            syncqueue::SyncQueue,
-            vec_ext::VecExt,
-        },
-        video::{
-            INVALID_MODIFIER, Modifier,
-            dmabuf::DmaBuf,
-            drm::sys::{
-                DRM_CAP_ATOMIC_ASYNC_PAGE_FLIP, DRM_CAP_CURSOR_HEIGHT, DRM_CAP_CURSOR_WIDTH,
-                DRM_DISPLAY_MODE_LEN, DRM_MODE_ATOMIC_TEST_ONLY, DRM_MODE_FB_MODIFIERS,
-                DRM_MODE_OBJECT_BLOB, DRM_MODE_OBJECT_CONNECTOR, DRM_MODE_OBJECT_CRTC,
-                DRM_MODE_OBJECT_ENCODER, DRM_MODE_OBJECT_FB, DRM_MODE_OBJECT_PLANE,
-                DRM_MODE_OBJECT_PROPERTY, FORMAT_BLOB_CURRENT, auth_magic, create_lease, drm_event,
-                drm_event_crtc_sequence, drm_event_vblank, drm_format_modifier,
-                drm_format_modifier_blob, drop_master, gem_close, get_cap,
-                get_device_name_from_fd2, get_minor_name_from_fd, get_node_type_from_fd, get_nodes,
-                get_version, mode_addfb2, mode_atomic, mode_create_blob, mode_destroy_blob,
-                mode_get_resources, mode_getconnector, mode_getencoder, mode_getplane,
-                mode_getplaneresources, mode_getprobblob, mode_getproperty, mode_obj_getproperties,
-                mode_rmfb, mode_supports_get_resources, prime_fd_to_handle, queue_sequence,
-                revoke_lease, set_client_cap,
-            },
-        },
-    },
-    bstr::{BString, ByteSlice},
-    indexmap::IndexSet,
-    linearize::{Linearize, StaticMap},
-    log::Level,
-    std::{
-        cell::{Cell, RefCell},
-        ffi::CString,
-        fmt::{Debug, Display, Formatter},
-        mem::{self, MaybeUninit},
-        ops::Deref,
-        rc::{Rc, Weak},
-    },
-    thiserror::Error,
-    uapi::{OwnedFd, Pod, Ustring, c},
-};
-pub use {
-    consts::*,
-    sys::{
-        DRM_CLIENT_CAP_ATOMIC, DRM_CLIENT_CAP_PLANE_COLOR_PIPELINE, DRM_MODE_ATOMIC_ALLOW_MODESET,
-        DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_ASYNC, DRM_MODE_PAGE_FLIP_EVENT,
-        drm_mode_modeinfo, get_drm_dev_ts, get_drm_nodes_from_dev,
-    },
-};
+use crate::backend;
+use crate::format::Format;
+use crate::io_uring::IoUring;
+use crate::io_uring::IoUringError;
+use crate::utils::bhash::BHashMap;
+use crate::utils::buf::Buf;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt2;
+use crate::utils::reset::Reset;
+use crate::utils::stack::Stack;
+use crate::utils::syncqueue::SyncQueue;
+use crate::utils::vec_ext::VecExt;
+use crate::video::INVALID_MODIFIER;
+use crate::video::Modifier;
+use crate::video::dmabuf::DmaBuf;
+use crate::video::drm::sys::DRM_CAP_ATOMIC_ASYNC_PAGE_FLIP;
+use crate::video::drm::sys::DRM_CAP_CURSOR_HEIGHT;
+use crate::video::drm::sys::DRM_CAP_CURSOR_WIDTH;
+use crate::video::drm::sys::DRM_DISPLAY_MODE_LEN;
+use crate::video::drm::sys::DRM_MODE_ATOMIC_TEST_ONLY;
+use crate::video::drm::sys::DRM_MODE_FB_MODIFIERS;
+use crate::video::drm::sys::DRM_MODE_OBJECT_BLOB;
+use crate::video::drm::sys::DRM_MODE_OBJECT_CONNECTOR;
+use crate::video::drm::sys::DRM_MODE_OBJECT_CRTC;
+use crate::video::drm::sys::DRM_MODE_OBJECT_ENCODER;
+use crate::video::drm::sys::DRM_MODE_OBJECT_FB;
+use crate::video::drm::sys::DRM_MODE_OBJECT_PLANE;
+use crate::video::drm::sys::DRM_MODE_OBJECT_PROPERTY;
+use crate::video::drm::sys::FORMAT_BLOB_CURRENT;
+use crate::video::drm::sys::auth_magic;
+use crate::video::drm::sys::create_lease;
+use crate::video::drm::sys::drm_event;
+use crate::video::drm::sys::drm_event_crtc_sequence;
+use crate::video::drm::sys::drm_event_vblank;
+use crate::video::drm::sys::drm_format_modifier;
+use crate::video::drm::sys::drm_format_modifier_blob;
+use crate::video::drm::sys::drop_master;
+use crate::video::drm::sys::gem_close;
+use crate::video::drm::sys::get_cap;
+use crate::video::drm::sys::get_device_name_from_fd2;
+use crate::video::drm::sys::get_minor_name_from_fd;
+use crate::video::drm::sys::get_node_type_from_fd;
+use crate::video::drm::sys::get_nodes;
+use crate::video::drm::sys::get_version;
+use crate::video::drm::sys::mode_addfb2;
+use crate::video::drm::sys::mode_atomic;
+use crate::video::drm::sys::mode_create_blob;
+use crate::video::drm::sys::mode_destroy_blob;
+use crate::video::drm::sys::mode_get_resources;
+use crate::video::drm::sys::mode_getconnector;
+use crate::video::drm::sys::mode_getencoder;
+use crate::video::drm::sys::mode_getplane;
+use crate::video::drm::sys::mode_getplaneresources;
+use crate::video::drm::sys::mode_getprobblob;
+use crate::video::drm::sys::mode_getproperty;
+use crate::video::drm::sys::mode_obj_getproperties;
+use crate::video::drm::sys::mode_rmfb;
+use crate::video::drm::sys::mode_supports_get_resources;
+use crate::video::drm::sys::prime_fd_to_handle;
+use crate::video::drm::sys::queue_sequence;
+use crate::video::drm::sys::revoke_lease;
+use crate::video::drm::sys::set_client_cap;
+use bstr::BString;
+use bstr::ByteSlice;
+pub use consts::*;
+use indexmap::IndexSet;
+use linearize::Linearize;
+use linearize::StaticMap;
+use log::Level;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::ffi::CString;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::mem::MaybeUninit;
+use std::mem::{self};
+use std::ops::Deref;
+use std::rc::Rc;
+use std::rc::Weak;
+pub use sys::DRM_CLIENT_CAP_ATOMIC;
+pub use sys::DRM_CLIENT_CAP_PLANE_COLOR_PIPELINE;
+pub use sys::DRM_MODE_ATOMIC_ALLOW_MODESET;
+pub use sys::DRM_MODE_ATOMIC_NONBLOCK;
+pub use sys::DRM_MODE_PAGE_FLIP_ASYNC;
+pub use sys::DRM_MODE_PAGE_FLIP_EVENT;
+pub use sys::drm_mode_modeinfo;
+pub use sys::get_drm_dev_ts;
+pub use sys::get_drm_nodes_from_dev;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::Pod;
+use uapi::Ustring;
+use uapi::c;
 
 #[derive(Debug, Error)]
 pub enum DrmError {

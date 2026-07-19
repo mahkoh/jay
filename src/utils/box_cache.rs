@@ -1,13 +1,13 @@
-use {
-    crate::utils::{box_ext::BoxExt, reset::Reset, stack::Stack},
-    derivative::Derivative,
-    std::{
-        mem,
-        mem::{ManuallyDrop, MaybeUninit},
-        ops::{Deref, DerefMut},
-        rc::Rc,
-    },
-};
+use crate::utils::box_ext::BoxExt;
+use crate::utils::reset::Reset;
+use crate::utils::stack::Stack;
+use derivative::Derivative;
+use std::mem;
+use std::mem::ManuallyDrop;
+use std::mem::MaybeUninit;
+use std::ops::Deref;
+use std::ops::DerefMut;
+use std::rc::Rc;
 
 pub trait BoxCacheMethod<T> {
     type Cached;

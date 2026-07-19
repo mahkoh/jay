@@ -1,99 +1,133 @@
-use {
-    crate::{
-        backend::{
-            BackendColorSpace, BackendConnectorState, BackendEotfs, BackendGammaLut,
-            BackendLuminance, ButtonState, HardwareCursor, Mode,
-            transaction::BackendConnectorTransactionError,
-        },
-        client::ClientId,
-        cmm::{
-            cmm_description::ColorDescription, cmm_eotf::Eotf, cmm_luminance::Luminance,
-            cmm_primaries::NamedPrimaries,
-        },
-        control_center::{CCI_OUTPUTS, CCI_WORKSPACES},
-        cursor::KnownCursor,
-        cursor_user::{CursorUser, CursorUserId},
-        damage::DamageMatrix,
-        fixed::Fixed,
-        gfx_api::{AcquireSync, BufferResv, GfxTexture, LazyTexture, ReleaseSync, ScalingFilter},
-        ifs::{
-            color_management::wp_color_management_output_v1::WpColorManagementOutputV1,
-            ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
-            jay_output::JayOutput,
-            jay_screencast::JayScreencast,
-            wl_buffer::WlBufferStorage,
-            wl_output::{BlendSpace, PersistentOutputState, WlOutputGlobal},
-            wl_seat::{
-                BTN_LEFT, BTN_MIDDLE, NodeSeatState, SeatId, WlSeatGlobal,
-                tablet::{TabletTool, TabletToolChanges, TabletToolId},
-                wl_pointer::PendingScroll,
-            },
-            wl_surface::{
-                SurfaceSendPreferredColorDescription, SurfaceSendPreferredScaleVisitor,
-                SurfaceSendPreferredTransformVisitor,
-                ext_session_lock_surface_v1::ExtSessionLockSurfaceV1,
-                tray::TrayItemLink,
-                zwlr_layer_surface_v1::{ExclusiveSize, LayerSurfaceLink},
-            },
-            workspace_manager::{
-                ext_workspace_group_handle_v1::ExtWorkspaceGroupHandleV1,
-                ext_workspace_manager_v1::WorkspaceManagerId,
-            },
-            wp_content_type_v1::ContentType,
-            wp_presentation_feedback::KIND_VSYNC,
-            zwlr_gamma_control_v1::ZwlrGammaControlV1,
-            zwlr_layer_shell_v1::{BACKGROUND, BOTTOM, OVERLAY, TOP},
-            zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
-        },
-        output_schedule::OutputSchedule,
-        rect::Rect,
-        renderer::Renderer,
-        scale::Scale,
-        state::State,
-        text::TextTexture,
-        theme::BarPosition,
-        transactions::{TransactionData, Transactionable, TransactionableExt},
-        tree::{
-            Direction, FindTreeResult, FindTreeUsecase, FoundNode, NodeBase, NodeId, NodeLayerLink,
-            NodeLocation, NodesStack, PinnedNode, SplitView, TddType, TileDragDestination,
-            Transform, TreeLink,
-            TreeTimeline::{self, LiveTL, RenderTL},
-            WorkspaceDisplayOrder, WorkspaceDragDestination, WorkspaceNode, WorkspaceOutputLink,
-            WorkspaceType,
-            walker::NodeVisitor,
-        },
-        utils::{
-            asyncevent::AsyncEvent,
-            bhash::BHashMap,
-            bitflags::BitflagsExt,
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
-            event_listener::EventSource,
-            hash_map_ext::HashMapExt,
-            linkedlist::{LinkedList, NodeRef},
-            obj_and_id::{ObjAndId, ObjWithId},
-            on_drop_event::OnDropEvent,
-            ordered_float::F64,
-            scroller::Scroller,
-            type_wrapper::{CellWrapper, NoWrapper, TypeWrapper},
-        },
-        wire::{
-            ExtImageCopyCaptureSessionV1Id, JayOutputId, JayScreencastId,
-            WpColorManagementOutputV1Id, ZwlrScreencopyFrameV1Id,
-        },
-    },
-    jay_config::video::{TearingMode as ConfigTearingMode, VrrMode as ConfigVrrMode},
-    jay_proc::jay_hash,
-    numeric_sort::cmp,
-    smallvec::SmallVec,
-    std::{
-        cell::{Cell, RefCell},
-        fmt::{Debug, Formatter},
-        ops::{BitOrAssign, Deref},
-        rc::Rc,
-    },
-};
+use crate::backend::BackendColorSpace;
+use crate::backend::BackendConnectorState;
+use crate::backend::BackendEotfs;
+use crate::backend::BackendGammaLut;
+use crate::backend::BackendLuminance;
+use crate::backend::ButtonState;
+use crate::backend::HardwareCursor;
+use crate::backend::Mode;
+use crate::backend::transaction::BackendConnectorTransactionError;
+use crate::client::ClientId;
+use crate::cmm::cmm_description::ColorDescription;
+use crate::cmm::cmm_eotf::Eotf;
+use crate::cmm::cmm_luminance::Luminance;
+use crate::cmm::cmm_primaries::NamedPrimaries;
+use crate::control_center::CCI_OUTPUTS;
+use crate::control_center::CCI_WORKSPACES;
+use crate::cursor::KnownCursor;
+use crate::cursor_user::CursorUser;
+use crate::cursor_user::CursorUserId;
+use crate::damage::DamageMatrix;
+use crate::fixed::Fixed;
+use crate::gfx_api::AcquireSync;
+use crate::gfx_api::BufferResv;
+use crate::gfx_api::GfxTexture;
+use crate::gfx_api::LazyTexture;
+use crate::gfx_api::ReleaseSync;
+use crate::gfx_api::ScalingFilter;
+use crate::ifs::color_management::wp_color_management_output_v1::WpColorManagementOutputV1;
+use crate::ifs::ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1;
+use crate::ifs::jay_output::JayOutput;
+use crate::ifs::jay_screencast::JayScreencast;
+use crate::ifs::wl_buffer::WlBufferStorage;
+use crate::ifs::wl_output::BlendSpace;
+use crate::ifs::wl_output::PersistentOutputState;
+use crate::ifs::wl_output::WlOutputGlobal;
+use crate::ifs::wl_seat::BTN_LEFT;
+use crate::ifs::wl_seat::BTN_MIDDLE;
+use crate::ifs::wl_seat::NodeSeatState;
+use crate::ifs::wl_seat::SeatId;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::tablet::TabletTool;
+use crate::ifs::wl_seat::tablet::TabletToolChanges;
+use crate::ifs::wl_seat::tablet::TabletToolId;
+use crate::ifs::wl_seat::wl_pointer::PendingScroll;
+use crate::ifs::wl_surface::SurfaceSendPreferredColorDescription;
+use crate::ifs::wl_surface::SurfaceSendPreferredScaleVisitor;
+use crate::ifs::wl_surface::SurfaceSendPreferredTransformVisitor;
+use crate::ifs::wl_surface::ext_session_lock_surface_v1::ExtSessionLockSurfaceV1;
+use crate::ifs::wl_surface::tray::TrayItemLink;
+use crate::ifs::wl_surface::zwlr_layer_surface_v1::ExclusiveSize;
+use crate::ifs::wl_surface::zwlr_layer_surface_v1::LayerSurfaceLink;
+use crate::ifs::workspace_manager::ext_workspace_group_handle_v1::ExtWorkspaceGroupHandleV1;
+use crate::ifs::workspace_manager::ext_workspace_manager_v1::WorkspaceManagerId;
+use crate::ifs::wp_content_type_v1::ContentType;
+use crate::ifs::wp_presentation_feedback::KIND_VSYNC;
+use crate::ifs::zwlr_gamma_control_v1::ZwlrGammaControlV1;
+use crate::ifs::zwlr_layer_shell_v1::BACKGROUND;
+use crate::ifs::zwlr_layer_shell_v1::BOTTOM;
+use crate::ifs::zwlr_layer_shell_v1::OVERLAY;
+use crate::ifs::zwlr_layer_shell_v1::TOP;
+use crate::ifs::zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1;
+use crate::output_schedule::OutputSchedule;
+use crate::rect::Rect;
+use crate::renderer::Renderer;
+use crate::scale::Scale;
+use crate::state::State;
+use crate::text::TextTexture;
+use crate::theme::BarPosition;
+use crate::transactions::TransactionData;
+use crate::transactions::Transactionable;
+use crate::transactions::TransactionableExt;
+use crate::tree::Direction;
+use crate::tree::FindTreeResult;
+use crate::tree::FindTreeUsecase;
+use crate::tree::FoundNode;
+use crate::tree::NodeBase;
+use crate::tree::NodeId;
+use crate::tree::NodeLayerLink;
+use crate::tree::NodeLocation;
+use crate::tree::NodesStack;
+use crate::tree::PinnedNode;
+use crate::tree::SplitView;
+use crate::tree::TddType;
+use crate::tree::TileDragDestination;
+use crate::tree::Transform;
+use crate::tree::TreeLink;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::tree::TreeTimeline::{self};
+use crate::tree::WorkspaceDisplayOrder;
+use crate::tree::WorkspaceDragDestination;
+use crate::tree::WorkspaceNode;
+use crate::tree::WorkspaceOutputLink;
+use crate::tree::WorkspaceType;
+use crate::tree::walker::NodeVisitor;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::bhash::BHashMap;
+use crate::utils::bitflags::BitflagsExt;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::event_listener::EventSource;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::linkedlist::LinkedList;
+use crate::utils::linkedlist::NodeRef;
+use crate::utils::obj_and_id::ObjAndId;
+use crate::utils::obj_and_id::ObjWithId;
+use crate::utils::on_drop_event::OnDropEvent;
+use crate::utils::ordered_float::F64;
+use crate::utils::scroller::Scroller;
+use crate::utils::type_wrapper::CellWrapper;
+use crate::utils::type_wrapper::NoWrapper;
+use crate::utils::type_wrapper::TypeWrapper;
+use crate::wire::ExtImageCopyCaptureSessionV1Id;
+use crate::wire::JayOutputId;
+use crate::wire::JayScreencastId;
+use crate::wire::WpColorManagementOutputV1Id;
+use crate::wire::ZwlrScreencopyFrameV1Id;
+use jay_config::video::TearingMode as ConfigTearingMode;
+use jay_config::video::VrrMode as ConfigVrrMode;
+use jay_proc::jay_hash;
+use numeric_sort::cmp;
+use smallvec::SmallVec;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::ops::BitOrAssign;
+use std::ops::Deref;
+use std::rc::Rc;
 
 tree_id!(OutputNodeId);
 pub struct OutputNode {

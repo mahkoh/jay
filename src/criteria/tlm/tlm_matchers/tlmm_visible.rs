@@ -1,7 +1,6 @@
-use crate::{
-    criteria::crit_graph::CritFixedRootCriterion,
-    tree::{ToplevelData, TreeTimeline::LiveTL},
-};
+use crate::criteria::crit_graph::CritFixedRootCriterion;
+use crate::tree::ToplevelData;
+use crate::tree::TreeTimeline::LiveTL;
 
 pub struct TlmMatchVisible(pub bool);
 

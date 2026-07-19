@@ -1,16 +1,19 @@
-use {
-    crate::{
-        client::{CAP_SESSION_LOCK_MANAGER, Client, ClientCaps, ClientError},
-        globals::{Global, GlobalName},
-        ifs::ext_session_lock_v1::ExtSessionLockV1,
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::TreeTimeline::LiveTL,
-        wire::{ExtSessionLockManagerV1Id, ext_session_lock_manager_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::CAP_SESSION_LOCK_MANAGER;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::ext_session_lock_v1::ExtSessionLockV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::wire::ExtSessionLockManagerV1Id;
+use crate::wire::ext_session_lock_manager_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ExtSessionLockManagerV1Global {
     pub name: GlobalName,

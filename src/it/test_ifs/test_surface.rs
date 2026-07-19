@@ -1,19 +1,19 @@
-use {
-    crate::{
-        ifs::wl_surface::WlSurface,
-        it::{
-            test_error::{TestError, TestResult},
-            test_ifs::{test_callback::TestCallback, test_region::TestRegion},
-            test_object::TestObject,
-            test_transport::TestTransport,
-            test_utils::test_expected_event::TEEH,
-            testrun::ParseFull,
-        },
-        utils::buffd::MsgParser,
-        wire::{WlBufferId, WlCallbackId, WlSurfaceId, wl_surface::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::ifs::wl_surface::WlSurface;
+use crate::it::test_error::TestError;
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_callback::TestCallback;
+use crate::it::test_ifs::test_region::TestRegion;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::test_utils::test_expected_event::TEEH;
+use crate::it::testrun::ParseFull;
+use crate::utils::buffd::MsgParser;
+use crate::wire::WlBufferId;
+use crate::wire::WlCallbackId;
+use crate::wire::WlSurfaceId;
+use crate::wire::wl_surface::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestSurface {
     pub id: WlSurfaceId,

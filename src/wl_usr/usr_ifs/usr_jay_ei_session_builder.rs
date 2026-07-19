@@ -1,14 +1,13 @@
-use {
-    crate::{
-        object::Version,
-        wire::{
-            JayEiSessionBuilderId,
-            jay_ei_session_builder::{Commit, JayEiSessionBuilderEventHandler, SetAppId},
-        },
-        wl_usr::{UsrCon, usr_ifs::usr_jay_ei_session::UsrJayEiSession, usr_object::UsrObject},
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::object::Version;
+use crate::wire::JayEiSessionBuilderId;
+use crate::wire::jay_ei_session_builder::Commit;
+use crate::wire::jay_ei_session_builder::JayEiSessionBuilderEventHandler;
+use crate::wire::jay_ei_session_builder::SetAppId;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_ifs::usr_jay_ei_session::UsrJayEiSession;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrJayEiSessionBuilder {
     pub id: JayEiSessionBuilderId,

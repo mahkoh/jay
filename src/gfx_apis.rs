@@ -1,17 +1,15 @@
+use crate::async_engine::AsyncEngine;
+use crate::backend::DrmDeviceId;
+use crate::eventfd_cache::EventfdCache;
+use crate::gfx_api::GfxApi;
+use crate::gfx_api::GfxContext;
+use crate::gfx_api::GfxError;
+use crate::io_uring::IoUring;
+use crate::pr_caps::PrCapsThread;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::video::drm::Drm;
+use std::rc::Rc;
 pub use vulkan::create_vulkan_allocator;
-use {
-    crate::{
-        async_engine::AsyncEngine,
-        backend::DrmDeviceId,
-        eventfd_cache::EventfdCache,
-        gfx_api::{GfxApi, GfxContext, GfxError},
-        io_uring::IoUring,
-        pr_caps::PrCapsThread,
-        utils::errorfmt::ErrorFmt,
-        video::drm::Drm,
-    },
-    std::rc::Rc,
-};
 
 pub mod gl;
 mod vulkan;

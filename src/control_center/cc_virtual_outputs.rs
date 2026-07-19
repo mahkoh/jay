@@ -1,11 +1,8 @@
-use {
-    crate::{
-        control_center::ControlCenterInner, egui_adapter::egui_platform::icons::ICON_CLOSE,
-        state::State,
-    },
-    egui::Ui,
-    std::rc::Rc,
-};
+use crate::control_center::ControlCenterInner;
+use crate::egui_adapter::egui_platform::icons::ICON_CLOSE;
+use crate::state::State;
+use egui::Ui;
+use std::rc::Rc;
 
 pub struct VirtualOutputsPane {
     state: Rc<State>,

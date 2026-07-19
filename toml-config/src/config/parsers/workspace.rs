@@ -1,32 +1,32 @@
-use {
-    crate::{
-        State,
-        config::{
-            OutputMatch, TomlWorkspace,
-            context::Context,
-            extractor::{Extractor, ExtractorError, opt, recover, str, val},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-            parsers::output_match::OutputMatchParser,
-        },
-        toml::{
-            toml_span::{Span, Spanned},
-            toml_value::Value,
-        },
-    },
-    ahash::AHashMap,
-    indexmap::IndexMap,
-    jay_config::{
-        Workspace,
-        video::{Connector, connectors},
-    },
-    std::{
-        cell::{Cell, RefCell},
-        collections::hash_map::Entry,
-        fmt::Debug,
-        rc::Rc,
-    },
-    thiserror::Error,
-};
+use crate::State;
+use crate::config::OutputMatch;
+use crate::config::TomlWorkspace;
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::opt;
+use crate::config::extractor::recover;
+use crate::config::extractor::str;
+use crate::config::extractor::val;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::config::parsers::output_match::OutputMatchParser;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_value::Value;
+use ahash::AHashMap;
+use indexmap::IndexMap;
+use jay_config::Workspace;
+use jay_config::video::Connector;
+use jay_config::video::connectors;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::collections::hash_map::Entry;
+use std::fmt::Debug;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[derive(Debug)]
 pub struct WorkspaceSlot {

@@ -1,4 +1,6 @@
-use crate::toml::toml_span::{Span, Spanned, SpannedExt};
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_span::SpannedExt;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Token<'a> {

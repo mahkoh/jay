@@ -1,4 +1,5 @@
-use {crate::utils::thread_id::ThreadId, std::thread};
+use crate::utils::thread_id::ThreadId;
+use std::thread;
 
 #[test]
 fn is_current() {

@@ -1,14 +1,13 @@
-use {
-    crate::{
-        it::{
-            test_error::TestError, test_object::TestObject, test_transport::TestTransport,
-            test_utils::test_expected_event::TEEH, testrun::ParseFull,
-        },
-        utils::buffd::MsgParser,
-        wire::{ZwpInputMethodKeyboardGrabV2Id, zwp_input_method_keyboard_grab_v2::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestError;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::test_utils::test_expected_event::TEEH;
+use crate::it::testrun::ParseFull;
+use crate::utils::buffd::MsgParser;
+use crate::wire::ZwpInputMethodKeyboardGrabV2Id;
+use crate::wire::zwp_input_method_keyboard_grab_v2::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestInputMethodKeyboardGrab {
     pub id: ZwpInputMethodKeyboardGrabV2Id,

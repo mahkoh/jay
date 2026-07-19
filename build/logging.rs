@@ -1,7 +1,7 @@
-use {
-    crate::open,
-    std::{fmt::Write as _, io::Write as _, process::Command},
-};
+use crate::open;
+use std::fmt::Write as _;
+use std::io::Write as _;
+use std::process::Command;
 
 pub fn main() -> anyhow::Result<()> {
     create_bridge()?;

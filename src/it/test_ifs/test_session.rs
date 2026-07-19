@@ -1,20 +1,18 @@
-use {
-    crate::{
-        it::{
-            test_error::TestError, test_ifs::test_toplevel_session::TestToplevelSession,
-            test_object::TestObject, test_transport::TestTransport,
-            test_utils::test_window::TestWindow, testrun::ParseFull,
-        },
-        utils::buffd::MsgParser,
-        wire::{XdgSessionV1Id, XdgToplevelId, xdg_session_v1::*},
-    },
-    std::{
-        cell::Cell,
-        future::poll_fn,
-        rc::Rc,
-        task::{Poll, Waker},
-    },
-};
+use crate::it::test_error::TestError;
+use crate::it::test_ifs::test_toplevel_session::TestToplevelSession;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::test_utils::test_window::TestWindow;
+use crate::it::testrun::ParseFull;
+use crate::utils::buffd::MsgParser;
+use crate::wire::XdgSessionV1Id;
+use crate::wire::XdgToplevelId;
+use crate::wire::xdg_session_v1::*;
+use std::cell::Cell;
+use std::future::poll_fn;
+use std::rc::Rc;
+use std::task::Poll;
+use std::task::Waker;
 
 pub struct TestSession {
     pub id: XdgSessionV1Id,

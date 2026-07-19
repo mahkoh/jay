@@ -1,18 +1,14 @@
-use {
-    crate::{
-        gfx_apis::gl::{
-            RenderError,
-            egl::context::EglContext,
-            sys::{
-                EGL_NONE, EGL_SYNC_NATIVE_FENCE_ANDROID, EGL_SYNC_NATIVE_FENCE_FD_ANDROID,
-                EGL_TRUE, EGLBoolean, EGLSyncKHR,
-            },
-        },
-        utils::errorfmt::ErrorFmt,
-    },
-    std::rc::Rc,
-    uapi::OwnedFd,
-};
+use crate::gfx_apis::gl::RenderError;
+use crate::gfx_apis::gl::egl::context::EglContext;
+use crate::gfx_apis::gl::sys::EGL_NONE;
+use crate::gfx_apis::gl::sys::EGL_SYNC_NATIVE_FENCE_ANDROID;
+use crate::gfx_apis::gl::sys::EGL_SYNC_NATIVE_FENCE_FD_ANDROID;
+use crate::gfx_apis::gl::sys::EGL_TRUE;
+use crate::gfx_apis::gl::sys::EGLBoolean;
+use crate::gfx_apis::gl::sys::EGLSyncKHR;
+use crate::utils::errorfmt::ErrorFmt;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 pub struct EglSync {
     ctx: Rc<EglContext>,

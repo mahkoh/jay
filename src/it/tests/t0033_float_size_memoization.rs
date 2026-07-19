@@ -1,11 +1,8 @@
-use {
-    crate::{
-        it::{test_error::TestResult, testrun::TestRun},
-        rect::Rect,
-        tree::TreeTimeline::LiveTL,
-    },
-    std::rc::Rc,
-};
+use crate::it::test_error::TestResult;
+use crate::it::testrun::TestRun;
+use crate::rect::Rect;
+use crate::tree::TreeTimeline::LiveTL;
+use std::rc::Rc;
 
 testcase!();
 

@@ -1,13 +1,12 @@
-use {
-    crate::{
-        cli::{GlobalArgs, RunPrivilegedArgs},
-        compositor::WAYLAND_DISPLAY,
-        logger::Logger,
-        utils::{errorfmt::ErrorFmt, oserror::OsErrorExt, xrd::xrd},
-    },
-    std::path::PathBuf,
-    uapi::UstrPtr,
-};
+use crate::cli::GlobalArgs;
+use crate::cli::RunPrivilegedArgs;
+use crate::compositor::WAYLAND_DISPLAY;
+use crate::logger::Logger;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::oserror::OsErrorExt;
+use crate::utils::xrd::xrd;
+use std::path::PathBuf;
+use uapi::UstrPtr;
 
 pub fn main(global: GlobalArgs, args: RunPrivilegedArgs) {
     Logger::install_stderr(global.log_level);

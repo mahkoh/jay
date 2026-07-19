@@ -1,11 +1,13 @@
-use {
-    crate::{
-        control_center::{ControlCenterInner, grid, row},
-        state::State,
-    },
-    egui::{CollapsingHeader, DragValue, Ui, Widget},
-    std::{rc::Rc, time::Duration},
-};
+use crate::control_center::ControlCenterInner;
+use crate::control_center::grid;
+use crate::control_center::row;
+use crate::state::State;
+use egui::CollapsingHeader;
+use egui::DragValue;
+use egui::Ui;
+use egui::Widget;
+use std::rc::Rc;
+use std::time::Duration;
 
 pub struct IdlePane {
     state: Rc<State>,

@@ -1,15 +1,15 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::wl_surface::{SyncobjRelease, WlSurface},
-        leaks::Tracker,
-        object::{Object, Version},
-        video::drm::syncobj::SyncobjPoint,
-        wire::{WpLinuxDrmSyncobjSurfaceV1Id, wp_linux_drm_syncobj_surface_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_surface::SyncobjRelease;
+use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::video::drm::syncobj::SyncobjPoint;
+use crate::wire::WpLinuxDrmSyncobjSurfaceV1Id;
+use crate::wire::wp_linux_drm_syncobj_surface_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpLinuxDrmSyncobjSurfaceV1 {
     id: WpLinuxDrmSyncobjSurfaceV1Id,

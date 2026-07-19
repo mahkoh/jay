@@ -1,13 +1,12 @@
-use {
-    crate::{
-        it::{test_error::TestResult, testrun::TestRun},
-        syncobj::{SyncobjError, wait_for_syncobj::SyncobjWaiter},
-        theme::Color,
-        utils::errorfmt::ErrorFmt,
-        video::drm::syncobj::SyncobjPoint,
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestResult;
+use crate::it::testrun::TestRun;
+use crate::syncobj::SyncobjError;
+use crate::syncobj::wait_for_syncobj::SyncobjWaiter;
+use crate::theme::Color;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::video::drm::syncobj::SyncobjPoint;
+use std::cell::Cell;
+use std::rc::Rc;
 
 testcase!();
 

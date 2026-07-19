@@ -1,7 +1,8 @@
-use {
-    crate::utils::oserror::{OsError, OsErrorExt},
-    uapi::{OwnedFd, c, pipe2},
-};
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt;
+use uapi::OwnedFd;
+use uapi::c;
+use uapi::pipe2;
 
 pub struct Pipe<L, R> {
     pub read: L,

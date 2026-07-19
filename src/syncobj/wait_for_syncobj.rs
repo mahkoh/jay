@@ -1,18 +1,23 @@
-use {
-    crate::{
-        async_engine::{AsyncEngine, SpawnedFuture},
-        io_uring::IoUring,
-        syncobj::{SyncobjCtx, SyncobjError},
-        utils::{
-            asyncevent::AsyncEvent, buf::Buf, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            hash_map_ext::HashMapExt, numcell::NumCell, oserror::OsErrorExt2, stack::Stack,
-        },
-        video::drm::syncobj::{Syncobj, SyncobjPoint},
-    },
-    jay_proc::jay_hash,
-    std::{cell::Cell, rc::Rc},
-    uapi::{OwnedFd, c},
-};
+use crate::async_engine::AsyncEngine;
+use crate::async_engine::SpawnedFuture;
+use crate::io_uring::IoUring;
+use crate::syncobj::SyncobjCtx;
+use crate::syncobj::SyncobjError;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::buf::Buf;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::numcell::NumCell;
+use crate::utils::oserror::OsErrorExt2;
+use crate::utils::stack::Stack;
+use crate::video::drm::syncobj::Syncobj;
+use crate::video::drm::syncobj::SyncobjPoint;
+use jay_proc::jay_hash;
+use std::cell::Cell;
+use std::rc::Rc;
+use uapi::OwnedFd;
+use uapi::c;
 
 pub struct WaitForSyncobj {
     inner: Rc<Inner>,

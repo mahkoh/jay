@@ -8,7 +8,8 @@ macro_rules! track {
 
 #[cfg(not(feature = "rc_tracking"))]
 mod leaks {
-    use {crate::client::ClientId, std::marker::PhantomData};
+    use crate::client::ClientId;
+    use std::marker::PhantomData;
 
     pub fn init() {
         // nothing
@@ -39,26 +40,21 @@ mod leaks {
 
 #[cfg(feature = "rc_tracking")]
 mod leaks {
-    use {
-        crate::{
-            client::ClientId,
-            utils::{
-                bhash::{BHashMap, BHashSet},
-                hash_map_ext::HashMapExt,
-                ptr_ext::{MutPtrExt, PtrExt},
-                windows::WindowsExt,
-            },
-        },
-        backtrace::Backtrace,
-        std::{
-            alloc::{GlobalAlloc, Layout},
-            any,
-            cell::Cell,
-            marker::PhantomData,
-            ptr,
-        },
-        uapi::c,
-    };
+    use crate::client::ClientId;
+    use crate::utils::bhash::BHashMap;
+    use crate::utils::bhash::BHashSet;
+    use crate::utils::hash_map_ext::HashMapExt;
+    use crate::utils::ptr_ext::MutPtrExt;
+    use crate::utils::ptr_ext::PtrExt;
+    use crate::utils::windows::WindowsExt;
+    use backtrace::Backtrace;
+    use std::alloc::GlobalAlloc;
+    use std::alloc::Layout;
+    use std::any;
+    use std::cell::Cell;
+    use std::marker::PhantomData;
+    use std::ptr;
+    use uapi::c;
 
     thread_local! {
         static MAP: Cell<*mut BHashMap<u64, Tracked>> = const { Cell::new(ptr::null_mut()) };

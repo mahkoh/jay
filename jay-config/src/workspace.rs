@@ -1,6 +1,7 @@
 //! Tools for configuring workspaces.
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 /// How workspaces should be ordered in the UI.
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]

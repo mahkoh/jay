@@ -1,7 +1,7 @@
-use crate::{
-    config::parser::{ParseResult, Parser},
-    toml::{toml_span::Spanned, toml_value::Value},
-};
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_value::Value;
 
 impl Spanned<&Value> {
     pub fn parse<P: Parser>(&self, parser: &mut P) -> ParseResult<P> {

@@ -1,11 +1,15 @@
-use {
-    crate::types::{
-        ArraySpec, Described, NestableTypesSpec, NumberSpec, RefOrSpec, SingleTableSpec,
-        StringSpec, TableSpec, TopLevelTypeSpec, VariantSpec,
-    },
-    anyhow::Result,
-    std::io::Write,
-};
+use crate::types::ArraySpec;
+use crate::types::Described;
+use crate::types::NestableTypesSpec;
+use crate::types::NumberSpec;
+use crate::types::RefOrSpec;
+use crate::types::SingleTableSpec;
+use crate::types::StringSpec;
+use crate::types::TableSpec;
+use crate::types::TopLevelTypeSpec;
+use crate::types::VariantSpec;
+use anyhow::Result;
+use std::io::Write;
 
 pub fn generate_markdown(types: &[(&String, &Described<TopLevelTypeSpec>)]) -> Result<()> {
     const TEMPLATE: &str = include_str!("../spec/template.md");

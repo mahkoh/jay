@@ -1,28 +1,43 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        configurable::{Configurable, ConfigurableData, ConfigurableDataCore, ConfigurableExt},
-        fixed::Fixed,
-        ifs::{
-            wl_output::OutputGlobalOpt,
-            wl_seat::{NodeSeatState, WlSeatGlobal},
-            wl_surface::{SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError},
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        rect::{Rect, Size},
-        transactions::EnabledSurfaceTransactions,
-        tree::{
-            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId, NodeLayerLink,
-            NodeLocation, NodeVisitor, OutputNode, TreeSerial,
-            TreeTimeline::{self, LiveTL},
-            WorkspaceNode,
-        },
-        wire::{ExtSessionLockSurfaceV1Id, WlSurfaceId, ext_session_lock_surface_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::configurable::Configurable;
+use crate::configurable::ConfigurableData;
+use crate::configurable::ConfigurableDataCore;
+use crate::configurable::ConfigurableExt;
+use crate::fixed::Fixed;
+use crate::ifs::wl_output::OutputGlobalOpt;
+use crate::ifs::wl_seat::NodeSeatState;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_surface::SurfaceExt;
+use crate::ifs::wl_surface::SurfaceRole;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::WlSurfaceError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::rect::Rect;
+use crate::rect::Size;
+use crate::transactions::EnabledSurfaceTransactions;
+use crate::tree::FindTreeResult;
+use crate::tree::FindTreeUsecase;
+use crate::tree::FoundNode;
+use crate::tree::Node;
+use crate::tree::NodeBase;
+use crate::tree::NodeId;
+use crate::tree::NodeLayerLink;
+use crate::tree::NodeLocation;
+use crate::tree::NodeVisitor;
+use crate::tree::OutputNode;
+use crate::tree::TreeSerial;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::{self};
+use crate::tree::WorkspaceNode;
+use crate::wire::ExtSessionLockSurfaceV1Id;
+use crate::wire::WlSurfaceId;
+use crate::wire::ext_session_lock_surface_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ExtSessionLockSurfaceV1 {
     pub id: ExtSessionLockSurfaceV1Id,

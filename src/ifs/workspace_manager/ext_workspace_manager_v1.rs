@@ -1,23 +1,29 @@
-use {
-    crate::{
-        client::{CAP_WORKSPACE, Client, ClientCaps, ClientError},
-        globals::{Global, GlobalName},
-        ifs::{
-            wl_output::OutputGlobalOpt,
-            workspace_manager::{
-                ext_workspace_group_handle_v1::ExtWorkspaceGroupHandleV1,
-                ext_workspace_handle_v1::ExtWorkspaceHandleV1, group_or_dangling,
-            },
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::{OutputNode, TreeTimeline::LiveTL, WorkspaceNode, WsMoveConfig, move_ws_to_output},
-        utils::{clonecell::CloneCell, opt::Opt, syncqueue::SyncQueue},
-        wire::{ExtWorkspaceManagerV1Id, ext_workspace_manager_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::CAP_WORKSPACE;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_output::OutputGlobalOpt;
+use crate::ifs::workspace_manager::ext_workspace_group_handle_v1::ExtWorkspaceGroupHandleV1;
+use crate::ifs::workspace_manager::ext_workspace_handle_v1::ExtWorkspaceHandleV1;
+use crate::ifs::workspace_manager::group_or_dangling;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::OutputNode;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::WorkspaceNode;
+use crate::tree::WsMoveConfig;
+use crate::tree::move_ws_to_output;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::opt::Opt;
+use crate::utils::syncqueue::SyncQueue;
+use crate::wire::ExtWorkspaceManagerV1Id;
+use crate::wire::ext_workspace_manager_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 linear_ids!(WorkspaceManagerIds, WorkspaceManagerId, u64);
 

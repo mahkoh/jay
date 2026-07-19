@@ -1,16 +1,18 @@
-use {
-    crate::{
-        cli::{
-            GlobalArgs,
-            json::{JsonXwaylandStatus, jsonl},
-        },
-        tools::tool_client::{Handle, ToolClient, with_tool_client},
-        wire::{JayXwaylandId, jay_compositor, jay_xwayland},
-    },
-    clap::{Args, Subcommand, ValueEnum},
-    jay_config::xwayland::XScalingMode,
-    std::{cell::Cell, rc::Rc},
-};
+use crate::cli::GlobalArgs;
+use crate::cli::json::JsonXwaylandStatus;
+use crate::cli::json::jsonl;
+use crate::tools::tool_client::Handle;
+use crate::tools::tool_client::ToolClient;
+use crate::tools::tool_client::with_tool_client;
+use crate::wire::JayXwaylandId;
+use crate::wire::jay_compositor;
+use crate::wire::jay_xwayland;
+use clap::Args;
+use clap::Subcommand;
+use clap::ValueEnum;
+use jay_config::xwayland::XScalingMode;
+use std::cell::Cell;
+use std::rc::Rc;
 
 #[derive(Args, Debug)]
 pub struct XwaylandArgs {

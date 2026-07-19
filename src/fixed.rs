@@ -1,8 +1,13 @@
-use std::{
-    cmp::Ordering,
-    fmt::{Debug, Display, Formatter},
-    ops::{Add, AddAssign, Div, Mul, Sub, SubAssign},
-};
+use std::cmp::Ordering;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::ops::Add;
+use std::ops::AddAssign;
+use std::ops::Div;
+use std::ops::Mul;
+use std::ops::Sub;
+use std::ops::SubAssign;
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default)]
 #[repr(transparent)]

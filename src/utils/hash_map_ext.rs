@@ -1,7 +1,8 @@
-use {
-    hashbrown::{Equivalent, HashMap, HashSet},
-    std::hash::{BuildHasher, Hash},
-};
+use hashbrown::Equivalent;
+use hashbrown::HashMap;
+use hashbrown::HashSet;
+use std::hash::BuildHasher;
+use std::hash::Hash;
 
 pub trait HashMapExt {
     type K;

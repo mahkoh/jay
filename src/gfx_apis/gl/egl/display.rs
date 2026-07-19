@@ -1,57 +1,88 @@
-use {
-    crate::{
-        allocator::BufferObject,
-        backend::DrmDeviceId,
-        format::{Format, XRGB8888, formats},
-        gfx_api::{GfxFormat, GfxWriteModifier},
-        gfx_apis::gl::{
-            RenderError,
-            egl::{
-                EXTS, PROCS,
-                context::EglContext,
-                image::EglImage,
-                sys::{
-                    EGL_CONTEXT_CLIENT_VERSION, EGL_DMA_BUF_PLANE0_FD_EXT,
-                    EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT, EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT,
-                    EGL_DMA_BUF_PLANE0_OFFSET_EXT, EGL_DMA_BUF_PLANE0_PITCH_EXT,
-                    EGL_DMA_BUF_PLANE1_FD_EXT, EGL_DMA_BUF_PLANE1_MODIFIER_HI_EXT,
-                    EGL_DMA_BUF_PLANE1_MODIFIER_LO_EXT, EGL_DMA_BUF_PLANE1_OFFSET_EXT,
-                    EGL_DMA_BUF_PLANE1_PITCH_EXT, EGL_DMA_BUF_PLANE2_FD_EXT,
-                    EGL_DMA_BUF_PLANE2_MODIFIER_HI_EXT, EGL_DMA_BUF_PLANE2_MODIFIER_LO_EXT,
-                    EGL_DMA_BUF_PLANE2_OFFSET_EXT, EGL_DMA_BUF_PLANE2_PITCH_EXT,
-                    EGL_DMA_BUF_PLANE3_FD_EXT, EGL_DMA_BUF_PLANE3_MODIFIER_HI_EXT,
-                    EGL_DMA_BUF_PLANE3_MODIFIER_LO_EXT, EGL_DMA_BUF_PLANE3_OFFSET_EXT,
-                    EGL_DMA_BUF_PLANE3_PITCH_EXT, EGL_HEIGHT, EGL_IMAGE_PRESERVED_KHR,
-                    EGL_LINUX_DMA_BUF_EXT, EGL_LINUX_DRM_FOURCC_EXT, EGL_NONE, EGL_TRUE, EGL_WIDTH,
-                    EGLClientBuffer, EGLConfig, EGLContext, EGLDisplay, EGLint,
-                },
-            },
-            ext::{
-                ANDROID_NATIVE_FENCE_SYNC, DisplayExt, EXT_CREATE_CONTEXT_ROBUSTNESS,
-                EXT_DEVICE_QUERY, EXT_IMAGE_DMA_BUF_IMPORT_MODIFIERS, GL_OES_EGL_IMAGE,
-                GL_OES_EGL_IMAGE_EXTERNAL, GlExt, KHR_FENCE_SYNC, KHR_IMAGE_BASE,
-                KHR_NO_CONFIG_CONTEXT, KHR_SURFACELESS_CONTEXT, KHR_WAIT_SYNC,
-                MESA_CONFIGLESS_CONTEXT, MESA_DEVICE_SOFTWARE, get_device_ext, get_display_ext,
-                get_gl_ext,
-            },
-            proc::ExtProc,
-            sys::{
-                EGL, EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_EXT,
-                EGL_LOSE_CONTEXT_ON_RESET_EXT, EGL_PLATFORM_GBM_KHR, Egl, GLESV2, GlesV2,
-            },
-        },
-        utils::{bhash::BHashMap, bitflags::BitflagsExt},
-        video::{
-            INVALID_MODIFIER, Modifier,
-            dmabuf::{DmaBuf, DmaBufIds},
-            drm::Drm,
-            gbm::{GBM_BO_USE_RENDERING, GbmDevice},
-        },
-    },
-    indexmap::{IndexMap, IndexSet},
-    std::{ptr, rc::Rc},
-    uapi::c::O_RDWR,
-};
+use crate::allocator::BufferObject;
+use crate::backend::DrmDeviceId;
+use crate::format::Format;
+use crate::format::XRGB8888;
+use crate::format::formats;
+use crate::gfx_api::GfxFormat;
+use crate::gfx_api::GfxWriteModifier;
+use crate::gfx_apis::gl::RenderError;
+use crate::gfx_apis::gl::egl::EXTS;
+use crate::gfx_apis::gl::egl::PROCS;
+use crate::gfx_apis::gl::egl::context::EglContext;
+use crate::gfx_apis::gl::egl::image::EglImage;
+use crate::gfx_apis::gl::egl::sys::EGL_CONTEXT_CLIENT_VERSION;
+use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE0_FD_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE0_MODIFIER_HI_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE0_MODIFIER_LO_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE0_OFFSET_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE0_PITCH_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE1_FD_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE1_MODIFIER_HI_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE1_MODIFIER_LO_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE1_OFFSET_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE1_PITCH_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE2_FD_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE2_MODIFIER_HI_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE2_MODIFIER_LO_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE2_OFFSET_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE2_PITCH_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE3_FD_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE3_MODIFIER_HI_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE3_MODIFIER_LO_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE3_OFFSET_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE3_PITCH_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_HEIGHT;
+use crate::gfx_apis::gl::egl::sys::EGL_IMAGE_PRESERVED_KHR;
+use crate::gfx_apis::gl::egl::sys::EGL_LINUX_DMA_BUF_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_LINUX_DRM_FOURCC_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_NONE;
+use crate::gfx_apis::gl::egl::sys::EGL_TRUE;
+use crate::gfx_apis::gl::egl::sys::EGL_WIDTH;
+use crate::gfx_apis::gl::egl::sys::EGLClientBuffer;
+use crate::gfx_apis::gl::egl::sys::EGLConfig;
+use crate::gfx_apis::gl::egl::sys::EGLContext;
+use crate::gfx_apis::gl::egl::sys::EGLDisplay;
+use crate::gfx_apis::gl::egl::sys::EGLint;
+use crate::gfx_apis::gl::ext::ANDROID_NATIVE_FENCE_SYNC;
+use crate::gfx_apis::gl::ext::DisplayExt;
+use crate::gfx_apis::gl::ext::EXT_CREATE_CONTEXT_ROBUSTNESS;
+use crate::gfx_apis::gl::ext::EXT_DEVICE_QUERY;
+use crate::gfx_apis::gl::ext::EXT_IMAGE_DMA_BUF_IMPORT_MODIFIERS;
+use crate::gfx_apis::gl::ext::GL_OES_EGL_IMAGE;
+use crate::gfx_apis::gl::ext::GL_OES_EGL_IMAGE_EXTERNAL;
+use crate::gfx_apis::gl::ext::GlExt;
+use crate::gfx_apis::gl::ext::KHR_FENCE_SYNC;
+use crate::gfx_apis::gl::ext::KHR_IMAGE_BASE;
+use crate::gfx_apis::gl::ext::KHR_NO_CONFIG_CONTEXT;
+use crate::gfx_apis::gl::ext::KHR_SURFACELESS_CONTEXT;
+use crate::gfx_apis::gl::ext::KHR_WAIT_SYNC;
+use crate::gfx_apis::gl::ext::MESA_CONFIGLESS_CONTEXT;
+use crate::gfx_apis::gl::ext::MESA_DEVICE_SOFTWARE;
+use crate::gfx_apis::gl::ext::get_device_ext;
+use crate::gfx_apis::gl::ext::get_display_ext;
+use crate::gfx_apis::gl::ext::get_gl_ext;
+use crate::gfx_apis::gl::proc::ExtProc;
+use crate::gfx_apis::gl::sys::EGL;
+use crate::gfx_apis::gl::sys::EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_EXT;
+use crate::gfx_apis::gl::sys::EGL_LOSE_CONTEXT_ON_RESET_EXT;
+use crate::gfx_apis::gl::sys::EGL_PLATFORM_GBM_KHR;
+use crate::gfx_apis::gl::sys::Egl;
+use crate::gfx_apis::gl::sys::GLESV2;
+use crate::gfx_apis::gl::sys::GlesV2;
+use crate::utils::bhash::BHashMap;
+use crate::utils::bitflags::BitflagsExt;
+use crate::video::INVALID_MODIFIER;
+use crate::video::Modifier;
+use crate::video::dmabuf::DmaBuf;
+use crate::video::dmabuf::DmaBufIds;
+use crate::video::drm::Drm;
+use crate::video::gbm::GBM_BO_USE_RENDERING;
+use crate::video::gbm::GbmDevice;
+use indexmap::IndexMap;
+use indexmap::IndexSet;
+use std::ptr;
+use std::rc::Rc;
+use uapi::c::O_RDWR;
 
 #[derive(Debug)]
 pub struct EglFormat {

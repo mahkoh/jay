@@ -1,7 +1,6 @@
-use crate::utils::{
-    object_registry::{ObjectRegistry, ObjectRegistryCache},
-    ptr_ext::PtrExt,
-};
+use crate::utils::object_registry::ObjectRegistry;
+use crate::utils::object_registry::ObjectRegistryCache;
+use crate::utils::ptr_ext::PtrExt;
 
 #[test]
 fn insert() {

@@ -1,54 +1,67 @@
-use {
-    crate::{
-        backend::{ButtonState, KeyState},
-        client::{Client, ClientId},
-        fixed::Fixed,
-        ifs::{
-            wl_output::{
-                TF_90, TF_180, TF_270, TF_FLIPPED, TF_FLIPPED_90, TF_FLIPPED_180, TF_FLIPPED_270,
-                TF_NORMAL,
-            },
-            wl_seat::{
-                Dnd, NodeSeatState, WlSeatGlobal,
-                tablet::{
-                    PadButtonState, TabletPad, TabletPadDial, TabletPadGroup, TabletPadRing,
-                    TabletPadStrip, TabletRingEventSource, TabletStripEventSource, TabletTool,
-                    TabletToolChanges, ToolButtonState,
-                },
-                wl_pointer::PendingScroll,
-            },
-            wl_surface::{
-                WlSurface, tray::TrayItemId, xdg_surface::xdg_popup::XdgPopup,
-                zwlr_layer_surface_v1::LayerSurfaceLink,
-            },
-        },
-        keyboard::KeyboardState,
-        rect::Rect,
-        renderer::Renderer,
-        tree::TreeTimeline::{LiveTL, RenderTL},
-        utils::{
-            linkedlist::{LinkedList, NodeRef},
-            numcell::NumCell,
-            static_text::StaticText,
-        },
-    },
-    jay_config::{
-        Direction as JayDirection, video::Transform as ConfigTransform,
-        window::TileState as ConfigTileState,
-        workspace::WorkspaceDisplayOrder as ConfigWorkspaceDisplayOrder,
-    },
-    linearize::{Linearize, LinearizeExt, StaticMap, static_map},
-    std::{
-        cell::Cell,
-        fmt::{Debug, Display},
-        ops::Deref,
-        rc::Rc,
-    },
-};
-pub use {
-    container::*, containing::*, display::*, float::*, output::*, placeholder::*, stacked::*,
-    toplevel::*, walker::*, workspace::*,
-};
+use crate::backend::ButtonState;
+use crate::backend::KeyState;
+use crate::client::Client;
+use crate::client::ClientId;
+use crate::fixed::Fixed;
+use crate::ifs::wl_output::TF_90;
+use crate::ifs::wl_output::TF_180;
+use crate::ifs::wl_output::TF_270;
+use crate::ifs::wl_output::TF_FLIPPED;
+use crate::ifs::wl_output::TF_FLIPPED_90;
+use crate::ifs::wl_output::TF_FLIPPED_180;
+use crate::ifs::wl_output::TF_FLIPPED_270;
+use crate::ifs::wl_output::TF_NORMAL;
+use crate::ifs::wl_seat::Dnd;
+use crate::ifs::wl_seat::NodeSeatState;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::tablet::PadButtonState;
+use crate::ifs::wl_seat::tablet::TabletPad;
+use crate::ifs::wl_seat::tablet::TabletPadDial;
+use crate::ifs::wl_seat::tablet::TabletPadGroup;
+use crate::ifs::wl_seat::tablet::TabletPadRing;
+use crate::ifs::wl_seat::tablet::TabletPadStrip;
+use crate::ifs::wl_seat::tablet::TabletRingEventSource;
+use crate::ifs::wl_seat::tablet::TabletStripEventSource;
+use crate::ifs::wl_seat::tablet::TabletTool;
+use crate::ifs::wl_seat::tablet::TabletToolChanges;
+use crate::ifs::wl_seat::tablet::ToolButtonState;
+use crate::ifs::wl_seat::wl_pointer::PendingScroll;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::tray::TrayItemId;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
+use crate::ifs::wl_surface::zwlr_layer_surface_v1::LayerSurfaceLink;
+use crate::keyboard::KeyboardState;
+use crate::rect::Rect;
+use crate::renderer::Renderer;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::utils::linkedlist::LinkedList;
+use crate::utils::linkedlist::NodeRef;
+use crate::utils::numcell::NumCell;
+use crate::utils::static_text::StaticText;
+pub use container::*;
+pub use containing::*;
+pub use display::*;
+pub use float::*;
+use jay_config::Direction as JayDirection;
+use jay_config::video::Transform as ConfigTransform;
+use jay_config::window::TileState as ConfigTileState;
+use jay_config::workspace::WorkspaceDisplayOrder as ConfigWorkspaceDisplayOrder;
+use linearize::Linearize;
+use linearize::LinearizeExt;
+use linearize::StaticMap;
+use linearize::static_map;
+pub use output::*;
+pub use placeholder::*;
+pub use stacked::*;
+use std::cell::Cell;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::ops::Deref;
+use std::rc::Rc;
+pub use toplevel::*;
+pub use walker::*;
+pub use workspace::*;
 
 mod container;
 mod containing;

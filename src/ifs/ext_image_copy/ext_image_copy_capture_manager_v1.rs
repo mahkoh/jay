@@ -1,22 +1,20 @@
-use {
-    crate::{
-        client::{CAP_SCREENCOPY_MANAGER, Client, ClientCaps, ClientError},
-        globals::{Global, GlobalName},
-        ifs::{
-            ext_image_capture_source_v1::ImageCaptureSource,
-            ext_image_copy::{
-                ext_image_copy_capture_cursor_session_v1::ExtImageCopyCaptureCursorSessionV1,
-                ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
-            },
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::TreeTimeline::LiveTL,
-        wire::{ExtImageCopyCaptureManagerV1Id, ext_image_copy_capture_manager_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::CAP_SCREENCOPY_MANAGER;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::ext_image_capture_source_v1::ImageCaptureSource;
+use crate::ifs::ext_image_copy::ext_image_copy_capture_cursor_session_v1::ExtImageCopyCaptureCursorSessionV1;
+use crate::ifs::ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::wire::ExtImageCopyCaptureManagerV1Id;
+use crate::wire::ext_image_copy_capture_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ExtImageCopyCaptureManagerV1Global {
     pub name: GlobalName,

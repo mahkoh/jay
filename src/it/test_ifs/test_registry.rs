@@ -1,38 +1,40 @@
-use {
-    crate::{
-        globals::GlobalName,
-        ifs::wl_seat::WlSeatGlobal,
-        it::{
-            test_error::TestError,
-            test_ifs::{
-                test_alpha_modifier::TestAlphaModifier, test_compositor::TestCompositor,
-                test_content_type_manager::TestContentTypeManager,
-                test_cursor_shape_manager::TestCursorShapeManager,
-                test_data_control_manager::TestDataControlManager,
-                test_data_device_manager::TestDataDeviceManager, test_dmabuf::TestDmabuf,
-                test_ext_foreign_toplevel_list::TestExtForeignToplevelList,
-                test_fifo_manager::TestFifoManager,
-                test_input_method_manager::TestInputMethodManager,
-                test_jay_compositor::TestJayCompositor, test_pointer_warp::TestPointerWarp,
-                test_session_manager::TestSessionManager, test_shm::TestShm,
-                test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
-                test_subcompositor::TestSubcompositor, test_syncobj_manager::TestSyncobjManager,
-                test_text_input_manager::TestTextInputManager,
-                test_toplevel_drag_manager::TestToplevelDragManager,
-                test_viewporter::TestViewporter,
-                test_virtual_keyboard_manager::TestVirtualKeyboardManager,
-                test_wl_fixes::TestWlFixes, test_xdg_activation::TestXdgActivation,
-                test_xdg_base::TestXdgWmBase,
-            },
-            test_object::TestObject,
-            test_transport::TestTransport,
-            testrun::ParseFull,
-        },
-        utils::{buffd::MsgParser, clonecell::CloneCell, copyhashmap::CopyHashMap},
-        wire::{WlRegistryId, WlSeat, wl_registry::*},
-    },
-    std::rc::Rc,
-};
+use crate::globals::GlobalName;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::it::test_error::TestError;
+use crate::it::test_ifs::test_alpha_modifier::TestAlphaModifier;
+use crate::it::test_ifs::test_compositor::TestCompositor;
+use crate::it::test_ifs::test_content_type_manager::TestContentTypeManager;
+use crate::it::test_ifs::test_cursor_shape_manager::TestCursorShapeManager;
+use crate::it::test_ifs::test_data_control_manager::TestDataControlManager;
+use crate::it::test_ifs::test_data_device_manager::TestDataDeviceManager;
+use crate::it::test_ifs::test_dmabuf::TestDmabuf;
+use crate::it::test_ifs::test_ext_foreign_toplevel_list::TestExtForeignToplevelList;
+use crate::it::test_ifs::test_fifo_manager::TestFifoManager;
+use crate::it::test_ifs::test_input_method_manager::TestInputMethodManager;
+use crate::it::test_ifs::test_jay_compositor::TestJayCompositor;
+use crate::it::test_ifs::test_pointer_warp::TestPointerWarp;
+use crate::it::test_ifs::test_session_manager::TestSessionManager;
+use crate::it::test_ifs::test_shm::TestShm;
+use crate::it::test_ifs::test_single_pixel_buffer_manager::TestSinglePixelBufferManager;
+use crate::it::test_ifs::test_subcompositor::TestSubcompositor;
+use crate::it::test_ifs::test_syncobj_manager::TestSyncobjManager;
+use crate::it::test_ifs::test_text_input_manager::TestTextInputManager;
+use crate::it::test_ifs::test_toplevel_drag_manager::TestToplevelDragManager;
+use crate::it::test_ifs::test_viewporter::TestViewporter;
+use crate::it::test_ifs::test_virtual_keyboard_manager::TestVirtualKeyboardManager;
+use crate::it::test_ifs::test_wl_fixes::TestWlFixes;
+use crate::it::test_ifs::test_xdg_activation::TestXdgActivation;
+use crate::it::test_ifs::test_xdg_base::TestXdgWmBase;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::testrun::ParseFull;
+use crate::utils::buffd::MsgParser;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::wire::WlRegistryId;
+use crate::wire::WlSeat;
+use crate::wire::wl_registry::*;
+use std::rc::Rc;
 
 pub struct TestGlobal {
     pub name: u32,

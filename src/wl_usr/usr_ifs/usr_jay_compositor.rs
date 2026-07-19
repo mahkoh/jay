@@ -1,26 +1,25 @@
-use {
-    crate::{
-        ifs::jay_compositor::Cap,
-        object::Version,
-        utils::clonecell::CloneCell,
-        wire::{JayCompositorId, jay_compositor::*},
-        wl_usr::{
-            UsrCon,
-            usr_ifs::{
-                usr_jay_ei_session_builder::UsrJayEiSessionBuilder, usr_jay_output::UsrJayOutput,
-                usr_jay_pointer::UsrJayPointer, usr_jay_render_ctx::UsrJayRenderCtx,
-                usr_jay_screencast::UsrJayScreencast,
-                usr_jay_select_toplevel::UsrJaySelectToplevel,
-                usr_jay_select_workspace::UsrJaySelectWorkspace,
-                usr_jay_sync_file_surface::UsrJaySyncFileSurface,
-                usr_jay_workspace_watcher::UsrJayWorkspaceWatcher, usr_wl_output::UsrWlOutput,
-                usr_wl_seat::UsrWlSeat, usr_wl_surface::UsrWlSurface,
-            },
-            usr_object::UsrObject,
-        },
-    },
-    std::{cell::Cell, convert::Infallible, rc::Rc},
-};
+use crate::ifs::jay_compositor::Cap;
+use crate::object::Version;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::JayCompositorId;
+use crate::wire::jay_compositor::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_ifs::usr_jay_ei_session_builder::UsrJayEiSessionBuilder;
+use crate::wl_usr::usr_ifs::usr_jay_output::UsrJayOutput;
+use crate::wl_usr::usr_ifs::usr_jay_pointer::UsrJayPointer;
+use crate::wl_usr::usr_ifs::usr_jay_render_ctx::UsrJayRenderCtx;
+use crate::wl_usr::usr_ifs::usr_jay_screencast::UsrJayScreencast;
+use crate::wl_usr::usr_ifs::usr_jay_select_toplevel::UsrJaySelectToplevel;
+use crate::wl_usr::usr_ifs::usr_jay_select_workspace::UsrJaySelectWorkspace;
+use crate::wl_usr::usr_ifs::usr_jay_sync_file_surface::UsrJaySyncFileSurface;
+use crate::wl_usr::usr_ifs::usr_jay_workspace_watcher::UsrJayWorkspaceWatcher;
+use crate::wl_usr::usr_ifs::usr_wl_output::UsrWlOutput;
+use crate::wl_usr::usr_ifs::usr_wl_seat::UsrWlSeat;
+use crate::wl_usr::usr_ifs::usr_wl_surface::UsrWlSurface;
+use crate::wl_usr::usr_object::UsrObject;
+use std::cell::Cell;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrJayCompositor {
     pub id: JayCompositorId,

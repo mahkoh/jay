@@ -1,16 +1,14 @@
+use crate::sm::Session;
+use crate::sm::SessionManager;
 pub use crate::sm::sm_jobs::sm_common::SmDbStateHolder;
-use {
-    crate::{
-        sm::{Session, SessionManager},
-        sqlite::{SqliteJob, SqliteUsage},
-        utils::{cell_ext::CellExt, stack::Stack},
-    },
-    std::{
-        cell::Cell,
-        rc::{Rc, Weak},
-        sync::Arc,
-    },
-};
+use crate::sqlite::SqliteJob;
+use crate::sqlite::SqliteUsage;
+use crate::utils::cell_ext::CellExt;
+use crate::utils::stack::Stack;
+use std::cell::Cell;
+use std::rc::Rc;
+use std::rc::Weak;
+use std::sync::Arc;
 
 #[macro_use]
 mod sm_common;

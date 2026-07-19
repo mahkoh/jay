@@ -1,12 +1,10 @@
-use {
-    crate::{
-        fixed::Fixed,
-        ifs::wl_seat::WlSeatGlobal,
-        tree::{Node, TreeTimeline::LiveTL},
-        utils::{clonecell::CloneCell, smallmap::SmallMap},
-    },
-    std::rc::Rc,
-};
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::tree::Node;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::smallmap::SmallMap;
+use std::rc::Rc;
 
 pub struct TouchOwnerHolder {
     default: Rc<DefaultTouchOwner>,

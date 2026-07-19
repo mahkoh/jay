@@ -1,14 +1,14 @@
-use {
-    crate::{
-        format::Format,
-        object::Version,
-        video::Modifier,
-        wire::{ZwpLinuxBufferParamsV1Id, zwp_linux_buffer_params_v1::*},
-        wl_usr::{UsrCon, usr_ifs::usr_wl_buffer::UsrWlBuffer, usr_object::UsrObject},
-    },
-    std::{convert::Infallible, rc::Rc},
-    uapi::OwnedFd,
-};
+use crate::format::Format;
+use crate::object::Version;
+use crate::video::Modifier;
+use crate::wire::ZwpLinuxBufferParamsV1Id;
+use crate::wire::zwp_linux_buffer_params_v1::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_ifs::usr_wl_buffer::UsrWlBuffer;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 pub struct UsrZwpLinuxBufferParamsV1 {
     pub id: ZwpLinuxBufferParamsV1Id,

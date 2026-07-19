@@ -1,4 +1,5 @@
-use {crate::utils::asyncevent::AsyncEvent, std::rc::Rc};
+use crate::utils::asyncevent::AsyncEvent;
+use std::rc::Rc;
 
 #[derive(Default)]
 pub struct OnDropEvent {

@@ -1,31 +1,40 @@
 #![allow(non_camel_case_types)]
 
-use {
-    crate::{
-        allocator::{
-            Allocator, AllocatorError, BO_USE_CURSOR, BO_USE_LINEAR, BO_USE_PROTECTED,
-            BO_USE_RENDERING, BO_USE_SCANOUT, BO_USE_WRITE, BufferObject, BufferUsage,
-            MappedBuffer,
-        },
-        format::{Format, XRGB8888, formats},
-        gfx_api::SyncFile,
-        utils::{errorfmt::ErrorFmt, oserror::OsError},
-        video::{
-            INVALID_MODIFIER, Modifier,
-            dmabuf::{DMA_BUF_SYNC_WRITE, DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
-            drm::{Drm, DrmError},
-        },
-    },
-    std::{
-        cell::Cell,
-        fmt::{Debug, Formatter},
-        ptr,
-        rc::Rc,
-        slice,
-    },
-    thiserror::Error,
-    uapi::{OwnedFd, c},
-};
+use crate::allocator::Allocator;
+use crate::allocator::AllocatorError;
+use crate::allocator::BO_USE_CURSOR;
+use crate::allocator::BO_USE_LINEAR;
+use crate::allocator::BO_USE_PROTECTED;
+use crate::allocator::BO_USE_RENDERING;
+use crate::allocator::BO_USE_SCANOUT;
+use crate::allocator::BO_USE_WRITE;
+use crate::allocator::BufferObject;
+use crate::allocator::BufferUsage;
+use crate::allocator::MappedBuffer;
+use crate::format::Format;
+use crate::format::XRGB8888;
+use crate::format::formats;
+use crate::gfx_api::SyncFile;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::oserror::OsError;
+use crate::video::INVALID_MODIFIER;
+use crate::video::Modifier;
+use crate::video::dmabuf::DMA_BUF_SYNC_WRITE;
+use crate::video::dmabuf::DmaBuf;
+use crate::video::dmabuf::DmaBufIds;
+use crate::video::dmabuf::DmaBufPlane;
+use crate::video::dmabuf::PlaneVec;
+use crate::video::drm::Drm;
+use crate::video::drm::DrmError;
+use std::cell::Cell;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::ptr;
+use std::rc::Rc;
+use std::slice;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c;
 
 #[derive(Debug, Error)]
 pub enum GbmError {

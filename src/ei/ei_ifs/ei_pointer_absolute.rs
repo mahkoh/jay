@@ -1,23 +1,18 @@
-use {
-    crate::{
-        ei::{
-            ei_client::{EiClient, EiClientError},
-            ei_ifs::ei_device::{EiDevice, EiDeviceInterface},
-            ei_object::{EiObject, EiVersion},
-        },
-        fixed::Fixed,
-        leaks::Tracker,
-        wire_ei::{
-            EiPointerAbsoluteId,
-            ei_pointer_absolute::{
-                ClientMotionAbsolute, EiPointerAbsoluteRequestHandler, Release,
-                ServerMotionAbsolute,
-            },
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::ei::ei_client::EiClient;
+use crate::ei::ei_client::EiClientError;
+use crate::ei::ei_ifs::ei_device::EiDevice;
+use crate::ei::ei_ifs::ei_device::EiDeviceInterface;
+use crate::ei::ei_object::EiObject;
+use crate::ei::ei_object::EiVersion;
+use crate::fixed::Fixed;
+use crate::leaks::Tracker;
+use crate::wire_ei::EiPointerAbsoluteId;
+use crate::wire_ei::ei_pointer_absolute::ClientMotionAbsolute;
+use crate::wire_ei::ei_pointer_absolute::EiPointerAbsoluteRequestHandler;
+use crate::wire_ei::ei_pointer_absolute::Release;
+use crate::wire_ei::ei_pointer_absolute::ServerMotionAbsolute;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct EiPointerAbsolute {
     pub id: EiPointerAbsoluteId,

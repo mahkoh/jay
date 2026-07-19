@@ -1,33 +1,40 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::wl_surface::{
-            AttachedSubsurfaceState, CommitAction, PendingState, StackElement, SurfaceExt,
-            SurfaceRole, WlSurface, WlSurfaceError, WlSurfaceId, tray::TrayItemId,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::{
-            Node, NodeBase, NodeLayerLink,
-            TreeTimeline::{self, LiveTL, RenderTL},
-            WorkspaceNode,
-        },
-        utils::{
-            box_cache::{BoxReset, CachedBox},
-            clonecell::CloneCell,
-            linkedlist::{LinkedNode, NodeRef},
-            numcell::NumCell,
-        },
-        wire::{WlSubsurfaceId, wl_subsurface::*},
-    },
-    hashbrown::hash_map::OccupiedEntry,
-    linearize::LinearizeExt,
-    std::{
-        cell::{Cell, RefCell, RefMut},
-        rc::Rc,
-    },
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_surface::AttachedSubsurfaceState;
+use crate::ifs::wl_surface::CommitAction;
+use crate::ifs::wl_surface::PendingState;
+use crate::ifs::wl_surface::StackElement;
+use crate::ifs::wl_surface::SurfaceExt;
+use crate::ifs::wl_surface::SurfaceRole;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::WlSurfaceError;
+use crate::ifs::wl_surface::WlSurfaceId;
+use crate::ifs::wl_surface::tray::TrayItemId;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::Node;
+use crate::tree::NodeBase;
+use crate::tree::NodeLayerLink;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::tree::TreeTimeline::{self};
+use crate::tree::WorkspaceNode;
+use crate::utils::box_cache::BoxReset;
+use crate::utils::box_cache::CachedBox;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::linkedlist::LinkedNode;
+use crate::utils::linkedlist::NodeRef;
+use crate::utils::numcell::NumCell;
+use crate::wire::WlSubsurfaceId;
+use crate::wire::wl_subsurface::*;
+use hashbrown::hash_map::OccupiedEntry;
+use linearize::LinearizeExt;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::cell::RefMut;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[expect(dead_code)]
 const BAD_SURFACE: u32 = 0;

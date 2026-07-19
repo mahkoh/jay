@@ -1,23 +1,25 @@
-use {
-    crate::{
-        ifs::wl_seat::wl_keyboard,
-        object::Version,
-        utils::{clonecell::CloneCell, mmap::mmap, oserror::OsError},
-        wire::{WlKeyboardId, WlSurfaceId, wl_keyboard::*},
-        wl_usr::{UsrCon, usr_object::UsrObject},
-    },
-    kbvm::{
-        Components, Keycode, ModifierMask,
-        lookup::{Lookup, LookupTable},
-        xkb::{
-            Context,
-            diagnostic::{Diagnostic, WriteToLog},
-        },
-    },
-    std::{cell::RefCell, rc::Rc},
-    thiserror::Error,
-    uapi::c,
-};
+use crate::ifs::wl_seat::wl_keyboard;
+use crate::object::Version;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::mmap::mmap;
+use crate::utils::oserror::OsError;
+use crate::wire::WlKeyboardId;
+use crate::wire::WlSurfaceId;
+use crate::wire::wl_keyboard::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_object::UsrObject;
+use kbvm::Components;
+use kbvm::Keycode;
+use kbvm::ModifierMask;
+use kbvm::lookup::Lookup;
+use kbvm::lookup::LookupTable;
+use kbvm::xkb::Context;
+use kbvm::xkb::diagnostic::Diagnostic;
+use kbvm::xkb::diagnostic::WriteToLog;
+use std::cell::RefCell;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::c;
 
 pub struct UsrWlKeyboard {
     pub id: WlKeyboardId,

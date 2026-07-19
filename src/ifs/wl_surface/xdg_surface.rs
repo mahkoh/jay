@@ -1,49 +1,63 @@
 pub mod xdg_popup;
 pub mod xdg_toplevel;
 
-use {
-    crate::{
-        client::ClientError,
-        configurable::{Configurable, ConfigurableData, ConfigurableDataCore, ConfigurableExt},
-        ifs::{
-            wl_surface::{
-                CommitAction, PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
-                tray::TrayItemId,
-                xdg_surface::{
-                    xdg_popup::{XdgPopup, XdgPopupError, XdgPopupParent},
-                    xdg_toplevel::{WM_CAPABILITIES_SINCE, XdgToplevel},
-                },
-            },
-            xdg_wm_base::XdgWmBase,
-        },
-        leaks::Tracker,
-        object::Object,
-        rect::Rect,
-        transactions::EnabledSurfaceTransactions,
-        tree::{
-            FindTreeResult, FoundNode, Node, NodeBase, NodeLayerLink, NodeLocation, NodesStack,
-            NodesStackElement, OutputNode, SplitView, StackedNode, TreeSerial,
-            TreeTimeline::{self, LiveTL, RenderTL},
-            WorkspaceNode, WorkspaceType,
-        },
-        utils::{
-            box_cache::{BoxReset, CachedBox},
-            cell_ext::CellExt,
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            hash_map_ext::HashMapExt,
-            linkedlist::LinkedNode,
-        },
-        wire::{WlSurfaceId, XdgPopupId, XdgSurfaceId, xdg_surface::*},
-    },
-    jay_proc::Reset,
-    std::{
-        cell::{Cell, RefCell, RefMut},
-        fmt::Debug,
-        rc::Rc,
-    },
-    thiserror::Error,
-};
+use crate::client::ClientError;
+use crate::configurable::Configurable;
+use crate::configurable::ConfigurableData;
+use crate::configurable::ConfigurableDataCore;
+use crate::configurable::ConfigurableExt;
+use crate::ifs::wl_surface::CommitAction;
+use crate::ifs::wl_surface::PendingState;
+use crate::ifs::wl_surface::SurfaceExt;
+use crate::ifs::wl_surface::SurfaceRole;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::WlSurfaceError;
+use crate::ifs::wl_surface::tray::TrayItemId;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopupError;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopupParent;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::WM_CAPABILITIES_SINCE;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::ifs::xdg_wm_base::XdgWmBase;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::rect::Rect;
+use crate::transactions::EnabledSurfaceTransactions;
+use crate::tree::FindTreeResult;
+use crate::tree::FoundNode;
+use crate::tree::Node;
+use crate::tree::NodeBase;
+use crate::tree::NodeLayerLink;
+use crate::tree::NodeLocation;
+use crate::tree::NodesStack;
+use crate::tree::NodesStackElement;
+use crate::tree::OutputNode;
+use crate::tree::SplitView;
+use crate::tree::StackedNode;
+use crate::tree::TreeSerial;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::tree::TreeTimeline::{self};
+use crate::tree::WorkspaceNode;
+use crate::tree::WorkspaceType;
+use crate::utils::box_cache::BoxReset;
+use crate::utils::box_cache::CachedBox;
+use crate::utils::cell_ext::CellExt;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::linkedlist::LinkedNode;
+use crate::wire::WlSurfaceId;
+use crate::wire::XdgPopupId;
+use crate::wire::XdgSurfaceId;
+use crate::wire::xdg_surface::*;
+use jay_proc::Reset;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::cell::RefMut;
+use std::fmt::Debug;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[expect(dead_code)]
 const NOT_CONSTRUCTED: u32 = 1;

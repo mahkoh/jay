@@ -1,26 +1,43 @@
-use {
-    crate::gfx_apis::gl::{
-        RenderError,
-        egl::sys::{
-            EGL_DEBUG_MSG_CRITICAL_KHR, EGL_DEBUG_MSG_ERROR_KHR, EGL_DEBUG_MSG_INFO_KHR,
-            EGL_DEBUG_MSG_WARN_KHR, EGL_NONE, EGL_OPENGL_ES_API, EGL_TRUE, EGLAttrib, EGLLabelKHR,
-            EGLenum, EGLint,
-        },
-        ext::{ClientExt, EXT_PLATFORM_BASE, KHR_DEBUG, KHR_PLATFORM_GBM, get_client_ext},
-        proc::ExtProc,
-        sys::EGL,
-    },
-    bstr::ByteSlice,
-    log::Level,
-    std::{ffi::CStr, sync::LazyLock},
-    sys::{
-        EGL_BAD_ACCESS, EGL_BAD_ALLOC, EGL_BAD_ATTRIBUTE, EGL_BAD_CONFIG, EGL_BAD_CONTEXT,
-        EGL_BAD_CURRENT_SURFACE, EGL_BAD_DEVICE_EXT, EGL_BAD_DISPLAY, EGL_BAD_MATCH,
-        EGL_BAD_NATIVE_PIXMAP, EGL_BAD_NATIVE_WINDOW, EGL_BAD_PARAMETER, EGL_BAD_SURFACE,
-        EGL_CONTEXT_LOST, EGL_NOT_INITIALIZED, EGL_SUCCESS,
-    },
-    uapi::c,
-};
+use crate::gfx_apis::gl::RenderError;
+use crate::gfx_apis::gl::egl::sys::EGL_DEBUG_MSG_CRITICAL_KHR;
+use crate::gfx_apis::gl::egl::sys::EGL_DEBUG_MSG_ERROR_KHR;
+use crate::gfx_apis::gl::egl::sys::EGL_DEBUG_MSG_INFO_KHR;
+use crate::gfx_apis::gl::egl::sys::EGL_DEBUG_MSG_WARN_KHR;
+use crate::gfx_apis::gl::egl::sys::EGL_NONE;
+use crate::gfx_apis::gl::egl::sys::EGL_OPENGL_ES_API;
+use crate::gfx_apis::gl::egl::sys::EGL_TRUE;
+use crate::gfx_apis::gl::egl::sys::EGLAttrib;
+use crate::gfx_apis::gl::egl::sys::EGLLabelKHR;
+use crate::gfx_apis::gl::egl::sys::EGLenum;
+use crate::gfx_apis::gl::egl::sys::EGLint;
+use crate::gfx_apis::gl::ext::ClientExt;
+use crate::gfx_apis::gl::ext::EXT_PLATFORM_BASE;
+use crate::gfx_apis::gl::ext::KHR_DEBUG;
+use crate::gfx_apis::gl::ext::KHR_PLATFORM_GBM;
+use crate::gfx_apis::gl::ext::get_client_ext;
+use crate::gfx_apis::gl::proc::ExtProc;
+use crate::gfx_apis::gl::sys::EGL;
+use bstr::ByteSlice;
+use log::Level;
+use std::ffi::CStr;
+use std::sync::LazyLock;
+use sys::EGL_BAD_ACCESS;
+use sys::EGL_BAD_ALLOC;
+use sys::EGL_BAD_ATTRIBUTE;
+use sys::EGL_BAD_CONFIG;
+use sys::EGL_BAD_CONTEXT;
+use sys::EGL_BAD_CURRENT_SURFACE;
+use sys::EGL_BAD_DEVICE_EXT;
+use sys::EGL_BAD_DISPLAY;
+use sys::EGL_BAD_MATCH;
+use sys::EGL_BAD_NATIVE_PIXMAP;
+use sys::EGL_BAD_NATIVE_WINDOW;
+use sys::EGL_BAD_PARAMETER;
+use sys::EGL_BAD_SURFACE;
+use sys::EGL_CONTEXT_LOST;
+use sys::EGL_NOT_INITIALIZED;
+use sys::EGL_SUCCESS;
+use uapi::c;
 
 pub mod context;
 pub mod display;

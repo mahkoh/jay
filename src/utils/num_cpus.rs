@@ -1,8 +1,8 @@
-use {
-    crate::utils::oserror::{OsError, OsErrorExt},
-    smallvec::{SmallVec, smallvec_inline},
-    uapi::c,
-};
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt;
+use smallvec::SmallVec;
+use smallvec::smallvec_inline;
+use uapi::c;
 
 #[cfg_attr(not(feature = "it"), expect(dead_code))]
 pub fn num_cpus() -> Result<u32, OsError> {

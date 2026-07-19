@@ -1,15 +1,15 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::wl_surface::{WlSurfaceError, x_surface::XSurface},
-        leaks::Tracker,
-        object::{Object, Version},
-        utils::cell_ext::CellExt,
-        wire::{XwaylandSurfaceV1Id, xwayland_surface_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_surface::WlSurfaceError;
+use crate::ifs::wl_surface::x_surface::XSurface;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::utils::cell_ext::CellExt;
+use crate::wire::XwaylandSurfaceV1Id;
+use crate::wire::xwayland_surface_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct XwaylandSurfaceV1 {
     pub id: XwaylandSurfaceV1Id,

@@ -1,14 +1,11 @@
-use {
-    crate::{
-        client::Client,
-        criteria::{
-            clm::{ClmRootMatcherMap, RootMatchers},
-            crit_matchers::critm_string::{CritMatchString, StringAccess},
-        },
-        security_context_acceptor::AcceptorMetadata,
-    },
-    std::{marker::PhantomData, rc::Rc},
-};
+use crate::client::Client;
+use crate::criteria::clm::ClmRootMatcherMap;
+use crate::criteria::clm::RootMatchers;
+use crate::criteria::crit_matchers::critm_string::CritMatchString;
+use crate::criteria::crit_matchers::critm_string::StringAccess;
+use crate::security_context_acceptor::AcceptorMetadata;
+use std::marker::PhantomData;
+use std::rc::Rc;
 
 pub type ClmMatchString<T> = CritMatchString<Rc<Client>, T>;
 

@@ -1,25 +1,23 @@
 #![expect(clippy::excessive_precision)]
 
-use {
-    crate::{
-        cmm::cmm_eotf::Eotf,
-        gfx_api::AlphaMode,
-        tree::{SplitView, TreeTimeline},
-        utils::{clonecell::CloneCell, static_text::StaticText},
-    },
-    jay_algorithms::tf::{eotfs, inv_eotfs},
-    jay_config::theme::{
-        BarPosition as ConfigBarPosition, ContainerBorders as ConfigContainerBorders,
-    },
-    jay_proc::jay_clone,
-    linearize::Linearize,
-    std::{
-        cell::Cell,
-        cmp::Ordering,
-        ops::{Add, Div, Mul},
-        sync::Arc,
-    },
-};
+use crate::cmm::cmm_eotf::Eotf;
+use crate::gfx_api::AlphaMode;
+use crate::tree::SplitView;
+use crate::tree::TreeTimeline;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::static_text::StaticText;
+use jay_algorithms::tf::eotfs;
+use jay_algorithms::tf::inv_eotfs;
+use jay_config::theme::BarPosition as ConfigBarPosition;
+use jay_config::theme::ContainerBorders as ConfigContainerBorders;
+use jay_proc::jay_clone;
+use linearize::Linearize;
+use std::cell::Cell;
+use std::cmp::Ordering;
+use std::ops::Add;
+use std::ops::Div;
+use std::ops::Mul;
+use std::sync::Arc;
 
 #[jay_clone(Copy)]
 #[derive(Debug, PartialEq)]

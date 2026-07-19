@@ -1,17 +1,17 @@
-use {
-    crate::{
-        State,
-        config::{Action, InputMode, Shortcut, SimpleCommand},
-    },
-    ahash::{AHashMap, AHashSet},
-    derivative::Derivative,
-    jay_config::keyboard::{ModifiedKeySym, mods::Modifiers},
-    std::{
-        cell::{Cell, RefCell},
-        collections::hash_map::Entry,
-        rc::Rc,
-    },
-};
+use crate::State;
+use crate::config::Action;
+use crate::config::InputMode;
+use crate::config::Shortcut;
+use crate::config::SimpleCommand;
+use ahash::AHashMap;
+use ahash::AHashSet;
+use derivative::Derivative;
+use jay_config::keyboard::ModifiedKeySym;
+use jay_config::keyboard::mods::Modifiers;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::collections::hash_map::Entry;
+use std::rc::Rc;
 
 #[derive(Default)]
 pub struct ModeState {

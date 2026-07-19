@@ -1,20 +1,20 @@
-use {
-    crate::{
-        config::{
-            Tearing,
-            context::Context,
-            extractor::{Extractor, ExtractorError, opt, val},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-        },
-        toml::{
-            toml_span::{Span, Spanned, SpannedExt},
-            toml_value::Value,
-        },
-    },
-    indexmap::IndexMap,
-    jay_config::video::TearingMode,
-    thiserror::Error,
-};
+use crate::config::Tearing;
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::opt;
+use crate::config::extractor::val;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_span::SpannedExt;
+use crate::toml::toml_value::Value;
+use indexmap::IndexMap;
+use jay_config::video::TearingMode;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum TearingParserError {

@@ -1,22 +1,28 @@
-use {
-    crate::{
-        client::{Client, ClientError, ClientId},
-        fixed::Fixed,
-        ifs::{
-            ipc::{
-                DeviceData, IpcVtable, IterableIpcVtable, OfferData, Role, break_device_loops,
-                destroy_data_device, wl_data_offer::WlDataOffer, wl_data_source::WlDataSource,
-            },
-            wl_seat::{WlSeatError, WlSeatGlobal},
-            wl_surface::WlSurfaceError,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WlDataDeviceId, WlDataOfferId, WlSurfaceId, wl_data_device::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::client::ClientId;
+use crate::fixed::Fixed;
+use crate::ifs::ipc::DeviceData;
+use crate::ifs::ipc::IpcVtable;
+use crate::ifs::ipc::IterableIpcVtable;
+use crate::ifs::ipc::OfferData;
+use crate::ifs::ipc::Role;
+use crate::ifs::ipc::break_device_loops;
+use crate::ifs::ipc::destroy_data_device;
+use crate::ifs::ipc::wl_data_offer::WlDataOffer;
+use crate::ifs::ipc::wl_data_source::WlDataSource;
+use crate::ifs::wl_seat::WlSeatError;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_surface::WlSurfaceError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WlDataDeviceId;
+use crate::wire::WlDataOfferId;
+use crate::wire::WlSurfaceId;
+use crate::wire::wl_data_device::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[expect(dead_code)]
 const ROLE: u32 = 0;

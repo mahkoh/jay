@@ -1,30 +1,34 @@
-use {
-    crate::{
-        cli::{ScreenshotFormat, screenshot::buf_to_bytes},
-        client::Client,
-        globals::GlobalBase,
-        it::{
-            test_error::{TestError, TestResult},
-            test_ifs::{
-                test_compositor::TestCompositor, test_cursor_shape_manager::TestCursorShapeManager,
-                test_data_device_manager::TestDataDeviceManager,
-                test_fifo_manager::TestFifoManager, test_jay_compositor::TestJayCompositor,
-                test_keyboard::TestKeyboard, test_pointer::TestPointer,
-                test_pointer_warp::TestPointerWarp, test_registry::TestRegistry,
-                test_seat::TestSeat, test_session::TestSession, test_shm::TestShm,
-                test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
-                test_subcompositor::TestSubcompositor, test_toplevel_session::TestToplevelSession,
-                test_viewporter::TestViewporter, test_xdg_activation::TestXdgActivation,
-                test_xdg_base::TestXdgWmBase,
-            },
-            test_transport::TestTransport,
-            test_utils::{test_surface_ext::TestSurfaceExt, test_window::TestWindow},
-            testrun::TestRun,
-        },
-        theme::Color,
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::cli::ScreenshotFormat;
+use crate::cli::screenshot::buf_to_bytes;
+use crate::client::Client;
+use crate::globals::GlobalBase;
+use crate::it::test_error::TestError;
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_compositor::TestCompositor;
+use crate::it::test_ifs::test_cursor_shape_manager::TestCursorShapeManager;
+use crate::it::test_ifs::test_data_device_manager::TestDataDeviceManager;
+use crate::it::test_ifs::test_fifo_manager::TestFifoManager;
+use crate::it::test_ifs::test_jay_compositor::TestJayCompositor;
+use crate::it::test_ifs::test_keyboard::TestKeyboard;
+use crate::it::test_ifs::test_pointer::TestPointer;
+use crate::it::test_ifs::test_pointer_warp::TestPointerWarp;
+use crate::it::test_ifs::test_registry::TestRegistry;
+use crate::it::test_ifs::test_seat::TestSeat;
+use crate::it::test_ifs::test_session::TestSession;
+use crate::it::test_ifs::test_shm::TestShm;
+use crate::it::test_ifs::test_single_pixel_buffer_manager::TestSinglePixelBufferManager;
+use crate::it::test_ifs::test_subcompositor::TestSubcompositor;
+use crate::it::test_ifs::test_toplevel_session::TestToplevelSession;
+use crate::it::test_ifs::test_viewporter::TestViewporter;
+use crate::it::test_ifs::test_xdg_activation::TestXdgActivation;
+use crate::it::test_ifs::test_xdg_base::TestXdgWmBase;
+use crate::it::test_transport::TestTransport;
+use crate::it::test_utils::test_surface_ext::TestSurfaceExt;
+use crate::it::test_utils::test_window::TestWindow;
+use crate::it::testrun::TestRun;
+use crate::theme::Color;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestClient {
     pub run: Rc<TestRun>,

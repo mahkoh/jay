@@ -1,24 +1,22 @@
-use {
-    crate::{
-        backend::KeyState,
-        client::{Client, ClientError},
-        clientmem::{ClientMem, ClientMemError},
-        ifs::{
-            wl_seat::{
-                WlSeatGlobal,
-                wl_keyboard::{self, WlKeyboard},
-            },
-            wl_surface::WlSurface,
-        },
-        kbvm::KbvmError,
-        keyboard::KeyboardState,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwpVirtualKeyboardV1Id, zwp_virtual_keyboard_v1::*},
-    },
-    std::{cell::RefCell, rc::Rc},
-    thiserror::Error,
-};
+use crate::backend::KeyState;
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::clientmem::ClientMem;
+use crate::clientmem::ClientMemError;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
+use crate::ifs::wl_seat::wl_keyboard::{self};
+use crate::ifs::wl_surface::WlSurface;
+use crate::kbvm::KbvmError;
+use crate::keyboard::KeyboardState;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwpVirtualKeyboardV1Id;
+use crate::wire::zwp_virtual_keyboard_v1::*;
+use std::cell::RefCell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpVirtualKeyboardV1 {
     pub id: ZwpVirtualKeyboardV1Id,
