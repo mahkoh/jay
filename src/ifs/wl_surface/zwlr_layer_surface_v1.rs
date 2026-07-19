@@ -537,8 +537,11 @@ impl ZwlrLayerSurfaceV1 {
         let extents = self.surface.extents.get();
         let (width, height) = extents.size();
         let mut anchor = self.anchor.get();
-        if anchor == 0 {
-            anchor = LEFT | RIGHT | TOP | BOTTOM;
+        if anchor & (LEFT | RIGHT) == 0 {
+            anchor |= LEFT | RIGHT;
+        }
+        if anchor & (TOP | BOTTOM) == 0 {
+            anchor |= TOP | BOTTOM;
         }
         let (mt, mr, mb, ml) = self.margin.get();
         let ons = &output.node_state[LiveTL];
