@@ -15,7 +15,6 @@ use crate::tree::NodeLocation;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::tree::WorkspaceNode;
-use crate::wire::WlSurfaceId;
 use crate::wire::ZwpInputPopupSurfaceV2Id;
 use crate::wire::zwp_input_popup_surface_v2::*;
 use std::cell::Cell;
@@ -149,13 +148,8 @@ impl ZwpInputPopupSurfaceV2 {
     }
 
     pub fn install(self: &Rc<Self>) -> Result<(), ZwpInputPopupSurfaceV2Error> {
-        self.surface.set_role(SurfaceRole::InputPopup)?;
-        if self.surface.ext.get().is_some() {
-            return Err(ZwpInputPopupSurfaceV2Error::AlreadyAttached(
-                self.surface.id,
-            ));
-        }
-        self.surface.ext.set(self.clone());
+        self.surface
+            .set_ext(SurfaceRole::InputPopup, self.clone())?;
         self.input_method.popups.insert(self.id, self.clone());
         if let Some(con) = self.input_method.connection.get() {
             let output = con.surface.output.get();
@@ -215,10 +209,6 @@ pub enum ZwpInputPopupSurfaceV2Error {
     ClientError(Box<ClientError>),
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
-    #[error(
-        "Surface {0} cannot be turned into a zwp_input_popup_surface_v2 because it already has an attached zwp_input_popup_surface_v2"
-    )]
-    AlreadyAttached(WlSurfaceId),
 }
 efrom!(ZwpInputPopupSurfaceV2Error, WlSurfaceError);
 efrom!(ZwpInputPopupSurfaceV2Error, ClientError);

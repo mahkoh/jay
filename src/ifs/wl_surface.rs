@@ -367,6 +367,7 @@ pub struct WlSurface {
     pub buf_y: NumCell<i32>,
     pub children: RefCell<Option<Box<ParentData>>>,
     ext: CloneCell<Rc<dyn SurfaceExt>>,
+    ext_version: NumCell<u64>,
     frame_requests: RefCell<Vec<FrameRequest>>,
     presentation_feedback: RefCell<Vec<PresentationFeedback>>,
     latched_presentation_feedback: RefCell<Vec<PresentationFeedback>>,
@@ -551,6 +552,7 @@ pub struct PendingStateCache {
 
 #[derive(Default, Reset)]
 struct PendingState {
+    ext_version: u64,
     buffer: Option<Option<AttachedBuffer>>,
     prime_buffer: Option<Rc<PrimeSurfaceBuffer>>,
     offset: (i32, i32),
@@ -599,6 +601,7 @@ impl PendingState {
 
         // overwrite state
 
+        self.ext_version = next.ext_version;
         if let Some(buffer) = next.buffer.take() {
             self.buffer = Some(buffer);
             self.acquire_point = next.acquire_point.take();
@@ -749,6 +752,7 @@ impl WlSurface {
             buf_y: Default::default(),
             children: Default::default(),
             ext: CloneCell::new(state.none_surface_ext.clone()),
+            ext_version: Default::default(),
             frame_requests: Default::default(),
             presentation_feedback: Default::default(),
             latched_presentation_feedback: Default::default(),
@@ -987,7 +991,7 @@ impl WlSurface {
         self.toplevel.set(tl);
     }
 
-    pub fn set_role(&self, role: SurfaceRole) -> Result<(), WlSurfaceError> {
+    fn set_role(&self, role: SurfaceRole) -> Result<(), WlSurfaceError> {
         use SurfaceRole::*;
         match (self.role.get(), role) {
             (None, _) => {}
@@ -1007,6 +1011,20 @@ impl WlSurface {
         };
         self.transactional.set(transactional);
         Ok(())
+    }
+
+    fn set_ext(&self, role: SurfaceRole, ext: Rc<dyn SurfaceExt>) -> Result<(), WlSurfaceError> {
+        self.set_role(role)?;
+        if self.ext.get().is_some() {
+            return Err(WlSurfaceError::HasExt);
+        }
+        self.set_ext_unchecked(ext);
+        Ok(())
+    }
+
+    fn set_ext_unchecked(&self, ext: Rc<dyn SurfaceExt>) {
+        self.ext_version.add_fetch(1);
+        self.ext.set(ext);
     }
 
     pub fn into_dnd_icon(
@@ -1156,8 +1174,10 @@ impl WlSurface {
         self.flush_frame_requests(&mut self.frame_requests.borrow_mut());
     }
 
-    pub fn unmap(self: &Rc<Self>) {
-        self.ext.get().unmap();
+    pub fn unmap(self: &Rc<Self>, version: u64) {
+        if self.ext_version.get() == version {
+            self.ext.get().unmap();
+        }
         if self.transactional.get() {
             self.surface_transaction.unblock_all_transactions();
             self.unmap_scheduled.set(true);
@@ -1267,6 +1287,7 @@ impl WlSurfaceRequestHandler for WlSurface {
         let ext = self.ext.get();
         let cached_pending = &mut *self.pending.borrow_mut();
         let pending = &mut **cached_pending;
+        pending.ext_version = self.ext_version.get();
         if let Some(Some(buffer)) = &mut pending.buffer
             && pending.release_point.is_none()
             && pending.sync_file_release.is_none()
@@ -1290,7 +1311,8 @@ impl WlSurfaceRequestHandler for WlSurface {
             cd.ready();
         }
         if ext.commit_requested(cached_pending) == CommitAction::ContinueCommit {
-            self.commit_timeline.commit(slf, cached_pending)?;
+            let pending = CachedBox::take(cached_pending);
+            self.commit_timeline.commit(slf, pending)?;
         }
         Ok(())
     }
@@ -1351,7 +1373,9 @@ impl WlSurface {
         {
             self.flush_frame_requests.set(false);
         }
-        self.ext.get().before_apply_commit(pending, serial)?;
+        if self.ext_version.get() == pending.ext_version {
+            self.ext.get().before_apply_commit(pending, serial)?;
+        }
         let mut scale_changed = false;
         if let Some(scale) = pending.scale.take() {
             scale_changed = true;
@@ -1634,7 +1658,9 @@ impl WlSurface {
                 cursor.update_hardware_cursor();
             }
         }
-        self.ext.get().after_apply_commit();
+        if self.ext_version.get() == pending.ext_version {
+            self.ext.get().after_apply_commit();
+        }
         let fifo_barrier_set = mem::take(&mut pending.fifo_barrier_set);
         if fifo_barrier_set {
             self.commit_timeline.set_fifo_barrier();
@@ -2490,6 +2516,8 @@ pub enum WlSurfaceError {
     PreparePrimeCopy(#[source] PrimeError),
     #[error("Could not perform prime copy")]
     PrimeCopy(#[source] ChainedCopyError),
+    #[error("The surface already has an extension object")]
+    HasExt,
 }
 efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);

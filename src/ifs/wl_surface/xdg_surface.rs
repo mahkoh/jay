@@ -47,7 +47,6 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::linkedlist::LinkedNode;
-use crate::wire::WlSurfaceId;
 use crate::wire::XdgPopupId;
 use crate::wire::XdgSurfaceId;
 use crate::wire::xdg_surface::*;
@@ -443,11 +442,8 @@ impl XdgSurface {
     }
 
     pub fn install(self: &Rc<Self>) -> Result<(), XdgSurfaceError> {
-        self.surface.set_role(SurfaceRole::XdgSurface)?;
-        if self.surface.ext.get().is_some() {
-            return Err(XdgSurfaceError::AlreadyAttached(self.surface.id));
-        }
-        self.surface.ext.set(self.clone());
+        self.surface
+            .set_ext(SurfaceRole::XdgSurface, self.clone())?;
         Ok(())
     }
 
@@ -880,10 +876,6 @@ impl Configurable for XdgSurface {
 
 #[derive(Debug, Error)]
 pub enum XdgSurfaceError {
-    #[error(
-        "Surface {0} cannot be turned into a xdg_surface because it already has an attached xdg_surface"
-    )]
-    AlreadyAttached(WlSurfaceId),
     #[error(transparent)]
     XdgPopupError(#[from] XdgPopupError),
     #[error("Surface {} cannot be assigned the role {} because it already has the role {}", .id, .new.name(), .old.name())]
