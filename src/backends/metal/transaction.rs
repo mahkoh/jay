@@ -795,7 +795,11 @@ impl MetalDeviceTransaction {
                 let new = if state.eotf == BackendEotfs::Default {
                     None
                 } else {
-                    Some(hdr_output_metadata::from_eotf(state.eotf.to_drm()))
+                    Some(hdr_output_metadata::from_eotf(
+                        state.eotf.to_drm(),
+                        &dd.primaries,
+                        dd.luminance.as_ref(),
+                    ))
                 };
                 if connector.new.hdr_metadata != new {
                     if let Some(new) = &new {
