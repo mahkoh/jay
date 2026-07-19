@@ -2,11 +2,18 @@ use crate::utils::cell_ext::CellExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::markers::JayClone;
 use std::cell::Cell;
+use std::rc::Rc;
 
 pub trait ObjWithId {
     type Id: Copy;
 
     fn id(&self) -> Self::Id;
+}
+
+pub trait ObjWithIdOptExt {
+    type Id: Copy;
+
+    fn id_or_default(&self) -> Self::Id;
 }
 
 impl<T> ObjWithId for Option<T>
@@ -17,6 +24,29 @@ where
 
     fn id(&self) -> Self::Id {
         self.as_ref().map(ObjWithId::id)
+    }
+}
+
+impl<T> ObjWithIdOptExt for Option<T>
+where
+    T: ObjWithId,
+    T::Id: Default,
+{
+    type Id = T::Id;
+
+    fn id_or_default(&self) -> Self::Id {
+        self.id().unwrap_or_default()
+    }
+}
+
+impl<T> ObjWithId for Rc<T>
+where
+    T: ObjWithId,
+{
+    type Id = T::Id;
+
+    fn id(&self) -> Self::Id {
+        <T as ObjWithId>::id(self)
     }
 }
 

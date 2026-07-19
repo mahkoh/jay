@@ -174,7 +174,7 @@ pub struct OutputNode {
     pub damage_scheduled: Cell<bool>,
 }
 
-impl ObjWithId for Rc<OutputNode> {
+impl ObjWithId for OutputNode {
     type Id = OutputNodeId;
 
     fn id(&self) -> Self::Id {

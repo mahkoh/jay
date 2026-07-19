@@ -753,7 +753,7 @@ impl BackendGammaLut {
     }
 }
 
-impl ObjWithId for Rc<BackendGammaLut> {
+impl ObjWithId for BackendGammaLut {
     type Id = BackendGammaLutId;
 
     fn id(&self) -> Self::Id {

@@ -10,6 +10,7 @@ use crate::io_uring::IoUringError;
 use crate::utils::bhash::BHashMap;
 use crate::utils::buf::Buf;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::obj_and_id::ObjWithId;
 use crate::utils::ordered_float::F64;
 use crate::utils::oserror::OsError;
 use crate::utils::oserror::OsErrorExt2;
@@ -1383,8 +1384,10 @@ pub struct PropBlob {
     id: DrmBlob,
 }
 
-impl PropBlob {
-    pub fn id(&self) -> DrmBlob {
+impl ObjWithId for PropBlob {
+    type Id = DrmBlob;
+
+    fn id(&self) -> Self::Id {
         self.id
     }
 }
