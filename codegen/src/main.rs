@@ -2,10 +2,29 @@
 
 use {
     crate::phf::PhfHash,
-    anyhow::Result,
+    anyhow::{Context, Result, bail},
     permutation::Permutation,
-    std::{fmt::Debug, io},
+    std::{fmt::Debug, io::Write, path::PathBuf, process::Command},
 };
+
+macro_rules! define_w {
+    ($w:ident) => {
+        define_w!($w, $);
+    };
+    ($w:ident, $dol:tt) => {
+        #[allow(unused_macros)]
+        macro_rules! w {
+            ($dol($arg:tt)*) => {
+                write!($w, $dol($arg)*)?;
+            };
+        }
+        macro_rules! wl {
+            ($dol($arg:tt)*) => {
+                writeln!($w, $dol($arg)*)?;
+            };
+        }
+    };
+}
 
 mod input_event_codes;
 mod keysyms;
@@ -30,31 +49,49 @@ fn generate_map(
     let state = phf_generator::generate_hash(keys);
     Permutation::oneline(state.map).apply_inv_slice_in_place(values);
     let mut res = String::new();
-    writeln!(
-        res,
-        "pub(super) static {name}: PhfMap<{key_type}, {value_type}> = PhfMap {{"
-    )?;
-    writeln!(res, "    key: {},", state.key)?;
-    writeln!(res, "    disps: &[")?;
+    define_w!(res);
+    wl!("pub(super) static {name}: PhfMap<{key_type}, {value_type}> = PhfMap {{");
+    wl!("    key: {},", state.key);
+    wl!("    disps: &[");
     for disp in state.disps {
-        writeln!(res, "        {disp:?},")?;
+        wl!("        {disp:?},");
     }
-    writeln!(res, "    ],")?;
-    writeln!(res, "    map: &[")?;
+    wl!("    ],");
+    wl!("    map: &[");
     for value in values {
-        writeln!(res, "        {value:?},")?;
+        wl!("        {value:?},");
     }
-    writeln!(res, "    ],")?;
-    writeln!(res, "    _phantom: core::marker::PhantomData,")?;
-    writeln!(res, "}};")?;
+    wl!("    ],");
+    wl!("    _phantom: core::marker::PhantomData,");
+    wl!("}};");
     Ok(res)
 }
 
-fn update(file: &str, data: &str) -> io::Result<()> {
-    if let Ok(current) = std::fs::read_to_string(file)
-        && current == data
+fn update(relative: &str, raw: &str) -> Result<()> {
+    let mut absolute = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/.."));
+    absolute.push(relative);
+
+    let formatted = {
+        let dir = absolute.parent().context("file path has no parent")?;
+        let mut tmp = tempfile::Builder::default().tempfile_in(dir)?;
+        tmp.write_all(raw.as_bytes())?;
+        let status = Command::new("rustfmt")
+            .arg("+nightly")
+            .arg("--edition=2024")
+            .arg(tmp.path())
+            .status()?;
+        if !status.success() {
+            bail!("rustfmt failed");
+        }
+        std::fs::read_to_string(&tmp)?
+    };
+
+    if let Ok(current) = std::fs::read_to_string(&absolute)
+        && current == formatted
     {
         return Ok(());
     }
-    std::fs::write(file, data)
+    std::fs::write(&absolute, formatted)?;
+
+    Ok(())
 }

@@ -7,21 +7,12 @@ pub fn main() -> Result<()> {
     }
     syms.sort_by_key(|s| s.0);
     let mut res = String::new();
-    writeln!(res, r#"use super::KeySym;"#)?;
-    writeln!(res)?;
+    define_w!(res);
+    wl!(r#"use super::KeySym;"#);
+    wl!();
     for (name, sym) in syms {
-        writeln!(
-            res,
-            r#"pub const SYM_{name}: KeySym = KeySym(0x{:x});"#,
-            sym.0
-        )?;
+        wl!(r#"pub const SYM_{name}: KeySym = KeySym(0x{:x});"#, sym.0);
     }
-    update(
-        concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/../jay-config/src/keyboard/syms/generated.rs",
-        ),
-        &res,
-    )?;
+    update("jay-config/src/keyboard/syms/generated.rs", &res)?;
     Ok(())
 }
