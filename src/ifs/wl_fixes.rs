@@ -1,14 +1,14 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WlFixesId, wl_fixes::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WlFixesId;
+use crate::wire::wl_fixes::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WlFixesGlobal {
     pub name: GlobalName,

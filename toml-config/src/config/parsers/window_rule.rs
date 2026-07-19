@@ -1,25 +1,29 @@
-use {
-    crate::{
-        config::{
-            WindowMatch, WindowRule,
-            context::Context,
-            extractor::{Extractor, ExtractorError, bol, opt, recover, str, val},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-            parsers::{
-                action::{ActionParser, ActionParserError},
-                tile_state::TileStateParser,
-                window_match::{WindowMatchParser, WindowMatchParserError},
-            },
-            spanned::SpannedErrorExt,
-        },
-        toml::{
-            toml_span::{DespanExt, Span, Spanned},
-            toml_value::Value,
-        },
-    },
-    indexmap::IndexMap,
-    thiserror::Error,
-};
+use crate::config::WindowMatch;
+use crate::config::WindowRule;
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::bol;
+use crate::config::extractor::opt;
+use crate::config::extractor::recover;
+use crate::config::extractor::str;
+use crate::config::extractor::val;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::config::parsers::action::ActionParser;
+use crate::config::parsers::action::ActionParserError;
+use crate::config::parsers::tile_state::TileStateParser;
+use crate::config::parsers::window_match::WindowMatchParser;
+use crate::config::parsers::window_match::WindowMatchParserError;
+use crate::config::spanned::SpannedErrorExt;
+use crate::toml::toml_span::DespanExt;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_value::Value;
+use indexmap::IndexMap;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum WindowRuleParserError {

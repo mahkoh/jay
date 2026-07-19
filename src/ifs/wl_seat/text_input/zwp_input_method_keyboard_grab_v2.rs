@@ -1,20 +1,20 @@
-use {
-    crate::{
-        backend::KeyState,
-        client::{Client, ClientError},
-        ifs::wl_seat::{
-            text_input::{InputMethodKeyboardGrab, zwp_input_method_v2::ZwpInputMethodV2},
-            wl_keyboard,
-        },
-        keyboard::{KeyboardState, KeyboardStateId},
-        leaks::Tracker,
-        object::{Object, Version},
-        utils::errorfmt::ErrorFmt,
-        wire::{ZwpInputMethodKeyboardGrabV2Id, zwp_input_method_keyboard_grab_v2::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::backend::KeyState;
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_seat::text_input::InputMethodKeyboardGrab;
+use crate::ifs::wl_seat::text_input::zwp_input_method_v2::ZwpInputMethodV2;
+use crate::ifs::wl_seat::wl_keyboard;
+use crate::keyboard::KeyboardState;
+use crate::keyboard::KeyboardStateId;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::wire::ZwpInputMethodKeyboardGrabV2Id;
+use crate::wire::zwp_input_method_keyboard_grab_v2::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpInputMethodKeyboardGrabV2 {
     pub id: ZwpInputMethodKeyboardGrabV2Id,

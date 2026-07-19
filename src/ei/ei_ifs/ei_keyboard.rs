@@ -1,23 +1,21 @@
-use {
-    crate::{
-        backend::KeyState,
-        ei::{
-            ei_client::{EiClient, EiClientError},
-            ei_ifs::ei_device::{EiDevice, EiDeviceInterface},
-            ei_object::{EiObject, EiVersion},
-        },
-        keyboard::KeyboardState,
-        leaks::Tracker,
-        wire_ei::{
-            EiKeyboardId,
-            ei_keyboard::{
-                ClientKey, EiKeyboardRequestHandler, Keymap, Modifiers, Release, ServerKey,
-            },
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::backend::KeyState;
+use crate::ei::ei_client::EiClient;
+use crate::ei::ei_client::EiClientError;
+use crate::ei::ei_ifs::ei_device::EiDevice;
+use crate::ei::ei_ifs::ei_device::EiDeviceInterface;
+use crate::ei::ei_object::EiObject;
+use crate::ei::ei_object::EiVersion;
+use crate::keyboard::KeyboardState;
+use crate::leaks::Tracker;
+use crate::wire_ei::EiKeyboardId;
+use crate::wire_ei::ei_keyboard::ClientKey;
+use crate::wire_ei::ei_keyboard::EiKeyboardRequestHandler;
+use crate::wire_ei::ei_keyboard::Keymap;
+use crate::wire_ei::ei_keyboard::Modifiers;
+use crate::wire_ei::ei_keyboard::Release;
+use crate::wire_ei::ei_keyboard::ServerKey;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct EiKeyboard {
     pub id: EiKeyboardId,

@@ -1,47 +1,63 @@
-use {
-    crate::{
-        allocator::BufferObject,
-        backend::{
-            BackendColorSpace, BackendConnectorState, BackendEotfs, BackendGammaLut, Connector,
-            ConnectorEvent, ScanoutFormats,
-            transaction::{
-                BackendAppliedConnectorTransaction, BackendConnectorTransaction,
-                BackendConnectorTransactionError, BackendPreparedConnectorTransaction,
-            },
-        },
-        backends::metal::{
-            allocator::RenderBuffer,
-            video::{
-                DefaultProperty, FrontState, MetalConnector, MetalCrtc, MetalDrmDeviceData,
-                MetalPlane, PlaneType,
-            },
-        },
-        format::{ARGB8888, Format},
-        gfx_api::SyncFile,
-        tree::TreeTimeline::RenderTL,
-        utils::{
-            bhash::BHashMap, binary_search_map::BinarySearchMap, cell_ext::CellExt,
-            errorfmt::ErrorFmt, hash_map_ext::HashMapExt, rc_eq::rc_eq, reset::Reset,
-        },
-        video::drm::{
-            Change, ConnectorStatus, DRM_LINK_STATUS_GOOD, DRM_MODE_ATOMIC_ALLOW_MODESET, DrmBlob,
-            DrmConnector, DrmCrtc, DrmFb, DrmModeInfo, DrmObject, DrmPlane, DrmProperty,
-            DrmPropertyValue, Logging, PrepareDrmObjectProperties, PropBlob, hdr_output_metadata,
-        },
-    },
-    arrayvec::ArrayVec,
-    bstr::ByteSlice,
-    jay_proc::{PrepareDrmObjectProperties, Reset},
-    std::{
-        any::Any,
-        cell::Cell,
-        mem,
-        ops::{Deref, DerefMut},
-        rc::Rc,
-        slice,
-    },
-    uapi::c,
-};
+use crate::allocator::BufferObject;
+use crate::backend::BackendColorSpace;
+use crate::backend::BackendConnectorState;
+use crate::backend::BackendEotfs;
+use crate::backend::BackendGammaLut;
+use crate::backend::Connector;
+use crate::backend::ConnectorEvent;
+use crate::backend::ScanoutFormats;
+use crate::backend::transaction::BackendAppliedConnectorTransaction;
+use crate::backend::transaction::BackendConnectorTransaction;
+use crate::backend::transaction::BackendConnectorTransactionError;
+use crate::backend::transaction::BackendPreparedConnectorTransaction;
+use crate::backends::metal::allocator::RenderBuffer;
+use crate::backends::metal::video::DefaultProperty;
+use crate::backends::metal::video::FrontState;
+use crate::backends::metal::video::MetalConnector;
+use crate::backends::metal::video::MetalCrtc;
+use crate::backends::metal::video::MetalDrmDeviceData;
+use crate::backends::metal::video::MetalPlane;
+use crate::backends::metal::video::PlaneType;
+use crate::format::ARGB8888;
+use crate::format::Format;
+use crate::gfx_api::SyncFile;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::utils::bhash::BHashMap;
+use crate::utils::binary_search_map::BinarySearchMap;
+use crate::utils::cell_ext::CellExt;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::rc_eq::rc_eq;
+use crate::utils::reset::Reset;
+use crate::video::drm::Change;
+use crate::video::drm::ConnectorStatus;
+use crate::video::drm::DRM_LINK_STATUS_GOOD;
+use crate::video::drm::DRM_MODE_ATOMIC_ALLOW_MODESET;
+use crate::video::drm::DrmBlob;
+use crate::video::drm::DrmConnector;
+use crate::video::drm::DrmCrtc;
+use crate::video::drm::DrmFb;
+use crate::video::drm::DrmModeInfo;
+use crate::video::drm::DrmObject;
+use crate::video::drm::DrmPlane;
+use crate::video::drm::DrmProperty;
+use crate::video::drm::DrmPropertyValue;
+use crate::video::drm::Logging;
+use crate::video::drm::PrepareDrmObjectProperties;
+use crate::video::drm::PropBlob;
+use crate::video::drm::hdr_output_metadata;
+use arrayvec::ArrayVec;
+use bstr::ByteSlice;
+use jay_proc::PrepareDrmObjectProperties;
+use jay_proc::Reset;
+use std::any::Any;
+use std::cell::Cell;
+use std::mem;
+use std::ops::Deref;
+use std::ops::DerefMut;
+use std::rc::Rc;
+use std::slice;
+use uapi::c;
 
 const LEVEL: log::Level = log::Level::Debug;
 

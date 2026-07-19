@@ -1,15 +1,12 @@
-use {
-    crate::{
-        gfx_api::FdSync,
-        object::Version,
-        wire::{JaySyncFileSurfaceId, jay_sync_file_surface::*},
-        wl_usr::{
-            UsrCon, usr_ifs::usr_jay_sync_file_release::UsrJaySyncFileRelease,
-            usr_object::UsrObject,
-        },
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::gfx_api::FdSync;
+use crate::object::Version;
+use crate::wire::JaySyncFileSurfaceId;
+use crate::wire::jay_sync_file_surface::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_ifs::usr_jay_sync_file_release::UsrJaySyncFileRelease;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrJaySyncFileSurface {
     pub id: JaySyncFileSurfaceId,

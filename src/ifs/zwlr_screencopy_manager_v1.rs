@@ -1,20 +1,22 @@
-use {
-    crate::{
-        client::{CAP_SCREENCOPY_MANAGER, Client, ClientCaps, ClientError},
-        globals::{Global, GlobalName},
-        ifs::zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1,
-        leaks::Tracker,
-        object::{Object, Version},
-        rect::Rect,
-        tree::TreeTimeline::LiveTL,
-        wire::{
-            WlOutputId, ZwlrScreencopyFrameV1Id, ZwlrScreencopyManagerV1Id,
-            zwlr_screencopy_manager_v1::*,
-        },
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::CAP_SCREENCOPY_MANAGER;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::rect::Rect;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::wire::WlOutputId;
+use crate::wire::ZwlrScreencopyFrameV1Id;
+use crate::wire::ZwlrScreencopyManagerV1Id;
+use crate::wire::zwlr_screencopy_manager_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwlrScreencopyManagerV1Global {
     pub name: GlobalName,

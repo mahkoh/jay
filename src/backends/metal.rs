@@ -5,72 +5,91 @@ mod present;
 mod transaction;
 mod video;
 
-use {
-    crate::{
-        async_engine::SpawnedFuture,
-        backend::{
-            Backend, ButtonState, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
-            InputDeviceClickMethod, InputDeviceGroupId, InputDeviceId, InputDeviceScrollMethod,
-            InputEvent, KeyState, Leds, TransformMatrix,
-            transaction::BackendConnectorTransactionError,
-        },
-        backends::metal::{
-            allocator::{RenderBufferError, ScanoutBufferError, ScanoutBufferErrors},
-            video::{
-                MetalDrmDeviceData, MetalLeaseData, MetalRenderContext, PendingDrmDevice,
-                PersistentDisplayData,
-            },
-        },
-        dbus::{DbusError, SignalHandler},
-        evdev::{eviocgbit_key, input_event_codes::InputEventCode},
-        gfx_api::{GfxError, SyncFile},
-        ifs::{
-            wl_output::OutputId,
-            wl_seat::tablet::{
-                TabletId, TabletInit, TabletPadGroupInit, TabletPadId, TabletPadInit,
-            },
-        },
-        libinput::{
-            LibInput, LibInputAdapter, LibInputError,
-            consts::{
-                AccelProfile, ConfigClickMethod, ConfigScrollMethod,
-                LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE, LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT,
-                LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS,
-                LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER, LIBINPUT_CONFIG_CLICK_METHOD_NONE,
-                LIBINPUT_DEVICE_CAP_TABLET_PAD, LIBINPUT_DEVICE_CAP_TABLET_TOOL, Led,
-            },
-            device::{LibInputDevice, RegisteredDevice},
-        },
-        logind::{LogindError, Session},
-        state::State,
-        udev::{Udev, UdevError, UdevMonitor},
-        utils::{
-            bitflags::BitflagsExt,
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
-            hash_map_ext::HashMapExt,
-            numcell::NumCell,
-            oserror::{OsError, OsErrorExt2},
-            smallmap::SmallMap,
-            syncqueue::SyncQueue,
-        },
-        video::{drm::DrmError, gbm::GbmError},
-    },
-    bstr::ByteSlice,
-    jay_proc::jay_clone,
-    linearize::{LinearizeExt, StaticCopyMap},
-    std::{
-        cell::{Cell, RefCell},
-        error::Error,
-        ffi::{CStr, CString},
-        fmt::{Debug, Formatter},
-        future::pending,
-        rc::Rc,
-    },
-    thiserror::Error,
-    uapi::{OwnedFd, c},
-};
+use crate::async_engine::SpawnedFuture;
+use crate::backend::Backend;
+use crate::backend::ButtonState;
+use crate::backend::InputDevice;
+use crate::backend::InputDeviceAccelProfile;
+use crate::backend::InputDeviceCapability;
+use crate::backend::InputDeviceClickMethod;
+use crate::backend::InputDeviceGroupId;
+use crate::backend::InputDeviceId;
+use crate::backend::InputDeviceScrollMethod;
+use crate::backend::InputEvent;
+use crate::backend::KeyState;
+use crate::backend::Leds;
+use crate::backend::TransformMatrix;
+use crate::backend::transaction::BackendConnectorTransactionError;
+use crate::backends::metal::allocator::RenderBufferError;
+use crate::backends::metal::allocator::ScanoutBufferError;
+use crate::backends::metal::allocator::ScanoutBufferErrors;
+use crate::backends::metal::video::MetalDrmDeviceData;
+use crate::backends::metal::video::MetalLeaseData;
+use crate::backends::metal::video::MetalRenderContext;
+use crate::backends::metal::video::PendingDrmDevice;
+use crate::backends::metal::video::PersistentDisplayData;
+use crate::dbus::DbusError;
+use crate::dbus::SignalHandler;
+use crate::evdev::eviocgbit_key;
+use crate::evdev::input_event_codes::InputEventCode;
+use crate::gfx_api::GfxError;
+use crate::gfx_api::SyncFile;
+use crate::ifs::wl_output::OutputId;
+use crate::ifs::wl_seat::tablet::TabletId;
+use crate::ifs::wl_seat::tablet::TabletInit;
+use crate::ifs::wl_seat::tablet::TabletPadGroupInit;
+use crate::ifs::wl_seat::tablet::TabletPadId;
+use crate::ifs::wl_seat::tablet::TabletPadInit;
+use crate::libinput::LibInput;
+use crate::libinput::LibInputAdapter;
+use crate::libinput::LibInputError;
+use crate::libinput::consts::AccelProfile;
+use crate::libinput::consts::ConfigClickMethod;
+use crate::libinput::consts::ConfigScrollMethod;
+use crate::libinput::consts::LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE;
+use crate::libinput::consts::LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT;
+use crate::libinput::consts::LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS;
+use crate::libinput::consts::LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER;
+use crate::libinput::consts::LIBINPUT_CONFIG_CLICK_METHOD_NONE;
+use crate::libinput::consts::LIBINPUT_DEVICE_CAP_TABLET_PAD;
+use crate::libinput::consts::LIBINPUT_DEVICE_CAP_TABLET_TOOL;
+use crate::libinput::consts::Led;
+use crate::libinput::device::LibInputDevice;
+use crate::libinput::device::RegisteredDevice;
+use crate::logind::LogindError;
+use crate::logind::Session;
+use crate::state::State;
+use crate::udev::Udev;
+use crate::udev::UdevError;
+use crate::udev::UdevMonitor;
+use crate::utils::bitflags::BitflagsExt;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::numcell::NumCell;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt2;
+use crate::utils::smallmap::SmallMap;
+use crate::utils::syncqueue::SyncQueue;
+use crate::video::drm::DrmError;
+use crate::video::gbm::GbmError;
+use bstr::ByteSlice;
+use jay_proc::jay_clone;
+use linearize::LinearizeExt;
+use linearize::StaticCopyMap;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::error::Error;
+use std::ffi::CStr;
+use std::ffi::CString;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::future::pending;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c;
 
 #[derive(Debug, Error)]
 pub enum MetalError {

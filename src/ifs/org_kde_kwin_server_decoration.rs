@@ -1,13 +1,13 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{OrgKdeKwinServerDecorationId, org_kde_kwin_server_decoration::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::OrgKdeKwinServerDecorationId;
+use crate::wire::org_kde_kwin_server_decoration::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[expect(dead_code)]
 const NONE: u32 = 0;

@@ -1,10 +1,8 @@
-use {
-    crate::{
-        configurable::ConfigureGroupsWork, state::State, transactions::TransactionsWork,
-        utils::asyncevent::AsyncEvent,
-    },
-    std::rc::Rc,
-};
+use crate::configurable::ConfigureGroupsWork;
+use crate::state::State;
+use crate::transactions::TransactionsWork;
+use crate::utils::asyncevent::AsyncEvent;
+use std::rc::Rc;
 
 #[derive(Default)]
 pub struct TreeSerialGroups {

@@ -1,12 +1,18 @@
-use {
-    crate::{
-        control_center::{ControlCenterInner, bool, grid, label, row},
-        state::State,
-        tree::{NodeBase, TreeTimeline::LiveTL, WorkspaceType},
-    },
-    egui::{CollapsingHeader, ComboBox, TextFormat, Ui, text::LayoutJob},
-    std::rc::Rc,
-};
+use crate::control_center::ControlCenterInner;
+use crate::control_center::bool;
+use crate::control_center::grid;
+use crate::control_center::label;
+use crate::control_center::row;
+use crate::state::State;
+use crate::tree::NodeBase;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::WorkspaceType;
+use egui::CollapsingHeader;
+use egui::ComboBox;
+use egui::TextFormat;
+use egui::Ui;
+use egui::text::LayoutJob;
+use std::rc::Rc;
 
 pub struct WorkspacesPane {
     state: Rc<State>,

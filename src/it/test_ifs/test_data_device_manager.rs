@@ -1,18 +1,13 @@
-use {
-    crate::{
-        it::{
-            test_error::TestResult,
-            test_ifs::{
-                test_data_device::TestDataDevice, test_data_source::TestDataSource,
-                test_seat::TestSeat,
-            },
-            test_object::TestObject,
-            test_transport::TestTransport,
-        },
-        wire::{WlDataDeviceManagerId, wl_data_device_manager::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_data_device::TestDataDevice;
+use crate::it::test_ifs::test_data_source::TestDataSource;
+use crate::it::test_ifs::test_seat::TestSeat;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::WlDataDeviceManagerId;
+use crate::wire::wl_data_device_manager::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestDataDeviceManager {
     pub id: WlDataDeviceManagerId,

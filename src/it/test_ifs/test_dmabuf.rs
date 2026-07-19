@@ -1,15 +1,12 @@
-use {
-    crate::{
-        it::{
-            test_error::TestResult,
-            test_ifs::{test_dmabuf_feedback::TestDmabufFeedback, test_surface::TestSurface},
-            test_object::TestObject,
-            test_transport::TestTransport,
-        },
-        wire::{ZwpLinuxDmabufV1Id, zwp_linux_dmabuf_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_dmabuf_feedback::TestDmabufFeedback;
+use crate::it::test_ifs::test_surface::TestSurface;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::ZwpLinuxDmabufV1Id;
+use crate::wire::zwp_linux_dmabuf_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestDmabuf {
     pub id: ZwpLinuxDmabufV1Id,

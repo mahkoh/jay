@@ -1,9 +1,10 @@
-use {
-    crate::{it::test_error::TestResult, utils::clonecell::CloneCell},
-    derivative::Derivative,
-    isnt::std_1::collections::IsntVecDequeExt,
-    std::{cell::RefCell, collections::VecDeque, rc::Rc},
-};
+use crate::it::test_error::TestResult;
+use crate::utils::clonecell::CloneCell;
+use derivative::Derivative;
+use isnt::std_1::collections::IsntVecDequeExt;
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::rc::Rc;
 
 pub struct TestExpectedEvent<T> {
     data: Rc<TestExpectedEventData<T>>,

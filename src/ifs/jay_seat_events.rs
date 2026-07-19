@@ -1,23 +1,26 @@
-use {
-    crate::{
-        backend::{ButtonState, InputDeviceId, KeyState, ScrollAxis},
-        client::Client,
-        fixed::Fixed,
-        ifs::wl_seat::{
-            SeatId,
-            tablet::{
-                PadButtonState, TabletRingEventSource, TabletStripEventSource, TabletTool,
-                TabletToolChanges, TabletToolId, ToolButtonState,
-            },
-            wl_pointer::PendingScroll,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{JaySeatEventsId, jay_seat_events::*},
-    },
-    linearize::LinearizeExt,
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::backend::ButtonState;
+use crate::backend::InputDeviceId;
+use crate::backend::KeyState;
+use crate::backend::ScrollAxis;
+use crate::client::Client;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::SeatId;
+use crate::ifs::wl_seat::tablet::PadButtonState;
+use crate::ifs::wl_seat::tablet::TabletRingEventSource;
+use crate::ifs::wl_seat::tablet::TabletStripEventSource;
+use crate::ifs::wl_seat::tablet::TabletTool;
+use crate::ifs::wl_seat::tablet::TabletToolChanges;
+use crate::ifs::wl_seat::tablet::TabletToolId;
+use crate::ifs::wl_seat::tablet::ToolButtonState;
+use crate::ifs::wl_seat::wl_pointer::PendingScroll;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::JaySeatEventsId;
+use crate::wire::jay_seat_events::*;
+use linearize::LinearizeExt;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct JaySeatEvents {
     pub id: JaySeatEventsId,

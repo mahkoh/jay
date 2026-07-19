@@ -1,59 +1,76 @@
-use {
-    crate::{
-        client::{Client, ClientId},
-        criteria::{
-            CritDestroyListener, CritMatcherId,
-            tlm::{
-                TL_CHANGED_APP_ID, TL_CHANGED_CONTENT_TY, TL_CHANGED_DESTROYED,
-                TL_CHANGED_FLOATING, TL_CHANGED_FULLSCREEN, TL_CHANGED_NEW, TL_CHANGED_TITLE,
-                TL_CHANGED_URGENT, TL_CHANGED_VISIBLE, TL_CHANGED_WORKSPACE, TlMatcherChange,
-            },
-        },
-        ifs::{
-            ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
-            ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
-            ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1,
-            jay_screencast::JayScreencast,
-            jay_toplevel::JayToplevel,
-            wl_seat::{NodeSeatState, SeatId, collect_kb_foci},
-            wl_surface::{
-                WlSurface,
-                x_surface::xwindow::XwindowData,
-                xdg_surface::xdg_toplevel::{
-                    XdgToplevelToplevelData, xdg_toplevel_icon_v1::ToplevelIconUser,
-                },
-            },
-            wp_content_type_v1::ContentType,
-            zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1,
-            zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1,
-        },
-        rect::Rect,
-        sm::ToplevelSession,
-        state::{ConnectorData, State},
-        tree::{
-            ContainerNode, ContainerSplit, ContainingNode, Direction, FloatNode, Node, NodeBase,
-            NodeId, NodeLayerLink, OutputNode, PlaceholderNode, SplitView,
-            TreeTimeline::{self, LiveTL, RenderTL},
-            WorkspaceNode, WorkspaceType,
-        },
-        utils::{
-            array_to_tuple::ArrayToTuple, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            event_listener::LazyEventSource, hash_map_ext::HashMapExt, numcell::NumCell,
-            rc_eq::rc_eq, threshold_counter::ThresholdCounter,
-        },
-        wire::{
-            ExtForeignToplevelHandleV1Id, ExtImageCopyCaptureSessionV1Id, JayScreencastId,
-            JayToplevelId, ZwlrForeignToplevelHandleV1Id,
-        },
-    },
-    jay_config::{window, window::WindowType},
-    std::{
-        borrow::Borrow,
-        cell::{Cell, OnceCell, RefCell},
-        ops::Deref,
-        rc::{Rc, Weak},
-    },
-};
+use crate::client::Client;
+use crate::client::ClientId;
+use crate::criteria::CritDestroyListener;
+use crate::criteria::CritMatcherId;
+use crate::criteria::tlm::TL_CHANGED_APP_ID;
+use crate::criteria::tlm::TL_CHANGED_CONTENT_TY;
+use crate::criteria::tlm::TL_CHANGED_DESTROYED;
+use crate::criteria::tlm::TL_CHANGED_FLOATING;
+use crate::criteria::tlm::TL_CHANGED_FULLSCREEN;
+use crate::criteria::tlm::TL_CHANGED_NEW;
+use crate::criteria::tlm::TL_CHANGED_TITLE;
+use crate::criteria::tlm::TL_CHANGED_URGENT;
+use crate::criteria::tlm::TL_CHANGED_VISIBLE;
+use crate::criteria::tlm::TL_CHANGED_WORKSPACE;
+use crate::criteria::tlm::TlMatcherChange;
+use crate::ifs::ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1;
+use crate::ifs::ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1;
+use crate::ifs::ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1;
+use crate::ifs::jay_screencast::JayScreencast;
+use crate::ifs::jay_toplevel::JayToplevel;
+use crate::ifs::wl_seat::NodeSeatState;
+use crate::ifs::wl_seat::SeatId;
+use crate::ifs::wl_seat::collect_kb_foci;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::x_surface::xwindow::XwindowData;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevelToplevelData;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::ToplevelIconUser;
+use crate::ifs::wp_content_type_v1::ContentType;
+use crate::ifs::zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1;
+use crate::ifs::zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1;
+use crate::rect::Rect;
+use crate::sm::ToplevelSession;
+use crate::state::ConnectorData;
+use crate::state::State;
+use crate::tree::ContainerNode;
+use crate::tree::ContainerSplit;
+use crate::tree::ContainingNode;
+use crate::tree::Direction;
+use crate::tree::FloatNode;
+use crate::tree::Node;
+use crate::tree::NodeBase;
+use crate::tree::NodeId;
+use crate::tree::NodeLayerLink;
+use crate::tree::OutputNode;
+use crate::tree::PlaceholderNode;
+use crate::tree::SplitView;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::tree::TreeTimeline::{self};
+use crate::tree::WorkspaceNode;
+use crate::tree::WorkspaceType;
+use crate::utils::array_to_tuple::ArrayToTuple;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::event_listener::LazyEventSource;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::numcell::NumCell;
+use crate::utils::rc_eq::rc_eq;
+use crate::utils::threshold_counter::ThresholdCounter;
+use crate::wire::ExtForeignToplevelHandleV1Id;
+use crate::wire::ExtImageCopyCaptureSessionV1Id;
+use crate::wire::JayScreencastId;
+use crate::wire::JayToplevelId;
+use crate::wire::ZwlrForeignToplevelHandleV1Id;
+use jay_config::window;
+use jay_config::window::WindowType;
+use std::borrow::Borrow;
+use std::cell::Cell;
+use std::cell::OnceCell;
+use std::cell::RefCell;
+use std::ops::Deref;
+use std::rc::Rc;
+use std::rc::Weak;
 
 opaque!(ToplevelIdentifier, toplevel_identifier);
 

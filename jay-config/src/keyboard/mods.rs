@@ -1,10 +1,10 @@
 //! Keyboard modifiers
 
-use {
-    crate::{ModifiedKeySym, keyboard::syms::KeySym},
-    serde::{Deserialize, Serialize},
-    std::ops::BitOr,
-};
+use crate::ModifiedKeySym;
+use crate::keyboard::syms::KeySym;
+use serde::Deserialize;
+use serde::Serialize;
+use std::ops::BitOr;
 
 bitflags! {
     /// Zero or more keyboard modifiers

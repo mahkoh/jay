@@ -1,17 +1,16 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        fixed::Fixed,
-        ifs::wl_seat::tablet::{
-            TabletPadRing, TabletRingEventSource, zwp_tablet_seat_v2::ZwpTabletSeatV2,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwpTabletPadRingV2Id, zwp_tablet_pad_ring_v2::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::tablet::TabletPadRing;
+use crate::ifs::wl_seat::tablet::TabletRingEventSource;
+use crate::ifs::wl_seat::tablet::zwp_tablet_seat_v2::ZwpTabletSeatV2;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwpTabletPadRingV2Id;
+use crate::wire::zwp_tablet_pad_ring_v2::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpTabletPadRingV2 {
     pub id: ZwpTabletPadRingV2Id,

@@ -1,33 +1,43 @@
-use {
-    crate::{
-        allocator::{Allocator, AllocatorError, BufferObject, BufferUsage, MappedBuffer},
-        format::Format,
-        gfx_api::SyncFile,
-        utils::{
-            clonecell::CloneCell,
-            compat::IoctlNumber,
-            errorfmt::ErrorFmt,
-            once::Once,
-            oserror::{OsError, OsErrorExt, OsErrorExt2},
-            page_size::page_size,
-        },
-        video::{
-            LINEAR_MODIFIER, LINEAR_STRIDE_ALIGN, Modifier,
-            dmabuf::{DmaBuf, DmaBufIds, DmaBufPlane, PlaneVec},
-            drm::Drm,
-        },
-    },
-    std::{ptr, rc::Rc},
-    thiserror::Error,
-    uapi::{
-        _IOW, OwnedFd,
-        c::{
-            self, F_SEAL_SHRINK, MAP_SHARED, MFD_ALLOW_SEALING, O_RDONLY, PROT_READ, PROT_WRITE,
-            ioctl, mmap, munmap,
-        },
-        map_err, open,
-    },
-};
+use crate::allocator::Allocator;
+use crate::allocator::AllocatorError;
+use crate::allocator::BufferObject;
+use crate::allocator::BufferUsage;
+use crate::allocator::MappedBuffer;
+use crate::format::Format;
+use crate::gfx_api::SyncFile;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::compat::IoctlNumber;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::once::Once;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt;
+use crate::utils::oserror::OsErrorExt2;
+use crate::utils::page_size::page_size;
+use crate::video::LINEAR_MODIFIER;
+use crate::video::LINEAR_STRIDE_ALIGN;
+use crate::video::Modifier;
+use crate::video::dmabuf::DmaBuf;
+use crate::video::dmabuf::DmaBufIds;
+use crate::video::dmabuf::DmaBufPlane;
+use crate::video::dmabuf::PlaneVec;
+use crate::video::drm::Drm;
+use std::ptr;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::_IOW;
+use uapi::OwnedFd;
+use uapi::c::F_SEAL_SHRINK;
+use uapi::c::MAP_SHARED;
+use uapi::c::MFD_ALLOW_SEALING;
+use uapi::c::O_RDONLY;
+use uapi::c::PROT_READ;
+use uapi::c::PROT_WRITE;
+use uapi::c::ioctl;
+use uapi::c::mmap;
+use uapi::c::munmap;
+use uapi::c::{self};
+use uapi::map_err;
+use uapi::open;
 
 #[derive(Debug, Error)]
 pub enum UdmabufError {

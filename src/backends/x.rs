@@ -1,76 +1,147 @@
-use {
-    crate::{
-        allocator::BufferObject,
-        async_engine::{Phase, SpawnedFuture},
-        backend::{
-            AXIS_120, AxisSource, Backend, BackendConnectorState, BackendDrmDevice, BackendEvent,
-            ButtonState, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId,
-            DrmEvent, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
-            InputDeviceClickMethod, InputDeviceId, InputDeviceScrollMethod, InputEvent, KeyState,
-            Mode, MonitorInfo, ScrollAxis, TransformMatrix,
-            transaction::{
-                BackendAppliedConnectorTransaction, BackendConnectorTransaction,
-                BackendConnectorTransactionError, BackendConnectorTransactionType,
-                BackendConnectorTransactionTypeDyn, BackendPreparedConnectorTransaction,
-            },
-        },
-        cmm::cmm_primaries::Primaries,
-        evdev::input_event_codes::InputEventCode,
-        fixed::Fixed,
-        format::{Format, XRGB8888},
-        gfx_api::{
-            AcquireSync, GfxApi, GfxContext, GfxError, GfxFramebuffer, GfxTexture, ReleaseSync,
-        },
-        ifs::wl_output::OutputId,
-        state::State,
-        time::Time,
-        utils::{
-            bhash::BHashMap, clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
-            numcell::NumCell, queue::AsyncQueue, syncqueue::SyncQueue,
-        },
-        video::{
-            drm::{ConnectorType, Drm, DrmError, DrmVersion},
-            gbm::{GBM_BO_USE_RENDERING, GbmBo, GbmDevice, GbmError},
-        },
-        wire_xcon::{
-            ChangeProperty, ChangeWindowAttributes, ConfigureNotify, CreateCursor, CreatePixmap,
-            CreateWindow, CreateWindowValues, DestroyNotify, Dri3Open, Dri3PixmapFromBuffers,
-            Dri3QueryVersion, Extension, FreePixmap, MapWindow, PresentCompleteNotify,
-            PresentIdleNotify, PresentPixmap, PresentQueryVersion, PresentSelectInput,
-            XiButtonPress, XiButtonRelease, XiDeviceInfo, XiEnter, XiEventMask,
-            XiGetDeviceButtonMapping, XiGrabDevice, XiHierarchy, XiKeyPress, XiKeyRelease,
-            XiMotion, XiQueryDevice, XiQueryVersion, XiSelectEvents, XiUngrabDevice,
-            XkbPerClientFlags, XkbUseExtension,
-        },
-        xcon::{
-            Event, XEvent, Xcon, XconError,
-            consts::{
-                ATOM_STRING, ATOM_WM_CLASS, EVENT_MASK_EXPOSURE, EVENT_MASK_STRUCTURE_NOTIFY,
-                EVENT_MASK_VISIBILITY_CHANGE, GRAB_MODE_ASYNC, GRAB_STATUS_SUCCESS,
-                INPUT_DEVICE_ALL, INPUT_DEVICE_ALL_MASTER, INPUT_DEVICE_TYPE_MASTER_KEYBOARD,
-                INPUT_HIERARCHY_MASK_MASTER_ADDED, INPUT_HIERARCHY_MASK_MASTER_REMOVED,
-                PRESENT_EVENT_MASK_COMPLETE_NOTIFY, PRESENT_EVENT_MASK_IDLE_NOTIFY,
-                PROP_MODE_REPLACE, WINDOW_CLASS_INPUT_OUTPUT, XI_EVENT_MASK_BUTTON_PRESS,
-                XI_EVENT_MASK_BUTTON_RELEASE, XI_EVENT_MASK_ENTER, XI_EVENT_MASK_FOCUS_IN,
-                XI_EVENT_MASK_FOCUS_OUT, XI_EVENT_MASK_HIERARCHY, XI_EVENT_MASK_KEY_PRESS,
-                XI_EVENT_MASK_KEY_RELEASE, XI_EVENT_MASK_LEAVE, XI_EVENT_MASK_MOTION,
-                XI_EVENT_MASK_TOUCH_BEGIN, XI_EVENT_MASK_TOUCH_END, XI_EVENT_MASK_TOUCH_UPDATE,
-                XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT,
-            },
-        },
-    },
-    std::{
-        any::Any,
-        borrow::Cow,
-        cell::{Cell, RefCell},
-        collections::VecDeque,
-        error::Error,
-        future::pending,
-        rc::Rc,
-    },
-    thiserror::Error,
-    uapi::c::dev_t,
-};
+use crate::allocator::BufferObject;
+use crate::async_engine::Phase;
+use crate::async_engine::SpawnedFuture;
+use crate::backend::AXIS_120;
+use crate::backend::AxisSource;
+use crate::backend::Backend;
+use crate::backend::BackendConnectorState;
+use crate::backend::BackendDrmDevice;
+use crate::backend::BackendEvent;
+use crate::backend::ButtonState;
+use crate::backend::Connector;
+use crate::backend::ConnectorEvent;
+use crate::backend::ConnectorId;
+use crate::backend::ConnectorKernelId;
+use crate::backend::DrmDeviceId;
+use crate::backend::DrmEvent;
+use crate::backend::InputDevice;
+use crate::backend::InputDeviceAccelProfile;
+use crate::backend::InputDeviceCapability;
+use crate::backend::InputDeviceClickMethod;
+use crate::backend::InputDeviceId;
+use crate::backend::InputDeviceScrollMethod;
+use crate::backend::InputEvent;
+use crate::backend::KeyState;
+use crate::backend::Mode;
+use crate::backend::MonitorInfo;
+use crate::backend::ScrollAxis;
+use crate::backend::TransformMatrix;
+use crate::backend::transaction::BackendAppliedConnectorTransaction;
+use crate::backend::transaction::BackendConnectorTransaction;
+use crate::backend::transaction::BackendConnectorTransactionError;
+use crate::backend::transaction::BackendConnectorTransactionType;
+use crate::backend::transaction::BackendConnectorTransactionTypeDyn;
+use crate::backend::transaction::BackendPreparedConnectorTransaction;
+use crate::cmm::cmm_primaries::Primaries;
+use crate::evdev::input_event_codes::InputEventCode;
+use crate::fixed::Fixed;
+use crate::format::Format;
+use crate::format::XRGB8888;
+use crate::gfx_api::AcquireSync;
+use crate::gfx_api::GfxApi;
+use crate::gfx_api::GfxContext;
+use crate::gfx_api::GfxError;
+use crate::gfx_api::GfxFramebuffer;
+use crate::gfx_api::GfxTexture;
+use crate::gfx_api::ReleaseSync;
+use crate::ifs::wl_output::OutputId;
+use crate::state::State;
+use crate::time::Time;
+use crate::utils::bhash::BHashMap;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::numcell::NumCell;
+use crate::utils::queue::AsyncQueue;
+use crate::utils::syncqueue::SyncQueue;
+use crate::video::drm::ConnectorType;
+use crate::video::drm::Drm;
+use crate::video::drm::DrmError;
+use crate::video::drm::DrmVersion;
+use crate::video::gbm::GBM_BO_USE_RENDERING;
+use crate::video::gbm::GbmBo;
+use crate::video::gbm::GbmDevice;
+use crate::video::gbm::GbmError;
+use crate::wire_xcon::ChangeProperty;
+use crate::wire_xcon::ChangeWindowAttributes;
+use crate::wire_xcon::ConfigureNotify;
+use crate::wire_xcon::CreateCursor;
+use crate::wire_xcon::CreatePixmap;
+use crate::wire_xcon::CreateWindow;
+use crate::wire_xcon::CreateWindowValues;
+use crate::wire_xcon::DestroyNotify;
+use crate::wire_xcon::Dri3Open;
+use crate::wire_xcon::Dri3PixmapFromBuffers;
+use crate::wire_xcon::Dri3QueryVersion;
+use crate::wire_xcon::Extension;
+use crate::wire_xcon::FreePixmap;
+use crate::wire_xcon::MapWindow;
+use crate::wire_xcon::PresentCompleteNotify;
+use crate::wire_xcon::PresentIdleNotify;
+use crate::wire_xcon::PresentPixmap;
+use crate::wire_xcon::PresentQueryVersion;
+use crate::wire_xcon::PresentSelectInput;
+use crate::wire_xcon::XiButtonPress;
+use crate::wire_xcon::XiButtonRelease;
+use crate::wire_xcon::XiDeviceInfo;
+use crate::wire_xcon::XiEnter;
+use crate::wire_xcon::XiEventMask;
+use crate::wire_xcon::XiGetDeviceButtonMapping;
+use crate::wire_xcon::XiGrabDevice;
+use crate::wire_xcon::XiHierarchy;
+use crate::wire_xcon::XiKeyPress;
+use crate::wire_xcon::XiKeyRelease;
+use crate::wire_xcon::XiMotion;
+use crate::wire_xcon::XiQueryDevice;
+use crate::wire_xcon::XiQueryVersion;
+use crate::wire_xcon::XiSelectEvents;
+use crate::wire_xcon::XiUngrabDevice;
+use crate::wire_xcon::XkbPerClientFlags;
+use crate::wire_xcon::XkbUseExtension;
+use crate::xcon::Event;
+use crate::xcon::XEvent;
+use crate::xcon::Xcon;
+use crate::xcon::XconError;
+use crate::xcon::consts::ATOM_STRING;
+use crate::xcon::consts::ATOM_WM_CLASS;
+use crate::xcon::consts::EVENT_MASK_EXPOSURE;
+use crate::xcon::consts::EVENT_MASK_STRUCTURE_NOTIFY;
+use crate::xcon::consts::EVENT_MASK_VISIBILITY_CHANGE;
+use crate::xcon::consts::GRAB_MODE_ASYNC;
+use crate::xcon::consts::GRAB_STATUS_SUCCESS;
+use crate::xcon::consts::INPUT_DEVICE_ALL;
+use crate::xcon::consts::INPUT_DEVICE_ALL_MASTER;
+use crate::xcon::consts::INPUT_DEVICE_TYPE_MASTER_KEYBOARD;
+use crate::xcon::consts::INPUT_HIERARCHY_MASK_MASTER_ADDED;
+use crate::xcon::consts::INPUT_HIERARCHY_MASK_MASTER_REMOVED;
+use crate::xcon::consts::PRESENT_EVENT_MASK_COMPLETE_NOTIFY;
+use crate::xcon::consts::PRESENT_EVENT_MASK_IDLE_NOTIFY;
+use crate::xcon::consts::PROP_MODE_REPLACE;
+use crate::xcon::consts::WINDOW_CLASS_INPUT_OUTPUT;
+use crate::xcon::consts::XI_EVENT_MASK_BUTTON_PRESS;
+use crate::xcon::consts::XI_EVENT_MASK_BUTTON_RELEASE;
+use crate::xcon::consts::XI_EVENT_MASK_ENTER;
+use crate::xcon::consts::XI_EVENT_MASK_FOCUS_IN;
+use crate::xcon::consts::XI_EVENT_MASK_FOCUS_OUT;
+use crate::xcon::consts::XI_EVENT_MASK_HIERARCHY;
+use crate::xcon::consts::XI_EVENT_MASK_KEY_PRESS;
+use crate::xcon::consts::XI_EVENT_MASK_KEY_RELEASE;
+use crate::xcon::consts::XI_EVENT_MASK_LEAVE;
+use crate::xcon::consts::XI_EVENT_MASK_MOTION;
+use crate::xcon::consts::XI_EVENT_MASK_TOUCH_BEGIN;
+use crate::xcon::consts::XI_EVENT_MASK_TOUCH_END;
+use crate::xcon::consts::XI_EVENT_MASK_TOUCH_UPDATE;
+use crate::xcon::consts::XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT;
+use std::any::Any;
+use std::borrow::Cow;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::error::Error;
+use std::future::pending;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::c::dev_t;
 
 #[derive(Debug, Error)]
 pub enum XBackendError {

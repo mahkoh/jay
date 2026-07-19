@@ -1,4 +1,5 @@
-use uapi::{IntoUstr, c};
+use uapi::IntoUstr;
+use uapi::c;
 
 pub fn set_process_name(name: &str) {
     unsafe {

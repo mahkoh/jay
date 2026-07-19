@@ -1,8 +1,7 @@
-use {
-    crate::utils::{oserror::OsError, ptr_ext::PtrExt},
-    std::ptr,
-    uapi::c,
-};
+use crate::utils::oserror::OsError;
+use crate::utils::ptr_ext::PtrExt;
+use std::ptr;
+use uapi::c;
 
 pub struct Mmapped {
     pub ptr: *const [u8],

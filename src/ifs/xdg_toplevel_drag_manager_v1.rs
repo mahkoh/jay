@@ -1,15 +1,15 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::xdg_toplevel_drag_v1::XdgToplevelDragV1,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{XdgToplevelDragManagerV1Id, xdg_toplevel_drag_manager_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::xdg_toplevel_drag_v1::XdgToplevelDragV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::XdgToplevelDragManagerV1Id;
+use crate::wire::xdg_toplevel_drag_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct XdgToplevelDragManagerV1Global {
     pub name: GlobalName,

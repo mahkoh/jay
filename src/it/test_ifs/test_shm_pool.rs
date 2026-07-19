@@ -1,18 +1,15 @@
-use {
-    crate::{
-        format::Format,
-        it::{
-            test_error::TestError,
-            test_ifs::{test_buffer::TestBuffer, test_shm_buffer::TestShmBuffer},
-            test_mem::TestMem,
-            test_object::TestObject,
-            test_transport::TestTransport,
-        },
-        utils::clonecell::CloneCell,
-        wire::{WlShmPoolId, wl_shm_pool::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::format::Format;
+use crate::it::test_error::TestError;
+use crate::it::test_ifs::test_buffer::TestBuffer;
+use crate::it::test_ifs::test_shm_buffer::TestShmBuffer;
+use crate::it::test_mem::TestMem;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::WlShmPoolId;
+use crate::wire::wl_shm_pool::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestShmPool {
     pub id: WlShmPoolId,

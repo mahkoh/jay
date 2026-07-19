@@ -1,39 +1,44 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::GlobalBase,
-        ifs::{
-            wl_surface::{
-                ext_session_lock_surface_v1::ExtSessionLockSurfaceV1,
-                x_surface::xwindow::Xwindow,
-                xdg_surface::{xdg_popup::XdgPopup, xdg_toplevel::XdgToplevel},
-                zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
-            },
-            wp_content_type_v1,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        rect::Rect,
-        tree::{
-            self, ContainerNode, DisplayNode, FloatNode, Node, NodeBase, NodeVisitor, OutputNode,
-            PlaceholderNode, ToplevelData, ToplevelIdentifier, ToplevelNodeBase, ToplevelType,
-            TreeTimeline::LiveTL, WorkspaceNode, WorkspaceType,
-        },
-        utils::{opaque::OpaqueError, opt::Opt},
-        wire::{
-            JayTreeQueryId,
-            jay_tree_query::{self, *},
-        },
-    },
-    isnt::std_1::primitive::IsntStrExt,
-    std::{
-        cell::{Cell, RefCell},
-        ops::Deref,
-        rc::Rc,
-        str::FromStr,
-    },
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::GlobalBase;
+use crate::ifs::wl_surface::ext_session_lock_surface_v1::ExtSessionLockSurfaceV1;
+use crate::ifs::wl_surface::x_surface::xwindow::Xwindow;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1;
+use crate::ifs::wp_content_type_v1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::rect::Rect;
+use crate::tree::ContainerNode;
+use crate::tree::DisplayNode;
+use crate::tree::FloatNode;
+use crate::tree::Node;
+use crate::tree::NodeBase;
+use crate::tree::NodeVisitor;
+use crate::tree::OutputNode;
+use crate::tree::PlaceholderNode;
+use crate::tree::ToplevelData;
+use crate::tree::ToplevelIdentifier;
+use crate::tree::ToplevelNodeBase;
+use crate::tree::ToplevelType;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::WorkspaceNode;
+use crate::tree::WorkspaceType;
+use crate::tree::{self};
+use crate::utils::opaque::OpaqueError;
+use crate::utils::opt::Opt;
+use crate::wire::JayTreeQueryId;
+use crate::wire::jay_tree_query::*;
+use crate::wire::jay_tree_query::{self};
+use isnt::std_1::primitive::IsntStrExt;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::ops::Deref;
+use std::rc::Rc;
+use std::str::FromStr;
+use thiserror::Error;
 
 pub const TREE_TY_DISPLAY: u32 = 1;
 pub const TREE_TY_OUTPUT: u32 = 2;

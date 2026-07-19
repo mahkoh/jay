@@ -1,14 +1,14 @@
 //! Tools for inspecting and manipulating windows.
 
-use {
-    crate::{
-        Axis, Direction, Workspace,
-        client::{Client, ClientCriterion},
-        input::Seat,
-    },
-    serde::{Deserialize, Serialize},
-    std::ops::Deref,
-};
+use crate::Axis;
+use crate::Direction;
+use crate::Workspace;
+use crate::client::Client;
+use crate::client::ClientCriterion;
+use crate::input::Seat;
+use serde::Deserialize;
+use serde::Serialize;
+use std::ops::Deref;
 
 /// A toplevel window.
 ///

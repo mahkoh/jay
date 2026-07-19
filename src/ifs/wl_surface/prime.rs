@@ -1,41 +1,58 @@
-use {
-    crate::{
-        allocator::{AllocatorError, BO_USE_SCANOUT, BufferObject, BufferUsage},
-        backend::DrmDeviceId,
-        copy_device::{CopyDevice, CopyDeviceDstObject, CopyDeviceError, CopyDeviceSrcObject},
-        gfx_api::{
-            BufferResv, BufferResvUser, FdSync, GfxContext, GfxError, GfxTexture, LazyTexture,
-            TextureUse,
-        },
-        ifs::{
-            wl_buffer::{WlBuffer, WlBufferDmabufStorage, WlBufferStorage},
-            wl_surface::WlSurface,
-        },
-        io_uring::{PendingPoll, PollCallback},
-        rect::{DynamicDamageQueue, DynamicDamageQueueElement, Rect, Region},
-        state::{PrimeModifiers, State},
-        udmabuf::{UdmabufError, UdmabufHolder},
-        utils::{
-            cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap, errorfmt::ErrorFmt,
-            numcell::NumCell, obj_and_id::ObjWithId, oserror::OsError, rc_eq::rc_opt_eq,
-            smallmap::SmallMap, syncqueue::SyncQueue,
-        },
-        video::dmabuf::{DmaBuf, DmabufCopy},
-    },
-    arrayvec::ArrayVec,
-    linearize::StaticMap,
-    smallvec::SmallVec,
-    std::{
-        cell::Cell,
-        env,
-        error::Error,
-        ffi::c_short,
-        fmt::{Debug, Formatter},
-        rc::Rc,
-        slice,
-    },
-    thiserror::Error,
-};
+use crate::allocator::AllocatorError;
+use crate::allocator::BO_USE_SCANOUT;
+use crate::allocator::BufferObject;
+use crate::allocator::BufferUsage;
+use crate::backend::DrmDeviceId;
+use crate::copy_device::CopyDevice;
+use crate::copy_device::CopyDeviceDstObject;
+use crate::copy_device::CopyDeviceError;
+use crate::copy_device::CopyDeviceSrcObject;
+use crate::gfx_api::BufferResv;
+use crate::gfx_api::BufferResvUser;
+use crate::gfx_api::FdSync;
+use crate::gfx_api::GfxContext;
+use crate::gfx_api::GfxError;
+use crate::gfx_api::GfxTexture;
+use crate::gfx_api::LazyTexture;
+use crate::gfx_api::TextureUse;
+use crate::ifs::wl_buffer::WlBuffer;
+use crate::ifs::wl_buffer::WlBufferDmabufStorage;
+use crate::ifs::wl_buffer::WlBufferStorage;
+use crate::ifs::wl_surface::WlSurface;
+use crate::io_uring::PendingPoll;
+use crate::io_uring::PollCallback;
+use crate::rect::DynamicDamageQueue;
+use crate::rect::DynamicDamageQueueElement;
+use crate::rect::Rect;
+use crate::rect::Region;
+use crate::state::PrimeModifiers;
+use crate::state::State;
+use crate::udmabuf::UdmabufError;
+use crate::udmabuf::UdmabufHolder;
+use crate::utils::cell_ext::CellExt;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::numcell::NumCell;
+use crate::utils::obj_and_id::ObjWithId;
+use crate::utils::oserror::OsError;
+use crate::utils::rc_eq::rc_opt_eq;
+use crate::utils::smallmap::SmallMap;
+use crate::utils::syncqueue::SyncQueue;
+use crate::video::dmabuf::DmaBuf;
+use crate::video::dmabuf::DmabufCopy;
+use arrayvec::ArrayVec;
+use linearize::StaticMap;
+use smallvec::SmallVec;
+use std::cell::Cell;
+use std::env;
+use std::error::Error;
+use std::ffi::c_short;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::rc::Rc;
+use std::slice;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum PrimeError {

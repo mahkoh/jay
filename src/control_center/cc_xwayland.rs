@@ -1,18 +1,21 @@
-use {
-    crate::{
-        compositor::DISPLAY,
-        control_center::{
-            CcBehavior, ControlCenterInner, bool, cc_clients::show_client_collapsible,
-            combo_box_ui, grid, label, read_only_bool, tip,
-        },
-        state::State,
-        utils::{errorfmt::ErrorFmt, oserror::OsErrorExt, static_text::StaticText},
-    },
-    egui::Ui,
-    linearize::Linearize,
-    std::rc::Rc,
-    uapi::c,
-};
+use crate::compositor::DISPLAY;
+use crate::control_center::CcBehavior;
+use crate::control_center::ControlCenterInner;
+use crate::control_center::bool;
+use crate::control_center::cc_clients::show_client_collapsible;
+use crate::control_center::combo_box_ui;
+use crate::control_center::grid;
+use crate::control_center::label;
+use crate::control_center::read_only_bool;
+use crate::control_center::tip;
+use crate::state::State;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::oserror::OsErrorExt;
+use crate::utils::static_text::StaticText;
+use egui::Ui;
+use linearize::Linearize;
+use std::rc::Rc;
+use uapi::c;
 
 pub struct XwaylandPane {
     state: Rc<State>,

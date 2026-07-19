@@ -1,16 +1,17 @@
-use {
-    crate::{
-        ifs::wl_seat::wl_pointer::WlPointer,
-        it::{
-            test_error::TestResult, test_ifs::test_surface::TestSurface, test_object::TestObject,
-            test_transport::TestTransport, test_utils::test_expected_event::TEEH,
-            testrun::ParseFull,
-        },
-        utils::{buffd::MsgParser, clonecell::CloneCell},
-        wire::{WlPointerId, WlSurfaceId, wl_pointer::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::ifs::wl_seat::wl_pointer::WlPointer;
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_surface::TestSurface;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::test_utils::test_expected_event::TEEH;
+use crate::it::testrun::ParseFull;
+use crate::utils::buffd::MsgParser;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::WlPointerId;
+use crate::wire::WlSurfaceId;
+use crate::wire::wl_pointer::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestPointer {
     pub id: WlPointerId,

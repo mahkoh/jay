@@ -1,7 +1,6 @@
-use {
-    crate::builder::{BuilderError, handle_file},
-    std::env::args,
-};
+use crate::builder::BuilderError;
+use crate::builder::handle_file;
+use std::env::args;
 
 mod ast;
 mod builder;

@@ -1,12 +1,12 @@
-use {
-    crate::{
-        object::Version,
-        utils::clonecell::CloneCell,
-        wire::{WlOutputId, wl_output::*},
-        wl_usr::{UsrCon, usr_object::UsrObject},
-    },
-    std::{cell::RefCell, convert::Infallible, rc::Rc},
-};
+use crate::object::Version;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::WlOutputId;
+use crate::wire::wl_output::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_object::UsrObject;
+use std::cell::RefCell;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrWlOutput {
     pub id: WlOutputId,

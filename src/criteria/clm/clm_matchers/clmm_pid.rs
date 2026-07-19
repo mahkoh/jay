@@ -1,11 +1,9 @@
-use {
-    crate::{
-        client::Client,
-        criteria::{RootMatcherMap, clm::RootMatchers, crit_graph::CritRootCriterion},
-    },
-    std::rc::Rc,
-    uapi::c,
-};
+use crate::client::Client;
+use crate::criteria::RootMatcherMap;
+use crate::criteria::clm::RootMatchers;
+use crate::criteria::crit_graph::CritRootCriterion;
+use std::rc::Rc;
+use uapi::c;
 
 pub struct ClmMatchPid(pub c::pid_t);
 

@@ -1,14 +1,12 @@
-use {
-    crate::{
-        it::{
-            test_error::TestError, test_object::TestObject, test_transport::TestTransport,
-            testrun::ParseFull,
-        },
-        utils::buffd::MsgParser,
-        wire::{WlCallbackId, wl_callback::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestError;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::testrun::ParseFull;
+use crate::utils::buffd::MsgParser;
+use crate::wire::WlCallbackId;
+use crate::wire::wl_callback::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestCallback {
     pub id: WlCallbackId,

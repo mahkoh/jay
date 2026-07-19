@@ -1,10 +1,11 @@
-use {
-    crate::{
-        dbus::{DbusError, DbusSocket, incoming::handle_incoming, outgoing::handle_outgoing},
-        utils::{buf::Buf, errorfmt::ErrorFmt},
-    },
-    std::{ops::Deref, rc::Rc},
-};
+use crate::dbus::DbusError;
+use crate::dbus::DbusSocket;
+use crate::dbus::incoming::handle_incoming;
+use crate::dbus::outgoing::handle_outgoing;
+use crate::utils::buf::Buf;
+use crate::utils::errorfmt::ErrorFmt;
+use std::ops::Deref;
+use std::rc::Rc;
 
 pub(super) async fn handle_auth(socket: Rc<DbusSocket>) {
     let mut auth = Auth {

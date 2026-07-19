@@ -1,18 +1,16 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::{
-            color_management::{CAUSE_NO_OUTPUT, wp_image_description_v1::WpImageDescriptionV1},
-            wl_output::OutputGlobalOpt,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::TreeTimeline::LiveTL,
-        wire::{WpColorManagementOutputV1Id, wp_color_management_output_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::color_management::CAUSE_NO_OUTPUT;
+use crate::ifs::color_management::wp_image_description_v1::WpImageDescriptionV1;
+use crate::ifs::wl_output::OutputGlobalOpt;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::wire::WpColorManagementOutputV1Id;
+use crate::wire::wp_color_management_output_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpColorManagementOutputV1 {
     pub id: WpColorManagementOutputV1Id,

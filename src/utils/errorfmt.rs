@@ -1,7 +1,6 @@
-use std::{
-    error::Error,
-    fmt::{Display, Formatter},
-};
+use std::error::Error;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
 pub struct ErrorFmt<E>(pub E);
 

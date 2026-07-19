@@ -24,23 +24,32 @@ mod unlock;
 mod version;
 mod xwayland;
 
-use {
-    crate::{
-        cli::{
-            clients::ClientsArgs, color_management::ColorManagementArgs, config::ConfigArgs,
-            damage_tracking::DamageTrackingArgs, idle::IdleCmd, input::InputArgs,
-            json::VERBOSE_JSON, randr::RandrArgs, reexec::ReexecArgs, run_tagged::RunTaggedArgs,
-            tree::TreeArgs, xwayland::XwaylandArgs,
-        },
-        compositor::{LogLevel, start_compositor},
-        format::{Format, ref_formats},
-        portal,
-        pr_caps::drop_all_pr_caps,
-    },
-    clap::{Args, Parser, Subcommand, ValueEnum, ValueHint, builder::PossibleValue},
-    clap_complete::Shell,
-    std::sync::atomic::Ordering::Relaxed,
-};
+use crate::cli::clients::ClientsArgs;
+use crate::cli::color_management::ColorManagementArgs;
+use crate::cli::config::ConfigArgs;
+use crate::cli::damage_tracking::DamageTrackingArgs;
+use crate::cli::idle::IdleCmd;
+use crate::cli::input::InputArgs;
+use crate::cli::json::VERBOSE_JSON;
+use crate::cli::randr::RandrArgs;
+use crate::cli::reexec::ReexecArgs;
+use crate::cli::run_tagged::RunTaggedArgs;
+use crate::cli::tree::TreeArgs;
+use crate::cli::xwayland::XwaylandArgs;
+use crate::compositor::LogLevel;
+use crate::compositor::start_compositor;
+use crate::format::Format;
+use crate::format::ref_formats;
+use crate::portal;
+use crate::pr_caps::drop_all_pr_caps;
+use clap::Args;
+use clap::Parser;
+use clap::Subcommand;
+use clap::ValueEnum;
+use clap::ValueHint;
+use clap::builder::PossibleValue;
+use clap_complete::Shell;
+use std::sync::atomic::Ordering::Relaxed;
 
 /// A wayland compositor.
 #[derive(Parser, Debug)]

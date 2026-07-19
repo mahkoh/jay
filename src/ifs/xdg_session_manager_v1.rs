@@ -1,17 +1,22 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::xdg_session_v1::XdgSessionV1,
-        leaks::Tracker,
-        object::{Object, Version},
-        sm::{SessionGetStatus, SessionManager, SessionName, SessionReason, session_name},
-        state::State,
-        wire::{XdgSessionManagerV1Id, xdg_session_manager_v1::*},
-    },
-    std::{rc::Rc, str::FromStr},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::xdg_session_v1::XdgSessionV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::sm::SessionGetStatus;
+use crate::sm::SessionManager;
+use crate::sm::SessionName;
+use crate::sm::SessionReason;
+use crate::sm::session_name;
+use crate::state::State;
+use crate::wire::XdgSessionManagerV1Id;
+use crate::wire::xdg_session_manager_v1::*;
+use std::rc::Rc;
+use std::str::FromStr;
+use thiserror::Error;
 
 pub const REASON_LAUNCH: u32 = 1;
 pub const REASON_RECOVER: u32 = 2;

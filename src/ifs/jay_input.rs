@@ -1,33 +1,42 @@
-use {
-    crate::{
-        backend::{
-            InputDeviceAccelProfile, InputDeviceCapability, InputDeviceClickMethod, InputDeviceId,
-            InputDeviceScrollMethod,
-        },
-        client::{Client, ClientError},
-        clientmem::{ClientMem, ClientMemError},
-        evdev::input_event_codes::InputEventCode,
-        ifs::{jay_keymap_builder::MapKind, wl_seat::WlSeatGlobal},
-        kbvm::{KbvmError, KbvmMap},
-        leaks::Tracker,
-        libinput::consts::{
-            AccelProfile, ConfigClickMethod, ConfigScrollMethod,
-            LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE, LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT,
-            LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS, LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER,
-            LIBINPUT_CONFIG_CLICK_METHOD_NONE,
-        },
-        object::{Object, Version},
-        state::{DeviceHandlerData, InputDeviceData, State},
-        utils::errorfmt::ErrorFmt,
-        wire::{JayInputId, JayKeymapBuilderId, jay_input::*},
-    },
-    arrayvec::ArrayVec,
-    kbvm::GroupIndex,
-    linearize::{Linearize, LinearizeExt},
-    std::rc::Rc,
-    thiserror::Error,
-    uapi::OwnedFd,
-};
+use crate::backend::InputDeviceAccelProfile;
+use crate::backend::InputDeviceCapability;
+use crate::backend::InputDeviceClickMethod;
+use crate::backend::InputDeviceId;
+use crate::backend::InputDeviceScrollMethod;
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::clientmem::ClientMem;
+use crate::clientmem::ClientMemError;
+use crate::evdev::input_event_codes::InputEventCode;
+use crate::ifs::jay_keymap_builder::MapKind;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::kbvm::KbvmError;
+use crate::kbvm::KbvmMap;
+use crate::leaks::Tracker;
+use crate::libinput::consts::AccelProfile;
+use crate::libinput::consts::ConfigClickMethod;
+use crate::libinput::consts::ConfigScrollMethod;
+use crate::libinput::consts::LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE;
+use crate::libinput::consts::LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT;
+use crate::libinput::consts::LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS;
+use crate::libinput::consts::LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER;
+use crate::libinput::consts::LIBINPUT_CONFIG_CLICK_METHOD_NONE;
+use crate::object::Object;
+use crate::object::Version;
+use crate::state::DeviceHandlerData;
+use crate::state::InputDeviceData;
+use crate::state::State;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::wire::JayInputId;
+use crate::wire::JayKeymapBuilderId;
+use crate::wire::jay_input::*;
+use arrayvec::ArrayVec;
+use kbvm::GroupIndex;
+use linearize::Linearize;
+use linearize::LinearizeExt;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
 
 pub struct JayInput {
     pub id: JayInputId,

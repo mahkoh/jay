@@ -1,27 +1,36 @@
-use {
-    crate::{
-        config::{
-            Output,
-            context::Context,
-            extractor::{Extractor, ExtractorError, bol, fltorint, opt, recover, s32, str, val},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-            parsers::{
-                format::FormatParser,
-                mode::ModeParser,
-                output_match::{OutputMatchParser, OutputMatchParserError},
-                tearing::TearingParser,
-                vrr::VrrParser,
-            },
-        },
-        toml::{
-            toml_span::{DespanExt, Span, Spanned, SpannedExt},
-            toml_value::Value,
-        },
-    },
-    indexmap::IndexMap,
-    jay_config::video::{BlendSpace, ColorSpace, Eotf, ScalingFilter, Transform},
-    thiserror::Error,
-};
+use crate::config::Output;
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::bol;
+use crate::config::extractor::fltorint;
+use crate::config::extractor::opt;
+use crate::config::extractor::recover;
+use crate::config::extractor::s32;
+use crate::config::extractor::str;
+use crate::config::extractor::val;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::config::parsers::format::FormatParser;
+use crate::config::parsers::mode::ModeParser;
+use crate::config::parsers::output_match::OutputMatchParser;
+use crate::config::parsers::output_match::OutputMatchParserError;
+use crate::config::parsers::tearing::TearingParser;
+use crate::config::parsers::vrr::VrrParser;
+use crate::toml::toml_span::DespanExt;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_span::SpannedExt;
+use crate::toml::toml_value::Value;
+use indexmap::IndexMap;
+use jay_config::video::BlendSpace;
+use jay_config::video::ColorSpace;
+use jay_config::video::Eotf;
+use jay_config::video::ScalingFilter;
+use jay_config::video::Transform;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum OutputParserError {

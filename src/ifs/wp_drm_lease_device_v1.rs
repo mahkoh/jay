@@ -1,27 +1,29 @@
-use {
-    crate::{
-        backend::DrmDeviceId,
-        client::{CAP_DRM_LEASE, Client, ClientCaps, ClientError},
-        globals::{Global, GlobalName},
-        ifs::{
-            wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1,
-            wp_drm_lease_request_v1::WpDrmLeaseRequestV1,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        state::OutputData,
-        utils::{
-            bindings::Bindings,
-            errorfmt::ErrorFmt,
-            oserror::{OsError, OsErrorExt2},
-        },
-        video::drm::{Drm, DrmError},
-        wire::{WpDrmLeaseDeviceV1Id, wp_drm_lease_device_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-    uapi::{OwnedFd, c},
-};
+use crate::backend::DrmDeviceId;
+use crate::client::CAP_DRM_LEASE;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1;
+use crate::ifs::wp_drm_lease_request_v1::WpDrmLeaseRequestV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::state::OutputData;
+use crate::utils::bindings::Bindings;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt2;
+use crate::video::drm::Drm;
+use crate::video::drm::DrmError;
+use crate::wire::WpDrmLeaseDeviceV1Id;
+use crate::wire::wp_drm_lease_device_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c;
 
 mod removed_device;
 

@@ -1,21 +1,25 @@
-use {
-    crate::{
-        cmm::cmm_eotf::Eotf,
-        control_center::{
-            ControlCenterInner, bool, bool_ui, combo_box, drag_value, grid, grid_label_ui, row,
-            text_edit, tip,
-        },
-        gfx_api::AlphaMode,
-        state::State,
-        theme::{Color, ThemeColored, ThemeSized},
-        tree::TreeTimeline::LiveTL,
-        utils::static_text::StaticText,
-    },
-    egui::Ui,
-    isnt::std_1::primitive::IsntStrExt,
-    linearize::LinearizeExt,
-    std::rc::Rc,
-};
+use crate::cmm::cmm_eotf::Eotf;
+use crate::control_center::ControlCenterInner;
+use crate::control_center::bool;
+use crate::control_center::bool_ui;
+use crate::control_center::combo_box;
+use crate::control_center::drag_value;
+use crate::control_center::grid;
+use crate::control_center::grid_label_ui;
+use crate::control_center::row;
+use crate::control_center::text_edit;
+use crate::control_center::tip;
+use crate::gfx_api::AlphaMode;
+use crate::state::State;
+use crate::theme::Color;
+use crate::theme::ThemeColored;
+use crate::theme::ThemeSized;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::utils::static_text::StaticText;
+use egui::Ui;
+use isnt::std_1::primitive::IsntStrExt;
+use linearize::LinearizeExt;
+use std::rc::Rc;
 
 pub struct LookAndFeelPane {
     state: Rc<State>,

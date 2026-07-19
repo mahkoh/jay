@@ -1,4 +1,5 @@
-use {crate::utils::ptr_ext::PtrExt, std::cell::Cell};
+use crate::utils::ptr_ext::PtrExt;
+use std::cell::Cell;
 
 pub trait CellExt {
     fn is_some(&self) -> bool;

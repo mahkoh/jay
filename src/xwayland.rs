@@ -1,41 +1,41 @@
 mod xsocket;
 mod xwm;
 
-use {
-    crate::{
-        client::{ClientCaps, ClientError},
-        compositor::DISPLAY,
-        control_center::CCI_XWAYLAND,
-        forker::{ForkerError, ForkerProxy},
-        ifs::{
-            ipc::{DataOfferId, DataSourceId, IpcLocation, x_data_offer::XDataOffer},
-            wl_seat::SeatId,
-            wl_surface::x_surface::xwindow::XwindowData,
-        },
-        io_uring::IoUringError,
-        security_context_acceptor::AcceptorMetadata,
-        state::State,
-        user_session::import_environment,
-        utils::{
-            buf::Buf,
-            errorfmt::ErrorFmt,
-            line_logger::log_lines,
-            oserror::{OsError, OsErrorExt2},
-            pipe::{Pipe, pipe},
-        },
-        wire::WlSurfaceId,
-        xcon::XconError,
-        xwayland::{
-            xsocket::allocate_socket,
-            xwm::{Wm, XwmShared},
-        },
-    },
-    bstr::ByteSlice,
-    run_on_drop::on_drop,
-    std::{num::ParseIntError, rc::Rc},
-    thiserror::Error,
-    uapi::{OwnedFd, c},
-};
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::compositor::DISPLAY;
+use crate::control_center::CCI_XWAYLAND;
+use crate::forker::ForkerError;
+use crate::forker::ForkerProxy;
+use crate::ifs::ipc::DataOfferId;
+use crate::ifs::ipc::DataSourceId;
+use crate::ifs::ipc::IpcLocation;
+use crate::ifs::ipc::x_data_offer::XDataOffer;
+use crate::ifs::wl_seat::SeatId;
+use crate::ifs::wl_surface::x_surface::xwindow::XwindowData;
+use crate::io_uring::IoUringError;
+use crate::security_context_acceptor::AcceptorMetadata;
+use crate::state::State;
+use crate::user_session::import_environment;
+use crate::utils::buf::Buf;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::line_logger::log_lines;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt2;
+use crate::utils::pipe::Pipe;
+use crate::utils::pipe::pipe;
+use crate::wire::WlSurfaceId;
+use crate::xcon::XconError;
+use crate::xwayland::xsocket::allocate_socket;
+use crate::xwayland::xwm::Wm;
+use crate::xwayland::xwm::XwmShared;
+use bstr::ByteSlice;
+use run_on_drop::on_drop;
+use std::num::ParseIntError;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c;
 
 #[derive(Debug, Error)]
 enum XWaylandError {

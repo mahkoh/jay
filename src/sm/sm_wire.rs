@@ -1,7 +1,6 @@
-use {
-    crate::rect::Rect,
-    serde::{Deserialize, Serialize},
-};
+use crate::rect::Rect;
+use serde::Deserialize;
+use serde::Serialize;
 
 pub mod sm_wire_session;
 pub mod sm_wire_toplevel;

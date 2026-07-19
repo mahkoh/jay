@@ -1,7 +1,6 @@
-use {
-    crate::{theme::Color, utils::errorfmt::ErrorFmt},
-    std::ops::Range,
-};
+use crate::theme::Color;
+use crate::utils::errorfmt::ErrorFmt;
+use std::ops::Range;
 
 pub fn parse_color(string: &str) -> Color {
     let hex = match string.strip_prefix("#") {

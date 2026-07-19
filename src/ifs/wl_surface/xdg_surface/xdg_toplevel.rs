@@ -1,56 +1,81 @@
-use {
-    crate::{
-        bugs::{self, Bugs},
-        client::{Client, ClientError},
-        configurable::ConfigurableExt,
-        cursor::KnownCursor,
-        fixed::Fixed,
-        ifs::{
-            ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1,
-            wl_seat::{NodeSeatState, WlSeatGlobal, tablet::TabletTool},
-            wl_surface::{
-                PendingState, WlSurface, WlSurfaceError,
-                xdg_surface::{
-                    InitialCommitState, UpdateGeometryReason, XdgSurface, XdgSurfaceConfigureData,
-                    XdgSurfaceExt, XdgSurfaceTransactionOp, XdgToplevelConfigureData,
-                    xdg_toplevel::{
-                        xdg_dialog_v1::XdgDialogV1,
-                        xdg_toplevel_icon_v1::{ToplevelIconUser, XdgToplevelIconV1},
-                    },
-                },
-            },
-            xdg_toplevel_drag_v1::XdgToplevelDragV1,
-            zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        rect::Rect,
-        renderer::Renderer,
-        state::State,
-        transactions::{TransactionData, Transactionable, TransactionableExt},
-        tree::{
-            ContainerSplit, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase,
-            NodeId, NodeLayerLink, NodeLocation, NodeVisitor, OutputNode, TileDragDestination,
-            TileState, ToplevelData, ToplevelDataTransactionOp, ToplevelNode, ToplevelNodeBase,
-            ToplevelNodeId, ToplevelType,
-            TreeTimeline::{self, LiveTL, RenderTL},
-            WorkspaceNode, WorkspaceType, default_tile_drag_destination,
-        },
-        utils::{
-            bhash::BHashMap, bitflags::BitflagsExt, clonecell::CloneCell, hash_map_ext::HashMapExt,
-            numcell::NumCell, obj_and_id::ObjAndId,
-        },
-        wire::{XdgToplevelId, xdg_toplevel::*},
-    },
-    arrayvec::ArrayVec,
-    std::{
-        cell::{Cell, RefCell},
-        fmt::{Debug, Formatter},
-        mem,
-        rc::{Rc, Weak},
-    },
-    thiserror::Error,
-};
+use crate::bugs::Bugs;
+use crate::bugs::{self};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::configurable::ConfigurableExt;
+use crate::cursor::KnownCursor;
+use crate::fixed::Fixed;
+use crate::ifs::ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1;
+use crate::ifs::wl_seat::NodeSeatState;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::tablet::TabletTool;
+use crate::ifs::wl_surface::PendingState;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::WlSurfaceError;
+use crate::ifs::wl_surface::xdg_surface::InitialCommitState;
+use crate::ifs::wl_surface::xdg_surface::UpdateGeometryReason;
+use crate::ifs::wl_surface::xdg_surface::XdgSurface;
+use crate::ifs::wl_surface::xdg_surface::XdgSurfaceConfigureData;
+use crate::ifs::wl_surface::xdg_surface::XdgSurfaceExt;
+use crate::ifs::wl_surface::xdg_surface::XdgSurfaceTransactionOp;
+use crate::ifs::wl_surface::xdg_surface::XdgToplevelConfigureData;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_dialog_v1::XdgDialogV1;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::ToplevelIconUser;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::XdgToplevelIconV1;
+use crate::ifs::xdg_toplevel_drag_v1::XdgToplevelDragV1;
+use crate::ifs::zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::rect::Rect;
+use crate::renderer::Renderer;
+use crate::state::State;
+use crate::transactions::TransactionData;
+use crate::transactions::Transactionable;
+use crate::transactions::TransactionableExt;
+use crate::tree::ContainerSplit;
+use crate::tree::Direction;
+use crate::tree::FindTreeResult;
+use crate::tree::FindTreeUsecase;
+use crate::tree::FoundNode;
+use crate::tree::Node;
+use crate::tree::NodeBase;
+use crate::tree::NodeId;
+use crate::tree::NodeLayerLink;
+use crate::tree::NodeLocation;
+use crate::tree::NodeVisitor;
+use crate::tree::OutputNode;
+use crate::tree::TileDragDestination;
+use crate::tree::TileState;
+use crate::tree::ToplevelData;
+use crate::tree::ToplevelDataTransactionOp;
+use crate::tree::ToplevelNode;
+use crate::tree::ToplevelNodeBase;
+use crate::tree::ToplevelNodeId;
+use crate::tree::ToplevelType;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::tree::TreeTimeline::{self};
+use crate::tree::WorkspaceNode;
+use crate::tree::WorkspaceType;
+use crate::tree::default_tile_drag_destination;
+use crate::utils::bhash::BHashMap;
+use crate::utils::bitflags::BitflagsExt;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::numcell::NumCell;
+use crate::utils::obj_and_id::ObjAndId;
+use crate::wire::XdgToplevelId;
+use crate::wire::xdg_toplevel::*;
+use arrayvec::ArrayVec;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::mem;
+use std::rc::Rc;
+use std::rc::Weak;
+use thiserror::Error;
 
 pub mod xdg_dialog_v1;
 pub mod xdg_toplevel_icon_manager_v1;

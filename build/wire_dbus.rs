@@ -1,16 +1,20 @@
-use {
-    crate::{
-        open,
-        tokens::{Lined, Symbol, Token, TokenKind, TreeDelim, tokenize},
-    },
-    anyhow::{Context, Result, bail},
-    bstr::{BStr, BString, ByteSlice},
-    std::{
-        collections::{HashMap, hash_map::Entry},
-        io::Write,
-        os::unix::ffi::OsStrExt,
-    },
-};
+use crate::open;
+use crate::tokens::Lined;
+use crate::tokens::Symbol;
+use crate::tokens::Token;
+use crate::tokens::TokenKind;
+use crate::tokens::TreeDelim;
+use crate::tokens::tokenize;
+use anyhow::Context;
+use anyhow::Result;
+use anyhow::bail;
+use bstr::BStr;
+use bstr::BString;
+use bstr::ByteSlice;
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
+use std::io::Write;
+use std::os::unix::ffi::OsStrExt;
 
 #[derive(Debug)]
 enum Type {

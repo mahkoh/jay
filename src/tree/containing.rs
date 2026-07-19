@@ -1,7 +1,8 @@
-use {
-    crate::tree::{FloatNode, Node, ToplevelNode, WorkspaceNode},
-    std::rc::Rc,
-};
+use crate::tree::FloatNode;
+use crate::tree::Node;
+use crate::tree::ToplevelNode;
+use crate::tree::WorkspaceNode;
+use std::rc::Rc;
 
 pub trait ContainingNode: Node {
     fn cnode_replace_child(self: Rc<Self>, old: &dyn Node, new: Rc<dyn ToplevelNode>);

@@ -1,7 +1,7 @@
-use {
-    crate::it::{test_error::TestError, testrun::TestRun},
-    std::{future::pending, rc::Rc},
-};
+use crate::it::test_error::TestError;
+use crate::it::testrun::TestRun;
+use std::future::pending;
+use std::rc::Rc;
 
 testcase!();
 

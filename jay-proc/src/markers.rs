@@ -1,11 +1,11 @@
-use {
-    proc_macro2::Ident,
-    syn::{
-        Error, Generics, Item, Type,
-        parse::{Parse, ParseStream},
-        spanned::Spanned,
-    },
-};
+use proc_macro2::Ident;
+use syn::Error;
+use syn::Generics;
+use syn::Item;
+use syn::Type;
+use syn::parse::Parse;
+use syn::parse::ParseStream;
+use syn::spanned::Spanned;
 
 pub mod clone;
 pub mod hash;

@@ -1,7 +1,6 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::LazyLock,
-};
+use std::path::Path;
+use std::path::PathBuf;
+use std::sync::LazyLock;
 
 #[cfg(feature = "it")]
 pub fn data_dir() -> &'static Path {

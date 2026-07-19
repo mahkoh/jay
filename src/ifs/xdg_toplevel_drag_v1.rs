@@ -1,24 +1,23 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::{
-            ipc::wl_data_source::WlDataSource, wl_seat::WlSeatGlobal,
-            wl_surface::xdg_surface::xdg_toplevel::XdgToplevel,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        rect::Rect,
-        renderer::Renderer,
-        tree::{
-            NodeBase, ToplevelNode,
-            TreeTimeline::{LiveTL, RenderTL},
-        },
-        utils::clonecell::CloneCell,
-        wire::{XdgToplevelDragV1Id, xdg_toplevel_drag_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::ipc::wl_data_source::WlDataSource;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::rect::Rect;
+use crate::renderer::Renderer;
+use crate::tree::NodeBase;
+use crate::tree::ToplevelNode;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::XdgToplevelDragV1Id;
+use crate::wire::xdg_toplevel_drag_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct XdgToplevelDragV1 {
     pub id: XdgToplevelDragV1Id,

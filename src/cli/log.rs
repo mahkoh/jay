@@ -1,21 +1,22 @@
-use {
-    crate::{
-        cli::{GlobalArgs, LogArgs, json::jsonl},
-        tools::tool_client::{Handle, ToolClient, with_tool_client},
-        utils::errorfmt::ErrorFmt,
-        wire::{jay_compositor, jay_log_file},
-    },
-    bstr::{BString, ByteSlice},
-    jay_compositor::GetLogFile,
-    jay_log_file::Path,
-    std::{
-        cell::RefCell,
-        ops::Deref,
-        os::unix::process::CommandExt,
-        process::{self, Command},
-        rc::Rc,
-    },
-};
+use crate::cli::GlobalArgs;
+use crate::cli::LogArgs;
+use crate::cli::json::jsonl;
+use crate::tools::tool_client::Handle;
+use crate::tools::tool_client::ToolClient;
+use crate::tools::tool_client::with_tool_client;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::wire::jay_compositor;
+use crate::wire::jay_log_file;
+use bstr::BString;
+use bstr::ByteSlice;
+use jay_compositor::GetLogFile;
+use jay_log_file::Path;
+use std::cell::RefCell;
+use std::ops::Deref;
+use std::os::unix::process::CommandExt;
+use std::process::Command;
+use std::process::{self};
+use std::rc::Rc;
 
 pub fn main(global: GlobalArgs, args: LogArgs) {
     with_tool_client(global.log_level, |tc| async move {

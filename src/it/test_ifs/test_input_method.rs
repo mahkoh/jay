@@ -1,21 +1,18 @@
-use {
-    crate::{
-        it::{
-            test_error::{TestError, TestResult},
-            test_ifs::{
-                test_input_method_keyboard_grab::TestInputMethodKeyboardGrab,
-                test_input_popup_surface::TestInputPopupSurface, test_surface::TestSurface,
-            },
-            test_object::TestObject,
-            test_transport::TestTransport,
-            test_utils::test_expected_event::TEEH,
-            testrun::ParseFull,
-        },
-        utils::{buffd::MsgParser, numcell::NumCell},
-        wire::{ZwpInputMethodV2Id, zwp_input_method_v2::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestError;
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_input_method_keyboard_grab::TestInputMethodKeyboardGrab;
+use crate::it::test_ifs::test_input_popup_surface::TestInputPopupSurface;
+use crate::it::test_ifs::test_surface::TestSurface;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::test_utils::test_expected_event::TEEH;
+use crate::it::testrun::ParseFull;
+use crate::utils::buffd::MsgParser;
+use crate::utils::numcell::NumCell;
+use crate::wire::ZwpInputMethodV2Id;
+use crate::wire::zwp_input_method_v2::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestInputMethod {
     pub id: ZwpInputMethodV2Id,

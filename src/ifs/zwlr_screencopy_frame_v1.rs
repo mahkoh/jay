@@ -1,22 +1,26 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        format::XRGB8888,
-        gfx_api::{AsyncShmGfxTextureCallback, GfxError, PendingShmTransfer},
-        ifs::{
-            wl_buffer::{WlBuffer, WlBufferError, WlBufferStorage},
-            wl_output::OutputGlobalOpt,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        rect::Rect,
-        tree::TreeTimeline::RenderTL,
-        utils::errorfmt::ErrorFmt,
-        wire::{WlBufferId, ZwlrScreencopyFrameV1Id, zwlr_screencopy_frame_v1::*},
-    },
-    std::{cell::Cell, ops::Deref, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::format::XRGB8888;
+use crate::gfx_api::AsyncShmGfxTextureCallback;
+use crate::gfx_api::GfxError;
+use crate::gfx_api::PendingShmTransfer;
+use crate::ifs::wl_buffer::WlBuffer;
+use crate::ifs::wl_buffer::WlBufferError;
+use crate::ifs::wl_buffer::WlBufferStorage;
+use crate::ifs::wl_output::OutputGlobalOpt;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::rect::Rect;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::wire::WlBufferId;
+use crate::wire::ZwlrScreencopyFrameV1Id;
+use crate::wire::zwlr_screencopy_frame_v1::*;
+use std::cell::Cell;
+use std::ops::Deref;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[expect(dead_code)]
 pub const FLAGS_Y_INVERT: u32 = 1;

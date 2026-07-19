@@ -1,7 +1,7 @@
-use {
-    crate::{phf, phf::PhfHash},
-    std::{marker::PhantomData, ops::Index},
-};
+use crate::phf;
+use crate::phf::PhfHash;
+use std::marker::PhantomData;
+use std::ops::Index;
 
 pub(crate) struct PhfMap<K, V>
 where

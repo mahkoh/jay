@@ -1,17 +1,16 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_dialog_v1::{
-            XdgDialogV1, XdgDialogV1Error,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{XdgWmDialogV1Id, xdg_wm_dialog_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_dialog_v1::XdgDialogV1;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_dialog_v1::XdgDialogV1Error;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::XdgWmDialogV1Id;
+use crate::wire::xdg_wm_dialog_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct XdgWmDialogV1Global {
     name: GlobalName,

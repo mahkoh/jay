@@ -1,16 +1,11 @@
-use {
-    crate::{
-        it::{
-            test_error::TestResult,
-            test_utils::{
-                test_container_node_ext::TestContainerExt,
-                test_workspace_node_ext::TestWorkspaceNodeExt,
-            },
-        },
-        tree::{OutputNode, ToplevelNode, TreeTimeline::LiveTL, WorkspaceNode},
-    },
-    std::rc::Rc,
-};
+use crate::it::test_error::TestResult;
+use crate::it::test_utils::test_container_node_ext::TestContainerExt;
+use crate::it::test_utils::test_workspace_node_ext::TestWorkspaceNodeExt;
+use crate::tree::OutputNode;
+use crate::tree::ToplevelNode;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::WorkspaceNode;
+use std::rc::Rc;
 
 pub trait TestOutputNodeExt {
     fn workspace2(&self) -> TestResult<Rc<WorkspaceNode>>;

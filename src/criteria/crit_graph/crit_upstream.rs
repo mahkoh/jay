@@ -1,23 +1,17 @@
-use {
-    crate::{
-        criteria::{
-            CritDestroyListener, CritMatcherId,
-            crit_graph::{
-                WeakCritTargetOwner,
-                crit_downstream::CritDownstream,
-                crit_target::{CritTarget, CritTargetOwner},
-            },
-            crit_per_target_data::CritPerTargetData,
-        },
-        utils::copyhashmap::CopyHashMap,
-    },
-    std::{
-        cell::RefMut,
-        mem,
-        ops::{Deref, DerefMut},
-        rc::{Rc, Weak},
-    },
-};
+use crate::criteria::CritDestroyListener;
+use crate::criteria::CritMatcherId;
+use crate::criteria::crit_graph::WeakCritTargetOwner;
+use crate::criteria::crit_graph::crit_downstream::CritDownstream;
+use crate::criteria::crit_graph::crit_target::CritTarget;
+use crate::criteria::crit_graph::crit_target::CritTargetOwner;
+use crate::criteria::crit_per_target_data::CritPerTargetData;
+use crate::utils::copyhashmap::CopyHashMap;
+use std::cell::RefMut;
+use std::mem;
+use std::ops::Deref;
+use std::ops::DerefMut;
+use std::rc::Rc;
+use std::rc::Weak;
 
 pub struct CritUpstreamData<Target, T>
 where

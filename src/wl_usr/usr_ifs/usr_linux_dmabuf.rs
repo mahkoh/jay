@@ -1,18 +1,15 @@
-use {
-    crate::{
-        format::{Format, formats},
-        object::Version,
-        utils::clonecell::CloneCell,
-        wire::{
-            ZwpLinuxDmabufV1Id,
-            zwp_linux_dmabuf_v1::{self, *},
-        },
-        wl_usr::{
-            UsrCon, usr_ifs::usr_linux_buffer_params::UsrLinuxBufferParams, usr_object::UsrObject,
-        },
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::format::Format;
+use crate::format::formats;
+use crate::object::Version;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::ZwpLinuxDmabufV1Id;
+use crate::wire::zwp_linux_dmabuf_v1::*;
+use crate::wire::zwp_linux_dmabuf_v1::{self};
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_ifs::usr_linux_buffer_params::UsrLinuxBufferParams;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrLinuxDmabuf {
     pub id: ZwpLinuxDmabufV1Id,

@@ -1,21 +1,17 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        cmm::cmm_render_intent::RenderIntent,
-        ifs::wl_surface::WlSurface,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{
-            WpColorManagementSurfaceV1Id,
-            wp_color_management_surface_v1::{
-                Destroy, SetImageDescription, UnsetImageDescription,
-                WpColorManagementSurfaceV1RequestHandler,
-            },
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::cmm::cmm_render_intent::RenderIntent;
+use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WpColorManagementSurfaceV1Id;
+use crate::wire::wp_color_management_surface_v1::Destroy;
+use crate::wire::wp_color_management_surface_v1::SetImageDescription;
+use crate::wire::wp_color_management_surface_v1::UnsetImageDescription;
+use crate::wire::wp_color_management_surface_v1::WpColorManagementSurfaceV1RequestHandler;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpColorManagementSurfaceV1 {
     pub id: WpColorManagementSurfaceV1Id,

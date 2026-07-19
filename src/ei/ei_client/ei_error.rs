@@ -1,11 +1,9 @@
-use {
-    crate::{
-        ei::ei_object::{EiInterface, EiObjectId},
-        utils::buffd::{BufFdError, EiMsgParserError},
-    },
-    std::error::Error,
-    thiserror::Error,
-};
+use crate::ei::ei_object::EiInterface;
+use crate::ei::ei_object::EiObjectId;
+use crate::utils::buffd::BufFdError;
+use crate::utils::buffd::EiMsgParserError;
+use std::error::Error;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum EiClientError {

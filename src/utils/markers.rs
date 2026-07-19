@@ -1,4 +1,5 @@
-use std::{hash::Hash, marker::PhantomData};
+use std::hash::Hash;
+use std::marker::PhantomData;
 
 pub struct AssertJayClone<T: JayClone>(PhantomData<T>);
 
@@ -18,24 +19,23 @@ pub unsafe trait JayHash: Hash + PartialEq {
 }
 
 mod impls {
-    use {
-        crate::{
-            tree::NodeId,
-            utils::markers::{JayClone, JayHash},
-        },
-        jay_config::{
-            _private::{ClientCriterionIpc, PollableId, WindowCriterionIpc},
-            client::ClientMatcher,
-            keyboard::{Keymap, ModifiedKeySym, mods::Modifiers},
-            window::{Window, WindowMatcher},
-        },
-        kbvm::Keycode,
-        std::{
-            borrow::Cow,
-            rc::{Rc, Weak},
-            sync::Arc,
-        },
-    };
+    use crate::tree::NodeId;
+    use crate::utils::markers::JayClone;
+    use crate::utils::markers::JayHash;
+    use jay_config::_private::ClientCriterionIpc;
+    use jay_config::_private::PollableId;
+    use jay_config::_private::WindowCriterionIpc;
+    use jay_config::client::ClientMatcher;
+    use jay_config::keyboard::Keymap;
+    use jay_config::keyboard::ModifiedKeySym;
+    use jay_config::keyboard::mods::Modifiers;
+    use jay_config::window::Window;
+    use jay_config::window::WindowMatcher;
+    use kbvm::Keycode;
+    use std::borrow::Cow;
+    use std::rc::Rc;
+    use std::rc::Weak;
+    use std::sync::Arc;
 
     unsafe impl<T: JayClone> JayClone for Option<T> {}
 

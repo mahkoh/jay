@@ -1,17 +1,15 @@
-use {
-    crate::{
-        it::{
-            test_error::{TestError, TestResult},
-            test_ifs::{test_xdg_surface::TestXdgSurface, test_xdg_toplevel::TestXdgToplevel},
-            test_utils::test_surface_ext::TestSurfaceExt,
-        },
-        tree::{
-            ToplevelNodeBase, TreeTimeline::LiveTL, WorkspaceNode, WorkspaceNodeId,
-            toplevel_set_floating, toplevel_set_workspace,
-        },
-    },
-    std::rc::Rc,
-};
+use crate::it::test_error::TestError;
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_xdg_surface::TestXdgSurface;
+use crate::it::test_ifs::test_xdg_toplevel::TestXdgToplevel;
+use crate::it::test_utils::test_surface_ext::TestSurfaceExt;
+use crate::tree::ToplevelNodeBase;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::WorkspaceNode;
+use crate::tree::WorkspaceNodeId;
+use crate::tree::toplevel_set_floating;
+use crate::tree::toplevel_set_workspace;
+use std::rc::Rc;
 
 pub struct TestWindow {
     pub surface: TestSurfaceExt,

@@ -1,21 +1,29 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        leaks::Tracker,
-        object::{Object, Version},
-        sm::{Session, SessionGetStatus, SessionManagementError, SessionName, SessionOwner},
-        utils::{clonecell::CloneCell, linkedlist::LinkedNode},
-        wire::{
-            XdgSessionV1Id,
-            xdg_session_v1::{
-                AddToplevel, Created, Destroy, Remove, RemoveToplevel, Replaced, RestoreToplevel,
-                Restored, XdgSessionV1RequestHandler,
-            },
-        },
-    },
-    std::{cell::RefCell, error::Error, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::sm::Session;
+use crate::sm::SessionGetStatus;
+use crate::sm::SessionManagementError;
+use crate::sm::SessionName;
+use crate::sm::SessionOwner;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::linkedlist::LinkedNode;
+use crate::wire::XdgSessionV1Id;
+use crate::wire::xdg_session_v1::AddToplevel;
+use crate::wire::xdg_session_v1::Created;
+use crate::wire::xdg_session_v1::Destroy;
+use crate::wire::xdg_session_v1::Remove;
+use crate::wire::xdg_session_v1::RemoveToplevel;
+use crate::wire::xdg_session_v1::Replaced;
+use crate::wire::xdg_session_v1::RestoreToplevel;
+use crate::wire::xdg_session_v1::Restored;
+use crate::wire::xdg_session_v1::XdgSessionV1RequestHandler;
+use std::cell::RefCell;
+use std::error::Error;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct XdgSessionV1 {
     pub id: XdgSessionV1Id,

@@ -1,14 +1,13 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::wl_surface::WlSurface,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WpFifoV1Id, wp_fifo_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WpFifoV1Id;
+use crate::wire::wp_fifo_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpFifoV1 {
     pub id: WpFifoV1Id,

@@ -8,20 +8,16 @@ mod input_device;
 mod slow_clients;
 mod udev_utils;
 
-use {
-    crate::{
-        state::State,
-        tasks::{
-            backend::BackendEventHandler,
-            const_clock::run_const_clock,
-            slow_clients::{SlowClientHandler, SlowEiClientHandler},
-        },
-    },
-    std::{rc::Rc, time::Duration},
-};
-pub use {
-    connector::handle as handle_connector, hardware_cursor::handle_hardware_cursor_tick, idle::idle,
-};
+use crate::state::State;
+use crate::tasks::backend::BackendEventHandler;
+use crate::tasks::const_clock::run_const_clock;
+use crate::tasks::slow_clients::SlowClientHandler;
+use crate::tasks::slow_clients::SlowEiClientHandler;
+pub use connector::handle as handle_connector;
+pub use hardware_cursor::handle_hardware_cursor_tick;
+pub use idle::idle;
+use std::rc::Rc;
+use std::time::Duration;
 
 pub async fn handle_backend_events(state: Rc<State>) {
     let mut beh = BackendEventHandler { state };

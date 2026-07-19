@@ -1,24 +1,26 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::{
-            wl_seat::text_input::zwp_input_method_v2::ZwpInputMethodV2,
-            wl_surface::{SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError},
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        rect::Rect,
-        state::State,
-        tree::{
-            NodeLayerLink, NodeLocation,
-            TreeTimeline::{LiveTL, RenderTL},
-            WorkspaceNode,
-        },
-        wire::{WlSurfaceId, ZwpInputPopupSurfaceV2Id, zwp_input_popup_surface_v2::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_seat::text_input::zwp_input_method_v2::ZwpInputMethodV2;
+use crate::ifs::wl_surface::SurfaceExt;
+use crate::ifs::wl_surface::SurfaceRole;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::WlSurfaceError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::rect::Rect;
+use crate::state::State;
+use crate::tree::NodeLayerLink;
+use crate::tree::NodeLocation;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::tree::WorkspaceNode;
+use crate::wire::WlSurfaceId;
+use crate::wire::ZwpInputPopupSurfaceV2Id;
+use crate::wire::zwp_input_popup_surface_v2::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpInputPopupSurfaceV2 {
     pub id: ZwpInputPopupSurfaceV2Id,

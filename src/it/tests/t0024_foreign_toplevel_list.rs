@@ -1,11 +1,8 @@
-use {
-    crate::{
-        it::{test_error::TestResult, testrun::TestRun},
-        utils::bhash::BHashSet,
-        wire::WlBufferId,
-    },
-    std::rc::Rc,
-};
+use crate::it::test_error::TestResult;
+use crate::it::testrun::TestRun;
+use crate::utils::bhash::BHashSet;
+use crate::wire::WlBufferId;
+use std::rc::Rc;
 
 testcase!();
 

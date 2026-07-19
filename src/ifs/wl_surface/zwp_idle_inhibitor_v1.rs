@@ -1,15 +1,14 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::wl_surface::WlSurface,
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::TreeTimeline::LiveTL,
-        wire::{ZwpIdleInhibitorV1Id, zwp_idle_inhibitor_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::wire::ZwpIdleInhibitorV1Id;
+use crate::wire::zwp_idle_inhibitor_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 linear_ids!(IdleInhibitorIds, IdleInhibitorId, u64);
 

@@ -1,4 +1,5 @@
-use {super::MappedKey, crate::phf_map::PhfMap};
+use super::MappedKey;
+use crate::phf_map::PhfMap;
 
 pub(super) static KEYCODES: PhfMap<str, MappedKey> = PhfMap {
     key: 4557430889152533588,

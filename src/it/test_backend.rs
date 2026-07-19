@@ -1,60 +1,78 @@
-use {
-    crate::{
-        allocator::{Allocator, AllocatorError},
-        async_engine::SpawnedFuture,
-        backend::{
-            AxisSource, Backend, BackendConnectorState, BackendDrmDevice, BackendEvent,
-            ButtonState, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId, DrmDeviceId,
-            DrmEvent, InputDevice, InputDeviceAccelProfile, InputDeviceCapability,
-            InputDeviceClickMethod, InputDeviceId, InputDeviceScrollMethod, InputEvent, KeyState,
-            Mode, MonitorInfo, ScanoutFormats, ScrollAxis, TransformMatrix,
-            transaction::{
-                BackendAppliedConnectorTransaction, BackendConnectorTransaction,
-                BackendConnectorTransactionError, BackendConnectorTransactionType,
-                BackendConnectorTransactionTypeDyn, BackendPreparedConnectorTransaction,
-            },
-        },
-        cmm::cmm_primaries::Primaries,
-        compositor::TestFuture,
-        evdev::input_event_codes::InputEventCode,
-        fixed::Fixed,
-        format::XRGB8888,
-        gfx_api::{GfxApi, GfxError},
-        gfx_apis::create_vulkan_allocator,
-        ifs::wl_output::OutputId,
-        it::{
-            test_error::TestResult, test_gfx_api::TestGfxCtx, test_utils::test_expected_event::TEEH,
-        },
-        state::State,
-        udmabuf::Udmabuf,
-        utils::{
-            bhash::BHashMap,
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
-            numcell::NumCell,
-            on_change::OnChange,
-            oserror::{OsError, OsErrorExt2},
-            syncqueue::SyncQueue,
-        },
-        video::{
-            drm::{ConnectorType, Drm, DrmError, DrmVersion},
-            gbm::{GbmDevice, GbmError},
-        },
-    },
-    bstr::ByteSlice,
-    std::{
-        any::Any,
-        cell::{Cell, RefCell},
-        error::Error,
-        io,
-        os::unix::ffi::OsStrExt,
-        pin::Pin,
-        rc::Rc,
-    },
-    thiserror::Error,
-    uapi::{c, c::dev_t},
-};
+use crate::allocator::Allocator;
+use crate::allocator::AllocatorError;
+use crate::async_engine::SpawnedFuture;
+use crate::backend::AxisSource;
+use crate::backend::Backend;
+use crate::backend::BackendConnectorState;
+use crate::backend::BackendDrmDevice;
+use crate::backend::BackendEvent;
+use crate::backend::ButtonState;
+use crate::backend::Connector;
+use crate::backend::ConnectorEvent;
+use crate::backend::ConnectorId;
+use crate::backend::ConnectorKernelId;
+use crate::backend::DrmDeviceId;
+use crate::backend::DrmEvent;
+use crate::backend::InputDevice;
+use crate::backend::InputDeviceAccelProfile;
+use crate::backend::InputDeviceCapability;
+use crate::backend::InputDeviceClickMethod;
+use crate::backend::InputDeviceId;
+use crate::backend::InputDeviceScrollMethod;
+use crate::backend::InputEvent;
+use crate::backend::KeyState;
+use crate::backend::Mode;
+use crate::backend::MonitorInfo;
+use crate::backend::ScanoutFormats;
+use crate::backend::ScrollAxis;
+use crate::backend::TransformMatrix;
+use crate::backend::transaction::BackendAppliedConnectorTransaction;
+use crate::backend::transaction::BackendConnectorTransaction;
+use crate::backend::transaction::BackendConnectorTransactionError;
+use crate::backend::transaction::BackendConnectorTransactionType;
+use crate::backend::transaction::BackendConnectorTransactionTypeDyn;
+use crate::backend::transaction::BackendPreparedConnectorTransaction;
+use crate::cmm::cmm_primaries::Primaries;
+use crate::compositor::TestFuture;
+use crate::evdev::input_event_codes::InputEventCode;
+use crate::fixed::Fixed;
+use crate::format::XRGB8888;
+use crate::gfx_api::GfxApi;
+use crate::gfx_api::GfxError;
+use crate::gfx_apis::create_vulkan_allocator;
+use crate::ifs::wl_output::OutputId;
+use crate::it::test_error::TestResult;
+use crate::it::test_gfx_api::TestGfxCtx;
+use crate::it::test_utils::test_expected_event::TEEH;
+use crate::state::State;
+use crate::udmabuf::Udmabuf;
+use crate::utils::bhash::BHashMap;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::numcell::NumCell;
+use crate::utils::on_change::OnChange;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt2;
+use crate::utils::syncqueue::SyncQueue;
+use crate::video::drm::ConnectorType;
+use crate::video::drm::Drm;
+use crate::video::drm::DrmError;
+use crate::video::drm::DrmVersion;
+use crate::video::gbm::GbmDevice;
+use crate::video::gbm::GbmError;
+use bstr::ByteSlice;
+use std::any::Any;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::error::Error;
+use std::io;
+use std::os::unix::ffi::OsStrExt;
+use std::pin::Pin;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::c;
+use uapi::c::dev_t;
 
 #[derive(Debug, Error)]
 pub enum TestBackendError {

@@ -1,14 +1,10 @@
-use {
-    crate::{
-        ei::{
-            ei_client::ei_error::EiClientError,
-            ei_ifs::ei_handshake::EiHandshake,
-            ei_object::{EiObject, EiObjectId},
-        },
-        utils::{copyhashmap::CopyHashMap, numcell::NumCell},
-    },
-    std::rc::Rc,
-};
+use crate::ei::ei_client::ei_error::EiClientError;
+use crate::ei::ei_ifs::ei_handshake::EiHandshake;
+use crate::ei::ei_object::EiObject;
+use crate::ei::ei_object::EiObjectId;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::numcell::NumCell;
+use std::rc::Rc;
 
 pub struct EiObjects {
     registry: CopyHashMap<EiObjectId, Rc<dyn EiObject>>,

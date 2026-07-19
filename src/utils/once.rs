@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
-use std::{cell::Cell, future::Future};
+use std::cell::Cell;
+use std::future::Future;
 
 #[derive(Default)]
 pub struct Once {

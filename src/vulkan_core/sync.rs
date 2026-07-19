@@ -1,18 +1,19 @@
-use {
-    crate::{
-        gfx_api::{FdSync, ReservedSyncobjPoint},
-        utils::errorfmt::ErrorFmt,
-        video::drm::syncobj::SyncobjPoint,
-        vulkan_core::{
-            VulkanCoreError,
-            device::VulkanDeviceInf,
-            fence::{VulkanDeviceFenceExt, VulkanFence},
-            timeline_semaphore::VulkanTimelineSemaphore,
-        },
-    },
-    ash::vk::{Fence, PipelineStageFlags2, SemaphoreSubmitInfo, SemaphoreWaitInfo, SubmitInfo2},
-    std::{rc::Rc, slice},
-};
+use crate::gfx_api::FdSync;
+use crate::gfx_api::ReservedSyncobjPoint;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::video::drm::syncobj::SyncobjPoint;
+use crate::vulkan_core::VulkanCoreError;
+use crate::vulkan_core::device::VulkanDeviceInf;
+use crate::vulkan_core::fence::VulkanDeviceFenceExt;
+use crate::vulkan_core::fence::VulkanFence;
+use crate::vulkan_core::timeline_semaphore::VulkanTimelineSemaphore;
+use ash::vk::Fence;
+use ash::vk::PipelineStageFlags2;
+use ash::vk::SemaphoreSubmitInfo;
+use ash::vk::SemaphoreWaitInfo;
+use ash::vk::SubmitInfo2;
+use std::rc::Rc;
+use std::slice;
 
 pub enum VulkanSync<D>
 where

@@ -1,11 +1,10 @@
-use {
-    crate::{
-        control_center::{ControlCenterInner, bool, grid, read_only_bool},
-        state::State,
-    },
-    egui::Ui,
-    std::rc::Rc,
-};
+use crate::control_center::ControlCenterInner;
+use crate::control_center::bool;
+use crate::control_center::grid;
+use crate::control_center::read_only_bool;
+use crate::state::State;
+use egui::Ui;
+use std::rc::Rc;
 
 pub struct ColorManagementPane {
     state: Rc<State>,

@@ -1,4 +1,6 @@
-use {libloading::os::unix::Library, std::sync::LazyLock, uapi::c};
+use libloading::os::unix::Library;
+use std::sync::LazyLock;
+use uapi::c;
 
 include!(concat!(env!("OUT_DIR"), "/libinput_tys.rs"));
 

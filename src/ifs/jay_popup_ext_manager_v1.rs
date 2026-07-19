@@ -1,17 +1,16 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wl_surface::xdg_surface::xdg_popup::jay_popup_ext_v1::{
-            JayPopupExtV1, JayPopupExtV1Error,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{JayPopupExtManagerV1Id, jay_popup_ext_manager_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::jay_popup_ext_v1::JayPopupExtV1;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::jay_popup_ext_v1::JayPopupExtV1Error;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::JayPopupExtManagerV1Id;
+use crate::wire::jay_popup_ext_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct JayPopupExtManagerV1Global {
     pub name: GlobalName,

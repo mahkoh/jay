@@ -1,11 +1,13 @@
-use {
-    crate::io_uring::{
-        IoUring, IoUringData, IoUringError, IoUringTaskId, Task,
-        pending_result::PendingResult,
-        sys::{IORING_OP_TIMEOUT, IORING_TIMEOUT_ABS, io_uring_sqe},
-    },
-    uapi::c,
-};
+use crate::io_uring::IoUring;
+use crate::io_uring::IoUringData;
+use crate::io_uring::IoUringError;
+use crate::io_uring::IoUringTaskId;
+use crate::io_uring::Task;
+use crate::io_uring::pending_result::PendingResult;
+use crate::io_uring::sys::IORING_OP_TIMEOUT;
+use crate::io_uring::sys::IORING_TIMEOUT_ABS;
+use crate::io_uring::sys::io_uring_sqe;
+use uapi::c;
 
 #[repr(C)]
 #[derive(Default)]

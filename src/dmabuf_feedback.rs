@@ -1,33 +1,32 @@
-use {
-    crate::{
-        backend::ConnectorId,
-        client::ClientId,
-        format::formats,
-        ifs::zwp_linux_dmabuf_feedback_v1::{FB_SAMPLING, FB_SCANOUT, ZwpLinuxDmabufFeedbackV1},
-        object::Version,
-        state::State,
-        utils::{
-            asyncevent::AsyncEvent,
-            bhash::BHashSet,
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
-            hash_map_ext::{HashMapExt, HashSetExt},
-            oserror::{OsError, OsErrorExt2},
-        },
-        video::Modifier,
-        wire::ZwpLinuxDmabufFeedbackV1Id,
-    },
-    byteorder::{NativeEndian, WriteBytesExt},
-    indexmap::IndexSet,
-    isnt::std_1::primitive::IsntSliceExt,
-    std::{
-        io::{self, Write},
-        rc::Rc,
-    },
-    thiserror::Error,
-    uapi::{OwnedFd, c},
-};
+use crate::backend::ConnectorId;
+use crate::client::ClientId;
+use crate::format::formats;
+use crate::ifs::zwp_linux_dmabuf_feedback_v1::FB_SAMPLING;
+use crate::ifs::zwp_linux_dmabuf_feedback_v1::FB_SCANOUT;
+use crate::ifs::zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1;
+use crate::object::Version;
+use crate::state::State;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::bhash::BHashSet;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::hash_map_ext::HashSetExt;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt2;
+use crate::video::Modifier;
+use crate::wire::ZwpLinuxDmabufFeedbackV1Id;
+use byteorder::NativeEndian;
+use byteorder::WriteBytesExt;
+use indexmap::IndexSet;
+use isnt::std_1::primitive::IsntSliceExt;
+use std::io::Write;
+use std::io::{self};
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c;
 
 #[derive(Debug, Error)]
 enum DmaBufFeedbackError {

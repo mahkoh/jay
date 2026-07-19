@@ -1,7 +1,11 @@
-use {
-    crate::dbus::{DbusError, DbusType, Formatter, Message, MethodCall, Parser},
-    std::{borrow::Cow, marker::PhantomData},
-};
+use crate::dbus::DbusError;
+use crate::dbus::DbusType;
+use crate::dbus::Formatter;
+use crate::dbus::Message;
+use crate::dbus::MethodCall;
+use crate::dbus::Parser;
+use std::borrow::Cow;
+use std::marker::PhantomData;
 
 #[derive(Debug)]
 pub struct Get<'a, T: DbusType<'static>> {

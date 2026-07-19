@@ -1,18 +1,19 @@
-use {
-    crate::{
-        gfx_apis::gl::{
-            RenderError,
-            egl::sys::{EGL_EXTENSIONS, EGLDisplay},
-            gl::sys::GL_EXTENSIONS,
-            proc::ExtProc,
-            sys::{EGL, EGL_DEVICE_EXT, EGL_TRUE, EGLDeviceEXT, GLESV2},
-        },
-        utils::bhash::BHashSet,
-    },
-    bstr::ByteSlice,
-    std::{ffi::CStr, ops::BitOrAssign, str},
-    uapi::c,
-};
+use crate::gfx_apis::gl::RenderError;
+use crate::gfx_apis::gl::egl::sys::EGL_EXTENSIONS;
+use crate::gfx_apis::gl::egl::sys::EGLDisplay;
+use crate::gfx_apis::gl::gl::sys::GL_EXTENSIONS;
+use crate::gfx_apis::gl::proc::ExtProc;
+use crate::gfx_apis::gl::sys::EGL;
+use crate::gfx_apis::gl::sys::EGL_DEVICE_EXT;
+use crate::gfx_apis::gl::sys::EGL_TRUE;
+use crate::gfx_apis::gl::sys::EGLDeviceEXT;
+use crate::gfx_apis::gl::sys::GLESV2;
+use crate::utils::bhash::BHashSet;
+use bstr::ByteSlice;
+use std::ffi::CStr;
+use std::ops::BitOrAssign;
+use std::str;
+use uapi::c;
 
 unsafe fn get_extensions(ext: *const c::c_char) -> Option<BHashSet<String>> {
     if ext.is_null() {

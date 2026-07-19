@@ -1,13 +1,14 @@
-use {
-    crate::{
-        backend::KeyState,
-        ifs::wl_seat::wl_keyboard,
-        it::{test_error::TestError, test_object::TestObject, test_transport::TestTransport},
-        wire::{ZwpVirtualKeyboardV1Id, zwp_virtual_keyboard_v1::*},
-    },
-    std::{cell::Cell, io::Write, rc::Rc},
-    uapi::c,
-};
+use crate::backend::KeyState;
+use crate::ifs::wl_seat::wl_keyboard;
+use crate::it::test_error::TestError;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::ZwpVirtualKeyboardV1Id;
+use crate::wire::zwp_virtual_keyboard_v1::*;
+use std::cell::Cell;
+use std::io::Write;
+use std::rc::Rc;
+use uapi::c;
 
 pub struct TestVirtualKeyboard {
     pub id: ZwpVirtualKeyboardV1Id,

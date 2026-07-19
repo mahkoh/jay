@@ -1,21 +1,23 @@
-use {
-    crate::{
-        backend::KeyState,
-        client::{Client, ClientError},
-        ifs::wl_seat::WlSeat,
-        keyboard::{KeyboardError, KeyboardState, KeyboardStateId},
-        leaks::Tracker,
-        object::{Object, Version},
-        utils::{errorfmt::ErrorFmt, vecset::VecSet},
-        wire::{WlKeyboardId, WlSurfaceId, wl_keyboard::*},
-    },
-    kbvm::Components,
-    std::{
-        cell::{Cell, RefCell},
-        rc::Rc,
-    },
-    thiserror::Error,
-};
+use crate::backend::KeyState;
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_seat::WlSeat;
+use crate::keyboard::KeyboardError;
+use crate::keyboard::KeyboardState;
+use crate::keyboard::KeyboardStateId;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::vecset::VecSet;
+use crate::wire::WlKeyboardId;
+use crate::wire::WlSurfaceId;
+use crate::wire::wl_keyboard::*;
+use kbvm::Components;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub const REPEAT_INFO_SINCE: Version = Version(4);
 pub const REPEATED_SINCE: Version = Version(10);

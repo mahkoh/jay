@@ -1,18 +1,23 @@
 //! Tools for IO operations.
 
-use {
-    crate::_private::PollableId,
-    futures_util::{AsyncWrite, io::AsyncRead},
-    std::{
-        future::poll_fn,
-        io::{self, ErrorKind, IoSlice, IoSliceMut, Read, Write},
-        os::fd::{AsFd, AsRawFd},
-        pin::Pin,
-        task::{Context, Poll, ready},
-    },
-    thiserror::Error,
-    uapi::c,
-};
+use crate::_private::PollableId;
+use futures_util::AsyncWrite;
+use futures_util::io::AsyncRead;
+use std::future::poll_fn;
+use std::io::ErrorKind;
+use std::io::IoSlice;
+use std::io::IoSliceMut;
+use std::io::Read;
+use std::io::Write;
+use std::io::{self};
+use std::os::fd::AsFd;
+use std::os::fd::AsRawFd;
+use std::pin::Pin;
+use std::task::Context;
+use std::task::Poll;
+use std::task::ready;
+use thiserror::Error;
+use uapi::c;
 
 #[derive(Debug, Error)]
 enum AsyncError {

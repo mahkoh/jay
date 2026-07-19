@@ -1,14 +1,15 @@
-use {
-    crate::{
-        ifs::wl_output::OutputIdHash, rect::Rect, sm::sm_wire::WireRect, tree::WorkspaceType,
-        utils::send_sync_rc::SendSyncRc,
-    },
-    bincode::{Deserializer, Options},
-    jay_config::_private::bincode_ops,
-    serde::{Deserialize, Serialize},
-    std::marker::PhantomData,
-    thiserror::Error,
-};
+use crate::ifs::wl_output::OutputIdHash;
+use crate::rect::Rect;
+use crate::sm::sm_wire::WireRect;
+use crate::tree::WorkspaceType;
+use crate::utils::send_sync_rc::SendSyncRc;
+use bincode::Deserializer;
+use bincode::Options;
+use jay_config::_private::bincode_ops;
+use serde::Deserialize;
+use serde::Serialize;
+use std::marker::PhantomData;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum DeserializeToplevelError {

@@ -1,12 +1,10 @@
-use {
-    crate::utils::ptr_ext::{MutPtrExt, PtrExt},
-    derivative::Derivative,
-    smallvec::SmallVec,
-    std::{
-        fmt::{Debug, Formatter},
-        mem,
-    },
-};
+use crate::utils::ptr_ext::MutPtrExt;
+use crate::utils::ptr_ext::PtrExt;
+use derivative::Derivative;
+use smallvec::SmallVec;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::mem;
 
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]

@@ -1,40 +1,50 @@
-use {
-    crate::{
-        backend::{BackendColorSpace, BackendEotfs},
-        cli::{
-            GlobalArgs,
-            json::{
-                JsonConnector, JsonDrmDevice, JsonMode, JsonOutput, JsonPrimaries, JsonRandrData,
-                JsonTearingMode, JsonVrrMode, jsonl,
-            },
-        },
-        cmm::cmm_primaries::Primaries,
-        format::{Format, XRGB8888},
-        gfx_api::ScalingFilter,
-        ifs::wl_output::BlendSpace,
-        scale::Scale,
-        tools::tool_client::{Handle, ToolClient, with_tool_client},
-        tree::Transform,
-        utils::{errorfmt::ErrorFmt, ordered_float::F64, static_text::StaticText},
-        wire::{JayRandrId, jay_compositor, jay_randr},
-    },
-    clap::{
-        Args, Subcommand, ValueEnum,
-        builder::{PossibleValue, PossibleValuesParser},
-    },
-    derivative::Derivative,
-    isnt::std_1::vec::IsntVecExt,
-    jay_config::video::{ScalingFilter as ConfigScalingFilter, TearingMode, VrrMode},
-    linearize::LinearizeExt,
-    std::{
-        cell::RefCell,
-        fmt::{self, Display, Formatter},
-        rc::Rc,
-        str::FromStr,
-        time::Duration,
-    },
-    thiserror::Error,
-};
+use crate::backend::BackendColorSpace;
+use crate::backend::BackendEotfs;
+use crate::cli::GlobalArgs;
+use crate::cli::json::JsonConnector;
+use crate::cli::json::JsonDrmDevice;
+use crate::cli::json::JsonMode;
+use crate::cli::json::JsonOutput;
+use crate::cli::json::JsonPrimaries;
+use crate::cli::json::JsonRandrData;
+use crate::cli::json::JsonTearingMode;
+use crate::cli::json::JsonVrrMode;
+use crate::cli::json::jsonl;
+use crate::cmm::cmm_primaries::Primaries;
+use crate::format::Format;
+use crate::format::XRGB8888;
+use crate::gfx_api::ScalingFilter;
+use crate::ifs::wl_output::BlendSpace;
+use crate::scale::Scale;
+use crate::tools::tool_client::Handle;
+use crate::tools::tool_client::ToolClient;
+use crate::tools::tool_client::with_tool_client;
+use crate::tree::Transform;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::ordered_float::F64;
+use crate::utils::static_text::StaticText;
+use crate::wire::JayRandrId;
+use crate::wire::jay_compositor;
+use crate::wire::jay_randr;
+use clap::Args;
+use clap::Subcommand;
+use clap::ValueEnum;
+use clap::builder::PossibleValue;
+use clap::builder::PossibleValuesParser;
+use derivative::Derivative;
+use isnt::std_1::vec::IsntVecExt;
+use jay_config::video::ScalingFilter as ConfigScalingFilter;
+use jay_config::video::TearingMode;
+use jay_config::video::VrrMode;
+use linearize::LinearizeExt;
+use std::cell::RefCell;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::{self};
+use std::rc::Rc;
+use std::str::FromStr;
+use std::time::Duration;
+use thiserror::Error;
 
 #[derive(Args, Debug)]
 pub struct RandrArgs {

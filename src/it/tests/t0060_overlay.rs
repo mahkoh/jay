@@ -1,10 +1,10 @@
-use {
-    crate::{
-        it::{test_error::TestError, test_utils::test_window::TestWindow, testrun::TestRun},
-        tree::{NodeBase, ToplevelNodeBase, TreeTimeline::LiveTL},
-    },
-    std::rc::Rc,
-};
+use crate::it::test_error::TestError;
+use crate::it::test_utils::test_window::TestWindow;
+use crate::it::testrun::TestRun;
+use crate::tree::NodeBase;
+use crate::tree::ToplevelNodeBase;
+use crate::tree::TreeTimeline::LiveTL;
+use std::rc::Rc;
 
 testcase!();
 

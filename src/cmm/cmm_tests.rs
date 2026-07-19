@@ -1,9 +1,11 @@
-use crate::cmm::{
-    cmm_eotf::Eotf, cmm_luminance::Luminance, cmm_manager::ColorManager, cmm_primaries::Primaries,
-};
+use crate::cmm::cmm_eotf::Eotf;
+use crate::cmm::cmm_luminance::Luminance;
+use crate::cmm::cmm_manager::ColorManager;
+use crate::cmm::cmm_primaries::Primaries;
 
 mod matrices {
-    use crate::{cmm::cmm_primaries::Primaries, utils::ordered_float::F64};
+    use crate::cmm::cmm_primaries::Primaries;
+    use crate::utils::ordered_float::F64;
 
     fn check(primaries: Primaries, expected: [[f64; 4]; 3]) {
         let (ltg, gtl) = primaries.matrices();
@@ -138,10 +140,11 @@ mod matrices {
 }
 
 mod transforms {
-    use crate::cmm::{
-        cmm_eotf::Eotf, cmm_luminance::Luminance, cmm_manager::ColorManager,
-        cmm_primaries::Primaries, cmm_render_intent::RenderIntent,
-    };
+    use crate::cmm::cmm_eotf::Eotf;
+    use crate::cmm::cmm_luminance::Luminance;
+    use crate::cmm::cmm_manager::ColorManager;
+    use crate::cmm::cmm_primaries::Primaries;
+    use crate::cmm::cmm_render_intent::RenderIntent;
 
     fn check(p1: Primaries, p2: Primaries, expected: [[f64; 4]; 3]) {
         let manager = ColorManager::new();

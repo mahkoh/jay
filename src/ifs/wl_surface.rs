@@ -23,119 +23,168 @@ pub mod zwlr_layer_surface_v1;
 pub mod zwp_idle_inhibitor_v1;
 pub mod zwp_input_popup_surface_v2;
 
-use {
-    crate::{
-        backend::{ButtonState, KeyState},
-        client::{Client, ClientError},
-        cmm::{cmm_description::ColorDescription, cmm_render_intent::RenderIntent},
-        configurable::ConfigurableDataCore,
-        cursor_user::{CursorUser, CursorUserId},
-        damage::DamageMatrix,
-        dmabuf_feedback::DmaBufFeedback,
-        fixed::Fixed,
-        gfx_api::{
-            AlphaMode, AsyncShmGfxTexture, BufferResv, BufferResvUser, FdSync, GfxError,
-            GfxStagingBuffer, ReleaseSync, SampleRect, SyncFile,
-        },
-        ifs::{
-            color_management::wp_color_management_surface_feedback_v1::WpColorManagementSurfaceFeedbackV1,
-            wl_buffer::AttachedBuffer,
-            wl_callback::WlCallback,
-            wl_seat::{
-                Dnd, NodeSeatState, SeatId, WlSeatGlobal,
-                tablet::{
-                    PadButtonState, TabletPad, TabletPadDial, TabletPadGroup, TabletPadRing,
-                    TabletPadStrip, TabletRingEventSource, TabletStripEventSource, TabletTool,
-                    TabletToolChanges, ToolButtonState,
-                },
-                text_input::TextInputConnection,
-                wl_pointer::PendingScroll,
-                zwp_pointer_constraints_v1::SeatConstraint,
-            },
-            wl_surface::{
-                commit_timeline::{ClearReason, CommitTimeline, CommitTimelineError},
-                cursor::CursorSurface,
-                dnd_icon::DndIcon,
-                jay_sync_file_release::SyncFileRelease,
-                prime::{PrimeError, PrimeSurfaceBuffer, SurfacePrimeState},
-                tray::TrayItemId,
-                wl_subsurface::{PendingSubsurfaceData, SubsurfaceId, WlSubsurface},
-                wp_alpha_modifier_surface_v1::WpAlphaModifierSurfaceV1,
-                wp_color_representation_surface_v1::WpColorRepresentationSurfaceV1,
-                wp_commit_timer_v1::WpCommitTimerV1,
-                wp_fifo_v1::WpFifoV1,
-                wp_fractional_scale_v1::WpFractionalScaleV1,
-                wp_linux_drm_syncobj_surface_v1::WpLinuxDrmSyncobjSurfaceV1,
-                wp_tearing_control_v1::WpTearingControlV1,
-                wp_viewport::WpViewport,
-                x_surface::{XSurface, xwindow::Xwindow},
-                xdg_surface::{
-                    PendingXdgSurfaceData, XdgSurfaceError,
-                    xdg_toplevel::{XdgToplevel, XdgToplevelError},
-                },
-                zwlr_layer_surface_v1::{PendingLayerSurfaceData, ZwlrLayerSurfaceV1Error},
-            },
-            wp_content_type_v1::ContentType,
-            wp_presentation_feedback::PresentationFeedback,
-            zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
-        },
-        io_uring::IoUringError,
-        keyboard::KeyboardState,
-        leaks::Tracker,
-        object::{Object, Version},
-        rect::{DamageQueue, Rect, Region},
-        renderer::Renderer,
-        state::{ConnectorData, State},
-        transactions::{SurfaceTransaction, TransactionData, Transactionable, TransactionableExt},
-        tree::{
-            BeforeLatchListener, BeforeLatchResult, ContainerNode, FindTreeResult, FoundNode,
-            LatchListener, Node, NodeBase, NodeId, NodeLayerLink, NodeLocation, NodeVisitor,
-            NodeVisitorBase, OutputNode, PlaceholderNode, PresentationListener, SplitView,
-            ToplevelNode, Transform, TreeSerial,
-            TreeTimeline::{self, LiveTL, RenderTL},
-            VblankListener, WorkspaceNode,
-        },
-        utils::{
-            bhash::BHashMap,
-            box_cache::{BoxCache, BoxReset, CachedBox},
-            cell_ext::CellExt,
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            double_buffered::DoubleBuffered,
-            errorfmt::ErrorFmt,
-            event_listener::EventListener,
-            linkedlist::LinkedList,
-            numcell::NumCell,
-            obj_and_id::{ObjAndId, ObjWithId},
-            reset::Reset,
-            smallmap::SmallMap,
-        },
-        video::{
-            dmabuf::{ChainedCopyError, DMA_BUF_SYNC_READ},
-            drm::syncobj::{Syncobj, SyncobjPoint, merge_sync_files},
-        },
-        wire::{
-            WlOutputId, WlSurfaceId, WpColorManagementSurfaceFeedbackV1Id, ZwpIdleInhibitorV1Id,
-            ZwpLinuxDmabufFeedbackV1Id, wl_surface::*,
-        },
-        xwayland::XWaylandEvent,
-    },
-    hashbrown::hash_map::{Entry, OccupiedEntry},
-    isnt::std_1::{primitive::IsntSliceExt, vec::IsntVecExt},
-    jay_proc::Reset,
-    linearize::LinearizeExt,
-    smallvec::SmallVec,
-    std::{
-        cell::{Cell, RefCell},
-        fmt::{Debug, Formatter},
-        mem,
-        ops::{Deref, DerefMut},
-        rc::{Rc, Weak},
-    },
-    thiserror::Error,
-    wp_color_management_surface_v1::WpColorManagementSurfaceV1,
-    zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1,
-};
+use crate::backend::ButtonState;
+use crate::backend::KeyState;
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::cmm::cmm_description::ColorDescription;
+use crate::cmm::cmm_render_intent::RenderIntent;
+use crate::configurable::ConfigurableDataCore;
+use crate::cursor_user::CursorUser;
+use crate::cursor_user::CursorUserId;
+use crate::damage::DamageMatrix;
+use crate::dmabuf_feedback::DmaBufFeedback;
+use crate::fixed::Fixed;
+use crate::gfx_api::AlphaMode;
+use crate::gfx_api::AsyncShmGfxTexture;
+use crate::gfx_api::BufferResv;
+use crate::gfx_api::BufferResvUser;
+use crate::gfx_api::FdSync;
+use crate::gfx_api::GfxError;
+use crate::gfx_api::GfxStagingBuffer;
+use crate::gfx_api::ReleaseSync;
+use crate::gfx_api::SampleRect;
+use crate::gfx_api::SyncFile;
+use crate::ifs::color_management::wp_color_management_surface_feedback_v1::WpColorManagementSurfaceFeedbackV1;
+use crate::ifs::wl_buffer::AttachedBuffer;
+use crate::ifs::wl_callback::WlCallback;
+use crate::ifs::wl_seat::Dnd;
+use crate::ifs::wl_seat::NodeSeatState;
+use crate::ifs::wl_seat::SeatId;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::tablet::PadButtonState;
+use crate::ifs::wl_seat::tablet::TabletPad;
+use crate::ifs::wl_seat::tablet::TabletPadDial;
+use crate::ifs::wl_seat::tablet::TabletPadGroup;
+use crate::ifs::wl_seat::tablet::TabletPadRing;
+use crate::ifs::wl_seat::tablet::TabletPadStrip;
+use crate::ifs::wl_seat::tablet::TabletRingEventSource;
+use crate::ifs::wl_seat::tablet::TabletStripEventSource;
+use crate::ifs::wl_seat::tablet::TabletTool;
+use crate::ifs::wl_seat::tablet::TabletToolChanges;
+use crate::ifs::wl_seat::tablet::ToolButtonState;
+use crate::ifs::wl_seat::text_input::TextInputConnection;
+use crate::ifs::wl_seat::wl_pointer::PendingScroll;
+use crate::ifs::wl_seat::zwp_pointer_constraints_v1::SeatConstraint;
+use crate::ifs::wl_surface::commit_timeline::ClearReason;
+use crate::ifs::wl_surface::commit_timeline::CommitTimeline;
+use crate::ifs::wl_surface::commit_timeline::CommitTimelineError;
+use crate::ifs::wl_surface::cursor::CursorSurface;
+use crate::ifs::wl_surface::dnd_icon::DndIcon;
+use crate::ifs::wl_surface::jay_sync_file_release::SyncFileRelease;
+use crate::ifs::wl_surface::prime::PrimeError;
+use crate::ifs::wl_surface::prime::PrimeSurfaceBuffer;
+use crate::ifs::wl_surface::prime::SurfacePrimeState;
+use crate::ifs::wl_surface::tray::TrayItemId;
+use crate::ifs::wl_surface::wl_subsurface::PendingSubsurfaceData;
+use crate::ifs::wl_surface::wl_subsurface::SubsurfaceId;
+use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
+use crate::ifs::wl_surface::wp_alpha_modifier_surface_v1::WpAlphaModifierSurfaceV1;
+use crate::ifs::wl_surface::wp_color_representation_surface_v1::WpColorRepresentationSurfaceV1;
+use crate::ifs::wl_surface::wp_commit_timer_v1::WpCommitTimerV1;
+use crate::ifs::wl_surface::wp_fifo_v1::WpFifoV1;
+use crate::ifs::wl_surface::wp_fractional_scale_v1::WpFractionalScaleV1;
+use crate::ifs::wl_surface::wp_linux_drm_syncobj_surface_v1::WpLinuxDrmSyncobjSurfaceV1;
+use crate::ifs::wl_surface::wp_tearing_control_v1::WpTearingControlV1;
+use crate::ifs::wl_surface::wp_viewport::WpViewport;
+use crate::ifs::wl_surface::x_surface::XSurface;
+use crate::ifs::wl_surface::x_surface::xwindow::Xwindow;
+use crate::ifs::wl_surface::xdg_surface::PendingXdgSurfaceData;
+use crate::ifs::wl_surface::xdg_surface::XdgSurfaceError;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevelError;
+use crate::ifs::wl_surface::zwlr_layer_surface_v1::PendingLayerSurfaceData;
+use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error;
+use crate::ifs::wp_content_type_v1::ContentType;
+use crate::ifs::wp_presentation_feedback::PresentationFeedback;
+use crate::ifs::zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1;
+use crate::io_uring::IoUringError;
+use crate::keyboard::KeyboardState;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::rect::DamageQueue;
+use crate::rect::Rect;
+use crate::rect::Region;
+use crate::renderer::Renderer;
+use crate::state::ConnectorData;
+use crate::state::State;
+use crate::transactions::SurfaceTransaction;
+use crate::transactions::TransactionData;
+use crate::transactions::Transactionable;
+use crate::transactions::TransactionableExt;
+use crate::tree::BeforeLatchListener;
+use crate::tree::BeforeLatchResult;
+use crate::tree::ContainerNode;
+use crate::tree::FindTreeResult;
+use crate::tree::FoundNode;
+use crate::tree::LatchListener;
+use crate::tree::Node;
+use crate::tree::NodeBase;
+use crate::tree::NodeId;
+use crate::tree::NodeLayerLink;
+use crate::tree::NodeLocation;
+use crate::tree::NodeVisitor;
+use crate::tree::NodeVisitorBase;
+use crate::tree::OutputNode;
+use crate::tree::PlaceholderNode;
+use crate::tree::PresentationListener;
+use crate::tree::SplitView;
+use crate::tree::ToplevelNode;
+use crate::tree::Transform;
+use crate::tree::TreeSerial;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::tree::TreeTimeline::{self};
+use crate::tree::VblankListener;
+use crate::tree::WorkspaceNode;
+use crate::utils::bhash::BHashMap;
+use crate::utils::box_cache::BoxCache;
+use crate::utils::box_cache::BoxReset;
+use crate::utils::box_cache::CachedBox;
+use crate::utils::cell_ext::CellExt;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::double_buffered::DoubleBuffered;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::event_listener::EventListener;
+use crate::utils::linkedlist::LinkedList;
+use crate::utils::numcell::NumCell;
+use crate::utils::obj_and_id::ObjAndId;
+use crate::utils::obj_and_id::ObjWithId;
+use crate::utils::reset::Reset;
+use crate::utils::smallmap::SmallMap;
+use crate::video::dmabuf::ChainedCopyError;
+use crate::video::dmabuf::DMA_BUF_SYNC_READ;
+use crate::video::drm::syncobj::Syncobj;
+use crate::video::drm::syncobj::SyncobjPoint;
+use crate::video::drm::syncobj::merge_sync_files;
+use crate::wire::WlOutputId;
+use crate::wire::WlSurfaceId;
+use crate::wire::WpColorManagementSurfaceFeedbackV1Id;
+use crate::wire::ZwpIdleInhibitorV1Id;
+use crate::wire::ZwpLinuxDmabufFeedbackV1Id;
+use crate::wire::wl_surface::*;
+use crate::xwayland::XWaylandEvent;
+use hashbrown::hash_map::Entry;
+use hashbrown::hash_map::OccupiedEntry;
+use isnt::std_1::primitive::IsntSliceExt;
+use isnt::std_1::vec::IsntVecExt;
+use jay_proc::Reset;
+use linearize::LinearizeExt;
+use smallvec::SmallVec;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::mem;
+use std::ops::Deref;
+use std::ops::DerefMut;
+use std::rc::Rc;
+use std::rc::Weak;
+use thiserror::Error;
+use wp_color_management_surface_v1::WpColorManagementSurfaceV1;
+use zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1;
 
 #[expect(dead_code)]
 const INVALID_SCALE: u32 = 0;

@@ -1,44 +1,54 @@
 pub mod tlm_matchers;
 
-use {
-    crate::{
-        criteria::{
-            CritDestroyListener, CritLiteralOrRegex, CritMatcherId, CritMatcherIds, CritMgrExt,
-            CritUpstreamNode, FixedRootMatcher, RootMatcherMap,
-            clm::ClmUpstreamNode,
-            crit_graph::{
-                CritMgr, CritRoot, CritRootFixed, CritTarget, CritTargetOwner, WeakCritTargetOwner,
-            },
-            crit_leaf::{CritLeafEvent, CritLeafMatcher},
-            crit_matchers::critm_constant::CritMatchConstant,
-            tlm::tlm_matchers::{
-                tlmm_client::TlmMatchClient,
-                tlmm_content_type::TlmMatchContentType,
-                tlmm_floating::TlmMatchFloating,
-                tlmm_fullscreen::TlmMatchFullscreen,
-                tlmm_just_mapped::TlmMatchJustMapped,
-                tlmm_kind::TlmMatchKind,
-                tlmm_seat_focus::TlmMatchSeatFocus,
-                tlmm_string::{
-                    TlmMatchAppId, TlmMatchClass, TlmMatchInstance, TlmMatchRole, TlmMatchTag,
-                    TlmMatchTitle, TlmMatchWorkspace,
-                },
-                tlmm_urgent::TlmMatchUrgent,
-                tlmm_visible::TlmMatchVisible,
-            },
-        },
-        ifs::wl_seat::WlSeatGlobal,
-        state::State,
-        tree::{NodeId, ToplevelData, ToplevelIdentifier, ToplevelNode},
-        utils::{copyhashmap::CopyHashMap, hash_map_ext::HashMapExt, queue::AsyncQueue},
-    },
-    jay_config::window::{ContentType, WindowType},
-    linearize::static_map,
-    std::{
-        marker::PhantomData,
-        rc::{Rc, Weak},
-    },
-};
+use crate::criteria::CritDestroyListener;
+use crate::criteria::CritLiteralOrRegex;
+use crate::criteria::CritMatcherId;
+use crate::criteria::CritMatcherIds;
+use crate::criteria::CritMgrExt;
+use crate::criteria::CritUpstreamNode;
+use crate::criteria::FixedRootMatcher;
+use crate::criteria::RootMatcherMap;
+use crate::criteria::clm::ClmUpstreamNode;
+use crate::criteria::crit_graph::CritMgr;
+use crate::criteria::crit_graph::CritRoot;
+use crate::criteria::crit_graph::CritRootFixed;
+use crate::criteria::crit_graph::CritTarget;
+use crate::criteria::crit_graph::CritTargetOwner;
+use crate::criteria::crit_graph::WeakCritTargetOwner;
+use crate::criteria::crit_leaf::CritLeafEvent;
+use crate::criteria::crit_leaf::CritLeafMatcher;
+use crate::criteria::crit_matchers::critm_constant::CritMatchConstant;
+use crate::criteria::tlm::tlm_matchers::tlmm_client::TlmMatchClient;
+use crate::criteria::tlm::tlm_matchers::tlmm_content_type::TlmMatchContentType;
+use crate::criteria::tlm::tlm_matchers::tlmm_floating::TlmMatchFloating;
+use crate::criteria::tlm::tlm_matchers::tlmm_fullscreen::TlmMatchFullscreen;
+use crate::criteria::tlm::tlm_matchers::tlmm_just_mapped::TlmMatchJustMapped;
+use crate::criteria::tlm::tlm_matchers::tlmm_kind::TlmMatchKind;
+use crate::criteria::tlm::tlm_matchers::tlmm_seat_focus::TlmMatchSeatFocus;
+use crate::criteria::tlm::tlm_matchers::tlmm_string::TlmMatchAppId;
+use crate::criteria::tlm::tlm_matchers::tlmm_string::TlmMatchClass;
+use crate::criteria::tlm::tlm_matchers::tlmm_string::TlmMatchInstance;
+use crate::criteria::tlm::tlm_matchers::tlmm_string::TlmMatchRole;
+use crate::criteria::tlm::tlm_matchers::tlmm_string::TlmMatchTag;
+use crate::criteria::tlm::tlm_matchers::tlmm_string::TlmMatchTitle;
+use crate::criteria::tlm::tlm_matchers::tlmm_string::TlmMatchWorkspace;
+use crate::criteria::tlm::tlm_matchers::tlmm_urgent::TlmMatchUrgent;
+use crate::criteria::tlm::tlm_matchers::tlmm_visible::TlmMatchVisible;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::state::State;
+use crate::tree::NodeId;
+use crate::tree::ToplevelData;
+use crate::tree::ToplevelIdentifier;
+use crate::tree::ToplevelNode;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::queue::AsyncQueue;
+use jay_config::window::ContentType;
+use jay_config::window::WindowType;
+use linearize::static_map;
+use std::marker::PhantomData;
+use std::rc::Rc;
+use std::rc::Weak;
 
 bitflags! {
     TlMatcherChange: u32;

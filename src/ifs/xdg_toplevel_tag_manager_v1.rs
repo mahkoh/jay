@@ -1,16 +1,16 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        criteria::tlm::TL_CHANGED_TAG,
-        globals::{Global, GlobalName},
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::ToplevelNodeBase,
-        wire::{XdgToplevelTagManagerV1Id, xdg_toplevel_tag_manager_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::criteria::tlm::TL_CHANGED_TAG;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::ToplevelNodeBase;
+use crate::wire::XdgToplevelTagManagerV1Id;
+use crate::wire::xdg_toplevel_tag_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct XdgToplevelTagManagerV1Global {
     name: GlobalName,

@@ -1,32 +1,56 @@
-use {
-    crate::{
-        backend::{InputDeviceCapability, InputDeviceId, InputDeviceScrollMethod},
-        control_center::{
-            ControlCenterInner, GridExt, PaneState, bool, bool_ui, combo_box, combo_box_filtered,
-            combo_box_ui, drag_value, drag_value_ui, grid, grid_label, grid_label_ui, label, row,
-            text_edit, tip,
-        },
-        egui_adapter::egui_platform::icons::ICON_PENDING,
-        evdev::input_event_codes::InputEventCode,
-        ifs::{
-            wl_output::WlOutputGlobal,
-            wl_seat::{SeatId, WlSeatGlobal},
-        },
-        kbvm::KbvmMap,
-        state::{DeviceHandlerData, State},
-        utils::{bhash::BHashMap, errorfmt::ErrorFmt, static_text::StaticText},
-    },
-    egui::{
-        CollapsingHeader, ComboBox, DragValue, Event, Grid, Id, TextBuffer, TextFormat, Ui,
-        UiBuilder, ViewportCommand, Widget, emath::Numeric, text::LayoutJob,
-    },
-    isnt::std_1::string::IsntStringExt,
-    jay_config::keyboard::syms::KeySym,
-    kbvm::{GroupIndex, Keysym},
-    linearize::LinearizeExt,
-    rand::random,
-    std::{mem, rc::Rc},
-};
+use crate::backend::InputDeviceCapability;
+use crate::backend::InputDeviceId;
+use crate::backend::InputDeviceScrollMethod;
+use crate::control_center::ControlCenterInner;
+use crate::control_center::GridExt;
+use crate::control_center::PaneState;
+use crate::control_center::bool;
+use crate::control_center::bool_ui;
+use crate::control_center::combo_box;
+use crate::control_center::combo_box_filtered;
+use crate::control_center::combo_box_ui;
+use crate::control_center::drag_value;
+use crate::control_center::drag_value_ui;
+use crate::control_center::grid;
+use crate::control_center::grid_label;
+use crate::control_center::grid_label_ui;
+use crate::control_center::label;
+use crate::control_center::row;
+use crate::control_center::text_edit;
+use crate::control_center::tip;
+use crate::egui_adapter::egui_platform::icons::ICON_PENDING;
+use crate::evdev::input_event_codes::InputEventCode;
+use crate::ifs::wl_output::WlOutputGlobal;
+use crate::ifs::wl_seat::SeatId;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::kbvm::KbvmMap;
+use crate::state::DeviceHandlerData;
+use crate::state::State;
+use crate::utils::bhash::BHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::static_text::StaticText;
+use egui::CollapsingHeader;
+use egui::ComboBox;
+use egui::DragValue;
+use egui::Event;
+use egui::Grid;
+use egui::Id;
+use egui::TextBuffer;
+use egui::TextFormat;
+use egui::Ui;
+use egui::UiBuilder;
+use egui::ViewportCommand;
+use egui::Widget;
+use egui::emath::Numeric;
+use egui::text::LayoutJob;
+use isnt::std_1::string::IsntStringExt;
+use jay_config::keyboard::syms::KeySym;
+use kbvm::GroupIndex;
+use kbvm::Keysym;
+use linearize::LinearizeExt;
+use rand::random;
+use std::mem;
+use std::rc::Rc;
 
 pub struct InputPane {
     state: Rc<State>,

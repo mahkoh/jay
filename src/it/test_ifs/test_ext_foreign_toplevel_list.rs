@@ -1,20 +1,15 @@
-use {
-    crate::{
-        it::{
-            test_error::{TestError, TestResult},
-            test_ifs::test_ext_foreign_toplevel_handle::TestExtForeignToplevelHandle,
-            test_object::TestObject,
-            test_transport::TestTransport,
-            testrun::ParseFull,
-        },
-        utils::buffd::MsgParser,
-        wire::{ExtForeignToplevelListV1Id, ext_foreign_toplevel_list_v1::*},
-    },
-    std::{
-        cell::{Cell, RefCell},
-        rc::Rc,
-    },
-};
+use crate::it::test_error::TestError;
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_ext_foreign_toplevel_handle::TestExtForeignToplevelHandle;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::testrun::ParseFull;
+use crate::utils::buffd::MsgParser;
+use crate::wire::ExtForeignToplevelListV1Id;
+use crate::wire::ext_foreign_toplevel_list_v1::*;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct TestExtForeignToplevelList {
     pub id: ExtForeignToplevelListV1Id,

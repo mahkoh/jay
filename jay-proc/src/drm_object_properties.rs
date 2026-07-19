@@ -1,13 +1,16 @@
-use {
-    proc_macro2::{Ident, Span},
-    quote::{quote, quote_spanned},
-    syn::{
-        Error, Generics, Item, ItemStruct, LitStr,
-        parse::{Parse, ParseStream},
-        parse_macro_input,
-        spanned::Spanned,
-    },
-};
+use proc_macro2::Ident;
+use proc_macro2::Span;
+use quote::quote;
+use quote::quote_spanned;
+use syn::Error;
+use syn::Generics;
+use syn::Item;
+use syn::ItemStruct;
+use syn::LitStr;
+use syn::parse::Parse;
+use syn::parse::ParseStream;
+use syn::parse_macro_input;
+use syn::spanned::Spanned;
 
 pub fn derive_prepare_drm_object_properties(
     input: proc_macro::TokenStream,

@@ -1,10 +1,9 @@
-use {
-    crate::utils::{
-        numcell::NumCell,
-        ptr_ext::{MutPtrExt, PtrExt},
-    },
-    std::{cell::UnsafeCell, mem, ops::Deref},
-};
+use crate::utils::numcell::NumCell;
+use crate::utils::ptr_ext::MutPtrExt;
+use crate::utils::ptr_ext::PtrExt;
+use std::cell::UnsafeCell;
+use std::mem;
+use std::ops::Deref;
 
 pub struct RefCounted<T> {
     map: UnsafeCell<Vec<(T, usize)>>,

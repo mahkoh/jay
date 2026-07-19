@@ -1,18 +1,15 @@
-use {
-    crate::{
-        it::{
-            test_error::{TestError, TestResult},
-            test_object::TestObject,
-            test_transport::TestTransport,
-            test_utils::test_expected_event::TEEH,
-            testrun::ParseFull,
-        },
-        utils::buffd::MsgParser,
-        wire::{ZwlrDataControlSourceV1Id, zwlr_data_control_source_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    uapi::OwnedFd,
-};
+use crate::it::test_error::TestError;
+use crate::it::test_error::TestResult;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::test_utils::test_expected_event::TEEH;
+use crate::it::testrun::ParseFull;
+use crate::utils::buffd::MsgParser;
+use crate::wire::ZwlrDataControlSourceV1Id;
+use crate::wire::zwlr_data_control_source_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 pub struct TestDataControlSource {
     pub id: ZwlrDataControlSourceV1Id,

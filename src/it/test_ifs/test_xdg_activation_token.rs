@@ -1,14 +1,12 @@
-use {
-    crate::{
-        it::{
-            test_error::TestError, test_object::TestObject, test_transport::TestTransport,
-            testrun::ParseFull,
-        },
-        utils::buffd::MsgParser,
-        wire::{XdgActivationTokenV1Id, xdg_activation_token_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestError;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::testrun::ParseFull;
+use crate::utils::buffd::MsgParser;
+use crate::wire::XdgActivationTokenV1Id;
+use crate::wire::xdg_activation_token_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestXdgActivationToken {
     pub id: XdgActivationTokenV1Id,

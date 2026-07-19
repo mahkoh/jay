@@ -1,8 +1,8 @@
-use std::{
-    borrow::Borrow,
-    fmt::{Debug, Formatter},
-    hash::{Hash, Hasher},
-};
+use std::borrow::Borrow;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::hash::Hash;
+use std::hash::Hasher;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct Span {

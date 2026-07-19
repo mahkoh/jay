@@ -1,23 +1,24 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        format::formats,
-        gfx_api::GfxError,
-        globals::{Global, GlobalName},
-        ifs::wl_buffer::WlBuffer,
-        leaks::Tracker,
-        object::{Object, Version},
-        state::State,
-        video::{
-            INVALID_MODIFIER,
-            dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
-        },
-        wire::{WlDrmId, wl_drm::*},
-    },
-    bstr::ByteSlice,
-    std::{ffi::CString, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::format::formats;
+use crate::gfx_api::GfxError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_buffer::WlBuffer;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::state::State;
+use crate::video::INVALID_MODIFIER;
+use crate::video::dmabuf::DmaBuf;
+use crate::video::dmabuf::DmaBufPlane;
+use crate::video::dmabuf::PlaneVec;
+use crate::wire::WlDrmId;
+use crate::wire::wl_drm::*;
+use bstr::ByteSlice;
+use std::ffi::CString;
+use std::rc::Rc;
+use thiserror::Error;
 
 const PRIME: u32 = 1;
 

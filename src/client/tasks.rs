@@ -1,17 +1,19 @@
-use {
-    crate::{
-        async_engine::Phase,
-        client::{Client, ClientError},
-        utils::{
-            buffd::{BufFdOut, MsgParser, WlBufFdIn, WlMessage},
-            errorfmt::ErrorFmt,
-        },
-    },
-    futures_util::{FutureExt, select},
-    run_on_drop::on_drop,
-    std::{collections::VecDeque, mem, rc::Rc, time::Duration},
-    uapi::c,
-};
+use crate::async_engine::Phase;
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::utils::buffd::BufFdOut;
+use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::WlBufFdIn;
+use crate::utils::buffd::WlMessage;
+use crate::utils::errorfmt::ErrorFmt;
+use futures_util::FutureExt;
+use futures_util::select;
+use run_on_drop::on_drop;
+use std::collections::VecDeque;
+use std::mem;
+use std::rc::Rc;
+use std::time::Duration;
+use uapi::c;
 
 pub async fn client(data: Rc<Client>) {
     let mut recv = data

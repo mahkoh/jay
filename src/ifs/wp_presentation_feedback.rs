@@ -1,14 +1,15 @@
-use {
-    crate::{
-        client::Client,
-        ifs::{wl_output::WlOutput, wl_surface::WlSurface},
-        leaks::Tracker,
-        object::{Object, Version},
-        utils::bhash::BHashMap,
-        wire::{WlOutputId, WpPresentationFeedbackId, wp_presentation_feedback::*},
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::client::Client;
+use crate::ifs::wl_output::WlOutput;
+use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::utils::bhash::BHashMap;
+use crate::wire::WlOutputId;
+use crate::wire::WpPresentationFeedbackId;
+use crate::wire::wp_presentation_feedback::*;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct PresentationFeedback {
     fb: Option<Rc<WpPresentationFeedback>>,

@@ -1,19 +1,19 @@
-use {
-    crate::{
-        cmm::{
-            cmm_description::{
-                ColorDescription, ColorDescriptionIds, LinearColorDescription,
-                LinearColorDescriptionId, LinearColorDescriptionIds,
-            },
-            cmm_eotf::Eotf,
-            cmm_luminance::{Luminance, TargetLuminance},
-            cmm_primaries::{NamedPrimaries, Primaries},
-        },
-        utils::{copyhashmap::CopyHashMap, numcell::NumCell, ordered_float::F64},
-    },
-    jay_proc::jay_hash,
-    std::rc::{Rc, Weak},
-};
+use crate::cmm::cmm_description::ColorDescription;
+use crate::cmm::cmm_description::ColorDescriptionIds;
+use crate::cmm::cmm_description::LinearColorDescription;
+use crate::cmm::cmm_description::LinearColorDescriptionId;
+use crate::cmm::cmm_description::LinearColorDescriptionIds;
+use crate::cmm::cmm_eotf::Eotf;
+use crate::cmm::cmm_luminance::Luminance;
+use crate::cmm::cmm_luminance::TargetLuminance;
+use crate::cmm::cmm_primaries::NamedPrimaries;
+use crate::cmm::cmm_primaries::Primaries;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::numcell::NumCell;
+use crate::utils::ordered_float::F64;
+use jay_proc::jay_hash;
+use std::rc::Rc;
+use std::rc::Weak;
 
 pub struct ColorManager {
     linear_ids: LinearColorDescriptionIds,

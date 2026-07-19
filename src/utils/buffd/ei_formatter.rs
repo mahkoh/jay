@@ -1,11 +1,11 @@
-use {
-    crate::{
-        ei::ei_object::EiObjectId,
-        utils::buffd::buf_out::{MsgFds, OUT_BUF_SIZE, OutBuffer, OutBufferMeta},
-    },
-    std::{mem, rc::Rc},
-    uapi::OwnedFd,
-};
+use crate::ei::ei_object::EiObjectId;
+use crate::utils::buffd::buf_out::MsgFds;
+use crate::utils::buffd::buf_out::OUT_BUF_SIZE;
+use crate::utils::buffd::buf_out::OutBuffer;
+use crate::utils::buffd::buf_out::OutBufferMeta;
+use std::mem;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 pub struct EiMsgFormatter<'a> {
     buf: &'a mut [u8],

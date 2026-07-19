@@ -1,10 +1,7 @@
-use {
-    crate::{
-        it::{test_error::TestError, testrun::TestRun},
-        rect::Rect,
-    },
-    std::rc::Rc,
-};
+use crate::it::test_error::TestError;
+use crate::it::testrun::TestRun;
+use crate::rect::Rect;
+use std::rc::Rc;
 
 testcase!();
 

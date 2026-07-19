@@ -1,23 +1,22 @@
-use {
-    crate::{
-        pr_caps::sys::{
-            _LINUX_CAPABILITY_U32S_3, _LINUX_CAPABILITY_VERSION_3, CAP_SYS_NICE, cap_user_data_t,
-            cap_user_header_t,
-        },
-        utils::{bitflags::BitflagsExt, errorfmt::ErrorFmt, oserror::OsErrorExt},
-    },
-    opera::PhantomNotSend,
-    parking_lot::{Condvar, Mutex},
-    std::{
-        mem,
-        sync::Arc,
-        thread::{self, JoinHandle},
-    },
-    uapi::{
-        c::{SYS_capget, SYS_capset, syscall},
-        map_err,
-    },
-};
+use crate::pr_caps::sys::_LINUX_CAPABILITY_U32S_3;
+use crate::pr_caps::sys::_LINUX_CAPABILITY_VERSION_3;
+use crate::pr_caps::sys::CAP_SYS_NICE;
+use crate::pr_caps::sys::cap_user_data_t;
+use crate::pr_caps::sys::cap_user_header_t;
+use crate::utils::bitflags::BitflagsExt;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::oserror::OsErrorExt;
+use opera::PhantomNotSend;
+use parking_lot::Condvar;
+use parking_lot::Mutex;
+use std::mem;
+use std::sync::Arc;
+use std::thread::JoinHandle;
+use std::thread::{self};
+use uapi::c::SYS_capget;
+use uapi::c::SYS_capset;
+use uapi::c::syscall;
+use uapi::map_err;
 
 pub struct PrCaps {
     effective: u64,

@@ -1,75 +1,97 @@
-use {
-    crate::{
-        allocator::BufferObject,
-        backend::DrmDeviceId,
-        eventfd_cache::EventfdCache,
-        format::XRGB8888,
-        gfx_apis::vulkan::{
-            VulkanError,
-            descriptor_heap::DescriptorHeapType,
-            format::{VulkanBlendBufferLimits, VulkanFormat},
-            instance::VulkanInstance,
-        },
-        syncobj::SyncobjCtx,
-        utils::{
-            bhash::BHashMap,
-            bitflags::BitflagsExt,
-            hash_map_ext::HashMapExt,
-            major_minor::{MajorMinor, major_minor},
-            oserror::OsErrorExt2,
-            page_alloc::PageAllocCtx,
-        },
-        video::{
-            dmabuf::DmaBufIds,
-            drm::Drm,
-            gbm::{GBM_BO_USE_RENDERING, GbmDevice},
-        },
-        vulkan_core::{
-            ApiVersionDisplay, Extensions, VULKAN_API_VERSION, VulkanCoreInstance,
-            device::VulkanDeviceInf, map_extension_properties,
-        },
-    },
-    arrayvec::ArrayVec,
-    ash::{
-        Device,
-        ext::{
-            descriptor_buffer, descriptor_heap, external_memory_dma_buf, image_drm_format_modifier,
-            physical_device_drm, queue_family_foreign,
-        },
-        khr::{
-            self, driver_properties, external_fence_fd, external_memory_fd, external_semaphore_fd,
-            maintenance5, push_descriptor,
-        },
-        vk::{
-            self, CommandBuffer, DeviceCreateInfo, DeviceQueueCreateInfo,
-            DeviceQueueGlobalPriorityCreateInfoKHR, DeviceSize, DriverId,
-            ExternalSemaphoreFeatureFlags, ExternalSemaphoreHandleTypeFlags,
-            ExternalSemaphoreProperties, HostAddressRangeConstEXT, MAX_MEMORY_TYPES,
-            MemoryPropertyFlags, MemoryType, PhysicalDevice,
-            PhysicalDeviceBufferDeviceAddressFeatures, PhysicalDeviceDescriptorBufferFeaturesEXT,
-            PhysicalDeviceDescriptorBufferPropertiesEXT, PhysicalDeviceDescriptorHeapFeaturesEXT,
-            PhysicalDeviceDescriptorHeapPropertiesEXT, PhysicalDeviceDriverProperties,
-            PhysicalDeviceDriverPropertiesKHR, PhysicalDeviceDrmPropertiesEXT,
-            PhysicalDeviceDynamicRenderingFeatures, PhysicalDeviceExternalSemaphoreInfo,
-            PhysicalDeviceMaintenance5Features, PhysicalDeviceProperties,
-            PhysicalDeviceProperties2, PhysicalDeviceSynchronization2Features,
-            PhysicalDeviceTimelineSemaphoreFeatures, PhysicalDeviceType,
-            PhysicalDeviceUniformBufferStandardLayoutFeatures, PhysicalDeviceVulkan12Properties,
-            PushDataInfoEXT, Queue, QueueFamilyProperties2, QueueFlags, QueueGlobalPriorityKHR,
-        },
-    },
-    bstr::ByteSlice,
-    linearize::{StaticMap, static_map},
-    run_on_drop::on_drop,
-    std::{
-        cell::Cell,
-        ffi::{CStr, CString},
-        rc::Rc,
-        sync::{Arc, LazyLock},
-    },
-    uapi::{Packed, Ustr, c::O_RDWR},
-    vk::QueueFamilyGlobalPriorityPropertiesKHR,
-};
+use crate::allocator::BufferObject;
+use crate::backend::DrmDeviceId;
+use crate::eventfd_cache::EventfdCache;
+use crate::format::XRGB8888;
+use crate::gfx_apis::vulkan::VulkanError;
+use crate::gfx_apis::vulkan::descriptor_heap::DescriptorHeapType;
+use crate::gfx_apis::vulkan::format::VulkanBlendBufferLimits;
+use crate::gfx_apis::vulkan::format::VulkanFormat;
+use crate::gfx_apis::vulkan::instance::VulkanInstance;
+use crate::syncobj::SyncobjCtx;
+use crate::utils::bhash::BHashMap;
+use crate::utils::bitflags::BitflagsExt;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::major_minor::MajorMinor;
+use crate::utils::major_minor::major_minor;
+use crate::utils::oserror::OsErrorExt2;
+use crate::utils::page_alloc::PageAllocCtx;
+use crate::video::dmabuf::DmaBufIds;
+use crate::video::drm::Drm;
+use crate::video::gbm::GBM_BO_USE_RENDERING;
+use crate::video::gbm::GbmDevice;
+use crate::vulkan_core::ApiVersionDisplay;
+use crate::vulkan_core::Extensions;
+use crate::vulkan_core::VULKAN_API_VERSION;
+use crate::vulkan_core::VulkanCoreInstance;
+use crate::vulkan_core::device::VulkanDeviceInf;
+use crate::vulkan_core::map_extension_properties;
+use arrayvec::ArrayVec;
+use ash::Device;
+use ash::ext::descriptor_buffer;
+use ash::ext::descriptor_heap;
+use ash::ext::external_memory_dma_buf;
+use ash::ext::image_drm_format_modifier;
+use ash::ext::physical_device_drm;
+use ash::ext::queue_family_foreign;
+use ash::khr::driver_properties;
+use ash::khr::external_fence_fd;
+use ash::khr::external_memory_fd;
+use ash::khr::external_semaphore_fd;
+use ash::khr::maintenance5;
+use ash::khr::push_descriptor;
+use ash::khr::{self};
+use ash::vk::CommandBuffer;
+use ash::vk::DeviceCreateInfo;
+use ash::vk::DeviceQueueCreateInfo;
+use ash::vk::DeviceQueueGlobalPriorityCreateInfoKHR;
+use ash::vk::DeviceSize;
+use ash::vk::DriverId;
+use ash::vk::ExternalSemaphoreFeatureFlags;
+use ash::vk::ExternalSemaphoreHandleTypeFlags;
+use ash::vk::ExternalSemaphoreProperties;
+use ash::vk::HostAddressRangeConstEXT;
+use ash::vk::MAX_MEMORY_TYPES;
+use ash::vk::MemoryPropertyFlags;
+use ash::vk::MemoryType;
+use ash::vk::PhysicalDevice;
+use ash::vk::PhysicalDeviceBufferDeviceAddressFeatures;
+use ash::vk::PhysicalDeviceDescriptorBufferFeaturesEXT;
+use ash::vk::PhysicalDeviceDescriptorBufferPropertiesEXT;
+use ash::vk::PhysicalDeviceDescriptorHeapFeaturesEXT;
+use ash::vk::PhysicalDeviceDescriptorHeapPropertiesEXT;
+use ash::vk::PhysicalDeviceDriverProperties;
+use ash::vk::PhysicalDeviceDriverPropertiesKHR;
+use ash::vk::PhysicalDeviceDrmPropertiesEXT;
+use ash::vk::PhysicalDeviceDynamicRenderingFeatures;
+use ash::vk::PhysicalDeviceExternalSemaphoreInfo;
+use ash::vk::PhysicalDeviceMaintenance5Features;
+use ash::vk::PhysicalDeviceProperties;
+use ash::vk::PhysicalDeviceProperties2;
+use ash::vk::PhysicalDeviceSynchronization2Features;
+use ash::vk::PhysicalDeviceTimelineSemaphoreFeatures;
+use ash::vk::PhysicalDeviceType;
+use ash::vk::PhysicalDeviceUniformBufferStandardLayoutFeatures;
+use ash::vk::PhysicalDeviceVulkan12Properties;
+use ash::vk::PushDataInfoEXT;
+use ash::vk::Queue;
+use ash::vk::QueueFamilyProperties2;
+use ash::vk::QueueFlags;
+use ash::vk::QueueGlobalPriorityKHR;
+use ash::vk::{self};
+use bstr::ByteSlice;
+use linearize::StaticMap;
+use linearize::static_map;
+use run_on_drop::on_drop;
+use std::cell::Cell;
+use std::ffi::CStr;
+use std::ffi::CString;
+use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::LazyLock;
+use uapi::Packed;
+use uapi::Ustr;
+use uapi::c::O_RDWR;
+use vk::QueueFamilyGlobalPriorityPropertiesKHR;
 
 pub struct VulkanDevice {
     pub(super) drm_device_id: Option<DrmDeviceId>,

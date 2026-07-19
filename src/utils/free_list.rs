@@ -1,15 +1,12 @@
 #[cfg(test)]
 mod tests;
 
-use {
-    crate::utils::ptr_ext::MutPtrExt,
-    std::{
-        array,
-        cell::UnsafeCell,
-        fmt::{Debug, Formatter},
-        marker::PhantomData,
-    },
-};
+use crate::utils::ptr_ext::MutPtrExt;
+use std::array;
+use std::cell::UnsafeCell;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::marker::PhantomData;
 
 type Seg = usize;
 const SEG_SIZE: usize = size_of::<Seg>() * 8;

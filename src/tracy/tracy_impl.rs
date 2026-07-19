@@ -1,19 +1,17 @@
-use {
-    crate::utils::bhash::BHashMap,
-    parking_lot::Mutex,
-    std::{
-        ffi::{CStr, CString},
-        ptr,
-        sync::{
-            LazyLock,
-            atomic::{AtomicBool, Ordering::Relaxed},
-        },
-    },
-    tracy_client_sys::{
-        ___tracy_c_zone_context, ___tracy_emit_frame_mark_end, ___tracy_emit_frame_mark_start,
-        ___tracy_emit_zone_end, ___tracy_source_location_data, ___tracy_startup_profiler,
-    },
-};
+use crate::utils::bhash::BHashMap;
+use parking_lot::Mutex;
+use std::ffi::CStr;
+use std::ffi::CString;
+use std::ptr;
+use std::sync::LazyLock;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::Relaxed;
+use tracy_client_sys::___tracy_c_zone_context;
+use tracy_client_sys::___tracy_emit_frame_mark_end;
+use tracy_client_sys::___tracy_emit_frame_mark_start;
+use tracy_client_sys::___tracy_emit_zone_end;
+use tracy_client_sys::___tracy_source_location_data;
+use tracy_client_sys::___tracy_startup_profiler;
 
 #[derive(Copy, Clone)]
 pub struct ZoneName {

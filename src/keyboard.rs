@@ -1,21 +1,23 @@
-use {
-    crate::{
-        backend::{LED_CAPS_LOCK, LED_COMPOSE, LED_KANA, LED_NUM_LOCK, LED_SCROLL_LOCK, Leds},
-        kbvm::KbvmMap,
-        utils::{
-            event_listener::EventSource,
-            oserror::{OsError, OsErrorExt, OsErrorExt2},
-            vecset::VecSet,
-        },
-    },
-    kbvm::{Components, state_machine::Event},
-    std::{
-        cell::{Ref, RefCell},
-        rc::Rc,
-    },
-    thiserror::Error,
-    uapi::{OwnedFd, c},
-};
+use crate::backend::LED_CAPS_LOCK;
+use crate::backend::LED_COMPOSE;
+use crate::backend::LED_KANA;
+use crate::backend::LED_NUM_LOCK;
+use crate::backend::LED_SCROLL_LOCK;
+use crate::backend::Leds;
+use crate::kbvm::KbvmMap;
+use crate::utils::event_listener::EventSource;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt;
+use crate::utils::oserror::OsErrorExt2;
+use crate::utils::vecset::VecSet;
+use kbvm::Components;
+use kbvm::state_machine::Event;
+use std::cell::Ref;
+use std::cell::RefCell;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c;
 
 #[derive(Debug, Error)]
 pub enum KeyboardError {

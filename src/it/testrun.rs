@@ -1,31 +1,36 @@
-use {
-    crate::{
-        backend::{BackendConnectorState, Connector, Mode, transaction::ConnectorTransaction},
-        client::{ClientId, RequestParser},
-        fixed::Fixed,
-        format::XRGB8888,
-        ifs::wl_seat::WlSeatGlobal,
-        it::{
-            test_backend::{TestBackend, TestBackendKb, TestBackendMouse, TestConnector},
-            test_client::TestClient,
-            test_config::TestConfig,
-            test_error::{TestError, TestErrorExt},
-            test_ifs::test_display::TestDisplay,
-            test_transport::TestTransport,
-        },
-        object::WL_DISPLAY_ID,
-        state::State,
-        tree::{OutputNode, VrrMode},
-        utils::{bitfield::Bitfield, buffd::MsgParser, oserror::OsErrorExt, stack::Stack},
-        virtual_output::VirtualOutput,
-    },
-    arrayvec::ArrayVec,
-    std::{
-        cell::{Cell, RefCell},
-        rc::Rc,
-    },
-    uapi::c,
-};
+use crate::backend::BackendConnectorState;
+use crate::backend::Connector;
+use crate::backend::Mode;
+use crate::backend::transaction::ConnectorTransaction;
+use crate::client::ClientId;
+use crate::client::RequestParser;
+use crate::fixed::Fixed;
+use crate::format::XRGB8888;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::it::test_backend::TestBackend;
+use crate::it::test_backend::TestBackendKb;
+use crate::it::test_backend::TestBackendMouse;
+use crate::it::test_backend::TestConnector;
+use crate::it::test_client::TestClient;
+use crate::it::test_config::TestConfig;
+use crate::it::test_error::TestError;
+use crate::it::test_error::TestErrorExt;
+use crate::it::test_ifs::test_display::TestDisplay;
+use crate::it::test_transport::TestTransport;
+use crate::object::WL_DISPLAY_ID;
+use crate::state::State;
+use crate::tree::OutputNode;
+use crate::tree::VrrMode;
+use crate::utils::bitfield::Bitfield;
+use crate::utils::buffd::MsgParser;
+use crate::utils::oserror::OsErrorExt;
+use crate::utils::stack::Stack;
+use crate::virtual_output::VirtualOutput;
+use arrayvec::ArrayVec;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::rc::Rc;
+use uapi::c;
 
 pub struct TestRun {
     pub state: Rc<State>,

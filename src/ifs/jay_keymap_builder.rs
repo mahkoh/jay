@@ -1,14 +1,14 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{JayKeymapBuilderId, jay_keymap_builder::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-    uapi::OwnedFd,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::JayKeymapBuilderId;
+use crate::wire::jay_keymap_builder::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
 
 pub struct JayKeymapBuilder {
     pub id: JayKeymapBuilderId,

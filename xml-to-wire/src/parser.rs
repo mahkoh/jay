@@ -1,23 +1,24 @@
-use {
-    crate::ast::{
-        Arg, ArgType, Copyright, Description, Entry, Enum, Interface, Message, MessageType,
-        Protocol,
-    },
-    quick_xml::{
-        Reader,
-        events::{
-            Event,
-            attributes::{AttrError, Attribute, Attributes},
-        },
-    },
-    std::{
-        borrow::Cow,
-        num::ParseIntError,
-        str::{FromStr, ParseBoolError},
-        string::FromUtf8Error,
-    },
-    thiserror::Error,
-};
+use crate::ast::Arg;
+use crate::ast::ArgType;
+use crate::ast::Copyright;
+use crate::ast::Description;
+use crate::ast::Entry;
+use crate::ast::Enum;
+use crate::ast::Interface;
+use crate::ast::Message;
+use crate::ast::MessageType;
+use crate::ast::Protocol;
+use quick_xml::Reader;
+use quick_xml::events::Event;
+use quick_xml::events::attributes::AttrError;
+use quick_xml::events::attributes::Attribute;
+use quick_xml::events::attributes::Attributes;
+use std::borrow::Cow;
+use std::num::ParseIntError;
+use std::str::FromStr;
+use std::str::ParseBoolError;
+use std::string::FromUtf8Error;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub(crate) enum ParserError {

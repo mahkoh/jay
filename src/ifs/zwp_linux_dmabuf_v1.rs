@@ -1,19 +1,19 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::{
-            wl_surface::WlSurface, zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1,
-            zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        state::State,
-        wire::{ZwpLinuxDmabufFeedbackV1Id, ZwpLinuxDmabufV1Id, zwp_linux_dmabuf_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1;
+use crate::ifs::zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::state::State;
+use crate::wire::ZwpLinuxDmabufFeedbackV1Id;
+use crate::wire::ZwpLinuxDmabufV1Id;
+use crate::wire::zwp_linux_dmabuf_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpLinuxDmabufV1Global {
     name: GlobalName,

@@ -1,10 +1,9 @@
-use {
-    crate::{
-        config::parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-        toml::toml_span::Span,
-    },
-    thiserror::Error,
-};
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::toml::toml_span::Span;
+use thiserror::Error;
 
 pub mod action;
 mod actions;

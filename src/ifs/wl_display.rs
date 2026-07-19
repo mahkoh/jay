@@ -1,14 +1,16 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::{wl_callback::WlCallback, wl_registry::WlRegistry},
-        leaks::Tracker,
-        object::{Object, ObjectId, Version, WL_DISPLAY_ID},
-        wire::{WlDisplayId, wl_display::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_callback::WlCallback;
+use crate::ifs::wl_registry::WlRegistry;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::ObjectId;
+use crate::object::Version;
+use crate::object::WL_DISPLAY_ID;
+use crate::wire::WlDisplayId;
+use crate::wire::wl_display::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 const INVALID_OBJECT: u32 = 0;
 const INVALID_METHOD: u32 = 1;

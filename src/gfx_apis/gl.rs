@@ -18,46 +18,53 @@ macro_rules! egl_transparent {
     };
 }
 
-use {
-    crate::{
-        allocator::AllocatorError,
-        backend::DrmDeviceId,
-        cmm::cmm_eotf::Eotf,
-        gfx_api::{
-            AcquireSync, CopyTexture, FdSync, FramebufferRect, GfxApiOp, GfxContext, GfxError,
-            GfxTexture, ReleaseSync, ScalingFilter, SyncFile,
-        },
-        gfx_apis::gl::{
-            egl::image::EglImage,
-            gl::texture::image_target,
-            renderer::{
-                context::{GlRenderContext, TexCopyType, TexSourceType},
-                framebuffer::Framebuffer,
-                texture::Texture,
-            },
-            sys::{
-                GL_BLEND, GL_FALSE, GL_FLOAT, GL_LINEAR, GL_NEAREST, GL_TEXTURE_MAG_FILTER,
-                GL_TEXTURE_MIN_FILTER, GL_TEXTURE0, GL_TRIANGLE_STRIP, GL_TRIANGLES,
-            },
-        },
-        theme::Color,
-        utils::{errorfmt::ErrorFmt, rc_eq::rc_eq, vecstorage::VecStorage},
-        video::{
-            dmabuf::DMA_BUF_SYNC_READ,
-            drm::{Drm, DrmError},
-            gbm::GbmError,
-        },
-    },
-    isnt::std_1::vec::IsntVecExt,
-    std::{
-        any::Any,
-        cell::RefCell,
-        error::Error,
-        rc::Rc,
-        sync::{Arc, LazyLock},
-    },
-    thiserror::Error,
-};
+use crate::allocator::AllocatorError;
+use crate::backend::DrmDeviceId;
+use crate::cmm::cmm_eotf::Eotf;
+use crate::gfx_api::AcquireSync;
+use crate::gfx_api::CopyTexture;
+use crate::gfx_api::FdSync;
+use crate::gfx_api::FramebufferRect;
+use crate::gfx_api::GfxApiOp;
+use crate::gfx_api::GfxContext;
+use crate::gfx_api::GfxError;
+use crate::gfx_api::GfxTexture;
+use crate::gfx_api::ReleaseSync;
+use crate::gfx_api::ScalingFilter;
+use crate::gfx_api::SyncFile;
+use crate::gfx_apis::gl::egl::image::EglImage;
+use crate::gfx_apis::gl::gl::texture::image_target;
+use crate::gfx_apis::gl::renderer::context::GlRenderContext;
+use crate::gfx_apis::gl::renderer::context::TexCopyType;
+use crate::gfx_apis::gl::renderer::context::TexSourceType;
+use crate::gfx_apis::gl::renderer::framebuffer::Framebuffer;
+use crate::gfx_apis::gl::renderer::texture::Texture;
+use crate::gfx_apis::gl::sys::GL_BLEND;
+use crate::gfx_apis::gl::sys::GL_FALSE;
+use crate::gfx_apis::gl::sys::GL_FLOAT;
+use crate::gfx_apis::gl::sys::GL_LINEAR;
+use crate::gfx_apis::gl::sys::GL_NEAREST;
+use crate::gfx_apis::gl::sys::GL_TEXTURE_MAG_FILTER;
+use crate::gfx_apis::gl::sys::GL_TEXTURE_MIN_FILTER;
+use crate::gfx_apis::gl::sys::GL_TEXTURE0;
+use crate::gfx_apis::gl::sys::GL_TRIANGLE_STRIP;
+use crate::gfx_apis::gl::sys::GL_TRIANGLES;
+use crate::theme::Color;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::rc_eq::rc_eq;
+use crate::utils::vecstorage::VecStorage;
+use crate::video::dmabuf::DMA_BUF_SYNC_READ;
+use crate::video::drm::Drm;
+use crate::video::drm::DrmError;
+use crate::video::gbm::GbmError;
+use isnt::std_1::vec::IsntVecExt;
+use std::any::Any;
+use std::cell::RefCell;
+use std::error::Error;
+use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::LazyLock;
+use thiserror::Error;
 
 mod egl;
 mod ext;
@@ -66,7 +73,8 @@ mod proc;
 mod renderer;
 
 pub mod sys {
-    pub use super::{egl::sys::*, gl::sys::*};
+    pub use super::egl::sys::*;
+    pub use super::gl::sys::*;
 }
 
 static INIT: LazyLock<Result<(), Arc<RenderError>>> =

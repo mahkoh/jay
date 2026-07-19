@@ -1,20 +1,15 @@
-use {
-    crate::{
-        format::Format,
-        gfx_apis::gl::{
-            RenderError,
-            egl::{context::EglContext, image::EglImage},
-            gl::{
-                frame_buffer::GlFrameBuffer,
-                sys::{
-                    GL_COLOR_ATTACHMENT0, GL_FRAMEBUFFER, GL_FRAMEBUFFER_COMPLETE, GL_RENDERBUFFER,
-                    GLeglImageOES, GLuint,
-                },
-            },
-        },
-    },
-    std::rc::Rc,
-};
+use crate::format::Format;
+use crate::gfx_apis::gl::RenderError;
+use crate::gfx_apis::gl::egl::context::EglContext;
+use crate::gfx_apis::gl::egl::image::EglImage;
+use crate::gfx_apis::gl::gl::frame_buffer::GlFrameBuffer;
+use crate::gfx_apis::gl::gl::sys::GL_COLOR_ATTACHMENT0;
+use crate::gfx_apis::gl::gl::sys::GL_FRAMEBUFFER;
+use crate::gfx_apis::gl::gl::sys::GL_FRAMEBUFFER_COMPLETE;
+use crate::gfx_apis::gl::gl::sys::GL_RENDERBUFFER;
+use crate::gfx_apis::gl::gl::sys::GLeglImageOES;
+use crate::gfx_apis::gl::gl::sys::GLuint;
+use std::rc::Rc;
 
 pub struct GlRenderBuffer {
     pub _img: Option<Rc<EglImage>>,

@@ -1,11 +1,9 @@
-use {
-    crate::{
-        ifs::xdg_session_manager_v1::{REASON_LAUNCH, REASON_RECOVER},
-        it::{test_error::TestError, testrun::TestRun},
-        tree::TreeTimeline::LiveTL,
-    },
-    std::rc::Rc,
-};
+use crate::ifs::xdg_session_manager_v1::REASON_LAUNCH;
+use crate::ifs::xdg_session_manager_v1::REASON_RECOVER;
+use crate::it::test_error::TestError;
+use crate::it::testrun::TestRun;
+use crate::tree::TreeTimeline::LiveTL;
+use std::rc::Rc;
 
 testcase!();
 

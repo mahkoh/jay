@@ -1,13 +1,8 @@
-use {
-    crate::{
-        cmm::{
-            cmm_render_intent::RenderIntent,
-            cmm_transform::{ColorMatrix, Xyz},
-        },
-        utils::ordered_float::F64,
-    },
-    jay_proc::jay_hash,
-};
+use crate::cmm::cmm_render_intent::RenderIntent;
+use crate::cmm::cmm_transform::ColorMatrix;
+use crate::cmm::cmm_transform::Xyz;
+use crate::utils::ordered_float::F64;
+use jay_proc::jay_hash;
 
 #[jay_hash]
 #[derive(Copy, Clone, Debug, Eq)]

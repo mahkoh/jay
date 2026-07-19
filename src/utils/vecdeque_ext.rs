@@ -1,7 +1,6 @@
-use std::{
-    collections::{Bound, VecDeque},
-    ops::RangeBounds,
-};
+use std::collections::Bound;
+use std::collections::VecDeque;
+use std::ops::RangeBounds;
 
 pub trait VecDequeExt<T> {
     fn get_slices(&self, range: impl RangeBounds<usize>) -> (&[T], &[T]);

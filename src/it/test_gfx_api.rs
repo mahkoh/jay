@@ -1,39 +1,57 @@
-use {
-    crate::{
-        allocator::{Allocator, AllocatorError, BufferObject, BufferUsage},
-        backend::DrmDeviceId,
-        cmm::cmm_description::{ColorDescription, LinearColorDescription},
-        cpu_worker::CpuWorker,
-        format::{ARGB8888, Format, XRGB8888},
-        gfx_api::{
-            AcquireSync, AsyncShmGfxTexture, AsyncShmGfxTextureCallback, CopyTexture, FdSync,
-            FillRect, FramebufferRect, GfxApi, GfxApiOp, GfxBlendBuffer, GfxContext, GfxError,
-            GfxFormat, GfxFramebuffer, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture,
-            GfxWriteModifier, PendingShmTransfer, ReleaseSync, ResetStatus, ShmGfxTexture,
-            ShmMemory,
-        },
-        rect::{Rect, Region},
-        syncobj::SyncobjCtx,
-        theme::Color,
-        utils::bhash::BHashMap,
-        video::{
-            LINEAR_MODIFIER,
-            dmabuf::{DmaBuf, DmaBufIds},
-        },
-    },
-    indexmap::IndexSet,
-    std::{
-        any::Any,
-        cell::{Cell, RefCell},
-        error::Error,
-        ffi::CString,
-        fmt::{Debug, Formatter},
-        ops::Deref,
-        ptr,
-        rc::Rc,
-    },
-    thiserror::Error,
-};
+use crate::allocator::Allocator;
+use crate::allocator::AllocatorError;
+use crate::allocator::BufferObject;
+use crate::allocator::BufferUsage;
+use crate::backend::DrmDeviceId;
+use crate::cmm::cmm_description::ColorDescription;
+use crate::cmm::cmm_description::LinearColorDescription;
+use crate::cpu_worker::CpuWorker;
+use crate::format::ARGB8888;
+use crate::format::Format;
+use crate::format::XRGB8888;
+use crate::gfx_api::AcquireSync;
+use crate::gfx_api::AsyncShmGfxTexture;
+use crate::gfx_api::AsyncShmGfxTextureCallback;
+use crate::gfx_api::CopyTexture;
+use crate::gfx_api::FdSync;
+use crate::gfx_api::FillRect;
+use crate::gfx_api::FramebufferRect;
+use crate::gfx_api::GfxApi;
+use crate::gfx_api::GfxApiOp;
+use crate::gfx_api::GfxBlendBuffer;
+use crate::gfx_api::GfxContext;
+use crate::gfx_api::GfxError;
+use crate::gfx_api::GfxFormat;
+use crate::gfx_api::GfxFramebuffer;
+use crate::gfx_api::GfxInternalFramebuffer;
+use crate::gfx_api::GfxStagingBuffer;
+use crate::gfx_api::GfxTexture;
+use crate::gfx_api::GfxWriteModifier;
+use crate::gfx_api::PendingShmTransfer;
+use crate::gfx_api::ReleaseSync;
+use crate::gfx_api::ResetStatus;
+use crate::gfx_api::ShmGfxTexture;
+use crate::gfx_api::ShmMemory;
+use crate::rect::Rect;
+use crate::rect::Region;
+use crate::syncobj::SyncobjCtx;
+use crate::theme::Color;
+use crate::utils::bhash::BHashMap;
+use crate::video::LINEAR_MODIFIER;
+use crate::video::dmabuf::DmaBuf;
+use crate::video::dmabuf::DmaBufIds;
+use indexmap::IndexSet;
+use std::any::Any;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::error::Error;
+use std::ffi::CString;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::ops::Deref;
+use std::ptr;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 enum TestGfxError {

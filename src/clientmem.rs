@@ -1,30 +1,29 @@
-use {
-    crate::{
-        client::Client,
-        cpu_worker::{AsyncCpuWork, CpuJob, CpuWork, CpuWorker},
-        gfx_api::{ShmMemory, ShmMemoryBacking},
-        utils::{
-            oserror::{OsError, OsErrorExt2},
-            page_size::page_size,
-            vec_ext::VecExt,
-        },
-    },
-    std::{
-        cell::Cell,
-        error::Error,
-        mem::{ManuallyDrop, MaybeUninit},
-        ops::Deref,
-        ptr,
-        rc::Rc,
-        sync::atomic::{Ordering, compiler_fence},
-    },
-    thiserror::Error,
-    uapi::{
-        OwnedFd, Pod,
-        c::{self, raise},
-        ftruncate,
-    },
-};
+use crate::client::Client;
+use crate::cpu_worker::AsyncCpuWork;
+use crate::cpu_worker::CpuJob;
+use crate::cpu_worker::CpuWork;
+use crate::cpu_worker::CpuWorker;
+use crate::gfx_api::ShmMemory;
+use crate::gfx_api::ShmMemoryBacking;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt2;
+use crate::utils::page_size::page_size;
+use crate::utils::vec_ext::VecExt;
+use std::cell::Cell;
+use std::error::Error;
+use std::mem::ManuallyDrop;
+use std::mem::MaybeUninit;
+use std::ops::Deref;
+use std::ptr;
+use std::rc::Rc;
+use std::sync::atomic::Ordering;
+use std::sync::atomic::compiler_fence;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::Pod;
+use uapi::c::raise;
+use uapi::c::{self};
+use uapi::ftruncate;
 
 #[derive(Debug, Error)]
 pub enum ClientMemError {

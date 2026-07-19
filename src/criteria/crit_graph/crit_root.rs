@@ -1,15 +1,16 @@
-use {
-    crate::criteria::{
-        CritMatcherId, CritUpstreamNode, FixedRootMatcher, RootMatcherMap,
-        crit_graph::{
-            CritTarget, CritUpstreamData,
-            crit_target::CritMgr,
-            crit_upstream::{CritUpstreamNodeBase, CritUpstreamNodeData},
-        },
-        crit_per_target_data::{CritDestroyListenerBase, CritPerTargetData},
-    },
-    std::{marker::PhantomData, rc::Rc},
-};
+use crate::criteria::CritMatcherId;
+use crate::criteria::CritUpstreamNode;
+use crate::criteria::FixedRootMatcher;
+use crate::criteria::RootMatcherMap;
+use crate::criteria::crit_graph::CritTarget;
+use crate::criteria::crit_graph::CritUpstreamData;
+use crate::criteria::crit_graph::crit_target::CritMgr;
+use crate::criteria::crit_graph::crit_upstream::CritUpstreamNodeBase;
+use crate::criteria::crit_graph::crit_upstream::CritUpstreamNodeData;
+use crate::criteria::crit_per_target_data::CritDestroyListenerBase;
+use crate::criteria::crit_per_target_data::CritPerTargetData;
+use std::marker::PhantomData;
+use std::rc::Rc;
 
 pub struct CritRoot<Target, T>
 where

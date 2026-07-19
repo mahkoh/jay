@@ -1,11 +1,9 @@
-use {
-    crate::{
-        it::{test_error::TestError, test_transport::TestTransport},
-        object::{Interface, ObjectId},
-        utils::buffd::MsgParser,
-    },
-    std::rc::Rc,
-};
+use crate::it::test_error::TestError;
+use crate::it::test_transport::TestTransport;
+use crate::object::Interface;
+use crate::object::ObjectId;
+use crate::utils::buffd::MsgParser;
+use std::rc::Rc;
 
 macro_rules! test_object {
     ($oname:ident, $ifname:ident; $($code:ident => $f:ident,)*) => {

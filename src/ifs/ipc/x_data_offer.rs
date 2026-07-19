@@ -1,19 +1,18 @@
-use {
-    crate::{
-        client::ClientId,
-        ifs::{
-            ipc::{
-                DataOffer, DataOfferId, DynDataOffer, IpcLocation, OfferData, cancel_offer,
-                x_data_device::{XClipboardIpc, XIpcDevice, XPrimarySelectionIpc},
-            },
-            wl_seat::WlSeatGlobal,
-        },
-        leaks::Tracker,
-        xwayland::XWaylandEvent,
-    },
-    XWaylandEvent::IpcAddOfferMimeType,
-    std::rc::Rc,
-};
+use crate::client::ClientId;
+use crate::ifs::ipc::DataOffer;
+use crate::ifs::ipc::DataOfferId;
+use crate::ifs::ipc::DynDataOffer;
+use crate::ifs::ipc::IpcLocation;
+use crate::ifs::ipc::OfferData;
+use crate::ifs::ipc::cancel_offer;
+use crate::ifs::ipc::x_data_device::XClipboardIpc;
+use crate::ifs::ipc::x_data_device::XIpcDevice;
+use crate::ifs::ipc::x_data_device::XPrimarySelectionIpc;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::leaks::Tracker;
+use crate::xwayland::XWaylandEvent;
+use XWaylandEvent::IpcAddOfferMimeType;
+use std::rc::Rc;
 
 pub struct XDataOffer {
     pub offer_id: DataOfferId,

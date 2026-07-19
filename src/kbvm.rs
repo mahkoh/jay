@@ -1,34 +1,35 @@
-use {
-    crate::{
-        backend::KeyState,
-        ifs::wl_seat::WlSeatGlobal,
-        keyboard::{DynKeyboardState, KeyboardState, KeyboardStateId, KeymapFd},
-        utils::{
-            oserror::{OsError, OsErrorExt},
-            syncqueue::SyncQueue,
-            vecset::VecSet,
-        },
-    },
-    jay_proc::jay_hash,
-    kbvm::{
-        GroupIndex, Keycode,
-        lookup::LookupTable,
-        state_machine::{self, Direction, Event, StateMachine},
-        xkb::{
-            self, Keymap,
-            diagnostic::{Diagnostic, WriteToLog},
-            keymap::{Indicator, IndicatorMatcher},
-            rmlvo::Group,
-        },
-    },
-    std::{
-        cell::{Cell, Ref, RefCell},
-        io::Write,
-        rc::Rc,
-    },
-    thiserror::Error,
-    uapi::c,
-};
+use crate::backend::KeyState;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::keyboard::DynKeyboardState;
+use crate::keyboard::KeyboardState;
+use crate::keyboard::KeyboardStateId;
+use crate::keyboard::KeymapFd;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt;
+use crate::utils::syncqueue::SyncQueue;
+use crate::utils::vecset::VecSet;
+use jay_proc::jay_hash;
+use kbvm::GroupIndex;
+use kbvm::Keycode;
+use kbvm::lookup::LookupTable;
+use kbvm::state_machine::Direction;
+use kbvm::state_machine::Event;
+use kbvm::state_machine::StateMachine;
+use kbvm::state_machine::{self};
+use kbvm::xkb::Keymap;
+use kbvm::xkb::diagnostic::Diagnostic;
+use kbvm::xkb::diagnostic::WriteToLog;
+use kbvm::xkb::keymap::Indicator;
+use kbvm::xkb::keymap::IndicatorMatcher;
+use kbvm::xkb::rmlvo::Group;
+use kbvm::xkb::{self};
+use std::cell::Cell;
+use std::cell::Ref;
+use std::cell::RefCell;
+use std::io::Write;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::c;
 
 #[derive(Debug, Error)]
 pub enum KbvmError {

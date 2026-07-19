@@ -1,10 +1,9 @@
-use {
-    crate::{
-        evdev::input_event_codes::{InputEventCode, MAX_INPUT_EVENT_CODE},
-        utils::{ioctl::ioctl, oserror::OsError},
-    },
-    uapi::{_IOC_READ, OwnedFd},
-};
+use crate::evdev::input_event_codes::InputEventCode;
+use crate::evdev::input_event_codes::MAX_INPUT_EVENT_CODE;
+use crate::utils::ioctl::ioctl;
+use crate::utils::oserror::OsError;
+use uapi::_IOC_READ;
+use uapi::OwnedFd;
 
 pub mod input_event_codes;
 

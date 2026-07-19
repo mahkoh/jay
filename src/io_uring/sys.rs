@@ -1,10 +1,9 @@
 #![allow(non_camel_case_types, dead_code)]
 
-use {
-    crate::utils::oserror::OsError,
-    std::mem::MaybeUninit,
-    uapi::{OwnedFd, c},
-};
+use crate::utils::oserror::OsError;
+use std::mem::MaybeUninit;
+use uapi::OwnedFd;
+use uapi::c;
 
 #[repr(C)]
 #[derive(Copy, Clone)]

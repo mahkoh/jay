@@ -1,9 +1,10 @@
-use {
-    crate::utils::{errorfmt::ErrorFmt, oserror::OsErrorExt},
-    bstr::ByteSlice,
-    std::{os::unix::ffi::OsStrExt, rc::Rc},
-    uapi::{OwnedFd, c},
-};
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::oserror::OsErrorExt;
+use bstr::ByteSlice;
+use std::os::unix::ffi::OsStrExt;
+use std::rc::Rc;
+use uapi::OwnedFd;
+use uapi::c;
 
 pub struct PidInfo {
     pub uid: c::uid_t,

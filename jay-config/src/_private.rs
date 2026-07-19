@@ -2,19 +2,20 @@ pub mod client;
 pub mod ipc;
 mod logging;
 
-use {
-    crate::{
-        Workspace,
-        client::ClientMatcher,
-        input::{FallbackOutputMode, Seat},
-        keyboard::Group,
-        video::{Connector, Mode},
-        window::{ContentType, WindowMatcher, WindowType},
-    },
-    bincode::Options,
-    serde::{Deserialize, Serialize},
-    std::marker::PhantomData,
-};
+use crate::Workspace;
+use crate::client::ClientMatcher;
+use crate::input::FallbackOutputMode;
+use crate::input::Seat;
+use crate::keyboard::Group;
+use crate::video::Connector;
+use crate::video::Mode;
+use crate::window::ContentType;
+use crate::window::WindowMatcher;
+use crate::window::WindowType;
+use bincode::Options;
+use serde::Deserialize;
+use serde::Serialize;
+use std::marker::PhantomData;
 
 pub const VERSION: u32 = 1;
 

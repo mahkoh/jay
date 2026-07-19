@@ -1,11 +1,8 @@
-use {
-    crate::{
-        gfx_api::{GfxContext, GfxFormat},
-        utils::bhash::BHashMap,
-    },
-    std::rc::Rc,
-    uapi::c,
-};
+use crate::gfx_api::GfxContext;
+use crate::gfx_api::GfxFormat;
+use crate::utils::bhash::BHashMap;
+use std::rc::Rc;
+use uapi::c;
 
 pub struct PortalRenderCtx {
     pub _dev_id: c::dev_t,

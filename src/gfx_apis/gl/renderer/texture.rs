@@ -1,28 +1,27 @@
-use {
-    crate::{
-        format::Format,
-        gfx_api::{
-            AsyncShmGfxTexture, AsyncShmGfxTextureCallback, GfxError, GfxStagingBuffer, GfxTexture,
-            PendingShmTransfer, ShmGfxTexture, ShmMemory,
-        },
-        gfx_apis::gl::{
-            RenderError,
-            gl::texture::GlTexture,
-            renderer::context::GlRenderContext,
-            sys::{
-                GL_CLAMP_TO_EDGE, GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T,
-                GL_UNPACK_ROW_LENGTH_EXT, GLint,
-            },
-        },
-        rect::Region,
-        video::dmabuf::DmaBuf,
-    },
-    std::{
-        cell::Cell,
-        fmt::{Debug, Formatter},
-        rc::Rc,
-    },
-};
+use crate::format::Format;
+use crate::gfx_api::AsyncShmGfxTexture;
+use crate::gfx_api::AsyncShmGfxTextureCallback;
+use crate::gfx_api::GfxError;
+use crate::gfx_api::GfxStagingBuffer;
+use crate::gfx_api::GfxTexture;
+use crate::gfx_api::PendingShmTransfer;
+use crate::gfx_api::ShmGfxTexture;
+use crate::gfx_api::ShmMemory;
+use crate::gfx_apis::gl::RenderError;
+use crate::gfx_apis::gl::gl::texture::GlTexture;
+use crate::gfx_apis::gl::renderer::context::GlRenderContext;
+use crate::gfx_apis::gl::sys::GL_CLAMP_TO_EDGE;
+use crate::gfx_apis::gl::sys::GL_TEXTURE_2D;
+use crate::gfx_apis::gl::sys::GL_TEXTURE_WRAP_S;
+use crate::gfx_apis::gl::sys::GL_TEXTURE_WRAP_T;
+use crate::gfx_apis::gl::sys::GL_UNPACK_ROW_LENGTH_EXT;
+use crate::gfx_apis::gl::sys::GLint;
+use crate::rect::Region;
+use crate::video::dmabuf::DmaBuf;
+use std::cell::Cell;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::rc::Rc;
 
 pub struct Texture {
     pub(in crate::gfx_apis::gl) ctx: Rc<GlRenderContext>,

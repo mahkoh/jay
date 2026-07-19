@@ -1,11 +1,10 @@
-use {
-    crate::{
-        fixed::Fixed,
-        it::{test_error::TestError, test_object::TestObject, test_transport::TestTransport},
-        wire::{WpViewportId, wp_viewport::*},
-    },
-    std::rc::Rc,
-};
+use crate::fixed::Fixed;
+use crate::it::test_error::TestError;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::WpViewportId;
+use crate::wire::wp_viewport::*;
+use std::rc::Rc;
 
 pub struct TestViewport {
     pub id: WpViewportId,

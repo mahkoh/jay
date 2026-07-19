@@ -1,15 +1,14 @@
-use {
-    crate::{
-        it::{
-            test_error::TestResult, test_object::TestObject, test_transport::TestTransport,
-            test_utils::test_expected_event::TEEH, testrun::ParseFull,
-        },
-        utils::buffd::MsgParser,
-        wire::{WlDataSourceId, wl_data_source::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    uapi::OwnedFd,
-};
+use crate::it::test_error::TestResult;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::test_utils::test_expected_event::TEEH;
+use crate::it::testrun::ParseFull;
+use crate::utils::buffd::MsgParser;
+use crate::wire::WlDataSourceId;
+use crate::wire::wl_data_source::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 pub struct TestDataSource {
     pub id: WlDataSourceId,

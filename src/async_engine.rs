@@ -1,21 +1,19 @@
 mod ae_task;
 mod ae_yield;
 
-pub use {crate::async_engine::ae_yield::Yield, ae_task::SpawnedFuture};
-use {
-    crate::{
-        async_engine::ae_task::Runnable,
-        time::Time,
-        utils::{array, numcell::NumCell, syncqueue::SyncQueue},
-    },
-    std::{
-        cell::{Cell, RefCell},
-        collections::VecDeque,
-        future::Future,
-        rc::Rc,
-        task::Waker,
-    },
-};
+use crate::async_engine::ae_task::Runnable;
+pub use crate::async_engine::ae_yield::Yield;
+use crate::time::Time;
+use crate::utils::array;
+use crate::utils::numcell::NumCell;
+use crate::utils::syncqueue::SyncQueue;
+pub use ae_task::SpawnedFuture;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::future::Future;
+use std::rc::Rc;
+use std::task::Waker;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Phase {
@@ -130,7 +128,8 @@ impl AsyncEngine {
 
     #[cfg(feature = "it")]
     pub async fn idle(&self) {
-        use std::{future::poll_fn, task::Poll};
+        use std::future::poll_fn;
+        use std::task::Poll;
         let mut register = true;
         poll_fn(|ctx| {
             if register {

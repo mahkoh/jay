@@ -1,20 +1,19 @@
-pub use cache::{ObjectRegistryNoCache, ObjectRegistryRandomCache};
-use {
-    crate::utils::{
-        markers::JayHash,
-        object_registry::cache::Cache,
-        ptr_ext::{MutPtrExt, PtrExt},
-    },
-    hashbrown::HashTable,
-    std::{
-        borrow::Borrow,
-        cell::{Cell, UnsafeCell},
-        fmt::{Debug, Formatter},
-        ops::Deref,
-        ptr,
-        rc::{Rc, Weak},
-    },
-};
+use crate::utils::markers::JayHash;
+use crate::utils::object_registry::cache::Cache;
+use crate::utils::ptr_ext::MutPtrExt;
+use crate::utils::ptr_ext::PtrExt;
+pub use cache::ObjectRegistryNoCache;
+pub use cache::ObjectRegistryRandomCache;
+use hashbrown::HashTable;
+use std::borrow::Borrow;
+use std::cell::Cell;
+use std::cell::UnsafeCell;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::ops::Deref;
+use std::ptr;
+use std::rc::Rc;
+use std::rc::Weak;
 
 mod cache;
 #[cfg(test)]

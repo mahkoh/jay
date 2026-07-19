@@ -1,34 +1,43 @@
-use {
-    crate::{
-        copy_device::{CopyDeviceCopy, CopyDeviceDstObject, CopyDeviceError, CopyDeviceSrcObject},
-        format::Format,
-        gfx_api::{FdSync, SyncFile},
-        io_uring::{IoUring, IoUringError, PendingPoll, PollCallback},
-        rect::Region,
-        state::{DrmDevData, State},
-        utils::{compat::IoctlNumber, errorfmt::ErrorFmt, numcell::NumCell, oserror::OsError},
-        video::{
-            LINEAR_MODIFIER, Modifier,
-            drm::{DrmError, syncobj::merge_sync_files},
-        },
-    },
-    arrayvec::ArrayVec,
-    bstr::ByteSlice,
-    smallvec::SmallVec,
-    std::{
-        cell::{Cell, OnceCell, RefCell},
-        ffi::c_short,
-        io::Read,
-        rc::Rc,
-        sync::OnceLock,
-    },
-    thiserror::Error,
-    uapi::{
-        _IOW, _IOWR, OwnedFd,
-        c::{self, dev_t, ioctl},
-        format_ustr,
-    },
-};
+use crate::copy_device::CopyDeviceCopy;
+use crate::copy_device::CopyDeviceDstObject;
+use crate::copy_device::CopyDeviceError;
+use crate::copy_device::CopyDeviceSrcObject;
+use crate::format::Format;
+use crate::gfx_api::FdSync;
+use crate::gfx_api::SyncFile;
+use crate::io_uring::IoUring;
+use crate::io_uring::IoUringError;
+use crate::io_uring::PendingPoll;
+use crate::io_uring::PollCallback;
+use crate::rect::Region;
+use crate::state::DrmDevData;
+use crate::state::State;
+use crate::utils::compat::IoctlNumber;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::numcell::NumCell;
+use crate::utils::oserror::OsError;
+use crate::video::LINEAR_MODIFIER;
+use crate::video::Modifier;
+use crate::video::drm::DrmError;
+use crate::video::drm::syncobj::merge_sync_files;
+use arrayvec::ArrayVec;
+use bstr::ByteSlice;
+use smallvec::SmallVec;
+use std::cell::Cell;
+use std::cell::OnceCell;
+use std::cell::RefCell;
+use std::ffi::c_short;
+use std::io::Read;
+use std::rc::Rc;
+use std::sync::OnceLock;
+use thiserror::Error;
+use uapi::_IOW;
+use uapi::_IOWR;
+use uapi::OwnedFd;
+use uapi::c::dev_t;
+use uapi::c::ioctl;
+use uapi::c::{self};
+use uapi::format_ustr;
 
 #[derive(Clone, Debug)]
 pub struct DmaBufPlane {

@@ -1,22 +1,22 @@
-use {
-    crate::{
-        client::{CAP_FOREIGN_TOPLEVEL_LIST, Client, ClientCaps, ClientError},
-        globals::{Global, GlobalName},
-        ifs::{
-            ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
-            wl_surface::{x_surface::xwindow::Xwindow, xdg_surface::xdg_toplevel::XdgToplevel},
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::{NodeVisitorBase, ToplevelOpt},
-        wire::{
-            ExtForeignToplevelHandleV1Id, ExtForeignToplevelListV1Id,
-            ext_foreign_toplevel_list_v1::*,
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::CAP_FOREIGN_TOPLEVEL_LIST;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1;
+use crate::ifs::wl_surface::x_surface::xwindow::Xwindow;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::NodeVisitorBase;
+use crate::tree::ToplevelOpt;
+use crate::wire::ExtForeignToplevelHandleV1Id;
+use crate::wire::ExtForeignToplevelListV1Id;
+use crate::wire::ext_foreign_toplevel_list_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ExtForeignToplevelListV1Global {
     pub name: GlobalName,

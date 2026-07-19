@@ -1,17 +1,21 @@
-use {
-    crate::{
-        io_uring::{
-            IoUring, IoUringData, IoUringError, IoUringTaskId, Task,
-            pending_result::PendingResult,
-            sys::{IORING_OP_SENDMSG, io_uring_sqe},
-        },
-        time::Time,
-        utils::{buf::Buf, compat::IovLength, vec_ext::UninitVecExt},
-    },
-    derivative::Derivative,
-    std::{mem::MaybeUninit, ptr, rc::Rc},
-    uapi::{OwnedFd, c},
-};
+use crate::io_uring::IoUring;
+use crate::io_uring::IoUringData;
+use crate::io_uring::IoUringError;
+use crate::io_uring::IoUringTaskId;
+use crate::io_uring::Task;
+use crate::io_uring::pending_result::PendingResult;
+use crate::io_uring::sys::IORING_OP_SENDMSG;
+use crate::io_uring::sys::io_uring_sqe;
+use crate::time::Time;
+use crate::utils::buf::Buf;
+use crate::utils::compat::IovLength;
+use crate::utils::vec_ext::UninitVecExt;
+use derivative::Derivative;
+use std::mem::MaybeUninit;
+use std::ptr;
+use std::rc::Rc;
+use uapi::OwnedFd;
+use uapi::c;
 
 impl IoUring {
     pub async fn sendmsg_one(

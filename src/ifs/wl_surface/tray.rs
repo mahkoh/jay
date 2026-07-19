@@ -1,44 +1,55 @@
-use {
-    crate::{
-        client::{Client, ClientError, ClientId},
-        configurable::{Configurable, ConfigurableData, ConfigurableDataCore, ConfigurableExt},
-        ifs::{
-            wl_output::OutputGlobalOpt,
-            wl_seat::{NodeSeatState, WlSeatGlobal},
-            wl_surface::{
-                PendingState, SurfaceExt, SurfaceRole, WlSurface, WlSurfaceError,
-                xdg_surface::{
-                    PopupStackType,
-                    xdg_popup::{XdgPopup, XdgPopupParent},
-                },
-            },
-        },
-        rect::Rect,
-        theme::BarPosition,
-        transactions::{
-            EnabledSurfaceTransactions, TransactionData, Transactionable, TransactionableExt,
-        },
-        tree::{
-            FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase, NodeId, NodeLayerLink,
-            NodeLocation, NodeVisitor, NodesStackElement, OutputNode, SplitView, TreeLink,
-            TreeSerial,
-            TreeTimeline::{self, LiveTL},
-            WorkspaceNode,
-        },
-        utils::{
-            cell_ext::CellExt,
-            copyhashmap::CopyHashMap,
-            hash_map_ext::HashMapExt,
-            linkedlist::{LinkedNode, NodeRef},
-        },
-        wire::{WlSeatId, XdgPopupId},
-    },
-    std::{
-        cell::{Cell, RefCell},
-        rc::Rc,
-    },
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::client::ClientId;
+use crate::configurable::Configurable;
+use crate::configurable::ConfigurableData;
+use crate::configurable::ConfigurableDataCore;
+use crate::configurable::ConfigurableExt;
+use crate::ifs::wl_output::OutputGlobalOpt;
+use crate::ifs::wl_seat::NodeSeatState;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_surface::PendingState;
+use crate::ifs::wl_surface::SurfaceExt;
+use crate::ifs::wl_surface::SurfaceRole;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::WlSurfaceError;
+use crate::ifs::wl_surface::xdg_surface::PopupStackType;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopupParent;
+use crate::rect::Rect;
+use crate::theme::BarPosition;
+use crate::transactions::EnabledSurfaceTransactions;
+use crate::transactions::TransactionData;
+use crate::transactions::Transactionable;
+use crate::transactions::TransactionableExt;
+use crate::tree::FindTreeResult;
+use crate::tree::FindTreeUsecase;
+use crate::tree::FoundNode;
+use crate::tree::Node;
+use crate::tree::NodeBase;
+use crate::tree::NodeId;
+use crate::tree::NodeLayerLink;
+use crate::tree::NodeLocation;
+use crate::tree::NodeVisitor;
+use crate::tree::NodesStackElement;
+use crate::tree::OutputNode;
+use crate::tree::SplitView;
+use crate::tree::TreeLink;
+use crate::tree::TreeSerial;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::{self};
+use crate::tree::WorkspaceNode;
+use crate::utils::cell_ext::CellExt;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::linkedlist::LinkedNode;
+use crate::utils::linkedlist::NodeRef;
+use crate::wire::WlSeatId;
+use crate::wire::XdgPopupId;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub mod jay_tray_item_v1;
 

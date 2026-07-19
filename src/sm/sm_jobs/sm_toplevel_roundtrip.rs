@@ -1,17 +1,16 @@
-use {
-    crate::{
-        sm::{
-            SessionManager, ToplevelSession,
-            sm_jobs::{SmDbStateHolder, SmJob, SmPending},
-        },
-        sqlite::{SqliteCtx, SqliteJob, SqliteWork},
-        utils::{cell_ext::CellExt, stack::Stack},
-    },
-    std::{
-        rc::{Rc, Weak},
-        sync::Arc,
-    },
-};
+use crate::sm::SessionManager;
+use crate::sm::ToplevelSession;
+use crate::sm::sm_jobs::SmDbStateHolder;
+use crate::sm::sm_jobs::SmJob;
+use crate::sm::sm_jobs::SmPending;
+use crate::sqlite::SqliteCtx;
+use crate::sqlite::SqliteJob;
+use crate::sqlite::SqliteWork;
+use crate::utils::cell_ext::CellExt;
+use crate::utils::stack::Stack;
+use std::rc::Rc;
+use std::rc::Weak;
+use std::sync::Arc;
 
 pub struct ToplevelRoundtripJob {
     pending: Weak<SmPending<Self>>,

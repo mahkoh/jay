@@ -1,13 +1,14 @@
 //! Tools for async task management.
 
-use std::{
-    cell::Cell,
-    fmt::{Debug, Formatter},
-    future::Future,
-    pin::Pin,
-    rc::Rc,
-    task::{Context, Poll, Waker},
-};
+use std::cell::Cell;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::future::Future;
+use std::pin::Pin;
+use std::rc::Rc;
+use std::task::Context;
+use std::task::Poll;
+use std::task::Waker;
 
 /// Spawns an asynchronous task that will run in the background.
 pub fn spawn<T, F>(f: F) -> JoinHandle<T>

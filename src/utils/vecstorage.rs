@@ -1,7 +1,6 @@
-use std::{
-    mem::ManuallyDrop,
-    ops::{Deref, DerefMut},
-};
+use std::mem::ManuallyDrop;
+use std::ops::Deref;
+use std::ops::DerefMut;
 
 pub struct VecStorage<T> {
     ptr: *mut T,

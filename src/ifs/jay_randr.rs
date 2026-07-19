@@ -1,27 +1,36 @@
-use {
-    crate::{
-        backend::{self, BackendColorSpace, BackendEotfs},
-        client::{Client, ClientError},
-        compositor::MAX_EXTENTS,
-        format::named_formats,
-        gfx_api::{self, GfxApi},
-        ifs::wl_output,
-        leaks::Tracker,
-        object::{Object, Version},
-        scale::Scale,
-        state::{ConnectorData, DrmDevData, OutputData, State},
-        tree::{OutputNode, TearingMode, Transform, TreeTimeline::LiveTL, VrrMode},
-        utils::errorfmt::ErrorFmt,
-        wire::{JayRandrId, jay_randr::*},
-    },
-    jay_config::video::{
-        ScalingFilter as ConfigScalingFilter, TearingMode as ConfigTearingMode,
-        VrrMode as ConfigVrrMode,
-    },
-    linearize::LinearizeExt,
-    std::{rc::Rc, slice},
-    thiserror::Error,
-};
+use crate::backend::BackendColorSpace;
+use crate::backend::BackendEotfs;
+use crate::backend::{self};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::compositor::MAX_EXTENTS;
+use crate::format::named_formats;
+use crate::gfx_api::GfxApi;
+use crate::gfx_api::{self};
+use crate::ifs::wl_output;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::scale::Scale;
+use crate::state::ConnectorData;
+use crate::state::DrmDevData;
+use crate::state::OutputData;
+use crate::state::State;
+use crate::tree::OutputNode;
+use crate::tree::TearingMode;
+use crate::tree::Transform;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::VrrMode;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::wire::JayRandrId;
+use crate::wire::jay_randr::*;
+use jay_config::video::ScalingFilter as ConfigScalingFilter;
+use jay_config::video::TearingMode as ConfigTearingMode;
+use jay_config::video::VrrMode as ConfigVrrMode;
+use linearize::LinearizeExt;
+use std::rc::Rc;
+use std::slice;
+use thiserror::Error;
 
 pub struct JayRandr {
     pub id: JayRandrId,

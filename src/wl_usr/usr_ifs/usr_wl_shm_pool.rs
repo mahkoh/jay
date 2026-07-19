@@ -1,11 +1,10 @@
-use {
-    crate::{
-        object::Version,
-        wire::{WlShmPoolId, wl_shm_pool::*},
-        wl_usr::{UsrCon, usr_object::UsrObject},
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::object::Version;
+use crate::wire::WlShmPoolId;
+use crate::wire::wl_shm_pool::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrWlShmPool {
     pub id: WlShmPoolId,

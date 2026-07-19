@@ -1,16 +1,19 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::{jay_workspace::JayWorkspace, wl_seat::WorkspaceSelector},
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::{TreeTimeline::LiveTL, WorkspaceNode},
-        utils::clonecell::CloneCell,
-        wire::{JaySelectWorkspaceId, JayWorkspaceId, jay_select_workspace::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::jay_workspace::JayWorkspace;
+use crate::ifs::wl_seat::WorkspaceSelector;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::WorkspaceNode;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::JaySelectWorkspaceId;
+use crate::wire::JayWorkspaceId;
+use crate::wire::jay_select_workspace::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct JaySelectWorkspace {
     pub id: JaySelectWorkspaceId,

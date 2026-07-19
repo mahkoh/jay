@@ -1,19 +1,20 @@
-use {
-    crate::{
-        syncobj::SyncobjCtx,
-        utils::{errorfmt::ErrorFmt, numcell::NumCell},
-        video::drm::syncobj::Syncobj,
-        vulkan_core::{VulkanCoreError, device::VulkanDeviceInf},
-    },
-    ash::vk::{
-        ExportSemaphoreCreateInfo, ExternalSemaphoreHandleTypeFlags, Semaphore,
-        SemaphoreCreateInfo, SemaphoreGetFdInfoKHR, SemaphoreSignalInfo, SemaphoreType,
-        SemaphoreTypeCreateInfo,
-    },
-    run_on_drop::on_drop,
-    std::rc::Rc,
-    uapi::OwnedFd,
-};
+use crate::syncobj::SyncobjCtx;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::numcell::NumCell;
+use crate::video::drm::syncobj::Syncobj;
+use crate::vulkan_core::VulkanCoreError;
+use crate::vulkan_core::device::VulkanDeviceInf;
+use ash::vk::ExportSemaphoreCreateInfo;
+use ash::vk::ExternalSemaphoreHandleTypeFlags;
+use ash::vk::Semaphore;
+use ash::vk::SemaphoreCreateInfo;
+use ash::vk::SemaphoreGetFdInfoKHR;
+use ash::vk::SemaphoreSignalInfo;
+use ash::vk::SemaphoreType;
+use ash::vk::SemaphoreTypeCreateInfo;
+use run_on_drop::on_drop;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 pub struct VulkanTimelineSemaphore<D>
 where

@@ -1,15 +1,10 @@
-use {
-    crate::{
-        criteria::{
-            crit_graph::CritRootCriterion,
-            tlm::{RootMatchers, TlmRootMatcherMap},
-        },
-        ifs::wp_content_type_v1::ContentTypeExt,
-        tree::ToplevelData,
-        utils::bitflags::BitflagsExt,
-    },
-    jay_config::window::ContentType,
-};
+use crate::criteria::crit_graph::CritRootCriterion;
+use crate::criteria::tlm::RootMatchers;
+use crate::criteria::tlm::TlmRootMatcherMap;
+use crate::ifs::wp_content_type_v1::ContentTypeExt;
+use crate::tree::ToplevelData;
+use crate::utils::bitflags::BitflagsExt;
+use jay_config::window::ContentType;
 
 pub struct TlmMatchContentType {
     kind: ContentType,

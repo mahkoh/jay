@@ -1,21 +1,32 @@
-use {
-    crate::{
-        client::{Client, ClientError, ClientId},
-        leaks::Tracker,
-        object::{Object, Version},
-        utils::copyhashmap::CopyHashMap,
-        wire::{
-            JayClientQueryId,
-            jay_client_query::{
-                AddAll, AddId, Comm, Destroy, Done, End, Exe, Execute, IsXwayland,
-                JayClientQueryRequestHandler, Pid, SandboxAppId, SandboxEngine, SandboxInstanceId,
-                Sandboxed, Start, Tag, Uid,
-            },
-        },
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::client::ClientId;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::wire::JayClientQueryId;
+use crate::wire::jay_client_query::AddAll;
+use crate::wire::jay_client_query::AddId;
+use crate::wire::jay_client_query::Comm;
+use crate::wire::jay_client_query::Destroy;
+use crate::wire::jay_client_query::Done;
+use crate::wire::jay_client_query::End;
+use crate::wire::jay_client_query::Exe;
+use crate::wire::jay_client_query::Execute;
+use crate::wire::jay_client_query::IsXwayland;
+use crate::wire::jay_client_query::JayClientQueryRequestHandler;
+use crate::wire::jay_client_query::Pid;
+use crate::wire::jay_client_query::SandboxAppId;
+use crate::wire::jay_client_query::SandboxEngine;
+use crate::wire::jay_client_query::SandboxInstanceId;
+use crate::wire::jay_client_query::Sandboxed;
+use crate::wire::jay_client_query::Start;
+use crate::wire::jay_client_query::Tag;
+use crate::wire::jay_client_query::Uid;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct JayClientQuery {
     pub id: JayClientQueryId,

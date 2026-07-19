@@ -1,17 +1,18 @@
-use {
-    crate::{
-        client::{Client, ClientError, ClientId},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{
-            JayEiSessionId,
-            jay_ei_session::{Created, Destroyed, Failed, JayEiSessionRequestHandler, Release},
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-    uapi::OwnedFd,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::client::ClientId;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::JayEiSessionId;
+use crate::wire::jay_ei_session::Created;
+use crate::wire::jay_ei_session::Destroyed;
+use crate::wire::jay_ei_session::Failed;
+use crate::wire::jay_ei_session::JayEiSessionRequestHandler;
+use crate::wire::jay_ei_session::Release;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
 
 pub struct JayEiSession {
     pub id: JayEiSessionId,

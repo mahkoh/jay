@@ -1,11 +1,9 @@
-use {
-    crate::utils::{clonecell::CloneCell, syncqueue::SyncQueue},
-    derivative::Derivative,
-    std::{
-        fmt::{Debug, Formatter},
-        rc::Rc,
-    },
-};
+use crate::utils::clonecell::CloneCell;
+use crate::utils::syncqueue::SyncQueue;
+use derivative::Derivative;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::rc::Rc;
 
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]

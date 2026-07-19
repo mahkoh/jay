@@ -1,13 +1,12 @@
-use {
-    crate::{
-        object::Version,
-        utils::clonecell::CloneCell,
-        wire::{WlDataSourceId, wl_data_source::*},
-        wl_usr::{UsrCon, usr_object::UsrObject},
-    },
-    std::{convert::Infallible, rc::Rc},
-    uapi::OwnedFd,
-};
+use crate::object::Version;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::WlDataSourceId;
+use crate::wire::wl_data_source::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 pub struct UsrWlDataSource {
     pub id: WlDataSourceId,

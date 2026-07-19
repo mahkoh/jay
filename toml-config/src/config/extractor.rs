@@ -1,16 +1,12 @@
-use {
-    crate::{
-        config::context::Context,
-        toml::{
-            toml_span::{Span, Spanned, SpannedExt},
-            toml_value::Value,
-        },
-    },
-    ahash::AHashSet,
-    error_reporter::Report,
-    indexmap::IndexMap,
-    thiserror::Error,
-};
+use crate::config::context::Context;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_span::SpannedExt;
+use crate::toml::toml_value::Value;
+use ahash::AHashSet;
+use error_reporter::Report;
+use indexmap::IndexMap;
+use thiserror::Error;
 
 pub struct Extractor<'v, 'w> {
     cx: &'v Context<'w>,

@@ -1,15 +1,11 @@
-use {
-    crate::{
-        it::{test_ifs::test_buffer::TestBuffer, test_mem::TestMem},
-        theme::Color,
-        utils::windows::WindowsExt,
-    },
-    std::{
-        cell::Cell,
-        ops::{Deref, Range},
-        rc::Rc,
-    },
-};
+use crate::it::test_ifs::test_buffer::TestBuffer;
+use crate::it::test_mem::TestMem;
+use crate::theme::Color;
+use crate::utils::windows::WindowsExt;
+use std::cell::Cell;
+use std::ops::Deref;
+use std::ops::Range;
+use std::rc::Rc;
 
 pub struct TestShmBuffer {
     pub buffer: Rc<TestBuffer>,

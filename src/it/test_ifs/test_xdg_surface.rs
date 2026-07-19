@@ -1,18 +1,15 @@
-use {
-    crate::{
-        ifs::wl_surface::xdg_surface::XdgSurface,
-        it::{
-            test_error::TestError,
-            test_ifs::test_xdg_toplevel::{TestXdgToplevel, TestXdgToplevelCore},
-            test_object::TestObject,
-            test_transport::TestTransport,
-            testrun::ParseFull,
-        },
-        utils::buffd::MsgParser,
-        wire::{XdgSurfaceId, xdg_surface::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::ifs::wl_surface::xdg_surface::XdgSurface;
+use crate::it::test_error::TestError;
+use crate::it::test_ifs::test_xdg_toplevel::TestXdgToplevel;
+use crate::it::test_ifs::test_xdg_toplevel::TestXdgToplevelCore;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::testrun::ParseFull;
+use crate::utils::buffd::MsgParser;
+use crate::wire::XdgSurfaceId;
+use crate::wire::xdg_surface::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestXdgSurface {
     pub id: XdgSurfaceId,

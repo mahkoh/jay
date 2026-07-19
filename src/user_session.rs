@@ -1,13 +1,17 @@
-use {
-    crate::{
-        dbus::{BUS_DEST, BUS_PATH, DbusError, DictEntry, DynamicType, prelude::Variant},
-        state::State,
-        utils::{errorfmt::ErrorFmt, opaque::opaque, sleeper::Sleeper},
-        wire_dbus::org,
-    },
-    std::{borrow::Cow, rc::Rc},
-    thiserror::Error,
-};
+use crate::dbus::BUS_DEST;
+use crate::dbus::BUS_PATH;
+use crate::dbus::DbusError;
+use crate::dbus::DictEntry;
+use crate::dbus::DynamicType;
+use crate::dbus::prelude::Variant;
+use crate::state::State;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::opaque::opaque;
+use crate::utils::sleeper::Sleeper;
+use crate::wire_dbus::org;
+use std::borrow::Cow;
+use std::rc::Rc;
+use thiserror::Error;
 
 const SYSTEMD_DEST: &str = "org.freedesktop.systemd1";
 const SYSTEMD_PATH: &str = "/org/freedesktop/systemd1";

@@ -1,15 +1,15 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::zxdg_toplevel_decoration_v1::ZxdgToplevelDecorationV1,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZxdgDecorationManagerV1Id, zxdg_decoration_manager_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::zxdg_toplevel_decoration_v1::ZxdgToplevelDecorationV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZxdgDecorationManagerV1Id;
+use crate::wire::zxdg_decoration_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZxdgDecorationManagerV1Global {
     name: GlobalName,

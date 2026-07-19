@@ -1,14 +1,14 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::wl_seat::tablet::{Tablet, zwp_tablet_seat_v2::ZwpTabletSeatV2},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwpTabletV2Id, zwp_tablet_v2::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_seat::tablet::Tablet;
+use crate::ifs::wl_seat::tablet::zwp_tablet_seat_v2::ZwpTabletSeatV2;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwpTabletV2Id;
+use crate::wire::zwp_tablet_v2::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpTabletV2 {
     pub id: ZwpTabletV2Id,

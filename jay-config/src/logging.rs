@@ -3,10 +3,9 @@
 //! Note that you can use the `log` crate for logging. All invocations of `log::info` etc.
 //! automatically log into the compositors log.
 
-use {
-    serde::{Deserialize, Serialize},
-    std::time::SystemTime,
-};
+use serde::Deserialize;
+use serde::Serialize;
+use std::time::SystemTime;
 
 /// The log level of the compositor or a log message.
 #[derive(Serialize, Deserialize, Copy, Clone, Debug)]

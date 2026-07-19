@@ -1,17 +1,10 @@
-use {
-    crate::{
-        ifs::wl_surface::xdg_surface::xdg_toplevel::STATE_SUSPENDED,
-        it::{
-            test_error::TestResult,
-            test_utils::{
-                test_ouput_node_ext::TestOutputNodeExt, test_toplevel_node_ext::TestToplevelNodeExt,
-            },
-            testrun::TestRun,
-        },
-        utils::hash_map_ext::HashSetExt,
-    },
-    std::rc::Rc,
-};
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::STATE_SUSPENDED;
+use crate::it::test_error::TestResult;
+use crate::it::test_utils::test_ouput_node_ext::TestOutputNodeExt;
+use crate::it::test_utils::test_toplevel_node_ext::TestToplevelNodeExt;
+use crate::it::testrun::TestRun;
+use crate::utils::hash_map_ext::HashSetExt;
+use std::rc::Rc;
 
 testcase!();
 

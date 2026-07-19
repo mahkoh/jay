@@ -1,34 +1,44 @@
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
 
-use {
-    crate::{
-        utils::{
-            bitflags::BitflagsExt,
-            ioctl::ioctl,
-            major_minor::{MajorMinor, major_minor},
-            oserror::{OsError, OsErrorExt},
-        },
-        video::drm::{
-            DrmBlob, DrmCardResources, DrmConnector, DrmConnectorInfo, DrmCrtc, DrmEncoder,
-            DrmEncoderInfo, DrmError, DrmFb, DrmModeInfo, DrmPlane, DrmPlaneInfo, DrmProperty,
-            DrmPropertyDefinition, DrmPropertyEnumValue, DrmPropertyType, DrmPropertyValue,
-            DrmVersion, NodeType,
-        },
-    },
-    bstr::ByteSlice,
-    linearize::{LinearizeExt, StaticMap},
-    std::{
-        ffi::CString,
-        io::{BufRead, BufReader},
-        str::FromStr,
-    },
-    uapi::{
-        OwnedFd, Pod, Ustring,
-        c::{self, c_int},
-        pod_zeroed,
-    },
-};
+use crate::utils::bitflags::BitflagsExt;
+use crate::utils::ioctl::ioctl;
+use crate::utils::major_minor::MajorMinor;
+use crate::utils::major_minor::major_minor;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt;
+use crate::video::drm::DrmBlob;
+use crate::video::drm::DrmCardResources;
+use crate::video::drm::DrmConnector;
+use crate::video::drm::DrmConnectorInfo;
+use crate::video::drm::DrmCrtc;
+use crate::video::drm::DrmEncoder;
+use crate::video::drm::DrmEncoderInfo;
+use crate::video::drm::DrmError;
+use crate::video::drm::DrmFb;
+use crate::video::drm::DrmModeInfo;
+use crate::video::drm::DrmPlane;
+use crate::video::drm::DrmPlaneInfo;
+use crate::video::drm::DrmProperty;
+use crate::video::drm::DrmPropertyDefinition;
+use crate::video::drm::DrmPropertyEnumValue;
+use crate::video::drm::DrmPropertyType;
+use crate::video::drm::DrmPropertyValue;
+use crate::video::drm::DrmVersion;
+use crate::video::drm::NodeType;
+use bstr::ByteSlice;
+use linearize::LinearizeExt;
+use linearize::StaticMap;
+use std::ffi::CString;
+use std::io::BufRead;
+use std::io::BufReader;
+use std::str::FromStr;
+use uapi::OwnedFd;
+use uapi::Pod;
+use uapi::Ustring;
+use uapi::c::c_int;
+use uapi::c::{self};
+use uapi::pod_zeroed;
 
 pub const DRM_IOCTL_BASE: u64 = b'd' as u64;
 

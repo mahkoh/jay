@@ -1,16 +1,15 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::xdg_wm_base::XdgWmBase,
-        leaks::Tracker,
-        object::Object,
-        rect::Rect,
-        tree::TreeSerial,
-        wire::{XdgPositionerId, xdg_positioner::*},
-    },
-    std::{cell::RefCell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::xdg_wm_base::XdgWmBase;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::rect::Rect;
+use crate::tree::TreeSerial;
+use crate::wire::XdgPositionerId;
+use crate::wire::xdg_positioner::*;
+use std::cell::RefCell;
+use std::rc::Rc;
+use thiserror::Error;
 
 const INVALID_INPUT: u32 = 0;
 

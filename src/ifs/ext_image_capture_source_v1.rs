@@ -1,15 +1,14 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::wl_output::OutputGlobalOpt,
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::ToplevelOpt,
-        wire::{ExtImageCaptureSourceV1Id, ext_image_capture_source_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_output::OutputGlobalOpt;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::ToplevelOpt;
+use crate::wire::ExtImageCaptureSourceV1Id;
+use crate::wire::ext_image_capture_source_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[derive(Clone)]
 pub enum ImageCaptureSource {

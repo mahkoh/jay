@@ -1,10 +1,10 @@
-use crate::{
-    criteria::{
-        crit_matchers::critm_string::{CritMatchString, StringAccess},
-        tlm::{RootMatchers, TlmRootMatcherMap},
-    },
-    tree::{ToplevelData, ToplevelType, TreeTimeline::LiveTL},
-};
+use crate::criteria::crit_matchers::critm_string::CritMatchString;
+use crate::criteria::crit_matchers::critm_string::StringAccess;
+use crate::criteria::tlm::RootMatchers;
+use crate::criteria::tlm::TlmRootMatcherMap;
+use crate::tree::ToplevelData;
+use crate::tree::ToplevelType;
+use crate::tree::TreeTimeline::LiveTL;
 
 pub type TlmMatchString<T> = CritMatchString<ToplevelData, T>;
 

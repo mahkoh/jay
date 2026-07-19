@@ -1,16 +1,19 @@
-use {
-    crate::{
-        client::{CAP_VIRTUAL_KEYBOARD_MANAGER, Client, ClientCaps, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wl_seat::zwp_virtual_keyboard_v1::ZwpVirtualKeyboardV1,
-        keyboard::KeyboardState,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwpVirtualKeyboardManagerV1Id, zwp_virtual_keyboard_manager_v1::*},
-    },
-    std::{cell::RefCell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::CAP_VIRTUAL_KEYBOARD_MANAGER;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_seat::zwp_virtual_keyboard_v1::ZwpVirtualKeyboardV1;
+use crate::keyboard::KeyboardState;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwpVirtualKeyboardManagerV1Id;
+use crate::wire::zwp_virtual_keyboard_manager_v1::*;
+use std::cell::RefCell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpVirtualKeyboardManagerV1Global {
     pub name: GlobalName,

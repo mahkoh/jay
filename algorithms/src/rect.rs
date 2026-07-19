@@ -1,9 +1,8 @@
 pub mod region;
 
-use {
-    smallvec::SmallVec,
-    std::fmt::{Debug, Formatter},
-};
+use smallvec::SmallVec;
+use std::fmt::Debug;
+use std::fmt::Formatter;
 
 pub trait Tag: Copy + Eq + Ord + Debug + Default + Sized {
     const IS_SIGNIFICANT: bool;

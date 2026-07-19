@@ -1,32 +1,42 @@
-use {
-    crate::{
-        cmm::cmm_render_intent::RenderIntent,
-        gfx_api::{
-            AcquireSync, BufferResv, GfxApiOp, GfxTexture, LazyTexture, ReleaseSync, SampleRect,
-        },
-        icons::{IconState, SizedBarIcons, SizedTitleIcons},
-        ifs::wl_surface::{
-            SurfaceBuffer, WlSurface,
-            x_surface::xwindow::Xwindow,
-            xdg_surface::{
-                XdgSurface,
-                xdg_toplevel::{XdgToplevel, xdg_toplevel_icon_v1::ToplevelIcon},
-            },
-            zwlr_layer_surface_v1::ZwlrLayerSurfaceV1,
-        },
-        rect::Rect,
-        renderer::renderer_base::{RenderTexture, RendererBase},
-        scale::Scale,
-        state::State,
-        theme::Color,
-        tree::{
-            ContainerChildType, ContainerNode, DisplayNode, FloatNode, NodeBase, OutputNode,
-            PlaceholderNode, ToplevelData, ToplevelNodeBase, TreeTimeline::RenderTL, WorkspaceNode,
-            WorkspaceType,
-        },
-    },
-    std::{ops::Deref, rc::Rc, slice},
-};
+use crate::cmm::cmm_render_intent::RenderIntent;
+use crate::gfx_api::AcquireSync;
+use crate::gfx_api::BufferResv;
+use crate::gfx_api::GfxApiOp;
+use crate::gfx_api::GfxTexture;
+use crate::gfx_api::LazyTexture;
+use crate::gfx_api::ReleaseSync;
+use crate::gfx_api::SampleRect;
+use crate::icons::IconState;
+use crate::icons::SizedBarIcons;
+use crate::icons::SizedTitleIcons;
+use crate::ifs::wl_surface::SurfaceBuffer;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::x_surface::xwindow::Xwindow;
+use crate::ifs::wl_surface::xdg_surface::XdgSurface;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::ToplevelIcon;
+use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1;
+use crate::rect::Rect;
+use crate::renderer::renderer_base::RenderTexture;
+use crate::renderer::renderer_base::RendererBase;
+use crate::scale::Scale;
+use crate::state::State;
+use crate::theme::Color;
+use crate::tree::ContainerChildType;
+use crate::tree::ContainerNode;
+use crate::tree::DisplayNode;
+use crate::tree::FloatNode;
+use crate::tree::NodeBase;
+use crate::tree::OutputNode;
+use crate::tree::PlaceholderNode;
+use crate::tree::ToplevelData;
+use crate::tree::ToplevelNodeBase;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::tree::WorkspaceNode;
+use crate::tree::WorkspaceType;
+use std::ops::Deref;
+use std::rc::Rc;
+use std::slice;
 
 pub mod renderer_base;
 

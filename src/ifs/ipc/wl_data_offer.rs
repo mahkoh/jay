@@ -1,26 +1,33 @@
-use {
-    crate::{
-        client::{Client, ClientError, ClientId},
-        fixed::Fixed,
-        ifs::{
-            ipc::{
-                DataOffer, DataOfferId, DynDataOffer, OFFER_STATE_ACCEPTED, OFFER_STATE_DROPPED,
-                OFFER_STATE_FINISHED, OfferData, OfferDestroyReason, Role, SOURCE_STATE_FINISHED,
-                break_offer_loops, cancel_offer, destroy_data_offer_with_reason,
-                receive_data_offer,
-                wl_data_device::{ClipboardIpc, WlDataDevice},
-                wl_data_device_manager::DND_ALL,
-            },
-            wl_seat::WlSeatGlobal,
-        },
-        leaks::Tracker,
-        object::Object,
-        utils::bitflags::BitflagsExt,
-        wire::{WlDataOfferId, WlSurfaceId, wl_data_offer::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::client::ClientId;
+use crate::fixed::Fixed;
+use crate::ifs::ipc::DataOffer;
+use crate::ifs::ipc::DataOfferId;
+use crate::ifs::ipc::DynDataOffer;
+use crate::ifs::ipc::OFFER_STATE_ACCEPTED;
+use crate::ifs::ipc::OFFER_STATE_DROPPED;
+use crate::ifs::ipc::OFFER_STATE_FINISHED;
+use crate::ifs::ipc::OfferData;
+use crate::ifs::ipc::OfferDestroyReason;
+use crate::ifs::ipc::Role;
+use crate::ifs::ipc::SOURCE_STATE_FINISHED;
+use crate::ifs::ipc::break_offer_loops;
+use crate::ifs::ipc::cancel_offer;
+use crate::ifs::ipc::destroy_data_offer_with_reason;
+use crate::ifs::ipc::receive_data_offer;
+use crate::ifs::ipc::wl_data_device::ClipboardIpc;
+use crate::ifs::ipc::wl_data_device::WlDataDevice;
+use crate::ifs::ipc::wl_data_device_manager::DND_ALL;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::utils::bitflags::BitflagsExt;
+use crate::wire::WlDataOfferId;
+use crate::wire::WlSurfaceId;
+use crate::wire::wl_data_offer::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[expect(dead_code)]
 const INVALID_FINISH: u32 = 0;

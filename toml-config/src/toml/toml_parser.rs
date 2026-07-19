@@ -1,17 +1,17 @@
-use {
-    crate::toml::{
-        toml_lexer::{Lexer, Token},
-        toml_span::{Span, Spanned, SpannedExt},
-        toml_value::Value,
-    },
-    bstr::ByteSlice,
-    indexmap::{
-        IndexMap,
-        map::{RawEntryApiV1, raw_entry_v1::RawEntryMut},
-    },
-    std::{collections::VecDeque, mem, str::FromStr},
-    thiserror::Error,
-};
+use crate::toml::toml_lexer::Lexer;
+use crate::toml::toml_lexer::Token;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_span::SpannedExt;
+use crate::toml::toml_value::Value;
+use bstr::ByteSlice;
+use indexmap::IndexMap;
+use indexmap::map::RawEntryApiV1;
+use indexmap::map::raw_entry_v1::RawEntryMut;
+use std::collections::VecDeque;
+use std::mem;
+use std::str::FromStr;
+use thiserror::Error;
 
 pub trait ErrorHandler {
     fn handle(&self, err: Spanned<ParserError>);

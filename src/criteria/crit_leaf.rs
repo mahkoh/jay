@@ -1,18 +1,16 @@
-use {
-    crate::{
-        criteria::{
-            CritUpstreamNode,
-            crit_graph::{CritDownstream, CritDownstreamData, CritMgr, CritTarget},
-            crit_per_target_data::{CritDestroyListenerBase, CritPerTargetData},
-        },
-        utils::{cell_ext::CellExt, queue::AsyncQueue},
-    },
-    std::{
-        cell::Cell,
-        rc::{Rc, Weak},
-        slice,
-    },
-};
+use crate::criteria::CritUpstreamNode;
+use crate::criteria::crit_graph::CritDownstream;
+use crate::criteria::crit_graph::CritDownstreamData;
+use crate::criteria::crit_graph::CritMgr;
+use crate::criteria::crit_graph::CritTarget;
+use crate::criteria::crit_per_target_data::CritDestroyListenerBase;
+use crate::criteria::crit_per_target_data::CritPerTargetData;
+use crate::utils::cell_ext::CellExt;
+use crate::utils::queue::AsyncQueue;
+use std::cell::Cell;
+use std::rc::Rc;
+use std::rc::Weak;
+use std::slice;
 
 pub struct CritLeafMatcher<Target>
 where

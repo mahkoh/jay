@@ -1,64 +1,87 @@
-use {
-    crate::{
-        backend::ButtonState,
-        cursor::KnownCursor,
-        cursor_user::CursorUser,
-        fixed::Fixed,
-        gfx_api::GfxTexture,
-        ifs::{
-            wl_seat::{
-                BTN_LEFT, BTN_RIGHT, NodeSeatState, SeatId, WlSeatGlobal, collect_kb_foci,
-                collect_kb_foci2,
-                tablet::{TabletTool, TabletToolChanges, TabletToolId},
-                wl_pointer::PendingScroll,
-            },
-            wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::{
-                ToplevelIcon, ToplevelIconUser,
-            },
-        },
-        rect::Rect,
-        renderer::Renderer,
-        scale::Scale,
-        state::State,
-        text::TextTexture,
-        theme::ContainerBorders,
-        transactions::{TransactionData, Transactionable, TransactionableExt},
-        tree::{
-            ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FloatNode, FoundNode, Node,
-            NodeBase, NodeId, NodeLayerLink, NodeLocation, OutputNode, SplitView, TddType,
-            TileDragDestination, ToplevelData, ToplevelDataTransactionOp, ToplevelNode,
-            ToplevelNodeBase, ToplevelType, TreeLink,
-            TreeTimeline::{self, LiveTL, RenderTL},
-            WorkspaceChangeReason, WorkspaceNode, default_tile_drag_bounds, toplevel_set_floating,
-            toplevel_set_workspace,
-            walker::NodeVisitor,
-        },
-        utils::{
-            asyncevent::AsyncEvent,
-            bhash::BHashMap,
-            clonecell::CloneCell,
-            double_click_state::DoubleClickState,
-            errorfmt::ErrorFmt,
-            hash_map_ext::HashMapExt,
-            linkedlist::{LinkedList, LinkedNode, NodeRef},
-            numcell::NumCell,
-            on_drop_event::OnDropEvent,
-            rc_eq::rc_eq,
-            scroller::Scroller,
-            smallmap::{SmallMap, SmallMapMut},
-            threshold_counter::ThresholdCounter,
-        },
-    },
-    jay_config::Axis,
-    smallvec::SmallVec,
-    std::{
-        cell::{Cell, RefCell},
-        fmt::{Debug, Formatter},
-        mem,
-        ops::{Deref, DerefMut, Sub},
-        rc::Rc,
-    },
-};
+use crate::backend::ButtonState;
+use crate::cursor::KnownCursor;
+use crate::cursor_user::CursorUser;
+use crate::fixed::Fixed;
+use crate::gfx_api::GfxTexture;
+use crate::ifs::wl_seat::BTN_LEFT;
+use crate::ifs::wl_seat::BTN_RIGHT;
+use crate::ifs::wl_seat::NodeSeatState;
+use crate::ifs::wl_seat::SeatId;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::collect_kb_foci;
+use crate::ifs::wl_seat::collect_kb_foci2;
+use crate::ifs::wl_seat::tablet::TabletTool;
+use crate::ifs::wl_seat::tablet::TabletToolChanges;
+use crate::ifs::wl_seat::tablet::TabletToolId;
+use crate::ifs::wl_seat::wl_pointer::PendingScroll;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::ToplevelIcon;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::ToplevelIconUser;
+use crate::rect::Rect;
+use crate::renderer::Renderer;
+use crate::scale::Scale;
+use crate::state::State;
+use crate::text::TextTexture;
+use crate::theme::ContainerBorders;
+use crate::transactions::TransactionData;
+use crate::transactions::Transactionable;
+use crate::transactions::TransactionableExt;
+use crate::tree::ContainingNode;
+use crate::tree::Direction;
+use crate::tree::FindTreeResult;
+use crate::tree::FindTreeUsecase;
+use crate::tree::FloatNode;
+use crate::tree::FoundNode;
+use crate::tree::Node;
+use crate::tree::NodeBase;
+use crate::tree::NodeId;
+use crate::tree::NodeLayerLink;
+use crate::tree::NodeLocation;
+use crate::tree::OutputNode;
+use crate::tree::SplitView;
+use crate::tree::TddType;
+use crate::tree::TileDragDestination;
+use crate::tree::ToplevelData;
+use crate::tree::ToplevelDataTransactionOp;
+use crate::tree::ToplevelNode;
+use crate::tree::ToplevelNodeBase;
+use crate::tree::ToplevelType;
+use crate::tree::TreeLink;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::tree::TreeTimeline::{self};
+use crate::tree::WorkspaceChangeReason;
+use crate::tree::WorkspaceNode;
+use crate::tree::default_tile_drag_bounds;
+use crate::tree::toplevel_set_floating;
+use crate::tree::toplevel_set_workspace;
+use crate::tree::walker::NodeVisitor;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::bhash::BHashMap;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::double_click_state::DoubleClickState;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::linkedlist::LinkedList;
+use crate::utils::linkedlist::LinkedNode;
+use crate::utils::linkedlist::NodeRef;
+use crate::utils::numcell::NumCell;
+use crate::utils::on_drop_event::OnDropEvent;
+use crate::utils::rc_eq::rc_eq;
+use crate::utils::scroller::Scroller;
+use crate::utils::smallmap::SmallMap;
+use crate::utils::smallmap::SmallMapMut;
+use crate::utils::threshold_counter::ThresholdCounter;
+use jay_config::Axis;
+use smallvec::SmallVec;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::mem;
+use std::ops::Deref;
+use std::ops::DerefMut;
+use std::ops::Sub;
+use std::rc::Rc;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub enum ContainerSplit {

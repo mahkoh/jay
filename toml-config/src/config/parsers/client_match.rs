@@ -1,19 +1,26 @@
-use {
-    crate::{
-        config::{
-            ClientMatch, GenericMatch, MatchExactly,
-            context::Context,
-            extractor::{Extractor, ExtractorError, arr, bol, n32, opt, s32, str, val},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-        },
-        toml::{
-            toml_span::{DespanExt, Span, Spanned},
-            toml_value::Value,
-        },
-    },
-    indexmap::IndexMap,
-    thiserror::Error,
-};
+use crate::config::ClientMatch;
+use crate::config::GenericMatch;
+use crate::config::MatchExactly;
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::arr;
+use crate::config::extractor::bol;
+use crate::config::extractor::n32;
+use crate::config::extractor::opt;
+use crate::config::extractor::s32;
+use crate::config::extractor::str;
+use crate::config::extractor::val;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::toml::toml_span::DespanExt;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_value::Value;
+use indexmap::IndexMap;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ClientMatchParserError {

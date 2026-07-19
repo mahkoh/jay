@@ -1,15 +1,15 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        configurable::ConfigurableExt,
-        ifs::wl_surface::xdg_surface::xdg_toplevel::{Decoration, XdgToplevel},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZxdgToplevelDecorationV1Id, zxdg_toplevel_decoration_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::configurable::ConfigurableExt;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::Decoration;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZxdgToplevelDecorationV1Id;
+use crate::wire::zxdg_toplevel_decoration_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 const CLIENT_SIDE: u32 = 1;
 const SERVER_SIDE: u32 = 2;

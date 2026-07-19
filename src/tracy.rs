@@ -9,7 +9,8 @@ use tracy_impl as imp;
 #[macro_use]
 mod tracy_noop;
 
+pub use imp::FrameName;
+pub use imp::ZoneName;
+pub use imp::enable_profiler;
 #[cfg(not(feature = "tracy"))]
 use tracy_noop as imp;
-
-pub use imp::{FrameName, ZoneName, enable_profiler};

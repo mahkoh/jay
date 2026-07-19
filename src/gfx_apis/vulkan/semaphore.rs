@@ -1,12 +1,13 @@
-use {
-    crate::gfx_apis::vulkan::{VulkanError, device::VulkanDevice},
-    ash::vk::{
-        ExternalSemaphoreHandleTypeFlags, ImportSemaphoreFdInfoKHR, Semaphore, SemaphoreCreateInfo,
-        SemaphoreImportFlags,
-    },
-    std::{mem, rc::Rc},
-    uapi::OwnedFd,
-};
+use crate::gfx_apis::vulkan::VulkanError;
+use crate::gfx_apis::vulkan::device::VulkanDevice;
+use ash::vk::ExternalSemaphoreHandleTypeFlags;
+use ash::vk::ImportSemaphoreFdInfoKHR;
+use ash::vk::Semaphore;
+use ash::vk::SemaphoreCreateInfo;
+use ash::vk::SemaphoreImportFlags;
+use std::mem;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 pub struct VulkanSemaphore {
     pub(super) device: Rc<VulkanDevice>,

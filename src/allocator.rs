@@ -1,16 +1,12 @@
-use {
-    crate::{
-        format::Format,
-        gfx_api::SyncFile,
-        video::{
-            Modifier,
-            dmabuf::{DmaBuf, DmaBufIds},
-            drm::Drm,
-        },
-    },
-    std::{error::Error, rc::Rc},
-    thiserror::Error,
-};
+use crate::format::Format;
+use crate::gfx_api::SyncFile;
+use crate::video::Modifier;
+use crate::video::dmabuf::DmaBuf;
+use crate::video::dmabuf::DmaBufIds;
+use crate::video::drm::Drm;
+use std::error::Error;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 #[error(transparent)]

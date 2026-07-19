@@ -1,19 +1,18 @@
-use {
-    crate::{
-        async_engine::Phase,
-        ei::{
-            ei_client::{EiClient, ei_error::EiClientError},
-            ei_object::EiObjectId,
-        },
-        utils::{
-            buffd::{BufFdIn, BufFdOut, EiMsgParser},
-            errorfmt::ErrorFmt,
-            vec_ext::VecExt,
-        },
-    },
-    futures_util::{FutureExt, select},
-    std::{collections::VecDeque, mem, rc::Rc, time::Duration},
-};
+use crate::async_engine::Phase;
+use crate::ei::ei_client::EiClient;
+use crate::ei::ei_client::ei_error::EiClientError;
+use crate::ei::ei_object::EiObjectId;
+use crate::utils::buffd::BufFdIn;
+use crate::utils::buffd::BufFdOut;
+use crate::utils::buffd::EiMsgParser;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::vec_ext::VecExt;
+use futures_util::FutureExt;
+use futures_util::select;
+use std::collections::VecDeque;
+use std::mem;
+use std::rc::Rc;
+use std::time::Duration;
 
 pub async fn ei_client(data: Rc<EiClient>) {
     let mut recv = data

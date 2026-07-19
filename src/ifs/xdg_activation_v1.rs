@@ -1,16 +1,18 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::xdg_activation_token_v1::{ActivationToken, XdgActivationTokenV1},
-        leaks::Tracker,
-        object::{Object, Version},
-        utils::{errorfmt::ErrorFmt, opaque::OpaqueError},
-        wire::{XdgActivationV1Id, xdg_activation_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::xdg_activation_token_v1::ActivationToken;
+use crate::ifs::xdg_activation_token_v1::XdgActivationTokenV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::opaque::OpaqueError;
+use crate::wire::XdgActivationV1Id;
+use crate::wire::xdg_activation_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct XdgActivationV1Global {
     pub name: GlobalName,

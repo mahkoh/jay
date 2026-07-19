@@ -1,32 +1,44 @@
-use {
-    crate::{
-        backend::ConnectorId,
-        cursor::KnownCursor,
-        fixed::Fixed,
-        ifs::wl_seat::{NodeSeatState, WlSeatGlobal, tablet::TabletTool},
-        rect::Rect,
-        renderer::Renderer,
-        state::{State, TreeState},
-        transactions::{TransactionData, Transactionable, TransactionableExt},
-        tree::{
-            FindTreeResult, FindTreeUsecase, FoundNode, NodeBase, NodeId, NodeLayerLink,
-            NodeLocation, OutputNode, SplitView, StackedNode, TileDragDestination,
-            TreeTimeline::{self, LiveTL, RenderTL},
-            WorkspaceDragDestination, WorkspaceNode,
-            walker::NodeVisitor,
-        },
-        utils::{
-            copyhashmap::CopyHashMap,
-            linkedlist::{LinkedList, LinkedListIter, LinkedNode, NodeRef, RevLinkedListIter},
-        },
-    },
-    linearize::LinearizeExt,
-    std::{
-        cell::{Cell, RefCell},
-        ops::Deref,
-        rc::Rc,
-    },
-};
+use crate::backend::ConnectorId;
+use crate::cursor::KnownCursor;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::NodeSeatState;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::tablet::TabletTool;
+use crate::rect::Rect;
+use crate::renderer::Renderer;
+use crate::state::State;
+use crate::state::TreeState;
+use crate::transactions::TransactionData;
+use crate::transactions::Transactionable;
+use crate::transactions::TransactionableExt;
+use crate::tree::FindTreeResult;
+use crate::tree::FindTreeUsecase;
+use crate::tree::FoundNode;
+use crate::tree::NodeBase;
+use crate::tree::NodeId;
+use crate::tree::NodeLayerLink;
+use crate::tree::NodeLocation;
+use crate::tree::OutputNode;
+use crate::tree::SplitView;
+use crate::tree::StackedNode;
+use crate::tree::TileDragDestination;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::tree::TreeTimeline::{self};
+use crate::tree::WorkspaceDragDestination;
+use crate::tree::WorkspaceNode;
+use crate::tree::walker::NodeVisitor;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::linkedlist::LinkedList;
+use crate::utils::linkedlist::LinkedListIter;
+use crate::utils::linkedlist::LinkedNode;
+use crate::utils::linkedlist::NodeRef;
+use crate::utils::linkedlist::RevLinkedListIter;
+use linearize::LinearizeExt;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::ops::Deref;
+use std::rc::Rc;
 
 pub struct DisplayNode {
     pub id: NodeId,

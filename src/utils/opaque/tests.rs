@@ -1,7 +1,6 @@
-use {
-    crate::utils::opaque::{Opaque, opaque},
-    std::str::FromStr,
-};
+use crate::utils::opaque::Opaque;
+use crate::utils::opaque::opaque;
+use std::str::FromStr;
 
 #[test]
 fn roundtrip() {

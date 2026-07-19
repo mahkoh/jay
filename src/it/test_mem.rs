@@ -1,11 +1,12 @@
-use {
-    crate::{
-        it::test_error::TestError,
-        utils::{oserror::OsError, ptr_ext::PtrExt},
-    },
-    std::{cell::Cell, ops::Deref, ptr, rc::Rc},
-    uapi::{OwnedFd, c},
-};
+use crate::it::test_error::TestError;
+use crate::utils::oserror::OsError;
+use crate::utils::ptr_ext::PtrExt;
+use std::cell::Cell;
+use std::ops::Deref;
+use std::ptr;
+use std::rc::Rc;
+use uapi::OwnedFd;
+use uapi::c;
 
 pub struct TestMem {
     pub fd: Rc<OwnedFd>,

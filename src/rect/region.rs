@@ -1,28 +1,25 @@
-use {
-    crate::{
-        rect::{Rect, Region},
-        utils::{
-            array,
-            ptr_ext::{MutPtrExt, PtrExt},
-        },
-    },
-    jay_algorithms::rect::{
-        RectRaw, Tag,
-        region::{
-            extents, intersect, intersect_tagged, rects_to_bands, rects_to_bands_tagged, subtract,
-            union,
-        },
-    },
-    smallvec::SmallVec,
-    std::{
-        borrow::Cow,
-        cell::UnsafeCell,
-        fmt::{Debug, Formatter},
-        mem,
-        ops::Deref,
-        rc::Rc,
-    },
-};
+use crate::rect::Rect;
+use crate::rect::Region;
+use crate::utils::array;
+use crate::utils::ptr_ext::MutPtrExt;
+use crate::utils::ptr_ext::PtrExt;
+use jay_algorithms::rect::RectRaw;
+use jay_algorithms::rect::Tag;
+use jay_algorithms::rect::region::extents;
+use jay_algorithms::rect::region::intersect;
+use jay_algorithms::rect::region::intersect_tagged;
+use jay_algorithms::rect::region::rects_to_bands;
+use jay_algorithms::rect::region::rects_to_bands_tagged;
+use jay_algorithms::rect::region::subtract;
+use jay_algorithms::rect::region::union;
+use smallvec::SmallVec;
+use std::borrow::Cow;
+use std::cell::UnsafeCell;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::mem;
+use std::ops::Deref;
+use std::rc::Rc;
 
 thread_local! {
     static EMPTY: Rc<Region> =

@@ -1,15 +1,14 @@
-use {
-    crate::{
-        ifs::wl_region::WlRegion,
-        it::{test_error::TestError, test_object::TestObject, test_transport::TestTransport},
-        rect::{Rect, RegionBuilder},
-        wire::{WlRegionId, wl_region::*},
-    },
-    std::{
-        cell::{Cell, RefCell},
-        rc::Rc,
-    },
-};
+use crate::ifs::wl_region::WlRegion;
+use crate::it::test_error::TestError;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::rect::Rect;
+use crate::rect::RegionBuilder;
+use crate::wire::WlRegionId;
+use crate::wire::wl_region::*;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct TestRegion {
     pub id: WlRegionId,

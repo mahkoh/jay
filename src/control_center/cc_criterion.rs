@@ -1,18 +1,21 @@
-use {
-    crate::{
-        criteria::{CritLiteralOrRegex, CritUpstreamNode},
-        egui_adapter::egui_platform::icons::ICON_CLOSE,
-        state::State,
-        utils::{
-            bhash::BHashSet, hash_map_ext::HashSetExt, numcell::NumCell, static_text::StaticText,
-        },
-    },
-    derivative::Derivative,
-    egui::{ComboBox, DragValue, Ui, UiBuilder, Widget},
-    linearize::{Linearize, LinearizeExt},
-    regex::Regex,
-    std::rc::Rc,
-};
+use crate::criteria::CritLiteralOrRegex;
+use crate::criteria::CritUpstreamNode;
+use crate::egui_adapter::egui_platform::icons::ICON_CLOSE;
+use crate::state::State;
+use crate::utils::bhash::BHashSet;
+use crate::utils::hash_map_ext::HashSetExt;
+use crate::utils::numcell::NumCell;
+use crate::utils::static_text::StaticText;
+use derivative::Derivative;
+use egui::ComboBox;
+use egui::DragValue;
+use egui::Ui;
+use egui::UiBuilder;
+use egui::Widget;
+use linearize::Linearize;
+use linearize::LinearizeExt;
+use regex::Regex;
+use std::rc::Rc;
 
 #[derive(Derivative)]
 #[derivative(Default)]

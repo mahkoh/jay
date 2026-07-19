@@ -1,11 +1,10 @@
-use {
-    crate::{
-        object::{Interface, ObjectId, Version},
-        utils::buffd::MsgParser,
-        wl_usr::{UsrCon, UsrConError},
-    },
-    std::rc::Rc,
-};
+use crate::object::Interface;
+use crate::object::ObjectId;
+use crate::object::Version;
+use crate::utils::buffd::MsgParser;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::UsrConError;
+use std::rc::Rc;
 
 pub trait UsrObjectBase {
     fn id(&self) -> ObjectId;

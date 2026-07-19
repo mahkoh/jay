@@ -1,15 +1,15 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wl_seat::tablet::zwp_tablet_seat_v2::ZwpTabletSeatV2,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwpTabletManagerV2Id, zwp_tablet_manager_v2::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_seat::tablet::zwp_tablet_seat_v2::ZwpTabletSeatV2;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwpTabletManagerV2Id;
+use crate::wire::zwp_tablet_manager_v2::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpTabletManagerV2Global {
     pub name: GlobalName,

@@ -1,13 +1,11 @@
-use {
-    crate::{
-        it::{
-            test_error::TestError, test_ifs::test_xdg_toplevel::TestXdgToplevel,
-            test_object::TestObject, test_transport::TestTransport,
-        },
-        wire::{XdgToplevelDragV1Id, xdg_toplevel_drag_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestError;
+use crate::it::test_ifs::test_xdg_toplevel::TestXdgToplevel;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::XdgToplevelDragV1Id;
+use crate::wire::xdg_toplevel_drag_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestToplevelDrag {
     pub id: XdgToplevelDragV1Id,

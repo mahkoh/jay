@@ -1,45 +1,63 @@
-use {
-    crate::{
-        async_engine::{AsyncEngine, SpawnedFuture},
-        client::{EventFormatter, RequestParser},
-        compositor::{LogLevel, WAYLAND_DISPLAY},
-        io_uring::{IoUring, IoUringError},
-        logger::Logger,
-        object::{ObjectId, Version, WL_DISPLAY_ID},
-        utils::{
-            asyncevent::AsyncEvent,
-            bhash::BHashMap,
-            bitfield::Bitfield,
-            buffd::{
-                BufFdError, BufFdOut, MsgFormatter, MsgParser, MsgParserError, OutBuffer,
-                OutBufferSwapchain, WlBufFdIn, WlMessage,
-            },
-            clonecell::CloneCell,
-            errorfmt::ErrorFmt,
-            numcell::NumCell,
-            oserror::{OsError, OsErrorExt2},
-            xrd::xrd,
-        },
-        wheel::{Wheel, WheelError},
-        wire::{
-            JayCompositor, JayCompositorId, JayDamageTracking, JayDamageTrackingId, JayToplevelId,
-            JayWorkspaceId, WlCallbackId, WlRegistryId, WlSeatId, jay_compositor,
-            jay_select_toplevel, jay_select_workspace, jay_toplevel, wl_callback, wl_display,
-            wl_registry,
-        },
-    },
-    isnt::std_1::primitive::IsntSliceExt,
-    std::{
-        cell::{Cell, RefCell},
-        collections::VecDeque,
-        future::{Future, Pending},
-        mem,
-        rc::Rc,
-        sync::Arc,
-    },
-    thiserror::Error,
-    uapi::{c, format_ustr},
-};
+use crate::async_engine::AsyncEngine;
+use crate::async_engine::SpawnedFuture;
+use crate::client::EventFormatter;
+use crate::client::RequestParser;
+use crate::compositor::LogLevel;
+use crate::compositor::WAYLAND_DISPLAY;
+use crate::io_uring::IoUring;
+use crate::io_uring::IoUringError;
+use crate::logger::Logger;
+use crate::object::ObjectId;
+use crate::object::Version;
+use crate::object::WL_DISPLAY_ID;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::bhash::BHashMap;
+use crate::utils::bitfield::Bitfield;
+use crate::utils::buffd::BufFdError;
+use crate::utils::buffd::BufFdOut;
+use crate::utils::buffd::MsgFormatter;
+use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::MsgParserError;
+use crate::utils::buffd::OutBuffer;
+use crate::utils::buffd::OutBufferSwapchain;
+use crate::utils::buffd::WlBufFdIn;
+use crate::utils::buffd::WlMessage;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::numcell::NumCell;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt2;
+use crate::utils::xrd::xrd;
+use crate::wheel::Wheel;
+use crate::wheel::WheelError;
+use crate::wire::JayCompositor;
+use crate::wire::JayCompositorId;
+use crate::wire::JayDamageTracking;
+use crate::wire::JayDamageTrackingId;
+use crate::wire::JayToplevelId;
+use crate::wire::JayWorkspaceId;
+use crate::wire::WlCallbackId;
+use crate::wire::WlRegistryId;
+use crate::wire::WlSeatId;
+use crate::wire::jay_compositor;
+use crate::wire::jay_select_toplevel;
+use crate::wire::jay_select_workspace;
+use crate::wire::jay_toplevel;
+use crate::wire::wl_callback;
+use crate::wire::wl_display;
+use crate::wire::wl_registry;
+use isnt::std_1::primitive::IsntSliceExt;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::future::Future;
+use std::future::Pending;
+use std::mem;
+use std::rc::Rc;
+use std::sync::Arc;
+use thiserror::Error;
+use uapi::c;
+use uapi::format_ustr;
 
 #[derive(Debug, Error)]
 pub enum ToolClientError {

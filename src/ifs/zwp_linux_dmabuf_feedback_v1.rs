@@ -1,16 +1,17 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        dmabuf_feedback::DmaBufFeedbackId,
-        ifs::wl_surface::WlSurface,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwpLinuxDmabufFeedbackV1Id, zwp_linux_dmabuf_feedback_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-    uapi::{OwnedFd, c},
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::dmabuf_feedback::DmaBufFeedbackId;
+use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwpLinuxDmabufFeedbackV1Id;
+use crate::wire::zwp_linux_dmabuf_feedback_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c;
 
 pub const FB_SCANOUT: u32 = 1;
 pub const FB_SAMPLING: u32 = 2;

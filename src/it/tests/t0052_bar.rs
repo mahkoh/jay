@@ -1,11 +1,9 @@
-use {
-    crate::{
-        it::{test_error::TestError, testrun::TestRun},
-        tree::{OutputNode, TreeTimeline::LiveTL},
-    },
-    jay_config::theme::BarPosition,
-    std::rc::Rc,
-};
+use crate::it::test_error::TestError;
+use crate::it::testrun::TestRun;
+use crate::tree::OutputNode;
+use crate::tree::TreeTimeline::LiveTL;
+use jay_config::theme::BarPosition;
+use std::rc::Rc;
 
 testcase!();
 

@@ -1,23 +1,25 @@
-use {
-    crate::{
-        backend::{
-            BackendColorSpace, BackendConnectorState, BackendEotfs, Connector, ConnectorId,
-            ConnectorKernelId, Mode,
-        },
-        state::State,
-        utils::{bhash::BHashMap, errorfmt::ErrorFmt, hash_map_ext::HashMapExt},
-        video::drm::DrmError,
-    },
-    hashbrown::hash_map::Entry,
-    std::{
-        any::{Any, TypeId},
-        cell::{Cell, RefCell},
-        error::Error,
-        hash::{Hash, Hasher},
-        rc::Rc,
-    },
-    thiserror::Error,
-};
+use crate::backend::BackendColorSpace;
+use crate::backend::BackendConnectorState;
+use crate::backend::BackendEotfs;
+use crate::backend::Connector;
+use crate::backend::ConnectorId;
+use crate::backend::ConnectorKernelId;
+use crate::backend::Mode;
+use crate::state::State;
+use crate::utils::bhash::BHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::video::drm::DrmError;
+use hashbrown::hash_map::Entry;
+use std::any::Any;
+use std::any::TypeId;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::error::Error;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub trait BackendConnectorTransactionType: Hash + Eq + Any {}
 

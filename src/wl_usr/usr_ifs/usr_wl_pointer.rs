@@ -1,14 +1,16 @@
-use {
-    crate::{
-        fixed::Fixed,
-        ifs::wl_seat::wl_pointer::PendingScroll,
-        object::Version,
-        utils::clonecell::CloneCell,
-        wire::{WlPointerId, WlSurfaceId, wl_pointer::*},
-        wl_usr::{UsrCon, usr_ifs::usr_wl_surface::UsrWlSurface, usr_object::UsrObject},
-    },
-    std::{cell::Cell, convert::Infallible, rc::Rc},
-};
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::wl_pointer::PendingScroll;
+use crate::object::Version;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::WlPointerId;
+use crate::wire::WlSurfaceId;
+use crate::wire::wl_pointer::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_ifs::usr_wl_surface::UsrWlSurface;
+use crate::wl_usr::usr_object::UsrObject;
+use std::cell::Cell;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrWlPointer {
     pub id: WlPointerId,

@@ -1,16 +1,20 @@
-use {
-    crate::{
-        bugs::{self, Bugs},
-        client::{CAP_LAYER_SHELL, Client, ClientCaps, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wl_surface::zwlr_layer_surface_v1::{ZwlrLayerSurfaceV1, ZwlrLayerSurfaceV1Error},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwlrLayerShellV1Id, zwlr_layer_shell_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::bugs::Bugs;
+use crate::bugs::{self};
+use crate::client::CAP_LAYER_SHELL;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1;
+use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwlrLayerShellV1Id;
+use crate::wire::zwlr_layer_shell_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub const BACKGROUND: u32 = 0;
 pub const BOTTOM: u32 = 1;

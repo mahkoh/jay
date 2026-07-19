@@ -1,21 +1,26 @@
-use {
-    crate::{
-        config::{
-            Theme,
-            context::Context,
-            extractor::{Extractor, ExtractorError, bol, opt, recover, s32, str, val},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-            parsers::color::ColorParser,
-        },
-        toml::{
-            toml_span::{DespanExt, Span, Spanned},
-            toml_value::Value,
-        },
-    },
-    indexmap::IndexMap,
-    jay_config::theme::{BarPosition, ContainerBorders},
-    thiserror::Error,
-};
+use crate::config::Theme;
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::bol;
+use crate::config::extractor::opt;
+use crate::config::extractor::recover;
+use crate::config::extractor::s32;
+use crate::config::extractor::str;
+use crate::config::extractor::val;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::config::parsers::color::ColorParser;
+use crate::toml::toml_span::DespanExt;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_value::Value;
+use indexmap::IndexMap;
+use jay_config::theme::BarPosition;
+use jay_config::theme::ContainerBorders;
+use thiserror::Error;
 
 pub struct ThemeParser<'a, 'b>(pub &'a Context<'b>);
 

@@ -1,15 +1,12 @@
-use {
-    crate::{
-        object::Version,
-        wire::{WlSurfaceId, wl_surface::*},
-        wl_usr::{
-            UsrCon,
-            usr_ifs::{usr_wl_buffer::UsrWlBuffer, usr_wl_callback::UsrWlCallback},
-            usr_object::UsrObject,
-        },
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::object::Version;
+use crate::wire::WlSurfaceId;
+use crate::wire::wl_surface::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_ifs::usr_wl_buffer::UsrWlBuffer;
+use crate::wl_usr::usr_ifs::usr_wl_callback::UsrWlCallback;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrWlSurface {
     pub id: WlSurfaceId,

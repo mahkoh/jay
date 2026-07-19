@@ -1,11 +1,13 @@
 #![allow(non_camel_case_types)]
 
-use {
-    crate::utils::oserror::OsError,
-    std::{ffi::CStr, marker::PhantomData, ptr, rc::Rc},
-    thiserror::Error,
-    uapi::{IntoUstr, c},
-};
+use crate::utils::oserror::OsError;
+use std::ffi::CStr;
+use std::marker::PhantomData;
+use std::ptr;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::IntoUstr;
+use uapi::c;
 
 #[repr(transparent)]
 struct udev(u8);

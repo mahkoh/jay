@@ -1,20 +1,18 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wl_surface::wp_commit_timer_v1::{WpCommitTimerV1, WpCommitTimerV1Error},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{
-            WpCommitTimingManagerV1Id,
-            wp_commit_timing_manager_v1::{
-                Destroy, GetTimer, WpCommitTimingManagerV1RequestHandler,
-            },
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_surface::wp_commit_timer_v1::WpCommitTimerV1;
+use crate::ifs::wl_surface::wp_commit_timer_v1::WpCommitTimerV1Error;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WpCommitTimingManagerV1Id;
+use crate::wire::wp_commit_timing_manager_v1::Destroy;
+use crate::wire::wp_commit_timing_manager_v1::GetTimer;
+use crate::wire::wp_commit_timing_manager_v1::WpCommitTimingManagerV1RequestHandler;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpCommitTimingManagerV1Global {
     pub name: GlobalName,

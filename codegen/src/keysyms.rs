@@ -1,4 +1,7 @@
-use {crate::update, anyhow::Result, kbvm::Keysym, std::fmt::Write};
+use crate::update;
+use anyhow::Result;
+use kbvm::Keysym;
+use std::fmt::Write;
 
 pub fn main() -> Result<()> {
     let mut syms = vec![];

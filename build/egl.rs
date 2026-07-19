@@ -1,7 +1,6 @@
-use {
-    crate::open,
-    std::{fmt::Write as FmtWrite, io::Write},
-};
+use crate::open;
+use std::fmt::Write as FmtWrite;
+use std::io::Write;
 
 fn write_egl_procs<W: Write>(f: &mut W) -> anyhow::Result<()> {
     let map = [

@@ -1,10 +1,16 @@
-use {
-    crate::control_center::{ControlCenterInner, Pane, PaneType},
-    egui::{Align, Layout, ScrollArea, Ui, ViewportCommand},
-    egui_tiles::Tree,
-    linearize::{Linearize, LinearizeExt},
-    std::{rc::Rc, sync::LazyLock},
-};
+use crate::control_center::ControlCenterInner;
+use crate::control_center::Pane;
+use crate::control_center::PaneType;
+use egui::Align;
+use egui::Layout;
+use egui::ScrollArea;
+use egui::Ui;
+use egui::ViewportCommand;
+use egui_tiles::Tree;
+use linearize::Linearize;
+use linearize::LinearizeExt;
+use std::rc::Rc;
+use std::sync::LazyLock;
 
 #[derive(Copy, Clone, Linearize)]
 enum PaneName {

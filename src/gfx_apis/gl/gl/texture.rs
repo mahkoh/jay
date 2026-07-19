@@ -1,19 +1,20 @@
-use {
-    crate::{
-        format::Format,
-        gfx_apis::gl::{
-            RenderError,
-            egl::{context::EglContext, image::EglImage},
-            ext::GL_OES_EGL_IMAGE_EXTERNAL,
-            gl::sys::{
-                GL_CLAMP_TO_EDGE, GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_TEXTURE_WRAP_T,
-                GL_UNPACK_ROW_LENGTH_EXT, GLint, GLuint,
-            },
-            sys::{GL_TEXTURE_EXTERNAL_OES, GLeglImageOES, GLenum},
-        },
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::format::Format;
+use crate::gfx_apis::gl::RenderError;
+use crate::gfx_apis::gl::egl::context::EglContext;
+use crate::gfx_apis::gl::egl::image::EglImage;
+use crate::gfx_apis::gl::ext::GL_OES_EGL_IMAGE_EXTERNAL;
+use crate::gfx_apis::gl::gl::sys::GL_CLAMP_TO_EDGE;
+use crate::gfx_apis::gl::gl::sys::GL_TEXTURE_2D;
+use crate::gfx_apis::gl::gl::sys::GL_TEXTURE_WRAP_S;
+use crate::gfx_apis::gl::gl::sys::GL_TEXTURE_WRAP_T;
+use crate::gfx_apis::gl::gl::sys::GL_UNPACK_ROW_LENGTH_EXT;
+use crate::gfx_apis::gl::gl::sys::GLint;
+use crate::gfx_apis::gl::gl::sys::GLuint;
+use crate::gfx_apis::gl::sys::GL_TEXTURE_EXTERNAL_OES;
+use crate::gfx_apis::gl::sys::GLeglImageOES;
+use crate::gfx_apis::gl::sys::GLenum;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct GlTexture {
     pub(crate) ctx: Rc<EglContext>,

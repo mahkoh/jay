@@ -1,17 +1,13 @@
-use {
-    crate::{
-        it::{
-            test_error::{TestError, TestResult},
-            test_ifs::{
-                test_surface::TestSurface, test_xdg_activation_token::TestXdgActivationToken,
-            },
-            test_object::TestObject,
-            test_transport::TestTransport,
-        },
-        wire::{XdgActivationV1Id, xdg_activation_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestError;
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_surface::TestSurface;
+use crate::it::test_ifs::test_xdg_activation_token::TestXdgActivationToken;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::XdgActivationV1Id;
+use crate::wire::xdg_activation_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestXdgActivation {
     pub id: XdgActivationV1Id,

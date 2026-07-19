@@ -1,48 +1,55 @@
 mod handler;
 
+use crate::backend::ConnectorId;
+use crate::backend::DrmDeviceId;
+use crate::backend::InputDeviceId;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::config::handler::ConfigProxyHandler;
+use crate::ifs::wl_seat::SeatId;
 #[cfg(feature = "it")]
 use crate::it::test_config::TEST_CONFIG_ENTRY;
-use {
-    crate::{
-        backend::{ConnectorId, DrmDeviceId, InputDeviceId},
-        client::{Client, ClientCaps},
-        config::handler::ConfigProxyHandler,
-        ifs::wl_seat::SeatId,
-        state::State,
-        tree::{OutputNode, TileState, ToplevelData, ToplevelIdentifier},
-        utils::{
-            clonecell::CloneCell,
-            nice::{JAY_NO_REALTIME, dont_allow_unprivileged_config_so},
-            numcell::NumCell,
-            oserror::{OsError, OsErrorExt2},
-            ptr_ext::PtrExt,
-        },
-    },
-    bincode::Options,
-    jay_config::{
-        _private::{
-            ConfigEntry, VERSION, bincode_ops,
-            ipc::{InitMessage, ServerFeature, ServerMessage, V1InitMessage},
-        },
-        input::{InputDevice, Seat, SwitchEvent},
-        keyboard::{mods::Modifiers, syms::KeySym},
-        video::{Connector, DrmDevice},
-        window::{self},
-    },
-    libloading::Library,
-    std::{
-        cell::Cell,
-        mem, ptr,
-        rc::Rc,
-        sync::atomic::{AtomicI32, Ordering::Relaxed},
-    },
-    thiserror::Error,
-    uapi::{
-        OwnedFd,
-        c::{self, O_CLOEXEC, O_RDONLY},
-        format_ustr,
-    },
-};
+use crate::state::State;
+use crate::tree::OutputNode;
+use crate::tree::TileState;
+use crate::tree::ToplevelData;
+use crate::tree::ToplevelIdentifier;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::nice::JAY_NO_REALTIME;
+use crate::utils::nice::dont_allow_unprivileged_config_so;
+use crate::utils::numcell::NumCell;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt2;
+use crate::utils::ptr_ext::PtrExt;
+use bincode::Options;
+use jay_config::_private::ConfigEntry;
+use jay_config::_private::VERSION;
+use jay_config::_private::bincode_ops;
+use jay_config::_private::ipc::InitMessage;
+use jay_config::_private::ipc::ServerFeature;
+use jay_config::_private::ipc::ServerMessage;
+use jay_config::_private::ipc::V1InitMessage;
+use jay_config::input::InputDevice;
+use jay_config::input::Seat;
+use jay_config::input::SwitchEvent;
+use jay_config::keyboard::mods::Modifiers;
+use jay_config::keyboard::syms::KeySym;
+use jay_config::video::Connector;
+use jay_config::video::DrmDevice;
+use jay_config::window::{self};
+use libloading::Library;
+use std::cell::Cell;
+use std::mem;
+use std::ptr;
+use std::rc::Rc;
+use std::sync::atomic::AtomicI32;
+use std::sync::atomic::Ordering::Relaxed;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c::O_CLOEXEC;
+use uapi::c::O_RDONLY;
+use uapi::c::{self};
+use uapi::format_ustr;
 
 #[derive(Debug, Error)]
 pub enum ConfigError {

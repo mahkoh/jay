@@ -1,15 +1,14 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        fixed::Fixed,
-        ifs::wl_seat::WlSeat,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwpRelativePointerV1Id, zwp_relative_pointer_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::WlSeat;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwpRelativePointerV1Id;
+use crate::wire::zwp_relative_pointer_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpRelativePointerV1 {
     pub id: ZwpRelativePointerV1Id,

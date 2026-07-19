@@ -1,22 +1,23 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        cursor::Cursor,
-        fixed::Fixed,
-        ifs::{
-            wl_seat::tablet::{
-                TabletToolCapability, TabletToolOpt, TabletToolType, ToolButtonState,
-                zwp_tablet_seat_v2::ZwpTabletSeatV2, zwp_tablet_v2::ZwpTabletV2,
-            },
-            wl_surface::{WlSurface, WlSurfaceError},
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwpTabletToolV2Id, zwp_tablet_tool_v2::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::cursor::Cursor;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::tablet::TabletToolCapability;
+use crate::ifs::wl_seat::tablet::TabletToolOpt;
+use crate::ifs::wl_seat::tablet::TabletToolType;
+use crate::ifs::wl_seat::tablet::ToolButtonState;
+use crate::ifs::wl_seat::tablet::zwp_tablet_seat_v2::ZwpTabletSeatV2;
+use crate::ifs::wl_seat::tablet::zwp_tablet_v2::ZwpTabletV2;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::WlSurfaceError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwpTabletToolV2Id;
+use crate::wire::zwp_tablet_tool_v2::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpTabletToolV2 {
     pub id: ZwpTabletToolV2Id,

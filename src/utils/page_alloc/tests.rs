@@ -1,4 +1,5 @@
-use crate::utils::page_alloc::{PAGE_ALLOC_PAGE_SIZE, PageAllocCtx};
+use crate::utils::page_alloc::PAGE_ALLOC_PAGE_SIZE;
+use crate::utils::page_alloc::PageAllocCtx;
 
 #[test]
 fn test() {

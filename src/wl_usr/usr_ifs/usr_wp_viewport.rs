@@ -1,12 +1,11 @@
-use {
-    crate::{
-        fixed::Fixed,
-        object::Version,
-        wire::{WpViewportId, wp_viewport::*},
-        wl_usr::{UsrCon, usr_object::UsrObject},
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::fixed::Fixed;
+use crate::object::Version;
+use crate::wire::WpViewportId;
+use crate::wire::wp_viewport::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrWpViewport {
     pub id: WpViewportId,

@@ -14,12 +14,15 @@
     clippy::single_char_pattern
 )]
 
-use {
-    crate::parser::{Type, parse_messages},
-    clap::Parser,
-    quick_xml::events::{BytesDecl, BytesText, Event},
-    std::{io, os::unix::ffi::OsStrExt, path::PathBuf},
-};
+use crate::parser::Type;
+use crate::parser::parse_messages;
+use clap::Parser;
+use quick_xml::events::BytesDecl;
+use quick_xml::events::BytesText;
+use quick_xml::events::Event;
+use std::io;
+use std::os::unix::ffi::OsStrExt;
+use std::path::PathBuf;
 
 #[path = "../../build/wire/parser.rs"]
 #[allow(dead_code)]

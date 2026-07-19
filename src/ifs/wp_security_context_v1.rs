@@ -1,17 +1,15 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WpSecurityContextV1Id, wp_security_context_v1::*},
-    },
-    std::{
-        cell::{Cell, RefCell},
-        rc::Rc,
-    },
-    thiserror::Error,
-    uapi::OwnedFd,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WpSecurityContextV1Id;
+use crate::wire::wp_security_context_v1::*;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
 
 pub struct WpSecurityContextV1 {
     pub id: WpSecurityContextV1Id,

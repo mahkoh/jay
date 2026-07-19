@@ -1,16 +1,13 @@
-use {
-    crate::{
-        fixed::Fixed,
-        it::{
-            test_error::TestResult,
-            test_ifs::{test_pointer::TestPointer, test_surface::TestSurface},
-            test_object::TestObject,
-            test_transport::TestTransport,
-        },
-        wire::{WpPointerWarpV1Id, wp_pointer_warp_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::fixed::Fixed;
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_pointer::TestPointer;
+use crate::it::test_ifs::test_surface::TestSurface;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::WpPointerWarpV1Id;
+use crate::wire::wp_pointer_warp_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestPointerWarp {
     pub id: WpPointerWarpV1Id,

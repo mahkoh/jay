@@ -1,18 +1,13 @@
-use {
-    crate::{
-        object::Version,
-        wire::{WlDataDeviceManagerId, wl_data_device_manager::*},
-        wl_usr::{
-            UsrCon,
-            usr_ifs::{
-                usr_wl_data_device::UsrWlDataDevice, usr_wl_data_source::UsrWlDataSource,
-                usr_wl_seat::UsrWlSeat,
-            },
-            usr_object::UsrObject,
-        },
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::object::Version;
+use crate::wire::WlDataDeviceManagerId;
+use crate::wire::wl_data_device_manager::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_ifs::usr_wl_data_device::UsrWlDataDevice;
+use crate::wl_usr::usr_ifs::usr_wl_data_source::UsrWlDataSource;
+use crate::wl_usr::usr_ifs::usr_wl_seat::UsrWlSeat;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrWlDataDeviceManager {
     pub id: WlDataDeviceManagerId,

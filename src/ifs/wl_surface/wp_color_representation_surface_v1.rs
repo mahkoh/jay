@@ -1,21 +1,18 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        gfx_api::AlphaMode,
-        ifs::wl_surface::WlSurface,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{
-            WpColorRepresentationSurfaceV1Id,
-            wp_color_representation_surface_v1::{
-                Destroy, SetAlphaMode, SetChromaLocation, SetCoefficientsAndRange,
-                WpColorRepresentationSurfaceV1RequestHandler,
-            },
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::gfx_api::AlphaMode;
+use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WpColorRepresentationSurfaceV1Id;
+use crate::wire::wp_color_representation_surface_v1::Destroy;
+use crate::wire::wp_color_representation_surface_v1::SetAlphaMode;
+use crate::wire::wp_color_representation_surface_v1::SetChromaLocation;
+use crate::wire::wp_color_representation_surface_v1::SetCoefficientsAndRange;
+use crate::wire::wp_color_representation_surface_v1::WpColorRepresentationSurfaceV1RequestHandler;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpColorRepresentationSurfaceV1 {
     pub id: WpColorRepresentationSurfaceV1Id,

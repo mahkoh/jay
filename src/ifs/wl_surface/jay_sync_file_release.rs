@@ -1,14 +1,14 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        gfx_api::SyncFile,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{JaySyncFileReleaseId, jay_sync_file_release::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::gfx_api::SyncFile;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::JaySyncFileReleaseId;
+use crate::wire::jay_sync_file_release::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct SyncFileRelease {
     pub release: Option<Rc<JaySyncFileRelease>>,

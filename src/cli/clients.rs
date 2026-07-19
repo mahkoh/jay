@@ -1,17 +1,19 @@
-use {
-    crate::{
-        cli::{
-            GlobalArgs,
-            json::{JsonClient, jsonl},
-        },
-        tools::tool_client::{Handle, ToolClient, with_tool_client},
-        utils::bhash::BHashMap,
-        wire::{JayClientQueryId, jay_client_query, jay_compositor},
-    },
-    clap::{Args, Subcommand},
-    std::{cell::RefCell, mem, rc::Rc},
-    uapi::c,
-};
+use crate::cli::GlobalArgs;
+use crate::cli::json::JsonClient;
+use crate::cli::json::jsonl;
+use crate::tools::tool_client::Handle;
+use crate::tools::tool_client::ToolClient;
+use crate::tools::tool_client::with_tool_client;
+use crate::utils::bhash::BHashMap;
+use crate::wire::JayClientQueryId;
+use crate::wire::jay_client_query;
+use crate::wire::jay_compositor;
+use clap::Args;
+use clap::Subcommand;
+use std::cell::RefCell;
+use std::mem;
+use std::rc::Rc;
+use uapi::c;
 
 #[derive(Args, Debug)]
 pub struct ClientsArgs {

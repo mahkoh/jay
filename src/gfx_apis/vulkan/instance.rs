@@ -1,11 +1,9 @@
-use {
-    crate::{gfx_apis::vulkan::VulkanError, vulkan_core::VulkanCoreInstance},
-    log::Level,
-    std::{
-        ops::{Deref, DerefMut},
-        rc::Rc,
-    },
-};
+use crate::gfx_apis::vulkan::VulkanError;
+use crate::vulkan_core::VulkanCoreInstance;
+use log::Level;
+use std::ops::Deref;
+use std::ops::DerefMut;
+use std::rc::Rc;
 
 pub struct VulkanInstance {
     instance: VulkanCoreInstance,

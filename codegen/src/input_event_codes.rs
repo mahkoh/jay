@@ -1,11 +1,12 @@
-use {
-    crate::{generate_map, update},
-    anyhow::Result,
-    indexmap::IndexMap,
-    linearize::{Linearize, LinearizeExt},
-    regex::Regex,
-    std::{fmt, fmt::Write},
-};
+use crate::generate_map;
+use crate::update;
+use anyhow::Result;
+use indexmap::IndexMap;
+use linearize::Linearize;
+use linearize::LinearizeExt;
+use regex::Regex;
+use std::fmt;
+use std::fmt::Write;
 
 const HEADER: &str = include_str!("input-event-codes.h");
 

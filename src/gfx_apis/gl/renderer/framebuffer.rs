@@ -1,35 +1,34 @@
-use {
-    crate::{
-        cmm::{
-            cmm_description::{ColorDescription, LinearColorDescription},
-            cmm_eotf::Eotf,
-        },
-        format::Format,
-        gfx_api::{
-            AcquireSync, AsyncShmGfxTextureCallback, FdSync, GfxApiOp, GfxBlendBuffer, GfxError,
-            GfxFramebuffer, GfxInternalFramebuffer, GfxStagingBuffer, PendingShmTransfer,
-            ReleaseSync, ShmMemory,
-        },
-        gfx_apis::gl::{
-            RenderError,
-            gl::{
-                frame_buffer::GlFrameBuffer,
-                sys::{GL_COLOR_BUFFER_BIT, GL_FRAMEBUFFER},
-            },
-            handle_explicit_sync,
-            renderer::context::GlRenderContext,
-            run_ops,
-            sys::{GL_ONE, GL_ONE_MINUS_SRC_ALPHA},
-        },
-        rect::Region,
-        theme::Color,
-    },
-    std::{
-        cell::Cell,
-        fmt::{Debug, Formatter},
-        rc::Rc,
-    },
-};
+use crate::cmm::cmm_description::ColorDescription;
+use crate::cmm::cmm_description::LinearColorDescription;
+use crate::cmm::cmm_eotf::Eotf;
+use crate::format::Format;
+use crate::gfx_api::AcquireSync;
+use crate::gfx_api::AsyncShmGfxTextureCallback;
+use crate::gfx_api::FdSync;
+use crate::gfx_api::GfxApiOp;
+use crate::gfx_api::GfxBlendBuffer;
+use crate::gfx_api::GfxError;
+use crate::gfx_api::GfxFramebuffer;
+use crate::gfx_api::GfxInternalFramebuffer;
+use crate::gfx_api::GfxStagingBuffer;
+use crate::gfx_api::PendingShmTransfer;
+use crate::gfx_api::ReleaseSync;
+use crate::gfx_api::ShmMemory;
+use crate::gfx_apis::gl::RenderError;
+use crate::gfx_apis::gl::gl::frame_buffer::GlFrameBuffer;
+use crate::gfx_apis::gl::gl::sys::GL_COLOR_BUFFER_BIT;
+use crate::gfx_apis::gl::gl::sys::GL_FRAMEBUFFER;
+use crate::gfx_apis::gl::handle_explicit_sync;
+use crate::gfx_apis::gl::renderer::context::GlRenderContext;
+use crate::gfx_apis::gl::run_ops;
+use crate::gfx_apis::gl::sys::GL_ONE;
+use crate::gfx_apis::gl::sys::GL_ONE_MINUS_SRC_ALPHA;
+use crate::rect::Region;
+use crate::theme::Color;
+use std::cell::Cell;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::rc::Rc;
 
 pub struct Framebuffer {
     pub(in crate::gfx_apis::gl) ctx: Rc<GlRenderContext>,

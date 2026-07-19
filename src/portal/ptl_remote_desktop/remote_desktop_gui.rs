@@ -1,20 +1,24 @@
-use {
-    crate::{
-        globals::GlobalName,
-        ifs::wl_seat::{BTN_LEFT, wl_pointer::PRESSED},
-        portal::{
-            ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
-            ptl_gui::{
-                Align, Button, ButtonOwner, Flow, GuiElement, Label, Orientation, OverlayWindow,
-                OverlayWindowOwner,
-            },
-            ptl_remote_desktop::{PortalSession, RemoteDesktopPhase},
-        },
-        theme::Color,
-        utils::{copyhashmap::CopyHashMap, hash_map_ext::HashMapExt},
-    },
-    std::rc::Rc,
-};
+use crate::globals::GlobalName;
+use crate::ifs::wl_seat::BTN_LEFT;
+use crate::ifs::wl_seat::wl_pointer::PRESSED;
+use crate::portal::ptl_display::PortalDisplay;
+use crate::portal::ptl_display::PortalOutput;
+use crate::portal::ptl_display::PortalSeat;
+use crate::portal::ptl_gui::Align;
+use crate::portal::ptl_gui::Button;
+use crate::portal::ptl_gui::ButtonOwner;
+use crate::portal::ptl_gui::Flow;
+use crate::portal::ptl_gui::GuiElement;
+use crate::portal::ptl_gui::Label;
+use crate::portal::ptl_gui::Orientation;
+use crate::portal::ptl_gui::OverlayWindow;
+use crate::portal::ptl_gui::OverlayWindowOwner;
+use crate::portal::ptl_remote_desktop::PortalSession;
+use crate::portal::ptl_remote_desktop::RemoteDesktopPhase;
+use crate::theme::Color;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::hash_map_ext::HashMapExt;
+use std::rc::Rc;
 
 const H_MARGIN: f32 = 30.0;
 const V_MARGIN: f32 = 20.0;

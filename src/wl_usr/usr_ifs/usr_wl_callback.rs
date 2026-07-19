@@ -1,11 +1,11 @@
-use {
-    crate::{
-        object::Version,
-        wire::{WlCallbackId, wl_callback::*},
-        wl_usr::{UsrCon, usr_object::UsrObject},
-    },
-    std::{cell::Cell, convert::Infallible, rc::Rc},
-};
+use crate::object::Version;
+use crate::wire::WlCallbackId;
+use crate::wire::wl_callback::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_object::UsrObject;
+use std::cell::Cell;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrWlCallback {
     pub id: WlCallbackId,

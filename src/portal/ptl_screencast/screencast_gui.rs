@@ -1,28 +1,31 @@
-use {
-    crate::{
-        globals::GlobalName,
-        ifs::wl_seat::{BTN_LEFT, wl_pointer::PRESSED},
-        portal::{
-            ptl_display::{PortalDisplay, PortalOutput, PortalSeat},
-            ptl_gui::{
-                Align, Button, ButtonOwner, Flow, GuiElement, Label, Orientation, OverlayWindow,
-                OverlayWindowOwner,
-            },
-            ptl_screencast::{
-                PortalSession, ScreencastPhase, ScreencastTarget, SelectingWindowScreencast,
-                SelectingWorkspaceScreencast,
-            },
-        },
-        theme::Color,
-        utils::{copyhashmap::CopyHashMap, hash_map_ext::HashMapExt},
-        wl_usr::usr_ifs::{
-            usr_jay_select_toplevel::UsrJaySelectToplevelOwner,
-            usr_jay_select_workspace::UsrJaySelectWorkspaceOwner, usr_jay_toplevel::UsrJayToplevel,
-            usr_jay_workspace::UsrJayWorkspace,
-        },
-    },
-    std::rc::Rc,
-};
+use crate::globals::GlobalName;
+use crate::ifs::wl_seat::BTN_LEFT;
+use crate::ifs::wl_seat::wl_pointer::PRESSED;
+use crate::portal::ptl_display::PortalDisplay;
+use crate::portal::ptl_display::PortalOutput;
+use crate::portal::ptl_display::PortalSeat;
+use crate::portal::ptl_gui::Align;
+use crate::portal::ptl_gui::Button;
+use crate::portal::ptl_gui::ButtonOwner;
+use crate::portal::ptl_gui::Flow;
+use crate::portal::ptl_gui::GuiElement;
+use crate::portal::ptl_gui::Label;
+use crate::portal::ptl_gui::Orientation;
+use crate::portal::ptl_gui::OverlayWindow;
+use crate::portal::ptl_gui::OverlayWindowOwner;
+use crate::portal::ptl_screencast::PortalSession;
+use crate::portal::ptl_screencast::ScreencastPhase;
+use crate::portal::ptl_screencast::ScreencastTarget;
+use crate::portal::ptl_screencast::SelectingWindowScreencast;
+use crate::portal::ptl_screencast::SelectingWorkspaceScreencast;
+use crate::theme::Color;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::wl_usr::usr_ifs::usr_jay_select_toplevel::UsrJaySelectToplevelOwner;
+use crate::wl_usr::usr_ifs::usr_jay_select_workspace::UsrJaySelectWorkspaceOwner;
+use crate::wl_usr::usr_ifs::usr_jay_toplevel::UsrJayToplevel;
+use crate::wl_usr::usr_ifs::usr_jay_workspace::UsrJayWorkspace;
+use std::rc::Rc;
 
 const H_MARGIN: f32 = 30.0;
 const V_MARGIN: f32 = 20.0;

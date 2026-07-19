@@ -1,18 +1,16 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        gfx_api::SyncFile,
-        ifs::wl_surface::{
-            WlSurface,
-            jay_sync_file_release::{JaySyncFileRelease, SyncFileRelease},
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{JaySyncFileSurfaceId, jay_sync_file_surface::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::gfx_api::SyncFile;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::jay_sync_file_release::JaySyncFileRelease;
+use crate::ifs::wl_surface::jay_sync_file_release::SyncFileRelease;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::JaySyncFileSurfaceId;
+use crate::wire::jay_sync_file_surface::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct JaySyncFileSurface {
     pub id: JaySyncFileSurfaceId,

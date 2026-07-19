@@ -1,18 +1,17 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::{
-            wl_surface::zwp_idle_inhibitor_v1::{ZwpIdleInhibitorV1, ZwpIdleInhibitorV1Error},
-            zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Error,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwpIdleInhibitManagerV1Id, zwp_idle_inhibit_manager_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1;
+use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1Error;
+use crate::ifs::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Error;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwpIdleInhibitManagerV1Id;
+use crate::wire::zwp_idle_inhibit_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpIdleInhibitManagerV1Global {
     name: GlobalName,

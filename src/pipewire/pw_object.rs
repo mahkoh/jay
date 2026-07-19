@@ -1,8 +1,9 @@
-use {
-    crate::{pipewire::pw_parser::PwParser, utils::numcell::NumCell},
-    std::{cell::Cell, fmt::Debug, rc::Rc},
-    thiserror::Error,
-};
+use crate::pipewire::pw_parser::PwParser;
+use crate::utils::numcell::NumCell;
+use std::cell::Cell;
+use std::fmt::Debug;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub trait PwObjectBase {
     fn data(&self) -> &PwObjectData;

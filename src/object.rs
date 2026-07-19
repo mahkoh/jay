@@ -1,17 +1,13 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        utils::buffd::MsgParser,
-        wire::WlDisplayId,
-    },
-    jay_proc::jay_hash,
-    std::{
-        any::Any,
-        cmp::Ordering,
-        fmt::{Display, Formatter},
-        rc::Rc,
-    },
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::utils::buffd::MsgParser;
+use crate::wire::WlDisplayId;
+use jay_proc::jay_hash;
+use std::any::Any;
+use std::cmp::Ordering;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::rc::Rc;
 
 pub const WL_DISPLAY_ID: WlDisplayId = WlDisplayId::from_raw(1);
 

@@ -1,15 +1,17 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wl_surface::{WlSurfaceError, x_surface::xwayland_surface_v1::XwaylandSurfaceV1},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WlSurfaceId, XwaylandShellV1Id, xwayland_shell_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_surface::WlSurfaceError;
+use crate::ifs::wl_surface::x_surface::xwayland_surface_v1::XwaylandSurfaceV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WlSurfaceId;
+use crate::wire::XwaylandShellV1Id;
+use crate::wire::xwayland_shell_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct XwaylandShellV1Global {
     name: GlobalName,

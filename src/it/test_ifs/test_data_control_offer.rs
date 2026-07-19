@@ -1,24 +1,18 @@
-use {
-    crate::{
-        it::{
-            test_error::{TestError, TestResult},
-            test_object::TestObject,
-            test_transport::TestTransport,
-            testrun::ParseFull,
-        },
-        utils::{
-            bhash::BHashSet,
-            buffd::MsgParser,
-            pipe::{Pipe, pipe},
-        },
-        wire::{ZwlrDataControlOfferV1Id, zwlr_data_control_offer_v1::*},
-    },
-    std::{
-        cell::{Cell, RefCell},
-        rc::Rc,
-    },
-    uapi::OwnedFd,
-};
+use crate::it::test_error::TestError;
+use crate::it::test_error::TestResult;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::testrun::ParseFull;
+use crate::utils::bhash::BHashSet;
+use crate::utils::buffd::MsgParser;
+use crate::utils::pipe::Pipe;
+use crate::utils::pipe::pipe;
+use crate::wire::ZwlrDataControlOfferV1Id;
+use crate::wire::zwlr_data_control_offer_v1::*;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 pub struct TestDataControlOffer {
     pub id: ZwlrDataControlOfferV1Id,

@@ -1,18 +1,24 @@
-use {
-    crate::ifs::jay_tree_query::{
-        TREE_TY_CONTAINER, TREE_TY_DISPLAY, TREE_TY_FLOAT, TREE_TY_LAYER_SURFACE,
-        TREE_TY_LOCK_SURFACE, TREE_TY_OUTPUT, TREE_TY_PLACEHOLDER, TREE_TY_WORKSPACE,
-        TREE_TY_X_WINDOW, TREE_TY_XDG_POPUP, TREE_TY_XDG_TOPLEVEL,
-    },
-    jay_config::video::{TearingMode, VrrMode},
-    num_traits::Zero,
-    serde::{Serialize, Serializer},
-    std::{
-        io::{Write, stdout},
-        sync::atomic::{AtomicBool, Ordering::Relaxed},
-    },
-    uapi::c,
-};
+use crate::ifs::jay_tree_query::TREE_TY_CONTAINER;
+use crate::ifs::jay_tree_query::TREE_TY_DISPLAY;
+use crate::ifs::jay_tree_query::TREE_TY_FLOAT;
+use crate::ifs::jay_tree_query::TREE_TY_LAYER_SURFACE;
+use crate::ifs::jay_tree_query::TREE_TY_LOCK_SURFACE;
+use crate::ifs::jay_tree_query::TREE_TY_OUTPUT;
+use crate::ifs::jay_tree_query::TREE_TY_PLACEHOLDER;
+use crate::ifs::jay_tree_query::TREE_TY_WORKSPACE;
+use crate::ifs::jay_tree_query::TREE_TY_X_WINDOW;
+use crate::ifs::jay_tree_query::TREE_TY_XDG_POPUP;
+use crate::ifs::jay_tree_query::TREE_TY_XDG_TOPLEVEL;
+use jay_config::video::TearingMode;
+use jay_config::video::VrrMode;
+use num_traits::Zero;
+use serde::Serialize;
+use serde::Serializer;
+use std::io::Write;
+use std::io::stdout;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::Relaxed;
+use uapi::c;
 
 pub static VERBOSE_JSON: AtomicBool = AtomicBool::new(false);
 

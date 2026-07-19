@@ -1,16 +1,17 @@
-use {
-    crate::{
-        client::ClientError,
-        cursor::Cursor,
-        fixed::Fixed,
-        ifs::{wl_seat::WlSeat, wl_surface::WlSurfaceError},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WlPointerId, WlSurfaceId, wl_pointer::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::ClientError;
+use crate::cursor::Cursor;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::WlSeat;
+use crate::ifs::wl_surface::WlSurfaceError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WlPointerId;
+use crate::wire::WlSurfaceId;
+use crate::wire::wl_pointer::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[expect(dead_code)]
 const ROLE: u32 = 0;

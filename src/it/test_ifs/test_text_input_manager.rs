@@ -1,15 +1,12 @@
-use {
-    crate::{
-        it::{
-            test_error::TestResult,
-            test_ifs::{test_seat::TestSeat, test_text_input::TestTextInput},
-            test_object::TestObject,
-            test_transport::TestTransport,
-        },
-        wire::{ZwpTextInputManagerV3Id, zwp_text_input_manager_v3::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_seat::TestSeat;
+use crate::it::test_ifs::test_text_input::TestTextInput;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::ZwpTextInputManagerV3Id;
+use crate::wire::zwp_text_input_manager_v3::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestTextInputManager {
     pub id: ZwpTextInputManagerV3Id,

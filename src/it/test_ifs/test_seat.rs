@@ -1,18 +1,18 @@
-use {
-    crate::{
-        ifs::wl_seat::WlSeat,
-        it::{
-            test_error::{TestError, TestResult},
-            test_ifs::{test_keyboard::TestKeyboard, test_pointer::TestPointer},
-            test_object::TestObject,
-            test_transport::TestTransport,
-            testrun::ParseFull,
-        },
-        utils::{buffd::MsgParser, clonecell::CloneCell, once::Once},
-        wire::{WlSeatId, wl_seat::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::ifs::wl_seat::WlSeat;
+use crate::it::test_error::TestError;
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_keyboard::TestKeyboard;
+use crate::it::test_ifs::test_pointer::TestPointer;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::testrun::ParseFull;
+use crate::utils::buffd::MsgParser;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::once::Once;
+use crate::wire::WlSeatId;
+use crate::wire::wl_seat::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestSeat {
     pub id: WlSeatId,

@@ -1,24 +1,31 @@
-use {
-    crate::{
-        config::{
-            GenericMatch, MatchExactly, WindowMatch,
-            context::Context,
-            extractor::{Extractor, ExtractorError, arr, bol, n32, opt, str, val},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-            parsers::{
-                client_match::{ClientMatchParser, ClientMatchParserError},
-                content_type::{ContentTypeParser, ContentTypeParserError},
-                window_type::{WindowTypeParser, WindowTypeParserError},
-            },
-        },
-        toml::{
-            toml_span::{DespanExt, Span, Spanned},
-            toml_value::Value,
-        },
-    },
-    indexmap::IndexMap,
-    thiserror::Error,
-};
+use crate::config::GenericMatch;
+use crate::config::MatchExactly;
+use crate::config::WindowMatch;
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::arr;
+use crate::config::extractor::bol;
+use crate::config::extractor::n32;
+use crate::config::extractor::opt;
+use crate::config::extractor::str;
+use crate::config::extractor::val;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::config::parsers::client_match::ClientMatchParser;
+use crate::config::parsers::client_match::ClientMatchParserError;
+use crate::config::parsers::content_type::ContentTypeParser;
+use crate::config::parsers::content_type::ContentTypeParserError;
+use crate::config::parsers::window_type::WindowTypeParser;
+use crate::config::parsers::window_type::WindowTypeParserError;
+use crate::toml::toml_span::DespanExt;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_value::Value;
+use indexmap::IndexMap;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum WindowMatchParserError {

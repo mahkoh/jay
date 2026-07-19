@@ -1,13 +1,8 @@
-use {
-    crate::{
-        gfx_apis::gl::egl::{
-            display::EglDisplay,
-            sys::{EGL_FALSE, EGLImageKHR},
-        },
-        video::dmabuf::DmaBuf,
-    },
-    std::rc::Rc,
-};
+use crate::gfx_apis::gl::egl::display::EglDisplay;
+use crate::gfx_apis::gl::egl::sys::EGL_FALSE;
+use crate::gfx_apis::gl::egl::sys::EGLImageKHR;
+use crate::video::dmabuf::DmaBuf;
+use std::rc::Rc;
 
 pub struct EglImage {
     pub dpy: Rc<EglDisplay>,

@@ -1,13 +1,11 @@
-use {
-    crate::{
-        io_uring::IoUring,
-        utils::{
-            asyncevent::AsyncEvent, errorfmt::ErrorFmt, event_listener::EventSource, timer::TimerFd,
-        },
-    },
-    std::{rc::Rc, time::Duration},
-    uapi::c,
-};
+use crate::io_uring::IoUring;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::event_listener::EventSource;
+use crate::utils::timer::TimerFd;
+use std::rc::Rc;
+use std::time::Duration;
+use uapi::c;
 
 pub async fn run_const_clock<T, F>(
     duration: Duration,

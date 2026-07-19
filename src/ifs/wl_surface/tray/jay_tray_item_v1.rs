@@ -1,34 +1,39 @@
-use {
-    crate::{
-        configurable::{Configurable, ConfigurableData},
-        ifs::{
-            wl_output::OutputGlobalOpt,
-            wl_surface::{
-                WlSurface,
-                tray::{
-                    DynTrayItem, FocusHint, Popup, TrayItem, TrayItemConfigureData, TrayItemData,
-                    TrayItemError, TrayItemTransactionOp, ack_configure, destroy, get_popup,
-                    install,
-                },
-            },
-            xdg_positioner::{
-                ANCHOR_BOTTOM_LEFT, ANCHOR_BOTTOM_RIGHT, ANCHOR_TOP_LEFT, ANCHOR_TOP_RIGHT,
-            },
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        theme::BarPosition,
-        transactions::{TransactionData, Transactionable},
-        tree::{
-            NodeVisitor, TreeSerial,
-            TreeTimeline::{LiveTL, RenderTL},
-        },
-        utils::copyhashmap::CopyHashMap,
-        wire::{JayTrayItemV1Id, XdgPopupId, jay_tray_item_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::configurable::Configurable;
+use crate::configurable::ConfigurableData;
+use crate::ifs::wl_output::OutputGlobalOpt;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::tray::DynTrayItem;
+use crate::ifs::wl_surface::tray::FocusHint;
+use crate::ifs::wl_surface::tray::Popup;
+use crate::ifs::wl_surface::tray::TrayItem;
+use crate::ifs::wl_surface::tray::TrayItemConfigureData;
+use crate::ifs::wl_surface::tray::TrayItemData;
+use crate::ifs::wl_surface::tray::TrayItemError;
+use crate::ifs::wl_surface::tray::TrayItemTransactionOp;
+use crate::ifs::wl_surface::tray::ack_configure;
+use crate::ifs::wl_surface::tray::destroy;
+use crate::ifs::wl_surface::tray::get_popup;
+use crate::ifs::wl_surface::tray::install;
+use crate::ifs::xdg_positioner::ANCHOR_BOTTOM_LEFT;
+use crate::ifs::xdg_positioner::ANCHOR_BOTTOM_RIGHT;
+use crate::ifs::xdg_positioner::ANCHOR_TOP_LEFT;
+use crate::ifs::xdg_positioner::ANCHOR_TOP_RIGHT;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::theme::BarPosition;
+use crate::transactions::TransactionData;
+use crate::transactions::Transactionable;
+use crate::tree::NodeVisitor;
+use crate::tree::TreeSerial;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::wire::JayTrayItemV1Id;
+use crate::wire::XdgPopupId;
+use crate::wire::jay_tray_item_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct JayTrayItemV1 {
     id: JayTrayItemV1Id,

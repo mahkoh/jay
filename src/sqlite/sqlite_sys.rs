@@ -1,10 +1,12 @@
 #![expect(non_camel_case_types)]
 
-use std::{
-    error::Error,
-    ffi::{c_char, c_int, c_uint, c_void},
-    fmt::{Display, Formatter},
-};
+use std::error::Error;
+use std::ffi::c_char;
+use std::ffi::c_int;
+use std::ffi::c_uint;
+use std::ffi::c_void;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
 pub struct sqlite3(#[expect(dead_code)] u8);
 pub struct sqlite3_stmt(#[expect(dead_code)] u8);

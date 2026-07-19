@@ -1,12 +1,10 @@
-use {
-    std::{
-        cmp::Ordering,
-        fmt::{Debug, Formatter},
-        ops::{Add, Sub},
-        time::Duration,
-    },
-    uapi::c,
-};
+use std::cmp::Ordering;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::ops::Add;
+use std::ops::Sub;
+use std::time::Duration;
+use uapi::c;
 
 #[derive(Copy, Clone)]
 pub struct Time(pub c::timespec);

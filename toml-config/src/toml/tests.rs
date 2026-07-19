@@ -1,21 +1,19 @@
-use {
-    crate::{
-        config::error::SpannedError,
-        toml::{
-            toml_parser::{ErrorHandler, ParserError, parse},
-            toml_span::{Span, Spanned, SpannedExt},
-            toml_value::Value,
-        },
-    },
-    bstr::{BStr, ByteSlice},
-    std::{
-        convert::Infallible,
-        os::unix::ffi::OsStrExt,
-        panic::{AssertUnwindSafe, catch_unwind},
-        str::FromStr,
-    },
-    walkdir::WalkDir,
-};
+use crate::config::error::SpannedError;
+use crate::toml::toml_parser::ErrorHandler;
+use crate::toml::toml_parser::ParserError;
+use crate::toml::toml_parser::parse;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_span::SpannedExt;
+use crate::toml::toml_value::Value;
+use bstr::BStr;
+use bstr::ByteSlice;
+use std::convert::Infallible;
+use std::os::unix::ffi::OsStrExt;
+use std::panic::AssertUnwindSafe;
+use std::panic::catch_unwind;
+use std::str::FromStr;
+use walkdir::WalkDir;
 
 #[test]
 fn test() {

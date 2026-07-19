@@ -1,11 +1,13 @@
-use {
-    crate::utils::markers::JayHash,
-    std::{
-        fmt::{Debug, Display, Formatter},
-        hash::{Hash, Hasher},
-        ops::{Add, Div, Mul, Sub},
-    },
-};
+use crate::utils::markers::JayHash;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::ops::Add;
+use std::ops::Div;
+use std::ops::Mul;
+use std::ops::Sub;
 
 macro_rules! define {
     ($big:ident, $little:ty) => {

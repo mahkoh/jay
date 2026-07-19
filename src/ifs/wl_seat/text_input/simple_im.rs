@@ -1,33 +1,26 @@
-use {
-    crate::{
-        backend::KeyState,
-        ifs::{
-            wl_seat::{
-                WlSeatGlobal,
-                text_input::{
-                    InputMethod, InputMethodKeyboardGrab, TextDisconnectReason, TextInputConnection,
-                },
-            },
-            wl_surface::zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2,
-        },
-        keyboard::KeyboardState,
-        utils::{clonecell::CloneCell, smallmap::SmallMap},
-        wire::ZwpInputPopupSurfaceV2Id,
-    },
-    kbvm::{
-        Keycode, ModifierMask, syms,
-        xkb::{
-            self,
-            compose::{self, FeedResult},
-            diagnostic::WriteToLog,
-        },
-    },
-    std::{
-        cell::{Cell, RefCell},
-        fmt::{self, Write},
-        rc::Rc,
-    },
-};
+use crate::backend::KeyState;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::text_input::InputMethod;
+use crate::ifs::wl_seat::text_input::InputMethodKeyboardGrab;
+use crate::ifs::wl_seat::text_input::TextDisconnectReason;
+use crate::ifs::wl_seat::text_input::TextInputConnection;
+use crate::ifs::wl_surface::zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2;
+use crate::keyboard::KeyboardState;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::smallmap::SmallMap;
+use crate::wire::ZwpInputPopupSurfaceV2Id;
+use kbvm::Keycode;
+use kbvm::ModifierMask;
+use kbvm::syms;
+use kbvm::xkb::compose::FeedResult;
+use kbvm::xkb::compose::{self};
+use kbvm::xkb::diagnostic::WriteToLog;
+use kbvm::xkb::{self};
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::fmt::Write;
+use std::fmt::{self};
+use std::rc::Rc;
 
 pub struct SimpleIm {
     con: CloneCell<Option<Rc<TextInputConnection>>>,

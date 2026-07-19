@@ -1,13 +1,18 @@
-use {
-    crate::io_uring::{
-        IoUring, IoUringData, IoUringError, IoUringTaskId, Task, TaskResultExt,
-        pending_result::PendingResult,
-        sys::{IORING_OP_CONNECT, io_uring_sqe},
-    },
-    derivative::Derivative,
-    std::{ptr, rc::Rc},
-    uapi::{OwnedFd, SockAddr, c},
-};
+use crate::io_uring::IoUring;
+use crate::io_uring::IoUringData;
+use crate::io_uring::IoUringError;
+use crate::io_uring::IoUringTaskId;
+use crate::io_uring::Task;
+use crate::io_uring::TaskResultExt;
+use crate::io_uring::pending_result::PendingResult;
+use crate::io_uring::sys::IORING_OP_CONNECT;
+use crate::io_uring::sys::io_uring_sqe;
+use derivative::Derivative;
+use std::ptr;
+use std::rc::Rc;
+use uapi::OwnedFd;
+use uapi::SockAddr;
+use uapi::c;
 
 impl IoUring {
     pub async fn connect<T: SockAddr>(&self, fd: &Rc<OwnedFd>, t: &T) -> Result<(), IoUringError> {

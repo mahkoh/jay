@@ -1,7 +1,6 @@
-use {
-    crate::{utils::errorfmt::ErrorFmt, xcon::XconData},
-    std::rc::Rc,
-};
+use crate::utils::errorfmt::ErrorFmt;
+use crate::xcon::XconData;
+use std::rc::Rc;
 
 pub(super) async fn handle_outgoing(socket: Rc<XconData>) {
     if let Err(e) = socket.bufio.clone().outgoing().await {

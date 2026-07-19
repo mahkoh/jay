@@ -1,45 +1,63 @@
-use {
-    crate::{
-        allocator::BufferObject,
-        backends::metal::{
-            MetalBackend, MetalError,
-            video::{MetalDrmDevice, MetalRenderContext},
-        },
-        cmm::cmm_description::ColorDescription,
-        copy_device::{
-            CopyDevice, CopyDeviceBuffer, CopyDeviceCopy, CopyDeviceError, CopyDeviceSupport,
-        },
-        format::Format,
-        gfx_api::{
-            AcquireSync, FdSync, GfxBlendBuffer, GfxError, GfxFormat, GfxFramebuffer, GfxTexture,
-            GfxWriteModifier, ReleaseSync, needs_render_usage,
-        },
-        rect::{DamageQueue, Rect, Region},
-        udmabuf::{Udmabuf, UdmabufError},
-        utils::{bhash::BHashSet, errorfmt::ErrorFmt, rc_eq::rc_eq},
-        video::{
-            LINEAR_MODIFIER, Modifier,
-            dmabuf::DmaBuf,
-            drm::{DrmError, DrmFramebuffer},
-            gbm::{GBM_BO_USE_LINEAR, GBM_BO_USE_RENDERING, GBM_BO_USE_SCANOUT, GbmBo, GbmError},
-        },
-    },
-    arrayvec::ArrayVec,
-    bstr::ByteSlice,
-    indexmap::{IndexMap, IndexSet},
-    isnt::std_1::primitive::IsntSliceExt,
-    linearize::{Linearize, LinearizeExt, StaticMap},
-    log::Level,
-    run_on_drop::on_drop,
-    std::{
-        cell::{Cell, RefCell},
-        error::Error,
-        fmt::{self, Debug, Display, Formatter},
-        rc::Rc,
-        sync::LazyLock,
-    },
-    thiserror::Error,
-};
+use crate::allocator::BufferObject;
+use crate::backends::metal::MetalBackend;
+use crate::backends::metal::MetalError;
+use crate::backends::metal::video::MetalDrmDevice;
+use crate::backends::metal::video::MetalRenderContext;
+use crate::cmm::cmm_description::ColorDescription;
+use crate::copy_device::CopyDevice;
+use crate::copy_device::CopyDeviceBuffer;
+use crate::copy_device::CopyDeviceCopy;
+use crate::copy_device::CopyDeviceError;
+use crate::copy_device::CopyDeviceSupport;
+use crate::format::Format;
+use crate::gfx_api::AcquireSync;
+use crate::gfx_api::FdSync;
+use crate::gfx_api::GfxBlendBuffer;
+use crate::gfx_api::GfxError;
+use crate::gfx_api::GfxFormat;
+use crate::gfx_api::GfxFramebuffer;
+use crate::gfx_api::GfxTexture;
+use crate::gfx_api::GfxWriteModifier;
+use crate::gfx_api::ReleaseSync;
+use crate::gfx_api::needs_render_usage;
+use crate::rect::DamageQueue;
+use crate::rect::Rect;
+use crate::rect::Region;
+use crate::udmabuf::Udmabuf;
+use crate::udmabuf::UdmabufError;
+use crate::utils::bhash::BHashSet;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::rc_eq::rc_eq;
+use crate::video::LINEAR_MODIFIER;
+use crate::video::Modifier;
+use crate::video::dmabuf::DmaBuf;
+use crate::video::drm::DrmError;
+use crate::video::drm::DrmFramebuffer;
+use crate::video::gbm::GBM_BO_USE_LINEAR;
+use crate::video::gbm::GBM_BO_USE_RENDERING;
+use crate::video::gbm::GBM_BO_USE_SCANOUT;
+use crate::video::gbm::GbmBo;
+use crate::video::gbm::GbmError;
+use arrayvec::ArrayVec;
+use bstr::ByteSlice;
+use indexmap::IndexMap;
+use indexmap::IndexSet;
+use isnt::std_1::primitive::IsntSliceExt;
+use linearize::Linearize;
+use linearize::LinearizeExt;
+use linearize::StaticMap;
+use log::Level;
+use run_on_drop::on_drop;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::error::Error;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::fmt::{self};
+use std::rc::Rc;
+use std::sync::LazyLock;
+use thiserror::Error;
 
 #[derive(Debug)]
 pub struct RenderBuffer {

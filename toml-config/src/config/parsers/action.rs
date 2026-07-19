@@ -1,47 +1,70 @@
-use {
-    crate::{
-        config::{
-            Action, SimpleCommand,
-            context::Context,
-            extractor::{Extractor, ExtractorError, arr, bol, n32, opt, s32, str, val},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-            parsers::{
-                StringParser, StringParserError,
-                connector::{ConnectorParser, ConnectorParserError},
-                drm_device::{DrmDeviceParser, DrmDeviceParserError},
-                drm_device_match::{DrmDeviceMatchParser, DrmDeviceMatchParserError},
-                env::{EnvParser, EnvParserError},
-                exec::{ExecParser, ExecParserError},
-                fallback_output_mode::{FallbackOutputModeParser, FallbackOutputModeParserError},
-                gfx_api::{GfxApiParser, GfxApiParserError},
-                idle::{IdleParser, IdleParserError},
-                input::{InputParser, InputParserError},
-                keymap::{KeymapParser, KeymapParserError},
-                log_level::{LogLevelParser, LogLevelParserError},
-                mark_id::{MarkIdParser, MarkIdParserError},
-                output::{OutputParser, OutputParserError},
-                output_match::{OutputMatchParser, OutputMatchParserError},
-                repeat_rate::{RepeatRateParser, RepeatRateParserError},
-                status::{StatusParser, StatusParserError},
-                theme::{ThemeParser, ThemeParserError},
-                workspace::WorkspaceType,
-            },
-            spanned::SpannedErrorExt,
-        },
-        toml::{
-            toml_span::{DespanExt, Span, Spanned, SpannedExt},
-            toml_value::Value,
-        },
-    },
-    indexmap::IndexMap,
-    jay_config::{
-        Axis::{Horizontal, Vertical},
-        Direction,
-        input::{LayerDirection, Timeline},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::config::Action;
+use crate::config::SimpleCommand;
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::arr;
+use crate::config::extractor::bol;
+use crate::config::extractor::n32;
+use crate::config::extractor::opt;
+use crate::config::extractor::s32;
+use crate::config::extractor::str;
+use crate::config::extractor::val;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::config::parsers::StringParser;
+use crate::config::parsers::StringParserError;
+use crate::config::parsers::connector::ConnectorParser;
+use crate::config::parsers::connector::ConnectorParserError;
+use crate::config::parsers::drm_device::DrmDeviceParser;
+use crate::config::parsers::drm_device::DrmDeviceParserError;
+use crate::config::parsers::drm_device_match::DrmDeviceMatchParser;
+use crate::config::parsers::drm_device_match::DrmDeviceMatchParserError;
+use crate::config::parsers::env::EnvParser;
+use crate::config::parsers::env::EnvParserError;
+use crate::config::parsers::exec::ExecParser;
+use crate::config::parsers::exec::ExecParserError;
+use crate::config::parsers::fallback_output_mode::FallbackOutputModeParser;
+use crate::config::parsers::fallback_output_mode::FallbackOutputModeParserError;
+use crate::config::parsers::gfx_api::GfxApiParser;
+use crate::config::parsers::gfx_api::GfxApiParserError;
+use crate::config::parsers::idle::IdleParser;
+use crate::config::parsers::idle::IdleParserError;
+use crate::config::parsers::input::InputParser;
+use crate::config::parsers::input::InputParserError;
+use crate::config::parsers::keymap::KeymapParser;
+use crate::config::parsers::keymap::KeymapParserError;
+use crate::config::parsers::log_level::LogLevelParser;
+use crate::config::parsers::log_level::LogLevelParserError;
+use crate::config::parsers::mark_id::MarkIdParser;
+use crate::config::parsers::mark_id::MarkIdParserError;
+use crate::config::parsers::output::OutputParser;
+use crate::config::parsers::output::OutputParserError;
+use crate::config::parsers::output_match::OutputMatchParser;
+use crate::config::parsers::output_match::OutputMatchParserError;
+use crate::config::parsers::repeat_rate::RepeatRateParser;
+use crate::config::parsers::repeat_rate::RepeatRateParserError;
+use crate::config::parsers::status::StatusParser;
+use crate::config::parsers::status::StatusParserError;
+use crate::config::parsers::theme::ThemeParser;
+use crate::config::parsers::theme::ThemeParserError;
+use crate::config::parsers::workspace::WorkspaceType;
+use crate::config::spanned::SpannedErrorExt;
+use crate::toml::toml_span::DespanExt;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_span::SpannedExt;
+use crate::toml::toml_value::Value;
+use indexmap::IndexMap;
+use jay_config::Axis::Horizontal;
+use jay_config::Axis::Vertical;
+use jay_config::Direction;
+use jay_config::input::LayerDirection;
+use jay_config::input::Timeline;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ActionParserError {
@@ -115,7 +138,8 @@ pub struct ActionParser<'a, 'b>(pub &'a Context<'b>);
 
 impl ActionParser<'_, '_> {
     fn parse_simple_cmd(&self, span: Span, string: &str) -> ParseResult<Self> {
-        use {crate::config::SimpleCommand::*, jay_config::Direction::*};
+        use crate::config::SimpleCommand::*;
+        use jay_config::Direction::*;
         if let Some(name) = string.strip_prefix("$") {
             return Ok(Action::NamedAction {
                 name: name.to_string(),

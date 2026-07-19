@@ -1,19 +1,19 @@
-use {
-    crate::{
-        ifs::wl_surface::{
-            SurfaceExt, WlSurface, WlSurfaceError,
-            x_surface::{xwayland_surface_v1::XwaylandSurfaceV1, xwindow::Xwindow},
-        },
-        leaks::Tracker,
-        tree::{
-            Node, NodeBase, NodeLayerLink, ToplevelNode, ToplevelNodeBase, TreeTimeline::LiveTL,
-            WorkspaceNode,
-        },
-        utils::clonecell::CloneCell,
-        xwayland::XWaylandEvent,
-    },
-    std::rc::Rc,
-};
+use crate::ifs::wl_surface::SurfaceExt;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::WlSurfaceError;
+use crate::ifs::wl_surface::x_surface::xwayland_surface_v1::XwaylandSurfaceV1;
+use crate::ifs::wl_surface::x_surface::xwindow::Xwindow;
+use crate::leaks::Tracker;
+use crate::tree::Node;
+use crate::tree::NodeBase;
+use crate::tree::NodeLayerLink;
+use crate::tree::ToplevelNode;
+use crate::tree::ToplevelNodeBase;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::WorkspaceNode;
+use crate::utils::clonecell::CloneCell;
+use crate::xwayland::XWaylandEvent;
+use std::rc::Rc;
 
 pub mod xwayland_surface_v1;
 pub mod xwindow;

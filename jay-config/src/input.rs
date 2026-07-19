@@ -6,21 +6,24 @@ pub mod clickmethod;
 pub mod input_event_codes;
 pub mod scrollmethod;
 
-use {
-    crate::{
-        _private::{DEFAULT_SEAT_NAME, ipc::WorkspaceSource},
-        Axis, Direction, ModifiedKeySym, Workspace,
-        input::{
-            acceleration::AccelProfile, capability::Capability, clickmethod::ClickMethod,
-            scrollmethod::ScrollMethod,
-        },
-        keyboard::{Keymap, mods::Modifiers, syms::KeySym},
-        video::Connector,
-        window::Window,
-    },
-    serde::{Deserialize, Serialize},
-    std::time::Duration,
-};
+use crate::_private::DEFAULT_SEAT_NAME;
+use crate::_private::ipc::WorkspaceSource;
+use crate::Axis;
+use crate::Direction;
+use crate::ModifiedKeySym;
+use crate::Workspace;
+use crate::input::acceleration::AccelProfile;
+use crate::input::capability::Capability;
+use crate::input::clickmethod::ClickMethod;
+use crate::input::scrollmethod::ScrollMethod;
+use crate::keyboard::Keymap;
+use crate::keyboard::mods::Modifiers;
+use crate::keyboard::syms::KeySym;
+use crate::video::Connector;
+use crate::window::Window;
+use serde::Deserialize;
+use serde::Serialize;
+use std::time::Duration;
 
 /// An input device.
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]

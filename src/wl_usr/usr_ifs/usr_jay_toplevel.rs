@@ -1,12 +1,12 @@
-use {
-    crate::{
-        object::Version,
-        utils::clonecell::CloneCell,
-        wire::{JayToplevelId, jay_toplevel::*},
-        wl_usr::{UsrCon, usr_object::UsrObject},
-    },
-    std::{cell::RefCell, convert::Infallible, rc::Rc},
-};
+use crate::object::Version;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::JayToplevelId;
+use crate::wire::jay_toplevel::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_object::UsrObject;
+use std::cell::RefCell;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrJayToplevel {
     pub id: JayToplevelId,

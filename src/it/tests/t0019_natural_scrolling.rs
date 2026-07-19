@@ -1,18 +1,12 @@
-use {
-    crate::{
-        ifs::wl_seat::wl_pointer::{IDENTICAL, INVERTED},
-        it::{
-            test_error::TestResult,
-            test_utils::{
-                test_container_node_ext::TestContainerExt, test_ouput_node_ext::TestOutputNodeExt,
-                test_toplevel_node_ext::TestToplevelNodeExt,
-                test_workspace_node_ext::TestWorkspaceNodeExt,
-            },
-            testrun::TestRun,
-        },
-    },
-    std::rc::Rc,
-};
+use crate::ifs::wl_seat::wl_pointer::IDENTICAL;
+use crate::ifs::wl_seat::wl_pointer::INVERTED;
+use crate::it::test_error::TestResult;
+use crate::it::test_utils::test_container_node_ext::TestContainerExt;
+use crate::it::test_utils::test_ouput_node_ext::TestOutputNodeExt;
+use crate::it::test_utils::test_toplevel_node_ext::TestToplevelNodeExt;
+use crate::it::test_utils::test_workspace_node_ext::TestWorkspaceNodeExt;
+use crate::it::testrun::TestRun;
+use std::rc::Rc;
 
 testcase!();
 

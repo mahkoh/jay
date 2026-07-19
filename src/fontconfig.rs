@@ -1,19 +1,17 @@
-use {
-    crate::fontconfig::consts::{FC_MATCH_PATTERN, FC_RESULT_MATCH},
-    run_on_drop::on_drop,
-    std::{
-        borrow::Cow,
-        ffi::{CStr, OsStr, c_char},
-        os::{
-            raw::{c_int, c_uchar},
-            unix::ffi::OsStrExt,
-        },
-        path::PathBuf,
-        ptr,
-    },
-    thiserror::Error,
-    uapi::IntoUstr,
-};
+use crate::fontconfig::consts::FC_MATCH_PATTERN;
+use crate::fontconfig::consts::FC_RESULT_MATCH;
+use run_on_drop::on_drop;
+use std::borrow::Cow;
+use std::ffi::CStr;
+use std::ffi::OsStr;
+use std::ffi::c_char;
+use std::os::raw::c_int;
+use std::os::raw::c_uchar;
+use std::os::unix::ffi::OsStrExt;
+use std::path::PathBuf;
+use std::ptr;
+use thiserror::Error;
+use uapi::IntoUstr;
 
 mod consts;
 

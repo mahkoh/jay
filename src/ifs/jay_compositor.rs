@@ -1,48 +1,54 @@
-use {
-    crate::{
-        client::{CAP_JAY_COMPOSITOR, Client, ClientCaps, ClientError, ClientId},
-        compositor::LogLevel,
-        globals::{Global, GlobalName},
-        ifs::{
-            jay_acceptor_request::JayAcceptorRequest,
-            jay_client_query::JayClientQuery,
-            jay_color_management::JayColorManagement,
-            jay_ei_session_builder::JayEiSessionBuilder,
-            jay_idle::JayIdle,
-            jay_input::JayInput,
-            jay_keymap_builder::JayKeymapBuilder,
-            jay_log_file::JayLogFile,
-            jay_open_control_center_request::JayOpenControlCenterRequest,
-            jay_output::JayOutput,
-            jay_pointer::JayPointer,
-            jay_randr::JayRandr,
-            jay_reexec::JayReexec,
-            jay_render_ctx::JayRenderCtx,
-            jay_screencast::JayScreencast,
-            jay_screenshot::JayScreenshot,
-            jay_seat_events::JaySeatEvents,
-            jay_select_toplevel::{JaySelectToplevel, JayToplevelSelector},
-            jay_select_workspace::{JaySelectWorkspace, JayWorkspaceSelector},
-            jay_tree_query::JayTreeQuery,
-            jay_workspace_watcher::JayWorkspaceWatcher,
-            jay_xwayland::JayXwayland,
-            wl_surface::jay_sync_file_surface::JaySyncFileSurface,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        screenshoter::take_screenshot,
-        tree::{ToplevelIdentifier, TreeTimeline::LiveTL},
-        utils::errorfmt::ErrorFmt,
-        wire::{
-            JayCompositorId, JayScreenshotId,
-            jay_compositor::{self, *},
-        },
-    },
-    bstr::ByteSlice,
-    linearize::LinearizeExt,
-    std::{cell::Cell, ops::Deref, rc::Rc, str::FromStr},
-    thiserror::Error,
-};
+use crate::client::CAP_JAY_COMPOSITOR;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::client::ClientId;
+use crate::compositor::LogLevel;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::jay_acceptor_request::JayAcceptorRequest;
+use crate::ifs::jay_client_query::JayClientQuery;
+use crate::ifs::jay_color_management::JayColorManagement;
+use crate::ifs::jay_ei_session_builder::JayEiSessionBuilder;
+use crate::ifs::jay_idle::JayIdle;
+use crate::ifs::jay_input::JayInput;
+use crate::ifs::jay_keymap_builder::JayKeymapBuilder;
+use crate::ifs::jay_log_file::JayLogFile;
+use crate::ifs::jay_open_control_center_request::JayOpenControlCenterRequest;
+use crate::ifs::jay_output::JayOutput;
+use crate::ifs::jay_pointer::JayPointer;
+use crate::ifs::jay_randr::JayRandr;
+use crate::ifs::jay_reexec::JayReexec;
+use crate::ifs::jay_render_ctx::JayRenderCtx;
+use crate::ifs::jay_screencast::JayScreencast;
+use crate::ifs::jay_screenshot::JayScreenshot;
+use crate::ifs::jay_seat_events::JaySeatEvents;
+use crate::ifs::jay_select_toplevel::JaySelectToplevel;
+use crate::ifs::jay_select_toplevel::JayToplevelSelector;
+use crate::ifs::jay_select_workspace::JaySelectWorkspace;
+use crate::ifs::jay_select_workspace::JayWorkspaceSelector;
+use crate::ifs::jay_tree_query::JayTreeQuery;
+use crate::ifs::jay_workspace_watcher::JayWorkspaceWatcher;
+use crate::ifs::jay_xwayland::JayXwayland;
+use crate::ifs::wl_surface::jay_sync_file_surface::JaySyncFileSurface;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::screenshoter::take_screenshot;
+use crate::tree::ToplevelIdentifier;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::wire::JayCompositorId;
+use crate::wire::JayScreenshotId;
+use crate::wire::jay_compositor::*;
+use crate::wire::jay_compositor::{self};
+use bstr::ByteSlice;
+use linearize::LinearizeExt;
+use std::cell::Cell;
+use std::ops::Deref;
+use std::rc::Rc;
+use std::str::FromStr;
+use thiserror::Error;
 
 pub const CREATE_EI_SESSION_SINCE: Version = Version(5);
 pub const SCREENSHOT_SPLITUP_SINCE: Version = Version(6);

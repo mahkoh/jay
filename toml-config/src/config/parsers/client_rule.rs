@@ -1,25 +1,27 @@
-use {
-    crate::{
-        config::{
-            ClientMatch, ClientRule,
-            context::Context,
-            extractor::{Extractor, ExtractorError, opt, str, val},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-            parsers::{
-                action::{ActionParser, ActionParserError},
-                capabilities::CapabilitiesParser,
-                client_match::{ClientMatchParser, ClientMatchParserError},
-            },
-            spanned::SpannedErrorExt,
-        },
-        toml::{
-            toml_span::{DespanExt, Span, Spanned},
-            toml_value::Value,
-        },
-    },
-    indexmap::IndexMap,
-    thiserror::Error,
-};
+use crate::config::ClientMatch;
+use crate::config::ClientRule;
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::opt;
+use crate::config::extractor::str;
+use crate::config::extractor::val;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::config::parsers::action::ActionParser;
+use crate::config::parsers::action::ActionParserError;
+use crate::config::parsers::capabilities::CapabilitiesParser;
+use crate::config::parsers::client_match::ClientMatchParser;
+use crate::config::parsers::client_match::ClientMatchParserError;
+use crate::config::spanned::SpannedErrorExt;
+use crate::toml::toml_span::DespanExt;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_value::Value;
+use indexmap::IndexMap;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ClientRuleParserError {

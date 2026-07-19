@@ -1,7 +1,7 @@
-use {
-    crate::it::{test_error::TestError, testrun::TestRun},
-    std::{future::Future, rc::Rc},
-};
+use crate::it::test_error::TestError;
+use crate::it::testrun::TestRun;
+use std::future::Future;
+use std::rc::Rc;
 
 macro_rules! testcase {
     () => {

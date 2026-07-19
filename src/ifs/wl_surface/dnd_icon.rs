@@ -1,12 +1,9 @@
-use {
-    crate::{
-        ifs::{wl_seat::WlSeatGlobal, wl_surface::WlSurface},
-        rect::Rect,
-        renderer::Renderer,
-        tree::TreeTimeline::LiveTL,
-    },
-    std::rc::Rc,
-};
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_surface::WlSurface;
+use crate::rect::Rect;
+use crate::renderer::Renderer;
+use crate::tree::TreeTimeline::LiveTL;
+use std::rc::Rc;
 
 pub struct DndIcon {
     pub(super) surface: Rc<WlSurface>,

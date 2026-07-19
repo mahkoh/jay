@@ -1,11 +1,15 @@
-use {
-    crate::{
-        open,
-        tokens::{Symbol, Token, TokenKind, TreeDelim, tokenize},
-    },
-    anyhow::{Context, Result, bail},
-    std::{fs::DirEntry, io::Write, os::unix::ffi::OsStrExt},
-};
+use crate::open;
+use crate::tokens::Symbol;
+use crate::tokens::Token;
+use crate::tokens::TokenKind;
+use crate::tokens::TreeDelim;
+use crate::tokens::tokenize;
+use anyhow::Context;
+use anyhow::Result;
+use anyhow::bail;
+use std::fs::DirEntry;
+use std::io::Write;
+use std::os::unix::ffi::OsStrExt;
 
 #[derive(Debug)]
 struct Lined<T> {

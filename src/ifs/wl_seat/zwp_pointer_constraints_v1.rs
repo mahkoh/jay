@@ -1,29 +1,28 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        fixed::Fixed,
-        globals::{Global, GlobalName},
-        ifs::{
-            wl_seat::{
-                PositionHintRequest, WlSeatGlobal,
-                zwp_pointer_constraints_v1::zwp_confined_pointer_v1::ZwpConfinedPointerV1,
-            },
-            wl_surface::WlSurface,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        rect::{Rect, Region},
-        tree::TreeTimeline::LiveTL,
-        utils::clonecell::CloneCell,
-        wire::{
-            WlPointerId, WlRegionId, WlSurfaceId, ZwpPointerConstraintsV1Id,
-            zwp_pointer_constraints_v1::*,
-        },
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-    zwp_locked_pointer_v1::ZwpLockedPointerV1,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::fixed::Fixed;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_seat::PositionHintRequest;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::zwp_pointer_constraints_v1::zwp_confined_pointer_v1::ZwpConfinedPointerV1;
+use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::rect::Rect;
+use crate::rect::Region;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::WlPointerId;
+use crate::wire::WlRegionId;
+use crate::wire::WlSurfaceId;
+use crate::wire::ZwpPointerConstraintsV1Id;
+use crate::wire::zwp_pointer_constraints_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
+use zwp_locked_pointer_v1::ZwpLockedPointerV1;
 
 pub mod zwp_confined_pointer_v1;
 pub mod zwp_locked_pointer_v1;

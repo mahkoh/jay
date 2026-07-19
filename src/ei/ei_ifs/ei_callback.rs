@@ -1,18 +1,13 @@
-use {
-    crate::{
-        ei::{
-            ei_client::{EiClient, EiClientError},
-            ei_object::{EiObject, EiVersion},
-        },
-        leaks::Tracker,
-        wire_ei::{
-            EiCallbackId,
-            ei_callback::{Done, EiCallbackRequestHandler},
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::ei::ei_client::EiClient;
+use crate::ei::ei_client::EiClientError;
+use crate::ei::ei_object::EiObject;
+use crate::ei::ei_object::EiVersion;
+use crate::leaks::Tracker;
+use crate::wire_ei::EiCallbackId;
+use crate::wire_ei::ei_callback::Done;
+use crate::wire_ei::ei_callback::EiCallbackRequestHandler;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct EiCallback {
     pub id: EiCallbackId,

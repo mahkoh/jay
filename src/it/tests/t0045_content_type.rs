@@ -1,10 +1,7 @@
-use {
-    crate::{
-        ifs::wp_content_type_v1::ContentType,
-        it::{test_error::TestResult, testrun::TestRun},
-    },
-    std::rc::Rc,
-};
+use crate::ifs::wp_content_type_v1::ContentType;
+use crate::it::test_error::TestResult;
+use crate::it::testrun::TestRun;
+use std::rc::Rc;
 
 testcase!();
 

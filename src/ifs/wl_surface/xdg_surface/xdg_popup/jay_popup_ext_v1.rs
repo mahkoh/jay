@@ -1,14 +1,14 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::wl_surface::xdg_surface::{xdg_popup::XdgPopup, xdg_toplevel::map_resize_edges},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{JayPopupExtV1Id, jay_popup_ext_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::map_resize_edges;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::JayPopupExtV1Id;
+use crate::wire::jay_popup_ext_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct JayPopupExtV1 {
     id: JayPopupExtV1Id,

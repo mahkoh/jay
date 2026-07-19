@@ -2,35 +2,33 @@ pub mod jobs;
 #[cfg(test)]
 mod tests;
 
-use {
-    crate::{
-        async_engine::{AsyncEngine, SpawnedFuture},
-        io_uring::IoUring,
-        utils::{
-            buf::TypedBuf,
-            copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
-            oserror::{OsError, OsErrorExt2},
-            pipe::{Pipe, pipe},
-            ptr_ext::MutPtrExt,
-            queue::AsyncQueue,
-            stack::Stack,
-        },
-    },
-    parking_lot::{Condvar, Mutex},
-    std::{
-        any::Any,
-        cell::{Cell, RefCell},
-        collections::VecDeque,
-        mem,
-        ptr::NonNull,
-        rc::Rc,
-        sync::Arc,
-        thread,
-    },
-    thiserror::Error,
-    uapi::{OwnedFd, c},
-};
+use crate::async_engine::AsyncEngine;
+use crate::async_engine::SpawnedFuture;
+use crate::io_uring::IoUring;
+use crate::utils::buf::TypedBuf;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt2;
+use crate::utils::pipe::Pipe;
+use crate::utils::pipe::pipe;
+use crate::utils::ptr_ext::MutPtrExt;
+use crate::utils::queue::AsyncQueue;
+use crate::utils::stack::Stack;
+use parking_lot::Condvar;
+use parking_lot::Mutex;
+use std::any::Any;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::mem;
+use std::ptr::NonNull;
+use std::rc::Rc;
+use std::sync::Arc;
+use std::thread;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c;
 
 pub trait CpuJob {
     fn work(&mut self) -> &mut dyn CpuWork;

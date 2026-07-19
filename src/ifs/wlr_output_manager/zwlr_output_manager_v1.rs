@@ -1,27 +1,32 @@
-use {
-    crate::{
-        backend::Mode,
-        client::{CAP_HEAD_MANAGER, Client, ClientCaps, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wlr_output_manager::{
-            zwlr_output_configuration_v1::ZwlrOutputConfigurationV1,
-            zwlr_output_head_v1::{
-                ADAPTIVE_SYNC_SINCE, MAKE_SINCE, MODEL_SINCE, SERIAL_NUMBER_SINCE, WlrOutputHeadId,
-                ZwlrOutputHeadV1,
-            },
-            zwlr_output_mode_v1::ZwlrOutputModeV1,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        state::OutputData,
-        tree::TreeTimeline::LiveTL,
-        utils::{copyhashmap::CopyHashMap, numcell::NumCell},
-        wire::{ZwlrOutputManagerV1Id, zwlr_output_manager_v1::*},
-    },
-    isnt::std_1::string::IsntStringExt,
-    std::{cell::Cell, rc::Rc, slice},
-    thiserror::Error,
-};
+use crate::backend::Mode;
+use crate::client::CAP_HEAD_MANAGER;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wlr_output_manager::zwlr_output_configuration_v1::ZwlrOutputConfigurationV1;
+use crate::ifs::wlr_output_manager::zwlr_output_head_v1::ADAPTIVE_SYNC_SINCE;
+use crate::ifs::wlr_output_manager::zwlr_output_head_v1::MAKE_SINCE;
+use crate::ifs::wlr_output_manager::zwlr_output_head_v1::MODEL_SINCE;
+use crate::ifs::wlr_output_manager::zwlr_output_head_v1::SERIAL_NUMBER_SINCE;
+use crate::ifs::wlr_output_manager::zwlr_output_head_v1::WlrOutputHeadId;
+use crate::ifs::wlr_output_manager::zwlr_output_head_v1::ZwlrOutputHeadV1;
+use crate::ifs::wlr_output_manager::zwlr_output_mode_v1::ZwlrOutputModeV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::state::OutputData;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::numcell::NumCell;
+use crate::wire::ZwlrOutputManagerV1Id;
+use crate::wire::zwlr_output_manager_v1::*;
+use isnt::std_1::string::IsntStringExt;
+use std::cell::Cell;
+use std::rc::Rc;
+use std::slice;
+use thiserror::Error;
 
 linear_ids!(WlrOutputManagerIds, WlrOutputManagerId, u64);
 

@@ -1,15 +1,15 @@
-use {
-    crate::{
-        backend::Mode,
-        client::{Client, ClientError},
-        ifs::wlr_output_manager::zwlr_output_head_v1::WlrOutputHeadId,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwlrOutputModeV1Id, zwlr_output_mode_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::backend::Mode;
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wlr_output_manager::zwlr_output_head_v1::WlrOutputHeadId;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwlrOutputModeV1Id;
+use crate::wire::zwlr_output_mode_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwlrOutputModeV1 {
     pub(super) id: ZwlrOutputModeV1Id,

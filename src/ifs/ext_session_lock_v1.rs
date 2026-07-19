@@ -1,18 +1,18 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        configurable::ConfigurableData,
-        ifs::wl_surface::ext_session_lock_surface_v1::{
-            ExtSessionLockSurfaceV1, ExtSessionLockSurfaceV1Error,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::{NodeLocation, TreeTimeline::LiveTL},
-        wire::{ExtSessionLockV1Id, ext_session_lock_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::configurable::ConfigurableData;
+use crate::ifs::wl_surface::ext_session_lock_surface_v1::ExtSessionLockSurfaceV1;
+use crate::ifs::wl_surface::ext_session_lock_surface_v1::ExtSessionLockSurfaceV1Error;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::NodeLocation;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::wire::ExtSessionLockV1Id;
+use crate::wire::ext_session_lock_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ExtSessionLockV1 {
     pub id: ExtSessionLockV1Id,

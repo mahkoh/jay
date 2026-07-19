@@ -1,15 +1,16 @@
-use {
-    crate::{
-        config::{WorkspaceSlot, error::SpannedError},
-        toml::{
-            toml_parser::{ErrorHandler, ParserError},
-            toml_span::{Span, Spanned},
-        },
-    },
-    ahash::{AHashMap, AHashSet},
-    error_reporter::Report,
-    std::{cell::RefCell, convert::Infallible, error::Error, rc::Rc},
-};
+use crate::config::WorkspaceSlot;
+use crate::config::error::SpannedError;
+use crate::toml::toml_parser::ErrorHandler;
+use crate::toml::toml_parser::ParserError;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use ahash::AHashMap;
+use ahash::AHashSet;
+use error_reporter::Report;
+use std::cell::RefCell;
+use std::convert::Infallible;
+use std::error::Error;
+use std::rc::Rc;
 
 pub struct Context<'a> {
     pub input: &'a [u8],

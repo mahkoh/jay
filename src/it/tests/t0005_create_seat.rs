@@ -1,10 +1,7 @@
-use {
-    crate::{
-        globals::GlobalBase,
-        it::{test_error::TestError, testrun::TestRun},
-    },
-    std::rc::Rc,
-};
+use crate::globals::GlobalBase;
+use crate::it::test_error::TestError;
+use crate::it::testrun::TestRun;
+use std::rc::Rc;
 
 testcase!();
 

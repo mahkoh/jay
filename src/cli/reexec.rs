@@ -1,13 +1,12 @@
-use {
-    crate::{
-        cli::GlobalArgs,
-        tools::tool_client::{Handle, ToolClient, with_tool_client},
-        utils::errorfmt::ErrorFmt,
-        wire::{jay_compositor, jay_reexec},
-    },
-    clap::Args,
-    std::rc::Rc,
-};
+use crate::cli::GlobalArgs;
+use crate::tools::tool_client::Handle;
+use crate::tools::tool_client::ToolClient;
+use crate::tools::tool_client::with_tool_client;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::wire::jay_compositor;
+use crate::wire::jay_reexec;
+use clap::Args;
+use std::rc::Rc;
 
 #[derive(Args, Debug)]
 pub struct ReexecArgs {

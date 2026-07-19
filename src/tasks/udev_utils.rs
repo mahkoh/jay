@@ -1,12 +1,9 @@
-use {
-    crate::{
-        udev::{Udev, UdevDeviceType},
-        utils::errorfmt::ErrorFmt,
-    },
-    jay_config::PciId,
-    std::rc::Rc,
-    uapi::c,
-};
+use crate::udev::Udev;
+use crate::udev::UdevDeviceType;
+use crate::utils::errorfmt::ErrorFmt;
+use jay_config::PciId;
+use std::rc::Rc;
+use uapi::c;
 
 #[derive(Default, Debug)]
 pub struct UdevProps {

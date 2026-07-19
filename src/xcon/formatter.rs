@@ -1,8 +1,9 @@
-use {
-    crate::{utils::buf::DynamicBuf, xcon::Message},
-    std::rc::Rc,
-    uapi::{AssertPacked, OwnedFd, Packed},
-};
+use crate::utils::buf::DynamicBuf;
+use crate::xcon::Message;
+use std::rc::Rc;
+use uapi::AssertPacked;
+use uapi::OwnedFd;
+use uapi::Packed;
 
 pub struct Formatter<'a> {
     fds: &'a mut Vec<Rc<OwnedFd>>,

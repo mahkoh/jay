@@ -1,22 +1,19 @@
-use {
-    crate::{
-        gfx_api::{GfxFormat, ResetStatus},
-        gfx_apis::gl::{
-            RenderError,
-            egl::{
-                display::EglDisplay,
-                sys::{EGL_FALSE, EGL_TRUE, EGLContext, EGLSurface},
-            },
-            ext::{EXT_CREATE_CONTEXT_ROBUSTNESS, GlExt},
-            sys::{
-                GL_GUILTY_CONTEXT_RESET_ARB, GL_INNOCENT_CONTEXT_RESET_ARB,
-                GL_UNKNOWN_CONTEXT_RESET_ARB,
-            },
-        },
-        utils::bhash::BHashMap,
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::gfx_api::GfxFormat;
+use crate::gfx_api::ResetStatus;
+use crate::gfx_apis::gl::RenderError;
+use crate::gfx_apis::gl::egl::display::EglDisplay;
+use crate::gfx_apis::gl::egl::sys::EGL_FALSE;
+use crate::gfx_apis::gl::egl::sys::EGL_TRUE;
+use crate::gfx_apis::gl::egl::sys::EGLContext;
+use crate::gfx_apis::gl::egl::sys::EGLSurface;
+use crate::gfx_apis::gl::ext::EXT_CREATE_CONTEXT_ROBUSTNESS;
+use crate::gfx_apis::gl::ext::GlExt;
+use crate::gfx_apis::gl::sys::GL_GUILTY_CONTEXT_RESET_ARB;
+use crate::gfx_apis::gl::sys::GL_INNOCENT_CONTEXT_RESET_ARB;
+use crate::gfx_apis::gl::sys::GL_UNKNOWN_CONTEXT_RESET_ARB;
+use crate::utils::bhash::BHashMap;
+use std::cell::Cell;
+use std::rc::Rc;
 
 #[derive(Debug, Clone)]
 pub struct EglContext {

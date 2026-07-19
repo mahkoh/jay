@@ -1,21 +1,24 @@
-use {
-    crate::{
-        config::{
-            Status,
-            context::Context,
-            extractor::{Extractor, ExtractorError, opt, recover, str, val},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-            parsers::exec::{ExecParser, ExecParserError},
-        },
-        toml::{
-            toml_span::{Span, Spanned, SpannedExt},
-            toml_value::Value,
-        },
-    },
-    indexmap::IndexMap,
-    jay_config::status::MessageFormat,
-    thiserror::Error,
-};
+use crate::config::Status;
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::opt;
+use crate::config::extractor::recover;
+use crate::config::extractor::str;
+use crate::config::extractor::val;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::config::parsers::exec::ExecParser;
+use crate::config::parsers::exec::ExecParserError;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_span::SpannedExt;
+use crate::toml::toml_value::Value;
+use indexmap::IndexMap;
+use jay_config::status::MessageFormat;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum StatusParserError {

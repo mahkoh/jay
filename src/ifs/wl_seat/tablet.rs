@@ -1,34 +1,29 @@
-use {
-    crate::{
-        backend::{InputDeviceGroupId, InputDeviceId},
-        cursor_user::CursorUser,
-        ifs::{
-            wl_seat::{
-                WlSeatGlobal,
-                tablet::{
-                    pad_owner::PadOwnerHolder, tablet_bindings::TabletBindings,
-                    tool_owner::ToolOwnerHolder, zwp_tablet_pad_dial_v2::ZwpTabletPadDialV2,
-                    zwp_tablet_pad_group_v2::ZwpTabletPadGroupV2,
-                    zwp_tablet_pad_ring_v2::ZwpTabletPadRingV2,
-                    zwp_tablet_pad_strip_v2::ZwpTabletPadStripV2,
-                    zwp_tablet_pad_v2::ZwpTabletPadV2, zwp_tablet_seat_v2::ZwpTabletSeatV2,
-                    zwp_tablet_tool_v2::ZwpTabletToolV2, zwp_tablet_v2::ZwpTabletV2,
-                },
-            },
-            wl_surface::WlSurface,
-        },
-        object::Version,
-        tree::{FoundNode, Node},
-        utils::{
-            bindings::PerClientBindings, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            hash_map_ext::HashMapExt,
-        },
-    },
-    std::{
-        cell::{Cell, RefCell},
-        rc::Rc,
-    },
-};
+use crate::backend::InputDeviceGroupId;
+use crate::backend::InputDeviceId;
+use crate::cursor_user::CursorUser;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::tablet::pad_owner::PadOwnerHolder;
+use crate::ifs::wl_seat::tablet::tablet_bindings::TabletBindings;
+use crate::ifs::wl_seat::tablet::tool_owner::ToolOwnerHolder;
+use crate::ifs::wl_seat::tablet::zwp_tablet_pad_dial_v2::ZwpTabletPadDialV2;
+use crate::ifs::wl_seat::tablet::zwp_tablet_pad_group_v2::ZwpTabletPadGroupV2;
+use crate::ifs::wl_seat::tablet::zwp_tablet_pad_ring_v2::ZwpTabletPadRingV2;
+use crate::ifs::wl_seat::tablet::zwp_tablet_pad_strip_v2::ZwpTabletPadStripV2;
+use crate::ifs::wl_seat::tablet::zwp_tablet_pad_v2::ZwpTabletPadV2;
+use crate::ifs::wl_seat::tablet::zwp_tablet_seat_v2::ZwpTabletSeatV2;
+use crate::ifs::wl_seat::tablet::zwp_tablet_tool_v2::ZwpTabletToolV2;
+use crate::ifs::wl_seat::tablet::zwp_tablet_v2::ZwpTabletV2;
+use crate::ifs::wl_surface::WlSurface;
+use crate::object::Version;
+use crate::tree::FoundNode;
+use crate::tree::Node;
+use crate::utils::bindings::PerClientBindings;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::hash_map_ext::HashMapExt;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 mod pad;
 mod pad_owner;

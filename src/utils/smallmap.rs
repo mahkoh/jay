@@ -1,16 +1,12 @@
-use {
-    crate::utils::{
-        markers::JayClone,
-        ptr_ext::{MutPtrExt, PtrExt},
-    },
-    derivative::Derivative,
-    smallvec::SmallVec,
-    std::{
-        cell::UnsafeCell,
-        fmt::{Debug, Formatter},
-        mem,
-    },
-};
+use crate::utils::markers::JayClone;
+use crate::utils::ptr_ext::MutPtrExt;
+use crate::utils::ptr_ext::PtrExt;
+use derivative::Derivative;
+use smallvec::SmallVec;
+use std::cell::UnsafeCell;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::mem;
 
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]

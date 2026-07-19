@@ -1,20 +1,23 @@
-use {
-    crate::{
-        config::{
-            Xwayland,
-            context::Context,
-            extractor::{Extractor, ExtractorError, bol, opt, recover, val},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-        },
-        toml::{
-            toml_span::{DespanExt, Span, Spanned, SpannedExt},
-            toml_value::Value,
-        },
-    },
-    indexmap::IndexMap,
-    jay_config::xwayland::XScalingMode,
-    thiserror::Error,
-};
+use crate::config::Xwayland;
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::bol;
+use crate::config::extractor::opt;
+use crate::config::extractor::recover;
+use crate::config::extractor::val;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::toml::toml_span::DespanExt;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_span::SpannedExt;
+use crate::toml::toml_value::Value;
+use indexmap::IndexMap;
+use jay_config::xwayland::XScalingMode;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum XwaylandParserError {

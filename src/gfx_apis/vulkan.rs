@@ -22,46 +22,59 @@ mod shm_image;
 mod staging;
 mod transfer;
 
-use {
-    crate::{
-        allocator::{Allocator, AllocatorError},
-        async_engine::AsyncEngine,
-        backend::DrmDeviceId,
-        cpu_worker::{CpuWorker, jobs::read_write::ReadWriteJobError},
-        eventfd_cache::EventfdCache,
-        format::Format,
-        gfx_api::{
-            AsyncShmGfxTexture, GfxApi, GfxBlendBuffer, GfxBuffer, GfxContext, GfxError, GfxFormat,
-            GfxFramebuffer, GfxInternalFramebuffer, GfxStagingBuffer, GfxTexture, ResetStatus,
-            STAGING_DOWNLOAD, STAGING_UPLOAD, ShmGfxTexture, StagingBufferUsecase,
-        },
-        gfx_apis::vulkan::{
-            device::VulkanDevice, image::VulkanImageMemory, instance::VulkanInstance,
-            renderer::VulkanRenderer,
-        },
-        io_uring::IoUring,
-        pr_caps::PrCapsThread,
-        rect::Rect,
-        syncobj::SyncobjCtx,
-        utils::{bhash::BHashMap, errorfmt::ErrorFmt, oserror::OsError},
-        video::{
-            dmabuf::{DmaBuf, DmaBufIds},
-            drm::{Drm, DrmError},
-            gbm::GbmError,
-        },
-        vulkan_core::{self, VulkanCoreError},
-    },
-    ash::vk,
-    gpu_alloc::{AllocationError, MapError},
-    log::Level,
-    std::{
-        cell::Cell,
-        ffi::{CStr, CString},
-        rc::Rc,
-    },
-    thiserror::Error,
-    uapi::{OwnedFd, c::dev_t},
-};
+use crate::allocator::Allocator;
+use crate::allocator::AllocatorError;
+use crate::async_engine::AsyncEngine;
+use crate::backend::DrmDeviceId;
+use crate::cpu_worker::CpuWorker;
+use crate::cpu_worker::jobs::read_write::ReadWriteJobError;
+use crate::eventfd_cache::EventfdCache;
+use crate::format::Format;
+use crate::gfx_api::AsyncShmGfxTexture;
+use crate::gfx_api::GfxApi;
+use crate::gfx_api::GfxBlendBuffer;
+use crate::gfx_api::GfxBuffer;
+use crate::gfx_api::GfxContext;
+use crate::gfx_api::GfxError;
+use crate::gfx_api::GfxFormat;
+use crate::gfx_api::GfxFramebuffer;
+use crate::gfx_api::GfxInternalFramebuffer;
+use crate::gfx_api::GfxStagingBuffer;
+use crate::gfx_api::GfxTexture;
+use crate::gfx_api::ResetStatus;
+use crate::gfx_api::STAGING_DOWNLOAD;
+use crate::gfx_api::STAGING_UPLOAD;
+use crate::gfx_api::ShmGfxTexture;
+use crate::gfx_api::StagingBufferUsecase;
+use crate::gfx_apis::vulkan::device::VulkanDevice;
+use crate::gfx_apis::vulkan::image::VulkanImageMemory;
+use crate::gfx_apis::vulkan::instance::VulkanInstance;
+use crate::gfx_apis::vulkan::renderer::VulkanRenderer;
+use crate::io_uring::IoUring;
+use crate::pr_caps::PrCapsThread;
+use crate::rect::Rect;
+use crate::syncobj::SyncobjCtx;
+use crate::utils::bhash::BHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::oserror::OsError;
+use crate::video::dmabuf::DmaBuf;
+use crate::video::dmabuf::DmaBufIds;
+use crate::video::drm::Drm;
+use crate::video::drm::DrmError;
+use crate::video::gbm::GbmError;
+use crate::vulkan_core::VulkanCoreError;
+use crate::vulkan_core::{self};
+use ash::vk;
+use gpu_alloc::AllocationError;
+use gpu_alloc::MapError;
+use log::Level;
+use std::cell::Cell;
+use std::ffi::CStr;
+use std::ffi::CString;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c::dev_t;
 
 #[derive(Debug, Error)]
 pub enum VulkanError {

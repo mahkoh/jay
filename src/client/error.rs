@@ -1,13 +1,11 @@
-use {
-    crate::{
-        client::ClientId,
-        object::{Interface, ObjectId},
-        utils::buffd::{BufFdError, MsgParserError},
-        wire::WlDisplayId,
-    },
-    std::error::Error,
-    thiserror::Error,
-};
+use crate::client::ClientId;
+use crate::object::Interface;
+use crate::object::ObjectId;
+use crate::utils::buffd::BufFdError;
+use crate::utils::buffd::MsgParserError;
+use crate::wire::WlDisplayId;
+use std::error::Error;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ClientError {

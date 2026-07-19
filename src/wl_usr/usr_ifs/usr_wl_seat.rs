@@ -1,16 +1,14 @@
-use {
-    crate::{
-        object::Version,
-        utils::clonecell::CloneCell,
-        wire::{WlSeatId, wl_seat::*},
-        wl_usr::{
-            UsrCon,
-            usr_ifs::{usr_wl_keyboard::UsrWlKeyboard, usr_wl_pointer::UsrWlPointer},
-            usr_object::UsrObject,
-        },
-    },
-    std::{cell::Cell, convert::Infallible, rc::Rc},
-};
+use crate::object::Version;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::WlSeatId;
+use crate::wire::wl_seat::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_ifs::usr_wl_keyboard::UsrWlKeyboard;
+use crate::wl_usr::usr_ifs::usr_wl_pointer::UsrWlPointer;
+use crate::wl_usr::usr_object::UsrObject;
+use std::cell::Cell;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrWlSeat {
     pub id: WlSeatId,

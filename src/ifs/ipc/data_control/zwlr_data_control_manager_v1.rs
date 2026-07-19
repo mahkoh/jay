@@ -1,21 +1,20 @@
-use {
-    crate::{
-        client::{CAP_DATA_CONTROL_MANAGER, Client, ClientCaps, ClientError},
-        globals::{Global, GlobalName},
-        ifs::ipc::{
-            IpcLocation,
-            data_control::{
-                DynDataControlDevice, zwlr_data_control_device_v1::ZwlrDataControlDeviceV1,
-                zwlr_data_control_source_v1::ZwlrDataControlSourceV1,
-            },
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwlrDataControlManagerV1Id, zwlr_data_control_manager_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::CAP_DATA_CONTROL_MANAGER;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::ipc::IpcLocation;
+use crate::ifs::ipc::data_control::DynDataControlDevice;
+use crate::ifs::ipc::data_control::zwlr_data_control_device_v1::ZwlrDataControlDeviceV1;
+use crate::ifs::ipc::data_control::zwlr_data_control_source_v1::ZwlrDataControlSourceV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwlrDataControlManagerV1Id;
+use crate::wire::zwlr_data_control_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwlrDataControlManagerV1Global {
     name: GlobalName,

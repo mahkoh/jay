@@ -1,14 +1,14 @@
-use {
-    crate::criteria::{
-        CritMatcherIds, FixedRootMatcher,
-        crit_graph::{
-            CritFixedRootCriterion, CritFixedRootCriterionBase, CritMgr, CritRoot, CritRootFixed,
-            CritTarget,
-        },
-    },
-    linearize::static_map,
-    std::{marker::PhantomData, rc::Rc},
-};
+use crate::criteria::CritMatcherIds;
+use crate::criteria::FixedRootMatcher;
+use crate::criteria::crit_graph::CritFixedRootCriterion;
+use crate::criteria::crit_graph::CritFixedRootCriterionBase;
+use crate::criteria::crit_graph::CritMgr;
+use crate::criteria::crit_graph::CritRoot;
+use crate::criteria::crit_graph::CritRootFixed;
+use crate::criteria::crit_graph::CritTarget;
+use linearize::static_map;
+use std::marker::PhantomData;
+use std::rc::Rc;
 
 pub struct CritMatchConstant<Target>(pub bool, pub PhantomData<fn(&Target)>);
 

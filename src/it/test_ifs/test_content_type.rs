@@ -1,10 +1,10 @@
-use {
-    crate::{
-        it::{test_error::TestError, test_object::TestObject, test_transport::TestTransport},
-        wire::{WpContentTypeV1Id, wp_content_type_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestError;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::WpContentTypeV1Id;
+use crate::wire::wp_content_type_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestContentType {
     pub id: WpContentTypeV1Id,

@@ -1,53 +1,63 @@
-use {
-    crate::{
-        cmm::cmm_eotf::Eotf,
-        cpu_worker::{AsyncCpuWork, CpuJob, CpuWork, CpuWorker, PendingJob},
-        format::{ARGB8888, Format},
-        gfx_api::{
-            AsyncShmGfxTexture, AsyncShmGfxTextureCallback, GfxBuffer, GfxContext, GfxError,
-            GfxStagingBuffer, GfxTexture, PendingShmTransfer, STAGING_UPLOAD,
-        },
-        pango::{
-            CairoContext, CairoImageSurface, PangoCairoContext, PangoError, PangoFontDescription,
-            PangoLayout, cairo_size,
-            consts::{
-                CAIRO_FORMAT_ARGB32, CAIRO_OPERATOR_SOURCE, CairoFormat, PANGO_ELLIPSIZE_END,
-                PANGO_SCALE,
-            },
-        },
-        rect::{Rect, Region},
-        state::State,
-        theme::Color,
-        udmabuf::UdmabufHolder,
-        utils::{
-            clonecell::CloneCell,
-            double_buffered::DoubleBuffered,
-            errorfmt::ErrorFmt,
-            on_drop_event::OnDropEvent,
-            oserror::{OsError, OsErrorExt2},
-            page_size::page_size,
-        },
-    },
-    std::{
-        borrow::Cow,
-        cell::{Cell, RefCell},
-        mem,
-        ops::Neg,
-        ptr,
-        rc::{Rc, Weak},
-        slice,
-        sync::{
-            Arc,
-            atomic::{AtomicBool, AtomicPtr, AtomicUsize, Ordering::Relaxed},
-        },
-    },
-    thiserror::Error,
-    uapi::{
-        OwnedFd,
-        c::{self, off_t},
-        ftruncate,
-    },
-};
+use crate::cmm::cmm_eotf::Eotf;
+use crate::cpu_worker::AsyncCpuWork;
+use crate::cpu_worker::CpuJob;
+use crate::cpu_worker::CpuWork;
+use crate::cpu_worker::CpuWorker;
+use crate::cpu_worker::PendingJob;
+use crate::format::ARGB8888;
+use crate::format::Format;
+use crate::gfx_api::AsyncShmGfxTexture;
+use crate::gfx_api::AsyncShmGfxTextureCallback;
+use crate::gfx_api::GfxBuffer;
+use crate::gfx_api::GfxContext;
+use crate::gfx_api::GfxError;
+use crate::gfx_api::GfxStagingBuffer;
+use crate::gfx_api::GfxTexture;
+use crate::gfx_api::PendingShmTransfer;
+use crate::gfx_api::STAGING_UPLOAD;
+use crate::pango::CairoContext;
+use crate::pango::CairoImageSurface;
+use crate::pango::PangoCairoContext;
+use crate::pango::PangoError;
+use crate::pango::PangoFontDescription;
+use crate::pango::PangoLayout;
+use crate::pango::cairo_size;
+use crate::pango::consts::CAIRO_FORMAT_ARGB32;
+use crate::pango::consts::CAIRO_OPERATOR_SOURCE;
+use crate::pango::consts::CairoFormat;
+use crate::pango::consts::PANGO_ELLIPSIZE_END;
+use crate::pango::consts::PANGO_SCALE;
+use crate::rect::Rect;
+use crate::rect::Region;
+use crate::state::State;
+use crate::theme::Color;
+use crate::udmabuf::UdmabufHolder;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::double_buffered::DoubleBuffered;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::on_drop_event::OnDropEvent;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt2;
+use crate::utils::page_size::page_size;
+use std::borrow::Cow;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::mem;
+use std::ops::Neg;
+use std::ptr;
+use std::rc::Rc;
+use std::rc::Weak;
+use std::slice;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicPtr;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering::Relaxed;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c::off_t;
+use uapi::c::{self};
+use uapi::ftruncate;
 
 #[derive(Debug, Error)]
 pub enum TextError {

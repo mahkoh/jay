@@ -1,49 +1,92 @@
-use {
-    crate::{
-        backend::{
-            BackendColorSpace, BackendEotfs, ConnectorId, Mode,
-            transaction::{
-                BackendConnectorTransactionError, ConnectorTransaction,
-                PreparedConnectorTransaction,
-            },
-        },
-        cmm::cmm_luminance::Luminance,
-        compositor::{MAX_EXTENTS, MAX_SCALE, MIN_SCALE},
-        control_center::{ControlCenterInner, GridExt, PaneState, grid, grid_label, label, tip},
-        egui_adapter::{
-            egui_oklch::Color32Ext,
-            egui_platform::icons::{ICON_ADD, ICON_REMOVE},
-        },
-        gfx_api::ScalingFilter,
-        ifs::{
-            head_management::{HeadName, HeadState, ReadOnlyHeadState},
-            wl_output::BlendSpace,
-        },
-        scale::{SCALE_BASE, SCALE_BASEF, Scale},
-        state::State,
-        tree::{TearingMode, Transform, VrrMode},
-        utils::{bhash::BHashMap, errorfmt::ErrorFmt, static_text::StaticText},
-    },
-    egui::{
-        Align, Button, Checkbox, CollapsingHeader, Color32, ComboBox, DragValue, EventFilter,
-        FontId, Frame, Grid, Id, Key, Layout, PointerButton, Rect, ScrollArea, Sense, Shadow,
-        Stroke, StrokeKind, Style, TextFormat, Ui, UiBuilder, Vec2, Widget, WidgetText, emath,
-        pos2, text::LayoutJob, vec2,
-    },
-    egui_tiles::{
-        Behavior, Container, Linear, LinearDir, ResizeState, SimplificationOptions, Tile, TileId,
-        Tiles, Tree, UiResponse,
-    },
-    linearize::{Linearize, LinearizeExt},
-    rand::random,
-    serde::{Deserialize, Serialize},
-    std::{
-        cell::{Cell, Ref},
-        fmt,
-        rc::Rc,
-    },
-    thiserror::Error,
-};
+use crate::backend::BackendColorSpace;
+use crate::backend::BackendEotfs;
+use crate::backend::ConnectorId;
+use crate::backend::Mode;
+use crate::backend::transaction::BackendConnectorTransactionError;
+use crate::backend::transaction::ConnectorTransaction;
+use crate::backend::transaction::PreparedConnectorTransaction;
+use crate::cmm::cmm_luminance::Luminance;
+use crate::compositor::MAX_EXTENTS;
+use crate::compositor::MAX_SCALE;
+use crate::compositor::MIN_SCALE;
+use crate::control_center::ControlCenterInner;
+use crate::control_center::GridExt;
+use crate::control_center::PaneState;
+use crate::control_center::grid;
+use crate::control_center::grid_label;
+use crate::control_center::label;
+use crate::control_center::tip;
+use crate::egui_adapter::egui_oklch::Color32Ext;
+use crate::egui_adapter::egui_platform::icons::ICON_ADD;
+use crate::egui_adapter::egui_platform::icons::ICON_REMOVE;
+use crate::gfx_api::ScalingFilter;
+use crate::ifs::head_management::HeadName;
+use crate::ifs::head_management::HeadState;
+use crate::ifs::head_management::ReadOnlyHeadState;
+use crate::ifs::wl_output::BlendSpace;
+use crate::scale::SCALE_BASE;
+use crate::scale::SCALE_BASEF;
+use crate::scale::Scale;
+use crate::state::State;
+use crate::tree::TearingMode;
+use crate::tree::Transform;
+use crate::tree::VrrMode;
+use crate::utils::bhash::BHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::static_text::StaticText;
+use egui::Align;
+use egui::Button;
+use egui::Checkbox;
+use egui::CollapsingHeader;
+use egui::Color32;
+use egui::ComboBox;
+use egui::DragValue;
+use egui::EventFilter;
+use egui::FontId;
+use egui::Frame;
+use egui::Grid;
+use egui::Id;
+use egui::Key;
+use egui::Layout;
+use egui::PointerButton;
+use egui::Rect;
+use egui::ScrollArea;
+use egui::Sense;
+use egui::Shadow;
+use egui::Stroke;
+use egui::StrokeKind;
+use egui::Style;
+use egui::TextFormat;
+use egui::Ui;
+use egui::UiBuilder;
+use egui::Vec2;
+use egui::Widget;
+use egui::WidgetText;
+use egui::emath;
+use egui::pos2;
+use egui::text::LayoutJob;
+use egui::vec2;
+use egui_tiles::Behavior;
+use egui_tiles::Container;
+use egui_tiles::Linear;
+use egui_tiles::LinearDir;
+use egui_tiles::ResizeState;
+use egui_tiles::SimplificationOptions;
+use egui_tiles::Tile;
+use egui_tiles::TileId;
+use egui_tiles::Tiles;
+use egui_tiles::Tree;
+use egui_tiles::UiResponse;
+use linearize::Linearize;
+use linearize::LinearizeExt;
+use rand::random;
+use serde::Deserialize;
+use serde::Serialize;
+use std::cell::Cell;
+use std::cell::Ref;
+use std::fmt;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct OutputsPane {
     tree: Tree<Pane>,

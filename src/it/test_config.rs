@@ -1,29 +1,34 @@
-use {
-    crate::{
-        backend::InputDeviceId,
-        ifs::wl_seat::SeatId,
-        it::test_error::{TestError, TestResult},
-        tree::OutputNode,
-        utils::{copyhashmap::CopyHashMap, stack::Stack},
-    },
-    bincode::Options,
-    isnt::std_1::primitive::IsntConstPtrExt,
-    jay_config::{
-        _private::{
-            ConfigEntry, VERSION, bincode_ops,
-            ipc::{ClientMessage, Response, ServerMessage},
-        },
-        Axis, Direction,
-        input::{InputDevice, Seat},
-        keyboard::{Keymap, ModifiedKeySym},
-        theme::{
-            BarPosition,
-            sized::{BAR_SEPARATOR_WIDTH, Resizable},
-        },
-        video::{Connector, Transform},
-    },
-    std::{cell::Cell, ops::Deref, ptr, rc::Rc, time::Duration},
-};
+use crate::backend::InputDeviceId;
+use crate::ifs::wl_seat::SeatId;
+use crate::it::test_error::TestError;
+use crate::it::test_error::TestResult;
+use crate::tree::OutputNode;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::stack::Stack;
+use bincode::Options;
+use isnt::std_1::primitive::IsntConstPtrExt;
+use jay_config::_private::ConfigEntry;
+use jay_config::_private::VERSION;
+use jay_config::_private::bincode_ops;
+use jay_config::_private::ipc::ClientMessage;
+use jay_config::_private::ipc::Response;
+use jay_config::_private::ipc::ServerMessage;
+use jay_config::Axis;
+use jay_config::Direction;
+use jay_config::input::InputDevice;
+use jay_config::input::Seat;
+use jay_config::keyboard::Keymap;
+use jay_config::keyboard::ModifiedKeySym;
+use jay_config::theme::BarPosition;
+use jay_config::theme::sized::BAR_SEPARATOR_WIDTH;
+use jay_config::theme::sized::Resizable;
+use jay_config::video::Connector;
+use jay_config::video::Transform;
+use std::cell::Cell;
+use std::ops::Deref;
+use std::ptr;
+use std::rc::Rc;
+use std::time::Duration;
 
 pub static TEST_CONFIG_ENTRY: ConfigEntry = ConfigEntry {
     version: VERSION,

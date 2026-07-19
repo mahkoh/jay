@@ -2,7 +2,8 @@
 //!
 //! See the libinput documentation for details.
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 
 /// The acceleration profile of a device.
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]

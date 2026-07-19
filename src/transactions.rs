@@ -1,18 +1,20 @@
-use {
-    crate::{
-        control_center::CCI_COMPOSITOR,
-        ifs::wl_surface::{WlSurface, WlSurfaceTransactionOp},
-        state::{State, StateTransactionOp, TreeState},
-        tree::TreeSerial,
-        utils::{
-            asyncevent::AsyncEvent, errorfmt::ErrorFmt, numcell::NumCell, queue::AsyncQueue,
-            stack::Stack, syncqueue::SyncQueue,
-        },
-    },
-    derivative::Derivative,
-    run_on_drop::on_drop,
-    std::{cell::Cell, rc::Rc},
-};
+use crate::control_center::CCI_COMPOSITOR;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::WlSurfaceTransactionOp;
+use crate::state::State;
+use crate::state::StateTransactionOp;
+use crate::state::TreeState;
+use crate::tree::TreeSerial;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::numcell::NumCell;
+use crate::utils::queue::AsyncQueue;
+use crate::utils::stack::Stack;
+use crate::utils::syncqueue::SyncQueue;
+use derivative::Derivative;
+use run_on_drop::on_drop;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub trait Transactionable: 'static {
     type T: Sized;

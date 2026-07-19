@@ -1,24 +1,26 @@
-use {
-    crate::{
-        backend::HardwareCursorUpdate,
-        control_center::CCI_INPUT,
-        cursor::{Cursor, DEFAULT_CURSOR_SIZE, KnownCursor},
-        fixed::Fixed,
-        gfx_api::{AcquireSync, ReleaseSync},
-        rect::Rect,
-        state::State,
-        tree::{OutputNode, TreeTimeline::LiveTL, WorkspaceNode},
-        utils::{
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
-            hash_map_ext::HashMapExt,
-            obj_and_id::{ObjAndId, ObjWithId},
-            rc_eq::rc_eq,
-        },
-    },
-    std::{cell::Cell, ops::Deref, rc::Rc},
-};
+use crate::backend::HardwareCursorUpdate;
+use crate::control_center::CCI_INPUT;
+use crate::cursor::Cursor;
+use crate::cursor::DEFAULT_CURSOR_SIZE;
+use crate::cursor::KnownCursor;
+use crate::fixed::Fixed;
+use crate::gfx_api::AcquireSync;
+use crate::gfx_api::ReleaseSync;
+use crate::rect::Rect;
+use crate::state::State;
+use crate::tree::OutputNode;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::WorkspaceNode;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::obj_and_id::ObjAndId;
+use crate::utils::obj_and_id::ObjWithId;
+use crate::utils::rc_eq::rc_eq;
+use std::cell::Cell;
+use std::ops::Deref;
+use std::rc::Rc;
 
 linear_ids!(CursorUserGroupIds, CursorUserGroupId, u64);
 linear_ids!(CursorUserIds, CursorUserId, u64);

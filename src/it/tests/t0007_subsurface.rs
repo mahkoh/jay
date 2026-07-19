@@ -1,10 +1,7 @@
-use {
-    crate::{
-        it::{test_error::TestError, testrun::TestRun},
-        theme::Color,
-    },
-    std::rc::Rc,
-};
+use crate::it::test_error::TestError;
+use crate::it::testrun::TestRun;
+use crate::theme::Color;
+use std::rc::Rc;
 
 testcase!();
 

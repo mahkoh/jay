@@ -1,15 +1,14 @@
-use {
-    crate::{
-        cli::{GlobalArgs, json::jsonl},
-        compositor::config_dir,
-        logger::Logger,
-        utils::errorfmt::ErrorFmt,
-    },
-    clap::{Args, Subcommand},
-    jay_toml_config::CONFIG_TOML,
-    std::path::Path,
-    uapi::{UstrPtr, c},
-};
+use crate::cli::GlobalArgs;
+use crate::cli::json::jsonl;
+use crate::compositor::config_dir;
+use crate::logger::Logger;
+use crate::utils::errorfmt::ErrorFmt;
+use clap::Args;
+use clap::Subcommand;
+use jay_toml_config::CONFIG_TOML;
+use std::path::Path;
+use uapi::UstrPtr;
+use uapi::c;
 
 #[derive(Args, Debug)]
 pub struct ConfigArgs {

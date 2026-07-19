@@ -1,21 +1,20 @@
-use {
-    crate::{
-        config::{
-            Action, NamedAction,
-            context::Context,
-            extractor::ExtractorError,
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-            parsers::action::ActionParser,
-        },
-        toml::{
-            toml_span::{Span, Spanned, SpannedExt},
-            toml_value::Value,
-        },
-    },
-    indexmap::IndexMap,
-    std::{collections::HashSet, rc::Rc},
-    thiserror::Error,
-};
+use crate::config::Action;
+use crate::config::NamedAction;
+use crate::config::context::Context;
+use crate::config::extractor::ExtractorError;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::config::parsers::action::ActionParser;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_span::SpannedExt;
+use crate::toml::toml_value::Value;
+use indexmap::IndexMap;
+use std::collections::HashSet;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ActionsParserError {

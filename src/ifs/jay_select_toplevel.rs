@@ -1,19 +1,20 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::{
-            jay_toplevel::{CLIENT_ID_SINCE, ID_SINCE, JayToplevel},
-            wl_seat::ToplevelSelector,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::ToplevelNode,
-        utils::clonecell::CloneCell,
-        wire::{JaySelectToplevelId, JayToplevelId, jay_select_toplevel::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::jay_toplevel::CLIENT_ID_SINCE;
+use crate::ifs::jay_toplevel::ID_SINCE;
+use crate::ifs::jay_toplevel::JayToplevel;
+use crate::ifs::wl_seat::ToplevelSelector;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::ToplevelNode;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::JaySelectToplevelId;
+use crate::wire::JayToplevelId;
+use crate::wire::jay_select_toplevel::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct JaySelectToplevel {
     pub id: JaySelectToplevelId,

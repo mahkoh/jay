@@ -1,17 +1,19 @@
-use {
-    crate::{
-        format::formats,
-        gfx_api::{GfxFormat, GfxWriteModifier},
-        ifs::jay_render_ctx::FORMATS_SINCE,
-        object::Version,
-        utils::{bhash::BHashMap, clonecell::CloneCell},
-        video::Modifier,
-        wire::{JayRenderCtxId, jay_render_ctx::*},
-        wl_usr::{UsrCon, usr_object::UsrObject},
-    },
-    std::{cell::RefCell, convert::Infallible, rc::Rc},
-    uapi::OwnedFd,
-};
+use crate::format::formats;
+use crate::gfx_api::GfxFormat;
+use crate::gfx_api::GfxWriteModifier;
+use crate::ifs::jay_render_ctx::FORMATS_SINCE;
+use crate::object::Version;
+use crate::utils::bhash::BHashMap;
+use crate::utils::clonecell::CloneCell;
+use crate::video::Modifier;
+use crate::wire::JayRenderCtxId;
+use crate::wire::jay_render_ctx::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_object::UsrObject;
+use std::cell::RefCell;
+use std::convert::Infallible;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 pub struct UsrJayRenderCtx {
     pub id: JayRenderCtxId,

@@ -1,14 +1,13 @@
-use {
-    crate::{
-        gfx_api::SyncFile,
-        object::Version,
-        utils::clonecell::CloneCell,
-        wire::{JaySyncFileReleaseId, jay_sync_file_release::*},
-        wl_usr::{UsrCon, usr_object::UsrObject},
-    },
-    std::{convert::Infallible, rc::Rc},
-    uapi::OwnedFd,
-};
+use crate::gfx_api::SyncFile;
+use crate::object::Version;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::JaySyncFileReleaseId;
+use crate::wire::jay_sync_file_release::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 pub struct UsrJaySyncFileRelease {
     pub id: JaySyncFileReleaseId,

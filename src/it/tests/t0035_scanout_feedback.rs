@@ -1,16 +1,11 @@
-use {
-    crate::{
-        backend::BackendDrmDevice,
-        format::ARGB8888,
-        ifs::zwp_linux_dmabuf_feedback_v1::FB_SCANOUT,
-        it::{
-            test_error::{TestErrorExt, TestResult},
-            testrun::TestRun,
-        },
-        video::LINEAR_MODIFIER,
-    },
-    std::rc::Rc,
-};
+use crate::backend::BackendDrmDevice;
+use crate::format::ARGB8888;
+use crate::ifs::zwp_linux_dmabuf_feedback_v1::FB_SCANOUT;
+use crate::it::test_error::TestErrorExt;
+use crate::it::test_error::TestResult;
+use crate::it::testrun::TestRun;
+use crate::video::LINEAR_MODIFIER;
+use std::rc::Rc;
 
 testcase!();
 

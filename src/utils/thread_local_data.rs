@@ -1,8 +1,10 @@
-use {
-    crate::utils::{stack::Stack, thread_id::ThreadId},
-    isnt::std_1::primitive::IsntConstPtrExt,
-    std::{any::Any, cell::Cell, convert::Infallible, rc::Rc},
-};
+use crate::utils::stack::Stack;
+use crate::utils::thread_id::ThreadId;
+use isnt::std_1::primitive::IsntConstPtrExt;
+use std::any::Any;
+use std::cell::Cell;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 #[cfg(test)]
 mod tests;

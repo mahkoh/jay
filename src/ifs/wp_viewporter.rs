@@ -1,15 +1,16 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wl_surface::wp_viewport::{WpViewport, WpViewportError},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WpViewporterId, wp_viewporter::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_surface::wp_viewport::WpViewport;
+use crate::ifs::wl_surface::wp_viewport::WpViewportError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WpViewporterId;
+use crate::wire::wp_viewporter::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpViewporterGlobal {
     pub name: GlobalName,

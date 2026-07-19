@@ -1,16 +1,19 @@
-use {
-    crate::{
-        backend::DrmDeviceId,
-        client::{CAP_DRM_LEASE, Client, ClientCaps, ClientError},
-        globals::{Global, GlobalName, RemovableWaylandGlobal},
-        ifs::wp_drm_lease_device_v1::{WpDrmLeaseDeviceV1, WpDrmLeaseDeviceV1Global},
-        object::Version,
-        utils::bindings::Bindings,
-        wire::WpDrmLeaseDeviceV1Id,
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::backend::DrmDeviceId;
+use crate::client::CAP_DRM_LEASE;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::globals::RemovableWaylandGlobal;
+use crate::ifs::wp_drm_lease_device_v1::WpDrmLeaseDeviceV1;
+use crate::ifs::wp_drm_lease_device_v1::WpDrmLeaseDeviceV1Global;
+use crate::object::Version;
+use crate::utils::bindings::Bindings;
+use crate::wire::WpDrmLeaseDeviceV1Id;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 struct RemovedWpDrmLeaseDeviceV1Global {
     name: GlobalName,

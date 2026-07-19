@@ -1,13 +1,12 @@
-use {
-    crate::{
-        globals::GlobalName,
-        object::Version,
-        utils::clonecell::CloneCell,
-        wire::{WlRegistryId, wl_registry::*},
-        wl_usr::{UsrCon, usr_object::UsrObject},
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::globals::GlobalName;
+use crate::object::Version;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::WlRegistryId;
+use crate::wire::wl_registry::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrWlRegistry {
     pub id: WlRegistryId,

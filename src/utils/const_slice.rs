@@ -1,4 +1,5 @@
-use std::{ops::Range, slice};
+use std::ops::Range;
+use std::slice;
 
 #[expect(dead_code)]
 pub const fn const_slice<T>(array: &[T], range: Range<usize>) -> &[T] {

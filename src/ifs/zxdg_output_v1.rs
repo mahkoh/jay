@@ -1,15 +1,15 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::wl_output::{SEND_DONE_SINCE, WlOutput},
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::TreeTimeline::LiveTL,
-        wire::{ZxdgOutputV1Id, zxdg_output_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_output::SEND_DONE_SINCE;
+use crate::ifs::wl_output::WlOutput;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::wire::ZxdgOutputV1Id;
+use crate::wire::zxdg_output_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub const NAME_SINCE: Version = Version(2);
 pub const DESCRIPTION_SINCE: Version = Version(2);

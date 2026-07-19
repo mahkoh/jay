@@ -1,19 +1,17 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wl_seat::{
-            zwp_pointer_gesture_hold_v1::ZwpPointerGestureHoldV1,
-            zwp_pointer_gesture_pinch_v1::ZwpPointerGesturePinchV1,
-            zwp_pointer_gesture_swipe_v1::ZwpPointerGestureSwipeV1,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwpPointerGesturesV1Id, zwp_pointer_gestures_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_seat::zwp_pointer_gesture_hold_v1::ZwpPointerGestureHoldV1;
+use crate::ifs::wl_seat::zwp_pointer_gesture_pinch_v1::ZwpPointerGesturePinchV1;
+use crate::ifs::wl_seat::zwp_pointer_gesture_swipe_v1::ZwpPointerGestureSwipeV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwpPointerGesturesV1Id;
+use crate::wire::zwp_pointer_gestures_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwpPointerGesturesV1Global {
     pub name: GlobalName,

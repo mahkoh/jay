@@ -1,12 +1,12 @@
-use {
-    crate::{
-        ifs::wlr_output_manager::zwlr_output_head_v1::WlrOutputHeadIds,
-        state::{OutputData, State},
-        utils::{copyhashmap::CopyHashMap, queue::AsyncQueue},
-    },
-    std::rc::Rc,
-    zwlr_output_manager_v1::{WlrOutputManagerId, WlrOutputManagerIds, ZwlrOutputManagerV1},
-};
+use crate::ifs::wlr_output_manager::zwlr_output_head_v1::WlrOutputHeadIds;
+use crate::state::OutputData;
+use crate::state::State;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::queue::AsyncQueue;
+use std::rc::Rc;
+use zwlr_output_manager_v1::WlrOutputManagerId;
+use zwlr_output_manager_v1::WlrOutputManagerIds;
+use zwlr_output_manager_v1::ZwlrOutputManagerV1;
 
 pub mod zwlr_output_configuration_head;
 pub mod zwlr_output_configuration_v1;

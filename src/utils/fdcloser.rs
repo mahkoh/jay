@@ -1,8 +1,9 @@
-use {
-    parking_lot::{Condvar, Mutex},
-    std::{mem, rc::Rc, sync::Arc},
-    uapi::OwnedFd,
-};
+use parking_lot::Condvar;
+use parking_lot::Mutex;
+use std::mem;
+use std::rc::Rc;
+use std::sync::Arc;
+use uapi::OwnedFd;
 
 pub struct FdCloser {
     fds: Mutex<Vec<OwnedFd>>,

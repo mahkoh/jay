@@ -1,19 +1,18 @@
-use {
-    crate::{
-        backend::{BackendDrmDevice, DrmDeviceId, DrmEvent},
-        buffer_id_device::BufferIdDeviceDyn,
-        ifs::wp_drm_lease_device_v1::WpDrmLeaseDeviceV1Global,
-        state::{DrmDevData, State},
-        tasks::udev_utils::udev_props,
-        utils::{
-            asyncevent::AsyncEvent,
-            errorfmt::ErrorFmt,
-            major_minor::{MajorMinor, major_minor},
-        },
-        video::drm::get_drm_dev_ts,
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::backend::BackendDrmDevice;
+use crate::backend::DrmDeviceId;
+use crate::backend::DrmEvent;
+use crate::buffer_id_device::BufferIdDeviceDyn;
+use crate::ifs::wp_drm_lease_device_v1::WpDrmLeaseDeviceV1Global;
+use crate::state::DrmDevData;
+use crate::state::State;
+use crate::tasks::udev_utils::udev_props;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::major_minor::MajorMinor;
+use crate::utils::major_minor::major_minor;
+use crate::video::drm::get_drm_dev_ts;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub fn handle(state: &Rc<State>, dev: Rc<dyn BackendDrmDevice>) {
     let id = dev.id();

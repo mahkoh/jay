@@ -1,14 +1,12 @@
-use {
-    crate::{
-        it::{
-            test_error::TestError, test_object::TestObject, test_transport::TestTransport,
-            testrun::ParseFull,
-        },
-        utils::buffd::MsgParser,
-        wire::{WlBufferId, wl_buffer::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::it::test_error::TestError;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::testrun::ParseFull;
+use crate::utils::buffd::MsgParser;
+use crate::wire::WlBufferId;
+use crate::wire::wl_buffer::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestBuffer {
     pub id: WlBufferId,

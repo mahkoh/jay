@@ -1,53 +1,61 @@
-use {
-    crate::{
-        async_engine::SpawnedFuture,
-        backend::transaction::{
-            BackendConnectorTransaction, BackendConnectorTransactionError,
-            BackendConnectorTransactionType, BackendConnectorTransactionTypeDyn,
-        },
-        cmm::cmm_primaries::Primaries,
-        evdev::input_event_codes::InputEventCode,
-        fixed::Fixed,
-        format::Format,
-        gfx_api::{FdSync, GfxApi, GfxFramebuffer},
-        ifs::{
-            wl_output::OutputId,
-            wl_seat::{
-                tablet::{
-                    PadButtonState, TabletInit, TabletPadId, TabletPadInit, TabletRingEventSource,
-                    TabletStripEventSource, TabletToolChanges, TabletToolId, TabletToolInit,
-                    ToolButtonState,
-                },
-                wl_pointer::{CONTINUOUS, FINGER, HORIZONTAL_SCROLL, VERTICAL_SCROLL, WHEEL},
-            },
-        },
-        libinput::consts::{
-            ConfigScrollMethod, DeviceCapability, LIBINPUT_CONFIG_SCROLL_2FG,
-            LIBINPUT_CONFIG_SCROLL_EDGE, LIBINPUT_CONFIG_SCROLL_NO_SCROLL,
-            LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN,
-        },
-        utils::{obj_and_id::ObjWithId, static_text::StaticText},
-        video::{
-            Modifier,
-            drm::{
-                ConnectorType, DRM_MODE_COLORIMETRY_BT2020_RGB, DRM_MODE_COLORIMETRY_DEFAULT,
-                DrmConnector, DrmError, DrmVersion, HDMI_EOTF_SMPTE_ST2084,
-                HDMI_EOTF_TRADITIONAL_GAMMA_SDR,
-            },
-        },
-    },
-    jay_config::input::SwitchEvent,
-    jay_proc::jay_hash,
-    linearize::{Linearize, StaticCopyMap},
-    std::{
-        any::Any,
-        error::Error,
-        fmt::{Debug, Display, Formatter},
-        hash::Hash,
-        rc::Rc,
-    },
-    uapi::{OwnedFd, c},
-};
+use crate::async_engine::SpawnedFuture;
+use crate::backend::transaction::BackendConnectorTransaction;
+use crate::backend::transaction::BackendConnectorTransactionError;
+use crate::backend::transaction::BackendConnectorTransactionType;
+use crate::backend::transaction::BackendConnectorTransactionTypeDyn;
+use crate::cmm::cmm_primaries::Primaries;
+use crate::evdev::input_event_codes::InputEventCode;
+use crate::fixed::Fixed;
+use crate::format::Format;
+use crate::gfx_api::FdSync;
+use crate::gfx_api::GfxApi;
+use crate::gfx_api::GfxFramebuffer;
+use crate::ifs::wl_output::OutputId;
+use crate::ifs::wl_seat::tablet::PadButtonState;
+use crate::ifs::wl_seat::tablet::TabletInit;
+use crate::ifs::wl_seat::tablet::TabletPadId;
+use crate::ifs::wl_seat::tablet::TabletPadInit;
+use crate::ifs::wl_seat::tablet::TabletRingEventSource;
+use crate::ifs::wl_seat::tablet::TabletStripEventSource;
+use crate::ifs::wl_seat::tablet::TabletToolChanges;
+use crate::ifs::wl_seat::tablet::TabletToolId;
+use crate::ifs::wl_seat::tablet::TabletToolInit;
+use crate::ifs::wl_seat::tablet::ToolButtonState;
+use crate::ifs::wl_seat::wl_pointer::CONTINUOUS;
+use crate::ifs::wl_seat::wl_pointer::FINGER;
+use crate::ifs::wl_seat::wl_pointer::HORIZONTAL_SCROLL;
+use crate::ifs::wl_seat::wl_pointer::VERTICAL_SCROLL;
+use crate::ifs::wl_seat::wl_pointer::WHEEL;
+use crate::libinput::consts::ConfigScrollMethod;
+use crate::libinput::consts::DeviceCapability;
+use crate::libinput::consts::LIBINPUT_CONFIG_SCROLL_2FG;
+use crate::libinput::consts::LIBINPUT_CONFIG_SCROLL_EDGE;
+use crate::libinput::consts::LIBINPUT_CONFIG_SCROLL_NO_SCROLL;
+use crate::libinput::consts::LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN;
+use crate::utils::obj_and_id::ObjWithId;
+use crate::utils::static_text::StaticText;
+use crate::video::Modifier;
+use crate::video::drm::ConnectorType;
+use crate::video::drm::DRM_MODE_COLORIMETRY_BT2020_RGB;
+use crate::video::drm::DRM_MODE_COLORIMETRY_DEFAULT;
+use crate::video::drm::DrmConnector;
+use crate::video::drm::DrmError;
+use crate::video::drm::DrmVersion;
+use crate::video::drm::HDMI_EOTF_SMPTE_ST2084;
+use crate::video::drm::HDMI_EOTF_TRADITIONAL_GAMMA_SDR;
+use jay_config::input::SwitchEvent;
+use jay_proc::jay_hash;
+use linearize::Linearize;
+use linearize::StaticCopyMap;
+use std::any::Any;
+use std::error::Error;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::hash::Hash;
+use std::rc::Rc;
+use uapi::OwnedFd;
+use uapi::c;
 
 pub mod transaction;
 

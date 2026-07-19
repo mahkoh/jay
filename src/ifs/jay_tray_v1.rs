@@ -1,18 +1,18 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName, RemovableWaylandGlobal},
-        ifs::{
-            wl_output::OutputGlobalOpt,
-            wl_surface::tray::jay_tray_item_v1::{JayTrayItemV1, JayTrayItemV1Error},
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{JayTrayV1Id, jay_tray_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::globals::RemovableWaylandGlobal;
+use crate::ifs::wl_output::OutputGlobalOpt;
+use crate::ifs::wl_surface::tray::jay_tray_item_v1::JayTrayItemV1;
+use crate::ifs::wl_surface::tray::jay_tray_item_v1::JayTrayItemV1Error;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::JayTrayV1Id;
+use crate::wire::jay_tray_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct JayTrayV1Global {
     pub name: GlobalName,

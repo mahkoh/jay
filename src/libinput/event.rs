@@ -1,59 +1,94 @@
-use {
-    crate::libinput::{
-        consts::{
-            ButtonState, EventType, KeyState, PointerAxis, Switch, SwitchState,
-            TabletPadRingAxisSource, TabletPadStripAxisSource, TabletToolProximityState,
-            TabletToolTipState, TabletToolType,
-        },
-        device::{LibInputDevice, LibInputTabletPadModeGroup},
-        sys::{
-            libinput_event, libinput_event_destroy, libinput_event_gesture,
-            libinput_event_gesture_get_angle_delta, libinput_event_gesture_get_cancelled,
-            libinput_event_gesture_get_dx, libinput_event_gesture_get_dx_unaccelerated,
-            libinput_event_gesture_get_dy, libinput_event_gesture_get_dy_unaccelerated,
-            libinput_event_gesture_get_finger_count, libinput_event_gesture_get_scale,
-            libinput_event_gesture_get_time_usec, libinput_event_get_device,
-            libinput_event_get_gesture_event, libinput_event_get_keyboard_event,
-            libinput_event_get_pointer_event, libinput_event_get_switch_event,
-            libinput_event_get_tablet_pad_event, libinput_event_get_tablet_tool_event,
-            libinput_event_get_touch_event, libinput_event_get_type, libinput_event_keyboard,
-            libinput_event_keyboard_get_key, libinput_event_keyboard_get_key_state,
-            libinput_event_keyboard_get_time_usec, libinput_event_pointer,
-            libinput_event_pointer_get_absolute_x_transformed,
-            libinput_event_pointer_get_absolute_y_transformed, libinput_event_pointer_get_button,
-            libinput_event_pointer_get_button_state, libinput_event_pointer_get_dx,
-            libinput_event_pointer_get_dx_unaccelerated, libinput_event_pointer_get_dy,
-            libinput_event_pointer_get_dy_unaccelerated, libinput_event_pointer_get_scroll_value,
-            libinput_event_pointer_get_scroll_value_v120, libinput_event_pointer_get_time_usec,
-            libinput_event_pointer_has_axis, libinput_event_switch,
-            libinput_event_switch_get_switch, libinput_event_switch_get_switch_state,
-            libinput_event_switch_get_time_usec, libinput_event_tablet_pad,
-            libinput_event_tablet_pad_get_button_number,
-            libinput_event_tablet_pad_get_button_state,
-            libinput_event_tablet_pad_get_dial_delta_v120,
-            libinput_event_tablet_pad_get_dial_number, libinput_event_tablet_pad_get_mode,
-            libinput_event_tablet_pad_get_mode_group, libinput_event_tablet_pad_get_ring_number,
-            libinput_event_tablet_pad_get_ring_position, libinput_event_tablet_pad_get_ring_source,
-            libinput_event_tablet_pad_get_strip_number,
-            libinput_event_tablet_pad_get_strip_position,
-            libinput_event_tablet_pad_get_strip_source, libinput_event_tablet_pad_get_time_usec,
-            libinput_event_tablet_tool, libinput_event_tablet_tool_get_button,
-            libinput_event_tablet_tool_get_button_state,
-            libinput_event_tablet_tool_get_proximity_state,
-            libinput_event_tablet_tool_get_time_usec, libinput_event_tablet_tool_get_tip_state,
-            libinput_event_tablet_tool_get_tool,
-            libinput_event_tablet_tool_get_wheel_delta_discrete,
-            libinput_event_tablet_tool_get_x_transformed,
-            libinput_event_tablet_tool_get_y_transformed, libinput_event_touch,
-            libinput_event_touch_get_seat_slot, libinput_event_touch_get_time_usec,
-            libinput_event_touch_get_x_transformed, libinput_event_touch_get_y_transformed,
-            libinput_tablet_tool, libinput_tablet_tool_get_serial,
-            libinput_tablet_tool_get_tool_id, libinput_tablet_tool_get_type,
-            libinput_tablet_tool_get_user_data, libinput_tablet_tool_set_user_data,
-        },
-    },
-    std::marker::PhantomData,
-};
+use crate::libinput::consts::ButtonState;
+use crate::libinput::consts::EventType;
+use crate::libinput::consts::KeyState;
+use crate::libinput::consts::PointerAxis;
+use crate::libinput::consts::Switch;
+use crate::libinput::consts::SwitchState;
+use crate::libinput::consts::TabletPadRingAxisSource;
+use crate::libinput::consts::TabletPadStripAxisSource;
+use crate::libinput::consts::TabletToolProximityState;
+use crate::libinput::consts::TabletToolTipState;
+use crate::libinput::consts::TabletToolType;
+use crate::libinput::device::LibInputDevice;
+use crate::libinput::device::LibInputTabletPadModeGroup;
+use crate::libinput::sys::libinput_event;
+use crate::libinput::sys::libinput_event_destroy;
+use crate::libinput::sys::libinput_event_gesture;
+use crate::libinput::sys::libinput_event_gesture_get_angle_delta;
+use crate::libinput::sys::libinput_event_gesture_get_cancelled;
+use crate::libinput::sys::libinput_event_gesture_get_dx;
+use crate::libinput::sys::libinput_event_gesture_get_dx_unaccelerated;
+use crate::libinput::sys::libinput_event_gesture_get_dy;
+use crate::libinput::sys::libinput_event_gesture_get_dy_unaccelerated;
+use crate::libinput::sys::libinput_event_gesture_get_finger_count;
+use crate::libinput::sys::libinput_event_gesture_get_scale;
+use crate::libinput::sys::libinput_event_gesture_get_time_usec;
+use crate::libinput::sys::libinput_event_get_device;
+use crate::libinput::sys::libinput_event_get_gesture_event;
+use crate::libinput::sys::libinput_event_get_keyboard_event;
+use crate::libinput::sys::libinput_event_get_pointer_event;
+use crate::libinput::sys::libinput_event_get_switch_event;
+use crate::libinput::sys::libinput_event_get_tablet_pad_event;
+use crate::libinput::sys::libinput_event_get_tablet_tool_event;
+use crate::libinput::sys::libinput_event_get_touch_event;
+use crate::libinput::sys::libinput_event_get_type;
+use crate::libinput::sys::libinput_event_keyboard;
+use crate::libinput::sys::libinput_event_keyboard_get_key;
+use crate::libinput::sys::libinput_event_keyboard_get_key_state;
+use crate::libinput::sys::libinput_event_keyboard_get_time_usec;
+use crate::libinput::sys::libinput_event_pointer;
+use crate::libinput::sys::libinput_event_pointer_get_absolute_x_transformed;
+use crate::libinput::sys::libinput_event_pointer_get_absolute_y_transformed;
+use crate::libinput::sys::libinput_event_pointer_get_button;
+use crate::libinput::sys::libinput_event_pointer_get_button_state;
+use crate::libinput::sys::libinput_event_pointer_get_dx;
+use crate::libinput::sys::libinput_event_pointer_get_dx_unaccelerated;
+use crate::libinput::sys::libinput_event_pointer_get_dy;
+use crate::libinput::sys::libinput_event_pointer_get_dy_unaccelerated;
+use crate::libinput::sys::libinput_event_pointer_get_scroll_value;
+use crate::libinput::sys::libinput_event_pointer_get_scroll_value_v120;
+use crate::libinput::sys::libinput_event_pointer_get_time_usec;
+use crate::libinput::sys::libinput_event_pointer_has_axis;
+use crate::libinput::sys::libinput_event_switch;
+use crate::libinput::sys::libinput_event_switch_get_switch;
+use crate::libinput::sys::libinput_event_switch_get_switch_state;
+use crate::libinput::sys::libinput_event_switch_get_time_usec;
+use crate::libinput::sys::libinput_event_tablet_pad;
+use crate::libinput::sys::libinput_event_tablet_pad_get_button_number;
+use crate::libinput::sys::libinput_event_tablet_pad_get_button_state;
+use crate::libinput::sys::libinput_event_tablet_pad_get_dial_delta_v120;
+use crate::libinput::sys::libinput_event_tablet_pad_get_dial_number;
+use crate::libinput::sys::libinput_event_tablet_pad_get_mode;
+use crate::libinput::sys::libinput_event_tablet_pad_get_mode_group;
+use crate::libinput::sys::libinput_event_tablet_pad_get_ring_number;
+use crate::libinput::sys::libinput_event_tablet_pad_get_ring_position;
+use crate::libinput::sys::libinput_event_tablet_pad_get_ring_source;
+use crate::libinput::sys::libinput_event_tablet_pad_get_strip_number;
+use crate::libinput::sys::libinput_event_tablet_pad_get_strip_position;
+use crate::libinput::sys::libinput_event_tablet_pad_get_strip_source;
+use crate::libinput::sys::libinput_event_tablet_pad_get_time_usec;
+use crate::libinput::sys::libinput_event_tablet_tool;
+use crate::libinput::sys::libinput_event_tablet_tool_get_button;
+use crate::libinput::sys::libinput_event_tablet_tool_get_button_state;
+use crate::libinput::sys::libinput_event_tablet_tool_get_proximity_state;
+use crate::libinput::sys::libinput_event_tablet_tool_get_time_usec;
+use crate::libinput::sys::libinput_event_tablet_tool_get_tip_state;
+use crate::libinput::sys::libinput_event_tablet_tool_get_tool;
+use crate::libinput::sys::libinput_event_tablet_tool_get_wheel_delta_discrete;
+use crate::libinput::sys::libinput_event_tablet_tool_get_x_transformed;
+use crate::libinput::sys::libinput_event_tablet_tool_get_y_transformed;
+use crate::libinput::sys::libinput_event_touch;
+use crate::libinput::sys::libinput_event_touch_get_seat_slot;
+use crate::libinput::sys::libinput_event_touch_get_time_usec;
+use crate::libinput::sys::libinput_event_touch_get_x_transformed;
+use crate::libinput::sys::libinput_event_touch_get_y_transformed;
+use crate::libinput::sys::libinput_tablet_tool;
+use crate::libinput::sys::libinput_tablet_tool_get_serial;
+use crate::libinput::sys::libinput_tablet_tool_get_tool_id;
+use crate::libinput::sys::libinput_tablet_tool_get_type;
+use crate::libinput::sys::libinput_tablet_tool_get_user_data;
+use crate::libinput::sys::libinput_tablet_tool_set_user_data;
+use std::marker::PhantomData;
 
 pub struct LibInputEvent<'a> {
     pub(super) event: *mut libinput_event,

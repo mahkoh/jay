@@ -1,17 +1,15 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::wl_surface::WlSurface,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{
-            WpCommitTimerV1Id,
-            wp_commit_timer_v1::{Destroy, SetTimestamp, WpCommitTimerV1RequestHandler},
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_surface::WlSurface;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WpCommitTimerV1Id;
+use crate::wire::wp_commit_timer_v1::Destroy;
+use crate::wire::wp_commit_timer_v1::SetTimestamp;
+use crate::wire::wp_commit_timer_v1::WpCommitTimerV1RequestHandler;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpCommitTimerV1 {
     pub id: WpCommitTimerV1Id,

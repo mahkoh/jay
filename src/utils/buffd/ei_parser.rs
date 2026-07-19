@@ -1,9 +1,9 @@
-use {
-    crate::{ei::ei_object::EiObjectId, utils::buffd::BufFdIn},
-    std::{ptr, rc::Rc},
-    thiserror::Error,
-    uapi::OwnedFd,
-};
+use crate::ei::ei_object::EiObjectId;
+use crate::utils::buffd::BufFdIn;
+use std::ptr;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
 
 #[derive(Debug, Error)]
 pub enum EiMsgParserError {

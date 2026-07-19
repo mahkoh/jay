@@ -1,37 +1,36 @@
-use {
-    crate::{
-        async_engine::SpawnedFuture,
-        client::{Client, ClientId, EventFormatter},
-        it::{
-            test_error::{StdError, TestError},
-            test_ifs::{test_callback::TestCallback, test_registry::TestRegistry},
-            test_object::TestObject,
-            test_utils::test_object_ext::TestObjectExt,
-            testrun::TestRun,
-        },
-        object::{ObjectId, WL_DISPLAY_ID},
-        utils::{
-            asyncevent::AsyncEvent,
-            bitfield::Bitfield,
-            buffd::{
-                BufFdOut, MsgFormatter, MsgParser, OutBuffer, OutBufferSwapchain, WlBufFdIn,
-                WlMessage,
-            },
-            copyhashmap::CopyHashMap,
-            hash_map_ext::HashMapExt,
-        },
-        wire::wl_display,
-    },
-    std::{
-        cell::{Cell, RefCell},
-        collections::VecDeque,
-        future::Future,
-        mem,
-        rc::Rc,
-        task::Poll,
-    },
-    uapi::OwnedFd,
-};
+use crate::async_engine::SpawnedFuture;
+use crate::client::Client;
+use crate::client::ClientId;
+use crate::client::EventFormatter;
+use crate::it::test_error::StdError;
+use crate::it::test_error::TestError;
+use crate::it::test_ifs::test_callback::TestCallback;
+use crate::it::test_ifs::test_registry::TestRegistry;
+use crate::it::test_object::TestObject;
+use crate::it::test_utils::test_object_ext::TestObjectExt;
+use crate::it::testrun::TestRun;
+use crate::object::ObjectId;
+use crate::object::WL_DISPLAY_ID;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::bitfield::Bitfield;
+use crate::utils::buffd::BufFdOut;
+use crate::utils::buffd::MsgFormatter;
+use crate::utils::buffd::MsgParser;
+use crate::utils::buffd::OutBuffer;
+use crate::utils::buffd::OutBufferSwapchain;
+use crate::utils::buffd::WlBufFdIn;
+use crate::utils::buffd::WlMessage;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::wire::wl_display;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::future::Future;
+use std::mem;
+use std::rc::Rc;
+use std::task::Poll;
+use uapi::OwnedFd;
 
 pub struct TestTransport {
     pub run: Rc<TestRun>,

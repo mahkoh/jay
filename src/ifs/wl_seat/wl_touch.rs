@@ -1,15 +1,14 @@
-use {
-    crate::{
-        client::ClientError,
-        fixed::Fixed,
-        ifs::wl_seat::WlSeat,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WlSurfaceId, WlTouchId, wl_touch::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::ClientError;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::WlSeat;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WlSurfaceId;
+use crate::wire::WlTouchId;
+use crate::wire::wl_touch::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 #[expect(dead_code)]
 pub const SHAPE_SINCE_VERSION: Version = Version(6);

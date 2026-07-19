@@ -1,13 +1,8 @@
-use {
-    crate::{
-        ifs::wl_seat::BTN_LEFT,
-        it::{
-            test_error::{TestErrorExt, TestResult},
-            testrun::TestRun,
-        },
-    },
-    std::rc::Rc,
-};
+use crate::ifs::wl_seat::BTN_LEFT;
+use crate::it::test_error::TestErrorExt;
+use crate::it::test_error::TestResult;
+use crate::it::testrun::TestRun;
+use std::rc::Rc;
 
 testcase!();
 

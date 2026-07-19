@@ -1,16 +1,16 @@
-use {
-    crate::{
-        object::Version,
-        utils::clonecell::CloneCell,
-        wire::{
-            JayEiSessionId,
-            jay_ei_session::{Created, Destroyed, Failed, JayEiSessionEventHandler, Release},
-        },
-        wl_usr::{UsrCon, usr_object::UsrObject},
-    },
-    std::{convert::Infallible, rc::Rc},
-    uapi::OwnedFd,
-};
+use crate::object::Version;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::JayEiSessionId;
+use crate::wire::jay_ei_session::Created;
+use crate::wire::jay_ei_session::Destroyed;
+use crate::wire::jay_ei_session::Failed;
+use crate::wire::jay_ei_session::JayEiSessionEventHandler;
+use crate::wire::jay_ei_session::Release;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 pub struct UsrJayEiSession {
     pub id: JayEiSessionId,

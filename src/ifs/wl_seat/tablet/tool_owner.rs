@@ -1,12 +1,15 @@
-use {
-    crate::{
-        fixed::Fixed,
-        ifs::wl_seat::tablet::{TabletTool, TabletToolChanges, ToolButtonState},
-        tree::{FindTreeUsecase, FoundNode, Node, NodeBase, TreeTimeline::LiveTL},
-        utils::{clonecell::CloneCell, smallmap::SmallMap},
-    },
-    std::rc::Rc,
-};
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::tablet::TabletTool;
+use crate::ifs::wl_seat::tablet::TabletToolChanges;
+use crate::ifs::wl_seat::tablet::ToolButtonState;
+use crate::tree::FindTreeUsecase;
+use crate::tree::FoundNode;
+use crate::tree::Node;
+use crate::tree::NodeBase;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::smallmap::SmallMap;
+use std::rc::Rc;
 
 pub struct ToolOwnerHolder {
     default: Rc<DefaultToolOwner>,

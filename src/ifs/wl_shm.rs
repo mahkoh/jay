@@ -1,15 +1,16 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wl_shm_pool::{WlShmPool, WlShmPoolError},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WlShmId, wl_shm::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_shm_pool::WlShmPool;
+use crate::ifs::wl_shm_pool::WlShmPoolError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WlShmId;
+use crate::wire::wl_shm::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WlShmGlobal {
     name: GlobalName,

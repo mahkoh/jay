@@ -1,37 +1,54 @@
-use {
-    crate::{
-        async_engine::SpawnedFuture,
-        backend::{Backend, BackendDrmDevice, BackendEvent, DrmDeviceId, DrmEvent},
-        backends::headless::HeadlessBackendError::{
-            CreateDrm, GetDrmNodes, MonitorFdFailed, MonitorFdReadable, NoDrmNodes, OpenDrmNode,
-        },
-        gfx_api::{GfxApi, GfxContext},
-        io_uring::IoUringError,
-        state::State,
-        udev::{Udev, UdevDevice, UdevError, UdevMonitor},
-        utils::{
-            bitflags::BitflagsExt,
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
-            hash_map_ext::HashMapExt,
-            major_minor::{MajorMinor, major_minor},
-            on_change::OnChange,
-            oserror::{OsError, OsErrorExt2},
-        },
-        video::drm::{Drm, DrmError, DrmVersion, NodeType, get_drm_nodes_from_dev},
-    },
-    HeadlessBackendError::{
-        AddUdevSubsystemMatch, CreateUdev, CreateUdevEnumerator, CreateUdevMonitor,
-        DupUdevMonitorFd, EnableUdevReceiving, GetUdevEntry, ScanUdevDevices,
-    },
-    std::{cell::Cell, error::Error, rc::Rc},
-    thiserror::Error,
-    uapi::{
-        AsUstr, OwnedFd,
-        c::{self, dev_t},
-    },
-};
+use crate::async_engine::SpawnedFuture;
+use crate::backend::Backend;
+use crate::backend::BackendDrmDevice;
+use crate::backend::BackendEvent;
+use crate::backend::DrmDeviceId;
+use crate::backend::DrmEvent;
+use crate::backends::headless::HeadlessBackendError::CreateDrm;
+use crate::backends::headless::HeadlessBackendError::GetDrmNodes;
+use crate::backends::headless::HeadlessBackendError::MonitorFdFailed;
+use crate::backends::headless::HeadlessBackendError::MonitorFdReadable;
+use crate::backends::headless::HeadlessBackendError::NoDrmNodes;
+use crate::backends::headless::HeadlessBackendError::OpenDrmNode;
+use crate::gfx_api::GfxApi;
+use crate::gfx_api::GfxContext;
+use crate::io_uring::IoUringError;
+use crate::state::State;
+use crate::udev::Udev;
+use crate::udev::UdevDevice;
+use crate::udev::UdevError;
+use crate::udev::UdevMonitor;
+use crate::utils::bitflags::BitflagsExt;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::major_minor::MajorMinor;
+use crate::utils::major_minor::major_minor;
+use crate::utils::on_change::OnChange;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt2;
+use crate::video::drm::Drm;
+use crate::video::drm::DrmError;
+use crate::video::drm::DrmVersion;
+use crate::video::drm::NodeType;
+use crate::video::drm::get_drm_nodes_from_dev;
+use HeadlessBackendError::AddUdevSubsystemMatch;
+use HeadlessBackendError::CreateUdev;
+use HeadlessBackendError::CreateUdevEnumerator;
+use HeadlessBackendError::CreateUdevMonitor;
+use HeadlessBackendError::DupUdevMonitorFd;
+use HeadlessBackendError::EnableUdevReceiving;
+use HeadlessBackendError::GetUdevEntry;
+use HeadlessBackendError::ScanUdevDevices;
+use std::cell::Cell;
+use std::error::Error;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::AsUstr;
+use uapi::OwnedFd;
+use uapi::c::dev_t;
+use uapi::c::{self};
 
 #[derive(Debug, Error)]
 pub enum HeadlessBackendError {

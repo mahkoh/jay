@@ -1,12 +1,11 @@
-use {
-    crate::{
-        object::Version,
-        utils::clonecell::CloneCell,
-        wire::{WpFractionalScaleV1Id, wp_fractional_scale_v1::*},
-        wl_usr::{UsrCon, usr_object::UsrObject},
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::object::Version;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::WpFractionalScaleV1Id;
+use crate::wire::wp_fractional_scale_v1::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrWpFractionalScale {
     pub id: WpFractionalScaleV1Id,

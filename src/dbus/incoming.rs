@@ -1,24 +1,37 @@
-use {
-    super::{
-        HDR_DESTINATION, HDR_ERROR_NAME, HDR_INTERFACE, HDR_MEMBER, HDR_PATH, HDR_REPLY_SERIAL,
-        HDR_SENDER, HDR_SIGNATURE, HDR_UNIX_FDS,
-    },
-    crate::{
-        dbus::{
-            CallError, DbusError, DbusSocket, Headers, MSG_ERROR, MSG_METHOD_CALL,
-            MSG_METHOD_RETURN, MSG_SIGNAL, MemberHandlerKey, Message, MethodHandlerApi,
-            NO_REPLY_EXPECTED, Parser, PropertyGetAllHandlerProxy, PropertyGetHandlerProxy,
-        },
-        utils::{
-            bitflags::BitflagsExt,
-            bufio::BufIoIncoming,
-            errorfmt::ErrorFmt,
-            ptr_ext::{MutPtrExt, PtrExt},
-        },
-        wire_dbus::org::freedesktop::dbus::properties::{Get, GetAll},
-    },
-    std::{cell::UnsafeCell, ops::Deref, rc::Rc},
-};
+use super::HDR_DESTINATION;
+use super::HDR_ERROR_NAME;
+use super::HDR_INTERFACE;
+use super::HDR_MEMBER;
+use super::HDR_PATH;
+use super::HDR_REPLY_SERIAL;
+use super::HDR_SENDER;
+use super::HDR_SIGNATURE;
+use super::HDR_UNIX_FDS;
+use crate::dbus::CallError;
+use crate::dbus::DbusError;
+use crate::dbus::DbusSocket;
+use crate::dbus::Headers;
+use crate::dbus::MSG_ERROR;
+use crate::dbus::MSG_METHOD_CALL;
+use crate::dbus::MSG_METHOD_RETURN;
+use crate::dbus::MSG_SIGNAL;
+use crate::dbus::MemberHandlerKey;
+use crate::dbus::Message;
+use crate::dbus::MethodHandlerApi;
+use crate::dbus::NO_REPLY_EXPECTED;
+use crate::dbus::Parser;
+use crate::dbus::PropertyGetAllHandlerProxy;
+use crate::dbus::PropertyGetHandlerProxy;
+use crate::utils::bitflags::BitflagsExt;
+use crate::utils::bufio::BufIoIncoming;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::ptr_ext::MutPtrExt;
+use crate::utils::ptr_ext::PtrExt;
+use crate::wire_dbus::org::freedesktop::dbus::properties::Get;
+use crate::wire_dbus::org::freedesktop::dbus::properties::GetAll;
+use std::cell::UnsafeCell;
+use std::ops::Deref;
+use std::rc::Rc;
 
 pub async fn handle_incoming(socket: Rc<DbusSocket>) {
     let mut incoming = Incoming {

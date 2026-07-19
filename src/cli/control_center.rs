@@ -1,11 +1,10 @@
-use {
-    crate::{
-        cli::GlobalArgs,
-        tools::tool_client::{Handle, ToolClient, with_tool_client},
-        wire::{jay_compositor, jay_open_control_center_request},
-    },
-    std::rc::Rc,
-};
+use crate::cli::GlobalArgs;
+use crate::tools::tool_client::Handle;
+use crate::tools::tool_client::ToolClient;
+use crate::tools::tool_client::with_tool_client;
+use crate::wire::jay_compositor;
+use crate::wire::jay_open_control_center_request;
+use std::rc::Rc;
 
 pub fn main(global: GlobalArgs) {
     with_tool_client(global.log_level, |tc| async move {

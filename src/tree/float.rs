@@ -1,54 +1,70 @@
-use {
-    crate::{
-        backend::ButtonState,
-        cursor::KnownCursor,
-        cursor_user::CursorUser,
-        fixed::Fixed,
-        ifs::{
-            wl_seat::{
-                BTN_LEFT, BTN_RIGHT, NodeSeatState, SeatId, WlSeatGlobal,
-                tablet::{TabletTool, TabletToolChanges, TabletToolId},
-            },
-            wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::{
-                ToplevelIcon, ToplevelIconUser,
-            },
-        },
-        rect::Rect,
-        renderer::Renderer,
-        scale::Scale,
-        state::State,
-        text::TextTexture,
-        transactions::{TransactionData, Transactionable, TransactionableExt},
-        tree::{
-            ContainingNode, Direction, FindTreeResult, FindTreeUsecase, FoundNode, Node, NodeBase,
-            NodeId, NodeLayerLink, NodeLocation, NodeStackTransactionOp, NodesStack,
-            NodesStackElement, OutputNode, PinnedNode, SplitView, StackedNode, TileDragDestination,
-            ToplevelNode,
-            TreeTimeline::{self, LiveTL, RenderTL},
-            WorkspaceChangeReason, WorkspaceNode, WorkspaceType, toplevel_set_floating,
-            walker::NodeVisitor,
-        },
-        utils::{
-            asyncevent::AsyncEvent,
-            bhash::BHashMap,
-            clonecell::CloneCell,
-            double_click_state::DoubleClickState,
-            errorfmt::ErrorFmt,
-            linkedlist::LinkedNode,
-            on_drop_event::OnDropEvent,
-            smallmap::{SmallMap, SmallMapMut},
-        },
-    },
-    arrayvec::ArrayVec,
-    derivative::Derivative,
-    std::{
-        cell::{Cell, RefCell},
-        fmt::{Debug, Formatter},
-        mem,
-        ops::Deref,
-        rc::Rc,
-    },
-};
+use crate::backend::ButtonState;
+use crate::cursor::KnownCursor;
+use crate::cursor_user::CursorUser;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::BTN_LEFT;
+use crate::ifs::wl_seat::BTN_RIGHT;
+use crate::ifs::wl_seat::NodeSeatState;
+use crate::ifs::wl_seat::SeatId;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::tablet::TabletTool;
+use crate::ifs::wl_seat::tablet::TabletToolChanges;
+use crate::ifs::wl_seat::tablet::TabletToolId;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::ToplevelIcon;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::ToplevelIconUser;
+use crate::rect::Rect;
+use crate::renderer::Renderer;
+use crate::scale::Scale;
+use crate::state::State;
+use crate::text::TextTexture;
+use crate::transactions::TransactionData;
+use crate::transactions::Transactionable;
+use crate::transactions::TransactionableExt;
+use crate::tree::ContainingNode;
+use crate::tree::Direction;
+use crate::tree::FindTreeResult;
+use crate::tree::FindTreeUsecase;
+use crate::tree::FoundNode;
+use crate::tree::Node;
+use crate::tree::NodeBase;
+use crate::tree::NodeId;
+use crate::tree::NodeLayerLink;
+use crate::tree::NodeLocation;
+use crate::tree::NodeStackTransactionOp;
+use crate::tree::NodesStack;
+use crate::tree::NodesStackElement;
+use crate::tree::OutputNode;
+use crate::tree::PinnedNode;
+use crate::tree::SplitView;
+use crate::tree::StackedNode;
+use crate::tree::TileDragDestination;
+use crate::tree::ToplevelNode;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::tree::TreeTimeline::{self};
+use crate::tree::WorkspaceChangeReason;
+use crate::tree::WorkspaceNode;
+use crate::tree::WorkspaceType;
+use crate::tree::toplevel_set_floating;
+use crate::tree::walker::NodeVisitor;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::bhash::BHashMap;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::double_click_state::DoubleClickState;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::linkedlist::LinkedNode;
+use crate::utils::on_drop_event::OnDropEvent;
+use crate::utils::smallmap::SmallMap;
+use crate::utils::smallmap::SmallMapMut;
+use arrayvec::ArrayVec;
+use derivative::Derivative;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::mem;
+use std::ops::Deref;
+use std::rc::Rc;
 
 tree_id!(FloatNodeId);
 pub struct FloatNode {

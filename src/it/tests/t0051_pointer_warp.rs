@@ -1,11 +1,9 @@
-use {
-    crate::{
-        fixed::Fixed,
-        it::{test_error::TestResult, testrun::TestRun},
-        tree::{NodeBase, TreeTimeline::LiveTL},
-    },
-    std::rc::Rc,
-};
+use crate::fixed::Fixed;
+use crate::it::test_error::TestResult;
+use crate::it::testrun::TestRun;
+use crate::tree::NodeBase;
+use crate::tree::TreeTimeline::LiveTL;
+use std::rc::Rc;
 
 testcase!();
 

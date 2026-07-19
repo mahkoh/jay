@@ -1,24 +1,25 @@
-use {
-    crate::{
-        backend::InputDeviceId,
-        fixed::Fixed,
-        ifs::{
-            wl_seat::{
-                WlSeatGlobal,
-                tablet::{
-                    PadButtonState, TabletPad, TabletPadDial, TabletPadGroup, TabletPadId,
-                    TabletPadInit, TabletPadRing, TabletPadStrip, TabletRingEventSource,
-                    TabletStripEventSource, normalizeu, zwp_tablet_pad_v2::ZwpTabletPadV2,
-                    zwp_tablet_v2::ZwpTabletV2,
-                },
-            },
-            wl_surface::WlSurface,
-        },
-        time::usec_to_msec,
-        utils::{clonecell::CloneCell, hash_map_ext::HashMapExt},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::backend::InputDeviceId;
+use crate::fixed::Fixed;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::tablet::PadButtonState;
+use crate::ifs::wl_seat::tablet::TabletPad;
+use crate::ifs::wl_seat::tablet::TabletPadDial;
+use crate::ifs::wl_seat::tablet::TabletPadGroup;
+use crate::ifs::wl_seat::tablet::TabletPadId;
+use crate::ifs::wl_seat::tablet::TabletPadInit;
+use crate::ifs::wl_seat::tablet::TabletPadRing;
+use crate::ifs::wl_seat::tablet::TabletPadStrip;
+use crate::ifs::wl_seat::tablet::TabletRingEventSource;
+use crate::ifs::wl_seat::tablet::TabletStripEventSource;
+use crate::ifs::wl_seat::tablet::normalizeu;
+use crate::ifs::wl_seat::tablet::zwp_tablet_pad_v2::ZwpTabletPadV2;
+use crate::ifs::wl_seat::tablet::zwp_tablet_v2::ZwpTabletV2;
+use crate::ifs::wl_surface::WlSurface;
+use crate::time::usec_to_msec;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::hash_map_ext::HashMapExt;
+use std::cell::Cell;
+use std::rc::Rc;
 
 impl WlSeatGlobal {
     pub fn tablet_add_tablet_pad(self: &Rc<Self>, dev: InputDeviceId, init: &TabletPadInit) {

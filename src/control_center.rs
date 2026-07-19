@@ -1,47 +1,77 @@
-use {
-    crate::{
-        control_center::{
-            cc_clients::{ClientPane, ClientsPane},
-            cc_color_management::ColorManagementPane,
-            cc_compositor::CompositorPane,
-            cc_gpus::GpusPane,
-            cc_idle::IdlePane,
-            cc_input::InputPane,
-            cc_look_and_feel::LookAndFeelPane,
-            cc_outputs::OutputsPane,
-            cc_virtual_outputs::VirtualOutputsPane,
-            cc_window::{WindowPane, WindowSearchPane},
-            cc_workspaces::WorkspacesPane,
-            cc_xwayland::XwaylandPane,
-        },
-        egui_adapter::egui_platform::{
-            EggError, EggWindow, EggWindowOwner,
-            icons::{ICON_CLOSE, ICON_DRAG_INDICATOR, ICON_INFO},
-        },
-        macros::Bitflag,
-        state::State,
-        utils::{
-            asyncevent::AsyncEvent, copyhashmap::CopyHashMap,
-            event_listener::LazyEventSourceListener, numcell::NumCell, static_text::StaticText,
-        },
-    },
-    egui::{
-        Align, AsIdSalt, CentralPanel, Checkbox, Color32, ComboBox, CursorIcon, DragValue, Frame,
-        Grid, Id, InnerResponse, Label, Layout, Panel, Response, Rgba, RichText, ScrollArea, Sense,
-        Stroke, TextBuffer, TextEdit, Ui, UiBuilder, Visuals, Widget, WidgetText, emath::Numeric,
-        vec2,
-    },
-    egui_tiles::{ResizeState, TabState, Tile, TileId, Tiles, Tree},
-    linearize::{Linearize, LinearizeExt, StaticCopyMap},
-    std::{
-        cell::RefCell,
-        hash::Hash,
-        mem,
-        ops::{Deref, DerefMut, RangeInclusive},
-        rc::Rc,
-    },
-    thiserror::Error,
-};
+use crate::control_center::cc_clients::ClientPane;
+use crate::control_center::cc_clients::ClientsPane;
+use crate::control_center::cc_color_management::ColorManagementPane;
+use crate::control_center::cc_compositor::CompositorPane;
+use crate::control_center::cc_gpus::GpusPane;
+use crate::control_center::cc_idle::IdlePane;
+use crate::control_center::cc_input::InputPane;
+use crate::control_center::cc_look_and_feel::LookAndFeelPane;
+use crate::control_center::cc_outputs::OutputsPane;
+use crate::control_center::cc_virtual_outputs::VirtualOutputsPane;
+use crate::control_center::cc_window::WindowPane;
+use crate::control_center::cc_window::WindowSearchPane;
+use crate::control_center::cc_workspaces::WorkspacesPane;
+use crate::control_center::cc_xwayland::XwaylandPane;
+use crate::egui_adapter::egui_platform::EggError;
+use crate::egui_adapter::egui_platform::EggWindow;
+use crate::egui_adapter::egui_platform::EggWindowOwner;
+use crate::egui_adapter::egui_platform::icons::ICON_CLOSE;
+use crate::egui_adapter::egui_platform::icons::ICON_DRAG_INDICATOR;
+use crate::egui_adapter::egui_platform::icons::ICON_INFO;
+use crate::macros::Bitflag;
+use crate::state::State;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::event_listener::LazyEventSourceListener;
+use crate::utils::numcell::NumCell;
+use crate::utils::static_text::StaticText;
+use egui::Align;
+use egui::AsIdSalt;
+use egui::CentralPanel;
+use egui::Checkbox;
+use egui::Color32;
+use egui::ComboBox;
+use egui::CursorIcon;
+use egui::DragValue;
+use egui::Frame;
+use egui::Grid;
+use egui::Id;
+use egui::InnerResponse;
+use egui::Label;
+use egui::Layout;
+use egui::Panel;
+use egui::Response;
+use egui::Rgba;
+use egui::RichText;
+use egui::ScrollArea;
+use egui::Sense;
+use egui::Stroke;
+use egui::TextBuffer;
+use egui::TextEdit;
+use egui::Ui;
+use egui::UiBuilder;
+use egui::Visuals;
+use egui::Widget;
+use egui::WidgetText;
+use egui::emath::Numeric;
+use egui::vec2;
+use egui_tiles::ResizeState;
+use egui_tiles::TabState;
+use egui_tiles::Tile;
+use egui_tiles::TileId;
+use egui_tiles::Tiles;
+use egui_tiles::Tree;
+use linearize::Linearize;
+use linearize::LinearizeExt;
+use linearize::StaticCopyMap;
+use std::cell::RefCell;
+use std::hash::Hash;
+use std::mem;
+use std::ops::Deref;
+use std::ops::DerefMut;
+use std::ops::RangeInclusive;
+use std::rc::Rc;
+use thiserror::Error;
 
 mod cc_clients;
 mod cc_color_management;

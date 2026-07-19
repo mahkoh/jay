@@ -1,7 +1,8 @@
-use {
-    crate::tree::{Node, NodeStackTransactionOp, TreeTimeline, WorkspaceNode},
-    std::rc::Rc,
-};
+use crate::tree::Node;
+use crate::tree::NodeStackTransactionOp;
+use crate::tree::TreeTimeline;
+use crate::tree::WorkspaceNode;
+use std::rc::Rc;
 
 pub trait StackedNode: Node {
     fn stacked_prepare_set_visible(&self) {

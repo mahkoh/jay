@@ -1,11 +1,12 @@
-use {
-    crate::{
-        ifs::wl_surface::wl_subsurface::WlSubsurface,
-        it::{test_error::TestError, test_object::TestObject, test_transport::TestTransport},
-        wire::{WlSubsurfaceId, WlSurfaceId, wl_subsurface::*},
-    },
-    std::{cell::Cell, rc::Rc},
-};
+use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
+use crate::it::test_error::TestError;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::wire::WlSubsurfaceId;
+use crate::wire::WlSurfaceId;
+use crate::wire::wl_subsurface::*;
+use std::cell::Cell;
+use std::rc::Rc;
 
 pub struct TestSubsurface {
     pub id: WlSubsurfaceId,

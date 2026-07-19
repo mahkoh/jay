@@ -1,23 +1,28 @@
-use {
-    crate::{
-        config::{
-            Shortcut,
-            context::Context,
-            extractor::{Extractor, ExtractorError, opt, recover, str, val},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-            parsers::shortcuts::{ComplexShortcutsParser, ShortcutsParser, ShortcutsParserError},
-            spanned::SpannedErrorExt,
-        },
-        toml::{
-            toml_span::{DespanExt, Span, Spanned},
-            toml_value::Value,
-        },
-    },
-    ahash::{AHashMap, AHashSet},
-    indexmap::IndexMap,
-    std::collections::HashSet,
-    thiserror::Error,
-};
+use crate::config::Shortcut;
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::opt;
+use crate::config::extractor::recover;
+use crate::config::extractor::str;
+use crate::config::extractor::val;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::config::parsers::shortcuts::ComplexShortcutsParser;
+use crate::config::parsers::shortcuts::ShortcutsParser;
+use crate::config::parsers::shortcuts::ShortcutsParserError;
+use crate::config::spanned::SpannedErrorExt;
+use crate::toml::toml_span::DespanExt;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_value::Value;
+use ahash::AHashMap;
+use ahash::AHashSet;
+use indexmap::IndexMap;
+use std::collections::HashSet;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum InputModeParserError {

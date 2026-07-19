@@ -1,24 +1,28 @@
-use {
-    crate::{
-        backend::{AxisSource as BackendAxisSource, ButtonState, ScrollAxis},
-        client::{Client, ClientError},
-        fixed::Fixed,
-        ifs::{
-            wl_output::OutputGlobalOpt,
-            wl_seat::{
-                PX_PER_SCROLL, WlSeatGlobal,
-                wl_pointer::{self, CONTINUOUS, FINGER, PRESSED, RELEASED, WHEEL},
-            },
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        tree::TreeTimeline::LiveTL,
-        utils::{copyhashmap::CopyHashMap, syncqueue::SyncQueue},
-        wire::{ZwlrVirtualPointerV1Id, zwlr_virtual_pointer_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::backend::AxisSource as BackendAxisSource;
+use crate::backend::ButtonState;
+use crate::backend::ScrollAxis;
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::fixed::Fixed;
+use crate::ifs::wl_output::OutputGlobalOpt;
+use crate::ifs::wl_seat::PX_PER_SCROLL;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_seat::wl_pointer::CONTINUOUS;
+use crate::ifs::wl_seat::wl_pointer::FINGER;
+use crate::ifs::wl_seat::wl_pointer::PRESSED;
+use crate::ifs::wl_seat::wl_pointer::RELEASED;
+use crate::ifs::wl_seat::wl_pointer::WHEEL;
+use crate::ifs::wl_seat::wl_pointer::{self};
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::syncqueue::SyncQueue;
+use crate::wire::ZwlrVirtualPointerV1Id;
+use crate::wire::zwlr_virtual_pointer_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ZwlrVirtualPointerV1 {
     pub id: ZwlrVirtualPointerV1Id,

@@ -1,14 +1,14 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{JayIdleId, jay_idle::*},
-    },
-    std::{rc::Rc, time::Duration},
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::JayIdleId;
+use crate::wire::jay_idle::*;
+use std::rc::Rc;
+use std::time::Duration;
+use thiserror::Error;
 
 pub struct JayIdle {
     pub id: JayIdleId,

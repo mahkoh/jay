@@ -1,15 +1,15 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        globals::{Global, GlobalName},
-        ifs::wp_content_type_v1::WpContentTypeV1,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{WpContentTypeManagerV1Id, wp_content_type_manager_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wp_content_type_v1::WpContentTypeV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::WpContentTypeManagerV1Id;
+use crate::wire::wp_content_type_manager_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpContentTypeManagerV1Global {
     pub name: GlobalName,

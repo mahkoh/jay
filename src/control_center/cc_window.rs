@@ -1,37 +1,49 @@
-use {
-    crate::{
-        control_center::{
-            CcBehavior, ControlCenterInner, PaneType,
-            cc_clients::{ClientCrit, show_client_collapsible},
-            cc_criterion::{CcCriterion, CritImpl, CritRegex},
-            grid, icon_label, label, read_only_bool,
-        },
-        criteria::{CritMgrExt, CritUpstreamNode, crit_leaf::CritLeafMatcher},
-        egui_adapter::egui_platform::icons::ICON_OPEN_IN_NEW,
-        state::State,
-        tree::{
-            NodeId, ToplevelData, ToplevelIdentifier, ToplevelNode, ToplevelType,
-            TreeTimeline::LiveTL,
-        },
-        utils::{
-            bhash::BHashMap,
-            copyhashmap::CopyHashMap,
-            event_listener::{EventListener, LazyEventSourceListener},
-            static_text::StaticText,
-        },
-    },
-    derivative::Derivative,
-    egui::{CollapsingHeader, Sense, TextFormat, Ui, Widget, cache::CacheTrait, text::LayoutJob},
-    isnt::std_1::primitive::IsntStrExt,
-    jay_config::window::{
-        ContentType, GAME_CONTENT, NO_CONTENT_TYPE, PHOTO_CONTENT, VIDEO_CONTENT,
-    },
-    linearize::Linearize,
-    std::{
-        mem,
-        rc::{Rc, Weak},
-    },
-};
+use crate::control_center::CcBehavior;
+use crate::control_center::ControlCenterInner;
+use crate::control_center::PaneType;
+use crate::control_center::cc_clients::ClientCrit;
+use crate::control_center::cc_clients::show_client_collapsible;
+use crate::control_center::cc_criterion::CcCriterion;
+use crate::control_center::cc_criterion::CritImpl;
+use crate::control_center::cc_criterion::CritRegex;
+use crate::control_center::grid;
+use crate::control_center::icon_label;
+use crate::control_center::label;
+use crate::control_center::read_only_bool;
+use crate::criteria::CritMgrExt;
+use crate::criteria::CritUpstreamNode;
+use crate::criteria::crit_leaf::CritLeafMatcher;
+use crate::egui_adapter::egui_platform::icons::ICON_OPEN_IN_NEW;
+use crate::state::State;
+use crate::tree::NodeId;
+use crate::tree::ToplevelData;
+use crate::tree::ToplevelIdentifier;
+use crate::tree::ToplevelNode;
+use crate::tree::ToplevelType;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::utils::bhash::BHashMap;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::event_listener::EventListener;
+use crate::utils::event_listener::LazyEventSourceListener;
+use crate::utils::static_text::StaticText;
+use derivative::Derivative;
+use egui::CollapsingHeader;
+use egui::Sense;
+use egui::TextFormat;
+use egui::Ui;
+use egui::Widget;
+use egui::cache::CacheTrait;
+use egui::text::LayoutJob;
+use isnt::std_1::primitive::IsntStrExt;
+use jay_config::window::ContentType;
+use jay_config::window::GAME_CONTENT;
+use jay_config::window::NO_CONTENT_TYPE;
+use jay_config::window::PHOTO_CONTENT;
+use jay_config::window::VIDEO_CONTENT;
+use linearize::Linearize;
+use std::mem;
+use std::rc::Rc;
+use std::rc::Weak;
 
 #[derive(Derivative)]
 #[derivative(Default)]

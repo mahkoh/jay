@@ -1,17 +1,15 @@
-use {
-    crate::{
-        backend::transaction::{BackendConnectorTransactionError, ConnectorTransaction},
-        state::State,
-        tree::TreeTimeline::RenderTL,
-        utils::{
-            errorfmt::ErrorFmt,
-            timer::{TimerError, TimerFd},
-        },
-    },
-    futures_util::{FutureExt, select},
-    std::{rc::Rc, time::Duration},
-    uapi::c,
-};
+use crate::backend::transaction::BackendConnectorTransactionError;
+use crate::backend::transaction::ConnectorTransaction;
+use crate::state::State;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::timer::TimerError;
+use crate::utils::timer::TimerFd;
+use futures_util::FutureExt;
+use futures_util::select;
+use std::rc::Rc;
+use std::time::Duration;
+use uapi::c;
 
 pub async fn idle(state: Rc<State>) {
     let timer = match TimerFd::new(c::CLOCK_MONOTONIC) {

@@ -1,12 +1,12 @@
-use {
-    crate::{
-        object::Version,
-        utils::clonecell::CloneCell,
-        wire::{XdgSurfaceId, xdg_surface::*},
-        wl_usr::{UsrCon, usr_ifs::usr_xdg_toplevel::UsrXdgToplevel, usr_object::UsrObject},
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::object::Version;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::XdgSurfaceId;
+use crate::wire::xdg_surface::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_ifs::usr_xdg_toplevel::UsrXdgToplevel;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrXdgSurface {
     pub id: XdgSurfaceId,

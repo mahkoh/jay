@@ -1,15 +1,15 @@
-use {
-    crate::utils::ptr_ext::{MutPtrExt, PtrExt},
-    derivative::Derivative,
-    std::{
-        cell::{Cell, UnsafeCell},
-        collections::VecDeque,
-        future::Future,
-        mem,
-        pin::Pin,
-        task::{Context, Poll, Waker},
-    },
-};
+use crate::utils::ptr_ext::MutPtrExt;
+use crate::utils::ptr_ext::PtrExt;
+use derivative::Derivative;
+use std::cell::Cell;
+use std::cell::UnsafeCell;
+use std::collections::VecDeque;
+use std::future::Future;
+use std::mem;
+use std::pin::Pin;
+use std::task::Context;
+use std::task::Poll;
+use std::task::Waker;
 
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]

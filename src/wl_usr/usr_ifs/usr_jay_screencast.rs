@@ -1,22 +1,22 @@
-use {
-    crate::{
-        format::formats,
-        object::Version,
-        utils::clonecell::CloneCell,
-        video::dmabuf::{DmaBuf, DmaBufPlane, PlaneVec},
-        wire::{JayScreencastId, jay_screencast::*},
-        wl_usr::{
-            UsrCon,
-            usr_ifs::{
-                usr_jay_output::UsrJayOutput, usr_jay_toplevel::UsrJayToplevel,
-                usr_jay_workspace::UsrJayWorkspace, usr_wl_buffer::UsrWlBuffer,
-            },
-            usr_object::UsrObject,
-        },
-    },
-    std::{cell::RefCell, mem, ops::DerefMut, rc::Rc},
-    thiserror::Error,
-};
+use crate::format::formats;
+use crate::object::Version;
+use crate::utils::clonecell::CloneCell;
+use crate::video::dmabuf::DmaBuf;
+use crate::video::dmabuf::DmaBufPlane;
+use crate::video::dmabuf::PlaneVec;
+use crate::wire::JayScreencastId;
+use crate::wire::jay_screencast::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_ifs::usr_jay_output::UsrJayOutput;
+use crate::wl_usr::usr_ifs::usr_jay_toplevel::UsrJayToplevel;
+use crate::wl_usr::usr_ifs::usr_jay_workspace::UsrJayWorkspace;
+use crate::wl_usr::usr_ifs::usr_wl_buffer::UsrWlBuffer;
+use crate::wl_usr::usr_object::UsrObject;
+use std::cell::RefCell;
+use std::mem;
+use std::ops::DerefMut;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct UsrJayScreencast {
     pub id: JayScreencastId,

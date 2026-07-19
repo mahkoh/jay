@@ -1,13 +1,14 @@
-use {
-    crate::markers::Input,
-    proc_macro2::Ident,
-    quote::quote,
-    syn::{
-        Error, GenericParam, Token, TypeParam,
-        parse::{Parse, ParseStream},
-        parse_macro_input, parse_quote,
-    },
-};
+use crate::markers::Input;
+use proc_macro2::Ident;
+use quote::quote;
+use syn::Error;
+use syn::GenericParam;
+use syn::Token;
+use syn::TypeParam;
+use syn::parse::Parse;
+use syn::parse::ParseStream;
+use syn::parse_macro_input;
+use syn::parse_quote;
 
 pub fn derive_jay_clone(
     attr: proc_macro::TokenStream,

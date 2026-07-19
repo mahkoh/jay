@@ -12,79 +12,151 @@ mod rules;
 mod shortcuts;
 mod toml;
 
+use crate::config::Action;
+use crate::config::ClientRule;
+use crate::config::Config;
+use crate::config::ConfigConnector;
+use crate::config::ConfigDrmDevice;
+use crate::config::ConfigKeymap;
+use crate::config::ConnectorMatch;
+use crate::config::DrmDeviceMatch;
+use crate::config::Exec;
+use crate::config::Input;
+use crate::config::InputMatch;
+use crate::config::Output;
+use crate::config::OutputMatch;
+use crate::config::SimpleCommand;
+use crate::config::Status;
+use crate::config::Theme;
+use crate::config::TomlWorkspace;
+use crate::config::WindowRule;
+use crate::config::parse_config;
+use crate::rules::MatcherTemp;
+use crate::rules::RuleMapper;
+use crate::shortcuts::ModeState;
+use ahash::AHashMap;
+use ahash::AHashSet;
 pub use config::input_event_codes::input_event_code_from_name;
-use {
-    crate::{
-        config::{
-            Action, ClientRule, Config, ConfigConnector, ConfigDrmDevice, ConfigKeymap,
-            ConnectorMatch, DrmDeviceMatch, Exec, Input, InputMatch, Output, OutputMatch,
-            SimpleCommand, Status, Theme, TomlWorkspace, WindowRule, parse_config,
-        },
-        rules::{MatcherTemp, RuleMapper},
-        shortcuts::ModeState,
-    },
-    ahash::{AHashMap, AHashSet},
-    error_reporter::Report,
-    jay_config::{
-        Workspace,
-        client::Client,
-        config, config_dir,
-        exec::{Command, set_env, unset_env},
-        hide_overlays,
-        input::{
-            FocusFollowsMouseMode, InputDevice, Seat, SwitchEvent, capability::CAP_SWITCH,
-            get_seat, input_devices, on_input_device_removed, on_new_input_device,
-            set_libei_socket_enabled,
-        },
-        io::Async,
-        is_reload,
-        keyboard::Keymap,
-        logging::{clean_logs_older_than, set_log_level},
-        on_devices_enumerated, on_idle, on_unload, open_control_center, quit, reload,
-        set_color_management_enabled, set_configure_timeout, set_default_workspace_capture,
-        set_explicit_sync_enabled, set_float_above_fullscreen, set_idle, set_idle_grace_period,
-        set_middle_click_paste_enabled, set_session_management_enabled, set_show_bar,
-        set_show_float_pin_icon, set_show_titles, set_transaction_timeout, set_ui_drag_enabled,
-        set_ui_drag_threshold, set_visualize_compositing,
-        status::{set_i3bar_separator, set_status, set_status_command, unset_status_command},
-        switch_to_vt,
-        tasks::{self, JoinHandle},
-        theme::{
-            reset_colors, reset_font, reset_sizes, set_bar_font, set_bar_position,
-            set_container_borders, set_egui_monospace_fonts, set_egui_proportional_fonts, set_font,
-            set_show_window_icons, set_title_font, set_window_icons_grayscale,
-        },
-        toggle_float_above_fullscreen, toggle_show_bar, toggle_show_titles,
-        toggle_visualize_compositing,
-        video::{
-            ColorSpace, Connector, DrmDevice, Eotf, connectors, create_virtual_output, drm_devices,
-            on_connector_connected, on_connector_disconnected, on_graphics_initialized,
-            on_new_connector, on_new_drm_device, remove_virtual_output, set_direct_scanout_enabled,
-            set_gfx_api, set_tearing_mode, set_vrr_cursor_hz, set_vrr_mode,
-        },
-        window::Window,
-        workspace::set_workspace_display_order,
-        xwayland::{set_x_scaling_mode, set_x_wayland_enabled},
-    },
-    run_on_drop::on_drop,
-    std::{
-        cell::{Cell, RefCell},
-        ffi::OsStr,
-        io::ErrorKind,
-        os::{fd::AsRawFd, unix::ffi::OsStrExt},
-        path::{Path, PathBuf},
-        rc::Rc,
-        time::{Duration, SystemTime, UNIX_EPOCH},
-    },
-    uapi::{
-        Errno,
-        c::{
-            self, CLOCK_MONOTONIC, IN_ATTRIB, IN_CLOEXEC, IN_CLOSE_WRITE, IN_CREATE, IN_DELETE,
-            IN_EXCL_UNLINK, IN_MOVED_FROM, IN_MOVED_TO, IN_NONBLOCK, IN_ONLYDIR, TFD_CLOEXEC,
-            TFD_NONBLOCK, timespec,
-        },
-    },
-};
+use error_reporter::Report;
+use jay_config::Workspace;
+use jay_config::client::Client;
+use jay_config::config;
+use jay_config::config_dir;
+use jay_config::exec::Command;
+use jay_config::exec::set_env;
+use jay_config::exec::unset_env;
+use jay_config::hide_overlays;
+use jay_config::input::FocusFollowsMouseMode;
+use jay_config::input::InputDevice;
+use jay_config::input::Seat;
+use jay_config::input::SwitchEvent;
+use jay_config::input::capability::CAP_SWITCH;
+use jay_config::input::get_seat;
+use jay_config::input::input_devices;
+use jay_config::input::on_input_device_removed;
+use jay_config::input::on_new_input_device;
+use jay_config::input::set_libei_socket_enabled;
+use jay_config::io::Async;
+use jay_config::is_reload;
+use jay_config::keyboard::Keymap;
+use jay_config::logging::clean_logs_older_than;
+use jay_config::logging::set_log_level;
+use jay_config::on_devices_enumerated;
+use jay_config::on_idle;
+use jay_config::on_unload;
+use jay_config::open_control_center;
+use jay_config::quit;
+use jay_config::reload;
+use jay_config::set_color_management_enabled;
+use jay_config::set_configure_timeout;
+use jay_config::set_default_workspace_capture;
+use jay_config::set_explicit_sync_enabled;
+use jay_config::set_float_above_fullscreen;
+use jay_config::set_idle;
+use jay_config::set_idle_grace_period;
+use jay_config::set_middle_click_paste_enabled;
+use jay_config::set_session_management_enabled;
+use jay_config::set_show_bar;
+use jay_config::set_show_float_pin_icon;
+use jay_config::set_show_titles;
+use jay_config::set_transaction_timeout;
+use jay_config::set_ui_drag_enabled;
+use jay_config::set_ui_drag_threshold;
+use jay_config::set_visualize_compositing;
+use jay_config::status::set_i3bar_separator;
+use jay_config::status::set_status;
+use jay_config::status::set_status_command;
+use jay_config::status::unset_status_command;
+use jay_config::switch_to_vt;
+use jay_config::tasks::JoinHandle;
+use jay_config::tasks::{self};
+use jay_config::theme::reset_colors;
+use jay_config::theme::reset_font;
+use jay_config::theme::reset_sizes;
+use jay_config::theme::set_bar_font;
+use jay_config::theme::set_bar_position;
+use jay_config::theme::set_container_borders;
+use jay_config::theme::set_egui_monospace_fonts;
+use jay_config::theme::set_egui_proportional_fonts;
+use jay_config::theme::set_font;
+use jay_config::theme::set_show_window_icons;
+use jay_config::theme::set_title_font;
+use jay_config::theme::set_window_icons_grayscale;
+use jay_config::toggle_float_above_fullscreen;
+use jay_config::toggle_show_bar;
+use jay_config::toggle_show_titles;
+use jay_config::toggle_visualize_compositing;
+use jay_config::video::ColorSpace;
+use jay_config::video::Connector;
+use jay_config::video::DrmDevice;
+use jay_config::video::Eotf;
+use jay_config::video::connectors;
+use jay_config::video::create_virtual_output;
+use jay_config::video::drm_devices;
+use jay_config::video::on_connector_connected;
+use jay_config::video::on_connector_disconnected;
+use jay_config::video::on_graphics_initialized;
+use jay_config::video::on_new_connector;
+use jay_config::video::on_new_drm_device;
+use jay_config::video::remove_virtual_output;
+use jay_config::video::set_direct_scanout_enabled;
+use jay_config::video::set_gfx_api;
+use jay_config::video::set_tearing_mode;
+use jay_config::video::set_vrr_cursor_hz;
+use jay_config::video::set_vrr_mode;
+use jay_config::window::Window;
+use jay_config::workspace::set_workspace_display_order;
+use jay_config::xwayland::set_x_scaling_mode;
+use jay_config::xwayland::set_x_wayland_enabled;
+use run_on_drop::on_drop;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::ffi::OsStr;
+use std::io::ErrorKind;
+use std::os::fd::AsRawFd;
+use std::os::unix::ffi::OsStrExt;
+use std::path::Path;
+use std::path::PathBuf;
+use std::rc::Rc;
+use std::time::Duration;
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
+use uapi::Errno;
+use uapi::c::CLOCK_MONOTONIC;
+use uapi::c::IN_ATTRIB;
+use uapi::c::IN_CLOEXEC;
+use uapi::c::IN_CLOSE_WRITE;
+use uapi::c::IN_CREATE;
+use uapi::c::IN_DELETE;
+use uapi::c::IN_EXCL_UNLINK;
+use uapi::c::IN_MOVED_FROM;
+use uapi::c::IN_MOVED_TO;
+use uapi::c::IN_NONBLOCK;
+use uapi::c::IN_ONLYDIR;
+use uapi::c::TFD_CLOEXEC;
+use uapi::c::TFD_NONBLOCK;
+use uapi::c::timespec;
+use uapi::c::{self};
 
 fn default_seat() -> Seat {
     get_seat("default")
@@ -1016,7 +1088,8 @@ impl State {
     }
 
     fn apply_theme(&self, theme: &Theme) {
-        use jay_config::theme::{colors::*, sized::*};
+        use jay_config::theme::colors::*;
+        use jay_config::theme::sized::*;
         macro_rules! color {
             ($colorable:ident, $field:ident) => {
                 if let Some(color) = theme.$field {

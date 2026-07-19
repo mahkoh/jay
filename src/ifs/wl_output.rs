@@ -1,34 +1,49 @@
 mod removed_output;
 
-use {
-    crate::{
-        backend::{self, BackendColorSpace, BackendEotfs, BackendLuminance},
-        client::{Client, ClientError, ClientId},
-        cmm::cmm_primaries::Primaries,
-        format::{Format, XRGB8888},
-        gfx_api::ScalingFilter,
-        globals::{Global, GlobalName},
-        ifs::{wl_surface::WlSurface, zxdg_output_v1::ZxdgOutputV1},
-        leaks::Tracker,
-        object::{Object, Version},
-        state::{ConnectorData, State},
-        tree::{NodeBase, OutputNode, TearingMode, Transform, TreeTimeline::LiveTL, VrrMode},
-        utils::{
-            bhash::BHashMap, cell_ext::CellExt, clonecell::CloneCell, copyhashmap::CopyHashMap,
-            markers::JayHash, rc_eq::rc_eq,
-        },
-        wire::{WlOutputId, ZxdgOutputV1Id, wl_output::*},
-    },
-    derivative::Derivative,
-    hashbrown::hash_map::Entry,
-    linearize::Linearize,
-    std::{
-        cell::{Cell, RefCell},
-        hash::{Hash, Hasher},
-        rc::Rc,
-    },
-    thiserror::Error,
-};
+use crate::backend::BackendColorSpace;
+use crate::backend::BackendEotfs;
+use crate::backend::BackendLuminance;
+use crate::backend::{self};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::client::ClientId;
+use crate::cmm::cmm_primaries::Primaries;
+use crate::format::Format;
+use crate::format::XRGB8888;
+use crate::gfx_api::ScalingFilter;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::zxdg_output_v1::ZxdgOutputV1;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::state::ConnectorData;
+use crate::state::State;
+use crate::tree::NodeBase;
+use crate::tree::OutputNode;
+use crate::tree::TearingMode;
+use crate::tree::Transform;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::VrrMode;
+use crate::utils::bhash::BHashMap;
+use crate::utils::cell_ext::CellExt;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::markers::JayHash;
+use crate::utils::rc_eq::rc_eq;
+use crate::wire::WlOutputId;
+use crate::wire::ZxdgOutputV1Id;
+use crate::wire::wl_output::*;
+use derivative::Derivative;
+use hashbrown::hash_map::Entry;
+use linearize::Linearize;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::rc::Rc;
+use thiserror::Error;
 
 const SP_UNKNOWN: i32 = 0;
 #[expect(dead_code)]

@@ -1,12 +1,12 @@
-use {
-    crate::utils::{
-        markers::JayHash,
-        numcell::NumCell,
-        object_registry::{ObjectRegistryCache, RegisteredObject},
-    },
-    rand::{RngExt, prelude::SmallRng},
-    std::{mem, ptr, rc::Rc},
-};
+use crate::utils::markers::JayHash;
+use crate::utils::numcell::NumCell;
+use crate::utils::object_registry::ObjectRegistryCache;
+use crate::utils::object_registry::RegisteredObject;
+use rand::RngExt;
+use rand::prelude::SmallRng;
+use std::mem;
+use std::ptr;
+use std::rc::Rc;
 
 pub trait Cache<K, V>: Sized
 where

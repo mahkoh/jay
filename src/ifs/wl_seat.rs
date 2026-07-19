@@ -21,119 +21,157 @@ pub mod zwp_relative_pointer_v1;
 pub mod zwp_virtual_keyboard_manager_v1;
 pub mod zwp_virtual_keyboard_v1;
 
-use {
-    crate::{
-        async_engine::SpawnedFuture,
-        backend::{
-            ButtonState, InputDeviceAccelProfile, InputDeviceClickMethod, InputDeviceScrollMethod,
-            Leds, TransformMatrix,
-        },
-        client::{Client, ClientError, ClientId},
-        control_center::CCI_INPUT,
-        cursor_user::{CursorUser, CursorUserGroup, CursorUserOwner},
-        ei::ei_ifs::ei_seat::EiSeat,
-        evdev::input_event_codes::InputEventCode,
-        fixed::Fixed,
-        globals::{Global, GlobalName},
-        ifs::{
-            ext_idle_notification_v1::ExtIdleNotificationV1,
-            ipc::{
-                self, DynDataSource, IpcError, IpcLocation,
-                data_control::{DataControlDeviceId, DynDataControlDevice},
-                offer_source_to_regular_client,
-                wl_data_device::{ClipboardIpc, WlDataDevice},
-                wl_data_source::WlDataSource,
-                x_data_device::{XClipboardIpc, XIpcDevice, XIpcDeviceId, XPrimarySelectionIpc},
-                zwp_primary_selection_device_v1::{
-                    PrimarySelectionIpc, ZwpPrimarySelectionDeviceV1,
-                },
-                zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1,
-            },
-            wl_output::WlOutputGlobal,
-            wl_seat::{
-                event_handling::FocusHistoryData,
-                gesture_owner::GestureOwnerHolder,
-                kb_owner::KbOwnerHolder,
-                pointer_owner::PointerOwnerHolder,
-                tablet::TabletSeatData,
-                text_input::{
-                    InputMethod, InputMethodKeyboardGrab, simple_im::SimpleIm,
-                    zwp_text_input_v3::ZwpTextInputV3,
-                },
-                touch_owner::TouchOwnerHolder,
-                wl_keyboard::{REPEAT_INFO_SINCE, WlKeyboard, WlKeyboardError},
-                wl_pointer::WlPointer,
-                wl_touch::WlTouch,
-                zwp_pointer_constraints_v1::{SeatConstraint, SeatConstraintStatus},
-                zwp_pointer_gesture_hold_v1::ZwpPointerGestureHoldV1,
-                zwp_pointer_gesture_pinch_v1::ZwpPointerGesturePinchV1,
-                zwp_pointer_gesture_swipe_v1::ZwpPointerGestureSwipeV1,
-                zwp_relative_pointer_v1::ZwpRelativePointerV1,
-            },
-            wl_surface::{
-                WlSurface,
-                dnd_icon::DndIcon,
-                tray::{DynTrayItem, TrayItemId},
-                xdg_surface::{xdg_popup::XdgPopup, xdg_toplevel::ResizeEdges},
-                zwlr_layer_surface_v1::LayerSurfaceLink,
-            },
-            xdg_toplevel_drag_v1::XdgToplevelDragV1,
-        },
-        kbvm::{KbvmMap, KbvmMapId, KbvmState, PhysicalKeyboardState},
-        keyboard::{DynKeyboardState, KeyboardState, KeyboardStateId, KeymapFd, LedsListener},
-        leaks::Tracker,
-        object::{Object, Version},
-        rect::Rect,
-        state::{DeviceHandlerData, State},
-        tree::{
-            ContainerNode, ContainerSplit, Direction, FoundNode, Node, NodeBase, NodeLayer,
-            NodeLayerLink, NodeLocation, NodesStack, OutputNode, StackedNode, ToplevelNode,
-            TreeTimeline::LiveTL, WorkspaceChangeReason, WorkspaceNode, generic_node_visitor,
-            toplevel_create_split, toplevel_parent_container, toplevel_set_floating,
-            toplevel_set_workspace,
-        },
-        utils::{
-            asyncevent::AsyncEvent,
-            bhash::BHashMap,
-            bindings::PerClientBindings,
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            event_listener::{EventListener, EventSource},
-            linkedlist::{LinkedList, LinkedNode, NodeRef},
-            numcell::NumCell,
-            rc_eq::{rc_eq, rc_weak_eq},
-            smallmap::{SmallMap, SmallMapMut},
-            static_text::StaticText,
-        },
-        wire::{
-            ExtIdleNotificationV1Id, WlDataDeviceId, WlKeyboardId, WlPointerId, WlSeatId,
-            WlTouchId, XdgPopupId, ZwpPrimarySelectionDeviceV1Id, ZwpRelativePointerV1Id,
-            ZwpTextInputV3Id, wl_seat::*,
-        },
-        wire_ei::EiSeatId,
-    },
-    CursorPositionType::Warp,
-    hashbrown::hash_map::Entry,
-    jay_config::{
-        input::FallbackOutputMode as ConfigFallbackOutputMode,
-        keyboard::syms::{KeySym, SYM_Escape},
-    },
-    kbvm::Keycode,
-    linearize::Linearize,
-    run_on_drop::on_drop,
-    smallvec::SmallVec,
-    std::{
-        cell::{Cell, RefCell},
-        mem,
-        ops::{Deref, DerefMut},
-        rc::{Rc, Weak},
-    },
-    thiserror::Error,
-};
-pub use {
-    event_handling::NodeSeatState,
-    pointer_owner::{ToplevelSelector, WorkspaceSelector},
-};
+use crate::async_engine::SpawnedFuture;
+use crate::backend::ButtonState;
+use crate::backend::InputDeviceAccelProfile;
+use crate::backend::InputDeviceClickMethod;
+use crate::backend::InputDeviceScrollMethod;
+use crate::backend::Leds;
+use crate::backend::TransformMatrix;
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::client::ClientId;
+use crate::control_center::CCI_INPUT;
+use crate::cursor_user::CursorUser;
+use crate::cursor_user::CursorUserGroup;
+use crate::cursor_user::CursorUserOwner;
+use crate::ei::ei_ifs::ei_seat::EiSeat;
+use crate::evdev::input_event_codes::InputEventCode;
+use crate::fixed::Fixed;
+use crate::globals::Global;
+use crate::globals::GlobalName;
+use crate::ifs::ext_idle_notification_v1::ExtIdleNotificationV1;
+use crate::ifs::ipc::DynDataSource;
+use crate::ifs::ipc::IpcError;
+use crate::ifs::ipc::IpcLocation;
+use crate::ifs::ipc::data_control::DataControlDeviceId;
+use crate::ifs::ipc::data_control::DynDataControlDevice;
+use crate::ifs::ipc::offer_source_to_regular_client;
+use crate::ifs::ipc::wl_data_device::ClipboardIpc;
+use crate::ifs::ipc::wl_data_device::WlDataDevice;
+use crate::ifs::ipc::wl_data_source::WlDataSource;
+use crate::ifs::ipc::x_data_device::XClipboardIpc;
+use crate::ifs::ipc::x_data_device::XIpcDevice;
+use crate::ifs::ipc::x_data_device::XIpcDeviceId;
+use crate::ifs::ipc::x_data_device::XPrimarySelectionIpc;
+use crate::ifs::ipc::zwp_primary_selection_device_v1::PrimarySelectionIpc;
+use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
+use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
+use crate::ifs::ipc::{self};
+use crate::ifs::wl_output::WlOutputGlobal;
+use crate::ifs::wl_seat::event_handling::FocusHistoryData;
+use crate::ifs::wl_seat::gesture_owner::GestureOwnerHolder;
+use crate::ifs::wl_seat::kb_owner::KbOwnerHolder;
+use crate::ifs::wl_seat::pointer_owner::PointerOwnerHolder;
+use crate::ifs::wl_seat::tablet::TabletSeatData;
+use crate::ifs::wl_seat::text_input::InputMethod;
+use crate::ifs::wl_seat::text_input::InputMethodKeyboardGrab;
+use crate::ifs::wl_seat::text_input::simple_im::SimpleIm;
+use crate::ifs::wl_seat::text_input::zwp_text_input_v3::ZwpTextInputV3;
+use crate::ifs::wl_seat::touch_owner::TouchOwnerHolder;
+use crate::ifs::wl_seat::wl_keyboard::REPEAT_INFO_SINCE;
+use crate::ifs::wl_seat::wl_keyboard::WlKeyboard;
+use crate::ifs::wl_seat::wl_keyboard::WlKeyboardError;
+use crate::ifs::wl_seat::wl_pointer::WlPointer;
+use crate::ifs::wl_seat::wl_touch::WlTouch;
+use crate::ifs::wl_seat::zwp_pointer_constraints_v1::SeatConstraint;
+use crate::ifs::wl_seat::zwp_pointer_constraints_v1::SeatConstraintStatus;
+use crate::ifs::wl_seat::zwp_pointer_gesture_hold_v1::ZwpPointerGestureHoldV1;
+use crate::ifs::wl_seat::zwp_pointer_gesture_pinch_v1::ZwpPointerGesturePinchV1;
+use crate::ifs::wl_seat::zwp_pointer_gesture_swipe_v1::ZwpPointerGestureSwipeV1;
+use crate::ifs::wl_seat::zwp_relative_pointer_v1::ZwpRelativePointerV1;
+use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::dnd_icon::DndIcon;
+use crate::ifs::wl_surface::tray::DynTrayItem;
+use crate::ifs::wl_surface::tray::TrayItemId;
+use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::ResizeEdges;
+use crate::ifs::wl_surface::zwlr_layer_surface_v1::LayerSurfaceLink;
+use crate::ifs::xdg_toplevel_drag_v1::XdgToplevelDragV1;
+use crate::kbvm::KbvmMap;
+use crate::kbvm::KbvmMapId;
+use crate::kbvm::KbvmState;
+use crate::kbvm::PhysicalKeyboardState;
+use crate::keyboard::DynKeyboardState;
+use crate::keyboard::KeyboardState;
+use crate::keyboard::KeyboardStateId;
+use crate::keyboard::KeymapFd;
+use crate::keyboard::LedsListener;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::rect::Rect;
+use crate::state::DeviceHandlerData;
+use crate::state::State;
+use crate::tree::ContainerNode;
+use crate::tree::ContainerSplit;
+use crate::tree::Direction;
+use crate::tree::FoundNode;
+use crate::tree::Node;
+use crate::tree::NodeBase;
+use crate::tree::NodeLayer;
+use crate::tree::NodeLayerLink;
+use crate::tree::NodeLocation;
+use crate::tree::NodesStack;
+use crate::tree::OutputNode;
+use crate::tree::StackedNode;
+use crate::tree::ToplevelNode;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::WorkspaceChangeReason;
+use crate::tree::WorkspaceNode;
+use crate::tree::generic_node_visitor;
+use crate::tree::toplevel_create_split;
+use crate::tree::toplevel_parent_container;
+use crate::tree::toplevel_set_floating;
+use crate::tree::toplevel_set_workspace;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::bhash::BHashMap;
+use crate::utils::bindings::PerClientBindings;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::event_listener::EventListener;
+use crate::utils::event_listener::EventSource;
+use crate::utils::linkedlist::LinkedList;
+use crate::utils::linkedlist::LinkedNode;
+use crate::utils::linkedlist::NodeRef;
+use crate::utils::numcell::NumCell;
+use crate::utils::rc_eq::rc_eq;
+use crate::utils::rc_eq::rc_weak_eq;
+use crate::utils::smallmap::SmallMap;
+use crate::utils::smallmap::SmallMapMut;
+use crate::utils::static_text::StaticText;
+use crate::wire::ExtIdleNotificationV1Id;
+use crate::wire::WlDataDeviceId;
+use crate::wire::WlKeyboardId;
+use crate::wire::WlPointerId;
+use crate::wire::WlSeatId;
+use crate::wire::WlTouchId;
+use crate::wire::XdgPopupId;
+use crate::wire::ZwpPrimarySelectionDeviceV1Id;
+use crate::wire::ZwpRelativePointerV1Id;
+use crate::wire::ZwpTextInputV3Id;
+use crate::wire::wl_seat::*;
+use crate::wire_ei::EiSeatId;
+use CursorPositionType::Warp;
+pub use event_handling::NodeSeatState;
+use hashbrown::hash_map::Entry;
+use jay_config::input::FallbackOutputMode as ConfigFallbackOutputMode;
+use jay_config::keyboard::syms::KeySym;
+use jay_config::keyboard::syms::SYM_Escape;
+use kbvm::Keycode;
+use linearize::Linearize;
+pub use pointer_owner::ToplevelSelector;
+pub use pointer_owner::WorkspaceSelector;
+use run_on_drop::on_drop;
+use smallvec::SmallVec;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::mem;
+use std::ops::Deref;
+use std::ops::DerefMut;
+use std::rc::Rc;
+use std::rc::Weak;
+use thiserror::Error;
 
 pub const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;

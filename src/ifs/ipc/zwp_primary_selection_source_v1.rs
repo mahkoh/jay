@@ -1,24 +1,26 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        ifs::{
-            ipc::{
-                DataSource, DynDataSource, SourceData, add_data_source_mime_type,
-                break_source_loops, cancel_offers, destroy_data_source, detach_seat,
-                offer_source_to_x,
-                x_data_device::{XIpcDevice, XPrimarySelectionIpc},
-                zwp_primary_selection_device_v1::PrimarySelectionIpc,
-            },
-            wl_seat::WlSeatGlobal,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ZwpPrimarySelectionSourceV1Id, zwp_primary_selection_source_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-    uapi::OwnedFd,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::ipc::DataSource;
+use crate::ifs::ipc::DynDataSource;
+use crate::ifs::ipc::SourceData;
+use crate::ifs::ipc::add_data_source_mime_type;
+use crate::ifs::ipc::break_source_loops;
+use crate::ifs::ipc::cancel_offers;
+use crate::ifs::ipc::destroy_data_source;
+use crate::ifs::ipc::detach_seat;
+use crate::ifs::ipc::offer_source_to_x;
+use crate::ifs::ipc::x_data_device::XIpcDevice;
+use crate::ifs::ipc::x_data_device::XPrimarySelectionIpc;
+use crate::ifs::ipc::zwp_primary_selection_device_v1::PrimarySelectionIpc;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwpPrimarySelectionSourceV1Id;
+use crate::wire::zwp_primary_selection_source_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
+use uapi::OwnedFd;
 
 pub struct ZwpPrimarySelectionSourceV1 {
     pub id: ZwpPrimarySelectionSourceV1Id,

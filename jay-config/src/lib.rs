@@ -43,20 +43,20 @@
 )]
 #![warn(unsafe_op_in_unsafe_fn)]
 
-use {
-    crate::{
-        _private::{WorkspaceShowOpV1, WorkspaceShowOpV2, ipc::WorkspaceSource},
-        input::{FallbackOutputMode, Seat},
-        keyboard::ModifiedKeySym,
-        video::Connector,
-        window::Window,
-    },
-    serde::{Deserialize, Serialize},
-    std::{
-        fmt::{Debug, Display, Formatter},
-        time::Duration,
-    },
-};
+use crate::_private::WorkspaceShowOpV1;
+use crate::_private::WorkspaceShowOpV2;
+use crate::_private::ipc::WorkspaceSource;
+use crate::input::FallbackOutputMode;
+use crate::input::Seat;
+use crate::keyboard::ModifiedKeySym;
+use crate::video::Connector;
+use crate::window::Window;
+use serde::Deserialize;
+use serde::Serialize;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::time::Duration;
 
 #[macro_use]
 mod macros;

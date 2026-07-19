@@ -1,13 +1,12 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{ExtTransientSeatV1Id, ext_transient_seat_v1::*},
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ExtTransientSeatV1Id;
+use crate::wire::ext_transient_seat_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct ExtTransientSeatV1 {
     pub id: ExtTransientSeatV1Id,

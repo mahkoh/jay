@@ -1,8 +1,8 @@
-use {
-    crate::xcon::XconError,
-    bstr::{BString, ByteSlice},
-    std::{fs::File, io::Read},
-};
+use crate::xcon::XconError;
+use bstr::BString;
+use bstr::ByteSlice;
+use std::fs::File;
+use std::io::Read;
 
 pub const LOCAL: u16 = 256;
 

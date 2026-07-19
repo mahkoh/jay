@@ -1,16 +1,19 @@
-use {
-    crate::{
-        backend::{ConnectorId, DrmDeviceId},
-        client::{Client, ClientError},
-        ifs::wp_drm_lease_v1::{WpDrmLeaseV1, WpDrmLeaseV1Lessee},
-        leaks::Tracker,
-        object::{Object, Version},
-        utils::copyhashmap::CopyHashMap,
-        wire::{WpDrmLeaseConnectorV1Id, WpDrmLeaseRequestV1Id, wp_drm_lease_request_v1::*},
-    },
-    std::{cell::Cell, rc::Rc},
-    thiserror::Error,
-};
+use crate::backend::ConnectorId;
+use crate::backend::DrmDeviceId;
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::ifs::wp_drm_lease_v1::WpDrmLeaseV1;
+use crate::ifs::wp_drm_lease_v1::WpDrmLeaseV1Lessee;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::wire::WpDrmLeaseConnectorV1Id;
+use crate::wire::WpDrmLeaseRequestV1Id;
+use crate::wire::wp_drm_lease_request_v1::*;
+use std::cell::Cell;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct WpDrmLeaseRequestV1 {
     pub id: WpDrmLeaseRequestV1Id,

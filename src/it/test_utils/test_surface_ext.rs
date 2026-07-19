@@ -1,17 +1,12 @@
-use {
-    crate::{
-        it::{
-            test_client::TestClient,
-            test_error::TestError,
-            test_ifs::{
-                test_single_pixel_buffer_manager::TestSinglePixelBufferManager,
-                test_surface::TestSurface, test_viewport::TestViewport,
-            },
-        },
-        theme::Color,
-    },
-    std::{cell::Cell, ops::Deref, rc::Rc},
-};
+use crate::it::test_client::TestClient;
+use crate::it::test_error::TestError;
+use crate::it::test_ifs::test_single_pixel_buffer_manager::TestSinglePixelBufferManager;
+use crate::it::test_ifs::test_surface::TestSurface;
+use crate::it::test_ifs::test_viewport::TestViewport;
+use crate::theme::Color;
+use std::cell::Cell;
+use std::ops::Deref;
+use std::rc::Rc;
 
 pub struct TestSurfaceExt {
     pub client: Rc<TestClient>,

@@ -1,19 +1,20 @@
-use {
-    crate::{
-        config::{
-            context::Context,
-            extractor::{Extractor, ExtractorError, n64, opt, val},
-            parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-        },
-        toml::{
-            toml_span::{DespanExt, Span, Spanned},
-            toml_value::Value,
-        },
-    },
-    indexmap::IndexMap,
-    std::time::Duration,
-    thiserror::Error,
-};
+use crate::config::context::Context;
+use crate::config::extractor::Extractor;
+use crate::config::extractor::ExtractorError;
+use crate::config::extractor::n64;
+use crate::config::extractor::opt;
+use crate::config::extractor::val;
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::toml::toml_span::DespanExt;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_value::Value;
+use indexmap::IndexMap;
+use std::time::Duration;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum TransactionsParserError {

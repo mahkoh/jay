@@ -1,36 +1,50 @@
-use {
-    crate::{
-        backend::{BackendDrmDevice, Connector},
-        backends::metal::{
-            MetalError,
-            allocator::{RenderBuffer, RenderBufferCopy},
-            transaction::{DrmConnectorState, DrmPlaneState},
-            video::{MetalConnector, MetalCrtc, MetalHardwareCursorChange, MetalPlane},
-        },
-        cmm::{cmm_description::ColorDescription, cmm_render_intent::RenderIntent},
-        gfx_api::{
-            AcquireSync, BufferResv, DirectScanoutPosition, GfxRenderPass, GfxTexture, LazyTexture,
-            ReleaseSync, SyncFile, TextureUse, create_render_pass,
-        },
-        ifs::wl_output::BlendSpace,
-        rect::Region,
-        time::Time,
-        tracy::FrameName,
-        tree::{OutputNode, TreeTimeline::RenderTL},
-        utils::{errorfmt::ErrorFmt, oserror::OsError},
-        video::{
-            dmabuf::{DmaBuf, DmaBufId},
-            drm::{
-                DRM_MODE_ATOMIC_NONBLOCK, DRM_MODE_PAGE_FLIP_ASYNC, DRM_MODE_PAGE_FLIP_EVENT,
-                DrmCrtc, DrmError, DrmFb, DrmFramebuffer, DrmObject,
-            },
-        },
-    },
-    arrayvec::ArrayVec,
-    jay_proc::jay_hash,
-    std::rc::{Rc, Weak},
-    uapi::{OwnedFd, c},
-};
+use crate::backend::BackendDrmDevice;
+use crate::backend::Connector;
+use crate::backends::metal::MetalError;
+use crate::backends::metal::allocator::RenderBuffer;
+use crate::backends::metal::allocator::RenderBufferCopy;
+use crate::backends::metal::transaction::DrmConnectorState;
+use crate::backends::metal::transaction::DrmPlaneState;
+use crate::backends::metal::video::MetalConnector;
+use crate::backends::metal::video::MetalCrtc;
+use crate::backends::metal::video::MetalHardwareCursorChange;
+use crate::backends::metal::video::MetalPlane;
+use crate::cmm::cmm_description::ColorDescription;
+use crate::cmm::cmm_render_intent::RenderIntent;
+use crate::gfx_api::AcquireSync;
+use crate::gfx_api::BufferResv;
+use crate::gfx_api::DirectScanoutPosition;
+use crate::gfx_api::GfxRenderPass;
+use crate::gfx_api::GfxTexture;
+use crate::gfx_api::LazyTexture;
+use crate::gfx_api::ReleaseSync;
+use crate::gfx_api::SyncFile;
+use crate::gfx_api::TextureUse;
+use crate::gfx_api::create_render_pass;
+use crate::ifs::wl_output::BlendSpace;
+use crate::rect::Region;
+use crate::time::Time;
+use crate::tracy::FrameName;
+use crate::tree::OutputNode;
+use crate::tree::TreeTimeline::RenderTL;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::oserror::OsError;
+use crate::video::dmabuf::DmaBuf;
+use crate::video::dmabuf::DmaBufId;
+use crate::video::drm::DRM_MODE_ATOMIC_NONBLOCK;
+use crate::video::drm::DRM_MODE_PAGE_FLIP_ASYNC;
+use crate::video::drm::DRM_MODE_PAGE_FLIP_EVENT;
+use crate::video::drm::DrmCrtc;
+use crate::video::drm::DrmError;
+use crate::video::drm::DrmFb;
+use crate::video::drm::DrmFramebuffer;
+use crate::video::drm::DrmObject;
+use arrayvec::ArrayVec;
+use jay_proc::jay_hash;
+use std::rc::Rc;
+use std::rc::Weak;
+use uapi::OwnedFd;
+use uapi::c;
 
 struct Latched {
     pass: GfxRenderPass,

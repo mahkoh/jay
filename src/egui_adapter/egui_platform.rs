@@ -1,90 +1,126 @@
-use {
-    crate::{
-        allocator::{Allocator, AllocatorError, BO_USE_RENDERING, BufferObject},
-        async_engine::SpawnedFuture,
-        client::{Client, ClientCaps, ClientError},
-        cursor::KnownCursor,
-        egui_adapter::egui_vulkan::{
-            EGV_FORMAT, EgvContext, EgvError, EgvFramebuffer, EgvRenderer,
-        },
-        fixed::Fixed,
-        fontconfig::match_font,
-        gfx_api::SyncFile,
-        globals::{GlobalName, Singleton},
-        ifs::wl_seat::{
-            BTN_EXTRA, BTN_LEFT, BTN_MIDDLE, BTN_RIGHT, BTN_SIDE,
-            wl_pointer::{self, HORIZONTAL_SCROLL, PendingScroll, VERTICAL_SCROLL},
-        },
-        object::Version,
-        scale::Scale,
-        security_context_acceptor::AcceptorMetadata,
-        state::State,
-        utils::{
-            asyncevent::AsyncEvent,
-            buf::Buf,
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            double_buffered::DoubleBuffered,
-            errorfmt::ErrorFmt,
-            object_drop_queue::ObjectDropQueue,
-            oserror::{OsError, OsErrorExt2},
-            pipe::{Pipe, pipe},
-            rc_eq::rc_eq,
-        },
-        wire::{
-            WlSurfaceId,
-            wl_pointer::{Button, Enter, Leave},
-            wp_fractional_scale_v1::PreferredScale,
-        },
-        wl_usr::{
-            UsrCon, UsrConOwner,
-            usr_ifs::{
-                usr_jay_compositor::UsrJayCompositor,
-                usr_jay_sync_file_release::UsrJaySyncFileReleaseOwner,
-                usr_jay_sync_file_surface::UsrJaySyncFileSurface,
-                usr_wl_buffer::UsrWlBuffer,
-                usr_wl_callback::UsrWlCallbackOwner,
-                usr_wl_compositor::UsrWlCompositor,
-                usr_wl_data_device::UsrWlDataDevice,
-                usr_wl_data_device_manager::UsrWlDataDeviceManager,
-                usr_wl_data_source::{UsrWlDataSource, UsrWlDataSourceOwner},
-                usr_wl_keyboard::{UsrWlKeyboard, UsrWlKeyboardOwner},
-                usr_wl_pointer::{UsrWlPointer, UsrWlPointerOwner},
-                usr_wl_registry::UsrWlRegistry,
-                usr_wl_seat::UsrWlSeat,
-                usr_wl_surface::UsrWlSurface,
-                usr_wp_cursor_shape_device_v1::UsrWpCursorShapeDeviceV1,
-                usr_wp_cursor_shape_manager_v1::UsrWpCursorShapeManagerV1,
-                usr_wp_fractional_scale::{UsrWpFractionalScale, UsrWpFractionalScaleOwner},
-                usr_wp_fractional_scale_manager::UsrWpFractionalScaleManager,
-                usr_wp_viewport::UsrWpViewport,
-                usr_wp_viewporter::UsrWpViewporter,
-                usr_xdg_surface::{UsrXdgSurface, UsrXdgSurfaceOwner},
-                usr_xdg_toplevel::{UsrXdgToplevel, UsrXdgToplevelOwner},
-                usr_xdg_wm_base::UsrXdgWmBase,
-                usr_zwp_linux_dmabuf_v1::UsrZwpLinuxDmabufV1,
-                usr_zwp_primary_selection_device_manager::UsrZwpPrimarySelectionDeviceManagerV1,
-            },
-        },
-    },
-    egui::{
-        CursorIcon, Event, FontData, FontDefinitions, FontFamily, FullOutput, Key, Modifiers,
-        MouseWheelUnit, OutputCommand, PlatformOutput, PointerButton, Pos2, RawInput, TouchPhase,
-        Vec2, ViewportCommand, ViewportEvent, ViewportId, ViewportInfo, pos2, vec2,
-    },
-    futures_util::{FutureExt, select},
-    isnt::std_1::primitive::{IsntCharExt, IsntSliceExt, IsntStrExt},
-    kbvm::{Keysym, ModifierMask, lookup::Lookup},
-    std::{
-        cell::{Cell, RefCell},
-        collections::btree_map::Entry,
-        fs, mem,
-        rc::{Rc, Weak},
-        sync::Arc,
-    },
-    thiserror::Error,
-    uapi::{OwnedFd, c},
-};
+use crate::allocator::Allocator;
+use crate::allocator::AllocatorError;
+use crate::allocator::BO_USE_RENDERING;
+use crate::allocator::BufferObject;
+use crate::async_engine::SpawnedFuture;
+use crate::client::Client;
+use crate::client::ClientCaps;
+use crate::client::ClientError;
+use crate::cursor::KnownCursor;
+use crate::egui_adapter::egui_vulkan::EGV_FORMAT;
+use crate::egui_adapter::egui_vulkan::EgvContext;
+use crate::egui_adapter::egui_vulkan::EgvError;
+use crate::egui_adapter::egui_vulkan::EgvFramebuffer;
+use crate::egui_adapter::egui_vulkan::EgvRenderer;
+use crate::fixed::Fixed;
+use crate::fontconfig::match_font;
+use crate::gfx_api::SyncFile;
+use crate::globals::GlobalName;
+use crate::globals::Singleton;
+use crate::ifs::wl_seat::BTN_EXTRA;
+use crate::ifs::wl_seat::BTN_LEFT;
+use crate::ifs::wl_seat::BTN_MIDDLE;
+use crate::ifs::wl_seat::BTN_RIGHT;
+use crate::ifs::wl_seat::BTN_SIDE;
+use crate::ifs::wl_seat::wl_pointer::HORIZONTAL_SCROLL;
+use crate::ifs::wl_seat::wl_pointer::PendingScroll;
+use crate::ifs::wl_seat::wl_pointer::VERTICAL_SCROLL;
+use crate::ifs::wl_seat::wl_pointer::{self};
+use crate::object::Version;
+use crate::scale::Scale;
+use crate::security_context_acceptor::AcceptorMetadata;
+use crate::state::State;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::buf::Buf;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::double_buffered::DoubleBuffered;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::object_drop_queue::ObjectDropQueue;
+use crate::utils::oserror::OsError;
+use crate::utils::oserror::OsErrorExt2;
+use crate::utils::pipe::Pipe;
+use crate::utils::pipe::pipe;
+use crate::utils::rc_eq::rc_eq;
+use crate::wire::WlSurfaceId;
+use crate::wire::wl_pointer::Button;
+use crate::wire::wl_pointer::Enter;
+use crate::wire::wl_pointer::Leave;
+use crate::wire::wp_fractional_scale_v1::PreferredScale;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::UsrConOwner;
+use crate::wl_usr::usr_ifs::usr_jay_compositor::UsrJayCompositor;
+use crate::wl_usr::usr_ifs::usr_jay_sync_file_release::UsrJaySyncFileReleaseOwner;
+use crate::wl_usr::usr_ifs::usr_jay_sync_file_surface::UsrJaySyncFileSurface;
+use crate::wl_usr::usr_ifs::usr_wl_buffer::UsrWlBuffer;
+use crate::wl_usr::usr_ifs::usr_wl_callback::UsrWlCallbackOwner;
+use crate::wl_usr::usr_ifs::usr_wl_compositor::UsrWlCompositor;
+use crate::wl_usr::usr_ifs::usr_wl_data_device::UsrWlDataDevice;
+use crate::wl_usr::usr_ifs::usr_wl_data_device_manager::UsrWlDataDeviceManager;
+use crate::wl_usr::usr_ifs::usr_wl_data_source::UsrWlDataSource;
+use crate::wl_usr::usr_ifs::usr_wl_data_source::UsrWlDataSourceOwner;
+use crate::wl_usr::usr_ifs::usr_wl_keyboard::UsrWlKeyboard;
+use crate::wl_usr::usr_ifs::usr_wl_keyboard::UsrWlKeyboardOwner;
+use crate::wl_usr::usr_ifs::usr_wl_pointer::UsrWlPointer;
+use crate::wl_usr::usr_ifs::usr_wl_pointer::UsrWlPointerOwner;
+use crate::wl_usr::usr_ifs::usr_wl_registry::UsrWlRegistry;
+use crate::wl_usr::usr_ifs::usr_wl_seat::UsrWlSeat;
+use crate::wl_usr::usr_ifs::usr_wl_surface::UsrWlSurface;
+use crate::wl_usr::usr_ifs::usr_wp_cursor_shape_device_v1::UsrWpCursorShapeDeviceV1;
+use crate::wl_usr::usr_ifs::usr_wp_cursor_shape_manager_v1::UsrWpCursorShapeManagerV1;
+use crate::wl_usr::usr_ifs::usr_wp_fractional_scale::UsrWpFractionalScale;
+use crate::wl_usr::usr_ifs::usr_wp_fractional_scale::UsrWpFractionalScaleOwner;
+use crate::wl_usr::usr_ifs::usr_wp_fractional_scale_manager::UsrWpFractionalScaleManager;
+use crate::wl_usr::usr_ifs::usr_wp_viewport::UsrWpViewport;
+use crate::wl_usr::usr_ifs::usr_wp_viewporter::UsrWpViewporter;
+use crate::wl_usr::usr_ifs::usr_xdg_surface::UsrXdgSurface;
+use crate::wl_usr::usr_ifs::usr_xdg_surface::UsrXdgSurfaceOwner;
+use crate::wl_usr::usr_ifs::usr_xdg_toplevel::UsrXdgToplevel;
+use crate::wl_usr::usr_ifs::usr_xdg_toplevel::UsrXdgToplevelOwner;
+use crate::wl_usr::usr_ifs::usr_xdg_wm_base::UsrXdgWmBase;
+use crate::wl_usr::usr_ifs::usr_zwp_linux_dmabuf_v1::UsrZwpLinuxDmabufV1;
+use crate::wl_usr::usr_ifs::usr_zwp_primary_selection_device_manager::UsrZwpPrimarySelectionDeviceManagerV1;
+use egui::CursorIcon;
+use egui::Event;
+use egui::FontData;
+use egui::FontDefinitions;
+use egui::FontFamily;
+use egui::FullOutput;
+use egui::Key;
+use egui::Modifiers;
+use egui::MouseWheelUnit;
+use egui::OutputCommand;
+use egui::PlatformOutput;
+use egui::PointerButton;
+use egui::Pos2;
+use egui::RawInput;
+use egui::TouchPhase;
+use egui::Vec2;
+use egui::ViewportCommand;
+use egui::ViewportEvent;
+use egui::ViewportId;
+use egui::ViewportInfo;
+use egui::pos2;
+use egui::vec2;
+use futures_util::FutureExt;
+use futures_util::select;
+use isnt::std_1::primitive::IsntCharExt;
+use isnt::std_1::primitive::IsntSliceExt;
+use isnt::std_1::primitive::IsntStrExt;
+use kbvm::Keysym;
+use kbvm::ModifierMask;
+use kbvm::lookup::Lookup;
+use std::cell::Cell;
+use std::cell::RefCell;
+use std::collections::btree_map::Entry;
+use std::fs;
+use std::mem;
+use std::rc::Rc;
+use std::rc::Weak;
+use std::sync::Arc;
+use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c;
 
 #[derive(Debug, Error)]
 pub enum EggError {
@@ -1204,7 +1240,8 @@ impl UsrWlCallbackOwner for EggWindowInner {
 }
 
 fn map_key(kc: Keysym, mods: &mut Modifiers) -> Option<Key> {
-    use {Key as K, kbvm::syms as s};
+    use Key as K;
+    use kbvm::syms as s;
     let mut with_shift = |k| {
         mods.shift = true;
         k

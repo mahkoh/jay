@@ -1,7 +1,7 @@
-use {
-    crate::utils::{cell_ext::CellExt, clonecell::CloneCell, markers::JayClone},
-    std::cell::Cell,
-};
+use crate::utils::cell_ext::CellExt;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::markers::JayClone;
+use std::cell::Cell;
 
 pub trait ObjWithId {
     type Id: Copy;

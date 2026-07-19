@@ -1,10 +1,7 @@
-use {
-    crate::{
-        cpu_worker::{AsyncCpuWork, CpuWork},
-        rect::Rect,
-    },
-    std::ptr,
-};
+use crate::cpu_worker::AsyncCpuWork;
+use crate::cpu_worker::CpuWork;
+use crate::rect::Rect;
+use std::ptr;
 
 pub struct ImgCopyWork {
     pub src: *mut u8,

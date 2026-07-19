@@ -1,16 +1,15 @@
-use {
-    crate::{
-        client::{Client, ClientError},
-        cursor::KnownCursor,
-        ifs::wl_seat::WlSeatGlobal,
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{JayPointerId, jay_pointer::*},
-    },
-    num_traits::FromPrimitive,
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::client::ClientError;
+use crate::cursor::KnownCursor;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::JayPointerId;
+use crate::wire::jay_pointer::*;
+use num_traits::FromPrimitive;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub struct JayPointer {
     pub id: JayPointerId,

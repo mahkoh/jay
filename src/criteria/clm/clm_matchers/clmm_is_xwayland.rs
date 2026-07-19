@@ -1,7 +1,6 @@
-use {
-    crate::{client::Client, criteria::crit_graph::CritFixedRootCriterion},
-    std::rc::Rc,
-};
+use crate::client::Client;
+use crate::criteria::crit_graph::CritFixedRootCriterion;
+use std::rc::Rc;
 
 pub struct ClmMatchIsXwayland(pub bool);
 

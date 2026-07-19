@@ -1,19 +1,27 @@
-use {
-    crate::{
-        config::parser::{DataType, ParseResult, Parser, UnexpectedDataType},
-        toml::toml_span::{Span, SpannedExt},
-    },
-    jay_config::keyboard::{
-        ModifiedKeySym,
-        mods::{
-            ALT, CAPS, CTRL, LOCK, LOGO, MOD1, MOD2, MOD3, MOD4, MOD5, Modifiers, NUM, RELEASE,
-            SHIFT,
-        },
-        syms::KeySym,
-    },
-    kbvm::Keysym,
-    thiserror::Error,
-};
+use crate::config::parser::DataType;
+use crate::config::parser::ParseResult;
+use crate::config::parser::Parser;
+use crate::config::parser::UnexpectedDataType;
+use crate::toml::toml_span::Span;
+use crate::toml::toml_span::SpannedExt;
+use jay_config::keyboard::ModifiedKeySym;
+use jay_config::keyboard::mods::ALT;
+use jay_config::keyboard::mods::CAPS;
+use jay_config::keyboard::mods::CTRL;
+use jay_config::keyboard::mods::LOCK;
+use jay_config::keyboard::mods::LOGO;
+use jay_config::keyboard::mods::MOD1;
+use jay_config::keyboard::mods::MOD2;
+use jay_config::keyboard::mods::MOD3;
+use jay_config::keyboard::mods::MOD4;
+use jay_config::keyboard::mods::MOD5;
+use jay_config::keyboard::mods::Modifiers;
+use jay_config::keyboard::mods::NUM;
+use jay_config::keyboard::mods::RELEASE;
+use jay_config::keyboard::mods::SHIFT;
+use jay_config::keyboard::syms::KeySym;
+use kbvm::Keysym;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ModifiedKeysymParserError {

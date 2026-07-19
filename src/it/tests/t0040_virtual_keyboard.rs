@@ -1,14 +1,11 @@
-use {
-    crate::{
-        backend::KeyState,
-        clientmem::ClientMem,
-        it::{test_error::TestResult, testrun::TestRun},
-        kbvm::KbvmContext,
-    },
-    bstr::ByteSlice,
-    std::rc::Rc,
-    uapi::OwnedFd,
-};
+use crate::backend::KeyState;
+use crate::clientmem::ClientMem;
+use crate::it::test_error::TestResult;
+use crate::it::testrun::TestRun;
+use crate::kbvm::KbvmContext;
+use bstr::ByteSlice;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 testcase!();
 

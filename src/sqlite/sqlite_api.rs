@@ -1,19 +1,23 @@
-use {
-    crate::{
-        sqlite::{
-            SqliteError, SqliteUserId,
-            sqlite_sys::{
-                self, SQLITE_BLOB, SQLITE_DONE, SQLITE_INTEGER, SQLITE_PREPARE_PERSISTENT,
-                SQLITE_ROW, SQLITE_STATIC, SqliteResult, sqlite3, sqlite3_stmt,
-            },
-        },
-        utils::errorfmt::ErrorFmt,
-    },
-    opera::PhantomNotSync,
-    sqlite_sys::Sqlite,
-    std::{ptr, rc::Rc, slice},
-    uapi::{IntoUstr, c::c_int},
-};
+use crate::sqlite::SqliteError;
+use crate::sqlite::SqliteUserId;
+use crate::sqlite::sqlite_sys::SQLITE_BLOB;
+use crate::sqlite::sqlite_sys::SQLITE_DONE;
+use crate::sqlite::sqlite_sys::SQLITE_INTEGER;
+use crate::sqlite::sqlite_sys::SQLITE_PREPARE_PERSISTENT;
+use crate::sqlite::sqlite_sys::SQLITE_ROW;
+use crate::sqlite::sqlite_sys::SQLITE_STATIC;
+use crate::sqlite::sqlite_sys::SqliteResult;
+use crate::sqlite::sqlite_sys::sqlite3;
+use crate::sqlite::sqlite_sys::sqlite3_stmt;
+use crate::sqlite::sqlite_sys::{self};
+use crate::utils::errorfmt::ErrorFmt;
+use opera::PhantomNotSync;
+use sqlite_sys::Sqlite;
+use std::ptr;
+use std::rc::Rc;
+use std::slice;
+use uapi::IntoUstr;
+use uapi::c::c_int;
 
 pub struct SqliteDb {
     pub api: &'static Sqlite,

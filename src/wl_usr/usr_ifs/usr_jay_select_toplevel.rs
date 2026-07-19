@@ -1,17 +1,14 @@
-use {
-    crate::{
-        ifs::jay_toplevel::ID_SINCE,
-        object::Version,
-        utils::clonecell::CloneCell,
-        wire::{JaySelectToplevelId, jay_select_toplevel::*},
-        wl_usr::{
-            UsrCon,
-            usr_ifs::usr_jay_toplevel::{UsrJayToplevel, UsrJayToplevelOwner},
-            usr_object::UsrObject,
-        },
-    },
-    std::{convert::Infallible, rc::Rc},
-};
+use crate::ifs::jay_toplevel::ID_SINCE;
+use crate::object::Version;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::JaySelectToplevelId;
+use crate::wire::jay_select_toplevel::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_ifs::usr_jay_toplevel::UsrJayToplevel;
+use crate::wl_usr::usr_ifs::usr_jay_toplevel::UsrJayToplevelOwner;
+use crate::wl_usr::usr_object::UsrObject;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrJaySelectToplevel {
     pub id: JaySelectToplevelId,

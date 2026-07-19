@@ -1,23 +1,19 @@
-use {
-    crate::{
-        client::ClientId,
-        it::{
-            test_error::{TestError, TestResult},
-            test_ifs::test_screenshot::TestJayScreenshot,
-            test_object::TestObject,
-            test_transport::TestTransport,
-            testrun::ParseFull,
-        },
-        utils::{buffd::MsgParser, cell_ext::CellExt},
-        video::dmabuf::DmaBuf,
-        wire::{
-            JayCompositorId,
-            jay_compositor::{self, *},
-        },
-    },
-    std::{cell::Cell, rc::Rc},
-    uapi::OwnedFd,
-};
+use crate::client::ClientId;
+use crate::it::test_error::TestError;
+use crate::it::test_error::TestResult;
+use crate::it::test_ifs::test_screenshot::TestJayScreenshot;
+use crate::it::test_object::TestObject;
+use crate::it::test_transport::TestTransport;
+use crate::it::testrun::ParseFull;
+use crate::utils::buffd::MsgParser;
+use crate::utils::cell_ext::CellExt;
+use crate::video::dmabuf::DmaBuf;
+use crate::wire::JayCompositorId;
+use crate::wire::jay_compositor::*;
+use crate::wire::jay_compositor::{self};
+use std::cell::Cell;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 pub struct TestJayCompositor {
     pub id: JayCompositorId,

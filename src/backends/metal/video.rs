@@ -1,91 +1,131 @@
-use {
-    crate::{
-        async_engine::{Phase, SpawnedFuture},
-        backend::{
-            BackendColorSpace, BackendConnectorState, BackendDrmDevice, BackendDrmLease,
-            BackendDrmLessee, BackendEotfs, BackendEvent, BackendGammaLut, BackendGammaLutElement,
-            BackendLuminance, Connector, ConnectorEvent, ConnectorId, ConnectorKernelId,
-            DrmDeviceId, HardwareCursor, HardwareCursorUpdate, Mode, MonitorInfo, ScanoutFormats,
-            transaction::{
-                BackendConnectorTransaction, BackendConnectorTransactionError,
-                BackendConnectorTransactionType, BackendConnectorTransactionTypeDyn,
-            },
-        },
-        backends::metal::{
-            MetalBackend, MetalError,
-            allocator::RenderBuffer,
-            present::{
-                DEFAULT_POST_COMMIT_MARGIN, DEFAULT_PRE_COMMIT_MARGIN, DirectScanoutCache,
-                DirectScanoutKey, POST_COMMIT_MARGIN_DELTA, PresentFbCore,
-            },
-            transaction::{
-                DrmConnectorState, DrmConnectorStateProps, DrmCrtcState, DrmCrtcStateProps,
-                DrmPlaneState, DrmPlaneStateProps, MetalDeviceTransaction,
-            },
-        },
-        cmm::{
-            cmm_description::ColorDescription, cmm_primaries::Primaries,
-            cmm_render_intent::RenderIntent,
-        },
-        copy_device::{CopyDevice, CopyDeviceRegistry},
-        edid::{CtaDataBlock, Descriptor, EdidExtension},
-        format::{Format, XRGB8888},
-        gfx_api::{FdSync, GfxApi, GfxContext, GfxFramebuffer},
-        ifs::{
-            wl_output::OutputId,
-            wp_presentation_feedback::{KIND_HW_COMPLETION, KIND_VSYNC, KIND_ZERO_COPY},
-        },
-        state::State,
-        tree::OutputNode,
-        udev::UdevDevice,
-        utils::{
-            asyncevent::AsyncEvent,
-            bhash::{BHashMap, BHashSet},
-            binary_search_map::BinarySearchMap,
-            bitflags::BitflagsExt,
-            cell_ext::CellExt,
-            clonecell::CloneCell,
-            copyhashmap::CopyHashMap,
-            errorfmt::ErrorFmt,
-            geometric_decay::GeometricDecay,
-            hash_map_ext::HashMapExt,
-            numcell::NumCell,
-            object_registry::{CachedObjectRegistry, ObjectRegistry},
-            on_change::OnChange,
-            opaque_cell::OpaqueCell,
-            ordered_float::F64,
-            oserror::OsError,
-        },
-        video::{
-            INVALID_MODIFIER, Modifier,
-            dmabuf::DmaBufId,
-            drm::{
-                ConnectorStatus, ConnectorType, DRM_CLIENT_CAP_ATOMIC,
-                DRM_CLIENT_CAP_PLANE_COLOR_PIPELINE, DrmBlob, DrmCardResources, DrmConnector,
-                DrmCrtc, DrmEncoder, DrmError, DrmEvent, DrmFb, DrmLease, DrmMaster, DrmModeInfo,
-                DrmObject, DrmPlane, DrmProperty, DrmPropertyDefinition, DrmPropertyType,
-                DrmPropertyValue, DrmVersion, HDMI_EOTF_TRADITIONAL_GAMMA_SDR,
-                PrepareDrmObjectProperties, drm_mode_modeinfo, hdr_output_metadata,
-            },
-            gbm::GbmDevice,
-        },
-    },
-    bstr::{BString, ByteSlice},
-    hashbrown::hash_map::Entry,
-    indexmap::{IndexSet, indexset},
-    std::{
-        cell::{Cell, OnceCell, RefCell},
-        ffi::CString,
-        fmt::{Debug, Formatter},
-        mem,
-        ops::DerefMut,
-        rc::Rc,
-    },
-    uapi::{
-        OwnedFd,
-        c::{self, dev_t},
-    },
-};
+use crate::async_engine::Phase;
+use crate::async_engine::SpawnedFuture;
+use crate::backend::BackendColorSpace;
+use crate::backend::BackendConnectorState;
+use crate::backend::BackendDrmDevice;
+use crate::backend::BackendDrmLease;
+use crate::backend::BackendDrmLessee;
+use crate::backend::BackendEotfs;
+use crate::backend::BackendEvent;
+use crate::backend::BackendGammaLut;
+use crate::backend::BackendGammaLutElement;
+use crate::backend::BackendLuminance;
+use crate::backend::Connector;
+use crate::backend::ConnectorEvent;
+use crate::backend::ConnectorId;
+use crate::backend::ConnectorKernelId;
+use crate::backend::DrmDeviceId;
+use crate::backend::HardwareCursor;
+use crate::backend::HardwareCursorUpdate;
+use crate::backend::Mode;
+use crate::backend::MonitorInfo;
+use crate::backend::ScanoutFormats;
+use crate::backend::transaction::BackendConnectorTransaction;
+use crate::backend::transaction::BackendConnectorTransactionError;
+use crate::backend::transaction::BackendConnectorTransactionType;
+use crate::backend::transaction::BackendConnectorTransactionTypeDyn;
+use crate::backends::metal::MetalBackend;
+use crate::backends::metal::MetalError;
+use crate::backends::metal::allocator::RenderBuffer;
+use crate::backends::metal::present::DEFAULT_POST_COMMIT_MARGIN;
+use crate::backends::metal::present::DEFAULT_PRE_COMMIT_MARGIN;
+use crate::backends::metal::present::DirectScanoutCache;
+use crate::backends::metal::present::DirectScanoutKey;
+use crate::backends::metal::present::POST_COMMIT_MARGIN_DELTA;
+use crate::backends::metal::present::PresentFbCore;
+use crate::backends::metal::transaction::DrmConnectorState;
+use crate::backends::metal::transaction::DrmConnectorStateProps;
+use crate::backends::metal::transaction::DrmCrtcState;
+use crate::backends::metal::transaction::DrmCrtcStateProps;
+use crate::backends::metal::transaction::DrmPlaneState;
+use crate::backends::metal::transaction::DrmPlaneStateProps;
+use crate::backends::metal::transaction::MetalDeviceTransaction;
+use crate::cmm::cmm_description::ColorDescription;
+use crate::cmm::cmm_primaries::Primaries;
+use crate::cmm::cmm_render_intent::RenderIntent;
+use crate::copy_device::CopyDevice;
+use crate::copy_device::CopyDeviceRegistry;
+use crate::edid::CtaDataBlock;
+use crate::edid::Descriptor;
+use crate::edid::EdidExtension;
+use crate::format::Format;
+use crate::format::XRGB8888;
+use crate::gfx_api::FdSync;
+use crate::gfx_api::GfxApi;
+use crate::gfx_api::GfxContext;
+use crate::gfx_api::GfxFramebuffer;
+use crate::ifs::wl_output::OutputId;
+use crate::ifs::wp_presentation_feedback::KIND_HW_COMPLETION;
+use crate::ifs::wp_presentation_feedback::KIND_VSYNC;
+use crate::ifs::wp_presentation_feedback::KIND_ZERO_COPY;
+use crate::state::State;
+use crate::tree::OutputNode;
+use crate::udev::UdevDevice;
+use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::bhash::BHashMap;
+use crate::utils::bhash::BHashSet;
+use crate::utils::binary_search_map::BinarySearchMap;
+use crate::utils::bitflags::BitflagsExt;
+use crate::utils::cell_ext::CellExt;
+use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::geometric_decay::GeometricDecay;
+use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::numcell::NumCell;
+use crate::utils::object_registry::CachedObjectRegistry;
+use crate::utils::object_registry::ObjectRegistry;
+use crate::utils::on_change::OnChange;
+use crate::utils::opaque_cell::OpaqueCell;
+use crate::utils::ordered_float::F64;
+use crate::utils::oserror::OsError;
+use crate::video::INVALID_MODIFIER;
+use crate::video::Modifier;
+use crate::video::dmabuf::DmaBufId;
+use crate::video::drm::ConnectorStatus;
+use crate::video::drm::ConnectorType;
+use crate::video::drm::DRM_CLIENT_CAP_ATOMIC;
+use crate::video::drm::DRM_CLIENT_CAP_PLANE_COLOR_PIPELINE;
+use crate::video::drm::DrmBlob;
+use crate::video::drm::DrmCardResources;
+use crate::video::drm::DrmConnector;
+use crate::video::drm::DrmCrtc;
+use crate::video::drm::DrmEncoder;
+use crate::video::drm::DrmError;
+use crate::video::drm::DrmEvent;
+use crate::video::drm::DrmFb;
+use crate::video::drm::DrmLease;
+use crate::video::drm::DrmMaster;
+use crate::video::drm::DrmModeInfo;
+use crate::video::drm::DrmObject;
+use crate::video::drm::DrmPlane;
+use crate::video::drm::DrmProperty;
+use crate::video::drm::DrmPropertyDefinition;
+use crate::video::drm::DrmPropertyType;
+use crate::video::drm::DrmPropertyValue;
+use crate::video::drm::DrmVersion;
+use crate::video::drm::HDMI_EOTF_TRADITIONAL_GAMMA_SDR;
+use crate::video::drm::PrepareDrmObjectProperties;
+use crate::video::drm::drm_mode_modeinfo;
+use crate::video::drm::hdr_output_metadata;
+use crate::video::gbm::GbmDevice;
+use bstr::BString;
+use bstr::ByteSlice;
+use hashbrown::hash_map::Entry;
+use indexmap::IndexSet;
+use indexmap::indexset;
+use std::cell::Cell;
+use std::cell::OnceCell;
+use std::cell::RefCell;
+use std::ffi::CString;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::mem;
+use std::ops::DerefMut;
+use std::rc::Rc;
+use uapi::OwnedFd;
+use uapi::c::dev_t;
+use uapi::c::{self};
 
 pub struct PendingDrmDevice {
     pub id: DrmDeviceId,

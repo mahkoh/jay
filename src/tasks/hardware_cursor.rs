@@ -1,8 +1,8 @@
-use {
-    crate::{state::State, utils::errorfmt::ErrorFmt},
-    futures_util::{FutureExt, select},
-    std::rc::Rc,
-};
+use crate::state::State;
+use crate::utils::errorfmt::ErrorFmt;
+use futures_util::FutureExt;
+use futures_util::select;
+use std::rc::Rc;
 
 pub async fn handle_hardware_cursor_tick(state: Rc<State>) {
     loop {

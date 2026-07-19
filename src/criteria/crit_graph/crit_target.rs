@@ -1,16 +1,13 @@
-use {
-    crate::{
-        criteria::{
-            CritDestroyListener, CritMatcherId, FixedRootMatcher, crit_leaf::CritLeafEvent,
-            crit_matchers::critm_constant::CritMatchConstant,
-        },
-        utils::{copyhashmap::CopyHashMap, queue::AsyncQueue},
-    },
-    std::{
-        hash::Hash,
-        rc::{Rc, Weak},
-    },
-};
+use crate::criteria::CritDestroyListener;
+use crate::criteria::CritMatcherId;
+use crate::criteria::FixedRootMatcher;
+use crate::criteria::crit_leaf::CritLeafEvent;
+use crate::criteria::crit_matchers::critm_constant::CritMatchConstant;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::queue::AsyncQueue;
+use std::hash::Hash;
+use std::rc::Rc;
+use std::rc::Weak;
 
 pub trait CritMgr: 'static {
     type Target: CritTarget<Mgr = Self>;

@@ -1,27 +1,22 @@
-use {
-    crate::{
-        client::Client,
-        ifs::{
-            ipc::data_control::{
-                private::{
-                    DataControlDevice, DataControlDeviceData, DataControlIpc, DataControlOfferData,
-                    logic::{self, DataControlError},
-                },
-                zwlr_data_control_offer_v1::ZwlrDataControlOfferV1,
-                zwlr_data_control_source_v1::ZwlrDataControlSourceV1,
-            },
-            wl_seat::WlSeatGlobal,
-        },
-        leaks::Tracker,
-        object::{Object, Version},
-        wire::{
-            ZwlrDataControlDeviceV1Id, ZwlrDataControlOfferV1Id, ZwlrDataControlSourceV1Id,
-            zwlr_data_control_device_v1::*,
-        },
-    },
-    std::rc::Rc,
-    thiserror::Error,
-};
+use crate::client::Client;
+use crate::ifs::ipc::data_control::private::DataControlDevice;
+use crate::ifs::ipc::data_control::private::DataControlDeviceData;
+use crate::ifs::ipc::data_control::private::DataControlIpc;
+use crate::ifs::ipc::data_control::private::DataControlOfferData;
+use crate::ifs::ipc::data_control::private::logic::DataControlError;
+use crate::ifs::ipc::data_control::private::logic::{self};
+use crate::ifs::ipc::data_control::zwlr_data_control_offer_v1::ZwlrDataControlOfferV1;
+use crate::ifs::ipc::data_control::zwlr_data_control_source_v1::ZwlrDataControlSourceV1;
+use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::leaks::Tracker;
+use crate::object::Object;
+use crate::object::Version;
+use crate::wire::ZwlrDataControlDeviceV1Id;
+use crate::wire::ZwlrDataControlOfferV1Id;
+use crate::wire::ZwlrDataControlSourceV1Id;
+use crate::wire::zwlr_data_control_device_v1::*;
+use std::rc::Rc;
+use thiserror::Error;
 
 pub const PRIMARY_SELECTION_SINCE: Version = Version(2);
 

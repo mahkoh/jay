@@ -1,17 +1,15 @@
-use {
-    crate::{
-        globals::GlobalName,
-        object::Version,
-        utils::clonecell::CloneCell,
-        wire::{JaySelectWorkspaceId, jay_select_workspace::*},
-        wl_usr::{
-            UsrCon,
-            usr_ifs::usr_jay_workspace::{UsrJayWorkspace, UsrJayWorkspaceOwner},
-            usr_object::UsrObject,
-        },
-    },
-    std::{cell::Cell, convert::Infallible, rc::Rc},
-};
+use crate::globals::GlobalName;
+use crate::object::Version;
+use crate::utils::clonecell::CloneCell;
+use crate::wire::JaySelectWorkspaceId;
+use crate::wire::jay_select_workspace::*;
+use crate::wl_usr::UsrCon;
+use crate::wl_usr::usr_ifs::usr_jay_workspace::UsrJayWorkspace;
+use crate::wl_usr::usr_ifs::usr_jay_workspace::UsrJayWorkspaceOwner;
+use crate::wl_usr::usr_object::UsrObject;
+use std::cell::Cell;
+use std::convert::Infallible;
+use std::rc::Rc;
 
 pub struct UsrJaySelectWorkspace {
     pub id: JaySelectWorkspaceId,
