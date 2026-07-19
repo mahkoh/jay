@@ -10,6 +10,13 @@ pub trait ObjWithId {
     fn id(&self) -> Self::Id;
 }
 
+#[expect(dead_code)]
+pub trait ObjWithIdOptExt {
+    type Id: Copy;
+
+    fn id_or_default(&self) -> Self::Id;
+}
+
 impl<T> ObjWithId for Option<T>
 where
     T: ObjWithId,
@@ -18,6 +25,18 @@ where
 
     fn id(&self) -> Self::Id {
         self.as_ref().map(ObjWithId::id)
+    }
+}
+
+impl<T> ObjWithIdOptExt for Option<T>
+where
+    T: ObjWithId,
+    T::Id: Default,
+{
+    type Id = T::Id;
+
+    fn id_or_default(&self) -> Self::Id {
+        self.id().unwrap_or_default()
     }
 }
 
