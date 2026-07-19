@@ -51,7 +51,7 @@ pub struct CursorUser {
     owner: CloneCell<Option<Rc<dyn CursorUserOwner>>>,
 }
 
-impl ObjWithId for Rc<CursorUser> {
+impl ObjWithId for CursorUser {
     type Id = CursorUserId;
 
     fn id(&self) -> Self::Id {

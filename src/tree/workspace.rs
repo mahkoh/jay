@@ -107,7 +107,7 @@ pub struct WorkspaceNodeState {
 
 pub type WorkspaceOutputLink = TreeLink<Rc<WorkspaceNode>>;
 
-impl ObjWithId for Rc<WorkspaceNode> {
+impl ObjWithId for WorkspaceNode {
     type Id = WorkspaceNodeId;
 
     fn id(&self) -> Self::Id {

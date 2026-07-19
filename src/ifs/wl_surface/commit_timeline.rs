@@ -96,7 +96,7 @@ struct Inner {
     entries: SyncQueue<Rc<Entry>>,
 }
 
-impl ObjWithId for Rc<Inner> {
+impl ObjWithId for Inner {
     type Id = CommitTimelineId;
 
     fn id(&self) -> Self::Id {

@@ -2,6 +2,7 @@ use crate::utils::cell_ext::CellExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::markers::JayClone;
 use std::cell::Cell;
+use std::rc::Rc;
 
 pub trait ObjWithId {
     type Id: Copy;
@@ -17,6 +18,17 @@ where
 
     fn id(&self) -> Self::Id {
         self.as_ref().map(ObjWithId::id)
+    }
+}
+
+impl<T> ObjWithId for Rc<T>
+where
+    T: ObjWithId,
+{
+    type Id = T::Id;
+
+    fn id(&self) -> Self::Id {
+        <T as ObjWithId>::id(self)
     }
 }
 

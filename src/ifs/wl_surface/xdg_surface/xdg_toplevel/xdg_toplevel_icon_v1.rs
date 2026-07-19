@@ -108,7 +108,7 @@ impl State {
     }
 }
 
-impl ObjWithId for Rc<XdgToplevelIconV1> {
+impl ObjWithId for XdgToplevelIconV1 {
     type Id = ToplevelIconId;
 
     fn id(&self) -> Self::Id {

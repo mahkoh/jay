@@ -617,7 +617,7 @@ pub struct DrmDevData {
     pub id_device: Option<Rc<dyn BufferIdDeviceDyn>>,
 }
 
-impl ObjWithId for Rc<ConnectorData> {
+impl ObjWithId for ConnectorData {
     type Id = ConnectorId;
 
     fn id(&self) -> Self::Id {
@@ -625,7 +625,7 @@ impl ObjWithId for Rc<ConnectorData> {
     }
 }
 
-impl ObjWithId for Rc<DrmDevData> {
+impl ObjWithId for DrmDevData {
     type Id = DrmDeviceId;
 
     fn id(&self) -> Self::Id {
