@@ -146,6 +146,12 @@ impl GpusPane {
                         dev.set_flip_margin(&self.state, v);
                     }
                 }
+                bool(
+                    ui,
+                    "Automatic Flip-Margin Adjustment",
+                    dev.dev.flip_margin_auto_adjustment_enabled(),
+                    |v| dev.set_flip_margin_auto_adjustment_enabled(&self.state, v),
+                );
             });
             CollapsingHeader::new("Connectors")
                 .default_open(true)

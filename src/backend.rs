@@ -669,6 +669,12 @@ pub trait BackendDrmDevice {
     fn flip_margin(&self) -> Option<u64> {
         None
     }
+    fn set_flip_margin_auto_adjustment_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
+    fn flip_margin_auto_adjustment_enabled(&self) -> bool {
+        true
+    }
     fn set_use_plane_color_pipelines(&self, use_plane_color_pipelines: bool) {
         let _ = use_plane_color_pipelines;
     }

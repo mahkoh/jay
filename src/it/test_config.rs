@@ -23,6 +23,7 @@ use jay_config::theme::BarPosition;
 use jay_config::theme::sized::BAR_SEPARATOR_WIDTH;
 use jay_config::theme::sized::Resizable;
 use jay_config::video::Connector;
+use jay_config::video::DrmDevice;
 use jay_config::video::Transform;
 use std::cell::Cell;
 use std::ops::Deref;
@@ -310,6 +311,24 @@ impl TestConfig {
             connector: Connector(output.global.connector.connector.id().raw() as _),
             transform,
         })
+    }
+
+    pub fn set_flip_margin_auto_adjustment_enabled(
+        &self,
+        device: DrmDevice,
+        enabled: bool,
+    ) -> TestResult {
+        self.send(ClientMessage::SetFlipMarginAutoAdjustmentEnabled { device, enabled })
+    }
+
+    pub fn flip_margin_auto_adjustment_enabled(
+        &self,
+        device: DrmDevice,
+    ) -> Result<bool, TestError> {
+        let reply =
+            self.send_with_reply(ClientMessage::GetFlipMarginAutoAdjustmentEnabled { device })?;
+        get_response!(reply, GetFlipMarginAutoAdjustmentEnabled { enabled });
+        Ok(enabled)
     }
 
     pub fn set_size(&self, sized: Resizable, size: i32) -> TestResult {

@@ -194,6 +194,7 @@ pub struct MetalDrmDevice {
     pub leases_to_break: CopyHashMap<MetalLeaseId, MetalLeaseData>,
     pub paused: Cell<bool>,
     pub min_post_commit_margin: Cell<u64>,
+    pub flip_margin_auto_adjustment_enabled: Cell<bool>,
     pub supports_plane_color_pipelines: bool,
     pub use_plane_color_pipelines: Cell<bool>,
     pub cm: MetalCmDevice,
@@ -211,6 +212,19 @@ impl MetalDrmDevice {
             return ctx.dev_id == self.id;
         }
         false
+    }
+
+    fn reset_flip_margin(&self) {
+        let margin = self.min_post_commit_margin.get();
+        if let Some(dd) = self.backend.device_holder.drm_devices.get(&self.devnum) {
+            for c in dd.connectors.lock().values() {
+                c.post_commit_margin.set(margin);
+                c.post_commit_margin_decay.reset(margin);
+                if let Some(output) = self.backend.state.root.outputs.get(&c.connector_id) {
+                    output.set_flip_margin(margin);
+                }
+            }
+        }
     }
 }
 
@@ -379,19 +393,22 @@ impl BackendDrmDevice for MetalDrmDevice {
 
     fn set_flip_margin(&self, margin: u64) {
         self.min_post_commit_margin.set(margin);
-        if let Some(dd) = self.backend.device_holder.drm_devices.get(&self.devnum) {
-            for c in dd.connectors.lock().values() {
-                c.post_commit_margin.set(margin);
-                c.post_commit_margin_decay.reset(margin);
-                if let Some(output) = self.backend.state.root.outputs.get(&c.connector_id) {
-                    output.set_flip_margin(margin);
-                }
-            }
-        }
+        self.reset_flip_margin();
     }
 
     fn flip_margin(&self) -> Option<u64> {
         Some(self.min_post_commit_margin.get())
+    }
+
+    fn set_flip_margin_auto_adjustment_enabled(&self, enabled: bool) {
+        self.flip_margin_auto_adjustment_enabled.set(enabled);
+        if !enabled {
+            self.reset_flip_margin();
+        }
+    }
+
+    fn flip_margin_auto_adjustment_enabled(&self) -> bool {
+        self.flip_margin_auto_adjustment_enabled.get()
     }
 
     fn set_use_plane_color_pipelines(&self, use_plane_color_pipelines: bool) {
@@ -2118,6 +2135,7 @@ impl MetalBackend {
             leases_to_break: Default::default(),
             paused: Cell::new(false),
             min_post_commit_margin: Cell::new(DEFAULT_POST_COMMIT_MARGIN),
+            flip_margin_auto_adjustment_enabled: Cell::new(true),
             supports_plane_color_pipelines,
             use_plane_color_pipelines: Cell::new(false),
             cm: MetalCmDevice::new(&vendor),
@@ -2432,6 +2450,9 @@ impl MetalBackend {
         let old_margin = connector.post_commit_margin.get();
         let new_margin = if n_missed > 0 {
             log::debug!("{}: Missed {n_missed} page flips", connector.kernel_id());
+            if !dev.dev.flip_margin_auto_adjustment_enabled.get() {
+                return;
+            }
             let refresh = dd.refresh as u64;
             if old_margin >= refresh {
                 return;

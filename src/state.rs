@@ -743,6 +743,11 @@ impl DrmDevData {
         state.trigger_cci(CCI_GPUS);
         state.damage_full(RenderTL);
     }
+
+    pub fn set_flip_margin_auto_adjustment_enabled(&self, state: &State, enabled: bool) {
+        self.dev.set_flip_margin_auto_adjustment_enabled(enabled);
+        state.trigger_cci(CCI_GPUS);
+    }
 }
 
 struct UpdateTextTexturesVisitor;

@@ -507,6 +507,7 @@ pub struct ConfigDrmDevice {
     pub direct_scanout_enabled: Option<bool>,
     pub flip_margin_ms: Option<f64>,
     pub plane_color_pipelines_enabled: Option<bool>,
+    pub flip_margin_auto_adjustment: Option<bool>,
 }
 
 #[derive(Debug, Clone)]
@@ -695,4 +696,20 @@ where
 fn default_config_parses() {
     let input = include_bytes!("default-config.toml");
     parse_config(input, &Default::default(), &mut Default::default(), |_| ()).unwrap();
+}
+
+#[test]
+fn flip_margin_auto_adjustment_parses() {
+    let input = br#"
+        [[drm-devices]]
+        match.pci-vendor = 0x1002
+        flip-margin-ms = 1.0
+        flip-margin-auto-adjustment = false
+    "#;
+    let config = parse_config(input, &Default::default(), &mut Default::default(), |_| ()).unwrap();
+    assert_eq!(config.drm_devices.len(), 1);
+    assert_eq!(
+        config.drm_devices[0].flip_margin_auto_adjustment,
+        Some(false)
+    );
 }

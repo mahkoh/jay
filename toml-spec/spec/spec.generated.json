@@ -1422,6 +1422,10 @@
         "plane-color-pipelines": {
           "type": "boolean",
           "description": "If specified, enables or disables the use of plane color pipelines for this\ndevice.\n\nThe default is `false`.\n"
+        },
+        "flip-margin-auto-adjustment": {
+          "type": "boolean",
+          "description": "Whether the compositor may dynamically increase the flip margin when page flips are\nmissed. This is enabled by default. Disable this to keep `flip-margin-ms` fixed and drop\nframes instead of increasing input latency.\n"
         }
       },
       "required": [

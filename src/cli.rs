@@ -288,3 +288,41 @@ pub fn main() {
         Cmd::Config(a) => config::main(cli.global, a),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn parse_auto_adjustment_enabled(value: &str) -> bool {
+        let cli = Jay::try_parse_from([
+            "jay",
+            "randr",
+            "card",
+            "card0",
+            "timing",
+            "auto-adjustment",
+            value,
+        ])
+        .unwrap();
+        let Cmd::Randr(RandrArgs {
+            command:
+                Some(randr::RandrCmd::Card(randr::CardArgs {
+                    command:
+                        randr::CardCommand::Timing(randr::TimingArgs {
+                            cmd: randr::TimingCmd::AutoAdjustment(args),
+                        }),
+                    ..
+                })),
+        }) = cli.command
+        else {
+            panic!("unexpected CLI parse result");
+        };
+        args.cmd.enabled()
+    }
+
+    #[test]
+    fn parses_flip_margin_auto_adjustment() {
+        assert!(parse_auto_adjustment_enabled("enable"));
+        assert!(!parse_auto_adjustment_enabled("disable"));
+    }
+}
