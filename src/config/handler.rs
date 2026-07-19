@@ -1176,6 +1176,28 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_flip_margin_auto_adjustment_enabled(
+        &self,
+        device: DrmDevice,
+        enabled: bool,
+    ) -> Result<(), CphError> {
+        self.get_drm_device(device)?
+            .set_flip_margin_auto_adjustment_enabled(&self.state, enabled);
+        Ok(())
+    }
+
+    fn handle_get_flip_margin_auto_adjustment_enabled(
+        &self,
+        device: DrmDevice,
+    ) -> Result<(), CphError> {
+        let enabled = self
+            .get_drm_device(device)?
+            .dev
+            .flip_margin_auto_adjustment_enabled();
+        self.respond(Response::GetFlipMarginAutoAdjustmentEnabled { enabled });
+        Ok(())
+    }
+
     fn handle_set_x_scaling_mode(&self, mode: XScalingMode) -> Result<(), CphError> {
         let use_wire_scale = match mode {
             XScalingMode::DEFAULT => false,
@@ -3654,6 +3676,12 @@ impl ConfigProxyHandler {
             ClientMessage::SetFlipMargin { device, margin } => self
                 .handle_set_flip_margin(device, margin)
                 .wrn("set_flip_margin")?,
+            ClientMessage::SetFlipMarginAutoAdjustmentEnabled { device, enabled } => self
+                .handle_set_flip_margin_auto_adjustment_enabled(device, enabled)
+                .wrn("set_flip_margin_auto_adjustment_enabled")?,
+            ClientMessage::GetFlipMarginAutoAdjustmentEnabled { device } => self
+                .handle_get_flip_margin_auto_adjustment_enabled(device)
+                .wrn("get_flip_margin_auto_adjustment_enabled")?,
             ClientMessage::SetUiDragEnabled { enabled } => self.handle_set_ui_drag_enabled(enabled),
             ClientMessage::SetUiDragThreshold { threshold } => {
                 self.handle_set_ui_drag_threshold(threshold)

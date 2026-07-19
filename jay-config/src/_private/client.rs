@@ -1099,6 +1099,17 @@ impl ConfigClient {
         self.send(&ClientMessage::SetFlipMargin { device, margin });
     }
 
+    pub fn drm_device_flip_margin_auto_adjustment_enabled(&self, device: DrmDevice) -> bool {
+        let res =
+            self.send_with_response(&ClientMessage::GetFlipMarginAutoAdjustmentEnabled { device });
+        get_response!(res, true, GetFlipMarginAutoAdjustmentEnabled { enabled });
+        enabled
+    }
+
+    pub fn set_flip_margin_auto_adjustment_enabled(&self, device: DrmDevice, enabled: bool) {
+        self.send(&ClientMessage::SetFlipMarginAutoAdjustmentEnabled { device, enabled });
+    }
+
     pub fn set_ui_drag_enabled(&self, enabled: bool) {
         self.send(&ClientMessage::SetUiDragEnabled { enabled });
     }

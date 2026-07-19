@@ -2904,6 +2904,14 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `flip-margin-auto-adjustment` (optional):
+
+  Whether the compositor may dynamically increase the flip margin when page flips are
+  missed. This is enabled by default. Disable this to keep `flip-margin-ms` fixed and drop
+  frames instead of increasing input latency.
+
+  The value of this field should be a boolean.
+
 
 <a name="types-DrmDeviceMatch"></a>
 ### `DrmDeviceMatch`

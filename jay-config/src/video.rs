@@ -664,6 +664,27 @@ impl DrmDevice {
     pub fn toggle_plane_color_pipelines_enabled(self) {
         self.set_plane_color_pipelines_enabled(!self.plane_color_pipelines_enabled());
     }
+
+    /// Enables or disables automatic flip-margin adjustment.
+    ///
+    /// When enabled, the compositor dynamically increases the flip margin if it misses page
+    /// flips. When disabled, the configured margin remains fixed and frames can be dropped
+    /// instead. This is enabled by default.
+    pub fn set_flip_margin_auto_adjustment_enabled(self, enabled: bool) {
+        get!().set_flip_margin_auto_adjustment_enabled(self, enabled);
+    }
+
+    /// Returns whether automatic flip-margin adjustment is enabled.
+    pub fn flip_margin_auto_adjustment_enabled(self) -> bool {
+        get!().drm_device_flip_margin_auto_adjustment_enabled(self)
+    }
+
+    /// Toggles automatic flip-margin adjustment.
+    pub fn toggle_flip_margin_auto_adjustment_enabled(self) {
+        let get = get!();
+        let enabled = get.drm_device_flip_margin_auto_adjustment_enabled(self);
+        get.set_flip_margin_auto_adjustment_enabled(self, !enabled);
+    }
 }
 
 /// A graphics API.

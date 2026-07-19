@@ -123,6 +123,11 @@ request set_plane_color_pipelines (since = 38) {
     enabled: u32,
 }
 
+request set_flip_margin_auto_adjustment (since = 39) {
+    dev: str,
+    enabled: u32,
+}
+
 # events
 
 event global {
@@ -258,4 +263,8 @@ event scaling_filter (since = 37) {
 event plane_color_pipelines (since = 38) {
     enabled: u32,
     supported: u32,
+}
+
+event flip_margin_auto_adjustment (since = 39) {
+    enabled: u32,
 }

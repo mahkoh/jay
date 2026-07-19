@@ -55,6 +55,7 @@ impl Parser for DrmDeviceParser<'_, '_> {
             gfx_api_val,
             flip_margin_ms,
             plane_color_pipelines_enabled,
+            flip_margin_auto_adjustment,
         ) = ext.extract((
             opt(str("name")),
             val("match"),
@@ -62,6 +63,7 @@ impl Parser for DrmDeviceParser<'_, '_> {
             opt(val("gfx-api")),
             recover(opt(fltorint("flip-margin-ms"))),
             recover(opt(bol("plane-color-pipelines"))),
+            recover(opt(bol("flip-margin-auto-adjustment"))),
         ))?;
         let gfx_api = match gfx_api_val {
             Some(api) => match api.parse(&mut GfxApiParser) {
@@ -94,6 +96,7 @@ impl Parser for DrmDeviceParser<'_, '_> {
             gfx_api,
             flip_margin_ms: flip_margin_ms.despan(),
             plane_color_pipelines_enabled: plane_color_pipelines_enabled.despan(),
+            flip_margin_auto_adjustment: flip_margin_auto_adjustment.despan(),
         })
     }
 }

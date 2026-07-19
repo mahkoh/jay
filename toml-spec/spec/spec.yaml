@@ -1611,6 +1611,13 @@ DrmDevice:
         device.
         
         The default is `false`.
+    flip-margin-auto-adjustment:
+      kind: boolean
+      required: false
+      description: |
+        Whether the compositor may dynamically increase the flip margin when page flips are
+        missed. This is enabled by default. Disable this to keep `flip-margin-ms` fixed and drop
+        frames instead of increasing input latency.
 
 
 GfxApi:

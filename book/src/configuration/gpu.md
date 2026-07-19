@@ -197,7 +197,18 @@ flip-margin-ms = 2.0
 ```
 
 If the margin is set too small, the compositor will dynamically increase it to
-avoid missed frames.
+avoid missed frames. To keep the configured margin fixed and drop frames instead
+of increasing input latency, disable automatic adjustment:
+
+```toml
+[[drm-devices]]
+match = {
+    pci-vendor = 0x1002,
+    pci-model = 0x73ff,
+}
+flip-margin-ms = 1.0
+flip-margin-auto-adjustment = false
+```
 
 ## Explicit sync
 
