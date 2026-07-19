@@ -294,6 +294,7 @@ impl CommitTimeline {
             &self.shared,
             EntryKind::Commit(surface.client.state.commit_cache.cache.get(Commit {
                 surface: surface.clone(),
+                ext_version: pending.ext_version,
                 pending: RefCell::new(pending),
                 syncobj: NumCell::new(points.len()),
                 wait_handles: Cell::new(Default::default()),
@@ -546,6 +547,7 @@ enum CommitTimesState {
 
 struct Commit {
     surface: Rc<WlSurface>,
+    ext_version: u64,
     pending: RefCell<CachedBox<PendingState, BoxReset>>,
     syncobj: NumCell<usize>,
     wait_handles: Cell<SmallVec<[WaitForSyncobjHandle; 1]>>,
@@ -636,7 +638,7 @@ impl Entry {
                 }
                 if !has_unmet_dependencies && let Some(scheduled) = &c.unmap {
                     if !scheduled.replace(true) {
-                        c.surface.unmap();
+                        c.surface.unmap(c.ext_version);
                     }
                     if c.surface.unmap_scheduled.get() {
                         tl.unmap_waiter.set(Some(self.inner.clone()));
