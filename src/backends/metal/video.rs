@@ -30,6 +30,7 @@ use crate::backends::metal::present::DEFAULT_POST_COMMIT_MARGIN;
 use crate::backends::metal::present::DEFAULT_PRE_COMMIT_MARGIN;
 use crate::backends::metal::present::DirectScanoutCache;
 use crate::backends::metal::present::DirectScanoutKey;
+use crate::backends::metal::present::MetalDirectScanoutError;
 use crate::backends::metal::present::POST_COMMIT_MARGIN_DELTA;
 use crate::backends::metal::present::PresentFbCore;
 use crate::backends::metal::transaction::DrmConnectorState;
@@ -647,6 +648,8 @@ pub struct MetalConnector {
 
     pub gamma_lut: CloneCell<Option<Rc<BackendGammaLut>>>,
     pub cm: MetalCmConnector,
+
+    pub last_direct_scanout_error: Cell<Option<MetalDirectScanoutError>>,
 }
 
 impl Debug for MetalConnector {
@@ -1211,6 +1214,7 @@ fn create_connector(
         presentation_is_zero_copy: Cell::new(false),
         gamma_lut: Default::default(),
         cm: MetalCmConnector::new(&dev.cm),
+        last_direct_scanout_error: Default::default(),
     });
     let futures = ConnectorFutures {
         _present: backend.state.eng.spawn2(

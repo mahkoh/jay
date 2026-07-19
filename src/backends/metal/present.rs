@@ -18,6 +18,7 @@ use crate::cmm::cmm_render_intent::RenderIntent;
 use crate::gfx_api::AcquireSync;
 use crate::gfx_api::BufferResv;
 use crate::gfx_api::CopyTexture;
+use crate::gfx_api::DirectScanoutError;
 use crate::gfx_api::DirectScanoutPosition;
 use crate::gfx_api::GfxRenderPass;
 use crate::gfx_api::GfxTexture;
@@ -50,6 +51,7 @@ use arrayvec::ArrayVec;
 use jay_proc::jay_hash;
 use std::rc::Rc;
 use std::rc::Weak;
+use thiserror::Error;
 use uapi::OwnedFd;
 use uapi::c;
 
@@ -148,6 +150,30 @@ pub const POST_COMMIT_MARGIN_DELTA: u64 = 500_000; // 500us
 enum PresentFbWait {
     Render,
     Scanout,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Error)]
+pub enum MetalDirectScanoutError {
+    #[error(transparent)]
+    GfxApi(#[from] DirectScanoutError),
+    #[error("The client buffer has pending lazy work")]
+    LazyWork,
+    #[error("Cross-device direct scanout is not supported")]
+    CrossDevice,
+    #[error("Shm buffers cannot be scanned out")]
+    Shm,
+    #[error("The buffer is already marked as impossible")]
+    MarkedImpossible,
+    #[error("The buffer could not imported as a framebuffer")]
+    ImportFb,
+    #[error("The buffer format is not supported")]
+    UnsupportedFormat,
+    #[error("The modifier is not supported")]
+    UnsupportedModifier,
+    #[error("There is no suitable color management programming")]
+    NoCmProgramming,
+    #[error("The commit failed")]
+    Commit,
 }
 
 impl MetalConnector {
@@ -308,7 +334,7 @@ impl MetalConnector {
             &mut changed_planes,
             &mut connector_drm_state,
         );
-        if res.is_err()
+        if let Err(error) = &res
             && let Some(dsk) = direct_scanout_key
         {
             let fb = self.prepare_present_fb(
@@ -324,7 +350,7 @@ impl MetalConnector {
             present_fb = Some(fb);
             self.await_present_fb(present_fb.as_mut(), PresentFbWait::Scanout)
                 .await;
-            res = self.program_connector(
+            let new_res = self.program_connector(
                 version,
                 &crtc,
                 &plane,
@@ -333,9 +359,14 @@ impl MetalConnector {
                 &mut changed_planes,
                 &mut connector_drm_state,
             );
-            if res.is_ok() {
+            if new_res.is_ok() {
                 self.scanout_impossible_cache.insert(dsk, ());
+                let log = self.handle_direct_scanout_error(MetalDirectScanoutError::Commit);
+                if log {
+                    log::debug!("Commit error: {}", ErrorFmt(error));
+                }
             }
+            res = new_res;
         }
         let reset_damage = || {
             for buffer in &*buffers {
@@ -369,6 +400,7 @@ impl MetalConnector {
                     buffer.damage_queue.clear();
                 } else {
                     reset_damage();
+                    self.last_direct_scanout_error.take();
                 }
                 buffer.locked.set(fb.core.locked);
                 self.cm.apply(&fb.cm_programming);
@@ -696,7 +728,7 @@ impl MetalConnector {
         blend_cd: &Rc<ColorDescription>,
         gamma_lut: Option<&Rc<BackendGammaLut>>,
         cd: &Rc<ColorDescription>,
-    ) -> Option<(DirectScanoutData, DirectScanoutDataCore)> {
+    ) -> Result<(DirectScanoutData, DirectScanoutDataCore), MetalDirectScanoutError> {
         let (ct, position) = pass.prepare_direct_scanout(
             plane.mode_w.get(),
             plane.mode_h.get(),
@@ -719,7 +751,7 @@ impl MetalConnector {
                     // if there is lazy work, the tex dmabuf is not up-to-date. going into
                     // the compositing path ensures that it's up-to-date on the next
                     // frame.
-                    return None;
+                    return Err(MetalDirectScanoutError::LazyWork);
                 }
                 fb_resv = None;
                 dmabuf = ct.tex.dmabuf();
@@ -731,12 +763,12 @@ impl MetalConnector {
                 // until the FB is no longer being scanned out, but if a notification pops up
                 // then we must be able to disable direct scanout immediately.
                 // https://gitlab.freedesktop.org/drm/amd/-/issues/3186
-                return None;
+                return Err(MetalDirectScanoutError::CrossDevice);
             }
         };
         let Some(dmabuf) = dmabuf else {
             // Shm buffers cannot be scanned out.
-            return None;
+            return Err(MetalDirectScanoutError::Shm);
         };
         let key = DirectScanoutKey {
             dma_buf_id: dmabuf.id,
@@ -751,10 +783,10 @@ impl MetalConnector {
         };
         if let Some(v) = self.scanout_impossible_cache.get(&key) {
             v.mark_used();
-            return None;
+            return Err(MetalDirectScanoutError::MarkedImpossible);
         }
         let res = self.prepare_direct_scanout2(plane, crtc, gamma_lut, cd, ct, dmabuf);
-        if res.is_none() {
+        if res.is_err() {
             self.scanout_impossible_cache.insert(key, ());
         }
         res.map(|(fb, cm_programming)| {
@@ -786,30 +818,33 @@ impl MetalConnector {
         cd: &Rc<ColorDescription>,
         ct: &CopyTexture,
         dmabuf: &Rc<DmaBuf>,
-    ) -> Option<(Rc<DrmFramebuffer>, MetalCmProgramming)> {
+    ) -> Result<(Rc<DrmFramebuffer>, MetalCmProgramming), MetalDirectScanoutError> {
         let fb = self.prepare_direct_scanout3(plane, dmabuf)?;
-        let cm_programming = self.cm.find_programming(
-            &self.master,
-            plane,
-            crtc,
-            &ct.cd,
-            cd,
-            ct.render_intent,
-            gamma_lut,
-            self.cursor_enabled.get(),
-            self.dev.use_plane_color_pipelines.get(),
-        )?;
-        Some((fb, cm_programming))
+        let cm_programming = self
+            .cm
+            .find_programming(
+                &self.master,
+                plane,
+                crtc,
+                &ct.cd,
+                cd,
+                ct.render_intent,
+                gamma_lut,
+                self.cursor_enabled.get(),
+                self.dev.use_plane_color_pipelines.get(),
+            )
+            .ok_or(MetalDirectScanoutError::NoCmProgramming)?;
+        Ok((fb, cm_programming))
     }
 
     fn prepare_direct_scanout3(
         &self,
         plane: &Rc<MetalPlane>,
         dmabuf: &Rc<DmaBuf>,
-    ) -> Option<Rc<DrmFramebuffer>> {
+    ) -> Result<Rc<DrmFramebuffer>, MetalDirectScanoutError> {
         let mut cache = self.scanout_buffers.borrow_mut();
         if let Some(buffer) = cache.get(&dmabuf.id) {
-            return buffer.fb.clone();
+            return buffer.fb.clone().ok_or(MetalDirectScanoutError::ImportFb);
         }
         let format = 'format: {
             if let Some(f) = plane.formats.get(&dmabuf.format.drm) {
@@ -821,10 +856,10 @@ impl MetalConnector {
             {
                 break 'format f;
             }
-            return None;
+            return Err(MetalDirectScanoutError::UnsupportedFormat);
         };
         if !format.modifiers.contains(&dmabuf.modifier) {
-            return None;
+            return Err(MetalDirectScanoutError::UnsupportedModifier);
         }
         let fb = match self.dev.master.add_fb(dmabuf, Some(format.format)) {
             Ok(fb) => Some(Rc::new(fb)),
@@ -843,7 +878,7 @@ impl MetalConnector {
                 fb: fb.clone(),
             },
         );
-        fb
+        fb.ok_or(MetalDirectScanoutError::ImportFb)
     }
 
     fn prepare_present_fb(
@@ -861,8 +896,12 @@ impl MetalConnector {
         let try_direct_scanout = try_direct_scanout && self.dev.direct_scanout_enabled();
         let mut direct_scanout_data = None;
         if try_direct_scanout {
-            direct_scanout_data =
-                self.prepare_direct_scanout(&latched.pass, plane, crtc, blend_cd, gamma_lut, cd);
+            direct_scanout_data = self
+                .prepare_direct_scanout(&latched.pass, plane, crtc, blend_cd, gamma_lut, cd)
+                .inspect_err(|e| {
+                    self.handle_direct_scanout_error(*e);
+                })
+                .ok();
         }
         let direct_scanout_active = direct_scanout_data.is_some();
         if self.direct_scanout_active.replace(direct_scanout_active) != direct_scanout_active {
@@ -995,5 +1034,14 @@ impl MetalConnector {
                 );
             }
         }
+    }
+
+    fn handle_direct_scanout_error(&self, e: MetalDirectScanoutError) -> bool {
+        let some = Some(e);
+        if self.last_direct_scanout_error.replace(some) == some {
+            return false;
+        }
+        log::debug!("Cannot perform direct scanout: {}", ErrorFmt(e));
+        true
     }
 }
