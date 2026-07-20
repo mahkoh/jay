@@ -4,7 +4,6 @@ use crate::client::ClientId;
 use crate::fixed::Fixed;
 use crate::ifs::ipc::x_data_device::XIpcDevice;
 use crate::ifs::wl_seat::WlSeatGlobal;
-use crate::utils::bhash::BHashSet;
 use crate::utils::bitflags::BitflagsExt;
 use crate::utils::cell_ext::CellExt;
 use crate::utils::clonecell::CloneCell;
@@ -12,6 +11,7 @@ use crate::utils::numcell::NumCell;
 use crate::utils::smallmap::SmallMap;
 use crate::wire::WlSurfaceId;
 use derivative::Derivative;
+use indexmap::IndexSet;
 use smallvec::SmallVec;
 use std::any;
 use std::cell::Cell;
@@ -183,7 +183,7 @@ pub struct SourceData {
     pub seat: CloneCell<Option<Rc<WlSeatGlobal>>>,
     pub id: DataSourceId,
     offers: SmallMap<DataOfferId, Rc<dyn DynDataOffer>, 1>,
-    mime_types: RefCell<BHashSet<String>>,
+    mime_types: RefCell<IndexSet<String>>,
     pub client: Rc<Client>,
     state: NumCell<u32>,
     actions: Cell<Option<u32>>,
