@@ -73,6 +73,7 @@ mod dmabuf_feedback;
 mod edid;
 mod egui_adapter;
 mod ei;
+mod env;
 mod evdev;
 mod eventfd_cache;
 mod fixed;

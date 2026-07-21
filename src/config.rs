@@ -338,7 +338,7 @@ impl ConfigProxy {
     }
 
     pub fn from_config_dir(state: &Rc<State>) -> Result<Self, ConfigError> {
-        let file = open_config_so(state.config_dir.as_deref())?;
+        let file = open_config_so(state.config_dir)?;
         let stat = uapi::fstat(file.raw()).map_os_err(ConfigError::StatConfigSo)?;
         let file_id = Some((stat.st_dev, stat.st_ino));
         if let Some(old) = state.config.get()

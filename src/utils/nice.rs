@@ -1,6 +1,6 @@
-use crate::compositor::config_dir;
 use crate::config::is_unprivileged_config_so;
 use crate::config::open_config_so;
+use crate::env::config_dir;
 use c::sched_setscheduler;
 use std::env;
 use std::mem;
@@ -20,7 +20,7 @@ pub fn elevate_scheduler() {
         return;
     }
     if dont_allow_realtime_config_so()
-        && let Ok(fd) = open_config_so(config_dir().as_deref())
+        && let Ok(fd) = open_config_so(config_dir())
         && let Ok(stat) = uapi::fstat(fd.raw())
         && is_unprivileged_config_so(&stat)
     {

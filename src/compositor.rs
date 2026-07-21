@@ -39,6 +39,7 @@ use crate::damage::visualize_damage;
 use crate::dbus::Dbus;
 use crate::dmabuf_feedback::handle_dmabuf_feedback_changes;
 use crate::ei::ei_client::EiClients;
+use crate::env::config_dir;
 use crate::eventfd_cache::EventfdCache;
 use crate::forker;
 use crate::format::XRGB8888;
@@ -141,7 +142,6 @@ use linearize::Linearize;
 use log::LevelFilter;
 use std::cell::Cell;
 use std::cell::RefCell;
-use std::env;
 use std::future::Future;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -873,17 +873,6 @@ fn create_dummy_output(state: &Rc<State>) {
     ));
     let dummy_output = OutputNode::new(state.dummy_output_id, &global, &schedule);
     state.dummy_output.set(Some(dummy_output));
-}
-
-pub fn config_dir() -> Option<String> {
-    if let Ok(xdg) = env::var("XDG_CONFIG_HOME") {
-        Some(format!("{}/jay", xdg))
-    } else if let Ok(home) = env::var("HOME") {
-        Some(format!("{}/.config/jay", home))
-    } else {
-        log::warn!("Neither XDG_CONFIG_HOME nor HOME are set. Using default config.");
-        None
-    }
 }
 
 #[derive(ValueEnum, Debug, Copy, Clone, Hash, Default, Eq, PartialEq, Linearize)]

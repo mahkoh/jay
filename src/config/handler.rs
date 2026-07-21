@@ -657,8 +657,10 @@ impl ConfigProxyHandler {
     }
 
     fn handle_get_config_dir(&self) {
-        let dir = self.state.config_dir.clone().unwrap_or_default();
-        self.respond(Response::GetConfigDir { dir });
+        let dir = self.state.config_dir.unwrap_or_default();
+        self.respond(Response::GetConfigDir {
+            dir: dir.to_string(),
+        });
     }
 
     fn handle_get_workspaces(&self) {

@@ -1,4 +1,5 @@
 use crate::compositor::LogLevel;
+use crate::env::log_jay_env;
 use crate::utils::atomic_enum::AtomicEnum;
 use crate::utils::data_dir::data_dir;
 use crate::utils::errorfmt::ErrorFmt;
@@ -82,6 +83,7 @@ impl Logger {
         .unwrap();
         log::set_max_level(filter);
         set_panic_hook();
+        log_jay_env();
         slf
     }
 

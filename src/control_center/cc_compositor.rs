@@ -49,7 +49,7 @@ impl CompositorPane {
             if let Some(acceptor) = s.acceptor.get() {
                 label(ui, WAYLAND_DISPLAY, acceptor.socket_name());
             }
-            if let Some(dir) = &s.config_dir {
+            if let Some(dir) = s.config_dir {
                 label(ui, "Config DIR", dir);
             }
             bool(ui, "Libei Socket", s.enable_ei_acceptor.get(), |v| {
