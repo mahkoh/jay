@@ -6,8 +6,8 @@ use crate::wire::jay_compositor::SetLogLevel;
 use linearize::Linearize;
 use std::rc::Rc;
 
-pub fn main(global: GlobalArgs, args: SetLogArgs) {
-    with_tool_client(global.log_level, |tc| async move {
+pub fn main(_global: GlobalArgs, args: SetLogArgs) {
+    with_tool_client(|tc| async move {
         let logger = Rc::new(Log {
             tc: tc.clone(),
             args,

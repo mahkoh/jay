@@ -18,8 +18,8 @@ pub struct ReexecArgs {
     args: Vec<String>,
 }
 
-pub fn main(global: GlobalArgs, reexec_args: ReexecArgs) {
-    with_tool_client(global.log_level, |tc| async move {
+pub fn main(_global: GlobalArgs, reexec_args: ReexecArgs) {
+    with_tool_client(|tc| async move {
         let rexec = Rc::new(Reexec { tc: tc.clone() });
         rexec.run(reexec_args).await;
     });

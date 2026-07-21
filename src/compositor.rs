@@ -40,6 +40,7 @@ use crate::dbus::Dbus;
 use crate::dmabuf_feedback::handle_dmabuf_feedback_changes;
 use crate::ei::ei_client::EiClients;
 use crate::env::config_dir;
+use crate::env::initial_log_level;
 use crate::eventfd_cache::EventfdCache;
 use crate::forker;
 use crate::format::XRGB8888;
@@ -155,7 +156,7 @@ pub const MAX_EXTENTS: i32 = (1 << 22) - 1;
 pub const MIN_SCALE: Scale = Scale::from_wl(60);
 pub const MAX_SCALE: Scale = Scale::from_int(16);
 
-pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
+pub fn start_compositor(_global: GlobalArgs, args: RunArgs) {
     sighand::reset_all();
     let reaper_pid = ensure_reaper();
     let caps = pr_caps().into_comp();
@@ -167,10 +168,10 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
         None
     };
     let forker = create_forker(reaper_pid);
-    let portal = portal::run_from_compositor(global.log_level);
+    let portal = portal::run_from_compositor(initial_log_level());
     let sleeper = start_sleeper();
     enable_profiler();
-    let logger = Logger::install_compositor(global.log_level);
+    let logger = Logger::install_compositor(initial_log_level());
     let portal = match portal {
         Ok(p) => Some(p),
         Err(e) => {

@@ -406,7 +406,7 @@ pub struct UseHardwareCursorArgs {
 }
 
 pub fn main(global: GlobalArgs, args: InputArgs) {
-    with_tool_client(global.log_level, |tc| async move {
+    with_tool_client(|tc| async move {
         let comp = tc.jay_compositor().await;
         let idle = Rc::new(Input {
             tc: tc.clone(),

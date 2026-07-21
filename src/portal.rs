@@ -16,6 +16,7 @@ use crate::dbus::DBUS_NAME_FLAG_DO_NOT_QUEUE;
 use crate::dbus::DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER;
 use crate::dbus::Dbus;
 use crate::dbus::DbusSocket;
+use crate::env::initial_log_level;
 use crate::eventfd_cache::EventfdCache;
 use crate::forker::ForkerError;
 use crate::io_uring::IoUring;
@@ -69,8 +70,8 @@ const PORTAL_CANCELLED: u32 = 1;
 #[expect(dead_code)]
 const PORTAL_ENDED: u32 = 2;
 
-pub fn run_freestanding(global: GlobalArgs) {
-    let logger = Logger::install_stderr(global.log_level);
+pub fn run_freestanding(_global: GlobalArgs) {
+    let logger = Logger::install_stderr(initial_log_level());
     run(logger, true);
 }
 

@@ -1,6 +1,7 @@
 use crate::cli::GlobalArgs;
 use crate::cli::json::jsonl;
 use crate::env::config_dir;
+use crate::env::initial_log_level;
 use crate::logger::Logger;
 use crate::utils::errorfmt::ErrorFmt;
 use clap::Args;
@@ -36,7 +37,7 @@ pub struct ConfigInitArgs {
 }
 
 pub fn main(global: GlobalArgs, args: ConfigArgs) {
-    Logger::install_stderr(global.log_level);
+    Logger::install_stderr(initial_log_level());
     let dir = || {
         let Some(dir) = config_dir() else {
             fatal!("Could not determine the config directory");

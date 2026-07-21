@@ -39,6 +39,7 @@ use crate::cli::xwayland::XwaylandArgs;
 use crate::compositor::LogLevel;
 use crate::compositor::start_compositor;
 use crate::env::CONFIG_DIR;
+use crate::env::INITIAL_LOG_LEVEL;
 use crate::format::Format;
 use crate::format::ref_formats;
 use crate::portal;
@@ -64,8 +65,8 @@ struct Jay {
 #[derive(Args, Debug)]
 pub struct GlobalArgs {
     /// The log level.
-    #[clap(value_enum, long, default_value_t)]
-    pub log_level: LogLevel,
+    #[clap(value_enum, long)]
+    pub log_level: Option<LogLevel>,
     /// The config directory.
     #[clap(long)]
     pub config_dir: Option<String>,
@@ -248,6 +249,9 @@ pub fn main() {
     let mut cli = Jay::parse();
     if let Some(dir) = cli.global.config_dir.take() {
         let _ = CONFIG_DIR.set(Some(dir));
+    }
+    if let Some(level) = cli.global.log_level {
+        let _ = INITIAL_LOG_LEVEL.set(level);
     }
     if not_matches!(cli.command, Cmd::Run(_)) {
         drop_all_pr_caps();

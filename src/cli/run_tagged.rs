@@ -23,8 +23,8 @@ pub struct RunTaggedArgs {
     pub program: Vec<String>,
 }
 
-pub fn main(global: GlobalArgs, run_tagged_args: RunTaggedArgs) {
-    with_tool_client(global.log_level, |tc| async move {
+pub fn main(_global: GlobalArgs, run_tagged_args: RunTaggedArgs) {
+    with_tool_client(|tc| async move {
         let run_tagged = Rc::new(RunTagged { tc: tc.clone() });
         run_tagged.run(run_tagged_args).await;
     });

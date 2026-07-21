@@ -8,7 +8,7 @@ use crate::wire::jay_compositor::Pid;
 use std::rc::Rc;
 
 pub fn main(global: GlobalArgs) {
-    with_tool_client(global.log_level, |tc| async move {
+    with_tool_client(|tc| async move {
         let pid = Rc::new(P { tc: tc.clone() });
         run(&global, pid).await;
     });

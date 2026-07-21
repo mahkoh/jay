@@ -6,8 +6,8 @@ use crate::wire::jay_compositor;
 use crate::wire::jay_open_control_center_request;
 use std::rc::Rc;
 
-pub fn main(global: GlobalArgs) {
-    with_tool_client(global.log_level, |tc| async move {
+pub fn main(_global: GlobalArgs) {
+    with_tool_client(|tc| async move {
         let cc = ControlCenter { tc: tc.clone() };
         cc.run().await;
     });

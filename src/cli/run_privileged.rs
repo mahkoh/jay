@@ -1,6 +1,7 @@
 use crate::cli::GlobalArgs;
 use crate::cli::RunPrivilegedArgs;
 use crate::compositor::WAYLAND_DISPLAY;
+use crate::env::initial_log_level;
 use crate::logger::Logger;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::oserror::OsErrorExt;
@@ -8,8 +9,8 @@ use crate::utils::xrd::xrd;
 use std::path::PathBuf;
 use uapi::UstrPtr;
 
-pub fn main(global: GlobalArgs, args: RunPrivilegedArgs) {
-    Logger::install_stderr(global.log_level);
+pub fn main(_global: GlobalArgs, args: RunPrivilegedArgs) {
+    Logger::install_stderr(initial_log_level());
     if let Some(xrd) = xrd() {
         let mut wd = match std::env::var(WAYLAND_DISPLAY) {
             Ok(v) => v,

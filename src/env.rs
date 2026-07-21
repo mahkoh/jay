@@ -1,10 +1,14 @@
+use crate::compositor::LogLevel;
 use indexmap::IndexMap;
 use log::Level;
 use regex::Captures;
 use regex::Regex;
 use regex::Replacer;
 use std::env;
+use std::fmt;
+use std::fmt::Display;
 use std::fs::read_to_string;
+use std::ops::Deref;
 use std::path::Path;
 use std::sync::LazyLock;
 use std::sync::OnceLock;
@@ -39,7 +43,23 @@ pub fn config_dir() -> Option<&'static str> {
         .as_deref()
 }
 
-#[expect(dead_code)]
+pub static INITIAL_LOG_LEVEL: OnceLock<LogLevel> = OnceLock::new();
+
+pub fn initial_log_level() -> LogLevel {
+    *INITIAL_LOG_LEVEL.get_or_init(|| {
+        JAY_LOG_LEVEL
+            .map(|l| match l {
+                "trace" => LogLevel::Trace,
+                "debug" => LogLevel::Debug,
+                "warn" => LogLevel::Warn,
+                "error" => LogLevel::Error,
+                "off" => LogLevel::Off,
+                _ => LogLevel::Info,
+            })
+            .unwrap_or_default()
+    })
+}
+
 fn parse_env(env: &str) -> IndexMap<String, String> {
     let def_regex = Regex::new(
         r#"(?xm)
@@ -136,7 +156,6 @@ fn test_parse_env() {
     let _ = parse_env("");
 }
 
-#[expect(unused)]
 macro_rules! declare {
     ($name:ident: $ty:ty, $(@default = $default:expr,)? $map:expr $(,)?) => {
         #[allow(clippy::allow_attributes, non_camel_case_types)]
@@ -191,7 +210,6 @@ macro_rules! declare {
     };
 }
 
-#[expect(unused)]
 macro_rules! declare_str {
     ($name:ident) => {
         declare!($name: Option<&'static str>, |v| v);
@@ -209,3 +227,5 @@ macro_rules! declare_bool {
         });
     };
 }
+
+declare_str!(JAY_LOG_LEVEL);

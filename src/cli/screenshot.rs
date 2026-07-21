@@ -42,8 +42,8 @@ use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
 
-pub fn main(global: GlobalArgs, args: ScreenshotArgs) {
-    with_tool_client(global.log_level, |tc| async move {
+pub fn main(_global: GlobalArgs, args: ScreenshotArgs) {
+    with_tool_client(|tc| async move {
         let screenshot = Rc::new(Screenshot {
             tc: tc.clone(),
             args,
