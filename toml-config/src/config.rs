@@ -627,7 +627,7 @@ pub struct Config {
     pub show_bar: Option<bool>,
     pub split_reuses_container: Option<bool>,
     pub show_titles: Option<bool>,
-    pub flatten_tree: Option<bool>,
+    pub flatten_tree: Option<jay_config::FlattenTree>,
     pub focus_history: Option<FocusHistory>,
     pub middle_click_paste: Option<bool>,
     pub input_modes: AHashMap<String, InputMode>,

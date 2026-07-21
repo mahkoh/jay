@@ -2584,18 +2584,25 @@ The table has the following fields:
 
 - `flatten-tree` (optional):
 
-  Configures whether containers with only a single child are automatically
-  collapsed by replacing them with their child, keeping the window tree
-  flat.
+  Configures when single-child containers are automatically collapsed.
   
-  When a window is moved away from a container and the container ends up
-  with a single remaining window, enabling this option removes the
-  container and places the remaining window directly in the parent
-  container.
+  Accepts `"never"`, `"always"`, or `"on-remove"`.
   
-  The default is `false`.
+  "always":
+  Collapse a single-child container both when its second-to-last
+  child is removed and when pressing split-vertical or
+  split-horizontal on a sole child.
+  
+  "on-remove":
+  Only collapse when the second-to-last child is removed (e.g.
+  moved to another workspace or floated).
+  
+  "never":
+  Never collapse single-child containers.
+  
+  The default is `"never"`.
 
-  The value of this field should be a boolean.
+  The value of this field should be a string.
 
 - `focus-history` (optional):
 

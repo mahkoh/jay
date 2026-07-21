@@ -1206,8 +1206,8 @@ impl ConfigClient {
         self.send(&ClientMessage::SetMiddleClickPasteEnabled { enabled });
     }
 
-    pub fn set_flatten_tree(&self, enabled: bool) {
-        self.send(&ClientMessage::SetFlattenTree { enabled });
+    pub fn set_flatten_tree(&self, mode: crate::FlattenTree) {
+        self.send(&ClientMessage::SetFlattenTree { mode });
     }
 
     pub fn open_control_center(&self) {

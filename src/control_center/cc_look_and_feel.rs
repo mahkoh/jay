@@ -96,6 +96,9 @@ impl LookAndFeelPane {
                     self.state.set_ui_drag_threshold(v);
                 },
             );
+            combo_box(ui, "Flatten Tree", self.state.flatten_tree.get(), |v| {
+                self.state.set_flatten_tree(v);
+            });
             bool_ui(
                 ui,
                 "Float Pin Icon",

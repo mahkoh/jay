@@ -356,8 +356,10 @@ impl ContainerNode {
         let ref_ = child.to_ref();
         self.add_transaction_op(ContainerTransactionOp::Unlink(child));
         ref_
+    }
+
     pub fn num_children(&self) -> usize {
-        self.num_children.get()
+        self.node_state[LiveTL].num_children.get()
     }
 
     pub fn prepend_child(self: &Rc<Self>, new: Rc<dyn ToplevelNode>) {
@@ -2388,9 +2390,14 @@ impl ContainingNode for ContainerNode {
             self.tl_destroy();
             return;
         }
-        if num_children == 1 && self.state.flatten_tree.get() {
+        if num_children == 1
+            && matches!(
+                self.state.flatten_tree.get(),
+                crate::state::FlattenTree::Always | crate::state::FlattenTree::OnRemove
+            )
+        {
             if let Some(parent) = self.toplevel_data.parent.get()
-                && !self.toplevel_data.is_fullscreen.get()
+                && !self.toplevel_data.is_fullscreen[LiveTL].get()
             {
                 let remaining = {
                     let cn = self.child_nodes.borrow();

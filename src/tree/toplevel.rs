@@ -1207,7 +1207,10 @@ pub fn toplevel_create_split(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, axis: 
     };
     if let Some(container) = pn.clone().node_into_container()
         && container.num_children() == 1
-        && state.flatten_tree.get()
+        && matches!(
+            state.flatten_tree.get(),
+            crate::state::FlattenTree::Always
+        )
     {
         container.set_split(axis);
         return;

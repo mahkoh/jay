@@ -159,6 +159,7 @@ pub enum ServerMessage {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+#[non_exhaustive]
 pub enum ClientMessage<'a> {
     Reload,
     Quit,
@@ -793,9 +794,6 @@ pub enum ClientMessage<'a> {
     SetMiddleClickPasteEnabled {
         enabled: bool,
     },
-    SetFlattenTree {
-        enabled: bool,
-    },
     SeatCreateMark {
         seat: Seat,
         kc: Option<u32>,
@@ -1021,6 +1019,9 @@ pub enum ClientMessage<'a> {
         reuse: bool,
     },
     GetSplitReusesContainer,
+    SetFlattenTree {
+        mode: crate::FlattenTree,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
