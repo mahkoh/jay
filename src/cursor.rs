@@ -1,4 +1,8 @@
 use crate::async_engine::AsyncEngine;
+use crate::env::HOME;
+use crate::env::XCURSOR_PATH;
+use crate::env::XCURSOR_SIZE;
+use crate::env::XCURSOR_THEME;
 use crate::fixed::Fixed;
 use crate::format::ARGB8888;
 use crate::gfx_api::GfxContext;
@@ -19,14 +23,12 @@ use crate::utils::smallmap::SmallMapMut;
 use bstr::BStr;
 use bstr::BString;
 use bstr::ByteSlice;
-use bstr::ByteVec;
 use byteorder::LittleEndian;
 use byteorder::ReadBytesExt;
 use isnt::std_1::primitive::IsntSliceExt;
 use num_derive::FromPrimitive;
 use std::cell::Cell;
 use std::convert::TryInto;
-use std::env;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::fs::File;
@@ -42,21 +44,16 @@ use std::str;
 use std::sync::LazyLock;
 use std::time::Duration;
 use thiserror::Error;
-use uapi::Bytes;
 
 const XCURSOR_MAGIC: u32 = 0x72756358;
 const XCURSOR_IMAGE_TYPE: u32 = 0xfffd0002;
-const XCURSOR_PATH_DEFAULT: &[u8] =
-    b"~/.icons:/usr/share/icons:/usr/share/pixmaps:/usr/X11R6/lib/X11/icons";
-const XCURSOR_PATH: &str = "XCURSOR_PATH";
-const XCURSOR_THEME: &str = "XCURSOR_THEME";
-const XCURSOR_SIZE: &str = "XCURSOR_SIZE";
-const HOME: &str = "HOME";
+const XCURSOR_PATH_DEFAULT: &str =
+    "~/.icons:/usr/share/icons:/usr/share/pixmaps:/usr/X11R6/lib/X11/icons";
 
 const HEADER_SIZE: u32 = 16;
 
 pub static DEFAULT_CURSOR_SIZE: LazyLock<u32> = LazyLock::new(|| {
-    if let Ok(size) = env::var(XCURSOR_SIZE)
+    if let Some(size) = *XCURSOR_SIZE
         && let Ok(val) = size.parse()
     {
         return val;
@@ -178,8 +175,7 @@ impl ServerCursors {
         if sizes.is_empty() || scales.is_empty() {
             return Ok(None);
         }
-        let xcursor_theme = env::var_os(XCURSOR_THEME);
-        let theme = xcursor_theme.as_ref().map(|theme| BStr::new(theme.bytes()));
+        let theme = XCURSOR_THEME.map(|theme| BStr::new(theme.as_bytes()));
 
         let load =
             |names: &[&str]| ServerCursorTemplate::load(names, theme, &scales, &sizes, &paths, ctx);
@@ -601,17 +597,13 @@ fn open_cursor_file<'a>(
 }
 
 fn find_cursor_paths() -> Vec<BString> {
-    let home = env::var_os(HOME).map(|h| Vec::from_os_string(h).unwrap());
-    let cursor_paths = env::var_os(XCURSOR_PATH);
-    let cursor_paths = cursor_paths
-        .as_ref()
-        .map(|c| <[u8]>::from_os_str(c).unwrap())
-        .unwrap_or(XCURSOR_PATH_DEFAULT);
+    let home = *HOME;
+    let cursor_paths = XCURSOR_PATH.unwrap_or(XCURSOR_PATH_DEFAULT).as_bytes();
     let mut paths = vec![];
     for path in <[u8]>::split(cursor_paths, |b| *b == b':') {
         if path.first() == Some(&b'~') {
-            if let Some(home) = home.as_ref() {
-                let mut full_path = home.clone();
+            if let Some(home) = home {
+                let mut full_path = home.as_bytes().to_vec();
                 full_path.extend_from_slice(&path[1..]);
                 paths.push(full_path.into());
             } else {

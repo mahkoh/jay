@@ -39,6 +39,7 @@ use crate::damage::visualize_damage;
 use crate::dbus::Dbus;
 use crate::dmabuf_feedback::handle_dmabuf_feedback_changes;
 use crate::ei::ei_client::EiClients;
+use crate::env::WAYLAND_DISPLAY;
 use crate::env::config_dir;
 use crate::env::initial_log_level;
 use crate::eventfd_cache::EventfdCache;
@@ -237,9 +238,7 @@ pub enum CompositorError {
     CpuWorkerError(#[from] CpuWorkerError),
 }
 
-pub const WAYLAND_DISPLAY: &str = "WAYLAND_DISPLAY";
 pub const LIBEI_SOCKET: &str = "LIBEI_SOCKET";
-pub const DISPLAY: &str = "DISPLAY";
 
 const STATIC_VARS: &[(&str, &str)] = &[
     ("XDG_CURRENT_DESKTOP", "jay"),
@@ -487,7 +486,7 @@ fn start_compositor2(
     if let Some(forker) = forker {
         forker.install(&state);
         forker.setenv(
-            WAYLAND_DISPLAY.as_bytes(),
+            WAYLAND_DISPLAY.name().as_bytes(),
             acceptor.socket_name().as_bytes(),
         );
         for (key, val) in STATIC_VARS {
@@ -527,7 +526,7 @@ async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
 
     if backend.import_environment() {
         if let Some(acc) = state.acceptor.get() {
-            import_environment(&state, WAYLAND_DISPLAY, acc.socket_name()).await;
+            import_environment(&state, WAYLAND_DISPLAY.name(), acc.socket_name()).await;
         }
         for (key, val) in STATIC_VARS {
             import_environment(&state, key, val).await;

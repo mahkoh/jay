@@ -1,8 +1,8 @@
 use crate::config::is_unprivileged_config_so;
 use crate::config::open_config_so;
+use crate::env::JAY_NO_REALTIME;
 use crate::env::config_dir;
 use c::sched_setscheduler;
-use std::env;
 use std::mem;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::Relaxed;
@@ -13,10 +13,8 @@ use uapi::c::{self};
 
 static DID_ELEVATE_SCHEDULER: AtomicBool = AtomicBool::new(false);
 
-pub const JAY_NO_REALTIME: &str = "JAY_NO_REALTIME";
-
 pub fn elevate_scheduler() {
-    if env::var(JAY_NO_REALTIME).as_deref().unwrap_or_default() == "1" {
+    if *JAY_NO_REALTIME {
         return;
     }
     if dont_allow_realtime_config_so()

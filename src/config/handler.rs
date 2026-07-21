@@ -17,7 +17,6 @@ use crate::client::ClientCaps;
 use crate::client::ClientId;
 use crate::cmm::cmm_eotf::Eotf;
 use crate::compositor::MAX_EXTENTS;
-use crate::compositor::WAYLAND_DISPLAY;
 use crate::criteria::CritLiteralOrRegex;
 use crate::criteria::CritMgrExt;
 use crate::criteria::CritTarget;
@@ -25,6 +24,7 @@ use crate::criteria::CritUpstreamNode;
 use crate::criteria::clm::ClmLeafMatcher;
 use crate::criteria::tlm::TlmLeafMatcher;
 use crate::criteria::tlm::TlmUpstreamNode;
+use crate::env::WAYLAND_DISPLAY;
 use crate::evdev::input_event_codes::InputEventCode;
 use crate::format::config_formats;
 use crate::gfx_api::ScalingFilter;
@@ -2235,7 +2235,7 @@ impl ConfigProxyHandler {
                 .tagged_acceptors
                 .get(&self.state, tag)
                 .map_err(CphError::CreateTaggedAcceptor)?;
-            env.push((WAYLAND_DISPLAY.to_string(), display.to_string()));
+            env.push((WAYLAND_DISPLAY.name().to_string(), display.to_string()));
         }
         let fds: Vec<_> = fds
             .into_iter()

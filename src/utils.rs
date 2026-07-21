@@ -86,4 +86,3 @@ pub mod vecdeque_ext;
 pub mod vecset;
 pub mod vecstorage;
 pub mod windows;
-pub mod xrd;

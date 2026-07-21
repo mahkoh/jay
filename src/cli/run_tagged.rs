@@ -1,5 +1,5 @@
 use crate::cli::GlobalArgs;
-use crate::compositor::WAYLAND_DISPLAY;
+use crate::env::WAYLAND_DISPLAY;
 use crate::tools::tool_client::Handle;
 use crate::tools::tool_client::ToolClient;
 use crate::tools::tool_client::with_tool_client;
@@ -55,7 +55,7 @@ impl RunTagged {
         match res.take().unwrap() {
             Ok(n) => {
                 unsafe {
-                    env::set_var(WAYLAND_DISPLAY, &n);
+                    env::set_var(WAYLAND_DISPLAY.name(), &n);
                 }
                 let mut argv = UstrPtr::new();
                 for arg in &args.program {

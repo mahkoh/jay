@@ -1,5 +1,6 @@
 use crate::allocator::BufferObject;
 use crate::backend::DrmDeviceId;
+use crate::env::JAY_NO_DESCRIPTOR_HEAP;
 use crate::eventfd_cache::EventfdCache;
 use crate::format::XRGB8888;
 use crate::gfx_apis::vulkan::VulkanError;
@@ -87,7 +88,6 @@ use std::ffi::CStr;
 use std::ffi::CString;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::sync::LazyLock;
 use uapi::Packed;
 use uapi::Ustr;
 use uapi::c::O_RDWR;
@@ -430,14 +430,12 @@ impl VulkanInstance {
                 return Err(VulkanError::MissingDeviceExtension(ext));
             }
         }
-        static NO_DESCRIPTOR_HEAP: LazyLock<bool> =
-            LazyLock::new(|| matches!(std::env::var("JAY_NO_DESCRIPTOR_HEAP").as_deref(), Ok("1")));
         let mut supports_descriptor_heap = extensions.contains_key(descriptor_heap::NAME)
             && extensions.contains_key(maintenance5::NAME);
         if !supports_descriptor_heap {
             log::warn!("Vulkan device does not support descriptor heaps");
         }
-        if *NO_DESCRIPTOR_HEAP {
+        if *JAY_NO_DESCRIPTOR_HEAP {
             supports_descriptor_heap = false;
         }
         let mut supports_descriptor_buffer = false;

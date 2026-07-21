@@ -1,5 +1,6 @@
 use crate::async_engine::SpawnedFuture;
 use crate::client::ClientCaps;
+use crate::env::XDG_RUNTIME_DIR;
 use crate::security_context_acceptor::AcceptorMetadata;
 use crate::state::State;
 use crate::utils::bhash::BHashMap;
@@ -8,7 +9,6 @@ use crate::utils::numcell::NumCell;
 use crate::utils::oserror::OsError;
 use crate::utils::oserror::OsErrorExt;
 use crate::utils::oserror::OsErrorExt2;
-use crate::utils::xrd::xrd;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -88,7 +88,7 @@ impl TaggedAcceptors {
     }
 
     fn allocate_socket(&self) -> Result<AllocatedSocket, TaggedAcceptorError> {
-        let xrd = xrd().ok_or(TaggedAcceptorError::XrdNotSet)?;
+        let xrd = XDG_RUNTIME_DIR.ok_or(TaggedAcceptorError::XrdNotSet)?;
         let socket = uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
             .map(Rc::new)
             .map_os_err(TaggedAcceptorError::SocketFailed)?;

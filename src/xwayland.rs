@@ -3,8 +3,8 @@ mod xwm;
 
 use crate::client::ClientCaps;
 use crate::client::ClientError;
-use crate::compositor::DISPLAY;
 use crate::control_center::CCI_XWAYLAND;
+use crate::env::DISPLAY;
 use crate::forker::ForkerError;
 use crate::forker::ForkerProxy;
 use crate::ifs::ipc::DataOfferId;
@@ -116,18 +116,18 @@ pub async fn manage(state: Rc<State>) {
             return;
         }
         let display = Rc::new(format!(":{}", xsocket.id));
-        forker.setenv(DISPLAY.as_bytes(), display.as_bytes());
+        forker.setenv(DISPLAY.name().as_bytes(), display.as_bytes());
         state.xwayland.display.set(Some(display.clone()));
         state.trigger_cci(CCI_XWAYLAND);
         let _unsetenv = on_drop(|| {
-            forker.unsetenv(DISPLAY.as_bytes());
+            forker.unsetenv(DISPLAY.name().as_bytes());
             state.xwayland.display.take();
             state.trigger_cci(CCI_XWAYLAND);
         });
         log::info!("Allocated display :{} for Xwayland", xsocket.id);
         log::info!("Waiting for connection attempt");
         if state.backend.get().import_environment() {
-            import_environment(&state, DISPLAY, &display).await;
+            import_environment(&state, DISPLAY.name(), &display).await;
         }
         if let Err(e) = state.ring.readable(&socket).await {
             log::error!("{}", ErrorFmt(e));

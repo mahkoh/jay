@@ -1,5 +1,4 @@
 use crate::compositor::LIBEI_SOCKET;
-use crate::compositor::WAYLAND_DISPLAY;
 use crate::control_center::ControlCenterInner;
 use crate::control_center::bool;
 use crate::control_center::combo_box;
@@ -8,6 +7,7 @@ use crate::control_center::label;
 use crate::control_center::row;
 use crate::control_center::row_ui;
 use crate::control_center::tip;
+use crate::env::WAYLAND_DISPLAY;
 use crate::state::State;
 use crate::version::VERSION;
 use egui::DragValue;
@@ -47,7 +47,7 @@ impl CompositorPane {
             label(ui, "Version", VERSION);
             label(ui, "PID", s.pid.to_string());
             if let Some(acceptor) = s.acceptor.get() {
-                label(ui, WAYLAND_DISPLAY, acceptor.socket_name());
+                label(ui, WAYLAND_DISPLAY.name(), acceptor.socket_name());
             }
             if let Some(dir) = s.config_dir {
                 label(ui, "Config DIR", dir);

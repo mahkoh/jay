@@ -216,7 +216,6 @@ macro_rules! declare_str {
     };
 }
 
-#[expect(unused)]
 macro_rules! declare_bool {
     ($name:ident) => {
         declare!($name: bool, @default = false, |v| {
@@ -228,4 +227,19 @@ macro_rules! declare_bool {
     };
 }
 
+declare_bool!(JAY_NO_CLIENT_PRIME);
+declare_bool!(JAY_NO_DESCRIPTOR_HEAP);
+declare_bool!(JAY_NO_REALTIME);
+declare_bool!(JAY_VULKAN_VALIDATION);
+declare_str!(DBUS_SESSION_BUS_ADDRESS);
+declare_str!(DISPLAY);
+declare_str!(HOME);
 declare_str!(JAY_LOG_LEVEL);
+declare_str!(JAY_PRIME_METHODS);
+declare_str!(WAYLAND_DISPLAY);
+declare_str!(XAUTHORITY);
+declare_str!(XCURSOR_PATH);
+declare_str!(XCURSOR_SIZE);
+declare_str!(XCURSOR_THEME);
+declare_str!(XDG_RUNTIME_DIR);
+declare_str!(XDG_SESSION_ID);

@@ -2,7 +2,8 @@ use crate::async_engine::AsyncEngine;
 use crate::async_engine::SpawnedFuture;
 use crate::client::EventFormatter;
 use crate::client::RequestParser;
-use crate::compositor::WAYLAND_DISPLAY;
+use crate::env::WAYLAND_DISPLAY;
+use crate::env::XDG_RUNTIME_DIR;
 use crate::env::initial_log_level;
 use crate::io_uring::IoUring;
 use crate::io_uring::IoUringError;
@@ -27,7 +28,6 @@ use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
 use crate::utils::oserror::OsError;
 use crate::utils::oserror::OsErrorExt2;
-use crate::utils::xrd::xrd;
 use crate::wheel::Wheel;
 use crate::wheel::WheelError;
 use crate::wire::JayCompositor;
@@ -160,13 +160,13 @@ impl ToolClient {
             Ok(w) => w,
             Err(e) => return Err(ToolClientError::CreateWheel(e)),
         };
-        let xrd = match xrd() {
+        let xrd = match *XDG_RUNTIME_DIR {
             Some(d) => d,
             _ => return Err(ToolClientError::XrdNotSet),
         };
-        let wd = match std::env::var(WAYLAND_DISPLAY) {
-            Ok(d) => d,
-            Err(_) => return Err(ToolClientError::WaylandDisplayNotSet),
+        let wd = match *WAYLAND_DISPLAY {
+            Some(d) => d,
+            _ => return Err(ToolClientError::WaylandDisplayNotSet),
         };
         let mut path = format_ustr!("{}/{}", xrd, wd);
         let suffix = b".jay";

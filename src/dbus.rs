@@ -5,6 +5,8 @@ use crate::dbus::property::GetReply;
 use crate::dbus::types::ObjectPath;
 use crate::dbus::types::Signature;
 use crate::dbus::types::Variant;
+use crate::env::DBUS_SESSION_BUS_ADDRESS;
+use crate::env::XDG_RUNTIME_DIR;
 use crate::io_uring::IoUring;
 use crate::io_uring::IoUringError;
 use crate::utils::bhash::BHashMap;
@@ -18,8 +20,6 @@ use crate::utils::oserror::OsError;
 use crate::utils::run_toplevel::RunToplevel;
 use crate::utils::stack::Stack;
 use crate::utils::vecstorage::VecStorage;
-use crate::utils::xrd::XRD;
-use crate::utils::xrd::xrd;
 use crate::wire_dbus::org;
 use crate::wire_dbus::org::freedesktop::dbus::properties::GetAll;
 use crate::wire_dbus::org::freedesktop::dbus::properties::GetAllReply;
@@ -144,8 +144,6 @@ pub enum DbusError {
 }
 efrom!(DbusError, IoUringError);
 
-const DBUS_SESSION_BUS_ADDRESS: &str = "DBUS_SESSION_BUS_ADDRESS";
-
 pub struct Dbus {
     eng: Rc<AsyncEngine>,
     ring: Rc<IoUring>,
@@ -184,37 +182,44 @@ impl Dbus {
             String::from_utf8(unescaped).ok()
         }
         let user_path = 'path: {
-            let Some(addr) = std::env::var(DBUS_SESSION_BUS_ADDRESS).ok() else {
-                if let Some(xrd) = xrd() {
+            let Some(addr) = *DBUS_SESSION_BUS_ADDRESS else {
+                if let Some(xrd) = *XDG_RUNTIME_DIR {
                     break 'path Some(format!("{xrd}/bus"));
                 }
-                log::warn!("Neither {DBUS_SESSION_BUS_ADDRESS} nor {XRD} is set");
+                log::warn!(
+                    "Neither {} nor {} is set",
+                    DBUS_SESSION_BUS_ADDRESS.name(),
+                    XDG_RUNTIME_DIR.name(),
+                );
                 break 'path None;
             };
             let (first_addr, _) = addr.split_once(';').unwrap_or((&addr, ""));
             let Some((transport, attrs)) = first_addr.split_once(':') else {
-                log::warn!("{DBUS_SESSION_BUS_ADDRESS} is invalid");
+                log::warn!("{} is invalid", DBUS_SESSION_BUS_ADDRESS.as_env());
                 break 'path None;
             };
             if transport != "unix" {
-                log::warn!("{DBUS_SESSION_BUS_ADDRESS} has unsupported transport {transport}");
+                log::warn!(
+                    "{} has unsupported transport {transport}",
+                    DBUS_SESSION_BUS_ADDRESS.as_env(),
+                );
                 break 'path None;
             }
             for attr in attrs.split(',') {
                 let Some((k, v)) = attr.split_once("=") else {
-                    log::warn!("{DBUS_SESSION_BUS_ADDRESS} is invalid");
+                    log::warn!("{} is invalid", DBUS_SESSION_BUS_ADDRESS.as_env());
                     break 'path None;
                 };
                 if k != "path" {
                     continue;
                 }
                 let Some(path) = unescape_value(v) else {
-                    log::warn!("{DBUS_SESSION_BUS_ADDRESS} is invalid");
+                    log::warn!("{} is invalid", DBUS_SESSION_BUS_ADDRESS.as_env());
                     break 'path None;
                 };
                 break 'path Some(path);
             }
-            log::warn!("{DBUS_SESSION_BUS_ADDRESS} is invalid");
+            log::warn!("{} is invalid", DBUS_SESSION_BUS_ADDRESS.as_env());
             None
         };
         log::info!("dbus path = {:?}", user_path);

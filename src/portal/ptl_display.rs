@@ -523,9 +523,7 @@ fn add_output(dpy: &Rc<PortalDisplay>, name: GlobalName, version: u32) {
 
 pub(super) async fn watch_displays(state: Rc<PortalState>) {
     let inotify = Rc::new(uapi::inotify_init1(c::IN_CLOEXEC).unwrap());
-    if let Err(e) =
-        uapi::inotify_add_watch(inotify.raw(), state.xrd.as_str(), c::IN_CREATE).to_os_error()
-    {
+    if let Err(e) = uapi::inotify_add_watch(inotify.raw(), state.xrd, c::IN_CREATE).to_os_error() {
         log::error!("Cannot watch directory `{}`: {}", state.xrd, ErrorFmt(e));
         return;
     }
