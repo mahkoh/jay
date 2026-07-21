@@ -118,6 +118,11 @@ request set_scaling_filter (since = 37) {
     scaling_filter: u32,
 }
 
+request set_plane_color_pipelines (since = 38) {
+    dev: str,
+    enabled: u32,
+}
+
 # events
 
 event global {
@@ -248,4 +253,9 @@ event arbitrary_modes (since = 29) {
 
 event scaling_filter (since = 37) {
     scaling_filter: u32,
+}
+
+event plane_color_pipelines (since = 38) {
+    enabled: u32,
+    supported: u32,
 }

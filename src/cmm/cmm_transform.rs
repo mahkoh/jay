@@ -2,6 +2,7 @@ use crate::cmm::cmm_eotf::Eotf;
 use crate::cmm::cmm_primaries::Primaries;
 use crate::gfx_api::AlphaMode;
 use crate::theme::Color;
+use crate::utils::markers::JayHash;
 use crate::utils::ordered_float::F64;
 use std::fmt;
 use std::fmt::Debug;
@@ -43,6 +44,8 @@ impl<T, U> Hash for ColorMatrix<T, U> {
     }
 }
 
+unsafe impl<T, U> JayHash for ColorMatrix<T, U> {}
+
 impl<T, U> Debug for ColorMatrix<T, U> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_tuple("ColorMatrix")
@@ -51,7 +54,7 @@ impl<T, U> Debug for ColorMatrix<T, U> {
     }
 }
 
-fn format_matrix<'a>(m: &'a [[F64; 4]; 3]) -> impl Debug + use<'a> {
+pub fn format_matrix<'a>(m: &'a [[F64; 4]; 3]) -> impl Debug + use<'a> {
     fmt::from_fn(move |f| {
         let iter = m
             .iter()
@@ -88,7 +91,6 @@ fn format_matrix<'a>(m: &'a [[F64; 4]; 3]) -> impl Debug + use<'a> {
 }
 
 impl<T, U> ColorMatrix<T, U> {
-    #[expect(dead_code)]
     pub const IDENTITY: Self = Self::new([
         [1.0, 0.0, 0.0, 0.0],
         [0.0, 1.0, 0.0, 0.0],

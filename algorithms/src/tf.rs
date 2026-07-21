@@ -1,5 +1,21 @@
 #![expect(clippy::excessive_precision)]
 
+#[derive(Copy, Clone)]
+pub enum AlgoEotf {
+    Linear,
+    St2084Pq,
+    Bt1886(f32),
+    Gamma22,
+    Gamma24,
+    Gamma28,
+    St240,
+    Log100,
+    Log316,
+    St428,
+    Pow(f32),
+    CompoundPower24,
+}
+
 pub fn bt1886_eotf_args<T>(c: f32) -> [f32; 4] {
     let gamma = 1.0 / 2.4;
     let a1 = 1.0 / (1.0 - c);

@@ -634,6 +634,9 @@ impl ConfigDrmDevice {
         if let Some(fm) = self.flip_margin_ms {
             d.set_flip_margin(Duration::from_nanos((fm * 1_000_000.0) as _));
         }
+        if let Some(v) = self.plane_color_pipelines_enabled {
+            d.set_plane_color_pipelines_enabled(v);
+        }
     }
 }
 

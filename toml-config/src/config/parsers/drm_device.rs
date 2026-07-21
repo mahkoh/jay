@@ -48,14 +48,21 @@ impl Parser for DrmDeviceParser<'_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (name, match_val, direct_scanout_enabled, gfx_api_val, flip_margin_ms) =
-            ext.extract((
-                opt(str("name")),
-                val("match"),
-                recover(opt(bol("direct-scanout"))),
-                opt(val("gfx-api")),
-                recover(opt(fltorint("flip-margin-ms"))),
-            ))?;
+        let (
+            name,
+            match_val,
+            direct_scanout_enabled,
+            gfx_api_val,
+            flip_margin_ms,
+            plane_color_pipelines_enabled,
+        ) = ext.extract((
+            opt(str("name")),
+            val("match"),
+            recover(opt(bol("direct-scanout"))),
+            opt(val("gfx-api")),
+            recover(opt(fltorint("flip-margin-ms"))),
+            recover(opt(bol("plane-color-pipelines"))),
+        ))?;
         let gfx_api = match gfx_api_val {
             Some(api) => match api.parse(&mut GfxApiParser) {
                 Ok(m) => Some(m),
@@ -86,6 +93,7 @@ impl Parser for DrmDeviceParser<'_, '_> {
             direct_scanout_enabled: direct_scanout_enabled.despan(),
             gfx_api,
             flip_margin_ms: flip_margin_ms.despan(),
+            plane_color_pipelines_enabled: plane_color_pipelines_enabled.despan(),
         })
     }
 }

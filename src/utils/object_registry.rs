@@ -67,10 +67,8 @@ where
     value: V,
 }
 
-#[expect(dead_code)]
 pub type CachedRegisteredObject<K, V> = RegisteredObject<K, V, ObjectRegistryRandomCache<K, V>>;
 
-#[expect(dead_code)]
 pub type UncachedRegisteredObject<K, V> = RegisteredObject<K, V, ObjectRegistryNoCache>;
 
 impl<K, V> UncachedObjectRegistry<K, V>
@@ -169,7 +167,6 @@ where
         self.serial.set(mut_.cache.serial());
     }
 
-    #[cfg_attr(not(test), expect(dead_code))]
     pub fn key(&self) -> &K {
         &self.key
     }

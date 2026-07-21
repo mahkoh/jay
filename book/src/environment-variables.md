@@ -155,3 +155,18 @@ on unusual hardware or for diagnosing problems.
 `JAY_NO_DESCRIPTOR_HEAP`
 : Set to `1` to disable the use of Vulkan descriptor heaps, even on devices
   that support them.
+
+### Hardware color management
+
+These variables control Jay's use of the display hardware's color pipeline on
+the DRM backend.
+
+`JAY_MCM_AMD_ALLOW_CURSOR`
+: Set to `1` to use the color pipeline on AMD while a hardware cursor is
+  present.
+
+`JAY_MCM_AMD_USE_FIRST_LUT`
+: Set to `1` to use the first 1D LUT in the color pipeline on AMD.
+
+`JAY_MCM_NVIDIA_USE_LUTS`
+: Set to `1` to use the 1D LUTs in the color pipeline on NVIDIA.

@@ -159,6 +159,28 @@ direct-scanout = false
 direct-scanout = false
 ```
 
+## Plane color pipelines
+
+Some display hardware can perform color-space and HDR conversions directly in
+the scanout plane's color pipeline, instead of Jay performing them during
+composition. Offloading this work to the hardware lets color-managed and
+[HDR](../hdr.md) content reach the display through
+[direct scanout](#direct-scanout), avoiding a composition pass and reducing
+power usage.
+
+This is disabled by default and only takes effect on hardware that exposes a
+suitable color pipeline. `jay randr` reports whether a device supports it and
+whether it is currently in use.
+
+```toml
+[[drm-devices]]
+match = {
+    pci-vendor = 0x1002,
+    pci-model = 0x73ff,
+}
+plane-color-pipelines = true
+```
+
 ## Flip margin
 
 The flip margin is the time (in milliseconds) between the compositor
@@ -246,6 +268,7 @@ Use `jay randr` subcommands:
 ```shell
 ~$ jay randr card <card> api vulkan
 ~$ jay randr card <card> direct-scanout enable
+~$ jay randr card <card> plane-color-pipelines enable
 ~$ jay randr card <card> primary
 ```
 

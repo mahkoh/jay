@@ -1432,6 +1432,38 @@ pub struct DirectScanoutPosition {
     pub crtc_height: i32,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Error)]
+pub enum DirectScanoutError {
+    #[error("Top-most layer must be a texture")]
+    TopmostTexture,
+    #[error("No texture in render pass")]
+    NoTexture,
+    #[error("Direct scanout requires premultiplied electrical alpha")]
+    NotPremultipliedElectrical,
+    #[error("Blending changes the appearance of translucent buffers")]
+    AlphaWithIncompatibleBlendSpace,
+    #[error("Direct scanout with alpha factor is not supported")]
+    AlphaFactor,
+    #[error("Fill below could be visible")]
+    FillVisible,
+    #[error("Texture below could be visible")]
+    TextureVisible,
+    #[error("Background could be visible")]
+    BackgroundVisible,
+    #[error("Cannot perform scanout without explicit sync")]
+    ImplicitSync,
+    #[error("Rotations and mirroring are not supported")]
+    RotationOrMirroring,
+    #[error("Viewports are not supported")]
+    Viewport,
+    #[error("Rendering outside the screen is not supported")]
+    OutsideScreen,
+    #[error("Flipping x or y axis is not supported")]
+    Flipping,
+    #[error("If scaling is not supported, we cannot scale the texture")]
+    Scaling,
+}
+
 impl GfxRenderPass {
     pub fn prepare_direct_scanout(
         &self,
@@ -1439,7 +1471,7 @@ impl GfxRenderPass {
         mode_h: i32,
         blend_cd: &Rc<ColorDescription>,
         mut no_scaling: bool,
-    ) -> Option<(&CopyTexture, DirectScanoutPosition)> {
+    ) -> Result<(&CopyTexture, DirectScanoutPosition), DirectScanoutError> {
         let ct = 'ct: {
             let mut ops = self.ops.iter().rev();
             let ct = 'ct2: {
@@ -1448,7 +1480,7 @@ impl GfxRenderPass {
                         GfxApiOp::Sync => {}
                         GfxApiOp::FillRect(_) => {
                             // Top-most layer must be a texture.
-                            return None;
+                            return Err(DirectScanoutError::TopmostTexture);
                         }
                         GfxApiOp::CopyTexture(ct) => {
                             if !ct.skip_for_scanout {
@@ -1457,20 +1489,20 @@ impl GfxRenderPass {
                         }
                     }
                 }
-                return None;
+                return Err(DirectScanoutError::NoTexture);
             };
             if ct.alpha_mode != AlphaMode::PremultipliedElectrical {
                 // Direct scanout requires premultiplied electrical alpha.
-                return None;
+                return Err(DirectScanoutError::NotPremultipliedElectrical);
             }
             let has_alpha = ct.tex.format().has_alpha;
             if has_alpha && !ct.opaque && !ct.cd.embeds_into(blend_cd, ct.render_intent) {
                 // Blending changes the appearance of translucent buffers.
-                return None;
+                return Err(DirectScanoutError::AlphaWithIncompatibleBlendSpace);
             }
             if ct.alpha.is_some() {
                 // Direct scanout with alpha factor is not supported.
-                return None;
+                return Err(DirectScanoutError::AlphaFactor);
             }
             if !has_alpha && ct.target.is_covering() {
                 // Texture covers the entire screen and is opaque.
@@ -1488,12 +1520,12 @@ impl GfxRenderPass {
                             }
                         } else {
                             // Fill could be visible.
-                            return None;
+                            return Err(DirectScanoutError::FillVisible);
                         }
                     }
                     GfxApiOp::CopyTexture(_) => {
                         // Texture could be visible.
-                        return None;
+                        return Err(DirectScanoutError::TextureVisible);
                     }
                 }
             }
@@ -1501,25 +1533,25 @@ impl GfxRenderPass {
                 && clear != Color::SOLID_BLACK
             {
                 // Background could be visible.
-                return None;
+                return Err(DirectScanoutError::BackgroundVisible);
             }
             ct
         };
         if let AcquireSync::None | AcquireSync::Implicit = ct.acquire_sync {
             // Cannot perform scanout without explicit sync.
-            return None;
+            return Err(DirectScanoutError::ImplicitSync);
         }
         if ct.source.buffer_transform != ct.target.output_transform {
             // Rotations and mirroring are not supported.
-            return None;
+            return Err(DirectScanoutError::RotationOrMirroring);
         }
         if !ct.source.is_covering() {
             // Viewports are not supported.
-            return None;
+            return Err(DirectScanoutError::Viewport);
         }
         if ct.target.x1 < -1.0 || ct.target.y1 < -1.0 || ct.target.x2 > 1.0 || ct.target.y2 > 1.0 {
             // Rendering outside the screen is not supported.
-            return None;
+            return Err(DirectScanoutError::OutsideScreen);
         }
         let (tex_w, tex_h) = ct.tex.size();
         let (x1, x2, y1, y2) = {
@@ -1539,7 +1571,7 @@ impl GfxRenderPass {
         let (crtc_w, crtc_h) = (x2 - x1, y2 - y1);
         if crtc_w < 0.0 || crtc_h < 0.0 {
             // Flipping x or y axis is not supported.
-            return None;
+            return Err(DirectScanoutError::Flipping);
         }
         if ct.scaling_filter == ScalingFilter::Nearest {
             // Nearest scaling is not supported.
@@ -1547,7 +1579,7 @@ impl GfxRenderPass {
         }
         if no_scaling && (tex_w as f32, tex_h as f32) != (crtc_w, crtc_h) {
             // If scaling is not supported, we cannot scale the texture.
-            return None;
+            return Err(DirectScanoutError::Scaling);
         }
         let position = DirectScanoutPosition {
             src_width: tex_w,
@@ -1557,6 +1589,6 @@ impl GfxRenderPass {
             crtc_width: crtc_w as _,
             crtc_height: crtc_h as _,
         };
-        Some((ct, position))
+        Ok((ct, position))
     }
 }

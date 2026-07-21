@@ -50,6 +50,7 @@ const BLEND_SPACE_SINCE: Version = Version(21);
 const NATIVE_GAMUT_SINCE: Version = Version(23);
 const ARBITRARY_MODES_SINCE: Version = Version(29);
 const SCALING_FILTER_SINCE: Version = Version(37);
+const USE_PLANE_COLOR_PIPELINES_SINCE: Version = Version(38);
 
 impl JayRandr {
     pub fn new(id: JayRandrId, client: &Rc<Client>, version: Version) -> Self {
@@ -82,6 +83,13 @@ impl JayRandr {
             gfx_api: data.dev.gfx_api().to_str(),
             render_device: data.dev.is_render_device() as _,
         });
+        if self.version >= USE_PLANE_COLOR_PIPELINES_SINCE {
+            self.client.event(PlaneColorPipelines {
+                self_id: self.id,
+                enabled: data.dev.use_plane_color_pipelines() as _,
+                supported: data.dev.supports_plane_color_pipelines() as _,
+            });
+        }
     }
 
     fn send_connector(&self, data: &ConnectorData) {
@@ -656,6 +664,18 @@ impl JayRandrRequestHandler for JayRandr {
             return Ok(());
         };
         c.set_scaling_filter(scaling_filter);
+        Ok(())
+    }
+
+    fn set_plane_color_pipelines(
+        &self,
+        req: SetPlaneColorPipelines<'_>,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let Some(dev) = self.get_device(req.dev) else {
+            return Ok(());
+        };
+        dev.set_use_plane_color_pipelines(&self.state, req.enabled != 0);
         Ok(())
     }
 }

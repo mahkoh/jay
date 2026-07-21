@@ -8,7 +8,6 @@ use crate::backend::BackendDrmLessee;
 use crate::backend::BackendEotfs;
 use crate::backend::BackendEvent;
 use crate::backend::BackendGammaLut;
-use crate::backend::BackendGammaLutElement;
 use crate::backend::BackendLuminance;
 use crate::backend::Connector;
 use crate::backend::ConnectorEvent;
@@ -31,6 +30,7 @@ use crate::backends::metal::present::DEFAULT_POST_COMMIT_MARGIN;
 use crate::backends::metal::present::DEFAULT_PRE_COMMIT_MARGIN;
 use crate::backends::metal::present::DirectScanoutCache;
 use crate::backends::metal::present::DirectScanoutKey;
+use crate::backends::metal::present::MetalDirectScanoutError;
 use crate::backends::metal::present::POST_COMMIT_MARGIN_DELTA;
 use crate::backends::metal::present::PresentFbCore;
 use crate::backends::metal::transaction::DrmConnectorState;
@@ -40,6 +40,10 @@ use crate::backends::metal::transaction::DrmCrtcStateProps;
 use crate::backends::metal::transaction::DrmPlaneState;
 use crate::backends::metal::transaction::DrmPlaneStateProps;
 use crate::backends::metal::transaction::MetalDeviceTransaction;
+use crate::backends::metal::video::metal_cm::MetalCmConnector;
+use crate::backends::metal::video::metal_cm::MetalCmCrtc;
+use crate::backends::metal::video::metal_cm::MetalCmDevice;
+use crate::backends::metal::video::metal_cm::MetalCmPlane;
 use crate::cmm::cmm_description::ColorDescription;
 use crate::cmm::cmm_primaries::Primaries;
 use crate::cmm::cmm_render_intent::RenderIntent;
@@ -114,6 +118,8 @@ use bstr::ByteSlice;
 use hashbrown::hash_map::Entry;
 use indexmap::IndexSet;
 use indexmap::indexset;
+use linearize::Linearize;
+use linearize::StaticCopyMap;
 use std::cell::Cell;
 use std::cell::OnceCell;
 use std::cell::RefCell;
@@ -126,6 +132,8 @@ use std::rc::Rc;
 use uapi::OwnedFd;
 use uapi::c::dev_t;
 use uapi::c::{self};
+
+pub mod metal_cm;
 
 pub struct PendingDrmDevice {
     pub id: DrmDeviceId,
@@ -155,7 +163,7 @@ impl Debug for CopyDeviceHolder {
     }
 }
 
-#[derive(Default)]
+#[derive(Copy, Clone, Default)]
 pub struct MetalDrmVendor {
     pub is_nvidia: bool,
     pub is_amd: bool,
@@ -186,6 +194,9 @@ pub struct MetalDrmDevice {
     pub leases_to_break: CopyHashMap<MetalLeaseId, MetalLeaseData>,
     pub paused: Cell<bool>,
     pub min_post_commit_margin: Cell<u64>,
+    pub supports_plane_color_pipelines: bool,
+    pub use_plane_color_pipelines: Cell<bool>,
+    pub cm: MetalCmDevice,
 }
 
 impl Debug for MetalDrmDevice {
@@ -381,6 +392,19 @@ impl BackendDrmDevice for MetalDrmDevice {
 
     fn flip_margin(&self) -> Option<u64> {
         Some(self.min_post_commit_margin.get())
+    }
+
+    fn set_use_plane_color_pipelines(&self, use_plane_color_pipelines: bool) {
+        self.use_plane_color_pipelines
+            .set(use_plane_color_pipelines);
+    }
+
+    fn use_plane_color_pipelines(&self) -> bool {
+        self.use_plane_color_pipelines.get()
+    }
+
+    fn supports_plane_color_pipelines(&self) -> bool {
+        self.supports_plane_color_pipelines
     }
 }
 
@@ -621,6 +645,11 @@ pub struct MetalConnector {
     pub vblank_miss_this_sec: NumCell<u32>,
     pub presentation_is_sync: Cell<bool>,
     pub presentation_is_zero_copy: Cell<bool>,
+
+    pub gamma_lut: CloneCell<Option<Rc<BackendGammaLut>>>,
+    pub cm: MetalCmConnector,
+
+    pub last_direct_scanout_error: Cell<Option<MetalDirectScanoutError>>,
 }
 
 impl Debug for MetalConnector {
@@ -974,6 +1003,8 @@ pub struct MetalCrtc {
     pub sequence: Cell<u64>,
     pub have_queued_sequence: Cell<bool>,
     pub needs_vblank_emulation: Cell<bool>,
+
+    pub cm: MetalCmCrtc,
 }
 
 impl Debug for MetalCrtc {
@@ -988,7 +1019,7 @@ pub struct MetalEncoder {
     pub crtcs: BHashMap<DrmCrtc, Rc<MetalCrtc>>,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Linearize)]
 pub enum PlaneType {
     Overlay,
     Primary,
@@ -1001,10 +1032,12 @@ pub struct PlaneFormat {
     pub modifiers: IndexSet<Modifier>,
 }
 
+pub type PlaneDefaultPropertyFilter = StaticCopyMap<PlaneType, bool>;
+
 pub struct MetalPlane {
     pub id: DrmPlane,
     pub master: Rc<DrmMaster>,
-    pub default_properties: Vec<DefaultProperty>,
+    pub default_properties: Vec<DefaultProperty<PlaneDefaultPropertyFilter>>,
     pub untyped_properties: RefCell<BHashMap<DrmProperty, u64>>,
 
     pub ty: PlaneType,
@@ -1019,6 +1052,8 @@ pub struct MetalPlane {
     pub mode_h: Cell<i32>,
 
     pub in_fence_fd: DrmProperty,
+
+    pub cm: MetalCmPlane,
 
     pub drm_state: RefCell<DrmPlaneState>,
 }
@@ -1177,6 +1212,9 @@ fn create_connector(
         vblank_miss_this_sec: Default::default(),
         presentation_is_sync: Cell::new(false),
         presentation_is_zero_copy: Cell::new(false),
+        gamma_lut: Default::default(),
+        cm: MetalCmConnector::new(&dev.cm),
+        last_direct_scanout_error: Default::default(),
     });
     let futures = ConnectorFutures {
         _present: backend.state.eng.spawn2(
@@ -1534,14 +1572,7 @@ fn create_crtc(
     );
     let mode_id = props.get("MODE_ID")?.map(|v| DrmBlob(v as u32));
     let out_fence_ptr = props.get("OUT_FENCE_PTR")?;
-    let gamma_lut = props
-        .get("GAMMA_LUT")
-        .ok()
-        .map(|v| v.map(|v| DrmBlob(v as u32)));
-    let mut gamma_lut_size = None;
-    if gamma_lut.is_some() {
-        gamma_lut_size = props.get("GAMMA_LUT_SIZE").ok().map(|v| v.value as u32);
-    }
+    let gamma_lut_size = props.get("GAMMA_LUT_SIZE").ok().map(|v| v.value as u32);
     let mut mode = None;
     if mode_id.value.is_some() {
         match master.getblob::<drm_mode_modeinfo>(mode_id.value) {
@@ -1555,13 +1586,10 @@ fn create_crtc(
         mode,
         mode_blob: None,
         assigned_connector: DrmConnector::NONE,
-        gamma_lut: None,
-        gamma_lut_blob: None,
         props: DrmCrtcStateProps {
             active: props.get("ACTIVE")?.map(|v| v == 1),
             mode_blob_id: mode_id,
             vrr_enabled: props.get("VRR_ENABLED")?.map(|v| v == 1),
-            gamma_lut_blob_id: gamma_lut,
         },
     };
     Ok(MetalCrtc {
@@ -1580,10 +1608,15 @@ fn create_crtc(
         sequence: Cell::new(0),
         have_queued_sequence: Cell::new(false),
         needs_vblank_emulation: Cell::new(false),
+        cm: MetalCmCrtc::new(crtc, &props),
     })
 }
 
-fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, DrmError> {
+fn create_plane(
+    plane: DrmPlane,
+    master: &Rc<DrmMaster>,
+    vendor: &MetalDrmVendor,
+) -> Result<MetalPlane, DrmError> {
     let info = master.get_plane_info(plane)?;
     let props = collect_properties(master, plane)?;
     let mut formats = BHashMap::default();
@@ -1643,23 +1676,26 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
             ));
         }
     };
-    let default_properties = create_default_properties(
-        &props,
-        &[
-            ("AMD_PLANE_BLEND_LUT", DefaultValue::Fixed(0), ()),
-            ("AMD_PLANE_BLEND_TF", DefaultValue::Enum("Default"), ()),
-            ("AMD_PLANE_CTM", DefaultValue::Fixed(0), ()),
-            ("AMD_PLANE_DEGAMMA_LUT", DefaultValue::Fixed(0), ()),
-            ("AMD_PLANE_HDR_MULT", DefaultValue::Fixed(0), ()),
-            ("AMD_PLANE_LUT3D", DefaultValue::Fixed(0), ()),
-            ("AMD_PLANE_SHAPER_LUT", DefaultValue::Fixed(0), ()),
-            ("AMD_PLANE_SHAPER_TF", DefaultValue::Enum("Default"), ()),
-            ("alpha", DefaultValue::RangeMax, ()),
-            ("pixel blend mode", DefaultValue::Enum("Pre-multiplied"), ()),
-            ("rotation", DefaultValue::Bitmask(&["rotate-0"]), ()),
-            ("COLOR_PIPELINE", DefaultValue::Enum("Bypass"), ()),
-        ],
-    );
+    let default_properties = {
+        let all = StaticCopyMap::from_fn(|_| true);
+        let npp = StaticCopyMap::from_fn(|p| p != PlaneType::Primary);
+        #[rustfmt::skip]
+        let defaults = [
+            ("AMD_PLANE_BLEND_LUT", DefaultValue::Fixed(0), all),
+            ("AMD_PLANE_BLEND_TF", DefaultValue::Enum("Default"), all),
+            ("AMD_PLANE_CTM", DefaultValue::Fixed(0), all),
+            ("AMD_PLANE_DEGAMMA_LUT", DefaultValue::Fixed(0), all),
+            ("AMD_PLANE_HDR_MULT", DefaultValue::Fixed(0), all),
+            ("AMD_PLANE_LUT3D", DefaultValue::Fixed(0), all),
+            ("AMD_PLANE_SHAPER_LUT", DefaultValue::Fixed(0), all),
+            ("AMD_PLANE_SHAPER_TF", DefaultValue::Enum("Default"), all),
+            ("alpha", DefaultValue::RangeMax, all),
+            ("pixel blend mode", DefaultValue::Enum("Pre-multiplied"), all),
+            ("rotation", DefaultValue::Bitmask(&["rotate-0"]), all),
+            ("COLOR_PIPELINE", DefaultValue::Enum("Bypass"), npp),
+        ];
+        create_default_properties(&props, &defaults)
+    };
     let in_fence_fd = props.get("IN_FENCE_FD")?;
     let state = DrmPlaneState {
         assigned_crtc: DrmCrtc::NONE,
@@ -1691,6 +1727,7 @@ fn create_plane(plane: DrmPlane, master: &Rc<DrmMaster>) -> Result<MetalPlane, D
         mode_w: Cell::new(0),
         mode_h: Cell::new(0),
         lease: Cell::new(None),
+        cm: MetalCmPlane::new(&master, vendor, plane, &props),
     })
 }
 
@@ -1718,6 +1755,7 @@ fn collect_untyped_properties<T: DrmObject>(
     Ok(())
 }
 
+#[derive(Debug)]
 struct CollectedProperties {
     props: BHashMap<BString, (DrmPropertyDefinition, u64)>,
 }
@@ -1987,6 +2025,7 @@ impl MetalBackend {
         let mut crtcs = BHashMap::default();
         let mut encoders = BHashMap::default();
         let (mut cursor_width, mut cursor_height) = (1, 1);
+        let mut supports_plane_color_pipelines = false;
         let supports_kms = master.supports_get_resources()?;
         if supports_kms {
             if let Err(e) = master.set_client_cap(DRM_CLIENT_CAP_ATOMIC, 2) {
@@ -1994,6 +2033,8 @@ impl MetalBackend {
             }
             if let Err(e) = master.set_client_cap(DRM_CLIENT_CAP_PLANE_COLOR_PIPELINE, 1) {
                 log::warn!("Could not enable color pipelines: {}", ErrorFmt(e));
+            } else {
+                supports_plane_color_pipelines = true;
             }
             resources = master.get_resources()?;
             (cursor_width, cursor_height) = master.get_cursor_size().unwrap_or_else(|e| {
@@ -2001,7 +2042,7 @@ impl MetalBackend {
                 (64, 64)
             });
             for plane in master.get_planes()? {
-                match create_plane(plane, master) {
+                match create_plane(plane, master, &vendor) {
                     Ok(p) => {
                         planes.insert(p.id, Rc::new(p));
                     }
@@ -2077,6 +2118,9 @@ impl MetalBackend {
             leases_to_break: Default::default(),
             paused: Cell::new(false),
             min_post_commit_margin: Cell::new(DEFAULT_POST_COMMIT_MARGIN),
+            supports_plane_color_pipelines,
+            use_plane_color_pipelines: Cell::new(false),
+            cm: MetalCmDevice::new(&vendor),
         });
 
         let mut connectors = CopyHashMap::new();
@@ -2158,6 +2202,8 @@ impl MetalConnector {
                 }
             }
         }
+        self.cm.invalidate();
+        self.scanout_impossible_cache.clear();
         Ok(())
     }
 }
@@ -2180,23 +2226,6 @@ impl MetalCrtc {
                     }
                     Err(e) => {
                         log::error!("Could not fetch drm_mode_modeinfo: {}", ErrorFmt(e));
-                    }
-                }
-            }
-        }
-        if let Some(prop) = &state.gamma_lut_blob_id {
-            let id = prop.value;
-            if id != state.gamma_lut_blob.id_or_default() {
-                state.gamma_lut = None;
-                state.gamma_lut_blob = None;
-                if id.is_some() {
-                    match master.getblob_vec::<BackendGammaLutElement>(id) {
-                        Ok(b) => {
-                            state.gamma_lut = Some(Rc::new(BackendGammaLut::new(b)));
-                        }
-                        Err(e) => {
-                            log::error!("Could not fetch gamma_lut: {}", ErrorFmt(e));
-                        }
                     }
                 }
             }

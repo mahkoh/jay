@@ -27,6 +27,7 @@ use crate::format::Format;
 use crate::format::XRGB8888;
 use crate::gfx_api::AcquireSync;
 use crate::gfx_api::BufferResv;
+use crate::gfx_api::DirectScanoutError;
 use crate::gfx_api::DirectScanoutPosition;
 use crate::gfx_api::FdSync;
 use crate::gfx_api::GfxBlendBuffer;
@@ -217,6 +218,14 @@ struct DirectScanoutData {
 
 struct FrameData {
     dsd: Option<DirectScanoutData>,
+}
+
+#[derive(Copy, Clone, Debug, Error)]
+enum VoDirectScanoutError {
+    #[error(transparent)]
+    GfxApi(#[from] DirectScanoutError),
+    #[error("Direct scanout requires embeddable color descriptions")]
+    CdNotEmbedded,
 }
 
 const CURSOR_SIZE: i32 = 256;
@@ -499,7 +508,7 @@ impl VirtualOutput {
             let mut frame_data = None;
             if let Some(latched) = &latched {
                 let sync;
-                if let Some(dsd) = self.prepare_direct_scanout(&be_state, blend_cd, &cd, latched) {
+                if let Ok(dsd) = self.prepare_direct_scanout(&be_state, blend_cd, &cd, latched) {
                     if let Some(lazy) = &dsd.lazy {
                         lazy.record_use(TextureUse::Scanout);
                     }
@@ -645,7 +654,7 @@ impl VirtualOutput {
         blend_cd: &Rc<ColorDescription>,
         cd: &Rc<ColorDescription>,
         latched: &Latched,
-    ) -> Option<DirectScanoutData> {
+    ) -> Result<DirectScanoutData, VoDirectScanoutError> {
         let (ct, position) = latched.pass.prepare_direct_scanout(
             be_state.mode.width,
             be_state.mode.height,
@@ -654,9 +663,9 @@ impl VirtualOutput {
         )?;
         if !ct.cd.embeds_into(cd, ct.render_intent) {
             // Direct scanout requires embeddable color descriptions.
-            return None;
+            return Err(VoDirectScanoutError::CdNotEmbedded);
         }
-        Some(DirectScanoutData {
+        Ok(DirectScanoutData {
             buffer_resv: ct.buffer_resv.clone(),
             lazy: ct.lazy.clone(),
             tex: ct.tex.clone(),

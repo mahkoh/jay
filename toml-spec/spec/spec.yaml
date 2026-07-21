@@ -1603,6 +1603,14 @@ DrmDevice:
         vblank event. This determines the minimum input latency. The default is 1.5 ms.
         
         Note that if the margin is too small, the compositor will dynamically increase it.
+    plane-color-pipelines:
+      kind: boolean
+      required: false
+      description: |
+        If specified, enables or disables the use of plane color pipelines for this
+        device.
+        
+        The default is `false`.
 
 
 GfxApi:

@@ -1,4 +1,4 @@
-#![expect(clippy::from_str_radix_10)]
+#![expect(clippy::from_str_radix_10, clippy::match_like_matches_macro)]
 
 use crate::phf::PhfHash;
 use anyhow::Context;
@@ -29,6 +29,12 @@ macro_rules! define_w {
     };
 }
 
+#[macro_use]
+#[expect(unused_macros)]
+#[path = "../../src/macros.rs"]
+mod macros;
+mod gen_cm_paths;
+mod gen_lut;
 mod input_event_codes;
 mod keysyms;
 #[path = "../../toml-config/src/phf.rs"]
@@ -38,6 +44,8 @@ mod phf_generator;
 fn main() -> Result<()> {
     input_event_codes::main()?;
     keysyms::main()?;
+    gen_cm_paths::main()?;
+    gen_lut::main()?;
     Ok(())
 }
 
@@ -76,7 +84,9 @@ fn update(relative: &str, raw: &str) -> Result<()> {
 
     let formatted = {
         let dir = absolute.parent().context("file path has no parent")?;
-        let mut tmp = tempfile::Builder::default().tempfile_in(dir)?;
+        let mut tmp = tempfile::Builder::default()
+            .suffix(".rs")
+            .tempfile_in(dir)?;
         tmp.write_all(raw.as_bytes())?;
         let status = Command::new("rustfmt")
             .arg("+nightly")
@@ -84,6 +94,7 @@ fn update(relative: &str, raw: &str) -> Result<()> {
             .arg(tmp.path())
             .status()?;
         if !status.success() {
+            tmp.disable_cleanup(true);
             bail!("rustfmt failed");
         }
         std::fs::read_to_string(&tmp)?

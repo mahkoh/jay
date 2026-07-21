@@ -1213,6 +1213,23 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_plane_color_pipelines_enabled(
+        &self,
+        dev: DrmDevice,
+        enabled: bool,
+    ) -> Result<(), CphError> {
+        self.get_drm_device(dev)?
+            .set_use_plane_color_pipelines(&self.state, enabled);
+        Ok(())
+    }
+
+    fn handle_get_plane_color_pipelines_enabled(&self, dev: DrmDevice) -> Result<(), CphError> {
+        self.respond(Response::GetPlaneColorPipelinesEnabled {
+            enabled: self.get_drm_device(dev)?.dev.use_plane_color_pipelines(),
+        });
+        Ok(())
+    }
+
     fn handle_get_default_workspace_capture(&self) {
         self.respond(Response::GetDefaultWorkspaceCapture {
             capture: self.state.default_workspace_capture.get(),
@@ -4020,6 +4037,12 @@ impl ConfigProxyHandler {
             } => self
                 .handle_connector_set_scaling_filter(connector, scaling_filter)
                 .wrn("set_scaling_filter")?,
+            ClientMessage::SetPlaneColorPipelinesEnabled { device, enabled } => self
+                .handle_set_plane_color_pipelines_enabled(device, enabled)
+                .wrn("set_plane_color_pipelines_enabled")?,
+            ClientMessage::GetPlaneColorPipelinesEnabled { device } => self
+                .handle_get_plane_color_pipelines_enabled(device)
+                .wrn("get_plane_color_pipelines_enabled")?,
         }
         Ok(())
     }

@@ -2,7 +2,6 @@ use crate::allocator::BufferObject;
 use crate::backend::BackendColorSpace;
 use crate::backend::BackendConnectorState;
 use crate::backend::BackendEotfs;
-use crate::backend::BackendGammaLut;
 use crate::backend::Connector;
 use crate::backend::ConnectorEvent;
 use crate::backend::ScanoutFormats;
@@ -17,7 +16,9 @@ use crate::backends::metal::video::MetalConnector;
 use crate::backends::metal::video::MetalCrtc;
 use crate::backends::metal::video::MetalDrmDeviceData;
 use crate::backends::metal::video::MetalPlane;
+use crate::backends::metal::video::PlaneDefaultPropertyFilter;
 use crate::backends::metal::video::PlaneType;
+use crate::backends::metal::video::metal_cm::MetalCmProgramming;
 use crate::format::ARGB8888;
 use crate::format::Format;
 use crate::gfx_api::SyncFile;
@@ -93,8 +94,6 @@ pub struct DrmCrtcState {
     pub mode: Option<DrmModeInfo>,
     pub mode_blob: Option<Rc<PropBlob>>,
     pub assigned_connector: DrmConnector,
-    pub gamma_lut: Option<Rc<BackendGammaLut>>,
-    pub gamma_lut_blob: Option<Rc<PropBlob>>,
     pub props: DrmCrtcStateProps,
 }
 
@@ -103,7 +102,6 @@ pub struct DrmCrtcStateProps {
     pub active: DrmPropertyValue<bool>,
     pub mode_blob_id: DrmPropertyValue<DrmBlob>,
     pub vrr_enabled: DrmPropertyValue<bool>,
-    pub gamma_lut_blob_id: Option<DrmPropertyValue<DrmBlob>>,
 }
 
 #[derive(Clone, Debug, Reset)]
@@ -154,6 +152,8 @@ struct ConnectorConfig {
     requested: bool,
     changed: Rc<Cell<bool>>,
     old_scanout_formats: Option<ScanoutFormats>,
+    old_cm_programming: Option<MetalCmProgramming>,
+    new_cm_programming: Option<MetalCmProgramming>,
 }
 
 const SIZE: usize = 16;
@@ -269,6 +269,8 @@ impl MetalDrmDeviceData {
                     requested: false,
                     changed: Default::default(),
                     old_scanout_formats: connector.scanout_formats(),
+                    old_cm_programming: connector.cm.current(),
+                    new_cm_programming: None,
                 },
             );
         }
@@ -498,24 +500,6 @@ impl MetalDeviceTransaction {
                 crtc.new.mode_blob = Some(Rc::new(blob));
                 mode.clone()
             };
-            if crtc.new.gamma_lut != state.gamma_lut
-                && let Some(prop) = &mut crtc.new.gamma_lut_blob_id
-            {
-                if let Some(gamma_lut) = &state.gamma_lut {
-                    let blob = slf
-                        .dev
-                        .dev
-                        .master
-                        .create_blob(&gamma_lut.gamma_lut as &[_])
-                        .map_err(BackendConnectorTransactionError::CreateGammaLutBlob)?;
-                    prop.value = blob.id();
-                    crtc.new.gamma_lut_blob = Some(Rc::new(blob));
-                } else {
-                    prop.value = DrmBlob::NONE;
-                    crtc.new.gamma_lut_blob = None;
-                }
-                crtc.new.gamma_lut = state.gamma_lut.clone();
-            }
             for plane_id in [&mut crtc_planes.primary, &mut crtc_planes.cursor] {
                 if plane_id.is_none() {
                     continue;
@@ -754,6 +738,29 @@ impl MetalDeviceTransaction {
                     copy!(crtc_y);
                     copy!(crtc_w);
                     copy!(crtc_h);
+                    let fb_cd = match self.allow_direct_scanout {
+                        true => connector.obj.fb_color_description.get(),
+                        false => connector.obj.color_description.get(),
+                    };
+                    let p = connector
+                        .obj
+                        .cm
+                        .find_programming(
+                            &slf.dev.dev.master,
+                            &plane.obj,
+                            &crtc.obj,
+                            &fb_cd,
+                            &connector.obj.color_description.get(),
+                            connector.obj.fb_render_intent.get(),
+                            state.gamma_lut.as_ref(),
+                            connector.new.cursor_fb.is_some(),
+                            slf.dev.dev.use_plane_color_pipelines.get(),
+                        )
+                        .ok_or(BackendConnectorTransactionError::NoColorManagementProgramming)?;
+                    if connector.obj.cm.is_different(&p) {
+                        connector.changed.set(true);
+                    }
+                    connector.new_cm_programming = Some(p);
                 }
             }
             if state.vrr && !dd.vrr_capable {
@@ -893,6 +900,9 @@ impl MetalDeviceTransactionWithDrmState {
         let slf = &mut self.common;
         let mut c = slf.dev.dev.master.change();
         for (_, connector) in &mut slf.connectors {
+            if let Some(p) = &connector.new_cm_programming {
+                connector.obj.cm.prepare(p, &mut c, LOGGING);
+            }
             let dd = &*connector.obj.display.borrow();
             let n = &connector.new.props;
             let o = &dd.drm_state.props;
@@ -941,8 +951,9 @@ impl MetalDeviceTransactionWithDrmState {
             let o = &plane.obj.drm_state.borrow().props;
             let untyped_properties = &*plane.obj.untyped_properties.borrow();
             let default_properties = &plane.obj.default_properties;
+            let filter = |ty: &PlaneDefaultPropertyFilter| ty[plane.obj.ty];
             let changed = n.differs(o)
-                || need_reset_default_properties!(untyped_properties, default_properties);
+                || need_reset_default_properties!(untyped_properties, default_properties, filter);
             log::log!(
                 LEVEL,
                 "plane {:?} (crtc {:?}) (ty {:?}) {}changed",
@@ -957,7 +968,7 @@ impl MetalDeviceTransactionWithDrmState {
                         c.change(plane.obj.in_fence_fd, -1i32);
                     }
                     n.prepare_conditional(o, c, LOGGING);
-                    reset_default_properties!(c, untyped_properties, default_properties);
+                    reset_default_properties!(c, untyped_properties, default_properties, filter);
                 });
                 plane.changed.iter().for_each(|c| c.set(true));
             }
@@ -1030,6 +1041,9 @@ impl MetalDeviceTransactionWithChange {
                 continue;
             }
             connector.obj.version.fetch_add(1);
+            if let Some(p) = &connector.new_cm_programming {
+                connector.obj.cm.apply(p);
+            }
             if connector.new.crtc_id.value.is_none() {
                 connector.obj.crtc.set(None);
                 connector.obj.primary_plane.set(None);
@@ -1084,6 +1098,14 @@ impl MetalDeviceTransactionWithChange {
             mem::swap(o, &mut plane.new);
         }
         for (_, connector) in &mut slf.connectors {
+            connector
+                .obj
+                .gamma_lut
+                .set(connector.state.gamma_lut.clone());
+            mem::swap(
+                &mut connector.old_cm_programming,
+                &mut connector.new_cm_programming,
+            );
             let is_connected;
             let is_non_desktop;
             {

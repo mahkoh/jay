@@ -506,6 +506,7 @@ pub struct ConfigDrmDevice {
     pub gfx_api: Option<GfxApi>,
     pub direct_scanout_enabled: Option<bool>,
     pub flip_margin_ms: Option<f64>,
+    pub plane_color_pipelines_enabled: Option<bool>,
 }
 
 #[derive(Debug, Clone)]
