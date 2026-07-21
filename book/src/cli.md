@@ -15,8 +15,24 @@ the running compositor over the Wayland protocol unless otherwise noted.
 > ~$ jay generate-completion powershell  # pipe to appropriate location
 > ```
 
-Every subcommand accepts a global `--log-level` option (`trace`, `debug`,
-`info`, `warn`, `error`, `off`) that controls the verbosity of the CLI tool itself.
+## Global Options
+
+These options are accepted by every subcommand and must be passed before the
+subcommand name (for example `jay --log-level debug randr`).
+
+`--log-level <LEVEL>`
+: Verbosity of the compositor or the CLI tool itself. One of `trace`, `debug`,
+  `info`, `warn`, `error`, or `off`. When omitted, Jay falls back to the
+  [`JAY_LOG_LEVEL`](environment-variables.md) environment variable, defaulting
+  to `info`.
+
+`--config-dir <DIR>`
+: Overrides the [configuration directory](configuration/index.md) for this
+  invocation, taking precedence over `JAY_CONFIG_DIR`, `XDG_CONFIG_HOME`, and
+  `HOME`.
+
+`--json`, `--all-json-fields`
+: Emit machine-readable JSON. See [JSON Output](#json-output) below.
 
 ---
 
