@@ -6,6 +6,7 @@ use crate::backend::InputDeviceId;
 use crate::client::Client;
 use crate::client::ClientCaps;
 use crate::config::handler::ConfigProxyHandler;
+use crate::env::JAY_NO_REALTIME;
 use crate::ifs::wl_seat::SeatId;
 #[cfg(feature = "it")]
 use crate::it::test_config::TEST_CONFIG_ENTRY;
@@ -15,7 +16,6 @@ use crate::tree::TileState;
 use crate::tree::ToplevelData;
 use crate::tree::ToplevelIdentifier;
 use crate::utils::clonecell::CloneCell;
-use crate::utils::nice::JAY_NO_REALTIME;
 use crate::utils::nice::dont_allow_unprivileged_config_so;
 use crate::utils::numcell::NumCell;
 use crate::utils::oserror::OsError;
@@ -338,7 +338,7 @@ impl ConfigProxy {
     }
 
     pub fn from_config_dir(state: &Rc<State>) -> Result<Self, ConfigError> {
-        let file = open_config_so(state.config_dir.as_deref())?;
+        let file = open_config_so(state.config_dir)?;
         let stat = uapi::fstat(file.raw()).map_os_err(ConfigError::StatConfigSo)?;
         let file_id = Some((stat.st_dev, stat.st_ino));
         if let Some(old) = state.config.get()
@@ -349,7 +349,7 @@ impl ConfigProxy {
         if dont_allow_unprivileged_config_so() && is_unprivileged_config_so(&stat) {
             log::warn!("Not loading config.so because");
             log::warn!("  1. Jay was started with CAP_SYS_NICE");
-            log::warn!("  2. Jay was not started with {}=1", JAY_NO_REALTIME);
+            log::warn!("  2. Jay was not started with {}=1", JAY_NO_REALTIME.name());
             log::warn!("  3. The scheduler was elevated to SCHED_RR");
             log::warn!("  4. config.so is not owned by root:root or world-writable");
             log::warn!(

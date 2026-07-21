@@ -1,6 +1,7 @@
 use crate::cli::GlobalArgs;
 use crate::cli::json::jsonl;
-use crate::compositor::config_dir;
+use crate::env::config_dir;
+use crate::env::initial_log_level;
 use crate::logger::Logger;
 use crate::utils::errorfmt::ErrorFmt;
 use clap::Args;
@@ -36,7 +37,7 @@ pub struct ConfigInitArgs {
 }
 
 pub fn main(global: GlobalArgs, args: ConfigArgs) {
-    Logger::install_stderr(global.log_level);
+    Logger::install_stderr(initial_log_level());
     let dir = || {
         let Some(dir) = config_dir() else {
             fatal!("Could not determine the config directory");
@@ -46,7 +47,7 @@ pub fn main(global: GlobalArgs, args: ConfigArgs) {
     match args.command {
         ConfigCmd::Init(a) => {
             let dir = dir();
-            if let Err(e) = std::fs::create_dir_all(&dir) {
+            if let Err(e) = std::fs::create_dir_all(dir) {
                 fatal!("Could not create config directory: {}", ErrorFmt(e));
             }
             let toml_path = Path::new(&dir).join(CONFIG_TOML);
@@ -103,8 +104,8 @@ pub fn main(global: GlobalArgs, args: ConfigArgs) {
             let dir = dir();
             let mut args = UstrPtr::new();
             args.push(XDG_OPEN);
-            args.push(&*dir);
-            if matches!(std::fs::exists(&dir), Ok(false)) {
+            args.push(dir);
+            if matches!(std::fs::exists(dir), Ok(false)) {
                 fatal!("Use `jay config init` to initialize the config first");
             }
             if let Err(e) = uapi::execvp(XDG_OPEN, &args) {

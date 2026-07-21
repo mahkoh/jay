@@ -39,6 +39,9 @@ use crate::damage::visualize_damage;
 use crate::dbus::Dbus;
 use crate::dmabuf_feedback::handle_dmabuf_feedback_changes;
 use crate::ei::ei_client::EiClients;
+use crate::env::WAYLAND_DISPLAY;
+use crate::env::config_dir;
+use crate::env::initial_log_level;
 use crate::eventfd_cache::EventfdCache;
 use crate::forker;
 use crate::format::XRGB8888;
@@ -141,7 +144,6 @@ use linearize::Linearize;
 use log::LevelFilter;
 use std::cell::Cell;
 use std::cell::RefCell;
-use std::env;
 use std::future::Future;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -155,7 +157,7 @@ pub const MAX_EXTENTS: i32 = (1 << 22) - 1;
 pub const MIN_SCALE: Scale = Scale::from_wl(60);
 pub const MAX_SCALE: Scale = Scale::from_int(16);
 
-pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
+pub fn start_compositor(_global: GlobalArgs, args: RunArgs) {
     sighand::reset_all();
     let reaper_pid = ensure_reaper();
     let caps = pr_caps().into_comp();
@@ -167,10 +169,10 @@ pub fn start_compositor(global: GlobalArgs, args: RunArgs) {
         None
     };
     let forker = create_forker(reaper_pid);
-    let portal = portal::run_from_compositor(global.log_level);
+    let portal = portal::run_from_compositor(initial_log_level());
     let sleeper = start_sleeper();
     enable_profiler();
-    let logger = Logger::install_compositor(global.log_level);
+    let logger = Logger::install_compositor(initial_log_level());
     let portal = match portal {
         Ok(p) => Some(p),
         Err(e) => {
@@ -236,9 +238,7 @@ pub enum CompositorError {
     CpuWorkerError(#[from] CpuWorkerError),
 }
 
-pub const WAYLAND_DISPLAY: &str = "WAYLAND_DISPLAY";
 pub const LIBEI_SOCKET: &str = "LIBEI_SOCKET";
-pub const DISPLAY: &str = "DISPLAY";
 
 const STATIC_VARS: &[(&str, &str)] = &[
     ("XDG_CURRENT_DESKTOP", "jay"),
@@ -486,7 +486,7 @@ fn start_compositor2(
     if let Some(forker) = forker {
         forker.install(&state);
         forker.setenv(
-            WAYLAND_DISPLAY.as_bytes(),
+            WAYLAND_DISPLAY.name().as_bytes(),
             acceptor.socket_name().as_bytes(),
         );
         for (key, val) in STATIC_VARS {
@@ -526,7 +526,7 @@ async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
 
     if backend.import_environment() {
         if let Some(acc) = state.acceptor.get() {
-            import_environment(&state, WAYLAND_DISPLAY, acc.socket_name()).await;
+            import_environment(&state, WAYLAND_DISPLAY.name(), acc.socket_name()).await;
         }
         for (key, val) in STATIC_VARS {
             import_environment(&state, key, val).await;
@@ -873,17 +873,6 @@ fn create_dummy_output(state: &Rc<State>) {
     ));
     let dummy_output = OutputNode::new(state.dummy_output_id, &global, &schedule);
     state.dummy_output.set(Some(dummy_output));
-}
-
-pub fn config_dir() -> Option<String> {
-    if let Ok(xdg) = env::var("XDG_CONFIG_HOME") {
-        Some(format!("{}/jay", xdg))
-    } else if let Ok(home) = env::var("HOME") {
-        Some(format!("{}/.config/jay", home))
-    } else {
-        log::warn!("Neither XDG_CONFIG_HOME nor HOME are set. Using default config.");
-        None
-    }
 }
 
 #[derive(ValueEnum, Debug, Copy, Clone, Hash, Default, Eq, PartialEq, Linearize)]

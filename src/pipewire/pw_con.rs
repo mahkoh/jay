@@ -1,5 +1,6 @@
 use crate::async_engine::AsyncEngine;
 use crate::async_engine::SpawnedFuture;
+use crate::env::XDG_RUNTIME_DIR;
 use crate::io_uring::IoUring;
 use crate::io_uring::IoUringError;
 use crate::pipewire::pw_formatter::PwFormatter;
@@ -34,7 +35,6 @@ use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::numcell::NumCell;
 use crate::utils::oserror::OsError;
 use crate::utils::oserror::OsErrorExt2;
-use crate::utils::xrd::xrd;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::fmt::Display;
@@ -313,7 +313,7 @@ impl PwConHolder {
             sun_family: c::AF_UNIX as _,
             ..uapi::pod_zeroed()
         };
-        let xrd = match xrd() {
+        let xrd = match *XDG_RUNTIME_DIR {
             Some(xrd) => xrd,
             _ => return Err(PwConError::XrdNotSet),
         };

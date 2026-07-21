@@ -1,6 +1,6 @@
 use crate::async_engine::Phase;
 use crate::async_engine::SpawnedFuture;
-use crate::compositor::DISPLAY;
+use crate::env::DISPLAY;
 use crate::io_uring::IoUringError;
 use crate::state::State;
 use crate::utils::bhash::BHashMap;
@@ -929,8 +929,8 @@ impl XconData {
 }
 
 fn parse_display() -> Result<u32, XconError> {
-    let display = match std::env::var(DISPLAY) {
-        Ok(d) => d,
+    let display = match *DISPLAY {
+        Some(d) => d,
         _ => return Err(XconError::DisplayNotSet),
     };
     let num = match display.strip_prefix(":") {

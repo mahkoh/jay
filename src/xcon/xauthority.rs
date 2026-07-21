@@ -1,3 +1,5 @@
+use crate::env::HOME;
+use crate::env::XAUTHORITY;
 use crate::xcon::XconError;
 use bstr::BString;
 use bstr::ByteSlice;
@@ -20,10 +22,10 @@ pub struct XAuthority {
 impl XAuthority {
     pub fn load() -> Result<Vec<XAuthority>, XconError> {
         let path = 'path: {
-            if let Ok(p) = std::env::var("XAUTHORITY") {
-                break 'path p;
+            if let Some(p) = *XAUTHORITY {
+                break 'path p.to_string();
             }
-            if let Ok(home) = std::env::var("HOME") {
+            if let Some(home) = *HOME {
                 break 'path format!("{home}/.Xauthority");
             }
             return Err(XconError::HomeNotSet);

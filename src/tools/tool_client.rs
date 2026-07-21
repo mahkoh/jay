@@ -2,8 +2,9 @@ use crate::async_engine::AsyncEngine;
 use crate::async_engine::SpawnedFuture;
 use crate::client::EventFormatter;
 use crate::client::RequestParser;
-use crate::compositor::LogLevel;
-use crate::compositor::WAYLAND_DISPLAY;
+use crate::env::WAYLAND_DISPLAY;
+use crate::env::XDG_RUNTIME_DIR;
+use crate::env::initial_log_level;
 use crate::io_uring::IoUring;
 use crate::io_uring::IoUringError;
 use crate::logger::Logger;
@@ -27,7 +28,6 @@ use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
 use crate::utils::oserror::OsError;
 use crate::utils::oserror::OsErrorExt2;
-use crate::utils::xrd::xrd;
 use crate::wheel::Wheel;
 use crate::wheel::WheelError;
 use crate::wire::JayCompositor;
@@ -109,12 +109,12 @@ pub struct ToolClient {
     jay_damage_tracking: Cell<Option<Option<JayDamageTrackingId>>>,
 }
 
-pub fn with_tool_client<T, F>(level: LogLevel, f: F)
+pub fn with_tool_client<T, F>(f: F)
 where
     F: FnOnce(Rc<ToolClient>) -> T + 'static,
     T: Future<Output = ()> + 'static,
 {
-    if let Err(e) = with_tool_client_(level, f) {
+    if let Err(e) = with_tool_client_(f) {
         handle_error(e);
     }
 }
@@ -123,12 +123,12 @@ fn handle_error(e: ToolClientError) -> ! {
     fatal!("Could not create a tool client: {}", ErrorFmt(e));
 }
 
-fn with_tool_client_<T, F>(level: LogLevel, f: F) -> Result<(), ToolClientError>
+fn with_tool_client_<T, F>(f: F) -> Result<(), ToolClientError>
 where
     F: FnOnce(Rc<ToolClient>) -> T + 'static,
     T: Future<Output = ()> + 'static,
 {
-    let logger = Logger::install_stderr(level);
+    let logger = Logger::install_stderr(initial_log_level());
     let eng = AsyncEngine::new();
     let ring = match IoUring::new(&eng, 32) {
         Ok(e) => e,
@@ -160,13 +160,13 @@ impl ToolClient {
             Ok(w) => w,
             Err(e) => return Err(ToolClientError::CreateWheel(e)),
         };
-        let xrd = match xrd() {
+        let xrd = match *XDG_RUNTIME_DIR {
             Some(d) => d,
             _ => return Err(ToolClientError::XrdNotSet),
         };
-        let wd = match std::env::var(WAYLAND_DISPLAY) {
-            Ok(d) => d,
-            Err(_) => return Err(ToolClientError::WaylandDisplayNotSet),
+        let wd = match *WAYLAND_DISPLAY {
+            Some(d) => d,
+            _ => return Err(ToolClientError::WaylandDisplayNotSet),
         };
         let mut path = format_ustr!("{}/{}", xrd, wd);
         let suffix = b".jay";

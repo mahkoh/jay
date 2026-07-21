@@ -16,6 +16,13 @@ and other sensible settings.
 > startup actions, nothing. Always start from a full config rather than writing
 > one from scratch.
 
+> [!NOTE]
+> The location of the configuration directory follows `XDG_CONFIG_HOME` (or
+> `HOME`) and can be overridden with the `JAY_CONFIG_DIR` environment variable
+> or the global `--config-dir` command-line option. The directory can also hold
+> a [`jay.env`](../environment-variables.md) file for setting the environment
+> variables Jay itself reads.
+
 ## Initializing the config
 
 The easiest way to get started is to let Jay write the defaults for you:

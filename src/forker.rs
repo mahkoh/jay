@@ -2,9 +2,9 @@ mod io;
 
 use crate::async_engine::AsyncEngine;
 use crate::async_engine::SpawnedFuture;
-use crate::compositor::DISPLAY;
 use crate::compositor::LIBEI_SOCKET;
-use crate::compositor::WAYLAND_DISPLAY;
+use crate::env::DISPLAY;
+use crate::env::WAYLAND_DISPLAY;
 use crate::forker::io::IoIn;
 use crate::forker::io::IoOut;
 use crate::io_uring::IoUring;
@@ -343,8 +343,8 @@ impl Forker {
     fn handle(ppid: c::pid_t, socket: OwnedFd) -> ! {
         unsafe {
             env::set_var("XDG_SESSION_TYPE", "wayland");
-            env::remove_var(DISPLAY);
-            env::remove_var(WAYLAND_DISPLAY);
+            env::remove_var(DISPLAY.name());
+            env::remove_var(WAYLAND_DISPLAY.name());
         }
         set_process_name("the ol' forker");
         setup_deathsig(ppid);

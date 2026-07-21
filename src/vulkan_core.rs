@@ -1,3 +1,4 @@
+use crate::env::JAY_VULKAN_VALIDATION;
 use crate::eventfd_cache::EventfdError;
 use crate::syncobj::SyncobjError;
 use crate::utils::bhash::BHashMap;
@@ -70,9 +71,6 @@ dlopen_note! {
 
 static VULKAN_ENTRY: LazyLock<Result<Entry, Arc<LoadingError>>> =
     LazyLock::new(|| unsafe { Entry::load() }.map_err(Arc::new));
-
-static VULKAN_VALIDATION: LazyLock<bool> =
-    LazyLock::new(|| std::env::var("JAY_VULKAN_VALIDATION").ok().as_deref() == Some("1"));
 
 #[derive(Debug, Error)]
 pub enum VulkanCoreError {
@@ -150,7 +148,7 @@ impl VulkanCoreInstance {
         let mut severity = DebugUtilsMessageSeverityFlagsEXT::empty()
             | DebugUtilsMessageSeverityFlagsEXT::ERROR
             | DebugUtilsMessageSeverityFlagsEXT::WARNING;
-        let validation = *VULKAN_VALIDATION;
+        let validation = *JAY_VULKAN_VALIDATION;
         if validation {
             severity |= DebugUtilsMessageSeverityFlagsEXT::INFO
                 | DebugUtilsMessageSeverityFlagsEXT::VERBOSE;

@@ -1,12 +1,12 @@
 use crate::async_engine::SpawnedFuture;
 use crate::client::ClientCaps;
+use crate::env::XDG_RUNTIME_DIR;
 use crate::security_context_acceptor::AcceptorMetadata;
 use crate::state::State;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::oserror::OsError;
 use crate::utils::oserror::OsErrorExt;
 use crate::utils::oserror::OsErrorExt2;
-use crate::utils::xrd::xrd;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
@@ -107,7 +107,7 @@ fn bind_socket(
 }
 
 fn allocate_socket() -> Result<AllocatedSocket, AcceptorError> {
-    let xrd = match xrd() {
+    let xrd = match *XDG_RUNTIME_DIR {
         Some(d) => d,
         _ => return Err(AcceptorError::XrdNotSet),
     };

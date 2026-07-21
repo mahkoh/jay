@@ -7,6 +7,7 @@ use crate::copy_device::CopyDevice;
 use crate::copy_device::CopyDeviceDstObject;
 use crate::copy_device::CopyDeviceError;
 use crate::copy_device::CopyDeviceSrcObject;
+use crate::env::JAY_NO_CLIENT_PRIME;
 use crate::gfx_api::BufferResv;
 use crate::gfx_api::BufferResvUser;
 use crate::gfx_api::FdSync;
@@ -45,7 +46,6 @@ use arrayvec::ArrayVec;
 use linearize::StaticMap;
 use smallvec::SmallVec;
 use std::cell::Cell;
-use std::env;
 use std::error::Error;
 use std::ffi::c_short;
 use std::fmt::Debug;
@@ -123,14 +123,15 @@ pub struct PrimeValidity {
     inner: Rc<StateInner>,
 }
 
-const JAY_NO_CLIENT_PRIME: &str = "JAY_NO_CLIENT_PRIME";
-
 pub fn no_client_prime(udmabuf: &UdmabufHolder) -> bool {
     if udmabuf.get().is_none() {
         log::warn!("Disabling client prime copies because udmabuf device is unavailable");
         true
-    } else if env::var(JAY_NO_CLIENT_PRIME).as_deref().unwrap_or_default() == "1" {
-        log::warn!("Disabling client prime copies because {JAY_NO_CLIENT_PRIME}=1");
+    } else if *JAY_NO_CLIENT_PRIME {
+        log::warn!(
+            "Disabling client prime copies because {}",
+            JAY_NO_CLIENT_PRIME.as_env(),
+        );
         true
     } else {
         false

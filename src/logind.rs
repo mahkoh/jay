@@ -2,6 +2,7 @@ use crate::dbus::DbusError;
 use crate::dbus::DbusSocket;
 use crate::dbus::FALSE;
 use crate::dbus::SignalHandler;
+use crate::env::XDG_SESSION_ID;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::major_minor::MajorMinor;
 use crate::utils::major_minor::major_minor;
@@ -37,8 +38,8 @@ pub struct Session {
 
 impl Session {
     pub async fn get(socket: &Rc<DbusSocket>) -> Result<Self, LogindError> {
-        let session_id = match std::env::var("XDG_SESSION_ID") {
-            Ok(id) => id,
+        let session_id = match *XDG_SESSION_ID {
+            Some(id) => id,
             _ => return Err(LogindError::XdgSessionId),
         };
         let session_path = {
@@ -47,7 +48,7 @@ impl Session {
                     LOGIND_NAME,
                     MANAGER_PATH,
                     org::freedesktop::login1::manager::GetSession {
-                        session_id: session_id.as_str().into(),
+                        session_id: session_id.into(),
                     },
                 )
                 .await;

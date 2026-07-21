@@ -9,6 +9,7 @@ use crate::copy_device::CopyDeviceBuffer;
 use crate::copy_device::CopyDeviceCopy;
 use crate::copy_device::CopyDeviceError;
 use crate::copy_device::CopyDeviceSupport;
+use crate::env::JAY_PRIME_METHODS;
 use crate::format::Format;
 use crate::gfx_api::AcquireSync;
 use crate::gfx_api::FdSync;
@@ -1520,8 +1521,6 @@ impl Builder<'_> {
     }
 }
 
-const JAY_PRIME_METHODS: &str = "JAY_PRIME_METHODS";
-
 type PrimeMethods = ArrayVec<PrimeMethod, { PrimeMethod::LENGTH }>;
 
 static PRIME_METHODS: LazyLock<PrimeMethods> = LazyLock::new(prime_methods);
@@ -1537,7 +1536,7 @@ fn prime_methods() -> PrimeMethods {
             }
         }
     };
-    if let Ok(var) = std::env::var(JAY_PRIME_METHODS) {
+    if let Some(var) = *JAY_PRIME_METHODS {
         for mut name in var.split(",") {
             name = name.trim();
             if name.is_empty() {

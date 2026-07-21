@@ -4,8 +4,8 @@ use crate::tools::tool_client::with_tool_client;
 use crate::wire::jay_compositor::Quit;
 use std::rc::Rc;
 
-pub fn main(global: GlobalArgs) {
-    with_tool_client(global.log_level, |tc| async move {
+pub fn main(_global: GlobalArgs) {
+    with_tool_client(|tc| async move {
         run(tc).await;
     });
 }

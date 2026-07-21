@@ -16,6 +16,8 @@ use crate::dbus::DBUS_NAME_FLAG_DO_NOT_QUEUE;
 use crate::dbus::DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER;
 use crate::dbus::Dbus;
 use crate::dbus::DbusSocket;
+use crate::env::XDG_RUNTIME_DIR;
+use crate::env::initial_log_level;
 use crate::eventfd_cache::EventfdCache;
 use crate::forker::ForkerError;
 use crate::io_uring::IoUring;
@@ -42,7 +44,6 @@ use crate::utils::pipe::Pipe;
 use crate::utils::pipe::pipe;
 use crate::utils::process_name::set_process_name;
 use crate::utils::run_toplevel::RunToplevel;
-use crate::utils::xrd::xrd;
 use crate::version::VERSION;
 use crate::video::dmabuf::DmaBufIds;
 use crate::wheel::Wheel;
@@ -69,8 +70,8 @@ const PORTAL_CANCELLED: u32 = 1;
 #[expect(dead_code)]
 const PORTAL_ENDED: u32 = 2;
 
-pub fn run_freestanding(global: GlobalArgs) {
-    let logger = Logger::install_stderr(global.log_level);
+pub fn run_freestanding(_global: GlobalArgs) {
+    let logger = Logger::install_stderr(initial_log_level());
     run(logger, true);
 }
 
@@ -230,7 +231,7 @@ async fn run_async(
     let (_rtl_future, rtl) = RunToplevel::install(&eng);
     let dbus = Dbus::new(&eng, &ring, &rtl);
     let dbus = init_dbus_session(&dbus, logger, path_sink).await;
-    let xrd = match xrd() {
+    let xrd = match *XDG_RUNTIME_DIR {
         Some(xrd) => xrd,
         _ => {
             fatal!("XDG_RUNTIME_DIR is not set");
@@ -331,7 +332,7 @@ async fn init_dbus_session(dbus: &Dbus, logger: Arc<Logger>, path_sink: OwnedFd)
 }
 
 struct PortalState {
-    xrd: String,
+    xrd: &'static str,
     ring: Rc<IoUring>,
     eventfd_cache: Rc<EventfdCache>,
     eng: Rc<AsyncEngine>,

@@ -1,4 +1,3 @@
-use crate::compositor::DISPLAY;
 use crate::control_center::CcBehavior;
 use crate::control_center::ControlCenterInner;
 use crate::control_center::bool;
@@ -8,6 +7,7 @@ use crate::control_center::grid;
 use crate::control_center::label;
 use crate::control_center::read_only_bool;
 use crate::control_center::tip;
+use crate::env::DISPLAY;
 use crate::state::State;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::oserror::OsErrorExt;
@@ -74,7 +74,7 @@ impl XwaylandPane {
                 },
             );
             if let Some(display) = self.state.xwayland.display.get() {
-                label(ui, DISPLAY, &*display);
+                label(ui, DISPLAY.name(), &*display);
             }
             read_only_bool(ui, "Running", self.state.xwayland.running.get());
             if let Some(client) = self.state.xwayland.client.get() {
