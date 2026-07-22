@@ -92,6 +92,7 @@ pub enum Direction {
 pub enum Axis {
     Horizontal,
     Vertical,
+    Auto,
 }
 
 impl Axis {
@@ -99,7 +100,8 @@ impl Axis {
     pub fn other(self) -> Self {
         match self {
             Self::Horizontal => Self::Vertical,
-            Self::Vertical => Self::Horizontal,
+            Self::Vertical => Self::Auto,
+            Self::Auto => Self::Horizontal,
         }
     }
 }

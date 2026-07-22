@@ -1154,6 +1154,24 @@ impl State {
 
     fn do_map_tiled(self: &Rc<Self>, seat: Option<&Rc<WlSeatGlobal>>, node: Rc<dyn ToplevelNode>) {
         let ws = self.ensure_map_workspace(seat);
+        if let Some(s) = seat {
+            if s.autotile.get() {
+                if let Some(c) = ws.node_state[crate::tree::TreeTimeline::LiveTL].container.get() {
+                    let la = c.clone().tl_last_active_child();
+                    let rect = la.node_absolute_position(crate::tree::TreeTimeline::LiveTL);
+                    let width = rect.x2() - rect.x1();
+                    let height = rect.y2() - rect.y1();
+                    if width > 0 && height > 0 {
+                        let axis = if width > height {
+                            crate::tree::ContainerSplit::Horizontal
+                        } else {
+                            crate::tree::ContainerSplit::Vertical
+                        };
+                        crate::tree::toplevel_create_split(self, la, axis);
+                    }
+                }
+            }
+        }
         self.map_tiled_on(node, &ws);
     }
 

@@ -104,6 +104,7 @@ impl From<Axis> for ContainerSplit {
         match a {
             Axis::Horizontal => Self::Horizontal,
             Axis::Vertical => Self::Vertical,
+            Axis::Auto => unreachable!(),
         }
     }
 }
