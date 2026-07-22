@@ -51,6 +51,7 @@ const NATIVE_GAMUT_SINCE: Version = Version(23);
 const ARBITRARY_MODES_SINCE: Version = Version(29);
 const SCALING_FILTER_SINCE: Version = Version(37);
 const USE_PLANE_COLOR_PIPELINES_SINCE: Version = Version(38);
+const FLIP_MARGIN_AUTO_ADJUSTMENT_SINCE: Version = Version(39);
 
 impl JayRandr {
     pub fn new(id: JayRandrId, client: &Rc<Client>, version: Version) -> Self {
@@ -88,6 +89,12 @@ impl JayRandr {
                 self_id: self.id,
                 enabled: data.dev.use_plane_color_pipelines() as _,
                 supported: data.dev.supports_plane_color_pipelines() as _,
+            });
+        }
+        if self.version >= FLIP_MARGIN_AUTO_ADJUSTMENT_SINCE {
+            self.client.event(FlipMarginAutoAdjustment {
+                self_id: self.id,
+                enabled: data.dev.flip_margin_auto_adjustment_enabled() as _,
             });
         }
     }
@@ -676,6 +683,18 @@ impl JayRandrRequestHandler for JayRandr {
             return Ok(());
         };
         dev.set_use_plane_color_pipelines(&self.state, req.enabled != 0);
+        Ok(())
+    }
+
+    fn set_flip_margin_auto_adjustment(
+        &self,
+        req: SetFlipMarginAutoAdjustment<'_>,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let Some(dev) = self.get_device(req.dev) else {
+            return Ok(());
+        };
+        dev.set_flip_margin_auto_adjustment_enabled(&self.state, req.enabled != 0);
         Ok(())
     }
 }

@@ -113,12 +113,34 @@ pub enum TimingCmd {
     ///
     /// Note that if the margin is too small, the compositor will dynamically increase it.
     SetFlipMargin(SetFlipMarginArgs),
+    /// Modify automatic flip-margin adjustment.
+    AutoAdjustment(AutoAdjustmentArgs),
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct SetFlipMarginArgs {
     /// The margin in milliseconds.
     pub margin_ms: f64,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct AutoAdjustmentArgs {
+    #[clap(subcommand)]
+    pub cmd: AutoAdjustmentCmd,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+pub enum AutoAdjustmentCmd {
+    /// Enable automatic flip-margin adjustment.
+    Enable,
+    /// Disable automatic flip-margin adjustment.
+    Disable,
+}
+
+impl AutoAdjustmentCmd {
+    pub(super) fn enabled(self) -> bool {
+        matches!(self, Self::Enable)
+    }
 }
 
 #[derive(Args, Debug, Clone)]
@@ -559,6 +581,7 @@ struct Device {
     pub render_device: bool,
     pub use_plane_color_pipelines: bool,
     pub plane_color_pipelines_supported: bool,
+    pub flip_margin_auto_adjustment: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -1014,6 +1037,16 @@ impl Randr {
                         margin_ns: (sfm.margin_ms * 1_000_000.0) as u64,
                     });
                 }
+                TimingCmd::AutoAdjustment(auto) => {
+                    self.handle_error(randr, |msg| {
+                        eprintln!("Could not modify automatic flip-margin adjustment: {msg}");
+                    });
+                    tc.send(jay_randr::SetFlipMarginAutoAdjustment {
+                        self_id: randr,
+                        dev: &args.card,
+                        enabled: auto.cmd.enabled() as u32,
+                    });
+                }
             },
             CardCommand::PlaneColorPipelines(ps) => {
                 self.handle_error(randr, |msg| {
@@ -1062,6 +1095,7 @@ impl Randr {
                 render_device: dev.render_device,
                 use_plane_color_pipelines: dev.use_plane_color_pipelines,
                 plane_color_pipelines_supported: dev.plane_color_pipelines_supported,
+                flip_margin_auto_adjustment: dev.flip_margin_auto_adjustment,
                 connectors: connectors.into_iter().map(make_json_connector).collect(),
             });
         }
@@ -1117,6 +1151,10 @@ impl Randr {
         println!("    pci-id: {:x}:{:x}", dev.vendor, dev.model);
         println!("    syspath: {}", dev.syspath);
         println!("    api: {}", dev.gfx_api);
+        println!(
+            "    automatic flip-margin adjustment: {}",
+            dev.flip_margin_auto_adjustment
+        );
         if dev.render_device {
             println!("    primary device");
         }
@@ -1323,6 +1361,7 @@ impl Randr {
                 render_device: msg.render_device != 0,
                 use_plane_color_pipelines: false,
                 plane_color_pipelines_supported: false,
+                flip_margin_auto_adjustment: true,
             });
         });
         jay_randr::PlaneColorPipelines::handle(tc, randr, data.clone(), |data, msg| {
@@ -1330,6 +1369,11 @@ impl Randr {
             let d = data.drm_devices.last_mut().unwrap();
             d.use_plane_color_pipelines = msg.enabled != 0;
             d.plane_color_pipelines_supported = msg.supported != 0;
+        });
+        jay_randr::FlipMarginAutoAdjustment::handle(tc, randr, data.clone(), |data, msg| {
+            if let Some(dev) = data.borrow_mut().drm_devices.last_mut() {
+                dev.flip_margin_auto_adjustment = msg.enabled != 0;
+            }
         });
         jay_randr::Connector::handle(tc, randr, data.clone(), |data, msg| {
             let mut data = data.borrow_mut();

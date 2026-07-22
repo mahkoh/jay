@@ -91,6 +91,7 @@ mod t0057_sm_floating;
 mod t0058_sm_parent;
 mod t0059_sm_background_ws;
 mod t0060_overlay;
+mod t0061_flip_margin_auto_adjustment;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -170,5 +171,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0058_sm_parent,
         t0059_sm_background_ws,
         t0060_overlay,
+        t0061_flip_margin_auto_adjustment,
     }
 }

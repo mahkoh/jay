@@ -637,6 +637,9 @@ impl ConfigDrmDevice {
         if let Some(v) = self.plane_color_pipelines_enabled {
             d.set_plane_color_pipelines_enabled(v);
         }
+        if let Some(enabled) = self.flip_margin_auto_adjustment {
+            d.set_flip_margin_auto_adjustment_enabled(enabled);
+        }
     }
 }
 
