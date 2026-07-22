@@ -155,6 +155,7 @@ pub(super) fn parse_color_pipelines(
         filter: Default::default(),
         supported_curves: Default::default(),
     };
+    create_filter(&mut res.filter, &[], &PLANE_MATCHERS);
     let Some((d, _)) = props.props.get(b"COLOR_PIPELINE".as_bstr()) else {
         return res;
     };
