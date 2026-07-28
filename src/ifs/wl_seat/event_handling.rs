@@ -1535,7 +1535,10 @@ impl WlSeatGlobal {
                     if p.seat.version >= AXIS_VALUE120_SINCE_VERSION {
                         p.send_axis_value120(axis, delta);
                     } else if p.seat.version >= AXIS_DISCRETE_SINCE_VERSION {
-                        p.send_axis_discrete(axis, delta / AXIS_120);
+                        let value = delta / AXIS_120;
+                        if value != 0 {
+                            p.send_axis_discrete(axis, value);
+                        }
                     }
                 }
                 if let Some(delta) = event.px[i].get() {
