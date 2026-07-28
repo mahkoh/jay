@@ -117,6 +117,8 @@ pub enum SimpleCommand {
     HideOverlays,
     SetVisualizeCompositing(bool),
     ToggleVisualizeCompositing,
+    SetSplitReusesContainer(bool),
+    ToggleSplitReusesContainer,
 }
 
 #[derive(Debug, Clone)]
@@ -611,6 +613,7 @@ pub struct Config {
     pub pointer_revert_key: Option<KeySym>,
     pub use_hardware_cursor: Option<bool>,
     pub show_bar: Option<bool>,
+    pub split_reuses_container: Option<bool>,
     pub show_titles: Option<bool>,
     pub focus_history: Option<FocusHistory>,
     pub middle_click_paste: Option<bool>,

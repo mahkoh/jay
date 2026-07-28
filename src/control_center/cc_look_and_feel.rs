@@ -119,6 +119,21 @@ impl LookAndFeelPane {
                 self.state.float_above_fullscreen.get(),
                 |v| self.state.set_float_above_fullscreen(v),
             );
+            bool_ui(
+                ui,
+                "Split Reuses Container",
+                |ui| {
+                    tip(ui, |ui| {
+                        ui.label(concat!(
+                            "Splitting the only window in a container changes the split ",
+                            "direction of that container.",
+                        ));
+                        ui.label("Otherwise the window is wrapped in a new container.");
+                    });
+                },
+                self.state.split_reuses_container.get(),
+                |v| self.state.set_split_reuses_container(v),
+            );
             row(ui, "Font", |ui| {
                 let mut v = self.state.theme.font.get().to_string();
                 if text_edit(ui, &mut v).changed() {

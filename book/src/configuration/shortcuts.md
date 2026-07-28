@@ -151,6 +151,11 @@ alt-shift-r = "reload-config-toml"
   `toggle-visualize-compositing` -- show or hide an overlay icon in the
   top-left corner of each output while the compositor is compositing. The icon
   disappears when content is shown via direct scanout.
+- `enable-split-reuses-container`, `disable-split-reuses-container`,
+  `toggle-split-reuses-container` -- control whether splitting a window that is
+  the only window in its container reuses that container instead of wrapping
+  it in another container. See
+  [`split-reuses-container`](misc.md#split-reuses-container).
 - `reload-config-so` -- reload the shared-library configuration (`config.so`)
 
 See the [specification](https://github.com/mahkoh/jay/blob/master/toml-spec/spec/spec.generated.md) for the full list of simple

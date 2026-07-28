@@ -212,6 +212,9 @@ impl ActionParser<'_, '_, '_> {
             "enable-visualize-compositing" => SetVisualizeCompositing(true),
             "disable-visualize-compositing" => SetVisualizeCompositing(false),
             "toggle-visualize-compositing" => ToggleVisualizeCompositing,
+            "enable-split-reuses-container" => SetSplitReusesContainer(true),
+            "disable-split-reuses-container" => SetSplitReusesContainer(false),
+            "toggle-split-reuses-container" => ToggleSplitReusesContainer,
             _ => {
                 return Err(
                     ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span)
