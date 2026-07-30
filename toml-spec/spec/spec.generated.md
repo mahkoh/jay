@@ -672,6 +672,50 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
     The value of this field should be a [Theme](#types-Theme).
 
+- `set-window-theme`:
+
+  Overrides theme properties for a single window.
+  
+  In window rules this action applies to the matched window. As a shortcut
+  action it applies to the window focused by the seat.
+  
+  The following properties are applied:
+  
+  - `border-color`
+  - `focused-border-color`
+  - `attention-requested-bg-color`
+  - `focused-title-bg-color`
+  - `focused-title-text-color`
+  - `unfocused-title-bg-color`
+  - `unfocused-title-text-color`
+  - `separator-color`
+  - `border-width`
+  - `title-height`
+  
+  All other properties are ignored and a warning is logged.
+  
+  `border-width` and `title-height` only affect floating windows. The borders
+  and title bars of tiled windows are shared between siblings and therefore
+  always use the sizes of the global theme.
+  
+  The overrides are reset when the configuration is reloaded.
+  
+  - Example:
+  
+    ```toml
+    [[windows]]
+    match.app-id = "org.kde.dolphin"
+    action = { type = "set-window-theme", theme.border-width = 0 }
+    ```
+
+  The table has the following fields:
+
+  - `theme` (required):
+
+    The theme properties to override.
+
+    The value of this field should be a [Theme](#types-Theme).
+
 - `set-log-level`:
 
   Sets the log level of the compositor.

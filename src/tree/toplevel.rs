@@ -33,6 +33,10 @@ use crate::rect::Rect;
 use crate::sm::ToplevelSession;
 use crate::state::ConnectorData;
 use crate::state::State;
+use crate::theme::Color;
+use crate::theme::ThemeColored;
+use crate::theme::ThemeOverrides;
+use crate::theme::ThemeSized;
 use crate::tree::ContainerNode;
 use crate::tree::ContainerSplit;
 use crate::tree::ContainerTarget;
@@ -412,6 +416,8 @@ pub enum ToplevelDataTransactionOp {
     SetWorkspace(Option<Rc<WorkspaceNode>>),
     SetVisible(bool),
     SetIsRootContainer(bool),
+    SetThemeColor(ThemeColored, Option<Color>),
+    SetThemeSize(ThemeSized, Option<i32>),
 }
 
 pub struct FullscreenedData {
@@ -505,6 +511,8 @@ pub struct ToplevelData {
     pub session: CloneCell<Option<Rc<ToplevelSession>>>,
     pub is_root_container: SplitView<Cell<bool>>,
     pub is_overlay_root_container: Cell<bool>,
+    /// The theme overrides that apply to this toplevel, if any.
+    pub theme_overrides: ThemeOverrides,
 }
 
 impl ToplevelData {
@@ -567,6 +575,7 @@ impl ToplevelData {
             session: Default::default(),
             is_root_container: Default::default(),
             is_overlay_root_container: Default::default(),
+            theme_overrides: Default::default(),
         }
     }
 
@@ -1109,6 +1118,26 @@ impl ToplevelData {
         }
     }
 
+    /// Sets the theme overrides of this toplevel.
+    ///
+    /// The live value is updated immediately so that layout and rendering that are
+    /// triggered by the caller see the new value. The render value is updated via a
+    /// transaction so that it becomes visible together with the geometry it implies.
+    pub fn set_theme_overrides(&self, overrides: ThemeOverrides) {
+        for k in overrides.sizes.keys() {
+            let value = overrides.sizes[k][LiveTL].get();
+            if self.theme_overrides.sizes[k][LiveTL].replace(value) != value {
+                self.schedule_op(ToplevelDataTransactionOp::SetThemeSize(k, value));
+            }
+        }
+        for k in overrides.colors.keys() {
+            let value = overrides.colors[k][LiveTL].get();
+            if self.theme_overrides.colors[k][LiveTL].replace(value) != value {
+                self.schedule_op(ToplevelDataTransactionOp::SetThemeColor(k, value));
+            }
+        }
+    }
+
     pub fn schedule_op(&self, op: ToplevelDataTransactionOp) {
         if let Some(slf) = self.slf.upgrade() {
             slf.tl_schedule_data_op(op);
@@ -1127,6 +1156,12 @@ impl ToplevelData {
             }
             ToplevelDataTransactionOp::SetVisible(v) => {
                 self.visible[RenderTL].set(v);
+            }
+            ToplevelDataTransactionOp::SetThemeColor(k, v) => {
+                self.theme_overrides.colors[k][RenderTL].set(v);
+            }
+            ToplevelDataTransactionOp::SetThemeSize(k, v) => {
+                self.theme_overrides.sizes[k][RenderTL].set(v);
             }
             ToplevelDataTransactionOp::SetIsRootContainer(v) => {
                 self.is_root_container[RenderTL].set(v);

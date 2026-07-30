@@ -2311,6 +2311,22 @@ impl ConfigClient {
         self.send(&ClientMessage::SetWindowMatcherInitialFloatingPosition { matcher, x, y });
     }
 
+    pub fn set_window_size(&self, window: Window, sized: Resizable, size: Option<i32>) {
+        self.send(&ClientMessage::SetWindowSize {
+            window,
+            sized,
+            size,
+        });
+    }
+
+    pub fn set_window_color(&self, window: Window, colorable: Colorable, color: Option<Color>) {
+        self.send(&ClientMessage::SetWindowColor {
+            window,
+            colorable,
+            color,
+        });
+    }
+
     pub fn set_window_matcher_latch_handler(
         &self,
         matcher: WindowMatcher,

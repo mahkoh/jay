@@ -1029,7 +1029,7 @@ impl ContainerNode {
         let abs_y = ns.abs_y1.get();
         self.update_child_types();
         let use_active_border_rects = cb == ContainerBorders::Full
-            && theme.colors.border.get() != theme.focused_border_color();
+            && theme.colors.border.get() != theme.focused_border_color(RenderTL);
         let fill_active_borders = !mono && use_active_border_rects;
         let add_border = |rd: &mut ContainerRenderData,
                           x1: i32,
