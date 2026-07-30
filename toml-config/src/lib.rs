@@ -454,6 +454,23 @@ impl Action {
                 let state = state.clone();
                 b.new(move || state.apply_theme(&theme))
             }
+            Action::SetWindowTheme { theme } => {
+                let state = state.clone();
+                b.new(move || {
+                    let window = match state.window.get() {
+                        // Inside a window rule the action applies to the matched window.
+                        Some(w) => w,
+                        // Otherwise it applies to the window focused by the seat.
+                        None => {
+                            let w = s.window();
+                            w.exists().then_some(w)
+                        }
+                    };
+                    if let Some(window) = window {
+                        apply_theme_to_window(&window, &theme);
+                    }
+                })
+            }
             Action::SetLogLevel { level } => b.new(move || set_log_level(level)),
             Action::SetGfxApi { api } => b.new(move || set_gfx_api(api)),
             Action::ConfigureDirectScanout { enabled } => {
@@ -1487,6 +1504,99 @@ async fn watch_config(persistent: Rc<PersistentState>) {
 }
 
 pub const CONFIG_TOML: &str = "config.toml";
+
+fn apply_theme_to_window(window: &Window, theme: &Theme) {
+    use jay_config::theme::colors::*;
+    use jay_config::theme::sized::*;
+    // Destructured so that adding a field to `Theme` forces a decision here.
+    let Theme {
+        attention_requested_bg_color,
+        bg_color,
+        bar_bg_color,
+        bar_status_text_color,
+        border_color,
+        focused_border_color,
+        captured_focused_title_bg_color,
+        captured_unfocused_title_bg_color,
+        focused_inactive_title_bg_color,
+        focused_inactive_title_text_color,
+        focused_title_bg_color,
+        focused_title_text_color,
+        separator_color,
+        unfocused_title_bg_color,
+        unfocused_title_text_color,
+        highlight_color,
+        border_width,
+        title_height,
+        bar_height,
+        font,
+        title_font,
+        bar_font,
+        bar_position,
+        bar_separator_width,
+        show_window_icons,
+        window_icons_grayscale,
+        container_borders,
+    } = theme;
+    macro_rules! color {
+        ($colorable:ident, $field:ident) => {
+            if let Some(color) = *$field {
+                window.set_color($colorable, Some(color));
+            }
+        };
+    }
+    color!(
+        ATTENTION_REQUESTED_BACKGROUND_COLOR,
+        attention_requested_bg_color
+    );
+    color!(BORDER_COLOR, border_color);
+    color!(FOCUSED_BORDER_COLOR, focused_border_color);
+    color!(FOCUSED_TITLE_BACKGROUND_COLOR, focused_title_bg_color);
+    color!(FOCUSED_TITLE_TEXT_COLOR, focused_title_text_color);
+    color!(SEPARATOR_COLOR, separator_color);
+    color!(UNFOCUSED_TITLE_BACKGROUND_COLOR, unfocused_title_bg_color);
+    color!(UNFOCUSED_TITLE_TEXT_COLOR, unfocused_title_text_color);
+    macro_rules! size {
+        ($sized:ident, $field:ident) => {
+            if let Some(size) = *$field {
+                window.set_size($sized, Some(size));
+            }
+        };
+    }
+    size!(BORDER_WIDTH, border_width);
+    size!(TITLE_HEIGHT, title_height);
+    macro_rules! ignored {
+        ($($field:ident,)*) => {
+            $(
+                if $field.is_some() {
+                    log::warn!(
+                        "set-window-theme: `{}` is not a per-window property and is ignored",
+                        stringify!($field).replace('_', "-"),
+                    );
+                }
+            )*
+        };
+    }
+    ignored! {
+        bg_color,
+        bar_bg_color,
+        bar_status_text_color,
+        captured_focused_title_bg_color,
+        captured_unfocused_title_bg_color,
+        focused_inactive_title_bg_color,
+        focused_inactive_title_text_color,
+        highlight_color,
+        bar_height,
+        font,
+        title_font,
+        bar_font,
+        bar_position,
+        bar_separator_width,
+        show_window_icons,
+        window_icons_grayscale,
+        container_borders,
+    }
+}
 
 fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<PersistentState>) {
     let mut path = PathBuf::from(config_dir());

@@ -438,6 +438,23 @@
               ]
             },
             {
+              "description": "Overrides theme properties for a single window.\n\nIn window rules this action applies to the matched window. As a shortcut\naction it applies to the window focused by the seat.\n\nThe following properties are applied:\n\n- `border-color`\n- `focused-border-color`\n- `attention-requested-bg-color`\n- `focused-title-bg-color`\n- `focused-title-text-color`\n- `unfocused-title-bg-color`\n- `unfocused-title-text-color`\n- `separator-color`\n- `border-width`\n- `title-height`\n\nAll other properties are ignored and a warning is logged.\n\n`border-width` and `title-height` only affect floating windows. The borders\nand title bars of tiled windows are shared between siblings and therefore\nalways use the sizes of the global theme.\n\nThe overrides are reset when the configuration is reloaded.\n\n- Example:\n\n  ```toml\n  [[windows]]\n  match.app-id = \"org.kde.dolphin\"\n  action = { type = \"set-window-theme\", theme.border-width = 0 }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "set-window-theme"
+                },
+                "theme": {
+                  "description": "The theme properties to override.",
+                  "$ref": "#/$defs/Theme"
+                }
+              },
+              "required": [
+                "type",
+                "theme"
+              ]
+            },
+            {
               "description": "Sets the log level of the compositor.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-j = { type = \"set-log-level\", level = \"debug\" }\n  ```\n",
               "type": "object",
               "properties": {
