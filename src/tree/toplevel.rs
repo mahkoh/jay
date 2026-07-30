@@ -32,6 +32,7 @@ use crate::rect::Rect;
 use crate::sm::ToplevelSession;
 use crate::state::ConnectorData;
 use crate::state::State;
+use crate::theme::ThemeOverrides;
 use crate::tree::ContainerNode;
 use crate::tree::ContainerSplit;
 use crate::tree::ContainingNode;
@@ -406,6 +407,7 @@ pub enum ToplevelDataTransactionOp {
     SetIsFullscreen(bool),
     SetWorkspace(Option<Rc<WorkspaceNode>>),
     SetVisible(bool),
+    SetThemeOverrides(Option<Rc<ThemeOverrides>>),
 }
 
 pub struct FullscreenedData {
@@ -499,6 +501,8 @@ pub struct ToplevelData {
     pub session: CloneCell<Option<Rc<ToplevelSession>>>,
     pub is_root_container: Cell<bool>,
     pub is_overlay_root_container: Cell<bool>,
+    /// The theme overrides that apply to this toplevel, if any.
+    pub theme_overrides: SplitView<CloneCell<Option<Rc<ThemeOverrides>>>>,
 }
 
 impl ToplevelData {
@@ -561,6 +565,7 @@ impl ToplevelData {
             session: Default::default(),
             is_root_container: Default::default(),
             is_overlay_root_container: Default::default(),
+            theme_overrides: Default::default(),
         }
     }
 
@@ -1092,6 +1097,16 @@ impl ToplevelData {
         }
     }
 
+    /// Sets the theme overrides of this toplevel.
+    ///
+    /// The live value is updated immediately so that layout and rendering that are
+    /// triggered by the caller see the new value. The render value is updated via a
+    /// transaction so that it becomes visible together with the geometry it implies.
+    pub fn set_theme_overrides(&self, overrides: Option<Rc<ThemeOverrides>>) {
+        self.theme_overrides[LiveTL].set(overrides.clone());
+        self.schedule_op(ToplevelDataTransactionOp::SetThemeOverrides(overrides));
+    }
+
     pub fn schedule_op(&self, op: ToplevelDataTransactionOp) {
         if let Some(slf) = self.slf.upgrade() {
             slf.tl_schedule_data_op(op);
@@ -1110,6 +1125,9 @@ impl ToplevelData {
             }
             ToplevelDataTransactionOp::SetVisible(v) => {
                 self.visible[RenderTL].set(v);
+            }
+            ToplevelDataTransactionOp::SetThemeOverrides(v) => {
+                self.theme_overrides[RenderTL].set(v);
             }
         }
     }

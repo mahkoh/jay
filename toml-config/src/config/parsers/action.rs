@@ -439,6 +439,16 @@ impl ActionParser<'_, '_, '_> {
         })
     }
 
+    fn parse_set_window_theme(&mut self, ext: &mut Extractor<'_, '_, '_>) -> ParseResult<Self> {
+        let theme = ext
+            .extract(val("theme"))?
+            .parse_map(&mut ThemeParser(self.0))
+            .map_spanned_err(ActionParserError::Theme)?;
+        Ok(Action::SetWindowTheme {
+            theme: Box::new(theme),
+        })
+    }
+
     fn parse_set_log_level(&mut self, ext: &mut Extractor<'_, '_, '_>) -> ParseResult<Self> {
         let level = ext
             .extract(val("level"))?
@@ -691,6 +701,7 @@ impl Parser for ActionParser<'_, '_, '_> {
             "set-keymap" => self.parse_set_keymap(&mut ext),
             "set-status" => self.parse_set_status(&mut ext),
             "set-theme" => self.parse_set_theme(&mut ext),
+            "set-window-theme" => self.parse_set_window_theme(&mut ext),
             "set-log-level" => self.parse_set_log_level(&mut ext),
             "set-gfx-api" => self.parse_set_gfx_api(&mut ext),
             "configure-direct-scanout" => self.parse_configure_direct_scanout(&mut ext),

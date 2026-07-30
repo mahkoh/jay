@@ -167,7 +167,9 @@ use crate::theme::Color;
 use crate::theme::ContainerBorders;
 use crate::theme::Theme;
 use crate::theme::ThemeColored;
+use crate::theme::ThemeOverrides;
 use crate::theme::ThemeSized;
+use crate::theme::ThemeView;
 use crate::time::Time;
 use crate::transactions::TransactionData;
 use crate::transactions::Transactionable;
@@ -1970,6 +1972,43 @@ impl State {
         self.config.get()?.initial_tile_state(data)
     }
 
+    /// Returns the theme overrides that apply to `data` in the timeline `tl`.
+    ///
+    /// The result must be kept alive for as long as the [`ThemeView`] created from it.
+    pub fn theme_overrides(
+        &self,
+        data: &ToplevelData,
+        tl: TreeTimeline,
+    ) -> Option<Rc<ThemeOverrides>> {
+        data.theme_overrides[tl].get()
+    }
+
+    /// Returns a view of the theme through `overrides`.
+    pub fn theme_view<'a>(&'a self, overrides: &'a Option<Rc<ThemeOverrides>>) -> ThemeView<'a> {
+        self.theme.view_with_overrides(overrides.as_deref())
+    }
+
+    /// Removes the theme overrides of all toplevels.
+    ///
+    /// The overrides are owned by the config, therefore they must not survive a config
+    /// reload. The new config re-applies them via its window rules.
+    fn clear_theme_overrides(self: &Rc<Self>) {
+        let mut any = false;
+        for tl in self.toplevels.lock().values() {
+            if let Some(tl) = tl.upgrade() {
+                let data = tl.tl_data();
+                if data.theme_overrides[LiveTL].is_some() {
+                    any = true;
+                    data.set_theme_overrides(None);
+                }
+            }
+        }
+        if any {
+            self.spaces_changed();
+            self.colors_changed();
+        }
+    }
+
     pub fn update_capabilities(
         &self,
         data: &Rc<Client>,
@@ -2122,7 +2161,7 @@ impl State {
         }
     }
 
-    fn colors_changed(self: &Rc<Self>) {
+    pub fn colors_changed(self: &Rc<Self>) {
         struct V;
         impl NodeVisitorBase for V {
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
@@ -2171,6 +2210,7 @@ impl State {
             for seat in self.globals.seats.lock().values() {
                 seat.clear_shortcuts();
             }
+            self.clear_theme_overrides();
         }
         self.config_locked_shortcuts.set(false);
         config.configure(true);
@@ -2195,7 +2235,7 @@ impl State {
         self.trigger_cci(CCI_COMPOSITOR);
     }
 
-    fn spaces_changed(self: &Rc<Self>) {
+    pub fn spaces_changed(self: &Rc<Self>) {
         struct V;
         impl NodeVisitorBase for V {
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
