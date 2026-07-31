@@ -438,7 +438,7 @@ fn write_file(f: &mut impl Write, file: &ParsedFile) -> Result<()> {
     {
         let f = &mut open(&format!("wire/{obj_name}.rs"))?;
         writeln!(f, "use super::*;")?;
-        for message in messages.requests.iter().chain(messages.events.iter()) {
+        for message in messages.messages() {
             write_message(f, camel_obj_name, &message.val)?;
         }
         write_request_handler(

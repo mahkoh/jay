@@ -264,6 +264,12 @@ pub struct ParseResult {
     pub events: Vec<Lined<Message>>,
 }
 
+impl ParseResult {
+    pub fn messages(&self) -> impl Iterator<Item = &Lined<Message>> {
+        self.requests.iter().chain(self.events.iter())
+    }
+}
+
 impl<'a> Parser<'a> {
     fn parse(&mut self) -> Result<ParseResult> {
         let mut dead = false;
