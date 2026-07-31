@@ -27,6 +27,7 @@ pub mod double_buffered;
 pub mod double_click_state;
 pub mod errorfmt;
 pub mod event_listener;
+pub mod exe;
 pub mod fd_blocker;
 pub mod fdcloser;
 pub mod float_ext;

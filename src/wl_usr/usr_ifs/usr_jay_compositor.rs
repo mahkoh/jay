@@ -236,6 +236,10 @@ impl JayCompositorEventHandler for UsrJayCompositor {
     fn pid(&self, _ev: Pid, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
+
+    fn exe(&self, _ev: Exe, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        Ok(())
+    }
 }
 
 usr_object_base! {

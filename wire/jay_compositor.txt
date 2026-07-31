@@ -163,6 +163,10 @@ request take_screenshot3 (since = 40) {
     hdr10: bool,
 }
 
+request get_exe (since = 41) {
+
+}
+
 # events
 
 event client_id {
@@ -180,4 +184,8 @@ event capabilities {
 
 event pid (since = 27) {
     pid: pod(uapi::c::pid_t),
+}
+
+event exe (since = 41) {
+    exe: fd,
 }
