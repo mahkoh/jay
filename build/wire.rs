@@ -4,6 +4,7 @@ use crate::open;
 use crate::wire::parser::Field;
 use crate::wire::parser::Lined;
 use crate::wire::parser::Message;
+use crate::wire::parser::ParseResult;
 use crate::wire::parser::Type;
 use crate::wire::parser::parse_messages;
 use crate::wire::parser::to_camel;
@@ -396,11 +397,13 @@ fn write_request_handler<W: Write>(
     Ok(())
 }
 
-fn write_file<W: Write>(
-    f: &mut W,
-    file: &DirEntry,
-    interface_names: &mut Vec<String>,
-) -> Result<()> {
+struct ParsedFile {
+    obj_name: String,
+    camel_obj_name: String,
+    messages: ParseResult,
+}
+
+fn parse_file(file: &DirEntry, interface_names: &mut Vec<String>) -> Result<ParsedFile> {
     let file_name = file.file_name();
     let file_name = std::str::from_utf8(file_name.as_bytes())?;
     println!("cargo:rerun-if-changed=wire/{}", file_name);
@@ -409,6 +412,19 @@ fn write_file<W: Write>(
     interface_names.push(camel_obj_name.clone());
     let contents = std::fs::read(file.path())?;
     let messages = parse_messages(&contents)?;
+    Ok(ParsedFile {
+        obj_name: obj_name.to_string(),
+        camel_obj_name,
+        messages,
+    })
+}
+
+fn write_file(f: &mut impl Write, file: &ParsedFile) -> Result<()> {
+    let ParsedFile {
+        obj_name,
+        camel_obj_name,
+        messages,
+    } = file;
     writeln!(f)?;
     writeln!(f, "id!({}Id);", camel_obj_name)?;
     writeln!(f)?;
@@ -423,18 +439,18 @@ fn write_file<W: Write>(
         let f = &mut open(&format!("wire/{obj_name}.rs"))?;
         writeln!(f, "use super::*;")?;
         for message in messages.requests.iter().chain(messages.events.iter()) {
-            write_message(f, &camel_obj_name, &message.val)?;
+            write_message(f, camel_obj_name, &message.val)?;
         }
         write_request_handler(
             f,
-            &camel_obj_name,
+            camel_obj_name,
             &messages.requests,
             RequestHandlerDirection::Request,
             messages.dead,
         )?;
         write_request_handler(
             f,
-            &camel_obj_name,
+            camel_obj_name,
             &messages.events,
             RequestHandlerDirection::Event,
             messages.dead,
@@ -463,9 +479,14 @@ pub fn main() -> Result<()> {
     }
     files.sort_by_key(|f| f.file_name());
     let mut interface_names = vec![];
+    let mut parsed_files = vec![];
     for file in files {
-        write_file(&mut f, &file, &mut interface_names)
+        let parsed = parse_file(&file, &mut interface_names)
             .with_context(|| format!("While processing {}", file.path().display()))?;
+        parsed_files.push(parsed);
+    }
+    for file in parsed_files {
+        write_file(&mut f, &file)?;
     }
     writeln!(f)?;
     writeln!(f, "#[doc(hidden)]")?;
