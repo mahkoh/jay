@@ -4,6 +4,7 @@ use crate::utils::oserror::OsError;
 pub mod accept;
 pub mod async_cancel;
 pub mod connect;
+pub mod futex;
 pub mod poll;
 pub mod poll_external;
 pub mod read_write;
