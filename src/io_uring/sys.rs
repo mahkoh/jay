@@ -20,7 +20,7 @@ pub struct io_uring_sqe {
     pub u4: io_uring_sqe_union4,
     pub personality: u16,
     pub u5: io_uring_sqe_union5,
-    pub __pad2: [u64; 2],
+    pub u6: io_uring_sqe_union6,
 }
 
 impl Default for io_uring_sqe {
@@ -76,6 +76,29 @@ pub union io_uring_sqe_union4 {
 pub union io_uring_sqe_union5 {
     pub splice_fd_in: i32,
     pub file_index: u32,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union io_uring_sqe_union6 {
+    pub s1: io_uring_sqe_union6_struct1,
+    pub s2: io_uring_sqe_union6_struct2,
+    pub optval: u64,
+    pub cmd: [u8; 0],
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct io_uring_sqe_union6_struct1 {
+    pub addr3: u64,
+    pub __pad2: [u64; 1],
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct io_uring_sqe_union6_struct2 {
+    pub attr_ptr: u64,
+    pub attr_type_mask: u64,
 }
 
 pub const IOSQE_FIXED_FILE_BIT: u8 = 0;
@@ -153,7 +176,32 @@ pub const IORING_OP_UNLINKAT: u8 = 36;
 pub const IORING_OP_MKDIRAT: u8 = 37;
 pub const IORING_OP_SYMLINKAT: u8 = 38;
 pub const IORING_OP_LINKAT: u8 = 39;
-pub const IORING_OP_LAST: u8 = 40;
+pub const IORING_OP_MSG_RING: u8 = 40;
+pub const IORING_OP_FSETXATTR: u8 = 41;
+pub const IORING_OP_SETXATTR: u8 = 42;
+pub const IORING_OP_FGETXATTR: u8 = 43;
+pub const IORING_OP_GETXATTR: u8 = 44;
+pub const IORING_OP_SOCKET: u8 = 45;
+pub const IORING_OP_URING_CMD: u8 = 46;
+pub const IORING_OP_SEND_ZC: u8 = 47;
+pub const IORING_OP_SENDMSG_ZC: u8 = 48;
+pub const IORING_OP_READ_MULTISHOT: u8 = 49;
+pub const IORING_OP_WAITID: u8 = 50;
+pub const IORING_OP_FUTEX_WAIT: u8 = 51;
+pub const IORING_OP_FUTEX_WAKE: u8 = 52;
+pub const IORING_OP_FUTEX_WAITV: u8 = 53;
+pub const IORING_OP_FIXED_FD_INSTALL: u8 = 54;
+pub const IORING_OP_FTRUNCATE: u8 = 55;
+pub const IORING_OP_BIND: u8 = 56;
+pub const IORING_OP_LISTEN: u8 = 57;
+pub const IORING_OP_RECV_ZC: u8 = 58;
+pub const IORING_OP_EPOLL_WAIT: u8 = 59;
+pub const IORING_OP_READV_FIXED: u8 = 60;
+pub const IORING_OP_WRITEV_FIXED: u8 = 61;
+pub const IORING_OP_PIPE: u8 = 62;
+pub const IORING_OP_NOP128: u8 = 63;
+pub const IORING_OP_URING_CMD128: u8 = 64;
+pub const IORING_OP_LAST: u8 = 65;
 
 pub const IORING_FSYNC_DATASYNC: u32 = 1 << 0;
 
