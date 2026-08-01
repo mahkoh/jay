@@ -89,7 +89,7 @@ impl JayRenderCtxEventHandler for UsrJayRenderCtx {
     }
 
     fn write_modifier2(&self, ev: WriteModifier2, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.add_write_modifier(ev.format, ev.modifier, ev.needs_render_usage != 0);
+        self.add_write_modifier(ev.format, ev.modifier, ev.needs_render_usage);
         Ok(())
     }
 }

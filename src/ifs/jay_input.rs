@@ -232,7 +232,7 @@ impl JayInput {
                 {
                     self.client.event(ScrollButtonLock {
                         self_id: self.id,
-                        enabled: v as u32,
+                        enabled: v,
                     });
                 }
             }
@@ -392,7 +392,7 @@ impl JayInputRequestHandler for JayInput {
         self.or_error(|| {
             let seat = self.seat(req.seat)?;
             seat.cursor_group()
-                .set_hardware_cursor(req.use_hardware_cursor != 0);
+                .set_hardware_cursor(req.use_hardware_cursor);
             Ok(())
         })
     }
@@ -429,7 +429,7 @@ impl JayInputRequestHandler for JayInput {
     fn set_tap_enabled(&self, req: SetTapEnabled, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
-            dev.set_tap_enabled(&self.state, req.enabled != 0);
+            dev.set_tap_enabled(&self.state, req.enabled);
             Ok(())
         })
     }
@@ -441,7 +441,7 @@ impl JayInputRequestHandler for JayInput {
     ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
-            dev.set_drag_enabled(&self.state, req.enabled != 0);
+            dev.set_drag_enabled(&self.state, req.enabled);
             Ok(())
         })
     }
@@ -453,7 +453,7 @@ impl JayInputRequestHandler for JayInput {
     ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
-            dev.set_drag_lock_enabled(&self.state, req.enabled != 0);
+            dev.set_drag_lock_enabled(&self.state, req.enabled);
             Ok(())
         })
     }
@@ -461,7 +461,7 @@ impl JayInputRequestHandler for JayInput {
     fn set_left_handed(&self, req: SetLeftHanded, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
-            dev.set_left_handed(&self.state, req.enabled != 0);
+            dev.set_left_handed(&self.state, req.enabled);
             Ok(())
         })
     }
@@ -473,7 +473,7 @@ impl JayInputRequestHandler for JayInput {
     ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
-            dev.set_natural_scrolling_enabled(&self.state, req.enabled != 0);
+            dev.set_natural_scrolling_enabled(&self.state, req.enabled);
             Ok(())
         })
     }
@@ -640,7 +640,7 @@ impl JayInputRequestHandler for JayInput {
     ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
-            dev.set_middle_button_emulation_enabled(&self.state, req.enabled != 0);
+            dev.set_middle_button_emulation_enabled(&self.state, req.enabled);
             Ok(())
         })
     }
@@ -652,7 +652,7 @@ impl JayInputRequestHandler for JayInput {
     ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let seat = self.seat(req.seat)?;
-            seat.set_simple_im_enabled(req.enabled != 0);
+            seat.set_simple_im_enabled(req.enabled);
             Ok(())
         })
     }
@@ -780,7 +780,7 @@ impl JayInputRequestHandler for JayInput {
     ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
-            dev.set_scroll_button_lock(&self.state, req.enabled != 0);
+            dev.set_scroll_button_lock(&self.state, req.enabled);
             Ok(())
         })
     }

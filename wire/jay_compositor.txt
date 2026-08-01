@@ -75,7 +75,7 @@ request get_input {
 
 request take_screenshot2 {
     id: id(jay_screenshot),
-    include_cursor: u32,
+    include_cursor: bool,
 }
 
 request select_toplevel {

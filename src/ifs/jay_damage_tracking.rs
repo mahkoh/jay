@@ -86,7 +86,7 @@ impl JayDamageTrackingRequestHandler for JayDamageTracking {
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
         let state = &self.client.state;
-        state.damage_visualizer.set_enabled(state, req.enabled != 0);
+        state.damage_visualizer.set_enabled(state, req.enabled);
         Ok(())
     }
 

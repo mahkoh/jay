@@ -3,7 +3,7 @@ request destroy {
 }
 
 request set_visualizer_enabled {
-    enabled: u32,
+    enabled: bool,
 }
 
 request set_visualizer_color {

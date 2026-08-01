@@ -275,7 +275,7 @@ async fn run(global: &GlobalArgs, seat_test: Rc<SeatTest>) {
         ps.source.set(Some(ev.source));
     });
     AxisInverted::handle(tc, se, ps.clone(), move |ps, ev| {
-        ps.inverted[ev.axis as usize].set(ev.inverted != 0);
+        ps.inverted[ev.axis as usize].set(ev.inverted);
     });
     AxisPx::handle(tc, se, ps.clone(), move |ps, ev| {
         ps.px[ev.axis as usize].set(Some(ev.dist));

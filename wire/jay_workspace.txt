@@ -27,5 +27,5 @@ event output {
 }
 
 event visible {
-    visible: u32,
+    visible: bool,
 }

@@ -206,7 +206,7 @@ impl JayCompositorRequestHandler for JayCompositor {
     }
 
     fn take_screenshot2(&self, req: TakeScreenshot2, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.take_screenshot_impl(req.id, req.include_cursor != 0)
+        self.take_screenshot_impl(req.id, req.include_cursor)
     }
 
     fn get_idle(&self, req: GetIdle, _slf: &Rc<Self>) -> Result<(), Self::Error> {

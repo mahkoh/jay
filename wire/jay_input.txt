@@ -22,7 +22,7 @@ request set_keymap {
 
 request use_hardware_cursor {
     seat: str,
-    use_hardware_cursor: u32,
+    use_hardware_cursor: bool,
 }
 
 request get_keymap {
@@ -41,27 +41,27 @@ request set_accel_speed {
 
 request set_tap_enabled {
     id: u32,
-    enabled: u32,
+    enabled: bool,
 }
 
 request set_tap_drag_enabled {
     id: u32,
-    enabled: u32,
+    enabled: bool,
 }
 
 request set_tap_drag_lock_enabled {
     id: u32,
-    enabled: u32,
+    enabled: bool,
 }
 
 request set_left_handed {
     id: u32,
-    enabled: u32,
+    enabled: bool,
 }
 
 request set_natural_scrolling {
     id: u32,
-    enabled: u32,
+    enabled: bool,
 }
 
 request set_px_per_wheel_scroll {
@@ -131,12 +131,12 @@ request set_click_method (since = 19) {
 
 request set_middle_button_emulation (since = 19) {
     id: u32,
-    enabled: u32,
+    enabled: bool,
 }
 
 request set_simple_im_enabled (since = 22) {
     seat: str,
-    enabled: u32,
+    enabled: bool,
 }
 
 request reload_simple_im (since = 22) {
@@ -188,7 +188,7 @@ request set_scroll_button (since = 35) {
 
 request set_scroll_button_lock (since = 36) {
     id: u32,
-    enabled: u32,
+    enabled: bool,
 }
 
 # events
@@ -197,7 +197,7 @@ event seat {
     name: str,
     repeat_rate: i32,
     repeat_delay: i32,
-    hardware_cursor: u32,
+    hardware_cursor: bool,
 }
 
 event input_device {
@@ -207,17 +207,17 @@ event input_device {
     syspath: str,
     devnode: str,
     capabilities: array(pod(i32)),
-    accel_available: u32,
+    accel_available: bool,
     accel_profile: i32,
     accel_speed: pod(f64),
-    tap_available: u32,
-    tap_enabled: u32,
-    tap_drag_enabled: u32,
-    tap_drag_lock_enabled: u32,
-    left_handed_available: u32,
-    left_handed: u32,
-    natural_scrolling_available: u32,
-    natural_scrolling_enabled: u32,
+    tap_available: bool,
+    tap_enabled: bool,
+    tap_drag_enabled: bool,
+    tap_drag_lock_enabled: bool,
+    left_handed_available: bool,
+    left_handed: bool,
+    natural_scrolling_available: bool,
+    natural_scrolling_enabled: bool,
     px_per_wheel_scroll: pod(f64),
     transform_matrix: array(pod(u8)),
 }
@@ -250,7 +250,7 @@ event click_method (since = 19) {
 }
 
 event middle_button_emulation (since = 19) {
-    middle_button_emulation_enabled: u32,
+    middle_button_emulation_enabled: bool,
 }
 
 event scroll_methods (since = 34) {
@@ -266,5 +266,5 @@ event scroll_button (since = 35) {
 }
 
 event scroll_button_lock (since = 36) {
-    enabled: u32,
+    enabled: bool,
 }

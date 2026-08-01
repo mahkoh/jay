@@ -77,7 +77,7 @@ impl UsrJayScreencast {
     pub fn set_allow_all_workspaces(&self, allow_all: bool) {
         self.con.request(SetAllowAllWorkspaces {
             self_id: self.id,
-            allow_all: allow_all as _,
+            allow_all,
         });
     }
 
@@ -94,17 +94,17 @@ impl UsrJayScreencast {
             .request(TouchAllowedWorkspaces { self_id: self.id });
     }
 
-    pub fn set_use_linear_buffers(&self, linear: bool) {
+    pub fn set_use_linear_buffers(&self, use_linear: bool) {
         self.con.request(SetUseLinearBuffers {
             self_id: self.id,
-            use_linear: linear as _,
+            use_linear,
         });
     }
 
     pub fn set_running(&self, running: bool) {
         self.con.request(SetRunning {
             self_id: self.id,
-            running: running as _,
+            running,
         });
     }
 
@@ -201,7 +201,7 @@ impl JayScreencastEventHandler for UsrJayScreencast {
         ev: ConfigAllowAllWorkspaces,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        self.pending_config.borrow_mut().show_all = ev.allow_all != 0;
+        self.pending_config.borrow_mut().show_all = ev.allow_all;
         Ok(())
     }
 
@@ -222,12 +222,12 @@ impl JayScreencastEventHandler for UsrJayScreencast {
         ev: ConfigUseLinearBuffers,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        self.pending_config.borrow_mut().use_linear_buffers = ev.use_linear != 0;
+        self.pending_config.borrow_mut().use_linear_buffers = ev.use_linear;
         Ok(())
     }
 
     fn config_running(&self, ev: ConfigRunning, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.pending_config.borrow_mut().running = ev.running != 0;
+        self.pending_config.borrow_mut().running = ev.running;
         Ok(())
     }
 

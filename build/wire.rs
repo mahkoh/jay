@@ -29,6 +29,7 @@ fn write_type<W: Write>(f: &mut W, ty: &Type) -> Result<()> {
         Type::BStr => write!(f, "&'a BStr")?,
         Type::Fixed => write!(f, "Fixed")?,
         Type::Fd => write!(f, "Rc<OwnedFd>")?,
+        Type::Bool => write!(f, "bool")?,
         Type::Array(n) => {
             write!(f, "&'a [")?;
             write_type(f, n)?;
@@ -161,6 +162,7 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
                         Type::Str => unreachable!(),
                         Type::Fixed => write!(f, "Fixed(arg{i} as i32)"),
                         Type::Fd => write!(f, "parser.fd()?"),
+                        Type::Bool => write!(f, "arg{i} != 0"),
                         Type::BStr => unreachable!(),
                         Type::Array(_) => unreachable!(),
                         Type::Pod(_) => unreachable!(),
@@ -183,6 +185,7 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
                 Type::Str => "str",
                 Type::Fixed => "fixed",
                 Type::Fd => "fd",
+                Type::Bool => "bool",
                 Type::BStr => "bstr",
                 Type::Array(_) => "binary_array",
                 Type::Pod(_) => "binary",
@@ -224,6 +227,7 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
                 Type::BStr => unreachable!(),
                 Type::Fixed => writeln!(f, "{prefix}.0 as u32,")?,
                 Type::Fd => {}
+                Type::Bool => writeln!(f, "{prefix} as u32,")?,
                 Type::Array(_) => unreachable!(),
                 Type::Pod(_) => unreachable!(),
             }
@@ -252,6 +256,7 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
                 Type::Str | Type::BStr => "string",
                 Type::Fixed => "fixed",
                 Type::Fd => "fd",
+                Type::Bool => "bool",
                 Type::Array(..) => "binary",
                 Type::Pod(..) => "binary",
             };

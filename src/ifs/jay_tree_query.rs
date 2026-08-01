@@ -311,7 +311,7 @@ impl JayTreeQueryRequestHandler for JayTreeQuery {
     }
 
     fn set_recursive(&self, req: SetRecursive, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.recursive.set(req.recursive != 0);
+        self.recursive.set(req.recursive);
         Ok(())
     }
 

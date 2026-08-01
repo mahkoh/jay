@@ -998,8 +998,8 @@ impl Randr {
                     self_id: randr,
                     dev: &args.card,
                     enabled: match ds.cmd {
-                        DirectScanoutCmd::Enable => 1,
-                        DirectScanoutCmd::Disable => 0,
+                        DirectScanoutCmd::Enable => true,
+                        DirectScanoutCmd::Disable => false,
                     },
                 });
             }
@@ -1023,8 +1023,8 @@ impl Randr {
                     self_id: randr,
                     dev: &args.card,
                     enabled: match ps.cmd {
-                        PlaneColorPipelinesCmd::Enable => 1,
-                        PlaneColorPipelinesCmd::Disable => 0,
+                        PlaneColorPipelinesCmd::Enable => true,
+                        PlaneColorPipelinesCmd::Disable => false,
                     },
                 });
             }
@@ -1320,7 +1320,7 @@ impl Randr {
                 model: msg.model,
                 model_name: msg.model_name.to_string(),
                 gfx_api: msg.gfx_api.to_string(),
-                render_device: msg.render_device != 0,
+                render_device: msg.render_device,
                 use_plane_color_pipelines: false,
                 plane_color_pipelines_supported: false,
             });
@@ -1328,8 +1328,8 @@ impl Randr {
         jay_randr::PlaneColorPipelines::handle(tc, randr, data.clone(), |data, msg| {
             let mut data = data.borrow_mut();
             let d = data.drm_devices.last_mut().unwrap();
-            d.use_plane_color_pipelines = msg.enabled != 0;
-            d.plane_color_pipelines_supported = msg.supported != 0;
+            d.use_plane_color_pipelines = msg.enabled;
+            d.plane_color_pipelines_supported = msg.supported;
         });
         jay_randr::Connector::handle(tc, randr, data.clone(), |data, msg| {
             let mut data = data.borrow_mut();
@@ -1337,7 +1337,7 @@ impl Randr {
                 _id: msg.id,
                 drm_device: (msg.drm_device != 0).then_some(msg.drm_device),
                 name: msg.name.to_string(),
-                enabled: msg.enabled != 0,
+                enabled: msg.enabled,
                 output: None,
             });
         });
@@ -1377,8 +1377,8 @@ impl Randr {
             let mut data = data.borrow_mut();
             let c = data.connectors.last_mut().unwrap();
             let output = c.output.as_mut().unwrap();
-            output.vrr_capable = msg.capable != 0;
-            output.vrr_enabled = msg.enabled != 0;
+            output.vrr_capable = msg.capable;
+            output.vrr_enabled = msg.enabled;
             output.vrr_mode = VrrMode(msg.mode);
         });
         jay_randr::VrrCursorHz::handle(tc, randr, data.clone(), move |data, msg| {
@@ -1398,7 +1398,7 @@ impl Randr {
             let c = data.connectors.last_mut().unwrap();
             let output = c.output.as_mut().unwrap();
             output.formats.push(msg.name.to_string());
-            if msg.current != 0 {
+            if msg.current {
                 output.format = Some(msg.name.to_string());
             }
         });
@@ -1416,7 +1416,7 @@ impl Randr {
                 width: msg.width,
                 height: msg.height,
                 refresh_rate_millihz: msg.refresh_rate_millihz,
-                current: msg.current != 0,
+                current: msg.current,
             };
             if mode.current {
                 o.current_mode = Some(mode);

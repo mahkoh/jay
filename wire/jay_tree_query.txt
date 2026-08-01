@@ -5,7 +5,7 @@ request execute { }
 request set_root_display { }
 
 request set_recursive {
-    recursive: u32,
+    recursive: bool,
 }
 
 request set_root_workspace {

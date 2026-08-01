@@ -156,6 +156,9 @@ fn main() -> anyhow::Result<()> {
                                             Type::Fd => {
                                                 simple!("fd");
                                             }
+                                            Type::Bool => {
+                                                simple!("uint");
+                                            }
                                             Type::Array(_) | Type::Pod(_) => {
                                                 simple!("array");
                                             }

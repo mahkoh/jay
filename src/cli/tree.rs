@@ -296,7 +296,7 @@ impl Query<'_> {
         if args.recursive {
             tl.send(SetRecursive {
                 self_id: id,
-                recursive: 1,
+                recursive: true,
             });
         }
         tl.send(Execute { self_id: id });

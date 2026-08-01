@@ -77,13 +77,13 @@ impl DamageTracking {
             DamageTrackingCmd::Show => {
                 tc.send(SetVisualizerEnabled {
                     self_id: dt,
-                    enabled: 1,
+                    enabled: true,
                 });
             }
             DamageTrackingCmd::Hide => {
                 tc.send(SetVisualizerEnabled {
                     self_id: dt,
-                    enabled: 0,
+                    enabled: false,
                 });
             }
             DamageTrackingCmd::SetColor(c) => {

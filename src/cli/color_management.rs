@@ -58,11 +58,11 @@ impl ColorManagement {
         tc.send(jay_color_management::Get { self_id: id });
         let enabled = Rc::new(Cell::new(false));
         jay_color_management::Enabled::handle(tc, id, enabled.clone(), |iv, msg| {
-            iv.set(msg.enabled != 0);
+            iv.set(msg.enabled);
         });
         let available = Rc::new(Cell::new(false));
         jay_color_management::Available::handle(tc, id, available.clone(), |iv, msg| {
-            iv.set(msg.available != 0);
+            iv.set(msg.available);
         });
         tc.round_trip().await;
         if global.json {
