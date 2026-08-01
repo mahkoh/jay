@@ -517,6 +517,10 @@ impl ContainerNode {
         }
     }
 
+    fn is_solitary(self: &Rc<Self>) -> bool {
+        self.num_children.get() <= 1 && self.toplevel_data.is_root_container.get()
+    }
+
     fn perform_layout(self: &Rc<Self>) {
         if self.num_children.get() == 0 {
             return;
@@ -549,7 +553,7 @@ impl ContainerNode {
 
         let theme = &self.state.theme;
         let th = theme.title_height(LiveTL);
-        let bw = theme.sizes.border_width.get(LiveTL);
+        let bw = theme.container_border_width(LiveTL, self.is_solitary());
         let num_children = self.num_children.get() as i32;
         let sp = match theme.container_borders[LiveTL].get() {
             ContainerBorders::Separators => 0,
@@ -573,7 +577,7 @@ impl ContainerNode {
     fn perform_split_layout(self: &Rc<Self>) {
         let sum_factors = self.sum_factors.get();
         let theme = &self.state.theme;
-        let border_width = theme.sizes.border_width.get(LiveTL);
+        let border_width = theme.container_border_width(LiveTL, self.is_solitary());
         let title_height_tmp = theme.title_height(LiveTL);
         let title_plus_underline_height = theme.title_plus_underline_height(LiveTL);
         let ns = &self.node_state[LiveTL];
@@ -692,7 +696,7 @@ impl ContainerNode {
 
     fn update_content_size(self: &Rc<Self>) {
         let theme = &self.state.theme;
-        let border_width = theme.sizes.border_width.get(LiveTL);
+        let border_width = theme.container_border_width(LiveTL, self.is_solitary());
         let title_plus_underline_height = theme.title_plus_underline_height(LiveTL);
         let nc = self.num_children.get();
         let ns = &self.node_state[LiveTL];
@@ -984,7 +988,7 @@ impl ContainerNode {
         let th = theme.title_height(RenderTL);
         let tpuh = theme.title_plus_underline_height(RenderTL);
         let tuh = theme.title_underline_height(RenderTL);
-        let bw = theme.sizes.border_width.get(RenderTL);
+        let bw = theme.container_border_width(RenderTL, self.is_solitary());
         let ns = &self.node_state[RenderTL];
         let cb = theme.container_borders[RenderTL].get();
         let sp = match cb {

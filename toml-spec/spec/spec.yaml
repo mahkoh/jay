@@ -2630,6 +2630,12 @@ Theme:
       ref: ContainerBorders
       required: false
       description: The container border style. Defaults to `separators` if not set.
+    container-border-width-solitary:
+      kind: number
+      integer_only: true
+      minimum: 0
+      required: false
+      description: The width of the border around a container that is the only container on its workspace. Requires `full` container-borders. Defaults to `border-width` if not set.
 
 
 Config:

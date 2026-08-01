@@ -75,6 +75,7 @@ impl Parser for ThemeParser<'_, '_> {
                 show_window_icons,
                 window_icons_grayscale,
                 container_borders_val,
+                container_border_width_solitary,
                 focused_border_color,
             ),
         ) = ext.extract((
@@ -109,6 +110,7 @@ impl Parser for ThemeParser<'_, '_> {
                 recover(opt(bol("show-window-icons"))),
                 recover(opt(bol("window-icons-grayscale"))),
                 recover(opt(str("container-borders"))),
+                recover(opt(s32("container-border-width-solitary"))),
                 opt(val("focused-border-color")),
             ),
         ))?;
@@ -180,6 +182,7 @@ impl Parser for ThemeParser<'_, '_> {
             show_window_icons: show_window_icons.despan(),
             window_icons_grayscale: window_icons_grayscale.despan(),
             container_borders,
+            container_border_width_solitary: container_border_width_solitary.despan(),
         })
     }
 }

@@ -253,6 +253,7 @@ impl WorkspaceNode {
         container.tl_set_parent(self.clone());
         container.tl_set_visible(self.container_visible());
         self.set_ns_container(Some(container));
+        container.on_spaces_changed();
     }
 
     pub fn is_empty(&self) -> bool {

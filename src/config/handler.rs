@@ -2864,6 +2864,7 @@ impl ConfigProxyHandler {
             BORDER_WIDTH => ThemeSized::border_width,
             BAR_HEIGHT => ThemeSized::bar_height,
             BAR_SEPARATOR_WIDTH => ThemeSized::bar_separator_width,
+            CONTAINER_BORDER_WIDTH_SOLITARY => ThemeSized::container_border_width_solitary,
             _ => return Err(CphError::UnknownSized(sized.0)),
         };
         Ok(sized)

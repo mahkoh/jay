@@ -265,6 +265,7 @@ pub struct Theme {
     pub show_window_icons: Option<bool>,
     pub window_icons_grayscale: Option<bool>,
     pub container_borders: Option<ContainerBorders>,
+    pub container_border_width_solitary: Option<i32>,
 }
 
 #[derive(Debug, Clone, Default)]

@@ -5491,6 +5491,16 @@ The table has the following fields:
 
   The value of this field should be a [ContainerBorders](#types-ContainerBorders).
 
+- `container-border-width-solitary` (optional):
+
+  The width of the border around a container that is the only container on its workspace. Requires `full` container-borders. Defaults to `border-width` if not set.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+  The numbers should be greater than or equal to 0.
+
 
 <a name="types-TileState"></a>
 ### `TileState`

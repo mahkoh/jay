@@ -528,6 +528,14 @@ impl ThemeSizes {
     pub fn bar_separator_width(&self, tl: TreeTimeline) -> i32 {
         self.bar_separator_width.get(tl)
     }
+
+    pub fn container_border_width_solitary(&self, tl: TreeTimeline) -> i32 {
+        if self.container_border_width_solitary.set[tl].get() {
+            self.container_border_width_solitary.val[tl].get()
+        } else {
+            self.border_width.val[tl].get()
+        }
+    }
 }
 
 sizes! {
@@ -535,6 +543,7 @@ sizes! {
     bar_height = (0, 1000, 17),
     border_width = (0, 1000, 4),
     bar_separator_width = (0, 1000, 1),
+    container_border_width_solitary = (0, 1000, 4),
 }
 
 impl StaticText for ThemeSized {
@@ -544,6 +553,7 @@ impl StaticText for ThemeSized {
             ThemeSized::bar_height => "Bar Height",
             ThemeSized::border_width => "Border Width",
             ThemeSized::bar_separator_width => "Bar Separator Width",
+            ThemeSized::container_border_width_solitary => "Container Border Width (Solitary)",
         }
     }
 }
@@ -689,6 +699,14 @@ impl Theme {
             self.sizes.title_height.get(tl) + 1
         } else {
             0
+        }
+    }
+
+    pub fn container_border_width(&self, tl: TreeTimeline, solitary: bool) -> i32 {
+        if solitary {
+            self.sizes.container_border_width_solitary(tl)
+        } else {
+            self.sizes.border_width.get(tl)
         }
     }
 

@@ -423,5 +423,12 @@ pub mod sized {
         ///
         /// Default: 1
         const 04 => BAR_SEPARATOR_WIDTH,
+        /// The width of the border drawn around a container that is the only
+        /// container on its workspace
+        ///
+        /// This requires `Full` [`ContainerBorders`].
+        ///
+        /// Default: The `BORDER_WIDTH`.
+        const 05 => CONTAINER_BORDER_WIDTH_SOLITARY,
     }
 }

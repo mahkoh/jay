@@ -109,6 +109,10 @@ highlight-color = "#f5c2e7"
 `bar-separator-width`
 : Width of the bar's bottom separator (px). Default: `1`.
 
+`container-border-width-solitary`
+: Border width for a container that is the only container on its workspace
+  (px). Defaults to `border-width`.
+
 ```toml
 [theme]
 border-width = 2
