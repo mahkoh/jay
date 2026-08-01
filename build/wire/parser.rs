@@ -238,6 +238,8 @@ pub struct Message {
     pub attribs: MessageAttribs,
     pub has_reference_type: bool,
     pub is_fixed_size: bool,
+    #[expect(dead_code)]
+    pub is_request: bool,
 }
 
 #[derive(Debug, Default)]
@@ -264,6 +266,12 @@ pub struct ParseResult {
     pub events: Vec<Lined<Message>>,
 }
 
+impl ParseResult {
+    pub fn messages(&self) -> impl Iterator<Item = &Lined<Message>> {
+        self.requests.iter().chain(self.events.iter())
+    }
+}
+
 impl<'a> Parser<'a> {
     fn parse(&mut self) -> Result<ParseResult> {
         let mut dead = false;
@@ -271,16 +279,20 @@ impl<'a> Parser<'a> {
         let mut events = vec![];
         while !self.eof() {
             let (line, ty) = self.expect_ident()?;
-            let res = match ty.as_bytes() {
+            let is_request = match ty.as_bytes() {
                 b"dead" => {
                     dead = true;
                     continue;
                 }
-                b"request" => &mut requests,
-                b"event" => &mut events,
+                b"request" => true,
+                b"event" => false,
                 _ => bail!("In line {}: Unexpected entry {:?}", line, ty),
             };
-            res.push(self.parse_message(res.len() as _)?);
+            let res = match is_request {
+                true => &mut requests,
+                false => &mut events,
+            };
+            res.push(self.parse_message(res.len() as _, is_request)?);
         }
         Ok(ParseResult {
             dead,
@@ -332,7 +344,7 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    fn parse_message(&mut self, id: u32) -> Result<Lined<Message>> {
+    fn parse_message(&mut self, id: u32, is_request: bool) -> Result<Lined<Message>> {
         let (line, name) = self.expect_ident()?;
         let res: Result<_> = (|| {
             self.not_eof()?;
@@ -380,6 +392,7 @@ impl<'a> Parser<'a> {
                     attribs,
                     has_reference_type,
                     is_fixed_size,
+                    is_request,
                 },
             })
         })();

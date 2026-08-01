@@ -56,9 +56,7 @@ fn main() -> anyhow::Result<()> {
                 let res = parse_messages(std::fs::read(f)?.as_slice()).map_err(io::Error::other)?;
                 let if_name = f.file_stem().unwrap();
                 let version = res
-                    .events
-                    .iter()
-                    .chain(res.requests.iter())
+                    .messages()
                     .map(|e| e.val.attribs.since.unwrap_or(1))
                     .max()
                     .unwrap_or(1);

@@ -3,6 +3,8 @@ use crate::io_uring::debounce::Debouncer;
 use crate::io_uring::ops::accept::AcceptTask;
 use crate::io_uring::ops::async_cancel::AsyncCancelTask;
 use crate::io_uring::ops::connect::ConnectTask;
+use crate::io_uring::ops::futex::FutexWaitTask;
+use crate::io_uring::ops::futex::FutexWakeTask;
 use crate::io_uring::ops::poll::PollTask;
 use crate::io_uring::ops::poll_external::PollExternalTask;
 use crate::io_uring::ops::read_write::ReadWriteTask;
@@ -42,6 +44,7 @@ use crate::utils::ptr_ext::PtrExt;
 use crate::utils::stack::Stack;
 use crate::utils::syncqueue::SyncQueue;
 pub use ops::TaskResultExt;
+pub use ops::futex::FutexObj;
 pub use ops::poll_external::PendingPoll;
 pub use ops::poll_external::PollCallback;
 pub use ops::timeout_external::PendingTimeout;
@@ -251,6 +254,8 @@ impl IoUring {
             cached_cmsg_bufs: Default::default(),
             cached_connects: Default::default(),
             cached_accepts: Default::default(),
+            cached_futex_wakes: Default::default(),
+            cached_futex_waits: Default::default(),
             fd_ids_scratch: Default::default(),
             iteration: Default::default(),
             yields: Default::default(),
@@ -325,6 +330,8 @@ struct IoUringData {
     cached_cmsg_bufs: Stack<Buf>,
     cached_connects: Stack<Box<ConnectTask>>,
     cached_accepts: Stack<Box<AcceptTask>>,
+    cached_futex_wakes: Stack<Box<FutexWakeTask>>,
+    cached_futex_waits: Stack<Box<FutexWaitTask>>,
 
     fd_ids_scratch: RefCell<Vec<c::c_int>>,
 
