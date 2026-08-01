@@ -2,7 +2,10 @@ use crate::allocator::AllocatorError;
 use crate::allocator::BO_USE_RENDERING;
 use crate::allocator::BufferObject;
 use crate::allocator::BufferUsage;
+use crate::cmm::cmm_eotf::Eotf;
+use crate::format::Format;
 use crate::format::XRGB8888;
+use crate::format::XRGB2101010;
 use crate::gfx_api::AcquireSync;
 use crate::gfx_api::GfxError;
 use crate::gfx_api::ReleaseSync;
@@ -31,10 +34,12 @@ pub enum ScreenshooterError {
     RenderError(#[from] GfxError),
     #[error(transparent)]
     DrmError(#[from] DrmError),
-    #[error("Render context does not support XRGB8888")]
-    XRGB8888,
-    #[error("Render context supports no modifiers for XRGB8888 rendering")]
-    Modifiers,
+    #[error("Render context does not support {}", .0.name)]
+    UnsupportedFormat(&'static Format),
+    #[error("Render context supports no modifiers for {} rendering", .0.name)]
+    Modifiers(&'static Format),
+    #[error("Renderer does not support color management")]
+    NoColorManagementSupport,
 }
 
 pub struct Screenshot {
@@ -45,18 +50,36 @@ pub struct Screenshot {
 pub fn take_screenshot(
     state: &State,
     include_cursor: bool,
+    hdr10: bool,
 ) -> Result<Screenshot, ScreenshooterError> {
     let ctx = match state.render_ctx.get() {
         Some(ctx) => ctx,
         _ => return Err(ScreenshooterError::NoRenderContext),
     };
+    if hdr10 && !ctx.supports_color_management() {
+        return Err(ScreenshooterError::NoColorManagementSupport);
+    }
     let extents = state.root.node_state[RenderTL].extents.get();
     if extents.is_empty() {
         return Err(ScreenshooterError::EmptyDisplay);
     }
+    // HDR10 output is 10-bit-per-channel BT.2020 primaries with an ST 2084 (PQ)
+    // transfer function. `windows_bt2100` is exactly that color description, so
+    // we reuse it here instead of introducing a separate one.
+    let format = if hdr10 { XRGB2101010 } else { XRGB8888 };
+    let (cd, blend_cd) = if hdr10 {
+        let cd = state.color_manager.windows_bt2100();
+        let blend_cd = state.color_manager.get_with_tf(cd, Eotf::Linear);
+        (cd, blend_cd)
+    } else {
+        (
+            state.color_manager.srgb_gamma22(),
+            state.color_manager.srgb_linear().clone(),
+        )
+    };
     let formats = ctx.formats();
-    let modifiers: IndexMap<_, _> = match formats.get(&XRGB8888.drm) {
-        None => return Err(ScreenshooterError::XRGB8888),
+    let modifiers: IndexMap<_, _> = match formats.get(&format.drm) {
+        None => return Err(ScreenshooterError::UnsupportedFormat(format)),
         Some(f) => f
             .write_modifiers
             .iter()
@@ -64,7 +87,7 @@ pub fn take_screenshot(
             .collect(),
     };
     if modifiers.is_empty() {
-        return Err(ScreenshooterError::Modifiers);
+        return Err(ScreenshooterError::Modifiers(format));
     }
     let mut usage = BO_USE_RENDERING;
     if !needs_render_usage(modifiers.values().copied()) {
@@ -76,7 +99,7 @@ pub fn take_screenshot(
         &state.dma_buf_ids,
         extents.width(),
         extents.height(),
-        XRGB8888,
+        format,
         &modifiers,
         usage,
     )?;
@@ -84,7 +107,7 @@ pub fn take_screenshot(
     fb.render_node(
         AcquireSync::Unnecessary,
         ReleaseSync::Implicit,
-        state.color_manager.srgb_gamma22(),
+        cd,
         state.root.deref(),
         state,
         Some(state.root.node_state[RenderTL].extents.get()),
@@ -96,7 +119,7 @@ pub fn take_screenshot(
         false,
         Transform::None,
         None,
-        state.color_manager.srgb_linear(),
+        &blend_cd,
         false,
     )?;
     let drm = match allocator.drm() {

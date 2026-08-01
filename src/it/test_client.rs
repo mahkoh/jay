@@ -106,6 +106,7 @@ impl TestClient {
             dev.as_ref(),
             &dmabuf,
             ScreenshotFormat::Qoi,
+            false,
         )?;
         Ok(qoi)
     }

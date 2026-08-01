@@ -57,6 +57,7 @@ use thiserror::Error;
 pub const CREATE_EI_SESSION_SINCE: Version = Version(5);
 pub const SCREENSHOT_SPLITUP_SINCE: Version = Version(6);
 pub const GET_TOPLEVEL_SINCE: Version = Version(12);
+pub const SCREENSHOT_DMABUF3_SINCE: Version = Version(40);
 
 pub struct JayCompositorGlobal {
     name: GlobalName,
@@ -90,7 +91,7 @@ global_base!(JayCompositorGlobal, JayCompositor, JayCompositorError);
 
 impl Global for JayCompositorGlobal {
     fn version(&self) -> u32 {
-        39
+        40
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -127,6 +128,7 @@ impl JayCompositor {
         &self,
         id: JayScreenshotId,
         include_cursor: bool,
+        hdr10: bool,
     ) -> Result<(), JayCompositorError> {
         let ss = Rc::new(JayScreenshot {
             id,
@@ -135,7 +137,7 @@ impl JayCompositor {
         });
         track!(self.client, ss);
         self.client.add_client_obj(&ss)?;
-        match take_screenshot(&self.client.state, include_cursor) {
+        match take_screenshot(&self.client.state, include_cursor, hdr10) {
             Ok(s) => {
                 let dmabuf = s.bo.dmabuf();
                 if self.version < SCREENSHOT_SPLITUP_SINCE {
@@ -160,7 +162,11 @@ impl JayCompositor {
                     for plane in &dmabuf.planes {
                         ss.send_plane(plane);
                     }
-                    ss.send_dmabuf2(dmabuf);
+                    if self.version >= SCREENSHOT_DMABUF3_SINCE {
+                        ss.send_dmabuf3(dmabuf);
+                    } else {
+                        ss.send_dmabuf2(dmabuf);
+                    }
                 }
             }
             Err(e) => {
@@ -206,11 +212,15 @@ impl JayCompositorRequestHandler for JayCompositor {
     }
 
     fn take_screenshot(&self, req: TakeScreenshot, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.take_screenshot_impl(req.id, false)
+        self.take_screenshot_impl(req.id, false, false)
     }
 
     fn take_screenshot2(&self, req: TakeScreenshot2, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.take_screenshot_impl(req.id, req.include_cursor)
+        self.take_screenshot_impl(req.id, req.include_cursor, false)
+    }
+
+    fn take_screenshot3(&self, req: TakeScreenshot3, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.take_screenshot_impl(req.id, req.include_cursor, req.hdr10)
     }
 
     fn get_idle(&self, req: GetIdle, _slf: &Rc<Self>) -> Result<(), Self::Error> {

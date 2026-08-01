@@ -172,6 +172,13 @@ pub struct ScreenshotArgs {
     /// The format to use for the image.
     #[clap(value_enum, long, default_value_t)]
     pub format: ScreenshotFormat,
+    /// Capture the screenshot as HDR10 (10-bit, BT.2020 primaries, ST 2084 PQ transfer
+    /// function) instead of SDR.
+    ///
+    /// Only supported for the PNG format. The resulting PNG is 16-bit-per-channel with
+    /// a cICP chunk describing the HDR10 color space.
+    #[clap(long)]
+    pub hdr10: bool,
     /// The filename of the saved screenshot
     ///
     /// If no filename is given, the screenshot will be saved under %Y-%m-%d-%H%M%S_jay.<ext>
