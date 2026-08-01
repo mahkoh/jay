@@ -206,6 +206,7 @@ use crate::tree::WorkspaceDisplayOrder;
 use crate::tree::WorkspaceNode;
 use crate::tree::WorkspaceType;
 use crate::tree::WsMoveConfig;
+use crate::tree::calculate_float_position;
 use crate::tree::generic_node_visitor;
 use crate::tree::move_ws_to_output;
 use crate::tree_serial_groups::TreeSerialGroups;
@@ -1184,8 +1185,8 @@ impl State {
         workspace: &Rc<WorkspaceNode>,
         abs_pos: Option<(i32, i32)>,
     ) {
-        let mut width = inner_width + 2 * self.theme.sizes.border_width.get(LiveTL);
-        let mut height = inner_height
+        let width = inner_width + 2 * self.theme.sizes.border_width.get(LiveTL);
+        let height = inner_height
             + 2 * self.theme.sizes.border_width.get(LiveTL)
             + self.theme.title_plus_underline_height(LiveTL);
         let output = workspace.node_state[LiveTL].output.get();
@@ -1198,19 +1199,7 @@ impl State {
             x1 -= self.theme.sizes.border_width.get(LiveTL);
             Rect::new_sized_saturating(x1, y1, width, height)
         } else {
-            let mut x1 = output_rect.x1();
-            let mut y1 = output_rect.y1();
-            if width < output_rect.width() {
-                x1 += (output_rect.width() - width) / 2;
-            } else {
-                width = output_rect.width();
-            }
-            if height < output_rect.height() {
-                y1 += (output_rect.height() - height) / 2;
-            } else {
-                height = output_rect.height();
-            }
-            Rect::new_sized_saturating(x1, y1, width, height)
+            calculate_float_position(output_rect, width, height)
         };
         FloatNode::new(self, workspace, position, node.clone());
         self.focus_after_map(node, self.seat_queue.last().as_deref());
