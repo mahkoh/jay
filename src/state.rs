@@ -206,7 +206,6 @@ use crate::tree::WorkspaceDisplayOrder;
 use crate::tree::WorkspaceNode;
 use crate::tree::WorkspaceType;
 use crate::tree::WsMoveConfig;
-use crate::tree::calculate_float_position;
 use crate::tree::generic_node_visitor;
 use crate::tree::move_ws_to_output;
 use crate::tree_serial_groups::TreeSerialGroups;
@@ -215,7 +214,6 @@ use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::bhash::BHashMap;
 use crate::utils::bhash::BHashSet;
 use crate::utils::bindings::Bindings;
-use crate::utils::clamp_ext::ClampExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
@@ -1185,23 +1183,14 @@ impl State {
         workspace: &Rc<WorkspaceNode>,
         abs_pos: Option<(i32, i32)>,
     ) {
-        let width = inner_width + 2 * self.theme.sizes.border_width.get(LiveTL);
-        let height = inner_height
-            + 2 * self.theme.sizes.border_width.get(LiveTL)
-            + self.theme.title_plus_underline_height(LiveTL);
-        let output = workspace.node_state[LiveTL].output.get();
-        let output_rect = output.node_state[LiveTL].pos.get();
-        let position = if let Some((mut x1, mut y1)) = abs_pos {
-            y1 = y1.clamp_saturating(output_rect.y1() + 1, output_rect.y2());
-            x1 = x1.clamp_saturating(output_rect.x1() - inner_width + 1, output_rect.x2() - 1);
-            y1 -= self.theme.sizes.border_width.get(LiveTL)
-                + self.theme.title_plus_underline_height(LiveTL);
-            x1 -= self.theme.sizes.border_width.get(LiveTL);
-            Rect::new_sized_saturating(x1, y1, width, height)
-        } else {
-            calculate_float_position(output_rect, width, height)
-        };
-        FloatNode::new(self, workspace, position, node.clone());
+        FloatNode::new(
+            self,
+            workspace,
+            abs_pos,
+            inner_width,
+            inner_height,
+            node.clone(),
+        );
         self.focus_after_map(node, self.seat_queue.last().as_deref());
     }
 
