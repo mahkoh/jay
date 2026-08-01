@@ -84,6 +84,7 @@ pub struct FloatNode {
     pub title_textures: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
     pub icon: ToplevelIconUser,
     pub icons: SmallMap<Scale, ToplevelIcon, 2>,
+    pub needs_initial_size: Cell<bool>,
     cursors: RefCell<BHashMap<CursorType, CursorState>>,
     transaction_data: TransactionData<FloatTransactionOp>,
 }
@@ -178,7 +179,9 @@ impl FloatNode {
             + theme.title_plus_underline_height(LiveTL);
         let output = ws.node_state[LiveTL].output.get();
         let output_rect = output.node_state[LiveTL].pos.get();
-        let position = if let Some((mut x1, mut y1)) = abs_pos {
+        let position = if output.is_dummy {
+            Rect::new_sized_saturating(0, 0, width, height)
+        } else if let Some((mut x1, mut y1)) = abs_pos {
             y1 = y1.clamp_saturating(output_rect.y1() + 1, output_rect.y2());
             x1 = x1.clamp_saturating(output_rect.x1() - inner_width + 1, output_rect.x2() - 1);
             y1 -= theme.sizes.border_width.get(LiveTL) + theme.title_plus_underline_height(LiveTL);
@@ -203,6 +206,7 @@ impl FloatNode {
             title_textures: Default::default(),
             icon: state.toplevel_icon_user(),
             icons: Default::default(),
+            needs_initial_size: Cell::new(output.is_dummy),
             cursors: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
         });
