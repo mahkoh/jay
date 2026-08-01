@@ -207,7 +207,7 @@ impl FloatNode {
             transaction_data: TransactionData::new(&state.tree),
         });
         floater.set_ns_visible(ws.float_visible());
-        floater.set_ns_position(position);
+        floater.set_position(position);
         floater.set_ns_child(Some(&child));
         floater.set_ns_workspace_type(ws.ty);
         child.tl_update_icon(&floater.icon);
@@ -223,7 +223,6 @@ impl FloatNode {
         let ns = &floater.node_state[LiveTL];
         child.tl_set_visible(ns.visible.get());
         child.tl_restack_popups();
-        floater.schedule_layout();
         if ns.visible.get() {
             floater.display_link.borrow().invalidate();
         }
@@ -448,8 +447,7 @@ impl FloatNode {
                 }
             }
             let new_pos = Rect::new_saturating(x1, y1, x2, y2);
-            self.set_ns_position(new_pos);
-            self.schedule_layout();
+            self.set_position(new_pos);
             return;
         }
         let resize_left = x < bw;
@@ -540,6 +538,11 @@ impl FloatNode {
         }
     }
 
+    pub fn set_position(self: &Rc<Self>, pos: Rect) {
+        self.set_ns_position(pos);
+        self.schedule_layout();
+    }
+
     pub fn ensure_on_output(self: &Rc<Self>, output: &Rc<OutputNode>) {
         if output.is_dummy {
             return;
@@ -576,16 +579,14 @@ impl FloatNode {
             y2 += y1 - pos.y1();
         }
         let new_pos = Rect::new_saturating(x1, y1, x2, y2);
-        self.set_ns_position(new_pos);
-        self.schedule_layout();
+        self.set_position(new_pos);
     }
 
     pub fn move_(self: &Rc<Self>, dx: i32, dy: i32) {
         let ns = &self.node_state[LiveTL];
         let old_pos = ns.position.get();
         let new_pos = old_pos.move_(dx, dy);
-        self.set_ns_position(new_pos);
-        self.schedule_layout();
+        self.set_position(new_pos);
     }
 
     fn update_child_title(self: &Rc<Self>, title: &str) {
@@ -1126,8 +1127,7 @@ impl ContainingNode for FloatNode {
         let pos = ns.position.get();
         if pos.position() != (x, y) {
             let new_pos = pos.at_point(x, y);
-            self.set_ns_position(new_pos);
-            self.schedule_layout();
+            self.set_position(new_pos);
         }
     }
 
@@ -1162,8 +1162,7 @@ impl ContainingNode for FloatNode {
         }
         let new_pos = Rect::new_saturating(x1, y1, x2, y2);
         if new_pos != pos {
-            self.set_ns_position(new_pos);
-            self.schedule_layout();
+            self.set_position(new_pos);
         }
     }
 

@@ -24,8 +24,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     {
         let parent = win1.tl.float_parent()?;
         let rect = parent.node_state[LiveTL].position.get();
-        parent.set_ns_position(rect.at_point(100, 100));
-        parent.schedule_layout();
+        parent.set_position(rect.at_point(100, 100));
     }
 
     client.sync().await;
