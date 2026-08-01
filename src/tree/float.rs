@@ -49,6 +49,7 @@ use crate::tree::toplevel_set_floating;
 use crate::tree::walker::NodeVisitor;
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::bhash::BHashMap;
+use crate::utils::clamp_ext::ClampExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::double_click_state::DoubleClickState;
 use crate::utils::errorfmt::ErrorFmt;
@@ -83,6 +84,7 @@ pub struct FloatNode {
     pub title_textures: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
     pub icon: ToplevelIconUser,
     pub icons: SmallMap<Scale, ToplevelIcon, 2>,
+    pub needs_initial_size: Cell<bool>,
     cursors: RefCell<BHashMap<CursorType, CursorState>>,
     transaction_data: TransactionData<FloatTransactionOp>,
 }
@@ -165,9 +167,29 @@ impl FloatNode {
     pub fn new(
         state: &Rc<State>,
         ws: &Rc<WorkspaceNode>,
-        position: Rect,
+        abs_pos: Option<(i32, i32)>,
+        inner_width: i32,
+        inner_height: i32,
         child: Rc<dyn ToplevelNode>,
     ) -> Rc<Self> {
+        let theme = &state.theme;
+        let width = inner_width + 2 * theme.sizes.border_width.get(LiveTL);
+        let height = inner_height
+            + 2 * theme.sizes.border_width.get(LiveTL)
+            + theme.title_plus_underline_height(LiveTL);
+        let output = ws.node_state[LiveTL].output.get();
+        let output_rect = output.node_state[LiveTL].pos.get();
+        let position = if output.is_dummy {
+            Rect::new_sized_saturating(0, 0, width, height)
+        } else if let Some((mut x1, mut y1)) = abs_pos {
+            y1 = y1.clamp_saturating(output_rect.y1() + 1, output_rect.y2());
+            x1 = x1.clamp_saturating(output_rect.x1() - inner_width + 1, output_rect.x2() - 1);
+            y1 -= theme.sizes.border_width.get(LiveTL) + theme.title_plus_underline_height(LiveTL);
+            x1 -= theme.sizes.border_width.get(LiveTL);
+            Rect::new_sized_saturating(x1, y1, width, height)
+        } else {
+            calculate_float_position(output_rect, width, height)
+        };
         let floater = Rc::new(FloatNode {
             id: state.node_ids.next(),
             state: state.clone(),
@@ -184,11 +206,12 @@ impl FloatNode {
             title_textures: Default::default(),
             icon: state.toplevel_icon_user(),
             icons: Default::default(),
+            needs_initial_size: Cell::new(output.is_dummy),
             cursors: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
         });
         floater.set_ns_visible(ws.float_visible());
-        floater.set_ns_position(position);
+        floater.set_position(position);
         floater.set_ns_child(Some(&child));
         floater.set_ns_workspace_type(ws.ty);
         child.tl_update_icon(&floater.icon);
@@ -204,7 +227,6 @@ impl FloatNode {
         let ns = &floater.node_state[LiveTL];
         child.tl_set_visible(ns.visible.get());
         child.tl_restack_popups();
-        floater.schedule_layout();
         if ns.visible.get() {
             floater.display_link.borrow().invalidate();
         }
@@ -429,8 +451,7 @@ impl FloatNode {
                 }
             }
             let new_pos = Rect::new_saturating(x1, y1, x2, y2);
-            self.set_ns_position(new_pos);
-            self.schedule_layout();
+            self.set_position(new_pos);
             return;
         }
         let resize_left = x < bw;
@@ -521,6 +542,11 @@ impl FloatNode {
         }
     }
 
+    pub fn set_position(self: &Rc<Self>, pos: Rect) {
+        self.set_ns_position(pos);
+        self.schedule_layout();
+    }
+
     pub fn ensure_on_output(self: &Rc<Self>, output: &Rc<OutputNode>) {
         if output.is_dummy {
             return;
@@ -557,16 +583,14 @@ impl FloatNode {
             y2 += y1 - pos.y1();
         }
         let new_pos = Rect::new_saturating(x1, y1, x2, y2);
-        self.set_ns_position(new_pos);
-        self.schedule_layout();
+        self.set_position(new_pos);
     }
 
     pub fn move_(self: &Rc<Self>, dx: i32, dy: i32) {
         let ns = &self.node_state[LiveTL];
         let old_pos = ns.position.get();
         let new_pos = old_pos.move_(dx, dy);
-        self.set_ns_position(new_pos);
-        self.schedule_layout();
+        self.set_position(new_pos);
     }
 
     fn update_child_title(self: &Rc<Self>, title: &str) {
@@ -1107,8 +1131,7 @@ impl ContainingNode for FloatNode {
         let pos = ns.position.get();
         if pos.position() != (x, y) {
             let new_pos = pos.at_point(x, y);
-            self.set_ns_position(new_pos);
-            self.schedule_layout();
+            self.set_position(new_pos);
         }
     }
 
@@ -1143,8 +1166,7 @@ impl ContainingNode for FloatNode {
         }
         let new_pos = Rect::new_saturating(x1, y1, x2, y2);
         if new_pos != pos {
-            self.set_ns_position(new_pos);
-            self.schedule_layout();
+            self.set_position(new_pos);
         }
     }
 
@@ -1312,4 +1334,20 @@ impl Transactionable for FloatNode {
             }
         }
     }
+}
+
+pub fn calculate_float_position(output_rect: Rect, mut width: i32, mut height: i32) -> Rect {
+    let mut x1 = output_rect.x1();
+    let mut y1 = output_rect.y1();
+    if width < output_rect.width() {
+        x1 += (output_rect.width() - width) / 2;
+    } else {
+        width = output_rect.width();
+    }
+    if height < output_rect.height() {
+        y1 += (output_rect.height() - height) / 2;
+    } else {
+        height = output_rect.height();
+    }
+    Rect::new_sized_saturating(x1, y1, width, height)
 }

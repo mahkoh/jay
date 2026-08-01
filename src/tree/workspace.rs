@@ -42,6 +42,7 @@ use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::tree::TreeTimeline::{self};
 use crate::tree::WorkspaceDisplayOrder;
+use crate::tree::calculate_float_position;
 use crate::tree::container::ContainerNode;
 use crate::tree::walker::NodeVisitor;
 use crate::utils::clonecell::CloneCell;
@@ -94,6 +95,7 @@ pub struct WorkspaceNode {
     pub node_state: SplitView<WorkspaceNodeState>,
     pub output_link: Cell<Option<LinkedNode<WorkspaceOutputLink>>>,
     pub transaction_data: TransactionData<WorkspaceTransactionOp>,
+    pub was_on_dummy_output: Cell<bool>,
 }
 
 pub struct WorkspaceNodeState {
@@ -138,6 +140,7 @@ impl WorkspaceNode {
             node_state: SplitView::from_fn(|_| WorkspaceNodeState::new(output)),
             output_link: Default::default(),
             transaction_data: TransactionData::new(&output.state.tree),
+            was_on_dummy_output: Default::default(),
         });
         slf.seat_state.disable_focus_history();
         slf
@@ -181,6 +184,9 @@ impl WorkspaceNode {
     }
 
     pub fn set_output(self: &Rc<Self>, output: &Rc<OutputNode>) {
+        if output.is_dummy {
+            self.was_on_dummy_output.set(true);
+        }
         let old = self.set_ns_output(output);
         if let Some(tl) = self.node_state[LiveTL].fullscreen.get() {
             tl.tl_mark_fullscreen(Some(&output.global.connector));
@@ -279,7 +285,8 @@ impl WorkspaceNode {
         if let Some(c) = ns.container.get() {
             c.tl_change_extents(rect);
         }
-        if old != *rect {
+        let was_on_dummy_output = self.was_on_dummy_output.take();
+        if was_on_dummy_output || old != *rect {
             let mut dx = 0;
             let mut dy = 0;
             if old.is_not_empty() {
@@ -288,10 +295,20 @@ impl WorkspaceNode {
             }
             for stacked in self.stacked.iter() {
                 if let Some(float) = stacked.deref().clone().node_into_float() {
-                    if (dx, dy) != (0, 0) {
-                        float.move_(dx, dy);
+                    if float.needs_initial_size.take() {
+                        let pos = float.node_state[LiveTL].position.get();
+                        let pos = calculate_float_position(
+                            output.node_state[LiveTL].pos.get(),
+                            pos.width(),
+                            pos.height(),
+                        );
+                        float.set_position(pos);
+                    } else {
+                        if (dx, dy) != (0, 0) {
+                            float.move_(dx, dy);
+                        }
+                        float.ensure_on_output(&output);
                     }
-                    float.ensure_on_output(&output);
                 }
             }
         }

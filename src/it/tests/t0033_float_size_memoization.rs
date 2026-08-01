@@ -20,10 +20,9 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     let float = win1.tl.float_parent()?;
     let pos = float.node_state[LiveTL].position.get();
-    float.set_ns_position(
+    float.set_position(
         Rect::new_sized(pos.x1(), pos.x2(), pos.width() / 2, pos.height() / 2).unwrap(),
     );
-    float.schedule_layout();
 
     client1.sync().await;
     let (w2, h2) = (win1.tl.core.width.get(), win1.tl.core.height.get());
