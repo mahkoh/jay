@@ -111,7 +111,7 @@ pub enum WorkspaceType {
     Overlay,
 }
 
-impl Context<'_> {
+impl Context<'_, '_> {
     pub fn get_workspace_slot(&self, name: &str) -> Rc<WorkspaceSlot> {
         let map = &mut *self.workspaces.borrow_mut();
         if let Some(ws) = map.get(name) {
@@ -137,9 +137,9 @@ pub enum WorkspaceParserError {
     Extract(#[from] ExtractorError),
 }
 
-pub struct WorkspacesParser<'a, 'b>(pub &'a Context<'b>);
+pub struct WorkspacesParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for WorkspacesParser<'_, '_> {
+impl Parser for WorkspacesParser<'_, '_, '_> {
     type Value = ();
     type Error = WorkspaceParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -175,12 +175,12 @@ impl Parser for WorkspacesParser<'_, '_> {
     }
 }
 
-pub struct WorkspaceParser<'a, 'b> {
+pub struct WorkspaceParser<'a, 'b, 'c> {
     name: &'a str,
-    cx: &'a Context<'b>,
+    cx: &'a Context<'b, 'c>,
 }
 
-impl Parser for WorkspaceParser<'_, '_> {
+impl Parser for WorkspaceParser<'_, '_, '_> {
     type Value = ();
     type Error = WorkspaceParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

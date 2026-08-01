@@ -25,9 +25,9 @@ pub enum DrmDeviceMatchParserError {
     Extract(#[from] ExtractorError),
 }
 
-pub struct DrmDeviceMatchParser<'a, 'b>(pub &'a Context<'b>);
+pub struct DrmDeviceMatchParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for DrmDeviceMatchParser<'_, '_> {
+impl Parser for DrmDeviceMatchParser<'_, '_, '_> {
     type Value = DrmDeviceMatch;
     type Error = DrmDeviceMatchParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table, DataType::Table];

@@ -28,9 +28,9 @@ pub enum UiDragParserError {
     Extract(#[from] ExtractorError),
 }
 
-pub struct UiDragParser<'a, 'b>(pub &'a Context<'b>);
+pub struct UiDragParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for UiDragParser<'_, '_> {
+impl Parser for UiDragParser<'_, '_, '_> {
     type Value = UiDrag;
     type Error = UiDragParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

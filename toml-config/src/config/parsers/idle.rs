@@ -24,14 +24,14 @@ pub enum IdleParserError {
     Extract(#[from] ExtractorError),
 }
 
-pub struct IdleParser<'a, 'b>(pub &'a Context<'b>);
+pub struct IdleParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
 pub struct Idle {
     pub timeout: Option<Duration>,
     pub grace_period: Option<Duration>,
 }
 
-impl Parser for IdleParser<'_, '_> {
+impl Parser for IdleParser<'_, '_, '_> {
     type Value = Idle;
     type Error = IdleParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -62,9 +62,9 @@ impl Parser for IdleParser<'_, '_> {
     }
 }
 
-struct GracePeriodParser<'a, 'b>(pub &'a Context<'b>);
+struct GracePeriodParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for GracePeriodParser<'_, '_> {
+impl Parser for GracePeriodParser<'_, '_, '_> {
     type Value = Duration;
     type Error = IdleParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

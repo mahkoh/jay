@@ -27,9 +27,9 @@ pub enum MarkIdParserError {
     UnknownKey(String),
 }
 
-pub struct MarkIdParser<'a, 'b>(pub &'a Context<'b>);
+pub struct MarkIdParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for MarkIdParser<'_, '_> {
+impl Parser for MarkIdParser<'_, '_, '_> {
     type Value = u32;
     type Error = MarkIdParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

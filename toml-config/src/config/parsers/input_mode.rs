@@ -40,9 +40,9 @@ pub struct InputMode {
     pub shortcuts: Vec<Shortcut>,
 }
 
-pub struct InputModesParser<'a, 'b>(pub &'a Context<'b>);
+pub struct InputModesParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for InputModesParser<'_, '_> {
+impl Parser for InputModesParser<'_, '_, '_> {
     type Value = AHashMap<String, InputMode>;
     type Error = InputModeParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -73,9 +73,9 @@ impl Parser for InputModesParser<'_, '_> {
     }
 }
 
-pub struct InputModeParser<'a, 'b>(pub &'a Context<'b>);
+pub struct InputModeParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for InputModeParser<'_, '_> {
+impl Parser for InputModeParser<'_, '_, '_> {
     type Value = InputMode;
     type Error = InputModeParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -118,7 +118,7 @@ impl Parser for InputModeParser<'_, '_> {
     }
 }
 
-fn log_used(cx: &Context<'_>, used: &mut AHashSet<Spanned<String>>, key: &Spanned<String>) {
+fn log_used(cx: &Context<'_, '_>, used: &mut AHashSet<Spanned<String>>, key: &Spanned<String>) {
     if let Some(prev) = used.get(key) {
         log::warn!(
             "Duplicate input mode overrides previous definition: {}",

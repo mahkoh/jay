@@ -27,9 +27,9 @@ pub enum XwaylandParserError {
     Extract(#[from] ExtractorError),
 }
 
-pub struct XwaylandParser<'a, 'b>(pub &'a Context<'b>);
+pub struct XwaylandParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for XwaylandParser<'_, '_> {
+impl Parser for XwaylandParser<'_, '_, '_> {
     type Value = Xwayland;
     type Error = XwaylandParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

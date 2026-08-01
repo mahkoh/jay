@@ -41,9 +41,9 @@ pub enum WindowMatchParserError {
     ContentTypes(#[from] ContentTypeParserError),
 }
 
-pub struct WindowMatchParser<'a, 'b>(pub &'a Context<'b>);
+pub struct WindowMatchParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for WindowMatchParser<'_, '_> {
+impl Parser for WindowMatchParser<'_, '_, '_> {
     type Value = WindowMatch;
     type Error = WindowMatchParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -195,9 +195,9 @@ impl Parser for WindowMatchParser<'_, '_> {
     }
 }
 
-pub struct WindowMatchExactlyParser<'a, 'b>(pub &'a Context<'b>);
+pub struct WindowMatchExactlyParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for WindowMatchExactlyParser<'_, '_> {
+impl Parser for WindowMatchExactlyParser<'_, '_, '_> {
     type Value = MatchExactly<WindowMatch>;
     type Error = WindowMatchParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

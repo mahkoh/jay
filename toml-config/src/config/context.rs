@@ -12,11 +12,11 @@ use std::convert::Infallible;
 use std::error::Error;
 use std::rc::Rc;
 
-pub struct Context<'a> {
+pub struct Context<'a, 'c> {
     pub input: &'a [u8],
     pub used: RefCell<Used>,
-    pub mark_names: &'a RefCell<AHashMap<String, u32>>,
-    pub workspaces: RefCell<&'a mut AHashMap<String, Rc<WorkspaceSlot>>>,
+    pub mark_names: &'c RefCell<AHashMap<String, u32>>,
+    pub workspaces: RefCell<&'c mut AHashMap<String, Rc<WorkspaceSlot>>>,
 }
 
 #[derive(Default)]
@@ -31,7 +31,7 @@ pub struct Used {
     pub defined_keymaps: AHashSet<Spanned<String>>,
 }
 
-impl<'a> Context<'a> {
+impl<'a> Context<'a, '_> {
     pub fn error<E: Error>(&self, cause: Spanned<E>) -> SpannedError<'a, E> {
         self.error2(cause.span, cause.value)
     }
@@ -53,7 +53,7 @@ impl<'a> Context<'a> {
     }
 }
 
-impl ErrorHandler for Context<'_> {
+impl ErrorHandler for Context<'_, '_> {
     fn handle(&self, err: Spanned<ParserError>) {
         log::warn!("{}", Report::new(self.error(err)));
     }

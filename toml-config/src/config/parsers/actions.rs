@@ -24,13 +24,13 @@ pub enum ActionsParserError {
     ExtractorError(#[from] ExtractorError),
 }
 
-pub struct ActionsParser<'a, 'b, 'c> {
-    pub cx: &'a Context<'c>,
+pub struct ActionsParser<'a, 'b, 'c, 'd> {
+    pub cx: &'a Context<'c, 'd>,
     pub used_names: HashSet<Spanned<Rc<String>>>,
     pub actions: &'b mut Vec<NamedAction>,
 }
 
-impl Parser for ActionsParser<'_, '_, '_> {
+impl Parser for ActionsParser<'_, '_, '_, '_> {
     type Value = ();
     type Error = ActionsParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -55,7 +55,7 @@ impl Parser for ActionsParser<'_, '_, '_> {
     }
 }
 
-fn parse_action(cx: &Context<'_>, name: &str, value: &Spanned<Value>) -> Option<Action> {
+fn parse_action(cx: &Context<'_, '_>, name: &str, value: &Spanned<Value>) -> Option<Action> {
     match value.parse(&mut ActionParser(cx)) {
         Ok(a) => Some(a),
         Err(e) => {
@@ -65,7 +65,11 @@ fn parse_action(cx: &Context<'_>, name: &str, value: &Spanned<Value>) -> Option<
     }
 }
 
-fn log_used(cx: &Context<'_>, used: &mut HashSet<Spanned<Rc<String>>>, key: Spanned<Rc<String>>) {
+fn log_used(
+    cx: &Context<'_, '_>,
+    used: &mut HashSet<Spanned<Rc<String>>>,
+    key: Spanned<Rc<String>>,
+) {
     if let Some(prev) = used.get(&key) {
         log::warn!(
             "Duplicate actions overrides previous definition: {}",

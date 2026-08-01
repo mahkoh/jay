@@ -24,9 +24,9 @@ pub enum ModeParserError {
     Extract(#[from] ExtractorError),
 }
 
-pub struct ModeParser<'a, 'b>(pub &'a Context<'b>);
+pub struct ModeParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for ModeParser<'_, '_> {
+impl Parser for ModeParser<'_, '_, '_> {
     type Value = Mode;
     type Error = ModeParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
