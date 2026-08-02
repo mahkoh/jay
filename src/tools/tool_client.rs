@@ -35,6 +35,7 @@ use crate::wire::JayCompositor;
 use crate::wire::JayCompositorId;
 use crate::wire::JayDamageTracking;
 use crate::wire::JayDamageTrackingId;
+use crate::wire::JayGenericMatchBuilderId;
 use crate::wire::JayToplevelId;
 use crate::wire::JayWorkspaceId;
 use crate::wire::WlCallbackId;
@@ -42,6 +43,7 @@ use crate::wire::WlRegistryId;
 use crate::wire::WlSeatId;
 use crate::wire::jay_compositor;
 use crate::wire::jay_compositor::EnableSymmetricDelete;
+use crate::wire::jay_generic_match_builder;
 use crate::wire::jay_select_toplevel;
 use crate::wire::jay_select_workspace;
 use crate::wire::jay_toplevel;
@@ -49,6 +51,7 @@ use crate::wire::wl_callback;
 use crate::wire::wl_display;
 use crate::wire::wl_registry;
 use isnt::std_1::primitive::IsntSliceExt;
+use jay_toml_config::GenericMatch;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -597,5 +600,111 @@ impl Incoming {
             handler(&mut parser)?;
         }
         Ok(())
+    }
+}
+
+#[expect(unused_macros)]
+macro_rules! declare_matcher_macros {
+    ($slf:expr, $module:ident, $gmb:expr, $cmb:expr) => {
+        declare_matcher_macros!($slf, $module, $gmb, $cmb, $);
+    };
+    ($slf:expr, $module:ident, $gmb:expr, $cmb:expr, $dol:tt) => {
+        #[allow(clippy::allow_attributes, unused_macros)]
+        macro_rules! str {
+            ($dol s:ident, $dol regex:ident, $dol m:ident $dol (,)?) => {
+                if let Some(v) = $dol s {
+                    $slf.send($module::$dol m {
+                        self_id: $cmb,
+                        v,
+                        regex: false,
+                    });
+                }
+                if let Some(v) = $dol regex {
+                    $slf.send($module::$dol m {
+                        self_id: $cmb,
+                        v,
+                        regex: true,
+                    });
+                }
+            };
+        }
+        #[allow(clippy::allow_attributes, unused_macros)]
+        macro_rules! bool {
+            ($dol s:ident, $dol m:ident) => {
+                if let Some(v) = *$dol s {
+                    $slf.send($module::$dol m { self_id: $cmb });
+                    $slf.generic_match_bool($gmb, v);
+                }
+            };
+        }
+        #[allow(clippy::allow_attributes, unused_macros)]
+        macro_rules! num {
+            ($dol s:ident, $dol m:ident) => {
+                if let Some(v) = *$dol s {
+                    $slf.send($module::$dol m { self_id: $cmb, v });
+                }
+            };
+        }
+        #[allow(clippy::allow_attributes, unused_macros)]
+        macro_rules! num2 {
+            ($dol s:ident, $dol m:ident) => {
+                if let Some(v) = *$dol s {
+                    $slf.send($module::$dol m { self_id: $cmb, v: v.0 });
+                }
+            };
+        }
+    };
+}
+
+impl ToolClient {
+    #[expect(dead_code)]
+    fn generic_match_bool(&self, gmb: JayGenericMatchBuilderId, v: bool) {
+        if !v {
+            self.send(jay_generic_match_builder::Not { self_id: gmb });
+        }
+    }
+
+    #[expect(dead_code)]
+    fn generic_match<T>(&self, gmb: JayGenericMatchBuilderId, m: &GenericMatch<T>, f: impl Fn(&T)) {
+        if let Some(v) = &m.not {
+            self.create_match(gmb, || f(v));
+            self.send(jay_generic_match_builder::Not { self_id: gmb });
+        }
+        macro_rules! list {
+            ($f:ident, $all:expr) => {
+                if let Some(v) = &m.$f {
+                    self.send(jay_generic_match_builder::Nest { self_id: gmb });
+                    for v in v {
+                        self.create_match(gmb, || f(v));
+                    }
+                    self.send(jay_generic_match_builder::List {
+                        self_id: gmb,
+                        all: $all,
+                    });
+                }
+            };
+        }
+        list!(all, true);
+        list!(any, false);
+        if let Some(v) = &m.exactly {
+            self.send(jay_generic_match_builder::Nest { self_id: gmb });
+            for v in &v.list {
+                self.create_match(gmb, || f(v));
+            }
+            self.send(jay_generic_match_builder::Exactly {
+                self_id: gmb,
+                n: v.num,
+            });
+        }
+    }
+
+    #[expect(dead_code)]
+    fn create_match(&self, gmb: JayGenericMatchBuilderId, f: impl FnOnce()) {
+        self.send(jay_generic_match_builder::Nest { self_id: gmb });
+        f();
+        self.send(jay_generic_match_builder::List {
+            self_id: gmb,
+            all: true,
+        });
     }
 }

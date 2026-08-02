@@ -464,7 +464,7 @@ macro_rules! atoms {
 
 macro_rules! fatal {
     ($($arg:tt)+) => {{
-        log::error!($($arg)+);
+        ::log::error!($($arg)+);
         std::process::exit(1);
     }}
 }

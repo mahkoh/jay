@@ -44,6 +44,7 @@ use crate::format::Format;
 use crate::format::ref_formats;
 use crate::portal;
 use crate::pr_caps::drop_all_pr_caps;
+use crate::utils::errorfmt::ErrorFmt;
 use clap::Args;
 use clap::Parser;
 use clap::Subcommand;
@@ -51,6 +52,8 @@ use clap::ValueEnum;
 use clap::ValueHint;
 use clap::builder::PossibleValue;
 use clap_complete::Shell;
+use std::io::Read;
+use std::io::stdin;
 use std::sync::atomic::Ordering::Relaxed;
 
 /// A wayland compositor.
@@ -242,6 +245,41 @@ impl ValueEnum for &'static Format {
 
     fn to_possible_value(&self) -> Option<PossibleValue> {
         Some(PossibleValue::new(self.name))
+    }
+}
+
+#[derive(Args, Debug)]
+#[group(required = true, multiple = false)]
+struct MatchSource {
+    /// An inline toml expression.
+    #[clap(short, long)]
+    expr: Option<String>,
+    /// A path to a toml file or `-` for stdin.
+    #[clap(short, long, value_hint = ValueHint::FilePath)]
+    file: Option<String>,
+}
+
+impl MatchSource {
+    #[expect(dead_code)]
+    fn read(&self, source: &mut Vec<u8>) -> &str {
+        let path;
+        let res = if let Some(f) = &self.file {
+            if f == "-" {
+                path = "<stdin>";
+                stdin().read_to_end(source).map(drop)
+            } else {
+                path = f;
+                std::fs::read(f).map(|v| *source = v)
+            }
+        } else {
+            path = "-e value";
+            source.extend_from_slice(self.expr.as_ref().unwrap().as_bytes());
+            Ok(())
+        };
+        if let Err(e) = res {
+            fatal!("Could not read {path}: {}", ErrorFmt(e))
+        }
+        path
     }
 }
 
