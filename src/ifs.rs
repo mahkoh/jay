@@ -18,6 +18,8 @@ pub mod jay_compositor;
 pub mod jay_damage_tracking;
 pub mod jay_ei_session;
 pub mod jay_ei_session_builder;
+#[expect(dead_code)]
+pub mod jay_generic_match_builder;
 pub mod jay_idle;
 pub mod jay_input;
 pub mod jay_keymap_builder;

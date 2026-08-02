@@ -1,0 +1,19 @@
+request destroy (destructor) {
+
+}
+
+request not {
+
+}
+
+request nest {
+
+}
+
+request list {
+    all: bool,
+}
+
+request exactly {
+    n: pod(usize),
+}
