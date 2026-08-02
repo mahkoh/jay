@@ -7,9 +7,12 @@ use crate::compositor::LogLevel;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::jay_acceptor_request::JayAcceptorRequest;
+use crate::ifs::jay_client_match_builder::JayClientMatchBuilder;
 use crate::ifs::jay_client_query::JayClientQuery;
 use crate::ifs::jay_color_management::JayColorManagement;
 use crate::ifs::jay_ei_session_builder::JayEiSessionBuilder;
+use crate::ifs::jay_generic_match_builder::JayGenericMatchBuilder;
+use crate::ifs::jay_generic_match_builder::MatchBuilder;
 use crate::ifs::jay_idle::JayIdle;
 use crate::ifs::jay_input::JayInput;
 use crate::ifs::jay_keymap_builder::JayKeymapBuilder;
@@ -585,6 +588,25 @@ impl JayCompositorRequestHandler for JayCompositor {
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
+        Ok(())
+    }
+
+    fn create_client_match_builder(
+        &self,
+        req: CreateClientMatchBuilder,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let builder = Rc::new(MatchBuilder::new(&self.client.state.cl_matcher_manager));
+        let cmb = Rc::new(JayClientMatchBuilder {
+            id: req.cmb,
+            client: self.client.clone(),
+            tracker: Default::default(),
+            version: self.version,
+            builder,
+        });
+        track!(self.client, cmb);
+        self.client.add_client_obj(&cmb)?;
+        JayGenericMatchBuilder::create(req.gmb, &self.client, self.version, &cmb.builder)?;
         Ok(())
     }
 }

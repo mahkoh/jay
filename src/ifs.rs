@@ -12,13 +12,14 @@ pub mod ext_session_lock_v1;
 pub mod head_management;
 pub mod ipc;
 pub mod jay_acceptor_request;
+pub mod jay_client_match;
+pub mod jay_client_match_builder;
 pub mod jay_client_query;
 pub mod jay_color_management;
 pub mod jay_compositor;
 pub mod jay_damage_tracking;
 pub mod jay_ei_session;
 pub mod jay_ei_session_builder;
-#[expect(dead_code)]
 pub mod jay_generic_match_builder;
 pub mod jay_idle;
 pub mod jay_input;
