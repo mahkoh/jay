@@ -131,7 +131,6 @@ impl Logger {
         let _ = fd.write_all(buf);
     }
 
-    #[expect(dead_code)]
     pub fn warnings(&self) -> u64 {
         self.num_warnings.load(Relaxed)
     }

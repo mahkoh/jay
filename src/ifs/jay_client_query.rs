@@ -1,6 +1,7 @@
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::client::ClientId;
+use crate::criteria::CritUpstreamNode;
 use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::object::Version;
@@ -8,6 +9,7 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::wire::JayClientQueryId;
 use crate::wire::jay_client_query::AddAll;
 use crate::wire::jay_client_query::AddId;
+use crate::wire::jay_client_query::AddMatch;
 use crate::wire::jay_client_query::Comm;
 use crate::wire::jay_client_query::Destroy;
 use crate::wire::jay_client_query::Done;
@@ -25,6 +27,7 @@ use crate::wire::jay_client_query::Start;
 use crate::wire::jay_client_query::Tag;
 use crate::wire::jay_client_query::Uid;
 use std::cell::Cell;
+use std::cell::RefCell;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -35,6 +38,7 @@ pub struct JayClientQuery {
     pub version: Version,
     ids: CopyHashMap<ClientId, ()>,
     all: Cell<bool>,
+    matches: RefCell<Vec<Rc<dyn CritUpstreamNode<Rc<Client>>>>>,
 }
 
 const TAG_SINCE: Version = Version(25);
@@ -48,6 +52,7 @@ impl JayClientQuery {
             version,
             ids: Default::default(),
             all: Cell::new(false),
+            matches: Default::default(),
         }
     }
 }
@@ -118,13 +123,21 @@ impl JayClientQueryRequestHandler for JayClientQuery {
             }
             self.client.event(End { self_id: self.id });
         };
+        let state = &self.client.state;
         if self.all.get() {
-            for client in self.client.state.clients.clients.borrow().values() {
+            for client in state.clients.clients.borrow().values() {
                 handle_client(&client.data);
             }
         } else {
+            for client_match in &*self.matches.borrow() {
+                for client in state.clients.clients.borrow().values() {
+                    if client_match.pull(&client.data) {
+                        self.ids.set(client.data.id, ());
+                    }
+                }
+            }
             for &id in self.ids.lock().keys() {
-                let Ok(client) = self.client.state.clients.get(id) else {
+                let Ok(client) = state.clients.get(id) else {
                     continue;
                 };
                 handle_client(&client);
@@ -141,6 +154,12 @@ impl JayClientQueryRequestHandler for JayClientQuery {
 
     fn add_id(&self, req: AddId, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.ids.set(ClientId::from_raw(req.id), ());
+        Ok(())
+    }
+
+    fn add_match(&self, req: AddMatch, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let obj = self.client.lookup(req.id)?;
+        self.matches.borrow_mut().push(obj.m.clone());
         Ok(())
     }
 }

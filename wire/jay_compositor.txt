@@ -153,6 +153,10 @@ request create_window_match_builder (since = 39) {
     cmb: id(jay_window_match_builder) (new),
 }
 
+request kill_matched_clients (since = 39) {
+    id: id(jay_client_match),
+}
+
 # events
 
 event client_id {

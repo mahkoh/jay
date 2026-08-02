@@ -260,7 +260,6 @@ struct MatchSource {
 }
 
 impl MatchSource {
-    #[expect(dead_code)]
     fn read(&self, source: &mut Vec<u8>) -> &str {
         let path;
         let res = if let Some(f) = &self.file {

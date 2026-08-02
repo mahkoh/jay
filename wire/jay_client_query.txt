@@ -8,6 +8,10 @@ request add_id {
     id: pod(u64),
 }
 
+request add_match (since = 39) {
+    id: id(jay_client_match),
+}
+
 event done { }
 
 event start {

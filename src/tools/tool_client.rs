@@ -31,6 +31,8 @@ use crate::utils::oserror::OsError;
 use crate::utils::oserror::OsErrorExt2;
 use crate::wheel::Wheel;
 use crate::wheel::WheelError;
+use crate::wire::JayClientMatchBuilderId;
+use crate::wire::JayClientMatchId;
 use crate::wire::JayCompositor;
 use crate::wire::JayCompositorId;
 use crate::wire::JayDamageTracking;
@@ -41,7 +43,9 @@ use crate::wire::JayWorkspaceId;
 use crate::wire::WlCallbackId;
 use crate::wire::WlRegistryId;
 use crate::wire::WlSeatId;
+use crate::wire::jay_client_match_builder;
 use crate::wire::jay_compositor;
+use crate::wire::jay_compositor::CreateClientMatchBuilder;
 use crate::wire::jay_compositor::EnableSymmetricDelete;
 use crate::wire::jay_generic_match_builder;
 use crate::wire::jay_select_toplevel;
@@ -51,6 +55,7 @@ use crate::wire::wl_callback;
 use crate::wire::wl_display;
 use crate::wire::wl_registry;
 use isnt::std_1::primitive::IsntSliceExt;
+use jay_toml_config::ClientMatch;
 use jay_toml_config::GenericMatch;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -91,7 +96,7 @@ pub enum ToolClientError {
 }
 
 pub struct ToolClient {
-    pub _logger: Arc<Logger>,
+    pub logger: Arc<Logger>,
     pub ring: Rc<IoUring>,
     pub _wheel: Rc<Wheel>,
     pub eng: Rc<AsyncEngine>,
@@ -203,7 +208,7 @@ impl ToolClient {
         obj_ids.take(0);
         obj_ids.take(1);
         let slf = Rc::new(Self {
-            _logger: logger,
+            logger,
             ring,
             _wheel: wheel,
             eng,
@@ -603,7 +608,6 @@ impl Incoming {
     }
 }
 
-#[expect(unused_macros)]
 macro_rules! declare_matcher_macros {
     ($slf:expr, $module:ident, $gmb:expr, $cmb:expr) => {
         declare_matcher_macros!($slf, $module, $gmb, $cmb, $);
@@ -657,14 +661,12 @@ macro_rules! declare_matcher_macros {
 }
 
 impl ToolClient {
-    #[expect(dead_code)]
     fn generic_match_bool(&self, gmb: JayGenericMatchBuilderId, v: bool) {
         if !v {
             self.send(jay_generic_match_builder::Not { self_id: gmb });
         }
     }
 
-    #[expect(dead_code)]
     fn generic_match<T>(&self, gmb: JayGenericMatchBuilderId, m: &GenericMatch<T>, f: impl Fn(&T)) {
         if let Some(v) = &m.not {
             self.create_match(gmb, || f(v));
@@ -698,7 +700,6 @@ impl ToolClient {
         }
     }
 
-    #[expect(dead_code)]
     fn create_match(&self, gmb: JayGenericMatchBuilderId, f: impl FnOnce()) {
         self.send(jay_generic_match_builder::Nest { self_id: gmb });
         f();
@@ -706,5 +707,69 @@ impl ToolClient {
             self_id: gmb,
             all: true,
         });
+    }
+
+    fn create_client_match_(
+        &self,
+        gmb: JayGenericMatchBuilderId,
+        cmb: JayClientMatchBuilderId,
+        m: &ClientMatch,
+    ) {
+        declare_matcher_macros!(self, jay_client_match_builder, gmb, cmb);
+
+        let ClientMatch {
+            generic,
+            sandbox_engine,
+            sandbox_engine_regex,
+            sandbox_app_id,
+            sandbox_app_id_regex,
+            sandbox_instance_id,
+            sandbox_instance_id_regex,
+            sandboxed,
+            uid,
+            pid,
+            is_xwayland,
+            comm,
+            comm_regex,
+            exe,
+            exe_regex,
+            tag,
+            tag_regex,
+        } = m;
+
+        self.generic_match(gmb, generic, |m| self.create_client_match_(gmb, cmb, m));
+        str!(sandbox_engine, sandbox_engine_regex, SandboxEngine);
+        str!(sandbox_app_id, sandbox_app_id_regex, SandboxAppId);
+        str!(
+            sandbox_instance_id,
+            sandbox_instance_id_regex,
+            SandboxInstanceId,
+        );
+        str!(comm, comm_regex, Comm);
+        str!(exe, exe_regex, Exe);
+        str!(tag, tag_regex, Tag);
+        bool!(sandboxed, Sandboxed);
+        bool!(is_xwayland, IsXwayland);
+        num!(pid, Pid);
+        num!(uid, Uid);
+    }
+
+    pub fn create_client_match(&self, comp: JayCompositorId, m: &ClientMatch) -> JayClientMatchId {
+        let gmb = self.id();
+        let cmb = self.id();
+        self.send(CreateClientMatchBuilder {
+            self_id: comp,
+            gmb,
+            cmb,
+        });
+        self.create_match(gmb, || self.create_client_match_(gmb, cmb, m));
+        let jcm = self.id();
+        self.send(jay_client_match_builder::Get {
+            self_id: cmb,
+            id: jcm,
+        });
+        self.send(jay_generic_match_builder::Destroy { self_id: gmb });
+        self.send(jay_client_match_builder::Destroy { self_id: cmb });
+        jcm
     }
 }

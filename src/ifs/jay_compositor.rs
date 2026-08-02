@@ -629,6 +629,25 @@ impl JayCompositorRequestHandler for JayCompositor {
         JayGenericMatchBuilder::create(req.gmb, &self.client, self.version, &cmb.builder)?;
         Ok(())
     }
+
+    fn kill_matched_clients(
+        &self,
+        req: KillMatchedClients,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let obj = self.client.lookup(req.id)?;
+        let mut todo = vec![];
+        let clients = &self.client.state.clients;
+        for (&id, client) in &*clients.clients.borrow() {
+            if obj.m.pull(&client.data) {
+                todo.push(id);
+            }
+        }
+        for id in todo {
+            self.client.state.clients.kill(id);
+        }
+        Ok(())
+    }
 }
 
 object_base! {
