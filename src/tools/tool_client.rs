@@ -130,6 +130,7 @@ where
     F: FnOnce(Rc<ToolClient>) -> T + 'static,
     T: Future<Output = ()> + 'static,
 {
+    reset_sigpipe();
     let logger = Logger::install_stderr(initial_log_level());
     let eng = AsyncEngine::new();
     let ring = match IoUring::new(&eng, 32) {
@@ -150,6 +151,12 @@ where
         fatal!("A fatal error occurred: {}", ErrorFmt(e));
     }
     Ok(())
+}
+
+fn reset_sigpipe() {
+    unsafe {
+        c::signal(c::SIGPIPE, c::SIG_DFL);
+    }
 }
 
 impl ToolClient {
