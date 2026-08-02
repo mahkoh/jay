@@ -10,6 +10,7 @@ use backtrace::Backtrace;
 use bstr::BStr;
 use bstr::BString;
 use bstr::ByteSlice;
+use log::Level;
 use log::LevelFilter;
 use log::Log;
 use log::Metadata;
@@ -24,6 +25,7 @@ use std::ptr;
 use std::sync::Arc;
 use std::sync::atomic::AtomicI32;
 use std::sync::atomic::AtomicU32;
+use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering::Relaxed;
 use std::thread;
 use std::time::SystemTime;
@@ -46,6 +48,7 @@ pub struct Logger {
     path: Mutex<Arc<BString>>,
     _file: Mutex<OwnedFd>,
     file_fd: AtomicI32,
+    num_warnings: AtomicU64,
 }
 
 impl Logger {
@@ -76,6 +79,7 @@ impl Logger {
             path: Mutex::new(Arc::new(path.to_vec().into())),
             file_fd: AtomicI32::new(file.raw()),
             _file: Mutex::new(file),
+            num_warnings: Default::default(),
         });
         log::set_boxed_logger(Box::new(LogWrapper {
             logger: slf.clone(),
@@ -125,6 +129,11 @@ impl Logger {
     pub fn write_raw(&self, buf: &[u8]) {
         let mut fd = Fd::new(self.file_fd.load(Relaxed));
         let _ = fd.write_all(buf);
+    }
+
+    #[expect(dead_code)]
+    pub fn warnings(&self) -> u64 {
+        self.num_warnings.load(Relaxed)
     }
 }
 
@@ -220,6 +229,9 @@ impl Log for LogWrapper {
     }
 
     fn log(&self, record: &Record) {
+        if record.level() <= Level::Warn {
+            self.logger.num_warnings.fetch_add(1, Relaxed);
+        }
         if record.level() as u32 > self.logger.filter.load(Relaxed) {
             return;
         }
