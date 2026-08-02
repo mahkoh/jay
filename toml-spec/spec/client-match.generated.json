@@ -1,0 +1,128 @@
+{
+  "$id": "urn:jay_toml_schema",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/ClientMatch",
+  "$defs": {
+    "ClientMatch": {
+      "description": "Criteria for matching clients.\n\nIf no fields are set, all clients are matched. If multiple fields are set, all fields\nmust match the client.\n",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Matches if the client rule with this name matches.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  name = \"spotify\"\n  match.sandbox-app-id = \"com.spotify.Client\"\n\n  # Matches the same clients as the previous rule.\n  [[clients]]\n  match.name = \"spotify\"\n  ```\n"
+        },
+        "not": {
+          "description": "Matches if the contained criteria don't match.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  name = \"not-spotify\"\n  match.not.sandbox-app-id = \"com.spotify.Client\"\n  ```\n",
+          "$ref": "#/$defs/ClientMatch"
+        },
+        "all": {
+          "type": "array",
+          "description": "Matches if all of the contained criteria match.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.all = [\n    { sandbox-app-id = \"com.spotify.Client\" },\n    { sandbox-engine = \"org.flatpak\" },\n  ]\n  ```\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/ClientMatch"
+          }
+        },
+        "any": {
+          "type": "array",
+          "description": "Matches if any of the contained criteria match.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.any = [\n    { sandbox-app-id = \"com.spotify.Client\" },\n    { sandbox-app-id = \"com.valvesoftware.Steam\" },\n  ]\n  ```\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/ClientMatch"
+          }
+        },
+        "exactly": {
+          "description": "Matches if a specific number of contained criteria match.\n\n- Example:\n\n  ```toml\n  # Matches any client that is either steam or sandboxed by flatpak but not both.\n  [[clients]]\n  match.exactly.num = 1\n  match.exactly.list = [\n    { sandbox-engine = \"org.flatpak\" },\n    { sandbox-app-id = \"com.valvesoftware.Steam\" },\n  ]\n  ```\n",
+          "$ref": "#/$defs/ClientMatchExactly"
+        },
+        "sandboxed": {
+          "type": "boolean",
+          "description": "Matches if the client is/isn't sandboxed.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.sandboxed = true\n  ```\n"
+        },
+        "sandbox-engine": {
+          "type": "string",
+          "description": "Matches the engine name of the client's sandbox verbatim.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.sandbox-engine = \"org.flatpak\"\n  ```\n"
+        },
+        "sandbox-engine-regex": {
+          "type": "string",
+          "description": "Matches the engine name of the client's sandbox with a regular expression.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.sandbox-engine = \"flatpak\"\n  ```\n"
+        },
+        "sandbox-app-id": {
+          "type": "string",
+          "description": "Matches the app id of the client's sandbox verbatim.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.sandbox-app-id = \"com.spotify.Client\"\n  ```\n"
+        },
+        "sandbox-app-id-regex": {
+          "type": "string",
+          "description": "Matches the app id of the client's sandbox with a regular expression.\n\n- Example:\n\n  ```toml\n  [[clients]]\n  match.sandbox-app-id-regex = \"(?i)spotify\"\n  ```\n"
+        },
+        "sandbox-instance-id": {
+          "type": "string",
+          "description": "Matches the instance id of the client's sandbox verbatim.\n"
+        },
+        "sandbox-instance-id-regex": {
+          "type": "string",
+          "description": "Matches the instance id of the client's sandbox with a regular expression.\n"
+        },
+        "uid": {
+          "type": "integer",
+          "description": "Matches the user ID of the client."
+        },
+        "pid": {
+          "type": "integer",
+          "description": "Matches the process ID of the client."
+        },
+        "is-xwayland": {
+          "type": "boolean",
+          "description": "Matches if the client is/isn't Xwayland."
+        },
+        "comm": {
+          "type": "string",
+          "description": "Matches the `/proc/pid/comm` of the client verbatim."
+        },
+        "comm-regex": {
+          "type": "string",
+          "description": "Matches the `/proc/pid/comm` of the client with a regular expression."
+        },
+        "exe": {
+          "type": "string",
+          "description": "Matches the `/proc/pid/exe` of the client verbatim."
+        },
+        "exe-regex": {
+          "type": "string",
+          "description": "Matches the `/proc/pid/exe` of the client with a regular expression."
+        },
+        "tag": {
+          "type": "string",
+          "description": "Matches the tag of the client verbatim."
+        },
+        "tag-regex": {
+          "type": "string",
+          "description": "Matches the tag of the client with a regular expression."
+        }
+      },
+      "required": []
+    },
+    "ClientMatchExactly": {
+      "description": "Criterion for matching a specific number of client criteria.\n",
+      "type": "object",
+      "properties": {
+        "num": {
+          "type": "number",
+          "description": "The number of criteria that must match."
+        },
+        "list": {
+          "type": "array",
+          "description": "The list of criteria.",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/ClientMatch"
+          }
+        }
+      },
+      "required": [
+        "num",
+        "list"
+      ]
+    }
+  }
+}

@@ -36,7 +36,6 @@ fn filter_subtree<'a>(
     Ok(sorted)
 }
 
-#[expect(dead_code)]
 fn generate_subtree_json(
     types: &IndexMap<String, Described<TopLevelTypeSpec>>,
     file: &str,
@@ -55,5 +54,7 @@ fn main() -> Result<()> {
         generate_markdown(&types)?;
         generate_json_schema(&types, "spec", CONFIG)?;
     }
+    generate_subtree_json(&types, "client-match", "ClientMatch")?;
+    generate_subtree_json(&types, "window-match", "WindowMatch")?;
     Ok(())
 }
