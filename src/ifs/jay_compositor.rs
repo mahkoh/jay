@@ -90,7 +90,7 @@ global_base!(JayCompositorGlobal, JayCompositor, JayCompositorError);
 
 impl Global for JayCompositorGlobal {
     fn version(&self) -> u32 {
-        38
+        39
     }
 
     fn required_caps(&self) -> ClientCaps {
