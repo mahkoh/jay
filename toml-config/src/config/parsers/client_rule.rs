@@ -77,7 +77,10 @@ impl Parser for ClientRuleParser<'_, '_, '_> {
         }
         let match_ = match match_val {
             None => ClientMatch::default(),
-            Some(m) => m.parse_map(&mut ClientMatchParser(self.0))?,
+            Some(m) => m.parse_map(&mut ClientMatchParser {
+                cx: self.0,
+                allow_name: true,
+            })?,
         };
         let mut capabilities = None;
         if let Some(value) = capabilities_val {

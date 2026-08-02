@@ -9,6 +9,7 @@ mod spanned;
 mod value;
 
 use crate::config::context::Context;
+pub use crate::config::parsers::client_match::parse_client_match;
 use crate::config::parsers::color_management::ColorManagement;
 use crate::config::parsers::config::ConfigParser;
 use crate::config::parsers::config::ConfigParserError;
@@ -17,6 +18,7 @@ use crate::config::parsers::focus_history::FocusHistory;
 pub use crate::config::parsers::input_mode::InputMode;
 use crate::config::parsers::session_management::SessionManagement;
 use crate::config::parsers::transactions::Transactions;
+pub use crate::config::parsers::window_match::parse_window_match;
 use crate::config::parsers::workspace::WorkspaceSlot;
 use crate::config::parsers::workspace::WorkspaceType;
 use crate::toml::{self};

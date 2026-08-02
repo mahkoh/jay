@@ -91,7 +91,10 @@ impl Parser for WindowRuleParser<'_, '_, '_> {
         }
         let match_ = match match_val {
             None => WindowMatch::default(),
-            Some(m) => m.parse_map(&mut WindowMatchParser(self.0))?,
+            Some(m) => m.parse_map(&mut WindowMatchParser {
+                cx: self.0,
+                allow_name: true,
+            })?,
         };
         Ok(WindowRule {
             name: name.despan_into(),

@@ -17,7 +17,7 @@ pub mod action;
 mod actions;
 mod capabilities;
 mod clean_logs_older_than;
-mod client_match;
+pub mod client_match;
 mod client_rule;
 mod color;
 pub mod color_management;
@@ -58,7 +58,7 @@ mod tile_state;
 pub mod transactions;
 mod ui_drag;
 mod vrr;
-mod window_match;
+pub mod window_match;
 mod window_rule;
 mod window_type;
 pub mod workspace;
@@ -83,7 +83,6 @@ impl Parser for StringParser {
     }
 }
 
-#[expect(dead_code)]
 fn parse_object<'a, V, E>(
     input: &'a [u8],
     name: &'static str,
