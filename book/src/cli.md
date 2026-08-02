@@ -690,6 +690,14 @@ Interactively select a window and kill its client:
 ~$ jay clients kill select-window
 ```
 
+Select clients by their properties instead of by ID, using a
+[match expression](#match-expressions):
+
+```shell
+~$ jay clients show match -e 'comm = "chromium"'
+~$ jay clients kill match -e 'sandbox-app-id = "com.spotify.Client"'
+```
+
 ### `jay tree query`
 
 Inspect the compositor's surface tree:
@@ -702,6 +710,94 @@ Inspect the compositor's surface tree:
 ~$ jay tree query select-workspace
 ~$ jay tree query select-window
 ```
+
+Use every window matching a [match expression](#match-expressions) as a query
+root:
+
+```shell
+~$ jay tree query match-windows -e 'app-id = "firefox"'
+```
+
+### Match Expressions
+
+`jay clients show`, `jay clients kill`, and `jay tree query` can select clients
+and windows by the same criteria that
+[window and client rules](window-rules.md) use. The criteria are written in
+TOML:
+
+`-e <EXPR>`, `--expr <EXPR>`
+: An inline TOML expression.
+
+`-f <FILE>`, `--file <FILE>`
+: A path to a TOML file, or `-` to read from standard input.
+
+Exactly one of the two is required.
+
+Unlike in the config file, the document *is* the match table -- it is not
+nested under a `match` key:
+
+```shell
+~$ jay clients show match -e 'comm = "chromium"'
+~$ jay tree query match-windows -e 'app-id-regex = "(?i)spotify"'
+```
+
+Multiple criteria are AND-combined. Jay's TOML parser treats newlines as
+ordinary whitespace, so several of them fit on one line:
+
+```shell
+~$ jay clients show match -e 'uid = 1000 comm = "chromium"'
+~$ jay tree query match-windows -e 'app-id = "firefox" floating = true'
+```
+
+Anything longer is more readable in a file:
+
+```toml
+# urgent-scratch.toml
+urgent = true
+not.workspace = "scratch"
+```
+
+```shell
+~$ jay tree query -r match-windows -f urgent-scratch.toml
+~$ echo 'uid = 1000' | jay clients kill match -f -
+```
+
+All fields and combinators from the config file are available, including
+`not`, `all`, `any`, and `exactly`. See
+[Client Match Criteria](window-rules.md#client-match-criteria),
+[Window Match Criteria](window-rules.md#window-match-criteria), and
+[Combining Criteria](window-rules.md#combining-criteria) for the full lists.
+The one exception is `name`, which cross-references a named rule in the config
+file: it has no meaning on the command line and is ignored with a warning.
+
+> [!WARNING]
+> A match with no criteria matches *everything*. Be careful with
+> `jay clients kill match` -- an expression that turns out to be empty
+> disconnects every client. As a safeguard, `jay clients kill match` refuses to
+> do anything if parsing produced any warnings, such as a misspelled field name.
+
+> [!NOTE]
+> `jay tree query match-windows` matches containers as well as application
+> windows. Config rules default to client windows only, but here you have to say
+> so explicitly:
+>
+> ```shell
+> ~$ jay tree query match-windows -e 'types = "client-window" title-regex = "VIM"'
+> ```
+
+> [!TIP]
+> JSON Schemas for both match formats are available at
+> [client-match.generated.json](https://github.com/mahkoh/jay/blob/master/toml-spec/spec/client-match.generated.json)
+> and
+> [window-match.generated.json](https://github.com/mahkoh/jay/blob/master/toml-spec/spec/window-match.generated.json).
+> Reference one with a `$schema` key to get autocompletion in your editor:
+>
+> ```toml
+> "$schema" = "https://raw.githubusercontent.com/mahkoh/jay/master/toml-spec/spec/window-match.generated.json"
+> app-id = "firefox"
+> ```
+>
+> Jay ignores `$schema` keys.
 
 ---
 

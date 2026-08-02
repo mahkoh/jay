@@ -517,6 +517,20 @@ Inspect the client owning a window:
 ~$ jay clients show select-window
 ```
 
+### Trying Criteria From the Command Line
+
+`jay clients show` and `jay tree query` accept the same match criteria on the
+command line, which is the quickest way to check what a set of criteria
+actually matches before committing it to your config:
+
+```shell
+~$ jay tree query match-windows -e 'app-id-regex = "(?i)spotify"'
+~$ jay clients show match -e 'sandbox-engine = "org.flatpak"'
+```
+
+See [Match Expressions](cli.md#match-expressions) for the syntax and its
+differences from rules in the config file.
+
 ### Control Center Window Search
 
 The control center (opened with `alt-c` by default, or `jay control-center`)

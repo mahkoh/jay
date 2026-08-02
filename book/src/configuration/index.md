@@ -123,6 +123,19 @@ alt-q = [
 ]
 ```
 
+## Editor autocompletion
+
+A JSON Schema for the config format is available at
+[spec.generated.json](https://github.com/mahkoh/jay/blob/master/toml-spec/spec/spec.generated.json).
+Editors that support TOML schemas can pick it up from a `$schema` key at the
+top of your config:
+
+```toml
+"$schema" = "https://raw.githubusercontent.com/mahkoh/jay/master/toml-spec/spec/spec.generated.json"
+```
+
+Jay ignores `$schema` keys, so this does not conflict with any setting.
+
 ## Advanced: shared library configuration
 
 For users who need programmatic configuration beyond what TOML offers, Jay also
