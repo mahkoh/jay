@@ -1,8 +1,16 @@
+use crate::config::context::Context;
 use crate::config::parser::DataType;
 use crate::config::parser::ParseResult;
 use crate::config::parser::Parser;
 use crate::config::parser::UnexpectedDataType;
+use crate::config::spanned::SpannedErrorExt;
+use crate::toml::toml_parser;
+use crate::toml::toml_parser::ParserError;
 use crate::toml::toml_span::Span;
+use crate::toml::toml_span::Spanned;
+use crate::toml::toml_value::Value;
+use std::cell::RefCell;
+use std::error::Error;
 use thiserror::Error;
 
 pub mod action;
@@ -73,4 +81,35 @@ impl Parser for StringParser {
     fn parse_string(&mut self, _span: Span, string: &str) -> ParseResult<Self> {
         Ok(string.to_string())
     }
+}
+
+#[expect(dead_code)]
+fn parse_object<'a, V, E>(
+    input: &'a [u8],
+    name: &'static str,
+    parse: impl FnOnce(&Spanned<Value>, &Context<'a, '_>) -> Result<V, Spanned<E>>,
+) -> Result<V, Box<dyn Error + 'a>>
+where
+    E: Error + 'static,
+{
+    let mut workspaces = Default::default();
+    let cx = Context::<'a, '_> {
+        input,
+        used: Default::default(),
+        mark_names: &Default::default(),
+        workspaces: RefCell::new(&mut workspaces),
+    };
+    #[derive(Debug, Error)]
+    #[error("Could not parse the toml")]
+    struct Toml(#[source] ParserError);
+    #[derive(Debug, Error)]
+    #[error("Could not parse the {1}")]
+    struct Value<T: Error>(#[source] T, &'static str);
+    let value = toml_parser::parse(input, &cx)
+        .map_spanned_err(Toml)
+        .map_err(|e| cx.error(e))?;
+    let value = parse(&value, &cx)
+        .map_spanned_err(|e| Value(e, name))
+        .map_err(|e| cx.error(e))?;
+    Ok(value)
 }
