@@ -1,6 +1,7 @@
 use crate::async_engine::AsyncEngine;
 use crate::async_engine::SpawnedFuture;
 use crate::client::EventFormatter;
+use crate::client::MIN_SERVER_ID;
 use crate::client::RequestParser;
 use crate::env::WAYLAND_DISPLAY;
 use crate::env::XDG_RUNTIME_DIR;
@@ -40,6 +41,7 @@ use crate::wire::WlCallbackId;
 use crate::wire::WlRegistryId;
 use crate::wire::WlSeatId;
 use crate::wire::jay_compositor;
+use crate::wire::jay_compositor::EnableSymmetricDelete;
 use crate::wire::jay_select_toplevel;
 use crate::wire::jay_select_workspace;
 use crate::wire::jay_toplevel;
@@ -213,7 +215,9 @@ impl ToolClient {
         });
         wl_display::DeleteId::handle(&slf, WL_DISPLAY_ID, slf.clone(), |tc, val| {
             tc.handlers.borrow_mut().remove(&ObjectId::from_raw(val.id));
-            tc.obj_ids.borrow_mut().release(val.id);
+            if val.id < MIN_SERVER_ID {
+                tc.obj_ids.borrow_mut().release(val.id);
+            }
         });
         slf.incoming.set(Some(
             slf.eng.spawn(
@@ -236,6 +240,9 @@ impl ToolClient {
                 .run(),
             ),
         ));
+        slf.send(EnableSymmetricDelete {
+            self_id: slf.jay_compositor().await,
+        });
         Ok(slf)
     }
 
