@@ -148,6 +148,11 @@ request create_client_match_builder (since = 39) {
     cmb: id(jay_client_match_builder) (new),
 }
 
+request create_window_match_builder (since = 39) {
+    gmb: id(jay_generic_match_builder) (new),
+    cmb: id(jay_window_match_builder) (new),
+}
+
 # events
 
 event client_id {

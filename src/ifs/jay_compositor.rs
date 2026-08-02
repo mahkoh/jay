@@ -31,6 +31,7 @@ use crate::ifs::jay_select_toplevel::JayToplevelSelector;
 use crate::ifs::jay_select_workspace::JaySelectWorkspace;
 use crate::ifs::jay_select_workspace::JayWorkspaceSelector;
 use crate::ifs::jay_tree_query::JayTreeQuery;
+use crate::ifs::jay_window_match_builder::JayWindowMatchBuilder;
 use crate::ifs::jay_workspace_watcher::JayWorkspaceWatcher;
 use crate::ifs::jay_xwayland::JayXwayland;
 use crate::ifs::wl_surface::jay_sync_file_surface::JaySyncFileSurface;
@@ -598,6 +599,25 @@ impl JayCompositorRequestHandler for JayCompositor {
     ) -> Result<(), Self::Error> {
         let builder = Rc::new(MatchBuilder::new(&self.client.state.cl_matcher_manager));
         let cmb = Rc::new(JayClientMatchBuilder {
+            id: req.cmb,
+            client: self.client.clone(),
+            tracker: Default::default(),
+            version: self.version,
+            builder,
+        });
+        track!(self.client, cmb);
+        self.client.add_client_obj(&cmb)?;
+        JayGenericMatchBuilder::create(req.gmb, &self.client, self.version, &cmb.builder)?;
+        Ok(())
+    }
+
+    fn create_window_match_builder(
+        &self,
+        req: CreateWindowMatchBuilder,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let builder = Rc::new(MatchBuilder::new(&self.client.state.tl_matcher_manager));
+        let cmb = Rc::new(JayWindowMatchBuilder {
             id: req.cmb,
             client: self.client.clone(),
             tracker: Default::default(),

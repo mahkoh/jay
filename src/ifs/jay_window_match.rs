@@ -4,21 +4,23 @@ use crate::criteria::CritUpstreamNode;
 use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::object::Version;
-use crate::wire::JayClientMatchId;
-use crate::wire::jay_client_match::*;
+use crate::tree::ToplevelData;
+use crate::wire::JayWindowMatchId;
+use crate::wire::jay_window_match::*;
 use std::rc::Rc;
 use thiserror::Error;
 
-pub struct JayClientMatch {
-    pub id: JayClientMatchId,
+pub struct JayWindowMatch {
+    pub id: JayWindowMatchId,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
     pub version: Version,
-    pub m: Rc<dyn CritUpstreamNode<Rc<Client>>>,
+    #[expect(dead_code)]
+    pub m: Rc<dyn CritUpstreamNode<ToplevelData>>,
 }
 
-impl JayClientMatchRequestHandler for JayClientMatch {
-    type Error = JayClientMatchError;
+impl JayWindowMatchRequestHandler for JayWindowMatch {
+    type Error = JayWindowMatchError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self)?;
@@ -27,17 +29,17 @@ impl JayClientMatchRequestHandler for JayClientMatch {
 }
 
 object_base! {
-    self = JayClientMatch;
+    self = JayWindowMatch;
     version = self.version;
 }
 
-impl Object for JayClientMatch {}
+impl Object for JayWindowMatch {}
 
-dedicated_add_obj!(JayClientMatch, JayClientMatchId, jay_client_match);
+dedicated_add_obj!(JayWindowMatch, JayWindowMatchId, jay_window_match);
 
 #[derive(Debug, Error)]
-pub enum JayClientMatchError {
+pub enum JayWindowMatchError {
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(JayClientMatchError, ClientError);
+efrom!(JayWindowMatchError, ClientError);

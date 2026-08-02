@@ -1,0 +1,78 @@
+request destroy (destructor) {
+
+}
+
+request get {
+    id: id(jay_window_match) (new),
+}
+
+request types {
+    v: pod(u64),
+}
+
+request client {
+    v: id(jay_client_match),
+}
+
+request title {
+    v: str,
+    regex: bool,
+}
+
+request app_id {
+    v: str,
+    regex: bool,
+}
+
+request floating {
+
+}
+
+request visible {
+
+}
+
+request urgent {
+
+}
+
+request focused {
+
+}
+
+request fullscreen {
+
+}
+
+request just_mapped {
+
+}
+
+request tag {
+    v: str,
+    regex: bool,
+}
+
+request x_class {
+    v: str,
+    regex: bool,
+}
+
+request x_instance {
+    v: str,
+    regex: bool,
+}
+
+request x_role {
+    v: str,
+    regex: bool,
+}
+
+request workspace {
+    v: str,
+    regex: bool,
+}
+
+request content_types {
+    v: pod(u64),
+}
