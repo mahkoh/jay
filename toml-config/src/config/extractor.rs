@@ -79,7 +79,7 @@ impl Drop for Extractor<'_, '_, '_> {
         }
         let used: AHashSet<_> = self.used.iter().copied().collect();
         for key in self.table.keys() {
-            if !used.contains(key.value.as_str()) {
+            if !used.contains(key.value.as_str()) && key.value != "$schema" {
                 #[derive(Debug, Error)]
                 #[error("Ignoring unknown key {0}")]
                 struct Err<'a>(&'a str);

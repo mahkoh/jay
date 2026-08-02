@@ -129,7 +129,6 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 render_device_val,
                 inputs_val,
                 on_idle_val,
-                _,
                 idle_val,
             ),
             (
@@ -197,7 +196,6 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 opt(val("render-device")),
                 opt(val("inputs")),
                 opt(val("on-idle")),
-                opt(val("$schema")),
                 opt(val("idle")),
             ),
             (
