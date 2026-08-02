@@ -11,7 +11,7 @@ use crate::types::VariantSpec;
 use anyhow::Result;
 use std::io::Write;
 
-pub fn generate_markdown(types: &[(&String, &Described<TopLevelTypeSpec>)]) -> Result<()> {
+pub fn generate_markdown(types: &[(&str, &Described<TopLevelTypeSpec>)]) -> Result<()> {
     const TEMPLATE: &str = include_str!("../spec/template.md");
 
     let mut buf = vec![];

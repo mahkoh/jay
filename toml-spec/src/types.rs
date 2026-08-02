@@ -96,6 +96,91 @@ pub struct MapSpec {
     pub values: Box<RefOrSpec<NestableTypesSpec>>,
 }
 
+impl TopLevelTypeSpec {
+    pub fn collect_refs<'a>(&'a self, refs: &mut Vec<&'a str>) {
+        match self {
+            TopLevelTypeSpec::Variable { variants } => {
+                for s in variants {
+                    s.value.collect_refs(refs);
+                }
+            }
+            TopLevelTypeSpec::Single(s) => s.collect_refs(refs),
+        }
+    }
+}
+
+impl VariantSpec {
+    pub fn collect_refs<'a>(&'a self, refs: &mut Vec<&'a str>) {
+        match self {
+            VariantSpec::String(RefOrSpec::Ref { name }) => refs.push(name),
+            VariantSpec::Number(RefOrSpec::Ref { name }) => refs.push(name),
+            VariantSpec::Array(RefOrSpec::Ref { name }) => refs.push(name),
+            VariantSpec::Array(RefOrSpec::Spec(s)) => s.collect_refs(refs),
+            VariantSpec::Table(RefOrSpec::Ref { name }) => refs.push(name),
+            VariantSpec::Table(RefOrSpec::Spec(s)) => s.collect_refs(refs),
+            _ => {}
+        }
+    }
+}
+
+impl ArraySpec {
+    pub fn collect_refs<'a>(&'a self, refs: &mut Vec<&'a str>) {
+        match &*self.items {
+            RefOrSpec::Ref { name } => refs.push(name),
+            RefOrSpec::Spec(s) => s.collect_refs(refs),
+        }
+    }
+}
+
+impl NestableTypesSpec {
+    pub fn collect_refs<'a>(&'a self, refs: &mut Vec<&'a str>) {
+        match self {
+            NestableTypesSpec::Array(s) => s.collect_refs(refs),
+            NestableTypesSpec::Map(s) => s.collect_refs(refs),
+            _ => {}
+        }
+    }
+}
+
+impl MapSpec {
+    pub fn collect_refs<'a>(&'a self, refs: &mut Vec<&'a str>) {
+        match &*self.values {
+            RefOrSpec::Ref { name } => refs.push(name),
+            RefOrSpec::Spec(s) => s.collect_refs(refs),
+        }
+    }
+}
+
+impl TableSpec {
+    pub fn collect_refs<'a>(&'a self, refs: &mut Vec<&'a str>) {
+        match self {
+            TableSpec::Tagged { types } => {
+                for s in types.values() {
+                    s.value.collect_refs(refs);
+                }
+            }
+            TableSpec::Single(s) => s.collect_refs(refs),
+        }
+    }
+}
+
+impl SingleTableSpec {
+    pub fn collect_refs<'a>(&'a self, refs: &mut Vec<&'a str>) {
+        for s in self.fields.values() {
+            s.value.collect_refs(refs);
+        }
+    }
+}
+
+impl TableFieldSpec {
+    pub fn collect_refs<'a>(&'a self, refs: &mut Vec<&'a str>) {
+        match &self.kind {
+            RefOrSpec::Ref { name } => refs.push(name),
+            RefOrSpec::Spec(s) => s.collect_refs(refs),
+        }
+    }
+}
+
 impl<'de> Deserialize<'de> for TopLevelTypeSpec {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
