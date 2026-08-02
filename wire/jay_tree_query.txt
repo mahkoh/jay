@@ -24,6 +24,10 @@ request set_root_window_id {
     id: str,
 }
 
+request set_root_window_match (since = 39) {
+    id: id(jay_window_match),
+}
+
 event done { }
 
 event not_found { }

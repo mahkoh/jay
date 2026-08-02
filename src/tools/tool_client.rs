@@ -39,6 +39,8 @@ use crate::wire::JayDamageTracking;
 use crate::wire::JayDamageTrackingId;
 use crate::wire::JayGenericMatchBuilderId;
 use crate::wire::JayToplevelId;
+use crate::wire::JayWindowMatchBuilderId;
+use crate::wire::JayWindowMatchId;
 use crate::wire::JayWorkspaceId;
 use crate::wire::WlCallbackId;
 use crate::wire::WlRegistryId;
@@ -46,17 +48,20 @@ use crate::wire::WlSeatId;
 use crate::wire::jay_client_match_builder;
 use crate::wire::jay_compositor;
 use crate::wire::jay_compositor::CreateClientMatchBuilder;
+use crate::wire::jay_compositor::CreateWindowMatchBuilder;
 use crate::wire::jay_compositor::EnableSymmetricDelete;
 use crate::wire::jay_generic_match_builder;
 use crate::wire::jay_select_toplevel;
 use crate::wire::jay_select_workspace;
 use crate::wire::jay_toplevel;
+use crate::wire::jay_window_match_builder;
 use crate::wire::wl_callback;
 use crate::wire::wl_display;
 use crate::wire::wl_registry;
 use isnt::std_1::primitive::IsntSliceExt;
 use jay_toml_config::ClientMatch;
 use jay_toml_config::GenericMatch;
+use jay_toml_config::WindowMatch;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -770,6 +775,91 @@ impl ToolClient {
         });
         self.send(jay_generic_match_builder::Destroy { self_id: gmb });
         self.send(jay_client_match_builder::Destroy { self_id: cmb });
+        jcm
+    }
+
+    fn create_window_match_(
+        self: &Rc<Self>,
+        comp: JayCompositorId,
+        gmb: JayGenericMatchBuilderId,
+        cmb: JayWindowMatchBuilderId,
+        m: &WindowMatch,
+    ) {
+        declare_matcher_macros!(self, jay_window_match_builder, gmb, cmb);
+
+        let WindowMatch {
+            generic,
+            types,
+            client,
+            title,
+            title_regex,
+            app_id,
+            app_id_regex,
+            floating,
+            visible,
+            urgent,
+            focused,
+            fullscreen,
+            just_mapped,
+            tag,
+            tag_regex,
+            x_class,
+            x_class_regex,
+            x_instance,
+            x_instance_regex,
+            x_role,
+            x_role_regex,
+            workspace,
+            workspace_regex,
+            content_types,
+        } = m;
+
+        self.generic_match(gmb, generic, |m| {
+            self.create_window_match_(comp, gmb, cmb, m)
+        });
+        if let Some(c) = client {
+            self.send(jay_window_match_builder::Client {
+                self_id: cmb,
+                v: self.create_client_match(comp, c),
+            });
+        }
+        str!(title, title_regex, Title);
+        str!(app_id, app_id_regex, AppId);
+        str!(tag, tag_regex, Tag);
+        str!(x_class, x_class_regex, XClass);
+        str!(x_instance, x_instance_regex, XInstance);
+        str!(x_role, x_role_regex, XRole);
+        str!(workspace, workspace_regex, Workspace);
+        bool!(floating, Floating);
+        bool!(visible, Visible);
+        bool!(urgent, Urgent);
+        bool!(focused, Focused);
+        bool!(fullscreen, Fullscreen);
+        bool!(just_mapped, JustMapped);
+        num2!(types, Types);
+        num2!(content_types, ContentTypes);
+    }
+
+    pub fn create_window_match(
+        self: &Rc<Self>,
+        comp: JayCompositorId,
+        m: &WindowMatch,
+    ) -> JayWindowMatchId {
+        let gmb = self.id();
+        let cmb = self.id();
+        self.send(CreateWindowMatchBuilder {
+            self_id: comp,
+            gmb,
+            cmb,
+        });
+        self.create_match(gmb, || self.create_window_match_(comp, gmb, cmb, m));
+        let jcm = self.id();
+        self.send(jay_window_match_builder::Get {
+            self_id: cmb,
+            id: jcm,
+        });
+        self.send(jay_generic_match_builder::Destroy { self_id: gmb });
+        self.send(jay_window_match_builder::Destroy { self_id: cmb });
         jcm
     }
 }

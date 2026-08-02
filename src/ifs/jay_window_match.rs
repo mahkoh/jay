@@ -15,7 +15,6 @@ pub struct JayWindowMatch {
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
     pub version: Version,
-    #[expect(dead_code)]
     pub m: Rc<dyn CritUpstreamNode<ToplevelData>>,
 }
 

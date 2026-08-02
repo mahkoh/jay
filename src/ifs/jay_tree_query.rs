@@ -1,5 +1,6 @@
 use crate::client::Client;
 use crate::client::ClientError;
+use crate::criteria::CritUpstreamNode;
 use crate::globals::GlobalBase;
 use crate::ifs::wl_surface::ext_session_lock_surface_v1::ExtSessionLockSurfaceV1;
 use crate::ifs::wl_surface::x_surface::xwindow::Xwindow;
@@ -70,6 +71,7 @@ enum Root {
     WorkspaceNode(Rc<Opt<WorkspaceNode>>),
     WorkspaceName(String),
     ToplevelId(ToplevelIdentifier),
+    WindowMatch(Rc<dyn CritUpstreamNode<ToplevelData>>),
 }
 
 impl JayTreeQuery {
@@ -280,26 +282,30 @@ impl JayTreeQueryRequestHandler for JayTreeQuery {
         let Some(root) = &*self.root.borrow() else {
             return Err(JayTreeQueryError::NoRootSet);
         };
+        let state = &self.client.state;
         match root {
-            Root::Display => self.client.state.visit_all_nodes(&mut Visitor(self)),
+            Root::Display => state.visit_all_nodes(&mut Visitor(self)),
             Root::WorkspaceNode(n) => match n.get() {
                 Some(n) => Visitor(self).visit_workspace(&n),
                 None => self.send_not_found(),
             },
-            Root::WorkspaceName(n) => match self.client.state.workspaces.get(n) {
+            Root::WorkspaceName(n) => match state.workspaces.get(n) {
                 Some(n) => Visitor(self).visit_workspace(&n),
                 None => self.send_not_found(),
             },
-            Root::ToplevelId(id) => match self
-                .client
-                .state
-                .toplevels
-                .get(id)
-                .and_then(|t| t.upgrade())
-            {
+            Root::ToplevelId(id) => match state.toplevels.get(id).and_then(|t| t.upgrade()) {
                 Some(t) => t.node_visit_dyn(&mut Visitor(self)),
                 None => self.send_not_found(),
             },
+            Root::WindowMatch(m) => {
+                for tl in state.toplevels.lock().values() {
+                    if let Some(tl) = tl.upgrade()
+                        && m.pull(tl.tl_data())
+                    {
+                        tl.node_visit_dyn(&mut Visitor(self));
+                    }
+                }
+            }
         }
         self.send_done();
         Ok(())
@@ -356,6 +362,17 @@ impl JayTreeQueryRequestHandler for JayTreeQuery {
             ToplevelIdentifier::from_str(req.id).map_err(JayTreeQueryError::InvalidToplevelId)?;
         let root = &mut *self.root.borrow_mut();
         *root = Some(Root::ToplevelId(id));
+        Ok(())
+    }
+
+    fn set_root_window_match(
+        &self,
+        req: SetRootWindowMatch,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let obj = self.client.lookup(req.id)?;
+        let root = &mut *self.root.borrow_mut();
+        *root = Some(Root::WindowMatch(obj.m.clone()));
         Ok(())
     }
 }
