@@ -2511,7 +2511,7 @@ impl ConfigProxyHandler {
             self.respond(Response::CreateClientMatcher { matcher: id });
             return Ok(());
         }
-        let mgr = &self.state.cl_matcher_manager;
+        let mgr = &*self.state.cl_matcher_manager;
         let mut upstream = vec![];
         let matcher = match &criterion {
             ClientCriterionIpc::Generic(m) => {
@@ -2614,7 +2614,7 @@ impl ConfigProxyHandler {
             self.respond(Response::CreateWindowMatcher { matcher: id });
             return Ok(());
         }
-        let mgr = &self.state.tl_matcher_manager;
+        let mgr = &*self.state.tl_matcher_manager;
         let mut upstream = vec![];
         let matcher = match &criterion {
             WindowCriterionIpc::Generic(m) => {
