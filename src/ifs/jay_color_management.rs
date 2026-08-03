@@ -19,14 +19,14 @@ impl JayColorManagement {
     fn send_enabled(&self) {
         self.client.event(Enabled {
             self_id: self.id,
-            enabled: self.client.state.color_management_enabled.get() as u32,
+            enabled: self.client.state.color_management_enabled.get(),
         });
     }
 
     fn send_available(&self) {
         self.client.event(Available {
             self_id: self.id,
-            available: self.client.state.color_management_available() as u32,
+            available: self.client.state.color_management_available(),
         });
     }
 }
@@ -46,9 +46,7 @@ impl JayColorManagementRequestHandler for JayColorManagement {
     }
 
     fn set_enabled(&self, req: SetEnabled, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client
-            .state
-            .set_color_management_enabled(req.enabled != 0);
+        self.client.state.set_color_management_enabled(req.enabled);
         Ok(())
     }
 }

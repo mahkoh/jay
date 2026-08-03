@@ -15,7 +15,9 @@ use serde_json::Value;
 use serde_json::json;
 
 pub fn generate_json_schema(
-    types_sorted: &[(&String, &Described<TopLevelTypeSpec>)],
+    types_sorted: &[(&str, &Described<TopLevelTypeSpec>)],
+    file: &str,
+    root: &str,
 ) -> Result<()> {
     let mut types = Map::new();
     for (name, ty) in types_sorted {
@@ -25,16 +27,18 @@ pub fn generate_json_schema(
     let json = json!({
         "$id": "urn:jay_toml_schema",
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "$ref": "#/$defs/Config",
+        "$ref": format!("#/$defs/{}", root),
         "$defs": types,
     });
 
     let json = serde_json::to_string_pretty(&json).unwrap();
 
-    std::fs::write(
-        concat!(env!("CARGO_MANIFEST_DIR"), "/spec/spec.generated.json"),
-        json.as_bytes(),
-    )?;
+    let file = format!(
+        concat!(env!("CARGO_MANIFEST_DIR"), "/spec/{}.generated.json"),
+        file
+    );
+
+    std::fs::write(file, json.as_bytes())?;
 
     Ok(())
 }

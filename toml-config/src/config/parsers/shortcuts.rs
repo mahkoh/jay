@@ -44,13 +44,13 @@ pub enum ShortcutsParserError {
     LatchError(#[source] ActionParserError),
 }
 
-pub struct ShortcutsParser<'a, 'b, 'c> {
-    pub cx: &'a Context<'c>,
+pub struct ShortcutsParser<'a, 'b, 'c, 'd> {
+    pub cx: &'a Context<'c, 'd>,
     pub used_keys: &'b mut HashSet<Spanned<ModifiedKeySym>>,
     pub shortcuts: &'b mut Vec<Shortcut>,
 }
 
-impl Parser for ShortcutsParser<'_, '_, '_> {
+impl Parser for ShortcutsParser<'_, '_, '_, '_> {
     type Value = ();
     type Error = ShortcutsParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -82,13 +82,13 @@ impl Parser for ShortcutsParser<'_, '_, '_> {
     }
 }
 
-pub struct ComplexShortcutsParser<'a, 'b, 'c> {
-    pub cx: &'a Context<'c>,
+pub struct ComplexShortcutsParser<'a, 'b, 'c, 'd> {
+    pub cx: &'a Context<'c, 'd>,
     pub used_keys: &'b mut HashSet<Spanned<ModifiedKeySym>>,
     pub shortcuts: &'b mut Vec<Shortcut>,
 }
 
-impl Parser for ComplexShortcutsParser<'_, '_, '_> {
+impl Parser for ComplexShortcutsParser<'_, '_, '_, '_> {
     type Value = ();
     type Error = ShortcutsParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -124,12 +124,12 @@ impl Parser for ComplexShortcutsParser<'_, '_, '_> {
     }
 }
 
-struct ComplexShortcutParser<'a, 'b> {
+struct ComplexShortcutParser<'a, 'b, 'c> {
     pub keysym: ModifiedKeySym,
-    pub cx: &'a Context<'b>,
+    pub cx: &'a Context<'b, 'c>,
 }
 
-impl Parser for ComplexShortcutParser<'_, '_> {
+impl Parser for ComplexShortcutParser<'_, '_, '_> {
     type Value = Shortcut;
     type Error = ShortcutsParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -179,7 +179,7 @@ impl Parser for ComplexShortcutParser<'_, '_> {
     }
 }
 
-fn parse_action(cx: &Context<'_>, key: &str, value: &Spanned<Value>) -> Option<Action> {
+fn parse_action(cx: &Context<'_, '_>, key: &str, value: &Spanned<Value>) -> Option<Action> {
     match value.parse(&mut ActionParser(cx)) {
         Ok(a) => Some(a),
         Err(e) => {
@@ -189,12 +189,12 @@ fn parse_action(cx: &Context<'_>, key: &str, value: &Spanned<Value>) -> Option<A
     }
 }
 
-fn parse_modified_keysym(cx: &Context<'_>, key: &Spanned<String>) -> Option<ModifiedKeySym> {
+fn parse_modified_keysym(cx: &Context<'_, '_>, key: &Spanned<String>) -> Option<ModifiedKeySym> {
     parse_modified_keysym_str(cx, key.span, &key.value)
 }
 
 pub fn parse_modified_keysym_str(
-    cx: &Context<'_>,
+    cx: &Context<'_, '_>,
     span: Span,
     value: &str,
 ) -> Option<ModifiedKeySym> {
@@ -208,7 +208,7 @@ pub fn parse_modified_keysym_str(
 }
 
 fn log_used(
-    cx: &Context<'_>,
+    cx: &Context<'_, '_>,
     used: &mut HashSet<Spanned<ModifiedKeySym>>,
     key: Spanned<ModifiedKeySym>,
 ) {

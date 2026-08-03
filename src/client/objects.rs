@@ -9,10 +9,12 @@ use crate::ifs::ipc::data_control::ext_data_control_source_v1::ExtDataControlSou
 use crate::ifs::ipc::data_control::zwlr_data_control_source_v1::ZwlrDataControlSourceV1;
 use crate::ifs::ipc::wl_data_source::WlDataSource;
 use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
+use crate::ifs::jay_client_match::JayClientMatch;
 use crate::ifs::jay_keymap_builder::JayKeymapBuilder;
 use crate::ifs::jay_output::JayOutput;
 use crate::ifs::jay_screencast::JayScreencast;
 use crate::ifs::jay_toplevel::JayToplevel;
+use crate::ifs::jay_window_match::JayWindowMatch;
 use crate::ifs::jay_workspace::JayWorkspace;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::wl_display::WlDisplay;
@@ -47,10 +49,12 @@ use crate::wire::ExtForeignToplevelHandleV1Id;
 use crate::wire::ExtImageCaptureSourceV1Id;
 use crate::wire::ExtImageCopyCaptureSessionV1Id;
 use crate::wire::ExtWorkspaceGroupHandleV1Id;
+use crate::wire::JayClientMatchId;
 use crate::wire::JayKeymapBuilderId;
 use crate::wire::JayOutputId;
 use crate::wire::JayScreencastId;
 use crate::wire::JayToplevelId;
+use crate::wire::JayWindowMatchId;
 use crate::wire::JayWorkspaceId;
 use crate::wire::WlBufferId;
 use crate::wire::WlDataSourceId;
@@ -125,6 +129,8 @@ pub struct Objects {
     pub xdg_toplevel_icons: CopyHashMap<XdgToplevelIconV1Id, Rc<XdgToplevelIconV1>>,
     pub xdg_toplevel_icon_managers:
         CopyHashMap<XdgToplevelIconManagerV1Id, Rc<XdgToplevelIconManagerV1>>,
+    pub jay_client_match: CopyHashMap<JayClientMatchId, Rc<JayClientMatch>>,
+    pub jay_window_match: CopyHashMap<JayWindowMatchId, Rc<JayWindowMatch>>,
     ids: RefCell<Vec<usize>>,
 }
 
@@ -171,6 +177,8 @@ impl Objects {
             jay_keymap_builders: Default::default(),
             xdg_toplevel_icons: Default::default(),
             xdg_toplevel_icon_managers: Default::default(),
+            jay_client_match: Default::default(),
+            jay_window_match: Default::default(),
             ids: RefCell::new(vec![]),
         }
     }
@@ -220,6 +228,8 @@ impl Objects {
         self.jay_keymap_builders.clear();
         self.xdg_toplevel_icons.clear();
         self.xdg_toplevel_icon_managers.clear();
+        self.jay_client_match.clear();
+        self.jay_window_match.clear();
     }
 
     pub fn id<T>(&self, client_data: &Client) -> Result<T, ClientError>

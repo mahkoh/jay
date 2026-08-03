@@ -216,6 +216,7 @@ pub enum Type {
     BStr,
     Fixed,
     Fd,
+    Bool,
     Array(Box<Type>),
     Pod(String),
 }
@@ -560,6 +561,7 @@ impl<'a> Parser<'a> {
             b"bstr" => Type::BStr,
             b"fixed" => Type::Fixed,
             b"fd" => Type::Fd,
+            b"bool" => Type::Bool,
             b"array" => {
                 let (line, body) = self.expect_tree(TreeDelim::Paren)?;
                 let ty: Result<_> = (|| {
@@ -577,6 +579,7 @@ impl<'a> Parser<'a> {
                         Type::U64Rev => {}
                         Type::Fixed => {}
                         Type::Pod(..) => {}
+                        Type::Bool => {}
                         _ => {
                             bail!("Only numerical and pod types can be array elements");
                         }

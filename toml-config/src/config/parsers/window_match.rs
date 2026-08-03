@@ -18,6 +18,7 @@ use crate::config::parsers::client_match::ClientMatchParser;
 use crate::config::parsers::client_match::ClientMatchParserError;
 use crate::config::parsers::content_type::ContentTypeParser;
 use crate::config::parsers::content_type::ContentTypeParserError;
+use crate::config::parsers::parse_object;
 use crate::config::parsers::window_type::WindowTypeParser;
 use crate::config::parsers::window_type::WindowTypeParserError;
 use crate::toml::toml_span::DespanExt;
@@ -25,6 +26,7 @@ use crate::toml::toml_span::Span;
 use crate::toml::toml_span::Spanned;
 use crate::toml::toml_value::Value;
 use indexmap::IndexMap;
+use std::error::Error;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -41,9 +43,12 @@ pub enum WindowMatchParserError {
     ContentTypes(#[from] ContentTypeParserError),
 }
 
-pub struct WindowMatchParser<'a, 'b>(pub &'a Context<'b>);
+pub struct WindowMatchParser<'a, 'b, 'c> {
+    pub cx: &'a Context<'b, 'c>,
+    pub allow_name: bool,
+}
 
-impl Parser for WindowMatchParser<'_, '_> {
+impl Parser for WindowMatchParser<'_, '_, '_> {
     type Value = WindowMatch;
     type Error = WindowMatchParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -53,10 +58,10 @@ impl Parser for WindowMatchParser<'_, '_> {
         span: Span,
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
-        let mut ext = Extractor::new(self.0, span, table);
+        let mut ext = Extractor::new(self.cx, span, table);
         let (
             (
-                name,
+                mut name,
                 not_val,
                 all_val,
                 any_val,
@@ -125,9 +130,18 @@ impl Parser for WindowMatchParser<'_, '_> {
                 opt(val("content-types")),
             ),
         ))?;
+        if let Some(n) = name
+            && !self.allow_name
+        {
+            log::warn!(
+                "Names are not allowed in this position: {}",
+                self.cx.error3(n.span)
+            );
+            name = None;
+        }
         let mut not = None;
         if let Some(value) = not_val {
-            not = Some(Box::new(value.parse(&mut WindowMatchParser(self.0))?));
+            not = Some(Box::new(value.parse(self)?));
         }
         macro_rules! list {
             ($val:expr) => {{
@@ -135,7 +149,7 @@ impl Parser for WindowMatchParser<'_, '_> {
                 if let Some(value) = $val {
                     let mut res = vec![];
                     for value in value.value {
-                        res.push(value.parse(&mut WindowMatchParser(self.0))?);
+                        res.push(value.parse(self)?);
                     }
                     list = Some(res);
                 }
@@ -150,11 +164,17 @@ impl Parser for WindowMatchParser<'_, '_> {
         }
         let mut exactly = None;
         if let Some(value) = exactly_val {
-            exactly = Some(value.parse(&mut WindowMatchExactlyParser(self.0))?);
+            exactly = Some(value.parse(&mut WindowMatchExactlyParser {
+                cx: self.cx,
+                allow_name: self.allow_name,
+            })?);
         }
         let mut client = None;
         if let Some(value) = client_val {
-            client = Some(value.parse_map(&mut ClientMatchParser(self.0))?);
+            client = Some(value.parse_map(&mut ClientMatchParser {
+                cx: self.cx,
+                allow_name: self.allow_name,
+            })?);
         }
         let mut content_types = None;
         if let Some(value) = content_types_val {
@@ -195,9 +215,12 @@ impl Parser for WindowMatchParser<'_, '_> {
     }
 }
 
-pub struct WindowMatchExactlyParser<'a, 'b>(pub &'a Context<'b>);
+pub struct WindowMatchExactlyParser<'a, 'b, 'c> {
+    pub cx: &'a Context<'b, 'c>,
+    pub allow_name: bool,
+}
 
-impl Parser for WindowMatchExactlyParser<'_, '_> {
+impl Parser for WindowMatchExactlyParser<'_, '_, '_> {
     type Value = MatchExactly<WindowMatch>;
     type Error = WindowMatchParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -207,15 +230,27 @@ impl Parser for WindowMatchExactlyParser<'_, '_> {
         span: Span,
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
-        let mut ext = Extractor::new(self.0, span, table);
+        let mut ext = Extractor::new(self.cx, span, table);
         let (num, list_val) = ext.extract((n32("num"), arr("list")))?;
         let mut list = vec![];
         for el in list_val.value {
-            list.push(el.parse(&mut WindowMatchParser(self.0))?);
+            list.push(el.parse(&mut WindowMatchParser {
+                cx: self.cx,
+                allow_name: self.allow_name,
+            })?);
         }
         Ok(MatchExactly {
             num: num.value as _,
             list,
         })
     }
+}
+
+pub fn parse_window_match<'a>(input: &'a [u8]) -> Result<WindowMatch, Box<dyn Error + 'a>> {
+    parse_object(input, "window match", |v, cx| {
+        v.parse(&mut WindowMatchParser {
+            cx,
+            allow_name: false,
+        })
+    })
 }

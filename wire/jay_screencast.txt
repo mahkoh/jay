@@ -9,7 +9,7 @@ request set_output {
 }
 
 request set_allow_all_workspaces {
-    allow_all: u32,
+    allow_all: bool,
 }
 
 request allow_workspace {
@@ -20,11 +20,11 @@ request touch_allowed_workspaces {
 }
 
 request set_use_linear_buffers {
-    use_linear: u32,
+    use_linear: bool,
 }
 
 request set_running {
-    running: u32,
+    running: bool,
 }
 
 request configure {
@@ -90,7 +90,7 @@ event config_output {
 }
 
 event config_allow_all_workspaces {
-    allow_all: u32,
+    allow_all: bool,
 }
 
 event config_allow_workspace {
@@ -98,11 +98,11 @@ event config_allow_workspace {
 }
 
 event config_use_linear_buffers {
-    use_linear: u32,
+    use_linear: bool,
 }
 
 event config_running {
-    running: u32,
+    running: bool,
 }
 
 event config_done {

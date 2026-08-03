@@ -7,13 +7,13 @@ request get {
 }
 
 request set_enabled {
-    enabled: u32,
+    enabled: bool,
 }
 
 event enabled {
-    enabled: u32,
+    enabled: bool,
 }
 
 event available {
-    available: u32,
+    available: bool,
 }

@@ -60,12 +60,12 @@ pub enum InputParserError {
     CaliFloat,
 }
 
-pub struct InputParser<'a, 'b> {
-    pub cx: &'a Context<'b>,
+pub struct InputParser<'a, 'b, 'c> {
+    pub cx: &'a Context<'b, 'c>,
     pub is_inputs_array: bool,
 }
 
-impl Parser for InputParser<'_, '_> {
+impl Parser for InputParser<'_, '_, '_> {
     type Value = Input;
     type Error = InputParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -329,9 +329,9 @@ impl Parser for InputParser<'_, '_> {
     }
 }
 
-pub struct InputsParser<'a, 'b>(pub &'a Context<'b>);
+pub struct InputsParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for InputsParser<'_, '_> {
+impl Parser for InputsParser<'_, '_, '_> {
     type Value = Vec<Input>;
     type Error = InputParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table, DataType::Array];

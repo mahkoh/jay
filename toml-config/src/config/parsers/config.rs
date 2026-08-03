@@ -79,9 +79,9 @@ pub enum ConfigParserError {
     ParseShortcuts(#[source] ShortcutsParserError),
 }
 
-pub struct ConfigParser<'a, 'b>(pub &'a Context<'b>);
+pub struct ConfigParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl ConfigParser<'_, '_> {
+impl ConfigParser<'_, '_, '_> {
     fn parse_action(&self, name: &str, action: Option<Spanned<&Value>>) -> Option<Action> {
         match action {
             None => None,
@@ -96,7 +96,7 @@ impl ConfigParser<'_, '_> {
     }
 }
 
-impl Parser for ConfigParser<'_, '_> {
+impl Parser for ConfigParser<'_, '_, '_> {
     type Value = Config;
     type Error = ConfigParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -129,7 +129,6 @@ impl Parser for ConfigParser<'_, '_> {
                 render_device_val,
                 inputs_val,
                 on_idle_val,
-                _,
                 idle_val,
             ),
             (
@@ -197,7 +196,6 @@ impl Parser for ConfigParser<'_, '_> {
                 opt(val("render-device")),
                 opt(val("inputs")),
                 opt(val("on-idle")),
-                opt(val("$schema")),
                 opt(val("idle")),
             ),
             (

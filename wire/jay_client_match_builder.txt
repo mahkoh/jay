@@ -1,0 +1,53 @@
+request destroy (destructor) {
+
+}
+
+request get {
+    id: id(jay_client_match) (new),
+}
+
+request sandbox_engine {
+    v: str,
+    regex: bool,
+}
+
+request sandbox_app_id {
+    v: str,
+    regex: bool,
+}
+
+request sandbox_instance_id {
+    v: str,
+    regex: bool,
+}
+
+request sandboxed {
+
+}
+
+request uid {
+    v: i32,
+}
+
+request pid {
+    v: i32,
+}
+
+request is_xwayland {
+
+}
+
+request comm {
+    v: str,
+    regex: bool,
+}
+
+request exe {
+    v: str,
+    regex: bool,
+}
+
+request tag {
+    v: str,
+    regex: bool,
+}

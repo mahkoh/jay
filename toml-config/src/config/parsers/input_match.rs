@@ -24,9 +24,9 @@ pub enum InputMatchParserError {
     Extract(#[from] ExtractorError),
 }
 
-pub struct InputMatchParser<'a, 'b>(pub &'a Context<'b>);
+pub struct InputMatchParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for InputMatchParser<'_, '_> {
+impl Parser for InputMatchParser<'_, '_, '_> {
     type Value = InputMatch;
     type Error = InputMatchParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table, DataType::Array];

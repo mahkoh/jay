@@ -21,9 +21,9 @@ pub enum RepeatRateParserError {
     Extract(#[from] ExtractorError),
 }
 
-pub struct RepeatRateParser<'a, 'b>(pub &'a Context<'b>);
+pub struct RepeatRateParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for RepeatRateParser<'_, '_> {
+impl Parser for RepeatRateParser<'_, '_, '_> {
     type Value = RepeatRate;
     type Error = RepeatRateParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

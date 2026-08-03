@@ -39,9 +39,9 @@ pub enum WindowRuleParserError {
     Latch(ActionParserError),
 }
 
-pub struct WindowRuleParser<'a, 'b>(pub &'a Context<'b>);
+pub struct WindowRuleParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for WindowRuleParser<'_, '_> {
+impl Parser for WindowRuleParser<'_, '_, '_> {
     type Value = WindowRule;
     type Error = WindowRuleParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -91,7 +91,10 @@ impl Parser for WindowRuleParser<'_, '_> {
         }
         let match_ = match match_val {
             None => WindowMatch::default(),
-            Some(m) => m.parse_map(&mut WindowMatchParser(self.0))?,
+            Some(m) => m.parse_map(&mut WindowMatchParser {
+                cx: self.0,
+                allow_name: true,
+            })?,
         };
         Ok(WindowRule {
             name: name.despan_into(),
@@ -104,9 +107,9 @@ impl Parser for WindowRuleParser<'_, '_> {
     }
 }
 
-pub struct WindowRulesParser<'a, 'b>(pub &'a Context<'b>);
+pub struct WindowRulesParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for WindowRulesParser<'_, '_> {
+impl Parser for WindowRulesParser<'_, '_, '_> {
     type Value = Vec<WindowRule>;
     type Error = WindowRuleParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Array];

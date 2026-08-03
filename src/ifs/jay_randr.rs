@@ -164,14 +164,14 @@ impl JayRandr {
             self.client.event(FbFormat {
                 self_id: self.id,
                 name: current.name,
-                current: 1,
+                current: true,
             });
             for &format in &*node.global.formats.get() {
                 if format != current {
                     self.client.event(FbFormat {
                         self_id: self.id,
                         name: format.name,
-                        current: 0,
+                        current: false,
                     });
                 }
             }
@@ -396,7 +396,7 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(dev) = self.get_device(req.dev) else {
             return Ok(());
         };
-        dev.set_direct_scanout_enabled(&self.state, req.enabled != 0);
+        dev.set_direct_scanout_enabled(&self.state, req.enabled);
         Ok(())
     }
 
@@ -457,7 +457,7 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_connector(req.output) else {
             return Ok(());
         };
-        let res = c.modify_state(&self.state, |s| s.enabled = req.enabled != 0);
+        let res = c.modify_state(&self.state, |s| s.enabled = req.enabled);
         if let Err(e) = res {
             self.send_error(&format!("Could not en/disable connector: {}", ErrorFmt(e)));
         }
@@ -623,7 +623,7 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
-        c.set_use_native_gamut(req.use_native_gamut != 0);
+        c.set_use_native_gamut(req.use_native_gamut);
         Ok(())
     }
 
@@ -675,7 +675,7 @@ impl JayRandrRequestHandler for JayRandr {
         let Some(dev) = self.get_device(req.dev) else {
             return Ok(());
         };
-        dev.set_use_plane_color_pipelines(&self.state, req.enabled != 0);
+        dev.set_use_plane_color_pipelines(&self.state, req.enabled);
         Ok(())
     }
 }

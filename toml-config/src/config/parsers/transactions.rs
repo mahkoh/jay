@@ -24,7 +24,7 @@ pub enum TransactionsParserError {
     Extract(#[from] ExtractorError),
 }
 
-pub struct TransactionsParser<'a, 'b>(pub &'a Context<'b>);
+pub struct TransactionsParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
 #[derive(Clone, Debug)]
 pub struct Transactions {
@@ -32,7 +32,7 @@ pub struct Transactions {
     pub configure_timeout: Option<Duration>,
 }
 
-impl Parser for TransactionsParser<'_, '_> {
+impl Parser for TransactionsParser<'_, '_, '_> {
     type Value = Transactions;
     type Error = TransactionsParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -93,9 +93,9 @@ impl Parser for TransactionsParser<'_, '_> {
     }
 }
 
-struct TimeoutParser<'a, 'b>(pub &'a Context<'b>);
+struct TimeoutParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for TimeoutParser<'_, '_> {
+impl Parser for TimeoutParser<'_, '_, '_> {
     type Value = Duration;
     type Error = TransactionsParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

@@ -75,7 +75,7 @@ impl JayWorkspaceEventHandler for UsrJayWorkspace {
 
     fn visible(&self, ev: Visible, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {
-            owner.visible(ev.visible != 0);
+            owner.visible(ev.visible);
         }
         Ok(())
     }

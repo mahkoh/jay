@@ -23,14 +23,14 @@ pub enum FloatParserError {
     Extract(#[from] ExtractorError),
 }
 
-pub struct FloatParser<'a, 'b>(pub &'a Context<'b>);
+pub struct FloatParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
 #[derive(Debug, Clone)]
 pub struct Float {
     pub show_pin_icon: Option<bool>,
 }
 
-impl Parser for FloatParser<'_, '_> {
+impl Parser for FloatParser<'_, '_, '_> {
     type Value = Float;
     type Error = FloatParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

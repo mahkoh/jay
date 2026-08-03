@@ -5,7 +5,7 @@ request execute { }
 request set_root_display { }
 
 request set_recursive {
-    recursive: u32,
+    recursive: bool,
 }
 
 request set_root_workspace {
@@ -22,6 +22,10 @@ request set_root_toplevel {
 
 request set_root_window_id {
     id: str,
+}
+
+request set_root_window_match (since = 39) {
+    id: id(jay_window_match),
 }
 
 event done { }

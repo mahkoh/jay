@@ -15,11 +15,13 @@ use crate::config::parser::DataType;
 use crate::config::parser::ParseResult;
 use crate::config::parser::Parser;
 use crate::config::parser::UnexpectedDataType;
+use crate::config::parsers::parse_object;
 use crate::toml::toml_span::DespanExt;
 use crate::toml::toml_span::Span;
 use crate::toml::toml_span::Spanned;
 use crate::toml::toml_value::Value;
 use indexmap::IndexMap;
+use std::error::Error;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -30,9 +32,12 @@ pub enum ClientMatchParserError {
     Extract(#[from] ExtractorError),
 }
 
-pub struct ClientMatchParser<'a, 'b>(pub &'a Context<'b>);
+pub struct ClientMatchParser<'a, 'b, 'c> {
+    pub cx: &'a Context<'b, 'c>,
+    pub allow_name: bool,
+}
 
-impl Parser for ClientMatchParser<'_, '_> {
+impl Parser for ClientMatchParser<'_, '_, '_> {
     type Value = ClientMatch;
     type Error = ClientMatchParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -42,10 +47,10 @@ impl Parser for ClientMatchParser<'_, '_> {
         span: Span,
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
-        let mut ext = Extractor::new(self.0, span, table);
+        let mut ext = Extractor::new(self.cx, span, table);
         let (
             (
-                name,
+                mut name,
                 not_val,
                 all_val,
                 any_val,
@@ -96,9 +101,18 @@ impl Parser for ClientMatchParser<'_, '_> {
             ),
             (opt(bol("is-xwayland")),),
         ))?;
+        if let Some(n) = name
+            && !self.allow_name
+        {
+            log::warn!(
+                "Names are not allowed in this position: {}",
+                self.cx.error3(n.span)
+            );
+            name = None;
+        }
         let mut not = None;
         if let Some(value) = not_val {
-            not = Some(Box::new(value.parse(&mut ClientMatchParser(self.0))?));
+            not = Some(Box::new(value.parse(self)?));
         }
         macro_rules! list {
             ($val:expr) => {{
@@ -106,7 +120,7 @@ impl Parser for ClientMatchParser<'_, '_> {
                 if let Some(value) = $val {
                     let mut res = vec![];
                     for value in value.value {
-                        res.push(value.parse(&mut ClientMatchParser(self.0))?);
+                        res.push(value.parse(self)?);
                     }
                     list = Some(res);
                 }
@@ -117,7 +131,10 @@ impl Parser for ClientMatchParser<'_, '_> {
         let any = list!(any_val);
         let mut exactly = None;
         if let Some(value) = exactly_val {
-            exactly = Some(value.parse(&mut ClientMatchExactlyParser(self.0))?);
+            exactly = Some(value.parse(&mut ClientMatchExactlyParser {
+                cx: self.cx,
+                allow_name: self.allow_name,
+            })?);
         }
         Ok(ClientMatch {
             generic: GenericMatch {
@@ -147,9 +164,12 @@ impl Parser for ClientMatchParser<'_, '_> {
     }
 }
 
-pub struct ClientMatchExactlyParser<'a, 'b>(pub &'a Context<'b>);
+pub struct ClientMatchExactlyParser<'a, 'b, 'c> {
+    pub cx: &'a Context<'b, 'c>,
+    pub allow_name: bool,
+}
 
-impl Parser for ClientMatchExactlyParser<'_, '_> {
+impl Parser for ClientMatchExactlyParser<'_, '_, '_> {
     type Value = MatchExactly<ClientMatch>;
     type Error = ClientMatchParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -159,15 +179,27 @@ impl Parser for ClientMatchExactlyParser<'_, '_> {
         span: Span,
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
-        let mut ext = Extractor::new(self.0, span, table);
+        let mut ext = Extractor::new(self.cx, span, table);
         let (num, list_val) = ext.extract((n32("num"), arr("list")))?;
         let mut list = vec![];
         for el in list_val.value {
-            list.push(el.parse(&mut ClientMatchParser(self.0))?);
+            list.push(el.parse(&mut ClientMatchParser {
+                cx: self.cx,
+                allow_name: self.allow_name,
+            })?);
         }
         Ok(MatchExactly {
             num: num.value as _,
             list,
         })
     }
+}
+
+pub fn parse_client_match<'a>(input: &'a [u8]) -> Result<ClientMatch, Box<dyn Error + 'a>> {
+    parse_object(input, "client match", |v, cx| {
+        v.parse(&mut ClientMatchParser {
+            cx,
+            allow_name: false,
+        })
+    })
 }

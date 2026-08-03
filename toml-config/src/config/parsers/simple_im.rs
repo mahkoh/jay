@@ -24,9 +24,9 @@ pub enum SimpleImParserError {
     Extract(#[from] ExtractorError),
 }
 
-pub struct SimpleImParser<'a, 'b>(pub &'a Context<'b>);
+pub struct SimpleImParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for SimpleImParser<'_, '_> {
+impl Parser for SimpleImParser<'_, '_, '_> {
     type Value = SimpleIm;
     type Error = SimpleImParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

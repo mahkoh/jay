@@ -7,9 +7,12 @@ use crate::compositor::LogLevel;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::jay_acceptor_request::JayAcceptorRequest;
+use crate::ifs::jay_client_match_builder::JayClientMatchBuilder;
 use crate::ifs::jay_client_query::JayClientQuery;
 use crate::ifs::jay_color_management::JayColorManagement;
 use crate::ifs::jay_ei_session_builder::JayEiSessionBuilder;
+use crate::ifs::jay_generic_match_builder::JayGenericMatchBuilder;
+use crate::ifs::jay_generic_match_builder::MatchBuilder;
 use crate::ifs::jay_idle::JayIdle;
 use crate::ifs::jay_input::JayInput;
 use crate::ifs::jay_keymap_builder::JayKeymapBuilder;
@@ -28,6 +31,7 @@ use crate::ifs::jay_select_toplevel::JayToplevelSelector;
 use crate::ifs::jay_select_workspace::JaySelectWorkspace;
 use crate::ifs::jay_select_workspace::JayWorkspaceSelector;
 use crate::ifs::jay_tree_query::JayTreeQuery;
+use crate::ifs::jay_window_match_builder::JayWindowMatchBuilder;
 use crate::ifs::jay_workspace_watcher::JayWorkspaceWatcher;
 use crate::ifs::jay_xwayland::JayXwayland;
 use crate::ifs::wl_surface::jay_sync_file_surface::JaySyncFileSurface;
@@ -86,7 +90,7 @@ global_base!(JayCompositorGlobal, JayCompositor, JayCompositorError);
 
 impl Global for JayCompositorGlobal {
     fn version(&self) -> u32 {
-        38
+        39
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -206,7 +210,7 @@ impl JayCompositorRequestHandler for JayCompositor {
     }
 
     fn take_screenshot2(&self, req: TakeScreenshot2, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.take_screenshot_impl(req.id, req.include_cursor != 0)
+        self.take_screenshot_impl(req.id, req.include_cursor)
     }
 
     fn get_idle(&self, req: GetIdle, _slf: &Rc<Self>) -> Result<(), Self::Error> {
@@ -585,6 +589,63 @@ impl JayCompositorRequestHandler for JayCompositor {
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
+        Ok(())
+    }
+
+    fn create_client_match_builder(
+        &self,
+        req: CreateClientMatchBuilder,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let builder = Rc::new(MatchBuilder::new(&self.client.state.cl_matcher_manager));
+        let cmb = Rc::new(JayClientMatchBuilder {
+            id: req.cmb,
+            client: self.client.clone(),
+            tracker: Default::default(),
+            version: self.version,
+            builder,
+        });
+        track!(self.client, cmb);
+        self.client.add_client_obj(&cmb)?;
+        JayGenericMatchBuilder::create(req.gmb, &self.client, self.version, &cmb.builder)?;
+        Ok(())
+    }
+
+    fn create_window_match_builder(
+        &self,
+        req: CreateWindowMatchBuilder,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let builder = Rc::new(MatchBuilder::new(&self.client.state.tl_matcher_manager));
+        let cmb = Rc::new(JayWindowMatchBuilder {
+            id: req.cmb,
+            client: self.client.clone(),
+            tracker: Default::default(),
+            version: self.version,
+            builder,
+        });
+        track!(self.client, cmb);
+        self.client.add_client_obj(&cmb)?;
+        JayGenericMatchBuilder::create(req.gmb, &self.client, self.version, &cmb.builder)?;
+        Ok(())
+    }
+
+    fn kill_matched_clients(
+        &self,
+        req: KillMatchedClients,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let obj = self.client.lookup(req.id)?;
+        let mut todo = vec![];
+        let clients = &self.client.state.clients;
+        for (&id, client) in &*clients.clients.borrow() {
+            if obj.m.pull(&client.data) {
+                todo.push(id);
+            }
+        }
+        for id in todo {
+            self.client.state.clients.kill(id);
+        }
         Ok(())
     }
 }

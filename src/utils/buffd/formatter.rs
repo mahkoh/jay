@@ -49,6 +49,11 @@ impl<'a> MsgFormatter<'a> {
         self
     }
 
+    pub fn bool(&mut self, bool: bool) -> &mut Self {
+        self.write(uapi::as_bytes(&(bool as u32)));
+        self
+    }
+
     #[expect(dead_code)]
     pub fn u64(&mut self, int: u64) -> &mut Self {
         self.uint((int >> 32) as u32);

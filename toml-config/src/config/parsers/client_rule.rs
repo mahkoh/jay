@@ -37,9 +37,9 @@ pub enum ClientRuleParserError {
     Latch(ActionParserError),
 }
 
-pub struct ClientRuleParser<'a, 'b>(pub &'a Context<'b>);
+pub struct ClientRuleParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for ClientRuleParser<'_, '_> {
+impl Parser for ClientRuleParser<'_, '_, '_> {
     type Value = ClientRule;
     type Error = ClientRuleParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -77,7 +77,10 @@ impl Parser for ClientRuleParser<'_, '_> {
         }
         let match_ = match match_val {
             None => ClientMatch::default(),
-            Some(m) => m.parse_map(&mut ClientMatchParser(self.0))?,
+            Some(m) => m.parse_map(&mut ClientMatchParser {
+                cx: self.0,
+                allow_name: true,
+            })?,
         };
         let mut capabilities = None;
         if let Some(value) = capabilities_val {
@@ -111,9 +114,9 @@ impl Parser for ClientRuleParser<'_, '_> {
     }
 }
 
-pub struct ClientRulesParser<'a, 'b>(pub &'a Context<'b>);
+pub struct ClientRulesParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for ClientRulesParser<'_, '_> {
+impl Parser for ClientRulesParser<'_, '_, '_> {
     type Value = Vec<ClientRule>;
     type Error = ClientRuleParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Array];

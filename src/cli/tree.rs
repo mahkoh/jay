@@ -1,4 +1,5 @@
 use crate::cli::GlobalArgs;
+use crate::cli::MatchSource;
 use crate::cli::clients::Client;
 use crate::cli::clients::ClientPrinter;
 use crate::cli::clients::handle_client_query;
@@ -24,6 +25,7 @@ use crate::tools::tool_client::ToolClient;
 use crate::tools::tool_client::with_tool_client;
 use crate::utils::bhash::BHashMap;
 use crate::utils::bhash::BHashSet;
+use crate::utils::errorfmt::ErrorFmt;
 use crate::wire::JayCompositorId;
 use crate::wire::JayTreeQueryId;
 use crate::wire::jay_client_query;
@@ -32,6 +34,8 @@ use crate::wire::jay_tree_query;
 use clap::Args;
 use clap::Subcommand;
 use isnt::std_1::primitive::IsntSliceExt;
+use jay_toml_config::WindowMatch;
+use jay_toml_config::parse_window_match;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -69,6 +73,8 @@ enum QueryCmd {
     SelectWorkspace,
     /// Interactively select a window to query.
     SelectWindow,
+    /// Select windows via a toml window match.
+    MatchWindows(MatchSource),
 }
 
 #[derive(Args, Debug)]
@@ -107,6 +113,7 @@ impl Tree {
             id,
         });
         let mut query = Query {
+            comp: self.comp,
             tree: self,
             tc: &self.tc,
             id,
@@ -116,6 +123,7 @@ impl Tree {
 }
 
 struct Query<'a> {
+    comp: JayCompositorId,
     tree: &'a Tree,
     tc: &'a Rc<ToolClient>,
     id: JayTreeQueryId,
@@ -183,6 +191,14 @@ impl Query<'_> {
                 self.tc.send(SetRootToplevel {
                     self_id: self.id,
                     toplevel: id,
+                });
+            }
+            QueryCmd::MatchWindows(a) => {
+                let window_match = a.parse_window_match();
+                let window_match = self.tc.create_window_match(self.comp, &window_match);
+                self.tc.send(SetRootWindowMatch {
+                    self_id: self.id,
+                    id: window_match,
                 });
             }
         }
@@ -296,7 +312,7 @@ impl Query<'_> {
         if args.recursive {
             tl.send(SetRecursive {
                 self_id: id,
-                recursive: 1,
+                recursive: true,
             });
         }
         tl.send(Execute { self_id: id });
@@ -491,6 +507,17 @@ impl Printer {
             self.prefix.truncate(len);
             self.output_depth -= od;
             self.workspace_depth -= wd;
+        }
+    }
+}
+
+impl MatchSource {
+    fn parse_window_match(&self) -> WindowMatch {
+        let mut source = vec![];
+        let path = self.read(&mut source);
+        match parse_window_match(&source) {
+            Ok(m) => m,
+            Err(e) => fatal!("Could not parse {path}: {}", ErrorFmt(&*e)),
         }
     }
 }

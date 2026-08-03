@@ -552,7 +552,7 @@ impl JayScreencastRequestHandler for JayScreencast {
         if self.destroyed.get() {
             return Ok(());
         }
-        self.pending.show_all.set(Some(req.allow_all != 0));
+        self.pending.show_all.set(Some(req.allow_all));
         Ok(())
     }
 
@@ -592,7 +592,7 @@ impl JayScreencastRequestHandler for JayScreencast {
         if self.destroyed.get() {
             return Ok(());
         }
-        self.pending.linear.set(Some(req.use_linear != 0));
+        self.pending.linear.set(Some(req.use_linear));
         Ok(())
     }
 
@@ -600,7 +600,7 @@ impl JayScreencastRequestHandler for JayScreencast {
         if self.destroyed.get() {
             return Ok(());
         }
-        self.pending.running.set(Some(req.running != 0));
+        self.pending.running.set(Some(req.running));
         Ok(())
     }
 

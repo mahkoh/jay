@@ -59,6 +59,10 @@ impl<'a, 'b> MsgParser<'a, 'b> {
         self.int().map(|i| i as u32)
     }
 
+    pub fn bool(&mut self) -> Result<bool, MsgParserError> {
+        self.int().map(|i| i != 0)
+    }
+
     #[expect(dead_code)]
     pub fn u64(&mut self) -> Result<u64, MsgParserError> {
         let hi = self.uint()?;

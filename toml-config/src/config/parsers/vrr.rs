@@ -24,9 +24,9 @@ pub enum VrrParserError {
     Extract(#[from] ExtractorError),
 }
 
-pub struct VrrParser<'a, 'b>(pub &'a Context<'b>);
+pub struct VrrParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for VrrParser<'_, '_> {
+impl Parser for VrrParser<'_, '_, '_> {
     type Value = Vrr;
     type Error = VrrParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

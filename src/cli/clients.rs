@@ -1,15 +1,19 @@
 use crate::cli::GlobalArgs;
+use crate::cli::MatchSource;
 use crate::cli::json::JsonClient;
 use crate::cli::json::jsonl;
 use crate::tools::tool_client::Handle;
 use crate::tools::tool_client::ToolClient;
 use crate::tools::tool_client::with_tool_client;
 use crate::utils::bhash::BHashMap;
+use crate::utils::errorfmt::ErrorFmt;
 use crate::wire::JayClientQueryId;
 use crate::wire::jay_client_query;
 use crate::wire::jay_compositor;
 use clap::Args;
 use clap::Subcommand;
+use jay_toml_config::ClientMatch;
+use jay_toml_config::parse_client_match;
 use std::cell::RefCell;
 use std::mem;
 use std::rc::Rc;
@@ -43,6 +47,8 @@ enum ShowCmd {
     Id(ShowIdArgs),
     /// Interactively select a window and show information about its client.
     SelectWindow,
+    /// Select clients via a toml client match.
+    Match(MatchSource),
 }
 
 #[derive(Args, Debug)]
@@ -63,6 +69,8 @@ enum KillCmd {
     Id(KillIdArgs),
     /// Interactively select a window and kill its client.
     SelectWindow,
+    /// Kill clients via a toml client match.
+    Match(MatchSource),
 }
 
 #[derive(Args, Debug)]
@@ -113,6 +121,14 @@ impl Clients {
                             id: client_id,
                         });
                     }
+                    ShowCmd::Match(a) => {
+                        let client_match = a.parse_client_match(tc, false);
+                        let client_match = tc.create_client_match(comp, &client_match);
+                        tc.send(jay_client_query::AddMatch {
+                            self_id: id,
+                            id: client_match,
+                        });
+                    }
                 }
                 tc.send(jay_client_query::Execute { self_id: id });
                 let clients = handle_client_query(tc, id).await;
@@ -149,6 +165,14 @@ impl Clients {
                     tc.send(jay_compositor::KillClient {
                         self_id: comp,
                         id: client_id,
+                    });
+                }
+                KillCmd::Match(a) => {
+                    let client_match = a.parse_client_match(tc, true);
+                    let client_match = tc.create_client_match(comp, &client_match);
+                    tc.send(jay_compositor::KillMatchedClients {
+                        self_id: comp,
+                        id: client_match,
                     });
                 }
             },
@@ -272,5 +296,22 @@ pub fn make_json_client(client: &Client) -> JsonClient<'_> {
         comm: client.comm.as_deref(),
         exe: client.exe.as_deref(),
         tag: client.tag.as_deref(),
+    }
+}
+
+impl MatchSource {
+    fn parse_client_match(&self, tc: &ToolClient, strict: bool) -> ClientMatch {
+        let mut source = vec![];
+        let path = self.read(&mut source);
+        let warnings = tc.logger.warnings();
+        match parse_client_match(&source) {
+            Ok(m) => {
+                if strict && tc.logger.warnings() > warnings {
+                    fatal!("Aborting due to warnings");
+                }
+                m
+            }
+            Err(e) => fatal!("Could not parse {path}: {}", ErrorFmt(&*e)),
+        }
     }
 }

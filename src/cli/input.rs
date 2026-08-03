@@ -628,7 +628,7 @@ impl Input {
                 tc.send(jay_input::UseHardwareCursor {
                     self_id: input,
                     seat: &args.seat,
-                    use_hardware_cursor: a.enabled as _,
+                    use_hardware_cursor: a.enabled,
                 });
             }
             SeatCommand::Keymap => {
@@ -660,7 +660,7 @@ impl Input {
                     tc.send(jay_input::SetSimpleImEnabled {
                         self_id: input,
                         seat: &args.seat,
-                        enabled: matches!(a.command, SimpleImCommand::Enable) as _,
+                        enabled: matches!(a.command, SimpleImCommand::Enable),
                     });
                 }
                 SimpleImCommand::Reload => {
@@ -750,7 +750,7 @@ impl Input {
                 tc.send(jay_input::SetTapEnabled {
                     self_id: input,
                     id: args.device,
-                    enabled: a.enabled as _,
+                    enabled: a.enabled,
                 });
             }
             DeviceCommand::SetTapDragEnabled(a) => {
@@ -760,7 +760,7 @@ impl Input {
                 tc.send(jay_input::SetTapDragEnabled {
                     self_id: input,
                     id: args.device,
-                    enabled: a.enabled as _,
+                    enabled: a.enabled,
                 });
             }
             DeviceCommand::SetTapDragLockEnabled(a) => {
@@ -770,7 +770,7 @@ impl Input {
                 tc.send(jay_input::SetTapDragLockEnabled {
                     self_id: input,
                     id: args.device,
-                    enabled: a.enabled as _,
+                    enabled: a.enabled,
                 });
             }
             DeviceCommand::SetLeftHanded(a) => {
@@ -780,7 +780,7 @@ impl Input {
                 tc.send(jay_input::SetLeftHanded {
                     self_id: input,
                     id: args.device,
-                    enabled: a.left_handed as _,
+                    enabled: a.left_handed,
                 });
             }
             DeviceCommand::SetNaturalScrolling(a) => {
@@ -790,7 +790,7 @@ impl Input {
                 tc.send(jay_input::SetNaturalScrolling {
                     self_id: input,
                     id: args.device,
-                    enabled: a.natural_scrolling as _,
+                    enabled: a.natural_scrolling,
                 });
             }
             DeviceCommand::SetPxPerWheelScroll(a) => {
@@ -936,7 +936,7 @@ impl Input {
                 tc.send(jay_input::SetMiddleButtonEmulation {
                     self_id: input,
                     id: args.device,
-                    enabled: a.middle_button_emulation as _,
+                    enabled: a.middle_button_emulation,
                 });
             }
             DeviceCommand::SetKeymapFromNames(a) => {
@@ -994,7 +994,7 @@ impl Input {
                 tc.send(jay_input::SetScrollButtonLock {
                     self_id: input,
                     id: args.device,
-                    enabled: a.enabled as u32,
+                    enabled: a.enabled,
                 });
             }
         }
@@ -1205,7 +1205,7 @@ impl Input {
                 name: msg.name.to_string(),
                 repeat_rate: msg.repeat_rate,
                 repeat_delay: msg.repeat_delay,
-                hardware_cursor: msg.hardware_cursor != 0,
+                hardware_cursor: msg.hardware_cursor,
             });
         });
         jay_input::InputDevice::handle(tc, input, data.clone(), |data, msg| {
@@ -1229,10 +1229,10 @@ impl Input {
                 };
                 capabilities.push(cap);
             }
-            let accel_available = msg.accel_available != 0;
-            let tap_available = msg.tap_available != 0;
-            let left_handed_available = msg.left_handed_available != 0;
-            let natural_scrolling_available = msg.natural_scrolling_available != 0;
+            let accel_available = msg.accel_available;
+            let tap_available = msg.tap_available;
+            let left_handed_available = msg.left_handed_available;
+            let natural_scrolling_available = msg.natural_scrolling_available;
             let mut accel_profile = match AccelProfile(msg.accel_profile) {
                 LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT => Some(InputDeviceAccelProfile::Flat),
                 LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE => Some(InputDeviceAccelProfile::Adaptive),
@@ -1251,12 +1251,12 @@ impl Input {
                 capabilities,
                 accel_profile,
                 accel_speed: accel_available.then_some(msg.accel_speed),
-                tap_enabled: tap_available.then_some(msg.tap_enabled != 0),
-                tap_drag_enabled: tap_available.then_some(msg.tap_drag_enabled != 0),
-                tap_drag_lock_enabled: tap_available.then_some(msg.tap_drag_lock_enabled != 0),
-                left_handed: left_handed_available.then_some(msg.left_handed != 0),
+                tap_enabled: tap_available.then_some(msg.tap_enabled),
+                tap_drag_enabled: tap_available.then_some(msg.tap_drag_enabled),
+                tap_drag_lock_enabled: tap_available.then_some(msg.tap_drag_lock_enabled),
+                left_handed: left_handed_available.then_some(msg.left_handed),
                 natural_scrolling_enabled: natural_scrolling_available
-                    .then_some(msg.natural_scrolling_enabled != 0),
+                    .then_some(msg.natural_scrolling_enabled),
                 px_per_wheel_scroll: is_pointer.then_some(msg.px_per_wheel_scroll),
                 transform_matrix: uapi::pod_read(msg.transform_matrix).ok(),
                 output: None,
@@ -1301,8 +1301,7 @@ impl Input {
         jay_input::MiddleButtonEmulation::handle(tc, input, data.clone(), |data, msg| {
             let mut data = data.borrow_mut();
             if let Some(last) = data.input_device.last_mut() {
-                last.middle_button_emulation_enabled =
-                    Some(msg.middle_button_emulation_enabled != 0);
+                last.middle_button_emulation_enabled = Some(msg.middle_button_emulation_enabled);
             }
         });
         jay_input::ScrollMethods::handle(tc, input, data.clone(), |data, msg| {
@@ -1329,7 +1328,7 @@ impl Input {
         jay_input::ScrollButtonLock::handle(tc, input, data.clone(), |data, msg| {
             let mut data = data.borrow_mut();
             if let Some(last) = data.input_device.last_mut() {
-                last.scroll_button_lock = Some(msg.enabled != 0);
+                last.scroll_button_lock = Some(msg.enabled);
             }
         });
         tc.round_trip().await;

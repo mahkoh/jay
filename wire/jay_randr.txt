@@ -19,7 +19,7 @@ request make_render_device {
 
 request set_direct_scanout {
     dev: str,
-    enabled: u32,
+    enabled: bool,
 }
 
 request set_transform {
@@ -47,7 +47,7 @@ request set_position {
 
 request set_enabled {
     output: str,
-    enabled: u32,
+    enabled: bool,
 }
 
 request set_non_desktop {
@@ -102,7 +102,7 @@ request set_blend_space (since = 21) {
 
 request set_use_native_gamut (since = 23) {
     output: str,
-    use_native_gamut: u32,
+    use_native_gamut: bool,
 }
 
 request create_virtual_output (since = 30) {
@@ -120,7 +120,7 @@ request set_scaling_filter (since = 37) {
 
 request set_plane_color_pipelines (since = 38) {
     dev: str,
-    enabled: u32,
+    enabled: bool,
 }
 
 # events
@@ -138,14 +138,14 @@ event drm_device {
     model_name: str,
     devnode: str,
     gfx_api: str,
-    render_device: u32,
+    render_device: bool,
 }
 
 event connector {
     id: pod(u64),
     drm_device: pod(u64),
     name: str,
-    enabled: u32,
+    enabled: bool,
 }
 
 event output {
@@ -166,7 +166,7 @@ event mode {
     width: i32,
     height: i32,
     refresh_rate_millihz: u32,
-    current: u32,
+    current: bool,
 }
 
 event error {
@@ -182,8 +182,8 @@ event non_desktop_output {
 }
 
 event vrr_state (since = 2) {
-    capable: u32,
-    enabled: u32,
+    capable: bool,
+    enabled: bool,
     mode: u32,
 }
 
@@ -197,7 +197,7 @@ event tearing_state (since = 3) {
 
 event fb_format (since = 8) {
     name: str,
-    current: u32,
+    current: bool,
 }
 
 event flip_margin (since = 10) {
@@ -256,6 +256,6 @@ event scaling_filter (since = 37) {
 }
 
 event plane_color_pipelines (since = 38) {
-    enabled: u32,
-    supported: u32,
+    enabled: bool,
+    supported: bool,
 }

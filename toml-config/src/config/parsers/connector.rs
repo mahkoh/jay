@@ -28,9 +28,9 @@ pub enum ConnectorParserError {
     Match(#[from] ConnectorMatchParserError),
 }
 
-pub struct ConnectorParser<'a, 'b>(pub &'a Context<'b>);
+pub struct ConnectorParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for ConnectorParser<'_, '_> {
+impl Parser for ConnectorParser<'_, '_, '_> {
     type Value = ConfigConnector;
     type Error = ConnectorParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
@@ -49,9 +49,9 @@ impl Parser for ConnectorParser<'_, '_> {
     }
 }
 
-pub struct ConnectorsParser<'a, 'b>(pub &'a Context<'b>);
+pub struct ConnectorsParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
-impl Parser for ConnectorsParser<'_, '_> {
+impl Parser for ConnectorsParser<'_, '_, '_> {
     type Value = Vec<ConfigConnector>;
     type Error = ConnectorParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table, DataType::Array];

@@ -23,7 +23,7 @@ pub enum FocusHistoryParserError {
     Extract(#[from] ExtractorError),
 }
 
-pub struct FocusHistoryParser<'a, 'b>(pub &'a Context<'b>);
+pub struct FocusHistoryParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
 #[derive(Debug, Clone)]
 pub struct FocusHistory {
@@ -31,7 +31,7 @@ pub struct FocusHistory {
     pub same_workspace: Option<bool>,
 }
 
-impl Parser for FocusHistoryParser<'_, '_> {
+impl Parser for FocusHistoryParser<'_, '_, '_> {
     type Value = FocusHistory;
     type Error = FocusHistoryParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];

@@ -1,6 +1,7 @@
 use crate::async_engine::AsyncEngine;
 use crate::async_engine::SpawnedFuture;
 use crate::client::EventFormatter;
+use crate::client::MIN_SERVER_ID;
 use crate::client::RequestParser;
 use crate::env::WAYLAND_DISPLAY;
 use crate::env::XDG_RUNTIME_DIR;
@@ -30,23 +31,37 @@ use crate::utils::oserror::OsError;
 use crate::utils::oserror::OsErrorExt2;
 use crate::wheel::Wheel;
 use crate::wheel::WheelError;
+use crate::wire::JayClientMatchBuilderId;
+use crate::wire::JayClientMatchId;
 use crate::wire::JayCompositor;
 use crate::wire::JayCompositorId;
 use crate::wire::JayDamageTracking;
 use crate::wire::JayDamageTrackingId;
+use crate::wire::JayGenericMatchBuilderId;
 use crate::wire::JayToplevelId;
+use crate::wire::JayWindowMatchBuilderId;
+use crate::wire::JayWindowMatchId;
 use crate::wire::JayWorkspaceId;
 use crate::wire::WlCallbackId;
 use crate::wire::WlRegistryId;
 use crate::wire::WlSeatId;
+use crate::wire::jay_client_match_builder;
 use crate::wire::jay_compositor;
+use crate::wire::jay_compositor::CreateClientMatchBuilder;
+use crate::wire::jay_compositor::CreateWindowMatchBuilder;
+use crate::wire::jay_compositor::EnableSymmetricDelete;
+use crate::wire::jay_generic_match_builder;
 use crate::wire::jay_select_toplevel;
 use crate::wire::jay_select_workspace;
 use crate::wire::jay_toplevel;
+use crate::wire::jay_window_match_builder;
 use crate::wire::wl_callback;
 use crate::wire::wl_display;
 use crate::wire::wl_registry;
 use isnt::std_1::primitive::IsntSliceExt;
+use jay_toml_config::ClientMatch;
+use jay_toml_config::GenericMatch;
+use jay_toml_config::WindowMatch;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -86,7 +101,7 @@ pub enum ToolClientError {
 }
 
 pub struct ToolClient {
-    pub _logger: Arc<Logger>,
+    pub logger: Arc<Logger>,
     pub ring: Rc<IoUring>,
     pub _wheel: Rc<Wheel>,
     pub eng: Rc<AsyncEngine>,
@@ -128,6 +143,7 @@ where
     F: FnOnce(Rc<ToolClient>) -> T + 'static,
     T: Future<Output = ()> + 'static,
 {
+    reset_sigpipe();
     let logger = Logger::install_stderr(initial_log_level());
     let eng = AsyncEngine::new();
     let ring = match IoUring::new(&eng, 32) {
@@ -148,6 +164,12 @@ where
         fatal!("A fatal error occurred: {}", ErrorFmt(e));
     }
     Ok(())
+}
+
+fn reset_sigpipe() {
+    unsafe {
+        c::signal(c::SIGPIPE, c::SIG_DFL);
+    }
 }
 
 impl ToolClient {
@@ -191,7 +213,7 @@ impl ToolClient {
         obj_ids.take(0);
         obj_ids.take(1);
         let slf = Rc::new(Self {
-            _logger: logger,
+            logger,
             ring,
             _wheel: wheel,
             eng,
@@ -213,7 +235,9 @@ impl ToolClient {
         });
         wl_display::DeleteId::handle(&slf, WL_DISPLAY_ID, slf.clone(), |tc, val| {
             tc.handlers.borrow_mut().remove(&ObjectId::from_raw(val.id));
-            tc.obj_ids.borrow_mut().release(val.id);
+            if val.id < MIN_SERVER_ID {
+                tc.obj_ids.borrow_mut().release(val.id);
+            }
         });
         slf.incoming.set(Some(
             slf.eng.spawn(
@@ -236,6 +260,9 @@ impl ToolClient {
                 .run(),
             ),
         ));
+        slf.send(EnableSymmetricDelete {
+            self_id: slf.jay_compositor().await,
+        });
         Ok(slf)
     }
 
@@ -350,7 +377,7 @@ impl ToolClient {
             self_id: s.registry,
             name: s.jay_compositor.0,
             interface: JayCompositor.name(),
-            version: s.jay_compositor.1.min(38),
+            version: s.jay_compositor.1.min(39),
             id: id.into(),
         });
         self.jay_compositor.set(Some(id));
@@ -583,5 +610,256 @@ impl Incoming {
             handler(&mut parser)?;
         }
         Ok(())
+    }
+}
+
+macro_rules! declare_matcher_macros {
+    ($slf:expr, $module:ident, $gmb:expr, $cmb:expr) => {
+        declare_matcher_macros!($slf, $module, $gmb, $cmb, $);
+    };
+    ($slf:expr, $module:ident, $gmb:expr, $cmb:expr, $dol:tt) => {
+        #[allow(clippy::allow_attributes, unused_macros)]
+        macro_rules! str {
+            ($dol s:ident, $dol regex:ident, $dol m:ident $dol (,)?) => {
+                if let Some(v) = $dol s {
+                    $slf.send($module::$dol m {
+                        self_id: $cmb,
+                        v,
+                        regex: false,
+                    });
+                }
+                if let Some(v) = $dol regex {
+                    $slf.send($module::$dol m {
+                        self_id: $cmb,
+                        v,
+                        regex: true,
+                    });
+                }
+            };
+        }
+        #[allow(clippy::allow_attributes, unused_macros)]
+        macro_rules! bool {
+            ($dol s:ident, $dol m:ident) => {
+                if let Some(v) = *$dol s {
+                    $slf.send($module::$dol m { self_id: $cmb });
+                    $slf.generic_match_bool($gmb, v);
+                }
+            };
+        }
+        #[allow(clippy::allow_attributes, unused_macros)]
+        macro_rules! num {
+            ($dol s:ident, $dol m:ident) => {
+                if let Some(v) = *$dol s {
+                    $slf.send($module::$dol m { self_id: $cmb, v });
+                }
+            };
+        }
+        #[allow(clippy::allow_attributes, unused_macros)]
+        macro_rules! num2 {
+            ($dol s:ident, $dol m:ident) => {
+                if let Some(v) = *$dol s {
+                    $slf.send($module::$dol m { self_id: $cmb, v: v.0 });
+                }
+            };
+        }
+    };
+}
+
+impl ToolClient {
+    fn generic_match_bool(&self, gmb: JayGenericMatchBuilderId, v: bool) {
+        if !v {
+            self.send(jay_generic_match_builder::Not { self_id: gmb });
+        }
+    }
+
+    fn generic_match<T>(&self, gmb: JayGenericMatchBuilderId, m: &GenericMatch<T>, f: impl Fn(&T)) {
+        if let Some(v) = &m.not {
+            self.create_match(gmb, || f(v));
+            self.send(jay_generic_match_builder::Not { self_id: gmb });
+        }
+        macro_rules! list {
+            ($f:ident, $all:expr) => {
+                if let Some(v) = &m.$f {
+                    self.send(jay_generic_match_builder::Nest { self_id: gmb });
+                    for v in v {
+                        self.create_match(gmb, || f(v));
+                    }
+                    self.send(jay_generic_match_builder::List {
+                        self_id: gmb,
+                        all: $all,
+                    });
+                }
+            };
+        }
+        list!(all, true);
+        list!(any, false);
+        if let Some(v) = &m.exactly {
+            self.send(jay_generic_match_builder::Nest { self_id: gmb });
+            for v in &v.list {
+                self.create_match(gmb, || f(v));
+            }
+            self.send(jay_generic_match_builder::Exactly {
+                self_id: gmb,
+                n: v.num,
+            });
+        }
+    }
+
+    fn create_match(&self, gmb: JayGenericMatchBuilderId, f: impl FnOnce()) {
+        self.send(jay_generic_match_builder::Nest { self_id: gmb });
+        f();
+        self.send(jay_generic_match_builder::List {
+            self_id: gmb,
+            all: true,
+        });
+    }
+
+    fn create_client_match_(
+        &self,
+        gmb: JayGenericMatchBuilderId,
+        cmb: JayClientMatchBuilderId,
+        m: &ClientMatch,
+    ) {
+        declare_matcher_macros!(self, jay_client_match_builder, gmb, cmb);
+
+        let ClientMatch {
+            generic,
+            sandbox_engine,
+            sandbox_engine_regex,
+            sandbox_app_id,
+            sandbox_app_id_regex,
+            sandbox_instance_id,
+            sandbox_instance_id_regex,
+            sandboxed,
+            uid,
+            pid,
+            is_xwayland,
+            comm,
+            comm_regex,
+            exe,
+            exe_regex,
+            tag,
+            tag_regex,
+        } = m;
+
+        self.generic_match(gmb, generic, |m| self.create_client_match_(gmb, cmb, m));
+        str!(sandbox_engine, sandbox_engine_regex, SandboxEngine);
+        str!(sandbox_app_id, sandbox_app_id_regex, SandboxAppId);
+        str!(
+            sandbox_instance_id,
+            sandbox_instance_id_regex,
+            SandboxInstanceId,
+        );
+        str!(comm, comm_regex, Comm);
+        str!(exe, exe_regex, Exe);
+        str!(tag, tag_regex, Tag);
+        bool!(sandboxed, Sandboxed);
+        bool!(is_xwayland, IsXwayland);
+        num!(pid, Pid);
+        num!(uid, Uid);
+    }
+
+    pub fn create_client_match(&self, comp: JayCompositorId, m: &ClientMatch) -> JayClientMatchId {
+        let gmb = self.id();
+        let cmb = self.id();
+        self.send(CreateClientMatchBuilder {
+            self_id: comp,
+            gmb,
+            cmb,
+        });
+        self.create_match(gmb, || self.create_client_match_(gmb, cmb, m));
+        let jcm = self.id();
+        self.send(jay_client_match_builder::Get {
+            self_id: cmb,
+            id: jcm,
+        });
+        self.send(jay_generic_match_builder::Destroy { self_id: gmb });
+        self.send(jay_client_match_builder::Destroy { self_id: cmb });
+        jcm
+    }
+
+    fn create_window_match_(
+        self: &Rc<Self>,
+        comp: JayCompositorId,
+        gmb: JayGenericMatchBuilderId,
+        cmb: JayWindowMatchBuilderId,
+        m: &WindowMatch,
+    ) {
+        declare_matcher_macros!(self, jay_window_match_builder, gmb, cmb);
+
+        let WindowMatch {
+            generic,
+            types,
+            client,
+            title,
+            title_regex,
+            app_id,
+            app_id_regex,
+            floating,
+            visible,
+            urgent,
+            focused,
+            fullscreen,
+            just_mapped,
+            tag,
+            tag_regex,
+            x_class,
+            x_class_regex,
+            x_instance,
+            x_instance_regex,
+            x_role,
+            x_role_regex,
+            workspace,
+            workspace_regex,
+            content_types,
+        } = m;
+
+        self.generic_match(gmb, generic, |m| {
+            self.create_window_match_(comp, gmb, cmb, m)
+        });
+        if let Some(c) = client {
+            self.send(jay_window_match_builder::Client {
+                self_id: cmb,
+                v: self.create_client_match(comp, c),
+            });
+        }
+        str!(title, title_regex, Title);
+        str!(app_id, app_id_regex, AppId);
+        str!(tag, tag_regex, Tag);
+        str!(x_class, x_class_regex, XClass);
+        str!(x_instance, x_instance_regex, XInstance);
+        str!(x_role, x_role_regex, XRole);
+        str!(workspace, workspace_regex, Workspace);
+        bool!(floating, Floating);
+        bool!(visible, Visible);
+        bool!(urgent, Urgent);
+        bool!(focused, Focused);
+        bool!(fullscreen, Fullscreen);
+        bool!(just_mapped, JustMapped);
+        num2!(types, Types);
+        num2!(content_types, ContentTypes);
+    }
+
+    pub fn create_window_match(
+        self: &Rc<Self>,
+        comp: JayCompositorId,
+        m: &WindowMatch,
+    ) -> JayWindowMatchId {
+        let gmb = self.id();
+        let cmb = self.id();
+        self.send(CreateWindowMatchBuilder {
+            self_id: comp,
+            gmb,
+            cmb,
+        });
+        self.create_match(gmb, || self.create_window_match_(comp, gmb, cmb, m));
+        let jcm = self.id();
+        self.send(jay_window_match_builder::Get {
+            self_id: cmb,
+            id: jcm,
+        });
+        self.send(jay_generic_match_builder::Destroy { self_id: gmb });
+        self.send(jay_window_match_builder::Destroy { self_id: cmb });
+        jcm
     }
 }

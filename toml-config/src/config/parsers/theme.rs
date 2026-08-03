@@ -22,7 +22,7 @@ use jay_config::theme::BarPosition;
 use jay_config::theme::ContainerBorders;
 use thiserror::Error;
 
-pub struct ThemeParser<'a, 'b>(pub &'a Context<'b>);
+pub struct ThemeParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
 #[derive(Debug, Error)]
 pub enum ThemeParserError {
@@ -32,7 +32,7 @@ pub enum ThemeParserError {
     Extractor(#[from] ExtractorError),
 }
 
-impl Parser for ThemeParser<'_, '_> {
+impl Parser for ThemeParser<'_, '_, '_> {
     type Value = Theme;
     type Error = ThemeParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
