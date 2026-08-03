@@ -1844,9 +1844,6 @@ impl MetalBackend {
         if !dev.dev.supports_kms {
             return Ok(());
         }
-        if let Err(e) = self.update_device_properties(dev) {
-            return Err(MetalError::UpdateProperties(e));
-        }
         let res = dev.dev.master.get_resources()?;
         let current_connectors: BHashSet<_> = res.connectors.iter().copied().collect();
         let mut new_connectors = BHashSet::default();
@@ -1883,6 +1880,9 @@ impl MetalBackend {
                 }
                 c.send_event(ConnectorEvent::Removed);
             }
+        }
+        if let Err(e) = self.update_device_properties(dev) {
+            return Err(MetalError::UpdateProperties(e));
         }
         for c in dev.connectors.lock().values() {
             let dd = create_connector_display_data(c.id, &dev.dev);
