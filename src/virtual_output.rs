@@ -346,10 +346,11 @@ impl VirtualOutputs {
     }
 
     pub fn handle_render_ctx_change(&self, state: &State) {
-        let formats = match state.render_ctx.get() {
+        let mut formats = match state.render_ctx.get() {
             None => vec![],
             Some(c) => c.formats().values().map(|f| f.format).collect(),
         };
+        formats.sort_by_key(|f| f.name);
         self.formats.set(Rc::new(formats));
         for o in self.outputs.lock().values() {
             o.handle_render_ctx_change();

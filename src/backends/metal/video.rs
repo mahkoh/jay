@@ -751,6 +751,7 @@ impl MetalConnector {
         if let Some(plane) = self.primary_plane.get() {
             formats = plane.formats.values().map(|f| f.format).collect();
         }
+        formats.sort_by_key(|f| f.name);
         let formats = Rc::new(formats);
         self.send_event(ConnectorEvent::FormatsChanged(formats));
     }
