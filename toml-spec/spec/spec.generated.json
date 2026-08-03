@@ -2570,6 +2570,42 @@
         "variant3"
       ]
     },
+    "WindowFloatingPosition": {
+      "description": "The initial position of a floating window.\n\n- Example:\n\n  ```toml\n  [[windows]]\n  match.app-id = \"mpv\"\n  initial-floating-position = { x = 100, y = 100 }\n  ```\n",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer",
+          "description": "The x coordinate of the window."
+        },
+        "y": {
+          "type": "integer",
+          "description": "The y coordinate of the window."
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "WindowFloatingSize": {
+      "description": "The initial size of a floating window.\n\n- Example:\n\n  ```toml\n  [[windows]]\n  match.app-id = \"mpv\"\n  initial-floating-size = { width = 800, height = 600 }\n  ```\n",
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "integer",
+          "description": "The width of the window."
+        },
+        "height": {
+          "type": "integer",
+          "description": "The height of the window."
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ]
+    },
     "WindowMatch": {
       "description": "Criteria for matching windows.\n\nIf no fields are set, all windows are matched. If multiple fields are set, all fields\nmust match the window.\n",
       "type": "object",
@@ -2746,6 +2782,14 @@
         "initial-tile-state": {
           "description": "Specifies if the window is initially mapped tiled or floating.",
           "$ref": "#/$defs/TileState"
+        },
+        "initial-floating-size": {
+          "description": "Specifies the initial size of the window while it is floating.\n\nIf multiple matching rules specify this field, the used size is unspecified.\n",
+          "$ref": "#/$defs/WindowFloatingSize"
+        },
+        "initial-floating-position": {
+          "description": "Specifies the initial position of the window while it is floating.\n\nIf multiple matching rules specify this field, the used position is unspecified.\n",
+          "$ref": "#/$defs/WindowFloatingPosition"
         }
       },
       "required": []

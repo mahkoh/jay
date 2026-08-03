@@ -58,6 +58,7 @@ mod tile_state;
 pub mod transactions;
 mod ui_drag;
 mod vrr;
+mod window_floating_geometry;
 pub mod window_match;
 mod window_rule;
 mod window_type;
