@@ -39,7 +39,6 @@ impl Storage {
     }
 }
 
-#[expect(dead_code)]
 pub fn spaces(n: usize) -> Spaces {
     let ptr = STORAGE.get();
     if ptr.is_not_null() {

@@ -80,6 +80,7 @@ pub mod smallmap;
 pub mod spaces;
 pub mod stack;
 pub mod static_text;
+pub mod str_fmt;
 pub mod str_table;
 pub mod string_ext;
 pub mod syncqueue;

@@ -856,6 +856,7 @@ dependencies = [
  "humantime",
  "indexmap",
  "isnt",
+ "itoa",
  "jay-algorithms",
  "jay-ash",
  "jay-config",
@@ -887,6 +888,7 @@ dependencies = [
  "uapi",
  "walkdir",
  "with_builtin_macros",
+ "zmij",
 ]
 
 [[package]]
