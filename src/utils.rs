@@ -40,6 +40,7 @@ pub mod linkedlist;
 pub mod log_on_drop;
 pub mod major_minor;
 pub mod markers;
+pub mod maybe_uninit;
 pub mod mmap;
 pub mod nice;
 pub mod nonblock;
