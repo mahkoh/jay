@@ -234,9 +234,9 @@ impl ToolClient {
             fatal!("The compositor returned a fatal error: {}", val.message);
         });
         wl_display::DeleteId::handle(&slf, WL_DISPLAY_ID, slf.clone(), |tc, val| {
-            tc.handlers.borrow_mut().remove(&ObjectId::from_raw(val.id));
-            if val.id < MIN_SERVER_ID {
-                tc.obj_ids.borrow_mut().release(val.id);
+            tc.handlers.borrow_mut().remove(&val.id);
+            if val.id.raw() < MIN_SERVER_ID {
+                tc.obj_ids.borrow_mut().release(val.id.raw());
             }
         });
         slf.incoming.set(Some(

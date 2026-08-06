@@ -19,7 +19,7 @@ impl WlDisplayEventHandler for UsrWlDisplay {
     }
 
     fn delete_id(&self, ev: DeleteId, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.con.release_id(ev.id);
+        self.con.release_id(ev.id.raw());
         Ok(())
     }
 }

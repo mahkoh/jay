@@ -88,7 +88,7 @@ impl WlDisplay {
     pub fn send_delete_id(self: &Rc<Self>, id: ObjectId) {
         self.client.event(DeleteId {
             self_id: self.id,
-            id: id.raw(),
+            id,
         })
     }
 }
