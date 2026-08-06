@@ -69,6 +69,7 @@ pub mod process_name;
 pub mod ptr_ext;
 pub mod queue;
 pub mod rc_eq;
+pub mod read_ext;
 pub mod refcounted;
 pub mod reset;
 pub mod run_toplevel;
