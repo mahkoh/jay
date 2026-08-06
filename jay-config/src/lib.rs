@@ -232,6 +232,22 @@ impl Workspace {
     pub fn set_initial_connector(self, connector: Option<Connector>) {
         get!().set_workspace_initial_connector(self, connector);
     }
+
+    /// Returns the position of the workspace in the global compositor space.
+    ///
+    /// This value is only accurate for visible workspaces.
+    pub fn position(self) -> (i32, i32) {
+        let (x, y, _, _) = get!((0, 0)).get_workspace_position(self);
+        (x, y)
+    }
+
+    /// Returns the size of the workspace.
+    ///
+    /// This value is only accurate for visible workspaces.
+    pub fn size(self) -> (i32, i32) {
+        let (_, _, width, height) = get!((0, 0)).get_workspace_position(self);
+        (width, height)
+    }
 }
 
 /// Returns the workspace with the given name.

@@ -643,6 +643,36 @@ impl ConfigClient {
         workspace
     }
 
+    pub fn get_window_position(&self, window: Window) -> (i32, i32, i32, i32) {
+        let res = self.send_with_response(&ClientMessage::GetWindowPosition { window });
+        get_response!(
+            res,
+            (0, 0, 0, 0),
+            GetWindowPosition {
+                x,
+                y,
+                width,
+                height
+            }
+        );
+        (x, y, width, height)
+    }
+
+    pub fn get_workspace_position(&self, workspace: Workspace) -> (i32, i32, i32, i32) {
+        let res = self.send_with_response(&ClientMessage::GetWorkspacePosition { workspace });
+        get_response!(
+            res,
+            (0, 0, 0, 0),
+            GetWorkspacePosition {
+                x,
+                y,
+                width,
+                height
+            }
+        );
+        (x, y, width, height)
+    }
+
     pub fn get_seat_keyboard_workspace(&self, seat: Seat) -> Workspace {
         let res = self.send_with_response(&ClientMessage::GetSeatKeyboardWorkspace { seat });
         get_response!(res, Workspace(0), GetSeatKeyboardWorkspace { workspace });
