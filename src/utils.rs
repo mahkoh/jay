@@ -64,6 +64,7 @@ pub mod pending_serial;
 pub mod pid_info;
 pub mod pidfd_send_signal;
 pub mod pipe;
+pub mod pread;
 pub mod process_name;
 pub mod ptr_ext;
 pub mod queue;
