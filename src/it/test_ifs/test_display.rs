@@ -4,7 +4,6 @@ use crate::it::test_object::TestObject;
 use crate::it::test_transport::TestTransport;
 use crate::it::testrun::ParseFull;
 use crate::utils::buffd::MsgParser;
-use crate::wire::ObjectId;
 use crate::wire::WlDisplayId;
 use crate::wire::wl_display::*;
 use std::rc::Rc;
@@ -25,7 +24,7 @@ impl TestDisplay {
 
     fn handle_delete_id(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
         let ev = DeleteId::parse_full(parser)?;
-        match self.tran.objects.remove(&ObjectId::from_raw(ev.id)) {
+        match self.tran.objects.remove(&ev.id) {
             None => {
                 bail!(
                     "Compositor sent delete_id for object {} which does not exist",
@@ -34,8 +33,8 @@ impl TestDisplay {
             }
             Some(obj) => {
                 obj.on_remove(&self.tran);
-                if ev.id < MIN_SERVER_ID {
-                    self.tran.obj_ids.borrow_mut().release(ev.id);
+                if ev.id.raw() < MIN_SERVER_ID {
+                    self.tran.obj_ids.borrow_mut().release(ev.id.raw());
                 }
             }
         }
