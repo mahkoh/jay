@@ -1,6 +1,8 @@
 mod parser;
 
 use crate::open;
+use crate::str_table::Interned;
+use crate::str_table::intern;
 use crate::wire::parser::Field;
 use crate::wire::parser::Lined;
 use crate::wire::parser::Message;
@@ -69,7 +71,7 @@ fn write_message_type<W: Write>(
         f,
         "    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {{"
     )?;
-    write!(f, r#"        write!(fmt, "{}("#, message.name)?;
+    write!(f, r#"        write!(fmt, "{{}}("#)?;
     for (i, field) in message.fields.iter().enumerate() {
         if i > 0 {
             write!(f, ", ")?;
@@ -78,11 +80,11 @@ fn write_message_type<W: Write>(
             Type::OptStr | Type::Str | Type::Fd | Type::Array(..) => "{:?}",
             _ => "{}",
         };
-        write!(f, "{}: {}", field.val.name, formatter)?;
+        write!(f, "{{}}: {}", formatter)?;
     }
-    write!(f, r#")""#)?;
+    write!(f, r#")", {}"#, message.name)?;
     for field in &message.fields {
-        write!(f, ", self.{}", field.val.name)?;
+        write!(f, ", {}, self.{}", field.val.name_interned, field.val.name)?;
     }
     writeln!(f, r")")?;
     writeln!(f, "    }}")?;
@@ -92,7 +94,7 @@ fn write_message_type<W: Write>(
 
 fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()> {
     let has_reference_type = message.has_reference_type;
-    let uppercase = message.name.to_ascii_uppercase();
+    let uppercase = message.name.raw().to_ascii_uppercase();
     writeln!(f)?;
     writeln!(f, "pub const {}: u32 = {};", uppercase, message.id)?;
     write_message_type(f, obj, message, has_reference_type)?;
@@ -278,7 +280,7 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
     }
     writeln!(f, "    }}")?;
     writeln!(f, "    fn id(&self) -> ObjectId {{")?;
-    writeln!(f, "        self.self_id.into()")?;
+    writeln!(f, "        ObjectId(self.self_id.0)")?;
     writeln!(f, "    }}")?;
     writeln!(f, "    fn interface(&self) -> Interface {{")?;
     writeln!(f, "        {}", obj)?;
@@ -371,7 +373,7 @@ fn write_request_handler<W: Write>(
                 write!(f, "if self.version() >= {since} ")?;
             }
             writeln!(f, "=> {{")?;
-            writeln!(f, "                method = \"{}\";", msg.name)?;
+            writeln!(f, "                method = {};", msg.name)?;
             writeln!(f, "                match client.parse(&*self, parser) {{")?;
             writeln!(
                 f,
@@ -403,7 +405,7 @@ fn write_request_handler<W: Write>(
 }
 
 struct ParsedFile {
-    obj_name: String,
+    obj_name: Interned,
     camel_obj_name: String,
     messages: ParseResult,
 }
@@ -418,7 +420,7 @@ fn parse_file(file: &DirEntry, interface_names: &mut Vec<String>) -> Result<Pars
     let contents = std::fs::read(file.path())?;
     let messages = parse_messages(&contents)?;
     Ok(ParsedFile {
-        obj_name: obj_name.to_string(),
+        obj_name: intern(obj_name),
         camel_obj_name,
         messages,
     })
@@ -435,13 +437,13 @@ fn write_file(f: &mut impl Write, file: &ParsedFile) -> Result<()> {
     writeln!(f)?;
     writeln!(
         f,
-        "pub const {}: Interface = Interface(\"{}\");",
+        "pub const {}: Interface = Interface({});",
         camel_obj_name, obj_name
     )?;
     writeln!(f)?;
-    writeln!(f, "pub mod {};", obj_name)?;
+    writeln!(f, "pub mod {};", obj_name.raw())?;
     {
-        let f = &mut open(&format!("wire/{obj_name}.rs"))?;
+        let f = &mut open(&format!("wire/{}.rs", obj_name.raw()))?;
         writeln!(f, "use super::*;")?;
         for message in messages.messages() {
             write_message(f, camel_obj_name, &message.val)?;
@@ -472,11 +474,12 @@ pub fn main() -> Result<()> {
     writeln!(f, "use bstr::BStr;")?;
     writeln!(f, "use crate::fixed::Fixed;")?;
     writeln!(f, "use crate::client::{{EventFormatter, RequestParser}};")?;
-    writeln!(f, "use crate::object::{{ObjectId, Interface}};")?;
+    writeln!(f, "use crate::object::Interface;")?;
     writeln!(
         f,
         "use crate::utils::buffd::{{MsgFormatter, MsgParser, MsgParserError}};"
     )?;
+    writeln!(f, "use crate::utils::str_table::StrAccess;")?;
     println!("cargo:rerun-if-changed=wire");
     let mut files = vec![];
     for file in std::fs::read_dir("wire")? {

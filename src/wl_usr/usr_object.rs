@@ -1,7 +1,7 @@
 use crate::object::Interface;
-use crate::object::ObjectId;
 use crate::object::Version;
 use crate::utils::buffd::MsgParser;
+use crate::wire::ObjectId;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::UsrConError;
 use std::rc::Rc;

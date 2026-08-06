@@ -13,5 +13,5 @@ event error {
 }
 
 event delete_id {
-    id: u32,
+    id: id(object),
 }

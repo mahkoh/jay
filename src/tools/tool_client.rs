@@ -9,7 +9,6 @@ use crate::env::initial_log_level;
 use crate::io_uring::IoUring;
 use crate::io_uring::IoUringError;
 use crate::logger::Logger;
-use crate::object::ObjectId;
 use crate::object::Version;
 use crate::object::WL_DISPLAY_ID;
 use crate::utils::asyncevent::AsyncEvent;
@@ -42,6 +41,7 @@ use crate::wire::JayToplevelId;
 use crate::wire::JayWindowMatchBuilderId;
 use crate::wire::JayWindowMatchId;
 use crate::wire::JayWorkspaceId;
+use crate::wire::ObjectId;
 use crate::wire::WlCallbackId;
 use crate::wire::WlRegistryId;
 use crate::wire::WlSeatId;
@@ -234,9 +234,9 @@ impl ToolClient {
             fatal!("The compositor returned a fatal error: {}", val.message);
         });
         wl_display::DeleteId::handle(&slf, WL_DISPLAY_ID, slf.clone(), |tc, val| {
-            tc.handlers.borrow_mut().remove(&ObjectId::from_raw(val.id));
-            if val.id < MIN_SERVER_ID {
-                tc.obj_ids.borrow_mut().release(val.id);
+            tc.handlers.borrow_mut().remove(&val.id);
+            if val.id.raw() < MIN_SERVER_ID {
+                tc.obj_ids.borrow_mut().release(val.id.raw());
             }
         });
         slf.incoming.set(Some(

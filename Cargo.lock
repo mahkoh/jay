@@ -856,6 +856,7 @@ dependencies = [
  "humantime",
  "indexmap",
  "isnt",
+ "itoa",
  "jay-algorithms",
  "jay-ash",
  "jay-config",
@@ -880,12 +881,14 @@ dependencies = [
  "serde",
  "serde_json",
  "smallvec",
+ "static_assertions",
  "thiserror",
  "tiny-skia",
  "tracy-client-sys",
  "uapi",
  "walkdir",
  "with_builtin_macros",
+ "zmij",
 ]
 
 [[package]]
@@ -1608,6 +1611,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ed6a63f02c8539c91a8685a86f4099661ba3da017932f6ebbea6de3f0fa7c90"
 
 [[package]]
+name = "static_assertions"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
 name = "strict-num"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2090,6 +2099,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "indexmap",
  "quick-xml",
 ]
 

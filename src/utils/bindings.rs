@@ -1,11 +1,11 @@
 use crate::client::Client;
 use crate::client::ClientId;
 use crate::object::Object;
-use crate::object::ObjectId;
 use crate::object::Version;
 use crate::utils::bhash::BHashMap;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::copyhashmap::Locked;
+use crate::wire::ObjectId;
 use derivative::Derivative;
 use hashbrown::hash_map::Entry;
 use std::cell::Ref;

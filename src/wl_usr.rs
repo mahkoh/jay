@@ -9,7 +9,6 @@ use crate::client::RequestParser;
 use crate::io_uring::IoUring;
 use crate::io_uring::IoUringError;
 use crate::object::Interface;
-use crate::object::ObjectId;
 use crate::object::Version;
 use crate::object::WL_DISPLAY_ID;
 use crate::utils::asyncevent::AsyncEvent;
@@ -29,8 +28,10 @@ use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::oserror::OsError;
 use crate::utils::oserror::OsErrorExt2;
+use crate::utils::str_table::StrAccess;
 use crate::video::dmabuf::DmaBufIds;
 use crate::wheel::Wheel;
+use crate::wire::ObjectId;
 use crate::wire::wl_display;
 use crate::wl_usr::usr_ifs::usr_wl_callback::UsrWlCallback;
 use crate::wl_usr::usr_ifs::usr_wl_display::UsrWlDisplay;
@@ -66,7 +67,7 @@ pub enum UsrConError {
     MethodError {
         interface: Interface,
         id: ObjectId,
-        method: &'static str,
+        method: StrAccess,
         #[source]
         error: Box<dyn Error + 'static>,
     },

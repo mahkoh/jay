@@ -4,9 +4,9 @@ use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_registry::WlRegistry;
 use crate::leaks::Tracker;
 use crate::object::Object;
-use crate::object::ObjectId;
 use crate::object::Version;
 use crate::object::WL_DISPLAY_ID;
+use crate::wire::ObjectId;
 use crate::wire::WlDisplayId;
 use crate::wire::wl_display::*;
 use std::rc::Rc;
@@ -88,7 +88,7 @@ impl WlDisplay {
     pub fn send_delete_id(self: &Rc<Self>, id: ObjectId) {
         self.client.event(DeleteId {
             self_id: self.id,
-            id: id.raw(),
+            id,
         })
     }
 }

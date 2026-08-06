@@ -1,14 +1,14 @@
 use crate::it::test_error::TestError;
 use crate::it::test_transport::TestTransport;
 use crate::object::Interface;
-use crate::object::ObjectId;
 use crate::utils::buffd::MsgParser;
+use crate::wire::ObjectId;
 use std::rc::Rc;
 
 macro_rules! test_object {
     ($oname:ident, $ifname:ident; $($code:ident => $f:ident,)*) => {
         impl crate::it::test_object::TestObjectBase for $oname {
-            fn id(&self) -> crate::object::ObjectId {
+            fn id(&self) -> crate::wire::ObjectId {
                 self.id.into()
             }
 
