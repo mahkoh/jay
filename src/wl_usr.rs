@@ -29,6 +29,7 @@ use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::oserror::OsError;
 use crate::utils::oserror::OsErrorExt2;
+use crate::utils::str_table::StrAccess;
 use crate::video::dmabuf::DmaBufIds;
 use crate::wheel::Wheel;
 use crate::wire::wl_display;
@@ -66,7 +67,7 @@ pub enum UsrConError {
     MethodError {
         interface: Interface,
         id: ObjectId,
-        method: &'static str,
+        method: StrAccess,
         #[source]
         error: Box<dyn Error + 'static>,
     },

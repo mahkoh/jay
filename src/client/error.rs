@@ -3,6 +3,7 @@ use crate::object::Interface;
 use crate::object::ObjectId;
 use crate::utils::buffd::BufFdError;
 use crate::utils::buffd::MsgParserError;
+use crate::utils::str_table::StrAccess;
 use crate::wire::WlDisplayId;
 use std::error::Error;
 use thiserror::Error;
@@ -35,7 +36,7 @@ pub enum ClientError {
     MethodError {
         interface: Interface,
         id: ObjectId,
-        method: &'static str,
+        method: StrAccess,
         #[source]
         error: Box<dyn Error + 'static>,
     },

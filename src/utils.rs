@@ -74,6 +74,7 @@ pub mod sleeper;
 pub mod smallmap;
 pub mod stack;
 pub mod static_text;
+pub mod str_table;
 pub mod string_ext;
 pub mod syncqueue;
 pub mod thread_id;

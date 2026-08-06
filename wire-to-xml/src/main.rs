@@ -28,6 +28,10 @@ use std::path::PathBuf;
 #[allow(dead_code)]
 mod parser;
 
+#[path = "../../build/str_table.rs"]
+#[allow(dead_code)]
+mod str_table;
+
 #[derive(Parser, Debug)]
 struct Cli {
     protocol: String,
@@ -71,7 +75,7 @@ fn main() -> anyhow::Result<()> {
                             for message in messages {
                                 let mut el = w
                                     .create_element(ty)
-                                    .with_attribute(("name", &*message.val.name));
+                                    .with_attribute(("name", message.val.name.raw()));
                                 if let Some(since) = message.val.attribs.since {
                                     el = el.with_attribute(("since", &*since.to_string()));
                                 }
@@ -89,7 +93,7 @@ fn main() -> anyhow::Result<()> {
                                             if let Type::Id(name, _) =
                                                 &message.val.fields[j].val.ty.val
                                             {
-                                                if name == "object" {
+                                                if name.raw() == "object" {
                                                     i = j;
                                                 }
                                             }
@@ -110,8 +114,9 @@ fn main() -> anyhow::Result<()> {
                                                     false => "object",
                                                 };
                                                 simple!(ty);
-                                                if name != "object" {
-                                                    el = el.with_attribute(("interface", &**name));
+                                                if name.raw() != "object" {
+                                                    el = el
+                                                        .with_attribute(("interface", name.raw()));
                                                 }
                                                 if field.val.attribs.nullable {
                                                     el = el.with_attribute(("allow-null", "true"));

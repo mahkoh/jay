@@ -1,6 +1,7 @@
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::utils::buffd::MsgParser;
+use crate::utils::str_table::StrAccess;
 use crate::wire::WlDisplayId;
 use jay_proc::jay_hash;
 use std::any::Any;
@@ -51,11 +52,11 @@ pub trait Object: ObjectBase + 'static {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct Interface(pub &'static str);
+pub struct Interface(pub StrAccess);
 
 impl Interface {
     pub fn name(self) -> &'static str {
-        self.0
+        self.0.get()
     }
 }
 

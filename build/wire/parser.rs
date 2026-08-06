@@ -1,3 +1,5 @@
+use crate::str_table::Interned;
+use crate::str_table::intern;
 use anyhow::Context;
 use anyhow::Result;
 use anyhow::bail;
@@ -206,7 +208,7 @@ pub struct Lined<T> {
 
 #[derive(Debug)]
 pub enum Type {
-    Id(#[allow(dead_code)] String, String),
+    Id(#[allow(dead_code)] Interned, String),
     U32,
     I32,
     U64,
@@ -223,7 +225,8 @@ pub enum Type {
 
 #[derive(Debug)]
 pub struct Field {
-    pub name: String,
+    pub name: &'static str,
+    pub name_interned: Interned,
     pub ty: Lined<Type>,
     #[allow(dead_code)]
     pub attribs: FieldAttribs,
@@ -231,7 +234,7 @@ pub struct Field {
 
 #[derive(Debug)]
 pub struct Message {
-    pub name: String,
+    pub name: Interned,
     pub camel_name: String,
     pub safe_name: String,
     pub id: u32,
@@ -385,7 +388,7 @@ impl<'a> Parser<'a> {
             Ok(Lined {
                 line,
                 val: Message {
-                    name: name.to_owned(),
+                    name: intern(name),
                     camel_name: to_camel(name),
                     safe_name: safe_name.to_string(),
                     id,
@@ -435,10 +438,12 @@ impl<'a> Parser<'a> {
             if !self.eof() {
                 self.expect_symbol(Symbol::Comma)?;
             }
+            let name = intern(name);
             Ok(Lined {
                 line,
                 val: Field {
-                    name: name.to_owned(),
+                    name: name.raw(),
+                    name_interned: name,
                     ty,
                     attribs,
                 },
@@ -605,7 +610,7 @@ impl<'a> Parser<'a> {
                 let (_, ident) = ident.with_context(|| {
                     format!("While parsing identifier starting in line {}", line)
                 })?;
-                Type::Id(ident.to_owned(), to_camel(ident))
+                Type::Id(intern(ident), to_camel(ident))
             }
             _ => bail!("Unknown type {}", ty),
         };

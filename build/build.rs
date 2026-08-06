@@ -26,6 +26,7 @@ use std::path::PathBuf;
 mod egl;
 mod enums;
 mod logging;
+mod str_table;
 mod tokens;
 mod vulkan;
 mod wire;
@@ -54,6 +55,7 @@ fn main() -> anyhow::Result<()> {
     egl::main()?;
     vulkan::main()?;
     logging::main()?;
+    str_table::main(open)?;
 
     println!("cargo:rerun-if-changed=build/build.rs");
     Ok(())
