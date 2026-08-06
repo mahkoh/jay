@@ -33,6 +33,7 @@ pub struct AsyncEngine {
     yield_stash: RefCell<VecDeque<Waker>>,
     stopped: Cell<bool>,
     now: Cell<Option<Time>>,
+    now_rt: Cell<Option<Time>>,
     #[cfg(feature = "it")]
     idle: Cell<Option<Waker>>,
 }
@@ -48,6 +49,7 @@ impl AsyncEngine {
             yield_stash: Default::default(),
             stopped: Cell::new(false),
             now: Default::default(),
+            now_rt: Default::default(),
             #[cfg(feature = "it")]
             idle: Default::default(),
         })
@@ -103,6 +105,7 @@ impl AsyncEngine {
                 break;
             }
             self.now.take();
+            self.now_rt.take();
             let mut phase = 0;
             while phase < NUM_PHASES {
                 self.queues[phase].swap(&mut *stash);
@@ -162,6 +165,17 @@ impl AsyncEngine {
             None => {
                 let now = Time::now_unchecked();
                 self.now.set(Some(now));
+                now
+            }
+        }
+    }
+
+    pub fn now_rt(&self) -> Time {
+        match self.now_rt.get() {
+            Some(t) => t,
+            None => {
+                let now = Time::now_unchecked_rt();
+                self.now_rt.set(Some(now));
                 now
             }
         }

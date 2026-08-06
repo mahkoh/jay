@@ -25,6 +25,12 @@ impl Time {
         Self(time)
     }
 
+    pub fn now_unchecked_rt() -> Time {
+        let mut time = uapi::pod_zeroed();
+        let _ = uapi::clock_gettime(c::CLOCK_REALTIME, &mut time);
+        Self(time)
+    }
+
     pub fn round_to_ms(self) -> Time {
         if self.0.tv_nsec > 999_000_000 {
             Time(c::timespec {
