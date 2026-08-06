@@ -19,6 +19,7 @@ mod run_tagged;
 pub mod screenshot;
 mod seat_test;
 mod set_log_level;
+mod trace;
 mod tree;
 mod unlock;
 mod version;
@@ -34,6 +35,7 @@ use crate::cli::json::VERBOSE_JSON;
 use crate::cli::randr::RandrArgs;
 use crate::cli::reexec::ReexecArgs;
 use crate::cli::run_tagged::RunTaggedArgs;
+use crate::cli::trace::TraceArgs;
 use crate::cli::tree::TreeArgs;
 use crate::cli::xwayland::XwaylandArgs;
 use crate::compositor::LogLevel;
@@ -135,6 +137,7 @@ pub enum Cmd {
     Version,
     /// Prints the Jay PID and exits.
     Pid,
+    Trace(TraceArgs),
     #[cfg(feature = "it")]
     RunTests,
 }
@@ -330,5 +333,6 @@ pub fn main() {
         Cmd::Reexec(a) => reexec::main(cli.global, a),
         Cmd::ControlCenter => control_center::main(cli.global),
         Cmd::Config(a) => config::main(cli.global, a),
+        Cmd::Trace(a) => trace::main(cli.global, a),
     }
 }

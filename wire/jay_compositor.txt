@@ -167,6 +167,16 @@ request get_exe (since = 41) {
 
 }
 
+request trace_client (since = 42) {
+    trace: id(jay_client_trace) (new),
+    client_id: pod(u64),
+}
+
+request trace_clients (since = 42) {
+    clients: id(jay_global_tracer) (new),
+    client_match: id(jay_client_match),
+}
+
 # events
 
 event client_id {

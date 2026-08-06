@@ -6,6 +6,7 @@ use crate::criteria::CritMatcherId;
 use crate::criteria::clm::CL_CHANGED_DESTROYED;
 use crate::criteria::clm::CL_CHANGED_NEW;
 use crate::criteria::clm::ClMatcherChange;
+use crate::ifs::jay_client_trace::ClientTracers;
 use crate::ifs::wl_display::WlDisplay;
 use crate::ifs::wl_registry::WlRegistry;
 use crate::ifs::wl_surface::WlSurface;
@@ -235,6 +236,8 @@ impl Clients {
             sqlite_accounting: Rc::new(SqliteAccounting::new(256)),
             live_sessions: Default::default(),
             num_live_sessions: Default::default(),
+            connect_time_us: global.now_usec_rt(),
+            tracers: ClientTracers::new(&global.eng),
         });
         track!(data, data);
         global.update_capabilities(&data, bounding_caps, set_bounding_caps_for_children);
@@ -259,6 +262,7 @@ impl Clients {
             data.effective_caps.get(),
         );
         client.data.property_changed(CL_CHANGED_NEW);
+        global.global_tracers.announce(&client.data);
         self.clients.borrow_mut().insert(client.data.id, client);
         Ok(data)
     }
@@ -321,6 +325,7 @@ impl Drop for ClientHolder {
         {
             log::error!("Could not kill Xwayland: {}", ErrorFmt(e));
         }
+        self.data.tracers.handle_disconnected();
     }
 }
 
@@ -365,6 +370,8 @@ pub struct Client {
     pub sqlite_accounting: Rc<SqliteAccounting>,
     pub live_sessions: LinkedList<Rc<XdgSessionV1>>,
     pub num_live_sessions: NumCell<usize>,
+    pub connect_time_us: u64,
+    pub tracers: ClientTracers,
 }
 
 pub const NUM_CACHED_SERIAL_RANGES: usize = 64;
@@ -445,6 +452,9 @@ impl Client {
         mut parser: MsgParser<'_, 'a>,
     ) -> Result<R, MsgParserError> {
         let res = R::parse(&mut parser)?;
+        if self.tracers.num.get() > 0 {
+            self.tracers.handle_message(obj.id(), &res);
+        }
         log::trace!(
             "Client {} -> {}@{}.{:?}",
             self.id,
@@ -482,6 +492,9 @@ impl Client {
     }
 
     pub fn event<T: EventFormatter>(self: &Rc<Self>, event: T) {
+        if self.tracers.num.get() > 0 {
+            self.tracers.handle_message(event.id(), &event);
+        }
         if log::log_enabled!(log::Level::Trace) {
             self.log_event(&event);
         }

@@ -1,0 +1,15 @@
+request destroy (destructor) {
+
+}
+
+request stop {
+
+}
+
+event stopped {
+
+}
+
+event client_trace {
+    id: id(jay_client_trace) (new),
+}

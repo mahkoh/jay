@@ -94,6 +94,11 @@ The following commands support `--json`:
 : Streaming JSONL -- one JSON object per input event (key, pointer, touch,
   gesture, tablet, switch).
 
+`jay trace`
+: Streaming JSONL -- one JSON object per traced Wayland message, plus one when
+  a client is attached, one when it is detached, and one whenever messages are
+  dropped. See [JSONL Format](tracing.md#jsonl-format).
+
 `jay tree query`
 : One JSON object per root node, with children nested recursively.
 
@@ -745,10 +750,34 @@ root:
 ~$ jay tree query match-windows -e 'app-id = "firefox"'
 ```
 
+### `jay trace`
+
+Print the Wayland messages exchanged between the compositor and one or more
+clients, like `strace -p` for Wayland connections:
+
+```shell
+~$ jay trace id 42            # the client with ID 42
+~$ jay trace select-window    # click a window to trace its client
+~$ jay trace all              # every client
+```
+
+Clients can also be selected by their properties, using a
+[match expression](#match-expressions):
+
+```shell
+~$ jay trace match -e 'comm = "chromium"'
+```
+
+`--raw-ids` prints the object IDs that appear on the wire instead of Jay's
+unique ones, `-o` redirects the output to files or a shell command, and the
+global `--json` flag switches the output to JSONL. See
+[Tracing Wayland Messages](tracing.md) for the output formats and more
+examples.
+
 ### Match Expressions
 
-`jay clients show`, `jay clients kill`, and `jay tree query` can select clients
-and windows by the same criteria that
+`jay clients show`, `jay clients kill`, `jay trace`, and `jay tree query` can
+select clients and windows by the same criteria that
 [window and client rules](window-rules.md) use. The criteria are written in
 TOML:
 

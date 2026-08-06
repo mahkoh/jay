@@ -46,34 +46,24 @@ const DATA_WORDS_64: u64 = DATA_WORDS as u64;
 pub trait ClientTraceMessage: ClientTraceMessagePriv {}
 
 pub struct ClientTraceMessageDef {
-    #[cfg_attr(not(test), expect(unused))]
     pub is_request: bool,
-    #[cfg_attr(not(test), expect(unused))]
     pub has_ids: bool,
-    #[cfg_attr(not(test), expect(unused))]
     pub interface: StrAccess,
-    #[cfg_attr(not(test), expect(unused))]
     pub message: StrAccess,
-    #[cfg_attr(not(test), expect(unused))]
     args: (u16, u16),
 }
 
 pub struct ClientTraceArgDef {
-    #[cfg_attr(not(test), expect(unused))]
     pub name: StrAccess,
-    #[cfg_attr(not(test), expect(unused))]
     pub interface: Option<StrAccess>,
 }
 
 pub struct ClientTraceArg<'a> {
-    #[cfg_attr(not(test), expect(unused))]
     pub def: &'static ClientTraceArgDef,
-    #[cfg_attr(not(test), expect(unused))]
     pub val: ClientTraceArgVal<'a>,
 }
 
 #[derive(Copy, Clone)]
-#[cfg_attr(not(test), expect(unused))]
 pub enum ClientTraceArgVal<'a> {
     Id(u64),
     U32(u32),
@@ -112,13 +102,9 @@ pub struct ClientTraceWrite {
 
 pub struct ClientTraceMsg<'a> {
     _msg: CprbMsgRead<'a, ClientTraceCprb, NUM_SLOTS>,
-    #[cfg_attr(not(test), expect(unused))]
     pub us: u64,
-    #[cfg_attr(not(test), expect(unused))]
     pub def: &'static ClientTraceMessageDef,
-    #[cfg_attr(not(test), expect(unused))]
     pub obj: u64,
-    #[cfg_attr(not(test), expect(unused))]
     pub args: &'a mut [ClientTraceArg<'a>],
 }
 
@@ -162,9 +148,7 @@ struct IdMap {
 }
 
 pub struct ClientTraceEvent<'a> {
-    #[cfg_attr(not(test), expect(unused))]
     pub missed: u64,
-    #[cfg_attr(not(test), expect(unused))]
     pub msg: Option<ClientTraceMsg<'a>>,
 }
 
@@ -193,19 +177,16 @@ impl IdMap {
 }
 
 impl ClientTraceWrite {
-    #[cfg_attr(not(test), expect(unused))]
     pub fn new(ring: &Rc<IoUring>) -> Result<Self, CprbError> {
         Ok(Self {
             write: CprbWrite::new(ring)?,
         })
     }
 
-    #[cfg_attr(not(test), expect(unused))]
     pub unsafe fn memfd(&self) -> &Rc<OwnedFd> {
         self.write.memfd()
     }
 
-    #[cfg_attr(not(test), expect(unused))]
     pub fn write_delete_id(&self, obj: ObjectId) {
         let Some(msg) = self.write.acquire() else {
             return;
@@ -215,7 +196,6 @@ impl ClientTraceWrite {
         self.write.commit(msg.write);
     }
 
-    #[cfg_attr(not(test), expect(unused))]
     pub fn write_msg(&self, id: ObjectId, now_us: u64, msg: &dyn ClientTraceMessage) {
         let Some(write) = self.write.acquire() else {
             return;
@@ -268,7 +248,6 @@ impl ClientTraceWrite {
 }
 
 impl ClientTraceRead {
-    #[cfg_attr(not(test), expect(unused))]
     pub unsafe fn new(
         ring: &Rc<IoUring>,
         memfd: &Rc<OwnedFd>,
@@ -284,14 +263,12 @@ impl ClientTraceRead {
         })
     }
 
-    #[expect(unused)]
     pub fn available(&self) -> ClientTraceReadAvailable {
         ClientTraceReadAvailable {
             available: self.read.available(),
         }
     }
 
-    #[cfg_attr(not(test), expect(unused))]
     pub fn try_read(&mut self) -> Option<ClientTraceEvent<'_>> {
         let data = self.read.data();
         let msg = self.read.acquire()?;
@@ -342,7 +319,6 @@ impl ClientTraceRead {
 }
 
 impl ClientTraceReadAvailable {
-    #[expect(unused)]
     pub async fn available(&self) -> Result<(), IoUringError> {
         self.available.available().await
     }

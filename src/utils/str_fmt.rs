@@ -45,21 +45,18 @@ pub enum StrFmtFmt {
 }
 
 impl StrCtx<'_> {
-    #[expect(unused)]
     pub fn struct_prefix(&self, dst: &mut String) {
         if self.fmt == StrFmtFmt::Jsonl && !self.flatten {
             dst.push_str("{");
         }
     }
 
-    #[expect(unused)]
     pub fn struct_suffix(&self, dst: &mut String) {
         if self.fmt == StrFmtFmt::Jsonl && !self.flatten {
             dst.push_str("}");
         }
     }
 
-    #[expect(unused)]
     pub fn struct_field(
         &self,
         dst: &mut String,
@@ -97,7 +94,6 @@ impl StrCtx<'_> {
     }
 }
 
-#[expect(unused)]
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct StrFmtUs(pub u64);
 

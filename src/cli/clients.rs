@@ -300,7 +300,7 @@ pub fn make_json_client(client: &Client) -> JsonClient<'_> {
 }
 
 impl MatchSource {
-    fn parse_client_match(&self, tc: &ToolClient, strict: bool) -> ClientMatch {
+    pub fn parse_client_match(&self, tc: &ToolClient, strict: bool) -> ClientMatch {
         let mut source = vec![];
         let path = self.read(&mut source);
         let warnings = tc.logger.warnings();

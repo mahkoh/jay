@@ -1,7 +1,6 @@
 use std::io;
 use std::io::Read;
 
-#[expect(unused)]
 pub trait ReadExt {
     fn read_to_vec(&mut self) -> io::Result<Vec<u8>>;
 }
