@@ -9,6 +9,7 @@ pub mod poll;
 pub mod poll_external;
 pub mod read_write;
 pub mod read_write_no_cancel;
+pub mod read_write_vec;
 pub mod recvmsg;
 pub mod sendmsg;
 pub mod timeout;

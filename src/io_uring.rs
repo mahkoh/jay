@@ -9,6 +9,9 @@ use crate::io_uring::ops::poll::PollTask;
 use crate::io_uring::ops::poll_external::PollExternalTask;
 use crate::io_uring::ops::read_write::ReadWriteTask;
 use crate::io_uring::ops::read_write_no_cancel::ReadWriteNoCancelTask;
+#[expect(unused_imports)]
+pub use crate::io_uring::ops::read_write_vec::WriteVecCache;
+use crate::io_uring::ops::read_write_vec::WriteVecTask;
 use crate::io_uring::ops::recvmsg::RecvmsgTask;
 use crate::io_uring::ops::sendmsg::SendmsgTask;
 use crate::io_uring::ops::timeout::TimeoutTask;
@@ -256,6 +259,7 @@ impl IoUring {
             cached_accepts: Default::default(),
             cached_futex_wakes: Default::default(),
             cached_futex_waits: Default::default(),
+            cached_write_vecs: Default::default(),
             fd_ids_scratch: Default::default(),
             iteration: Default::default(),
             yields: Default::default(),
@@ -332,6 +336,7 @@ struct IoUringData {
     cached_accepts: Stack<Box<AcceptTask>>,
     cached_futex_wakes: Stack<Box<FutexWakeTask>>,
     cached_futex_waits: Stack<Box<FutexWaitTask>>,
+    cached_write_vecs: Stack<Box<WriteVecTask>>,
 
     fd_ids_scratch: RefCell<Vec<c::c_int>>,
 
