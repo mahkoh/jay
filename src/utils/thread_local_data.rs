@@ -1,7 +1,7 @@
+use crate::utils::keep_alive::KeepAlive;
 use crate::utils::stack::Stack;
 use crate::utils::thread_id::ThreadId;
 use isnt::std_1::primitive::IsntConstPtrExt;
-use std::any::Any;
 use std::cell::Cell;
 use std::convert::Infallible;
 use std::rc::Rc;
@@ -18,7 +18,7 @@ where
 }
 
 thread_local! {
-    static HOLDER: Stack<Rc<dyn Any>> = const { Stack::new() };
+    static HOLDER: Stack<Rc<dyn KeepAlive>> = const { Stack::new() };
 }
 
 unsafe impl<T> Send for ThreadLocalData<T> {}
