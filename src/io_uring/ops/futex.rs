@@ -30,7 +30,6 @@ const FUTEX2_MPOL: i32 = 0x08;
 const FUTEX2_PRIVATE: i32 = 128;
 
 impl IoUring {
-    #[expect(unused)]
     pub fn futex_wake(
         &self,
         futex: &Rc<impl FutexObj>,
@@ -50,7 +49,6 @@ impl IoUring {
         Ok(())
     }
 
-    #[expect(unused)]
     pub async fn futex_wait(
         &self,
         futex: &Rc<impl FutexObj>,
