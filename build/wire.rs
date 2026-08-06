@@ -72,37 +72,6 @@ fn write_message_type<W: Write>(
         }
     }
     wl!("}}");
-    wl!(
-        "impl{} std::fmt::Debug for {}{} {{",
-        lifetime,
-        message.camel_name,
-        lifetime
-    );
-    {
-        push_xn!(xn);
-        wl!("{xn}fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {{");
-        {
-            push_xn!(xn);
-            w!(r#"{xn}write!(fmt, "{{}}("#);
-            for (i, field) in message.fields.iter().enumerate() {
-                if i > 0 {
-                    w!(", ");
-                }
-                let formatter = match &field.val.ty.val {
-                    Type::OptStr | Type::Str | Type::Fd | Type::Array(..) => "{:?}",
-                    _ => "{}",
-                };
-                w!("{{}}: {}", formatter);
-            }
-            w!(r#")", {}"#, message.name);
-            for field in &message.fields {
-                w!(", {}, self.{}", field.val.name_interned, field.val.name);
-            }
-            wl!(r")");
-        }
-        wl!("{xn}}}");
-    }
-    wl!("}}");
     Ok(())
 }
 
@@ -326,12 +295,6 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
         {
             push_xn!(xn);
             wl!("{xn}ObjectId(self.self_id.0)");
-        }
-        wl!("{xn}}}");
-        wl!("{xn}fn interface(&self) -> Interface {{");
-        {
-            push_xn!(xn);
-            wl!("{xn}{}", obj);
         }
         wl!("{xn}}}");
     }

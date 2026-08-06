@@ -329,13 +329,12 @@ impl Drop for ClientHolder {
     }
 }
 
-pub trait EventFormatter: Debug + ClientTraceMessage {
+pub trait EventFormatter: ClientTraceMessage {
     fn format(self, fmt: &mut MsgFormatter<'_>);
     fn id(&self) -> ObjectId;
-    fn interface(&self) -> Interface;
 }
 
-pub trait RequestParser<'a>: Debug + Sized + ClientTraceMessage {
+pub trait RequestParser<'a>: Sized + ClientTraceMessage {
     type Generic<'b>: RequestParser<'b>;
     const ID: u32;
     fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError>;
@@ -455,13 +454,6 @@ impl Client {
         if self.tracers.num.get() > 0 {
             self.tracers.handle_message(obj.id(), &res);
         }
-        log::trace!(
-            "Client {} -> {}@{}.{:?}",
-            self.id,
-            obj.interface().name(),
-            obj.id(),
-            res
-        );
         Ok(res)
     }
 
@@ -494,9 +486,6 @@ impl Client {
     pub fn event<T: EventFormatter>(self: &Rc<Self>, event: T) {
         if self.tracers.num.get() > 0 {
             self.tracers.handle_message(event.id(), &event);
-        }
-        if log::log_enabled!(log::Level::Trace) {
-            self.log_event(&event);
         }
         let mut fds = vec![];
         let mut swapchain = self.swapchain.borrow_mut();
@@ -532,16 +521,6 @@ impl Client {
 
     pub fn lock_registries(&self) -> Locked<'_, WlRegistryId, Rc<WlRegistry>> {
         self.objects.registries()
-    }
-
-    pub fn log_event<T: EventFormatter>(&self, event: &T) {
-        log::trace!(
-            "Client {} <= {}@{}.{:?}",
-            self.id,
-            event.interface().name(),
-            event.id(),
-            event,
-        );
     }
 
     pub fn add_client_obj<T: WaylandObject>(&self, obj: &Rc<T>) -> Result<(), ClientError> {
