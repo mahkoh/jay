@@ -1,7 +1,6 @@
 use std::mem;
 use std::mem::MaybeUninit;
 
-#[expect(unused)]
 pub trait MaybeUninitSliceExt2<const N: usize> {
     fn cast_mut<U>(&mut self) -> &mut [MaybeUninit<U>; N];
 }

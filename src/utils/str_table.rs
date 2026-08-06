@@ -62,7 +62,6 @@ impl Display for StrAccess {
     }
 }
 
-#[expect(unused)]
 pub trait OptionStrAccessExt {
     fn get(self) -> Option<&'static str>;
 }

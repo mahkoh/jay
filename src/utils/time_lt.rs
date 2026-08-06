@@ -1,17 +1,11 @@
 include!(concat!(env!("OUT_DIR"), "/time_lt.rs"));
 
 pub struct SplitUsec {
-    #[expect(unused)]
     pub hour: &'static str,
-    #[expect(unused)]
     pub minute: &'static str,
-    #[expect(unused)]
     pub second: &'static str,
-    #[expect(unused)]
     pub usec_hi: &'static str,
-    #[expect(unused)]
     pub usec_mi: &'static str,
-    #[expect(unused)]
     pub usec_lo: &'static str,
 }
 
@@ -20,7 +14,6 @@ const USEC_PER_MINUTE: u32 = 60 * USEC_PER_SECOND;
 const USEC_PER_HOUR: u64 = 60 * USEC_PER_MINUTE as u64;
 const USEC_PER_DAY: u64 = 24 * USEC_PER_HOUR;
 
-#[expect(unused)]
 pub fn split_usec(time: u64) -> SplitUsec {
     let days = time / USEC_PER_DAY;
     let sub_day_usec = time - days * USEC_PER_DAY;
