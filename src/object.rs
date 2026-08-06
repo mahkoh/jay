@@ -2,38 +2,13 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::utils::buffd::MsgParser;
 use crate::utils::str_table::StrAccess;
+use crate::wire::ObjectId;
 use crate::wire::WlDisplayId;
-use jay_proc::jay_hash;
 use std::any::Any;
 use std::cmp::Ordering;
-use std::fmt::Display;
-use std::fmt::Formatter;
 use std::rc::Rc;
 
 pub const WL_DISPLAY_ID: WlDisplayId = WlDisplayId::from_raw(1);
-
-#[jay_hash]
-#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq)]
-pub struct ObjectId(u32);
-
-impl ObjectId {
-    #[expect(dead_code)]
-    pub const NONE: Self = ObjectId(0);
-
-    pub fn from_raw(raw: u32) -> Self {
-        Self(raw)
-    }
-
-    pub fn raw(self) -> u32 {
-        self.0
-    }
-}
-
-impl Display for ObjectId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        Display::fmt(&self.0, f)
-    }
-}
 
 pub trait ObjectBase: Any {
     fn id(&self) -> ObjectId;

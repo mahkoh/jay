@@ -1,6 +1,6 @@
 use crate::fixed::Fixed;
 use crate::globals::GlobalName;
-use crate::object::ObjectId;
+use crate::wire::ObjectId;
 use bstr::BStr;
 use bstr::ByteSlice;
 use std::collections::VecDeque;

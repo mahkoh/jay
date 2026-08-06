@@ -1,9 +1,9 @@
 use crate::client::ClientId;
 use crate::object::Interface;
-use crate::object::ObjectId;
 use crate::utils::buffd::BufFdError;
 use crate::utils::buffd::MsgParserError;
 use crate::utils::str_table::StrAccess;
+use crate::wire::ObjectId;
 use crate::wire::WlDisplayId;
 use std::error::Error;
 use thiserror::Error;

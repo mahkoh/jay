@@ -14,7 +14,7 @@ macro_rules! efrom {
 macro_rules! usr_object_base {
     ($self:ident = $oname:ident = $iname:ident; version = $version:expr;) => {
         impl crate::wl_usr::usr_object::UsrObjectBase for $oname {
-            fn id(&$self) -> crate::object::ObjectId {
+            fn id(&$self) -> crate::wire::ObjectId {
                 $self.id.into()
             }
 
@@ -41,7 +41,7 @@ macro_rules! usr_object_base {
 macro_rules! object_base {
     ($self:ident = $oname:ident; version = $version:expr;) => {
         impl crate::object::ObjectBase for $oname {
-            fn id(&$self) -> crate::object::ObjectId {
+            fn id(&$self) -> crate::wire::ObjectId {
                 $self.id.into()
             }
 
@@ -75,7 +75,7 @@ macro_rules! global_base {
             fn bind<'a>(
                 self: std::rc::Rc<Self>,
                 client: &'a std::rc::Rc<crate::client::Client>,
-                id: crate::object::ObjectId,
+                id: crate::wire::ObjectId,
                 version: crate::object::Version,
             ) -> Result<(), crate::globals::GlobalsError> {
                 if let Err(e) = self.bind_(id.into(), client, version) {
@@ -104,7 +104,7 @@ macro_rules! global_base {
     };
 }
 
-macro_rules! id {
+macro_rules! id_noconvert {
     ($name:ident) => {
         #[jay_proc::jay_hash]
         #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq)]
@@ -131,21 +131,27 @@ macro_rules! id {
             }
         }
 
-        impl From<crate::object::ObjectId> for $name {
-            fn from(f: crate::object::ObjectId) -> Self {
+        impl std::fmt::Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                std::fmt::Display::fmt(&self.0, f)
+            }
+        }
+    };
+}
+
+macro_rules! id {
+    ($name:ident) => {
+        id_noconvert!($name);
+
+        impl From<crate::wire::ObjectId> for $name {
+            fn from(f: crate::wire::ObjectId) -> Self {
                 Self(f.raw())
             }
         }
 
-        impl From<$name> for crate::object::ObjectId {
+        impl From<$name> for crate::wire::ObjectId {
             fn from(f: $name) -> Self {
-                crate::object::ObjectId::from_raw(f.0)
-            }
-        }
-
-        impl std::fmt::Display for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                std::fmt::Display::fmt(&self.0, f)
+                crate::wire::ObjectId::from_raw(f.0)
             }
         }
     };

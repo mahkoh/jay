@@ -1,9 +1,9 @@
 use crate::fixed::Fixed;
-use crate::object::ObjectId;
 use crate::utils::buffd::buf_out::MsgFds;
 use crate::utils::buffd::buf_out::OUT_BUF_SIZE;
 use crate::utils::buffd::buf_out::OutBuffer;
 use crate::utils::buffd::buf_out::OutBufferMeta;
+use crate::wire::ObjectId;
 use std::mem;
 use std::rc::Rc;
 use uapi::OwnedFd;
