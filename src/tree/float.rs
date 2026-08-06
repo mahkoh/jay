@@ -93,8 +93,10 @@ pub struct FloatNode {
 #[derivative(Default)]
 pub struct FloatNodeState {
     pub visible: Cell<bool>,
+    pub requested_visible: Cell<bool>,
     pub position: Cell<Rect>,
     pub child: CloneCell<Option<Rc<dyn ToplevelNode>>>,
+    pub child_is_placeholder: Cell<bool>,
     #[derivative(Default(value = "Cell::new(WorkspaceType::Normal)"))]
     pub workspace_ty: Cell<WorkspaceType>,
     pub title_rect: Cell<Rect>,
@@ -210,7 +212,7 @@ impl FloatNode {
             cursors: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
         });
-        floater.set_ns_visible(ws.float_visible());
+        floater.set_ns_requested_visible(ws.float_visible());
         floater.set_position(position);
         floater.set_ns_child(Some(&child));
         floater.set_ns_workspace_type(ws.ty);
@@ -224,12 +226,8 @@ impl FloatNode {
             .workspace_link
             .set(Some(ws.stacked.add_last(floater.clone())));
         child.tl_set_parent(floater.clone());
-        let ns = &floater.node_state[LiveTL];
-        child.tl_set_visible(ns.visible.get());
+        floater.update_effective_visible();
         child.tl_restack_popups();
-        if ns.visible.get() {
-            floater.display_link.borrow().invalidate();
-        }
         if child.tl_data().pinned.get() {
             floater.toggle_pinned();
         }
@@ -798,6 +796,11 @@ impl FloatNode {
         self.node_state[LiveTL].visible.replace(v)
     }
 
+    fn set_ns_requested_visible(self: &Rc<Self>, v: bool) {
+        self.add_transaction_op(FloatTransactionOp::SetRequestedVisible(v));
+        self.node_state[LiveTL].requested_visible.set(v);
+    }
+
     pub fn set_ns_position(self: &Rc<Self>, v: Rect) {
         self.add_transaction_op(FloatTransactionOp::SetPosition(v));
         self.node_state[LiveTL].position.set(v);
@@ -805,7 +808,11 @@ impl FloatNode {
 
     fn set_ns_child(self: &Rc<Self>, child: Option<&Rc<dyn ToplevelNode>>) {
         self.add_transaction_op(FloatTransactionOp::SetChild(child.cloned()));
-        self.node_state[LiveTL].child.set(child.cloned());
+        let is_placeholder = child.is_some_and(|c| c.node_is_placeholder());
+        self.add_transaction_op(FloatTransactionOp::SetChildIsPlaceholder(is_placeholder));
+        let ns = &self.node_state[LiveTL];
+        ns.child.set(child.cloned());
+        ns.child_is_placeholder.set(is_placeholder);
     }
 
     fn set_ns_workspace_type(self: &Rc<Self>, v: WorkspaceType) {
@@ -1081,13 +1088,12 @@ impl NodeBase for FloatNode {
 
 impl ContainingNode for FloatNode {
     fn cnode_replace_child(self: Rc<Self>, _old: &dyn Node, new: Rc<dyn ToplevelNode>) {
-        let ns = &self.node_state[LiveTL];
         self.discard_child_properties();
         self.set_ns_child(Some(&new));
         new.tl_set_parent(self.clone());
         new.tl_update_icon(&self.icon);
         self.pull_child_properties();
-        new.tl_set_visible(ns.visible.get());
+        self.update_effective_visible();
         self.schedule_layout();
     }
 
@@ -1192,8 +1198,9 @@ impl ContainingNode for FloatNode {
 }
 
 impl FloatNode {
-    fn set_visible(self: &Rc<Self>, visible: bool) {
+    fn update_effective_visible(self: &Rc<Self>) {
         let ns = &self.node_state[LiveTL];
+        let visible = ns.requested_visible.get() && !ns.child_is_placeholder.get();
         if self.set_ns_visible(visible) != visible {
             self.add_transaction_op(FloatTransactionOp::Damage);
             if visible {
@@ -1204,6 +1211,11 @@ impl FloatNode {
             child.tl_set_visible(visible);
         }
         self.seat_state.set_visible(&**self, visible);
+    }
+
+    fn set_visible(self: &Rc<Self>, visible: bool) {
+        self.set_ns_requested_visible(visible);
+        self.update_effective_visible();
     }
 }
 
@@ -1245,8 +1257,10 @@ impl dyn Node {
 
 pub enum FloatTransactionOp {
     SetVisible(bool),
+    SetRequestedVisible(bool),
     SetPosition(Rect),
     SetChild(Option<Rc<dyn ToplevelNode>>),
+    SetChildIsPlaceholder(bool),
     SetWorkspaceType(WorkspaceType),
     SetTitleRect(Rect),
     SetActive(bool),
@@ -1285,11 +1299,17 @@ impl Transactionable for FloatNode {
                     dmg(v);
                 }
             }
+            FloatTransactionOp::SetRequestedVisible(v) => {
+                s.requested_visible.set(v);
+            }
             FloatTransactionOp::SetChild(v) => {
                 s.child.set(v);
                 if s.visible.get() {
                     dmg(s.position.get());
                 }
+            }
+            FloatTransactionOp::SetChildIsPlaceholder(v) => {
+                s.child_is_placeholder.set(v);
             }
             FloatTransactionOp::Damage => {
                 dmg(s.position.get());
