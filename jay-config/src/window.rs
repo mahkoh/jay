@@ -241,6 +241,22 @@ impl Window {
     pub fn resize(self, dx1: i32, dy1: i32, dx2: i32, dy2: i32) {
         get!().resize_window(self, dx1, dy1, dx2, dy2);
     }
+
+    /// Returns the position of the window in the global compositor space.
+    ///
+    /// This value is only accurate for visible windows.
+    pub fn position(self) -> (i32, i32) {
+        let (x, y, _, _) = get!((0, 0)).get_window_position(self);
+        (x, y)
+    }
+
+    /// Returns the size of the window.
+    ///
+    /// This value is only accurate for visible windows.
+    pub fn size(self) -> (i32, i32) {
+        let (_, _, width, height) = get!((0, 0)).get_window_position(self);
+        (width, height)
+    }
 }
 
 /// A window matcher.

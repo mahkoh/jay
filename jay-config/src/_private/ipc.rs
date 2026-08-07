@@ -1008,6 +1008,12 @@ pub enum ClientMessage<'a> {
     GetPlaneColorPipelinesEnabled {
         device: DrmDevice,
     },
+    GetWindowPosition {
+        window: Window,
+    },
+    GetWorkspacePosition {
+        workspace: Workspace,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1281,6 +1287,18 @@ pub enum Response {
     },
     GetPlaneColorPipelinesEnabled {
         enabled: bool,
+    },
+    GetWindowPosition {
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+    },
+    GetWorkspacePosition {
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
     },
 }
 

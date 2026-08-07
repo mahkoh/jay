@@ -47,6 +47,7 @@ use crate::tagged_acceptor::TaggedAcceptorError;
 use crate::theme::ThemeColored;
 use crate::theme::ThemeSized;
 use crate::tree::ContainerSplit;
+use crate::tree::NodeBase;
 use crate::tree::OutputNode;
 use crate::tree::OutputNodeOrPersistent;
 use crate::tree::TearingMode;
@@ -3069,6 +3070,31 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_get_window_position(&self, window: Window) -> Result<(), CphError> {
+        let pos = self.get_window(window)?.node_absolute_position(LiveTL);
+        self.respond(Response::GetWindowPosition {
+            x: pos.x1(),
+            y: pos.y1(),
+            width: pos.width(),
+            height: pos.height(),
+        });
+        Ok(())
+    }
+
+    fn handle_get_workspace_position(&self, workspace: Workspace) -> Result<(), CphError> {
+        let pos = self
+            .get_existing_workspace(workspace)?
+            .map(|ws| ws.node_absolute_position(LiveTL))
+            .unwrap_or_default();
+        self.respond(Response::GetWorkspacePosition {
+            x: pos.x1(),
+            y: pos.y1(),
+            width: pos.width(),
+            height: pos.height(),
+        });
+        Ok(())
+    }
+
     fn handle_window_exists(&self, window: Window) {
         self.respond(Response::WindowExists {
             exists: self.get_window(window).is_ok(),
@@ -3960,6 +3986,12 @@ impl ConfigProxyHandler {
             } => self
                 .handle_window_resize(window, dx1, dy1, dx2, dy2)
                 .wrn("window_resize")?,
+            ClientMessage::GetWindowPosition { window } => self
+                .handle_get_window_position(window)
+                .wrn("get_window_position")?,
+            ClientMessage::GetWorkspacePosition { workspace } => self
+                .handle_get_workspace_position(workspace)
+                .wrn("get_workspace_position")?,
             ClientMessage::SetSessionManagementEnabled { enabled } => {
                 self.handle_set_session_management_enabled(enabled)
             }
