@@ -589,39 +589,50 @@ impl Into<ConfigBarPosition> for BarPosition {
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Linearize)]
+pub enum ContainerBordersSetting {
+    #[default]
+    Separators,
+    Full,
+    FullSmart,
+}
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Linearize)]
 pub enum ContainerBorders {
     #[default]
     Separators,
     Full,
 }
 
-impl StaticText for ContainerBorders {
+impl StaticText for ContainerBordersSetting {
     fn text(&self) -> &'static str {
         match self {
-            ContainerBorders::Separators => "Separators",
-            ContainerBorders::Full => "Full",
+            ContainerBordersSetting::Separators => "Separators",
+            ContainerBordersSetting::Full => "Full",
+            ContainerBordersSetting::FullSmart => "FullSmart",
         }
     }
 }
 
-impl TryFrom<ConfigContainerBorders> for ContainerBorders {
+impl TryFrom<ConfigContainerBorders> for ContainerBordersSetting {
     type Error = ();
 
     fn try_from(value: ConfigContainerBorders) -> Result<Self, Self::Error> {
         let v = match value {
-            ConfigContainerBorders::Separators => ContainerBorders::Separators,
-            ConfigContainerBorders::Full => ContainerBorders::Full,
+            ConfigContainerBorders::Separators => ContainerBordersSetting::Separators,
+            ConfigContainerBorders::Full => ContainerBordersSetting::Full,
+            ConfigContainerBorders::FullSmart => ContainerBordersSetting::FullSmart,
             _ => return Err(()),
         };
         Ok(v)
     }
 }
 
-impl Into<ConfigContainerBorders> for ContainerBorders {
+impl Into<ConfigContainerBorders> for ContainerBordersSetting {
     fn into(self) -> ConfigContainerBorders {
         match self {
-            ContainerBorders::Separators => ConfigContainerBorders::Separators,
-            ContainerBorders::Full => ConfigContainerBorders::Full,
+            ContainerBordersSetting::Separators => ConfigContainerBorders::Separators,
+            ContainerBordersSetting::Full => ConfigContainerBorders::Full,
+            ContainerBordersSetting::FullSmart => ConfigContainerBorders::FullSmart,
         }
     }
 }
@@ -637,7 +648,7 @@ pub struct Theme {
     pub bar_position: SplitView<Cell<BarPosition>>,
     pub show_window_icons: Cell<bool>,
     pub window_icons_grayscale: Cell<bool>,
-    pub container_borders: SplitView<Cell<ContainerBorders>>,
+    pub container_borders: SplitView<Cell<ContainerBordersSetting>>,
 }
 
 impl Default for Theme {

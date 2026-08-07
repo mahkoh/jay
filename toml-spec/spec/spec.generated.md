@@ -2746,6 +2746,10 @@ The string should have one of the following values:
 
   A border is drawn around the entire container.
 
+- `full-smart`:
+
+  A border is drawn around the entire container, unless it has only one child and is the only container on the workspace.
+
 
 
 <a name="types-ContentTypeMask"></a>

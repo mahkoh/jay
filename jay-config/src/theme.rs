@@ -206,6 +206,9 @@ pub enum ContainerBorders {
     Separators,
     /// A border is drawn around the entire container.
     Full,
+    /// A border is drawn around the entire container, unless it is the only container on the
+    /// workspace.
+    FullSmart,
 }
 
 /// Sets the container border style.

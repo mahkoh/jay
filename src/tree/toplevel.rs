@@ -139,14 +139,19 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         if !data.is_fullscreen[LiveTL].get() {
             self.tl_mark_ancestor_fullscreen(parent.cnode_self_or_ancestor_fullscreen());
         }
-        data.is_root_container.set(false);
+        let mut is_root_container = false;
         data.is_overlay_root_container.set(false);
         if let ToplevelType::Container = data.kind
             && let Some(ws) = parent.clone().node_into_workspace()
         {
-            data.is_root_container.set(true);
+            is_root_container = true;
             data.is_overlay_root_container
                 .set(ws.ty == WorkspaceType::Overlay);
+        }
+        if data.is_root_container[LiveTL].replace(is_root_container) != is_root_container {
+            data.schedule_op(ToplevelDataTransactionOp::SetIsRootContainer(
+                is_root_container,
+            ));
         }
         let parent_was_none = data.parent.set(Some(parent.clone())).is_none();
         if parent_was_none {
@@ -406,6 +411,7 @@ pub enum ToplevelDataTransactionOp {
     SetIsFullscreen(bool),
     SetWorkspace(Option<Rc<WorkspaceNode>>),
     SetVisible(bool),
+    SetIsRootContainer(bool),
 }
 
 pub struct FullscreenedData {
@@ -497,7 +503,7 @@ pub struct ToplevelData {
     pub content_type: Cell<Option<ContentType>>,
     pub property_changed_source: OnceCell<Rc<LazyEventSource>>,
     pub session: CloneCell<Option<Rc<ToplevelSession>>>,
-    pub is_root_container: Cell<bool>,
+    pub is_root_container: SplitView<Cell<bool>>,
     pub is_overlay_root_container: Cell<bool>,
 }
 
@@ -700,7 +706,9 @@ impl ToplevelData {
         self.schedule_op(ToplevelDataTransactionOp::SetWorkspace(None));
         self.seat_state.destroy_node(node);
         self.is_overlay_root_container.set(false);
-        self.is_root_container.set(false);
+        if self.is_root_container[LiveTL].replace(false) {
+            self.schedule_op(ToplevelDataTransactionOp::SetIsRootContainer(false));
+        }
     }
 
     pub fn broadcast(&self, toplevel: Rc<dyn ToplevelNode>) {
@@ -1110,6 +1118,9 @@ impl ToplevelData {
             }
             ToplevelDataTransactionOp::SetVisible(v) => {
                 self.visible[RenderTL].set(v);
+            }
+            ToplevelDataTransactionOp::SetIsRootContainer(v) => {
+                self.is_root_container[RenderTL].set(v);
             }
         }
     }
