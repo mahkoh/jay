@@ -92,7 +92,7 @@ pub fn main() -> Result<()> {
         wl!("pub const MAX_INPUT_EVENT_CODE: usize = {max};");
         wl!();
         wl!("#[derive(Copy, Clone, Debug, Eq, PartialEq, linearize::Linearize)]");
-        wl!("#[expect(non_camel_case_types)]");
+        wl!("#[allow(non_camel_case_types)]");
         wl!("pub enum InputEventCode {{");
         for names in by_value.values() {
             wl!("    {},", names[0]);

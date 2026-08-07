@@ -1,7 +1,7 @@
 pub const MAX_INPUT_EVENT_CODE: usize = 743;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, linearize::Linearize)]
-#[expect(non_camel_case_types)]
+#[allow(non_camel_case_types)]
 pub enum InputEventCode {
     KEY_ESC,
     KEY_1,

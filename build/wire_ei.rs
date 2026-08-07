@@ -491,7 +491,7 @@ fn write_request_handler<W: Write>(
 ) -> Result<()> {
     writeln!(f)?;
     if messages.dead {
-        writeln!(f, "    #[expect(dead_code)]")?;
+        writeln!(f, "    #[allow(dead_code)]")?;
     }
     writeln!(
         f,

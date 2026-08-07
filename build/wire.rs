@@ -318,7 +318,7 @@ fn write_request_handler<W: Write>(
             error = "crate::client::ClientError";
             param = "req";
             if dead {
-                writeln!(f, "#[expect(dead_code)]")?;
+                writeln!(f, "#[allow(dead_code)]")?;
             }
         }
         RequestHandlerDirection::Event => {
@@ -498,7 +498,7 @@ pub fn main() -> Result<()> {
     }
     writeln!(f)?;
     writeln!(f, "#[doc(hidden)]")?;
-    writeln!(f, "#[expect(dead_code)]")?;
+    writeln!(f, "#[allow(dead_code)]")?;
     writeln!(f, "pub mod interface_singletons {{")?;
     for interface in &interface_names {
         writeln!(
