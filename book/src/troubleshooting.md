@@ -306,7 +306,8 @@ frames. The default is 1.5 ms:
 ```
 
 If you see missed frames, try increasing it. If you want lower latency, try
-decreasing it -- Jay will dynamically increase it if the margin is too small.
+decreasing it. Jay dynamically increases a margin that is too small unless
+`flip-margin-auto-adjustment = false` is set for the DRM device.
 
 **4. Enable direct scanout:**
 

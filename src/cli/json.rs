@@ -120,6 +120,7 @@ pub struct JsonDrmDevice<'a> {
     pub render_device: bool,
     pub use_plane_color_pipelines: bool,
     pub plane_color_pipelines_supported: bool,
+    pub flip_margin_auto_adjustment: bool,
     #[serde(skip_serializing_if = "is_empty")]
     pub connectors: Vec<JsonConnector<'a>>,
 }

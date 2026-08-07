@@ -129,6 +129,7 @@ impl TestBackend {
         let default_drm_dev = Rc::new(TestDrmDevice {
             id: state.drm_dev_ids.next(),
             dev_t: 1234,
+            flip_margin_auto_adjustment_enabled: Cell::new(true),
         });
         let default_connector = Rc::new(TestConnector {
             id: state.connector_ids.next(),
@@ -773,6 +774,7 @@ impl<T: TestInputDevice> InputDevice for T {
 pub struct TestDrmDevice {
     id: DrmDeviceId,
     dev_t: dev_t,
+    flip_margin_auto_adjustment_enabled: Cell<bool>,
 }
 
 impl BackendDrmDevice for TestDrmDevice {
@@ -814,5 +816,13 @@ impl BackendDrmDevice for TestDrmDevice {
 
     fn is_render_device(&self) -> bool {
         true
+    }
+
+    fn set_flip_margin_auto_adjustment_enabled(&self, enabled: bool) {
+        self.flip_margin_auto_adjustment_enabled.set(enabled);
+    }
+
+    fn flip_margin_auto_adjustment_enabled(&self) -> bool {
+        self.flip_margin_auto_adjustment_enabled.get()
     }
 }

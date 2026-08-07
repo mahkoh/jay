@@ -1008,6 +1008,13 @@ pub enum ClientMessage<'a> {
     GetPlaneColorPipelinesEnabled {
         device: DrmDevice,
     },
+    GetFlipMarginAutoAdjustmentEnabled {
+        device: DrmDevice,
+    },
+    SetFlipMarginAutoAdjustmentEnabled {
+        device: DrmDevice,
+        enabled: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1280,6 +1287,9 @@ pub enum Response {
         borders: ContainerBorders,
     },
     GetPlaneColorPipelinesEnabled {
+        enabled: bool,
+    },
+    GetFlipMarginAutoAdjustmentEnabled {
         enabled: bool,
     },
 }
