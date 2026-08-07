@@ -25,7 +25,6 @@ use crate::utils::buffd::WlBufFdIn;
 use crate::utils::buffd::WlMessage;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::numcell::NumCell;
 use crate::utils::oserror::OsError;
 use crate::utils::oserror::OsErrorExt2;
 use crate::wheel::Wheel;
@@ -66,7 +65,6 @@ use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::future::Future;
-use std::future::Pending;
 use std::mem;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -114,8 +112,6 @@ pub struct ToolClient {
     >,
     swapchain: Rc<RefCell<OutBufferSwapchain>>,
     flush_request: AsyncEvent,
-    pending_futures: RefCell<BHashMap<u32, SpawnedFuture<()>>>,
-    next_id: NumCell<u32>,
     incoming: Cell<Option<SpawnedFuture<()>>>,
     outgoing: Cell<Option<SpawnedFuture<()>>>,
     singletons: CloneCell<Option<Rc<Singletons>>>,
@@ -221,8 +217,6 @@ impl ToolClient {
             handlers: Default::default(),
             swapchain: Default::default(),
             flush_request: Default::default(),
-            pending_futures: Default::default(),
-            next_id: Default::default(),
             incoming: Default::default(),
             outgoing: Default::default(),
             singletons: Default::default(),
@@ -266,35 +260,38 @@ impl ToolClient {
         Ok(slf)
     }
 
-    fn handle<T, F, R, H>(self: &Rc<Self>, id: ObjectId, recv: R, h: H)
+    fn handle<T, R, H>(self: &Rc<Self>, id: ObjectId, recv: R, h: H)
     where
         T: RequestParser<'static>,
-        F: Future<Output = ()> + 'static,
         R: 'static,
-        H: for<'a> Fn(&R, T::Generic<'a>) -> Option<F> + 'static,
+        H: for<'a> Fn(&R, T::Generic<'a>) + 'static,
     {
-        let slf = self.clone();
-        let mut handlers = self.handlers.borrow_mut();
-        handlers.entry(id).or_default().insert(
-            T::ID,
+        let handler: Rc<dyn Fn(&mut MsgParser) -> Result<(), ToolClientError>> =
             Rc::new(move |parser| {
-                let val = match <T::Generic<'_> as RequestParser<'_>>::parse(parser) {
-                    Ok(val) => val,
-                    Err(e) => return Err(ToolClientError::Parsing(std::any::type_name::<T>(), e)),
-                };
-                let res = h(&recv, val);
-                if let Some(res) = res {
-                    let id = slf.next_id.fetch_add(1);
-                    let slf2 = slf.clone();
-                    let future = slf.eng.spawn("tool client handler", async move {
-                        res.await;
-                        slf2.pending_futures.borrow_mut().remove(&id);
-                    });
-                    slf.pending_futures.borrow_mut().insert(id, future);
-                }
+                let val = Self::parse::<T>(parser)?;
+                h(&recv, val);
                 Ok(())
-            }),
-        );
+            });
+        self.add_handler(id, T::ID, handler);
+    }
+
+    fn parse<'a, T: RequestParser<'static>>(
+        parser: &mut MsgParser<'_, 'a>,
+    ) -> Result<T::Generic<'a>, ToolClientError> {
+        match <T::Generic<'a> as RequestParser<'_>>::parse(parser) {
+            Ok(val) => Ok(val),
+            Err(e) => Err(ToolClientError::Parsing(std::any::type_name::<T>(), e)),
+        }
+    }
+
+    fn add_handler(
+        self: &Rc<Self>,
+        id: ObjectId,
+        req: u32,
+        handler: Rc<dyn Fn(&mut MsgParser) -> Result<(), ToolClientError>>,
+    ) {
+        let mut handlers = self.handlers.borrow_mut();
+        handlers.entry(id).or_default().insert(req, handler);
     }
 
     pub fn send<M: EventFormatter>(&self, msg: M) {
@@ -503,20 +500,11 @@ pub struct Singletons {
     pub jay_damage_tracking: Option<u32>,
 }
 
-pub const NONE_FUTURE: Option<Pending<()>> = None;
-
 pub trait Handle: RequestParser<'static> {
     fn handle<R, H>(tl: &Rc<ToolClient>, id: impl Into<ObjectId>, r: R, h: H)
     where
         R: 'static,
         H: for<'a> Fn(&R, Self::Generic<'a>) + 'static;
-
-    #[expect(unused)]
-    fn handle2<R, F, H>(tl: &Rc<ToolClient>, id: impl Into<ObjectId>, r: R, h: H)
-    where
-        R: 'static,
-        F: Future<Output = ()> + 'static,
-        H: for<'a> Fn(&R, Self::Generic<'a>) -> F + 'static;
 }
 
 impl<T: RequestParser<'static>> Handle for T {
@@ -525,19 +513,7 @@ impl<T: RequestParser<'static>> Handle for T {
         R: 'static,
         H: for<'a> Fn(&R, T::Generic<'a>) + 'static,
     {
-        tl.handle::<Self, _, _, _>(id.into(), r, move |a, b| {
-            h(a, b);
-            NONE_FUTURE
-        });
-    }
-
-    fn handle2<R, F, H>(tl: &Rc<ToolClient>, id: impl Into<ObjectId>, r: R, h: H)
-    where
-        R: 'static,
-        F: Future<Output = ()> + 'static,
-        H: for<'a> Fn(&R, T::Generic<'a>) -> F + 'static,
-    {
-        tl.handle::<Self, _, _, _>(id.into(), r, move |a, b| Some(h(a, b)));
+        tl.handle::<Self, _, _>(id.into(), r, h);
     }
 }
 
