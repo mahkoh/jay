@@ -5778,6 +5778,74 @@ The string should have one of the following values:
 
 
 
+<a name="types-WindowFloatingPosition"></a>
+### `WindowFloatingPosition`
+
+The initial position of a floating window.
+
+- Example:
+
+  ```toml
+  [[windows]]
+  match.app-id = "mpv"
+  initial-floating-position = { x = 100, y = 100 }
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `x` (required):
+
+  The x coordinate of the window.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+- `y` (required):
+
+  The y coordinate of the window.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+
+<a name="types-WindowFloatingSize"></a>
+### `WindowFloatingSize`
+
+The initial size of a floating window.
+
+- Example:
+
+  ```toml
+  [[windows]]
+  match.app-id = "mpv"
+  initial-floating-size = { width = 800, height = 600 }
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `width` (required):
+
+  The width of the window.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+- `height` (required):
+
+  The height of the window.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+
 <a name="types-WindowMatch"></a>
 ### `WindowMatch`
 
@@ -6097,6 +6165,22 @@ The table has the following fields:
   Specifies if the window is initially mapped tiled or floating.
 
   The value of this field should be a [TileState](#types-TileState).
+
+- `initial-floating-size` (optional):
+
+  Specifies the initial size of the window while it is floating.
+  
+  If multiple matching rules specify this field, the used size is unspecified.
+
+  The value of this field should be a [WindowFloatingSize](#types-WindowFloatingSize).
+
+- `initial-floating-position` (optional):
+
+  Specifies the initial position of the window while it is floating.
+  
+  If multiple matching rules specify this field, the used position is unspecified.
+
+  The value of this field should be a [WindowFloatingPosition](#types-WindowFloatingPosition).
 
 
 <a name="types-WindowTypeMask"></a>

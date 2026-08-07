@@ -354,6 +354,8 @@ pub struct WindowRule {
     pub latch: Option<Action>,
     pub auto_focus: Option<bool>,
     pub initial_tile_state: Option<TileState>,
+    pub initial_floating_size: Option<(i32, i32)>,
+    pub initial_floating_position: Option<(i32, i32)>,
 }
 
 #[derive(Default, Debug, Clone)]
