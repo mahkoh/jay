@@ -489,6 +489,30 @@ pub fn set_show_float_pin_icon(show: bool) {
     get!().set_show_float_pin_icon(show);
 }
 
+/// Sets whether splitting a window that is the only child of its container reuses
+/// that container.
+///
+/// If disabled, splitting such a window wraps it in another container. If enabled, the
+/// split direction of the existing container is changed instead.
+///
+/// The default is `false`.
+pub fn set_split_reuses_container(reuse: bool) {
+    get!().set_split_reuses_container(reuse)
+}
+
+/// Returns whether splitting a window that is the only child of its container reuses
+/// that container.
+pub fn get_split_reuses_container() -> bool {
+    get!(false).get_split_reuses_container()
+}
+
+/// Toggles whether splitting a window that is the only child of its container reuses
+/// that container.
+pub fn toggle_split_reuses_container() {
+    let get = get!();
+    get.set_split_reuses_container(!get.get_split_reuses_container());
+}
+
 /// Sets whether the built-in bar is shown.
 ///
 /// The default is `true`.

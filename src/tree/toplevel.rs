@@ -1177,6 +1177,13 @@ pub fn toplevel_create_split(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, axis: 
         Some(ws) => ws,
         _ => return,
     };
+    if state.split_reuses_container.get()
+        && let Some(pn) = toplevel_parent_container(&*tl)
+        && pn.num_children() == 1
+    {
+        pn.set_split(axis);
+        return;
+    }
     let pn = match tl.tl_data().parent.get() {
         Some(pn) => pn,
         _ => return,

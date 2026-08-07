@@ -1817,6 +1817,16 @@ impl ConfigProxyHandler {
         });
     }
 
+    fn handle_set_split_reuses_container(&self, reuse: bool) {
+        self.state.set_split_reuses_container(reuse);
+    }
+
+    fn handle_get_split_reuses_container(&self) {
+        self.respond(Response::GetSplitReusesContainer {
+            reuse: self.state.split_reuses_container.get(),
+        });
+    }
+
     fn handle_set_show_bar(&self, show: bool) {
         self.state.set_show_bar(show);
     }
@@ -3858,6 +3868,10 @@ impl ConfigProxyHandler {
             ClientMessage::GetContentType { window } => self
                 .handle_get_content_type(window)
                 .wrn("get_content_type")?,
+            ClientMessage::SetSplitReusesContainer { reuse } => {
+                self.handle_set_split_reuses_container(reuse)
+            }
+            ClientMessage::GetSplitReusesContainer => self.handle_get_split_reuses_container(),
             ClientMessage::SetShowBar { show } => self.handle_set_show_bar(show),
             ClientMessage::GetShowBar => self.handle_get_show_bar(),
             ClientMessage::SetShowTitles { show } => self.handle_set_show_titles(show),

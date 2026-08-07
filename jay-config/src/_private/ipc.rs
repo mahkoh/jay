@@ -1014,6 +1014,10 @@ pub enum ClientMessage<'a> {
     GetWorkspacePosition {
         workspace: Workspace,
     },
+    SetSplitReusesContainer {
+        reuse: bool,
+    },
+    GetSplitReusesContainer,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1299,6 +1303,9 @@ pub enum Response {
         y: i32,
         width: i32,
         height: i32,
+    },
+    GetSplitReusesContainer {
+        reuse: bool,
     },
 }
 

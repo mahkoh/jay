@@ -214,6 +214,19 @@ window-management-key = "Alt_L"
 The value should be a keysym name from
 [KBVM](https://docs.rs/kbvm/latest/kbvm/syms/index.html).
 
+## Split Reuses Container
+
+Controls whether splitting a window that is the only window in its container
+reuses that container.
+
+If this is disabled, splitting such a window wraps it in another container. If
+this is enabled, the split direction of the existing container is changed
+instead.
+
+```toml
+split-reuses-container = false  # default
+```
+
 ## Middle-Click Paste
 
 Controls whether middle-clicking pastes the primary selection. Changing this

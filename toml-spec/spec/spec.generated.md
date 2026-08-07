@@ -2489,6 +2489,19 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `split-reuses-container` (optional):
+
+  Configures whether splitting a window that is the only window in its
+  container reuses that container.
+  
+  If this is disabled, splitting such a window wraps it in another
+  container. If this is enabled, the split direction of the existing
+  container is changed instead.
+  
+  The default is `false`.
+
+  The value of this field should be a boolean.
+
 - `show-bar` (optional):
 
   Configures whether the built-in bar is shown.
@@ -5025,6 +5038,26 @@ The string should have one of the following values:
 - `toggle-float-above-fullscreen`:
 
   Toggles floating windows showing above fullscreen windows.
+
+- `enable-split-reuses-container`:
+
+  Enables reusing the container when splitting a window that is the only window
+  in its container.
+  
+  In this mode, splitting such a window changes the split direction of the
+  existing container.
+
+- `disable-split-reuses-container`:
+
+  Disables reusing the container when splitting a window that is the only window
+  in its container.
+  
+  In this mode, splitting such a window wraps it in another container.
+
+- `toggle-split-reuses-container`:
+
+  Toggles whether splitting a window that is the only window in its container
+  reuses that container.
 
 - `pin-float`:
 

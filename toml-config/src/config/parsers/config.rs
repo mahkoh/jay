@@ -173,6 +173,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 transactions_val,
                 cursor_size,
                 device_config_filter,
+                split_reuses_container,
             ),
         ) = ext.extract((
             (
@@ -240,6 +241,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 opt(val("transactions")),
                 recover(opt(s32("cursor-size"))),
                 recover(opt(str("device-config-filter"))),
+                recover(opt(bol("split-reuses-container"))),
             ),
         ))?;
         let mut keymap = None;
@@ -677,6 +679,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
             pointer_revert_key,
             use_hardware_cursor: use_hardware_cursor.despan(),
             show_bar: show_bar.despan(),
+            split_reuses_container: split_reuses_container.despan(),
             show_titles: show_titles.despan(),
             focus_history,
             middle_click_paste: middle_click_paste.despan(),

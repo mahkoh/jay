@@ -474,6 +474,11 @@ Float Pin Icon
 Float Above Fullscreen
 : Show floating windows above fullscreen windows
 
+Split Reuses Container
+: When splitting the only window in a container, change that container's split
+  direction instead of wrapping the window in a new container (see
+  [Split Reuses Container](configuration/misc.md#split-reuses-container))
+
 Font
 : Text field for the main compositor font family
 

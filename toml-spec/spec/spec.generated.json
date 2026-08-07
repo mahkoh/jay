@@ -1237,6 +1237,10 @@
           "type": "boolean",
           "description": "Configures whether the default seat uses hardware cursors.\n\nThe default is `true`.\n"
         },
+        "split-reuses-container": {
+          "type": "boolean",
+          "description": "Configures whether splitting a window that is the only window in its\ncontainer reuses that container.\n\nIf this is disabled, splitting such a window wraps it in another\ncontainer. If this is enabled, the split direction of the existing\ncontainer is changed instead.\n\nThe default is `false`.\n"
+        },
         "show-bar": {
           "type": "boolean",
           "description": "Configures whether the built-in bar is shown.\n\nThe default is `true`.\n"
@@ -2253,6 +2257,9 @@
         "enable-float-above-fullscreen",
         "disable-float-above-fullscreen",
         "toggle-float-above-fullscreen",
+        "enable-split-reuses-container",
+        "disable-split-reuses-container",
+        "toggle-split-reuses-container",
         "pin-float",
         "unpin-float",
         "toggle-float-pinned",

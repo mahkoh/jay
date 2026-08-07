@@ -449,6 +449,7 @@ fn start_compositor2(
         backend_connector_state_serials: Default::default(),
         head_names: Default::default(),
         show_bar: Cell::new(true),
+        split_reuses_container: Cell::new(false),
         enable_primary_selection: Cell::new(true),
         workspace_display_order: Cell::new(WorkspaceDisplayOrder::Manual),
         outputs_without_hc: Default::default(),

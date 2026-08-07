@@ -168,6 +168,10 @@ impl Window {
     }
 
     /// Creates a new container with the specified split in place of the window.
+    ///
+    /// If the window is the only child of its container and
+    /// [`set_split_reuses_container`](crate::set_split_reuses_container) is enabled, the
+    /// split axis of that container is changed instead.
     pub fn create_split(self, axis: Axis) {
         get!().create_window_split(self, axis);
     }

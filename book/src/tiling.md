@@ -31,6 +31,11 @@ The `tile-horizontal` action sets the container to horizontal, and
 `tile-vertical` sets it to vertical -- unlike `split-horizontal`/`split-vertical`
 which wrap the window in a new container first.
 
+If the window being split is the only window in its container, the
+[`split-reuses-container`](configuration/misc.md#split-reuses-container)
+option makes the split change that container's direction instead of wrapping the
+window in a nested container.
+
 ## Moving Focus
 
 Move keyboard focus between windows with the directional focus actions:
@@ -138,10 +143,14 @@ Double-click a tile's title bar to toggle it between tiled and floating. See
 ## Summary of Tiling Actions
 
 `split-horizontal`
-: Wrap focused window in a horizontal container
+: Wrap focused window in a horizontal container (or, with
+  [`split-reuses-container`](configuration/misc.md#split-reuses-container),
+  make its container horizontal if it is the only window in it)
 
 `split-vertical`
-: Wrap focused window in a vertical container
+: Wrap focused window in a vertical container (or, with
+  [`split-reuses-container`](configuration/misc.md#split-reuses-container),
+  make its container vertical if it is the only window in it)
 
 `toggle-split`
 : Toggle container split direction

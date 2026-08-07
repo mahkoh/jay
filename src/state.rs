@@ -401,6 +401,7 @@ pub struct State {
     pub backend_connector_state_serials: BackendConnectorStateSerials,
     pub head_names: HeadNames,
     pub show_bar: Cell<bool>,
+    pub split_reuses_container: Cell<bool>,
     pub enable_primary_selection: Cell<bool>,
     pub workspace_display_order: Cell<WorkspaceDisplayOrder>,
     pub outputs_without_hc: NumCell<usize>,
@@ -2594,6 +2595,11 @@ impl State {
         let config = self.config.get()?;
         let initial = config.initial_output_for_workspace(name)?;
         Some(initial.map(|o| o.id))
+    }
+
+    pub fn set_split_reuses_container(&self, v: bool) {
+        self.split_reuses_container.set(v);
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 }
 

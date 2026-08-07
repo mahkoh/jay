@@ -1155,6 +1155,16 @@ impl ConfigClient {
         above
     }
 
+    pub fn set_split_reuses_container(&self, reuse: bool) {
+        self.send(&ClientMessage::SetSplitReusesContainer { reuse });
+    }
+
+    pub fn get_split_reuses_container(&self) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetSplitReusesContainer);
+        get_response!(res, false, GetSplitReusesContainer { reuse });
+        reuse
+    }
+
     pub fn set_show_bar(&self, show: bool) {
         self.send(&ClientMessage::SetShowBar { show });
     }

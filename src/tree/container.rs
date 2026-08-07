@@ -1231,6 +1231,10 @@ impl ContainerNode {
         self.update_title();
     }
 
+    pub fn num_children(&self) -> usize {
+        self.num_children.get()
+    }
+
     pub fn set_split(self: &Rc<Self>, split: ContainerSplit) {
         if self.set_ns_split(split) != split {
             self.update_content_size();
