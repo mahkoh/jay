@@ -82,6 +82,7 @@ use crate::window::WindowCriterion;
 use crate::window::WindowMatcher;
 use crate::window::WindowType;
 use crate::workspace::WorkspaceDisplayOrder;
+use crate::workspace::WorkspaceEmptyBehavior;
 use crate::xwayland::XScalingMode;
 use bincode::Options;
 use futures_util::task::ArcWake;
@@ -1172,6 +1173,21 @@ impl ConfigClient {
 
     pub fn set_workspace_display_order(&self, order: WorkspaceDisplayOrder) {
         self.send(&ClientMessage::SetWorkspaceDisplayOrder { order });
+    }
+
+    pub fn set_workspace_empty_behavior(&self, behavior: WorkspaceEmptyBehavior) {
+        self.send(&ClientMessage::SetWorkspaceEmptyBehavior { behavior });
+    }
+
+    pub fn set_workspace_empty_behavior_override(
+        &self,
+        workspace: Workspace,
+        behavior: Option<WorkspaceEmptyBehavior>,
+    ) {
+        self.send(&ClientMessage::SetWorkspaceEmptyBehaviorOverride {
+            workspace,
+            behavior,
+        });
     }
 
     pub fn seat_create_mark(&self, seat: Seat, kc: Option<u32>) {

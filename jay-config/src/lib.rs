@@ -51,6 +51,7 @@ use crate::input::Seat;
 use crate::keyboard::ModifiedKeySym;
 use crate::video::Connector;
 use crate::window::Window;
+use crate::workspace::WorkspaceEmptyBehavior;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt::Debug;
@@ -176,7 +177,9 @@ impl Workspace {
 
     /// Moves this workspace to another output.
     ///
-    /// This has no effect if the workspace is not currently being shown.
+    /// Hidden workspaces remain hidden and are restored on the new output when shown again.
+    ///
+    /// This has no effect if the workspace does not exist or the output is not connected.
     pub fn move_to_output(self, output: Connector) {
         get!().move_to_output(WorkspaceSource::Explicit(self), output);
     }
@@ -231,6 +234,13 @@ impl Workspace {
     /// be created on the connector set via this function, if possible.
     pub fn set_initial_connector(self, connector: Option<Connector>) {
         get!().set_workspace_initial_connector(self, connector);
+    }
+
+    /// Sets the per-workspace empty behavior override for this normal workspace.
+    ///
+    /// Passing `None` uses the global workspace empty behavior. This has no effect on overlays.
+    pub fn set_empty_behavior(self, behavior: Option<WorkspaceEmptyBehavior>) {
+        get!().set_workspace_empty_behavior_override(self, behavior);
     }
 }
 

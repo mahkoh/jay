@@ -364,6 +364,29 @@ pub struct TestConnector {
     pub scanout_formats: CloneCell<Option<ScanoutFormats>>,
 }
 
+impl TestConnector {
+    pub fn new(
+        id: ConnectorId,
+        drm_dev_id: DrmDeviceId,
+        idx: u32,
+        state: BackendConnectorState,
+    ) -> Self {
+        Self {
+            id,
+            drm_dev_id,
+            kernel_id: ConnectorKernelId {
+                ty: ConnectorType::VGA,
+                idx,
+            },
+            events: Default::default(),
+            idle: Default::default(),
+            damage_calls: NumCell::new(0),
+            state: RefCell::new(state),
+            scanout_formats: Default::default(),
+        }
+    }
+}
+
 impl Connector for TestConnector {
     fn id(&self) -> ConnectorId {
         self.id

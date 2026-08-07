@@ -511,7 +511,7 @@ impl FloatNode {
         }
         self.workspace_link
             .set(Some(ws.stacked.add_last(self.clone())));
-        self.workspace.set(ws.clone());
+        let old_ws = self.workspace.set(ws.clone());
         if self.node_state[LiveTL].workspace_ty.get() != ws.ty {
             self.set_ns_workspace_type(ws.ty);
             self.display_link
@@ -531,6 +531,9 @@ impl FloatNode {
                 .get()
                 .pinned
                 .add_last_existing(pl);
+        }
+        if old_ws.id != ws.id {
+            old_ws.enforce_empty_behavior();
         }
     }
 
@@ -1105,6 +1108,8 @@ impl ContainingNode for FloatNode {
         self.workspace_link.set(None);
         self.pinned_link.take();
         self.set_ns_pinned(false);
+        let ws = self.workspace.get();
+        ws.enforce_empty_behavior();
     }
 
     fn cnode_accepts_child(&self, _node: &dyn Node) -> bool {

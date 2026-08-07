@@ -13,6 +13,7 @@ use crate::config::parser::ParseResult;
 use crate::config::parser::Parser;
 use crate::config::parser::UnexpectedDataType;
 use crate::config::parsers::output_match::OutputMatchParser;
+use crate::config::parsers::workspace_empty_behavior::WorkspaceEmptyBehaviorParser;
 use crate::toml::toml_span::Span;
 use crate::toml::toml_span::Spanned;
 use crate::toml::toml_value::Value;
@@ -21,6 +22,7 @@ use indexmap::IndexMap;
 use jay_config::Workspace;
 use jay_config::video::Connector;
 use jay_config::video::connectors;
+use jay_config::workspace::WorkspaceEmptyBehavior;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
@@ -35,6 +37,7 @@ pub struct WorkspaceSlot {
     pub explicit_ty: Cell<Option<WorkspaceType>>,
     pub implicit_output: RefCell<Option<Rc<OutputMatch>>>,
     pub explicit_output: RefCell<Option<Rc<OutputMatch>>>,
+    pub empty_behavior: Cell<Option<WorkspaceEmptyBehavior>>,
 }
 
 impl WorkspaceSlot {
@@ -123,6 +126,7 @@ impl Context<'_, '_> {
             explicit_ty: Default::default(),
             implicit_output: Default::default(),
             explicit_output: Default::default(),
+            empty_behavior: Cell::new(None),
         });
         map.insert(name.to_string(), ws.clone());
         ws
@@ -191,8 +195,11 @@ impl Parser for WorkspaceParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (ty_str, initial_output) =
-            ext.extract((recover(opt(str("type"))), opt(val("initial-output"))))?;
+        let (ty_str, initial_output, empty_behavior_value) = ext.extract((
+            recover(opt(str("type"))),
+            opt(val("initial-output")),
+            opt(val("empty-behavior")),
+        ))?;
         let ws = self.cx.get_workspace_slot(self.name);
         if let Some(v) = initial_output {
             match v.parse(&mut OutputMatchParser(self.cx)) {
@@ -215,6 +222,19 @@ impl Parser for WorkspaceParser<'_, '_, '_> {
                 ws.explicit_ty.set(Some(ty));
             }
         }
+        let mut empty_behavior = None;
+        if let Some(value) = empty_behavior_value {
+            match value.parse(&mut WorkspaceEmptyBehaviorParser) {
+                Ok(v) => empty_behavior = Some(v),
+                Err(e) => {
+                    log::warn!(
+                        "Could not parse the workspace empty behavior: {}",
+                        self.cx.error(e)
+                    );
+                }
+            }
+        }
+        ws.empty_behavior.set(empty_behavior);
         Ok(())
     }
 }

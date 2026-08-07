@@ -63,6 +63,7 @@ mod window_rule;
 mod window_type;
 pub mod workspace;
 mod workspace_display_order;
+mod workspace_empty_behavior;
 mod xwayland;
 
 #[derive(Debug, Error)]

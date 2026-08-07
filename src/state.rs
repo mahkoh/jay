@@ -203,6 +203,7 @@ use crate::tree::TreeTimeline::RenderTL;
 use crate::tree::TreeTimeline::{self};
 use crate::tree::VrrMode;
 use crate::tree::WorkspaceDisplayOrder;
+use crate::tree::WorkspaceEmptyBehavior;
 use crate::tree::WorkspaceNode;
 use crate::tree::WorkspaceType;
 use crate::tree::WsMoveConfig;
@@ -403,6 +404,7 @@ pub struct State {
     pub show_bar: Cell<bool>,
     pub enable_primary_selection: Cell<bool>,
     pub workspace_display_order: Cell<WorkspaceDisplayOrder>,
+    pub workspace_empty_behavior: Cell<WorkspaceEmptyBehavior>,
     pub outputs_without_hc: NumCell<usize>,
     pub udmabuf: Rc<UdmabufHolder>,
     pub gfx_ctx_changed: EventSource<WlBuffer>,
@@ -1057,10 +1059,16 @@ impl State {
                 return Some(on()?.ensure_normal_workspace());
             };
             let ty = s.workspace_ty.get().unwrap_or(WorkspaceType::Normal);
+            let restore = |ws: Rc<WorkspaceNode>, output| {
+                if ws.hidden.get() {
+                    ws.restore_hidden_workspace(output, None)?;
+                }
+                Some(ws)
+            };
             match self.workspaces.get(&*name) {
                 Some(ws) => {
                     let Some(o) = session.state.output.get() else {
-                        return Some(ws);
+                        return restore(ws, None);
                     };
                     match ty {
                         WorkspaceType::Normal => {
@@ -1068,10 +1076,10 @@ impl State {
                                 let ws_on = ws.node_state[LiveTL].output.get();
                                 if ws_on.global.output_id.hash == o {
                                     if session.session.reason() == SessionReason::Recover {
-                                        return Some(ws);
+                                        return restore(ws, Some(ws_on));
                                     }
                                     if ws_on.node_state[LiveTL].workspace.id() == Some(ws.id) {
-                                        return Some(ws);
+                                        return restore(ws, Some(ws_on));
                                     }
                                 }
                             }
@@ -1087,7 +1095,7 @@ impl State {
                             return Some(on.create_normal_workspace(&name));
                         }
                         if let Some(ws) = on.node_state[LiveTL].workspace.get() {
-                            return Some(ws);
+                            return restore(ws, Some(on.clone()));
                         }
                         let ws = if let Some(initial) = self.initial_workspace_output_id(&name)
                             && initial != Some(on.id)
@@ -1215,6 +1223,14 @@ impl State {
         output: &Rc<OutputNode>,
         ws: &Rc<WorkspaceNode>,
     ) -> bool {
+        let mut output = output.clone();
+        if ws.hidden.get() {
+            let Some(target) = ws.restore_hidden_workspace2(Some(output.clone()), seat, false)
+            else {
+                return false;
+            };
+            output = target;
+        }
         let mut pinned_is_focused = false;
         if ws.ty == WorkspaceType::Normal
             && let Some(seat) = seat
@@ -1230,7 +1246,7 @@ impl State {
                     }));
             }
         }
-        let did_change = output.show_workspace(&ws);
+        let did_change = output.show_workspace(ws);
         let mut did_focus = false;
         if !pinned_is_focused && let Some(seat) = seat {
             did_focus = ws.do_focus(seat, Direction::Unspecified);
@@ -1253,7 +1269,7 @@ impl State {
         ty: WorkspaceType,
         mut output: Option<Rc<OutputNode>>,
     ) {
-        let mut output = || {
+        let mut resolve_output = || {
             output
                 .get_or_insert_with(|| seat.get_fallback_output())
                 .clone()
@@ -1262,7 +1278,7 @@ impl State {
             Some(ws) => ws,
             _ => match ty {
                 WorkspaceType::Normal => {
-                    let output = output();
+                    let output = resolve_output();
                     if output.is_dummy {
                         log::warn!("Not showing workspace because seat is on dummy output");
                         return;
@@ -1273,8 +1289,16 @@ impl State {
             },
         };
         let output = match ty {
-            WorkspaceType::Normal => ws.node_state[LiveTL].output.get(),
-            WorkspaceType::Overlay => output(),
+            WorkspaceType::Normal => {
+                if ws.hidden.get() {
+                    output
+                        .clone()
+                        .unwrap_or_else(|| ws.node_state[LiveTL].output.get())
+                } else {
+                    ws.node_state[LiveTL].output.get()
+                }
+            }
+            WorkspaceType::Overlay => resolve_output(),
         };
         self.show_workspace2(Some(seat), &output, &ws);
         seat.maybe_schedule_warp_mouse_to_focus();
@@ -2065,7 +2089,12 @@ impl State {
         if output.is_dummy {
             return;
         }
+        ws.desired_output.set(output.global.output_id.clone());
         if ws.node_state[LiveTL].output.id() == output.id {
+            return;
+        }
+        if ws.hidden.get() {
+            ws.set_hidden_output(output);
             return;
         }
         let config = WsMoveConfig {
@@ -2074,8 +2103,7 @@ impl State {
             source_is_destroyed: false,
             before: None,
         };
-        move_ws_to_output(ws, &output, config);
-        ws.desired_output.set(output.global.output_id.clone());
+        move_ws_to_output(ws, output, config);
         self.tree_changed();
     }
 
@@ -2192,6 +2220,33 @@ impl State {
             output.handle_workspace_display_order_update();
         }
         self.trigger_cci(CCI_COMPOSITOR);
+    }
+
+    pub fn set_workspace_empty_behavior(&self, behavior: WorkspaceEmptyBehavior) {
+        self.workspace_empty_behavior.set(behavior);
+        self.trigger_cci(CCI_COMPOSITOR);
+        if not_matches!(
+            behavior,
+            WorkspaceEmptyBehavior::Destroy | WorkspaceEmptyBehavior::Hide
+        ) {
+            return;
+        }
+        let workspaces: Vec<Rc<WorkspaceNode>> = self.workspaces.lock().values().cloned().collect();
+        for ws in workspaces {
+            ws.enforce_empty_behavior();
+        }
+    }
+
+    pub fn collect_hidden_workspaces(
+        &self,
+        mut accept: impl FnMut(&WorkspaceNode) -> bool,
+    ) -> Vec<Rc<WorkspaceNode>> {
+        self.workspaces
+            .lock()
+            .values()
+            .filter(|ws| ws.hidden.get() && accept(ws))
+            .cloned()
+            .collect()
     }
 
     fn spaces_changed(self: &Rc<Self>) {

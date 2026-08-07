@@ -1300,6 +1300,10 @@
         "device-config-filter": {
           "description": "Determines which devices are automatically configured.",
           "$ref": "#/$defs/DeviceConfigFilter"
+        },
+        "workspace-empty-behavior": {
+          "description": "Configures what happens to empty normal workspaces when you leave them or when they become inactive.\n\nThe default is `destroy-on-leave`.\n\n- Example:\n\n  ```toml\n  workspace-empty-behavior = \"hide-on-leave\"\n  ```\n",
+          "$ref": "#/$defs/WorkspaceEmptyBehavior"
         }
       },
       "required": []
@@ -2786,6 +2790,10 @@
         "initial-output": {
           "description": "The initial output of the workspace.\n\nThis setting can be overwritten with the `output` field in `show-workspace`\nactions. If that field is not used or the workspace is created via some other\nmechanism, it will be created on the output set via this setting, if possible.\n\nIf the matcher matches multiple outputs, the selected output is undefined.\n\nIf this setting is not used, then the initial output will be inferred from the\noutput set in a `show-workspace` action, if possible.\n",
           "$ref": "#/$defs/OutputMatch"
+        },
+        "empty-behavior": {
+          "description": "Overrides `workspace-empty-behavior` for this normal workspace. This has no effect on overlays.\n",
+          "$ref": "#/$defs/WorkspaceEmptyBehavior"
         }
       },
       "required": []
@@ -2796,6 +2804,17 @@
       "enum": [
         "manual",
         "sorted"
+      ]
+    },
+    "WorkspaceEmptyBehavior": {
+      "type": "string",
+      "description": "Configures what happens to empty normal workspaces when they are left or become inactive.\n\nThis is evaluated per-output.\n\n- \"leave\" means that the workspace stops being the active workspace on its output\n  because another workspace was shown on that same output.\n- \"inactive\" means the workspace is currently not the active workspace on its output.\n",
+      "enum": [
+        "preserve",
+        "destroy-on-leave",
+        "hide-on-leave",
+        "destroy",
+        "hide"
       ]
     },
     "WorkspaceType": {

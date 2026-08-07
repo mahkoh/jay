@@ -14,8 +14,6 @@ use crate::object::Version;
 use crate::tree::OutputNode;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::WorkspaceNode;
-use crate::tree::WsMoveConfig;
-use crate::tree::move_ws_to_output;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::opt::Opt;
 use crate::utils::syncqueue::SyncQueue;
@@ -77,12 +75,12 @@ impl ExtWorkspaceManagerV1Global {
             .workspace_managers
             .managers
             .set(obj.manager_id, obj.clone());
+        for output in client.state.root.outputs.lock().values() {
+            obj.announce_output(output);
+        }
         let dummy_output = client.state.dummy_output.get().unwrap();
         for ws in dummy_output.workspaces.iter_valid(LiveTL) {
             obj.announce_workspace(&dummy_output, &ws);
-        }
-        for output in client.state.root.outputs.lock().values() {
-            obj.announce_output(output);
         }
         Ok(())
     }
@@ -262,15 +260,7 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
                     let Some(o) = o.node() else {
                         continue;
                     };
-                    let config = WsMoveConfig {
-                        make_visible_always: false,
-                        make_visible_if_empty: true,
-                        source_is_destroyed: false,
-                        before: None,
-                    };
-                    move_ws_to_output(&ws, &o, config);
-                    ws.desired_output.set(o.global.output_id.clone());
-                    self.client.state.tree_changed();
+                    self.client.state.move_ws_to_output(&ws, &o);
                 }
                 WorkspaceChange::CreateWorkspace(name, output) => {
                     if self.client.state.workspaces.contains(&name) {
@@ -279,7 +269,19 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
                     let Some(output) = output.node() else {
                         continue;
                     };
-                    output.create_normal_workspace(&name);
+                    let had_workspace = output.node_state[LiveTL].workspace.is_some();
+                    let ws = if had_workspace {
+                        output.create_workspace_without_jay_watchers(&name)
+                    } else {
+                        output.create_normal_workspace(&name)
+                    };
+                    ws.enforce_empty_behavior();
+                    if ws.hidden.get() || ws.opt.get().is_none() {
+                        continue;
+                    }
+                    if had_workspace {
+                        ws.announce_to_jay_watchers();
+                    }
                 }
             }
         }
