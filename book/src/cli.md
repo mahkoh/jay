@@ -653,6 +653,33 @@ If no filename is given, the screenshot is saved as
 `%Y-%m-%d-%H%M%S_jay.<ext>` in the current directory. The filename supports
 strftime format specifiers.
 
+Capture in HDR10 instead of SDR:
+
+```shell
+~$ jay screenshot --hdr10
+~$ jay screenshot --hdr10 my-screenshot.png
+```
+
+`--hdr10`
+: Captures the screen with BT.2020 primaries and the PQ (SMPTE ST 2084)
+  transfer function. The result is a 16-bit-per-channel PNG carrying a `cICP`
+  chunk that identifies the HDR10 color space, so viewers that understand it
+  display the image with the correct colors and brightness. Without this flag,
+  screenshots are 8-bit sRGB.
+
+This works whether or not your display is currently in HDR mode -- it controls
+how the screenshot is encoded, not how the screen is driven. SDR content is
+captured at the ITU reference level of 203 cd/m^2, leaving the range above it
+for HDR content.
+
+> [!IMPORTANT]
+> `--hdr10` requires the Vulkan renderer. See
+> [HDR & Color Management](hdr.md) for how to check which renderer is in use.
+
+> [!NOTE]
+> `--hdr10` cannot be combined with `--format qoi`; QOI has no way to describe
+> a color space.
+
 ---
 
 ## Clients & Windows

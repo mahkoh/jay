@@ -377,7 +377,7 @@ impl ToolClient {
             self_id: s.registry,
             name: s.jay_compositor.0,
             interface: JayCompositor.name(),
-            version: s.jay_compositor.1.min(39),
+            version: s.jay_compositor.1.min(40),
             id: id.into(),
         });
         self.jay_compositor.set(Some(id));

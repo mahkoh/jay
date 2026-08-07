@@ -271,6 +271,43 @@ The output for each connector includes:
 - **Native gamut** -- the display's CIE xy primaries for red, green, blue, and
   white point.
 
+## HDR screenshots
+
+An ordinary screenshot is 8-bit sRGB, so any HDR content on screen is clipped
+or flattened to the SDR range. Pass `--hdr10` to capture in HDR instead:
+
+```shell
+~$ jay screenshot --hdr10
+~$ jay screenshot --hdr10 my-screenshot.png
+```
+
+The screen is captured with BT.2020 primaries and the PQ transfer function,
+and written as a 16-bit-per-channel PNG. The file carries a `cICP` chunk
+identifying the HDR10 color space, which is how a viewer knows to interpret
+the pixels as PQ rather than sRGB.
+
+Highlights are preserved up to the full PQ range, and SDR content is captured
+at the reference level of 203 cd/m^2, matching what the `pq` transfer function
+uses on a real output.
+
+You do not need to put your display into HDR mode first. The flag controls how
+the screenshot is encoded, not how the screen is driven, so an HDR10
+screenshot on an SDR display is captured correctly -- you simply won't be able
+to preview it accurately on that display.
+
+> [!IMPORTANT]
+> HDR screenshots require the Vulkan renderer, for the same reason HDR output
+> does. See [Prerequisites](#prerequisites) above.
+
+> [!NOTE]
+> `--hdr10` produces PNG only. It cannot be combined with `--format qoi`,
+> because QOI has no way to describe a color space.
+
+Support for HDR PNGs is still uneven across image viewers and browsers. A
+viewer that ignores the `cICP` chunk treats the file as ordinary 16-bit sRGB,
+which makes the image look flat and washed out. The file itself is still
+correct.
+
 ## Complete example
 
 A typical HDR configuration for a monitor that supports HDR10:
@@ -309,7 +346,7 @@ read-only indicator showing whether color management is currently available.
   reference including all color and HDR fields
 - [Miscellaneous](configuration/misc.md) -- the `[color-management]` config
   table
-- [Command-Line Interface](cli.md) -- `jay randr output` color commands and
-  `jay color-management`
+- [Command-Line Interface](cli.md) -- `jay randr output` color commands,
+  `jay color-management`, and `jay screenshot --hdr10`
 - [GPUs](configuration/gpu.md) -- renderer selection (Vulkan is required for
   HDR)

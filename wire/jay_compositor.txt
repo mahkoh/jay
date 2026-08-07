@@ -157,6 +157,12 @@ request kill_matched_clients (since = 39) {
     id: id(jay_client_match),
 }
 
+request take_screenshot3 (since = 40) {
+    id: id(jay_screenshot),
+    include_cursor: bool,
+    hdr10: bool,
+}
+
 # events
 
 event client_id {

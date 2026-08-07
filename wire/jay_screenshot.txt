@@ -29,3 +29,10 @@ event dmabuf2 (since = 6) {
     height: i32,
     modifier: pod(u64),
 }
+
+event dmabuf3 (since = 40) {
+    width: i32,
+    height: i32,
+    modifier: u64,
+    format: u32,
+}

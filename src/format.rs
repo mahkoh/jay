@@ -394,7 +394,7 @@ static ARGB2101010: &Format = &Format {
     ..default(ConfigFormat::ARGB2101010)
 };
 
-static XRGB2101010: &Format = &Format {
+pub static XRGB2101010: &Format = &Format {
     name: "xrgb2101010",
     vk_format: vk::Format::A2R10G10B10_UNORM_PACK32,
     bpp: 4,

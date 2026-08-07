@@ -70,6 +70,16 @@ impl JayScreenshot {
             modifier: buf.modifier,
         })
     }
+
+    pub fn send_dmabuf3(&self, buf: &DmaBuf) {
+        self.client.event(Dmabuf3 {
+            self_id: self.id,
+            width: buf.width,
+            height: buf.height,
+            modifier: buf.modifier,
+            format: buf.format.drm,
+        })
+    }
 }
 
 impl JayScreenshotRequestHandler for JayScreenshot {
