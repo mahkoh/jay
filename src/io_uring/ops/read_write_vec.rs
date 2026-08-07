@@ -9,6 +9,7 @@ use crate::io_uring::sys::IORING_OP_WRITE;
 use crate::io_uring::sys::io_uring_sqe;
 use crate::utils::keep_alive::KeepAlive;
 use crate::utils::ptr_ext::PtrExt;
+use crate::utils::rwf_flags::RWF_NOSIGNAL;
 use crate::utils::stack::Stack;
 use derivative::Derivative;
 use std::cell::Cell;
@@ -28,6 +29,7 @@ impl IoUring {
     pub async fn write_vec_all<T>(
         &self,
         fd: &Rc<OwnedFd>,
+        mask_sigpipe: bool,
         cache: &WriteVecCache<T>,
         vec: &mut T,
     ) -> Result<(), IoUringError>
@@ -37,7 +39,7 @@ impl IoUring {
         let mut off = 0;
         let len = vec.as_ref().len();
         while off < len {
-            let n = self.write_vec(fd, cache, vec, off).await?;
+            let n = self.write_vec(fd, mask_sigpipe, cache, vec, off).await?;
             off += n;
         }
         Ok(())
@@ -46,6 +48,7 @@ impl IoUring {
     pub async fn write_vec<T>(
         &self,
         fd: &Rc<OwnedFd>,
+        mask_sigpipe: bool,
         cache: &WriteVecCache<T>,
         vec_mut: &mut T,
         mut off: usize,
@@ -68,6 +71,7 @@ impl IoUring {
             pw.fd = fd.raw();
             pw.ptr = ptr;
             pw.len = len - off;
+            pw.mask_sigpipe = mask_sigpipe;
             pw.data = Some(TaskData {
                 _fd: fd.clone(),
                 _storage: storage.clone(),
@@ -94,6 +98,7 @@ pub struct WriteVecTask {
     fd: c::c_int,
     ptr: usize,
     len: usize,
+    mask_sigpipe: bool,
     data: Option<TaskData>,
 }
 
@@ -110,11 +115,15 @@ unsafe impl Task for WriteVecTask {
     }
 
     fn encode(&self, sqe: &mut io_uring_sqe) {
+        let mut flags = 0;
+        if self.mask_sigpipe {
+            flags |= RWF_NOSIGNAL;
+        }
         sqe.opcode = IORING_OP_WRITE;
         sqe.fd = self.fd as _;
         sqe.u1.off = !0;
         sqe.u2.addr = self.ptr as _;
-        sqe.u3.rw_flags = 0;
+        sqe.u3.rw_flags = flags;
         sqe.len = self.len as _;
     }
 }
