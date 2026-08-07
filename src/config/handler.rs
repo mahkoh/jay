@@ -2145,7 +2145,12 @@ impl ConfigProxyHandler {
 
     fn handle_set_seat_split(&self, seat: Seat, axis: Axis) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        seat.set_split(axis.into());
+        if axis == Axis::Auto {
+            seat.autotile.set(!seat.autotile.get());
+        } else {
+            seat.autotile.set(false);
+            seat.set_split(axis.into());
+        }
         Ok(())
     }
 
@@ -2162,8 +2167,10 @@ impl ConfigProxyHandler {
 
     fn handle_set_window_split(&self, window: Window, axis: Axis) -> Result<(), CphError> {
         let window = self.get_window(window)?;
-        if let Some(c) = toplevel_parent_container(&*window) {
-            c.set_split(axis.into());
+        if axis != Axis::Auto {
+            if let Some(c) = toplevel_parent_container(&*window) {
+                c.set_split(axis.into());
+            }
         }
         Ok(())
     }
