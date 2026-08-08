@@ -12,7 +12,7 @@ macro_rules! test_object {
                 self.id.into()
             }
 
-            #[allow(clippy::allow_attributes, unused_variables, unreachable_code)]
+            #[allow(unused_variables, unreachable_code)]
             fn handle_request(
                 self: std::rc::Rc<Self>,
                 request: u32,

@@ -2,7 +2,7 @@ use crate::utils::bhash::BHashMap;
 use smallvec::Array;
 use smallvec::SmallVec;
 
-#[allow(clippy::allow_attributes, dead_code)]
+#[allow(dead_code)]
 pub trait Reset {
     fn reset(&mut self);
 }

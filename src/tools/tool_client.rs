@@ -618,7 +618,7 @@ macro_rules! declare_matcher_macros {
         declare_matcher_macros!($slf, $module, $gmb, $cmb, $);
     };
     ($slf:expr, $module:ident, $gmb:expr, $cmb:expr, $dol:tt) => {
-        #[allow(clippy::allow_attributes, unused_macros)]
+        #[allow(unused_macros)]
         macro_rules! str {
             ($dol s:ident, $dol regex:ident, $dol m:ident $dol (,)?) => {
                 if let Some(v) = $dol s {
@@ -637,7 +637,7 @@ macro_rules! declare_matcher_macros {
                 }
             };
         }
-        #[allow(clippy::allow_attributes, unused_macros)]
+        #[allow(unused_macros)]
         macro_rules! bool {
             ($dol s:ident, $dol m:ident) => {
                 if let Some(v) = *$dol s {
@@ -646,7 +646,7 @@ macro_rules! declare_matcher_macros {
                 }
             };
         }
-        #[allow(clippy::allow_attributes, unused_macros)]
+        #[allow(unused_macros)]
         macro_rules! num {
             ($dol s:ident, $dol m:ident) => {
                 if let Some(v) = *$dol s {
@@ -654,7 +654,7 @@ macro_rules! declare_matcher_macros {
                 }
             };
         }
-        #[allow(clippy::allow_attributes, unused_macros)]
+        #[allow(unused_macros)]
         macro_rules! num2 {
             ($dol s:ident, $dol m:ident) => {
                 if let Some(v) = *$dol s {

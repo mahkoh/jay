@@ -216,7 +216,7 @@ macro_rules! linear_ids {
                 $id(self.next.fetch_add(1))
             }
 
-            #[allow(clippy::allow_attributes, dead_code)]
+            #[allow(dead_code)]
             pub fn last(&self) -> $id {
                 $id(self.next.get() - 1)
             }
@@ -227,12 +227,12 @@ macro_rules! linear_ids {
         pub struct $id($ty);
 
         impl $id {
-            #[allow(clippy::allow_attributes, dead_code)]
+            #[allow(dead_code)]
             pub fn raw(&self) -> $ty {
                 self.0
             }
 
-            #[allow(clippy::allow_attributes, dead_code)]
+            #[allow(dead_code)]
             pub fn from_raw(id: $ty) -> Self {
                 Self(id)
             }
@@ -295,12 +295,12 @@ macro_rules! tree_id {
         pub struct $id(u32);
 
         impl $id {
-            #[allow(clippy::allow_attributes, dead_code)]
+            #[allow(dead_code)]
             pub fn raw(&self) -> u32 {
                 self.0
             }
 
-            #[allow(clippy::allow_attributes, dead_code)]
+            #[allow(dead_code)]
             pub fn none() -> Self {
                 Self(0)
             }
@@ -475,7 +475,6 @@ macro_rules! fatal {
     }}
 }
 
-#[expect(clippy::allow_attributes)]
 #[allow(dead_code)]
 pub trait Bitflag {
     type Type;
@@ -507,11 +506,11 @@ macro_rules! bitflags {
         pub struct $name(pub $rep);
 
         $(
-            #[allow(clippy::allow_attributes, dead_code)]
+            #[allow(dead_code)]
             pub const $var: $name = $name($val);
         )*
 
-        #[allow(clippy::allow_attributes, dead_code)]
+        #[allow(dead_code)]
         impl $name {
             pub fn none() -> Self {
                 Self(0)
@@ -545,7 +544,7 @@ macro_rules! bitflags {
                 self.0 & other.0 != 0
             }
 
-            #[allow(clippy::allow_attributes, clippy::bad_bit_mask)]
+            #[allow(clippy::bad_bit_mask)]
             pub fn to_map(self) -> linearize::StaticCopyMap<$enum_name, bool> {
                 let mut res = linearize::StaticCopyMap::default();
                 let v = self.0;
@@ -603,7 +602,7 @@ macro_rules! bitflags {
         }
 
         impl std::fmt::Debug for $name {
-            #[allow(clippy::allow_attributes, clippy::bad_bit_mask)]
+            #[allow(clippy::bad_bit_mask)]
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 let mut any = false;
                 let mut v = self.0;
@@ -628,7 +627,6 @@ macro_rules! bitflags {
         }
 
         #[derive(Copy, Clone, Debug, Eq, PartialEq, linearize::Linearize)]
-        #[expect(clippy::allow_attributes)]
         pub enum $enum_name {
             $(
                 #[allow(non_camel_case_types, dead_code)]
@@ -637,7 +635,7 @@ macro_rules! bitflags {
         }
 
         impl $enum_name {
-            #[allow(clippy::allow_attributes, dead_code)]
+            #[allow(dead_code)]
             pub fn to_bits(self) -> $name {
                 match self {
                     $(Self::$var => $var,)*
@@ -656,7 +654,7 @@ macro_rules! pw_opcodes {
             )*
         }
 
-        #[allow(clippy::allow_attributes, dead_code)]
+        #[allow(dead_code)]
         impl $name {
             pub fn from_id(id: u8) -> Option<Self> {
                 let v = match id {
@@ -813,28 +811,22 @@ macro_rules! ei_object_base {
 
 macro_rules! logical_to_client_wire_scale {
     ($client:expr, $($field:expr),+ $(,)?) => {
-        #[expect(clippy::allow_attributes)]
-        {
-            #[allow(clippy::assign_op_pattern)]
-            if let Some(scale) = $client.wire_scale.get() {
-                $(
-                    $field = $field * scale;
-                )+
-            }
+        #[allow(clippy::assign_op_pattern)]
+        if let Some(scale) = $client.wire_scale.get() {
+            $(
+                $field = $field * scale;
+            )+
         }
     };
 }
 
 macro_rules! client_wire_scale_to_logical {
     ($client:expr, $($field:expr),+ $(,)?) => {
-        #[expect(clippy::allow_attributes)]
-        {
-            #[allow(clippy::assign_op_pattern)]
-            if let Some(scale) = $client.wire_scale.get() {
-                $(
-                    $field = $field / scale;
-                )+
-            }
+        #[allow(clippy::assign_op_pattern)]
+        if let Some(scale) = $client.wire_scale.get() {
+            $(
+                $field = $field / scale;
+            )+
         }
     };
 }
@@ -851,7 +843,7 @@ macro_rules! jay_allow_realtime_config_so {
     };
 }
 
-#[allow(clippy::allow_attributes, unused_macros)]
+#[allow(unused_macros)]
 macro_rules! dbg {
     ($val:expr) => {
         match $val {
@@ -904,7 +896,7 @@ macro_rules! dynload {
                 }
             };
             $(
-                #[allow(clippy::allow_attributes, non_snake_case)]
+                #[allow(non_snake_case)]
                 let $fun: $ty =
                     match lib.get(stringify!($fun).as_bytes()) {
                         Ok(s) => *s,
@@ -936,7 +928,7 @@ macro_rules! opaque {
         }
 
         impl $ty {
-            #[allow(clippy::allow_attributes, dead_code)]
+            #[allow(dead_code)]
             pub fn to_string(self) -> arrayvec::ArrayString<{ crate::utils::opaque::OPAQUE_LEN }> {
                 self.0.to_string()
             }
@@ -965,7 +957,7 @@ macro_rules! hash_type {
         pub struct $name(pub [u8; 32]);
 
         impl $name {
-            #[allow(clippy::allow_attributes, dead_code)]
+            #[allow(dead_code)]
             pub fn hash(t: impl AsRef<[u8]>) -> Self {
                 Self(*blake3::hash(t.as_ref()).as_bytes())
             }
@@ -991,7 +983,7 @@ macro_rules! hash_type {
     };
 }
 
-#[allow(clippy::allow_attributes, unused_macros)]
+#[allow(unused_macros)]
 macro_rules! measure {
     ($val:expr) => {{
         let start = std::time::Instant::now();
