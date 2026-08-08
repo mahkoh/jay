@@ -169,7 +169,7 @@ macro_rules! singletons {
             )*
         }
 
-        #[expect(non_upper_case_globals)]
+        #[allow(non_upper_case_globals)]
         pub mod interface_singletons {
             pub use crate::wire::interface_singletons::*;
 

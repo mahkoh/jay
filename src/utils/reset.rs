@@ -54,7 +54,7 @@ num!(u64);
 macro_rules! tuples {
     ($($id:ident,)*) => {
         impl<$($id,)*> Reset for ($($id,)*) where $($id: Reset,)* {
-            #[expect(non_snake_case)]
+            #[allow(non_snake_case)]
             fn reset(&mut self) {
                 let ($($id,)*) = self;
                 $($id.reset();)*

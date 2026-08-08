@@ -39,7 +39,7 @@ impl Incoming {
         }
     }
 
-    #[expect(clippy::await_holding_refcell_ref)] // false positive
+    #[allow(clippy::await_holding_refcell_ref)] // false positive
     async fn handle_msg(&mut self) -> Result<(), XconError> {
         const MAX_LENGTH_UNITS: usize = 0x4000 / 4;
         const MIN_MSG_SIZE: usize = 32;

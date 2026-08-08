@@ -1043,7 +1043,7 @@ impl XBackend {
         if changed {
             let images = self.create_images(output.window, width, height).await?;
             for (new, old) in images.iter().zip(output.images.iter()) {
-                #[expect(clippy::let_underscore_future)]
+                #[allow(clippy::let_underscore_future)]
                 let _ = self.c.call(&FreePixmap {
                     pixmap: old.pixmap.get(),
                 });

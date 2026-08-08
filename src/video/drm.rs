@@ -585,7 +585,7 @@ impl DrmMaster {
         Ok(formats)
     }
 
-    #[expect(clippy::await_holding_refcell_ref)]
+    #[allow(clippy::await_holding_refcell_ref)]
     pub async fn event(&self) -> Result<Option<DrmEvent>, DrmError> {
         if self.events.is_empty() {
             let mut buf = self.buf.borrow_mut();
@@ -1216,7 +1216,7 @@ where
     }
 }
 
-#[expect(non_camel_case_types)]
+#[allow(non_camel_case_types)]
 #[derive(Copy, Clone, Debug)]
 pub enum ConnectorType {
     Unknown(u32),

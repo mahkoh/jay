@@ -83,7 +83,7 @@ impl Default for Luminance {
     }
 }
 
-#[expect(non_snake_case)]
+#[allow(non_snake_case)]
 pub fn white_balance(
     from: &Luminance,
     to: &Luminance,

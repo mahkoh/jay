@@ -173,7 +173,7 @@ fn default_seat() -> Seat {
 trait FnBuilder: Sized {
     type Output;
 
-    #[expect(clippy::wrong_self_convention)]
+    #[allow(clippy::wrong_self_convention)]
     fn new<F: Fn() + 'static>(&self, f: F) -> Self::Output;
 }
 
@@ -1278,7 +1278,7 @@ struct PersistentState {
     seen_outputs: RefCell<AHashSet<OutputId>>,
     default: Config,
     seat: Seat,
-    #[expect(clippy::type_complexity)]
+    #[allow(clippy::type_complexity)]
     actions: RefCell<AHashMap<Rc<String>, Rc<dyn Fn()>>>,
     client_rules: Cell<Vec<MatcherTemp<ClientRule>>>,
     client_rule_mapper: RefCell<Option<RuleMapper<ClientRule>>>,
@@ -1890,7 +1890,7 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
         set_egui_monospace_fonts(f.iter().map(|s| &**s));
     }
     if let Some(mouse_follows_focus) = config.mouse_follows_focus {
-        #[expect(deprecated)]
+        #[allow(deprecated)]
         persistent
             .seat
             .unstable_set_mouse_follows_focus(mouse_follows_focus);

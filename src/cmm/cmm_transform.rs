@@ -203,7 +203,7 @@ impl ColorMatrix<Xyz, Bradford> {
     ]);
 }
 
-#[expect(non_snake_case)]
+#[allow(non_snake_case)]
 pub fn bradford_adjustment(w_from: (F64, F64), w_to: (F64, F64)) -> ColorMatrix<Xyz, Xyz> {
     let (F64(x_from), F64(y_from)) = w_from;
     let (F64(x_to), F64(y_to)) = w_to;
@@ -222,7 +222,7 @@ pub fn bradford_adjustment(w_from: (F64, F64), w_to: (F64, F64)) -> ColorMatrix<
 }
 
 impl Primaries {
-    #[expect(non_snake_case)]
+    #[allow(non_snake_case)]
     pub const fn matrices(&self) -> (ColorMatrix<Xyz, Local>, ColorMatrix<Local, Xyz>) {
         let (F64(xw), F64(yw)) = self.wp;
         let Xw = xw / yw;

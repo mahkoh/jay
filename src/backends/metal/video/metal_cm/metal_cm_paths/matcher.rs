@@ -43,7 +43,7 @@ where
         let mut states = [I::ONE; NUM_PATHS];
         for &(op, bypass) in pipeline {
             let op = op.linearized();
-            #[expect(clippy::needless_range_loop)]
+            #[allow(clippy::needless_range_loop)]
             for i in 0..NUM_PATHS {
                 let old = states[i];
                 states[i] &= self.tt[i][op];
@@ -64,7 +64,7 @@ where
             };
         }
         assert!((NUM_PATHS - 1) / BITS < res.len());
-        #[expect(clippy::needless_range_loop)]
+        #[allow(clippy::needless_range_loop)]
         for idx in 0..NUM_PATHS / BITS {
             fill!(idx, BITS);
         }

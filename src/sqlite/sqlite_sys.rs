@@ -1,4 +1,4 @@
-#![expect(non_camel_case_types)]
+#![allow(non_camel_case_types)]
 
 use std::error::Error;
 use std::ffi::c_char;

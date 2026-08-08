@@ -39,7 +39,7 @@ impl TimerFd {
         })
     }
 
-    #[expect(clippy::await_holding_refcell_ref)]
+    #[allow(clippy::await_holding_refcell_ref)]
     pub async fn expired(&self, ring: &IoUring) -> Result<u64, TimerError> {
         let mut buf = self.buf.borrow_mut();
         if let Err(e) = ring.read(&self.fd, buf.buf()).await {

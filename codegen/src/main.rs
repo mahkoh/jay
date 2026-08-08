@@ -1,4 +1,4 @@
-#![expect(clippy::from_str_radix_10, clippy::match_like_matches_macro)]
+#![allow(clippy::from_str_radix_10, clippy::match_like_matches_macro)]
 
 use crate::phf::PhfHash;
 use anyhow::Context;

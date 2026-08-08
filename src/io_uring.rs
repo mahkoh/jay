@@ -550,7 +550,7 @@ impl IoUringData {
 
 linear_ids!(IoUringTaskIds, IoUringTaskId, u64);
 
-#[expect(clippy::derivable_impls)]
+#[allow(clippy::derivable_impls)]
 impl Default for IoUringTaskId {
     fn default() -> Self {
         Self(0)

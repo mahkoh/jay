@@ -436,7 +436,8 @@ macro_rules! atoms {
         $name:ident;
         $($field_name:ident,)*
     } => {
-        #[expect(non_snake_case, dead_code)]
+        #[allow(non_snake_case)]
+        #[expect(dead_code)]
         #[derive(Debug, Clone, Copy)]
         struct $name {
             $(
@@ -877,7 +878,7 @@ macro_rules! dynload {
             priority: "recommended",
         }
 
-        #[expect(non_snake_case)]
+        #[allow(non_snake_case)]
         #[derive(Debug)]
         pub struct $container {
             _lib: libloading::Library,
