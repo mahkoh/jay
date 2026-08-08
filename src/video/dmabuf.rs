@@ -311,7 +311,7 @@ pub trait ChainedCopyCallback {
 
 #[derive(Clone)]
 pub enum DmabufCopy {
-    #[expect(dead_code)]
+    #[expect(unused)]
     Fixed(Rc<CopyDeviceCopy>),
     AdHoc(Rc<CopyDeviceSrcObject>, Rc<CopyDeviceDstObject>),
 }

@@ -573,7 +573,7 @@ where
     let mut res = Container::new();
 
     for &[y1, y2] in ys.array_windows_ext::<2>() {
-        #[expect(clippy::never_loop)]
+        #[allow(clippy::never_loop)]
         loop {
             macro_rules! check_rect {
                 ($rect:expr) => {{

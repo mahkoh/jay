@@ -46,15 +46,15 @@ use std::rc::Rc;
 use thiserror::Error;
 
 const SP_UNKNOWN: i32 = 0;
-#[expect(dead_code)]
+#[expect(unused)]
 const SP_NONE: i32 = 1;
-#[expect(dead_code)]
+#[expect(unused)]
 const SP_HORIZONTAL_RGB: i32 = 2;
-#[expect(dead_code)]
+#[expect(unused)]
 const SP_HORIZONTAL_BGR: i32 = 3;
-#[expect(dead_code)]
+#[expect(unused)]
 const SP_VERTICAL_RGB: i32 = 4;
-#[expect(dead_code)]
+#[expect(unused)]
 const SP_VERTICAL_BGR: i32 = 5;
 
 pub const TF_NORMAL: i32 = 0;
@@ -67,7 +67,7 @@ pub const TF_FLIPPED_180: i32 = 6;
 pub const TF_FLIPPED_270: i32 = 7;
 
 const MODE_CURRENT: u32 = 1;
-#[expect(dead_code)]
+#[expect(unused)]
 const MODE_PREFERRED: u32 = 2;
 
 pub struct WlOutputGlobal {

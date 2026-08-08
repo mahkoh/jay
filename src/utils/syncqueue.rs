@@ -24,7 +24,7 @@ impl<T> SyncQueue<T> {
         }
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn append(&self, src: &mut Vec<T>) {
         unsafe {
             self.el.get().deref_mut().extend(src.drain(..));

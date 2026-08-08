@@ -40,7 +40,7 @@ impl TestFifoManager {
         Ok(obj)
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn destroy(&self) -> Result<(), TestError> {
         self.tran.send(Destroy { self_id: self.id })?;
         Ok(())
@@ -56,7 +56,7 @@ impl TestFifo {
         self.tran.send(wp_fifo_v1::WaitBarrier { self_id: self.id })
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn destroy(&self) -> Result<(), TestError> {
         self.tran.send(wp_fifo_v1::Destroy { self_id: self.id })?;
         Ok(())

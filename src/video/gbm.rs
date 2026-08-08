@@ -70,11 +70,11 @@ pub const GBM_BO_USE_WRITE: u32 = 1 << 3;
 pub const GBM_BO_USE_LINEAR: u32 = 1 << 4;
 pub const GBM_BO_USE_PROTECTED: u32 = 1 << 5;
 
-#[expect(dead_code)]
+#[expect(unused)]
 const GBM_BO_IMPORT_WL_BUFFER: u32 = 0x5501;
-#[expect(dead_code)]
+#[expect(unused)]
 const GBM_BO_IMPORT_EGL_IMAGE: u32 = 0x5502;
-#[expect(dead_code)]
+#[expect(unused)]
 const GBM_BO_IMPORT_FD: u32 = 0x5503;
 const GBM_BO_IMPORT_FD_MODIFIER: u32 = 0x5504;
 
@@ -113,14 +113,14 @@ unsafe extern "C" {
     fn gbm_bo_get_plane_count(bo: *mut Bo) -> c::c_int;
     fn gbm_bo_get_width(bo: *mut Bo) -> u32;
     fn gbm_bo_get_height(bo: *mut Bo) -> u32;
-    #[expect(dead_code)]
+    #[expect(unused)]
     fn gbm_bo_get_stride(bo: *mut Bo) -> u32;
     fn gbm_bo_get_modifier(bo: *mut Bo) -> u64;
     fn gbm_bo_get_stride_for_plane(bo: *mut Bo, plane: c::c_int) -> u32;
     fn gbm_bo_get_fd_for_plane(bo: *mut Bo, plane: c::c_int) -> c::c_int;
     fn gbm_bo_get_offset(bo: *mut Bo, plane: c::c_int) -> u32;
     fn gbm_bo_get_format(bo: *mut Bo) -> u32;
-    #[expect(dead_code)]
+    #[expect(unused)]
     fn gbm_bo_get_bpp(bo: *mut Bo) -> u32;
     fn gbm_bo_map(
         bo: *mut Bo,

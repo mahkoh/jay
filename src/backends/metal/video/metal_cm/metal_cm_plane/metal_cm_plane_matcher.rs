@@ -656,7 +656,7 @@ impl Matcher<'_, '_, '_> {
                         let mut need_multiply_before = false;
                         let mut need_multiply_after = false;
                         for r in &matrix.0 {
-                            #[expect(clippy::needless_range_loop)]
+                            #[allow(clippy::needless_range_loop)]
                             for c in 0..3 {
                                 if r[c].0.abs() > MAX {
                                     need_multiply_before = true;

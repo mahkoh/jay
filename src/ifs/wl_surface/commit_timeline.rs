@@ -536,7 +536,7 @@ enum EntryKind {
 enum ShmUploadState {
     None,
     Todo,
-    Scheduled(#[expect(dead_code)] SmallVec<[PendingShmTransfer; 1]>),
+    Scheduled(#[expect(unused)] SmallVec<[PendingShmTransfer; 1]>),
 }
 
 enum CommitTimesState {

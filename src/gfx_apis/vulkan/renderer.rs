@@ -2817,7 +2817,7 @@ impl EotfArgsCache {
         let ct = match self.map.entry((key, inv)) {
             Entry::Occupied(o) => o.into_mut(),
             Entry::Vacant(e) => {
-                #[expect(unused_assignments)]
+                #[allow(unused_assignments)]
                 let [mut arg1, mut arg2, mut arg3, mut arg4] = [0.0; 4];
                 if inv {
                     match key {

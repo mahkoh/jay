@@ -19,7 +19,7 @@ pub struct UsrWlShm {
 }
 
 impl UsrWlShm {
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn create_pool(&self, fd: &Rc<OwnedFd>, size: i32) -> Rc<UsrWlShmPool> {
         let pool = Rc::new(UsrWlShmPool {
             id: self.con.id(),

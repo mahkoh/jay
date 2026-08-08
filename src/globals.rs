@@ -169,7 +169,7 @@ macro_rules! singletons {
             )*
         }
 
-        #[expect(non_upper_case_globals)]
+        #[allow(non_upper_case_globals)]
         pub mod interface_singletons {
             pub use crate::wire::interface_singletons::*;
 
@@ -384,7 +384,7 @@ impl Globals {
         }
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn get_output(&self, output: GlobalName) -> Result<Rc<WlOutputGlobal>, GlobalsError> {
         match self.outputs.get(&output) {
             Some(o) => Ok(o),

@@ -99,7 +99,7 @@ impl WpImageDescriptionInfoV1 {
         self.client.event(Done { self_id: self.id });
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn send_ic_file(&self, file: &Rc<OwnedFd>, size: usize) {
         self.client.event(IccFile {
             self_id: self.id,

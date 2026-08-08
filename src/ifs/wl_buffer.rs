@@ -192,7 +192,7 @@ impl WlBuffer {
         )
     }
 
-    #[expect(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     pub fn new_shm(
         id: WlBufferId,
         client: &Rc<Client>,

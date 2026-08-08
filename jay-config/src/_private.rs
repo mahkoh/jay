@@ -2,6 +2,8 @@ pub mod client;
 pub mod ipc;
 mod logging;
 
+use crate::_private::ipc::ClientMessage;
+use crate::_private::ipc::ServerMessage;
 use crate::Workspace;
 use crate::client::ClientMatcher;
 use crate::input::FallbackOutputMode;
@@ -44,6 +46,14 @@ pub fn bincode_ops() -> impl Options {
         .with_fixint_encoding()
         .with_little_endian()
         .with_no_limit()
+}
+
+pub fn deserialize_client_message(msg: &[u8]) -> Result<ClientMessage<'_>, bincode::Error> {
+    bincode_ops().deserialize(msg)
+}
+
+pub fn serialize_server_message(buf: &mut Vec<u8>, msg: &ServerMessage) {
+    bincode_ops().serialize_into(buf, msg).unwrap();
 }
 
 pub trait Config {

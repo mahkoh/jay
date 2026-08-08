@@ -15,16 +15,16 @@ use crate::wire::xdg_wm_base::*;
 use std::rc::Rc;
 use thiserror::Error;
 
-#[expect(dead_code)]
+#[expect(unused)]
 const ROLE: u32 = 0;
 const DEFUNCT_SURFACES: u32 = 1;
-#[expect(dead_code)]
+#[expect(unused)]
 const NOT_THE_TOPMOST_POPUP: u32 = 2;
-#[expect(dead_code)]
+#[expect(unused)]
 const INVALID_POPUP_PARENT: u32 = 3;
-#[expect(dead_code)]
+#[expect(unused)]
 const INVALID_SURFACE_STATE: u32 = 4;
-#[expect(dead_code)]
+#[expect(unused)]
 const INVALID_POSITIONER: u32 = 5;
 
 pub struct XdgWmBaseGlobal {

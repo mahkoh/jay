@@ -1,4 +1,4 @@
-#![expect(clippy::excessive_precision)]
+#![allow(clippy::excessive_precision)]
 
 #[derive(Copy, Clone)]
 pub enum AlgoEotf {

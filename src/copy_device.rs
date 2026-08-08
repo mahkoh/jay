@@ -1229,7 +1229,7 @@ impl CopyDevice {
         })
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn create_fixed_copy(
         self: &Rc<Self>,
         src: &DmaBuf,

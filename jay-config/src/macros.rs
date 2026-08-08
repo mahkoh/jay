@@ -104,7 +104,7 @@ macro_rules! bitflags {
         }
 
         impl std::fmt::Debug for $name {
-            #[allow(clippy::allow_attributes, clippy::bad_bit_mask, unused_mut)]
+            #[allow(clippy::bad_bit_mask, unused_mut)]
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 let mut any = false;
                 let mut v = self.0;

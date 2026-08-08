@@ -38,7 +38,7 @@ impl Luminance {
         white: F64(203.0),
     };
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub const HLG: Self = Self {
         min: F64(0.005),
         max: F64(1000.0),
@@ -83,7 +83,7 @@ impl Default for Luminance {
     }
 }
 
-#[expect(non_snake_case)]
+#[allow(non_snake_case)]
 pub fn white_balance(
     from: &Luminance,
     to: &Luminance,

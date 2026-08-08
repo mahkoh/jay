@@ -29,13 +29,13 @@ use crate::wire::wl_data_offer::*;
 use std::rc::Rc;
 use thiserror::Error;
 
-#[expect(dead_code)]
+#[expect(unused)]
 const INVALID_FINISH: u32 = 0;
-#[expect(dead_code)]
+#[expect(unused)]
 const INVALID_ACTION_MASK: u32 = 1;
-#[expect(dead_code)]
+#[expect(unused)]
 const INVALID_ACTION: u32 = 2;
-#[expect(dead_code)]
+#[expect(unused)]
 const INVALID_OFFER: u32 = 3;
 
 pub struct WlDataOffer {

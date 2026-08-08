@@ -1,4 +1,4 @@
-#![expect(clippy::excessive_precision)]
+#![allow(clippy::excessive_precision)]
 
 use crate::cmm::cmm_eotf::Eotf;
 use crate::gfx_api::AlphaMode;
@@ -332,7 +332,7 @@ macro_rules! colors {
         }
 
         #[derive(Copy, Clone, Debug, Linearize, PartialEq)]
-        #[expect(non_camel_case_types)]
+        #[allow(non_camel_case_types)]
         pub enum ThemeColored {
             $(
                 $name,
@@ -449,7 +449,7 @@ macro_rules! sizes {
         }
 
         #[derive(Copy, Clone, Debug, Linearize)]
-        #[expect(non_camel_case_types)]
+        #[allow(non_camel_case_types)]
         pub enum ThemeSized {
             $(
                 $name,

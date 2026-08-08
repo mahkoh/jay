@@ -35,7 +35,7 @@ where
         }
     }
 
-    #[cfg_attr(not(test), expect(dead_code))]
+    #[cfg_attr(not(test), expect(unused))]
     pub fn get_or_create(&self, init: impl FnOnce() -> Rc<T>) -> Rc<T> {
         self.get_or_try_create::<Infallible>(|| Ok(init())).unwrap()
     }

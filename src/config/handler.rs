@@ -75,7 +75,6 @@ use crate::utils::stack::Stack;
 use crate::utils::timer::TimerError;
 use crate::utils::timer::TimerFd;
 use az::SaturatingCast;
-use bincode::Options;
 use jay_config::_private::ClientCriterionIpc;
 use jay_config::_private::ClientCriterionStringField;
 use jay_config::_private::GenericCriterionIpc;
@@ -87,11 +86,12 @@ use jay_config::_private::WindowCriterionStringField;
 use jay_config::_private::WireMode;
 use jay_config::_private::WorkspaceShowOpV1;
 use jay_config::_private::WorkspaceShowOpV2;
-use jay_config::_private::bincode_ops;
+use jay_config::_private::deserialize_client_message;
 use jay_config::_private::ipc::ClientMessage;
 use jay_config::_private::ipc::Response;
 use jay_config::_private::ipc::ServerMessage;
 use jay_config::_private::ipc::WorkspaceSource;
+use jay_config::_private::serialize_server_message;
 use jay_config::Axis;
 use jay_config::Direction;
 use jay_config::Workspace;
@@ -307,7 +307,7 @@ impl ConfigProxyHandler {
     pub fn send(&self, msg: &ServerMessage) {
         let mut buf = self.bufs.pop().unwrap_or_default();
         buf.clear();
-        bincode_ops().serialize_into(&mut buf, msg).unwrap();
+        serialize_server_message(&mut buf, msg);
         unsafe {
             (self.handle_msg)(self.client_data.get(), buf.as_ptr(), buf.len());
         }
@@ -3326,7 +3326,7 @@ impl ConfigProxyHandler {
     }
 
     fn handle_request_(self: &Rc<Self>, msg: &[u8]) -> Result<(), CphError> {
-        let request = match bincode_ops().deserialize::<ClientMessage>(msg) {
+        let request = match deserialize_client_message(msg) {
             Ok(msg) => msg,
             Err(e) => return Err(CphError::ParsingFailed(e)),
         };

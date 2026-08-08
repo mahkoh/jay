@@ -296,7 +296,7 @@ impl NodeIds {
 pub struct NodeId(pub u32);
 
 impl NodeId {
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn raw(&self) -> u32 {
         self.0
     }

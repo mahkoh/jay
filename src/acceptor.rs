@@ -159,7 +159,7 @@ impl Acceptor {
         &self.socket.name
     }
 
-    #[cfg_attr(not(feature = "it"), expect(dead_code))]
+    #[cfg_attr(not(feature = "it"), expect(unused))]
     pub fn secure_path(&self) -> &Ustr {
         self.socket.secure_path.as_ustr()
     }

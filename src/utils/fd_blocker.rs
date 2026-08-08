@@ -6,7 +6,7 @@ use std::slice;
 use uapi::OwnedFd;
 use uapi::c;
 
-pub struct FdBlocker(#[expect(dead_code)] pub Rc<OwnedFd>);
+pub struct FdBlocker(#[expect(unused)] pub Rc<OwnedFd>);
 
 pub struct FdBarrier(pub Rc<OwnedFd>);
 

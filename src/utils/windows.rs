@@ -6,7 +6,7 @@ pub trait WindowsExt<T> {
         Self: 'a,
         T: 'a;
 
-    #[cfg_attr(not(feature = "rc_tracking"), expect(dead_code))]
+    #[cfg_attr(not(feature = "rc_tracking"), expect(unused))]
     fn array_windows_ext<'a, const N: usize>(&'a self) -> Self::Windows<'a, N>;
     fn array_chunks_ext<'a, const N: usize>(&'a self) -> &'a [[T; N]];
 }

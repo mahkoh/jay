@@ -594,7 +594,7 @@ pub enum ScanoutBufferErrorKind {
 
 #[derive(Default, Debug)]
 pub struct ScanoutBufferErrors {
-    #[expect(clippy::vec_box)]
+    #[allow(clippy::vec_box)]
     errors: Vec<Box<ScanoutBufferError>>,
 }
 

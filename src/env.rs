@@ -158,7 +158,7 @@ fn test_parse_env() {
 
 macro_rules! declare {
     ($name:ident: $ty:ty, $(@default = $default:expr,)? $map:expr $(,)?) => {
-        #[allow(clippy::allow_attributes, non_camel_case_types)]
+        #[allow(non_camel_case_types)]
         pub struct $name;
 
         const _: () = {
@@ -172,12 +172,12 @@ macro_rules! declare {
             });
 
             impl $name {
-                #[allow(clippy::allow_attributes, dead_code)]
+                #[allow(dead_code)]
                 pub fn name(self) -> &'static str {
                     NAME
                 }
 
-                #[allow(clippy::allow_attributes, dead_code)]
+                #[allow(dead_code)]
                 pub fn as_env(self) -> impl Display {
                     fmt::from_fn(|f| {
                         f.write_str(NAME)?;

@@ -270,7 +270,7 @@ impl RegionBuilder {
         self.base.clone()
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn clear(&mut self) {
         self.pending.clear();
         self.base = Region::empty();

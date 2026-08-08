@@ -305,7 +305,7 @@ pub enum XWaylandEvent {
     Activate(Rc<XwindowData>),
     ActivateRoot,
     Close(Rc<XwindowData>),
-    #[expect(dead_code)]
+    #[expect(unused)]
     SeatChanged,
 
     IpcCancelSource {

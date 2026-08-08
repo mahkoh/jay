@@ -26,8 +26,8 @@ pub struct SqliteDb {
 }
 
 enum DbRef<'a> {
-    Rc(#[expect(dead_code)] Rc<SqliteDb>),
-    Ref(#[expect(dead_code)] &'a SqliteDb),
+    Rc(#[expect(unused)] Rc<SqliteDb>),
+    Ref(#[expect(unused)] &'a SqliteDb),
 }
 
 pub struct SqliteStmt<'a> {

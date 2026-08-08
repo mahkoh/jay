@@ -107,7 +107,7 @@ impl Rect {
         })
     }
 
-    #[cfg_attr(not(test), expect(dead_code))]
+    #[cfg_attr(not(test), expect(unused))]
     fn new_unchecked_danger(x1: i32, y1: i32, x2: i32, y2: i32) -> Self {
         Self {
             raw: RectRaw {
@@ -200,7 +200,7 @@ impl<T> Rect<T>
 where
     T: Tag,
 {
-    #[cfg_attr(not(test), expect(dead_code))]
+    #[cfg_attr(not(test), expect(unused))]
     fn new_unchecked_danger_tagged(x1: i32, y1: i32, x2: i32, y2: i32, tag: T) -> Self {
         Self {
             raw: RectRaw {
@@ -252,7 +252,7 @@ where
         dx * dx + dy * dy
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn contains_rect<U>(&self, rect: &Rect<U>) -> bool
     where
         U: Tag,
@@ -283,7 +283,7 @@ where
         !self.is_empty()
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn to_origin(&self) -> Self {
         Self {
             raw: RectRaw {

@@ -705,7 +705,7 @@ fn len_to_ty(len: usize) -> &'static str {
     const U16_MAX: usize = u16::MAX as usize;
     const U32_MAX: usize = u32::MAX as usize;
 
-    #[expect(clippy::match_overlapping_arm)]
+    #[allow(clippy::match_overlapping_arm)]
     match len.saturating_sub(1) {
         ..=U8_MAX => "u8",
         ..=U16_MAX => "u16",
@@ -715,7 +715,7 @@ fn len_to_ty(len: usize) -> &'static str {
 }
 
 fn len_to_bit_mask(len: usize) -> &'static str {
-    #[expect(clippy::match_overlapping_arm)]
+    #[allow(clippy::match_overlapping_arm)]
     match len {
         ..=8 => "u8",
         ..=16 => "u16",

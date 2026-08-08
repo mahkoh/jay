@@ -173,7 +173,7 @@ impl ZwlrForeignToplevelHandleV1 {
         });
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn send_parent(&self, parent: &Rc<ZwlrForeignToplevelHandleV1>) {
         self.client.event(Parent {
             self_id: self.id,

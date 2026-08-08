@@ -88,7 +88,7 @@ impl UsrJayScreencast {
         });
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn touch_allowed_workspaces(&self) {
         self.con
             .request(TouchAllowedWorkspaces { self_id: self.id });

@@ -186,7 +186,7 @@ unsafe extern "C" fn ___tracy_demangle(
     };
     let demangled = rustc_demangle::demangle(mangled);
     static mut BUF: Vec<u8> = Vec::new();
-    #[expect(clippy::deref_addrof)]
+    #[allow(clippy::deref_addrof)]
     unsafe {
         let buf = &mut *&raw mut BUF;
         buf.clear();

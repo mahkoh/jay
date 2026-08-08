@@ -319,11 +319,11 @@ impl GuiElement for Label {
 
 #[derive(Copy, Clone, Eq, PartialEq, Default)]
 pub enum Align {
-    #[expect(dead_code)]
+    #[expect(unused)]
     Left,
     #[default]
     Center,
-    #[expect(dead_code)]
+    #[expect(unused)]
     Right,
 }
 

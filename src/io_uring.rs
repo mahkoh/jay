@@ -9,7 +9,7 @@ use crate::io_uring::ops::poll::PollTask;
 use crate::io_uring::ops::poll_external::PollExternalTask;
 use crate::io_uring::ops::read_write::ReadWriteTask;
 use crate::io_uring::ops::read_write_no_cancel::ReadWriteNoCancelTask;
-#[expect(unused_imports)]
+#[expect(unused)]
 pub use crate::io_uring::ops::read_write_vec::WriteVecCache;
 use crate::io_uring::ops::read_write_vec::WriteVecTask;
 use crate::io_uring::ops::recvmsg::RecvmsgTask;
@@ -550,7 +550,7 @@ impl IoUringData {
 
 linear_ids!(IoUringTaskIds, IoUringTaskId, u64);
 
-#[expect(clippy::derivable_impls)]
+#[allow(clippy::derivable_impls)]
 impl Default for IoUringTaskId {
     fn default() -> Self {
         Self(0)

@@ -259,7 +259,7 @@ macro_rules! tuples {
         {
             type Output = ($($name::Output,)*);
 
-            #[expect(non_snake_case)]
+            #[allow(non_snake_case)]
             fn extract(self, extractor: &mut Extractor<'v, 'w, 'x>) -> Result<Self::Output, Spanned<ExtractorError>> {
                 $(
                     let $name = self.$idx.extract(extractor);

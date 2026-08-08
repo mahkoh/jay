@@ -57,7 +57,7 @@ impl TestShmPool {
         Ok(buffer)
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn resize(&self, size: usize) -> Result<(), TestError> {
         let mem = self.mem.get().grow(size)?;
         self.mem.set(mem);

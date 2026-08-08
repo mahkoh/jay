@@ -33,7 +33,7 @@ impl WpDrmLeaseConnectorV1 {
         });
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn send_description(&self, description: &str) {
         self.client.event(Description {
             self_id: self.id,

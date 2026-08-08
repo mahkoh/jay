@@ -12,7 +12,7 @@ pub trait StrFmt {
     fn str_fmt(&self, dst: &mut String, ctx: &StrCtx);
 }
 
-#[expect(dead_code)]
+#[expect(unused)]
 pub trait StrFmtExt {
     fn to_str_fmt(&self, ctx: &StrCtx) -> String;
 }
@@ -41,26 +41,26 @@ pub enum StrFmtFmt {
     #[default]
     Human,
     Jsonl,
-    #[expect(dead_code)]
+    #[expect(unused)]
     Trace,
 }
 
 impl StrCtx<'_> {
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn struct_prefix(&self, dst: &mut String) {
         if self.fmt == StrFmtFmt::Jsonl && !self.flatten {
             dst.push_str("{");
         }
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn struct_suffix(&self, dst: &mut String) {
         if self.fmt == StrFmtFmt::Jsonl && !self.flatten {
             dst.push_str("}");
         }
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn struct_field(
         &self,
         dst: &mut String,
@@ -98,7 +98,7 @@ impl StrCtx<'_> {
     }
 }
 
-#[expect(dead_code)]
+#[expect(unused)]
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct StrFmtUs(pub u64);
 

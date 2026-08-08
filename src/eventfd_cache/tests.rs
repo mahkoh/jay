@@ -29,16 +29,16 @@ fn test() {
     let ring2 = ring.clone();
     let cache2 = cache.clone();
     let _fut1 = eng.spawn("", async move {
-        for i in 0..signaled {
-            fd1[i].signaled().await.unwrap();
+        for fd in fd1.iter().take(signaled) {
+            fd.signaled().await.unwrap();
         }
         drop(fd1);
         let debouncer = ring2.debouncer(0);
         while cache2.inner.fds.len() != signaled {
             debouncer.debounce().await;
         }
-        for i in 0..signaled {
-            fd2[i].signaled().await.unwrap();
+        for fd in fd2.iter().take(signaled) {
+            fd.signaled().await.unwrap();
         }
         drop(fd2);
         while cache2.inner.fds.len() != 2 * signaled {

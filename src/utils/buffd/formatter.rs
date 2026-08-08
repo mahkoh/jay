@@ -54,13 +54,13 @@ impl<'a> MsgFormatter<'a> {
         self
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn u64(&mut self, int: u64) -> &mut Self {
         self.uint((int >> 32) as u32);
         self.uint(int as u32)
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn u64_rev(&mut self, int: u64) -> &mut Self {
         self.uint(int as u32);
         self.uint((int >> 32) as u32)
@@ -102,7 +102,7 @@ impl<'a> MsgFormatter<'a> {
         self.object(obj).uint(event)
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn array<F: FnOnce(&mut MsgFormatter<'_>)>(&mut self, f: F) -> &mut Self {
         let pos = self.meta.write_pos;
         self.uint(0);

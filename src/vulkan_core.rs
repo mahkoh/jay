@@ -120,7 +120,7 @@ pub struct VulkanCoreInstance {
 }
 
 pub struct VulkanDeviceFeatures {
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub features: PhysicalDeviceFeatures,
     pub semaphore_features: PhysicalDeviceTimelineSemaphoreFeatures<'static>,
 }

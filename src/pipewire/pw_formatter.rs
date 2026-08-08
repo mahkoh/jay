@@ -103,7 +103,7 @@ impl<'a> PwFormatter<'a> {
         self.first = false;
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn write_float(&mut self, float: f32) {
         if !self.array || self.first {
             self.data.extend_from_slice(uapi::as_bytes(&4u32));
@@ -117,7 +117,7 @@ impl<'a> PwFormatter<'a> {
         self.first = false;
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn write_double(&mut self, double: f64) {
         if !self.array || self.first {
             self.data.extend_from_slice(uapi::as_bytes(&8u32));
@@ -138,7 +138,7 @@ impl<'a> PwFormatter<'a> {
         self.pad();
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn write_bytes(&mut self, s: &[u8]) {
         self.data
             .extend_from_slice(uapi::as_bytes(&(s.len() as u32)));
@@ -159,7 +159,7 @@ impl<'a> PwFormatter<'a> {
         self.first = false;
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn write_fraction(&mut self, num: i32, denom: i32) {
         if !self.array || self.first {
             self.data.extend_from_slice(uapi::as_bytes(&8u32));
@@ -179,7 +179,7 @@ impl<'a> PwFormatter<'a> {
         self.first = false;
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn write_bitmap(&mut self, s: &[u8]) {
         self.data
             .extend_from_slice(uapi::as_bytes(&(s.len() as u32)));
@@ -215,7 +215,7 @@ impl<'a> PwFormatter<'a> {
         });
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn write_array<F>(&mut self, f: F)
     where
         F: FnOnce(&mut PwFormatter),

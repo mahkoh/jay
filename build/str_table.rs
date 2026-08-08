@@ -89,7 +89,7 @@ fn len_to_ty(len: usize) -> &'static str {
     const U08_MAX: usize = u8::MAX as usize;
     const U16_MAX: usize = u16::MAX as usize;
     const U32_MAX: usize = u32::MAX as usize;
-    #[expect(clippy::match_overlapping_arm)]
+    #[allow(clippy::match_overlapping_arm)]
     match len {
         ..=U08_MAX => "u8",
         ..=U16_MAX => "u16",

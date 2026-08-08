@@ -52,7 +52,7 @@ impl ExtWorkspaceGroupHandleV1 {
         });
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     fn send_output_leave(&self, output: &WlOutput) {
         self.client.event(OutputLeave {
             self_id: self.id,

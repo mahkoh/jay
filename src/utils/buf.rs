@@ -146,7 +146,7 @@ impl Buf {
         unsafe { self.storage.as_ptr().add(self.range.start as _) }
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn write_fmt(&mut self, args: Arguments) -> Result<Self, io::Error> {
         let cap = self.len();
         let mut buf = self.deref_mut();

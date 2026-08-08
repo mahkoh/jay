@@ -9,7 +9,7 @@ use crate::wire::wp_image_description_reference_v1::*;
 use std::rc::Rc;
 use thiserror::Error;
 
-#[expect(dead_code)]
+#[expect(unused)]
 pub struct WpImageDescriptionReferenceV1 {
     pub id: WpImageDescriptionReferenceV1Id,
     pub client: Rc<Client>,

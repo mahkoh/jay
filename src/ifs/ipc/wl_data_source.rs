@@ -34,9 +34,9 @@ use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
 
-#[expect(dead_code)]
+#[expect(unused)]
 const INVALID_ACTION_MASK: u32 = 0;
-#[expect(dead_code)]
+#[expect(unused)]
 const INVALID_SOURCE: u32 = 1;
 
 pub struct WlDataSource {

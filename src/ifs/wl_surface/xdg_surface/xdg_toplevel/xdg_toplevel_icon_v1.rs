@@ -131,8 +131,8 @@ struct AsyncData {
 }
 
 enum AsyncOp {
-    Polls(#[expect(dead_code)] PlaneVec<PendingPoll>),
-    Transfer(#[expect(dead_code)] PendingShmTransfer),
+    Polls(#[expect(unused)] PlaneVec<PendingPoll>),
+    Transfer(#[expect(unused)] PendingShmTransfer),
 }
 
 #[jay_hash]

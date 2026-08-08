@@ -1,7 +1,7 @@
 use std::mem;
 use std::mem::MaybeUninit;
 
-#[expect(dead_code)]
+#[expect(unused)]
 pub trait MaybeUninitSliceExt1 {
     type T;
 
@@ -20,7 +20,7 @@ impl<T> MaybeUninitSliceExt1 for [MaybeUninit<T>] {
     }
 }
 
-#[expect(dead_code)]
+#[expect(unused)]
 pub trait MaybeUninitSliceExt2<const N: usize> {
     fn cast_mut<U>(&mut self) -> &mut [MaybeUninit<U>; N];
 }

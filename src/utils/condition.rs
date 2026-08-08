@@ -10,13 +10,13 @@ pub struct EnabledCondition {
 }
 
 impl Condition {
-    #[allow(clippy::allow_attributes, dead_code)]
+    #[allow(dead_code)]
     pub fn enable(&'static self) -> EnabledCondition {
         self.enabled.fetch_add(1, Relaxed);
         EnabledCondition { condition: self }
     }
 
-    #[allow(clippy::allow_attributes, dead_code)]
+    #[allow(dead_code)]
     pub fn enabled(&self) -> bool {
         self.enabled.load(Relaxed) > 0
     }

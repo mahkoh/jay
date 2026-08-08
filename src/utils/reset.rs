@@ -2,7 +2,7 @@ use crate::utils::bhash::BHashMap;
 use smallvec::Array;
 use smallvec::SmallVec;
 
-#[allow(clippy::allow_attributes, dead_code)]
+#[allow(dead_code)]
 pub trait Reset {
     fn reset(&mut self);
 }
@@ -54,7 +54,7 @@ num!(u64);
 macro_rules! tuples {
     ($($id:ident,)*) => {
         impl<$($id,)*> Reset for ($($id,)*) where $($id: Reset,)* {
-            #[expect(non_snake_case)]
+            #[allow(non_snake_case)]
             fn reset(&mut self) {
                 let ($($id,)*) = self;
                 $($id.reset();)*

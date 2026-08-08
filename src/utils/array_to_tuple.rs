@@ -17,7 +17,6 @@ macro_rules! array_to_tuple {
 
             fn to_tuple(self) -> Self::Tuple {
                 let [$($field,)*] = self;
-                #[allow(clippy::allow_attributes)]
                 #[allow(clippy::unused_unit)]
                 ($($field,)*)
             }

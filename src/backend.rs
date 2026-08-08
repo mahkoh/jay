@@ -636,7 +636,7 @@ pub enum InputEvent {
 }
 
 pub enum DrmEvent {
-    #[expect(dead_code)]
+    #[expect(unused)]
     Removed,
     GfxApiChanged,
 }

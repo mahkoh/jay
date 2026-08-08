@@ -452,7 +452,7 @@ macro_rules! dynload {
         )*
     ) => {
         $(
-            #[expect(non_upper_case_globals)]
+            #[allow(non_upper_case_globals)]
             pub static $name: LazyLock<Option<unsafe extern "C" fn($($arg: $ty),*) -> $ret>> = LazyLock::new(|| {
                 unsafe {
                     Library::this()

@@ -122,7 +122,7 @@ pub enum SimpleCommand {
 }
 
 #[derive(Debug, Clone)]
-#[expect(clippy::enum_variant_names)]
+#[allow(clippy::enum_variant_names)]
 pub enum Action {
     ConfigureConnector {
         con: ConfigConnector,

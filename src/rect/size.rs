@@ -7,7 +7,7 @@ pub struct Size {
 }
 
 impl Size {
-    #[expect(dead_code)]
+    #[expect(unused)]
     #[inline(always)]
     pub fn new(width: i32, height: i32) -> Option<Self> {
         if width < 0 || height < 0 {
@@ -34,7 +34,7 @@ impl Size {
         self.height
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     #[inline(always)]
     pub fn at_point(self, x: i32, y: i32) -> Option<Rect> {
         Rect::new_sized(x, y, self.width, self.height)

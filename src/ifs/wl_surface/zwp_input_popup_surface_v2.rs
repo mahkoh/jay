@@ -159,7 +159,7 @@ impl ZwpInputPopupSurfaceV2 {
         Ok(())
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn send_text_input_rectangle(&self, rect: Rect) {
         self.client.event(TextInputRectangle {
             self_id: self.id,

@@ -819,7 +819,7 @@ struct Extension {
 #[derive(Debug)]
 enum NamedType {
     Struct(Rc<Struct>),
-    Bitmask(#[expect(dead_code)] Rc<Bitmask>),
+    Bitmask(#[expect(unused)] Rc<Bitmask>),
     Enum(Rc<Enum>),
 }
 

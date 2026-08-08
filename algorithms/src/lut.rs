@@ -6,7 +6,7 @@ mod generated;
 #[inline(never)]
 fn fill(res: &mut [f32], mut src_mul: f32, dst_mul: f32, tf: impl Fn(f32) -> f32 + Copy) {
     src_mul /= (res.len() - 1) as f32;
-    #[expect(clippy::needless_range_loop)]
+    #[allow(clippy::needless_range_loop)]
     for i in 0..res.len() {
         let v = i as f32 * src_mul;
         let v = tf(v);

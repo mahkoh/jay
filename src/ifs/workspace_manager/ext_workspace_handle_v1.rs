@@ -21,13 +21,13 @@ use thiserror::Error;
 
 const STATE_ACTIVE: u32 = 1;
 const STATE_URGENT: u32 = 2;
-#[expect(dead_code)]
+#[expect(unused)]
 const STATE_HIDDEN: u32 = 4;
 
 const CAP_ACTIVATE: u32 = 1;
-#[expect(dead_code)]
+#[expect(unused)]
 const CAP_DEACTIVATE: u32 = 2;
-#[expect(dead_code)]
+#[expect(unused)]
 const CAP_REMOVE: u32 = 4;
 const CAP_ASSIGN: u32 = 8;
 
@@ -64,7 +64,7 @@ impl ExtWorkspaceHandleV1 {
         });
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     fn send_coordinates(&self, coordinates: &[u32]) {
         self.client.event(Coordinates {
             self_id: self.id,

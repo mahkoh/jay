@@ -113,7 +113,7 @@ pub trait SessionOwner {
 }
 
 enum SessionJob {
-    Acquire(#[expect(dead_code)] SmScheduled<SessionAcquireJob>),
+    Acquire(#[expect(unused)] SmScheduled<SessionAcquireJob>),
 }
 
 pub struct ToplevelSession {
@@ -137,37 +137,37 @@ pub trait ToplevelSessionOwner {
 }
 
 enum ToplevelJob {
-    Roundtrip(#[expect(dead_code)] SmScheduled<ToplevelRoundtripJob>),
-    Acquire(#[expect(dead_code)] SmScheduled<ToplevelAcquireJob>),
-    Rename(#[expect(dead_code)] SmScheduled<ToplevelRenameJob>),
-    Update(#[expect(dead_code)] SmScheduled<ToplevelUpdateJob>),
+    Roundtrip(#[expect(unused)] SmScheduled<ToplevelRoundtripJob>),
+    Acquire(#[expect(unused)] SmScheduled<ToplevelAcquireJob>),
+    Rename(#[expect(unused)] SmScheduled<ToplevelRenameJob>),
+    Update(#[expect(unused)] SmScheduled<ToplevelUpdateJob>),
 }
 
 pub struct SessionListToplevel {
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub name: ToplevelSessionName,
     pub name_text: String,
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub ctime: SystemTime,
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub atime: SystemTime,
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub data: SmToplevelOut,
 }
 
 pub struct SessionListSession {
     pub name: SessionName,
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub ctime: SystemTime,
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub atime: SystemTime,
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub data: SmSessionOut,
     pub toplevels: Vec<SessionListToplevel>,
 }
 
 pub struct SessionList {
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub sessions: Vec<SessionListSession>,
 }
 
@@ -294,7 +294,7 @@ impl SessionManager {
         (session, status)
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn list(
         self: &Rc<Self>,
         cb: impl FnOnce(Result<SessionList, Box<dyn Error>>) + 'static,

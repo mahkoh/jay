@@ -42,7 +42,7 @@ impl<'a> EiMsgFormatter<'a> {
         self
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn long(&mut self, int: i64) -> &mut Self {
         self.write(uapi::as_bytes(&int));
         self

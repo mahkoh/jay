@@ -186,11 +186,11 @@ use thiserror::Error;
 use wp_color_management_surface_v1::WpColorManagementSurfaceV1;
 use zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1;
 
-#[expect(dead_code)]
+#[expect(unused)]
 const INVALID_SCALE: u32 = 0;
-#[expect(dead_code)]
+#[expect(unused)]
 const INVALID_TRANSFORM: u32 = 1;
-#[expect(dead_code)]
+#[expect(unused)]
 const INVALID_SIZE: u32 = 2;
 
 const OFFSET_SINCE: Version = Version(5);

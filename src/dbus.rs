@@ -342,23 +342,23 @@ const MSG_ERROR: u8 = 3;
 const MSG_SIGNAL: u8 = 4;
 
 const NO_REPLY_EXPECTED: u8 = 0x1;
-#[expect(dead_code)]
+#[expect(unused)]
 const NO_AUTO_START: u8 = 0x2;
-#[expect(dead_code)]
+#[expect(unused)]
 const ALLOW_INTERACTIVE_AUTHORIZATION: u8 = 0x4;
 
-#[expect(dead_code)]
+#[expect(unused)]
 pub const DBUS_NAME_FLAG_ALLOW_REPLACEMENT: u32 = 0x1;
-#[expect(dead_code)]
+#[expect(unused)]
 pub const DBUS_NAME_FLAG_REPLACE_EXISTING: u32 = 0x2;
 pub const DBUS_NAME_FLAG_DO_NOT_QUEUE: u32 = 0x4;
 
 pub const DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER: u32 = 1;
-#[expect(dead_code)]
+#[expect(unused)]
 pub const DBUS_REQUEST_NAME_REPLY_IN_QUEUE: u32 = 2;
-#[expect(dead_code)]
+#[expect(unused)]
 pub const DBUS_REQUEST_NAME_REPLY_EXISTS: u32 = 3;
-#[expect(dead_code)]
+#[expect(unused)]
 pub const DBUS_REQUEST_NAME_REPLY_ALREADY_OWNER: u32 = 4;
 
 pub const BUS_DEST: &str = "org.freedesktop.DBus";
@@ -493,7 +493,7 @@ pub unsafe trait DbusType<'a>: Clone + 'a {
     type Generic<'b>: DbusType<'b> + 'b;
 
     fn consume_signature(s: &mut &[u8]) -> Result<(), DbusError>;
-    #[allow(clippy::allow_attributes, dead_code)]
+    #[allow(dead_code)]
     fn write_signature(w: &mut Vec<u8>);
     fn marshal(&self, fmt: &mut Formatter);
     fn unmarshal(parser: &mut Parser<'a>) -> Result<Self, DbusError>;
@@ -767,7 +767,7 @@ pub struct PendingReply<T> {
 }
 
 impl<T> PendingReply<T> {
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn reply_expected(&self) -> bool {
         self.reply_expected
     }
@@ -789,7 +789,7 @@ where
         }
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn complete<'a>(&self, res: Result<&T::Generic<'a>, &str>) {
         match res {
             Ok(m) => self.ok(m),

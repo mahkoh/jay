@@ -31,7 +31,7 @@ impl UsrWlrLayerSurface {
         });
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn set_keyboard_interactivity(&self, ki: u32) {
         self.con.request(SetKeyboardInteractivity {
             self_id: self.id,
@@ -39,7 +39,7 @@ impl UsrWlrLayerSurface {
         });
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn set_layer(&self, layer: u32) {
         self.con.request(SetLayer {
             self_id: self.id,

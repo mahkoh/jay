@@ -61,7 +61,7 @@ enum ColorOpType {
     Matrix3x4(ColorOpMatrix3x4),
     Multiplier(ColorOpMultiplier),
     Lut3d(ColorOpLut3d),
-    Unknown(#[expect(dead_code)] Option<BString>),
+    Unknown(#[expect(unused)] Option<BString>),
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Linearize)]

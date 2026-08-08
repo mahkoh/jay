@@ -13,7 +13,7 @@ use std::os::unix::ffi::OsStrExt;
 
 #[derive(Debug)]
 struct Lined<T> {
-    #[expect(dead_code)]
+    #[expect(unused)]
     line: u32,
     val: T,
 }
@@ -491,7 +491,7 @@ fn write_request_handler<W: Write>(
 ) -> Result<()> {
     writeln!(f)?;
     if messages.dead {
-        writeln!(f, "    #[expect(dead_code)]")?;
+        writeln!(f, "    #[allow(dead_code)]")?;
     }
     writeln!(
         f,
@@ -654,7 +654,7 @@ fn write_interface_versions<W: Write>(f: &mut W, obj_names: &[String]) -> Result
     writeln!(f, "    }}")?;
     for obj_name in obj_names {
         writeln!(f)?;
-        writeln!(f, "    #[allow(clippy::allow_attributes, dead_code)]")?;
+        writeln!(f, "    #[allow(dead_code)]")?;
         writeln!(f, "    pub fn {obj_name}(&self) -> EiVersion {{")?;
         writeln!(f, "        self.{obj_name}.version.get()")?;
         writeln!(f, "    }}")?;

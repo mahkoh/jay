@@ -5,12 +5,12 @@ macro_rules! egl_transparent {
         pub struct $name(pub *mut u8);
 
         impl $name {
-            #[allow(clippy::allow_attributes, dead_code)]
+            #[allow(dead_code)]
             pub const fn none() -> Self {
                 Self(std::ptr::null_mut())
             }
 
-            #[allow(clippy::allow_attributes, dead_code)]
+            #[allow(dead_code)]
             pub fn is_none(self) -> bool {
                 self.0.is_null()
             }

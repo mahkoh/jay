@@ -100,7 +100,7 @@ where
         ) {
             let maxf = (post_lut.gamma_lut.len() - 1) as f32;
             let maxf = maxf.clamp(0.0, f32::MAX_SAFE_INT as f32);
-            #[expect(clippy::needless_range_loop)]
+            #[allow(clippy::needless_range_loop)]
             for i in 0..size {
                 let v = v(i);
                 let v = v.clamp(0.0, 1.0);
@@ -137,7 +137,7 @@ where
             size: usize,
             v: impl Fn(usize) -> f32,
         ) {
-            #[expect(clippy::needless_range_loop)]
+            #[allow(clippy::needless_range_loop)]
             for i in 0..size {
                 let v = v(i);
                 let v = v * mul;

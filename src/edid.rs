@@ -29,7 +29,7 @@ pub enum DigitalVideoInterfaceStandard {
     HdmiB,
     MDDI,
     DisplayPort,
-    #[expect(dead_code)]
+    #[expect(unused)]
     Unknown(u8),
 }
 
@@ -49,7 +49,7 @@ impl Debug for SignalLevelStandard {
 }
 
 #[derive(Copy, Clone, Debug)]
-#[expect(dead_code)]
+#[expect(unused)]
 pub enum VideoInputDefinition {
     Analog {
         signal_level_standard: SignalLevelStandard,
@@ -86,7 +86,7 @@ pub struct ChromaticityCoordinates {
 }
 
 #[derive(Copy, Clone, Debug)]
-#[expect(dead_code)]
+#[expect(unused)]
 pub struct EstablishedTimings {
     pub s_720x400_70: bool,
     pub s_720x400_88: bool,
@@ -117,7 +117,7 @@ pub enum AspectRatio {
 }
 
 #[derive(Copy, Clone, Debug)]
-#[expect(dead_code)]
+#[expect(unused)]
 pub struct StandardTiming {
     pub x_resolution: u16,
     pub aspect_ratio: AspectRatio,
@@ -131,7 +131,7 @@ pub enum AnalogSyncType {
 }
 
 #[derive(Copy, Clone, Debug)]
-#[expect(dead_code)]
+#[expect(unused)]
 pub enum SyncSignal {
     Analog {
         ty: AnalogSyncType,
@@ -183,7 +183,7 @@ impl Debug for StereoViewingSupport {
 }
 
 #[derive(Copy, Clone, Debug)]
-#[expect(dead_code)]
+#[expect(unused)]
 pub struct DisplayRangeLimitsAndAdditionalTiming {
     pub vertical_field_rate_min: u16,
     pub vertical_field_rate_max: u16,
@@ -200,12 +200,12 @@ pub enum AspectRatioPreference {
     A16_10,
     A5_4,
     A15_9,
-    #[expect(dead_code)]
+    #[expect(unused)]
     Unknown(u8),
 }
 
 #[derive(Copy, Clone, Debug)]
-#[expect(dead_code)]
+#[expect(unused)]
 pub enum ExtendedTimingInformation {
     DefaultGtf,
     NoTimingInformation,
@@ -239,7 +239,7 @@ pub enum ExtendedTimingInformation {
 }
 
 #[derive(Copy, Clone, Debug, Default)]
-#[expect(dead_code)]
+#[expect(unused)]
 pub struct ColorPoint {
     pub white_point_index: u8,
     pub white_point_x: u16,
@@ -248,7 +248,7 @@ pub struct ColorPoint {
 }
 
 #[derive(Copy, Clone, Debug)]
-#[expect(dead_code)]
+#[expect(unused)]
 pub struct EstablishedTimings3 {
     pub s640x350_85: bool,
     pub s640x400_85: bool,
@@ -297,7 +297,7 @@ pub struct EstablishedTimings3 {
 }
 
 #[derive(Copy, Clone, Debug)]
-#[expect(dead_code)]
+#[expect(unused)]
 pub struct ColorManagementData {
     pub red_a3: u16,
     pub red_a2: u16,
@@ -324,7 +324,7 @@ pub enum CvtPreferredVerticalRate {
 }
 
 #[derive(Copy, Clone, Debug)]
-#[expect(dead_code)]
+#[expect(unused)]
 pub struct Cvt3ByteCode {
     pub addressable_lines_per_field: u16,
     pub aspect_ration: CvtAspectRatio,
@@ -337,7 +337,7 @@ pub struct Cvt3ByteCode {
 }
 
 #[derive(Copy, Clone, Debug)]
-#[expect(dead_code)]
+#[expect(unused)]
 pub struct DetailedTimingDescriptor {
     pub pixel_clock_khz: u32,
     pub horizontal_addressable_pixels: u16,
@@ -358,7 +358,7 @@ pub struct DetailedTimingDescriptor {
 }
 
 #[derive(Clone, Debug)]
-#[expect(dead_code)]
+#[expect(unused)]
 pub enum Descriptor {
     Unknown(u8),
     DetailedTimingDescriptor(DetailedTimingDescriptor),
@@ -393,7 +393,7 @@ macro_rules! bail {
 #[jay_clone]
 #[derive(Debug)]
 pub enum EdidParseContext {
-    #[expect(dead_code)]
+    #[expect(unused)]
     ReadingBytes(usize),
     BaseBlock,
     Descriptors,
@@ -1159,7 +1159,7 @@ pub enum DisplayColorType {
 }
 
 #[derive(Debug)]
-#[expect(dead_code)]
+#[expect(unused)]
 pub enum FeatureSupport2 {
     Analog {
         display_color_type: DisplayColorType,
@@ -1172,7 +1172,7 @@ pub enum FeatureSupport2 {
 }
 
 #[derive(Debug)]
-#[expect(dead_code)]
+#[expect(unused)]
 pub struct FeatureSupport {
     pub standby_supported: bool,
     pub suspend_supported: bool,
@@ -1184,7 +1184,7 @@ pub struct FeatureSupport {
 }
 
 #[derive(Debug)]
-#[expect(dead_code)]
+#[expect(unused)]
 pub struct EdidBaseBlock {
     pub id_manufacturer_name: BString,
     pub id_product_code: u16,
@@ -1227,12 +1227,12 @@ pub enum CtaDataBlock {
 #[derive(Debug)]
 pub struct CtaAmdVendorDataBlock {
     pub minimum_refresh_hz: u8,
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub maximum_refresh_hz: u8,
 }
 
 #[derive(Copy, Clone, Debug)]
-#[expect(dead_code)]
+#[expect(unused)]
 pub struct CtaColorimetryDataBlock {
     pub bt2020_rgb: bool,
     pub bt2020_ycc: bool,
@@ -1246,7 +1246,7 @@ pub struct CtaColorimetryDataBlock {
 }
 
 #[derive(Copy, Clone, Debug)]
-#[expect(dead_code)]
+#[expect(unused)]
 pub struct CtaStaticHdrMetadataDataBlock {
     pub traditional_gamma_sdr_luminance: bool,
     pub traditional_gamma_hdr_luminance: bool,

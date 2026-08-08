@@ -303,7 +303,7 @@ impl CursorUser {
         }
     }
 
-    #[cfg_attr(not(feature = "it"), expect(dead_code))]
+    #[cfg_attr(not(feature = "it"), expect(unused))]
     pub fn desired_known_cursor(&self) -> Option<KnownCursor> {
         self.desired_known_cursor.get()
     }

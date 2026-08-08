@@ -12,7 +12,7 @@ use crate::wire::wl_subcompositor::*;
 use std::rc::Rc;
 use thiserror::Error;
 
-#[expect(dead_code)]
+#[expect(unused)]
 const BAD_SURFACE: u32 = 0;
 
 pub struct WlSubcompositorGlobal {

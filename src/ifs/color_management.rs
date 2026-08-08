@@ -22,7 +22,7 @@ const PRIMARIES_MUL_INV: f64 = 1.0 / PRIMARIES_MUL;
 const MIN_LUM_MUL: f64 = 10_000.0;
 const MIN_LUM_MUL_INV: f64 = 1.0 / MIN_LUM_MUL;
 
-#[expect(dead_code)]
+#[expect(unused)]
 mod consts {
     pub const RENDER_INTENT_PERCEPTUAL: u32 = 0;
     pub const RENDER_INTENT_RELATIVE: u32 = 1;

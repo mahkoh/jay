@@ -1833,7 +1833,7 @@ impl State {
         self.eng.now().msec()
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn now_usec_rt(&self) -> u64 {
         self.eng.now_rt().usec()
     }
@@ -2472,7 +2472,7 @@ impl State {
         TreeSerial::from_raw(serial)
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn validate_tree_serial(&self, s: u64) -> Option<TreeSerial> {
         let last = self.tree.serials.last().raw();
         if s > last {

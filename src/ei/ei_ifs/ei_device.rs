@@ -41,7 +41,7 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub const EI_DEVICE_TYPE_VIRTUAL: u32 = 1;
-#[expect(dead_code)]
+#[expect(unused)]
 pub const EI_DEVICE_TYPE_PHYSICAL: u32 = 2;
 
 pub const REGION_MAPPING_ID_SINCE: EiVersion = EiVersion(2);
@@ -106,7 +106,7 @@ impl EiDevice {
         });
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn send_stop_emulating(&self, serial: u32) {
         self.client.event(ServerStopEmulating {
             self_id: self.id,
@@ -114,7 +114,7 @@ impl EiDevice {
         });
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn send_dimensions(&self, width: u32, height: u32) {
         self.client.event(Dimensions {
             self_id: self.id,
@@ -123,7 +123,7 @@ impl EiDevice {
         });
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn send_name(&self, name: &str) {
         self.client.event(Name {
             self_id: self.id,
@@ -151,7 +151,7 @@ impl EiDevice {
         }
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn send_paused(&self, serial: u32) {
         self.client.event(Paused {
             self_id: self.id,
