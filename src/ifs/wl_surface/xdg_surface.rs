@@ -58,10 +58,10 @@ use std::fmt::Debug;
 use std::rc::Rc;
 use thiserror::Error;
 
-#[expect(dead_code)]
+#[expect(unused)]
 const NOT_CONSTRUCTED: u32 = 1;
 const ALREADY_CONSTRUCTED: u32 = 2;
-#[expect(dead_code)]
+#[expect(unused)]
 const UNCONFIGURED_BUFFER: u32 = 3;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

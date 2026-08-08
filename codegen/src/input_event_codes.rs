@@ -52,7 +52,7 @@ pub fn main() -> Result<()> {
     }
     for ty in MappingType::variants() {
         #[derive(Debug)]
-        #[expect(dead_code)]
+        #[expect(unused)]
         struct MappedKey<'a> {
             name: &'a str,
             value: u32,

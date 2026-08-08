@@ -15,21 +15,21 @@ pub trait FutexObj: 'static {
     fn get(&self) -> &AtomicU32;
 }
 
-#[expect(dead_code)]
+#[expect(unused)]
 const FUTEX2_SIZE_U8: i32 = 0x00;
-#[expect(dead_code)]
+#[expect(unused)]
 const FUTEX2_SIZE_U16: i32 = 0x01;
 const FUTEX2_SIZE_U32: i32 = 0x02;
-#[expect(dead_code)]
+#[expect(unused)]
 const FUTEX2_SIZE_U64: i32 = 0x03;
-#[expect(dead_code)]
+#[expect(unused)]
 const FUTEX2_NUMA: i32 = 0x04;
-#[expect(dead_code)]
+#[expect(unused)]
 const FUTEX2_MPOL: i32 = 0x08;
 const FUTEX2_PRIVATE: i32 = 128;
 
 impl IoUring {
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn futex_wake(
         &self,
         futex: &Rc<impl FutexObj>,
@@ -49,7 +49,7 @@ impl IoUring {
         Ok(())
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub async fn futex_wait(
         &self,
         futex: &Rc<impl FutexObj>,

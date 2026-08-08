@@ -99,7 +99,7 @@ struct Task<T, F: Future<Output = T>> {
     data: UnsafeCell<TaskData<T, F>>,
     waker: Cell<Option<Waker>>,
     queue: Rc<AsyncEngine>,
-    #[cfg_attr(not(feature = "tracy"), expect(dead_code))]
+    #[cfg_attr(not(feature = "tracy"), expect(unused))]
     zone: ZoneName,
 }
 
@@ -128,7 +128,7 @@ impl Drop for Runnable {
 impl AsyncEngine {
     pub(super) fn spawn_<T, F: Future<Output = T>>(
         self: &Rc<Self>,
-        #[cfg_attr(not(feature = "tracy"), expect(unused_variables))] name: &str,
+        #[cfg_attr(not(feature = "tracy"), expect(unused))] name: &str,
         phase: Phase,
         f: F,
     ) -> SpawnedFuture<T> {

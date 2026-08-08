@@ -42,7 +42,7 @@ pub trait UsrZwlrScreencopyFrameOwner {
 }
 
 impl UsrZwlrScreencopyFrame {
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn copy(&self, buffer: &UsrWlBuffer) {
         self.con.request(Copy {
             self_id: self.id,
@@ -50,7 +50,7 @@ impl UsrZwlrScreencopyFrame {
         });
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn copy_with_damage(&self, buffer: &UsrWlBuffer) {
         self.con.request(CopyWithDamage {
             self_id: self.id,

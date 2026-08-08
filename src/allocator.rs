@@ -49,7 +49,7 @@ pub trait BufferObject {
 
 pub trait MappedBuffer {
     unsafe fn data(&self) -> &[u8];
-    #[cfg_attr(not(feature = "it"), expect(dead_code))]
+    #[cfg_attr(not(feature = "it"), expect(unused))]
     fn data_ptr(&self) -> *mut u8;
     fn stride(&self) -> i32;
 }

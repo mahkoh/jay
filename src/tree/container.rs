@@ -117,7 +117,7 @@ impl Into<Axis> for ContainerSplit {
     }
 }
 
-#[expect(dead_code)]
+#[expect(unused)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ContainerFocus {
     None,

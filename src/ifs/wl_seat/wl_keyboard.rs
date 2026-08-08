@@ -22,7 +22,7 @@ use thiserror::Error;
 pub const REPEAT_INFO_SINCE: Version = Version(4);
 pub const REPEATED_SINCE: Version = Version(10);
 
-#[expect(dead_code)]
+#[expect(unused)]
 const NO_KEYMAP: u32 = 0;
 pub const XKB_V1: u32 = 1;
 

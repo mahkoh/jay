@@ -24,11 +24,11 @@ use std::rc::Rc;
 use thiserror::Error;
 use uapi::c;
 
-#[expect(dead_code)]
+#[expect(unused)]
 const Y_INVERT: u32 = 1;
-#[expect(dead_code)]
+#[expect(unused)]
 const INTERLACED: u32 = 2;
-#[expect(dead_code)]
+#[expect(unused)]
 const BOTTOM_FIRST: u32 = 4;
 
 const MAX_PLANE: u32 = MAX_PLANES as u32 - 1;

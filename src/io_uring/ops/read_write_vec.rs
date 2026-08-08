@@ -24,7 +24,7 @@ pub struct WriteVecCache<T> {
 }
 
 impl IoUring {
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub async fn write_vec_all<T>(
         &self,
         fd: &Rc<OwnedFd>,

@@ -23,7 +23,7 @@ impl TestToplevelSession {
         Ok(())
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn rename(&self, name: &str) -> Result<(), TestError> {
         self.tran.send(Rename {
             self_id: self.id,

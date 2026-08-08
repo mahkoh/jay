@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-#[expect(dead_code)]
+#[expect(unused)]
 pub trait OptionCowExt<'a, T>
 where
     T: ToOwned + ?Sized,

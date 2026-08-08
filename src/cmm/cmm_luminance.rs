@@ -38,7 +38,7 @@ impl Luminance {
         white: F64(203.0),
     };
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub const HLG: Self = Self {
         min: F64(0.005),
         max: F64(1000.0),

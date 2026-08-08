@@ -110,7 +110,7 @@ macro_rules! id_noconvert {
         #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq)]
         pub struct $name(u32);
 
-        #[expect(dead_code)]
+        #[expect(unused)]
         impl $name {
             pub const NONE: Self = $name(0);
 
@@ -167,12 +167,12 @@ macro_rules! shared_ids {
         pub struct $id($ty);
 
         impl $id {
-            #[expect(dead_code)]
+            #[expect(unused)]
             pub fn raw(&self) -> $ty {
                 self.0
             }
 
-            #[expect(dead_code)]
+            #[expect(unused)]
             pub fn from_raw(id: $ty) -> Self {
                 Self(id)
             }
@@ -437,7 +437,7 @@ macro_rules! atoms {
         $($field_name:ident,)*
     } => {
         #[allow(non_snake_case)]
-        #[expect(dead_code)]
+        #[expect(unused)]
         #[derive(Debug, Clone, Copy)]
         struct $name {
             $(
@@ -732,7 +732,7 @@ macro_rules! ei_id {
         #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq)]
         pub struct $name(u64);
 
-        #[expect(dead_code)]
+        #[expect(unused)]
         impl $name {
             pub const NONE: Self = $name(0);
 

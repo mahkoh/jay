@@ -28,7 +28,7 @@ impl<T> Default for LinkedList<T> {
 }
 
 impl<T> LinkedList<T> {
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn append_all(&self, other: &LinkedList<T>) {
         if other.is_empty() || self.root.data == other.root.data {
             return;
@@ -87,7 +87,7 @@ impl<T> LinkedList<T> {
         self.root.prepend_existing(t)
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn add_first_existing(&self, t: &NodeRef<T>) {
         self.root.append_existing(t)
     }

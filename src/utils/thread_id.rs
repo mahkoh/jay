@@ -38,7 +38,7 @@ impl ThreadId {
         self.id == THREAD_ID_ID.get()
     }
 
-    #[cfg_attr(not(test), expect(dead_code))]
+    #[cfg_attr(not(test), expect(unused))]
     #[inline]
     pub fn is_not_current(&self) -> bool {
         !self.is_current()

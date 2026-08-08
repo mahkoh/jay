@@ -18,9 +18,9 @@ pub struct SmSessionInUseData {
 }
 
 pub struct SmSessionOut {
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub first_acquire: SmSessionOutUseData,
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub last_acquire: SmSessionOutUseData,
 }
 

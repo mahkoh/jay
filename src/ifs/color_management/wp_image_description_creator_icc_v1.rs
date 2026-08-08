@@ -9,7 +9,7 @@ use crate::wire::wp_image_description_creator_icc_v1::WpImageDescriptionCreatorI
 use std::convert::Infallible;
 use std::rc::Rc;
 
-#[expect(dead_code)]
+#[expect(unused)]
 pub struct WpImageDescriptionCreatorIccV1 {
     pub id: WpImageDescriptionCreatorIccV1Id,
     pub client: Rc<Client>,

@@ -22,7 +22,7 @@ use thiserror::Error;
 pub const MAKE_SINCE: Version = Version(2);
 pub const MODEL_SINCE: Version = Version(2);
 pub const SERIAL_NUMBER_SINCE: Version = Version(2);
-#[expect(dead_code)]
+#[expect(unused)]
 pub const RELEASE_SINCE: Version = Version(3);
 pub const ADAPTIVE_SYNC_SINCE: Version = Version(4);
 

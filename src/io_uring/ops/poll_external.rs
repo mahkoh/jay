@@ -62,7 +62,7 @@ impl IoUring {
         self.poll_external(fd, c::POLLIN, callback)
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn writable_external(
         &self,
         fd: &Rc<OwnedFd>,

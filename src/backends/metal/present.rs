@@ -182,7 +182,7 @@ impl MetalConnector {
     }
 
     pub async fn present_loop(self: Rc<Self>) {
-        #[cfg_attr(not(feature = "tracy"), expect(unused_variables))]
+        #[cfg_attr(not(feature = "tracy"), expect(unused))]
         let frame_name = FrameName::get(&self.kernel_id().to_string());
         let mut cur_sec = 0;
         let mut max = 0;

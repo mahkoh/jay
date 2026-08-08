@@ -10,7 +10,7 @@ where
     })
 }
 
-#[expect(dead_code)]
+#[expect(unused)]
 pub trait SliceExt {
     type T;
 

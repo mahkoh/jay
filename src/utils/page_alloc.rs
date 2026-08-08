@@ -62,7 +62,7 @@ impl PageAllocCtx {
 }
 
 impl PageAlloc {
-    #[cfg_attr(not(test), expect(dead_code))]
+    #[cfg_attr(not(test), expect(unused))]
     pub fn size(&self) -> usize {
         self.pages.len() * PAGE_ALLOC_PAGE_SIZE as usize
     }

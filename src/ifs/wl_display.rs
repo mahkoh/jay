@@ -14,7 +14,7 @@ use thiserror::Error;
 
 const INVALID_OBJECT: u32 = 0;
 const INVALID_METHOD: u32 = 1;
-#[expect(dead_code)]
+#[expect(unused)]
 const NO_MEMORY: u32 = 2;
 const IMPLEMENTATION: u32 = 3;
 

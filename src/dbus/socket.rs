@@ -133,7 +133,7 @@ impl DbusSocket {
         }
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn get<T, F>(&self, destination: &str, path: &str, f: F)
     where
         T: Property,

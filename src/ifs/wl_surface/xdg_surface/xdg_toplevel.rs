@@ -84,7 +84,7 @@ pub mod xdg_toplevel_session_v1;
 
 const STATE_MAXIMIZED: u32 = 1;
 const STATE_FULLSCREEN: u32 = 2;
-#[expect(dead_code)]
+#[expect(unused)]
 const STATE_RESIZING: u32 = 3;
 const STATE_ACTIVATED: u32 = 4;
 const STATE_TILED_LEFT: u32 = 5;
@@ -101,12 +101,12 @@ const fn state_bits(state: u32) -> u32 {
     1 << (state - 1)
 }
 
-#[expect(dead_code)]
+#[expect(unused)]
 const CAP_WINDOW_MENU: u32 = 1;
-#[expect(dead_code)]
+#[expect(unused)]
 const CAP_MAXIMIZE: u32 = 2;
 const CAP_FULLSCREEN: u32 = 3;
-#[expect(dead_code)]
+#[expect(unused)]
 const CAP_MINIMIZE: u32 = 4;
 
 pub const WM_CAPABILITIES_SINCE: Version = Version(5);
@@ -121,7 +121,7 @@ const RESIZE_EDGE_RIGHT: u32 = 8;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Decoration {
-    #[expect(dead_code)]
+    #[expect(unused)]
     Client,
     Server,
 }

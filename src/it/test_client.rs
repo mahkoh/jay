@@ -56,7 +56,7 @@ pub struct DefaultSeat {
 }
 
 impl TestClient {
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn error(&self, msg: &str) {
         self.tran.error(msg)
     }
@@ -111,7 +111,7 @@ impl TestClient {
         Ok(qoi)
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub async fn save_screenshot(&self, name: &str, include_cursor: bool) -> Result<(), TestError> {
         let qoi = self.take_screenshot(include_cursor).await?;
         let path = format!("{}/screenshot_{}.qoi", self.run.out_dir, name);

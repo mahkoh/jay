@@ -177,7 +177,7 @@ pub const POINTER: u32 = 1;
 const KEYBOARD: u32 = 2;
 const TOUCH: u32 = 4;
 
-#[expect(dead_code)]
+#[expect(unused)]
 const MISSING_CAPABILITY: u32 = 0;
 
 pub const BTN_LEFT: u32 = 0x110;

@@ -13,7 +13,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
-#[expect(dead_code)]
+#[expect(unused)]
 const ROLE: u32 = 0;
 
 pub const RELEASED: u32 = 0;

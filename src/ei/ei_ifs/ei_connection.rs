@@ -65,7 +65,7 @@ impl EiConnection {
         });
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn send_ping(&self, ping: &EiPingpong, version: u32) {
         self.client.event(Ping {
             self_id: self.id,

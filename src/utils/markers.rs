@@ -9,7 +9,7 @@ pub unsafe trait JayClone: Clone {
     }
 }
 
-#[expect(dead_code)]
+#[expect(unused)]
 pub struct AssertJayHash<T: JayHash>(PhantomData<T>);
 
 pub unsafe trait JayHash: Hash + PartialEq {

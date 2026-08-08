@@ -161,7 +161,7 @@ impl ClientMemOffset {
         self.offset
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn ptr(&self) -> *const [Cell<u8>] {
         self.data
     }

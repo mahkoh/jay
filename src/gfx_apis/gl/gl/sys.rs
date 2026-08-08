@@ -7,7 +7,7 @@ pub type GLenum = c::c_uint;
 pub type GLfloat = f32;
 pub type GLint = c::c_int;
 pub type GLsizei = c::c_int;
-#[expect(dead_code)]
+#[expect(unused)]
 pub type GLubyte = u8;
 pub type GLuint = c::c_uint;
 

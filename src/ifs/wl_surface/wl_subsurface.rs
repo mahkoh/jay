@@ -36,7 +36,7 @@ use std::cell::RefMut;
 use std::rc::Rc;
 use thiserror::Error;
 
-#[expect(dead_code)]
+#[expect(unused)]
 const BAD_SURFACE: u32 = 0;
 
 const MAX_SUBSURFACE_DEPTH: u32 = 100;

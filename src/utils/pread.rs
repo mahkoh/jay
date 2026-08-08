@@ -2,14 +2,14 @@ use std::io::Read;
 use std::os::fd::AsRawFd;
 use uapi::c;
 
-#[expect(dead_code)]
+#[expect(unused)]
 pub struct Preader<T> {
     t: T,
     off: c::off_t,
 }
 
 impl<T> Preader<T> {
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn new(t: T) -> Self {
         Self { t, off: 0 }
     }

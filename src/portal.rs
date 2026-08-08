@@ -65,9 +65,9 @@ use uapi::c;
 use uapi::getpid;
 
 const PORTAL_SUCCESS: u32 = 0;
-#[expect(dead_code)]
+#[expect(unused)]
 const PORTAL_CANCELLED: u32 = 1;
-#[expect(dead_code)]
+#[expect(unused)]
 const PORTAL_ENDED: u32 = 2;
 
 pub fn run_freestanding(_global: GlobalArgs) {

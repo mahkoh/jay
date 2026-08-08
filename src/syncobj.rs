@@ -58,7 +58,7 @@ impl SyncobjCtx {
         })
     }
 
-    #[cfg_attr(not(feature = "it"), expect(dead_code))]
+    #[cfg_attr(not(feature = "it"), expect(unused))]
     pub fn create_syncobj(&self) -> Result<Syncobj, SyncobjError> {
         match &self.backend {
             SyncobjBackend::Drm(b) => b.create_syncobj(),

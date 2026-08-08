@@ -9,7 +9,7 @@ use crate::wire_ei::ei_pingpong::EiPingpongRequestHandler;
 use std::rc::Rc;
 use thiserror::Error;
 
-#[expect(dead_code)]
+#[expect(unused)]
 pub struct EiPingpong {
     pub id: EiPingpongId,
     pub client: Rc<EiClient>,
@@ -33,7 +33,7 @@ ei_object_base! {
 impl EiObject for EiPingpong {}
 
 #[derive(Debug, Error)]
-#[expect(dead_code)]
+#[expect(unused)]
 pub enum EiPingpongError {
     #[error(transparent)]
     EiClientError(Box<EiClientError>),

@@ -36,7 +36,7 @@ impl TestSession {
         Ok(())
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn remove(&self) -> Result<(), TestError> {
         if !self.destroyed.replace(true) {
             self.tran.send(Remove { self_id: self.id })?;
@@ -104,7 +104,7 @@ impl TestSession {
         Ok(ts)
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn remove_toplevel(&self, name: &str) -> Result<(), TestError> {
         self.tran.send(RemoveToplevel {
             self_id: self.id,
@@ -121,7 +121,7 @@ impl TestSession {
         }
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub async fn result_restored(&self) -> Result<(), TestError> {
         let res = self.result().await;
         match res {

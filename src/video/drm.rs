@@ -870,7 +870,7 @@ pub struct DrmVersion {
     pub desc: BString,
 }
 
-#[expect(dead_code)]
+#[expect(unused)]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct HdrMetadata {
     pub eotf: u8,
@@ -980,7 +980,7 @@ impl PartialEq for hdr_output_metadata {
     }
 }
 
-#[expect(dead_code)]
+#[expect(unused)]
 mod consts {
     pub const HDMI_EOTF_TRADITIONAL_GAMMA_SDR: u8 = 0;
     pub const HDMI_EOTF_TRADITIONAL_GAMMA_HDR: u8 = 1;
@@ -1271,7 +1271,7 @@ impl ConnectorType {
         }
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn to_drm(self) -> u32 {
         match self {
             Self::Unknown(n) => n,

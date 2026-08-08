@@ -24,7 +24,7 @@ pub struct TestDataControlDevice {
 }
 
 impl TestDataControlDevice {
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn destroy(&self) -> TestResult {
         if !self.destroyed.replace(true) {
             self.tran.send(Destroy { self_id: self.id })?;
@@ -40,7 +40,7 @@ impl TestDataControlDevice {
         Ok(())
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn set_primary_selection(&self, source: &TestDataControlSource) -> TestResult {
         self.tran.send(SetPrimarySelection {
             self_id: self.id,

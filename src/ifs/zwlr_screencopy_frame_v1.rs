@@ -22,7 +22,7 @@ use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
 
-#[expect(dead_code)]
+#[expect(unused)]
 pub const FLAGS_Y_INVERT: u32 = 1;
 
 pub struct ZwlrScreencopyFrameV1 {
@@ -88,7 +88,7 @@ impl ZwlrScreencopyFrameV1 {
         self.client.event(BufferDone { self_id: self.id })
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn send_flags(&self, flags: u32) {
         self.client.event(Flags {
             self_id: self.id,

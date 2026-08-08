@@ -4,7 +4,7 @@ use smallvec::SmallVec;
 use smallvec::smallvec_inline;
 use uapi::c;
 
-#[cfg_attr(not(feature = "it"), expect(dead_code))]
+#[cfg_attr(not(feature = "it"), expect(unused))]
 pub fn num_cpus() -> Result<u32, OsError> {
     let mut buf: SmallVec<[usize; 32]> = smallvec_inline![0; 32];
     loop {

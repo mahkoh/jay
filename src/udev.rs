@@ -47,7 +47,7 @@ unsafe extern "C" {
 
     fn udev_list_entry_get_next(list_entry: *mut udev_list_entry) -> *mut udev_list_entry;
     fn udev_list_entry_get_name(list_entry: *mut udev_list_entry) -> *const c::c_char;
-    #[expect(dead_code)]
+    #[expect(unused)]
     fn udev_list_entry_get_value(list_entry: *mut udev_list_entry) -> *const c::c_char;
 
     fn udev_device_new_from_syspath(udev: *mut udev, syspath: *const c::c_char)
@@ -126,7 +126,7 @@ pub struct UdevDevice {
 
 pub enum UdevDeviceType {
     Character,
-    #[expect(dead_code)]
+    #[expect(unused)]
     Block,
 }
 

@@ -13,7 +13,7 @@ use std::os::unix::ffi::OsStrExt;
 
 #[derive(Debug)]
 struct Lined<T> {
-    #[expect(dead_code)]
+    #[expect(unused)]
     line: u32,
     val: T,
 }

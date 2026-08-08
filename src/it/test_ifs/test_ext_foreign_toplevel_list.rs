@@ -28,7 +28,7 @@ impl TestExtForeignToplevelList {
         }
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn stop(&self) -> TestResult {
         self.tran.send(Stop { self_id: self.id })?;
         Ok(())

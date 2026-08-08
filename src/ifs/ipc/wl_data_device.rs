@@ -24,7 +24,7 @@ use crate::wire::wl_data_device::*;
 use std::rc::Rc;
 use thiserror::Error;
 
-#[expect(dead_code)]
+#[expect(unused)]
 const ROLE: u32 = 0;
 
 pub struct WlDataDevice {

@@ -8,8 +8,8 @@ use std::ffi::c_void;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
-pub struct sqlite3(#[expect(dead_code)] u8);
-pub struct sqlite3_stmt(#[expect(dead_code)] u8);
+pub struct sqlite3(#[expect(unused)] u8);
+pub struct sqlite3_stmt(#[expect(unused)] u8);
 
 dynload! {
     SQLITE: Sqlite from "libsqlite3.so.0" for "sqlite" ("required for session management") {

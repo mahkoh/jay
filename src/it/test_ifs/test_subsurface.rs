@@ -45,7 +45,7 @@ impl TestSubsurface {
         })
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn set_sync(&self) -> Result<(), TestError> {
         self.tran.send(SetSync { self_id: self.id })
     }

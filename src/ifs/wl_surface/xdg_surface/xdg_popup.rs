@@ -59,7 +59,7 @@ use std::fmt::Formatter;
 use std::rc::Rc;
 use thiserror::Error;
 
-#[expect(dead_code)]
+#[expect(unused)]
 const INVALID_GRAB: u32 = 1;
 
 tree_id!(PopupId);

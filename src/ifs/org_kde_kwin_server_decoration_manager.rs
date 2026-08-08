@@ -12,9 +12,9 @@ use crate::wire::org_kde_kwin_server_decoration_manager::*;
 use std::rc::Rc;
 use thiserror::Error;
 
-#[expect(dead_code)]
+#[expect(unused)]
 const NONE: u32 = 0;
-#[expect(dead_code)]
+#[expect(unused)]
 const CLIENT: u32 = 1;
 const SERVER: u32 = 2;
 

@@ -10,9 +10,9 @@ use crate::wire::wl_touch::*;
 use std::rc::Rc;
 use thiserror::Error;
 
-#[expect(dead_code)]
+#[expect(unused)]
 pub const SHAPE_SINCE_VERSION: Version = Version(6);
-#[expect(dead_code)]
+#[expect(unused)]
 pub const ORIENTATION_DIRECTION_SINCE_VERSION: Version = Version(6);
 
 pub struct WlTouch {
@@ -79,7 +79,7 @@ impl WlTouch {
         self.seat.client.event(Cancel { self_id: self.id })
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn send_shape(&self, id: i32, major: Fixed, minor: Fixed) {
         self.seat.client.event(Shape {
             self_id: self.id,
@@ -89,7 +89,7 @@ impl WlTouch {
         })
     }
 
-    #[expect(dead_code)]
+    #[expect(unused)]
     pub fn send_orientation(&self, id: i32, orientation: Fixed) {
         self.seat.client.event(Orientation {
             self_id: self.id,
