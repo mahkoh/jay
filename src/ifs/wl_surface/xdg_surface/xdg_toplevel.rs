@@ -151,6 +151,7 @@ pub struct XdgToplevel {
     committed: Cell<bool>,
     icon: ObjAndId<Option<Rc<XdgToplevelIconV1>>>,
     transaction_data: TransactionData<XdgToplevelTransactionOp>,
+    allow_fixed_size: Cell<bool>,
 }
 
 impl Debug for XdgToplevel {
@@ -213,6 +214,7 @@ impl XdgToplevel {
             committed: Default::default(),
             icon: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
+            allow_fixed_size: Cell::new(true),
         }
     }
 
@@ -255,6 +257,15 @@ impl XdgToplevel {
         if let Some(parent) = self.toplevel_data.parent.get() {
             parent.cnode_child_icon_changed(self);
         }
+    }
+
+    fn mark_variable_size(&self) {
+        self.allow_fixed_size.set(false);
+        let d = &self.toplevel_data;
+        d.min_width.take();
+        d.max_width.take();
+        d.min_height.take();
+        d.max_height.take();
     }
 }
 
@@ -377,6 +388,7 @@ impl XdgToplevelRequestHandler for XdgToplevel {
             );
         }
         self.xdg.schedule_configure();
+        self.mark_variable_size();
         Ok(())
     }
 
@@ -816,8 +828,10 @@ impl XdgSurfaceExt for XdgToplevel {
                 }
             };
         }
-        map!(max_size, max_width, max_height);
-        map!(min_size, min_width, min_height);
+        if self.allow_fixed_size.get() {
+            map!(max_size, max_width, max_height);
+            map!(min_size, min_width, min_height);
+        }
         if changed {
             macro_rules! check {
                 ($min:ident, $max:ident) => {
