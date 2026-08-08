@@ -451,16 +451,24 @@ macro_rules! atoms {
             ) -> impl std::future::Future<Output = Result<Self, crate::xcon::XconError>> {
                 #![allow(non_snake_case)]
                 use bstr::ByteSlice;
-                $(
-                    let $field_name = conn.call(&InternAtom {
+                let intern = |s: &str| {
+                    conn.call(&InternAtom {
                         only_if_exists: 0,
-                        name: stringify!($field_name).as_bytes().as_bstr(),
-                    });
-                )*
+                        name: s.as_bytes().as_bstr(),
+                    })
+                };
+                let requests = [
+                    $(
+                        intern(stringify!($field_name)),
+                    )*
+                ];
+                let requests = ::futures_util::future::try_join_all(requests);
                 async move {
+                    let responses = requests.await?;
+                    let [ $($field_name,)* ] = responses.as_array().unwrap();
                     Ok(Self {
                         $(
-                            $field_name: $field_name.await?.get().atom,
+                            $field_name: $field_name.get().atom,
                         )*
                     })
                 }
