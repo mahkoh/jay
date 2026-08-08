@@ -201,7 +201,7 @@ impl<'a> Tokenizer<'a> {
 
 #[derive(Debug)]
 pub struct Lined<T> {
-    #[expect(dead_code)]
+    #[allow(clippy::allow_attributes, dead_code)]
     pub line: u32,
     pub val: T,
 }
@@ -242,7 +242,7 @@ pub struct Message {
     pub attribs: MessageAttribs,
     pub has_reference_type: bool,
     pub is_fixed_size: bool,
-    #[expect(dead_code)]
+    #[allow(clippy::allow_attributes, dead_code)]
     pub is_request: bool,
 }
 

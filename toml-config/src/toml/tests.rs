@@ -38,8 +38,8 @@ fn test() {
 }
 
 fn run_test(prefix: &BStr) -> bool {
-    let toml = std::fs::read(&format!("{}.toml", prefix)).unwrap();
-    let json = std::fs::read_to_string(&format!("{}.json", prefix)).unwrap();
+    let toml = std::fs::read(format!("{}.toml", prefix)).unwrap();
+    let json = std::fs::read_to_string(format!("{}.json", prefix)).unwrap();
 
     let json: serde_json::Value = serde_json::from_str(&json).unwrap();
     let json_as_toml = json_to_value(json);
