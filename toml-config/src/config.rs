@@ -173,6 +173,9 @@ pub enum Action {
     SetTheme {
         theme: Box<Theme>,
     },
+    SetWindowTheme {
+        theme: Box<Theme>,
+    },
     ShowWorkspace {
         ws: Rc<WorkspaceSlot>,
         output: Option<Rc<OutputMatch>>,

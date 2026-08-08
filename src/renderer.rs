@@ -22,6 +22,7 @@ use crate::renderer::renderer_base::RendererBase;
 use crate::scale::Scale;
 use crate::state::State;
 use crate::theme::Color;
+use crate::theme::ThemeColored;
 use crate::tree::ContainerChildType;
 use crate::tree::ContainerNode;
 use crate::tree::DisplayNode;
@@ -646,23 +647,24 @@ impl Renderer<'_> {
             _ => return,
         };
         let pos = ns.position.get();
-        let theme = &self.state.theme;
+        let overrides = self.state.theme_overrides(child.tl_data(), RenderTL);
+        let theme = self.state.theme_view(&overrides);
         let th = theme.title_height(RenderTL);
         let tpuh = theme.title_plus_underline_height(RenderTL);
         let tuh = theme.title_underline_height(RenderTL);
-        let bw = theme.sizes.border_width.get(RenderTL);
+        let bw = theme.border_width(RenderTL);
         let bc = match ns.active.get() {
             true => theme.focused_border_color(),
-            false => theme.colors.border.get(),
+            false => theme.color(ThemeColored::border),
         };
         let tc = if ns.active.get() {
-            theme.colors.focused_title_background.get()
+            theme.color(ThemeColored::focused_title_background)
         } else if ns.attention_requested.get() {
-            theme.colors.attention_requested_background.get()
+            theme.color(ThemeColored::attention_requested_background)
         } else {
-            theme.colors.unfocused_title_background.get()
+            theme.color(ThemeColored::unfocused_title_background)
         };
-        let uc = theme.colors.separator.get();
+        let uc = theme.color(ThemeColored::separator);
         let borders = [
             Rect::new_sized_saturating(x, y, pos.width(), bw),
             Rect::new_sized_saturating(x, y + bw, bw, pos.height() - bw),
