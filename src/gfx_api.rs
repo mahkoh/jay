@@ -1495,8 +1495,8 @@ impl GfxRenderPass {
                 // Direct scanout requires premultiplied electrical alpha.
                 return Err(DirectScanoutError::NotPremultipliedElectrical);
             }
-            let has_alpha = ct.tex.format().has_alpha;
-            if has_alpha && !ct.opaque && !ct.cd.embeds_into(blend_cd, ct.render_intent) {
+            let has_alpha = ct.tex.format().has_alpha && !ct.opaque;
+            if has_alpha && !ct.cd.embeds_into(blend_cd, ct.render_intent) {
                 // Blending changes the appearance of translucent buffers.
                 return Err(DirectScanoutError::AlphaWithIncompatibleBlendSpace);
             }
