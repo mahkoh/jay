@@ -2,6 +2,7 @@ use crate::utils::markers::JayHash;
 use crate::utils::numcell::NumCell;
 use crate::utils::object_registry::ObjectRegistryCache;
 use crate::utils::object_registry::RegisteredObject;
+use crate::utils::ptr_ext::MutPtrExt;
 use rand::RngExt;
 use rand::prelude::SmallRng;
 use std::mem;
@@ -102,7 +103,7 @@ where
         let mut min_entry = ptr::null_mut();
         let mut min_serial = u64::MAX;
         for entry in entries {
-            match unsafe { &mut *entry } {
+            match unsafe { entry.deref_mut() } {
                 e @ None => {
                     *e = Some(value);
                     return None;
@@ -116,7 +117,7 @@ where
                 }
             }
         }
-        let old = unsafe { mem::replace(&mut *min_entry, value) };
+        let old = unsafe { mem::replace(min_entry.deref_mut(), value) };
         Some(old)
     }
 

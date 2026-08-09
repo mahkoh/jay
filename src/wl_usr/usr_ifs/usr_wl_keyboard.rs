@@ -3,6 +3,7 @@ use crate::object::Version;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::mmap::mmap;
 use crate::utils::oserror::OsError;
+use crate::utils::ptr_ext::PtrExt;
 use crate::wire::WlKeyboardId;
 use crate::wire::WlSurfaceId;
 use crate::wire::wl_keyboard::*;
@@ -54,7 +55,7 @@ impl WlKeyboardEventHandler for UsrWlKeyboard {
         builder.enable_environment(false);
         let keymap = builder
             .build()
-            .keymap_from_bytes(WriteToLog, None, unsafe { &*map.ptr })
+            .keymap_from_bytes(WriteToLog, None, unsafe { map.ptr.deref() })
             .map_err(UsrWlKeyboardError::ParseKeymap)?;
         let lookup = keymap.to_builder().build_lookup_table();
         let keyboard = Keyboard {

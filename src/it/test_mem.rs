@@ -42,7 +42,7 @@ impl Deref for TestMem {
     type Target = [Cell<u8>];
 
     fn deref(&self) -> &Self::Target {
-        unsafe { &*self.slice }
+        unsafe { self.slice.deref() }
     }
 }
 

@@ -16,6 +16,7 @@ use crate::gfx_apis::vulkan::renderer::image_barrier;
 use crate::gfx_apis::vulkan::staging::VulkanStagingBuffer;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::oserror::OsErrorExt2;
+use crate::utils::ptr_ext::PtrExt;
 use crate::video::Modifier;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
@@ -718,7 +719,7 @@ impl Drop for VulkanBoMapping {
 
 impl MappedBuffer for VulkanBoMapping {
     unsafe fn data(&self) -> &[u8] {
-        unsafe { &*self.data }
+        unsafe { self.data.deref() }
     }
 
     fn data_ptr(&self) -> *mut u8 {

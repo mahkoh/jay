@@ -13,6 +13,7 @@ use crate::utils::oserror::OsError;
 use crate::utils::oserror::OsErrorExt;
 use crate::utils::oserror::OsErrorExt2;
 use crate::utils::page_size::page_size;
+use crate::utils::ptr_ext::PtrExt;
 use crate::video::LINEAR_MODIFIER;
 use crate::video::LINEAR_STRIDE_ALIGN;
 use crate::video::Modifier;
@@ -307,7 +308,7 @@ impl Drop for UdmabufMap {
 
 impl MappedBuffer for UdmabufMap {
     unsafe fn data(&self) -> &[u8] {
-        unsafe { &*self.data }
+        unsafe { self.data.deref() }
     }
 
     fn data_ptr(&self) -> *mut u8 {

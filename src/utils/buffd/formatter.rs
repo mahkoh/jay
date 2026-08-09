@@ -3,6 +3,7 @@ use crate::utils::buffd::buf_out::MsgFds;
 use crate::utils::buffd::buf_out::OUT_BUF_SIZE;
 use crate::utils::buffd::buf_out::OutBuffer;
 use crate::utils::buffd::buf_out::OutBufferMeta;
+use crate::utils::ptr_ext::MutPtrExt;
 use crate::wire::ObjectId;
 use std::mem;
 use std::rc::Rc;
@@ -137,7 +138,7 @@ impl<'a> MsgFormatter<'a> {
         unsafe {
             let second_ptr = self.buf.as_ptr().add(self.pos + 4) as *mut u32;
             let len = ((self.meta.write_pos - self.pos) as u32) << 16;
-            *second_ptr |= len;
+            *second_ptr.deref_mut() |= len;
         }
         if self.fds.len() > 0 {
             self.meta.fds.push_back(MsgFds {

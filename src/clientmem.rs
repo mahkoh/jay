@@ -8,6 +8,7 @@ use crate::gfx_api::ShmMemoryBacking;
 use crate::utils::oserror::OsError;
 use crate::utils::oserror::OsErrorExt2;
 use crate::utils::page_size::page_size;
+use crate::utils::ptr_ext::PtrExt;
 use crate::utils::vec_ext::VecExt;
 use std::cell::Cell;
 use std::error::Error;
@@ -135,7 +136,7 @@ impl ClientMem {
     }
 
     pub fn offset(self: &Rc<Self>, offset: usize, len: usize) -> ClientMemOffset {
-        let mem = unsafe { &*self.data };
+        let mem = unsafe { self.data.deref() };
         ClientMemOffset {
             mem: self.clone(),
             offset,
@@ -169,7 +170,7 @@ impl ClientMemOffset {
     pub fn access<T, F: FnOnce(&[Cell<u8>]) -> T>(&self, f: F) -> Result<T, ClientMemError> {
         unsafe {
             if self.mem.sigbus_impossible {
-                return Ok(f(&*self.data));
+                return Ok(f(self.data.deref()));
             }
             let mref = MemRef {
                 mem: &*self.mem,
@@ -177,7 +178,7 @@ impl ClientMemOffset {
             };
             MEM.set(&mref);
             compiler_fence(Ordering::SeqCst);
-            let res = f(&*self.data);
+            let res = f(self.data.deref());
             MEM.set(mref.outer);
             compiler_fence(Ordering::SeqCst);
             match self.mem.failed.get() {
@@ -242,8 +243,8 @@ unsafe extern "C" fn sigbus(sig: i32, info: &c::siginfo_t, _ucontext: *mut c::c_
         assert_eq!(sig, c::SIGBUS);
         let mut memr_ptr = MEM.get();
         while !memr_ptr.is_null() {
-            let memr = &*memr_ptr;
-            let mem = &*memr.mem;
+            let memr = memr_ptr.deref();
+            let mem = memr.mem.deref();
             let lo = mem.data as *mut u8 as usize;
             let hi = lo + mem.len();
             let fault_addr = info.si_addr() as usize;

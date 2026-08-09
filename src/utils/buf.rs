@@ -40,8 +40,8 @@ impl Buf {
             std::alloc::handle_alloc_error(layout);
         }
         unsafe {
-            *ptr.cast::<u32>() = size;
-            *ptr.add(RC_OFF as _).cast::<u32>() = 1;
+            ptr.cast::<u32>().write(size);
+            ptr.add(RC_OFF as _).cast::<u32>().write(1);
             let mut buf = Buf {
                 storage: NonNull::new_unchecked(ptr.add(METADATA_SIZE as _)),
                 range: Range { start: 0, end: len },
@@ -61,8 +61,8 @@ impl Buf {
             std::alloc::handle_alloc_error(layout);
         }
         unsafe {
-            *ptr.cast::<u32>() = size;
-            *ptr.add(RC_OFF as _).cast::<u32>() = 1;
+            ptr.cast::<u32>().write(size);
+            ptr.add(RC_OFF as _).cast::<u32>().write(1);
             Buf {
                 storage: NonNull::new_unchecked(ptr.add(METADATA_SIZE as _)),
                 range: Range { start: 0, end: len },
@@ -203,7 +203,7 @@ impl Drop for Buf {
                 return;
             }
             let ptr = self.storage.as_ptr().sub(METADATA_SIZE as _).cast::<u32>();
-            let size = *ptr as _;
+            let size = ptr.read() as _;
             let layout = Layout::from_size_align_unchecked(size, METADATA_ALIGN);
             std::alloc::dealloc(ptr as _, layout);
         }

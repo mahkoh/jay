@@ -342,7 +342,7 @@ impl CpuWork for AllocWork {
             let mut offset = 0;
             while offset < r.block.size() {
                 unsafe {
-                    *ptr.add(offset as usize) = 0;
+                    ptr.add(offset as usize).write(0);
                 }
                 offset += page_size;
             }

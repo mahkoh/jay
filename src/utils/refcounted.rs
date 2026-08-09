@@ -94,7 +94,7 @@ impl<'a, T> Deref for Locked<'a, T> {
 impl<'a, T> Drop for Locked<'a, T> {
     fn drop(&mut self) {
         unsafe {
-            *self.rc.map.get() = mem::take(&mut self.vec);
+            *self.rc.map.get().deref_mut() = mem::take(&mut self.vec);
         }
     }
 }

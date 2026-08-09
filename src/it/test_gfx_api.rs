@@ -458,7 +458,8 @@ impl GfxFramebuffer for TestGfxFb {
                     let mut data = data;
                     for y in 0..height {
                         for x in 0..width {
-                            let [b, g, r, mut a] = *data.add((x * 4) as usize).cast::<[u8; 4]>();
+                            let [b, g, r, mut a] =
+                                data.add((x * 4) as usize).cast::<[u8; 4]>().read();
                             if !format.has_alpha {
                                 a = 255;
                             }
@@ -475,7 +476,9 @@ impl GfxFramebuffer for TestGfxFb {
                     for x in 0..width {
                         let [r, g, b, a] =
                             staging[(y * width + x) as usize].to_srgba_premultiplied();
-                        *data.add((x * 4) as usize).cast::<[u8; 4]>() = [b, g, r, a];
+                        data.add((x * 4) as usize)
+                            .cast::<[u8; 4]>()
+                            .write([b, g, r, a]);
                     }
                     data = data.add(stride as usize);
                 }
@@ -521,9 +524,10 @@ impl GfxFramebuffer for TestGfxFb {
                         let t_y = nearest(f_y, fb_y1, fb_y2, t_y1, t_y2, t_height);
                         for f_x in fb_x1..fb_x2 {
                             let t_x = nearest(f_x, fb_x1, fb_x2, t_x1, t_x2, t_width);
-                            let [b, g, r, mut a] = *t_data
+                            let [b, g, r, mut a] = t_data
                                 .add((t_y * t_stride + t_x * 4) as usize)
-                                .cast::<[u8; 4]>();
+                                .cast::<[u8; 4]>()
+                                .read();
                             if !t_format.has_alpha {
                                 a = 255;
                             }

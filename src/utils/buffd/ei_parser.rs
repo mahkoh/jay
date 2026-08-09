@@ -38,7 +38,7 @@ impl<'a, 'b> EiMsgParser<'a, 'b> {
         if self.data.len() - self.pos < 4 {
             return Err(EiMsgParserError::UnexpectedEof);
         }
-        let res = unsafe { *(self.data.as_ptr().add(self.pos) as *const i32) };
+        let res = unsafe { (self.data.as_ptr().add(self.pos) as *const i32).read() };
         self.pos += 4;
         Ok(res)
     }

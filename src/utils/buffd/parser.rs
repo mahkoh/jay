@@ -50,7 +50,7 @@ impl<'a, 'b> MsgParser<'a, 'b> {
         if self.pos >= self.data.len() {
             return Err(MsgParserError::UnexpectedEof);
         }
-        let res = unsafe { *(self.data.as_ptr().add(self.pos) as *const i32) };
+        let res = unsafe { (self.data.as_ptr().add(self.pos) as *const i32).read() };
         self.pos += 1;
         Ok(res)
     }

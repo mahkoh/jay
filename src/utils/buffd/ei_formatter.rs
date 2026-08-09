@@ -94,7 +94,7 @@ impl<'a> EiMsgFormatter<'a> {
         assert_eq!(self.pos % 4, 0);
         unsafe {
             let second_ptr = self.buf.as_ptr().add(self.pos + 8) as *mut u32;
-            *second_ptr = (self.meta.write_pos - self.pos) as u32;
+            second_ptr.write((self.meta.write_pos - self.pos) as u32);
         }
         if self.fds.len() > 0 {
             self.meta.fds.push_back(MsgFds {
