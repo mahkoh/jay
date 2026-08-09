@@ -199,7 +199,7 @@ impl<T, F: Future<Output = T>> Task<T, F> {
 
     unsafe fn waker_clone(data: *const ()) -> RawWaker {
         unsafe {
-            let task = &mut *(data as *mut Self);
+            let task = (data as *mut Self).deref_mut();
             task.inc_ref_count();
             RawWaker::new(data, Self::VTABLE)
         }

@@ -176,9 +176,10 @@ impl IoUring {
             Err(e) => return Err(IoUringError::MapCqRing(e)),
         };
         let sqmask = unsafe {
-            *(sqmap_map.ptr as *const u8)
+            (sqmap_map.ptr as *const u8)
                 .add(params.sq_off.ring_mask as _)
-                .cast()
+                .cast::<u32>()
+                .read()
         };
         let sqhead = unsafe {
             (sqmap_map.ptr as *const u8)
@@ -201,9 +202,10 @@ impl IoUring {
             std::slice::from_raw_parts(base, params.sq_entries as _)
         };
         let cqmask = unsafe {
-            *(cqmap_map.ptr as *const u8)
+            (cqmap_map.ptr as *const u8)
                 .add(params.cq_off.ring_mask as _)
-                .cast()
+                .cast::<u32>()
+                .read()
         };
         let cqhead = unsafe {
             (cqmap_map.ptr as *const u8)

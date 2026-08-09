@@ -1,4 +1,5 @@
 use crate::utils::numcell::NumCell;
+use crate::utils::ptr_ext::PtrExt;
 use isnt::std_1::primitive::IsntMutPtrExt;
 use std::cell::Cell;
 use std::fmt::Display;
@@ -6,6 +7,7 @@ use std::fmt::Formatter;
 use std::ops::Deref;
 use std::ptr;
 
+#[path = "./spaces/tests.rs"]
 #[cfg(test)]
 mod tests;
 
@@ -25,7 +27,7 @@ thread_local! {
 
 impl Storage {
     unsafe fn dec(slf: *mut Self) {
-        let rc = unsafe { (*slf).rc.sub_fetch(1) };
+        let rc = unsafe { slf.deref().rc.sub_fetch(1) };
         if rc == 0 {
             Self::free(slf)
         }
@@ -42,7 +44,7 @@ impl Storage {
 pub fn spaces(n: usize) -> Spaces {
     let ptr = STORAGE.get();
     if ptr.is_not_null() {
-        let storage = unsafe { &*ptr };
+        let storage = unsafe { ptr.deref() };
         if let Some(s) = storage.string.get(..n) {
             storage.rc.fetch_add(1);
             return Spaces { storage: ptr, s };
@@ -65,7 +67,7 @@ fn slow(n: usize) -> Spaces {
     }
     Spaces {
         storage,
-        s: unsafe { &*(*storage).string },
+        s: unsafe { &raw const *storage.deref().string },
     }
 }
 
@@ -81,7 +83,7 @@ impl Deref for Spaces {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        unsafe { &*self.s }
+        unsafe { self.s.deref() }
     }
 }
 

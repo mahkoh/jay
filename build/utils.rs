@@ -1,7 +1,9 @@
-pub mod numcell {
-    include!("../src/utils/numcell.rs");
-}
+#[path = "../src/utils/numcell.rs"]
+pub mod numcell;
 
-pub mod spaces {
-    include!("../src/utils/spaces.rs");
-}
+#[allow(dead_code)]
+#[path = "../src/utils/ptr_ext.rs"]
+pub mod ptr_ext;
+
+#[path = "../src/utils/spaces.rs"]
+pub mod spaces;

@@ -16,6 +16,7 @@ use crate::utils::compat::IoctlNumber;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
 use crate::utils::oserror::OsError;
+use crate::utils::ptr_ext::MutPtrExt;
 use crate::video::LINEAR_MODIFIER;
 use crate::video::Modifier;
 use crate::video::drm::DrmError;
@@ -226,7 +227,7 @@ fn is_udmabuf(fd: &OwnedFd, ino: c::ino_t) -> bool {
             static BUF: *mut Vec<u8> = Box::into_raw(Box::new(vec!()));
         }
         let buf = BUF.with(|b| *b);
-        let buf = unsafe { &mut *buf };
+        let buf = unsafe { buf.deref_mut() };
         buf.clear();
         let path = format_ustr!("/proc/self/fdinfo/{}", fd.raw());
         if let Ok(mut file) = uapi::open(path, c::O_RDONLY, 0)

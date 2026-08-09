@@ -4,6 +4,7 @@ use crate::it::test_error::TestError;
 use crate::it::test_error::TestResult;
 use crate::tree::OutputNode;
 use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::ptr_ext::PtrExt;
 use crate::utils::stack::Stack;
 use bincode::Options;
 use isnt::std_1::primitive::IsntConstPtrExt;
@@ -70,7 +71,7 @@ unsafe extern "C" fn init(
     unsafe {
         Rc::increment_strong_count(tc);
         {
-            let tc = &*tc;
+            let tc = tc.deref();
             tc.srv.set(Some(ServerData {
                 srv_data,
                 srv_unref,
@@ -88,7 +89,7 @@ unsafe extern "C" fn unref(data: *const u8) {
 }
 
 unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize) {
-    let tc = unsafe { &*data.cast::<TestConfig>() };
+    let tc = unsafe { data.cast::<TestConfig>().deref() };
     let msg = unsafe { std::slice::from_raw_parts(msg, size) };
     let res = bincode_ops().deserialize::<ServerMessage>(msg);
     let msg = match res {

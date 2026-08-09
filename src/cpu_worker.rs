@@ -321,11 +321,11 @@ impl CpuWorker {
     }
 
     pub fn submit(&self, job: Box<dyn CpuJob>) -> PendingJob {
-        let mut job = NonNull::from(Box::leak(job));
+        let job = NonNull::from(Box::leak(job));
         let id = self.data.next.next();
         self.data.jobs_to_enqueue.push(Job::New {
             id,
-            work: unsafe { job.as_mut().work() },
+            work: unsafe { job.deref_mut().work() },
         });
         let job_data = self.data.pending_job_data_cache.pop().unwrap_or_default();
         job_data.job.set(Some(job));

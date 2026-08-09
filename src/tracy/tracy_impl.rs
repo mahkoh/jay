@@ -1,4 +1,5 @@
 use crate::utils::bhash::BHashMap;
+use crate::utils::ptr_ext::MutPtrExt;
 use parking_lot::Mutex;
 use std::ffi::CStr;
 use std::ffi::CString;
@@ -186,9 +187,8 @@ unsafe extern "C" fn ___tracy_demangle(
     };
     let demangled = rustc_demangle::demangle(mangled);
     static mut BUF: Vec<u8> = Vec::new();
-    #[allow(clippy::deref_addrof)]
     unsafe {
-        let buf = &mut *&raw mut BUF;
+        let buf = (&raw mut BUF).deref_mut();
         buf.clear();
         if write!(buf, "{demangled:#}\0").is_err() {
             return ptr::null();

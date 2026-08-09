@@ -17,6 +17,7 @@ use crate::format::formats;
 use crate::gfx_api::SyncFile;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::oserror::OsError;
+use crate::utils::ptr_ext::PtrExt;
 use crate::video::INVALID_MODIFIER;
 use crate::video::Modifier;
 use crate::video::dmabuf::DMA_BUF_SYNC_WRITE;
@@ -176,7 +177,7 @@ pub struct GbmBoMap {
 
 impl MappedBuffer for GbmBoMap {
     unsafe fn data(&self) -> &[u8] {
-        unsafe { &*self.data }
+        unsafe { self.data.deref() }
     }
 
     fn data_ptr(&self) -> *mut u8 {

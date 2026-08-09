@@ -6,6 +6,7 @@ use crate::utils::bhash::BHashSet;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::major_minor::MajorMinor;
 use crate::utils::major_minor::major_minor;
+use crate::utils::ptr_ext::PtrExt;
 use ash::Entry;
 use ash::Instance;
 use ash::LoadingError;
@@ -321,7 +322,7 @@ unsafe extern "system" fn debug_callback(
         DebugUtilsMessageSeverityFlagsEXT::VERBOSE => Level::Trace,
         _ => Level::Warn,
     };
-    let data = unsafe { &*p_callback_data };
+    let data = unsafe { p_callback_data.deref() };
     let message = unsafe { Ustr::from_ptr(data.p_message) };
     let message_id_name = if data.p_message_id_name.is_null() {
         ustr!("<null>")

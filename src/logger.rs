@@ -6,6 +6,7 @@ use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::oserror::OsError;
 use crate::utils::oserror::OsErrorExt;
 use crate::utils::oserror::OsErrorExt2;
+use crate::utils::ptr_ext::MutPtrExt;
 use backtrace::Backtrace;
 use bstr::BStr;
 use bstr::BString;
@@ -239,7 +240,7 @@ impl Log for LogWrapper {
             buffer = Box::into_raw(Box::default());
             BUFFER.set(buffer);
         }
-        let buffer = unsafe { &mut *buffer };
+        let buffer = unsafe { buffer.deref_mut() };
         buffer.clear();
         let now = SystemTime::now();
         let _ = writeln!(
