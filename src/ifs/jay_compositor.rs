@@ -42,6 +42,8 @@ use crate::screenshoter::take_screenshot;
 use crate::tree::ToplevelIdentifier;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::exe::open_exe;
+use crate::utils::oserror::OsError;
 use crate::wire::JayCompositorId;
 use crate::wire::JayScreenshotId;
 use crate::wire::jay_compositor::*;
@@ -91,7 +93,7 @@ global_base!(JayCompositorGlobal, JayCompositor, JayCompositorError);
 
 impl Global for JayCompositorGlobal {
     fn version(&self) -> u32 {
-        40
+        41
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -658,6 +660,15 @@ impl JayCompositorRequestHandler for JayCompositor {
         }
         Ok(())
     }
+
+    fn get_exe(&self, _req: GetExe, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let fd = open_exe().map_err(JayCompositorError::OpenProcSelfExe)?;
+        self.client.event(Exe {
+            self_id: self.id,
+            exe: fd,
+        });
+        Ok(())
+    }
 }
 
 object_base! {
@@ -675,5 +686,7 @@ pub enum JayCompositorError {
     ClientError(Box<ClientError>),
     #[error("Unknown log level {0}")]
     UnknownLogLevel(u32),
+    #[error("Could not open /proc/self/exe")]
+    OpenProcSelfExe(#[source] OsError),
 }
 efrom!(JayCompositorError, ClientError);

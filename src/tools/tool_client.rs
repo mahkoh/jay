@@ -25,6 +25,8 @@ use crate::utils::buffd::WlBufFdIn;
 use crate::utils::buffd::WlMessage;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::exe::ExeError;
+use crate::utils::exe::ensure_same_exe;
 use crate::utils::oserror::OsError;
 use crate::utils::oserror::OsErrorExt2;
 use crate::wheel::Wheel;
@@ -374,7 +376,7 @@ impl ToolClient {
             self_id: s.registry,
             name: s.jay_compositor.0,
             interface: JayCompositor.name(),
-            version: s.jay_compositor.1.min(40),
+            version: s.jay_compositor.1.min(41),
             id: id.into(),
         });
         self.jay_compositor.set(Some(id));
@@ -491,6 +493,19 @@ impl ToolClient {
         );
         ae.triggered().await;
         client_id.get()
+    }
+
+    #[expect(dead_code)]
+    pub async fn ensure_same_exe(self: &Rc<Self>) -> Result<(), ExeError> {
+        let comp = self.jay_compositor().await;
+        let exe = Rc::new(Cell::new(None));
+        jay_compositor::Exe::handle(self, comp, exe.clone(), |exe, msg| {
+            exe.set(Some(msg.exe));
+        });
+        self.send(jay_compositor::GetExe { self_id: comp });
+        self.round_trip().await;
+        let exe = exe.take().unwrap();
+        ensure_same_exe(&exe)
     }
 }
 
