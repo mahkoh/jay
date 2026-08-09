@@ -1,7 +1,5 @@
-pub mod numcell {
-    include!("../src/utils/numcell.rs");
-}
+#[path = "../src/utils/numcell.rs"]
+pub mod numcell;
 
-pub mod spaces {
-    include!("../src/utils/spaces.rs");
-}
+#[path = "../src/utils/spaces.rs"]
+pub mod spaces;

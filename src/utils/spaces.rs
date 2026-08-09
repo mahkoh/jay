@@ -6,6 +6,7 @@ use std::fmt::Formatter;
 use std::ops::Deref;
 use std::ptr;
 
+#[path = "./spaces/tests.rs"]
 #[cfg(test)]
 mod tests;
 
