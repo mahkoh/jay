@@ -23,11 +23,14 @@ use std::io::BufWriter;
 use std::io::{self};
 use std::path::PathBuf;
 
+#[macro_use]
+mod indent;
 mod egl;
 mod enums;
 mod logging;
 mod str_table;
 mod tokens;
+mod utils;
 mod vulkan;
 mod wire;
 mod wire_dbus;

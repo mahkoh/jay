@@ -843,6 +843,7 @@ fn parse_protocol(path: &str, ext_idx: &mut usize) -> Result<Protocol> {
 }
 
 fn write_type<F: Write>(f: &mut F, ty: &Type, protocols: &Protocols) -> Result<()> {
+    define_w!(f, w, wl);
     let ty = match ty {
         Type::I8 => "i8",
         Type::U8 => "u8",
@@ -855,7 +856,7 @@ fn write_type<F: Write>(f: &mut F, ty: &Type, protocols: &Protocols) -> Result<(
         Type::String(_) => "&'a BStr",
         Type::Fd => "Rc<OwnedFd>",
         Type::Bitmask(n, _) => {
-            write!(f, "{}", n)?;
+            w!("{}", n);
             return Ok(());
         }
         Type::Enum(n, _) => {
@@ -864,13 +865,13 @@ fn write_type<F: Write>(f: &mut F, ty: &Type, protocols: &Protocols) -> Result<(
         }
         Type::List(ty, _) => {
             if type_is_pod(ty) {
-                write!(f, "&'a [")?;
+                w!("&'a [");
                 write_type(f, ty, protocols)?;
-                write!(f, "]")?;
+                w!("]");
             } else {
-                write!(f, "Cow<'a, [")?;
+                w!("Cow<'a, [");
                 write_type(f, ty, protocols)?;
-                write!(f, "]>")?;
+                w!("]>");
             }
             return Ok(());
         }
@@ -880,42 +881,43 @@ fn write_type<F: Write>(f: &mut F, ty: &Type, protocols: &Protocols) -> Result<(
             } else {
                 ""
             };
-            write!(f, "{n}{lt}")?;
+            w!("{n}{lt}");
             return Ok(());
         }
     };
-    write!(f, "{}", ty)?;
+    w!("{}", ty);
     Ok(())
 }
 
 fn write_expr<F: Write>(f: &mut F, e: &Expr, prefix: &str) -> Result<()> {
+    define_w!(f, w, wl);
     match e {
-        Expr::Field(n) => write!(f, "{prefix}{}", n)?,
-        Expr::Len(n) => write!(f, "{prefix}{}.len()", n)?,
-        Expr::Literal(n) => write!(f, "{}", n)?,
-        Expr::Bitmask(n) => write!(f, "{prefix}{}.bitmask()", n)?,
-        Expr::Variant(n) => write!(f, "{prefix}{}.variant()", n)?,
+        Expr::Field(n) => w!("{prefix}{}", n),
+        Expr::Len(n) => w!("{prefix}{}.len()", n),
+        Expr::Literal(n) => w!("{}", n),
+        Expr::Bitmask(n) => w!("{prefix}{}.bitmask()", n),
+        Expr::Variant(n) => w!("{prefix}{}.variant()", n),
         Expr::Sum(e) => {
             write_expr(f, e, prefix)?;
-            write!(f, ".reduce(|a, b| a + b).unwrap_or(0)")?;
+            w!(".reduce(|a, b| a + b).unwrap_or(0)");
         }
         Expr::Map(iter, map) => {
             write_expr(f, iter, prefix)?;
-            write!(f, ".map(|val| ")?;
+            w!(".map(|val| ");
             write_expr(f, map, "val.")?;
-            write!(f, ")")?;
+            w!(")");
         }
         Expr::Iter(ex) => {
             write_expr(f, ex, prefix)?;
-            write!(f, ".iter()")?;
+            w!(".iter()");
         }
-        Expr::It => write!(f, "val")?,
+        Expr::It => w!("val"),
         Expr::Popcount(ex) => {
             write_expr(f, ex, prefix)?;
-            write!(f, ".count_ones()")?;
+            w!(".count_ones()");
         }
         Expr::Div(l, r) | Expr::Plus(l, r) | Expr::Mul(l, r) => {
-            write!(f, "(")?;
+            w!("(");
             write_expr(f, l, prefix)?;
             let c = match e {
                 Expr::Div(..) => "/",
@@ -923,9 +925,9 @@ fn write_expr<F: Write>(f: &mut F, e: &Expr, prefix: &str) -> Result<()> {
                 Expr::Mul(..) => "*",
                 _ => unreachable!(),
             };
-            write!(f, " as u32 {} ", c)?;
+            w!(" as u32 {} ", c);
             write_expr(f, r, prefix)?;
-            write!(f, " as u32)")?;
+            w!(" as u32)");
         }
     }
     Ok(())
@@ -956,16 +958,21 @@ fn format_xevent<F: Write>(
     protocols: &Protocols,
     ext: Option<usize>,
 ) -> Result<()> {
+    define_w!(f, w, wl);
+    define_xn!(xn);
     let lt_a = if struct_needs_lt(s, protocols)? {
         "<'a>"
     } else {
         ""
     };
-    writeln!(f)?;
-    writeln!(f, "impl<'a> XEvent<'a> for {}{lt_a} {{", name)?;
-    writeln!(f, "    const EXTENSION: Option<usize> = {:?};", ext)?;
-    writeln!(f, "    const OPCODE: u16 = {:?};", opcode)?;
-    writeln!(f, "}}")?;
+    wl!();
+    wl!("impl<'a> XEvent<'a> for {}{lt_a} {{", name);
+    {
+        push_xn!(xn);
+        wl!("{xn}const EXTENSION: Option<usize> = {:?};", ext);
+        wl!("{xn}const OPCODE: u16 = {:?};", opcode);
+    }
+    wl!("}}");
     Ok(())
 }
 
@@ -1000,6 +1007,8 @@ fn format_eventcopy<F: Write>(f: &mut F, s: &EventCopy, protocols: &Protocols) -
 }
 
 fn format_request<F: Write>(f: &mut F, s: &Request, protocols: &Protocols) -> Result<()> {
+    define_w!(f, w, wl);
+    define_xn!(xn);
     format_struct(
         f,
         &s.request,
@@ -1016,18 +1025,21 @@ fn format_request<F: Write>(f: &mut F, s: &Request, protocols: &Protocols) -> Re
     } else {
         ""
     };
-    writeln!(f)?;
-    writeln!(f, "impl<'a> Request<'a> for {}{lt_a} {{", s.request.name)?;
-    write!(f, "    type Reply = ")?;
-    if s.reply.is_some() {
-        let lt_static = if reply_has_lt { "<'static>" } else { "" };
-        writeln!(f, "{}Reply{};", s.request.name, lt_static)?;
-    } else {
-        writeln!(f, "();")?;
+    wl!();
+    wl!("impl<'a> Request<'a> for {}{lt_a} {{", s.request.name);
+    {
+        push_xn!(xn);
+        w!("{xn}type Reply = ");
+        if s.reply.is_some() {
+            let lt_static = if reply_has_lt { "<'static>" } else { "" };
+            wl!("{}Reply{};", s.request.name, lt_static);
+        } else {
+            wl!("();");
+        }
+        wl!("{xn}const EXTENSION: Option<usize> = {:?};", s.ext_idx);
+        wl!("{xn}const IS_VOID: bool = {};", s.reply.is_none());
     }
-    writeln!(f, "    const EXTENSION: Option<usize> = {:?};", s.ext_idx)?;
-    writeln!(f, "    const IS_VOID: bool = {};", s.reply.is_none())?;
-    writeln!(f, "}}")?;
+    wl!("}}");
     Ok(())
 }
 
@@ -1137,140 +1149,167 @@ fn create_groups(s: &Struct, usecase: &StructUsecase) -> Vec<FieldGroup> {
 }
 
 fn format_enum<F: Write>(f: &mut F, s: &Enum, protocols: &Protocols) -> Result<()> {
+    define_w!(f, w, wl);
+    define_xn!(xn);
     let needs_lt = enum_needs_lt(s, protocols)?;
     let lt_a = if needs_lt { "<'a>" } else { "" };
-    writeln!(f)?;
-    writeln!(f, "#[derive(Debug, Clone)]")?;
-    writeln!(f, "pub enum {}{lt_a} {{", s.name)?;
-    for field in &s.variants {
-        write!(f, "    {}(", field.name)?;
-        write_type(f, &field.ty, protocols)?;
-        writeln!(f, "),")?;
+    wl!();
+    wl!("#[derive(Debug, Clone)]");
+    wl!("pub enum {}{lt_a} {{", s.name);
+    {
+        push_xn!(xn);
+        for field in &s.variants {
+            w!("{xn}{}(", field.name);
+            write_type(f, &field.ty, protocols)?;
+            wl!("),");
+        }
     }
-    writeln!(f, "}}")?;
-    writeln!(f)?;
-    writeln!(f, "impl{lt_a} {}{lt_a} {{", s.name)?;
-    writeln!(f, "    pub fn variant(&self) -> u32 {{")?;
-    writeln!(f, "        match self {{")?;
-    for field in &s.variants {
-        writeln!(
-            f,
-            "            Self::{}(..) => {},",
-            field.name, field.value
-        )?;
+    wl!("}}");
+    wl!();
+    wl!("impl{lt_a} {}{lt_a} {{", s.name);
+    {
+        push_xn!(xn);
+        wl!("{xn}pub fn variant(&self) -> u32 {{");
+        {
+            push_xn!(xn);
+            wl!("{xn}match self {{");
+            {
+                push_xn!(xn);
+                for field in &s.variants {
+                    wl!("{xn}Self::{}(..) => {},", field.name, field.value);
+                }
+            }
+            wl!("{xn}}}");
+        }
+        wl!("{xn}}}");
+        wl!();
+        wl!("{xn}pub fn serialize(&self, formatter: &mut Formatter) {{");
+        {
+            push_xn!(xn);
+            wl!("{xn}match self {{");
+            {
+                push_xn!(xn);
+                for field in &s.variants {
+                    wl!("{xn}Self::{}(v) => v.serialize(formatter),", field.name);
+                }
+            }
+            wl!("{xn}}}");
+        }
+        wl!("{xn}}}");
+        wl!();
+        wl!(
+            "{xn}pub fn deserialize(parser: &mut Parser{lt_a}, value: u32) -> Result<Self, XconError> {{"
+        );
+        {
+            push_xn!(xn);
+            wl!("{xn}let res = match value {{");
+            {
+                push_xn!(xn);
+                for field in &s.variants {
+                    wl!(
+                        "{xn}{} => Self::{}(parser.unmarshal()?),",
+                        field.value,
+                        field.name
+                    );
+                }
+                wl!("{xn}_ => return Err(XconError::UnknownEnumVariant),");
+            }
+            wl!("{xn}}};");
+            wl!("{xn}Ok(res)");
+        }
+        wl!("{xn}}}");
     }
-    writeln!(f, "        }}")?;
-    writeln!(f, "    }}")?;
-    writeln!(f)?;
-    writeln!(
-        f,
-        "    pub fn serialize(&self, formatter: &mut Formatter) {{"
-    )?;
-    writeln!(f, "        match self {{")?;
-    for field in &s.variants {
-        writeln!(
-            f,
-            "            Self::{}(v) => v.serialize(formatter),",
-            field.name
-        )?;
-    }
-    writeln!(f, "        }}")?;
-    writeln!(f, "    }}")?;
-    writeln!(f)?;
-    writeln!(
-        f,
-        "    pub fn deserialize(parser: &mut Parser{lt_a}, value: u32) -> Result<Self, XconError> {{"
-    )?;
-    writeln!(f, "        let res = match value {{")?;
-    for field in &s.variants {
-        writeln!(
-            f,
-            "            {} => Self::{}(parser.unmarshal()?),",
-            field.value, field.name
-        )?;
-    }
-    writeln!(
-        f,
-        "            _ => return Err(XconError::UnknownEnumVariant),"
-    )?;
-    writeln!(f, "        }};")?;
-    writeln!(f, "        Ok(res)")?;
-    writeln!(f, "    }}")?;
-    writeln!(f, "}}")?;
+    wl!("}}");
     Ok(())
 }
 
 fn format_bitmask<F: Write>(f: &mut F, s: &Bitmask, protocols: &Protocols) -> Result<()> {
-    writeln!(f)?;
-    writeln!(f, "#[derive(Debug, Clone, Default)]")?;
-    writeln!(f, "pub struct {} {{", s.name)?;
-    for field in &s.variants {
-        write!(f, "    pub {}: Option<", field.name)?;
-        write_type(f, &field.ty, protocols)?;
-        writeln!(f, ">,")?;
+    define_w!(f, w, wl);
+    define_xn!(xn);
+    wl!();
+    wl!("#[derive(Debug, Clone, Default)]");
+    wl!("pub struct {} {{", s.name);
+    {
+        push_xn!(xn);
+        for field in &s.variants {
+            w!("{xn}pub {}: Option<", field.name);
+            write_type(f, &field.ty, protocols)?;
+            wl!(">,");
+        }
     }
-    writeln!(f, "}}")?;
-    writeln!(f)?;
-    writeln!(f, "impl {} {{", s.name)?;
-    writeln!(f, "    pub fn bitmask(&self) -> u32 {{")?;
-    writeln!(f, "        let mut res = 0;")?;
-    for field in &s.variants {
-        writeln!(
-            f,
-            "        res |= (self.{}.is_some() as u32) << {};",
-            field.name, field.bit
-        )?;
+    wl!("}}");
+    wl!();
+    wl!("impl {} {{", s.name);
+    {
+        push_xn!(xn);
+        wl!("{xn}pub fn bitmask(&self) -> u32 {{");
+        {
+            push_xn!(xn);
+            wl!("{xn}let mut res = 0;");
+            for field in &s.variants {
+                wl!(
+                    "{xn}res |= (self.{}.is_some() as u32) << {};",
+                    field.name,
+                    field.bit
+                );
+            }
+            wl!("{xn}res");
+        }
+        wl!("{xn}}}");
+        wl!();
+        wl!("{xn}pub fn serialize(&self, formatter: &mut Formatter) {{");
+        {
+            push_xn!(xn);
+            wl!("{xn}let mut bytes = [0; {}];", s.variants.len() * 4);
+            wl!("{xn}let mut pos = 0;");
+            for field in &s.variants {
+                wl!("{xn}if let Some(val) = self.{} {{", field.name);
+                {
+                    push_xn!(xn);
+                    wl!("{xn}bytes[pos..pos+4].copy_from_slice(&(val as u32).to_ne_bytes());");
+                    wl!("{xn}pos += 4;");
+                }
+                wl!("{xn}}}");
+            }
+            wl!("{xn}formatter.write_bytes(&bytes[..pos]);");
+        }
+        wl!("{xn}}}");
+        wl!();
+        wl!(
+            "{xn}pub fn deserialize(&self, parser: &mut Parser, bitmask: u32) -> Result<Self, XconError> {{"
+        );
+        {
+            push_xn!(xn);
+            wl!("{xn}let b = parser.read_slice(bitmask.count_ones() as usize * 4)?;");
+            wl!("{xn}let mut p = 0;");
+            wl!("{xn}Ok(Self {{");
+            {
+                push_xn!(xn);
+                for field in &s.variants {
+                    wl!(
+                        "{xn}{}: if bitmask & (1 << {}) != 0 {{",
+                        field.name,
+                        field.bit
+                    );
+                    {
+                        push_xn!(xn);
+                        wl!("{xn}let v = u32::from_ne_bytes([b[p], b[p+1], b[p+2], b[p+3]]);");
+                        wl!("{xn}p += 4;");
+                        wl!("{xn}Some(v as _)");
+                    }
+                    wl!("{xn}}} else {{");
+                    {
+                        push_xn!(xn);
+                        wl!("{xn}None");
+                    }
+                    wl!("{xn}}},");
+                }
+            }
+            wl!("{xn}}})");
+        }
+        wl!("{xn}}}");
     }
-    writeln!(f, "        res")?;
-    writeln!(f, "    }}")?;
-    writeln!(f)?;
-    writeln!(
-        f,
-        "    pub fn serialize(&self, formatter: &mut Formatter) {{"
-    )?;
-    writeln!(f, "        let mut bytes = [0; {}];", s.variants.len() * 4)?;
-    writeln!(f, "        let mut pos = 0;")?;
-    for field in &s.variants {
-        writeln!(f, "        if let Some(val) = self.{} {{", field.name)?;
-        writeln!(
-            f,
-            "            bytes[pos..pos+4].copy_from_slice(&(val as u32).to_ne_bytes());"
-        )?;
-        writeln!(f, "            pos += 4;")?;
-        writeln!(f, "        }}")?;
-    }
-    writeln!(f, "        formatter.write_bytes(&bytes[..pos]);")?;
-    writeln!(f, "    }}")?;
-    writeln!(f)?;
-    writeln!(
-        f,
-        "    pub fn deserialize(&self, parser: &mut Parser, bitmask: u32) -> Result<Self, XconError> {{"
-    )?;
-    writeln!(
-        f,
-        "        let b = parser.read_slice(bitmask.count_ones() as usize * 4)?;"
-    )?;
-    writeln!(f, "        let mut p = 0;")?;
-    writeln!(f, "        Ok(Self {{")?;
-    for field in &s.variants {
-        writeln!(
-            f,
-            "            {}: if bitmask & (1 << {}) != 0 {{",
-            field.name, field.bit
-        )?;
-        writeln!(
-            f,
-            "                let v = u32::from_ne_bytes([b[p], b[p+1], b[p+2], b[p+3]]);"
-        )?;
-        writeln!(f, "                p += 4;")?;
-        writeln!(f, "                Some(v as _)")?;
-        writeln!(f, "            }} else {{")?;
-        writeln!(f, "                None")?;
-        writeln!(f, "            }},")?;
-    }
-    writeln!(f, "        }})")?;
-    writeln!(f, "    }}")?;
-    writeln!(f, "}}")?;
+    wl!("}}");
     Ok(())
 }
 
@@ -1280,6 +1319,8 @@ fn format_struct<F: Write>(
     protocols: &Protocols,
     usecase: &StructUsecase,
 ) -> Result<()> {
+    define_w!(f, w, wl);
+    define_xn!(xn);
     let has_fds = struct_has_fds(s, protocols)?;
     let groups = match usecase {
         StructUsecase::EventCopy { .. } => vec![],
@@ -1292,250 +1333,287 @@ fn format_struct<F: Write>(
     };
     let needs_lt = struct_needs_lt(s, protocols)?;
     let (lt_a, lt_b) = if needs_lt { ("<'a>", "<'b>") } else { ("", "") };
-    writeln!(f)?;
-    writeln!(f, "#[derive(Debug, Clone)]")?;
-    writeln!(f, "pub struct {}{lt_a} {{", struct_name)?;
-    if let StructUsecase::EventCopy { original, .. } = usecase {
-        writeln!(f, "    pub data: {}{lt_a},", original.name)?;
-    } else {
-        for field in &s.fields {
-            if let Field::Real(rf) = field {
-                if rf.value.is_none() {
-                    write!(f, "    pub {}: ", rf.name)?;
-                    write_type(f, &rf.ty, protocols)?;
-                    writeln!(f, ",")?;
-                }
-            }
-        }
-    }
-    writeln!(f, "}}")?;
-    if let StructUsecase::EventCopy { original, .. } = usecase {
-        writeln!(f)?;
-        writeln!(f, "impl{lt_a} std::ops::Deref for {}{lt_a} {{", struct_name)?;
-        writeln!(f, "    type Target = {}{lt_a};", original.name)?;
-        writeln!(f)?;
-        writeln!(f, "    fn deref(&self) -> &Self::Target {{")?;
-        writeln!(f, "        &self.data")?;
-        writeln!(f, "    }}")?;
-        writeln!(f, "}}")?;
-    }
-    writeln!(f)?;
-    writeln!(
-        f,
-        "unsafe impl<'a> Message<'a> for {}{lt_a} {{",
-        struct_name
-    )?;
-    writeln!(f, "    type Generic<'b> = {}{lt_b};", struct_name)?;
-    writeln!(f, "    const IS_POD: bool = false;")?;
-    writeln!(f, "    const HAS_FDS: bool = {has_fds};")?;
-    let mut write_serialize = true;
-    if matches!(
-        usecase,
-        StructUsecase::Reply
-            | StructUsecase::Event { xge: true }
-            | StructUsecase::EventCopy { xge: true, .. }
-    ) {
-        write_serialize = false;
-    }
-    if write_serialize {
-        writeln!(f)?;
-        writeln!(f, "    fn serialize(&self, formatter: &mut Formatter) {{")?;
-        if let StructUsecase::EventCopy { .. } = usecase {
-            writeln!(f, "        self.data.serialize(formatter);")?;
-        } else {
-            for group in &groups {
-                match group {
-                    FieldGroup::Pods { fields, .. } => {
-                        writeln!(f, "        {{")?;
-                        for field in fields {
-                            if let Field::Real(rf) = field {
-                                write!(f, "            let {}_bytes = ", rf.name)?;
-                                match &rf.value {
-                                    Some(e) => {
-                                        writeln!(f, "{{")?;
-                                        write!(f, "                let tmp: ")?;
-                                        write_type(f, &rf.ty, protocols)?;
-                                        write!(f, " = (")?;
-                                        write_expr(f, e, "self.")?;
-                                        writeln!(f, ") as _;")?;
-                                        writeln!(f, "                tmp.to_ne_bytes()")?;
-                                        writeln!(f, "            }};")?;
-                                    }
-                                    _ => writeln!(f, "self.{}.to_ne_bytes();", rf.name)?,
-                                }
-                            }
-                        }
-                        writeln!(f, "            formatter.write_bytes(&[")?;
-                        for field in fields {
-                            match field {
-                                Field::Pad(n) => {
-                                    write!(f, "               ")?;
-                                    for _ in 0..*n {
-                                        write!(f, " 0,")?;
-                                    }
-                                    writeln!(f)?;
-                                }
-                                Field::Real(rf) => {
-                                    let num_bytes = match rf.ty {
-                                        Type::I8 | Type::U8 => 1,
-                                        Type::I16 | Type::U16 => 2,
-                                        Type::I32 | Type::U32 => 4,
-                                        Type::I64 | Type::U64 => 8,
-                                        _ => unreachable!(),
-                                    };
-                                    write!(f, "               ")?;
-                                    for i in 0..num_bytes {
-                                        write!(f, " {}_bytes[{}],", rf.name, i)?;
-                                    }
-                                    writeln!(f)?;
-                                }
-                                Field::Opcode(n) => {
-                                    writeln!(f, "                {},", n)?;
-                                }
-                                Field::ExtMajor => {
-                                    writeln!(f, "                formatter.ext_opcode(),")?;
-                                }
-                                _ => unreachable!(),
-                            }
-                        }
-                        writeln!(f, "            ]);")?;
-                        writeln!(f, "        }}")?;
-                    }
-                    FieldGroup::Single(field) => match field {
-                        Field::Align(n) => writeln!(f, "        formatter.align({n});")?,
-                        Field::Real(rf) => match &rf.value {
-                            Some(v) => {
-                                writeln!(f, "        {{")?;
-                                write!(f, "            let tmp: ")?;
-                                write_type(f, &rf.ty, protocols)?;
-                                write!(f, " = ")?;
-                                write_expr(f, v, "self.")?;
-                                writeln!(f, " as _;")?;
-                                writeln!(f, "            tmp.serialize(formatter);")?;
-                                writeln!(f, "        }}")?;
-                            }
-                            _ => writeln!(f, "        self.{}.serialize(formatter);", rf.name)?,
-                        },
-                        _ => unreachable!(),
-                    },
-                }
-            }
-        }
-        writeln!(f, "    }}")?;
-    }
-    if !matches!(usecase, StructUsecase::Request { .. }) {
-        writeln!(f)?;
-        writeln!(
-            f,
-            "    fn deserialize(parser: &mut Parser<'a>) -> Result<Self, XconError> {{"
-        )?;
+    wl!();
+    wl!("#[derive(Debug, Clone)]");
+    wl!("pub struct {}{lt_a} {{", struct_name);
+    {
+        push_xn!(xn);
         if let StructUsecase::EventCopy { original, .. } = usecase {
-            writeln!(f, "        Ok(Self {{")?;
-            writeln!(
-                f,
-                "            data: {}::deserialize(parser)?,",
-                original.name
-            )?;
-            writeln!(f, "        }})")?;
+            wl!("{xn}pub data: {}{lt_a},", original.name);
         } else {
-            for group in &groups {
-                match group {
-                    FieldGroup::Pods { len, fields } => {
-                        writeln!(f, "        let bytes_ = parser.read_bytes::<{}>()?;", len)?;
-                        let mut pos = 0;
-                        for field in fields {
-                            match field {
-                                Field::Pad(n) => pos += n,
-                                Field::Real(rf) => {
-                                    write!(f, "        let {} = ", rf.name)?;
-                                    write_type(f, &rf.ty, protocols)?;
-                                    write!(f, "::from_ne_bytes([")?;
-                                    let num_bytes = match rf.ty {
-                                        Type::I8 | Type::U8 => 1,
-                                        Type::I16 | Type::U16 => 2,
-                                        Type::I32 | Type::U32 => 4,
-                                        Type::I64 | Type::U64 => 8,
-                                        _ => unreachable!(),
-                                    };
-                                    for i in 0..num_bytes {
-                                        if i != 0 {
-                                            write!(f, ", ")?;
+            for field in &s.fields {
+                if let Field::Real(rf) = field {
+                    if rf.value.is_none() {
+                        w!("{xn}pub {}: ", rf.name);
+                        write_type(f, &rf.ty, protocols)?;
+                        wl!(",");
+                    }
+                }
+            }
+        }
+    }
+    wl!("}}");
+    if let StructUsecase::EventCopy { original, .. } = usecase {
+        wl!();
+        wl!("impl{lt_a} std::ops::Deref for {}{lt_a} {{", struct_name);
+        {
+            push_xn!(xn);
+            wl!("{xn}type Target = {}{lt_a};", original.name);
+            wl!();
+            wl!("{xn}fn deref(&self) -> &Self::Target {{");
+            {
+                push_xn!(xn);
+                wl!("{xn}&self.data");
+            }
+            wl!("{xn}}}");
+        }
+        wl!("}}");
+    }
+    wl!();
+    wl!("unsafe impl<'a> Message<'a> for {}{lt_a} {{", struct_name);
+    {
+        push_xn!(xn);
+        wl!("{xn}type Generic<'b> = {}{lt_b};", struct_name);
+        wl!("{xn}const IS_POD: bool = false;");
+        wl!("{xn}const HAS_FDS: bool = {has_fds};");
+        let mut write_serialize = true;
+        if matches!(
+            usecase,
+            StructUsecase::Reply
+                | StructUsecase::Event { xge: true }
+                | StructUsecase::EventCopy { xge: true, .. }
+        ) {
+            write_serialize = false;
+        }
+        if write_serialize {
+            wl!();
+            wl!("{xn}fn serialize(&self, formatter: &mut Formatter) {{");
+            {
+                push_xn!(xn);
+                if let StructUsecase::EventCopy { .. } = usecase {
+                    wl!("{xn}self.data.serialize(formatter);");
+                } else {
+                    for group in &groups {
+                        match group {
+                            FieldGroup::Pods { fields, .. } => {
+                                wl!("{xn}{{");
+                                {
+                                    push_xn!(xn);
+                                    for field in fields {
+                                        if let Field::Real(rf) = field {
+                                            w!("{xn}let {}_bytes = ", rf.name);
+                                            match &rf.value {
+                                                Some(e) => {
+                                                    wl!("{{");
+                                                    {
+                                                        push_xn!(xn);
+                                                        w!("{xn}let tmp: ");
+                                                        write_type(f, &rf.ty, protocols)?;
+                                                        w!(" = (");
+                                                        write_expr(f, e, "self.")?;
+                                                        wl!(") as _;");
+                                                        wl!("{xn}tmp.to_ne_bytes()");
+                                                    }
+                                                    wl!("{xn}}};");
+                                                }
+                                                _ => wl!("self.{}.to_ne_bytes();", rf.name),
+                                            }
                                         }
-                                        write!(f, "bytes_[{}]", pos + i)?;
                                     }
-                                    writeln!(f, "]);")?;
-                                    pos += num_bytes;
+                                    wl!("{xn}formatter.write_bytes(&[");
+                                    {
+                                        push_xn!(xn);
+                                        for field in fields {
+                                            match field {
+                                                Field::Pad(n) => {
+                                                    w!("{xn}");
+                                                    for i in 0..*n {
+                                                        if i > 0 {
+                                                            w!(" ");
+                                                        }
+                                                        w!("0,");
+                                                    }
+                                                    wl!();
+                                                }
+                                                Field::Real(rf) => {
+                                                    let num_bytes = match rf.ty {
+                                                        Type::I8 | Type::U8 => 1,
+                                                        Type::I16 | Type::U16 => 2,
+                                                        Type::I32 | Type::U32 => 4,
+                                                        Type::I64 | Type::U64 => 8,
+                                                        _ => unreachable!(),
+                                                    };
+                                                    w!("{xn}");
+                                                    for i in 0..num_bytes {
+                                                        if i > 0 {
+                                                            w!(" ");
+                                                        }
+                                                        w!("{}_bytes[{}],", rf.name, i);
+                                                    }
+                                                    wl!();
+                                                }
+                                                Field::Opcode(n) => {
+                                                    wl!("{xn}{},", n);
+                                                }
+                                                Field::ExtMajor => {
+                                                    wl!("{xn}formatter.ext_opcode(),");
+                                                }
+                                                _ => unreachable!(),
+                                            }
+                                        }
+                                    }
+                                    wl!("{xn}]);");
                                 }
-                                Field::Opcode(_) => pos += 1,
-                                Field::ExtMajor => pos += 1,
+                                wl!("{xn}}}");
+                            }
+                            FieldGroup::Single(field) => match field {
+                                Field::Align(n) => wl!("{xn}formatter.align({n});"),
+                                Field::Real(rf) => match &rf.value {
+                                    Some(v) => {
+                                        wl!("{xn}{{");
+                                        {
+                                            push_xn!(xn);
+                                            w!("{xn}let tmp: ");
+                                            write_type(f, &rf.ty, protocols)?;
+                                            w!(" = ");
+                                            write_expr(f, v, "self.")?;
+                                            wl!(" as _;");
+                                            wl!("{xn}tmp.serialize(formatter);");
+                                        }
+                                        wl!("{xn}}}");
+                                    }
+                                    _ => wl!("{xn}self.{}.serialize(formatter);", rf.name),
+                                },
                                 _ => unreachable!(),
+                            },
+                        }
+                    }
+                }
+            }
+            wl!("{xn}}}");
+        }
+        if !matches!(usecase, StructUsecase::Request { .. }) {
+            wl!();
+            wl!("{xn}fn deserialize(parser: &mut Parser<'a>) -> Result<Self, XconError> {{");
+            {
+                push_xn!(xn);
+                if let StructUsecase::EventCopy { original, .. } = usecase {
+                    wl!("{xn}Ok(Self {{");
+                    {
+                        push_xn!(xn);
+                        wl!("{xn}data: {}::deserialize(parser)?,", original.name);
+                    }
+                    wl!("{xn}}})");
+                } else {
+                    for group in &groups {
+                        match group {
+                            FieldGroup::Pods { len, fields } => {
+                                wl!("{xn}let bytes_ = parser.read_bytes::<{}>()?;", len);
+                                let mut pos = 0;
+                                for field in fields {
+                                    match field {
+                                        Field::Pad(n) => pos += n,
+                                        Field::Real(rf) => {
+                                            w!("{xn}let {} = ", rf.name);
+                                            write_type(f, &rf.ty, protocols)?;
+                                            w!("::from_ne_bytes([");
+                                            let num_bytes = match rf.ty {
+                                                Type::I8 | Type::U8 => 1,
+                                                Type::I16 | Type::U16 => 2,
+                                                Type::I32 | Type::U32 => 4,
+                                                Type::I64 | Type::U64 => 8,
+                                                _ => unreachable!(),
+                                            };
+                                            for i in 0..num_bytes {
+                                                if i != 0 {
+                                                    w!(", ");
+                                                }
+                                                w!("bytes_[{}]", pos + i);
+                                            }
+                                            wl!("]);");
+                                            pos += num_bytes;
+                                        }
+                                        Field::Opcode(_) => pos += 1,
+                                        Field::ExtMajor => pos += 1,
+                                        _ => unreachable!(),
+                                    }
+                                }
+                            }
+                            FieldGroup::Single(field) => match field {
+                                Field::Align(n) => wl!("{xn}parser.align({n})?;"),
+                                Field::Real(rf) => {
+                                    w!("{xn}let {}: ", rf.name);
+                                    write_type(f, &rf.ty, protocols)?;
+                                    w!(" = ");
+                                    match &rf.ty {
+                                        Type::List(el, len) => {
+                                            wl!("{{");
+                                            {
+                                                push_xn!(xn);
+                                                w!("{xn}let len: Option<usize> = ");
+                                                if let Some(len) = len {
+                                                    w!("Some(");
+                                                    write_expr(f, len, "")?;
+                                                    wl!(" as _);");
+                                                } else {
+                                                    wl!("None;");
+                                                }
+                                                if type_is_pod(el) {
+                                                    wl!("{xn}parser.read_list_slice(len)?");
+                                                } else {
+                                                    wl!("{xn}parser.read_list(len)?");
+                                                }
+                                            }
+                                            wl!("{xn}}};");
+                                        }
+                                        Type::String(len) => {
+                                            wl!("{{");
+                                            {
+                                                push_xn!(xn);
+                                                w!("{xn}let len: usize = ");
+                                                write_expr(f, len, "")?;
+                                                wl!(" as _;");
+                                                wl!("{xn}parser.read_string(len)?");
+                                            }
+                                            wl!("{xn}}};");
+                                        }
+                                        Type::Bitmask(n, bm) => {
+                                            w!("{}::deserialize(parser, ", n);
+                                            write_expr(f, bm, "")?;
+                                            wl!(" as _)?;");
+                                        }
+                                        Type::Enum(n, bm) => {
+                                            w!("<");
+                                            write_type(f, n, protocols)?;
+                                            w!(">::deserialize(parser, ");
+                                            write_expr(f, bm, "")?;
+                                            wl!(" as _)?;");
+                                        }
+                                        _ => wl!("parser.unmarshal()?;"),
+                                    }
+                                }
+                                _ => unreachable!(),
+                            },
+                        }
+                    }
+                    wl!("{xn}Ok(Self {{");
+                    {
+                        push_xn!(xn);
+                        for field in &s.fields {
+                            if let Field::Real(rf) = field
+                                && rf.value.is_none()
+                            {
+                                wl!("{xn}{},", rf.name);
                             }
                         }
                     }
-                    FieldGroup::Single(field) => match field {
-                        Field::Align(n) => writeln!(f, "        parser.align({n})?;")?,
-                        Field::Real(rf) => {
-                            write!(f, "        let {}: ", rf.name)?;
-                            write_type(f, &rf.ty, protocols)?;
-                            write!(f, " = ")?;
-                            match &rf.ty {
-                                Type::List(el, len) => {
-                                    writeln!(f, "{{")?;
-                                    write!(f, "            let len: Option<usize> = ")?;
-                                    if let Some(len) = len {
-                                        write!(f, "Some(")?;
-                                        write_expr(f, len, "")?;
-                                        writeln!(f, " as _);")?;
-                                    } else {
-                                        writeln!(f, "None;")?;
-                                    }
-                                    if type_is_pod(el) {
-                                        writeln!(f, "            parser.read_list_slice(len)?")?;
-                                    } else {
-                                        writeln!(f, "            parser.read_list(len)?")?;
-                                    }
-                                    writeln!(f, "        }};")?;
-                                }
-                                Type::String(len) => {
-                                    writeln!(f, "{{")?;
-                                    write!(f, "            let len: usize = ")?;
-                                    write_expr(f, len, "")?;
-                                    writeln!(f, " as _;")?;
-                                    writeln!(f, "            parser.read_string(len)?")?;
-                                    writeln!(f, "        }};")?;
-                                }
-                                Type::Bitmask(n, bm) => {
-                                    write!(f, "{}::deserialize(parser, ", n)?;
-                                    write_expr(f, bm, "")?;
-                                    writeln!(f, " as _)?;")?;
-                                }
-                                Type::Enum(n, bm) => {
-                                    write!(f, "<")?;
-                                    write_type(f, n, protocols)?;
-                                    write!(f, ">::deserialize(parser, ")?;
-                                    write_expr(f, bm, "")?;
-                                    writeln!(f, " as _)?;")?;
-                                }
-                                _ => writeln!(f, "parser.unmarshal()?;")?,
-                            }
-                        }
-                        _ => unreachable!(),
-                    },
+                    wl!("{xn}}})");
                 }
             }
-            writeln!(f, "        Ok(Self {{")?;
-            for field in &s.fields {
-                if let Field::Real(rf) = field
-                    && rf.value.is_none()
-                {
-                    writeln!(f, "            {},", rf.name)?;
-                }
-            }
-            writeln!(f, "        }})")?;
+            wl!("{xn}}}");
         }
-        writeln!(f, "    }}")?;
     }
-    writeln!(f, "}}")?;
+    wl!("}}");
     Ok(())
 }
 
@@ -1543,6 +1621,8 @@ pub fn main() -> Result<()> {
     println!("cargo:rerun-if-changed=wire-xcon");
 
     let mut f = open("wire_xcon.rs")?;
+    define_w!(f, w, wl);
+    define_xn!(xn);
 
     let mut files = vec![];
     for file in std::fs::read_dir("wire-xcon")? {
@@ -1606,28 +1686,43 @@ pub fn main() -> Result<()> {
         }
     }
 
-    writeln!(f, "#[derive(Copy, Clone, Debug, Eq, PartialEq)]")?;
-    writeln!(f, "pub enum Extension {{")?;
-    for ext in &protocols.extensions {
-        writeln!(f, r#"    {},"#, ext.ident)?;
+    wl!("#[derive(Copy, Clone, Debug, Eq, PartialEq)]");
+    wl!("pub enum Extension {{");
+    {
+        push_xn!(xn);
+        for ext in &protocols.extensions {
+            wl!(r#"{xn}{},"#, ext.ident);
+        }
     }
-    writeln!(f, "}}")?;
-    writeln!(f)?;
-    writeln!(f, "impl Extension {{")?;
-    writeln!(f, "    pub fn name(self) -> &'static str {{")?;
-    writeln!(f, "        match self {{")?;
-    for ext in &protocols.extensions {
-        writeln!(f, r#"            Self::{} => "{}","#, ext.ident, ext.name)?;
+    wl!("}}");
+    wl!();
+    wl!("impl Extension {{");
+    {
+        push_xn!(xn);
+        wl!("{xn}pub fn name(self) -> &'static str {{");
+        {
+            push_xn!(xn);
+            wl!("{xn}match self {{");
+            {
+                push_xn!(xn);
+                for ext in &protocols.extensions {
+                    wl!(r#"{xn}Self::{} => "{}","#, ext.ident, ext.name);
+                }
+            }
+            wl!("{xn}}}");
+        }
+        wl!("{xn}}}");
     }
-    writeln!(f, "        }}")?;
-    writeln!(f, "    }}")?;
-    writeln!(f, "}}")?;
-    writeln!(f)?;
-    writeln!(f, "pub const EXTENSIONS: &[Extension] = &[")?;
-    for ext in &protocols.extensions {
-        writeln!(f, r#"    Extension::{},"#, ext.ident)?;
+    wl!("}}");
+    wl!();
+    wl!("pub const EXTENSIONS: &[Extension] = &[");
+    {
+        push_xn!(xn);
+        for ext in &protocols.extensions {
+            wl!(r#"{xn}Extension::{},"#, ext.ident);
+        }
     }
-    writeln!(f, "];")?;
+    wl!("];");
 
     for s in &protocols.bitmasks {
         format_bitmask(&mut f, s, &protocols)?;

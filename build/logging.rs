@@ -24,6 +24,7 @@ fn create_version() -> anyhow::Result<()> {
         write!(version_string, " ({})", commit.trim())?;
     }
     let mut f = open("version.rs")?;
-    writeln!(f, "pub const VERSION: &str = \"{}\";", version_string)?;
+    define_w!(f, w, wl);
+    wl!("pub const VERSION: &str = \"{}\";", version_string);
     Ok(())
 }

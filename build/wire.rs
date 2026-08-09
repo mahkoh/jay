@@ -1,5 +1,6 @@
 mod parser;
 
+use crate::indent::Indent;
 use crate::open;
 use crate::str_table::Interned;
 use crate::str_table::intern;
@@ -20,32 +21,34 @@ use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 
 fn write_type<W: Write>(f: &mut W, ty: &Type) -> Result<()> {
+    define_w!(f, w, wl);
     match ty {
-        Type::Id(_, id) => write!(f, "{}Id", id)?,
-        Type::U32 => write!(f, "u32")?,
-        Type::I32 => write!(f, "i32")?,
-        Type::U64 => write!(f, "u64")?,
-        Type::U64Rev => write!(f, "u64")?,
-        Type::Str => write!(f, "&'a str")?,
-        Type::OptStr => write!(f, "Option<&'a str>")?,
-        Type::BStr => write!(f, "&'a BStr")?,
-        Type::Fixed => write!(f, "Fixed")?,
-        Type::Fd => write!(f, "Rc<OwnedFd>")?,
-        Type::Bool => write!(f, "bool")?,
+        Type::Id(_, id) => w!("{}Id", id),
+        Type::U32 => w!("u32"),
+        Type::I32 => w!("i32"),
+        Type::U64 => w!("u64"),
+        Type::U64Rev => w!("u64"),
+        Type::Str => w!("&'a str"),
+        Type::OptStr => w!("Option<&'a str>"),
+        Type::BStr => w!("&'a BStr"),
+        Type::Fixed => w!("Fixed"),
+        Type::Fd => w!("Rc<OwnedFd>"),
+        Type::Bool => w!("bool"),
         Type::Array(n) => {
-            write!(f, "&'a [")?;
+            w!("&'a [");
             write_type(f, n)?;
-            write!(f, "]")?;
+            w!("]");
         }
         Type::Pod(p) => f.write_all(p.as_bytes())?,
     }
     Ok(())
 }
 
-fn write_field<W: Write>(f: &mut W, field: &Field) -> Result<()> {
-    write!(f, "    pub {}: ", field.name)?;
+fn write_field<W: Write>(f: &mut W, xn: &Indent, field: &Field) -> Result<()> {
+    define_w!(f, w, wl);
+    w!("{xn}pub {}: ", field.name);
     write_type(f, &field.ty.val)?;
-    writeln!(f, ",")?;
+    wl!(",");
     Ok(())
 }
 
@@ -55,48 +58,59 @@ fn write_message_type<W: Write>(
     message: &Message,
     needs_lifetime: bool,
 ) -> Result<()> {
+    define_w!(f, w, wl);
+    define_xn!(xn);
     let lifetime = if needs_lifetime { "<'a>" } else { "" };
-    writeln!(f, "pub struct {}{} {{", message.camel_name, lifetime)?;
-    writeln!(f, "    pub self_id: {}Id,", obj)?;
-    for field in &message.fields {
-        write_field(f, &field.val)?;
-    }
-    writeln!(f, "}}")?;
-    writeln!(
-        f,
-        "impl{} std::fmt::Debug for {}{} {{",
-        lifetime, message.camel_name, lifetime
-    )?;
-    writeln!(
-        f,
-        "    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {{"
-    )?;
-    write!(f, r#"        write!(fmt, "{{}}("#)?;
-    for (i, field) in message.fields.iter().enumerate() {
-        if i > 0 {
-            write!(f, ", ")?;
+    wl!("pub struct {}{} {{", message.camel_name, lifetime);
+    {
+        push_xn!(xn);
+        wl!("{xn}pub self_id: {}Id,", obj);
+        for field in &message.fields {
+            write_field(f, xn, &field.val)?;
         }
-        let formatter = match &field.val.ty.val {
-            Type::OptStr | Type::Str | Type::Fd | Type::Array(..) => "{:?}",
-            _ => "{}",
-        };
-        write!(f, "{{}}: {}", formatter)?;
     }
-    write!(f, r#")", {}"#, message.name)?;
-    for field in &message.fields {
-        write!(f, ", {}, self.{}", field.val.name_interned, field.val.name)?;
+    wl!("}}");
+    wl!(
+        "impl{} std::fmt::Debug for {}{} {{",
+        lifetime,
+        message.camel_name,
+        lifetime
+    );
+    {
+        push_xn!(xn);
+        wl!("{xn}fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {{");
+        {
+            push_xn!(xn);
+            w!(r#"{xn}write!(fmt, "{{}}("#);
+            for (i, field) in message.fields.iter().enumerate() {
+                if i > 0 {
+                    w!(", ");
+                }
+                let formatter = match &field.val.ty.val {
+                    Type::OptStr | Type::Str | Type::Fd | Type::Array(..) => "{:?}",
+                    _ => "{}",
+                };
+                w!("{{}}: {}", formatter);
+            }
+            w!(r#")", {}"#, message.name);
+            for field in &message.fields {
+                w!(", {}, self.{}", field.val.name_interned, field.val.name);
+            }
+            wl!(r")");
+        }
+        wl!("{xn}}}");
     }
-    writeln!(f, r")")?;
-    writeln!(f, "    }}")?;
-    writeln!(f, "}}")?;
+    wl!("}}");
     Ok(())
 }
 
 fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()> {
+    define_w!(f, w, wl);
+    define_xn!(xn);
     let has_reference_type = message.has_reference_type;
     let uppercase = message.name.raw().to_ascii_uppercase();
-    writeln!(f)?;
-    writeln!(f, "pub const {}: u32 = {};", uppercase, message.id)?;
+    wl!();
+    wl!("pub const {}: u32 = {};", uppercase, message.id);
     write_message_type(f, obj, message, has_reference_type)?;
     let lifetime = if has_reference_type { "<'a>" } else { "" };
     let lifetime_b = if has_reference_type { "<'b>" } else { "" };
@@ -105,187 +119,221 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
     } else {
         "_parser"
     };
-    writeln!(
-        f,
+    wl!(
         "impl<'a> RequestParser<'a> for {}{} {{",
-        message.camel_name, lifetime
-    )?;
-    writeln!(
-        f,
-        "    type Generic<'b> = {}{};",
-        message.camel_name, lifetime_b,
-    )?;
-    writeln!(f, "    const ID: u32 = {};", message.id)?;
-    writeln!(
-        f,
-        "    fn parse({}: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {{",
-        parser
-    )?;
-    if message.is_fixed_size {
-        writeln!(f, "        let [")?;
-        for (i, field) in message.fields.iter().enumerate() {
-            match &field.val.ty.val {
-                Type::U64 => {
-                    writeln!(f, "            arg{i}_hi,")?;
-                    writeln!(f, "            arg{i}_lo,")?;
-                }
-                Type::U64Rev => {
-                    writeln!(f, "            arg{i}_lo,")?;
-                    writeln!(f, "            arg{i}_hi,")?;
-                }
-                Type::Fd => {}
-                _ => {
-                    writeln!(f, "            arg{i},")?;
-                }
-            }
-        }
-        writeln!(f, "        ] = *{parser}.data() else {{")?;
-        writeln!(
-            f,
-            "            return Err(MsgParserError::UnexpectedMessageSize);"
-        )?;
-        writeln!(f, "        }};")?;
-        writeln!(f, "        Ok(Self {{")?;
-        writeln!(f, "            self_id: {}Id::NONE,", obj)?;
-        for (i, field) in message.fields.iter().enumerate() {
-            writeln!(
-                f,
-                "            {}: {},",
-                field.val.name,
-                fmt::from_fn(|f| {
-                    match &field.val.ty.val {
-                        Type::Id(_, name) => write!(f, "{name}Id(arg{i})"),
-                        Type::U32 => write!(f, "arg{i}"),
-                        Type::I32 => write!(f, "arg{i} as i32"),
-                        Type::U64 | Type::U64Rev => {
-                            write!(f, "((arg{i}_hi as u64) << 32) | (arg{i}_lo as u64)")
+        message.camel_name,
+        lifetime
+    );
+    {
+        push_xn!(xn);
+        wl!(
+            "{xn}type Generic<'b> = {}{};",
+            message.camel_name,
+            lifetime_b,
+        );
+        wl!("{xn}const ID: u32 = {};", message.id);
+        wl!(
+            "{xn}fn parse({}: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {{",
+            parser
+        );
+        {
+            push_xn!(xn);
+            if message.is_fixed_size {
+                wl!("{xn}let [");
+                {
+                    push_xn!(xn);
+                    for (i, field) in message.fields.iter().enumerate() {
+                        match &field.val.ty.val {
+                            Type::U64 => {
+                                wl!("{xn}arg{i}_hi,");
+                                wl!("{xn}arg{i}_lo,");
+                            }
+                            Type::U64Rev => {
+                                wl!("{xn}arg{i}_lo,");
+                                wl!("{xn}arg{i}_hi,");
+                            }
+                            Type::Fd => {}
+                            _ => {
+                                wl!("{xn}arg{i},");
+                            }
                         }
-                        Type::OptStr => unreachable!(),
-                        Type::Str => unreachable!(),
-                        Type::Fixed => write!(f, "Fixed(arg{i} as i32)"),
-                        Type::Fd => write!(f, "parser.fd()?"),
-                        Type::Bool => write!(f, "arg{i} != 0"),
-                        Type::BStr => unreachable!(),
-                        Type::Array(_) => unreachable!(),
-                        Type::Pod(_) => unreachable!(),
                     }
-                })
-            )?;
+                }
+                wl!("{xn}] = *{parser}.data() else {{");
+                {
+                    push_xn!(xn);
+                    wl!("{xn}return Err(MsgParserError::UnexpectedMessageSize);");
+                }
+                wl!("{xn}}};");
+                wl!("{xn}Ok(Self {{");
+                {
+                    push_xn!(xn);
+                    wl!("{xn}self_id: {}Id::NONE,", obj);
+                    for (i, field) in message.fields.iter().enumerate() {
+                        wl!(
+                            "{xn}{}: {},",
+                            field.val.name,
+                            fmt::from_fn(|f| {
+                                define_w!(f, w2, wl2);
+                                match &field.val.ty.val {
+                                    Type::Id(_, name) => w2!("{name}Id(arg{i})"),
+                                    Type::U32 => w2!("arg{i}"),
+                                    Type::I32 => w2!("arg{i} as i32"),
+                                    Type::U64 | Type::U64Rev => {
+                                        w2!("((arg{i}_hi as u64) << 32) | (arg{i}_lo as u64)")
+                                    }
+                                    Type::OptStr => unreachable!(),
+                                    Type::Str => unreachable!(),
+                                    Type::Fixed => w2!("Fixed(arg{i} as i32)"),
+                                    Type::Fd => w2!("parser.fd()?"),
+                                    Type::Bool => w2!("arg{i} != 0"),
+                                    Type::BStr => unreachable!(),
+                                    Type::Array(_) => unreachable!(),
+                                    Type::Pod(_) => unreachable!(),
+                                }
+                                Ok(())
+                            })
+                        );
+                    }
+                }
+                wl!("{xn}}})");
+            } else {
+                wl!("{xn}let res = Ok(Self {{");
+                {
+                    push_xn!(xn);
+                    wl!("{xn}self_id: {}Id::NONE,", obj);
+                    for field in &message.fields {
+                        let p = match &field.val.ty.val {
+                            Type::Id(..) => "object",
+                            Type::U32 => "uint",
+                            Type::I32 => "int",
+                            Type::U64 => "u64",
+                            Type::U64Rev => "u64_rev",
+                            Type::OptStr => "optstr",
+                            Type::Str => "str",
+                            Type::Fixed => "fixed",
+                            Type::Fd => "fd",
+                            Type::Bool => "bool",
+                            Type::BStr => "bstr",
+                            Type::Array(_) => "binary_array",
+                            Type::Pod(_) => "binary",
+                        };
+                        wl!("{xn}{}: parser.{}()?,", field.val.name, p);
+                    }
+                }
+                wl!("{xn}}});");
+                wl!("{xn}parser.eof()?;");
+                wl!("{xn}res");
+            }
         }
-        writeln!(f, "        }})")?;
-    } else {
-        writeln!(f, "        let res = Ok(Self {{")?;
-        writeln!(f, "            self_id: {}Id::NONE,", obj)?;
-        for field in &message.fields {
-            let p = match &field.val.ty.val {
-                Type::Id(..) => "object",
-                Type::U32 => "uint",
-                Type::I32 => "int",
-                Type::U64 => "u64",
-                Type::U64Rev => "u64_rev",
-                Type::OptStr => "optstr",
-                Type::Str => "str",
-                Type::Fixed => "fixed",
-                Type::Fd => "fd",
-                Type::Bool => "bool",
-                Type::BStr => "bstr",
-                Type::Array(_) => "binary_array",
-                Type::Pod(_) => "binary",
-            };
-            writeln!(f, "            {}: parser.{}()?,", field.val.name, p)?;
-        }
-        writeln!(f, "        }});")?;
-        writeln!(f, "        parser.eof()?;")?;
-        writeln!(f, "        res")?;
+        wl!("{xn}}}");
     }
-    writeln!(f, "    }}")?;
-    writeln!(f, "}}")?;
-    writeln!(
-        f,
+    wl!("}}");
+    wl!(
         "impl{} EventFormatter for {}{} {{",
-        lifetime, message.camel_name, lifetime
-    )?;
-    writeln!(f, "    fn format(self, fmt: &mut MsgFormatter<'_>) {{")?;
-    if message.is_fixed_size {
-        writeln!(f, "        fmt.data(&[")?;
-        writeln!(f, "            self.self_id.0,")?;
-        writeln!(f, "            {uppercase},")?;
-        for field in &message.fields {
-            let prefix = format!("            self.{}", field.val.name);
-            match &field.val.ty.val {
-                Type::Id(_, _) => writeln!(f, "{prefix}.0,")?,
-                Type::U32 => writeln!(f, "{prefix},")?,
-                Type::I32 => writeln!(f, "{prefix} as u32,")?,
-                Type::U64 => {
-                    writeln!(f, "            (self.{} >> 32) as u32,", field.val.name)?;
-                    writeln!(f, "{prefix} as u32,")?;
+        lifetime,
+        message.camel_name,
+        lifetime
+    );
+    {
+        push_xn!(xn);
+        wl!("{xn}fn format(self, fmt: &mut MsgFormatter<'_>) {{");
+        {
+            push_xn!(xn);
+            if message.is_fixed_size {
+                wl!("{xn}fmt.data(&[");
+                {
+                    push_xn!(xn);
+                    wl!("{xn}self.self_id.0,");
+                    wl!("{xn}{uppercase},");
+                    for field in &message.fields {
+                        let prefix = format!("{xn}self.{}", field.val.name);
+                        match &field.val.ty.val {
+                            Type::Id(_, _) => wl!("{prefix}.0,"),
+                            Type::U32 => wl!("{prefix},"),
+                            Type::I32 => wl!("{prefix} as u32,"),
+                            Type::U64 => {
+                                wl!("{xn}(self.{} >> 32) as u32,", field.val.name);
+                                wl!("{prefix} as u32,");
+                            }
+                            Type::U64Rev => {
+                                wl!("{prefix} as u32,");
+                                wl!("{xn}(self.{} >> 32) as u32,", field.val.name);
+                            }
+                            Type::Str => unreachable!(),
+                            Type::OptStr => unreachable!(),
+                            Type::BStr => unreachable!(),
+                            Type::Fixed => wl!("{prefix}.0 as u32,"),
+                            Type::Fd => {}
+                            Type::Bool => wl!("{prefix} as u32,"),
+                            Type::Array(_) => unreachable!(),
+                            Type::Pod(_) => unreachable!(),
+                        }
+                    }
                 }
-                Type::U64Rev => {
-                    writeln!(f, "{prefix} as u32,")?;
-                    writeln!(f, "            (self.{} >> 32) as u32,", field.val.name)?;
+                wl!("{xn}]);");
+                for field in &message.fields {
+                    if let Type::Fd = &field.val.ty.val {
+                        wl!("{xn}fmt.fd(self.{});", field.val.name);
+                    }
                 }
-                Type::Str => unreachable!(),
-                Type::OptStr => unreachable!(),
-                Type::BStr => unreachable!(),
-                Type::Fixed => writeln!(f, "{prefix}.0 as u32,")?,
-                Type::Fd => {}
-                Type::Bool => writeln!(f, "{prefix} as u32,")?,
-                Type::Array(_) => unreachable!(),
-                Type::Pod(_) => unreachable!(),
+            } else {
+                wl!("{xn}fmt.header(self.self_id, {});", uppercase);
+                fn write_fmt_expr<W: Write>(
+                    f: &mut W,
+                    xn: &Indent,
+                    prefix: &str,
+                    ty: &Type,
+                    access: &str,
+                ) -> Result<()> {
+                    define_w!(f, w2, wl2);
+                    let p = match ty {
+                        Type::Id(..) => "object",
+                        Type::U32 => "uint",
+                        Type::I32 => "int",
+                        Type::U64 => "u64",
+                        Type::U64Rev => "u64_rev",
+                        Type::OptStr => "optstr",
+                        Type::Str | Type::BStr => "string",
+                        Type::Fixed => "fixed",
+                        Type::Fd => "fd",
+                        Type::Bool => "bool",
+                        Type::Array(..) => "binary",
+                        Type::Pod(..) => "binary",
+                    };
+                    let rf = match ty {
+                        Type::Pod(..) => "&",
+                        _ => "",
+                    };
+                    wl2!("{xn}{}fmt.{}({}{});", prefix, p, rf, access);
+                    Ok(())
+                }
+                for field in &message.fields {
+                    write_fmt_expr(
+                        f,
+                        xn,
+                        "",
+                        &field.val.ty.val,
+                        &format!("self.{}", field.val.name),
+                    )?;
+                }
             }
         }
-        writeln!(f, "        ]);")?;
-        for field in &message.fields {
-            if let Type::Fd = &field.val.ty.val {
-                writeln!(f, "        fmt.fd(self.{});", field.val.name)?;
-            }
+        wl!("{xn}}}");
+        wl!("{xn}fn id(&self) -> ObjectId {{");
+        {
+            push_xn!(xn);
+            wl!("{xn}ObjectId(self.self_id.0)");
         }
-    } else {
-        writeln!(f, "        fmt.header(self.self_id, {});", uppercase)?;
-        fn write_fmt_expr<W: Write>(
-            f: &mut W,
-            prefix: &str,
-            ty: &Type,
-            access: &str,
-        ) -> Result<()> {
-            let p = match ty {
-                Type::Id(..) => "object",
-                Type::U32 => "uint",
-                Type::I32 => "int",
-                Type::U64 => "u64",
-                Type::U64Rev => "u64_rev",
-                Type::OptStr => "optstr",
-                Type::Str | Type::BStr => "string",
-                Type::Fixed => "fixed",
-                Type::Fd => "fd",
-                Type::Bool => "bool",
-                Type::Array(..) => "binary",
-                Type::Pod(..) => "binary",
-            };
-            let rf = match ty {
-                Type::Pod(..) => "&",
-                _ => "",
-            };
-            writeln!(f, "        {}fmt.{}({}{});", prefix, p, rf, access)?;
-            Ok(())
+        wl!("{xn}}}");
+        wl!("{xn}fn interface(&self) -> Interface {{");
+        {
+            push_xn!(xn);
+            wl!("{xn}{}", obj);
         }
-        for field in &message.fields {
-            write_fmt_expr(
-                f,
-                "",
-                &field.val.ty.val,
-                &format!("self.{}", field.val.name),
-            )?;
-        }
+        wl!("{xn}}}");
     }
-    writeln!(f, "    }}")?;
-    writeln!(f, "    fn id(&self) -> ObjectId {{")?;
-    writeln!(f, "        ObjectId(self.self_id.0)")?;
-    writeln!(f, "    }}")?;
-    writeln!(f, "    fn interface(&self) -> Interface {{")?;
-    writeln!(f, "        {}", obj)?;
-    writeln!(f, "    }}")?;
-    writeln!(f, "}}")?;
+    wl!("}}");
     Ok(())
 }
 
@@ -302,13 +350,15 @@ fn write_request_handler<W: Write>(
     direction: RequestHandlerDirection,
     dead: bool,
 ) -> Result<()> {
+    define_w!(f, w, wl);
+    define_xn!(xn);
     let snake_direction;
     let camel_direction;
     let parent;
     let parser;
     let error;
     let param;
-    writeln!(f)?;
+    wl!();
     match direction {
         RequestHandlerDirection::Request => {
             snake_direction = "request";
@@ -318,7 +368,7 @@ fn write_request_handler<W: Write>(
             error = "crate::client::ClientError";
             param = "req";
             if dead {
-                writeln!(f, "#[allow(dead_code)]")?;
+                wl!("#[allow(dead_code)]");
             }
         }
         RequestHandlerDirection::Event => {
@@ -328,79 +378,90 @@ fn write_request_handler<W: Write>(
             parser = "crate::wl_usr::UsrCon";
             error = "crate::wl_usr::UsrConError";
             param = "ev";
-            writeln!(f, "#[allow(dead_code)]")?;
+            wl!("#[allow(dead_code)]");
         }
     }
-    writeln!(
-        f,
-        "pub trait {camel_obj_name}{camel_direction}Handler: {parent} + Sized {{"
-    )?;
-    writeln!(f, "    type Error: std::error::Error;")?;
-    for message in messages {
-        let msg = &message.val;
-        let lt = match msg.has_reference_type {
-            true => "<'_>",
-            false => "",
-        };
-        writeln!(f)?;
-        writeln!(
-            f,
-            "    fn {}(&self, {param}: {}{lt}, _slf: &Rc<Self>) -> Result<(), Self::Error>;",
-            msg.safe_name, msg.camel_name
-        )?;
-    }
-    writeln!(f)?;
-    writeln!(f, "    #[inline(always)]")?;
-    writeln!(f, "    fn handle_{snake_direction}_impl(")?;
-    writeln!(f, "        self: Rc<Self>,")?;
-    writeln!(f, "        client: &{parser},")?;
-    writeln!(f, "        req: u32,")?;
-    writeln!(f, "        parser: crate::utils::buffd::MsgParser<'_, '_>,")?;
-    writeln!(f, "    ) -> Result<(), {error}> {{")?;
-    if messages.is_empty() {
-        writeln!(f, "        #![allow(unused_variables)]")?;
-        writeln!(f, "        Err({error}::InvalidMethod)")?;
-    } else {
-        writeln!(f, "        let method;")?;
-        writeln!(
-            f,
-            "        let error: Box<dyn std::error::Error> = match req {{"
-        )?;
+    wl!("pub trait {camel_obj_name}{camel_direction}Handler: {parent} + Sized {{");
+    {
+        push_xn!(xn);
+        wl!("{xn}type Error: std::error::Error;");
         for message in messages {
             let msg = &message.val;
-            write!(f, "            {} ", msg.id)?;
-            if let Some(since) = msg.attribs.since {
-                write!(f, "if self.version() >= {since} ")?;
-            }
-            writeln!(f, "=> {{")?;
-            writeln!(f, "                method = {};", msg.name)?;
-            writeln!(f, "                match client.parse(&*self, parser) {{")?;
-            writeln!(
-                f,
-                "                    Ok(req) => match self.{}(req, &self) {{",
-                msg.safe_name
-            )?;
-            writeln!(f, "                        Ok(()) => return Ok(()),")?;
-            writeln!(f, "                        Err(e) => Box::new(e),")?;
-            writeln!(f, "                    }},")?;
-            writeln!(
-                f,
-                "                    Err(e) => Box::new(crate::client::ParserError(e)),"
-            )?;
-            writeln!(f, "                }}")?;
-            writeln!(f, "            }},")?;
+            let lt = match msg.has_reference_type {
+                true => "<'_>",
+                false => "",
+            };
+            wl!();
+            wl!(
+                "{xn}fn {}(&self, {param}: {}{lt}, _slf: &Rc<Self>) -> Result<(), Self::Error>;",
+                msg.safe_name,
+                msg.camel_name
+            );
         }
-        writeln!(f, "            _ => return Err({error}::InvalidMethod),")?;
-        writeln!(f, "        }};")?;
-        writeln!(f, "        Err({error}::MethodError {{")?;
-        writeln!(f, "            interface: {camel_obj_name},")?;
-        writeln!(f, "            id: self.id(),")?;
-        writeln!(f, "            method,")?;
-        writeln!(f, "            error,")?;
-        writeln!(f, "        }})")?;
+        wl!();
+        wl!("{xn}#[inline(always)]");
+        wl!("{xn}fn handle_{snake_direction}_impl(");
+        {
+            push_xn!(xn);
+            wl!("{xn}self: Rc<Self>,");
+            wl!("{xn}client: &{parser},");
+            wl!("{xn}req: u32,");
+            wl!("{xn}parser: crate::utils::buffd::MsgParser<'_, '_>,");
+        }
+        wl!("{xn}) -> Result<(), {error}> {{");
+        {
+            push_xn!(xn);
+            if messages.is_empty() {
+                wl!("{xn}#![allow(unused_variables)]");
+                wl!("{xn}Err({error}::InvalidMethod)");
+            } else {
+                wl!("{xn}let method;");
+                wl!("{xn}let error: Box<dyn std::error::Error> = match req {{");
+                {
+                    push_xn!(xn);
+                    for message in messages {
+                        let msg = &message.val;
+                        w!("{xn}{} ", msg.id);
+                        if let Some(since) = msg.attribs.since {
+                            w!("if self.version() >= {since} ");
+                        }
+                        wl!("=> {{");
+                        {
+                            push_xn!(xn);
+                            wl!("{xn}method = {};", msg.name);
+                            wl!("{xn}match client.parse(&*self, parser) {{");
+                            {
+                                push_xn!(xn);
+                                wl!("{xn}Ok(req) => match self.{}(req, &self) {{", msg.safe_name);
+                                {
+                                    push_xn!(xn);
+                                    wl!("{xn}Ok(()) => return Ok(()),");
+                                    wl!("{xn}Err(e) => Box::new(e),");
+                                }
+                                wl!("{xn}}},");
+                                wl!("{xn}Err(e) => Box::new(crate::client::ParserError(e)),");
+                            }
+                            wl!("{xn}}}");
+                        }
+                        wl!("{xn}}},");
+                    }
+                    wl!("{xn}_ => return Err({error}::InvalidMethod),");
+                }
+                wl!("{xn}}};");
+                wl!("{xn}Err({error}::MethodError {{");
+                {
+                    push_xn!(xn);
+                    wl!("{xn}interface: {camel_obj_name},");
+                    wl!("{xn}id: self.id(),");
+                    wl!("{xn}method,");
+                    wl!("{xn}error,");
+                }
+                wl!("{xn}}})");
+            }
+        }
+        wl!("{xn}}}");
     }
-    writeln!(f, "    }}")?;
-    writeln!(f, "}}")?;
+    wl!("}}");
     Ok(())
 }
 
@@ -427,24 +488,26 @@ fn parse_file(file: &DirEntry, interface_names: &mut Vec<String>) -> Result<Pars
 }
 
 fn write_file(f: &mut impl Write, file: &ParsedFile) -> Result<()> {
+    define_w!(f, w, wl);
     let ParsedFile {
         obj_name,
         camel_obj_name,
         messages,
     } = file;
-    writeln!(f)?;
-    writeln!(f, "id!({}Id);", camel_obj_name)?;
-    writeln!(f)?;
-    writeln!(
-        f,
+    wl!();
+    wl!("id!({}Id);", camel_obj_name);
+    wl!();
+    wl!(
         "pub const {}: Interface = Interface({});",
-        camel_obj_name, obj_name
-    )?;
-    writeln!(f)?;
-    writeln!(f, "pub mod {};", obj_name.raw())?;
+        camel_obj_name,
+        obj_name
+    );
+    wl!();
+    wl!("pub mod {};", obj_name.raw());
     {
         let f = &mut open(&format!("wire/{}.rs", obj_name.raw()))?;
-        writeln!(f, "use super::*;")?;
+        define_w!(f, w2, wl2);
+        wl2!("use super::*;");
         for message in messages.messages() {
             write_message(f, camel_obj_name, &message.val)?;
         }
@@ -469,17 +532,16 @@ fn write_file(f: &mut impl Write, file: &ParsedFile) -> Result<()> {
 pub fn main() -> Result<()> {
     std::fs::create_dir_all(Path::new(&env::var("OUT_DIR").unwrap()).join("wire"))?;
     let mut f = open("wire/mod.rs")?;
-    writeln!(f, "use std::rc::Rc;")?;
-    writeln!(f, "use uapi::OwnedFd;")?;
-    writeln!(f, "use bstr::BStr;")?;
-    writeln!(f, "use crate::fixed::Fixed;")?;
-    writeln!(f, "use crate::client::{{EventFormatter, RequestParser}};")?;
-    writeln!(f, "use crate::object::Interface;")?;
-    writeln!(
-        f,
-        "use crate::utils::buffd::{{MsgFormatter, MsgParser, MsgParserError}};"
-    )?;
-    writeln!(f, "use crate::utils::str_table::StrAccess;")?;
+    define_w!(f, w, wl);
+    define_xn!(xn);
+    wl!("use std::rc::Rc;");
+    wl!("use uapi::OwnedFd;");
+    wl!("use bstr::BStr;");
+    wl!("use crate::fixed::Fixed;");
+    wl!("use crate::client::{{EventFormatter, RequestParser}};");
+    wl!("use crate::object::Interface;");
+    wl!("use crate::utils::buffd::{{MsgFormatter, MsgParser, MsgParserError}};");
+    wl!("use crate::utils::str_table::StrAccess;");
     println!("cargo:rerun-if-changed=wire");
     let mut files = vec![];
     for file in std::fs::read_dir("wire")? {
@@ -496,16 +558,16 @@ pub fn main() -> Result<()> {
     for file in parsed_files {
         write_file(&mut f, &file)?;
     }
-    writeln!(f)?;
-    writeln!(f, "#[doc(hidden)]")?;
-    writeln!(f, "#[allow(dead_code)]")?;
-    writeln!(f, "pub mod interface_singletons {{")?;
-    for interface in &interface_names {
-        writeln!(
-            f,
-            "    pub const {interface}: Option<crate::globals::Singleton> = None;"
-        )?;
+    wl!();
+    wl!("#[doc(hidden)]");
+    wl!("#[allow(dead_code)]");
+    wl!("pub mod interface_singletons {{");
+    {
+        push_xn!(xn);
+        for interface in &interface_names {
+            wl!("{xn}pub const {interface}: Option<crate::globals::Singleton> = None;");
+        }
     }
-    writeln!(f, "}}")?;
+    wl!("}}");
     Ok(())
 }
