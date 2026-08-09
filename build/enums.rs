@@ -41,10 +41,11 @@ fn get_enum_ty(variants: Vec<i128>) -> anyhow::Result<u64> {
 }
 
 fn write_ty<W: Write>(f: &mut W, vals: &[i32], ty: &str) -> anyhow::Result<()> {
+    define_w!(f, w, wl);
     let variants: Vec<_> = vals.iter().cloned().map(|v| v as i128).collect();
     let size = get_enum_ty(variants)?;
-    writeln!(f, "#[allow(dead_code)]")?;
-    writeln!(f, "pub type {} = i{};", ty, size)?;
+    wl!("#[allow(dead_code)]");
+    wl!("pub type {} = i{};", ty, size);
     Ok(())
 }
 

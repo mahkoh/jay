@@ -114,61 +114,87 @@ fn write_egl_procs<W: Write>(f: &mut W) -> anyhow::Result<()> {
         ),
     ];
 
-    writeln!(f, "use std::ptr;")?;
-    writeln!(f, "use super::gl::sys::*;")?;
-    writeln!(f, "use super::egl::sys::*;")?;
-    writeln!(f)?;
-    writeln!(f, "#[derive(Copy, Clone, Debug)]")?;
-    writeln!(f, "pub struct ExtProc {{")?;
-    for (name, _, _) in map.iter() {
-        writeln!(f, "    {}: *mut u8,", name)?;
-    }
-    writeln!(f, "}}")?;
-    writeln!(f)?;
-    writeln!(f, "unsafe impl Sync for ExtProc {{ }}")?;
-    writeln!(f, "unsafe impl Send for ExtProc {{ }}")?;
-    writeln!(f)?;
-    writeln!(f, "impl ExtProc {{")?;
-    writeln!(f, "    pub fn load() -> Option<Self> {{")?;
-    writeln!(f, "        let egl = EGL.as_ref()?;")?;
-    writeln!(f, "        Some(Self {{")?;
-    for (name, _, _) in map.iter().copied() {
-        writeln!(
-            f,
-            "            {}: unsafe {{ (egl.eglGetProcAddress)(c\"{}\".as_ptr() as _) }},",
-            name, name
-        )?;
-    }
-    writeln!(f, "        }})")?;
-    writeln!(f, "    }}")?;
-    for (name, ret, args) in map.iter().copied() {
-        let mut args_names = String::new();
-        let mut args_full = String::new();
-        let mut args_tys = String::new();
-        for (name, ty) in args.iter().copied() {
-            write!(args_full, "{}: {}, ", name, ty)?;
-            write!(args_names, "{}, ", name)?;
-            write!(args_tys, "{}, ", ty)?;
+    define_w!(f, w, wl);
+    define_xn!(xn);
+    wl!("use std::ptr;");
+    wl!("use super::gl::sys::*;");
+    wl!("use super::egl::sys::*;");
+    wl!();
+    wl!("#[derive(Copy, Clone, Debug)]");
+    wl!("pub struct ExtProc {{");
+    {
+        push_xn!(xn);
+        for (name, _, _) in map.iter() {
+            wl!("{xn}{}: *mut u8,", name);
         }
-        writeln!(f)?;
-        writeln!(
-            f,
-            "    pub(super) unsafe fn {}(&self, {}) -> {} {{",
-            name, args_full, ret
-        )?;
-        writeln!(f, "       if self.{}.is_null() {{", name)?;
-        writeln!(f, "           panic!(\"Could not load `{}`\");", name)?;
-        writeln!(f, "       }}")?;
-        writeln!(f, "       unsafe {{")?;
-        writeln!(
-            f,
-            r#"           ptr::read(&self.{} as *const *mut u8 as *const unsafe extern "C" fn({}) -> {})({})"#,
-            name, args_tys, ret, args_names
-        )?;
-        writeln!(f, "       }}")?;
-        writeln!(f, "    }}")?;
     }
-    writeln!(f, "}}")?;
+    wl!("}}");
+    wl!();
+    wl!("unsafe impl Sync for ExtProc {{ }}");
+    wl!("unsafe impl Send for ExtProc {{ }}");
+    wl!();
+    wl!("impl ExtProc {{");
+    {
+        push_xn!(xn);
+        wl!("{xn}pub fn load() -> Option<Self> {{");
+        {
+            push_xn!(xn);
+            wl!("{xn}let egl = EGL.as_ref()?;");
+            wl!("{xn}Some(Self {{");
+            {
+                push_xn!(xn);
+                for (name, _, _) in map.iter().copied() {
+                    wl!(
+                        "{xn}{}: unsafe {{ (egl.eglGetProcAddress)(c\"{}\".as_ptr() as _) }},",
+                        name,
+                        name
+                    );
+                }
+            }
+            wl!("{xn}}})");
+        }
+        wl!("{xn}}}");
+        for (name, ret, args) in map.iter().copied() {
+            let mut args_names = String::new();
+            let mut args_full = String::new();
+            let mut args_tys = String::new();
+            for (name, ty) in args.iter().copied() {
+                write!(args_full, "{}: {}, ", name, ty)?;
+                write!(args_names, "{}, ", name)?;
+                write!(args_tys, "{}, ", ty)?;
+            }
+            wl!();
+            wl!(
+                "{xn}pub(super) unsafe fn {}(&self, {}) -> {} {{",
+                name,
+                args_full,
+                ret
+            );
+            {
+                push_xn!(xn);
+                wl!("{xn}if self.{}.is_null() {{", name);
+                {
+                    push_xn!(xn);
+                    wl!("{xn}panic!(\"Could not load `{}`\");", name);
+                }
+                wl!("{xn}}}");
+                wl!("{xn}unsafe {{");
+                {
+                    push_xn!(xn);
+                    wl!(
+                        r#"{xn}ptr::read(&self.{} as *const *mut u8 as *const unsafe extern "C" fn({}) -> {})({})"#,
+                        name,
+                        args_tys,
+                        ret,
+                        args_names
+                    );
+                }
+                wl!("{xn}}}");
+            }
+            wl!("{xn}}}");
+        }
+    }
+    wl!("}}");
     Ok(())
 }
 

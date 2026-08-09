@@ -1,3 +1,4 @@
+use crate::indent::Indent;
 use crate::open;
 use crate::tokens::Lined;
 use crate::tokens::Symbol;
@@ -367,6 +368,7 @@ fn needs_lifetime(ty: &Type) -> bool {
 }
 
 fn write_signature<W: Write>(f: &mut W, ty: &Type) -> Result<()> {
+    define_w!(f, w, wl);
     let c = match ty {
         Type::U8 => 'y',
         Type::Bool => 'b',
@@ -383,27 +385,27 @@ fn write_signature<W: Write>(f: &mut W, ty: &Type) -> Result<()> {
         Type::Variant => 'v',
         Type::Fd => 'h',
         Type::Array(e) => {
-            write!(f, "a")?;
+            w!("a");
             write_signature(f, e)?;
             return Ok(());
         }
         Type::DictEntry(k, v) => {
-            write!(f, "{{")?;
+            w!("{{");
             write_signature(f, k)?;
             write_signature(f, v)?;
-            write!(f, "}}")?;
+            w!("}}");
             return Ok(());
         }
         Type::Struct(fs) => {
-            write!(f, "(")?;
+            w!("(");
             for fs in fs {
                 write_signature(f, fs)?;
             }
-            write!(f, ")")?;
+            w!(")");
             return Ok(());
         }
     };
-    write!(f, "{}", c)?;
+    w!("{}", c);
     Ok(())
 }
 
@@ -412,6 +414,7 @@ fn write_type<W: Write>(f: &mut W, ty: &Type) -> Result<()> {
 }
 
 fn write_type2<W: Write>(f: &mut W, lt: &str, ty: &Type) -> Result<()> {
+    define_w!(f, w, wl);
     let ty = match ty {
         Type::U8 => "u8",
         Type::Bool => "Bool",
@@ -423,240 +426,230 @@ fn write_type2<W: Write>(f: &mut W, lt: &str, ty: &Type) -> Result<()> {
         Type::U64 => "u64",
         Type::F64 => "f64",
         Type::String => {
-            write!(f, "Cow<{}, str>", lt)?;
+            w!("Cow<{}, str>", lt);
             return Ok(());
         }
         Type::ObjectPath => {
-            write!(f, "ObjectPath<{}>", lt)?;
+            w!("ObjectPath<{}>", lt);
             return Ok(());
         }
         Type::Signature => {
-            write!(f, "Signature<{}>", lt)?;
+            w!("Signature<{}>", lt);
             return Ok(());
         }
         Type::Variant => {
-            write!(f, "Variant<{}>", lt)?;
+            w!("Variant<{}>", lt);
             return Ok(());
         }
         Type::Fd => "Rc<OwnedFd>",
         Type::Array(e) => {
-            write!(f, "Cow<{}, [", lt)?;
+            w!("Cow<{}, [", lt);
             write_type2(f, lt, e)?;
-            write!(f, "]>")?;
+            w!("]>");
             return Ok(());
         }
         Type::DictEntry(k, v) => {
-            write!(f, "DictEntry<")?;
+            w!("DictEntry<");
             write_type2(f, lt, k)?;
-            write!(f, ", ")?;
+            w!(", ");
             write_type2(f, lt, v)?;
-            write!(f, ">")?;
+            w!(">");
             return Ok(());
         }
         Type::Struct(fs) => {
-            write!(f, "(")?;
+            w!("(");
             for (idx, fs) in fs.iter().enumerate() {
                 if idx > 0 {
-                    write!(f, ", ")?;
+                    w!(", ");
                 }
                 write_type2(f, lt, fs)?;
             }
-            write!(f, ")")?;
+            w!(")");
             return Ok(());
         }
     };
-    write!(f, "{}", ty)?;
+    w!("{}", ty);
     Ok(())
 }
 
 fn write_message<W: Write>(
     f: &mut W,
+    xn: &Indent,
     el: &Element,
     msg_name: &str,
     name: &str,
-    indent: &str,
     fields: &[Field],
     reply_name: Option<&str>,
     reply_has_lt: bool,
 ) -> Result<()> {
+    define_w!(f, w, wl);
     let needs_lt = fields.iter().any(|f| needs_lifetime(&f.ty));
     let lt = if needs_lt { "<'a>" } else { "" };
     let ltb = if needs_lt { "<'b>" } else { "" };
-    writeln!(f)?;
-    writeln!(f, "{}#[derive(Debug)]", indent)?;
+    wl!();
+    wl!("{xn}#[derive(Debug)]");
     if fields.is_empty() {
-        writeln!(f, "{}pub struct {}{};", indent, name, lt)?;
+        wl!("{xn}pub struct {}{};", name, lt);
     } else {
-        writeln!(f, "{}pub struct {}{} {{", indent, name, lt)?;
-        for field in fields {
-            write!(f, "{}    pub {}: ", indent, field.name)?;
-            write_type(f, &field.ty)?;
-            writeln!(f, ",")?;
+        wl!("{xn}pub struct {}{} {{", name, lt);
+        {
+            push_xn!(xn);
+            for field in fields {
+                w!("{xn}pub {}: ", field.name);
+                write_type(f, &field.ty)?;
+                wl!(",");
+            }
         }
-        writeln!(f, "{}}}", indent)?;
+        wl!("{xn}}}");
     }
-    writeln!(f)?;
-    writeln!(
-        f,
-        "{}unsafe impl<'a> Message<'a> for {}{} {{",
-        indent, name, lt
-    )?;
-    write!(f, "{}    const SIGNATURE: &'static str = \"", indent)?;
-    for field in fields {
-        write_signature(f, &field.ty)?;
-    }
-    writeln!(f, "\";")?;
-    writeln!(
-        f,
-        "{}    const INTERFACE: &'static str = \"{}\";",
-        indent, el.interface
-    )?;
-    writeln!(
-        f,
-        "{}    const MEMBER: &'static str = \"{}\";",
-        indent, msg_name,
-    )?;
-    writeln!(f, "{}    type Generic<'b> = {}{};", indent, name, ltb,)?;
-    writeln!(f)?;
-    writeln!(f, "{}    fn marshal(&self, fmt: &mut Formatter) {{", indent)?;
-    if fields.is_empty() {
-        writeln!(f, "{}        let _ = fmt;", indent)?;
-    }
-    for field in fields {
-        writeln!(f, "{}        fmt.marshal(&self.{});", indent, field.name)?;
-    }
-    writeln!(f, "{}    }}", indent)?;
-    writeln!(f)?;
-    writeln!(
-        f,
-        "{}    fn unmarshal(parser: &mut Parser<'a>) -> Result<Self, DbusError> {{",
-        indent
-    )?;
-    if fields.is_empty() {
-        writeln!(f, "{}        let _ = parser;", indent)?;
-    }
-    writeln!(f, "{}        Ok(Self {{", indent)?;
-    for field in fields {
-        writeln!(
-            f,
-            "{}            {}: parser.unmarshal()?,",
-            indent, field.name
-        )?;
-    }
-    writeln!(f, "{}        }})", indent)?;
-    writeln!(f, "{}    }}", indent)?;
-    writeln!(f)?;
-    writeln!(f, "{}    fn num_fds(&self) -> u32 {{", indent)?;
-    if fields.is_empty() {
-        writeln!(f, "{}        0", indent)?;
-    } else {
-        writeln!(f, "{}        let mut res = 0;", indent)?;
+    wl!();
+    wl!("{xn}unsafe impl<'a> Message<'a> for {}{} {{", name, lt);
+    {
+        push_xn!(xn);
+        w!("{xn}const SIGNATURE: &'static str = \"");
         for field in fields {
-            writeln!(f, "{}        res += self.{}.num_fds();", indent, field.name)?;
+            write_signature(f, &field.ty)?;
         }
-        writeln!(f, "{}        res", indent)?;
+        wl!("\";");
+        wl!("{xn}const INTERFACE: &'static str = \"{}\";", el.interface);
+        wl!("{xn}const MEMBER: &'static str = \"{}\";", msg_name,);
+        wl!("{xn}type Generic<'b> = {}{};", name, ltb,);
+        wl!();
+        wl!("{xn}fn marshal(&self, fmt: &mut Formatter) {{");
+        {
+            push_xn!(xn);
+            if fields.is_empty() {
+                wl!("{xn}let _ = fmt;");
+            }
+            for field in fields {
+                wl!("{xn}fmt.marshal(&self.{});", field.name);
+            }
+        }
+        wl!("{xn}}}");
+        wl!();
+        wl!("{xn}fn unmarshal(parser: &mut Parser<'a>) -> Result<Self, DbusError> {{",);
+        {
+            push_xn!(xn);
+            if fields.is_empty() {
+                wl!("{xn}let _ = parser;");
+            }
+            wl!("{xn}Ok(Self {{");
+            {
+                push_xn!(xn);
+                for field in fields {
+                    wl!("{xn}{}: parser.unmarshal()?,", field.name);
+                }
+            }
+            wl!("{xn}}})");
+        }
+        wl!("{xn}}}");
+        wl!();
+        wl!("{xn}fn num_fds(&self) -> u32 {{");
+        {
+            push_xn!(xn);
+            if fields.is_empty() {
+                wl!("{xn}0");
+            } else {
+                wl!("{xn}let mut res = 0;");
+                for field in fields {
+                    wl!("{xn}res += self.{}.num_fds();", field.name);
+                }
+                wl!("{xn}res");
+            }
+        }
+        wl!("{xn}}}");
     }
-    writeln!(f, "{}    }}", indent)?;
-    writeln!(f, "{}}}", indent)?;
+    wl!("{xn}}}");
     if let Some(rn) = reply_name {
         let reply_lt = if reply_has_lt { "<'static>" } else { "" };
-        writeln!(f)?;
-        writeln!(f, "{}impl<'a> MethodCall<'a> for {}{} {{", indent, name, lt)?;
-        writeln!(f, "{}    type Reply = {}{};", indent, rn, reply_lt)?;
-        writeln!(f, "{}}}", indent)?;
+        wl!();
+        wl!("{xn}impl<'a> MethodCall<'a> for {}{} {{", name, lt);
+        {
+            push_xn!(xn);
+            wl!("{xn}type Reply = {}{};", rn, reply_lt);
+        }
+        wl!("{xn}}}");
     }
     Ok(())
 }
 
 fn write_component<W: Write>(
     f: &mut W,
+    xn: &Indent,
     element: &Element,
     component: &Component,
-    indent: &str,
 ) -> Result<()> {
     for fun in &component.functions {
-        write_function(f, element, fun, indent)?;
+        write_function(f, xn, element, fun)?;
     }
     for prop in &component.properties {
-        write_property(f, element, prop, indent)?;
+        write_property(f, xn, element, prop)?;
     }
     for sig in &component.signals {
-        write_signal(f, element, sig, indent)?;
+        write_signal(f, xn, element, sig)?;
     }
     Ok(())
 }
 
 fn write_property<W: Write>(
     f: &mut W,
+    xn: &Indent,
     el: &Element,
     property: &Property,
-    indent: &str,
 ) -> Result<()> {
-    writeln!(f)?;
-    writeln!(f, "{}pub struct {};", indent, property.name)?;
-    writeln!(f)?;
-    writeln!(f, "{}impl Property for {} {{", indent, property.name)?;
-    writeln!(
-        f,
-        "{}    const INTERFACE: &'static str = \"{}\";",
-        indent, el.interface
-    )?;
-    writeln!(
-        f,
-        "{}    const PROPERTY: &'static str = \"{}\";",
-        indent, property.name,
-    )?;
-    write!(f, "{}    type Type = ", indent)?;
-    write_type2(f, "'static", &property.ty)?;
-    writeln!(f, ";")?;
-    writeln!(f, "{}}}", indent)?;
+    define_w!(f, w, wl);
+    wl!();
+    wl!("{xn}pub struct {};", property.name);
+    wl!();
+    wl!("{xn}impl Property for {} {{", property.name);
+    {
+        push_xn!(xn);
+        wl!("{xn}const INTERFACE: &'static str = \"{}\";", el.interface);
+        wl!("{xn}const PROPERTY: &'static str = \"{}\";", property.name,);
+        w!("{xn}type Type = ");
+        write_type2(f, "'static", &property.ty)?;
+        wl!(";");
+    }
+    wl!("{xn}}}");
     Ok(())
 }
 
-fn write_signal<W: Write>(f: &mut W, element: &Element, sig: &Signal, indent: &str) -> Result<()> {
+fn write_signal<W: Write>(f: &mut W, xn: &Indent, element: &Element, sig: &Signal) -> Result<()> {
+    define_w!(f, w, wl);
     let name = format!("{}", sig.name);
-    write_message(
-        f,
-        element,
-        &sig.name,
-        &name,
-        indent,
-        &sig.fields,
-        None,
-        false,
-    )?;
+    write_message(f, xn, element, &sig.name, &name, &sig.fields, None, false)?;
     let has_lt = sig.fields.iter().any(|f| needs_lifetime(&f.ty));
     let lt = if has_lt { "<'a>" } else { "" };
-    writeln!(f)?;
-    writeln!(f, "{}impl<'a> Signal<'a> for {}{} {{ }}", indent, name, lt)?;
+    wl!();
+    wl!("{xn}impl<'a> Signal<'a> for {}{} {{ }}", name, lt);
     Ok(())
 }
 
 fn write_function<W: Write>(
     f: &mut W,
+    xn: &Indent,
     element: &Element,
     fun: &Function,
-    indent: &str,
 ) -> Result<()> {
     let in_name = format!("{}", fun.name);
     let out_name = format!("{}Reply", fun.name);
     let reply_has_lt = fun.out_fields.iter().any(|f| needs_lifetime(&f.ty));
     write_message(
         f,
+        xn,
         element,
         &fun.name,
         &in_name,
-        indent,
         &fun.in_fields,
         Some(&out_name),
         reply_has_lt,
     )?;
     write_message(
         f,
+        xn,
         element,
         &fun.name,
         &out_name,
-        indent,
         &fun.out_fields,
         None,
         false,
@@ -664,32 +657,33 @@ fn write_function<W: Write>(
     Ok(())
 }
 
-fn write_module<W: Write>(f: &mut W, element: Element, indent: &str) -> Result<()> {
+fn write_module<W: Write>(f: &mut W, xn: &Indent, element: Element) -> Result<()> {
     let mut children: Vec<_> = element.children.into_iter().map(|v| v.1).collect();
     children.sort_by(|c1, c2| c1.name.cmp(&c2.name));
     for child in children {
-        write_element(f, child, indent)?;
+        write_element(f, xn, child)?;
     }
     Ok(())
 }
 
-fn write_element<W: Write>(f: &mut W, element: Element, indent: &str) -> Result<()> {
+fn write_element<W: Write>(f: &mut W, xn: &Indent, element: Element) -> Result<()> {
+    define_w!(f, w, wl);
     let name = if element.name == "impl" {
         "impl_".as_bytes().as_bstr()
     } else {
         element.name.as_bstr()
     };
-    writeln!(f)?;
-    writeln!(f, "{}pub mod {} {{", indent, name)?;
-    writeln!(f, "{}    use crate::dbus::prelude::*;", indent)?;
+    wl!();
+    wl!("{xn}pub mod {} {{", name);
     {
-        let indent = format!("{}    ", indent);
+        push_xn!(xn);
+        wl!("{xn}use crate::dbus::prelude::*;");
         for component in &element.components {
-            write_component(f, &element, component, &indent)?;
+            write_component(f, xn, &element, component)?;
         }
-        write_module(f, element, &indent)?;
+        write_module(f, xn, element)?;
     }
-    writeln!(f, "{}}}", indent)?;
+    wl!("{xn}}}");
     Ok(())
 }
 
@@ -768,7 +762,7 @@ pub fn main() -> Result<()> {
         .collect();
     children.sort_by(|c1, c2| c1.name.cmp(&c2.name));
     for child in children {
-        write_element(&mut f, child, "")?;
+        write_element(&mut f, &Default::default(), child)?;
     }
     Ok(())
 }
