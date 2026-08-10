@@ -3,7 +3,6 @@ use std::cell::OnceCell;
 use std::rc::Rc;
 use std::rc::Weak;
 
-#[expect(unused)]
 #[derive(Derivative, Debug)]
 #[derivative(Default(bound = ""))]
 pub struct WeakOnceCell<T> {
@@ -11,7 +10,6 @@ pub struct WeakOnceCell<T> {
 }
 
 impl<T> WeakOnceCell<T> {
-    #[expect(unused)]
     pub fn get_or_init(&self, init: impl FnOnce() -> T, handle_rc: impl FnOnce(Rc<T>)) -> Weak<T> {
         if let Some(v) = self.cell.get() {
             return v.clone();

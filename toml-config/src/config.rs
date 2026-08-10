@@ -1,4 +1,5 @@
 mod context;
+pub mod counter;
 pub mod error;
 mod extractor;
 pub mod input_event_codes;
@@ -18,11 +19,14 @@ use crate::config::parsers::focus_history::FocusHistory;
 pub use crate::config::parsers::input_mode::InputMode;
 use crate::config::parsers::session_management::SessionManagement;
 use crate::config::parsers::transactions::Transactions;
+pub use crate::config::parsers::trigger::TomlTrigger;
+use crate::config::parsers::trigger::Trigger;
 pub use crate::config::parsers::window_match::parse_window_match;
 use crate::config::parsers::workspace::WorkspaceSlot;
 use crate::config::parsers::workspace::WorkspaceType;
 use crate::toml::{self};
 use ahash::AHashMap;
+use counter::CounterSlot;
 use jay_config::Axis;
 use jay_config::Direction;
 use jay_config::Workspace;
@@ -229,6 +233,14 @@ pub enum Action {
     },
     HideOverlay {
         ws: Rc<WorkspaceSlot>,
+    },
+    AdjCounter {
+        counter: Rc<CounterSlot>,
+        delta: i64,
+    },
+    SetCounter {
+        counter: Rc<CounterSlot>,
+        value: i64,
     },
 }
 
@@ -625,6 +637,8 @@ pub struct Config {
     pub transactions: Option<Transactions>,
     pub cursor_size: Option<i32>,
     pub configure_all_devices: bool,
+    pub triggers: Vec<Rc<Trigger>>,
+    pub max_trigger_depth: u64,
 }
 
 #[derive(Debug, Error)]
@@ -650,6 +664,7 @@ where
         used: Default::default(),
         mark_names,
         workspaces: RefCell::new(workspaces),
+        counters: Default::default(),
     };
     macro_rules! fatal {
         ($e:expr) => {{

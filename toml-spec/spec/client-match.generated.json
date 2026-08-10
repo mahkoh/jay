@@ -107,8 +107,9 @@
       "type": "object",
       "properties": {
         "num": {
-          "type": "number",
-          "description": "The number of criteria that must match."
+          "type": "integer",
+          "description": "The number of criteria that must match.",
+          "minimum": 0.0
         },
         "list": {
           "type": "array",

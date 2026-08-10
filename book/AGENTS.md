@@ -33,6 +33,7 @@ list and must be updated when adding a new chapter. Chapter-to-topic mapping:
 | `mouse.md` | All mouse-driven interactions (resize, drag, scroll) |
 | `input-modes.md` | Modal keybinding system (push/pop/latch/clear) |
 | `window-rules.md` | Window/client rules, privileges, capabilities |
+| `counters-and-triggers.md` | Counters (`inc-counter`/`dec-counter`/`set-counter`) and `[[triggers]]`, `max-trigger-depth` |
 | `screen-sharing.md` | Screen sharing via xdg-desktop-portal, PipeWire |
 | `hdr.md` | HDR & color management walkthrough |
 | `environment-variables.md` | Environment variables Jay itself reads (system, cursor, X backend, CLI, `JAY_*` tuning) |

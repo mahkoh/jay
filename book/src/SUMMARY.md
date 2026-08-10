@@ -38,6 +38,7 @@
 - [Mouse Interactions](mouse.md)
 - [Input Modes](input-modes.md)
 - [Window & Client Rules](window-rules.md)
+- [Counters & Triggers](counters-and-triggers.md)
 - [Screen Sharing](screen-sharing.md)
 - [HDR & Color Management](hdr.md)
 - [Env Variables Read by Jay](environment-variables.md)

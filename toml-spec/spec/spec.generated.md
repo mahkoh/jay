@@ -1062,6 +1062,66 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
     The value of this field should be a string.
 
+- `inc-counter`:
+
+  Increments the value of a counter
+
+  The table has the following fields:
+
+  - `name` (required):
+
+    The name of the counter.
+
+    The value of this field should be a string.
+
+  - `delta` (optional):
+
+    The delta to increase the counter by. Defaults to `1`.
+
+    The value of this field should be a number.
+
+    The numbers should be integers.
+
+- `dec-counter`:
+
+  Decrements the value of a counter
+
+  The table has the following fields:
+
+  - `name` (required):
+
+    The name of the counter.
+
+    The value of this field should be a string.
+
+  - `delta` (optional):
+
+    The delta to decrease the counter by. Defaults to `1`.
+
+    The value of this field should be a number.
+
+    The numbers should be integers.
+
+- `set-counter`:
+
+  Sets the value of a counter
+
+  The table has the following fields:
+
+  - `name` (required):
+
+    The name of the counter.
+
+    The value of this field should be a string.
+
+  - `value` (required):
+
+    The value to set the counter to.
+
+    The value of this field should be a number.
+
+    The numbers should be integers.
+
 
 <a name="types-BarPosition"></a>
 ### `BarPosition`
@@ -1528,6 +1588,10 @@ The table has the following fields:
   The number of criteria that must match.
 
   The value of this field should be a number.
+
+  The numbers should be integers.
+
+  The numbers should be greater than or equal to 0.
 
 - `list` (required):
 
@@ -2669,6 +2733,26 @@ The table has the following fields:
   Determines which devices are automatically configured.
 
   The value of this field should be a [DeviceConfigFilter](#types-DeviceConfigFilter).
+
+- `triggers` (optional):
+
+  The triggers.
+  
+  See the documentation of the type for details.
+
+  The value of this field should be an array of [Triggers](#types-Trigger).
+
+- `max-trigger-depth` (optional):
+
+  The maximum call depth of triggers. This setting prevents infinite recursion when
+  using triggers that themselves trigger other triggers. Setting this value to 0 or
+  less disables triggers completely. The default is `16`.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+  The numbers should be greater than or equal to 0.
 
 
 <a name="types-Connector"></a>
@@ -5659,6 +5743,232 @@ The string should have one of the following values:
 
 
 
+<a name="types-Trigger"></a>
+### `Trigger`
+
+A trigger.
+
+Triggers can be used to act on changes to counter values. This allows combining the
+effects of multiple different objects (e.g. shortcuts, window rules, and client rules)
+into a single action.
+
+- Example 1
+
+  This counter sends a notification when the first alacritty window opens or the last
+  alacritty window closes.
+
+  ```toml
+  [[triggers]]
+  match.counter.num-alacritty.gt = 0
+  action = { type = "exec", exec.shell = "notify-send 'first alacritty opened'"}
+  latch  = { type = "exec", exec.shell = "notify-send 'last alacritty closed'"}
+
+  [[windows]]
+  match.client.comm = "alacritty"
+  action = { type = "inc-counter", name = "num-alacritty" }
+  latch  = { type = "dec-counter", name = "num-alacritty" }
+  ```
+
+- Example 2
+
+  Trigger an action when between 2 and 4 alacritty windows are open.
+
+  ```toml
+  [[triggers]]
+  match.counter.num-alacritty.ge = 2
+  match.counter.num-alacritty.le = 4
+  # action = ...
+  ```
+
+- Example 3
+
+  Trigger an action when alt-x is pressed or there is at least one alacritty window,
+  but not both.
+
+  ```toml
+  [[triggers]]
+  match.exactly.num = 1
+  match.exactly.list = [
+    { counter.num-alacritty.ne = 0 },
+    { counter.alt-x-pressed.ne = 0 },
+  ]
+  # action = ...
+
+  [complex-shortcuts.alt-x]
+  action = { type = "inc-counter", name = "alt-x-pressed" }
+  latch  = { type = "dec-counter", name = "alt-x-pressed" }
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `match` (required):
+
+  The criterion that determines when the trigger is active.
+
+  The value of this field should be a [TriggerMatch](#types-TriggerMatch).
+
+- `action` (optional):
+
+  An action to execute when the trigger criterion starts matching.
+
+  The value of this field should be a [Action](#types-Action).
+
+- `latch` (optional):
+
+  An action to execute when the trigger criterion stops matching.
+
+  The value of this field should be a [Action](#types-Action).
+
+
+<a name="types-TriggerMatch"></a>
+### `TriggerMatch`
+
+A criterion under which a trigger becomes active.
+
+Values of this type should have one of the following forms:
+
+#### An array
+
+Matches if any of the contained criteria match.
+
+Each element of this array should be a [TriggerMatch](#types-TriggerMatch).
+
+#### A table
+
+A criterion under which a trigger becomes active.
+
+If multiple fields are used, all must match.
+
+The table has the following fields:
+
+- `not` (optional):
+
+  Matches if the contained criterion doesn't match.
+
+  The value of this field should be a [TriggerMatch](#types-TriggerMatch).
+
+- `all` (optional):
+
+  Matches if all of the contained criteria match.
+
+  The value of this field should be an array of [TriggerMatchs](#types-TriggerMatch).
+
+- `any` (optional):
+
+  Matches if any of the contained criteria match.
+
+  The value of this field should be an array of [TriggerMatchs](#types-TriggerMatch).
+
+- `exactly` (optional):
+
+  Matches if a specific number of contained criteria match.
+
+  The value of this field should be a [TriggerMatchExactly](#types-TriggerMatchExactly).
+
+- `counter` (optional):
+
+  Matches if the counter criteria match.
+
+  The value of this field should be a table whose values are [TriggerMatchCounters](#types-TriggerMatchCounter).
+
+
+<a name="types-TriggerMatchCounter"></a>
+### `TriggerMatchCounter`
+
+A trigger criterion that matches a counter.
+
+If more than one condition is specified, all must match.
+
+- Example:
+
+  Matches if the value of `my-counter` is `>= 2` and `!= 5`.
+
+  ```toml
+  [[triggers]]
+  match.counter.my-counter = { ge = 2, ne = 5 }
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `eq` (optional):
+
+  Matches if the value of the counter equals this value.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+- `ne` (optional):
+
+  Matches if the value of the counter does not equal this value.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+- `gt` (optional):
+
+  Matches if the value of the counter is greater than this value.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+- `ge` (optional):
+
+  Matches if the value of the counter is greater than or equal to this value.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+- `lt` (optional):
+
+  Matches if the value of the counter is less than this value.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+- `le` (optional):
+
+  Matches if the value of the counter is less than or equal to this value.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+
+<a name="types-TriggerMatchExactly"></a>
+### `TriggerMatchExactly`
+
+Criterion for matching a specific number of trigger criteria.
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `num` (required):
+
+  The number of criteria that must match.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+  The numbers should be greater than or equal to 0.
+
+- `list` (required):
+
+  The list of criteria.
+
+  The value of this field should be an array of [TriggerMatchs](#types-TriggerMatch).
+
+
 <a name="types-UiDrag"></a>
 ### `UiDrag`
 
@@ -6061,6 +6371,10 @@ The table has the following fields:
   The number of criteria that must match.
 
   The value of this field should be a number.
+
+  The numbers should be integers.
+
+  The numbers should be greater than or equal to 0.
 
 - `list` (required):
 

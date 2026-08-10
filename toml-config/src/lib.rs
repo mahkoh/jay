@@ -31,9 +31,11 @@ use crate::config::OutputMatch;
 use crate::config::SimpleCommand;
 use crate::config::Status;
 use crate::config::Theme;
+use crate::config::TomlTrigger;
 use crate::config::TomlWorkspace;
 pub use crate::config::WindowMatch;
 use crate::config::WindowRule;
+use crate::config::counter::Counter;
 pub use crate::config::parse_client_match;
 use crate::config::parse_config;
 pub use crate::config::parse_window_match;
@@ -606,6 +608,22 @@ impl Action {
                 let workspace = ws.ws.get();
                 b.new(move || workspace.hide())
             }
+            Action::AdjCounter { counter, delta } => {
+                let counter = counter.build(state);
+                b.new(move || {
+                    if let Some(c) = counter.upgrade() {
+                        c.adjust(delta);
+                    }
+                })
+            }
+            Action::SetCounter { counter, value } => {
+                let counter = counter.build(state);
+                b.new(move || {
+                    if let Some(c) = counter.upgrade() {
+                        c.set(value);
+                    }
+                })
+            }
         }
     }
 }
@@ -1057,6 +1075,8 @@ struct State {
     window: Cell<Option<Option<Window>>>,
 
     workspaces: Vec<TomlWorkspace>,
+
+    max_trigger_depth: u64,
 }
 
 impl Drop for State {
@@ -1287,6 +1307,8 @@ struct PersistentState {
     watcher_handle: RefCell<Option<JoinHandle<()>>>,
     last_config: RefCell<Option<Vec<u8>>>,
     workspaces_with_initial_outputs: RefCell<AHashSet<Workspace>>,
+    triggers: RefCell<Vec<Rc<TomlTrigger>>>,
+    counters: RefCell<Vec<Rc<Counter>>>,
 }
 
 async fn watch_config(persistent: Rc<PersistentState>) {
@@ -1592,7 +1614,10 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
         client: Default::default(),
         window: Default::default(),
         workspaces: workspaces.values().map(|v| v.to_toml()).collect(),
+        max_trigger_depth: config.max_trigger_depth,
     });
+    persistent.triggers.borrow_mut().clear();
+    persistent.counters.borrow_mut().clear();
     state.clear_modes_after_reload();
     let (client_rules, client_rule_mapper) = state.create_rules(&config.client_rules);
     persistent.client_rules.set(client_rules);
@@ -1911,6 +1936,11 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     if let Some(v) = config.cursor_size {
         persistent.seat.set_cursor_size(v);
     }
+    for trigger in &config.triggers {
+        if let Some(trigger) = trigger.build(&state).upgrade() {
+            trigger.check_active();
+        }
+    }
 }
 
 fn create_command(exec: &Exec) -> Command {
@@ -1945,6 +1975,8 @@ pub fn configure() {
         watcher_handle: Default::default(),
         last_config: Default::default(),
         workspaces_with_initial_outputs: Default::default(),
+        triggers: Default::default(),
+        counters: Default::default(),
     });
     {
         let p = persistent.clone();
@@ -1952,6 +1984,8 @@ pub fn configure() {
             p.actions.borrow_mut().clear();
             p.client_rule_mapper.borrow_mut().take();
             p.mode_state.clear();
+            p.triggers.borrow_mut().clear();
+            p.counters.borrow_mut().clear();
         });
     }
     load_config(true, false, &persistent);

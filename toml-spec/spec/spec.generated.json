@@ -727,6 +727,70 @@
                 "type",
                 "name"
               ]
+            },
+            {
+              "description": "Increments the value of a counter",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "inc-counter"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "The name of the counter."
+                },
+                "delta": {
+                  "type": "integer",
+                  "description": "The delta to increase the counter by. Defaults to `1`."
+                }
+              },
+              "required": [
+                "type",
+                "name"
+              ]
+            },
+            {
+              "description": "Decrements the value of a counter",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "dec-counter"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "The name of the counter."
+                },
+                "delta": {
+                  "type": "integer",
+                  "description": "The delta to decrease the counter by. Defaults to `1`."
+                }
+              },
+              "required": [
+                "type",
+                "name"
+              ]
+            },
+            {
+              "description": "Sets the value of a counter",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "set-counter"
+                },
+                "name": {
+                  "type": "string",
+                  "description": "The name of the counter."
+                },
+                "value": {
+                  "type": "integer",
+                  "description": "The value to set the counter to."
+                }
+              },
+              "required": [
+                "type",
+                "name",
+                "value"
+              ]
             }
           ]
         }
@@ -930,8 +994,9 @@
       "type": "object",
       "properties": {
         "num": {
-          "type": "number",
-          "description": "The number of criteria that must match."
+          "type": "integer",
+          "description": "The number of criteria that must match.",
+          "minimum": 0.0
         },
         "list": {
           "type": "array",
@@ -1304,6 +1369,19 @@
         "device-config-filter": {
           "description": "Determines which devices are automatically configured.",
           "$ref": "#/$defs/DeviceConfigFilter"
+        },
+        "triggers": {
+          "type": "array",
+          "description": "The triggers.\n\nSee the documentation of the type for details.\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/Trigger"
+          }
+        },
+        "max-trigger-depth": {
+          "type": "integer",
+          "description": "The maximum call depth of triggers. This setting prevents infinite recursion when\nusing triggers that themselves trigger other triggers. Setting this value to 0 or\nless disables triggers completely. The default is `16`.\n",
+          "minimum": 0.0
         }
       },
       "required": []
@@ -2523,6 +2601,133 @@
         "flip-rotate-270"
       ]
     },
+    "Trigger": {
+      "description": "A trigger.\n\nTriggers can be used to act on changes to counter values. This allows combining the\neffects of multiple different objects (e.g. shortcuts, window rules, and client rules)\ninto a single action.\n\n- Example 1\n\n  This counter sends a notification when the first alacritty window opens or the last\n  alacritty window closes.\n\n  ```toml\n  [[triggers]]\n  match.counter.num-alacritty.gt = 0\n  action = { type = \"exec\", exec.shell = \"notify-send 'first alacritty opened'\"}\n  latch  = { type = \"exec\", exec.shell = \"notify-send 'last alacritty closed'\"}\n\n  [[windows]]\n  match.client.comm = \"alacritty\"\n  action = { type = \"inc-counter\", name = \"num-alacritty\" }\n  latch  = { type = \"dec-counter\", name = \"num-alacritty\" }\n  ```\n\n- Example 2\n\n  Trigger an action when between 2 and 4 alacritty windows are open.\n\n  ```toml\n  [[triggers]]\n  match.counter.num-alacritty.ge = 2\n  match.counter.num-alacritty.le = 4\n  # action = ...\n  ```\n\n- Example 3\n\n  Trigger an action when alt-x is pressed or there is at least one alacritty window,\n  but not both.\n\n  ```toml\n  [[triggers]]\n  match.exactly.num = 1\n  match.exactly.list = [\n    { counter.num-alacritty.ne = 0 },\n    { counter.alt-x-pressed.ne = 0 },\n  ]\n  # action = ...\n\n  [complex-shortcuts.alt-x]\n  action = { type = \"inc-counter\", name = \"alt-x-pressed\" }\n  latch  = { type = \"dec-counter\", name = \"alt-x-pressed\" }\n  ```\n",
+      "type": "object",
+      "properties": {
+        "match": {
+          "description": "The criterion that determines when the trigger is active.\n",
+          "$ref": "#/$defs/TriggerMatch"
+        },
+        "action": {
+          "description": "An action to execute when the trigger criterion starts matching.\n",
+          "$ref": "#/$defs/Action"
+        },
+        "latch": {
+          "description": "An action to execute when the trigger criterion stops matching.\n",
+          "$ref": "#/$defs/Action"
+        }
+      },
+      "required": [
+        "match"
+      ]
+    },
+    "TriggerMatch": {
+      "description": "A criterion under which a trigger becomes active.\n",
+      "anyOf": [
+        {
+          "type": "array",
+          "description": "Matches if any of the contained criteria match.\n",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/TriggerMatch"
+          }
+        },
+        {
+          "description": "A criterion under which a trigger becomes active.\n\nIf multiple fields are used, all must match.\n",
+          "type": "object",
+          "properties": {
+            "not": {
+              "description": "Matches if the contained criterion doesn't match.\n",
+              "$ref": "#/$defs/TriggerMatch"
+            },
+            "all": {
+              "type": "array",
+              "description": "Matches if all of the contained criteria match.\n",
+              "items": {
+                "description": "",
+                "$ref": "#/$defs/TriggerMatch"
+              }
+            },
+            "any": {
+              "type": "array",
+              "description": "Matches if any of the contained criteria match.\n",
+              "items": {
+                "description": "",
+                "$ref": "#/$defs/TriggerMatch"
+              }
+            },
+            "exactly": {
+              "description": "Matches if a specific number of contained criteria match.\n",
+              "$ref": "#/$defs/TriggerMatchExactly"
+            },
+            "counter": {
+              "description": "Matches if the counter criteria match.\n",
+              "type": "object",
+              "additionalProperties": {
+                "description": "",
+                "$ref": "#/$defs/TriggerMatchCounter"
+              }
+            }
+          },
+          "required": []
+        }
+      ]
+    },
+    "TriggerMatchCounter": {
+      "description": "A trigger criterion that matches a counter.\n\nIf more than one condition is specified, all must match.\n\n- Example:\n\n  Matches if the value of `my-counter` is `>= 2` and `!= 5`.\n\n  ```toml\n  [[triggers]]\n  match.counter.my-counter = { ge = 2, ne = 5 }\n  ```\n",
+      "type": "object",
+      "properties": {
+        "eq": {
+          "type": "integer",
+          "description": "Matches if the value of the counter equals this value."
+        },
+        "ne": {
+          "type": "integer",
+          "description": "Matches if the value of the counter does not equal this value."
+        },
+        "gt": {
+          "type": "integer",
+          "description": "Matches if the value of the counter is greater than this value."
+        },
+        "ge": {
+          "type": "integer",
+          "description": "Matches if the value of the counter is greater than or equal to this value."
+        },
+        "lt": {
+          "type": "integer",
+          "description": "Matches if the value of the counter is less than this value."
+        },
+        "le": {
+          "type": "integer",
+          "description": "Matches if the value of the counter is less than or equal to this value."
+        }
+      },
+      "required": []
+    },
+    "TriggerMatchExactly": {
+      "description": "Criterion for matching a specific number of trigger criteria.\n",
+      "type": "object",
+      "properties": {
+        "num": {
+          "type": "integer",
+          "description": "The number of criteria that must match.",
+          "minimum": 0.0
+        },
+        "list": {
+          "type": "array",
+          "description": "The list of criteria.",
+          "items": {
+            "description": "",
+            "$ref": "#/$defs/TriggerMatch"
+          }
+        }
+      },
+      "required": [
+        "num",
+        "list"
+      ]
+    },
     "UiDrag": {
       "description": "Describes ui-drag settings.\n\n- Example:\n\n  ```toml\n  ui-drag = { enabled = false, threshold = 20 }\n  ```\n",
       "type": "object",
@@ -2709,8 +2914,9 @@
       "type": "object",
       "properties": {
         "num": {
-          "type": "number",
-          "description": "The number of criteria that must match."
+          "type": "integer",
+          "description": "The number of criteria that must match.",
+          "minimum": 0.0
         },
         "list": {
           "type": "array",

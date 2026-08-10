@@ -56,6 +56,7 @@ mod tearing;
 mod theme;
 mod tile_state;
 pub mod transactions;
+pub mod trigger;
 mod ui_drag;
 mod vrr;
 pub mod window_match;
@@ -97,6 +98,7 @@ where
         used: Default::default(),
         mark_names: &Default::default(),
         workspaces: RefCell::new(&mut workspaces),
+        counters: Default::default(),
     };
     #[derive(Debug, Error)]
     #[error("Could not parse the toml")]
