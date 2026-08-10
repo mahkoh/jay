@@ -11,6 +11,7 @@ mod phf_map;
 mod rules;
 mod shortcuts;
 mod toml;
+mod weak_once_cell;
 
 use crate::config::Action;
 pub use crate::config::ClientMatch;
