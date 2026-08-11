@@ -22,6 +22,7 @@ pub mod condition;
 pub mod const_slice;
 pub mod copyhashmap;
 pub mod cow_ext;
+pub mod cross_process_ring_buffer;
 pub mod data_dir;
 pub mod double_buffered;
 pub mod double_click_state;
