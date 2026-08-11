@@ -105,6 +105,7 @@ use crate::state::DeviceHandlerData;
 use crate::state::State;
 use crate::tree::ContainerNode;
 use crate::tree::ContainerSplit;
+use crate::tree::ContainerTarget;
 use crate::tree::Direction;
 use crate::tree::FoundNode;
 use crate::tree::Node;
@@ -122,9 +123,10 @@ use crate::tree::WorkspaceNode;
 use crate::tree::generic_node_visitor;
 use crate::tree::toplevel_create_split;
 use crate::tree::toplevel_data_parent_container;
-use crate::tree::toplevel_parent_container;
 use crate::tree::toplevel_set_floating;
+use crate::tree::toplevel_set_target_mono;
 use crate::tree::toplevel_set_workspace;
+use crate::tree::toplevel_target_container;
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::bhash::BHashMap;
 use crate::utils::bindings::PerClientBindings;
@@ -775,32 +777,29 @@ impl WlSeatGlobal {
         self.kb_owner.ungrab(self);
     }
 
-    pub fn kb_parent_container(&self) -> Option<Rc<ContainerNode>> {
+    pub fn kb_target_container(&self, target: ContainerTarget) -> Option<Rc<ContainerNode>> {
         let tl = self.keyboard_node.get().node_toplevel()?;
-        toplevel_parent_container(&*tl)
+        toplevel_target_container(&tl, target)
     }
 
-    pub fn get_mono(&self) -> Option<bool> {
-        self.kb_parent_container()
+    pub fn get_mono(&self, target: ContainerTarget) -> Option<bool> {
+        self.kb_target_container(target)
             .map(|c| c.node_state[LiveTL].mono_child.is_some())
     }
 
-    pub fn get_split(&self) -> Option<ContainerSplit> {
-        self.kb_parent_container()
+    pub fn get_split(&self, target: ContainerTarget) -> Option<ContainerSplit> {
+        self.kb_target_container(target)
             .map(|c| c.node_state[LiveTL].split.get())
     }
 
-    pub fn set_mono(&self, mono: bool) {
-        if let Some(tl) = self.keyboard_node.get().node_toplevel()
-            && let Some(container) = toplevel_parent_container(&*tl)
-        {
-            let node = if mono { Some(tl.deref()) } else { None };
-            container.set_mono(node);
+    pub fn set_mono(&self, target: ContainerTarget, mono: bool) {
+        if let Some(tl) = self.keyboard_node.get().node_toplevel() {
+            toplevel_set_target_mono(&tl, target, mono);
         }
     }
 
-    pub fn set_split(&self, axis: ContainerSplit) {
-        if let Some(c) = self.kb_parent_container() {
+    pub fn set_split(&self, target: ContainerTarget, axis: ContainerSplit) {
+        if let Some(c) = self.kb_target_container(target) {
             c.set_split(axis);
         }
     }

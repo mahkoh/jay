@@ -21,6 +21,7 @@ use crate::_private::ipc::ServerMessage;
 use crate::_private::ipc::WorkspaceSource;
 use crate::_private::logging;
 use crate::Axis;
+use crate::ContainerTarget;
 use crate::Direction;
 use crate::ModifiedKeySym;
 use crate::PciId;
@@ -928,6 +929,56 @@ impl ConfigClient {
 
     pub fn create_window_split(&self, window: Window, axis: Axis) {
         self.send(&ClientMessage::CreateWindowSplit { window, axis });
+    }
+
+    pub fn seat_container_mono(&self, seat: Seat, target: ContainerTarget) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetSeatContainerMono { seat, target });
+        get_response!(res, false, GetMono { mono });
+        mono
+    }
+
+    pub fn set_seat_container_mono(&self, seat: Seat, target: ContainerTarget, mono: bool) {
+        self.send(&ClientMessage::SetSeatContainerMono { seat, target, mono });
+    }
+
+    pub fn seat_container_split(&self, seat: Seat, target: ContainerTarget) -> Axis {
+        let res = self.send_with_response(&ClientMessage::GetSeatContainerSplit { seat, target });
+        get_response!(res, Axis::Horizontal, GetSplit { axis });
+        axis
+    }
+
+    pub fn set_seat_container_split(&self, seat: Seat, target: ContainerTarget, axis: Axis) {
+        self.send(&ClientMessage::SetSeatContainerSplit { seat, target, axis });
+    }
+
+    pub fn window_container_mono(&self, window: Window, target: ContainerTarget) -> bool {
+        let res =
+            self.send_with_response(&ClientMessage::GetWindowContainerMono { window, target });
+        get_response!(res, false, GetWindowMono { mono });
+        mono
+    }
+
+    pub fn set_window_container_mono(&self, window: Window, target: ContainerTarget, mono: bool) {
+        self.send(&ClientMessage::SetWindowContainerMono {
+            window,
+            target,
+            mono,
+        });
+    }
+
+    pub fn window_container_split(&self, window: Window, target: ContainerTarget) -> Axis {
+        let res =
+            self.send_with_response(&ClientMessage::GetWindowContainerSplit { window, target });
+        get_response!(res, Axis::Horizontal, GetWindowSplit { axis });
+        axis
+    }
+
+    pub fn set_window_container_split(&self, window: Window, target: ContainerTarget, axis: Axis) {
+        self.send(&ClientMessage::SetWindowContainerSplit {
+            window,
+            target,
+            axis,
+        });
     }
 
     pub fn seat_close(&self, seat: Seat) {

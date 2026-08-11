@@ -1053,3 +1053,10 @@ impl<T> LinkedList<TreeLink<T>> {
         self.rev_iter_valid(tl).next()
     }
 }
+
+#[derive(Copy, Clone)]
+pub enum ContainerTarget {
+    Parent,
+    Itself,
+    Auto,
+}

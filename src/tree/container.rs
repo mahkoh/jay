@@ -58,6 +58,7 @@ use crate::tree::toplevel_set_workspace;
 use crate::tree::walker::NodeVisitor;
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::bhash::BHashMap;
+use crate::utils::bool_ext::BoolExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::double_click_state::DoubleClickState;
 use crate::utils::errorfmt::ErrorFmt;
@@ -1518,11 +1519,12 @@ impl ContainerNode {
     }
 
     fn toggle_mono(self: &Rc<Self>) {
-        if self.node_state[LiveTL].mono_child.is_some() {
-            self.set_mono(None);
-        } else if let Some(last) = self.last_focus_or_last() {
-            self.set_mono(Some(&*last.node));
-        }
+        self.set_own_mono(self.node_state[LiveTL].mono_child.is_none());
+    }
+
+    pub fn set_own_mono(self: &Rc<Self>, mono: bool) {
+        let child = mono.and_then(|| self.last_focus_or_last());
+        self.set_mono(child.as_ref().map(|c| &*c.node));
     }
 
     fn last_focus_or_last(&self) -> Option<NodeRef<ContainerChild>> {

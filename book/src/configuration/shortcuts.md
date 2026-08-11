@@ -285,6 +285,21 @@ alt-0     = { type = "set-counter", name = "my-counter", value = 0 }
 See [Counters & Triggers](../counters-and-triggers.md) for how to react to the
 resulting values.
 
+### Container actions
+
+The container actions -- `toggle-split`, `tile-horizontal`, `tile-vertical`,
+`toggle-mono`, `show-single`, and `show-all` -- apply to the parent container
+of the window.
+
+In table form, `target` selects a different container: `parent` (the default),
+`self` (the window itself, which must be a container), or `auto` (the window
+itself if it is a container, otherwise its parent).
+
+```toml
+[shortcuts]
+alt-t = { type = "toggle-split", target = "auto" }
+```
+
 ### Other parameterized actions
 
 - `set-keymap` -- change the active keymap
@@ -639,11 +654,13 @@ When certain simple actions are used inside a [window rule](../window-rules.md),
 they apply to the **matched window** instead of the focused window. The
 affected actions are: `move-left`, `move-down`, `move-up`, `move-right`,
 `split-horizontal`, `split-vertical`, `toggle-split`, `tile-horizontal`,
-`tile-vertical`, `show-single`, `show-all`, `toggle-fullscreen`,
+`tile-vertical`, `toggle-mono`, `show-single`, `show-all`, `toggle-fullscreen`,
 `enter-fullscreen`, `exit-fullscreen`, `close`, `toggle-floating`, `float`,
 `tile`, `toggle-float-pinned`, `pin-float`, and `unpin-float`.
 
-The parameterized `resize` action also applies to the matched window.
+The parameterized `resize` action also applies to the matched window. For a
+rule that matches a container, give the
+[container actions](#container-actions) `target = "self"`.
 
 Similarly, `kill-client` applies to the matched window's client in a window
 rule, or to the matched client in a client rule.
