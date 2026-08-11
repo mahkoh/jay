@@ -15,7 +15,6 @@ mod toml;
 use crate::config::Action;
 pub use crate::config::ClientMatch;
 use crate::config::ClientRule;
-use crate::config::Config;
 use crate::config::ConfigConnector;
 use crate::config::ConfigDrmDevice;
 use crate::config::ConfigKeymap;
@@ -1276,7 +1275,6 @@ struct OutputId {
 
 struct PersistentState {
     seen_outputs: RefCell<AHashSet<OutputId>>,
-    default: Config,
     seat: Seat,
     #[allow(clippy::type_complexity)]
     actions: RefCell<AHashMap<Rc<String>, Rc<dyn Fn()>>>,
@@ -1472,6 +1470,12 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     path.push(CONFIG_TOML);
     let mut last_config = persistent.last_config.borrow_mut();
     let mut workspaces = Default::default();
+    let parse_default_config = |workspaces| {
+        parse_config(DEFAULT, &persistent.mark_names, workspaces, |e| {
+            panic!("Could not parse the default config: {}", Report::new(e))
+        })
+        .unwrap()
+    };
     let mut config = match std::fs::read(&path) {
         Ok(input) => {
             if auto_reload {
@@ -1487,7 +1491,7 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
             match parsed {
                 None if initial_load => {
                     log::warn!("Using default config instead");
-                    persistent.default.clone()
+                    parse_default_config(&mut workspaces)
                 }
                 None => {
                     log::warn!("Ignoring config reload");
@@ -1504,7 +1508,7 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
                 log::info!("Auto reloading config")
             }
             log::info!("{} does not exist. Using default config.", path.display());
-            persistent.default.clone()
+            parse_default_config(&mut workspaces)
         }
         Err(e) => {
             log::warn!("Could not load {}: {}", path.display(), Report::new(e));
@@ -1928,19 +1932,14 @@ fn create_command(exec: &Exec) -> Command {
 pub const DEFAULT: &[u8] = include_bytes!("default-config.toml");
 
 pub fn configure() {
-    let mark_names = Default::default();
-    let default = parse_config(DEFAULT, &mark_names, &mut Default::default(), |e| {
-        panic!("Could not parse the default config: {}", Report::new(e))
-    });
     let persistent = Rc::new(PersistentState {
         seen_outputs: Default::default(),
-        default: default.unwrap(),
         seat: default_seat(),
         actions: Default::default(),
         client_rules: Default::default(),
         client_rule_mapper: Default::default(),
         window_rules: Default::default(),
-        mark_names,
+        mark_names: Default::default(),
         mode_state: Default::default(),
         watcher_handle: Default::default(),
         last_config: Default::default(),

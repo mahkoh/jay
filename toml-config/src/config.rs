@@ -644,6 +644,7 @@ pub fn parse_config<F>(
 where
     F: FnOnce(&dyn Error),
 {
+    workspaces.clear();
     let cx = Context {
         input,
         used: Default::default(),
@@ -698,6 +699,6 @@ where
 
 #[test]
 fn default_config_parses() {
-    let input = include_bytes!("default-config.toml");
+    let input = crate::DEFAULT;
     parse_config(input, &Default::default(), &mut Default::default(), |_| ()).unwrap();
 }
