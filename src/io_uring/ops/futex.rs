@@ -10,6 +10,7 @@ use crate::io_uring::sys::IORING_OP_FUTEX_WAKE;
 use crate::io_uring::sys::io_uring_sqe;
 use std::rc::Rc;
 use std::sync::atomic::AtomicU32;
+use uapi::c::EAGAIN;
 
 pub trait FutexObj: 'static {
     fn get(&self) -> &AtomicU32;
@@ -124,7 +125,10 @@ unsafe impl Task for FutexWaitTask {
         self.id
     }
 
-    fn complete(mut self: Box<Self>, ring: &IoUringData, res: i32) {
+    fn complete(mut self: Box<Self>, ring: &IoUringData, mut res: i32) {
+        if res == -EAGAIN {
+            res = 0;
+        }
         if let Some(data) = self.data.take() {
             data.pr.complete(res);
         }
