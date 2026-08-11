@@ -37,6 +37,7 @@ use jay_config::keyboard::syms::KeySym;
 use jay_config::video::Connector;
 use jay_config::video::DrmDevice;
 use jay_config::window::{self};
+use jay_config::workspace::WorkspaceLayout;
 use libloading::Library;
 use std::cell::Cell;
 use std::mem;
@@ -210,6 +211,10 @@ impl ConfigProxy {
 
     pub fn initial_output_for_workspace(&self, name: &str) -> Option<Option<Rc<OutputNode>>> {
         self.handler.get()?.initial_output_for_workspace(name)
+    }
+
+    pub fn initial_layout_for_workspace(&self, name: &str) -> Option<WorkspaceLayout> {
+        self.handler.get()?.initial_layout_for_workspace(name)
     }
 
     pub fn update_capabilities(

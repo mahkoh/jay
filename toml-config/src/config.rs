@@ -64,6 +64,7 @@ use jay_config::window::ContentType;
 use jay_config::window::TileState;
 use jay_config::window::WindowType;
 use jay_config::workspace::WorkspaceDisplayOrder;
+use jay_config::workspace::WorkspaceLayout;
 use jay_config::xwayland::XScalingMode;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -250,6 +251,7 @@ pub struct TomlWorkspace {
     pub _ty: WorkspaceType,
     pub output: Option<Rc<OutputMatch>>,
     pub output_matched: Cell<Option<Connector>>,
+    pub layout: Option<WorkspaceLayout>,
 }
 
 #[derive(Debug, Clone, Default)]

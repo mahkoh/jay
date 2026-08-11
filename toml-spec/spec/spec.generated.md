@@ -5609,6 +5609,37 @@ The table has the following fields:
   The value of this field should be a [ContainerBorders](#types-ContainerBorders).
 
 
+<a name="types-TileDirection"></a>
+### `TileDirection`
+
+The direction in which a tiled container is split.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `horizontal`:
+
+  The children are placed next to each other. This is the default.
+
+- `vertical`:
+
+  The children are placed on top of each other.
+
+- `major`:
+
+  The children are placed along the larger dimension of the workspace. That is,
+  on top of each other if the workspace is higher than it is wide and next to
+  each other otherwise.
+
+- `minor`:
+
+  The children are placed along the smaller dimension of the workspace. That is,
+  on top of each other if the workspace is wider than it is high and next to
+  each other otherwise.
+
+
+
 <a name="types-TileState"></a>
 ### `TileState`
 
@@ -6521,6 +6552,18 @@ The table has the following fields:
 
   The value of this field should be a [OutputMatch](#types-OutputMatch).
 
+- `initial-layout` (optional):
+
+  The initial layout of the root container of the workspace.
+  
+  This determines how the first windows on the workspace are tiled. Once the
+  root container exists, its layout can be changed as usual and this setting
+  has no further effect.
+  
+  The default is `{ type = "tile" }`.
+
+  The value of this field should be a [WorkspaceLayout](#types-WorkspaceLayout).
+
 
 <a name="types-WorkspaceDisplayOrder"></a>
 ### `WorkspaceDisplayOrder`
@@ -6539,6 +6582,50 @@ The string should have one of the following values:
 
   Workspaces are sorted using natural ordering and cannot be manually dragged.
 
+
+
+<a name="types-WorkspaceLayout"></a>
+### `WorkspaceLayout`
+
+The initial layout of the root container of a workspace.
+
+Values of this type should be tables.
+
+This table is a tagged union. The variant is determined by the `type` field. It takes one of the following values:
+
+- `tile`:
+
+  The container is created in tiled mode.
+  
+  - Example:
+  
+    ```toml
+    [workspaces."1"]
+    initial-layout = { type = "tile", direction = "major" }
+    ```
+
+  The table has the following fields:
+
+  - `direction` (optional):
+
+    The direction in which the container is split.
+    
+    The default is `horizontal`.
+
+    The value of this field should be a [TileDirection](#types-TileDirection).
+
+- `mono`:
+
+  The container is created in mono mode.
+  
+  - Example:
+  
+    ```toml
+    [workspaces."1"]
+    initial-layout = { type = "mono" }
+    ```
+
+  The table has no fields.
 
 
 <a name="types-WorkspaceType"></a>

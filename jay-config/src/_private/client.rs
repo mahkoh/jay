@@ -82,6 +82,7 @@ use crate::window::WindowCriterion;
 use crate::window::WindowMatcher;
 use crate::window::WindowType;
 use crate::workspace::WorkspaceDisplayOrder;
+use crate::workspace::WorkspaceLayout;
 use crate::xwayland::XScalingMode;
 use bincode::Options;
 use futures_util::task::ArcWake;
@@ -2250,6 +2251,14 @@ impl ConfigClient {
             workspace,
             connector,
         });
+    }
+
+    pub fn set_workspace_initial_layout(
+        &self,
+        workspace: Workspace,
+        layout: Option<WorkspaceLayout>,
+    ) {
+        self.send(&ClientMessage::SetWorkspaceInitialLayout { workspace, layout });
     }
 
     pub fn parse_keymap_2(&self, builder: KeymapBuilder<'_>) -> Keymap {

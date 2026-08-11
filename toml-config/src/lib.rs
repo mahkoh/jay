@@ -1309,6 +1309,7 @@ struct PersistentState {
     workspaces_with_initial_outputs: RefCell<AHashSet<Workspace>>,
     triggers: RefCell<Vec<Rc<TomlTrigger>>>,
     counters: RefCell<Vec<Rc<Counter>>>,
+    workspaces_with_initial_layouts: RefCell<AHashSet<Workspace>>,
 }
 
 async fn watch_config(persistent: Rc<PersistentState>) {
@@ -1546,6 +1547,13 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
         .drain()
     {
         ws.set_initial_connector(None);
+    }
+    for ws in persistent
+        .workspaces_with_initial_layouts
+        .borrow_mut()
+        .drain()
+    {
+        ws.set_initial_layout(None);
     }
     if let Some(auto_reload) = config.auto_reload {
         if auto_reload {
@@ -1813,6 +1821,7 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     }
     for ws in &state.workspaces {
         ws.determine_initial_output2(&state, &connectors);
+        ws.apply_initial_layout(&state);
     }
     for c in jay_config::input::input_devices() {
         state.add_io_input(c);
@@ -1977,6 +1986,7 @@ pub fn configure() {
         workspaces_with_initial_outputs: Default::default(),
         triggers: Default::default(),
         counters: Default::default(),
+        workspaces_with_initial_layouts: Default::default(),
     });
     {
         let p = persistent.clone();

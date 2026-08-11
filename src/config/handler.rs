@@ -151,6 +151,7 @@ use jay_config::window::TileState as ConfigTileState;
 use jay_config::window::Window;
 use jay_config::window::WindowMatcher;
 use jay_config::workspace::WorkspaceDisplayOrder;
+use jay_config::workspace::WorkspaceLayout;
 use jay_config::xwayland::XScalingMode;
 use kbvm::GroupIndex;
 use kbvm::Keycode;
@@ -239,6 +240,7 @@ pub struct ConfigWorkspace {
     name: String,
     ty: Cell<WorkspaceType>,
     initial_connector: Cell<Option<Connector>>,
+    initial_layout: Cell<Option<WorkspaceLayout>>,
 }
 
 pub struct Pollable {
@@ -331,6 +333,7 @@ impl ConfigProxyHandler {
                     name: name.to_string(),
                     ty: Cell::new(ty),
                     initial_connector: Default::default(),
+                    initial_layout: Default::default(),
                 });
                 self.workspaces_by_name.set(name.clone(), ws.clone());
                 self.workspaces_by_id.set(id, ws);
@@ -3319,6 +3322,16 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_workspace_initial_layout(
+        &self,
+        workspace: Workspace,
+        layout: Option<WorkspaceLayout>,
+    ) -> Result<(), CphError> {
+        let ws = self.get_workspace(workspace)?;
+        ws.initial_layout.set(layout);
+        Ok(())
+    }
+
     pub fn handle_request(self: &Rc<Self>, msg: &[u8]) {
         if let Err(e) = self.handle_request_(msg) {
             log::error!("Could not handle client request: {}", ErrorFmt(e));
@@ -4089,6 +4102,9 @@ impl ConfigProxyHandler {
             ClientMessage::GetPlaneColorPipelinesEnabled { device } => self
                 .handle_get_plane_color_pipelines_enabled(device)
                 .wrn("get_plane_color_pipelines_enabled")?,
+            ClientMessage::SetWorkspaceInitialLayout { workspace, layout } => self
+                .handle_set_workspace_initial_layout(workspace, layout)
+                .wrn("set_workspace_initial_layout")?,
         }
         Ok(())
     }
@@ -4115,6 +4131,10 @@ impl ConfigProxyHandler {
         let ws = self.workspaces_by_name.get(name)?;
         let connector = ws.initial_connector.get()?;
         Some(self.get_output_node(connector).ok())
+    }
+
+    pub fn initial_layout_for_workspace(&self, name: &str) -> Option<WorkspaceLayout> {
+        self.workspaces_by_name.get(name)?.initial_layout.get()
     }
 
     pub fn update_capabilities(

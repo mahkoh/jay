@@ -5110,6 +5110,74 @@ Workspace:
 
         If this setting is not used, then the initial output will be inferred from the
         output set in a `show-workspace` action, if possible.
+    initial-layout:
+      ref: WorkspaceLayout
+      required: false
+      description: |
+        The initial layout of the root container of the workspace.
+
+        This determines how the first windows on the workspace are tiled. Once the
+        root container exists, its layout can be changed as usual and this setting
+        has no further effect.
+
+        The default is `{ type = "tile" }`.
+
+
+WorkspaceLayout:
+  description: |
+    The initial layout of the root container of a workspace.
+  kind: table
+  types:
+    tile:
+      description: |
+        The container is created in tiled mode.
+
+        - Example:
+
+          ```toml
+          [workspaces."1"]
+          initial-layout = { type = "tile", direction = "major" }
+          ```
+      fields:
+        direction:
+          ref: TileDirection
+          required: false
+          description: |
+            The direction in which the container is split.
+
+            The default is `horizontal`.
+    mono:
+      description: |
+        The container is created in mono mode.
+
+        - Example:
+
+          ```toml
+          [workspaces."1"]
+          initial-layout = { type = "mono" }
+          ```
+      fields: {}
+
+
+TileDirection:
+  description: |
+    The direction in which a tiled container is split.
+  kind: string
+  values:
+    - value: horizontal
+      description: The children are placed next to each other. This is the default.
+    - value: vertical
+      description: The children are placed on top of each other.
+    - value: major
+      description: |
+        The children are placed along the larger dimension of the workspace. That is,
+        on top of each other if the workspace is higher than it is wide and next to
+        each other otherwise.
+    - value: minor
+      description: |
+        The children are placed along the smaller dimension of the workspace. That is,
+        on top of each other if the workspace is wider than it is high and next to
+        each other otherwise.
 
 
 WorkspaceType:

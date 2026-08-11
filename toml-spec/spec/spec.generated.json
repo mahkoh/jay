@@ -2543,6 +2543,16 @@
       },
       "required": []
     },
+    "TileDirection": {
+      "type": "string",
+      "description": "The direction in which a tiled container is split.\n",
+      "enum": [
+        "horizontal",
+        "vertical",
+        "major",
+        "minor"
+      ]
+    },
     "TileState": {
       "type": "string",
       "description": "Whether a window is tiled or floating.",
@@ -2999,6 +3009,10 @@
         "initial-output": {
           "description": "The initial output of the workspace.\n\nThis setting can be overwritten with the `output` field in `show-workspace`\nactions. If that field is not used or the workspace is created via some other\nmechanism, it will be created on the output set via this setting, if possible.\n\nIf the matcher matches multiple outputs, the selected output is undefined.\n\nIf this setting is not used, then the initial output will be inferred from the\noutput set in a `show-workspace` action, if possible.\n",
           "$ref": "#/$defs/OutputMatch"
+        },
+        "initial-layout": {
+          "description": "The initial layout of the root container of the workspace.\n\nThis determines how the first windows on the workspace are tiled. Once the\nroot container exists, its layout can be changed as usual and this setting\nhas no further effect.\n\nThe default is `{ type = \"tile\" }`.\n",
+          "$ref": "#/$defs/WorkspaceLayout"
         }
       },
       "required": []
@@ -3009,6 +3023,39 @@
       "enum": [
         "manual",
         "sorted"
+      ]
+    },
+    "WorkspaceLayout": {
+      "description": "The initial layout of the root container of a workspace.\n",
+      "anyOf": [
+        {
+          "description": "The container is created in tiled mode.\n\n- Example:\n\n  ```toml\n  [workspaces.\"1\"]\n  initial-layout = { type = \"tile\", direction = \"major\" }\n  ```\n",
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "tile"
+            },
+            "direction": {
+              "description": "The direction in which the container is split.\n\nThe default is `horizontal`.\n",
+              "$ref": "#/$defs/TileDirection"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        {
+          "description": "The container is created in mono mode.\n\n- Example:\n\n  ```toml\n  [workspaces.\"1\"]\n  initial-layout = { type = \"mono\" }\n  ```\n",
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "mono"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        }
       ]
     },
     "WorkspaceType": {

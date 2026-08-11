@@ -24,7 +24,6 @@ use crate::ifs::xdg_toplevel_drag_v1::XdgToplevelDragV1;
 use crate::rect::Rect;
 use crate::time::Time;
 use crate::tree::ContainerNode;
-use crate::tree::ContainerSplit;
 use crate::tree::ContainingNode;
 use crate::tree::FindTreeUsecase;
 use crate::tree::FoundNode;
@@ -1594,13 +1593,8 @@ impl UiDragUsecase for TileDragUsecase {
         };
         let new_container = |workspace: &Rc<WorkspaceNode>| {
             src_parent.clone().cnode_remove_child2(&*src, true);
-            let cn = ContainerNode::new(
-                &seat.state,
-                &workspace,
-                src.clone(),
-                ContainerSplit::Horizontal,
-            );
-            workspace.set_container(&cn);
+            seat.state
+                .create_workspace_container(workspace, src.clone());
         };
         match dest {
             TddType::Replace(dst) => {

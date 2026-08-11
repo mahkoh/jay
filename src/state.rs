@@ -248,6 +248,8 @@ use crate::xwayland::{self};
 use bstr::ByteSlice;
 use isnt::std_1::primitive::IsntSliceExt;
 use jay_config::PciId;
+use jay_config::workspace::TileDirection;
+use jay_config::workspace::WorkspaceLayout;
 use linearize::StaticCopyMap;
 use linearize::StaticMap;
 use std::cell::Cell;
@@ -1171,9 +1173,37 @@ impl State {
                 c.append_child(node);
             }
         } else {
-            let container = ContainerNode::new(self, ws, node, ContainerSplit::Horizontal);
-            ws.set_container(&container);
+            self.create_workspace_container(ws, node);
         }
+    }
+
+    /// Creates the root container of `ws` with the initial layout configured for `ws`.
+    pub fn create_workspace_container(
+        self: &Rc<Self>,
+        ws: &Rc<WorkspaceNode>,
+        node: Rc<dyn ToplevelNode>,
+    ) -> Rc<ContainerNode> {
+        let layout = self
+            .config
+            .get()
+            .and_then(|c| c.initial_layout_for_workspace(&ws.name));
+        let pos = ws.node_state[LiveTL].position.get();
+        let split = match layout {
+            Some(WorkspaceLayout::Tile { direction }) => match direction {
+                TileDirection::Horizontal => ContainerSplit::Horizontal,
+                TileDirection::Vertical => ContainerSplit::Vertical,
+                TileDirection::Major if pos.height() > pos.width() => ContainerSplit::Vertical,
+                TileDirection::Minor if pos.width() > pos.height() => ContainerSplit::Vertical,
+                TileDirection::Major | TileDirection::Minor => ContainerSplit::Horizontal,
+            },
+            Some(WorkspaceLayout::Mono) | None => ContainerSplit::Horizontal,
+        };
+        let container = ContainerNode::new(self, ws, node.clone(), split);
+        ws.set_container(&container);
+        if layout == Some(WorkspaceLayout::Mono) {
+            container.set_mono(Some(&*node));
+        }
+        container
     }
 
     pub fn map_floating(

@@ -54,6 +54,7 @@ use crate::window::Window;
 use crate::window::WindowMatcher;
 use crate::window::WindowType;
 use crate::workspace::WorkspaceDisplayOrder;
+use crate::workspace::WorkspaceLayout;
 use crate::xwayland::XScalingMode;
 use serde::Deserialize;
 use serde::Serialize;
@@ -1018,6 +1019,10 @@ pub enum ClientMessage<'a> {
         reuse: bool,
     },
     GetSplitReusesContainer,
+    SetWorkspaceInitialLayout {
+        workspace: Workspace,
+        layout: Option<WorkspaceLayout>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

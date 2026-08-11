@@ -51,6 +51,7 @@ use crate::input::Seat;
 use crate::keyboard::ModifiedKeySym;
 use crate::video::Connector;
 use crate::window::Window;
+use crate::workspace::WorkspaceLayout;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt::Debug;
@@ -231,6 +232,14 @@ impl Workspace {
     /// be created on the connector set via this function, if possible.
     pub fn set_initial_connector(self, connector: Option<Connector>) {
         get!().set_workspace_initial_connector(self, connector);
+    }
+
+    /// Sets the layout that the root container of this workspace is initially created
+    /// with.
+    ///
+    /// If this is not set, the root container is created with a horizontal split.
+    pub fn set_initial_layout(self, layout: Option<WorkspaceLayout>) {
+        get!().set_workspace_initial_layout(self, layout);
     }
 
     /// Returns the position of the workspace in the global compositor space.

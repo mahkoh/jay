@@ -13,6 +13,7 @@ use crate::config::parser::ParseResult;
 use crate::config::parser::Parser;
 use crate::config::parser::UnexpectedDataType;
 use crate::config::parsers::output_match::OutputMatchParser;
+use crate::config::parsers::workspace_layout::WorkspaceLayoutParser;
 use crate::toml::toml_span::Span;
 use crate::toml::toml_span::Spanned;
 use crate::toml::toml_value::Value;
@@ -21,6 +22,7 @@ use indexmap::IndexMap;
 use jay_config::Workspace;
 use jay_config::video::Connector;
 use jay_config::video::connectors;
+use jay_config::workspace::WorkspaceLayout;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
@@ -35,6 +37,7 @@ pub struct WorkspaceSlot {
     pub explicit_ty: Cell<Option<WorkspaceType>>,
     pub implicit_output: RefCell<Option<Rc<OutputMatch>>>,
     pub explicit_output: RefCell<Option<Rc<OutputMatch>>>,
+    pub explicit_layout: Cell<Option<WorkspaceLayout>>,
 }
 
 impl WorkspaceSlot {
@@ -48,6 +51,7 @@ impl WorkspaceSlot {
                 .clone()
                 .or(self.implicit_output.borrow().clone()),
             output_matched: Default::default(),
+            layout: self.explicit_layout.get(),
         }
     }
 }
@@ -103,6 +107,18 @@ impl TomlWorkspace {
             wwio.remove(&self.ws);
         }
     }
+
+    pub fn apply_initial_layout(&self, state: &State) {
+        let Some(layout) = self.layout else {
+            return;
+        };
+        self.ws.set_initial_layout(Some(layout));
+        state
+            .persistent
+            .workspaces_with_initial_layouts
+            .borrow_mut()
+            .insert(self.ws);
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -123,6 +139,7 @@ impl Context<'_, '_> {
             explicit_ty: Default::default(),
             implicit_output: Default::default(),
             explicit_output: Default::default(),
+            explicit_layout: Default::default(),
         });
         map.insert(name.to_string(), ws.clone());
         ws
@@ -191,8 +208,11 @@ impl Parser for WorkspaceParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (ty_str, initial_output) =
-            ext.extract((recover(opt(str("type"))), opt(val("initial-output"))))?;
+        let (ty_str, initial_output, initial_layout) = ext.extract((
+            recover(opt(str("type"))),
+            opt(val("initial-output")),
+            opt(val("initial-layout")),
+        ))?;
         let ws = self.cx.get_workspace_slot(self.name);
         if let Some(v) = initial_output {
             match v.parse(&mut OutputMatchParser(self.cx)) {
@@ -213,6 +233,14 @@ impl Parser for WorkspaceParser<'_, '_, '_> {
                     }
                 };
                 ws.explicit_ty.set(Some(ty));
+            }
+        }
+        if let Some(v) = initial_layout {
+            match v.parse(&mut WorkspaceLayoutParser(self.cx)) {
+                Ok(v) => ws.explicit_layout.set(Some(v)),
+                Err(e) => {
+                    log::error!("Could not parse initial layout: {}", self.cx.error(e));
+                }
             }
         }
         Ok(())
