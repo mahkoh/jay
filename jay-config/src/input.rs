@@ -12,6 +12,7 @@ use crate::Axis;
 use crate::ContainerTarget;
 use crate::Direction;
 use crate::ModifiedKeySym;
+use crate::RelativeAxis;
 use crate::Workspace;
 use crate::input::acceleration::AccelProfile;
 use crate::input::capability::Capability;
@@ -468,6 +469,12 @@ impl Seat {
         self.set_container_split(target, self.container_split(target).other());
     }
 
+    /// Sets the split axis of the target container of the currently focused window
+    /// relative to the dimensions of that container.
+    pub fn set_container_split_relative(self, target: ContainerTarget, axis: RelativeAxis) {
+        get!().set_seat_container_split_relative(self, target, axis)
+    }
+
     /// Returns the input devices assigned to this seat.
     pub fn input_devices(self) -> Vec<InputDevice> {
         get!().get_input_devices(Some(self))
@@ -480,6 +487,16 @@ impl Seat {
     /// split axis of that container is changed instead.
     pub fn create_split(self, axis: Axis) {
         get!().create_seat_split(self, axis);
+    }
+
+    /// Creates a new container in place of the currently focused window with a split
+    /// relative to the dimensions of that window.
+    ///
+    /// If the window is the only child of its container and
+    /// [`set_split_reuses_container`](crate::set_split_reuses_container) is enabled, the
+    /// split axis of that container is changed instead.
+    pub fn create_split_relative(self, axis: RelativeAxis) {
+        get!().create_seat_split_relative(self, axis);
     }
 
     /// Focuses the parent node of the currently focused window.

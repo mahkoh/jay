@@ -1079,6 +1079,46 @@ Action:
                 The container the action applies to.
 
                 The default is `parent`.
+        tile-major:
+          description: |
+            Sets the split of the target container along its larger dimension.
+            That is, to vertical if the container is higher than it is wide and
+            to horizontal otherwise.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-a = { type = "tile-major", target = "self" }
+              ```
+          fields:
+            target:
+              ref: ContainerTarget
+              required: false
+              description: |
+                The container the action applies to.
+
+                The default is `parent`.
+        tile-minor:
+          description: |
+            Sets the split of the target container along its smaller dimension.
+            That is, to horizontal if the container is higher than it is wide and
+            to vertical otherwise.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-a = { type = "tile-minor", target = "self" }
+              ```
+          fields:
+            target:
+              ref: ContainerTarget
+              required: false
+              description: |
+                The container the action applies to.
+
+                The default is `parent`.
         toggle-mono:
           description: |
             Toggle the target container between showing a single and all
@@ -1281,9 +1321,13 @@ SimpleActionName:
     - `move-right`
     - `split-horizontal`
     - `split-vertical`
+    - `split-major`
+    - `split-minor`
     - `toggle-split`
     - `tile-horizontal`
     - `tile-vertical`
+    - `tile-major`
+    - `tile-minor`
     - `toggle-mono`
     - `show-single`
     - `show-all`
@@ -1329,6 +1373,14 @@ SimpleActionName:
       description: Split the currently focused window horizontally.
     - value: split-vertical
       description: Split the currently focused window vertically.
+    - value: split-major
+      description: |
+        Split the currently focused window along its larger dimension. That is,
+        vertically if the window is higher than it is wide and horizontally otherwise.
+    - value: split-minor
+      description: |
+        Split the currently focused window along its smaller dimension. That is,
+        horizontally if the window is higher than it is wide and vertically otherwise.
     - value: toggle-split
       description: |
         Toggle the split of the currently focused container between vertical and
@@ -1337,6 +1389,16 @@ SimpleActionName:
       description: Sets the split of the currently focused container to horizontal.
     - value: tile-vertical
       description: Sets the split of the currently focused container to vertical.
+    - value: tile-major
+      description: |
+        Sets the split of the currently focused container along its larger dimension.
+        That is, to vertical if the container is higher than it is wide and to
+        horizontal otherwise.
+    - value: tile-minor
+      description: |
+        Sets the split of the currently focused container along its smaller dimension.
+        That is, to horizontal if the container is higher than it is wide and to
+        vertical otherwise.
     - value: toggle-mono
       description: |
         Toggle the currently focused container between showing a single and all children.

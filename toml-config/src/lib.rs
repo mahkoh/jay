@@ -264,6 +264,12 @@ impl Action {
                 SimpleCommand::SetSplit(t, b) => {
                     window_or_seat!(s, s.set_container_split(t, b))
                 }
+                SimpleCommand::SplitRelative(axis) => {
+                    window_or_seat!(s, s.create_split_relative(axis))
+                }
+                SimpleCommand::SetSplitRelative(t, axis) => {
+                    window_or_seat!(s, s.set_container_split_relative(t, axis))
+                }
                 SimpleCommand::ToggleMono(t) => window_or_seat!(s, s.toggle_container_mono(t)),
                 SimpleCommand::SetMono(t, b) => window_or_seat!(s, s.set_container_mono(t, b)),
                 SimpleCommand::ToggleFullscreen => window_or_seat!(s, s.toggle_fullscreen()),

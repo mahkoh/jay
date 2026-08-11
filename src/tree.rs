@@ -1060,3 +1060,9 @@ pub enum ContainerTarget {
     Itself,
     Auto,
 }
+
+#[derive(Copy, Clone)]
+pub enum RelativeAxis {
+    Major,
+    Minor,
+}

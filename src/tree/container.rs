@@ -38,6 +38,7 @@ use crate::tree::NodeId;
 use crate::tree::NodeLayerLink;
 use crate::tree::NodeLocation;
 use crate::tree::OutputNode;
+use crate::tree::RelativeAxis;
 use crate::tree::SplitView;
 use crate::tree::TddType;
 use crate::tree::TileDragDestination;
@@ -96,6 +97,17 @@ impl ContainerSplit {
         match self {
             ContainerSplit::Horizontal => ContainerSplit::Vertical,
             ContainerSplit::Vertical => ContainerSplit::Horizontal,
+        }
+    }
+
+    pub fn from_relative_axis(axis: RelativeAxis, rect: &Rect) -> Self {
+        let major = match rect.height() > rect.width() {
+            true => ContainerSplit::Vertical,
+            false => ContainerSplit::Horizontal,
+        };
+        match axis {
+            RelativeAxis::Major => major,
+            RelativeAxis::Minor => major.other(),
         }
     }
 }

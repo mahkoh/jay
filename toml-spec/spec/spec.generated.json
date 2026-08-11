@@ -841,6 +841,38 @@
               ]
             },
             {
+              "description": "Sets the split of the target container along its larger dimension.\nThat is, to vertical if the container is higher than it is wide and\nto horizontal otherwise.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-a = { type = \"tile-major\", target = \"self\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "tile-major"
+                },
+                "target": {
+                  "description": "The container the action applies to.\n\nThe default is `parent`.\n",
+                  "$ref": "#/$defs/ContainerTarget"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            {
+              "description": "Sets the split of the target container along its smaller dimension.\nThat is, to horizontal if the container is higher than it is wide and\nto vertical otherwise.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-a = { type = \"tile-minor\", target = \"self\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "tile-minor"
+                },
+                "target": {
+                  "description": "The container the action applies to.\n\nThe default is `parent`.\n",
+                  "$ref": "#/$defs/ContainerTarget"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            {
               "description": "Toggle the target container between showing a single and all\nchildren.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-a = { type = \"toggle-mono\", target = \"self\" }\n  ```\n",
               "type": "object",
               "properties": {
@@ -2402,7 +2434,7 @@
     },
     "SimpleActionName": {
       "type": "string",
-      "description": "The name of a `simple` Action.\n\nWhen used inside a window rule, the following actions apply to the matched window\ninstead of the focused window:\n\n- `move-left`\n- `move-down`\n- `move-up`\n- `move-right`\n- `split-horizontal`\n- `split-vertical`\n- `toggle-split`\n- `tile-horizontal`\n- `tile-vertical`\n- `toggle-mono`\n- `show-single`\n- `show-all`\n- `toggle-fullscreen`\n- `enter-fullscreen`\n- `exit-fullscreen`\n- `close`\n- `toggle-floating`\n- `float`\n- `tile`\n- `toggle-float-pinned`\n- `pin-float`\n- `unpin-float`\n\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-q = \"quit\"\n  ```\n",
+      "description": "The name of a `simple` Action.\n\nWhen used inside a window rule, the following actions apply to the matched window\ninstead of the focused window:\n\n- `move-left`\n- `move-down`\n- `move-up`\n- `move-right`\n- `split-horizontal`\n- `split-vertical`\n- `split-major`\n- `split-minor`\n- `toggle-split`\n- `tile-horizontal`\n- `tile-vertical`\n- `tile-major`\n- `tile-minor`\n- `toggle-mono`\n- `show-single`\n- `show-all`\n- `toggle-fullscreen`\n- `enter-fullscreen`\n- `exit-fullscreen`\n- `close`\n- `toggle-floating`\n- `float`\n- `tile`\n- `toggle-float-pinned`\n- `pin-float`\n- `unpin-float`\n\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-q = \"quit\"\n  ```\n",
       "enum": [
         "focus-left",
         "focus-down",
@@ -2415,9 +2447,13 @@
         "move-right",
         "split-horizontal",
         "split-vertical",
+        "split-major",
+        "split-minor",
         "toggle-split",
         "tile-horizontal",
         "tile-vertical",
+        "tile-major",
+        "tile-minor",
         "toggle-mono",
         "show-single",
         "show-all",

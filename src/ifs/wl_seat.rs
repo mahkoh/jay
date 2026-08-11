@@ -115,6 +115,7 @@ use crate::tree::NodeLayerLink;
 use crate::tree::NodeLocation;
 use crate::tree::NodesStack;
 use crate::tree::OutputNode;
+use crate::tree::RelativeAxis;
 use crate::tree::StackedNode;
 use crate::tree::ToplevelNode;
 use crate::tree::TreeTimeline::LiveTL;
@@ -804,12 +805,31 @@ impl WlSeatGlobal {
         }
     }
 
+    pub fn set_split_relative(&self, target: ContainerTarget, axis: RelativeAxis) {
+        if let Some(c) = self.kb_target_container(target) {
+            let pos = c.node_absolute_position(LiveTL);
+            c.set_split(ContainerSplit::from_relative_axis(axis, &pos));
+        }
+    }
+
     pub fn create_split(&self, axis: ContainerSplit) {
         let tl = match self.keyboard_node.get().node_toplevel() {
             Some(tl) => tl,
             _ => return,
         };
         toplevel_create_split(&self.state, tl, axis);
+    }
+
+    pub fn create_split_relative(&self, axis: RelativeAxis) {
+        let Some(tl) = self.keyboard_node.get().node_toplevel() else {
+            return;
+        };
+        let pos = tl.node_absolute_position(LiveTL);
+        toplevel_create_split(
+            &self.state,
+            tl,
+            ContainerSplit::from_relative_axis(axis, &pos),
+        );
     }
 
     pub fn focus_parent(self: &Rc<Self>) {

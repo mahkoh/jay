@@ -51,6 +51,7 @@ use crate::tree::ContainerTarget;
 use crate::tree::NodeBase;
 use crate::tree::OutputNode;
 use crate::tree::OutputNodeOrPersistent;
+use crate::tree::RelativeAxis;
 use crate::tree::TearingMode;
 use crate::tree::TileState;
 use crate::tree::ToplevelData;
@@ -98,6 +99,7 @@ use jay_config::_private::serialize_server_message;
 use jay_config::Axis;
 use jay_config::ContainerTarget as ConfigContainerTarget;
 use jay_config::Direction;
+use jay_config::RelativeAxis as ConfigRelativeAxis;
 use jay_config::Workspace;
 use jay_config::WorkspaceKind;
 use jay_config::client::Client as ConfigClient;
@@ -2225,6 +2227,59 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_create_seat_split_relative(
+        &self,
+        seat: Seat,
+        axis: ConfigRelativeAxis,
+    ) -> Result<(), CphError> {
+        let axis = map_relative_axis(axis)?;
+        let seat = self.get_seat(seat)?;
+        seat.create_split_relative(axis);
+        Ok(())
+    }
+
+    fn handle_create_window_split_relative(
+        &self,
+        window: Window,
+        axis: ConfigRelativeAxis,
+    ) -> Result<(), CphError> {
+        let axis = map_relative_axis(axis)?;
+        let window = self.get_window(window)?;
+        let pos = window.node_absolute_position(LiveTL);
+        let split = ContainerSplit::from_relative_axis(axis, &pos);
+        toplevel_create_split(&self.state, window, split);
+        Ok(())
+    }
+
+    fn handle_set_seat_split_relative(
+        &self,
+        seat: Seat,
+        target: ConfigContainerTarget,
+        axis: ConfigRelativeAxis,
+    ) -> Result<(), CphError> {
+        let target = map_container_target(target)?;
+        let axis = map_relative_axis(axis)?;
+        let seat = self.get_seat(seat)?;
+        seat.set_split_relative(target, axis);
+        Ok(())
+    }
+
+    fn handle_set_window_split_relative(
+        &self,
+        window: Window,
+        target: ConfigContainerTarget,
+        axis: ConfigRelativeAxis,
+    ) -> Result<(), CphError> {
+        let target = map_container_target(target)?;
+        let axis = map_relative_axis(axis)?;
+        let window = self.get_window(window)?;
+        if let Some(c) = toplevel_target_container(&window, target) {
+            let pos = c.node_absolute_position(LiveTL);
+            c.set_split(ContainerSplit::from_relative_axis(axis, &pos));
+        }
+        Ok(())
+    }
+
     fn handle_add_shortcut(
         &self,
         seat: Seat,
@@ -4221,6 +4276,22 @@ impl ConfigProxyHandler {
             } => self
                 .handle_set_window_split(window, Some(target), axis)
                 .wrn("set_window_container_split")?,
+            ClientMessage::CreateSeatSplitRelative { seat, axis } => self
+                .handle_create_seat_split_relative(seat, axis)
+                .wrn("create_seat_split_relative")?,
+            ClientMessage::CreateWindowSplitRelative { window, axis } => self
+                .handle_create_window_split_relative(window, axis)
+                .wrn("create_window_split_relative")?,
+            ClientMessage::SetSeatContainerSplitRelative { seat, target, axis } => self
+                .handle_set_seat_split_relative(seat, target, axis)
+                .wrn("set_seat_container_split_relative")?,
+            ClientMessage::SetWindowContainerSplitRelative {
+                window,
+                target,
+                axis,
+            } => self
+                .handle_set_window_split_relative(window, target, axis)
+                .wrn("set_window_container_split_relative")?,
         }
         Ok(())
     }
@@ -4412,6 +4483,8 @@ enum CphError {
     UnknownScalingFilter(ConfigScalingFilter),
     #[error("Tried to use an unknown container target: {0:?}")]
     UnknownContainerTarget(ConfigContainerTarget),
+    #[error("Tried to use an unknown relative axis: {0:?}")]
+    UnknownRelativeAxis(ConfigRelativeAxis),
 }
 
 trait WithRequestName {
@@ -4456,6 +4529,15 @@ fn map_container_target(target: ConfigContainerTarget) -> Result<ContainerTarget
         ConfigContainerTarget::Itself => ContainerTarget::Itself,
         ConfigContainerTarget::Auto => ContainerTarget::Auto,
         _ => return Err(CphError::UnknownContainerTarget(target)),
+    };
+    Ok(res)
+}
+
+fn map_relative_axis(axis: ConfigRelativeAxis) -> Result<RelativeAxis, CphError> {
+    let res = match axis {
+        ConfigRelativeAxis::Major => RelativeAxis::Major,
+        ConfigRelativeAxis::Minor => RelativeAxis::Minor,
+        _ => return Err(CphError::UnknownRelativeAxis(axis)),
     };
     Ok(res)
 }

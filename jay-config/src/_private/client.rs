@@ -25,6 +25,7 @@ use crate::ContainerTarget;
 use crate::Direction;
 use crate::ModifiedKeySym;
 use crate::PciId;
+use crate::RelativeAxis;
 use crate::Workspace;
 use crate::WorkspaceKind;
 use crate::WorkspaceShowOp;
@@ -975,6 +976,36 @@ impl ConfigClient {
 
     pub fn set_window_container_split(&self, window: Window, target: ContainerTarget, axis: Axis) {
         self.send(&ClientMessage::SetWindowContainerSplit {
+            window,
+            target,
+            axis,
+        });
+    }
+
+    pub fn create_seat_split_relative(&self, seat: Seat, axis: RelativeAxis) {
+        self.send(&ClientMessage::CreateSeatSplitRelative { seat, axis });
+    }
+
+    pub fn create_window_split_relative(&self, window: Window, axis: RelativeAxis) {
+        self.send(&ClientMessage::CreateWindowSplitRelative { window, axis });
+    }
+
+    pub fn set_seat_container_split_relative(
+        &self,
+        seat: Seat,
+        target: ContainerTarget,
+        axis: RelativeAxis,
+    ) {
+        self.send(&ClientMessage::SetSeatContainerSplitRelative { seat, target, axis });
+    }
+
+    pub fn set_window_container_split_relative(
+        &self,
+        window: Window,
+        target: ContainerTarget,
+        axis: RelativeAxis,
+    ) {
+        self.send(&ClientMessage::SetWindowContainerSplitRelative {
             window,
             target,
             axis,
