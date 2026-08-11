@@ -30,6 +30,7 @@ use counter::CounterSlot;
 use jay_config::Axis;
 use jay_config::ContainerTarget;
 use jay_config::Direction;
+use jay_config::RelativeAxis;
 use jay_config::Workspace;
 use jay_config::client::ClientCapabilities;
 use jay_config::get_overlay;
@@ -124,6 +125,8 @@ pub enum SimpleCommand {
     ToggleVisualizeCompositing,
     SetSplitReusesContainer(bool),
     ToggleSplitReusesContainer,
+    SetSplitRelative(ContainerTarget, RelativeAxis),
+    SplitRelative(RelativeAxis),
 }
 
 #[derive(Debug, Clone)]

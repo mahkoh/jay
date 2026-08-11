@@ -72,6 +72,7 @@ use crate::utils::smallmap::SmallMap;
 use crate::utils::smallmap::SmallMapMut;
 use crate::utils::threshold_counter::ThresholdCounter;
 use jay_config::Axis;
+use jay_config::RelativeAxis;
 use smallvec::SmallVec;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -95,6 +96,18 @@ impl ContainerSplit {
         match self {
             ContainerSplit::Horizontal => ContainerSplit::Vertical,
             ContainerSplit::Vertical => ContainerSplit::Horizontal,
+        }
+    }
+
+    /// Resolves `axis` against the dimensions of `rect`.
+    pub fn from_relative_axis(axis: RelativeAxis, rect: &Rect) -> Self {
+        let major = match rect.height() > rect.width() {
+            true => ContainerSplit::Vertical,
+            false => ContainerSplit::Horizontal,
+        };
+        match axis {
+            RelativeAxis::Major => major,
+            RelativeAxis::Minor => major.other(),
         }
     }
 }

@@ -9,6 +9,7 @@ use crate::Axis;
 use crate::ContainerTarget;
 use crate::Direction;
 use crate::PciId;
+use crate::RelativeAxis;
 use crate::Workspace;
 use crate::WorkspaceKind;
 use crate::client::Client;
@@ -1054,6 +1055,24 @@ pub enum ClientMessage<'a> {
         window: Window,
         target: ContainerTarget,
         axis: Axis,
+    },
+    CreateSeatSplitRelative {
+        seat: Seat,
+        axis: RelativeAxis,
+    },
+    CreateWindowSplitRelative {
+        window: Window,
+        axis: RelativeAxis,
+    },
+    SetSeatContainerSplitRelative {
+        seat: Seat,
+        target: ContainerTarget,
+        axis: RelativeAxis,
+    },
+    SetWindowContainerSplitRelative {
+        window: Window,
+        target: ContainerTarget,
+        axis: RelativeAxis,
     },
 }
 

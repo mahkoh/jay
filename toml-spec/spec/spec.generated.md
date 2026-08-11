@@ -1186,6 +1186,52 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
     The value of this field should be a [ContainerTarget](#types-ContainerTarget).
 
+- `tile-major`:
+
+  Sets the split of the target container along its larger dimension.
+  That is, to vertical if the container is higher than it is wide and
+  to horizontal otherwise.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "tile-major", target = "self" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
+- `tile-minor`:
+
+  Sets the split of the target container along its smaller dimension.
+  That is, to vertical if the container is wider than it is high and
+  to horizontal otherwise.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "tile-minor", target = "self" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
 - `toggle-mono`:
 
   Toggle the target container between showing a single and all
@@ -5154,6 +5200,16 @@ The string should have one of the following values:
 
   Split the currently focused window vertically.
 
+- `split-major`:
+
+  Split the currently focused window along its larger dimension. That is,
+  vertically if the window is higher than it is wide and horizontally otherwise.
+
+- `split-minor`:
+
+  Split the currently focused window along its smaller dimension. That is,
+  vertically if the window is wider than it is high and horizontally otherwise.
+
 - `toggle-split`:
 
   Toggle the split of the currently focused container between vertical and
@@ -5166,6 +5222,18 @@ The string should have one of the following values:
 - `tile-vertical`:
 
   Sets the split of the currently focused container to vertical.
+
+- `tile-major`:
+
+  Sets the split of the currently focused container along its larger dimension.
+  That is, to vertical if the container is higher than it is wide and to
+  horizontal otherwise.
+
+- `tile-minor`:
+
+  Sets the split of the currently focused container along its smaller dimension.
+  That is, to vertical if the container is wider than it is high and to
+  horizontal otherwise.
 
 - `toggle-mono`:
 

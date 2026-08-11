@@ -97,6 +97,7 @@ use jay_config::_private::serialize_server_message;
 use jay_config::Axis;
 use jay_config::ContainerTarget;
 use jay_config::Direction;
+use jay_config::RelativeAxis;
 use jay_config::Workspace;
 use jay_config::WorkspaceKind;
 use jay_config::client::Client as ConfigClient;
@@ -2284,6 +2285,53 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_create_seat_split_relative(
+        &self,
+        seat: Seat,
+        axis: RelativeAxis,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.create_split_relative(axis);
+        Ok(())
+    }
+
+    fn handle_create_window_split_relative(
+        &self,
+        window: Window,
+        axis: RelativeAxis,
+    ) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        let pos = window.node_absolute_position(LiveTL);
+        let split = ContainerSplit::from_relative_axis(axis, &pos);
+        toplevel_create_split(&self.state, window, split);
+        Ok(())
+    }
+
+    fn handle_set_seat_container_split_relative(
+        &self,
+        seat: Seat,
+        target: ContainerTarget,
+        axis: RelativeAxis,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_container_split_relative(target, axis);
+        Ok(())
+    }
+
+    fn handle_set_window_container_split_relative(
+        &self,
+        window: Window,
+        target: ContainerTarget,
+        axis: RelativeAxis,
+    ) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        if let Some(c) = toplevel_target_container(&window, target) {
+            let pos = c.node_absolute_position(LiveTL);
+            c.set_split(ContainerSplit::from_relative_axis(axis, &pos));
+        }
+        Ok(())
+    }
+
     fn handle_add_shortcut(
         &self,
         seat: Seat,
@@ -4229,6 +4277,22 @@ impl ConfigProxyHandler {
             } => self
                 .handle_set_window_container_split(window, target, axis)
                 .wrn("set_window_container_split")?,
+            ClientMessage::CreateSeatSplitRelative { seat, axis } => self
+                .handle_create_seat_split_relative(seat, axis)
+                .wrn("create_seat_split_relative")?,
+            ClientMessage::CreateWindowSplitRelative { window, axis } => self
+                .handle_create_window_split_relative(window, axis)
+                .wrn("create_window_split_relative")?,
+            ClientMessage::SetSeatContainerSplitRelative { seat, target, axis } => self
+                .handle_set_seat_container_split_relative(seat, target, axis)
+                .wrn("set_seat_container_split_relative")?,
+            ClientMessage::SetWindowContainerSplitRelative {
+                window,
+                target,
+                axis,
+            } => self
+                .handle_set_window_container_split_relative(window, target, axis)
+                .wrn("set_window_container_split_relative")?,
         }
         Ok(())
     }

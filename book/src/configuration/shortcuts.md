@@ -288,8 +288,8 @@ resulting values.
 ### Container actions
 
 The container actions -- `toggle-split`, `tile-horizontal`, `tile-vertical`,
-`toggle-mono`, `show-single`, and `show-all` -- apply to the parent container
-of the window.
+`tile-major`, `tile-minor`, `toggle-mono`, `show-single`, and `show-all` --
+apply to the parent container of the window.
 
 In table form, `target` selects a different container: `parent` (the default),
 `self` (the window itself, which must be a container), or `auto` (the window
@@ -653,8 +653,9 @@ mode = {
 When certain simple actions are used inside a [window rule](../window-rules.md),
 they apply to the **matched window** instead of the focused window. The
 affected actions are: `move-left`, `move-down`, `move-up`, `move-right`,
-`split-horizontal`, `split-vertical`, `toggle-split`, `tile-horizontal`,
-`tile-vertical`, `toggle-mono`, `show-single`, `show-all`, `toggle-fullscreen`,
+`split-horizontal`, `split-vertical`, `split-major`, `split-minor`,
+`toggle-split`, `tile-horizontal`, `tile-vertical`, `tile-major`,
+`tile-minor`, `toggle-mono`, `show-single`, `show-all`, `toggle-fullscreen`,
 `enter-fullscreen`, `exit-fullscreen`, `close`, `toggle-floating`, `float`,
 `tile`, `toggle-float-pinned`, `pin-float`, and `unpin-float`.
 

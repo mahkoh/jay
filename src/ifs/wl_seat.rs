@@ -158,6 +158,7 @@ use CursorPositionType::Warp;
 pub use event_handling::NodeSeatState;
 use hashbrown::hash_map::Entry;
 use jay_config::ContainerTarget;
+use jay_config::RelativeAxis;
 use jay_config::input::FallbackOutputMode as ConfigFallbackOutputMode;
 use jay_config::keyboard::syms::KeySym;
 use jay_config::keyboard::syms::SYM_Escape;
@@ -837,12 +838,32 @@ impl WlSeatGlobal {
         }
     }
 
+    pub fn set_container_split_relative(&self, target: ContainerTarget, axis: RelativeAxis) {
+        if let Some(c) = self.kb_target_container(target) {
+            let pos = c.node_absolute_position(LiveTL);
+            c.set_split(ContainerSplit::from_relative_axis(axis, &pos));
+        }
+    }
+
     pub fn create_split(&self, axis: ContainerSplit) {
         let tl = match self.keyboard_node.get().node_toplevel() {
             Some(tl) => tl,
             _ => return,
         };
         toplevel_create_split(&self.state, tl, axis);
+    }
+
+    pub fn create_split_relative(&self, axis: RelativeAxis) {
+        let tl = match self.keyboard_node.get().node_toplevel() {
+            Some(tl) => tl,
+            _ => return,
+        };
+        let pos = tl.node_absolute_position(LiveTL);
+        toplevel_create_split(
+            &self.state,
+            tl,
+            ContainerSplit::from_relative_axis(axis, &pos),
+        );
     }
 
     pub fn focus_parent(self: &Rc<Self>) {

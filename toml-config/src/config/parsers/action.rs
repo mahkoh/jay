@@ -67,6 +67,8 @@ use jay_config::ContainerTarget::Auto;
 use jay_config::ContainerTarget::Itself;
 use jay_config::ContainerTarget::Parent;
 use jay_config::Direction;
+use jay_config::RelativeAxis::Major;
+use jay_config::RelativeAxis::Minor;
 use jay_config::input::LayerDirection;
 use jay_config::input::Timeline;
 use std::rc::Rc;
@@ -162,9 +164,13 @@ impl ActionParser<'_, '_, '_> {
             "move-right" => Move(Right),
             "split-horizontal" => Split(Horizontal),
             "split-vertical" => Split(Vertical),
+            "split-major" => SplitRelative(Major),
+            "split-minor" => SplitRelative(Minor),
             "toggle-split" => ToggleSplit(Parent),
             "tile-horizontal" => SetSplit(Parent, Horizontal),
             "tile-vertical" => SetSplit(Parent, Vertical),
+            "tile-major" => SetSplitRelative(Parent, Major),
+            "tile-minor" => SetSplitRelative(Parent, Minor),
             "toggle-mono" => ToggleMono(Parent),
             "show-single" => SetMono(Parent, true),
             "show-all" => SetMono(Parent, false),
@@ -790,6 +796,12 @@ impl Parser for ActionParser<'_, '_, '_> {
             }
             "tile-vertical" => {
                 self.parse_targeted(&mut ext, |t| SimpleCommand::SetSplit(t, Vertical))
+            }
+            "tile-major" => {
+                self.parse_targeted(&mut ext, |t| SimpleCommand::SetSplitRelative(t, Major))
+            }
+            "tile-minor" => {
+                self.parse_targeted(&mut ext, |t| SimpleCommand::SetSplitRelative(t, Minor))
             }
             "toggle-mono" => self.parse_targeted(&mut ext, SimpleCommand::ToggleMono),
             "show-single" => self.parse_targeted(&mut ext, |t| SimpleCommand::SetMono(t, true)),

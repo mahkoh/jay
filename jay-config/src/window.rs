@@ -3,6 +3,7 @@
 use crate::Axis;
 use crate::ContainerTarget;
 use crate::Direction;
+use crate::RelativeAxis;
 use crate::Workspace;
 use crate::client::Client;
 use crate::client::ClientCriterion;
@@ -198,6 +199,12 @@ impl Window {
         self.set_container_split(target, self.container_split(target).other());
     }
 
+    /// Sets the split axis of the target container of the window relative to the
+    /// dimensions of that container.
+    pub fn set_container_split_relative(self, target: ContainerTarget, axis: RelativeAxis) {
+        get!().set_window_container_split_relative(self, target, axis)
+    }
+
     /// Creates a new container with the specified split in place of the window.
     ///
     /// If the window is the only child of its container and
@@ -205,6 +212,16 @@ impl Window {
     /// split axis of that container is changed instead.
     pub fn create_split(self, axis: Axis) {
         get!().create_window_split(self, axis);
+    }
+
+    /// Creates a new container in place of the window with a split relative to the
+    /// dimensions of that window.
+    ///
+    /// If the window is the only child of its container and
+    /// [`set_split_reuses_container`](crate::set_split_reuses_container) is enabled, the
+    /// split axis of that container is changed instead.
+    pub fn create_split_relative(self, axis: RelativeAxis) {
+        get!().create_window_split_relative(self, axis);
     }
 
     /// Requests the window to be closed.

@@ -841,6 +841,38 @@
               ]
             },
             {
+              "description": "Sets the split of the target container along its larger dimension.\nThat is, to vertical if the container is higher than it is wide and\nto horizontal otherwise.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-a = { type = \"tile-major\", target = \"self\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "tile-major"
+                },
+                "target": {
+                  "description": "The container the action applies to.\n\nThe default is `parent`.\n",
+                  "$ref": "#/$defs/ContainerTarget"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            {
+              "description": "Sets the split of the target container along its smaller dimension.\nThat is, to vertical if the container is wider than it is high and\nto horizontal otherwise.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-a = { type = \"tile-minor\", target = \"self\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "tile-minor"
+                },
+                "target": {
+                  "description": "The container the action applies to.\n\nThe default is `parent`.\n",
+                  "$ref": "#/$defs/ContainerTarget"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            {
               "description": "Toggle the target container between showing a single and all\nchildren.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-a = { type = \"toggle-mono\", target = \"self\" }\n  ```\n",
               "type": "object",
               "properties": {
@@ -2415,9 +2447,13 @@
         "move-right",
         "split-horizontal",
         "split-vertical",
+        "split-major",
+        "split-minor",
         "toggle-split",
         "tile-horizontal",
         "tile-vertical",
+        "tile-major",
+        "tile-minor",
         "toggle-mono",
         "show-single",
         "show-all",
