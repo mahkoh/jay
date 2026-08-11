@@ -6,6 +6,7 @@ use crate::_private::WireMode;
 use crate::_private::WorkspaceShowOpV1;
 use crate::_private::WorkspaceShowOpV2;
 use crate::Axis;
+use crate::ContainerTarget;
 use crate::Direction;
 use crate::PciId;
 use crate::Workspace;
@@ -1018,6 +1019,42 @@ pub enum ClientMessage<'a> {
         reuse: bool,
     },
     GetSplitReusesContainer,
+    GetSeatContainerMono {
+        seat: Seat,
+        target: ContainerTarget,
+    },
+    SetSeatContainerMono {
+        seat: Seat,
+        target: ContainerTarget,
+        mono: bool,
+    },
+    GetSeatContainerSplit {
+        seat: Seat,
+        target: ContainerTarget,
+    },
+    SetSeatContainerSplit {
+        seat: Seat,
+        target: ContainerTarget,
+        axis: Axis,
+    },
+    GetWindowContainerMono {
+        window: Window,
+        target: ContainerTarget,
+    },
+    SetWindowContainerMono {
+        window: Window,
+        target: ContainerTarget,
+        mono: bool,
+    },
+    GetWindowContainerSplit {
+        window: Window,
+        target: ContainerTarget,
+    },
+    SetWindowContainerSplit {
+        window: Window,
+        target: ContainerTarget,
+        axis: Axis,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

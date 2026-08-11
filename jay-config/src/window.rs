@@ -1,6 +1,7 @@
 //! Tools for inspecting and manipulating windows.
 
 use crate::Axis;
+use crate::ContainerTarget;
 use crate::Direction;
 use crate::Workspace;
 use crate::client::Client;
@@ -165,6 +166,36 @@ impl Window {
     /// Toggles the split axis of the parent-container of the window.
     pub fn toggle_split(self) {
         self.set_split(self.split().other());
+    }
+
+    /// Returns whether the target container of the window is in mono-mode.
+    pub fn container_mono(self, target: ContainerTarget) -> bool {
+        get!(false).window_container_mono(self, target)
+    }
+
+    /// Sets whether the target container of the window is in mono-mode.
+    pub fn set_container_mono(self, target: ContainerTarget, mono: bool) {
+        get!().set_window_container_mono(self, target, mono)
+    }
+
+    /// Toggles whether the target container of the window is in mono-mode.
+    pub fn toggle_container_mono(self, target: ContainerTarget) {
+        self.set_container_mono(target, !self.container_mono(target));
+    }
+
+    /// Returns the split axis of the target container of the window.
+    pub fn container_split(self, target: ContainerTarget) -> Axis {
+        get!(Axis::Horizontal).window_container_split(self, target)
+    }
+
+    /// Sets the split axis of the target container of the window.
+    pub fn set_container_split(self, target: ContainerTarget, axis: Axis) {
+        get!().set_window_container_split(self, target, axis)
+    }
+
+    /// Toggles the split axis of the target container of the window.
+    pub fn toggle_container_split(self, target: ContainerTarget) {
+        self.set_container_split(target, self.container_split(target).other());
     }
 
     /// Creates a new container with the specified split in place of the window.

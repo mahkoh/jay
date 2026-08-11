@@ -123,7 +123,9 @@ use crate::tree::generic_node_visitor;
 use crate::tree::toplevel_create_split;
 use crate::tree::toplevel_parent_container;
 use crate::tree::toplevel_set_floating;
+use crate::tree::toplevel_set_target_mono;
 use crate::tree::toplevel_set_workspace;
+use crate::tree::toplevel_target_container;
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::bhash::BHashMap;
 use crate::utils::bindings::PerClientBindings;
@@ -155,6 +157,7 @@ use crate::wire_ei::EiSeatId;
 use CursorPositionType::Warp;
 pub use event_handling::NodeSeatState;
 use hashbrown::hash_map::Entry;
+use jay_config::ContainerTarget;
 use jay_config::input::FallbackOutputMode as ConfigFallbackOutputMode;
 use jay_config::keyboard::syms::KeySym;
 use jay_config::keyboard::syms::SYM_Escape;
@@ -803,6 +806,33 @@ impl WlSeatGlobal {
 
     pub fn set_split(&self, axis: ContainerSplit) {
         if let Some(c) = self.kb_parent_container() {
+            c.set_split(axis);
+        }
+    }
+
+    pub fn kb_target_container(&self, target: ContainerTarget) -> Option<Rc<ContainerNode>> {
+        let tl = self.keyboard_node.get().node_toplevel()?;
+        toplevel_target_container(&tl, target)
+    }
+
+    pub fn get_container_mono(&self, target: ContainerTarget) -> Option<bool> {
+        self.kb_target_container(target)
+            .map(|c| c.node_state[LiveTL].mono_child.is_some())
+    }
+
+    pub fn set_container_mono(&self, target: ContainerTarget, mono: bool) {
+        if let Some(tl) = self.keyboard_node.get().node_toplevel() {
+            toplevel_set_target_mono(&tl, target, mono);
+        }
+    }
+
+    pub fn get_container_split(&self, target: ContainerTarget) -> Option<ContainerSplit> {
+        self.kb_target_container(target)
+            .map(|c| c.node_state[LiveTL].split.get())
+    }
+
+    pub fn set_container_split(&self, target: ContainerTarget, axis: ContainerSplit) {
+        if let Some(c) = self.kb_target_container(target) {
             c.set_split(axis);
         }
     }

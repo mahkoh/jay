@@ -8,6 +8,7 @@ use crate::config::extractor::bol;
 use crate::config::extractor::int;
 use crate::config::extractor::n32;
 use crate::config::extractor::opt;
+use crate::config::extractor::recover;
 use crate::config::extractor::s32;
 use crate::config::extractor::str;
 use crate::config::extractor::val;
@@ -61,6 +62,10 @@ use crate::toml::toml_value::Value;
 use indexmap::IndexMap;
 use jay_config::Axis::Horizontal;
 use jay_config::Axis::Vertical;
+use jay_config::ContainerTarget;
+use jay_config::ContainerTarget::Auto;
+use jay_config::ContainerTarget::Itself;
+use jay_config::ContainerTarget::Parent;
 use jay_config::Direction;
 use jay_config::input::LayerDirection;
 use jay_config::input::Timeline;
@@ -157,12 +162,12 @@ impl ActionParser<'_, '_, '_> {
             "move-right" => Move(Right),
             "split-horizontal" => Split(Horizontal),
             "split-vertical" => Split(Vertical),
-            "toggle-split" => ToggleSplit,
-            "tile-horizontal" => SetSplit(Horizontal),
-            "tile-vertical" => SetSplit(Vertical),
-            "toggle-mono" => ToggleMono,
-            "show-single" => SetMono(true),
-            "show-all" => SetMono(false),
+            "toggle-split" => ToggleSplit(Parent),
+            "tile-horizontal" => SetSplit(Parent, Horizontal),
+            "tile-vertical" => SetSplit(Parent, Vertical),
+            "toggle-mono" => ToggleMono(Parent),
+            "show-single" => SetMono(Parent, true),
+            "show-all" => SetMono(Parent, false),
             "toggle-fullscreen" => ToggleFullscreen,
             "enter-fullscreen" => SetFullscreen(true),
             "exit-fullscreen" => SetFullscreen(false),
@@ -223,6 +228,26 @@ impl ActionParser<'_, '_, '_> {
             }
         };
         Ok(Action::SimpleCommand { cmd })
+    }
+
+    fn parse_targeted(
+        &mut self,
+        ext: &mut Extractor<'_, '_, '_>,
+        f: impl FnOnce(ContainerTarget) -> SimpleCommand,
+    ) -> ParseResult<Self> {
+        let target = ext.extract(recover(opt(str("target"))))?;
+        let mut container_target = Parent;
+        if let Some(target) = target {
+            match target.value {
+                "parent" => container_target = Parent,
+                "self" => container_target = Itself,
+                "auto" => container_target = Auto,
+                _ => log::error!("Unknown target: {}", self.0.error3(target.span)),
+            }
+        }
+        Ok(Action::SimpleCommand {
+            cmd: f(container_target),
+        })
     }
 
     fn parse_multi(&mut self, _span: Span, array: &[Spanned<Value>]) -> ParseResult<Self> {
@@ -759,6 +784,16 @@ impl Parser for ActionParser<'_, '_, '_> {
             "remove-virtual-output" => self.parse_remove_virtual_output(&mut ext),
             "resize" => self.parse_resize(&mut ext),
             "hide-overlay" => self.parse_hide_overlay(&mut ext),
+            "toggle-split" => self.parse_targeted(&mut ext, SimpleCommand::ToggleSplit),
+            "tile-horizontal" => {
+                self.parse_targeted(&mut ext, |t| SimpleCommand::SetSplit(t, Horizontal))
+            }
+            "tile-vertical" => {
+                self.parse_targeted(&mut ext, |t| SimpleCommand::SetSplit(t, Vertical))
+            }
+            "toggle-mono" => self.parse_targeted(&mut ext, SimpleCommand::ToggleMono),
+            "show-single" => self.parse_targeted(&mut ext, |t| SimpleCommand::SetMono(t, true)),
+            "show-all" => self.parse_targeted(&mut ext, |t| SimpleCommand::SetMono(t, false)),
             "show-overlay" => self.parse_show_overlay(&mut ext),
             "toggle-overlay" => self.parse_toggle_overlay(&mut ext),
             "inc-counter" => self.parse_adj_counter(&mut ext, false),

@@ -102,6 +102,13 @@ alt-s = "show-single"   # Enter mono mode
 alt-a = "show-all"      # Exit mono mode
 ```
 
+## Target Container
+
+The split and mono actions change the parent container of the window they
+apply to. Their table form takes a `target` field to change that -- `"self"`
+for a focused container, `"auto"` for whichever of the two is a container.
+See [Container actions](configuration/shortcuts.md#container-actions).
+
 ## Fullscreen
 
 Press `alt-u` (`toggle-fullscreen`) to make the focused window fill the entire

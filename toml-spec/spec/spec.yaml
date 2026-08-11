@@ -1025,6 +1025,135 @@ Action:
               kind: number
               integer_only: true
 
+        toggle-split:
+          description: |
+            Toggle the split of the target container between vertical and
+            horizontal.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-a = { type = "toggle-split", target = "self" }
+              ```
+          fields:
+            target:
+              ref: ContainerTarget
+              required: false
+              description: |
+                The container the action applies to.
+
+                The default is `parent`.
+        tile-horizontal:
+          description: |
+            Sets the split of the target container to horizontal.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-a = { type = "tile-horizontal", target = "self" }
+              ```
+          fields:
+            target:
+              ref: ContainerTarget
+              required: false
+              description: |
+                The container the action applies to.
+
+                The default is `parent`.
+        tile-vertical:
+          description: |
+            Sets the split of the target container to vertical.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-a = { type = "tile-vertical", target = "self" }
+              ```
+          fields:
+            target:
+              ref: ContainerTarget
+              required: false
+              description: |
+                The container the action applies to.
+
+                The default is `parent`.
+        toggle-mono:
+          description: |
+            Toggle the target container between showing a single and all
+            children.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-a = { type = "toggle-mono", target = "self" }
+              ```
+          fields:
+            target:
+              ref: ContainerTarget
+              required: false
+              description: |
+                The container the action applies to.
+
+                The default is `parent`.
+        show-single:
+          description: |
+            Makes the target container show a single child.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-a = { type = "show-single", target = "self" }
+              ```
+          fields:
+            target:
+              ref: ContainerTarget
+              required: false
+              description: |
+                The container the action applies to.
+
+                The default is `parent`.
+        show-all:
+          description: |
+            Makes the target container show all children.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-a = { type = "show-all", target = "self" }
+              ```
+          fields:
+            target:
+              ref: ContainerTarget
+              required: false
+              description: |
+                The container the action applies to.
+
+                The default is `parent`.
+
+
+ContainerTarget:
+  description: |
+    The container that an action applies to.
+  kind: string
+  values:
+    - value: parent
+      description: |
+        The parent container of the window. This is the default.
+    - value: self
+      description: |
+        The window itself.
+
+        The action has no effect if the window is not a container.
+    - value: auto
+      description: |
+        The window itself if it is a container, otherwise its parent container.
+
 
 Exec:
   description: |

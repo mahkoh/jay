@@ -104,6 +104,20 @@ impl Axis {
     }
 }
 
+/// The container that an action operates on.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq, Default)]
+pub enum ContainerTarget {
+    /// The parent container of the window. This is the default.
+    #[default]
+    Parent,
+    /// The window itself.
+    ///
+    /// The action has no effect if the window is not a container.
+    Itself,
+    /// The window itself if it is a container, otherwise its parent container.
+    Auto,
+}
+
 /// Exits the compositor.
 pub fn quit() {
     get!().quit()

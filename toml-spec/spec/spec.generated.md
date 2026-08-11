@@ -1122,6 +1122,134 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
     The numbers should be integers.
 
+- `toggle-split`:
+
+  Toggle the split of the target container between vertical and
+  horizontal.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "toggle-split", target = "self" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
+- `tile-horizontal`:
+
+  Sets the split of the target container to horizontal.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "tile-horizontal", target = "self" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
+- `tile-vertical`:
+
+  Sets the split of the target container to vertical.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "tile-vertical", target = "self" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
+- `toggle-mono`:
+
+  Toggle the target container between showing a single and all
+  children.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "toggle-mono", target = "self" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
+- `show-single`:
+
+  Makes the target container show a single child.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "show-single", target = "self" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
+- `show-all`:
+
+  Makes the target container show all children.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "show-all", target = "self" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
 
 <a name="types-BarPosition"></a>
 ### `BarPosition`
@@ -2848,6 +2976,31 @@ The string should have one of the following values:
   A border is drawn around the entire container, in addition to the separators
   between children, unless the container has only one child and is the root
   container of the workspace.
+
+
+
+<a name="types-ContainerTarget"></a>
+### `ContainerTarget`
+
+The container that an action applies to.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `parent`:
+
+  The parent container of the window. This is the default.
+
+- `self`:
+
+  The window itself.
+  
+  The action has no effect if the window is not a container.
+
+- `auto`:
+
+  The window itself if it is a container, otherwise its parent container.
 
 
 
