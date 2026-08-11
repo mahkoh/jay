@@ -1,4 +1,5 @@
 use crate::config::WorkspaceSlot;
+use crate::config::counter::CounterSlot;
 use crate::config::error::SpannedError;
 use crate::toml::toml_parser::ErrorHandler;
 use crate::toml::toml_parser::ParserError;
@@ -17,6 +18,7 @@ pub struct Context<'a, 'c> {
     pub used: RefCell<Used>,
     pub mark_names: &'c RefCell<AHashMap<String, u32>>,
     pub workspaces: RefCell<&'c mut AHashMap<String, Rc<WorkspaceSlot>>>,
+    pub counters: RefCell<AHashMap<String, Rc<CounterSlot>>>,
 }
 
 #[derive(Default)]

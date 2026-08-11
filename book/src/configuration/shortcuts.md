@@ -258,6 +258,33 @@ left and right edges shift by the same amount):
 alt-shift-Right = { type = "resize", dx1 = 10, dx2 = 10 }
 ```
 
+### Counters
+
+Counters are named integers that any action can change. On their own they do
+nothing; combined with [triggers](../counters-and-triggers.md) they let you run
+an action when state accumulated from several shortcuts, window rules, and
+client rules reaches a condition you care about.
+
+`name`
+: The name of the counter. Counters are created on first use, starting at `0`.
+
+`delta`
+: How much to add or subtract, for `inc-counter` and `dec-counter`. Defaults
+to `1`.
+
+`value`
+: The value to store, for `set-counter`. Required.
+
+```toml
+[shortcuts]
+alt-equal = { type = "inc-counter", name = "my-counter" }
+alt-minus = { type = "dec-counter", name = "my-counter" }
+alt-0     = { type = "set-counter", name = "my-counter", value = 0 }
+```
+
+See [Counters & Triggers](../counters-and-triggers.md) for how to react to the
+resulting values.
+
 ### Other parameterized actions
 
 - `set-keymap` -- change the active keymap

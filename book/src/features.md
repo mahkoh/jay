@@ -230,6 +230,16 @@ re-evaluated whenever matching criteria change (e.g. a window's title changes).
 
 See [Window & Client Rules](window-rules.md) for details.
 
+## Counters and Triggers
+
+Named integer counters can be incremented, decremented, and set by any action,
+and triggers run an action when a counter reaches a condition. This lets you
+combine state from shortcuts, window rules, and client rules into a single
+action -- for example, running a command when the first window of an
+application opens and another when the last one closes.
+
+See [Counters & Triggers](counters-and-triggers.md) for details.
+
 ## Protocol Support
 
 Jay supports a large number of Wayland protocols. Protocols marked as

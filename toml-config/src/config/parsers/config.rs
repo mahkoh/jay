@@ -51,6 +51,7 @@ use crate::config::parsers::status::StatusParser;
 use crate::config::parsers::tearing::TearingParser;
 use crate::config::parsers::theme::ThemeParser;
 use crate::config::parsers::transactions::TransactionsParser;
+use crate::config::parsers::trigger::TriggersParser;
 use crate::config::parsers::ui_drag::UiDragParser;
 use crate::config::parsers::vrr::VrrParser;
 use crate::config::parsers::window_rule::WindowRulesParser;
@@ -174,6 +175,8 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 cursor_size,
                 device_config_filter,
                 split_reuses_container,
+                triggers_val,
+                max_trigger_depth_val,
             ),
         ) = ext.extract((
             (
@@ -242,6 +245,8 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 recover(opt(s32("cursor-size"))),
                 recover(opt(str("device-config-filter"))),
                 recover(opt(bol("split-reuses-container"))),
+                opt(val("triggers")),
+                opt(int("max-trigger-depth")),
             ),
         ))?;
         let mut keymap = None;
@@ -636,6 +641,26 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 }
             }
         }
+        let mut triggers = vec![];
+        if let Some(value) = triggers_val {
+            match value.parse(&mut TriggersParser(self.0)) {
+                Ok(v) => triggers = v,
+                Err(e) => {
+                    log::warn!("Could not parse the triggers: {}", self.0.error(e));
+                }
+            }
+        }
+        let mut max_trigger_depth = 16;
+        if let Some(mut value) = max_trigger_depth_val {
+            if value.value < 0 {
+                log::warn!(
+                    "Max trigger depth should not be negative: {}",
+                    self.0.error3(value.span)
+                );
+                value.value = 0;
+            }
+            max_trigger_depth = value.value as _;
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -691,6 +716,8 @@ impl Parser for ConfigParser<'_, '_, '_> {
             transactions,
             cursor_size: cursor_size.despan(),
             configure_all_devices,
+            triggers,
+            max_trigger_depth,
         })
     }
 }

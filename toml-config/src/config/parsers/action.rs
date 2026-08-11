@@ -5,6 +5,7 @@ use crate::config::extractor::Extractor;
 use crate::config::extractor::ExtractorError;
 use crate::config::extractor::arr;
 use crate::config::extractor::bol;
+use crate::config::extractor::int;
 use crate::config::extractor::n32;
 use crate::config::extractor::opt;
 use crate::config::extractor::s32;
@@ -642,6 +643,29 @@ impl ActionParser<'_, '_, '_> {
         let ws = self.0.get_workspace_slot(name.value);
         Ok(Action::HideOverlay { ws })
     }
+
+    fn parse_adj_counter(
+        &mut self,
+        ext: &mut Extractor<'_, '_, '_>,
+        dec: bool,
+    ) -> ParseResult<Self> {
+        let (name, delta) = ext.extract((str("name"), opt(int("delta"))))?;
+        let counter = self.0.get_counter_slot(name.value);
+        let mut delta = delta.despan().unwrap_or(1);
+        if dec {
+            delta = delta.wrapping_neg();
+        }
+        Ok(Action::AdjCounter { counter, delta })
+    }
+
+    fn parse_set_counter(&mut self, ext: &mut Extractor<'_, '_, '_>) -> ParseResult<Self> {
+        let (name, value) = ext.extract((str("name"), int("value")))?;
+        let counter = self.0.get_counter_slot(name.value);
+        Ok(Action::SetCounter {
+            counter,
+            value: value.value,
+        })
+    }
 }
 
 struct ShowWorkspaceDefaults {
@@ -713,6 +737,9 @@ impl Parser for ActionParser<'_, '_, '_> {
             "hide-overlay" => self.parse_hide_overlay(&mut ext),
             "show-overlay" => self.parse_show_overlay(&mut ext),
             "toggle-overlay" => self.parse_toggle_overlay(&mut ext),
+            "inc-counter" => self.parse_adj_counter(&mut ext, false),
+            "dec-counter" => self.parse_adj_counter(&mut ext, true),
+            "set-counter" => self.parse_set_counter(&mut ext),
             v => {
                 ext.ignore_unused();
                 return Err(ActionParserError::UnknownType(v.to_string()).spanned(ty.span));

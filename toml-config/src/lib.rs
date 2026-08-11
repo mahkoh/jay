@@ -11,11 +11,11 @@ mod phf_map;
 mod rules;
 mod shortcuts;
 mod toml;
+mod weak_once_cell;
 
 use crate::config::Action;
 pub use crate::config::ClientMatch;
 use crate::config::ClientRule;
-use crate::config::Config;
 use crate::config::ConfigConnector;
 use crate::config::ConfigDrmDevice;
 use crate::config::ConfigKeymap;
@@ -31,9 +31,11 @@ use crate::config::OutputMatch;
 use crate::config::SimpleCommand;
 use crate::config::Status;
 use crate::config::Theme;
+use crate::config::TomlTrigger;
 use crate::config::TomlWorkspace;
 pub use crate::config::WindowMatch;
 use crate::config::WindowRule;
+use crate::config::counter::Counter;
 pub use crate::config::parse_client_match;
 use crate::config::parse_config;
 pub use crate::config::parse_window_match;
@@ -606,6 +608,22 @@ impl Action {
                 let workspace = ws.ws.get();
                 b.new(move || workspace.hide())
             }
+            Action::AdjCounter { counter, delta } => {
+                let counter = counter.build(state);
+                b.new(move || {
+                    if let Some(c) = counter.upgrade() {
+                        c.adjust(delta);
+                    }
+                })
+            }
+            Action::SetCounter { counter, value } => {
+                let counter = counter.build(state);
+                b.new(move || {
+                    if let Some(c) = counter.upgrade() {
+                        c.set(value);
+                    }
+                })
+            }
         }
     }
 }
@@ -1057,6 +1075,8 @@ struct State {
     window: Cell<Option<Option<Window>>>,
 
     workspaces: Vec<TomlWorkspace>,
+
+    max_trigger_depth: u64,
 }
 
 impl Drop for State {
@@ -1276,7 +1296,6 @@ struct OutputId {
 
 struct PersistentState {
     seen_outputs: RefCell<AHashSet<OutputId>>,
-    default: Config,
     seat: Seat,
     #[allow(clippy::type_complexity)]
     actions: RefCell<AHashMap<Rc<String>, Rc<dyn Fn()>>>,
@@ -1288,6 +1307,8 @@ struct PersistentState {
     watcher_handle: RefCell<Option<JoinHandle<()>>>,
     last_config: RefCell<Option<Vec<u8>>>,
     workspaces_with_initial_outputs: RefCell<AHashSet<Workspace>>,
+    triggers: RefCell<Vec<Rc<TomlTrigger>>>,
+    counters: RefCell<Vec<Rc<Counter>>>,
 }
 
 async fn watch_config(persistent: Rc<PersistentState>) {
@@ -1472,6 +1493,12 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     path.push(CONFIG_TOML);
     let mut last_config = persistent.last_config.borrow_mut();
     let mut workspaces = Default::default();
+    let parse_default_config = |workspaces| {
+        parse_config(DEFAULT, &persistent.mark_names, workspaces, |e| {
+            panic!("Could not parse the default config: {}", Report::new(e))
+        })
+        .unwrap()
+    };
     let mut config = match std::fs::read(&path) {
         Ok(input) => {
             if auto_reload {
@@ -1487,7 +1514,7 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
             match parsed {
                 None if initial_load => {
                     log::warn!("Using default config instead");
-                    persistent.default.clone()
+                    parse_default_config(&mut workspaces)
                 }
                 None => {
                     log::warn!("Ignoring config reload");
@@ -1504,7 +1531,7 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
                 log::info!("Auto reloading config")
             }
             log::info!("{} does not exist. Using default config.", path.display());
-            persistent.default.clone()
+            parse_default_config(&mut workspaces)
         }
         Err(e) => {
             log::warn!("Could not load {}: {}", path.display(), Report::new(e));
@@ -1587,7 +1614,10 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
         client: Default::default(),
         window: Default::default(),
         workspaces: workspaces.values().map(|v| v.to_toml()).collect(),
+        max_trigger_depth: config.max_trigger_depth,
     });
+    persistent.triggers.borrow_mut().clear();
+    persistent.counters.borrow_mut().clear();
     state.clear_modes_after_reload();
     let (client_rules, client_rule_mapper) = state.create_rules(&config.client_rules);
     persistent.client_rules.set(client_rules);
@@ -1906,6 +1936,11 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     if let Some(v) = config.cursor_size {
         persistent.seat.set_cursor_size(v);
     }
+    for trigger in &config.triggers {
+        if let Some(trigger) = trigger.build(&state).upgrade() {
+            trigger.check_active();
+        }
+    }
 }
 
 fn create_command(exec: &Exec) -> Command {
@@ -1928,23 +1963,20 @@ fn create_command(exec: &Exec) -> Command {
 pub const DEFAULT: &[u8] = include_bytes!("default-config.toml");
 
 pub fn configure() {
-    let mark_names = Default::default();
-    let default = parse_config(DEFAULT, &mark_names, &mut Default::default(), |e| {
-        panic!("Could not parse the default config: {}", Report::new(e))
-    });
     let persistent = Rc::new(PersistentState {
         seen_outputs: Default::default(),
-        default: default.unwrap(),
         seat: default_seat(),
         actions: Default::default(),
         client_rules: Default::default(),
         client_rule_mapper: Default::default(),
         window_rules: Default::default(),
-        mark_names,
+        mark_names: Default::default(),
         mode_state: Default::default(),
         watcher_handle: Default::default(),
         last_config: Default::default(),
         workspaces_with_initial_outputs: Default::default(),
+        triggers: Default::default(),
+        counters: Default::default(),
     });
     {
         let p = persistent.clone();
@@ -1952,6 +1984,8 @@ pub fn configure() {
             p.actions.borrow_mut().clear();
             p.client_rule_mapper.borrow_mut().take();
             p.mode_state.clear();
+            p.triggers.borrow_mut().clear();
+            p.counters.borrow_mut().clear();
         });
     }
     load_config(true, false, &persistent);
