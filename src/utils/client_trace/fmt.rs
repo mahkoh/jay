@@ -9,13 +9,13 @@ use crate::utils::time_lt::split_usec;
 use bstr::ByteSlice;
 
 impl ClientTraceMsg<'_> {
-    #[expect(unused)]
     pub fn fmt_text(&self, dst: &mut String, ctx: &StrCtx, color: bool, client_id: u64) {
         let ctx = &StrCtx {
             fmt: StrFmtFmt::Trace,
             ..*ctx
         };
         const WL_DEBUG_COLOR_RESET: &str = "\x1b[0m";
+        #[expect(unused)]
         const WL_DEBUG_COLOR_RED: &str = "\x1b[31m";
         const WL_DEBUG_COLOR_GREEN: &str = "\x1b[32m";
         const WL_DEBUG_COLOR_YELLOW: &str = "\x1b[33m";
@@ -131,7 +131,6 @@ impl ClientTraceMsg<'_> {
         dst.push_str(")\n");
     }
 
-    #[cfg_attr(not(test), expect(unused))]
     pub fn fmt_jsonl(&self, dst: &mut String, ctx: &StrCtx, client_id: u64) {
         let ctx = &StrCtx {
             fmt: StrFmtFmt::Jsonl,

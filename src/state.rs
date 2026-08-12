@@ -100,6 +100,7 @@ use crate::ifs::ipc::DataOfferIds;
 use crate::ifs::ipc::DataSourceIds;
 use crate::ifs::ipc::data_control::DataControlDeviceIds;
 use crate::ifs::ipc::x_data_device::XIpcDeviceIds;
+use crate::ifs::jay_global_tracer::GlobalTracers;
 use crate::ifs::jay_render_ctx::JayRenderCtx;
 use crate::ifs::jay_screencast::JayScreencast;
 use crate::ifs::jay_seat_events::JaySeatEvents;
@@ -432,6 +433,7 @@ pub struct State {
     pub visualize_compositing: Cell<bool>,
     pub sleeper: Option<Sleeper>,
     pub transaction_data: TransactionData<StateTransactionOp>,
+    pub global_tracers: GlobalTracers,
 }
 
 // impl Drop for State {
@@ -1523,6 +1525,7 @@ impl State {
         }
         self.tree.configure_groups.clear();
         self.tree.transactions.clear(self);
+        self.global_tracers.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {
@@ -1833,7 +1836,6 @@ impl State {
         self.eng.now().msec()
     }
 
-    #[expect(unused)]
     pub fn now_usec_rt(&self) -> u64 {
         self.eng.now_rt().usec()
     }

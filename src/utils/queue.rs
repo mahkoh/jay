@@ -70,7 +70,6 @@ impl<T> AsyncQueue<T> {
         }
     }
 
-    #[expect(unused)]
     pub fn swap(&self, other: &mut VecDeque<T>) {
         unsafe {
             mem::swap(other, self.data.get().deref_mut());

@@ -480,6 +480,7 @@ fn start_compositor2(
         lazy_prime_buffer_resv_user: Default::default(),
         visualize_compositing: Default::default(),
         sleeper,
+        global_tracers: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

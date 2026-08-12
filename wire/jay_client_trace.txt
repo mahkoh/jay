@@ -1,0 +1,19 @@
+request destroy (destructor) {
+
+}
+
+event failed {
+    msg: str,
+}
+
+event info {
+    fd: fd,
+}
+
+event storage {
+    fd: fd,
+}
+
+event disconnected {
+
+}

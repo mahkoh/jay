@@ -9,10 +9,12 @@ use crate::globals::GlobalName;
 use crate::ifs::jay_acceptor_request::JayAcceptorRequest;
 use crate::ifs::jay_client_match_builder::JayClientMatchBuilder;
 use crate::ifs::jay_client_query::JayClientQuery;
+use crate::ifs::jay_client_trace::JayClientTrace;
 use crate::ifs::jay_color_management::JayColorManagement;
 use crate::ifs::jay_ei_session_builder::JayEiSessionBuilder;
 use crate::ifs::jay_generic_match_builder::JayGenericMatchBuilder;
 use crate::ifs::jay_generic_match_builder::MatchBuilder;
+use crate::ifs::jay_global_tracer::JayGlobalTracer;
 use crate::ifs::jay_idle::JayIdle;
 use crate::ifs::jay_input::JayInput;
 use crate::ifs::jay_keymap_builder::JayKeymapBuilder;
@@ -93,7 +95,7 @@ global_base!(JayCompositorGlobal, JayCompositor, JayCompositorError);
 
 impl Global for JayCompositorGlobal {
     fn version(&self) -> u32 {
-        41
+        42
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -667,6 +669,29 @@ impl JayCompositorRequestHandler for JayCompositor {
             self_id: self.id,
             exe: fd,
         });
+        Ok(())
+    }
+
+    fn trace_client(&self, req: TraceClient, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let target = self
+            .client
+            .state
+            .clients
+            .get(ClientId::from_raw(req.client_id))
+            .ok();
+        JayClientTrace::install(
+            req.trace,
+            &self.client,
+            target.as_ref(),
+            self.version,
+            false,
+        )?;
+        Ok(())
+    }
+
+    fn trace_clients(&self, req: TraceClients, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let obj = self.client.lookup(req.client_match)?;
+        JayGlobalTracer::install(req.clients, &self.client, &obj.m, self.version)?;
         Ok(())
     }
 }

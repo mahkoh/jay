@@ -19,7 +19,6 @@ pub const RWF_ATOMIC: c::c_int = 0x00000040;
 pub const RWF_DONTCACHE: c::c_int = 0x00000080;
 pub const RWF_NOSIGNAL: c::c_int = 0x00000100;
 
-#[expect(unused)]
 pub fn supports_rwf_nosignal() -> bool {
     static V: LazyLock<bool> = LazyLock::new(|| {
         let ok = supports_rwf_nosignal_();

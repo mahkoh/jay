@@ -376,7 +376,7 @@ impl ToolClient {
             self_id: s.registry,
             name: s.jay_compositor.0,
             interface: JayCompositor.name(),
-            version: s.jay_compositor.1.min(41),
+            version: s.jay_compositor.1.min(42),
             id: id.into(),
         });
         self.jay_compositor.set(Some(id));
@@ -495,7 +495,6 @@ impl ToolClient {
         client_id.get()
     }
 
-    #[expect(dead_code)]
     pub async fn ensure_same_exe(self: &Rc<Self>) -> Result<(), ExeError> {
         let comp = self.jay_compositor().await;
         let exe = Rc::new(Cell::new(None));

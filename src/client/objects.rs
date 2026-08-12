@@ -301,6 +301,9 @@ impl Objects {
         if send_delete {
             client_data.display()?.send_delete_id(id);
         }
+        if client_data.tracers.num.get() > 0 {
+            client_data.tracers.handle_delete_id(id);
+        }
         Ok(())
     }
 

@@ -74,13 +74,15 @@ Commands:
   control-center       Opens the control center
   version              Prints the Jay version and exits
   pid                  Prints the Jay PID and exits
+  trace                Traces wayland messages
   help                 Print this message or the help of the given subcommand(s)
 
 Options:
-      --log-level <LOG_LEVEL>  The log level [default: info] [possible values: trace, debug, info, warn, error, off]
-      --json                   Output data as JSONL
-      --all-json-fields        Print all fields in JSON output
-  -h, --help                   Print help (see more with '--help')
+      --log-level <LOG_LEVEL>    The log level [possible values: trace, debug, info, warn, error, off]
+      --config-dir <CONFIG_DIR>  The config directory
+      --json                     Output data as JSONL
+      --all-json-fields          Print all fields in JSON output
+  -h, --help                     Print help (see more with '--help')
 ```
 
 See the full [Command-Line Interface](cli.md) reference for details.

@@ -42,6 +42,7 @@
 - [Screen Sharing](screen-sharing.md)
 - [HDR & Color Management](hdr.md)
 - [Env Variables Read by Jay](environment-variables.md)
+- [Tracing Wayland Messages](tracing.md)
 
 # Reference
 

@@ -251,32 +251,15 @@ impl UsrCon {
 
     pub fn parse<'a, R: RequestParser<'a>>(
         &self,
-        obj: &impl UsrObject,
+        _obj: &impl UsrObject,
         mut parser: MsgParser<'_, 'a>,
     ) -> Result<R, MsgParserError> {
-        let res = R::parse(&mut parser)?;
-        log::trace!(
-            "Server {} -> {}@{}.{:?}",
-            self.server_id,
-            obj.interface().name(),
-            obj.id(),
-            res
-        );
-        Ok(res)
+        R::parse(&mut parser)
     }
 
     pub fn request<T: EventFormatter>(self: &Rc<Self>, event: T) {
         if self.dead.get() {
             return;
-        }
-        if log::log_enabled!(log::Level::Trace) {
-            log::trace!(
-                "Server {} <= {}@{}.{:?}",
-                self.server_id,
-                event.interface().name(),
-                event.id(),
-                event,
-            );
         }
         let mut fds = vec![];
         let mut swapchain = self.swapchain.borrow_mut();

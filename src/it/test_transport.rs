@@ -175,18 +175,6 @@ impl TestTransport {
         if self.killed.get() {
             return Ok(());
         }
-        let obj = match self.objects.get(&msg.id()) {
-            Some(obj) => obj,
-            _ => bail!("Object with id {} has already been deleted", msg.id()),
-        };
-        if obj.interface().name() != msg.interface().name() {
-            bail!(
-                "Object with id {} has an incompatible interface: {} != {}",
-                msg.id(),
-                obj.interface().name(),
-                msg.interface().name()
-            );
-        }
         let mut fds = vec![];
         let mut swapchain = self.swapchain.borrow_mut();
         let mut fmt = MsgFormatter::new(&mut swapchain.cur, &mut fds);
