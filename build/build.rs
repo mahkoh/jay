@@ -29,6 +29,7 @@ mod egl;
 mod enums;
 mod logging;
 mod str_table;
+mod time_lt;
 mod tokens;
 mod utils;
 mod vulkan;
@@ -58,6 +59,7 @@ fn main() -> anyhow::Result<()> {
     egl::main()?;
     vulkan::main()?;
     logging::main()?;
+    time_lt::main()?;
     str_table::main(open)?;
 
     println!("cargo:rerun-if-changed=build/build.rs");

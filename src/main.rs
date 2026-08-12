@@ -37,7 +37,8 @@
     clippy::manual_flatten,
     clippy::manual_bits,
     clippy::manual_is_multiple_of,
-    clippy::obfuscated_if_else
+    clippy::obfuscated_if_else,
+    clippy::manual_div_ceil
 )]
 #![warn(unsafe_op_in_unsafe_fn)]
 

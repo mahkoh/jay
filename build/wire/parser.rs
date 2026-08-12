@@ -208,7 +208,7 @@ pub struct Lined<T> {
 
 #[derive(Debug)]
 pub enum Type {
-    Id(#[allow(dead_code)] Interned, String),
+    Id(Interned, String),
     U32,
     I32,
     U64,
@@ -242,7 +242,6 @@ pub struct Message {
     pub attribs: MessageAttribs,
     pub has_reference_type: bool,
     pub is_fixed_size: bool,
-    #[allow(unused)]
     pub is_request: bool,
 }
 

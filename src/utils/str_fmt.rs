@@ -41,7 +41,6 @@ pub enum StrFmtFmt {
     #[default]
     Human,
     Jsonl,
-    #[expect(unused)]
     Trace,
 }
 

@@ -1,9 +1,11 @@
+mod client_trace;
 mod parser;
 
 use crate::indent::Indent;
 use crate::open;
 use crate::str_table::Interned;
 use crate::str_table::intern;
+use crate::wire::client_trace::write_client_trace_files;
 use crate::wire::parser::Field;
 use crate::wire::parser::Lined;
 use crate::wire::parser::Message;
@@ -555,6 +557,7 @@ pub fn main() -> Result<()> {
             .with_context(|| format!("While processing {}", file.path().display()))?;
         parsed_files.push(parsed);
     }
+    write_client_trace_files(&parsed_files)?;
     for file in parsed_files {
         write_file(&mut f, &file)?;
     }

@@ -117,9 +117,7 @@ where
     T: Cprb,
 {
     src: &'a CprbRead<T, NUM_SLOTS>,
-    #[cfg_attr(not(test), expect(unused))]
     pub slot: *const T::Slot,
-    #[cfg_attr(not(test), expect(unused))]
     pub missed: u64,
 }
 
@@ -128,11 +126,8 @@ where
     T: Cprb,
 {
     _src: &'a CprbWrite<T, NUM_SLOTS>,
-    #[cfg_attr(not(test), expect(unused))]
     pub slot: *mut T::Slot,
-    #[cfg_attr(not(test), expect(unused))]
     pub read: u64,
-    #[cfg_attr(not(test), expect(unused))]
     pub write: u64,
 }
 
@@ -166,7 +161,6 @@ impl<T, const NUM_SLOTS: usize> CprbWrite<T, NUM_SLOTS>
 where
     T: Cprb,
 {
-    #[cfg_attr(not(test), expect(unused))]
     pub fn new(ring: &Rc<IoUring>) -> Result<Self, CprbError> {
         let size = size_of::<Shared<T, NUM_SLOTS>>();
         let memfd = memfd_create("jay-cprb", c::MFD_CLOEXEC | c::MFD_ALLOW_SEALING)
@@ -195,12 +189,10 @@ where
         })
     }
 
-    #[cfg_attr(not(test), expect(unused))]
     pub fn memfd(&self) -> &Rc<OwnedFd> {
         &self.memfd
     }
 
-    #[cfg_attr(not(test), expect(unused))]
     pub fn data(&self) -> *mut T::Data {
         self.shared.data()
     }
@@ -210,7 +202,6 @@ where
         &self.data_offsets[idx]
     }
 
-    #[cfg_attr(not(test), expect(unused))]
     pub fn acquire(&self) -> Option<CprbMsgWrite<'_, T, NUM_SLOTS>> {
         let serial = self.next_serial.fetch_add(1);
         let available = self.shared.available().load(Acquire) as u64;
@@ -234,7 +225,6 @@ where
         })
     }
 
-    #[cfg_attr(not(test), expect(unused))]
     #[inline]
     pub fn commit(&self, data_offset: u64) {
         let hi = self.data_offsets_idx.add_fetch(1);
@@ -263,7 +253,6 @@ impl<T, const NUM_SLOTS: usize> CprbRead<T, NUM_SLOTS>
 where
     T: Cprb,
 {
-    #[cfg_attr(not(test), expect(unused))]
     pub fn new(
         ring: &Rc<IoUring>,
         memfd: &Rc<OwnedFd>,
@@ -295,19 +284,16 @@ where
         })
     }
 
-    #[cfg_attr(not(test), expect(unused))]
     pub fn data(&self) -> *mut T::Data {
         self.shared.data()
     }
 
-    #[cfg_attr(not(test), expect(unused))]
     pub fn available(&self) -> CprbReadAvailable<T, NUM_SLOTS> {
         CprbReadAvailable {
             shared: self.shared.clone(),
         }
     }
 
-    #[cfg_attr(not(test), expect(unused))]
     pub fn acquire(&mut self) -> Option<CprbMsgRead<'_, T, NUM_SLOTS>> {
         let available = self.shared.available().load(Acquire) as usize;
         if available == 0 {
@@ -331,7 +317,6 @@ impl<T, const NUM_SLOTS: usize> CprbReadAvailable<T, NUM_SLOTS>
 where
     T: Cprb,
 {
-    #[cfg_attr(not(test), expect(unused))]
     pub async fn available(&self) -> Result<(), IoUringError> {
         loop {
             let available = self.shared.available().load(Acquire) as usize;

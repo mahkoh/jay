@@ -25,6 +25,7 @@ use crate::utils::buffd::MsgFormatter;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
 use crate::utils::buffd::OutBufferSwapchain;
+use crate::utils::client_trace::ClientTraceMessage;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::copyhashmap::Locked;
 use crate::utils::errorfmt::ErrorFmt;
@@ -323,13 +324,13 @@ impl Drop for ClientHolder {
     }
 }
 
-pub trait EventFormatter: Debug {
+pub trait EventFormatter: Debug + ClientTraceMessage {
     fn format(self, fmt: &mut MsgFormatter<'_>);
     fn id(&self) -> ObjectId;
     fn interface(&self) -> Interface;
 }
 
-pub trait RequestParser<'a>: Debug + Sized {
+pub trait RequestParser<'a>: Debug + Sized + ClientTraceMessage {
     type Generic<'b>: RequestParser<'b>;
     const ID: u32;
     fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError>;
