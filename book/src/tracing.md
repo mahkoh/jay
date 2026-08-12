@@ -125,6 +125,12 @@ If you see these lines, write the trace to a file with `-o` instead of to a
 terminal or a slow command, and narrow the trace to the clients you are
 actually interested in.
 
+> [!TIP]
+> This also makes it safe to stop the output of a terminal with `ctrl-s` while
+> you look at what has already been printed, and to resume it with `ctrl-q`
+> afterwards. Neither the traced client nor the compositor is slowed down; the
+> messages produced in the meantime are simply dropped.
+
 ## Writing to Files
 
 `-o <PREFIX>`, `--output <PREFIX>`
