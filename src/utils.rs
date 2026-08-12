@@ -90,6 +90,7 @@ pub mod syncqueue;
 pub mod thread_id;
 pub mod thread_local_data;
 pub mod threshold_counter;
+pub mod time_lt;
 pub mod timer;
 pub mod tri;
 pub mod type_wrapper;
