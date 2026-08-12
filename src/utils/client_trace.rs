@@ -22,7 +22,6 @@ use generated::MAX_ARGS;
 use hashbrown::HashMap;
 use hashbrown::hash_map::Entry;
 use std::array;
-use std::mem;
 use std::mem::MaybeUninit;
 use std::rc::Rc;
 use uapi::OwnedFd;
@@ -162,9 +161,11 @@ struct IdMap {
     raw_ids: bool,
 }
 
-enum ReadResult<'a> {
-    DeleteId,
-    Message(ClientTraceMsg<'a>),
+pub struct ClientTraceEvent<'a> {
+    #[cfg_attr(not(test), expect(unused))]
+    pub missed: u64,
+    #[cfg_attr(not(test), expect(unused))]
+    pub msg: Option<ClientTraceMsg<'a>>,
 }
 
 pub type Reader =
@@ -291,31 +292,16 @@ impl ClientTraceRead {
     }
 
     #[cfg_attr(not(test), expect(unused))]
-    pub fn try_read(&mut self) -> Option<ClientTraceMsg<'_>> {
-        loop {
-            match self.read_next()? {
-                ReadResult::DeleteId => {}
-                ReadResult::Message(res) => {
-                    return Some(unsafe {
-                        mem::transmute::<ClientTraceMsg<'_>, ClientTraceMsg<'_>>(res)
-                    });
-                }
-            }
-        }
-    }
-
-    fn read_next(&mut self) -> Option<ReadResult<'_>> {
+    pub fn try_read(&mut self) -> Option<ClientTraceEvent<'_>> {
         let data = self.read.data();
         let msg = self.read.acquire()?;
-        if msg.missed > 0 {
-            log::warn!("Missed {} messages", msg.missed);
-        }
+        let missed = msg.missed;
         let slot = unsafe { msg.slot.deref() };
         let id_map = &mut self.id_map;
-        let ty = match slot {
+        let msg = match slot {
             Slot::DeleteId(slot) => {
                 id_map.remove(slot.obj);
-                ReadResult::DeleteId
+                None
             }
             Slot::Message(slot) => {
                 let def_idx = slot.message as usize;
@@ -342,7 +328,7 @@ impl ClientTraceRead {
                         }
                     }
                 }
-                ReadResult::Message(ClientTraceMsg {
+                Some(ClientTraceMsg {
                     _msg: msg,
                     us: slot.us,
                     def,
@@ -351,7 +337,7 @@ impl ClientTraceRead {
                 })
             }
         };
-        Some(ty)
+        Some(ClientTraceEvent { missed, msg })
     }
 }
 

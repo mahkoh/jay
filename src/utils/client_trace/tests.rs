@@ -3,6 +3,7 @@ use crate::io_uring::IoUring;
 use crate::utils::client_trace::ClientTraceArgVal;
 use crate::utils::client_trace::ClientTraceRead;
 use crate::utils::client_trace::ClientTraceWrite;
+use crate::utils::client_trace::NUM_SLOTS;
 use crate::utils::client_trace::generated::ClientTraceArray;
 use crate::utils::client_trace::generated::ClientTracePod;
 use crate::utils::str_fmt::StrCtx;
@@ -30,7 +31,7 @@ fn fixed_size_roundtrip() {
     let (writer, mut reader) = pair();
     let msg = attach(crate::wire::WlBufferId::from_raw(9), -3, 4);
     writer.write_msg(ObjectId::from_raw(7), 3_723_456_789, &msg);
-    let msg = reader.try_read().unwrap();
+    let msg = reader.try_read().unwrap().msg.unwrap();
     assert_eq!(msg.us, 3_723_456_789);
     assert_eq!(msg.obj, 1); // raw id 7 is mapped to dense id 1
     assert_eq!(msg.args.len(), 3);
@@ -69,7 +70,7 @@ fn nil_id_is_preserved() {
     let (writer, mut reader) = pair();
     let msg = attach(crate::wire::WlBufferId::NONE, 0, 0);
     writer.write_msg(ObjectId::from_raw(7), 100, &msg);
-    let msg = reader.try_read().unwrap();
+    let msg = reader.try_read().unwrap().msg.unwrap();
     match msg.args[0].val {
         ClientTraceArgVal::Id(id) => assert_eq!(id, 0),
         _ => panic!("unexpected arg"),
@@ -92,7 +93,7 @@ fn variable_size_roundtrip() {
         options: None,
     };
     writer.write_msg(ObjectId::from_raw(3), 100, &msg);
-    let msg = reader.try_read().unwrap();
+    let msg = reader.try_read().unwrap().msg.unwrap();
     let arg = |idx: usize| match &msg.args[idx].val {
         ClientTraceArgVal::Str(s) => *s,
         _ => panic!("unexpected arg"),
@@ -136,7 +137,7 @@ fn array_roundtrip() {
         indices: &[1, 2, 3, 65535],
     };
     writer.write_msg(ObjectId::from_raw(5), 100, &msg);
-    let msg = reader.try_read().unwrap();
+    let msg = reader.try_read().unwrap().msg.unwrap();
     match msg.args[0].val {
         ClientTraceArgVal::Array(ClientTraceArray::V2(v)) => {
             assert_eq!(v, &[1, 2, 3, 65535]);
@@ -153,7 +154,7 @@ fn pod_roundtrip() {
         device: 0x1234_5678,
     };
     writer.write_msg(ObjectId::from_raw(5), 100, &msg);
-    let msg = reader.try_read().unwrap();
+    let msg = reader.try_read().unwrap().msg.unwrap();
     match msg.args[0].val {
         ClientTraceArgVal::Pod(ClientTracePod::V0(v)) => {
             assert_eq!(v, 0x1234_5678);
@@ -171,7 +172,7 @@ fn u64_roundtrip() {
         point: 0xdead_beef_1234_5678,
     };
     writer.write_msg(ObjectId::from_raw(1), 100, &msg);
-    let msg = reader.try_read().unwrap();
+    let msg = reader.try_read().unwrap().msg.unwrap();
     match msg.args[1].val {
         ClientTraceArgVal::U64(v) => assert_eq!(v, 0xdead_beef_1234_5678),
         _ => panic!("unexpected arg"),
@@ -188,7 +189,7 @@ fn fd_arg_has_no_value() {
         size: 12,
     };
     writer.write_msg(ObjectId::from_raw(1), 100, &msg);
-    let msg = reader.try_read().unwrap();
+    let msg = reader.try_read().unwrap().msg.unwrap();
     assert_eq!(msg.args.len(), 3);
     match msg.args[0].val {
         ClientTraceArgVal::Id(id) => assert_eq!(id, 2),
@@ -206,13 +207,14 @@ fn delete_id_remaps() {
     let (writer, mut reader) = pair();
     let msg = attach(crate::wire::WlBufferId::NONE, 0, 0);
     writer.write_msg(ObjectId::from_raw(7), 100, &msg);
-    assert_eq!(reader.try_read().unwrap().obj, 1);
+    assert_eq!(reader.try_read().unwrap().msg.unwrap().obj, 1);
     writer.write_delete_id(ObjectId::from_raw(7));
+    assert!(reader.try_read().unwrap().msg.is_none());
     // After the id was deleted, the same raw id is mapped to a new dense id.
     let msg = attach(crate::wire::WlBufferId::NONE, 1, 1);
     writer.write_msg(ObjectId::from_raw(7), 101, &msg);
     {
-        let msg = reader.try_read().unwrap();
+        let msg = reader.try_read().unwrap().msg.unwrap();
         assert_eq!(msg.obj, 2);
         assert_eq!(msg.us, 101);
     }
@@ -234,4 +236,25 @@ fn oversized_message_is_dropped() {
     };
     writer.write_msg(ObjectId::from_raw(3), 100, &msg);
     assert!(reader.try_read().is_none());
+}
+
+#[test]
+fn missed() {
+    let (writer, mut reader) = pair();
+    let msg = attach(crate::wire::WlBufferId::NONE, 0, 0);
+    for _ in 0..NUM_SLOTS {
+        writer.write_msg(ObjectId::from_raw(1), 100, &msg);
+    }
+    for _ in 0..22 {
+        writer.write_msg(ObjectId::from_raw(1), 100, &msg);
+    }
+    for _ in 0..NUM_SLOTS {
+        let msg = reader.try_read().unwrap();
+        assert_eq!(msg.missed, 0);
+        assert!(msg.msg.is_some());
+    }
+    writer.write_msg(ObjectId::from_raw(1), 100, &msg);
+    let msg = reader.try_read().unwrap();
+    assert_eq!(msg.missed, 22);
+    assert!(msg.msg.is_some());
 }
