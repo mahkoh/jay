@@ -22,6 +22,7 @@ use crate::scale::Scale;
 use crate::state::State;
 use crate::text::TextTexture;
 use crate::theme::ContainerBorders;
+use crate::theme::ContainerBordersSetting;
 use crate::transactions::TransactionData;
 use crate::transactions::Transactionable;
 use crate::transactions::TransactionableExt;
@@ -64,7 +65,6 @@ use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::linkedlist::NodeRef;
-use crate::utils::numcell::NumCell;
 use crate::utils::on_drop_event::OnDropEvent;
 use crate::utils::rc_eq::rc_eq;
 use crate::utils::scroller::Scroller;
@@ -175,6 +175,7 @@ pub struct ContainerNodeState {
     pub height: Cell<i32>,
     pub content_width: Cell<i32>,
     pub content_height: Cell<i32>,
+    pub num_children: Cell<usize>,
 }
 
 pub struct ContainerNode {
@@ -184,7 +185,6 @@ pub struct ContainerNode {
     layout_scheduled: Cell<bool>,
     compute_render_positions_scheduled: Cell<bool>,
     render_titles_scheduled: Cell<bool>,
-    num_children: NumCell<usize>,
     pub children: LinkedList<ContainerChild>,
     child_types_valid: Cell<bool>,
     focus_history: LinkedList<NodeRef<ContainerChild>>,
@@ -314,7 +314,6 @@ impl ContainerNode {
             layout_scheduled: Cell::new(false),
             compute_render_positions_scheduled: Cell::new(false),
             render_titles_scheduled: Cell::new(false),
-            num_children: NumCell::new(1),
             children,
             child_types_valid: Cell::new(false),
             focus_history: Default::default(),
@@ -337,6 +336,7 @@ impl ContainerNode {
             transaction_data: TransactionData::new(&state.tree),
         });
         slf.set_ns_split(split);
+        slf.adj_ns_num_children(|value| value + 1);
         child.tl_set_parent(slf.clone());
         slf.pull_child_properties(&child_node_ref);
         slf.schedule_validate_child(&child_node_ref);
@@ -445,7 +445,7 @@ impl ContainerNode {
         new.tl_set_parent(self.clone());
         self.pull_child_properties(&new_ref);
         new.tl_set_visible(self.toplevel_data.visible[LiveTL].get());
-        let num_children = self.num_children.fetch_add(1) + 1;
+        let num_children = self.adj_ns_num_children(|value| value + 1);
         self.update_content_size();
         let new_child_factor = 1.0 / num_children as f64;
         let mut sum_factors = 0.0;
@@ -518,11 +518,12 @@ impl ContainerNode {
     }
 
     fn perform_layout(self: &Rc<Self>) {
-        if self.num_children.get() == 0 {
+        let ns = &self.node_state[LiveTL];
+        if ns.num_children.get() == 0 {
             return;
         }
         self.layout_scheduled.set(false);
-        if let Some(child) = self.node_state[LiveTL].mono_child.get() {
+        if let Some(child) = ns.mono_child.get() {
             self.perform_mono_layout(&child);
         } else {
             self.perform_split_layout();
@@ -550,8 +551,8 @@ impl ContainerNode {
         let theme = &self.state.theme;
         let th = theme.title_height(LiveTL);
         let bw = theme.sizes.border_width.get(LiveTL);
-        let num_children = self.num_children.get() as i32;
-        let sp = match theme.container_borders[LiveTL].get() {
+        let num_children = ns.num_children.get() as i32;
+        let sp = match self.container_borders(LiveTL) {
             ContainerBorders::Separators => 0,
             ContainerBorders::Full => bw,
         };
@@ -582,11 +583,11 @@ impl ContainerNode {
             ContainerSplit::Horizontal => (ns.content_width.get(), ns.content_height.get()),
             ContainerSplit::Vertical => (ns.content_height.get(), ns.content_width.get()),
         };
-        let num_children = self.num_children.get();
+        let num_children = ns.num_children.get();
         if num_children == 0 {
             return;
         }
-        let sp = match theme.container_borders[LiveTL].get() {
+        let sp = match self.container_borders(LiveTL) {
             ContainerBorders::Separators => 0,
             ContainerBorders::Full => border_width,
         };
@@ -694,13 +695,16 @@ impl ContainerNode {
         let theme = &self.state.theme;
         let border_width = theme.sizes.border_width.get(LiveTL);
         let title_plus_underline_height = theme.title_plus_underline_height(LiveTL);
-        let nc = self.num_children.get();
         let ns = &self.node_state[LiveTL];
+        let nc = ns.num_children.get();
+        if nc == 0 {
+            return;
+        }
         let mut mono_x = 0;
         let mut mono_y = title_plus_underline_height;
         let mut width = ns.width.get();
         let mut height = ns.height.get() - title_plus_underline_height;
-        if theme.container_borders[LiveTL].get() == ContainerBorders::Full {
+        if self.container_borders(LiveTL) == ContainerBorders::Full {
             mono_x += border_width;
             mono_y += border_width;
             width -= 2 * border_width;
@@ -986,7 +990,7 @@ impl ContainerNode {
         let tuh = theme.title_underline_height(RenderTL);
         let bw = theme.sizes.border_width.get(RenderTL);
         let ns = &self.node_state[RenderTL];
-        let cb = theme.container_borders[RenderTL].get();
+        let cb = self.container_borders(RenderTL);
         let sp = match cb {
             ContainerBorders::Separators => 0,
             ContainerBorders::Full => bw,
@@ -1231,10 +1235,6 @@ impl ContainerNode {
         self.update_title();
     }
 
-    pub fn num_children(&self) -> usize {
-        self.num_children.get()
-    }
-
     pub fn set_split(self: &Rc<Self>, split: ContainerSplit) {
         if self.set_ns_split(split) != split {
             self.update_content_size();
@@ -1348,9 +1348,10 @@ impl ContainerNode {
                 }
             }
         };
+        let ns = &self.node_state[LiveTL];
 
         // CASE 1: This is the only child of the container. Replace the container by the child.
-        if self.num_children.get() == 1 {
+        if ns.num_children.get() == 1 {
             if let Some(parent) = self.toplevel_data.parent.get()
                 && !self.toplevel_data.is_fullscreen[LiveTL].get()
             {
@@ -1369,7 +1370,6 @@ impl ContainerNode {
         }
         let (split, prev) = direction_to_split(direction);
         // CASE 2: We're moving the child within the container.
-        let ns = &self.node_state[LiveTL];
         if split == ns.split.get()
             || (split == ContainerSplit::Horizontal && ns.mono_child.is_some())
         {
@@ -1842,6 +1842,22 @@ impl ContainerNode {
         None
     }
 
+    fn container_borders(&self, timeline: TreeTimeline) -> ContainerBorders {
+        match self.state.theme.container_borders[timeline].get() {
+            ContainerBordersSetting::Separators => ContainerBorders::Separators,
+            ContainerBordersSetting::Full => ContainerBorders::Full,
+            ContainerBordersSetting::FullSmart => {
+                if self.node_state[timeline].num_children.get() == 1
+                    && self.toplevel_data.is_root_container[timeline].get()
+                {
+                    ContainerBorders::Separators
+                } else {
+                    ContainerBorders::Full
+                }
+            }
+        }
+    }
+
     fn set_ns_split(self: &Rc<Self>, v: ContainerSplit) -> ContainerSplit {
         self.add_transaction_op(ContainerTransactionOp::SetSplit(v));
         self.node_state[LiveTL].split.replace(v)
@@ -1898,6 +1914,15 @@ impl ContainerNode {
         op: ContainerChildTransactionOp,
     ) {
         self.add_transaction_op(ContainerTransactionOp::ChildOp(child.clone(), op));
+    }
+
+    fn adj_ns_num_children(self: &Rc<Self>, adj: impl FnOnce(usize) -> usize) -> usize {
+        let ns = &self.node_state[LiveTL];
+        let old_value = ns.num_children.get();
+        let new_value = adj(old_value);
+        ns.num_children.set(new_value);
+        self.add_transaction_op(ContainerTransactionOp::SetNumChildren(new_value));
+        new_value
     }
 
     fn set_child_ns_title_rect(self: &Rc<Self>, child: &NodeRef<ContainerChild>, v: Rect) {
@@ -2356,7 +2381,7 @@ impl ContainingNode for ContainerNode {
             }
         }
         let node = self.schedule_unlink_child(node);
-        let num_children = self.num_children.fetch_sub(1) - 1;
+        let num_children = self.adj_ns_num_children(|value| value - 1);
         if num_children == 0 {
             self.tl_destroy();
             return;
@@ -2645,6 +2670,11 @@ impl ToplevelNodeBase for ContainerNode {
         }
     }
 
+    fn tl_is_root_container_changed(self: Rc<Self>) {
+        self.update_content_size();
+        self.schedule_layout();
+    }
+
     fn tl_close(self: Rc<Self>) {
         for child in self.children.iter_valid(LiveTL) {
             child.node.clone().tl_close();
@@ -2868,6 +2898,7 @@ pub enum ContainerTransactionOp {
     SetHeight(i32),
     SetContentWidth(i32),
     SetContentHeight(i32),
+    SetNumChildren(usize),
     ChildOp(NodeRef<ContainerChild>, ContainerChildTransactionOp),
     Unlink(LinkedNode<ContainerChild>),
     ToplevelData(ToplevelDataTransactionOp),
@@ -2922,6 +2953,9 @@ impl Transactionable for ContainerNode {
             }
             ContainerTransactionOp::SetContentHeight(v) => {
                 s.content_height.set(v);
+            }
+            ContainerTransactionOp::SetNumChildren(num_children) => {
+                s.num_children.set(num_children);
             }
             ContainerTransactionOp::ChildOp(child, op) => {
                 let cs = &child.node_state[RenderTL];

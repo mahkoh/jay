@@ -139,15 +139,16 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         if !data.is_fullscreen[LiveTL].get() {
             self.tl_mark_ancestor_fullscreen(parent.cnode_self_or_ancestor_fullscreen());
         }
-        data.is_root_container.set(false);
+        let mut is_root_container = false;
         data.is_overlay_root_container.set(false);
         if let ToplevelType::Container = data.kind
             && let Some(ws) = parent.clone().node_into_workspace()
         {
-            data.is_root_container.set(true);
+            is_root_container = true;
             data.is_overlay_root_container
                 .set(ws.ty == WorkspaceType::Overlay);
         }
+        data.set_is_root_container(is_root_container);
         let parent_was_none = data.parent.set(Some(parent.clone())).is_none();
         if parent_was_none {
             data.mapped_during_iteration.set(data.state.eng.iteration());
@@ -344,6 +345,8 @@ pub trait ToplevelNodeBase: Node {
 
     fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect);
 
+    fn tl_is_root_container_changed(self: Rc<Self>) {}
+
     fn tl_close(self: Rc<Self>);
 
     fn tl_set_visible_impl(&self, visible: bool);
@@ -406,6 +409,7 @@ pub enum ToplevelDataTransactionOp {
     SetIsFullscreen(bool),
     SetWorkspace(Option<Rc<WorkspaceNode>>),
     SetVisible(bool),
+    SetIsRootContainer(bool),
 }
 
 pub struct FullscreenedData {
@@ -497,7 +501,7 @@ pub struct ToplevelData {
     pub content_type: Cell<Option<ContentType>>,
     pub property_changed_source: OnceCell<Rc<LazyEventSource>>,
     pub session: CloneCell<Option<Rc<ToplevelSession>>>,
-    pub is_root_container: Cell<bool>,
+    pub is_root_container: SplitView<Cell<bool>>,
     pub is_overlay_root_container: Cell<bool>,
 }
 
@@ -700,7 +704,7 @@ impl ToplevelData {
         self.schedule_op(ToplevelDataTransactionOp::SetWorkspace(None));
         self.seat_state.destroy_node(node);
         self.is_overlay_root_container.set(false);
-        self.is_root_container.set(false);
+        self.set_is_root_container(false);
     }
 
     pub fn broadcast(&self, toplevel: Rc<dyn ToplevelNode>) {
@@ -1092,6 +1096,16 @@ impl ToplevelData {
         }
     }
 
+    pub fn set_is_root_container(&self, value: bool) {
+        if self.is_root_container[LiveTL].replace(value) != value
+            && let Some(slf) = self.slf.upgrade()
+        {
+            slf.clone()
+                .tl_schedule_data_op(ToplevelDataTransactionOp::SetIsRootContainer(value));
+            slf.tl_is_root_container_changed();
+        }
+    }
+
     pub fn schedule_op(&self, op: ToplevelDataTransactionOp) {
         if let Some(slf) = self.slf.upgrade() {
             slf.tl_schedule_data_op(op);
@@ -1110,6 +1124,9 @@ impl ToplevelData {
             }
             ToplevelDataTransactionOp::SetVisible(v) => {
                 self.visible[RenderTL].set(v);
+            }
+            ToplevelDataTransactionOp::SetIsRootContainer(v) => {
+                self.is_root_container[RenderTL].set(v);
             }
         }
     }
@@ -1179,7 +1196,7 @@ pub fn toplevel_create_split(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, axis: 
     };
     if state.split_reuses_container.get()
         && let Some(pn) = toplevel_parent_container(&*tl)
-        && pn.num_children() == 1
+        && pn.node_state[LiveTL].num_children.get() == 1
     {
         pn.set_split(axis);
         return;

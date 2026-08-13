@@ -1432,7 +1432,8 @@
       "description": "The container border style.",
       "enum": [
         "separators",
-        "full"
+        "full",
+        "full-smart"
       ]
     },
     "ContentTypeMask": {
