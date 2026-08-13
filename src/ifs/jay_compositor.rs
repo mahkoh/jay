@@ -517,7 +517,9 @@ impl JayCompositorRequestHandler for JayCompositor {
     }
 
     fn kill_client(&self, req: KillClient, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.state.clients.kill(ClientId::from_raw(req.id));
+        if let Ok(client) = self.client.state.clients.get(ClientId::from_raw(req.id)) {
+            client.kill();
+        }
         Ok(())
     }
 
@@ -650,15 +652,11 @@ impl JayCompositorRequestHandler for JayCompositor {
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
         let obj = self.client.lookup(req.id)?;
-        let mut todo = vec![];
         let clients = &self.client.state.clients;
-        for (&id, client) in &*clients.clients.borrow() {
+        for client in clients.clients.borrow().values() {
             if obj.m.pull(&client.data) {
-                todo.push(id);
+                client.data.kill();
             }
-        }
-        for id in todo {
-            self.client.state.clients.kill(id);
         }
         Ok(())
     }

@@ -25,6 +25,7 @@ pub async fn client(data: Rc<Client>) {
     let _send = state
         .eng
         .spawn2("client send", Phase::PostLayout, send(data.clone()));
+    let _terminate = state.eng.spawn("client terminate", terminate(data.clone()));
     select! {
         _ = recv => { },
         _ = shutdown => { },
@@ -40,6 +41,19 @@ pub async fn client(data: Rc<Client>) {
         }
     }
     state.clients.kill(data.id);
+}
+
+async fn terminate(data: Rc<Client>) {
+    loop {
+        if data.terminate_kill.get() {
+            data.state.clients.kill(data.id);
+            return;
+        }
+        if data.terminate_shutdown.get() {
+            data.state.clients.shutdown(data.id);
+        }
+        data.terminate.triggered().await;
+    }
 }
 
 async fn receive(data: Rc<Client>) {
@@ -60,7 +74,7 @@ async fn receive(data: Rc<Client>) {
                 Ok(obj) => obj,
                 _ => {
                     display.send_invalid_object(obj_id);
-                    data.state.clients.shutdown(data.id);
+                    data.shutdown();
                     return Err(ClientError::InvalidObject(obj_id));
                 }
             };
@@ -81,7 +95,7 @@ async fn receive(data: Rc<Client>) {
     if let Err(e) = res {
         if e.peer_closed() {
             log::info!("Client {} terminated the connection", data.id.0);
-            data.state.clients.kill(data.id);
+            data.kill();
         } else {
             let e = ErrorFmt(e);
             log::error!(
@@ -90,7 +104,7 @@ async fn receive(data: Rc<Client>) {
                 e
             );
             display.send_implementation_error(e.to_string());
-            data.state.clients.shutdown(data.id);
+            data.shutdown();
         }
     }
 }
@@ -129,8 +143,5 @@ async fn send(data: Rc<Client>) {
             );
         }
     }
-    let run_toplevel = data.state.run_toplevel.clone();
-    run_toplevel.schedule(move || {
-        data.state.clients.kill(data.id);
-    });
+    data.kill();
 }

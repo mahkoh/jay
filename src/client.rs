@@ -238,6 +238,9 @@ impl Clients {
             num_live_sessions: Default::default(),
             connect_time_us: global.now_usec_rt(),
             tracers: ClientTracers::new(&global.eng),
+            terminate_shutdown: Default::default(),
+            terminate_kill: Default::default(),
+            terminate: Default::default(),
         });
         track!(data, data);
         global.update_capabilities(&data, bounding_caps, set_bounding_caps_for_children);
@@ -267,14 +270,14 @@ impl Clients {
         Ok(data)
     }
 
-    pub fn kill(&self, client: ClientId) {
+    fn kill(&self, client: ClientId) {
         log::info!("Removing client {}", client.0);
         if self.clients.borrow_mut().remove(&client).is_none() {
             self.shutdown_clients.borrow_mut().remove(&client);
         }
     }
 
-    pub fn shutdown(&self, client_id: ClientId) {
+    fn shutdown(&self, client_id: ClientId) {
         if let Some(client) = self.clients.borrow_mut().remove(&client_id) {
             log::info!("Shutting down client {}", client.data.id.0);
             client.data.shutdown.trigger();
@@ -371,6 +374,9 @@ pub struct Client {
     pub num_live_sessions: NumCell<usize>,
     pub connect_time_us: u64,
     pub tracers: ClientTracers,
+    terminate_shutdown: Cell<bool>,
+    terminate_kill: Cell<bool>,
+    terminate: AsyncEvent,
 }
 
 pub const NUM_CACHED_SERIAL_RANGES: usize = 64;
@@ -392,7 +398,7 @@ impl Client {
         match self.display() {
             Ok(d) => {
                 d.send_invalid_request(obj, request);
-                self.state.clients.shutdown(self.id);
+                self.shutdown();
             }
             Err(e) => {
                 log::error!(
@@ -400,7 +406,7 @@ impl Client {
                     self.id,
                     ErrorFmt(e),
                 );
-                self.state.clients.kill(self.id);
+                self.kill();
             }
         }
     }
@@ -463,7 +469,7 @@ impl Client {
         match self.display() {
             Ok(d) => {
                 d.send_implementation_error(msg);
-                self.state.clients.shutdown(self.id);
+                self.shutdown();
             }
             Err(e) => {
                 log::error!(
@@ -471,7 +477,7 @@ impl Client {
                     self.id,
                     ErrorFmt(e),
                 );
-                self.state.clients.kill(self.id);
+                self.kill();
             }
         }
     }
@@ -480,7 +486,7 @@ impl Client {
         if let Ok(d) = self.display() {
             d.send_error(obj.id(), code, message);
         }
-        self.state.clients.shutdown(self.id);
+        self.shutdown();
     }
 
     pub fn event<T: EventFormatter>(self: &Rc<Self>, event: T) {
@@ -512,7 +518,7 @@ impl Client {
             self.state.eng.yield_now().await;
             if self.swapchain.borrow_mut().exceeds_limit() {
                 log::error!("Client {} is too slow at fetching events", self.id.0);
-                self.state.clients.kill(self.id);
+                self.kill();
                 return;
             }
         }
@@ -568,6 +574,16 @@ impl Client {
         if props.is_none() && change.is_some() {
             self.state.cl_matcher_manager.changed(self);
         }
+    }
+
+    pub fn kill(&self) {
+        self.terminate_kill.set(true);
+        self.terminate.trigger();
+    }
+
+    pub fn shutdown(&self) {
+        self.terminate_shutdown.set(true);
+        self.terminate.trigger();
     }
 }
 
