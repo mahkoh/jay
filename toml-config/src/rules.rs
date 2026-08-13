@@ -283,6 +283,7 @@ impl Rule for WindowRule {
         bool!(Urgent, urgent);
         bool!(Fullscreen, fullscreen);
         bool!(JustMapped, just_mapped);
+        bool!(IsWorkspaceContainer, is_workspace_container);
         if let Some(value) = match_.focused {
             let crit = WindowCriterion::Focus(state.persistent.seat);
             let matcher = match value {

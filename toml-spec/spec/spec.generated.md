@@ -6362,6 +6362,16 @@ The table has the following fields:
 
   The value of this field should be a [ContentTypeMask](#types-ContentTypeMask).
 
+- `is-workspace-container` (optional):
+
+  Matches if the window is/isn't the container of a workspace.
+  
+  The workspace container is the outermost container of a workspace. It is
+  created when the first window is tiled on the workspace and it is the only
+  container whose parent is the workspace itself.
+
+  The value of this field should be a boolean.
+
 
 <a name="types-WindowMatchExactly"></a>
 ### `WindowMatchExactly`

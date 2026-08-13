@@ -4720,6 +4720,15 @@ WindowMatch:
       ref: ContentTypeMask
       required: false
       description: Matches windows whose content type is contained in the mask.
+    is-workspace-container:
+      kind: boolean
+      required: false
+      description: |
+        Matches if the window is/isn't the container of a workspace.
+
+        The workspace container is the outermost container of a workspace. It is
+        created when the first window is tiled on the workspace and it is the only
+        container whose parent is the workspace itself.
 
 
 WindowMatchExactly:

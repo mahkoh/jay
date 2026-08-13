@@ -2664,6 +2664,7 @@ impl ConfigProxyHandler {
             WindowCriterionIpc::SeatFocus(seat) => mgr.seat_focus(&*self.get_seat(*seat)?),
             WindowCriterionIpc::Fullscreen => mgr.fullscreen(),
             WindowCriterionIpc::JustMapped => mgr.just_mapped(),
+            WindowCriterionIpc::IsWorkspaceContainer => mgr.is_workspace_container(),
             WindowCriterionIpc::Workspace(w) => mgr.workspace(CritLiteralOrRegex::Literal(
                 self.get_workspace(*w)?.name.clone(),
             )),

@@ -76,3 +76,7 @@ request workspace {
 request content_types {
     v: pod(u64),
 }
+
+request is_workspace_container (since = 43) {
+
+}

@@ -284,6 +284,11 @@ client-created windows (XDG toplevels and X windows).
 `just-mapped`
 : `true` for one compositor iteration after the window maps.
 
+`is-workspace-container`
+: Whether the window is the container of a workspace -- the outermost container,
+  whose parent is the workspace itself. It is created when the first window is
+  tiled on that workspace. Only containers can match this.
+
 `tag` / `tag-regex`
 : The XDG toplevel tag.
 

@@ -132,6 +132,7 @@ pub enum WindowCriterionIpc {
     JustMapped,
     Workspace(Workspace),
     ContentTypes(ContentType),
+    IsWorkspaceContainer,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq)]

@@ -376,7 +376,7 @@ impl ToolClient {
             self_id: s.registry,
             name: s.jay_compositor.0,
             interface: JayCompositor.name(),
-            version: s.jay_compositor.1.min(42),
+            version: s.jay_compositor.1.min(43),
             id: id.into(),
         });
         self.jay_compositor.set(Some(id));
@@ -802,6 +802,7 @@ impl ToolClient {
             workspace,
             workspace_regex,
             content_types,
+            is_workspace_container,
         } = m;
 
         self.generic_match(gmb, generic, |m| {
@@ -826,6 +827,7 @@ impl ToolClient {
         bool!(focused, Focused);
         bool!(fullscreen, Fullscreen);
         bool!(just_mapped, JustMapped);
+        bool!(is_workspace_container, IsWorkspaceContainer);
         num2!(types, Types);
         num2!(content_types, ContentTypes);
     }
