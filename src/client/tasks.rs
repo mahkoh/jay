@@ -16,14 +16,13 @@ use std::time::Duration;
 use uapi::c;
 
 pub async fn client(data: Rc<Client>) {
-    let mut recv = data
-        .state
+    let state = &data.state;
+    let mut recv = state
         .eng
         .spawn("client receive", receive(data.clone()))
         .fuse();
     let mut shutdown = data.shutdown.triggered().fuse();
-    let _send = data
-        .state
+    let _send = state
         .eng
         .spawn2("client send", Phase::PostLayout, send(data.clone()));
     select! {
@@ -32,7 +31,7 @@ pub async fn client(data: Rc<Client>) {
     }
     drop(recv);
     data.flush_request.trigger();
-    match data.state.wheel.timeout(5000).await {
+    match state.wheel.timeout(5000).await {
         Ok(_) => {
             log::error!("Could not shut down client {} within 5 seconds", data.id.0);
         }
@@ -40,7 +39,7 @@ pub async fn client(data: Rc<Client>) {
             log::error!("Could not create a timeout: {}", ErrorFmt(e));
         }
     }
-    data.state.clients.kill(data.id);
+    state.clients.kill(data.id);
 }
 
 async fn receive(data: Rc<Client>) {
