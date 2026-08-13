@@ -16,23 +16,23 @@ use std::time::Duration;
 use uapi::c;
 
 pub async fn client(data: Rc<Client>) {
-    let mut recv = data
-        .state
+    let state = &data.state;
+    let mut recv = state
         .eng
         .spawn("client receive", receive(data.clone()))
         .fuse();
     let mut shutdown = data.shutdown.triggered().fuse();
-    let _send = data
-        .state
+    let _send = state
         .eng
         .spawn2("client send", Phase::PostLayout, send(data.clone()));
+    let _terminate = state.eng.spawn("client terminate", terminate(data.clone()));
     select! {
         _ = recv => { },
         _ = shutdown => { },
     }
     drop(recv);
     data.flush_request.trigger();
-    match data.state.wheel.timeout(5000).await {
+    match state.wheel.timeout(5000).await {
         Ok(_) => {
             log::error!("Could not shut down client {} within 5 seconds", data.id.0);
         }
@@ -40,7 +40,20 @@ pub async fn client(data: Rc<Client>) {
             log::error!("Could not create a timeout: {}", ErrorFmt(e));
         }
     }
-    data.state.clients.kill(data.id);
+    state.clients.kill(data.id);
+}
+
+async fn terminate(data: Rc<Client>) {
+    loop {
+        if data.terminate_kill.get() {
+            data.state.clients.kill(data.id);
+            return;
+        }
+        if data.terminate_shutdown.get() {
+            data.state.clients.shutdown(data.id);
+        }
+        data.terminate.triggered().await;
+    }
 }
 
 async fn receive(data: Rc<Client>) {
@@ -61,7 +74,7 @@ async fn receive(data: Rc<Client>) {
                 Ok(obj) => obj,
                 _ => {
                     display.send_invalid_object(obj_id);
-                    data.state.clients.shutdown(data.id);
+                    data.shutdown();
                     return Err(ClientError::InvalidObject(obj_id));
                 }
             };
@@ -82,7 +95,7 @@ async fn receive(data: Rc<Client>) {
     if let Err(e) = res {
         if e.peer_closed() {
             log::info!("Client {} terminated the connection", data.id.0);
-            data.state.clients.kill(data.id);
+            data.kill();
         } else {
             let e = ErrorFmt(e);
             log::error!(
@@ -91,7 +104,7 @@ async fn receive(data: Rc<Client>) {
                 e
             );
             display.send_implementation_error(e.to_string());
-            data.state.clients.shutdown(data.id);
+            data.shutdown();
         }
     }
 }
@@ -130,8 +143,5 @@ async fn send(data: Rc<Client>) {
             );
         }
     }
-    let run_toplevel = data.state.run_toplevel.clone();
-    run_toplevel.schedule(move || {
-        data.state.clients.kill(data.id);
-    });
+    data.kill();
 }

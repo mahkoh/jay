@@ -1,13 +1,16 @@
 use crate::io_uring::IoUring;
+use crate::io_uring::IoUringError;
 use crate::utils::buf::Buf;
 use crate::utils::buffd::BufFdError;
 use crate::utils::buffd::MAX_IN_FD;
+use crate::utils::oserror::OsError;
 use crate::wire::ObjectId;
 use std::collections::VecDeque;
 use std::ptr;
 use std::rc::Rc;
 use std::slice;
 use uapi::OwnedFd;
+use uapi::c;
 
 const WORD_SIZE: usize = 4;
 const WORD_ALIGN: usize = 4;
@@ -113,6 +116,7 @@ impl WlBufFdIn {
         {
             Ok(0) => return Err(BufFdError::Closed),
             Ok(n) => self.len += n,
+            Err(IoUringError::OsError(OsError(c::ECONNRESET))) => return Err(BufFdError::Closed),
             Err(e) => return Err(BufFdError::Ring(e)),
         }
         if self.fds.len() > MAX_IN_FD {

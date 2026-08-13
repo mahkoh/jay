@@ -3010,7 +3010,9 @@ impl ConfigProxyHandler {
     }
 
     fn handle_client_kill(&self, client: ConfigClient) {
-        self.state.clients.kill(ClientId::from_raw(client.0));
+        if let Ok(client) = self.state.clients.get(ClientId::from_raw(client.0)) {
+            client.kill();
+        }
     }
 
     fn handle_get_workspace_window(&self, ws: Workspace) -> Result<(), CphError> {

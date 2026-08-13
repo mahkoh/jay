@@ -123,6 +123,7 @@ impl BufFdOut {
                 buffer.meta.read_pos += n;
                 Ok(())
             }
+            Err(IoUringError::OsError(OsError(c::EPIPE))) => return Err(BufFdError::Closed),
             Err(IoUringError::OsError(OsError(c::ECONNRESET))) => return Err(BufFdError::Closed),
             Err(IoUringError::OsError(OsError(c::ECANCELED))) => return Err(BufFdError::Timeout),
             Err(e) => return Err(BufFdError::Ring(e)),

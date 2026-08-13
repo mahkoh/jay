@@ -363,7 +363,7 @@ pub fn show_client(behavior: &mut CcBehavior<'_>, ui: &mut Ui, client: &Client) 
         }
     });
     if ui.button("Kill").clicked() {
-        client.state.clients.kill(client.id);
+        client.kill();
     }
     ui.collapsing("Capabilities", |ui| {
         ui.add_enabled_ui(false, |ui| {

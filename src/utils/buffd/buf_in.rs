@@ -1,14 +1,17 @@
 use crate::io_uring::IoUring;
+use crate::io_uring::IoUringError;
 use crate::utils::buf::Buf;
 use crate::utils::buffd::BUF_SIZE;
 use crate::utils::buffd::BufFdError;
 use crate::utils::buffd::MAX_IN_FD;
+use crate::utils::oserror::OsError;
 use smallvec::SmallVec;
 use std::collections::VecDeque;
 use std::mem::MaybeUninit;
 use std::rc::Rc;
 use uapi::OwnedFd;
 use uapi::Pod;
+use uapi::c;
 
 pub struct BufFdIn {
     fd: Rc<OwnedFd>,
@@ -77,6 +80,7 @@ impl BufFdIn {
         match self.ring.recvmsg(&self.fd, &mut iov, &mut self.in_fd).await {
             Ok(0) => return Err(BufFdError::Closed),
             Ok(n) => self.in_right += n,
+            Err(IoUringError::OsError(OsError(c::ECONNRESET))) => return Err(BufFdError::Closed),
             Err(e) => return Err(BufFdError::Ring(e)),
         }
         if self.in_fd.len() > MAX_IN_FD {
