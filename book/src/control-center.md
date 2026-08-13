@@ -489,7 +489,7 @@ Bar Font
 : Override font for the status bar (empty = use main font)
 
 Container Borders
-: Dropdown to select the container border style (`Separators` or `Full`)
+: Dropdown to select the container border style (`Separators`, `Full`, or `FullSmart`)
 
 Three reset buttons at the bottom: **Reset Sizes**, **Reset Colors**, and
 **Reset Fonts**.

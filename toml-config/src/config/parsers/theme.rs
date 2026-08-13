@@ -143,6 +143,7 @@ impl Parser for ThemeParser<'_, '_, '_> {
             container_borders_val.and_then(|value| match value.value.to_lowercase().as_str() {
                 "separators" => Some(ContainerBorders::Separators),
                 "full" => Some(ContainerBorders::Full),
+                "full-smart" => Some(ContainerBorders::FullSmart),
                 _ => {
                     log::warn!(
                         "Unknown container borders '{}': {}",

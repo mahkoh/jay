@@ -156,6 +156,11 @@ containers:
 : A border is drawn around the entire container, in addition to the separators
   between children.
 
+`full-smart`
+: A border is drawn around the entire container, in addition to the separators
+  between children, unless the container has only one child and is the root
+  container of the workspace.
+
 ```toml
 [theme]
 container-borders = "full"

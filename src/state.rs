@@ -165,7 +165,7 @@ use crate::syncobj::wait_for_syncobj::WaitForSyncobj;
 use crate::tagged_acceptor::TaggedAcceptors;
 use crate::theme::BarPosition;
 use crate::theme::Color;
-use crate::theme::ContainerBorders;
+use crate::theme::ContainerBordersSetting;
 use crate::theme::Theme;
 use crate::theme::ThemeColored;
 use crate::theme::ThemeSized;
@@ -2360,7 +2360,7 @@ impl State {
         self.add_transaction_op(StateTransactionOp::SetBarPosition(p));
     }
 
-    pub fn set_container_borders(self: &Rc<Self>, p: ContainerBorders) {
+    pub fn set_container_borders(self: &Rc<Self>, p: ContainerBordersSetting) {
         self.theme.container_borders[LiveTL].set(p);
         self.spaces_changed();
         self.add_transaction_op(StateTransactionOp::SetContainerBorders(p));
@@ -2625,7 +2625,7 @@ pub enum StateTransactionOp {
     SetBarPosition(BarPosition),
     SetSize(ThemeSized, i32),
     Damage(Rect),
-    SetContainerBorders(ContainerBorders),
+    SetContainerBorders(ContainerBordersSetting),
 }
 
 impl Transactionable for State {

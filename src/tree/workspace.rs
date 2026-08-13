@@ -255,8 +255,8 @@ impl WorkspaceNode {
         }
         self.pull_child_properties(&**container);
         let pos = ns.position.get();
-        container.clone().tl_change_extents(&pos);
         container.tl_set_parent(self.clone());
+        container.clone().tl_change_extents(&pos);
         container.tl_set_visible(self.container_visible());
         self.set_ns_container(Some(container));
     }

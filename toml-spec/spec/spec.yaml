@@ -5202,6 +5202,11 @@ ContainerBorders:
       description: Only separators are drawn between children.
     - value: full
       description: A border is drawn around the entire container.
+    - value: full-smart
+      description: |
+        A border is drawn around the entire container, in addition to the separators
+        between children, unless the container has only one child and is the root
+        container of the workspace.
 
 
 ScrollMethod:
