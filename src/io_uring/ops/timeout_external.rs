@@ -6,6 +6,7 @@ use crate::io_uring::Task;
 use crate::io_uring::ops::timeout::timespec64;
 use crate::io_uring::sys::IORING_OP_TIMEOUT;
 use crate::io_uring::sys::IORING_TIMEOUT_ABS;
+use crate::io_uring::sys::io_uring_cqe;
 use crate::io_uring::sys::io_uring_sqe;
 use crate::utils::oserror::OsError;
 use std::cell::Cell;
@@ -76,7 +77,8 @@ unsafe impl Task for TimeoutExternalTask {
         self.shared.id.get()
     }
 
-    fn complete(self: Box<Self>, ring: &IoUringData, res: i32) {
+    fn complete(self: Box<Self>, ring: &IoUringData, cqe: &io_uring_cqe) {
+        let res = cqe.res;
         if let Some(pr) = self.shared.callback.take() {
             let res = if res == -c::ETIME {
                 Ok(())

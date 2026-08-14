@@ -2,6 +2,7 @@ use crate::io_uring::IoUringData;
 use crate::io_uring::IoUringTaskId;
 use crate::io_uring::Task;
 use crate::io_uring::sys::IORING_OP_ASYNC_CANCEL;
+use crate::io_uring::sys::io_uring_cqe;
 use crate::io_uring::sys::io_uring_sqe;
 use crate::utils::errorfmt::ErrorFmt;
 use uapi::c;
@@ -27,7 +28,8 @@ unsafe impl Task for AsyncCancelTask {
         self.id
     }
 
-    fn complete(self: Box<Self>, ring: &IoUringData, res: i32) {
+    fn complete(self: Box<Self>, ring: &IoUringData, cqe: &io_uring_cqe) {
+        let res = cqe.res;
         if let Err(e) = map_err!(res) {
             if e.0 != c::ENOENT {
                 log::debug!("Could not cancel task: {}", ErrorFmt(e));

@@ -37,6 +37,7 @@ use crate::utils::bitflags::BitflagsExt;
 use crate::utils::buf::Buf;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::fx_hash::FxBuildHasher;
 use crate::utils::mmap::Mmapped;
 use crate::utils::mmap::mmap;
 use crate::utils::numcell::NumCell;
@@ -317,8 +318,8 @@ struct IoUringData {
 
     next: IoUringTaskIds,
     to_encode: SyncQueue<IoUringTaskId>,
-    pending_in_kernel: CopyHashMap<IoUringTaskId, ()>,
-    tasks: CopyHashMap<IoUringTaskId, Box<dyn Task>>,
+    pending_in_kernel: CopyHashMap<IoUringTaskId, (), FxBuildHasher>,
+    tasks: CopyHashMap<IoUringTaskId, TaskPlus, FxBuildHasher>,
 
     pending_results: PendingResults,
 
@@ -345,9 +346,14 @@ struct IoUringData {
     yields: SyncQueue<Waker>,
 }
 
-unsafe trait Task {
+struct TaskPlus {
+    task: Box<dyn Task>,
+    has_timeout: bool,
+}
+
+unsafe trait Task: 'static {
     fn id(&self) -> IoUringTaskId;
-    fn complete(self: Box<Self>, ring: &IoUringData, res: i32);
+    fn complete(self: Box<Self>, ring: &IoUringData, cqe: &io_uring_cqe);
     fn encode(&self, sqe: &mut io_uring_sqe);
 
     fn is_cancel(&self) -> bool {
@@ -430,7 +436,7 @@ impl IoUringData {
                 let id = IoUringTaskId(entry.user_data);
                 if let Some(pending) = self.tasks.remove(&id) {
                     self.pending_in_kernel.remove(&id);
-                    pending.complete(self, entry.res);
+                    pending.task.complete(self, &entry);
                 }
             }
             self.cqhead.deref().store(head, Release);
@@ -455,7 +461,7 @@ impl IoUringData {
                     Some(t) => t,
                     _ => continue,
                 };
-                let has_timeout = task.has_timeout();
+                let has_timeout = task.has_timeout;
                 if has_timeout && (available - encoded) < 2 {
                     self.to_encode.push_front(id);
                     break;
@@ -466,7 +472,7 @@ impl IoUringData {
                 self.sqmap.deref()[idx].set(idx as _);
                 *sqe = Default::default();
                 sqe.user_data = id.raw();
-                task.encode(sqe);
+                task.task.encode(sqe);
                 if has_timeout {
                     sqe.flags |= IOSQE_IO_LINK;
                 }
@@ -494,19 +500,31 @@ impl IoUringData {
             return;
         }
         if !self.pending_in_kernel.contains(&id) {
-            self.tasks
-                .remove(&id)
-                .unwrap()
-                .complete(self, -c::ECANCELED);
+            let cqe = io_uring_cqe {
+                user_data: id.raw(),
+                res: -c::ECANCELED,
+                flags: 0,
+            };
+            self.tasks.remove(&id).unwrap().task.complete(self, &cqe);
             return;
         }
         self.cancel_task_in_kernel(id);
     }
 
-    fn schedule(&self, t: Box<dyn Task>) {
+    fn schedule(&self, t: Box<impl Task>) {
+        self.schedule_(t.id(), t.has_timeout(), t);
+    }
+
+    fn schedule_(&self, id: IoUringTaskId, has_timeout: bool, t: Box<dyn Task>) {
         assert!(!self.destroyed.get());
-        self.to_encode.push(t.id());
-        self.tasks.set(t.id(), t);
+        self.to_encode.push(id);
+        self.tasks.set(
+            id,
+            TaskPlus {
+                task: t,
+                has_timeout,
+            },
+        );
     }
 
     fn check_destroyed(&self) -> Result<(), IoUringError> {
@@ -521,8 +539,8 @@ impl IoUringData {
         self.eng.stop();
         let mut to_cancel = vec![];
         for task in self.tasks.lock().values() {
-            if !task.is_cancel() {
-                to_cancel.push(task.id());
+            if !task.task.is_cancel() {
+                to_cancel.push(task.task.id());
             }
         }
         for task in to_cancel {
