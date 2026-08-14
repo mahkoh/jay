@@ -7,6 +7,7 @@ use crate::io_uring::TaskResultExt;
 use crate::io_uring::pending_result::PendingResult;
 use crate::io_uring::sys::IORING_OP_FUTEX_WAIT;
 use crate::io_uring::sys::IORING_OP_FUTEX_WAKE;
+use crate::io_uring::sys::io_uring_cqe;
 use crate::io_uring::sys::io_uring_sqe;
 use std::rc::Rc;
 use std::sync::atomic::AtomicU32;
@@ -102,7 +103,7 @@ unsafe impl Task for FutexWakeTask {
         self.id
     }
 
-    fn complete(mut self: Box<Self>, ring: &IoUringData, _res: i32) {
+    fn complete(mut self: Box<Self>, ring: &IoUringData, _cqe: &io_uring_cqe) {
         self.futex.take();
         ring.cached_futex_wakes.push(self);
     }
@@ -123,7 +124,8 @@ unsafe impl Task for FutexWaitTask {
         self.id
     }
 
-    fn complete(mut self: Box<Self>, ring: &IoUringData, mut res: i32) {
+    fn complete(mut self: Box<Self>, ring: &IoUringData, cqe: &io_uring_cqe) {
+        let mut res = cqe.res;
         if res == -EAGAIN {
             res = 0;
         }

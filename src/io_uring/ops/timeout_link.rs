@@ -5,6 +5,7 @@ use crate::io_uring::Task;
 use crate::io_uring::ops::timeout::timespec64;
 use crate::io_uring::sys::IORING_OP_LINK_TIMEOUT;
 use crate::io_uring::sys::IORING_TIMEOUT_ABS;
+use crate::io_uring::sys::io_uring_cqe;
 use crate::io_uring::sys::io_uring_sqe;
 use crate::time::Time;
 
@@ -32,7 +33,7 @@ unsafe impl Task for TimeoutLinkTask {
         self.id
     }
 
-    fn complete(self: Box<Self>, ring: &IoUringData, _res: i32) {
+    fn complete(self: Box<Self>, ring: &IoUringData, _cqe: &io_uring_cqe) {
         ring.cached_timeout_links.push(self);
     }
 

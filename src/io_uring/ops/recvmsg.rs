@@ -5,6 +5,7 @@ use crate::io_uring::IoUringTaskId;
 use crate::io_uring::Task;
 use crate::io_uring::pending_result::PendingResult;
 use crate::io_uring::sys::IORING_OP_RECVMSG;
+use crate::io_uring::sys::io_uring_cqe;
 use crate::io_uring::sys::io_uring_sqe;
 use crate::utils::buf::Buf;
 use derivative::Derivative;
@@ -105,7 +106,8 @@ unsafe impl Task for RecvmsgTask {
         self.id
     }
 
-    fn complete(mut self: Box<Self>, ring: &IoUringData, res: i32) {
+    fn complete(mut self: Box<Self>, ring: &IoUringData, cqe: &io_uring_cqe) {
+        let res = cqe.res;
         self.cmsg_len.set(self.msghdr.msg_controllen as _);
         self.bufs.clear();
         if let Some(data) = self.data.take() {

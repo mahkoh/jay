@@ -6,6 +6,7 @@ use crate::io_uring::Task;
 use crate::io_uring::TaskResultExt;
 use crate::io_uring::pending_result::PendingResult;
 use crate::io_uring::sys::IORING_OP_ACCEPT;
+use crate::io_uring::sys::io_uring_cqe;
 use crate::io_uring::sys::io_uring_sqe;
 use std::rc::Rc;
 use uapi::OwnedFd;
@@ -53,7 +54,8 @@ unsafe impl Task for AcceptTask {
         self.id
     }
 
-    fn complete(mut self: Box<Self>, ring: &IoUringData, res: i32) {
+    fn complete(mut self: Box<Self>, ring: &IoUringData, cqe: &io_uring_cqe) {
+        let res = cqe.res;
         if let Some(data) = self.data.take() {
             data.pr.complete(res);
         }

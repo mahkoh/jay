@@ -353,7 +353,7 @@ struct TaskPlus {
 
 unsafe trait Task: 'static {
     fn id(&self) -> IoUringTaskId;
-    fn complete(self: Box<Self>, ring: &IoUringData, res: i32);
+    fn complete(self: Box<Self>, ring: &IoUringData, cqe: &io_uring_cqe);
     fn encode(&self, sqe: &mut io_uring_sqe);
 
     fn is_cancel(&self) -> bool {
@@ -436,7 +436,7 @@ impl IoUringData {
                 let id = IoUringTaskId(entry.user_data);
                 if let Some(pending) = self.tasks.remove(&id) {
                     self.pending_in_kernel.remove(&id);
-                    pending.task.complete(self, entry.res);
+                    pending.task.complete(self, &entry);
                 }
             }
             self.cqhead.deref().store(head, Release);
@@ -500,11 +500,12 @@ impl IoUringData {
             return;
         }
         if !self.pending_in_kernel.contains(&id) {
-            self.tasks
-                .remove(&id)
-                .unwrap()
-                .task
-                .complete(self, -c::ECANCELED);
+            let cqe = io_uring_cqe {
+                user_data: id.raw(),
+                res: -c::ECANCELED,
+                flags: 0,
+            };
+            self.tasks.remove(&id).unwrap().task.complete(self, &cqe);
             return;
         }
         self.cancel_task_in_kernel(id);

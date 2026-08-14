@@ -6,6 +6,7 @@ use crate::io_uring::Task;
 use crate::io_uring::TaskResultExt;
 use crate::io_uring::pending_result::PendingResult;
 use crate::io_uring::sys::IORING_OP_WRITE;
+use crate::io_uring::sys::io_uring_cqe;
 use crate::io_uring::sys::io_uring_sqe;
 use crate::utils::keep_alive::KeepAlive;
 use crate::utils::ptr_ext::PtrExt;
@@ -106,7 +107,8 @@ unsafe impl Task for WriteVecTask {
         self.id
     }
 
-    fn complete(mut self: Box<Self>, ring: &IoUringData, res: i32) {
+    fn complete(mut self: Box<Self>, ring: &IoUringData, cqe: &io_uring_cqe) {
+        let res = cqe.res;
         if let Some(data) = self.data.take() {
             data.res.complete(res);
         }

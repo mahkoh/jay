@@ -4,6 +4,7 @@ use crate::io_uring::IoUringError;
 use crate::io_uring::IoUringTaskId;
 use crate::io_uring::Task;
 use crate::io_uring::sys::IORING_OP_POLL_ADD;
+use crate::io_uring::sys::io_uring_cqe;
 use crate::io_uring::sys::io_uring_sqe;
 use crate::utils::oserror::OsError;
 use std::cell::Cell;
@@ -95,7 +96,8 @@ unsafe impl Task for PollExternalTask {
         self.shared.id.get()
     }
 
-    fn complete(mut self: Box<Self>, ring: &IoUringData, res: i32) {
+    fn complete(mut self: Box<Self>, ring: &IoUringData, cqe: &io_uring_cqe) {
+        let res = cqe.res;
         self.data.take();
         self.shared.id.set(Default::default());
         if let Some(cb) = self.shared.callback.take() {
