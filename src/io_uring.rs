@@ -319,7 +319,7 @@ struct IoUringData {
     next: IoUringTaskIds,
     to_encode: SyncQueue<IoUringTaskId>,
     pending_in_kernel: CopyHashMap<IoUringTaskId, (), FxBuildHasher>,
-    tasks: CopyHashMap<IoUringTaskId, Box<dyn Task>, FxBuildHasher>,
+    tasks: CopyHashMap<IoUringTaskId, TaskPlus, FxBuildHasher>,
 
     pending_results: PendingResults,
 
@@ -344,6 +344,10 @@ struct IoUringData {
 
     iteration: NumCell<u64>,
     yields: SyncQueue<Waker>,
+}
+
+struct TaskPlus {
+    task: Box<dyn Task>,
 }
 
 unsafe trait Task {
@@ -431,7 +435,7 @@ impl IoUringData {
                 let id = IoUringTaskId(entry.user_data);
                 if let Some(pending) = self.tasks.remove(&id) {
                     self.pending_in_kernel.remove(&id);
-                    pending.complete(self, entry.res);
+                    pending.task.complete(self, entry.res);
                 }
             }
             self.cqhead.deref().store(head, Release);
@@ -456,7 +460,7 @@ impl IoUringData {
                     Some(t) => t,
                     _ => continue,
                 };
-                let has_timeout = task.has_timeout();
+                let has_timeout = task.task.has_timeout();
                 if has_timeout && (available - encoded) < 2 {
                     self.to_encode.push_front(id);
                     break;
@@ -467,7 +471,7 @@ impl IoUringData {
                 self.sqmap.deref()[idx].set(idx as _);
                 *sqe = Default::default();
                 sqe.user_data = id.raw();
-                task.encode(sqe);
+                task.task.encode(sqe);
                 if has_timeout {
                     sqe.flags |= IOSQE_IO_LINK;
                 }
@@ -498,6 +502,7 @@ impl IoUringData {
             self.tasks
                 .remove(&id)
                 .unwrap()
+                .task
                 .complete(self, -c::ECANCELED);
             return;
         }
@@ -507,7 +512,7 @@ impl IoUringData {
     fn schedule(&self, t: Box<dyn Task>) {
         assert!(!self.destroyed.get());
         self.to_encode.push(t.id());
-        self.tasks.set(t.id(), t);
+        self.tasks.set(t.id(), TaskPlus { task: t });
     }
 
     fn check_destroyed(&self) -> Result<(), IoUringError> {
@@ -522,8 +527,8 @@ impl IoUringData {
         self.eng.stop();
         let mut to_cancel = vec![];
         for task in self.tasks.lock().values() {
-            if !task.is_cancel() {
-                to_cancel.push(task.id());
+            if !task.task.is_cancel() {
+                to_cancel.push(task.task.id());
             }
         }
         for task in to_cancel {
