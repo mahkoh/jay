@@ -1,4 +1,3 @@
-use crate::utils::bhash::BHashMap;
 use crate::utils::markers::JayClone;
 use crate::utils::markers::JayHash;
 use crate::utils::numcell::NumCell;
@@ -12,6 +11,7 @@ use std::cell::Cell;
 use std::cell::UnsafeCell;
 use std::fmt::Debug;
 use std::fmt::Formatter;
+use std::hash::BuildHasher;
 use std::hash::Hash;
 use std::mem;
 use std::mem::ManuallyDrop;
@@ -19,39 +19,46 @@ use std::ops::Deref;
 use std::ops::DerefMut;
 
 #[derive(Derivative)]
-#[derivative(Default(bound = ""))]
-pub struct CopyHashMap<K, V> {
-    map: UnsafeCell<BHashMap<K, V>>,
+#[derivative(Default(bound = "S: Default"))]
+pub struct CopyHashMap<K, V, S = RandomState> {
+    map: UnsafeCell<HashMap<K, V, S>>,
     is_locked_map: Cell<bool>,
     access_count: NumCell<u64>,
 }
 
-impl<K: Debug, V: Debug> Debug for CopyHashMap<K, V> {
+impl<K, V, S> Debug for CopyHashMap<K, V, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.map.fmt(f)
     }
 }
 
-impl<K, V> CopyHashMap<K, V> {
-    const LOCKED_MAP: BHashMap<K, V> = {
-        const RANDOM_STATE: RandomState = RandomState::with_seeds(0, 0, 0, 0);
-        HashMap::with_hasher(RANDOM_STATE)
-    };
+pub trait LockableRandomState: Default + BuildHasher + Sized {
+    const LOCKED_STATE: Self;
+}
+
+impl<K, V, S> CopyHashMap<K, V, S>
+where
+    S: LockableRandomState,
+{
+    const LOCKED_MAP: HashMap<K, V, S> = HashMap::with_hasher(S::LOCKED_STATE);
 
     #[inline(always)]
-    unsafe fn get_map(&self) -> &BHashMap<K, V> {
+    unsafe fn get_map(&self) -> &HashMap<K, V, S> {
         self.access_count.fetch_add(1);
         unsafe { self.map.get().deref() }
     }
 
     #[inline(always)]
-    unsafe fn get_map_mut(&self) -> &mut BHashMap<K, V> {
+    unsafe fn get_map_mut(&self) -> &mut HashMap<K, V, S> {
         self.access_count.fetch_add(1);
         unsafe { self.map.get().deref_mut() }
     }
 }
 
-impl<K: Eq + Hash, V> CopyHashMap<K, V> {
+impl<K: Eq + Hash, V, S> CopyHashMap<K, V, S>
+where
+    S: LockableRandomState,
+{
     pub fn new() -> Self {
         Self::default()
     }
@@ -96,7 +103,7 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
         !self.contains(k)
     }
 
-    pub fn lock(&self) -> Locked<'_, K, V> {
+    pub fn lock(&self) -> Locked<'_, K, V, S> {
         let map = unsafe { mem::replace(self.get_map_mut(), Self::LOCKED_MAP) };
         let is_locked_map = self.is_locked_map.replace(true);
         let access_count = self.access_count.get();
@@ -107,7 +114,7 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
         }
     }
 
-    pub fn clear(&self) -> BHashMap<K, V> {
+    pub fn clear(&self) -> HashMap<K, V, S> {
         unsafe { mem::take(self.get_map_mut()) }
     }
 
@@ -124,13 +131,19 @@ impl<K: Eq + Hash, V> CopyHashMap<K, V> {
     }
 }
 
-pub struct Locked<'a, K, V> {
-    source: Option<&'a CopyHashMap<K, V>>,
-    map: ManuallyDrop<BHashMap<K, V>>,
+pub struct Locked<'a, K, V, S = RandomState>
+where
+    S: LockableRandomState,
+{
+    source: Option<&'a CopyHashMap<K, V, S>>,
+    map: ManuallyDrop<HashMap<K, V, S>>,
     access_count: u64,
 }
 
-impl<'a, K, V> Drop for Locked<'a, K, V> {
+impl<'a, K, V, S> Drop for Locked<'a, K, V, S>
+where
+    S: LockableRandomState,
+{
     fn drop(&mut self) {
         unsafe {
             let drop;
@@ -152,15 +165,21 @@ impl<'a, K, V> Drop for Locked<'a, K, V> {
     }
 }
 
-impl<'a, K, V> Deref for Locked<'a, K, V> {
-    type Target = BHashMap<K, V>;
+impl<'a, K, V, S> Deref for Locked<'a, K, V, S>
+where
+    S: LockableRandomState,
+{
+    type Target = HashMap<K, V, S>;
 
     fn deref(&self) -> &Self::Target {
         &self.map
     }
 }
 
-impl<'a, K, V> DerefMut for Locked<'a, K, V> {
+impl<'a, K, V, S> DerefMut for Locked<'a, K, V, S>
+where
+    S: LockableRandomState,
+{
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.map
     }

@@ -1,3 +1,4 @@
+use crate::utils::copyhashmap::LockableRandomState;
 use rustc_hash::FxHasher;
 use std::hash::BuildHasher;
 
@@ -11,4 +12,8 @@ impl BuildHasher for FxBuildHasher {
     fn build_hasher(&self) -> Self::Hasher {
         FxHasher::default()
     }
+}
+
+impl LockableRandomState for FxBuildHasher {
+    const LOCKED_STATE: Self = FxBuildHasher;
 }
