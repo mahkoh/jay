@@ -348,6 +348,7 @@ struct IoUringData {
 
 struct TaskPlus {
     task: Box<dyn Task>,
+    has_timeout: bool,
 }
 
 unsafe trait Task: 'static {
@@ -460,7 +461,7 @@ impl IoUringData {
                     Some(t) => t,
                     _ => continue,
                 };
-                let has_timeout = task.task.has_timeout();
+                let has_timeout = task.has_timeout;
                 if has_timeout && (available - encoded) < 2 {
                     self.to_encode.push_front(id);
                     break;
@@ -510,13 +511,19 @@ impl IoUringData {
     }
 
     fn schedule(&self, t: Box<impl Task>) {
-        self.schedule_(t.id(), t);
+        self.schedule_(t.id(), t.has_timeout(), t);
     }
 
-    fn schedule_(&self, id: IoUringTaskId, t: Box<dyn Task>) {
+    fn schedule_(&self, id: IoUringTaskId, has_timeout: bool, t: Box<dyn Task>) {
         assert!(!self.destroyed.get());
         self.to_encode.push(id);
-        self.tasks.set(id, TaskPlus { task: t });
+        self.tasks.set(
+            id,
+            TaskPlus {
+                task: t,
+                has_timeout,
+            },
+        );
     }
 
     fn check_destroyed(&self) -> Result<(), IoUringError> {
