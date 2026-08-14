@@ -1,4 +1,5 @@
 use crate::async_engine::AsyncEngine;
+use crate::io_uring::buffer_ring::BufferRingError;
 use crate::io_uring::debounce::Debouncer;
 use crate::io_uring::ops::accept::AcceptTask;
 use crate::io_uring::ops::async_cancel::AsyncCancelTask;
@@ -34,6 +35,7 @@ use crate::io_uring::sys::io_uring_params;
 use crate::io_uring::sys::io_uring_setup;
 use crate::io_uring::sys::io_uring_sqe;
 use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::bitfield::Bitfield;
 use crate::utils::bitflags::BitflagsExt;
 use crate::utils::buf::Buf;
 use crate::utils::copyhashmap::CopyHashMap;
@@ -77,6 +79,7 @@ macro_rules! map_err {
     }};
 }
 
+pub mod buffer_ring;
 mod debounce;
 mod ops;
 mod pending_result;
@@ -102,6 +105,8 @@ pub enum IoUringError {
     Enter(#[source] OsError),
     #[error("Kernel sent invalid cmsg data")]
     InvalidCmsgData,
+    #[error(transparent)]
+    BufferRing(#[from] BufferRingError),
 }
 
 pub struct IoUring {
@@ -267,6 +272,7 @@ impl IoUring {
             iteration: Default::default(),
             yields: Default::default(),
             multishot_tasks: Default::default(),
+            buffer_ring_ids: Default::default(),
         });
         Ok(Rc::new(Self { ring: data }))
     }
@@ -347,6 +353,8 @@ struct IoUringData {
 
     iteration: NumCell<u64>,
     yields: SyncQueue<Waker>,
+
+    buffer_ring_ids: RefCell<Bitfield>,
 }
 
 struct TaskPlus {

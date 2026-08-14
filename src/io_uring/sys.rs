@@ -236,6 +236,9 @@ pub const IORING_CQE_BUFFER_SHIFT: u32 = 16;
 pub const IORING_OFF_SQ_RING: u64 = 0;
 pub const IORING_OFF_CQ_RING: u64 = 0x8000000;
 pub const IORING_OFF_SQES: u64 = 0x10000000;
+pub const IORING_OFF_PBUF_RING: u64 = 0x80000000;
+pub const IORING_OFF_PBUF_SHIFT: u64 = 16;
+pub const IORING_OFF_MMAP_MASK: u64 = 0xf8000000;
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Default)]
@@ -323,6 +326,25 @@ pub const IORING_REGISTER_BUFFERS_UPDATE: c::c_uint = 16;
 pub const IORING_REGISTER_IOWQ_AFF: c::c_uint = 17;
 pub const IORING_UNREGISTER_IOWQ_AFF: c::c_uint = 18;
 pub const IORING_REGISTER_IOWQ_MAX_WORKERS: c::c_uint = 19;
+pub const IORING_REGISTER_RING_FDS: c::c_uint = 20;
+pub const IORING_UNREGISTER_RING_FDS: c::c_uint = 21;
+pub const IORING_REGISTER_PBUF_RING: c::c_uint = 22;
+pub const IORING_UNREGISTER_PBUF_RING: c::c_uint = 23;
+pub const IORING_REGISTER_SYNC_CANCEL: c::c_uint = 24;
+pub const IORING_REGISTER_FILE_ALLOC_RANGE: c::c_uint = 25;
+pub const IORING_REGISTER_PBUF_STATUS: c::c_uint = 26;
+pub const IORING_REGISTER_NAPI: c::c_uint = 27;
+pub const IORING_UNREGISTER_NAPI: c::c_uint = 28;
+pub const IORING_REGISTER_CLOCK: c::c_uint = 29;
+pub const IORING_REGISTER_CLONE_BUFFERS: c::c_uint = 30;
+pub const IORING_REGISTER_SEND_MSG_RING: c::c_uint = 31;
+pub const IORING_REGISTER_ZCRX_IFQ: c::c_uint = 32;
+pub const IORING_REGISTER_RESIZE_RINGS: c::c_uint = 33;
+pub const IORING_REGISTER_MEM_REGION: c::c_uint = 34;
+pub const IORING_REGISTER_QUERY: c::c_uint = 35;
+pub const IORING_REGISTER_ZCRX_CTRL: c::c_uint = 36;
+pub const IORING_REGISTER_BPF_FILTER: c::c_uint = 37;
+pub const IORING_REGISTER_USE_REGISTERED_RING: c::c_uint = 1 << 31;
 
 pub const IO_WQ_BOUND: u32 = 0;
 pub const IO_WQ_UNBOUND: u32 = 1;
@@ -422,6 +444,29 @@ pub struct io_uring_getevents_arg {
     ts: u64,
 }
 
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct io_uring_buf {
+    pub addr: u64,
+    pub len: u32,
+    pub bid: u16,
+    pub resv: u16,
+}
+
+pub const IOU_PBUF_RING_MMAP: u16 = 1;
+pub const IOU_PBUF_RING_INC: u16 = 2;
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct io_uring_buf_reg {
+    pub ring_addr: u64,
+    pub ring_entries: u32,
+    pub bgid: u16,
+    pub flags: u16,
+    pub min_left: u32,
+    pub resv: [u32; 5],
+}
+
 pub fn io_uring_setup(entries: u32, params: &mut io_uring_params) -> Result<OwnedFd, OsError> {
     let res = unsafe {
         c::syscall(
@@ -458,5 +503,27 @@ pub fn io_uring_enter(
         Err(OsError::default())
     } else {
         Ok(res as usize)
+    }
+}
+
+pub unsafe fn io_uring_register(
+    fd: c::c_int,
+    opcode: c::c_uint,
+    arg: *mut u8,
+    nr_args: c::c_uint,
+) -> Result<c::c_int, OsError> {
+    let res = unsafe {
+        c::syscall(
+            c::SYS_io_uring_register,
+            fd as usize,
+            opcode as usize,
+            arg as usize,
+            nr_args as usize,
+        )
+    };
+    if res < 0 {
+        Err(OsError::default())
+    } else {
+        Ok(res as c::c_int)
     }
 }
