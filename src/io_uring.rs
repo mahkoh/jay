@@ -37,6 +37,7 @@ use crate::utils::bitflags::BitflagsExt;
 use crate::utils::buf::Buf;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::fx_hash::FxBuildHasher;
 use crate::utils::mmap::Mmapped;
 use crate::utils::mmap::mmap;
 use crate::utils::numcell::NumCell;
@@ -317,8 +318,8 @@ struct IoUringData {
 
     next: IoUringTaskIds,
     to_encode: SyncQueue<IoUringTaskId>,
-    pending_in_kernel: CopyHashMap<IoUringTaskId, ()>,
-    tasks: CopyHashMap<IoUringTaskId, Box<dyn Task>>,
+    pending_in_kernel: CopyHashMap<IoUringTaskId, (), FxBuildHasher>,
+    tasks: CopyHashMap<IoUringTaskId, Box<dyn Task>, FxBuildHasher>,
 
     pending_results: PendingResults,
 
