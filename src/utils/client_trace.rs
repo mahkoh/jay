@@ -13,6 +13,7 @@ use crate::utils::cross_process_ring_buffer::CprbMsgRead;
 use crate::utils::cross_process_ring_buffer::CprbRead;
 use crate::utils::cross_process_ring_buffer::CprbReadAvailable;
 use crate::utils::cross_process_ring_buffer::CprbWrite;
+use crate::utils::fx_hash::FxBuildHasher;
 use crate::utils::maybe_uninit::MaybeUninitSliceExt2;
 use crate::utils::ptr_ext::MutPtrExt;
 use crate::utils::ptr_ext::PtrExt;
@@ -142,7 +143,7 @@ struct MessageSlot {
 
 #[derive(Default)]
 struct IdMap {
-    map: HashMap<u32, u64, rustc_hash::FxBuildHasher>,
+    map: HashMap<u32, u64, FxBuildHasher>,
     next: u64,
     raw_ids: bool,
 }
