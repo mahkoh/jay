@@ -7,6 +7,7 @@ pub mod connect;
 pub mod futex;
 pub mod poll;
 pub mod poll_external;
+pub mod read_multishot;
 pub mod read_write;
 pub mod read_write_no_cancel;
 pub mod read_write_vec;

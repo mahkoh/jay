@@ -208,7 +208,6 @@ fn unregister_ring(ring: &IoUringData, bgid: u16) {
 }
 
 impl BufferRing {
-    #[expect(unused)]
     pub(super) fn check_ring(&self, ring: &IoUring) -> Result<(), BufferRingError> {
         if !Rc::ptr_eq(&self.ring, &ring.ring) {
             return Err(BufferRingError::DifferentRing);
@@ -232,7 +231,6 @@ impl BufferRing {
         tail.store(tail_val.wrapping_add(1), Release);
     }
 
-    #[expect(unused)]
     pub(super) unsafe fn get_buffer(self: &Rc<Self>, cqe: &io_uring_cqe) -> BufferRingBuffer {
         if cqe.flags.not_contains(IORING_CQE_F_BUFFER) {
             return BufferRingBuffer {
