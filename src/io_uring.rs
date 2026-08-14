@@ -1,4 +1,5 @@
 use crate::async_engine::AsyncEngine;
+use crate::io_uring::buffer_ring::BufferRingError;
 use crate::io_uring::debounce::Debouncer;
 use crate::io_uring::ops::accept::AcceptTask;
 use crate::io_uring::ops::async_cancel::AsyncCancelTask;
@@ -7,6 +8,7 @@ use crate::io_uring::ops::futex::FutexWaitTask;
 use crate::io_uring::ops::futex::FutexWakeTask;
 use crate::io_uring::ops::poll::PollTask;
 use crate::io_uring::ops::poll_external::PollExternalTask;
+use crate::io_uring::ops::read_multishot::ReadMultishotTask;
 use crate::io_uring::ops::read_write::ReadWriteTask;
 use crate::io_uring::ops::read_write_no_cancel::ReadWriteNoCancelTask;
 pub use crate::io_uring::ops::read_write_vec::WriteVecCache;
@@ -17,6 +19,7 @@ use crate::io_uring::ops::timeout::TimeoutTask;
 use crate::io_uring::ops::timeout_external::TimeoutExternalTask;
 use crate::io_uring::ops::timeout_link::TimeoutLinkTask;
 use crate::io_uring::pending_result::PendingResults;
+use crate::io_uring::sys::IORING_CQE_F_MORE;
 use crate::io_uring::sys::IORING_ENTER_GETEVENTS;
 use crate::io_uring::sys::IORING_FEAT_NODROP;
 use crate::io_uring::sys::IORING_OFF_CQ_RING;
@@ -33,6 +36,7 @@ use crate::io_uring::sys::io_uring_params;
 use crate::io_uring::sys::io_uring_setup;
 use crate::io_uring::sys::io_uring_sqe;
 use crate::utils::asyncevent::AsyncEvent;
+use crate::utils::bitfield::Bitfield;
 use crate::utils::bitflags::BitflagsExt;
 use crate::utils::buf::Buf;
 use crate::utils::copyhashmap::CopyHashMap;
@@ -76,6 +80,7 @@ macro_rules! map_err {
     }};
 }
 
+pub mod buffer_ring;
 mod debounce;
 mod ops;
 mod pending_result;
@@ -101,6 +106,8 @@ pub enum IoUringError {
     Enter(#[source] OsError),
     #[error("Kernel sent invalid cmsg data")]
     InvalidCmsgData,
+    #[error(transparent)]
+    BufferRing(#[from] BufferRingError),
 }
 
 pub struct IoUring {
@@ -262,9 +269,12 @@ impl IoUring {
             cached_futex_wakes: Default::default(),
             cached_futex_waits: Default::default(),
             cached_write_vecs: Default::default(),
+            cached_read_multishot: Default::default(),
             fd_ids_scratch: Default::default(),
             iteration: Default::default(),
             yields: Default::default(),
+            multishot_tasks: Default::default(),
+            buffer_ring_ids: Default::default(),
         });
         Ok(Rc::new(Self { ring: data }))
     }
@@ -320,6 +330,7 @@ struct IoUringData {
     to_encode: SyncQueue<IoUringTaskId>,
     pending_in_kernel: CopyHashMap<IoUringTaskId, (), FxBuildHasher>,
     tasks: CopyHashMap<IoUringTaskId, TaskPlus, FxBuildHasher>,
+    multishot_tasks: CopyHashMap<IoUringTaskId, Rc<dyn MultishotTask>, FxBuildHasher>,
 
     pending_results: PendingResults,
 
@@ -339,16 +350,20 @@ struct IoUringData {
     cached_futex_wakes: Stack<Box<FutexWakeTask>>,
     cached_futex_waits: Stack<Box<FutexWaitTask>>,
     cached_write_vecs: Stack<Box<WriteVecTask>>,
+    cached_read_multishot: Stack<Box<ReadMultishotTask>>,
 
     fd_ids_scratch: RefCell<Vec<c::c_int>>,
 
     iteration: NumCell<u64>,
     yields: SyncQueue<Waker>,
+
+    buffer_ring_ids: RefCell<Bitfield>,
 }
 
 struct TaskPlus {
     task: Box<dyn Task>,
     has_timeout: bool,
+    multishot: bool,
 }
 
 unsafe trait Task: 'static {
@@ -363,6 +378,14 @@ unsafe trait Task: 'static {
     fn has_timeout(&self) -> bool {
         false
     }
+
+    fn multishot(&self) -> Option<Rc<dyn MultishotTask>> {
+        None
+    }
+}
+
+unsafe trait MultishotTask: 'static {
+    fn complete_partial(self: Rc<Self>, cqe: &io_uring_cqe);
 }
 
 impl IoUringData {
@@ -434,9 +457,18 @@ impl IoUringData {
                 head = head.wrapping_add(1);
                 self.cqhead.deref().store(head, Release);
                 let id = IoUringTaskId(entry.user_data);
-                if let Some(pending) = self.tasks.remove(&id) {
-                    self.pending_in_kernel.remove(&id);
-                    pending.task.complete(self, &entry);
+                if entry.flags.contains(IORING_CQE_F_MORE) {
+                    if let Some(pending) = self.multishot_tasks.get(&id) {
+                        pending.complete_partial(&entry);
+                    }
+                } else {
+                    if let Some(pending) = self.tasks.remove(&id) {
+                        if pending.multishot {
+                            self.multishot_tasks.remove(&id);
+                        }
+                        self.pending_in_kernel.remove(&id);
+                        pending.task.complete(self, &entry);
+                    }
                 }
             }
             self.cqhead.deref().store(head, Release);
@@ -505,24 +537,40 @@ impl IoUringData {
                 res: -c::ECANCELED,
                 flags: 0,
             };
-            self.tasks.remove(&id).unwrap().task.complete(self, &cqe);
+            let task = self.tasks.remove(&id).unwrap();
+            if task.multishot {
+                self.multishot_tasks.remove(&id);
+            }
+            task.task.complete(self, &cqe);
             return;
         }
         self.cancel_task_in_kernel(id);
     }
 
     fn schedule(&self, t: Box<impl Task>) {
-        self.schedule_(t.id(), t.has_timeout(), t);
+        self.schedule_(t.id(), t.has_timeout(), t.multishot(), t);
     }
 
-    fn schedule_(&self, id: IoUringTaskId, has_timeout: bool, t: Box<dyn Task>) {
+    fn schedule_(
+        &self,
+        id: IoUringTaskId,
+        has_timeout: bool,
+        m: Option<Rc<dyn MultishotTask>>,
+        t: Box<dyn Task>,
+    ) {
         assert!(!self.destroyed.get());
+        let mut multishot = false;
+        if let Some(m) = m {
+            self.multishot_tasks.set(id, m);
+            multishot = true;
+        }
         self.to_encode.push(id);
         self.tasks.set(
             id,
             TaskPlus {
                 task: t,
                 has_timeout,
+                multishot,
             },
         );
     }
