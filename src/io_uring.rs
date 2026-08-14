@@ -350,7 +350,7 @@ struct TaskPlus {
     task: Box<dyn Task>,
 }
 
-unsafe trait Task {
+unsafe trait Task: 'static {
     fn id(&self) -> IoUringTaskId;
     fn complete(self: Box<Self>, ring: &IoUringData, res: i32);
     fn encode(&self, sqe: &mut io_uring_sqe);
@@ -509,10 +509,14 @@ impl IoUringData {
         self.cancel_task_in_kernel(id);
     }
 
-    fn schedule(&self, t: Box<dyn Task>) {
+    fn schedule(&self, t: Box<impl Task>) {
+        self.schedule_(t.id(), t);
+    }
+
+    fn schedule_(&self, id: IoUringTaskId, t: Box<dyn Task>) {
         assert!(!self.destroyed.get());
-        self.to_encode.push(t.id());
-        self.tasks.set(t.id(), TaskPlus { task: t });
+        self.to_encode.push(id);
+        self.tasks.set(id, TaskPlus { task: t });
     }
 
     fn check_destroyed(&self) -> Result<(), IoUringError> {
