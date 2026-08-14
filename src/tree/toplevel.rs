@@ -1194,23 +1194,15 @@ pub fn toplevel_create_split(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, axis: 
         Some(ws) => ws,
         _ => return,
     };
-    if state.split_reuses_container.get()
-        && let Some(pn) = toplevel_parent_container(&*tl)
-        && pn.node_state[LiveTL].num_children.get() == 1
-    {
-        pn.set_split(axis);
-        return;
-    }
     let pn = match tl.tl_data().parent.get() {
         Some(pn) => pn,
         _ => return,
     };
+    let reuse = state.split_reuses_container.get()
+        || state.flatten_tree.get() == crate::state::FlattenTree::Always;
     if let Some(container) = pn.clone().node_into_container()
         && container.num_children() == 1
-        && matches!(
-            state.flatten_tree.get(),
-            crate::state::FlattenTree::Always
-        )
+        && reuse
     {
         container.set_split(axis);
         return;
