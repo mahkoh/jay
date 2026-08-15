@@ -114,11 +114,11 @@
             providedSessions = [ "jay" ];
           };
 
-          meta = with lib; {
+          meta = {
             description = "Wayland compositor written in Rust";
             homepage = "https://github.com/mahkoh/jay";
-            license = licenses.gpl3;
-            platforms = platforms.linux;
+            license = lib.licenses.gpl3Only;
+            platforms = lib.platforms.linux;
             mainProgram = "jay";
           };
         };
