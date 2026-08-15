@@ -20,17 +20,21 @@
     let
       inherit (nixpkgs) lib;
       systems = lib.intersectLists lib.systems.flakeExposed lib.platforms.linux;
-      forAllSystems =
-        f:
-        lib.genAttrs systems (
-          system:
-          f (
-            import nixpkgs {
-              inherit system;
-              overlays = [ (import rust-overlay) ];
-            }
-          )
-        );
+      forAllSystems = f: lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
+
+      rustBinFor = pkgs: rust-overlay.lib.mkRustBin { } pkgs;
+
+      mkJay =
+        pkgs:
+        let
+          rust = (rustBinFor pkgs).stable.latest.minimal;
+        in
+        pkgs.callPackage jayPackage {
+          rustPlatform = pkgs.makeRustPlatform {
+            cargo = rust;
+            rustc = rust;
+          };
+        };
 
       jayPackage =
         {
@@ -139,17 +143,32 @@
           ...
         }:
         let
+          inherit (lib)
+            getExe
+            literalExpression
+            mkDefault
+            mkEnableOption
+            mkIf
+            mkOption
+            optional
+            types
+            ;
+
           cfg = config.programs.jay;
         in
         {
           options = {
             programs.jay = {
-              enable = lib.mkEnableOption "Jay, a tiling wayland compositor";
+              enable = mkEnableOption "Jay, a tiling wayland compositor";
 
-              package = lib.mkPackageOption pkgs "jay" { };
+              package = mkOption {
+                type = types.package;
+                default = mkJay pkgs;
+                description = "The Jay package to use.";
+              };
 
-              realtime-scheduling = lib.mkOption {
-                type = lib.types.bool;
+              realtime-scheduling = mkOption {
+                type = types.bool;
                 default = true;
                 description = ''
                   Wrap the Jay binary with CAP_SYS_NICE so it can elevate its scheduler to SCHED_RR
@@ -161,22 +180,22 @@
                 '';
               };
 
-              xwayland.enable = lib.mkEnableOption "XWayland" // {
+              xwayland.enable = mkEnableOption "XWayland" // {
                 default = true;
               };
 
-              extraPackages = lib.mkOption {
-                type = with lib.types; listOf package;
+              extraPackages = mkOption {
+                type = with types; listOf package;
                 default = with pkgs; [
                   alacritty
                   bemenu
                   mako
                   wl-tray-bridge
                 ];
-                defaultText = lib.literalExpression ''
+                defaultText = literalExpression ''
                   with pkgs; [ alacritty bemenu mako wl-tray-bridge ];
                 '';
-                example = lib.literalExpression ''
+                example = literalExpression ''
                   with pkgs; [ brightnessctl wl-clipboard ]
                 '';
                 description = ''
@@ -186,33 +205,32 @@
             };
           };
 
-          config = lib.mkIf cfg.enable {
-            environment.systemPackages =
-              (lib.optional (!cfg.realtime-scheduling) cfg.package) ++ cfg.extraPackages;
+          config = mkIf cfg.enable {
+            environment.systemPackages = (optional (!cfg.realtime-scheduling) cfg.package) ++ cfg.extraPackages;
 
             programs = {
-              dconf.enable = lib.mkDefault true;
-              xwayland.enable = lib.mkIf cfg.xwayland.enable (lib.mkDefault true);
+              dconf.enable = mkDefault true;
+              xwayland.enable = mkIf cfg.xwayland.enable (mkDefault true);
             };
 
             security = {
               polkit.enable = true;
               pam.services.swaylock = { };
 
-              wrappers = lib.mkIf cfg.realtime-scheduling {
+              wrappers = mkIf cfg.realtime-scheduling {
                 jay = {
                   owner = "root";
                   group = "root";
                   permissions = "a+rx";
-                  source = lib.getExe cfg.package;
+                  source = getExe cfg.package;
                   capabilities = "cap_sys_nice+p";
                 };
               };
             };
 
             xdg.portal = {
-              enable = lib.mkDefault true;
-              configPackages = lib.mkDefault [ cfg.package ];
+              enable = mkDefault true;
+              configPackages = mkDefault [ cfg.package ];
               extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
             };
 
@@ -230,6 +248,7 @@
         let
           inherit (lib)
             literalExpression
+            mkEnableOption
             mkIf
             mkOption
             types
@@ -240,14 +259,18 @@
         in
         {
           options.wayland.windowManager.jay = {
-            enable = lib.mkEnableOption "Jay, a tiling wayland compositor";
+            enable = mkEnableOption "Jay, a tiling wayland compositor";
 
-            package = lib.mkPackageOption pkgs "jay" { };
+            package = mkOption {
+              type = types.package;
+              default = mkJay pkgs;
+              description = "The Jay package to use.";
+            };
 
             # This option is currently not used but the home-manager module tests for way-displays
             # expect this to be present for all entries of wayland.windowManager.
             systemd = {
-              enable = lib.mkEnableOption null // {
+              enable = mkEnableOption null // {
                 default = false;
                 description = "";
               };
@@ -409,13 +432,9 @@
       devShells = forAllSystems (pkgs: {
         default =
           let
-            inherit (self.packages.${pkgs.system}) jay;
-            rust = pkgs.rust-bin.stable.latest.default.override {
-              extensions = [
-                "rust-src"
-                "clippy"
-                "rustfmt"
-              ];
+            inherit (self.packages.${pkgs.stdenv.hostPlatform.system}) jay;
+            rust = (rustBinFor pkgs).stable.latest.default.override {
+              extensions = [ "rust-src" ];
             };
           in
           pkgs.mkShell {
@@ -429,14 +448,7 @@
       packages = forAllSystems (
         pkgs:
         let
-          rust = pkgs.rust-bin.stable.latest.default;
-          rustPlatform = pkgs.makeRustPlatform {
-            cargo = rust;
-            rustc = rust;
-          };
-          jay = pkgs.callPackage jayPackage {
-            inherit rustPlatform;
-          };
+          jay = mkJay pkgs;
         in
         {
           inherit jay;
@@ -444,7 +456,7 @@
         }
       );
 
-      overlays.default = final: _: { inherit (self.packages.${final.system}) jay; };
+      overlays.default = final: _: { jay = mkJay final; };
 
       nixosModules.default = nixosModule;
       homeManagerModules.default = homeManagerModule;
