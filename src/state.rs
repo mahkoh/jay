@@ -391,6 +391,7 @@ pub struct State {
     pub color_management_enabled: Cell<bool>,
     pub color_manager: Rc<ColorManager>,
     pub float_above_fullscreen: Cell<bool>,
+    pub restore_fullscreen_on_reselect: Cell<bool>,
     pub icons: Icons,
     pub show_pin_icon: Cell<bool>,
     pub cl_matcher_manager: Rc<ClMatcherManager>,
@@ -2290,6 +2291,10 @@ impl State {
             seat.trigger_tree_changed(false);
         }
         self.root.update_visible(self);
+    }
+
+    pub fn set_restore_fullscreen_on_reselect(&self, v: bool) {
+        self.restore_fullscreen_on_reselect.set(v);
     }
 
     pub fn reset_sizes(self: &Rc<Self>) {

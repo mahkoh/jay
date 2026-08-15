@@ -1817,6 +1817,16 @@ impl ConfigProxyHandler {
         });
     }
 
+    fn handle_set_restore_fullscreen_on_reselect(&self, enabled: bool) {
+        self.state.set_restore_fullscreen_on_reselect(enabled);
+    }
+
+    fn handle_get_restore_fullscreen_on_reselect(&self) {
+        self.respond(Response::GetRestoreFullscreenOnReselect {
+            enabled: self.state.restore_fullscreen_on_reselect.get(),
+        });
+    }
+
     fn handle_set_split_reuses_container(&self, reuse: bool) {
         self.state.set_split_reuses_container(reuse);
     }
@@ -3722,6 +3732,10 @@ impl ConfigProxyHandler {
                 self.handle_set_float_above_fullscreen(above)
             }
             ClientMessage::GetFloatAboveFullscreen => self.handle_get_float_above_fullscreen(),
+            ClientMessage::SetRestoreFullscreenOnReselect { enabled } => {
+                self.handle_set_restore_fullscreen_on_reselect(enabled)
+            }
+            ClientMessage::GetRestoreFullscreenOnReselect => self.handle_get_restore_fullscreen_on_reselect(),
             ClientMessage::GetSeatFloatPinned { seat } => self
                 .handle_get_seat_float_pinned(seat)
                 .wrn("get_seat_float_pinned")?,

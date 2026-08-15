@@ -626,6 +626,7 @@ pub struct Config {
     pub use_hardware_cursor: Option<bool>,
     pub show_bar: Option<bool>,
     pub split_reuses_container: Option<bool>,
+    pub restore_fullscreen_on_reselect: Option<bool>,
     pub show_titles: Option<bool>,
     pub focus_history: Option<FocusHistory>,
     pub middle_click_paste: Option<bool>,

@@ -96,6 +96,7 @@ pub struct WorkspaceNode {
     pub output_link: Cell<Option<LinkedNode<WorkspaceOutputLink>>>,
     pub transaction_data: TransactionData<WorkspaceTransactionOp>,
     pub was_on_dummy_output: Cell<bool>,
+    pub pending_refullscreen: Cell<Option<NodeId>>,
 }
 
 pub struct WorkspaceNodeState {
@@ -141,9 +142,19 @@ impl WorkspaceNode {
             output_link: Default::default(),
             transaction_data: TransactionData::new(&output.state.tree),
             was_on_dummy_output: Default::default(),
+            pending_refullscreen: Cell::new(None),
         });
         slf.seat_state.disable_focus_history();
         slf
+    }
+
+    pub fn take_pending_refullscreen(&self, node_id: NodeId) -> bool {
+        if self.pending_refullscreen.get() == Some(node_id) {
+            self.pending_refullscreen.set(None);
+            true
+        } else {
+            false
+        }
     }
 
     pub fn clear(self: &Rc<Self>) {
@@ -649,6 +660,12 @@ impl ContainingNode for WorkspaceNode {
     }
 
     fn cnode_make_visible(self: Rc<Self>, _child: &dyn Node) {
+        if let Some(fs) = self.node_state[LiveTL].fullscreen.get() {
+            fs.clone().tl_set_fullscreen(false, None);
+            if !fs.tl_data().is_fullscreen[LiveTL].get() {
+                self.pending_refullscreen.set(Some(fs.node_id()));
+            }
+        }
         self.node_make_visible();
     }
 }
