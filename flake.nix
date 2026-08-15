@@ -4,6 +4,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    crane.url = "github:ipetkov/crane";
     # Jay requires the latest stable version of Rust.
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
@@ -15,6 +16,7 @@
     {
       self,
       nixpkgs,
+      crane,
       rust-overlay,
     }:
     let
@@ -26,21 +28,15 @@
 
       mkJay =
         pkgs:
-        let
-          rust = (rustBinFor pkgs).stable.latest.minimal;
-        in
         pkgs.callPackage jayPackage {
-          rustPlatform = pkgs.makeRustPlatform {
-            cargo = rust;
-            rustc = rust;
-          };
+          craneLib = (crane.mkLib pkgs).overrideToolchain (p: (rustBinFor p).stable.latest.minimal);
         };
 
       jayPackage =
         {
           lib,
           stdenv,
-          rustPlatform,
+          craneLib,
           autoPatchelfHook,
           installShellFiles,
           pkgconf,
@@ -63,77 +59,92 @@
         assert lib.assertMsg (
           withOpenGL || withVulkan
         ) "jay requires a renderer: enable withOpenGL or withVulkan";
-        rustPlatform.buildRustPackage {
-          pname = "jay";
-          version = self.shortRev or self.dirtyShortRev or "unknown";
+        let
+          commonArgs = {
+            pname = "jay";
+            version = (lib.importTOML ./Cargo.toml).package.version;
 
-          src = lib.fileset.toSource {
-            root = ./.;
-            fileset = lib.fileset.gitTracked ./.;
+            src = lib.fileset.toSource {
+              root = ./.;
+              fileset = lib.fileset.gitTracked ./.;
+            };
+
+            strictDeps = true;
+
+            nativeBuildInputs = [ pkgconf ];
+
+            buildInputs = [
+              fontconfig
+              libgbm
+              libinput
+              pango
+              udev
+              xkeyboard-config
+            ];
+
+            # A large part of the test suite requires io_uring, which the sandboxed build
+            # environment denies. An explicit skip list breaks again when new tests are added.
+            doCheck = false;
           };
 
-          cargoLock = {
-            lockFile = ./Cargo.lock;
-          };
+          cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+        in
+        craneLib.buildPackage (
+          commonArgs
+          // {
+            inherit cargoArtifacts;
 
-          nativeBuildInputs = [
-            autoPatchelfHook
-            installShellFiles
-            pkgconf
-          ];
+            version = "${commonArgs.version}-${self.shortRev or self.dirtyShortRev or "unknown"}";
 
-          buildInputs = [
-            fontconfig
-            libgbm
-            libinput
-            pango
-            udev
-            xkeyboard-config
-          ]
-          ++ lib.optional withOpenGL libglvnd
-          ++ lib.optional withVulkan vulkan-loader
-          ++ lib.optional withSqlite sqlite;
+            nativeBuildInputs = commonArgs.nativeBuildInputs ++ [
+              autoPatchelfHook
+              installShellFiles
+            ];
 
-          # Jay declares its optional runtime dependencies in ELF metadata
-          # (https://uapi-group.org/specifications/specs/elf_dlopen_metadata/) using
-          # https://docs.rs/dlopen-note/latest/dlopen_note/. auto-patchelf resolves those sonames
-          # against buildInputs, so the ones belonging to a disabled feature have to be ignored.
-          autoPatchelfIgnoreMissingDeps =
-            lib.optionals (!withOpenGL) [
-              "libEGL.so.1"
-              "libGLESv2.so.2"
-            ]
-            ++ lib.optional (!withVulkan) "libvulkan.so.1"
-            ++ lib.optional (!withSqlite) "libsqlite3.so.0";
+            buildInputs =
+              commonArgs.buildInputs
+              ++ lib.optional withOpenGL libglvnd
+              ++ lib.optional withVulkan vulkan-loader
+              ++ lib.optional withSqlite sqlite;
 
-          # A large part of the test suite requires io_uring, which the sandboxed build environment denies.
-          # An explicit skip list breaks again when new tests are added.
-          doCheck = false;
+            # Jay declares its optional runtime dependencies in ELF metadata
+            # (https://uapi-group.org/specifications/specs/elf_dlopen_metadata/) using
+            # https://docs.rs/dlopen-note/latest/dlopen_note/. auto-patchelf resolves those
+            # sonames against buildInputs, so the ones belonging to a disabled feature have to be
+            # ignored.
+            autoPatchelfIgnoreMissingDeps =
+              lib.optionals (!withOpenGL) [
+                "libEGL.so.1"
+                "libGLESv2.so.2"
+              ]
+              ++ lib.optional (!withVulkan) "libvulkan.so.1"
+              ++ lib.optional (!withSqlite) "libsqlite3.so.0";
 
-          postInstall = ''
-            install -D etc/jay.portal $out/share/xdg-desktop-portal/portals/jay.portal
-            install -D etc/jay-portals.conf $out/share/xdg-desktop-portal/jay-portals.conf
-            install -D etc/jay.desktop $out/share/wayland-sessions/jay.desktop
-          ''
-          + lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
-            installShellCompletion --cmd jay \
-              --bash <("$out/bin/jay" generate-completion bash) \
-              --zsh <("$out/bin/jay" generate-completion zsh) \
-              --fish <("$out/bin/jay" generate-completion fish)
-          '';
+            postInstall = ''
+              install -D etc/jay.portal $out/share/xdg-desktop-portal/portals/jay.portal
+              install -D etc/jay-portals.conf $out/share/xdg-desktop-portal/jay-portals.conf
+              install -D etc/jay.desktop $out/share/wayland-sessions/jay.desktop
+            ''
+            + lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
+              installShellCompletion --cmd jay \
+                --bash <("$out/bin/jay" generate-completion bash) \
+                --zsh <("$out/bin/jay" generate-completion zsh) \
+                --fish <("$out/bin/jay" generate-completion fish)
+            '';
 
-          passthru = {
-            providedSessions = [ "jay" ];
-          };
+            passthru = {
+              providedSessions = [ "jay" ];
+            };
 
-          meta = {
-            description = "Wayland compositor written in Rust";
-            homepage = "https://github.com/mahkoh/jay";
-            license = lib.licenses.gpl3Only;
-            platforms = lib.platforms.linux;
-            mainProgram = "jay";
-          };
-        };
+            meta = {
+              description = "Wayland compositor written in Rust";
+              homepage = "https://github.com/mahkoh/jay";
+              license = lib.licenses.gpl3Only;
+              platforms = lib.platforms.linux;
+              mainProgram = "jay";
+            };
+          }
+        );
 
       nixosModule =
         {
