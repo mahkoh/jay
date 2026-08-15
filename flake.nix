@@ -4,6 +4,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    crane.url = "github:ipetkov/crane";
     # Jay requires the latest stable version of Rust.
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
@@ -15,118 +16,135 @@
     {
       self,
       nixpkgs,
+      crane,
       rust-overlay,
     }:
     let
       inherit (nixpkgs) lib;
       systems = lib.intersectLists lib.systems.flakeExposed lib.platforms.linux;
-      forAllSystems =
-        f:
-        lib.genAttrs systems (
-          system:
-          f (
-            import nixpkgs {
-              inherit system;
-              overlays = [ (import rust-overlay) ];
-            }
-          )
-        );
+      forAllSystems = f: lib.genAttrs systems (system: f nixpkgs.legacyPackages.${system});
+
+      rustBinFor = pkgs: rust-overlay.lib.mkRustBin { } pkgs;
+
+      mkJay =
+        pkgs:
+        pkgs.callPackage jayPackage {
+          craneLib = (crane.mkLib pkgs).overrideToolchain (p: (rustBinFor p).stable.latest.minimal);
+        };
 
       jayPackage =
         {
           lib,
           stdenv,
-          rustPlatform,
+          craneLib,
           autoPatchelfHook,
           installShellFiles,
           pkgconf,
           fontconfig,
           libgbm,
+          libglvnd,
           libinput,
           pango,
-          udev,
-          xkeyboard-config,
-          libglvnd,
           sqlite,
+          udev,
           vulkan-loader,
+          xkeyboard-config,
+
+          # Jay loads its renderers and the session database at runtime, so each of these can be
+          # left out. At least one renderer is required, otherwise no GPU can be initialized.
+          withOpenGL ? true,
+          withVulkan ? true,
+          withSqlite ? true,
         }:
-        rustPlatform.buildRustPackage {
-          pname = "jay";
-          version = self.shortRev or self.dirtyShortRev or "unknown";
+        assert lib.assertMsg (
+          withOpenGL || withVulkan
+        ) "jay requires a renderer: enable withOpenGL or withVulkan";
+        let
+          commonArgs = {
+            pname = "jay";
+            version = (lib.importTOML ./Cargo.toml).package.version;
 
-          src = lib.fileset.toSource {
-            root = ./.;
-            fileset = lib.fileset.gitTracked ./.;
+            src = lib.fileset.toSource {
+              root = ./.;
+              fileset = lib.fileset.gitTracked ./.;
+            };
+
+            strictDeps = true;
+
+            nativeBuildInputs = [ pkgconf ];
+
+            buildInputs = [
+              fontconfig
+              libgbm
+              libinput
+              pango
+              udev
+              xkeyboard-config
+            ];
+
+            # A large part of the test suite requires io_uring, which the sandboxed build
+            # environment denies. An explicit skip list breaks again when new tests are added.
+            doCheck = false;
           };
 
-          cargoLock = {
-            lockFile = ./Cargo.lock;
-          };
+          cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+        in
+        craneLib.buildPackage (
+          commonArgs
+          // {
+            inherit cargoArtifacts;
 
-          nativeBuildInputs = [
-            autoPatchelfHook
-            installShellFiles
-            pkgconf
-          ];
+            version = "${commonArgs.version}-${self.shortRev or self.dirtyShortRev or "unknown"}";
 
-          buildInputs = [
-            fontconfig
-            libgbm
-            libinput
-            pango
-            udev
-            xkeyboard-config
-          ];
+            nativeBuildInputs = commonArgs.nativeBuildInputs ++ [
+              autoPatchelfHook
+              installShellFiles
+            ];
 
-          runtimeDependencies = [
-            libglvnd
-            sqlite.out
-            vulkan-loader
-          ];
+            buildInputs =
+              commonArgs.buildInputs
+              ++ lib.optional withOpenGL libglvnd
+              ++ lib.optional withVulkan vulkan-loader
+              ++ lib.optional withSqlite sqlite;
 
-          # Jay uses https://docs.rs/dlopen-note/latest/dlopen_note/ to declare its optional runtime
-          # dependencies in ELF metadata (https://uapi-group.org/specifications/specs/elf_dlopen_metadata/).
-          # However, auto-patchelf fails if these dependencies are not present at compile time.
-          autoPatchelfIgnoreMissingDeps = [
-            "libGLESv2.so.2"
-            "libEGL.so.1"
-            "libsqlite3.so.0"
-            "libvulkan.so.1"
-          ];
+            # Jay declares its optional runtime dependencies in ELF metadata
+            # (https://uapi-group.org/specifications/specs/elf_dlopen_metadata/) using
+            # https://docs.rs/dlopen-note/latest/dlopen_note/. auto-patchelf resolves those
+            # sonames against buildInputs, so the ones belonging to a disabled feature have to be
+            # ignored.
+            autoPatchelfIgnoreMissingDeps =
+              lib.optionals (!withOpenGL) [
+                "libEGL.so.1"
+                "libGLESv2.so.2"
+              ]
+              ++ lib.optional (!withVulkan) "libvulkan.so.1"
+              ++ lib.optional (!withSqlite) "libsqlite3.so.0";
 
-          checkFlags = [
-            # the following tests require access to io_uring, which is disabled in the sandboxed build environment
-            "--skip=cpu_worker::tests::cancel"
-            "--skip=cpu_worker::tests::complete"
-            "--skip=eventfd_cache::tests::test"
-            "--skip=io_uring::ops::read_write_no_cancel::tests::cancel_in_kernel"
-            "--skip=io_uring::ops::read_write_no_cancel::tests::cancel_in_userspace"
-          ];
+            postInstall = ''
+              install -D etc/jay.portal $out/share/xdg-desktop-portal/portals/jay.portal
+              install -D etc/jay-portals.conf $out/share/xdg-desktop-portal/jay-portals.conf
+              install -D etc/jay.desktop $out/share/wayland-sessions/jay.desktop
+            ''
+            + lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
+              installShellCompletion --cmd jay \
+                --bash <("$out/bin/jay" generate-completion bash) \
+                --zsh <("$out/bin/jay" generate-completion zsh) \
+                --fish <("$out/bin/jay" generate-completion fish)
+            '';
 
-          postInstall = ''
-            install -D etc/jay.portal $out/share/xdg-desktop-portal/portals/jay.portal
-            install -D etc/jay-portals.conf $out/share/xdg-desktop-portal/jay-portals.conf
-            install -D etc/jay.desktop $out/share/wayland-sessions/jay.desktop
-          ''
-          + lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
-            installShellCompletion --cmd jay \
-              --bash <("$out/bin/jay" generate-completion bash) \
-              --zsh <("$out/bin/jay" generate-completion zsh) \
-              --fish <("$out/bin/jay" generate-completion fish)
-          '';
+            passthru = {
+              providedSessions = [ "jay" ];
+            };
 
-          passthru = {
-            providedSessions = [ "jay" ];
-          };
-
-          meta = with lib; {
-            description = "Wayland compositor written in Rust";
-            homepage = "https://github.com/mahkoh/jay";
-            license = licenses.gpl3;
-            platforms = platforms.linux;
-            mainProgram = "jay";
-          };
-        };
+            meta = {
+              description = "Wayland compositor written in Rust";
+              homepage = "https://github.com/mahkoh/jay";
+              license = lib.licenses.gpl3Only;
+              platforms = lib.platforms.linux;
+              mainProgram = "jay";
+            };
+          }
+        );
 
       nixosModule =
         {
@@ -136,17 +154,32 @@
           ...
         }:
         let
+          inherit (lib)
+            getExe
+            literalExpression
+            mkDefault
+            mkEnableOption
+            mkIf
+            mkOption
+            optional
+            types
+            ;
+
           cfg = config.programs.jay;
         in
         {
           options = {
             programs.jay = {
-              enable = lib.mkEnableOption "Jay, a tiling wayland compositor";
+              enable = mkEnableOption "Jay, a tiling wayland compositor";
 
-              package = lib.mkPackageOption pkgs "jay" { };
+              package = mkOption {
+                type = types.package;
+                default = mkJay pkgs;
+                description = "The Jay package to use.";
+              };
 
-              realtime-scheduling = lib.mkOption {
-                type = lib.types.bool;
+              realtime-scheduling = mkOption {
+                type = types.bool;
                 default = true;
                 description = ''
                   Wrap the Jay binary with CAP_SYS_NICE so it can elevate its scheduler to SCHED_RR
@@ -158,22 +191,22 @@
                 '';
               };
 
-              xwayland.enable = lib.mkEnableOption "XWayland" // {
+              xwayland.enable = mkEnableOption "XWayland" // {
                 default = true;
               };
 
-              extraPackages = lib.mkOption {
-                type = with lib.types; listOf package;
+              extraPackages = mkOption {
+                type = with types; listOf package;
                 default = with pkgs; [
                   alacritty
                   bemenu
                   mako
                   wl-tray-bridge
                 ];
-                defaultText = lib.literalExpression ''
+                defaultText = literalExpression ''
                   with pkgs; [ alacritty bemenu mako wl-tray-bridge ];
                 '';
-                example = lib.literalExpression ''
+                example = literalExpression ''
                   with pkgs; [ brightnessctl wl-clipboard ]
                 '';
                 description = ''
@@ -183,33 +216,32 @@
             };
           };
 
-          config = lib.mkIf cfg.enable {
-            environment.systemPackages =
-              (lib.optional (!cfg.realtime-scheduling) cfg.package) ++ cfg.extraPackages;
+          config = mkIf cfg.enable {
+            environment.systemPackages = (optional (!cfg.realtime-scheduling) cfg.package) ++ cfg.extraPackages;
 
             programs = {
-              dconf.enable = lib.mkDefault true;
-              xwayland.enable = lib.mkIf cfg.xwayland.enable (lib.mkDefault true);
+              dconf.enable = mkDefault true;
+              xwayland.enable = mkIf cfg.xwayland.enable (mkDefault true);
             };
 
             security = {
               polkit.enable = true;
               pam.services.swaylock = { };
 
-              wrappers = lib.mkIf cfg.realtime-scheduling {
+              wrappers = mkIf cfg.realtime-scheduling {
                 jay = {
                   owner = "root";
                   group = "root";
                   permissions = "a+rx";
-                  source = lib.getExe cfg.package;
+                  source = getExe cfg.package;
                   capabilities = "cap_sys_nice+p";
                 };
               };
             };
 
             xdg.portal = {
-              enable = lib.mkDefault true;
-              configPackages = lib.mkDefault [ cfg.package ];
+              enable = mkDefault true;
+              configPackages = mkDefault [ cfg.package ];
               extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
             };
 
@@ -227,6 +259,7 @@
         let
           inherit (lib)
             literalExpression
+            mkEnableOption
             mkIf
             mkOption
             types
@@ -237,14 +270,18 @@
         in
         {
           options.wayland.windowManager.jay = {
-            enable = lib.mkEnableOption "Jay, a tiling wayland compositor";
+            enable = mkEnableOption "Jay, a tiling wayland compositor";
 
-            package = lib.mkPackageOption pkgs "jay" { };
+            package = mkOption {
+              type = types.package;
+              default = mkJay pkgs;
+              description = "The Jay package to use.";
+            };
 
             # This option is currently not used but the home-manager module tests for way-displays
             # expect this to be present for all entries of wayland.windowManager.
             systemd = {
-              enable = lib.mkEnableOption null // {
+              enable = mkEnableOption null // {
                 default = false;
                 description = "";
               };
@@ -406,13 +443,9 @@
       devShells = forAllSystems (pkgs: {
         default =
           let
-            inherit (self.packages.${pkgs.system}) jay;
-            rust = pkgs.rust-bin.stable.latest.default.override {
-              extensions = [
-                "rust-src"
-                "clippy"
-                "rustfmt"
-              ];
+            inherit (self.packages.${pkgs.stdenv.hostPlatform.system}) jay;
+            rust = (rustBinFor pkgs).stable.latest.default.override {
+              extensions = [ "rust-src" ];
             };
           in
           pkgs.mkShell {
@@ -426,14 +459,7 @@
       packages = forAllSystems (
         pkgs:
         let
-          rust = pkgs.rust-bin.stable.latest.default;
-          rustPlatform = pkgs.makeRustPlatform {
-            cargo = rust;
-            rustc = rust;
-          };
-          jay = pkgs.callPackage jayPackage {
-            inherit rustPlatform;
-          };
+          jay = mkJay pkgs;
         in
         {
           inherit jay;
@@ -441,7 +467,7 @@
         }
       );
 
-      overlays.default = final: _: { inherit (self.packages.${final.system}) jay; };
+      overlays.default = final: _: { jay = mkJay final; };
 
       nixosModules.default = nixosModule;
       homeManagerModules.default = homeManagerModule;
