@@ -42,14 +42,23 @@
           pkgconf,
           fontconfig,
           libgbm,
+          libglvnd,
           libinput,
           pango,
-          udev,
-          xkeyboard-config,
-          libglvnd,
           sqlite,
+          udev,
           vulkan-loader,
+          xkeyboard-config,
+
+          # Jay loads its renderers and the session database at runtime, so each of these can be
+          # left out. At least one renderer is required, otherwise no GPU can be initialized.
+          withOpenGL ? true,
+          withVulkan ? true,
+          withSqlite ? true,
         }:
+        assert lib.assertMsg (
+          withOpenGL || withVulkan
+        ) "jay requires a renderer: enable withOpenGL or withVulkan";
         rustPlatform.buildRustPackage {
           pname = "jay";
           version = self.shortRev or self.dirtyShortRev or "unknown";
@@ -76,23 +85,22 @@
             pango
             udev
             xkeyboard-config
-          ];
+          ]
+          ++ lib.optional withOpenGL libglvnd
+          ++ lib.optional withVulkan vulkan-loader
+          ++ lib.optional withSqlite sqlite;
 
-          runtimeDependencies = [
-            libglvnd
-            sqlite.out
-            vulkan-loader
-          ];
-
-          # Jay uses https://docs.rs/dlopen-note/latest/dlopen_note/ to declare its optional runtime
-          # dependencies in ELF metadata (https://uapi-group.org/specifications/specs/elf_dlopen_metadata/).
-          # However, auto-patchelf fails if these dependencies are not present at compile time.
-          autoPatchelfIgnoreMissingDeps = [
-            "libGLESv2.so.2"
-            "libEGL.so.1"
-            "libsqlite3.so.0"
-            "libvulkan.so.1"
-          ];
+          # Jay declares its optional runtime dependencies in ELF metadata
+          # (https://uapi-group.org/specifications/specs/elf_dlopen_metadata/) using
+          # https://docs.rs/dlopen-note/latest/dlopen_note/. auto-patchelf resolves those sonames
+          # against buildInputs, so the ones belonging to a disabled feature have to be ignored.
+          autoPatchelfIgnoreMissingDeps =
+            lib.optionals (!withOpenGL) [
+              "libEGL.so.1"
+              "libGLESv2.so.2"
+            ]
+            ++ lib.optional (!withVulkan) "libvulkan.so.1"
+            ++ lib.optional (!withSqlite) "libsqlite3.so.0";
 
           # A large part of the test suite requires io_uring, which the sandboxed build environment denies.
           # An explicit skip list breaks again when new tests are added.
