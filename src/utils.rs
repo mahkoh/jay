@@ -98,6 +98,7 @@ pub mod time_lt;
 pub mod timer;
 pub mod tri;
 pub mod type_wrapper;
+pub mod uid;
 pub mod vec_ext;
 pub mod vecdeque_ext;
 pub mod vecset;
