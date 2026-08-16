@@ -7,7 +7,7 @@
 
 mod config;
 mod phf;
-mod phf_map;
+pub mod phf_map;
 mod rules;
 mod shortcuts;
 mod toml;

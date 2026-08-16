@@ -3,15 +3,15 @@ use crate::phf::PhfHash;
 use std::marker::PhantomData;
 use std::ops::Index;
 
-pub(crate) struct PhfMap<K, V>
+pub struct PhfMap<K, V>
 where
     K: ?Sized,
     V: 'static,
 {
-    pub(crate) key: u64,
-    pub(crate) disps: &'static [(u32, u32)],
-    pub(crate) map: &'static [V],
-    pub(crate) _phantom: PhantomData<fn(&K) -> V>,
+    pub key: u64,
+    pub disps: &'static [(u32, u32)],
+    pub map: &'static [V],
+    pub _phantom: PhantomData<fn(&K) -> V>,
 }
 
 impl<K, V> Index<&'_ K> for PhfMap<K, V>
