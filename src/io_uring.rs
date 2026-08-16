@@ -54,6 +54,9 @@ pub use ops::TaskResultExt;
 pub use ops::futex::FutexObj;
 pub use ops::poll_external::PendingPoll;
 pub use ops::poll_external::PollCallback;
+#[expect(unused)]
+pub use ops::read_multishot::PendingReadMultishot;
+pub use ops::read_multishot::ReadMultishotCallback;
 pub use ops::timeout_external::PendingTimeout;
 pub use ops::timeout_external::TimeoutCallback;
 use std::cell::Cell;
