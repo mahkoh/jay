@@ -25,6 +25,12 @@ impl<T> Reset for Vec<T> {
     }
 }
 
+impl Reset for String {
+    fn reset(&mut self) {
+        self.clear();
+    }
+}
+
 impl<K, V> Reset for BHashMap<K, V> {
     fn reset(&mut self) {
         self.clear();
