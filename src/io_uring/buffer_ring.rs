@@ -261,6 +261,13 @@ impl Drop for BufferRingBuffer {
     }
 }
 
+impl BufferRingBuffer {
+    #[cfg_attr(not(test), expect(unused))]
+    pub fn as_ptr(&self) -> *const u8 {
+        self.buf.cast()
+    }
+}
+
 impl Deref for BufferRingBuffer {
     type Target = [u8];
 

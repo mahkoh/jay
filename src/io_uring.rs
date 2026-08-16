@@ -18,6 +18,9 @@ use crate::io_uring::ops::sendmsg::SendmsgTask;
 use crate::io_uring::ops::timeout::TimeoutTask;
 use crate::io_uring::ops::timeout_external::TimeoutExternalTask;
 use crate::io_uring::ops::timeout_link::TimeoutLinkTask;
+#[expect(unused)]
+pub use crate::io_uring::ops::writev_external::WritevData;
+use crate::io_uring::ops::writev_external::WritevExternalTask;
 use crate::io_uring::pending_result::PendingResults;
 use crate::io_uring::sys::IORING_CQE_F_MORE;
 use crate::io_uring::sys::IORING_ENTER_GETEVENTS;
@@ -54,6 +57,9 @@ pub use ops::TaskResultExt;
 pub use ops::futex::FutexObj;
 pub use ops::poll_external::PendingPoll;
 pub use ops::poll_external::PollCallback;
+#[expect(unused)]
+pub use ops::read_multishot::PendingReadMultishot;
+pub use ops::read_multishot::ReadMultishotCallback;
 pub use ops::timeout_external::PendingTimeout;
 pub use ops::timeout_external::TimeoutCallback;
 use std::cell::Cell;
@@ -270,6 +276,7 @@ impl IoUring {
             cached_futex_waits: Default::default(),
             cached_write_vecs: Default::default(),
             cached_read_multishot: Default::default(),
+            cached_writev_external: Default::default(),
             fd_ids_scratch: Default::default(),
             iteration: Default::default(),
             yields: Default::default(),
@@ -351,6 +358,7 @@ struct IoUringData {
     cached_futex_waits: Stack<Box<FutexWaitTask>>,
     cached_write_vecs: Stack<Box<WriteVecTask>>,
     cached_read_multishot: Stack<Box<ReadMultishotTask>>,
+    cached_writev_external: Stack<Box<WritevExternalTask>>,
 
     fd_ids_scratch: RefCell<Vec<c::c_int>>,
 
