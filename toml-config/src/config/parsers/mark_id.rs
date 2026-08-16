@@ -40,7 +40,13 @@ impl Parser for MarkIdParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (key, name) = ext.extract((opt(str("key")), opt(str("name"))))?;
+        let (
+            key, //
+            name,
+        ) = ext.extract((
+            opt(str("key")), //
+            opt(str("name")),
+        ))?;
         let id = match (key, name) {
             (None, None) | (Some(_), Some(_)) => {
                 return Err(MarkIdParserError::ExactlyOneField.spanned(span));

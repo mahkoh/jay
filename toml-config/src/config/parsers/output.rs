@@ -59,7 +59,18 @@ impl Parser for OutputParser<'_, '_, '_> {
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
         let (
-            (name, match_val, x, y, scale, transform, mode, vrr_val, tearing_val, format_val),
+            (
+                name, //
+                match_val,
+                x,
+                y,
+                scale,
+                transform,
+                mode,
+                vrr_val,
+                tearing_val,
+                format_val,
+            ),
             (
                 color_space,
                 eotf,

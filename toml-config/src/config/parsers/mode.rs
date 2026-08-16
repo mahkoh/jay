@@ -37,8 +37,15 @@ impl Parser for ModeParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (width, height, refresh_rate) =
-            ext.extract((s32("width"), s32("height"), opt(fltorint("refresh-rate"))))?;
+        let (
+            width, //
+            height,
+            refresh_rate,
+        ) = ext.extract((
+            s32("width"), //
+            s32("height"),
+            opt(fltorint("refresh-rate")),
+        ))?;
         Ok(Mode {
             width: width.value,
             height: height.value,

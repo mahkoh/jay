@@ -40,7 +40,11 @@ impl Parser for ColorManagementParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (enabled,) = ext.extract((opt(bol("enabled")),))?;
+        let (
+            enabled, //
+        ) = ext.extract((
+            opt(bol("enabled")), //
+        ))?;
         Ok(ColorManagement {
             enabled: enabled.despan(),
         })

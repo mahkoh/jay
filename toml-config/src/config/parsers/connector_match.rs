@@ -48,7 +48,11 @@ impl Parser for ConnectorMatchParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (connector,) = ext.extract((opt(str("name")),))?;
+        let (
+            connector, //
+        ) = ext.extract((
+            opt(str("name")), //
+        ))?;
         Ok(ConnectorMatch::All {
             connector: connector.map(|v| v.value.to_owned()),
         })

@@ -37,7 +37,11 @@ impl Parser for SimpleImParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (enabled,) = ext.extract((recover(opt(bol("enabled"))),))?;
+        let (
+            enabled, //
+        ) = ext.extract((
+            recover(opt(bol("enabled"))), //
+        ))?;
         Ok(SimpleIm {
             enabled: enabled.despan(),
         })

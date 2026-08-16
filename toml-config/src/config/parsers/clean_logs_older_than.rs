@@ -42,7 +42,13 @@ impl Parser for CleanLogsOlderThanParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (weeks, days) = ext.extract((opt(fltorint("weeks")), opt(fltorint("days"))))?;
+        let (
+            weeks, //
+            days,
+        ) = ext.extract((
+            opt(fltorint("weeks")), //
+            opt(fltorint("days")),
+        ))?;
         if weeks.is_none() && days.is_none() {
             return Err(CleanLogsOlderThanParserError::WeeksOrDays.spanned(span));
         }

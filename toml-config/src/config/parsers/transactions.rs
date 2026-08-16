@@ -45,7 +45,11 @@ impl Parser for TransactionsParser<'_, '_, '_> {
         const TRANSACTION_TIMEOUT: &str = "transaction-timeout";
         const CONFIGURE_TIMEOUT: &str = "configure-timeout";
         let mut ext = Extractor::new(self.0, span, table);
-        let (timeout_val, transaction_timeout_val, configure_timeout_val) = ext.extract((
+        let (
+            timeout_val, //
+            transaction_timeout_val,
+            configure_timeout_val,
+        ) = ext.extract((
             opt(val("timeout")),
             opt(val(TRANSACTION_TIMEOUT)),
             opt(val(CONFIGURE_TIMEOUT)),
@@ -106,7 +110,13 @@ impl Parser for TimeoutParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (millis, micros) = ext.extract((opt(n64("millis")), opt(n64("micros"))))?;
+        let (
+            millis, //
+            micros,
+        ) = ext.extract((
+            opt(n64("millis")), //
+            opt(n64("micros")),
+        ))?;
         let millis = millis.despan().unwrap_or_default();
         let micros = micros.despan().unwrap_or_default();
         Ok(Duration::from_micros(

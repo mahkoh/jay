@@ -233,8 +233,15 @@ impl Parser for TriggerParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (match_val, action_val, latch_val) =
-            ext.extract((val("match"), opt(val("action")), opt(val("latch"))))?;
+        let (
+            match_val, //
+            action_val,
+            latch_val,
+        ) = ext.extract((
+            val("match"), //
+            opt(val("action")),
+            opt(val("latch")),
+        ))?;
         let mut counters = AHashMap::new();
         let match_ = match_val.parse(&mut TriggerMatchParser {
             cx: self.0,
@@ -297,7 +304,13 @@ impl Parser for TriggerMatchParser<'_, '_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (all_val, any_val, not_val, exactly_val, counter_val) = ext.extract((
+        let (
+            all_val, //
+            any_val,
+            not_val,
+            exactly_val,
+            counter_val,
+        ) = ext.extract((
             opt(arr("all")),
             opt(arr("any")),
             opt(val("not")),
@@ -368,7 +381,13 @@ impl Parser for TriggerExactlyParser<'_, '_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (num, list_val) = ext.extract((n32("num"), arr("list")))?;
+        let (
+            num, //
+            list_val,
+        ) = ext.extract((
+            n32("num"), //
+            arr("list"),
+        ))?;
         let mut list = vec![];
         for v in list_val.value {
             list.push(v.parse(&mut TriggerMatchParser {
@@ -399,7 +418,14 @@ impl Parser for TriggerCounterParser<'_, '_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (eq, ne, gt, ge, lt, le) = ext.extract((
+        let (
+            eq, //
+            ne,
+            gt,
+            ge,
+            lt,
+            le,
+        ) = ext.extract((
             opt(int("eq")),
             opt(int("ne")),
             opt(int("gt")),

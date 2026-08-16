@@ -191,8 +191,13 @@ impl Parser for WorkspaceParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (ty_str, initial_output) =
-            ext.extract((recover(opt(str("type"))), opt(val("initial-output"))))?;
+        let (
+            ty_str, //
+            initial_output,
+        ) = ext.extract((
+            recover(opt(str("type"))), //
+            opt(val("initial-output")),
+        ))?;
         let ws = self.cx.get_workspace_slot(self.name);
         if let Some(v) = initial_output {
             match v.parse(&mut OutputMatchParser(self.cx)) {

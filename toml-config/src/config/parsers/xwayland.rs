@@ -40,8 +40,13 @@ impl Parser for XwaylandParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (enabled, scaling_mode) =
-            ext.extract((recover(opt(bol("enabled"))), opt(val("scaling-mode"))))?;
+        let (
+            enabled, //
+            scaling_mode,
+        ) = ext.extract((
+            recover(opt(bol("enabled"))), //
+            opt(val("scaling-mode")),
+        ))?;
         let scaling_mode = scaling_mode.and_then(|m| match m.parse(&mut XScalingModeParser) {
             Ok(m) => Some(m),
             Err(e) => {

@@ -62,14 +62,19 @@ impl Parser for KeymapParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (mut name_val, mut map_val, mut path, mut rmlvo, mut shortcuts_group_val) = ext
-            .extract((
-                opt(str("name")),
-                opt(str("map")),
-                opt(str("path")),
-                opt(val("rmlvo")),
-                opt(val("shortcuts-group")),
-            ))?;
+        let (
+            mut name_val, //
+            mut map_val,
+            mut path,
+            mut rmlvo,
+            mut shortcuts_group_val,
+        ) = ext.extract((
+            opt(str("name")),
+            opt(str("map")),
+            opt(str("path")),
+            opt(val("rmlvo")),
+            opt(val("shortcuts-group")),
+        ))?;
         if map_val.is_some() as u32 + path.is_some() as u32 + rmlvo.is_some() as u32 > 1 {
             log::warn!(
                 "At most one of `map`, `path`, and `rmlvo` should be specified: {}",
@@ -174,7 +179,13 @@ impl Parser for RmlvoParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (rules, model, layout, variants, options) = ext.extract((
+        let (
+            rules, //
+            model,
+            layout,
+            variants,
+            options,
+        ) = ext.extract((
             opt(str("rules")),
             opt(str("model")),
             opt(str("layout")),

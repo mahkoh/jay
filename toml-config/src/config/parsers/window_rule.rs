@@ -52,15 +52,21 @@ impl Parser for WindowRuleParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (name, match_val, action_val, latch_val, auto_focus, initial_tile_state_val) = ext
-            .extract((
-                opt(str("name")),
-                opt(val("match")),
-                opt(val("action")),
-                opt(val("latch")),
-                recover(opt(bol("auto-focus"))),
-                opt(val("initial-tile-state")),
-            ))?;
+        let (
+            name, //
+            match_val,
+            action_val,
+            latch_val,
+            auto_focus,
+            initial_tile_state_val,
+        ) = ext.extract((
+            opt(str("name")),
+            opt(val("match")),
+            opt(val("action")),
+            opt(val("latch")),
+            recover(opt(bol("auto-focus"))),
+            opt(val("initial-tile-state")),
+        ))?;
         let mut action = None;
         if let Some(value) = action_val {
             action = Some(

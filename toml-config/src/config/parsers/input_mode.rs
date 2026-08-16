@@ -86,7 +86,11 @@ impl Parser for InputModeParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (parent, shortcuts_val, complex_shortcuts_val) = ext.extract((
+        let (
+            parent, //
+            shortcuts_val,
+            complex_shortcuts_val,
+        ) = ext.extract((
             recover(opt(str("parent"))),
             opt(val("shortcuts")),
             opt(val("complex-shortcuts")),

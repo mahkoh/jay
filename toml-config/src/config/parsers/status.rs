@@ -45,7 +45,11 @@ impl Parser for StatusParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (format, exec, separator) = ext.extract((
+        let (
+            format, //
+            exec,
+            separator,
+        ) = ext.extract((
             opt(str("format")),
             val("exec"),
             recover(opt(str("i3bar-separator"))),

@@ -41,7 +41,13 @@ impl Parser for ConnectorParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (match_val, enabled) = ext.extract((val("match"), opt(bol("enabled"))))?;
+        let (
+            match_val, //
+            enabled,
+        ) = ext.extract((
+            val("match"), //
+            opt(bol("enabled")),
+        ))?;
         Ok(ConfigConnector {
             match_: match_val.parse_map(&mut ConnectorMatchParser(self.0))?,
             enabled: enabled.despan().unwrap_or(true),
