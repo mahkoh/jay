@@ -205,6 +205,7 @@ use gpu_alloc::UsageFlags;
 use gpu_alloc_types::MemoryPropertyFlags;
 use hashbrown::hash_map::Entry;
 use isnt::std_1::primitive::IsntSliceExt;
+use jay_proc::Pod;
 use log::Level;
 use run_on_drop::on_drop;
 use std::cell::Cell;
@@ -221,7 +222,6 @@ use thiserror::Error;
 use uapi::AsUstr;
 use uapi::AssertPacked;
 use uapi::Packed;
-use uapi::Pod;
 use uapi::c;
 
 #[derive(Debug, Error)]
@@ -425,14 +425,13 @@ struct EgvCommandBuffer {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Pod)]
 struct VkVertex {
     pos: [f32; 2],
     uv: [f32; 2],
     color: [u8; 4],
 }
 
-unsafe impl Pod for VkVertex {}
 unsafe impl Packed for VkVertex {}
 
 struct VkSampler {

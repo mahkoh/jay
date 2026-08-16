@@ -512,7 +512,15 @@ macro_rules! bitflags {
     };
     ($name:ident: $rep:ty; $enum_name:ident; $($var:ident = $val:expr,)*) => {
         #[derive(Copy, Clone, Eq, PartialEq, Hash, Default)]
+        #[repr(transparent)]
         pub struct $name(pub $rep);
+
+        unsafe impl uapi::Pod for $name { }
+
+        const _: () = {
+            const fn is_pod<T: uapi::Pod>() { }
+            is_pod::<$rep>()
+        };
 
         $(
             #[allow(dead_code)]

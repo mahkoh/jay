@@ -4,12 +4,12 @@ mod pw_debug;
 
 use crate::pipewire::pw_parser::PwParser;
 use crate::pipewire::pw_parser::PwParserError;
+use crate::utils::pod::PodAtomicI32;
+use crate::utils::pod::PodAtomicU32;
 use bstr::BStr;
+use jay_proc::Pod;
 use std::fmt::Debug;
 use std::fmt::Formatter;
-use std::sync::atomic::AtomicI32;
-use std::sync::atomic::AtomicU32;
-use uapi::Pod;
 use uapi::c;
 
 macro_rules! ty {
@@ -18,6 +18,8 @@ macro_rules! ty {
         #[derive(Copy, Clone, Eq)]
         #[repr(transparent)]
         pub struct $name(pub u32);
+
+        unsafe impl uapi::Pod for $name { }
 
         $(
             pub const $id: $name = $name($val);
@@ -746,7 +748,7 @@ bitflags! {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Pod)]
 pub struct spa_meta_header {
     pub flags: SpaMetaHeaderFlags,
     pub offset: u32,
@@ -755,30 +757,28 @@ pub struct spa_meta_header {
     pub seq: u64,
 }
 
-unsafe impl Pod for spa_meta_header {}
-
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Pod)]
 pub struct spa_point {
     pub x: i32,
     pub y: i32,
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Pod)]
 pub struct spa_region {
     pub position: spa_point,
     pub size: spa_rectangle,
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Pod)]
 pub struct spa_meta_region {
     pub region: spa_region,
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Pod)]
 pub struct spa_meta_bitmap {
     pub format: SpaVideoFormat,
     pub size: spa_rectangle,
@@ -786,10 +786,8 @@ pub struct spa_meta_bitmap {
     pub offset: u32,
 }
 
-unsafe impl Pod for spa_meta_bitmap {}
-
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Pod)]
 pub struct spa_meta_cursor {
     pub id: u32,
     pub flags: u32,
@@ -798,18 +796,12 @@ pub struct spa_meta_cursor {
     pub bitmap_offset: u32,
 }
 
-unsafe impl Pod for spa_meta_cursor {}
-
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Pod)]
 pub struct spa_meta_busy {
     pub flags: u32,
     pub count: u32,
 }
-
-unsafe impl Pod for spa_meta_busy {}
-
-unsafe impl Pod for spa_meta_region {}
 
 ty! {
     SpaMetaType;
@@ -1217,7 +1209,7 @@ impl<'a> PwPod<'a> {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Pod)]
 pub struct spa_fraction {
     pub num: u32,
     pub denom: u32,
@@ -1233,7 +1225,7 @@ bitflags! {
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Pod)]
 pub struct spa_io_segment_video {
     pub flags: SPA_IO_SEGMENT_VIDEO_FLAG,
     pub offset: u32,
@@ -1253,7 +1245,7 @@ bitflags! {
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Pod)]
 pub struct spa_io_segment_bar {
     pub flags: SPA_IO_SEGMENT_BAR_FLAG,
     pub offset: u32,
@@ -1272,7 +1264,7 @@ bitflags! {
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Pod)]
 pub struct spa_io_segment {
     pub version: u32,
     pub flags: SPA_IO_SEGMENT_FLAG,
@@ -1291,7 +1283,7 @@ bitflags! {
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Pod)]
 pub struct spa_io_clock {
     pub flags: SPA_IO_CLOCK_FLAG,
     pub id: u32,
@@ -1307,7 +1299,7 @@ pub struct spa_io_clock {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Pod)]
 pub struct spa_rectangle {
     pub width: u32,
     pub height: u32,
@@ -1320,7 +1312,7 @@ bitflags! {
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Pod)]
 pub struct spa_io_video_size {
     pub flags: SPA_IO_VIDEO_SIZE,
     pub stride: u32,
@@ -1332,7 +1324,7 @@ pub struct spa_io_video_size {
 pub const SPA_IO_POSITION_MAX_SEGMENTS: usize = 8;
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Pod)]
 pub struct spa_io_position {
     pub clock: spa_io_clock,
     pub video: spa_io_video_size,
@@ -1343,11 +1335,11 @@ pub struct spa_io_position {
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Pod)]
 pub struct pw_node_activation_state {
     pub status: c::c_int,
-    pub required: AtomicI32,
-    pub pending: AtomicI32,
+    pub required: PodAtomicI32,
+    pub pending: PodAtomicI32,
 }
 
 ty! {
@@ -1368,9 +1360,9 @@ ty! {
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Pod)]
 pub struct pw_node_activation {
-    pub status: AtomicU32,
+    pub status: PodAtomicU32,
 
     pub flags: c::c_uint,
 
@@ -1400,8 +1392,6 @@ pub struct pw_node_activation {
     pub reposition_owner: u32,
 }
 
-unsafe impl Pod for pw_node_activation {}
-
 bitflags! {
     SPA_PORT_FLAG: u64;
 
@@ -1426,13 +1416,11 @@ bitflags! {
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Pod)]
 pub struct spa_io_buffers {
-    pub status: AtomicU32,
-    pub buffer_id: AtomicU32,
+    pub status: PodAtomicU32,
+    pub buffer_id: PodAtomicU32,
 }
-
-unsafe impl Pod for spa_io_buffers {}
 
 bitflags! {
     SpaChunkFlags: u32;
@@ -1441,12 +1429,10 @@ bitflags! {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Pod)]
 pub struct spa_chunk {
     pub offset: u32,
     pub size: u32,
     pub stride: u32,
     pub flags: SpaChunkFlags,
 }
-
-unsafe impl Pod for spa_chunk {}

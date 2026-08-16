@@ -1,5 +1,6 @@
 use markers::clone;
 use markers::hash;
+use markers::pod;
 use proc_macro::TokenStream;
 
 mod drm_object_properties;
@@ -30,4 +31,9 @@ pub fn jay_hash(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro_derive(PrepareDrmObjectProperties)]
 pub fn derive_prepare_drm_object_properties(input: TokenStream) -> TokenStream {
     drm_object_properties::derive_prepare_drm_object_properties(input)
+}
+
+#[proc_macro_derive(Pod)]
+pub fn derive_pod(input: TokenStream) -> TokenStream {
+    pod::derive_pod(input)
 }
