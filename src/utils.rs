@@ -97,6 +97,7 @@ pub mod threshold_counter;
 pub mod time_lt;
 pub mod timer;
 pub mod tri;
+pub mod type_view;
 pub mod type_wrapper;
 pub mod uid;
 pub mod vec_ext;
