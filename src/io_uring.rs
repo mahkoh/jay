@@ -18,7 +18,6 @@ use crate::io_uring::ops::sendmsg::SendmsgTask;
 use crate::io_uring::ops::timeout::TimeoutTask;
 use crate::io_uring::ops::timeout_external::TimeoutExternalTask;
 use crate::io_uring::ops::timeout_link::TimeoutLinkTask;
-#[expect(unused)]
 pub use crate::io_uring::ops::writev_external::WritevData;
 use crate::io_uring::ops::writev_external::WritevExternalTask;
 use crate::io_uring::pending_result::PendingResults;
@@ -57,7 +56,6 @@ pub use ops::TaskResultExt;
 pub use ops::futex::FutexObj;
 pub use ops::poll_external::PendingPoll;
 pub use ops::poll_external::PollCallback;
-#[expect(unused)]
 pub use ops::read_multishot::PendingReadMultishot;
 pub use ops::read_multishot::ReadMultishotCallback;
 pub use ops::timeout_external::PendingTimeout;

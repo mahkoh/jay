@@ -119,6 +119,7 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::event_listener::handle_lazy_event_sources;
 use crate::utils::fdcloser::FdCloser;
+use crate::utils::fuse::fuse_mgr::FuseMgr;
 use crate::utils::nice::did_elevate_scheduler;
 use crate::utils::nice::elevate_scheduler;
 use crate::utils::numcell::NumCell;
@@ -291,6 +292,7 @@ fn start_compositor2(
     let udmabuf = Rc::new(UdmabufHolder::default());
     let no_client_prime = no_client_prime(&udmabuf);
     let tree = Rc::new(TreeState::default());
+    let fuse = FuseMgr::new(&engine, &ring, &run_toplevel);
     let state = Rc::new(State {
         pid,
         kb_ctx,
@@ -482,6 +484,7 @@ fn start_compositor2(
         visualize_compositing: Default::default(),
         sleeper,
         global_tracers: Default::default(),
+        fuse,
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);

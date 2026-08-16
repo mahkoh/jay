@@ -90,6 +90,7 @@ blake3 = "1.8.2"
 walkdir = "2.5.0"
 indexmap = "2.14.0"
 isnt = "0.2.0"
+linearize = { version = "0.1.7", features = ["derive"] }
 
 [profile.dev.package]
 jay-algorithms = { opt-level = 3, codegen-units = 1, incremental = false }

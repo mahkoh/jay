@@ -77,7 +77,6 @@ pub struct BufferRingBuffer {
 }
 
 impl IoUring {
-    #[cfg_attr(not(test), expect(unused))]
     pub fn create_buffer_ring(
         self: &Rc<Self>,
         num: usize,
@@ -267,7 +266,6 @@ impl BufferRingBuffer {
         self.buf.cast()
     }
 
-    #[expect(unused)]
     pub fn as_mut_ptr(&self) -> *mut u8 {
         self.buf.cast()
     }

@@ -19,7 +19,6 @@ pub trait HashMapExt {
 
     fn is_not_empty(&self) -> bool;
 
-    #[expect(unused)]
     fn occupied_entry<Q>(&mut self, k: &Q) -> Option<OccupiedEntry<'_, Self::K, Self::V, Self::S>>
     where
         Q: Hash + Equivalent<Self::K> + ?Sized;

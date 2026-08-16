@@ -10,7 +10,6 @@ impl StringExt for str {
     }
 }
 
-#[expect(unused)]
 pub trait StringVecExt {
     fn into_empty_string(self) -> String;
 }
