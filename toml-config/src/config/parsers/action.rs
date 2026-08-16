@@ -536,7 +536,13 @@ impl ActionParser<'_, '_, '_> {
     }
 
     fn parse_define_action(&mut self, ext: &mut Extractor<'_, '_, '_>) -> ParseResult<Self> {
-        let (name, action) = ext.extract((str("name"), val("action")))?;
+        let (
+            name, //
+            action,
+        ) = ext.extract((
+            str("name"), //
+            val("action"),
+        ))?;
         Ok(Action::DefineAction {
             name: name.value.to_string(),
             action: Box::new(action.parse(&mut ActionParser(self.0))?),
@@ -577,7 +583,13 @@ impl ActionParser<'_, '_, '_> {
     }
 
     fn parse_copy_mark(&mut self, ext: &mut Extractor<'_, '_, '_>) -> ParseResult<Self> {
-        let (src, dst) = ext.extract((val("src"), val("dst")))?;
+        let (
+            src, //
+            dst,
+        ) = ext.extract((
+            val("src"), //
+            val("dst"),
+        ))?;
         let src = src
             .parse(&mut MarkIdParser(self.0))
             .map_spanned_err(ActionParserError::CopyMark)?;
@@ -649,7 +661,13 @@ impl ActionParser<'_, '_, '_> {
         ext: &mut Extractor<'_, '_, '_>,
         dec: bool,
     ) -> ParseResult<Self> {
-        let (name, delta) = ext.extract((str("name"), opt(int("delta"))))?;
+        let (
+            name, //
+            delta,
+        ) = ext.extract((
+            str("name"), //
+            opt(int("delta")),
+        ))?;
         let counter = self.0.get_counter_slot(name.value);
         let mut delta = delta.despan().unwrap_or(1);
         if dec {
@@ -659,7 +677,13 @@ impl ActionParser<'_, '_, '_> {
     }
 
     fn parse_set_counter(&mut self, ext: &mut Extractor<'_, '_, '_>) -> ParseResult<Self> {
-        let (name, value) = ext.extract((str("name"), int("value")))?;
+        let (
+            name, //
+            value,
+        ) = ext.extract((
+            str("name"), //
+            int("value"),
+        ))?;
         let counter = self.0.get_counter_slot(name.value);
         Ok(Action::SetCounter {
             counter,

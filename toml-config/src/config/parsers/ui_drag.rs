@@ -41,8 +41,13 @@ impl Parser for UiDragParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (enabled, threshold) =
-            ext.extract((recover(opt(bol("enabled"))), recover(opt(int("threshold")))))?;
+        let (
+            enabled, //
+            threshold,
+        ) = ext.extract((
+            recover(opt(bol("enabled"))), //
+            recover(opt(int("threshold"))),
+        ))?;
         Ok(UiDrag {
             enabled: enabled.despan(),
             threshold: threshold.despan().map(|v| v as i32),

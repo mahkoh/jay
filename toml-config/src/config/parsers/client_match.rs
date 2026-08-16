@@ -180,7 +180,13 @@ impl Parser for ClientMatchExactlyParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (num, list_val) = ext.extract((n32("num"), arr("list")))?;
+        let (
+            num, //
+            list_val,
+        ) = ext.extract((
+            n32("num"), //
+            arr("list"),
+        ))?;
         let mut list = vec![];
         for el in list_val.value {
             list.push(el.parse(&mut ClientMatchParser {

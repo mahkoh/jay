@@ -37,7 +37,13 @@ impl Parser for VrrParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (mode, cursor_hz) = ext.extract((opt(val("mode")), opt(val("cursor-hz"))))?;
+        let (
+            mode, //
+            cursor_hz,
+        ) = ext.extract((
+            opt(val("mode")), //
+            opt(val("cursor-hz")),
+        ))?;
         let mode = mode.and_then(|m| match m.parse(&mut VrrModeParser) {
             Ok(m) => Some(m),
             Err(e) => {

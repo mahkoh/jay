@@ -34,7 +34,13 @@ impl Parser for RepeatRateParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (rate, delay) = ext.extract((s32("rate"), s32("delay")))?;
+        let (
+            rate, //
+            delay,
+        ) = ext.extract((
+            s32("rate"), //
+            s32("delay"),
+        ))?;
         Ok(RepeatRate {
             rate: rate.value,
             delay: delay.value,

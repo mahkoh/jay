@@ -42,7 +42,10 @@ impl Parser for FocusHistoryParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (only_visible, same_workspace) = ext.extract((
+        let (
+            only_visible, //
+            same_workspace,
+        ) = ext.extract((
             recover(opt(bol("only-visible"))),
             recover(opt(bol("same-workspace"))),
         ))?;

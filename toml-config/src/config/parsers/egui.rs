@@ -35,8 +35,13 @@ impl Parser for EguiParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (proportional_fonts_arr, monospace_fonts_arr) =
-            ext.extract((opt(arr("proportional-fonts")), opt(arr("monospace-fonts"))))?;
+        let (
+            proportional_fonts_arr, //
+            monospace_fonts_arr,
+        ) = ext.extract((
+            opt(arr("proportional-fonts")), //
+            opt(arr("monospace-fonts")),
+        ))?;
         let mut proportional_fonts = None;
         let mut monospace_fonts = None;
         for (out, f) in [

@@ -86,7 +86,14 @@ impl Parser for ExecParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (prog_opt, shell_opt, args_val, envs_val, privileged, tag) = ext.extract((
+        let (
+            prog_opt, //
+            shell_opt,
+            args_val,
+            envs_val,
+            privileged,
+            tag,
+        ) = ext.extract((
             opt(str("prog")),
             opt(str("shell")),
             opt(arr("args")),

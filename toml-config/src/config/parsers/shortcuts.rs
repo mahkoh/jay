@@ -140,7 +140,13 @@ impl Parser for ComplexShortcutParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.cx, span, table);
-        let (mod_mask_val, action_val, latch_val, repeat, allow_locked) = ext.extract((
+        let (
+            mod_mask_val, //
+            action_val,
+            latch_val,
+            repeat,
+            allow_locked,
+        ) = ext.extract((
             opt(str("mod-mask")),
             opt(val("action")),
             opt(val("latch")),

@@ -42,7 +42,11 @@ impl Parser for IdleParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (minutes, seconds, grace_period_val) = ext.extract((
+        let (
+            minutes, //
+            seconds,
+            grace_period_val,
+        ) = ext.extract((
             opt(n64("minutes")),
             opt(n64("seconds")),
             opt(val("grace-period")),
@@ -75,7 +79,13 @@ impl Parser for GracePeriodParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (minutes, seconds) = ext.extract((opt(n64("minutes")), opt(n64("seconds"))))?;
+        let (
+            minutes, //
+            seconds,
+        ) = ext.extract((
+            opt(n64("minutes")), //
+            opt(n64("seconds")),
+        ))?;
         let grace_period = parse_duration(&minutes, &seconds);
         Ok(grace_period)
     }

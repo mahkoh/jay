@@ -51,7 +51,15 @@ impl Parser for DrmDeviceMatchParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (name, syspath, vendor, vendor_name, model, model_name, devnode) = ext.extract((
+        let (
+            name, //
+            syspath,
+            vendor,
+            vendor_name,
+            model,
+            model_name,
+            devnode,
+        ) = ext.extract((
             recover(opt(str("name"))),
             recover(opt(str("syspath"))),
             recover(opt(n32("pci-vendor"))),

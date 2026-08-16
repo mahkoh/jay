@@ -77,7 +77,9 @@ impl Parser for InputMatchParser<'_, '_, '_> {
                 opt(bol("is-tablet-pad")),
                 opt(bol("is-gesture")),
             ),
-            (opt(bol("is-switch")),),
+            (
+                opt(bol("is-switch")), //
+            ),
         ))?;
         if let Some(tag) = tag {
             self.0.used.borrow_mut().inputs.push(tag.into());

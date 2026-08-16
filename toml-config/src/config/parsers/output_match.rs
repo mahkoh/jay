@@ -49,7 +49,13 @@ impl Parser for OutputMatchParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (name, connector, serial_number, manufacturer, model) = ext.extract((
+        let (
+            name, //
+            connector,
+            serial_number,
+            manufacturer,
+            model,
+        ) = ext.extract((
             opt(str("name")),
             opt(str("connector")),
             opt(str("serial-number")),

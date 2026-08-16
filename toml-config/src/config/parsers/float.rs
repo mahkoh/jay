@@ -41,7 +41,11 @@ impl Parser for FloatParser<'_, '_, '_> {
         table: &IndexMap<Spanned<String>, Spanned<Value>>,
     ) -> ParseResult<Self> {
         let mut ext = Extractor::new(self.0, span, table);
-        let (show_pin_icon,) = ext.extract((recover(opt(bol("show-pin-icon"))),))?;
+        let (
+            show_pin_icon, //
+        ) = ext.extract((
+            recover(opt(bol("show-pin-icon"))), //
+        ))?;
         Ok(Float {
             show_pin_icon: show_pin_icon.despan(),
         })
