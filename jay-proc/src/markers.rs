@@ -9,6 +9,7 @@ use syn::spanned::Spanned;
 
 pub mod clone;
 pub mod hash;
+pub mod pod;
 
 struct Input {
     item: Item,
@@ -38,6 +39,13 @@ impl Parse for Input {
                     for field in &variant.fields {
                         critical_types.push(field.ty.clone());
                     }
+                }
+            }
+            Item::Union(s) => {
+                ident = s.ident.clone();
+                generics = s.generics.clone();
+                for field in &s.fields.named {
+                    critical_types.push(field.ty.clone());
                 }
             }
             _ => return Err(Error::new(item.span(), "expected struct or enum")),

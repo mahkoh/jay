@@ -19,12 +19,12 @@ use crate::dbus::TY_UINT64;
 use crate::dbus::TY_UNIX_FD;
 use crate::dbus::TY_VARIANT;
 use crate::utils::buf::DynamicBuf;
+use jay_proc::Pod;
 use std::borrow::Cow;
 use std::ops::Deref;
 use std::rc::Rc;
 use uapi::OwnedFd;
 use uapi::Packed;
-use uapi::Pod;
 
 macro_rules! consume_signature_body {
     ($s:expr, $ty:expr) => {{
@@ -67,13 +67,12 @@ unsafe impl<'a> DbusType<'a> for u8 {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Pod)]
 #[repr(transparent)]
 pub struct Bool(u32);
 pub const FALSE: Bool = Bool(0);
 pub const TRUE: Bool = Bool(1);
 
-unsafe impl Pod for Bool {}
 unsafe impl Packed for Bool {}
 
 unsafe impl<'a> DbusType<'a> for Bool {

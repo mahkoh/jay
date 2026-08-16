@@ -73,6 +73,7 @@ use bstr::BString;
 use bstr::ByteSlice;
 pub use consts::*;
 use indexmap::IndexSet;
+use jay_proc::Pod;
 use linearize::Linearize;
 use linearize::StaticMap;
 use log::Level;
@@ -886,20 +887,20 @@ pub struct HdrMetadata {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, Pod)]
 pub struct hdr_metadata_primary {
     pub x: u16,
     pub y: u16,
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Pod)]
 union hdr_output_metadata_type {
     hdmi_metadata_type1: hdr_metadata_infoframe,
 }
 
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Pod)]
 pub struct hdr_output_metadata {
     metadata_type: u32,
     ty: hdr_output_metadata_type,
@@ -945,8 +946,6 @@ impl hdr_output_metadata {
         })
     }
 }
-
-unsafe impl Pod for hdr_output_metadata {}
 
 impl Debug for hdr_output_metadata {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -1010,7 +1009,7 @@ mod consts {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Default, Pod)]
 pub struct hdr_metadata_infoframe {
     pub eotf: u8,
     pub metadata_type: u8,

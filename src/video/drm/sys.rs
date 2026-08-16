@@ -27,6 +27,7 @@ use crate::video::drm::DrmPropertyValue;
 use crate::video::drm::DrmVersion;
 use crate::video::drm::NodeType;
 use bstr::ByteSlice;
+use jay_proc::Pod;
 use linearize::LinearizeExt;
 use linearize::StaticMap;
 use std::ffi::CString;
@@ -743,7 +744,7 @@ pub fn mode_getencoder(fd: c::c_int, encoder_id: u32) -> Result<DrmEncoderInfo, 
 pub const DRM_DISPLAY_MODE_LEN: usize = 32;
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Pod)]
 pub struct drm_mode_modeinfo {
     pub clock: u32,
     pub hdisplay: u16,
@@ -763,8 +764,6 @@ pub struct drm_mode_modeinfo {
     pub ty: u32,
     pub name: [u8; DRM_DISPLAY_MODE_LEN],
 }
-
-unsafe impl Pod for drm_mode_modeinfo {}
 
 impl Into<DrmModeInfo> for drm_mode_modeinfo {
     fn into(self) -> DrmModeInfo {
@@ -1101,14 +1100,14 @@ pub const DRM_EVENT_FLIP_COMPLETE: u32 = 0x02;
 pub const DRM_EVENT_CRTC_SEQUENCE: u32 = 0x03;
 
 #[repr(C)]
+#[derive(Pod)]
 pub struct drm_event {
     pub ty: u32,
     pub length: u32,
 }
 
-unsafe impl Pod for drm_event {}
-
 #[repr(C)]
+#[derive(Pod)]
 pub struct drm_event_vblank {
     pub base: drm_event,
     pub user_data: u64,
@@ -1118,17 +1117,14 @@ pub struct drm_event_vblank {
     pub crtc_id: u32,
 }
 
-unsafe impl Pod for drm_event_vblank {}
-
 #[repr(C)]
+#[derive(Pod)]
 pub struct drm_event_crtc_sequence {
     pub base: drm_event,
     pub user_data: u64,
     pub time_ns: i64,
     pub sequence: u64,
 }
-
-unsafe impl Pod for drm_event_crtc_sequence {}
 
 #[repr(C)]
 struct drm_mode_get_blob {
@@ -1156,6 +1152,7 @@ pub fn mode_getprobblob<T: Pod + ?Sized>(
 }
 
 #[repr(C)]
+#[derive(Pod)]
 struct drm_version {
     version_major: c::c_int,
     version_minor: c::c_int,
@@ -1167,8 +1164,6 @@ struct drm_version {
     desc_len: usize,
     desc: *mut u8,
 }
-
-unsafe impl Pod for drm_version {}
 
 const DRM_IOCTL_VERSION: u64 = drm_iowr::<drm_version>(0x00);
 
@@ -1215,6 +1210,7 @@ pub fn get_version(fd: c::c_int) -> Result<DrmVersion, OsError> {
 pub const FORMAT_BLOB_CURRENT: u32 = 1;
 
 #[repr(C)]
+#[derive(Pod)]
 pub struct drm_format_modifier_blob {
     pub version: u32,
     pub flags: u32,
@@ -1224,17 +1220,14 @@ pub struct drm_format_modifier_blob {
     pub modifiers_offset: u32,
 }
 
-unsafe impl Pod for drm_format_modifier_blob {}
-
 #[repr(C)]
+#[derive(Pod)]
 pub struct drm_format_modifier {
     pub formats: u64,
     pub offset: u32,
     pub pad: u32,
     pub modifier: u64,
 }
-
-unsafe impl Pod for drm_format_modifier {}
 
 pub const DRM_SYNCOBJ_CREATE_SIGNALED: u32 = 1 << 0;
 
