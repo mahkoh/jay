@@ -16,6 +16,7 @@ pub mod sendmsg;
 pub mod timeout;
 pub mod timeout_external;
 pub mod timeout_link;
+pub mod writev_external;
 
 pub type TaskResult<T> = Result<Result<T, OsError>, IoUringError>;
 

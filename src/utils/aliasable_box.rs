@@ -9,12 +9,10 @@ use std::ptr::NonNull;
 #[cfg(test)]
 mod tests;
 
-#[cfg_attr(not(test), expect(unused))]
 pub struct AliasableBox<T>(NonNull<T>)
 where
     T: ?Sized;
 
-#[cfg_attr(not(test), expect(unused))]
 pub trait AliasableBoxExt {
     type T: ?Sized;
 
@@ -36,7 +34,6 @@ impl<T> AliasableBox<T>
 where
     T: ?Sized,
 {
-    #[cfg_attr(not(test), expect(unused))]
     pub fn into_box(self) -> Box<T> {
         let slf = ManuallyDrop::new(self);
         unsafe { Box::from_raw(slf.0.as_ptr()) }
