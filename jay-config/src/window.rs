@@ -339,6 +339,8 @@ pub enum WindowCriterion<'a> {
     WorkspaceNameRegex(&'a str),
     /// Matches if the window has one of the content types.
     ContentTypes(ContentType),
+    /// Matches if the window is the root container of a workspace.
+    IsWorkspaceContainer,
 }
 
 impl WindowCriterion<'_> {

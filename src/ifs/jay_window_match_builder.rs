@@ -137,6 +137,14 @@ impl JayWindowMatchBuilderRequestHandler for JayWindowMatchBuilder {
             .push(self.builder.mgr.content_type(ContentType(req.v)));
         Ok(())
     }
+
+    fn is_workspace_container(
+        &self,
+        _req: IsWorkspaceContainer,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        push_bool!(self, is_workspace_container)
+    }
 }
 
 object_base! {

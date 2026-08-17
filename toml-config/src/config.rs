@@ -396,6 +396,7 @@ pub struct WindowMatch {
     pub workspace: Option<String>,
     pub workspace_regex: Option<String>,
     pub content_types: Option<ContentType>,
+    pub is_workspace_container: Option<bool>,
 }
 
 #[derive(Debug, Clone)]

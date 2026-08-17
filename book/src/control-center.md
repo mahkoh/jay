@@ -605,6 +605,9 @@ Urgent
 Fullscreen
 : Whether the window is fullscreen
 
+Workspace Container
+: Whether the window is the outermost container of a workspace
+
 Content Type
 : The content type hint (photo, video, game), if set
 
@@ -673,8 +676,9 @@ Instance ID (all regex-matched text fields with a "Regex" checkbox), Sandboxed,
 Is Xwayland (boolean), UID, PID (numeric inputs).
 
 **Window criteria:** Title, App ID, Tag, Workspace, X Class, X Instance, X Role
-(all regex-matched text fields), Floating, Visible, Urgent, Fullscreen
-(boolean), Content Types (checkboxes for Photo, Video, Game), and **Client**
+(all regex-matched text fields), Floating, Visible, Urgent, Fullscreen,
+Workspace Container (boolean), Content Types (checkboxes for Photo, Video,
+Game), and **Client**
 (a nested client criterion builder for filtering by the owning client's
 properties).
 

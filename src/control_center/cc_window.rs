@@ -56,6 +56,7 @@ enum WindowCrit {
     Visible,
     Urgent,
     Fullscreen,
+    WorkspaceContainer,
     Tag(CritRegex),
     XClass(CritRegex),
     XInstance(CritRegex),
@@ -73,6 +74,7 @@ enum WindowCritTy {
     Visible,
     Urgent,
     Fullscreen,
+    WorkspaceContainer,
     Tag,
     XClass,
     XInstance,
@@ -91,6 +93,7 @@ impl StaticText for WindowCritTy {
             WindowCritTy::Visible => "Visible",
             WindowCritTy::Urgent => "Urgent",
             WindowCritTy::Fullscreen => "Fullscreen",
+            WindowCritTy::WorkspaceContainer => "Workspace Container",
             WindowCritTy::Tag => "Tag",
             WindowCritTy::XClass => "X Class",
             WindowCritTy::XInstance => "X Instance",
@@ -123,6 +126,7 @@ impl CritImpl for WindowCrit {
             Visible,
             Urgent,
             Fullscreen,
+            WorkspaceContainer,
             Tag,
             XClass,
             XInstance,
@@ -141,6 +145,7 @@ impl CritImpl for WindowCrit {
             WindowCritTy::Visible => Self::Visible,
             WindowCritTy::Urgent => Self::Urgent,
             WindowCritTy::Fullscreen => Self::Fullscreen,
+            WindowCritTy::WorkspaceContainer => Self::WorkspaceContainer,
             WindowCritTy::Tag => Self::Tag(Default::default()),
             WindowCritTy::XClass => Self::XClass(Default::default()),
             WindowCritTy::XInstance => Self::XInstance(Default::default()),
@@ -161,6 +166,7 @@ impl CritImpl for WindowCrit {
             WindowCrit::Visible => false,
             WindowCrit::Urgent => false,
             WindowCrit::Fullscreen => false,
+            WindowCrit::WorkspaceContainer => false,
             WindowCrit::Tag(v) => v.show(ui),
             WindowCrit::XClass(v) => v.show(ui),
             WindowCrit::XInstance(v) => v.show(ui),
@@ -180,6 +186,7 @@ impl CritImpl for WindowCrit {
             WindowCrit::Visible => m.visible(),
             WindowCrit::Urgent => m.urgent(),
             WindowCrit::Fullscreen => m.fullscreen(),
+            WindowCrit::WorkspaceContainer => m.is_workspace_container(),
             WindowCrit::Tag(v) => m.tag(v.to_crit()?),
             WindowCrit::XClass(v) => m.class(v.to_crit()?),
             WindowCrit::XInstance(v) => m.instance(v.to_crit()?),
@@ -408,6 +415,11 @@ pub fn show_window(behavior: &mut CcBehavior<'_>, ui: &mut Ui, window: &dyn Topl
         read_only_bool(ui, "Visible", data.visible[LiveTL].get());
         read_only_bool(ui, "Urgent", data.wants_attention.get());
         read_only_bool(ui, "Fullscreen", data.is_fullscreen[LiveTL].get());
+        read_only_bool(
+            ui,
+            "Workspace Container",
+            data.is_root_container[LiveTL].get(),
+        );
         if let Some(ct) = data.content_type.get() {
             label(ui, "Content Type", ct.text());
         }

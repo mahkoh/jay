@@ -93,6 +93,7 @@ impl Parser for WindowMatchParser<'_, '_, '_> {
                 workspace,
                 workspace_regex,
                 content_types_val,
+                is_workspace_container,
             ),
         ) = ext.extract((
             (
@@ -128,6 +129,7 @@ impl Parser for WindowMatchParser<'_, '_, '_> {
                 opt(str("workspace")),
                 opt(str("workspace-regex")),
                 opt(val("content-types")),
+                opt(bol("is-workspace-container")),
             ),
         ))?;
         if let Some(n) = name
@@ -211,6 +213,7 @@ impl Parser for WindowMatchParser<'_, '_, '_> {
             types,
             client,
             content_types,
+            is_workspace_container: is_workspace_container.despan(),
         })
     }
 }

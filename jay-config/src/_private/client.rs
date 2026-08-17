@@ -2149,6 +2149,7 @@ impl ConfigClient {
             WindowCriterion::Focus(seat) => WindowCriterionIpc::SeatFocus(seat),
             WindowCriterion::Fullscreen => WindowCriterionIpc::Fullscreen,
             WindowCriterion::JustMapped => WindowCriterionIpc::JustMapped,
+            WindowCriterion::IsWorkspaceContainer => WindowCriterionIpc::IsWorkspaceContainer,
             WindowCriterion::Tag(t) => string!(t, Tag, false),
             WindowCriterion::TagRegex(t) => string!(t, Tag, true),
             WindowCriterion::XClass(t) => string!(t, XClass, false),

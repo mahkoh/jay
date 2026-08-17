@@ -22,6 +22,7 @@ use crate::criteria::tlm::tlm_matchers::tlmm_client::TlmMatchClient;
 use crate::criteria::tlm::tlm_matchers::tlmm_content_type::TlmMatchContentType;
 use crate::criteria::tlm::tlm_matchers::tlmm_floating::TlmMatchFloating;
 use crate::criteria::tlm::tlm_matchers::tlmm_fullscreen::TlmMatchFullscreen;
+use crate::criteria::tlm::tlm_matchers::tlmm_is_workspace_container::TlmMatchIsWorkspaceContainer;
 use crate::criteria::tlm::tlm_matchers::tlmm_just_mapped::TlmMatchJustMapped;
 use crate::criteria::tlm::tlm_matchers::tlmm_kind::TlmMatchKind;
 use crate::criteria::tlm::tlm_matchers::tlmm_seat_focus::TlmMatchSeatFocus;
@@ -67,6 +68,7 @@ bitflags! {
     TL_CHANGED_ROLE,
     TL_CHANGED_WORKSPACE,
     TL_CHANGED_CONTENT_TY,
+    TL_CHANGED_IS_WORKSPACE_CONTAINER,
 }
 
 type TlmFixedRootMatcher<T> = FixedRootMatcher<ToplevelData, T>;
@@ -82,6 +84,7 @@ pub struct TlMatcherManager {
     urgent: TlmFixedRootMatcher<TlmMatchUrgent>,
     fullscreen: TlmFixedRootMatcher<TlmMatchFullscreen>,
     just_mapped: TlmFixedRootMatcher<TlmMatchJustMapped>,
+    is_workspace_container: TlmFixedRootMatcher<TlmMatchIsWorkspaceContainer>,
     matchers: Rc<RootMatchers>,
 }
 
@@ -170,6 +173,7 @@ impl TlMatcherManager {
             urgent: bool!(TlmMatchUrgent),
             fullscreen: bool!(TlmMatchFullscreen),
             just_mapped: bool!(TlmMatchJustMapped),
+            is_workspace_container: bool!(TlmMatchIsWorkspaceContainer),
             changes: Default::default(),
             leaf_events: Default::default(),
             ids: ids.clone(),
@@ -188,6 +192,7 @@ impl TlMatcherManager {
         self.urgent.values().for_each(|c| c.clear());
         self.fullscreen.values().for_each(|c| c.clear());
         self.just_mapped.values().for_each(|c| c.clear());
+        self.is_workspace_container.values().for_each(|c| c.clear());
         self.matchers.clear();
     }
 
@@ -261,6 +266,7 @@ impl TlMatcherManager {
         fixed_conditional!(TL_CHANGED_URGENT, urgent);
         fixed_conditional!(TL_CHANGED_FULLSCREEN, fullscreen);
         fixed_conditional!(TL_CHANGED_JUST_MAPPED, just_mapped);
+        fixed_conditional!(TL_CHANGED_IS_WORKSPACE_CONTAINER, is_workspace_container);
         false
     }
 
@@ -339,6 +345,7 @@ impl TlMatcherManager {
         fixed_conditional!(TL_CHANGED_URGENT, urgent);
         fixed_conditional!(TL_CHANGED_FULLSCREEN, fullscreen);
         fixed_conditional!(TL_CHANGED_JUST_MAPPED, just_mapped);
+        fixed_conditional!(TL_CHANGED_IS_WORKSPACE_CONTAINER, is_workspace_container);
         if changed.contains(TL_CHANGED_JUST_MAPPED)
             && data.just_mapped()
             && (self.just_mapped[false].has_downstream() || self.just_mapped[true].has_downstream())
@@ -386,6 +393,10 @@ impl TlMatcherManager {
 
     pub fn just_mapped(&self) -> Rc<TlmUpstreamNode> {
         self.just_mapped[true].clone()
+    }
+
+    pub fn is_workspace_container(&self) -> Rc<TlmUpstreamNode> {
+        self.is_workspace_container[true].clone()
     }
 
     pub fn seat_focus(&self, seat: &WlSeatGlobal) -> Rc<TlmUpstreamNode> {

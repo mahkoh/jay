@@ -7,6 +7,7 @@ use crate::criteria::tlm::TL_CHANGED_CONTENT_TY;
 use crate::criteria::tlm::TL_CHANGED_DESTROYED;
 use crate::criteria::tlm::TL_CHANGED_FLOATING;
 use crate::criteria::tlm::TL_CHANGED_FULLSCREEN;
+use crate::criteria::tlm::TL_CHANGED_IS_WORKSPACE_CONTAINER;
 use crate::criteria::tlm::TL_CHANGED_NEW;
 use crate::criteria::tlm::TL_CHANGED_TITLE;
 use crate::criteria::tlm::TL_CHANGED_URGENT;
@@ -1097,12 +1098,13 @@ impl ToplevelData {
     }
 
     pub fn set_is_root_container(&self, value: bool) {
-        if self.is_root_container[LiveTL].replace(value) != value
-            && let Some(slf) = self.slf.upgrade()
-        {
-            slf.clone()
-                .tl_schedule_data_op(ToplevelDataTransactionOp::SetIsRootContainer(value));
-            slf.tl_is_root_container_changed();
+        if self.is_root_container[LiveTL].replace(value) != value {
+            self.property_changed(TL_CHANGED_IS_WORKSPACE_CONTAINER);
+            if let Some(slf) = self.slf.upgrade() {
+                slf.clone()
+                    .tl_schedule_data_op(ToplevelDataTransactionOp::SetIsRootContainer(value));
+                slf.tl_is_root_container_changed();
+            }
         }
     }
 
