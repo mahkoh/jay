@@ -208,6 +208,14 @@ impl ConfigProxy {
         self.handler.get()?.initial_tile_state(data)
     }
 
+    pub fn initial_floating_size(&self, data: &ToplevelData) -> Option<(i32, i32)> {
+        self.handler.get()?.initial_floating_size(data)
+    }
+
+    pub fn initial_floating_position(&self, data: &ToplevelData) -> Option<(i32, i32)> {
+        self.handler.get()?.initial_floating_position(data)
+    }
+
     pub fn initial_output_for_workspace(&self, name: &str) -> Option<Option<Rc<OutputNode>>> {
         self.handler.get()?.initial_output_for_workspace(name)
     }

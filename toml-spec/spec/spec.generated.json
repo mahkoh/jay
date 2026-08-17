@@ -2783,6 +2783,42 @@
         "variant3"
       ]
     },
+    "WindowFloatingPosition": {
+      "description": "The position of a window when it is initially mapped floating.\n\nThe position is relative to the top-left corner of the output that the window is\nmapped on and refers to the top-left corner of the window itself, excluding any\ndecorations.\n\nThe position is clamped so that the window remains at least partially visible on\nthat output.\n\n- Example:\n\n  ```toml\n  [[windows]]\n  match.app-id = \"mpv\"\n  initial-floating-position = { x = 100, y = 100 }\n  ```\n",
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "integer",
+          "description": "The x coordinate of the window in logical pixels."
+        },
+        "y": {
+          "type": "integer",
+          "description": "The y coordinate of the window in logical pixels."
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ]
+    },
+    "WindowFloatingSize": {
+      "description": "The size of a window when it is initially mapped floating.\n\n- Example:\n\n  ```toml\n  [[windows]]\n  match.app-id = \"mpv\"\n  initial-floating-size = { width = 800, height = 600 }\n  ```\n",
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "integer",
+          "description": "The width of the window in logical pixels.\n\nThis must be positive.\n"
+        },
+        "height": {
+          "type": "integer",
+          "description": "The height of the window in logical pixels.\n\nThis must be positive.\n"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ]
+    },
     "WindowMatch": {
       "description": "Criteria for matching windows.\n\nIf no fields are set, all windows are matched. If multiple fields are set, all fields\nmust match the window.\n",
       "type": "object",
@@ -2964,6 +3000,14 @@
         "initial-tile-state": {
           "description": "Specifies if the window is initially mapped tiled or floating.",
           "$ref": "#/$defs/TileState"
+        },
+        "initial-floating-size": {
+          "description": "Specifies the size of the window when it is initially mapped floating.\n\nThis has no effect on windows that are initially mapped tiled, even if they\nlater become floating.\n\nIf multiple matching rules specify this field, the used size is unspecified.\n",
+          "$ref": "#/$defs/WindowFloatingSize"
+        },
+        "initial-floating-position": {
+          "description": "Specifies the position of the window when it is initially mapped floating.\n\nThis has no effect on windows that are initially mapped tiled, even if they\nlater become floating.\n\nIf multiple matching rules specify this field, the used position is\nunspecified.\n",
+          "$ref": "#/$defs/WindowFloatingPosition"
         }
       },
       "required": []

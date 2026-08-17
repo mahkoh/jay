@@ -113,6 +113,29 @@ initial-tile-state = "floating"
 
 Valid values are `"floating"` and `"tiled"`.
 
+## Window Rules: Initial Size and Position
+
+By default, a window that is mapped floating gets half the width and height of
+the output and is centered on it. The `initial-floating-size` and
+`initial-floating-position` fields of a [window rule](window-rules.md) override
+this:
+
+```toml
+[[windows]]
+match.app-id = "mpv"
+initial-tile-state = "floating"
+initial-floating-size = { width = 800, height = 600 }
+initial-floating-position = { x = 100, y = 100 }
+```
+
+The size is in logical pixels. The position is relative to the top-left corner
+of the output the window is mapped on and refers to the top-left corner of the
+window itself, excluding any decorations. It is clamped so that the window
+remains at least partially visible on that output.
+
+Both fields only apply while the window is being mapped. They have no effect on
+a window that is mapped tiled and only later becomes floating.
+
 ## Window Management Mode
 
 Window management mode makes it easier to move and resize windows without

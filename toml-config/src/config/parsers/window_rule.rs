@@ -15,6 +15,8 @@ use crate::config::parser::UnexpectedDataType;
 use crate::config::parsers::action::ActionParser;
 use crate::config::parsers::action::ActionParserError;
 use crate::config::parsers::tile_state::TileStateParser;
+use crate::config::parsers::window_floating_position::WindowFloatingPositionParser;
+use crate::config::parsers::window_floating_size::WindowFloatingSizeParser;
 use crate::config::parsers::window_match::WindowMatchParser;
 use crate::config::parsers::window_match::WindowMatchParserError;
 use crate::config::spanned::SpannedErrorExt;
@@ -59,6 +61,8 @@ impl Parser for WindowRuleParser<'_, '_, '_> {
             latch_val,
             auto_focus,
             initial_tile_state_val,
+            initial_floating_size_val,
+            initial_floating_position_val,
         ) = ext.extract((
             opt(str("name")),
             opt(val("match")),
@@ -66,6 +70,8 @@ impl Parser for WindowRuleParser<'_, '_, '_> {
             opt(val("latch")),
             recover(opt(bol("auto-focus"))),
             opt(val("initial-tile-state")),
+            opt(val("initial-floating-size")),
+            opt(val("initial-floating-position")),
         ))?;
         let mut action = None;
         if let Some(value) = action_val {
@@ -95,6 +101,30 @@ impl Parser for WindowRuleParser<'_, '_, '_> {
                 }
             }
         }
+        let mut initial_floating_size = None;
+        if let Some(value) = initial_floating_size_val {
+            match value.parse(&mut WindowFloatingSizeParser(self.0)) {
+                Ok(v) => initial_floating_size = Some(v),
+                Err(e) => {
+                    log::warn!(
+                        "Could not parse the initial floating size: {}",
+                        self.0.error(e)
+                    );
+                }
+            }
+        }
+        let mut initial_floating_position = None;
+        if let Some(value) = initial_floating_position_val {
+            match value.parse(&mut WindowFloatingPositionParser(self.0)) {
+                Ok(v) => initial_floating_position = Some(v),
+                Err(e) => {
+                    log::warn!(
+                        "Could not parse the initial floating position: {}",
+                        self.0.error(e)
+                    );
+                }
+            }
+        }
         let match_ = match match_val {
             None => WindowMatch::default(),
             Some(m) => m.parse_map(&mut WindowMatchParser {
@@ -109,6 +139,8 @@ impl Parser for WindowRuleParser<'_, '_, '_> {
             latch,
             auto_focus: auto_focus.despan(),
             initial_tile_state,
+            initial_floating_size,
+            initial_floating_position,
         })
     }
 }

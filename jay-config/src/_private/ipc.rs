@@ -1018,6 +1018,16 @@ pub enum ClientMessage<'a> {
         reuse: bool,
     },
     GetSplitReusesContainer,
+    SetWindowMatcherInitialFloatingSize {
+        matcher: WindowMatcher,
+        width: i32,
+        height: i32,
+    },
+    SetWindowMatcherInitialFloatingPosition {
+        matcher: WindowMatcher,
+        x: i32,
+        y: i32,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
