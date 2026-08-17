@@ -230,6 +230,8 @@ pub struct WindowMatcherProperties {
     criterion: Rc<CachedCriterion<WindowCriterionIpc, ToplevelData>>,
     auto_focus: Cell<Option<bool>>,
     initial_tile_state: Cell<Option<TileState>>,
+    initial_floating_size: Cell<Option<(i32, i32)>>,
+    initial_floating_position: Cell<Option<(i32, i32)>>,
 }
 
 pub struct ConfigWorkspace {
@@ -2697,6 +2699,8 @@ impl ConfigProxyHandler {
             criterion: self.get_window_matcher(matcher)?,
             auto_focus: Default::default(),
             initial_tile_state: Default::default(),
+            initial_floating_size: Default::default(),
+            initial_floating_position: Default::default(),
         });
         self.window_matcher_properties.set(matcher, p.clone());
         Ok(p)
@@ -2751,6 +2755,33 @@ impl ConfigProxyHandler {
         self.get_window_matcher_properties(matcher)?
             .initial_tile_state
             .set(Some(tile_state));
+        Ok(())
+    }
+
+    fn handle_set_window_matcher_initial_floating_size(
+        &self,
+        matcher: WindowMatcher,
+        width: i32,
+        height: i32,
+    ) -> Result<(), CphError> {
+        if width <= 0 || height <= 0 {
+            return Err(CphError::InvalidWindowSize(width, height));
+        }
+        self.get_window_matcher_properties(matcher)?
+            .initial_floating_size
+            .set(Some((width, height)));
+        Ok(())
+    }
+
+    fn handle_set_window_matcher_initial_floating_position(
+        &self,
+        matcher: WindowMatcher,
+        x: i32,
+        y: i32,
+    ) -> Result<(), CphError> {
+        self.get_window_matcher_properties(matcher)?
+            .initial_floating_position
+            .set(Some((x, y)));
         Ok(())
     }
 
@@ -3869,6 +3900,16 @@ impl ConfigProxyHandler {
             } => self
                 .handle_set_window_matcher_initial_tile_state(matcher, tile_state)
                 .wrn("set_window_matcher_initial_tile_state")?,
+            ClientMessage::SetWindowMatcherInitialFloatingSize {
+                matcher,
+                width,
+                height,
+            } => self
+                .handle_set_window_matcher_initial_floating_size(matcher, width, height)
+                .wrn("set_window_matcher_initial_floating_size")?,
+            ClientMessage::SetWindowMatcherInitialFloatingPosition { matcher, x, y } => self
+                .handle_set_window_matcher_initial_floating_position(matcher, x, y)
+                .wrn("set_window_matcher_initial_floating_position")?,
             ClientMessage::SetPointerRevertKey { seat, key } => self
                 .handle_set_pointer_revert_key(seat, key)
                 .wrn("set_pointer_revert_key")?,
@@ -4130,6 +4171,14 @@ impl ConfigProxyHandler {
         self.window_property(data, |p| p.initial_tile_state.get())
     }
 
+    pub fn initial_floating_size(&self, data: &ToplevelData) -> Option<(i32, i32)> {
+        self.window_property(data, |p| p.initial_floating_size.get())
+    }
+
+    pub fn initial_floating_position(&self, data: &ToplevelData) -> Option<(i32, i32)> {
+        self.window_property(data, |p| p.initial_floating_position.get())
+    }
+
     pub fn initial_output_for_workspace(&self, name: &str) -> Option<Option<Rc<OutputNode>>> {
         let ws = self.workspaces_by_name.get(name)?;
         let connector = ws.initial_connector.get()?;
@@ -4203,6 +4252,8 @@ enum CphError {
     OutputIsNotDesktop(Connector),
     #[error("{0}x{1} is not a valid connector position")]
     InvalidConnectorPosition(i32, i32),
+    #[error("{0}x{1} is not a valid window size")]
+    InvalidWindowSize(i32, i32),
     #[error("Keymap {0:?} does not exist")]
     KeymapDoesNotExist(Keymap),
     #[error("Seat {0:?} does not exist")]

@@ -236,17 +236,45 @@ Each window rule can have the following fields:
 `initial-tile-state`
 : `"floating"` or `"tiled"` -- force the initial tile state.
 
+`initial-floating-size`
+: `{ width = ..., height = ... }` -- the size the window has when it is first
+  mapped floating.
+
+`initial-floating-position`
+: `{ x = ..., y = ... }` -- the position the window has when it is first mapped
+  floating. The coordinates are relative to the top-left corner of the output
+  the window is mapped on and refer to the top-left corner of the window
+  itself, excluding any decorations.
+
 `auto-focus`
 : `true`/`false` -- whether the window gets focus on map. Without a matching
   rule, newly mapped windows always receive focus (except for Xwayland
   override-redirect windows such as menus and tooltips, which bypass the
   normal mapping path).
 
-The `initial-tile-state` and `auto-focus` fields are **ad-hoc properties**.
-They are evaluated synchronously during the mapping process (before the window
-is first displayed), unlike `action` which runs asynchronously after mapping.
-If multiple rules match and any sets `auto-focus` to `false`, the window will
-not be focused.
+The `initial-tile-state`, `initial-floating-size`, `initial-floating-position`,
+and `auto-focus` fields are **ad-hoc properties**. They are evaluated
+synchronously during the mapping process (before the window is first
+displayed), unlike `action` which runs asynchronously after mapping. If
+multiple rules match and any sets `auto-focus` to `false`, the window will not
+be focused.
+
+> [!NOTE]
+> As the names suggest, `initial-floating-size` and `initial-floating-position`
+> only apply while the window is being mapped. They have no effect on a window
+> that is mapped tiled and only later becomes floating, and they are not
+> re-applied when a floating window is moved to another workspace.
+
+For example, to always open mpv as an 800x600 window in the top-left corner of
+the screen:
+
+```toml
+[[windows]]
+match.app-id = "mpv"
+initial-tile-state = "floating"
+initial-floating-size = { width = 800, height = 600 }
+initial-floating-position = { x = 0, y = 0 }
+```
 
 ### Window Match Criteria
 

@@ -1178,6 +1178,33 @@ impl State {
         }
     }
 
+    pub fn map_floating_initial(
+        self: &Rc<Self>,
+        node: Rc<dyn ToplevelNode>,
+        mut inner_width: i32,
+        mut inner_height: i32,
+        workspace: &Rc<WorkspaceNode>,
+        mut abs_pos: Option<(i32, i32)>,
+    ) {
+        if let Some(config) = self.config.get() {
+            let data = node.tl_data();
+            if let Some((width, height)) = config.initial_floating_size(data) {
+                inner_width = width;
+                inner_height = height;
+            }
+            if abs_pos.is_none()
+                && let Some((x, y)) = config.initial_floating_position(data)
+            {
+                let op = workspace.node_state[LiveTL]
+                    .output
+                    .get()
+                    .node_absolute_position(LiveTL);
+                abs_pos = Some((x.saturating_add(op.x1()), y.saturating_add(op.y1())));
+            }
+        }
+        self.map_floating(node, inner_width, inner_height, workspace, abs_pos);
+    }
+
     pub fn map_floating(
         self: &Rc<Self>,
         node: Rc<dyn ToplevelNode>,

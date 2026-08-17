@@ -4533,6 +4533,90 @@ WindowRule:
       ref: TileState
       required: false
       description: Specifies if the window is initially mapped tiled or floating.
+    initial-floating-size:
+      ref: WindowFloatingSize
+      required: false
+      description: |
+        Specifies the size of the window when it is initially mapped floating.
+
+        This has no effect on windows that are initially mapped tiled, even if they
+        later become floating.
+
+        If multiple matching rules specify this field, the used size is unspecified.
+    initial-floating-position:
+      ref: WindowFloatingPosition
+      required: false
+      description: |
+        Specifies the position of the window when it is initially mapped floating.
+
+        This has no effect on windows that are initially mapped tiled, even if they
+        later become floating.
+
+        If multiple matching rules specify this field, the used position is
+        unspecified.
+
+
+WindowFloatingSize:
+  kind: table
+  description: |
+    The size of a window when it is initially mapped floating.
+
+    - Example:
+
+      ```toml
+      [[windows]]
+      match.app-id = "mpv"
+      initial-floating-size = { width = 800, height = 600 }
+      ```
+  fields:
+    width:
+      kind: number
+      integer_only: true
+      required: true
+      description: |
+        The width of the window in logical pixels.
+
+        This must be positive.
+    height:
+      kind: number
+      integer_only: true
+      required: true
+      description: |
+        The height of the window in logical pixels.
+
+        This must be positive.
+
+
+WindowFloatingPosition:
+  kind: table
+  description: |
+    The position of a window when it is initially mapped floating.
+
+    The position is relative to the top-left corner of the output that the window is
+    mapped on and refers to the top-left corner of the window itself, excluding any
+    decorations.
+
+    The position is clamped so that the window remains at least partially visible on
+    that output.
+
+    - Example:
+
+      ```toml
+      [[windows]]
+      match.app-id = "mpv"
+      initial-floating-position = { x = 100, y = 100 }
+      ```
+  fields:
+    x:
+      kind: number
+      integer_only: true
+      required: true
+      description: The x coordinate of the window in logical pixels.
+    y:
+      kind: number
+      integer_only: true
+      required: true
+      description: The y coordinate of the window in logical pixels.
 
 
 WindowMatch:

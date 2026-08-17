@@ -329,9 +329,13 @@ impl Xwindow {
             Change::Map if map_floating => {
                 let ws = self.data.state.float_map_ws();
                 let ext = self.data.info.pending_extents.get();
-                self.data
-                    .state
-                    .map_floating(self.clone(), ext.width(), ext.height(), &ws, None);
+                self.data.state.map_floating_initial(
+                    self.clone(),
+                    ext.width(),
+                    ext.height(),
+                    &ws,
+                    None,
+                );
                 self.data.title_changed();
             }
             Change::Map => {
