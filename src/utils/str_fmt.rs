@@ -1,4 +1,5 @@
 use crate::utils::spaces::spaces;
+use derivative::Derivative;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt::Debug;
@@ -28,12 +29,15 @@ where
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Derivative)]
+#[derivative(Default)]
 pub struct StrCtx<'a> {
     pub fmt: StrFmtFmt,
     pub prefix: &'a str,
     pub spaces: &'a str,
     pub flatten: bool,
+    #[derivative(Default(value = "true"))]
+    pub toplevel: bool,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
@@ -72,6 +76,7 @@ impl StrCtx<'_> {
             dst.push_str(name);
             dst.push_str("\":");
             let cctx = &StrCtx {
+                toplevel: false,
                 flatten: false,
                 ..*self
             };
@@ -85,6 +90,7 @@ impl StrCtx<'_> {
             dst.push_str(name);
             dst.push_str(": ");
             let cctx = &StrCtx {
+                toplevel: false,
                 flatten: false,
                 spaces: &spaces(self.spaces.len() + name.len() + 2),
                 ..*self
