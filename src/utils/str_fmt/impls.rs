@@ -12,6 +12,10 @@ where
     T: StrFmt,
 {
     fn str_fmt(&self, dst: &mut String, ctx: &StrCtx) {
+        let ctx = &StrCtx {
+            toplevel: false,
+            ..*ctx
+        };
         match ctx.fmt {
             StrFmtFmt::Human => {
                 let cctx = &StrCtx {
@@ -54,6 +58,15 @@ where
 
 impl StrFmt for BStr {
     fn str_fmt(&self, dst: &mut String, ctx: &StrCtx) {
+        if ctx.toplevel && ctx.fmt == StrFmtFmt::Human {
+            for chunk in self.utf8_chunks() {
+                dst.push_str(chunk.valid());
+                for _ in 0..chunk.invalid().len() {
+                    dst.push_str("�");
+                }
+            }
+            return;
+        }
         dst.push_str("\"");
         for chunk in self.utf8_chunks() {
             fmt_str(dst, chunk.valid(), ctx);
@@ -67,6 +80,10 @@ impl StrFmt for BStr {
 
 impl StrFmt for str {
     fn str_fmt(&self, dst: &mut String, ctx: &StrCtx) {
+        if ctx.toplevel && ctx.fmt == StrFmtFmt::Human {
+            dst.push_str(self);
+            return;
+        }
         dst.push_str("\"");
         fmt_str(dst, self, ctx);
         dst.push_str("\"");
