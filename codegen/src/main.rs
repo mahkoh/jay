@@ -8,6 +8,7 @@ use permutation::Permutation;
 use rayon::prelude::*;
 use std::fmt::Debug;
 use std::io::Write;
+use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
@@ -81,34 +82,55 @@ fn generate_map(
     Ok(res)
 }
 
-fn update(relative: &str, raw: &str) -> Result<()> {
+fn get_absolute_path(relative: &str) -> PathBuf {
     let mut absolute = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/.."));
     absolute.push(relative);
+    absolute
+}
 
-    let formatted = {
-        let dir = absolute.parent().context("file path has no parent")?;
-        let mut tmp = tempfile::Builder::default()
-            .suffix(".rs")
-            .tempfile_in(dir)?;
-        tmp.write_all(raw.as_bytes())?;
-        let status = Command::new("rustfmt")
-            .arg("+nightly")
-            .arg("--edition=2024")
-            .arg(tmp.path())
-            .status()?;
-        if !status.success() {
-            tmp.disable_cleanup(true);
-            bail!("rustfmt failed");
-        }
-        std::fs::read_to_string(&tmp)?
-    };
+fn format_rust(path: &Path, raw: &str) -> Result<String> {
+    let dir = path.parent().context("file path has no parent")?;
+    std::fs::create_dir_all(dir)?;
+    let mut tmp = tempfile::Builder::default()
+        .suffix(".rs")
+        .tempfile_in(dir)?;
+    tmp.write_all(raw.as_bytes())?;
+    let status = Command::new("rustfmt")
+        .arg("+nightly")
+        .arg("--edition=2024")
+        .arg(tmp.path())
+        .status()?;
+    if !status.success() {
+        tmp.disable_cleanup(true);
+        bail!("rustfmt failed");
+    }
+    Ok(std::fs::read_to_string(&tmp)?)
+}
+
+fn update(relative: &str, raw: &str) -> Result<()> {
+    update_(relative, raw, true)
+}
+
+fn update_noformat(relative: &str, raw: &str) -> Result<()> {
+    update_(relative, raw, false)
+}
+
+fn update_(relative: &str, raw: &str, format: bool) -> Result<()> {
+    let absolute = get_absolute_path(relative);
+
+    let formatted;
+    let mut out = raw;
+    if format {
+        formatted = format_rust(&absolute, out)?;
+        out = &*formatted;
+    }
 
     if let Ok(current) = std::fs::read_to_string(&absolute)
-        && current == formatted
+        && current == out
     {
         return Ok(());
     }
-    std::fs::write(&absolute, formatted)?;
+    std::fs::write(&absolute, out)?;
 
     Ok(())
 }
