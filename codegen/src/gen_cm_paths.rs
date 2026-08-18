@@ -1,3 +1,4 @@
+use crate::format_rust;
 use crate::gen_cm_paths::types::Criteria;
 use crate::gen_cm_paths::types::CrtcOpKind::GammaLut;
 use crate::gen_cm_paths::types::CrtcOpKind::{self};
@@ -21,7 +22,8 @@ use crate::gen_cm_paths::types::PlaneOpName;
 use crate::gen_cm_paths::types::PlaneOpTarget::Dst;
 use crate::gen_cm_paths::types::PlaneOpTarget::Src;
 use crate::gen_cm_paths::types::SrcEotfCriterion;
-use crate::update;
+use crate::get_absolute_path;
+use crate::update_noformat;
 use anyhow::Result;
 use linearize::Linearize;
 use linearize::LinearizeExt;
@@ -627,75 +629,112 @@ fn write_paths() -> Result<()> {
         writeln!(crtc_matchers, "        }},")?;
     }
 
+    const PATH: &str = "src/backends/metal/video/metal_cm/metal_cm_paths/generated.rs";
+    let path = &get_absolute_path(PATH);
+
+    let f1 = || {
+        let mut f = String::new();
+        define_w!(f);
+        wl!("use linearize::StaticCopyMap;");
+        wl!(
+            "use super::types::{{*, PlaneOpKind::*, CrtcOpKind::*, PlaneOpTarget::*, LutEotf::*}};"
+        );
+        wl!("use crate::utils::const_slice::const_slice;");
+        wl!("use super::Path;");
+        wl!("use super::matcher::{{Matcher, MatcherImpl}};");
+        wl!();
+        wl!("pub(super) static P: [PlaneOpKind; {}] = [", p.len());
+        f.push_str(&p_prefix);
+        wl!("];");
+        wl!();
+        wl!("pub(super) static C: [CrtcOpKind; {}] = [", c.len());
+        f.push_str(&c_prefix);
+        wl!("];");
+        wl!();
+        wl!(
+            "pub(super) static PL: [{}; {pl_len}] = [",
+            len_to_ty(p.len())
+        );
+        f.push_str(&pl_prefix);
+        wl!("];");
+        wl!();
+        wl!(
+            "pub(super) static CL: [{}; {cl_len}] = [",
+            len_to_ty(c.len())
+        );
+        f.push_str(&cl_prefix);
+        wl!("];");
+        wl!();
+        format_rust(path, &f)
+    };
+    let f2 = || {
+        let mut f = String::new();
+        define_w!(f);
+        wl!("pub(super) static XL: [Path; {xl_len}] = [");
+        f.push_str(&xl_prefix);
+        wl!("];");
+        format_rust(path, &f)
+    };
+    let f3 = || {
+        let mut f = String::new();
+        define_w!(f);
+        wl!("pub static PATHS: StaticCopyMap<Criteria, &'static [Path]> = {{");
+        wl!("    let map = [");
+        f.push_str(&map);
+        wl!("    ];");
+        wl!("    StaticCopyMap(map)");
+        wl!("}};");
+        wl!();
+        wl!(
+            "pub static PLANE_MATCHERS: StaticCopyMap<Criteria, &'static dyn Matcher<PlaneOpName>> = {{"
+        );
+        wl!("    let map: [&dyn Matcher<PlaneOpName>; _] = [");
+        f.push_str(&plane_matchers);
+        wl!("    ];");
+        wl!("    StaticCopyMap(map)");
+        wl!("}};");
+        format_rust(path, &f)
+    };
+    let f4 = || {
+        let mut f = String::new();
+        define_w!(f);
+        wl!(
+            "pub static CRTC_MATCHERS: StaticCopyMap<Criteria, &'static dyn Matcher<CrtcOpName>> = {{"
+        );
+        wl!("    let map: [&dyn Matcher<CrtcOpName>; _] = [");
+        f.push_str(&crtc_matchers);
+        wl!("    ];");
+        wl!("    StaticCopyMap(map)");
+        wl!("}};");
+        wl!();
+        wl!("pub const MAX_PLANE_PATH_LEN: usize = {max_plane_len};");
+        wl!("pub const MAX_CRTC_PATH_LEN: usize = {max_crtc_len};");
+        wl!();
+        wl!("pub(super) type PlLoTy = {};", len_to_ty(pl_len));
+        wl!("pub(super) type PlLenTy = {};", len_to_ty(max_plane_len));
+        wl!("pub(super) type ClLoTy = {};", len_to_ty(cl_len));
+        wl!("pub(super) type ClLenTy = {};", len_to_ty(max_crtc_len));
+        format_rust(path, &f)
+    };
+    let (
+        (f1, f2), //
+        (f3, f4),
+    ) = rayon::join(
+        || rayon::join(f1, f2), //
+        || rayon::join(f3, f4),
+    );
+
     let mut f = String::new();
     define_w!(f);
-    wl!("use linearize::StaticCopyMap;");
-    wl!("use super::types::{{*, PlaneOpKind::*, CrtcOpKind::*, PlaneOpTarget::*, LutEotf::*}};");
-    wl!("use crate::utils::const_slice::const_slice;");
-    wl!("use super::Path;");
-    wl!("use super::matcher::{{Matcher, MatcherImpl}};");
+    f.push_str(&f1?);
     wl!();
-    wl!("pub(super) static P: [PlaneOpKind; {}] = [", p.len());
-    f.push_str(&p_prefix);
-    wl!("];");
+    f.push_str(&f2?);
     wl!();
-    wl!("pub(super) static C: [CrtcOpKind; {}] = [", c.len());
-    f.push_str(&c_prefix);
-    wl!("];");
+    f.push_str(&f3?);
     wl!();
-    wl!(
-        "pub(super) static PL: [{}; {pl_len}] = [",
-        len_to_ty(p.len())
-    );
-    f.push_str(&pl_prefix);
-    wl!("];");
-    wl!();
-    wl!(
-        "pub(super) static CL: [{}; {cl_len}] = [",
-        len_to_ty(c.len())
-    );
-    f.push_str(&cl_prefix);
-    wl!("];");
-    wl!();
-    wl!("pub(super) static XL: [Path; {xl_len}] = [");
-    f.push_str(&xl_prefix);
-    wl!("];");
-    wl!();
-    wl!("pub static PATHS: StaticCopyMap<Criteria, &'static [Path]> = {{");
-    wl!("    let map = [");
-    f.push_str(&map);
-    wl!("    ];");
-    wl!("    StaticCopyMap(map)");
-    wl!("}};");
-    wl!();
-    wl!(
-        "pub static PLANE_MATCHERS: StaticCopyMap<Criteria, &'static dyn Matcher<PlaneOpName>> = {{"
-    );
-    wl!("    let map: [&dyn Matcher<PlaneOpName>; _] = [");
-    f.push_str(&plane_matchers);
-    wl!("    ];");
-    wl!("    StaticCopyMap(map)");
-    wl!("}};");
-    wl!();
-    wl!("pub static CRTC_MATCHERS: StaticCopyMap<Criteria, &'static dyn Matcher<CrtcOpName>> = {{");
-    wl!("    let map: [&dyn Matcher<CrtcOpName>; _] = [");
-    f.push_str(&crtc_matchers);
-    wl!("    ];");
-    wl!("    StaticCopyMap(map)");
-    wl!("}};");
-    wl!();
-    wl!("pub const MAX_PLANE_PATH_LEN: usize = {max_plane_len};");
-    wl!("pub const MAX_CRTC_PATH_LEN: usize = {max_crtc_len};");
-    wl!();
-    wl!("pub(super) type PlLoTy = {};", len_to_ty(pl_len));
-    wl!("pub(super) type PlLenTy = {};", len_to_ty(max_plane_len));
-    wl!("pub(super) type ClLoTy = {};", len_to_ty(cl_len));
-    wl!("pub(super) type ClLenTy = {};", len_to_ty(max_crtc_len));
+    f.push_str(&f4?);
 
-    update(
-        "src/backends/metal/video/metal_cm/metal_cm_paths/generated.rs",
-        &f,
-    )?;
+    update_noformat(PATH, &f)?;
 
     Ok(())
 }
