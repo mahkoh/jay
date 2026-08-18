@@ -5,6 +5,7 @@ use anyhow::Context;
 use anyhow::Result;
 use anyhow::bail;
 use permutation::Permutation;
+use rayon::prelude::*;
 use std::fmt::Debug;
 use std::io::Write;
 use std::path::PathBuf;
@@ -42,11 +43,13 @@ mod phf;
 mod phf_generator;
 
 fn main() -> Result<()> {
-    input_event_codes::main()?;
-    keysyms::main()?;
-    gen_cm_paths::main()?;
-    gen_lut::main()?;
-    Ok(())
+    let tasks: &[&(dyn Fn() -> Result<()> + Sync)] = &[
+        &|| input_event_codes::main(),
+        &|| keysyms::main(),
+        &|| gen_cm_paths::main(),
+        &|| gen_lut::main(),
+    ];
+    tasks.into_par_iter().try_for_each(|generator| generator())
 }
 
 fn generate_map(
