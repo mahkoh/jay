@@ -195,8 +195,8 @@ impl Collector<'_> {
             }
         }
         files.par_iter().try_for_each(|(dir, path)| {
-            let file = self.module_file(&dir, &path)?;
-            self.visit_file(&file, &dir, &path)?;
+            let file = self.module_file(dir, path)?;
+            self.visit_file(&file, dir, path)?;
             anyhow::Ok(())
         })?;
         Ok(())
