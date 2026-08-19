@@ -1,0 +1,42 @@
+name: pr-lint
+
+on:
+  pull_request_target:
+    paths:
+    - 'jay-config/**'
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: 'the pr'
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  pr-lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        ref: ${{ github.sha }}
+        fetch-depth: 0
+    - name: Install
+      run: |
+        curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+    - name: Fetch the pull request
+      env:
+        PR: ${{ github.event.pull_request.number || inputs.pr }}
+        BASE_REF: ${{ github.event.pull_request.base.ref || 'master' }}
+      run: |
+        git fetch --no-tags origin \
+          "refs/pull/$PR/head:refs/pr-lint/head" \
+          "refs/heads/$BASE_REF:refs/pr-lint/base"
+    - name: Check
+      run: |
+        merge_base=$(git merge-base refs/pr-lint/base refs/pr-lint/head)
+        cargo run -p pr-lint -- "$merge_base" refs/pr-lint/head
