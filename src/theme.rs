@@ -12,6 +12,7 @@ use jay_config::theme::BarPosition as ConfigBarPosition;
 use jay_config::theme::ContainerBorders as ConfigContainerBorders;
 use jay_proc::jay_clone;
 use linearize::Linearize;
+use linearize::StaticMap;
 use std::cell::Cell;
 use std::cmp::Ordering;
 use std::ops::Add;
@@ -648,6 +649,8 @@ pub struct Theme {
     pub show_window_icons: Cell<bool>,
     pub window_icons_grayscale: Cell<bool>,
     pub container_borders: SplitView<Cell<ContainerBordersSetting>>,
+    /// An empty set of overrides used by views without per-window overrides.
+    empty_overrides: ThemeOverrides,
 }
 
 impl Default for Theme {
@@ -665,11 +668,25 @@ impl Default for Theme {
             show_window_icons: Cell::new(true),
             window_icons_grayscale: Cell::new(false),
             container_borders: Default::default(),
+            empty_overrides: Default::default(),
         }
     }
 }
 
 impl Theme {
+    /// Returns a view of this theme without any per-window overrides.
+    pub fn view(&self) -> ThemeView<'_> {
+        ThemeView::new(self, &self.empty_overrides)
+    }
+
+    /// Returns a view of this theme through `overrides`.
+    pub fn view_with_overrides<'a>(
+        &'a self,
+        overrides: Option<&'a ThemeOverrides>,
+    ) -> ThemeView<'a> {
+        ThemeView::new(self, overrides.unwrap_or(&self.empty_overrides))
+    }
+
     pub fn title_font(&self) -> Arc<String> {
         self.title_font.get().unwrap_or_else(|| self.font.get())
     }
@@ -679,8 +696,100 @@ impl Theme {
     }
 
     pub fn title_height(&self, tl: TreeTimeline) -> i32 {
-        if self.show_titles[tl].get() {
-            self.sizes.title_height.get(tl)
+        self.view().title_height(tl)
+    }
+
+    pub fn title_icon_size(&self, tl: TreeTimeline) -> i32 {
+        self.view().title_icon_size(tl)
+    }
+
+    pub fn title_underline_height(&self, tl: TreeTimeline) -> i32 {
+        self.view().title_underline_height(tl)
+    }
+
+    pub fn title_plus_underline_height(&self, tl: TreeTimeline) -> i32 {
+        self.view().title_plus_underline_height(tl)
+    }
+
+    pub fn focused_border_color(&self, tl: TreeTimeline) -> Color {
+        self.view().focused_border_color(tl)
+    }
+}
+
+/// A sparse set of theme properties that override the global theme.
+///
+/// This is the generic mechanism used to make arbitrary theme properties settable on a
+/// per-window basis. Adding a new overridable property requires no changes here: it is
+/// enough to add it to the `sizes!`/`colors!` macro invocations above.
+///
+/// Note that overrides only affect the parts of the tree that are owned by a single
+/// window. Sizes therefore only take effect for floating windows since the borders and
+/// title bars of tiled windows are shared between siblings.
+#[derive(Clone, Default, Debug, PartialEq)]
+pub struct ThemeOverrides {
+    pub sizes: StaticMap<ThemeSized, SplitView<Cell<Option<i32>>>>,
+    pub colors: StaticMap<ThemeColored, SplitView<Cell<Option<Color>>>>,
+}
+
+impl ThemeOverrides {
+    pub fn is_empty(&self, tl: TreeTimeline) -> bool {
+        self.sizes.values().all(|v| v[tl].get().is_none())
+            && self.colors.values().all(|v| v[tl].get().is_none())
+    }
+}
+
+/// A view of the theme through a set of overrides.
+///
+/// Views without per-window overrides borrow an empty set of overrides from the theme
+/// itself.
+///
+/// All code that renders or lays out a window should retrieve theme properties through a
+/// view instead of accessing [`Theme`] directly. That way per-window overrides apply
+/// automatically to every property.
+#[derive(Copy, Clone)]
+pub struct ThemeView<'a> {
+    pub theme: &'a Theme,
+    pub overrides: &'a ThemeOverrides,
+}
+
+impl<'a> ThemeView<'a> {
+    pub fn new(theme: &'a Theme, overrides: &'a ThemeOverrides) -> Self {
+        Self { theme, overrides }
+    }
+
+    pub fn size(&self, sized: ThemeSized, tl: TreeTimeline) -> i32 {
+        // Values are validated when the override is set.
+        if let Some(v) = self.overrides.sizes[sized][tl].get() {
+            return v;
+        }
+        sized.field(self.theme).get(tl)
+    }
+
+    pub fn color(&self, colored: ThemeColored, tl: TreeTimeline) -> Color {
+        if let Some(v) = self.overrides.colors[colored][tl].get() {
+            return v;
+        }
+        colored.field(self.theme).get()
+    }
+
+    fn color_is_set(&self, colored: ThemeColored, tl: TreeTimeline) -> bool {
+        if self.overrides.colors[colored][tl].get().is_some() {
+            return true;
+        }
+        colored.field(self.theme).set.get()
+    }
+
+    pub fn border_width(&self, tl: TreeTimeline) -> i32 {
+        self.size(ThemeSized::border_width, tl)
+    }
+
+    pub fn show_titles(&self, tl: TreeTimeline) -> bool {
+        self.theme.show_titles[tl].get()
+    }
+
+    pub fn title_height(&self, tl: TreeTimeline) -> i32 {
+        if self.show_titles(tl) {
+            self.size(ThemeSized::title_height, tl)
         } else {
             0
         }
@@ -691,23 +800,26 @@ impl Theme {
     }
 
     pub fn title_underline_height(&self, tl: TreeTimeline) -> i32 {
-        if self.show_titles[tl].get() { 1 } else { 0 }
+        if self.show_titles(tl) { 1 } else { 0 }
     }
 
     pub fn title_plus_underline_height(&self, tl: TreeTimeline) -> i32 {
-        if self.show_titles[tl].get() {
-            self.sizes.title_height.get(tl) + 1
+        if self.show_titles(tl) {
+            self.size(ThemeSized::title_height, tl) + 1
         } else {
             0
         }
     }
 
-    pub fn focused_border_color(&self) -> Color {
-        let c = &self.colors;
-        if c.focused_border.set.get() {
-            c.focused_border.val.get()
+    pub fn title_font(&self) -> Arc<String> {
+        self.theme.title_font()
+    }
+
+    pub fn focused_border_color(&self, tl: TreeTimeline) -> Color {
+        if self.color_is_set(ThemeColored::focused_border, tl) {
+            self.color(ThemeColored::focused_border, tl)
         } else {
-            c.border.val.get()
+            self.color(ThemeColored::border, tl)
         }
     }
 }

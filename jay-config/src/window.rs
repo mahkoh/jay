@@ -6,6 +6,9 @@ use crate::Workspace;
 use crate::client::Client;
 use crate::client::ClientCriterion;
 use crate::input::Seat;
+use crate::theme::Color;
+use crate::theme::colors::Colorable;
+use crate::theme::sized::Resizable;
 use serde::Deserialize;
 use serde::Serialize;
 use std::ops::Deref;
@@ -260,6 +263,20 @@ impl Window {
     pub fn size(self) -> (i32, i32) {
         let (_, _, width, height) = get!((0, 0)).get_window_position(self);
         (width, height)
+    }
+
+    /// Overrides a theme size for this window.
+    ///
+    /// A value of `None` removes the override so that the global theme size is used.
+    pub fn set_size(self, sized: Resizable, size: Option<i32>) {
+        get!().set_window_size(self, sized, size);
+    }
+
+    /// Overrides a theme color for this window.
+    ///
+    /// A value of `None` removes the override so that the global theme color is used.
+    pub fn set_color(self, colorable: Colorable, color: Option<Color>) {
+        get!().set_window_color(self, colorable, color);
     }
 }
 
