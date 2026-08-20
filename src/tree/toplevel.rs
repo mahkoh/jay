@@ -903,6 +903,7 @@ impl ToplevelData {
         });
         drop(data);
         let output = wns.output.get();
+        ws.pending_refullscreen.set(None);
         node.tl_mark_fullscreen(Some(&output.global.connector));
         self.property_changed(TL_CHANGED_FULLSCREEN);
         node.tl_set_parent(ws.clone());

@@ -479,6 +479,18 @@ pub fn toggle_float_above_fullscreen() {
     set_float_above_fullscreen(!get_float_above_fullscreen())
 }
 
+/// Sets whether a temporarily unfullscreened window is restored to fullscreen when it is reselected.
+///
+/// The default is `false`.
+pub fn set_restore_fullscreen_on_reselect(enabled: bool) {
+    get!().set_restore_fullscreen_on_reselect(enabled);
+}
+
+/// Gets whether a temporarily unfullscreened window is restored to fullscreen when it is refocused.
+pub fn get_restore_fullscreen_on_reselect() -> bool {
+    get!(false).get_restore_fullscreen_on_reselect()
+}
+
 /// Sets whether floating windows always show a pin icon.
 ///
 /// Clicking on the pin icon toggles the pin mode. See [`Seat::toggle_float_pinned`].
