@@ -454,7 +454,7 @@ impl XdgToplevel {
     fn map_floating(self: &Rc<Self>, workspace: &Rc<WorkspaceNode>, abs_pos: Option<(i32, i32)>) {
         let (width, height) = self.toplevel_data.float_size(workspace);
         self.state
-            .map_floating(self.clone(), width, height, workspace, abs_pos);
+            .map_floating_initial(self.clone(), width, height, workspace, abs_pos);
     }
 
     fn map_child(self: &Rc<Self>, parent: &XdgToplevel, pos: Option<(&Rc<OutputNode>, i32, i32)>) {

@@ -223,15 +223,15 @@ pub(super) struct ConfigProxyHandler {
     pub window_matcher_cache: CriterionCache<WindowCriterionIpc, ToplevelData>,
     pub window_matcher_leafs: CopyHashMap<WindowMatcher, Rc<TlmLeafMatcher>>,
     pub window_matcher_std_kinds: Rc<TlmUpstreamNode>,
-    pub window_matcher_no_auto_focus:
-        CopyHashMap<WindowMatcher, Rc<CachedCriterion<WindowCriterionIpc, ToplevelData>>>,
-    pub window_matcher_initial_tile_state: CopyHashMap<
-        WindowMatcher,
-        (
-            Rc<CachedCriterion<WindowCriterionIpc, ToplevelData>>,
-            TileState,
-        ),
-    >,
+    pub window_matcher_properties: CopyHashMap<WindowMatcher, Rc<WindowMatcherProperties>>,
+}
+
+pub struct WindowMatcherProperties {
+    criterion: Rc<CachedCriterion<WindowCriterionIpc, ToplevelData>>,
+    auto_focus: Cell<Option<bool>>,
+    initial_tile_state: Cell<Option<TileState>>,
+    initial_floating_size: Cell<Option<(i32, i32)>>,
+    initial_floating_position: Cell<Option<(i32, i32)>>,
 }
 
 pub struct ConfigWorkspace {
@@ -2685,8 +2685,25 @@ impl ConfigProxyHandler {
     fn handle_destroy_window_matcher(&self, matcher: WindowMatcher) {
         self.window_matchers.remove(&matcher);
         self.window_matcher_leafs.remove(&matcher);
-        self.window_matcher_no_auto_focus.remove(&matcher);
-        self.window_matcher_initial_tile_state.remove(&matcher);
+        self.window_matcher_properties.remove(&matcher);
+    }
+
+    fn get_window_matcher_properties(
+        &self,
+        matcher: WindowMatcher,
+    ) -> Result<Rc<WindowMatcherProperties>, CphError> {
+        if let Some(p) = self.window_matcher_properties.get(&matcher) {
+            return Ok(p);
+        }
+        let p = Rc::new(WindowMatcherProperties {
+            criterion: self.get_window_matcher(matcher)?,
+            auto_focus: Default::default(),
+            initial_tile_state: Default::default(),
+            initial_floating_size: Default::default(),
+            initial_floating_position: Default::default(),
+        });
+        self.window_matcher_properties.set(matcher, p.clone());
+        Ok(p)
     }
 
     fn handle_enable_window_matcher_events(
@@ -2721,12 +2738,9 @@ impl ConfigProxyHandler {
         matcher: WindowMatcher,
         auto_focus: bool,
     ) -> Result<(), CphError> {
-        if auto_focus {
-            self.window_matcher_no_auto_focus.remove(&matcher);
-        } else {
-            let m = self.get_window_matcher(matcher)?;
-            self.window_matcher_no_auto_focus.set(matcher, m);
-        }
+        self.get_window_matcher_properties(matcher)?
+            .auto_focus
+            .set(Some(auto_focus));
         Ok(())
     }
 
@@ -2738,9 +2752,36 @@ impl ConfigProxyHandler {
         let Ok(tile_state) = tile_state.try_into() else {
             return Err(CphError::UnknownTileState(tile_state));
         };
-        let m = self.get_window_matcher(matcher)?;
-        self.window_matcher_initial_tile_state
-            .set(matcher, (m, tile_state));
+        self.get_window_matcher_properties(matcher)?
+            .initial_tile_state
+            .set(Some(tile_state));
+        Ok(())
+    }
+
+    fn handle_set_window_matcher_initial_floating_size(
+        &self,
+        matcher: WindowMatcher,
+        width: i32,
+        height: i32,
+    ) -> Result<(), CphError> {
+        if width <= 0 || height <= 0 {
+            return Err(CphError::InvalidWindowSize(width, height));
+        }
+        self.get_window_matcher_properties(matcher)?
+            .initial_floating_size
+            .set(Some((width, height)));
+        Ok(())
+    }
+
+    fn handle_set_window_matcher_initial_floating_position(
+        &self,
+        matcher: WindowMatcher,
+        x: i32,
+        y: i32,
+    ) -> Result<(), CphError> {
+        self.get_window_matcher_properties(matcher)?
+            .initial_floating_position
+            .set(Some((x, y)));
         Ok(())
     }
 
@@ -3859,6 +3900,16 @@ impl ConfigProxyHandler {
             } => self
                 .handle_set_window_matcher_initial_tile_state(matcher, tile_state)
                 .wrn("set_window_matcher_initial_tile_state")?,
+            ClientMessage::SetWindowMatcherInitialFloatingSize {
+                matcher,
+                width,
+                height,
+            } => self
+                .handle_set_window_matcher_initial_floating_size(matcher, width, height)
+                .wrn("set_window_matcher_initial_floating_size")?,
+            ClientMessage::SetWindowMatcherInitialFloatingPosition { matcher, x, y } => self
+                .handle_set_window_matcher_initial_floating_position(matcher, x, y)
+                .wrn("set_window_matcher_initial_floating_position")?,
             ClientMessage::SetPointerRevertKey { seat, key } => self
                 .handle_set_pointer_revert_key(seat, key)
                 .wrn("set_pointer_revert_key")?,
@@ -4096,22 +4147,36 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    pub fn auto_focus(&self, data: &ToplevelData) -> bool {
-        for matcher in self.window_matcher_no_auto_focus.lock().values() {
-            if matcher.node.pull(data) {
-                return false;
-            }
-        }
-        true
-    }
-
-    pub fn initial_tile_state(&self, data: &ToplevelData) -> Option<TileState> {
-        for (matcher, state) in self.window_matcher_initial_tile_state.lock().values() {
-            if matcher.node.pull(data) {
-                return Some(*state);
+    fn window_property<T>(
+        &self,
+        data: &ToplevelData,
+        get: impl Fn(&WindowMatcherProperties) -> Option<T>,
+    ) -> Option<T> {
+        for properties in self.window_matcher_properties.lock().values() {
+            if let Some(value) = get(properties)
+                && properties.criterion.node.pull(data)
+            {
+                return Some(value);
             }
         }
         None
+    }
+
+    pub fn auto_focus(&self, data: &ToplevelData) -> bool {
+        self.window_property(data, |p| p.auto_focus.get().filter(|&af| !af))
+            .unwrap_or(true)
+    }
+
+    pub fn initial_tile_state(&self, data: &ToplevelData) -> Option<TileState> {
+        self.window_property(data, |p| p.initial_tile_state.get())
+    }
+
+    pub fn initial_floating_size(&self, data: &ToplevelData) -> Option<(i32, i32)> {
+        self.window_property(data, |p| p.initial_floating_size.get())
+    }
+
+    pub fn initial_floating_position(&self, data: &ToplevelData) -> Option<(i32, i32)> {
+        self.window_property(data, |p| p.initial_floating_position.get())
     }
 
     pub fn initial_output_for_workspace(&self, name: &str) -> Option<Option<Rc<OutputNode>>> {
@@ -4187,6 +4252,8 @@ enum CphError {
     OutputIsNotDesktop(Connector),
     #[error("{0}x{1} is not a valid connector position")]
     InvalidConnectorPosition(i32, i32),
+    #[error("{0}x{1} is not a valid window size")]
+    InvalidWindowSize(i32, i32),
     #[error("Keymap {0:?} does not exist")]
     KeymapDoesNotExist(Keymap),
     #[error("Seat {0:?} does not exist")]

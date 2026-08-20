@@ -376,6 +376,36 @@ impl WindowCriterion<'_> {
     pub fn set_initial_tile_state(self, tile_state: TileState) {
         self.to_matcher().set_initial_tile_state(tile_state);
     }
+
+    /// Sets the size that matched windows have when they are initially mapped floating.
+    ///
+    /// This has no effect on windows that are initially mapped tiled, even if they later
+    /// become floating.
+    ///
+    /// If multiple such window matchers match a window, the used size is unspecified.
+    ///
+    /// This leaks the matcher.
+    pub fn set_initial_floating_size(self, width: i32, height: i32) {
+        self.to_matcher().set_initial_floating_size(width, height);
+    }
+
+    /// Sets the position that matched windows have when they are initially mapped
+    /// floating.
+    ///
+    /// The position is relative to the top-left corner of the output that the window is
+    /// mapped on and refers to the top-left corner of the window itself, excluding any
+    /// decorations. It is clamped so that the window remains at least partially visible
+    /// on that output.
+    ///
+    /// This has no effect on windows that are initially mapped tiled, even if they later
+    /// become floating.
+    ///
+    /// If multiple such window matchers match a window, the used position is unspecified.
+    ///
+    /// This leaks the matcher.
+    pub fn set_initial_floating_position(self, x: i32, y: i32) {
+        self.to_matcher().set_initial_floating_position(x, y);
+    }
 }
 
 impl WindowMatcher {
@@ -408,6 +438,32 @@ impl WindowMatcher {
     /// unspecified.
     pub fn set_initial_tile_state(self, tile_state: TileState) {
         get!().set_window_matcher_initial_tile_state(self, tile_state);
+    }
+
+    /// Sets the size that matched windows have when they are initially mapped floating.
+    ///
+    /// This has no effect on windows that are initially mapped tiled, even if they later
+    /// become floating.
+    ///
+    /// If multiple such window matchers match a window, the used size is unspecified.
+    pub fn set_initial_floating_size(self, width: i32, height: i32) {
+        get!().set_window_matcher_initial_floating_size(self, width, height);
+    }
+
+    /// Sets the position that matched windows have when they are initially mapped
+    /// floating.
+    ///
+    /// The position is relative to the top-left corner of the output that the window is
+    /// mapped on and refers to the top-left corner of the window itself, excluding any
+    /// decorations. It is clamped so that the window remains at least partially visible
+    /// on that output.
+    ///
+    /// This has no effect on windows that are initially mapped tiled, even if they later
+    /// become floating.
+    ///
+    /// If multiple such window matchers match a window, the used position is unspecified.
+    pub fn set_initial_floating_position(self, x: i32, y: i32) {
+        get!().set_window_matcher_initial_floating_position(self, x, y);
     }
 }
 
