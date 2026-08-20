@@ -1,6 +1,7 @@
 use crate::async_engine::AsyncEngine;
 use crate::async_engine::SpawnedFuture;
 use crate::utils::queue::AsyncQueue;
+use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct RunToplevelFuture {
@@ -8,12 +9,14 @@ pub struct RunToplevelFuture {
 }
 
 pub struct RunToplevel {
+    cleared: Cell<bool>,
     queue: AsyncQueue<Box<dyn FnOnce()>>,
 }
 
 impl RunToplevel {
     pub fn install(eng: &Rc<AsyncEngine>) -> (RunToplevelFuture, Rc<RunToplevel>) {
         let slf = Rc::new(RunToplevel {
+            cleared: Default::default(),
             queue: Default::default(),
         });
         let future = eng.spawn("run toplevel", {
@@ -34,10 +37,14 @@ impl RunToplevel {
     }
 
     pub fn clear(&self) {
+        self.cleared.set(true);
         self.queue.clear();
     }
 
     fn schedule_dyn(&self, f: Box<dyn FnOnce()>) {
+        if self.cleared.get() {
+            return;
+        }
         self.queue.push(f);
     }
 }

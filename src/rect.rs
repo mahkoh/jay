@@ -5,6 +5,8 @@ mod size;
 mod tests;
 
 pub use crate::rect::size::Size;
+use crate::utils::str_fmt::StrCtx;
+use crate::utils::str_fmt::StrFmt;
 use jay_algorithms::rect::NoTag;
 use jay_algorithms::rect::RectRaw;
 use jay_algorithms::rect::Tag;
@@ -37,6 +39,24 @@ where
 impl Debug for Rect {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         Debug::fmt(&self.raw, f)
+    }
+}
+
+impl<T> StrFmt for Rect<T>
+where
+    T: Tag,
+{
+    fn str_fmt(&self, dst: &mut String, _ctx: &StrCtx) {
+        let mut buf = itoa::Buffer::new();
+        dst.push_str("[");
+        dst.push_str(buf.format(self.raw.x1));
+        dst.push_str(",");
+        dst.push_str(buf.format(self.raw.y1));
+        dst.push_str(",");
+        dst.push_str(buf.format(self.raw.x2));
+        dst.push_str(",");
+        dst.push_str(buf.format(self.raw.y2));
+        dst.push_str("]");
     }
 }
 

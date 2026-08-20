@@ -12,6 +12,7 @@ use crate::tree::ToplevelNodeBase;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::WorkspaceNode;
 use crate::utils::clonecell::CloneCell;
+use crate::wire::ObjectId;
 use crate::xwayland::XWaylandEvent;
 use std::rc::Rc;
 
@@ -26,6 +27,10 @@ pub struct XSurface {
 }
 
 impl SurfaceExt for XSurface {
+    fn object_id(&self) -> Option<ObjectId> {
+        None
+    }
+
     fn node_layer(&self) -> NodeLayerLink {
         let Some(win) = self.xwindow.get() else {
             return NodeLayerLink::Display;

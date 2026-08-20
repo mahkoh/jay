@@ -47,6 +47,7 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::linkedlist::LinkedNode;
+use crate::wire::ObjectId;
 use crate::wire::XdgPopupId;
 use crate::wire::XdgSurfaceId;
 use crate::wire::xdg_surface::*;
@@ -234,6 +235,9 @@ impl PendingXdgSurfaceData {
 }
 
 trait XdgSurfaceExt: Node + Debug {
+    #[expect(unused)]
+    fn object_id(&self) -> ObjectId;
+
     fn initial_configure(self: Rc<Self>) {
         // nothing
     }
@@ -743,6 +747,10 @@ impl Object for XdgSurface {
 dedicated_add_obj!(XdgSurface, XdgSurfaceId, xdg_surfaces);
 
 impl SurfaceExt for XdgSurface {
+    fn object_id(&self) -> Option<ObjectId> {
+        Some(self.id.into())
+    }
+
     fn node_layer(&self) -> NodeLayerLink {
         let Some(ext) = self.ext.get() else {
             return NodeLayerLink::Display;

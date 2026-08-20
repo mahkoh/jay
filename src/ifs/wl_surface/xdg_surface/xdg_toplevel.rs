@@ -65,6 +65,7 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::numcell::NumCell;
 use crate::utils::obj_and_id::ObjAndId;
+use crate::wire::ObjectId;
 use crate::wire::XdgToplevelId;
 use crate::wire::xdg_toplevel::*;
 use arrayvec::ArrayVec;
@@ -809,6 +810,10 @@ impl ToplevelNodeBase for XdgToplevel {
 }
 
 impl XdgSurfaceExt for XdgToplevel {
+    fn object_id(&self) -> ObjectId {
+        self.id.into()
+    }
+
     fn commit_requested(&self) {
         self.committed.set(true);
     }

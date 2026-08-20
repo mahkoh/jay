@@ -159,6 +159,7 @@ use crate::video::dmabuf::DMA_BUF_SYNC_READ;
 use crate::video::drm::syncobj::Syncobj;
 use crate::video::drm::syncobj::SyncobjPoint;
 use crate::video::drm::syncobj::merge_sync_files;
+use crate::wire::ObjectId;
 use crate::wire::WlOutputId;
 use crate::wire::WlSurfaceId;
 use crate::wire::WpColorManagementSurfaceFeedbackV1Id;
@@ -441,6 +442,9 @@ enum CommitAction {
 }
 
 trait SurfaceExt {
+    #[expect(unused)]
+    fn object_id(&self) -> Option<ObjectId>;
+
     fn node_layer(&self) -> NodeLayerLink;
 
     fn commit_requested(
@@ -528,6 +532,10 @@ trait SurfaceExt {
 pub struct NoneSurfaceExt;
 
 impl SurfaceExt for NoneSurfaceExt {
+    fn object_id(&self) -> Option<ObjectId> {
+        None
+    }
+
     fn node_layer(&self) -> NodeLayerLink {
         NodeLayerLink::Display
     }

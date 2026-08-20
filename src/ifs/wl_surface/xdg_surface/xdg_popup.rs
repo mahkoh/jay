@@ -50,6 +50,7 @@ use crate::tree::TreeTimeline::{self};
 use crate::tree::WorkspaceNode;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::smallmap::SmallMap;
+use crate::wire::ObjectId;
 use crate::wire::XdgPopupId;
 use crate::wire::xdg_popup::*;
 use std::cell::Cell;
@@ -533,6 +534,10 @@ impl StackedNode for XdgPopup {
 }
 
 impl XdgSurfaceExt for XdgPopup {
+    fn object_id(&self) -> ObjectId {
+        self.id.into()
+    }
+
     fn initial_configure(self: Rc<Self>) {
         if let Some(parent) = self.parent.get() {
             self.update_position(&*parent);

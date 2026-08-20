@@ -21,6 +21,7 @@ pub mod clone3;
 pub mod clonecell;
 pub mod compat;
 pub mod condition;
+pub mod const_layout;
 pub mod const_slice;
 pub mod copyhashmap;
 pub mod cow_ext;

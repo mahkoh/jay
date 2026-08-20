@@ -44,6 +44,7 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::linkedlist::NodeRef;
+use crate::wire::ObjectId;
 use crate::wire::WlSeatId;
 use crate::wire::XdgPopupId;
 use std::cell::Cell;
@@ -190,6 +191,8 @@ trait TrayItem:
     + Sized
     + 'static
 {
+    #[expect(unused)]
+    fn object_id(&self) -> ObjectId;
     fn tray_item_data(&self) -> &TrayItemData;
     fn popups(&self) -> &CopyHashMap<XdgPopupId, Rc<Popup<Self>>>;
     fn visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor);
@@ -297,6 +300,10 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
 }
 
 impl<T: TrayItem> SurfaceExt for T {
+    fn object_id(&self) -> Option<ObjectId> {
+        Some(TrayItem::object_id(self))
+    }
+
     fn node_layer(&self) -> NodeLayerLink {
         NodeLayerLink::Output
     }

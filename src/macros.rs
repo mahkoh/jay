@@ -1014,3 +1014,9 @@ macro_rules! measure {
         res
     }};
 }
+
+macro_rules! assert_same_layout {
+    ($t1:ty, $t2:ty) => {
+        const { crate::utils::const_layout::assert_same_layout_dont_call_directly::<$t1, $t2>() }
+    };
+}
