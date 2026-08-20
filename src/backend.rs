@@ -34,6 +34,8 @@ use crate::libinput::consts::LIBINPUT_CONFIG_SCROLL_NO_SCROLL;
 use crate::libinput::consts::LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN;
 use crate::utils::obj_and_id::ObjWithId;
 use crate::utils::static_text::StaticText;
+use crate::utils::str_fmt::StrCtx;
+use crate::utils::str_fmt::StrFmt;
 use crate::video::Modifier;
 use crate::video::drm::ConnectorType;
 use crate::video::drm::DRM_MODE_COLORIMETRY_BT2020_RGB;
@@ -43,6 +45,7 @@ use crate::video::drm::DrmError;
 use crate::video::drm::DrmVersion;
 use crate::video::drm::HDMI_EOTF_SMPTE_ST2084;
 use crate::video::drm::HDMI_EOTF_TRADITIONAL_GAMMA_SDR;
+use arrayvec::ArrayString;
 use jay_config::input::SwitchEvent;
 use jay_proc::jay_hash;
 use linearize::Linearize;
@@ -52,6 +55,7 @@ use std::error::Error;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::fmt::Write;
 use std::hash::Hash;
 use std::rc::Rc;
 use uapi::OwnedFd;
@@ -144,6 +148,14 @@ pub struct ConnectorKernelId {
 impl Display for ConnectorKernelId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}-{}", self.ty, self.idx)
+    }
+}
+
+impl StrFmt for ConnectorKernelId {
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx) {
+        let mut buf = ArrayString::<64>::new();
+        let _ = write!(buf, "{}", self);
+        buf.as_str().str_fmt(dst, ctx);
     }
 }
 
