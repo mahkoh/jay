@@ -49,6 +49,7 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::linkedlist::NodeRef;
+use crate::wire::ObjectId;
 use crate::wire::XdgPopupId;
 use crate::wire::ZwlrLayerSurfaceV1Id;
 use crate::wire::zwlr_layer_surface_v1::*;
@@ -631,6 +632,10 @@ impl ZwlrLayerSurfaceV1 {
 }
 
 impl SurfaceExt for ZwlrLayerSurfaceV1 {
+    fn object_id(&self) -> Option<ObjectId> {
+        Some(self.id.into())
+    }
+
     fn node_layer(&self) -> NodeLayerLink {
         let Some(link) = self.link.borrow().as_ref().map(|l| l.to_ref()) else {
             return NodeLayerLink::Display;

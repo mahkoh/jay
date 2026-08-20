@@ -26,6 +26,7 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::linkedlist::NodeRef;
 use crate::utils::numcell::NumCell;
+use crate::wire::ObjectId;
 use crate::wire::WlSubsurfaceId;
 use crate::wire::wl_subsurface::*;
 use hashbrown::hash_map::OccupiedEntry;
@@ -407,6 +408,10 @@ impl Object for WlSubsurface {
 simple_add_obj!(WlSubsurface);
 
 impl SurfaceExt for WlSubsurface {
+    fn object_id(&self) -> Option<ObjectId> {
+        Some(self.id.into())
+    }
+
     fn node_layer(&self) -> NodeLayerLink {
         self.parent.node_layer()
     }

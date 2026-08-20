@@ -33,6 +33,7 @@ use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::{self};
 use crate::tree::WorkspaceNode;
 use crate::wire::ExtSessionLockSurfaceV1Id;
+use crate::wire::ObjectId;
 use crate::wire::ext_session_lock_surface_v1::*;
 use std::cell::Cell;
 use std::rc::Rc;
@@ -115,6 +116,10 @@ impl ExtSessionLockSurfaceV1 {
 }
 
 impl SurfaceExt for ExtSessionLockSurfaceV1 {
+    fn object_id(&self) -> Option<ObjectId> {
+        Some(self.id.into())
+    }
+
     fn node_layer(&self) -> NodeLayerLink {
         NodeLayerLink::Lock
     }

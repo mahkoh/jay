@@ -30,6 +30,7 @@ use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::wire::JayTrayItemV1Id;
+use crate::wire::ObjectId;
 use crate::wire::XdgPopupId;
 use crate::wire::jay_tray_item_v1::*;
 use std::rc::Rc;
@@ -130,6 +131,10 @@ impl JayTrayItemV1RequestHandler for JayTrayItemV1 {
 }
 
 impl TrayItem for JayTrayItemV1 {
+    fn object_id(&self) -> ObjectId {
+        self.id.into()
+    }
+
     fn tray_item_data(&self) -> &TrayItemData {
         &self.data
     }

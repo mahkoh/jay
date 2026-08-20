@@ -15,6 +15,7 @@ use crate::tree::NodeLocation;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::tree::WorkspaceNode;
+use crate::wire::ObjectId;
 use crate::wire::ZwpInputPopupSurfaceV2Id;
 use crate::wire::zwp_input_popup_surface_v2::*;
 use std::cell::Cell;
@@ -33,6 +34,10 @@ pub struct ZwpInputPopupSurfaceV2 {
 }
 
 impl SurfaceExt for ZwpInputPopupSurfaceV2 {
+    fn object_id(&self) -> Option<ObjectId> {
+        Some(self.id.into())
+    }
+
     fn node_layer(&self) -> NodeLayerLink {
         NodeLayerLink::InputMethod
     }
