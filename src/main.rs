@@ -38,7 +38,8 @@
     clippy::manual_bits,
     clippy::manual_is_multiple_of,
     clippy::obfuscated_if_else,
-    clippy::manual_div_ceil
+    clippy::manual_div_ceil,
+    clippy::needless_late_init
 )]
 #![warn(unsafe_op_in_unsafe_fn)]
 

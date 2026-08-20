@@ -3290,12 +3290,12 @@ impl ConfigProxyHandler {
 
     fn handle_set_transaction_timeout(&self, timeout: Duration) {
         self.state
-            .set_transaction_timeout_ns(timeout.as_nanos().saturating_cast());
+            .set_transaction_timeout_ns(SaturatingCast::saturating_cast(timeout.as_nanos()));
     }
 
     fn handle_set_configure_timeout(&self, timeout: Duration) {
         self.state
-            .set_configure_timeout_ns(timeout.as_nanos().saturating_cast());
+            .set_configure_timeout_ns(SaturatingCast::saturating_cast(timeout.as_nanos()));
     }
 
     fn handle_set_container_borders(&self, borders: ContainerBorders) -> Result<(), CphError> {
