@@ -5,6 +5,7 @@
     clippy::needless_lifetimes
 )]
 
+pub mod jar;
 pub mod lut;
 pub mod qoi;
 pub mod rect;
