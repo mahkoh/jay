@@ -1314,6 +1314,10 @@
           "type": "boolean",
           "description": "Configures whether title bars on windows are shown.\n\nThe default is `true`.\n"
         },
+        "flatten-tree": {
+          "type": "string",
+          "description": "Configures when single-child containers are automatically collapsed.\n\nAccepts `\"never\"`, `\"always\"`, or `\"on-remove\"`.\n\n\"always\":\nCollapse a single-child container both when its second-to-last\nchild is removed and when pressing split-vertical or\nsplit-horizontal on a sole child.\n\n\"on-remove\":\nOnly collapse when the second-to-last child is removed (e.g.\nmoved to another workspace or floated).\n\n\"never\":\nNever collapse single-child containers.\n\nThe default is `\"never\"`.\n"
+        },
         "focus-history": {
           "description": "Configures the focus-history settings.\n\n- Example:\n\n  ```toml\n  [focus-history]\n  only-visible: true\n  same-workspace: true\n  ```\n",
           "$ref": "#/$defs/FocusHistory"

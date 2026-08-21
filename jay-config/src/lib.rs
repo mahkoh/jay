@@ -87,6 +87,20 @@ pub enum Direction {
     Right,
 }
 
+/// Configures how single-child containers are flattened.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum FlattenTree {
+    /// Never flatten single-child containers.
+    Never,
+    /// Always flatten single-child containers, including when pressing
+    /// split-vertical or split-horizontal on a sole child.
+    Always,
+    /// Only flatten when the second-to-last child is removed from a
+    /// container.
+    OnRemove,
+}
+
 /// A planar axis.
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum Axis {
@@ -567,6 +581,13 @@ pub fn on_unload(f: impl FnOnce() + 'static) {
 #[doc(alias("primary-selection", "primary_selection"))]
 pub fn set_middle_click_paste_enabled(enabled: bool) {
     get!().set_middle_click_paste_enabled(enabled);
+}
+
+/// Sets the tree flattening mode.
+///
+/// The default is [`FlattenTree::Never`].
+pub fn set_flatten_tree(mode: FlattenTree) {
+    get!().set_flatten_tree(mode);
 }
 
 /// Opens the control center.

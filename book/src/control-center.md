@@ -468,6 +468,11 @@ UI Drag
 UI Drag Threshold (px)
 : Minimum distance in pixels before a drag begins
 
+Flatten Tree
+: Dropdown to select when single-child containers are flattened (`Never`,
+  `Always`, or `On Remove`; defaults to `Never`; see
+  [Flatten Tree](configuration/misc.md#flatten-tree))
+
 Float Pin Icon
 : Show the pin icon on floating windows even when not pinned
 

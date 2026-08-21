@@ -177,6 +177,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 split_reuses_container,
                 triggers_val,
                 max_trigger_depth_val,
+                flatten_tree,
             ),
         ) = ext.extract((
             (
@@ -247,6 +248,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 recover(opt(bol("split-reuses-container"))),
                 opt(val("triggers")),
                 opt(int("max-trigger-depth")),
+                recover(opt(str("flatten-tree"))),
             ),
         ))?;
         let mut keymap = None;
@@ -706,6 +708,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
             show_bar: show_bar.despan(),
             split_reuses_container: split_reuses_container.despan(),
             show_titles: show_titles.despan(),
+            flatten_tree: flatten_tree.as_ref().map(|v| parse_flatten_tree(v)),
             focus_history,
             middle_click_paste: middle_click_paste.despan(),
             input_modes,
@@ -719,5 +722,21 @@ impl Parser for ConfigParser<'_, '_, '_> {
             triggers,
             max_trigger_depth,
         })
+    }
+}
+
+fn parse_flatten_tree(v: &Spanned<&str>) -> jay_config::FlattenTree {
+    use jay_config::FlattenTree::*;
+    match v.value.to_ascii_lowercase().as_str() {
+        "always" => Always,
+        "on-remove" => OnRemove,
+        "never" => Never,
+        _ => {
+            log::warn!(
+                "Unknown flatten-tree value {:?}. Expected \"never\", \"always\", or \"on-remove\".",
+                v.value
+            );
+            Never
+        }
     }
 }

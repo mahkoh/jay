@@ -2582,6 +2582,28 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `flatten-tree` (optional):
+
+  Configures when single-child containers are automatically collapsed.
+  
+  Accepts `"never"`, `"always"`, or `"on-remove"`.
+  
+  "always":
+  Collapse a single-child container both when its second-to-last
+  child is removed and when pressing split-vertical or
+  split-horizontal on a sole child.
+  
+  "on-remove":
+  Only collapse when the second-to-last child is removed (e.g.
+  moved to another workspace or floated).
+  
+  "never":
+  Never collapse single-child containers.
+  
+  The default is `"never"`.
+
+  The value of this field should be a string.
+
 - `focus-history` (optional):
 
   Configures the focus-history settings.

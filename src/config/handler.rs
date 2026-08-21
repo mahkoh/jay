@@ -2801,6 +2801,10 @@ impl ConfigProxyHandler {
         self.state.set_primary_selection_enabled(enabled);
     }
 
+    fn handle_set_flatten_tree(&self, mode: jay_config::FlattenTree) {
+        self.state.set_flatten_tree(mode.into());
+    }
+
     fn handle_seat_create_mark(&self, seat: Seat, kc: Option<u32>) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         if let Some(kc) = kc {
@@ -3904,6 +3908,7 @@ impl ConfigProxyHandler {
             ClientMessage::SetMiddleClickPasteEnabled { enabled } => {
                 self.handle_set_middle_click_paste_enabled(enabled)
             }
+            ClientMessage::SetFlattenTree { mode } => self.handle_set_flatten_tree(mode),
             ClientMessage::SetWorkspaceDisplayOrder { order } => {
                 self.handle_set_workspace_display_order(order)
             }
@@ -4092,6 +4097,7 @@ impl ConfigProxyHandler {
             ClientMessage::GetPlaneColorPipelinesEnabled { device } => self
                 .handle_get_plane_color_pipelines_enabled(device)
                 .wrn("get_plane_color_pipelines_enabled")?,
+            _ => {}
         }
         Ok(())
     }

@@ -391,6 +391,7 @@ pub struct State {
     pub color_management_enabled: Cell<bool>,
     pub color_manager: Rc<ColorManager>,
     pub float_above_fullscreen: Cell<bool>,
+    pub flatten_tree: Cell<FlattenTree>,
     pub icons: Icons,
     pub show_pin_icon: Cell<bool>,
     pub cl_matcher_manager: Rc<ClMatcherManager>,
@@ -464,6 +465,44 @@ pub struct PrimeModifier {
 }
 
 pub type PrimeModifiers = Rc<BHashMap<u32, Vec<PrimeModifier>>>;
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, linearize::Linearize)]
+pub enum FlattenTree {
+    #[default]
+    Never,
+    Always,
+    OnRemove,
+}
+
+impl crate::utils::static_text::StaticText for FlattenTree {
+    fn text(&self) -> &'static str {
+        match self {
+            FlattenTree::Never => "Never",
+            FlattenTree::Always => "Always",
+            FlattenTree::OnRemove => "On Remove",
+        }
+    }
+}
+
+impl From<FlattenTree> for jay_config::FlattenTree {
+    fn from(v: FlattenTree) -> Self {
+        match v {
+            FlattenTree::Never => jay_config::FlattenTree::Never,
+            FlattenTree::Always => jay_config::FlattenTree::Always,
+            FlattenTree::OnRemove => jay_config::FlattenTree::OnRemove,
+        }
+    }
+}
+
+impl From<jay_config::FlattenTree> for FlattenTree {
+    fn from(v: jay_config::FlattenTree) -> Self {
+        match v {
+            jay_config::FlattenTree::Never => FlattenTree::Never,
+            jay_config::FlattenTree::Always => FlattenTree::Always,
+            jay_config::FlattenTree::OnRemove => FlattenTree::OnRemove,
+            _ => FlattenTree::Never,
+        }
+    }
+}
 
 pub struct ScreenlockState {
     pub locked: SplitView<Cell<bool>>,
@@ -2290,6 +2329,10 @@ impl State {
             seat.trigger_tree_changed(false);
         }
         self.root.update_visible(self);
+    }
+
+    pub fn set_flatten_tree(&self, v: FlattenTree) {
+        self.flatten_tree.set(v);
     }
 
     pub fn reset_sizes(self: &Rc<Self>) {
