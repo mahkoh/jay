@@ -43,6 +43,7 @@ pub mod ioctl;
 pub mod keep_alive;
 pub mod line_logger;
 pub mod linkedlist;
+pub mod liveness;
 pub mod log_on_drop;
 pub mod major_minor;
 pub mod markers;
