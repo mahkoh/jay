@@ -87,6 +87,7 @@ pub mod sleeper;
 pub mod smallmap;
 pub mod spaces;
 pub mod stack;
+pub mod static_rc;
 pub mod static_text;
 pub mod str_fmt;
 pub mod str_table;
