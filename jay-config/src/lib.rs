@@ -104,6 +104,32 @@ impl Axis {
     }
 }
 
+/// A planar axis relative to the dimensions of a node.
+///
+/// If the node is exactly as wide as it is high, `Major` is `Axis::Horizontal` and
+/// `Minor` is `Axis::Vertical`.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum RelativeAxis {
+    /// The axis along the larger dimension of the node.
+    Major,
+    /// The axis along the smaller dimension of the node.
+    Minor,
+}
+
+/// The container that an action operates on.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq, Default)]
+pub enum ContainerTarget {
+    /// The parent container of the window. This is the default.
+    #[default]
+    Parent,
+    /// The window itself.
+    ///
+    /// The action has no effect if the window is not a container.
+    Itself,
+    /// The window itself if it is a container, otherwise its parent container.
+    Auto,
+}
+
 /// Exits the compositor.
 pub fn quit() {
     get!().quit()

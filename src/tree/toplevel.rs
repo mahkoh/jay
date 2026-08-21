@@ -63,6 +63,7 @@ use crate::wire::ExtImageCopyCaptureSessionV1Id;
 use crate::wire::JayScreencastId;
 use crate::wire::JayToplevelId;
 use crate::wire::ZwlrForeignToplevelHandleV1Id;
+use jay_config::ContainerTarget;
 use jay_config::window;
 use jay_config::window::WindowType;
 use std::borrow::Borrow;
@@ -1186,6 +1187,30 @@ pub fn toplevel_parent_container(tl: &dyn ToplevelNode) -> Option<Rc<ContainerNo
         return Some(container);
     }
     None
+}
+
+/// Returns the container that `target` selects for `tl`.
+pub fn toplevel_target_container(
+    tl: &Rc<dyn ToplevelNode>,
+    target: ContainerTarget,
+) -> Option<Rc<ContainerNode>> {
+    let itself = || tl.clone().node_into_container();
+    let parent = || toplevel_parent_container(&**tl);
+    match target {
+        ContainerTarget::Parent => parent(),
+        ContainerTarget::Itself => itself(),
+        ContainerTarget::Auto => itself().or_else(parent),
+    }
+}
+
+pub fn toplevel_set_target_mono(tl: &Rc<dyn ToplevelNode>, target: ContainerTarget, mono: bool) {
+    let Some(c) = toplevel_target_container(tl, target) else {
+        return;
+    };
+    match c.node_id() == tl.node_id() {
+        true => c.set_own_mono(mono),
+        false => c.set_mono(mono.then_some(&**tl)),
+    }
 }
 
 pub fn toplevel_create_split(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, axis: ContainerSplit) {

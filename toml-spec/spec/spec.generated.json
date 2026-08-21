@@ -791,6 +791,134 @@
                 "name",
                 "value"
               ]
+            },
+            {
+              "description": "Toggle the split of the target container between vertical and\nhorizontal.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-a = { type = \"toggle-split\", target = \"self\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "toggle-split"
+                },
+                "target": {
+                  "description": "The container the action applies to.\n\nThe default is `parent`.\n",
+                  "$ref": "#/$defs/ContainerTarget"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            {
+              "description": "Sets the split of the target container to horizontal.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-a = { type = \"tile-horizontal\", target = \"self\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "tile-horizontal"
+                },
+                "target": {
+                  "description": "The container the action applies to.\n\nThe default is `parent`.\n",
+                  "$ref": "#/$defs/ContainerTarget"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            {
+              "description": "Sets the split of the target container to vertical.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-a = { type = \"tile-vertical\", target = \"self\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "tile-vertical"
+                },
+                "target": {
+                  "description": "The container the action applies to.\n\nThe default is `parent`.\n",
+                  "$ref": "#/$defs/ContainerTarget"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            {
+              "description": "Sets the split of the target container along its larger dimension.\nThat is, to vertical if the container is higher than it is wide and\nto horizontal otherwise.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-a = { type = \"tile-major\", target = \"self\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "tile-major"
+                },
+                "target": {
+                  "description": "The container the action applies to.\n\nThe default is `parent`.\n",
+                  "$ref": "#/$defs/ContainerTarget"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            {
+              "description": "Sets the split of the target container along its smaller dimension.\nThat is, to vertical if the container is wider than it is high and\nto horizontal otherwise.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-a = { type = \"tile-minor\", target = \"self\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "tile-minor"
+                },
+                "target": {
+                  "description": "The container the action applies to.\n\nThe default is `parent`.\n",
+                  "$ref": "#/$defs/ContainerTarget"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            {
+              "description": "Toggle the target container between showing a single and all\nchildren.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-a = { type = \"toggle-mono\", target = \"self\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "toggle-mono"
+                },
+                "target": {
+                  "description": "The container the action applies to.\n\nThe default is `parent`.\n",
+                  "$ref": "#/$defs/ContainerTarget"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            {
+              "description": "Makes the target container show a single child.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-a = { type = \"show-single\", target = \"self\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "show-single"
+                },
+                "target": {
+                  "description": "The container the action applies to.\n\nThe default is `parent`.\n",
+                  "$ref": "#/$defs/ContainerTarget"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            {
+              "description": "Makes the target container show all children.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-a = { type = \"show-all\", target = \"self\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "show-all"
+                },
+                "target": {
+                  "description": "The container the action applies to.\n\nThe default is `parent`.\n",
+                  "$ref": "#/$defs/ContainerTarget"
+                }
+              },
+              "required": [
+                "type"
+              ]
             }
           ]
         }
@@ -1434,6 +1562,15 @@
         "separators",
         "full",
         "full-smart"
+      ]
+    },
+    "ContainerTarget": {
+      "type": "string",
+      "description": "The container that an action applies to.\n",
+      "enum": [
+        "parent",
+        "self",
+        "auto"
       ]
     },
     "ContentTypeMask": {
@@ -2310,9 +2447,13 @@
         "move-right",
         "split-horizontal",
         "split-vertical",
+        "split-major",
+        "split-minor",
         "toggle-split",
         "tile-horizontal",
         "tile-vertical",
+        "tile-major",
+        "tile-minor",
         "toggle-mono",
         "show-single",
         "show-all",

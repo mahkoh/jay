@@ -64,7 +64,9 @@ use crate::tree::move_ws_to_output;
 use crate::tree::toplevel_create_split;
 use crate::tree::toplevel_parent_container;
 use crate::tree::toplevel_set_floating;
+use crate::tree::toplevel_set_target_mono;
 use crate::tree::toplevel_set_workspace;
+use crate::tree::toplevel_target_container;
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
@@ -93,7 +95,9 @@ use jay_config::_private::ipc::ServerMessage;
 use jay_config::_private::ipc::WorkspaceSource;
 use jay_config::_private::serialize_server_message;
 use jay_config::Axis;
+use jay_config::ContainerTarget;
 use jay_config::Direction;
+use jay_config::RelativeAxis;
 use jay_config::Workspace;
 use jay_config::WorkspaceKind;
 use jay_config::client::Client as ConfigClient;
@@ -2179,6 +2183,155 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_get_seat_container_mono(
+        &self,
+        seat: Seat,
+        target: ContainerTarget,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        self.respond(Response::GetMono {
+            mono: seat.get_container_mono(target).unwrap_or(false),
+        });
+        Ok(())
+    }
+
+    fn handle_set_seat_container_mono(
+        &self,
+        seat: Seat,
+        target: ContainerTarget,
+        mono: bool,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_container_mono(target, mono);
+        Ok(())
+    }
+
+    fn handle_get_seat_container_split(
+        &self,
+        seat: Seat,
+        target: ContainerTarget,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        self.respond(Response::GetSplit {
+            axis: seat
+                .get_container_split(target)
+                .unwrap_or(ContainerSplit::Horizontal)
+                .into(),
+        });
+        Ok(())
+    }
+
+    fn handle_set_seat_container_split(
+        &self,
+        seat: Seat,
+        target: ContainerTarget,
+        axis: Axis,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_container_split(target, axis.into());
+        Ok(())
+    }
+
+    fn handle_get_window_container_mono(
+        &self,
+        window: Window,
+        target: ContainerTarget,
+    ) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        self.respond(Response::GetWindowMono {
+            mono: toplevel_target_container(&window, target)
+                .map(|c| c.node_state[LiveTL].mono_child.is_some())
+                .unwrap_or(false),
+        });
+        Ok(())
+    }
+
+    fn handle_set_window_container_mono(
+        &self,
+        window: Window,
+        target: ContainerTarget,
+        mono: bool,
+    ) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        toplevel_set_target_mono(&window, target, mono);
+        Ok(())
+    }
+
+    fn handle_get_window_container_split(
+        &self,
+        window: Window,
+        target: ContainerTarget,
+    ) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        self.respond(Response::GetWindowSplit {
+            axis: toplevel_target_container(&window, target)
+                .map(|c| c.node_state[LiveTL].split.get())
+                .unwrap_or(ContainerSplit::Horizontal)
+                .into(),
+        });
+        Ok(())
+    }
+
+    fn handle_set_window_container_split(
+        &self,
+        window: Window,
+        target: ContainerTarget,
+        axis: Axis,
+    ) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        if let Some(c) = toplevel_target_container(&window, target) {
+            c.set_split(axis.into());
+        }
+        Ok(())
+    }
+
+    fn handle_create_seat_split_relative(
+        &self,
+        seat: Seat,
+        axis: RelativeAxis,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.create_split_relative(axis);
+        Ok(())
+    }
+
+    fn handle_create_window_split_relative(
+        &self,
+        window: Window,
+        axis: RelativeAxis,
+    ) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        let pos = window.node_absolute_position(LiveTL);
+        let split = ContainerSplit::from_relative_axis(axis, &pos);
+        toplevel_create_split(&self.state, window, split);
+        Ok(())
+    }
+
+    fn handle_set_seat_container_split_relative(
+        &self,
+        seat: Seat,
+        target: ContainerTarget,
+        axis: RelativeAxis,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_container_split_relative(target, axis);
+        Ok(())
+    }
+
+    fn handle_set_window_container_split_relative(
+        &self,
+        window: Window,
+        target: ContainerTarget,
+        axis: RelativeAxis,
+    ) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        if let Some(c) = toplevel_target_container(&window, target) {
+            let pos = c.node_absolute_position(LiveTL);
+            c.set_split(ContainerSplit::from_relative_axis(axis, &pos));
+        }
+        Ok(())
+    }
+
     fn handle_add_shortcut(
         &self,
         seat: Seat,
@@ -4092,6 +4245,54 @@ impl ConfigProxyHandler {
             ClientMessage::GetPlaneColorPipelinesEnabled { device } => self
                 .handle_get_plane_color_pipelines_enabled(device)
                 .wrn("get_plane_color_pipelines_enabled")?,
+            ClientMessage::GetSeatContainerMono { seat, target } => self
+                .handle_get_seat_container_mono(seat, target)
+                .wrn("get_seat_container_mono")?,
+            ClientMessage::SetSeatContainerMono { seat, target, mono } => self
+                .handle_set_seat_container_mono(seat, target, mono)
+                .wrn("set_seat_container_mono")?,
+            ClientMessage::GetSeatContainerSplit { seat, target } => self
+                .handle_get_seat_container_split(seat, target)
+                .wrn("get_seat_container_split")?,
+            ClientMessage::SetSeatContainerSplit { seat, target, axis } => self
+                .handle_set_seat_container_split(seat, target, axis)
+                .wrn("set_seat_container_split")?,
+            ClientMessage::GetWindowContainerMono { window, target } => self
+                .handle_get_window_container_mono(window, target)
+                .wrn("get_window_container_mono")?,
+            ClientMessage::SetWindowContainerMono {
+                window,
+                target,
+                mono,
+            } => self
+                .handle_set_window_container_mono(window, target, mono)
+                .wrn("set_window_container_mono")?,
+            ClientMessage::GetWindowContainerSplit { window, target } => self
+                .handle_get_window_container_split(window, target)
+                .wrn("get_window_container_split")?,
+            ClientMessage::SetWindowContainerSplit {
+                window,
+                target,
+                axis,
+            } => self
+                .handle_set_window_container_split(window, target, axis)
+                .wrn("set_window_container_split")?,
+            ClientMessage::CreateSeatSplitRelative { seat, axis } => self
+                .handle_create_seat_split_relative(seat, axis)
+                .wrn("create_seat_split_relative")?,
+            ClientMessage::CreateWindowSplitRelative { window, axis } => self
+                .handle_create_window_split_relative(window, axis)
+                .wrn("create_window_split_relative")?,
+            ClientMessage::SetSeatContainerSplitRelative { seat, target, axis } => self
+                .handle_set_seat_container_split_relative(seat, target, axis)
+                .wrn("set_seat_container_split_relative")?,
+            ClientMessage::SetWindowContainerSplitRelative {
+                window,
+                target,
+                axis,
+            } => self
+                .handle_set_window_container_split_relative(window, target, axis)
+                .wrn("set_window_container_split_relative")?,
         }
         Ok(())
     }

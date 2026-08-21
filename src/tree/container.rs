@@ -72,6 +72,7 @@ use crate::utils::smallmap::SmallMap;
 use crate::utils::smallmap::SmallMapMut;
 use crate::utils::threshold_counter::ThresholdCounter;
 use jay_config::Axis;
+use jay_config::RelativeAxis;
 use smallvec::SmallVec;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -95,6 +96,18 @@ impl ContainerSplit {
         match self {
             ContainerSplit::Horizontal => ContainerSplit::Vertical,
             ContainerSplit::Vertical => ContainerSplit::Horizontal,
+        }
+    }
+
+    /// Resolves `axis` against the dimensions of `rect`.
+    pub fn from_relative_axis(axis: RelativeAxis, rect: &Rect) -> Self {
+        let major = match rect.height() > rect.width() {
+            true => ContainerSplit::Vertical,
+            false => ContainerSplit::Horizontal,
+        };
+        match axis {
+            RelativeAxis::Major => major,
+            RelativeAxis::Minor => major.other(),
         }
     }
 }
@@ -1518,10 +1531,19 @@ impl ContainerNode {
     }
 
     fn toggle_mono(self: &Rc<Self>) {
-        if self.node_state[LiveTL].mono_child.is_some() {
-            self.set_mono(None);
-        } else if let Some(last) = self.focus_history.last() {
-            self.set_mono(Some(&*last.node));
+        self.set_own_mono(self.node_state[LiveTL].mono_child.is_none());
+    }
+
+    /// Sets whether this container shows only a single child, using the last active
+    /// child as the mono child.
+    pub fn set_own_mono(self: &Rc<Self>, mono: bool) {
+        match mono {
+            false => self.set_mono(None),
+            true => {
+                if let Some(last) = self.focus_history.last() {
+                    self.set_mono(Some(&*last.node));
+                }
+            }
         }
     }
 
