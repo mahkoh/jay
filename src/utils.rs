@@ -36,6 +36,7 @@ pub mod fd_blocker;
 pub mod fdcloser;
 pub mod float_ext;
 pub mod free_list;
+pub mod futex;
 pub mod fx_hash;
 pub mod geometric_decay;
 pub mod hash_map_ext;
