@@ -97,3 +97,15 @@ impl Drop for Liveness {
         });
     }
 }
+
+#[expect(unused)]
+pub trait GetLiveness {
+    fn get_liveness(&self) -> &Liveness;
+}
+
+impl GetLiveness for Liveness {
+    #[inline(always)]
+    fn get_liveness(&self) -> &Liveness {
+        self
+    }
+}
