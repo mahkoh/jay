@@ -28,6 +28,11 @@ impl AsyncEvent {
         self.waker.take();
     }
 
+    #[expect(unused)]
+    pub fn reset_triggers(&self) {
+        self.triggers.set(0);
+    }
+
     pub fn trigger(&self) {
         if self.triggers.fetch_add(1) == 0
             && let Some(waker) = self.waker.take()
