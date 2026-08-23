@@ -59,6 +59,8 @@ pub mod transactions;
 pub mod trigger;
 mod ui_drag;
 mod vrr;
+mod window_floating_position;
+mod window_floating_size;
 pub mod window_match;
 mod window_rule;
 mod window_type;

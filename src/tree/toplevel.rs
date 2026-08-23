@@ -1231,7 +1231,7 @@ pub fn toplevel_set_floating(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, floati
     } else if let Some(ws) = data.workspace[LiveTL].get() {
         parent.cnode_remove_child2(&*tl, true);
         let (width, height) = data.float_size(&ws);
-        state.map_floating(tl, width, height, &ws, None);
+        state.map_floating(tl, width, height, &ws, None, false);
     }
 }
 
@@ -1271,7 +1271,7 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
     }
     if tl.tl_data().parent_is_float.get() {
         let (width, height) = tl.tl_data().float_size(ws);
-        state.map_floating(tl.clone(), width, height, ws, None);
+        state.map_floating(tl.clone(), width, height, ws, None, false);
     } else {
         state.map_tiled_on(tl.clone(), ws);
     }

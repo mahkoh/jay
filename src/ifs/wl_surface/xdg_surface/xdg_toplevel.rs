@@ -411,6 +411,7 @@ impl XdgToplevel {
         self: &Rc<Self>,
         parent: Option<&XdgToplevel>,
         pos: Option<(&Rc<OutputNode>, i32, i32)>,
+        initial: bool,
     ) {
         if let Some(session) = self.toplevel_data.session.get()
             && self
@@ -427,7 +428,7 @@ impl XdgToplevel {
                         ws = parent.xdg.workspace.get();
                     }
                     let ws = ws.unwrap_or_else(|| self.state.ensure_map_workspace(None));
-                    self.map_floating(&ws, pos.map(|p| (p.1, p.2)));
+                    self.map_floating(&ws, pos.map(|p| (p.1, p.2)), initial);
                 }
                 _ => self.map_tiled(),
             }
@@ -436,35 +437,45 @@ impl XdgToplevel {
         if let Some(ws) = self.state.get_map_workspace(None)
             && ws.ty == WorkspaceType::Overlay
         {
-            self.map_floating(&ws, None);
+            self.map_floating(&ws, None, initial);
             return;
         }
         if let Some(p) = parent {
-            self.map_child(p, pos);
+            self.map_child(p, pos, initial);
             return;
         }
         if self.toplevel_data.is_fixed_size_in_any_dimension() {
             let ws = self.state.ensure_map_workspace(None);
-            self.map_floating(&ws, None);
+            self.map_floating(&ws, None, initial);
             return;
         }
         self.map_tiled();
     }
 
-    fn map_floating(self: &Rc<Self>, workspace: &Rc<WorkspaceNode>, abs_pos: Option<(i32, i32)>) {
+    fn map_floating(
+        self: &Rc<Self>,
+        workspace: &Rc<WorkspaceNode>,
+        abs_pos: Option<(i32, i32)>,
+        initial: bool,
+    ) {
         let (width, height) = self.toplevel_data.float_size(workspace);
         self.state
-            .map_floating(self.clone(), width, height, workspace, abs_pos);
+            .map_floating(self.clone(), width, height, workspace, abs_pos, initial);
     }
 
-    fn map_child(self: &Rc<Self>, parent: &XdgToplevel, pos: Option<(&Rc<OutputNode>, i32, i32)>) {
+    fn map_child(
+        self: &Rc<Self>,
+        parent: &XdgToplevel,
+        pos: Option<(&Rc<OutputNode>, i32, i32)>,
+        initial: bool,
+    ) {
         if let Some((output, x, y)) = pos {
             let w = output.ensure_workspace();
-            self.map_floating(&w, Some((x, y)));
+            self.map_floating(&w, Some((x, y)), initial);
             return;
         }
         match parent.xdg.workspace.get() {
-            Some(w) => self.map_floating(&w, None),
+            Some(w) => self.map_floating(&w, None, initial),
             _ => self.map_tiled(),
         }
     }
@@ -502,6 +513,7 @@ impl XdgToplevel {
     }
 
     fn after_commit(self: &Rc<Self>, pos: Option<(&Rc<OutputNode>, i32, i32)>) {
+        let initial = !self.is_mapped.get();
         if pos.is_some() {
             self.is_mapped.set(false);
         }
@@ -527,7 +539,7 @@ impl XdgToplevel {
             return;
         }
         if should_be_mapped {
-            self.map(self.parent.get().as_deref(), pos);
+            self.map(self.parent.get().as_deref(), pos, initial);
             self.extents_changed();
             if let Some(workspace) = self.xdg.workspace.get() {
                 let output = workspace.node_state[LiveTL].output.get();

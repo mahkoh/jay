@@ -1119,6 +1119,7 @@ impl State {
                 pos.height(),
                 &ws,
                 Some((pos.x1() + op.x1(), pos.y1() + op.y1())),
+                false,
             );
             ws
         } else if s.fullscreen.get() {
@@ -1181,11 +1182,28 @@ impl State {
     pub fn map_floating(
         self: &Rc<Self>,
         node: Rc<dyn ToplevelNode>,
-        inner_width: i32,
-        inner_height: i32,
+        mut inner_width: i32,
+        mut inner_height: i32,
         workspace: &Rc<WorkspaceNode>,
-        abs_pos: Option<(i32, i32)>,
+        mut abs_pos: Option<(i32, i32)>,
+        initial: bool,
     ) {
+        if initial && let Some(config) = self.config.get() {
+            let data = node.tl_data();
+            if let Some((width, height)) = config.initial_floating_size(data) {
+                inner_width = width;
+                inner_height = height;
+            }
+            if abs_pos.is_none()
+                && let Some((x, y)) = config.initial_floating_position(data)
+            {
+                let op = workspace.node_state[LiveTL]
+                    .output
+                    .get()
+                    .node_absolute_position(LiveTL);
+                abs_pos = Some((x.saturating_add(op.x1()), y.saturating_add(op.y1())));
+            }
+        }
         FloatNode::new(
             self,
             workspace,

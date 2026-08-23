@@ -2207,6 +2207,28 @@ impl ConfigClient {
         });
     }
 
+    pub fn set_window_matcher_initial_floating_size(
+        &self,
+        matcher: WindowMatcher,
+        width: i32,
+        height: i32,
+    ) {
+        self.send(&ClientMessage::SetWindowMatcherInitialFloatingSize {
+            matcher,
+            width,
+            height,
+        });
+    }
+
+    pub fn set_window_matcher_initial_floating_position(
+        &self,
+        matcher: WindowMatcher,
+        x: i32,
+        y: i32,
+    ) {
+        self.send(&ClientMessage::SetWindowMatcherInitialFloatingPosition { matcher, x, y });
+    }
+
     pub fn set_window_matcher_latch_handler(
         &self,
         matcher: WindowMatcher,
