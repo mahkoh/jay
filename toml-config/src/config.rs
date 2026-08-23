@@ -38,8 +38,10 @@ use jay_config::get_workspace;
 use jay_config::input::FallbackOutputMode;
 use jay_config::input::InputEventCode;
 use jay_config::input::LayerDirection;
+use jay_config::input::MouseFollowsFocusMode;
 use jay_config::input::SwitchEvent;
 use jay_config::input::Timeline;
+use jay_config::input::WarpTarget;
 use jay_config::input::acceleration::AccelProfile;
 use jay_config::input::clickmethod::ClickMethod;
 use jay_config::input::scrollmethod::ScrollMethod;
@@ -119,7 +121,7 @@ pub enum SimpleCommand {
     ReloadSimpleIm,
     EnableUnicodeInput,
     OpenControlCenter,
-    WarpMouseToFocus,
+    WarpMouseToFocus(WarpTarget),
     HideOverlays,
     SetVisualizeCompositing(bool),
     ToggleVisualizeCompositing,
@@ -640,7 +642,7 @@ pub struct Config {
     pub workspace_display_order: Option<WorkspaceDisplayOrder>,
     pub simple_im: Option<SimpleIm>,
     pub fallback_output_mode: Option<FallbackOutputMode>,
-    pub mouse_follows_focus: Option<bool>,
+    pub mouse_follows_focus: Option<MouseFollowsFocusMode>,
     pub transactions: Option<Transactions>,
     pub cursor_size: Option<i32>,
     pub configure_all_devices: bool,

@@ -691,6 +691,27 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
     The value of this field should be a [LogLevel](#types-LogLevel).
 
+- `warp-mouse-to-focus`:
+
+  Warps the cursor to the center of the current keyboard focus.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-j = { type = "warp-mouse-to-focus", target = "output" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    What to warp the cursor to.
+    
+    The default is `window`.
+
+    The value of this field should be a [WarpTarget](#types-WarpTarget).
+
 - `set-gfx-api`:
 
   Sets the graphics API used by new DRM devices.
@@ -2480,14 +2501,11 @@ The table has the following fields:
 
 - `unstable-mouse-follows-focus` (optional):
 
-  Configures whether the mouse cursor is automatically centered on the active window
-  when focus changes via keyboard commands.
-  
-  When enabled, the cursor will be automatically positioned to the center of the
-  active window when focus changes through keyboard commands such as `focus-left`,
+  Configures whether and how the mouse cursor is automatically moved when the
+  keyboard focus changes via keyboard commands such as `focus-left`,
   `focus-right`, `show-workspace`, etc.
   
-  The default is `false`.
+  The default is `none`.
   
   This option is unstable due to various issues. It is not subject to the usual
   semver guarantees.
@@ -2495,10 +2513,10 @@ The table has the following fields:
   - Example:
   
     ```toml
-    unstable-mouse-follows-focus = true
+    unstable-mouse-follows-focus = "output"
     ```
 
-  The value of this field should be a boolean.
+  The value of this field should be a [MouseFollowsFocusMode](#types-MouseFollowsFocusMode).
 
 - `window-management-key` (optional):
 
@@ -4644,6 +4662,59 @@ The table has the following fields:
   The value of this field should be a number.
 
 
+<a name="types-MouseFollowsFocusMode"></a>
+### `MouseFollowsFocusMode`
+
+Configures whether and how the cursor follows the keyboard focus.
+
+Values of this type should have one of the following forms:
+
+#### A boolean
+
+If `true`, the cursor is moved to the center of the focused window whenever the
+keyboard focus changes. This is the same as `window`.
+
+If `false`, the cursor is never moved. This is the same as `none`.
+
+- Example:
+
+  ```toml
+  unstable-mouse-follows-focus = true
+  ```
+
+#### A string
+
+The mode to use.
+
+- Example:
+
+  ```toml
+  unstable-mouse-follows-focus = "output"
+  ```
+
+The string should have one of the following values:
+
+- `none`:
+
+  The cursor is never moved when the keyboard focus changes.
+
+- `output`:
+
+  The cursor is moved to the center of the focused output whenever the keyboard
+  focus moves to a different output.
+
+- `workspace`:
+
+  The cursor is moved to the center of the focused workspace whenever the
+  keyboard focus moves to a different workspace.
+
+- `window`:
+
+  The cursor is moved to the center of the focused window whenever the keyboard
+  focus changes.
+
+
+
 <a name="types-Output"></a>
 ### `Output`
 
@@ -6349,6 +6420,30 @@ The string should have one of the following values:
   VRR is enabled when a single application is displayed fullscreen and
   describes its content type as video or game through the
   wp_content_type_v1 protocol.
+
+
+
+<a name="types-WarpTarget"></a>
+### `WarpTarget`
+
+The target that the cursor is warped to.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `window`:
+
+  The cursor is warped to the center of the focused window.
+
+- `workspace`:
+
+  The cursor is warped to the center of the workspace containing the keyboard
+  focus.
+
+- `output`:
+
+  The cursor is warped to the center of the output containing the keyboard focus.
 
 
 
