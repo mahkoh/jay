@@ -41,6 +41,7 @@ pub mod fx_hash;
 pub mod geometric_decay;
 pub mod hash_map_ext;
 pub mod ioctl;
+pub mod jar;
 pub mod keep_alive;
 pub mod line_logger;
 pub mod linkedlist;

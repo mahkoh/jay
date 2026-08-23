@@ -8,3 +8,10 @@ repository = "https://github.com/mahkoh/jay"
 
 [dependencies]
 smallvec = { version = "1.8.0", features = ["const_generics", "const_new", "union"] }
+uapi = "0.2.13"
+static_assertions = "1.1.0"
+bstr = { version = "1.13.1", default-features = false, features = ["std"] }
+log = "0.4.33"
+
+[dev-dependencies]
+isnt = "0.2.0"

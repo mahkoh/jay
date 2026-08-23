@@ -5,7 +5,10 @@ use std::ops::DerefMut;
 use std::rc::Rc;
 use std::rc::Weak;
 
-#[expect(unused)]
+#[cfg(test)]
+mod tests;
+
+#[cfg_attr(not(test), expect(unused))]
 #[repr(transparent)]
 pub struct TypeView<T, V>(PhantomData<fn() -> V>, T)
 where
@@ -34,23 +37,23 @@ where
     }
 }
 
-#[expect(unused)]
+#[cfg_attr(not(test), expect(unused))]
 pub trait TypeViewExt1 {
-    fn create_view_rc<V>(self: &Rc<Self>) -> &Rc<TypeView<Self, V>>
+    fn tv_wrap_rc_ref<V>(self: &Rc<Self>) -> &Rc<TypeView<Self, V>>
     where
         V: ?Sized;
 
-    fn create_view_rc_clone<V>(self: &Rc<Self>) -> Rc<TypeView<Self, V>>
+    fn tv_wrap_rc_ref_clone<V>(self: &Rc<Self>) -> Rc<TypeView<Self, V>>
     where
         V: ?Sized;
 
-    fn into_view_rc<V>(self: Rc<Self>) -> Rc<TypeView<Self, V>>
+    fn tv_wrap_rc<V>(self: Rc<Self>) -> Rc<TypeView<Self, V>>
     where
         V: ?Sized;
 }
 
 impl<T> TypeViewExt1 for T {
-    fn create_view_rc<V>(self: &Rc<Self>) -> &Rc<TypeView<Self, V>>
+    fn tv_wrap_rc_ref<V>(self: &Rc<Self>) -> &Rc<TypeView<Self, V>>
     where
         V: ?Sized,
     {
@@ -71,14 +74,14 @@ impl<T> TypeViewExt1 for T {
         unsafe { mem::transmute(self) }
     }
 
-    fn create_view_rc_clone<V>(self: &Rc<Self>) -> Rc<TypeView<Self, V>>
+    fn tv_wrap_rc_ref_clone<V>(self: &Rc<Self>) -> Rc<TypeView<Self, V>>
     where
         V: ?Sized,
     {
-        self.create_view_rc::<V>().clone()
+        self.tv_wrap_rc_ref::<V>().clone()
     }
 
-    fn into_view_rc<V>(self: Rc<Self>) -> Rc<TypeView<Self, V>>
+    fn tv_wrap_rc<V>(self: Rc<Self>) -> Rc<TypeView<Self, V>>
     where
         V: ?Sized,
     {
@@ -89,19 +92,24 @@ impl<T> TypeViewExt1 for T {
     }
 }
 
-#[expect(unused)]
+#[cfg_attr(not(test), expect(unused))]
 pub trait TypeViewExt2<T>
 where
     T: ?Sized,
 {
-    fn unwrap_view(self: Rc<Self>) -> Rc<T>;
+    fn tv_unwrap_ref(&self) -> &T;
+    fn tv_unwrap_rc(self: Rc<Self>) -> Rc<T>;
 }
 
 impl<T, V> TypeViewExt2<T> for TypeView<T, V>
 where
     V: ?Sized,
 {
-    fn unwrap_view(self: Rc<Self>) -> Rc<T> {
+    fn tv_unwrap_ref(&self) -> &T {
+        &self.1
+    }
+
+    fn tv_unwrap_rc(self: Rc<Self>) -> Rc<T> {
         assert_same_layout!(*const T, Rc<Self>);
         assert_same_layout!(*const T, Rc<T>);
         // SAFETY: As above.
@@ -109,8 +117,8 @@ where
     }
 }
 
-#[expect(unused)]
-pub const fn create_weak_view<T, V>(t: Weak<T>) -> Weak<TypeView<T, V>>
+#[cfg_attr(not(test), expect(unused))]
+pub const fn tv_wrap_weak<T, V>(t: Weak<T>) -> Weak<TypeView<T, V>>
 where
     V: ?Sized,
 {
@@ -120,8 +128,8 @@ where
     unsafe { mem::transmute(t) }
 }
 
-#[expect(unused)]
-pub const fn unwrap_view_rc<T, V>(t: &Rc<TypeView<T, V>>) -> &Rc<T>
+#[cfg_attr(not(test), expect(unused))]
+pub const fn tv_unwrap_rc_ref<T, V>(t: &Rc<TypeView<T, V>>) -> &Rc<T>
 where
     V: ?Sized,
 {

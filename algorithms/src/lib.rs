@@ -5,9 +5,11 @@
     clippy::needless_lifetimes
 )]
 
+pub mod jar;
 pub mod lut;
 pub mod qoi;
 pub mod rect;
+pub mod tar;
 pub mod tf;
 pub mod triangles;
 mod windows;

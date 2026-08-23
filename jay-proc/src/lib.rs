@@ -4,6 +4,7 @@ use markers::pod;
 use proc_macro::TokenStream;
 
 mod drm_object_properties;
+mod liveness;
 mod markers;
 mod reset;
 mod str_fmt;
@@ -36,4 +37,9 @@ pub fn derive_prepare_drm_object_properties(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Pod)]
 pub fn derive_pod(input: TokenStream) -> TokenStream {
     pod::derive_pod(input)
+}
+
+#[proc_macro_derive(GetLiveness, attributes(liveness))]
+pub fn derive_get_liveness(input: TokenStream) -> TokenStream {
+    liveness::derive_get_liveness(input)
 }
