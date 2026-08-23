@@ -1,10 +1,23 @@
 use crate::utils::bhash::BHashMap;
+use arrayvec::ArrayString;
 use smallvec::Array;
 use smallvec::SmallVec;
 
 #[allow(dead_code)]
 pub trait Reset {
     fn reset(&mut self);
+}
+
+impl Reset for () {
+    fn reset(&mut self) {
+        // nothing
+    }
+}
+
+impl Reset for itoa::Buffer {
+    fn reset(&mut self) {
+        // nothing
+    }
 }
 
 impl<T: Array> Reset for SmallVec<T> {
@@ -26,6 +39,12 @@ impl<T> Reset for Vec<T> {
 }
 
 impl Reset for String {
+    fn reset(&mut self) {
+        self.clear();
+    }
+}
+
+impl<const N: usize> Reset for ArrayString<N> {
     fn reset(&mut self) {
         self.clear();
     }
@@ -56,6 +75,7 @@ macro_rules! num {
 num!(i32);
 num!(u32);
 num!(u64);
+num!(usize);
 
 macro_rules! tuples {
     ($($id:ident,)*) => {

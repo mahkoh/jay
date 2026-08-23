@@ -42,6 +42,7 @@ pub mod geometric_decay;
 pub mod hash_map_ext;
 pub mod ioctl;
 pub mod jar;
+pub mod jar_to_tar;
 pub mod keep_alive;
 pub mod line_logger;
 pub mod linkedlist;

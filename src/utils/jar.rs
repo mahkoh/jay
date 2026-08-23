@@ -20,14 +20,12 @@ pub enum JarError {
     Corrupt,
 }
 
-#[cfg_attr(not(test), expect(unused))]
 pub struct JarReader {
     _mmapped: Option<Mmapped>,
     ptr: *const u8,
     len: usize,
 }
 
-#[cfg_attr(not(test), expect(unused))]
 pub enum JarEvent<'a> {
     Dir(&'a [u8]),
     DirUp,
@@ -36,7 +34,6 @@ pub enum JarEvent<'a> {
 }
 
 impl JarReader {
-    #[cfg_attr(not(test), expect(unused))]
     pub fn new(fd: &OwnedFd) -> Result<Self, JarError> {
         let stat = uapi::fstat(fd.raw()).map_os_err(JarError::Stat)?;
         let ptr;
@@ -60,7 +57,6 @@ impl JarReader {
         })
     }
 
-    #[cfg_attr(not(test), expect(unused))]
     pub fn next(&mut self) -> Result<Option<JarEvent<'_>>, JarError> {
         if self.len == 0 {
             return Ok(None);

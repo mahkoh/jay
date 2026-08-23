@@ -3,6 +3,7 @@ use crate::utils::spaces::spaces;
 use std::fmt::Display;
 use std::fmt::Formatter;
 
+#[derive(Clone)]
 pub struct Indent {
     n: usize,
     sp: Spaces,
