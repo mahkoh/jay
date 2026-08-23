@@ -30,7 +30,9 @@ use crate::format::config_formats;
 use crate::gfx_api::ScalingFilter;
 use crate::ifs::wl_output::BlendSpace;
 use crate::ifs::wl_output::PersistentOutputState;
+use crate::ifs::wl_seat::MouseFollowsFocusMode;
 use crate::ifs::wl_seat::SeatId;
+use crate::ifs::wl_seat::WarpTarget;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wp_content_type_v1::ContentTypeExt;
 use crate::io_uring::TaskResultExt;
@@ -116,8 +118,10 @@ use jay_config::input::FocusFollowsMouseMode;
 use jay_config::input::InputDevice;
 use jay_config::input::InputEventCode as ConfigInputEventCode;
 use jay_config::input::LayerDirection;
+use jay_config::input::MouseFollowsFocusMode as ConfigMouseFollowsFocusMode;
 use jay_config::input::Seat;
 use jay_config::input::Timeline;
+use jay_config::input::WarpTarget as ConfigWarpTarget;
 use jay_config::input::acceleration::ACCEL_PROFILE_ADAPTIVE;
 use jay_config::input::acceleration::ACCEL_PROFILE_FLAT;
 use jay_config::input::acceleration::AccelProfile;
@@ -1412,6 +1416,7 @@ impl ConfigProxyHandler {
                 seat,
             }
         };
+        let before = seat.as_ref().and_then(|seat| seat.focus_target());
         let mut did_focus = false;
         if move_ {
             move_ws_to_output(
@@ -1437,7 +1442,7 @@ impl ConfigProxyHandler {
         if (did_focus || ws.ty == WorkspaceType::Normal)
             && let Some(seat) = &seat
         {
-            seat.maybe_schedule_warp_mouse_to_focus();
+            seat.maybe_schedule_warp_mouse_to_focus(before);
         }
         Ok(())
     }
@@ -3001,9 +3006,30 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_seat_warp_mouse_to_focus_target(
+        &self,
+        seat: Seat,
+        target: ConfigWarpTarget,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.schedule_warp_mouse_to_focus(target.into());
+        Ok(())
+    }
+
+    fn handle_seat_set_mouse_follows_focus_mode(
+        &self,
+        seat: Seat,
+        mode: ConfigMouseFollowsFocusMode,
+    ) -> Result<(), CphError> {
+        let mode = map_mouse_follows_focus_mode(mode)?;
+        let seat = self.get_seat(seat)?;
+        seat.set_mouse_follows_focus(mode);
+        Ok(())
+    }
+
     fn handle_seat_warp_mouse_to_focus(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        seat.schedule_warp_mouse_to_focus();
+        seat.schedule_warp_mouse_to_focus(WarpTarget::Window);
         Ok(())
     }
 
@@ -3013,7 +3039,11 @@ impl ConfigProxyHandler {
         enabled: bool,
     ) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        seat.set_mouse_follows_focus(enabled);
+        let mode = match enabled {
+            true => MouseFollowsFocusMode::Window,
+            false => MouseFollowsFocusMode::None,
+        };
+        seat.set_mouse_follows_focus(mode);
         Ok(())
     }
 
@@ -3191,8 +3221,9 @@ impl ConfigProxyHandler {
         if !window.node_visible(LiveTL) {
             return Err(CphError::WindowNotVisible(window_id));
         }
+        let before = seat.focus_target();
         seat.focus_toplevel(window);
-        seat.maybe_schedule_warp_mouse_to_focus();
+        seat.maybe_schedule_warp_mouse_to_focus(before);
         Ok(())
     }
 
@@ -4322,6 +4353,12 @@ impl ConfigProxyHandler {
             ClientMessage::SeatSetMouseFollowsFocus { seat, enabled } => self
                 .handle_seat_set_mouse_follows_focus(seat, enabled)
                 .wrn("seat_set_mouse_follows_focus")?,
+            ClientMessage::SeatSetMouseFollowsFocusMode { seat, mode } => self
+                .handle_seat_set_mouse_follows_focus_mode(seat, mode)
+                .wrn("seat_set_mouse_follows_focus_mode")?,
+            ClientMessage::SeatWarpMouseToFocusTarget { seat, target } => self
+                .handle_seat_warp_mouse_to_focus_target(seat, target)
+                .wrn("seat_warp_mouse_to_focus_target")?,
             ClientMessage::ConnectorSetUseNativeGamut {
                 connector,
                 use_native_gamut,
@@ -4744,6 +4781,8 @@ enum CphError {
     UnknownGfxApi(GfxApi),
     #[error("Unknown fallback output mode {0:?}")]
     UnknownFallbackOutputMode(FallbackOutputMode),
+    #[error("Unknown mouse follows focus mode {0:?}")]
+    UnknownMouseFollowsFocusMode(ConfigMouseFollowsFocusMode),
     #[error("Unknown tile state {0:?}")]
     UnknownTileState(ConfigTileState),
     #[error("Could not create a tagged acceptor")]
@@ -4828,4 +4867,11 @@ fn map_window_theme_kind(kind: WindowThemeKind) -> ToplevelThemeType {
         WindowThemeKind::ParentTheme => ToplevelThemeType::ParentTheme,
         WindowThemeKind::SelfTheme => ToplevelThemeType::SelfTheme,
     }
+}
+
+fn map_mouse_follows_focus_mode(
+    mode: ConfigMouseFollowsFocusMode,
+) -> Result<MouseFollowsFocusMode, CphError> {
+    mode.try_into()
+        .map_err(|_| CphError::UnknownMouseFollowsFocusMode(mode))
 }
