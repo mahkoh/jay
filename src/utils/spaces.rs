@@ -79,6 +79,12 @@ impl Drop for Spaces {
     }
 }
 
+impl Clone for Spaces {
+    fn clone(&self) -> Self {
+        spaces(self.len())
+    }
+}
+
 impl Deref for Spaces {
     type Target = str;
 
