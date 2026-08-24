@@ -1,6 +1,6 @@
-use crate::utils::oserror::OsError;
-use crate::utils::oserror::OsErrorExt;
 use crate::utils::pipe::pipe;
+use jay_algorithms::oserror::OsError;
+use jay_algorithms::oserror::OsErrorExt;
 use std::rc::Rc;
 use std::slice;
 use uapi::OwnedFd;

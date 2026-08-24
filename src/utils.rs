@@ -67,7 +67,6 @@ pub mod opaque_cell;
 pub mod opt;
 pub mod option_ext;
 pub mod ordered_float;
-pub mod oserror;
 pub mod page_alloc;
 pub mod page_size;
 pub mod pending_serial;

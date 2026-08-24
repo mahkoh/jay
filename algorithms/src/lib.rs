@@ -7,6 +7,7 @@
 
 pub mod jar;
 pub mod lut;
+pub mod oserror;
 pub mod qoi;
 pub mod rect;
 pub mod tar;

@@ -1,7 +1,7 @@
 use crate::utils::mmap::Mmapped;
 use crate::utils::mmap::mmap;
-use crate::utils::oserror::OsError;
-use crate::utils::oserror::OsErrorExt2;
+use jay_algorithms::oserror::OsError;
+use jay_algorithms::oserror::OsErrorExt2;
 use std::ptr;
 use thiserror::Error;
 use uapi::OwnedFd;

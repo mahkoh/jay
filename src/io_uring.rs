@@ -48,11 +48,11 @@ use crate::utils::fx_hash::FxBuildHasher;
 use crate::utils::mmap::Mmapped;
 use crate::utils::mmap::mmap;
 use crate::utils::numcell::NumCell;
-use crate::utils::oserror::OsError;
 use crate::utils::ptr_ext::MutPtrExt;
 use crate::utils::ptr_ext::PtrExt;
 use crate::utils::stack::Stack;
 use crate::utils::syncqueue::SyncQueue;
+use jay_algorithms::oserror::OsError;
 pub use ops::TaskResultExt;
 pub use ops::futex::FutexObj;
 pub use ops::poll_external::PendingPoll;
@@ -79,7 +79,7 @@ macro_rules! map_err {
     ($n:expr) => {{
         let n = $n;
         if n < 0 {
-            Err(crate::utils::oserror::OsError::from(-n as uapi::c::c_int))
+            Err(jay_algorithms::oserror::OsError::from(-n as uapi::c::c_int))
         } else {
             Ok(n)
         }

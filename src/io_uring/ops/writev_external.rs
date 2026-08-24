@@ -8,7 +8,7 @@ use crate::io_uring::sys::io_uring_cqe;
 use crate::io_uring::sys::io_uring_sqe;
 use crate::utils::aliasable_box::AliasableBox;
 use crate::utils::aliasable_box::AliasableBoxExt;
-use crate::utils::oserror::OsError;
+use jay_algorithms::oserror::OsError;
 use std::rc::Rc;
 use uapi::OwnedFd;
 use uapi::c;

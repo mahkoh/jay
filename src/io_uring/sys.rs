@@ -1,6 +1,6 @@
 #![allow(non_camel_case_types, dead_code)]
 
-use crate::utils::oserror::OsError;
+use jay_algorithms::oserror::OsError;
 use std::mem::MaybeUninit;
 use uapi::OwnedFd;
 use uapi::c;

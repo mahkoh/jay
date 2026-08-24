@@ -5,7 +5,7 @@ use crate::pr_caps::sys::cap_user_data_t;
 use crate::pr_caps::sys::cap_user_header_t;
 use crate::utils::bitflags::BitflagsExt;
 use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::oserror::OsErrorExt;
+use jay_algorithms::oserror::OsErrorExt;
 use opera::PhantomNotSend;
 use parking_lot::Condvar;
 use parking_lot::Mutex;

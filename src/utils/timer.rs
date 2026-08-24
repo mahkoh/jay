@@ -1,8 +1,8 @@
 use crate::io_uring::IoUring;
 use crate::io_uring::IoUringError;
 use crate::utils::buf::TypedBuf;
-use crate::utils::oserror::OsError;
-use crate::utils::oserror::OsErrorExt2;
+use jay_algorithms::oserror::OsError;
+use jay_algorithms::oserror::OsErrorExt2;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;

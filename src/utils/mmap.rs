@@ -1,5 +1,5 @@
-use crate::utils::oserror::OsError;
 use crate::utils::ptr_ext::PtrExt;
+use jay_algorithms::oserror::OsError;
 use std::ptr;
 use uapi::c;
 

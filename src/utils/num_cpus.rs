@@ -1,5 +1,5 @@
-use crate::utils::oserror::OsError;
-use crate::utils::oserror::OsErrorExt;
+use jay_algorithms::oserror::OsError;
+use jay_algorithms::oserror::OsErrorExt;
 use smallvec::SmallVec;
 use smallvec::smallvec_inline;
 use uapi::c;

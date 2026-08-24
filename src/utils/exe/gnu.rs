@@ -1,5 +1,5 @@
 use crate::utils::exe::ExeError;
-use crate::utils::oserror::OsErrorExt2;
+use jay_algorithms::oserror::OsErrorExt2;
 use std::ffi::c_char;
 use std::ffi::c_int;
 use std::ptr;

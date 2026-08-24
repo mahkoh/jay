@@ -17,13 +17,13 @@ use crate::utils::clone3::fork_with_pidfd;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
-use crate::utils::oserror::OsErrorExt2;
 use crate::utils::pipe::Pipe;
 use crate::utils::pipe::pipe;
 use crate::utils::process_name::set_process_name;
 use crate::utils::queue::AsyncQueue;
 use crate::xwayland;
 use bincode::Options;
+use jay_algorithms::oserror::OsErrorExt2;
 use jay_config::_private::bincode_ops;
 use log::Level;
 use serde::Deserialize;
@@ -67,9 +67,9 @@ struct PidfdHandoff {
 #[derive(Debug, Error)]
 pub enum ForkerError {
     #[error("Could not create a socketpair")]
-    Socketpair(#[source] crate::utils::oserror::OsError),
+    Socketpair(#[source] jay_algorithms::oserror::OsError),
     #[error("Could not fork")]
-    Fork(#[source] crate::utils::oserror::OsError),
+    Fork(#[source] jay_algorithms::oserror::OsError),
     #[error("Could not read the next message")]
     ReadFailed(#[source] BufFdError),
     #[error("Could not write the next message")]
@@ -81,9 +81,9 @@ pub enum ForkerError {
     #[error("Could not fork")]
     PidfdForkFailed,
     #[error("Could not receive pidfd from child")]
-    RecvPidfd(#[source] crate::utils::oserror::OsError),
+    RecvPidfd(#[source] jay_algorithms::oserror::OsError),
     #[error("Could not read cmsg")]
-    CmsgRead(#[source] crate::utils::oserror::OsError),
+    CmsgRead(#[source] jay_algorithms::oserror::OsError),
     #[error("Cmsg has an unexpected form")]
     InvalidCmsg,
 }
@@ -559,11 +559,11 @@ impl Forker {
 #[derive(Debug, Error)]
 enum SpawnError {
     #[error("exec failed")]
-    Exec(#[source] crate::utils::oserror::OsError),
+    Exec(#[source] jay_algorithms::oserror::OsError),
     #[error("Could not unset cloexec flag")]
-    Cloexec(#[source] crate::utils::oserror::OsError),
+    Cloexec(#[source] jay_algorithms::oserror::OsError),
     #[error("dupfd faild")]
-    Dupfd(#[source] crate::utils::oserror::OsError),
+    Dupfd(#[source] jay_algorithms::oserror::OsError),
 }
 
 fn setup_fds(mut socket: OwnedFd) -> OwnedFd {

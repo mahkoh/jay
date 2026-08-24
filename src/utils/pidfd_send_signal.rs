@@ -1,7 +1,7 @@
-use crate::utils::oserror::OsError;
-use crate::utils::oserror::OsErrorExt;
 use c::c_int;
 use c::syscall;
+use jay_algorithms::oserror::OsError;
+use jay_algorithms::oserror::OsErrorExt;
 use std::ptr;
 use std::rc::Rc;
 use uapi::OwnedFd;
