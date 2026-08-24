@@ -8,6 +8,7 @@ use std::io::BufWriter;
 use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::ffi::OsStringExt;
+use std::os::unix::fs::MetadataExt;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::path::PathBuf;
@@ -133,6 +134,29 @@ fn ustar() {
     assert_eq!(mode("a/b"), 0o644);
 }
 
+// A hard link is written with type flag 1 and the target in the linkname field.
+// tar must report it as a link and extract it as a second name for the same
+// inode rather than as a copy.
+#[test]
+fn hard_link() {
+    let dir = TmpDir::new();
+    let archive = dir.archive(|w| {
+        w.add_reg(b"a", b"hello world").unwrap();
+        w.add_hrd(b"b", b"a").unwrap();
+        w.add_reg(b"after", b"still in sync").unwrap();
+    });
+    assert_eq!(list(&archive), [&b"a"[..], b"b", b"after"]);
+    // The h distinguishes a hard link from the l of a symlink.
+    assert_eq!(modes(&archive), ["-rw-r--r--", "hrwxrwxrwx", "-rw-r--r--"]);
+    let root = extract(&dir, &archive);
+    let a = fs::metadata(root.join("a")).unwrap();
+    let b = fs::metadata(root.join("b")).unwrap();
+    assert_eq!(a.ino(), b.ino());
+    assert_eq!(a.nlink(), 2);
+    assert_eq!(fs::read(root.join("b")).unwrap(), b"hello world");
+    assert_eq!(fs::read(root.join("after")).unwrap(), b"still in sync");
+}
+
 // Contents that are not a multiple of the record size must be zero padded so
 // that the next header starts on a record boundary.
 #[test]
@@ -192,6 +216,73 @@ fn pax_linkpath() {
     let read_link = |p: PathBuf| fs::read_link(p).unwrap().into_os_string().into_vec();
     assert_eq!(read_link(root.join("short")), target);
     assert_eq!(read_link(path_of(&root, &long)), target);
+    assert_eq!(fs::read(root.join("after")).unwrap(), b"still in sync");
+}
+
+// A hard link target longer than the 100 byte linkname field goes into a pax
+// extended header, as does a target combined with a long path. The target's own
+// path is long too, so it is itself written with a pax path record and the link
+// has to name it by the same string tar reconstructs for it.
+#[test]
+fn pax_hard_linkpath() {
+    let dir = TmpDir::new();
+    let target = b"t".repeat(200);
+    let long = b"l".repeat(200);
+    let archive = dir.archive(|w| {
+        w.add_reg(&target, b"hello world").unwrap();
+        w.add_hrd(b"short", &target).unwrap();
+        w.add_hrd(&long, &target).unwrap();
+        w.add_reg(b"after", b"still in sync").unwrap();
+    });
+    assert_eq!(
+        list(&archive),
+        [
+            target.clone(),
+            b"short".to_vec(),
+            long.clone(),
+            b"after".to_vec(),
+        ],
+    );
+    let root = extract(&dir, &archive);
+    let target = fs::metadata(path_of(&root, &target)).unwrap();
+    assert_eq!(target.nlink(), 3);
+    assert_eq!(
+        fs::metadata(root.join("short")).unwrap().ino(),
+        target.ino()
+    );
+    assert_eq!(
+        fs::metadata(path_of(&root, &long)).unwrap().ino(),
+        target.ino(),
+    );
+    assert_eq!(fs::read(root.join("short")).unwrap(), b"hello world");
+    assert_eq!(fs::read(root.join("after")).unwrap(), b"still in sync");
+}
+
+// A target whose path is split over the ustar prefix and name fields is named by
+// the link in one piece. tar has to rejoin the two fields into exactly that
+// string, otherwise the link dangles and extraction fails. Any target that needs
+// splitting is over 100 bytes, so this always pairs with a pax linkpath.
+#[test]
+fn hard_link_to_split_path() {
+    let dir = TmpDir::new();
+    // 120 bytes with a separator at 60: 60 bytes of prefix and 59 of name, so
+    // both ustar fields are used.
+    let mut target = vec![b'a'; 120];
+    target[60] = b'/';
+    let archive = dir.archive(|w| {
+        w.add_reg(&target, b"hello world").unwrap();
+        w.add_hrd(b"link", &target).unwrap();
+        w.add_reg(b"after", b"still in sync").unwrap();
+    });
+    assert_eq!(
+        list(&archive),
+        [target.clone(), b"link".to_vec(), b"after".to_vec()],
+    );
+    let root = extract(&dir, &archive);
+    let target = fs::metadata(path_of(&root, &target)).unwrap();
+    assert_eq!(target.nlink(), 2);
+    assert_eq!(fs::metadata(root.join("link")).unwrap().ino(), target.ino());
+    assert_eq!(fs::read(root.join("link")).unwrap(), b"hello world");
     assert_eq!(fs::read(root.join("after")).unwrap(), b"still in sync");
 }
 
