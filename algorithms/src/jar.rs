@@ -40,25 +40,30 @@ pub enum JarEvent<'a> {
     Lnk(&'a [u8], &'a [u8]),
 }
 
+const D: u8 = b'D';
+const U: u8 = b'U';
+const L: u8 = b'L';
+const R: u8 = b'R';
+
 impl<'a> JarWriter<'a> {
     pub fn new(w: &'a mut BufWriter<dyn Write>) -> Self {
         Self { w }
     }
 
     pub fn add_dir(&mut self, path: &[u8]) -> io::Result<()> {
-        self.w.write_all(b"D")?;
+        self.w.write_all(&[D])?;
         self.w.write_all(&(path.len() as u64).to_le_bytes())?;
         self.w.write_all(path)?;
         Ok(())
     }
 
     pub fn add_dir_up(&mut self) -> io::Result<()> {
-        self.w.write_all(b"U")?;
+        self.w.write_all(&[U])?;
         Ok(())
     }
 
     pub fn add_reg(&mut self, path: &[u8], contents: &[u8]) -> io::Result<()> {
-        self.w.write_all(b"R")?;
+        self.w.write_all(&[R])?;
         self.w.write_all(&(path.len() as u64).to_le_bytes())?;
         self.w.write_all(path)?;
         self.w.write_all(&(contents.len() as u64).to_le_bytes())?;
@@ -67,7 +72,7 @@ impl<'a> JarWriter<'a> {
     }
 
     pub fn add_lnk(&mut self, path: &[u8], linkpath: &[u8]) -> io::Result<()> {
-        self.w.write_all(b"L")?;
+        self.w.write_all(&[L])?;
         self.w.write_all(&(path.len() as u64).to_le_bytes())?;
         self.w.write_all(path)?;
         self.w.write_all(&(linkpath.len() as u64).to_le_bytes())?;
@@ -107,17 +112,17 @@ impl JarReader {
         let ty = unsafe { *self.ptr };
         self.consume(1);
         let ev = match ty {
-            b'D' => {
+            D => {
                 let path = self.read_bytes()?;
                 unsafe { JarEvent::Dir(&*path) }
             }
-            b'U' => JarEvent::DirUp,
-            b'R' => {
+            U => JarEvent::DirUp,
+            R => {
                 let path = self.read_bytes()?;
                 let contents = self.read_bytes()?;
                 unsafe { JarEvent::Reg(&*path, &*contents) }
             }
-            b'L' => {
+            L => {
                 let path = self.read_bytes()?;
                 let linkpath = self.read_bytes()?;
                 unsafe { JarEvent::Lnk(&*path, &*linkpath) }
