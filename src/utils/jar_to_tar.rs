@@ -1,8 +1,8 @@
-use crate::utils::jar::JarError;
-use crate::utils::jar::JarEvent;
-use crate::utils::jar::JarReader;
 use flate2::Compression;
 use flate2::GzBuilder;
+use jay_algorithms::jar::JarError;
+use jay_algorithms::jar::JarEvent;
+use jay_algorithms::jar::JarReader;
 use jay_algorithms::tar::TarWriter;
 use std::io;
 use std::io::BufWriter;

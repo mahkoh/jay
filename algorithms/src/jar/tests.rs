@@ -1,7 +1,7 @@
-use crate::utils::jar::JarError;
-use crate::utils::jar::JarEvent;
-use crate::utils::jar::JarReader;
-use jay_algorithms::jar::JarWriter;
+use crate::jar::JarError;
+use crate::jar::JarEvent;
+use crate::jar::JarReader;
+use crate::jar::JarWriter;
 use std::io::BufWriter;
 use uapi::OwnedFd;
 use uapi::c;
