@@ -84,6 +84,7 @@ pub mod reset;
 pub mod run_toplevel;
 pub mod rwf_flags;
 pub mod scroller;
+pub mod seekable_fd;
 pub mod send_sync_ptr;
 pub mod send_sync_rc;
 pub mod sleeper;
