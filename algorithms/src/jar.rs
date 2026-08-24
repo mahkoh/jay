@@ -52,7 +52,7 @@ impl<'a> JarWriter<'a> {
 
     pub fn add_dir(&mut self, path: &[u8]) -> io::Result<()> {
         self.w.write_all(&[D])?;
-        self.w.write_all(&(path.len() as u64).to_le_bytes())?;
+        self.write_u64(path.len() as u64)?;
         self.w.write_all(path)?;
         Ok(())
     }
@@ -64,19 +64,24 @@ impl<'a> JarWriter<'a> {
 
     pub fn add_reg(&mut self, path: &[u8], contents: &[u8]) -> io::Result<()> {
         self.w.write_all(&[R])?;
-        self.w.write_all(&(path.len() as u64).to_le_bytes())?;
+        self.write_u64(path.len() as u64)?;
         self.w.write_all(path)?;
-        self.w.write_all(&(contents.len() as u64).to_le_bytes())?;
+        self.write_u64(contents.len() as u64)?;
         self.w.write_all(contents)?;
         Ok(())
     }
 
     pub fn add_lnk(&mut self, path: &[u8], linkpath: &[u8]) -> io::Result<()> {
         self.w.write_all(&[L])?;
-        self.w.write_all(&(path.len() as u64).to_le_bytes())?;
+        self.write_u64(path.len() as u64)?;
         self.w.write_all(path)?;
-        self.w.write_all(&(linkpath.len() as u64).to_le_bytes())?;
+        self.write_u64(linkpath.len() as u64)?;
         self.w.write_all(linkpath)?;
+        Ok(())
+    }
+
+    fn write_u64(&mut self, n: u64) -> io::Result<()> {
+        self.w.write_all(&n.to_le_bytes())?;
         Ok(())
     }
 }
@@ -132,13 +137,18 @@ impl JarReader {
         Ok(Some(ev))
     }
 
-    fn read_bytes(&mut self) -> Result<*const [u8], JarError> {
+    fn read_u64(&mut self) -> Result<u64, JarError> {
         if self.len < 8 {
             return Err(JarError::Corrupt);
         }
         let len = unsafe { self.ptr.cast::<[u8; 8]>().read() };
         let len = u64::from_le_bytes(len);
         self.consume(8);
+        Ok(len)
+    }
+
+    fn read_bytes(&mut self) -> Result<*const [u8], JarError> {
+        let len = self.read_u64()?;
         if (self.len as u64) < len {
             return Err(JarError::Corrupt);
         }
