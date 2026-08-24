@@ -6,7 +6,7 @@ use crate::io_uring::Task;
 use crate::io_uring::sys::IORING_OP_POLL_ADD;
 use crate::io_uring::sys::io_uring_cqe;
 use crate::io_uring::sys::io_uring_sqe;
-use crate::utils::oserror::OsError;
+use jay_algorithms::oserror::OsError;
 use std::cell::Cell;
 use std::rc::Rc;
 use uapi::OwnedFd;

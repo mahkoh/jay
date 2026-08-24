@@ -8,7 +8,7 @@ use crate::io_uring::sys::IORING_OP_TIMEOUT;
 use crate::io_uring::sys::IORING_TIMEOUT_ABS;
 use crate::io_uring::sys::io_uring_cqe;
 use crate::io_uring::sys::io_uring_sqe;
-use crate::utils::oserror::OsError;
+use jay_algorithms::oserror::OsError;
 use std::cell::Cell;
 use std::rc::Rc;
 use uapi::c;

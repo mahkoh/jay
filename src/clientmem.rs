@@ -5,11 +5,11 @@ use crate::cpu_worker::CpuWork;
 use crate::cpu_worker::CpuWorker;
 use crate::gfx_api::ShmMemory;
 use crate::gfx_api::ShmMemoryBacking;
-use crate::utils::oserror::OsError;
-use crate::utils::oserror::OsErrorExt2;
 use crate::utils::page_size::page_size;
 use crate::utils::ptr_ext::PtrExt;
 use crate::utils::vec_ext::VecExt;
+use jay_algorithms::oserror::OsError;
+use jay_algorithms::oserror::OsErrorExt2;
 use std::cell::Cell;
 use std::error::Error;
 use std::mem::ManuallyDrop;
@@ -29,11 +29,11 @@ use uapi::ftruncate;
 #[derive(Debug, Error)]
 pub enum ClientMemError {
     #[error("Could not install the sigbus handler")]
-    SigactionFailed(#[source] crate::utils::oserror::OsError),
+    SigactionFailed(#[source] jay_algorithms::oserror::OsError),
     #[error("A SIGBUS occurred while accessing mapped memory")]
     Sigbus,
     #[error("mmap failed")]
-    MmapFailed(#[source] crate::utils::oserror::OsError),
+    MmapFailed(#[source] jay_algorithms::oserror::OsError),
     #[error("Length was not a multiple of the data element size")]
     InvalidLength,
 }

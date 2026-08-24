@@ -1,9 +1,9 @@
 use crate::async_engine::AsyncEngine;
 use crate::io_uring::IoUring;
 use crate::io_uring::IoUringError;
-use crate::utils::oserror::OsError;
 use crate::utils::queue::AsyncQueue;
 use crate::wheel::Wheel;
+use jay_algorithms::oserror::OsError;
 use std::rc::Rc;
 use uapi::c::ECANCELED;
 

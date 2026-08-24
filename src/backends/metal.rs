@@ -68,13 +68,13 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::numcell::NumCell;
-use crate::utils::oserror::OsError;
-use crate::utils::oserror::OsErrorExt2;
 use crate::utils::smallmap::SmallMap;
 use crate::utils::syncqueue::SyncQueue;
 use crate::video::drm::DrmError;
 use crate::video::gbm::GbmError;
 use bstr::ByteSlice;
+use jay_algorithms::oserror::OsError;
+use jay_algorithms::oserror::OsErrorExt2;
 use jay_proc::jay_clone;
 use linearize::LinearizeExt;
 use linearize::StaticCopyMap;
@@ -106,7 +106,7 @@ pub enum MetalError {
     #[error(transparent)]
     LibInput(#[from] LibInputError),
     #[error("Dupfd failed")]
-    Dup(#[source] crate::utils::oserror::OsError),
+    Dup(#[source] jay_algorithms::oserror::OsError),
     #[error("Could not create GBM device")]
     GbmDevice(#[source] GbmError),
     #[error("Could not update the drm properties")]

@@ -90,6 +90,14 @@ impl<'a> TarWriter<'a> {
     }
 
     pub fn add_lnk(&mut self, path: &[u8], linkpath: &[u8]) -> io::Result<()> {
+        self.add_lnk_(path, linkpath, false)
+    }
+
+    pub fn add_hrd(&mut self, path: &[u8], linkpath: &[u8]) -> io::Result<()> {
+        self.add_lnk_(path, linkpath, true)
+    }
+
+    fn add_lnk_(&mut self, path: &[u8], linkpath: &[u8], hard: bool) -> io::Result<()> {
         let path = split_path(path);
         let linkpath = if linkpath.len() > 100 {
             Err(linkpath)
@@ -105,7 +113,10 @@ impl<'a> TarWriter<'a> {
             header.linkname[..linkpath.len()].copy_from_slice(linkpath);
         }
         let _ = write!(&mut header.mode[..], "{:07o}", 0o777);
-        header.typeflag = *b"2";
+        header.typeflag = match hard {
+            true => *b"1",
+            false => *b"2",
+        };
         header.write_checksum();
         self.w.write_all(uapi::as_bytes(&header))?;
         Ok(())

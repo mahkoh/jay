@@ -1,7 +1,7 @@
 use crate::evdev::input_event_codes::InputEventCode;
 use crate::evdev::input_event_codes::MAX_INPUT_EVENT_CODE;
 use crate::utils::ioctl::ioctl;
-use crate::utils::oserror::OsError;
+use jay_algorithms::oserror::OsError;
 use uapi::_IOC_READ;
 use uapi::OwnedFd;
 

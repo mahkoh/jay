@@ -7,6 +7,7 @@ use rand::rngs::Xoshiro128PlusPlus;
 
 const DEFAULT_LAMBDA: usize = 5;
 
+#[derive(Default)]
 pub struct HashState {
     pub key: u64,
     pub disps: Vec<(u32, u32)>,

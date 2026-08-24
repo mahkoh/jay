@@ -1,11 +1,11 @@
 use crate::gfx_api::SyncFile;
 use crate::io_uring::IoUringError;
-use crate::utils::oserror::OsError;
 use crate::video::drm::DrmError;
 use crate::video::drm::syncobj::DrmSyncobjCtx;
 use crate::video::drm::syncobj::Syncobj;
 use crate::video::drm::syncobj::SyncobjPoint;
 use crate::video::drm::syncobj::merge_sync_files;
+use jay_algorithms::oserror::OsError;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;

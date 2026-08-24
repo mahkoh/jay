@@ -4,7 +4,7 @@ use crate::utils::buf::Buf;
 use crate::utils::buffd::BUF_SIZE;
 use crate::utils::buffd::BufFdError;
 use crate::utils::buffd::MAX_IN_FD;
-use crate::utils::oserror::OsError;
+use jay_algorithms::oserror::OsError;
 use smallvec::SmallVec;
 use std::collections::VecDeque;
 use std::mem::MaybeUninit;

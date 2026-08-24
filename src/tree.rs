@@ -290,6 +290,11 @@ impl NodeIds {
     pub fn next<T: From<NodeId>>(&self) -> T {
         NodeId(self.next.fetch_add(1)).into()
     }
+
+    #[expect(unused)]
+    pub fn last(&self) -> u32 {
+        self.next.get() - 1
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]

@@ -4,7 +4,7 @@ use crate::time::Time;
 use crate::utils::buf::Buf;
 use crate::utils::buffd::BUF_SIZE;
 use crate::utils::buffd::BufFdError;
-use crate::utils::oserror::OsError;
+use jay_algorithms::oserror::OsError;
 use std::collections::VecDeque;
 use std::mem::{self};
 use std::rc::Rc;

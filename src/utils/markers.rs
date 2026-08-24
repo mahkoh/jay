@@ -33,6 +33,7 @@ mod impls {
     use jay_config::window::WindowMatcher;
     use kbvm::Keycode;
     use std::borrow::Cow;
+    use std::num::NonZeroU64;
     use std::rc::Rc;
     use std::rc::Weak;
     use std::sync::Arc;
@@ -70,6 +71,7 @@ mod impls {
     unsafe impl JayHash for String {}
     unsafe impl JayHash for &'_ str {}
     unsafe impl JayHash for Cow<'_, str> {}
+    unsafe impl JayHash for NonZeroU64 {}
     unsafe impl JayHash for ash::vk::Format {}
     unsafe impl<T> JayHash for Option<T> where T: JayHash {}
     unsafe impl<T> JayHash for Rc<T> where T: JayHash {}

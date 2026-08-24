@@ -1,8 +1,10 @@
-use crate::utils::jar::JarError;
-use crate::utils::jar::JarEvent;
-use crate::utils::jar::JarReader;
+use crate::utils::fx_hash::FxBuildHasher;
 use flate2::Compression;
 use flate2::GzBuilder;
+use hashbrown::HashMap;
+use jay_algorithms::jar::JarError;
+use jay_algorithms::jar::JarEvent;
+use jay_algorithms::jar::JarReader;
 use jay_algorithms::tar::TarWriter;
 use std::io;
 use std::io::BufWriter;
@@ -17,6 +19,8 @@ pub enum JarToTarError {
     ReadJar(#[source] JarError),
     #[error("Could not write tar")]
     WriteTar(#[source] io::Error),
+    #[error("Jar refers to an unknown link")]
+    MissingLink,
 }
 
 #[expect(unused)]
@@ -31,6 +35,7 @@ pub fn jar_to_tar(root: &str, src: &OwnedFd, dst: &OwnedFd) -> Result<(), JarToT
     let mut tar_writer = TarWriter::new(&mut buf_writer);
     let mut lens = vec![];
     let mut path = vec![];
+    let mut paths = HashMap::with_hasher(FxBuildHasher);
     loop {
         let ev = reader.next().map_err(JarToTarError::ReadJar)?;
         let Some(ev) = ev else {
@@ -49,8 +54,11 @@ pub fn jar_to_tar(root: &str, src: &OwnedFd, dst: &OwnedFd) -> Result<(), JarToT
                 path.truncate(len);
                 Ok(())
             }
-            JarEvent::Reg(p, c) => {
+            JarEvent::Reg(p, unique, c) => {
                 path.extend_from_slice(p);
+                if let Some(unique) = unique {
+                    paths.insert(unique, path.clone());
+                }
                 let res = tar_writer.add_reg(&path, c);
                 path.truncate(len);
                 res
@@ -58,6 +66,13 @@ pub fn jar_to_tar(root: &str, src: &OwnedFd, dst: &OwnedFd) -> Result<(), JarToT
             JarEvent::Lnk(p, l) => {
                 path.extend_from_slice(p);
                 let res = tar_writer.add_lnk(&path, l);
+                path.truncate(len);
+                res
+            }
+            JarEvent::Hrd(p, unique) => {
+                let l = paths.get(&unique).ok_or(JarToTarError::MissingLink)?;
+                path.extend_from_slice(p);
+                let res = tar_writer.add_hrd(&path, l);
                 path.truncate(len);
                 res
             }

@@ -1,8 +1,8 @@
 use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::oserror::OsError;
-use crate::utils::oserror::OsErrorExt;
-use crate::utils::oserror::OsErrorExt2;
 use crate::xwayland::XWaylandError;
+use jay_algorithms::oserror::OsError;
+use jay_algorithms::oserror::OsErrorExt;
+use jay_algorithms::oserror::OsErrorExt2;
 use std::io::Read;
 use std::io::Write;
 use std::rc::Rc;

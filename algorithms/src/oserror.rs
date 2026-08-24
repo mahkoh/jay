@@ -16,6 +16,7 @@ macro_rules! errors {
 
         $(
             #[allow(unused, non_snake_case)]
+            #[inline]
             pub fn $name<T>() -> Result<T, OsError> {
                 Err(OsError(c::$name))
             }
@@ -176,12 +177,14 @@ static ERRORS: LazyLock<&'static [Option<&'static str>]> = LazyLock::new(|| {
 pub struct OsError(pub c::c_int);
 
 impl From<c::c_int> for OsError {
+    #[inline]
     fn from(v: c_int) -> Self {
         Self(v)
     }
 }
 
 impl From<std::io::Error> for OsError {
+    #[inline]
     fn from(v: std::io::Error) -> Self {
         match v.raw_os_error() {
             Some(v) => Self(v),
@@ -191,6 +194,7 @@ impl From<std::io::Error> for OsError {
 }
 
 impl Default for OsError {
+    #[inline]
     fn default() -> Self {
         OsError(Errno::default().0)
     }
@@ -217,6 +221,7 @@ pub trait OsErrorExt {
 impl<T> OsErrorExt for Result<T, Errno> {
     type Container = Result<T, OsError>;
 
+    #[inline]
     fn to_os_error(self) -> Self::Container {
         match self {
             Ok(v) => Ok(v),
@@ -236,6 +241,7 @@ pub trait OsErrorExt2 {
 impl<T> OsErrorExt2 for Result<T, Errno> {
     type T = T;
 
+    #[inline]
     fn map_os_err<F, O>(self, op: O) -> Result<T, F>
     where
         O: FnOnce(OsError) -> F,

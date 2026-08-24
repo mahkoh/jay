@@ -12,6 +12,8 @@ uapi = "0.2.13"
 static_assertions = "1.1.0"
 bstr = { version = "1.13.1", default-features = false, features = ["std"] }
 log = "0.4.33"
+thiserror = "2.0.20"
+rustc-hash = "2.1.3"
 
 [dev-dependencies]
 isnt = "0.2.0"

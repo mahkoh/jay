@@ -5,7 +5,7 @@ use crate::env::XDG_RUNTIME_DIR;
 use crate::env::initial_log_level;
 use crate::logger::Logger;
 use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::oserror::OsErrorExt;
+use jay_algorithms::oserror::OsErrorExt;
 use std::path::PathBuf;
 use uapi::UstrPtr;
 

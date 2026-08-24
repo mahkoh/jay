@@ -1,5 +1,5 @@
 use crate::utils::exe::ExeError;
-use crate::utils::oserror::OsError;
+use jay_algorithms::oserror::OsError;
 use uapi::OwnedFd;
 use uapi::c;
 

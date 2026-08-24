@@ -1,5 +1,5 @@
 use crate::utils::compat::IoctlNumber;
-use crate::utils::oserror::OsError;
+use jay_algorithms::oserror::OsError;
 use uapi::c;
 
 pub unsafe fn ioctl<T>(fd: c::c_int, request: c::c_ulong, t: &mut T) -> Result<c::c_int, OsError> {

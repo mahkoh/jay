@@ -1,5 +1,5 @@
-use crate::utils::oserror::OsError;
-use crate::utils::oserror::OsErrorExt;
+use jay_algorithms::oserror::OsError;
+use jay_algorithms::oserror::OsErrorExt;
 use uapi::c;
 
 pub fn set_nonblock(fd: c::c_int) -> Result<(), OsError> {

@@ -1,7 +1,7 @@
 use crate::utils::numcell::NumCell;
-use crate::utils::oserror::OsError;
 use crate::utils::ptr_ext::PtrExt;
 use crate::utils::stack::Stack;
+use jay_algorithms::oserror::OsError;
 use std::cell::Cell;
 use std::future::Future;
 use std::pin::Pin;

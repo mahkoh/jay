@@ -1,5 +1,5 @@
 use crate::io_uring::IoUringError;
-use crate::utils::oserror::OsError;
+use jay_algorithms::oserror::OsError;
 
 pub mod accept;
 pub mod async_cancel;

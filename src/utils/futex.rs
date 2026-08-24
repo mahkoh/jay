@@ -1,5 +1,5 @@
-use crate::utils::oserror::OsError;
-use crate::utils::oserror::OsErrorExt;
+use jay_algorithms::oserror::OsError;
+use jay_algorithms::oserror::OsErrorExt;
 use std::sync::atomic::AtomicU32;
 use uapi::c;
 use uapi::map_err;

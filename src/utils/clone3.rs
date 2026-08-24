@@ -1,8 +1,8 @@
 use crate::forker::ForkerError;
 use crate::pr_caps::drop_all_pr_caps;
 use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::oserror::OsErrorExt2;
 use crate::utils::process_name::set_process_name;
+use jay_algorithms::oserror::OsErrorExt2;
 use run_on_drop::on_drop;
 use std::env;
 use std::mem::MaybeUninit;

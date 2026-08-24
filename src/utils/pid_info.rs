@@ -1,6 +1,6 @@
 use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::oserror::OsErrorExt;
 use bstr::ByteSlice;
+use jay_algorithms::oserror::OsErrorExt;
 use std::os::unix::ffi::OsStrExt;
 use std::rc::Rc;
 use uapi::OwnedFd;

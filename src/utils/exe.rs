@@ -1,5 +1,5 @@
-use crate::utils::oserror::OsError;
-use crate::utils::oserror::OsErrorExt;
+use jay_algorithms::oserror::OsError;
+use jay_algorithms::oserror::OsErrorExt;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;

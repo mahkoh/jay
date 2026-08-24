@@ -1,6 +1,6 @@
 #![allow(non_camel_case_types)]
 
-use crate::utils::oserror::OsError;
+use jay_algorithms::oserror::OsError;
 use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::ptr;
