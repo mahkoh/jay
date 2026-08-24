@@ -1,13 +1,13 @@
 use crate::ifs::wl_seat::wl_keyboard;
 use crate::object::Version;
 use crate::utils::clonecell::CloneCell;
-use crate::utils::mmap::mmap;
 use crate::utils::ptr_ext::PtrExt;
 use crate::wire::WlKeyboardId;
 use crate::wire::WlSurfaceId;
 use crate::wire::wl_keyboard::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
+use jay_algorithms::mmap::mmap;
 use jay_algorithms::oserror::OsError;
 use kbvm::Components;
 use kbvm::Keycode;

@@ -1,9 +1,9 @@
 use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::mmap::Mmapped;
-use crate::utils::mmap::mmap;
 use crate::utils::page_size::page_size;
 use crate::utils::ptr_ext::MutPtrExt;
 use crate::utils::ptr_ext::PtrExt;
+use jay_algorithms::mmap::Mmapped;
+use jay_algorithms::mmap::mmap;
 use jay_algorithms::oserror::OsError;
 use std::marker::PhantomData;
 use std::ops::Range;

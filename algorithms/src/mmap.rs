@@ -1,5 +1,4 @@
-use crate::utils::ptr_ext::PtrExt;
-use jay_algorithms::oserror::OsError;
+use crate::oserror::OsError;
 use std::ptr;
 use uapi::c;
 
@@ -27,7 +26,7 @@ pub fn mmap(
 impl Drop for Mmapped {
     fn drop(&mut self) {
         unsafe {
-            c::munmap(self.ptr.deref().as_ptr() as _, self.ptr.deref().len());
+            c::munmap(self.ptr.cast::<c::c_void>().cast_mut(), self.ptr.len());
         }
     }
 }

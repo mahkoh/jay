@@ -1,5 +1,5 @@
-use crate::utils::mmap::Mmapped;
-use crate::utils::mmap::mmap;
+use jay_algorithms::mmap::Mmapped;
+use jay_algorithms::mmap::mmap;
 use jay_algorithms::oserror::OsError;
 use jay_algorithms::oserror::OsErrorExt2;
 use std::ptr;
