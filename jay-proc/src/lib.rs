@@ -24,7 +24,7 @@ pub fn derive_global(input: TokenStream) -> TokenStream {
     global::derive_global(input)
 }
 
-#[proc_macro_derive(Object, attributes(break_loops))]
+#[proc_macro_derive(Object, attributes(break_loops, debugfs))]
 pub fn derive_object(input: TokenStream) -> TokenStream {
     object::derive_object(input)
 }

@@ -21,6 +21,16 @@ pub fn derive_object(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
             impl crate::object::BreakLoops for #ident { }
         };
     }
+    let mut debugfs = quote! {};
+    if !input.debugfs {
+        debugfs = quote_spanned! { input.span =>
+            impl crate::object::ObjectDebugfs for #ident {
+                fn object_debugfs(self: Rc<Self>, client: &Rc<crate::client::Client>) -> crate::utils::fuse::fuse_inode::FuseInodeWithKey {
+                    client.generic_object_view(self.id.into())
+                }
+            }
+        };
+    }
     let include_path = LitStr::new(&format!("/dedicated/{}.rs", ident), ident.span());
     let res = quote_spanned! { input.span =>
         impl crate::object::Object for #ident {
@@ -48,6 +58,8 @@ pub fn derive_object(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 
         #break_loops
 
+        #debugfs
+
         include!(concat!(env!("OUT_DIR"), #include_path));
     };
     res.into()
@@ -57,23 +69,31 @@ struct Input {
     span: Span,
     ident: Ident,
     break_loops: bool,
+    debugfs: bool,
 }
 
 impl Input {
     fn parse_struct(input: ItemStruct) -> syn::Result<Self> {
         let span = input.span();
         let mut break_loops = false;
+        let mut debugfs = false;
         for attr in &input.attrs {
             if let Meta::Path(p) = &attr.meta
                 && p.is_ident("break_loops")
             {
                 break_loops = true;
             }
+            if let Meta::Path(p) = &attr.meta
+                && p.is_ident("debugfs")
+            {
+                debugfs = true;
+            }
         }
         Ok(Self {
             span,
             ident: input.ident,
             break_loops,
+            debugfs,
         })
     }
 }

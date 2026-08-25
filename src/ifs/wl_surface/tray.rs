@@ -44,6 +44,7 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::linkedlist::NodeRef;
+use crate::utils::liveness::GetLiveness;
 use crate::wire::ObjectId;
 use crate::wire::WlSeatId;
 use crate::wire::XdgPopupId;
@@ -109,6 +110,7 @@ impl TrayItemData {
 pub type TrayItemLink = TreeLink<Rc<dyn DynTrayItem>>;
 
 pub trait DynTrayItem: Node {
+    fn object_id(&self) -> ObjectId;
     fn send_current_configure(self: Rc<Self>);
     fn data(&self) -> &TrayItemData;
     fn set_position(self: Rc<Self>, abs_pos: Rect, rel_pos: Rect);
@@ -118,6 +120,10 @@ pub trait DynTrayItem: Node {
 }
 
 impl<T: TrayItem> DynTrayItem for T {
+    fn object_id(&self) -> ObjectId {
+        <T as TrayItem>::object_id(self)
+    }
+
     fn send_current_configure(self: Rc<Self>) {
         self.schedule_configure();
     }
@@ -188,10 +194,10 @@ pub struct TrayItemConfigureData {
 trait TrayItem:
     Configurable<T = TrayItemConfigureData>
     + Transactionable<T = TrayItemTransactionOp>
+    + GetLiveness
     + Sized
     + 'static
 {
-    #[expect(unused)]
     fn object_id(&self) -> ObjectId;
     fn tray_item_data(&self) -> &TrayItemData;
     fn popups(&self) -> &CopyHashMap<XdgPopupId, Rc<Popup<Self>>>;

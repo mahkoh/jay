@@ -65,6 +65,8 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::event_listener::EventListener;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::lazy_event_source::LazyEventSource;
+use crate::utils::liveness::GetLiveness;
+use crate::utils::liveness::Liveness;
 use crate::utils::numcell::NumCell;
 use crate::utils::rc_eq::rc_eq;
 use crate::utils::threshold_counter::ThresholdCounter;
@@ -75,6 +77,7 @@ use crate::wire::JayToplevelId;
 use crate::wire::ZwlrForeignToplevelHandleV1Id;
 use jay_config::window;
 use jay_config::window::WindowType;
+use jay_proc::GetLiveness;
 use linearize::Linearize;
 use linearize::StaticMap;
 use std::borrow::Borrow;
@@ -84,6 +87,8 @@ use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::rc::Weak;
+
+mod toplevel_dfs_g_fuse;
 
 opaque!(ToplevelIdentifier, toplevel_identifier);
 
@@ -318,7 +323,9 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
     }
 }
 
-pub trait ToplevelNodeBase: OutputEventListener + WorkspaceEventListener + Node {
+pub trait ToplevelNodeBase:
+    OutputEventListener + WorkspaceEventListener + Node + GetLiveness
+{
     fn tl_data(&self) -> &ToplevelData;
 
     fn tl_accepts_keyboard_focus(&self) -> bool {
@@ -456,6 +463,7 @@ pub enum ToplevelThemeType {
     SelfTheme,
 }
 
+#[derive(GetLiveness)]
 pub struct ToplevelData {
     pub node_id: NodeId,
     pub kind: ToplevelType,
@@ -512,6 +520,7 @@ pub struct ToplevelData {
     theme: StaticMap<ToplevelThemeType, OnceCell<CachedBox<ToplevelTheme, BoxUninit>>>,
     theme_change_queued: Cell<bool>,
     theme_change: StaticMap<ToplevelThemeType, Cell<bool>>,
+    liveness: Liveness,
 }
 
 impl ToplevelData {
@@ -589,6 +598,7 @@ impl ToplevelData {
             theme: Default::default(),
             theme_change_queued: Default::default(),
             theme_change: Default::default(),
+            liveness: Default::default(),
         }
     }
 

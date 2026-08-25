@@ -19,6 +19,7 @@ use crate::ifs::zwlr_layer_shell_v1::OVERLAY;
 use crate::ifs::zwlr_layer_shell_v1::ZwlrLayerShellV1;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
+use crate::object::ObjectDebugfs;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::rect::Size;
@@ -47,13 +48,16 @@ use crate::tree::WorkspaceNode;
 use crate::utils::bitflags::BitflagsExt;
 use crate::utils::cell_ext::CellExt;
 use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::linkedlist::NodeRef;
+use crate::utils::liveness::Liveness;
 use crate::wire::ObjectId;
 use crate::wire::XdgPopupId;
 use crate::wire::ZwlrLayerSurfaceV1Id;
 use crate::wire::zwlr_layer_surface_v1::*;
+use jay_proc::GetLiveness;
 use jay_proc::Object;
 use jay_proc::Reset;
 use std::cell::Cell;
@@ -61,6 +65,8 @@ use std::cell::RefCell;
 use std::cell::RefMut;
 use std::rc::Rc;
 use thiserror::Error;
+
+mod layer_surface_dfs_g_fuse;
 
 const KI_NONE: u32 = 0;
 const KI_EXCLUSIVE: u32 = 1;
@@ -72,14 +78,15 @@ const LEFT: u32 = 4;
 const RIGHT: u32 = 8;
 
 tree_id!(ZwlrLayerSurfaceV1NodeId);
-#[derive(Object)]
+#[derive(Object, GetLiveness)]
 #[break_loops]
+#[debugfs]
 pub struct ZwlrLayerSurfaceV1 {
-    id: ZwlrLayerSurfaceV1Id,
+    pub id: ZwlrLayerSurfaceV1Id,
     node_id: ZwlrLayerSurfaceV1NodeId,
     version: Version,
     shell: Rc<ZwlrLayerShellV1>,
-    client: Rc<Client>,
+    pub client: Rc<Client>,
     pub surface: Rc<WlSurface>,
     output: Rc<OutputGlobalOpt>,
     _namespace: String,
@@ -104,6 +111,7 @@ pub struct ZwlrLayerSurfaceV1 {
     destroyed: Cell<bool>,
     transaction_data: TransactionData<LayerSurfaceTransactionOp>,
     enabled_transactions: Cell<Option<EnabledSurfaceTransactions>>,
+    liveness: Liveness,
 }
 
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
@@ -218,6 +226,7 @@ impl ZwlrLayerSurfaceV1 {
             destroyed: Cell::new(false),
             transaction_data: TransactionData::new(&state.tree),
             enabled_transactions: Default::default(),
+            liveness: Default::default(),
         }
     }
 
@@ -889,6 +898,12 @@ impl BreakLoops for ZwlrLayerSurfaceV1 {
         self.link.borrow_mut().take();
         self.destroyed.set(true);
         self.configurable_data.ready();
+    }
+}
+
+impl ObjectDebugfs for ZwlrLayerSurfaceV1 {
+    fn object_debugfs(self: Rc<Self>, _client: &Rc<Client>) -> FuseInodeWithKey {
+        self.debugfs()
     }
 }
 

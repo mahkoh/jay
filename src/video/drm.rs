@@ -857,8 +857,8 @@ pub struct DrmModeInfo {
     pub vrefresh: u32,
 
     pub flags: u32,
-    ty: u32,
-    name: BString,
+    pub ty: u32,
+    pub name: BString,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]

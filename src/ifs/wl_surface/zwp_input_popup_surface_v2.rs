@@ -6,6 +6,7 @@ use crate::ifs::wl_surface::WlSurface;
 use crate::ifs::wl_surface::WlSurfaceError;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
+use crate::object::ObjectDebugfs;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::state::State;
@@ -13,16 +14,22 @@ use crate::tree::NodeLayerLink;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::tree::WorkspaceNode;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
+use crate::utils::liveness::Liveness;
 use crate::wire::ObjectId;
 use crate::wire::ZwpInputPopupSurfaceV2Id;
 use crate::wire::zwp_input_popup_surface_v2::*;
+use jay_proc::GetLiveness;
 use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
-#[derive(Object)]
+mod zwp_input_popup_surface_v2_dfs_g_fuse;
+
+#[derive(Object, GetLiveness)]
 #[break_loops]
+#[debugfs]
 pub struct ZwpInputPopupSurfaceV2 {
     pub id: ZwpInputPopupSurfaceV2Id,
     pub client: Rc<Client>,
@@ -32,6 +39,7 @@ pub struct ZwpInputPopupSurfaceV2 {
     pub tracker: Tracker<Self>,
     pub positioning_scheduled: Cell<bool>,
     pub was_on_screen: Cell<bool>,
+    pub liveness: Liveness,
 }
 
 impl SurfaceExt for ZwpInputPopupSurfaceV2 {
@@ -198,6 +206,12 @@ impl ZwpInputPopupSurfaceV2RequestHandler for ZwpInputPopupSurfaceV2 {
 impl BreakLoops for ZwpInputPopupSurfaceV2 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
+    }
+}
+
+impl ObjectDebugfs for ZwpInputPopupSurfaceV2 {
+    fn object_debugfs(self: Rc<Self>, _client: &Rc<Client>) -> FuseInodeWithKey {
+        self.debugfs()
     }
 }
 

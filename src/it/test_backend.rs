@@ -50,6 +50,7 @@ use crate::utils::bhash::BHashMap;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::liveness::Liveness;
 use crate::utils::numcell::NumCell;
 use crate::utils::on_change::OnChange;
 use crate::utils::syncqueue::SyncQueue;
@@ -62,6 +63,7 @@ use crate::video::gbm::GbmError;
 use bstr::ByteSlice;
 use jay_algorithms::oserror::OsError;
 use jay_algorithms::oserror::OsErrorExt2;
+use jay_proc::GetLiveness;
 use std::any::Any;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -94,6 +96,7 @@ pub enum TestBackendError {
     CreateVulkanAllocator(#[source] AllocatorError),
 }
 
+#[derive(GetLiveness)]
 pub struct TestBackend {
     pub state: Rc<State>,
     test_future: TestFuture,
@@ -103,6 +106,7 @@ pub struct TestBackend {
     pub default_mouse: Rc<TestBackendMouse>,
     pub default_kb: Rc<TestBackendKb>,
     render_context_installed: Cell<bool>,
+    liveness: Liveness,
 }
 
 impl TestBackend {
@@ -200,6 +204,7 @@ impl TestBackend {
             default_mouse,
             default_kb,
             render_context_installed: Cell::new(false),
+            liveness: Default::default(),
         }
     }
 

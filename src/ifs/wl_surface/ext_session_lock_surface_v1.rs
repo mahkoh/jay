@@ -13,6 +13,7 @@ use crate::ifs::wl_surface::WlSurface;
 use crate::ifs::wl_surface::WlSurfaceError;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
+use crate::object::ObjectDebugfs;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::rect::Size;
@@ -31,16 +32,22 @@ use crate::tree::TreeSerial;
 use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::WorkspaceNode;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
+use crate::utils::liveness::Liveness;
 use crate::wire::ExtSessionLockSurfaceV1Id;
 use crate::wire::ObjectId;
 use crate::wire::ext_session_lock_surface_v1::*;
+use jay_proc::GetLiveness;
 use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
-#[derive(Object)]
+mod session_lock_surface_dfs_g_fuse;
+
+#[derive(Object, GetLiveness)]
 #[break_loops]
+#[debugfs]
 pub struct ExtSessionLockSurfaceV1 {
     pub id: ExtSessionLockSurfaceV1Id,
     pub node_id: ExtSessionLockSurfaceV1NodeId,
@@ -54,6 +61,7 @@ pub struct ExtSessionLockSurfaceV1 {
     pub configurable_data: ConfigurableData<Size>,
     pub desired_size: Cell<Size>,
     pub enabled_transactions: Cell<Option<EnabledSurfaceTransactions>>,
+    pub liveness: Liveness,
 }
 
 impl ExtSessionLockSurfaceV1 {
@@ -218,6 +226,12 @@ impl BreakLoops for ExtSessionLockSurfaceV1 {
         self.destroy_node();
         self.destroyed.set(true);
         self.configurable_data.ready();
+    }
+}
+
+impl ObjectDebugfs for ExtSessionLockSurfaceV1 {
+    fn object_debugfs(self: Rc<Self>, _client: &Rc<Client>) -> FuseInodeWithKey {
+        self.debugfs()
     }
 }
 

@@ -76,8 +76,10 @@ use crate::utils::cell_ext::CellExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::geometric_decay::GeometricDecay;
 use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::liveness::Liveness;
 use crate::utils::numcell::NumCell;
 use crate::utils::obj_and_id::ObjWithIdOptExt;
 use crate::utils::object_registry::CachedObjectRegistry;
@@ -85,6 +87,7 @@ use crate::utils::object_registry::ObjectRegistry;
 use crate::utils::on_change::OnChange;
 use crate::utils::opaque_cell::OpaqueCell;
 use crate::utils::ordered_float::F64;
+use crate::utils::static_text::StaticText;
 use crate::video::INVALID_MODIFIER;
 use crate::video::Modifier;
 use crate::video::dmabuf::DmaBufId;
@@ -120,6 +123,7 @@ use hashbrown::hash_map::Entry;
 use indexmap::IndexSet;
 use indexmap::indexset;
 use jay_algorithms::oserror::OsError;
+use jay_proc::GetLiveness;
 use linearize::Linearize;
 use linearize::StaticCopyMap;
 use std::cell::Cell;
@@ -143,20 +147,21 @@ pub struct PendingDrmDevice {
     pub devnode: CString,
 }
 
-#[derive(Debug)]
+#[derive(Debug, GetLiveness)]
 pub struct MetalRenderContext {
     pub dev_id: DrmDeviceId,
     pub gfx: Rc<dyn GfxContext>,
     pub gbm: Rc<GbmDevice>,
     pub devnode: CString,
     pub copy_device: Rc<CopyDeviceHolder>,
+    liveness: Liveness,
 }
 
 pub struct CopyDeviceHolder {
     registry: Rc<CopyDeviceRegistry>,
-    id: DrmDeviceId,
-    devnum: dev_t,
-    dev: OnceCell<Option<Rc<CopyDevice>>>,
+    pub id: DrmDeviceId,
+    pub devnum: dev_t,
+    pub dev: OnceCell<Option<Rc<CopyDevice>>>,
 }
 
 impl Debug for CopyDeviceHolder {
@@ -168,7 +173,7 @@ impl Debug for CopyDeviceHolder {
 #[derive(Copy, Clone, Default)]
 pub struct MetalDrmVendor {
     pub is_nvidia: bool,
-    is_amd: bool,
+    pub is_amd: bool,
 }
 
 pub struct MetalDrmDevice {
@@ -177,9 +182,9 @@ pub struct MetalDrmDevice {
     pub devnum: dev_t,
     pub devnode: CString,
     pub master: Rc<DrmMaster>,
-    supports_kms: bool,
+    pub supports_kms: bool,
     pub crtcs: BHashMap<DrmCrtc, Rc<MetalCrtc>>,
-    encoders: BHashMap<DrmEncoder, Rc<MetalEncoder>>,
+    pub encoders: BHashMap<DrmEncoder, Rc<MetalEncoder>>,
     pub planes: BHashMap<DrmPlane, Rc<MetalPlane>>,
     pub cursor_width: u64,
     pub cursor_height: u64,
@@ -189,14 +194,14 @@ pub struct MetalDrmDevice {
     pub ctx: CloneCell<Rc<MetalRenderContext>>,
     pub copy_device: Rc<CopyDeviceHolder>,
     pub on_change: OnChange<crate::backend::DrmEvent>,
-    direct_scanout_enabled: Cell<Option<bool>>,
+    pub direct_scanout_enabled: Cell<Option<bool>>,
     pub vendor: MetalDrmVendor,
     lease_ids: MetalLeaseIds,
     pub leases: CopyHashMap<MetalLeaseId, MetalLeaseData>,
     pub leases_to_break: CopyHashMap<MetalLeaseId, MetalLeaseData>,
     pub paused: Cell<bool>,
-    min_post_commit_margin: Cell<u64>,
-    supports_plane_color_pipelines: bool,
+    pub min_post_commit_margin: Cell<u64>,
+    pub supports_plane_color_pipelines: bool,
     pub use_plane_color_pipelines: Cell<bool>,
     cm: MetalCmDevice,
 }
@@ -420,11 +425,12 @@ impl Debug for HandleEvents {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, GetLiveness)]
 pub struct MetalDrmDeviceData {
     pub dev: Rc<MetalDrmDevice>,
     pub connectors: CopyHashMap<DrmConnector, Rc<MetalConnector>>,
     pub futures: CopyHashMap<DrmConnector, ConnectorFutures>,
+    liveness: Liveness,
 }
 
 #[derive(Debug)]
@@ -443,10 +449,10 @@ pub struct DefaultProperty<T = ()> {
 #[derive(Debug)]
 pub struct ConnectorDisplayData {
     pub crtcs: BinarySearchMap<DrmCrtc, Rc<MetalCrtc>, 8>,
-    first_mode: Mode,
+    pub first_mode: Mode,
     pub modes: Vec<DrmModeInfo>,
     pub persistent: Rc<PersistentDisplayData>,
-    refresh: u32,
+    pub refresh: u32,
     pub non_desktop: bool,
     pub non_desktop_effective: bool,
     pub vrr_capable: bool,
@@ -458,8 +464,8 @@ pub struct ConnectorDisplayData {
     output_id: Rc<OutputId>,
 
     pub connection: ConnectorStatus,
-    mm_width: u32,
-    mm_height: u32,
+    pub mm_width: u32,
+    pub mm_height: u32,
     _subpixel: u32,
 
     pub supports_bt2020: bool,
@@ -585,11 +591,13 @@ pub enum FrontState {
     Unavailable,
 }
 
+#[derive(GetLiveness)]
 pub struct MetalConnector {
     pub id: DrmConnector,
-    kernel_id: Cell<ConnectorKernelId>,
+    pub kernel_id: Cell<ConnectorKernelId>,
     pub master: Rc<DrmMaster>,
     pub state: Rc<State>,
+    liveness: Liveness,
 
     pub dev: Rc<MetalDrmDevice>,
     pub backend: Rc<MetalBackend>,
@@ -642,9 +650,9 @@ pub struct MetalConnector {
     pub pre_commit_margin: Cell<u64>,
     pub pre_commit_margin_decay: GeometricDecay,
     pub post_commit_margin: Cell<u64>,
-    post_commit_margin_decay: GeometricDecay,
-    vblank_miss_sec: Cell<u32>,
-    vblank_miss_this_sec: NumCell<u32>,
+    pub post_commit_margin_decay: GeometricDecay,
+    pub vblank_miss_sec: Cell<u32>,
+    pub vblank_miss_this_sec: NumCell<u32>,
     pub presentation_is_sync: Cell<bool>,
     pub presentation_is_zero_copy: Cell<bool>,
 
@@ -983,14 +991,20 @@ impl Connector for MetalConnector {
     fn scanout_formats(&self) -> Option<ScanoutFormats> {
         Some(self.primary_plane.get()?.scanout_formats.clone())
     }
+
+    fn debugfs_link(self: Rc<Self>) -> Option<FuseInodeWithKey> {
+        Some(self.debugfs_external_link())
+    }
 }
 
+#[derive(GetLiveness)]
 pub struct MetalCrtc {
     pub id: DrmCrtc,
-    idx: usize,
-    master: Rc<DrmMaster>,
+    pub idx: usize,
+    pub master: Rc<DrmMaster>,
     pub default_properties: Vec<DefaultProperty>,
     pub untyped_properties: RefCell<BHashMap<DrmProperty, u64>>,
+    liveness: Liveness,
 
     pub lease: Cell<Option<MetalLeaseId>>,
 
@@ -1000,12 +1014,12 @@ pub struct MetalCrtc {
     pub pending_flip: CloneCell<Option<Rc<MetalConnector>>>,
 
     pub out_fence_ptr: DrmProperty,
-    gamma_lut_size: Option<u32>,
+    pub gamma_lut_size: Option<u32>,
     pub drm_state: RefCell<DrmCrtcState>,
 
     pub sequence: Cell<u64>,
-    have_queued_sequence: Cell<bool>,
-    needs_vblank_emulation: Cell<bool>,
+    pub have_queued_sequence: Cell<bool>,
+    pub needs_vblank_emulation: Cell<bool>,
 
     cm: MetalCmCrtc,
 }
@@ -1016,10 +1030,11 @@ impl Debug for MetalCrtc {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, GetLiveness)]
 pub struct MetalEncoder {
-    id: DrmEncoder,
-    crtcs: BHashMap<DrmCrtc, Rc<MetalCrtc>>,
+    pub id: DrmEncoder,
+    pub crtcs: BHashMap<DrmCrtc, Rc<MetalCrtc>>,
+    liveness: Liveness,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Linearize)]
@@ -1027,6 +1042,16 @@ pub enum PlaneType {
     Overlay,
     Primary,
     Cursor,
+}
+
+impl StaticText for PlaneType {
+    fn text(&self) -> &'static str {
+        match self {
+            PlaneType::Overlay => "overlay",
+            PlaneType::Primary => "primary",
+            PlaneType::Cursor => "cursor",
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -1037,15 +1062,17 @@ pub struct PlaneFormat {
 
 pub type PlaneDefaultPropertyFilter = StaticCopyMap<PlaneType, bool>;
 
+#[derive(GetLiveness)]
 pub struct MetalPlane {
     pub id: DrmPlane,
-    master: Rc<DrmMaster>,
+    pub master: Rc<DrmMaster>,
     pub default_properties: Vec<DefaultProperty<PlaneDefaultPropertyFilter>>,
     pub untyped_properties: RefCell<BHashMap<DrmProperty, u64>>,
+    liveness: Liveness,
 
     pub ty: PlaneType,
 
-    possible_crtcs: u32,
+    pub possible_crtcs: u32,
     pub formats: BHashMap<u32, PlaneFormat>,
     scanout_formats: ScanoutFormats,
 
@@ -1173,6 +1200,7 @@ fn create_connector(
         kernel_id: Cell::new(display.connector_id),
         master: dev.master.clone(),
         state: backend.state.clone(),
+        liveness: Default::default(),
         dev: dev.clone(),
         backend: backend.clone(),
         connector_id: backend.state.connector_ids.next(),
@@ -1539,6 +1567,7 @@ fn create_encoder(
     Ok(MetalEncoder {
         id: encoder,
         crtcs: possible,
+        liveness: Default::default(),
     })
 }
 
@@ -1593,6 +1622,7 @@ fn create_crtc(
         master: master.clone(),
         default_properties,
         untyped_properties: RefCell::new(props.to_untyped()),
+        liveness: Default::default(),
         lease: Cell::new(None),
         possible_planes,
         connector: Default::default(),
@@ -1713,6 +1743,7 @@ fn create_plane(
         master: master.clone(),
         default_properties,
         untyped_properties: RefCell::new(props.to_untyped()),
+        liveness: Default::default(),
         ty,
         possible_crtcs: info.possible_crtcs,
         formats,
@@ -2080,6 +2111,7 @@ impl MetalBackend {
             gbm: gbm.clone(),
             devnode: pending.devnode.clone(),
             copy_device: copy_device.clone(),
+            liveness: Default::default(),
         });
 
         let dev = Rc::new(MetalDrmDevice {
@@ -2124,6 +2156,7 @@ impl MetalBackend {
             dev: dev.clone(),
             connectors,
             futures,
+            liveness: Default::default(),
         });
 
         if let Err(e) = self.init_drm_device(&slf) {
@@ -2502,6 +2535,7 @@ impl MetalBackend {
             gbm: old_ctx.gbm.clone(),
             devnode: old_ctx.devnode.clone(),
             copy_device: old_ctx.copy_device.clone(),
+            liveness: Default::default(),
         }));
         if dev.is_render_device() {
             self.make_render_device(dev, true);

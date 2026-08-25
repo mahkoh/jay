@@ -1,0 +1,137 @@
+// globals/globals_dfs_g_fuse.rs
+
+use super::*;
+
+pub static TARGET: Target = Target {
+    path: "fuse/m_153af2ca561922e04816e5df06e9def29c5a842a49bd5304ee1e0d88ae221eba.rs",
+    is_global: false,
+    dirs: &[
+        //
+        Dir {
+            name: "globals",
+            abstract_: false,
+            parents: &[],
+            dirents: &[
+                //
+                Ent {
+                    name: "next_name",
+                    camel: "NextName",
+                    ty: EntTy::Reg,
+                    opt: false,
+                    other: false,
+                    no_timeout: false,
+                    inherited: false,
+                    predefined_key: None,
+                },
+                Ent {
+                    name: "registry",
+                    camel: "Registry",
+                    ty: EntTy::View,
+                    opt: false,
+                    other: false,
+                    no_timeout: false,
+                    inherited: false,
+                    predefined_key: Some(0),
+                },
+                Ent {
+                    name: "removed",
+                    camel: "Removed",
+                    ty: EntTy::View,
+                    opt: false,
+                    other: false,
+                    no_timeout: false,
+                    inherited: false,
+                    predefined_key: Some(0),
+                },
+                Ent {
+                    name: "outputs",
+                    camel: "Outputs",
+                    ty: EntTy::View,
+                    opt: false,
+                    other: false,
+                    no_timeout: false,
+                    inherited: false,
+                    predefined_key: Some(0),
+                },
+                Ent {
+                    name: "seats",
+                    camel: "Seats",
+                    ty: EntTy::View,
+                    opt: false,
+                    other: false,
+                    no_timeout: false,
+                    inherited: false,
+                    predefined_key: Some(0),
+                },
+                Ent {
+                    name: "singletons",
+                    camel: "Singletons",
+                    ty: EntTy::View,
+                    opt: false,
+                    other: false,
+                    no_timeout: false,
+                    inherited: false,
+                    predefined_key: Some(0),
+                },
+                Ent {
+                    name: "exposed",
+                    camel: "Exposed",
+                    ty: EntTy::Reg,
+                    opt: false,
+                    other: false,
+                    no_timeout: false,
+                    inherited: false,
+                    predefined_key: None,
+                },
+            ],
+            phf: PhfMap {
+                key: 11298337290900252840,
+                disps: &[(0, 2), (2, 0)],
+                map: &[6, 3, 2, 4, 1, 5, 0],
+            },
+        },
+        Dir {
+            name: "generic_global",
+            abstract_: false,
+            parents: &[],
+            dirents: &[
+                //
+                Ent {
+                    name: "global_name",
+                    camel: "GlobalName",
+                    ty: EntTy::View,
+                    opt: false,
+                    other: false,
+                    no_timeout: true,
+                    inherited: false,
+                    predefined_key: None,
+                },
+                Ent {
+                    name: "global_interface",
+                    camel: "GlobalInterface",
+                    ty: EntTy::View,
+                    opt: false,
+                    other: false,
+                    no_timeout: true,
+                    inherited: false,
+                    predefined_key: None,
+                },
+                Ent {
+                    name: "global_version",
+                    camel: "GlobalVersion",
+                    ty: EntTy::View,
+                    opt: false,
+                    other: false,
+                    no_timeout: true,
+                    inherited: false,
+                    predefined_key: None,
+                },
+            ],
+            phf: PhfMap {
+                key: 13348369657388367929,
+                disps: &[(2, 0)],
+                map: &[2, 1, 0],
+            },
+        },
+    ],
+};

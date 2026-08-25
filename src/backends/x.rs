@@ -51,6 +51,8 @@ use crate::utils::bhash::BHashMap;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
+use crate::utils::liveness::Liveness;
 use crate::utils::numcell::NumCell;
 use crate::utils::queue::AsyncQueue;
 use crate::utils::syncqueue::SyncQueue;
@@ -132,6 +134,7 @@ use crate::xcon::consts::XI_EVENT_MASK_TOUCH_BEGIN;
 use crate::xcon::consts::XI_EVENT_MASK_TOUCH_END;
 use crate::xcon::consts::XI_EVENT_MASK_TOUCH_UPDATE;
 use crate::xcon::consts::XKB_PER_CLIENT_FLAG_DETECTABLE_AUTO_REPEAT;
+use jay_proc::GetLiveness;
 use std::any::Any;
 use std::borrow::Cow;
 use std::cell::Cell;
@@ -142,6 +145,8 @@ use std::future::pending;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::c::dev_t;
+
+mod x_dfs_g_fuse;
 
 #[derive(Debug, Error)]
 pub enum XBackendError {
@@ -317,6 +322,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
         grab_requests: Default::default(),
         drm_device_id,
         drm_dev,
+        liveness: Default::default(),
     });
     data.add_output().await?;
 
@@ -331,8 +337,13 @@ impl Backend for XBackend {
             Ok(())
         })
     }
+
+    fn debugfs(self: Rc<Self>) -> Option<FuseInodeWithKey> {
+        self.debugfs()
+    }
 }
 
+#[derive(GetLiveness)]
 pub struct XBackend {
     state: Rc<State>,
     c: Rc<Xcon>,
@@ -347,6 +358,7 @@ pub struct XBackend {
     grab_requests: AsyncQueue<(Rc<XSeat>, bool)>,
     drm_device_id: DrmDeviceId,
     drm_dev: dev_t,
+    liveness: Liveness,
 }
 
 impl XBackend {
@@ -574,6 +586,7 @@ impl XBackend {
             cb: CloneCell::new(None),
             images,
             state: RefCell::new(state),
+            liveness: Default::default(),
         });
         {
             let class = "jay\0jay\0";
@@ -727,6 +740,7 @@ impl XBackend {
             button_map: Default::default(),
             kb_name: Rc::new(format!("kb{}", info.deviceid)),
             mouse_name: Rc::new(format!("mouse{}", info.deviceid)),
+            liveness: Default::default(),
         });
         seat.update_button_map().await;
         self.seats.set(info.deviceid, seat.clone());
@@ -1107,6 +1121,7 @@ impl BackendDrmDevice for XDrmDevice {
     }
 }
 
+#[derive(GetLiveness)]
 struct XOutput {
     id: ConnectorId,
     backend: Rc<XBackend>,
@@ -1120,6 +1135,7 @@ struct XOutput {
     images: [XImage; 2],
     cb: CloneCell<Option<Rc<dyn Fn()>>>,
     state: RefCell<BackendConnectorState>,
+    liveness: Liveness,
 }
 
 struct XImage {
@@ -1244,6 +1260,7 @@ impl BackendAppliedConnectorTransaction for XTransaction {
     }
 }
 
+#[derive(GetLiveness)]
 struct XSeat {
     kb_id: InputDeviceId,
     mouse_id: InputDeviceId,
@@ -1258,6 +1275,7 @@ struct XSeat {
     button_map: CopyHashMap<u32, u32>,
     kb_name: Rc<String>,
     mouse_name: Rc<String>,
+    liveness: Liveness,
 }
 
 struct XSeatKeyboard(Rc<XSeat>);

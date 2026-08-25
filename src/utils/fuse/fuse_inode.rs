@@ -18,7 +18,6 @@ use uapi::pod_zeroed;
 pub enum FuseInodeTy {
     Regular,
     Directory,
-    #[expect(unused)]
     Symlink,
 }
 
@@ -99,7 +98,6 @@ pub struct FuseInodeWithKey {
     pub key: u64,
 }
 
-#[expect(unused)]
 pub trait FuseInodeExt {
     fn with_key(self: Rc<Self>, key: u64) -> FuseInodeWithKey
     where
@@ -151,7 +149,6 @@ impl FuseInodeProps {
         }
     }
 
-    #[expect(unused)]
     pub fn link() -> Self {
         Self {
             ty: FuseInodeTy::Symlink,

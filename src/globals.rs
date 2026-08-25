@@ -8,9 +8,11 @@ use crate::object::Version;
 use crate::state::State;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::copyhashmap::Locked;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::numcell::NumCell;
 use crate::wire::ObjectId;
 use arrayvec::ArrayVec;
+pub use globals_dfs_g_fuse::DfsGlobalsView;
 use jay_proc::jay_hash;
 use linearize::Linearize;
 use linearize::StaticMap;
@@ -20,6 +22,8 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::rc::Rc;
 use thiserror::Error;
+
+mod globals_dfs_g_fuse;
 
 #[derive(Debug, Error)]
 pub enum GlobalsError {
@@ -88,6 +92,9 @@ pub trait Global: GlobalBase {
     }
     fn not_permitted(&self, caps: ClientCaps, xwayland: bool) -> bool {
         !self.permitted(caps, xwayland)
+    }
+    fn debugfs(self: Rc<Self>, state: &Rc<State>) -> FuseInodeWithKey {
+        state.dfs_generic_global(self.name())
     }
 }
 

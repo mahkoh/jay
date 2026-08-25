@@ -70,12 +70,15 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::double_click_state::DoubleClickState;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::event_listener::EventListener;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::linkedlist::LinkedNode;
+use crate::utils::liveness::Liveness;
 use crate::utils::on_drop_event::OnDropEvent;
 use crate::utils::smallmap::SmallMapMut;
 use arrayvec::ArrayVec;
 use derivative::Derivative;
 use jay_proc::CachedValue;
+use jay_proc::GetLiveness;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -85,7 +88,10 @@ use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
 
+mod float_dfs_g_fuse;
+
 tree_id!(FloatNodeId);
+#[derive(GetLiveness)]
 pub struct FloatNode {
     id: FloatNodeId,
     state: Rc<State>,
@@ -110,6 +116,7 @@ pub struct FloatNode {
     _theme_listener: EventListener<dyn ThemeChangeListener>,
     _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
     _scales_listener: EventListener<dyn ScalesChangedListener>,
+    liveness: Liveness,
 }
 
 #[derive(Derivative)]
@@ -267,6 +274,7 @@ impl FloatNode {
             _theme_listener: EventListener::attached(slf.clone(), &state.theme_listeners),
             _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
             _scales_listener: EventListener::attached(slf.clone(), &state.scales_changed),
+            liveness: Default::default(),
         });
         let tl_data = child.tl_data();
         {
@@ -1132,6 +1140,10 @@ impl NodeBase for FloatNode {
             WorkspaceType::Normal => NodeLayerLink::Stacked(l),
             WorkspaceType::Overlay => NodeLayerLink::OverlayStacked(l),
         }
+    }
+
+    fn node_debugfs(self: Rc<Self>) -> FuseInodeWithKey {
+        self.debugfs()
     }
 
     fn node_child_title_changed(self: Rc<Self>, _child: &dyn Node, title: &str) {

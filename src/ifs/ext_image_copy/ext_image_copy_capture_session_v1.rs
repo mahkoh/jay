@@ -42,7 +42,7 @@ use uapi::c;
 #[break_loops]
 pub struct ExtImageCopyCaptureSessionV1 {
     pub(super) id: ExtImageCopyCaptureSessionV1Id,
-    client: Rc<Client>,
+    pub client: Rc<Client>,
     pub(super) tracker: Tracker<Self>,
     pub(super) version: Version,
     pub(super) frame: CloneCell<Option<Rc<ExtImageCopyCaptureFrameV1>>>,

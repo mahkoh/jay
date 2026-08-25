@@ -9,6 +9,7 @@ pub mod prime;
 pub mod surface_render_cache;
 pub mod tray;
 pub mod wl_subsurface;
+mod wl_surface_dfs_g_fuse;
 pub mod wp_alpha_modifier_surface_v1;
 pub mod wp_color_management_surface_v1;
 pub mod wp_color_representation_surface_v1;
@@ -102,6 +103,7 @@ use crate::io_uring::IoUringError;
 use crate::keyboard::KeyboardState;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
+use crate::object::ObjectDebugfs;
 use crate::object::Version;
 use crate::rect::DamageQueue;
 use crate::rect::Rect;
@@ -150,8 +152,10 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::double_buffered::DoubleBuffered;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::event_listener::EventListener;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::lazy_event_source::LazyEventSource;
 use crate::utils::linkedlist::LinkedList;
+use crate::utils::liveness::Liveness;
 use crate::utils::numcell::NumCell;
 use crate::utils::obj_and_id::ObjAndId;
 use crate::utils::obj_and_id::ObjWithId;
@@ -174,6 +178,7 @@ use hashbrown::hash_map::Entry;
 use hashbrown::hash_map::OccupiedEntry;
 use isnt::std_1::primitive::IsntSliceExt;
 use isnt::std_1::vec::IsntVecExt;
+use jay_proc::GetLiveness;
 use jay_proc::Object;
 use jay_proc::Reset;
 use linearize::LinearizeExt;
@@ -289,8 +294,9 @@ pub struct SurfaceShmTexture {
     pub damage: DamageQueue,
 }
 
-#[derive(Object)]
+#[derive(Object, GetLiveness)]
 #[break_loops]
+#[debugfs]
 pub struct WlSurface {
     pub id: WlSurfaceId,
     pub node_id: SurfaceNodeId,
@@ -377,6 +383,7 @@ pub struct WlSurface {
     workspace_listener: EventListener<dyn WorkspaceEventListener>,
     _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
     tree_committed_listeners: OnceCell<Rc<LazyEventSource>>,
+    liveness: Liveness,
 }
 
 impl Debug for WlSurface {
@@ -400,7 +407,6 @@ enum CommitAction {
 }
 
 trait SurfaceExt {
-    #[expect(unused)]
     fn object_id(&self) -> Option<ObjectId>;
 
     fn node_layer(&self) -> NodeLayerLink;
@@ -800,6 +806,7 @@ impl WlSurface {
             workspace_listener: EventListener::new(slf.clone()),
             _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
             tree_committed_listeners: Default::default(),
+            liveness: Default::default(),
         }
     }
 
@@ -2130,6 +2137,12 @@ impl BreakLoops for WlSurface {
         self.dmabuf_feedback.clear();
         self.surface_transaction.unblock_all_transactions();
         self.syncobj_surface.take();
+    }
+}
+
+impl ObjectDebugfs for WlSurface {
+    fn object_debugfs(self: Rc<Self>, _client: &Rc<Client>) -> FuseInodeWithKey {
+        self.debugfs_obj()
     }
 }
 

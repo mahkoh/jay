@@ -1,6 +1,5 @@
 use std::cell::Ref;
 
-#[expect(unused)]
 pub trait GetInner<T> {
     fn get_inner(&self) -> &T;
 }

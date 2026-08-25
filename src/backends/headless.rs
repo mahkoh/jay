@@ -22,7 +22,9 @@ use crate::utils::bitflags::BitflagsExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::liveness::Liveness;
 use crate::utils::major_minor::MajorMinor;
 use crate::utils::major_minor::major_minor;
 use crate::utils::on_change::OnChange;
@@ -41,6 +43,7 @@ use HeadlessBackendError::GetUdevEntry;
 use HeadlessBackendError::ScanUdevDevices;
 use jay_algorithms::oserror::OsError;
 use jay_algorithms::oserror::OsErrorExt2;
+use jay_proc::GetLiveness;
 use std::cell::Cell;
 use std::error::Error;
 use std::rc::Rc;
@@ -49,6 +52,8 @@ use uapi::AsUstr;
 use uapi::OwnedFd;
 use uapi::c;
 use uapi::c::dev_t;
+
+mod headless_dfs_g_fuse;
 
 #[derive(Debug, Error)]
 pub enum HeadlessBackendError {
@@ -82,6 +87,7 @@ pub enum HeadlessBackendError {
     MonitorFdFailed,
 }
 
+#[derive(GetLiveness)]
 pub struct HeadlessBackend {
     state: Rc<State>,
     udev: Rc<Udev>,
@@ -89,8 +95,10 @@ pub struct HeadlessBackend {
     monitor_fd: Rc<OwnedFd>,
     devs: CopyHashMap<dev_t, Rc<HeadlessDrmDevice>>,
     render_device: Cell<Option<DrmDeviceId>>,
+    liveness: Liveness,
 }
 
+#[derive(GetLiveness)]
 struct HeadlessDrmDevice {
     backend: Rc<HeadlessBackend>,
     id: DrmDeviceId,
@@ -99,6 +107,7 @@ struct HeadlessDrmDevice {
     drm: Drm,
     ctx: CloneCell<Option<Rc<dyn GfxContext>>>,
     events: OnChange<DrmEvent>,
+    liveness: Liveness,
 }
 
 const DRM: &[u8] = b"drm";
@@ -120,6 +129,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<HeadlessBackend>, HeadlessBa
         monitor_fd,
         devs: Default::default(),
         render_device: Default::default(),
+        liveness: Default::default(),
     }))
 }
 
@@ -137,6 +147,10 @@ impl Backend for HeadlessBackend {
             dev.ctx.take();
             dev.events.clear();
         }
+    }
+
+    fn debugfs(self: Rc<Self>) -> Option<FuseInodeWithKey> {
+        self.debugfs()
     }
 }
 
@@ -227,6 +241,7 @@ impl HeadlessBackend {
             drm,
             ctx: Default::default(),
             events: Default::default(),
+            liveness: Default::default(),
         });
         self.devs.set(devnum, dev.clone());
         self.state

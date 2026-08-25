@@ -32,6 +32,8 @@ use crate::libinput::consts::LIBINPUT_CONFIG_SCROLL_2FG;
 use crate::libinput::consts::LIBINPUT_CONFIG_SCROLL_EDGE;
 use crate::libinput::consts::LIBINPUT_CONFIG_SCROLL_NO_SCROLL;
 use crate::libinput::consts::LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
+use crate::utils::liveness::GetLiveness;
 use crate::utils::obj_and_id::ObjWithId;
 use crate::utils::static_text::StaticText;
 use crate::utils::str_fmt::StrCtx;
@@ -61,13 +63,14 @@ use std::rc::Rc;
 use uapi::OwnedFd;
 use uapi::c;
 
+pub mod backend_dfs_g_fuse;
 pub mod transaction;
 
 linear_ids!(ConnectorIds, ConnectorId);
 linear_ids!(InputDeviceIds, InputDeviceId);
 linear_ids!(DrmDeviceIds, DrmDeviceId);
 
-pub trait Backend: Any {
+pub trait Backend: GetLiveness + Any {
     fn run(self: Rc<Self>) -> SpawnedFuture<Result<(), Box<dyn Error>>>;
     fn clear(&self) {
         // nothing
@@ -87,6 +90,10 @@ pub trait Backend: Any {
 
     fn get_input_fds(&self) -> Vec<Rc<OwnedFd>> {
         vec![]
+    }
+
+    fn debugfs(self: Rc<Self>) -> Option<FuseInodeWithKey> {
+        None
     }
 }
 
@@ -196,6 +203,9 @@ pub trait Connector: Any {
         self.kernel_id().to_string()
     }
     fn scanout_formats(&self) -> Option<ScanoutFormats> {
+        None
+    }
+    fn debugfs_link(self: Rc<Self>) -> Option<FuseInodeWithKey> {
         None
     }
 }

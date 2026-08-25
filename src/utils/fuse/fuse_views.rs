@@ -16,7 +16,6 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 use uapi::c;
 
-#[expect(unused)]
 pub trait FuseRegView<T>: 'static {
     fn read(t: &T, key: u64, buf: &mut String, ctx: &StrCtx<'_>);
 
@@ -26,7 +25,6 @@ pub trait FuseRegView<T>: 'static {
     }
 }
 
-#[expect(unused)]
 pub struct FuseReg<V>(PhantomData<fn() -> V>);
 
 mod fuse_reg {
@@ -54,12 +52,10 @@ mod fuse_reg {
     }
 }
 
-#[expect(unused)]
 pub trait FuseLinkView<T>: 'static {
     fn readlink(t: &T, key: u64, depth: u64, buf: &mut String);
 }
 
-#[expect(unused)]
 pub struct FuseLink<V>(PhantomData<fn() -> V>);
 
 mod fuse_link {
@@ -82,7 +78,6 @@ mod fuse_link {
     }
 }
 
-#[expect(unused)]
 pub trait IterDirView<T>: 'static
 where
     T: GetLiveness,
@@ -95,7 +90,6 @@ where
     fn get(t: &T, key: u64, name: &str) -> Option<Rc<Self::Value>>;
 }
 
-#[expect(unused)]
 pub struct IterDir<V>(PhantomData<fn() -> V>);
 
 mod iter_dir {
@@ -141,7 +135,6 @@ mod iter_dir {
     }
 }
 
-#[expect(unused)]
 pub trait IterDirKeyedView<T>: 'static
 where
     T: GetLiveness,
@@ -154,7 +147,6 @@ where
     fn get(t: Rc<T>, key: u64, name: &str) -> Option<(Rc<Self::Value>, u64)>;
 }
 
-#[expect(unused)]
 pub struct IterDirKeyed<V>(PhantomData<fn() -> V>);
 
 mod iter_dir_keyed {
@@ -201,7 +193,6 @@ mod iter_dir_keyed {
     }
 }
 
-#[expect(unused)]
 pub trait IterDirDynView<T>: 'static
 where
     T: GetLiveness,
@@ -211,7 +202,6 @@ where
     fn get(t: &Rc<T>, key: u64, name: &str) -> Option<FuseInodeWithKey>;
 }
 
-#[expect(unused)]
 pub struct IterDirDyn<V>(PhantomData<fn() -> V>);
 
 mod iter_dir_dyn {
@@ -268,7 +258,6 @@ where
     fn parse_name(key: &str) -> Option<Self::Key>;
 }
 
-#[expect(unused)]
 pub type CopyHashMapDir<T> = IterDir<copy_hash_map_dir::Dir<T>>;
 
 mod copy_hash_map_dir {
@@ -306,7 +295,6 @@ mod copy_hash_map_dir {
     }
 }
 
-#[expect(unused)]
 pub trait HashMapDirView<T>: 'static
 where
     T: GetLiveness,
@@ -326,7 +314,6 @@ where
     fn parse_name(name: &str) -> Option<Self::Key>;
 }
 
-#[expect(unused)]
 pub type HashMapDir<V> = IterDir<hash_map_dir::Dir<V>>;
 
 mod hash_map_dir {
@@ -384,7 +371,6 @@ where
     ) -> Option<Rc<Self::Value>>;
 }
 
-#[expect(unused)]
 pub type CopyHashMapDir2<T> = IterDir<copy_hash_map_dir2::Dir<T>>;
 
 mod copy_hash_map_dir2 {
@@ -438,7 +424,6 @@ where
     fn parse_name(name: &str) -> Option<Self::Key>;
 }
 
-#[expect(unused)]
 pub type BinarySearchMapDir<V> = IterDir<binary_search_map_dir::Dir<V>>;
 
 mod binary_search_map_dir {
@@ -489,7 +474,6 @@ where
     fn devs(t: &T) -> &CopyHashMap<c::dev_t, Rc<Self::D>>;
 }
 
-#[expect(unused)]
 pub type DevTDir<V> = CopyHashMapDir<dev_t_dir::Dir<V>>;
 
 mod dev_t_dir {
@@ -571,7 +555,7 @@ pub trait FuseLinearView<T>: Linearize + Sized {
         let _ = t;
         let _ = dirents;
     }
-    fn read(self, t: &T, buf: &mut String, ctx: &StrCtx) {
+    fn read(self, t: &T, buf: &mut String, ctx: &StrCtx<'_>) {
         let _ = t;
         let _ = buf;
         let _ = ctx;
@@ -610,7 +594,7 @@ where
         }
     }
 
-    fn read(t: &T, key: u64, buf: &mut String, ctx: &StrCtx) {
+    fn read(t: &T, key: u64, buf: &mut String, ctx: &StrCtx<'_>) {
         if let Some(l) = L::from_linear(key as usize) {
             l.read(t, buf, ctx)
         }

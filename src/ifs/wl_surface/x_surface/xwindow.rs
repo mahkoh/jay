@@ -45,17 +45,21 @@ use crate::tree::WorkspaceType;
 use crate::tree::default_tile_drag_destination;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::linkedlist::LinkedNode;
 use crate::wire::WlSurfaceId;
 use crate::wire_xcon::CreateNotify;
 use crate::xwayland::XWaylandEvent;
 use bstr::BString;
+use jay_proc::GetLiveness;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::ops::Not;
 use std::rc::Rc;
 use thiserror::Error;
+
+mod xwindow_dfs_g_fuse;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub enum XInputModel {
@@ -153,11 +157,13 @@ pub struct XwindowData {
 }
 
 tree_id!(XwindowId);
+#[derive(GetLiveness)]
 pub struct Xwindow {
     pub id: XwindowId,
     pub data: Rc<XwindowData>,
     pub x: Rc<XSurface>,
     display_link: RefCell<NodesStackElement>,
+    #[liveness]
     pub toplevel_data: ToplevelData,
     transaction_data: TransactionData<XwindowTransactionOp>,
 }
@@ -420,6 +426,10 @@ impl NodeBase for Xwindow {
             return NodeLayerLink::Stacked(link.to_ref());
         }
         self.toplevel_data.node_layer()
+    }
+
+    fn node_debugfs(self: Rc<Self>) -> FuseInodeWithKey {
+        self.debugfs()
     }
 
     fn node_accepts_focus(&self) -> bool {

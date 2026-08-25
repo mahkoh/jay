@@ -1,6 +1,7 @@
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::utils::buffd::MsgParser;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::str_table::StrAccess;
 use crate::wire::ObjectId;
 use crate::wire::WlDisplayId;
@@ -10,9 +11,11 @@ use std::error::Error;
 use std::rc::Rc;
 use thiserror::Error;
 
+mod object_dfs_g_fuse;
+
 pub const WL_DISPLAY_ID: WlDisplayId = WlDisplayId::from_raw(1);
 
-pub trait Object: AddObject + BreakLoops + Any {
+pub trait Object: AddObject + BreakLoops + ObjectDebugfs + Any {
     fn id(&self) -> ObjectId;
     fn version(&self) -> Version;
     fn handle_request(
@@ -35,6 +38,10 @@ pub trait AddObject {
 
 pub trait BreakLoops {
     fn break_loops(self: Rc<Self>) {}
+}
+
+pub trait ObjectDebugfs {
+    fn object_debugfs(self: Rc<Self>, client: &Rc<Client>) -> FuseInodeWithKey;
 }
 
 #[derive(Copy, Clone, Debug)]

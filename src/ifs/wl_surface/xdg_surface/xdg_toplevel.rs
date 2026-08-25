@@ -26,6 +26,7 @@ use crate::ifs::xdg_toplevel_drag_v1::XdgToplevelDragV1;
 use crate::ifs::zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
+use crate::object::ObjectDebugfs;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::renderer::Renderer;
@@ -65,12 +66,14 @@ use crate::tree::default_tile_drag_destination;
 use crate::utils::bhash::BHashMap;
 use crate::utils::bitflags::BitflagsExt;
 use crate::utils::clonecell::CloneCell;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::numcell::NumCell;
 use crate::wire::ObjectId;
 use crate::wire::XdgToplevelId;
 use crate::wire::xdg_toplevel::*;
 use arrayvec::ArrayVec;
+use jay_proc::GetLiveness;
 use jay_proc::Object;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -82,6 +85,7 @@ use std::rc::Weak;
 use thiserror::Error;
 
 pub mod xdg_dialog_v1;
+mod xdg_toplevel_dfs_g_fuse;
 pub mod xdg_toplevel_icon_manager_v1;
 pub mod xdg_toplevel_icon_v1;
 pub mod xdg_toplevel_icon_v1_bridge;
@@ -136,8 +140,9 @@ pub struct XdgToplevelToplevelData {
     pub tag: RefCell<String>,
 }
 
-#[derive(Object)]
+#[derive(Object, GetLiveness)]
 #[break_loops]
+#[debugfs]
 pub struct XdgToplevel {
     pub id: XdgToplevelId,
     pub state: Rc<State>,
@@ -150,6 +155,7 @@ pub struct XdgToplevel {
     pub decoration: Cell<Decoration>,
     bugs: Cell<&'static Bugs>,
     pub tracker: Tracker<Self>,
+    #[liveness]
     toplevel_data: ToplevelData,
     pub drag: CloneCell<Option<Rc<XdgToplevelDragV1>>>,
     is_mapped: Cell<bool>,
@@ -580,6 +586,12 @@ impl BreakLoops for XdgToplevel {
         self.dialog.set(None);
         let _children = mem::take(&mut *self.children.borrow_mut());
         self.icon_surface_factory.take();
+    }
+}
+
+impl ObjectDebugfs for XdgToplevel {
+    fn object_debugfs(self: Rc<Self>, _client: &Rc<Client>) -> FuseInodeWithKey {
+        self.debugfs()
     }
 }
 

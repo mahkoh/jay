@@ -99,9 +99,11 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::event_listener::EventListener;
 use crate::utils::event_listener::EventSource;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::linkedlist::NodeRef;
+use crate::utils::liveness::Liveness;
 use crate::utils::obj_and_id::ObjAndId;
 use crate::utils::obj_and_id::ObjWithId;
 use crate::utils::on_drop_event::OnDropEvent;
@@ -117,8 +119,10 @@ use crate::wire::ZwlrScreencopyFrameV1Id;
 use jay_config::video::TearingMode as ConfigTearingMode;
 use jay_config::video::VrrMode as ConfigVrrMode;
 use jay_proc::CachedValue;
+use jay_proc::GetLiveness;
 use jay_proc::jay_hash;
 use numeric_sort::cmp;
+pub use output_dfs_g_fuse::OutputNodeView;
 use smallvec::SmallVec;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -129,7 +133,10 @@ use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
 
+mod output_dfs_g_fuse;
+
 tree_id!(OutputNodeId);
+#[derive(GetLiveness)]
 pub struct OutputNode {
     pub id: OutputNodeId,
     pub global: Rc<WlOutputGlobal>,
@@ -173,6 +180,7 @@ pub struct OutputNode {
     _theme_listener: EventListener<dyn ThemeChangeListener>,
     _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
     _scales_listener: EventListener<dyn ScalesChangedListener>,
+    liveness: Liveness,
 }
 
 impl ObjWithId for OutputNode {
@@ -375,6 +383,7 @@ impl OutputNode {
             _theme_listener: EventListener::attached(slf.clone(), &state.theme_listeners),
             _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
             _scales_listener: EventListener::attached(slf.clone(), &state.scales_changed),
+            liveness: Default::default(),
         });
         {
             let theme = on.compute_theme();
@@ -2430,6 +2439,10 @@ impl NodeBase for OutputNode {
 
     fn node_layer(&self) -> NodeLayerLink {
         NodeLayerLink::Output
+    }
+
+    fn node_debugfs(self: Rc<Self>) -> FuseInodeWithKey {
+        self.debugfs()
     }
 
     fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {

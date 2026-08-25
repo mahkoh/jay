@@ -4,6 +4,7 @@ use crate::ifs::color_management::RENDER_INTENT_PERCEPTUAL;
 use crate::ifs::color_management::RENDER_INTENT_RELATIVE;
 use crate::ifs::color_management::RENDER_INTENT_RELATIVE_BPC;
 use crate::object::Version;
+use crate::utils::static_text::StaticText;
 use jay_proc::jay_hash;
 
 #[jay_hash]
@@ -14,6 +15,17 @@ pub enum RenderIntent {
     Relative,
     RelativeBpc,
     AbsoluteNoAdaptation,
+}
+
+impl StaticText for RenderIntent {
+    fn text(&self) -> &'static str {
+        match self {
+            RenderIntent::Perceptual => "perceptual",
+            RenderIntent::Relative => "relative",
+            RenderIntent::RelativeBpc => "relative_bpc",
+            RenderIntent::AbsoluteNoAdaptation => "absolute_no_adaptation",
+        }
+    }
 }
 
 impl RenderIntent {
