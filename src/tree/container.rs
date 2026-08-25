@@ -106,6 +106,7 @@ use jay_config::window::JcMonoStyle;
 use jay_proc::CachedValue;
 use jay_proc::GetLiveness;
 use jay_proc::jay_clone;
+use linearize::Linearize;
 use smallvec::SmallVec;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -174,7 +175,7 @@ impl Into<Axis> for ContainerSplit {
     }
 }
 
-#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Linearize)]
 pub enum ContainerMonoStyle {
     #[default]
     Tabbed,
