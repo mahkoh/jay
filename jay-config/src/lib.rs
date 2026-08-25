@@ -50,6 +50,7 @@ use crate::input::FallbackOutputMode;
 use crate::input::Seat;
 use crate::keyboard::ModifiedKeySym;
 use crate::video::Connector;
+use crate::window::MonoStyle;
 use crate::window::Window;
 use serde::Deserialize;
 use serde::Serialize;
@@ -539,6 +540,20 @@ pub fn get_split_reuses_container() -> bool {
 pub fn toggle_split_reuses_container() {
     let get = get!();
     get.set_split_reuses_container(!get.get_split_reuses_container());
+}
+
+/// Sets the default mono style of newly created containers.
+///
+/// Changing this does not affect existing containers.
+///
+/// The default is [`MonoStyle::Tabbed`].
+pub fn set_default_mono_style(style: MonoStyle) {
+    get!().set_default_mono_style(style)
+}
+
+/// Returns the default mono style of newly created containers.
+pub fn get_default_mono_style() -> MonoStyle {
+    get!(MonoStyle::Tabbed).get_default_mono_style()
 }
 
 /// Sets whether the built-in bar is shown.

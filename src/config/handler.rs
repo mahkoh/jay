@@ -1835,6 +1835,20 @@ impl ConfigProxyHandler {
         });
     }
 
+    fn handle_set_default_mono_style(&self, style: ConfigMonoStyle) -> Result<(), CphError> {
+        let Ok(style) = style.try_into() else {
+            return Err(CphError::UnknownMonoStyle(style));
+        };
+        self.state.set_default_mono_style(style);
+        Ok(())
+    }
+
+    fn handle_get_default_mono_style(&self) {
+        self.respond(Response::GetDefaultMonoStyle {
+            style: self.state.default_mono_style.get().into(),
+        });
+    }
+
     fn handle_set_show_bar(&self, show: bool) {
         self.state.set_show_bar(show);
     }
@@ -4091,6 +4105,10 @@ impl ConfigProxyHandler {
                 self.handle_set_split_reuses_container(reuse)
             }
             ClientMessage::GetSplitReusesContainer => self.handle_get_split_reuses_container(),
+            ClientMessage::SetDefaultMonoStyle { style } => self
+                .handle_set_default_mono_style(style)
+                .wrn("set_default_mono_style")?,
+            ClientMessage::GetDefaultMonoStyle => self.handle_get_default_mono_style(),
             ClientMessage::SetShowBar { show } => self.handle_set_show_bar(show),
             ClientMessage::GetShowBar => self.handle_get_show_bar(),
             ClientMessage::SetShowTitles { show } => self.handle_set_show_titles(show),

@@ -391,6 +391,7 @@ impl ContainerNode {
             transaction_data: TransactionData::new(&state.tree),
         });
         slf.set_ns_split(split);
+        slf.set_ns_mono_style(state.default_mono_style.get());
         slf.adj_ns_num_children(|value| value + 1);
         child.tl_set_parent(slf.clone());
         slf.pull_child_properties(&child_node_ref);

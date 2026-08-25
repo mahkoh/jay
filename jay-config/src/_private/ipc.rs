@@ -1099,6 +1099,10 @@ pub enum ClientMessage<'a> {
         window: Window,
         style: MonoStyle,
     },
+    SetDefaultMonoStyle {
+        style: MonoStyle,
+    },
+    GetDefaultMonoStyle,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1392,6 +1396,9 @@ pub enum Response {
         style: MonoStyle,
     },
     GetWindowMonoStyle {
+        style: MonoStyle,
+    },
+    GetDefaultMonoStyle {
         style: MonoStyle,
     },
 }

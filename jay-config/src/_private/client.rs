@@ -1268,6 +1268,16 @@ impl ConfigClient {
         reuse
     }
 
+    pub fn set_default_mono_style(&self, style: MonoStyle) {
+        self.send(&ClientMessage::SetDefaultMonoStyle { style });
+    }
+
+    pub fn get_default_mono_style(&self) -> MonoStyle {
+        let res = self.send_with_response(&ClientMessage::GetDefaultMonoStyle);
+        get_response!(res, MonoStyle::Tabbed, GetDefaultMonoStyle { style });
+        style
+    }
+
     pub fn set_show_bar(&self, show: bool) {
         self.send(&ClientMessage::SetShowBar { show });
     }

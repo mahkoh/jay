@@ -174,6 +174,7 @@ use crate::transactions::TransactionData;
 use crate::transactions::Transactionable;
 use crate::transactions::TransactionableExt;
 use crate::transactions::Transactions;
+use crate::tree::ContainerMonoStyle;
 use crate::tree::ContainerNode;
 use crate::tree::ContainerSplit;
 use crate::tree::Direction;
@@ -406,6 +407,7 @@ pub struct State {
     pub head_names: HeadNames,
     pub show_bar: Cell<bool>,
     pub split_reuses_container: Cell<bool>,
+    pub default_mono_style: Cell<ContainerMonoStyle>,
     pub enable_primary_selection: Cell<bool>,
     pub workspace_display_order: Cell<WorkspaceDisplayOrder>,
     pub outputs_without_hc: NumCell<usize>,
@@ -2623,6 +2625,11 @@ impl State {
 
     pub fn set_split_reuses_container(&self, v: bool) {
         self.split_reuses_container.set(v);
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
+    }
+
+    pub fn set_default_mono_style(&self, style: ContainerMonoStyle) {
+        self.default_mono_style.set(style);
         self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 }

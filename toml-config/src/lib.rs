@@ -77,6 +77,7 @@ use jay_config::quit;
 use jay_config::reload;
 use jay_config::set_color_management_enabled;
 use jay_config::set_configure_timeout;
+use jay_config::set_default_mono_style;
 use jay_config::set_default_workspace_capture;
 use jay_config::set_explicit_sync_enabled;
 use jay_config::set_float_above_fullscreen;
@@ -1896,6 +1897,9 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     }
     if let Some(v) = config.split_reuses_container {
         set_split_reuses_container(v);
+    }
+    if let Some(v) = config.default_mono_style {
+        set_default_mono_style(v);
     }
     if let Some(v) = config.show_titles {
         set_show_titles(v);
