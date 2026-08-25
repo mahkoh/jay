@@ -1274,6 +1274,16 @@ impl ConfigClient {
         reuse
     }
 
+    pub fn set_default_mono_style(&self, style: JcMonoStyle) {
+        self.send(&ClientMessage::SetDefaultMonoStyle { style });
+    }
+
+    pub fn get_default_mono_style(&self) -> JcMonoStyle {
+        let res = self.send_with_response(&ClientMessage::GetDefaultMonoStyle);
+        get_response!(res, JcMonoStyle::Tabbed, GetDefaultMonoStyle { style });
+        style
+    }
+
     pub fn set_show_bar(&self, show: bool) {
         self.send(&ClientMessage::SetShowBar { show });
     }
