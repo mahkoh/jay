@@ -2740,6 +2740,16 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `default-mono-style` (optional):
+
+  Configures the mono style of newly created containers.
+  
+  Changing this does not affect existing containers.
+  
+  The default is `tabbed`.
+
+  The value of this field should be a [MonoStyle](#types-MonoStyle).
+
 - `show-bar` (optional):
 
   Configures whether the built-in bar is shown.
@@ -4644,6 +4654,27 @@ The table has the following fields:
   The value of this field should be a number.
 
 
+<a name="types-MonoStyle"></a>
+### `MonoStyle`
+
+The mono style of a container.
+
+This determines how the title bars of a container in mono-mode are laid out.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `tabbed`:
+
+  The title bars are shown next to each other in a single row.
+
+- `stacked`:
+
+  The title bars are shown below each other, each spanning the full width.
+
+
+
 <a name="types-Output"></a>
 ### `Output`
 
@@ -5137,6 +5168,9 @@ instead of the focused window:
 - `toggle-mono`
 - `show-single`
 - `show-all`
+- `toggle-mono-style`
+- `mono-tabbed`
+- `mono-stacked`
 - `toggle-fullscreen`
 - `enter-fullscreen`
 - `exit-fullscreen`
@@ -5250,6 +5284,19 @@ The string should have one of the following values:
 - `show-all`:
 
   Makes the currently focused container show all children.
+
+- `toggle-mono-style`:
+
+  Toggle the mono style of the currently focused container between tabbed and
+  stacked.
+
+- `mono-tabbed`:
+
+  Sets the mono style of the currently focused container to tabbed.
+
+- `mono-stacked`:
+
+  Sets the mono style of the currently focused container to stacked.
 
 - `toggle-fullscreen`:
 
