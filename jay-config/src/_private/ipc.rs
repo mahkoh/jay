@@ -1159,6 +1159,10 @@ pub enum ClientMessage<'a> {
         window: Window,
         style: JcMonoStyle,
     },
+    SetDefaultMonoStyle {
+        style: JcMonoStyle,
+    },
+    GetDefaultMonoStyle,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1464,6 +1468,9 @@ pub enum Response {
         style: JcMonoStyle,
     },
     GetWindowMonoStyle {
+        style: JcMonoStyle,
+    },
+    GetDefaultMonoStyle {
         style: JcMonoStyle,
     },
 }
