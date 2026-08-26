@@ -105,6 +105,7 @@ pub mod tri;
 pub mod type_view;
 pub mod type_wrapper;
 pub mod uid;
+pub mod unique_process_id;
 pub mod vec_ext;
 pub mod vecdeque_ext;
 pub mod vecset;
