@@ -39,6 +39,7 @@ pub mod free_list;
 pub mod futex;
 pub mod fx_hash;
 pub mod geometric_decay;
+pub mod get_inner;
 pub mod hash_map_ext;
 pub mod ioctl;
 pub mod jar_to_tar;
