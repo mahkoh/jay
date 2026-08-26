@@ -427,6 +427,10 @@ impl<T: TrayItem> NodeBase for T {
     fn node_client_id(&self) -> Option<ClientId> {
         Some(self.tray_item_data().client.id)
     }
+
+    fn node_object_id(&self) -> Option<ObjectId> {
+        Some(self.object_id())
+    }
 }
 
 fn install<T: TrayItem>(item: &Rc<T>) -> Result<(), TrayItemError> {

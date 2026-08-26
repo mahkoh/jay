@@ -39,6 +39,7 @@ use crate::utils::linkedlist::LinkedList;
 use crate::utils::linkedlist::NodeRef;
 use crate::utils::numcell::NumCell;
 use crate::utils::static_text::StaticText;
+use crate::wire::ObjectId;
 pub use container::*;
 pub use containing::*;
 pub use display::*;
@@ -515,6 +516,11 @@ pub trait NodeBase: 'static {
 
     fn node_client_id(&self) -> Option<ClientId> {
         self.node_client().map(|c| c.id)
+    }
+
+    #[expect(unused)]
+    fn node_object_id(&self) -> Option<ObjectId> {
+        None
     }
 
     fn node_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {

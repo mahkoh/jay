@@ -650,6 +650,10 @@ impl NodeBase for XdgToplevel {
         Some(self.xdg.surface.client.clone())
     }
 
+    fn node_object_id(&self) -> Option<ObjectId> {
+        Some(self.id.into())
+    }
+
     fn node_toplevel(self: Rc<Self>) -> Option<Rc<dyn crate::tree::ToplevelNode>> {
         Some(self)
     }
