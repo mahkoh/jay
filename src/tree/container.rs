@@ -1493,6 +1493,11 @@ impl ContainerNode {
             .and_then(|p| p.node_into_container())
     }
 
+    fn moves_along(&self, split: ContainerSplit) -> bool {
+        let ns = &self.node_state[LiveTL];
+        split == ns.split.get() || (ns.mono_child.is_some() && split == ContainerSplit::Horizontal)
+    }
+
     fn find_neighboring_output(&self, direction: Direction) -> Option<Rc<OutputNode>> {
         if self.toplevel_data.parent.is_none() {
             return None;
@@ -1599,9 +1604,7 @@ impl ContainerNode {
         }
         let (split, prev) = direction_to_split(direction);
         // CASE 2: We're moving the child within the container.
-        if split == ns.split.get()
-            || (split == ContainerSplit::Horizontal && ns.mono_child.is_some())
-        {
+        if self.moves_along(split) {
             let cc = match self.child_nodes.borrow().get(&child.node_id()) {
                 Some(l) => l.to_ref(),
                 None => return,
