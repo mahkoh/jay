@@ -173,6 +173,21 @@ impl Into<Axis> for ContainerSplit {
     }
 }
 
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default)]
+pub enum ContainerMonoStyle {
+    #[default]
+    Tabbed,
+}
+
+impl ContainerMonoStyle {
+    /// The axis along which the titles are laid out.
+    fn title_axis(self) -> ContainerSplit {
+        match self {
+            ContainerMonoStyle::Tabbed => ContainerSplit::Horizontal,
+        }
+    }
+}
+
 #[expect(unused)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ContainerFocus {
@@ -224,6 +239,7 @@ enum ReplaceWithSoleChild {
 pub struct ContainerNodeState {
     pub split: Cell<ContainerSplit>,
     pub mono_child: CloneCell<Option<NodeRef<ContainerChild>>>,
+    pub mono_style: Cell<ContainerMonoStyle>,
     pub mono_body: Cell<Rect>,
     pub mono_content: Cell<Rect>,
     abs_x1: Cell<i32>,
@@ -747,18 +763,25 @@ impl ContainerNode {
         let bw = theme.sizes.border_width.get();
         let num_children = ns.num_children.get() as i32;
         let sp = self.container_borders_space(LiveTL);
-        let content_width = ns.width.get().sub(bw * (num_children - 1) + 2 * sp).max(0);
-        let width_per_child = content_width / num_children;
-        let mut rem = content_width % num_children;
-        let mut pos = sp;
-        for child in self.children.iter_valid(LiveTL) {
-            let mut width = width_per_child;
-            if rem > 0 {
-                width += 1;
-                rem -= 1;
+        match ns.mono_style.get() {
+            ContainerMonoStyle::Tabbed => {
+                let content_width = ns.width.get().sub(bw * (num_children - 1) + 2 * sp).max(0);
+                let width_per_child = content_width / num_children;
+                let mut rem = content_width % num_children;
+                let mut pos = sp;
+                for child in self.children.iter_valid(LiveTL) {
+                    let mut width = width_per_child;
+                    if rem > 0 {
+                        width += 1;
+                        rem -= 1;
+                    }
+                    self.set_child_ns_title_rect(
+                        &child,
+                        Rect::new_sized_saturating(pos, sp, width, th),
+                    );
+                    pos += width + bw;
+                }
             }
-            self.set_child_ns_title_rect(&child, Rect::new_sized_saturating(pos, sp, width, th));
-            pos += width + bw;
         }
     }
 
@@ -888,13 +911,18 @@ impl ContainerNode {
         if nc == 0 {
             return;
         }
+        let mono_header_height = self.mono_header_height();
         let mut mono_x = 0;
-        let mut mono_y = title_plus_underline_height;
+        let mut mono_y = mono_header_height;
+        let mut mono_width = ns.width.get();
+        let mut mono_height = ns.height.get() - mono_header_height;
         let mut width = ns.width.get();
         let mut height = ns.height.get() - title_plus_underline_height;
         if self.container_borders(LiveTL) == ContainerBorders::Full {
             mono_x += border_width;
             mono_y += border_width;
+            mono_width -= 2 * border_width;
+            mono_height -= 2 * border_width;
             width -= 2 * border_width;
             height -= 2 * border_width;
         }
@@ -912,7 +940,12 @@ impl ContainerNode {
                 self.set_ns_content_width(width.max(0));
             }
         }
-        self.set_ns_mono_body(Rect::new_sized_saturating(mono_x, mono_y, width, height));
+        self.set_ns_mono_body(Rect::new_sized_saturating(
+            mono_x,
+            mono_y,
+            mono_width,
+            mono_height,
+        ));
     }
 
     fn pointer_move(
@@ -1024,7 +1057,9 @@ impl ContainerNode {
         title.clear();
         let ns = &self.node_state[LiveTL];
         let split = match (ns.mono_child.is_some(), ns.split.get()) {
-            (true, _) => "T",
+            (true, _) => match ns.mono_style.get() {
+                ContainerMonoStyle::Tabbed => "T",
+            },
             (_, ContainerSplit::Horizontal) => "H",
             (_, ContainerSplit::Vertical) => "V",
         };
@@ -1477,6 +1512,15 @@ impl ContainerNode {
         }
     }
 
+    #[expect(unused)]
+    pub fn set_mono_style(self: &Rc<Self>, style: ContainerMonoStyle) {
+        if self.set_ns_mono_style(style) != style {
+            self.update_content_size();
+            self.schedule_layout();
+            self.update_title();
+        }
+    }
+
     fn parent_container(&self) -> Option<Rc<ContainerNode>> {
         self.toplevel_data
             .parent
@@ -1487,7 +1531,7 @@ impl ContainerNode {
     fn moves_along(&self, split: ContainerSplit) -> bool {
         let ns = &self.node_state[LiveTL];
         match ns.mono_child.is_some() {
-            true => split == ContainerSplit::Horizontal,
+            true => split == ns.mono_style.get().title_axis(),
             false => split == ns.split.get(),
         }
     }
@@ -1518,7 +1562,11 @@ impl ContainerNode {
         let ns = &self.node_state[LiveTL];
         let mc = ns.mono_child.get();
         let in_line = if mc.is_some() {
-            matches!(direction, Direction::Left | Direction::Right)
+            match ns.mono_style.get() {
+                ContainerMonoStyle::Tabbed => {
+                    matches!(direction, Direction::Left | Direction::Right)
+                }
+            }
         } else {
             match ns.split.get() {
                 ContainerSplit::Horizontal => {
@@ -1855,18 +1903,24 @@ impl ContainerNode {
         abs_x: i32,
         abs_y: i32,
     ) -> Option<TileDragDestination> {
+        let ns = &self.node_state[LiveTL];
+        let style = ns.mono_style.get();
+        let title_center = |rect: Rect| match style {
+            ContainerMonoStyle::Tabbed => (rect.x1() + rect.x2()) / 2,
+        };
+        let band = |lo: i32, hi: i32| match style {
+            ContainerMonoStyle::Tabbed => Rect::new(lo, 0, hi, ns.theme.sizes.title_height.get()),
+        };
         let mut prev_is_source = false;
         let mut prev_center = 0;
-        let ns = &self.node_state[LiveTL];
         for child in self.children.iter_valid(LiveTL) {
             if child.node.node_id() == source {
                 prev_is_source = true;
                 continue;
             }
-            let rect = child.node_state[LiveTL].title_rect.get();
-            let center = (rect.x1() + rect.x2()) / 2;
+            let center = title_center(child.node_state[LiveTL].title_rect.get());
             if !prev_is_source {
-                let rect = Rect::new(prev_center, 0, center, rect.height())?
+                let rect = band(prev_center, center)?
                     .move_(ns.abs_x1.get(), ns.abs_y1.get())
                     .intersect(abs_bounds);
                 if rect.contains(abs_x, abs_y) {
@@ -1887,14 +1941,12 @@ impl ContainerNode {
             return None;
         }
         let last = self.children.last_valid(LiveTL)?;
-        let rect = Rect::new(
-            prev_center,
-            0,
-            ns.width.get(),
-            ns.theme.sizes.title_height.get(),
-        )?
-        .move_(ns.abs_x1.get(), ns.abs_y1.get())
-        .intersect(abs_bounds);
+        let end = match style {
+            ContainerMonoStyle::Tabbed => ns.width.get(),
+        };
+        let rect = band(prev_center, end)?
+            .move_(ns.abs_x1.get(), ns.abs_y1.get())
+            .intersect(abs_bounds);
         if rect.contains(abs_x, abs_y) {
             return Some(TileDragDestination {
                 highlight: rect,
@@ -1918,7 +1970,10 @@ impl ContainerNode {
     ) -> Option<TileDragDestination> {
         let ns = &self.node_state[LiveTL];
         let th = ns.theme.sizes.title_height.get();
-        if abs_y < ns.abs_y1.get() + th {
+        let titles_height = match ns.mono_style.get() {
+            ContainerMonoStyle::Tabbed => th,
+        };
+        if abs_y < ns.abs_y1.get() + titles_height {
             return self.tile_drag_destination_mono_titles(source, abs_bounds, abs_x, abs_y);
         }
         let body = ns.mono_body.get();
@@ -2103,6 +2158,14 @@ impl ContainerNode {
         }
     }
 
+    fn mono_header_height(&self) -> i32 {
+        let ns = &self.node_state[LiveTL];
+        let tpuh = ns.theme.sizes.title_plus_underline_height.get();
+        match ns.mono_style.get() {
+            ContainerMonoStyle::Tabbed => tpuh,
+        }
+    }
+
     fn set_ns_split(self: &Rc<Self>, v: ContainerSplit) -> ContainerSplit {
         self.add_transaction_op(ContainerTransactionOp::SetSplit(v));
         self.node_state[LiveTL].split.replace(v)
@@ -2111,6 +2174,11 @@ impl ContainerNode {
     fn set_ns_mono_child(self: &Rc<Self>, v: Option<NodeRef<ContainerChild>>) {
         self.add_transaction_op(ContainerTransactionOp::SetMonoChild(v.clone()));
         self.node_state[LiveTL].mono_child.set(v);
+    }
+
+    fn set_ns_mono_style(self: &Rc<Self>, v: ContainerMonoStyle) -> ContainerMonoStyle {
+        self.add_transaction_op(ContainerTransactionOp::SetMonoStyle(v));
+        self.node_state[LiveTL].mono_style.replace(v)
     }
 
     fn set_ns_mono_body(self: &Rc<Self>, v: Rect) {
@@ -2655,8 +2723,15 @@ impl NodeBase for ContainerNode {
         let Some(cur_mc) = self.node_state[LiveTL].mono_child.get() else {
             return;
         };
-        let title_rect = cur_mc.node_state[LiveTL].title_rect.get();
-        if seat_data.y < title_rect.y1() || seat_data.y >= title_rect.y2() {
+        let (Some(first), Some(last)) = (
+            self.children.first_valid(LiveTL),
+            self.children.last_valid(LiveTL),
+        ) else {
+            return;
+        };
+        let titles_y1 = first.node_state[LiveTL].title_rect.get().y1();
+        let titles_y2 = last.node_state[LiveTL].title_rect.get().y2();
+        if seat_data.y < titles_y1 || seat_data.y >= titles_y2 {
             return;
         }
         let Some(discrete) = self.scroller.handle(event) else {
@@ -2946,10 +3021,10 @@ impl ContainingNode for ContainerNode {
             return;
         };
         let ns = &self.node_state[LiveTL];
-        let tpuh = ns.theme.sizes.title_plus_underline_height.get();
         if ns.mono_child.is_some() {
             let sp = self.container_borders_space(LiveTL);
-            parent.cnode_set_child_position(&*self, x - sp, y - tpuh - sp);
+            let mono_header_height = self.mono_header_height();
+            parent.cnode_set_child_position(&*self, x - sp, y - mono_header_height - sp);
         } else {
             let children = self.child_nodes.borrow();
             let Some(child) = children.get(&child.node_id()) else {
@@ -3064,6 +3139,10 @@ impl ContainingNode for ContainerNode {
             }
         }
         let sp = self.container_borders_space(LiveTL);
+        let top_off = match ns.mono_child.is_some() {
+            true => self.mono_header_height(),
+            false => tpuh,
+        };
         let pos = self.node_absolute_position(LiveTL);
         let mut x1 = None;
         let mut x2 = None;
@@ -3076,10 +3155,10 @@ impl ContainingNode for ContainerNode {
             x2 = new_x2.map(|v| (v + sp).max(x1.unwrap_or(pos.x1()) + 2 * sp));
         }
         if top_outside {
-            y1 = new_y1.map(|v| (v - tpuh - sp).min(pos.y2() - tpuh - 2 * sp));
+            y1 = new_y1.map(|v| (v - top_off - sp).min(pos.y2() - top_off - 2 * sp));
         }
         if bottom_outside {
-            y2 = new_y2.map(|v| (v + sp).max(y1.unwrap_or(pos.y1()) + tpuh + 2 * sp));
+            y2 = new_y2.map(|v| (v + sp).max(y1.unwrap_or(pos.y1()) + top_off + 2 * sp));
         }
         if ((x1.is_some() && x1 != Some(pos.x1()))
             || (x2.is_some() && x2 != Some(pos.x2()))
@@ -3619,6 +3698,7 @@ impl IconSurfaceOwner for ContainerNode {
 pub enum ContainerTransactionOp {
     SetSplit(ContainerSplit),
     SetMonoChild(Option<NodeRef<ContainerChild>>),
+    SetMonoStyle(ContainerMonoStyle),
     SetMonoBody(Rect),
     SetMonoContent(Rect),
     SetAbsX1(i32),
@@ -3664,6 +3744,9 @@ impl Transactionable for ContainerNode {
             }
             ContainerTransactionOp::SetMonoChild(v) => {
                 s.mono_child.set(v);
+            }
+            ContainerTransactionOp::SetMonoStyle(v) => {
+                s.mono_style.set(v);
             }
             ContainerTransactionOp::SetMonoBody(v) => {
                 s.mono_body.set(v);
