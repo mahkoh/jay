@@ -801,6 +801,14 @@ impl NodeBase for ZwlrLayerSurfaceV1 {
     fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, _bounds: Option<&Rect>) {
         renderer.render_layer_surface(self, x, y);
     }
+
+    fn node_client(&self) -> Option<Rc<Client>> {
+        Some(self.client.clone())
+    }
+
+    fn node_object_id(&self) -> Option<ObjectId> {
+        Some(self.id.into())
+    }
 }
 
 impl XdgPopupParent for Popup {

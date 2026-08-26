@@ -2193,6 +2193,10 @@ impl NodeBase for WlSurface {
         Some(self.client.clone())
     }
 
+    fn node_object_id(&self) -> Option<ObjectId> {
+        Some(self.id.into())
+    }
+
     fn node_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {
         self.toplevel.get()
     }

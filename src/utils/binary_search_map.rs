@@ -157,7 +157,7 @@ impl<K, V, const N: usize> BinarySearchMap<K, V, N> {
     }
 }
 
-impl<'a, K: Copy, V, const N: usize> IntoIterator for &'a BinarySearchMap<K, V, N> {
+impl<'a, K, V, const N: usize> IntoIterator for &'a BinarySearchMap<K, V, N> {
     type Item = (&'a K, &'a V);
     type IntoIter = BinarySearchMapIter<'a, K, V, N>;
 
@@ -166,7 +166,7 @@ impl<'a, K: Copy, V, const N: usize> IntoIterator for &'a BinarySearchMap<K, V, 
     }
 }
 
-impl<'a, K: Copy, V, const N: usize> IntoIterator for &'a mut BinarySearchMap<K, V, N> {
+impl<'a, K, V, const N: usize> IntoIterator for &'a mut BinarySearchMap<K, V, N> {
     type Item = (&'a K, &'a mut V);
     type IntoIter = BinarySearchMapMutIterMut<'a, K, V, N>;
 
@@ -208,5 +208,33 @@ impl<'a, K, V, const N: usize> Iterator for BinarySearchMapMutIterMut<'a, K, V, 
         let (k, v) = &mut self.map.m[self.pos];
         self.pos += 1;
         unsafe { Some(((k as *const K).deref(), (v as *mut V).deref_mut())) }
+    }
+}
+
+#[expect(unused)]
+pub trait BinarySearchMapDyn<K, V> {
+    fn get(&self, k: &K) -> Option<&V>
+    where
+        K: Ord + Eq;
+    fn iter<'a>(&'a self) -> impl IntoIterator<Item = (&'a K, &'a V)>
+    where
+        K: 'a,
+        V: 'a;
+}
+
+impl<K, V, const N: usize> BinarySearchMapDyn<K, V> for BinarySearchMap<K, V, N> {
+    fn get(&self, k: &K) -> Option<&V>
+    where
+        K: Ord + Eq,
+    {
+        self.get(k)
+    }
+
+    fn iter<'a>(&'a self) -> impl IntoIterator<Item = (&'a K, &'a V)>
+    where
+        K: 'a,
+        V: 'a,
+    {
+        self
     }
 }

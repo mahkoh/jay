@@ -197,6 +197,14 @@ impl NodeBase for ExtSessionLockSurfaceV1 {
         self.surface.find_tree_at_(x, y, tree)
     }
 
+    fn node_client(&self) -> Option<Rc<Client>> {
+        Some(self.client.clone())
+    }
+
+    fn node_object_id(&self) -> Option<ObjectId> {
+        Some(self.id.into())
+    }
+
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
         seat.focus_node_with_serial(self.surface.clone(), self.client.next_serial());
     }
