@@ -175,6 +175,7 @@ impl Into<Axis> for ContainerSplit {
 pub enum ContainerMonoStyle {
     #[default]
     Tabbed,
+    Stacked,
 }
 
 impl ContainerMonoStyle {
@@ -182,6 +183,7 @@ impl ContainerMonoStyle {
     fn title_axis(self) -> ContainerSplit {
         match self {
             ContainerMonoStyle::Tabbed => ContainerSplit::Horizontal,
+            ContainerMonoStyle::Stacked => ContainerSplit::Vertical,
         }
     }
 }
@@ -743,6 +745,20 @@ impl ContainerNode {
                     pos += width + bw;
                 }
             }
+            ContainerMonoStyle::Stacked => {
+                let tuh = theme.sizes.title_underline_height.get();
+                let width = ns.width.get().sub(2 * sp).max(0);
+                let y2 = mb.y1();
+                let mut pos = sp;
+                for child in self.children.iter_valid(LiveTL) {
+                    let y1 = pos.min(y2);
+                    self.set_child_ns_title_rect(
+                        &child,
+                        Rect::new_sized_saturating(sp, y1, width, th.min(y2 - y1)),
+                    );
+                    pos += th + tuh;
+                }
+            }
         }
     }
 
@@ -1023,6 +1039,7 @@ impl ContainerNode {
         let split = match (ns.mono_child.is_some(), ns.split.get()) {
             (true, _) => match ns.mono_style.get() {
                 ContainerMonoStyle::Tabbed => "T",
+                ContainerMonoStyle::Stacked => "S",
             },
             (_, ContainerSplit::Horizontal) => "H",
             (_, ContainerSplit::Vertical) => "V",
@@ -1211,6 +1228,7 @@ impl ContainerNode {
         let main_axis_ranges = &mut *self.main_axis_ranges.borrow_mut();
         main_axis_ranges.clear();
         let mono = ns.mono_child.is_some();
+        let stacked = mono && ns.mono_style.get() == ContainerMonoStyle::Stacked;
         let split = ns.split.get();
         let abs_x = ns.abs_x1.get();
         let abs_y = ns.abs_y1.get();
@@ -1285,7 +1303,7 @@ impl ContainerNode {
             let ctheme = &cns.theme;
             let rect = cns.title_rect.get();
             let active = cns.ty.get() == ContainerChildType::Active;
-            if i > 0 || fill_active_borders {
+            if !stacked && (i > 0 || fill_active_borders) {
                 add_border(rd, &child, rect.x1(), rect.y1(), active, prev_active, false);
             }
             prev_active = active;
@@ -1301,6 +1319,10 @@ impl ContainerNode {
             add_color(rd, title_background, rect);
             if !mono {
                 let rect = Rect::new_sized_saturating(rect.x1(), rect.y2(), rect.width(), 1);
+                add_color(rd, theme.colors.separator.get(), rect);
+            } else if stacked {
+                let height = tuh.min(ns.mono_body.get().y1() - rect.y2());
+                let rect = Rect::new_sized_saturating(rect.x1(), rect.y2(), rect.width(), height);
                 add_color(rd, theme.colors.separator.get(), rect);
             }
             child.rd.clear();
@@ -1349,7 +1371,7 @@ impl ContainerNode {
                 }
             }
         }
-        if mono {
+        if mono && !stacked {
             add_color(
                 rd,
                 theme.colors.separator.get(),
@@ -1479,7 +1501,7 @@ impl ContainerNode {
         }
     }
 
-    #[expect(unused)]
+    #[cfg_attr(not(feature = "it"), expect(unused))]
     pub fn set_mono_style(self: &Rc<Self>, style: ContainerMonoStyle) {
         if self.set_ns_mono_style(style) != style {
             self.update_content_size();
@@ -1534,6 +1556,9 @@ impl ContainerNode {
             match ns.mono_style.get() {
                 ContainerMonoStyle::Tabbed => {
                     matches!(direction, Direction::Left | Direction::Right)
+                }
+                ContainerMonoStyle::Stacked => {
+                    matches!(direction, Direction::Up | Direction::Down)
                 }
             }
         } else {
@@ -1882,9 +1907,11 @@ impl ContainerNode {
         let style = ns.mono_style.get();
         let title_center = |rect: Rect| match style {
             ContainerMonoStyle::Tabbed => (rect.x1() + rect.x2()) / 2,
+            ContainerMonoStyle::Stacked => (rect.y1() + rect.y2()) / 2,
         };
         let band = |lo: i32, hi: i32| match style {
             ContainerMonoStyle::Tabbed => Rect::new(lo, 0, hi, ns.theme.sizes.title_height.get()),
+            ContainerMonoStyle::Stacked => Rect::new(0, lo, ns.width.get(), hi),
         };
         let mut prev_is_source = false;
         let mut prev_center = 0;
@@ -1918,6 +1945,7 @@ impl ContainerNode {
         let last = self.children.last_valid(LiveTL)?;
         let end = match style {
             ContainerMonoStyle::Tabbed => ns.width.get(),
+            ContainerMonoStyle::Stacked => last.node_state[LiveTL].title_rect.get().y2(),
         };
         let rect = band(prev_center, end)?
             .move_(ns.abs_x1.get(), ns.abs_y1.get())
@@ -1944,9 +1972,12 @@ impl ContainerNode {
         abs_y: i32,
     ) -> Option<TileDragDestination> {
         let ns = &self.node_state[LiveTL];
-        let th = ns.theme.sizes.title_height.get();
         let titles_height = match ns.mono_style.get() {
-            ContainerMonoStyle::Tabbed => th,
+            ContainerMonoStyle::Tabbed => ns.theme.sizes.title_height.get(),
+            ContainerMonoStyle::Stacked => {
+                let last = self.children.last_valid(LiveTL)?;
+                last.node_state[LiveTL].title_rect.get().y2()
+            }
         };
         if abs_y < ns.abs_y1.get() + titles_height {
             return self.tile_drag_destination_mono_titles(source, abs_bounds, abs_x, abs_y);
@@ -2128,9 +2159,21 @@ impl ContainerNode {
 
     fn mono_header_height(&self) -> i32 {
         let ns = &self.node_state[LiveTL];
-        let tpuh = ns.theme.sizes.title_plus_underline_height.get();
+        let theme = &ns.theme;
+        let tpuh = theme.sizes.title_plus_underline_height.get();
         match ns.mono_style.get() {
             ContainerMonoStyle::Tabbed => tpuh,
+            ContainerMonoStyle::Stacked => {
+                let sp = match self.container_borders(LiveTL) {
+                    ContainerBorders::Separators => 0,
+                    ContainerBorders::Full => theme.sizes.border_width.get(),
+                };
+                let nc = ns.num_children.get() as i32;
+                // The titles are clamped to the container's height, but at least one
+                // title row is kept, which is what the tabbed style's single row
+                // amounts to.
+                (nc * tpuh).min(ns.height.get().sub(2 * sp).max(tpuh))
+            }
         }
     }
 

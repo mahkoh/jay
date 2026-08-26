@@ -114,6 +114,7 @@ mod t2026_09_16_float_theme_replace_child;
 mod t2026_09_16_window_theme_float;
 mod t2026_09_16_window_theme_screenshot;
 mod t2026_09_16_window_theme_tiled;
+mod t2026_09_19_mono_style;
 mod t2026_10_14_tabbed_move_child;
 mod t2026_10_30_mono_move_out;
 
