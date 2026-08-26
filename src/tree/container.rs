@@ -100,6 +100,7 @@ use crate::utils::static_text::StaticText;
 use crate::utils::threshold_counter::ThresholdCounter;
 use hashbrown::hash_map::Entry;
 use jay_config::Axis;
+use jay_config::window::JcMonoStyle;
 use jay_proc::CachedValue;
 use jay_proc::GetLiveness;
 use jay_proc::jay_clone;
@@ -184,6 +185,24 @@ impl StaticText for ContainerMonoStyle {
         match self {
             ContainerMonoStyle::Tabbed => "Tabbed",
             ContainerMonoStyle::Stacked => "Stacked",
+        }
+    }
+}
+
+impl From<JcMonoStyle> for ContainerMonoStyle {
+    fn from(value: JcMonoStyle) -> Self {
+        match value {
+            JcMonoStyle::Tabbed => ContainerMonoStyle::Tabbed,
+            JcMonoStyle::Stacked => ContainerMonoStyle::Stacked,
+        }
+    }
+}
+
+impl Into<JcMonoStyle> for ContainerMonoStyle {
+    fn into(self) -> JcMonoStyle {
+        match self {
+            ContainerMonoStyle::Tabbed => JcMonoStyle::Tabbed,
+            ContainerMonoStyle::Stacked => JcMonoStyle::Stacked,
         }
     }
 }
@@ -1500,7 +1519,6 @@ impl ContainerNode {
         }
     }
 
-    #[expect(unused)]
     pub fn set_mono_style(self: &Rc<Self>, style: ContainerMonoStyle) {
         if self.set_ns_mono_style(style) != style {
             self.update_content_size();
