@@ -46,6 +46,7 @@ use crate::state::State;
 use crate::tagged_acceptor::TaggedAcceptorError;
 use crate::theme::ThemeColored;
 use crate::theme::ThemeSized;
+use crate::tree::ContainerMonoStyle;
 use crate::tree::ContainerSplit;
 use crate::tree::ContainerTarget;
 use crate::tree::NodeBase;
@@ -153,6 +154,7 @@ use jay_config::video::ScalingFilter as ConfigScalingFilter;
 use jay_config::video::TearingMode as ConfigTearingMode;
 use jay_config::video::Transform;
 use jay_config::video::VrrMode as ConfigVrrMode;
+use jay_config::window::MonoStyle as ConfigMonoStyle;
 use jay_config::window::TileState as ConfigTileState;
 use jay_config::window::Window;
 use jay_config::window::WindowMatcher;
@@ -2280,6 +2282,56 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_get_seat_mono_style(&self, seat: Seat) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        self.respond(Response::GetSeatMonoStyle {
+            style: seat
+                .get_mono_style()
+                .unwrap_or(ContainerMonoStyle::Tabbed)
+                .into(),
+        });
+        Ok(())
+    }
+
+    fn handle_set_seat_mono_style(
+        &self,
+        seat: Seat,
+        style: ConfigMonoStyle,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        let Ok(style) = style.try_into() else {
+            return Err(CphError::UnknownMonoStyle(style));
+        };
+        seat.set_mono_style(style);
+        Ok(())
+    }
+
+    fn handle_get_window_mono_style(&self, window: Window) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        self.respond(Response::GetWindowMonoStyle {
+            style: toplevel_parent_container(&*window)
+                .map(|c| c.node_state[LiveTL].mono_style.get())
+                .unwrap_or(ContainerMonoStyle::Tabbed)
+                .into(),
+        });
+        Ok(())
+    }
+
+    fn handle_set_window_mono_style(
+        &self,
+        window: Window,
+        style: ConfigMonoStyle,
+    ) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        let Ok(style) = style.try_into() else {
+            return Err(CphError::UnknownMonoStyle(style));
+        };
+        if let Some(c) = toplevel_parent_container(&*window) {
+            c.set_mono_style(style);
+        }
+        Ok(())
+    }
+
     fn handle_add_shortcut(
         &self,
         seat: Seat,
@@ -3510,6 +3562,12 @@ impl ConfigProxyHandler {
             ClientMessage::SetSeatSplit { seat, axis } => self
                 .handle_set_seat_split(seat, None, axis)
                 .wrn("set_seat_split")?,
+            ClientMessage::GetSeatMonoStyle { seat } => self
+                .handle_get_seat_mono_style(seat)
+                .wrn("get_seat_mono_style")?,
+            ClientMessage::SetSeatMonoStyle { seat, style } => self
+                .handle_set_seat_mono_style(seat, style)
+                .wrn("set_seat_mono_style")?,
             ClientMessage::AddShortcut { seat, mods, sym } => self
                 .handle_add_shortcut(seat, Modifiers(!0), mods, sym)
                 .wrn("add_shortcut")?,
@@ -3935,6 +3993,12 @@ impl ConfigProxyHandler {
             ClientMessage::SetWindowMono { window, mono } => self
                 .handle_set_window_mono(window, None, mono)
                 .wrn("set_window_mono")?,
+            ClientMessage::GetWindowMonoStyle { window } => self
+                .handle_get_window_mono_style(window)
+                .wrn("get_window_mono_style")?,
+            ClientMessage::SetWindowMonoStyle { window, style } => self
+                .handle_set_window_mono_style(window, style)
+                .wrn("set_window_mono_style")?,
             ClientMessage::WindowMove { window, direction } => self
                 .handle_window_move(window, direction)
                 .wrn("window_move")?,
@@ -4469,6 +4533,8 @@ enum CphError {
     UnknownFallbackOutputMode(FallbackOutputMode),
     #[error("Unknown tile state {0:?}")]
     UnknownTileState(ConfigTileState),
+    #[error("Unknown mono style {0:?}")]
+    UnknownMonoStyle(ConfigMonoStyle),
     #[error("Could not create a tagged acceptor")]
     CreateTaggedAcceptor(#[source] TaggedAcceptorError),
     #[error("Keymap must be defined through a map or rmlvo names")]

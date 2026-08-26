@@ -22,6 +22,7 @@ use crate::keyboard::Keymap;
 use crate::keyboard::mods::Modifiers;
 use crate::keyboard::syms::KeySym;
 use crate::video::Connector;
+use crate::window::MonoStyle;
 use crate::window::Window;
 use serde::Deserialize;
 use serde::Serialize;
@@ -420,6 +421,25 @@ impl Seat {
     /// Toggles whether the parent-container of the currently focused window is in mono-mode.
     pub fn toggle_mono(self) {
         self.set_mono(!self.mono());
+    }
+
+    /// Returns the mono style of the parent-container of the currently focused window.
+    pub fn mono_style(self) -> MonoStyle {
+        get!(MonoStyle::Tabbed).seat_mono_style(self)
+    }
+
+    /// Sets the mono style of the parent-container of the currently focused window.
+    pub fn set_mono_style(self, style: MonoStyle) {
+        get!().set_seat_mono_style(self, style)
+    }
+
+    /// Toggles the mono style of the parent-container of the currently focused window.
+    pub fn toggle_mono_style(self) {
+        let style = match self.mono_style() {
+            MonoStyle::Stacked => MonoStyle::Tabbed,
+            _ => MonoStyle::Stacked,
+        };
+        self.set_mono_style(style);
     }
 
     /// Returns the split axis of the parent-container of the currently focused window.

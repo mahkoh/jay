@@ -51,6 +51,7 @@ use crate::video::Transform;
 use crate::video::VrrMode;
 use crate::video::connector_type::ConnectorType;
 use crate::window::ContentType;
+use crate::window::MonoStyle;
 use crate::window::TileState;
 use crate::window::Window;
 use crate::window::WindowMatcher;
@@ -1084,6 +1085,20 @@ pub enum ClientMessage<'a> {
         target: ContainerTarget,
         axis: RelativeAxis,
     },
+    GetSeatMonoStyle {
+        seat: Seat,
+    },
+    SetSeatMonoStyle {
+        seat: Seat,
+        style: MonoStyle,
+    },
+    GetWindowMonoStyle {
+        window: Window,
+    },
+    SetWindowMonoStyle {
+        window: Window,
+        style: MonoStyle,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1372,6 +1387,12 @@ pub enum Response {
     },
     GetSplitReusesContainer {
         reuse: bool,
+    },
+    GetSeatMonoStyle {
+        style: MonoStyle,
+    },
+    GetWindowMonoStyle {
+        style: MonoStyle,
     },
 }
 

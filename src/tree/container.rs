@@ -75,6 +75,7 @@ use crate::utils::smallmap::SmallMapMut;
 use crate::utils::static_text::StaticText;
 use crate::utils::threshold_counter::ThresholdCounter;
 use jay_config::Axis;
+use jay_config::window::MonoStyle as ConfigMonoStyle;
 use linearize::Linearize;
 use smallvec::SmallVec;
 use std::cell::Cell;
@@ -144,6 +145,28 @@ impl StaticText for ContainerMonoStyle {
         match self {
             ContainerMonoStyle::Tabbed => "Tabbed",
             ContainerMonoStyle::Stacked => "Stacked",
+        }
+    }
+}
+
+impl TryFrom<ConfigMonoStyle> for ContainerMonoStyle {
+    type Error = ();
+
+    fn try_from(value: ConfigMonoStyle) -> Result<Self, Self::Error> {
+        let v = match value {
+            ConfigMonoStyle::Tabbed => ContainerMonoStyle::Tabbed,
+            ConfigMonoStyle::Stacked => ContainerMonoStyle::Stacked,
+            _ => return Err(()),
+        };
+        Ok(v)
+    }
+}
+
+impl Into<ConfigMonoStyle> for ContainerMonoStyle {
+    fn into(self) -> ConfigMonoStyle {
+        match self {
+            ContainerMonoStyle::Tabbed => ConfigMonoStyle::Tabbed,
+            ContainerMonoStyle::Stacked => ConfigMonoStyle::Stacked,
         }
     }
 }
@@ -1316,7 +1339,6 @@ impl ContainerNode {
         }
     }
 
-    #[expect(unused)]
     pub fn set_mono_style(self: &Rc<Self>, style: ContainerMonoStyle) {
         if self.set_ns_mono_style(style) != style {
             self.update_content_size();

@@ -78,6 +78,7 @@ use crate::video::connector_type::CON_UNKNOWN;
 use crate::video::connector_type::ConnectorType;
 use crate::window::ContentType;
 use crate::window::MatchedWindow;
+use crate::window::MonoStyle;
 use crate::window::TileState;
 use crate::window::Window;
 use crate::window::WindowCriterion;
@@ -586,6 +587,18 @@ impl ConfigClient {
         mono
     }
 
+    pub fn seat_mono_style(&self, seat: Seat) -> MonoStyle {
+        let res = self.send_with_response(&ClientMessage::GetSeatMonoStyle { seat });
+        get_response!(res, MonoStyle::Tabbed, GetSeatMonoStyle { style });
+        style
+    }
+
+    pub fn window_mono_style(&self, window: Window) -> MonoStyle {
+        let res = self.send_with_response(&ClientMessage::GetWindowMonoStyle { window });
+        get_response!(res, MonoStyle::Tabbed, GetWindowMonoStyle { style });
+        style
+    }
+
     pub fn get_timer(&self, name: &str) -> Timer {
         let res = self.send_with_response(&ClientMessage::GetTimer { name });
         get_response!(res, Timer(0), GetTimer { timer });
@@ -880,6 +893,14 @@ impl ConfigClient {
 
     pub fn set_window_mono(&self, window: Window, mono: bool) {
         self.send(&ClientMessage::SetWindowMono { window, mono });
+    }
+
+    pub fn set_seat_mono_style(&self, seat: Seat, style: MonoStyle) {
+        self.send(&ClientMessage::SetSeatMonoStyle { seat, style });
+    }
+
+    pub fn set_window_mono_style(&self, window: Window, style: MonoStyle) {
+        self.send(&ClientMessage::SetWindowMonoStyle { window, style });
     }
 
     pub fn set_env(&self, key: &str, val: &str) {
