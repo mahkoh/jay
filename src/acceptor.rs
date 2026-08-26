@@ -7,6 +7,7 @@ use crate::utils::errorfmt::ErrorFmt;
 use jay_algorithms::oserror::OsError;
 use jay_algorithms::oserror::OsErrorExt;
 use jay_algorithms::oserror::OsErrorExt2;
+use std::io;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
@@ -35,6 +36,8 @@ pub enum AcceptorError {
     BindFailed(#[source] OsError),
     #[error("All wayland addresses in the range 0..1000 are already in use")]
     AddressesInUse,
+    #[error("Could not create jay runtime dir")]
+    CreateJayRuntimeDir(#[source] io::Error),
 }
 
 pub struct Acceptor {
@@ -139,6 +142,11 @@ impl Acceptor {
         log::info!("bound to socket {}", socket.path.display());
         for fd in [&socket.secure, &socket.insecure] {
             uapi::listen(fd.raw(), 4096).map_os_err(AcceptorError::ListenFailed)?;
+        }
+        {
+            let jrd = format!("{}-jay", socket.path.display());
+            std::fs::create_dir_all(&jrd).map_err(AcceptorError::CreateJayRuntimeDir)?;
+            state.jay_runtime_dir.get_or_init(|| jrd);
         }
         let acc = Rc::new(Acceptor { socket });
         let futures = vec![

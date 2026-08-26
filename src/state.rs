@@ -252,6 +252,7 @@ use jay_config::PciId;
 use linearize::StaticCopyMap;
 use linearize::StaticMap;
 use std::cell::Cell;
+use std::cell::OnceCell;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -328,6 +329,7 @@ pub struct State {
     pub run_args: RunArgs,
     pub xwayland: XWaylandState,
     pub acceptor: CloneCell<Option<Rc<Acceptor>>>,
+    pub jay_runtime_dir: OnceCell<String>,
     pub serial: NumCell<u64>,
     pub run_toplevel: Rc<RunToplevel>,
     pub config_dir: Option<&'static str>,

@@ -372,6 +372,7 @@ fn start_compositor2(
             display: Default::default(),
         },
         acceptor: Default::default(),
+        jay_runtime_dir: Default::default(),
         serial: Default::default(),
         idle_inhibitor_ids: Default::default(),
         run_toplevel,
