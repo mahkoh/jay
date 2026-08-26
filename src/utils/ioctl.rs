@@ -2,7 +2,7 @@ use crate::utils::compat::IoctlNumber;
 use jay_algorithms::oserror::OsError;
 use uapi::c;
 
-pub unsafe fn ioctl<T>(fd: c::c_int, request: c::c_ulong, t: &mut T) -> Result<c::c_int, OsError> {
+pub unsafe fn ioctl<T>(fd: c::c_int, request: u64, t: &mut T) -> Result<c::c_int, OsError> {
     let mut ret;
     loop {
         ret = unsafe { c::ioctl(fd, request as IoctlNumber, &mut *t) };
