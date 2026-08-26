@@ -102,6 +102,7 @@ use crate::object::Version;
 use crate::rect::Rect;
 use crate::state::DeviceHandlerData;
 use crate::state::State;
+use crate::tree::ContainerMonoStyle;
 use crate::tree::ContainerNode;
 use crate::tree::ContainerSplit;
 use crate::tree::ContainerTarget;
@@ -810,6 +811,17 @@ impl WlSeatGlobal {
         if let Some(c) = self.kb_target_container(target) {
             let pos = c.node_absolute_position(LiveTL);
             c.set_split(ContainerSplit::from_relative_axis(axis, &pos));
+        }
+    }
+
+    pub fn get_mono_style(&self) -> Option<ContainerMonoStyle> {
+        self.kb_target_container(ContainerTarget::Parent)
+            .map(|c| c.node_state[LiveTL].mono_style.get())
+    }
+
+    pub fn set_mono_style(&self, style: ContainerMonoStyle) {
+        if let Some(c) = self.kb_target_container(ContainerTarget::Parent) {
+            c.set_mono_style(style);
         }
     }
 
