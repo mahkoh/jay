@@ -15,8 +15,6 @@ use crate::pipewire::pw_parser::PwParserError;
 use crate::pipewire::pw_pod::PW_CHOICE_Enum;
 use crate::pipewire::pw_pod::PW_CHOICE_Flags;
 use crate::pipewire::pw_pod::PW_NODE_ACTIVATION_FINISHED;
-use crate::pipewire::pw_pod::PW_NODE_ACTIVATION_NOT_TRIGGERED;
-use crate::pipewire::pw_pod::PW_NODE_ACTIVATION_TRIGGERED;
 use crate::pipewire::pw_pod::PW_OBJECT_Format;
 use crate::pipewire::pw_pod::PW_OBJECT_ParamBuffers;
 use crate::pipewire::pw_pod::PW_OBJECT_ParamMeta;
@@ -66,6 +64,7 @@ use crate::pipewire::pw_pod::SPA_PARAM_META_type;
 use crate::pipewire::pw_pod::SPA_PARAM_Meta;
 use crate::pipewire::pw_pod::SPA_PORT_FLAG;
 use crate::pipewire::pw_pod::SPA_PORT_FLAG_CAN_ALLOC_BUFFERS;
+use crate::pipewire::pw_pod::SPA_STATUS_HAVE_DATA;
 use crate::pipewire::pw_pod::SpaDataFlags;
 use crate::pipewire::pw_pod::SpaDataType;
 use crate::pipewire::pw_pod::SpaDirection;
@@ -239,8 +238,8 @@ pub struct PwClientNode {
 }
 
 pub struct PwNodeActivation {
-    pub activation: Rc<PwMemTyped<pw_node_activation>>,
-    pub fd: Rc<OwnedFd>,
+    pub _activation: Rc<PwMemTyped<pw_node_activation>>,
+    pub _fd: Rc<OwnedFd>,
 }
 
 // pub struct PwNodeBuffer {
@@ -829,8 +828,8 @@ impl PwClientNode {
             self.activations.set(
                 node,
                 Rc::new(PwNodeActivation {
-                    activation: typed,
-                    fd: signalfd,
+                    _activation: typed,
+                    _fd: signalfd,
                 }),
             );
         } else {
@@ -889,16 +888,17 @@ impl PwClientNode {
     }
 
     pub fn drive(&self) {
-        for activation in self.activations.lock().values() {
-            let a = unsafe { activation.activation.read() };
-            let required = a.state[0].required.load(Relaxed);
-            a.state[0].pending.store(required - 1, Relaxed);
-            if required == 1 {
-                a.status.store(PW_NODE_ACTIVATION_TRIGGERED.0, Release);
-                let _ = uapi::eventfd_write(activation.fd.raw(), 1);
-            } else {
-                a.status.store(PW_NODE_ACTIVATION_NOT_TRIGGERED.0, Release);
+        if let Some(v) = self.activation.get() {
+            unsafe {
+                v.read().state[0]
+                    .status
+                    .store(SPA_STATUS_HAVE_DATA.0, Release);
             }
+        }
+        // Pipewire documentation incorrectly states that this FD should only be written
+        // for profiling.
+        if let Some(v) = self.transport_out.get() {
+            let _ = uapi::eventfd_write(v.raw(), 1);
         }
     }
 }

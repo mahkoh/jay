@@ -1337,7 +1337,7 @@ pub struct spa_io_position {
 #[repr(C)]
 #[derive(Debug, Pod)]
 pub struct pw_node_activation_state {
-    pub status: c::c_int,
+    pub status: PodAtomicU32,
     pub required: PodAtomicI32,
     pub pending: PodAtomicI32,
 }
