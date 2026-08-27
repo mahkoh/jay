@@ -152,12 +152,14 @@ pub struct PersistentOutputState {
     pub use_native_gamut: Cell<bool>,
 }
 
-#[derive(Eq, Debug)]
+#[derive(Eq, Derivative)]
+#[derivative(Debug)]
 pub struct OutputId {
     pub _connector: Option<String>,
     pub manufacturer: String,
     pub model: String,
     pub serial_number: String,
+    #[derivative(Debug = "ignore")]
     pub hash: OutputIdHash,
 }
 
