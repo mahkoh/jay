@@ -255,6 +255,7 @@ impl Xwindow {
     pub fn destroy(self: &Rc<Self>) {
         self.break_loops();
         self.data.window.take();
+        self.data.info.extents.take();
     }
 
     pub fn break_loops(self: &Rc<Self>) {
