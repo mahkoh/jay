@@ -266,6 +266,11 @@ impl BufferRingBuffer {
     pub fn as_ptr(&self) -> *const u8 {
         self.buf.cast()
     }
+
+    #[expect(unused)]
+    pub fn as_mut_ptr(&self) -> *mut u8 {
+        self.buf.cast()
+    }
 }
 
 impl Deref for BufferRingBuffer {
