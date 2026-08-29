@@ -109,3 +109,9 @@ impl GetLiveness for Liveness {
         self
     }
 }
+
+impl GetLiveness for () {
+    fn get_liveness(&self) -> &Liveness {
+        STATIC_LIVENESS
+    }
+}
