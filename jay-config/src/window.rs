@@ -1,7 +1,9 @@
 //! Tools for inspecting and manipulating windows.
 
 use crate::Axis;
+use crate::ContainerTarget;
 use crate::Direction;
+use crate::RelativeAxis;
 use crate::Workspace;
 use crate::client::Client;
 use crate::client::ClientCriterion;
@@ -167,6 +169,42 @@ impl Window {
         self.set_split(self.split().other());
     }
 
+    /// Returns whether the target container of the window is in mono-mode.
+    pub fn container_mono(self, target: ContainerTarget) -> bool {
+        get!(false).window_container_mono(self, target)
+    }
+
+    /// Sets whether the target container of the window is in mono-mode.
+    pub fn set_container_mono(self, target: ContainerTarget, mono: bool) {
+        get!().set_window_container_mono(self, target, mono)
+    }
+
+    /// Toggles whether the target container of the window is in mono-mode.
+    pub fn toggle_container_mono(self, target: ContainerTarget) {
+        self.set_container_mono(target, !self.container_mono(target));
+    }
+
+    /// Returns the split axis of the target container of the window.
+    pub fn container_split(self, target: ContainerTarget) -> Axis {
+        get!(Axis::Horizontal).window_container_split(self, target)
+    }
+
+    /// Sets the split axis of the target container of the window.
+    pub fn set_container_split(self, target: ContainerTarget, axis: Axis) {
+        get!().set_window_container_split(self, target, axis)
+    }
+
+    /// Toggles the split axis of the target container of the window.
+    pub fn toggle_container_split(self, target: ContainerTarget) {
+        self.set_container_split(target, self.container_split(target).other());
+    }
+
+    /// Sets the split axis of the target container of the window relative to the
+    /// dimensions of that container.
+    pub fn set_container_split_relative(self, target: ContainerTarget, axis: RelativeAxis) {
+        get!().set_window_container_split_relative(self, target, axis)
+    }
+
     /// Creates a new container with the specified split in place of the window.
     ///
     /// If the window is the only child of its container and
@@ -174,6 +212,16 @@ impl Window {
     /// split axis of that container is changed instead.
     pub fn create_split(self, axis: Axis) {
         get!().create_window_split(self, axis);
+    }
+
+    /// Creates a new container in place of the window with a split relative to the
+    /// dimensions of that window.
+    ///
+    /// If the window is the only child of its container and
+    /// [`set_split_reuses_container`](crate::set_split_reuses_container) is enabled, the
+    /// split axis of that container is changed instead.
+    pub fn create_split_relative(self, axis: RelativeAxis) {
+        get!().create_window_split_relative(self, axis);
     }
 
     /// Requests the window to be closed.

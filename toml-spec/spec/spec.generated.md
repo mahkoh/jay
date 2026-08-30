@@ -1122,6 +1122,180 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
     The numbers should be integers.
 
+- `toggle-split`:
+
+  Toggle the split of the target container between vertical and
+  horizontal.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "toggle-split", target = "self" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
+- `tile-horizontal`:
+
+  Sets the split of the target container to horizontal.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "tile-horizontal", target = "self" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
+- `tile-vertical`:
+
+  Sets the split of the target container to vertical.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "tile-vertical", target = "self" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
+- `tile-major`:
+
+  Sets the split of the target container along its larger dimension.
+  That is, to vertical if the container is higher than it is wide and
+  to horizontal otherwise.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "tile-major", target = "self" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
+- `tile-minor`:
+
+  Sets the split of the target container along its smaller dimension.
+  That is, to horizontal if the container is higher than it is wide and
+  to vertical otherwise.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "tile-minor", target = "self" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
+- `toggle-mono`:
+
+  Toggle the target container between showing a single and all
+  children.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "toggle-mono", target = "self" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
+- `show-single`:
+
+  Makes the target container show a single child.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "show-single", target = "self" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
+- `show-all`:
+
+  Makes the target container show all children.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "show-all", target = "self" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
 
 <a name="types-BarPosition"></a>
 ### `BarPosition`
@@ -2848,6 +3022,31 @@ The string should have one of the following values:
   A border is drawn around the entire container, in addition to the separators
   between children, unless the container has only one child and is the root
   container of the workspace.
+
+
+
+<a name="types-ContainerTarget"></a>
+### `ContainerTarget`
+
+The container that an action applies to.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `parent`:
+
+  The parent container of the window. This is the default.
+
+- `self`:
+
+  The window itself.
+  
+  The action has no effect if the window is not a container.
+
+- `auto`:
+
+  The window itself if it is a container, otherwise its parent container.
 
 
 
@@ -4920,7 +5119,7 @@ The table has the following fields:
 The name of a `simple` Action.
 
 When used inside a window rule, the following actions apply to the matched window
-instead fo the focused window:
+instead of the focused window:
 
 - `move-left`
 - `move-down`
@@ -4928,10 +5127,14 @@ instead fo the focused window:
 - `move-right`
 - `split-horizontal`
 - `split-vertical`
+- `split-major`
+- `split-minor`
 - `toggle-split`
 - `tile-horizontal`
 - `tile-vertical`
-- `toggle-split`
+- `tile-major`
+- `tile-minor`
+- `toggle-mono`
 - `show-single`
 - `show-all`
 - `toggle-fullscreen`
@@ -5001,6 +5204,16 @@ The string should have one of the following values:
 
   Split the currently focused window vertically.
 
+- `split-major`:
+
+  Split the currently focused window along its larger dimension. That is,
+  vertically if the window is higher than it is wide and horizontally otherwise.
+
+- `split-minor`:
+
+  Split the currently focused window along its smaller dimension. That is,
+  horizontally if the window is higher than it is wide and vertically otherwise.
+
 - `toggle-split`:
 
   Toggle the split of the currently focused container between vertical and
@@ -5013,6 +5226,18 @@ The string should have one of the following values:
 - `tile-vertical`:
 
   Sets the split of the currently focused container to vertical.
+
+- `tile-major`:
+
+  Sets the split of the currently focused container along its larger dimension.
+  That is, to vertical if the container is higher than it is wide and to
+  horizontal otherwise.
+
+- `tile-minor`:
+
+  Sets the split of the currently focused container along its smaller dimension.
+  That is, to horizontal if the container is higher than it is wide and to
+  vertical otherwise.
 
 - `toggle-mono`:
 

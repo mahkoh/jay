@@ -1024,6 +1024,174 @@ Action:
               required: true
               kind: number
               integer_only: true
+        toggle-split:
+          description: |
+            Toggle the split of the target container between vertical and
+            horizontal.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-a = { type = "toggle-split", target = "self" }
+              ```
+          fields:
+            target:
+              ref: ContainerTarget
+              required: false
+              description: |
+                The container the action applies to.
+
+                The default is `parent`.
+        tile-horizontal:
+          description: |
+            Sets the split of the target container to horizontal.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-a = { type = "tile-horizontal", target = "self" }
+              ```
+          fields:
+            target:
+              ref: ContainerTarget
+              required: false
+              description: |
+                The container the action applies to.
+
+                The default is `parent`.
+        tile-vertical:
+          description: |
+            Sets the split of the target container to vertical.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-a = { type = "tile-vertical", target = "self" }
+              ```
+          fields:
+            target:
+              ref: ContainerTarget
+              required: false
+              description: |
+                The container the action applies to.
+
+                The default is `parent`.
+        tile-major:
+          description: |
+            Sets the split of the target container along its larger dimension.
+            That is, to vertical if the container is higher than it is wide and
+            to horizontal otherwise.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-a = { type = "tile-major", target = "self" }
+              ```
+          fields:
+            target:
+              ref: ContainerTarget
+              required: false
+              description: |
+                The container the action applies to.
+
+                The default is `parent`.
+        tile-minor:
+          description: |
+            Sets the split of the target container along its smaller dimension.
+            That is, to horizontal if the container is higher than it is wide and
+            to vertical otherwise.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-a = { type = "tile-minor", target = "self" }
+              ```
+          fields:
+            target:
+              ref: ContainerTarget
+              required: false
+              description: |
+                The container the action applies to.
+
+                The default is `parent`.
+        toggle-mono:
+          description: |
+            Toggle the target container between showing a single and all
+            children.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-a = { type = "toggle-mono", target = "self" }
+              ```
+          fields:
+            target:
+              ref: ContainerTarget
+              required: false
+              description: |
+                The container the action applies to.
+
+                The default is `parent`.
+        show-single:
+          description: |
+            Makes the target container show a single child.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-a = { type = "show-single", target = "self" }
+              ```
+          fields:
+            target:
+              ref: ContainerTarget
+              required: false
+              description: |
+                The container the action applies to.
+
+                The default is `parent`.
+        show-all:
+          description: |
+            Makes the target container show all children.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-a = { type = "show-all", target = "self" }
+              ```
+          fields:
+            target:
+              ref: ContainerTarget
+              required: false
+              description: |
+                The container the action applies to.
+
+                The default is `parent`.
+
+
+ContainerTarget:
+  description: |
+    The container that an action applies to.
+  kind: string
+  values:
+    - value: parent
+      description: |
+        The parent container of the window. This is the default.
+    - value: self
+      description: |
+        The window itself.
+
+        The action has no effect if the window is not a container.
+    - value: auto
+      description: |
+        The window itself if it is a container, otherwise its parent container.
 
 
 Exec:
@@ -1145,7 +1313,7 @@ SimpleActionName:
     The name of a `simple` Action.
     
     When used inside a window rule, the following actions apply to the matched window
-    instead fo the focused window:
+    instead of the focused window:
     
     - `move-left`
     - `move-down`
@@ -1153,10 +1321,14 @@ SimpleActionName:
     - `move-right`
     - `split-horizontal`
     - `split-vertical`
+    - `split-major`
+    - `split-minor`
     - `toggle-split`
     - `tile-horizontal`
     - `tile-vertical`
-    - `toggle-split`
+    - `tile-major`
+    - `tile-minor`
+    - `toggle-mono`
     - `show-single`
     - `show-all`
     - `toggle-fullscreen`
@@ -1201,6 +1373,14 @@ SimpleActionName:
       description: Split the currently focused window horizontally.
     - value: split-vertical
       description: Split the currently focused window vertically.
+    - value: split-major
+      description: |
+        Split the currently focused window along its larger dimension. That is,
+        vertically if the window is higher than it is wide and horizontally otherwise.
+    - value: split-minor
+      description: |
+        Split the currently focused window along its smaller dimension. That is,
+        horizontally if the window is higher than it is wide and vertically otherwise.
     - value: toggle-split
       description: |
         Toggle the split of the currently focused container between vertical and
@@ -1209,6 +1389,16 @@ SimpleActionName:
       description: Sets the split of the currently focused container to horizontal.
     - value: tile-vertical
       description: Sets the split of the currently focused container to vertical.
+    - value: tile-major
+      description: |
+        Sets the split of the currently focused container along its larger dimension.
+        That is, to vertical if the container is higher than it is wide and to
+        horizontal otherwise.
+    - value: tile-minor
+      description: |
+        Sets the split of the currently focused container along its smaller dimension.
+        That is, to horizontal if the container is higher than it is wide and to
+        vertical otherwise.
     - value: toggle-mono
       description: |
         Toggle the currently focused container between showing a single and all children.

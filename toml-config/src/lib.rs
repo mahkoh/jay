@@ -258,10 +258,20 @@ impl Action {
                 SimpleCommand::Focus(dir) => b.new(move || s.focus(dir)),
                 SimpleCommand::Move(dir) => window_or_seat!(s, s.move_(dir)),
                 SimpleCommand::Split(axis) => window_or_seat!(s, s.create_split(axis)),
-                SimpleCommand::ToggleSplit => window_or_seat!(s, s.toggle_split()),
-                SimpleCommand::SetSplit(b) => window_or_seat!(s, s.set_split(b)),
-                SimpleCommand::ToggleMono => window_or_seat!(s, s.toggle_mono()),
-                SimpleCommand::SetMono(b) => window_or_seat!(s, s.set_mono(b)),
+                SimpleCommand::ToggleSplit(t) => {
+                    window_or_seat!(s, s.toggle_container_split(t))
+                }
+                SimpleCommand::SetSplit(t, b) => {
+                    window_or_seat!(s, s.set_container_split(t, b))
+                }
+                SimpleCommand::SplitRelative(axis) => {
+                    window_or_seat!(s, s.create_split_relative(axis))
+                }
+                SimpleCommand::SetSplitRelative(t, axis) => {
+                    window_or_seat!(s, s.set_container_split_relative(t, axis))
+                }
+                SimpleCommand::ToggleMono(t) => window_or_seat!(s, s.toggle_container_mono(t)),
+                SimpleCommand::SetMono(t, b) => window_or_seat!(s, s.set_container_mono(t, b)),
                 SimpleCommand::ToggleFullscreen => window_or_seat!(s, s.toggle_fullscreen()),
                 SimpleCommand::SetFullscreen(b) => window_or_seat!(s, s.set_fullscreen(b)),
                 SimpleCommand::FocusParent => b.new(move || s.focus_parent()),

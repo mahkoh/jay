@@ -38,6 +38,7 @@ use crate::tree::NodeId;
 use crate::tree::NodeLayerLink;
 use crate::tree::NodeLocation;
 use crate::tree::OutputNode;
+use crate::tree::RelativeAxis;
 use crate::tree::SplitView;
 use crate::tree::TddType;
 use crate::tree::TileDragDestination;
@@ -58,6 +59,7 @@ use crate::tree::toplevel_set_workspace;
 use crate::tree::walker::NodeVisitor;
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::bhash::BHashMap;
+use crate::utils::bool_ext::BoolExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::double_click_state::DoubleClickState;
 use crate::utils::errorfmt::ErrorFmt;
@@ -95,6 +97,17 @@ impl ContainerSplit {
         match self {
             ContainerSplit::Horizontal => ContainerSplit::Vertical,
             ContainerSplit::Vertical => ContainerSplit::Horizontal,
+        }
+    }
+
+    pub fn from_relative_axis(axis: RelativeAxis, rect: &Rect) -> Self {
+        let major = match rect.height() > rect.width() {
+            true => ContainerSplit::Vertical,
+            false => ContainerSplit::Horizontal,
+        };
+        match axis {
+            RelativeAxis::Major => major,
+            RelativeAxis::Minor => major.other(),
         }
     }
 }
@@ -1518,10 +1531,18 @@ impl ContainerNode {
     }
 
     fn toggle_mono(self: &Rc<Self>) {
-        if self.node_state[LiveTL].mono_child.is_some() {
-            self.set_mono(None);
-        } else if let Some(last) = self.focus_history.last() {
-            self.set_mono(Some(&*last.node));
+        self.set_own_mono(self.node_state[LiveTL].mono_child.is_none());
+    }
+
+    pub fn set_own_mono(self: &Rc<Self>, mono: bool) {
+        let child = mono.and_then(|| self.last_focus_or_last());
+        self.set_mono(child.as_ref().map(|c| &*c.node));
+    }
+
+    fn last_focus_or_last(&self) -> Option<NodeRef<ContainerChild>> {
+        match self.focus_history.last() {
+            Some(l) => Some(l.deref().clone()),
+            None => self.children.last_valid(LiveTL),
         }
     }
 
@@ -2049,10 +2070,7 @@ impl NodeBase for ContainerNode {
                 (Direction::Down, ContainerSplit::Vertical) => self.children.first_valid(LiveTL),
                 (Direction::Up, ContainerSplit::Vertical) => self.children.last_valid(LiveTL),
                 (Direction::Right, ContainerSplit::Horizontal) => self.children.first_valid(LiveTL),
-                _ => match self.focus_history.last() {
-                    Some(n) => Some(n.deref().clone()),
-                    None => self.children.last_valid(LiveTL),
-                },
+                _ => self.last_focus_or_last(),
             }
         };
         if let Some(node) = node {

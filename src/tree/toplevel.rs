@@ -35,6 +35,7 @@ use crate::state::ConnectorData;
 use crate::state::State;
 use crate::tree::ContainerNode;
 use crate::tree::ContainerSplit;
+use crate::tree::ContainerTarget;
 use crate::tree::ContainingNode;
 use crate::tree::Direction;
 use crate::tree::FloatNode;
@@ -1180,12 +1181,37 @@ pub fn default_tile_drag_bounds<T: ToplevelNodeBase + ?Sized>(t: &T, split: Cont
 }
 
 pub fn toplevel_parent_container(tl: &dyn ToplevelNode) -> Option<Rc<ContainerNode>> {
-    if let Some(parent) = tl.tl_data().parent.get()
-        && let Some(container) = parent.node_into_container()
-    {
-        return Some(container);
+    toplevel_data_parent_container(tl.tl_data())
+}
+
+pub fn toplevel_data_parent_container(data: &ToplevelData) -> Option<Rc<ContainerNode>> {
+    if let Some(parent) = data.parent.get() {
+        return parent.node_into_container();
     }
     None
+}
+
+pub fn toplevel_target_container(
+    tl: &Rc<dyn ToplevelNode>,
+    target: ContainerTarget,
+) -> Option<Rc<ContainerNode>> {
+    let itself = || tl.clone().node_into_container();
+    let parent = || toplevel_parent_container(&**tl);
+    match target {
+        ContainerTarget::Parent => parent(),
+        ContainerTarget::Itself => itself(),
+        ContainerTarget::Auto => itself().or_else(parent),
+    }
+}
+
+pub fn toplevel_set_target_mono(tl: &Rc<dyn ToplevelNode>, target: ContainerTarget, mono: bool) {
+    let Some(c) = toplevel_target_container(tl, target) else {
+        return;
+    };
+    match c.node_id() == tl.node_id() {
+        true => c.set_own_mono(mono),
+        false => c.set_mono(mono.then_some(&**tl)),
+    }
 }
 
 pub fn toplevel_create_split(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, axis: ContainerSplit) {

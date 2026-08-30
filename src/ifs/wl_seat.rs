@@ -105,6 +105,7 @@ use crate::state::DeviceHandlerData;
 use crate::state::State;
 use crate::tree::ContainerNode;
 use crate::tree::ContainerSplit;
+use crate::tree::ContainerTarget;
 use crate::tree::Direction;
 use crate::tree::FoundNode;
 use crate::tree::Node;
@@ -114,6 +115,7 @@ use crate::tree::NodeLayerLink;
 use crate::tree::NodeLocation;
 use crate::tree::NodesStack;
 use crate::tree::OutputNode;
+use crate::tree::RelativeAxis;
 use crate::tree::StackedNode;
 use crate::tree::ToplevelNode;
 use crate::tree::TreeTimeline::LiveTL;
@@ -121,9 +123,11 @@ use crate::tree::WorkspaceChangeReason;
 use crate::tree::WorkspaceNode;
 use crate::tree::generic_node_visitor;
 use crate::tree::toplevel_create_split;
-use crate::tree::toplevel_parent_container;
+use crate::tree::toplevel_data_parent_container;
 use crate::tree::toplevel_set_floating;
+use crate::tree::toplevel_set_target_mono;
 use crate::tree::toplevel_set_workspace;
+use crate::tree::toplevel_target_container;
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::bhash::BHashMap;
 use crate::utils::bindings::PerClientBindings;
@@ -774,36 +778,37 @@ impl WlSeatGlobal {
         self.kb_owner.ungrab(self);
     }
 
-    pub fn kb_parent_container(&self) -> Option<Rc<ContainerNode>> {
-        if let Some(tl) = self.keyboard_node.get().node_toplevel() {
-            return toplevel_parent_container(&*tl);
-        }
-        None
+    pub fn kb_target_container(&self, target: ContainerTarget) -> Option<Rc<ContainerNode>> {
+        let tl = self.keyboard_node.get().node_toplevel()?;
+        toplevel_target_container(&tl, target)
     }
 
-    pub fn get_mono(&self) -> Option<bool> {
-        self.kb_parent_container()
+    pub fn get_mono(&self, target: ContainerTarget) -> Option<bool> {
+        self.kb_target_container(target)
             .map(|c| c.node_state[LiveTL].mono_child.is_some())
     }
 
-    pub fn get_split(&self) -> Option<ContainerSplit> {
-        self.kb_parent_container()
+    pub fn get_split(&self, target: ContainerTarget) -> Option<ContainerSplit> {
+        self.kb_target_container(target)
             .map(|c| c.node_state[LiveTL].split.get())
     }
 
-    pub fn set_mono(&self, mono: bool) {
-        if let Some(tl) = self.keyboard_node.get().node_toplevel()
-            && let Some(parent) = tl.tl_data().parent.get()
-            && let Some(container) = parent.node_into_container()
-        {
-            let node = if mono { Some(tl.deref()) } else { None };
-            container.set_mono(node);
+    pub fn set_mono(&self, target: ContainerTarget, mono: bool) {
+        if let Some(tl) = self.keyboard_node.get().node_toplevel() {
+            toplevel_set_target_mono(&tl, target, mono);
         }
     }
 
-    pub fn set_split(&self, axis: ContainerSplit) {
-        if let Some(c) = self.kb_parent_container() {
+    pub fn set_split(&self, target: ContainerTarget, axis: ContainerSplit) {
+        if let Some(c) = self.kb_target_container(target) {
             c.set_split(axis);
+        }
+    }
+
+    pub fn set_split_relative(&self, target: ContainerTarget, axis: RelativeAxis) {
+        if let Some(c) = self.kb_target_container(target) {
+            let pos = c.node_absolute_position(LiveTL);
+            c.set_split(ContainerSplit::from_relative_axis(axis, &pos));
         }
     }
 
@@ -813,6 +818,18 @@ impl WlSeatGlobal {
             _ => return,
         };
         toplevel_create_split(&self.state, tl, axis);
+    }
+
+    pub fn create_split_relative(&self, axis: RelativeAxis) {
+        let Some(tl) = self.keyboard_node.get().node_toplevel() else {
+            return;
+        };
+        let pos = tl.node_absolute_position(LiveTL);
+        toplevel_create_split(
+            &self.state,
+            tl,
+            ContainerSplit::from_relative_axis(axis, &pos),
+        );
     }
 
     pub fn focus_parent(self: &Rc<Self>) {
@@ -895,9 +912,7 @@ impl WlSeatGlobal {
                 && let Some(target) = self.state.find_output_in_direction(&output, direction)
             {
                 target.take_keyboard_navigation_focus(self, direction);
-            } else if let Some(p) = data.parent.get()
-                && let Some(c) = p.node_into_container()
-            {
+            } else if let Some(c) = toplevel_data_parent_container(data) {
                 c.move_focus_from_child(self, tl.deref(), direction);
             }
         }
@@ -936,9 +951,7 @@ impl WlSeatGlobal {
             let ws = target.ensure_workspace();
             toplevel_set_workspace(&self.state, tl, &ws);
             self.maybe_schedule_warp_mouse_to_focus();
-        } else if let Some(parent) = data.parent.get()
-            && let Some(c) = parent.node_into_container()
-        {
+        } else if let Some(c) = toplevel_data_parent_container(data) {
             c.move_child(tl, direction);
             self.maybe_schedule_warp_mouse_to_focus();
         }

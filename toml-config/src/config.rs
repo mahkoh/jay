@@ -28,7 +28,9 @@ use crate::toml::{self};
 use ahash::AHashMap;
 use counter::CounterSlot;
 use jay_config::Axis;
+use jay_config::ContainerTarget;
 use jay_config::Direction;
+use jay_config::RelativeAxis;
 use jay_config::Workspace;
 use jay_config::client::ClientCapabilities;
 use jay_config::get_overlay;
@@ -91,10 +93,10 @@ pub enum SimpleCommand {
     SetFloating(bool),
     ToggleFullscreen,
     SetFullscreen(bool),
-    ToggleMono,
-    SetMono(bool),
-    ToggleSplit,
-    SetSplit(Axis),
+    ToggleMono(ContainerTarget),
+    SetMono(ContainerTarget, bool),
+    ToggleSplit(ContainerTarget),
+    SetSplit(ContainerTarget, Axis),
     Forward(bool),
     EnableWindowManagement(bool),
     SetFloatAboveFullscreen(bool),
@@ -123,6 +125,8 @@ pub enum SimpleCommand {
     ToggleVisualizeCompositing,
     SetSplitReusesContainer(bool),
     ToggleSplitReusesContainer,
+    SetSplitRelative(ContainerTarget, RelativeAxis),
+    SplitRelative(RelativeAxis),
 }
 
 #[derive(Debug, Clone)]

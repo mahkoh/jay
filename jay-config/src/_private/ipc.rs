@@ -6,8 +6,10 @@ use crate::_private::WireMode;
 use crate::_private::WorkspaceShowOpV1;
 use crate::_private::WorkspaceShowOpV2;
 use crate::Axis;
+use crate::ContainerTarget;
 use crate::Direction;
 use crate::PciId;
+use crate::RelativeAxis;
 use crate::Workspace;
 use crate::WorkspaceKind;
 use crate::client::Client;
@@ -1027,6 +1029,60 @@ pub enum ClientMessage<'a> {
         matcher: WindowMatcher,
         x: i32,
         y: i32,
+    },
+    GetSeatContainerMono {
+        seat: Seat,
+        target: ContainerTarget,
+    },
+    SetSeatContainerMono {
+        seat: Seat,
+        target: ContainerTarget,
+        mono: bool,
+    },
+    GetSeatContainerSplit {
+        seat: Seat,
+        target: ContainerTarget,
+    },
+    SetSeatContainerSplit {
+        seat: Seat,
+        target: ContainerTarget,
+        axis: Axis,
+    },
+    GetWindowContainerMono {
+        window: Window,
+        target: ContainerTarget,
+    },
+    SetWindowContainerMono {
+        window: Window,
+        target: ContainerTarget,
+        mono: bool,
+    },
+    GetWindowContainerSplit {
+        window: Window,
+        target: ContainerTarget,
+    },
+    SetWindowContainerSplit {
+        window: Window,
+        target: ContainerTarget,
+        axis: Axis,
+    },
+    CreateSeatSplitRelative {
+        seat: Seat,
+        axis: RelativeAxis,
+    },
+    CreateWindowSplitRelative {
+        window: Window,
+        axis: RelativeAxis,
+    },
+    SetSeatContainerSplitRelative {
+        seat: Seat,
+        target: ContainerTarget,
+        axis: RelativeAxis,
+    },
+    SetWindowContainerSplitRelative {
+        window: Window,
+        target: ContainerTarget,
+        axis: RelativeAxis,
     },
 }
 
