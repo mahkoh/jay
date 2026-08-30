@@ -775,10 +775,8 @@ impl WlSeatGlobal {
     }
 
     pub fn kb_parent_container(&self) -> Option<Rc<ContainerNode>> {
-        if let Some(tl) = self.keyboard_node.get().node_toplevel() {
-            return toplevel_parent_container(&*tl);
-        }
-        None
+        let tl = self.keyboard_node.get().node_toplevel()?;
+        toplevel_parent_container(&*tl)
     }
 
     pub fn get_mono(&self) -> Option<bool> {
