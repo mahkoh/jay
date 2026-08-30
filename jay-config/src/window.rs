@@ -164,7 +164,7 @@ impl Window {
 
     /// Toggles the split axis of the parent-container of the window.
     pub fn toggle_split(self) {
-        self.set_split(self.split().other());
+        self.set_split(Axis::Auto);
     }
 
     /// Creates a new container with the specified split in place of the window.
