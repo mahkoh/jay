@@ -222,6 +222,7 @@ use crate::utils::event_listener::EventListener;
 use crate::utils::event_listener::EventSource;
 use crate::utils::event_listener::LazyEventSources;
 use crate::utils::fdcloser::FdCloser;
+use crate::utils::fuse::fuse_mgr::FuseMgr;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::numcell::NumCell;
@@ -436,6 +437,7 @@ pub struct State {
     pub sleeper: Option<Sleeper>,
     pub transaction_data: TransactionData<StateTransactionOp>,
     pub global_tracers: GlobalTracers,
+    pub fuse: FuseMgr,
 }
 
 // impl Drop for State {

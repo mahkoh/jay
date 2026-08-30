@@ -15,3 +15,7 @@ tempfile = { version = "3.27.0", default-features = false }
 with_builtin_macros = { version = "0.1.0", default-features = false }
 uapi = { version = "0.2.13", default-features = false }
 rayon = { version = "1.11.0", default-features = false }
+walkdir = { version = "2.5.0", default-features = false }
+bstr = { version = "1.13.1", default-features = false, features = ["std"] }
+blake3 = { version = "1.8.6", default-features = false }
+isnt = { version = "0.2.0", default-features = false }

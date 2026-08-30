@@ -1,4 +1,8 @@
-#![allow(clippy::from_str_radix_10, clippy::match_like_matches_macro)]
+#![allow(
+    clippy::from_str_radix_10,
+    clippy::match_like_matches_macro,
+    clippy::manual_is_ascii_check
+)]
 
 use crate::phf::PhfHash;
 use anyhow::Context;
@@ -35,6 +39,7 @@ macro_rules! define_w {
 #[expect(unused_macros)]
 #[path = "../../src/macros.rs"]
 mod macros;
+mod fuse;
 mod gen_cm_paths;
 mod gen_lut;
 mod input_event_codes;
@@ -42,6 +47,9 @@ mod keysyms;
 #[path = "../../toml-config/src/phf.rs"]
 mod phf;
 mod phf_generator;
+#[path = "../../build/tokens.rs"]
+#[allow(unused)]
+mod tokens;
 
 fn main() -> Result<()> {
     let tasks: &[&(dyn Fn() -> Result<()> + Sync)] = &[
@@ -49,6 +57,7 @@ fn main() -> Result<()> {
         &|| keysyms::main(),
         &|| gen_cm_paths::main(),
         &|| gen_lut::main(),
+        &|| fuse::main(),
     ];
     tasks.into_par_iter().try_for_each(|generator| generator())
 }
@@ -60,12 +69,23 @@ fn generate_map(
     keys: &[impl PhfHash],
     values: &mut [impl Debug],
 ) -> Result<String> {
+    generate_map2("pub(super) ", name, key_type, value_type, keys, values)
+}
+
+fn generate_map2(
+    vis: &str,
+    name: &str,
+    key_type: &str,
+    value_type: &str,
+    keys: &[impl PhfHash],
+    values: &mut [impl Debug],
+) -> Result<String> {
     use std::fmt::Write;
     let state = phf_generator::generate_hash(keys);
     Permutation::oneline(state.map).apply_inv_slice_in_place(values);
     let mut res = String::new();
     define_w!(res);
-    wl!("pub(super) static {name}: PhfMap<{key_type}, {value_type}> = PhfMap {{");
+    wl!("{vis}static {name}: PhfMap<{key_type}, {value_type}> = PhfMap {{");
     wl!("    key: {},", state.key);
     wl!("    disps: &[");
     for disp in state.disps {
@@ -98,6 +118,8 @@ fn format_rust(path: &Path, raw: &str) -> Result<String> {
     let status = Command::new("rustfmt")
         .arg("+nightly")
         .arg("--edition=2024")
+        .arg("--unstable-features")
+        .arg("--skip-children")
         .arg(tmp.path())
         .status()?;
     if !status.success() {

@@ -27,6 +27,7 @@ use std::path::PathBuf;
 mod indent;
 mod egl;
 mod enums;
+mod fuse;
 mod logging;
 mod str_table;
 mod time_lt;
@@ -60,6 +61,7 @@ fn main() -> anyhow::Result<()> {
     vulkan::main()?;
     logging::main()?;
     time_lt::main()?;
+    fuse::main()?;
     str_table::main(open)?;
 
     println!("cargo:rerun-if-changed=build/build.rs");

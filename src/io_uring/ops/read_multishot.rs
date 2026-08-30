@@ -47,7 +47,6 @@ impl Drop for PendingReadMultishot {
 }
 
 impl IoUring {
-    #[cfg_attr(not(test), expect(unused))]
     pub fn read_multishot(
         &self,
         fd: &Rc<OwnedFd>,

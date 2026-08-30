@@ -28,7 +28,6 @@ impl AsyncEvent {
         self.waker.take();
     }
 
-    #[expect(unused)]
     pub fn reset_triggers(&self) {
         self.triggers.set(0);
     }

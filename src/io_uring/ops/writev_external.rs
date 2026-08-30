@@ -23,7 +23,6 @@ pub unsafe trait WritevData {
 }
 
 impl IoUring {
-    #[cfg_attr(not(test), expect(unused))]
     pub fn writev_external(
         &self,
         fd: &Rc<OwnedFd>,

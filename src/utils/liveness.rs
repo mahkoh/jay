@@ -10,7 +10,6 @@ thread_local! {
     };
 }
 
-#[expect(unused)]
 pub static STATIC_LIVENESS: &Liveness = {
     static S: AtomicU64 = AtomicU64::new(0);
     static L: Liveness = Liveness { s: &S };
@@ -41,7 +40,6 @@ impl Default for Liveness {
 }
 
 impl Liveness {
-    #[expect(unused)]
     pub fn view(&self) -> LivenessView {
         LivenessView {
             s: self.s,
@@ -56,7 +54,6 @@ impl LivenessView {
         self.s.load(Relaxed) == self.v
     }
 
-    #[expect(unused)]
     pub fn is_dead(&self) -> bool {
         self.s.load(Relaxed) != self.v
     }
@@ -98,7 +95,7 @@ impl Drop for Liveness {
     }
 }
 
-#[expect(unused)]
+#[cfg_attr(not(test), expect(unused))]
 pub trait GetLiveness {
     fn get_liveness(&self) -> &Liveness;
 }
