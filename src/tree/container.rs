@@ -1525,6 +1525,13 @@ impl ContainerNode {
         }
     }
 
+    fn last_focus_or_last(&self) -> Option<NodeRef<ContainerChild>> {
+        match self.focus_history.last() {
+            Some(l) => Some(l.deref().clone()),
+            None => self.children.last_valid(LiveTL),
+        }
+    }
+
     fn button(
         self: Rc<Self>,
         id: CursorType,
@@ -2049,10 +2056,7 @@ impl NodeBase for ContainerNode {
                 (Direction::Down, ContainerSplit::Vertical) => self.children.first_valid(LiveTL),
                 (Direction::Up, ContainerSplit::Vertical) => self.children.last_valid(LiveTL),
                 (Direction::Right, ContainerSplit::Horizontal) => self.children.first_valid(LiveTL),
-                _ => match self.focus_history.last() {
-                    Some(n) => Some(n.deref().clone()),
-                    None => self.children.last_valid(LiveTL),
-                },
+                _ => self.last_focus_or_last(),
             }
         };
         if let Some(node) = node {
