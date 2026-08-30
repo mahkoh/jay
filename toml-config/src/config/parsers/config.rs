@@ -30,6 +30,7 @@ use crate::config::parsers::drm_device_match::DrmDeviceMatchParser;
 use crate::config::parsers::egui::EguiParser;
 use crate::config::parsers::env::EnvParser;
 use crate::config::parsers::fallback_output_mode::FallbackOutputModeParser;
+use crate::config::parsers::flatten_tree::FlattenTreeParser;
 use crate::config::parsers::float::FloatParser;
 use crate::config::parsers::focus_history::FocusHistoryParser;
 use crate::config::parsers::gfx_api::GfxApiParser;
@@ -177,6 +178,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 split_reuses_container,
                 triggers_val,
                 max_trigger_depth_val,
+                flatten_tree_val,
             ),
         ) = ext.extract((
             (
@@ -247,6 +249,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 recover(opt(bol("split-reuses-container"))),
                 opt(val("triggers")),
                 opt(int("max-trigger-depth")),
+                opt(val("flatten-tree")),
             ),
         ))?;
         let mut keymap = None;
@@ -661,6 +664,15 @@ impl Parser for ConfigParser<'_, '_, '_> {
             }
             max_trigger_depth = value.value as _;
         }
+        let mut flatten_tree = None;
+        if let Some(value) = flatten_tree_val {
+            match value.parse(&mut FlattenTreeParser) {
+                Ok(v) => flatten_tree = Some(v),
+                Err(e) => {
+                    log::warn!("Could not parse flatten-tree: {}", self.0.error(e));
+                }
+            }
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -706,6 +718,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
             show_bar: show_bar.despan(),
             split_reuses_container: split_reuses_container.despan(),
             show_titles: show_titles.despan(),
+            flatten_tree,
             focus_history,
             middle_click_paste: middle_click_paste.despan(),
             input_modes,

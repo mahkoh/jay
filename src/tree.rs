@@ -45,6 +45,7 @@ pub use containing::*;
 pub use display::*;
 pub use float::*;
 use jay_config::Direction as JayDirection;
+use jay_config::FlattenTree as ConfigFlattenTree;
 use jay_config::video::Transform as ConfigTransform;
 use jay_config::window::TileState as ConfigTileState;
 use jay_config::workspace::WorkspaceDisplayOrder as ConfigWorkspaceDisplayOrder;
@@ -271,6 +272,48 @@ impl From<JayDirection> for Direction {
             JayDirection::Down => Self::Down,
             JayDirection::Up => Self::Up,
             JayDirection::Right => Self::Right,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Default, Linearize)]
+pub enum FlattenTree {
+    #[default]
+    Never,
+    Always,
+    OnRemove,
+}
+
+impl TryFrom<ConfigFlattenTree> for FlattenTree {
+    type Error = ();
+
+    fn try_from(value: ConfigFlattenTree) -> Result<Self, Self::Error> {
+        let v = match value {
+            ConfigFlattenTree::Never => FlattenTree::Never,
+            ConfigFlattenTree::Always => FlattenTree::Always,
+            ConfigFlattenTree::OnRemove => FlattenTree::OnRemove,
+            _ => return Err(()),
+        };
+        Ok(v)
+    }
+}
+
+impl Into<ConfigFlattenTree> for FlattenTree {
+    fn into(self) -> ConfigFlattenTree {
+        match self {
+            FlattenTree::Never => ConfigFlattenTree::Never,
+            FlattenTree::Always => ConfigFlattenTree::Always,
+            FlattenTree::OnRemove => ConfigFlattenTree::OnRemove,
+        }
+    }
+}
+
+impl StaticText for FlattenTree {
+    fn text(&self) -> &'static str {
+        match self {
+            FlattenTree::Never => "Never",
+            FlattenTree::Always => "Always",
+            FlattenTree::OnRemove => "On Remove",
         }
     }
 }

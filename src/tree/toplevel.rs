@@ -38,6 +38,7 @@ use crate::tree::ContainerSplit;
 use crate::tree::ContainerTarget;
 use crate::tree::ContainingNode;
 use crate::tree::Direction;
+use crate::tree::FlattenTree;
 use crate::tree::FloatNode;
 use crate::tree::Node;
 use crate::tree::NodeBase;
@@ -1222,7 +1223,7 @@ pub fn toplevel_create_split(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, axis: 
         Some(ws) => ws,
         _ => return,
     };
-    if state.split_reuses_container.get()
+    if (state.split_reuses_container.get() || state.flatten_tree.get() == FlattenTree::Always)
         && let Some(pn) = toplevel_parent_container(&*tl)
         && pn.node_state[LiveTL].num_children.get() == 1
     {

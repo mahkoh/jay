@@ -1442,6 +1442,10 @@
           "type": "boolean",
           "description": "Configures whether title bars on windows are shown.\n\nThe default is `true`.\n"
         },
+        "flatten-tree": {
+          "description": "Configures when single-child containers are automatically collapsed.\n\nThe default is `\"never\"`.\n",
+          "$ref": "#/$defs/FlattenTree"
+        },
         "focus-history": {
           "description": "Configures the focus-history settings.\n\n- Example:\n\n  ```toml\n  [focus-history]\n  only-visible: true\n  same-workspace: true\n  ```\n",
           "$ref": "#/$defs/FocusHistory"
@@ -1789,6 +1793,15 @@
       "enum": [
         "cursor",
         "focus"
+      ]
+    },
+    "FlattenTree": {
+      "type": "string",
+      "description": "Configures when single-child containers are automatically collapsed.\n",
+      "enum": [
+        "never",
+        "always",
+        "on-remove"
       ]
     },
     "Float": {

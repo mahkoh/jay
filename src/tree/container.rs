@@ -30,6 +30,7 @@ use crate::tree::ContainingNode;
 use crate::tree::Direction;
 use crate::tree::FindTreeResult;
 use crate::tree::FindTreeUsecase;
+use crate::tree::FlattenTree;
 use crate::tree::FloatNode;
 use crate::tree::FoundNode;
 use crate::tree::Node;
@@ -174,6 +175,17 @@ struct MainAxisRange {
     lo: i32,
     hi: i32,
     active: bool,
+}
+
+/// The outcome of an attempt to replace a container by its sole remaining child.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum ReplaceWithSoleChild {
+    /// The container was replaced by the child and destroyed.
+    Flattened,
+    /// The parent does not accept the child.
+    Rejected,
+    /// The container has no parent, or is fullscreen.
+    NotApplicable,
 }
 
 #[derive(Default)]
@@ -369,6 +381,28 @@ impl ContainerNode {
         let ref_ = child.to_ref();
         self.add_transaction_op(ContainerTransactionOp::Unlink(child));
         ref_
+    }
+
+    fn try_replace_with_sole_child(
+        self: &Rc<Self>,
+        child: Rc<dyn ToplevelNode>,
+    ) -> ReplaceWithSoleChild {
+        let Some(parent) = self.toplevel_data.parent.get() else {
+            return ReplaceWithSoleChild::NotApplicable;
+        };
+        if self.toplevel_data.is_fullscreen[LiveTL].get() {
+            return ReplaceWithSoleChild::NotApplicable;
+        }
+        if !parent.cnode_accepts_child(&*child) {
+            return ReplaceWithSoleChild::Rejected;
+        }
+        parent.cnode_replace_child(self.deref(), child);
+        self.toplevel_data.parent.take();
+        for cn in self.child_nodes.borrow_mut().drain_values() {
+            self.schedule_unlink_child(cn);
+        }
+        self.tl_destroy();
+        ReplaceWithSoleChild::Flattened
     }
 
     pub fn prepend_child(self: &Rc<Self>, new: Rc<dyn ToplevelNode>) {
@@ -1365,19 +1399,9 @@ impl ContainerNode {
 
         // CASE 1: This is the only child of the container. Replace the container by the child.
         if ns.num_children.get() == 1 {
-            if let Some(parent) = self.toplevel_data.parent.get()
-                && !self.toplevel_data.is_fullscreen[LiveTL].get()
-            {
-                if parent.cnode_accepts_child(&*child) {
-                    parent.cnode_replace_child(self.deref(), child.clone());
-                    self.toplevel_data.parent.take();
-                    for cn in self.child_nodes.borrow_mut().drain_values() {
-                        self.schedule_unlink_child(cn);
-                    }
-                    self.tl_destroy();
-                } else {
-                    move_to_neighboring_output(child);
-                }
+            match self.try_replace_with_sole_child(child.clone()) {
+                ReplaceWithSoleChild::Flattened | ReplaceWithSoleChild::NotApplicable => {}
+                ReplaceWithSoleChild::Rejected => move_to_neighboring_output(child),
             }
             return;
         }
@@ -2400,6 +2424,17 @@ impl ContainingNode for ContainerNode {
         }
         let node = self.schedule_unlink_child(node);
         let num_children = self.adj_ns_num_children(|value| value - 1);
+        if num_children == 1
+            && matches!(
+                self.state.flatten_tree.get(),
+                FlattenTree::Always | FlattenTree::OnRemove
+            )
+            && let Some(remaining) = self.children.first_valid(LiveTL)
+            && self.try_replace_with_sole_child(remaining.node.clone())
+                == ReplaceWithSoleChild::Flattened
+        {
+            return;
+        }
         if num_children == 0 {
             self.tl_destroy();
             return;
