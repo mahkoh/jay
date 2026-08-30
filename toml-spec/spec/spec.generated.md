@@ -4920,7 +4920,7 @@ The table has the following fields:
 The name of a `simple` Action.
 
 When used inside a window rule, the following actions apply to the matched window
-instead fo the focused window:
+instead of the focused window:
 
 - `move-left`
 - `move-down`
@@ -4931,7 +4931,7 @@ instead fo the focused window:
 - `toggle-split`
 - `tile-horizontal`
 - `tile-vertical`
-- `toggle-split`
+- `toggle-mono`
 - `show-single`
 - `show-all`
 - `toggle-fullscreen`
