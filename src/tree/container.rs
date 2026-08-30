@@ -1520,7 +1520,7 @@ impl ContainerNode {
     fn toggle_mono(self: &Rc<Self>) {
         if self.node_state[LiveTL].mono_child.is_some() {
             self.set_mono(None);
-        } else if let Some(last) = self.focus_history.last() {
+        } else if let Some(last) = self.last_focus_or_last() {
             self.set_mono(Some(&*last.node));
         }
     }
