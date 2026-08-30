@@ -121,6 +121,7 @@ use crate::tree::WorkspaceChangeReason;
 use crate::tree::WorkspaceNode;
 use crate::tree::generic_node_visitor;
 use crate::tree::toplevel_create_split;
+use crate::tree::toplevel_data_parent_container;
 use crate::tree::toplevel_parent_container;
 use crate::tree::toplevel_set_floating;
 use crate::tree::toplevel_set_workspace;
@@ -791,8 +792,7 @@ impl WlSeatGlobal {
 
     pub fn set_mono(&self, mono: bool) {
         if let Some(tl) = self.keyboard_node.get().node_toplevel()
-            && let Some(parent) = tl.tl_data().parent.get()
-            && let Some(container) = parent.node_into_container()
+            && let Some(container) = toplevel_parent_container(&*tl)
         {
             let node = if mono { Some(tl.deref()) } else { None };
             container.set_mono(node);
@@ -893,9 +893,7 @@ impl WlSeatGlobal {
                 && let Some(target) = self.state.find_output_in_direction(&output, direction)
             {
                 target.take_keyboard_navigation_focus(self, direction);
-            } else if let Some(p) = data.parent.get()
-                && let Some(c) = p.node_into_container()
-            {
+            } else if let Some(c) = toplevel_data_parent_container(data) {
                 c.move_focus_from_child(self, tl.deref(), direction);
             }
         }
@@ -934,9 +932,7 @@ impl WlSeatGlobal {
             let ws = target.ensure_workspace();
             toplevel_set_workspace(&self.state, tl, &ws);
             self.maybe_schedule_warp_mouse_to_focus();
-        } else if let Some(parent) = data.parent.get()
-            && let Some(c) = parent.node_into_container()
-        {
+        } else if let Some(c) = toplevel_data_parent_container(data) {
             c.move_child(tl, direction);
             self.maybe_schedule_warp_mouse_to_focus();
         }
