@@ -88,6 +88,17 @@ pub enum Direction {
     Right,
 }
 
+/// Configures how single-child containers are flattened.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum FlattenContainer {
+    /// Never flatten single-child containers.
+    Never,
+    /// Flattens containers when the second-to-last child is removed, e.g., when it
+    /// is closed or moved out of the container.
+    OnRemove,
+}
+
 /// A planar axis.
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
 pub enum Axis {
@@ -598,6 +609,13 @@ pub fn on_unload(f: impl FnOnce() + 'static) {
 #[doc(alias("primary-selection", "primary_selection"))]
 pub fn set_middle_click_paste_enabled(enabled: bool) {
     get!().set_middle_click_paste_enabled(enabled);
+}
+
+/// Sets the container flattening mode.
+///
+/// The default is [`FlattenContainer::Never`].
+pub fn set_flatten_container(mode: FlattenContainer) {
+    get!().set_flatten_container(mode);
 }
 
 /// Opens the control center.

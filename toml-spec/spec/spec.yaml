@@ -2451,6 +2451,21 @@ LogLevel:
       description: Error log level.
 
 
+FlattenContainer:
+  kind: string
+  description: |
+    Configures when containers with a single child are automatically flattened into their
+    parent.
+  values:
+    - value: never
+      description: |
+        Never flatten containers.
+    - value: on-remove
+      description: |
+        Flattens containers when the second-to-last child is removed, e.g., when it
+        is closed or moved out of the container.
+
+
 Mode:
   kind: table
   description: |
@@ -3877,6 +3892,14 @@ Config:
         Configures whether title bars on windows are shown.
         
         The default is `true`.
+    flatten-container:
+      ref: FlattenContainer
+      required: false
+      description: |
+        Configures when containers with a single child are automatically flattened into
+        their parent.
+
+        The default is `"never"`.
     focus-history:
       ref: FocusHistory
       required: false

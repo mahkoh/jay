@@ -479,6 +479,10 @@ Split Reuses Container
   direction instead of wrapping the window in a new container (see
   [Split Reuses Container](configuration/misc.md#split-reuses-container))
 
+Flatten Container
+: Dropdown to select when single-child containers are flattened (see
+  [Flatten Container](configuration/misc.md#flatten-container))
+
 Font
 : Text field for the main compositor font family
 

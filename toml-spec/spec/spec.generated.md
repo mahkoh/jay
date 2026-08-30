@@ -2840,6 +2840,15 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `flatten-container` (optional):
+
+  Configures when containers with a single child are automatically flattened into
+  their parent.
+  
+  The default is `"never"`.
+
+  The value of this field should be a [FlattenContainer](#types-FlattenContainer).
+
 - `focus-history` (optional):
 
   Configures the focus-history settings.
@@ -3762,6 +3771,27 @@ The string should have one of the following values:
 - `focus`:
 
   Use the output the focus is on (highlighted window).
+
+
+
+<a name="types-FlattenContainer"></a>
+### `FlattenContainer`
+
+Configures when containers with a single child are automatically flattened into their
+parent.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `never`:
+
+  Never flatten containers.
+
+- `on-remove`:
+
+  Flattens containers when the second-to-last child is removed, e.g., when it
+  is closed or moved out of the container.
 
 
 
