@@ -1180,7 +1180,11 @@ pub fn default_tile_drag_bounds<T: ToplevelNodeBase + ?Sized>(t: &T, split: Cont
 }
 
 pub fn toplevel_parent_container(tl: &dyn ToplevelNode) -> Option<Rc<ContainerNode>> {
-    if let Some(parent) = tl.tl_data().parent.get() {
+    toplevel_data_parent_container(tl.tl_data())
+}
+
+pub fn toplevel_data_parent_container(data: &ToplevelData) -> Option<Rc<ContainerNode>> {
+    if let Some(parent) = data.parent.get() {
         return parent.node_into_container();
     }
     None
