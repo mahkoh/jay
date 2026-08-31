@@ -1,9 +1,18 @@
 #![allow(clippy::excessive_precision)]
 
 use crate::cmm::cmm_eotf::Eotf;
+use crate::control_center::CCI_LOOK_AND_FEEL;
 use crate::gfx_api::AlphaMode;
+use crate::state::State;
+use crate::tree::ContainerNode;
+use crate::tree::FloatNode;
+use crate::tree::NodeBase;
+use crate::tree::NodeVisitorBase;
+use crate::tree::OutputNode;
 use crate::tree::SplitView;
 use crate::tree::TreeTimeline;
+use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::static_text::StaticText;
 use jay_algorithms::tf::eotfs;
@@ -17,6 +26,7 @@ use std::cmp::Ordering;
 use std::ops::Add;
 use std::ops::Div;
 use std::ops::Mul;
+use std::rc::Rc;
 use std::sync::Arc;
 
 #[jay_clone(Copy)]
@@ -800,5 +810,65 @@ impl Div<f32> for Oklab {
             a: self.a / rhs,
             b: self.b / rhs,
         }
+    }
+}
+
+pub async fn handle_theme_changes(state: Rc<State>) {
+    loop {
+        state.theme_changed.triggered().await;
+        let colors_changed = state.colors_changed.take();
+        let spaces_changed = state.spaces_changed.take();
+        if !colors_changed && !spaces_changed {
+            continue;
+        }
+        struct V {
+            colors_changed: bool,
+            spaces_changed: bool,
+        }
+        macro_rules! trigger {
+            ($slf:expr, $node:expr) => {
+                if $slf.spaces_changed {
+                    $node.on_spaces_changed();
+                }
+                if $slf.colors_changed {
+                    $node.on_colors_changed();
+                }
+            };
+        }
+        impl NodeVisitorBase for V {
+            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
+                trigger!(self, node);
+                node.node_visit_children(self);
+            }
+            fn visit_output(&mut self, node: &Rc<OutputNode>) {
+                trigger!(self, node);
+                node.node_visit_children(self);
+            }
+            fn visit_float(&mut self, node: &Rc<FloatNode>) {
+                trigger!(self, node);
+                node.node_visit_children(self);
+            }
+        }
+        let mut v = V {
+            colors_changed,
+            spaces_changed,
+        };
+        state.visit_all_nodes(&mut v);
+        state.damage_full(LiveTL);
+        state.damage_full(RenderTL);
+        if colors_changed {
+            state.icons.clear();
+        }
+        if spaces_changed {
+            state.icons.update_sizes(&state);
+            for client in state.clients.clients.borrow().values() {
+                let mgrs = &client.data.objects.xdg_toplevel_icon_managers;
+                for v in mgrs.lock().values() {
+                    v.send_sizes();
+                }
+            }
+            state.update_toplevel_icon_sizes();
+        }
+        state.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 }

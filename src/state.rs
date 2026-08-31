@@ -438,6 +438,9 @@ pub struct State {
     pub transaction_data: TransactionData<StateTransactionOp>,
     pub global_tracers: GlobalTracers,
     pub fuse: FuseMgr,
+    pub theme_changed: AsyncEvent,
+    pub colors_changed: Cell<bool>,
+    pub spaces_changed: Cell<bool>,
 }
 
 // impl Drop for State {
@@ -830,7 +833,7 @@ impl State {
         self.update_toplevel_icon_sizes();
     }
 
-    fn update_toplevel_icon_sizes(&self) {
+    pub fn update_toplevel_icon_sizes(&self) {
         for v in self.toplevel_icons.lock().values() {
             if let Some(v) = v.upgrade() {
                 v.update_sizes();
@@ -2147,28 +2150,8 @@ impl State {
     }
 
     fn colors_changed(self: &Rc<Self>) {
-        struct V;
-        impl NodeVisitorBase for V {
-            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                node.on_colors_changed();
-                node.node_visit_children(self);
-            }
-
-            fn visit_output(&mut self, node: &Rc<OutputNode>) {
-                node.on_colors_changed();
-                node.node_visit_children(self);
-            }
-
-            fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                node.on_colors_changed();
-                node.node_visit_children(self);
-            }
-        }
-        self.visit_all_nodes(&mut V);
-        self.damage_full(LiveTL);
-        self.damage_full(RenderTL);
-        self.icons.clear();
-        self.trigger_cci(CCI_LOOK_AND_FEEL);
+        self.colors_changed.set(true);
+        self.theme_changed.trigger();
     }
 
     pub fn reset_colors(self: &Rc<Self>) {
@@ -2220,33 +2203,8 @@ impl State {
     }
 
     fn spaces_changed(self: &Rc<Self>) {
-        struct V;
-        impl NodeVisitorBase for V {
-            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                node.on_spaces_changed();
-                node.node_visit_children(self);
-            }
-            fn visit_output(&mut self, node: &Rc<OutputNode>) {
-                node.on_spaces_changed();
-                node.node_visit_children(self);
-            }
-            fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                node.on_spaces_changed();
-                node.node_visit_children(self);
-            }
-        }
-        self.visit_all_nodes(&mut V);
-        self.damage_full(LiveTL);
-        self.damage_full(RenderTL);
-        self.icons.update_sizes(self);
-        for client in self.clients.clients.borrow().values() {
-            let mgrs = &client.data.objects.xdg_toplevel_icon_managers;
-            for v in mgrs.lock().values() {
-                v.send_sizes();
-            }
-        }
-        self.update_toplevel_icon_sizes();
-        self.trigger_cci(CCI_LOOK_AND_FEEL);
+        self.spaces_changed.set(true);
+        self.theme_changed.trigger();
     }
 
     pub fn set_show_bar(self: &Rc<Self>, show: bool) {

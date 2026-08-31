@@ -91,6 +91,7 @@ use crate::syncobj::wait_for_syncobj::WaitForSyncobj;
 use crate::tasks::handle_const_40hz_latch;
 use crate::tasks::idle;
 use crate::tasks::{self};
+use crate::theme::handle_theme_changes;
 use crate::tracy::enable_profiler;
 use crate::transactions::TransactionData;
 use crate::transactions::handle_transactions_apply;
@@ -485,6 +486,9 @@ fn start_compositor2(
         sleeper,
         global_tracers: Default::default(),
         fuse,
+        theme_changed: Default::default(),
+        colors_changed: Default::default(),
+        spaces_changed: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     create_dummy_output(&state);
@@ -726,6 +730,7 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             "transactions timeout",
             handle_transactions_timeout(state.clone()),
         ),
+        eng.spawn("theme changes", handle_theme_changes(state.clone())),
     ]
 }
 
