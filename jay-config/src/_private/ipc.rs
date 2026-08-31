@@ -1084,6 +1084,16 @@ pub enum ClientMessage<'a> {
         target: ContainerTarget,
         axis: RelativeAxis,
     },
+    SetWindowSize {
+        window: Window,
+        sized: Resizable,
+        size: Option<i32>,
+    },
+    SetWindowColor {
+        window: Window,
+        colorable: Colorable,
+        color: Option<Color>,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

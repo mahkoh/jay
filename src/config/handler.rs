@@ -45,6 +45,7 @@ use crate::state::OutputData;
 use crate::state::State;
 use crate::tagged_acceptor::TaggedAcceptorError;
 use crate::theme::ThemeColored;
+use crate::theme::ThemeOverrides;
 use crate::theme::ThemeSized;
 use crate::tree::ContainerSplit;
 use crate::tree::ContainerTarget;
@@ -2886,6 +2887,40 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_window_size(
+        &self,
+        window: Window,
+        sized: Resizable,
+        size: Option<i32>,
+    ) -> Result<(), CphError> {
+        let sized = self.get_sized(sized)?;
+        if let Some(size) = size
+            && (size < sized.min() || size > sized.max())
+        {
+            return Err(CphError::InvalidSize(size, sized));
+        }
+        let window = self.get_window(window)?;
+        if update_theme_overrides(window.tl_data(), |o| o.sizes[sized][LiveTL].set(size)) {
+            self.state.spaces_changed();
+        }
+        Ok(())
+    }
+
+    fn handle_set_window_color(
+        &self,
+        window: Window,
+        colorable: Colorable,
+        color: Option<jay_config::theme::Color>,
+    ) -> Result<(), CphError> {
+        let colored = self.get_color(colorable)?;
+        let window = self.get_window(window)?;
+        let color = color.map(|c| c.into());
+        if update_theme_overrides(window.tl_data(), |o| o.colors[colored][LiveTL].set(color)) {
+            self.state.colors_changed();
+        }
+        Ok(())
+    }
+
     fn handle_set_pointer_revert_key(&self, seat: Seat, key: KeySym) -> Result<(), CphError> {
         self.get_seat(seat)?.set_pointer_revert_key(key);
         Ok(())
@@ -4011,6 +4046,20 @@ impl ConfigProxyHandler {
             ClientMessage::SetWindowMatcherInitialFloatingPosition { matcher, x, y } => self
                 .handle_set_window_matcher_initial_floating_position(matcher, x, y)
                 .wrn("set_window_matcher_initial_floating_position")?,
+            ClientMessage::SetWindowSize {
+                window,
+                sized,
+                size,
+            } => self
+                .handle_set_window_size(window, sized, size)
+                .wrn("set_window_size")?,
+            ClientMessage::SetWindowColor {
+                window,
+                colorable,
+                color,
+            } => self
+                .handle_set_window_color(window, colorable, color)
+                .wrn("set_window_color")?,
             ClientMessage::SetPointerRevertKey { seat, key } => self
                 .handle_set_pointer_revert_key(seat, key)
                 .wrn("set_pointer_revert_key")?,
@@ -4369,6 +4418,17 @@ impl ConfigProxyHandler {
             data.bounding_caps_for_children.set(new_bounding_caps);
         }
     }
+}
+
+/// Applies `f` to the theme overrides of `data` and returns whether they changed.
+fn update_theme_overrides(data: &ToplevelData, f: impl FnOnce(&mut ThemeOverrides)) -> bool {
+    let mut new = data.theme_overrides.clone();
+    f(&mut new);
+    if data.theme_overrides == new {
+        return false;
+    }
+    data.set_theme_overrides(new);
+    true
 }
 
 #[derive(Debug, Error)]

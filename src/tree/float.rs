@@ -17,6 +17,8 @@ use crate::renderer::Renderer;
 use crate::scale::Scale;
 use crate::state::State;
 use crate::text::TextTexture;
+use crate::theme::ThemeColored;
+use crate::theme::ThemeOverrides;
 use crate::transactions::TransactionData;
 use crate::transactions::Transactionable;
 use crate::transactions::TransactionableExt;
@@ -234,8 +236,21 @@ impl FloatNode {
         floater
     }
 
+    /// Returns the window whose theme overrides apply to this float.
+    ///
+    /// The returned node must be kept alive for as long as the [`ThemeView`] created
+    /// from its overrides.
+    fn theme_node(&self, tl: TreeTimeline) -> Option<Rc<dyn ToplevelNode>> {
+        self.node_state[tl].child.get()
+    }
+
     pub fn on_spaces_changed(self: &Rc<Self>) {
-        if self.icon.set_size(self.state.theme.title_icon_size(LiveTL))
+        let theme_node = self.theme_node(LiveTL);
+        let icon_size = self
+            .state
+            .theme_view(theme_overrides(&theme_node))
+            .title_icon_size(LiveTL);
+        if self.icon.set_size(icon_size)
             && let Some(child) = self.node_state[LiveTL].child.get()
         {
             child.tl_update_icon(&self.icon);
@@ -260,8 +275,9 @@ impl FloatNode {
             _ => return,
         };
         let pos = ns.position.get();
-        let theme = &self.state.theme;
-        let bw = theme.sizes.border_width.get(LiveTL);
+        let theme_node = self.theme_node(LiveTL);
+        let theme = self.state.theme_view(theme_overrides(&theme_node));
+        let bw = theme.border_width(LiveTL);
         let th = theme.title_height(LiveTL);
         let tpuh = theme.title_plus_underline_height(LiveTL);
         let cpos = Rect::new_sized_saturating(
@@ -283,10 +299,11 @@ impl FloatNode {
 
     fn render_title_phase1(&self) -> Rc<AsyncEvent> {
         let on_completed = Rc::new(OnDropEvent::default());
-        let theme = &self.state.theme;
+        let theme_node = self.theme_node(RenderTL);
+        let theme = self.state.theme_view(theme_overrides(&theme_node));
         let tc = match self.node_state[RenderTL].active.get() {
-            true => theme.colors.focused_title_text.get(),
-            false => theme.colors.unfocused_title_text.get(),
+            true => theme.color(ThemeColored::focused_title_text, RenderTL),
+            false => theme.color(ThemeColored::unfocused_title_text, RenderTL),
         };
         let font = theme.title_font();
         let title = self.title.borrow_mut();
@@ -345,9 +362,10 @@ impl FloatNode {
     }
 
     fn render_title_phase2(&self) {
-        let theme = &self.state.theme;
+        let theme_node = self.theme_node(RenderTL);
+        let theme = self.state.theme_view(theme_overrides(&theme_node));
         let th = theme.title_height(RenderTL);
-        let bw = theme.sizes.border_width.get(RenderTL);
+        let bw = theme.border_width(RenderTL);
         let title = self.title.borrow();
         let tt = &*self.title_textures.borrow();
         for (_, tt) in tt {
@@ -374,8 +392,9 @@ impl FloatNode {
     ) {
         let x = x.round_down();
         let y = y.round_down();
-        let theme = &self.state.theme;
-        let bw = theme.sizes.border_width.get(LiveTL);
+        let theme_node = self.theme_node(LiveTL);
+        let theme = self.state.theme_view(theme_overrides(&theme_node));
+        let bw = theme.border_width(LiveTL);
         let tpuh = theme.title_plus_underline_height(LiveTL);
         let mut seats = self.cursors.borrow_mut();
         let seat_state = seats.entry(id).or_insert_with(|| CursorState {
@@ -555,8 +574,10 @@ impl FloatNode {
         if pos.intersects(&opos) {
             return;
         }
-        let bw = self.state.theme.sizes.border_width.get(LiveTL);
-        let th = self.state.theme.title_height(LiveTL);
+        let theme_node = self.theme_node(LiveTL);
+        let theme = self.state.theme_view(theme_overrides(&theme_node));
+        let bw = theme.border_width(LiveTL);
+        let th = theme.title_height(LiveTL);
         let mut x1 = pos.x1();
         let mut x2 = pos.x2();
         let mut y1 = pos.y1();
@@ -679,8 +700,10 @@ impl FloatNode {
             _ => return,
         };
         let ns = &self.node_state[LiveTL];
-        let bw = self.state.theme.sizes.border_width.get(LiveTL);
-        let th = self.state.theme.title_height(LiveTL);
+        let theme_node = self.theme_node(LiveTL);
+        let theme = self.state.theme_view(theme_overrides(&theme_node));
+        let bw = theme.border_width(LiveTL);
+        let th = theme.title_height(LiveTL);
         let mut is_icon_press = false;
         if pressed && cursor_data.x >= bw && cursor_data.y >= bw && cursor_data.y < bw + th {
             enum FloatIcon {
@@ -778,9 +801,10 @@ impl FloatNode {
     ) -> Option<TileDragDestination> {
         let ns = &self.node_state[LiveTL];
         let child = ns.child.get()?;
-        let theme = &self.state.theme.sizes;
-        let bw = theme.border_width.get(LiveTL);
-        let tpuh = self.state.theme.title_plus_underline_height(LiveTL);
+        let theme_node = self.theme_node(LiveTL);
+        let theme = self.state.theme_view(theme_overrides(&theme_node));
+        let bw = theme.border_width(LiveTL);
+        let tpuh = theme.title_plus_underline_height(LiveTL);
         let pos = ns.position.get();
         let body = Rect::new(
             pos.x1() + bw,
@@ -920,9 +944,10 @@ impl NodeBase for FloatNode {
         tree: &mut Vec<FoundNode>,
         usecase: FindTreeUsecase,
     ) -> FindTreeResult {
-        let theme = &self.state.theme;
+        let theme_node = self.theme_node(LiveTL);
+        let theme = self.state.theme_view(theme_overrides(&theme_node));
         let tpuh = theme.title_plus_underline_height(LiveTL);
-        let bw = theme.sizes.border_width.get(LiveTL);
+        let bw = theme.border_width(LiveTL);
         let ns = &self.node_state[LiveTL];
         let pos = ns.position.get();
         if x < bw || x >= pos.width() - bw {
@@ -1129,9 +1154,10 @@ impl ContainingNode for FloatNode {
     }
 
     fn cnode_set_child_position(self: Rc<Self>, _child: &dyn Node, x: i32, y: i32) {
-        let theme = &self.state.theme;
+        let theme_node = self.theme_node(LiveTL);
+        let theme = self.state.theme_view(theme_overrides(&theme_node));
         let tpuh = theme.title_plus_underline_height(LiveTL);
-        let bw = theme.sizes.border_width.get(LiveTL);
+        let bw = theme.border_width(LiveTL);
         let (x, y) = (x - bw, y - tpuh - bw);
         let ns = &self.node_state[LiveTL];
         let pos = ns.position.get();
@@ -1149,9 +1175,10 @@ impl ContainingNode for FloatNode {
         new_x2: Option<i32>,
         new_y2: Option<i32>,
     ) {
-        let theme = &self.state.theme;
+        let theme_node = self.theme_node(LiveTL);
+        let theme = self.state.theme_view(theme_overrides(&theme_node));
         let tpuh = theme.title_plus_underline_height(LiveTL);
-        let bw = theme.sizes.border_width.get(LiveTL);
+        let bw = theme.border_width(LiveTL);
         let ns = &self.node_state[LiveTL];
         let pos = ns.position.get();
         let mut x1 = pos.x1();
@@ -1370,4 +1397,9 @@ pub fn calculate_float_position(output_rect: Rect, mut width: i32, mut height: i
         height = output_rect.height();
     }
     Rect::new_sized_saturating(x1, y1, width, height)
+}
+
+/// Returns the theme overrides of `node`, if any.
+fn theme_overrides(node: &Option<Rc<dyn ToplevelNode>>) -> Option<&ThemeOverrides> {
+    node.as_ref().map(|n| &n.tl_data().theme_overrides)
 }
