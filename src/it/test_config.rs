@@ -18,6 +18,7 @@ use jay_config::_private::ipc::Response;
 use jay_config::_private::ipc::ServerMessage;
 use jay_config::Axis;
 use jay_config::Direction;
+use jay_config::JcContainerTarget;
 use jay_config::input::InputDevice;
 use jay_config::input::Seat;
 use jay_config::keyboard::Keymap;
@@ -245,10 +246,16 @@ impl TestConfig {
         })
     }
 
-    pub fn set_mono_style(&self, seat: SeatId, style: JcMonoStyle) -> TestResult {
+    pub fn set_mono_style(
+        &self,
+        seat: SeatId,
+        style: JcMonoStyle,
+        target: JcContainerTarget,
+    ) -> TestResult {
         self.send(ClientMessage::SetSeatMonoStyle {
             seat: Seat(seat.raw() as _),
             style,
+            target,
         })
     }
 

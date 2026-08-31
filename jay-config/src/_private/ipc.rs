@@ -1147,17 +1147,21 @@ pub enum ClientMessage<'a> {
     },
     GetSeatMonoStyle {
         seat: Seat,
+        target: JcContainerTarget,
     },
     SetSeatMonoStyle {
         seat: Seat,
         style: JcMonoStyle,
+        target: JcContainerTarget,
     },
     GetWindowMonoStyle {
         window: Window,
+        target: JcContainerTarget,
     },
     SetWindowMonoStyle {
         window: Window,
         style: JcMonoStyle,
+        target: JcContainerTarget,
     },
     SetDefaultMonoStyle {
         style: JcMonoStyle,

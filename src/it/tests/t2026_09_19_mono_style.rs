@@ -10,6 +10,7 @@ use crate::tree::ToplevelNodeBase;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
 use jay_config::Axis;
+use jay_config::JcContainerTarget;
 use jay_config::window::JcMonoStyle;
 use std::rc::Rc;
 
@@ -29,7 +30,8 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     let seat_id = ds.seat.id();
     run.cfg.create_split(seat_id, Axis::Horizontal)?;
     run.cfg.set_mono(seat_id, true)?;
-    run.cfg.set_mono_style(seat_id, JcMonoStyle::Stacked)?;
+    run.cfg
+        .set_mono_style(seat_id, JcMonoStyle::Stacked, JcContainerTarget::Parent)?;
 
     let w2 = client.create_window().await?;
     w2.map2().await?;
