@@ -46,6 +46,7 @@ use crate::state::State;
 use crate::tagged_acceptor::TaggedAcceptorError;
 use crate::theme::ThemeColored;
 use crate::theme::ThemeSized;
+use crate::tree::ContainerMonoStyle;
 use crate::tree::ContainerSplit;
 use crate::tree::ContainerTarget;
 use crate::tree::NodeBase;
@@ -153,6 +154,7 @@ use jay_config::video::ScalingFilter as ConfigScalingFilter;
 use jay_config::video::TearingMode as ConfigTearingMode;
 use jay_config::video::Transform;
 use jay_config::video::VrrMode as ConfigVrrMode;
+use jay_config::window::MonoStyle as ConfigMonoStyle;
 use jay_config::window::TileState as ConfigTileState;
 use jay_config::window::Window;
 use jay_config::window::WindowMatcher;
@@ -1833,6 +1835,20 @@ impl ConfigProxyHandler {
         });
     }
 
+    fn handle_set_default_mono_style(&self, style: ConfigMonoStyle) -> Result<(), CphError> {
+        let Ok(style) = style.try_into() else {
+            return Err(CphError::UnknownMonoStyle(style));
+        };
+        self.state.set_default_mono_style(style);
+        Ok(())
+    }
+
+    fn handle_get_default_mono_style(&self) {
+        self.respond(Response::GetDefaultMonoStyle {
+            style: self.state.default_mono_style.get().into(),
+        });
+    }
+
     fn handle_set_show_bar(&self, show: bool) {
         self.state.set_show_bar(show);
     }
@@ -2276,6 +2292,66 @@ impl ConfigProxyHandler {
         if let Some(c) = toplevel_target_container(&window, target) {
             let pos = c.node_absolute_position(LiveTL);
             c.set_split(ContainerSplit::from_relative_axis(axis, &pos));
+        }
+        Ok(())
+    }
+
+    fn handle_get_seat_mono_style(
+        &self,
+        seat: Seat,
+        target: ConfigContainerTarget,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        self.respond(Response::GetSeatMonoStyle {
+            style: seat
+                .get_mono_style(map_container_target(target)?)
+                .unwrap_or(ContainerMonoStyle::Tabbed)
+                .into(),
+        });
+        Ok(())
+    }
+
+    fn handle_set_seat_mono_style(
+        &self,
+        seat: Seat,
+        style: ConfigMonoStyle,
+        target: ConfigContainerTarget,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        let Ok(style) = style.try_into() else {
+            return Err(CphError::UnknownMonoStyle(style));
+        };
+        seat.set_mono_style(style, map_container_target(target)?);
+        Ok(())
+    }
+
+    fn handle_get_window_mono_style(
+        &self,
+        window: Window,
+        target: ConfigContainerTarget,
+    ) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        self.respond(Response::GetWindowMonoStyle {
+            style: toplevel_target_container(&window, map_container_target(target)?)
+                .map(|c| c.node_state[LiveTL].mono_style.get())
+                .unwrap_or(ContainerMonoStyle::Tabbed)
+                .into(),
+        });
+        Ok(())
+    }
+
+    fn handle_set_window_mono_style(
+        &self,
+        window: Window,
+        style: ConfigMonoStyle,
+        target: ConfigContainerTarget,
+    ) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        let Ok(style) = style.try_into() else {
+            return Err(CphError::UnknownMonoStyle(style));
+        };
+        if let Some(c) = toplevel_target_container(&window, map_container_target(target)?) {
+            c.set_mono_style(style);
         }
         Ok(())
     }
@@ -3510,6 +3586,16 @@ impl ConfigProxyHandler {
             ClientMessage::SetSeatSplit { seat, axis } => self
                 .handle_set_seat_split(seat, None, axis)
                 .wrn("set_seat_split")?,
+            ClientMessage::GetSeatMonoStyle { seat, target } => self
+                .handle_get_seat_mono_style(seat, target)
+                .wrn("get_seat_mono_style")?,
+            ClientMessage::SetSeatMonoStyle {
+                seat,
+                style,
+                target,
+            } => self
+                .handle_set_seat_mono_style(seat, style, target)
+                .wrn("set_seat_mono_style")?,
             ClientMessage::AddShortcut { seat, mods, sym } => self
                 .handle_add_shortcut(seat, Modifiers(!0), mods, sym)
                 .wrn("add_shortcut")?,
@@ -3935,6 +4021,16 @@ impl ConfigProxyHandler {
             ClientMessage::SetWindowMono { window, mono } => self
                 .handle_set_window_mono(window, None, mono)
                 .wrn("set_window_mono")?,
+            ClientMessage::GetWindowMonoStyle { window, target } => self
+                .handle_get_window_mono_style(window, target)
+                .wrn("get_window_mono_style")?,
+            ClientMessage::SetWindowMonoStyle {
+                window,
+                style,
+                target,
+            } => self
+                .handle_set_window_mono_style(window, style, target)
+                .wrn("set_window_mono_style")?,
             ClientMessage::WindowMove { window, direction } => self
                 .handle_window_move(window, direction)
                 .wrn("window_move")?,
@@ -4027,6 +4123,10 @@ impl ConfigProxyHandler {
                 self.handle_set_split_reuses_container(reuse)
             }
             ClientMessage::GetSplitReusesContainer => self.handle_get_split_reuses_container(),
+            ClientMessage::SetDefaultMonoStyle { style } => self
+                .handle_set_default_mono_style(style)
+                .wrn("set_default_mono_style")?,
+            ClientMessage::GetDefaultMonoStyle => self.handle_get_default_mono_style(),
             ClientMessage::SetShowBar { show } => self.handle_set_show_bar(show),
             ClientMessage::GetShowBar => self.handle_get_show_bar(),
             ClientMessage::SetShowTitles { show } => self.handle_set_show_titles(show),
@@ -4469,6 +4569,8 @@ enum CphError {
     UnknownFallbackOutputMode(FallbackOutputMode),
     #[error("Unknown tile state {0:?}")]
     UnknownTileState(ConfigTileState),
+    #[error("Unknown mono style {0:?}")]
+    UnknownMonoStyle(ConfigMonoStyle),
     #[error("Could not create a tagged acceptor")]
     CreateTaggedAcceptor(#[source] TaggedAcceptorError),
     #[error("Keymap must be defined through a map or rmlvo names")]

@@ -78,6 +78,7 @@ use crate::video::connector_type::CON_UNKNOWN;
 use crate::video::connector_type::ConnectorType;
 use crate::window::ContentType;
 use crate::window::MatchedWindow;
+use crate::window::MonoStyle;
 use crate::window::TileState;
 use crate::window::Window;
 use crate::window::WindowCriterion;
@@ -586,6 +587,18 @@ impl ConfigClient {
         mono
     }
 
+    pub fn seat_mono_style(&self, seat: Seat, target: ContainerTarget) -> MonoStyle {
+        let res = self.send_with_response(&ClientMessage::GetSeatMonoStyle { seat, target });
+        get_response!(res, MonoStyle::Tabbed, GetSeatMonoStyle { style });
+        style
+    }
+
+    pub fn window_mono_style(&self, window: Window, target: ContainerTarget) -> MonoStyle {
+        let res = self.send_with_response(&ClientMessage::GetWindowMonoStyle { window, target });
+        get_response!(res, MonoStyle::Tabbed, GetWindowMonoStyle { style });
+        style
+    }
+
     pub fn get_timer(&self, name: &str) -> Timer {
         let res = self.send_with_response(&ClientMessage::GetTimer { name });
         get_response!(res, Timer(0), GetTimer { timer });
@@ -880,6 +893,22 @@ impl ConfigClient {
 
     pub fn set_window_mono(&self, window: Window, mono: bool) {
         self.send(&ClientMessage::SetWindowMono { window, mono });
+    }
+
+    pub fn set_seat_mono_style(&self, seat: Seat, style: MonoStyle, target: ContainerTarget) {
+        self.send(&ClientMessage::SetSeatMonoStyle {
+            seat,
+            style,
+            target,
+        });
+    }
+
+    pub fn set_window_mono_style(&self, window: Window, style: MonoStyle, target: ContainerTarget) {
+        self.send(&ClientMessage::SetWindowMonoStyle {
+            window,
+            style,
+            target,
+        });
     }
 
     pub fn set_env(&self, key: &str, val: &str) {
@@ -1245,6 +1274,16 @@ impl ConfigClient {
         let res = self.send_with_response(&ClientMessage::GetSplitReusesContainer);
         get_response!(res, false, GetSplitReusesContainer { reuse });
         reuse
+    }
+
+    pub fn set_default_mono_style(&self, style: MonoStyle) {
+        self.send(&ClientMessage::SetDefaultMonoStyle { style });
+    }
+
+    pub fn get_default_mono_style(&self) -> MonoStyle {
+        let res = self.send_with_response(&ClientMessage::GetDefaultMonoStyle);
+        get_response!(res, MonoStyle::Tabbed, GetDefaultMonoStyle { style });
+        style
     }
 
     pub fn set_show_bar(&self, show: bool) {

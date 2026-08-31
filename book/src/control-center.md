@@ -479,6 +479,10 @@ Split Reuses Container
   direction instead of wrapping the window in a new container (see
   [Split Reuses Container](configuration/misc.md#split-reuses-container))
 
+Default Mono Style
+: Dropdown to select the mono style of newly created containers (`Tabbed` or
+  `Stacked`, see [Default Mono Style](configuration/misc.md#default-mono-style))
+
 Font
 : Text field for the main compositor font family
 

@@ -1331,6 +1331,9 @@ SimpleActionName:
     - `toggle-mono`
     - `show-single`
     - `show-all`
+    - `toggle-mono-style`
+    - `mono-tabbed`
+    - `mono-stacked`
     - `toggle-fullscreen`
     - `enter-fullscreen`
     - `exit-fullscreen`
@@ -1406,6 +1409,14 @@ SimpleActionName:
       description: Makes the currently focused container show a single child.
     - value: show-all
       description: Makes the currently focused container show all children.
+    - value: toggle-mono-style
+      description: |
+        Toggle the mono style of the currently focused container between tabbed and
+        stacked.
+    - value: mono-tabbed
+      description: Sets the mono style of the currently focused container to tabbed.
+    - value: mono-stacked
+      description: Sets the mono style of the currently focused container to stacked.
     - value: toggle-fullscreen
       description: Toggle the currently focused window between fullscreen and windowed.
     - value: enter-fullscreen
@@ -3559,6 +3570,15 @@ Config:
         container is changed instead.
 
         The default is `false`.
+    default-mono-style:
+      ref: MonoStyle
+      required: false
+      description: |
+        Configures the mono style of newly created containers.
+
+        Changing this does not affect existing containers.
+
+        The default is `tabbed`.
     show-bar:
       kind: boolean
       required: false
@@ -5058,6 +5078,19 @@ TileState:
       description: The window is tiled.
     - value: floating
       description: The window is floating.
+
+
+MonoStyle:
+  description: |
+    The mono style of a container.
+
+    This determines how the title bars of a container in mono-mode are laid out.
+  kind: string
+  values:
+    - value: tabbed
+      description: The title bars are shown next to each other in a single row.
+    - value: stacked
+      description: The title bars are shown below each other, each spanning the full width.
 
 
 ContentTypeMask:

@@ -63,6 +63,7 @@ use jay_config::video::TearingMode;
 use jay_config::video::Transform;
 use jay_config::video::VrrMode;
 use jay_config::window::ContentType;
+use jay_config::window::MonoStyle;
 use jay_config::window::TileState;
 use jay_config::window::WindowType;
 use jay_config::workspace::WorkspaceDisplayOrder;
@@ -95,6 +96,8 @@ pub enum SimpleCommand {
     SetFullscreen(bool),
     ToggleMono(ContainerTarget),
     SetMono(ContainerTarget, bool),
+    ToggleMonoStyle(ContainerTarget),
+    SetMonoStyle(MonoStyle, ContainerTarget),
     ToggleSplit(ContainerTarget),
     SetSplit(ContainerTarget, Axis),
     Forward(bool),
@@ -633,6 +636,7 @@ pub struct Config {
     pub use_hardware_cursor: Option<bool>,
     pub show_bar: Option<bool>,
     pub split_reuses_container: Option<bool>,
+    pub default_mono_style: Option<MonoStyle>,
     pub show_titles: Option<bool>,
     pub focus_history: Option<FocusHistory>,
     pub middle_click_paste: Option<bool>,

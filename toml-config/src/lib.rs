@@ -77,6 +77,7 @@ use jay_config::quit;
 use jay_config::reload;
 use jay_config::set_color_management_enabled;
 use jay_config::set_configure_timeout;
+use jay_config::set_default_mono_style;
 use jay_config::set_default_workspace_capture;
 use jay_config::set_explicit_sync_enabled;
 use jay_config::set_float_above_fullscreen;
@@ -272,6 +273,8 @@ impl Action {
                 }
                 SimpleCommand::ToggleMono(t) => window_or_seat!(s, s.toggle_container_mono(t)),
                 SimpleCommand::SetMono(t, b) => window_or_seat!(s, s.set_container_mono(t, b)),
+                SimpleCommand::ToggleMonoStyle(t) => window_or_seat!(s, s.toggle_mono_style(t)),
+                SimpleCommand::SetMonoStyle(b, t) => window_or_seat!(s, s.set_mono_style(b, t)),
                 SimpleCommand::ToggleFullscreen => window_or_seat!(s, s.toggle_fullscreen()),
                 SimpleCommand::SetFullscreen(b) => window_or_seat!(s, s.set_fullscreen(b)),
                 SimpleCommand::FocusParent => b.new(move || s.focus_parent()),
@@ -1894,6 +1897,9 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     }
     if let Some(v) = config.split_reuses_container {
         set_split_reuses_container(v);
+    }
+    if let Some(v) = config.default_mono_style {
+        set_default_mono_style(v);
     }
     if let Some(v) = config.show_titles {
         set_show_titles(v);

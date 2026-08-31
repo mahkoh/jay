@@ -1434,6 +1434,10 @@
           "type": "boolean",
           "description": "Configures whether splitting a window that is the only window in its\ncontainer reuses that container.\n\nIf this is disabled, splitting such a window wraps it in another\ncontainer. If this is enabled, the split direction of the existing\ncontainer is changed instead.\n\nThe default is `false`.\n"
         },
+        "default-mono-style": {
+          "description": "Configures the mono style of newly created containers.\n\nChanging this does not affect existing containers.\n\nThe default is `tabbed`.\n",
+          "$ref": "#/$defs/MonoStyle"
+        },
         "show-bar": {
           "type": "boolean",
           "description": "Configures whether the built-in bar is shown.\n\nThe default is `true`.\n"
@@ -2238,6 +2242,14 @@
         "height"
       ]
     },
+    "MonoStyle": {
+      "type": "string",
+      "description": "The mono style of a container.\n\nThis determines how the title bars of a container in mono-mode are laid out.\n",
+      "enum": [
+        "tabbed",
+        "stacked"
+      ]
+    },
     "Output": {
       "description": "Describes configuration to apply to an output.\n\n- Example: To set the scale of an output.\n\n  ```toml\n  [[outputs]]\n  match.serial-number = \"33K03894SL0\"\n  scale = 1.25\n  ```\n",
       "type": "object",
@@ -2434,7 +2446,7 @@
     },
     "SimpleActionName": {
       "type": "string",
-      "description": "The name of a `simple` Action.\n\nWhen used inside a window rule, the following actions apply to the matched window\ninstead of the focused window:\n\n- `move-left`\n- `move-down`\n- `move-up`\n- `move-right`\n- `split-horizontal`\n- `split-vertical`\n- `split-major`\n- `split-minor`\n- `toggle-split`\n- `tile-horizontal`\n- `tile-vertical`\n- `tile-major`\n- `tile-minor`\n- `toggle-mono`\n- `show-single`\n- `show-all`\n- `toggle-fullscreen`\n- `enter-fullscreen`\n- `exit-fullscreen`\n- `close`\n- `toggle-floating`\n- `float`\n- `tile`\n- `toggle-float-pinned`\n- `pin-float`\n- `unpin-float`\n\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-q = \"quit\"\n  ```\n",
+      "description": "The name of a `simple` Action.\n\nWhen used inside a window rule, the following actions apply to the matched window\ninstead of the focused window:\n\n- `move-left`\n- `move-down`\n- `move-up`\n- `move-right`\n- `split-horizontal`\n- `split-vertical`\n- `split-major`\n- `split-minor`\n- `toggle-split`\n- `tile-horizontal`\n- `tile-vertical`\n- `tile-major`\n- `tile-minor`\n- `toggle-mono`\n- `show-single`\n- `show-all`\n- `toggle-mono-style`\n- `mono-tabbed`\n- `mono-stacked`\n- `toggle-fullscreen`\n- `enter-fullscreen`\n- `exit-fullscreen`\n- `close`\n- `toggle-floating`\n- `float`\n- `tile`\n- `toggle-float-pinned`\n- `pin-float`\n- `unpin-float`\n\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-q = \"quit\"\n  ```\n",
       "enum": [
         "focus-left",
         "focus-down",
@@ -2457,6 +2469,9 @@
         "toggle-mono",
         "show-single",
         "show-all",
+        "toggle-mono-style",
+        "mono-tabbed",
+        "mono-stacked",
         "toggle-fullscreen",
         "enter-fullscreen",
         "exit-fullscreen",
