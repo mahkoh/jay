@@ -1087,17 +1087,21 @@ pub enum ClientMessage<'a> {
     },
     GetSeatMonoStyle {
         seat: Seat,
+        target: ContainerTarget,
     },
     SetSeatMonoStyle {
         seat: Seat,
         style: MonoStyle,
+        target: ContainerTarget,
     },
     GetWindowMonoStyle {
         window: Window,
+        target: ContainerTarget,
     },
     SetWindowMonoStyle {
         window: Window,
         style: MonoStyle,
+        target: ContainerTarget,
     },
     SetDefaultMonoStyle {
         style: MonoStyle,

@@ -813,13 +813,13 @@ impl WlSeatGlobal {
         }
     }
 
-    pub fn get_mono_style(&self) -> Option<ContainerMonoStyle> {
-        self.kb_target_container(ContainerTarget::Parent)
+    pub fn get_mono_style(&self, target: ContainerTarget) -> Option<ContainerMonoStyle> {
+        self.kb_target_container(target)
             .map(|c| c.node_state[LiveTL].mono_style.get())
     }
 
-    pub fn set_mono_style(&self, style: ContainerMonoStyle) {
-        if let Some(c) = self.kb_target_container(ContainerTarget::Parent) {
+    pub fn set_mono_style(&self, style: ContainerMonoStyle, target: ContainerTarget) {
+        if let Some(c) = self.kb_target_container(target) {
             c.set_mono_style(style);
         }
     }

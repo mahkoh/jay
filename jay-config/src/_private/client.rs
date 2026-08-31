@@ -587,14 +587,14 @@ impl ConfigClient {
         mono
     }
 
-    pub fn seat_mono_style(&self, seat: Seat) -> MonoStyle {
-        let res = self.send_with_response(&ClientMessage::GetSeatMonoStyle { seat });
+    pub fn seat_mono_style(&self, seat: Seat, target: ContainerTarget) -> MonoStyle {
+        let res = self.send_with_response(&ClientMessage::GetSeatMonoStyle { seat, target });
         get_response!(res, MonoStyle::Tabbed, GetSeatMonoStyle { style });
         style
     }
 
-    pub fn window_mono_style(&self, window: Window) -> MonoStyle {
-        let res = self.send_with_response(&ClientMessage::GetWindowMonoStyle { window });
+    pub fn window_mono_style(&self, window: Window, target: ContainerTarget) -> MonoStyle {
+        let res = self.send_with_response(&ClientMessage::GetWindowMonoStyle { window, target });
         get_response!(res, MonoStyle::Tabbed, GetWindowMonoStyle { style });
         style
     }
@@ -895,12 +895,20 @@ impl ConfigClient {
         self.send(&ClientMessage::SetWindowMono { window, mono });
     }
 
-    pub fn set_seat_mono_style(&self, seat: Seat, style: MonoStyle) {
-        self.send(&ClientMessage::SetSeatMonoStyle { seat, style });
+    pub fn set_seat_mono_style(&self, seat: Seat, style: MonoStyle, target: ContainerTarget) {
+        self.send(&ClientMessage::SetSeatMonoStyle {
+            seat,
+            style,
+            target,
+        });
     }
 
-    pub fn set_window_mono_style(&self, window: Window, style: MonoStyle) {
-        self.send(&ClientMessage::SetWindowMonoStyle { window, style });
+    pub fn set_window_mono_style(&self, window: Window, style: MonoStyle, target: ContainerTarget) {
+        self.send(&ClientMessage::SetWindowMonoStyle {
+            window,
+            style,
+            target,
+        });
     }
 
     pub fn set_env(&self, key: &str, val: &str) {

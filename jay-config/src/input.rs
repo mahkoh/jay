@@ -424,22 +424,22 @@ impl Seat {
     }
 
     /// Returns the mono style of the parent-container of the currently focused window.
-    pub fn mono_style(self) -> MonoStyle {
-        get!(MonoStyle::Tabbed).seat_mono_style(self)
+    pub fn mono_style(self, target: ContainerTarget) -> MonoStyle {
+        get!(MonoStyle::Tabbed).seat_mono_style(self, target)
     }
 
     /// Sets the mono style of the parent-container of the currently focused window.
-    pub fn set_mono_style(self, style: MonoStyle) {
-        get!().set_seat_mono_style(self, style)
+    pub fn set_mono_style(self, style: MonoStyle, target: ContainerTarget) {
+        get!().set_seat_mono_style(self, style, target)
     }
 
     /// Toggles the mono style of the parent-container of the currently focused window.
-    pub fn toggle_mono_style(self) {
-        let style = match self.mono_style() {
+    pub fn toggle_mono_style(self, target: ContainerTarget) {
+        let style = match self.mono_style(target) {
             MonoStyle::Stacked => MonoStyle::Tabbed,
             _ => MonoStyle::Stacked,
         };
-        self.set_mono_style(style);
+        self.set_mono_style(style, target);
     }
 
     /// Returns the split axis of the parent-container of the currently focused window.

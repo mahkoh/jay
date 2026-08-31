@@ -2296,11 +2296,15 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_get_seat_mono_style(&self, seat: Seat) -> Result<(), CphError> {
+    fn handle_get_seat_mono_style(
+        &self,
+        seat: Seat,
+        target: ConfigContainerTarget,
+    ) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         self.respond(Response::GetSeatMonoStyle {
             style: seat
-                .get_mono_style()
+                .get_mono_style(map_container_target(target)?)
                 .unwrap_or(ContainerMonoStyle::Tabbed)
                 .into(),
         });
@@ -2311,19 +2315,24 @@ impl ConfigProxyHandler {
         &self,
         seat: Seat,
         style: ConfigMonoStyle,
+        target: ConfigContainerTarget,
     ) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         let Ok(style) = style.try_into() else {
             return Err(CphError::UnknownMonoStyle(style));
         };
-        seat.set_mono_style(style);
+        seat.set_mono_style(style, map_container_target(target)?);
         Ok(())
     }
 
-    fn handle_get_window_mono_style(&self, window: Window) -> Result<(), CphError> {
+    fn handle_get_window_mono_style(
+        &self,
+        window: Window,
+        target: ConfigContainerTarget,
+    ) -> Result<(), CphError> {
         let window = self.get_window(window)?;
         self.respond(Response::GetWindowMonoStyle {
-            style: toplevel_parent_container(&*window)
+            style: toplevel_target_container(&window, map_container_target(target)?)
                 .map(|c| c.node_state[LiveTL].mono_style.get())
                 .unwrap_or(ContainerMonoStyle::Tabbed)
                 .into(),
@@ -2335,12 +2344,13 @@ impl ConfigProxyHandler {
         &self,
         window: Window,
         style: ConfigMonoStyle,
+        target: ConfigContainerTarget,
     ) -> Result<(), CphError> {
         let window = self.get_window(window)?;
         let Ok(style) = style.try_into() else {
             return Err(CphError::UnknownMonoStyle(style));
         };
-        if let Some(c) = toplevel_parent_container(&*window) {
+        if let Some(c) = toplevel_target_container(&window, map_container_target(target)?) {
             c.set_mono_style(style);
         }
         Ok(())
@@ -3576,11 +3586,15 @@ impl ConfigProxyHandler {
             ClientMessage::SetSeatSplit { seat, axis } => self
                 .handle_set_seat_split(seat, None, axis)
                 .wrn("set_seat_split")?,
-            ClientMessage::GetSeatMonoStyle { seat } => self
-                .handle_get_seat_mono_style(seat)
+            ClientMessage::GetSeatMonoStyle { seat, target } => self
+                .handle_get_seat_mono_style(seat, target)
                 .wrn("get_seat_mono_style")?,
-            ClientMessage::SetSeatMonoStyle { seat, style } => self
-                .handle_set_seat_mono_style(seat, style)
+            ClientMessage::SetSeatMonoStyle {
+                seat,
+                style,
+                target,
+            } => self
+                .handle_set_seat_mono_style(seat, style, target)
                 .wrn("set_seat_mono_style")?,
             ClientMessage::AddShortcut { seat, mods, sym } => self
                 .handle_add_shortcut(seat, Modifiers(!0), mods, sym)
@@ -4007,11 +4021,15 @@ impl ConfigProxyHandler {
             ClientMessage::SetWindowMono { window, mono } => self
                 .handle_set_window_mono(window, None, mono)
                 .wrn("set_window_mono")?,
-            ClientMessage::GetWindowMonoStyle { window } => self
-                .handle_get_window_mono_style(window)
+            ClientMessage::GetWindowMonoStyle { window, target } => self
+                .handle_get_window_mono_style(window, target)
                 .wrn("get_window_mono_style")?,
-            ClientMessage::SetWindowMonoStyle { window, style } => self
-                .handle_set_window_mono_style(window, style)
+            ClientMessage::SetWindowMonoStyle {
+                window,
+                style,
+                target,
+            } => self
+                .handle_set_window_mono_style(window, style, target)
                 .wrn("set_window_mono_style")?,
             ClientMessage::WindowMove { window, direction } => self
                 .handle_window_move(window, direction)
