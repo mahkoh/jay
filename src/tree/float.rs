@@ -283,8 +283,9 @@ impl FloatNode {
 
     fn render_title_phase1(&self) -> Rc<AsyncEvent> {
         let on_completed = Rc::new(OnDropEvent::default());
+        let ns = &self.node_state[RenderTL];
         let theme = &self.state.theme;
-        let tc = match self.node_state[RenderTL].active.get() {
+        let tc = match ns.active.get() {
             true => theme.colors.focused_title_text.get(),
             false => theme.colors.unfocused_title_text.get(),
         };
@@ -295,7 +296,7 @@ impl FloatNode {
             _ => return on_completed.event(),
         };
         let scales = self.state.scales.lock();
-        let tr = self.node_state[RenderTL].title_rect.get();
+        let tr = ns.title_rect.get();
         let tt = &mut *self.title_textures.borrow_mut();
         self.icons.clear();
         for (scale, _) in scales.iter() {
@@ -314,7 +315,7 @@ impl FloatNode {
                 width = (width - th).max(0);
                 self.icons.insert(*scale, icon);
             }
-            if self.node_state[RenderTL].workspace_ty.get() == WorkspaceType::Overlay {
+            if ns.workspace_ty.get() == WorkspaceType::Overlay {
                 width = (width - th).max(0);
             }
             if self.state.show_pin_icon.get() || self.pinned_link.borrow().is_some() {
@@ -345,6 +346,7 @@ impl FloatNode {
     }
 
     fn render_title_phase2(&self) {
+        let ns = &self.node_state[RenderTL];
         let theme = &self.state.theme;
         let th = theme.title_height(RenderTL);
         let bw = theme.sizes.border_width.get(RenderTL);
@@ -355,7 +357,6 @@ impl FloatNode {
                 log::error!("Could not render title {}: {}", title, ErrorFmt(e));
             }
         }
-        let ns = &self.node_state[RenderTL];
         let pos = ns.position.get();
         if ns.visible.get() && pos.width() >= 2 * bw {
             let tr =
@@ -372,6 +373,7 @@ impl FloatNode {
         y: Fixed,
         target: bool,
     ) {
+        let ns = &self.node_state[LiveTL];
         let x = x.round_down();
         let y = y.round_down();
         let theme = &self.state.theme;
@@ -391,7 +393,6 @@ impl FloatNode {
         });
         seat_state.x = x;
         seat_state.y = y;
-        let ns = &self.node_state[LiveTL];
         let pos = ns.position.get();
         if seat_state.op_active {
             let mut x1 = pos.x1();
@@ -512,7 +513,7 @@ impl FloatNode {
         self.workspace_link
             .set(Some(ws.stacked.add_last(self.clone())));
         self.workspace.set(ws.clone());
-        if self.node_state[LiveTL].workspace_ty.get() != ws.ty {
+        if ns.workspace_ty.get() != ws.ty {
             self.set_ns_workspace_type(ws.ty);
             self.display_link
                 .borrow_mut()
@@ -688,7 +689,7 @@ impl FloatNode {
                 Pin,
             }
             let mut icons = ArrayVec::<FloatIcon, 2>::new();
-            if self.node_state[LiveTL].workspace_ty.get() == WorkspaceType::Overlay {
+            if ns.workspace_ty.get() == WorkspaceType::Overlay {
                 icons.push(FloatIcon::Overlay);
             }
             if self.state.show_pin_icon.get() || self.pinned_link.borrow().is_some() {
@@ -920,10 +921,10 @@ impl NodeBase for FloatNode {
         tree: &mut Vec<FoundNode>,
         usecase: FindTreeUsecase,
     ) -> FindTreeResult {
+        let ns = &self.node_state[LiveTL];
         let theme = &self.state.theme;
         let tpuh = theme.title_plus_underline_height(LiveTL);
         let bw = theme.sizes.border_width.get(LiveTL);
-        let ns = &self.node_state[LiveTL];
         let pos = ns.position.get();
         if x < bw || x >= pos.width() - bw {
             return FindTreeResult::AcceptsInput;
@@ -1129,11 +1130,11 @@ impl ContainingNode for FloatNode {
     }
 
     fn cnode_set_child_position(self: Rc<Self>, _child: &dyn Node, x: i32, y: i32) {
+        let ns = &self.node_state[LiveTL];
         let theme = &self.state.theme;
         let tpuh = theme.title_plus_underline_height(LiveTL);
         let bw = theme.sizes.border_width.get(LiveTL);
         let (x, y) = (x - bw, y - tpuh - bw);
-        let ns = &self.node_state[LiveTL];
         let pos = ns.position.get();
         if pos.position() != (x, y) {
             let new_pos = pos.at_point(x, y);
@@ -1149,10 +1150,10 @@ impl ContainingNode for FloatNode {
         new_x2: Option<i32>,
         new_y2: Option<i32>,
     ) {
+        let ns = &self.node_state[LiveTL];
         let theme = &self.state.theme;
         let tpuh = theme.title_plus_underline_height(LiveTL);
         let bw = theme.sizes.border_width.get(LiveTL);
-        let ns = &self.node_state[LiveTL];
         let pos = ns.position.get();
         let mut x1 = pos.x1();
         let mut x2 = pos.x2();
