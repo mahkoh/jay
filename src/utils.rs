@@ -23,6 +23,7 @@ pub mod compat;
 pub mod condition;
 pub mod const_layout;
 pub mod const_slice;
+pub mod copy_vec;
 pub mod copyhashmap;
 pub mod cow_ext;
 pub mod cross_process_ring_buffer;
