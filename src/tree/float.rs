@@ -174,24 +174,7 @@ impl FloatNode {
         inner_height: i32,
         child: Rc<dyn ToplevelNode>,
     ) -> Rc<Self> {
-        let theme = &state.theme;
-        let width = inner_width + 2 * theme.sizes.border_width.get(LiveTL);
-        let height = inner_height
-            + 2 * theme.sizes.border_width.get(LiveTL)
-            + theme.title_plus_underline_height(LiveTL);
         let output = ws.node_state[LiveTL].output.get();
-        let output_rect = output.node_state[LiveTL].pos.get();
-        let position = if output.is_dummy {
-            Rect::new_sized_saturating(0, 0, width, height)
-        } else if let Some((mut x1, mut y1)) = abs_pos {
-            y1 = y1.clamp_saturating(output_rect.y1() + 1, output_rect.y2());
-            x1 = x1.clamp_saturating(output_rect.x1() - inner_width + 1, output_rect.x2() - 1);
-            y1 -= theme.sizes.border_width.get(LiveTL) + theme.title_plus_underline_height(LiveTL);
-            x1 -= theme.sizes.border_width.get(LiveTL);
-            Rect::new_sized_saturating(x1, y1, width, height)
-        } else {
-            calculate_float_position(output_rect, width, height)
-        };
         let floater = Rc::new(FloatNode {
             id: state.node_ids.next(),
             state: state.clone(),
@@ -212,6 +195,23 @@ impl FloatNode {
             cursors: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
         });
+        let theme = &state.theme;
+        let width = inner_width + 2 * theme.sizes.border_width.get(LiveTL);
+        let height = inner_height
+            + 2 * theme.sizes.border_width.get(LiveTL)
+            + theme.title_plus_underline_height(LiveTL);
+        let output_rect = output.node_state[LiveTL].pos.get();
+        let position = if output.is_dummy {
+            Rect::new_sized_saturating(0, 0, width, height)
+        } else if let Some((mut x1, mut y1)) = abs_pos {
+            y1 = y1.clamp_saturating(output_rect.y1() + 1, output_rect.y2());
+            x1 = x1.clamp_saturating(output_rect.x1() - inner_width + 1, output_rect.x2() - 1);
+            y1 -= theme.sizes.border_width.get(LiveTL) + theme.title_plus_underline_height(LiveTL);
+            x1 -= theme.sizes.border_width.get(LiveTL);
+            Rect::new_sized_saturating(x1, y1, width, height)
+        } else {
+            calculate_float_position(output_rect, width, height)
+        };
         floater.set_ns_requested_visible(ws.float_visible());
         floater.set_position(position);
         floater.set_ns_child(Some(&child));
