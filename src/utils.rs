@@ -14,6 +14,7 @@ pub mod box_ext;
 pub mod buf;
 pub mod buffd;
 pub mod bufio;
+pub mod cached_value;
 pub mod cell_ext;
 pub mod clamp_ext;
 pub mod client_trace;

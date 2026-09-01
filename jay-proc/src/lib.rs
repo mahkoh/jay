@@ -3,6 +3,7 @@ use markers::hash;
 use markers::pod;
 use proc_macro::TokenStream;
 
+mod cached_value;
 mod drm_object_properties;
 mod liveness;
 mod markers;
@@ -42,4 +43,9 @@ pub fn derive_pod(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(GetLiveness, attributes(liveness))]
 pub fn derive_get_liveness(input: TokenStream) -> TokenStream {
     liveness::derive_get_liveness(input)
+}
+
+#[proc_macro_derive(CachedValue)]
+pub fn derive_cached_value(input: TokenStream) -> TokenStream {
+    cached_value::derive_cached_values(input)
 }
