@@ -151,6 +151,7 @@ use crate::rect::Region;
 use crate::renderer::Renderer;
 use crate::renderer::renderer_base::RenderTexture;
 use crate::scale::Scale;
+use crate::scale::ScaleIndex;
 use crate::scale::Scales;
 use crate::security_context_acceptor::SecurityContextAcceptors;
 use crate::sm::SessionManager;
@@ -818,13 +819,19 @@ impl State {
     }
 
     pub fn add_output_scale(&self, scale: Scale) {
-        if self.scales.add(scale).is_some() {
+        if let Some(idx) = self.scales.add(scale) {
+            self.icons.add_scale(self, scale, idx);
             self.output_scales_changed();
         }
     }
 
-    pub fn remove_output_scale(&self, scale: Scale) {
-        if self.scales.remove(scale).is_some() {
+    pub fn schedule_remove_output_scale(self: &Rc<Self>, scale: Scale) {
+        self.add_transaction_op(StateTransactionOp::RemoveOutputScale(scale));
+    }
+
+    fn remove_output_scale(&self, scale: Scale) {
+        if let Some(idx) = self.scales.remove(scale) {
+            self.icons.remove_scale(self, scale, idx);
             self.output_scales_changed();
         }
     }
@@ -847,7 +854,6 @@ impl State {
         });
         self.reload_cursors();
         self.update_xwayland_wire_scale();
-        self.icons.update_sizes(self);
     }
 
     fn cursor_sizes_changed(&self) {
@@ -885,7 +891,7 @@ impl State {
         self.render_ctx.set(ctx.clone());
         self.render_ctx_version.fetch_add(1);
         self.cursors.set(None);
-        self.icons.clear();
+        self.icons.set_render_ctx(ctx.as_ref());
         self.wait_for_syncobj
             .set_ctx(ctx.as_ref().and_then(|c| c.syncobj_ctx().cloned()));
         self.virtual_outputs.handle_render_ctx_change(self);
@@ -1638,7 +1644,7 @@ impl State {
                 let (width, height) = target.logical_size(target_transform);
                 Rect::new_sized_saturating(0, 0, width, height)
             },
-            title_icons: None,
+            scale_idx: ScaleIndex::INVALID,
             bar_icons: None,
         };
         let mut sample_rect = SampleRect::identity();
@@ -2522,6 +2528,7 @@ pub enum StateTransactionOp {
     Clear,
     SetLocked(bool),
     Damage(Rect),
+    RemoveOutputScale(Scale),
 }
 
 impl Transactionable for State {
@@ -2544,6 +2551,9 @@ impl Transactionable for State {
             }
             StateTransactionOp::Damage(v) => {
                 self.damage(v);
+            }
+            StateTransactionOp::RemoveOutputScale(v) => {
+                self.remove_output_scale(v);
             }
         }
     }

@@ -20,6 +20,7 @@ use crate::renderer::Renderer;
 use crate::renderer::renderer_base::RenderTexture;
 use crate::renderer::renderer_base::RendererBase;
 use crate::scale::Scale;
+use crate::scale::ScaleIndex;
 use crate::state::State;
 use crate::syncobj::SyncobjCtx;
 use crate::theme::Color;
@@ -817,7 +818,7 @@ impl dyn GfxFramebuffer {
                 let (width, height) = self.logical_size(transform);
                 Rect::new_saturating(0, 0, width, height)
             },
-            title_icons: None,
+            scale_idx: ScaleIndex::INVALID,
             bar_icons: None,
         };
         cursor.render_hardware_cursor(&mut renderer);
@@ -1204,7 +1205,7 @@ pub fn create_render_pass(
             let (width, height) = logical_size(physical_size, transform);
             Rect::new_saturating(0, 0, width, height)
         },
-        title_icons: state.icons.get_title_icons(state, scale),
+        scale_idx: state.scales.get_index(scale),
         bar_icons: state.icons.get_bar_icons(state, scale),
     };
     node.node_render(&mut renderer, 0, 0, None);
