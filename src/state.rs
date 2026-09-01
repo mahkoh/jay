@@ -2195,6 +2195,7 @@ impl State {
 
     pub fn set_window_icons_grayscale(self: &Rc<Self>, show: bool) {
         self.theme.window_icons_grayscale.set(show);
+        self.theme_changed.trigger();
         self.damage_full(RenderTL);
         self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
@@ -2212,12 +2213,8 @@ impl State {
 
     pub fn set_show_pin_icon(&self, show: bool) {
         self.show_pin_icon.set(show);
+        self.theme_changed.trigger();
         self.trigger_cci(CCI_LOOK_AND_FEEL);
-        for stacked in self.root.stacked.stacked.iter() {
-            if let Some(float) = stacked.deref().clone().node_into_float() {
-                float.schedule_render_titles();
-            }
-        }
     }
 
     pub fn set_float_above_fullscreen(self: &Rc<Self>, v: bool) {

@@ -621,23 +621,25 @@ impl Renderer<'_> {
             _ => return,
         };
         let pos = ns.position.get();
-        let theme = &self.state.theme;
-        let th = theme.title_height(RenderTL);
-        let tpuh = theme.title_plus_underline_height(RenderTL);
-        let tuh = theme.title_underline_height(RenderTL);
-        let bw = theme.sizes.border_width.get(RenderTL);
+        let theme = &ns.theme;
+        let colors = &theme.colors;
+        let sizes = &theme.sizes;
+        let th = sizes.title_height.get();
+        let tpuh = sizes.title_plus_underline_height.get();
+        let tuh = sizes.title_underline_height.get();
+        let bw = sizes.border_width.get();
         let bc = match ns.active.get() {
-            true => theme.focused_border_color(),
-            false => theme.colors.border.get(),
+            true => colors.focused_border.get(),
+            false => colors.border.get(),
         };
         let tc = if ns.active.get() {
-            theme.colors.focused_title_background.get()
+            colors.focused_title_background.get()
         } else if ns.attention_requested.get() {
-            theme.colors.attention_requested_background.get()
+            colors.attention_requested_background.get()
         } else {
-            theme.colors.unfocused_title_background.get()
+            colors.unfocused_title_background.get()
         };
-        let uc = theme.colors.separator.get();
+        let uc = colors.separator.get();
         let borders = [
             Rect::new_sized_saturating(x, y, pos.width(), bw),
             Rect::new_sized_saturating(x, y + bw, bw, pos.height() - bw),
@@ -689,7 +691,7 @@ impl Renderer<'_> {
             x1 += th;
         }
         let is_pinned = ns.pinned.get();
-        if is_pinned || self.state.show_pin_icon.get() {
+        if is_pinned || theme.show_pin_icon.get() {
             let (x, y) = self.base.scale_point(x1, y1);
             if let Some(icons) = &self.title_icons {
                 let icon = if ns.active.get() {
@@ -716,7 +718,14 @@ impl Renderer<'_> {
             x1 += th;
         }
         if let Some(icon) = floating.icons.get(&self.base.scale) {
-            self.render_icon(&icon, &bounds, x1, y1);
+            self.render_icon_(
+                &icon,
+                &bounds,
+                x1,
+                y1,
+                theme.window_icons_grayscale.get(),
+                sizes.title_icon_size.get(),
+            );
             x1 += th;
         }
         if let Some(title) = floating.title_textures.borrow().get(&self.base.scale)
@@ -768,13 +777,33 @@ impl Renderer<'_> {
     }
 
     fn render_icon(&mut self, icon: &ToplevelIcon, bounds: &Rect, x1: i32, y1: i32) {
+        let theme = &self.state.theme;
+        self.render_icon_(
+            icon,
+            bounds,
+            x1,
+            y1,
+            theme.window_icons_grayscale.get(),
+            theme.title_icon_size(RenderTL),
+        );
+    }
+
+    fn render_icon_(
+        &mut self,
+        icon: &ToplevelIcon,
+        bounds: &Rect,
+        x1: i32,
+        y1: i32,
+        window_icons_grayscale: bool,
+        title_icon_size: i32,
+    ) {
         let (x, y) = self.base.scale_point(x1 + 1, y1 + 1);
-        let grayscale = self.state.theme.window_icons_grayscale.get();
+        let grayscale = window_icons_grayscale;
         let srgb = self.state.color_manager.srgb_gamma22();
         let perceptual = RenderIntent::Perceptual;
         match icon {
             ToplevelIcon::Srgb(color) => {
-                let tis = self.state.theme.title_icon_size(RenderTL) + 1;
+                let tis = title_icon_size + 1;
                 let (x2, y2) = self.base.scale_point(x1 + tis, y1 + tis);
                 let color = match grayscale {
                     true => color.to_grayscale(),

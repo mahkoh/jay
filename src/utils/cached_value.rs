@@ -12,11 +12,9 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 pub trait CachedDefault: Sized {
-    #[expect(unused)]
     fn cached_default() -> Self;
 }
 
-#[expect(unused)]
 pub trait CachedValue: CachedDefault {
     type Changed: Copy + Debug + Default;
     type Op;

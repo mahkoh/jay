@@ -350,6 +350,10 @@ impl ThemeColor {
     pub fn get(&self) -> Color {
         self.val.get()
     }
+
+    pub fn get_opt(&self) -> Option<Color> {
+        self.set.get().then_some(self.val.get())
+    }
 }
 
 macro_rules! colors {
@@ -866,4 +870,24 @@ pub async fn handle_theme_changes(state: Rc<State>) {
         }
         state.trigger_cci(CCI_LOOK_AND_FEEL);
     }
+}
+
+pub fn compute_title_height(show_titles: bool, title_height: i32) -> i32 {
+    if show_titles { title_height } else { 0 }
+}
+
+pub fn title_icon_size(show_titles: bool, title_height: i32) -> i32 {
+    (compute_title_height(show_titles, title_height) - 2).max(0)
+}
+
+pub fn title_underline_height(show_titles: bool) -> i32 {
+    if show_titles { 1 } else { 0 }
+}
+
+pub fn title_plus_underline_height(show_titles: bool, title_height: i32) -> i32 {
+    if show_titles { title_height + 1 } else { 0 }
+}
+
+pub fn compute_focused_border(focused_border: Option<Color>, border: Color) -> Color {
+    focused_border.unwrap_or(border)
 }
