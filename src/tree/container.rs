@@ -590,12 +590,12 @@ impl ContainerNode {
     }
 
     fn perform_split_layout(self: &Rc<Self>) {
+        let ns = &self.node_state[LiveTL];
         let sum_factors = self.sum_factors.get();
         let theme = &self.state.theme;
         let border_width = theme.sizes.border_width.get(LiveTL);
         let title_height_tmp = theme.title_height(LiveTL);
         let title_plus_underline_height = theme.title_plus_underline_height(LiveTL);
-        let ns = &self.node_state[LiveTL];
         let split = ns.split.get();
         let (content_size, other_content_size) = match split {
             ContainerSplit::Horizontal => (ns.content_width.get(), ns.content_height.get()),
@@ -710,10 +710,10 @@ impl ContainerNode {
     }
 
     fn update_content_size(self: &Rc<Self>) {
+        let ns = &self.node_state[LiveTL];
         let theme = &self.state.theme;
         let border_width = theme.sizes.border_width.get(LiveTL);
         let title_plus_underline_height = theme.title_plus_underline_height(LiveTL);
-        let ns = &self.node_state[LiveTL];
         let nc = ns.num_children.get();
         if nc == 0 {
             return;
@@ -1000,6 +1000,7 @@ impl ContainerNode {
 
     fn compute_render_positions(self: &Rc<Self>) {
         self.compute_render_positions_scheduled.set(false);
+        let ns = &self.node_state[RenderTL];
         let mut rd = self.render_data.borrow_mut();
         let rd = rd.deref_mut();
         let theme = &self.state.theme;
@@ -1007,7 +1008,6 @@ impl ContainerNode {
         let tpuh = theme.title_plus_underline_height(RenderTL);
         let tuh = theme.title_underline_height(RenderTL);
         let bw = theme.sizes.border_width.get(RenderTL);
-        let ns = &self.node_state[RenderTL];
         let cb = self.container_borders(RenderTL);
         let sp = match cb {
             ContainerBorders::Separators => 0,
@@ -1705,8 +1705,8 @@ impl ContainerNode {
         abs_x: i32,
         abs_y: i32,
     ) -> Option<TileDragDestination> {
-        let th = self.state.theme.title_height(LiveTL);
         let ns = &self.node_state[LiveTL];
+        let th = self.state.theme.title_height(LiveTL);
         if abs_y < ns.abs_y1.get() + th {
             return self.tile_drag_destination_mono_titles(source, abs_bounds, abs_x, abs_y);
         }
@@ -1869,11 +1869,12 @@ impl ContainerNode {
     }
 
     fn container_borders(&self, timeline: TreeTimeline) -> ContainerBorders {
+        let ns = &self.node_state[timeline];
         match self.state.theme.container_borders[timeline].get() {
             ContainerBordersSetting::Separators => ContainerBorders::Separators,
             ContainerBordersSetting::Full => ContainerBorders::Full,
             ContainerBordersSetting::FullSmart => {
-                if self.node_state[timeline].num_children.get() == 1
+                if ns.num_children.get() == 1
                     && self.toplevel_data.is_root_container[timeline].get()
                 {
                     ContainerBorders::Separators
@@ -2471,8 +2472,9 @@ impl ContainingNode for ContainerNode {
         let Some(parent) = self.toplevel_data.parent.get() else {
             return;
         };
+        let ns = &self.node_state[LiveTL];
         let tpuh = self.state.theme.title_plus_underline_height(LiveTL);
-        if self.node_state[LiveTL].mono_child.is_some() {
+        if ns.mono_child.is_some() {
             parent.cnode_set_child_position(&*self, x, y - tpuh);
         } else {
             let children = self.child_nodes.borrow();
@@ -2493,6 +2495,7 @@ impl ContainingNode for ContainerNode {
         new_x2: Option<i32>,
         new_y2: Option<i32>,
     ) {
+        let ns = &self.node_state[LiveTL];
         let theme = &self.state.theme;
         let tpuh = theme.title_plus_underline_height(LiveTL);
         let bw = theme.sizes.border_width.get(LiveTL);
@@ -2500,7 +2503,6 @@ impl ContainingNode for ContainerNode {
         let mut right_outside = false;
         let mut top_outside = false;
         let mut bottom_outside = false;
-        let ns = &self.node_state[LiveTL];
         if ns.mono_child.is_some() {
             top_outside = true;
             right_outside = true;
