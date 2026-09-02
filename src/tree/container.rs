@@ -1041,8 +1041,7 @@ impl ContainerNode {
         let abs_x = ns.abs_x1.get();
         let abs_y = ns.abs_y1.get();
         self.update_child_types();
-        let use_active_border_rects = cb == ContainerBorders::Full
-            && theme.colors.border.get() != theme.focused_border_color();
+        let use_active_border_rects = cb == ContainerBorders::Full;
         let fill_active_borders = !mono && use_active_border_rects;
         fn get_color(rd: &mut ContainerRenderData, color: Color) -> &mut Vec<Rect> {
             match rd.color_rects.entry(color) {
@@ -1147,9 +1146,7 @@ impl ContainerNode {
                 ]
             };
             let colors = &theme.colors;
-            if !use_active_border_rects {
-                get_color(rd, colors.border.get()).extend_from_slice(&full_border());
-            } else if let Some(child) = ns.mono_child.get() {
+            if let Some(child) = ns.mono_child.get() {
                 let active = child.ty.get() == ContainerChildType::Active;
                 let color = match active {
                     true => theme.focused_border_color(),
