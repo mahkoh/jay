@@ -21,6 +21,7 @@ use crate::renderer::Renderer;
 use crate::scale::Scale;
 use crate::state::State;
 use crate::text::TextTexture;
+use crate::theme::Color;
 use crate::theme::ContainerBorders;
 use crate::theme::ContainerBordersSetting;
 use crate::transactions::TransactionData;
@@ -63,6 +64,7 @@ use crate::utils::bool_ext::BoolExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::double_click_state::DoubleClickState;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::fx_hash::FHashMap;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::linkedlist::LinkedNode;
@@ -73,6 +75,7 @@ use crate::utils::scroller::Scroller;
 use crate::utils::smallmap::SmallMap;
 use crate::utils::smallmap::SmallMapMut;
 use crate::utils::threshold_counter::ThresholdCounter;
+use hashbrown::hash_map::Entry;
 use jay_config::Axis;
 use smallvec::SmallVec;
 use std::cell::Cell;
@@ -158,14 +161,9 @@ pub enum ContainerChildType {
 
 #[derive(Default)]
 pub struct ContainerRenderData {
-    pub title_rects: Vec<Rect>,
-    pub active_title_rects: Vec<Rect>,
-    pub attention_title_rects: Vec<Rect>,
-    pub last_active_rect: Option<Rect>,
-    pub active_border_rects: Vec<Rect>,
-    pub border_rects: Vec<Rect>,
-    pub underline_rects: Vec<Rect>,
+    pub color_rects: FHashMap<Color, Vec<Rect>>,
     pub titles: SmallMapMut<Scale, Vec<ContainerTitle>, 2>,
+    rect_cache: Vec<Vec<Rect>>,
 }
 
 #[derive(Copy, Clone)]
@@ -1032,13 +1030,10 @@ impl ContainerNode {
         for (_, v) in rd.titles.iter_mut() {
             v.clear();
         }
-        rd.title_rects.clear();
-        rd.active_title_rects.clear();
-        rd.attention_title_rects.clear();
-        rd.border_rects.clear();
-        rd.active_border_rects.clear();
-        rd.underline_rects.clear();
-        rd.last_active_rect.take();
+        for mut rects in rd.color_rects.drain_values() {
+            rects.clear();
+            rd.rect_cache.push(rects);
+        }
         let main_axis_ranges = &mut *self.main_axis_ranges.borrow_mut();
         main_axis_ranges.clear();
         let mono = ns.mono_child.is_some();
@@ -1049,6 +1044,15 @@ impl ContainerNode {
         let use_active_border_rects = cb == ContainerBorders::Full
             && theme.colors.border.get() != theme.focused_border_color();
         let fill_active_borders = !mono && use_active_border_rects;
+        fn get_color(rd: &mut ContainerRenderData, color: Color) -> &mut Vec<Rect> {
+            match rd.color_rects.entry(color) {
+                Entry::Occupied(v) => v.into_mut(),
+                Entry::Vacant(v) => v.insert(rd.rect_cache.pop().unwrap_or_default()),
+            }
+        }
+        fn add_color(rd: &mut ContainerRenderData, color: Color, rect: Rect) {
+            get_color(rd, color).push(rect);
+        }
         let mut add_border = |rd: &mut ContainerRenderData,
                               x1: i32,
                               y1: i32,
@@ -1062,11 +1066,13 @@ impl ContainerNode {
             } else {
                 Rect::new_sized_saturating(x1, y1 - bw, cwidth, bw)
             };
-            if fill_active_borders && (active || prev_active) {
-                rd.active_border_rects.push(rect);
+            let focused_border = theme.focused_border_color();
+            let border_color = if fill_active_borders && (active || prev_active) {
+                focused_border
             } else {
-                rd.border_rects.push(rect);
-            }
+                theme.colors.border.get()
+            };
+            add_color(rd, border_color, rect);
             if fill_active_borders {
                 let active = prev_active;
                 let mut hi = match split {
@@ -1112,15 +1118,19 @@ impl ContainerNode {
                 add_border(rd, rect.x1(), rect.y1(), active, prev_active, false);
             }
             prev_active = active;
-            match child.ty.get() {
-                ContainerChildType::Active => rd.active_title_rects.push(rect),
-                ContainerChildType::AttentionRequested => rd.attention_title_rects.push(rect),
-                ContainerChildType::LastActive => rd.last_active_rect = Some(rect),
-                ContainerChildType::Other => rd.title_rects.push(rect),
-            }
+            let colors = &theme.colors;
+            let title_background = match child.ty.get() {
+                ContainerChildType::Active => colors.focused_title_background.get(),
+                ContainerChildType::AttentionRequested => {
+                    colors.attention_requested_background.get()
+                }
+                ContainerChildType::LastActive => colors.focused_inactive_title_background.get(),
+                ContainerChildType::Other => colors.unfocused_title_background.get(),
+            };
+            add_color(rd, title_background, rect);
             if !mono {
                 let rect = Rect::new_sized_saturating(rect.x1(), rect.y2(), rect.width(), 1);
-                rd.underline_rects.push(rect);
+                add_color(rd, theme.colors.separator.get(), rect);
             }
             let tt = &*child.title_tex.borrow();
             for (&scale, tex) in tt {
@@ -1136,15 +1146,16 @@ impl ContainerNode {
                     Rect::new_sized_saturating(fwidth - bw, bw, bw, cheight),
                 ]
             };
+            let colors = &theme.colors;
             if !use_active_border_rects {
-                rd.border_rects.extend_from_slice(&full_border());
+                get_color(rd, colors.border.get()).extend_from_slice(&full_border());
             } else if let Some(child) = ns.mono_child.get() {
                 let active = child.ty.get() == ContainerChildType::Active;
-                let dst = match active {
-                    true => &mut rd.active_border_rects,
-                    false => &mut rd.border_rects,
+                let color = match active {
+                    true => theme.focused_border_color(),
+                    false => colors.border.get(),
                 };
-                dst.extend_from_slice(&full_border());
+                get_color(rd, color).extend_from_slice(&full_border());
             } else {
                 let (x, y) = match split {
                     ContainerSplit::Horizontal => (fwidth, sp),
@@ -1162,17 +1173,21 @@ impl ContainerNode {
                             Rect::new_saturating(fwidth - bw, lo, fwidth, hi),
                         ],
                     };
-                    if active {
-                        rd.active_border_rects.extend_from_slice(&rects);
+                    let color = if active {
+                        theme.focused_border_color()
                     } else {
-                        rd.border_rects.extend_from_slice(&rects);
-                    }
+                        colors.border.get()
+                    };
+                    get_color(rd, color).extend_from_slice(&rects);
                 }
             }
         }
         if mono {
-            rd.underline_rects
-                .push(Rect::new_sized_saturating(sp, sp + th, cwidth, tuh));
+            add_color(
+                rd,
+                theme.colors.separator.get(),
+                Rect::new_sized_saturating(sp, sp + th, cwidth, tuh),
+            );
         }
         if !use_active_border_rects
             && self.toplevel_data.visible[RenderTL].get()

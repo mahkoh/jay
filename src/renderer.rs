@@ -327,33 +327,8 @@ impl Renderer<'_> {
             let srgb = &srgb_srgb.linear;
             let perceptual = RenderIntent::Perceptual;
             let rd = container.render_data.borrow_mut();
-            let c = self.state.theme.colors.unfocused_title_background.get();
-            self.base
-                .fill_boxes2(&rd.title_rects, &c, srgb, perceptual, x, y);
-            let c = self.state.theme.colors.focused_title_background.get();
-            self.base
-                .fill_boxes2(&rd.active_title_rects, &c, srgb, perceptual, x, y);
-            let c = self.state.theme.colors.attention_requested_background.get();
-            self.base
-                .fill_boxes2(&rd.attention_title_rects, &c, srgb, perceptual, x, y);
-            let c = self.state.theme.colors.separator.get();
-            self.base
-                .fill_boxes2(&rd.underline_rects, &c, srgb, perceptual, x, y);
-            let c = self.state.theme.focused_border_color();
-            self.base
-                .fill_boxes2(&rd.active_border_rects, &c, srgb, perceptual, x, y);
-            let c = self.state.theme.colors.border.get();
-            self.base
-                .fill_boxes2(&rd.border_rects, &c, srgb, perceptual, x, y);
-            if let Some(lar) = &rd.last_active_rect {
-                let c = self
-                    .state
-                    .theme
-                    .colors
-                    .focused_inactive_title_background
-                    .get();
-                self.base
-                    .fill_boxes2(std::slice::from_ref(lar), &c, srgb, perceptual, x, y);
+            for (color, rects) in &rd.color_rects {
+                self.base.fill_boxes2(rects, color, srgb, perceptual, x, y);
             }
             let draw_overlay_icon = container.tl_data().is_overlay_root_container.get();
             let th = self.state.theme.title_height(RenderTL);
