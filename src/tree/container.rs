@@ -211,6 +211,7 @@ pub struct ContainerNode {
     toplevel_data: ToplevelData,
     attention_requests: ThresholdCounter,
     transaction_data: TransactionData<ContainerTransactionOp>,
+    schedule_render_title_scheduled: Cell<bool>,
 }
 
 impl Debug for ContainerNode {
@@ -360,6 +361,7 @@ impl ContainerNode {
             ),
             attention_requests: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
+            schedule_render_title_scheduled: Default::default(),
         });
         slf.set_ns_split(split);
         slf.adj_ns_num_children(|value| value + 1);
@@ -872,7 +874,9 @@ impl ContainerNode {
     }
 
     pub fn schedule_render_titles(self: &Rc<Self>) {
-        self.add_transaction_op(ContainerTransactionOp::ScheduleRenderTitles);
+        if !self.schedule_render_title_scheduled.replace(true) {
+            self.add_transaction_op(ContainerTransactionOp::ScheduleRenderTitles);
+        }
     }
 
     fn last_active(&self) -> Option<NodeId> {
@@ -3017,5 +3021,9 @@ impl Transactionable for ContainerNode {
                 self.state.damage(v);
             }
         }
+    }
+
+    fn committed(&self) {
+        self.schedule_render_title_scheduled.set(false);
     }
 }
