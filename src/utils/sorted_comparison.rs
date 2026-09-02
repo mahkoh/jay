@@ -17,7 +17,6 @@ pub fn sorted_comparison_by<'a, T>(
     }
 }
 
-#[cfg_attr(not(test), expect(unused))]
 pub fn sorted_comparison<'a, T>(
     a1: &'a [T],
     a2: &'a [T],
