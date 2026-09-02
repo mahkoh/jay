@@ -1,6 +1,7 @@
 pub mod aliasable_box;
 pub mod array;
 pub mod array_to_tuple;
+pub mod as_double_deref;
 pub mod asyncevent;
 pub mod atomic_enum;
 pub mod bhash;

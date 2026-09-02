@@ -1,3 +1,4 @@
+use crate::utils::as_double_deref::AsDoubleDeref;
 use crate::utils::send_sync_rc::SendSyncRc;
 use bincode::Deserializer;
 use bincode::Options;
@@ -125,7 +126,7 @@ impl From<WireSession<'_>> for SmSessionOut {
 impl<'a> From<&'a SmSessionInUseData> for WireSessionUserV0<'a> {
     fn from(value: &'a SmSessionInUseData) -> Self {
         Self {
-            exe: value.exe.as_deref().map(|v| &**v),
+            exe: value.exe.as_deref().as_double_deref(),
             time: SystemTime::now(),
         }
     }

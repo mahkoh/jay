@@ -2,6 +2,7 @@ use crate::ifs::wl_output::OutputIdHash;
 use crate::rect::Rect;
 use crate::sm::sm_wire::WireRect;
 use crate::tree::WorkspaceType;
+use crate::utils::as_double_deref::AsDoubleDeref;
 use crate::utils::send_sync_rc::SendSyncRc;
 use bincode::Deserializer;
 use bincode::Options;
@@ -106,7 +107,7 @@ impl<'a> From<&'a SmToplevelIn> for WireToplevelV1<'a> {
     fn from(value: &'a SmToplevelIn) -> Self {
         Self {
             output: value.output,
-            workspace: value.workspace.as_deref().map(|v| &**v),
+            workspace: value.workspace.as_deref().as_double_deref(),
             floating_pos: value.floating_pos.map(Into::into),
             fullscreen: value.fullscreen,
         }
