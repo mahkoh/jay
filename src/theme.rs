@@ -14,6 +14,7 @@ use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::utils::clonecell::CloneCell;
+use crate::utils::markers::JayHash;
 use crate::utils::static_text::StaticText;
 use jay_algorithms::tf::eotfs;
 use jay_algorithms::tf::inv_eotfs;
@@ -23,6 +24,8 @@ use jay_proc::jay_clone;
 use linearize::Linearize;
 use std::cell::Cell;
 use std::cmp::Ordering;
+use std::hash::Hash;
+use std::hash::Hasher;
 use std::ops::Add;
 use std::ops::Div;
 use std::ops::Mul;
@@ -30,7 +33,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 #[jay_clone(Copy)]
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub struct Color {
     r: f32,
     g: f32,
@@ -42,11 +45,7 @@ impl Eq for Color {}
 
 impl Ord for Color {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.r
-            .total_cmp(&other.r)
-            .then_with(|| self.g.total_cmp(&other.g))
-            .then_with(|| self.b.total_cmp(&other.b))
-            .then_with(|| self.a.total_cmp(&other.a))
+        self.bits().cmp(&other.bits())
     }
 }
 
@@ -68,6 +67,22 @@ impl PartialOrd for Color {
         Some(self.cmp(other))
     }
 }
+
+impl PartialEq for Color {
+    fn eq(&self, other: &Self) -> bool {
+        self.bits() == other.bits()
+    }
+}
+
+impl Hash for Color {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        for bits in self.bits() {
+            bits.hash(state);
+        }
+    }
+}
+
+unsafe impl JayHash for Color {}
 
 fn to_f32(c: u8) -> f32 {
     c as f32 / 255f32
@@ -91,6 +106,15 @@ impl Color {
         b: 0.0,
         a: 1.0,
     };
+
+    fn bits(&self) -> [u32; 4] {
+        [
+            self.r.to_bits(),
+            self.g.to_bits(),
+            self.b.to_bits(),
+            self.a.to_bits(),
+        ]
+    }
 
     pub fn new(
         eotf: Eotf,
