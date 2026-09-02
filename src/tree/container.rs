@@ -166,7 +166,6 @@ pub struct ContainerRenderData {
     pub border_rects: Vec<Rect>,
     pub underline_rects: Vec<Rect>,
     pub titles: SmallMapMut<Scale, Vec<ContainerTitle>, 2>,
-    main_axis_ranges: Vec<MainAxisRange>,
 }
 
 #[derive(Copy, Clone)]
@@ -207,6 +206,7 @@ pub struct ContainerNode {
     cursors: RefCell<BHashMap<CursorType, CursorState>>,
     state: Rc<State>,
     pub render_data: RefCell<ContainerRenderData>,
+    main_axis_ranges: RefCell<Vec<MainAxisRange>>,
     scroller: Scroller,
     toplevel_data: ToplevelData,
     attention_requests: ThresholdCounter,
@@ -351,6 +351,7 @@ impl ContainerNode {
             cursors: RefCell::new(Default::default()),
             state: state.clone(),
             render_data: Default::default(),
+            main_axis_ranges: Default::default(),
             scroller: Default::default(),
             toplevel_data: ToplevelData::new(
                 state,
@@ -1038,7 +1039,8 @@ impl ContainerNode {
         rd.active_border_rects.clear();
         rd.underline_rects.clear();
         rd.last_active_rect.take();
-        rd.main_axis_ranges.clear();
+        let main_axis_ranges = &mut *self.main_axis_ranges.borrow_mut();
+        main_axis_ranges.clear();
         let mono = ns.mono_child.is_some();
         let split = ns.split.get();
         let abs_x = ns.abs_x1.get();
@@ -1047,12 +1049,12 @@ impl ContainerNode {
         let use_active_border_rects = cb == ContainerBorders::Full
             && theme.colors.border.get() != theme.focused_border_color();
         let fill_active_borders = !mono && use_active_border_rects;
-        let add_border = |rd: &mut ContainerRenderData,
-                          x1: i32,
-                          y1: i32,
-                          active: bool,
-                          prev_active: bool,
-                          last: bool| {
+        let mut add_border = |rd: &mut ContainerRenderData,
+                              x1: i32,
+                              y1: i32,
+                              active: bool,
+                              prev_active: bool,
+                              last: bool| {
             let rect = if mono {
                 Rect::new_sized_saturating(x1 - bw, y1, bw, th)
             } else if split == ContainerSplit::Horizontal {
@@ -1075,7 +1077,7 @@ impl ContainerNode {
                     hi -= bw;
                 };
                 let mut lo = None;
-                if let Some(last) = rd.main_axis_ranges.last_mut() {
+                if let Some(last) = main_axis_ranges.last_mut() {
                     if last.active == active {
                         last.hi = hi;
                     } else if hi > last.hi {
@@ -1085,7 +1087,7 @@ impl ContainerNode {
                     lo = Some(0);
                 }
                 if let Some(lo) = lo {
-                    rd.main_axis_ranges.push(MainAxisRange { lo, hi, active });
+                    main_axis_ranges.push(MainAxisRange { lo, hi, active });
                 }
             }
         };
@@ -1149,7 +1151,7 @@ impl ContainerNode {
                     ContainerSplit::Vertical => (sp, fheight),
                 };
                 add_border(rd, x, y, false, prev_active, true);
-                for MainAxisRange { lo, hi, active } in rd.main_axis_ranges.iter().copied() {
+                for MainAxisRange { lo, hi, active } in main_axis_ranges.iter().copied() {
                     let rects = match split {
                         ContainerSplit::Horizontal => [
                             Rect::new_saturating(lo, 0, hi, bw),
