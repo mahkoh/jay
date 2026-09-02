@@ -13,14 +13,13 @@ use crate::utils::cross_process_ring_buffer::CprbMsgRead;
 use crate::utils::cross_process_ring_buffer::CprbRead;
 use crate::utils::cross_process_ring_buffer::CprbReadAvailable;
 use crate::utils::cross_process_ring_buffer::CprbWrite;
-use crate::utils::fx_hash::FxBuildHasher;
+use crate::utils::fx_hash::FHashMap;
 use crate::utils::maybe_uninit::MaybeUninitSliceExt2;
 use crate::utils::ptr_ext::MutPtrExt;
 use crate::utils::ptr_ext::PtrExt;
 use crate::utils::str_table::StrAccess;
 use crate::wire::ObjectId;
 use generated::MAX_ARGS;
-use hashbrown::HashMap;
 use hashbrown::hash_map::Entry;
 use std::array;
 use std::mem::MaybeUninit;
@@ -143,7 +142,7 @@ struct MessageSlot {
 
 #[derive(Default)]
 struct IdMap {
-    map: HashMap<u32, u64, FxBuildHasher>,
+    map: FHashMap<u32, u64>,
     next: u64,
     raw_ids: bool,
 }

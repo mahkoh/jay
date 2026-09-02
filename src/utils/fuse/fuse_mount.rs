@@ -13,10 +13,9 @@ use crate::utils::fuse::fuse_inode_cache::InodeCache;
 use crate::utils::fuse::fuse_mgr::FuseMgrShutdownQueue;
 use crate::utils::fuse::fuse_out::OutCache;
 use crate::utils::fuse::fuse_reg::FuseOpenReg;
-use crate::utils::fx_hash::FxBuildHasher;
+use crate::utils::fx_hash::FHashMap;
 use crate::utils::numcell::NumCell;
 use crate::utils::run_toplevel::RunToplevel;
-use hashbrown::HashMap;
 use jay_algorithms::oserror::OsError;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -59,9 +58,9 @@ pub(super) struct FuseMountShared {
     pub(super) inodes: ManuallyDrop<InodeCache>,
     pub(super) early: Rc<FuseMountEarlyShared>,
     pub(super) fh: NumCell<u64>,
-    pub(super) dirs: RefCell<HashMap<u64, FuseOpenDir, FxBuildHasher>>,
+    pub(super) dirs: RefCell<FHashMap<u64, FuseOpenDir>>,
     pub(super) dirents: Rc<BoxCache<FuseDirents, BoxReset>>,
-    pub(super) files: RefCell<HashMap<u64, FuseOpenReg, FxBuildHasher>>,
+    pub(super) files: RefCell<FHashMap<u64, FuseOpenReg>>,
     pub(super) contents: Rc<BoxCache<String, BoxReset>>,
 }
 

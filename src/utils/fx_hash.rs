@@ -1,4 +1,6 @@
 use crate::utils::copyhashmap::LockableRandomState;
+use hashbrown::HashMap;
+use hashbrown::HashSet;
 use rustc_hash::FxHasher;
 use std::hash::BuildHasher;
 
@@ -17,3 +19,8 @@ impl BuildHasher for FxBuildHasher {
 impl LockableRandomState for FxBuildHasher {
     const LOCKED_STATE: Self = FxBuildHasher;
 }
+
+#[expect(unused)]
+pub type FHashSet<T> = HashSet<T, FxBuildHasher>;
+
+pub type FHashMap<K, V> = HashMap<K, V, FxBuildHasher>;

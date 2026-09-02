@@ -16,6 +16,7 @@ use crate::utils::fuse::fuse_mount::FuseMountShared;
 use crate::utils::fuse::fuse_sys::fuse_attr;
 use crate::utils::futex::futex_wait;
 use crate::utils::futex::futex_wake;
+use crate::utils::fx_hash::FHashMap;
 use crate::utils::fx_hash::FxBuildHasher;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::liveness::LivenessView;
@@ -27,7 +28,6 @@ use crate::utils::send_sync_ptr::SendSyncPtrConst;
 use derivative::Derivative;
 use futures_util::future::Either;
 use futures_util::future::select;
-use hashbrown::HashMap;
 use hashbrown::hash_map::OccupiedEntry;
 use hashbrown::hash_map::RawEntryMut;
 use isnt::std_1::ops::IsntRangeExt;
@@ -111,8 +111,8 @@ const TS_EXIT: u32 = 2;
 struct CachedFiles {
     #[derivative(Default(value = "0..64"))]
     len_range: Range<usize>,
-    inos: HashMap<FuseInodeKey, FuseIno, FxBuildHasher>,
-    inodes: HashMap<FuseIno, CachedInode, FxBuildHasher>,
+    inos: FHashMap<FuseInodeKey, FuseIno>,
+    inodes: FHashMap<FuseIno, CachedInode>,
     todo: VecDeque<Todo>,
 }
 
@@ -124,7 +124,7 @@ enum Todo {
 #[derive(Derivative)]
 #[derivative(Default)]
 struct SharedFiles {
-    liveness: HashMap<FuseIno, LivenessView, FxBuildHasher>,
+    liveness: FHashMap<FuseIno, LivenessView>,
     dead: Vec<FuseIno>,
 }
 
@@ -299,7 +299,7 @@ impl InodeCache {
     fn remove(
         &self,
         ino: FuseIno,
-        inos: &mut HashMap<FuseInodeKey, FuseIno, FxBuildHasher>,
+        inos: &mut FHashMap<FuseInodeKey, FuseIno>,
         todos: &mut VecDeque<Todo>,
         entry: OccupiedEntry<'_, FuseIno, CachedInode, FxBuildHasher>,
     ) -> CachedInode {
