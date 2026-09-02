@@ -5,12 +5,11 @@ use crate::utils::fuse::fuse_dir::FuseDirents;
 use crate::utils::fuse::fuse_error::FuseError;
 use crate::utils::fuse::fuse_inode::FuseInode;
 use crate::utils::fuse::fuse_inode::FuseInodeTy;
-use crate::utils::fx_hash::FxBuildHasher;
+use crate::utils::fx_hash::FHashMap;
 use crate::utils::numcell::NumCell;
 use crate::utils::seekable_fd::SeekableFd;
 use crate::utils::str_fmt::StrCtx;
 use crate::utils::str_fmt::StrFmtFmt;
-use hashbrown::HashMap;
 use hashbrown::hash_map::Entry;
 use isnt::std_1::primitive::IsntSliceExt;
 use jay_algorithms::jar::JarWriter;
@@ -87,7 +86,7 @@ impl dyn FuseInode {
         };
         let mut buf = String::new();
         let next_unique = NumCell::new(1);
-        let mut reg_cache: HashMap<RegKey, RegValue, FxBuildHasher> = Default::default();
+        let mut reg_cache: FHashMap<RegKey, RegValue> = Default::default();
         while let Some(mut dirents_box) = parents.pop() {
             let dirents = &mut *dirents_box;
             loop {

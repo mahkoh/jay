@@ -1,7 +1,6 @@
-use crate::utils::fx_hash::FxBuildHasher;
+use crate::utils::fx_hash::FHashMap;
 use flate2::Compression;
 use flate2::GzBuilder;
-use hashbrown::HashMap;
 use jay_algorithms::jar::JarError;
 use jay_algorithms::jar::JarEvent;
 use jay_algorithms::jar::JarReader;
@@ -35,7 +34,7 @@ pub fn jar_to_tar(root: &str, src: &OwnedFd, dst: &OwnedFd) -> Result<(), JarToT
     let mut tar_writer = TarWriter::new(&mut buf_writer);
     let mut lens = vec![];
     let mut path = vec![];
-    let mut paths = HashMap::with_hasher(FxBuildHasher);
+    let mut paths = FHashMap::default();
     loop {
         let ev = reader.next().map_err(JarToTarError::ReadJar)?;
         let Some(ev) = ev else {

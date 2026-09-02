@@ -166,7 +166,6 @@ pub struct ContainerRenderData {
     pub border_rects: Vec<Rect>,
     pub underline_rects: Vec<Rect>,
     pub titles: SmallMapMut<Scale, Vec<ContainerTitle>, 2>,
-    main_axis_ranges: Vec<MainAxisRange>,
 }
 
 #[derive(Copy, Clone)]
@@ -207,10 +206,13 @@ pub struct ContainerNode {
     cursors: RefCell<BHashMap<CursorType, CursorState>>,
     state: Rc<State>,
     pub render_data: RefCell<ContainerRenderData>,
+    main_axis_ranges: RefCell<Vec<MainAxisRange>>,
     scroller: Scroller,
     toplevel_data: ToplevelData,
     attention_requests: ThresholdCounter,
     transaction_data: TransactionData<ContainerTransactionOp>,
+    schedule_render_title_scheduled: Cell<bool>,
+    schedule_compute_render_positions_scheduled: Cell<bool>,
 }
 
 impl Debug for ContainerNode {
@@ -259,6 +261,30 @@ struct CursorState {
     double_click_state: DoubleClickState,
 }
 
+impl ContainerChildInner {
+    fn new(
+        state: &Rc<State>,
+        node: &Rc<dyn ToplevelNode>,
+        factor: f64,
+        resize_handle: Option<Rect>,
+    ) -> Self {
+        Self {
+            node: node.clone(),
+            active: Default::default(),
+            attention_requested: Default::default(),
+            title: Default::default(),
+            title_tex: Default::default(),
+            icon: state.toplevel_icon_user(),
+            icons: Default::default(),
+            focus_history: Default::default(),
+            ty: Default::default(),
+            node_state: Default::default(),
+            factor: Cell::new(factor),
+            resize_handle: Cell::new(resize_handle),
+        }
+    }
+}
+
 impl ContainerRenderData {
     fn add_title(&mut self, rect: Rect, child: &ContainerChild, scale: Scale, title: &TextTexture) {
         let tex = title.texture();
@@ -301,20 +327,9 @@ impl ContainerNode {
         split: ContainerSplit,
     ) -> Rc<Self> {
         let children = LinkedList::default();
-        let child_node = children.add_last(TreeLink::new(ContainerChildInner {
-            node: child.clone(),
-            active: Default::default(),
-            factor: Cell::new(1.0),
-            title: Default::default(),
-            title_tex: Default::default(),
-            icon: state.toplevel_icon_user(),
-            icons: Default::default(),
-            focus_history: Default::default(),
-            attention_requested: Cell::new(false),
-            ty: Default::default(),
-            node_state: Default::default(),
-            resize_handle: Default::default(),
-        }));
+        let child_node = children.add_last(TreeLink::new(ContainerChildInner::new(
+            state, &child, 1.0, None,
+        )));
         child.tl_update_icon(&child_node.icon);
         let child_node_ref = child_node.clone();
         let mut child_nodes = BHashMap::default();
@@ -336,6 +351,7 @@ impl ContainerNode {
             cursors: RefCell::new(Default::default()),
             state: state.clone(),
             render_data: Default::default(),
+            main_axis_ranges: Default::default(),
             scroller: Default::default(),
             toplevel_data: ToplevelData::new(
                 state,
@@ -347,6 +363,8 @@ impl ContainerNode {
             ),
             attention_requests: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
+            schedule_render_title_scheduled: Default::default(),
+            schedule_compute_render_positions_scheduled: Default::default(),
         });
         slf.set_ns_split(split);
         slf.adj_ns_num_children(|value| value + 1);
@@ -435,20 +453,12 @@ impl ContainerNode {
                 log::error!("Tried to add a child to a container that already contains the child");
                 return;
             }
-            let link = f(TreeLink::new(ContainerChildInner {
-                node: new.clone(),
-                active: Default::default(),
-                factor: Default::default(),
-                title: Default::default(),
-                title_tex: Default::default(),
-                icon: self.state.toplevel_icon_user(),
-                icons: Default::default(),
-                focus_history: Default::default(),
-                attention_requested: Default::default(),
-                ty: Default::default(),
-                node_state: Default::default(),
-                resize_handle: Default::default(),
-            }));
+            let link = f(TreeLink::new(ContainerChildInner::new(
+                &self.state,
+                &new,
+                0.0,
+                None,
+            )));
             let r = link.to_ref();
             links.insert(new.node_id(), link);
             r
@@ -585,12 +595,12 @@ impl ContainerNode {
     }
 
     fn perform_split_layout(self: &Rc<Self>) {
+        let ns = &self.node_state[LiveTL];
         let sum_factors = self.sum_factors.get();
         let theme = &self.state.theme;
         let border_width = theme.sizes.border_width.get(LiveTL);
         let title_height_tmp = theme.title_height(LiveTL);
         let title_plus_underline_height = theme.title_plus_underline_height(LiveTL);
-        let ns = &self.node_state[LiveTL];
         let split = ns.split.get();
         let (content_size, other_content_size) = match split {
             ContainerSplit::Horizontal => (ns.content_width.get(), ns.content_height.get()),
@@ -705,10 +715,10 @@ impl ContainerNode {
     }
 
     fn update_content_size(self: &Rc<Self>) {
+        let ns = &self.node_state[LiveTL];
         let theme = &self.state.theme;
         let border_width = theme.sizes.border_width.get(LiveTL);
         let title_plus_underline_height = theme.title_plus_underline_height(LiveTL);
-        let ns = &self.node_state[LiveTL];
         let nc = ns.num_children.get();
         if nc == 0 {
             return;
@@ -867,7 +877,9 @@ impl ContainerNode {
     }
 
     pub fn schedule_render_titles(self: &Rc<Self>) {
-        self.add_transaction_op(ContainerTransactionOp::ScheduleRenderTitles);
+        if !self.schedule_render_title_scheduled.replace(true) {
+            self.add_transaction_op(ContainerTransactionOp::ScheduleRenderTitles);
+        }
     }
 
     fn last_active(&self) -> Option<NodeId> {
@@ -990,11 +1002,17 @@ impl ContainerNode {
     }
 
     fn schedule_compute_render_positions(self: &Rc<Self>) {
-        self.add_transaction_op(ContainerTransactionOp::ScheduleComputeRenderPositions);
+        if !self
+            .schedule_compute_render_positions_scheduled
+            .replace(true)
+        {
+            self.add_transaction_op(ContainerTransactionOp::ScheduleComputeRenderPositions);
+        }
     }
 
     fn compute_render_positions(self: &Rc<Self>) {
         self.compute_render_positions_scheduled.set(false);
+        let ns = &self.node_state[RenderTL];
         let mut rd = self.render_data.borrow_mut();
         let rd = rd.deref_mut();
         let theme = &self.state.theme;
@@ -1002,7 +1020,6 @@ impl ContainerNode {
         let tpuh = theme.title_plus_underline_height(RenderTL);
         let tuh = theme.title_underline_height(RenderTL);
         let bw = theme.sizes.border_width.get(RenderTL);
-        let ns = &self.node_state[RenderTL];
         let cb = self.container_borders(RenderTL);
         let sp = match cb {
             ContainerBorders::Separators => 0,
@@ -1022,7 +1039,8 @@ impl ContainerNode {
         rd.active_border_rects.clear();
         rd.underline_rects.clear();
         rd.last_active_rect.take();
-        rd.main_axis_ranges.clear();
+        let main_axis_ranges = &mut *self.main_axis_ranges.borrow_mut();
+        main_axis_ranges.clear();
         let mono = ns.mono_child.is_some();
         let split = ns.split.get();
         let abs_x = ns.abs_x1.get();
@@ -1031,12 +1049,12 @@ impl ContainerNode {
         let use_active_border_rects = cb == ContainerBorders::Full
             && theme.colors.border.get() != theme.focused_border_color();
         let fill_active_borders = !mono && use_active_border_rects;
-        let add_border = |rd: &mut ContainerRenderData,
-                          x1: i32,
-                          y1: i32,
-                          active: bool,
-                          prev_active: bool,
-                          last: bool| {
+        let mut add_border = |rd: &mut ContainerRenderData,
+                              x1: i32,
+                              y1: i32,
+                              active: bool,
+                              prev_active: bool,
+                              last: bool| {
             let rect = if mono {
                 Rect::new_sized_saturating(x1 - bw, y1, bw, th)
             } else if split == ContainerSplit::Horizontal {
@@ -1058,16 +1076,18 @@ impl ContainerNode {
                 if !active && !last {
                     hi -= bw;
                 };
-                if let Some(last) = rd.main_axis_ranges.last_mut() {
+                let mut lo = None;
+                if let Some(last) = main_axis_ranges.last_mut() {
                     if last.active == active {
                         last.hi = hi;
                     } else if hi > last.hi {
-                        let lo = last.hi;
-                        rd.main_axis_ranges.push(MainAxisRange { lo, hi, active });
+                        lo = Some(last.hi);
                     }
                 } else if hi > 0 {
-                    let lo = 0;
-                    rd.main_axis_ranges.push(MainAxisRange { lo, hi, active });
+                    lo = Some(0);
+                }
+                if let Some(lo) = lo {
+                    main_axis_ranges.push(MainAxisRange { lo, hi, active });
                 }
             }
         };
@@ -1131,7 +1151,7 @@ impl ContainerNode {
                     ContainerSplit::Vertical => (sp, fheight),
                 };
                 add_border(rd, x, y, false, prev_active, true);
-                for MainAxisRange { lo, hi, active } in rd.main_axis_ranges.iter().copied() {
+                for MainAxisRange { lo, hi, active } in main_axis_ranges.iter().copied() {
                     let rects = match split {
                         ContainerSplit::Horizontal => [
                             Rect::new_saturating(lo, 0, hi, bw),
@@ -1700,8 +1720,8 @@ impl ContainerNode {
         abs_x: i32,
         abs_y: i32,
     ) -> Option<TileDragDestination> {
-        let th = self.state.theme.title_height(LiveTL);
         let ns = &self.node_state[LiveTL];
+        let th = self.state.theme.title_height(LiveTL);
         if abs_y < ns.abs_y1.get() + th {
             return self.tile_drag_destination_mono_titles(source, abs_bounds, abs_x, abs_y);
         }
@@ -1864,11 +1884,12 @@ impl ContainerNode {
     }
 
     fn container_borders(&self, timeline: TreeTimeline) -> ContainerBorders {
+        let ns = &self.node_state[timeline];
         match self.state.theme.container_borders[timeline].get() {
             ContainerBordersSetting::Separators => ContainerBorders::Separators,
             ContainerBordersSetting::Full => ContainerBorders::Full,
             ContainerBordersSetting::FullSmart => {
-                if self.node_state[timeline].num_children.get() == 1
+                if ns.num_children.get() == 1
                     && self.toplevel_data.is_root_container[timeline].get()
                 {
                     ContainerBorders::Separators
@@ -2334,20 +2355,12 @@ impl ContainingNode for ContainerNode {
             Some(mc) => (true, mc.node.node_id() == old.node_id()),
         };
         self.discard_child_properties(&node);
-        let link = node.append(TreeLink::new(ContainerChildInner {
-            node: new.clone(),
-            active: Cell::new(false),
-            node_state: Default::default(),
-            factor: Cell::new(node.factor.get()),
-            title: Default::default(),
-            title_tex: Default::default(),
-            icon: self.state.toplevel_icon_user(),
-            icons: Default::default(),
-            focus_history: Cell::new(None),
-            attention_requested: Cell::new(false),
-            ty: Default::default(),
-            resize_handle: Cell::new(node.resize_handle.get()),
-        }));
+        let link = node.append(TreeLink::new(ContainerChildInner::new(
+            &self.state,
+            &new,
+            node.factor.get(),
+            node.resize_handle.get(),
+        )));
         self.set_child_ns_title_rect(&link, node.node_state[LiveTL].title_rect.get());
         self.set_child_ns_body(&link, node.node_state[LiveTL].body.get());
         if let Some(fh) = node.focus_history.take() {
@@ -2474,8 +2487,9 @@ impl ContainingNode for ContainerNode {
         let Some(parent) = self.toplevel_data.parent.get() else {
             return;
         };
+        let ns = &self.node_state[LiveTL];
         let tpuh = self.state.theme.title_plus_underline_height(LiveTL);
-        if self.node_state[LiveTL].mono_child.is_some() {
+        if ns.mono_child.is_some() {
             parent.cnode_set_child_position(&*self, x, y - tpuh);
         } else {
             let children = self.child_nodes.borrow();
@@ -2496,6 +2510,7 @@ impl ContainingNode for ContainerNode {
         new_x2: Option<i32>,
         new_y2: Option<i32>,
     ) {
+        let ns = &self.node_state[LiveTL];
         let theme = &self.state.theme;
         let tpuh = theme.title_plus_underline_height(LiveTL);
         let bw = theme.sizes.border_width.get(LiveTL);
@@ -2503,7 +2518,6 @@ impl ContainingNode for ContainerNode {
         let mut right_outside = false;
         let mut top_outside = false;
         let mut bottom_outside = false;
-        let ns = &self.node_state[LiveTL];
         if ns.mono_child.is_some() {
             top_outside = true;
             right_outside = true;
@@ -3016,5 +3030,10 @@ impl Transactionable for ContainerNode {
                 self.state.damage(v);
             }
         }
+    }
+
+    fn committed(&self) {
+        self.schedule_render_title_scheduled.set(false);
+        self.schedule_compute_render_positions_scheduled.set(false);
     }
 }
