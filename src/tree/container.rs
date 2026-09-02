@@ -1063,15 +1063,17 @@ impl ContainerNode {
                 if !active && !last {
                     hi -= bw;
                 };
+                let mut lo = None;
                 if let Some(last) = rd.main_axis_ranges.last_mut() {
                     if last.active == active {
                         last.hi = hi;
                     } else if hi > last.hi {
-                        let lo = last.hi;
-                        rd.main_axis_ranges.push(MainAxisRange { lo, hi, active });
+                        lo = Some(last.hi);
                     }
                 } else if hi > 0 {
-                    let lo = 0;
+                    lo = Some(0);
+                }
+                if let Some(lo) = lo {
                     rd.main_axis_ranges.push(MainAxisRange { lo, hi, active });
                 }
             }
