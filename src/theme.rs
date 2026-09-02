@@ -723,25 +723,9 @@ impl Theme {
         (self.title_height(tl) - 2).max(0)
     }
 
-    pub fn title_underline_height(&self, tl: TreeTimeline) -> i32 {
-        if self.show_titles[tl].get() { 1 } else { 0 }
-    }
-
+    #[cfg(feature = "it")]
     pub fn title_plus_underline_height(&self, tl: TreeTimeline) -> i32 {
-        if self.show_titles[tl].get() {
-            self.sizes.title_height.get(tl) + 1
-        } else {
-            0
-        }
-    }
-
-    pub fn focused_border_color(&self) -> Color {
-        let c = &self.colors;
-        if c.focused_border.set.get() {
-            c.focused_border.val.get()
-        } else {
-            c.border.val.get()
-        }
+        title_plus_underline_height(self.show_titles[tl].get(), self.sizes.title_height.get(tl))
     }
 }
 
@@ -840,7 +824,6 @@ pub async fn handle_theme_changes(state: Rc<State>) {
     let fields = [
         &state.colors_changed,
         &state.spaces_changed,
-        &state.show_window_icons_changed,
         &state.fonts_changed,
     ];
     let mut values = fields.map(|_| 0);

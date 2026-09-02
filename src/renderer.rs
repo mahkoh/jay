@@ -327,11 +327,13 @@ impl Renderer<'_> {
             let srgb = &srgb_srgb.linear;
             let perceptual = RenderIntent::Perceptual;
             let rd = container.render_data.borrow_mut();
+            let ns = &container.node_state[RenderTL];
+            let theme = &ns.theme;
             for (color, rects) in &rd.color_rects {
                 self.base.fill_boxes2(rects, color, srgb, perceptual, x, y);
             }
             let draw_overlay_icon = container.tl_data().is_overlay_root_container.get();
-            let th = self.state.theme.title_height(RenderTL);
+            let th = theme.sizes.title_height.get();
             if let Some(titles) = rd.titles.get(&self.base.scale) {
                 for title in titles {
                     let rect = title.rect.move_(x, y);
@@ -363,7 +365,14 @@ impl Renderer<'_> {
                         x += th;
                     }
                     if let Some(icon) = &title.icon {
-                        self.render_icon(icon, &bounds, x, rect.y1());
+                        self.render_icon(
+                            &icon,
+                            &bounds,
+                            x,
+                            rect.y1(),
+                            title.window_icons_grayscale,
+                            ns.theme.sizes.title_icon_size.get(),
+                        );
                         x += th;
                     }
                     if let Some(tex) = &title.tex {
@@ -718,7 +727,7 @@ impl Renderer<'_> {
             x1 += th;
         }
         if let Some(icon) = floating.icons.get(&self.base.scale) {
-            self.render_icon_(
+            self.render_icon(
                 &icon,
                 &bounds,
                 x1,
@@ -776,19 +785,7 @@ impl Renderer<'_> {
         region.contains_rect2(&bounds, |r| self.base.scale_rect(*r))
     }
 
-    fn render_icon(&mut self, icon: &ToplevelIcon, bounds: &Rect, x1: i32, y1: i32) {
-        let theme = &self.state.theme;
-        self.render_icon_(
-            icon,
-            bounds,
-            x1,
-            y1,
-            theme.window_icons_grayscale.get(),
-            theme.title_icon_size(RenderTL),
-        );
-    }
-
-    fn render_icon_(
+    fn render_icon(
         &mut self,
         icon: &ToplevelIcon,
         bounds: &Rect,
