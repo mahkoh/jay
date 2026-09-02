@@ -212,6 +212,7 @@ pub struct ContainerNode {
     attention_requests: ThresholdCounter,
     transaction_data: TransactionData<ContainerTransactionOp>,
     schedule_render_title_scheduled: Cell<bool>,
+    schedule_compute_render_positions_scheduled: Cell<bool>,
 }
 
 impl Debug for ContainerNode {
@@ -362,6 +363,7 @@ impl ContainerNode {
             attention_requests: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
             schedule_render_title_scheduled: Default::default(),
+            schedule_compute_render_positions_scheduled: Default::default(),
         });
         slf.set_ns_split(split);
         slf.adj_ns_num_children(|value| value + 1);
@@ -999,7 +1001,12 @@ impl ContainerNode {
     }
 
     fn schedule_compute_render_positions(self: &Rc<Self>) {
-        self.add_transaction_op(ContainerTransactionOp::ScheduleComputeRenderPositions);
+        if !self
+            .schedule_compute_render_positions_scheduled
+            .replace(true)
+        {
+            self.add_transaction_op(ContainerTransactionOp::ScheduleComputeRenderPositions);
+        }
     }
 
     fn compute_render_positions(self: &Rc<Self>) {
@@ -3025,5 +3032,6 @@ impl Transactionable for ContainerNode {
 
     fn committed(&self) {
         self.schedule_render_title_scheduled.set(false);
+        self.schedule_compute_render_positions_scheduled.set(false);
     }
 }
