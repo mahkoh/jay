@@ -259,6 +259,30 @@ struct CursorState {
     double_click_state: DoubleClickState,
 }
 
+impl ContainerChildInner {
+    fn new(
+        state: &Rc<State>,
+        node: &Rc<dyn ToplevelNode>,
+        factor: f64,
+        resize_handle: Option<Rect>,
+    ) -> Self {
+        Self {
+            node: node.clone(),
+            active: Default::default(),
+            attention_requested: Default::default(),
+            title: Default::default(),
+            title_tex: Default::default(),
+            icon: state.toplevel_icon_user(),
+            icons: Default::default(),
+            focus_history: Default::default(),
+            ty: Default::default(),
+            node_state: Default::default(),
+            factor: Cell::new(factor),
+            resize_handle: Cell::new(resize_handle),
+        }
+    }
+}
+
 impl ContainerRenderData {
     fn add_title(&mut self, rect: Rect, child: &ContainerChild, scale: Scale, title: &TextTexture) {
         let tex = title.texture();
@@ -301,20 +325,9 @@ impl ContainerNode {
         split: ContainerSplit,
     ) -> Rc<Self> {
         let children = LinkedList::default();
-        let child_node = children.add_last(TreeLink::new(ContainerChildInner {
-            node: child.clone(),
-            active: Default::default(),
-            factor: Cell::new(1.0),
-            title: Default::default(),
-            title_tex: Default::default(),
-            icon: state.toplevel_icon_user(),
-            icons: Default::default(),
-            focus_history: Default::default(),
-            attention_requested: Cell::new(false),
-            ty: Default::default(),
-            node_state: Default::default(),
-            resize_handle: Default::default(),
-        }));
+        let child_node = children.add_last(TreeLink::new(ContainerChildInner::new(
+            state, &child, 1.0, None,
+        )));
         child.tl_update_icon(&child_node.icon);
         let child_node_ref = child_node.clone();
         let mut child_nodes = BHashMap::default();
@@ -435,20 +448,12 @@ impl ContainerNode {
                 log::error!("Tried to add a child to a container that already contains the child");
                 return;
             }
-            let link = f(TreeLink::new(ContainerChildInner {
-                node: new.clone(),
-                active: Default::default(),
-                factor: Default::default(),
-                title: Default::default(),
-                title_tex: Default::default(),
-                icon: self.state.toplevel_icon_user(),
-                icons: Default::default(),
-                focus_history: Default::default(),
-                attention_requested: Default::default(),
-                ty: Default::default(),
-                node_state: Default::default(),
-                resize_handle: Default::default(),
-            }));
+            let link = f(TreeLink::new(ContainerChildInner::new(
+                &self.state,
+                &new,
+                0.0,
+                None,
+            )));
             let r = link.to_ref();
             links.insert(new.node_id(), link);
             r
@@ -2334,20 +2339,12 @@ impl ContainingNode for ContainerNode {
             Some(mc) => (true, mc.node.node_id() == old.node_id()),
         };
         self.discard_child_properties(&node);
-        let link = node.append(TreeLink::new(ContainerChildInner {
-            node: new.clone(),
-            active: Cell::new(false),
-            node_state: Default::default(),
-            factor: Cell::new(node.factor.get()),
-            title: Default::default(),
-            title_tex: Default::default(),
-            icon: self.state.toplevel_icon_user(),
-            icons: Default::default(),
-            focus_history: Cell::new(None),
-            attention_requested: Cell::new(false),
-            ty: Default::default(),
-            resize_handle: Cell::new(node.resize_handle.get()),
-        }));
+        let link = node.append(TreeLink::new(ContainerChildInner::new(
+            &self.state,
+            &new,
+            node.factor.get(),
+            node.resize_handle.get(),
+        )));
         self.set_child_ns_title_rect(&link, node.node_state[LiveTL].title_rect.get());
         self.set_child_ns_body(&link, node.node_state[LiveTL].body.get());
         if let Some(fh) = node.focus_history.take() {
