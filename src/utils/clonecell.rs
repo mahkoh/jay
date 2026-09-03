@@ -52,6 +52,11 @@ impl<T> CloneCell<T> {
     {
         self.set(T::default())
     }
+
+    #[inline(always)]
+    pub fn into_inner(self) -> T {
+        self.data.into_inner()
+    }
 }
 
 impl<T> CloneCell<Option<T>> {

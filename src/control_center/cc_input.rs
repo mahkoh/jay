@@ -26,6 +26,7 @@ use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::kbvm::KbvmMap;
 use crate::state::DeviceHandlerData;
 use crate::state::State;
+use crate::utils::as_double_deref::AsDoubleDeref;
 use crate::utils::bhash::BHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::static_text::StaticText;
@@ -520,7 +521,7 @@ impl InputPane {
                                 }
                             });
                             if v != old {
-                                dev.set_output(&self.state, v.map(|v| &**v));
+                                dev.set_output(&self.state, v.as_double_deref());
                             }
                             if ui.button("Detach").clicked() {
                                 dev.set_output(&self.state, None);

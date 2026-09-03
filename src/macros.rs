@@ -1020,3 +1020,59 @@ macro_rules! assert_same_layout {
         const { crate::utils::const_layout::assert_same_layout_dont_call_directly::<$t1, $t2>() }
     };
 }
+
+macro_rules! _define_ident {
+    ($name:ident, $($val:tt)*) => {
+        let $name = $($val)*;
+    };
+}
+
+#[expect(unused)]
+macro_rules! define_ident {
+    ($($tt:tt)*) => {
+        jay_proc::extract_ident!(_define_ident!, $($tt)*)
+    };
+}
+
+macro_rules! _define_ident_mut {
+    ($name:ident, $($val:tt)*) => {
+        let mut $name = $($val)*;
+    };
+}
+
+#[expect(unused)]
+macro_rules! define_ident_mut {
+    ($($tt:tt)*) => {
+        jay_proc::extract_ident!(_define_ident_mut!, $($tt)*)
+    };
+}
+
+macro_rules! _write_ident_opt {
+    ($name:ident, $($val:tt)*) => {
+        if let Some(v) = $($val)* {
+            $name = v;
+        }
+    };
+}
+
+#[expect(unused)]
+macro_rules! write_ident_opt {
+    ($($tt:tt)*) => {
+        jay_proc::extract_ident!(_write_ident_opt!, $($tt)*)
+    };
+}
+
+macro_rules! _write_ident_or {
+    ($name:ident, $($val:tt)*) => {
+        if let Some(v) = $($val)* {
+            $name = Some(v);
+        }
+    };
+}
+
+#[expect(unused)]
+macro_rules! write_ident_or {
+    ($($tt:tt)*) => {
+        jay_proc::extract_ident!(_write_ident_or!, $($tt)*)
+    };
+}
