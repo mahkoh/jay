@@ -170,7 +170,7 @@ pub struct ContainerRenderData {
 struct MainAxisRange {
     lo: i32,
     hi: i32,
-    active: bool,
+    color: Color,
 }
 
 #[derive(Default)]
@@ -1082,8 +1082,13 @@ impl ContainerNode {
                     hi -= bw;
                 };
                 let mut lo = None;
+                let color = if active {
+                    focused_border
+                } else {
+                    theme.colors.border.get()
+                };
                 if let Some(last) = main_axis_ranges.last_mut() {
-                    if last.active == active {
+                    if last.color == color {
                         last.hi = hi;
                     } else if hi > last.hi {
                         lo = Some(last.hi);
@@ -1092,7 +1097,7 @@ impl ContainerNode {
                     lo = Some(0);
                 }
                 if let Some(lo) = lo {
-                    main_axis_ranges.push(MainAxisRange { lo, hi, active });
+                    main_axis_ranges.push(MainAxisRange { lo, hi, color });
                 }
             }
         };
@@ -1159,7 +1164,7 @@ impl ContainerNode {
                     ContainerSplit::Vertical => (sp, fheight),
                 };
                 add_border(rd, x, y, false, prev_active, true);
-                for MainAxisRange { lo, hi, active } in main_axis_ranges.iter().copied() {
+                for MainAxisRange { lo, hi, color } in main_axis_ranges.iter().copied() {
                     let rects = match split {
                         ContainerSplit::Horizontal => [
                             Rect::new_saturating(lo, 0, hi, bw),
@@ -1169,11 +1174,6 @@ impl ContainerNode {
                             Rect::new_saturating(0, lo, bw, hi),
                             Rect::new_saturating(fwidth - bw, lo, fwidth, hi),
                         ],
-                    };
-                    let color = if active {
-                        theme.focused_border_color()
-                    } else {
-                        colors.border.get()
                     };
                     get_color(rd, color).extend_from_slice(&rects);
                 }
