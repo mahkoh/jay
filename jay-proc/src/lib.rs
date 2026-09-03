@@ -5,6 +5,7 @@ use proc_macro::TokenStream;
 
 mod cached_value;
 mod drm_object_properties;
+mod extract_ident;
 mod liveness;
 mod markers;
 mod reset;
@@ -48,4 +49,9 @@ pub fn derive_get_liveness(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(CachedValue)]
 pub fn derive_cached_value(input: TokenStream) -> TokenStream {
     cached_value::derive_cached_values(input)
+}
+
+#[proc_macro]
+pub fn extract_ident(input: TokenStream) -> TokenStream {
+    extract_ident::extract_ident(input)
 }
