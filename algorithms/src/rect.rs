@@ -10,7 +10,7 @@ pub trait Tag: Copy + Eq + Ord + Debug + Default + Sized {
     fn constrain(self) -> Self;
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Default, Hash)]
 pub struct NoTag;
 
 impl Tag for NoTag {
@@ -31,7 +31,7 @@ impl Tag for u32 {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Hash)]
 pub struct RectRaw<T = NoTag>
 where
     T: Tag,
