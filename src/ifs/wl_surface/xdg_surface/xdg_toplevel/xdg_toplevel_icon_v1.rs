@@ -202,7 +202,7 @@ impl XdgToplevelIconV1 {
         buf_to_icon.clear();
         let mut buf_keys = BHashSet::default();
         let th = state.theme.title_icon_size(LiveTL);
-        for &(scale, _) in &*state.scales.lock() {
+        for (&scale, _) in &*state.scales.lock() {
             let [buffer_th] = scale.pixel_size([th]);
             let scalef = scale.to_f64();
             #[derive(Copy, Clone, PartialOrd, PartialEq)]
@@ -471,7 +471,7 @@ impl XdgToplevelIconV1 {
 
     pub fn update_user(&self, user: &ToplevelIconUser) {
         user.icons.clear();
-        for &(scale, _) in &*self.client.state.scales.lock() {
+        for (&scale, _) in &*self.client.state.scales.lock() {
             let key = IconKey {
                 size: user.size.get(),
                 scale,

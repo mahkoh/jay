@@ -155,6 +155,7 @@ use crate::rect::Region;
 use crate::renderer::Renderer;
 use crate::renderer::renderer_base::RenderTexture;
 use crate::scale::Scale;
+use crate::scale::Scales;
 use crate::security_context_acceptor::SecurityContextAcceptors;
 use crate::sm::SessionManager;
 use crate::sm::SessionReason;
@@ -338,7 +339,7 @@ pub struct State {
     pub data_source_ids: DataSourceIds,
     pub ring: Rc<IoUring>,
     pub lock: ScreenlockState,
-    pub scales: RefCounted<Scale>,
+    pub scales: Scales,
     pub cursor_sizes: RefCounted<u32>,
     pub hardware_tick_cursor: AsyncQueue<Option<Rc<dyn Cursor>>>,
     pub testers: RefCell<BHashMap<(ClientId, JaySeatEventsId), Rc<JaySeatEvents>>>,
@@ -805,13 +806,13 @@ impl State {
     }
 
     pub fn add_output_scale(&self, scale: Scale) {
-        if self.scales.add(scale) {
+        if self.scales.add(scale).is_some() {
             self.output_scales_changed();
         }
     }
 
     pub fn remove_output_scale(&self, scale: Scale) {
-        if self.scales.remove(&scale) {
+        if self.scales.remove(scale).is_some() {
             self.output_scales_changed();
         }
     }

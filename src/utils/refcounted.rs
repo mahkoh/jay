@@ -68,6 +68,7 @@ impl<T: Eq> RefCounted<T> {
         unsafe { self.map.get().deref().iter().map(|k| k.0).collect() }
     }
 
+    #[expect(unused)]
     pub fn lock(&self) -> Locked<'_, T> {
         unsafe {
             Locked {

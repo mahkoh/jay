@@ -81,7 +81,7 @@ impl Icons {
 
     fn update_sizes_(&self, state: &State, height: i32, map: &CopyHashMap<i32, impl Sized>) {
         let mut sizes = BHashSet::default();
-        for &(scale, _) in &*state.scales.lock() {
+        for (&scale, _) in &*state.scales.lock() {
             let [size] = scale.pixel_size([height]);
             if size > 0 {
                 sizes.insert(size);
