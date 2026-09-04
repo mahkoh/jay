@@ -43,7 +43,7 @@ impl AsyncEngine {
         Rc::new(Self {
             num_queued: Default::default(),
             queues: array::from_fn(|_| Default::default()),
-            iteration: Default::default(),
+            iteration: NumCell::new(1),
             yields: Default::default(),
             stash: Default::default(),
             yield_stash: Default::default(),

@@ -93,6 +93,7 @@ pub mod send_sync_ptr;
 pub mod send_sync_rc;
 pub mod sleeper;
 pub mod smallmap;
+pub mod sorted_comparison;
 pub mod spaces;
 pub mod stack;
 pub mod static_rc;

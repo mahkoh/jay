@@ -18,7 +18,7 @@ use smallvec::SmallVec;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 
-#[derive(Copy, Clone, Eq, PartialEq, Default)]
+#[derive(Copy, Clone, Eq, PartialEq, Default, Ord, PartialOrd, Hash)]
 #[repr(transparent)]
 pub struct Rect<T = NoTag>
 where

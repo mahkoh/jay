@@ -20,7 +20,6 @@ impl LockableRandomState for FxBuildHasher {
     const LOCKED_STATE: Self = FxBuildHasher;
 }
 
-#[expect(unused)]
 pub type FHashSet<T> = HashSet<T, FxBuildHasher>;
 
 pub type FHashMap<K, V> = HashMap<K, V, FxBuildHasher>;

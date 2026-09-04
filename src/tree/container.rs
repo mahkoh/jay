@@ -21,6 +21,7 @@ use crate::renderer::Renderer;
 use crate::scale::Scale;
 use crate::state::State;
 use crate::text::TextTexture;
+use crate::theme::Color;
 use crate::theme::ContainerBorders;
 use crate::theme::ContainerBordersSetting;
 use crate::transactions::TransactionData;
@@ -63,6 +64,8 @@ use crate::utils::bool_ext::BoolExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::double_click_state::DoubleClickState;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::fx_hash::FHashMap;
+use crate::utils::fx_hash::FHashSet;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::linkedlist::LinkedNode;
@@ -72,7 +75,11 @@ use crate::utils::rc_eq::rc_eq;
 use crate::utils::scroller::Scroller;
 use crate::utils::smallmap::SmallMap;
 use crate::utils::smallmap::SmallMapMut;
+use crate::utils::sorted_comparison::SortedResult;
+use crate::utils::sorted_comparison::sorted_comparison;
+use crate::utils::sorted_comparison::sorted_comparison_by;
 use crate::utils::threshold_counter::ThresholdCounter;
+use hashbrown::hash_map::Entry;
 use jay_config::Axis;
 use smallvec::SmallVec;
 use std::cell::Cell;
@@ -158,21 +165,19 @@ pub enum ContainerChildType {
 
 #[derive(Default)]
 pub struct ContainerRenderData {
-    pub title_rects: Vec<Rect>,
-    pub active_title_rects: Vec<Rect>,
-    pub attention_title_rects: Vec<Rect>,
-    pub last_active_rect: Option<Rect>,
-    pub active_border_rects: Vec<Rect>,
-    pub border_rects: Vec<Rect>,
-    pub underline_rects: Vec<Rect>,
+    pub color_rects: Vec<(Color, Vec<Rect>)>,
     pub titles: SmallMapMut<Scale, Vec<ContainerTitle>, 2>,
+    color_rects_map: FHashMap<Color, Vec<Rect>>,
+    prev_color_rects: Vec<(Color, Vec<Rect>)>,
+    rect_cache: Vec<Vec<Rect>>,
+    damaged_rects: FHashSet<Rect>,
 }
 
 #[derive(Copy, Clone)]
 struct MainAxisRange {
     lo: i32,
     hi: i32,
-    active: bool,
+    color: Color,
 }
 
 #[derive(Default)]
@@ -213,6 +218,7 @@ pub struct ContainerNode {
     transaction_data: TransactionData<ContainerTransactionOp>,
     schedule_render_title_scheduled: Cell<bool>,
     schedule_compute_render_positions_scheduled: Cell<bool>,
+    fully_damaged_in_iteration: Cell<Option<u64>>,
 }
 
 impl Debug for ContainerNode {
@@ -365,6 +371,7 @@ impl ContainerNode {
             transaction_data: TransactionData::new(&state.tree),
             schedule_render_title_scheduled: Default::default(),
             schedule_compute_render_positions_scheduled: Default::default(),
+            fully_damaged_in_iteration: Default::default(),
         });
         slf.set_ns_split(split);
         slf.adj_ns_num_children(|value| value + 1);
@@ -518,17 +525,11 @@ impl ContainerNode {
     }
 
     fn damage(self: &Rc<Self>) {
-        let ns = &self.node_state[LiveTL];
-        self.schedule_damage(Rect::new_sized_saturating(
-            ns.abs_x1.get(),
-            ns.abs_y1.get(),
-            ns.width.get(),
-            ns.height.get(),
-        ));
+        self.schedule_damage(self.node_absolute_position(LiveTL), true);
     }
 
-    fn schedule_damage(self: &Rc<Self>, rect: Rect) {
-        self.add_transaction_op(ContainerTransactionOp::Damage(rect));
+    fn schedule_damage(self: &Rc<Self>, rect: Rect, full: bool) {
+        self.add_transaction_op(ContainerTransactionOp::Damage(rect, full));
     }
 
     fn schedule_layout(self: &Rc<Self>) {
@@ -889,10 +890,26 @@ impl ContainerNode {
         }
     }
 
+    fn fully_damaged(&self) -> bool {
+        let Some(iter) = self.fully_damaged_in_iteration.get() else {
+            return false;
+        };
+        let fd = iter == self.state.eng.iteration();
+        if !fd {
+            self.fully_damaged_in_iteration.take();
+        }
+        fd
+    }
+
     fn update_child_types(self: &Rc<Self>) {
         if self.child_types_valid.replace(true) {
             return;
         }
+        let ns = &self.node_state[RenderTL];
+        let abs_x = ns.abs_x1.get();
+        let abs_y = ns.abs_y1.get();
+        let visible = self.toplevel_data.visible[RenderTL].get();
+        let fully_damaged = self.fully_damaged();
         let last_active = self.last_active();
         let have_active = self.children.iter_valid(LiveTL).any(|c| c.active.get());
         for child in self.children.iter_valid(LiveTL) {
@@ -905,7 +922,10 @@ impl ContainerNode {
             } else {
                 ContainerChildType::Other
             };
-            child.ty.set(ty);
+            if child.ty.replace(ty) != ty && visible && !fully_damaged {
+                let rect = child.node_state[RenderTL].title_rect.get();
+                self.state.damage(rect.move_(abs_x, abs_y));
+            }
         }
     }
 
@@ -984,9 +1004,10 @@ impl ContainerNode {
         let ns = &self.node_state[RenderTL];
         let abs_x = ns.abs_x1.get();
         let abs_y = ns.abs_y1.get();
+        let visible = self.toplevel_data.visible[RenderTL].get();
         for child in self.children.iter_valid(RenderTL) {
             let rect = child.node_state[RenderTL].title_rect.get();
-            if self.toplevel_data.visible[RenderTL].get() {
+            if visible {
                 self.state.damage(rect.move_(abs_x, abs_y));
             }
             let title = child.title.borrow_mut();
@@ -1017,7 +1038,6 @@ impl ContainerNode {
         let rd = rd.deref_mut();
         let theme = &self.state.theme;
         let th = theme.title_height(RenderTL);
-        let tpuh = theme.title_plus_underline_height(RenderTL);
         let tuh = theme.title_underline_height(RenderTL);
         let bw = theme.sizes.border_width.get(RenderTL);
         let cb = self.container_borders(RenderTL);
@@ -1032,13 +1052,11 @@ impl ContainerNode {
         for (_, v) in rd.titles.iter_mut() {
             v.clear();
         }
-        rd.title_rects.clear();
-        rd.active_title_rects.clear();
-        rd.attention_title_rects.clear();
-        rd.border_rects.clear();
-        rd.active_border_rects.clear();
-        rd.underline_rects.clear();
-        rd.last_active_rect.take();
+        mem::swap(&mut rd.color_rects, &mut rd.prev_color_rects);
+        for (_, mut rects) in rd.color_rects.drain(..) {
+            rects.clear();
+            rd.rect_cache.push(rects);
+        }
         let main_axis_ranges = &mut *self.main_axis_ranges.borrow_mut();
         main_axis_ranges.clear();
         let mono = ns.mono_child.is_some();
@@ -1046,9 +1064,17 @@ impl ContainerNode {
         let abs_x = ns.abs_x1.get();
         let abs_y = ns.abs_y1.get();
         self.update_child_types();
-        let use_active_border_rects = cb == ContainerBorders::Full
-            && theme.colors.border.get() != theme.focused_border_color();
+        let use_active_border_rects = cb == ContainerBorders::Full;
         let fill_active_borders = !mono && use_active_border_rects;
+        fn get_color(rd: &mut ContainerRenderData, color: Color) -> &mut Vec<Rect> {
+            match rd.color_rects_map.entry(color) {
+                Entry::Occupied(v) => v.into_mut(),
+                Entry::Vacant(v) => v.insert(rd.rect_cache.pop().unwrap_or_default()),
+            }
+        }
+        fn add_color(rd: &mut ContainerRenderData, color: Color, rect: Rect) {
+            get_color(rd, color).push(rect);
+        }
         let mut add_border = |rd: &mut ContainerRenderData,
                               x1: i32,
                               y1: i32,
@@ -1062,11 +1088,13 @@ impl ContainerNode {
             } else {
                 Rect::new_sized_saturating(x1, y1 - bw, cwidth, bw)
             };
-            if fill_active_borders && (active || prev_active) {
-                rd.active_border_rects.push(rect);
+            let focused_border = theme.focused_border_color();
+            let border_color = if fill_active_borders && (active || prev_active) {
+                focused_border
             } else {
-                rd.border_rects.push(rect);
-            }
+                theme.colors.border.get()
+            };
+            add_color(rd, border_color, rect);
             if fill_active_borders {
                 let active = prev_active;
                 let mut hi = match split {
@@ -1077,8 +1105,13 @@ impl ContainerNode {
                     hi -= bw;
                 };
                 let mut lo = None;
+                let color = if active {
+                    focused_border
+                } else {
+                    theme.colors.border.get()
+                };
                 if let Some(last) = main_axis_ranges.last_mut() {
-                    if last.active == active {
+                    if last.color == color {
                         last.hi = hi;
                     } else if hi > last.hi {
                         lo = Some(last.hi);
@@ -1087,7 +1120,7 @@ impl ContainerNode {
                     lo = Some(0);
                 }
                 if let Some(lo) = lo {
-                    main_axis_ranges.push(MainAxisRange { lo, hi, active });
+                    main_axis_ranges.push(MainAxisRange { lo, hi, color });
                 }
             }
         };
@@ -1095,32 +1128,24 @@ impl ContainerNode {
         for (i, child) in self.children.iter_valid(RenderTL).enumerate() {
             let cns = &child.node_state[RenderTL];
             let rect = cns.title_rect.get();
-            if !use_active_border_rects
-                && self.toplevel_data.visible[RenderTL].get()
-                && !mono
-                && split != ContainerSplit::Horizontal
-            {
-                self.state.damage(Rect::new_sized_saturating(
-                    abs_x + rect.x1(),
-                    abs_y + rect.y1(),
-                    cwidth,
-                    rect.height() + tuh,
-                ));
-            }
             let active = child.ty.get() == ContainerChildType::Active;
             if i > 0 || fill_active_borders {
                 add_border(rd, rect.x1(), rect.y1(), active, prev_active, false);
             }
             prev_active = active;
-            match child.ty.get() {
-                ContainerChildType::Active => rd.active_title_rects.push(rect),
-                ContainerChildType::AttentionRequested => rd.attention_title_rects.push(rect),
-                ContainerChildType::LastActive => rd.last_active_rect = Some(rect),
-                ContainerChildType::Other => rd.title_rects.push(rect),
-            }
+            let colors = &theme.colors;
+            let title_background = match child.ty.get() {
+                ContainerChildType::Active => colors.focused_title_background.get(),
+                ContainerChildType::AttentionRequested => {
+                    colors.attention_requested_background.get()
+                }
+                ContainerChildType::LastActive => colors.focused_inactive_title_background.get(),
+                ContainerChildType::Other => colors.unfocused_title_background.get(),
+            };
+            add_color(rd, title_background, rect);
             if !mono {
                 let rect = Rect::new_sized_saturating(rect.x1(), rect.y2(), rect.width(), 1);
-                rd.underline_rects.push(rect);
+                add_color(rd, theme.colors.separator.get(), rect);
             }
             let tt = &*child.title_tex.borrow();
             for (&scale, tex) in tt {
@@ -1136,22 +1161,21 @@ impl ContainerNode {
                     Rect::new_sized_saturating(fwidth - bw, bw, bw, cheight),
                 ]
             };
-            if !use_active_border_rects {
-                rd.border_rects.extend_from_slice(&full_border());
-            } else if let Some(child) = ns.mono_child.get() {
+            let colors = &theme.colors;
+            if let Some(child) = ns.mono_child.get() {
                 let active = child.ty.get() == ContainerChildType::Active;
-                let dst = match active {
-                    true => &mut rd.active_border_rects,
-                    false => &mut rd.border_rects,
+                let color = match active {
+                    true => theme.focused_border_color(),
+                    false => colors.border.get(),
                 };
-                dst.extend_from_slice(&full_border());
+                get_color(rd, color).extend_from_slice(&full_border());
             } else {
                 let (x, y) = match split {
                     ContainerSplit::Horizontal => (fwidth, sp),
                     ContainerSplit::Vertical => (sp, fheight),
                 };
                 add_border(rd, x, y, false, prev_active, true);
-                for MainAxisRange { lo, hi, active } in main_axis_ranges.iter().copied() {
+                for MainAxisRange { lo, hi, color } in main_axis_ranges.iter().copied() {
                     let rects = match split {
                         ContainerSplit::Horizontal => [
                             Rect::new_saturating(lo, 0, hi, bw),
@@ -1162,32 +1186,50 @@ impl ContainerNode {
                             Rect::new_saturating(fwidth - bw, lo, fwidth, hi),
                         ],
                     };
-                    if active {
-                        rd.active_border_rects.extend_from_slice(&rects);
-                    } else {
-                        rd.border_rects.extend_from_slice(&rects);
-                    }
+                    get_color(rd, color).extend_from_slice(&rects);
                 }
             }
         }
         if mono {
-            rd.underline_rects
-                .push(Rect::new_sized_saturating(sp, sp + th, cwidth, tuh));
-        }
-        if !use_active_border_rects
-            && self.toplevel_data.visible[RenderTL].get()
-            && (mono || split == ContainerSplit::Horizontal)
-        {
-            self.state.damage(Rect::new_sized_saturating(
-                abs_x + sp,
-                abs_y + sp,
-                cwidth,
-                tpuh,
-            ));
+            add_color(
+                rd,
+                theme.colors.separator.get(),
+                Rect::new_sized_saturating(sp, sp + th, cwidth, tuh),
+            );
         }
         rd.titles.remove_if(|_, v| v.is_empty());
-        if use_active_border_rects {
-            self.state.damage(self.node_absolute_position(RenderTL));
+        for (k, mut v) in rd.color_rects_map.drain() {
+            v.sort_unstable();
+            rd.color_rects.push((k, v));
+        }
+        rd.color_rects.sort_unstable_by_key(|(k, _)| *k);
+        if self.toplevel_data.visible[RenderTL].get() && !self.fully_damaged() {
+            rd.damaged_rects.clear();
+            let mut damage = |r: &Rect| {
+                if rd.damaged_rects.insert(*r) {
+                    self.state.damage(r.move_(abs_x, abs_y));
+                }
+            };
+            let iter =
+                sorted_comparison_by(&rd.color_rects, &rd.prev_color_rects, |(l, _), (r, _)| {
+                    l.cmp(r)
+                });
+            for c in iter {
+                match c {
+                    SortedResult::Left((_, rs)) | SortedResult::Right((_, rs)) => {
+                        for rect in rs {
+                            damage(rect);
+                        }
+                    }
+                    SortedResult::Equal((_, lrs), (_, rrs)) => {
+                        for c in sorted_comparison(lrs, rrs) {
+                            if let SortedResult::Left(rect) | SortedResult::Right(rect) = c {
+                                damage(rect)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -2386,7 +2428,7 @@ impl ContainingNode for ContainerNode {
         if let Some(body) = body {
             let body = body.move_(ns.abs_x1.get(), ns.abs_y1.get());
             new.clone().tl_change_extents(&body);
-            self.schedule_damage(body);
+            self.schedule_damage(body, false);
         }
     }
 
@@ -2936,7 +2978,7 @@ pub enum ContainerTransactionOp {
     ToplevelData(ToplevelDataTransactionOp),
     ScheduleRenderTitles,
     ScheduleComputeRenderPositions,
-    Damage(Rect),
+    Damage(Rect, bool),
 }
 
 pub enum ContainerChildTransactionOp {
@@ -3026,7 +3068,11 @@ impl Transactionable for ContainerNode {
                         .push(self.clone());
                 }
             }
-            ContainerTransactionOp::Damage(v) => {
+            ContainerTransactionOp::Damage(v, full) => {
+                if full {
+                    self.fully_damaged_in_iteration
+                        .set(Some(self.state.eng.iteration()));
+                }
                 self.state.damage(v);
             }
         }
