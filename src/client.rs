@@ -38,7 +38,7 @@ use crate::utils::pid_info::get_pid_info;
 use crate::utils::pid_info::get_socket_creds;
 use crate::utils::pidfd_send_signal::pidfd_send_signal;
 use crate::utils::static_text::StaticText;
-use crate::utils::w_hash::WBuildHasher;
+use crate::utils::woid_hash::WoidBuildHasher;
 use crate::wire::ObjectId;
 use crate::wire::WlRegistryId;
 pub use error::ClientError;
@@ -526,7 +526,7 @@ impl Client {
         self.checking_queue_size.set(false);
     }
 
-    pub fn lock_registries(&self) -> Locked<'_, WlRegistryId, Rc<WlRegistry>, WBuildHasher> {
+    pub fn lock_registries(&self) -> Locked<'_, WlRegistryId, Rc<WlRegistry>, WoidBuildHasher> {
         self.objects.registries()
     }
 

@@ -106,8 +106,7 @@ macro_rules! global_base {
 
 macro_rules! id_noconvert {
     ($name:ident) => {
-        #[jay_proc::jay_hash]
-        #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq)]
+        #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
         pub struct $name(u64);
 
         #[expect(unused)]
@@ -136,6 +135,14 @@ macro_rules! id_noconvert {
                 std::fmt::Display::fmt(&self.0, f)
             }
         }
+
+        impl std::hash::Hash for $name {
+            fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+                state.write_u64(self.0);
+            }
+        }
+
+        unsafe impl crate::utils::markers::JayHash for $name {}
     };
 }
 
