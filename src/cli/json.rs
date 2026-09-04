@@ -94,7 +94,7 @@ pub struct JsonIdle<'a> {
 #[derive(Serialize)]
 pub struct JsonIdleInhibitor<'a> {
     pub client_id: u64,
-    pub surface: u32,
+    pub surface: u64,
     pub pid: u64,
     pub comm: &'a str,
 }

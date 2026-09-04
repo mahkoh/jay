@@ -147,7 +147,7 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
                             fmt::from_fn(|f| {
                                 define_w!(f, w2, wl2);
                                 match &field.val.ty.val {
-                                    Type::Id(_, name) => w2!("{name}Id(arg{i})"),
+                                    Type::Id(_, name) => w2!("{name}Id(arg{i} as u64)"),
                                     Type::U32 => w2!("arg{i}"),
                                     Type::I32 => w2!("arg{i} as i32"),
                                     Type::U64 | Type::U64Rev => {
@@ -215,12 +215,12 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
                 wl!("{xn}fmt.data(&[");
                 {
                     push_xn!(xn);
-                    wl!("{xn}self.self_id.0,");
+                    wl!("{xn}self.self_id.0 as u32,");
                     wl!("{xn}{uppercase},");
                     for field in &message.fields {
                         let prefix = format!("{xn}self.{}", field.val.name);
                         match &field.val.ty.val {
-                            Type::Id(_, _) => wl!("{prefix}.0,"),
+                            Type::Id(_, _) => wl!("{prefix}.0 as u32,"),
                             Type::U32 => wl!("{prefix},"),
                             Type::I32 => wl!("{prefix} as u32,"),
                             Type::U64 => {

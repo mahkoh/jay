@@ -108,17 +108,17 @@ macro_rules! id_noconvert {
     ($name:ident) => {
         #[jay_proc::jay_hash]
         #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq)]
-        pub struct $name(u32);
+        pub struct $name(u64);
 
         #[expect(unused)]
         impl $name {
             pub const NONE: Self = $name(0);
 
-            pub const fn from_raw(raw: u32) -> Self {
+            pub const fn from_raw(raw: u64) -> Self {
                 Self(raw)
             }
 
-            pub fn raw(self) -> u32 {
+            pub fn raw(self) -> u64 {
                 self.0
             }
 

@@ -40,9 +40,10 @@ use crate::ifs::xdg_wm_base::XdgWmBase;
 use crate::ifs::zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1;
 use crate::object::Object;
 use crate::utils::clonecell::CloneCell;
-use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::copyhashmap::Locked;
+use crate::utils::copyhashmap::WCopyHashMap;
 use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::w_hash::WBuildHasher;
 use crate::wire::ExtDataControlSourceV1Id;
 use crate::wire::ExtForeignToplevelHandleV1Id;
 use crate::wire::ExtImageCaptureSourceV1Id;
@@ -86,55 +87,55 @@ use std::rc::Rc;
 
 pub struct Objects {
     pub display: CloneCell<Option<Rc<WlDisplay>>>,
-    registry: CopyHashMap<ObjectId, Rc<dyn Object>>,
-    pub registries: CopyHashMap<WlRegistryId, Rc<WlRegistry>>,
-    pub outputs: CopyHashMap<WlOutputId, Rc<WlOutput>>,
-    pub surfaces: CopyHashMap<WlSurfaceId, Rc<WlSurface>>,
-    pub xdg_surfaces: CopyHashMap<XdgSurfaceId, Rc<XdgSurface>>,
-    pub xdg_toplevel: CopyHashMap<XdgToplevelId, Rc<XdgToplevel>>,
-    pub wl_data_source: CopyHashMap<WlDataSourceId, Rc<WlDataSource>>,
+    registry: WCopyHashMap<ObjectId, Rc<dyn Object>>,
+    pub registries: WCopyHashMap<WlRegistryId, Rc<WlRegistry>>,
+    pub outputs: WCopyHashMap<WlOutputId, Rc<WlOutput>>,
+    pub surfaces: WCopyHashMap<WlSurfaceId, Rc<WlSurface>>,
+    pub xdg_surfaces: WCopyHashMap<XdgSurfaceId, Rc<XdgSurface>>,
+    pub xdg_toplevel: WCopyHashMap<XdgToplevelId, Rc<XdgToplevel>>,
+    pub wl_data_source: WCopyHashMap<WlDataSourceId, Rc<WlDataSource>>,
     pub zwp_primary_selection_source:
-        CopyHashMap<ZwpPrimarySelectionSourceV1Id, Rc<ZwpPrimarySelectionSourceV1>>,
-    pub xdg_positioners: CopyHashMap<XdgPositionerId, Rc<XdgPositioner>>,
-    pub regions: CopyHashMap<WlRegionId, Rc<WlRegion>>,
-    pub buffers: CopyHashMap<WlBufferId, Rc<WlBuffer>>,
-    pub jay_outputs: CopyHashMap<JayOutputId, Rc<JayOutput>>,
-    pub jay_workspaces: CopyHashMap<JayWorkspaceId, Rc<JayWorkspace>>,
-    pub pointers: CopyHashMap<WlPointerId, Rc<WlPointer>>,
-    pub xdg_wm_bases: CopyHashMap<XdgWmBaseId, Rc<XdgWmBase>>,
-    pub seats: CopyHashMap<WlSeatId, Rc<WlSeat>>,
-    pub screencasts: CopyHashMap<JayScreencastId, Rc<JayScreencast>>,
-    pub timelines: CopyHashMap<WpLinuxDrmSyncobjTimelineV1Id, Rc<WpLinuxDrmSyncobjTimelineV1>>,
-    pub zwlr_data_sources: CopyHashMap<ZwlrDataControlSourceV1Id, Rc<ZwlrDataControlSourceV1>>,
-    pub zwlr_output_heads: CopyHashMap<ZwlrOutputHeadV1Id, Rc<ZwlrOutputHeadV1>>,
-    pub zwlr_output_modes: CopyHashMap<ZwlrOutputModeV1Id, Rc<ZwlrOutputModeV1>>,
-    pub jay_toplevels: CopyHashMap<JayToplevelId, Rc<JayToplevel>>,
-    pub drm_lease_outputs: CopyHashMap<WpDrmLeaseConnectorV1Id, Rc<WpDrmLeaseConnectorV1>>,
-    pub tablet_tools: CopyHashMap<ZwpTabletToolV2Id, Rc<ZwpTabletToolV2>>,
-    pub xdg_popups: CopyHashMap<XdgPopupId, Rc<XdgPopup>>,
-    pub image_capture_sources: CopyHashMap<ExtImageCaptureSourceV1Id, Rc<ExtImageCaptureSourceV1>>,
+        WCopyHashMap<ZwpPrimarySelectionSourceV1Id, Rc<ZwpPrimarySelectionSourceV1>>,
+    pub xdg_positioners: WCopyHashMap<XdgPositionerId, Rc<XdgPositioner>>,
+    pub regions: WCopyHashMap<WlRegionId, Rc<WlRegion>>,
+    pub buffers: WCopyHashMap<WlBufferId, Rc<WlBuffer>>,
+    pub jay_outputs: WCopyHashMap<JayOutputId, Rc<JayOutput>>,
+    pub jay_workspaces: WCopyHashMap<JayWorkspaceId, Rc<JayWorkspace>>,
+    pub pointers: WCopyHashMap<WlPointerId, Rc<WlPointer>>,
+    pub xdg_wm_bases: WCopyHashMap<XdgWmBaseId, Rc<XdgWmBase>>,
+    pub seats: WCopyHashMap<WlSeatId, Rc<WlSeat>>,
+    pub screencasts: WCopyHashMap<JayScreencastId, Rc<JayScreencast>>,
+    pub timelines: WCopyHashMap<WpLinuxDrmSyncobjTimelineV1Id, Rc<WpLinuxDrmSyncobjTimelineV1>>,
+    pub zwlr_data_sources: WCopyHashMap<ZwlrDataControlSourceV1Id, Rc<ZwlrDataControlSourceV1>>,
+    pub zwlr_output_heads: WCopyHashMap<ZwlrOutputHeadV1Id, Rc<ZwlrOutputHeadV1>>,
+    pub zwlr_output_modes: WCopyHashMap<ZwlrOutputModeV1Id, Rc<ZwlrOutputModeV1>>,
+    pub jay_toplevels: WCopyHashMap<JayToplevelId, Rc<JayToplevel>>,
+    pub drm_lease_outputs: WCopyHashMap<WpDrmLeaseConnectorV1Id, Rc<WpDrmLeaseConnectorV1>>,
+    pub tablet_tools: WCopyHashMap<ZwpTabletToolV2Id, Rc<ZwpTabletToolV2>>,
+    pub xdg_popups: WCopyHashMap<XdgPopupId, Rc<XdgPopup>>,
+    pub image_capture_sources: WCopyHashMap<ExtImageCaptureSourceV1Id, Rc<ExtImageCaptureSourceV1>>,
     pub foreign_toplevel_handles:
-        CopyHashMap<ExtForeignToplevelHandleV1Id, Rc<ExtForeignToplevelHandleV1>>,
+        WCopyHashMap<ExtForeignToplevelHandleV1Id, Rc<ExtForeignToplevelHandleV1>>,
     pub wlr_foreign_toplevel_handles:
-        CopyHashMap<ZwlrForeignToplevelHandleV1Id, Rc<ZwlrForeignToplevelHandleV1>>,
+        WCopyHashMap<ZwlrForeignToplevelHandleV1Id, Rc<ZwlrForeignToplevelHandleV1>>,
     pub ext_copy_sessions:
-        CopyHashMap<ExtImageCopyCaptureSessionV1Id, Rc<ExtImageCopyCaptureSessionV1>>,
-    pub ext_data_sources: CopyHashMap<ExtDataControlSourceV1Id, Rc<ExtDataControlSourceV1>>,
+        WCopyHashMap<ExtImageCopyCaptureSessionV1Id, Rc<ExtImageCopyCaptureSessionV1>>,
+    pub ext_data_sources: WCopyHashMap<ExtDataControlSourceV1Id, Rc<ExtDataControlSourceV1>>,
     pub ext_workspace_groups:
-        CopyHashMap<ExtWorkspaceGroupHandleV1Id, Rc<ExtWorkspaceGroupHandleV1>>,
-    pub wp_image_description: CopyHashMap<WpImageDescriptionV1Id, Rc<WpImageDescriptionV1>>,
+        WCopyHashMap<ExtWorkspaceGroupHandleV1Id, Rc<ExtWorkspaceGroupHandleV1>>,
+    pub wp_image_description: WCopyHashMap<WpImageDescriptionV1Id, Rc<WpImageDescriptionV1>>,
     pub wp_image_description_reference:
-        CopyHashMap<WpImageDescriptionReferenceV1Id, Rc<WpImageDescriptionReferenceV1>>,
-    pub jay_keymap_builders: CopyHashMap<JayKeymapBuilderId, Rc<JayKeymapBuilder>>,
-    pub xdg_toplevel_icons: CopyHashMap<XdgToplevelIconV1Id, Rc<XdgToplevelIconV1>>,
+        WCopyHashMap<WpImageDescriptionReferenceV1Id, Rc<WpImageDescriptionReferenceV1>>,
+    pub jay_keymap_builders: WCopyHashMap<JayKeymapBuilderId, Rc<JayKeymapBuilder>>,
+    pub xdg_toplevel_icons: WCopyHashMap<XdgToplevelIconV1Id, Rc<XdgToplevelIconV1>>,
     pub xdg_toplevel_icon_managers:
-        CopyHashMap<XdgToplevelIconManagerV1Id, Rc<XdgToplevelIconManagerV1>>,
-    pub jay_client_match: CopyHashMap<JayClientMatchId, Rc<JayClientMatch>>,
-    pub jay_window_match: CopyHashMap<JayWindowMatchId, Rc<JayWindowMatch>>,
+        WCopyHashMap<XdgToplevelIconManagerV1Id, Rc<XdgToplevelIconManagerV1>>,
+    pub jay_client_match: WCopyHashMap<JayClientMatchId, Rc<JayClientMatch>>,
+    pub jay_window_match: WCopyHashMap<JayWindowMatchId, Rc<JayWindowMatch>>,
     ids: RefCell<Vec<usize>>,
 }
 
-pub const MIN_SERVER_ID: u32 = 0xff000000;
+pub const MIN_SERVER_ID: u64 = 0xff000000;
 const SEG_SIZE: usize = usize::BITS as usize;
 
 impl Objects {
@@ -236,8 +237,8 @@ impl Objects {
     where
         ObjectId: Into<T>,
     {
-        const MAX_ID_OFFSET: u32 = u32::MAX - MIN_SERVER_ID;
-        let offset = self.id_offset();
+        const MAX_ID_OFFSET: u64 = u32::MAX as u64 - MIN_SERVER_ID;
+        let offset = self.id_offset() as u64;
         if offset > MAX_ID_OFFSET {
             log::error!(
                 "Client {} caused the server to allocate more than 0x{:x} ids",
@@ -307,7 +308,7 @@ impl Objects {
         Ok(())
     }
 
-    pub fn registries(&self) -> Locked<'_, WlRegistryId, Rc<WlRegistry>> {
+    pub fn registries(&self) -> Locked<'_, WlRegistryId, Rc<WlRegistry>, WBuildHasher> {
         self.registries.lock()
     }
 

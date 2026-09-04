@@ -96,7 +96,7 @@ impl<'a> MsgFormatter<'a> {
     }
 
     pub fn object<T: Into<ObjectId>>(&mut self, obj: T) -> &mut Self {
-        self.uint(obj.into().raw())
+        self.uint(obj.into().raw() as u32)
     }
 
     pub fn header<T: Into<ObjectId>>(&mut self, obj: T, event: u32) -> &mut Self {

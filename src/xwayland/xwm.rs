@@ -2592,7 +2592,7 @@ impl Wm {
             return Ok(());
         }
         let surface_id = event.data[0];
-        let surface_id = WlSurfaceId::from_raw(surface_id);
+        let surface_id = WlSurfaceId::from_raw(surface_id as u64);
         data.surface_id.set(Some(surface_id));
         self.windows_by_surface_id.insert(surface_id, data.clone());
         if let Ok(surface) = self.client.lookup(surface_id) {

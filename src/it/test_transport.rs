@@ -139,7 +139,7 @@ impl TestTransport {
     }
 
     pub fn id<T: From<ObjectId>>(&self) -> T {
-        ObjectId::from_raw(self.obj_ids.borrow_mut().acquire()).into()
+        ObjectId::from_raw(self.obj_ids.borrow_mut().acquire64()).into()
     }
 
     pub fn error(&self, msg: &str) {

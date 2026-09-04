@@ -58,7 +58,7 @@ fn write_client_trace_file(
                     };
                     let idx_pfx = prefix(idx);
                     match &field.val.ty.val {
-                        Type::Id(_, _) => wl!("{idx_pfx}self.{name}.raw();"),
+                        Type::Id(_, _) => wl!("{idx_pfx}self.{name}.raw() as u32;"),
                         Type::U32 => wl!("{idx_pfx}self.{name};"),
                         Type::I32 => wl!("{idx_pfx}self.{name} as u32;"),
                         Type::U64 | Type::U64Rev => {
