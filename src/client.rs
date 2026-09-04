@@ -1,12 +1,14 @@
 use crate::async_engine::SpawnedFuture;
 use crate::client::error::LookupError;
 use crate::client::objects::FIRST_INVALID_ID;
+use crate::client::objects::FIRST_SYNTHETIC_ID;
 use crate::client::objects::Objects;
 use crate::criteria::CritDestroyListener;
 use crate::criteria::CritMatcherId;
 use crate::criteria::clm::CL_CHANGED_DESTROYED;
 use crate::criteria::clm::CL_CHANGED_NEW;
 use crate::criteria::clm::ClMatcherChange;
+use crate::globals::Singleton;
 use crate::ifs::jay_client_trace::ClientTracers;
 use crate::ifs::wl_display::WlDisplay;
 use crate::ifs::wl_registry::WlRegistry;
@@ -17,6 +19,7 @@ use crate::ifs::xdg_session_v1::XdgSessionV1;
 use crate::leaks::Tracker;
 use crate::object::Interface;
 use crate::object::Object;
+use crate::object::SyntheticObjectEventHandler;
 use crate::object::WL_DISPLAY_ID;
 use crate::security_context_acceptor::AcceptorMetadata;
 use crate::sqlite::SqliteAccounting;
@@ -27,6 +30,7 @@ use crate::utils::buffd::MsgFormatter;
 use crate::utils::buffd::MsgParser;
 use crate::utils::buffd::MsgParserError;
 use crate::utils::buffd::OutBufferSwapchain;
+use crate::utils::buffd::SyntheticBufOut;
 use crate::utils::client_trace::ClientTraceMessage;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::copyhashmap::Locked;
@@ -39,6 +43,7 @@ use crate::utils::pid_info::get_pid_info;
 use crate::utils::pid_info::get_socket_creds;
 use crate::utils::pidfd_send_signal::pidfd_send_signal;
 use crate::utils::queue::AsyncQueue;
+use crate::utils::stack::Stack;
 use crate::utils::static_text::StaticText;
 use crate::utils::woid_hash::WoidBuildHasher;
 use crate::wire::ObjectId;
@@ -46,6 +51,7 @@ use crate::wire::WlRegistryId;
 pub use error::ClientError;
 pub use error::ParserError;
 use jay_proc::jay_hash;
+use linearize::StaticMap;
 pub use objects::MIN_SERVER_ID;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -63,6 +69,7 @@ use uapi::c;
 
 mod error;
 mod objects;
+mod synthetic_helpers;
 mod tasks;
 
 bitflags! {
@@ -251,6 +258,12 @@ impl Clients {
             terminate_shutdown: Default::default(),
             terminate_kill: Default::default(),
             terminate: Default::default(),
+            request_blockers: Default::default(),
+            requests_unblocked: Default::default(),
+            synthetic_requests: Default::default(),
+            synthetic_events: Default::default(),
+            synthetic_singletons: StaticMap::from_fn(|_| Cell::new(ObjectId::NONE)),
+            synthetic_registry: Cell::new(WlRegistryId::NONE),
         });
         track!(data, data);
         global.update_capabilities(&data, bounding_caps, set_bounding_caps_for_children);
@@ -360,6 +373,7 @@ impl Drop for ClientClear {
 }
 
 pub trait EventFormatter: ClientTraceMessage {
+    const NUM_FDS: u32;
     fn format(self, fmt: &mut MsgFormatter<'_>);
     fn id(&self) -> ObjectId;
 }
@@ -405,6 +419,19 @@ pub struct Client {
     terminate_shutdown: Cell<bool>,
     terminate_kill: Cell<bool>,
     terminate: AsyncEvent,
+    request_blockers: NumCell<u64>,
+    requests_unblocked: AsyncEvent,
+    synthetic_requests: Synthetic,
+    synthetic_events: Synthetic,
+    synthetic_singletons: StaticMap<Singleton, Cell<ObjectId>>,
+    synthetic_registry: Cell<WlRegistryId>,
+}
+
+#[derive(Default)]
+struct Synthetic {
+    trigger: AsyncEvent,
+    buf: RefCell<SyntheticBufOut>,
+    to_remove: Stack<ObjectId>,
 }
 
 pub const NUM_CACHED_SERIAL_RANGES: usize = 64;
@@ -489,6 +516,10 @@ impl Client {
         }
     }
 
+    pub fn new_synthetic_id<T: From<ObjectId>>(&self) -> T {
+        self.objects.synthetic_id().into()
+    }
+
     fn display(&self) -> Result<Rc<WlDisplay>, ClientError> {
         match self.objects.display.get() {
             Some(d) => Ok(d),
@@ -535,6 +566,10 @@ impl Client {
     }
 
     pub fn event<T: EventFormatter>(self: &Rc<Self>, event: T) {
+        if event.id().raw() >= FIRST_SYNTHETIC_ID {
+            self.synthetic_event(event);
+            return;
+        }
         if self.tracers.num.get() > 0 {
             self.tracers.handle_message(event.id(), &event);
         }
@@ -552,6 +587,31 @@ impl Client {
             }
         }
         self.flush_request.trigger();
+    }
+
+    #[cold]
+    fn synthetic_event<T>(self: &Rc<Self>, event: T)
+    where
+        T: EventFormatter,
+    {
+        self.synthetic_message(&self.synthetic_events, event);
+    }
+
+    pub fn request<T>(self: &Rc<Self>, request: T)
+    where
+        T: EventFormatter,
+    {
+        self.synthetic_message(&self.synthetic_requests, request);
+    }
+
+    fn synthetic_message<T>(self: &Rc<Self>, dst: &Synthetic, message: T)
+    where
+        T: EventFormatter,
+    {
+        let synthetic = &mut *dst.buf.borrow_mut();
+        synthetic.format(message);
+        self.request_blockers.fetch_add(1);
+        dst.trigger.trigger();
     }
 
     // pub fn flush(&self) {
@@ -575,6 +635,10 @@ impl Client {
     }
 
     pub fn add_client_obj<T: WaylandObject>(&self, obj: &Rc<T>) -> Result<(), ClientError> {
+        if obj.id().raw() >= FIRST_SYNTHETIC_ID {
+            self.add_server_obj(obj);
+            return Ok(());
+        }
         self.add_obj(obj, true)
     }
 
@@ -592,9 +656,25 @@ impl Client {
         Ok(())
     }
 
+    #[expect(unused)]
+    pub fn set_synthetic_event_handler(
+        &self,
+        id: impl Into<ObjectId>,
+        event_handler: &Rc<impl SyntheticObjectEventHandler>,
+    ) {
+        self.objects
+            .set_synthetic_event_handler(id.into(), event_handler.clone());
+    }
+
     pub fn remove_obj<T: WaylandObject>(self: &Rc<Self>, obj: &T) -> Result<(), ClientError> {
+        let id = obj.id();
+        if id.raw() >= FIRST_SYNTHETIC_ID {
+            self.synthetic_events.to_remove.push(id);
+            self.request_blockers.fetch_add(1);
+            self.synthetic_events.trigger.trigger();
+        }
         obj.remove(self);
-        self.objects.remove_obj(self, obj.id())
+        self.objects.remove_obj(self, id)
     }
 
     pub fn lookup<Id: WaylandObjectLookup>(&self, id: Id) -> Result<Rc<Id::Object>, ClientError> {
@@ -629,6 +709,42 @@ impl Client {
     fn shutdown(&self) {
         self.terminate_shutdown.set(true);
         self.terminate.trigger();
+    }
+
+    #[expect(unused)]
+    pub fn get_synthetic_singleton<T>(self: &Rc<Self>, singleton: Singleton) -> T
+    where
+        T: From<ObjectId>,
+    {
+        self.get_synthetic_singleton_(singleton).into()
+    }
+
+    fn get_synthetic_singleton_(self: &Rc<Self>, singleton: Singleton) -> ObjectId {
+        let slot = &self.synthetic_singletons[singleton];
+        let id = slot.get();
+        if id.is_some() {
+            return id;
+        }
+        let globals = &self.state.globals;
+        let registry = self.get_synthetic_registry();
+        let info = globals.singletons[singleton];
+        let id = self.send_wl_registry_bind(
+            registry,
+            info.name.raw(),
+            singleton.interface().name(),
+            info.version,
+        );
+        slot.set(id);
+        id
+    }
+
+    pub fn get_synthetic_registry(self: &Rc<Self>) -> WlRegistryId {
+        let mut id = self.synthetic_registry.get();
+        if id.is_none() {
+            id = self.send_wl_display_get_registry();
+            self.synthetic_registry.set(id);
+        }
+        id
     }
 }
 

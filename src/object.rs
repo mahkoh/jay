@@ -69,3 +69,12 @@ pub enum EventHandlingError {
         error: Box<dyn Error + 'static>,
     },
 }
+
+pub trait SyntheticObjectEventHandler: 'static {
+    fn handle_event(
+        self: Rc<Self>,
+        id: ObjectId,
+        event: u32,
+        parser: MsgParser<'_, '_>,
+    ) -> Result<(), EventHandlingError>;
+}

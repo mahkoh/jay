@@ -23,7 +23,6 @@ pub fn write_singletons(files: &[ParsedFile]) -> anyhow::Result<()> {
     wl!("{xn}impl Singleton {{");
     {
         push_xn!(xn);
-        wl!("{xn}#[expect(unused)]");
         wl!("{xn}pub fn interface(self) -> Interface {{");
         {
             push_xn!(xn);

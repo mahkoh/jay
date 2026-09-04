@@ -105,6 +105,22 @@ macro_rules! global_base {
     };
 }
 
+#[expect(unused)]
+macro_rules! synthetic_event_handler {
+    ($oname:ty) => {
+        impl crate::object::SyntheticObjectEventHandler for $oname {
+            fn handle_event(
+                self: std::rc::Rc<Self>,
+                id: crate::wire::ObjectId,
+                event: u32,
+                parser: crate::utils::buffd::MsgParser<'_, '_>,
+            ) -> Result<(), crate::object::EventHandlingError> {
+                self.handle_event_impl(id, crate::object::Version(!0), event, parser)
+            }
+        }
+    };
+}
+
 macro_rules! id_noconvert {
     ($name:ident) => {
         #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]

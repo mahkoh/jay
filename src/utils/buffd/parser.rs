@@ -34,11 +34,17 @@ pub struct MsgParser<'a, 'b> {
     fds: &'a mut VecDeque<Rc<OwnedFd>>,
     pos: usize,
     data: &'b [u32],
+    pub wide: bool,
 }
 
 impl<'a, 'b> MsgParser<'a, 'b> {
     pub fn new(fds: &'a mut VecDeque<Rc<OwnedFd>>, data: &'b [u32]) -> Self {
-        Self { fds, pos: 0, data }
+        Self {
+            fds,
+            pos: 0,
+            data,
+            wide: false,
+        }
     }
 
     #[inline(always)]
@@ -81,8 +87,11 @@ impl<'a, 'b> MsgParser<'a, 'b> {
     where
         ObjectId: Into<T>,
     {
-        self.int()
-            .map(|i| ObjectId::from_raw(i as u32 as u64).into())
+        let mut id = self.int()? as u32 as u64;
+        if self.wide {
+            id |= (self.int()? as u32 as u64) << 32;
+        }
+        Ok(ObjectId::from_raw(id).into())
     }
 
     #[expect(unused)]

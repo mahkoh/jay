@@ -243,6 +243,8 @@ pub struct Message {
     pub has_reference_type: bool,
     pub is_fixed_size: bool,
     pub is_request: bool,
+    pub num_fds: usize,
+    pub num_ids: usize,
 }
 
 #[derive(Debug, Default)]
@@ -268,6 +270,7 @@ pub struct ParseResult {
     pub dead: bool,
     pub singleton: bool,
     pub event_handler: bool,
+    pub synthetics: bool,
     pub requests: Vec<Lined<Message>>,
     pub events: Vec<Lined<Message>>,
 }
@@ -283,6 +286,7 @@ impl<'a> Parser<'a> {
         let mut dead = false;
         let mut singleton = false;
         let mut event_handler = false;
+        let mut synthetics = false;
         macro_rules! set_and_continue {
             ($name:ident) => {{
                 $name = true;
@@ -297,6 +301,7 @@ impl<'a> Parser<'a> {
                 b"dead" => set_and_continue!(dead),
                 b"singleton" => set_and_continue!(singleton),
                 b"event_handler" => set_and_continue!(event_handler),
+                b"synthetics" => set_and_continue!(synthetics),
                 b"request" => true,
                 b"event" => false,
                 _ => bail!("In line {}: Unexpected entry {:?}", line, ty),
@@ -311,6 +316,7 @@ impl<'a> Parser<'a> {
             dead,
             singleton,
             event_handler,
+            synthetics,
             requests,
             events,
         })
@@ -385,9 +391,13 @@ impl<'a> Parser<'a> {
             }
             let mut has_reference_type = false;
             let mut is_variable_size = false;
+            let mut num_fds = 0;
+            let mut num_ids = 0;
             for field in &fields {
                 match &field.val.ty.val {
-                    Type::Id(_, _) => {}
+                    Type::Id(_, _) => {
+                        num_ids += 1;
+                    }
                     Type::U32 => {}
                     Type::I32 => {}
                     Type::U64 => {}
@@ -405,7 +415,9 @@ impl<'a> Parser<'a> {
                         is_variable_size = true;
                     }
                     Type::Fixed => {}
-                    Type::Fd => {}
+                    Type::Fd => {
+                        num_fds += 1;
+                    }
                     Type::Bool => {}
                     Type::Array(_) => {
                         has_reference_type = true;
@@ -436,6 +448,8 @@ impl<'a> Parser<'a> {
                     has_reference_type,
                     is_fixed_size,
                     is_request,
+                    num_fds,
+                    num_ids,
                 },
             })
         })();

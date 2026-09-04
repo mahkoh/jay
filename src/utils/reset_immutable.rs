@@ -4,6 +4,7 @@ use crate::utils::copyhashmap::LockableRandomState;
 use crate::utils::numcell::NumCell;
 use crate::utils::reset::Reset;
 use crate::utils::smallmap::SmallMap;
+use crate::utils::stack::Stack;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::hash::Hash;
@@ -64,5 +65,11 @@ where
 {
     fn reset_immutable(&self) {
         self.borrow_mut().reset();
+    }
+}
+
+impl<T> ResetImmutable for Stack<T> {
+    fn reset_immutable(&self) {
+        self.clear();
     }
 }
