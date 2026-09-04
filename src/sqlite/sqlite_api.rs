@@ -1,5 +1,6 @@
 use crate::sqlite::SqliteError;
 use crate::sqlite::SqliteUserId;
+use crate::sqlite::sqlite_sys;
 use crate::sqlite::sqlite_sys::SQLITE_BLOB;
 use crate::sqlite::sqlite_sys::SQLITE_DONE;
 use crate::sqlite::sqlite_sys::SQLITE_INTEGER;
@@ -9,7 +10,6 @@ use crate::sqlite::sqlite_sys::SQLITE_STATIC;
 use crate::sqlite::sqlite_sys::SqliteResult;
 use crate::sqlite::sqlite_sys::sqlite3;
 use crate::sqlite::sqlite_sys::sqlite3_stmt;
-use crate::sqlite::sqlite_sys::{self};
 use crate::utils::errorfmt::ErrorFmt;
 use opera::PhantomNotSync;
 use sqlite_sys::Sqlite;

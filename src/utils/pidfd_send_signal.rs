@@ -5,9 +5,9 @@ use jay_algorithms::oserror::OsErrorExt;
 use std::ptr;
 use std::rc::Rc;
 use uapi::OwnedFd;
+use uapi::c;
 use uapi::c::SYS_pidfd_send_signal;
 use uapi::c::siginfo_t;
-use uapi::c::{self};
 use uapi::map_err;
 
 pub fn pidfd_send_signal(pidfd: &Rc<OwnedFd>, signal: c_int) -> Result<(), OsError> {

@@ -4,9 +4,9 @@ use crate::ast::MessageType;
 use crate::parser::ParserError;
 use crate::parser::parse;
 use std::fs::File;
+use std::io;
 use std::io::BufWriter;
 use std::io::Write;
-use std::io::{self};
 use std::mem;
 use thiserror::Error;
 

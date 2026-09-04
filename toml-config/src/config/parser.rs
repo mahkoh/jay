@@ -4,9 +4,9 @@ use crate::toml::toml_span::SpannedExt;
 use crate::toml::toml_value::Value;
 use indexmap::IndexMap;
 use std::error::Error;
+use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
-use std::fmt::{self};
 
 #[derive(Copy, Clone, Debug)]
 pub enum DataType {

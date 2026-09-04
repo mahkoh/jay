@@ -1,5 +1,5 @@
+use crate::bugs;
 use crate::bugs::Bugs;
-use crate::bugs::{self};
 use crate::client::CAP_LAYER_SHELL;
 use crate::client::Client;
 use crate::client::ClientCaps;

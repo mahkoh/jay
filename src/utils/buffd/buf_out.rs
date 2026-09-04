@@ -6,7 +6,7 @@ use crate::utils::buffd::BUF_SIZE;
 use crate::utils::buffd::BufFdError;
 use jay_algorithms::oserror::OsError;
 use std::collections::VecDeque;
-use std::mem::{self};
+use std::mem;
 use std::rc::Rc;
 use uapi::OwnedFd;
 use uapi::c;

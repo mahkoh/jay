@@ -47,8 +47,8 @@ use std::rc::Rc;
 use thiserror::Error;
 use uapi::AsUstr;
 use uapi::OwnedFd;
+use uapi::c;
 use uapi::c::dev_t;
-use uapi::c::{self};
 
 #[derive(Debug, Error)]
 pub enum HeadlessBackendError {

@@ -12,14 +12,14 @@ use crate::wire::ZwpInputPopupSurfaceV2Id;
 use kbvm::Keycode;
 use kbvm::ModifierMask;
 use kbvm::syms;
+use kbvm::xkb;
+use kbvm::xkb::compose;
 use kbvm::xkb::compose::FeedResult;
-use kbvm::xkb::compose::{self};
 use kbvm::xkb::diagnostic::WriteToLog;
-use kbvm::xkb::{self};
 use std::cell::Cell;
 use std::cell::RefCell;
+use std::fmt;
 use std::fmt::Write;
-use std::fmt::{self};
 use std::rc::Rc;
 
 pub struct SimpleIm {

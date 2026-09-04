@@ -1,4 +1,5 @@
 use crate::async_engine::SpawnedFuture;
+use crate::backend;
 use crate::backend::BackendColorSpace;
 use crate::backend::BackendEotfs;
 use crate::backend::ConnectorId;
@@ -10,7 +11,6 @@ use crate::backend::InputDeviceId;
 use crate::backend::InputDeviceScrollMethod;
 use crate::backend::MonitorInfo;
 use crate::backend::transaction::BackendConnectorTransactionError;
-use crate::backend::{self};
 use crate::client::CAP_JAY_COMPOSITOR;
 use crate::client::Client;
 use crate::client::ClientCaps;

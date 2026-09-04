@@ -1,5 +1,5 @@
+use crate::backend;
 use crate::backend::ConnectorId;
-use crate::backend::{self};
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::fixed::Fixed;
@@ -11,8 +11,8 @@ use crate::object::Object;
 use crate::object::Version;
 use crate::scale;
 use crate::state::OutputData;
+use crate::tree;
 use crate::tree::VrrMode;
-use crate::tree::{self};
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::wire::ZwlrOutputHeadV1Id;
 use crate::wire::zwlr_output_head_v1::*;

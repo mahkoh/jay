@@ -199,9 +199,9 @@ use crate::tree::ToplevelNodeBase;
 use crate::tree::Transform;
 use crate::tree::TreeSerial;
 use crate::tree::TreeSerials;
+use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
-use crate::tree::TreeTimeline::{self};
 use crate::tree::VrrMode;
 use crate::tree::WorkspaceDisplayOrder;
 use crate::tree::WorkspaceNode;
@@ -245,8 +245,8 @@ use crate::wire::JayRenderCtxId;
 use crate::wire::JaySeatEventsId;
 use crate::wire::JayWorkspaceWatcherId;
 use crate::wire::ZwlrForeignToplevelManagerV1Id;
+use crate::xwayland;
 use crate::xwayland::XWaylandEvent;
-use crate::xwayland::{self};
 use bstr::ByteSlice;
 use isnt::std_1::primitive::IsntSliceExt;
 use jay_config::PciId;
@@ -267,8 +267,8 @@ use std::time::Duration;
 use std::time::SystemTime;
 use thiserror::Error;
 use uapi::OwnedFd;
+use uapi::c;
 use uapi::c::dev_t;
-use uapi::c::{self};
 
 pub struct State {
     pub pid: c::pid_t,

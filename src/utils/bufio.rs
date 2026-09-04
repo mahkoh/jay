@@ -5,7 +5,7 @@ use crate::utils::buf::DynamicBuf;
 use crate::utils::queue::AsyncQueue;
 use crate::utils::stack::Stack;
 use std::collections::VecDeque;
-use std::mem::{self};
+use std::mem;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;

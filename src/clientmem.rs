@@ -22,8 +22,8 @@ use std::sync::atomic::compiler_fence;
 use thiserror::Error;
 use uapi::OwnedFd;
 use uapi::Pod;
+use uapi::c;
 use uapi::c::raise;
-use uapi::c::{self};
 use uapi::ftruncate;
 
 #[derive(Debug, Error)]

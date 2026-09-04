@@ -4,10 +4,10 @@
 
 use ash::Device;
 use ash::Instance;
+use ash::vk;
 use ash::vk::PhysicalDeviceFeatures2;
 use ash::vk::PhysicalDeviceProperties2;
 use ash::vk::PhysicalDeviceVulkan11Properties;
-use ash::vk::{self};
 use gpu_alloc_types::AllocationFlags;
 use gpu_alloc_types::DeviceMapError;
 use gpu_alloc_types::DeviceProperties;

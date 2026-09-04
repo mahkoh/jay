@@ -3,8 +3,8 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::sync::LazyLock;
 use uapi::Errno;
+use uapi::c;
 use uapi::c::c_int;
-use uapi::c::{self};
 
 macro_rules! errors {
     ($($name:ident = $desc:expr,)*) => {

@@ -1,12 +1,12 @@
+use crate::backend;
 use crate::backend::BackendColorSpace;
 use crate::backend::BackendEotfs;
-use crate::backend::{self};
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::compositor::MAX_EXTENTS;
 use crate::format::named_formats;
+use crate::gfx_api;
 use crate::gfx_api::GfxApi;
-use crate::gfx_api::{self};
 use crate::ifs::wl_output;
 use crate::leaks::Tracker;
 use crate::object::Object;

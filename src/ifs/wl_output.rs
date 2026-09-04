@@ -1,9 +1,9 @@
 mod removed_output;
 
+use crate::backend;
 use crate::backend::BackendColorSpace;
 use crate::backend::BackendEotfs;
 use crate::backend::BackendLuminance;
-use crate::backend::{self};
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::client::ClientId;

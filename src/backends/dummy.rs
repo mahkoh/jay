@@ -1,4 +1,5 @@
 use crate::async_engine::SpawnedFuture;
+use crate::backend;
 use crate::backend::Backend;
 use crate::backend::BackendConnectorState;
 use crate::backend::BackendConnectorStateSerial;
@@ -7,7 +8,6 @@ use crate::backend::ConnectorEvent;
 use crate::backend::ConnectorId;
 use crate::backend::ConnectorKernelId;
 use crate::backend::DrmDeviceId;
-use crate::backend::{self};
 use crate::format::XRGB8888;
 use crate::video::drm::ConnectorType;
 use std::error::Error;
