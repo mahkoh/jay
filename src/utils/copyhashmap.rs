@@ -1,3 +1,4 @@
+use crate::utils::fx_hash::FxBuildHasher;
 use crate::utils::markers::JayClone;
 use crate::utils::markers::JayHash;
 use crate::utils::numcell::NumCell;
@@ -25,6 +26,8 @@ pub struct CopyHashMap<K, V, S = RandomState> {
     is_locked_map: Cell<bool>,
     access_count: NumCell<u64>,
 }
+
+pub type FCopyHashMap<K, V> = CopyHashMap<K, V, FxBuildHasher>;
 
 impl<K, V, S> Debug for CopyHashMap<K, V, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

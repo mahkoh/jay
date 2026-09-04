@@ -41,9 +41,8 @@ use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::bitfield::Bitfield;
 use crate::utils::bitflags::BitflagsExt;
 use crate::utils::buf::Buf;
-use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::copyhashmap::FCopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::fx_hash::FxBuildHasher;
 use crate::utils::numcell::NumCell;
 use crate::utils::ptr_ext::MutPtrExt;
 use crate::utils::ptr_ext::PtrExt;
@@ -333,9 +332,9 @@ struct IoUringData {
 
     next: IoUringTaskIds,
     to_encode: SyncQueue<IoUringTaskId>,
-    pending_in_kernel: CopyHashMap<IoUringTaskId, (), FxBuildHasher>,
-    tasks: CopyHashMap<IoUringTaskId, TaskPlus, FxBuildHasher>,
-    multishot_tasks: CopyHashMap<IoUringTaskId, Rc<dyn MultishotTask>, FxBuildHasher>,
+    pending_in_kernel: FCopyHashMap<IoUringTaskId, ()>,
+    tasks: FCopyHashMap<IoUringTaskId, TaskPlus>,
+    multishot_tasks: FCopyHashMap<IoUringTaskId, Rc<dyn MultishotTask>>,
 
     pending_results: PendingResults,
 
