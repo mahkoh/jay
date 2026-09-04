@@ -4,6 +4,7 @@ use crate::utils::markers::JayHash;
 use crate::utils::numcell::NumCell;
 use crate::utils::ptr_ext::MutPtrExt;
 use crate::utils::ptr_ext::PtrExt;
+use crate::utils::w_hash::WBuildHasher;
 use ahash::RandomState;
 use derivative::Derivative;
 use hashbrown::HashMap;
@@ -28,6 +29,9 @@ pub struct CopyHashMap<K, V, S = RandomState> {
 }
 
 pub type FCopyHashMap<K, V> = CopyHashMap<K, V, FxBuildHasher>;
+
+#[expect(unused)]
+pub type WCopyHashMap<K, V> = CopyHashMap<K, V, WBuildHasher>;
 
 impl<K, V, S> Debug for CopyHashMap<K, V, S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
