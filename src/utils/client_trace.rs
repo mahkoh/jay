@@ -142,7 +142,7 @@ struct MessageSlot {
 
 #[derive(Default)]
 struct IdMap {
-    map: FHashMap<u32, u64>,
+    map: FHashMap<u64, u64>,
     next: u64,
     raw_ids: bool,
 }
@@ -156,9 +156,9 @@ pub type Reader =
     for<'a, 'b> unsafe fn(*mut u32, &'b mut [MaybeUninit<ClientTraceArg<'a>>; MAX_ARGS]);
 
 impl IdMap {
-    fn get(&mut self, n: u32) -> u64 {
+    fn get(&mut self, n: u64) -> u64 {
         if self.raw_ids {
-            return n as u64;
+            return n;
         }
         match self.map.entry(n) {
             Entry::Occupied(e) => *e.get(),
@@ -301,7 +301,7 @@ impl ClientTraceRead {
                 if def.has_ids && !id_map.raw_ids {
                     for arg in &mut *args {
                         if let ClientTraceArgVal::Id(id) = &mut arg.val {
-                            *id = id_map.get(*id as u32);
+                            *id = id_map.get(*id);
                         }
                     }
                 }

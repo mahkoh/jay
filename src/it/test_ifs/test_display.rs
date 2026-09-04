@@ -34,7 +34,7 @@ impl TestDisplay {
             Some(obj) => {
                 obj.on_remove(&self.tran);
                 if ev.id.raw() < MIN_SERVER_ID {
-                    self.tran.obj_ids.borrow_mut().release(ev.id.raw());
+                    self.tran.obj_ids.borrow_mut().release64(ev.id.raw());
                 }
             }
         }

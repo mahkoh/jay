@@ -232,7 +232,7 @@ impl ToolClient {
         wl_display::DeleteId::handle(&slf, WL_DISPLAY_ID, slf.clone(), |tc, val| {
             tc.handlers.borrow_mut().remove(&val.id);
             if val.id.raw() < MIN_SERVER_ID {
-                tc.obj_ids.borrow_mut().release(val.id.raw());
+                tc.obj_ids.borrow_mut().release64(val.id.raw());
             }
         });
         slf.incoming.set(Some(
@@ -309,7 +309,7 @@ impl ToolClient {
     }
 
     pub fn id<T: From<ObjectId>>(&self) -> T {
-        let id = self.obj_ids.borrow_mut().acquire();
+        let id = self.obj_ids.borrow_mut().acquire64();
         ObjectId::from_raw(id).into()
     }
 

@@ -135,7 +135,7 @@ pub struct Objects {
     ids: RefCell<Vec<usize>>,
 }
 
-pub const MIN_SERVER_ID: u32 = 0xff000000;
+pub const MIN_SERVER_ID: u64 = 0xff000000;
 const SEG_SIZE: usize = usize::BITS as usize;
 
 impl Objects {
@@ -237,8 +237,8 @@ impl Objects {
     where
         ObjectId: Into<T>,
     {
-        const MAX_ID_OFFSET: u32 = u32::MAX - MIN_SERVER_ID;
-        let offset = self.id_offset();
+        const MAX_ID_OFFSET: u64 = u32::MAX as u64 - MIN_SERVER_ID;
+        let offset = self.id_offset() as u64;
         if offset > MAX_ID_OFFSET {
             log::error!(
                 "Client {} caused the server to allocate more than 0x{:x} ids",

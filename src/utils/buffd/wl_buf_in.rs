@@ -63,7 +63,7 @@ impl WlBufFdIn {
         }
         let hdr: &[u32] =
             unsafe { slice::from_raw_parts(self.buf[self.lo..].as_ptr().cast(), HEADER_WORDS) };
-        let obj_id = ObjectId::from_raw(hdr[0]);
+        let obj_id = ObjectId::from_raw(hdr[0] as u64);
         let len = (hdr[1] >> 16) as usize;
         let message = hdr[1] & 0xffff;
         if len & 3 != 0 {

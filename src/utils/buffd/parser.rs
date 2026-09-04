@@ -81,7 +81,8 @@ impl<'a, 'b> MsgParser<'a, 'b> {
     where
         ObjectId: Into<T>,
     {
-        self.int().map(|i| ObjectId::from_raw(i as u32).into())
+        self.int()
+            .map(|i| ObjectId::from_raw(i as u32 as u64).into())
     }
 
     #[expect(unused)]

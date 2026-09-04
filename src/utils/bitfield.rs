@@ -29,9 +29,19 @@ impl Bitfield {
         ((self.vals.len() - 1) * SEG_SIZE) as u32
     }
 
+    pub fn acquire64(&mut self) -> u64 {
+        self.acquire() as u64
+    }
+
     pub fn release(&mut self, val: u32) {
         let idx = val as usize / SEG_SIZE;
         let pos = val as usize % SEG_SIZE;
         self.vals[idx] |= 1 << pos;
+    }
+
+    pub fn release64(&mut self, val: u64) {
+        if val <= u32::MAX as u64 {
+            self.release(val as u32);
+        }
     }
 }

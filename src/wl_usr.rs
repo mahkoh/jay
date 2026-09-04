@@ -200,8 +200,8 @@ impl UsrCon {
         }
     }
 
-    pub fn release_id(&self, id: u32) {
-        self.obj_ids.borrow_mut().release(id);
+    pub fn release_id(&self, id: u64) {
+        self.obj_ids.borrow_mut().release64(id);
         self.objects.remove(&ObjectId::from_raw(id));
     }
 
@@ -273,7 +273,7 @@ impl UsrCon {
     }
 
     pub fn id<T: From<ObjectId>>(&self) -> T {
-        let id = self.obj_ids.borrow_mut().acquire();
+        let id = self.obj_ids.borrow_mut().acquire64();
         ObjectId::from_raw(id).into()
     }
 }
