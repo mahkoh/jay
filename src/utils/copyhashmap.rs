@@ -30,7 +30,6 @@ pub struct CopyHashMap<K, V, S = RandomState> {
 
 pub type FCopyHashMap<K, V> = CopyHashMap<K, V, FxBuildHasher>;
 
-#[expect(unused)]
 pub type WCopyHashMap<K, V> = CopyHashMap<K, V, WBuildHasher>;
 
 impl<K, V, S> Debug for CopyHashMap<K, V, S> {
