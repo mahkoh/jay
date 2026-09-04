@@ -116,5 +116,5 @@ pub mod vec_ext;
 pub mod vecdeque_ext;
 pub mod vecset;
 pub mod vecstorage;
-pub mod w_hash;
 pub mod windows;
+pub mod woid_hash;
