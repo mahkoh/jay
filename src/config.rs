@@ -36,7 +36,7 @@ use jay_config::keyboard::mods::Modifiers;
 use jay_config::keyboard::syms::KeySym;
 use jay_config::video::Connector;
 use jay_config::video::DrmDevice;
-use jay_config::window::{self};
+use jay_config::window;
 use libloading::Library;
 use std::cell::Cell;
 use std::mem;
@@ -46,9 +46,9 @@ use std::sync::atomic::AtomicI32;
 use std::sync::atomic::Ordering::Relaxed;
 use thiserror::Error;
 use uapi::OwnedFd;
+use uapi::c;
 use uapi::c::O_CLOEXEC;
 use uapi::c::O_RDONLY;
-use uapi::c::{self};
 use uapi::format_ustr;
 
 #[derive(Debug, Error)]

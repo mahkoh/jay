@@ -1,7 +1,7 @@
 use crate::ifs::ipc::data_control::private::DataControlOffer;
 use crate::ifs::ipc::data_control::private::DataControlOfferData;
+use crate::ifs::ipc::data_control::private::logic;
 use crate::ifs::ipc::data_control::private::logic::DataControlError;
-use crate::ifs::ipc::data_control::private::logic::{self};
 use crate::ifs::ipc::data_control::zwlr_data_control_device_v1::WlrDataControlIpc;
 use crate::leaks::Tracker;
 use crate::object::Object;

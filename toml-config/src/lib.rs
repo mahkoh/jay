@@ -97,8 +97,8 @@ use jay_config::status::set_status;
 use jay_config::status::set_status_command;
 use jay_config::status::unset_status_command;
 use jay_config::switch_to_vt;
+use jay_config::tasks;
 use jay_config::tasks::JoinHandle;
-use jay_config::tasks::{self};
 use jay_config::theme::reset_colors;
 use jay_config::theme::reset_font;
 use jay_config::theme::reset_sizes;
@@ -152,6 +152,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 use uapi::Errno;
+use uapi::c;
 use uapi::c::CLOCK_MONOTONIC;
 use uapi::c::IN_ATTRIB;
 use uapi::c::IN_CLOEXEC;
@@ -166,7 +167,6 @@ use uapi::c::IN_ONLYDIR;
 use uapi::c::TFD_CLOEXEC;
 use uapi::c::TFD_NONBLOCK;
 use uapi::c::timespec;
-use uapi::c::{self};
 
 fn default_seat() -> Seat {
     get_seat("default")

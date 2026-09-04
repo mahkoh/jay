@@ -27,6 +27,7 @@ use std::rc::Rc;
 use thiserror::Error;
 use uapi::_IOW;
 use uapi::OwnedFd;
+use uapi::c;
 use uapi::c::F_SEAL_SHRINK;
 use uapi::c::MAP_SHARED;
 use uapi::c::MFD_ALLOW_SEALING;
@@ -36,7 +37,6 @@ use uapi::c::PROT_WRITE;
 use uapi::c::ioctl;
 use uapi::c::mmap;
 use uapi::c::munmap;
-use uapi::c::{self};
 use uapi::map_err;
 use uapi::open;
 

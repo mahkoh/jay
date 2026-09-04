@@ -55,8 +55,8 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering::Relaxed;
 use thiserror::Error;
 use uapi::OwnedFd;
+use uapi::c;
 use uapi::c::off_t;
-use uapi::c::{self};
 use uapi::ftruncate;
 
 #[derive(Debug, Error)]

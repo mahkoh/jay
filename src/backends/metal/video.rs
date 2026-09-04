@@ -130,8 +130,8 @@ use std::mem;
 use std::ops::DerefMut;
 use std::rc::Rc;
 use uapi::OwnedFd;
+use uapi::c;
 use uapi::c::dev_t;
-use uapi::c::{self};
 
 pub mod metal_cm;
 

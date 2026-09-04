@@ -14,8 +14,8 @@ use jay_log_file::Path;
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::os::unix::process::CommandExt;
+use std::process;
 use std::process::Command;
-use std::process::{self};
 use std::rc::Rc;
 
 pub fn main(global: GlobalArgs, args: LogArgs) {

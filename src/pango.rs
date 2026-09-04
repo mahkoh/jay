@@ -9,8 +9,8 @@ use std::ptr;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::IntoUstr;
+use uapi::c;
 use uapi::c::memset;
-use uapi::c::{self};
 
 pub mod consts;
 

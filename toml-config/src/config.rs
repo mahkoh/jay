@@ -24,7 +24,7 @@ use crate::config::parsers::trigger::Trigger;
 pub use crate::config::parsers::window_match::parse_window_match;
 use crate::config::parsers::workspace::WorkspaceSlot;
 use crate::config::parsers::workspace::WorkspaceType;
-use crate::toml::{self};
+use crate::toml;
 use ahash::AHashMap;
 use counter::CounterSlot;
 use jay_config::Axis;

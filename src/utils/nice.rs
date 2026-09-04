@@ -6,10 +6,10 @@ use c::sched_setscheduler;
 use std::mem;
 use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering::Relaxed;
+use uapi::c;
 use uapi::c::SCHED_RESET_ON_FORK;
 use uapi::c::SCHED_RR;
 use uapi::c::sched_param;
-use uapi::c::{self};
 
 static DID_ELEVATE_SCHEDULER: AtomicBool = AtomicBool::new(false);
 

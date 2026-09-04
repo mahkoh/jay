@@ -1,5 +1,5 @@
+use crate::bugs;
 use crate::bugs::Bugs;
-use crate::bugs::{self};
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::configurable::ConfigurableExt;
@@ -53,9 +53,9 @@ use crate::tree::ToplevelNode;
 use crate::tree::ToplevelNodeBase;
 use crate::tree::ToplevelNodeId;
 use crate::tree::ToplevelType;
+use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
-use crate::tree::TreeTimeline::{self};
 use crate::tree::WorkspaceNode;
 use crate::tree::WorkspaceType;
 use crate::tree::default_tile_drag_destination;

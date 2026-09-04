@@ -35,9 +35,9 @@ use thiserror::Error;
 use uapi::_IOW;
 use uapi::_IOWR;
 use uapi::OwnedFd;
+use uapi::c;
 use uapi::c::dev_t;
 use uapi::c::ioctl;
-use uapi::c::{self};
 use uapi::format_ustr;
 
 #[derive(Clone, Debug)]

@@ -37,8 +37,8 @@ use std::str::FromStr;
 use uapi::OwnedFd;
 use uapi::Pod;
 use uapi::Ustring;
+use uapi::c;
 use uapi::c::c_int;
-use uapi::c::{self};
 use uapi::pod_zeroed;
 
 pub const DRM_IOCTL_BASE: u64 = b'd' as u64;

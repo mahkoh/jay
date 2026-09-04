@@ -138,7 +138,7 @@ use std::borrow::Cow;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::marker::PhantomData;
-use std::mem::{self};
+use std::mem;
 use std::ops::Deref;
 use std::ops::DerefMut;
 use std::rc::Rc;

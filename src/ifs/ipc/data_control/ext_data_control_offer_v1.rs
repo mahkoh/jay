@@ -1,8 +1,8 @@
 use crate::ifs::ipc::data_control::ext_data_control_device_v1::ExtDataControlIpc;
 use crate::ifs::ipc::data_control::private::DataControlOffer;
 use crate::ifs::ipc::data_control::private::DataControlOfferData;
+use crate::ifs::ipc::data_control::private::logic;
 use crate::ifs::ipc::data_control::private::logic::DataControlError;
-use crate::ifs::ipc::data_control::private::logic::{self};
 use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::wire::ExtDataControlOfferV1Id;

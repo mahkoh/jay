@@ -23,9 +23,9 @@ use crate::pipewire::pw_pod::SpaVideoFormat;
 use crate::utils::bhash::BHashMap;
 use ash::vk;
 use jay_config::video::Format as ConfigFormat;
+use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Write;
-use std::fmt::{self};
 use std::sync::LazyLock;
 
 #[derive(Copy, Clone, Debug)]

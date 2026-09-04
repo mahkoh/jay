@@ -71,7 +71,7 @@ use std::sync::atomic::Ordering::Release;
 use std::task::Waker;
 use thiserror::Error;
 use uapi::OwnedFd;
-use uapi::c::{self};
+use uapi::c;
 
 macro_rules! map_err {
     ($n:expr) => {{
