@@ -24,11 +24,12 @@ macro_rules! usr_object_base {
 
             fn handle_event(
                 $self: std::rc::Rc<Self>,
-                con: &crate::wl_usr::UsrCon,
                 event: u32,
                 parser: crate::utils::buffd::MsgParser<'_, '_>,
-            ) -> Result<(), crate::wl_usr::UsrConError> {
-                $self.handle_event_impl(con, event, parser)
+            ) -> Result<(), crate::object::EventHandlingError> {
+                let id = $self.id.into();
+                let version = $version;
+                $self.handle_event_impl(id, version, event, parser)
             }
 
             fn interface(&$self) -> crate::object::Interface {

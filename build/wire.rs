@@ -320,18 +320,18 @@ fn write_request_handler<W: Write>(
     let snake_direction;
     let camel_direction;
     let parent;
-    let parser;
     let error;
     let param;
+    let version;
     wl!();
     match direction {
         RequestHandlerDirection::Request => {
             snake_direction = "request";
             camel_direction = "Request";
             parent = "crate::object::Object";
-            parser = "crate::client::Client";
             error = "crate::client::ClientError";
             param = "req";
+            version = "self.version()";
             if dead {
                 wl!("#[allow(dead_code)]");
             }
@@ -339,14 +339,14 @@ fn write_request_handler<W: Write>(
         RequestHandlerDirection::Event => {
             snake_direction = "event";
             camel_direction = "Event";
-            parent = "crate::wl_usr::usr_object::UsrObject";
-            parser = "crate::wl_usr::UsrCon";
-            error = "crate::wl_usr::UsrConError";
+            parent = "'static";
+            error = "crate::object::EventHandlingError";
             param = "ev";
+            version = "version";
             wl!("#[allow(dead_code)]");
         }
     }
-    wl!("pub trait {camel_obj_name}{camel_direction}Handler: {parent} + Sized {{");
+    wl!("pub trait {camel_obj_name}{camel_direction}Handler: Sized + {parent} {{");
     {
         push_xn!(xn);
         wl!("{xn}type Error: std::error::Error;");
@@ -364,14 +364,33 @@ fn write_request_handler<W: Write>(
             );
         }
         wl!();
-        wl!("{xn}#[inline(always)]");
+        if direction == RequestHandlerDirection::Request {
+            wl!("{xn}#[inline(always)]");
+        }
         wl!("{xn}fn handle_{snake_direction}_impl(");
         {
             push_xn!(xn);
             wl!("{xn}self: Rc<Self>,");
-            wl!("{xn}client: &{parser},");
+            match direction {
+                RequestHandlerDirection::Request => {
+                    wl!("{xn}client: &crate::client::Client,");
+                }
+                RequestHandlerDirection::Event => {
+                    wl!("{xn}id: ObjectId,");
+                    wl!("{xn}#[allow(unused_variables)]");
+                    wl!("{xn}version: crate::object::Version,");
+                }
+            }
             wl!("{xn}req: u32,");
-            wl!("{xn}parser: crate::utils::buffd::MsgParser<'_, '_>,");
+            match direction {
+                RequestHandlerDirection::Request => {
+                    wl!("{xn}parser: crate::utils::buffd::MsgParser<'_, '_>,");
+                }
+                RequestHandlerDirection::Event => {
+                    wl!("{xn}#[allow(unused_mut)]");
+                    wl!("{xn}mut parser: crate::utils::buffd::MsgParser<'_, '_>,");
+                }
+            }
         }
         wl!("{xn}) -> Result<(), {error}> {{");
         {
@@ -388,13 +407,20 @@ fn write_request_handler<W: Write>(
                         let msg = &message.val;
                         w!("{xn}{} ", msg.id);
                         if let Some(since) = msg.attribs.since {
-                            w!("if self.version() >= {since} ");
+                            w!("if {version} >= {since} ");
                         }
                         wl!("=> {{");
                         {
                             push_xn!(xn);
                             wl!("{xn}method = {};", msg.name);
-                            wl!("{xn}match client.parse(&*self, parser) {{");
+                            match direction {
+                                RequestHandlerDirection::Request => {
+                                    wl!("{xn}match client.parse(&*self, parser) {{");
+                                }
+                                RequestHandlerDirection::Event => {
+                                    wl!("{xn}match {}::parse(&mut parser) {{", msg.camel_name);
+                                }
+                            }
                             {
                                 push_xn!(xn);
                                 wl!("{xn}Ok(req) => match self.{}(req, &self) {{", msg.safe_name);
@@ -417,7 +443,14 @@ fn write_request_handler<W: Write>(
                 {
                     push_xn!(xn);
                     wl!("{xn}interface: {camel_obj_name},");
-                    wl!("{xn}id: self.id(),");
+                    match direction {
+                        RequestHandlerDirection::Request => {
+                            wl!("{xn}id: self.id(),");
+                        }
+                        RequestHandlerDirection::Event => {
+                            wl!("{xn}id,");
+                        }
+                    }
                     wl!("{xn}method,");
                     wl!("{xn}error,");
                 }
