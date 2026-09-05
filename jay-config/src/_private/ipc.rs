@@ -8,6 +8,7 @@ use crate::_private::WorkspaceShowOpV2;
 use crate::Axis;
 use crate::ContainerTarget;
 use crate::Direction;
+use crate::FlattenTree;
 use crate::PciId;
 use crate::RelativeAxis;
 use crate::Workspace;
@@ -1083,6 +1084,9 @@ pub enum ClientMessage<'a> {
         window: Window,
         target: ContainerTarget,
         axis: RelativeAxis,
+    },
+    SetFlattenTree {
+        mode: FlattenTree,
     },
 }
 

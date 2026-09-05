@@ -2756,6 +2756,14 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `flatten-tree` (optional):
+
+  Configures when single-child containers are automatically collapsed.
+  
+  The default is `"never"`.
+
+  The value of this field should be a [FlattenTree](#types-FlattenTree).
+
 - `focus-history` (optional):
 
   Configures the focus-history settings.
@@ -3542,6 +3550,32 @@ The string should have one of the following values:
 - `focus`:
 
   Use the output the focus is on (highlighted window).
+
+
+
+<a name="types-FlattenTree"></a>
+### `FlattenTree`
+
+Configures when single-child containers are automatically collapsed.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `never`:
+
+  Never collapse single-child containers.
+
+- `always`:
+
+  Collapse a single-child container both when its second-to-last
+  child is removed and when pressing split-vertical or
+  split-horizontal on a sole child.
+
+- `on-remove`:
+
+  Only collapse when the second-to-last child is removed (e.g.
+  moved to another workspace or floated).
 
 
 

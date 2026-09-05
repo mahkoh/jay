@@ -3,6 +3,7 @@ use crate::control_center::ControlCenterInner;
 use crate::control_center::bool;
 use crate::control_center::bool_ui;
 use crate::control_center::combo_box;
+use crate::control_center::combo_box_ui;
 use crate::control_center::drag_value;
 use crate::control_center::grid;
 use crate::control_center::grid_label_ui;
@@ -133,6 +134,24 @@ impl LookAndFeelPane {
                 },
                 self.state.split_reuses_container.get(),
                 |v| self.state.set_split_reuses_container(v),
+            );
+            combo_box_ui(
+                ui,
+                "Flatten Tree",
+                |ui| {
+                    tip(ui, |ui| {
+                        ui.label(concat!(
+                            "Containers that are left with only one child are replaced by ",
+                            "that child.",
+                        ));
+                        ui.label(concat!(
+                            "`Always` additionally applies this when splitting the only ",
+                            "window in a container.",
+                        ));
+                    });
+                },
+                self.state.flatten_tree.get(),
+                |v| self.state.set_flatten_tree(v),
             );
             row(ui, "Font", |ui| {
                 let mut v = self.state.theme.font.get().to_string();
