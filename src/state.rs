@@ -1283,6 +1283,7 @@ impl State {
         ty: WorkspaceType,
         mut output: Option<Rc<OutputNode>>,
     ) {
+        let before = seat.focus_target();
         let mut output = || {
             output
                 .get_or_insert_with(|| seat.get_fallback_output())
@@ -1307,7 +1308,7 @@ impl State {
             WorkspaceType::Overlay => output(),
         };
         self.show_workspace2(Some(seat), &output, &ws);
-        seat.maybe_schedule_warp_mouse_to_focus();
+        seat.maybe_schedule_warp_mouse_to_focus(before);
     }
 
     pub fn float_map_ws(&self) -> Rc<WorkspaceNode> {

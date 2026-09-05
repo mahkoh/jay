@@ -110,6 +110,7 @@ use crate::tree::Direction;
 use crate::tree::FoundNode;
 use crate::tree::Node;
 use crate::tree::NodeBase;
+use crate::tree::NodeId;
 use crate::tree::NodeLayer;
 use crate::tree::NodeLayerLink;
 use crate::tree::NodeLocation;
@@ -160,6 +161,8 @@ use CursorPositionType::Warp;
 pub use event_handling::NodeSeatState;
 use hashbrown::hash_map::Entry;
 use jay_config::input::FallbackOutputMode as ConfigFallbackOutputMode;
+use jay_config::input::MouseFollowsFocusMode as ConfigMouseFollowsFocusMode;
+use jay_config::input::WarpTarget as ConfigWarpTarget;
 use jay_config::keyboard::syms::KeySym;
 use jay_config::keyboard::syms::SYM_Escape;
 use kbvm::Keycode;
@@ -305,8 +308,8 @@ pub struct WlSeatGlobal {
     modifiers_forward: EventSource<dyn LedsListener>,
     simple_im: CloneCell<Option<Rc<SimpleIm>>>,
     simple_im_enabled: Cell<bool>,
-    warp_mouse_to_focus_scheduled: Cell<bool>,
-    mouse_follows_focus: Cell<bool>,
+    warp_mouse_to_focus_scheduled: Cell<Option<WarpTarget>>,
+    mouse_follows_focus: Cell<MouseFollowsFocusMode>,
 }
 
 impl PartialEq for WlSeatGlobal {
@@ -324,6 +327,57 @@ struct Shortcut {
 enum MarkMode {
     Mark,
     Jump,
+}
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Linearize)]
+pub enum MouseFollowsFocusMode {
+    None,
+    Output,
+    Window,
+    Workspace,
+}
+
+impl StaticText for MouseFollowsFocusMode {
+    fn text(&self) -> &'static str {
+        match self {
+            MouseFollowsFocusMode::None => "None",
+            MouseFollowsFocusMode::Output => "Output",
+            MouseFollowsFocusMode::Window => "Window",
+            MouseFollowsFocusMode::Workspace => "Workspace",
+        }
+    }
+}
+
+impl TryFrom<ConfigMouseFollowsFocusMode> for MouseFollowsFocusMode {
+    type Error = ();
+
+    fn try_from(value: ConfigMouseFollowsFocusMode) -> Result<Self, Self::Error> {
+        let v = match value {
+            ConfigMouseFollowsFocusMode::None => MouseFollowsFocusMode::None,
+            ConfigMouseFollowsFocusMode::Output => MouseFollowsFocusMode::Output,
+            ConfigMouseFollowsFocusMode::Window => MouseFollowsFocusMode::Window,
+            ConfigMouseFollowsFocusMode::Workspace => MouseFollowsFocusMode::Workspace,
+            _ => return Err(()),
+        };
+        Ok(v)
+    }
+}
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum WarpTarget {
+    Window,
+    Workspace,
+    Output,
+}
+
+impl From<ConfigWarpTarget> for WarpTarget {
+    fn from(value: ConfigWarpTarget) -> Self {
+        match value {
+            ConfigWarpTarget::Window => WarpTarget::Window,
+            ConfigWarpTarget::Workspace => WarpTarget::Workspace,
+            ConfigWarpTarget::Output => WarpTarget::Output,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Linearize)]
@@ -455,8 +509,8 @@ impl WlSeatGlobal {
             modifiers_forward: Default::default(),
             simple_im: CloneCell::new(simple_im),
             simple_im_enabled: Cell::new(true),
-            warp_mouse_to_focus_scheduled: Cell::new(false),
-            mouse_follows_focus: Cell::new(false),
+            warp_mouse_to_focus_scheduled: Cell::new(None),
+            mouse_follows_focus: Cell::new(MouseFollowsFocusMode::None),
         });
         slf.pointer_cursor.set_owner(slf.clone());
         slf.modifiers_listener
@@ -617,12 +671,13 @@ impl WlSeatGlobal {
     }
 
     pub fn set_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) {
+        let before = self.focus_target();
         let tl = match self.keyboard_node.get().node_toplevel() {
             Some(tl) => tl,
             _ => return,
         };
         toplevel_set_workspace(&self.state, tl, ws);
-        self.maybe_schedule_warp_mouse_to_focus();
+        self.maybe_schedule_warp_mouse_to_focus(before);
     }
 
     pub fn mark_last_active(self: &Rc<Self>) {
@@ -833,12 +888,13 @@ impl WlSeatGlobal {
     }
 
     pub fn focus_parent(self: &Rc<Self>) {
+        let before = self.focus_target();
         if let Some(tl) = self.keyboard_node.get().node_toplevel()
             && let Some(parent) = tl.tl_data().parent.get()
             && let Some(tl) = parent.node_toplevel()
         {
             self.focus_node(tl);
-            self.maybe_schedule_warp_mouse_to_focus();
+            self.maybe_schedule_warp_mouse_to_focus(before);
         }
     }
 
@@ -889,6 +945,7 @@ impl WlSeatGlobal {
     }
 
     pub fn move_focus(self: &Rc<Self>, direction: Direction) {
+        let before = self.focus_target();
         let tl = match self.keyboard_node.get().node_toplevel() {
             Some(tl) => tl,
             _ => {
@@ -898,7 +955,7 @@ impl WlSeatGlobal {
                         .find_output_in_direction(&ws.node_state[LiveTL].output.get(), direction)
                 {
                     target.take_keyboard_navigation_focus(self, direction);
-                    self.maybe_schedule_warp_mouse_to_focus();
+                    self.maybe_schedule_warp_mouse_to_focus(before);
                 }
                 return;
             }
@@ -916,22 +973,53 @@ impl WlSeatGlobal {
                 c.move_focus_from_child(self, tl.deref(), direction);
             }
         }
-        self.maybe_schedule_warp_mouse_to_focus();
+        self.maybe_schedule_warp_mouse_to_focus(before);
     }
 
-    pub fn maybe_schedule_warp_mouse_to_focus(self: &Rc<Self>) {
-        if self.mouse_follows_focus() {
-            self.schedule_warp_mouse_to_focus();
+    pub fn maybe_schedule_warp_mouse_to_focus(self: &Rc<Self>, before: Option<NodeId>) {
+        let target = match self.mouse_follows_focus.get() {
+            MouseFollowsFocusMode::None => return,
+            MouseFollowsFocusMode::Window => {
+                self.schedule_warp_mouse_to_focus(WarpTarget::Window);
+                return;
+            }
+            MouseFollowsFocusMode::Output => WarpTarget::Output,
+            MouseFollowsFocusMode::Workspace => WarpTarget::Workspace,
+        };
+        let after = self.focus_target();
+        if after.is_some() && after != before {
+            self.schedule_warp_mouse_to_focus(target);
         }
     }
 
-    pub fn schedule_warp_mouse_to_focus(self: &Rc<Self>) {
-        if !self.warp_mouse_to_focus_scheduled.replace(true) {
+    pub fn focus_target(&self) -> Option<NodeId> {
+        match self.mouse_follows_focus.get() {
+            MouseFollowsFocusMode::None => None,
+            MouseFollowsFocusMode::Window => {
+                let node = self.keyboard_node.get();
+                let id = node.node_id();
+                Some(match node.node_toplevel() {
+                    Some(tl) => tl.node_id(),
+                    _ => id,
+                })
+            }
+            MouseFollowsFocusMode::Output => Some(self.get_keyboard_output()?.id.into()),
+            MouseFollowsFocusMode::Workspace => Some(self.get_keyboard_workspace()?.id.into()),
+        }
+    }
+
+    pub fn schedule_warp_mouse_to_focus(self: &Rc<Self>, target: WarpTarget) {
+        if self
+            .warp_mouse_to_focus_scheduled
+            .replace(Some(target))
+            .is_none()
+        {
             self.state.pending_warp_mouse_to_focus.push(self.clone());
         }
     }
 
     pub fn move_focused(self: &Rc<Self>, direction: Direction) {
+        let before = self.focus_target();
         let kb_node = self.keyboard_node.get();
         let Some(tl) = kb_node.node_toplevel() else {
             if let Some(ws) = self.keyboard_node.get().node_into_workspace()
@@ -950,10 +1038,10 @@ impl WlSeatGlobal {
         {
             let ws = target.ensure_workspace();
             toplevel_set_workspace(&self.state, tl, &ws);
-            self.maybe_schedule_warp_mouse_to_focus();
+            self.maybe_schedule_warp_mouse_to_focus(before);
         } else if let Some(c) = toplevel_data_parent_container(data) {
             c.move_child(tl, direction);
-            self.maybe_schedule_warp_mouse_to_focus();
+            self.maybe_schedule_warp_mouse_to_focus(before);
         }
     }
 
@@ -1065,6 +1153,7 @@ impl WlSeatGlobal {
         next: impl Fn(&NodeRef<FocusHistoryData>) -> Option<NodeRef<FocusHistoryData>>,
         first: impl FnOnce(&LinkedList<FocusHistoryData>) -> Option<NodeRef<FocusHistoryData>>,
     ) {
+        let before = self.focus_target();
         let Some((node, visible)) = self.get_focus_history(next, first) else {
             return;
         };
@@ -1079,7 +1168,7 @@ impl WlSeatGlobal {
             }
         }
         self.focus_node(node);
-        self.maybe_schedule_warp_mouse_to_focus();
+        self.maybe_schedule_warp_mouse_to_focus(before);
     }
 
     pub fn focus_prev(self: &Rc<Self>) {
@@ -1124,6 +1213,7 @@ impl WlSeatGlobal {
         fn node_viable(n: &(impl Node + ?Sized)) -> bool {
             n.node_visible(LiveTL) && n.node_accepts_focus()
         }
+        let before = self.focus_target();
 
         let current = self.keyboard_node.get();
         let Some(output) = current.node_output() else {
@@ -1139,7 +1229,7 @@ impl WlSeatGlobal {
                     && node_viable(&*n.item)
                 {
                     n.node_do_focus(self, Direction::Unspecified);
-                    self.maybe_schedule_warp_mouse_to_focus();
+                    self.maybe_schedule_warp_mouse_to_focus(before);
                     return;
                 }
             }
@@ -1152,7 +1242,7 @@ impl WlSeatGlobal {
                         n.deref()
                             .clone()
                             .node_do_focus_dyn(self, Direction::Unspecified);
-                        self.maybe_schedule_warp_mouse_to_focus();
+                        self.maybe_schedule_warp_mouse_to_focus(before);
                         return;
                     }
                     l = n;
@@ -1190,7 +1280,7 @@ impl WlSeatGlobal {
                 && ws.container_visible()
             {
                 self.focus_node(ws.clone());
-                self.maybe_schedule_warp_mouse_to_focus();
+                self.maybe_schedule_warp_mouse_to_focus(before);
                 return true;
             }
             false
@@ -1241,7 +1331,7 @@ impl WlSeatGlobal {
             if let Some(n) = node {
                 if node_viable(&*n) {
                     n.node_do_focus_dyn(self, Direction::Unspecified);
-                    self.maybe_schedule_warp_mouse_to_focus();
+                    self.maybe_schedule_warp_mouse_to_focus(before);
                     return;
                 }
             }
@@ -1273,6 +1363,7 @@ impl WlSeatGlobal {
     }
 
     pub fn focus_tiles(self: &Rc<Self>) {
+        let before = self.focus_target();
         let current = self.keyboard_node.get();
         if matches!(
             current.node_layer().layer(),
@@ -1298,7 +1389,7 @@ impl WlSeatGlobal {
             };
             if node.node_visible(LiveTL) && node.node_accepts_focus() {
                 node.node_do_focus_dyn(self, Direction::Unspecified);
-                self.maybe_schedule_warp_mouse_to_focus();
+                self.maybe_schedule_warp_mouse_to_focus(before);
                 break;
             }
         }
@@ -1642,12 +1733,12 @@ impl WlSeatGlobal {
         self.focus_follows_mouse.get()
     }
 
-    pub fn set_mouse_follows_focus(&self, enabled: bool) {
-        self.mouse_follows_focus.set(enabled);
+    pub fn set_mouse_follows_focus(&self, mode: MouseFollowsFocusMode) {
+        self.mouse_follows_focus.set(mode);
         self.state.trigger_cci(CCI_INPUT);
     }
 
-    pub fn mouse_follows_focus(&self) -> bool {
+    pub fn mouse_follows_focus(&self) -> MouseFollowsFocusMode {
         self.mouse_follows_focus.get()
     }
 
@@ -2190,15 +2281,31 @@ pub async fn handle_warp_mouse_to_focus(state: Rc<State>) {
         state.pending_warp_mouse_to_focus.non_empty().await;
         state.eng.yield_now().await;
         while let Some(seat) = state.pending_warp_mouse_to_focus.try_pop() {
-            seat.warp_mouse_to_focus_scheduled.set(false);
+            let Some(target) = seat.warp_mouse_to_focus_scheduled.take() else {
+                continue;
+            };
             let node = seat.keyboard_node.get();
             if node.node_is_display() {
                 continue;
             }
-            let (mut x, mut y) = node.node_absolute_position(LiveTL).center();
-            if let Some(tl) = node.node_toplevel() {
-                (x, y) = tl.node_absolute_position(LiveTL).center();
-            }
+            let pos = match target {
+                WarpTarget::Output => match seat.get_keyboard_output() {
+                    Some(output) => output.node_absolute_position(LiveTL),
+                    _ => continue,
+                },
+                WarpTarget::Workspace => match seat.get_keyboard_workspace() {
+                    Some(ws) => ws.node_absolute_position(LiveTL),
+                    _ => continue,
+                },
+                WarpTarget::Window => {
+                    let pos = node.node_absolute_position(LiveTL);
+                    match node.node_toplevel() {
+                        Some(tl) => tl.node_absolute_position(LiveTL),
+                        _ => pos,
+                    }
+                }
+            };
+            let (x, y) = pos.center();
             let (x, y) = (Fixed::from_int(x), Fixed::from_int(y));
             seat.motion_event_abs(state.now_usec(), x, y, Warp);
         }

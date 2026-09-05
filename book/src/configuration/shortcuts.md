@@ -136,7 +136,8 @@ alt-shift-r = "reload-config-toml"
 - `hide-overlays` -- hide all visible [overlays](../overlays.md)
 - `toggle-bar`, `show-bar`, `hide-bar` -- control the status bar
 - `open-control-center` -- open the Jay control center GUI
-- `warp-mouse-to-focus` -- warp the cursor to the center of the focused window
+- `warp-mouse-to-focus` -- warp the cursor to the center of the focused window.
+  Use the parameterized form to warp to the focused workspace or output instead
 - `kill-client` -- forcefully disconnect a client (in a window rule, kills the
   window's client; in a client rule, kills the matched client; has no effect
   in plain shortcuts)
@@ -302,6 +303,9 @@ alt-t = { type = "toggle-split", target = "auto" }
 
 ### Other parameterized actions
 
+- `warp-mouse-to-focus` -- warp the cursor to the current focus. The optional
+  `target` field takes `"window"` (the default), `"workspace"`, or `"output"`:
+  `{ type = "warp-mouse-to-focus", target = "output" }`
 - `set-keymap` -- change the active keymap
 - `set-repeat-rate` -- change the keyboard repeat rate
 - `set-env` -- set environment variables for future spawned programs

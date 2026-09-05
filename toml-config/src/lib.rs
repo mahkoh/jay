@@ -346,9 +346,9 @@ impl Action {
                     b.new(move || persistent.seat.enable_unicode_input())
                 }
                 SimpleCommand::OpenControlCenter => b.new(open_control_center),
-                SimpleCommand::WarpMouseToFocus => {
+                SimpleCommand::WarpMouseToFocus(target) => {
                     let persistent = state.persistent.clone();
-                    b.new(move || persistent.seat.warp_mouse_to_focus())
+                    b.new(move || persistent.seat.warp_mouse_to_focus_target(target))
                 }
                 SimpleCommand::HideOverlays => b.new(hide_overlays),
                 SimpleCommand::SetVisualizeCompositing(v) => {
@@ -1933,7 +1933,7 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
         #[allow(deprecated)]
         persistent
             .seat
-            .unstable_set_mouse_follows_focus(mouse_follows_focus);
+            .unstable_set_mouse_follows_focus_mode(mouse_follows_focus);
     }
     if let Some(v) = config.transactions {
         if let Some(v) = v.transaction_timeout {

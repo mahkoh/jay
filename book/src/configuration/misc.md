@@ -201,6 +201,41 @@ focus.
 focus-follows-mouse = true  # default
 ```
 
+## Mouse Follows Focus
+
+The reverse of focus-follows-mouse: the cursor is moved automatically when the
+keyboard focus changes via keyboard commands such as `focus-left`,
+`focus-right`, or `show-workspace`.
+
+```toml
+unstable-mouse-follows-focus = "window"
+```
+
+The value can be one of the following:
+
+`"none"` / `false`
+: The cursor is never moved. This is the default.
+
+`"output"`
+: The cursor is moved to the center of the focused output, but only when the
+  focus moves to a different output. Focus changes within one output leave the
+  cursor alone.
+
+`"workspace"`
+: The cursor is moved to the center of the focused workspace, but only when the
+  focus moves to a different workspace.
+
+`"window"` / `true`
+: The cursor is moved to the center of the focused window on every focus
+  change.
+
+> [!WARNING]
+> This option is unstable due to various issues and is not subject to the usual
+> semver guarantees. It may change or be removed in a future release.
+
+You can also trigger a warp explicitly with the
+[`warp-mouse-to-focus`](shortcuts.md) action.
+
 ## Window Management Key
 
 Designates a key that, while held, enables window management mode. In this
