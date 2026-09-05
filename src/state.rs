@@ -105,7 +105,6 @@ use crate::ifs::jay_render_ctx::JayRenderCtx;
 use crate::ifs::jay_screencast::JayScreencast;
 use crate::ifs::jay_seat_events::JaySeatEvents;
 use crate::ifs::jay_workspace_watcher::JayWorkspaceWatcher;
-use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::wl_output::BlendSpace;
 use crate::ifs::wl_output::OutputGlobalOpt;
 use crate::ifs::wl_output::OutputId;
@@ -410,7 +409,7 @@ pub struct State {
     pub workspace_display_order: Cell<WorkspaceDisplayOrder>,
     pub outputs_without_hc: NumCell<usize>,
     pub udmabuf: Rc<UdmabufHolder>,
-    pub gfx_ctx_changed: EventSource<WlBuffer>,
+    pub gfx_ctx_changed: EventSource<dyn GfxCtxChangedListener>,
     pub copy_device_registry: Rc<CopyDeviceRegistry>,
     pub buffer_id_device_registry: BufferIdDeviceRegistry,
     pub supports_presentation_feedback: Cell<bool>,
@@ -441,6 +440,10 @@ pub struct State {
     pub theme_changed: AsyncEvent,
     pub colors_changed: Cell<bool>,
     pub spaces_changed: Cell<bool>,
+}
+
+pub trait GfxCtxChangedListener {
+    fn handle_gfx_context_change(&self);
 }
 
 // impl Drop for State {
@@ -917,10 +920,8 @@ impl State {
                 }
             }
             self.visit_all_nodes(&mut Walker);
-            let mut updated_buffers = BHashMap::default();
-            for buffer in self.gfx_ctx_changed.iter() {
-                let had_buffer_texture = buffer.handle_gfx_context_change();
-                updated_buffers.insert(Rc::as_ptr(&buffer), had_buffer_texture);
+            for listener in self.gfx_ctx_changed.iter() {
+                listener.handle_gfx_context_change();
             }
             for client in self.clients.clients.borrow_mut().values() {
                 for surface in client.data.objects.surfaces.lock().values() {
@@ -928,7 +929,7 @@ impl State {
                     let had_prime_texture = surface.prime.reset();
                     if let Some(buffer) = surface.buffer.get() {
                         let buf = &buffer.buffer.buf;
-                        let had_buffer_texture = *updated_buffers.get(&Rc::as_ptr(buf)).unwrap();
+                        let had_buffer_texture = buf.had_buffer_texture.get();
                         if had_shm_texture || had_prime_texture || had_buffer_texture {
                             buf.update_texture_or_log(surface, true);
                         }
