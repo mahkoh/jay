@@ -79,7 +79,7 @@ pub struct TrayItemData {
 
 impl TrayItemData {
     fn new(surface: &Rc<WlSurface>, output: &Rc<OutputGlobalOpt>) -> Self {
-        let state = &surface.client.state;
+        let state = &surface.state;
         TrayItemData {
             node_id: state.node_ids.next(),
             tray_item_id: state.tray_item_ids.next(),
@@ -235,7 +235,7 @@ impl<T: TrayItem> XdgPopupParent for Popup<T> {
     fn post_commit(&self) {
         let mut dl = self.stack_link.borrow_mut();
         let surface = &self.popup.xdg.surface;
-        let state = &surface.client.state;
+        let state = &surface.state;
         if surface.buffer.is_some() {
             if dl.link.is_none() {
                 let data = self.parent.tray_item_data();

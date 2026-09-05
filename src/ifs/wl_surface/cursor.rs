@@ -130,8 +130,7 @@ impl Cursor for CursorSurface {
     fn handle_set(self: Rc<Self>) {
         self.surface.cursors.insert(self.user.id, self.clone());
         if self.surface.cursors.is_not_empty() {
-            self.surface
-                .set_visible(self.surface.client.state.root_visible());
+            self.surface.set_visible(self.surface.state.root_visible());
         }
     }
 

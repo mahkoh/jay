@@ -342,6 +342,7 @@ pub struct SurfaceShmTexture {
 pub struct WlSurface {
     pub id: WlSurfaceId,
     pub node_id: SurfaceNodeId,
+    pub state: Rc<State>,
     pub client: Rc<Client>,
     visible: SplitView<Cell<bool>>,
     role: Cell<SurfaceRole>,
@@ -731,6 +732,7 @@ impl WlSurface {
         Self {
             id,
             node_id: state.node_ids.next(),
+            state: client.state.clone(),
             client: client.clone(),
             visible: Default::default(),
             role: Cell::new(SurfaceRole::None),
@@ -898,8 +900,8 @@ impl WlSurface {
         let old_pos = self.buffer_abs_pos[tl].get();
         let new_pos = old_pos.at_point(x1, y1);
         if tl == RenderTL && self.visible[RenderTL].get() && self.toplevel.is_none() {
-            self.client.state.damage(old_pos);
-            self.client.state.damage(new_pos);
+            self.state.damage(old_pos);
+            self.state.damage(new_pos);
         }
         self.buffer_abs_pos[tl].set(new_pos);
         if let Some(children) = self.children.borrow_mut().deref_mut() {
@@ -1047,12 +1049,12 @@ impl WlSurface {
     }
 
     fn unset_ext(&self) {
-        self.ext.set(self.client.state.none_surface_ext.clone());
+        self.ext.set(self.state.none_surface_ext.clone());
         self.set_dummy_output();
     }
 
     fn set_dummy_output(&self) {
-        let dummy_output = self.client.state.dummy_output.get().unwrap();
+        let dummy_output = self.state.dummy_output.get().unwrap();
         self.set_output(&dummy_output, NodeLocation::Output(dummy_output.id));
         self.mark_fullscreen(None);
     }
@@ -1147,8 +1149,7 @@ impl WlSurface {
         if let Some(xsurface) = self.ext.get().into_xsurface()
             && let Some(window) = xsurface.xwindow.get()
         {
-            self.client
-                .state
+            self.state
                 .xwayland
                 .queue
                 .push(XWaylandEvent::Configure(window.data.clone()));
@@ -1169,7 +1170,7 @@ impl WlSurface {
         if fr.is_empty() {
             return;
         }
-        let now_msec = self.client.state.now_msec() as u32;
+        let now_msec = self.state.now_msec() as u32;
         for fr in &mut *fr {
             fr.now_msec = now_msec;
         }
@@ -1622,7 +1623,7 @@ impl WlSurface {
         {
             if let Some(region) = pending.input_region.take() {
                 self.input_region.set(region);
-                self.client.state.tree_changed();
+                self.state.tree_changed();
             }
             if let Some(region) = pending.opaque_region.take() {
                 opaque_region_changed = true;
@@ -1651,8 +1652,7 @@ impl WlSurface {
             self.client
                 .surfaces_by_xwayland_serial
                 .set(xwayland_serial, self.clone());
-            self.client
-                .state
+            self.state
                 .xwayland
                 .queue
                 .push(XWaylandEvent::SurfaceSerialAssigned(self.id));
@@ -1680,7 +1680,7 @@ impl WlSurface {
             if let Some(tl) = self.toplevel.get() {
                 damage = damage.intersect(tl.node_absolute_position(RenderTL));
             }
-            self.client.state.damage(damage);
+            self.state.damage(damage);
         }
         if self.visible[LiveTL].get() {
             let output = self.output.get();
@@ -1749,7 +1749,7 @@ impl WlSurface {
                 if let Some(bounds) = bounds {
                     damage = damage.intersect(bounds);
                 }
-                self.client.state.damage(damage);
+                self.state.damage(damage);
             } else {
                 let matrix = self.damage_matrix.get();
                 if let Some(buffer) = self.buffer.get() {
@@ -1762,7 +1762,7 @@ impl WlSurface {
                         if let Some(bounds) = bounds {
                             damage = damage.intersect(bounds);
                         }
-                        self.client.state.damage(damage);
+                        self.state.damage(damage);
                     }
                 }
                 for damage in &pending.surface_damage {
@@ -1775,7 +1775,7 @@ impl WlSurface {
                         damage = Rect::new_saturating(x1, y1, x2, y2);
                     }
                     damage = damage.intersect(bounds.unwrap_or(pos));
-                    self.client.state.damage(damage);
+                    self.state.damage(damage);
                 }
             }
         };
@@ -2022,7 +2022,7 @@ impl WlSurface {
     pub fn color_description(&self) -> Rc<ColorDescription> {
         match self.color_description.get() {
             Some(cd) => cd,
-            None => self.client.state.color_manager.srgb_gamma22().clone(),
+            None => self.state.color_manager.srgb_gamma22().clone(),
         }
     }
 
@@ -2055,7 +2055,7 @@ impl WlSurface {
     }
 
     pub fn mark_fullscreen(&self, connector: Option<&Rc<ConnectorData>>) {
-        let fb = self.client.state.dmabuf_feedback.fb.get();
+        let fb = self.state.dmabuf_feedback.fb.get();
         self.mark_fullscreen_(connector, fb.as_ref());
     }
 
@@ -2084,7 +2084,7 @@ impl WlSurface {
         }
         match tt {
             LiveTL => self.add_transaction_op(WlSurfaceTransactionOp::Damage(damage)),
-            RenderTL => self.client.state.damage(damage),
+            RenderTL => self.state.damage(damage),
         }
     }
 }
@@ -2279,8 +2279,7 @@ impl NodeBase for WlSurface {
         if let Some(xsurface) = self.ext.get().into_xsurface()
             && let Some(window) = xsurface.xwindow.get()
         {
-            self.client
-                .state
+            self.state
                 .xwayland
                 .queue
                 .push(XWaylandEvent::Activate(window.data.clone()));
@@ -2704,7 +2703,7 @@ impl Transactionable for WlSurface {
                 self.set_rendered_(v);
             }
             WlSurfaceTransactionOp::Damage(v) => {
-                self.client.state.damage(v);
+                self.state.damage(v);
             }
             WlSurfaceTransactionOp::Clear => {
                 self.buffer.take();

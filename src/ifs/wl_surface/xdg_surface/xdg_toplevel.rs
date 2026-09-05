@@ -178,7 +178,7 @@ impl XdgToplevel {
             states |= state_bits(STATE_CONSTRAINED_TOP);
             states |= state_bits(STATE_CONSTRAINED_BOTTOM);
         }
-        let state = &surface.surface.client.state;
+        let state = &surface.surface.state;
         let node_id = state.node_ids.next();
         let data = Rc::new(XdgToplevelToplevelData {
             tag: Default::default(),
@@ -881,7 +881,6 @@ impl XdgSurfaceExt for XdgToplevel {
     fn geometry_changed(&self) {
         self.xdg
             .surface
-            .client
             .state
             .damage(self.node_absolute_position(RenderTL));
     }

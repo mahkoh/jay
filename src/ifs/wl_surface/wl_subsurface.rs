@@ -113,7 +113,7 @@ impl WlSubsurface {
     ) -> Self {
         Self {
             id,
-            unique_id: surface.client.state.subsurface_ids.next(),
+            unique_id: surface.state.subsurface_ids.next(),
             surface: surface.clone(),
             parent: parent.clone(),
             position: Cell::new(Default::default()),
@@ -305,7 +305,7 @@ impl WlSubsurface {
         if let Some(tl) = self.surface.toplevel.get() {
             rect = rect.intersect(tl.node_absolute_position(RenderTL));
         }
-        self.surface.client.state.damage(rect);
+        self.surface.state.damage(rect);
     }
 
     fn update_has_buffer(&self) {
