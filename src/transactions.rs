@@ -317,7 +317,7 @@ impl Transaction {
 impl WlSurface {
     pub fn unblock_transactions_until(&self, serial: TreeSerial) {
         self.surface_transaction
-            .unblock_transactions_until(&self.client.state, serial);
+            .unblock_transactions_until(&self.state, serial);
     }
 }
 

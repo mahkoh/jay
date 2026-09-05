@@ -1,4 +1,11 @@
+use crate::utils::bitfield::Bitfield;
+use crate::utils::copyhashmap;
+use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::fx_hash::FxBuildHasher;
+use crate::utils::refcounted::RefCounted;
+use jay_proc::jay_clone;
 use jay_proc::jay_hash;
+use std::cell::RefCell;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -72,5 +79,60 @@ impl Debug for Scale {
 impl Display for Scale {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         Display::fmt(&self.to_f64(), f)
+    }
+}
+
+#[derive(Default)]
+pub struct Scales {
+    scales: RefCounted<Scale>,
+    indices_unused: RefCell<Bitfield>,
+    indices: CopyHashMap<Scale, ScaleIndex, FxBuildHasher>,
+}
+
+#[jay_hash]
+#[jay_clone(Copy)]
+#[derive(Debug, Eq, Ord, PartialOrd)]
+pub struct ScaleIndex(pub usize);
+
+impl ScaleIndex {
+    pub const INVALID: Self = Self(usize::MAX);
+}
+
+impl Scales {
+    pub fn add(&self, scale: Scale) -> Option<ScaleIndex> {
+        if self.scales.add(scale) {
+            let idx = ScaleIndex(self.indices_unused.borrow_mut().acquire() as _);
+            self.indices.set(scale, idx);
+            Some(idx)
+        } else {
+            None
+        }
+    }
+
+    pub fn remove(&self, scale: Scale) -> Option<ScaleIndex> {
+        if self.scales.remove(&scale) {
+            let idx = self.indices.remove(&scale).unwrap();
+            self.indices_unused.borrow_mut().release(idx.0 as u32);
+            Some(idx)
+        } else {
+            None
+        }
+    }
+
+    #[expect(unused)]
+    pub fn get_index(&self, scale: Scale) -> ScaleIndex {
+        self.indices.get(&scale).unwrap_or(ScaleIndex::INVALID)
+    }
+
+    pub fn version(&self) -> u64 {
+        self.scales.version()
+    }
+
+    pub fn lock(&self) -> copyhashmap::Locked<'_, Scale, ScaleIndex, FxBuildHasher> {
+        self.indices.lock()
+    }
+
+    pub fn to_vec(&self) -> Vec<Scale> {
+        self.scales.to_vec()
     }
 }

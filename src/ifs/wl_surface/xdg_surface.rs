@@ -148,7 +148,7 @@ impl XdgPopupParent for Popup {
         let mut wl = self.workspace_link.borrow_mut();
         let mut dl = self.display_link.borrow_mut();
         let surface = &self.popup.xdg.surface;
-        let state = &surface.client.state;
+        let state = &surface.state;
         if surface.buffer.is_some() {
             let mut any_set = false;
             if wl.is_none()
@@ -321,7 +321,7 @@ impl XdgSurface {
             effective_geometry: Default::default(),
             absolute_desired_extents: Default::default(),
             ext: Default::default(),
-            popup_display_stack: CloneCell::new(surface.client.state.root.stacked.clone()),
+            popup_display_stack: CloneCell::new(surface.state.root.stacked.clone()),
             popup_stack_type: Cell::new(PopupStackType::Normal),
             popups: Default::default(),
             workspace: Default::default(),
@@ -329,7 +329,7 @@ impl XdgSurface {
             tracker: Default::default(),
             initial_commit_state: Default::default(),
             destroyed: Default::default(),
-            configure_data: ConfigurableData::new(&surface.client.state),
+            configure_data: ConfigurableData::new(&surface.state),
             enabled_transactions: Default::default(),
         }
     }
@@ -358,7 +358,7 @@ impl XdgSurface {
     fn set_workspace(&self, ws: &Rc<WorkspaceNode>) {
         self.workspace.set(Some(ws.clone()));
         if self.workspace_type.replace(Some(ws.ty)) != Some(ws.ty) {
-            let root = &self.surface.client.state.root;
+            let root = &self.surface.state.root;
             match ws.ty {
                 WorkspaceType::Normal => {
                     self.set_popup_stack(&root.stacked, PopupStackType::Normal);
@@ -430,7 +430,7 @@ impl XdgSurface {
         let rect = extents.move_(x, y);
         match tt {
             LiveTL => self.surface.damage(rect, LiveTL),
-            RenderTL => self.surface.client.state.damage(rect),
+            RenderTL => self.surface.state.damage(rect),
         }
     }
 
@@ -597,7 +597,7 @@ impl XdgSurfaceRequestHandler for XdgSurface {
     }
 
     fn ack_configure(&self, req: AckConfigure, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let serial = self.surface.client.state.map_tree_serial32(req.serial);
+        let serial = self.surface.state.map_tree_serial32(req.serial);
         if let Some(last) = self.acked_serial.get()
             && serial <= last
         {
@@ -724,7 +724,7 @@ impl XdgSurface {
             popup.display_link.borrow().restack();
             popup.popup.xdg.restack_popups();
         }
-        self.surface.client.state.tree_changed();
+        self.surface.state.tree_changed();
     }
 }
 

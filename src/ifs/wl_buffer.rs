@@ -22,6 +22,7 @@ use crate::object::Version;
 use crate::rect::Rect;
 use crate::rect::Region;
 use crate::state::DrmDevData;
+use crate::state::GfxCtxChangedListener;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::event_listener::EventListener;
 use crate::utils::page_size::page_size;
@@ -103,8 +104,9 @@ pub struct WlBuffer {
     pub color: Option<[u32; 4]>,
     pub width: i32,
     pub height: i32,
-    gfx_ctx_changed: EventListener<WlBuffer>,
+    gfx_ctx_changed: EventListener<dyn GfxCtxChangedListener>,
     pub tracker: Tracker<Self>,
+    pub had_buffer_texture: Cell<bool>,
 }
 
 impl WlBuffer {
@@ -133,7 +135,7 @@ impl WlBuffer {
         ty: Ty,
         color: Option<[u32; 4]>,
     ) -> Rc<Self> {
-        let slf = Rc::new_cyclic(|slf| Self {
+        let slf = Rc::<WlBuffer>::new_cyclic(|slf| Self {
             id,
             destroyed: Cell::new(false),
             client: client.clone(),
@@ -150,6 +152,7 @@ impl WlBuffer {
             tracker: Default::default(),
             color,
             gfx_ctx_changed: EventListener::new(slf.clone()),
+            had_buffer_texture: Default::default(),
         });
         slf.gfx_ctx_changed.attach(&client.state.gfx_ctx_changed);
         slf
@@ -283,7 +286,7 @@ impl WlBuffer {
         )
     }
 
-    pub fn handle_gfx_context_change(&self) -> bool {
+    fn handle_gfx_context_change_impl(&self) -> bool {
         let ctx_version = self.client.state.render_ctx_version.get();
         let up_to_date = self.render_ctx_version.replace(ctx_version) == ctx_version;
         let mut storage = self.storage.borrow_mut();
@@ -655,6 +658,13 @@ impl WlBufferDmabufStorage {
         }
         let obj = dev.create_src_object(&self.dmabuf)?;
         Ok(self.copy_obj.insert(Some(Rc::new(obj))).clone())
+    }
+}
+
+impl GfxCtxChangedListener for WlBuffer {
+    fn handle_gfx_context_change(&self) {
+        let had_buffer_texture = self.handle_gfx_context_change_impl();
+        self.had_buffer_texture.set(had_buffer_texture);
     }
 }
 

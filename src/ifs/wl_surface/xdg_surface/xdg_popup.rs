@@ -116,7 +116,7 @@ impl XdgPopup {
         if !pos.is_complete() {
             return Err(XdgPopupError::Incomplete);
         }
-        let state = &xdg.surface.client.state;
+        let state = &xdg.surface.state;
         Ok(Self {
             id,
             node_id: state.node_ids.next(),
@@ -555,7 +555,7 @@ impl XdgSurfaceExt for XdgPopup {
     }
 
     fn extents_changed(&self) {
-        self.xdg.surface.client.state.tree_changed();
+        self.xdg.surface.state.tree_changed();
     }
 
     fn focus_node(&self) -> Option<Rc<dyn Node>> {

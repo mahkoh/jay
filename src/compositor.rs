@@ -127,7 +127,6 @@ use crate::utils::numcell::NumCell;
 use crate::utils::object_drop_queue::ObjectDropQueue;
 use crate::utils::queue::AsyncQueue;
 use crate::utils::rc_eq::RcEq;
-use crate::utils::refcounted::RefCounted;
 use crate::utils::run_toplevel::RunToplevel;
 use crate::utils::sleeper::Sleeper;
 use crate::utils::sleeper::start_sleeper;
@@ -278,8 +277,6 @@ fn start_compositor2(
     let wheel = Wheel::new(&engine, &ring)?;
     let (_run_toplevel_future, run_toplevel) = RunToplevel::install(&engine);
     let node_ids = NodeIds::default();
-    let scales = RefCounted::default();
-    scales.add(Scale::from_int(1));
     let cpu_worker = Rc::new(CpuWorker::new(&ring, &engine)?);
     let color_manager = ColorManager::new();
     let crit_ids = Rc::new(CritMatcherIds::default());
@@ -389,7 +386,7 @@ fn start_compositor2(
             locked: Default::default(),
             lock: Default::default(),
         },
-        scales,
+        scales: Default::default(),
         cursor_sizes: Default::default(),
         hardware_tick_cursor: Default::default(),
         testers: Default::default(),
@@ -491,6 +488,7 @@ fn start_compositor2(
         spaces_changed: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
+    state.add_output_scale(Scale::from_int(1));
     create_dummy_output(&state);
     let (acceptor, _acceptor_future) = Acceptor::install(&state)?;
     if let Some(forker) = forker {

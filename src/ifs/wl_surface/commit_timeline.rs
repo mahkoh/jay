@@ -239,7 +239,7 @@ impl CommitTimeline {
         surface: &Rc<WlSurface>,
         mut pending: CachedBox<PendingState, BoxReset>,
     ) -> Result<(), CommitTimelineError> {
-        let state = &surface.client.state;
+        let state = &surface.state;
         let mut collector = CommitDataCollector {
             render_ctx: LazyCell::new(|| {
                 let ctx = state.render_ctx.get()?;
@@ -292,7 +292,7 @@ impl CommitTimeline {
         let entry = add_entry(
             &self.own_timeline,
             &self.shared,
-            EntryKind::Commit(surface.client.state.commit_cache.cache.get(Commit {
+            EntryKind::Commit(surface.state.commit_cache.cache.get(Commit {
                 surface: surface.clone(),
                 ext_version: pending.ext_version,
                 pending: RefCell::new(pending),
@@ -711,7 +711,7 @@ fn register_commit_time(
     let refresh = output.global.refresh_nsec.get();
     let present_margin = render_margin.saturating_add(flip_margin).min(refresh);
     let timeout = time.saturating_sub(present_margin);
-    if timeout <= c.surface.client.state.now_nsec() {
+    if timeout <= c.surface.state.now_nsec() {
         return Ok(CommitTimesState::Ready);
     }
     let pending = tl
@@ -764,7 +764,7 @@ fn schedule_async_upload(
         return Ok(None);
     };
     let back = surface.shm_textures.back();
-    let state = &surface.client.state;
+    let state = &surface.state;
     let ctx = state
         .render_ctx
         .get()
@@ -831,7 +831,6 @@ fn schedule_async_upload(
         Some(s) => s,
         None => {
             let s = surface
-                .client
                 .state
                 .render_ctx
                 .get()
@@ -853,7 +852,7 @@ fn schedule_prime_copies(
     copies: &mut SmallVec<[PendingChainedCopy; 1]>,
     validities: &mut SmallVec<[PrimeValidity; 1]>,
 ) -> Result<(), WlSurfaceError> {
-    let state = &surface.client.state;
+    let state = &surface.state;
     let Some(ctx) = state.render_ctx.get() else {
         return Ok(());
     };
@@ -933,7 +932,6 @@ fn schedule_prime_copy(
         return Ok((None, Some(validity)));
     };
     let chain = surface
-        .client
         .state
         .schedule_chained_copy(&copies, entry.clone(), psb.take_sync(), Some(psb.damage()))
         .map_err(WlSurfaceError::PrimeCopy)?;

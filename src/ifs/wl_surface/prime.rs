@@ -343,7 +343,7 @@ impl WlSurface {
         let Some(src) = buf.classify_prime_(ctx, render_dev, storage)? else {
             return Ok(None);
         };
-        let state = &self.client.state;
+        let state = &self.state;
         let prime = &self.prime;
         let udmabuf_dev = state.udmabuf.get();
         let create_udmabuf = || {

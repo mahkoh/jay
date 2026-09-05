@@ -221,7 +221,7 @@ impl TabletPad {
 
     pub fn surface_enter(self: &Rc<Self>, n: &WlSurface) {
         let mut serial = n.client.pending_serial();
-        let time = n.client.state.now_msec() as u32;
+        let time = n.state.now_msec() as u32;
         self.for_each_pair(n, |tablet, pad| {
             pad.send_enter(serial.get(), &tablet, n);
             for group in &self.groups {

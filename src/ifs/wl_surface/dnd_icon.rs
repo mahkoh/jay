@@ -17,8 +17,7 @@ impl DndIcon {
 
     fn update_visible(&self) {
         let was_visible = self.surface.visible[LiveTL].get();
-        let is_visible =
-            self.surface.dnd_icons.is_not_empty() && self.surface.client.state.root_visible();
+        let is_visible = self.surface.dnd_icons.is_not_empty() && self.surface.state.root_visible();
         self.surface.set_visible(is_visible);
         if was_visible != is_visible {
             self.damage();
@@ -54,7 +53,7 @@ impl DndIcon {
 
     pub fn damage_at(&self, x: i32, y: i32) {
         let extents = self.extents(x, y);
-        self.surface.client.state.damage(extents);
+        self.surface.state.damage(extents);
     }
 
     pub fn render(&self, renderer: &mut Renderer<'_>, cursor_rect: &Rect, x: i32, y: i32) {

@@ -182,7 +182,7 @@ impl ZwlrLayerSurfaceV1 {
         layer: u32,
         namespace: &str,
     ) -> Self {
-        let state = &surface.client.state;
+        let state = &surface.state;
         Self {
             id,
             node_id: shell.client.state.node_ids.next(),
@@ -832,7 +832,7 @@ impl XdgPopupParent for Popup {
         let mut dl = self.stack_link.borrow_mut();
         let output = self.output();
         let surface = &self.popup.xdg.surface;
-        let state = &surface.client.state;
+        let state = &surface.state;
         if surface.buffer.is_some() {
             if dl.link.is_none() {
                 if self.parent.surface.visible[LiveTL].get() {
