@@ -6,6 +6,8 @@ use std::cell::UnsafeCell;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::mem;
+use std::ops::Deref;
+use std::ops::DerefMut;
 
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]
@@ -80,5 +82,40 @@ impl<V> CopyVec<V> {
     #[expect(unused)]
     pub fn len(&self) -> usize {
         unsafe { self.get_map().len() }
+    }
+
+    #[expect(unused)]
+    pub fn lock(&self) -> Locked<'_, V> {
+        let map = unsafe { self.get_map_mut() };
+        Locked {
+            copy: self,
+            vec: mem::take(map),
+        }
+    }
+}
+
+pub struct Locked<'a, V> {
+    copy: &'a CopyVec<V>,
+    vec: Vec<V>,
+}
+
+impl<V> Drop for Locked<'_, V> {
+    fn drop(&mut self) {
+        let map = unsafe { self.copy.get_map_mut() };
+        mem::swap(map, &mut self.vec);
+    }
+}
+
+impl<V> Deref for Locked<'_, V> {
+    type Target = Vec<V>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.vec
+    }
+}
+
+impl<V> DerefMut for Locked<'_, V> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.vec
     }
 }
