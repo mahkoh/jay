@@ -3559,6 +3559,17 @@ Config:
         container is changed instead.
 
         The default is `false`.
+    restore-fullscreen-on-reselect:
+      kind: boolean
+      required: false
+      description: |
+        Configures whether a window that was temporarily unfullscreened is
+        restored to fullscreen when it is reselected.
+
+        This affects reselecting the window by clicking it or through the
+        foreign-toplevel activation path used by window switchers.
+
+        The default is `false`.
     show-bar:
       kind: boolean
       required: false

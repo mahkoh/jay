@@ -612,6 +612,10 @@ pub enum ClientMessage<'a> {
         above: bool,
     },
     GetFloatAboveFullscreen,
+    SetRestoreFullscreenOnReselect {
+        enabled: bool,
+    },
+    GetRestoreFullscreenOnReselect,
     GetSeatFloatPinned {
         seat: Seat,
     },
@@ -1234,6 +1238,9 @@ pub enum Response {
     },
     GetFloatAboveFullscreen {
         above: bool,
+    },
+    GetRestoreFullscreenOnReselect {
+        enabled: bool,
     },
     GetFloatPinned {
         pinned: bool,
