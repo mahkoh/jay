@@ -234,7 +234,7 @@ impl Objects {
         self.jay_window_match.clear();
     }
 
-    pub fn id<T>(&self, client_data: &Client) -> Result<T, ClientError>
+    pub fn id<T>(&self, client_data: &Client, _parent: ObjectId) -> Result<T, ClientError>
     where
         ObjectId: Into<T>,
     {

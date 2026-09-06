@@ -20,6 +20,7 @@ use crate::state::OutputData;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::numcell::NumCell;
+use crate::wire::ZwlrOutputHeadV1Id;
 use crate::wire::ZwlrOutputManagerV1Id;
 use crate::wire::zwlr_output_manager_v1::*;
 use isnt::std_1::string::IsntStringExt;
@@ -130,7 +131,7 @@ impl ZwlrOutputManagerV1RequestHandler for ZwlrOutputManagerV1 {
 
 impl ZwlrOutputManagerV1 {
     pub fn announce_head(self: &Rc<Self>, output: &Rc<OutputData>) {
-        let id = match self.client.new_id() {
+        let id = match self.client.new_id(&**self) {
             Ok(id) => id,
             Err(e) => {
                 self.client.error(e);
@@ -157,7 +158,7 @@ impl ZwlrOutputManagerV1 {
             if current {
                 have_current = true;
             }
-            let Some(output_mode) = self.create_mode(head_id, mode, idx == 0, current) else {
+            let Some(output_mode) = self.create_mode(id, head_id, mode, idx == 0, current) else {
                 return;
             };
             modes_list.push(output_mode.clone());
@@ -243,12 +244,13 @@ impl ZwlrOutputManagerV1 {
 
     pub(super) fn create_mode(
         self: &Rc<Self>,
+        parent_id: ZwlrOutputHeadV1Id,
         head_id: WlrOutputHeadId,
         mode: &Mode,
         preferred: bool,
         initial_current: bool,
     ) -> Option<Rc<ZwlrOutputModeV1>> {
-        let id = match self.client.new_id() {
+        let id = match self.client.new_id2(parent_id) {
             Ok(id) => id,
             Err(e) => {
                 self.client.error(e);

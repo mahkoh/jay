@@ -90,7 +90,7 @@ impl ExtWorkspaceManagerV1Global {
 
 impl ExtWorkspaceManagerV1 {
     pub(super) fn announce_output(&self, node: &OutputNode) {
-        let id = match self.client.new_id() {
+        let id = match self.client.new_id(self) {
             Ok(id) => id,
             Err(e) => {
                 self.client.error(e);
@@ -130,7 +130,7 @@ impl ExtWorkspaceManagerV1 {
     }
 
     pub(super) fn announce_workspace(&self, output: &OutputNode, workspace: &WorkspaceNode) {
-        let id = match self.client.new_id() {
+        let id = match self.client.new_id(self) {
             Ok(id) => id,
             Err(e) => {
                 self.client.error(e);

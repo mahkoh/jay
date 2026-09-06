@@ -20,7 +20,7 @@ pub struct JayWorkspaceWatcher {
 impl JayWorkspaceWatcher {
     pub fn send_workspace(&self, workspace: &Rc<WorkspaceNode>) -> Result<(), ClientError> {
         let jw = Rc::new(JayWorkspace {
-            id: self.client.new_id()?,
+            id: self.client.new_id(self)?,
             client: self.client.clone(),
             workspace: CloneCell::new(Some(workspace.clone())),
             tracker: Default::default(),

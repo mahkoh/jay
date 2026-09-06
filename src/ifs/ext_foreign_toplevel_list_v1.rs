@@ -108,7 +108,7 @@ impl ExtForeignToplevelListV1 {
     }
 
     pub fn publish_toplevel(&self, tl: ToplevelOpt) -> Option<Rc<ExtForeignToplevelHandleV1>> {
-        let id: ExtForeignToplevelHandleV1Id = match self.client.new_id() {
+        let id: ExtForeignToplevelHandleV1Id = match self.client.new_id(self) {
             Ok(i) => i,
             Err(e) => {
                 self.client.error(e);

@@ -43,7 +43,7 @@ impl Drop for JayWorkspaceSelector {
                 self.jsw.send_cancelled();
             }
             Some(ws) => {
-                let id = match self.jsw.client.new_id() {
+                let id = match self.jsw.client.new_id(&*self.jsw) {
                     Ok(id) => id,
                     Err(e) => {
                         self.jsw.client.error(e);
