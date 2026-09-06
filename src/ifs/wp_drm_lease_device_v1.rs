@@ -109,7 +109,7 @@ impl WpDrmLeaseDeviceV1 {
     }
 
     pub fn create_connector(self: &Rc<Self>, output: &Rc<OutputData>) {
-        let id = match self.client.new_id() {
+        let id = match self.client.new_id(&**self) {
             Ok(i) => i,
             Err(e) => {
                 self.client.error(e);

@@ -49,7 +49,7 @@ impl JaySelectToplevel {
         let jtl = match tl {
             None => None,
             Some(toplevel) => {
-                let id = match self.client.new_id() {
+                let id = match self.client.new_id(self) {
                     Ok(id) => id,
                     Err(e) => {
                         self.client.error(e);

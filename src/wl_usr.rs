@@ -5,10 +5,9 @@ use crate::async_engine::AsyncEngine;
 use crate::async_engine::SpawnedFuture;
 use crate::client::EventFormatter;
 use crate::client::MIN_SERVER_ID;
-use crate::client::RequestParser;
 use crate::io_uring::IoUring;
 use crate::io_uring::IoUringError;
-use crate::object::Interface;
+use crate::object::EventHandlingError;
 use crate::object::Version;
 use crate::object::WL_DISPLAY_ID;
 use crate::utils::asyncevent::AsyncEvent;
@@ -17,7 +16,6 @@ use crate::utils::buffd::BufFdError;
 use crate::utils::buffd::BufFdOut;
 use crate::utils::buffd::MsgFormatter;
 use crate::utils::buffd::MsgParser;
-use crate::utils::buffd::MsgParserError;
 use crate::utils::buffd::OutBuffer;
 use crate::utils::buffd::OutBufferSwapchain;
 use crate::utils::buffd::WlBufFdIn;
@@ -26,7 +24,6 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::hash_map_ext::HashMapExt;
-use crate::utils::str_table::StrAccess;
 use crate::video::dmabuf::DmaBufIds;
 use crate::wheel::Wheel;
 use crate::wire::ObjectId;
@@ -40,7 +37,6 @@ use jay_algorithms::oserror::OsErrorExt2;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::VecDeque;
-use std::error::Error;
 use std::mem;
 use std::rc::Rc;
 use thiserror::Error;
@@ -63,16 +59,8 @@ pub enum UsrConError {
     Write(#[source] BufFdError),
     #[error("Server sent an event for object {0} that does not exist")]
     MissingObject(ObjectId),
-    #[error("Could not process a `{}#{}.{}` event", .interface.name(), .id, .method)]
-    MethodError {
-        interface: Interface,
-        id: ObjectId,
-        method: StrAccess,
-        #[source]
-        error: Box<dyn Error + 'static>,
-    },
-    #[error("Client tried to invoke a non-existent method")]
-    InvalidMethod,
+    #[error(transparent)]
+    EventHandling(#[from] EventHandlingError),
 }
 
 pub struct UsrCon {
@@ -249,14 +237,6 @@ impl UsrCon {
         self.add_object(callback);
     }
 
-    pub fn parse<'a, R: RequestParser<'a>>(
-        &self,
-        _obj: &impl UsrObject,
-        mut parser: MsgParser<'_, 'a>,
-    ) -> Result<R, MsgParserError> {
-        R::parse(&mut parser)
-    }
-
     pub fn request<T: EventFormatter>(self: &Rc<Self>, event: T) {
         if self.dead.get() {
             return;
@@ -346,7 +326,7 @@ impl Incoming {
         if let Some(obj) = self.con.objects.get(&obj_id) {
             if let Some(obj) = obj {
                 let parser = MsgParser::new(fds, body);
-                obj.handle_event(&self.con, message, parser)?;
+                obj.handle_event(message, parser)?;
             }
         } else if obj_id.raw() < MIN_SERVER_ID {
             return Err(UsrConError::MissingObject(obj_id));

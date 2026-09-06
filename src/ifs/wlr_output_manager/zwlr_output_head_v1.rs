@@ -179,7 +179,7 @@ impl ZwlrOutputHeadV1 {
     pub fn handle_mode_change(&self, new: backend::Mode) {
         let Some(mode) = self.modes.get(&new).or_else(|| {
             self.manager
-                .create_mode(self.head_id, &new, false, false)
+                .create_mode(self.id, self.head_id, &new, false, false)
                 .inspect(|mode| {
                     self.modes.set(new, mode.clone());
                     self.send_mode(mode);

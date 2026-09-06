@@ -99,7 +99,7 @@ impl ZwpLinuxBufferParamsV1 {
         }
         let dmabuf = DmaBuf::new(&state.dma_buf_ids, width, height, format, modifier, dplanes);
         let get_id = || match buffer_id {
-            None => self.parent.client.new_id(),
+            None => self.parent.client.new_id(self),
             Some(i) => Ok(i),
         };
         let buffer = if let Some(ctx) = state.render_ctx.get()

@@ -37,7 +37,7 @@ impl ZwpTabletSeatV2 {
     }
 
     pub fn announce_tablet(self: &Rc<Self>, tablet: &Rc<Tablet>) {
-        let id = match self.client.new_id() {
+        let id = match self.client.new_id(&**self) {
             Ok(id) => id,
             Err(e) => {
                 self.client.error(e);
@@ -68,7 +68,7 @@ impl ZwpTabletSeatV2 {
     }
 
     pub fn announce_tool(self: &Rc<Self>, tool: &Rc<TabletTool>) {
-        let id = match self.client.new_id() {
+        let id = match self.client.new_id(&**self) {
             Ok(id) => id,
             Err(e) => {
                 self.client.error(e);
@@ -100,7 +100,7 @@ impl ZwpTabletSeatV2 {
     pub fn announce_pad(self: &Rc<Self>, pad: &Rc<TabletPad>) {
         macro_rules! id {
             () => {
-                match self.client.new_id() {
+                match self.client.new_id(&**self) {
                     Ok(id) => id,
                     Err(e) => {
                         self.client.error(e);

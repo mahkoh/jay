@@ -89,7 +89,7 @@ impl JayGlobalTracer {
     }
 
     fn announce_client_(&self, target: &Rc<Client>) -> Result<(), ClientError> {
-        let id = self.client.new_id()?;
+        let id = self.client.new_id(self)?;
         self.send_client_trace(id);
         JayClientTrace::install(id, &self.client, Some(target), self.version, true)
     }

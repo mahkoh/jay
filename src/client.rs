@@ -441,8 +441,19 @@ impl Client {
         PendingSerial::new(self)
     }
 
-    pub fn new_id<T: From<ObjectId>>(&self) -> Result<T, ClientError> {
-        self.objects.id(self)
+    pub fn new_id<T: From<ObjectId>>(&self, parent: &impl Object) -> Result<T, ClientError> {
+        self.new_id3(parent.id())
+    }
+
+    pub fn new_id2<T: From<ObjectId>>(
+        &self,
+        parent: impl Into<ObjectId>,
+    ) -> Result<T, ClientError> {
+        self.new_id3(parent.into())
+    }
+
+    fn new_id3<T: From<ObjectId>>(&self, parent: ObjectId) -> Result<T, ClientError> {
+        self.objects.id(self, parent).map(|v| v.into())
     }
 
     pub fn display(&self) -> Result<Rc<WlDisplay>, ClientError> {

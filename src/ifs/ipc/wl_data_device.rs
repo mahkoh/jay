@@ -183,7 +183,7 @@ impl IpcVtable for ClipboardIpc {
         offer_data: OfferData<Self::Device>,
     ) -> Result<Rc<Self::Offer>, ClientError> {
         let rc = Rc::new(WlDataOffer {
-            id: device.client.new_id()?,
+            id: device.client.new_id(&**device)?,
             offer_id: device.client.state.data_offer_ids.next(),
             client: device.client.clone(),
             device: device.clone(),

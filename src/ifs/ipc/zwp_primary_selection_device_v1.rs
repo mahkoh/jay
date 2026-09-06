@@ -126,7 +126,7 @@ impl IpcVtable for PrimarySelectionIpc {
         offer_data: OfferData<Self::Device>,
     ) -> Result<Rc<Self::Offer>, ClientError> {
         let rc = Rc::new(ZwpPrimarySelectionOfferV1 {
-            id: device.client.new_id()?,
+            id: device.client.new_id(&**device)?,
             offer_id: device.client.state.data_offer_ids.next(),
             seat: device.seat.clone(),
             client: device.client.clone(),

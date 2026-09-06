@@ -6,7 +6,9 @@ use crate::wire::ObjectId;
 use crate::wire::WlDisplayId;
 use std::any::Any;
 use std::cmp::Ordering;
+use std::error::Error;
 use std::rc::Rc;
+use thiserror::Error;
 
 pub const WL_DISPLAY_ID: WlDisplayId = WlDisplayId::from_raw(1);
 
@@ -52,4 +54,18 @@ impl PartialOrd<u32> for Version {
     fn partial_cmp(&self, other: &u32) -> Option<Ordering> {
         self.0.partial_cmp(other)
     }
+}
+
+#[derive(Debug, Error)]
+pub enum EventHandlingError {
+    #[error("Compositor sent a non-existent event")]
+    InvalidMethod,
+    #[error("Could not process a `{}#{}.{}` event", .interface.name(), .id, .method)]
+    MethodError {
+        interface: Interface,
+        id: ObjectId,
+        method: StrAccess,
+        #[source]
+        error: Box<dyn Error + 'static>,
+    },
 }

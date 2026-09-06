@@ -212,7 +212,7 @@ impl<T: DataControlLocationIpc> IpcVtable for DataControlIpcImpl<T> {
             data: offer_data,
             location: T::LOCATION,
         };
-        let rc = T::Ipc::create_offer(data.client.new_id()?, offer);
+        let rc = T::Ipc::create_offer(data.client.new_id(&**device)?, offer);
         data.client.add_server_obj(&rc);
         Ok(rc)
     }

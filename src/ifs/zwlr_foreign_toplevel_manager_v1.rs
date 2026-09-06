@@ -104,7 +104,7 @@ impl ZwlrForeignToplevelManagerV1 {
     }
 
     pub fn publish_toplevel(&self, tl: ToplevelOpt) -> Option<Rc<ZwlrForeignToplevelHandleV1>> {
-        let id = match self.client.new_id() {
+        let id = match self.client.new_id(self) {
             Ok(id) => id,
             Err(e) => {
                 self.client.error(e);

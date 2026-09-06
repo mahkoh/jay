@@ -1,19 +1,17 @@
+use crate::object::EventHandlingError;
 use crate::object::Interface;
 use crate::object::Version;
 use crate::utils::buffd::MsgParser;
 use crate::wire::ObjectId;
-use crate::wl_usr::UsrCon;
-use crate::wl_usr::UsrConError;
 use std::rc::Rc;
 
 pub trait UsrObjectBase {
     fn id(&self) -> ObjectId;
     fn handle_event(
         self: Rc<Self>,
-        con: &UsrCon,
         event: u32,
         parser: MsgParser<'_, '_>,
-    ) -> Result<(), UsrConError>;
+    ) -> Result<(), EventHandlingError>;
     fn interface(&self) -> Interface;
     fn version(&self) -> Version;
 }

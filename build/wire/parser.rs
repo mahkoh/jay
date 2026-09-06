@@ -368,14 +368,39 @@ impl<'a> Parser<'a> {
             while !parser.eof() {
                 fields.push(parser.parse_field()?);
             }
-            let has_reference_type = fields.iter().any(|f| match &f.val.ty.val {
-                Type::OptStr | Type::Str | Type::BStr | Type::Array(..) => true,
-                _ => false,
-            });
-            let is_variable_size = fields.iter().any(|f| match &f.val.ty.val {
-                Type::OptStr | Type::Str | Type::BStr | Type::Array(..) | Type::Pod(..) => true,
-                _ => false,
-            });
+            let mut has_reference_type = false;
+            let mut is_variable_size = false;
+            for field in &fields {
+                match &field.val.ty.val {
+                    Type::Id(_, _) => {}
+                    Type::U32 => {}
+                    Type::I32 => {}
+                    Type::U64 => {}
+                    Type::U64Rev => {}
+                    Type::Str => {
+                        has_reference_type = true;
+                        is_variable_size = true;
+                    }
+                    Type::OptStr => {
+                        has_reference_type = true;
+                        is_variable_size = true;
+                    }
+                    Type::BStr => {
+                        has_reference_type = true;
+                        is_variable_size = true;
+                    }
+                    Type::Fixed => {}
+                    Type::Fd => {}
+                    Type::Bool => {}
+                    Type::Array(_) => {
+                        has_reference_type = true;
+                        is_variable_size = true;
+                    }
+                    Type::Pod(_) => {
+                        is_variable_size = true;
+                    }
+                }
+            }
             let is_fixed_size = !is_variable_size;
             let safe_name = match name {
                 "move" => "move_",
