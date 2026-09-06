@@ -10,7 +10,7 @@ use std::task::Waker;
 
 #[derive(Default)]
 pub struct AsyncEvent {
-    triggers: NumCell<u32>,
+    triggers: NumCell<u64>,
     waker: Cell<Option<Waker>>,
 }
 
@@ -50,14 +50,15 @@ pub struct AsyncEventTriggered<'a> {
 }
 
 impl<'a> Future for AsyncEventTriggered<'a> {
-    type Output = ();
+    type Output = u64;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if self.ae.triggers.replace(0) == 0 {
+        let triggers = self.ae.triggers.replace(0);
+        if triggers == 0 {
             self.ae.waker.set(Some(cx.waker().clone()));
             Poll::Pending
         } else {
-            Poll::Ready(())
+            Poll::Ready(triggers)
         }
     }
 }
