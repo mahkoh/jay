@@ -21,6 +21,7 @@ use crate::scale::Scale;
 use crate::theme::Color;
 use crate::tree::Transform;
 use derivative::Derivative;
+use std::hint::cold_path;
 use std::rc::Rc;
 
 pub struct RendererBase<'a> {
@@ -322,9 +323,7 @@ fn bound_target(
         return false;
     }
 
-    #[cold]
-    fn cold() {}
-    cold();
+    cold_path();
 
     let SampleRect {
         x1: t_x1,
@@ -340,7 +339,7 @@ fn bound_target(
             let desired_other = $desired[1 - $test_idx];
             let bound = $bounds[$test_idx];
             if desired_test.$test_cmp(&bound) {
-                cold();
+                cold_path();
                 if desired_other.$test_cmp_eq(&bound) {
                     return true;
                 }

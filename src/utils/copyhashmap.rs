@@ -14,6 +14,7 @@ use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::hash::BuildHasher;
 use std::hash::Hash;
+use std::hint::cold_path;
 use std::mem;
 use std::mem::ManuallyDrop;
 use std::ops::Deref;
@@ -159,9 +160,7 @@ where
                 }
             }
             if drop {
-                #[cold]
-                fn cold() {}
-                cold();
+                cold_path();
                 ManuallyDrop::drop(&mut self.map);
             }
         }

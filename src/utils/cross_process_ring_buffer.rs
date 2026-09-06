@@ -11,6 +11,7 @@ use jay_algorithms::mmap::mmap;
 use jay_algorithms::oserror::OsError;
 use jay_algorithms::oserror::OsErrorExt2;
 use std::cell::Cell;
+use std::hint::cold_path;
 use std::rc::Rc;
 use std::sync::atomic;
 use std::sync::atomic::AtomicU32;
@@ -231,9 +232,7 @@ where
         self.data_offset(hi).set(data_offset);
         self.next_slot.fetch_add(1);
         if self.shared.available().fetch_add(1, Release) == 0 {
-            #[cold]
-            fn cold() {}
-            cold();
+            cold_path();
             atomic::fence(Acquire);
             let _ = self.shared.ring.futex_wake(&self.shared, i32::MAX, false);
         }
