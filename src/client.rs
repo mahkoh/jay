@@ -453,7 +453,7 @@ impl Client {
     }
 
     fn new_id3<T: From<ObjectId>>(&self, parent: ObjectId) -> Result<T, ClientError> {
-        self.objects.id(self, parent)
+        self.objects.id(self, parent).map(|v| v.into())
     }
 
     pub fn display(&self) -> Result<Rc<WlDisplay>, ClientError> {

@@ -234,10 +234,7 @@ impl Objects {
         self.jay_window_match.clear();
     }
 
-    pub fn id<T>(&self, client_data: &Client, _parent: ObjectId) -> Result<T, ClientError>
-    where
-        ObjectId: Into<T>,
-    {
+    pub fn id(&self, client_data: &Client, _parent: ObjectId) -> Result<ObjectId, ClientError> {
         const MAX_ID_OFFSET: u64 = u32::MAX as u64 - MIN_SERVER_ID;
         let offset = self.id_offset() as u64;
         if offset > MAX_ID_OFFSET {
@@ -248,7 +245,7 @@ impl Objects {
             );
             return Err(ClientError::TooManyIds);
         }
-        Ok(ObjectId::from_raw(MIN_SERVER_ID + offset).into())
+        Ok(ObjectId::from_raw(MIN_SERVER_ID + offset))
     }
 
     pub fn get_obj(&self, id: ObjectId) -> Result<Rc<dyn Object>, ClientError> {
