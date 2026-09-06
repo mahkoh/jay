@@ -37,6 +37,7 @@ use crate::utils::pid_info::PidInfo;
 use crate::utils::pid_info::get_pid_info;
 use crate::utils::pid_info::get_socket_creds;
 use crate::utils::pidfd_send_signal::pidfd_send_signal;
+use crate::utils::queue::AsyncQueue;
 use crate::utils::static_text::StaticText;
 use crate::utils::woid_hash::WoidBuildHasher;
 use crate::wire::ObjectId;
@@ -133,6 +134,8 @@ pub struct Clients {
     next_client_id: NumCell<u64>,
     pub clients: RefCell<BHashMap<ClientId, ClientHolder>>,
     shutdown_clients: RefCell<BHashMap<ClientId, ClientHolder>>,
+    cleared: Cell<bool>,
+    clear: AsyncQueue<ClientClear>,
 }
 
 impl Clients {
@@ -141,12 +144,16 @@ impl Clients {
             next_client_id: NumCell::new(1),
             clients: Default::default(),
             shutdown_clients: Default::default(),
+            cleared: Default::default(),
+            clear: Default::default(),
         }
     }
 
     pub fn clear(&self) {
         mem::take(self.clients.borrow_mut().deref_mut());
         mem::take(self.shutdown_clients.borrow_mut().deref_mut());
+        self.cleared.set(true);
+        self.clear.clear();
     }
 
     pub fn id(&self) -> ClientId {
@@ -315,6 +322,23 @@ pub struct ClientHolder {
 }
 
 impl Drop for ClientHolder {
+    fn drop(&mut self) {
+        let clear = ClientClear {
+            data: self.data.clone(),
+        };
+        let clients = &self.data.state.clients;
+        if clients.cleared.get() {
+            return;
+        }
+        clients.clear.push(clear);
+    }
+}
+
+struct ClientClear {
+    data: Rc<Client>,
+}
+
+impl Drop for ClientClear {
     fn drop(&mut self) {
         self.data.objects.destroy();
         self.data.flush_request.clear();
@@ -613,4 +637,14 @@ pub trait WaylandObjectLookup: Copy + Into<ObjectId> {
     const INTERFACE: Interface;
 
     fn lookup(client: &Client, id: Self) -> Option<Rc<Self::Object>>;
+}
+
+pub async fn handle_client_clear(state: Rc<State>) {
+    let clear = &state.clients.clear;
+    let mut queue = VecDeque::new();
+    loop {
+        clear.non_empty().await;
+        clear.swap(&mut queue);
+        queue.clear();
+    }
 }

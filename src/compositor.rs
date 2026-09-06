@@ -15,6 +15,7 @@ use crate::cli::GlobalArgs;
 use crate::cli::RunArgs;
 use crate::client::ClientId;
 use crate::client::Clients;
+use crate::client::handle_client_clear;
 use crate::clientmem;
 use crate::clientmem::ClientMemError;
 use crate::cmm::cmm_manager::ColorManager;
@@ -729,6 +730,7 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             handle_transactions_timeout(state.clone()),
         ),
         eng.spawn("theme changes", handle_theme_changes(state.clone())),
+        eng.spawn("clear clients", handle_client_clear(state.clone())),
     ]
 }
 
