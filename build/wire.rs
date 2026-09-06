@@ -85,11 +85,6 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
     write_message_type(f, obj, message, has_reference_type)?;
     let lifetime = if has_reference_type { "<'a>" } else { "" };
     let lifetime_b = if has_reference_type { "<'b>" } else { "" };
-    let parser = if message.fields.len() > 0 {
-        "parser"
-    } else {
-        "_parser"
-    };
     wl!(
         "impl<'a> RequestParser<'a> for {}{} {{",
         message.camel_name,
@@ -103,98 +98,13 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
             lifetime_b,
         );
         wl!("{xn}const ID: u32 = {};", message.id);
-        wl!(
-            "{xn}fn parse({}: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {{",
-            parser
-        );
+        wl!("{xn}fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError> {{");
         {
             push_xn!(xn);
             if message.is_fixed_size {
-                wl!("{xn}let [");
-                {
-                    push_xn!(xn);
-                    for (i, field) in message.fields.iter().enumerate() {
-                        match &field.val.ty.val {
-                            Type::U64 => {
-                                wl!("{xn}arg{i}_hi,");
-                                wl!("{xn}arg{i}_lo,");
-                            }
-                            Type::U64Rev => {
-                                wl!("{xn}arg{i}_lo,");
-                                wl!("{xn}arg{i}_hi,");
-                            }
-                            Type::Fd => {}
-                            _ => {
-                                wl!("{xn}arg{i},");
-                            }
-                        }
-                    }
-                }
-                wl!("{xn}] = *{parser}.data() else {{");
-                {
-                    push_xn!(xn);
-                    wl!("{xn}return Err(MsgParserError::UnexpectedMessageSize);");
-                }
-                wl!("{xn}}};");
-                wl!("{xn}Ok(Self {{");
-                {
-                    push_xn!(xn);
-                    wl!("{xn}self_id: {}Id::NONE,", obj);
-                    for (i, field) in message.fields.iter().enumerate() {
-                        wl!(
-                            "{xn}{}: {},",
-                            field.val.name,
-                            fmt::from_fn(|f| {
-                                define_w!(f, w2, wl2);
-                                match &field.val.ty.val {
-                                    Type::Id(_, name) => w2!("{name}Id(arg{i} as u64)"),
-                                    Type::U32 => w2!("arg{i}"),
-                                    Type::I32 => w2!("arg{i} as i32"),
-                                    Type::U64 | Type::U64Rev => {
-                                        w2!("((arg{i}_hi as u64) << 32) | (arg{i}_lo as u64)")
-                                    }
-                                    Type::OptStr => unreachable!(),
-                                    Type::Str => unreachable!(),
-                                    Type::Fixed => w2!("Fixed(arg{i} as i32)"),
-                                    Type::Fd => w2!("parser.fd()?"),
-                                    Type::Bool => w2!("arg{i} != 0"),
-                                    Type::BStr => unreachable!(),
-                                    Type::Array(_) => unreachable!(),
-                                    Type::Pod(_) => unreachable!(),
-                                }
-                                Ok(())
-                            })
-                        );
-                    }
-                }
-                wl!("{xn}}})");
+                write_fixed_parse_body(f, xn, message, obj)?;
             } else {
-                wl!("{xn}let res = Ok(Self {{");
-                {
-                    push_xn!(xn);
-                    wl!("{xn}self_id: {}Id::NONE,", obj);
-                    for field in &message.fields {
-                        let p = match &field.val.ty.val {
-                            Type::Id(..) => "object",
-                            Type::U32 => "uint",
-                            Type::I32 => "int",
-                            Type::U64 => "u64",
-                            Type::U64Rev => "u64_rev",
-                            Type::OptStr => "optstr",
-                            Type::Str => "str",
-                            Type::Fixed => "fixed",
-                            Type::Fd => "fd",
-                            Type::Bool => "bool",
-                            Type::BStr => "bstr",
-                            Type::Array(_) => "binary_array",
-                            Type::Pod(_) => "binary",
-                        };
-                        wl!("{xn}{}: parser.{}()?,", field.val.name, p);
-                    }
-                }
-                wl!("{xn}}});");
-                wl!("{xn}parser.eof()?;");
-                wl!("{xn}res");
+                write_variable_parse_body(f, xn, message, obj)?;
             }
         }
         wl!("{xn}}}");
@@ -212,82 +122,9 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
         {
             push_xn!(xn);
             if message.is_fixed_size {
-                wl!("{xn}fmt.data(&[");
-                {
-                    push_xn!(xn);
-                    wl!("{xn}self.self_id.0 as u32,");
-                    wl!("{xn}{uppercase},");
-                    for field in &message.fields {
-                        let prefix = format!("{xn}self.{}", field.val.name);
-                        match &field.val.ty.val {
-                            Type::Id(_, _) => wl!("{prefix}.0 as u32,"),
-                            Type::U32 => wl!("{prefix},"),
-                            Type::I32 => wl!("{prefix} as u32,"),
-                            Type::U64 => {
-                                wl!("{xn}(self.{} >> 32) as u32,", field.val.name);
-                                wl!("{prefix} as u32,");
-                            }
-                            Type::U64Rev => {
-                                wl!("{prefix} as u32,");
-                                wl!("{xn}(self.{} >> 32) as u32,", field.val.name);
-                            }
-                            Type::Str => unreachable!(),
-                            Type::OptStr => unreachable!(),
-                            Type::BStr => unreachable!(),
-                            Type::Fixed => wl!("{prefix}.0 as u32,"),
-                            Type::Fd => {}
-                            Type::Bool => wl!("{prefix} as u32,"),
-                            Type::Array(_) => unreachable!(),
-                            Type::Pod(_) => unreachable!(),
-                        }
-                    }
-                }
-                wl!("{xn}]);");
-                for field in &message.fields {
-                    if let Type::Fd = &field.val.ty.val {
-                        wl!("{xn}fmt.fd(self.{});", field.val.name);
-                    }
-                }
+                write_fixed_format_body(f, xn, message, &uppercase)?;
             } else {
-                wl!("{xn}fmt.header(self.self_id, {});", uppercase);
-                fn write_fmt_expr<W: Write>(
-                    f: &mut W,
-                    xn: &Indent,
-                    prefix: &str,
-                    ty: &Type,
-                    access: &str,
-                ) -> Result<()> {
-                    define_w!(f, w2, wl2);
-                    let p = match ty {
-                        Type::Id(..) => "object",
-                        Type::U32 => "uint",
-                        Type::I32 => "int",
-                        Type::U64 => "u64",
-                        Type::U64Rev => "u64_rev",
-                        Type::OptStr => "optstr",
-                        Type::Str | Type::BStr => "string",
-                        Type::Fixed => "fixed",
-                        Type::Fd => "fd",
-                        Type::Bool => "bool",
-                        Type::Array(..) => "binary",
-                        Type::Pod(..) => "binary",
-                    };
-                    let rf = match ty {
-                        Type::Pod(..) => "&",
-                        _ => "",
-                    };
-                    wl2!("{xn}{}fmt.{}({}{});", prefix, p, rf, access);
-                    Ok(())
-                }
-                for field in &message.fields {
-                    write_fmt_expr(
-                        f,
-                        xn,
-                        "",
-                        &field.val.ty.val,
-                        &format!("self.{}", field.val.name),
-                    )?;
-                }
+                write_variable_format_body(f, xn, message, &uppercase)?;
             }
         }
         wl!("{xn}}}");
@@ -299,6 +136,198 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
         wl!("{xn}}}");
     }
     wl!("}}");
+    Ok(())
+}
+
+fn write_fixed_parse_body<W: Write>(
+    f: &mut W,
+    xn: &Indent,
+    message: &Message,
+    obj: &str,
+) -> Result<()> {
+    define_w!(f, w, wl);
+    wl!("{xn}let [");
+    {
+        push_xn!(xn);
+        for (i, field) in message.fields.iter().enumerate() {
+            match &field.val.ty.val {
+                Type::U64 => {
+                    wl!("{xn}arg{i}_hi,");
+                    wl!("{xn}arg{i}_lo,");
+                }
+                Type::U64Rev => {
+                    wl!("{xn}arg{i}_lo,");
+                    wl!("{xn}arg{i}_hi,");
+                }
+                Type::Fd => {}
+                _ => {
+                    wl!("{xn}arg{i},");
+                }
+            }
+        }
+    }
+    wl!("{xn}] = *parser.data() else {{");
+    {
+        push_xn!(xn);
+        wl!("{xn}return Err(MsgParserError::UnexpectedMessageSize);");
+    }
+    wl!("{xn}}};");
+    wl!("{xn}Ok(Self {{");
+    {
+        push_xn!(xn);
+        wl!("{xn}self_id: {}Id::NONE,", obj);
+        for (i, field) in message.fields.iter().enumerate() {
+            wl!(
+                "{xn}{}: {},",
+                field.val.name,
+                fmt::from_fn(|f| {
+                    define_w!(f, w2, wl2);
+                    match &field.val.ty.val {
+                        Type::Id(_, name) => w2!("{name}Id(arg{i} as u64)"),
+                        Type::U32 => w2!("arg{i}"),
+                        Type::I32 => w2!("arg{i} as i32"),
+                        Type::U64 | Type::U64Rev => {
+                            w2!("((arg{i}_hi as u64) << 32) | (arg{i}_lo as u64)")
+                        }
+                        Type::OptStr => unreachable!(),
+                        Type::Str => unreachable!(),
+                        Type::Fixed => w2!("Fixed(arg{i} as i32)"),
+                        Type::Fd => w2!("parser.fd()?"),
+                        Type::Bool => w2!("arg{i} != 0"),
+                        Type::BStr => unreachable!(),
+                        Type::Array(_) => unreachable!(),
+                        Type::Pod(_) => unreachable!(),
+                    }
+                    Ok(())
+                })
+            );
+        }
+    }
+    wl!("{xn}}})");
+    Ok(())
+}
+
+fn write_variable_parse_body<W: Write>(
+    f: &mut W,
+    xn: &Indent,
+    message: &Message,
+    obj: &str,
+) -> Result<()> {
+    define_w!(f, w, wl);
+    wl!("{xn}let res = Ok(Self {{");
+    {
+        push_xn!(xn);
+        wl!("{xn}self_id: {}Id::NONE,", obj);
+        for field in &message.fields {
+            let p = match &field.val.ty.val {
+                Type::Id(..) => "object",
+                Type::U32 => "uint",
+                Type::I32 => "int",
+                Type::U64 => "u64",
+                Type::U64Rev => "u64_rev",
+                Type::OptStr => "optstr",
+                Type::Str => "str",
+                Type::Fixed => "fixed",
+                Type::Fd => "fd",
+                Type::Bool => "bool",
+                Type::BStr => "bstr",
+                Type::Array(_) => "binary_array",
+                Type::Pod(_) => "binary",
+            };
+            wl!("{xn}{}: parser.{}()?,", field.val.name, p);
+        }
+    }
+    wl!("{xn}}});");
+    wl!("{xn}parser.eof()?;");
+    wl!("{xn}res");
+    Ok(())
+}
+
+fn write_fixed_format_body<W: Write>(
+    f: &mut W,
+    xn: &Indent,
+    message: &Message,
+    uppercase: &str,
+) -> Result<()> {
+    define_w!(f, w, wl);
+    wl!("{xn}fmt.data(&[");
+    {
+        push_xn!(xn);
+        wl!("{xn}self.self_id.0 as u32,");
+        wl!("{xn}{uppercase},");
+        for field in &message.fields {
+            let prefix = format!("{xn}self.{}", field.val.name);
+            match &field.val.ty.val {
+                Type::Id(_, _) => wl!("{prefix}.0 as u32,"),
+                Type::U32 => wl!("{prefix},"),
+                Type::I32 => wl!("{prefix} as u32,"),
+                Type::U64 => {
+                    wl!("{xn}(self.{} >> 32) as u32,", field.val.name);
+                    wl!("{prefix} as u32,");
+                }
+                Type::U64Rev => {
+                    wl!("{prefix} as u32,");
+                    wl!("{xn}(self.{} >> 32) as u32,", field.val.name);
+                }
+                Type::Str => unreachable!(),
+                Type::OptStr => unreachable!(),
+                Type::BStr => unreachable!(),
+                Type::Fixed => wl!("{prefix}.0 as u32,"),
+                Type::Fd => {}
+                Type::Bool => wl!("{prefix} as u32,"),
+                Type::Array(_) => unreachable!(),
+                Type::Pod(_) => unreachable!(),
+            }
+        }
+    }
+    wl!("{xn}]);");
+    for field in &message.fields {
+        if let Type::Fd = &field.val.ty.val {
+            wl!("{xn}fmt.fd(self.{});", field.val.name);
+        }
+    }
+    Ok(())
+}
+
+fn write_variable_format_body<W: Write>(
+    f: &mut W,
+    xn: &Indent,
+    message: &Message,
+    uppercase: &str,
+) -> Result<()> {
+    define_w!(f, w, wl);
+    wl!("{xn}fmt.header(self.self_id, {});", uppercase);
+    fn write_fmt_expr<W: Write>(f: &mut W, xn: &Indent, ty: &Type, access: &str) -> Result<()> {
+        define_w!(f, w2, wl2);
+        let p = match ty {
+            Type::Id(..) => "object",
+            Type::U32 => "uint",
+            Type::I32 => "int",
+            Type::U64 => "u64",
+            Type::U64Rev => "u64_rev",
+            Type::OptStr => "optstr",
+            Type::Str | Type::BStr => "string",
+            Type::Fixed => "fixed",
+            Type::Fd => "fd",
+            Type::Bool => "bool",
+            Type::Array(..) => "binary",
+            Type::Pod(..) => "binary",
+        };
+        let rf = match ty {
+            Type::Pod(..) => "&",
+            _ => "",
+        };
+        wl2!("{xn}fmt.{}({}{});", p, rf, access);
+        Ok(())
+    }
+    for field in &message.fields {
+        write_fmt_expr(
+            f,
+            xn,
+            &field.val.ty.val,
+            &format!("self.{}", field.val.name),
+        )?;
+    }
     Ok(())
 }
 
