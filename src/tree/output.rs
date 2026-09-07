@@ -345,9 +345,9 @@ impl OutputNode {
 
     pub async fn before_latch(&self, present: u64) {
         let mut res = BeforeLatchResult::None;
-        for listener in self.before_latch_event.iter() {
+        self.before_latch_event.for_each(|listener| {
             res |= listener.before_latch(present);
-        }
+        });
         if res == BeforeLatchResult::Yield {
             self.state.eng.yield_now().await;
         }
@@ -355,15 +355,15 @@ impl OutputNode {
 
     pub fn latched(&self, tearing: bool) {
         self.schedule.latched();
-        for listener in self.latch_event.iter() {
+        self.latch_event.for_each(|listener| {
             listener.after_latch(self, tearing);
-        }
+        });
     }
 
     pub fn vblank(&self) {
-        for listener in self.vblank_event.iter() {
+        self.vblank_event.for_each(|listener| {
             listener.after_vblank();
-        }
+        });
         if self.global.connector.needs_vblank_emulation.get() {
             if self.vblank_event.has_listeners() {
                 self.global.connector.damage();
@@ -386,9 +386,9 @@ impl OutputNode {
         vrr: bool,
         locked: bool,
     ) {
-        for listener in self.presentation_event.iter() {
+        self.presentation_event.for_each(|listener| {
             listener.presented(self, tv_sec, tv_nsec, refresh, seq, flags, vrr);
-        }
+        });
         if locked && let Some(lock) = self.state.lock.lock.get() {
             lock.check_locked()
         }

@@ -921,9 +921,9 @@ impl State {
                 }
             }
             self.visit_all_nodes(&mut Walker);
-            for listener in self.gfx_ctx_changed.iter() {
+            self.gfx_ctx_changed.for_each(|listener| {
                 listener.handle_gfx_context_change();
-            }
+            });
             for client in self.clients.clients.borrow_mut().values() {
                 for surface in client.data.objects.surfaces.lock().values() {
                     let had_shm_texture = surface.reset_shm_textures();

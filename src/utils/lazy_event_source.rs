@@ -9,9 +9,9 @@ pub async fn handle_lazy_event_sources(state: Rc<State>) {
     loop {
         let source = state.lazy_event_sources.queue.pop().await;
         source.queued.set(false);
-        for listener in source.listeners.iter() {
+        source.listeners.for_each(|listener| {
             listener.triggered();
-        }
+        });
     }
 }
 

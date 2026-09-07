@@ -692,9 +692,9 @@ pub async fn flush_toplevel_sessions(state: Rc<State>) {
             on_attached.triggered().await;
             continue;
         }
-        for tl in sm.updated_toplevels.iter() {
+        sm.updated_toplevels.for_each(|tl| {
             tl.schedule_job(true);
-        }
+        });
         const FIVE_SECONDS_NS: u64 = Duration::from_secs(5).as_nanos() as u64;
         let res = state.ring.timeout(state.now_nsec() + FIVE_SECONDS_NS).await;
         if let Err(e) = res {

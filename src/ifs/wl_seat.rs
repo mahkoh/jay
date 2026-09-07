@@ -768,9 +768,9 @@ impl WlSeatGlobal {
     }
 
     fn dispatch_seat_leds_listeners(&self, leds: Leds) {
-        for listener in self.modifiers_forward.iter() {
+        self.modifiers_forward.for_each(|listener| {
             listener.leds(leds);
-        }
+        });
     }
 
     pub fn prepare_for_lock(self: &Rc<Self>) {
