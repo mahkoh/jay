@@ -49,13 +49,7 @@ impl JaySelectToplevel {
         let jtl = match tl {
             None => None,
             Some(toplevel) => {
-                let id = match self.client.new_id(self) {
-                    Ok(id) => id,
-                    Err(e) => {
-                        self.client.error(e);
-                        return;
-                    }
-                };
+                let id = self.client.new_id(self);
                 let jtl = Rc::new(JayToplevel {
                     id,
                     client: self.client.clone(),

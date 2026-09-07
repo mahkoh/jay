@@ -94,7 +94,6 @@ use crate::tree::WorkspaceOutputLink;
 use crate::tree::WorkspaceType;
 use crate::tree::walker::NodeVisitor;
 use crate::utils::asyncevent::AsyncEvent;
-use crate::utils::bhash::BHashMap;
 use crate::utils::bitflags::BitflagsExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
@@ -1127,14 +1126,8 @@ impl OutputNode {
         if self.node_state[LiveTL].workspace.is_none() {
             self.show_workspace(&ws);
         }
-        let mut clients_to_kill = BHashMap::default();
         for watcher in self.state.workspace_watchers.lock().values() {
-            if let Err(e) = watcher.send_workspace(&ws) {
-                clients_to_kill.insert(watcher.client.id, (watcher.client.clone(), e));
-            }
-        }
-        for (client, e) in clients_to_kill.values() {
-            client.error(e);
+            watcher.send_workspace(&ws);
         }
         self.state.workspace_managers.announce_workspace(self, &ws);
         self.schedule_update_render_data();

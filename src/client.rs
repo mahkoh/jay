@@ -1,5 +1,6 @@
 use crate::async_engine::SpawnedFuture;
 use crate::client::error::LookupError;
+use crate::client::objects::FIRST_INVALID_ID;
 use crate::client::objects::Objects;
 use crate::criteria::CritDestroyListener;
 use crate::criteria::CritMatcherId;
@@ -216,6 +217,7 @@ impl Clients {
             checking_queue_size: Cell::new(false),
             socket,
             objects: Objects::new(),
+            invalid_ids: NumCell::new(FIRST_INVALID_ID),
             swapchain: Default::default(),
             flush_request: Default::default(),
             shutdown: Default::default(),
@@ -374,6 +376,7 @@ pub struct Client {
     checking_queue_size: Cell<bool>,
     socket: Rc<OwnedFd>,
     pub objects: Objects,
+    invalid_ids: NumCell<u64>,
     swapchain: Rc<RefCell<OutBufferSwapchain>>,
     flush_request: AsyncEvent,
     shutdown: AsyncEvent,
@@ -465,19 +468,25 @@ impl Client {
         PendingSerial::new(self)
     }
 
-    pub fn new_id<T: From<ObjectId>>(&self, parent: &impl Object) -> Result<T, ClientError> {
-        self.new_id3(parent.id())
+    pub fn new_id<T: From<ObjectId>>(&self, parent: &impl Object) -> T {
+        self.new_id3(parent.id()).into()
     }
 
-    pub fn new_id2<T: From<ObjectId>>(
-        &self,
-        parent: impl Into<ObjectId>,
-    ) -> Result<T, ClientError> {
-        self.new_id3(parent.into())
+    pub fn new_id2<T: From<ObjectId>>(&self, parent: impl Into<ObjectId>) -> T {
+        self.new_id3(parent.into()).into()
     }
 
-    fn new_id3<T: From<ObjectId>>(&self, parent: ObjectId) -> Result<T, ClientError> {
-        self.objects.id(self, parent).map(|v| v.into())
+    fn new_id3(&self, parent: ObjectId) -> ObjectId {
+        match self.objects.id(self, parent) {
+            Ok(id) => id,
+            Err(e) => {
+                let id = self.invalid_ids.fetch_sub(1);
+                if id == FIRST_INVALID_ID {
+                    self.error(e);
+                }
+                ObjectId::from_raw(id)
+            }
+        }
     }
 
     pub fn display(&self) -> Result<Rc<WlDisplay>, ClientError> {

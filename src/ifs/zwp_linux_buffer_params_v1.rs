@@ -100,7 +100,7 @@ impl ZwpLinuxBufferParamsV1 {
         let dmabuf = DmaBuf::new(&state.dma_buf_ids, width, height, format, modifier, dplanes);
         let get_id = || match buffer_id {
             None => self.parent.client.new_id(self),
-            Some(i) => Ok(i),
+            Some(i) => i,
         };
         let buffer = if let Some(ctx) = state.render_ctx.get()
             && let Some(format) = ctx.formats().get(&dmabuf.format.drm)
@@ -119,7 +119,7 @@ impl ZwpLinuxBufferParamsV1 {
             .map(Rc::new)
             .map_err(ZwpLinuxBufferParamsV1Error::CreateClientMem)?;
             WlBuffer::new_shm(
-                get_id()?,
+                get_id(),
                 &self.parent.client,
                 p.offset as usize,
                 dmabuf.width,
@@ -132,7 +132,7 @@ impl ZwpLinuxBufferParamsV1 {
             )?
         } else {
             WlBuffer::new_dmabuf(
-                get_id()?,
+                get_id(),
                 &self.parent.client,
                 format,
                 dmabuf,

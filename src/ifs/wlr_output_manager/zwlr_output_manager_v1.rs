@@ -131,13 +131,7 @@ impl ZwlrOutputManagerV1RequestHandler for ZwlrOutputManagerV1 {
 
 impl ZwlrOutputManagerV1 {
     pub fn announce_head(self: &Rc<Self>, output: &Rc<OutputData>) {
-        let id = match self.client.new_id(&**self) {
-            Ok(id) => id,
-            Err(e) => {
-                self.client.error(e);
-                return;
-            }
-        };
+        let id = self.client.new_id(&**self);
         let mi = &output.monitor_info;
         let state_mode = output.connector.state.borrow().mode;
         let head_id = self.client.state.wlr_output_managers.head_ids.next();
@@ -158,9 +152,7 @@ impl ZwlrOutputManagerV1 {
             if current {
                 have_current = true;
             }
-            let Some(output_mode) = self.create_mode(id, head_id, mode, idx == 0, current) else {
-                return;
-            };
+            let output_mode = self.create_mode(id, head_id, mode, idx == 0, current);
             modes_list.push(output_mode.clone());
             modes.set(*mode, output_mode);
         }
@@ -249,14 +241,8 @@ impl ZwlrOutputManagerV1 {
         mode: &Mode,
         preferred: bool,
         initial_current: bool,
-    ) -> Option<Rc<ZwlrOutputModeV1>> {
-        let id = match self.client.new_id2(parent_id) {
-            Ok(id) => id,
-            Err(e) => {
-                self.client.error(e);
-                return None;
-            }
-        };
+    ) -> Rc<ZwlrOutputModeV1> {
+        let id = self.client.new_id2(parent_id);
         let output_mode = Rc::new(ZwlrOutputModeV1 {
             id,
             head_id,
@@ -270,7 +256,7 @@ impl ZwlrOutputManagerV1 {
         });
         track!(self.client, output_mode);
         self.client.add_server_obj(&output_mode);
-        Some(output_mode)
+        output_mode
     }
 }
 

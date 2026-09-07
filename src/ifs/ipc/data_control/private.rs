@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::client::ClientId;
 use crate::client::WaylandObject;
 use crate::client::WaylandObjectLookup;
@@ -203,7 +202,7 @@ impl<T: DataControlLocationIpc> IpcVtable for DataControlIpcImpl<T> {
     fn create_offer(
         device: &Rc<Self::Device>,
         offer_data: OfferData<Self::Device>,
-    ) -> Result<Rc<Self::Offer>, ClientError> {
+    ) -> Rc<Self::Offer> {
         let data = device.data();
         let offer = DataControlOfferData {
             offer_id: data.client.state.data_offer_ids.next(),
@@ -212,9 +211,9 @@ impl<T: DataControlLocationIpc> IpcVtable for DataControlIpcImpl<T> {
             data: offer_data,
             location: T::LOCATION,
         };
-        let rc = T::Ipc::create_offer(data.client.new_id(&**device)?, offer);
+        let rc = T::Ipc::create_offer(data.client.new_id(&**device), offer);
         data.client.add_server_obj(&rc);
-        Ok(rc)
+        rc
     }
 
     fn send_selection(dd: &Self::Device, offer: Option<&Rc<Self::Offer>>) {
@@ -227,10 +226,6 @@ impl<T: DataControlLocationIpc> IpcVtable for DataControlIpcImpl<T> {
 
     fn unset(seat: &Rc<WlSeatGlobal>, _role: Role) {
         T::loc_unset(seat)
-    }
-
-    fn device_client(dd: &Rc<Self::Device>) -> &Rc<Client> {
-        &dd.data().client
     }
 }
 

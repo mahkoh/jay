@@ -37,13 +37,7 @@ impl ZwpTabletSeatV2 {
     }
 
     pub fn announce_tablet(self: &Rc<Self>, tablet: &Rc<Tablet>) {
-        let id = match self.client.new_id(&**self) {
-            Ok(id) => id,
-            Err(e) => {
-                self.client.error(e);
-                return;
-            }
-        };
+        let id = self.client.new_id(&**self);
         let obj = Rc::new(ZwpTabletV2 {
             id,
             client: self.client.clone(),
@@ -68,13 +62,7 @@ impl ZwpTabletSeatV2 {
     }
 
     pub fn announce_tool(self: &Rc<Self>, tool: &Rc<TabletTool>) {
-        let id = match self.client.new_id(&**self) {
-            Ok(id) => id,
-            Err(e) => {
-                self.client.error(e);
-                return;
-            }
-        };
+        let id = self.client.new_id(&**self);
         let obj = Rc::new(ZwpTabletToolV2 {
             id,
             client: self.client.clone(),
@@ -98,19 +86,8 @@ impl ZwpTabletSeatV2 {
     }
 
     pub fn announce_pad(self: &Rc<Self>, pad: &Rc<TabletPad>) {
-        macro_rules! id {
-            () => {
-                match self.client.new_id(&**self) {
-                    Ok(id) => id,
-                    Err(e) => {
-                        self.client.error(e);
-                        return;
-                    }
-                }
-            };
-        }
         let obj = Rc::new(ZwpTabletPadV2 {
-            id: id!(),
+            id: self.client.new_id(&**self),
             client: self.client.clone(),
             seat: self.clone(),
             tracker: Default::default(),
@@ -125,7 +102,7 @@ impl ZwpTabletSeatV2 {
         obj.send_buttons(pad.buttons);
         for group in &pad.groups {
             let group_obj = Rc::new(ZwpTabletPadGroupV2 {
-                id: id!(),
+                id: self.client.new_id(&*obj),
                 client: self.client.clone(),
                 seat: self.clone(),
                 tracker: Default::default(),
@@ -142,7 +119,7 @@ impl ZwpTabletSeatV2 {
                     continue;
                 };
                 let ring_obj = Rc::new(ZwpTabletPadRingV2 {
-                    id: id!(),
+                    id: self.client.new_id(&*group_obj),
                     client: self.client.clone(),
                     seat: self.clone(),
                     tracker: Default::default(),
@@ -159,7 +136,7 @@ impl ZwpTabletSeatV2 {
                     continue;
                 };
                 let strip_obj = Rc::new(ZwpTabletPadStripV2 {
-                    id: id!(),
+                    id: self.client.new_id(&*group_obj),
                     client: self.client.clone(),
                     seat: self.clone(),
                     tracker: Default::default(),
@@ -177,7 +154,7 @@ impl ZwpTabletSeatV2 {
                         continue;
                     };
                     let dial_obj = Rc::new(ZwpTabletPadDialV2 {
-                        id: id!(),
+                        id: self.client.new_id(&*group_obj),
                         client: self.client.clone(),
                         seat: self.clone(),
                         tracker: Default::default(),

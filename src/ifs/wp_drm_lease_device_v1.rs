@@ -109,13 +109,7 @@ impl WpDrmLeaseDeviceV1 {
     }
 
     pub fn create_connector(self: &Rc<Self>, output: &Rc<OutputData>) {
-        let id = match self.client.new_id(&**self) {
-            Ok(i) => i,
-            Err(e) => {
-                self.client.error(e);
-                return;
-            }
-        };
+        let id = self.client.new_id(&**self);
         let obj = Rc::new(WpDrmLeaseConnectorV1 {
             id,
             client: self.client.clone(),

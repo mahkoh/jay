@@ -103,14 +103,8 @@ impl ZwlrForeignToplevelManagerV1 {
         });
     }
 
-    pub fn publish_toplevel(&self, tl: ToplevelOpt) -> Option<Rc<ZwlrForeignToplevelHandleV1>> {
-        let id = match self.client.new_id(self) {
-            Ok(id) => id,
-            Err(e) => {
-                self.client.error(e);
-                return None;
-            }
-        };
+    pub fn publish_toplevel(&self, tl: ToplevelOpt) -> Rc<ZwlrForeignToplevelHandleV1> {
+        let id = self.client.new_id(self);
         let handle = Rc::new(ZwlrForeignToplevelHandleV1 {
             id,
             client: self.client.clone(),
@@ -122,7 +116,7 @@ impl ZwlrForeignToplevelManagerV1 {
         track!(self.client, handle);
         self.client.add_server_obj(&handle);
         self.send_handle(&handle);
-        Some(handle)
+        handle
     }
 }
 
