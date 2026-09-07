@@ -43,6 +43,7 @@ use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::tree::WorkspaceChangeReason;
+use crate::tree::WorkspaceEventListener;
 use crate::tree::WorkspaceNode;
 use crate::tree::WorkspaceType;
 use crate::tree::toplevel_set_floating;
@@ -53,6 +54,7 @@ use crate::utils::clamp_ext::ClampExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::double_click_state::DoubleClickState;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::event_listener::EventListener;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::on_drop_event::OnDropEvent;
 use crate::utils::smallmap::SmallMap;
@@ -87,6 +89,7 @@ pub struct FloatNode {
     pub needs_initial_size: Cell<bool>,
     cursors: RefCell<BHashMap<CursorType, CursorState>>,
     transaction_data: TransactionData<FloatTransactionOp>,
+    workspace_listener: EventListener<dyn WorkspaceEventListener>,
 }
 
 #[derive(Derivative)]
@@ -175,7 +178,7 @@ impl FloatNode {
         child: Rc<dyn ToplevelNode>,
     ) -> Rc<Self> {
         let output = ws.node_state[LiveTL].output.get();
-        let floater = Rc::new(FloatNode {
+        let floater = Rc::<FloatNode>::new_cyclic(|slf| FloatNode {
             id: state.node_ids.next(),
             state: state.clone(),
             node_state: Default::default(),
@@ -194,6 +197,7 @@ impl FloatNode {
             needs_initial_size: Cell::new(output.is_dummy),
             cursors: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
+            workspace_listener: EventListener::attached(slf.clone(), &ws.listeners),
         });
         let theme = &state.theme;
         let bw = theme.sizes.border_width.get(LiveTL);
@@ -513,6 +517,7 @@ impl FloatNode {
         self.workspace_link
             .set(Some(ws.stacked.add_last(self.clone())));
         self.workspace.set(ws.clone());
+        self.workspace_listener.attach(&ws.listeners);
         if ns.workspace_ty.get() != ws.ty {
             self.set_ns_workspace_type(ws.ty);
             self.display_link
@@ -532,12 +537,6 @@ impl FloatNode {
                 .get()
                 .pinned
                 .add_last_existing(pl);
-        }
-    }
-
-    pub fn after_ws_move(self: &Rc<Self>, output: &Rc<OutputNode>) {
-        if let Some(pinned) = &*self.pinned_link.borrow() {
-            output.pinned.add_last_existing(pinned);
         }
     }
 
@@ -1243,6 +1242,21 @@ impl StackedNode for FloatNode {
 impl PinnedNode for FloatNode {
     fn set_workspace(self: Rc<Self>, workspace: &Rc<WorkspaceNode>, update_visible: bool) {
         self.set_workspace_(workspace, false, update_visible);
+    }
+}
+
+impl WorkspaceEventListener for FloatNode {
+    fn output_changed(
+        self: Rc<Self>,
+        ws: &Rc<WorkspaceNode>,
+        _old: &Rc<OutputNode>,
+        new: &Rc<OutputNode>,
+    ) {
+        if ws.ty == WorkspaceType::Normal
+            && let Some(pinned) = &*self.pinned_link.borrow()
+        {
+            new.pinned.add_last_existing(pinned);
+        }
     }
 }
 

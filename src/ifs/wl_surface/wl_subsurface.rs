@@ -3,6 +3,7 @@ use crate::client::ClientError;
 use crate::ifs::wl_surface::AttachedSubsurfaceState;
 use crate::ifs::wl_surface::CommitAction;
 use crate::ifs::wl_surface::PendingState;
+use crate::ifs::wl_surface::SetLocationReason;
 use crate::ifs::wl_surface::StackElement;
 use crate::ifs::wl_surface::SurfaceExt;
 use crate::ifs::wl_surface::SurfaceRole;
@@ -214,6 +215,7 @@ impl WlSubsurface {
         self.surface.set_location(
             &self.parent.output.get(),
             self.parent.workspace.get().as_ref(),
+            SetLocationReason::Other,
         );
         self.surface
             .mark_fullscreen(self.parent.fullscreen.get().as_ref());

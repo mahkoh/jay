@@ -134,6 +134,7 @@ use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::tree::VblankListener;
+use crate::tree::WorkspaceEventListener;
 use crate::tree::WorkspaceNode;
 use crate::utils::bhash::BHashMap;
 use crate::utils::box_cache::BoxCache;
@@ -362,6 +363,7 @@ pub struct WlSurface {
     pub unmap_scheduled: Cell<bool>,
     workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     output_listener: EventListener<dyn OutputEventListener>,
+    workspace_listener: EventListener<dyn WorkspaceEventListener>,
 }
 
 impl Debug for WlSurface {
@@ -667,6 +669,28 @@ pub struct StackElement {
     pub sub_surface: Rc<WlSubsurface>,
 }
 
+#[derive(Copy, Clone, PartialEq)]
+enum SetLocationReason {
+    WorkspaceOutputChange,
+    Other,
+}
+
+impl SetLocationReason {
+    fn maybe_different_workspace(self) -> bool {
+        match self {
+            SetLocationReason::WorkspaceOutputChange => false,
+            SetLocationReason::Other => true,
+        }
+    }
+
+    fn recurse_subsurfaces(self) -> bool {
+        match self {
+            SetLocationReason::WorkspaceOutputChange => false,
+            SetLocationReason::Other => true,
+        }
+    }
+}
+
 impl WlSurface {
     pub fn new(id: WlSurfaceId, client: &Rc<Client>, version: Version, slf: &Weak<Self>) -> Self {
         let state = &client.state;
@@ -756,6 +780,7 @@ impl WlSurface {
             unmap_scheduled: Default::default(),
             workspace: Default::default(),
             output_listener: EventListener::new(slf.clone()),
+            workspace_listener: EventListener::new(slf.clone()),
         }
     }
 
@@ -778,7 +803,7 @@ impl WlSurface {
 
     pub fn set_workspace(&self, ws: &Rc<WorkspaceNode>) {
         let output = ws.node_state[LiveTL].output.get();
-        self.set_location(&output, Some(ws));
+        self.set_location(&output, Some(ws), SetLocationReason::Other);
     }
 
     pub fn get_output(&self) -> Rc<OutputNode> {
@@ -786,10 +811,15 @@ impl WlSurface {
     }
 
     pub fn set_output_without_workspace(&self, output: &Rc<OutputNode>) {
-        self.set_location(output, None);
+        self.set_location(output, None, SetLocationReason::Other);
     }
 
-    fn set_location(&self, output: &Rc<OutputNode>, workspace: Option<&Rc<WorkspaceNode>>) {
+    fn set_location(
+        &self,
+        output: &Rc<OutputNode>,
+        workspace: Option<&Rc<WorkspaceNode>>,
+        reason: SetLocationReason,
+    ) {
         let location = match workspace {
             None => NodeLocation::Output(output.id),
             Some(ws) => NodeLocation::Workspace(output.id, ws.id),
@@ -797,7 +827,13 @@ impl WlSurface {
         if self.location.replace(location) == location {
             return;
         }
-        self.workspace.set(workspace.cloned());
+        if reason.maybe_different_workspace() {
+            self.workspace.set(workspace.cloned());
+            match workspace {
+                None => self.workspace_listener.detach(),
+                Some(ws) => self.workspace_listener.attach(&ws.listeners),
+            }
+        }
         let old = self.output.set(output.clone());
         if old.id != output.id {
             self.output_listener
@@ -824,10 +860,12 @@ impl WlSurface {
                 }
             }
         }
-        let children = self.children.borrow_mut();
-        if let Some(children) = &*children {
-            for ss in children.subsurfaces.values() {
-                ss.surface.set_location(output, workspace);
+        if reason.recurse_subsurfaces() {
+            let children = self.children.borrow_mut();
+            if let Some(children) = &*children {
+                for ss in children.subsurfaces.values() {
+                    ss.surface.set_location(output, workspace, reason);
+                }
             }
         }
     }
@@ -2571,6 +2609,17 @@ impl OutputEventListener for WlSurface {
 
     fn color_description_changed(self: Rc<Self>, _on: &Rc<OutputNode>) {
         self.send_preferred_color_description();
+    }
+}
+
+impl WorkspaceEventListener for WlSurface {
+    fn output_changed(
+        self: Rc<Self>,
+        ws: &Rc<WorkspaceNode>,
+        _old: &Rc<OutputNode>,
+        new: &Rc<OutputNode>,
+    ) {
+        self.set_location(new, Some(ws), SetLocationReason::WorkspaceOutputChange);
     }
 }
 

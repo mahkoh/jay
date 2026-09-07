@@ -50,6 +50,7 @@ use crate::tree::SplitView;
 use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
+use crate::tree::WorkspaceEventListener;
 use crate::tree::WorkspaceNode;
 use crate::tree::WorkspaceType;
 use crate::utils::array_to_tuple::ArrayToTuple;
@@ -195,6 +196,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         data.workspace_type[LiveTL].set(Some(ws.ty));
         let prev = data.workspace[LiveTL].set(Some(ws.clone()));
         data.schedule_op(ToplevelDataTransactionOp::SetWorkspace(Some(ws.clone())));
+        data.workspace_listener.attach(&ws.listeners);
         self.tl_set_workspace_ext(ws);
         self.tl_data().property_changed(TL_CHANGED_WORKSPACE);
         if let Some(session) = data.session.get() {
@@ -309,7 +311,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
     }
 }
 
-pub trait ToplevelNodeBase: OutputEventListener + Node {
+pub trait ToplevelNodeBase: OutputEventListener + WorkspaceEventListener + Node {
     fn tl_data(&self) -> &ToplevelData;
 
     fn tl_accepts_keyboard_focus(&self) -> bool {
@@ -489,6 +491,7 @@ pub struct ToplevelData {
     pub is_root_container: SplitView<Cell<bool>>,
     pub is_overlay_root_container: Cell<bool>,
     pub output_listener: EventListener<dyn OutputEventListener>,
+    pub workspace_listener: EventListener<dyn WorkspaceEventListener>,
 }
 
 impl ToplevelData {
@@ -562,6 +565,7 @@ impl ToplevelData {
             is_root_container: Default::default(),
             is_overlay_root_container: Default::default(),
             output_listener: EventListener::new(slf.clone()),
+            workspace_listener: EventListener::new(slf.clone()),
         }
     }
 
@@ -700,6 +704,7 @@ impl ToplevelData {
         self.workspace_type[LiveTL].take();
         self.schedule_op(ToplevelDataTransactionOp::SetWorkspace(None));
         self.output_listener.detach();
+        self.workspace_listener.detach();
         self.seat_state.destroy_node(node);
         self.is_overlay_root_container.set(false);
         self.set_is_root_container(false);
@@ -1125,6 +1130,7 @@ impl ToplevelData {
     }
 
     pub fn workspace_output_changed(&self, prev: &Rc<OutputNode>, new: &Rc<OutputNode>) {
+        self.output_listener.attach(&new.global.connector.listeners);
         for sc in self.jay_screencasts.lock().values() {
             sc.update_latch_listener();
         }

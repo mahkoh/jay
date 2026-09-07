@@ -54,6 +54,7 @@ use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::tree::WorkspaceChangeReason;
+use crate::tree::WorkspaceEventListener;
 use crate::tree::WorkspaceNode;
 use crate::tree::default_tile_drag_bounds;
 use crate::tree::toplevel_set_floating;
@@ -2840,6 +2841,17 @@ impl ToplevelNodeBase for ContainerNode {
 impl OutputEventListener for ContainerNode {
     fn scale_changed(self: Rc<Self>, _on: &Rc<OutputNode>, _scale: Scale) {
         self.toplevel_data.scale_changed();
+    }
+}
+
+impl WorkspaceEventListener for ContainerNode {
+    fn output_changed(
+        self: Rc<Self>,
+        _ws: &Rc<WorkspaceNode>,
+        old: &Rc<OutputNode>,
+        new: &Rc<OutputNode>,
+    ) {
+        self.toplevel_data.workspace_output_changed(old, new);
     }
 }
 

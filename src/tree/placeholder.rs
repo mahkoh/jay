@@ -32,6 +32,7 @@ use crate::tree::ToplevelType;
 use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
+use crate::tree::WorkspaceEventListener;
 use crate::tree::WorkspaceNode;
 use crate::tree::default_tile_drag_destination;
 use crate::utils::asyncevent::AsyncEvent;
@@ -316,6 +317,17 @@ impl ToplevelNodeBase for PlaceholderNode {
 impl OutputEventListener for PlaceholderNode {
     fn scale_changed(self: Rc<Self>, _on: &Rc<OutputNode>, _scale: Scale) {
         self.toplevel.scale_changed();
+    }
+}
+
+impl WorkspaceEventListener for PlaceholderNode {
+    fn output_changed(
+        self: Rc<Self>,
+        _ws: &Rc<WorkspaceNode>,
+        old: &Rc<OutputNode>,
+        new: &Rc<OutputNode>,
+    ) {
+        self.toplevel.workspace_output_changed(old, new);
     }
 }
 

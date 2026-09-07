@@ -39,6 +39,7 @@ use crate::tree::ToplevelNodeBase;
 use crate::tree::ToplevelType;
 use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::WorkspaceEventListener;
 use crate::tree::WorkspaceNode;
 use crate::tree::WorkspaceType;
 use crate::tree::default_tile_drag_destination;
@@ -586,6 +587,17 @@ impl ToplevelNodeBase for Xwindow {
 impl OutputEventListener for Xwindow {
     fn scale_changed(self: Rc<Self>, _on: &Rc<OutputNode>, _scale: Scale) {
         self.toplevel_data.scale_changed();
+    }
+}
+
+impl WorkspaceEventListener for Xwindow {
+    fn output_changed(
+        self: Rc<Self>,
+        _ws: &Rc<WorkspaceNode>,
+        old: &Rc<OutputNode>,
+        new: &Rc<OutputNode>,
+    ) {
+        self.toplevel_data.workspace_output_changed(old, new);
     }
 }
 
