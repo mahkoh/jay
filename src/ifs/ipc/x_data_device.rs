@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::ipc::DeviceData;
 use crate::ifs::ipc::IpcLocation;
 use crate::ifs::ipc::IpcVtable;
@@ -75,10 +74,7 @@ impl<T: XIpc> IpcVtable for T {
         dd.seat.clone()
     }
 
-    fn create_offer(
-        dd: &Rc<Self::Device>,
-        data: OfferData<Self::Device>,
-    ) -> Result<Rc<Self::Offer>, ClientError> {
+    fn create_offer(dd: &Rc<Self::Device>, data: OfferData<Self::Device>) -> Rc<Self::Offer> {
         debug_assert!(dd.client.is_xwayland);
         let rc = Rc::new(XDataOffer {
             offer_id: dd.state.data_offer_ids.next(),
@@ -88,7 +84,7 @@ impl<T: XIpc> IpcVtable for T {
             location: T::LOCATION,
         });
         track!(dd.client, rc);
-        Ok(rc)
+        rc
     }
 
     fn send_selection(dd: &Self::Device, offer: Option<&Rc<Self::Offer>>) {
@@ -112,9 +108,5 @@ impl<T: XIpc> IpcVtable for T {
 
     fn unset(seat: &Rc<WlSeatGlobal>, _role: Role) {
         T::x_unset(seat)
-    }
-
-    fn device_client(dd: &Rc<Self::Device>) -> &Rc<Client> {
-        &dd.client
     }
 }

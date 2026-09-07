@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::client::ClientId;
 use crate::fixed::Fixed;
 use crate::ifs::ipc::x_data_device::XIpcDevice;
@@ -136,14 +135,10 @@ pub trait IpcVtable: Sized {
 
     fn get_device_data(dd: &Self::Device) -> &DeviceData<Self::Offer>;
     fn get_device_seat(dd: &Self::Device) -> Rc<WlSeatGlobal>;
-    fn create_offer(
-        dd: &Rc<Self::Device>,
-        data: OfferData<Self::Device>,
-    ) -> Result<Rc<Self::Offer>, ClientError>;
+    fn create_offer(dd: &Rc<Self::Device>, data: OfferData<Self::Device>) -> Rc<Self::Offer>;
     fn send_selection(dd: &Self::Device, offer: Option<&Rc<Self::Offer>>);
     fn send_offer(dd: &Self::Device, offer: &Rc<Self::Offer>);
     fn unset(seat: &Rc<WlSeatGlobal>, role: Role);
-    fn device_client(dd: &Rc<Self::Device>) -> &Rc<Client>;
 }
 
 #[derive(Derivative)]
@@ -295,13 +290,7 @@ fn offer_source_to_device<T: IpcVtable>(
         source: CloneCell::new(Some(src.clone())),
         shared: shared.clone(),
     };
-    let offer = match T::create_offer(dd, offer_data) {
-        Ok(o) => o,
-        Err(e) => {
-            T::device_client(dd).error(e);
-            return;
-        }
-    };
+    let offer = T::create_offer(dd, offer_data);
     data.offers.insert(offer.offer_id(), offer.clone());
     let mt = data.mime_types.borrow_mut();
     T::send_offer(dd, &offer);

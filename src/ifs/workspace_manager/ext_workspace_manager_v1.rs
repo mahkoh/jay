@@ -90,13 +90,7 @@ impl ExtWorkspaceManagerV1Global {
 
 impl ExtWorkspaceManagerV1 {
     pub(super) fn announce_output(&self, node: &OutputNode) {
-        let id = match self.client.new_id(self) {
-            Ok(id) => id,
-            Err(e) => {
-                self.client.error(e);
-                return;
-            }
-        };
+        let id = self.client.new_id(self);
         let group = Rc::new(ExtWorkspaceGroupHandleV1 {
             id,
             client: self.client.clone(),
@@ -130,13 +124,7 @@ impl ExtWorkspaceManagerV1 {
     }
 
     pub(super) fn announce_workspace(&self, output: &OutputNode, workspace: &WorkspaceNode) {
-        let id = match self.client.new_id(self) {
-            Ok(id) => id,
-            Err(e) => {
-                self.client.error(e);
-                return;
-            }
-        };
+        let id = self.client.new_id(self);
         let group = output.ext_workspace_groups.get(&self.manager_id);
         let ws = Rc::new(ExtWorkspaceHandleV1 {
             id,

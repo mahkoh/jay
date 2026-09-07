@@ -18,9 +18,9 @@ pub struct JayWorkspaceWatcher {
 }
 
 impl JayWorkspaceWatcher {
-    pub fn send_workspace(&self, workspace: &Rc<WorkspaceNode>) -> Result<(), ClientError> {
+    pub fn send_workspace(&self, workspace: &Rc<WorkspaceNode>) {
         let jw = Rc::new(JayWorkspace {
-            id: self.client.new_id(self)?,
+            id: self.client.new_id(self),
             client: self.client.clone(),
             workspace: CloneCell::new(Some(workspace.clone())),
             tracker: Default::default(),
@@ -36,7 +36,6 @@ impl JayWorkspaceWatcher {
             linear_id: workspace.id.raw(),
         });
         jw.send_initial_properties(workspace);
-        Ok(())
     }
 
     fn remove_from_state(&self) {

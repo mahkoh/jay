@@ -43,13 +43,7 @@ impl Drop for JayWorkspaceSelector {
                 self.jsw.send_cancelled();
             }
             Some(ws) => {
-                let id = match self.jsw.client.new_id(&*self.jsw) {
-                    Ok(id) => id,
-                    Err(e) => {
-                        self.jsw.client.error(e);
-                        return;
-                    }
-                };
+                let id = self.jsw.client.new_id(&*self.jsw);
                 let jw = Rc::new(JayWorkspace {
                     id,
                     client: self.jsw.client.clone(),

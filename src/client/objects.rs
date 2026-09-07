@@ -137,6 +137,8 @@ pub struct Objects {
 }
 
 pub const MIN_SERVER_ID: u64 = 0xff000000;
+pub const FIRST_SYNTHETIC_ID: u64 = u32::MAX as u64 + 1;
+pub const FIRST_INVALID_ID: u64 = !0;
 const SEG_SIZE: usize = usize::BITS as usize;
 
 impl Objects {
@@ -285,6 +287,9 @@ impl Objects {
             Some(o) => o,
             _ => return Err(ClientError::UnknownId),
         };
+        if id.raw() >= FIRST_SYNTHETIC_ID {
+            return Ok(());
+        }
         let mut send_delete = true;
         if id.raw() >= MIN_SERVER_ID {
             let offset = (id.raw() - MIN_SERVER_ID) as usize;

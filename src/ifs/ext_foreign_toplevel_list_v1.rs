@@ -107,14 +107,8 @@ impl ExtForeignToplevelListV1 {
         });
     }
 
-    pub fn publish_toplevel(&self, tl: ToplevelOpt) -> Option<Rc<ExtForeignToplevelHandleV1>> {
-        let id: ExtForeignToplevelHandleV1Id = match self.client.new_id(self) {
-            Ok(i) => i,
-            Err(e) => {
-                self.client.error(e);
-                return None;
-            }
-        };
+    pub fn publish_toplevel(&self, tl: ToplevelOpt) -> Rc<ExtForeignToplevelHandleV1> {
+        let id: ExtForeignToplevelHandleV1Id = self.client.new_id(self);
         let handle = Rc::new(ExtForeignToplevelHandleV1 {
             id,
             client: self.client.clone(),
@@ -125,7 +119,7 @@ impl ExtForeignToplevelListV1 {
         track!(self.client, handle);
         self.client.add_server_obj(&handle);
         self.send_handle(&handle);
-        Some(handle)
+        handle
     }
 }
 

@@ -124,9 +124,9 @@ impl IpcVtable for PrimarySelectionIpc {
     fn create_offer(
         device: &Rc<ZwpPrimarySelectionDeviceV1>,
         offer_data: OfferData<Self::Device>,
-    ) -> Result<Rc<Self::Offer>, ClientError> {
+    ) -> Rc<Self::Offer> {
         let rc = Rc::new(ZwpPrimarySelectionOfferV1 {
-            id: device.client.new_id(&**device)?,
+            id: device.client.new_id(&**device),
             offer_id: device.client.state.data_offer_ids.next(),
             seat: device.seat.clone(),
             client: device.client.clone(),
@@ -136,7 +136,7 @@ impl IpcVtable for PrimarySelectionIpc {
         });
         track!(device.client, rc);
         device.client.add_server_obj(&rc);
-        Ok(rc)
+        rc
     }
 
     fn send_selection(dd: &Self::Device, offer: Option<&Rc<Self::Offer>>) {
@@ -149,10 +149,6 @@ impl IpcVtable for PrimarySelectionIpc {
 
     fn unset(seat: &Rc<WlSeatGlobal>, _role: Role) {
         seat.unset_primary_selection();
-    }
-
-    fn device_client(dd: &Rc<Self::Device>) -> &Rc<Client> {
-        &dd.client
     }
 }
 

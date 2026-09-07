@@ -181,9 +181,9 @@ impl IpcVtable for ClipboardIpc {
     fn create_offer(
         device: &Rc<WlDataDevice>,
         offer_data: OfferData<Self::Device>,
-    ) -> Result<Rc<Self::Offer>, ClientError> {
+    ) -> Rc<Self::Offer> {
         let rc = Rc::new(WlDataOffer {
-            id: device.client.new_id(&**device)?,
+            id: device.client.new_id(&**device),
             offer_id: device.client.state.data_offer_ids.next(),
             client: device.client.clone(),
             device: device.clone(),
@@ -192,7 +192,7 @@ impl IpcVtable for ClipboardIpc {
         });
         track!(device.client, rc);
         device.client.add_server_obj(&rc);
-        Ok(rc)
+        rc
     }
 
     fn send_selection(dd: &Self::Device, offer: Option<&Rc<Self::Offer>>) {
@@ -208,10 +208,6 @@ impl IpcVtable for ClipboardIpc {
             Role::Selection => seat.unset_selection(),
             Role::Dnd => seat.cancel_dnd(),
         }
-    }
-
-    fn device_client(dd: &Rc<Self::Device>) -> &Rc<Client> {
-        &dd.client
     }
 }
 

@@ -757,10 +757,7 @@ impl ToplevelData {
             toplevel: Rc::downgrade(toplevel),
             identifier: self.identifier.get(),
         };
-        let handle = match list.publish_toplevel(opt) {
-            None => return,
-            Some(handle) => handle,
-        };
+        let handle = list.publish_toplevel(opt);
         handle.send_identifier(id);
         handle.send_title(title);
         handle.send_app_id(app_id);
@@ -812,10 +809,7 @@ impl ToplevelData {
             toplevel: Rc::downgrade(toplevel),
             identifier: self.identifier.get(),
         };
-        let handle = match manager.publish_toplevel(opt) {
-            None => return,
-            Some(handle) => handle,
-        };
+        let handle = manager.publish_toplevel(opt);
         if !app_id.is_empty() {
             handle.send_app_id(app_id);
         }
