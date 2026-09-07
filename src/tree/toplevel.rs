@@ -508,15 +508,25 @@ pub struct ToplevelData {
 }
 
 impl ToplevelData {
-    pub fn new<T: ToplevelNode>(
+    pub fn new(
         state: &Rc<State>,
         title: String,
         client: Option<Rc<Client>>,
         kind: ToplevelType,
         node_id: impl Into<NodeId>,
-        slf: &Weak<T>,
+        slf: &Weak<impl ToplevelNode>,
     ) -> Self {
-        let node_id = node_id.into();
+        Self::new_(state, title, client, kind, node_id.into(), slf.clone())
+    }
+
+    fn new_(
+        state: &Rc<State>,
+        title: String,
+        client: Option<Rc<Client>>,
+        kind: ToplevelType,
+        node_id: NodeId,
+        slf: Weak<dyn ToplevelNode>,
+    ) -> Self {
         let id = toplevel_identifier();
         state.toplevels.set(id, slf.clone());
         Self {
