@@ -48,6 +48,7 @@ pub mod hash_map_ext;
 pub mod ioctl;
 pub mod jar_to_tar;
 pub mod keep_alive;
+pub mod lazy_event_source;
 pub mod line_logger;
 pub mod linkedlist;
 pub mod liveness;
