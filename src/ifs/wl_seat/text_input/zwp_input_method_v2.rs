@@ -12,7 +12,6 @@ use crate::keyboard::KeyboardStateId;
 use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::object::Version;
-use crate::tree::NodeLocation;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::numcell::NumCell;
 use crate::utils::smallmap::SmallMap;
@@ -108,9 +107,8 @@ impl InputMethod for ZwpInputMethodV2 {
         let output = con
             .map(|c| c.surface.get_output())
             .unwrap_or_else(|| self.client.state.dummy_output.get().unwrap());
-        let location = NodeLocation::Output(output.id);
         for (_, popup) in &self.popups {
-            popup.surface.set_output(&output, location);
+            popup.surface.set_output_without_workspace(&output);
         }
     }
 

@@ -219,8 +219,7 @@ impl ZwlrLayerSurfaceV1 {
         self.surface
             .set_ext(SurfaceRole::ZwlrLayerSurface, self.clone())?;
         if let Some(output) = self.output.node() {
-            self.surface
-                .set_output(&output, NodeLocation::Output(output.id));
+            self.surface.set_output_without_workspace(&output);
         }
         Ok(())
     }
@@ -836,7 +835,7 @@ impl XdgPopupParent for Popup {
         if surface.buffer.is_some() {
             if dl.link.is_none() {
                 if self.parent.surface.visible[LiveTL].get() {
-                    self.popup.xdg.set_output(&output);
+                    self.popup.xdg.set_output_without_workspace(&output);
                     dl.link = Some(dl.stack.stacked.add_last(self.popup.clone()));
                     state.tree_changed();
                     drop(dl);

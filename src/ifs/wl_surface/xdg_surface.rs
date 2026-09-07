@@ -28,7 +28,6 @@ use crate::tree::FoundNode;
 use crate::tree::Node;
 use crate::tree::NodeBase;
 use crate::tree::NodeLayerLink;
-use crate::tree::NodeLocation;
 use crate::tree::NodesStack;
 use crate::tree::NodesStackElement;
 use crate::tree::OutputNode;
@@ -368,20 +367,18 @@ impl XdgSurface {
                 }
             }
         }
-        self.surface
-            .set_output(&ws.node_state[LiveTL].output.get(), ws.location());
+        self.surface.set_workspace(ws);
         let pu = self.popups.lock();
         for pu in pu.values() {
             pu.popup.xdg.set_workspace(ws);
         }
     }
 
-    pub fn set_output(&self, output: &Rc<OutputNode>) {
-        self.surface
-            .set_output(output, NodeLocation::Output(output.id));
+    pub fn set_output_without_workspace(&self, output: &Rc<OutputNode>) {
+        self.surface.set_output_without_workspace(output);
         let pu = self.popups.lock();
         for pu in pu.values() {
-            pu.popup.xdg.set_output(output);
+            pu.popup.xdg.set_output_without_workspace(output);
         }
     }
 
@@ -572,7 +569,9 @@ impl XdgSurfaceRequestHandler for XdgSurface {
                 &parent.popup_display_stack.get(),
                 parent.popup_stack_type.get(),
             );
-            popup.xdg.set_output(&parent.surface.output.get());
+            popup
+                .xdg
+                .set_output_without_workspace(&parent.surface.output.get());
             parent.popups.set(req.id, user);
         }
         self.ext.set(Some(popup));

@@ -200,13 +200,13 @@ impl WorkspaceNode {
         self.update_has_captures();
         self.change_extents(&output.node_state[LiveTL].rects.workspace.get(), output);
         struct OutputSetter<'a> {
-            ws: &'a WorkspaceNode,
+            ws: &'a Rc<WorkspaceNode>,
             old: &'a Rc<OutputNode>,
             new: &'a Rc<OutputNode>,
         }
         impl NodeVisitorBase for OutputSetter<'_> {
             fn visit_surface(&mut self, node: &Rc<WlSurface>) {
-                node.set_output(self.new, self.ws.location());
+                node.set_workspace(self.ws);
             }
 
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {

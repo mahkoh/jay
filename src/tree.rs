@@ -334,7 +334,7 @@ pub enum FindTreeUsecase {
     SelectNormalWorkspace,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum NodeLocation {
     Workspace(OutputNodeId, WorkspaceNodeId),
     Output(OutputNodeId),

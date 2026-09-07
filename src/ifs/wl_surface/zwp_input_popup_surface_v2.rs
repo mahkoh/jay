@@ -11,7 +11,6 @@ use crate::object::Version;
 use crate::rect::Rect;
 use crate::state::State;
 use crate::tree::NodeLayerLink;
-use crate::tree::NodeLocation;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::tree::WorkspaceNode;
@@ -158,8 +157,7 @@ impl ZwpInputPopupSurfaceV2 {
         self.input_method.popups.insert(self.id, self.clone());
         if let Some(con) = self.input_method.connection.get() {
             let output = con.surface.output.get();
-            let location = NodeLocation::Output(output.id);
-            self.surface.set_output(&output, location);
+            self.surface.set_output_without_workspace(&output);
         }
         Ok(())
     }

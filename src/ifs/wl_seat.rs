@@ -1373,8 +1373,7 @@ impl WlSeatGlobal {
     ) -> Result<(), WlSeatError> {
         if let Some(icon) = &icon {
             let output = self.pointer_cursor.output();
-            icon.surface()
-                .set_output(&output, NodeLocation::Output(output.id));
+            icon.surface().set_output_without_workspace(&output);
         }
         self.pointer_owner
             .start_drag(self, origin, source, icon, serial)
@@ -1786,13 +1785,12 @@ impl WlSeatGlobal {
 impl CursorUserOwner for WlSeatGlobal {
     fn output_changed(&self, output: &Rc<OutputNode>) {
         if let Some(dnd) = self.pointer_owner.dnd_icon() {
-            dnd.surface()
-                .set_output(output, NodeLocation::Output(output.id));
+            dnd.surface().set_output_without_workspace(output);
         }
         if let Some(drag) = self.pointer_owner.toplevel_drag()
             && let Some(tl) = drag.toplevel.get()
         {
-            tl.xdg.set_output(output);
+            tl.xdg.set_output_without_workspace(output);
         }
     }
 

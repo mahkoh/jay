@@ -7,7 +7,6 @@ use crate::rect::Rect;
 use crate::renderer::Renderer;
 use crate::scale::Scale;
 use crate::tree::NodeBase;
-use crate::tree::NodeLocation;
 use crate::tree::NodeVisitorBase;
 use crate::tree::OutputNode;
 use std::cell::Cell;
@@ -123,8 +122,7 @@ impl Cursor for CursorSurface {
     }
 
     fn set_output(&self, output: &Rc<OutputNode>) {
-        self.surface
-            .set_output(output, NodeLocation::Output(output.id));
+        self.surface.set_output_without_workspace(output);
     }
 
     fn handle_set(self: Rc<Self>) {
