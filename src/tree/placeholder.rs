@@ -6,6 +6,7 @@ use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::rect::Rect;
 use crate::renderer::Renderer;
 use crate::scale::Scale;
+use crate::state::OutputEventListener;
 use crate::state::State;
 use crate::text::TextTexture;
 use crate::transactions::TransactionData;
@@ -309,6 +310,12 @@ impl ToplevelNodeBase for PlaceholderNode {
 
     fn tl_schedule_data_op(self: Rc<Self>, op: ToplevelDataTransactionOp) {
         self.add_transaction_op(PlaceholderTransactionOp::ToplevelData(op));
+    }
+}
+
+impl OutputEventListener for PlaceholderNode {
+    fn scale_changed(self: Rc<Self>, _on: &Rc<OutputNode>, _scale: Scale) {
+        self.toplevel.scale_changed();
     }
 }
 

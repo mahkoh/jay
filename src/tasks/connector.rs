@@ -85,7 +85,7 @@ pub fn handle(state: &Rc<State>, connector: &Rc<dyn Connector>) {
         damage_intersect: Default::default(),
         state: RefCell::new(backend_state),
         head_manager: HeadManager::new(state.head_names.next(), head_state),
-        wlr_output_heads: Default::default(),
+        listeners: Default::default(),
     });
     if let Some(dev) = drm_dev {
         dev.connectors.set(id, data.clone());
@@ -163,9 +163,9 @@ impl ConnectorHandler {
             .head_manager
             .handle_output_disconnected(&self.state);
         self.state.trigger_cci(CCI_OUTPUTS);
-        for head in self.data.wlr_output_heads.lock().drain_values() {
-            head.handle_disconnected();
-        }
+        self.data.listeners.for_each(|listener| {
+            listener.disconnected();
+        });
         log::info!("Connector {} disconnected", self.data.name);
     }
 

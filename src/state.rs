@@ -18,6 +18,7 @@ use crate::backend::InputDeviceGroupIds;
 use crate::backend::InputDeviceId;
 use crate::backend::InputDeviceIds;
 use crate::backend::InputDeviceScrollMethod;
+use crate::backend::Mode;
 use crate::backend::MonitorInfo;
 use crate::backend::transaction::BackendConnectorTransactionError;
 use crate::backends::dummy::DummyBackend;
@@ -134,8 +135,6 @@ use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::IdleInhibitorIds;
 use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1;
 use crate::ifs::wl_surface::zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2;
 use crate::ifs::wlr_output_manager::WlrOutputManagerState;
-use crate::ifs::wlr_output_manager::zwlr_output_head_v1::ZwlrOutputHeadV1;
-use crate::ifs::wlr_output_manager::zwlr_output_manager_v1::WlrOutputManagerId;
 use crate::ifs::workspace_manager::WorkspaceManagerState;
 use crate::ifs::wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1;
 use crate::ifs::wp_drm_lease_device_v1::WpDrmLeaseDeviceV1Global;
@@ -603,7 +602,42 @@ pub struct ConnectorData {
     pub damage_intersect: Cell<Rect>,
     pub state: RefCell<BackendConnectorState>,
     pub head_manager: HeadManager,
-    pub wlr_output_heads: CopyHashMap<WlrOutputManagerId, Rc<ZwlrOutputHeadV1>>,
+    pub listeners: EventSource<dyn OutputEventListener>,
+}
+
+pub trait OutputEventListener {
+    fn disconnected(self: Rc<Self>) {
+        // nothing
+    }
+
+    fn position_changed(self: Rc<Self>, on: &Rc<OutputNode>, x: i32, y: i32) {
+        let _ = on;
+        let _ = x;
+        let _ = y;
+    }
+
+    fn vrr_mode_changed(self: Rc<Self>, on: &Rc<OutputNode>, mode: &VrrMode) {
+        let _ = on;
+        let _ = mode;
+    }
+
+    fn mode_changed(self: Rc<Self>, mode: Mode) {
+        let _ = mode;
+    }
+
+    fn scale_changed(self: Rc<Self>, on: &Rc<OutputNode>, scale: Scale) {
+        let _ = on;
+        let _ = scale;
+    }
+
+    fn transform_changed(self: Rc<Self>, on: &Rc<OutputNode>, transform: Transform) {
+        let _ = on;
+        let _ = transform;
+    }
+
+    fn color_description_changed(self: Rc<Self>, on: &Rc<OutputNode>) {
+        let _ = on;
+    }
 }
 
 pub struct OutputData {
@@ -712,9 +746,9 @@ impl ConnectorData {
         }
         if b!(old.mode != s.mode) {
             self.head_manager.handle_mode_change(s.mode);
-            for head in self.wlr_output_heads.lock().values() {
-                head.handle_mode_change(s.mode);
-            }
+            self.listeners.for_each(|listener| {
+                listener.mode_changed(s.mode);
+            });
         }
         if let Some(output) = state.outputs.get(&self.connector.id())
             && let Some(node) = &output.node

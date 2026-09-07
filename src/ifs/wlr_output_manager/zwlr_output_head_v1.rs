@@ -3,7 +3,6 @@ use crate::backend::ConnectorId;
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::fixed::Fixed;
-use crate::ifs::wlr_output_manager::zwlr_output_manager_v1::WlrOutputManagerId;
 use crate::ifs::wlr_output_manager::zwlr_output_manager_v1::ZwlrOutputManagerV1;
 use crate::ifs::wlr_output_manager::zwlr_output_mode_v1::ZwlrOutputModeV1;
 use crate::leaks::Tracker;
@@ -11,9 +10,12 @@ use crate::object::Object;
 use crate::object::Version;
 use crate::scale;
 use crate::state::OutputData;
+use crate::state::OutputEventListener;
 use crate::tree;
+use crate::tree::OutputNode;
 use crate::tree::VrrMode;
 use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::event_listener::EventListener;
 use crate::wire::ZwlrOutputHeadV1Id;
 use crate::wire::zwlr_output_head_v1::*;
 use std::rc::Rc;
@@ -40,20 +42,11 @@ pub struct ZwlrOutputHeadV1 {
     pub(super) client: Rc<Client>,
     pub(super) tracker: Tracker<Self>,
     pub(super) output: Rc<OutputData>,
-    pub(super) manager_id: WlrOutputManagerId,
     pub(super) manager: Rc<ZwlrOutputManagerV1>,
     pub(super) head_id: WlrOutputHeadId,
     pub(super) connector_id: ConnectorId,
     pub(super) modes: CopyHashMap<backend::Mode, Rc<ZwlrOutputModeV1>>,
-}
-
-impl ZwlrOutputHeadV1 {
-    fn detach(&self) {
-        self.output
-            .connector
-            .wlr_output_heads
-            .remove(&self.manager_id);
-    }
+    pub(super) listener: EventListener<dyn OutputEventListener>,
 }
 
 impl ZwlrOutputHeadV1 {
@@ -170,13 +163,15 @@ impl ZwlrOutputHeadV1 {
             }
         }
     }
+}
 
-    pub fn hande_transform_change(&self, transform: tree::Transform) {
+impl OutputEventListener for ZwlrOutputHeadV1 {
+    fn transform_changed(self: Rc<Self>, _on: &Rc<OutputNode>, transform: tree::Transform) {
         self.send_transform(transform);
         self.manager.schedule_done();
     }
 
-    pub fn handle_mode_change(&self, new: backend::Mode) {
+    fn mode_changed(self: Rc<Self>, new: backend::Mode) {
         let mode = self.modes.get(&new).unwrap_or_else(|| {
             let mode = self
                 .manager
@@ -193,12 +188,12 @@ impl ZwlrOutputHeadV1 {
         self.manager.schedule_done();
     }
 
-    pub fn handle_position_change(&self, x: i32, y: i32) {
+    fn position_changed(self: Rc<Self>, _on: &Rc<OutputNode>, x: i32, y: i32) {
         self.send_position(x, y);
         self.manager.schedule_done();
     }
 
-    pub fn handle_vrr_mode_change(&self, mode: &VrrMode) {
+    fn vrr_mode_changed(self: Rc<Self>, _on: &Rc<OutputNode>, mode: &VrrMode) {
         if self.version < ADAPTIVE_SYNC_SINCE {
             return;
         }
@@ -206,12 +201,13 @@ impl ZwlrOutputHeadV1 {
         self.manager.schedule_done();
     }
 
-    pub fn handle_new_scale(&self, scale: scale::Scale) {
+    fn scale_changed(self: Rc<Self>, _on: &Rc<OutputNode>, scale: scale::Scale) {
         self.send_scale(scale);
         self.manager.schedule_done();
     }
 
-    pub fn handle_disconnected(&self) {
+    fn disconnected(self: Rc<Self>) {
+        self.listener.detach();
         self.send_finished();
         for mode in self.modes.lock().values() {
             if !mode.destroyed.get() {
@@ -227,7 +223,7 @@ impl ZwlrOutputHeadV1RequestHandler for ZwlrOutputHeadV1 {
 
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.send_finished();
-        self.detach();
+        self.listener.detach();
         self.client.remove_obj(self)?;
         Ok(())
     }
@@ -238,11 +234,7 @@ object_base! {
     version = self.version;
 }
 
-impl Object for ZwlrOutputHeadV1 {
-    fn break_loops(self: Rc<Self>) {
-        self.detach();
-    }
-}
+impl Object for ZwlrOutputHeadV1 {}
 
 dedicated_add_obj!(ZwlrOutputHeadV1, ZwlrOutputHeadV1Id, zwlr_output_heads);
 

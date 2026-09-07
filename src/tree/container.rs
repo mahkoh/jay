@@ -19,6 +19,7 @@ use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::Top
 use crate::rect::Rect;
 use crate::renderer::Renderer;
 use crate::scale::Scale;
+use crate::state::OutputEventListener;
 use crate::state::State;
 use crate::text::TextTexture;
 use crate::theme::Color;
@@ -2833,6 +2834,12 @@ impl ToplevelNodeBase for ContainerNode {
 
     fn tl_schedule_data_op(self: Rc<Self>, op: ToplevelDataTransactionOp) {
         self.add_transaction_op(ContainerTransactionOp::ToplevelData(op));
+    }
+}
+
+impl OutputEventListener for ContainerNode {
+    fn scale_changed(self: Rc<Self>, _on: &Rc<OutputNode>, _scale: Scale) {
+        self.toplevel_data.scale_changed();
     }
 }
 

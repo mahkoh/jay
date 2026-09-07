@@ -29,6 +29,8 @@ use crate::object::Object;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::renderer::Renderer;
+use crate::scale::Scale;
+use crate::state::OutputEventListener;
 use crate::state::State;
 use crate::transactions::TransactionData;
 use crate::transactions::Transactionable;
@@ -822,6 +824,12 @@ impl ToplevelNodeBase for XdgToplevel {
 
     fn tl_schedule_data_op(self: Rc<Self>, op: ToplevelDataTransactionOp) {
         self.add_transaction_op(XdgToplevelTransactionOp::ToplevelData(op));
+    }
+}
+
+impl OutputEventListener for XdgToplevel {
+    fn scale_changed(self: Rc<Self>, _on: &Rc<OutputNode>, _scale: Scale) {
+        self.toplevel_data.scale_changed();
     }
 }
 

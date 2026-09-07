@@ -9,6 +9,8 @@ use crate::ifs::wl_surface::WlSurfaceError;
 use crate::ifs::wl_surface::x_surface::XSurface;
 use crate::rect::Rect;
 use crate::renderer::Renderer;
+use crate::scale::Scale;
+use crate::state::OutputEventListener;
 use crate::state::State;
 use crate::transactions::TransactionData;
 use crate::transactions::Transactionable;
@@ -578,6 +580,12 @@ impl ToplevelNodeBase for Xwindow {
 
     fn tl_schedule_data_op(self: Rc<Self>, op: ToplevelDataTransactionOp) {
         self.add_transaction_op(XwindowTransactionOp::ToplevelData(op));
+    }
+}
+
+impl OutputEventListener for Xwindow {
+    fn scale_changed(self: Rc<Self>, _on: &Rc<OutputNode>, _scale: Scale) {
+        self.toplevel_data.scale_changed();
     }
 }
 

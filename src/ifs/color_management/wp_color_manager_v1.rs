@@ -50,6 +50,7 @@ use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::object::Version;
 use crate::state::State;
+use crate::utils::event_listener::EventListener;
 use crate::wire::WpColorManagerV1Id;
 use crate::wire::wp_color_manager_v1::SupportedIntent;
 use crate::wire::wp_color_manager_v1::*;
@@ -181,18 +182,18 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
 
     fn get_output(&self, req: GetOutput, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let output = self.client.lookup(req.output)?;
-        let obj = Rc::new(WpColorManagementOutputV1 {
+        let obj = Rc::<WpColorManagementOutputV1>::new_cyclic(|slf| WpColorManagementOutputV1 {
             id: req.id,
             client: self.client.clone(),
             version: self.version,
             tracker: Default::default(),
             output: output.global.clone(),
+            listener: EventListener::new(slf.clone()),
         });
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
-        if let Some(node) = output.global.node() {
-            node.color_description_listeners
-                .set((self.client.id, req.id), obj);
+        if let Some(global) = output.global.get() {
+            obj.listener.attach(&global.connector.listeners);
         }
         Ok(())
     }

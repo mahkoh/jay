@@ -88,10 +88,8 @@ use crate::ifs::wl_surface::wp_linux_drm_syncobj_surface_v1::WpLinuxDrmSyncobjSu
 use crate::ifs::wl_surface::wp_tearing_control_v1::WpTearingControlV1;
 use crate::ifs::wl_surface::wp_viewport::WpViewport;
 use crate::ifs::wl_surface::x_surface::XSurface;
-use crate::ifs::wl_surface::x_surface::xwindow::Xwindow;
 use crate::ifs::wl_surface::xdg_surface::PendingXdgSurfaceData;
 use crate::ifs::wl_surface::xdg_surface::XdgSurfaceError;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevelError;
 use crate::ifs::wl_surface::zwlr_layer_surface_v1::PendingLayerSurfaceData;
 use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error;
@@ -107,7 +105,9 @@ use crate::rect::DamageQueue;
 use crate::rect::Rect;
 use crate::rect::Region;
 use crate::renderer::Renderer;
+use crate::scale::Scale;
 use crate::state::ConnectorData;
+use crate::state::OutputEventListener;
 use crate::state::State;
 use crate::transactions::SurfaceTransaction;
 use crate::transactions::TransactionData;
@@ -115,7 +115,6 @@ use crate::transactions::Transactionable;
 use crate::transactions::TransactionableExt;
 use crate::tree::BeforeLatchListener;
 use crate::tree::BeforeLatchResult;
-use crate::tree::ContainerNode;
 use crate::tree::FindTreeResult;
 use crate::tree::FoundNode;
 use crate::tree::LatchListener;
@@ -125,9 +124,7 @@ use crate::tree::NodeId;
 use crate::tree::NodeLayerLink;
 use crate::tree::NodeLocation;
 use crate::tree::NodeVisitor;
-use crate::tree::NodeVisitorBase;
 use crate::tree::OutputNode;
-use crate::tree::PlaceholderNode;
 use crate::tree::PresentationListener;
 use crate::tree::SplitView;
 use crate::tree::ToplevelNode;
@@ -226,63 +223,6 @@ impl SurfaceRole {
             SurfaceRole::InputPopup => "input_popup_surface",
             SurfaceRole::TrayItem => "tray_item",
         }
-    }
-}
-
-pub struct SurfaceSendPreferredScaleVisitor;
-
-impl SurfaceSendPreferredScaleVisitor {
-    fn schedule_realloc(&self, tl: &impl ToplevelNode) {
-        let data = tl.tl_data();
-        for sc in data.jay_screencasts.lock().values() {
-            sc.schedule_realloc_or_reconfigure();
-        }
-        for sc in data.ext_copy_sessions.lock().values() {
-            sc.buffer_size_changed();
-        }
-    }
-}
-
-impl NodeVisitorBase for SurfaceSendPreferredScaleVisitor {
-    fn visit_surface(&mut self, node: &Rc<WlSurface>) {
-        node.on_scale_change();
-        node.node_visit_children(self);
-    }
-
-    fn visit_toplevel(&mut self, node: &Rc<XdgToplevel>) {
-        self.schedule_realloc(&**node);
-        node.node_visit_children(self);
-    }
-
-    fn visit_xwindow(&mut self, node: &Rc<Xwindow>) {
-        self.schedule_realloc(&**node);
-        node.node_visit_children(self);
-    }
-
-    fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-        self.schedule_realloc(&**node);
-        node.node_visit_children(self);
-    }
-
-    fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
-        self.schedule_realloc(&**node);
-        node.node_visit_children(self);
-    }
-}
-
-pub struct SurfaceSendPreferredTransformVisitor;
-impl NodeVisitorBase for SurfaceSendPreferredTransformVisitor {
-    fn visit_surface(&mut self, node: &Rc<WlSurface>) {
-        node.send_preferred_buffer_transform();
-        node.node_visit_children(self);
-    }
-}
-
-pub struct SurfaceSendPreferredColorDescription;
-impl NodeVisitorBase for SurfaceSendPreferredColorDescription {
-    fn visit_surface(&mut self, node: &Rc<WlSurface>) {
-        node.send_preferred_color_description();
-        node.node_visit_children(self);
     }
 }
 
@@ -421,6 +361,7 @@ pub struct WlSurface {
     pub surface_transaction: SurfaceTransaction,
     pub unmap_scheduled: Cell<bool>,
     workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
+    output_listener: EventListener<dyn OutputEventListener>,
 }
 
 impl Debug for WlSurface {
@@ -814,6 +755,7 @@ impl WlSurface {
             surface_transaction: Default::default(),
             unmap_scheduled: Default::default(),
             workspace: Default::default(),
+            output_listener: EventListener::new(slf.clone()),
         }
     }
 
@@ -858,6 +800,8 @@ impl WlSurface {
         self.workspace.set(workspace.cloned());
         let old = self.output.set(output.clone());
         if old.id != output.id {
+            self.output_listener
+                .attach(&output.global.connector.listeners);
             if self.visible[LiveTL].get() {
                 self.attach_events_to_output(output);
             }
@@ -2613,6 +2557,20 @@ impl PresentationListener for WlSurface {
             pf.presented(bindings, tv_sec, tv_nsec, refresh, seq, flags, vrr);
         }
         self.presentation_listener.detach();
+    }
+}
+
+impl OutputEventListener for WlSurface {
+    fn scale_changed(self: Rc<Self>, _on: &Rc<OutputNode>, _scale: Scale) {
+        self.on_scale_change();
+    }
+
+    fn transform_changed(self: Rc<Self>, _on: &Rc<OutputNode>, _transform: Transform) {
+        self.send_preferred_buffer_transform();
+    }
+
+    fn color_description_changed(self: Rc<Self>, _on: &Rc<OutputNode>) {
+        self.send_preferred_color_description();
     }
 }
 

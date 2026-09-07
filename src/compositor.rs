@@ -858,7 +858,7 @@ fn create_dummy_output(state: &Rc<State>) {
         damage_intersect: Default::default(),
         state: RefCell::new(backend_state),
         head_manager: HeadManager::new(head_name, head_state),
-        wlr_output_heads: Default::default(),
+        listeners: Default::default(),
     });
     let schedule = Rc::new(OutputSchedule::new(
         state,
