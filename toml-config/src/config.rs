@@ -30,6 +30,7 @@ use counter::CounterSlot;
 use jay_config::Axis;
 use jay_config::ContainerTarget;
 use jay_config::Direction;
+use jay_config::FlattenTree;
 use jay_config::RelativeAxis;
 use jay_config::Workspace;
 use jay_config::client::ClientCapabilities;
@@ -634,6 +635,7 @@ pub struct Config {
     pub show_bar: Option<bool>,
     pub split_reuses_container: Option<bool>,
     pub show_titles: Option<bool>,
+    pub flatten_tree: Option<FlattenTree>,
     pub focus_history: Option<FocusHistory>,
     pub middle_click_paste: Option<bool>,
     pub input_modes: AHashMap<String, InputMode>,

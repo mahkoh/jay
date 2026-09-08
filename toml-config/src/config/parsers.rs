@@ -31,6 +31,7 @@ mod egui;
 mod env;
 pub mod exec;
 mod fallback_output_mode;
+mod flatten_tree;
 pub mod float;
 pub mod focus_history;
 mod format;

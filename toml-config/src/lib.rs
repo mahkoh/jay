@@ -79,6 +79,7 @@ use jay_config::set_color_management_enabled;
 use jay_config::set_configure_timeout;
 use jay_config::set_default_workspace_capture;
 use jay_config::set_explicit_sync_enabled;
+use jay_config::set_flatten_tree;
 use jay_config::set_float_above_fullscreen;
 use jay_config::set_idle;
 use jay_config::set_idle_grace_period;
@@ -1897,6 +1898,9 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     }
     if let Some(v) = config.show_titles {
         set_show_titles(v);
+    }
+    if let Some(v) = config.flatten_tree {
+        set_flatten_tree(v);
     }
     if let Some(v) = config.theme.bar_position {
         set_bar_position(v);

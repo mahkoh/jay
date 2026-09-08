@@ -2365,6 +2365,25 @@ LogLevel:
       description: Error log level.
 
 
+FlattenTree:
+  kind: string
+  description: |
+    Configures when single-child containers are automatically collapsed.
+  values:
+    - value: never
+      description: |
+        Never collapse single-child containers.
+    - value: always
+      description: |
+        Collapse a single-child container both when its second-to-last
+        child is removed and when pressing split-vertical or
+        split-horizontal on a sole child.
+    - value: on-remove
+      description: |
+        Only collapse when the second-to-last child is removed (e.g.
+        moved to another workspace or floated).
+
+
 Mode:
   kind: table
   description: |
@@ -3573,6 +3592,13 @@ Config:
         Configures whether title bars on windows are shown.
         
         The default is `true`.
+    flatten-tree:
+      ref: FlattenTree
+      required: false
+      description: |
+        Configures when single-child containers are automatically collapsed.
+
+        The default is `"never"`.
     focus-history:
       ref: FocusHistory
       required: false
