@@ -85,7 +85,6 @@ pub trait ToplevelNode: ToplevelNodeBase {
     fn tl_set_parent(&self, parent: Rc<dyn ContainingNode>);
     fn tl_extents_changed(&self);
     fn tl_set_workspace(&self, ws: &Rc<WorkspaceNode>);
-    fn tl_workspace_output_changed(&self, prev: &Rc<OutputNode>, new: &Rc<OutputNode>);
     fn tl_change_extents(self: Rc<Self>, rect: &Rect);
     fn tl_set_visible(&self, visible: bool);
     fn tl_destroy(self: &Rc<Self>)
@@ -205,27 +204,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         };
         let new_output = ws.node_state[LiveTL].output.get();
         if prev.is_none() || prev_output.id != new_output.id {
-            self.tl_workspace_output_changed(&prev_output, &new_output);
-        }
-    }
-
-    fn tl_workspace_output_changed(&self, prev: &Rc<OutputNode>, new: &Rc<OutputNode>) {
-        let data = self.tl_data();
-        for sc in data.jay_screencasts.lock().values() {
-            sc.update_latch_listener();
-        }
-        for sc in data.ext_copy_sessions.lock().values() {
-            sc.update_latch_listener();
-        }
-        if prev.id != new.id {
-            for handle in data.manager_handles.borrow().lock().values() {
-                handle.leave_output(prev);
-                handle.enter_output(new);
-                handle.send_done();
-            }
-        }
-        if let Some(session) = data.session.get() {
-            session.set_output(new, data);
+            data.workspace_output_changed(&prev_output, &new_output);
         }
     }
 
@@ -1135,6 +1114,25 @@ impl ToplevelData {
             ToplevelDataTransactionOp::SetIsRootContainer(v) => {
                 self.is_root_container[RenderTL].set(v);
             }
+        }
+    }
+
+    pub fn workspace_output_changed(&self, prev: &Rc<OutputNode>, new: &Rc<OutputNode>) {
+        for sc in self.jay_screencasts.lock().values() {
+            sc.update_latch_listener();
+        }
+        for sc in self.ext_copy_sessions.lock().values() {
+            sc.update_latch_listener();
+        }
+        if prev.id != new.id {
+            for handle in self.manager_handles.borrow().lock().values() {
+                handle.leave_output(prev);
+                handle.enter_output(new);
+                handle.send_done();
+            }
+        }
+        if let Some(session) = self.session.get() {
+            session.set_output(new, self);
         }
     }
 }

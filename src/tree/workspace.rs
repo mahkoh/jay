@@ -37,6 +37,7 @@ use crate::tree::PlaceholderNode;
 use crate::tree::SplitView;
 use crate::tree::StackedNode;
 use crate::tree::ToplevelNode;
+use crate::tree::ToplevelNodeBase;
 use crate::tree::TreeLink;
 use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
@@ -210,12 +211,12 @@ impl WorkspaceNode {
             }
 
             fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                node.tl_workspace_output_changed(self.old, self.new);
+                node.tl_data().workspace_output_changed(self.old, self.new);
                 node.node_visit_children(self);
             }
 
             fn visit_toplevel(&mut self, node: &Rc<XdgToplevel>) {
-                node.tl_workspace_output_changed(self.old, self.new);
+                node.tl_data().workspace_output_changed(self.old, self.new);
                 node.node_visit_children(self);
             }
 
@@ -227,12 +228,12 @@ impl WorkspaceNode {
             }
 
             fn visit_xwindow(&mut self, node: &Rc<Xwindow>) {
-                node.tl_workspace_output_changed(self.old, self.new);
+                node.tl_data().workspace_output_changed(self.old, self.new);
                 node.node_visit_children(self);
             }
 
             fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
-                node.tl_workspace_output_changed(self.old, self.new);
+                node.tl_data().workspace_output_changed(self.old, self.new);
                 node.node_visit_children(self);
             }
         }
