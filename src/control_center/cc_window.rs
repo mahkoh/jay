@@ -24,7 +24,7 @@ use crate::tree::TreeTimeline::LiveTL;
 use crate::utils::bhash::BHashMap;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::event_listener::EventListener;
-use crate::utils::event_listener::LazyEventSourceListener;
+use crate::utils::lazy_event_source::LazyEventSourceListener;
 use crate::utils::static_text::StaticText;
 use derivative::Derivative;
 use egui::CollapsingHeader;

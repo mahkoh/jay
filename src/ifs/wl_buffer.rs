@@ -662,7 +662,7 @@ impl WlBufferDmabufStorage {
 }
 
 impl GfxCtxChangedListener for WlBuffer {
-    fn handle_gfx_context_change(&self) {
+    fn handle_gfx_context_change(self: Rc<Self>) {
         let had_buffer_texture = self.handle_gfx_context_change_impl();
         self.had_buffer_texture.set(had_buffer_texture);
     }

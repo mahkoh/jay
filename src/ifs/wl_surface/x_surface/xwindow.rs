@@ -506,9 +506,7 @@ impl ToplevelNodeBase for Xwindow {
     }
 
     fn tl_set_workspace_ext(&self, ws: &Rc<WorkspaceNode>) {
-        self.x
-            .surface
-            .set_output(&ws.node_state[LiveTL].output.get(), ws.location());
+        self.x.surface.set_workspace(ws);
     }
 
     fn tl_change_extents_impl(self: Rc<Self>, rect: &Rect) {
@@ -518,9 +516,7 @@ impl ToplevelNodeBase for Xwindow {
             if self.data.info.override_redirect.get() {
                 let (x, y) = rect.center();
                 let output = self.data.state.find_closest_output(x, y).0;
-                self.x
-                    .surface
-                    .set_output(&output, NodeLocation::Output(output.id));
+                self.x.surface.set_output_without_workspace(&output);
             } else {
                 self.data
                     .state

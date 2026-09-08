@@ -6,7 +6,6 @@ use crate::ifs::wl_surface::ext_session_lock_surface_v1::ExtSessionLockSurfaceV1
 use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::object::Version;
-use crate::tree::NodeLocation;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::wire::ExtSessionLockV1Id;
 use crate::wire::ext_session_lock_v1::*;
@@ -93,7 +92,7 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
             node.set_lock_surface(Some(new.clone()));
             let pos = ons.pos.get();
             new.change_extents(pos);
-            new.surface.set_output(&node, NodeLocation::Output(node.id));
+            new.surface.set_output_without_workspace(&node);
             self.client.state.tree_changed();
         }
         Ok(())

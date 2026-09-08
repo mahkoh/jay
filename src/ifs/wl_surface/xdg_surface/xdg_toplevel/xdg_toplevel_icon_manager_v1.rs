@@ -95,7 +95,7 @@ impl XdgToplevelIconManagerV1RequestHandler for XdgToplevelIconManagerV1 {
     }
 
     fn create_icon(&self, req: CreateIcon, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let obj = Rc::new(XdgToplevelIconV1::new(req.id, &self.client, self.version));
+        let obj = XdgToplevelIconV1::new(req.id, &self.client, self.version);
         track!(self.client, obj);
         self.client.add_client_obj(&obj)?;
         self.client

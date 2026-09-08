@@ -1,23 +1,10 @@
-use crate::state::State;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::linkedlist::LinkedListIter;
 use crate::utils::linkedlist::LinkedNode;
-use crate::utils::queue::AsyncQueue;
 use derivative::Derivative;
 use std::cell::Cell;
-use std::ops::Deref;
 use std::rc::Rc;
 use std::rc::Weak;
-
-pub async fn handle_lazy_event_sources(state: Rc<State>) {
-    loop {
-        let source = state.lazy_event_sources.queue.pop().await;
-        source.queued.set(false);
-        for listener in source.listeners.iter() {
-            listener.triggered();
-        }
-    }
-}
 
 #[derive(Derivative)]
 #[derivative(Default(bound = ""))]
@@ -28,21 +15,6 @@ pub struct EventSource<T: ?Sized> {
 
 pub struct EventListener<T: ?Sized> {
     link: LinkedNode<Weak<T>>,
-}
-
-#[derive(Default)]
-pub struct LazyEventSources {
-    queue: AsyncQueue<Rc<LazyEventSource>>,
-}
-
-pub trait LazyEventSourceListener {
-    fn triggered(self: Rc<Self>);
-}
-
-pub struct LazyEventSource {
-    sources: Rc<LazyEventSources>,
-    queued: Cell<bool>,
-    listeners: EventSource<dyn LazyEventSourceListener>,
 }
 
 impl<T: ?Sized> EventSource<T> {
@@ -106,39 +78,5 @@ impl<T: ?Sized> EventListener<T> {
 
     pub fn get(&self) -> Option<Rc<T>> {
         self.link.upgrade()
-    }
-}
-
-impl Deref for LazyEventSource {
-    type Target = EventSource<dyn LazyEventSourceListener>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.listeners
-    }
-}
-
-impl LazyEventSource {
-    pub fn trigger(self: &Rc<Self>) {
-        if self.listeners.is_empty() {
-            return;
-        }
-        if self.queued.replace(true) {
-            return;
-        }
-        self.sources.queue.push(self.clone());
-    }
-}
-
-impl LazyEventSources {
-    pub fn create_source(self: &Rc<Self>) -> Rc<LazyEventSource> {
-        Rc::new(LazyEventSource {
-            sources: self.clone(),
-            queued: Default::default(),
-            listeners: Default::default(),
-        })
-    }
-
-    pub fn clear(&self) {
-        self.queue.clear();
     }
 }

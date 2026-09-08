@@ -438,8 +438,7 @@ fn install<T: TrayItem>(item: &Rc<T>) -> Result<(), TrayItemError> {
     data.surface.set_ext(SurfaceRole::TrayItem, item.clone())?;
     data.surface.set_visible(false);
     if let Some(node) = data.output.node() {
-        data.surface
-            .set_output(&node, NodeLocation::Output(node.id));
+        data.surface.set_output_without_workspace(&node);
         item.clone().send_current_configure();
     }
     Ok(())
@@ -485,7 +484,7 @@ fn get_popup<T: TrayItem>(
     seat.add_tray_item_popup(item, &popup);
     let stack = data.client.state.root.stacked.clone();
     popup.xdg.set_popup_stack(&stack, PopupStackType::Normal);
-    popup.xdg.set_output(&node);
+    popup.xdg.set_output_without_workspace(&node);
     let user = Rc::new(Popup {
         parent: item.clone(),
         popup: popup.clone(),

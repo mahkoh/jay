@@ -211,8 +211,10 @@ impl WlSubsurface {
             let (x, y) = self.parent.buffer_abs_pos[tl].get().position();
             self.surface.set_absolute_position_(x, y, tl);
         }
-        self.surface
-            .set_output(&self.parent.output.get(), self.parent.location.get());
+        self.surface.set_location(
+            &self.parent.output.get(),
+            self.parent.workspace.get().as_ref(),
+        );
         self.surface
             .mark_fullscreen(self.parent.fullscreen.get().as_ref());
         Ok(())

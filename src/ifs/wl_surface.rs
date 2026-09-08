@@ -420,6 +420,7 @@ pub struct WlSurface {
     transaction_data: TransactionData<WlSurfaceTransactionOp>,
     pub surface_transaction: SurfaceTransaction,
     pub unmap_scheduled: Cell<bool>,
+    workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
 }
 
 impl Debug for WlSurface {
@@ -812,6 +813,7 @@ impl WlSurface {
             transaction_data: TransactionData::new(&state.tree),
             surface_transaction: Default::default(),
             unmap_scheduled: Default::default(),
+            workspace: Default::default(),
         }
     }
 
@@ -832,42 +834,56 @@ impl WlSurface {
         Ok(ext.into_xsurface().unwrap())
     }
 
+    pub fn set_workspace(&self, ws: &Rc<WorkspaceNode>) {
+        let output = ws.node_state[LiveTL].output.get();
+        self.set_location(&output, Some(ws));
+    }
+
     pub fn get_output(&self) -> Rc<OutputNode> {
         self.output.get()
     }
 
-    pub fn set_output(&self, output: &Rc<OutputNode>, location: NodeLocation) {
-        self.location.set(location);
-        let old = self.output.set(output.clone());
-        if old.id == output.id {
+    pub fn set_output_without_workspace(&self, output: &Rc<OutputNode>) {
+        self.set_location(output, None);
+    }
+
+    fn set_location(&self, output: &Rc<OutputNode>, workspace: Option<&Rc<WorkspaceNode>>) {
+        let location = match workspace {
+            None => NodeLocation::Output(output.id),
+            Some(ws) => NodeLocation::Workspace(output.id, ws.id),
+        };
+        if self.location.replace(location) == location {
             return;
         }
-        if self.visible[LiveTL].get() {
-            self.attach_events_to_output(output);
-        }
-        output.global.send_enter(self);
-        old.global.send_leave(self);
-        if old.node_state[LiveTL].scale.get() != output.node_state[LiveTL].scale.get() {
-            self.on_scale_change();
-        }
-        if old.node_state[LiveTL].transform.get() != output.node_state[LiveTL].transform.get() {
-            self.send_preferred_buffer_transform();
-        }
-        if old.node_state[LiveTL].color_description.get().id
-            != output.node_state[LiveTL].color_description.get().id
-        {
-            self.send_preferred_color_description();
+        self.workspace.set(workspace.cloned());
+        let old = self.output.set(output.clone());
+        if old.id != output.id {
+            if self.visible[LiveTL].get() {
+                self.attach_events_to_output(output);
+            }
+            output.global.send_enter(self);
+            old.global.send_leave(self);
+            if old.node_state[LiveTL].scale.get() != output.node_state[LiveTL].scale.get() {
+                self.on_scale_change();
+            }
+            if old.node_state[LiveTL].transform.get() != output.node_state[LiveTL].transform.get() {
+                self.send_preferred_buffer_transform();
+            }
+            if old.node_state[LiveTL].color_description.get().id
+                != output.node_state[LiveTL].color_description.get().id
+            {
+                self.send_preferred_color_description();
+            }
+            for (_, con) in &self.text_input_connections {
+                for (_, popup) in con.input_method.popups() {
+                    popup.surface.set_output_without_workspace(output);
+                }
+            }
         }
         let children = self.children.borrow_mut();
         if let Some(children) = &*children {
             for ss in children.subsurfaces.values() {
-                ss.surface.set_output(output, location);
-            }
-        }
-        for (_, con) in &self.text_input_connections {
-            for (_, popup) in con.input_method.popups() {
-                let location = NodeLocation::Output(output.id);
-                popup.surface.set_output(output, location);
+                ss.surface.set_location(output, workspace);
             }
         }
     }
@@ -1055,7 +1071,7 @@ impl WlSurface {
 
     fn set_dummy_output(&self) {
         let dummy_output = self.state.dummy_output.get().unwrap();
-        self.set_output(&dummy_output, NodeLocation::Output(dummy_output.id));
+        self.set_output_without_workspace(&dummy_output);
         self.mark_fullscreen(None);
     }
 

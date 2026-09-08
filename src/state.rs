@@ -220,10 +220,10 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::event_listener::EventListener;
 use crate::utils::event_listener::EventSource;
-use crate::utils::event_listener::LazyEventSources;
 use crate::utils::fdcloser::FdCloser;
 use crate::utils::fuse::fuse_mgr::FuseMgr;
 use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::lazy_event_source::LazyEventSources;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::numcell::NumCell;
 use crate::utils::obj_and_id::ObjAndId;
@@ -444,7 +444,7 @@ pub struct State {
 }
 
 pub trait GfxCtxChangedListener {
-    fn handle_gfx_context_change(&self);
+    fn handle_gfx_context_change(self: Rc<Self>);
 }
 
 // impl Drop for State {

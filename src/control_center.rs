@@ -22,7 +22,7 @@ use crate::macros::Bitflag;
 use crate::state::State;
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::event_listener::LazyEventSourceListener;
+use crate::utils::lazy_event_source::LazyEventSourceListener;
 use crate::utils::numcell::NumCell;
 use crate::utils::static_text::StaticText;
 use egui::Align;

@@ -143,8 +143,8 @@ struct BufferKey {
 }
 
 impl XdgToplevelIconV1 {
-    pub fn new(id: XdgToplevelIconV1Id, client: &Rc<Client>, version: Version) -> Self {
-        Self {
+    pub fn new(id: XdgToplevelIconV1Id, client: &Rc<Client>, version: Version) -> Rc<Self> {
+        Rc::new(Self {
             id,
             client: client.clone(),
             tracker: Default::default(),
@@ -157,7 +157,7 @@ impl XdgToplevelIconV1 {
             pending: Default::default(),
             buf_key_to_icon_key: RefCell::new(Default::default()),
             icons: Default::default(),
-        }
+        })
     }
 
     fn check_immutable(&self) -> Result<(), XdgToplevelIconV1Error> {
