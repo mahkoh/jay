@@ -59,6 +59,7 @@ use crate::output_schedule::OutputSchedule;
 use crate::rect::Rect;
 use crate::renderer::Renderer;
 use crate::scale::Scale;
+use crate::state::GfxCtxChangedListener;
 use crate::state::State;
 use crate::state::ThemeChangeListener;
 use crate::text::TextTexture;
@@ -167,6 +168,7 @@ pub struct OutputNode {
     pub transaction_data: TransactionData<OutputTransactionOp>,
     pub damage_scheduled: Cell<bool>,
     pub _theme_listener: EventListener<dyn ThemeChangeListener>,
+    pub _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
 }
 
 impl ObjWithId for OutputNode {
@@ -326,6 +328,7 @@ impl OutputNode {
             transaction_data: TransactionData::new(&state.tree),
             damage_scheduled: Default::default(),
             _theme_listener: EventListener::attached(slf.clone(), &state.theme_listeners),
+            _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
         });
         on.set_ns_pos(Rect::new_sized_saturating(x, y, width, height));
         on.set_ns_scale(scale);
@@ -2163,6 +2166,15 @@ impl ThemeChangeListener for OutputNode {
         if self.state.fonts_changed.is_not_zero() {
             self.schedule_update_render_data();
         }
+    }
+}
+
+impl GfxCtxChangedListener for OutputNode {
+    fn handle_gfx_context_change(self: Rc<Self>) {
+        self.render_data.borrow_mut().titles.clear();
+        self.render_data.borrow_mut().status.take();
+        self.set_hardware_cursor(None);
+        self.schedule_update_render_data();
     }
 }
 

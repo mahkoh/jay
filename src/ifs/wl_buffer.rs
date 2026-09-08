@@ -284,23 +284,22 @@ impl WlBuffer {
         )
     }
 
-    fn handle_gfx_context_change_impl(&self) -> bool {
+    pub fn handle_gfx_context_change_impl(&self) {
         let ctx_version = self.client.state.render_ctx_version.get();
         let up_to_date = self.render_ctx_version.replace(ctx_version) == ctx_version;
+        if up_to_date {
+            return;
+        }
+        let had_buffer_texture = self.handle_gfx_context_change_impl_();
+        self.had_buffer_texture.set(had_buffer_texture);
+    }
+
+    #[must_use]
+    fn handle_gfx_context_change_impl_(&self) -> bool {
         let mut storage = self.storage.borrow_mut();
         let Some(s) = &mut *storage else {
             return false;
         };
-        if up_to_date {
-            let tex = match s {
-                WlBufferStorage::Shm {
-                    dmabuf_buffer_params: DmabufBufferParams { tex, .. },
-                    ..
-                } => tex,
-                WlBufferStorage::Dmabuf(storage) => &storage.tex,
-            };
-            return tex.is_some();
-        }
         match s {
             WlBufferStorage::Shm {
                 dmabuf_buffer_params:
@@ -661,8 +660,7 @@ impl WlBufferDmabufStorage {
 
 impl GfxCtxChangedListener for WlBuffer {
     fn handle_gfx_context_change(self: Rc<Self>) {
-        let had_buffer_texture = self.handle_gfx_context_change_impl();
-        self.had_buffer_texture.set(had_buffer_texture);
+        self.handle_gfx_context_change_impl();
     }
 }
 

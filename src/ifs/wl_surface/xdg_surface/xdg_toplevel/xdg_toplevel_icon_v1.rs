@@ -28,6 +28,7 @@ use crate::object::Version;
 use crate::rect::Rect;
 use crate::rect::Region;
 use crate::scale::Scale;
+use crate::state::GfxCtxChangedListener;
 use crate::state::State;
 use crate::theme::Color;
 use crate::tree::TreeTimeline::LiveTL;
@@ -35,6 +36,7 @@ use crate::utils::bhash::BHashMap;
 use crate::utils::bhash::BHashSet;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::event_listener::EventListener;
 use crate::utils::numcell::NumCell;
 use crate::utils::obj_and_id::ObjWithId;
 use crate::utils::smallmap::SmallMap;
@@ -68,6 +70,7 @@ pub struct XdgToplevelIconV1 {
     pending: CopyHashMap<BufferKey, AsyncOp>,
     buf_key_to_icon_key: RefCell<BHashMap<BufferKey, SmallVec<[IconKey; 2]>>>,
     icons: CopyHashMap<IconKey, ToplevelIcon>,
+    _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
 }
 
 pub struct ToplevelIconUser {
@@ -144,19 +147,21 @@ struct BufferKey {
 
 impl XdgToplevelIconV1 {
     pub fn new(id: XdgToplevelIconV1Id, client: &Rc<Client>, version: Version) -> Rc<Self> {
-        Rc::new(Self {
+        let state = &client.state;
+        Rc::<Self>::new_cyclic(|slf| Self {
             id,
             client: client.clone(),
             tracker: Default::default(),
             version,
             immutable: Default::default(),
-            toplevel_icon_id: client.state.toplevel_icon_ids.next(),
+            toplevel_icon_id: state.toplevel_icon_ids.next(),
             considered_sizes: Default::default(),
             buffers: Default::default(),
             toplevels: Default::default(),
             pending: Default::default(),
             buf_key_to_icon_key: RefCell::new(Default::default()),
             icons: Default::default(),
+            _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
         })
     }
 
@@ -165,13 +170,6 @@ impl XdgToplevelIconV1 {
             return Err(XdgToplevelIconV1Error::Immutable);
         }
         Ok(())
-    }
-
-    pub fn handle_render_ctx_change(self: &Rc<Self>) {
-        self.icons.clear();
-        self.pending.clear();
-        self.considered_sizes.take();
-        self.update_sizes();
     }
 
     pub fn update_sizes(self: &Rc<Self>) {
@@ -564,6 +562,15 @@ impl XdgToplevelIconV1RequestHandler for XdgToplevelIconV1 {
         };
         self.buffers.set(key, buffer);
         Ok(())
+    }
+}
+
+impl GfxCtxChangedListener for XdgToplevelIconV1 {
+    fn handle_gfx_context_change(self: Rc<Self>) {
+        self.icons.clear();
+        self.pending.clear();
+        self.considered_sizes.take();
+        self.update_sizes();
     }
 }
 

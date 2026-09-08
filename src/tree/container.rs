@@ -19,6 +19,7 @@ use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::Top
 use crate::rect::Rect;
 use crate::renderer::Renderer;
 use crate::scale::Scale;
+use crate::state::GfxCtxChangedListener;
 use crate::state::OutputEventListener;
 use crate::state::State;
 use crate::state::ThemeChangeListener;
@@ -224,6 +225,7 @@ pub struct ContainerNode {
     schedule_compute_render_positions_scheduled: Cell<bool>,
     fully_damaged_in_iteration: Cell<Option<u64>>,
     _theme_listener: EventListener<dyn ThemeChangeListener>,
+    _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
 }
 
 impl Debug for ContainerNode {
@@ -378,6 +380,7 @@ impl ContainerNode {
             schedule_compute_render_positions_scheduled: Default::default(),
             fully_damaged_in_iteration: Default::default(),
             _theme_listener: EventListener::attached(weak.clone(), &state.theme_listeners),
+            _gfx_ctx_listener: EventListener::attached(weak.clone(), &state.gfx_ctx_changed),
         });
         slf.set_ns_split(split);
         slf.adj_ns_num_children(|value| value + 1);
@@ -2864,6 +2867,18 @@ impl ThemeChangeListener for ContainerNode {
         if self.state.fonts_changed.is_not_zero() {
             self.schedule_render_titles();
         }
+    }
+}
+
+impl GfxCtxChangedListener for ContainerNode {
+    fn handle_gfx_context_change(self: Rc<Self>) {
+        self.render_data.borrow_mut().titles.clear();
+        self.children.iter().for_each(|c| {
+            c.title_tex.borrow_mut().clear();
+            c.icon.clear();
+            c.icons.clear();
+        });
+        self.schedule_render_titles();
     }
 }
 

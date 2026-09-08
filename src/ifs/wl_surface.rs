@@ -107,6 +107,7 @@ use crate::rect::Region;
 use crate::renderer::Renderer;
 use crate::scale::Scale;
 use crate::state::ConnectorData;
+use crate::state::GfxCtxChangedListener;
 use crate::state::OutputEventListener;
 use crate::state::State;
 use crate::transactions::SurfaceTransaction;
@@ -364,6 +365,7 @@ pub struct WlSurface {
     workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     output_listener: EventListener<dyn OutputEventListener>,
     workspace_listener: EventListener<dyn WorkspaceEventListener>,
+    _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
 }
 
 impl Debug for WlSurface {
@@ -781,6 +783,7 @@ impl WlSurface {
             workspace: Default::default(),
             output_listener: EventListener::new(slf.clone()),
             workspace_listener: EventListener::new(slf.clone()),
+            _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
         }
     }
 
@@ -2620,6 +2623,21 @@ impl WorkspaceEventListener for WlSurface {
         new: &Rc<OutputNode>,
     ) {
         self.set_location(new, Some(ws), SetLocationReason::WorkspaceOutputChange);
+    }
+}
+
+impl GfxCtxChangedListener for WlSurface {
+    fn handle_gfx_context_change(self: Rc<Self>) {
+        let had_shm_texture = self.reset_shm_textures();
+        let had_prime_texture = self.prime.reset();
+        if let Some(buffer) = self.buffer.get() {
+            let buf = &buffer.buffer.buf;
+            buf.handle_gfx_context_change_impl();
+            let had_buffer_texture = buf.had_buffer_texture.get();
+            if had_shm_texture || had_prime_texture || had_buffer_texture {
+                buf.update_texture_or_log(&self, true);
+            }
+        }
     }
 }
 

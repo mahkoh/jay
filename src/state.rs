@@ -930,66 +930,12 @@ impl State {
         self.dmabuf_feedback.update();
         self.update_render_device(true);
 
-        {
-            struct Walker;
-            impl NodeVisitorBase for Walker {
-                fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                    node.render_data.borrow_mut().titles.clear();
-                    node.children.iter().for_each(|c| {
-                        c.title_tex.borrow_mut().clear();
-                        c.icon.clear();
-                        c.icons.clear();
-                    });
-                    node.node_visit_children(self);
-                }
-                fn visit_workspace(&mut self, node: &Rc<WorkspaceNode>) {
-                    node.title_texture.take();
-                    node.node_visit_children(self);
-                }
-                fn visit_output(&mut self, node: &Rc<OutputNode>) {
-                    node.render_data.borrow_mut().titles.clear();
-                    node.render_data.borrow_mut().status.take();
-                    node.set_hardware_cursor(None);
-                    node.node_visit_children(self);
-                }
-                fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                    node.title_textures.borrow_mut().clear();
-                    node.icon.clear();
-                    node.icons.clear();
-                    node.node_visit_children(self);
-                }
-                fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
-                    node.textures.borrow_mut().clear();
-                    node.node_visit_children(self);
-                }
-            }
-            self.visit_all_nodes(&mut Walker);
-            self.gfx_ctx_changed.for_each(|listener| {
-                listener.handle_gfx_context_change();
-            });
-            for client in self.clients.clients.borrow_mut().values() {
-                for surface in client.data.objects.surfaces.lock().values() {
-                    let had_shm_texture = surface.reset_shm_textures();
-                    let had_prime_texture = surface.prime.reset();
-                    if let Some(buffer) = surface.buffer.get() {
-                        let buf = &buffer.buffer.buf;
-                        let had_buffer_texture = buf.had_buffer_texture.get();
-                        if had_shm_texture || had_prime_texture || had_buffer_texture {
-                            buf.update_texture_or_log(surface, true);
-                        }
-                    }
-                }
-            }
-            for icon in self.toplevel_icons.lock().values() {
-                if let Some(icon) = icon.upgrade() {
-                    icon.handle_render_ctx_change();
-                }
-            }
-        }
+        self.gfx_ctx_changed.for_each(|listener| {
+            listener.handle_gfx_context_change();
+        });
 
         if ctx.is_some() {
             self.reload_cursors();
-            self.visit_all_nodes(&mut UpdateTextTexturesVisitor);
         }
 
         for cursor_user_groups in self.cursor_user_groups.lock().values() {
