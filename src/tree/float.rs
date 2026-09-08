@@ -16,6 +16,7 @@ use crate::rect::Rect;
 use crate::renderer::Renderer;
 use crate::scale::Scale;
 use crate::state::State;
+use crate::state::ThemeChangeListener;
 use crate::text::TextTexture;
 use crate::transactions::TransactionData;
 use crate::transactions::Transactionable;
@@ -90,6 +91,7 @@ pub struct FloatNode {
     cursors: RefCell<BHashMap<CursorType, CursorState>>,
     transaction_data: TransactionData<FloatTransactionOp>,
     workspace_listener: EventListener<dyn WorkspaceEventListener>,
+    _theme_listener: EventListener<dyn ThemeChangeListener>,
 }
 
 #[derive(Derivative)]
@@ -198,6 +200,7 @@ impl FloatNode {
             cursors: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
             workspace_listener: EventListener::attached(slf.clone(), &ws.listeners),
+            _theme_listener: EventListener::attached(slf.clone(), &state.theme_listeners),
         });
         let theme = &state.theme;
         let bw = theme.sizes.border_width.get(LiveTL);
@@ -236,19 +239,6 @@ impl FloatNode {
             floater.toggle_pinned();
         }
         floater
-    }
-
-    pub fn on_spaces_changed(self: &Rc<Self>) {
-        if self.icon.set_size(self.state.theme.title_icon_size(LiveTL))
-            && let Some(child) = self.node_state[LiveTL].child.get()
-        {
-            child.tl_update_icon(&self.icon);
-        }
-        self.schedule_layout();
-    }
-
-    pub fn on_colors_changed(self: &Rc<Self>) {
-        self.schedule_render_titles();
     }
 
     pub fn schedule_layout(self: &Rc<Self>) {
@@ -1256,6 +1246,28 @@ impl WorkspaceEventListener for FloatNode {
             && let Some(pinned) = &*self.pinned_link.borrow()
         {
             new.pinned.add_last_existing(pinned);
+        }
+    }
+}
+
+impl ThemeChangeListener for FloatNode {
+    fn changed(self: Rc<Self>) {
+        if self.state.colors_changed.is_not_zero() {
+            self.schedule_render_titles();
+        }
+        if self.state.spaces_changed.is_not_zero() {
+            if self.icon.set_size(self.state.theme.title_icon_size(LiveTL))
+                && let Some(child) = self.node_state[LiveTL].child.get()
+            {
+                child.tl_update_icon(&self.icon);
+            }
+            self.schedule_layout();
+        }
+        if self.state.show_window_icons_changed.is_not_zero() {
+            self.schedule_render_titles();
+        }
+        if self.state.fonts_changed.is_not_zero() {
+            self.schedule_render_titles();
         }
     }
 }

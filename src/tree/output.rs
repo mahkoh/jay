@@ -60,6 +60,7 @@ use crate::rect::Rect;
 use crate::renderer::Renderer;
 use crate::scale::Scale;
 use crate::state::State;
+use crate::state::ThemeChangeListener;
 use crate::text::TextTexture;
 use crate::theme::BarPosition;
 use crate::transactions::TransactionData;
@@ -94,6 +95,7 @@ use crate::utils::bitflags::BitflagsExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::event_listener::EventListener;
 use crate::utils::event_listener::EventSource;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::linkedlist::LinkedList;
@@ -164,6 +166,7 @@ pub struct OutputNode {
     pub node_state: SplitView<OutputNodeState>,
     pub transaction_data: TransactionData<OutputTransactionOp>,
     pub damage_scheduled: Cell<bool>,
+    pub _theme_listener: EventListener<dyn ThemeChangeListener>,
 }
 
 impl ObjWithId for OutputNode {
@@ -283,7 +286,7 @@ impl OutputNode {
             scale,
         );
         let connector_state = &*global.connector.state.borrow();
-        let on = Rc::new(OutputNode {
+        let on = Rc::<OutputNode>::new_cyclic(|slf| OutputNode {
             id,
             workspaces: Default::default(),
             seat_state: Default::default(),
@@ -322,6 +325,7 @@ impl OutputNode {
             node_state: SplitView::from_fn(|_| OutputNodeState::new(state)),
             transaction_data: TransactionData::new(&state.tree),
             damage_scheduled: Default::default(),
+            _theme_listener: EventListener::attached(slf.clone(), &state.theme_listeners),
         });
         on.set_ns_pos(Rect::new_sized_saturating(x, y, width, height));
         on.set_ns_scale(scale);
@@ -627,23 +631,6 @@ impl OutputNode {
         self.vblank_event.clear();
         self.presentation_event.clear();
         self.add_transaction_op(OutputTransactionOp::ClearRenderData);
-    }
-
-    pub fn on_spaces_changed(self: &Rc<Self>) {
-        self.update_rects();
-        let ns = &self.node_state[LiveTL];
-        for layer in [&ns.workspace, &ns.overlay] {
-            if let Some(c) = layer.get() {
-                c.change_extents(&ns.rects.workspace.get(), self);
-            }
-        }
-        for item in self.tray_items.iter_valid(LiveTL) {
-            item.item.clone().send_current_configure();
-        }
-    }
-
-    pub fn on_colors_changed(self: &Rc<Self>) {
-        self.schedule_update_render_data();
     }
 
     pub fn set_preferred_scale(self: &Rc<Self>, scale: Scale) {
@@ -2152,6 +2139,29 @@ impl OutputNode {
                 self.hardware_cursor_needs_render.set(true);
             }
             hc.damage();
+        }
+    }
+}
+
+impl ThemeChangeListener for OutputNode {
+    fn changed(self: Rc<Self>) {
+        if self.state.colors_changed.is_not_zero() {
+            self.schedule_update_render_data();
+        }
+        if self.state.spaces_changed.is_not_zero() {
+            self.update_rects();
+            let ns = &self.node_state[LiveTL];
+            for layer in [&ns.workspace, &ns.overlay] {
+                if let Some(c) = layer.get() {
+                    c.change_extents(&ns.rects.workspace.get(), &self);
+                }
+            }
+            for item in self.tray_items.iter_valid(LiveTL) {
+                item.item.clone().send_current_configure();
+            }
+        }
+        if self.state.fonts_changed.is_not_zero() {
+            self.schedule_update_render_data();
         }
     }
 }

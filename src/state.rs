@@ -438,8 +438,17 @@ pub struct State {
     pub global_tracers: GlobalTracers,
     pub fuse: FuseMgr,
     pub theme_changed: AsyncEvent,
-    pub colors_changed: Cell<bool>,
-    pub spaces_changed: Cell<bool>,
+    pub colors_changed: NumCell<u64>,
+    pub spaces_changed: NumCell<u64>,
+    pub show_window_icons_changed: NumCell<u64>,
+    pub fonts_changed: NumCell<u64>,
+    pub theme_listeners: EventSource<dyn ThemeChangeListener>,
+}
+
+pub trait ThemeChangeListener {
+    fn changed(self: Rc<Self>) {
+        // nothing
+    }
 }
 
 pub trait GfxCtxChangedListener {
@@ -2186,7 +2195,7 @@ impl State {
     }
 
     fn colors_changed(self: &Rc<Self>) {
-        self.colors_changed.set(true);
+        self.colors_changed.fetch_add(1);
         self.theme_changed.trigger();
     }
 
@@ -2239,7 +2248,7 @@ impl State {
     }
 
     fn spaces_changed(self: &Rc<Self>) {
-        self.spaces_changed.set(true);
+        self.spaces_changed.fetch_add(1);
         self.theme_changed.trigger();
     }
 
@@ -2256,18 +2265,8 @@ impl State {
 
     pub fn set_show_window_icons(&self, show: bool) {
         self.theme.show_window_icons.set(show);
-        struct V;
-        impl NodeVisitorBase for V {
-            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                node.schedule_render_titles();
-                node.node_visit_children(self);
-            }
-            fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                node.schedule_render_titles();
-                node.node_visit_children(self);
-            }
-        }
-        self.visit_all_nodes(&mut V);
+        self.show_window_icons_changed.fetch_add(1);
+        self.theme_changed.trigger();
         self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
@@ -2316,22 +2315,8 @@ impl State {
 
     fn fonts_changed(&self) {
         self.trigger_cci(CCI_LOOK_AND_FEEL);
-        struct V;
-        impl NodeVisitorBase for V {
-            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                node.schedule_render_titles();
-                node.node_visit_children(self);
-            }
-            fn visit_output(&mut self, node: &Rc<OutputNode>) {
-                node.schedule_update_render_data();
-                node.node_visit_children(self);
-            }
-            fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                node.schedule_render_titles();
-                node.node_visit_children(self);
-            }
-        }
-        self.visit_all_nodes(&mut V);
+        self.fonts_changed.fetch_add(1);
+        self.theme_changed.trigger();
     }
 
     pub fn reset_fonts(&self) {

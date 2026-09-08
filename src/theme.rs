@@ -4,11 +4,6 @@ use crate::cmm::cmm_eotf::Eotf;
 use crate::control_center::CCI_LOOK_AND_FEEL;
 use crate::gfx_api::AlphaMode;
 use crate::state::State;
-use crate::tree::ContainerNode;
-use crate::tree::FloatNode;
-use crate::tree::NodeBase;
-use crate::tree::NodeVisitorBase;
-use crate::tree::OutputNode;
 use crate::tree::SplitView;
 use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
@@ -838,52 +833,28 @@ impl Div<f32> for Oklab {
 }
 
 pub async fn handle_theme_changes(state: Rc<State>) {
+    let fields = [
+        &state.colors_changed,
+        &state.spaces_changed,
+        &state.show_window_icons_changed,
+        &state.fonts_changed,
+    ];
+    let mut values = fields.map(|_| 0);
     loop {
+        for i in 0..fields.len() {
+            fields[i].fetch_sub(values[i]);
+        }
         state.theme_changed.triggered().await;
-        let colors_changed = state.colors_changed.take();
-        let spaces_changed = state.spaces_changed.take();
-        if !colors_changed && !spaces_changed {
-            continue;
-        }
-        struct V {
-            colors_changed: bool,
-            spaces_changed: bool,
-        }
-        macro_rules! trigger {
-            ($slf:expr, $node:expr) => {
-                if $slf.spaces_changed {
-                    $node.on_spaces_changed();
-                }
-                if $slf.colors_changed {
-                    $node.on_colors_changed();
-                }
-            };
-        }
-        impl NodeVisitorBase for V {
-            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                trigger!(self, node);
-                node.node_visit_children(self);
-            }
-            fn visit_output(&mut self, node: &Rc<OutputNode>) {
-                trigger!(self, node);
-                node.node_visit_children(self);
-            }
-            fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                trigger!(self, node);
-                node.node_visit_children(self);
-            }
-        }
-        let mut v = V {
-            colors_changed,
-            spaces_changed,
-        };
-        state.visit_all_nodes(&mut v);
+        values = fields.map(|f| f.get());
+        state.theme_listeners.for_each(|listener| {
+            listener.changed();
+        });
         state.damage_full(LiveTL);
         state.damage_full(RenderTL);
-        if colors_changed {
+        if state.colors_changed.is_not_zero() {
             state.icons.clear();
         }
-        if spaces_changed {
+        if state.spaces_changed.is_not_zero() {
             state.icons.update_sizes(&state);
             for client in state.clients.clients.borrow().values() {
                 let mgrs = &client.data.objects.xdg_toplevel_icon_managers;

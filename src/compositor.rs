@@ -487,6 +487,9 @@ fn start_compositor2(
         theme_changed: Default::default(),
         colors_changed: Default::default(),
         spaces_changed: Default::default(),
+        show_window_icons_changed: Default::default(),
+        fonts_changed: Default::default(),
+        theme_listeners: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     state.add_output_scale(Scale::from_int(1));
