@@ -1237,6 +1237,16 @@ impl ConfigClient {
         above
     }
 
+    pub fn set_restore_fullscreen_on_reselect(&self, enabled: bool) {
+        self.send(&ClientMessage::SetRestoreFullscreenOnReselect { enabled });
+    }
+
+    pub fn get_restore_fullscreen_on_reselect(&self) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetRestoreFullscreenOnReselect);
+        get_response!(res, false, GetRestoreFullscreenOnReselect { enabled });
+        enabled
+    }
+
     pub fn set_split_reuses_container(&self, reuse: bool) {
         self.send(&ClientMessage::SetSplitReusesContainer { reuse });
     }

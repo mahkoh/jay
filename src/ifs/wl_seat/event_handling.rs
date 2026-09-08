@@ -1203,6 +1203,49 @@ impl WlSeatGlobal {
         self.kb_owner.set_kb_node(self, node, serial);
     }
 
+    pub fn refullscreen_if_pending(self: &Rc<Self>, toplevel: Rc<dyn ToplevelNode>) {
+        if !self.state.restore_fullscreen_on_reselect.get() {
+            return;
+        }
+
+        let Some(workspace) = toplevel.tl_data().workspace[LiveTL].get() else {
+            return;
+        };
+
+        let node_id = toplevel.node_id();
+        if workspace.pending_refullscreen.get() != Some(node_id) {
+            return;
+        }
+
+        let seat = Rc::downgrade(self);
+        let state = self.state.clone();
+        let eng = state.eng.clone();
+        let yield_eng = eng.clone();
+        let future = eng.spawn("refullscreen", async move {
+            yield_eng.yield_now().await;
+
+            let Some(seat) = seat.upgrade() else {
+                return;
+            };
+            let Some(focused_toplevel) = seat.keyboard_node.get().node_toplevel() else {
+                return;
+            };
+
+            if focused_toplevel.node_id() != node_id {
+                return;
+            }
+
+            if !workspace.take_pending_refullscreen(node_id) {
+                return;
+            }
+
+            if toplevel.node_visible(LiveTL) {
+                toplevel.tl_set_fullscreen(true, None);
+            }
+        });
+        self.refullscreen_task.set(Some(future));
+    }
+
     pub(super) fn for_each_seat<C>(&self, ver: Version, client: ClientId, mut f: C)
     where
         C: FnMut(&Rc<WlSeat>),
@@ -1511,6 +1554,11 @@ impl WlSeatGlobal {
         self.surface_pointer_frame(surface);
         if pressed && let Some(node) = surface.get_focus_node() {
             self.focus_node_with_serial(node, serial);
+        } else if !pressed
+            && let Some(node) = surface.get_focus_node()
+            && let Some(toplevel) = node.clone().node_toplevel()
+        {
+            self.refullscreen_if_pending(toplevel);
         }
     }
 }

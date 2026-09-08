@@ -80,6 +80,7 @@ use jay_config::set_configure_timeout;
 use jay_config::set_default_workspace_capture;
 use jay_config::set_explicit_sync_enabled;
 use jay_config::set_float_above_fullscreen;
+use jay_config::set_restore_fullscreen_on_reselect;
 use jay_config::set_idle;
 use jay_config::set_idle_grace_period;
 use jay_config::set_middle_click_paste_enabled;
@@ -1894,6 +1895,9 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     }
     if let Some(v) = config.split_reuses_container {
         set_split_reuses_container(v);
+    }
+    if let Some(v) = config.restore_fullscreen_on_reselect {
+        set_restore_fullscreen_on_reselect(v);
     }
     if let Some(v) = config.show_titles {
         set_show_titles(v);
