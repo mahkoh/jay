@@ -6,6 +6,9 @@ use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::rect::Rect;
 use crate::renderer::Renderer;
 use crate::scale::Scale;
+use crate::state::GfxCtxChangedListener;
+use crate::state::OutputEventListener;
+use crate::state::ScalesChangedListener;
 use crate::state::State;
 use crate::text::TextTexture;
 use crate::transactions::TransactionData;
@@ -31,10 +34,12 @@ use crate::tree::ToplevelType;
 use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
+use crate::tree::WorkspaceEventListener;
 use crate::tree::WorkspaceNode;
 use crate::tree::default_tile_drag_destination;
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::event_listener::EventListener;
 use crate::utils::on_drop_event::OnDropEvent;
 use crate::utils::smallmap::SmallMapMut;
 use std::cell::Cell;
@@ -55,6 +60,8 @@ pub struct PlaceholderNode {
     location: Cell<Option<NodeLocation>>,
     pub textures: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
     transaction_data: TransactionData<PlaceholderTransactionOp>,
+    _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
+    _scales_listener: EventListener<dyn ScalesChangedListener>,
 }
 
 pub async fn placeholder_render_textures(state: Rc<State>) {
@@ -85,6 +92,8 @@ impl PlaceholderNode {
             location: Cell::new(node.node_location()),
             textures: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
+            _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
+            _scales_listener: EventListener::attached(slf.clone(), &state.scales_changed),
         }
     }
 
@@ -106,6 +115,8 @@ impl PlaceholderNode {
             location: Default::default(),
             textures: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
+            _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
+            _scales_listener: EventListener::attached(slf.clone(), &state.scales_changed),
         }
     }
 
@@ -309,6 +320,37 @@ impl ToplevelNodeBase for PlaceholderNode {
 
     fn tl_schedule_data_op(self: Rc<Self>, op: ToplevelDataTransactionOp) {
         self.add_transaction_op(PlaceholderTransactionOp::ToplevelData(op));
+    }
+}
+
+impl OutputEventListener for PlaceholderNode {
+    fn scale_changed(self: Rc<Self>, _on: &Rc<OutputNode>, _scale: Scale) {
+        self.toplevel.scale_changed();
+    }
+}
+
+impl WorkspaceEventListener for PlaceholderNode {
+    fn output_changed(
+        self: Rc<Self>,
+        _ws: &Rc<WorkspaceNode>,
+        old: &Rc<OutputNode>,
+        new: &Rc<OutputNode>,
+    ) {
+        self.toplevel.workspace_output_changed(old, new);
+    }
+}
+
+impl GfxCtxChangedListener for PlaceholderNode {
+    fn handle_gfx_context_change(self: Rc<Self>) {
+        self.textures.borrow_mut().clear();
+        self.schedule_update_texture();
+    }
+}
+
+impl ScalesChangedListener for PlaceholderNode {
+    fn changed(self: Rc<Self>) {
+        self.textures.borrow_mut().clear();
+        self.schedule_update_texture();
     }
 }
 

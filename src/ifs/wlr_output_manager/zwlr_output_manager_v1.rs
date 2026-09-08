@@ -19,6 +19,7 @@ use crate::object::Version;
 use crate::state::OutputData;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::event_listener::EventListener;
 use crate::utils::numcell::NumCell;
 use crate::wire::ZwlrOutputHeadV1Id;
 use crate::wire::ZwlrOutputManagerV1Id;
@@ -156,24 +157,20 @@ impl ZwlrOutputManagerV1 {
             modes_list.push(output_mode.clone());
             modes.set(*mode, output_mode);
         }
-        let head = Rc::new(ZwlrOutputHeadV1 {
+        let head = Rc::<ZwlrOutputHeadV1>::new_cyclic(|slf| ZwlrOutputHeadV1 {
             id,
             client: self.client.clone(),
             tracker: Default::default(),
             version: self.version,
-            manager_id: self.manager_id,
             manager: self.clone(),
             head_id,
             connector_id: output.connector.id,
             modes,
             output: output.clone(),
+            listener: EventListener::attached(slf.clone(), &output.connector.listeners),
         });
         track!(self.client, head);
         self.client.add_server_obj(&head);
-        output
-            .connector
-            .wlr_output_heads
-            .set(self.manager_id, head.clone());
         self.send_head(&head);
         head.send_name(&output.connector.name);
         let description = &*output.connector.description.borrow();

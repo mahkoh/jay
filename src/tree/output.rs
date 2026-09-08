@@ -25,7 +25,6 @@ use crate::gfx_api::GfxTexture;
 use crate::gfx_api::LazyTexture;
 use crate::gfx_api::ReleaseSync;
 use crate::gfx_api::ScalingFilter;
-use crate::ifs::color_management::wp_color_management_output_v1::WpColorManagementOutputV1;
 use crate::ifs::ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1;
 use crate::ifs::jay_output::JayOutput;
 use crate::ifs::jay_screencast::JayScreencast;
@@ -42,9 +41,6 @@ use crate::ifs::wl_seat::tablet::TabletTool;
 use crate::ifs::wl_seat::tablet::TabletToolChanges;
 use crate::ifs::wl_seat::tablet::TabletToolId;
 use crate::ifs::wl_seat::wl_pointer::PendingScroll;
-use crate::ifs::wl_surface::SurfaceSendPreferredColorDescription;
-use crate::ifs::wl_surface::SurfaceSendPreferredScaleVisitor;
-use crate::ifs::wl_surface::SurfaceSendPreferredTransformVisitor;
 use crate::ifs::wl_surface::ext_session_lock_surface_v1::ExtSessionLockSurfaceV1;
 use crate::ifs::wl_surface::tray::TrayItemLink;
 use crate::ifs::wl_surface::zwlr_layer_surface_v1::ExclusiveSize;
@@ -63,7 +59,10 @@ use crate::output_schedule::OutputSchedule;
 use crate::rect::Rect;
 use crate::renderer::Renderer;
 use crate::scale::Scale;
+use crate::state::GfxCtxChangedListener;
+use crate::state::ScalesChangedListener;
 use crate::state::State;
+use crate::state::ThemeChangeListener;
 use crate::text::TextTexture;
 use crate::theme::BarPosition;
 use crate::transactions::TransactionData;
@@ -98,6 +97,7 @@ use crate::utils::bitflags::BitflagsExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::event_listener::EventListener;
 use crate::utils::event_listener::EventSource;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::linkedlist::LinkedList;
@@ -113,7 +113,6 @@ use crate::utils::type_wrapper::TypeWrapper;
 use crate::wire::ExtImageCopyCaptureSessionV1Id;
 use crate::wire::JayOutputId;
 use crate::wire::JayScreencastId;
-use crate::wire::WpColorManagementOutputV1Id;
 use crate::wire::ZwlrScreencopyFrameV1Id;
 use jay_config::video::TearingMode as ConfigTearingMode;
 use jay_config::video::VrrMode as ConfigVrrMode;
@@ -166,11 +165,12 @@ pub struct OutputNode {
     pub tearing: Cell<bool>,
     pub active_zwlr_gamma_control: CloneCell<Option<Rc<ZwlrGammaControlV1>>>,
     pub cursor_users: CopyHashMap<CursorUserId, Rc<CursorUser>>,
-    pub color_description_listeners:
-        CopyHashMap<(ClientId, WpColorManagementOutputV1Id), Rc<WpColorManagementOutputV1>>,
     pub node_state: SplitView<OutputNodeState>,
     pub transaction_data: TransactionData<OutputTransactionOp>,
     pub damage_scheduled: Cell<bool>,
+    pub _theme_listener: EventListener<dyn ThemeChangeListener>,
+    pub _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
+    pub _scales_listener: EventListener<dyn ScalesChangedListener>,
 }
 
 impl ObjWithId for OutputNode {
@@ -290,7 +290,7 @@ impl OutputNode {
             scale,
         );
         let connector_state = &*global.connector.state.borrow();
-        let on = Rc::new(OutputNode {
+        let on = Rc::<OutputNode>::new_cyclic(|slf| OutputNode {
             id,
             workspaces: Default::default(),
             seat_state: Default::default(),
@@ -326,10 +326,12 @@ impl OutputNode {
             tearing: Default::default(),
             active_zwlr_gamma_control: Default::default(),
             cursor_users: Default::default(),
-            color_description_listeners: Default::default(),
             node_state: SplitView::from_fn(|_| OutputNodeState::new(state)),
             transaction_data: TransactionData::new(&state.tree),
             damage_scheduled: Default::default(),
+            _theme_listener: EventListener::attached(slf.clone(), &state.theme_listeners),
+            _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
+            _scales_listener: EventListener::attached(slf.clone(), &state.scales_changed),
         });
         on.set_ns_pos(Rect::new_sized_saturating(x, y, width, height));
         on.set_ns_scale(scale);
@@ -345,9 +347,9 @@ impl OutputNode {
 
     pub async fn before_latch(&self, present: u64) {
         let mut res = BeforeLatchResult::None;
-        for listener in self.before_latch_event.iter() {
+        self.before_latch_event.for_each(|listener| {
             res |= listener.before_latch(present);
-        }
+        });
         if res == BeforeLatchResult::Yield {
             self.state.eng.yield_now().await;
         }
@@ -355,15 +357,15 @@ impl OutputNode {
 
     pub fn latched(&self, tearing: bool) {
         self.schedule.latched();
-        for listener in self.latch_event.iter() {
+        self.latch_event.for_each(|listener| {
             listener.after_latch(self, tearing);
-        }
+        });
     }
 
     pub fn vblank(&self) {
-        for listener in self.vblank_event.iter() {
+        self.vblank_event.for_each(|listener| {
             listener.after_vblank();
-        }
+        });
         if self.global.connector.needs_vblank_emulation.get() {
             if self.vblank_event.has_listeners() {
                 self.global.connector.damage();
@@ -386,9 +388,9 @@ impl OutputNode {
         vrr: bool,
         locked: bool,
     ) {
-        for listener in self.presentation_event.iter() {
+        self.presentation_event.for_each(|listener| {
             listener.presented(self, tv_sec, tv_nsec, refresh, seq, flags, vrr);
-        }
+        });
         if locked && let Some(lock) = self.state.lock.lock.get() {
             lock.check_locked()
         }
@@ -635,24 +637,6 @@ impl OutputNode {
         self.vblank_event.clear();
         self.presentation_event.clear();
         self.add_transaction_op(OutputTransactionOp::ClearRenderData);
-        self.color_description_listeners.clear();
-    }
-
-    pub fn on_spaces_changed(self: &Rc<Self>) {
-        self.update_rects();
-        let ns = &self.node_state[LiveTL];
-        for layer in [&ns.workspace, &ns.overlay] {
-            if let Some(c) = layer.get() {
-                c.change_extents(&ns.rects.workspace.get(), self);
-            }
-        }
-        for item in self.tray_items.iter_valid(LiveTL) {
-            item.item.clone().send_current_configure();
-        }
-    }
-
-    pub fn on_colors_changed(self: &Rc<Self>) {
-        self.schedule_update_render_data();
     }
 
     pub fn set_preferred_scale(self: &Rc<Self>, scale: Scale) {
@@ -667,16 +651,15 @@ impl OutputNode {
         self.state.add_output_scale(scale);
         let rect = self.calculate_extents();
         self.change_extents_(&rect);
-        self.visit_children(&mut SurfaceSendPreferredScaleVisitor);
         self.schedule_update_render_data();
         self.global
             .connector
             .head_manager
             .handle_scale_change(scale);
         self.state.trigger_cci(CCI_OUTPUTS);
-        for head in self.global.connector.wlr_output_heads.lock().values() {
-            head.handle_new_scale(scale);
-        }
+        self.global.connector.listeners.for_each(|listener| {
+            listener.scale_changed(self, scale);
+        });
     }
 
     pub fn set_scaling_filter(self: &Rc<Self>, scaling_filter: ScalingFilter) {
@@ -1204,9 +1187,9 @@ impl OutputNode {
         }
         let rect = pos.at_point(x, y);
         self.change_extents_(&rect);
-        for head in self.global.connector.wlr_output_heads.lock().values() {
-            head.handle_position_change(x, y);
-        }
+        self.global.connector.listeners.for_each(|listener| {
+            listener.position_changed(self, x, y);
+        });
     }
 
     pub fn update_mode(self: &Rc<Self>, mode: Mode) {
@@ -1242,15 +1225,14 @@ impl OutputNode {
 
         if transform != old_transform {
             self.state.refresh_hardware_cursors();
-            self.node_visit_children(&mut SurfaceSendPreferredTransformVisitor);
             self.global
                 .connector
                 .head_manager
                 .handle_transform_change(transform);
             self.state.trigger_cci(CCI_OUTPUTS);
-            for head in self.global.connector.wlr_output_heads.lock().values() {
-                head.hande_transform_change(transform);
-            }
+            self.global.connector.listeners.for_each(|listener| {
+                listener.transform_changed(self, transform);
+            });
         }
     }
 
@@ -1331,27 +1313,9 @@ impl OutputNode {
     fn update_color_description(self: &Rc<Self>) {
         if self.update_color_description_() {
             self.damage_hardware_cursor(true);
-            for fb in self.color_description_listeners.lock().values() {
-                fb.send_image_description_changed();
-            }
-            self.visit_children(&mut SurfaceSendPreferredColorDescription);
-        }
-    }
-
-    fn visit_children(&self, visitor: &mut dyn NodeVisitor) {
-        self.node_visit_children(visitor);
-        let root = &self.state.root;
-        for layer in [
-            &root.stacked,
-            &root.stacked_above_layers,
-            &root.stacked_in_overlay,
-        ] {
-            for stacked in layer.stacked.iter() {
-                if stacked.node_output_id() != Some(self.id) {
-                    continue;
-                }
-                stacked.deref().clone().node_visit_dyn(visitor);
-            }
+            self.global.connector.listeners.for_each(|listener| {
+                listener.color_description_changed(self);
+            });
         }
     }
 
@@ -1907,7 +1871,7 @@ impl OutputNode {
         self.state.tree_changed();
     }
 
-    pub fn set_vrr_mode(&self, mode: &VrrMode) {
+    pub fn set_vrr_mode(self: &Rc<Self>, mode: &VrrMode) {
         let old = self.global.persistent.vrr_mode.replace(*mode);
         if old != *mode {
             self.update_presentation_type();
@@ -1916,9 +1880,9 @@ impl OutputNode {
                 .head_manager
                 .handle_vrr_mode_change(mode);
             self.state.trigger_cci(CCI_OUTPUTS);
-            for head in self.global.connector.wlr_output_heads.lock().values() {
-                head.handle_vrr_mode_change(mode);
-            }
+            self.global.connector.listeners.for_each(|listener| {
+                listener.vrr_mode_changed(self, mode);
+            });
         }
     }
 
@@ -2182,6 +2146,44 @@ impl OutputNode {
             }
             hc.damage();
         }
+    }
+}
+
+impl ThemeChangeListener for OutputNode {
+    fn changed(self: Rc<Self>) {
+        if self.state.colors_changed.is_not_zero() {
+            self.schedule_update_render_data();
+        }
+        if self.state.spaces_changed.is_not_zero() {
+            self.update_rects();
+            let ns = &self.node_state[LiveTL];
+            for layer in [&ns.workspace, &ns.overlay] {
+                if let Some(c) = layer.get() {
+                    c.change_extents(&ns.rects.workspace.get(), &self);
+                }
+            }
+            for item in self.tray_items.iter_valid(LiveTL) {
+                item.item.clone().send_current_configure();
+            }
+        }
+        if self.state.fonts_changed.is_not_zero() {
+            self.schedule_update_render_data();
+        }
+    }
+}
+
+impl GfxCtxChangedListener for OutputNode {
+    fn handle_gfx_context_change(self: Rc<Self>) {
+        self.render_data.borrow_mut().titles.clear();
+        self.render_data.borrow_mut().status.take();
+        self.set_hardware_cursor(None);
+        self.schedule_update_render_data();
+    }
+}
+
+impl ScalesChangedListener for OutputNode {
+    fn changed(self: Rc<Self>) {
+        self.schedule_update_render_data();
     }
 }
 

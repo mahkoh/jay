@@ -104,7 +104,7 @@ pub struct WlBuffer {
     pub color: Option<[u32; 4]>,
     pub width: i32,
     pub height: i32,
-    gfx_ctx_changed: EventListener<dyn GfxCtxChangedListener>,
+    _gfx_ctx_changed: EventListener<dyn GfxCtxChangedListener>,
     pub tracker: Tracker<Self>,
     pub had_buffer_texture: Cell<bool>,
 }
@@ -135,7 +135,7 @@ impl WlBuffer {
         ty: Ty,
         color: Option<[u32; 4]>,
     ) -> Rc<Self> {
-        let slf = Rc::<WlBuffer>::new_cyclic(|slf| Self {
+        Rc::<Self>::new_cyclic(|slf| Self {
             id,
             destroyed: Cell::new(false),
             client: client.clone(),
@@ -151,11 +151,9 @@ impl WlBuffer {
             ty,
             tracker: Default::default(),
             color,
-            gfx_ctx_changed: EventListener::new(slf.clone()),
+            _gfx_ctx_changed: EventListener::attached(slf.clone(), &client.state.gfx_ctx_changed),
             had_buffer_texture: Default::default(),
-        });
-        slf.gfx_ctx_changed.attach(&client.state.gfx_ctx_changed);
-        slf
+        })
     }
 
     pub fn new_dmabuf(
@@ -286,23 +284,22 @@ impl WlBuffer {
         )
     }
 
-    fn handle_gfx_context_change_impl(&self) -> bool {
+    pub fn handle_gfx_context_change_impl(&self) {
         let ctx_version = self.client.state.render_ctx_version.get();
         let up_to_date = self.render_ctx_version.replace(ctx_version) == ctx_version;
+        if up_to_date {
+            return;
+        }
+        let had_buffer_texture = self.handle_gfx_context_change_impl_();
+        self.had_buffer_texture.set(had_buffer_texture);
+    }
+
+    #[must_use]
+    fn handle_gfx_context_change_impl_(&self) -> bool {
         let mut storage = self.storage.borrow_mut();
         let Some(s) = &mut *storage else {
             return false;
         };
-        if up_to_date {
-            let tex = match s {
-                WlBufferStorage::Shm {
-                    dmabuf_buffer_params: DmabufBufferParams { tex, .. },
-                    ..
-                } => tex,
-                WlBufferStorage::Dmabuf(storage) => &storage.tex,
-            };
-            return tex.is_some();
-        }
         match s {
             WlBufferStorage::Shm {
                 dmabuf_buffer_params:
@@ -663,8 +660,7 @@ impl WlBufferDmabufStorage {
 
 impl GfxCtxChangedListener for WlBuffer {
     fn handle_gfx_context_change(self: Rc<Self>) {
-        let had_buffer_texture = self.handle_gfx_context_change_impl();
-        self.had_buffer_texture.set(had_buffer_texture);
+        self.handle_gfx_context_change_impl();
     }
 }
 

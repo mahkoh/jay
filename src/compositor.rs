@@ -487,6 +487,10 @@ fn start_compositor2(
         theme_changed: Default::default(),
         colors_changed: Default::default(),
         spaces_changed: Default::default(),
+        show_window_icons_changed: Default::default(),
+        fonts_changed: Default::default(),
+        theme_listeners: Default::default(),
+        scales_changed: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     state.add_output_scale(Scale::from_int(1));
@@ -858,7 +862,7 @@ fn create_dummy_output(state: &Rc<State>) {
         damage_intersect: Default::default(),
         state: RefCell::new(backend_state),
         head_manager: HeadManager::new(head_name, head_state),
-        wlr_output_heads: Default::default(),
+        listeners: Default::default(),
     });
     let schedule = Rc::new(OutputSchedule::new(
         state,

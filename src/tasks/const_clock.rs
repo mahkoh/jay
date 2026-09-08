@@ -34,10 +34,10 @@ pub async fn run_const_clock<T, F>(
             return;
         }
         let mut dispatched_any = false;
-        for el in source.iter() {
+        source.for_each(|el| {
             dispatched_any = true;
             f(el);
-        }
+        });
         if !dispatched_any {
             let ae2 = ae.clone();
             source.on_attach(Box::new(move || ae2.trigger()));

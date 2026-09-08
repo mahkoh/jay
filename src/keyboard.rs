@@ -82,9 +82,9 @@ impl KeyboardState {
         map_led!(kana, LED_KANA);
         if new != self.leds {
             self.leds = new;
-            for listener in self.leds_changed.iter() {
+            self.leds_changed.for_each(|listener| {
                 listener.leds(new);
-            }
+            });
         }
     }
 }

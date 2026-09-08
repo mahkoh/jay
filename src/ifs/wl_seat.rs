@@ -451,7 +451,10 @@ impl WlSeatGlobal {
             focus_history_same_workspace: Cell::new(false),
             mark_mode: Default::default(),
             marks: Default::default(),
-            modifiers_listener: EventListener::new(slf.clone()),
+            modifiers_listener: EventListener::attached(
+                slf.clone(),
+                &seat_kb_state.borrow().kb_state.leds_changed,
+            ),
             modifiers_forward: Default::default(),
             simple_im: CloneCell::new(simple_im),
             simple_im_enabled: Cell::new(true),
@@ -459,8 +462,6 @@ impl WlSeatGlobal {
             mouse_follows_focus: Cell::new(false),
         });
         slf.pointer_cursor.set_owner(slf.clone());
-        slf.modifiers_listener
-            .attach(&seat_kb_state.borrow().kb_state.leds_changed);
         slf.create_repeat_handler();
         let seat = slf.clone();
         let future = state.eng.spawn("seat handler", async move {
@@ -768,9 +769,9 @@ impl WlSeatGlobal {
     }
 
     fn dispatch_seat_leds_listeners(&self, leds: Leds) {
-        for listener in self.modifiers_forward.iter() {
+        self.modifiers_forward.for_each(|listener| {
             listener.leds(leds);
-        }
+        });
     }
 
     pub fn prepare_for_lock(self: &Rc<Self>) {

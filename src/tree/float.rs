@@ -15,7 +15,10 @@ use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::Top
 use crate::rect::Rect;
 use crate::renderer::Renderer;
 use crate::scale::Scale;
+use crate::state::GfxCtxChangedListener;
+use crate::state::ScalesChangedListener;
 use crate::state::State;
+use crate::state::ThemeChangeListener;
 use crate::text::TextTexture;
 use crate::transactions::TransactionData;
 use crate::transactions::Transactionable;
@@ -43,6 +46,7 @@ use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::tree::WorkspaceChangeReason;
+use crate::tree::WorkspaceEventListener;
 use crate::tree::WorkspaceNode;
 use crate::tree::WorkspaceType;
 use crate::tree::toplevel_set_floating;
@@ -53,6 +57,7 @@ use crate::utils::clamp_ext::ClampExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::double_click_state::DoubleClickState;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::event_listener::EventListener;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::on_drop_event::OnDropEvent;
 use crate::utils::smallmap::SmallMap;
@@ -87,6 +92,10 @@ pub struct FloatNode {
     pub needs_initial_size: Cell<bool>,
     cursors: RefCell<BHashMap<CursorType, CursorState>>,
     transaction_data: TransactionData<FloatTransactionOp>,
+    workspace_listener: EventListener<dyn WorkspaceEventListener>,
+    _theme_listener: EventListener<dyn ThemeChangeListener>,
+    _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
+    _scales_listener: EventListener<dyn ScalesChangedListener>,
 }
 
 #[derive(Derivative)]
@@ -175,7 +184,7 @@ impl FloatNode {
         child: Rc<dyn ToplevelNode>,
     ) -> Rc<Self> {
         let output = ws.node_state[LiveTL].output.get();
-        let floater = Rc::new(FloatNode {
+        let floater = Rc::<FloatNode>::new_cyclic(|slf| FloatNode {
             id: state.node_ids.next(),
             state: state.clone(),
             node_state: Default::default(),
@@ -194,6 +203,10 @@ impl FloatNode {
             needs_initial_size: Cell::new(output.is_dummy),
             cursors: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
+            workspace_listener: EventListener::attached(slf.clone(), &ws.listeners),
+            _theme_listener: EventListener::attached(slf.clone(), &state.theme_listeners),
+            _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
+            _scales_listener: EventListener::attached(slf.clone(), &state.scales_changed),
         });
         let theme = &state.theme;
         let bw = theme.sizes.border_width.get(LiveTL);
@@ -232,19 +245,6 @@ impl FloatNode {
             floater.toggle_pinned();
         }
         floater
-    }
-
-    pub fn on_spaces_changed(self: &Rc<Self>) {
-        if self.icon.set_size(self.state.theme.title_icon_size(LiveTL))
-            && let Some(child) = self.node_state[LiveTL].child.get()
-        {
-            child.tl_update_icon(&self.icon);
-        }
-        self.schedule_layout();
-    }
-
-    pub fn on_colors_changed(self: &Rc<Self>) {
-        self.schedule_render_titles();
     }
 
     pub fn schedule_layout(self: &Rc<Self>) {
@@ -513,6 +513,7 @@ impl FloatNode {
         self.workspace_link
             .set(Some(ws.stacked.add_last(self.clone())));
         self.workspace.set(ws.clone());
+        self.workspace_listener.attach(&ws.listeners);
         if ns.workspace_ty.get() != ws.ty {
             self.set_ns_workspace_type(ws.ty);
             self.display_link
@@ -532,12 +533,6 @@ impl FloatNode {
                 .get()
                 .pinned
                 .add_last_existing(pl);
-        }
-    }
-
-    pub fn after_ws_move(self: &Rc<Self>, output: &Rc<OutputNode>) {
-        if let Some(pinned) = &*self.pinned_link.borrow() {
-            output.pinned.add_last_existing(pinned);
         }
     }
 
@@ -1243,6 +1238,59 @@ impl StackedNode for FloatNode {
 impl PinnedNode for FloatNode {
     fn set_workspace(self: Rc<Self>, workspace: &Rc<WorkspaceNode>, update_visible: bool) {
         self.set_workspace_(workspace, false, update_visible);
+    }
+}
+
+impl WorkspaceEventListener for FloatNode {
+    fn output_changed(
+        self: Rc<Self>,
+        ws: &Rc<WorkspaceNode>,
+        _old: &Rc<OutputNode>,
+        new: &Rc<OutputNode>,
+    ) {
+        if ws.ty == WorkspaceType::Normal
+            && let Some(pinned) = &*self.pinned_link.borrow()
+        {
+            new.pinned.add_last_existing(pinned);
+        }
+    }
+}
+
+impl ThemeChangeListener for FloatNode {
+    fn changed(self: Rc<Self>) {
+        if self.state.colors_changed.is_not_zero() {
+            self.schedule_render_titles();
+        }
+        if self.state.spaces_changed.is_not_zero() {
+            if self.icon.set_size(self.state.theme.title_icon_size(LiveTL))
+                && let Some(child) = self.node_state[LiveTL].child.get()
+            {
+                child.tl_update_icon(&self.icon);
+            }
+            self.schedule_layout();
+        }
+        if self.state.show_window_icons_changed.is_not_zero() {
+            self.schedule_render_titles();
+        }
+        if self.state.fonts_changed.is_not_zero() {
+            self.schedule_render_titles();
+        }
+    }
+}
+
+impl GfxCtxChangedListener for FloatNode {
+    fn handle_gfx_context_change(self: Rc<Self>) {
+        self.title_textures.borrow_mut().clear();
+        self.icon.clear();
+        self.icons.clear();
+        self.schedule_render_titles();
+    }
+}
+
+impl ScalesChangedListener for FloatNode {
+    fn changed(self: Rc<Self>) {
+        self.title_textures.borrow_mut().clear();
+        self.schedule_render_titles();
     }
 }
 

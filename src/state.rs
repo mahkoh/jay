@@ -18,6 +18,7 @@ use crate::backend::InputDeviceGroupIds;
 use crate::backend::InputDeviceId;
 use crate::backend::InputDeviceIds;
 use crate::backend::InputDeviceScrollMethod;
+use crate::backend::Mode;
 use crate::backend::MonitorInfo;
 use crate::backend::transaction::BackendConnectorTransactionError;
 use crate::backends::dummy::DummyBackend;
@@ -134,8 +135,6 @@ use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::IdleInhibitorIds;
 use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1;
 use crate::ifs::wl_surface::zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2;
 use crate::ifs::wlr_output_manager::WlrOutputManagerState;
-use crate::ifs::wlr_output_manager::zwlr_output_head_v1::ZwlrOutputHeadV1;
-use crate::ifs::wlr_output_manager::zwlr_output_manager_v1::WlrOutputManagerId;
 use crate::ifs::workspace_manager::WorkspaceManagerState;
 use crate::ifs::wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1;
 use crate::ifs::wp_drm_lease_device_v1::WpDrmLeaseDeviceV1Global;
@@ -185,7 +184,6 @@ use crate::tree::LatchListener;
 use crate::tree::NodeBase;
 use crate::tree::NodeIds;
 use crate::tree::NodeVisitor;
-use crate::tree::NodeVisitorBase;
 use crate::tree::OutputNode;
 use crate::tree::OutputNodeId;
 use crate::tree::PlaceholderNode;
@@ -439,12 +437,26 @@ pub struct State {
     pub global_tracers: GlobalTracers,
     pub fuse: FuseMgr,
     pub theme_changed: AsyncEvent,
-    pub colors_changed: Cell<bool>,
-    pub spaces_changed: Cell<bool>,
+    pub colors_changed: NumCell<u64>,
+    pub spaces_changed: NumCell<u64>,
+    pub show_window_icons_changed: NumCell<u64>,
+    pub fonts_changed: NumCell<u64>,
+    pub theme_listeners: EventSource<dyn ThemeChangeListener>,
+    pub scales_changed: EventSource<dyn ScalesChangedListener>,
+}
+
+pub trait ThemeChangeListener {
+    fn changed(self: Rc<Self>) {
+        // nothing
+    }
 }
 
 pub trait GfxCtxChangedListener {
     fn handle_gfx_context_change(self: Rc<Self>);
+}
+
+pub trait ScalesChangedListener {
+    fn changed(self: Rc<Self>);
 }
 
 // impl Drop for State {
@@ -603,7 +615,42 @@ pub struct ConnectorData {
     pub damage_intersect: Cell<Rect>,
     pub state: RefCell<BackendConnectorState>,
     pub head_manager: HeadManager,
-    pub wlr_output_heads: CopyHashMap<WlrOutputManagerId, Rc<ZwlrOutputHeadV1>>,
+    pub listeners: EventSource<dyn OutputEventListener>,
+}
+
+pub trait OutputEventListener {
+    fn disconnected(self: Rc<Self>) {
+        // nothing
+    }
+
+    fn position_changed(self: Rc<Self>, on: &Rc<OutputNode>, x: i32, y: i32) {
+        let _ = on;
+        let _ = x;
+        let _ = y;
+    }
+
+    fn vrr_mode_changed(self: Rc<Self>, on: &Rc<OutputNode>, mode: &VrrMode) {
+        let _ = on;
+        let _ = mode;
+    }
+
+    fn mode_changed(self: Rc<Self>, mode: Mode) {
+        let _ = mode;
+    }
+
+    fn scale_changed(self: Rc<Self>, on: &Rc<OutputNode>, scale: Scale) {
+        let _ = on;
+        let _ = scale;
+    }
+
+    fn transform_changed(self: Rc<Self>, on: &Rc<OutputNode>, transform: Transform) {
+        let _ = on;
+        let _ = transform;
+    }
+
+    fn color_description_changed(self: Rc<Self>, on: &Rc<OutputNode>) {
+        let _ = on;
+    }
 }
 
 pub struct OutputData {
@@ -712,9 +759,9 @@ impl ConnectorData {
         }
         if b!(old.mode != s.mode) {
             self.head_manager.handle_mode_change(s.mode);
-            for head in self.wlr_output_heads.lock().values() {
-                head.handle_mode_change(s.mode);
-            }
+            self.listeners.for_each(|listener| {
+                listener.mode_changed(s.mode);
+            });
         }
         if let Some(output) = state.outputs.get(&self.connector.id())
             && let Some(node) = &output.node
@@ -755,35 +802,6 @@ impl DrmDevData {
             .set_use_plane_color_pipelines(use_plane_color_pipelines);
         state.trigger_cci(CCI_GPUS);
         state.damage_full(RenderTL);
-    }
-}
-
-struct UpdateTextTexturesVisitor;
-impl NodeVisitorBase for UpdateTextTexturesVisitor {
-    fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-        node.children
-            .iter()
-            .for_each(|c| c.title_tex.borrow_mut().clear());
-        node.schedule_render_titles();
-        node.node_visit_children(self);
-    }
-    fn visit_output(&mut self, node: &Rc<OutputNode>) {
-        node.schedule_update_render_data();
-        node.node_visit_children(self);
-    }
-    fn visit_float(&mut self, node: &Rc<FloatNode>) {
-        node.title_textures.borrow_mut().clear();
-        node.schedule_render_titles();
-        node.node_visit_children(self);
-    }
-    fn visit_workspace(&mut self, node: &Rc<WorkspaceNode>) {
-        node.title_texture.take();
-        node.node_visit_children(self);
-    }
-    fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
-        node.textures.borrow_mut().clear();
-        node.schedule_update_texture();
-        node.node_visit_children(self);
     }
 }
 
@@ -830,7 +848,9 @@ impl State {
     }
 
     fn output_scales_changed(&self) {
-        self.visit_all_nodes(&mut UpdateTextTexturesVisitor);
+        self.scales_changed.for_each(|listener| {
+            listener.changed();
+        });
         self.reload_cursors();
         self.update_xwayland_wire_scale();
         self.icons.update_sizes(self);
@@ -887,66 +907,12 @@ impl State {
         self.dmabuf_feedback.update();
         self.update_render_device(true);
 
-        {
-            struct Walker;
-            impl NodeVisitorBase for Walker {
-                fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                    node.render_data.borrow_mut().titles.clear();
-                    node.children.iter().for_each(|c| {
-                        c.title_tex.borrow_mut().clear();
-                        c.icon.clear();
-                        c.icons.clear();
-                    });
-                    node.node_visit_children(self);
-                }
-                fn visit_workspace(&mut self, node: &Rc<WorkspaceNode>) {
-                    node.title_texture.take();
-                    node.node_visit_children(self);
-                }
-                fn visit_output(&mut self, node: &Rc<OutputNode>) {
-                    node.render_data.borrow_mut().titles.clear();
-                    node.render_data.borrow_mut().status.take();
-                    node.set_hardware_cursor(None);
-                    node.node_visit_children(self);
-                }
-                fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                    node.title_textures.borrow_mut().clear();
-                    node.icon.clear();
-                    node.icons.clear();
-                    node.node_visit_children(self);
-                }
-                fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
-                    node.textures.borrow_mut().clear();
-                    node.node_visit_children(self);
-                }
-            }
-            self.visit_all_nodes(&mut Walker);
-            for listener in self.gfx_ctx_changed.iter() {
-                listener.handle_gfx_context_change();
-            }
-            for client in self.clients.clients.borrow_mut().values() {
-                for surface in client.data.objects.surfaces.lock().values() {
-                    let had_shm_texture = surface.reset_shm_textures();
-                    let had_prime_texture = surface.prime.reset();
-                    if let Some(buffer) = surface.buffer.get() {
-                        let buf = &buffer.buffer.buf;
-                        let had_buffer_texture = buf.had_buffer_texture.get();
-                        if had_shm_texture || had_prime_texture || had_buffer_texture {
-                            buf.update_texture_or_log(surface, true);
-                        }
-                    }
-                }
-            }
-            for icon in self.toplevel_icons.lock().values() {
-                if let Some(icon) = icon.upgrade() {
-                    icon.handle_render_ctx_change();
-                }
-            }
-        }
+        self.gfx_ctx_changed.for_each(|listener| {
+            listener.handle_gfx_context_change();
+        });
 
         if ctx.is_some() {
             self.reload_cursors();
-            self.visit_all_nodes(&mut UpdateTextTexturesVisitor);
         }
 
         for cursor_user_groups in self.cursor_user_groups.lock().values() {
@@ -2152,7 +2118,7 @@ impl State {
     }
 
     fn colors_changed(self: &Rc<Self>) {
-        self.colors_changed.set(true);
+        self.colors_changed.fetch_add(1);
         self.theme_changed.trigger();
     }
 
@@ -2205,7 +2171,7 @@ impl State {
     }
 
     fn spaces_changed(self: &Rc<Self>) {
-        self.spaces_changed.set(true);
+        self.spaces_changed.fetch_add(1);
         self.theme_changed.trigger();
     }
 
@@ -2222,18 +2188,8 @@ impl State {
 
     pub fn set_show_window_icons(&self, show: bool) {
         self.theme.show_window_icons.set(show);
-        struct V;
-        impl NodeVisitorBase for V {
-            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                node.schedule_render_titles();
-                node.node_visit_children(self);
-            }
-            fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                node.schedule_render_titles();
-                node.node_visit_children(self);
-            }
-        }
-        self.visit_all_nodes(&mut V);
+        self.show_window_icons_changed.fetch_add(1);
+        self.theme_changed.trigger();
         self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
@@ -2282,22 +2238,8 @@ impl State {
 
     fn fonts_changed(&self) {
         self.trigger_cci(CCI_LOOK_AND_FEEL);
-        struct V;
-        impl NodeVisitorBase for V {
-            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                node.schedule_render_titles();
-                node.node_visit_children(self);
-            }
-            fn visit_output(&mut self, node: &Rc<OutputNode>) {
-                node.schedule_update_render_data();
-                node.node_visit_children(self);
-            }
-            fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                node.schedule_render_titles();
-                node.node_visit_children(self);
-            }
-        }
-        self.visit_all_nodes(&mut V);
+        self.fonts_changed.fetch_add(1);
+        self.theme_changed.trigger();
     }
 
     pub fn reset_fonts(&self) {

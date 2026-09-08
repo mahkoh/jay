@@ -8,13 +8,12 @@ use crate::ifs::wl_seat::NodeSeatState;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_seat::collect_kb_foci2;
 use crate::ifs::wl_seat::tablet::TabletTool;
-use crate::ifs::wl_surface::WlSurface;
-use crate::ifs::wl_surface::x_surface::xwindow::Xwindow;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::workspace_manager::ext_workspace_handle_v1::ExtWorkspaceHandleV1;
 use crate::ifs::workspace_manager::ext_workspace_manager_v1::WorkspaceManagerId;
 use crate::rect::Rect;
 use crate::renderer::Renderer;
+use crate::state::GfxCtxChangedListener;
+use crate::state::ScalesChangedListener;
 use crate::state::State;
 use crate::text::TextTexture;
 use crate::transactions::TransactionData;
@@ -24,20 +23,16 @@ use crate::tree::ContainingNode;
 use crate::tree::Direction;
 use crate::tree::FindTreeResult;
 use crate::tree::FindTreeUsecase;
-use crate::tree::FloatNode;
 use crate::tree::FoundNode;
 use crate::tree::Node;
 use crate::tree::NodeBase;
 use crate::tree::NodeId;
 use crate::tree::NodeLayerLink;
 use crate::tree::NodeLocation;
-use crate::tree::NodeVisitorBase;
 use crate::tree::OutputNode;
-use crate::tree::PlaceholderNode;
 use crate::tree::SplitView;
 use crate::tree::StackedNode;
 use crate::tree::ToplevelNode;
-use crate::tree::ToplevelNodeBase;
 use crate::tree::TreeLink;
 use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
@@ -48,6 +43,8 @@ use crate::tree::container::ContainerNode;
 use crate::tree::walker::NodeVisitor;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::event_listener::EventListener;
+use crate::utils::event_listener::EventSource;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::linkedlist::NodeRef;
@@ -97,6 +94,9 @@ pub struct WorkspaceNode {
     pub output_link: Cell<Option<LinkedNode<WorkspaceOutputLink>>>,
     pub transaction_data: TransactionData<WorkspaceTransactionOp>,
     pub was_on_dummy_output: Cell<bool>,
+    pub listeners: EventSource<dyn WorkspaceEventListener>,
+    pub _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
+    pub _scales_listener: EventListener<dyn ScalesChangedListener>,
 }
 
 pub struct WorkspaceNodeState {
@@ -118,11 +118,25 @@ impl ObjWithId for WorkspaceNode {
     }
 }
 
+pub trait WorkspaceEventListener {
+    fn output_changed(
+        self: Rc<Self>,
+        ws: &Rc<WorkspaceNode>,
+        old: &Rc<OutputNode>,
+        new: &Rc<OutputNode>,
+    ) {
+        let _ = ws;
+        let _ = old;
+        let _ = new;
+    }
+}
+
 impl WorkspaceNode {
     pub fn new(output: &Rc<OutputNode>, name: &str, ty: WorkspaceType) -> Rc<Self> {
-        let slf = Rc::new(Self {
-            id: output.state.node_ids.next(),
-            state: output.state.clone(),
+        let state = &output.state;
+        let slf = Rc::<Self>::new_cyclic(|slf| Self {
+            id: state.node_ids.next(),
+            state: state.clone(),
             ty,
             stacked: Default::default(),
             seat_state: Default::default(),
@@ -131,7 +145,7 @@ impl WorkspaceNode {
             visible_on_desired_output: Default::default(),
             desired_output: CloneCell::new(output.global.output_id.clone()),
             jay_workspaces: Default::default(),
-            may_capture: output.state.default_workspace_capture.clone(),
+            may_capture: state.default_workspace_capture.clone(),
             has_capture: Default::default(),
             title_texture: Default::default(),
             attention_requests: Default::default(),
@@ -140,8 +154,11 @@ impl WorkspaceNode {
             opt: Default::default(),
             node_state: SplitView::from_fn(|_| WorkspaceNodeState::new(output)),
             output_link: Default::default(),
-            transaction_data: TransactionData::new(&output.state.tree),
+            transaction_data: TransactionData::new(&state.tree),
             was_on_dummy_output: Default::default(),
+            listeners: Default::default(),
+            _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
+            _scales_listener: EventListener::attached(slf.clone(), &state.scales_changed),
         });
         slf.seat_state.disable_focus_history();
         slf
@@ -200,52 +217,9 @@ impl WorkspaceNode {
         }
         self.update_has_captures();
         self.change_extents(&output.node_state[LiveTL].rects.workspace.get(), output);
-        struct OutputSetter<'a> {
-            ws: &'a Rc<WorkspaceNode>,
-            old: &'a Rc<OutputNode>,
-            new: &'a Rc<OutputNode>,
-        }
-        impl NodeVisitorBase for OutputSetter<'_> {
-            fn visit_surface(&mut self, node: &Rc<WlSurface>) {
-                node.set_workspace(self.ws);
-            }
-
-            fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-                node.tl_data().workspace_output_changed(self.old, self.new);
-                node.node_visit_children(self);
-            }
-
-            fn visit_toplevel(&mut self, node: &Rc<XdgToplevel>) {
-                node.tl_data().workspace_output_changed(self.old, self.new);
-                node.node_visit_children(self);
-            }
-
-            fn visit_float(&mut self, node: &Rc<FloatNode>) {
-                if self.ws.ty == WorkspaceType::Normal {
-                    node.after_ws_move(self.new);
-                }
-                node.node_visit_children(self);
-            }
-
-            fn visit_xwindow(&mut self, node: &Rc<Xwindow>) {
-                node.tl_data().workspace_output_changed(self.old, self.new);
-                node.node_visit_children(self);
-            }
-
-            fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
-                node.tl_data().workspace_output_changed(self.old, self.new);
-                node.node_visit_children(self);
-            }
-        }
-        let mut visitor = OutputSetter {
-            ws: self,
-            old: &old,
-            new: output,
-        };
-        self.node_visit_children(&mut visitor);
-        for stacked in self.stacked.iter() {
-            stacked.deref().clone().node_visit_dyn(&mut visitor);
-        }
+        self.listeners.for_each(|listener| {
+            listener.output_changed(self, &old, output);
+        });
         self.state.trigger_cci(CCI_WORKSPACES);
     }
 
@@ -480,6 +454,18 @@ impl WorkspaceNode {
     ) -> Option<Rc<dyn ToplevelNode>> {
         self.add_transaction_op(WorkspaceTransactionOp::SetFullscreen(v.cloned()));
         self.node_state[LiveTL].fullscreen.set(v.cloned())
+    }
+}
+
+impl GfxCtxChangedListener for WorkspaceNode {
+    fn handle_gfx_context_change(self: Rc<Self>) {
+        self.title_texture.take();
+    }
+}
+
+impl ScalesChangedListener for WorkspaceNode {
+    fn changed(self: Rc<Self>) {
+        self.title_texture.take();
     }
 }
 

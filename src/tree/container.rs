@@ -19,7 +19,11 @@ use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::Top
 use crate::rect::Rect;
 use crate::renderer::Renderer;
 use crate::scale::Scale;
+use crate::state::GfxCtxChangedListener;
+use crate::state::OutputEventListener;
+use crate::state::ScalesChangedListener;
 use crate::state::State;
+use crate::state::ThemeChangeListener;
 use crate::text::TextTexture;
 use crate::theme::Color;
 use crate::theme::ContainerBorders;
@@ -53,6 +57,7 @@ use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::tree::WorkspaceChangeReason;
+use crate::tree::WorkspaceEventListener;
 use crate::tree::WorkspaceNode;
 use crate::tree::default_tile_drag_bounds;
 use crate::tree::toplevel_set_floating;
@@ -64,6 +69,7 @@ use crate::utils::bool_ext::BoolExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::double_click_state::DoubleClickState;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::event_listener::EventListener;
 use crate::utils::fx_hash::FHashMap;
 use crate::utils::fx_hash::FHashSet;
 use crate::utils::hash_map_ext::HashMapExt;
@@ -219,6 +225,9 @@ pub struct ContainerNode {
     schedule_render_title_scheduled: Cell<bool>,
     schedule_compute_render_positions_scheduled: Cell<bool>,
     fully_damaged_in_iteration: Cell<Option<u64>>,
+    _theme_listener: EventListener<dyn ThemeChangeListener>,
+    _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
+    _scales_listener: EventListener<dyn ScalesChangedListener>,
 }
 
 impl Debug for ContainerNode {
@@ -341,7 +350,7 @@ impl ContainerNode {
         let mut child_nodes = BHashMap::default();
         child_nodes.insert(child.node_id(), child_node);
         let id = state.node_ids.next();
-        let slf = Rc::new_cyclic(|weak| Self {
+        let slf = Rc::<Self>::new_cyclic(|weak| Self {
             id,
             node_state: Default::default(),
             sum_factors: Cell::new(1.0),
@@ -372,6 +381,9 @@ impl ContainerNode {
             schedule_render_title_scheduled: Default::default(),
             schedule_compute_render_positions_scheduled: Default::default(),
             fully_damaged_in_iteration: Default::default(),
+            _theme_listener: EventListener::attached(weak.clone(), &state.theme_listeners),
+            _gfx_ctx_listener: EventListener::attached(weak.clone(), &state.gfx_ctx_changed),
+            _scales_listener: EventListener::attached(weak.clone(), &state.scales_changed),
         });
         slf.set_ns_split(split);
         slf.adj_ns_num_children(|value| value + 1);
@@ -502,26 +514,6 @@ impl ContainerNode {
         for seat in seats.values_mut() {
             seat.op = None;
         }
-    }
-
-    pub fn on_spaces_changed(self: &Rc<Self>) {
-        for child in self.child_nodes.borrow().values() {
-            if child
-                .icon
-                .set_size(self.state.theme.title_icon_size(LiveTL))
-            {
-                child.node.tl_update_icon(&child.icon);
-            }
-        }
-        self.update_content_size();
-        // log::info!("on_spaces_changed");
-        self.schedule_layout();
-    }
-
-    pub fn on_colors_changed(self: &Rc<Self>) {
-        // log::info!("on_colors_changed");
-        self.schedule_render_titles();
-        self.schedule_compute_render_positions();
     }
 
     fn damage(self: &Rc<Self>) {
@@ -2833,6 +2825,72 @@ impl ToplevelNodeBase for ContainerNode {
 
     fn tl_schedule_data_op(self: Rc<Self>, op: ToplevelDataTransactionOp) {
         self.add_transaction_op(ContainerTransactionOp::ToplevelData(op));
+    }
+}
+
+impl OutputEventListener for ContainerNode {
+    fn scale_changed(self: Rc<Self>, _on: &Rc<OutputNode>, _scale: Scale) {
+        self.toplevel_data.scale_changed();
+    }
+}
+
+impl WorkspaceEventListener for ContainerNode {
+    fn output_changed(
+        self: Rc<Self>,
+        _ws: &Rc<WorkspaceNode>,
+        old: &Rc<OutputNode>,
+        new: &Rc<OutputNode>,
+    ) {
+        self.toplevel_data.workspace_output_changed(old, new);
+    }
+}
+
+impl ThemeChangeListener for ContainerNode {
+    fn changed(self: Rc<Self>) {
+        if self.state.colors_changed.is_not_zero() {
+            self.schedule_render_titles();
+            self.schedule_compute_render_positions();
+        }
+        if self.state.spaces_changed.is_not_zero() {
+            for child in self.child_nodes.borrow().values() {
+                if child
+                    .icon
+                    .set_size(self.state.theme.title_icon_size(LiveTL))
+                {
+                    child.node.tl_update_icon(&child.icon);
+                }
+            }
+            self.update_content_size();
+            // log::info!("on_spaces_changed");
+            self.schedule_layout();
+        }
+        if self.state.show_window_icons_changed.is_not_zero() {
+            self.schedule_render_titles();
+        }
+        if self.state.fonts_changed.is_not_zero() {
+            self.schedule_render_titles();
+        }
+    }
+}
+
+impl GfxCtxChangedListener for ContainerNode {
+    fn handle_gfx_context_change(self: Rc<Self>) {
+        self.render_data.borrow_mut().titles.clear();
+        self.children.iter().for_each(|c| {
+            c.title_tex.borrow_mut().clear();
+            c.icon.clear();
+            c.icons.clear();
+        });
+        self.schedule_render_titles();
+    }
+}
+
+impl ScalesChangedListener for ContainerNode {
+    fn changed(self: Rc<Self>) {
+        self.children
+            .iter()
+            .for_each(|c| c.title_tex.borrow_mut().clear());
+        self.schedule_render_titles();
     }
 }
 

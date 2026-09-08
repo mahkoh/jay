@@ -6,7 +6,10 @@ use crate::ifs::wl_output::OutputGlobalOpt;
 use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::object::Version;
+use crate::state::OutputEventListener;
+use crate::tree::OutputNode;
 use crate::tree::TreeTimeline::LiveTL;
+use crate::utils::event_listener::EventListener;
 use crate::wire::WpColorManagementOutputV1Id;
 use crate::wire::wp_color_management_output_v1::*;
 use std::rc::Rc;
@@ -18,6 +21,13 @@ pub struct WpColorManagementOutputV1 {
     pub version: Version,
     pub tracker: Tracker<Self>,
     pub output: Rc<OutputGlobalOpt>,
+    pub listener: EventListener<dyn OutputEventListener>,
+}
+
+impl OutputEventListener for WpColorManagementOutputV1 {
+    fn color_description_changed(self: Rc<Self>, _on: &Rc<OutputNode>) {
+        self.send_image_description_changed();
+    }
 }
 
 impl WpColorManagementOutputV1 {
@@ -25,21 +35,13 @@ impl WpColorManagementOutputV1 {
         self.client
             .event(ImageDescriptionChanged { self_id: self.id });
     }
-
-    fn detach(&self) {
-        if let Some(output) = self.output.node() {
-            output
-                .color_description_listeners
-                .remove(&(self.client.id, self.id));
-        }
-    }
 }
 
 impl WpColorManagementOutputV1RequestHandler for WpColorManagementOutputV1 {
     type Error = WpColorManagementOutputV1Error;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.detach();
+        self.listener.detach();
         self.client.remove_obj(self)?;
         Ok(())
     }
@@ -75,11 +77,7 @@ object_base! {
     version = self.version;
 }
 
-impl Object for WpColorManagementOutputV1 {
-    fn break_loops(self: Rc<Self>) {
-        self.detach();
-    }
-}
+impl Object for WpColorManagementOutputV1 {}
 
 simple_add_obj!(WpColorManagementOutputV1);
 
