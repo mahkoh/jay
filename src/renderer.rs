@@ -675,7 +675,7 @@ impl Renderer<'_> {
             .fill_boxes(&title_underline, &uc, srgb, perceptual);
         let rect = ns.title_rect.get().move_(x, y);
         let bounds = self.base.scale_rect(rect);
-        let (mut x1, y1) = rect.position();
+        let (x1, y1) = rect.position();
         if ns.workspace_ty.get() == WorkspaceType::Overlay {
             if let Some(icons) = &self.title_icons {
                 let icon = if ns.active.get() {
@@ -685,7 +685,9 @@ impl Renderer<'_> {
                 } else {
                     &icons.overlay_unfocused_title
                 };
-                let (x, y) = self.base.scale_point(x1, y1);
+                let (x, y) = self
+                    .base
+                    .scale_point(x1 + ns.offsets.overlay_icon.get(), y1);
                 self.base.render_texture(
                     icon,
                     x,
@@ -696,11 +698,10 @@ impl Renderer<'_> {
                     },
                 );
             }
-            x1 += th;
         }
         let is_pinned = ns.pinned.get();
         if is_pinned || theme.show_pin_icon.get() {
-            let (x, y) = self.base.scale_point(x1, y1);
+            let (x, y) = self.base.scale_point(x1 + ns.offsets.pin_icon.get(), y1);
             if let Some(icons) = &self.title_icons {
                 let icon = if ns.active.get() {
                     &icons.pin_focused_title
@@ -723,23 +724,21 @@ impl Renderer<'_> {
                     },
                 );
             }
-            x1 += th;
         }
         if let Some(icon) = floating.icons.get(&self.base.scale) {
             self.render_icon(
                 &icon,
                 &bounds,
-                x1,
+                x1 + ns.offsets.toplevel_icon.get(),
                 y1,
                 theme.window_icons_grayscale.get(),
                 sizes.title_icon_size.get(),
             );
-            x1 += th;
         }
         if let Some(title) = floating.title_textures.borrow().get(&self.base.scale)
             && let Some(texture) = title.texture()
         {
-            let (x, y) = self.base.scale_point(x1, y1);
+            let (x, y) = self.base.scale_point(x1 + ns.offsets.title.get(), y1);
             self.base.render_texture(
                 &texture,
                 x,

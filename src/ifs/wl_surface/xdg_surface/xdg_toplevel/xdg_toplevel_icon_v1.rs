@@ -106,7 +106,6 @@ impl ToplevelIconUser {
         self.icons.get(&scale)
     }
 
-    #[expect(unused)]
     pub fn has_icon(&self) -> bool {
         self.have_icon.get()
     }
