@@ -444,7 +444,7 @@ pub struct State {
 }
 
 pub trait GfxCtxChangedListener {
-    fn handle_gfx_context_change(&self);
+    fn handle_gfx_context_change(self: Rc<Self>);
 }
 
 // impl Drop for State {
