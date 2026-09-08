@@ -20,6 +20,30 @@ pub fn write_singletons(files: &[ParsedFile]) -> anyhow::Result<()> {
     }
     wl!("{xn}}}");
     wl!();
+    wl!("{xn}impl Singleton {{");
+    {
+        push_xn!(xn);
+        wl!("{xn}#[expect(unused)]");
+        wl!("{xn}pub fn interface(self) -> Interface {{");
+        {
+            push_xn!(xn);
+            wl!("{xn}match self {{");
+            {
+                push_xn!(xn);
+                for f in files {
+                    if !f.messages.singleton {
+                        continue;
+                    }
+                    let camel = &f.camel_obj_name;
+                    wl!("{xn}Self::{camel} => crate::wire::{camel},");
+                }
+            }
+            wl!("{xn}}}");
+        }
+        wl!("{xn}}}");
+    }
+    wl!("{xn}}}");
+    wl!();
     wl!("{xn}pub fn add_singletons(globals: &mut Globals) {{");
     {
         push_xn!(xn);
@@ -29,10 +53,15 @@ pub fn write_singletons(files: &[ParsedFile]) -> anyhow::Result<()> {
             }
             let camel = &f.camel_obj_name;
             wl!("{xn}let name = globals.name();");
-            wl!(
-                "{xn}globals.add_global_no_broadcast(&Rc::new(singletons::{camel}Global::new(name)));"
-            );
-            wl!("{xn}globals.singletons[Singleton::{camel}] = name;");
+            wl!("{xn}let global = Rc::new(singletons::{camel}Global::new(name));");
+            wl!("{xn}globals.add_global_no_broadcast(&global);");
+            wl!("{xn}globals.singletons[Singleton::{camel}] = SingletonInfo {{");
+            {
+                push_xn!(xn);
+                wl!("{xn}name,");
+                wl!("{xn}version: global.version(),");
+            }
+            wl!("{xn}}};");
         }
     }
     wl!("{xn}}}");

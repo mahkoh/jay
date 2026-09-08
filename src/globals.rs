@@ -91,13 +91,28 @@ pub trait Global: GlobalBase {
     }
 }
 
+#[derive(Copy, Clone)]
+pub struct SingletonInfo {
+    pub name: GlobalName,
+    #[expect(unused)]
+    pub version: u32,
+}
+
+impl Default for SingletonInfo {
+    fn default() -> Self {
+        Self {
+            name: GlobalName(0),
+            version: 0,
+        }
+    }
+}
 pub struct Globals {
     next_name: NumCell<u32>,
     registry: CopyHashMap<GlobalName, Rc<dyn Global>>,
     removed: CopyHashMap<GlobalName, Rc<dyn Global>>,
     pub outputs: CopyHashMap<GlobalName, Rc<WlOutputGlobal>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
-    pub singletons: StaticMap<Singleton, GlobalName>,
+    pub singletons: StaticMap<Singleton, SingletonInfo>,
     exposed: StaticMap<Singleton, Cell<bool>>,
 }
 
@@ -109,7 +124,7 @@ impl Globals {
             removed: CopyHashMap::new(),
             outputs: Default::default(),
             seats: Default::default(),
-            singletons: StaticMap::from_fn(|_| GlobalName(0)),
+            singletons: Default::default(),
             exposed: Default::default(),
         };
         add_singletons(&mut slf);
@@ -251,8 +266,8 @@ impl Globals {
 
     pub fn expose_new_singletons(&self, state: &State) {
         let mut singletons = ArrayVec::<_, { Singleton::LENGTH }>::new();
-        for (singleton, name) in self.singletons.iter() {
-            if let Some(global) = self.registry.get(name) {
+        for (singleton, info) in self.singletons.iter() {
+            if let Some(global) = self.registry.get(&info.name) {
                 let exposed = global.exposed(state);
                 if self.exposed[singleton].replace(exposed) != exposed && exposed {
                     singletons.push(global);
