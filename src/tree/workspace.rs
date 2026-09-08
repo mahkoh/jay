@@ -13,6 +13,7 @@ use crate::ifs::workspace_manager::ext_workspace_manager_v1::WorkspaceManagerId;
 use crate::rect::Rect;
 use crate::renderer::Renderer;
 use crate::state::GfxCtxChangedListener;
+use crate::state::ScalesChangedListener;
 use crate::state::State;
 use crate::text::TextTexture;
 use crate::transactions::TransactionData;
@@ -95,6 +96,7 @@ pub struct WorkspaceNode {
     pub was_on_dummy_output: Cell<bool>,
     pub listeners: EventSource<dyn WorkspaceEventListener>,
     pub _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
+    pub _scales_listener: EventListener<dyn ScalesChangedListener>,
 }
 
 pub struct WorkspaceNodeState {
@@ -156,6 +158,7 @@ impl WorkspaceNode {
             was_on_dummy_output: Default::default(),
             listeners: Default::default(),
             _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
+            _scales_listener: EventListener::attached(slf.clone(), &state.scales_changed),
         });
         slf.seat_state.disable_focus_history();
         slf
@@ -456,6 +459,12 @@ impl WorkspaceNode {
 
 impl GfxCtxChangedListener for WorkspaceNode {
     fn handle_gfx_context_change(self: Rc<Self>) {
+        self.title_texture.take();
+    }
+}
+
+impl ScalesChangedListener for WorkspaceNode {
+    fn changed(self: Rc<Self>) {
         self.title_texture.take();
     }
 }

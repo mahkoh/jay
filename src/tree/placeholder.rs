@@ -8,6 +8,7 @@ use crate::renderer::Renderer;
 use crate::scale::Scale;
 use crate::state::GfxCtxChangedListener;
 use crate::state::OutputEventListener;
+use crate::state::ScalesChangedListener;
 use crate::state::State;
 use crate::text::TextTexture;
 use crate::transactions::TransactionData;
@@ -60,6 +61,7 @@ pub struct PlaceholderNode {
     pub textures: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
     transaction_data: TransactionData<PlaceholderTransactionOp>,
     _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
+    _scales_listener: EventListener<dyn ScalesChangedListener>,
 }
 
 pub async fn placeholder_render_textures(state: Rc<State>) {
@@ -91,6 +93,7 @@ impl PlaceholderNode {
             textures: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
             _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
+            _scales_listener: EventListener::attached(slf.clone(), &state.scales_changed),
         }
     }
 
@@ -113,6 +116,7 @@ impl PlaceholderNode {
             textures: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
             _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
+            _scales_listener: EventListener::attached(slf.clone(), &state.scales_changed),
         }
     }
 
@@ -338,6 +342,13 @@ impl WorkspaceEventListener for PlaceholderNode {
 
 impl GfxCtxChangedListener for PlaceholderNode {
     fn handle_gfx_context_change(self: Rc<Self>) {
+        self.textures.borrow_mut().clear();
+        self.schedule_update_texture();
+    }
+}
+
+impl ScalesChangedListener for PlaceholderNode {
+    fn changed(self: Rc<Self>) {
         self.textures.borrow_mut().clear();
         self.schedule_update_texture();
     }

@@ -60,6 +60,7 @@ use crate::rect::Rect;
 use crate::renderer::Renderer;
 use crate::scale::Scale;
 use crate::state::GfxCtxChangedListener;
+use crate::state::ScalesChangedListener;
 use crate::state::State;
 use crate::state::ThemeChangeListener;
 use crate::text::TextTexture;
@@ -169,6 +170,7 @@ pub struct OutputNode {
     pub damage_scheduled: Cell<bool>,
     pub _theme_listener: EventListener<dyn ThemeChangeListener>,
     pub _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
+    pub _scales_listener: EventListener<dyn ScalesChangedListener>,
 }
 
 impl ObjWithId for OutputNode {
@@ -329,6 +331,7 @@ impl OutputNode {
             damage_scheduled: Default::default(),
             _theme_listener: EventListener::attached(slf.clone(), &state.theme_listeners),
             _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
+            _scales_listener: EventListener::attached(slf.clone(), &state.scales_changed),
         });
         on.set_ns_pos(Rect::new_sized_saturating(x, y, width, height));
         on.set_ns_scale(scale);
@@ -2174,6 +2177,12 @@ impl GfxCtxChangedListener for OutputNode {
         self.render_data.borrow_mut().titles.clear();
         self.render_data.borrow_mut().status.take();
         self.set_hardware_cursor(None);
+        self.schedule_update_render_data();
+    }
+}
+
+impl ScalesChangedListener for OutputNode {
+    fn changed(self: Rc<Self>) {
         self.schedule_update_render_data();
     }
 }

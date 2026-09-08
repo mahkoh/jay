@@ -16,6 +16,7 @@ use crate::rect::Rect;
 use crate::renderer::Renderer;
 use crate::scale::Scale;
 use crate::state::GfxCtxChangedListener;
+use crate::state::ScalesChangedListener;
 use crate::state::State;
 use crate::state::ThemeChangeListener;
 use crate::text::TextTexture;
@@ -94,6 +95,7 @@ pub struct FloatNode {
     workspace_listener: EventListener<dyn WorkspaceEventListener>,
     _theme_listener: EventListener<dyn ThemeChangeListener>,
     _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
+    _scales_listener: EventListener<dyn ScalesChangedListener>,
 }
 
 #[derive(Derivative)]
@@ -204,6 +206,7 @@ impl FloatNode {
             workspace_listener: EventListener::attached(slf.clone(), &ws.listeners),
             _theme_listener: EventListener::attached(slf.clone(), &state.theme_listeners),
             _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
+            _scales_listener: EventListener::attached(slf.clone(), &state.scales_changed),
         });
         let theme = &state.theme;
         let bw = theme.sizes.border_width.get(LiveTL);
@@ -1280,6 +1283,13 @@ impl GfxCtxChangedListener for FloatNode {
         self.title_textures.borrow_mut().clear();
         self.icon.clear();
         self.icons.clear();
+        self.schedule_render_titles();
+    }
+}
+
+impl ScalesChangedListener for FloatNode {
+    fn changed(self: Rc<Self>) {
+        self.title_textures.borrow_mut().clear();
         self.schedule_render_titles();
     }
 }

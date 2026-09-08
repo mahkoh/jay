@@ -184,7 +184,6 @@ use crate::tree::LatchListener;
 use crate::tree::NodeBase;
 use crate::tree::NodeIds;
 use crate::tree::NodeVisitor;
-use crate::tree::NodeVisitorBase;
 use crate::tree::OutputNode;
 use crate::tree::OutputNodeId;
 use crate::tree::PlaceholderNode;
@@ -443,6 +442,7 @@ pub struct State {
     pub show_window_icons_changed: NumCell<u64>,
     pub fonts_changed: NumCell<u64>,
     pub theme_listeners: EventSource<dyn ThemeChangeListener>,
+    pub scales_changed: EventSource<dyn ScalesChangedListener>,
 }
 
 pub trait ThemeChangeListener {
@@ -453,6 +453,10 @@ pub trait ThemeChangeListener {
 
 pub trait GfxCtxChangedListener {
     fn handle_gfx_context_change(self: Rc<Self>);
+}
+
+pub trait ScalesChangedListener {
+    fn changed(self: Rc<Self>);
 }
 
 // impl Drop for State {
@@ -801,35 +805,6 @@ impl DrmDevData {
     }
 }
 
-struct UpdateTextTexturesVisitor;
-impl NodeVisitorBase for UpdateTextTexturesVisitor {
-    fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-        node.children
-            .iter()
-            .for_each(|c| c.title_tex.borrow_mut().clear());
-        node.schedule_render_titles();
-        node.node_visit_children(self);
-    }
-    fn visit_output(&mut self, node: &Rc<OutputNode>) {
-        node.schedule_update_render_data();
-        node.node_visit_children(self);
-    }
-    fn visit_float(&mut self, node: &Rc<FloatNode>) {
-        node.title_textures.borrow_mut().clear();
-        node.schedule_render_titles();
-        node.node_visit_children(self);
-    }
-    fn visit_workspace(&mut self, node: &Rc<WorkspaceNode>) {
-        node.title_texture.take();
-        node.node_visit_children(self);
-    }
-    fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
-        node.textures.borrow_mut().clear();
-        node.schedule_update_texture();
-        node.node_visit_children(self);
-    }
-}
-
 impl State {
     pub fn create_gfx_context(
         &self,
@@ -873,7 +848,9 @@ impl State {
     }
 
     fn output_scales_changed(&self) {
-        self.visit_all_nodes(&mut UpdateTextTexturesVisitor);
+        self.scales_changed.for_each(|listener| {
+            listener.changed();
+        });
         self.reload_cursors();
         self.update_xwayland_wire_scale();
         self.icons.update_sizes(self);
