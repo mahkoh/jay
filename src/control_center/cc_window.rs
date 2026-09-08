@@ -451,9 +451,10 @@ struct WindowPropertyListener {
 impl WindowPropertyListeners {
     fn ensure(&mut self, cc: &Rc<ControlCenterInner>, data: &ToplevelData) {
         let listener = self.listeners.entry(data.node_id).or_insert_with(|| {
-            let listener =
-                EventListener::new(Rc::downgrade(cc) as Weak<dyn LazyEventSourceListener>);
-            listener.attach(data.property_changed_source());
+            let listener = EventListener::attached(
+                Rc::downgrade(cc) as Weak<dyn LazyEventSourceListener>,
+                data.property_changed_source(),
+            );
             WindowPropertyListener {
                 _listener: listener,
                 generation: 0,

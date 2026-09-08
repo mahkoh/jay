@@ -241,6 +241,12 @@ where
         }
     }
 
+    pub fn attached(t: Weak<T>, source: &EventSource<T>) -> Self {
+        let slf = Self::new(t);
+        slf.attach(source);
+        slf
+    }
+
     fn unpin(&self) {
         unsafe {
             let head_ref = self.head.get().deref();

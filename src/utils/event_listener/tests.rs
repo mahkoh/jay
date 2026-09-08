@@ -278,11 +278,7 @@ fn cache_satisfies_allocations() {
     let listener = Rc::new(Simple);
     let source: EventSource<dyn Listener> = Default::default();
     let listeners: Vec<_> = (0..100)
-        .map(|_| {
-            let el = EventListener::new(Rc::downgrade(&listener) as Weak<dyn Listener>);
-            el.attach(&source);
-            el
-        })
+        .map(|_| EventListener::attached(Rc::downgrade(&listener) as Weak<dyn Listener>, &source))
         .collect();
     drop(listeners);
     drop(source);
@@ -290,11 +286,7 @@ fn cache_satisfies_allocations() {
     assert!(before >= 101);
     let source: EventSource<dyn Listener> = Default::default();
     let listeners: Vec<_> = (0..100)
-        .map(|_| {
-            let el = EventListener::new(Rc::downgrade(&listener) as Weak<dyn Listener>);
-            el.attach(&source);
-            el
-        })
+        .map(|_| EventListener::attached(Rc::downgrade(&listener) as Weak<dyn Listener>, &source))
         .collect();
     assert_eq!(cached(), before - 101);
     source.for_each(|listener| listener.notify());
@@ -306,11 +298,7 @@ fn cache_is_capped_unsized() {
     let listener = Rc::new(Simple);
     let source: EventSource<dyn Listener> = Default::default();
     let listeners: Vec<_> = (0..MAX_CACHED + 100)
-        .map(|_| {
-            let el = EventListener::new(Rc::downgrade(&listener) as Weak<dyn Listener>);
-            el.attach(&source);
-            el
-        })
+        .map(|_| EventListener::attached(Rc::downgrade(&listener) as Weak<dyn Listener>, &source))
         .collect();
     source.for_each(|listener| listener.notify());
     drop(listeners);
@@ -323,11 +311,7 @@ fn cache_is_capped_sized() {
     let listener = Rc::new(Simple);
     let source: EventSource<Simple> = Default::default();
     let listeners: Vec<_> = (0..MAX_CACHED + 100)
-        .map(|_| {
-            let el = EventListener::new(Rc::downgrade(&listener));
-            el.attach(&source);
-            el
-        })
+        .map(|_| EventListener::attached(Rc::downgrade(&listener), &source))
         .collect();
     source.for_each(|listener| listener.notify());
     drop(listeners);

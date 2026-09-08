@@ -104,7 +104,7 @@ pub struct WlBuffer {
     pub color: Option<[u32; 4]>,
     pub width: i32,
     pub height: i32,
-    gfx_ctx_changed: EventListener<dyn GfxCtxChangedListener>,
+    _gfx_ctx_changed: EventListener<dyn GfxCtxChangedListener>,
     pub tracker: Tracker<Self>,
     pub had_buffer_texture: Cell<bool>,
 }
@@ -135,7 +135,7 @@ impl WlBuffer {
         ty: Ty,
         color: Option<[u32; 4]>,
     ) -> Rc<Self> {
-        let slf = Rc::<WlBuffer>::new_cyclic(|slf| Self {
+        Rc::<Self>::new_cyclic(|slf| Self {
             id,
             destroyed: Cell::new(false),
             client: client.clone(),
@@ -151,11 +151,9 @@ impl WlBuffer {
             ty,
             tracker: Default::default(),
             color,
-            gfx_ctx_changed: EventListener::new(slf.clone()),
+            _gfx_ctx_changed: EventListener::attached(slf.clone(), &client.state.gfx_ctx_changed),
             had_buffer_texture: Default::default(),
-        });
-        slf.gfx_ctx_changed.attach(&client.state.gfx_ctx_changed);
-        slf
+        })
     }
 
     pub fn new_dmabuf(
