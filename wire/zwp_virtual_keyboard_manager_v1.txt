@@ -2,5 +2,5 @@ singleton
 
 request create_virtual_keyboard {
     seat: id(wl_seat),
-    id: id(zwp_virtual_keyboard_v1),
+    id: id(zwp_virtual_keyboard_v1) (new),
 }

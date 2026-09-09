@@ -9,7 +9,7 @@ request create_icon {
 
 request set_icon {
     toplevel: id(xdg_toplevel),
-    icon: id(xdg_toplevel_icon_v1),
+    icon: id(xdg_toplevel_icon_v1) (nullable),
 }
 
 event icon_size {

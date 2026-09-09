@@ -7,7 +7,7 @@ request get_toplevel {
 
 request get_popup {
     id: id(xdg_popup) (new),
-    parent: id(xdg_surface),
+    parent: id(xdg_surface) (nullable),
     positioner: id(xdg_positioner),
 }
 

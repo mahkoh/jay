@@ -23,6 +23,6 @@ request set_scale {
     scale: fixed,
 }
 
-request set_adaptive_sync {
+request set_adaptive_sync (since = 4) {
     state: u32,
 }

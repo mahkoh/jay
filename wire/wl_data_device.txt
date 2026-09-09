@@ -1,12 +1,12 @@
 request start_drag {
-    source: id(wl_data_source),
+    source: id(wl_data_source) (nullable),
     origin: id(wl_surface),
-    icon: id(wl_surface),
+    icon: id(wl_surface) (nullable),
     serial: u32,
 }
 
 request set_selection {
-    source: id(wl_data_source),
+    source: id(wl_data_source) (nullable),
     serial: u32,
 }
 
@@ -19,7 +19,7 @@ event enter {
     surface: id(wl_surface),
     x: fixed,
     y: fixed,
-    id: id(wl_data_offer),
+    id: id(wl_data_offer) (nullable),
 }
 
 event leave {
@@ -35,7 +35,7 @@ event drop {
 }
 
 event selection {
-    id: id(wl_data_offer),
+    id: id(wl_data_offer) (nullable),
 }
 
 request release (destructor, since = 2) {

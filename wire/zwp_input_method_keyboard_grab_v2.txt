@@ -1,4 +1,4 @@
-request release {
+request release (destructor) {
 
 }
 

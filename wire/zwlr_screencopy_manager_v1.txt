@@ -3,13 +3,13 @@ singleton
 # requests
 
 request capture_output {
-    frame: id(zwlr_screencopy_frame_v1),
+    frame: id(zwlr_screencopy_frame_v1) (new),
     overlay_cursor: i32,
     output: id(wl_output),
 }
 
 request capture_output_region {
-    frame: id(zwlr_screencopy_frame_v1),
+    frame: id(zwlr_screencopy_frame_v1) (new),
     overlay_cursor: i32,
     output: id(wl_output),
     x: i32,
@@ -18,5 +18,5 @@ request capture_output_region {
     height: i32,
 }
 
-request destroy {
+request destroy (destructor) {
 }

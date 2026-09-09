@@ -2,7 +2,7 @@ request destroy (destructor) {
 }
 
 request set_region {
-    region: id(wl_region),
+    region: id(wl_region) (nullable),
 }
 
 event confined {

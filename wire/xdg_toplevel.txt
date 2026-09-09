@@ -2,7 +2,7 @@ request destroy (destructor) {
 }
 
 request set_parent {
-    parent: id(xdg_toplevel),
+    parent: id(xdg_toplevel) (nullable),
 }
 
 request set_title {
@@ -48,7 +48,7 @@ request unset_maximized {
 }
 
 request set_fullscreen {
-    output: id(wl_output),
+    output: id(wl_output) (nullable),
 }
 
 request unset_fullscreen {

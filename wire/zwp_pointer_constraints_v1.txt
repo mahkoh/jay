@@ -7,7 +7,7 @@ request lock_pointer {
     id: id(zwp_locked_pointer_v1) (new),
     surface: id(wl_surface),
     pointer: id(wl_pointer),
-    region: id(wl_region),
+    region: id(wl_region) (nullable),
     lifetime: u32,
 }
 
@@ -15,6 +15,6 @@ request confine_pointer {
     id: id(zwp_confined_pointer_v1) (new),
     surface: id(wl_surface),
     pointer: id(wl_pointer),
-    region: id(wl_region),
+    region: id(wl_region) (nullable),
     lifetime: u32,
 }
