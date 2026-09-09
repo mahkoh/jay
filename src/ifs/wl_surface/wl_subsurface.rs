@@ -50,6 +50,7 @@ pub struct WlSubsurface {
     unique_id: SubsurfaceId,
     pub surface: Rc<WlSurface>,
     parent: Rc<WlSurface>,
+    root: CloneCell<Rc<WlSurface>>,
     pub position: Cell<(i32, i32)>,
     sync_requested: Cell<bool>,
     sync_ancestor: Cell<bool>,
@@ -90,19 +91,33 @@ impl PendingSubsurfaceData {
     }
 }
 
-fn update_children_attach(surface: &WlSubsurface) -> Result<(), WlSubsurfaceError> {
+fn update_children_attach(
+    surface: &WlSubsurface,
+    root: &Rc<WlSurface>,
+) -> Result<(), WlSubsurfaceError> {
     if surface.depth.get() > MAX_SUBSURFACE_DEPTH {
         return Err(WlSubsurfaceError::MaxDepthExceeded);
     }
     let children = surface.surface.children.borrow();
     if let Some(children) = &*children {
         for child in children.subsurfaces.values() {
+            child.root.set(root.clone());
             child.sync_ancestor.set(surface.sync());
             child.depth.set(surface.depth.get() + 1);
-            update_children_attach(child)?;
+            update_children_attach(child, root)?;
         }
     }
     Ok(())
+}
+
+fn children_set_root(surface: &WlSubsurface, root: &Rc<WlSurface>) {
+    let children = surface.surface.children.borrow();
+    if let Some(children) = &*children {
+        for child in children.subsurfaces.values() {
+            child.root.set(root.clone());
+            children_set_root(child, root);
+        }
+    }
 }
 
 impl WlSubsurface {
@@ -117,6 +132,7 @@ impl WlSubsurface {
             unique_id: surface.state.subsurface_ids.next(),
             surface: surface.clone(),
             parent: parent.clone(),
+            root: CloneCell::new(parent.ext.get().subsurface_root(parent)),
             position: Cell::new(Default::default()),
             sync_requested: Cell::new(true),
             sync_ancestor: Cell::new(false),
@@ -128,6 +144,16 @@ impl WlSubsurface {
             version,
             initial_commit: Cell::new(true),
         }
+    }
+
+    pub fn handle_parent_destroy(&self) {
+        self.detach_subtree();
+        self.surface.unset_ext();
+    }
+
+    fn detach_subtree(&self) {
+        self.root.set(self.surface.clone());
+        children_set_root(self, &self.surface);
     }
 
     fn pending<'a>(self: &'a Rc<Self>) -> RefMut<'a, PendingSubsurfaceData> {
@@ -187,7 +213,7 @@ impl WlSubsurface {
         if self.surface.ext.get().is_some() {
             return Err(WlSubsurfaceError::AlreadyAttached(self.surface.id));
         }
-        if self.surface.id == self.parent.get_root().id {
+        if self.surface.id == self.root.get().id {
             return Err(WlSubsurfaceError::Ancestor(self.surface.id, self.parent.id));
         }
         if let Some(ss) = self.parent.ext.get().into_subsurface() {
@@ -207,7 +233,7 @@ impl WlSubsurface {
         self.pending().node = Some(node);
         self.surface.set_toplevel(self.parent.toplevel.get());
         self.surface.set_ext_unchecked(self.clone());
-        update_children_attach(self)?;
+        update_children_attach(self, &self.root.get())?;
         for tl in TreeTimeline::variants() {
             let (x, y) = self.parent.buffer_abs_pos[tl].get().position();
             self.surface.set_absolute_position_(x, y, tl);
@@ -337,6 +363,7 @@ impl WlSubsurfaceRequestHandler for WlSubsurface {
     type Error = WlSubsurfaceError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.detach_subtree();
         self.surface.unset_ext();
         self.parent.consume_pending_child(self.unique_id, |oe| {
             let oe = oe.remove();
@@ -437,6 +464,10 @@ impl SurfaceExt for WlSubsurface {
 
     fn after_apply_commit(self: Rc<Self>) {
         self.update_has_buffer();
+    }
+
+    fn subsurface_root(&self, _surface: &Rc<WlSurface>) -> Rc<WlSurface> {
+        self.root.get()
     }
 
     fn subsurface_parent(&self) -> Option<Rc<WlSurface>> {

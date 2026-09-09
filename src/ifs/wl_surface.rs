@@ -432,6 +432,10 @@ trait SurfaceExt {
         }
     }
 
+    fn subsurface_root(&self, surface: &Rc<WlSurface>) -> Rc<WlSurface> {
+        surface.clone()
+    }
+
     fn subsurface_parent(&self) -> Option<Rc<WlSurface>> {
         None
     }
@@ -1089,18 +1093,6 @@ impl WlSurface {
         }
     }
 
-    fn get_root(self: &Rc<Self>) -> Rc<WlSurface> {
-        let mut root = self.clone();
-        loop {
-            if let Some(parent) = root.ext.get().subsurface_parent() {
-                root = parent;
-                continue;
-            }
-            break;
-        }
-        root
-    }
-
     fn unset_cursors(&self) {
         while let Some((_, cursor)) = self.cursors.pop() {
             cursor.handle_surface_destroy();
@@ -1211,7 +1203,7 @@ impl WlSurfaceRequestHandler for WlSurface {
             let mut children = self.children.borrow_mut();
             if let Some(children) = &mut *children {
                 for ss in children.subsurfaces.values() {
-                    ss.surface.unset_ext();
+                    ss.handle_parent_destroy();
                 }
             }
             *children = None;
