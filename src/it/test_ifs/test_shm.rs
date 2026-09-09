@@ -39,7 +39,7 @@ impl TestShm {
         &self.formats
     }
 
-    pub fn create_pool(&self, size: usize) -> Result<Rc<TestShmPool>, TestError> {
+    fn create_pool(&self, size: usize) -> Result<Rc<TestShmPool>, TestError> {
         let mem = TestMem::new(size)?;
         let pool = Rc::new(TestShmPool {
             id: self.tran.id(),

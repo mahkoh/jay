@@ -66,7 +66,7 @@ pub struct WorkCompletion {
 pub struct CompletedWork(());
 
 impl WorkCompletion {
-    pub fn complete(self, work: Box<dyn AsyncCpuWork>) -> CompletedWork {
+    fn complete(self, work: Box<dyn AsyncCpuWork>) -> CompletedWork {
         let job = self.worker.async_jobs.remove(&self.id).unwrap();
         unsafe {
             job.work.deref_mut().async_work_done(work);

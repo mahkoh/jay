@@ -257,7 +257,7 @@ impl WlSubsurface {
         Ok(())
     }
 
-    pub fn sync(&self) -> bool {
+    fn sync(&self) -> bool {
         self.sync_requested.get() || self.sync_ancestor.get()
     }
 

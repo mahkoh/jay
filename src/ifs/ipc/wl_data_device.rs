@@ -53,14 +53,14 @@ impl WlDataDevice {
         }
     }
 
-    pub fn send_data_offer(&self, offer: &Rc<WlDataOffer>) {
+    fn send_data_offer(&self, offer: &Rc<WlDataOffer>) {
         self.client.event(DataOffer {
             self_id: self.id,
             id: offer.id,
         })
     }
 
-    pub fn send_selection(&self, offer: Option<&Rc<WlDataOffer>>) {
+    fn send_selection(&self, offer: Option<&Rc<WlDataOffer>>) {
         let id = offer.map(|o| o.id).unwrap_or(WlDataOfferId::NONE);
         self.client.event(Selection {
             self_id: self.id,

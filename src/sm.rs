@@ -352,7 +352,7 @@ impl Session {
         self.disown_(false, false);
     }
 
-    pub fn disown_to_peer(&self, replaced: bool) {
+    fn disown_to_peer(&self, replaced: bool) {
         self.disown_(true, replaced);
     }
 
@@ -705,7 +705,7 @@ pub async fn flush_toplevel_sessions(state: Rc<State>) {
 }
 
 impl SessionName {
-    pub fn toplevel(&self, name: &str) -> ToplevelSessionName {
+    fn toplevel(&self, name: &str) -> ToplevelSessionName {
         let mut hasher = blake3::Hasher::new();
         hasher.update(&[0]);
         hasher.update(self.0.as_bytes());

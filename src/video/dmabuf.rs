@@ -200,7 +200,7 @@ pub fn dma_buf_export_sync_file(dmabuf: &OwnedFd, flags: u32) -> Result<OwnedFd,
     }
 }
 
-pub fn dma_buf_import_sync_file(
+fn dma_buf_import_sync_file(
     dmabuf: &OwnedFd,
     flags: u32,
     sync_file: &OwnedFd,

@@ -33,7 +33,7 @@ impl Drop for PendingPoll {
 }
 
 impl IoUring {
-    pub fn poll_external(
+    fn poll_external(
         &self,
         fd: &Rc<OwnedFd>,
         events: c::c_short,

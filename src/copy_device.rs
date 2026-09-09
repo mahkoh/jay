@@ -1429,7 +1429,7 @@ impl CopyDevice {
         })
     }
 
-    pub fn is_on_device(&self, buf: &DmaBuf) -> Result<bool, CopyDeviceError> {
+    fn is_on_device(&self, buf: &DmaBuf) -> Result<bool, CopyDeviceError> {
         self.is_on_device_(buf).map(|v| v.0)
     }
 

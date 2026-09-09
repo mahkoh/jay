@@ -69,7 +69,7 @@ impl<'a> Formatter<'a> {
         self.write_variant_body(variant);
     }
 
-    pub fn write_variant_body(&mut self, variant: &Variant) {
+    fn write_variant_body(&mut self, variant: &Variant) {
         match variant {
             Variant::U8(v) => v.marshal(self),
             Variant::Bool(v) => v.marshal(self),

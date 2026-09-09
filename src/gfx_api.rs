@@ -145,7 +145,7 @@ impl SampleRect {
         }
     }
 
-    pub fn is_covering(&self) -> bool {
+    fn is_covering(&self) -> bool {
         self.x1 == 0.0 && self.y1 == 0.0 && self.x2 == 1.0 && self.y2 == 1.0
     }
 
@@ -244,7 +244,7 @@ impl FramebufferRect {
         }
     }
 
-    pub fn is_covering(&self) -> bool {
+    fn is_covering(&self) -> bool {
         self.x1 == -1.0 && self.y1 == -1.0 && self.x2 == 1.0 && self.y2 == 1.0
     }
 
@@ -531,7 +531,7 @@ impl dyn GfxFramebuffer {
         )
     }
 
-    pub fn clear_with(
+    fn clear_with(
         self: &Rc<Self>,
         acquire_sync: AcquireSync,
         release_sync: ReleaseSync,
@@ -656,7 +656,7 @@ impl dyn GfxFramebuffer {
         )
     }
 
-    pub fn create_render_pass(
+    fn create_render_pass(
         &self,
         node: &dyn Node,
         state: &State,
@@ -1114,7 +1114,7 @@ impl Debug for GfxError {
 }
 
 impl GfxFormat {
-    pub fn cross_intersect(&self, other: &GfxFormat) -> GfxFormat {
+    fn cross_intersect(&self, other: &GfxFormat) -> GfxFormat {
         assert_eq!(self.format, other.format);
         GfxFormat {
             format: self.format,
@@ -1280,7 +1280,7 @@ pub fn create_render_pass(
     }
 }
 
-pub fn renderer_base<'a>(
+fn renderer_base<'a>(
     physical_size: (i32, i32),
     ops: &'a mut Vec<GfxApiOp>,
     scale: Scale,
@@ -1303,7 +1303,7 @@ pub fn renderer_base<'a>(
     }
 }
 
-pub fn logical_size(physical_size: (i32, i32), transform: Transform) -> (i32, i32) {
+fn logical_size(physical_size: (i32, i32), transform: Transform) -> (i32, i32) {
     transform.maybe_swap(physical_size)
 }
 
@@ -1374,7 +1374,7 @@ impl FdSync {
         !self.is_signaled()
     }
 
-    pub fn is_signaled(&self) -> bool {
+    fn is_signaled(&self) -> bool {
         match self {
             FdSync::Syncobj(obj) => obj.signaled.is_signaled(),
             FdSync::SyncFile(f) => {

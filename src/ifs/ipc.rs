@@ -249,7 +249,7 @@ pub fn attach_seat<S: DynDataSource>(
     Ok(())
 }
 
-pub fn cancel_offers<S: DynDataSource>(src: &S, cancel_privileged: bool) {
+fn cancel_offers<S: DynDataSource>(src: &S, cancel_privileged: bool) {
     let data = src.source_data();
     let mut offers = data.offers.take();
     offers.retain(|o| {
@@ -262,7 +262,7 @@ pub fn cancel_offers<S: DynDataSource>(src: &S, cancel_privileged: bool) {
     data.offers.replace(offers);
 }
 
-pub fn cancel_offer<T: IpcVtable>(offer: &T::Offer) {
+fn cancel_offer<T: IpcVtable>(offer: &T::Offer) {
     let data = offer.offer_data();
     data.source.take();
     destroy_data_offer::<T>(&offer);
@@ -319,7 +319,7 @@ where
     offer_source_to_device::<T>(&src, dd, data, shared);
 }
 
-pub fn offer_source_to_data_control_device<T>(src: Rc<dyn DynDataSource>, dd: &Rc<T::Device>)
+fn offer_source_to_data_control_device<T>(src: Rc<dyn DynDataSource>, dd: &Rc<T::Device>)
 where
     T: IpcVtable,
 {
@@ -377,7 +377,7 @@ pub fn destroy_data_offer<T: IpcVtable>(offer: &T::Offer) {
     destroy_data_offer_with_reason::<T>(offer, OfferDestroyReason::Other)
 }
 
-pub fn destroy_data_offer_with_reason<T: IpcVtable>(offer: &T::Offer, reason: OfferDestroyReason) {
+fn destroy_data_offer_with_reason<T: IpcVtable>(offer: &T::Offer, reason: OfferDestroyReason) {
     let data = offer.offer_data();
     if let Some(device) = data.device.take() {
         let device_data = T::get_device_data(&device);

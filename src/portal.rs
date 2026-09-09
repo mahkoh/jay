@@ -348,7 +348,7 @@ struct PortalState {
 }
 
 impl PortalState {
-    pub fn id<T: From<u32>>(&self) -> T {
+    fn id<T: From<u32>>(&self) -> T {
         T::from(self.next_id.fetch_add(1))
     }
 }

@@ -47,7 +47,7 @@ pw_opcodes! {
 pub const PW_CORE_VERSION: i32 = 3;
 
 impl PwCore {
-    pub fn handle_info(&self, mut p1: PwParser<'_>) -> Result<(), PwCoreError> {
+    fn handle_info(&self, mut p1: PwParser<'_>) -> Result<(), PwCoreError> {
         let s1 = p1.read_struct()?;
         let mut p2 = s1.fields;
         let id = p2.read_int()?;
@@ -65,7 +65,7 @@ impl PwCore {
         Ok(())
     }
 
-    pub fn handle_done(&self, mut p1: PwParser<'_>) -> Result<(), PwCoreError> {
+    fn handle_done(&self, mut p1: PwParser<'_>) -> Result<(), PwCoreError> {
         let s1 = p1.read_struct()?;
         let mut p2 = s1.fields;
         let id = p2.read_uint()?;
@@ -79,7 +79,7 @@ impl PwCore {
         Ok(())
     }
 
-    pub fn handle_ping(&self, mut p1: PwParser<'_>) -> Result<(), PwCoreError> {
+    fn handle_ping(&self, mut p1: PwParser<'_>) -> Result<(), PwCoreError> {
         let s1 = p1.read_struct()?;
         let mut p2 = s1.fields;
         let id = p2.read_int()?;
@@ -93,7 +93,7 @@ impl PwCore {
         Ok(())
     }
 
-    pub fn handle_error(&self, mut p1: PwParser<'_>) -> Result<(), PwCoreError> {
+    fn handle_error(&self, mut p1: PwParser<'_>) -> Result<(), PwCoreError> {
         let s1 = p1.read_struct()?;
         let mut p2 = s1.fields;
         let id = p2.read_int()?;
@@ -104,7 +104,7 @@ impl PwCore {
         Ok(())
     }
 
-    pub fn handle_remove_id(&self, mut p1: PwParser<'_>) -> Result<(), PwCoreError> {
+    fn handle_remove_id(&self, mut p1: PwParser<'_>) -> Result<(), PwCoreError> {
         let s1 = p1.read_struct()?;
         let mut p2 = s1.fields;
         let id = p2.read_uint()?;
@@ -113,7 +113,7 @@ impl PwCore {
         Ok(())
     }
 
-    pub fn handle_bound_id(&self, mut p1: PwParser<'_>) -> Result<(), PwCoreError> {
+    fn handle_bound_id(&self, mut p1: PwParser<'_>) -> Result<(), PwCoreError> {
         let s1 = p1.read_struct()?;
         let mut p2 = s1.fields;
         let id = p2.read_uint()?;
@@ -125,7 +125,7 @@ impl PwCore {
         Ok(())
     }
 
-    pub fn handle_add_mem(&self, mut p1: PwParser<'_>) -> Result<(), PwCoreError> {
+    fn handle_add_mem(&self, mut p1: PwParser<'_>) -> Result<(), PwCoreError> {
         let s1 = p1.read_struct()?;
         let mut p2 = s1.fields;
         let id = p2.read_uint()?;
@@ -154,7 +154,7 @@ impl PwCore {
         Ok(())
     }
 
-    pub fn handle_remove_mem(&self, mut p1: PwParser<'_>) -> Result<(), PwCoreError> {
+    fn handle_remove_mem(&self, mut p1: PwParser<'_>) -> Result<(), PwCoreError> {
         let s1 = p1.read_struct()?;
         let mut p2 = s1.fields;
         let id = p2.read_uint()?;

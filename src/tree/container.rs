@@ -115,7 +115,7 @@ pub enum ContainerSplit {
 }
 
 impl ContainerSplit {
-    pub fn other(self) -> Self {
+    fn other(self) -> Self {
         match self {
             ContainerSplit::Horizontal => ContainerSplit::Vertical,
             ContainerSplit::Vertical => ContainerSplit::Horizontal,
@@ -476,7 +476,7 @@ impl ContainerNode {
         ref_
     }
 
-    pub fn prepend_child(self: &Rc<Self>, new: Rc<dyn ToplevelNode>) {
+    fn prepend_child(self: &Rc<Self>, new: Rc<dyn ToplevelNode>) {
         if let Some(child) = self.children.first() {
             self.add_child_before_(&child, new);
         }
@@ -937,7 +937,7 @@ impl ContainerNode {
         self.tl_title_changed();
     }
 
-    pub fn schedule_render_titles(self: &Rc<Self>) {
+    fn schedule_render_titles(self: &Rc<Self>) {
         if !self.schedule_render_title_scheduled.replace(true) {
             self.add_transaction_op(ContainerTransactionOp::ScheduleRenderTitles);
         }
@@ -1569,7 +1569,7 @@ impl ContainerNode {
         }
     }
 
-    pub fn insert_child(self: &Rc<Self>, node: Rc<dyn ToplevelNode>, direction: Direction) {
+    fn insert_child(self: &Rc<Self>, node: Rc<dyn ToplevelNode>, direction: Direction) {
         let (split, right) = direction_to_split(direction);
         if split != self.node_state[LiveTL].split.get() || right {
             self.append_child(node);

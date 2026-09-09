@@ -201,7 +201,7 @@ impl ZwlrOutputManagerV1 {
         self.schedule_done();
     }
 
-    pub fn send_head(&self, head: &ZwlrOutputHeadV1) {
+    fn send_head(&self, head: &ZwlrOutputHeadV1) {
         self.client.event(Head {
             self_id: self.id,
             head: head.id,
@@ -215,7 +215,7 @@ impl ZwlrOutputManagerV1 {
         });
     }
 
-    pub fn send_finished(&self) {
+    fn send_finished(&self) {
         self.client.event(Finished { self_id: self.id });
     }
 

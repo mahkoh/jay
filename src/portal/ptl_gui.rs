@@ -101,12 +101,7 @@ pub struct ButtonExtents {
     pub tex_off_y: f32,
 }
 
-pub fn button_extents(
-    msmt: &TextMeasurement,
-    scale: f32,
-    padding: f32,
-    border: f32,
-) -> ButtonExtents {
+fn button_extents(msmt: &TextMeasurement, scale: f32, padding: f32, border: f32) -> ButtonExtents {
     let above_baseline_height =
         (msmt.baseline - msmt.ink_rect.y1().max(msmt.logical_rect.y1())) as f32 / scale;
     let height = above_baseline_height + 2.0 * (padding + border);
@@ -533,11 +528,11 @@ impl OverlayWindow {
 }
 
 impl WindowData {
-    pub fn schedule_render(&self) {
+    fn schedule_render(&self) {
         self.render_trigger.trigger();
     }
 
-    pub fn new(dpy: &Rc<PortalDisplay>) -> Rc<Self> {
+    fn new(dpy: &Rc<PortalDisplay>) -> Rc<Self> {
         let surface = dpy.comp.create_surface();
         let viewport = dpy.vp.get_viewport(&surface);
         let fractional_scale = dpy.fsm.get_fractional_scale(&surface);
@@ -570,7 +565,7 @@ impl WindowData {
         data
     }
 
-    pub fn layout(&self) {
+    fn layout(&self) {
         let ctx = match self.dpy.render_ctx.get() {
             Some(ctx) => ctx,
             _ => return,
@@ -673,7 +668,7 @@ impl WindowData {
         }
     }
 
-    pub fn allocate_buffers(self: &Rc<Self>) {
+    fn allocate_buffers(self: &Rc<Self>) {
         {
             for buf in self.pending_bufs.lock().drain_values() {
                 buf.params.con.remove_obj(buf.params.deref());

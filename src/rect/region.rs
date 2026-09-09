@@ -30,7 +30,7 @@ thread_local! {
 }
 
 impl Region {
-    pub fn empty() -> Rc<Self> {
+    fn empty() -> Rc<Self> {
         EMPTY.with(|e| e.clone())
     }
 
@@ -57,7 +57,7 @@ impl Region {
         }
     }
 
-    pub fn union(self: &Rc<Self>, other: &Rc<Self>) -> Rc<Self> {
+    fn union(self: &Rc<Self>, other: &Rc<Self>) -> Rc<Self> {
         if self.extents.is_empty() {
             return other.clone();
         }
@@ -85,7 +85,7 @@ impl Region {
         })
     }
 
-    pub fn subtract(self: &Rc<Self>, other: &Rc<Self>) -> Rc<Self> {
+    fn subtract(self: &Rc<Self>, other: &Rc<Self>) -> Rc<Self> {
         if self.extents.is_empty() || other.extents.is_empty() {
             return self.clone();
         }

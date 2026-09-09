@@ -62,7 +62,7 @@ impl DynDataOffer for ZwpPrimarySelectionOfferV1 {
 }
 
 impl ZwpPrimarySelectionOfferV1 {
-    pub fn send_offer(&self, mime_type: &str) {
+    fn send_offer(&self, mime_type: &str) {
         self.client.event(Offer {
             self_id: self.id,
             mime_type,

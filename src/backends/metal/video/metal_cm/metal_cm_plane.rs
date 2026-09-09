@@ -142,7 +142,7 @@ fn to_s3132(v: f64) -> u64 {
     v.unsigned_abs() | ((v < 0) as i64 * i64::MIN) as u64
 }
 
-pub(super) fn parse_color_pipelines(
+fn parse_color_pipelines(
     master: &Rc<DrmMaster>,
     vendor: &MetalDrmVendor,
     plane: DrmPlane,

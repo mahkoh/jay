@@ -115,7 +115,7 @@ impl WlDataSource {
         cancel_offers(self, false);
     }
 
-    pub fn update_selected_action(&self) {
+    fn update_selected_action(&self) {
         let shared = self.data.shared.get();
         let server_actions = match self.data.actions.get() {
             Some(n) => n,
@@ -174,7 +174,7 @@ impl WlDataSource {
         self.data.client.event(Cancelled { self_id: self.id })
     }
 
-    pub fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>) {
+    fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>) {
         self.data.client.event(Send {
             self_id: self.id,
             mime_type,
@@ -182,25 +182,25 @@ impl WlDataSource {
         })
     }
 
-    pub fn send_target(&self, mime_type: Option<&str>) {
+    fn send_target(&self, mime_type: Option<&str>) {
         self.data.client.event(Target {
             self_id: self.id,
             mime_type,
         })
     }
 
-    pub fn send_dnd_finished(&self) {
+    fn send_dnd_finished(&self) {
         self.data.client.event(DndFinished { self_id: self.id })
     }
 
-    pub fn send_action(&self, dnd_action: u32) {
+    fn send_action(&self, dnd_action: u32) {
         self.data.client.event(Action {
             self_id: self.id,
             dnd_action,
         })
     }
 
-    pub fn send_dnd_drop_performed(&self) {
+    fn send_dnd_drop_performed(&self) {
         self.data
             .client
             .event(DndDropPerformed { self_id: self.id })

@@ -90,7 +90,7 @@ impl StrFmt for str {
     }
 }
 
-pub fn fmt_str(dst: &mut String, b: &str, ctx: &StrCtx) {
+fn fmt_str(dst: &mut String, b: &str, ctx: &StrCtx) {
     let dst = unsafe { dst.as_mut_vec() };
     for &b in b.as_bytes() {
         match b {

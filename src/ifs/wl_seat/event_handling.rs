@@ -127,7 +127,7 @@ impl NodeSeatState {
         self.pointer_foci.remove(&seat.id);
     }
 
-    pub fn pointer_inside(&self, seat: &WlSeatGlobal) -> bool {
+    fn pointer_inside(&self, seat: &WlSeatGlobal) -> bool {
         self.pointer_foci.contains(&seat.id)
     }
 
@@ -1203,7 +1203,7 @@ impl WlSeatGlobal {
         self.kb_owner.set_kb_node(self, node, serial);
     }
 
-    pub(super) fn for_each_seat<C>(&self, ver: Version, client: ClientId, mut f: C)
+    fn for_each_seat<C>(&self, ver: Version, client: ClientId, mut f: C)
     where
         C: FnMut(&Rc<WlSeat>),
     {
@@ -1329,7 +1329,7 @@ impl WlSeatGlobal {
         // client.flush();
     }
 
-    pub fn surface_touch_event<F>(&self, ver: Version, surface: &WlSurface, mut f: F)
+    fn surface_touch_event<F>(&self, ver: Version, surface: &WlSurface, mut f: F)
     where
         F: FnMut(&Rc<WlTouch>),
     {
@@ -1406,12 +1406,7 @@ impl WlSeatGlobal {
         self.changes.set(0);
     }
 
-    pub(super) fn set_repeat_key(
-        &self,
-        key: Keycode,
-        state: &Rc<RefCell<KbvmState>>,
-        shortcuts_only: bool,
-    ) {
+    fn set_repeat_key(&self, key: Keycode, state: &Rc<RefCell<KbvmState>>, shortcuts_only: bool) {
         self.repeat_key_version.fetch_add(1);
         self.repeat_key_start_ns.set(self.state.now_nsec());
         self.repeat_key_state.set(Some(state.clone()));
@@ -1422,7 +1417,7 @@ impl WlSeatGlobal {
         }
     }
 
-    pub(super) fn clear_repeat_key(&self) {
+    fn clear_repeat_key(&self) {
         self.repeat_key_version.fetch_add(1);
         self.repeat_key_state.take();
         self.repeat_key.take();

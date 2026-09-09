@@ -397,7 +397,7 @@ impl Globals {
         self.insert(state, global.clone())
     }
 
-    pub fn add_global_no_broadcast<T: WaylandGlobal>(&self, global: &Rc<T>) {
+    fn add_global_no_broadcast<T: WaylandGlobal>(&self, global: &Rc<T>) {
         global.clone().add(self);
         self.insert_no_broadcast(global.clone());
     }

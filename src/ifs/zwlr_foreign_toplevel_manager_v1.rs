@@ -72,7 +72,7 @@ pub struct ZwlrForeignToplevelManagerV1 {
 }
 
 impl ZwlrForeignToplevelManagerV1 {
-    pub fn detach(&self) {
+    fn detach(&self) {
         self.client
             .state
             .toplevel_managers
@@ -92,11 +92,11 @@ impl ZwlrForeignToplevelManagerV1RequestHandler for ZwlrForeignToplevelManagerV1
 }
 
 impl ZwlrForeignToplevelManagerV1 {
-    pub fn send_finished(&self) {
+    fn send_finished(&self) {
         self.client.event(Finished { self_id: self.id });
     }
 
-    pub fn send_handle(&self, handle: &ZwlrForeignToplevelHandleV1) {
+    fn send_handle(&self, handle: &ZwlrForeignToplevelHandleV1) {
         self.client.event(Toplevel {
             self_id: self.id,
             toplevel: handle.id,

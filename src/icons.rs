@@ -180,7 +180,7 @@ fn create_icon(
     upload_pixmap(pixmap, ctx)
 }
 
-pub fn create_title_icons(
+fn create_title_icons(
     size: i32,
     theme: &Theme,
     ctx: &Rc<dyn GfxContext>,
@@ -218,7 +218,7 @@ pub fn create_title_icons(
     })
 }
 
-pub fn create_bar_icons(
+fn create_bar_icons(
     size: i32,
     theme: &Theme,
     ctx: &Rc<dyn GfxContext>,
@@ -235,7 +235,7 @@ pub fn create_bar_icons(
     Ok(SizedBarIcons { overlay })
 }
 
-pub fn create_compositing_icon(
+fn create_compositing_icon(
     size: i32,
     _theme: &Theme,
     ctx: &Rc<dyn GfxContext>,

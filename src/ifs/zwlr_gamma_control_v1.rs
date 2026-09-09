@@ -38,7 +38,7 @@ impl ZwlrGammaControlV1 {
         }
     }
 
-    pub fn id(&self) -> (ClientId, ZwlrGammaControlV1Id) {
+    fn id(&self) -> (ClientId, ZwlrGammaControlV1Id) {
         (self.client.id, self.id)
     }
 

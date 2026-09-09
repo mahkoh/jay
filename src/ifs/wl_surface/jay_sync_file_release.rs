@@ -47,7 +47,7 @@ impl JaySyncFileRelease {
         }
     }
 
-    pub fn done(&self, sync_file: Option<&SyncFile>) {
+    fn done(&self, sync_file: Option<&SyncFile>) {
         if self.destroyed.get() {
             return;
         }

@@ -112,7 +112,7 @@ impl Debug for GlRenderContext {
 }
 
 impl GlRenderContext {
-    pub fn reset_status(&self) -> Option<ResetStatus> {
+    fn reset_status(&self) -> Option<ResetStatus> {
         self.ctx.reset_status()
     }
 
@@ -198,11 +198,11 @@ impl GlRenderContext {
         })
     }
 
-    pub fn render_node(&self) -> Rc<CString> {
+    fn render_node(&self) -> Rc<CString> {
         self.render_node.clone()
     }
 
-    pub fn formats(&self) -> &Rc<BHashMap<u32, GfxFormat>> {
+    fn formats(&self) -> &Rc<BHashMap<u32, GfxFormat>> {
         &self.ctx.formats
     }
 

@@ -21,7 +21,8 @@ impl<K: Debug, V: Debug, const N: usize> Debug for BinarySearchMap<K, V, N> {
 }
 
 impl<K, V, const N: usize> BinarySearchMap<K, V, N> {
-    pub fn new_with(k: K, v: V) -> Self {
+    #[expect(unused)]
+    pub(crate) fn new_with(k: K, v: V) -> Self {
         let mut sv = SmallVec::new();
         sv.push((k, v));
         Self { m: sv }
@@ -33,7 +34,8 @@ impl<K, V, const N: usize> BinarySearchMap<K, V, N> {
         }
     }
 
-    pub fn len(&self) -> usize {
+    #[expect(unused)]
+    pub(crate) fn len(&self) -> usize {
         self.m.len()
     }
 
@@ -85,7 +87,8 @@ impl<K, V, const N: usize> BinarySearchMap<K, V, N> {
         self.pos(k).ok().map(|p| &mut self.m[p].1)
     }
 
-    pub fn get_or_default_mut(&mut self, k: K) -> &mut V
+    #[expect(unused)]
+    pub(crate) fn get_or_default_mut(&mut self, k: K) -> &mut V
     where
         K: Ord + Eq,
         V: Default,
@@ -93,7 +96,8 @@ impl<K, V, const N: usize> BinarySearchMap<K, V, N> {
         self.get_or_insert_with(k, || V::default())
     }
 
-    pub fn get_or_insert_with<F>(&mut self, k: K, f: F) -> &mut V
+    #[expect(unused)]
+    pub(crate) fn get_or_insert_with<F>(&mut self, k: K, f: F) -> &mut V
     where
         K: Ord + Eq,
         F: FnOnce() -> V,
@@ -106,7 +110,8 @@ impl<K, V, const N: usize> BinarySearchMap<K, V, N> {
         &mut self.m[p].1
     }
 
-    pub fn is_empty(&self) -> bool {
+    #[expect(unused)]
+    pub(crate) fn is_empty(&self) -> bool {
         self.m.is_empty()
     }
 
@@ -124,11 +129,12 @@ impl<K, V, const N: usize> BinarySearchMap<K, V, N> {
         let _v = mem::replace(&mut self.m, SmallVec::new());
     }
 
-    pub fn take(&mut self) -> SmallVec<[(K, V); N]> {
+    #[expect(unused)]
+    pub(crate) fn take(&mut self) -> SmallVec<[(K, V); N]> {
         mem::take(&mut self.m)
     }
 
-    pub fn iter<'a>(&'a self) -> BinarySearchMapIter<'a, K, V, N> {
+    fn iter<'a>(&'a self) -> BinarySearchMapIter<'a, K, V, N> {
         BinarySearchMapIter { pos: 0, map: self }
     }
 
@@ -136,7 +142,7 @@ impl<K, V, const N: usize> BinarySearchMap<K, V, N> {
         self.iter().map(|(_, v)| v)
     }
 
-    pub fn iter_mut<'a>(&'a mut self) -> BinarySearchMapMutIterMut<'a, K, V, N> {
+    fn iter_mut<'a>(&'a mut self) -> BinarySearchMapMutIterMut<'a, K, V, N> {
         BinarySearchMapMutIterMut { pos: 0, map: self }
     }
 
@@ -144,7 +150,8 @@ impl<K, V, const N: usize> BinarySearchMap<K, V, N> {
         self.iter_mut().map(|(_, v)| v)
     }
 
-    pub fn remove_if<F: FnMut(&K, &V) -> bool>(&mut self, mut f: F) {
+    #[expect(unused)]
+    pub(crate) fn remove_if<F: FnMut(&K, &V) -> bool>(&mut self, mut f: F) {
         let mut i = 0;
         while i < self.m.len() {
             let (k, v) = &self.m[i];

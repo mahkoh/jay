@@ -45,7 +45,7 @@ impl IoUring {
         Ok(())
     }
 
-    pub async fn write_vec<T>(
+    async fn write_vec<T>(
         &self,
         fd: &Rc<OwnedFd>,
         mask_sigpipe: bool,

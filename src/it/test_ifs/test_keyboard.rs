@@ -33,7 +33,7 @@ pub struct TestKeyboard {
 }
 
 impl TestKeyboard {
-    pub fn destroy(&self) -> TestResult {
+    fn destroy(&self) -> TestResult {
         if self.destroyed.set() {
             self.tran.send(Release { self_id: self.id })?;
         }

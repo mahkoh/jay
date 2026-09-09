@@ -23,7 +23,7 @@ pub struct ZwpTabletPadGroupV2 {
 }
 
 impl ZwpTabletPadGroupV2 {
-    pub fn detach(&self) {
+    fn detach(&self) {
         self.group.bindings.remove(&self.seat);
     }
 

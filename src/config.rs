@@ -368,7 +368,7 @@ impl ConfigProxy {
         unsafe { Self::from_file(file, file_id, state) }
     }
 
-    pub unsafe fn from_file(
+    unsafe fn from_file(
         fd: OwnedFd,
         file_id: Option<FileId>,
         state: &Rc<State>,

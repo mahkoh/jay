@@ -295,7 +295,7 @@ fn image_view_create_info(
 }
 
 impl VulkanDevice {
-    pub fn create_image_view(
+    fn create_image_view(
         &self,
         image: Image,
         format: &'static Format,
@@ -321,7 +321,7 @@ impl DescriptorBufferDevice {
         buf
     }
 
-    pub(super) fn sampled_image_descriptor(
+    fn sampled_image_descriptor(
         &self,
         usage: ImageUsageFlags,
         view: ImageView,
@@ -346,7 +346,7 @@ impl DescriptorBufferDevice {
 }
 
 impl DescriptorHeapDevice {
-    pub(super) fn sampled_image_descriptor(
+    fn sampled_image_descriptor(
         &self,
         usage: ImageUsageFlags,
         view: &ImageViewCreateInfo<'_>,

@@ -620,7 +620,7 @@ pub struct TestInputDeviceCommon {
 }
 
 impl TestInputDeviceCommon {
-    pub fn event(&self, e: InputEvent) {
+    fn event(&self, e: InputEvent) {
         self.events.push(e);
         if let Some(oc) = self.on_change.get() {
             oc();

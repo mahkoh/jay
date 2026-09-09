@@ -39,7 +39,7 @@ pub const BTN_TOOL_MOUSE: u32 = 0x146;
 pub const BTN_TOOL_LENS: u32 = 0x147;
 
 impl ZwpTabletToolV2 {
-    pub fn detach(&self) {
+    fn detach(&self) {
         if let Some(tool) = self.tool.get() {
             tool.bindings.remove(&self.seat);
         }

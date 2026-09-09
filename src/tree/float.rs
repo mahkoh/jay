@@ -295,7 +295,7 @@ impl FloatNode {
         floater
     }
 
-    pub fn schedule_layout(self: &Rc<Self>) {
+    fn schedule_layout(self: &Rc<Self>) {
         if !self.layout_scheduled.replace(true) {
             self.state.pending_float_layout.push(self.clone());
         }
@@ -325,7 +325,7 @@ impl FloatNode {
         self.schedule_render_titles();
     }
 
-    pub fn schedule_render_titles(self: &Rc<Self>) {
+    fn schedule_render_titles(self: &Rc<Self>) {
         self.add_transaction_op(FloatTransactionOp::ScheduleRenderTitles);
     }
 
@@ -843,7 +843,7 @@ impl FloatNode {
         self.node_state[LiveTL].requested_visible.set(v);
     }
 
-    pub fn set_ns_position(self: &Rc<Self>, v: Rect) {
+    fn set_ns_position(self: &Rc<Self>, v: Rect) {
         self.add_transaction_op(FloatTransactionOp::SetPosition(v));
         self.node_state[LiveTL].position.set(v);
     }

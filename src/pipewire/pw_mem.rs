@@ -59,7 +59,7 @@ impl PwMemPool {
 }
 
 impl PwMem {
-    pub fn map(self: &Rc<Self>, offset: u32, size: u32) -> Result<Rc<PwMemMap>, PwMemError> {
+    fn map(self: &Rc<Self>, offset: u32, size: u32) -> Result<Rc<PwMemMap>, PwMemError> {
         let mask = page_size() - 1;
         let offset = offset as usize;
         let size = size as usize;

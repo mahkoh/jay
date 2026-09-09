@@ -47,14 +47,14 @@ impl ZwpPrimarySelectionDeviceV1 {
         }
     }
 
-    pub fn send_data_offer(&self, offer: &Rc<ZwpPrimarySelectionOfferV1>) {
+    fn send_data_offer(&self, offer: &Rc<ZwpPrimarySelectionOfferV1>) {
         self.client.event(DataOffer {
             self_id: self.id,
             offer: offer.id,
         })
     }
 
-    pub fn send_selection(&self, offer: Option<&Rc<ZwpPrimarySelectionOfferV1>>) {
+    fn send_selection(&self, offer: Option<&Rc<ZwpPrimarySelectionOfferV1>>) {
         let id = offer
             .map(|o| o.id)
             .unwrap_or(ZwpPrimarySelectionOfferV1Id::NONE);

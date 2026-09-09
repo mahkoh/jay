@@ -52,7 +52,7 @@ impl FuseMountShared {
         Ok(())
     }
 
-    pub(super) fn write_err(&self, header: &fuse_in_header, err: OsError) {
+    fn write_err(&self, header: &fuse_in_header, err: OsError) {
         let mut v = self.cache.error();
         v.header.error = -err.0;
         self.write(header, v);
@@ -71,7 +71,7 @@ impl FuseMountShared {
 }
 
 impl FuseMountShared {
-    pub(super) fn handle_request(self: &Rc<Self>, res: BufferRingBuffer) {
+    fn handle_request(self: &Rc<Self>, res: BufferRingBuffer) {
         if res.len() < size_of::<fuse_in_header>() {
             return;
         }

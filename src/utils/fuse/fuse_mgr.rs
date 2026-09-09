@@ -66,7 +66,7 @@ impl FuseMgr {
         }
     }
 
-    pub fn mount(
+    fn mount(
         &self,
         forker: Option<Rc<ForkerProxy>>,
         owner: Rc<dyn FuseMountOwner>,

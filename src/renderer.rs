@@ -540,7 +540,7 @@ impl Renderer<'_> {
         }
     }
 
-    pub fn render_buffer(
+    fn render_buffer(
         &mut self,
         surface: &WlSurface,
         x: i32,

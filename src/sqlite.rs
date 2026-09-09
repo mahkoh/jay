@@ -481,7 +481,7 @@ impl Drop for SqliteReadTransaction<'_> {
 }
 
 impl SqliteThread {
-    pub fn run(self: Arc<Self>, db: SqliteDb, user_id: SqliteUserId) {
+    fn run(self: Arc<Self>, db: SqliteDb, user_id: SqliteUserId) {
         let db = Rc::new(db);
         let mgr = match self.create_tx(&db) {
             Ok(s) => s,

@@ -73,7 +73,7 @@ impl Drop for FuseMountShared {
 }
 
 impl FuseMountEarlyShared {
-    pub(super) fn clear(&self) {
+    fn clear(&self) {
         if let Some(v) = self.owner.upgrade() {
             v.owner.take();
         }

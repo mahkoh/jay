@@ -164,7 +164,7 @@ where
         self.downstream.is_not_empty()
     }
 
-    pub fn matched(&self, target: &Target) -> bool {
+    fn matched(&self, target: &Target) -> bool {
         let Some(node) = self.nodes.get(target) else {
             return false;
         };

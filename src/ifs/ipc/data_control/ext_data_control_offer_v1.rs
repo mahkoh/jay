@@ -29,7 +29,7 @@ impl DataControlOffer for ExtDataControlOfferV1 {
 }
 
 impl ExtDataControlOfferV1 {
-    pub fn send_offer(&self, mime_type: &str) {
+    fn send_offer(&self, mime_type: &str) {
         self.data.client.event(Offer {
             self_id: self.id,
             mime_type,

@@ -326,7 +326,7 @@ impl ToolClient {
         ah.triggered().await;
     }
 
-    pub async fn singletons(self: &Rc<Self>) -> Rc<Singletons> {
+    async fn singletons(self: &Rc<Self>) -> Rc<Singletons> {
         if let Some(res) = self.singletons.get() {
             return res;
         }

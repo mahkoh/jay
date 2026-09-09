@@ -84,7 +84,7 @@ pub enum ToplevelIcon {
 }
 
 impl ToplevelIconUser {
-    pub fn new(size: i32) -> Self {
+    fn new(size: i32) -> Self {
         Self {
             size: Cell::new(size),
             icons: Default::default(),

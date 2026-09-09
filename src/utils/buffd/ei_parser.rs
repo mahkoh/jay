@@ -47,7 +47,7 @@ impl<'a, 'b> EiMsgParser<'a, 'b> {
         self.int().map(|i| i as u32)
     }
 
-    pub fn long(&mut self) -> Result<i64, EiMsgParserError> {
+    fn long(&mut self) -> Result<i64, EiMsgParserError> {
         if self.data.len() - self.pos < 8 {
             return Err(EiMsgParserError::UnexpectedEof);
         }

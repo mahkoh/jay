@@ -22,7 +22,7 @@ pub struct ZwpTabletPadRingV2 {
 }
 
 impl ZwpTabletPadRingV2 {
-    pub fn detach(&self) {
+    fn detach(&self) {
         self.ring.bindings.remove(&self.seat);
     }
 

@@ -435,7 +435,7 @@ impl XdgSurface {
         self.effective_geometry[tl].get()
     }
 
-    pub fn send_configure(&self, serial: TreeSerial) {
+    fn send_configure(&self, serial: TreeSerial) {
         self.surface.client.event(Configure {
             self_id: self.id,
             serial: serial.raw() as _,

@@ -286,7 +286,7 @@ impl InodeCache {
         props
     }
 
-    pub(super) fn next_ino(&self) -> FuseIno {
+    fn next_ino(&self) -> FuseIno {
         unsafe { FuseIno(NonZeroU64::new_unchecked(self.next_ino.fetch_add(1))) }
     }
 

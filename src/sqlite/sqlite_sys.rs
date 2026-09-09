@@ -248,7 +248,7 @@ sqlite_result! {
 pub struct SqliteResult(pub c_int);
 
 impl SqliteResult {
-    pub fn is_ok(&self) -> bool {
+    fn is_ok(&self) -> bool {
         self.0 & 0xff == SQLITE_OK
     }
 

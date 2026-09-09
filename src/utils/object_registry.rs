@@ -75,7 +75,7 @@ impl<K, V> UncachedObjectRegistry<K, V>
 where
     K: JayHash,
 {
-    pub fn uncached() -> Self {
+    fn uncached() -> Self {
         Self::new(ObjectRegistryNoCache)
     }
 }

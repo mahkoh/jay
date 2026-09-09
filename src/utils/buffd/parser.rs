@@ -135,7 +135,7 @@ impl<'a, 'b> MsgParser<'a, 'b> {
         }
     }
 
-    pub fn array(&mut self) -> Result<&'b [u8], MsgParserError> {
+    fn array(&mut self) -> Result<&'b [u8], MsgParserError> {
         let len = self.uint()? as usize;
         let cap = (len + 3) >> 2;
         if cap > self.data.len() - self.pos {

@@ -63,7 +63,7 @@ struct DeviceHandler {
 }
 
 impl DeviceHandler {
-    pub async fn handle(self) {
+    async fn handle(self) {
         {
             let ae = self.ae.clone();
             self.dev.on_change(Rc::new(move || ae.trigger()));

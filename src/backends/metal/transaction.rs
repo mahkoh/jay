@@ -1192,7 +1192,7 @@ fn modes_equal(a: &DrmModeInfo, b: &DrmModeInfo) -> bool {
 }
 
 impl MetalDeviceAppliedTransaction {
-    pub fn rollback(self) -> Result<(), BackendConnectorTransactionError> {
+    fn rollback(self) -> Result<(), BackendConnectorTransactionError> {
         self.rollback.calculate_change(false, false)?.apply()?;
         Ok(())
     }

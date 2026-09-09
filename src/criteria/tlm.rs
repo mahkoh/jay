@@ -212,7 +212,7 @@ impl TlMatcherManager {
         !self.has_interest(data, change)
     }
 
-    pub fn has_interest(&self, data: &ToplevelData, mut change: TlMatcherChange) -> bool {
+    fn has_interest(&self, data: &ToplevelData, mut change: TlMatcherChange) -> bool {
         if change.contains(TL_CHANGED_DESTROYED) && data.destroyed.is_not_empty() {
             return true;
         }

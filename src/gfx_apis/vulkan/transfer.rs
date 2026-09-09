@@ -449,7 +449,7 @@ impl VulkanShmImage {
         }
     }
 
-    pub(super) fn async_transfer_initiate_host_copy(
+    fn async_transfer_initiate_host_copy(
         &self,
         img: &Rc<VulkanImage>,
         data: &VulkanShmImageAsyncData,
@@ -753,7 +753,7 @@ async fn await_gfx_queue_release(
     }
 }
 
-pub async fn await_async_transfer_release_to_gfx(
+async fn await_async_transfer_release_to_gfx(
     id: u64,
     img: Rc<VulkanImage>,
     buf: Rc<VulkanCommandBuffer>,

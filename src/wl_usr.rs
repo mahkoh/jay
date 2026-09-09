@@ -188,7 +188,7 @@ impl UsrCon {
         }
     }
 
-    pub fn release_id(&self, id: u64) {
+    fn release_id(&self, id: u64) {
         self.obj_ids.borrow_mut().release64(id);
         self.objects.remove(&ObjectId::from_raw(id));
     }
@@ -237,7 +237,7 @@ impl UsrCon {
         self.add_object(callback);
     }
 
-    pub fn request<T: EventFormatter>(self: &Rc<Self>, event: T) {
+    fn request<T: EventFormatter>(self: &Rc<Self>, event: T) {
         if self.dead.get() {
             return;
         }

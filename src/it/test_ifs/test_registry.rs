@@ -124,7 +124,7 @@ macro_rules! create_singleton {
 }
 
 impl TestRegistry {
-    pub async fn get_singletons(&self) -> Result<Rc<TestRegistrySingletons>, TestError> {
+    async fn get_singletons(&self) -> Result<Rc<TestRegistrySingletons>, TestError> {
         singleton!(self.singletons);
         self.tran.sync().await;
         singleton!(self.singletons);

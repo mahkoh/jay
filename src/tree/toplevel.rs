@@ -660,7 +660,7 @@ impl ToplevelData {
         }
     }
 
-    pub fn destroy_node(&self, node: &dyn Node) {
+    fn destroy_node(&self, node: &dyn Node) {
         for jay_tl in self.jay_toplevels.lock().drain_values() {
             jay_tl.destroy();
         }
@@ -966,7 +966,7 @@ impl ToplevelData {
         }
     }
 
-    pub fn set_visible(&self, node: &dyn Node, visible: bool) {
+    fn set_visible(&self, node: &dyn Node, visible: bool) {
         if self.visible[LiveTL].replace(visible) != visible {
             self.property_changed(TL_CHANGED_VISIBLE);
             self.schedule_op(ToplevelDataTransactionOp::SetVisible(visible));
@@ -1093,7 +1093,7 @@ impl ToplevelData {
         }
     }
 
-    pub fn set_is_root_container(&self, value: bool) {
+    fn set_is_root_container(&self, value: bool) {
         if self.is_root_container[LiveTL].replace(value) != value {
             self.property_changed(TL_CHANGED_IS_WORKSPACE_CONTAINER);
             if let Some(slf) = self.slf.upgrade() {
@@ -1104,7 +1104,7 @@ impl ToplevelData {
         }
     }
 
-    pub fn schedule_op(&self, op: ToplevelDataTransactionOp) {
+    fn schedule_op(&self, op: ToplevelDataTransactionOp) {
         if let Some(slf) = self.slf.upgrade() {
             slf.tl_schedule_data_op(op);
         }

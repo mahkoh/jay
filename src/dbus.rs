@@ -383,14 +383,14 @@ struct DbusHolder {
 }
 
 impl DbusHolder {
-    pub fn new(run_toplevel: &Rc<RunToplevel>) -> Self {
+    fn new(run_toplevel: &Rc<RunToplevel>) -> Self {
         Self {
             socket: Default::default(),
             run_toplevel: run_toplevel.clone(),
         }
     }
 
-    pub fn clear(&self) {
+    fn clear(&self) {
         if let Some(socket) = self.socket.take() {
             socket.clear();
         }

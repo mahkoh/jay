@@ -36,11 +36,11 @@ impl Debug for Texture {
 }
 
 impl Texture {
-    pub fn width(&self) -> i32 {
+    fn width(&self) -> i32 {
         self.gl.width
     }
 
-    pub fn height(&self) -> i32 {
+    fn height(&self) -> i32 {
         self.gl.height
     }
 }

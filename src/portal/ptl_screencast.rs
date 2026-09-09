@@ -389,7 +389,7 @@ impl StartedScreencast {
 }
 
 impl SelectingScreencastCore {
-    pub fn starting(&self, dpy: &Rc<PortalDisplay>, target: ScreencastTarget) {
+    fn starting(&self, dpy: &Rc<PortalDisplay>, target: ScreencastTarget) {
         let Some(pw_con) = &self.session.pw_con else {
             self.session.kill();
             return;

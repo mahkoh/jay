@@ -101,7 +101,7 @@ impl UsrJayEiSessionOwner for StartingRemoteDesktop {
 }
 
 impl SelectingDisplay {
-    pub fn starting(&self, dpy: &Rc<PortalDisplay>) {
+    fn starting(&self, dpy: &Rc<PortalDisplay>) {
         let builder = dpy.jc.create_ei_session();
         builder.set_app_id(&self.session.app);
         let ei_session = builder.commit();

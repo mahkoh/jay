@@ -28,10 +28,7 @@ impl GlProgram {
         }
     }
 
-    pub(in crate::gfx_apis::gl) unsafe fn link(
-        vert: &GlShader,
-        frag: &GlShader,
-    ) -> Result<Self, RenderError> {
+    unsafe fn link(vert: &GlShader, frag: &GlShader) -> Result<Self, RenderError> {
         unsafe {
             let gles = vert.ctx.dpy.gles;
             let res = GlProgram {

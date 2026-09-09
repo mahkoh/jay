@@ -272,7 +272,7 @@ impl Xwindow {
         self.toplevel_data.parent.is_some() || self.display_link.borrow_mut().link.is_some()
     }
 
-    pub fn may_be_mapped(&self) -> bool {
+    fn may_be_mapped(&self) -> bool {
         self.x.surface.buffer.is_some() && self.data.info.mapped.get()
     }
 

@@ -143,7 +143,7 @@ impl EiClients {
         Ok(data)
     }
 
-    pub fn kill(&self, client: ClientId) {
+    fn kill(&self, client: ClientId) {
         log::info!("Removing client {}", client);
         if self.clients.borrow_mut().remove(&client).is_none() {
             self.shutdown_clients.borrow_mut().remove(&client);

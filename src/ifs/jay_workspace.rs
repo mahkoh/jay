@@ -29,14 +29,14 @@ impl JayWorkspace {
         self.send_done();
     }
 
-    pub fn send_linear_id(&self, ws: &WorkspaceNode) {
+    fn send_linear_id(&self, ws: &WorkspaceNode) {
         self.client.event(LinearId {
             self_id: self.id,
             linear_id: ws.id.raw(),
         });
     }
 
-    pub fn send_name(&self, ws: &WorkspaceNode) {
+    fn send_name(&self, ws: &WorkspaceNode) {
         self.client.event(Name {
             self_id: self.id,
             name: &ws.name,

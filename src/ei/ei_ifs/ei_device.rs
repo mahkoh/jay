@@ -171,7 +171,7 @@ impl EiDevice {
         });
     }
 
-    pub fn send_destroyed(&self, serial: u32) {
+    fn send_destroyed(&self, serial: u32) {
         self.client.event(Destroyed {
             self_id: self.id,
             serial,

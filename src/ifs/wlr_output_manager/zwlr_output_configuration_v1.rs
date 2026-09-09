@@ -45,15 +45,15 @@ enum ConfigError {
 }
 
 impl ZwlrOutputConfigurationV1 {
-    pub fn send_succeeded(&self) {
+    fn send_succeeded(&self) {
         self.client.event(Succeeded { self_id: self.id });
     }
 
-    pub fn send_failed(&self) {
+    fn send_failed(&self) {
         self.client.event(Failed { self_id: self.id });
     }
 
-    pub fn send_cancelled(&self) {
+    fn send_cancelled(&self) {
         self.client.event(Cancelled { self_id: self.id });
     }
 

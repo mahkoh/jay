@@ -306,7 +306,7 @@ impl NodesStack {
         })
     }
 
-    pub fn maybe_has_visible(&self, tl: TreeTimeline) -> bool {
+    fn maybe_has_visible(&self, tl: TreeTimeline) -> bool {
         self.validate(tl);
         self.visible[tl].is_not_empty()
     }

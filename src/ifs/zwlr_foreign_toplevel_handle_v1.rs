@@ -189,7 +189,7 @@ impl ZwlrForeignToplevelHandleV1 {
         });
     }
 
-    pub fn send_output_leave(&self, output: &Rc<WlOutput>) {
+    fn send_output_leave(&self, output: &Rc<WlOutput>) {
         self.client.event(OutputLeave {
             self_id: self.id,
             output: output.id,

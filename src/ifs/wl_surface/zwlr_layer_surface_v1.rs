@@ -110,11 +110,11 @@ pub struct ExclusiveSize {
 }
 
 impl ExclusiveSize {
-    pub fn is_empty(&self) -> bool {
+    fn is_empty(&self) -> bool {
         *self == ExclusiveSize::default()
     }
 
-    pub fn is_not_empty(&self) -> bool {
+    fn is_not_empty(&self) -> bool {
         !self.is_empty()
     }
 

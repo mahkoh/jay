@@ -2549,13 +2549,13 @@ impl VulkanImage {
         Ok(())
     }
 
-    pub(super) fn db_sampled_image_descriptor(&self) -> Option<&[u8]> {
+    fn db_sampled_image_descriptor(&self) -> Option<&[u8]> {
         self.descriptor_buffer
             .as_ref()
             .and_then(|db| db.sampled_image_descriptor.as_deref())
     }
 
-    pub(super) fn dh_sampled_image_descriptor(&self) -> Option<&[u8]> {
+    fn dh_sampled_image_descriptor(&self) -> Option<&[u8]> {
         self.descriptor_heap
             .as_ref()
             .and_then(|dh| dh.sampled_image_descriptor.as_deref())

@@ -1957,7 +1957,7 @@ impl MetalBackend {
         Ok(())
     }
 
-    pub fn send_connected(&self, connector: &Rc<MetalConnector>, dd: &ConnectorDisplayData) {
+    fn send_connected(&self, connector: &Rc<MetalConnector>, dd: &ConnectorDisplayData) {
         match connector.frontend_state.get() {
             FrontState::Removed | FrontState::Connected { .. } | FrontState::Unavailable => {
                 return;

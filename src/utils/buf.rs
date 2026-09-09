@@ -119,7 +119,7 @@ impl Buf {
         assert_eq!(self.rc().get(), 1);
     }
 
-    pub fn len32(&self) -> u32 {
+    fn len32(&self) -> u32 {
         self.range.end - self.range.start
     }
 
@@ -138,7 +138,7 @@ impl Buf {
         }
     }
 
-    pub fn cap32(&self) -> u32 {
+    fn cap32(&self) -> u32 {
         self.size32() - METADATA_SIZE
     }
 
@@ -155,7 +155,7 @@ impl Buf {
         Ok(self.slice(..len))
     }
 
-    pub fn into_full(self) -> Self {
+    fn into_full(self) -> Self {
         let new = Self {
             storage: self.storage,
             range: 0..self.cap32(),
@@ -239,7 +239,7 @@ impl DynamicBuf {
         self.len
     }
 
-    pub fn reserve(&mut self, n: usize) {
+    fn reserve(&mut self, n: usize) {
         if self.buf.len() - self.len < n {
             let cap = self.len.checked_add(n).unwrap();
             let cap = cmp::max(self.buf.len() * 2, cap);

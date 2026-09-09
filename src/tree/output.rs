@@ -546,7 +546,7 @@ impl OutputNode {
         }
     }
 
-    pub fn perform_wlr_screencopies(
+    fn perform_wlr_screencopies(
         &self,
         tex: &Rc<dyn GfxTexture>,
         cd: &Rc<ColorDescription>,
@@ -1160,7 +1160,7 @@ impl OutputNode {
         ws
     }
 
-    pub fn update_rects(self: &Rc<Self>) {
+    fn update_rects(self: &Rc<Self>) {
         let ns = &self.node_state[LiveTL];
         let rect = ns.pos.get();
         let theme = &ns.theme;
@@ -1236,7 +1236,7 @@ impl OutputNode {
         });
     }
 
-    pub fn update_mode(self: &Rc<Self>, mode: Mode) {
+    fn update_mode(self: &Rc<Self>, mode: Mode) {
         self.update_mode_and_transform(mode, self.node_state[LiveTL].transform.get());
     }
 
@@ -1244,7 +1244,7 @@ impl OutputNode {
         self.update_mode_and_transform(self.global.mode.get(), transform);
     }
 
-    pub fn update_mode_and_transform(self: &Rc<Self>, mode: Mode, transform: Transform) {
+    fn update_mode_and_transform(self: &Rc<Self>, mode: Mode, transform: Transform) {
         let old_mode = self.global.mode.get();
         let old_transform = self.node_state[LiveTL].transform.get();
         if (old_mode, old_transform) == (mode, transform) {
@@ -1439,7 +1439,7 @@ impl OutputNode {
         FindTreeResult::Other
     }
 
-    pub fn find_layer_surface_at(
+    fn find_layer_surface_at(
         &self,
         x: i32,
         y: i32,
@@ -2139,7 +2139,7 @@ impl OutputNode {
         self.node_state[LiveTL].overlay.set(v.cloned())
     }
 
-    pub fn set_ns_lock_surface(
+    fn set_ns_lock_surface(
         self: &Rc<Self>,
         v: Option<&Rc<ExtSessionLockSurfaceV1>>,
     ) -> Option<Rc<ExtSessionLockSurfaceV1>> {
@@ -2721,7 +2721,7 @@ impl NodeBase for OutputNode {
     }
 }
 
-pub fn calculate_logical_size(
+fn calculate_logical_size(
     mode: (i32, i32),
     transform: Transform,
     scale: crate::scale::Scale,

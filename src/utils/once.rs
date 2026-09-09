@@ -19,7 +19,7 @@ impl Once {
         }
     }
 
-    pub async fn exec_async<G: Future<Output = ()>, F: FnOnce() -> G>(&self, f: F) {
+    async fn exec_async<G: Future<Output = ()>, F: FnOnce() -> G>(&self, f: F) {
         if !self.done.replace(true) {
             f().await;
         }

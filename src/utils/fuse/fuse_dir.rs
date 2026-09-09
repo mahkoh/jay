@@ -177,7 +177,7 @@ impl Dirent {
 }
 
 impl FuseOpenDir {
-    pub(super) fn ensure(&mut self) {
+    fn ensure(&mut self) {
         if self.have_dirents {
             return;
         }

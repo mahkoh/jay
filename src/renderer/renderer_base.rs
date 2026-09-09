@@ -88,7 +88,7 @@ impl RendererBase<'_> {
         rect
     }
 
-    pub fn scale_rect_f(&self, mut rect: (f32, f32, f32, f32)) -> (f32, f32, f32, f32) {
+    fn scale_rect_f(&self, mut rect: (f32, f32, f32, f32)) -> (f32, f32, f32, f32) {
         if self.scaled {
             let x1 = (rect.0 as f64 * self.scalef).round() as _;
             let y1 = (rect.1 as f64 * self.scalef).round() as _;
@@ -180,7 +180,7 @@ impl RendererBase<'_> {
         self.fill_boxes2_f(boxes, color, cd, render_intent, 0.0, 0.0);
     }
 
-    pub fn fill_boxes2_f(
+    fn fill_boxes2_f(
         &mut self,
         boxes: &[(f32, f32, f32, f32)],
         color: &Color,

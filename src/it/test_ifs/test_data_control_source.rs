@@ -20,7 +20,7 @@ pub struct TestDataControlSource {
 }
 
 impl TestDataControlSource {
-    pub fn destroy(&self) -> TestResult {
+    fn destroy(&self) -> TestResult {
         if !self.destroyed.replace(true) {
             self.tran.send(Destroy { self_id: self.id })?;
         }

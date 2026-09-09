@@ -43,15 +43,15 @@ use uapi::pod_zeroed;
 
 pub const DRM_IOCTL_BASE: u64 = b'd' as u64;
 
-pub const fn drm_io(nr: u64) -> u64 {
+const fn drm_io(nr: u64) -> u64 {
     uapi::_IO(DRM_IOCTL_BASE, nr)
 }
 
-pub const fn drm_iow<T>(nr: u64) -> u64 {
+const fn drm_iow<T>(nr: u64) -> u64 {
     uapi::_IOW::<T>(DRM_IOCTL_BASE, nr)
 }
 
-pub const fn drm_iowr<T>(nr: u64) -> u64 {
+const fn drm_iowr<T>(nr: u64) -> u64 {
     uapi::_IOWR::<T>(DRM_IOCTL_BASE, nr)
 }
 
@@ -100,12 +100,12 @@ pub fn get_node_type_from_fd(fd: c::c_int) -> Result<NodeType, OsError> {
     get_minor_type(dev_t)
 }
 
-pub fn node_is_drm(dev_t: c::dev_t) -> bool {
+fn node_is_drm(dev_t: c::dev_t) -> bool {
     let path = device_dir(dev_t);
     uapi::stat(path).is_ok()
 }
 
-pub fn get_minor_type(dev_t: c::dev_t) -> Result<NodeType, OsError> {
+fn get_minor_type(dev_t: c::dev_t) -> Result<NodeType, OsError> {
     let name = get_device_name_from_dev_t(dev_t)?;
     let name = name.as_bytes();
     if let Some(suffix) = name.strip_prefix(b"/dev/dri/") {

@@ -45,14 +45,14 @@ impl ExtDataControlDeviceV1 {
         }
     }
 
-    pub fn send_data_offer(&self, offer: &Rc<ExtDataControlOfferV1>) {
+    fn send_data_offer(&self, offer: &Rc<ExtDataControlOfferV1>) {
         self.data.client.event(DataOffer {
             self_id: self.id,
             id: offer.id,
         })
     }
 
-    pub fn send_selection(&self, offer: Option<&Rc<ExtDataControlOfferV1>>) {
+    fn send_selection(&self, offer: Option<&Rc<ExtDataControlOfferV1>>) {
         let id = offer.map(|o| o.id).unwrap_or(ExtDataControlOfferV1Id::NONE);
         self.data.client.event(Selection {
             self_id: self.id,
@@ -60,7 +60,7 @@ impl ExtDataControlDeviceV1 {
         })
     }
 
-    pub fn send_primary_selection(&self, offer: Option<&Rc<ExtDataControlOfferV1>>) {
+    fn send_primary_selection(&self, offer: Option<&Rc<ExtDataControlOfferV1>>) {
         let id = offer.map(|o| o.id).unwrap_or(ExtDataControlOfferV1Id::NONE);
         self.data.client.event(PrimarySelection {
             self_id: self.id,

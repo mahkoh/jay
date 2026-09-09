@@ -12,7 +12,7 @@ pub struct TestViewport {
 }
 
 impl TestViewport {
-    pub fn destroy(&self) -> Result<(), TestError> {
+    fn destroy(&self) -> Result<(), TestError> {
         self.tran.send(Destroy { self_id: self.id })?;
         Ok(())
     }

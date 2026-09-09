@@ -48,7 +48,7 @@ impl Drop for VulkanCommandBuffer {
 }
 
 impl VulkanCommandPool {
-    pub fn allocate_buffer(self: &Rc<Self>) -> Result<Rc<VulkanCommandBuffer>, VulkanError> {
+    fn allocate_buffer(self: &Rc<Self>) -> Result<Rc<VulkanCommandBuffer>, VulkanError> {
         let create_info = CommandBufferAllocateInfo::default()
             .command_pool(self.pool)
             .command_buffer_count(1)

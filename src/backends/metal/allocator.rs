@@ -347,7 +347,7 @@ impl RenderBuffer {
         }
     }
 
-    pub fn dev_copy_device(&self) -> Option<&Rc<CopyDevice>> {
+    fn dev_copy_device(&self) -> Option<&Rc<CopyDevice>> {
         match &self.prime {
             RenderBufferPrime::None => None,
             RenderBufferPrime::Sampling { .. } => None,
@@ -626,7 +626,7 @@ pub enum PrimeMethod {
 }
 
 impl PrimeMethod {
-    pub fn name(self) -> &'static str {
+    fn name(self) -> &'static str {
         match self {
             PrimeMethod::DirectPull => "direct-pull",
             PrimeMethod::IndirectPull => "indirect-pull",

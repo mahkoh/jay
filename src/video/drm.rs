@@ -255,7 +255,7 @@ impl Drm {
         Self::reopen(self.fd.raw(), false)
     }
 
-    pub fn get_nodes(&self) -> Result<StaticMap<NodeType, Option<CString>>, DrmError> {
+    fn get_nodes(&self) -> Result<StaticMap<NodeType, Option<CString>>, DrmError> {
         get_nodes(self.fd.raw()).map_err(DrmError::GetNodes)
     }
 
@@ -355,7 +355,7 @@ impl DrmMaster {
         })
     }
 
-    pub fn raw(&self) -> c::c_int {
+    fn raw(&self) -> c::c_int {
         self.drm.raw()
     }
 
@@ -375,7 +375,7 @@ impl DrmMaster {
         mode_supports_get_resources(self.raw())
     }
 
-    pub fn get_cap(&self, cap: u64) -> Result<u64, OsError> {
+    fn get_cap(&self, cap: u64) -> Result<u64, OsError> {
         get_cap(self.raw(), cap)
     }
 
@@ -481,7 +481,7 @@ impl DrmMaster {
         }
     }
 
-    pub fn gem_handle(self: &Rc<Self>, fd: c::c_int) -> Result<Rc<GemHandle>, DrmError> {
+    fn gem_handle(self: &Rc<Self>, fd: c::c_int) -> Result<Rc<GemHandle>, DrmError> {
         let handle = match prime_fd_to_handle(self.raw(), fd) {
             Ok(h) => h,
             Err(e) => return Err(DrmError::GemHandle(e)),
@@ -907,7 +907,7 @@ pub struct hdr_output_metadata {
 }
 
 impl hdr_output_metadata {
-    pub fn new(infoframe: hdr_metadata_infoframe) -> Self {
+    fn new(infoframe: hdr_metadata_infoframe) -> Self {
         Self {
             metadata_type: 0,
             ty: hdr_output_metadata_type {
@@ -1118,7 +1118,7 @@ impl Change {
         )
     }
 
-    pub fn is_empty(&self) -> bool {
+    fn is_empty(&self) -> bool {
         self.values.is_empty()
     }
 
@@ -1407,7 +1407,7 @@ pub struct GemHandle {
 }
 
 impl GemHandle {
-    pub fn handle(&self) -> u32 {
+    fn handle(&self) -> u32 {
         self.handle
     }
 }

@@ -46,10 +46,7 @@ impl CrtcColorPipelines {
     }
 }
 
-pub(super) fn parse_color_pipelines(
-    crtc: DrmCrtc,
-    props: &CollectedProperties,
-) -> CrtcColorPipelines {
+fn parse_color_pipelines(crtc: DrmCrtc, props: &CollectedProperties) -> CrtcColorPipelines {
     let gamma_lut = props
         .get("GAMMA_LUT")
         .ok()

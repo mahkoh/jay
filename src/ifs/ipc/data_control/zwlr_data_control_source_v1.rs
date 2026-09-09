@@ -52,7 +52,7 @@ impl ZwlrDataControlSourceV1 {
         }
     }
 
-    pub fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>) {
+    fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>) {
         self.data.data.client.event(Send {
             self_id: self.id,
             mime_type,
@@ -60,7 +60,7 @@ impl ZwlrDataControlSourceV1 {
         })
     }
 
-    pub fn send_cancelled(&self) {
+    fn send_cancelled(&self) {
         self.data.data.client.event(Cancelled { self_id: self.id })
     }
 }

@@ -54,20 +54,20 @@ impl ZwpInputMethodV2 {
         }
     }
 
-    pub fn activate(&self) {
+    fn activate(&self) {
         self.pending.take();
         self.send_activate();
     }
 
-    pub fn send_activate(&self) {
+    fn send_activate(&self) {
         self.client.event(Activate { self_id: self.id });
     }
 
-    pub fn send_deactivate(&self) {
+    fn send_deactivate(&self) {
         self.client.event(Deactivate { self_id: self.id });
     }
 
-    pub fn send_surrounding_text(&self, text: &str, cursor: u32, anchor: u32) {
+    fn send_surrounding_text(&self, text: &str, cursor: u32, anchor: u32) {
         self.client.event(SurroundingText {
             self_id: self.id,
             text,
@@ -76,14 +76,14 @@ impl ZwpInputMethodV2 {
         });
     }
 
-    pub fn send_text_change_cause(&self, cause: u32) {
+    fn send_text_change_cause(&self, cause: u32) {
         self.client.event(TextChangeCause {
             self_id: self.id,
             cause,
         });
     }
 
-    pub fn send_content_type(&self, hint: u32, purpose: u32) {
+    fn send_content_type(&self, hint: u32, purpose: u32) {
         self.client.event(ContentType {
             self_id: self.id,
             hint,
@@ -91,7 +91,7 @@ impl ZwpInputMethodV2 {
         });
     }
 
-    pub fn send_done(&self) {
+    fn send_done(&self) {
         self.num_done.fetch_add(1);
         self.client.event(Done { self_id: self.id });
     }

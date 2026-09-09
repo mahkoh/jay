@@ -57,7 +57,7 @@ impl EiConnection {
         });
     }
 
-    pub fn send_seat(&self, seat: &EiSeat) {
+    fn send_seat(&self, seat: &EiSeat) {
         self.client.event(Seat {
             self_id: self.id,
             seat: seat.id,
