@@ -668,10 +668,10 @@ impl Into<ConfigContainerBorders> for ContainerBordersSetting {
 pub struct Theme {
     pub colors: ThemeColors,
     pub sizes: ThemeSizes,
-    pub font: CloneCell<Arc<String>>,
-    pub bar_font: CloneCell<Option<Arc<String>>>,
-    pub title_font: CloneCell<Option<Arc<String>>>,
-    pub default_font: Arc<String>,
+    pub font: CloneCell<Rc<Arc<str>>>,
+    pub bar_font: CloneCell<Option<Rc<Arc<str>>>>,
+    pub title_font: CloneCell<Option<Rc<Arc<str>>>>,
+    pub default_font: Rc<Arc<str>>,
     pub show_titles: SplitView<Cell<bool>>,
     pub bar_position: SplitView<Cell<BarPosition>>,
     pub show_window_icons: Cell<bool>,
@@ -681,7 +681,7 @@ pub struct Theme {
 
 impl Default for Theme {
     fn default() -> Self {
-        let default_font = Arc::new(DEFAULT_FONT.to_string());
+        let default_font: Rc<Arc<str>> = Rc::new(DEFAULT_FONT.into());
         Self {
             colors: Default::default(),
             sizes: Default::default(),
@@ -699,11 +699,11 @@ impl Default for Theme {
 }
 
 impl Theme {
-    pub fn title_font(&self) -> Arc<String> {
+    pub fn title_font(&self) -> Rc<Arc<str>> {
         self.title_font.get().unwrap_or_else(|| self.font.get())
     }
 
-    pub fn bar_font(&self) -> Arc<String> {
+    pub fn bar_font(&self) -> Rc<Arc<str>> {
         self.bar_font.get().unwrap_or_else(|| self.font.get())
     }
 

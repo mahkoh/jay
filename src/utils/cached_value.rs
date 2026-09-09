@@ -4,10 +4,12 @@ use crate::utils::clonecell::CloneCell;
 use linearize::Linearize;
 use linearize::StaticCopyMap;
 use linearize::StaticMap;
+use static_assertions::const_assert;
 use std::cell::Cell;
 use std::fmt::Debug;
+use std::mem::ManuallyDrop;
+use std::rc::Rc;
 use std::sync::Arc;
-use std::sync::LazyLock;
 
 pub trait CachedDefault: Sized {
     #[expect(unused)]
@@ -156,9 +158,13 @@ impl CachedDefault for Color {
     }
 }
 
-impl CachedDefault for Arc<String> {
+impl CachedDefault for Rc<Arc<str>> {
     fn cached_default() -> Self {
-        static EMPTY_STRING: LazyLock<Arc<String>> = LazyLock::new(Default::default);
-        EMPTY_STRING.clone()
+        type T = ManuallyDrop<Rc<Arc<str>>>;
+        const_assert!(!std::mem::needs_drop::<T>());
+        thread_local! {
+            static EMPTY_STRING: T = Default::default();
+        }
+        EMPTY_STRING.with(|v| (**v).clone())
     }
 }

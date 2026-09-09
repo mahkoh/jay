@@ -2252,18 +2252,18 @@ impl State {
     }
 
     pub fn set_font(&self, font: &str) {
-        self.theme.font.set(Arc::new(font.to_string()));
+        self.theme.font.set(Rc::new(font.into()));
         self.fonts_changed();
     }
 
     pub fn set_bar_font(&self, font: Option<&str>) {
-        let font = font.map(|font| Arc::new(font.to_string()));
+        let font = font.map(|font| Rc::new(font.into()));
         self.theme.bar_font.set(font);
         self.fonts_changed();
     }
 
     pub fn set_title_font(&self, font: Option<&str>) {
-        let font = font.map(|font| Arc::new(font.to_string()));
+        let font = font.map(|font| Rc::new(font.into()));
         self.theme.title_font.set(font);
         self.fonts_changed();
     }

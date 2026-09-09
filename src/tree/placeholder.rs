@@ -150,7 +150,7 @@ impl PlaceholderNode {
                 height = (height as f64 * scale).round() as _;
             }
             if width != 0 && height != 0 {
-                let font = Arc::new(format!("monospace {}", width / 10));
+                let font = Arc::from(format!("monospace {}", width / 10).into_boxed_str());
                 tex.schedule_render_fitting(
                     on_completed.clone(),
                     Some(height),

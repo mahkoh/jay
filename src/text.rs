@@ -37,6 +37,7 @@ use crate::utils::double_buffered::DoubleBuffered;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::on_drop_event::OnDropEvent;
 use crate::utils::page_size::page_size;
+use crate::utils::ref_cow::RefCow;
 use jay_algorithms::oserror::OsError;
 use jay_algorithms::oserror::OsErrorExt2;
 use std::borrow::Cow;
@@ -96,7 +97,7 @@ impl<'a> Config<'a> {
                 scale,
             } => Config::RenderFitting {
                 height,
-                font,
+                font: font.to_static(),
                 text: text.into_owned().into(),
                 color,
                 markup,
@@ -120,7 +121,7 @@ impl<'a> Config<'a> {
                 width,
                 height,
                 padding,
-                font,
+                font: font.to_static(),
                 text: text.into_owned().into(),
                 color,
                 ellipsize,
@@ -431,7 +432,7 @@ enum Config<'a> {
     None,
     RenderFitting {
         height: Option<i32>,
-        font: Arc<String>,
+        font: RefCow<'a, Arc<str>>,
         text: Cow<'a, str>,
         color: Color,
         markup: bool,
@@ -443,7 +444,7 @@ enum Config<'a> {
         width: i32,
         height: i32,
         padding: i32,
-        font: Arc<String>,
+        font: RefCow<'a, Arc<str>>,
         text: Cow<'a, str>,
         color: Color,
         ellipsize: bool,
@@ -537,7 +538,7 @@ impl TextTexture {
         width: i32,
         height: i32,
         padding: i32,
-        font: &Arc<String>,
+        font: &Arc<str>,
         text: &str,
         color: Color,
         ellipsize: bool,
@@ -550,7 +551,7 @@ impl TextTexture {
             width,
             height,
             padding,
-            font: font.clone(),
+            font: RefCow::Borrowed(font),
             text: Cow::Borrowed(text),
             color,
             ellipsize,
@@ -564,7 +565,7 @@ impl TextTexture {
         &self,
         on_completed: Rc<dyn OnCompleted>,
         height: Option<i32>,
-        font: &Arc<String>,
+        font: &Arc<str>,
         text: &str,
         color: Color,
         markup: bool,
@@ -572,7 +573,7 @@ impl TextTexture {
     ) {
         let config = Config::RenderFitting {
             height,
-            font: font.clone(),
+            font: RefCow::Borrowed(font),
             text: text.into(),
             color,
             markup,
