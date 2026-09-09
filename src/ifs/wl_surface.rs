@@ -5,6 +5,7 @@ pub mod ext_session_lock_surface_v1;
 pub mod jay_sync_file_release;
 pub mod jay_sync_file_surface;
 pub mod prime;
+pub mod surface_render_cache;
 pub mod tray;
 pub mod wl_subsurface;
 pub mod wp_alpha_modifier_surface_v1;
