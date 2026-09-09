@@ -14,7 +14,6 @@ use crate::state::State;
 use crate::theme::Color;
 use crate::theme::ThemeColored;
 use crate::theme::ThemeSized;
-use crate::tree::TreeTimeline::LiveTL;
 use crate::utils::static_text::StaticText;
 use egui::Ui;
 use isnt::std_1::primitive::IsntStrExt;
@@ -44,10 +43,10 @@ impl LookAndFeelPane {
             bool(ui, "Show Bar", self.state.show_bar.get(), |v| {
                 self.state.set_show_bar(v)
             });
-            combo_box(ui, "Bar Position", t.bar_position[LiveTL].get(), |p| {
+            combo_box(ui, "Bar Position", t.bar_position.get(), |p| {
                 self.state.set_bar_position(p);
             });
-            bool(ui, "Show Titles", t.show_titles[LiveTL].get(), |v| {
+            bool(ui, "Show Titles", t.show_titles.get(), |v| {
                 self.state.set_show_titles(v)
             });
             bool(ui, "Show Window Icons", t.show_window_icons.get(), |v| {
@@ -156,12 +155,9 @@ impl LookAndFeelPane {
                     self.state.set_bar_font(v.is_not_empty().then_some(&v));
                 }
             });
-            combo_box(
-                ui,
-                "Container Borders",
-                t.container_borders[LiveTL].get(),
-                |p| self.state.set_container_borders(p),
-            );
+            combo_box(ui, "Container Borders", t.container_borders.get(), |p| {
+                self.state.set_container_borders(p)
+            });
         });
         if ui.button("Reset Sizes").clicked() {
             self.state.reset_sizes();
@@ -176,7 +172,7 @@ impl LookAndFeelPane {
             grid(ui, "Sizes", |ui| {
                 for v in ThemeSized::variants() {
                     let f = v.field(&self.state.theme);
-                    drag_value(ui, v.text(), f.get(LiveTL), v.min()..=v.max(), 1.0, |i| {
+                    drag_value(ui, v.text(), f.get(), v.min()..=v.max(), 1.0, |i| {
                         self.state.set_size(v, i);
                     });
                 }

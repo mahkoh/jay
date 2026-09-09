@@ -171,9 +171,13 @@ impl Configurable for JayTrayItemV1 {
     }
 
     fn configure_data(&self) -> Self::T {
-        let state = &self.tray_item_data().client.state;
-        let size = state.tray_icon_size().max(1);
-        let bar_position = state.theme.bar_position[LiveTL].get();
+        let mut size = 1;
+        let mut bar_position = BarPosition::Top;
+        if let Some(on) = self.data.output.node() {
+            let theme = &on.node_state[LiveTL].theme;
+            size = theme.sizes.tray_icon_size.get().max(1);
+            bar_position = theme.bar_position.get();
+        }
         TrayItemConfigureData { size, bar_position }
     }
 

@@ -19,14 +19,14 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     tassert_eq!(window.tl.core.width.get(), 800);
     tassert_eq!(
         window.tl.core.height.get(),
-        600 - 2 * run.state.theme.title_plus_underline_height(LiveTL)
+        600 - 2 * run.state.theme.title_plus_underline_height()
     );
 
     tassert_eq!(
         window.tl.server.node_absolute_position(LiveTL),
         Rect::new_sized(
             0,
-            2 * run.state.theme.title_plus_underline_height(LiveTL),
+            2 * run.state.theme.title_plus_underline_height(),
             window.tl.core.width.get(),
             window.tl.core.height.get(),
         )

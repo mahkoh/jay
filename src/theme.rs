@@ -4,8 +4,6 @@ use crate::cmm::cmm_eotf::Eotf;
 use crate::control_center::CCI_LOOK_AND_FEEL;
 use crate::gfx_api::AlphaMode;
 use crate::state::State;
-use crate::tree::SplitView;
-use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::utils::clonecell::CloneCell;
@@ -350,6 +348,10 @@ impl ThemeColor {
     pub fn get(&self) -> Color {
         self.val.get()
     }
+
+    pub fn get_opt(&self) -> Option<Color> {
+        self.set.get().then_some(self.val.get())
+    }
 }
 
 macro_rules! colors {
@@ -459,13 +461,13 @@ impl StaticText for ThemeColored {
 }
 
 pub struct ThemeSize {
-    pub val: SplitView<Cell<i32>>,
-    pub set: SplitView<Cell<bool>>,
+    pub val: Cell<i32>,
+    pub set: Cell<bool>,
 }
 
 impl ThemeSize {
-    pub fn get(&self, tl: TreeTimeline) -> i32 {
-        self.val[tl].get()
+    pub fn get(&self) -> i32 {
+        self.val.get()
     }
 }
 
@@ -521,11 +523,11 @@ macro_rules! sizes {
         }
 
         impl ThemeSizes {
-            pub fn reset(&self, tl: TreeTimeline) {
+            pub fn reset(&self) {
                 let default = Self::default();
                 $(
-                    self.$name.val[tl].set(default.$name.val[tl].get());
-                    self.$name.set[tl].set(false);
+                    self.$name.val.set(default.$name.val.get());
+                    self.$name.set.set(false);
                 )*
             }
         }
@@ -535,7 +537,7 @@ macro_rules! sizes {
                 Self {
                     $(
                         $name: ThemeSize {
-                            val: SplitView::from_fn(|_| Cell::new($def)),
+                            val: Cell::new($def),
                             set: Default::default(),
                         },
                     )*
@@ -546,16 +548,12 @@ macro_rules! sizes {
 }
 
 impl ThemeSizes {
-    pub fn bar_height(&self, tl: TreeTimeline) -> i32 {
-        if self.bar_height.set[tl].get() {
-            self.bar_height.val[tl].get()
+    pub fn bar_height(&self) -> i32 {
+        if self.bar_height.set.get() {
+            self.bar_height.val.get()
         } else {
-            self.title_height.val[tl].get()
+            self.title_height.val.get()
         }
-    }
-
-    pub fn bar_separator_width(&self, tl: TreeTimeline) -> i32 {
-        self.bar_separator_width.get(tl)
     }
 }
 
@@ -668,20 +666,20 @@ impl Into<ConfigContainerBorders> for ContainerBordersSetting {
 pub struct Theme {
     pub colors: ThemeColors,
     pub sizes: ThemeSizes,
-    pub font: CloneCell<Arc<String>>,
-    pub bar_font: CloneCell<Option<Arc<String>>>,
-    pub title_font: CloneCell<Option<Arc<String>>>,
-    pub default_font: Arc<String>,
-    pub show_titles: SplitView<Cell<bool>>,
-    pub bar_position: SplitView<Cell<BarPosition>>,
+    pub font: CloneCell<Rc<Arc<str>>>,
+    pub bar_font: CloneCell<Option<Rc<Arc<str>>>>,
+    pub title_font: CloneCell<Option<Rc<Arc<str>>>>,
+    pub default_font: Rc<Arc<str>>,
+    pub show_titles: Cell<bool>,
+    pub bar_position: Cell<BarPosition>,
     pub show_window_icons: Cell<bool>,
     pub window_icons_grayscale: Cell<bool>,
-    pub container_borders: SplitView<Cell<ContainerBordersSetting>>,
+    pub container_borders: Cell<ContainerBordersSetting>,
 }
 
 impl Default for Theme {
     fn default() -> Self {
-        let default_font = Arc::new(DEFAULT_FONT.to_string());
+        let default_font: Rc<Arc<str>> = Rc::new(DEFAULT_FONT.into());
         Self {
             colors: Default::default(),
             sizes: Default::default(),
@@ -689,7 +687,7 @@ impl Default for Theme {
             bar_font: Default::default(),
             title_font: Default::default(),
             default_font,
-            show_titles: SplitView::from_fn(|_| Cell::new(true)),
+            show_titles: Cell::new(true),
             bar_position: Default::default(),
             show_window_icons: Cell::new(true),
             window_icons_grayscale: Cell::new(false),
@@ -699,45 +697,29 @@ impl Default for Theme {
 }
 
 impl Theme {
-    pub fn title_font(&self) -> Arc<String> {
+    pub fn title_font(&self) -> Rc<Arc<str>> {
         self.title_font.get().unwrap_or_else(|| self.font.get())
     }
 
-    pub fn bar_font(&self) -> Arc<String> {
+    pub fn bar_font(&self) -> Rc<Arc<str>> {
         self.bar_font.get().unwrap_or_else(|| self.font.get())
     }
 
-    pub fn title_height(&self, tl: TreeTimeline) -> i32 {
-        if self.show_titles[tl].get() {
-            self.sizes.title_height.get(tl)
+    pub fn title_height(&self) -> i32 {
+        if self.show_titles.get() {
+            self.sizes.title_height.get()
         } else {
             0
         }
     }
 
-    pub fn title_icon_size(&self, tl: TreeTimeline) -> i32 {
-        (self.title_height(tl) - 2).max(0)
+    pub fn title_icon_size(&self) -> i32 {
+        (self.title_height() - 2).max(0)
     }
 
-    pub fn title_underline_height(&self, tl: TreeTimeline) -> i32 {
-        if self.show_titles[tl].get() { 1 } else { 0 }
-    }
-
-    pub fn title_plus_underline_height(&self, tl: TreeTimeline) -> i32 {
-        if self.show_titles[tl].get() {
-            self.sizes.title_height.get(tl) + 1
-        } else {
-            0
-        }
-    }
-
-    pub fn focused_border_color(&self) -> Color {
-        let c = &self.colors;
-        if c.focused_border.set.get() {
-            c.focused_border.val.get()
-        } else {
-            c.border.val.get()
-        }
+    #[cfg(feature = "it")]
+    pub fn title_plus_underline_height(&self) -> i32 {
+        title_plus_underline_height(self.show_titles.get(), self.sizes.title_height.get())
     }
 }
 
@@ -834,10 +816,8 @@ impl Div<f32> for Oklab {
 
 pub async fn handle_theme_changes(state: Rc<State>) {
     let fields = [
-        &state.colors_changed,
+        &state.colors_changed, //
         &state.spaces_changed,
-        &state.show_window_icons_changed,
-        &state.fonts_changed,
     ];
     let mut values = fields.map(|_| 0);
     loop {
@@ -866,4 +846,24 @@ pub async fn handle_theme_changes(state: Rc<State>) {
         }
         state.trigger_cci(CCI_LOOK_AND_FEEL);
     }
+}
+
+pub fn compute_title_height(show_titles: bool, title_height: i32) -> i32 {
+    if show_titles { title_height } else { 0 }
+}
+
+pub fn title_icon_size(show_titles: bool, title_height: i32) -> i32 {
+    (compute_title_height(show_titles, title_height) - 2).max(0)
+}
+
+pub fn title_underline_height(show_titles: bool) -> i32 {
+    if show_titles { 1 } else { 0 }
+}
+
+pub fn title_plus_underline_height(show_titles: bool, title_height: i32) -> i32 {
+    if show_titles { title_height + 1 } else { 0 }
+}
+
+pub fn compute_focused_border(focused_border: Option<Color>, border: Color) -> Color {
+    focused_border.unwrap_or(border)
 }

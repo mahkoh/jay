@@ -20,6 +20,12 @@ use crate::state::ScalesChangedListener;
 use crate::state::State;
 use crate::state::ThemeChangeListener;
 use crate::text::TextTexture;
+use crate::theme::Color;
+use crate::theme::compute_focused_border;
+use crate::theme::compute_title_height;
+use crate::theme::title_icon_size;
+use crate::theme::title_plus_underline_height;
+use crate::theme::title_underline_height;
 use crate::transactions::TransactionData;
 use crate::transactions::Transactionable;
 use crate::transactions::TransactionableExt;
@@ -53,6 +59,8 @@ use crate::tree::toplevel_set_floating;
 use crate::tree::walker::NodeVisitor;
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::bhash::BHashMap;
+use crate::utils::bool_ext::BoolExt;
+use crate::utils::cached_value::CachedValue;
 use crate::utils::clamp_ext::ClampExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::double_click_state::DoubleClickState;
@@ -64,6 +72,7 @@ use crate::utils::smallmap::SmallMap;
 use crate::utils::smallmap::SmallMapMut;
 use arrayvec::ArrayVec;
 use derivative::Derivative;
+use jay_proc::CachedValue;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -71,6 +80,7 @@ use std::fmt::Formatter;
 use std::mem;
 use std::ops::Deref;
 use std::rc::Rc;
+use std::sync::Arc;
 
 tree_id!(FloatNodeId);
 pub struct FloatNode {
@@ -112,6 +122,7 @@ pub struct FloatNodeState {
     pub active: Cell<bool>,
     pub attention_requested: Cell<bool>,
     pub pinned: Cell<bool>,
+    pub theme: FloatTheme,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -143,6 +154,37 @@ enum OpType {
     ResizeTopRight,
     ResizeBottomLeft,
     ResizeBottomRight,
+}
+
+#[derive(Clone, CachedValue)]
+pub struct FloatTheme {
+    pub colors: FloatThemeColors,
+    pub sizes: FloatThemeSizes,
+    pub show_window_icons: Cell<bool>,
+    pub show_pin_icon: Cell<bool>,
+    pub window_icons_grayscale: Cell<bool>,
+    pub title_font: CloneCell<Rc<Arc<str>>>,
+}
+
+#[derive(Clone, CachedValue)]
+pub struct FloatThemeColors {
+    pub focused_title_text: Cell<Color>,
+    pub unfocused_title_text: Cell<Color>,
+    pub focused_border: Cell<Color>,
+    pub border: Cell<Color>,
+    pub focused_title_background: Cell<Color>,
+    pub attention_requested_background: Cell<Color>,
+    pub unfocused_title_background: Cell<Color>,
+    pub separator: Cell<Color>,
+}
+
+#[derive(Clone, CachedValue)]
+pub struct FloatThemeSizes {
+    pub border_width: Cell<i32>,
+    pub title_height: Cell<i32>,
+    pub title_plus_underline_height: Cell<i32>,
+    pub title_underline_height: Cell<i32>,
+    pub title_icon_size: Cell<i32>,
 }
 
 pub async fn float_layout(state: Rc<State>) {
@@ -208,9 +250,15 @@ impl FloatNode {
             _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
             _scales_listener: EventListener::attached(slf.clone(), &state.scales_changed),
         });
-        let theme = &state.theme;
-        let bw = theme.sizes.border_width.get(LiveTL);
-        let tpuh = theme.title_plus_underline_height(LiveTL);
+        {
+            let theme = floater.compute_theme();
+            floater.node_state[LiveTL].theme.cached_set(theme.clone());
+            floater.node_state[RenderTL].theme.cached_set(theme);
+        }
+        let ns = &floater.node_state[LiveTL];
+        let theme = &ns.theme;
+        let bw = theme.sizes.border_width.get();
+        let tpuh = theme.sizes.title_plus_underline_height.get();
         let width = inner_width + 2 * bw;
         let height = inner_height + 2 * bw + tpuh;
         let output_rect = output.node_state[LiveTL].pos.get();
@@ -260,10 +308,10 @@ impl FloatNode {
             _ => return,
         };
         let pos = ns.position.get();
-        let theme = &self.state.theme;
-        let bw = theme.sizes.border_width.get(LiveTL);
-        let th = theme.title_height(LiveTL);
-        let tpuh = theme.title_plus_underline_height(LiveTL);
+        let theme = &ns.theme;
+        let bw = theme.sizes.border_width.get();
+        let th = theme.sizes.title_height.get();
+        let tpuh = theme.sizes.title_plus_underline_height.get();
         let cpos = Rect::new_sized_saturating(
             pos.x1() + bw,
             pos.y1() + bw + tpuh,
@@ -284,12 +332,12 @@ impl FloatNode {
     fn render_title_phase1(&self) -> Rc<AsyncEvent> {
         let on_completed = Rc::new(OnDropEvent::default());
         let ns = &self.node_state[RenderTL];
-        let theme = &self.state.theme;
+        let theme = &ns.theme;
         let tc = match ns.active.get() {
             true => theme.colors.focused_title_text.get(),
             false => theme.colors.unfocused_title_text.get(),
         };
-        let font = theme.title_font();
+        let font = theme.title_font.get();
         let title = self.title.borrow_mut();
         let ctx = match self.state.render_ctx.get() {
             Some(c) => c,
@@ -304,13 +352,10 @@ impl FloatNode {
             let mut th = tr.height();
             let mut scalef = None;
             let mut width = tr.width();
-            let icon = self
-                .state
-                .theme
+            let icon = theme
                 .show_window_icons
                 .get()
-                .then(|| self.icon.get(*scale))
-                .flatten();
+                .and_then(|| self.icon.get(*scale));
             if let Some(icon) = icon {
                 width = (width - th).max(0);
                 self.icons.insert(*scale, icon);
@@ -318,7 +363,7 @@ impl FloatNode {
             if ns.workspace_ty.get() == WorkspaceType::Overlay {
                 width = (width - th).max(0);
             }
-            if self.state.show_pin_icon.get() || self.pinned_link.borrow().is_some() {
+            if theme.show_pin_icon.get() || self.pinned_link.borrow().is_some() {
                 width = (width - th).max(0);
             }
             if *scale != 1 {
@@ -347,9 +392,9 @@ impl FloatNode {
 
     fn render_title_phase2(&self) {
         let ns = &self.node_state[RenderTL];
-        let theme = &self.state.theme;
-        let th = theme.title_height(RenderTL);
-        let bw = theme.sizes.border_width.get(RenderTL);
+        let theme = &ns.theme;
+        let th = theme.sizes.title_height.get();
+        let bw = theme.sizes.border_width.get();
         let title = self.title.borrow();
         let tt = &*self.title_textures.borrow();
         for (_, tt) in tt {
@@ -376,9 +421,9 @@ impl FloatNode {
         let ns = &self.node_state[LiveTL];
         let x = x.round_down();
         let y = y.round_down();
-        let theme = &self.state.theme;
-        let bw = theme.sizes.border_width.get(LiveTL);
-        let tpuh = theme.title_plus_underline_height(LiveTL);
+        let theme = &ns.theme;
+        let bw = theme.sizes.border_width.get();
+        let tpuh = theme.sizes.title_plus_underline_height.get();
         let mut seats = self.cursors.borrow_mut();
         let seat_state = seats.entry(id).or_insert_with(|| CursorState {
             cursor: KnownCursor::Default,
@@ -551,8 +596,8 @@ impl FloatNode {
         if pos.intersects(&opos) {
             return;
         }
-        let bw = self.state.theme.sizes.border_width.get(LiveTL);
-        let th = self.state.theme.title_height(LiveTL);
+        let bw = ns.theme.sizes.border_width.get();
+        let th = ns.theme.sizes.title_height.get();
         let mut x1 = pos.x1();
         let mut x2 = pos.x2();
         let mut y1 = pos.y1();
@@ -675,8 +720,9 @@ impl FloatNode {
             _ => return,
         };
         let ns = &self.node_state[LiveTL];
-        let bw = self.state.theme.sizes.border_width.get(LiveTL);
-        let th = self.state.theme.title_height(LiveTL);
+        let theme = &ns.theme;
+        let bw = theme.sizes.border_width.get();
+        let th = theme.sizes.title_height.get();
         let mut is_icon_press = false;
         if pressed && cursor_data.x >= bw && cursor_data.y >= bw && cursor_data.y < bw + th {
             enum FloatIcon {
@@ -687,7 +733,7 @@ impl FloatNode {
             if ns.workspace_ty.get() == WorkspaceType::Overlay {
                 icons.push(FloatIcon::Overlay);
             }
-            if self.state.show_pin_icon.get() || self.pinned_link.borrow().is_some() {
+            if theme.show_pin_icon.get() || self.pinned_link.borrow().is_some() {
                 icons.push(FloatIcon::Pin);
             }
             let mut x2 = bw + th;
@@ -774,9 +820,9 @@ impl FloatNode {
     ) -> Option<TileDragDestination> {
         let ns = &self.node_state[LiveTL];
         let child = ns.child.get()?;
-        let theme = &self.state.theme.sizes;
-        let bw = theme.border_width.get(LiveTL);
-        let tpuh = self.state.theme.title_plus_underline_height(LiveTL);
+        let theme = &ns.theme;
+        let bw = theme.sizes.border_width.get();
+        let tpuh = theme.sizes.title_plus_underline_height.get();
         let pos = ns.position.get();
         let body = Rect::new(
             pos.x1() + bw,
@@ -834,6 +880,55 @@ impl FloatNode {
     fn set_ns_pinned(self: &Rc<Self>, v: bool) {
         self.add_transaction_op(FloatTransactionOp::SetPinned(v));
         self.node_state[LiveTL].pinned.set(v);
+    }
+
+    fn compute_theme(&self) -> FloatTheme {
+        let state = &self.state;
+        let theme = &state.theme;
+        define_ident!(Cell::new(theme.colors.@focused_title_text.val.get()));
+        define_ident!(Cell::new(theme.colors.@unfocused_title_text.val.get()));
+        define_ident!(theme.colors.@border.val.get());
+        define_ident!(Cell::new(theme.colors.@focused_title_background.val.get()));
+        define_ident!(Cell::new(theme.colors.@attention_requested_background.val.get()));
+        define_ident!(Cell::new(theme.colors.@unfocused_title_background.val.get()));
+        define_ident!(Cell::new(theme.colors.@separator.val.get()));
+        define_ident!(theme.colors.@focused_border.get_opt());
+        define_ident!(Cell::new(theme.sizes.@border_width.val.get()));
+        define_ident!(theme.sizes.@title_height.val.get());
+        define_ident!(theme.@show_titles.get());
+        define_ident!(Cell::new(theme.@show_window_icons.get()));
+        define_ident!(Cell::new(theme.@window_icons_grayscale.get()));
+        define_ident!(CloneCell::new(theme.@title_font()));
+        define_ident!(Cell::new(compute_focused_border(@focused_border, border)));
+        define_ident!(Cell::new(@border));
+        define_ident!(Cell::new(@title_plus_underline_height(show_titles, title_height)));
+        define_ident!(Cell::new(@title_underline_height(show_titles)));
+        define_ident!(Cell::new(@title_icon_size(show_titles, title_height)));
+        define_ident!(Cell::new(compute_title_height(show_titles, @title_height)));
+        define_ident!(Cell::new(state.@show_pin_icon.get()));
+        FloatTheme {
+            colors: FloatThemeColors {
+                focused_title_text,
+                unfocused_title_text,
+                focused_border,
+                border,
+                focused_title_background,
+                attention_requested_background,
+                unfocused_title_background,
+                separator,
+            },
+            sizes: FloatThemeSizes {
+                border_width,
+                title_height,
+                title_plus_underline_height,
+                title_underline_height,
+                title_icon_size,
+            },
+            show_window_icons,
+            show_pin_icon,
+            window_icons_grayscale,
+            title_font,
+        }
     }
 }
 
@@ -917,9 +1012,9 @@ impl NodeBase for FloatNode {
         usecase: FindTreeUsecase,
     ) -> FindTreeResult {
         let ns = &self.node_state[LiveTL];
-        let theme = &self.state.theme;
-        let tpuh = theme.title_plus_underline_height(LiveTL);
-        let bw = theme.sizes.border_width.get(LiveTL);
+        let theme = &ns.theme;
+        let tpuh = theme.sizes.title_plus_underline_height.get();
+        let bw = theme.sizes.border_width.get();
         let pos = ns.position.get();
         if x < bw || x >= pos.width() - bw {
             return FindTreeResult::AcceptsInput;
@@ -1126,9 +1221,9 @@ impl ContainingNode for FloatNode {
 
     fn cnode_set_child_position(self: Rc<Self>, _child: &dyn Node, x: i32, y: i32) {
         let ns = &self.node_state[LiveTL];
-        let theme = &self.state.theme;
-        let tpuh = theme.title_plus_underline_height(LiveTL);
-        let bw = theme.sizes.border_width.get(LiveTL);
+        let theme = &ns.theme;
+        let tpuh = theme.sizes.title_plus_underline_height.get();
+        let bw = theme.sizes.border_width.get();
         let (x, y) = (x - bw, y - tpuh - bw);
         let pos = ns.position.get();
         if pos.position() != (x, y) {
@@ -1146,9 +1241,9 @@ impl ContainingNode for FloatNode {
         new_y2: Option<i32>,
     ) {
         let ns = &self.node_state[LiveTL];
-        let theme = &self.state.theme;
-        let tpuh = theme.title_plus_underline_height(LiveTL);
-        let bw = theme.sizes.border_width.get(LiveTL);
+        let theme = &ns.theme;
+        let tpuh = theme.sizes.title_plus_underline_height.get();
+        let bw = theme.sizes.border_width.get();
         let pos = ns.position.get();
         let mut x1 = pos.x1();
         let mut x2 = pos.x2();
@@ -1258,22 +1353,74 @@ impl WorkspaceEventListener for FloatNode {
 
 impl ThemeChangeListener for FloatNode {
     fn changed(self: Rc<Self>) {
-        if self.state.colors_changed.is_not_zero() {
-            self.schedule_render_titles();
-        }
-        if self.state.spaces_changed.is_not_zero() {
-            if self.icon.set_size(self.state.theme.title_icon_size(LiveTL))
-                && let Some(child) = self.node_state[LiveTL].child.get()
+        let ns = &self.node_state[LiveTL];
+        let theme = self.compute_theme();
+        let changed = ns.theme.cached_update(theme, |op| {
+            self.add_transaction_op(FloatTransactionOp::ThemeOp(op));
+        });
+        let FloatThemeChanged {
+            colors:
+                FloatThemeColorsChanged {
+                    focused_title_text,
+                    unfocused_title_text,
+                    focused_border,
+                    border,
+                    focused_title_background,
+                    attention_requested_background,
+                    unfocused_title_background,
+                    separator,
+                },
+            sizes:
+                FloatThemeSizesChanged {
+                    border_width,
+                    title_height,
+                    title_plus_underline_height,
+                    title_underline_height,
+                    title_icon_size,
+                },
+            show_window_icons,
+            show_pin_icon,
+            window_icons_grayscale,
+            title_font,
+        } = changed;
+        let layout = or_chain!()
+            || border_width
+            || title_height
+            || title_plus_underline_height
+            || title_underline_height
+            || title_icon_size
+            || or_chain!();
+        if layout {
+            if self.icon.set_size(ns.theme.sizes.title_icon_size.get())
+                && let Some(child) = ns.child.get()
             {
                 child.tl_update_icon(&self.icon);
             }
             self.schedule_layout();
         }
-        if self.state.show_window_icons_changed.is_not_zero() {
+        let title = or_chain!()
+            || focused_title_text
+            || unfocused_title_text
+            || show_window_icons
+            || title_font
+            || show_pin_icon
+            || or_chain!();
+        if title {
             self.schedule_render_titles();
         }
-        if self.state.fonts_changed.is_not_zero() {
-            self.schedule_render_titles();
+        let damage = or_chain!()
+            || layout
+            || window_icons_grayscale
+            || focused_border
+            || border
+            || focused_title_background
+            || attention_requested_background
+            || unfocused_title_background
+            || separator
+            || or_chain!();
+        if damage {
+            self.state
+                .schedule_damage(self.node_absolute_position(LiveTL));
         }
     }
 }
@@ -1319,6 +1466,7 @@ pub enum FloatTransactionOp {
     Damage,
     ScheduleRenderTitles,
     ClearLink,
+    ThemeOp(FloatThemeOp),
 }
 
 impl Transactionable for FloatNode {
@@ -1400,6 +1548,9 @@ impl Transactionable for FloatNode {
             }
             FloatTransactionOp::ClearLink => {
                 self.display_link.borrow_mut().clear();
+            }
+            FloatTransactionOp::ThemeOp(v) => {
+                s.theme.cached_apply(v);
             }
         }
     }

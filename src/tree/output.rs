@@ -65,6 +65,7 @@ use crate::state::State;
 use crate::state::ThemeChangeListener;
 use crate::text::TextTexture;
 use crate::theme::BarPosition;
+use crate::theme::Color;
 use crate::transactions::TransactionData;
 use crate::transactions::Transactionable;
 use crate::transactions::TransactionableExt;
@@ -94,6 +95,7 @@ use crate::tree::WorkspaceType;
 use crate::tree::walker::NodeVisitor;
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::bitflags::BitflagsExt;
+use crate::utils::cached_value::CachedValue;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
@@ -116,6 +118,7 @@ use crate::wire::JayScreencastId;
 use crate::wire::ZwlrScreencopyFrameV1Id;
 use jay_config::video::TearingMode as ConfigTearingMode;
 use jay_config::video::VrrMode as ConfigVrrMode;
+use jay_proc::CachedValue;
 use jay_proc::jay_hash;
 use numeric_sort::cmp;
 use smallvec::SmallVec;
@@ -126,6 +129,7 @@ use std::fmt::Formatter;
 use std::ops::BitOrAssign;
 use std::ops::Deref;
 use std::rc::Rc;
+use std::sync::Arc;
 
 tree_id!(OutputNodeId);
 pub struct OutputNode {
@@ -195,6 +199,7 @@ pub struct OutputNodeState {
     pub linear_color_description: CloneCell<Rc<ColorDescription>>,
     pub damage_matrix: Cell<DamageMatrix>,
     pub rects: OutputNodeRects<CellWrapper>,
+    pub theme: OutputTheme,
 }
 
 #[derive(Clone, Default)]
@@ -212,6 +217,37 @@ where
     pub bar_with_separator_rel: W::D<Rect>,
     pub bar_separator: W::D<Rect>,
     pub bar_separator_rel: W::D<Rect>,
+}
+
+#[derive(Clone, CachedValue)]
+pub struct OutputTheme {
+    pub colors: OutputThemeColors,
+    pub sizes: OutputThemeSizes,
+    pub bar_font: CloneCell<Rc<Arc<str>>>,
+    pub bar_position: Cell<BarPosition>,
+    pub show_bar: Cell<bool>,
+}
+
+#[derive(Clone, CachedValue)]
+pub struct OutputThemeColors {
+    pub attention_requested_background: Cell<Color>,
+    pub bar_background: Cell<Color>,
+    pub bar_text: Cell<Color>,
+    pub captured_focused_title_background: Cell<Color>,
+    pub captured_unfocused_title_background: Cell<Color>,
+    pub focused_title_background: Cell<Color>,
+    pub focused_title_text: Cell<Color>,
+    pub highlight: Cell<Color>,
+    pub separator: Cell<Color>,
+    pub unfocused_title_background: Cell<Color>,
+    pub unfocused_title_text: Cell<Color>,
+}
+
+#[derive(Clone, CachedValue)]
+pub struct OutputThemeSizes {
+    pub bar_height: Cell<i32>,
+    pub bar_separator_width: Cell<i32>,
+    pub tray_icon_size: Cell<i32>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -333,6 +369,11 @@ impl OutputNode {
             _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
             _scales_listener: EventListener::attached(slf.clone(), &state.scales_changed),
         });
+        {
+            let theme = on.compute_theme();
+            on.node_state[LiveTL].theme.cached_set(theme.clone());
+            on.node_state[RenderTL].theme.cached_set(theme);
+        }
         on.set_ns_pos(Rect::new_sized_saturating(x, y, width, height));
         on.set_ns_scale(scale);
         on.set_ns_transform(global.persistent.transform.get());
@@ -686,15 +727,16 @@ impl OutputNode {
 
     fn update_render_data_phase1(self: &Rc<Self>) -> Rc<AsyncEvent> {
         let on_completed = Rc::new(OnDropEvent::default());
-        if !self.state.show_bar.get() {
+        let ns = &self.node_state[RenderTL];
+        let theme = &ns.theme;
+        if !theme.show_bar.get() {
             return on_completed.event();
         }
         let Some(ctx) = self.state.render_ctx.get() else {
             return on_completed.event();
         };
-        let font = self.state.theme.bar_font();
-        let theme = &self.state.theme;
-        let bh = theme.sizes.bar_height(RenderTL);
+        let font = theme.bar_font.get();
+        let bh = theme.sizes.bar_height.get();
         let scale = self.node_state[RenderTL].scale.get();
         let scale = if scale != 1 {
             Some(scale.to_f64())
@@ -743,7 +785,7 @@ impl OutputNode {
             tex: TextTexture::new(&self.state, &ctx),
         });
         let status = self.status.get();
-        let tc = self.state.theme.colors.bar_text.get();
+        let tc = theme.colors.bar_text.get();
         tex.tex.schedule_render_fitting(
             on_completed.clone(),
             Some(texture_height),
@@ -764,12 +806,13 @@ impl OutputNode {
         rd.captured_inactive_workspaces.clear();
         rd.active_workspace = None;
         rd.overlay_workspace = None;
-        if !self.state.show_bar.get() {
+        let ns = &self.node_state[RenderTL];
+        let theme = &ns.theme;
+        if !theme.show_bar.get() {
             self.state.damage(rd.full_area);
             return;
         }
         let mut pos = 0;
-        let ns = &self.node_state[RenderTL];
         let bar_rect_rel = ns.rects.bar_rel.get();
         let non_exclusive_rect_rel = ns.rects.non_exclusive_rel.get();
         let y1 = bar_rect_rel.y1() - non_exclusive_rect_rel.y1();
@@ -1120,8 +1163,9 @@ impl OutputNode {
     pub fn update_rects(self: &Rc<Self>) {
         let ns = &self.node_state[LiveTL];
         let rect = ns.pos.get();
-        let bh = self.state.theme.sizes.bar_height(LiveTL);
-        let bsw = self.state.theme.sizes.bar_separator_width(LiveTL);
+        let theme = &ns.theme;
+        let bh = theme.sizes.bar_height.get();
+        let bsw = theme.sizes.bar_separator_width.get();
         let exclusive = self.exclusive_zones.get();
         let y1 = rect.y1() + exclusive.top;
         let x2 = rect.x2() - exclusive.right;
@@ -1140,8 +1184,8 @@ impl OutputNode {
         let mut bar_separator_rel = Rect::default();
         let mut workspace = non_exclusive;
         let mut workspace_rel = non_exclusive_rel;
-        if self.state.show_bar.get() {
-            match self.state.theme.bar_position[LiveTL].get() {
+        if theme.show_bar.get() {
+            match theme.bar_position.get() {
                 BarPosition::Bottom => {
                     workspace = Rect::new_sized_saturating(x1, y1, width, height - bh - bsw);
                     bar_with_separator =
@@ -1520,10 +1564,12 @@ impl OutputNode {
     }
 
     fn bar_button(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, x: i32, y: i32, button: u32) -> bool {
-        if !self.state.show_bar.get() {
+        let ns = &self.node_state[LiveTL];
+        let theme = &ns.theme;
+        if !theme.show_bar.get() {
             return false;
         }
-        let bar_rect_rel = self.node_state[LiveTL].rects.bar_rel.get();
+        let bar_rect_rel = ns.rects.bar_rel.get();
         if bar_rect_rel.not_contains(x, y) {
             return false;
         }
@@ -1765,10 +1811,11 @@ impl OutputNode {
         x_abs: i32,
         y_abs: i32,
     ) -> Option<WorkspaceDragDestination> {
-        if !self.state.show_bar.get() {
+        let ns = &self.node_state[LiveTL];
+        let theme = &ns.theme;
+        if !theme.show_bar.get() {
             return None;
         }
-        let ns = &self.node_state[LiveTL];
         let bar_rect_with_separator = ns.rects.bar_with_separator.get();
         if bar_rect_with_separator.not_contains(x_abs, y_abs) {
             return None;
@@ -2147,14 +2194,110 @@ impl OutputNode {
             hc.damage();
         }
     }
+
+    fn compute_theme(&self) -> OutputTheme {
+        let state = &self.state;
+        let theme = &state.theme;
+        define_ident!(Cell::new(theme.colors.@attention_requested_background.get()));
+        define_ident!(Cell::new(theme.colors.@bar_background.get()));
+        define_ident!(Cell::new(theme.colors.@bar_text.get()));
+        define_ident!(Cell::new(theme.colors.@captured_focused_title_background.get()));
+        define_ident!(Cell::new(theme.colors.@captured_unfocused_title_background.get()));
+        define_ident!(Cell::new(theme.colors.@focused_title_background.get()));
+        define_ident!(Cell::new(theme.colors.@focused_title_text.get()));
+        define_ident!(Cell::new(theme.colors.@highlight.get()));
+        define_ident!(Cell::new(theme.colors.@separator.get()));
+        define_ident!(Cell::new(theme.colors.@unfocused_title_background.get()));
+        define_ident!(Cell::new(theme.colors.@unfocused_title_text.get()));
+        define_ident!(Cell::new(theme.sizes.@bar_height()));
+        define_ident!(Cell::new(theme.sizes.@bar_separator_width.get()));
+        define_ident!(Cell::new(state.@tray_icon_size()));
+        define_ident!(CloneCell::new(theme.@bar_font()));
+        define_ident!(Cell::new(theme.@bar_position.get()));
+        define_ident!(Cell::new(state.@show_bar.get()));
+        OutputTheme {
+            colors: OutputThemeColors {
+                attention_requested_background,
+                bar_background,
+                bar_text,
+                captured_focused_title_background,
+                captured_unfocused_title_background,
+                focused_title_background,
+                focused_title_text,
+                highlight,
+                separator,
+                unfocused_title_background,
+                unfocused_title_text,
+            },
+            sizes: OutputThemeSizes {
+                bar_height,
+                bar_separator_width,
+                tray_icon_size,
+            },
+            bar_font,
+            bar_position,
+            show_bar,
+        }
+    }
 }
 
 impl ThemeChangeListener for OutputNode {
     fn changed(self: Rc<Self>) {
-        if self.state.colors_changed.is_not_zero() {
+        let ns = &self.node_state[LiveTL];
+        let theme = self.compute_theme();
+        let changed = ns.theme.cached_update(theme, |op| {
+            self.add_transaction_op(OutputTransactionOp::ThemeOp(op));
+        });
+        let OutputThemeChanged {
+            colors:
+                OutputThemeColorsChanged {
+                    attention_requested_background,
+                    bar_background,
+                    bar_text,
+                    captured_focused_title_background,
+                    captured_unfocused_title_background,
+                    focused_title_background,
+                    focused_title_text,
+                    highlight,
+                    separator,
+                    unfocused_title_background,
+                    unfocused_title_text,
+                },
+            sizes:
+                OutputThemeSizesChanged {
+                    bar_height,
+                    bar_separator_width,
+                    tray_icon_size,
+                },
+            bar_font,
+            bar_position,
+            show_bar,
+        } = changed;
+        let _ = tray_icon_size;
+        let render_data = or_chain!()
+            || attention_requested_background
+            || bar_background
+            || bar_text
+            || captured_focused_title_background
+            || captured_unfocused_title_background
+            || focused_title_background
+            || focused_title_text
+            || highlight
+            || separator
+            || unfocused_title_background
+            || unfocused_title_text
+            || bar_font
+            || or_chain!();
+        if render_data {
             self.schedule_update_render_data();
         }
-        if self.state.spaces_changed.is_not_zero() {
+        let layout = or_chain!()
+            || bar_height
+            || bar_separator_width
+            || bar_position
+            || show_bar
+            || or_chain!();
+        if layout {
             self.update_rects();
             let ns = &self.node_state[LiveTL];
             for layer in [&ns.workspace, &ns.overlay] {
@@ -2165,9 +2308,6 @@ impl ThemeChangeListener for OutputNode {
             for item in self.tray_items.iter_valid(LiveTL) {
                 item.item.clone().send_current_configure();
             }
-        }
-        if self.state.fonts_changed.is_not_zero() {
-            self.schedule_update_render_data();
         }
     }
 }
@@ -2858,6 +2998,7 @@ impl OutputNodeState {
             linear_color_description: CloneCell::new(state.color_manager.srgb_linear().clone()),
             damage_matrix: Default::default(),
             rects: Default::default(),
+            theme: Default::default(),
         }
     }
 }
@@ -2878,6 +3019,7 @@ pub enum OutputTransactionOp {
     ClearRenderData,
     Damage,
     ScheduleUpdateRenderData,
+    ThemeOp(OutputThemeOp),
 }
 
 impl Transactionable for OutputNode {
@@ -2935,6 +3077,9 @@ impl Transactionable for OutputNode {
                 if !self.update_render_data_scheduled.replace(true) {
                     self.state.pending_output_render_data.push(self.clone());
                 }
+            }
+            OutputTransactionOp::ThemeOp(v) => {
+                s.theme.cached_apply(v);
             }
         }
     }

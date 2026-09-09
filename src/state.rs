@@ -439,8 +439,6 @@ pub struct State {
     pub theme_changed: AsyncEvent,
     pub colors_changed: NumCell<u64>,
     pub spaces_changed: NumCell<u64>,
-    pub show_window_icons_changed: NumCell<u64>,
-    pub fonts_changed: NumCell<u64>,
     pub theme_listeners: EventSource<dyn ThemeChangeListener>,
     pub scales_changed: EventSource<dyn ScalesChangedListener>,
 }
@@ -1948,7 +1946,7 @@ impl State {
         if !self.show_bar.get() {
             return 0;
         }
-        (self.theme.sizes.bar_height(LiveTL) - 2).max(0)
+        (self.theme.sizes.bar_height() - 2).max(0)
     }
 
     pub fn color_management_available(&self) -> bool {
@@ -2181,20 +2179,19 @@ impl State {
     }
 
     pub fn set_show_titles(self: &Rc<Self>, show: bool) {
-        self.theme.show_titles[LiveTL].set(show);
+        self.theme.show_titles.set(show);
         self.spaces_changed();
-        self.add_transaction_op(StateTransactionOp::SetShowTitles(show));
     }
 
     pub fn set_show_window_icons(&self, show: bool) {
         self.theme.show_window_icons.set(show);
-        self.show_window_icons_changed.fetch_add(1);
         self.theme_changed.trigger();
         self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 
     pub fn set_window_icons_grayscale(self: &Rc<Self>, show: bool) {
         self.theme.window_icons_grayscale.set(show);
+        self.theme_changed.trigger();
         self.damage_full(RenderTL);
         self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
@@ -2212,12 +2209,8 @@ impl State {
 
     pub fn set_show_pin_icon(&self, show: bool) {
         self.show_pin_icon.set(show);
+        self.theme_changed.trigger();
         self.trigger_cci(CCI_LOOK_AND_FEEL);
-        for stacked in self.root.stacked.stacked.iter() {
-            if let Some(float) = stacked.deref().clone().node_into_float() {
-                float.schedule_render_titles();
-            }
-        }
     }
 
     pub fn set_float_above_fullscreen(self: &Rc<Self>, v: bool) {
@@ -2231,14 +2224,12 @@ impl State {
     }
 
     pub fn reset_sizes(self: &Rc<Self>) {
-        self.theme.sizes.reset(LiveTL);
+        self.theme.sizes.reset();
         self.spaces_changed();
-        self.add_transaction_op(StateTransactionOp::ResetSizes);
     }
 
     fn fonts_changed(&self) {
         self.trigger_cci(CCI_LOOK_AND_FEEL);
-        self.fonts_changed.fetch_add(1);
         self.theme_changed.trigger();
     }
 
@@ -2252,18 +2243,18 @@ impl State {
     }
 
     pub fn set_font(&self, font: &str) {
-        self.theme.font.set(Arc::new(font.to_string()));
+        self.theme.font.set(Rc::new(font.into()));
         self.fonts_changed();
     }
 
     pub fn set_bar_font(&self, font: Option<&str>) {
-        let font = font.map(|font| Arc::new(font.to_string()));
+        let font = font.map(|font| Rc::new(font.into()));
         self.theme.bar_font.set(font);
         self.fonts_changed();
     }
 
     pub fn set_title_font(&self, font: Option<&str>) {
-        let font = font.map(|font| Arc::new(font.to_string()));
+        let font = font.map(|font| Rc::new(font.into()));
         self.theme.title_font.set(font);
         self.fonts_changed();
     }
@@ -2279,27 +2270,20 @@ impl State {
     }
 
     pub fn set_bar_position(self: &Rc<Self>, p: BarPosition) {
-        self.theme.bar_position[LiveTL].set(p);
+        self.theme.bar_position.set(p);
         self.spaces_changed();
-        self.add_transaction_op(StateTransactionOp::SetBarPosition(p));
     }
 
     pub fn set_container_borders(self: &Rc<Self>, p: ContainerBordersSetting) {
-        self.theme.container_borders[LiveTL].set(p);
+        self.theme.container_borders.set(p);
         self.spaces_changed();
-        self.add_transaction_op(StateTransactionOp::SetContainerBorders(p));
-    }
-
-    fn set_size_(&self, tl: TreeTimeline, sized: ThemeSized, size: i32) {
-        let field = sized.field(&self.theme);
-        field.val[tl].set(size);
-        field.set[tl].set(true);
     }
 
     pub fn set_size(self: &Rc<Self>, sized: ThemeSized, size: i32) {
-        self.set_size_(LiveTL, sized, size);
+        let field = sized.field(&self.theme);
+        field.val.set(size);
+        field.set.set(true);
         self.spaces_changed();
-        self.add_transaction_op(StateTransactionOp::SetSize(sized, size));
     }
 
     pub fn set_color(self: &Rc<Self>, colored: ThemeColored, v: Color) {
@@ -2544,12 +2528,7 @@ pub enum ShmScreencopyError {
 pub enum StateTransactionOp {
     Clear,
     SetLocked(bool),
-    SetShowTitles(bool),
-    ResetSizes,
-    SetBarPosition(BarPosition),
-    SetSize(ThemeSized, i32),
     Damage(Rect),
-    SetContainerBorders(ContainerBordersSetting),
 }
 
 impl Transactionable for State {
@@ -2570,23 +2549,8 @@ impl Transactionable for State {
             StateTransactionOp::SetLocked(v) => {
                 self.lock.locked[RenderTL].set(v);
             }
-            StateTransactionOp::SetShowTitles(v) => {
-                self.theme.show_titles[RenderTL].set(v);
-            }
-            StateTransactionOp::ResetSizes => {
-                self.theme.sizes.reset(RenderTL);
-            }
-            StateTransactionOp::SetBarPosition(v) => {
-                self.theme.bar_position[RenderTL].set(v);
-            }
-            StateTransactionOp::SetSize(sized, size) => {
-                self.set_size_(RenderTL, sized, size);
-            }
             StateTransactionOp::Damage(v) => {
                 self.damage(v);
-            }
-            StateTransactionOp::SetContainerBorders(v) => {
-                self.theme.container_borders[RenderTL].set(v);
             }
         }
     }

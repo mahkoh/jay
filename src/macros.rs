@@ -1035,7 +1035,6 @@ macro_rules! _define_ident {
     };
 }
 
-#[expect(unused)]
 macro_rules! define_ident {
     ($($tt:tt)*) => {
         jay_proc::extract_ident!(_define_ident!, $($tt)*)
@@ -1082,5 +1081,11 @@ macro_rules! _write_ident_or {
 macro_rules! write_ident_or {
     ($($tt:tt)*) => {
         jay_proc::extract_ident!(_write_ident_or!, $($tt)*)
+    };
+}
+
+macro_rules! or_chain {
+    ($($ident:ident)?) => {
+        false
     };
 }

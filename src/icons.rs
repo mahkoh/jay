@@ -8,7 +8,6 @@ use crate::gfx_api::GfxTexture;
 use crate::scale::Scale;
 use crate::state::State;
 use crate::theme::Theme;
-use crate::tree::TreeTimeline::LiveTL;
 use crate::utils::bhash::BHashSet;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::windows::WindowsExt;
@@ -74,8 +73,8 @@ pub enum IconsError {
 
 impl Icons {
     pub fn update_sizes(&self, state: &State) {
-        self.update_sizes_(state, state.theme.title_height(LiveTL), &self.title_icons);
-        self.update_sizes_(state, state.theme.sizes.bar_height(LiveTL), &self.bar_icons);
+        self.update_sizes_(state, state.theme.title_height(), &self.title_icons);
+        self.update_sizes_(state, state.theme.sizes.bar_height(), &self.bar_icons);
         self.update_sizes_(state, 100, &self.compositing_icon);
     }
 
@@ -100,7 +99,7 @@ impl Icons {
         self.get(
             state,
             scale,
-            state.theme.title_height(LiveTL),
+            state.theme.title_height(),
             &self.title_icons,
             create_title_icons,
         )
@@ -110,7 +109,7 @@ impl Icons {
         self.get(
             state,
             scale,
-            state.theme.sizes.bar_height(LiveTL),
+            state.theme.sizes.bar_height(),
             &self.bar_icons,
             create_bar_icons,
         )
