@@ -1,3 +1,4 @@
+use crate::theme::BarPosition;
 use crate::theme::Color;
 use crate::theme::ContainerBordersSetting;
 use crate::utils::clonecell::CloneCell;
@@ -148,6 +149,7 @@ default! {
     i32,
     bool,
     ContainerBordersSetting,
+    BarPosition,
 }
 
 impl CachedDefault for Color {

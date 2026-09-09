@@ -557,10 +557,6 @@ impl ThemeSizes {
             self.title_height.val[tl].get()
         }
     }
-
-    pub fn bar_separator_width(&self, tl: TreeTimeline) -> i32 {
-        self.bar_separator_width.get(tl)
-    }
 }
 
 sizes! {
@@ -822,9 +818,8 @@ impl Div<f32> for Oklab {
 
 pub async fn handle_theme_changes(state: Rc<State>) {
     let fields = [
-        &state.colors_changed,
+        &state.colors_changed, //
         &state.spaces_changed,
-        &state.fonts_changed,
     ];
     let mut values = fields.map(|_| 0);
     loop {

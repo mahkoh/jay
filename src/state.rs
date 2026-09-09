@@ -439,7 +439,6 @@ pub struct State {
     pub theme_changed: AsyncEvent,
     pub colors_changed: NumCell<u64>,
     pub spaces_changed: NumCell<u64>,
-    pub fonts_changed: NumCell<u64>,
     pub theme_listeners: EventSource<dyn ThemeChangeListener>,
     pub scales_changed: EventSource<dyn ScalesChangedListener>,
 }
@@ -2233,7 +2232,6 @@ impl State {
 
     fn fonts_changed(&self) {
         self.trigger_cci(CCI_LOOK_AND_FEEL);
-        self.fonts_changed.fetch_add(1);
         self.theme_changed.trigger();
     }
 

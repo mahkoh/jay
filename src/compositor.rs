@@ -487,7 +487,6 @@ fn start_compositor2(
         theme_changed: Default::default(),
         colors_changed: Default::default(),
         spaces_changed: Default::default(),
-        fonts_changed: Default::default(),
         theme_listeners: Default::default(),
         scales_changed: Default::default(),
     });

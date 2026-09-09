@@ -31,7 +31,7 @@ async fn test_bar(
 
     let bar_height = run.state.theme.sizes.bar_height(LiveTL);
     tassert_eq!(
-        run.state.theme.sizes.bar_separator_width(LiveTL),
+        run.state.theme.sizes.bar_separator_width.get(LiveTL),
         separator_width
     );
 

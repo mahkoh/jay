@@ -104,7 +104,7 @@ impl Renderer<'_> {
         {
             fullscreen = ws.node_state[RenderTL].fullscreen.get();
         }
-        let theme = &self.state.theme;
+        let theme = &ns.theme;
         let srgb_srgb = self.state.color_manager.srgb_gamma22();
         let srgb = &srgb_srgb.linear;
         let perceptual = RenderIntent::Perceptual;
@@ -116,7 +116,7 @@ impl Renderer<'_> {
             render_layer!(output.layers[0]);
             render_layer!(output.layers[1]);
             let ws = ns.workspace.get();
-            if self.state.show_bar.get() {
+            if theme.show_bar.get() {
                 let non_exclusive_rect_rel = ns.rects.non_exclusive_rel.get();
                 let (mut x, mut y) = non_exclusive_rect_rel.translate_inv(x, y);
                 let bar_rect = ns.rects.bar_rel.get();
@@ -274,7 +274,7 @@ impl Renderer<'_> {
             if let Some(ws) = layer.get()
                 && ws.render_highlight.get() > 0
             {
-                let color = self.state.theme.colors.highlight.get();
+                let color = theme.colors.highlight.get();
                 let bounds = ns.rects.workspace_rel.get().move_(x, y);
                 self.base.sync();
                 self.base.fill_boxes(&[bounds], &color, srgb, perceptual);
