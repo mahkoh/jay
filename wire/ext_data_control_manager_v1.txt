@@ -1,3 +1,5 @@
+singleton
+
 request create_data_source {
     id: id(ext_data_control_source_v1) (new),
 }

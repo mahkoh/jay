@@ -1,3 +1,5 @@
+singleton
+
 request create_virtual_pointer {
     seat: id(wl_seat),
     id: id(zwlr_virtual_pointer_v1) (new),

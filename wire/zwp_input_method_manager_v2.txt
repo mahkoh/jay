@@ -1,3 +1,5 @@
+singleton
+
 request get_input_method {
     seat: id(wl_seat),
     input_method: id(zwp_input_method_v2),

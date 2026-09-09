@@ -1,3 +1,5 @@
+singleton
+
 event workspace_group {
     workspace_group: id(ext_workspace_group_handle_v1) (new),
 }

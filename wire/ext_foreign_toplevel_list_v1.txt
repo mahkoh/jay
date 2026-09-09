@@ -1,3 +1,5 @@
+singleton
+
 event toplevel {
     toplevel: id(ext_foreign_toplevel_handle_v1) (new),
 }

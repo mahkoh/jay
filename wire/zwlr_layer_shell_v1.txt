@@ -1,3 +1,5 @@
+singleton
+
 # requests
 
 request get_layer_surface {

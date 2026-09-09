@@ -265,6 +265,7 @@ struct Parser<'a> {
 #[derive(Debug)]
 pub struct ParseResult {
     pub dead: bool,
+    pub singleton: bool,
     pub requests: Vec<Lined<Message>>,
     pub events: Vec<Lined<Message>>,
 }
@@ -278,6 +279,7 @@ impl ParseResult {
 impl<'a> Parser<'a> {
     fn parse(&mut self) -> Result<ParseResult> {
         let mut dead = false;
+        let mut singleton = false;
         let mut requests = vec![];
         let mut events = vec![];
         while !self.eof() {
@@ -285,6 +287,10 @@ impl<'a> Parser<'a> {
             let is_request = match ty.as_bytes() {
                 b"dead" => {
                     dead = true;
+                    continue;
+                }
+                b"singleton" => {
+                    singleton = true;
                     continue;
                 }
                 b"request" => true,
@@ -299,6 +305,7 @@ impl<'a> Parser<'a> {
         }
         Ok(ParseResult {
             dead,
+            singleton,
             requests,
             events,
         })

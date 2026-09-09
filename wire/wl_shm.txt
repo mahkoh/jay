@@ -1,3 +1,5 @@
+singleton
+
 request create_pool {
     id: id(wl_shm_pool) (new),
     fd: fd,
