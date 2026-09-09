@@ -4,8 +4,6 @@ use crate::cmm::cmm_eotf::Eotf;
 use crate::control_center::CCI_LOOK_AND_FEEL;
 use crate::gfx_api::AlphaMode;
 use crate::state::State;
-use crate::tree::SplitView;
-use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::utils::clonecell::CloneCell;
@@ -463,13 +461,13 @@ impl StaticText for ThemeColored {
 }
 
 pub struct ThemeSize {
-    pub val: SplitView<Cell<i32>>,
-    pub set: SplitView<Cell<bool>>,
+    pub val: Cell<i32>,
+    pub set: Cell<bool>,
 }
 
 impl ThemeSize {
-    pub fn get(&self, tl: TreeTimeline) -> i32 {
-        self.val[tl].get()
+    pub fn get(&self) -> i32 {
+        self.val.get()
     }
 }
 
@@ -525,11 +523,11 @@ macro_rules! sizes {
         }
 
         impl ThemeSizes {
-            pub fn reset(&self, tl: TreeTimeline) {
+            pub fn reset(&self) {
                 let default = Self::default();
                 $(
-                    self.$name.val[tl].set(default.$name.val[tl].get());
-                    self.$name.set[tl].set(false);
+                    self.$name.val.set(default.$name.val.get());
+                    self.$name.set.set(false);
                 )*
             }
         }
@@ -539,7 +537,7 @@ macro_rules! sizes {
                 Self {
                     $(
                         $name: ThemeSize {
-                            val: SplitView::from_fn(|_| Cell::new($def)),
+                            val: Cell::new($def),
                             set: Default::default(),
                         },
                     )*
@@ -550,11 +548,11 @@ macro_rules! sizes {
 }
 
 impl ThemeSizes {
-    pub fn bar_height(&self, tl: TreeTimeline) -> i32 {
-        if self.bar_height.set[tl].get() {
-            self.bar_height.val[tl].get()
+    pub fn bar_height(&self) -> i32 {
+        if self.bar_height.set.get() {
+            self.bar_height.val.get()
         } else {
-            self.title_height.val[tl].get()
+            self.title_height.val.get()
         }
     }
 }
@@ -672,11 +670,11 @@ pub struct Theme {
     pub bar_font: CloneCell<Option<Rc<Arc<str>>>>,
     pub title_font: CloneCell<Option<Rc<Arc<str>>>>,
     pub default_font: Rc<Arc<str>>,
-    pub show_titles: SplitView<Cell<bool>>,
-    pub bar_position: SplitView<Cell<BarPosition>>,
+    pub show_titles: Cell<bool>,
+    pub bar_position: Cell<BarPosition>,
     pub show_window_icons: Cell<bool>,
     pub window_icons_grayscale: Cell<bool>,
-    pub container_borders: SplitView<Cell<ContainerBordersSetting>>,
+    pub container_borders: Cell<ContainerBordersSetting>,
 }
 
 impl Default for Theme {
@@ -689,7 +687,7 @@ impl Default for Theme {
             bar_font: Default::default(),
             title_font: Default::default(),
             default_font,
-            show_titles: SplitView::from_fn(|_| Cell::new(true)),
+            show_titles: Cell::new(true),
             bar_position: Default::default(),
             show_window_icons: Cell::new(true),
             window_icons_grayscale: Cell::new(false),
@@ -707,21 +705,21 @@ impl Theme {
         self.bar_font.get().unwrap_or_else(|| self.font.get())
     }
 
-    pub fn title_height(&self, tl: TreeTimeline) -> i32 {
-        if self.show_titles[tl].get() {
-            self.sizes.title_height.get(tl)
+    pub fn title_height(&self) -> i32 {
+        if self.show_titles.get() {
+            self.sizes.title_height.get()
         } else {
             0
         }
     }
 
-    pub fn title_icon_size(&self, tl: TreeTimeline) -> i32 {
-        (self.title_height(tl) - 2).max(0)
+    pub fn title_icon_size(&self) -> i32 {
+        (self.title_height() - 2).max(0)
     }
 
     #[cfg(feature = "it")]
-    pub fn title_plus_underline_height(&self, tl: TreeTimeline) -> i32 {
-        title_plus_underline_height(self.show_titles[tl].get(), self.sizes.title_height.get(tl))
+    pub fn title_plus_underline_height(&self) -> i32 {
+        title_plus_underline_height(self.show_titles.get(), self.sizes.title_height.get())
     }
 }
 

@@ -2093,12 +2093,12 @@ impl ContainerNode {
 
     fn compute_theme(&self) -> ContainerTheme {
         let theme = &self.state.theme;
-        define_ident!(Cell::new(theme.@container_borders[LiveTL].get()));
-        define_ident!(theme.@show_titles[LiveTL].get());
+        define_ident!(Cell::new(theme.@container_borders.get()));
+        define_ident!(theme.@show_titles.get());
         define_ident!(Cell::new(theme.colors.@border.get()));
         define_ident!(Cell::new(theme.colors.@separator.get()));
-        define_ident!(Cell::new(theme.sizes.@border_width.val[LiveTL].get()));
-        define_ident!(theme.sizes.@title_height.val[LiveTL].get());
+        define_ident!(Cell::new(theme.sizes.@border_width.val.get()));
+        define_ident!(theme.sizes.@title_height.val.get());
         define_ident!(Cell::new(@title_plus_underline_height(show_titles, title_height)));
         define_ident!(Cell::new(@title_underline_height(show_titles)));
         define_ident!(Cell::new(@title_icon_size(show_titles, title_height)));

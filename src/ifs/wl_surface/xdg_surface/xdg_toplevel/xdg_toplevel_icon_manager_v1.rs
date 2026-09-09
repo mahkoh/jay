@@ -6,7 +6,6 @@ use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::Xdg
 use crate::leaks::Tracker;
 use crate::object::Object;
 use crate::object::Version;
-use crate::tree::TreeTimeline::LiveTL;
 use crate::wire::XdgToplevelIconManagerV1Id;
 use crate::wire::xdg_toplevel_icon_manager_v1::*;
 use std::cell::Cell;
@@ -66,7 +65,7 @@ pub struct XdgToplevelIconManagerV1 {
 
 impl XdgToplevelIconManagerV1 {
     pub fn send_sizes(&self) {
-        let size = self.client.state.theme.title_icon_size(LiveTL);
+        let size = self.client.state.theme.title_icon_size();
         if self.last_size.replace(Some(size)) == Some(size) {
             return;
         }

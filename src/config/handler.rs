@@ -1849,7 +1849,7 @@ impl ConfigProxyHandler {
 
     fn handle_get_show_titles(&self) {
         self.respond(Response::GetShowTitles {
-            show: self.state.theme.show_titles[LiveTL].get(),
+            show: self.state.theme.show_titles.get(),
         });
     }
 
@@ -1863,7 +1863,7 @@ impl ConfigProxyHandler {
 
     fn handle_get_bar_position(&self) {
         self.respond(Response::GetBarPosition {
-            position: self.state.theme.bar_position[LiveTL].get().into(),
+            position: self.state.theme.bar_position.get().into(),
         });
     }
 
@@ -3025,7 +3025,7 @@ impl ConfigProxyHandler {
 
     fn handle_get_size(&self, sized: Resizable) -> Result<(), CphError> {
         let sized = self.get_sized(sized)?;
-        let size = sized.field(&self.state.theme).val[LiveTL].get();
+        let size = sized.field(&self.state.theme).val.get();
         self.respond(Response::GetSize { size });
         Ok(())
     }
@@ -3450,7 +3450,7 @@ impl ConfigProxyHandler {
 
     fn handle_get_container_borders(&self) {
         self.respond(Response::GetContainerBorders {
-            borders: self.state.theme.container_borders[LiveTL].get().into(),
+            borders: self.state.theme.container_borders.get().into(),
         });
     }
 

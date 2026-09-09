@@ -31,7 +31,6 @@ use crate::scale::Scale;
 use crate::state::GfxCtxChangedListener;
 use crate::state::State;
 use crate::theme::Color;
-use crate::tree::TreeTimeline::LiveTL;
 use crate::utils::bhash::BHashMap;
 use crate::utils::bhash::BHashSet;
 use crate::utils::copyhashmap::CopyHashMap;
@@ -107,7 +106,7 @@ impl ToplevelIconUser {
 
 impl State {
     pub fn toplevel_icon_user(&self) -> ToplevelIconUser {
-        ToplevelIconUser::new(self.theme.title_icon_size(LiveTL))
+        ToplevelIconUser::new(self.theme.title_icon_size())
     }
 }
 
@@ -180,7 +179,7 @@ impl XdgToplevelIconV1 {
         let Some(ctx) = state.render_ctx.get() else {
             return;
         };
-        let th = state.theme.title_icon_size(LiveTL);
+        let th = state.theme.title_icon_size();
         let cs = Some((th, state.scales.version()));
         if self.considered_sizes.replace(cs) == cs {
             return;
@@ -199,7 +198,7 @@ impl XdgToplevelIconV1 {
         let buf_to_icon = &mut *self.buf_key_to_icon_key.borrow_mut();
         buf_to_icon.clear();
         let mut buf_keys = BHashSet::default();
-        let th = state.theme.title_icon_size(LiveTL);
+        let th = state.theme.title_icon_size();
         for (&scale, _) in &*state.scales.lock() {
             let [buffer_th] = scale.pixel_size([th]);
             let scalef = scale.to_f64();

@@ -893,9 +893,9 @@ impl FloatNode {
         define_ident!(Cell::new(theme.colors.@unfocused_title_background.val.get()));
         define_ident!(Cell::new(theme.colors.@separator.val.get()));
         define_ident!(theme.colors.@focused_border.get_opt());
-        define_ident!(Cell::new(theme.sizes.@border_width.val[LiveTL].get()));
-        define_ident!(theme.sizes.@title_height.val[LiveTL].get());
-        define_ident!(theme.@show_titles[LiveTL].get());
+        define_ident!(Cell::new(theme.sizes.@border_width.val.get()));
+        define_ident!(theme.sizes.@title_height.val.get());
+        define_ident!(theme.@show_titles.get());
         define_ident!(Cell::new(theme.@show_window_icons.get()));
         define_ident!(Cell::new(theme.@window_icons_grayscale.get()));
         define_ident!(CloneCell::new(theme.@title_font()));

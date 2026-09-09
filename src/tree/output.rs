@@ -2209,11 +2209,11 @@ impl OutputNode {
         define_ident!(Cell::new(theme.colors.@separator.get()));
         define_ident!(Cell::new(theme.colors.@unfocused_title_background.get()));
         define_ident!(Cell::new(theme.colors.@unfocused_title_text.get()));
-        define_ident!(Cell::new(theme.sizes.@bar_height(LiveTL)));
-        define_ident!(Cell::new(theme.sizes.@bar_separator_width.get(LiveTL)));
+        define_ident!(Cell::new(theme.sizes.@bar_height()));
+        define_ident!(Cell::new(theme.sizes.@bar_separator_width.get()));
         define_ident!(Cell::new(state.@tray_icon_size()));
         define_ident!(CloneCell::new(theme.@bar_font()));
-        define_ident!(Cell::new(theme.@bar_position[LiveTL].get()));
+        define_ident!(Cell::new(theme.@bar_position.get()));
         define_ident!(Cell::new(state.@show_bar.get()));
         OutputTheme {
             colors: OutputThemeColors {

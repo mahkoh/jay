@@ -29,9 +29,9 @@ async fn test_bar(
     run.cfg.set_bar_position(BarPosition::Top)?;
     run.sync().await;
 
-    let bar_height = run.state.theme.sizes.bar_height(LiveTL);
+    let bar_height = run.state.theme.sizes.bar_height();
     tassert_eq!(
-        run.state.theme.sizes.bar_separator_width.get(LiveTL),
+        run.state.theme.sizes.bar_separator_width.get(),
         separator_width
     );
 
