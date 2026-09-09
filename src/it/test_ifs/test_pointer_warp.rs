@@ -10,9 +10,9 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestPointerWarp {
-    pub id: WpPointerWarpV1Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    id: WpPointerWarpV1Id,
+    tran: Rc<TestTransport>,
+    destroyed: Cell<bool>,
 }
 
 impl TestPointerWarp {

@@ -12,7 +12,7 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct XdgToplevelDragManagerV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 impl XdgToplevelDragManagerV1Global {
@@ -53,10 +53,10 @@ impl Global for XdgToplevelDragManagerV1Global {
 }
 
 pub struct XdgToplevelDragManagerV1 {
-    pub id: XdgToplevelDragManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: XdgToplevelDragManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl XdgToplevelDragManagerV1RequestHandler for XdgToplevelDragManagerV1 {

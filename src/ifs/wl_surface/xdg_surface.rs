@@ -102,7 +102,7 @@ pub struct XdgSurface {
     popup_display_stack: CloneCell<Rc<NodesStack>>,
     popup_stack_type: Cell<PopupStackType>,
     popups: CopyHashMap<XdgPopupId, Rc<Popup>>,
-    pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
+    workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     workspace_type: Cell<Option<WorkspaceType>>,
     pub tracker: Tracker<Self>,
     initial_commit_state: Cell<InitialCommitState>,
@@ -289,15 +289,15 @@ trait XdgSurfaceExt: Node + Debug {
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct XdgToplevelConfigureData {
-    pub w: i32,
-    pub h: i32,
-    pub state: u32,
+    w: i32,
+    h: i32,
+    state: u32,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct XdgPopupConfigureData {
-    pub repositioned: Option<u32>,
-    pub rect: Rect,
+    repositioned: Option<u32>,
+    rect: Rect,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]

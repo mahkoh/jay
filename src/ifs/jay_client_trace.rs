@@ -35,18 +35,18 @@ use uapi::c;
 #[derive(Debug, Serialize, Deserialize, StrFmt)]
 pub struct ClientTraceInfo<'a> {
     pub id: u64,
-    pub sandboxed: bool,
-    pub sandbox_engine: Option<Cow<'a, str>>,
-    pub sandbox_app_id: Option<Cow<'a, str>>,
-    pub sandbox_instance_id: Option<Cow<'a, str>>,
-    pub uid: c::uid_t,
-    pub pid: c::pid_t,
-    pub is_xwayland: bool,
-    pub comm: Cow<'a, str>,
-    pub exe: Cow<'a, str>,
-    pub tag: Option<Cow<'a, str>>,
-    pub connect_time_us: StrFmtUs,
-    pub now_us: StrFmtUs,
+    sandboxed: bool,
+    sandbox_engine: Option<Cow<'a, str>>,
+    sandbox_app_id: Option<Cow<'a, str>>,
+    sandbox_instance_id: Option<Cow<'a, str>>,
+    uid: c::uid_t,
+    pid: c::pid_t,
+    is_xwayland: bool,
+    comm: Cow<'a, str>,
+    exe: Cow<'a, str>,
+    tag: Option<Cow<'a, str>>,
+    connect_time_us: StrFmtUs,
+    now_us: StrFmtUs,
 }
 
 #[derive(Debug, Error)]

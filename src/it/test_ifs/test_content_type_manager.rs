@@ -10,9 +10,9 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestContentTypeManager {
-    pub id: WpContentTypeManagerV1Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    id: WpContentTypeManagerV1Id,
+    tran: Rc<TestTransport>,
+    destroyed: Cell<bool>,
 }
 
 impl TestContentTypeManager {

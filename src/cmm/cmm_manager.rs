@@ -30,7 +30,7 @@ pub struct ColorManager {
 pub(super) struct Shared {
     pub(super) dead_linear: NumCell<usize>,
     pub(super) dead_complete: NumCell<usize>,
-    pub(super) complete_ids: ColorDescriptionIds,
+    complete_ids: ColorDescriptionIds,
 }
 
 #[jay_hash]

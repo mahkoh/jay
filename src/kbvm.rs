@@ -57,7 +57,7 @@ pub struct KbvmMapId([u8; 32]);
 
 pub struct KbvmMap {
     pub id: KbvmMapId,
-    pub state_machine: StateMachine,
+    state_machine: StateMachine,
     pub lookup_table: LookupTable,
     pub map_text: String,
     pub map: KeymapFd,
@@ -79,7 +79,7 @@ pub enum EventOrRepeat {
 
 pub struct KbvmState {
     pub map: Rc<KbvmMap>,
-    pub state: state_machine::State,
+    state: state_machine::State,
     pub kb_state: KeyboardState,
 }
 

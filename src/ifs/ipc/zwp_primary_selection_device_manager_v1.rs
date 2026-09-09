@@ -18,10 +18,10 @@ pub struct ZwpPrimarySelectionDeviceManagerV1Global {
 }
 
 pub struct ZwpPrimarySelectionDeviceManagerV1 {
-    pub id: ZwpPrimarySelectionDeviceManagerV1Id,
-    pub client: Rc<Client>,
-    pub version: Version,
-    pub tracker: Tracker<Self>,
+    id: ZwpPrimarySelectionDeviceManagerV1Id,
+    client: Rc<Client>,
+    version: Version,
+    tracker: Tracker<Self>,
 }
 
 impl ZwpPrimarySelectionDeviceManagerV1Global {

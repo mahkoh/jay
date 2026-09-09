@@ -9,9 +9,9 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestVirtualKeyboardManager {
-    pub id: ZwpVirtualKeyboardManagerV1Id,
-    pub tran: Rc<TestTransport>,
-    pub _destroyed: Cell<bool>,
+    id: ZwpVirtualKeyboardManagerV1Id,
+    tran: Rc<TestTransport>,
+    _destroyed: Cell<bool>,
 }
 
 impl TestVirtualKeyboardManager {

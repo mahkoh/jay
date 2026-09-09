@@ -44,11 +44,11 @@ use std::rc::Rc;
 use std::slice;
 
 pub(super) struct VulkanPipeline {
-    pub(super) vert: Rc<VulkanShader>,
-    pub(super) _frag: Rc<VulkanShader>,
+    vert: Rc<VulkanShader>,
+    _frag: Rc<VulkanShader>,
     pub(super) pipeline_layout: PipelineLayout,
     pub(super) pipeline: Pipeline,
-    pub(super) _descriptor_set_layouts: ArrayVec<Rc<VulkanDescriptorSetLayout>, 2>,
+    _descriptor_set_layouts: ArrayVec<Rc<VulkanDescriptorSetLayout>, 2>,
 }
 
 pub(super) struct PipelineCreateInfo<'a> {

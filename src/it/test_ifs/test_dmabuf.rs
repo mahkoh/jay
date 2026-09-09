@@ -9,9 +9,9 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestDmabuf {
-    pub id: ZwpLinuxDmabufV1Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    id: ZwpLinuxDmabufV1Id,
+    tran: Rc<TestTransport>,
+    destroyed: Cell<bool>,
 }
 
 impl TestDmabuf {

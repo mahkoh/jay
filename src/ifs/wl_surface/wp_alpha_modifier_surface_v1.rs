@@ -10,10 +10,10 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct WpAlphaModifierSurfaceV1 {
-    pub id: WpAlphaModifierSurfaceV1Id,
-    pub version: Version,
-    pub client: Rc<Client>,
-    pub surface: Rc<WlSurface>,
+    id: WpAlphaModifierSurfaceV1Id,
+    version: Version,
+    client: Rc<Client>,
+    surface: Rc<WlSurface>,
     pub tracker: Tracker<Self>,
 }
 

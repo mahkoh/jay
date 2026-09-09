@@ -88,10 +88,10 @@ pub(in crate::gfx_apis::gl) enum TexSourceType {
 
 pub(in crate::gfx_apis::gl) struct GlRenderContext {
     pub(crate) ctx: Rc<EglContext>,
-    pub gbm: Rc<GbmDevice>,
-    pub sync_ctx: Rc<SyncobjCtx>,
+    gbm: Rc<GbmDevice>,
+    sync_ctx: Rc<SyncobjCtx>,
 
-    pub(crate) render_node: Rc<CString>,
+    render_node: Rc<CString>,
 
     pub(crate) tex_internal: StaticMap<TexCopyType, StaticMap<TexSourceType, TexProg>>,
     pub(crate) tex_external: Option<StaticMap<TexCopyType, StaticMap<TexSourceType, TexProg>>>,

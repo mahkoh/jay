@@ -32,7 +32,7 @@ pub struct WlDataDevice {
     pub client: Rc<Client>,
     pub version: Version,
     pub seat: Rc<WlSeatGlobal>,
-    pub data: DeviceData<WlDataOffer>,
+    data: DeviceData<WlDataOffer>,
     pub tracker: Tracker<Self>,
 }
 

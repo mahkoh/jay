@@ -77,7 +77,7 @@ pub struct RenderBuffer {
 #[derive(Debug)]
 pub struct RenderBufferRender {
     pub ctx: Rc<MetalRenderContext>,
-    pub bo: GbmBo,
+    bo: GbmBo,
     pub tex: Rc<dyn GfxTexture>,
     pub fb: Rc<dyn GfxFramebuffer>,
 }

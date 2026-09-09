@@ -65,10 +65,10 @@ impl NodeVisitorBase for ZwlrToplevelVisitor<'_> {
 }
 
 pub struct ZwlrForeignToplevelManagerV1 {
-    pub id: ZwlrForeignToplevelManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: ZwlrForeignToplevelManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl ZwlrForeignToplevelManagerV1 {

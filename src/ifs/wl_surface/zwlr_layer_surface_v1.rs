@@ -71,13 +71,13 @@ const RIGHT: u32 = 8;
 
 tree_id!(ZwlrLayerSurfaceV1NodeId);
 pub struct ZwlrLayerSurfaceV1 {
-    pub id: ZwlrLayerSurfaceV1Id,
+    id: ZwlrLayerSurfaceV1Id,
     node_id: ZwlrLayerSurfaceV1NodeId,
-    pub shell: Rc<ZwlrLayerShellV1>,
-    pub client: Rc<Client>,
+    shell: Rc<ZwlrLayerShellV1>,
+    client: Rc<Client>,
     pub surface: Rc<WlSurface>,
-    pub output: Rc<OutputGlobalOpt>,
-    pub _namespace: String,
+    output: Rc<OutputGlobalOpt>,
+    _namespace: String,
     pub tracker: Tracker<Self>,
     output_extents: Cell<Rect>,
     pos: Cell<Rect>,

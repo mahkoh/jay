@@ -71,7 +71,7 @@ pub struct PwConHolder {
 
 pub struct PwCon {
     send_seq: NumCell<u32>,
-    pub io: Rc<BufIo>,
+    io: Rc<BufIo>,
     holder: CloneCell<Weak<PwConHolder>>,
     dead: Cell<bool>,
     pub objects: CopyHashMap<u32, Rc<dyn PwObject>>,

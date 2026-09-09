@@ -11,9 +11,9 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestXdgWmBase {
-    pub id: XdgWmBaseId,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    id: XdgWmBaseId,
+    tran: Rc<TestTransport>,
+    destroyed: Cell<bool>,
 }
 
 impl TestXdgWmBase {

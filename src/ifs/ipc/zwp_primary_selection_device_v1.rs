@@ -25,7 +25,7 @@ pub struct ZwpPrimarySelectionDeviceV1 {
     pub id: ZwpPrimarySelectionDeviceV1Id,
     pub client: Rc<Client>,
     pub version: Version,
-    pub seat: Rc<WlSeatGlobal>,
+    seat: Rc<WlSeatGlobal>,
     data: DeviceData<ZwpPrimarySelectionOfferV1>,
     pub tracker: Tracker<Self>,
 }

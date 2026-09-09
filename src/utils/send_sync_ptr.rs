@@ -1,5 +1,5 @@
 #[expect(unused)]
-pub struct SendSyncPtrMut<T>(pub *mut T);
+pub struct SendSyncPtrMut<T>(*mut T);
 
 unsafe impl<T> Send for SendSyncPtrMut<T> {}
 unsafe impl<T> Sync for SendSyncPtrMut<T> {}

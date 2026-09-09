@@ -151,10 +151,10 @@ pub struct MetalRenderContext {
 }
 
 pub struct CopyDeviceHolder {
-    pub registry: Rc<CopyDeviceRegistry>,
-    pub id: DrmDeviceId,
-    pub devnum: dev_t,
-    pub dev: OnceCell<Option<Rc<CopyDevice>>>,
+    registry: Rc<CopyDeviceRegistry>,
+    id: DrmDeviceId,
+    devnum: dev_t,
+    dev: OnceCell<Option<Rc<CopyDevice>>>,
 }
 
 impl Debug for CopyDeviceHolder {
@@ -166,7 +166,7 @@ impl Debug for CopyDeviceHolder {
 #[derive(Copy, Clone, Default)]
 pub struct MetalDrmVendor {
     pub is_nvidia: bool,
-    pub is_amd: bool,
+    is_amd: bool,
 }
 
 pub struct MetalDrmDevice {
@@ -175,28 +175,28 @@ pub struct MetalDrmDevice {
     pub devnum: c::dev_t,
     pub devnode: CString,
     pub master: Rc<DrmMaster>,
-    pub supports_kms: bool,
+    supports_kms: bool,
     pub crtcs: BHashMap<DrmCrtc, Rc<MetalCrtc>>,
-    pub encoders: BHashMap<DrmEncoder, Rc<MetalEncoder>>,
+    encoders: BHashMap<DrmEncoder, Rc<MetalEncoder>>,
     pub planes: BHashMap<DrmPlane, Rc<MetalPlane>>,
     pub cursor_width: u64,
     pub cursor_height: u64,
     pub supports_async_commit: bool,
-    pub gbm: Rc<GbmDevice>,
+    gbm: Rc<GbmDevice>,
     pub handle_events: HandleEvents,
     pub ctx: CloneCell<Rc<MetalRenderContext>>,
     pub copy_device: Rc<CopyDeviceHolder>,
     pub on_change: OnChange<crate::backend::DrmEvent>,
-    pub direct_scanout_enabled: Cell<Option<bool>>,
+    direct_scanout_enabled: Cell<Option<bool>>,
     pub vendor: MetalDrmVendor,
-    pub lease_ids: MetalLeaseIds,
+    lease_ids: MetalLeaseIds,
     pub leases: CopyHashMap<MetalLeaseId, MetalLeaseData>,
     pub leases_to_break: CopyHashMap<MetalLeaseId, MetalLeaseData>,
     pub paused: Cell<bool>,
-    pub min_post_commit_margin: Cell<u64>,
-    pub supports_plane_color_pipelines: bool,
+    min_post_commit_margin: Cell<u64>,
+    supports_plane_color_pipelines: bool,
     pub use_plane_color_pipelines: Cell<bool>,
-    pub cm: MetalCmDevice,
+    cm: MetalCmDevice,
 }
 
 impl Debug for MetalDrmDevice {
@@ -441,24 +441,24 @@ pub struct DefaultProperty<T = ()> {
 #[derive(Debug)]
 pub struct ConnectorDisplayData {
     pub crtcs: BinarySearchMap<DrmCrtc, Rc<MetalCrtc>, 8>,
-    pub first_mode: Mode,
+    first_mode: Mode,
     pub modes: Vec<DrmModeInfo>,
     pub persistent: Rc<PersistentDisplayData>,
-    pub refresh: u32,
+    refresh: u32,
     pub non_desktop: bool,
     pub non_desktop_effective: bool,
     pub vrr_capable: bool,
-    pub _vrr_refresh_max_nsec: u64,
+    _vrr_refresh_max_nsec: u64,
     pub default_properties: Vec<DefaultProperty>,
     pub untyped_properties: BHashMap<DrmProperty, u64>,
 
-    pub connector_id: ConnectorKernelId,
-    pub output_id: Rc<OutputId>,
+    connector_id: ConnectorKernelId,
+    output_id: Rc<OutputId>,
 
     pub connection: ConnectorStatus,
-    pub mm_width: u32,
-    pub mm_height: u32,
-    pub _subpixel: u32,
+    mm_width: u32,
+    mm_height: u32,
+    _subpixel: u32,
 
     pub supports_bt2020: bool,
     pub supports_pq: bool,
@@ -502,12 +502,12 @@ impl ConnectorDisplayData {
 linear_ids!(MetalLeaseIds, MetalLeaseId, u64);
 
 pub struct MetalLeaseData {
-    pub lease: DrmLease,
-    pub _lessee: Rc<dyn BackendDrmLessee>,
+    lease: DrmLease,
+    _lessee: Rc<dyn BackendDrmLessee>,
     pub connectors: Vec<Rc<MetalConnector>>,
     pub crtcs: Vec<Rc<MetalCrtc>>,
     pub planes: Vec<Rc<MetalPlane>>,
-    pub revoked: Cell<bool>,
+    revoked: Cell<bool>,
 }
 
 impl MetalLeaseData {
@@ -585,7 +585,7 @@ pub enum FrontState {
 
 pub struct MetalConnector {
     pub id: DrmConnector,
-    pub kernel_id: Cell<ConnectorKernelId>,
+    kernel_id: Cell<ConnectorKernelId>,
     pub master: Rc<DrmMaster>,
     pub state: Rc<State>,
 
@@ -640,9 +640,9 @@ pub struct MetalConnector {
     pub pre_commit_margin: Cell<u64>,
     pub pre_commit_margin_decay: GeometricDecay,
     pub post_commit_margin: Cell<u64>,
-    pub post_commit_margin_decay: GeometricDecay,
-    pub vblank_miss_sec: Cell<u32>,
-    pub vblank_miss_this_sec: NumCell<u32>,
+    post_commit_margin_decay: GeometricDecay,
+    vblank_miss_sec: Cell<u32>,
+    vblank_miss_this_sec: NumCell<u32>,
     pub presentation_is_sync: Cell<bool>,
     pub presentation_is_zero_copy: Cell<bool>,
 
@@ -659,7 +659,7 @@ impl Debug for MetalConnector {
 }
 
 pub struct MetalHardwareCursor {
-    pub connector: Rc<MetalConnector>,
+    connector: Rc<MetalConnector>,
 }
 
 pub struct MetalHardwareCursorChange<'a> {
@@ -711,7 +711,7 @@ impl HardwareCursorUpdate for MetalHardwareCursorChange<'_> {
 }
 
 pub struct ConnectorFutures {
-    pub _present: SpawnedFuture<()>,
+    _present: SpawnedFuture<()>,
 }
 
 impl Debug for ConnectorFutures {
@@ -985,8 +985,8 @@ impl Connector for MetalConnector {
 
 pub struct MetalCrtc {
     pub id: DrmCrtc,
-    pub idx: usize,
-    pub master: Rc<DrmMaster>,
+    idx: usize,
+    master: Rc<DrmMaster>,
     pub default_properties: Vec<DefaultProperty>,
     pub untyped_properties: RefCell<BHashMap<DrmProperty, u64>>,
 
@@ -998,14 +998,14 @@ pub struct MetalCrtc {
     pub pending_flip: CloneCell<Option<Rc<MetalConnector>>>,
 
     pub out_fence_ptr: DrmProperty,
-    pub gamma_lut_size: Option<u32>,
+    gamma_lut_size: Option<u32>,
     pub drm_state: RefCell<DrmCrtcState>,
 
     pub sequence: Cell<u64>,
-    pub have_queued_sequence: Cell<bool>,
-    pub needs_vblank_emulation: Cell<bool>,
+    have_queued_sequence: Cell<bool>,
+    needs_vblank_emulation: Cell<bool>,
 
-    pub cm: MetalCmCrtc,
+    cm: MetalCmCrtc,
 }
 
 impl Debug for MetalCrtc {
@@ -1016,8 +1016,8 @@ impl Debug for MetalCrtc {
 
 #[derive(Debug)]
 pub struct MetalEncoder {
-    pub id: DrmEncoder,
-    pub crtcs: BHashMap<DrmCrtc, Rc<MetalCrtc>>,
+    id: DrmEncoder,
+    crtcs: BHashMap<DrmCrtc, Rc<MetalCrtc>>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Linearize)]
@@ -1037,15 +1037,15 @@ pub type PlaneDefaultPropertyFilter = StaticCopyMap<PlaneType, bool>;
 
 pub struct MetalPlane {
     pub id: DrmPlane,
-    pub master: Rc<DrmMaster>,
+    master: Rc<DrmMaster>,
     pub default_properties: Vec<DefaultProperty<PlaneDefaultPropertyFilter>>,
     pub untyped_properties: RefCell<BHashMap<DrmProperty, u64>>,
 
     pub ty: PlaneType,
 
-    pub possible_crtcs: u32,
+    possible_crtcs: u32,
     pub formats: BHashMap<u32, PlaneFormat>,
-    pub scanout_formats: ScanoutFormats,
+    scanout_formats: ScanoutFormats,
 
     pub lease: Cell<Option<MetalLeaseId>>,
 
@@ -1054,7 +1054,7 @@ pub struct MetalPlane {
 
     pub in_fence_fd: DrmProperty,
 
-    pub cm: MetalCmPlane,
+    cm: MetalCmPlane,
 
     pub drm_state: RefCell<DrmPlaneState>,
 }

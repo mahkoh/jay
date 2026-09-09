@@ -39,7 +39,7 @@ use uapi::c;
 
 pub struct ExtImageCopyCaptureSessionV1 {
     pub(super) id: ExtImageCopyCaptureSessionV1Id,
-    pub(super) client: Rc<Client>,
+    client: Rc<Client>,
     pub(super) tracker: Tracker<Self>,
     pub(super) version: Version,
     pub(super) frame: CloneCell<Option<Rc<ExtImageCopyCaptureFrameV1>>>,

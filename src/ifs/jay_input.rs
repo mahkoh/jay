@@ -39,11 +39,11 @@ use thiserror::Error;
 use uapi::OwnedFd;
 
 pub struct JayInput {
-    pub id: JayInputId,
-    pub client: Rc<Client>,
-    pub state: Rc<State>,
+    id: JayInputId,
+    client: Rc<Client>,
+    state: Rc<State>,
     pub tracker: Tracker<Self>,
-    pub version: Version,
+    version: Version,
 }
 
 const CALIBRATION_MATRIX_SINCE: Version = Version(4);

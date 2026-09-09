@@ -9,8 +9,8 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestAlphaModifier {
-    pub id: WpAlphaModifierV1Id,
-    pub tran: Rc<TestTransport>,
+    id: WpAlphaModifierV1Id,
+    tran: Rc<TestTransport>,
 }
 
 impl TestAlphaModifier {

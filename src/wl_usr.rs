@@ -64,9 +64,9 @@ pub enum UsrConError {
 }
 
 pub struct UsrCon {
-    pub ring: Rc<IoUring>,
-    pub _wheel: Rc<Wheel>,
-    pub eng: Rc<AsyncEngine>,
+    ring: Rc<IoUring>,
+    _wheel: Rc<Wheel>,
+    eng: Rc<AsyncEngine>,
     pub server_id: u32,
     obj_ids: RefCell<Bitfield>,
     objects: CopyHashMap<ObjectId, Option<Rc<dyn UsrObject>>>,

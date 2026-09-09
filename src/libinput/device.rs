@@ -94,8 +94,8 @@ pub struct LibInputDevice<'a> {
 }
 
 pub struct LibInputDeviceGroup<'a> {
-    pub(super) group: *mut libinput_device_group,
-    pub(super) _phantom: PhantomData<&'a ()>,
+    group: *mut libinput_device_group,
+    _phantom: PhantomData<&'a ()>,
 }
 
 pub struct LibInputTabletPadModeGroup<'a> {

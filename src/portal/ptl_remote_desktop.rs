@@ -43,23 +43,23 @@ pub enum RemoteDesktopPhase {
 }
 
 pub struct SelectingDisplay {
-    pub session: Rc<PortalSession>,
-    pub request_obj: Rc<DbusObject>,
+    session: Rc<PortalSession>,
+    request_obj: Rc<DbusObject>,
     pub guis: CopyHashMap<PortalDisplayId, Rc<SelectionGui>>,
 }
 
 pub struct StartingRemoteDesktop {
-    pub session: Rc<PortalSession>,
-    pub request_obj: Rc<DbusObject>,
+    session: Rc<PortalSession>,
+    request_obj: Rc<DbusObject>,
     pub dpy: Rc<PortalDisplay>,
     pub ei_session: Rc<UsrJayEiSession>,
 }
 
 pub struct StartedRemoteDesktop {
-    pub session: Rc<PortalSession>,
+    session: Rc<PortalSession>,
     pub dpy: Rc<PortalDisplay>,
     pub ei_session: Rc<UsrJayEiSession>,
-    pub ei_fd: Cell<Option<Rc<OwnedFd>>>,
+    ei_fd: Cell<Option<Rc<OwnedFd>>>,
 }
 
 bitflags! {

@@ -12,9 +12,9 @@ use thiserror::Error;
 #[expect(unused)]
 pub struct EiPingpong {
     pub id: EiPingpongId,
-    pub client: Rc<EiClient>,
-    pub tracker: Tracker<Self>,
-    pub version: EiVersion,
+    client: Rc<EiClient>,
+    tracker: Tracker<Self>,
+    version: EiVersion,
 }
 
 impl EiPingpongRequestHandler for EiPingpong {

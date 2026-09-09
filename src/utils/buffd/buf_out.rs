@@ -20,7 +20,7 @@ pub(super) struct MsgFds {
 
 #[derive(Default)]
 pub(super) struct OutBufferMeta {
-    pub(super) read_pos: usize,
+    read_pos: usize,
     pub(super) write_pos: usize,
     pub(super) fds: VecDeque<MsgFds>,
 }

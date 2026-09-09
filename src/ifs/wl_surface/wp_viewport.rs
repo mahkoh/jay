@@ -10,11 +10,11 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct WpViewport {
-    pub id: WpViewportId,
-    pub client: Rc<Client>,
-    pub surface: Rc<WlSurface>,
+    id: WpViewportId,
+    client: Rc<Client>,
+    surface: Rc<WlSurface>,
     pub tracker: Tracker<Self>,
-    pub version: Version,
+    version: Version,
 }
 
 impl WpViewport {

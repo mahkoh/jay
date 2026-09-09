@@ -14,7 +14,7 @@ use uapi::c;
 #[derive(Args, Debug)]
 pub struct ConfigArgs {
     #[clap(subcommand)]
-    pub command: ConfigCmd,
+    command: ConfigCmd,
 }
 
 #[derive(Subcommand, Debug)]

@@ -26,10 +26,10 @@ pub struct ZwlrLayerShellV1Global {
 }
 
 pub struct ZwlrLayerShellV1 {
-    pub id: ZwlrLayerShellV1Id,
+    id: ZwlrLayerShellV1Id,
     pub client: Rc<Client>,
     pub version: Version,
-    pub tracker: Tracker<Self>,
+    tracker: Tracker<Self>,
     pub bugs: &'static Bugs,
 }
 

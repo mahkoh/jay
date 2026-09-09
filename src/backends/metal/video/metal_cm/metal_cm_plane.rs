@@ -30,9 +30,9 @@ pub mod metal_cm_plane_matcher;
 
 #[derive(Debug)]
 pub struct PlaneColorPipelines {
-    pub plane: DrmPlane,
-    pub prop: Option<DrmProperty>,
-    pub pipelines: Vec<ColorPipeline>,
+    plane: DrmPlane,
+    prop: Option<DrmProperty>,
+    pipelines: Vec<ColorPipeline>,
     pub filter: Filter,
     pub supported_curves: StaticCopyMap<ColorOpCurve1dType, bool>,
 }

@@ -19,7 +19,7 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct ExtForeignToplevelListV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 impl ExtForeignToplevelListV1Global {
@@ -64,10 +64,10 @@ impl NodeVisitorBase for ToplevelVisitor<'_> {
 }
 
 pub struct ExtForeignToplevelListV1 {
-    pub id: ExtForeignToplevelListV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: ExtForeignToplevelListV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl ExtForeignToplevelListV1 {

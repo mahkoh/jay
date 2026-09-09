@@ -70,18 +70,18 @@ pub struct XdgPositioner {
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct XdgPositioned {
-    pub size_width: i32,
-    pub size_height: i32,
-    pub ar: Rect,
-    pub anchor: Edge,
-    pub gravity: Edge,
+    size_width: i32,
+    size_height: i32,
+    ar: Rect,
+    anchor: Edge,
+    gravity: Edge,
     pub ca: CA,
-    pub off_x: i32,
-    pub off_y: i32,
-    pub reactive: bool,
-    pub parent_width: i32,
-    pub parent_height: i32,
-    pub parent_serial: Option<TreeSerial>,
+    off_x: i32,
+    off_y: i32,
+    reactive: bool,
+    parent_width: i32,
+    parent_height: i32,
+    parent_serial: Option<TreeSerial>,
 }
 
 impl XdgPositioned {

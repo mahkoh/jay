@@ -15,11 +15,11 @@ const CLIENT_SIDE: u32 = 1;
 const SERVER_SIDE: u32 = 2;
 
 pub struct ZxdgToplevelDecorationV1 {
-    pub id: ZxdgToplevelDecorationV1Id,
-    pub client: Rc<Client>,
-    pub toplevel: Rc<XdgToplevel>,
+    id: ZxdgToplevelDecorationV1Id,
+    client: Rc<Client>,
+    toplevel: Rc<XdgToplevel>,
     pub tracker: Tracker<Self>,
-    pub version: Version,
+    version: Version,
 }
 
 impl ZxdgToplevelDecorationV1 {

@@ -40,9 +40,9 @@ const INVALID_ACTION_MASK: u32 = 0;
 const INVALID_SOURCE: u32 = 1;
 
 pub struct WlDataSource {
-    pub id: WlDataSourceId,
+    id: WlDataSourceId,
     pub data: SourceData,
-    pub version: Version,
+    version: Version,
     pub tracker: Tracker<Self>,
     pub toplevel_drag: CloneCell<Option<Rc<XdgToplevelDragV1>>>,
 }

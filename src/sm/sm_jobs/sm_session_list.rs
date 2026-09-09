@@ -32,7 +32,7 @@ use std::time::SystemTime;
 use thiserror::Error;
 
 pub struct SessionListJob {
-    pub work: SessionListWork,
+    work: SessionListWork,
     pending: Weak<SmPending<Self>>,
 }
 

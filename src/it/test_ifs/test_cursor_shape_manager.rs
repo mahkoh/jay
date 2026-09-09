@@ -9,9 +9,9 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestCursorShapeManager {
-    pub id: WpCursorShapeManagerV1Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    id: WpCursorShapeManagerV1Id,
+    tran: Rc<TestTransport>,
+    destroyed: Cell<bool>,
 }
 
 impl TestCursorShapeManager {

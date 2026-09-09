@@ -79,7 +79,7 @@ pub const CLIENT_BUFFERS_SINCE: Version = Version(7);
 
 pub struct JayScreencast {
     pub id: JayScreencastId,
-    pub version: Version,
+    version: Version,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
     config_serial: NumCell<u32>,

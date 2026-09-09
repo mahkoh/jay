@@ -10,8 +10,8 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestSinglePixelBufferManager {
-    pub id: WpSinglePixelBufferManagerV1Id,
-    pub tran: Rc<TestTransport>,
+    id: WpSinglePixelBufferManagerV1Id,
+    tran: Rc<TestTransport>,
 }
 
 impl TestSinglePixelBufferManager {

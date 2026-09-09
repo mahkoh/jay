@@ -63,10 +63,10 @@ impl Global for ZwlrVirtualPointerManagerV1Global {
 }
 
 pub struct ZwlrVirtualPointerManagerV1 {
-    pub id: ZwlrVirtualPointerManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: ZwlrVirtualPointerManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl ZwlrVirtualPointerManagerV1 {

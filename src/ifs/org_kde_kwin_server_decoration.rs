@@ -20,7 +20,7 @@ pub struct OrgKdeKwinServerDecoration {
     client: Rc<Client>,
     requested: Cell<bool>,
     pub tracker: Tracker<Self>,
-    pub version: Version,
+    version: Version,
 }
 
 impl OrgKdeKwinServerDecoration {

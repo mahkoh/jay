@@ -254,9 +254,9 @@ mod leaks {
 
     #[derive(Clone)]
     struct Allocation {
-        pub addr: *mut u8,
-        pub len: usize,
-        pub backtrace: Backtrace,
+        addr: *mut u8,
+        len: usize,
+        backtrace: Backtrace,
     }
 
     thread_local! {

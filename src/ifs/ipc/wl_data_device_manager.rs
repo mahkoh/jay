@@ -26,9 +26,9 @@ pub struct WlDataDeviceManagerGlobal {
 }
 
 pub struct WlDataDeviceManager {
-    pub id: WlDataDeviceManagerId,
-    pub client: Rc<Client>,
-    pub version: Version,
+    id: WlDataDeviceManagerId,
+    client: Rc<Client>,
+    version: Version,
     tracker: Tracker<Self>,
 }
 

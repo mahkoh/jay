@@ -19,7 +19,7 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct ExtDataControlDeviceV1 {
-    pub id: ExtDataControlDeviceV1Id,
+    id: ExtDataControlDeviceV1Id,
     pub data: DataControlDeviceData<ExtDataControlIpc>,
     pub tracker: Tracker<Self>,
 }

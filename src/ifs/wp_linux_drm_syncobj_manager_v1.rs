@@ -16,14 +16,14 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct WpLinuxDrmSyncobjManagerV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 pub struct WpLinuxDrmSyncobjManagerV1 {
-    pub id: WpLinuxDrmSyncobjManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: WpLinuxDrmSyncobjManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl WpLinuxDrmSyncobjManagerV1Global {

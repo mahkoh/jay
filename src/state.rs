@@ -471,7 +471,7 @@ impl Debug for State {
 
 #[derive(Default)]
 pub struct TreeState {
-    pub serials: TreeSerials,
+    serials: TreeSerials,
     pub serial_groups: TreeSerialGroups,
     pub configure_groups: ConfigureGroups,
     pub transactions: Transactions,

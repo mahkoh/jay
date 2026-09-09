@@ -11,7 +11,7 @@ use std::ffi::CStr;
 use std::rc::Rc;
 
 pub struct GlProgram {
-    pub ctx: Rc<EglContext>,
+    ctx: Rc<EglContext>,
     pub prog: GLuint,
 }
 

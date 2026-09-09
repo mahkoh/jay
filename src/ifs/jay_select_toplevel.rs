@@ -17,11 +17,11 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct JaySelectToplevel {
-    pub id: JaySelectToplevelId,
-    pub client: Rc<Client>,
+    id: JaySelectToplevelId,
+    client: Rc<Client>,
     pub tracker: Tracker<Self>,
-    pub destroyed: Cell<bool>,
-    pub version: Version,
+    destroyed: Cell<bool>,
+    version: Version,
 }
 
 pub struct JayToplevelSelector {

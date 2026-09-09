@@ -726,15 +726,15 @@ impl Theme {
 #[derive(Copy, Clone, Debug)]
 pub struct Oklch {
     pub l: f32,
-    pub c: f32,
-    pub h: f32,
+    c: f32,
+    h: f32,
 }
 
 #[derive(Copy, Clone, Debug)]
 pub struct Oklab {
-    pub l: f32,
-    pub a: f32,
-    pub b: f32,
+    l: f32,
+    a: f32,
+    b: f32,
 }
 
 impl Oklab {

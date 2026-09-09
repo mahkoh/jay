@@ -36,7 +36,7 @@ pub struct XdgWmBase {
     client: Rc<Client>,
     pub version: Version,
     pub(super) surfaces: CopyHashMap<XdgSurfaceId, Rc<XdgSurface>>,
-    pub tracker: Tracker<Self>,
+    tracker: Tracker<Self>,
 }
 
 impl XdgWmBaseGlobal {

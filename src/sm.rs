@@ -145,30 +145,30 @@ enum ToplevelJob {
 
 pub struct SessionListToplevel {
     #[expect(unused)]
-    pub name: ToplevelSessionName,
-    pub name_text: String,
+    name: ToplevelSessionName,
+    name_text: String,
     #[expect(unused)]
-    pub ctime: SystemTime,
+    ctime: SystemTime,
     #[expect(unused)]
-    pub atime: SystemTime,
+    atime: SystemTime,
     #[expect(unused)]
-    pub data: SmToplevelOut,
+    data: SmToplevelOut,
 }
 
 pub struct SessionListSession {
-    pub name: SessionName,
+    name: SessionName,
     #[expect(unused)]
-    pub ctime: SystemTime,
+    ctime: SystemTime,
     #[expect(unused)]
-    pub atime: SystemTime,
+    atime: SystemTime,
     #[expect(unused)]
-    pub data: SmSessionOut,
-    pub toplevels: Vec<SessionListToplevel>,
+    data: SmSessionOut,
+    toplevels: Vec<SessionListToplevel>,
 }
 
 pub struct SessionList {
     #[expect(unused)]
-    pub sessions: Vec<SessionListSession>,
+    sessions: Vec<SessionListSession>,
 }
 
 pub struct SessionListScheduled {

@@ -20,8 +20,8 @@ pub struct XwaylandShellV1Global {
 pub struct XwaylandShellV1 {
     id: XwaylandShellV1Id,
     client: Rc<Client>,
-    pub version: Version,
-    pub tracker: Tracker<Self>,
+    version: Version,
+    tracker: Tracker<Self>,
 }
 
 impl XwaylandShellV1Global {

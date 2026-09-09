@@ -32,11 +32,11 @@ pub struct UsrJayScreencast {
 
 #[derive(Default)]
 pub struct UsrJayScreencastServerConfig {
-    pub output: Option<u32>,
-    pub show_all: bool,
-    pub running: bool,
-    pub use_linear_buffers: bool,
-    pub allowed_workspaces: Vec<u32>,
+    output: Option<u32>,
+    show_all: bool,
+    running: bool,
+    use_linear_buffers: bool,
+    allowed_workspaces: Vec<u32>,
     pub width: i32,
     pub height: i32,
 }

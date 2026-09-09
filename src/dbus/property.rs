@@ -45,7 +45,7 @@ impl<'a, T: DbusType<'static>> MethodCall<'a> for Get<'a, T> {
 #[derive(Debug)]
 pub struct GetReply<'a, T: DbusType<'a>> {
     pub value: T,
-    pub _phantom: PhantomData<&'a ()>,
+    _phantom: PhantomData<&'a ()>,
 }
 
 unsafe impl<'a, T: DbusType<'a>> Message<'a> for GetReply<'a, T> {

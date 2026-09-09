@@ -50,10 +50,10 @@ impl Global for XdgWmDialogV1Global {
 simple_add_global!(XdgWmDialogV1Global);
 
 pub struct XdgWmDialogV1 {
-    pub id: XdgWmDialogV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: XdgWmDialogV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl XdgWmDialogV1RequestHandler for XdgWmDialogV1 {

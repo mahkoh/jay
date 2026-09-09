@@ -34,8 +34,8 @@ const BOTTOM_FIRST: u32 = 4;
 const MAX_PLANE: u32 = MAX_PLANES as u32 - 1;
 
 pub struct ZwpLinuxBufferParamsV1 {
-    pub id: ZwpLinuxBufferParamsV1Id,
-    pub parent: Rc<ZwpLinuxDmabufV1>,
+    id: ZwpLinuxBufferParamsV1Id,
+    parent: Rc<ZwpLinuxDmabufV1>,
     planes: RefCell<BHashMap<u32, Add>>,
     used: Cell<bool>,
     modifier: Cell<Option<u64>>,

@@ -15,7 +15,7 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct XdgActivationV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 impl XdgActivationV1Global {
@@ -52,10 +52,10 @@ impl Global for XdgActivationV1Global {
 }
 
 pub struct XdgActivationV1 {
-    pub id: XdgActivationV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: XdgActivationV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl XdgActivationV1RequestHandler for XdgActivationV1 {

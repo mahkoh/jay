@@ -28,14 +28,14 @@ pub mod zwp_confined_pointer_v1;
 pub mod zwp_locked_pointer_v1;
 
 pub struct ZwpPointerConstraintsV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 pub struct ZwpPointerConstraintsV1 {
-    pub id: ZwpPointerConstraintsV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: ZwpPointerConstraintsV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -54,11 +54,11 @@ pub enum SeatConstraintStatus {
 
 pub struct SeatConstraint {
     pub owner: CloneCell<Option<Rc<dyn ConstraintOwner>>>,
-    pub client: Rc<Client>,
-    pub seat: Rc<WlSeatGlobal>,
+    client: Rc<Client>,
+    seat: Rc<WlSeatGlobal>,
     pub surface: Rc<WlSurface>,
-    pub region: CloneCell<Option<Rc<Region>>>,
-    pub one_shot: bool,
+    region: CloneCell<Option<Rc<Region>>>,
+    one_shot: bool,
     pub status: Cell<SeatConstraintStatus>,
     pub ty: ConstraintType,
     pub position_hint: Cell<Option<(Fixed, Fixed)>>,

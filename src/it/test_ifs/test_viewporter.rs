@@ -8,8 +8,8 @@ use crate::wire::wp_viewporter::*;
 use std::rc::Rc;
 
 pub struct TestViewporter {
-    pub id: WpViewporterId,
-    pub tran: Rc<TestTransport>,
+    id: WpViewporterId,
+    tran: Rc<TestTransport>,
 }
 
 impl TestViewporter {

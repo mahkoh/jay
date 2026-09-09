@@ -23,7 +23,7 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct WpColorRepresentationManagerV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 impl WpColorRepresentationManagerV1Global {
@@ -58,11 +58,11 @@ impl WpColorRepresentationManagerV1Global {
 }
 
 pub struct WpColorRepresentationManagerV1 {
-    pub id: WpColorRepresentationManagerV1Id,
-    pub client: Rc<Client>,
-    pub version: Version,
-    pub tracker: Tracker<Self>,
-    pub supports_alpha_modes: bool,
+    id: WpColorRepresentationManagerV1Id,
+    client: Rc<Client>,
+    version: Version,
+    tracker: Tracker<Self>,
+    supports_alpha_modes: bool,
 }
 
 impl WpColorRepresentationManagerV1 {

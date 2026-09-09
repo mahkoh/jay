@@ -13,14 +13,14 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct WpFractionalScaleManagerV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 pub struct WpFractionalScaleManagerV1 {
-    pub id: WpFractionalScaleManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: WpFractionalScaleManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl WpFractionalScaleManagerV1Global {

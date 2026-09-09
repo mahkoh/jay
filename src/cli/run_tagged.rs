@@ -20,7 +20,7 @@ pub struct RunTaggedArgs {
     tag: String,
     /// The program to run.
     #[clap(required = true, trailing_var_arg = true, value_hint = ValueHint::CommandWithArguments)]
-    pub program: Vec<String>,
+    program: Vec<String>,
 }
 
 pub fn main(_global: GlobalArgs, run_tagged_args: RunTaggedArgs) {

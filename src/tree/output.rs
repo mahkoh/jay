@@ -137,22 +137,22 @@ pub struct OutputNode {
     pub global: Rc<WlOutputGlobal>,
     pub jay_outputs: CopyHashMap<(ClientId, JayOutputId), Rc<JayOutput>>,
     pub workspaces: LinkedList<WorkspaceOutputLink>,
-    pub seat_state: NodeSeatState,
+    seat_state: NodeSeatState,
     pub layers: [LinkedList<LayerSurfaceLink>; 4],
-    pub exclusive_zones: Cell<ExclusiveSize>,
+    exclusive_zones: Cell<ExclusiveSize>,
     pub render_data: RefCell<OutputRenderData>,
     pub state: Rc<State>,
     pub is_dummy: bool,
-    pub status: CloneCell<Rc<String>>,
-    pub scroll: Scroller,
-    pub pointer_positions: CopyHashMap<PointerType, (i32, i32)>,
-    pub pointer_down: CopyHashMap<SeatId, (i32, i32)>,
+    status: CloneCell<Rc<String>>,
+    scroll: Scroller,
+    pointer_positions: CopyHashMap<PointerType, (i32, i32)>,
+    pointer_down: CopyHashMap<SeatId, (i32, i32)>,
     pub hardware_cursor: CloneCell<Option<Rc<dyn HardwareCursor>>>,
     pub hardware_cursor_needs_render: Cell<bool>,
-    pub update_render_data_scheduled: Cell<bool>,
+    update_render_data_scheduled: Cell<bool>,
     pub screencasts: CopyHashMap<(ClientId, JayScreencastId), Rc<JayScreencast>>,
     pub screencopies: CopyHashMap<(ClientId, ZwlrScreencopyFrameV1Id), Rc<ZwlrScreencopyFrameV1>>,
-    pub title_visible: Cell<bool>,
+    title_visible: Cell<bool>,
     pub schedule: Rc<OutputSchedule>,
     pub latch_event: EventSource<dyn LatchListener>,
     pub vblank_event: EventSource<dyn VblankListener>,
@@ -162,19 +162,19 @@ pub struct OutputNode {
     pub ext_copy_sessions:
         CopyHashMap<(ClientId, ExtImageCopyCaptureSessionV1Id), Rc<ExtImageCopyCaptureSessionV1>>,
     pub before_latch_event: EventSource<dyn BeforeLatchListener>,
-    pub tray_start_rel: Cell<i32>,
+    tray_start_rel: Cell<i32>,
     pub tray_items: LinkedList<TrayItemLink>,
     pub ext_workspace_groups: CopyHashMap<WorkspaceManagerId, Rc<ExtWorkspaceGroupHandleV1>>,
     pub pinned: LinkedList<Rc<dyn PinnedNode>>,
-    pub tearing: Cell<bool>,
+    tearing: Cell<bool>,
     pub active_zwlr_gamma_control: CloneCell<Option<Rc<ZwlrGammaControlV1>>>,
     pub cursor_users: CopyHashMap<CursorUserId, Rc<CursorUser>>,
     pub node_state: SplitView<OutputNodeState>,
-    pub transaction_data: TransactionData<OutputTransactionOp>,
-    pub damage_scheduled: Cell<bool>,
-    pub _theme_listener: EventListener<dyn ThemeChangeListener>,
-    pub _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
-    pub _scales_listener: EventListener<dyn ScalesChangedListener>,
+    transaction_data: TransactionData<OutputTransactionOp>,
+    damage_scheduled: Cell<bool>,
+    _theme_listener: EventListener<dyn ThemeChangeListener>,
+    _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
+    _scales_listener: EventListener<dyn ScalesChangedListener>,
 }
 
 impl ObjWithId for OutputNode {
@@ -197,7 +197,7 @@ pub struct OutputNodeState {
     pub bcs: Cell<BackendColorSpace>,
     pub color_description: CloneCell<Rc<ColorDescription>>,
     pub linear_color_description: CloneCell<Rc<ColorDescription>>,
-    pub damage_matrix: Cell<DamageMatrix>,
+    damage_matrix: Cell<DamageMatrix>,
     pub rects: OutputNodeRects<CellWrapper>,
     pub theme: OutputTheme,
 }
@@ -211,19 +211,19 @@ where
     pub non_exclusive_rel: W::D<Rect>,
     pub workspace: W::D<Rect>,
     pub workspace_rel: W::D<Rect>,
-    pub bar: W::D<Rect>,
+    bar: W::D<Rect>,
     pub bar_rel: W::D<Rect>,
     pub bar_with_separator: W::D<Rect>,
-    pub bar_with_separator_rel: W::D<Rect>,
+    bar_with_separator_rel: W::D<Rect>,
     pub bar_separator: W::D<Rect>,
-    pub bar_separator_rel: W::D<Rect>,
+    bar_separator_rel: W::D<Rect>,
 }
 
 #[derive(Clone, CachedValue)]
 pub struct OutputTheme {
     pub colors: OutputThemeColors,
     pub sizes: OutputThemeSizes,
-    pub bar_font: CloneCell<Rc<Arc<str>>>,
+    bar_font: CloneCell<Rc<Arc<str>>>,
     pub bar_position: Cell<BarPosition>,
     pub show_bar: Cell<bool>,
 }
@@ -232,21 +232,21 @@ pub struct OutputTheme {
 pub struct OutputThemeColors {
     pub attention_requested_background: Cell<Color>,
     pub bar_background: Cell<Color>,
-    pub bar_text: Cell<Color>,
+    bar_text: Cell<Color>,
     pub captured_focused_title_background: Cell<Color>,
     pub captured_unfocused_title_background: Cell<Color>,
     pub focused_title_background: Cell<Color>,
-    pub focused_title_text: Cell<Color>,
+    focused_title_text: Cell<Color>,
     pub highlight: Cell<Color>,
     pub separator: Cell<Color>,
     pub unfocused_title_background: Cell<Color>,
-    pub unfocused_title_text: Cell<Color>,
+    unfocused_title_text: Cell<Color>,
 }
 
 #[derive(Clone, CachedValue)]
 pub struct OutputThemeSizes {
-    pub bar_height: Cell<i32>,
-    pub bar_separator_width: Cell<i32>,
+    bar_height: Cell<i32>,
+    bar_separator_width: Cell<i32>,
     pub tray_icon_size: Cell<i32>,
 }
 
@@ -2329,12 +2329,12 @@ impl ScalesChangedListener for OutputNode {
 
 pub struct OutputTitle {
     pub x1: i32,
-    pub x2: i32,
+    x2: i32,
     pub icon_x: Option<i32>,
     pub tex_x: i32,
     pub tex_y: i32,
     pub tex: Rc<dyn GfxTexture>,
-    pub ws: Rc<WorkspaceNode>,
+    ws: Rc<WorkspaceNode>,
 }
 
 pub struct OutputStatus {
@@ -2350,7 +2350,7 @@ pub struct OutputWorkspaceRenderData {
 
 #[derive(Default)]
 pub struct OutputRenderData {
-    pub full_area: Rect,
+    full_area: Rect,
     pub active_workspace: Option<OutputWorkspaceRenderData>,
     pub overlay_workspace: Option<Rect>,
     pub bar_separator: Rect,

@@ -380,7 +380,7 @@ pub struct Client {
     swapchain: Rc<RefCell<OutBufferSwapchain>>,
     flush_request: AsyncEvent,
     shutdown: AsyncEvent,
-    pub tracker: Tracker<Client>,
+    tracker: Tracker<Client>,
     pub is_xwayland: bool,
     pub effective_caps: Cell<ClientCaps>,
     pub bounding_caps_for_children: Cell<ClientCaps>,

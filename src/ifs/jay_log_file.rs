@@ -10,8 +10,8 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct JayLogFile {
-    pub id: JayLogFileId,
-    pub client: Rc<Client>,
+    id: JayLogFileId,
+    client: Rc<Client>,
     pub tracker: Tracker<Self>,
 }
 

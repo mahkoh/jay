@@ -54,7 +54,7 @@ pub struct WlBufferDmabufStorage {
     pub dmabuf: Rc<DmaBuf>,
     pub tex: Option<Rc<dyn GfxTexture>>,
     pub fb: Option<Rc<dyn GfxFramebuffer>>,
-    pub copy_obj: Option<Option<Rc<CopyDeviceSrcObject>>>,
+    copy_obj: Option<Option<Rc<CopyDeviceSrcObject>>>,
 }
 
 pub struct DmabufBufferParams {

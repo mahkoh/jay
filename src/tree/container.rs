@@ -202,20 +202,20 @@ pub struct ContainerNodeState {
     pub mono_child: CloneCell<Option<NodeRef<ContainerChild>>>,
     pub mono_body: Cell<Rect>,
     pub mono_content: Cell<Rect>,
-    pub abs_x1: Cell<i32>,
-    pub abs_y1: Cell<i32>,
+    abs_x1: Cell<i32>,
+    abs_y1: Cell<i32>,
     pub width: Cell<i32>,
     pub height: Cell<i32>,
-    pub content_width: Cell<i32>,
-    pub content_height: Cell<i32>,
+    content_width: Cell<i32>,
+    content_height: Cell<i32>,
     pub num_children: Cell<usize>,
     pub theme: ContainerTheme,
 }
 
 pub struct ContainerNode {
-    pub id: ContainerNodeId,
+    id: ContainerNodeId,
     pub node_state: SplitView<ContainerNodeState>,
-    pub sum_factors: Cell<f64>,
+    sum_factors: Cell<f64>,
     layout_scheduled: Cell<bool>,
     compute_render_positions_scheduled: Cell<bool>,
     render_titles_scheduled: Cell<bool>,
@@ -249,11 +249,11 @@ impl Debug for ContainerNode {
 
 #[derive(Default)]
 pub struct ContainerChildNodeState {
-    pub title_rect: Cell<Rect>,
+    title_rect: Cell<Rect>,
     // fields below only valid in tabbed layout
     pub body: Cell<Rect>,
     pub content: Cell<Rect>,
-    pub theme: ContainerChildTheme,
+    theme: ContainerChildTheme,
 }
 
 pub type ContainerChild = TreeLink<ContainerChildInner>;
@@ -261,11 +261,11 @@ pub type ContainerChild = TreeLink<ContainerChildInner>;
 pub struct ContainerChildInner {
     pub node: Rc<dyn ToplevelNode>,
     pub active: Cell<bool>,
-    pub attention_requested: Cell<bool>,
+    attention_requested: Cell<bool>,
     title: RefCell<String>,
-    pub title_tex: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
-    pub icon: ToplevelIconUser,
-    pub icons: SmallMap<Scale, ToplevelIcon, 2>,
+    title_tex: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
+    icon: ToplevelIconUser,
+    icons: SmallMap<Scale, ToplevelIcon, 2>,
     focus_history: Cell<Option<LinkedNode<NodeRef<ContainerChild>>>>,
     ty: Cell<ContainerChildType>,
     pub node_state: SplitView<ContainerChildNodeState>,
@@ -290,44 +290,44 @@ struct CursorState {
 
 #[derive(Clone, CachedValue)]
 pub struct ContainerTheme {
-    pub container_borders: Cell<ContainerBordersSetting>,
-    pub colors: ContainerThemeColors,
+    container_borders: Cell<ContainerBordersSetting>,
+    colors: ContainerThemeColors,
     pub sizes: ContainerThemeSizes,
 }
 
 #[derive(Clone, CachedValue)]
 pub struct ContainerThemeColors {
-    pub border: Cell<Color>,
-    pub separator: Cell<Color>,
+    border: Cell<Color>,
+    separator: Cell<Color>,
 }
 
 #[derive(Clone, CachedValue)]
 pub struct ContainerThemeSizes {
-    pub border_width: Cell<i32>,
+    border_width: Cell<i32>,
     pub title_height: Cell<i32>,
-    pub title_plus_underline_height: Cell<i32>,
-    pub title_underline_height: Cell<i32>,
+    title_plus_underline_height: Cell<i32>,
+    title_underline_height: Cell<i32>,
     pub title_icon_size: Cell<i32>,
 }
 
 #[derive(Clone, CachedValue)]
 pub struct ContainerChildTheme {
-    pub colors: ContainerChildThemeColors,
-    pub show_window_icons: Cell<bool>,
-    pub window_icons_grayscale: Cell<bool>,
-    pub title_font: CloneCell<Rc<Arc<str>>>,
+    colors: ContainerChildThemeColors,
+    show_window_icons: Cell<bool>,
+    window_icons_grayscale: Cell<bool>,
+    title_font: CloneCell<Rc<Arc<str>>>,
 }
 
 #[derive(Clone, CachedValue)]
 pub struct ContainerChildThemeColors {
-    pub focused_title_text: Cell<Color>,
-    pub focused_inactive_title_text: Cell<Color>,
-    pub unfocused_title_text: Cell<Color>,
-    pub focused_border: Cell<Color>,
-    pub focused_title_background: Cell<Color>,
-    pub attention_requested_background: Cell<Color>,
-    pub unfocused_title_background: Cell<Color>,
-    pub focused_inactive_title_background: Cell<Color>,
+    focused_title_text: Cell<Color>,
+    focused_inactive_title_text: Cell<Color>,
+    unfocused_title_text: Cell<Color>,
+    focused_border: Cell<Color>,
+    focused_title_background: Cell<Color>,
+    attention_requested_background: Cell<Color>,
+    unfocused_title_background: Cell<Color>,
+    focused_inactive_title_background: Cell<Color>,
 }
 
 impl ContainerChildInner {

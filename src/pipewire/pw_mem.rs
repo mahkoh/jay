@@ -32,9 +32,9 @@ pub struct PwMem {
 }
 
 pub struct PwMemMap {
-    pub _mem: Rc<PwMem>,
-    pub range: Range<usize>,
-    pub map: Mmapped,
+    _mem: Rc<PwMem>,
+    range: Range<usize>,
+    map: Mmapped,
 }
 
 pub struct PwMemTyped<T> {

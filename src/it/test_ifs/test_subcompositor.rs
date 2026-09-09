@@ -9,9 +9,9 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestSubcompositor {
-    pub id: WlSubcompositorId,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    id: WlSubcompositorId,
+    tran: Rc<TestTransport>,
+    destroyed: Cell<bool>,
 }
 
 impl TestSubcompositor {

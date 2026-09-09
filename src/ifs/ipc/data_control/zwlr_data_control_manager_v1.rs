@@ -21,9 +21,9 @@ pub struct ZwlrDataControlManagerV1Global {
 }
 
 pub struct ZwlrDataControlManagerV1 {
-    pub id: ZwlrDataControlManagerV1Id,
-    pub client: Rc<Client>,
-    pub version: Version,
+    id: ZwlrDataControlManagerV1Id,
+    client: Rc<Client>,
+    version: Version,
     tracker: Tracker<Self>,
 }
 

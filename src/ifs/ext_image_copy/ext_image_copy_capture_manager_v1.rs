@@ -17,7 +17,7 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct ExtImageCopyCaptureManagerV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 impl ExtImageCopyCaptureManagerV1Global {
@@ -44,10 +44,10 @@ impl ExtImageCopyCaptureManagerV1Global {
 }
 
 pub struct ExtImageCopyCaptureManagerV1 {
-    pub(super) id: ExtImageCopyCaptureManagerV1Id,
-    pub(super) client: Rc<Client>,
-    pub(super) tracker: Tracker<Self>,
-    pub(super) version: Version,
+    id: ExtImageCopyCaptureManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl ExtImageCopyCaptureManagerV1RequestHandler for ExtImageCopyCaptureManagerV1 {

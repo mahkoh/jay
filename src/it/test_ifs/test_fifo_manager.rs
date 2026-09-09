@@ -9,13 +9,13 @@ use crate::wire::wp_fifo_v1;
 use std::rc::Rc;
 
 pub struct TestFifoManager {
-    pub id: WpFifoManagerV1Id,
-    pub tran: Rc<TestTransport>,
+    id: WpFifoManagerV1Id,
+    tran: Rc<TestTransport>,
 }
 
 pub struct TestFifo {
-    pub id: WpFifoV1Id,
-    pub tran: Rc<TestTransport>,
+    id: WpFifoV1Id,
+    tran: Rc<TestTransport>,
 }
 
 impl TestFifoManager {

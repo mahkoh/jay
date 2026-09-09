@@ -74,7 +74,7 @@ simple_add_global!(WlDrmGlobal);
 
 pub struct WlDrm {
     id: WlDrmId,
-    pub client: Rc<Client>,
+    client: Rc<Client>,
     version: Version,
     tracker: Tracker<Self>,
 }

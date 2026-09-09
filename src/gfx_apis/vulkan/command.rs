@@ -13,12 +13,12 @@ use ash::vk::CommandPoolCreateInfo;
 use std::rc::Rc;
 
 pub struct VulkanCommandPool {
-    pub(super) device: Rc<VulkanDevice>,
-    pub(super) pool: CommandPool,
+    device: Rc<VulkanDevice>,
+    pool: CommandPool,
 }
 
 pub struct VulkanCommandBuffer {
-    pub(super) pool: Rc<VulkanCommandPool>,
+    pool: Rc<VulkanCommandPool>,
     pub(super) buffer: CommandBuffer,
 }
 

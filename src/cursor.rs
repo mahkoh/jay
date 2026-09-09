@@ -678,7 +678,7 @@ pub struct XCursorImage {
     pub height: i32,
     pub xhot: i32,
     pub yhot: i32,
-    pub delay: u32,
+    delay: u32,
     pub pixels: Vec<Cell<u8>>,
 }
 

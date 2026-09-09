@@ -17,11 +17,11 @@ pub const FB_SCANOUT: u32 = 1;
 pub const FB_SAMPLING: u32 = 2;
 
 pub struct ZwpLinuxDmabufFeedbackV1 {
-    pub id: ZwpLinuxDmabufFeedbackV1Id,
-    pub client: Rc<Client>,
+    id: ZwpLinuxDmabufFeedbackV1Id,
+    client: Rc<Client>,
     pub tracker: Tracker<Self>,
     pub last_format_table: Cell<Option<DmaBufFeedbackId>>,
-    pub surface: Option<Rc<WlSurface>>,
+    surface: Option<Rc<WlSurface>>,
     pub version: Version,
 }
 

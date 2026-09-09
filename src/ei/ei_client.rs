@@ -41,7 +41,7 @@ mod ei_objects;
 mod ei_tasks;
 
 pub struct EiClients {
-    pub clients: RefCell<BHashMap<ClientId, EiClientHolder>>,
+    clients: RefCell<BHashMap<ClientId, EiClientHolder>>,
     shutdown_clients: RefCell<BHashMap<ClientId, EiClientHolder>>,
 }
 
@@ -168,7 +168,7 @@ impl Drop for EiClients {
 }
 
 pub struct EiClientHolder {
-    pub data: Rc<EiClient>,
+    data: Rc<EiClient>,
     _handler: SpawnedFuture<()>,
 }
 
@@ -199,17 +199,17 @@ pub struct EiClient {
     pub connection: CloneCell<Option<Rc<EiConnection>>>,
     checking_queue_size: Cell<bool>,
     socket: Rc<OwnedFd>,
-    pub objects: EiObjects,
+    objects: EiObjects,
     swapchain: Rc<RefCell<OutBufferSwapchain>>,
     flush_request: AsyncEvent,
     shutdown: AsyncEvent,
-    pub tracker: Tracker<EiClient>,
-    pub pid_info: Option<PidInfo>,
+    tracker: Tracker<EiClient>,
+    pid_info: Option<PidInfo>,
     pub disconnect_announced: Cell<bool>,
     pub versions: EiInterfaceVersions,
     pub name: RefCell<Option<String>>,
-    pub app_id: Option<String>,
-    pub last_serial: NumCell<u64>,
+    app_id: Option<String>,
+    last_serial: NumCell<u64>,
 }
 
 impl EiClient {

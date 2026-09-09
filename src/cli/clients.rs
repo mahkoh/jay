@@ -183,17 +183,17 @@ impl Clients {
 
 #[derive(Default)]
 pub struct Client {
-    pub id: u64,
-    pub sandboxed: bool,
-    pub sandbox_engine: Option<String>,
-    pub sandbox_app_id: Option<String>,
-    pub sandbox_instance_id: Option<String>,
-    pub uid: Option<c::uid_t>,
-    pub pid: Option<c::pid_t>,
-    pub is_xwayland: bool,
-    pub comm: Option<String>,
-    pub exe: Option<String>,
-    pub tag: Option<String>,
+    id: u64,
+    sandboxed: bool,
+    sandbox_engine: Option<String>,
+    sandbox_app_id: Option<String>,
+    sandbox_instance_id: Option<String>,
+    uid: Option<c::uid_t>,
+    pid: Option<c::pid_t>,
+    is_xwayland: bool,
+    comm: Option<String>,
+    exe: Option<String>,
+    tag: Option<String>,
 }
 
 pub async fn handle_client_query(

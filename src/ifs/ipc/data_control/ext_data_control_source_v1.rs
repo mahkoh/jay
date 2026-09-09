@@ -17,8 +17,8 @@ use thiserror::Error;
 use uapi::OwnedFd;
 
 pub struct ExtDataControlSourceV1 {
-    pub id: ExtDataControlSourceV1Id,
-    pub data: DataControlSourceData,
+    id: ExtDataControlSourceV1Id,
+    data: DataControlSourceData,
     pub tracker: Tracker<Self>,
 }
 

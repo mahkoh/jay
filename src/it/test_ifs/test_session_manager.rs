@@ -8,9 +8,9 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestSessionManager {
-    pub id: XdgSessionManagerV1Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    id: XdgSessionManagerV1Id,
+    tran: Rc<TestTransport>,
+    destroyed: Cell<bool>,
 }
 
 impl TestSessionManager {

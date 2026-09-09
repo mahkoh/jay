@@ -7,8 +7,8 @@ use crate::wire::wl_fixes::*;
 use std::rc::Rc;
 
 pub struct TestWlFixes {
-    pub id: WlFixesId,
-    pub tran: Rc<TestTransport>,
+    id: WlFixesId,
+    tran: Rc<TestTransport>,
 }
 
 impl TestWlFixes {

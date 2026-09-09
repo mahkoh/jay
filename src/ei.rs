@@ -13,8 +13,8 @@ pub enum EiContext {
 }
 
 pub struct EiInterfaceVersion {
-    pub server_max_version: EiVersion,
-    pub client_max_version: Cell<EiVersion>,
+    server_max_version: EiVersion,
+    client_max_version: Cell<EiVersion>,
     pub version: Cell<EiVersion>,
 }
 

@@ -189,8 +189,8 @@ struct GfxGlState {
 }
 
 struct GlFillRect {
-    pub rect: FramebufferRect,
-    pub color: Color,
+    rect: FramebufferRect,
+    color: Color,
 }
 
 fn run_ops(fb: &Framebuffer, ops: &[GfxApiOp]) -> Option<FdSync> {

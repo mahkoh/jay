@@ -16,7 +16,7 @@ use std::rc::Rc;
 pub struct TestEnterEvent {
     pub serial: u32,
     pub surface: WlSurfaceId,
-    pub _keys: Vec<u32>,
+    _keys: Vec<u32>,
 }
 
 pub struct TestKeyboard {

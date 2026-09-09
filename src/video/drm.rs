@@ -710,8 +710,8 @@ impl NodeType {
 pub struct DrmPropertyDefinition {
     pub id: DrmProperty,
     pub name: BString,
-    pub _immutable: bool,
-    pub _atomic: bool,
+    _immutable: bool,
+    _atomic: bool,
     pub ty: DrmPropertyType,
 }
 
@@ -811,11 +811,11 @@ drm_obj!(DrmColorop, DRM_MODE_OBJECT_COLOROP);
 
 #[derive(Debug, Default)]
 pub struct DrmCardResources {
-    pub _min_width: u32,
-    pub _max_width: u32,
-    pub _min_height: u32,
-    pub _max_height: u32,
-    pub _fbs: Vec<DrmFb>,
+    _min_width: u32,
+    _max_width: u32,
+    _min_height: u32,
+    _max_height: u32,
+    _fbs: Vec<DrmFb>,
     pub crtcs: Vec<DrmCrtc>,
     pub connectors: Vec<DrmConnector>,
     pub encoders: Vec<DrmEncoder>,
@@ -823,21 +823,21 @@ pub struct DrmCardResources {
 
 #[derive(Debug)]
 pub struct DrmPlaneInfo {
-    pub _plane_id: DrmPlane,
-    pub _crtc_id: DrmCrtc,
-    pub _fb_id: DrmFb,
+    _plane_id: DrmPlane,
+    _crtc_id: DrmCrtc,
+    _fb_id: DrmFb,
     pub possible_crtcs: u32,
-    pub _gamma_size: u32,
+    _gamma_size: u32,
     pub format_types: Vec<u32>,
 }
 
 #[derive(Debug)]
 pub struct DrmEncoderInfo {
-    pub _encoder_id: DrmEncoder,
-    pub _encoder_type: u32,
-    pub _crtc_id: DrmCrtc,
+    _encoder_id: DrmEncoder,
+    _encoder_type: u32,
+    _crtc_id: DrmCrtc,
     pub possible_crtcs: u32,
-    pub _possible_clones: u32,
+    _possible_clones: u32,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -857,33 +857,33 @@ pub struct DrmModeInfo {
     pub vrefresh: u32,
 
     pub flags: u32,
-    pub ty: u32,
-    pub name: BString,
+    ty: u32,
+    name: BString,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DrmVersion {
-    pub version_major: i32,
-    pub version_minor: i32,
-    pub version_patchlevel: i32,
+    version_major: i32,
+    version_minor: i32,
+    version_patchlevel: i32,
     pub name: BString,
-    pub date: BString,
-    pub desc: BString,
+    date: BString,
+    desc: BString,
 }
 
 #[expect(unused)]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct HdrMetadata {
-    pub eotf: u8,
-    pub metadata_type: u8,
-    pub red: (u16, u16),
-    pub green: (u16, u16),
-    pub blue: (u16, u16),
-    pub white: (u16, u16),
-    pub max_display_mastering_luminance: u16,
-    pub min_display_mastering_luminance: u16,
-    pub max_cll: u16,
-    pub max_fall: u16,
+    eotf: u8,
+    metadata_type: u8,
+    red: (u16, u16),
+    green: (u16, u16),
+    blue: (u16, u16),
+    white: (u16, u16),
+    max_display_mastering_luminance: u16,
+    min_display_mastering_luminance: u16,
+    max_cll: u16,
+    max_fall: u16,
 }
 
 #[repr(C)]
@@ -1068,10 +1068,10 @@ impl DrmModeInfo {
 pub struct DrmConnectorInfo {
     pub encoders: Vec<DrmEncoder>,
     pub modes: Vec<DrmModeInfo>,
-    pub _props: Vec<DrmPropertyValue>,
+    _props: Vec<DrmPropertyValue>,
 
-    pub _encoder_id: DrmEncoder,
-    pub _connector_id: DrmConnector,
+    _encoder_id: DrmEncoder,
+    _connector_id: DrmConnector,
     pub connector_type: u32,
     pub connector_type_id: u32,
 

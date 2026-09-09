@@ -13,7 +13,7 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct ExtOutputImageCaptureSourceManagerV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 impl ExtOutputImageCaptureSourceManagerV1Global {
@@ -40,10 +40,10 @@ impl ExtOutputImageCaptureSourceManagerV1Global {
 }
 
 pub struct ExtOutputImageCaptureSourceManagerV1 {
-    pub id: ExtOutputImageCaptureSourceManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: ExtOutputImageCaptureSourceManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl ExtOutputImageCaptureSourceManagerV1RequestHandler for ExtOutputImageCaptureSourceManagerV1 {

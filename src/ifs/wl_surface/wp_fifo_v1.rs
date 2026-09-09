@@ -10,11 +10,11 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct WpFifoV1 {
-    pub id: WpFifoV1Id,
-    pub client: Rc<Client>,
-    pub surface: Rc<WlSurface>,
+    id: WpFifoV1Id,
+    client: Rc<Client>,
+    surface: Rc<WlSurface>,
     pub tracker: Tracker<Self>,
-    pub version: Version,
+    version: Version,
 }
 
 impl WpFifoV1 {

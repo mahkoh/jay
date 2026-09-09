@@ -15,10 +15,10 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct EiPointerAbsolute {
-    pub id: EiPointerAbsoluteId,
-    pub client: Rc<EiClient>,
-    pub tracker: Tracker<Self>,
-    pub version: EiVersion,
+    id: EiPointerAbsoluteId,
+    client: Rc<EiClient>,
+    tracker: Tracker<Self>,
+    version: EiVersion,
     pub device: Rc<EiDevice>,
 }
 

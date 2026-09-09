@@ -13,7 +13,7 @@ pub struct VulkanFence<D>
 where
     D: VulkanDeviceInf,
 {
-    pub device: Rc<D>,
+    device: Rc<D>,
     pub fence: Fence,
 }
 

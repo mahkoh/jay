@@ -17,8 +17,8 @@ use thiserror::Error;
 use uapi::OwnedFd;
 
 pub struct ZwlrDataControlSourceV1 {
-    pub id: ZwlrDataControlSourceV1Id,
-    pub data: DataControlSourceData,
+    id: ZwlrDataControlSourceV1Id,
+    data: DataControlSourceData,
     pub tracker: Tracker<Self>,
 }
 

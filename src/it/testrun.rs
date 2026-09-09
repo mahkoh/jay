@@ -227,6 +227,6 @@ pub struct SmSetup {
 }
 
 pub struct SmOutput {
-    pub vo: Rc<VirtualOutput>,
+    vo: Rc<VirtualOutput>,
     pub node: Rc<OutputNode>,
 }

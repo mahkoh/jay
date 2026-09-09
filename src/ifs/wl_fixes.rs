@@ -11,7 +11,7 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct WlFixesGlobal {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 impl WlFixesGlobal {
@@ -48,10 +48,10 @@ impl Global for WlFixesGlobal {
 }
 
 pub struct WlFixes {
-    pub id: WlFixesId,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: WlFixesId,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl WlFixesRequestHandler for WlFixes {

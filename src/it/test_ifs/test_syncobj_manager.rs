@@ -11,9 +11,9 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestSyncobjManager {
-    pub id: WpLinuxDrmSyncobjManagerV1Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    id: WpLinuxDrmSyncobjManagerV1Id,
+    tran: Rc<TestTransport>,
+    destroyed: Cell<bool>,
 }
 
 impl TestSyncobjManager {

@@ -160,10 +160,10 @@ bitflags! {
 pub struct PwClientNodePort {
     pub node: Rc<PwClientNode>,
 
-    pub direction: SpaDirection,
-    pub id: u32,
+    direction: SpaDirection,
+    id: u32,
 
-    pub _destroyed: Cell<bool>,
+    _destroyed: Cell<bool>,
 
     pub negotiated_format: RefCell<PwClientNodePortFormat>,
     pub supported_formats: RefCell<PwClientNodePortSupportedFormats>,
@@ -176,7 +176,7 @@ pub struct PwClientNodePort {
 
     pub io_buffers: CloneCell<Option<Rc<PwMemTyped<spa_io_buffers>>>>,
 
-    pub serial: Cell<bool>,
+    serial: Cell<bool>,
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -187,11 +187,11 @@ pub struct PwClientNodeBufferConfig {
 }
 
 pub struct PwClientNodeBuffer {
-    pub _meta_header: Option<Rc<PwMemTyped<spa_meta_header>>>,
-    pub _meta_busy: Option<Rc<PwMemTyped<spa_meta_busy>>>,
+    _meta_header: Option<Rc<PwMemTyped<spa_meta_header>>>,
+    _meta_busy: Option<Rc<PwMemTyped<spa_meta_busy>>>,
     pub meta_video_crop: Option<Rc<PwMemTyped<spa_meta_region>>>,
     pub chunks: Vec<Rc<PwMemTyped<spa_chunk>>>,
-    pub _slices: Vec<Rc<PwMemSlice>>,
+    _slices: Vec<Rc<PwMemSlice>>,
 }
 
 #[derive(Clone, Debug)]
@@ -210,12 +210,12 @@ pub struct PwClientNodePortSupportedFormats {
 
 #[derive(Clone, Debug, Default)]
 pub struct PwClientNodePortFormat {
-    pub media_type: Option<SpaMediaType>,
-    pub media_sub_type: Option<SpaMediaSubtype>,
-    pub video_size: Option<PwPodRectangle>,
+    media_type: Option<SpaMediaType>,
+    media_sub_type: Option<SpaMediaSubtype>,
+    video_size: Option<PwPodRectangle>,
     pub format: Option<&'static Format>,
     pub modifiers: Option<Vec<Modifier>>,
-    pub framerate: Option<PwPodFraction>,
+    framerate: Option<PwPodFraction>,
 }
 
 pub struct PwClientNode {
@@ -238,8 +238,8 @@ pub struct PwClientNode {
 }
 
 pub struct PwNodeActivation {
-    pub _activation: Rc<PwMemTyped<pw_node_activation>>,
-    pub _fd: Rc<OwnedFd>,
+    _activation: Rc<PwMemTyped<pw_node_activation>>,
+    _fd: Rc<OwnedFd>,
 }
 
 // pub struct PwNodeBuffer {

@@ -21,7 +21,7 @@ use thiserror::Error;
 pub const PRIMARY_SELECTION_SINCE: Version = Version(2);
 
 pub struct ZwlrDataControlDeviceV1 {
-    pub id: ZwlrDataControlDeviceV1Id,
+    id: ZwlrDataControlDeviceV1Id,
     pub data: DataControlDeviceData<WlrDataControlIpc>,
     pub tracker: Tracker<Self>,
 }

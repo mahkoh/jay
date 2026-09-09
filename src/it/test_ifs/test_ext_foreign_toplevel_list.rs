@@ -12,9 +12,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct TestExtForeignToplevelList {
-    pub id: ExtForeignToplevelListV1Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    id: ExtForeignToplevelListV1Id,
+    tran: Rc<TestTransport>,
+    destroyed: Cell<bool>,
     pub toplevels: RefCell<Vec<Rc<TestExtForeignToplevelHandle>>>,
 }
 

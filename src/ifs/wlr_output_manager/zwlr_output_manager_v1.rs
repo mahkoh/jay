@@ -37,11 +37,11 @@ pub struct ZwlrOutputManagerV1Global {
 }
 
 pub struct ZwlrOutputManagerV1 {
-    pub(super) id: ZwlrOutputManagerV1Id,
-    pub(super) manager_id: WlrOutputManagerId,
-    pub(super) client: Rc<Client>,
-    pub(super) version: Version,
-    pub(super) tracker: Tracker<Self>,
+    id: ZwlrOutputManagerV1Id,
+    manager_id: WlrOutputManagerId,
+    client: Rc<Client>,
+    version: Version,
+    tracker: Tracker<Self>,
     pub(super) done_scheduled: Cell<bool>,
     pub(super) serial: NumCell<u64>,
     pub(super) destroyed: Cell<bool>,

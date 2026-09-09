@@ -53,10 +53,10 @@ impl Global for WpPointerWarpV1Global {
 simple_add_global!(WpPointerWarpV1Global);
 
 pub struct WpPointerWarpV1 {
-    pub id: WpPointerWarpV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: WpPointerWarpV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl WpPointerWarpV1RequestHandler for WpPointerWarpV1 {

@@ -63,7 +63,7 @@ pub struct OrgKdeKwinServerDecorationManager {
     id: OrgKdeKwinServerDecorationManagerId,
     client: Rc<Client>,
     version: Version,
-    pub tracker: Tracker<Self>,
+    tracker: Tracker<Self>,
 }
 
 impl OrgKdeKwinServerDecorationManager {

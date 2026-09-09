@@ -41,14 +41,14 @@ use std::ops::Deref;
 use std::rc::Rc;
 
 pub struct DisplayNode {
-    pub id: NodeId,
+    id: NodeId,
     pub node_state: SplitView<DisplayNodeState>,
     pub outputs: CopyHashMap<ConnectorId, Rc<OutputNode>>,
     pub stacked: Rc<NodesStack>,
     pub stacked_above_layers: Rc<NodesStack>,
     pub stacked_in_overlay: Rc<NodesStack>,
-    pub seat_state: NodeSeatState,
-    pub transaction_data: TransactionData<DisplayTransactionOp>,
+    seat_state: NodeSeatState,
+    transaction_data: TransactionData<DisplayTransactionOp>,
 }
 
 #[derive(Default)]

@@ -19,8 +19,8 @@ const NO_MEMORY: u32 = 2;
 const IMPLEMENTATION: u32 = 3;
 
 pub struct WlDisplay {
-    pub id: WlDisplayId,
-    pub client: Rc<Client>,
+    id: WlDisplayId,
+    client: Rc<Client>,
     pub tracker: Tracker<WlDisplay>,
 }
 

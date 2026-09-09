@@ -93,11 +93,11 @@ impl Global for WpDrmLeaseDeviceV1Global {
 }
 
 pub struct WpDrmLeaseDeviceV1 {
-    pub id: WpDrmLeaseDeviceV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
-    pub bindings: Rc<Bindings<Self>>,
+    id: WpDrmLeaseDeviceV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
+    bindings: Rc<Bindings<Self>>,
     pub device: DrmDeviceId,
     pub destroyed: Cell<bool>,
 }

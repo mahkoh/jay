@@ -57,8 +57,8 @@ mod types;
 
 #[derive(Debug)]
 pub struct CallError {
-    pub name: String,
-    pub msg: Option<String>,
+    name: String,
+    msg: Option<String>,
 }
 
 impl Display for CallError {
@@ -451,7 +451,7 @@ pub unsafe trait Message<'a>: Sized + 'a {
 }
 
 pub struct ErrorMessage<'a> {
-    pub msg: Cow<'a, str>,
+    msg: Cow<'a, str>,
 }
 
 unsafe impl<'a> Message<'a> for ErrorMessage<'a> {

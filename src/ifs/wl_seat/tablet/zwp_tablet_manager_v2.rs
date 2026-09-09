@@ -12,14 +12,14 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct ZwpTabletManagerV2Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 pub struct ZwpTabletManagerV2 {
-    pub id: ZwpTabletManagerV2Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: ZwpTabletManagerV2Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl ZwpTabletManagerV2Global {

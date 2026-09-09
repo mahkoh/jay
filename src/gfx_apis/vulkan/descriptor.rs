@@ -13,7 +13,7 @@ use std::rc::Rc;
 use std::slice;
 
 pub(super) struct VulkanDescriptorSetLayout {
-    pub(super) device: Rc<VulkanDevice>,
+    device: Rc<VulkanDevice>,
     pub(super) layout: DescriptorSetLayout,
     pub(super) size: DeviceSize,
     pub(super) offsets: ArrayVec<DeviceSize, 4>,

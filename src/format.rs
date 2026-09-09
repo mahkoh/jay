@@ -46,7 +46,7 @@ pub struct Format {
     pub pipewire: SpaVideoFormat,
     pub opaque: Option<&'static Format>,
     pub shm_info: Option<FormatShmInfo>,
-    pub config: ConfigFormat,
+    config: ConfigFormat,
     pub bpp: u32,
 }
 

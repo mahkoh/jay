@@ -13,14 +13,14 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct WpFifoManagerV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 pub struct WpFifoManagerV1 {
-    pub id: WpFifoManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: WpFifoManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl WpFifoManagerV1Global {

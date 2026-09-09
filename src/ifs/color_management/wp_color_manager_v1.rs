@@ -58,7 +58,7 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct WpColorManagerV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 impl WpColorManagerV1Global {
@@ -86,10 +86,10 @@ impl WpColorManagerV1Global {
 }
 
 pub struct WpColorManagerV1 {
-    pub id: WpColorManagerV1Id,
-    pub client: Rc<Client>,
-    pub version: Version,
-    pub tracker: Tracker<Self>,
+    id: WpColorManagerV1Id,
+    client: Rc<Client>,
+    version: Version,
+    tracker: Tracker<Self>,
 }
 
 impl WpColorManagerV1 {

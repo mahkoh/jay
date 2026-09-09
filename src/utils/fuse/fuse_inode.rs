@@ -24,7 +24,7 @@ pub enum FuseInodeTy {
 #[derive(Copy, Clone)]
 pub struct FuseInodeProps {
     pub ty: FuseInodeTy,
-    pub writable: bool,
+    writable: bool,
 }
 
 #[derive(Copy, Clone)]

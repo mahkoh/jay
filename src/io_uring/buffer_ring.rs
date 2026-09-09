@@ -62,7 +62,7 @@ pub struct BufferRing {
     _mmapped: Mmapped,
     ctrl: *mut io_uring_buf,
     mask: usize,
-    pub(super) ring: Rc<IoUringData>,
+    ring: Rc<IoUringData>,
     pub(super) bgid: u16,
     buf: *mut u8,
     stride: usize,

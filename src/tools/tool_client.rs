@@ -103,7 +103,7 @@ pub enum ToolClientError {
 pub struct ToolClient {
     pub logger: Arc<Logger>,
     pub ring: Rc<IoUring>,
-    pub _wheel: Rc<Wheel>,
+    _wheel: Rc<Wheel>,
     pub eng: Rc<AsyncEngine>,
     obj_ids: RefCell<Bitfield>,
     handlers: RefCell<
@@ -510,8 +510,8 @@ impl ToolClient {
 
 pub struct Singletons {
     registry: WlRegistryId,
-    pub jay_compositor: (u32, u32),
-    pub jay_damage_tracking: Option<u32>,
+    jay_compositor: (u32, u32),
+    jay_damage_tracking: Option<u32>,
 }
 
 pub trait Handle: RequestParser<'static> {

@@ -155,7 +155,7 @@ pub struct PersistentOutputState {
 #[derive(Eq, Derivative)]
 #[derivative(Debug)]
 pub struct OutputId {
-    pub _connector: Option<String>,
+    _connector: Option<String>,
     pub manufacturer: String,
     pub model: String,
     pub serial_number: String,

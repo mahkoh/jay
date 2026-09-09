@@ -13,11 +13,11 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct JaySyncFileSurface {
-    pub id: JaySyncFileSurfaceId,
-    pub client: Rc<Client>,
-    pub surface: Rc<WlSurface>,
+    id: JaySyncFileSurfaceId,
+    client: Rc<Client>,
+    surface: Rc<WlSurface>,
     pub tracker: Tracker<Self>,
-    pub version: Version,
+    version: Version,
 }
 
 impl JaySyncFileSurface {

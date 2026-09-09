@@ -13,7 +13,7 @@ use std::rc::Rc;
 use std::slice;
 
 pub struct VulkanSampler {
-    pub(super) device: Rc<VulkanDevice>,
+    device: Rc<VulkanDevice>,
     pub(super) create_info: SamplerCreateInfo<'static>,
     pub(super) sampler: Sampler,
 }

@@ -18,7 +18,7 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct ExtIdleNotifierV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 impl ExtIdleNotifierV1Global {
@@ -45,10 +45,10 @@ impl ExtIdleNotifierV1Global {
 }
 
 pub struct ExtIdleNotifierV1 {
-    pub id: ExtIdleNotifierV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: ExtIdleNotifierV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl ExtIdleNotifierV1 {

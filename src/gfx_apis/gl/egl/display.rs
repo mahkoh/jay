@@ -86,15 +86,15 @@ use uapi::c::O_RDWR;
 
 #[derive(Debug)]
 pub struct EglFormat {
-    pub format: &'static Format,
-    pub implicit_external_only: bool,
-    pub modifiers: IndexMap<u64, EglModifier>,
+    format: &'static Format,
+    implicit_external_only: bool,
+    modifiers: IndexMap<u64, EglModifier>,
 }
 
 #[derive(Debug)]
 pub struct EglModifier {
-    pub modifier: u64,
-    pub external_only: bool,
+    modifier: u64,
+    external_only: bool,
 }
 
 #[derive(Debug)]

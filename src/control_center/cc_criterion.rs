@@ -214,8 +214,8 @@ where
 }
 
 pub struct CritRegex {
-    pub text: String,
-    pub regex: Option<Option<Regex>>,
+    text: String,
+    regex: Option<Option<Regex>>,
 }
 
 impl Default for CritRegex {

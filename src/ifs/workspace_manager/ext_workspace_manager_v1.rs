@@ -28,12 +28,12 @@ use thiserror::Error;
 linear_ids!(WorkspaceManagerIds, WorkspaceManagerId, u64);
 
 pub struct ExtWorkspaceManagerV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 pub struct ExtWorkspaceManagerV1 {
     id: ExtWorkspaceManagerV1Id,
-    pub(super) manager_id: WorkspaceManagerId,
+    manager_id: WorkspaceManagerId,
     client: Rc<Client>,
     tracker: Tracker<Self>,
     version: Version,

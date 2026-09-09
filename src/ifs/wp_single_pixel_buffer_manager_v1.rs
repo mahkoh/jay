@@ -53,10 +53,10 @@ impl Global for WpSinglePixelBufferManagerV1Global {
 simple_add_global!(WpSinglePixelBufferManagerV1Global);
 
 pub struct WpSinglePixelBufferManagerV1 {
-    pub id: WpSinglePixelBufferManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: WpSinglePixelBufferManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl WpSinglePixelBufferManagerV1RequestHandler for WpSinglePixelBufferManagerV1 {

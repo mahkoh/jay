@@ -10,7 +10,7 @@ use std::sync::atomic::AtomicU32;
 use uapi::Pod;
 
 #[expect(unused)]
-pub struct AssertPod<T: Pod>(pub PhantomData<T>);
+pub struct AssertPod<T: Pod>(PhantomData<T>);
 
 macro_rules! atomic_ptr {
     ($ty:ident, $atomic:ty, $inner:ty) => {

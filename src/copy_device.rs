@@ -490,10 +490,10 @@ struct VulkanImage {
 #[derive(Copy, Clone)]
 pub struct CopyDeviceSupport {
     pub modifier: Modifier,
-    pub planes: usize,
+    planes: usize,
     pub max_width: u32,
     pub max_height: u32,
-    pub blit: bool,
+    blit: bool,
 }
 
 pub struct CopyDeviceBuffer {

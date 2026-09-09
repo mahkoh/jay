@@ -400,8 +400,8 @@ pub enum ToplevelDataTransactionOp {
 }
 
 pub struct FullscreenedData {
-    pub placeholder: Rc<PlaceholderNode>,
-    pub workspace: Rc<WorkspaceNode>,
+    placeholder: Rc<PlaceholderNode>,
+    workspace: Rc<WorkspaceNode>,
 }
 
 #[derive(Clone)]
@@ -442,7 +442,7 @@ impl ToplevelType {
 pub struct ToplevelData {
     pub node_id: NodeId,
     pub kind: ToplevelType,
-    pub self_active: Cell<bool>,
+    self_active: Cell<bool>,
     pub client: Option<Rc<Client>>,
     pub state: Rc<State>,
     pub active_surfaces: ThresholdCounter,
@@ -458,17 +458,17 @@ pub struct ToplevelData {
     pub pinned: Cell<bool>,
     pub is_fullscreen: SplitView<Cell<bool>>,
     pub self_or_ancestor_is_fullscreen: Cell<bool>,
-    pub fullscrceen_data: RefCell<Option<FullscreenedData>>,
+    fullscrceen_data: RefCell<Option<FullscreenedData>>,
     pub workspace: SplitView<CloneCell<Option<Rc<WorkspaceNode>>>>,
-    pub workspace_type: SplitView<Cell<Option<WorkspaceType>>>,
+    workspace_type: SplitView<Cell<Option<WorkspaceType>>>,
     pub title: RefCell<String>,
     pub parent: CloneCell<Option<Rc<dyn ContainingNode>>>,
-    pub mapped_during_iteration: Cell<u64>,
+    mapped_during_iteration: Cell<u64>,
     pub content_size: Cell<Rect>,
     pub desired_extents: Cell<Rect>,
     pub seat_state: NodeSeatState,
     pub wants_attention: Cell<bool>,
-    pub requested_attention: Cell<bool>,
+    requested_attention: Cell<bool>,
     pub app_id: RefCell<String>,
     pub identifier: Cell<ToplevelIdentifier>,
     pub handles:
@@ -486,12 +486,12 @@ pub struct ToplevelData {
     pub just_mapped_scheduled: Cell<bool>,
     pub seat_foci: CopyHashMap<SeatId, ()>,
     pub content_type: Cell<Option<ContentType>>,
-    pub property_changed_source: OnceCell<Rc<LazyEventSource>>,
+    property_changed_source: OnceCell<Rc<LazyEventSource>>,
     pub session: CloneCell<Option<Rc<ToplevelSession>>>,
     pub is_root_container: SplitView<Cell<bool>>,
     pub is_overlay_root_container: Cell<bool>,
-    pub output_listener: EventListener<dyn OutputEventListener>,
-    pub workspace_listener: EventListener<dyn WorkspaceEventListener>,
+    output_listener: EventListener<dyn OutputEventListener>,
+    workspace_listener: EventListener<dyn WorkspaceEventListener>,
 }
 
 impl ToplevelData {

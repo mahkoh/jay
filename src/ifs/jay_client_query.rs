@@ -32,10 +32,10 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct JayClientQuery {
-    pub id: JayClientQueryId,
-    pub client: Rc<Client>,
+    id: JayClientQueryId,
+    client: Rc<Client>,
     pub tracker: Tracker<Self>,
-    pub version: Version,
+    version: Version,
     ids: CopyHashMap<ClientId, ()>,
     all: Cell<bool>,
     matches: RefCell<Vec<Rc<dyn CritUpstreamNode<Rc<Client>>>>>,

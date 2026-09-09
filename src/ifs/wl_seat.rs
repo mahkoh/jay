@@ -1813,8 +1813,8 @@ dedicated_add_global!(WlSeatGlobal, seats);
 
 pub struct WlSeat {
     pub global: Rc<WlSeatGlobal>,
-    pub id: WlSeatId,
-    pub client: Rc<Client>,
+    id: WlSeatId,
+    client: Rc<Client>,
     pointers: CopyHashMap<WlPointerId, Rc<WlPointer>>,
     relative_pointers: CopyHashMap<ZwpRelativePointerV1Id, Rc<ZwpRelativePointerV1>>,
     keyboards: CopyHashMap<WlKeyboardId, Rc<WlKeyboard>>,

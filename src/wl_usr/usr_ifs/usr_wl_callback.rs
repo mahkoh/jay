@@ -9,9 +9,9 @@ use std::rc::Rc;
 
 pub struct UsrWlCallback {
     pub id: WlCallbackId,
-    pub con: Rc<UsrCon>,
+    con: Rc<UsrCon>,
     pub owner: Cell<Option<Rc<dyn UsrWlCallbackOwner>>>,
-    pub version: Version,
+    version: Version,
 }
 
 pub trait UsrWlCallbackOwner {

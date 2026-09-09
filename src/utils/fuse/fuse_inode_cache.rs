@@ -142,7 +142,7 @@ pub(super) struct FoundInode {
 
 #[derive(Copy, Clone)]
 pub(super) struct FuseInodePropsExt {
-    pub(super) props: FuseInodeProps,
+    props: FuseInodeProps,
     pub(super) ino: FuseIno,
     pub(super) key: u64,
     pub(super) depth: u64,
