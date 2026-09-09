@@ -96,32 +96,32 @@ pub struct SourcesSelectedScreencast {
 
 #[derive(Clone)]
 pub struct SelectingScreencastCore {
-    pub session: Rc<PortalSession>,
-    pub request_obj: Rc<DbusObject>,
+    session: Rc<PortalSession>,
+    request_obj: Rc<DbusObject>,
 }
 
 pub struct SelectingScreencast {
-    pub core: SelectingScreencastCore,
+    core: SelectingScreencastCore,
     pub guis: CopyHashMap<PortalDisplayId, Rc<SelectionGui>>,
-    pub restore_data: Cell<Option<RestoreData>>,
+    restore_data: Cell<Option<RestoreData>>,
 }
 
 pub struct SelectingWindowScreencast {
-    pub core: SelectingScreencastCore,
+    core: SelectingScreencastCore,
     pub dpy: Rc<PortalDisplay>,
     pub selector: Rc<UsrJaySelectToplevel>,
-    pub restoring: bool,
+    restoring: bool,
 }
 
 pub struct SelectingWorkspaceScreencast {
-    pub core: SelectingScreencastCore,
+    core: SelectingScreencastCore,
     pub dpy: Rc<PortalDisplay>,
     pub selector: Rc<UsrJaySelectWorkspace>,
 }
 
 pub struct StartingScreencast {
-    pub session: Rc<PortalSession>,
-    pub _request_obj: Rc<DbusObject>,
+    session: Rc<PortalSession>,
+    _request_obj: Rc<DbusObject>,
     pub node: Rc<PwClientNode>,
     pub dpy: Rc<PortalDisplay>,
     pub target: ScreencastTarget,
@@ -134,21 +134,21 @@ pub enum ScreencastTarget {
 }
 
 pub struct StartedScreencast {
-    pub session: Rc<PortalSession>,
+    session: Rc<PortalSession>,
     pub node: Rc<PwClientNode>,
-    pub port: Rc<PwClientNodePort>,
-    pub buffer_objects: RefCell<Vec<Rc<dyn BufferObject>>>,
-    pub buffers: RefCell<Vec<Rc<DmaBuf>>>,
+    port: Rc<PwClientNodePort>,
+    buffer_objects: RefCell<Vec<Rc<dyn BufferObject>>>,
+    buffers: RefCell<Vec<Rc<DmaBuf>>>,
     pub pending_buffers: RefCell<Vec<Rc<UsrLinuxBufferParams>>>,
-    pub buffers_valid: Cell<bool>,
+    buffers_valid: Cell<bool>,
     pub dpy: Rc<PortalDisplay>,
     pub jay_screencast: Rc<UsrJayScreencast>,
-    pub port_buffer_valid: Cell<bool>,
-    pub fixated: Cell<bool>,
-    pub format: Cell<&'static Format>,
-    pub modifier: Cell<Modifier>,
-    pub width: Cell<i32>,
-    pub height: Cell<i32>,
+    port_buffer_valid: Cell<bool>,
+    fixated: Cell<bool>,
+    format: Cell<&'static Format>,
+    modifier: Cell<Modifier>,
+    width: Cell<i32>,
+    height: Cell<i32>,
 }
 
 bitflags! {
@@ -389,7 +389,7 @@ impl StartedScreencast {
 }
 
 impl SelectingScreencastCore {
-    pub fn starting(&self, dpy: &Rc<PortalDisplay>, target: ScreencastTarget) {
+    fn starting(&self, dpy: &Rc<PortalDisplay>, target: ScreencastTarget) {
         let Some(pw_con) = &self.session.pw_con else {
             self.session.kill();
             return;

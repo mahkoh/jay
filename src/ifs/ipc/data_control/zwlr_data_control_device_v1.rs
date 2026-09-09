@@ -21,7 +21,7 @@ use thiserror::Error;
 pub const PRIMARY_SELECTION_SINCE: Version = Version(2);
 
 pub struct ZwlrDataControlDeviceV1 {
-    pub id: ZwlrDataControlDeviceV1Id,
+    id: ZwlrDataControlDeviceV1Id,
     pub data: DataControlDeviceData<WlrDataControlIpc>,
     pub tracker: Tracker<Self>,
 }
@@ -47,14 +47,14 @@ impl ZwlrDataControlDeviceV1 {
         }
     }
 
-    pub fn send_data_offer(&self, offer: &Rc<ZwlrDataControlOfferV1>) {
+    fn send_data_offer(&self, offer: &Rc<ZwlrDataControlOfferV1>) {
         self.data.client.event(DataOffer {
             self_id: self.id,
             id: offer.id,
         })
     }
 
-    pub fn send_selection(&self, offer: Option<&Rc<ZwlrDataControlOfferV1>>) {
+    fn send_selection(&self, offer: Option<&Rc<ZwlrDataControlOfferV1>>) {
         let id = offer
             .map(|o| o.id)
             .unwrap_or(ZwlrDataControlOfferV1Id::NONE);
@@ -64,7 +64,7 @@ impl ZwlrDataControlDeviceV1 {
         })
     }
 
-    pub fn send_primary_selection(&self, offer: Option<&Rc<ZwlrDataControlOfferV1>>) {
+    fn send_primary_selection(&self, offer: Option<&Rc<ZwlrDataControlOfferV1>>) {
         let id = offer
             .map(|o| o.id)
             .unwrap_or(ZwlrDataControlOfferV1Id::NONE);

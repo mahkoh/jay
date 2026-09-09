@@ -29,7 +29,7 @@ pub enum TestSessionResult {
 }
 
 impl TestSession {
-    pub fn destroy(&self) -> Result<(), TestError> {
+    fn destroy(&self) -> Result<(), TestError> {
         if !self.destroyed.replace(true) {
             self.tran.send(Destroy { self_id: self.id })?;
         }
@@ -52,7 +52,7 @@ impl TestSession {
         self.add_toplevel2(win.tl.server.id, name)
     }
 
-    pub fn add_toplevel2(
+    fn add_toplevel2(
         &self,
         toplevel: XdgToplevelId,
         name: &str,
@@ -82,7 +82,7 @@ impl TestSession {
         self.restore_toplevel2(win.tl.server.id, name)
     }
 
-    pub fn restore_toplevel2(
+    fn restore_toplevel2(
         &self,
         toplevel: XdgToplevelId,
         name: &str,
@@ -132,7 +132,7 @@ impl TestSession {
         }
     }
 
-    pub async fn result(&self) -> TestSessionResult {
+    async fn result(&self) -> TestSessionResult {
         poll_fn(|ctx| {
             if let Some(res) = self.result.take() {
                 return Poll::Ready(res);

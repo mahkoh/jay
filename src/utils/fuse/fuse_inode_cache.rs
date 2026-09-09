@@ -142,7 +142,7 @@ pub(super) struct FoundInode {
 
 #[derive(Copy, Clone)]
 pub(super) struct FuseInodePropsExt {
-    pub(super) props: FuseInodeProps,
+    props: FuseInodeProps,
     pub(super) ino: FuseIno,
     pub(super) key: u64,
     pub(super) depth: u64,
@@ -286,7 +286,7 @@ impl InodeCache {
         props
     }
 
-    pub(super) fn next_ino(&self) -> FuseIno {
+    fn next_ino(&self) -> FuseIno {
         unsafe { FuseIno(NonZeroU64::new_unchecked(self.next_ino.fetch_add(1))) }
     }
 

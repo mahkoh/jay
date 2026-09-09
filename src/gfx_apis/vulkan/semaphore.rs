@@ -10,7 +10,7 @@ use std::rc::Rc;
 use uapi::OwnedFd;
 
 pub struct VulkanSemaphore {
-    pub(super) device: Rc<VulkanDevice>,
+    device: Rc<VulkanDevice>,
     pub(super) semaphore: Semaphore,
 }
 

@@ -14,14 +14,14 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct ZwpInputMethodManagerV2Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 pub struct ZwpInputMethodManagerV2 {
-    pub id: ZwpInputMethodManagerV2Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: ZwpInputMethodManagerV2Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl ZwpInputMethodManagerV2Global {

@@ -103,7 +103,7 @@ impl PageAlloc {
 }
 
 impl PageAllocEntry {
-    pub fn is_in_alloc(&self, alloc: &PageAlloc) -> bool {
+    fn is_in_alloc(&self, alloc: &PageAlloc) -> bool {
         self.alloc_id == alloc.id
     }
 

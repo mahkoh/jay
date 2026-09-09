@@ -555,7 +555,7 @@ impl EggContext {
 }
 
 impl EggContextInner {
-    pub fn add_seat(self: &Rc<Self>, global_name: GlobalName) {
+    fn add_seat(self: &Rc<Self>, global_name: GlobalName) {
         let wl_seat = Rc::new(UsrWlSeat {
             id: self.con.id(),
             con: self.con.clone(),
@@ -599,7 +599,7 @@ impl EggContextInner {
 const TEXT_PLAIN: &str = "text/plain;charset=utf-8";
 
 impl EggSeatInner {
-    pub fn request_paste(self: &Rc<Self>) {
+    fn request_paste(self: &Rc<Self>) {
         let Some(offer) = self.wl_data_device.selection.get() else {
             return;
         };

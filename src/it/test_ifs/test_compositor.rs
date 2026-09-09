@@ -10,8 +10,8 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestCompositor {
-    pub id: WlCompositorId,
-    pub tran: Rc<TestTransport>,
+    id: WlCompositorId,
+    tran: Rc<TestTransport>,
 }
 
 impl TestCompositor {

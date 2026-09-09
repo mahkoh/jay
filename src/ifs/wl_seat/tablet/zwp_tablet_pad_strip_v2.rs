@@ -21,7 +21,7 @@ pub struct ZwpTabletPadStripV2 {
 }
 
 impl ZwpTabletPadStripV2 {
-    pub fn detach(&self) {
+    fn detach(&self) {
         self.strip.bindings.remove(&self.seat);
     }
 

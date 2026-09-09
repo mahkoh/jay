@@ -380,7 +380,7 @@ pub struct Client {
     swapchain: Rc<RefCell<OutBufferSwapchain>>,
     flush_request: AsyncEvent,
     shutdown: AsyncEvent,
-    pub tracker: Tracker<Client>,
+    tracker: Tracker<Client>,
     pub is_xwayland: bool,
     pub effective_caps: Cell<ClientCaps>,
     pub bounding_caps_for_children: Cell<ClientCaps>,
@@ -415,7 +415,7 @@ pub struct SerialRange {
 }
 
 impl Client {
-    pub fn invalid_request(&self, obj: &dyn Object, request: u32) {
+    fn invalid_request(&self, obj: &dyn Object, request: u32) {
         log::error!(
             "Client {} sent an invalid request {} on object {} of type {}",
             self.id.0,
@@ -489,7 +489,7 @@ impl Client {
         }
     }
 
-    pub fn display(&self) -> Result<Rc<WlDisplay>, ClientError> {
+    fn display(&self) -> Result<Rc<WlDisplay>, ClientError> {
         match self.objects.display.get() {
             Some(d) => Ok(d),
             _ => Err(ClientError::NotADisplay(WL_DISPLAY_ID)),
@@ -626,7 +626,7 @@ impl Client {
         self.terminate.trigger();
     }
 
-    pub fn shutdown(&self) {
+    fn shutdown(&self) {
         self.terminate_shutdown.set(true);
         self.terminate.trigger();
     }

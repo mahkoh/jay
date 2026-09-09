@@ -96,43 +96,43 @@ pub struct LibInputEvent<'a> {
 }
 
 pub struct LibInputEventKeyboard<'a> {
-    pub(super) event: *mut libinput_event_keyboard,
-    pub(super) _phantom: PhantomData<&'a ()>,
+    event: *mut libinput_event_keyboard,
+    _phantom: PhantomData<&'a ()>,
 }
 
 pub struct LibInputEventPointer<'a> {
-    pub(super) event: *mut libinput_event_pointer,
-    pub(super) _phantom: PhantomData<&'a ()>,
+    event: *mut libinput_event_pointer,
+    _phantom: PhantomData<&'a ()>,
 }
 
 pub struct LibInputEventGesture<'a> {
-    pub(super) event: *mut libinput_event_gesture,
-    pub(super) _phantom: PhantomData<&'a ()>,
+    event: *mut libinput_event_gesture,
+    _phantom: PhantomData<&'a ()>,
 }
 
 pub struct LibInputEventSwitch<'a> {
-    pub(super) event: *mut libinput_event_switch,
-    pub(super) _phantom: PhantomData<&'a ()>,
+    event: *mut libinput_event_switch,
+    _phantom: PhantomData<&'a ()>,
 }
 
 pub struct LibInputEventTabletTool<'a> {
-    pub(super) event: *mut libinput_event_tablet_tool,
-    pub(super) _phantom: PhantomData<&'a ()>,
+    event: *mut libinput_event_tablet_tool,
+    _phantom: PhantomData<&'a ()>,
 }
 
 pub struct LibInputEventTabletPad<'a> {
-    pub(super) event: *mut libinput_event_tablet_pad,
-    pub(super) _phantom: PhantomData<&'a ()>,
+    event: *mut libinput_event_tablet_pad,
+    _phantom: PhantomData<&'a ()>,
 }
 
 pub struct LibInputTabletTool<'a> {
-    pub(super) tool: *mut libinput_tablet_tool,
-    pub(super) _phantom: PhantomData<&'a ()>,
+    tool: *mut libinput_tablet_tool,
+    _phantom: PhantomData<&'a ()>,
 }
 
 pub struct LibInputEventTouch<'a> {
-    pub(super) event: *mut libinput_event_touch,
-    pub(super) _phantom: PhantomData<&'a ()>,
+    event: *mut libinput_event_touch,
+    _phantom: PhantomData<&'a ()>,
 }
 
 impl<'a> Drop for LibInputEvent<'a> {

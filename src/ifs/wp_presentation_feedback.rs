@@ -70,7 +70,7 @@ pub const KIND_ZERO_COPY: u32 = 0x8;
 pub const VRR_REFRESH_SINCE: Version = Version(2);
 
 impl WpPresentationFeedback {
-    pub fn send_sync_output(&self, output: &WlOutput) {
+    fn send_sync_output(&self, output: &WlOutput) {
         self.client.event(SyncOutput {
             self_id: self.id,
             output: output.id,

@@ -56,10 +56,10 @@ use std::sync::Arc;
 
 #[derive(Default)]
 pub struct GuiElementData {
-    pub x: Cell<f32>,
-    pub y: Cell<f32>,
-    pub width: Cell<f32>,
-    pub height: Cell<f32>,
+    x: Cell<f32>,
+    y: Cell<f32>,
+    width: Cell<f32>,
+    height: Cell<f32>,
 }
 
 pub trait GuiElement {
@@ -95,18 +95,13 @@ pub trait GuiElement {
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct ButtonExtents {
-    pub width: f32,
-    pub height: f32,
-    pub tex_off_x: f32,
-    pub tex_off_y: f32,
+    width: f32,
+    height: f32,
+    tex_off_x: f32,
+    tex_off_y: f32,
 }
 
-pub fn button_extents(
-    msmt: &TextMeasurement,
-    scale: f32,
-    padding: f32,
-    border: f32,
-) -> ButtonExtents {
+fn button_extents(msmt: &TextMeasurement, scale: f32, padding: f32, border: f32) -> ButtonExtents {
     let above_baseline_height =
         (msmt.baseline - msmt.ink_rect.y1().max(msmt.logical_rect.y1())) as f32 / scale;
     let height = above_baseline_height + 2.0 * (padding + border);
@@ -125,10 +120,10 @@ pub fn button_extents(
 #[derive(Derivative)]
 #[derivative(Default)]
 pub struct Button {
-    pub data: GuiElementData,
-    pub tex_off_x: Cell<f32>,
-    pub tex_off_y: Cell<f32>,
-    pub hover: RefCell<BHashSet<GlobalName>>,
+    data: GuiElementData,
+    tex_off_x: Cell<f32>,
+    tex_off_y: Cell<f32>,
+    hover: RefCell<BHashSet<GlobalName>>,
     pub padding: Cell<f32>,
     pub border: Cell<f32>,
     #[derivative(Default(value = "Cell::new(Color::from_gray_srgb(0))"))]
@@ -139,8 +134,8 @@ pub struct Button {
     pub bg_hover_color: Cell<Color>,
     pub text: RefCell<String>,
     #[derivative(Default(value = "Arc::new(DEFAULT_FONT.to_string())"))]
-    pub font: Arc<String>,
-    pub tex: CloneCell<Option<Rc<dyn GfxTexture>>>,
+    font: Arc<String>,
+    tex: CloneCell<Option<Rc<dyn GfxTexture>>>,
     pub owner: CloneCell<Option<Rc<dyn ButtonOwner>>>,
 }
 
@@ -260,11 +255,11 @@ const DEFAULT_FONT: &str = "sans-serif 16";
 #[derive(Derivative)]
 #[derivative(Default)]
 pub struct Label {
-    pub data: GuiElementData,
+    data: GuiElementData,
     #[derivative(Default(value = "Arc::new(DEFAULT_FONT.into())"))]
-    pub font: Arc<String>,
+    font: Arc<String>,
     pub text: RefCell<String>,
-    pub tex: CloneCell<Option<Rc<dyn GfxTexture>>>,
+    tex: CloneCell<Option<Rc<dyn GfxTexture>>>,
 }
 
 impl GuiElement for Label {
@@ -336,7 +331,7 @@ pub enum Orientation {
 
 #[derive(Default)]
 pub struct Flow {
-    pub data: GuiElementData,
+    data: GuiElementData,
     pub in_margin: Cell<f32>,
     pub cross_margin: Cell<f32>,
     pub orientation: Cell<Orientation>,
@@ -451,9 +446,9 @@ impl GuiElement for Flow {
 }
 
 pub struct OverlayWindow {
-    pub layer_surface: Rc<UsrWlrLayerSurface>,
+    layer_surface: Rc<UsrWlrLayerSurface>,
     pub data: Rc<WindowData>,
-    pub owner: CloneCell<Option<Rc<dyn OverlayWindowOwner>>>,
+    owner: CloneCell<Option<Rc<dyn OverlayWindowOwner>>>,
 }
 
 pub trait OverlayWindowOwner {
@@ -461,31 +456,31 @@ pub trait OverlayWindowOwner {
 }
 
 pub struct WindowData {
-    pub frame_missed: Cell<bool>,
-    pub first_scale: Cell<bool>,
-    pub have_frame: Cell<bool>,
-    pub scale: Cell<Scale>,
-    pub render_trigger: AsyncEvent,
-    pub render_task: Cell<Option<SpawnedFuture<()>>>,
-    pub dpy: Rc<PortalDisplay>,
+    frame_missed: Cell<bool>,
+    first_scale: Cell<bool>,
+    have_frame: Cell<bool>,
+    scale: Cell<Scale>,
+    render_trigger: AsyncEvent,
+    render_task: Cell<Option<SpawnedFuture<()>>>,
+    dpy: Rc<PortalDisplay>,
     pub content: CloneCell<Option<Rc<dyn GuiElement>>>,
     pub surface: Rc<UsrWlSurface>,
-    pub viewport: Rc<UsrWpViewport>,
-    pub fractional_scale: Rc<UsrWpFractionalScale>,
-    pub bufs: RefCell<Vec<Rc<GuiBuffer>>>,
+    viewport: Rc<UsrWpViewport>,
+    fractional_scale: Rc<UsrWpFractionalScale>,
+    bufs: RefCell<Vec<Rc<GuiBuffer>>>,
     pending_bufs: CopyHashMap<ZwpLinuxBufferParamsV1Id, Rc<GuiBufferPending>>,
-    pub width: Cell<i32>,
-    pub height: Cell<i32>,
-    pub owner: CloneCell<Option<Rc<dyn WindowDataOwner>>>,
-    pub seats: CopyHashMap<GlobalName, Rc<GuiWindowSeatState>>,
+    width: Cell<i32>,
+    height: Cell<i32>,
+    owner: CloneCell<Option<Rc<dyn WindowDataOwner>>>,
+    seats: CopyHashMap<GlobalName, Rc<GuiWindowSeatState>>,
 }
 
 #[derive(Default)]
 pub struct GuiWindowSeatState {
-    pub x: Cell<f32>,
-    pub y: Cell<f32>,
-    pub tree: RefCell<Vec<Rc<dyn GuiElement>>>,
-    pub cursor: Cell<Option<KnownCursor>>,
+    x: Cell<f32>,
+    y: Cell<f32>,
+    tree: RefCell<Vec<Rc<dyn GuiElement>>>,
+    cursor: Cell<Option<KnownCursor>>,
 }
 
 pub trait WindowDataOwner {
@@ -533,11 +528,11 @@ impl OverlayWindow {
 }
 
 impl WindowData {
-    pub fn schedule_render(&self) {
+    fn schedule_render(&self) {
         self.render_trigger.trigger();
     }
 
-    pub fn new(dpy: &Rc<PortalDisplay>) -> Rc<Self> {
+    fn new(dpy: &Rc<PortalDisplay>) -> Rc<Self> {
         let surface = dpy.comp.create_surface();
         let viewport = dpy.vp.get_viewport(&surface);
         let fractional_scale = dpy.fsm.get_fractional_scale(&surface);
@@ -570,7 +565,7 @@ impl WindowData {
         data
     }
 
-    pub fn layout(&self) {
+    fn layout(&self) {
         let ctx = match self.dpy.render_ctx.get() {
             Some(ctx) => ctx,
             _ => return,
@@ -673,7 +668,7 @@ impl WindowData {
         }
     }
 
-    pub fn allocate_buffers(self: &Rc<Self>) {
+    fn allocate_buffers(self: &Rc<Self>) {
         {
             for buf in self.pending_bufs.lock().drain_values() {
                 buf.params.con.remove_obj(buf.params.deref());
@@ -825,20 +820,20 @@ impl WindowData {
 }
 
 pub struct GuiBuffer {
-    pub wl: Rc<UsrWlBuffer>,
-    pub window: Rc<WindowData>,
-    pub fb: Rc<dyn GfxFramebuffer>,
-    pub _bo: Option<Rc<dyn BufferObject>>,
-    pub free: Cell<bool>,
-    pub _size: (i32, i32),
+    wl: Rc<UsrWlBuffer>,
+    window: Rc<WindowData>,
+    fb: Rc<dyn GfxFramebuffer>,
+    _bo: Option<Rc<dyn BufferObject>>,
+    free: Cell<bool>,
+    _size: (i32, i32),
 }
 
 struct GuiBufferPending {
-    pub bo: Cell<Option<Rc<dyn BufferObject>>>,
-    pub window: Rc<WindowData>,
-    pub fb: Rc<dyn GfxFramebuffer>,
-    pub params: Rc<UsrLinuxBufferParams>,
-    pub size: (i32, i32),
+    bo: Cell<Option<Rc<dyn BufferObject>>>,
+    window: Rc<WindowData>,
+    fb: Rc<dyn GfxFramebuffer>,
+    params: Rc<UsrLinuxBufferParams>,
+    size: (i32, i32),
 }
 
 impl UsrWlBufferOwner for GuiBuffer {

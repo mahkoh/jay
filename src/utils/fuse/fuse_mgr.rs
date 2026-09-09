@@ -21,11 +21,11 @@ use std::rc::Rc;
 pub(super) struct FuseIno(pub(super) NonZeroU64);
 
 pub struct FuseMgr {
-    pub(super) run_toplevel: Rc<RunToplevel>,
+    run_toplevel: Rc<RunToplevel>,
     pub(super) eng: Rc<AsyncEngine>,
     pub(super) ring: Rc<IoUring>,
-    pub(super) shutdown: Rc<FuseMgrShutdownQueue>,
-    pub(super) _task: SpawnedFuture<()>,
+    shutdown: Rc<FuseMgrShutdownQueue>,
+    _task: SpawnedFuture<()>,
 }
 
 pub(super) struct FuseMgrShutdownQueue {
@@ -66,7 +66,7 @@ impl FuseMgr {
         }
     }
 
-    pub fn mount(
+    fn mount(
         &self,
         forker: Option<Rc<ForkerProxy>>,
         owner: Rc<dyn FuseMountOwner>,

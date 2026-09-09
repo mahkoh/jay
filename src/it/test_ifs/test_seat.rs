@@ -24,7 +24,7 @@ pub struct TestSeat {
 }
 
 impl TestSeat {
-    pub fn destroy(&self) -> Result<(), TestError> {
+    fn destroy(&self) -> Result<(), TestError> {
         if self.destroyed.set() {
             self.tran.send(Release { self_id: self.id })?;
         }

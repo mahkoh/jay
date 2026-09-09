@@ -14,14 +14,14 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct ExtTransientSeatManagerV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 pub struct ExtTransientSeatManagerV1 {
-    pub id: ExtTransientSeatManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: ExtTransientSeatManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl ExtTransientSeatManagerV1Global {

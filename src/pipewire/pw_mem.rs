@@ -32,9 +32,9 @@ pub struct PwMem {
 }
 
 pub struct PwMemMap {
-    pub _mem: Rc<PwMem>,
-    pub range: Range<usize>,
-    pub map: Mmapped,
+    _mem: Rc<PwMem>,
+    range: Range<usize>,
+    map: Mmapped,
 }
 
 pub struct PwMemTyped<T> {
@@ -59,7 +59,7 @@ impl PwMemPool {
 }
 
 impl PwMem {
-    pub fn map(self: &Rc<Self>, offset: u32, size: u32) -> Result<Rc<PwMemMap>, PwMemError> {
+    fn map(self: &Rc<Self>, offset: u32, size: u32) -> Result<Rc<PwMemMap>, PwMemError> {
         let mask = page_size() - 1;
         let offset = offset as usize;
         let size = size as usize;

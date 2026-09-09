@@ -74,11 +74,11 @@ pub trait DataControlDevice: WaylandObject {
 }
 
 pub struct DataControlOfferData<T: DataControlIpc> {
-    pub offer_id: DataOfferId,
+    offer_id: DataOfferId,
     pub client: Rc<Client>,
     pub device: Rc<T::Device>,
-    pub data: OfferData<T::Device>,
-    pub location: IpcLocation,
+    data: OfferData<T::Device>,
+    location: IpcLocation,
 }
 
 pub trait DataControlOffer: WaylandObject {

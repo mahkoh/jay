@@ -9,9 +9,9 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestDmabuf {
-    pub id: ZwpLinuxDmabufV1Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    id: ZwpLinuxDmabufV1Id,
+    tran: Rc<TestTransport>,
+    destroyed: Cell<bool>,
 }
 
 impl TestDmabuf {
@@ -23,7 +23,7 @@ impl TestDmabuf {
         }
     }
 
-    pub fn destroy(&self) -> TestResult {
+    fn destroy(&self) -> TestResult {
         if !self.destroyed.replace(true) {
             self.tran.send(Destroy { self_id: self.id })?;
         }

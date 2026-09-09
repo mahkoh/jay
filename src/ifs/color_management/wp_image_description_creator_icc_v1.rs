@@ -11,10 +11,10 @@ use std::rc::Rc;
 
 #[expect(unused)]
 pub struct WpImageDescriptionCreatorIccV1 {
-    pub id: WpImageDescriptionCreatorIccV1Id,
-    pub client: Rc<Client>,
-    pub version: Version,
-    pub tracker: Tracker<Self>,
+    id: WpImageDescriptionCreatorIccV1Id,
+    client: Rc<Client>,
+    version: Version,
+    tracker: Tracker<Self>,
 }
 
 impl WpImageDescriptionCreatorIccV1RequestHandler for WpImageDescriptionCreatorIccV1 {

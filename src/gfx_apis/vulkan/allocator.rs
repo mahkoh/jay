@@ -61,7 +61,7 @@ pub struct VulkanAllocation {
     pub(super) offset: DeviceSize,
     pub(super) mem: Option<*mut u8>,
     pub(super) size: DeviceSize,
-    pub(super) coherency_mask: Option<u64>,
+    coherency_mask: Option<u64>,
     block: Cell<Option<MemoryBlock<DeviceMemory>>>,
 }
 

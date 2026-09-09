@@ -54,10 +54,10 @@ impl Global for WpTearingControlManagerV1Global {
 simple_add_global!(WpTearingControlManagerV1Global);
 
 pub struct WpTearingControlManagerV1 {
-    pub id: WpTearingControlManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: WpTearingControlManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 object_base! {

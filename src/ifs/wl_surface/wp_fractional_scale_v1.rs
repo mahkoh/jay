@@ -13,11 +13,11 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct WpFractionalScaleV1 {
-    pub id: WpFractionalScaleV1Id,
-    pub client: Rc<Client>,
-    pub surface: Rc<WlSurface>,
+    id: WpFractionalScaleV1Id,
+    client: Rc<Client>,
+    surface: Rc<WlSurface>,
     pub tracker: Tracker<Self>,
-    pub version: Version,
+    version: Version,
 }
 
 impl WpFractionalScaleV1 {

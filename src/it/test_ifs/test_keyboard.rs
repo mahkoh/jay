@@ -16,7 +16,7 @@ use std::rc::Rc;
 pub struct TestEnterEvent {
     pub serial: u32,
     pub surface: WlSurfaceId,
-    pub _keys: Vec<u32>,
+    _keys: Vec<u32>,
 }
 
 pub struct TestKeyboard {
@@ -33,7 +33,7 @@ pub struct TestKeyboard {
 }
 
 impl TestKeyboard {
-    pub fn destroy(&self) -> TestResult {
+    fn destroy(&self) -> TestResult {
         if self.destroyed.set() {
             self.tran.send(Release { self_id: self.id })?;
         }

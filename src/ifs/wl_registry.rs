@@ -111,15 +111,15 @@ efrom!(WlRegistryError, GlobalsError);
 
 #[derive(Debug)]
 pub struct InterfaceError {
-    pub name: GlobalName,
-    pub interface: Interface,
-    pub actual: String,
+    name: GlobalName,
+    interface: Interface,
+    actual: String,
 }
 
 #[derive(Debug)]
 pub struct VersionError {
-    pub name: GlobalName,
-    pub interface: Interface,
-    pub version: u32,
-    pub actual: u32,
+    name: GlobalName,
+    interface: Interface,
+    version: u32,
+    actual: u32,
 }

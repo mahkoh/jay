@@ -207,7 +207,7 @@ impl<'a> PwParser<'a> {
         }
     }
 
-    pub fn read_value(&mut self) -> Result<PwPod<'a>, PwParserError> {
+    fn read_value(&mut self) -> Result<PwPod<'a>, PwParserError> {
         let mut v = self.read_pod();
         if let Ok(PwPod::Choice(v)) = &mut v
             && v.ty == PW_CHOICE_None
@@ -236,7 +236,7 @@ impl<'a> PwParser<'a> {
         self.read_pod_body2(ty, len, true)
     }
 
-    pub fn read_pod_body(&mut self, ty: PwPodType, len: usize) -> Result<PwPod<'a>, PwParserError> {
+    fn read_pod_body(&mut self, ty: PwPodType, len: usize) -> Result<PwPod<'a>, PwParserError> {
         self.read_pod_body2(ty, len, false)
     }
 

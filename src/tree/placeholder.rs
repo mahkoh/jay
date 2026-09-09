@@ -124,7 +124,7 @@ impl PlaceholderNode {
         self.destroyed.get()
     }
 
-    pub fn schedule_update_texture(self: &Rc<Self>) {
+    fn schedule_update_texture(self: &Rc<Self>) {
         if !self.update_textures_scheduled.replace(true) {
             self.state
                 .pending_placeholder_render_textures

@@ -21,7 +21,7 @@ pub struct WlCompositor {
     id: WlCompositorId,
     client: Rc<Client>,
     version: Version,
-    pub tracker: Tracker<Self>,
+    tracker: Tracker<Self>,
 }
 
 impl WlCompositorGlobal {

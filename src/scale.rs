@@ -92,7 +92,7 @@ pub struct Scales {
 #[jay_hash]
 #[jay_clone(Copy)]
 #[derive(Debug, Eq, Ord, PartialOrd)]
-pub struct ScaleIndex(pub usize);
+pub struct ScaleIndex(usize);
 
 impl ScaleIndex {
     pub const INVALID: Self = Self(usize::MAX);

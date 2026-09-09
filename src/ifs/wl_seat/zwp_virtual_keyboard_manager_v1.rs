@@ -16,14 +16,14 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct ZwpVirtualKeyboardManagerV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 pub struct ZwpVirtualKeyboardManagerV1 {
-    pub id: ZwpVirtualKeyboardManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: ZwpVirtualKeyboardManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl ZwpVirtualKeyboardManagerV1Global {

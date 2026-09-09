@@ -32,7 +32,7 @@ pub struct VulkanBuffer {
 pub struct VulkanBufferUncached {
     device: Rc<VulkanDevice>,
     pub size: DeviceSize,
-    pub buffer: Buffer,
+    buffer: Buffer,
     pub allocation: VulkanAllocation,
     pub address: DeviceAddress,
 }

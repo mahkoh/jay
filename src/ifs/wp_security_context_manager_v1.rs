@@ -12,7 +12,7 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct WpSecurityContextManagerV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 impl WpSecurityContextManagerV1Global {
@@ -53,10 +53,10 @@ impl Global for WpSecurityContextManagerV1Global {
 simple_add_global!(WpSecurityContextManagerV1Global);
 
 pub struct WpSecurityContextManagerV1 {
-    pub id: WpSecurityContextManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: WpSecurityContextManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl WpSecurityContextManagerV1RequestHandler for WpSecurityContextManagerV1 {

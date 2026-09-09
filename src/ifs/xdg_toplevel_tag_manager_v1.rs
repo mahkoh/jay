@@ -54,10 +54,10 @@ impl Global for XdgToplevelTagManagerV1Global {
 simple_add_global!(XdgToplevelTagManagerV1Global);
 
 pub struct XdgToplevelTagManagerV1 {
-    pub id: XdgToplevelTagManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: XdgToplevelTagManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl XdgToplevelTagManagerV1RequestHandler for XdgToplevelTagManagerV1 {

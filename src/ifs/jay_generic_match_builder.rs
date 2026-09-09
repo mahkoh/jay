@@ -114,11 +114,11 @@ where
 }
 
 pub struct JayGenericMatchBuilder {
-    pub id: JayGenericMatchBuilderId,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
-    pub builder: Rc<dyn MatchBuilderDyn>,
+    id: JayGenericMatchBuilderId,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
+    builder: Rc<dyn MatchBuilderDyn>,
 }
 
 impl JayGenericMatchBuilder {

@@ -6,11 +6,11 @@ pub struct ThresholdCounter {
 }
 
 impl ThresholdCounter {
-    pub fn inc(&self) -> bool {
+    fn inc(&self) -> bool {
         self.counter.fetch_add(1) == 0
     }
 
-    pub fn dec(&self) -> bool {
+    fn dec(&self) -> bool {
         self.counter.fetch_sub(1) == 1
     }
 

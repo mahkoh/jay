@@ -16,9 +16,9 @@ use std::rc::Rc;
 use uapi::OwnedFd;
 
 pub struct TestJayCompositor {
-    pub id: JayCompositorId,
-    pub tran: Rc<TestTransport>,
-    pub client_id: Cell<Option<ClientId>>,
+    id: JayCompositorId,
+    tran: Rc<TestTransport>,
+    client_id: Cell<Option<ClientId>>,
 }
 
 impl TestJayCompositor {

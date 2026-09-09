@@ -20,7 +20,7 @@ pub mod zwp_text_input_v3;
 const MAX_TEXT_SIZE: usize = 4000;
 
 pub struct TextInputConnection {
-    pub seat: Rc<WlSeatGlobal>,
+    seat: Rc<WlSeatGlobal>,
     pub text_input: Rc<ZwpTextInputV3>,
     pub input_method: Rc<dyn InputMethod>,
     pub surface: Rc<WlSurface>,

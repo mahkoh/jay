@@ -9,9 +9,9 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestSubcompositor {
-    pub id: WlSubcompositorId,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    id: WlSubcompositorId,
+    tran: Rc<TestTransport>,
+    destroyed: Cell<bool>,
 }
 
 impl TestSubcompositor {
@@ -23,7 +23,7 @@ impl TestSubcompositor {
         }
     }
 
-    pub fn destroy(&self) -> Result<(), TestError> {
+    fn destroy(&self) -> Result<(), TestError> {
         if !self.destroyed.replace(true) {
             self.tran.send(Destroy { self_id: self.id })?;
         }

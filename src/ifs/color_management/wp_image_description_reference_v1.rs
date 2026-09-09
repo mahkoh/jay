@@ -11,9 +11,9 @@ use thiserror::Error;
 
 #[expect(unused)]
 pub struct WpImageDescriptionReferenceV1 {
-    pub id: WpImageDescriptionReferenceV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
+    id: WpImageDescriptionReferenceV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
     pub description: Rc<ColorDescription>,
 }
 

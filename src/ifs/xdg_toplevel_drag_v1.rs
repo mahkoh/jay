@@ -20,14 +20,14 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct XdgToplevelDragV1 {
-    pub id: XdgToplevelDragV1Id,
-    pub client: Rc<Client>,
+    id: XdgToplevelDragV1Id,
+    client: Rc<Client>,
     pub source: Rc<WlDataSource>,
     pub tracker: Tracker<Self>,
     pub toplevel: CloneCell<Option<Rc<XdgToplevel>>>,
-    pub x_off: Cell<i32>,
-    pub y_off: Cell<i32>,
-    pub version: Version,
+    x_off: Cell<i32>,
+    y_off: Cell<i32>,
+    version: Version,
 }
 
 impl XdgToplevelDragV1 {

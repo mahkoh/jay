@@ -90,14 +90,14 @@ impl DynDataOffer for WlDataOffer {
 }
 
 impl WlDataOffer {
-    pub fn send_offer(&self, mime_type: &str) {
+    fn send_offer(&self, mime_type: &str) {
         self.client.event(Offer {
             self_id: self.id,
             mime_type,
         })
     }
 
-    pub fn send_source_actions(&self) {
+    fn send_source_actions(&self) {
         if let Some(src) = self.data.source.get()
             && let Some(source_actions) = src.source_data().actions.get()
         {
@@ -108,7 +108,7 @@ impl WlDataOffer {
         }
     }
 
-    pub fn send_action(&self, dnd_action: u32) {
+    fn send_action(&self, dnd_action: u32) {
         self.client.event(Action {
             self_id: self.id,
             dnd_action,

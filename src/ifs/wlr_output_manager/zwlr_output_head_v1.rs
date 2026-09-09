@@ -72,7 +72,7 @@ impl ZwlrOutputHeadV1 {
         });
     }
 
-    pub fn send_mode(&self, mode: &ZwlrOutputModeV1) {
+    fn send_mode(&self, mode: &ZwlrOutputModeV1) {
         self.client.event(Mode {
             self_id: self.id,
             mode: mode.id,
@@ -87,7 +87,7 @@ impl ZwlrOutputHeadV1 {
         });
     }
 
-    pub fn send_current_mode(&self, mode: &ZwlrOutputModeV1) {
+    fn send_current_mode(&self, mode: &ZwlrOutputModeV1) {
         self.client.event(CurrentMode {
             self_id: self.id,
             mode: mode.id,
@@ -117,7 +117,7 @@ impl ZwlrOutputHeadV1 {
         });
     }
 
-    pub fn send_finished(&self) {
+    fn send_finished(&self) {
         self.client.event(Finished { self_id: self.id })
     }
 

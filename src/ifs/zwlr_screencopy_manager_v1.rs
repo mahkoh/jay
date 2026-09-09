@@ -19,7 +19,7 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct ZwlrScreencopyManagerV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 impl ZwlrScreencopyManagerV1Global {
@@ -64,10 +64,10 @@ impl Global for ZwlrScreencopyManagerV1Global {
 }
 
 pub struct ZwlrScreencopyManagerV1 {
-    pub id: ZwlrScreencopyManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: ZwlrScreencopyManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl ZwlrScreencopyManagerV1RequestHandler for ZwlrScreencopyManagerV1 {

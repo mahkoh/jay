@@ -301,14 +301,14 @@ pub struct WlSurface {
     dst_size: Cell<Option<(i32, i32)>>,
     pub extents: Cell<Rect>,
     pub buffer_abs_pos: SplitView<Cell<Rect>>,
-    pub need_extents_update: Cell<bool>,
+    need_extents_update: Cell<bool>,
     need_extents_propagation: Cell<bool>,
     pub buffer: CloneCell<Option<Rc<SurfaceBuffer>>>,
-    pub shm_staging: CloneCell<Option<Rc<dyn GfxStagingBuffer>>>,
+    shm_staging: CloneCell<Option<Rc<dyn GfxStagingBuffer>>>,
     pub shm_textures: DoubleBuffered<SurfaceShmTexture>,
     pub prime: SurfacePrimeState,
-    pub buf_x: NumCell<i32>,
-    pub buf_y: NumCell<i32>,
+    buf_x: NumCell<i32>,
+    buf_y: NumCell<i32>,
     pub children: RefCell<Option<Box<ParentData>>>,
     ext: CloneCell<Rc<dyn SurfaceExt>>,
     ext_version: NumCell<u64>,
@@ -361,7 +361,7 @@ pub struct WlSurface {
     pub dmabuf_feedback: CopyHashMap<ZwpLinuxDmabufFeedbackV1Id, Rc<ZwpLinuxDmabufFeedbackV1>>,
     transaction_data: TransactionData<WlSurfaceTransactionOp>,
     pub surface_transaction: SurfaceTransaction,
-    pub unmap_scheduled: Cell<bool>,
+    unmap_scheduled: Cell<bool>,
     workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     output_listener: EventListener<dyn OutputEventListener>,
     workspace_listener: EventListener<dyn WorkspaceEventListener>,
@@ -804,7 +804,7 @@ impl WlSurface {
         Ok(ext.into_xsurface().unwrap())
     }
 
-    pub fn set_workspace(&self, ws: &Rc<WorkspaceNode>) {
+    fn set_workspace(&self, ws: &Rc<WorkspaceNode>) {
         let output = ws.node_state[LiveTL].output.get();
         self.set_location(&output, Some(ws), SetLocationReason::Other);
     }
@@ -965,7 +965,7 @@ impl WlSurface {
         })
     }
 
-    pub fn send_preferred_buffer_scale(&self) {
+    fn send_preferred_buffer_scale(&self) {
         if self.version >= BUFFER_SCALE_SINCE {
             let factor = match self.client.wire_scale.is_some() {
                 true => 1,
@@ -978,7 +978,7 @@ impl WlSurface {
         }
     }
 
-    pub fn send_preferred_buffer_transform(&self) {
+    fn send_preferred_buffer_transform(&self) {
         if self.version >= TRANSFORM_SINCE {
             self.client.event(PreferredBufferTransform {
                 self_id: self.id,
@@ -1089,7 +1089,7 @@ impl WlSurface {
         }
     }
 
-    pub fn get_root(self: &Rc<Self>) -> Rc<WlSurface> {
+    fn get_root(self: &Rc<Self>) -> Rc<WlSurface> {
         let mut root = self.clone();
         loop {
             if let Some(parent) = root.ext.get().subsurface_parent() {
@@ -1184,7 +1184,7 @@ impl WlSurface {
         self.flush_frame_requests(&mut self.frame_requests.borrow_mut());
     }
 
-    pub fn unmap(self: &Rc<Self>, version: u64) {
+    fn unmap(self: &Rc<Self>, version: u64) {
         if self.ext_version.get() == version {
             self.ext.get().unmap();
         }
@@ -1731,7 +1731,7 @@ impl WlSurface {
         Ok(())
     }
 
-    pub fn reset_shm_textures(&self) -> bool {
+    fn reset_shm_textures(&self) -> bool {
         let had_texture = self.shm_textures.front().tex.is_some();
         self.shm_staging.take();
         for tex in &*self.shm_textures {
@@ -1947,7 +1947,7 @@ impl WlSurface {
         }
     }
 
-    pub fn detach_node(self: &Rc<Self>, set_invisible: bool) {
+    fn detach_node(self: &Rc<Self>, set_invisible: bool) {
         if self.visible[LiveTL].get() && self.toplevel.is_none() {
             let rect = self.extents.get();
             let (x, y) = self.buffer_abs_pos[LiveTL].get().position();
@@ -1978,7 +1978,7 @@ impl WlSurface {
         }
     }
 
-    pub fn destroy_node(self: &Rc<Self>) {
+    fn destroy_node(self: &Rc<Self>) {
         self.detach_node(true);
     }
 
@@ -2039,7 +2039,7 @@ impl WlSurface {
         self.color_management_feedback.remove(&fb.id);
     }
 
-    pub fn send_preferred_color_description(&self) {
+    fn send_preferred_color_description(&self) {
         if self.color_management_feedback.is_empty() {
             return;
         }

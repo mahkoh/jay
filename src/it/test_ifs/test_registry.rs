@@ -37,36 +37,36 @@ use crate::wire::wl_registry::*;
 use std::rc::Rc;
 
 pub struct TestGlobal {
-    pub name: u32,
-    pub interface: String,
-    pub _version: u32,
+    name: u32,
+    interface: String,
+    _version: u32,
 }
 
 pub struct TestRegistrySingletons {
-    pub jay_compositor: u32,
-    pub wl_compositor: u32,
-    pub wl_subcompositor: u32,
-    pub wl_shm: u32,
-    pub xdg_wm_base: u32,
-    pub wp_single_pixel_buffer_manager_v1: u32,
-    pub wp_viewporter: u32,
-    pub xdg_activation_v1: u32,
-    pub ext_foreign_toplevel_list_v1: u32,
-    pub wl_data_device_manager: u32,
-    pub wp_cursor_shape_manager_v1: u32,
-    pub wp_linux_drm_syncobj_manager_v1: u32,
-    pub wp_content_type_manager_v1: u32,
-    pub zwlr_data_control_manager_v1: u32,
-    pub zwp_linux_dmabuf_v1: u32,
-    pub xdg_toplevel_drag_manager_v1: u32,
-    pub wp_alpha_modifier_v1: u32,
-    pub zwp_virtual_keyboard_manager_v1: u32,
-    pub zwp_input_method_manager_v2: u32,
-    pub zwp_text_input_manager_v3: u32,
-    pub wl_fixes: u32,
-    pub wp_fifo_manager_v1: u32,
-    pub wp_pointer_warp_v1: u32,
-    pub xdg_session_manager_v1: u32,
+    jay_compositor: u32,
+    wl_compositor: u32,
+    wl_subcompositor: u32,
+    wl_shm: u32,
+    xdg_wm_base: u32,
+    wp_single_pixel_buffer_manager_v1: u32,
+    wp_viewporter: u32,
+    xdg_activation_v1: u32,
+    ext_foreign_toplevel_list_v1: u32,
+    wl_data_device_manager: u32,
+    wp_cursor_shape_manager_v1: u32,
+    wp_linux_drm_syncobj_manager_v1: u32,
+    wp_content_type_manager_v1: u32,
+    zwlr_data_control_manager_v1: u32,
+    zwp_linux_dmabuf_v1: u32,
+    xdg_toplevel_drag_manager_v1: u32,
+    wp_alpha_modifier_v1: u32,
+    zwp_virtual_keyboard_manager_v1: u32,
+    zwp_input_method_manager_v2: u32,
+    zwp_text_input_manager_v3: u32,
+    wl_fixes: u32,
+    wp_fifo_manager_v1: u32,
+    wp_pointer_warp_v1: u32,
+    xdg_session_manager_v1: u32,
 }
 
 pub struct TestRegistry {
@@ -124,7 +124,7 @@ macro_rules! create_singleton {
 }
 
 impl TestRegistry {
-    pub async fn get_singletons(&self) -> Result<Rc<TestRegistrySingletons>, TestError> {
+    async fn get_singletons(&self) -> Result<Rc<TestRegistrySingletons>, TestError> {
         singleton!(self.singletons);
         self.tran.sync().await;
         singleton!(self.singletons);

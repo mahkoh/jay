@@ -80,7 +80,7 @@ pub struct ZwpLinuxDmabufV1 {
     id: ZwpLinuxDmabufV1Id,
     pub client: Rc<Client>,
     pub version: Version,
-    pub tracker: Tracker<Self>,
+    tracker: Tracker<Self>,
 }
 
 impl ZwpLinuxDmabufV1 {

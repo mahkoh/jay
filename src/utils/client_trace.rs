@@ -46,21 +46,21 @@ const DATA_WORDS_64: u64 = DATA_WORDS as u64;
 pub trait ClientTraceMessage: ClientTraceMessagePriv {}
 
 pub struct ClientTraceMessageDef {
-    pub is_request: bool,
-    pub has_ids: bool,
-    pub interface: StrAccess,
-    pub message: StrAccess,
+    is_request: bool,
+    has_ids: bool,
+    interface: StrAccess,
+    message: StrAccess,
     args: (u16, u16),
 }
 
 pub struct ClientTraceArgDef {
-    pub name: StrAccess,
-    pub interface: Option<StrAccess>,
+    name: StrAccess,
+    interface: Option<StrAccess>,
 }
 
 pub struct ClientTraceArg<'a> {
-    pub def: &'static ClientTraceArgDef,
-    pub val: ClientTraceArgVal<'a>,
+    def: &'static ClientTraceArgDef,
+    val: ClientTraceArgVal<'a>,
 }
 
 #[derive(Copy, Clone)]
@@ -102,10 +102,10 @@ pub struct ClientTraceWrite {
 
 pub struct ClientTraceMsg<'a> {
     _msg: CprbMsgRead<'a, ClientTraceCprb, NUM_SLOTS>,
-    pub us: u64,
-    pub def: &'static ClientTraceMessageDef,
-    pub obj: u64,
-    pub args: &'a mut [ClientTraceArg<'a>],
+    us: u64,
+    def: &'static ClientTraceMessageDef,
+    obj: u64,
+    args: &'a mut [ClientTraceArg<'a>],
 }
 
 pub struct ClientTraceRead {

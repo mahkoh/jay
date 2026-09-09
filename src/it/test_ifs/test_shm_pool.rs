@@ -68,7 +68,7 @@ impl TestShmPool {
         Ok(())
     }
 
-    pub fn destroy(&self) -> Result<(), TestError> {
+    fn destroy(&self) -> Result<(), TestError> {
         if self.destroyed.replace(true) {
             return Ok(());
         }

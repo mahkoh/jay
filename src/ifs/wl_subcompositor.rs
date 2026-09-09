@@ -22,7 +22,7 @@ pub struct WlSubcompositorGlobal {
 pub struct WlSubcompositor {
     id: WlSubcompositorId,
     client: Rc<Client>,
-    pub tracker: Tracker<Self>,
+    tracker: Tracker<Self>,
     version: Version,
 }
 

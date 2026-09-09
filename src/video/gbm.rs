@@ -307,7 +307,7 @@ impl GbmDevice {
         }
     }
 
-    pub fn import_dmabuf(&self, dmabuf: &Rc<DmaBuf>, usage: u32) -> Result<GbmBo, GbmError> {
+    fn import_dmabuf(&self, dmabuf: &Rc<DmaBuf>, usage: u32) -> Result<GbmBo, GbmError> {
         let mut import = gbm_import_fd_modifier_data {
             width: dmabuf.width as _,
             height: dmabuf.height as _,
@@ -405,11 +405,11 @@ impl Drop for DeviceHolder {
 }
 
 impl GbmBo {
-    pub fn map_read(self: &Rc<Self>) -> Result<GbmBoMap, GbmError> {
+    fn map_read(self: &Rc<Self>) -> Result<GbmBoMap, GbmError> {
         self.map2(GBM_BO_TRANSFER_READ)
     }
 
-    pub fn map_write(self: &Rc<Self>) -> Result<GbmBoMap, GbmError> {
+    fn map_write(self: &Rc<Self>) -> Result<GbmBoMap, GbmError> {
         self.map2(GBM_BO_TRANSFER_READ_WRITE)
     }
 

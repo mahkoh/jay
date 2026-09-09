@@ -145,30 +145,30 @@ enum ToplevelJob {
 
 pub struct SessionListToplevel {
     #[expect(unused)]
-    pub name: ToplevelSessionName,
-    pub name_text: String,
+    name: ToplevelSessionName,
+    name_text: String,
     #[expect(unused)]
-    pub ctime: SystemTime,
+    ctime: SystemTime,
     #[expect(unused)]
-    pub atime: SystemTime,
+    atime: SystemTime,
     #[expect(unused)]
-    pub data: SmToplevelOut,
+    data: SmToplevelOut,
 }
 
 pub struct SessionListSession {
-    pub name: SessionName,
+    name: SessionName,
     #[expect(unused)]
-    pub ctime: SystemTime,
+    ctime: SystemTime,
     #[expect(unused)]
-    pub atime: SystemTime,
+    atime: SystemTime,
     #[expect(unused)]
-    pub data: SmSessionOut,
-    pub toplevels: Vec<SessionListToplevel>,
+    data: SmSessionOut,
+    toplevels: Vec<SessionListToplevel>,
 }
 
 pub struct SessionList {
     #[expect(unused)]
-    pub sessions: Vec<SessionListSession>,
+    sessions: Vec<SessionListSession>,
 }
 
 pub struct SessionListScheduled {
@@ -352,7 +352,7 @@ impl Session {
         self.disown_(false, false);
     }
 
-    pub fn disown_to_peer(&self, replaced: bool) {
+    fn disown_to_peer(&self, replaced: bool) {
         self.disown_(true, replaced);
     }
 
@@ -705,7 +705,7 @@ pub async fn flush_toplevel_sessions(state: Rc<State>) {
 }
 
 impl SessionName {
-    pub fn toplevel(&self, name: &str) -> ToplevelSessionName {
+    fn toplevel(&self, name: &str) -> ToplevelSessionName {
         let mut hasher = blake3::Hasher::new();
         hasher.update(&[0]);
         hasher.update(self.0.as_bytes());

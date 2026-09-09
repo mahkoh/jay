@@ -15,7 +15,7 @@ use std::rc::Rc;
 #[derive(Args, Debug)]
 pub struct ColorManagementArgs {
     #[clap(subcommand)]
-    pub command: Option<ColorManagementCmd>,
+    command: Option<ColorManagementCmd>,
 }
 
 #[derive(Subcommand, Debug, Default)]

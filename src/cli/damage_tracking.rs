@@ -14,7 +14,7 @@ use std::rc::Rc;
 #[derive(Args, Debug)]
 pub struct DamageTrackingArgs {
     #[clap(subcommand)]
-    pub command: DamageTrackingCmd,
+    command: DamageTrackingCmd,
 }
 
 #[derive(Subcommand, Debug)]
@@ -39,7 +39,7 @@ pub struct ColorArgs {
     /// * `#rgba`
     /// * `#rrggbb`
     /// * `#rrggbbaa`
-    pub color: String,
+    color: String,
 }
 
 #[derive(Args, Debug)]
@@ -53,7 +53,7 @@ pub struct DecayArgs {
     /// * 1m 5s
     /// * 1min 5sec
     /// * 1 minute 5 seconds.
-    pub duration: Vec<String>,
+    duration: Vec<String>,
 }
 
 pub fn main(_global: GlobalArgs, damage_tracking_args: DamageTrackingArgs) {

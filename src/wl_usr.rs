@@ -64,9 +64,9 @@ pub enum UsrConError {
 }
 
 pub struct UsrCon {
-    pub ring: Rc<IoUring>,
-    pub _wheel: Rc<Wheel>,
-    pub eng: Rc<AsyncEngine>,
+    ring: Rc<IoUring>,
+    _wheel: Rc<Wheel>,
+    eng: Rc<AsyncEngine>,
     pub server_id: u32,
     obj_ids: RefCell<Bitfield>,
     objects: CopyHashMap<ObjectId, Option<Rc<dyn UsrObject>>>,
@@ -188,7 +188,7 @@ impl UsrCon {
         }
     }
 
-    pub fn release_id(&self, id: u64) {
+    fn release_id(&self, id: u64) {
         self.obj_ids.borrow_mut().release64(id);
         self.objects.remove(&ObjectId::from_raw(id));
     }
@@ -237,7 +237,7 @@ impl UsrCon {
         self.add_object(callback);
     }
 
-    pub fn request<T: EventFormatter>(self: &Rc<Self>, event: T) {
+    fn request<T: EventFormatter>(self: &Rc<Self>, event: T) {
         if self.dead.get() {
             return;
         }

@@ -20,14 +20,14 @@ pub struct SmSessionInUseData {
 
 pub struct SmSessionOut {
     #[expect(unused)]
-    pub first_acquire: SmSessionOutUseData,
+    first_acquire: SmSessionOutUseData,
     #[expect(unused)]
-    pub last_acquire: SmSessionOutUseData,
+    last_acquire: SmSessionOutUseData,
 }
 
 pub struct SmSessionOutUseData {
-    pub exe: Option<String>,
-    pub time: SystemTime,
+    exe: Option<String>,
+    time: SystemTime,
 }
 
 #[derive(Debug, Error)]

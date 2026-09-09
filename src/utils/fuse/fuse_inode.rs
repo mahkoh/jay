@@ -24,7 +24,7 @@ pub enum FuseInodeTy {
 #[derive(Copy, Clone)]
 pub struct FuseInodeProps {
     pub ty: FuseInodeTy,
-    pub writable: bool,
+    writable: bool,
 }
 
 #[derive(Copy, Clone)]
@@ -161,7 +161,7 @@ impl FuseInodeProps {
         }
     }
 
-    pub(super) fn mode(&self) -> c::mode_t {
+    fn mode(&self) -> c::mode_t {
         let mut mode = 0o444;
         match self.ty {
             FuseInodeTy::Regular => {

@@ -23,10 +23,10 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct EiTouchscreen {
-    pub id: EiTouchscreenId,
-    pub client: Rc<EiClient>,
-    pub tracker: Tracker<Self>,
-    pub version: EiVersion,
+    id: EiTouchscreenId,
+    client: Rc<EiClient>,
+    tracker: Tracker<Self>,
+    version: EiVersion,
     pub device: Rc<EiDevice>,
 }
 

@@ -12,10 +12,10 @@ use std::rc::Rc;
 use uapi::OwnedFd;
 
 pub struct UsrWlShm {
-    pub id: WlShmId,
-    pub con: Rc<UsrCon>,
-    pub formats: CopyHashMap<u32, &'static crate::format::Format>,
-    pub version: Version,
+    id: WlShmId,
+    con: Rc<UsrCon>,
+    formats: CopyHashMap<u32, &'static crate::format::Format>,
+    version: Version,
 }
 
 impl UsrWlShm {

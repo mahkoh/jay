@@ -9,7 +9,7 @@ use std::rc::Rc;
 
 pub struct WlCallback {
     pub client: Rc<Client>,
-    pub id: WlCallbackId,
+    id: WlCallbackId,
     pub tracker: Tracker<Self>,
 }
 

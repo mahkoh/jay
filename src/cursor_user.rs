@@ -31,7 +31,7 @@ pub trait CursorUserOwner {
 }
 
 pub struct CursorUserGroup {
-    pub id: CursorUserGroupId,
+    id: CursorUserGroupId,
     state: Rc<State>,
     active: ObjAndId<Option<Rc<CursorUser>>>,
     users: CopyHashMap<CursorUserId, Rc<CursorUser>>,

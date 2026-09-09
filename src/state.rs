@@ -471,7 +471,7 @@ impl Debug for State {
 
 #[derive(Default)]
 pub struct TreeState {
-    pub serials: TreeSerials,
+    serials: TreeSerials,
     pub serial_groups: TreeSerialGroups,
     pub configure_groups: ConfigureGroups,
     pub transactions: Transactions,
@@ -989,7 +989,7 @@ impl State {
         }
     }
 
-    pub fn get_map_output(&self, seat: Option<&Rc<WlSeatGlobal>>) -> Rc<OutputNode> {
+    fn get_map_output(&self, seat: Option<&Rc<WlSeatGlobal>>) -> Rc<OutputNode> {
         seat.cloned()
             .or_else(|| self.seat_queue.last().map(|s| s.deref().clone()))
             .map(|s| s.get_fallback_output())

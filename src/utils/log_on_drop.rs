@@ -1,5 +1,5 @@
 #[expect(unused)]
-pub struct LogOnDrop(pub &'static str);
+pub struct LogOnDrop(&'static str);
 
 impl Drop for LogOnDrop {
     fn drop(&mut self) {

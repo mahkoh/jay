@@ -87,14 +87,14 @@ use std::mem;
 use std::rc::Rc;
 
 pub struct VulkanDmaBufImageTemplate {
-    pub(super) renderer: Rc<VulkanRenderer>,
-    pub(super) width: u32,
-    pub(super) height: u32,
-    pub(super) disjoint: bool,
+    renderer: Rc<VulkanRenderer>,
+    width: u32,
+    height: u32,
+    disjoint: bool,
     pub(super) dmabuf: Rc<DmaBuf>,
-    pub(super) render_limits: Option<VulkanModifierLimits>,
-    pub(super) texture_limits: Option<VulkanModifierLimits>,
-    pub(super) render_needs_bridge: bool,
+    render_limits: Option<VulkanModifierLimits>,
+    texture_limits: Option<VulkanModifierLimits>,
+    render_needs_bridge: bool,
 }
 
 pub struct VulkanImage {
@@ -192,12 +192,12 @@ pub enum VulkanImageMemory {
 
 pub struct VulkanDmaBufImage {
     pub(super) template: VulkanDmaBufImageTemplate,
-    pub(super) mems: PlaneVec<DeviceMemory>,
+    mems: PlaneVec<DeviceMemory>,
 }
 
 pub struct VulkanFramebufferBridge {
     pub(super) dmabuf_image: Image,
-    pub(super) _allocation: VulkanAllocation,
+    _allocation: VulkanAllocation,
 }
 
 impl Drop for VulkanDmaBufImage {
@@ -295,7 +295,7 @@ fn image_view_create_info(
 }
 
 impl VulkanDevice {
-    pub fn create_image_view(
+    fn create_image_view(
         &self,
         image: Image,
         format: &'static Format,
@@ -321,7 +321,7 @@ impl DescriptorBufferDevice {
         buf
     }
 
-    pub(super) fn sampled_image_descriptor(
+    fn sampled_image_descriptor(
         &self,
         usage: ImageUsageFlags,
         view: ImageView,
@@ -346,7 +346,7 @@ impl DescriptorBufferDevice {
 }
 
 impl DescriptorHeapDevice {
-    pub(super) fn sampled_image_descriptor(
+    fn sampled_image_descriptor(
         &self,
         usage: ImageUsageFlags,
         view: &ImageViewCreateInfo<'_>,

@@ -13,7 +13,7 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct WpViewporterGlobal {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 impl WpViewporterGlobal {
@@ -50,10 +50,10 @@ impl Global for WpViewporterGlobal {
 simple_add_global!(WpViewporterGlobal);
 
 pub struct WpViewporter {
-    pub id: WpViewporterId,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: WpViewporterId,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl WpViewporterRequestHandler for WpViewporter {

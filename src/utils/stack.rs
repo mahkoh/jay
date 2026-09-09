@@ -55,7 +55,7 @@ impl<T> Stack<T> {
         unsafe { mem::swap(self.vec.get().deref_mut(), vec) }
     }
 
-    pub fn is_empty(&self) -> bool {
+    fn is_empty(&self) -> bool {
         self.len() == 0
     }
 

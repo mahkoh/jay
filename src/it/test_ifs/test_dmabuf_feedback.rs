@@ -17,30 +17,30 @@ use uapi::c;
 
 pub struct TestDmabufFeedback {
     pub id: ZwpLinuxDmabufFeedbackV1Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    tran: Rc<TestTransport>,
+    destroyed: Cell<bool>,
     pub feedback: TEEH<Feedback>,
-    pub format_table: CloneCell<Option<Rc<OwnedFd>>>,
-    pub format_table_size: Cell<usize>,
-    pub pending_feedback: RefCell<PendingFeedback>,
+    format_table: CloneCell<Option<Rc<OwnedFd>>>,
+    format_table_size: Cell<usize>,
+    pending_feedback: RefCell<PendingFeedback>,
 }
 
 #[derive(Default)]
 pub struct PendingFeedback {
-    pub main_device: c::dev_t,
-    pub tranches: Vec<Tranche>,
-    pub pending_tranche: Tranche,
+    main_device: c::dev_t,
+    tranches: Vec<Tranche>,
+    pending_tranche: Tranche,
 }
 
 pub struct Feedback {
-    pub _main_device: c::dev_t,
+    _main_device: c::dev_t,
     pub tranches: Vec<Tranche>,
 }
 
 #[derive(Default)]
 pub struct Tranche {
     pub target_device: c::dev_t,
-    pub formats: Vec<usize>,
+    formats: Vec<usize>,
     pub flags: u32,
 }
 
@@ -57,7 +57,7 @@ impl TestDmabufFeedback {
         }
     }
 
-    pub fn destroy(&self) -> TestResult {
+    fn destroy(&self) -> TestResult {
         if !self.destroyed.replace(true) {
             self.tran.send(Destroy { self_id: self.id })?;
         }

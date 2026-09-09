@@ -44,7 +44,7 @@ pub struct IdleSetArgs {
     /// * 1min 5sec
     /// * 1 minute 5 seconds
     #[clap(verbatim_doc_comment, required = true)]
-    pub interval: Vec<String>,
+    interval: Vec<String>,
 }
 
 #[derive(Args, Debug)]
@@ -56,7 +56,7 @@ pub struct IdleSetGracePeriodArgs {
     ///
     /// This uses the same formatting options as the idle timeout itself.
     #[clap(verbatim_doc_comment, required = true)]
-    pub period: Vec<String>,
+    period: Vec<String>,
 }
 
 pub fn main(global: GlobalArgs, args: IdleArgs) {

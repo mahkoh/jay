@@ -12,14 +12,14 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct ZwpRelativePointerManagerV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 pub struct ZwpRelativePointerManagerV1 {
-    pub id: ZwpRelativePointerManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: ZwpRelativePointerManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl ZwpRelativePointerManagerV1Global {

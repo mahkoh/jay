@@ -71,7 +71,7 @@ pub struct PwConHolder {
 
 pub struct PwCon {
     send_seq: NumCell<u32>,
-    pub io: Rc<BufIo>,
+    io: Rc<BufIo>,
     holder: CloneCell<Weak<PwConHolder>>,
     dead: Cell<bool>,
     pub objects: CopyHashMap<u32, Rc<dyn PwObject>>,
@@ -128,7 +128,7 @@ impl PwCon {
         self.objects.remove(&obj.data().id);
     }
 
-    pub fn kill(&self) {
+    fn kill(&self) {
         for obj in self.objects.lock().drain_values() {
             obj.break_loops();
         }
@@ -143,11 +143,11 @@ impl PwCon {
         }
     }
 
-    pub fn id(&self) -> u32 {
+    fn id(&self) -> u32 {
         self.ids.borrow_mut().acquire()
     }
 
-    pub fn proxy_data(&self) -> PwObjectData {
+    fn proxy_data(&self) -> PwObjectData {
         PwObjectData {
             id: self.id(),
             bound_id: Cell::new(None),
@@ -164,7 +164,7 @@ impl PwCon {
         self.send2(proxy.data().id, proxy.interface(), opcode, f);
     }
 
-    pub fn send2<O, F>(&self, id: u32, interface: &str, opcode: O, f: F)
+    fn send2<O, F>(&self, id: u32, interface: &str, opcode: O, f: F)
     where
         O: PwOpcode,
         F: FnOnce(&mut PwFormatter),
@@ -218,7 +218,7 @@ impl PwCon {
         });
     }
 
-    pub fn send_hello(&self) {
+    fn send_hello(&self) {
         self.send2(0, "core", PwCoreMethods::Hello, |f| {
             f.write_struct(|f| f.write_int(PW_CORE_VERSION));
         });
@@ -242,7 +242,7 @@ impl PwCon {
         registry
     }
 
-    pub fn create_object(
+    fn create_object(
         &self,
         factory: &str,
         ty: &str,
@@ -267,7 +267,7 @@ impl PwCon {
         });
     }
 
-    pub fn send_properties(&self) {
+    fn send_properties(&self) {
         self.send2(1, "client", PwClientMethods::UpdateProperties, |f| {
             f.write_struct(|f| {
                 f.write_struct(|f| {

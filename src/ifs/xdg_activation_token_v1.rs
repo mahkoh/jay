@@ -14,8 +14,8 @@ opaque!(ActivationToken, activation_token);
 const MAX_TOKENS_PER_CLIENT: usize = 8;
 
 pub struct XdgActivationTokenV1 {
-    pub id: XdgActivationTokenV1Id,
-    pub client: Rc<Client>,
+    id: XdgActivationTokenV1Id,
+    client: Rc<Client>,
     pub tracker: Tracker<Self>,
     already_used: Cell<bool>,
     version: Version,

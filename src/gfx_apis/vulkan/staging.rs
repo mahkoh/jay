@@ -17,7 +17,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct VulkanStagingBuffer {
-    pub(super) device: Rc<VulkanDevice>,
+    device: Rc<VulkanDevice>,
     pub(super) allocation: VulkanAllocation,
     pub(super) buffer: Buffer,
     pub(super) size: u64,
@@ -160,9 +160,9 @@ impl Drop for VulkanStagingBuffer {
 }
 
 pub(super) struct VulkanStagingShell {
-    pub(super) device: Rc<VulkanDevice>,
+    device: Rc<VulkanDevice>,
     pub(super) staging: CloneCell<Option<Rc<VulkanStagingBuffer>>>,
-    pub(super) size: u64,
+    size: u64,
     pub(super) download: bool,
     pub(super) upload: bool,
     pub(super) busy: Cell<bool>,

@@ -659,7 +659,7 @@ impl FuseMountShared {
 }
 
 impl fuse_in_header {
-    pub(super) fn inode(&self) -> Result<FuseIno, OsError> {
+    fn inode(&self) -> Result<FuseIno, OsError> {
         Ok(FuseIno(NonZeroU64::new(self.nodeid).ok_or(c::EINVAL)?))
     }
 }

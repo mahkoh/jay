@@ -72,11 +72,11 @@ impl Global for XdgSessionManagerV1Global {
 simple_add_global!(XdgSessionManagerV1Global);
 
 pub struct XdgSessionManagerV1 {
-    pub id: XdgSessionManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
-    pub sm: Rc<SessionManager>,
+    id: XdgSessionManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
+    sm: Rc<SessionManager>,
 }
 
 const MAX_LIVE_SESSIONS: usize = 32;

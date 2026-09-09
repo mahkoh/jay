@@ -88,10 +88,10 @@ pub(in crate::gfx_apis::gl) enum TexSourceType {
 
 pub(in crate::gfx_apis::gl) struct GlRenderContext {
     pub(crate) ctx: Rc<EglContext>,
-    pub gbm: Rc<GbmDevice>,
-    pub sync_ctx: Rc<SyncobjCtx>,
+    gbm: Rc<GbmDevice>,
+    sync_ctx: Rc<SyncobjCtx>,
 
-    pub(crate) render_node: Rc<CString>,
+    render_node: Rc<CString>,
 
     pub(crate) tex_internal: StaticMap<TexCopyType, StaticMap<TexSourceType, TexProg>>,
     pub(crate) tex_external: Option<StaticMap<TexCopyType, StaticMap<TexSourceType, TexProg>>>,
@@ -112,7 +112,7 @@ impl Debug for GlRenderContext {
 }
 
 impl GlRenderContext {
-    pub fn reset_status(&self) -> Option<ResetStatus> {
+    fn reset_status(&self) -> Option<ResetStatus> {
         self.ctx.reset_status()
     }
 
@@ -198,11 +198,11 @@ impl GlRenderContext {
         })
     }
 
-    pub fn render_node(&self) -> Rc<CString> {
+    fn render_node(&self) -> Rc<CString> {
         self.render_node.clone()
     }
 
-    pub fn formats(&self) -> &Rc<BHashMap<u32, GfxFormat>> {
+    fn formats(&self) -> &Rc<BHashMap<u32, GfxFormat>> {
         &self.ctx.formats
     }
 

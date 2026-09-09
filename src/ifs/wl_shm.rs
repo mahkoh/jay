@@ -21,7 +21,7 @@ pub struct WlShm {
     id: WlShmId,
     client: Rc<Client>,
     version: Version,
-    pub tracker: Tracker<Self>,
+    tracker: Tracker<Self>,
 }
 
 impl WlShmGlobal {

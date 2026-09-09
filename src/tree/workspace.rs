@@ -91,19 +91,19 @@ pub struct WorkspaceNode {
     pub ext_workspaces: CopyHashMap<WorkspaceManagerId, Rc<ExtWorkspaceHandleV1>>,
     pub opt: Rc<Opt<WorkspaceNode>>,
     pub node_state: SplitView<WorkspaceNodeState>,
-    pub output_link: Cell<Option<LinkedNode<WorkspaceOutputLink>>>,
-    pub transaction_data: TransactionData<WorkspaceTransactionOp>,
-    pub was_on_dummy_output: Cell<bool>,
+    output_link: Cell<Option<LinkedNode<WorkspaceOutputLink>>>,
+    transaction_data: TransactionData<WorkspaceTransactionOp>,
+    was_on_dummy_output: Cell<bool>,
     pub listeners: EventSource<dyn WorkspaceEventListener>,
-    pub _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
-    pub _scales_listener: EventListener<dyn ScalesChangedListener>,
+    _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
+    _scales_listener: EventListener<dyn ScalesChangedListener>,
 }
 
 pub struct WorkspaceNodeState {
     pub output: ObjAndId<Rc<OutputNode>>,
     pub position: Cell<Rect>,
     pub container: CloneCell<Option<Rc<ContainerNode>>>,
-    pub output_link: CloneCell<Option<NodeRef<WorkspaceOutputLink>>>,
+    output_link: CloneCell<Option<NodeRef<WorkspaceOutputLink>>>,
     pub visible: Cell<bool>,
     pub fullscreen: CloneCell<Option<Rc<dyn ToplevelNode>>>,
 }

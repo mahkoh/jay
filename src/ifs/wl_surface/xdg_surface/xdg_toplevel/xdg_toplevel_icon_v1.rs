@@ -57,10 +57,10 @@ use thiserror::Error;
 linear_ids!(ToplevelIconIds, ToplevelIconId, u64);
 
 pub struct XdgToplevelIconV1 {
-    pub id: XdgToplevelIconV1Id,
-    pub client: Rc<Client>,
+    id: XdgToplevelIconV1Id,
+    client: Rc<Client>,
     pub tracker: Tracker<Self>,
-    pub version: Version,
+    version: Version,
     pub immutable: Cell<bool>,
     pub toplevel_icon_id: ToplevelIconId,
     pub toplevels: CopyHashMap<XdgToplevelId, Rc<XdgToplevel>>,
@@ -84,7 +84,7 @@ pub enum ToplevelIcon {
 }
 
 impl ToplevelIconUser {
-    pub fn new(size: i32) -> Self {
+    fn new(size: i32) -> Self {
         Self {
             size: Cell::new(size),
             icons: Default::default(),

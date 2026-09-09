@@ -16,10 +16,10 @@ pub struct ZxdgOutputManagerV1Global {
 }
 
 pub struct ZxdgOutputManagerV1 {
-    pub id: ZxdgOutputManagerV1Id,
-    pub client: Rc<Client>,
-    pub version: Version,
-    pub tracker: Tracker<Self>,
+    id: ZxdgOutputManagerV1Id,
+    client: Rc<Client>,
+    version: Version,
+    tracker: Tracker<Self>,
 }
 
 impl ZxdgOutputManagerV1Global {

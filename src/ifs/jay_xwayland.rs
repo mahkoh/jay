@@ -17,7 +17,7 @@ pub struct JayXwayland {
 }
 
 impl JayXwayland {
-    pub fn send_scaling_mode(&self) {
+    fn send_scaling_mode(&self) {
         let xw = &self.client.state.xwayland;
         self.client.event(ScalingMode {
             self_id: self.id,
@@ -28,7 +28,7 @@ impl JayXwayland {
         });
     }
 
-    pub fn send_implied_scale(&self) {
+    fn send_implied_scale(&self) {
         let xw = &self.client.state.xwayland;
         if let Some(scale) = xw.wire_scale.get() {
             self.client.event(ImpliedScale {

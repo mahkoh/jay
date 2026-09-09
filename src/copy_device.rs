@@ -490,10 +490,10 @@ struct VulkanImage {
 #[derive(Copy, Clone)]
 pub struct CopyDeviceSupport {
     pub modifier: Modifier,
-    pub planes: usize,
+    planes: usize,
     pub max_width: u32,
     pub max_height: u32,
-    pub blit: bool,
+    blit: bool,
 }
 
 pub struct CopyDeviceBuffer {
@@ -1429,7 +1429,7 @@ impl CopyDevice {
         })
     }
 
-    pub fn is_on_device(&self, buf: &DmaBuf) -> Result<bool, CopyDeviceError> {
+    fn is_on_device(&self, buf: &DmaBuf) -> Result<bool, CopyDeviceError> {
         self.is_on_device_(buf).map(|v| v.0)
     }
 

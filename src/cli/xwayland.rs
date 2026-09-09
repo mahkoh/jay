@@ -17,7 +17,7 @@ use std::rc::Rc;
 #[derive(Args, Debug)]
 pub struct XwaylandArgs {
     #[clap(subcommand)]
-    pub command: Option<XwaylandCmd>,
+    command: Option<XwaylandCmd>,
 }
 
 #[derive(Subcommand, Debug, Default)]
@@ -32,7 +32,7 @@ pub enum XwaylandCmd {
 #[derive(Args, Debug)]
 pub struct SetScalingModeArgs {
     #[clap(value_enum)]
-    pub mode: CliScalingMode,
+    mode: CliScalingMode,
 }
 
 #[derive(ValueEnum, Debug, Copy, Clone, Hash, PartialEq)]

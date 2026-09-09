@@ -12,14 +12,14 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct ZwpTextInputManagerV3Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 pub struct ZwpTextInputManagerV3 {
-    pub id: ZwpTextInputManagerV3Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: ZwpTextInputManagerV3Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl ZwpTextInputManagerV3Global {

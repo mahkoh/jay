@@ -117,7 +117,7 @@ pub struct VulkanCoreInstance {
     debug_utils: debug_utils::Instance,
     messenger: DebugUtilsMessengerEXT,
     pub log_level: Level,
-    pub validation: bool,
+    validation: bool,
 }
 
 pub struct VulkanDeviceFeatures {

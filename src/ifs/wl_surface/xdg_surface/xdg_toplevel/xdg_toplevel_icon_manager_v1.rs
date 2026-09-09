@@ -56,10 +56,10 @@ impl Global for XdgToplevelIconManagerV1Global {
 simple_add_global!(XdgToplevelIconManagerV1Global);
 
 pub struct XdgToplevelIconManagerV1 {
-    pub id: XdgToplevelIconManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: XdgToplevelIconManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
     last_size: Cell<Option<i32>>,
 }
 

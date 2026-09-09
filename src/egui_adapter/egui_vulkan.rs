@@ -351,7 +351,7 @@ pub struct EgvFramebuffer {
 
 pub struct Support {
     pub modifier: Modifier,
-    pub planes: usize,
+    planes: usize,
     pub max_width: u32,
     pub max_height: u32,
 }

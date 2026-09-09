@@ -20,7 +20,7 @@ pub struct WpAlphaModifierV1 {
     id: WpAlphaModifierV1Id,
     client: Rc<Client>,
     version: Version,
-    pub tracker: Tracker<Self>,
+    tracker: Tracker<Self>,
 }
 
 impl WpAlphaModifierV1Global {

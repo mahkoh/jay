@@ -71,18 +71,18 @@ struct Jay {
 pub struct GlobalArgs {
     /// The log level.
     #[clap(value_enum, long)]
-    pub log_level: Option<LogLevel>,
+    log_level: Option<LogLevel>,
     /// The config directory.
     #[clap(long)]
-    pub config_dir: Option<String>,
+    config_dir: Option<String>,
     /// Output data as JSONL.
     #[clap(long)]
-    pub json: bool,
+    json: bool,
     /// Print all fields in JSON output.
     ///
     /// By default, some fields that are empty arrays, null, or false are omitted.
     #[clap(long)]
-    pub all_json_fields: bool,
+    all_json_fields: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -151,14 +151,14 @@ pub struct IdleArgs {
     ///
     /// The filename can contain the usual strftime parameters.
     #[clap(subcommand)]
-    pub command: Option<IdleCmd>,
+    command: Option<IdleCmd>,
 }
 
 #[derive(Args, Debug)]
 pub struct RunPrivilegedArgs {
     /// The program to run
     #[clap(required = true, trailing_var_arg = true, value_hint = ValueHint::CommandWithArguments)]
-    pub program: Vec<String>,
+    program: Vec<String>,
 }
 
 #[derive(ValueEnum, Debug, Copy, Clone, Hash, Default, PartialEq)]
@@ -174,14 +174,14 @@ pub enum ScreenshotFormat {
 pub struct ScreenshotArgs {
     /// The format to use for the image.
     #[clap(value_enum, long, default_value_t)]
-    pub format: ScreenshotFormat,
+    format: ScreenshotFormat,
     /// Capture the screenshot as HDR10 (10-bit, BT.2020 primaries, ST 2084 PQ transfer
     /// function) instead of SDR.
     ///
     /// Only supported for the PNG format. The resulting PNG is 16-bit-per-channel with
     /// a cICP chunk describing the HDR10 color space.
     #[clap(long)]
-    pub hdr10: bool,
+    hdr10: bool,
     /// The filename of the saved screenshot
     ///
     /// If no filename is given, the screenshot will be saved under %Y-%m-%d-%H%M%S_jay.<ext>
@@ -189,7 +189,7 @@ pub struct ScreenshotArgs {
     ///
     /// The filename can contain the usual strftime parameters.
     #[clap(value_hint = ValueHint::FilePath)]
-    pub filename: Option<String>,
+    filename: Option<String>,
 }
 
 #[derive(Args, Debug, Default)]

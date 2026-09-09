@@ -41,7 +41,7 @@ pub struct TestXdgToplevel {
 }
 
 impl TestXdgToplevel {
-    pub fn parent(&self) -> TestResult<Rc<dyn ContainingNode>> {
+    fn parent(&self) -> TestResult<Rc<dyn ContainingNode>> {
         match self.server.tl_data().parent.get() {
             Some(p) => Ok(p),
             _ => bail!("toplevel has no parent"),

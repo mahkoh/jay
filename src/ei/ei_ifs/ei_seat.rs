@@ -257,7 +257,7 @@ impl EiSeat {
         });
     }
 
-    pub fn send_device(&self, device: &EiDevice) {
+    fn send_device(&self, device: &EiDevice) {
         self.client.event(Device {
             self_id: self.id,
             device: device.id,
@@ -265,7 +265,7 @@ impl EiSeat {
         });
     }
 
-    pub fn send_destroyed(&self) {
+    fn send_destroyed(&self) {
         self.client.event(Destroyed {
             self_id: self.id,
             serial: self.client.serial(),

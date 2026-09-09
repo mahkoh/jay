@@ -55,10 +55,10 @@ impl Global for ZwpIdleInhibitManagerV1Global {
 simple_add_global!(ZwpIdleInhibitManagerV1Global);
 
 pub struct ZwpIdleInhibitManagerV1 {
-    pub id: ZwpIdleInhibitManagerV1Id,
-    pub client: Rc<Client>,
-    pub version: Version,
-    pub tracker: Tracker<Self>,
+    id: ZwpIdleInhibitManagerV1Id,
+    client: Rc<Client>,
+    version: Version,
+    tracker: Tracker<Self>,
 }
 
 impl ZwpIdleInhibitManagerV1RequestHandler for ZwpIdleInhibitManagerV1 {

@@ -33,11 +33,11 @@ use std::slice;
 use thiserror::Error;
 
 pub struct JayRandr {
-    pub id: JayRandrId,
-    pub client: Rc<Client>,
-    pub state: Rc<State>,
+    id: JayRandrId,
+    client: Rc<Client>,
+    state: Rc<State>,
     pub tracker: Tracker<Self>,
-    pub version: Version,
+    version: Version,
 }
 
 const VRR_CAPABLE_SINCE: Version = Version(2);

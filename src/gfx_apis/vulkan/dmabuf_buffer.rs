@@ -22,11 +22,11 @@ use uapi::OwnedFd;
 pub(super) const TRANSFER_QUEUE_BUFFER_ALIGNMENT: u64 = 4;
 
 pub struct VulkanDmabufBuffer {
-    pub(super) device: Rc<VulkanDevice>,
+    device: Rc<VulkanDevice>,
     pub(super) size: u64,
     pub(super) offset: u64,
     pub(super) buffer: vk::Buffer,
-    pub(super) memory: vk::DeviceMemory,
+    memory: vk::DeviceMemory,
 }
 
 impl VulkanDevice {

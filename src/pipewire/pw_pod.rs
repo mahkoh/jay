@@ -1194,7 +1194,7 @@ impl<'a> PwPod<'a> {
         }
     }
 
-    pub fn get_value(mut self) -> Result<PwPod<'a>, PwParserError> {
+    fn get_value(mut self) -> Result<PwPod<'a>, PwParserError> {
         if let PwPod::Choice(v) = &mut self
             && v.ty == PW_CHOICE_None
             && v.elements.n_elements > 0

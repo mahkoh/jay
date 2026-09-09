@@ -49,7 +49,7 @@ use thiserror::Error;
 #[derive(Args, Debug)]
 pub struct RandrArgs {
     #[clap(subcommand)]
-    pub command: Option<RandrCmd>,
+    command: Option<RandrCmd>,
 }
 
 #[derive(Subcommand, Debug, Derivative)]
@@ -70,18 +70,18 @@ pub enum RandrCmd {
 pub struct ShowArgs {
     /// Show all available modes.
     #[arg(long)]
-    pub modes: bool,
+    modes: bool,
     /// Show all available formats.
     #[arg(long)]
-    pub formats: bool,
+    formats: bool,
 }
 
 #[derive(Args, Debug)]
 pub struct CardArgs {
     /// The card to modify, e.g. card0.
-    pub card: String,
+    card: String,
     #[clap(subcommand)]
-    pub command: CardCommand,
+    command: CardCommand,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -101,7 +101,7 @@ pub enum CardCommand {
 #[derive(Args, Debug, Clone)]
 pub struct TimingArgs {
     #[clap(subcommand)]
-    pub cmd: TimingCmd,
+    cmd: TimingCmd,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -118,13 +118,13 @@ pub enum TimingCmd {
 #[derive(Args, Debug, Clone)]
 pub struct SetFlipMarginArgs {
     /// The margin in milliseconds.
-    pub margin_ms: f64,
+    margin_ms: f64,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct ApiArgs {
     #[clap(subcommand)]
-    pub cmd: ApiCmd,
+    cmd: ApiCmd,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -140,7 +140,7 @@ pub enum ApiCmd {
 #[derive(Args, Debug, Clone)]
 pub struct DirectScanoutArgs {
     #[clap(subcommand)]
-    pub cmd: DirectScanoutCmd,
+    cmd: DirectScanoutCmd,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -154,7 +154,7 @@ pub enum DirectScanoutCmd {
 #[derive(Args, Debug, Clone)]
 pub struct PlaneColorPipelinesArgs {
     #[clap(subcommand)]
-    pub cmd: PlaneColorPipelinesCmd,
+    cmd: PlaneColorPipelinesCmd,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -168,9 +168,9 @@ pub enum PlaneColorPipelinesCmd {
 #[derive(Args, Debug)]
 pub struct OutputArgs {
     /// The output to modify, e.g. DP-1.
-    pub output: String,
+    output: String,
     #[clap(subcommand)]
-    pub command: OutputCommand,
+    command: OutputCommand,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -226,7 +226,7 @@ pub struct UseNativeGamutArgs {
     ///
     /// The default is `false`.
     #[arg(action = clap::ArgAction::Set)]
-    pub use_native_gamut: bool,
+    use_native_gamut: bool,
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -239,13 +239,13 @@ pub enum NonDesktopType {
 #[derive(Args, Debug, Clone)]
 pub struct NonDesktopArgs {
     /// Whether this output is a non-desktop output.
-    pub setting: NonDesktopType,
+    setting: NonDesktopType,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct VrrArgs {
     #[clap(subcommand)]
-    pub command: VrrCommand,
+    command: VrrCommand,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -259,7 +259,7 @@ pub enum VrrCommand {
 #[derive(Args, Debug, Clone)]
 pub struct SetVrrModeArgs {
     #[clap(value_enum)]
-    pub mode: VrrModeArg,
+    mode: VrrModeArg,
 }
 
 #[derive(ValueEnum, Debug, Copy, Clone, Hash, PartialEq)]
@@ -279,13 +279,13 @@ pub enum VrrModeArg {
 #[derive(Args, Debug, Clone)]
 pub struct CursorHzArgs {
     /// The rate at which the cursor will be updated on screen.
-    pub rate: String,
+    rate: String,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct FormatSettings {
     #[clap(subcommand)]
-    pub command: FormatCommand,
+    command: FormatCommand,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -300,7 +300,7 @@ pub enum FormatCommand {
 #[derive(Args, Debug, Clone)]
 pub struct TearingArgs {
     #[clap(subcommand)]
-    pub command: TearingCommand,
+    command: TearingCommand,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -312,7 +312,7 @@ pub enum TearingCommand {
 #[derive(Args, Debug, Clone)]
 pub struct SetTearingModeArgs {
     #[clap(value_enum)]
-    pub mode: TearingModeArg,
+    mode: TearingModeArg,
 }
 
 #[derive(ValueEnum, Debug, Copy, Clone, Hash, PartialEq)]
@@ -335,19 +335,19 @@ pub enum TearingModeArg {
 #[derive(Args, Debug, Clone)]
 pub struct PositionArgs {
     /// The top-left x coordinate.
-    pub x: i32,
+    x: i32,
     /// The top-left y coordinate.
-    pub y: i32,
+    y: i32,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct ModeArgs {
     /// The width.
-    pub width: i32,
+    width: i32,
     /// The height.
-    pub height: i32,
+    height: i32,
     /// The refresh rate.
-    pub refresh_rate: f64,
+    refresh_rate: f64,
 }
 
 #[derive(Args, Debug, Clone)]
@@ -356,9 +356,9 @@ pub struct ScaleArgs {
     /// might be useful because some applications store scales as floating-point numbers
     /// and can become blurry if the scale cannot be represented exactly.
     #[arg(long)]
-    pub round_to_float: bool,
+    round_to_float: bool,
     /// The new scale.
-    pub scale: f64,
+    scale: f64,
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -378,7 +378,7 @@ pub struct ScalingFilterArgs {
 #[derive(Args, Debug, Clone)]
 pub struct TransformArgs {
     #[clap(subcommand)]
-    pub command: TransformCmd,
+    command: TransformCmd,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -410,7 +410,7 @@ pub enum TransformCmd {
 #[derive(Args, Debug, Clone)]
 pub struct ColorsSettings {
     #[clap(subcommand)]
-    pub command: ColorsCommand,
+    command: ColorsCommand,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -516,7 +516,7 @@ fn blend_space_possible_values() -> Vec<PossibleValue> {
 #[derive(Args, Debug)]
 pub struct VirtualOutputArgs {
     #[clap(subcommand)]
-    pub command: VirtualOutputCommand,
+    command: VirtualOutputCommand,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -530,13 +530,13 @@ pub enum VirtualOutputCommand {
 #[derive(Args, Debug, Clone)]
 pub struct CreateVirtualOutputArgs {
     /// The name of the virtual output.
-    pub name: String,
+    name: String,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct RemoveVirtualOutputArgs {
     /// The name of the virtual output.
-    pub name: String,
+    name: String,
 }
 
 pub fn main(global: GlobalArgs, args: RandrArgs) {
@@ -548,71 +548,71 @@ pub fn main(global: GlobalArgs, args: RandrArgs) {
 
 #[derive(Clone, Debug)]
 struct Device {
-    pub id: u64,
-    pub syspath: String,
-    pub devnode: String,
-    pub vendor: u32,
-    pub vendor_name: String,
-    pub model: u32,
-    pub model_name: String,
-    pub gfx_api: String,
-    pub render_device: bool,
-    pub use_plane_color_pipelines: bool,
-    pub plane_color_pipelines_supported: bool,
+    id: u64,
+    syspath: String,
+    devnode: String,
+    vendor: u32,
+    vendor_name: String,
+    model: u32,
+    model_name: String,
+    gfx_api: String,
+    render_device: bool,
+    use_plane_color_pipelines: bool,
+    plane_color_pipelines_supported: bool,
 }
 
 #[derive(Clone, Debug)]
 struct Connector {
-    pub _id: u64,
-    pub drm_device: Option<u64>,
-    pub name: String,
-    pub enabled: bool,
-    pub output: Option<Output>,
+    _id: u64,
+    drm_device: Option<u64>,
+    name: String,
+    enabled: bool,
+    output: Option<Output>,
 }
 
 #[derive(Clone, Debug, Default)]
 struct Output {
-    pub scale: f64,
-    pub width: i32,
-    pub height: i32,
-    pub x: i32,
-    pub y: i32,
-    pub transform: Transform,
-    pub manufacturer: String,
-    pub product: String,
-    pub serial_number: String,
-    pub width_mm: i32,
-    pub height_mm: i32,
-    pub current_mode: Option<Mode>,
-    pub modes: Vec<Mode>,
-    pub non_desktop: bool,
-    pub vrr_capable: bool,
-    pub vrr_enabled: bool,
-    pub vrr_mode: VrrMode,
-    pub vrr_cursor_hz: Option<f64>,
-    pub tearing_mode: TearingMode,
-    pub formats: Vec<String>,
-    pub format: Option<String>,
-    pub flip_margin_ns: Option<u64>,
-    pub supported_color_spaces: Vec<String>,
-    pub current_color_space: Option<String>,
-    pub supported_eotfs: Vec<String>,
-    pub current_eotf: Option<String>,
-    pub brightness_range: Option<(f64, f64)>,
-    pub brightness: Option<f64>,
-    pub blend_space: Option<String>,
-    pub native_gamut: Option<Primaries>,
-    pub use_native_gamut: bool,
-    pub arbitrary_modes: bool,
-    pub scaling_filter: Option<ScalingFilter>,
+    scale: f64,
+    width: i32,
+    height: i32,
+    x: i32,
+    y: i32,
+    transform: Transform,
+    manufacturer: String,
+    product: String,
+    serial_number: String,
+    width_mm: i32,
+    height_mm: i32,
+    current_mode: Option<Mode>,
+    modes: Vec<Mode>,
+    non_desktop: bool,
+    vrr_capable: bool,
+    vrr_enabled: bool,
+    vrr_mode: VrrMode,
+    vrr_cursor_hz: Option<f64>,
+    tearing_mode: TearingMode,
+    formats: Vec<String>,
+    format: Option<String>,
+    flip_margin_ns: Option<u64>,
+    supported_color_spaces: Vec<String>,
+    current_color_space: Option<String>,
+    supported_eotfs: Vec<String>,
+    current_eotf: Option<String>,
+    brightness_range: Option<(f64, f64)>,
+    brightness: Option<f64>,
+    blend_space: Option<String>,
+    native_gamut: Option<Primaries>,
+    use_native_gamut: bool,
+    arbitrary_modes: bool,
+    scaling_filter: Option<ScalingFilter>,
 }
 
 #[derive(Copy, Clone, Debug)]
 struct Mode {
-    pub width: i32,
-    pub height: i32,
-    pub refresh_rate_millihz: u32,
-    pub current: bool,
+    width: i32,
+    height: i32,
+    refresh_rate_millihz: u32,
+    current: bool,
 }
 
 impl Mode {

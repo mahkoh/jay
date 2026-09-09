@@ -320,7 +320,7 @@ impl ConfigProxyHandler {
         self.bufs.push(buf);
     }
 
-    pub fn respond(&self, msg: Response) {
+    fn respond(&self, msg: Response) {
         self.send(&ServerMessage::Response { response: msg })
     }
 

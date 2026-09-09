@@ -66,7 +66,7 @@ impl EglSync {
         }
     }
 
-    pub fn export_sync_file(&self) -> Result<OwnedFd, RenderError> {
+    fn export_sync_file(&self) -> Result<OwnedFd, RenderError> {
         self.ctx.with_current(|| unsafe {
             let fd = self
                 .ctx

@@ -21,10 +21,10 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct EiScroll {
-    pub id: EiScrollId,
-    pub client: Rc<EiClient>,
-    pub tracker: Tracker<Self>,
-    pub version: EiVersion,
+    id: EiScrollId,
+    client: Rc<EiClient>,
+    tracker: Tracker<Self>,
+    version: EiVersion,
     pub device: Rc<EiDevice>,
 }
 

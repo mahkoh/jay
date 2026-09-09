@@ -67,10 +67,10 @@ pub enum VideoInputDefinition {
 
 #[derive(Copy, Clone, Debug)]
 pub struct ScreenDimensions {
-    pub horizontal_screen_size_cm: Option<u8>,
-    pub vertical_screen_size_cm: Option<u8>,
-    pub landscape_aspect_ration: Option<f64>,
-    pub portrait_aspect_ration: Option<f64>,
+    horizontal_screen_size_cm: Option<u8>,
+    vertical_screen_size_cm: Option<u8>,
+    landscape_aspect_ration: Option<f64>,
+    portrait_aspect_ration: Option<f64>,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -88,23 +88,23 @@ pub struct ChromaticityCoordinates {
 #[derive(Copy, Clone, Debug)]
 #[expect(unused)]
 pub struct EstablishedTimings {
-    pub s_720x400_70: bool,
-    pub s_720x400_88: bool,
-    pub s_640x480_60: bool,
-    pub s_640x480_67: bool,
-    pub s_640x480_72: bool,
-    pub s_640x480_75: bool,
-    pub s_800x600_56: bool,
-    pub s_800x600_60: bool,
-    pub s_800x600_72: bool,
-    pub s_800x600_75: bool,
-    pub s_832x624_75: bool,
-    pub s_1024x768_87: bool,
-    pub s_1024x768_60: bool,
-    pub s_1024x768_70: bool,
-    pub s_1024x768_75: bool,
-    pub s_1280x1024_75: bool,
-    pub s_1152x870_75: bool,
+    s_720x400_70: bool,
+    s_720x400_88: bool,
+    s_640x480_60: bool,
+    s_640x480_67: bool,
+    s_640x480_72: bool,
+    s_640x480_75: bool,
+    s_800x600_56: bool,
+    s_800x600_60: bool,
+    s_800x600_72: bool,
+    s_800x600_75: bool,
+    s_832x624_75: bool,
+    s_1024x768_87: bool,
+    s_1024x768_60: bool,
+    s_1024x768_70: bool,
+    s_1024x768_75: bool,
+    s_1280x1024_75: bool,
+    s_1152x870_75: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -119,9 +119,9 @@ pub enum AspectRatio {
 #[derive(Copy, Clone, Debug)]
 #[expect(unused)]
 pub struct StandardTiming {
-    pub x_resolution: u16,
-    pub aspect_ratio: AspectRatio,
-    pub vertical_frequency: u8,
+    x_resolution: u16,
+    aspect_ratio: AspectRatio,
+    vertical_frequency: u8,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -186,11 +186,11 @@ impl Debug for StereoViewingSupport {
 #[expect(unused)]
 pub struct DisplayRangeLimitsAndAdditionalTiming {
     pub vertical_field_rate_min: u16,
-    pub vertical_field_rate_max: u16,
-    pub horizontal_field_rate_min: u16,
-    pub horizontal_field_rate_max: u16,
-    pub maximum_pixel_clock_mhz: u16,
-    pub extended_timing_information: ExtendedTimingInformation,
+    vertical_field_rate_max: u16,
+    horizontal_field_rate_min: u16,
+    horizontal_field_rate_max: u16,
+    maximum_pixel_clock_mhz: u16,
+    extended_timing_information: ExtendedTimingInformation,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -241,70 +241,70 @@ pub enum ExtendedTimingInformation {
 #[derive(Copy, Clone, Debug, Default)]
 #[expect(unused)]
 pub struct ColorPoint {
-    pub white_point_index: u8,
-    pub white_point_x: u16,
-    pub white_point_y: u16,
-    pub gamma: Option<f64>,
+    white_point_index: u8,
+    white_point_x: u16,
+    white_point_y: u16,
+    gamma: Option<f64>,
 }
 
 #[derive(Copy, Clone, Debug)]
 #[expect(unused)]
 pub struct EstablishedTimings3 {
-    pub s640x350_85: bool,
-    pub s640x400_85: bool,
-    pub s720x400_85: bool,
-    pub s640x480_85: bool,
-    pub s848x480_60: bool,
-    pub s800x600_85: bool,
-    pub s1024x768_85: bool,
-    pub s1152x864_75: bool,
-    pub s1280x768_60_rb: bool,
-    pub s1280x768_60: bool,
-    pub s1280x768_75: bool,
-    pub s1280x768_85: bool,
-    pub s1280x960_60: bool,
-    pub s1280x960_85: bool,
-    pub s1280x1024_60: bool,
-    pub s1280x1024_85: bool,
-    pub s1360x768_60: bool,
-    pub s1440x900_60_rb: bool,
-    pub s1440x900_60: bool,
-    pub s1440x900_75: bool,
-    pub s1440x900_85: bool,
-    pub s1400x1050_60_rb: bool,
-    pub s1400x1050_60: bool,
-    pub s1400x1050_75: bool,
-    pub s1400x1050_85: bool,
-    pub s1680x1050_60_rb: bool,
-    pub s1680x1050_60: bool,
-    pub s1680x1050_75: bool,
-    pub s1680x1050_85: bool,
-    pub s1600x1200_60: bool,
-    pub s1600x1200_65: bool,
-    pub s1600x1200_70: bool,
-    pub s1600x1200_75: bool,
-    pub s1600x1200_85: bool,
-    pub s1792x1344_60: bool,
-    pub s1792x1344_75: bool,
-    pub s1856x1392_60: bool,
-    pub s1856x1392_75: bool,
-    pub s1920x1200_60_rb: bool,
-    pub s1920x1200_60: bool,
-    pub s1920x1200_75: bool,
-    pub s1920x1200_85: bool,
-    pub s1920x1440_60: bool,
-    pub s1920x1440_75: bool,
+    s640x350_85: bool,
+    s640x400_85: bool,
+    s720x400_85: bool,
+    s640x480_85: bool,
+    s848x480_60: bool,
+    s800x600_85: bool,
+    s1024x768_85: bool,
+    s1152x864_75: bool,
+    s1280x768_60_rb: bool,
+    s1280x768_60: bool,
+    s1280x768_75: bool,
+    s1280x768_85: bool,
+    s1280x960_60: bool,
+    s1280x960_85: bool,
+    s1280x1024_60: bool,
+    s1280x1024_85: bool,
+    s1360x768_60: bool,
+    s1440x900_60_rb: bool,
+    s1440x900_60: bool,
+    s1440x900_75: bool,
+    s1440x900_85: bool,
+    s1400x1050_60_rb: bool,
+    s1400x1050_60: bool,
+    s1400x1050_75: bool,
+    s1400x1050_85: bool,
+    s1680x1050_60_rb: bool,
+    s1680x1050_60: bool,
+    s1680x1050_75: bool,
+    s1680x1050_85: bool,
+    s1600x1200_60: bool,
+    s1600x1200_65: bool,
+    s1600x1200_70: bool,
+    s1600x1200_75: bool,
+    s1600x1200_85: bool,
+    s1792x1344_60: bool,
+    s1792x1344_75: bool,
+    s1856x1392_60: bool,
+    s1856x1392_75: bool,
+    s1920x1200_60_rb: bool,
+    s1920x1200_60: bool,
+    s1920x1200_75: bool,
+    s1920x1200_85: bool,
+    s1920x1440_60: bool,
+    s1920x1440_75: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
 #[expect(unused)]
 pub struct ColorManagementData {
-    pub red_a3: u16,
-    pub red_a2: u16,
-    pub green_a3: u16,
-    pub green_a2: u16,
-    pub blue_a3: u16,
-    pub blue_a2: u16,
+    red_a3: u16,
+    red_a2: u16,
+    green_a3: u16,
+    green_a2: u16,
+    blue_a3: u16,
+    blue_a2: u16,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -326,35 +326,35 @@ pub enum CvtPreferredVerticalRate {
 #[derive(Copy, Clone, Debug)]
 #[expect(unused)]
 pub struct Cvt3ByteCode {
-    pub addressable_lines_per_field: u16,
-    pub aspect_ration: CvtAspectRatio,
-    pub preferred_vertical_rate: CvtPreferredVerticalRate,
-    pub r50: bool,
-    pub r60: bool,
-    pub r75: bool,
-    pub r85: bool,
-    pub r60_reduced_blanking: bool,
+    addressable_lines_per_field: u16,
+    aspect_ration: CvtAspectRatio,
+    preferred_vertical_rate: CvtPreferredVerticalRate,
+    r50: bool,
+    r60: bool,
+    r75: bool,
+    r85: bool,
+    r60_reduced_blanking: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
 #[expect(unused)]
 pub struct DetailedTimingDescriptor {
-    pub pixel_clock_khz: u32,
-    pub horizontal_addressable_pixels: u16,
-    pub horizontal_blanking_pixels: u16,
-    pub vertical_addressable_lines: u16,
-    pub vertical_blanking_lines: u16,
-    pub horizontal_front_porch_pixels: u16,
-    pub horizontal_sync_pulse_pixels: u16,
-    pub vertical_front_porch_lines: u8,
-    pub vertical_sync_pulse_lines: u8,
-    pub horizontal_addressable_mm: u16,
-    pub vertical_addressable_mm: u16,
-    pub horizontal_left_border_pixels: u8,
-    pub vertical_top_border_pixels: u8,
-    pub interlaced: bool,
-    pub stereo_viewing_support: StereoViewingSupport,
-    pub sync: SyncSignal,
+    pixel_clock_khz: u32,
+    horizontal_addressable_pixels: u16,
+    horizontal_blanking_pixels: u16,
+    vertical_addressable_lines: u16,
+    vertical_blanking_lines: u16,
+    horizontal_front_porch_pixels: u16,
+    horizontal_sync_pulse_pixels: u16,
+    vertical_front_porch_lines: u8,
+    vertical_sync_pulse_lines: u8,
+    horizontal_addressable_mm: u16,
+    vertical_addressable_mm: u16,
+    horizontal_left_border_pixels: u8,
+    vertical_top_border_pixels: u8,
+    interlaced: bool,
+    stereo_viewing_support: StereoViewingSupport,
+    sync: SyncSignal,
 }
 
 #[derive(Clone, Debug)]
@@ -1174,35 +1174,35 @@ pub enum FeatureSupport2 {
 #[derive(Debug)]
 #[expect(unused)]
 pub struct FeatureSupport {
-    pub standby_supported: bool,
-    pub suspend_supported: bool,
-    pub active_off_supported: bool,
-    pub features: FeatureSupport2,
-    pub srgb_is_default_color_space: bool,
-    pub preferred_mode_is_native: bool,
-    pub display_is_continuous_frequency: bool,
+    standby_supported: bool,
+    suspend_supported: bool,
+    active_off_supported: bool,
+    features: FeatureSupport2,
+    srgb_is_default_color_space: bool,
+    preferred_mode_is_native: bool,
+    display_is_continuous_frequency: bool,
 }
 
 #[derive(Debug)]
 #[expect(unused)]
 pub struct EdidBaseBlock {
     pub id_manufacturer_name: BString,
-    pub id_product_code: u16,
+    id_product_code: u16,
     pub id_serial_number: u32,
-    pub week_of_manufacture: Option<u8>,
-    pub model_year: Option<u16>,
-    pub year_of_manufacture: Option<u16>,
-    pub edid_version: u8,
-    pub edid_revision: u8,
-    pub video_input_definition: VideoInputDefinition,
-    pub screen_dimensions: ScreenDimensions,
-    pub gamma: Option<f64>,
-    pub feature_support: FeatureSupport,
+    week_of_manufacture: Option<u8>,
+    model_year: Option<u16>,
+    year_of_manufacture: Option<u16>,
+    edid_version: u8,
+    edid_revision: u8,
+    video_input_definition: VideoInputDefinition,
+    screen_dimensions: ScreenDimensions,
+    gamma: Option<f64>,
+    feature_support: FeatureSupport,
     pub chromaticity_coordinates: ChromaticityCoordinates,
-    pub established_timings: EstablishedTimings,
-    pub standard_timings: [Option<StandardTiming>; 8],
+    established_timings: EstablishedTimings,
+    standard_timings: [Option<StandardTiming>; 8],
     pub descriptors: [Option<Descriptor>; 4],
-    pub num_extensions: u8,
+    num_extensions: u8,
 }
 
 #[derive(Debug)]
@@ -1228,30 +1228,30 @@ pub enum CtaDataBlock {
 pub struct CtaAmdVendorDataBlock {
     pub minimum_refresh_hz: u8,
     #[expect(unused)]
-    pub maximum_refresh_hz: u8,
+    maximum_refresh_hz: u8,
 }
 
 #[derive(Copy, Clone, Debug)]
 #[expect(unused)]
 pub struct CtaColorimetryDataBlock {
     pub bt2020_rgb: bool,
-    pub bt2020_ycc: bool,
-    pub bt2020_cycc: bool,
-    pub op_rgb: bool,
-    pub op_ycc_601601: bool,
-    pub s_ycc_601: bool,
-    pub xv_ycc_709: bool,
-    pub xv_ycc_601: bool,
-    pub dci_p3: bool,
+    bt2020_ycc: bool,
+    bt2020_cycc: bool,
+    op_rgb: bool,
+    op_ycc_601601: bool,
+    s_ycc_601: bool,
+    xv_ycc_709: bool,
+    xv_ycc_601: bool,
+    dci_p3: bool,
 }
 
 #[derive(Copy, Clone, Debug)]
 #[expect(unused)]
 pub struct CtaStaticHdrMetadataDataBlock {
-    pub traditional_gamma_sdr_luminance: bool,
-    pub traditional_gamma_hdr_luminance: bool,
+    traditional_gamma_sdr_luminance: bool,
+    traditional_gamma_hdr_luminance: bool,
     pub smpte_st_2084: bool,
-    pub hlg: bool,
+    hlg: bool,
     pub max_luminance: Option<f64>,
     pub max_frame_average_luminance: Option<f64>,
     pub min_luminance: Option<f64>,

@@ -22,10 +22,10 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct ZwpTextInputV3 {
-    pub id: ZwpTextInputV3Id,
+    id: ZwpTextInputV3Id,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
-    pub version: Version,
+    version: Version,
     seat: Rc<WlSeatGlobal>,
     num_commits: NumCell<u32>,
 

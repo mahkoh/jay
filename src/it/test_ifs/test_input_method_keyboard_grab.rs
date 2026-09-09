@@ -20,7 +20,7 @@ pub struct TestInputMethodKeyboardGrab {
 }
 
 impl TestInputMethodKeyboardGrab {
-    pub fn destroy(&self) -> Result<(), TestError> {
+    fn destroy(&self) -> Result<(), TestError> {
         if !self.destroyed.replace(true) {
             self.tran.send(Release { self_id: self.id })?;
         }

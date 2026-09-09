@@ -13,13 +13,13 @@ pub enum EiContext {
 }
 
 pub struct EiInterfaceVersion {
-    pub server_max_version: EiVersion,
-    pub client_max_version: Cell<EiVersion>,
+    server_max_version: EiVersion,
+    client_max_version: Cell<EiVersion>,
     pub version: Cell<EiVersion>,
 }
 
 impl EiInterfaceVersion {
-    pub fn new(server_max_version: u32) -> Self {
+    fn new(server_max_version: u32) -> Self {
         Self {
             server_max_version: EiVersion(server_max_version),
             client_max_version: Cell::new(EiVersion(0)),
@@ -27,7 +27,7 @@ impl EiInterfaceVersion {
         }
     }
 
-    pub fn set_client_version(&self, version: EiVersion) {
+    fn set_client_version(&self, version: EiVersion) {
         self.client_max_version.set(version);
         self.version.set(self.server_max_version.min(version));
     }

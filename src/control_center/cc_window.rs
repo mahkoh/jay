@@ -313,7 +313,7 @@ pub struct WindowPane {
 }
 
 impl ControlCenterInner {
-    pub fn create_window_pane(self: &Rc<Self>, window: &Rc<dyn ToplevelNode>) -> WindowPane {
+    fn create_window_pane(self: &Rc<Self>, window: &Rc<dyn ToplevelNode>) -> WindowPane {
         WindowPane {
             window: window.clone(),
         }
@@ -371,7 +371,7 @@ pub fn show_window_collapsible(
     }
 }
 
-pub fn show_window(behavior: &mut CcBehavior<'_>, ui: &mut Ui, window: &dyn ToplevelNode) {
+fn show_window(behavior: &mut CcBehavior<'_>, ui: &mut Ui, window: &dyn ToplevelNode) {
     let data = window.tl_data();
     ensure_listener(ui, behavior, data);
     grid(ui, ("window", data.identifier.get()), |ui| {

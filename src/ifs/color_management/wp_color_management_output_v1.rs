@@ -31,7 +31,7 @@ impl OutputEventListener for WpColorManagementOutputV1 {
 }
 
 impl WpColorManagementOutputV1 {
-    pub fn send_image_description_changed(&self) {
+    fn send_image_description_changed(&self) {
         self.client
             .event(ImageDescriptionChanged { self_id: self.id });
     }

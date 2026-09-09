@@ -16,8 +16,8 @@ const SOCK_DIR: &str = "/tmp/.X11-unix";
 
 pub struct XSocket {
     pub id: u32,
-    pub path: Ustring,
-    pub lock_path: Ustring,
+    path: Ustring,
+    lock_path: Ustring,
 }
 
 impl Drop for XSocket {

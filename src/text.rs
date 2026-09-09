@@ -275,7 +275,7 @@ fn render_fitting(
 
 #[derive(Debug, Copy, Clone, Default)]
 pub struct TextMeasurement {
-    pub ink_rect: Rect,
+    ink_rect: Rect,
 }
 
 struct RenderedText {

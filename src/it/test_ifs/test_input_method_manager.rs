@@ -9,8 +9,8 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestInputMethodManager {
-    pub id: ZwpInputMethodManagerV2Id,
-    pub tran: Rc<TestTransport>,
+    id: ZwpInputMethodManagerV2Id,
+    tran: Rc<TestTransport>,
 }
 
 impl TestInputMethodManager {

@@ -15,14 +15,14 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct WpCommitTimingManagerV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 pub struct WpCommitTimingManagerV1 {
-    pub id: WpCommitTimingManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: WpCommitTimingManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl WpCommitTimingManagerV1Global {

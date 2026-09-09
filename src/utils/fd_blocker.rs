@@ -8,7 +8,7 @@ use uapi::c;
 
 pub struct FdBlocker(#[expect(unused)] pub Rc<OwnedFd>);
 
-pub struct FdBarrier(pub Rc<OwnedFd>);
+pub struct FdBarrier(Rc<OwnedFd>);
 
 pub fn create_fd_blocker() -> Result<(FdBlocker, FdBarrier), OsError> {
     let pipe = pipe()?;

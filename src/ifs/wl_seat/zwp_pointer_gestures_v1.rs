@@ -14,14 +14,14 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct ZwpPointerGesturesV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 pub struct ZwpPointerGesturesV1 {
-    pub id: ZwpPointerGesturesV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: ZwpPointerGesturesV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl ZwpPointerGesturesV1Global {

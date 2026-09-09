@@ -59,9 +59,9 @@ impl Global for ZwlrGammaControlManagerV1Global {
 }
 
 pub struct ZwlrGammaControlManagerV1 {
-    pub id: ZwlrGammaControlManagerV1Id,
+    id: ZwlrGammaControlManagerV1Id,
     pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
+    tracker: Tracker<Self>,
     pub version: Version,
 }
 

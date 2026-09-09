@@ -97,7 +97,7 @@ impl WpCursorShapeDeviceV1RequestHandler for WpCursorShapeDeviceV1 {
 }
 
 impl KnownCursor {
-    pub fn from_shape(shape: u32, version: Version) -> Option<Self> {
+    fn from_shape(shape: u32, version: Version) -> Option<Self> {
         let cursor = match shape {
             DEFAULT => KnownCursor::Default,
             CONTEXT_MENU => KnownCursor::ContextMenu,

@@ -59,7 +59,7 @@ use std::slice;
 pub struct VulkanShmImage {
     pub(super) size: DeviceSize,
     pub(super) stride: u32,
-    pub(super) _allocation: VulkanAllocation,
+    _allocation: VulkanAllocation,
     pub(super) async_data: Option<VulkanShmImageAsyncData>,
 }
 

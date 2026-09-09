@@ -11,9 +11,9 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestSyncobjManager {
-    pub id: WpLinuxDrmSyncobjManagerV1Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    id: WpLinuxDrmSyncobjManagerV1Id,
+    tran: Rc<TestTransport>,
+    destroyed: Cell<bool>,
 }
 
 impl TestSyncobjManager {
@@ -25,7 +25,7 @@ impl TestSyncobjManager {
         }
     }
 
-    pub fn destroy(&self) -> TestResult {
+    fn destroy(&self) -> TestResult {
         if !self.destroyed.replace(true) {
             self.tran.send(Destroy { self_id: self.id })?;
         }

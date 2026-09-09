@@ -19,7 +19,7 @@ pub struct TestDataDevice {
 }
 
 impl TestDataDevice {
-    pub fn destroy(&self) -> TestResult {
+    fn destroy(&self) -> TestResult {
         if !self.destroyed.replace(true) {
             self.tran.send(Release { self_id: self.id })?;
         }

@@ -14,7 +14,7 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct WpCursorShapeManagerV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 impl WpCursorShapeManagerV1Global {
@@ -55,10 +55,10 @@ impl Global for WpCursorShapeManagerV1Global {
 }
 
 pub struct WpCursorShapeManagerV1 {
-    pub id: WpCursorShapeManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: WpCursorShapeManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl WpCursorShapeManagerV1 {

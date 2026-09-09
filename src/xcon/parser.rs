@@ -25,7 +25,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn eof(&self) -> bool {
+    fn eof(&self) -> bool {
         self.pos == self.buf.len()
     }
 

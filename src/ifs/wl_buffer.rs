@@ -54,7 +54,7 @@ pub struct WlBufferDmabufStorage {
     pub dmabuf: Rc<DmaBuf>,
     pub tex: Option<Rc<dyn GfxTexture>>,
     pub fb: Option<Rc<dyn GfxFramebuffer>>,
-    pub copy_obj: Option<Option<Rc<CopyDeviceSrcObject>>>,
+    copy_obj: Option<Option<Rc<CopyDeviceSrcObject>>>,
 }
 
 pub struct DmabufBufferParams {
@@ -353,7 +353,7 @@ impl WlBuffer {
         }
     }
 
-    pub fn get_udmabuf(
+    fn get_udmabuf(
         &self,
         mem: &Rc<ClientMemOffset>,
         dmabuf_buffer_params: &mut DmabufBufferParams,
@@ -616,7 +616,7 @@ impl WlBufferDmabufStorage {
         Ok(self.tex.insert(tex).clone())
     }
 
-    pub fn ensure_fb(
+    fn ensure_fb(
         &mut self,
         buf: &WlBuffer,
         ctx: &Rc<dyn GfxContext>,

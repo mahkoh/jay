@@ -16,10 +16,10 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestShm {
-    pub id: WlShmId,
-    pub tran: Rc<TestTransport>,
-    pub formats: CopyHashMap<u32, ()>,
-    pub formats_awaited: Cell<bool>,
+    id: WlShmId,
+    tran: Rc<TestTransport>,
+    formats: CopyHashMap<u32, ()>,
+    formats_awaited: Cell<bool>,
 }
 
 impl TestShm {
@@ -39,7 +39,7 @@ impl TestShm {
         &self.formats
     }
 
-    pub fn create_pool(&self, size: usize) -> Result<Rc<TestShmPool>, TestError> {
+    fn create_pool(&self, size: usize) -> Result<Rc<TestShmPool>, TestError> {
         let mem = TestMem::new(size)?;
         let pool = Rc::new(TestShmPool {
             id: self.tran.id(),

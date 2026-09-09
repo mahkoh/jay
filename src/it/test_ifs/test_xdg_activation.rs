@@ -10,9 +10,9 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestXdgActivation {
-    pub id: XdgActivationV1Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    id: XdgActivationV1Id,
+    tran: Rc<TestTransport>,
+    destroyed: Cell<bool>,
 }
 
 impl TestXdgActivation {
@@ -24,7 +24,7 @@ impl TestXdgActivation {
         }
     }
 
-    pub fn destroy(&self) -> Result<(), TestError> {
+    fn destroy(&self) -> Result<(), TestError> {
         if !self.destroyed.replace(true) {
             self.tran.send(Destroy { self_id: self.id })?;
         }

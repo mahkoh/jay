@@ -13,9 +13,9 @@ use std::rc::Rc;
 
 pub struct GlRenderBuffer {
     pub _img: Option<Rc<EglImage>>,
-    pub ctx: Rc<EglContext>,
-    pub width: i32,
-    pub height: i32,
+    ctx: Rc<EglContext>,
+    width: i32,
+    height: i32,
     pub stride: i32,
     pub format: &'static Format,
     rbo: GLuint,

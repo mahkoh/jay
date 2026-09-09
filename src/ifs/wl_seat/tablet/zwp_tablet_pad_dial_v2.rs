@@ -20,7 +20,7 @@ pub struct ZwpTabletPadDialV2 {
 }
 
 impl ZwpTabletPadDialV2 {
-    pub fn detach(&self) {
+    fn detach(&self) {
         self.dial.bindings.remove(&self.seat);
     }
 

@@ -10,8 +10,8 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestDataDeviceManager {
-    pub id: WlDataDeviceManagerId,
-    pub tran: Rc<TestTransport>,
+    id: WlDataDeviceManagerId,
+    tran: Rc<TestTransport>,
 }
 
 impl TestDataDeviceManager {

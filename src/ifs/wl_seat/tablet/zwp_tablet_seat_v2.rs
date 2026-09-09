@@ -32,7 +32,7 @@ pub struct ZwpTabletSeatV2 {
 }
 
 impl ZwpTabletSeatV2 {
-    pub fn detach(&self) {
+    fn detach(&self) {
         self.seat.tablet.seats.remove(&self.client, self);
     }
 

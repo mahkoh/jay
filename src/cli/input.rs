@@ -58,7 +58,7 @@ use uapi::c;
 #[derive(Args, Debug)]
 pub struct InputArgs {
     #[clap(subcommand)]
-    pub command: Option<InputCmd>,
+    command: Option<InputCmd>,
 }
 
 #[derive(Subcommand, Debug, Derivative)]
@@ -77,23 +77,23 @@ pub enum InputCmd {
 pub struct ShowArgs {
     /// Print more information about devices.
     #[arg(short, long)]
-    pub verbose: bool,
+    verbose: bool,
 }
 
 #[derive(Args, Debug)]
 pub struct SeatArgs {
     /// The seat to modify, e.g. default.
-    pub seat: String,
+    seat: String,
     #[clap(subcommand)]
-    pub command: Option<SeatCommand>,
+    command: Option<SeatCommand>,
 }
 
 #[derive(Args, Debug)]
 pub struct DeviceArgs {
     /// The ID of the device to modify.
-    pub device: u32,
+    device: u32,
     #[clap(subcommand)]
-    pub command: Option<DeviceCommand>,
+    command: Option<DeviceCommand>,
 }
 
 #[derive(Subcommand, Debug, Clone, Derivative)]
@@ -121,7 +121,7 @@ pub enum SeatCommand {
 #[derive(Args, Debug, Clone)]
 pub struct SimpleImArgs {
     #[clap(subcommand)]
-    pub command: SimpleImCommand,
+    command: SimpleImCommand,
 }
 
 #[derive(Subcommand, Debug, Clone)]
@@ -142,7 +142,7 @@ pub enum SimpleImCommand {
 pub struct SeatShowArgs {
     /// Print more information about devices.
     #[arg(short, long)]
-    pub verbose: bool,
+    verbose: bool,
 }
 
 #[derive(Subcommand, Debug, Clone, Default)]
@@ -207,78 +207,78 @@ pub enum AccelProfile {
 #[derive(Args, Debug, Clone)]
 pub struct SetAccelProfileArgs {
     /// The profile.
-    pub profile: AccelProfile,
+    profile: AccelProfile,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct SetAccelSpeedArgs {
     /// The speed. Must be in the range \[-1, 1].
-    pub speed: f64,
+    speed: f64,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct SetTapEnabledArgs {
     /// Whether tap is enabled.
     #[arg(action = clap::ArgAction::Set)]
-    pub enabled: bool,
+    enabled: bool,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct SetTapDragEnabledArgs {
     /// Whether tap-drag is enabled.
     #[arg(action = clap::ArgAction::Set)]
-    pub enabled: bool,
+    enabled: bool,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct SetTapDragLockEnabledArgs {
     /// Whether tap-drag-lock is enabled.
     #[arg(action = clap::ArgAction::Set)]
-    pub enabled: bool,
+    enabled: bool,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct SetLeftHandedArgs {
     /// Whether the device is left handed.
     #[arg(action = clap::ArgAction::Set)]
-    pub left_handed: bool,
+    left_handed: bool,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct SetNaturalScrollingArgs {
     /// Whether natural scrolling is enabled.
     #[arg(action = clap::ArgAction::Set)]
-    pub natural_scrolling: bool,
+    natural_scrolling: bool,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct SetPxPerWheelScrollArgs {
     /// The number of pixels to scroll.
-    pub px: f64,
+    px: f64,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct SetPxScrollMultiplierArgs {
     /// The multiplier.
-    pub mul: f64,
+    mul: f64,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct SetTransformMatrixArgs {
-    pub m11: f64,
-    pub m12: f64,
-    pub m21: f64,
-    pub m22: f64,
+    m11: f64,
+    m12: f64,
+    m21: f64,
+    m22: f64,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct SetCalibrationMatrixArgs {
-    pub m00: f32,
-    pub m01: f32,
-    pub m02: f32,
-    pub m10: f32,
-    pub m11: f32,
-    pub m12: f32,
+    m00: f32,
+    m01: f32,
+    m02: f32,
+    m10: f32,
+    m11: f32,
+    m12: f32,
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -291,7 +291,7 @@ pub enum ClickMethod {
 #[derive(Args, Debug, Clone)]
 pub struct SetClickMethodArgs {
     /// The method.
-    pub method: ClickMethod,
+    method: ClickMethod,
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -305,21 +305,21 @@ pub enum ScrollMethod {
 #[derive(Args, Debug, Clone)]
 pub struct SetScrollMethodArgs {
     /// The method.
-    pub method: ScrollMethod,
+    method: ScrollMethod,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct SetScrollButtonArgs {
     /// The name of a button from input-event-codes.h or `none` to unset the button.
     #[clap(value_parser = parse_button)]
-    pub button: u32,
+    button: u32,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct SetScrollButtonLockArgs {
     /// Whether scroll button locking is enabled.
     #[arg(action = clap::ArgAction::Set)]
-    pub enabled: bool,
+    enabled: bool,
 }
 
 #[derive(Debug, Error)]
@@ -337,72 +337,72 @@ fn parse_button(s: &str) -> Result<u32, ParseButtonError> {
 pub struct SetMiddleButtonEmulationArgs {
     /// Whether middle button emulation is enabled.
     #[arg(action = clap::ArgAction::Set)]
-    pub middle_button_emulation: bool,
+    middle_button_emulation: bool,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct MapToOutputArgs {
     /// The output to map to.
-    pub output: String,
+    output: String,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct AttachArgs {
     /// The seat to attach to.
-    pub seat: String,
+    seat: String,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct SetRepeatRateArgs {
     /// The number of repeats per second.
-    pub rate: i32,
+    rate: i32,
     /// The delay before the first repeat in milliseconds.
-    pub delay: i32,
+    delay: i32,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct SetCursorSizeArgs {
     /// The size of the cursor.
-    pub size: u32,
+    size: u32,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct SetKeymapArgs {
     /// The keymap group to use for shortcuts.
     #[clap(long)]
-    pub shortcuts_group: Option<u32>,
+    shortcuts_group: Option<u32>,
     /// The file to read the keymap from. Omit for stdin.
     #[clap(value_hint = ValueHint::FilePath)]
-    pub file: Option<String>,
+    file: Option<String>,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct SetKeymapFromNamesArgs {
     /// The keymap group to use for shortcuts.
     #[clap(long)]
-    pub shortcuts_group: Option<u32>,
+    shortcuts_group: Option<u32>,
     /// The rules file.
     #[clap(short, long)]
-    pub rules: Option<String>,
+    rules: Option<String>,
     /// The model name.
     #[clap(short, long)]
-    pub model: Option<String>,
+    model: Option<String>,
     /// The comma-separated list of layouts.
     #[clap(short, long)]
-    pub layout: Option<String>,
+    layout: Option<String>,
     /// The comma-separated list of layout variants.
     #[clap(short, long)]
-    pub variant: Option<String>,
+    variant: Option<String>,
     /// The comma-separated list of options.
     #[clap(short, long)]
-    pub options: Option<String>,
+    options: Option<String>,
 }
 
 #[derive(Args, Debug, Clone)]
 pub struct UseHardwareCursorArgs {
     /// Whether the seat uses the hardware cursor.
     #[arg(action = clap::ArgAction::Set)]
-    pub enabled: bool,
+    enabled: bool,
 }
 
 pub fn main(global: GlobalArgs, args: InputArgs) {
@@ -418,37 +418,37 @@ pub fn main(global: GlobalArgs, args: InputArgs) {
 
 #[derive(Clone, Debug)]
 struct Seat {
-    pub name: String,
-    pub repeat_rate: i32,
-    pub repeat_delay: i32,
-    pub hardware_cursor: bool,
+    name: String,
+    repeat_rate: i32,
+    repeat_delay: i32,
+    hardware_cursor: bool,
 }
 
 #[derive(Clone, Debug)]
 struct InputDevice {
-    pub id: u32,
-    pub name: String,
-    pub seat: Option<String>,
-    pub syspath: Option<String>,
-    pub devnode: Option<String>,
-    pub capabilities: Vec<InputDeviceCapability>,
-    pub accel_profile: Option<InputDeviceAccelProfile>,
-    pub accel_speed: Option<f64>,
-    pub tap_enabled: Option<bool>,
-    pub tap_drag_enabled: Option<bool>,
-    pub tap_drag_lock_enabled: Option<bool>,
-    pub left_handed: Option<bool>,
-    pub natural_scrolling_enabled: Option<bool>,
-    pub px_per_wheel_scroll: Option<f64>,
-    pub transform_matrix: Option<[[f64; 2]; 2]>,
-    pub output: Option<String>,
-    pub calibration_matrix: Option<[[f32; 3]; 2]>,
-    pub click_method: Option<InputDeviceClickMethod>,
-    pub middle_button_emulation_enabled: Option<bool>,
-    pub scroll_methods: Option<u32>,
-    pub scroll_method: Option<InputDeviceScrollMethod>,
-    pub scroll_button: Option<Option<InputEventCode>>,
-    pub scroll_button_lock: Option<bool>,
+    id: u32,
+    name: String,
+    seat: Option<String>,
+    syspath: Option<String>,
+    devnode: Option<String>,
+    capabilities: Vec<InputDeviceCapability>,
+    accel_profile: Option<InputDeviceAccelProfile>,
+    accel_speed: Option<f64>,
+    tap_enabled: Option<bool>,
+    tap_drag_enabled: Option<bool>,
+    tap_drag_lock_enabled: Option<bool>,
+    left_handed: Option<bool>,
+    natural_scrolling_enabled: Option<bool>,
+    px_per_wheel_scroll: Option<f64>,
+    transform_matrix: Option<[[f64; 2]; 2]>,
+    output: Option<String>,
+    calibration_matrix: Option<[[f32; 3]; 2]>,
+    click_method: Option<InputDeviceClickMethod>,
+    middle_button_emulation_enabled: Option<bool>,
+    scroll_methods: Option<u32>,
+    scroll_method: Option<InputDeviceScrollMethod>,
+    scroll_button: Option<Option<InputEventCode>>,
+    scroll_button_lock: Option<bool>,
 }
 
 #[derive(Clone, Debug, Default)]

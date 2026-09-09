@@ -18,10 +18,10 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct EiKeyboard {
-    pub id: EiKeyboardId,
-    pub client: Rc<EiClient>,
-    pub tracker: Tracker<Self>,
-    pub version: EiVersion,
+    id: EiKeyboardId,
+    client: Rc<EiClient>,
+    tracker: Tracker<Self>,
+    version: EiVersion,
     pub device: Rc<EiDevice>,
 }
 

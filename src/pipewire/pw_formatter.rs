@@ -94,7 +94,7 @@ impl<'a> PwFormatter<'a> {
         self.write_long(long as _)
     }
 
-    pub fn write_long(&mut self, long: i64) {
+    fn write_long(&mut self, long: i64) {
         if !self.array || self.first {
             self.data.extend_from_slice(uapi::as_bytes(&8u32));
             self.data.extend_from_slice(uapi::as_bytes(&PW_TYPE_Long.0));
@@ -171,7 +171,7 @@ impl<'a> PwFormatter<'a> {
         self.first = false;
     }
 
-    pub fn write_none(&mut self) {
+    fn write_none(&mut self) {
         if !self.array || self.first {
             self.data.extend_from_slice(uapi::as_bytes(&0u32));
             self.data.extend_from_slice(uapi::as_bytes(&PW_TYPE_None.0));

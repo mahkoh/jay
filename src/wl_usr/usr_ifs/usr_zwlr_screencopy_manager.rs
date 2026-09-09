@@ -9,9 +9,9 @@ use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrZwlrScreencopyManager {
-    pub id: ZwlrScreencopyManagerV1Id,
-    pub con: Rc<UsrCon>,
-    pub version: Version,
+    id: ZwlrScreencopyManagerV1Id,
+    con: Rc<UsrCon>,
+    version: Version,
 }
 
 impl UsrZwlrScreencopyManager {

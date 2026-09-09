@@ -139,7 +139,7 @@ pub struct XwindowInfo {
 pub struct XwindowData {
     pub state: Rc<State>,
     pub window_id: u32,
-    pub client: Rc<Client>,
+    client: Rc<Client>,
     pub surface_id: Cell<Option<WlSurfaceId>>,
     pub surface_serial: Cell<Option<u64>>,
     pub window: CloneCell<Option<Rc<Xwindow>>>,
@@ -157,9 +157,9 @@ pub struct Xwindow {
     pub id: XwindowId,
     pub data: Rc<XwindowData>,
     pub x: Rc<XSurface>,
-    pub display_link: RefCell<NodesStackElement>,
+    display_link: RefCell<NodesStackElement>,
     pub toplevel_data: ToplevelData,
-    pub transaction_data: TransactionData<XwindowTransactionOp>,
+    transaction_data: TransactionData<XwindowTransactionOp>,
 }
 
 impl XwindowData {
@@ -272,7 +272,7 @@ impl Xwindow {
         self.toplevel_data.parent.is_some() || self.display_link.borrow_mut().link.is_some()
     }
 
-    pub fn may_be_mapped(&self) -> bool {
+    fn may_be_mapped(&self) -> bool {
         self.x.surface.buffer.is_some() && self.data.info.mapped.get()
     }
 

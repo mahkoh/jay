@@ -709,17 +709,17 @@ pub struct fuse_dirent {
 
 unsafe impl Packed for fuse_dirent {}
 
-pub const fn FUSE_REC_ALIGN(x: usize) -> usize {
+const fn FUSE_REC_ALIGN(x: usize) -> usize {
     (x + FUSE_ALIGNMENT - 1) & !(FUSE_ALIGNMENT - 1)
 }
 
 const FUSE_NAME_OFFSET: usize = offset_of!(fuse_dirent, name);
 
-pub const fn FUSE_DIRENT_ALIGN(x: usize) -> usize {
+const fn FUSE_DIRENT_ALIGN(x: usize) -> usize {
     FUSE_REC_ALIGN(x)
 }
 
-pub const fn FUSE_DIRENT_SIZE(d: &fuse_dirent) -> usize {
+const fn FUSE_DIRENT_SIZE(d: &fuse_dirent) -> usize {
     FUSE_DIRENT_ALIGN(FUSE_NAME_OFFSET + d.namelen as usize)
 }
 
@@ -734,7 +734,7 @@ unsafe impl Packed for fuse_direntplus {}
 
 pub const FUSE_NAME_OFFSET_DIRENTPLUS: usize = offset_of!(fuse_direntplus, dirent.name);
 
-pub const fn FUSE_DIRENTPLUS_SIZE(d: &fuse_direntplus) -> usize {
+const fn FUSE_DIRENTPLUS_SIZE(d: &fuse_direntplus) -> usize {
     fuse_direntplus_size(d.dirent.namelen as usize)
 }
 

@@ -49,7 +49,7 @@ pub struct WlSubsurface {
     id: WlSubsurfaceId,
     unique_id: SubsurfaceId,
     pub surface: Rc<WlSurface>,
-    pub(super) parent: Rc<WlSurface>,
+    parent: Rc<WlSurface>,
     pub position: Cell<(i32, i32)>,
     sync_requested: Cell<bool>,
     sync_ancestor: Cell<bool>,
@@ -257,7 +257,7 @@ impl WlSubsurface {
         Ok(())
     }
 
-    pub fn sync(&self) -> bool {
+    fn sync(&self) -> bool {
         self.sync_requested.get() || self.sync_ancestor.get()
     }
 

@@ -26,7 +26,7 @@ pub struct TestPointer {
 }
 
 impl TestPointer {
-    pub fn destroy(&self) -> TestResult {
+    fn destroy(&self) -> TestResult {
         if !self.destroyed.replace(true) {
             self.tran.send(Release { self_id: self.id })?;
         }

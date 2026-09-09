@@ -95,7 +95,7 @@ impl WpImageDescriptionInfoV1 {
         self.send_done();
     }
 
-    pub fn send_done(&self) {
+    fn send_done(&self) {
         self.client.event(Done { self_id: self.id });
     }
 
@@ -108,7 +108,7 @@ impl WpImageDescriptionInfoV1 {
         });
     }
 
-    pub fn send_primaries(&self, p: &crate::cmm::cmm_primaries::Primaries) {
+    fn send_primaries(&self, p: &crate::cmm::cmm_primaries::Primaries) {
         let map = |c: F64| (c.0 * PRIMARIES_MUL) as i32;
         self.client.event(Primaries {
             self_id: self.id,
@@ -123,28 +123,28 @@ impl WpImageDescriptionInfoV1 {
         });
     }
 
-    pub fn send_primaries_named(&self, primaries: u32) {
+    fn send_primaries_named(&self, primaries: u32) {
         self.client.event(PrimariesNamed {
             self_id: self.id,
             primaries,
         });
     }
 
-    pub fn send_tf_power(&self, e: EotfPow) {
+    fn send_tf_power(&self, e: EotfPow) {
         self.client.event(TfPower {
             self_id: self.id,
             eexp: e.0,
         });
     }
 
-    pub fn send_tf_named(&self, tf: u32) {
+    fn send_tf_named(&self, tf: u32) {
         self.client.event(TfNamed {
             self_id: self.id,
             tf,
         });
     }
 
-    pub fn send_luminances(&self, l: &crate::cmm::cmm_luminance::Luminance) {
+    fn send_luminances(&self, l: &crate::cmm::cmm_luminance::Luminance) {
         self.client.event(Luminances {
             self_id: self.id,
             min_lum: (l.min.0 * MIN_LUM_MUL) as u32,
@@ -153,7 +153,7 @@ impl WpImageDescriptionInfoV1 {
         });
     }
 
-    pub fn send_target_primaries(&self, p: &crate::cmm::cmm_primaries::Primaries) {
+    fn send_target_primaries(&self, p: &crate::cmm::cmm_primaries::Primaries) {
         let map = |c: F64| (c.0 * PRIMARIES_MUL) as i32;
         self.client.event(TargetPrimaries {
             self_id: self.id,
@@ -168,7 +168,7 @@ impl WpImageDescriptionInfoV1 {
         });
     }
 
-    pub fn send_target_luminances(&self, l: &crate::cmm::cmm_luminance::TargetLuminance) {
+    fn send_target_luminances(&self, l: &crate::cmm::cmm_luminance::TargetLuminance) {
         self.client.event(TargetLuminance {
             self_id: self.id,
             min_lum: (l.min.0 * MIN_LUM_MUL) as u32,
@@ -176,14 +176,14 @@ impl WpImageDescriptionInfoV1 {
         });
     }
 
-    pub fn send_target_max_cll(&self, max_cll: f64) {
+    fn send_target_max_cll(&self, max_cll: f64) {
         self.client.event(TargetMaxCll {
             self_id: self.id,
             max_cll: max_cll as _,
         });
     }
 
-    pub fn send_target_max_fall(&self, max_fall: f64) {
+    fn send_target_max_fall(&self, max_fall: f64) {
         self.client.event(TargetMaxFall {
             self_id: self.id,
             max_fall: max_fall as _,

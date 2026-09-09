@@ -57,8 +57,8 @@ mod types;
 
 #[derive(Debug)]
 pub struct CallError {
-    pub name: String,
-    pub msg: Option<String>,
+    name: String,
+    msg: Option<String>,
 }
 
 impl Display for CallError {
@@ -383,14 +383,14 @@ struct DbusHolder {
 }
 
 impl DbusHolder {
-    pub fn new(run_toplevel: &Rc<RunToplevel>) -> Self {
+    fn new(run_toplevel: &Rc<RunToplevel>) -> Self {
         Self {
             socket: Default::default(),
             run_toplevel: run_toplevel.clone(),
         }
     }
 
-    pub fn clear(&self) {
+    fn clear(&self) {
         if let Some(socket) = self.socket.take() {
             socket.clear();
         }
@@ -451,7 +451,7 @@ pub unsafe trait Message<'a>: Sized + 'a {
 }
 
 pub struct ErrorMessage<'a> {
-    pub msg: Cow<'a, str>,
+    msg: Cow<'a, str>,
 }
 
 unsafe impl<'a> Message<'a> for ErrorMessage<'a> {

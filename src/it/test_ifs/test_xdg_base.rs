@@ -11,9 +11,9 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestXdgWmBase {
-    pub id: XdgWmBaseId,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    id: XdgWmBaseId,
+    tran: Rc<TestTransport>,
+    destroyed: Cell<bool>,
 }
 
 impl TestXdgWmBase {
@@ -25,7 +25,7 @@ impl TestXdgWmBase {
         }
     }
 
-    pub fn destroy(&self) -> Result<(), TestError> {
+    fn destroy(&self) -> Result<(), TestError> {
         if !self.destroyed.replace(true) {
             self.tran.send(Destroy { self_id: self.id })?;
         }

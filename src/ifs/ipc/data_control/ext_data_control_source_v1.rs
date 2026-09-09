@@ -17,8 +17,8 @@ use thiserror::Error;
 use uapi::OwnedFd;
 
 pub struct ExtDataControlSourceV1 {
-    pub id: ExtDataControlSourceV1Id,
-    pub data: DataControlSourceData,
+    id: ExtDataControlSourceV1Id,
+    data: DataControlSourceData,
     pub tracker: Tracker<Self>,
 }
 
@@ -52,7 +52,7 @@ impl ExtDataControlSourceV1 {
         }
     }
 
-    pub fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>) {
+    fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>) {
         self.data.data.client.event(Send {
             self_id: self.id,
             mime_type,
@@ -60,7 +60,7 @@ impl ExtDataControlSourceV1 {
         })
     }
 
-    pub fn send_cancelled(&self) {
+    fn send_cancelled(&self) {
         self.data.data.client.event(Cancelled { self_id: self.id })
     }
 }

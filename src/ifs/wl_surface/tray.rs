@@ -181,8 +181,8 @@ pub enum TrayItemTransactionOp {
 }
 
 pub struct TrayItemConfigureData {
-    pub size: i32,
-    pub bar_position: BarPosition,
+    size: i32,
+    bar_position: BarPosition,
 }
 
 trait TrayItem:

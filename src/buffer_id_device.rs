@@ -155,7 +155,7 @@ impl BufferIdDevice {
 }
 
 impl BufferIdDevice {
-    pub fn is_on_device(&self, buf: &DmaBuf) -> Result<bool, BufferIdDeviceError> {
+    fn is_on_device(&self, buf: &DmaBuf) -> Result<bool, BufferIdDeviceError> {
         let mut fd_props = PlaneVec::new();
         for plane in &buf.planes {
             let mut props = MemoryFdPropertiesKHR::default();

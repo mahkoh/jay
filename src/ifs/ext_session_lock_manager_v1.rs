@@ -16,7 +16,7 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct ExtSessionLockManagerV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 impl ExtSessionLockManagerV1Global {
@@ -43,10 +43,10 @@ impl ExtSessionLockManagerV1Global {
 }
 
 pub struct ExtSessionLockManagerV1 {
-    pub id: ExtSessionLockManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: ExtSessionLockManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl ExtSessionLockManagerV1RequestHandler for ExtSessionLockManagerV1 {

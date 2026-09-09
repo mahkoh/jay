@@ -42,7 +42,7 @@ impl Debug for Framebuffer {
 }
 
 impl Framebuffer {
-    pub fn copy_to_shm(&self, shm: &[Cell<u8>]) -> Result<(), RenderError> {
+    fn copy_to_shm(&self, shm: &[Cell<u8>]) -> Result<(), RenderError> {
         let format = self.gl.rb.format;
         let Some(shm_info) = &format.shm_info else {
             return Err(RenderError::UnsupportedShmFormat(format.name));
@@ -68,7 +68,7 @@ impl Framebuffer {
         Ok(())
     }
 
-    pub fn render(
+    fn render(
         &self,
         acquire_sync: AcquireSync,
         ops: &[GfxApiOp],

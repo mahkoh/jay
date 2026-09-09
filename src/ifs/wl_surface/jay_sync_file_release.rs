@@ -29,11 +29,11 @@ impl Drop for SyncFileRelease {
 }
 
 pub struct JaySyncFileRelease {
-    pub id: JaySyncFileReleaseId,
-    pub client: Rc<Client>,
+    id: JaySyncFileReleaseId,
+    client: Rc<Client>,
     pub tracker: Tracker<Self>,
-    pub version: Version,
-    pub destroyed: Cell<bool>,
+    version: Version,
+    destroyed: Cell<bool>,
 }
 
 impl JaySyncFileRelease {
@@ -47,7 +47,7 @@ impl JaySyncFileRelease {
         }
     }
 
-    pub fn done(&self, sync_file: Option<&SyncFile>) {
+    fn done(&self, sync_file: Option<&SyncFile>) {
         if self.destroyed.get() {
             return;
         }

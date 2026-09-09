@@ -113,7 +113,7 @@ impl OutputGlobalOpt {
         self.node.get()
     }
 
-    pub fn clear(&self) {
+    fn clear(&self) {
         self.node.take();
         self.global.take();
     }
@@ -155,7 +155,7 @@ pub struct PersistentOutputState {
 #[derive(Eq, Derivative)]
 #[derivative(Debug)]
 pub struct OutputId {
-    pub _connector: Option<String>,
+    _connector: Option<String>,
     pub manufacturer: String,
     pub model: String,
     pub serial_number: String,
@@ -264,7 +264,7 @@ impl WlOutputGlobal {
         }
     }
 
-    pub fn for_each_binding<F: FnMut(&Rc<WlOutput>)>(&self, client: ClientId, mut f: F) {
+    fn for_each_binding<F: FnMut(&Rc<WlOutput>)>(&self, client: ClientId, mut f: F) {
         let bindings = self.bindings.borrow_mut();
         if let Some(bindings) = bindings.get(&client) {
             for binding in bindings.values() {

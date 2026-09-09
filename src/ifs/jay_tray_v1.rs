@@ -20,11 +20,11 @@ pub struct JayTrayV1Global {
 }
 
 pub struct JayTrayV1 {
-    pub id: JayTrayV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
-    pub output: Rc<OutputGlobalOpt>,
+    id: JayTrayV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
+    output: Rc<OutputGlobalOpt>,
 }
 
 impl JayTrayV1Global {

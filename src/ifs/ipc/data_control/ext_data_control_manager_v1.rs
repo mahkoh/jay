@@ -21,9 +21,9 @@ pub struct ExtDataControlManagerV1Global {
 }
 
 pub struct ExtDataControlManagerV1 {
-    pub id: ExtDataControlManagerV1Id,
-    pub client: Rc<Client>,
-    pub version: Version,
+    id: ExtDataControlManagerV1Id,
+    client: Rc<Client>,
+    version: Version,
     tracker: Tracker<Self>,
 }
 

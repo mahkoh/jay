@@ -96,13 +96,13 @@ pub enum TestBackendError {
 
 pub struct TestBackend {
     pub state: Rc<State>,
-    pub test_future: TestFuture,
+    test_future: TestFuture,
     pub default_drm_dev: Rc<TestDrmDevice>,
     pub default_monitor_info: MonitorInfo,
     pub default_connector: Rc<TestConnector>,
     pub default_mouse: Rc<TestBackendMouse>,
     pub default_kb: Rc<TestBackendKb>,
-    pub render_context_installed: Cell<bool>,
+    render_context_installed: Cell<bool>,
 }
 
 impl TestBackend {
@@ -461,8 +461,8 @@ impl BackendAppliedConnectorTransaction for TestBackendTransaction {
 }
 
 pub struct TestMouseClick {
-    pub mouse: Rc<TestBackendMouse>,
-    pub button: u32,
+    mouse: Rc<TestBackendMouse>,
+    button: u32,
 }
 
 impl Drop for TestMouseClick {
@@ -477,10 +477,10 @@ impl Drop for TestMouseClick {
 
 pub struct TestBackendMouse {
     pub common: TestInputDeviceCommon,
-    pub transform_matrix: Cell<TransformMatrix>,
-    pub accel_speed: Cell<f64>,
-    pub accel_profile: Cell<InputDeviceAccelProfile>,
-    pub left_handed: Cell<bool>,
+    transform_matrix: Cell<TransformMatrix>,
+    accel_speed: Cell<f64>,
+    accel_profile: Cell<InputDeviceAccelProfile>,
+    left_handed: Cell<bool>,
 }
 
 impl TestBackendMouse {
@@ -553,8 +553,8 @@ pub struct TestBackendKb {
 }
 
 pub struct PressedKey {
-    pub kb: Rc<TestBackendKb>,
-    pub key: u32,
+    kb: Rc<TestBackendKb>,
+    key: u32,
 }
 
 impl Drop for PressedKey {
@@ -611,16 +611,16 @@ impl TestInputDevice for TestBackendMouse {
 
 pub struct TestInputDeviceCommon {
     pub id: InputDeviceId,
-    pub removed: Cell<bool>,
-    pub events: SyncQueue<InputEvent>,
-    pub on_change: CloneCell<Option<Rc<dyn Fn()>>>,
-    pub capabilities: CopyHashMap<InputDeviceCapability, ()>,
-    pub name: Rc<String>,
-    pub state: Rc<State>,
+    removed: Cell<bool>,
+    events: SyncQueue<InputEvent>,
+    on_change: CloneCell<Option<Rc<dyn Fn()>>>,
+    capabilities: CopyHashMap<InputDeviceCapability, ()>,
+    name: Rc<String>,
+    state: Rc<State>,
 }
 
 impl TestInputDeviceCommon {
-    pub fn event(&self, e: InputEvent) {
+    fn event(&self, e: InputEvent) {
         self.events.push(e);
         if let Some(oc) = self.on_change.get() {
             oc();

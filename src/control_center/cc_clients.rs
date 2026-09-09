@@ -275,7 +275,7 @@ pub struct ClientPane {
 }
 
 impl ControlCenterInner {
-    pub fn create_client_pane(self: &Rc<Self>, client: &Rc<Client>) -> ClientPane {
+    fn create_client_pane(self: &Rc<Self>, client: &Rc<Client>) -> ClientPane {
         ClientPane {
             client: client.clone(),
         }
@@ -333,7 +333,7 @@ pub fn show_client_collapsible(behavior: &mut CcBehavior, ui: &mut Ui, client: &
         });
 }
 
-pub fn show_client(behavior: &mut CcBehavior<'_>, ui: &mut Ui, client: &Client) {
+fn show_client(behavior: &mut CcBehavior<'_>, ui: &mut Ui, client: &Client) {
     grid(ui, ("client", client.id), |ui| {
         label(ui, "ID", client.id.to_string());
         label(ui, "PID", client.pid_info.pid.to_string());

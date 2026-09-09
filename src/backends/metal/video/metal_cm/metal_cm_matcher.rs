@@ -110,7 +110,7 @@ fn compute_programming_(
     })
 }
 
-pub(super) fn find_matches(
+fn find_matches(
     shared: &Shared,
     plane: &MetalCmPlane,
     crtc: &MetalCmCrtc,

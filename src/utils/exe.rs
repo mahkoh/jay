@@ -16,7 +16,7 @@ pub fn open_exe() -> Result<Rc<OwnedFd>, OsError> {
         .map(Rc::new)
 }
 
-pub fn is_same_ino(left: &OwnedFd, right: &OwnedFd) -> Result<bool, OsError> {
+fn is_same_ino(left: &OwnedFd, right: &OwnedFd) -> Result<bool, OsError> {
     let left = uapi::fstat(left.raw()).to_os_error()?;
     let right = uapi::fstat(right.raw()).to_os_error()?;
     Ok((left.st_dev, left.st_ino) == (right.st_dev, right.st_ino))

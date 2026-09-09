@@ -84,20 +84,20 @@ use std::sync::Arc;
 
 tree_id!(FloatNodeId);
 pub struct FloatNode {
-    pub id: FloatNodeId,
-    pub state: Rc<State>,
+    id: FloatNodeId,
+    state: Rc<State>,
     pub node_state: SplitView<FloatNodeState>,
-    pub display_link: RefCell<NodesStackElement>,
-    pub workspace_link: Cell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
-    pub pinned_link: RefCell<Option<LinkedNode<Rc<dyn PinnedNode>>>>,
-    pub workspace: CloneCell<Rc<WorkspaceNode>>,
-    pub location: Cell<NodeLocation>,
-    pub seat_state: NodeSeatState,
-    pub layout_scheduled: Cell<bool>,
-    pub render_titles_scheduled: Cell<bool>,
-    pub title: RefCell<String>,
+    display_link: RefCell<NodesStackElement>,
+    workspace_link: Cell<Option<LinkedNode<Rc<dyn StackedNode>>>>,
+    pinned_link: RefCell<Option<LinkedNode<Rc<dyn PinnedNode>>>>,
+    workspace: CloneCell<Rc<WorkspaceNode>>,
+    location: Cell<NodeLocation>,
+    seat_state: NodeSeatState,
+    layout_scheduled: Cell<bool>,
+    render_titles_scheduled: Cell<bool>,
+    title: RefCell<String>,
     pub title_textures: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
-    pub icon: ToplevelIconUser,
+    icon: ToplevelIconUser,
     pub icons: SmallMap<Scale, ToplevelIcon, 2>,
     pub needs_initial_size: Cell<bool>,
     cursors: RefCell<BHashMap<CursorType, CursorState>>,
@@ -111,11 +111,11 @@ pub struct FloatNode {
 #[derive(Derivative)]
 #[derivative(Default)]
 pub struct FloatNodeState {
-    pub visible: Cell<bool>,
-    pub requested_visible: Cell<bool>,
+    visible: Cell<bool>,
+    requested_visible: Cell<bool>,
     pub position: Cell<Rect>,
     pub child: CloneCell<Option<Rc<dyn ToplevelNode>>>,
-    pub child_is_placeholder: Cell<bool>,
+    child_is_placeholder: Cell<bool>,
     #[derivative(Default(value = "Cell::new(WorkspaceType::Normal)"))]
     pub workspace_ty: Cell<WorkspaceType>,
     pub title_rect: Cell<Rect>,
@@ -160,16 +160,16 @@ enum OpType {
 pub struct FloatTheme {
     pub colors: FloatThemeColors,
     pub sizes: FloatThemeSizes,
-    pub show_window_icons: Cell<bool>,
+    show_window_icons: Cell<bool>,
     pub show_pin_icon: Cell<bool>,
     pub window_icons_grayscale: Cell<bool>,
-    pub title_font: CloneCell<Rc<Arc<str>>>,
+    title_font: CloneCell<Rc<Arc<str>>>,
 }
 
 #[derive(Clone, CachedValue)]
 pub struct FloatThemeColors {
-    pub focused_title_text: Cell<Color>,
-    pub unfocused_title_text: Cell<Color>,
+    focused_title_text: Cell<Color>,
+    unfocused_title_text: Cell<Color>,
     pub focused_border: Cell<Color>,
     pub border: Cell<Color>,
     pub focused_title_background: Cell<Color>,
@@ -295,7 +295,7 @@ impl FloatNode {
         floater
     }
 
-    pub fn schedule_layout(self: &Rc<Self>) {
+    fn schedule_layout(self: &Rc<Self>) {
         if !self.layout_scheduled.replace(true) {
             self.state.pending_float_layout.push(self.clone());
         }
@@ -325,7 +325,7 @@ impl FloatNode {
         self.schedule_render_titles();
     }
 
-    pub fn schedule_render_titles(self: &Rc<Self>) {
+    fn schedule_render_titles(self: &Rc<Self>) {
         self.add_transaction_op(FloatTransactionOp::ScheduleRenderTitles);
     }
 
@@ -843,7 +843,7 @@ impl FloatNode {
         self.node_state[LiveTL].requested_visible.set(v);
     }
 
-    pub fn set_ns_position(self: &Rc<Self>, v: Rect) {
+    fn set_ns_position(self: &Rc<Self>, v: Rect) {
         self.add_transaction_op(FloatTransactionOp::SetPosition(v));
         self.node_state[LiveTL].position.set(v);
     }

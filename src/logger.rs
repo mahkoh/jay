@@ -137,7 +137,7 @@ impl Logger {
     }
 }
 
-pub fn open_log_file(ty: &str) -> (Ustring, OwnedFd) {
+fn open_log_file(ty: &str) -> (Ustring, OwnedFd) {
     let log_dir = create_log_dir(ty);
     let mut flock_fail_count = 0;
     for i in 0.. {

@@ -23,10 +23,10 @@ use thiserror::Error;
 use uapi::OwnedFd;
 
 pub struct ZwpPrimarySelectionSourceV1 {
-    pub id: ZwpPrimarySelectionSourceV1Id,
-    pub data: SourceData,
+    id: ZwpPrimarySelectionSourceV1Id,
+    data: SourceData,
     pub tracker: Tracker<Self>,
-    pub version: Version,
+    version: Version,
 }
 
 impl DataSource for ZwpPrimarySelectionSourceV1 {
@@ -67,11 +67,11 @@ impl ZwpPrimarySelectionSourceV1 {
         }
     }
 
-    pub fn send_cancelled(&self) {
+    fn send_cancelled(&self) {
         self.data.client.event(Cancelled { self_id: self.id });
     }
 
-    pub fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>) {
+    fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>) {
         self.data.client.event(Send {
             self_id: self.id,
             mime_type,

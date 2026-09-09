@@ -90,7 +90,7 @@ pub struct PortalDisplay {
     pub render_ctx: CloneCell<Option<Rc<PortalServerRenderCtx>>>,
 
     pub outputs: CopyHashMap<GlobalName, Rc<PortalOutput>>,
-    pub seats: CopyHashMap<GlobalName, Rc<PortalSeat>>,
+    seats: CopyHashMap<GlobalName, Rc<PortalSeat>>,
     pub workspaces: CopyHashMap<u32, Rc<UsrJayWorkspace>>,
 
     pub windows: CopyHashMap<WlSurfaceId, Rc<WindowData>>,
@@ -106,13 +106,13 @@ pub struct PortalOutput {
 
 pub struct PortalSeat {
     pub global_id: GlobalName,
-    pub dpy: Rc<PortalDisplay>,
+    dpy: Rc<PortalDisplay>,
     pub wl: Rc<UsrWlSeat>,
     pub jay_pointer: Rc<UsrJayPointer>,
-    pub pointer: CloneCell<Option<Rc<UsrWlPointer>>>,
-    pub name: RefCell<String>,
-    pub capabilities: Cell<u32>,
-    pub pointer_focus: CloneCell<Option<Rc<WindowData>>>,
+    pointer: CloneCell<Option<Rc<UsrWlPointer>>>,
+    name: RefCell<String>,
+    capabilities: Cell<u32>,
+    pointer_focus: CloneCell<Option<Rc<WindowData>>>,
 }
 
 impl UsrWlSeatOwner for PortalSeat {

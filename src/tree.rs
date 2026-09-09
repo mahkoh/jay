@@ -218,7 +218,7 @@ impl Transform {
         }
     }
 
-    pub fn inverse(self) -> Self {
+    fn inverse(self) -> Self {
         match self {
             Self::Rotate90 => Self::Rotate270,
             Self::Rotate270 => Self::Rotate90,
@@ -321,7 +321,7 @@ pub enum FindTreeResult {
 }
 
 impl FindTreeResult {
-    pub fn accepts_input(self) -> bool {
+    fn accepts_input(self) -> bool {
         self == Self::AcceptsInput
     }
 }
@@ -1045,11 +1045,11 @@ impl<T> LinkedList<TreeLink<T>> {
         self.rev_iter().filter(move |c| c.valid[tl].get())
     }
 
-    pub fn first_valid(&self, tl: TreeTimeline) -> Option<NodeRef<TreeLink<T>>> {
+    fn first_valid(&self, tl: TreeTimeline) -> Option<NodeRef<TreeLink<T>>> {
         self.iter_valid(tl).next()
     }
 
-    pub fn last_valid(&self, tl: TreeTimeline) -> Option<NodeRef<TreeLink<T>>> {
+    fn last_valid(&self, tl: TreeTimeline) -> Option<NodeRef<TreeLink<T>>> {
         self.rev_iter_valid(tl).next()
     }
 }

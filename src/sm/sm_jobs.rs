@@ -37,7 +37,7 @@ pub struct SmPending<Job: SmJob> {
 }
 
 impl<Job: SmJob> SmPending<Job> {
-    pub fn new(db_state: &Arc<SmDbStateHolder>) -> Rc<Self> {
+    fn new(db_state: &Arc<SmDbStateHolder>) -> Rc<Self> {
         Rc::new_cyclic(|slf| Self {
             job: Cell::new(Some(Box::new(Job::new(db_state.clone(), slf.clone())))),
             cb: Default::default(),

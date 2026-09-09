@@ -27,7 +27,8 @@ impl<K: Eq, V, const N: usize> SmallMap<K, V, N> {
         }
     }
 
-    pub fn new() -> Self {
+    #[expect(unused)]
+    pub(crate) fn new() -> Self {
         Self {
             m: UnsafeCell::new(SmallMapMut::new()),
         }
@@ -139,7 +140,7 @@ impl<K: Debug, V: Debug, const N: usize> Debug for SmallMapMut<K, V, N> {
 }
 
 impl<K: Eq, V, const N: usize> SmallMapMut<K, V, N> {
-    pub fn new_with(k: K, v: V) -> Self {
+    fn new_with(k: K, v: V) -> Self {
         let mut sv = SmallVec::new();
         sv.push((k, v));
         Self { m: sv }
@@ -151,11 +152,11 @@ impl<K: Eq, V, const N: usize> SmallMapMut<K, V, N> {
         }
     }
 
-    pub fn len(&self) -> usize {
+    fn len(&self) -> usize {
         self.m.len()
     }
 
-    pub fn contains(&self, k: &K) -> bool {
+    fn contains(&self, k: &K) -> bool {
         for (ek, _) in &self.m {
             if ek == k {
                 return true;
@@ -229,15 +230,16 @@ impl<K: Eq, V, const N: usize> SmallMapMut<K, V, N> {
         let _v = mem::replace(&mut self.m, SmallVec::new());
     }
 
-    pub fn take(&mut self) -> SmallVec<[(K, V); N]> {
+    fn take(&mut self) -> SmallVec<[(K, V); N]> {
         mem::take(&mut self.m)
     }
 
-    pub fn pop(&mut self) -> Option<(K, V)> {
+    fn pop(&mut self) -> Option<(K, V)> {
         self.m.pop()
     }
 
-    pub fn iter<'a>(&'a self) -> SmallMapMutIter<'a, K, V, N> {
+    #[expect(unused)]
+    pub(crate) fn iter<'a>(&'a self) -> SmallMapMutIter<'a, K, V, N> {
         SmallMapMutIter { pos: 0, map: self }
     }
 

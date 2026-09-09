@@ -530,7 +530,7 @@ impl WlSeatGlobal {
         self.x_data_devices.remove(&id);
     }
 
-    pub fn for_each_x_data_device(&self, mut f: impl FnMut(&Rc<XIpcDevice>)) {
+    fn for_each_x_data_device(&self, mut f: impl FnMut(&Rc<XIpcDevice>)) {
         for (_, dev) in &self.x_data_devices {
             f(&dev);
         }
@@ -575,7 +575,7 @@ impl WlSeatGlobal {
         self.cursor_user_group.latest_output()
     }
 
-    pub fn get_cursor_workspace(&self) -> Option<Rc<WorkspaceNode>> {
+    fn get_cursor_workspace(&self) -> Option<Rc<WorkspaceNode>> {
         self.cursor_user_group.latest_output().workspace()
     }
 
@@ -730,7 +730,7 @@ impl WlSeatGlobal {
         });
     }
 
-    pub fn get_kb_state(&self, keymap: &Rc<KbvmMap>) -> Rc<RefCell<KbvmState>> {
+    fn get_kb_state(&self, keymap: &Rc<KbvmMap>) -> Rc<RefCell<KbvmState>> {
         if let Some(weak) = self.kb_states.get(&keymap.id)
             && let Some(state) = weak.upgrade()
         {
@@ -779,7 +779,7 @@ impl WlSeatGlobal {
         self.kb_owner.ungrab(self);
     }
 
-    pub fn kb_target_container(&self, target: ContainerTarget) -> Option<Rc<ContainerNode>> {
+    fn kb_target_container(&self, target: ContainerTarget) -> Option<Rc<ContainerNode>> {
         let tl = self.keyboard_node.get().node_toplevel()?;
         toplevel_target_container(&tl, target)
     }
@@ -1752,7 +1752,7 @@ impl WlSeatGlobal {
         d
     }
 
-    pub fn destroy_physical_keyboard(self: &Rc<Self>, id: PhysicalKeyboardId) {
+    fn destroy_physical_keyboard(self: &Rc<Self>, id: PhysicalKeyboardId) {
         let Some(kb) = self.kb_devices.remove(&id) else {
             return;
         };
@@ -1813,8 +1813,8 @@ dedicated_add_global!(WlSeatGlobal, seats);
 
 pub struct WlSeat {
     pub global: Rc<WlSeatGlobal>,
-    pub id: WlSeatId,
-    pub client: Rc<Client>,
+    id: WlSeatId,
+    client: Rc<Client>,
     pointers: CopyHashMap<WlPointerId, Rc<WlPointer>>,
     relative_pointers: CopyHashMap<ZwpRelativePointerV1Id, Rc<ZwpRelativePointerV1>>,
     keyboards: CopyHashMap<WlKeyboardId, Rc<WlKeyboard>>,
@@ -1840,7 +1840,7 @@ impl WlSeat {
         })
     }
 
-    pub fn keymap_fd(&self, state: &KeyboardState) -> Result<KeymapFd, WlKeyboardError> {
+    fn keymap_fd(&self, state: &KeyboardState) -> Result<KeymapFd, WlKeyboardError> {
         let fd = match self.client.is_xwayland {
             true => &state.map.xwayland_map,
             _ => &state.map.map,
@@ -2059,7 +2059,7 @@ impl DeviceHandlerData {
         state.trigger_cci(CCI_INPUT);
     }
 
-    pub fn get_rect(&self, state: &State) -> Rect {
+    fn get_rect(&self, state: &State) -> Rect {
         if let Some(output) = self.output.get()
             && let Some(output) = output.node()
         {

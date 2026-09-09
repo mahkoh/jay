@@ -196,7 +196,7 @@ impl CairoImageSurface {
         }
     }
 
-    pub fn height(&self) -> i32 {
+    fn height(&self) -> i32 {
         unsafe { cairo_image_surface_get_height(self.s) as _ }
     }
 

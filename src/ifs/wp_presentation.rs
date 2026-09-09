@@ -15,7 +15,7 @@ use thiserror::Error;
 use uapi::c;
 
 pub struct WpPresentationGlobal {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 impl WpPresentationGlobal {
@@ -57,10 +57,10 @@ impl Global for WpPresentationGlobal {
 simple_add_global!(WpPresentationGlobal);
 
 pub struct WpPresentation {
-    pub id: WpPresentationId,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: WpPresentationId,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl WpPresentation {

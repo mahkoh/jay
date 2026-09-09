@@ -24,7 +24,7 @@ pub struct ZxdgOutputV1 {
 }
 
 impl ZxdgOutputV1 {
-    pub fn send_logical_position(&self, mut x: i32, mut y: i32) {
+    fn send_logical_position(&self, mut x: i32, mut y: i32) {
         logical_to_client_wire_scale!(self.client, x, y);
         self.client.event(LogicalPosition {
             self_id: self.id,
@@ -33,7 +33,7 @@ impl ZxdgOutputV1 {
         });
     }
 
-    pub fn send_logical_size(&self, mut width: i32, mut height: i32) {
+    fn send_logical_size(&self, mut width: i32, mut height: i32) {
         logical_to_client_wire_scale!(self.client, width, height);
         self.client.event(LogicalSize {
             self_id: self.id,
@@ -42,18 +42,18 @@ impl ZxdgOutputV1 {
         });
     }
 
-    pub fn send_done(&self) {
+    fn send_done(&self) {
         self.client.event(Done { self_id: self.id });
     }
 
-    pub fn send_name(&self, name: &str) {
+    fn send_name(&self, name: &str) {
         self.client.event(Name {
             self_id: self.id,
             name,
         });
     }
 
-    pub fn send_description(&self, description: &str) {
+    fn send_description(&self, description: &str) {
         self.client.event(Description {
             self_id: self.id,
             description,

@@ -37,11 +37,11 @@ pub struct ZwlrOutputManagerV1Global {
 }
 
 pub struct ZwlrOutputManagerV1 {
-    pub(super) id: ZwlrOutputManagerV1Id,
-    pub(super) manager_id: WlrOutputManagerId,
-    pub(super) client: Rc<Client>,
-    pub(super) version: Version,
-    pub(super) tracker: Tracker<Self>,
+    id: ZwlrOutputManagerV1Id,
+    manager_id: WlrOutputManagerId,
+    client: Rc<Client>,
+    version: Version,
+    tracker: Tracker<Self>,
     pub(super) done_scheduled: Cell<bool>,
     pub(super) serial: NumCell<u64>,
     pub(super) destroyed: Cell<bool>,
@@ -201,7 +201,7 @@ impl ZwlrOutputManagerV1 {
         self.schedule_done();
     }
 
-    pub fn send_head(&self, head: &ZwlrOutputHeadV1) {
+    fn send_head(&self, head: &ZwlrOutputHeadV1) {
         self.client.event(Head {
             self_id: self.id,
             head: head.id,
@@ -215,7 +215,7 @@ impl ZwlrOutputManagerV1 {
         });
     }
 
-    pub fn send_finished(&self) {
+    fn send_finished(&self) {
         self.client.event(Finished { self_id: self.id });
     }
 

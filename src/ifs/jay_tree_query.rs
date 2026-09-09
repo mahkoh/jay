@@ -58,10 +58,10 @@ const CONTENT_TYPE_SINCE: Version = Version(20);
 const WORKSPACE_TYPE_SINCE: Version = Version(31);
 
 pub struct JayTreeQuery {
-    pub id: JayTreeQueryId,
-    pub client: Rc<Client>,
+    id: JayTreeQueryId,
+    client: Rc<Client>,
     pub tracker: Tracker<Self>,
-    pub version: Version,
+    version: Version,
     recursive: Cell<bool>,
     root: RefCell<Option<Root>>,
 }

@@ -12,7 +12,7 @@ use std::rc::Rc;
 use thiserror::Error;
 
 pub struct WpContentTypeManagerV1Global {
-    pub name: GlobalName,
+    name: GlobalName,
 }
 
 impl WpContentTypeManagerV1Global {
@@ -53,10 +53,10 @@ impl Global for WpContentTypeManagerV1Global {
 }
 
 pub struct WpContentTypeManagerV1 {
-    pub id: WpContentTypeManagerV1Id,
-    pub client: Rc<Client>,
-    pub tracker: Tracker<Self>,
-    pub version: Version,
+    id: WpContentTypeManagerV1Id,
+    client: Rc<Client>,
+    tracker: Tracker<Self>,
+    version: Version,
 }
 
 impl WpContentTypeManagerV1RequestHandler for WpContentTypeManagerV1 {

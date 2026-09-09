@@ -22,7 +22,7 @@ pub struct TestDataControlOffer {
 }
 
 impl TestDataControlOffer {
-    pub fn destroy(&self) -> TestResult {
+    fn destroy(&self) -> TestResult {
         if !self.destroyed.replace(true) {
             self.tran.send(Destroy { self_id: self.id })?;
         }
