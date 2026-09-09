@@ -1,3 +1,5 @@
+singleton
+
 request create_surface {
     id: id(wl_surface) (new),
 }

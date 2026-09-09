@@ -1,5 +1,5 @@
 request set_selection {
-    source: id(zwp_primary_selection_source_v1),
+    source: id(zwp_primary_selection_source_v1) (nullable),
     serial: u32,
 }
 
@@ -8,7 +8,7 @@ event data_offer {
 }
 
 event selection {
-    id: id(zwp_primary_selection_offer_v1),
+    id: id(zwp_primary_selection_offer_v1) (nullable),
 }
 
 request destroy (destructor) {

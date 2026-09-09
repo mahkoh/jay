@@ -1,5 +1,6 @@
 mod client_trace;
 mod parser;
+mod singletons;
 
 use crate::indent::Indent;
 use crate::open;
@@ -13,6 +14,7 @@ use crate::wire::parser::ParseResult;
 use crate::wire::parser::Type;
 use crate::wire::parser::parse_messages;
 use crate::wire::parser::to_camel;
+use crate::wire::singletons::write_singletons;
 use anyhow::Context;
 use anyhow::Result;
 use std::env;
@@ -498,13 +500,12 @@ struct ParsedFile {
     messages: ParseResult,
 }
 
-fn parse_file(file: &DirEntry, interface_names: &mut Vec<String>) -> Result<ParsedFile> {
+fn parse_file(file: &DirEntry) -> Result<ParsedFile> {
     let file_name = file.file_name();
     let file_name = std::str::from_utf8(file_name.as_bytes())?;
     println!("cargo:rerun-if-changed=wire/{}", file_name);
     let obj_name = file_name.split(".").next().unwrap();
     let camel_obj_name = to_camel(obj_name);
-    interface_names.push(camel_obj_name.clone());
     let contents = std::fs::read(file.path())?;
     let messages = parse_messages(&contents)?;
     Ok(ParsedFile {
@@ -560,7 +561,6 @@ pub fn main() -> Result<()> {
     std::fs::create_dir_all(Path::new(&env::var("OUT_DIR").unwrap()).join("wire"))?;
     let mut f = open("wire/mod.rs")?;
     define_w!(f, w, wl);
-    define_xn!(xn);
     wl!("use std::rc::Rc;");
     wl!("use uapi::OwnedFd;");
     wl!("use bstr::BStr;");
@@ -575,27 +575,16 @@ pub fn main() -> Result<()> {
         files.push(file?);
     }
     files.sort_by_key(|f| f.file_name());
-    let mut interface_names = vec![];
     let mut parsed_files = vec![];
     for file in files {
-        let parsed = parse_file(&file, &mut interface_names)
+        let parsed = parse_file(&file)
             .with_context(|| format!("While processing {}", file.path().display()))?;
         parsed_files.push(parsed);
     }
     write_client_trace_files(&parsed_files)?;
+    write_singletons(&parsed_files)?;
     for file in parsed_files {
         write_file(&mut f, &file)?;
     }
-    wl!();
-    wl!("#[doc(hidden)]");
-    wl!("#[allow(dead_code)]");
-    wl!("pub mod interface_singletons {{");
-    {
-        push_xn!(xn);
-        for interface in &interface_names {
-            wl!("{xn}pub const {interface}: Option<crate::globals::Singleton> = None;");
-        }
-    }
-    wl!("}}");
     Ok(())
 }

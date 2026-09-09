@@ -1,3 +1,5 @@
+singleton
+
 request get_swipe_gesture {
     id: id(zwp_pointer_gesture_swipe_v1) (new),
     pointer: id(wl_pointer),

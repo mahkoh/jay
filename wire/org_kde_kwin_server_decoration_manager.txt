@@ -1,7 +1,9 @@
+singleton
+
 # requests
 
 request create {
-    id: id(org_kde_kwin_server_decoration),
+    id: id(org_kde_kwin_server_decoration) (new),
     surface: id(wl_surface),
 }
 

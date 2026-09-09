@@ -7,7 +7,7 @@ request set_cursor_position_hint {
 }
 
 request set_region {
-    region: id(wl_region),
+    region: id(wl_region) (nullable),
 }
 
 event locked {

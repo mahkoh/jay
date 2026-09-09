@@ -5,7 +5,7 @@ request receive {
     fd: fd,
 }
 
-request destroy {
+request destroy (destructor) {
 
 }
 

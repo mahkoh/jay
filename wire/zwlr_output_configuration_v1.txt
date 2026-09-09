@@ -1,7 +1,7 @@
 # requests
 
 request enable_head {
-    id: id(zwlr_output_configuration_head_v1),
+    id: id(zwlr_output_configuration_head_v1) (new),
     head: id(zwlr_output_head_v1),
 }
 
@@ -17,7 +17,7 @@ request test {
     
 }
 
-request destroy {
+request destroy (destructor) {
     
 }
 

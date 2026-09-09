@@ -4,7 +4,7 @@ request offer {
     mime_type: str,
 }
 
-request destroy {
+request destroy (destructor) {
 
 }
 

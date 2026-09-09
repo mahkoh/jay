@@ -4,7 +4,7 @@ request copy {
     buffer: id(wl_buffer),
 }
 
-request destroy {
+request destroy (destructor) {
 }
 
 request copy_with_damage (since = 2) {
@@ -33,18 +33,18 @@ event failed {
 
 }
 
-event damage {
+event damage (since = 2) {
     x: u32,
     y: u32,
     width: u32,
     height: u32,
 }
 
-event linux_dmabuf {
+event linux_dmabuf (since = 3) {
     format: u32,
     width: u32,
     height: u32,
 }
 
-event buffer_done {
+event buffer_done (since = 3) {
 }

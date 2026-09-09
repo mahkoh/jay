@@ -18,15 +18,15 @@ request commit {
 }
 
 request get_input_popup_surface {
-    id: id(zwp_input_popup_surface_v2),
+    id: id(zwp_input_popup_surface_v2) (new),
     surface: id(wl_surface),
 }
 
 request grab_keyboard {
-    keyboard: id(zwp_input_method_keyboard_grab_v2),
+    keyboard: id(zwp_input_method_keyboard_grab_v2) (new),
 }
 
-request destroy {
+request destroy (destructor) {
 
 }
 

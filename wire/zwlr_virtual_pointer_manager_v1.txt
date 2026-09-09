@@ -1,5 +1,7 @@
+singleton
+
 request create_virtual_pointer {
-    seat: id(wl_seat),
+    seat: id(wl_seat) (nullable),
     id: id(zwlr_virtual_pointer_v1) (new),
 }
 
@@ -7,7 +9,7 @@ request destroy (destructor, since = 1) {
 }
 
 request create_virtual_pointer_with_output (since = 2) {
-    seat: id(wl_seat),
-    output: id(wl_output),
+    seat: id(wl_seat) (nullable),
+    output: id(wl_output) (nullable),
     id: id(zwlr_virtual_pointer_v1) (new),
 }

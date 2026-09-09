@@ -2,7 +2,7 @@ request destroy (destructor) {
 }
 
 request attach {
-    buffer: id(wl_buffer),
+    buffer: id(wl_buffer) (nullable),
     x: i32,
     y: i32,
 }
@@ -19,11 +19,11 @@ request frame {
 }
 
 request set_opaque_region {
-    region: id(wl_region),
+    region: id(wl_region) (nullable),
 }
 
 request set_input_region {
-    region: id(wl_region),
+    region: id(wl_region) (nullable),
 }
 
 request commit {

@@ -1,69 +1,8 @@
 use crate::client::Client;
 use crate::client::ClientCaps;
-use crate::ifs::color_management::wp_color_manager_v1::WpColorManagerV1Global;
-use crate::ifs::ext_foreign_toplevel_image_capture_source_manager_v1::ExtForeignToplevelImageCaptureSourceManagerV1Global;
-use crate::ifs::ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1Global;
-use crate::ifs::ext_idle_notifier_v1::ExtIdleNotifierV1Global;
-use crate::ifs::ext_image_copy::ext_image_copy_capture_manager_v1::ExtImageCopyCaptureManagerV1Global;
-use crate::ifs::ext_output_image_capture_source_manager_v1::ExtOutputImageCaptureSourceManagerV1Global;
-use crate::ifs::ext_session_lock_manager_v1::ExtSessionLockManagerV1Global;
-use crate::ifs::ipc::data_control::ext_data_control_manager_v1::ExtDataControlManagerV1Global;
-use crate::ifs::ipc::data_control::zwlr_data_control_manager_v1::ZwlrDataControlManagerV1Global;
-use crate::ifs::ipc::wl_data_device_manager::WlDataDeviceManagerGlobal;
-use crate::ifs::ipc::zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1Global;
-use crate::ifs::jay_compositor::JayCompositorGlobal;
-use crate::ifs::jay_damage_tracking::JayDamageTrackingGlobal;
-use crate::ifs::jay_popup_ext_manager_v1::JayPopupExtManagerV1Global;
-use crate::ifs::org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerGlobal;
-use crate::ifs::wl_compositor::WlCompositorGlobal;
-use crate::ifs::wl_drm::WlDrmGlobal;
-use crate::ifs::wl_fixes::WlFixesGlobal;
 use crate::ifs::wl_output::WlOutputGlobal;
 use crate::ifs::wl_registry::WlRegistry;
 use crate::ifs::wl_seat::WlSeatGlobal;
-use crate::ifs::wl_seat::ext_transient_seat_manager_v1::ExtTransientSeatManagerV1Global;
-use crate::ifs::wl_seat::tablet::zwp_tablet_manager_v2::ZwpTabletManagerV2Global;
-use crate::ifs::wl_seat::text_input::zwp_input_method_manager_v2::ZwpInputMethodManagerV2Global;
-use crate::ifs::wl_seat::text_input::zwp_text_input_manager_v3::ZwpTextInputManagerV3Global;
-use crate::ifs::wl_seat::wp_pointer_warp_v1::WpPointerWarpV1Global;
-use crate::ifs::wl_seat::zwp_pointer_constraints_v1::ZwpPointerConstraintsV1Global;
-use crate::ifs::wl_seat::zwp_pointer_gestures_v1::ZwpPointerGesturesV1Global;
-use crate::ifs::wl_seat::zwp_relative_pointer_manager_v1::ZwpRelativePointerManagerV1Global;
-use crate::ifs::wl_seat::zwp_virtual_keyboard_manager_v1::ZwpVirtualKeyboardManagerV1Global;
-use crate::ifs::wl_shm::WlShmGlobal;
-use crate::ifs::wl_subcompositor::WlSubcompositorGlobal;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_manager_v1::XdgToplevelIconManagerV1Global;
-use crate::ifs::wl_surface::xwayland_shell_v1::XwaylandShellV1Global;
-use crate::ifs::wlr_output_manager::zwlr_output_manager_v1::ZwlrOutputManagerV1Global;
-use crate::ifs::workspace_manager::ext_workspace_manager_v1::ExtWorkspaceManagerV1Global;
-use crate::ifs::wp_alpha_modifier_v1::WpAlphaModifierV1Global;
-use crate::ifs::wp_color_representation_manager_v1::WpColorRepresentationManagerV1Global;
-use crate::ifs::wp_commit_timing_manager_v1::WpCommitTimingManagerV1Global;
-use crate::ifs::wp_content_type_manager_v1::WpContentTypeManagerV1Global;
-use crate::ifs::wp_cursor_shape_manager_v1::WpCursorShapeManagerV1Global;
-use crate::ifs::wp_fifo_manager_v1::WpFifoManagerV1Global;
-use crate::ifs::wp_fractional_scale_manager_v1::WpFractionalScaleManagerV1Global;
-use crate::ifs::wp_linux_drm_syncobj_manager_v1::WpLinuxDrmSyncobjManagerV1Global;
-use crate::ifs::wp_presentation::WpPresentationGlobal;
-use crate::ifs::wp_security_context_manager_v1::WpSecurityContextManagerV1Global;
-use crate::ifs::wp_single_pixel_buffer_manager_v1::WpSinglePixelBufferManagerV1Global;
-use crate::ifs::wp_tearing_control_manager_v1::WpTearingControlManagerV1Global;
-use crate::ifs::wp_viewporter::WpViewporterGlobal;
-use crate::ifs::xdg_activation_v1::XdgActivationV1Global;
-use crate::ifs::xdg_session_manager_v1::XdgSessionManagerV1Global;
-use crate::ifs::xdg_toplevel_drag_manager_v1::XdgToplevelDragManagerV1Global;
-use crate::ifs::xdg_toplevel_tag_manager_v1::XdgToplevelTagManagerV1Global;
-use crate::ifs::xdg_wm_base::XdgWmBaseGlobal;
-use crate::ifs::xdg_wm_dialog_v1::XdgWmDialogV1Global;
-use crate::ifs::zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1Global;
-use crate::ifs::zwlr_gamma_control_manager_v1::ZwlrGammaControlManagerV1Global;
-use crate::ifs::zwlr_layer_shell_v1::ZwlrLayerShellV1Global;
-use crate::ifs::zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1Global;
-use crate::ifs::zwlr_virtual_pointer_manager_v1::ZwlrVirtualPointerManagerV1Global;
-use crate::ifs::zwp_idle_inhibit_manager_v1::ZwpIdleInhibitManagerV1Global;
-use crate::ifs::zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global;
-use crate::ifs::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Global;
-use crate::ifs::zxdg_output_manager_v1::ZxdgOutputManagerV1Global;
 use crate::object::Interface;
 use crate::object::Version;
 use crate::state::State;
@@ -152,105 +91,28 @@ pub trait Global: GlobalBase {
     }
 }
 
-macro_rules! singletons {
-    ($($name:ident,)*) => {
-        #[derive(Copy, Clone, Debug, Linearize)]
-        pub enum Singleton {
-            $($name,)*
-        }
-
-        fn add_singletons(globals: &mut Globals) {
-            $(
-                let name = globals.name();
-                with_builtin_macros::with_eager_expansions! {
-                    globals.add_global_no_broadcast(&Rc::new(#{concat_idents!($name, Global)}::new(name)));
-                }
-                globals.singletons[Singleton::$name] = name;
-            )*
-        }
-
-        #[allow(non_upper_case_globals)]
-        pub mod interface_singletons {
-            pub use crate::wire::interface_singletons::*;
-
-            $(
-                pub const $name: Option<crate::globals::Singleton> = Some(crate::globals::Singleton::$name);
-            )*
-        }
-    };
+#[derive(Copy, Clone)]
+pub struct SingletonInfo {
+    pub name: GlobalName,
+    #[expect(unused)]
+    pub version: u32,
 }
 
-singletons! {
-    WlCompositor,
-    WlShm,
-    WlSubcompositor,
-    XdgWmBase,
-    WlDataDeviceManager,
-    ZxdgDecorationManagerV1,
-    OrgKdeKwinServerDecorationManager,
-    ZwpPrimarySelectionDeviceManagerV1,
-    ZwlrLayerShellV1,
-    ZwlrOutputManagerV1,
-    ZxdgOutputManagerV1,
-    JayCompositor,
-    ZwlrScreencopyManagerV1,
-    ZwpRelativePointerManagerV1,
-    ExtSessionLockManagerV1,
-    WpViewporter,
-    WpFractionalScaleManagerV1,
-    ZwpPointerConstraintsV1,
-    XwaylandShellV1,
-    WpTearingControlManagerV1,
-    WpSinglePixelBufferManagerV1,
-    WpCursorShapeManagerV1,
-    WpContentTypeManagerV1,
-    XdgActivationV1,
-    ExtForeignToplevelListV1,
-    ZwpIdleInhibitManagerV1,
-    ExtIdleNotifierV1,
-    XdgToplevelDragManagerV1,
-    ZwlrForeignToplevelManagerV1,
-    ZwlrDataControlManagerV1,
-    WpAlphaModifierV1,
-    ZwpVirtualKeyboardManagerV1,
-    ZwpInputMethodManagerV2,
-    ZwpTextInputManagerV3,
-    WpSecurityContextManagerV1,
-    XdgWmDialogV1,
-    ExtTransientSeatManagerV1,
-    ZwpPointerGesturesV1,
-    ZwpTabletManagerV2,
-    JayDamageTracking,
-    ExtOutputImageCaptureSourceManagerV1,
-    ExtForeignToplevelImageCaptureSourceManagerV1,
-    ExtImageCopyCaptureManagerV1,
-    WpFifoManagerV1,
-    WpCommitTimingManagerV1,
-    ExtDataControlManagerV1,
-    WlFixes,
-    ExtWorkspaceManagerV1,
-    WpColorManagerV1,
-    XdgToplevelTagManagerV1,
-    WpPointerWarpV1,
-    JayPopupExtManagerV1,
-    ZwlrGammaControlManagerV1,
-    WpColorRepresentationManagerV1,
-    WlDrm,
-    ZwpLinuxDmabufV1,
-    WpLinuxDrmSyncobjManagerV1,
-    WpPresentation,
-    ZwlrVirtualPointerManagerV1,
-    XdgSessionManagerV1,
-    XdgToplevelIconManagerV1,
+impl Default for SingletonInfo {
+    fn default() -> Self {
+        Self {
+            name: GlobalName(0),
+            version: 0,
+        }
+    }
 }
-
 pub struct Globals {
     next_name: NumCell<u32>,
     registry: CopyHashMap<GlobalName, Rc<dyn Global>>,
     removed: CopyHashMap<GlobalName, Rc<dyn Global>>,
     pub outputs: CopyHashMap<GlobalName, Rc<WlOutputGlobal>>,
     pub seats: CopyHashMap<GlobalName, Rc<WlSeatGlobal>>,
-    pub singletons: StaticMap<Singleton, GlobalName>,
+    pub singletons: StaticMap<Singleton, SingletonInfo>,
     exposed: StaticMap<Singleton, Cell<bool>>,
 }
 
@@ -262,7 +124,7 @@ impl Globals {
             removed: CopyHashMap::new(),
             outputs: Default::default(),
             seats: Default::default(),
-            singletons: StaticMap::from_fn(|_| GlobalName(0)),
+            singletons: Default::default(),
             exposed: Default::default(),
         };
         add_singletons(&mut slf);
@@ -404,8 +266,8 @@ impl Globals {
 
     pub fn expose_new_singletons(&self, state: &State) {
         let mut singletons = ArrayVec::<_, { Singleton::LENGTH }>::new();
-        for (singleton, name) in self.singletons.iter() {
-            if let Some(global) = self.registry.get(name) {
+        for (singleton, info) in self.singletons.iter() {
+            if let Some(global) = self.registry.get(&info.name) {
                 let exposed = global.exposed(state);
                 if self.exposed[singleton].replace(exposed) != exposed && exposed {
                     singletons.push(global);
@@ -441,4 +303,70 @@ pub trait WaylandGlobal: Global + 'static {
 
 pub trait RemovableWaylandGlobal: WaylandGlobal {
     fn create_replacement(self: Rc<Self>) -> Rc<dyn Global>;
+}
+
+include!(concat!(env!("OUT_DIR"), "/singletons.rs"));
+
+mod singletons {
+    pub(super) use crate::ifs::color_management::wp_color_manager_v1::WpColorManagerV1Global;
+    pub(super) use crate::ifs::ext_foreign_toplevel_image_capture_source_manager_v1::ExtForeignToplevelImageCaptureSourceManagerV1Global;
+    pub(super) use crate::ifs::ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1Global;
+    pub(super) use crate::ifs::ext_idle_notifier_v1::ExtIdleNotifierV1Global;
+    pub(super) use crate::ifs::ext_image_copy::ext_image_copy_capture_manager_v1::ExtImageCopyCaptureManagerV1Global;
+    pub(super) use crate::ifs::ext_output_image_capture_source_manager_v1::ExtOutputImageCaptureSourceManagerV1Global;
+    pub(super) use crate::ifs::ext_session_lock_manager_v1::ExtSessionLockManagerV1Global;
+    pub(super) use crate::ifs::ipc::data_control::ext_data_control_manager_v1::ExtDataControlManagerV1Global;
+    pub(super) use crate::ifs::ipc::data_control::zwlr_data_control_manager_v1::ZwlrDataControlManagerV1Global;
+    pub(super) use crate::ifs::ipc::wl_data_device_manager::WlDataDeviceManagerGlobal;
+    pub(super) use crate::ifs::ipc::zwp_primary_selection_device_manager_v1::ZwpPrimarySelectionDeviceManagerV1Global;
+    pub(super) use crate::ifs::jay_compositor::JayCompositorGlobal;
+    pub(super) use crate::ifs::jay_damage_tracking::JayDamageTrackingGlobal;
+    pub(super) use crate::ifs::jay_popup_ext_manager_v1::JayPopupExtManagerV1Global;
+    pub(super) use crate::ifs::org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerGlobal;
+    pub(super) use crate::ifs::wl_compositor::WlCompositorGlobal;
+    pub(super) use crate::ifs::wl_drm::WlDrmGlobal;
+    pub(super) use crate::ifs::wl_fixes::WlFixesGlobal;
+    pub(super) use crate::ifs::wl_seat::ext_transient_seat_manager_v1::ExtTransientSeatManagerV1Global;
+    pub(super) use crate::ifs::wl_seat::tablet::zwp_tablet_manager_v2::ZwpTabletManagerV2Global;
+    pub(super) use crate::ifs::wl_seat::text_input::zwp_input_method_manager_v2::ZwpInputMethodManagerV2Global;
+    pub(super) use crate::ifs::wl_seat::text_input::zwp_text_input_manager_v3::ZwpTextInputManagerV3Global;
+    pub(super) use crate::ifs::wl_seat::wp_pointer_warp_v1::WpPointerWarpV1Global;
+    pub(super) use crate::ifs::wl_seat::zwp_pointer_constraints_v1::ZwpPointerConstraintsV1Global;
+    pub(super) use crate::ifs::wl_seat::zwp_pointer_gestures_v1::ZwpPointerGesturesV1Global;
+    pub(super) use crate::ifs::wl_seat::zwp_relative_pointer_manager_v1::ZwpRelativePointerManagerV1Global;
+    pub(super) use crate::ifs::wl_seat::zwp_virtual_keyboard_manager_v1::ZwpVirtualKeyboardManagerV1Global;
+    pub(super) use crate::ifs::wl_shm::WlShmGlobal;
+    pub(super) use crate::ifs::wl_subcompositor::WlSubcompositorGlobal;
+    pub(super) use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_manager_v1::XdgToplevelIconManagerV1Global;
+    pub(super) use crate::ifs::wl_surface::xwayland_shell_v1::XwaylandShellV1Global;
+    pub(super) use crate::ifs::wlr_output_manager::zwlr_output_manager_v1::ZwlrOutputManagerV1Global;
+    pub(super) use crate::ifs::workspace_manager::ext_workspace_manager_v1::ExtWorkspaceManagerV1Global;
+    pub(super) use crate::ifs::wp_alpha_modifier_v1::WpAlphaModifierV1Global;
+    pub(super) use crate::ifs::wp_color_representation_manager_v1::WpColorRepresentationManagerV1Global;
+    pub(super) use crate::ifs::wp_commit_timing_manager_v1::WpCommitTimingManagerV1Global;
+    pub(super) use crate::ifs::wp_content_type_manager_v1::WpContentTypeManagerV1Global;
+    pub(super) use crate::ifs::wp_cursor_shape_manager_v1::WpCursorShapeManagerV1Global;
+    pub(super) use crate::ifs::wp_fifo_manager_v1::WpFifoManagerV1Global;
+    pub(super) use crate::ifs::wp_fractional_scale_manager_v1::WpFractionalScaleManagerV1Global;
+    pub(super) use crate::ifs::wp_linux_drm_syncobj_manager_v1::WpLinuxDrmSyncobjManagerV1Global;
+    pub(super) use crate::ifs::wp_presentation::WpPresentationGlobal;
+    pub(super) use crate::ifs::wp_security_context_manager_v1::WpSecurityContextManagerV1Global;
+    pub(super) use crate::ifs::wp_single_pixel_buffer_manager_v1::WpSinglePixelBufferManagerV1Global;
+    pub(super) use crate::ifs::wp_tearing_control_manager_v1::WpTearingControlManagerV1Global;
+    pub(super) use crate::ifs::wp_viewporter::WpViewporterGlobal;
+    pub(super) use crate::ifs::xdg_activation_v1::XdgActivationV1Global;
+    pub(super) use crate::ifs::xdg_session_manager_v1::XdgSessionManagerV1Global;
+    pub(super) use crate::ifs::xdg_toplevel_drag_manager_v1::XdgToplevelDragManagerV1Global;
+    pub(super) use crate::ifs::xdg_toplevel_tag_manager_v1::XdgToplevelTagManagerV1Global;
+    pub(super) use crate::ifs::xdg_wm_base::XdgWmBaseGlobal;
+    pub(super) use crate::ifs::xdg_wm_dialog_v1::XdgWmDialogV1Global;
+    pub(super) use crate::ifs::zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1Global;
+    pub(super) use crate::ifs::zwlr_gamma_control_manager_v1::ZwlrGammaControlManagerV1Global;
+    pub(super) use crate::ifs::zwlr_layer_shell_v1::ZwlrLayerShellV1Global;
+    pub(super) use crate::ifs::zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1Global;
+    pub(super) use crate::ifs::zwlr_virtual_pointer_manager_v1::ZwlrVirtualPointerManagerV1Global;
+    pub(super) use crate::ifs::zwp_idle_inhibit_manager_v1::ZwpIdleInhibitManagerV1Global;
+    pub(super) use crate::ifs::zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global;
+    pub(super) use crate::ifs::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Global;
+    pub(super) use crate::ifs::zxdg_output_manager_v1::ZxdgOutputManagerV1Global;
 }

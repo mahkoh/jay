@@ -431,7 +431,10 @@ impl State {
                 caps: Default::default(),
                 version: Version(27),
             });
-            registry.bind(self.globals.singletons[Singleton::JayCompositor], &*obj);
+            registry.bind(
+                self.globals.singletons[Singleton::JayCompositor].name,
+                &*obj,
+            );
             con.add_object(obj.clone());
             obj
         };
@@ -443,7 +446,7 @@ impl State {
                         con: con.clone(),
                         version: Version($version),
                     });
-                    registry.bind(self.globals.singletons[Singleton::$global], &*$name);
+                    registry.bind(self.globals.singletons[Singleton::$global].name, &*$name);
                     con.add_object($name.clone());
                 )*
             };

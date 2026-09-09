@@ -1,3 +1,5 @@
+singleton
+
 request create_session {
     session: id(ext_image_copy_capture_session_v1) (new),
     source: id(ext_image_capture_source_v1),

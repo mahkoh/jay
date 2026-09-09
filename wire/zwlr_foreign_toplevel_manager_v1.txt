@@ -1,3 +1,5 @@
+singleton
+
 # requests
 
 request stop {
@@ -7,9 +9,9 @@ request stop {
 # events
 
 event toplevel {
-    toplevel: id(zwlr_foreign_toplevel_handle_v1)
+    toplevel: id(zwlr_foreign_toplevel_handle_v1) (new)
 }
 
-event finished {
+event finished (destructor) {
 
 }

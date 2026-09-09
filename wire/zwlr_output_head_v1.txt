@@ -1,6 +1,6 @@
 # requests
 
-request release (since = 3) {
+request release (destructor, since = 3) {
 
 }
 
@@ -20,7 +20,7 @@ event physical_size {
 }
 
 event mode {
-    mode: id(zwlr_output_mode_v1),
+    mode: id(zwlr_output_mode_v1) (new),
 }
 
 event enabled {

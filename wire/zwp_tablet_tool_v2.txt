@@ -1,6 +1,6 @@
 request set_cursor {
     serial: u32,
-    surface: id(wl_surface),
+    surface: id(wl_surface) (nullable),
     hotspot_x: i32,
     hotspot_y: i32,
 }
