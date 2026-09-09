@@ -152,7 +152,7 @@ impl WlSubsurface {
     }
 
     fn detach_subtree(&self) {
-        self.root.set(self.surface.clone());
+        self.root.set(self.surface.clone()).tree_committed();
         children_set_root(self, &self.surface);
     }
 
@@ -463,6 +463,7 @@ impl SurfaceExt for WlSubsurface {
     }
 
     fn after_apply_commit(self: Rc<Self>) {
+        self.root.get().tree_committed();
         self.update_has_buffer();
     }
 

@@ -147,6 +147,7 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::double_buffered::DoubleBuffered;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::event_listener::EventListener;
+use crate::utils::lazy_event_source::LazyEventSource;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::numcell::NumCell;
 use crate::utils::obj_and_id::ObjAndId;
@@ -174,6 +175,7 @@ use jay_proc::Reset;
 use linearize::LinearizeExt;
 use smallvec::SmallVec;
 use std::cell::Cell;
+use std::cell::OnceCell;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -366,6 +368,7 @@ pub struct WlSurface {
     output_listener: EventListener<dyn OutputEventListener>,
     workspace_listener: EventListener<dyn WorkspaceEventListener>,
     _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
+    tree_committed_listeners: OnceCell<Rc<LazyEventSource>>,
 }
 
 impl Debug for WlSurface {
@@ -788,6 +791,7 @@ impl WlSurface {
             output_listener: EventListener::new(slf.clone()),
             workspace_listener: EventListener::new(slf.clone()),
             _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
+            tree_committed_listeners: Default::default(),
         }
     }
 
@@ -1186,6 +1190,12 @@ impl WlSurface {
             self.add_transaction_op(WlSurfaceTransactionOp::UnblockUnmap);
         }
     }
+
+    fn tree_committed(&self) {
+        if let Some(v) = self.tree_committed_listeners.get() {
+            v.trigger();
+        }
+    }
 }
 
 const MAX_DAMAGE: usize = 32;
@@ -1362,6 +1372,7 @@ impl WlSurfaceRequestHandler for WlSurface {
 
 impl WlSurface {
     fn apply_state(self: &Rc<Self>, pending: &mut PendingState) -> Result<(), WlSurfaceError> {
+        self.tree_committed();
         for (_, pending) in &mut pending.subsurfaces {
             pending.subsurface.apply_state(&mut pending.pending)?;
         }
