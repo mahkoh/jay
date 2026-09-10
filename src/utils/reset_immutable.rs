@@ -8,7 +8,6 @@ use std::cell::Cell;
 use std::cell::RefCell;
 use std::hash::Hash;
 
-#[allow(dead_code)]
 pub trait ResetImmutable {
     fn reset_immutable(&self);
 }

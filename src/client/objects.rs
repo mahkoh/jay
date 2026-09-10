@@ -42,6 +42,7 @@ use crate::object::Object;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::Locked;
 use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::reset_immutable::ResetImmutable;
 use crate::utils::woid_hash::WoidBuildHasher;
 use crate::utils::woid_hash::WoidCopyHashMap;
 use crate::wire::ExtDataControlSourceV1Id;
@@ -82,9 +83,11 @@ use crate::wire::ZwlrOutputHeadV1Id;
 use crate::wire::ZwlrOutputModeV1Id;
 use crate::wire::ZwpPrimarySelectionSourceV1Id;
 use crate::wire::ZwpTabletToolV2Id;
+use jay_proc::ResetImmutable;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+#[derive(ResetImmutable)]
 pub struct Objects {
     pub display: CloneCell<Option<Rc<WlDisplay>>>,
     registry: WoidCopyHashMap<ObjectId, Rc<dyn Object>>,
@@ -196,44 +199,7 @@ impl Objects {
         for obj in self.registry.lock().drain_values() {
             obj.break_loops();
         }
-        self.display.set(None);
-        self.registries.clear();
-        self.outputs.clear();
-        self.zwlr_output_heads.clear();
-        self.zwlr_output_modes.clear();
-        self.surfaces.clear();
-        self.xdg_surfaces.clear();
-        self.xdg_toplevel.clear();
-        self.wl_data_source.clear();
-        self.zwp_primary_selection_source.clear();
-        self.xdg_positioners.clear();
-        self.regions.clear();
-        self.buffers.clear();
-        self.jay_outputs.clear();
-        self.jay_workspaces.clear();
-        self.xdg_wm_bases.clear();
-        self.seats.clear();
-        self.pointers.clear();
-        self.screencasts.clear();
-        self.timelines.clear();
-        self.zwlr_data_sources.clear();
-        self.jay_toplevels.clear();
-        self.drm_lease_outputs.clear();
-        self.tablet_tools.clear();
-        self.xdg_popups.clear();
-        self.image_capture_sources.clear();
-        self.foreign_toplevel_handles.clear();
-        self.wlr_foreign_toplevel_handles.clear();
-        self.ext_copy_sessions.clear();
-        self.ext_data_sources.clear();
-        self.ext_workspace_groups.clear();
-        self.wp_image_description.clear();
-        self.wp_image_description_reference.clear();
-        self.jay_keymap_builders.clear();
-        self.xdg_toplevel_icons.clear();
-        self.xdg_toplevel_icon_managers.clear();
-        self.jay_client_match.clear();
-        self.jay_window_match.clear();
+        self.reset_immutable();
     }
 
     pub fn id(&self, client_data: &Client, _parent: ObjectId) -> Result<ObjectId, ClientError> {
