@@ -11,6 +11,11 @@ mod markers;
 mod reset;
 mod str_fmt;
 
+#[proc_macro_derive(ResetImmutable)]
+pub fn derive_reset_immutable(input: TokenStream) -> TokenStream {
+    reset::derive_reset_immutable(input)
+}
+
 #[proc_macro_derive(Reset)]
 pub fn derive_reset(input: TokenStream) -> TokenStream {
     reset::derive_reset(input)

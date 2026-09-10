@@ -15,9 +15,36 @@ use syn::parse_macro_input;
 use syn::parse_quote;
 use syn::spanned::Spanned;
 
+pub fn derive_reset_immutable(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let mut input: Input = parse_macro_input!(input as Input);
+    let reset = input.build_reset(true);
+    let where_clause = input.generics.make_where_clause();
+    for ty in &input.critical_types {
+        where_clause
+            .predicates
+            .push(parse_quote!(#ty: crate::utils::reset_immutable::ResetImmutable));
+    }
+    let (impl_generics, type_generics, where_clause) = input.generics.split_for_impl();
+    let ident = input.ident;
+    let res = quote_spanned! { input.span =>
+        const _: () = {
+            #[automatically_derived]
+            impl #impl_generics
+            crate::utils::reset_immutable::ResetImmutable for #ident #type_generics
+            #where_clause
+            {
+                fn reset_immutable(&self) {
+                    #reset
+                }
+            }
+        };
+    };
+    res.into()
+}
+
 pub fn derive_reset(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut input: Input = parse_macro_input!(input as Input);
-    let reset = input.build_reset();
+    let reset = input.build_reset(false);
     let where_clause = input.generics.make_where_clause();
     for ty in &input.critical_types {
         where_clause
@@ -64,21 +91,31 @@ struct StructField {
     ty: Type,
 }
 
-fn build_reset_struct(fields: &[StructField]) -> TokenStream {
+fn build_reset_struct(fields: &[StructField], immutable: bool) -> TokenStream {
     let mut parts = vec![];
     for (idx, field) in fields.iter().enumerate().rev() {
         let idx = LitInt::new(&idx.to_string(), Span::call_site());
         let ref_name = match &field.generated_name {
             Some(i) => quote! {#i},
+            None if immutable => match &field.original_name {
+                Some(i) => quote! { &self.#i },
+                None => quote! { &self.#idx },
+            },
             None => match &field.original_name {
                 Some(i) => quote! { &mut self.#i },
                 None => quote! { &mut self.#idx },
             },
         };
         let ty = &field.ty;
-        parts.push(quote! {
-            <#ty as crate::utils::reset::Reset>::reset(#ref_name);
-        });
+        if immutable {
+            parts.push(quote! {
+                <#ty as crate::utils::reset_immutable::ResetImmutable>::reset_immutable(#ref_name);
+            });
+        } else {
+            parts.push(quote! {
+                <#ty as crate::utils::reset::Reset>::reset(#ref_name);
+            });
+        }
     }
     quote! {
         #(#parts)*
@@ -86,8 +123,8 @@ fn build_reset_struct(fields: &[StructField]) -> TokenStream {
 }
 
 impl StructInput {
-    fn build_reset(&self) -> TokenStream {
-        build_reset_struct(&self.fields)
+    fn build_reset(&self, immutable: bool) -> TokenStream {
+        build_reset_struct(&self.fields, immutable)
     }
 }
 
@@ -113,9 +150,9 @@ impl Input {
         })
     }
 
-    fn build_reset(&self) -> TokenStream {
+    fn build_reset(&self, immutable: bool) -> TokenStream {
         match &self.kind {
-            Kind::Struct(s) => s.build_reset(),
+            Kind::Struct(s) => s.build_reset(immutable),
         }
     }
 }

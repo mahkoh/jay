@@ -87,6 +87,7 @@ pub mod read_ext;
 pub mod ref_cow;
 pub mod refcounted;
 pub mod reset;
+pub mod reset_immutable;
 pub mod run_toplevel;
 pub mod rwf_flags;
 pub mod scroller;
