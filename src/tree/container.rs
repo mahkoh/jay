@@ -95,6 +95,7 @@ use crate::utils::threshold_counter::ThresholdCounter;
 use hashbrown::hash_map::Entry;
 use jay_config::Axis;
 use jay_proc::CachedValue;
+use jay_proc::jay_clone;
 use smallvec::SmallVec;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -162,12 +163,10 @@ pub enum ContainerFocus {
 
 tree_id!(ContainerNodeId);
 
+#[jay_clone]
 pub struct ContainerTitle {
-    pub rect: Rect,
     pub tex: Option<Rc<dyn GfxTexture>>,
     pub icon: Option<ToplevelIcon>,
-    pub ty: ContainerChildType,
-    pub window_icons_grayscale: bool,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
@@ -182,7 +181,6 @@ pub enum ContainerChildType {
 #[derive(Default)]
 pub struct ContainerRenderData {
     pub color_rects: Vec<(Color, Vec<Rect>)>,
-    pub titles: SmallMapMut<Scale, Vec<ContainerTitle>, 2>,
     color_rects_map: FHashMap<Color, Vec<Rect>>,
     prev_color_rects: Vec<(Color, Vec<Rect>)>,
     rect_cache: Vec<Vec<Rect>>,
@@ -217,10 +215,10 @@ pub struct ContainerNode {
     pub node_state: SplitView<ContainerNodeState>,
     sum_factors: Cell<f64>,
     layout_scheduled: Cell<bool>,
+    child_types_scheduled: Cell<bool>,
     compute_render_positions_scheduled: Cell<bool>,
     render_titles_scheduled: Cell<bool>,
     pub children: LinkedList<ContainerChild>,
-    child_types_valid: Cell<bool>,
     focus_history: LinkedList<NodeRef<ContainerChild>>,
     child_nodes: RefCell<BHashMap<NodeId, LinkedNode<ContainerChild>>>,
     workspace: CloneCell<Rc<WorkspaceNode>>,
@@ -250,11 +248,12 @@ impl Debug for ContainerNode {
 
 #[derive(Default)]
 pub struct ContainerChildNodeState {
-    title_rect: Cell<Rect>,
+    pub title_rect: Cell<Rect>,
+    pub ty: Cell<ContainerChildType>,
+    pub theme: ContainerChildTheme,
     // fields below only valid in tabbed layout
     pub body: Cell<Rect>,
     pub content: Cell<Rect>,
-    theme: ContainerChildTheme,
 }
 
 pub type ContainerChild = TreeLink<ContainerChildInner>;
@@ -262,13 +261,13 @@ pub type ContainerChild = TreeLink<ContainerChildInner>;
 pub struct ContainerChildInner {
     pub node: Rc<dyn ToplevelNode>,
     pub active: Cell<bool>,
+    pub rd: SmallMap<Scale, ContainerTitle, 2>,
     attention_requested: Cell<bool>,
     title: RefCell<String>,
     title_tex: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
     icon: ToplevelIconUser,
     icons: SmallMap<Scale, ToplevelIcon, 2>,
     focus_history: Cell<Option<LinkedNode<NodeRef<ContainerChild>>>>,
-    ty: Cell<ContainerChildType>,
     pub node_state: SplitView<ContainerChildNodeState>,
     factor: Cell<f64>,
     resize_handle: Cell<Option<Rect>>,
@@ -315,7 +314,7 @@ pub struct ContainerThemeSizes {
 pub struct ContainerChildTheme {
     colors: ContainerChildThemeColors,
     show_window_icons: Cell<bool>,
-    window_icons_grayscale: Cell<bool>,
+    pub window_icons_grayscale: Cell<bool>,
     title_font: CloneCell<Rc<Arc<str>>>,
 }
 
@@ -341,13 +340,13 @@ impl ContainerChildInner {
         let slf = Self {
             node: node.clone(),
             active: Default::default(),
+            rd: Default::default(),
             attention_requested: Default::default(),
             title: Default::default(),
             title_tex: Default::default(),
             icon: state.toplevel_icon_user(),
             icons: Default::default(),
             focus_history: Default::default(),
-            ty: Default::default(),
             node_state: Default::default(),
             factor: Cell::new(factor),
             resize_handle: Cell::new(resize_handle),
@@ -359,23 +358,18 @@ impl ContainerChildInner {
     }
 }
 
-impl ContainerRenderData {
-    fn add_title(&mut self, rect: Rect, child: &ContainerChild, scale: Scale, title: &TextTexture) {
+impl ContainerChildInner {
+    fn add_title(&self, scale: Scale, title: &TextTexture) {
         let tex = title.texture();
-        let icon = child.icons.get(&scale);
+        let icon = self.icons.get(&scale);
         if tex.is_some() || icon.is_some() {
-            let titles = self.titles.get_or_default_mut(scale);
-            let window_icons_grayscale = child.node_state[RenderTL]
-                .theme
-                .window_icons_grayscale
-                .get();
-            titles.push(ContainerTitle {
-                rect,
-                tex,
-                icon,
-                ty: child.ty.get(),
-                window_icons_grayscale,
-            })
+            self.rd.insert(
+                scale,
+                ContainerTitle {
+                    tex, //
+                    icon,
+                },
+            );
         }
     }
 }
@@ -419,10 +413,10 @@ impl ContainerNode {
             node_state: Default::default(),
             sum_factors: Cell::new(1.0),
             layout_scheduled: Cell::new(false),
+            child_types_scheduled: Default::default(),
             compute_render_positions_scheduled: Cell::new(false),
             render_titles_scheduled: Cell::new(false),
             children,
-            child_types_valid: Cell::new(false),
             focus_history: Default::default(),
             child_nodes: RefCell::new(child_nodes),
             workspace: CloneCell::new(workspace.clone()),
@@ -471,6 +465,7 @@ impl ContainerNode {
         self: &Rc<Self>,
         child: LinkedNode<ContainerChild>,
     ) -> NodeRef<ContainerChild> {
+        self.schedule_child_types();
         child.set_invalid();
         child.focus_history.take();
         let ref_ = child.to_ref();
@@ -575,6 +570,7 @@ impl ContainerNode {
             self.activate_child(&new_ref);
         }
         // log::info!("add_child");
+        self.schedule_child_types();
         self.schedule_layout();
         self.cancel_seat_ops();
     }
@@ -969,17 +965,21 @@ impl ContainerNode {
         fd
     }
 
-    fn update_child_types(self: &Rc<Self>) {
-        if self.child_types_valid.replace(true) {
-            return;
+    fn schedule_child_types(self: &Rc<Self>) {
+        if !self.child_types_scheduled.replace(true) {
+            self.state.pending_container_child_types.push(self.clone());
         }
-        let ns = &self.node_state[RenderTL];
+    }
+
+    fn update_child_types(self: &Rc<Self>) {
+        self.child_types_scheduled.set(false);
+        let ns = &self.node_state[LiveTL];
         let abs_x = ns.abs_x1.get();
         let abs_y = ns.abs_y1.get();
-        let visible = self.toplevel_data.visible[RenderTL].get();
-        let fully_damaged = self.fully_damaged();
+        let visible = self.toplevel_data.visible[LiveTL].get();
         let last_active = self.last_active();
         let have_active = self.children.iter_valid(LiveTL).any(|c| c.active.get());
+        let mut changed = false;
         for child in self.children.iter_valid(LiveTL) {
             let ty = if child.active.get() {
                 ContainerChildType::Active
@@ -990,10 +990,17 @@ impl ContainerNode {
             } else {
                 ContainerChildType::Other
             };
-            if child.ty.replace(ty) != ty && visible && !fully_damaged {
-                let rect = child.node_state[RenderTL].title_rect.get();
-                self.state.damage(rect.move_(abs_x, abs_y));
+            if self.set_child_ns_ty(&child, ty) != ty {
+                if visible {
+                    let rect = child.node_state[LiveTL].title_rect.get();
+                    self.schedule_damage(rect.move_(abs_x, abs_y), false);
+                }
+                changed = true;
             }
+        }
+        if changed {
+            self.schedule_render_titles();
+            self.schedule_compute_render_positions();
         }
     }
 
@@ -1007,13 +1014,12 @@ impl ContainerNode {
         let th = theme.sizes.title_height.get();
         let scales = self.state.scales.lock();
         let draw_overlay_icon = self.toplevel_data.is_overlay_root_container.get();
-        self.update_child_types();
         for child in self.children.iter_valid(RenderTL) {
             let cns = &child.node_state[RenderTL];
             let ctheme = &cns.theme;
             let colors = &ctheme.colors;
             let rect = cns.title_rect.get();
-            let color = match child.ty.get() {
+            let color = match cns.ty.get() {
                 ContainerChildType::Active => colors.focused_title_text.get(),
                 ContainerChildType::AttentionRequested => colors.unfocused_title_text.get(),
                 ContainerChildType::LastActive => colors.focused_inactive_title_text.get(),
@@ -1064,10 +1070,6 @@ impl ContainerNode {
     }
 
     fn compute_title_data(&self) {
-        let rd = &mut *self.render_data.borrow_mut();
-        for (_, v) in rd.titles.iter_mut() {
-            v.clear();
-        }
         let ns = &self.node_state[RenderTL];
         let abs_x = ns.abs_x1.get();
         let abs_y = ns.abs_y1.get();
@@ -1079,14 +1081,14 @@ impl ContainerNode {
             }
             let title = child.title.borrow_mut();
             let tt = &*child.title_tex.borrow();
+            child.rd.clear();
             for (&scale, tex) in tt {
                 if let Err(e) = tex.flip() {
                     log::error!("Could not render title {}: {}", title, ErrorFmt(e));
                 }
-                rd.add_title(rect, &child, scale, tex);
+                child.add_title(scale, tex);
             }
         }
-        rd.titles.remove_if(|_, v| v.is_empty());
     }
 
     fn schedule_compute_render_positions(self: &Rc<Self>) {
@@ -1116,9 +1118,6 @@ impl ContainerNode {
         let fheight = ns.height.get();
         let cwidth = fwidth.sub(2 * sp).max(0);
         let cheight = fheight.sub(2 * sp).max(0);
-        for (_, v) in rd.titles.iter_mut() {
-            v.clear();
-        }
         mem::swap(&mut rd.color_rects, &mut rd.prev_color_rects);
         for (_, mut rects) in rd.color_rects.drain(..) {
             rects.clear();
@@ -1130,7 +1129,6 @@ impl ContainerNode {
         let split = ns.split.get();
         let abs_x = ns.abs_x1.get();
         let abs_y = ns.abs_y1.get();
-        self.update_child_types();
         let use_active_border_rects = cb == ContainerBorders::Full;
         let fill_active_borders = !mono && use_active_border_rects;
         fn get_color(rd: &mut ContainerRenderData, color: Color) -> &mut Vec<Rect> {
@@ -1201,13 +1199,13 @@ impl ContainerNode {
             let cns = &child.node_state[RenderTL];
             let ctheme = &cns.theme;
             let rect = cns.title_rect.get();
-            let active = child.ty.get() == ContainerChildType::Active;
+            let active = cns.ty.get() == ContainerChildType::Active;
             if i > 0 || fill_active_borders {
                 add_border(rd, &child, rect.x1(), rect.y1(), active, prev_active, false);
             }
             prev_active = active;
             let colors = &ctheme.colors;
-            let title_background = match child.ty.get() {
+            let title_background = match cns.ty.get() {
                 ContainerChildType::Active => colors.focused_title_background.get(),
                 ContainerChildType::AttentionRequested => {
                     colors.attention_requested_background.get()
@@ -1220,9 +1218,10 @@ impl ContainerNode {
                 let rect = Rect::new_sized_saturating(rect.x1(), rect.y2(), rect.width(), 1);
                 add_color(rd, theme.colors.separator.get(), rect);
             }
+            child.rd.clear();
             let tt = &*child.title_tex.borrow();
             for (&scale, tex) in tt {
-                rd.add_title(rect, &child, scale, tex);
+                child.add_title(scale, tex);
             }
         }
         if cb == ContainerBorders::Full {
@@ -1238,7 +1237,7 @@ impl ContainerNode {
             if let Some(child) = ns.mono_child.get() {
                 let cns = &child.node_state[RenderTL];
                 let ctheme = &cns.theme;
-                let active = child.ty.get() == ContainerChildType::Active;
+                let active = cns.ty.get() == ContainerChildType::Active;
                 let color = match active {
                     true => ctheme.colors.focused_border.get(),
                     false => colors.border.get(),
@@ -1272,7 +1271,6 @@ impl ContainerNode {
                 Rect::new_sized_saturating(sp, sp + th, cwidth, tuh),
             );
         }
-        rd.titles.remove_if(|_, v| v.is_empty());
         for (k, mut v) in rd.color_rects_map.drain() {
             v.sort_unstable();
             rd.color_rects.push((k, v));
@@ -1334,6 +1332,7 @@ impl ContainerNode {
             }
             child.node.tl_restack_popups();
             // log::info!("activate_child2");
+            self.schedule_child_types();
             self.schedule_layout();
         }
     }
@@ -1381,6 +1380,7 @@ impl ContainerNode {
         }
         self.set_ns_mono_child(child);
         // log::info!("set_mono");
+        self.schedule_child_types();
         self.schedule_layout();
         self.update_title();
     }
@@ -1607,15 +1607,15 @@ impl ContainerNode {
         depth: u32,
     ) {
         if depth == 1 {
-            node.active.set(active);
+            if node.active.replace(active) != active {
+                self.schedule_child_types();
+            }
         }
         if active {
             node.focus_history
                 .set(Some(self.focus_history.add_last(node.clone())));
+            self.schedule_child_types();
         }
-        // log::info!("node_child_active_changed");
-        self.schedule_render_titles();
-        self.schedule_compute_render_positions();
         if let Some(parent) = self.toplevel_data.parent.get() {
             parent.node_child_active_changed(self.deref(), active, depth + 1);
         }
@@ -1638,9 +1638,12 @@ impl ContainerNode {
         let data = child.node.tl_data();
         {
             let attention_requested = data.wants_attention.get();
-            child.attention_requested.set(attention_requested);
+            let old = child.attention_requested.replace(attention_requested);
             if attention_requested {
                 self.mod_attention_requests(true);
+            }
+            if old != attention_requested {
+                self.schedule_child_types();
             }
         }
         self.update_child_title(child, &data.title.borrow());
@@ -2099,6 +2102,18 @@ impl ContainerNode {
         child.node_state[LiveTL].content.set(v);
     }
 
+    fn set_child_ns_ty(
+        self: &Rc<Self>,
+        child: &NodeRef<ContainerChild>,
+        v: ContainerChildType,
+    ) -> ContainerChildType {
+        let old = child.node_state[LiveTL].ty.replace(v);
+        if old != v {
+            self.add_child_op(child, ContainerChildTransactionOp::SetType(v));
+        }
+        old
+    }
+
     fn compute_theme(&self) -> ContainerTheme {
         let theme = &self.state.theme;
         define_ident!(Cell::new(theme.@container_borders.get()));
@@ -2197,6 +2212,15 @@ pub async fn container_layout(state: Rc<State>) {
         let container = state.pending_container_layout.pop().await;
         if container.layout_scheduled.get() {
             container.perform_layout();
+        }
+    }
+}
+
+pub async fn container_child_types(state: Rc<State>) {
+    loop {
+        let container = state.pending_container_child_types.pop().await;
+        if container.child_types_scheduled.get() {
+            container.update_child_types();
         }
     }
 }
@@ -2584,6 +2608,7 @@ impl ContainingNode for ContainerNode {
             new.clone().tl_change_extents(&body);
             self.schedule_damage(body, false);
         }
+        self.schedule_child_types();
     }
 
     fn cnode_remove_child2(self: Rc<Self>, child: &dyn Node, preserve_focus: bool) {
@@ -2632,6 +2657,7 @@ impl ContainingNode for ContainerNode {
         self.sum_factors.set(sum);
         self.update_title();
         // log::info!("cnode_remove_child2");
+        self.schedule_child_types();
         self.schedule_layout();
         self.cancel_seat_ops();
     }
@@ -2650,7 +2676,7 @@ impl ContainingNode for ContainerNode {
             return;
         }
         self.mod_attention_requests(set);
-        self.schedule_compute_render_positions();
+        self.schedule_child_types();
     }
 
     fn cnode_workspace(self: Rc<Self>) -> Rc<WorkspaceNode> {
@@ -3071,8 +3097,8 @@ impl ThemeChangeListener for ContainerNode {
 
 impl GfxCtxChangedListener for ContainerNode {
     fn handle_gfx_context_change(self: Rc<Self>) {
-        self.render_data.borrow_mut().titles.clear();
         self.children.iter().for_each(|c| {
+            c.rd.clear();
             c.title_tex.borrow_mut().clear();
             c.icon.clear();
             c.icons.clear();
@@ -3272,6 +3298,7 @@ pub enum ContainerChildTransactionOp {
     SetBody(Rect),
     SetContent(Rect),
     SetValid,
+    SetType(ContainerChildType),
     ThemeOp(ContainerChildThemeOp),
 }
 
@@ -3336,6 +3363,9 @@ impl Transactionable for ContainerNode {
                     ContainerChildTransactionOp::ThemeOp(v) => {
                         cs.theme.cached_apply(v);
                     }
+                    ContainerChildTransactionOp::SetType(v) => {
+                        cs.ty.set(v);
+                    }
                 }
             }
             ContainerTransactionOp::Unlink(v) => {
@@ -3345,13 +3375,11 @@ impl Transactionable for ContainerNode {
                 self.toplevel_data.run_op(v);
             }
             ContainerTransactionOp::ScheduleRenderTitles => {
-                self.child_types_valid.set(false);
                 if !self.render_titles_scheduled.replace(true) {
                     self.state.pending_container_render_title.push(self.clone());
                 }
             }
             ContainerTransactionOp::ScheduleComputeRenderPositions => {
-                self.child_types_valid.set(false);
                 if !self.compute_render_positions_scheduled.replace(true) {
                     self.state
                         .pending_container_render_positions

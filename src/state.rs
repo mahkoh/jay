@@ -306,6 +306,7 @@ pub struct State {
     pub config_locked_shortcuts: Cell<bool>,
     pub theme: Theme,
     pub pending_container_layout: AsyncQueue<Rc<ContainerNode>>,
+    pub pending_container_child_types: AsyncQueue<Rc<ContainerNode>>,
     pub pending_container_render_positions: AsyncQueue<Rc<ContainerNode>>,
     pub pending_container_render_title: AsyncQueue<Rc<ContainerNode>>,
     pub pending_output_render_data: AsyncQueue<Rc<OutputNode>>,
@@ -1452,6 +1453,7 @@ impl State {
         self.wlr_output_managers.clear();
         self.dbus.clear();
         self.pending_container_layout.clear();
+        self.pending_container_child_types.clear();
         self.pending_float_layout.clear();
         self.pending_input_popup_positioning.clear();
         self.pending_toplevel_screencasts.clear();
