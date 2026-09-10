@@ -233,6 +233,7 @@ pub struct ContainerNode {
     toplevel_data: ToplevelData,
     attention_requests: ThresholdCounter,
     transaction_data: TransactionData<ContainerTransactionOp>,
+    full_damage_scheduled: Cell<bool>,
     schedule_render_title_scheduled: Cell<bool>,
     schedule_compute_render_positions_scheduled: Cell<bool>,
     fully_damaged_in_iteration: Cell<Option<u64>>,
@@ -441,6 +442,7 @@ impl ContainerNode {
             ),
             attention_requests: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
+            full_damage_scheduled: Default::default(),
             schedule_render_title_scheduled: Default::default(),
             schedule_compute_render_positions_scheduled: Default::default(),
             fully_damaged_in_iteration: Default::default(),
@@ -589,7 +591,13 @@ impl ContainerNode {
     }
 
     fn schedule_damage(self: &Rc<Self>, rect: Rect, full: bool) {
+        if self.full_damage_scheduled.get() {
+            return;
+        }
         self.add_transaction_op(ContainerTransactionOp::Damage(rect, full));
+        if full {
+            self.full_damage_scheduled.set(true);
+        }
     }
 
     fn schedule_layout(self: &Rc<Self>) {
@@ -3366,5 +3374,6 @@ impl Transactionable for ContainerNode {
     fn committed(&self) {
         self.schedule_render_title_scheduled.set(false);
         self.schedule_compute_render_positions_scheduled.set(false);
+        self.full_damage_scheduled.set(false);
     }
 }
