@@ -491,6 +491,10 @@ pub fn write_client_trace_files(files: &[ParsedFile]) -> anyhow::Result<()> {
         let mut idx = 0;
         for file in files {
             for msg in file.messages.messages() {
+                if msg.val.attribs.dead {
+                    wl!(r#"{xn}#[cfg_attr(feature = "it", allow(unused))]"#);
+                    wl!(r#"{xn}#[cfg_attr(not(feature = "it"), expect(unused))]"#);
+                }
                 wl!(
                     r#"{xn}pub static {}Ξ{}: usize = {idx};"#,
                     file.obj_name.raw(),

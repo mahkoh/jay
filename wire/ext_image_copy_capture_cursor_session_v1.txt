@@ -5,18 +5,18 @@ request get_capture_session {
     session: id(ext_image_copy_capture_session_v1) (new),
 }
 
-event enter {
+event enter (dead) {
 }
 
-event leave {
+event leave (dead) {
 }
 
-event position {
+event position (dead) {
     x: i32,
     y: i32,
 }
 
-event hotspot {
+event hotspot (dead) {
     x: i32,
     y: i32,
 }

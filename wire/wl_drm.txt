@@ -49,7 +49,7 @@ event device {
     name: bstr,
 }
 
-event format {
+event format (dead) {
     format: u32,
 }
 

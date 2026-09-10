@@ -32,7 +32,7 @@ event button {
     state: u32,
 }
 
-event unused {
+event unused (dead) {
 
 }
 

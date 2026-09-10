@@ -249,6 +249,7 @@ pub struct Message {
 pub struct MessageAttribs {
     pub since: Option<u32>,
     pub destructor: bool,
+    pub dead: bool,
 }
 
 #[derive(Debug, Default)]
@@ -344,6 +345,9 @@ impl<'a> Parser<'a> {
                 }
                 "destructor" => {
                     attribs.destructor = true;
+                }
+                "dead" => {
+                    attribs.dead = true;
                 }
                 _ => bail!("In line {}: Unexpected attribute {}", line, name),
             }
