@@ -44,6 +44,8 @@ pub mod jay_tray_v1;
 pub mod jay_tree_query;
 pub mod jay_window_match;
 pub mod jay_window_match_builder;
+pub mod jay_wl_surface_factory_manager_v1;
+pub mod jay_wl_surface_factory_v1;
 pub mod jay_workspace;
 pub mod jay_workspace_watcher;
 pub mod jay_xwayland;

@@ -321,6 +321,7 @@ mod singletons {
     pub(super) use crate::ifs::jay_compositor::JayCompositorGlobal;
     pub(super) use crate::ifs::jay_damage_tracking::JayDamageTrackingGlobal;
     pub(super) use crate::ifs::jay_popup_ext_manager_v1::JayPopupExtManagerV1Global;
+    pub(super) use crate::ifs::jay_wl_surface_factory_manager_v1::JayWlSurfaceFactoryManagerV1Global;
     pub(super) use crate::ifs::org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerGlobal;
     pub(super) use crate::ifs::wl_compositor::WlCompositorGlobal;
     pub(super) use crate::ifs::wl_drm::WlDrmGlobal;

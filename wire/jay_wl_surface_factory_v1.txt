@@ -1,0 +1,7 @@
+request destroy (destructor) {
+
+}
+
+event surface (dead) {
+    id: id(wl_surface) (new),
+}
