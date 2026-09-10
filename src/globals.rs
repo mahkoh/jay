@@ -338,6 +338,7 @@ mod singletons {
     pub(super) use crate::ifs::wl_shm::WlShmGlobal;
     pub(super) use crate::ifs::wl_subcompositor::WlSubcompositorGlobal;
     pub(super) use crate::ifs::wl_surface::icon_surface::jay_icon_surface_manager_v1::JayIconSurfaceManagerV1Global;
+    pub(super) use crate::ifs::wl_surface::icon_surface::jay_toplevel_icon_subject_manager_v1::JayToplevelIconSubjectManagerV1Global;
     pub(super) use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_manager_v1::XdgToplevelIconManagerV1Global;
     pub(super) use crate::ifs::wl_surface::xwayland_shell_v1::XwaylandShellV1Global;
     pub(super) use crate::ifs::wlr_output_manager::zwlr_output_manager_v1::ZwlrOutputManagerV1Global;

@@ -8,7 +8,6 @@ use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
-#[expect(unused)]
 #[derive(Object)]
 pub struct JayIconSurfaceSubjectV1 {
     pub id: JayIconSurfaceSubjectV1Id,

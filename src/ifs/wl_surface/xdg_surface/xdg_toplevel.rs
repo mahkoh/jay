@@ -12,6 +12,7 @@ use crate::ifs::wl_seat::tablet::TabletTool;
 use crate::ifs::wl_surface::PendingState;
 use crate::ifs::wl_surface::WlSurface;
 use crate::ifs::wl_surface::WlSurfaceError;
+use crate::ifs::wl_surface::icon_surface::jay_icon_surface_factory_v1::JayIconSurfaceFactoryV1;
 use crate::ifs::wl_surface::xdg_surface::InitialCommitState;
 use crate::ifs::wl_surface::xdg_surface::UpdateGeometryReason;
 use crate::ifs::wl_surface::xdg_surface::XdgSurface;
@@ -160,6 +161,7 @@ pub struct XdgToplevel {
     icon: ObjAndId<Option<Rc<XdgToplevelIconV1>>>,
     transaction_data: TransactionData<XdgToplevelTransactionOp>,
     allow_fixed_size: Cell<bool>,
+    icon_surface_factory: CloneCell<Option<Rc<JayIconSurfaceFactoryV1>>>,
 }
 
 impl Debug for XdgToplevel {
@@ -224,6 +226,7 @@ impl XdgToplevel {
             icon: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
             allow_fixed_size: Cell::new(true),
+            icon_surface_factory: Default::default(),
         }
     }
 
@@ -275,6 +278,17 @@ impl XdgToplevel {
         d.max_width.take();
         d.min_height.take();
         d.max_height.take();
+    }
+
+    pub fn has_icon_factory(&self) -> bool {
+        self.icon_surface_factory.is_some()
+    }
+
+    pub fn set_icon_factory(&self, factory: Option<&Rc<JayIconSurfaceFactoryV1>>) {
+        self.icon_surface_factory.set(factory.cloned());
+        if let Some(parent) = self.toplevel_data.parent.get() {
+            parent.cnode_child_icon_factory_changed(self.node_id.into());
+        }
     }
 }
 
@@ -575,6 +589,7 @@ impl BreakLoops for XdgToplevel {
         self.dialog.set(None);
         self.icon.set(None);
         let _children = mem::take(&mut *self.children.borrow_mut());
+        self.icon_surface_factory.take();
     }
 }
 
@@ -819,6 +834,10 @@ impl ToplevelNodeBase for XdgToplevel {
             return;
         };
         icon.update_user(user);
+    }
+
+    fn tl_icon_surface_factory(&self) -> Option<Rc<JayIconSurfaceFactoryV1>> {
+        self.icon_surface_factory.get()
     }
 
     fn tl_schedule_data_op(self: Rc<Self>, op: ToplevelDataTransactionOp) {

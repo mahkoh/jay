@@ -1,0 +1,10 @@
+singleton
+
+request destroy (destructor) {
+
+}
+
+request create_subject {
+    id: id(jay_icon_surface_subject_v1) (new),
+    toplevel: id(xdg_toplevel),
+}
