@@ -1030,7 +1030,7 @@ impl ContainerNode {
         let theme = &ns.theme;
         let th = theme.sizes.title_height.get();
         let scales = self.state.scales.lock();
-        let draw_overlay_icon = self.toplevel_data.is_overlay_root_container.get();
+        let draw_overlay_icon = self.toplevel_data.is_overlay_root_container[RenderTL].get();
         for child in self.children.iter_valid(RenderTL) {
             let cns = &child.node_state[RenderTL];
             let ctheme = &cns.theme;

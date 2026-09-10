@@ -332,7 +332,7 @@ impl Renderer<'_> {
             for (color, rects) in &rd.color_rects {
                 self.base.fill_boxes2(rects, color, srgb, perceptual, x, y);
             }
-            let draw_overlay_icon = container.tl_data().is_overlay_root_container.get();
+            let draw_overlay_icon = container.tl_data().is_overlay_root_container[RenderTL].get();
             let th = theme.sizes.title_height.get();
             for child in container.children.iter_valid(RenderTL) {
                 let cns = &child.node_state[RenderTL];
