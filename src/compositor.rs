@@ -107,7 +107,7 @@ use crate::tree::WorkspaceDisplayOrder;
 use crate::tree::container_layout_phase;
 use crate::tree::container_post_layout_phase;
 use crate::tree::container_render_titles;
-use crate::tree::float_layout;
+use crate::tree::float_layout_phase;
 use crate::tree::float_titles;
 use crate::tree::output_render_data;
 use crate::tree::placeholder_render_textures;
@@ -331,7 +331,7 @@ fn start_compositor2(
         pending_container_post_layout_phase: Default::default(),
         pending_container_render_title: Default::default(),
         pending_output_render_data: Default::default(),
-        pending_float_layout: Default::default(),
+        pending_float_layout_phase: Default::default(),
         pending_float_titles: Default::default(),
         pending_input_popup_positioning: Default::default(),
         pending_toplevel_screencasts: Default::default(),
@@ -628,7 +628,11 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             "wlr output manager done",
             wlr_output_manager_done(state.clone()),
         ),
-        eng.spawn2("float layout", Phase::Layout, float_layout(state.clone())),
+        eng.spawn2(
+            "float layout phase",
+            Phase::Layout,
+            float_layout_phase(state.clone()),
+        ),
         eng.spawn2(
             "float titles",
             Phase::PostLayout,

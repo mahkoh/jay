@@ -93,6 +93,7 @@ pub struct FloatNode {
     workspace: CloneCell<Rc<WorkspaceNode>>,
     location: Cell<NodeLocation>,
     seat_state: NodeSeatState,
+    layout_phase_scheduled: Cell<bool>,
     layout_scheduled: Cell<bool>,
     render_titles_scheduled: Cell<bool>,
     title: RefCell<String>,
@@ -187,9 +188,10 @@ pub struct FloatThemeSizes {
     pub title_icon_size: Cell<i32>,
 }
 
-pub async fn float_layout(state: Rc<State>) {
+pub async fn float_layout_phase(state: Rc<State>) {
     loop {
-        let node = state.pending_float_layout.pop().await;
+        let node = state.pending_float_layout_phase.pop().await;
+        node.layout_phase_scheduled.take();
         if node.layout_scheduled.get() {
             node.perform_layout();
         }
@@ -236,6 +238,7 @@ impl FloatNode {
             workspace: CloneCell::new(ws.clone()),
             location: Cell::new(ws.location()),
             seat_state: Default::default(),
+            layout_phase_scheduled: Default::default(),
             layout_scheduled: Cell::new(false),
             render_titles_scheduled: Cell::new(false),
             title: Default::default(),
@@ -295,10 +298,15 @@ impl FloatNode {
         floater
     }
 
-    fn schedule_layout(self: &Rc<Self>) {
-        if !self.layout_scheduled.replace(true) {
-            self.state.pending_float_layout.push(self.clone());
+    fn push_layout_phase(self: &Rc<Self>) {
+        if !self.layout_phase_scheduled.replace(true) {
+            self.state.pending_float_layout_phase.push(self.clone());
         }
+    }
+
+    fn schedule_layout(self: &Rc<Self>) {
+        self.layout_scheduled.set(true);
+        self.push_layout_phase();
     }
 
     fn perform_layout(self: &Rc<Self>) {

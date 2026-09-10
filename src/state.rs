@@ -309,7 +309,7 @@ pub struct State {
     pub pending_container_post_layout_phase: AsyncQueue<Rc<ContainerNode>>,
     pub pending_container_render_title: AsyncQueue<Rc<ContainerNode>>,
     pub pending_output_render_data: AsyncQueue<Rc<OutputNode>>,
-    pub pending_float_layout: AsyncQueue<Rc<FloatNode>>,
+    pub pending_float_layout_phase: AsyncQueue<Rc<FloatNode>>,
     pub pending_float_titles: AsyncQueue<Rc<FloatNode>>,
     pub pending_input_popup_positioning: AsyncQueue<Rc<ZwpInputPopupSurfaceV2>>,
     pub pending_toplevel_screencasts: AsyncQueue<Rc<JayScreencast>>,
@@ -1452,7 +1452,7 @@ impl State {
         self.wlr_output_managers.clear();
         self.dbus.clear();
         self.pending_container_layout_phase.clear();
-        self.pending_float_layout.clear();
+        self.pending_float_layout_phase.clear();
         self.pending_input_popup_positioning.clear();
         self.pending_toplevel_screencasts.clear();
         self.pending_screencast_reallocs_or_reconfigures.clear();
