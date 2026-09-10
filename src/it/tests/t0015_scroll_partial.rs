@@ -1,7 +1,7 @@
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
-use crate::scale::Scale;
 use crate::tree::ToplevelNodeBase;
+use crate::tree::TreeTimeline::RenderTL;
 use std::rc::Rc;
 
 testcase!();
@@ -24,13 +24,9 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     let container = w_mono2.tl.container_parent()?;
     let pos = container.tl_data().content_size.get();
-    let w_mono1_title = container
-        .render_data
-        .borrow_mut()
-        .titles
-        .get(&Scale::from_int(1))
-        .unwrap()[0]
-        .rect
+    let w_mono1_title = container.children.first().unwrap().node_state[RenderTL]
+        .title_rect
+        .get()
         .move_(pos.x1(), pos.y1());
     ds.mouse.abs(
         &ds.connector,

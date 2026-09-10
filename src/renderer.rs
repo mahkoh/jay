@@ -334,48 +334,47 @@ impl Renderer<'_> {
             }
             let draw_overlay_icon = container.tl_data().is_overlay_root_container.get();
             let th = theme.sizes.title_height.get();
-            if let Some(titles) = rd.titles.get(&self.base.scale) {
-                for title in titles {
-                    let rect = title.rect.move_(x, y);
-                    let bounds = self.base.scale_rect(rect);
-                    let mut x = rect.x1();
-                    if draw_overlay_icon {
-                        if let Some(icons) = &self.title_icons {
-                            let (x, y) = self.base.scale_point(x, rect.y1());
-                            let icon = match title.ty {
-                                ContainerChildType::Active => &icons.overlay_focused_title,
-                                ContainerChildType::AttentionRequested => {
-                                    &icons.overlay_attention_requested
-                                }
-                                ContainerChildType::LastActive => {
-                                    &icons.overlay_focused_inactive_title
-                                }
-                                ContainerChildType::Other => &icons.overlay_unfocused_title,
-                            };
-                            self.base.render_texture(
-                                icon,
-                                x,
-                                y,
-                                RenderTexture {
-                                    bounds: Some(&bounds),
-                                    ..Default::default()
-                                },
-                            );
-                        }
-                        x += th;
+            for child in container.children.iter_valid(RenderTL) {
+                let cns = &child.node_state[RenderTL];
+                let rect = cns.title_rect.get().move_(x, y);
+                let bounds = self.base.scale_rect(rect);
+                let mut x = rect.x1();
+                if draw_overlay_icon {
+                    if let Some(icons) = &self.title_icons {
+                        let (x, y) = self.base.scale_point(x, rect.y1());
+                        let icon = match cns.ty.get() {
+                            ContainerChildType::Active => &icons.overlay_focused_title,
+                            ContainerChildType::AttentionRequested => {
+                                &icons.overlay_attention_requested
+                            }
+                            ContainerChildType::LastActive => &icons.overlay_focused_inactive_title,
+                            ContainerChildType::Other => &icons.overlay_unfocused_title,
+                        };
+                        self.base.render_texture(
+                            icon,
+                            x,
+                            y,
+                            RenderTexture {
+                                bounds: Some(&bounds),
+                                ..Default::default()
+                            },
+                        );
                     }
-                    if let Some(icon) = &title.icon {
+                    x += th;
+                }
+                if let Some(rd) = child.rd.get(&self.base.scale) {
+                    if let Some(icon) = &rd.icon {
                         self.render_icon(
                             &icon,
                             &bounds,
                             x,
                             rect.y1(),
-                            title.window_icons_grayscale,
+                            cns.theme.window_icons_grayscale.get(),
                             ns.theme.sizes.title_icon_size.get(),
                         );
                         x += th;
                     }
-                    if let Some(tex) = &title.tex {
+                    if let Some(tex) = &rd.tex {
                         let (x, y) = self.base.scale_point(x, rect.y1());
                         self.base.render_texture(
                             tex,

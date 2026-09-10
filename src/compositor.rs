@@ -104,6 +104,7 @@ use crate::tree::TearingMode;
 use crate::tree::Transform;
 use crate::tree::VrrMode;
 use crate::tree::WorkspaceDisplayOrder;
+use crate::tree::container_child_types;
 use crate::tree::container_layout;
 use crate::tree::container_render_positions;
 use crate::tree::container_render_titles;
@@ -328,6 +329,7 @@ fn start_compositor2(
         input_device_handlers: Default::default(),
         theme: Default::default(),
         pending_container_layout: Default::default(),
+        pending_container_child_types: Default::default(),
         pending_container_render_positions: Default::default(),
         pending_container_render_title: Default::default(),
         pending_output_render_data: Default::default(),
@@ -603,6 +605,10 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             "container layout",
             Phase::Layout,
             container_layout(state.clone()),
+        ),
+        eng.spawn(
+            "container child types",
+            container_child_types(state.clone()),
         ),
         eng.spawn2(
             "container render positions",
