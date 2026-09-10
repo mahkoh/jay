@@ -1,3 +1,5 @@
+event_handler
+
 request start_drag {
     source: id(wl_data_source) (nullable),
     origin: id(wl_surface),

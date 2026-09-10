@@ -554,13 +554,15 @@ fn write_file(f: &mut impl Write, file: &ParsedFile) -> Result<()> {
             RequestHandlerDirection::Request,
             messages.dead,
         )?;
-        write_request_handler(
-            f,
-            camel_obj_name,
-            &messages.events,
-            RequestHandlerDirection::Event,
-            messages.dead,
-        )?;
+        if messages.event_handler {
+            write_request_handler(
+                f,
+                camel_obj_name,
+                &messages.events,
+                RequestHandlerDirection::Event,
+                messages.dead,
+            )?;
+        }
     }
     Ok(())
 }

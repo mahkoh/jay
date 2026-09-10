@@ -1,3 +1,5 @@
+event_handler
+
 request sync {
     callback: id(wl_callback) (new),
 }
