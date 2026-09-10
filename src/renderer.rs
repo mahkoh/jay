@@ -328,20 +328,21 @@ impl Renderer<'_> {
             let perceptual = RenderIntent::Perceptual;
             let rd = container.render_data.borrow_mut();
             let ns = &container.node_state[RenderTL];
-            let theme = &ns.theme;
             for (color, rects) in &rd.color_rects {
                 self.base.fill_boxes2(rects, color, srgb, perceptual, x, y);
             }
             let draw_overlay_icon = container.tl_data().is_overlay_root_container[RenderTL].get();
-            let th = theme.sizes.title_height.get();
             for child in container.children.iter_valid(RenderTL) {
                 let cns = &child.node_state[RenderTL];
+                let offsets = &cns.offsets;
                 let rect = cns.title_rect.get().move_(x, y);
                 let bounds = self.base.scale_rect(rect);
-                let mut x = rect.x1();
+                let x = rect.x1();
                 if draw_overlay_icon {
                     if let Some(icons) = &self.title_icons {
-                        let (x, y) = self.base.scale_point(x, rect.y1());
+                        let (x, y) = self
+                            .base
+                            .scale_point(x + offsets.overlay_icon.get(), rect.y1());
                         let icon = match cns.ty.get() {
                             ContainerChildType::Active => &icons.overlay_focused_title,
                             ContainerChildType::AttentionRequested => {
@@ -360,22 +361,20 @@ impl Renderer<'_> {
                             },
                         );
                     }
-                    x += th;
                 }
                 if let Some(rd) = child.rd.get(&self.base.scale) {
                     if let Some(icon) = &rd.icon {
                         self.render_icon(
                             &icon,
                             &bounds,
-                            x,
+                            x + offsets.toplevel_icon.get(),
                             rect.y1(),
                             cns.theme.window_icons_grayscale.get(),
                             ns.theme.sizes.title_icon_size.get(),
                         );
-                        x += th;
                     }
                     if let Some(tex) = &rd.tex {
-                        let (x, y) = self.base.scale_point(x, rect.y1());
+                        let (x, y) = self.base.scale_point(x + offsets.title.get(), rect.y1());
                         self.base.render_texture(
                             tex,
                             x,

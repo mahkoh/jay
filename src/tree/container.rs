@@ -217,6 +217,7 @@ pub struct ContainerNode {
     layout_phase_scheduled: Cell<bool>,
     layout_scheduled: Cell<bool>,
     child_types_scheduled: Cell<bool>,
+    title_offsets_scheduled: Cell<bool>,
     post_layout_phase_scheduled: Cell<bool>,
     compute_render_positions_scheduled: Cell<bool>,
     render_titles_scheduled: Cell<bool>,
@@ -253,9 +254,17 @@ pub struct ContainerChildNodeState {
     pub title_rect: Cell<Rect>,
     pub ty: Cell<ContainerChildType>,
     pub theme: ContainerChildTheme,
+    pub offsets: Offsets,
     // fields below only valid in tabbed layout
     pub body: Cell<Rect>,
     pub content: Cell<Rect>,
+}
+
+#[derive(Clone, CachedValue)]
+pub struct Offsets {
+    pub overlay_icon: Cell<i32>,
+    pub toplevel_icon: Cell<i32>,
+    pub title: Cell<i32>,
 }
 
 pub type ContainerChild = TreeLink<ContainerChildInner>;
@@ -273,6 +282,7 @@ pub struct ContainerChildInner {
     pub node_state: SplitView<ContainerChildNodeState>,
     factor: Cell<f64>,
     resize_handle: Cell<Option<Rect>>,
+    title_offsets_scheduled: Cell<bool>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -352,6 +362,7 @@ impl ContainerChildInner {
             node_state: Default::default(),
             factor: Cell::new(factor),
             resize_handle: Cell::new(resize_handle),
+            title_offsets_scheduled: Default::default(),
         };
         let theme = compute_child_theme(&state.theme);
         slf.node_state[LiveTL].theme.cached_set(theme.clone());
@@ -417,6 +428,7 @@ impl ContainerNode {
             layout_phase_scheduled: Default::default(),
             layout_scheduled: Cell::new(false),
             child_types_scheduled: Default::default(),
+            title_offsets_scheduled: Default::default(),
             post_layout_phase_scheduled: Default::default(),
             compute_render_positions_scheduled: Cell::new(false),
             render_titles_scheduled: Cell::new(false),
@@ -458,6 +470,8 @@ impl ContainerNode {
         child.tl_set_parent(slf.clone());
         slf.pull_child_properties(&child_node_ref);
         slf.schedule_validate_child(&child_node_ref);
+        slf.schedule_title_offsets(&child_node_ref);
+        slf.schedule_render_titles();
         slf
     }
 
@@ -591,6 +605,7 @@ impl ContainerNode {
         self.schedule_child_types();
         self.schedule_layout();
         self.cancel_seat_ops();
+        self.schedule_title_offsets(&new_ref);
     }
 
     fn cancel_seat_ops(&self) {
@@ -1030,7 +1045,6 @@ impl ContainerNode {
         let theme = &ns.theme;
         let th = theme.sizes.title_height.get();
         let scales = self.state.scales.lock();
-        let draw_overlay_icon = self.toplevel_data.is_overlay_root_container[RenderTL].get();
         for child in self.children.iter_valid(RenderTL) {
             let cns = &child.node_state[RenderTL];
             let ctheme = &cns.theme;
@@ -1049,16 +1063,12 @@ impl ContainerNode {
                 let tex = tt.get_or_insert_with(*scale, || TextTexture::new(&self.state, &ctx));
                 let mut th = th;
                 let mut scalef = None;
-                let mut width = rect.width();
+                let mut width = (rect.width() - cns.offsets.title.get()).max(0);
                 let icon = ctheme
                     .show_window_icons
                     .get()
                     .and_then(|| child.icon.get(*scale));
-                if draw_overlay_icon {
-                    width = (width - th).max(0);
-                }
                 if let Some(icon) = icon {
-                    width = (width - th).max(0);
                     child.icons.insert(*scale, icon);
                 }
                 if *scale != 1 {
@@ -2163,6 +2173,7 @@ impl ContainerNode {
     fn child_theme_changed(
         self: &Rc<Self>,
         render_positions: bool,
+        title_offsets: bool,
         child: &NodeRef<ContainerChild>,
     ) {
         let ns = &child.node_state[LiveTL];
@@ -2208,6 +2219,69 @@ impl ContainerNode {
         if render_positions {
             self.schedule_compute_render_positions();
         }
+        let title_offsets = or_chain!(________________________)
+            || title_offsets
+            || show_window_icons
+            || or_chain!();
+        if title_offsets {
+            self.schedule_title_offsets(child);
+        }
+    }
+
+    fn schedule_title_offsets(self: &Rc<Self>, child: &NodeRef<ContainerChild>) {
+        self.title_offsets_scheduled.set(true);
+        child.title_offsets_scheduled.set(true);
+        self.push_layout_phase();
+    }
+
+    fn update_title_offsets(self: &Rc<Self>, child: &NodeRef<ContainerChild>) {
+        child.title_offsets_scheduled.set(false);
+        let ns = &self.node_state[LiveTL];
+        let cns = &child.node_state[LiveTL];
+        let theme = &ns.theme;
+        let ctheme = &cns.theme;
+        let th = theme.sizes.title_height.get();
+        let mut x = 0;
+        macro_rules! snapshot {
+            ($x:ident) => {
+                let $x = Cell::new(x);
+            };
+        }
+        snapshot!(overlay_icon);
+        if self.tl_data().is_overlay_root_container[LiveTL].get() {
+            x += th;
+        }
+        snapshot!(toplevel_icon);
+        if child.icon.has_icon() && ctheme.show_window_icons.get() {
+            x += th;
+        }
+        snapshot!(title);
+        let offsets = Offsets {
+            overlay_icon, //
+            toplevel_icon,
+            title,
+        };
+        let changed = cns.offsets.cached_update(offsets, |op| {
+            self.add_child_op(child, ContainerChildTransactionOp::SetOffset(op));
+        });
+        let OffsetsChanged {
+            overlay_icon, //
+            toplevel_icon,
+            title,
+        } = changed;
+        if title {
+            self.schedule_render_titles();
+        }
+        let damage = or_chain!(____________________)
+            || overlay_icon
+            || toplevel_icon
+            || title
+            || or_chain!();
+        if damage && self.node_visible(LiveTL) {
+            let x = ns.abs_x1.get();
+            let y = ns.abs_y1.get();
+            self.state.schedule_damage(cns.title_rect.get().move_(x, y));
+        }
     }
 }
 
@@ -2233,6 +2307,14 @@ pub async fn container_layout_phase(state: Rc<State>) {
         }
         if container.child_types_scheduled.get() {
             container.update_child_types();
+        }
+        if container.title_offsets_scheduled.get() {
+            container.title_offsets_scheduled.set(false);
+            for child in container.children.iter_valid(LiveTL) {
+                if child.title_offsets_scheduled.get() {
+                    container.update_title_offsets(&child);
+                }
+            }
         }
     }
 }
@@ -2622,6 +2704,8 @@ impl ContainingNode for ContainerNode {
             self.schedule_damage(body, false);
         }
         self.schedule_child_types();
+        self.schedule_title_offsets(&link_ref);
+        self.schedule_render_titles();
     }
 
     fn cnode_remove_child2(self: Rc<Self>, child: &dyn Node, preserve_focus: bool) {
@@ -2888,6 +2972,7 @@ impl ContainingNode for ContainerNode {
             return;
         };
         child.tl_update_icon(&cc.icon);
+        self.schedule_title_offsets(cc);
         self.schedule_render_titles();
     }
 }
@@ -2940,6 +3025,9 @@ impl ToplevelNodeBase for ContainerNode {
     fn tl_is_root_container_changed(self: Rc<Self>) {
         self.update_content_size();
         self.schedule_layout();
+        for child in self.children.iter_valid(LiveTL) {
+            self.schedule_title_offsets(&child);
+        }
     }
 
     fn tl_close(self: Rc<Self>) {
@@ -3077,13 +3165,6 @@ impl ThemeChangeListener for ContainerNode {
             || container_borders
             || or_chain!();
         if layout {
-            if title_icon_size {
-                for child in self.child_nodes.borrow().values() {
-                    if child.icon.set_size(ns.theme.sizes.title_icon_size.get()) {
-                        child.node.tl_update_icon(&child.icon);
-                    }
-                }
-            }
             self.update_content_size();
             self.schedule_layout();
         }
@@ -3102,8 +3183,18 @@ impl ThemeChangeListener for ContainerNode {
             || border
             || separator
             || or_chain!();
+        let offsets = or_chain!(_______________________________________________)
+            || title_height
+            || or_chain!();
         for child in self.children.iter_valid(LiveTL) {
-            self.child_theme_changed(render_positions, &child);
+            let mut offsets = offsets;
+            if title_icon_size {
+                if child.icon.set_size(ns.theme.sizes.title_icon_size.get()) {
+                    child.node.tl_update_icon(&child.icon);
+                    offsets = true;
+                }
+            }
+            self.child_theme_changed(render_positions, offsets, &child);
         }
     }
 }
@@ -3115,6 +3206,7 @@ impl GfxCtxChangedListener for ContainerNode {
             c.title_tex.borrow_mut().clear();
             c.icon.clear();
             c.icons.clear();
+            self.schedule_title_offsets(&c);
         });
         self.schedule_render_titles();
     }
@@ -3313,6 +3405,7 @@ pub enum ContainerChildTransactionOp {
     SetValid,
     SetType(ContainerChildType),
     ThemeOp(ContainerChildThemeOp),
+    SetOffset(OffsetsOp),
 }
 
 impl Transactionable for ContainerNode {
@@ -3378,6 +3471,9 @@ impl Transactionable for ContainerNode {
                     }
                     ContainerChildTransactionOp::SetType(v) => {
                         cs.ty.set(v);
+                    }
+                    ContainerChildTransactionOp::SetOffset(v) => {
+                        cs.offsets.cached_apply(v);
                     }
                 }
             }
