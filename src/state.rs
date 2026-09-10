@@ -2390,7 +2390,6 @@ impl State {
         TreeSerial::from_raw(serial)
     }
 
-    #[expect(unused)]
     pub fn validate_tree_serial(&self, s: u64) -> Option<TreeSerial> {
         let last = self.tree.serials.last().raw();
         if s > last {

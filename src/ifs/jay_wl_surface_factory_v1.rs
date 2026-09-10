@@ -42,7 +42,6 @@ impl JayWlSurfaceFactoryV1 {
         obj
     }
 
-    #[expect(unused)]
     pub fn assign(&self) -> Result<(), JayWlSurfaceFactoryV1Error> {
         match self.fs.get() {
             Initial => self.fs.set(Assigned),
@@ -52,7 +51,6 @@ impl JayWlSurfaceFactoryV1 {
         Ok(())
     }
 
-    #[expect(unused)]
     pub fn abandon(&self) {
         if self.fs.get() != Assigned {
             log::warn!("Factory is not assigned");
@@ -60,7 +58,6 @@ impl JayWlSurfaceFactoryV1 {
         self.fs.set(Abandoned);
     }
 
-    #[expect(unused)]
     pub fn send_surface(&self) -> Rc<WlSurface> {
         if self.fs.get() != Assigned {
             log::warn!("Factory is not assigned");
