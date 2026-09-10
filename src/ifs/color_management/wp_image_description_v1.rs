@@ -80,7 +80,7 @@ impl Object for WpImageDescriptionV1 {}
 dedicated_add_obj!(
     WpImageDescriptionV1,
     WpImageDescriptionV1Id,
-    wp_image_description
+    wp_image_description,
 );
 
 #[derive(Debug, Error)]

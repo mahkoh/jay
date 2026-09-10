@@ -36,7 +36,7 @@ impl Object for WpImageDescriptionReferenceV1 {}
 dedicated_add_obj!(
     WpImageDescriptionReferenceV1,
     WpImageDescriptionReferenceV1Id,
-    wp_image_description_reference
+    wp_image_description_reference,
 );
 
 #[derive(Debug, Error)]

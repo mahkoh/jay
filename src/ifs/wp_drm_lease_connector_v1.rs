@@ -81,7 +81,7 @@ impl Object for WpDrmLeaseConnectorV1 {
 dedicated_add_obj!(
     WpDrmLeaseConnectorV1,
     WpDrmLeaseConnectorV1Id,
-    drm_lease_outputs
+    drm_lease_outputs,
 );
 
 #[derive(Debug, Error)]

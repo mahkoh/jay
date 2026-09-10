@@ -93,7 +93,7 @@ impl Object for ExtDataControlSourceV1 {
 dedicated_add_obj!(
     ExtDataControlSourceV1,
     ExtDataControlSourceV1Id,
-    ext_data_sources
+    ext_data_sources,
 );
 
 #[derive(Debug, Error)]

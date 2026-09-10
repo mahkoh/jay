@@ -211,7 +211,7 @@ impl Object for ZwlrForeignToplevelHandleV1 {
 dedicated_add_obj!(
     ZwlrForeignToplevelHandleV1,
     ZwlrForeignToplevelHandleV1Id,
-    wlr_foreign_toplevel_handles
+    wlr_foreign_toplevel_handles,
 );
 
 #[derive(Debug, Error)]

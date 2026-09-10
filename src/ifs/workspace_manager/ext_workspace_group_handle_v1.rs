@@ -108,7 +108,7 @@ impl Object for ExtWorkspaceGroupHandleV1 {
 dedicated_add_obj!(
     ExtWorkspaceGroupHandleV1,
     ExtWorkspaceGroupHandleV1Id,
-    ext_workspace_groups
+    ext_workspace_groups,
 );
 
 impl ExtWorkspaceGroupHandleV1RequestHandler for ExtWorkspaceGroupHandleV1 {
