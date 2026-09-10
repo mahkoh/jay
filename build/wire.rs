@@ -65,6 +65,10 @@ fn write_message_type<W: Write>(
     define_w!(f, w, wl);
     define_xn!(xn);
     let lifetime = if needs_lifetime { "<'a>" } else { "" };
+    if message.attribs.dead {
+        wl!(r#"{xn}#[cfg_attr(feature = "it", allow(unused))]"#);
+        wl!(r#"{xn}#[cfg_attr(not(feature = "it"), expect(unused))]"#);
+    }
     wl!("pub struct {}{} {{", message.camel_name, lifetime);
     {
         push_xn!(xn);
@@ -83,6 +87,10 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
     let has_reference_type = message.has_reference_type;
     let uppercase = message.name.raw().to_ascii_uppercase();
     wl!();
+    if message.attribs.dead {
+        wl!(r#"{xn}#[cfg_attr(feature = "it", allow(unused))]"#);
+        wl!(r#"{xn}#[cfg_attr(not(feature = "it"), expect(unused))]"#);
+    }
     wl!("pub const {}: u32 = {};", uppercase, message.id);
     write_message_type(f, obj, message, has_reference_type)?;
     let lifetime = if has_reference_type { "<'a>" } else { "" };
@@ -546,13 +554,15 @@ fn write_file(f: &mut impl Write, file: &ParsedFile) -> Result<()> {
             RequestHandlerDirection::Request,
             messages.dead,
         )?;
-        write_request_handler(
-            f,
-            camel_obj_name,
-            &messages.events,
-            RequestHandlerDirection::Event,
-            messages.dead,
-        )?;
+        if messages.event_handler {
+            write_request_handler(
+                f,
+                camel_obj_name,
+                &messages.events,
+                RequestHandlerDirection::Event,
+                messages.dead,
+            )?;
+        }
     }
     Ok(())
 }

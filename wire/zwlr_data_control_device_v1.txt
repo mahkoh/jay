@@ -22,7 +22,7 @@ event selection {
     id: id(zwlr_data_control_offer_v1) (nullable),
 }
 
-event finished {
+event finished (dead) {
 }
 
 event primary_selection (since = 2) {

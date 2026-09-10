@@ -1,4 +1,5 @@
 singleton
+event_handler
 
 request destroy (destructor) {
 }

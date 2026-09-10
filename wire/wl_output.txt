@@ -1,3 +1,5 @@
+event_handler
+
 event geometry {
     x: i32,
     y: i32,

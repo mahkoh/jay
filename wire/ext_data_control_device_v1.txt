@@ -13,7 +13,7 @@ event selection {
     id: id(ext_data_control_offer_v1) (nullable),
 }
 
-event finished {
+event finished (dead) {
 }
 
 event primary_selection {

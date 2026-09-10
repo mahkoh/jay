@@ -1,4 +1,4 @@
-event ready {
+event ready (dead) {
     global_name: u32,
 }
 

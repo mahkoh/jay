@@ -249,6 +249,7 @@ pub struct Message {
 pub struct MessageAttribs {
     pub since: Option<u32>,
     pub destructor: bool,
+    pub dead: bool,
 }
 
 #[derive(Debug, Default)]
@@ -266,6 +267,7 @@ struct Parser<'a> {
 pub struct ParseResult {
     pub dead: bool,
     pub singleton: bool,
+    pub event_handler: bool,
     pub requests: Vec<Lined<Message>>,
     pub events: Vec<Lined<Message>>,
 }
@@ -280,19 +282,21 @@ impl<'a> Parser<'a> {
     fn parse(&mut self) -> Result<ParseResult> {
         let mut dead = false;
         let mut singleton = false;
+        let mut event_handler = false;
+        macro_rules! set_and_continue {
+            ($name:ident) => {{
+                $name = true;
+                continue;
+            }};
+        }
         let mut requests = vec![];
         let mut events = vec![];
         while !self.eof() {
             let (line, ty) = self.expect_ident()?;
             let is_request = match ty.as_bytes() {
-                b"dead" => {
-                    dead = true;
-                    continue;
-                }
-                b"singleton" => {
-                    singleton = true;
-                    continue;
-                }
+                b"dead" => set_and_continue!(dead),
+                b"singleton" => set_and_continue!(singleton),
+                b"event_handler" => set_and_continue!(event_handler),
                 b"request" => true,
                 b"event" => false,
                 _ => bail!("In line {}: Unexpected entry {:?}", line, ty),
@@ -306,6 +310,7 @@ impl<'a> Parser<'a> {
         Ok(ParseResult {
             dead,
             singleton,
+            event_handler,
             requests,
             events,
         })
@@ -344,6 +349,9 @@ impl<'a> Parser<'a> {
                 }
                 "destructor" => {
                     attribs.destructor = true;
+                }
+                "dead" => {
+                    attribs.dead = true;
                 }
                 _ => bail!("In line {}: Unexpected attribute {}", line, name),
             }
