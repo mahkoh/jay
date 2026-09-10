@@ -214,8 +214,10 @@ pub struct ContainerNode {
     id: ContainerNodeId,
     pub node_state: SplitView<ContainerNodeState>,
     sum_factors: Cell<f64>,
+    layout_phase_scheduled: Cell<bool>,
     layout_scheduled: Cell<bool>,
     child_types_scheduled: Cell<bool>,
+    post_layout_phase_scheduled: Cell<bool>,
     compute_render_positions_scheduled: Cell<bool>,
     render_titles_scheduled: Cell<bool>,
     pub children: LinkedList<ContainerChild>,
@@ -412,8 +414,10 @@ impl ContainerNode {
             id,
             node_state: Default::default(),
             sum_factors: Cell::new(1.0),
+            layout_phase_scheduled: Default::default(),
             layout_scheduled: Cell::new(false),
             child_types_scheduled: Default::default(),
+            post_layout_phase_scheduled: Default::default(),
             compute_render_positions_scheduled: Cell::new(false),
             render_titles_scheduled: Cell::new(false),
             children,
@@ -455,6 +459,20 @@ impl ContainerNode {
         slf.pull_child_properties(&child_node_ref);
         slf.schedule_validate_child(&child_node_ref);
         slf
+    }
+
+    fn push_layout_phase(self: &Rc<Self>) {
+        if !self.layout_phase_scheduled.replace(true) {
+            self.state.pending_container_layout_phase.push(self.clone());
+        }
+    }
+
+    fn push_post_layout_phase(self: &Rc<Self>) {
+        if !self.post_layout_phase_scheduled.replace(true) {
+            self.state
+                .pending_container_post_layout_phase
+                .push(self.clone());
+        }
     }
 
     fn schedule_validate_child(self: &Rc<Self>, child: &NodeRef<ContainerChild>) {
@@ -598,7 +616,7 @@ impl ContainerNode {
 
     fn schedule_layout(self: &Rc<Self>) {
         if !self.layout_scheduled.replace(true) {
-            self.state.pending_container_layout.push(self.clone());
+            self.push_layout_phase();
             if self.toplevel_data.visible[LiveTL].get() {
                 self.damage();
             }
@@ -966,9 +984,8 @@ impl ContainerNode {
     }
 
     fn schedule_child_types(self: &Rc<Self>) {
-        if !self.child_types_scheduled.replace(true) {
-            self.state.pending_container_child_types.push(self.clone());
-        }
+        self.child_types_scheduled.set(true);
+        self.push_layout_phase();
     }
 
     fn update_child_types(self: &Rc<Self>) {
@@ -2207,27 +2224,23 @@ enum SeatOpKind {
     Resize { dist_left: i32, dist_right: i32 },
 }
 
-pub async fn container_layout(state: Rc<State>) {
+pub async fn container_layout_phase(state: Rc<State>) {
     loop {
-        let container = state.pending_container_layout.pop().await;
+        let container = state.pending_container_layout_phase.pop().await;
+        container.layout_phase_scheduled.take();
         if container.layout_scheduled.get() {
             container.perform_layout();
         }
-    }
-}
-
-pub async fn container_child_types(state: Rc<State>) {
-    loop {
-        let container = state.pending_container_child_types.pop().await;
         if container.child_types_scheduled.get() {
             container.update_child_types();
         }
     }
 }
 
-pub async fn container_render_positions(state: Rc<State>) {
+pub async fn container_post_layout_phase(state: Rc<State>) {
     loop {
-        let container = state.pending_container_render_positions.pop().await;
+        let container = state.pending_container_post_layout_phase.pop().await;
+        container.post_layout_phase_scheduled.take();
         if container.compute_render_positions_scheduled.get() {
             container.compute_render_positions();
         }
@@ -3380,11 +3393,8 @@ impl Transactionable for ContainerNode {
                 }
             }
             ContainerTransactionOp::ScheduleComputeRenderPositions => {
-                if !self.compute_render_positions_scheduled.replace(true) {
-                    self.state
-                        .pending_container_render_positions
-                        .push(self.clone());
-                }
+                self.compute_render_positions_scheduled.set(true);
+                self.push_post_layout_phase();
             }
             ContainerTransactionOp::Damage(v, full) => {
                 if full {

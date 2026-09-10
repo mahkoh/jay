@@ -104,9 +104,8 @@ use crate::tree::TearingMode;
 use crate::tree::Transform;
 use crate::tree::VrrMode;
 use crate::tree::WorkspaceDisplayOrder;
-use crate::tree::container_child_types;
-use crate::tree::container_layout;
-use crate::tree::container_render_positions;
+use crate::tree::container_layout_phase;
+use crate::tree::container_post_layout_phase;
 use crate::tree::container_render_titles;
 use crate::tree::float_layout;
 use crate::tree::float_titles;
@@ -328,9 +327,8 @@ fn start_compositor2(
         input_device_ids: Default::default(),
         input_device_handlers: Default::default(),
         theme: Default::default(),
-        pending_container_layout: Default::default(),
-        pending_container_child_types: Default::default(),
-        pending_container_render_positions: Default::default(),
+        pending_container_layout_phase: Default::default(),
+        pending_container_post_layout_phase: Default::default(),
         pending_container_render_title: Default::default(),
         pending_output_render_data: Default::default(),
         pending_float_layout: Default::default(),
@@ -602,18 +600,14 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             tasks::handle_hardware_cursor_tick(state.clone()),
         ),
         eng.spawn2(
-            "container layout",
+            "container layout phase",
             Phase::Layout,
-            container_layout(state.clone()),
-        ),
-        eng.spawn(
-            "container child types",
-            container_child_types(state.clone()),
+            container_layout_phase(state.clone()),
         ),
         eng.spawn2(
-            "container render positions",
+            "container post layout phase",
             Phase::PostLayout,
-            container_render_positions(state.clone()),
+            container_post_layout_phase(state.clone()),
         ),
         eng.spawn2(
             "container titles",
