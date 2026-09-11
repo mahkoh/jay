@@ -91,6 +91,15 @@ mod t0057_sm_floating;
 mod t0058_sm_parent;
 mod t0059_sm_background_ws;
 mod t0060_overlay;
+mod t0061_container_children;
+mod t0062_container_split;
+mod t0063_container_mono;
+mod t0064_container_move_child;
+mod t0065_float_geometry;
+mod t0066_float_pin;
+mod t0067_container_title_offsets;
+mod t0068_float_title_offsets;
+mod t0069_icon_title_offsets;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -170,5 +179,14 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0058_sm_parent,
         t0059_sm_background_ws,
         t0060_overlay,
+        t0061_container_children,
+        t0062_container_split,
+        t0063_container_mono,
+        t0064_container_move_child,
+        t0065_float_geometry,
+        t0066_float_pin,
+        t0067_container_title_offsets,
+        t0068_float_title_offsets,
+        t0069_icon_title_offsets,
     }
 }
