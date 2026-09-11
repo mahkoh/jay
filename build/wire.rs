@@ -353,6 +353,7 @@ fn write_request_handler<W: Write>(
     messages: &[Lined<Message>],
     direction: RequestHandlerDirection,
     dead: bool,
+    it_only: bool,
 ) -> Result<()> {
     define_w!(f, w, wl);
     define_xn!(xn);
@@ -382,8 +383,11 @@ fn write_request_handler<W: Write>(
             error = "crate::object::EventHandlingError";
             param = "ev";
             version = "version";
-            wl!("#[allow(dead_code)]");
         }
+    }
+    if it_only {
+        wl!(r#"#[cfg(feature = "it")]"#);
+        wl!(r#"#[allow(dead_code)]"#);
     }
     wl!("pub trait {camel_obj_name}{camel_direction}Handler: Sized + {parent} {{");
     {
@@ -553,16 +557,16 @@ fn write_file(f: &mut impl Write, file: &ParsedFile) -> Result<()> {
             &messages.requests,
             RequestHandlerDirection::Request,
             messages.dead,
+            false,
         )?;
-        if messages.event_handler {
-            write_request_handler(
-                f,
-                camel_obj_name,
-                &messages.events,
-                RequestHandlerDirection::Event,
-                messages.dead,
-            )?;
-        }
+        write_request_handler(
+            f,
+            camel_obj_name,
+            &messages.events,
+            RequestHandlerDirection::Event,
+            messages.dead,
+            !messages.event_handler,
+        )?;
     }
     Ok(())
 }
