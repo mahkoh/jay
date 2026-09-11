@@ -1,6 +1,7 @@
 mod client_trace;
 mod parser;
 mod singletons;
+mod synthetic;
 
 use crate::indent::Indent;
 use crate::open;
@@ -15,6 +16,7 @@ use crate::wire::parser::Type;
 use crate::wire::parser::parse_messages;
 use crate::wire::parser::to_camel;
 use crate::wire::singletons::write_singletons;
+use crate::wire::synthetic::write_synthetic_helpers;
 use anyhow::Context;
 use anyhow::Result;
 use std::env;
@@ -112,7 +114,16 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
         {
             push_xn!(xn);
             if message.is_fixed_size {
-                write_fixed_parse_body(f, xn, message, obj)?;
+                if message.num_ids > 0 {
+                    let xn2 = &xn.push();
+                    wl!("{xn}if parser.wide {{");
+                    write_fixed_parse_body(f, xn2, message, obj, true)?;
+                    wl!("{xn}}} else {{");
+                    write_fixed_parse_body(f, xn2, message, obj, false)?;
+                    wl!("{xn}}}");
+                } else {
+                    write_fixed_parse_body(f, xn, message, obj, false)?;
+                }
             } else {
                 write_variable_parse_body(f, xn, message, obj)?;
             }
@@ -128,11 +139,22 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
     );
     {
         push_xn!(xn);
+        wl!("{xn}const NUM_FDS: u32 = {};", message.num_fds);
+        wl!("{xn}#[inline]");
         wl!("{xn}fn format(self, fmt: &mut MsgFormatter<'_>) {{");
         {
             push_xn!(xn);
             if message.is_fixed_size {
-                write_fixed_format_body(f, xn, message, &uppercase)?;
+                if message.num_ids > 0 {
+                    let xn2 = &xn.push();
+                    wl!("{xn}if fmt.wide {{");
+                    write_fixed_format_body(f, xn2, message, &uppercase, true)?;
+                    wl!("{xn}}} else {{");
+                    write_fixed_format_body(f, xn2, message, &uppercase, false)?;
+                    wl!("{xn}}}");
+                } else {
+                    write_fixed_format_body(f, xn, message, &uppercase, false)?;
+                }
             } else {
                 write_variable_format_body(f, xn, message, &uppercase)?;
             }
@@ -154,6 +176,7 @@ fn write_fixed_parse_body<W: Write>(
     xn: &Indent,
     message: &Message,
     obj: &str,
+    wide: bool,
 ) -> Result<()> {
     define_w!(f, w, wl);
     wl!("{xn}let [");
@@ -161,6 +184,10 @@ fn write_fixed_parse_body<W: Write>(
         push_xn!(xn);
         for (i, field) in message.fields.iter().enumerate() {
             match &field.val.ty.val {
+                Type::Id(..) if wide => {
+                    wl!("{xn}arg{i}_lo,");
+                    wl!("{xn}arg{i}_hi,");
+                }
                 Type::U64 => {
                     wl!("{xn}arg{i}_hi,");
                     wl!("{xn}arg{i}_lo,");
@@ -193,6 +220,9 @@ fn write_fixed_parse_body<W: Write>(
                 fmt::from_fn(|f| {
                     define_w!(f, w2, wl2);
                     match &field.val.ty.val {
+                        Type::Id(_, name) if wide => {
+                            w2!("{name}Id(((arg{i}_hi as u64) << 32) | (arg{i}_lo as u64))")
+                        }
                         Type::Id(_, name) => w2!("{name}Id(arg{i} as u64)"),
                         Type::U32 => w2!("arg{i}"),
                         Type::I32 => w2!("arg{i} as i32"),
@@ -258,6 +288,7 @@ fn write_fixed_format_body<W: Write>(
     xn: &Indent,
     message: &Message,
     uppercase: &str,
+    wide: bool,
 ) -> Result<()> {
     define_w!(f, w, wl);
     wl!("{xn}fmt.data(&[");
@@ -268,7 +299,12 @@ fn write_fixed_format_body<W: Write>(
         for field in &message.fields {
             let prefix = format!("{xn}self.{}", field.val.name);
             match &field.val.ty.val {
-                Type::Id(_, _) => wl!("{prefix}.0 as u32,"),
+                Type::Id(_, _) => {
+                    wl!("{prefix}.0 as u32,");
+                    if wide {
+                        wl!("{xn}(self.{}.0 >> 32) as u32,", field.val.name);
+                    }
+                }
                 Type::U32 => wl!("{prefix},"),
                 Type::I32 => wl!("{prefix} as u32,"),
                 Type::U64 => {
@@ -353,6 +389,7 @@ fn write_request_handler<W: Write>(
     messages: &[Lined<Message>],
     direction: RequestHandlerDirection,
     dead: bool,
+    it_only: bool,
 ) -> Result<()> {
     define_w!(f, w, wl);
     define_xn!(xn);
@@ -382,8 +419,11 @@ fn write_request_handler<W: Write>(
             error = "crate::object::EventHandlingError";
             param = "ev";
             version = "version";
-            wl!("#[allow(dead_code)]");
         }
+    }
+    if it_only {
+        wl!(r#"#[cfg(feature = "it")]"#);
+        wl!(r#"#[allow(dead_code)]"#);
     }
     wl!("pub trait {camel_obj_name}{camel_direction}Handler: Sized + {parent} {{");
     {
@@ -553,16 +593,16 @@ fn write_file(f: &mut impl Write, file: &ParsedFile) -> Result<()> {
             &messages.requests,
             RequestHandlerDirection::Request,
             messages.dead,
+            false,
         )?;
-        if messages.event_handler {
-            write_request_handler(
-                f,
-                camel_obj_name,
-                &messages.events,
-                RequestHandlerDirection::Event,
-                messages.dead,
-            )?;
-        }
+        write_request_handler(
+            f,
+            camel_obj_name,
+            &messages.events,
+            RequestHandlerDirection::Event,
+            messages.dead,
+            !messages.event_handler,
+        )?;
     }
     Ok(())
 }
@@ -593,8 +633,17 @@ pub fn main() -> Result<()> {
     }
     write_client_trace_files(&parsed_files)?;
     write_singletons(&parsed_files)?;
-    for file in parsed_files {
-        write_file(&mut f, &file)?;
+    write_synthetic_helpers(&parsed_files)?;
+    for file in &parsed_files {
+        write_file(&mut f, file)?;
     }
+    let max_message_ids = parsed_files
+        .iter()
+        .flat_map(|f| f.messages.requests.iter().chain(f.messages.events.iter()))
+        .map(|m| m.val.num_ids)
+        .max()
+        .unwrap_or(0);
+    wl!();
+    wl!("pub const MAX_MESSAGE_IDS: usize = {max_message_ids};");
     Ok(())
 }

@@ -1,13 +1,10 @@
 use crate::format::XRGB8888;
-use crate::it::test_error::TestError;
-use crate::it::test_object::TestObject;
-use crate::it::testrun::ParseFull;
+use crate::format::formats;
+use crate::it::test_error::TestErrorError;
 use crate::state::State;
-use crate::utils::buffd::MsgParser;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufPlane;
 use crate::video::dmabuf::PlaneVec;
-use crate::wire::JayScreenshotId;
 use crate::wire::jay_screenshot::*;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -15,16 +12,18 @@ use std::rc::Rc;
 use uapi::OwnedFd;
 
 pub struct TestJayScreenshot {
-    pub id: JayScreenshotId,
     pub state: Rc<State>,
     pub drm_dev: Cell<Option<Rc<OwnedFd>>>,
     pub planes: RefCell<PlaneVec<DmaBufPlane>>,
     pub result: Cell<Option<Result<Rc<DmaBuf>, String>>>,
 }
 
-impl TestJayScreenshot {
-    fn handle_dmabuf(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = Dmabuf::parse_full(parser)?;
+synthetic_event_handler!(TestJayScreenshot);
+
+impl JayScreenshotEventHandler for TestJayScreenshot {
+    type Error = TestErrorError;
+
+    fn dmabuf(&self, ev: Dmabuf, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let mut planes = PlaneVec::new();
         planes.push(DmaBufPlane {
             offset: ev.offset,
@@ -42,20 +41,17 @@ impl TestJayScreenshot {
         Ok(())
     }
 
-    fn handle_error(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = Error::parse_full(parser)?;
+    fn error(&self, ev: Error<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.result.set(Some(Err(ev.msg.to_string())));
         Ok(())
     }
 
-    fn handle_drm_dev(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = DrmDev::parse_full(parser)?;
+    fn drm_dev(&self, ev: DrmDev, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.drm_dev.set(Some(ev.drm_dev));
         Ok(())
     }
 
-    fn handle_plane(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = Plane::parse_full(parser)?;
+    fn plane(&self, ev: Plane, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.planes.borrow_mut().push(DmaBufPlane {
             offset: ev.offset,
             stride: ev.stride,
@@ -64,8 +60,7 @@ impl TestJayScreenshot {
         Ok(())
     }
 
-    fn handle_dmabuf2(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = Dmabuf2::parse_full(parser)?;
+    fn dmabuf2(&self, ev: Dmabuf2, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.result.set(Some(Ok(DmaBuf::new(
             &self.state.dma_buf_ids,
             ev.width as _,
@@ -76,16 +71,22 @@ impl TestJayScreenshot {
         ))));
         Ok(())
     }
+
+    fn dmabuf3(&self, ev: Dmabuf3, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let Some(format) = formats().get(&ev.format).copied() else {
+            bail!(
+                "Compositor sent screenshot with unknown format {}",
+                ev.format
+            );
+        };
+        self.result.set(Some(Ok(DmaBuf::new(
+            &self.state.dma_buf_ids,
+            ev.width as _,
+            ev.height as _,
+            format,
+            ev.modifier,
+            self.planes.take(),
+        ))));
+        Ok(())
+    }
 }
-
-test_object! {
-    TestJayScreenshot, JayScreenshot;
-
-    DMABUF => handle_dmabuf,
-    ERROR => handle_error,
-    DRM_DEV => handle_drm_dev,
-    PLANE => handle_plane,
-    DMABUF2 => handle_dmabuf2,
-}
-
-impl TestObject for TestJayScreenshot {}

@@ -1,3 +1,4 @@
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestError;
 use crate::it::testrun::TestRun;
 use crate::tree::ToplevelNodeBase;
@@ -11,7 +12,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let ds = run.create_default_setup().await?;
     ds.mouse.rel(1.0, 1.0);
 
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
 
     let window = client.create_window().await?;
     window.map().await?;

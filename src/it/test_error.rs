@@ -3,6 +3,7 @@ use std::error::Error;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::mem;
 
 pub type TestResult<T = ()> = Result<T, TestError>;
 
@@ -17,6 +18,29 @@ impl TestError {
             error: Box::new(DisplayError { msg: d }),
             source: None,
         }
+    }
+}
+
+#[derive(Debug)]
+#[repr(transparent)]
+pub struct TestErrorError(pub TestError);
+
+impl From<TestError> for TestErrorError {
+    fn from(value: TestError) -> Self {
+        Self(value)
+    }
+}
+
+impl Display for TestErrorError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+impl Error for TestErrorError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        let v: Option<&TestError> = self.0.source.as_deref();
+        v.map(|v| unsafe { mem::transmute::<&TestError, &TestErrorError>(v) as _ })
     }
 }
 
@@ -131,6 +155,6 @@ impl StdError for TestError {
 macro_rules! bail {
     ($($tt:tt)*) => {{
         let msg = format!($($tt)*);
-        return Err(crate::it::test_error::TestError::new(msg));
+        return Err(crate::it::test_error::TestError::new(msg).into());
     }}
 }

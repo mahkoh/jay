@@ -9,6 +9,7 @@ pub use ei_parser::EiMsgParserError;
 pub use formatter::MsgFormatter;
 pub use parser::MsgParser;
 pub use parser::MsgParserError;
+pub use synthetic_buf_out::SyntheticBufOut;
 use thiserror::Error;
 pub use wl_buf_in::WlBufFdIn;
 pub use wl_buf_in::WlMessage;
@@ -19,6 +20,7 @@ mod ei_formatter;
 mod ei_parser;
 mod formatter;
 mod parser;
+mod synthetic_buf_out;
 mod wl_buf_in;
 
 #[derive(Debug, Error)]

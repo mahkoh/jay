@@ -1,3 +1,4 @@
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestErrorExt;
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
@@ -9,7 +10,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     let ds = run.create_default_setup().await?;
     run.cfg.show_workspace(ds.seat.id(), "1")?;
 
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
     let dss = client.get_default_seat().await?;
 
     let w1 = client.create_window().await?;

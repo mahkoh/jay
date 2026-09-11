@@ -1,3 +1,4 @@
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestErrorExt;
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
@@ -10,32 +11,30 @@ testcase!();
 async fn test(run: Rc<TestRun>) -> TestResult {
     let _ds = run.create_default_setup().await?;
 
-    let client1 = run.create_client().await?;
+    let client1 = run.create_client()?;
     let seat1 = client1.get_default_seat().await?;
-    let dev1 = client1.data_device_manager.get_data_device(&seat1.seat)?;
+    let dev1 = client1.get_data_device(&seat1.seat);
     let entered = seat1.kb.enter.expect()?;
     let win1 = client1.create_window().await?;
     win1.map2().await?;
     let serial = entered.next()?.serial;
-    let source1 = client1.data_device_manager.create_data_source()?;
-    source1.offer("image")?;
+    let source1 = client1.create_data_source();
+    source1.offer("image");
     let sends1 = source1.sends.expect()?;
 
-    let client2 = run.create_client().await?;
+    let client2 = run.create_client()?;
     let seat2 = client2.get_default_seat().await?;
-    let data_control2 = client2.registry.get_data_control_manager().await?;
-    let dev2 = data_control2.get_data_device(&seat2.seat)?;
-    let source2 = data_control2.create_data_source()?;
-    source2.offer("text")?;
+    let dev2 = client2.get_data_control_device(&seat2.seat);
+    let source2 = client2.create_data_control_source();
+    source2.offer("text");
     let sends2 = source2.sends.expect()?;
 
-    let client3 = run.create_client().await?;
+    let client3 = run.create_client()?;
     let seat3 = client3.get_default_seat().await?;
-    let data_control3 = client3.registry.get_data_control_manager().await?;
-    let dev3 = data_control3.get_data_device(&seat3.seat)?;
+    let dev3 = client3.get_data_control_device(&seat3.seat);
     let selection = dev3.selection.expect()?;
 
-    dev2.set_selection(&source2)?;
+    dev2.set_selection(&source2);
     client2.sync().await;
     client3.sync().await;
 
@@ -57,7 +56,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     }
 
     tassert_eq!(source2.cancelled.get(), false);
-    dev1.set_selection(&source1, serial)?;
+    dev1.set_selection(&source1, serial);
     client1.sync().await;
     client2.sync().await;
     tassert_eq!(source2.cancelled.get(), true);

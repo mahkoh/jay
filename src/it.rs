@@ -26,8 +26,6 @@ use uapi::c;
 #[macro_use]
 mod test_error;
 #[macro_use]
-mod test_object;
-#[macro_use]
 mod test_macros;
 pub mod test_backend;
 mod test_client;
@@ -36,7 +34,6 @@ mod test_gfx_api;
 mod test_ifs;
 mod test_logger;
 mod test_mem;
-mod test_transport;
 mod test_utils;
 mod testrun;
 mod tests;
@@ -123,22 +120,11 @@ fn run_test(it_run: &ItRun, test: &'static dyn TestCase, cfg: Rc<TestConfig>) {
     let errors2 = errors.clone();
     let res = crate::compositor::start_compositor_for_test(Box::new(move |state| {
         let state = state.clone();
-        let server_addr = {
-            let mut addr: c::sockaddr_un = uapi::pod_zeroed();
-            addr.sun_family = c::AF_UNIX as _;
-            let acceptor = state.acceptor.get().unwrap();
-            let path = acceptor.secure_path();
-            let sun_path = uapi::as_bytes_mut(&mut addr.sun_path[..]);
-            sun_path[..path.len()].copy_from_slice(path.as_bytes());
-            sun_path[path.len()] = 0;
-            addr
-        };
         let backend: Rc<TestBackend> = (state.backend.get() as Rc<dyn Any>).downcast().unwrap();
         let testrun = Rc::new(TestRun {
             state: state.clone(),
             backend,
             errors: Default::default(),
-            server_addr,
             out_dir: dir.clone(),
             in_dir: format!("{}/{}", env!("CARGO_MANIFEST_DIR"), test.dir()),
             cfg: cfg.clone(),

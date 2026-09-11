@@ -2,8 +2,7 @@ use crate::backend::BackendConnectorState;
 use crate::backend::Connector;
 use crate::backend::Mode;
 use crate::backend::transaction::ConnectorTransaction;
-use crate::client::ClientId;
-use crate::client::RequestParser;
+use crate::client::ClientCaps;
 use crate::fixed::Fixed;
 use crate::format::XRGB8888;
 use crate::ifs::wl_seat::WlSeatGlobal;
@@ -15,20 +14,13 @@ use crate::it::test_client::TestClient;
 use crate::it::test_config::TestConfig;
 use crate::it::test_error::TestError;
 use crate::it::test_error::TestErrorExt;
-use crate::it::test_ifs::test_display::TestDisplay;
-use crate::it::test_transport::TestTransport;
-use crate::object::WL_DISPLAY_ID;
+use crate::security_context_acceptor::AcceptorMetadata;
 use crate::state::State;
 use crate::tree::OutputNode;
 use crate::tree::VrrMode;
-use crate::utils::bitfield::Bitfield;
-use crate::utils::buffd::MsgParser;
 use crate::utils::stack::Stack;
 use crate::virtual_output::VirtualOutput;
 use arrayvec::ArrayVec;
-use jay_algorithms::oserror::OsErrorExt;
-use std::cell::Cell;
-use std::cell::RefCell;
 use std::rc::Rc;
 use uapi::c;
 
@@ -36,73 +28,41 @@ pub struct TestRun {
     pub state: Rc<State>,
     pub backend: Rc<TestBackend>,
     pub errors: Stack<String>,
-    pub server_addr: c::sockaddr_un,
     pub out_dir: String,
     pub in_dir: String,
     pub cfg: Rc<TestConfig>,
 }
 
 impl TestRun {
-    pub async fn create_client(self: &Rc<Self>) -> Result<Rc<TestClient>, TestError> {
+    pub fn create_client(self: &Rc<Self>) -> Result<TestClient, TestError> {
         self.create_client2()
-            .await
             .with_context(|| "Could not create a client")
     }
 
-    async fn create_client2(self: &Rc<Self>) -> Result<Rc<TestClient>, TestError> {
-        let socket = uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
-            .to_os_error()
+    fn create_client2(self: &Rc<Self>) -> Result<TestClient, TestError> {
+        let (client1, client2) = uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
             .with_context(|| "Could not create a unix socket")?;
-        let socket = Rc::new(socket);
-        self.backend
+        let client = self
             .state
-            .ring
-            .connect(&socket, &self.server_addr)
-            .await
-            .with_context(|| "Could not connect to the compositor")?;
-        let mut obj_ids = Bitfield::default();
-        obj_ids.take(0);
-        obj_ids.take(1);
-        let tran = Rc::new(TestTransport {
+            .clients
+            .spawn2(
+                self.state.clients.id(),
+                &self.state,
+                Rc::new(client2),
+                uapi::getuid(),
+                uapi::getpid(),
+                ClientCaps::all(),
+                true,
+                false,
+                &Rc::new(AcceptorMetadata::secure()),
+            )
+            .with_context(|| "Could not create a client")?;
+        client.send_jay_compositor_enable_symmetric_delete();
+        Ok(TestClient {
             run: self.clone(),
-            socket,
-            client_id: Cell::new(ClientId::from_raw(0)),
-            swapchain: Default::default(),
-            flush_request: Default::default(),
-            incoming: Default::default(),
-            outgoing: Default::default(),
-            objects: Default::default(),
-            obj_ids: RefCell::new(obj_ids),
-            killed: Cell::new(false),
-        });
-        tran.add_obj(Rc::new(TestDisplay {
-            tran: tran.clone(),
-            id: WL_DISPLAY_ID,
-        }))?;
-        tran.init();
-        let registry = tran.get_registry();
-        let jc = registry.get_jay_compositor().await?;
-        jc.enable_symmetric_delete()?;
-        let client_id = jc.get_client_id().await?;
-        let client = self.state.clients.get(client_id)?;
-        Ok(Rc::new(TestClient {
-            run: self.clone(),
-            server: client,
-            tran,
-            jc,
-            comp: registry.get_compositor().await?,
-            sub: registry.get_subcompositor().await?,
-            shm: registry.get_shm().await?,
-            spbm: registry.get_spbm().await?,
-            viewporter: registry.get_viewporter().await?,
-            xdg: registry.get_xdg().await?,
-            activation: registry.get_activation().await?,
-            data_device_manager: registry.get_data_device_manager().await?,
-            cursor_shape_manager: registry.get_cursor_shape_manager().await?,
-            fifo_manager: registry.get_fifo_manager().await?,
-            pointer_warp: registry.get_pointer_warp().await?,
-            registry,
-        }))
+            _socket: client1,
+            client,
+        })
     }
 
     pub fn get_seat(&self, name: &str) -> Result<Rc<WlSeatGlobal>, TestError> {
@@ -120,7 +80,7 @@ impl TestRun {
     }
 
     pub async fn create_default_setup2(&self, need_drm: bool) -> Result<DefaultSetup, TestError> {
-        self.backend.install_default2(need_drm)?;
+        self.backend.install_default2(need_drm).await?;
         let seat = self.get_seat("default")?;
         self.state.eng.yield_now().await;
         let output = match self.state.root.outputs.lock().values().next() {
@@ -192,16 +152,6 @@ impl TestRun {
 
     pub async fn sync(&self) {
         self.state.eng.yield_now().await;
-    }
-}
-
-pub trait ParseFull<'a>: Sized {
-    fn parse_full(parser: MsgParser<'_, 'a>) -> Result<Self, TestError>;
-}
-
-impl<'a, T: RequestParser<'a>> ParseFull<'a> for T {
-    fn parse_full(mut parser: MsgParser<'_, 'a>) -> Result<Self, TestError> {
-        T::parse(&mut parser).map_err(Into::into)
     }
 }
 

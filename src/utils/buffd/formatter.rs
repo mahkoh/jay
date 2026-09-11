@@ -1,6 +1,5 @@
 use crate::fixed::Fixed;
 use crate::utils::buffd::buf_out::MsgFds;
-use crate::utils::buffd::buf_out::OUT_BUF_SIZE;
 use crate::utils::buffd::buf_out::OutBuffer;
 use crate::utils::buffd::buf_out::OutBufferMeta;
 use crate::utils::ptr_ext::MutPtrExt;
@@ -15,20 +14,30 @@ pub struct MsgFormatter<'a> {
     meta: &'a mut OutBufferMeta,
     pos: usize,
     fds: &'a mut Vec<Rc<OwnedFd>>,
+    pub wide: bool,
 }
 
 impl<'a> MsgFormatter<'a> {
     pub fn new(buf: &'a mut OutBuffer, fds: &'a mut Vec<Rc<OwnedFd>>) -> Self {
+        Self::new2(&mut buf.buf[..], &mut buf.meta, fds)
+    }
+
+    pub(super) fn new2(
+        buf: &'a mut [u8],
+        meta: &'a mut OutBufferMeta,
+        fds: &'a mut Vec<Rc<OwnedFd>>,
+    ) -> Self {
         Self {
-            pos: buf.meta.write_pos,
-            buf: &mut buf.buf[..],
+            buf,
+            pos: meta.write_pos,
+            meta,
             fds,
-            meta: &mut buf.meta,
+            wide: false,
         }
     }
 
     fn write(&mut self, bytes: &[u8]) {
-        if bytes.len() > OUT_BUF_SIZE - self.meta.write_pos {
+        if bytes.len() > self.buf.len() - self.meta.write_pos {
             panic!("Out buffer overflow");
         }
         self.buf[self.meta.write_pos..self.meta.write_pos + bytes.len()].copy_from_slice(bytes);
@@ -96,11 +105,18 @@ impl<'a> MsgFormatter<'a> {
     }
 
     pub fn object<T: Into<ObjectId>>(&mut self, obj: T) -> &mut Self {
-        self.uint(obj.into().raw() as u32)
+        let id = obj.into().raw();
+        if self.wide {
+            self.data(&[id as u32, (id >> 32) as u32])
+        } else {
+            self.uint(id as u32);
+        }
+        self
     }
 
     pub fn header<T: Into<ObjectId>>(&mut self, obj: T, event: u32) -> &mut Self {
-        self.object(obj).uint(event)
+        self.data(&[obj.into().raw() as u32, event]);
+        self
     }
 
     #[expect(unused)]
@@ -113,6 +129,7 @@ impl<'a> MsgFormatter<'a> {
                 meta: self.meta,
                 pos,
                 fds: self.fds,
+                wide: self.wide,
             };
             f(&mut fmt);
             let len = self.meta.write_pos - pos - 4;

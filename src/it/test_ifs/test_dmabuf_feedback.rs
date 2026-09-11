@@ -1,9 +1,8 @@
-use crate::it::test_error::TestResult;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
+use crate::client::Client;
+use crate::it::test_client::TestClient;
+use crate::it::test_error::TestErrorError;
+use crate::it::test_ifs::test_surface::TestSurface;
 use crate::it::test_utils::test_expected_event::TEEH;
-use crate::it::testrun::ParseFull;
-use crate::utils::buffd::MsgParser;
 use crate::utils::clonecell::CloneCell;
 use crate::wire::ZwpLinuxDmabufFeedbackV1Id;
 use crate::wire::zwp_linux_dmabuf_feedback_v1::*;
@@ -16,9 +15,6 @@ use uapi::OwnedFd;
 use uapi::c;
 
 pub struct TestDmabufFeedback {
-    pub id: ZwpLinuxDmabufFeedbackV1Id,
-    tran: Rc<TestTransport>,
-    destroyed: Cell<bool>,
     pub feedback: TEEH<Feedback>,
     format_table: CloneCell<Option<Rc<OwnedFd>>>,
     format_table_size: Cell<usize>,
@@ -45,27 +41,24 @@ pub struct Tranche {
 }
 
 impl TestDmabufFeedback {
-    pub fn new(tran: &Rc<TestTransport>) -> Self {
-        Self {
-            id: tran.id(),
-            tran: tran.clone(),
-            destroyed: Cell::new(false),
+    fn new(client: &Rc<Client>, id: ZwpLinuxDmabufFeedbackV1Id) -> Rc<Self> {
+        let slf = Rc::new(Self {
             feedback: Default::default(),
             format_table: Default::default(),
             format_table_size: Default::default(),
             pending_feedback: Default::default(),
-        }
+        });
+        client.set_synthetic_event_handler(id, &slf);
+        slf
     }
+}
 
-    fn destroy(&self) -> TestResult {
-        if !self.destroyed.replace(true) {
-            self.tran.send(Destroy { self_id: self.id })?;
-        }
-        Ok(())
-    }
+synthetic_event_handler!(TestDmabufFeedback);
 
-    fn handle_done(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = Done::parse_full(parser)?;
+impl ZwpLinuxDmabufFeedbackV1EventHandler for TestDmabufFeedback {
+    type Error = TestErrorError;
+
+    fn done(&self, _ev: Done, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let pending = mem::take(self.pending_feedback.borrow_mut().deref_mut());
         self.feedback.push(Feedback {
             _main_device: pending.main_device,
@@ -74,22 +67,19 @@ impl TestDmabufFeedback {
         Ok(())
     }
 
-    fn handle_format_table(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let ev = FormatTable::parse_full(parser)?;
+    fn format_table(&self, ev: FormatTable, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.format_table.set(Some(ev.fd));
         self.format_table_size.set(ev.size as _);
         Ok(())
     }
 
-    fn handle_main_device(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let ev = MainDevice::parse_full(parser)?;
+    fn main_device(&self, ev: MainDevice, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let pending = &mut *self.pending_feedback.borrow_mut();
         pending.main_device = ev.device;
         Ok(())
     }
 
-    fn handle_tranche_done(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = TrancheDone::parse_full(parser)?;
+    fn tranche_done(&self, _ev: TrancheDone, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let pending = &mut *self.pending_feedback.borrow_mut();
         pending
             .tranches
@@ -97,44 +87,40 @@ impl TestDmabufFeedback {
         Ok(())
     }
 
-    fn handle_tranche_target_device(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let ev = TrancheTargetDevice::parse_full(parser)?;
+    fn tranche_target_device(
+        &self,
+        ev: TrancheTargetDevice,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let pending = &mut *self.pending_feedback.borrow_mut();
         pending.pending_tranche.target_device = ev.device;
         Ok(())
     }
 
-    fn handle_tranche_formats(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let ev = TrancheFormats::parse_full(parser)?;
+    fn tranche_formats(&self, ev: TrancheFormats<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let pending = &mut *self.pending_feedback.borrow_mut();
         pending.pending_tranche.formats = ev.indices.iter().copied().map(|v| v as usize).collect();
         Ok(())
     }
 
-    fn handle_tranche_flags(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let ev = TrancheFlags::parse_full(parser)?;
+    fn tranche_flags(&self, ev: TrancheFlags, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let pending = &mut *self.pending_feedback.borrow_mut();
         pending.pending_tranche.flags = ev.flags;
         Ok(())
     }
 }
 
-impl Drop for TestDmabufFeedback {
-    fn drop(&mut self) {
-        let _ = self.destroy();
+impl TestClient {
+    #[expect(unused)]
+    pub fn get_default_dmabuf_feedback(&self) -> Rc<TestDmabufFeedback> {
+        let id = self.client.send_zwp_linux_dmabuf_v1_get_default_feedback();
+        TestDmabufFeedback::new(&self.client, id)
+    }
+
+    pub fn get_surface_dmabuf_feedback(&self, surface: &TestSurface) -> Rc<TestDmabufFeedback> {
+        let id = self
+            .client
+            .send_zwp_linux_dmabuf_v1_get_surface_feedback(surface.id);
+        TestDmabufFeedback::new(&self.client, id)
     }
 }
-
-test_object! {
-    TestDmabufFeedback, ZwpLinuxDmabufFeedbackV1;
-
-    DONE => handle_done,
-    FORMAT_TABLE => handle_format_table,
-    MAIN_DEVICE => handle_main_device,
-    TRANCHE_DONE => handle_tranche_done,
-    TRANCHE_TARGET_DEVICE => handle_tranche_target_device,
-    TRANCHE_FORMATS => handle_tranche_formats,
-    TRANCHE_FLAGS => handle_tranche_flags,
-}
-
-impl TestObject for TestDmabufFeedback {}

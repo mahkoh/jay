@@ -1,15 +1,10 @@
+use crate::client::Client;
 use crate::ifs::wl_surface::WlSurface;
-use crate::it::test_error::TestError;
-use crate::it::test_error::TestResult;
+use crate::it::test_error::TestErrorError;
 use crate::it::test_ifs::test_callback::TestCallback;
 use crate::it::test_ifs::test_region::TestRegion;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
 use crate::it::test_utils::test_expected_event::TEEH;
-use crate::it::testrun::ParseFull;
-use crate::utils::buffd::MsgParser;
 use crate::wire::WlBufferId;
-use crate::wire::WlCallbackId;
 use crate::wire::WlSurfaceId;
 use crate::wire::wl_surface::*;
 use std::cell::Cell;
@@ -17,138 +12,84 @@ use std::rc::Rc;
 
 pub struct TestSurface {
     pub id: WlSurfaceId,
-    pub tran: Rc<TestTransport>,
+    pub client: Rc<Client>,
     pub server: Rc<WlSurface>,
-    pub destroyed: Cell<bool>,
     pub preferred_buffer_scale: TEEH<i32>,
     pub preferred_buffer_transform: TEEH<u32>,
 }
 
 impl TestSurface {
-    fn destroy(&self) -> Result<(), TestError> {
-        if !self.destroyed.replace(true) {
-            self.tran.send(Destroy { self_id: self.id })?;
-        }
-        Ok(())
+    pub fn attach(&self, buffer_id: WlBufferId) {
+        self.client.send_wl_surface_attach(self.id, buffer_id, 0, 0);
     }
 
-    pub fn attach(&self, buffer_id: WlBufferId) -> Result<(), TestError> {
-        self.tran.send(Attach {
-            self_id: self.id,
-            buffer: buffer_id,
-            x: 0,
-            y: 0,
-        })?;
-        Ok(())
+    pub fn offset(&self, dx: i32, dy: i32) {
+        self.client.send_wl_surface_offset(self.id, dx, dy);
     }
 
-    pub fn offset(&self, dx: i32, dy: i32) -> Result<(), TestError> {
-        self.tran.send(Offset {
-            self_id: self.id,
-            x: dx,
-            y: dy,
-        })?;
-        Ok(())
+    pub fn set_input_region(&self, region: &TestRegion) {
+        self.client
+            .send_wl_surface_set_input_region(self.id, region.id);
     }
 
-    pub fn set_input_region(&self, region: &TestRegion) -> TestResult {
-        self.tran.send(SetInputRegion {
-            self_id: self.id,
-            region: region.id,
-        })?;
-        Ok(())
+    pub fn damage(&self, x: i32, y: i32, width: i32, height: i32) {
+        self.client
+            .send_wl_surface_damage(self.id, x, y, width, height);
     }
 
-    pub fn damage(&self, x: i32, y: i32, width: i32, height: i32) -> Result<(), TestError> {
-        self.tran.send(Damage {
-            self_id: self.id,
-            x,
-            y,
-            width,
-            height,
-        })?;
-        Ok(())
+    pub fn damage_buffer(&self, x: i32, y: i32, width: i32, height: i32) {
+        self.client
+            .send_wl_surface_damage_buffer(self.id, x, y, width, height);
     }
 
-    pub fn damage_buffer(&self, x: i32, y: i32, width: i32, height: i32) -> Result<(), TestError> {
-        self.tran.send(DamageBuffer {
-            self_id: self.id,
-            x,
-            y,
-            width,
-            height,
-        })?;
-        Ok(())
+    pub fn set_buffer_transform(&self, transform: i32) {
+        self.client
+            .send_wl_surface_set_buffer_transform(self.id, transform);
     }
 
-    pub fn set_buffer_transform(&self, transform: i32) -> Result<(), TestError> {
-        self.tran.send(SetBufferTransform {
-            self_id: self.id,
-            transform,
-        })?;
-        Ok(())
-    }
-
-    pub fn frame(&self) -> Result<Rc<TestCallback>, TestError> {
-        let id: WlCallbackId = self.tran.id();
+    pub fn frame(&self) -> Rc<TestCallback> {
+        let id = self.client.send_wl_surface_frame(self.id);
         let callback = Rc::new(TestCallback {
-            id,
-            _tran: self.tran.clone(),
             handler: Cell::new(None),
             done: Cell::new(false),
         });
-        self.tran.add_obj(callback.clone())?;
-        self.tran.send(Frame {
-            self_id: self.id,
-            callback: callback.id,
-        })?;
-        Ok(callback)
+        self.client.set_synthetic_event_handler(id, &callback);
+        callback
     }
 
-    pub fn commit(&self) -> Result<(), TestError> {
-        self.tran.send(Commit { self_id: self.id })?;
+    pub fn commit(&self) {
+        self.client.send_wl_surface_commit(self.id);
+    }
+}
+
+synthetic_event_handler!(TestSurface);
+
+impl WlSurfaceEventHandler for TestSurface {
+    type Error = TestErrorError;
+
+    fn enter(&self, _ev: Enter, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn handle_enter(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let _ev = Enter::parse_full(parser)?;
+    fn leave(&self, _ev: Leave, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn handle_leave(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let _ev = Leave::parse_full(parser)?;
-        Ok(())
-    }
-
-    fn handle_preferred_buffer_scale(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = PreferredBufferScale::parse_full(parser)?;
+    fn preferred_buffer_scale(
+        &self,
+        ev: PreferredBufferScale,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         self.preferred_buffer_scale.push(ev.factor);
         Ok(())
     }
 
-    fn handle_preferred_buffer_transform(
+    fn preferred_buffer_transform(
         &self,
-        parser: MsgParser<'_, '_>,
-    ) -> Result<(), TestError> {
-        let ev = PreferredBufferTransform::parse_full(parser)?;
+        ev: PreferredBufferTransform,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         self.preferred_buffer_transform.push(ev.transform);
         Ok(())
     }
 }
-
-impl Drop for TestSurface {
-    fn drop(&mut self) {
-        let _ = self.destroy();
-    }
-}
-
-test_object! {
-    TestSurface, WlSurface;
-
-    ENTER => handle_enter,
-    LEAVE => handle_leave,
-    PREFERRED_BUFFER_SCALE => handle_preferred_buffer_scale,
-    PREFERRED_BUFFER_TRANSFORM => handle_preferred_buffer_transform,
-}
-
-impl TestObject for TestSurface {}

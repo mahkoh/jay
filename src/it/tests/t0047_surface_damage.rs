@@ -1,3 +1,4 @@
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
 use crate::rect::Rect;
@@ -10,24 +11,22 @@ testcase!();
 /// This test verifies that the compositor correctly handles damage requests according to the Wayland protocol
 /// and creates appropriate output damage when surface damage is committed.
 async fn test(run: Rc<TestRun>) -> TestResult {
-    run.backend.install_default()?;
-    let client = run.create_client().await?;
+    run.backend.install_default().await?;
+    let client = run.create_client()?;
 
     // Get connector for tracking output damage
     let connector_id = run.backend.default_connector.id;
     let connector_data = run.state.connectors.get(&connector_id).unwrap();
 
     // Create a simple surface with a buffer
-    let surface = client.comp.create_surface().await?;
-    let buffer = client
-        .spbm
-        .create_buffer(crate::theme::Color::from_srgb(255, 0, 0))?;
-    surface.attach(buffer.id)?;
-    surface.commit()?; // Initial commit to attach buffer
+    let surface = client.create_surface().await?;
+    let buffer = client.create_single_pixel_buffer(crate::theme::Color::from_srgb(255, 0, 0));
+    surface.attach(buffer.id);
+    surface.commit(); // Initial commit to attach buffer
     client.sync().await;
 
     // Test 1: wl_surface.damage - basic functionality and damage clearing
-    surface.damage(10, 10, 50, 50)?;
+    surface.damage(10, 10, 50, 50);
     client.sync().await;
 
     // Verify damage is pending
@@ -40,7 +39,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     }
 
     // Critical test: Commit should clear pending damage
-    surface.commit()?;
+    surface.commit();
     client.sync().await;
 
     {
@@ -51,7 +50,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     }
 
     // Test 2: wl_surface.damage_buffer functionality
-    surface.damage_buffer(20, 20, 30, 30)?;
+    surface.damage_buffer(20, 20, 30, 30);
     client.sync().await;
 
     // Verify buffer damage is pending
@@ -64,7 +63,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     }
 
     // Commit should clear pending buffer damage
-    surface.commit()?;
+    surface.commit();
     client.sync().await;
 
     {
@@ -75,9 +74,9 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     }
 
     // Test 3: Mixed surface and buffer damage
-    surface.damage(5, 5, 10, 10)?;
-    surface.damage_buffer(15, 15, 10, 10)?;
-    surface.damage(25, 25, 10, 10)?;
+    surface.damage(5, 5, 10, 10);
+    surface.damage_buffer(15, 15, 10, 10);
+    surface.damage(25, 25, 10, 10);
     client.sync().await;
 
     {
@@ -87,7 +86,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
         tassert!(!damage_full);
     }
 
-    surface.commit()?;
+    surface.commit();
     client.sync().await;
 
     {
@@ -100,7 +99,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     // Test 4: damage_full optimization - many small damage rects should trigger damage_full
     for i in 0..40 {
         // More than MAX_DAMAGE (32) to trigger damage_full
-        surface.damage(i * 2, i * 2, 1, 1)?;
+        surface.damage(i * 2, i * 2, 1, 1);
     }
     client.sync().await;
 
@@ -110,7 +109,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     }
 
     // Critical: damage_full should still clear pending damage after commit
-    surface.commit()?;
+    surface.commit();
     client.sync().await;
 
     {
@@ -123,7 +122,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     // Test 5: Verify output damage creation and values
     // For this test we need a visible surface to generate actual output damage
     let window = client.create_window().await?;
-    window.surface.attach(buffer.id)?;
+    window.surface.attach(buffer.id);
     window.map().await?;
     client.sync().await;
 
@@ -140,8 +139,8 @@ async fn test(run: Rc<TestRun>) -> TestResult {
         client_damage.y1(),
         client_damage.width(),
         client_damage.height(),
-    )?;
-    window.surface.commit()?;
+    );
+    window.surface.commit();
     client.sync().await;
 
     // Verify output damage was created with exact correct values
@@ -222,14 +221,14 @@ async fn test(run: Rc<TestRun>) -> TestResult {
         damage1.y1(),
         damage1.width(),
         damage1.height(),
-    )?;
+    );
     window.surface.damage(
         damage2.x1(),
         damage2.y1(),
         damage2.width(),
         damage2.height(),
-    )?;
-    window.surface.commit()?;
+    );
+    window.surface.commit();
     client.sync().await;
 
     // Verify both damage rectangles are transformed correctly
@@ -297,8 +296,8 @@ async fn test(run: Rc<TestRun>) -> TestResult {
         buffer_damage.y1(),
         buffer_damage.width(),
         buffer_damage.height(),
-    )?;
-    window.surface.commit()?;
+    );
+    window.surface.commit();
     client.sync().await;
 
     // Verify buffer damage was transformed correctly to output coordinates
@@ -332,11 +331,11 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     // The existing window was created with create_surface_ext() which automatically creates a viewport
     // Let's verify that the viewport's existing scaling affects buffer damage correctly
     // First, let's modify the viewport scaling that already exists on the window
-    window.surface.viewport.set_destination(150, 100)?; // Change scaling to 150x100
+    window.surface.viewport.set_destination(150, 100); // Change scaling to 150x100
 
     // Add buffer damage to test viewport scaling coordinate transformation
-    window.surface.damage_buffer(0, 0, 1, 1)?; // Damage entire 1x1 buffer
-    window.surface.commit()?;
+    window.surface.damage_buffer(0, 0, 1, 1); // Damage entire 1x1 buffer
+    window.surface.commit();
     client.sync().await;
 
     // Verify the created output damage from viewporter coordinate transformation
@@ -401,14 +400,14 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     client.sync().await;
 
     // Disable viewporter by setting destination to 0x0 to rely purely on buffer dimensions
-    rotation_window.surface.viewport.set_destination(0, 0)?; // Disable viewporter
+    rotation_window.surface.viewport.set_destination(0, 0); // Disable viewporter
 
     // Use a rectangular buffer (4x2) so rotation has a visible geometric effect
     // Attach AFTER mapping to avoid being overwritten by map()'s single-pixel buffer
-    let rotation_buffer = client.shm.create_buffer(4, 2)?;
-    rotation_window.surface.attach(rotation_buffer.buffer.id)?;
-    rotation_window.surface.set_buffer_transform(1)?; // TF_90 = 1 (90 degrees rotation)
-    rotation_window.surface.commit()?; // Commit the new buffer and transform
+    let rotation_buffer = client.create_shm_buffer(4, 2)?;
+    rotation_window.surface.attach(rotation_buffer.buffer.id);
+    rotation_window.surface.set_buffer_transform(1); // TF_90 = 1 (90 degrees rotation)
+    rotation_window.surface.commit(); // Commit the new buffer and transform
     client.sync().await;
 
     // Get the rotated surface position for damage coordinate verification
@@ -418,8 +417,8 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     connector_data.damage.borrow_mut().clear();
 
     // Test buffer damage on rotated surface - damage entire buffer
-    rotation_window.surface.damage_buffer(0, 0, 4, 2)?; // Damage entire 4x2 buffer
-    rotation_window.surface.commit()?;
+    rotation_window.surface.damage_buffer(0, 0, 4, 2); // Damage entire 4x2 buffer
+    rotation_window.surface.commit();
     client.sync().await;
 
     // Verify buffer damage creates exact output damage coordinates with buffer transform applied
@@ -488,8 +487,8 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     // Test 9: Empty damage rectangles (edge case)
     connector_data.damage.borrow_mut().clear();
-    window.surface.damage(0, 0, 0, 0)?; // Empty rect
-    window.surface.commit()?;
+    window.surface.damage(0, 0, 0, 0); // Empty rect
+    window.surface.commit();
     client.sync().await;
 
     // Empty damage should not crash the compositor (main requirement)

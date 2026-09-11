@@ -1,50 +1,30 @@
-use crate::it::test_error::TestError;
+use crate::client::Client;
+use crate::it::test_client::TestClient;
+use crate::it::test_ifs::test_data_source::TestDataSource;
 use crate::it::test_ifs::test_xdg_toplevel::TestXdgToplevel;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
 use crate::wire::XdgToplevelDragV1Id;
-use crate::wire::xdg_toplevel_drag_v1::*;
-use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestToplevelDrag {
     pub id: XdgToplevelDragV1Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    pub client: Rc<Client>,
 }
 
 impl TestToplevelDrag {
-    fn destroy(&self) -> Result<(), TestError> {
-        if !self.destroyed.replace(true) {
-            self.tran.send(Destroy { self_id: self.id })?;
-        }
-        Ok(())
-    }
-
-    pub fn attach(
-        &self,
-        toplevel: &TestXdgToplevel,
-        x_offset: i32,
-        y_offset: i32,
-    ) -> Result<(), TestError> {
-        self.tran.send(Attach {
-            self_id: self.id,
-            toplevel: toplevel.core.id,
-            x_offset,
-            y_offset,
-        })?;
-        Ok(())
+    pub fn attach(&self, toplevel: &TestXdgToplevel, x_offset: i32, y_offset: i32) {
+        self.client
+            .send_xdg_toplevel_drag_v1_attach(self.id, toplevel.core.id, x_offset, y_offset);
     }
 }
 
-impl Drop for TestToplevelDrag {
-    fn drop(&mut self) {
-        let _ = self.destroy();
+impl TestClient {
+    pub fn get_xdg_toplevel_drag(&self, data_source: &TestDataSource) -> Rc<TestToplevelDrag> {
+        let id = self
+            .client
+            .send_xdg_toplevel_drag_manager_v1_get_xdg_toplevel_drag(data_source.id);
+        Rc::new(TestToplevelDrag {
+            id,
+            client: self.client.clone(),
+        })
     }
 }
-
-test_object! {
-    TestToplevelDrag, XdgToplevelDragV1;
-}
-
-impl TestObject for TestToplevelDrag {}

@@ -1,93 +1,74 @@
-use crate::it::test_error::TestResult;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
+use crate::client::Client;
+use crate::it::test_client::TestClient;
+use crate::it::test_error::TestErrorError;
 use crate::it::test_utils::test_expected_event::TEEH;
-use crate::it::testrun::ParseFull;
-use crate::utils::buffd::MsgParser;
 use crate::wire::WlDataSourceId;
 use crate::wire::wl_data_source::*;
-use std::cell::Cell;
 use std::rc::Rc;
 use uapi::OwnedFd;
 
 pub struct TestDataSource {
     pub id: WlDataSourceId,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    pub client: Rc<Client>,
     pub sends: TEEH<(String, Rc<OwnedFd>)>,
 }
 
 impl TestDataSource {
-    fn destroy(&self) -> TestResult {
-        if !self.destroyed.replace(true) {
-            self.tran.send(Destroy { self_id: self.id })?;
-        }
+    pub fn offer(&self, mime_type: &str) {
+        self.client.send_wl_data_source_offer(self.id, mime_type);
+    }
+
+    pub fn set_actions(&self, actions: u32) {
+        self.client
+            .send_wl_data_source_set_actions(self.id, actions);
+    }
+}
+
+synthetic_event_handler!(TestDataSource);
+
+impl WlDataSourceEventHandler for TestDataSource {
+    type Error = TestErrorError;
+
+    fn target(&self, _ev: Target<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    pub fn offer(&self, mime_type: &str) -> TestResult {
-        self.tran.send(Offer {
-            self_id: self.id,
-            mime_type,
-        })?;
-        Ok(())
-    }
-
-    pub fn set_actions(&self, actions: u32) -> TestResult {
-        self.tran.send(SetActions {
-            self_id: self.id,
-            dnd_actions: actions,
-        })?;
-        Ok(())
-    }
-
-    fn handle_target(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = Target::parse_full(parser)?;
-        Ok(())
-    }
-
-    fn handle_send(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let ev = Send::parse_full(parser)?;
+    fn send(&self, ev: Send<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.sends.push((ev.mime_type.to_string(), ev.fd));
         Ok(())
     }
 
-    fn handle_cancelled(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = Cancelled::parse_full(parser)?;
+    fn cancelled(&self, _ev: Cancelled, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn handle_dnd_drop_performed(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = DndDropPerformed::parse_full(parser)?;
+    fn dnd_drop_performed(
+        &self,
+        _ev: DndDropPerformed,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn handle_dnd_finished(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = DndFinished::parse_full(parser)?;
+    fn dnd_finished(&self, _ev: DndFinished, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn handle_action(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = Action::parse_full(parser)?;
+    fn action(&self, _ev: Action, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 }
 
-impl Drop for TestDataSource {
-    fn drop(&mut self) {
-        let _ = self.destroy();
+impl TestClient {
+    pub fn create_data_source(&self) -> Rc<TestDataSource> {
+        let client = &self.client;
+        let id = client.send_wl_data_device_manager_create_data_source();
+        let source = Rc::new(TestDataSource {
+            id,
+            client: client.clone(),
+            sends: Rc::new(Default::default()),
+        });
+        client.set_synthetic_event_handler(id, &source);
+        source
     }
 }
-
-test_object! {
-    TestDataSource, WlDataSource;
-
-    TARGET => handle_target,
-    SEND => handle_send,
-    CANCELLED => handle_cancelled,
-    DND_DROP_PERFORMED => handle_dnd_drop_performed,
-    DND_FINISHED => handle_dnd_finished,
-    ACTION => handle_action,
-}
-
-impl TestObject for TestDataSource {}

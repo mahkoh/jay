@@ -131,6 +131,7 @@ use crate::tree::toplevel_target_container;
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::bhash::BHashMap;
 use crate::utils::bindings::PerClientBindings;
+use crate::utils::bool_ext::BoolExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::event_listener::EventListener;
@@ -376,7 +377,7 @@ impl WlSeatGlobal {
         let cursor_user_group = CursorUserGroup::create(state);
         let cursor_user = cursor_user_group.create_user();
         cursor_user.activate();
-        let simple_im = SimpleIm::new(&state.kb_ctx.ctx);
+        let simple_im = (!state.is_test).and_then(|| SimpleIm::new(&state.kb_ctx.ctx));
         let slf = Rc::new_cyclic(|slf: &Weak<WlSeatGlobal>| Self {
             id: state.seat_ids.next(),
             name,

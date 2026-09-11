@@ -441,6 +441,7 @@ pub struct State {
     pub spaces_changed: NumCell<u64>,
     pub theme_listeners: EventSource<dyn ThemeChangeListener>,
     pub scales_changed: EventSource<dyn ScalesChangedListener>,
+    pub is_test: bool,
 }
 
 pub trait ThemeChangeListener {

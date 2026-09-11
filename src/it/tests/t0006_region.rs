@@ -7,13 +7,13 @@ testcase!();
 
 /// Test region creation
 async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
 
-    let region = client.comp.create_region().await?;
+    let region = client.create_region().await?;
     region.check().await?;
-    region.add(Rect::new(10, 20, 30, 40).unwrap())?;
+    region.add(Rect::new(10, 20, 30, 40).unwrap());
     region.check().await?;
-    region.subtract(Rect::new(15, 25, 25, 35).unwrap())?;
+    region.subtract(Rect::new(15, 25, 25, 35).unwrap());
     region.check().await?;
 
     let expected = region.expected.borrow_mut().get();

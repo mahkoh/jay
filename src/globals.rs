@@ -94,7 +94,6 @@ pub trait Global: GlobalBase {
 #[derive(Copy, Clone)]
 pub struct SingletonInfo {
     pub name: GlobalName,
-    #[expect(unused)]
     pub version: u32,
 }
 

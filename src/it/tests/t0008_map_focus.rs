@@ -1,3 +1,4 @@
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestError;
 use crate::it::test_error::TestErrorExt;
 use crate::it::testrun::TestRun;
@@ -9,7 +10,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let ds = run.create_default_setup().await?;
     ds.mouse.rel(1.0, 1.0);
 
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
     let default_seat = client.get_default_seat().await?;
 
     let enter = default_seat.kb.enter.expect()?;

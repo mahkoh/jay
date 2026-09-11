@@ -1,3 +1,4 @@
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
 use crate::tree::ToplevelNodeBase;
@@ -10,7 +11,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     let ds = run.create_default_setup().await?;
     ds.mouse.rel(1.0, 1.0);
 
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
     let dss = client.get_default_seat().await?;
 
     let w_mono1 = client.create_window().await?;

@@ -1,27 +1,15 @@
-use crate::it::test_error::TestError;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
-use crate::it::testrun::ParseFull;
-use crate::utils::buffd::MsgParser;
-use crate::wire::WlCallbackId;
+use crate::it::test_error::TestErrorError;
 use crate::wire::wl_callback::*;
 use std::cell::Cell;
 use std::rc::Rc;
 
+#[derive(Default)]
 pub struct TestCallback {
-    pub id: WlCallbackId,
-    pub _tran: Rc<TestTransport>,
     pub handler: Cell<Option<Box<dyn FnOnce()>>>,
     pub done: Cell<bool>,
 }
 
 impl TestCallback {
-    fn handle_done(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let _ev = Done::parse_full(parser)?;
-        self.dispatch();
-        Ok(())
-    }
-
     fn dispatch(&self) {
         self.done.set(true);
         if let Some(handler) = self.handler.take() {
@@ -30,14 +18,13 @@ impl TestCallback {
     }
 }
 
-test_object! {
-    TestCallback, WlCallback;
+synthetic_event_handler!(TestCallback);
 
-    DONE => handle_done,
-}
+impl WlCallbackEventHandler for TestCallback {
+    type Error = TestErrorError;
 
-impl TestObject for TestCallback {
-    fn on_remove(&self, _transport: &TestTransport) {
+    fn done(&self, _ev: Done, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.dispatch();
+        Ok(())
     }
 }

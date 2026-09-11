@@ -39,7 +39,8 @@
     clippy::manual_is_multiple_of,
     clippy::obfuscated_if_else,
     clippy::manual_div_ceil,
-    clippy::needless_late_init
+    clippy::needless_late_init,
+    clippy::manual_range_contains
 )]
 #![warn(unsafe_op_in_unsafe_fn)]
 

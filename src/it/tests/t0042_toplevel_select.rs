@@ -1,5 +1,6 @@
 use crate::ifs::wl_seat::BTN_LEFT;
 use crate::ifs::wl_seat::ToplevelSelector;
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
 use crate::tree::NodeBase;
@@ -13,7 +14,7 @@ testcase!();
 async fn test(run: Rc<TestRun>) -> TestResult {
     let ds = run.create_default_setup().await?;
 
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
     let win1 = client.create_window().await?;
     win1.map2().await?;
     let win2 = client.create_window().await?;

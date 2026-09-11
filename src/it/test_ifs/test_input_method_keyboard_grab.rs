@@ -1,70 +1,38 @@
-use crate::it::test_error::TestError;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
+use crate::it::test_error::TestErrorError;
 use crate::it::test_utils::test_expected_event::TEEH;
-use crate::it::testrun::ParseFull;
-use crate::utils::buffd::MsgParser;
-use crate::wire::ZwpInputMethodKeyboardGrabV2Id;
 use crate::wire::zwp_input_method_keyboard_grab_v2::*;
-use std::cell::Cell;
 use std::rc::Rc;
 
+#[derive(Default)]
 pub struct TestInputMethodKeyboardGrab {
-    pub id: ZwpInputMethodKeyboardGrabV2Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
     pub keymap: TEEH<Keymap>,
     pub key: TEEH<Key>,
     pub modifiers: TEEH<Modifiers>,
     pub repeat_info: TEEH<RepeatInfo>,
 }
 
-impl TestInputMethodKeyboardGrab {
-    fn destroy(&self) -> Result<(), TestError> {
-        if !self.destroyed.replace(true) {
-            self.tran.send(Release { self_id: self.id })?;
-        }
-        Ok(())
-    }
+synthetic_event_handler!(TestInputMethodKeyboardGrab);
 
-    fn handle_keymap(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = Keymap::parse_full(parser)?;
+impl ZwpInputMethodKeyboardGrabV2EventHandler for TestInputMethodKeyboardGrab {
+    type Error = TestErrorError;
+
+    fn keymap(&self, ev: Keymap, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.keymap.push(ev);
         Ok(())
     }
 
-    fn handle_key(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = Key::parse_full(parser)?;
+    fn key(&self, ev: Key, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.key.push(ev);
         Ok(())
     }
 
-    fn handle_modifiers(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = Modifiers::parse_full(parser)?;
+    fn modifiers(&self, ev: Modifiers, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.modifiers.push(ev);
         Ok(())
     }
 
-    fn handle_repeat_info(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = RepeatInfo::parse_full(parser)?;
+    fn repeat_info(&self, ev: RepeatInfo, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.repeat_info.push(ev);
         Ok(())
     }
 }
-
-impl Drop for TestInputMethodKeyboardGrab {
-    fn drop(&mut self) {
-        let _ = self.destroy();
-    }
-}
-
-test_object! {
-    TestInputMethodKeyboardGrab, ZwpInputMethodKeyboardGrabV2;
-
-    KEYMAP => handle_keymap,
-    KEY => handle_key,
-    MODIFIERS => handle_modifiers,
-    REPEAT_INFO => handle_repeat_info,
-}
-
-impl TestObject for TestInputMethodKeyboardGrab {}

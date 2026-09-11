@@ -1,3 +1,4 @@
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestError;
 use crate::it::testrun::TestRun;
 use crate::tree::TreeTimeline::LiveTL;
@@ -9,7 +10,7 @@ testcase!();
 
 async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let setup = run.create_default_setup().await?;
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
     let win = client.create_window().await?;
     win.map().await?;
     client.sync().await;

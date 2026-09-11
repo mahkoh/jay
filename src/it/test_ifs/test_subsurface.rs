@@ -1,68 +1,45 @@
-use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
-use crate::it::test_error::TestError;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
+use crate::client::Client;
+use crate::it::test_client::TestClient;
 use crate::wire::WlSubsurfaceId;
 use crate::wire::WlSurfaceId;
-use crate::wire::wl_subsurface::*;
-use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestSubsurface {
     pub id: WlSubsurfaceId,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
-    pub _server: Rc<WlSubsurface>,
+    pub client: Rc<Client>,
 }
 
 impl TestSubsurface {
-    fn destroy(&self) -> Result<(), TestError> {
-        if !self.destroyed.replace(true) {
-            self.tran.send(Destroy { self_id: self.id })?;
-        }
-        Ok(())
+    pub fn set_position(&self, x: i32, y: i32) {
+        self.client.send_wl_subsurface_set_position(self.id, x, y);
     }
 
-    pub fn set_position(&self, x: i32, y: i32) -> Result<(), TestError> {
-        self.tran.send(SetPosition {
-            self_id: self.id,
-            x,
-            y,
-        })
+    pub fn place_above(&self, surface: WlSurfaceId) {
+        self.client.send_wl_subsurface_place_above(self.id, surface);
     }
 
-    pub fn place_above(&self, surface: WlSurfaceId) -> Result<(), TestError> {
-        self.tran.send(PlaceAbove {
-            self_id: self.id,
-            sibling: surface,
-        })
-    }
-
-    pub fn place_below(&self, surface: WlSurfaceId) -> Result<(), TestError> {
-        self.tran.send(PlaceBelow {
-            self_id: self.id,
-            sibling: surface,
-        })
+    pub fn place_below(&self, surface: WlSurfaceId) {
+        self.client.send_wl_subsurface_place_below(self.id, surface);
     }
 
     #[expect(unused)]
-    pub fn set_sync(&self) -> Result<(), TestError> {
-        self.tran.send(SetSync { self_id: self.id })
+    pub fn set_sync(&self) {
+        self.client.send_wl_subsurface_set_sync(self.id);
     }
 
-    pub fn set_desync(&self) -> Result<(), TestError> {
-        self.tran.send(SetDesync { self_id: self.id })
-    }
-}
-
-impl Drop for TestSubsurface {
-    fn drop(&mut self) {
-        let _ = self.destroy();
+    pub fn set_desync(&self) {
+        self.client.send_wl_subsurface_set_desync(self.id);
     }
 }
 
-test_object! {
-    TestSubsurface, WlSubsurface;
+impl TestClient {
+    pub fn get_subsurface(&self, surface: WlSurfaceId, parent: WlSurfaceId) -> Rc<TestSubsurface> {
+        let id = self
+            .client
+            .send_wl_subcompositor_get_subsurface(surface, parent);
+        Rc::new(TestSubsurface {
+            id,
+            client: self.client.clone(),
+        })
+    }
 }
-
-impl TestObject for TestSubsurface {}

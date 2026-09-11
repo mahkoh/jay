@@ -8,6 +8,7 @@ use crate::cmm::cmm_primaries::Primaries;
 use crate::format::XRGB8888;
 use crate::ifs::wl_output::OutputId;
 use crate::it::test_backend::TestConnector;
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
 use crate::utils::numcell::NumCell;
@@ -20,7 +21,7 @@ testcase!();
 async fn test(run: Rc<TestRun>) -> TestResult {
     let ds = run.create_default_setup().await?;
 
-    let client1 = run.create_client().await?;
+    let client1 = run.create_client()?;
     let win1 = client1.create_window().await?;
     win1.map2().await?;
     let surface = &win1.surface.server;

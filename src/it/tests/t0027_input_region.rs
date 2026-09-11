@@ -1,3 +1,4 @@
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
 use crate::tree::NodeBase;
@@ -9,7 +10,7 @@ testcase!();
 async fn test(run: Rc<TestRun>) -> TestResult {
     let ds = run.create_default_setup().await?;
 
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
     let win1 = client.create_window().await?;
     win1.set_color(255, 0, 0, 255);
     win1.map2().await?;
@@ -30,9 +31,9 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     let seat = client.get_default_seat().await?;
     let enter = seat.pointer.enter.expect()?;
 
-    let region = client.comp.create_region().await?;
-    win2.surface.set_input_region(&region)?;
-    win2.surface.commit()?;
+    let region = client.create_region().await?;
+    win2.surface.set_input_region(&region);
+    win2.surface.commit();
     client.sync().await;
 
     tassert_eq!(enter.next()?.surface, win1.surface.id);

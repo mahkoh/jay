@@ -1,5 +1,6 @@
 use crate::it::test_client::DefaultSeat;
 use crate::it::test_client::TestClient;
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestResult;
 use crate::it::test_ifs::test_input_method::TestInputMethod;
 use crate::it::test_ifs::test_input_popup_surface::TestInputPopupSurface;
@@ -24,9 +25,9 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     supplier.client.sync().await;
     tassert!(supplier.activate.next().is_err());
 
-    consumer.text.enable()?;
-    consumer.text.set_cursor_rectangle(100, 100, 100, 100)?;
-    consumer.text.commit()?;
+    consumer.text.enable();
+    consumer.text.set_cursor_rectangle(100, 100, 100, 100);
+    consumer.text.commit();
     consumer.client.sync().await;
 
     supplier.client.sync().await;
@@ -35,13 +36,13 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     consumer.client.compare_screenshot("1", false).await?;
 
-    supplier.surface.commit()?;
+    supplier.surface.commit();
     supplier.client.sync().await;
 
     consumer.client.compare_screenshot("2", false).await?;
 
-    supplier.im.commit_string("hello world")?;
-    supplier.im.commit()?;
+    supplier.im.commit_string("hello world");
+    supplier.im.commit();
     supplier.client.sync().await;
 
     consumer.client.sync().await;
@@ -51,8 +52,8 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     );
     tassert!(consumer.done.next().is_ok());
 
-    consumer.text.disable()?;
-    consumer.text.commit()?;
+    consumer.text.disable();
+    consumer.text.commit();
     consumer.client.sync().await;
 
     consumer.client.compare_screenshot("3", false).await?;
@@ -61,7 +62,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 }
 
 struct Consumer {
-    client: Rc<TestClient>,
+    client: TestClient,
     _seat: DefaultSeat,
     _window: Rc<TestWindow>,
     text: Rc<TestTextInput>,
@@ -72,13 +73,9 @@ struct Consumer {
 }
 
 async fn create_consumer(run: &Rc<TestRun>) -> TestResult<Consumer> {
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
     let seat = client.get_default_seat().await?;
-    let text = client
-        .registry
-        .get_text_input_manager()
-        .await?
-        .get_text_input(&seat.seat)?;
+    let text = client.get_text_input(&seat.seat);
     let window = client.create_window().await?;
     window.map2().await?;
     client.sync().await;
@@ -95,7 +92,7 @@ async fn create_consumer(run: &Rc<TestRun>) -> TestResult<Consumer> {
 }
 
 struct Supplier {
-    client: Rc<TestClient>,
+    client: TestClient,
     _seat: DefaultSeat,
     im: Rc<TestInputMethod>,
     surface: TestSurfaceExt,
@@ -105,17 +102,13 @@ struct Supplier {
 }
 
 async fn create_supplier(run: &Rc<TestRun>) -> TestResult<Supplier> {
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
     let seat = client.get_default_seat().await?;
-    let im = client
-        .registry
-        .get_input_method_manager()
-        .await?
-        .get_input_method(&seat.seat)?;
+    let im = client.get_input_method(&seat.seat);
     let surface = client.create_surface_ext().await?;
     surface.set_color(255, 0, 0, 255);
     surface.map(100, 100).await?;
-    let popup = im.get_popup(&surface)?;
+    let popup = im.get_popup(&surface);
     client.sync().await;
     Ok(Supplier {
         activate: im.activate.expect()?,

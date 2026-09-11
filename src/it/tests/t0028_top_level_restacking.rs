@@ -1,4 +1,5 @@
 use crate::ifs::wl_seat::BTN_LEFT;
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
 use crate::tree::TreeTimeline::LiveTL;
@@ -9,7 +10,7 @@ testcase!();
 async fn test(run: Rc<TestRun>) -> TestResult {
     let ds = run.create_default_setup().await?;
 
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
 
     let win1 = client.create_window().await?;
     win1.set_color(255, 0, 0, 255);

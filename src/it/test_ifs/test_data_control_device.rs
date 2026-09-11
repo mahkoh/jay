@@ -1,65 +1,35 @@
-use crate::it::test_error::TestError;
+use crate::client::Client;
+use crate::it::test_client::TestClient;
+use crate::it::test_error::TestErrorError;
 use crate::it::test_error::TestResult;
 use crate::it::test_ifs::test_data_control_offer::TestDataControlOffer;
 use crate::it::test_ifs::test_data_control_source::TestDataControlSource;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
+use crate::it::test_ifs::test_seat::TestSeat;
 use crate::it::test_utils::test_expected_event::TEEH;
-use crate::it::testrun::ParseFull;
-use crate::utils::buffd::MsgParser;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::wire::ZwlrDataControlDeviceV1Id;
 use crate::wire::ZwlrDataControlOfferV1Id;
 use crate::wire::zwlr_data_control_device_v1::*;
-use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestDataControlDevice {
     pub id: ZwlrDataControlDeviceV1Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    pub client: Rc<Client>,
     pub pending_offer: CopyHashMap<ZwlrDataControlOfferV1Id, Rc<TestDataControlOffer>>,
     pub selection: TEEH<Option<Rc<TestDataControlOffer>>>,
     pub primary_selection: TEEH<Option<Rc<TestDataControlOffer>>>,
 }
 
 impl TestDataControlDevice {
-    #[expect(unused)]
-    pub fn destroy(&self) -> TestResult {
-        if !self.destroyed.replace(true) {
-            self.tran.send(Destroy { self_id: self.id })?;
-        }
-        Ok(())
-    }
-
-    pub fn set_selection(&self, source: &TestDataControlSource) -> TestResult {
-        self.tran.send(SetSelection {
-            self_id: self.id,
-            source: source.id,
-        })?;
-        Ok(())
+    pub fn set_selection(&self, source: &TestDataControlSource) {
+        self.client
+            .send_zwlr_data_control_device_v1_set_selection(self.id, source.id);
     }
 
     #[expect(unused)]
-    pub fn set_primary_selection(&self, source: &TestDataControlSource) -> TestResult {
-        self.tran.send(SetPrimarySelection {
-            self_id: self.id,
-            source: source.id,
-        })?;
-        Ok(())
-    }
-
-    fn handle_data_offer(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = DataOffer::parse_full(parser)?;
-        let obj = Rc::new(TestDataControlOffer {
-            id: ev.id,
-            tran: self.tran.clone(),
-            destroyed: Cell::new(false),
-            offers: Default::default(),
-        });
-        self.tran.add_obj(obj.clone())?;
-        self.pending_offer.set(obj.id, obj);
-        Ok(())
+    pub fn set_primary_selection(&self, source: &TestDataControlSource) {
+        self.client
+            .send_zwlr_data_control_device_v1_set_primary_selection(self.id, source.id);
     }
 
     fn take_offer(
@@ -75,32 +45,51 @@ impl TestDataControlDevice {
             }
         }
     }
+}
 
-    fn handle_selection(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = Selection::parse_full(parser)?;
+synthetic_event_handler!(TestDataControlDevice);
+
+impl ZwlrDataControlDeviceV1EventHandler for TestDataControlDevice {
+    type Error = TestErrorError;
+
+    fn data_offer(&self, ev: DataOffer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let obj = Rc::new(TestDataControlOffer {
+            id: ev.id,
+            client: self.client.clone(),
+            offers: Default::default(),
+        });
+        self.client.set_synthetic_event_handler(ev.id, &obj);
+        self.pending_offer.set(obj.id, obj);
+        Ok(())
+    }
+
+    fn selection(&self, ev: Selection, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.selection.push(self.take_offer(ev.id)?);
         Ok(())
     }
 
-    fn handle_primary_selection(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = PrimarySelection::parse_full(parser)?;
+    fn finished(&self, _ev: Finished, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn primary_selection(&self, ev: PrimarySelection, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.primary_selection.push(self.take_offer(ev.id)?);
         Ok(())
     }
+}
 
-    fn handle_finished(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let _ev = Finished::parse_full(parser)?;
-        Ok(())
+impl TestClient {
+    pub fn get_data_control_device(&self, seat: &TestSeat) -> Rc<TestDataControlDevice> {
+        let client = &self.client;
+        let id = client.send_zwlr_data_control_manager_v1_get_data_device(seat.id);
+        let dev = Rc::new(TestDataControlDevice {
+            id,
+            client: client.clone(),
+            pending_offer: Default::default(),
+            selection: Default::default(),
+            primary_selection: Default::default(),
+        });
+        client.set_synthetic_event_handler(id, &dev);
+        dev
     }
 }
-
-test_object! {
-    TestDataControlDevice, ZwlrDataControlDeviceV1;
-
-    DATA_OFFER => handle_data_offer,
-    SELECTION => handle_selection,
-    FINISHED => handle_finished,
-    PRIMARY_SELECTION => handle_primary_selection,
-}
-
-impl TestObject for TestDataControlDevice {}

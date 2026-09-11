@@ -1,12 +1,12 @@
+use crate::client::Client;
+use crate::it::test_client::TestClient;
 use crate::it::test_error::TestError;
+use crate::it::test_error::TestErrorError;
 use crate::it::test_ifs::test_toplevel_session::TestToplevelSession;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
 use crate::it::test_utils::test_window::TestWindow;
-use crate::it::testrun::ParseFull;
-use crate::utils::buffd::MsgParser;
 use crate::wire::XdgSessionV1Id;
 use crate::wire::XdgToplevelId;
+use crate::wire::XdgToplevelSessionV1Id;
 use crate::wire::xdg_session_v1::*;
 use std::cell::Cell;
 use std::future::poll_fn;
@@ -16,8 +16,7 @@ use std::task::Waker;
 
 pub struct TestSession {
     pub id: XdgSessionV1Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    pub client: Rc<Client>,
     pub result: Cell<Option<TestSessionResult>>,
     pub result_waiter: Cell<Option<Waker>>,
     pub replaced: Cell<bool>,
@@ -29,88 +28,47 @@ pub enum TestSessionResult {
 }
 
 impl TestSession {
-    fn destroy(&self) -> Result<(), TestError> {
-        if !self.destroyed.replace(true) {
-            self.tran.send(Destroy { self_id: self.id })?;
-        }
-        Ok(())
-    }
-
     #[expect(unused)]
-    pub fn remove(&self) -> Result<(), TestError> {
-        if !self.destroyed.replace(true) {
-            self.tran.send(Remove { self_id: self.id })?;
-        }
-        Ok(())
+    pub fn remove(&self) {
+        self.client.send_xdg_session_v1_remove(self.id);
     }
 
-    pub fn add_toplevel(
-        &self,
-        win: &TestWindow,
-        name: &str,
-    ) -> Result<Rc<TestToplevelSession>, TestError> {
+    pub fn add_toplevel(&self, win: &TestWindow, name: &str) -> Rc<TestToplevelSession> {
         self.add_toplevel2(win.tl.server.id, name)
     }
 
-    fn add_toplevel2(
-        &self,
-        toplevel: XdgToplevelId,
-        name: &str,
-    ) -> Result<Rc<TestToplevelSession>, TestError> {
-        let id = self.tran.id();
-        self.tran.send(AddToplevel {
-            self_id: self.id,
-            id,
-            toplevel,
-            name,
-        })?;
-        let ts = Rc::new(TestToplevelSession {
-            id,
-            tran: self.tran.clone(),
-            destroyed: Cell::new(false),
-            restored: Cell::new(false),
-        });
-        self.tran.add_obj(ts.clone())?;
-        Ok(ts)
+    fn add_toplevel2(&self, toplevel: XdgToplevelId, name: &str) -> Rc<TestToplevelSession> {
+        let id = self
+            .client
+            .send_xdg_session_v1_add_toplevel(self.id, toplevel, name);
+        self.toplevel_session(id)
     }
 
-    pub fn restore_toplevel(
-        &self,
-        win: &TestWindow,
-        name: &str,
-    ) -> Result<Rc<TestToplevelSession>, TestError> {
+    pub fn restore_toplevel(&self, win: &TestWindow, name: &str) -> Rc<TestToplevelSession> {
         self.restore_toplevel2(win.tl.server.id, name)
     }
 
-    fn restore_toplevel2(
-        &self,
-        toplevel: XdgToplevelId,
-        name: &str,
-    ) -> Result<Rc<TestToplevelSession>, TestError> {
-        let id = self.tran.id();
-        self.tran.send(RestoreToplevel {
-            self_id: self.id,
-            id,
-            toplevel,
-            name,
-        })?;
+    fn restore_toplevel2(&self, toplevel: XdgToplevelId, name: &str) -> Rc<TestToplevelSession> {
+        let id = self
+            .client
+            .send_xdg_session_v1_restore_toplevel(self.id, toplevel, name);
+        self.toplevel_session(id)
+    }
+
+    fn toplevel_session(&self, id: XdgToplevelSessionV1Id) -> Rc<TestToplevelSession> {
         let ts = Rc::new(TestToplevelSession {
             id,
-            tran: self.tran.clone(),
-            destroyed: Cell::new(false),
+            client: self.client.clone(),
             restored: Cell::new(false),
         });
-        self.tran.add_obj(ts.clone())?;
-        Ok(ts)
+        self.client.set_synthetic_event_handler(id, &ts);
+        ts
     }
 
     #[expect(unused)]
-    pub fn remove_toplevel(&self, name: &str) -> Result<(), TestError> {
-        self.tran.send(RemoveToplevel {
-            self_id: self.id,
-            name,
-        })?;
-        Ok(())
+    pub fn remove_toplevel(&self, name: &str) {
+        self.client
+            .send_xdg_session_v1_remove_toplevel(self.id, name);
     }
 
     pub async fn result_created(&self) -> Result<String, TestError> {
@@ -149,38 +107,41 @@ impl TestSession {
             waker.wake();
         }
     }
+}
 
-    fn handle_created(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = Created::parse_full(parser)?;
+synthetic_event_handler!(TestSession);
+
+impl XdgSessionV1EventHandler for TestSession {
+    type Error = TestErrorError;
+
+    fn created(&self, ev: Created<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.set_result(TestSessionResult::Created(ev.session_id.to_string()));
         Ok(())
     }
 
-    fn handle_restored(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let _ev = Restored::parse_full(parser)?;
+    fn restored(&self, _ev: Restored, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.set_result(TestSessionResult::Restored);
         Ok(())
     }
 
-    fn handle_replaced(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let _ev = Replaced::parse_full(parser)?;
+    fn replaced(&self, _ev: Replaced, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.replaced.set(true);
         Ok(())
     }
 }
 
-test_object! {
-    TestSession, XdgSessionV1;
-
-    CREATED => handle_created,
-    RESTORED => handle_restored,
-    REPLACED => handle_replaced,
-}
-
-impl TestObject for TestSession {}
-
-impl Drop for TestSession {
-    fn drop(&mut self) {
-        let _ = self.destroy();
+impl TestClient {
+    pub fn get_session(&self, reason: u32, session_id: Option<&str>) -> Rc<TestSession> {
+        let client = &self.client;
+        let id = client.send_xdg_session_manager_v1_get_session(reason, session_id);
+        let session = Rc::new(TestSession {
+            id,
+            client: client.clone(),
+            result: Default::default(),
+            result_waiter: Default::default(),
+            replaced: Default::default(),
+        });
+        client.set_synthetic_event_handler(id, &session);
+        session
     }
 }

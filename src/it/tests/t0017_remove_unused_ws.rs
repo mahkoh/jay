@@ -1,3 +1,4 @@
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
 use std::rc::Rc;
@@ -18,7 +19,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     tassert_eq!(run.state.workspaces.len(), 1);
 
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
     let win = client.create_window().await?;
     win.map().await?;
 

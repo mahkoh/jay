@@ -1,21 +1,20 @@
+use crate::client::Client;
 use crate::format::Format;
+use crate::it::test_client::TestClient;
 use crate::it::test_error::TestError;
+use crate::it::test_error::TestResult;
 use crate::it::test_ifs::test_buffer::TestBuffer;
 use crate::it::test_ifs::test_shm_buffer::TestShmBuffer;
 use crate::it::test_mem::TestMem;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
 use crate::utils::clonecell::CloneCell;
 use crate::wire::WlShmPoolId;
-use crate::wire::wl_shm_pool::*;
 use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestShmPool {
     pub id: WlShmPoolId,
-    pub tran: Rc<TestTransport>,
+    pub client: Rc<Client>,
     pub mem: CloneCell<Rc<TestMem>>,
-    pub destroyed: Cell<bool>,
 }
 
 impl TestShmPool {
@@ -34,57 +33,44 @@ impl TestShmPool {
         if end > mem.len() {
             bail!("Out-of-bounds buffer");
         }
-        let buffer = Rc::new(TestShmBuffer {
-            buffer: Rc::new(TestBuffer {
-                id: self.tran.id(),
-                tran: self.tran.clone(),
-                released: Cell::new(true),
-                destroyed: Cell::new(false),
-            }),
-            range: start..end,
-            mem,
-        });
-        self.tran.add_obj(buffer.buffer.clone())?;
-        self.tran.send(CreateBuffer {
-            self_id: self.id,
-            id: buffer.buffer.id,
+        let client = &self.client;
+        let id = client.send_wl_shm_pool_create_buffer(
+            self.id,
             offset,
             width,
             height,
             stride,
-            format: format.wl_id.unwrap_or(format.drm),
-        })?;
-        Ok(buffer)
+            format.wl_id.unwrap_or(format.drm),
+        );
+        let buffer = Rc::new(TestBuffer {
+            id,
+            released: Cell::new(true),
+        });
+        client.set_synthetic_event_handler(id, &buffer);
+        Ok(Rc::new(TestShmBuffer {
+            buffer,
+            range: start..end,
+            mem,
+        }))
     }
 
     #[expect(unused)]
     pub fn resize(&self, size: usize) -> Result<(), TestError> {
         let mem = self.mem.get().grow(size)?;
         self.mem.set(mem);
-        self.tran.send(Resize {
-            self_id: self.id,
-            size: size as _,
-        })?;
-        Ok(())
-    }
-
-    fn destroy(&self) -> Result<(), TestError> {
-        if self.destroyed.replace(true) {
-            return Ok(());
-        }
-        self.tran.send(Destroy { self_id: self.id })?;
+        self.client.send_wl_shm_pool_resize(self.id, size as _);
         Ok(())
     }
 }
 
-impl Drop for TestShmPool {
-    fn drop(&mut self) {
-        let _ = self.destroy();
+impl TestClient {
+    pub fn create_shm_pool(&self, size: usize) -> TestResult<Rc<TestShmPool>> {
+        let mem = TestMem::new(size)?;
+        let id = self.client.send_wl_shm_create_pool(&mem.fd, size as _);
+        Ok(Rc::new(TestShmPool {
+            id,
+            client: self.client.clone(),
+            mem: CloneCell::new(mem),
+        }))
     }
 }
-
-test_object! {
-    TestShmPool, WlShmPool;
-}
-
-impl TestObject for TestShmPool {}

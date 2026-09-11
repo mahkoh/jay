@@ -1,5 +1,6 @@
 use crate::ifs::xdg_session_manager_v1::REASON_LAUNCH;
 use crate::ifs::xdg_session_manager_v1::REASON_RECOVER;
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestError;
 use crate::it::testrun::TestRun;
 use crate::tree::TreeTimeline::LiveTL;
@@ -20,25 +21,24 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
         Some(ws2.id)
     );
 
-    let client = run.create_client().await?;
-    let sm = client.registry.get_session_manager().await?;
+    let client = run.create_client()?;
 
     let win = client.create_window().await?;
     win.map().await?;
     tassert_eq!(win.workspace_id(), Some(ws1.id));
     win.set_workspace(&ws3);
-    let session = sm.get_session(REASON_LAUNCH, None)?;
-    session.add_toplevel(&win, "win")?.destroy()?;
+    let session = client.get_session(REASON_LAUNCH, None);
+    session.add_toplevel(&win, "win").destroy();
     let session_id = session.result_created().await?;
-    win.tl.core.destroy()?;
+    win.tl.core.destroy();
 
-    let session = sm.get_session(REASON_LAUNCH, Some(&session_id))?;
+    let session = client.get_session(REASON_LAUNCH, Some(&session_id));
     let (win, _) = client.restore_window(&session, "win").await?;
     win.map().await?;
     tassert_eq!(win.workspace_id(), Some(ws2.id));
     win.set_workspace(&ws3);
 
-    let session = sm.get_session(REASON_RECOVER, Some(&session_id))?;
+    let session = client.get_session(REASON_RECOVER, Some(&session_id));
     let (win, _) = client.restore_window(&session, "win").await?;
     win.map().await?;
     tassert_eq!(win.workspace_id(), Some(ws3.id));

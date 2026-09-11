@@ -39,9 +39,12 @@ use crate::ifs::xdg_positioner::XdgPositioner;
 use crate::ifs::xdg_wm_base::XdgWmBase;
 use crate::ifs::zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1;
 use crate::object::Object;
+use crate::object::SyntheticObjectEventHandler;
 use crate::utils::clonecell::CloneCell;
+use crate::utils::copyhashmap::FCopyHashMap;
 use crate::utils::copyhashmap::Locked;
 use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::numcell::NumCell;
 use crate::utils::reset_immutable::ResetImmutable;
 use crate::utils::woid_hash::WoidBuildHasher;
 use crate::utils::woid_hash::WoidCopyHashMap;
@@ -91,6 +94,7 @@ use std::rc::Rc;
 pub struct Objects {
     pub display: CloneCell<Option<Rc<WlDisplay>>>,
     registry: WoidCopyHashMap<ObjectId, Rc<dyn Object>>,
+    synthetic_event_handlers: FCopyHashMap<ObjectId, Rc<dyn SyntheticObjectEventHandler>>,
     pub registries: WoidCopyHashMap<WlRegistryId, Rc<WlRegistry>>,
     pub outputs: WoidCopyHashMap<WlOutputId, Rc<WlOutput>>,
     pub surfaces: WoidCopyHashMap<WlSurfaceId, Rc<WlSurface>>,
@@ -137,6 +141,7 @@ pub struct Objects {
     pub jay_client_match: WoidCopyHashMap<JayClientMatchId, Rc<JayClientMatch>>,
     pub jay_window_match: WoidCopyHashMap<JayWindowMatchId, Rc<JayWindowMatch>>,
     ids: RefCell<Vec<usize>>,
+    next_synthetic_id: NumCell<u64>,
 }
 
 pub const MIN_SERVER_ID: u64 = 0xff000000;
@@ -149,6 +154,7 @@ impl Objects {
         Self {
             display: CloneCell::new(None),
             registry: Default::default(),
+            synthetic_event_handlers: Default::default(),
             registries: Default::default(),
             outputs: Default::default(),
             surfaces: Default::default(),
@@ -187,6 +193,7 @@ impl Objects {
             jay_client_match: Default::default(),
             jay_window_match: Default::default(),
             ids: RefCell::new(vec![]),
+            next_synthetic_id: NumCell::new(FIRST_SYNTHETIC_ID),
         }
     }
 
@@ -202,7 +209,10 @@ impl Objects {
         self.reset_immutable();
     }
 
-    pub fn id(&self, client_data: &Client, _parent: ObjectId) -> Result<ObjectId, ClientError> {
+    pub fn id(&self, client_data: &Client, parent: ObjectId) -> Result<ObjectId, ClientError> {
+        if parent.raw() >= FIRST_SYNTHETIC_ID {
+            return Ok(self.synthetic_id());
+        }
         const MAX_ID_OFFSET: u64 = u32::MAX as u64 - MIN_SERVER_ID;
         let offset = self.id_offset() as u64;
         if offset > MAX_ID_OFFSET {
@@ -233,7 +243,8 @@ impl Objects {
     pub fn add_client_object(&self, obj: Rc<dyn Object>) -> Result<(), ClientError> {
         let id = obj.id();
         let res = (|| {
-            if id.raw() == 0 || id.raw() >= MIN_SERVER_ID {
+            let raw = id.raw();
+            if raw == 0 || (raw >= MIN_SERVER_ID && raw < FIRST_SYNTHETIC_ID) {
                 return Err(ClientError::ClientIdOutOfBounds);
             }
             if self.registry.contains(&id) {
@@ -292,5 +303,29 @@ impl Objects {
         }
         ids.push(!1);
         ((ids.len() - 1) * SEG_SIZE) as u32
+    }
+
+    pub fn synthetic_id(&self) -> ObjectId {
+        ObjectId::from_raw(self.next_synthetic_id.fetch_add(1))
+    }
+
+    pub fn get_synthetic_event_handler(
+        &self,
+        id: ObjectId,
+    ) -> Option<Rc<dyn SyntheticObjectEventHandler>> {
+        self.synthetic_event_handlers.get(&id)
+    }
+
+    pub fn set_synthetic_event_handler(
+        &self,
+        id: ObjectId,
+        event_handler: Rc<dyn SyntheticObjectEventHandler>,
+    ) {
+        assert!(id.raw() >= FIRST_SYNTHETIC_ID);
+        self.synthetic_event_handlers.set(id, event_handler);
+    }
+
+    pub fn remove_synthetic_event_handler(&self, id: ObjectId) {
+        self.synthetic_event_handlers.remove(&id);
     }
 }

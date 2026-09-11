@@ -1,42 +1,29 @@
-use crate::it::test_error::TestError;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
+use crate::client::Client;
+use crate::it::test_client::TestClient;
+use crate::it::test_ifs::test_surface::TestSurface;
 use crate::wire::WpContentTypeV1Id;
-use crate::wire::wp_content_type_v1::*;
-use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestContentType {
     pub id: WpContentTypeV1Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    pub client: Rc<Client>,
 }
 
 impl TestContentType {
-    fn destroy(&self) -> Result<(), TestError> {
-        if !self.destroyed.replace(true) {
-            self.tran.send(Destroy { self_id: self.id })?;
-        }
-        Ok(())
-    }
-
-    pub fn set_content_type(&self, content_type: u32) -> Result<(), TestError> {
-        self.tran.send(SetContentType {
-            self_id: self.id,
-            content_type,
-        })?;
-        Ok(())
+    pub fn set_content_type(&self, content_type: u32) {
+        self.client
+            .send_wp_content_type_v1_set_content_type(self.id, content_type);
     }
 }
 
-impl Drop for TestContentType {
-    fn drop(&mut self) {
-        let _ = self.destroy();
+impl TestClient {
+    pub fn get_surface_content_type(&self, surface: &TestSurface) -> Rc<TestContentType> {
+        let id = self
+            .client
+            .send_wp_content_type_manager_v1_get_surface_content_type(surface.id);
+        Rc::new(TestContentType {
+            id,
+            client: self.client.clone(),
+        })
     }
 }
-
-test_object! {
-    TestContentType, WpContentTypeV1;
-}
-
-impl TestObject for TestContentType {}
