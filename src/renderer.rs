@@ -328,20 +328,21 @@ impl Renderer<'_> {
             let perceptual = RenderIntent::Perceptual;
             let rd = container.render_data.borrow_mut();
             let ns = &container.node_state[RenderTL];
-            let theme = &ns.theme;
             for (color, rects) in &rd.color_rects {
                 self.base.fill_boxes2(rects, color, srgb, perceptual, x, y);
             }
-            let draw_overlay_icon = container.tl_data().is_overlay_root_container.get();
-            let th = theme.sizes.title_height.get();
+            let draw_overlay_icon = container.tl_data().is_overlay_root_container[RenderTL].get();
             for child in container.children.iter_valid(RenderTL) {
                 let cns = &child.node_state[RenderTL];
+                let offsets = &cns.offsets;
                 let rect = cns.title_rect.get().move_(x, y);
                 let bounds = self.base.scale_rect(rect);
-                let mut x = rect.x1();
+                let x = rect.x1();
                 if draw_overlay_icon {
                     if let Some(icons) = &self.title_icons {
-                        let (x, y) = self.base.scale_point(x, rect.y1());
+                        let (x, y) = self
+                            .base
+                            .scale_point(x + offsets.overlay_icon.get(), rect.y1());
                         let icon = match cns.ty.get() {
                             ContainerChildType::Active => &icons.overlay_focused_title,
                             ContainerChildType::AttentionRequested => {
@@ -360,22 +361,20 @@ impl Renderer<'_> {
                             },
                         );
                     }
-                    x += th;
                 }
                 if let Some(rd) = child.rd.get(&self.base.scale) {
                     if let Some(icon) = &rd.icon {
                         self.render_icon(
                             &icon,
                             &bounds,
-                            x,
+                            x + offsets.toplevel_icon.get(),
                             rect.y1(),
                             cns.theme.window_icons_grayscale.get(),
                             ns.theme.sizes.title_icon_size.get(),
                         );
-                        x += th;
                     }
                     if let Some(tex) = &rd.tex {
-                        let (x, y) = self.base.scale_point(x, rect.y1());
+                        let (x, y) = self.base.scale_point(x + offsets.title.get(), rect.y1());
                         self.base.render_texture(
                             tex,
                             x,
@@ -675,7 +674,7 @@ impl Renderer<'_> {
             .fill_boxes(&title_underline, &uc, srgb, perceptual);
         let rect = ns.title_rect.get().move_(x, y);
         let bounds = self.base.scale_rect(rect);
-        let (mut x1, y1) = rect.position();
+        let (x1, y1) = rect.position();
         if ns.workspace_ty.get() == WorkspaceType::Overlay {
             if let Some(icons) = &self.title_icons {
                 let icon = if ns.active.get() {
@@ -685,7 +684,9 @@ impl Renderer<'_> {
                 } else {
                     &icons.overlay_unfocused_title
                 };
-                let (x, y) = self.base.scale_point(x1, y1);
+                let (x, y) = self
+                    .base
+                    .scale_point(x1 + ns.offsets.overlay_icon.get(), y1);
                 self.base.render_texture(
                     icon,
                     x,
@@ -696,11 +697,10 @@ impl Renderer<'_> {
                     },
                 );
             }
-            x1 += th;
         }
         let is_pinned = ns.pinned.get();
         if is_pinned || theme.show_pin_icon.get() {
-            let (x, y) = self.base.scale_point(x1, y1);
+            let (x, y) = self.base.scale_point(x1 + ns.offsets.pin_icon.get(), y1);
             if let Some(icons) = &self.title_icons {
                 let icon = if ns.active.get() {
                     &icons.pin_focused_title
@@ -723,23 +723,21 @@ impl Renderer<'_> {
                     },
                 );
             }
-            x1 += th;
         }
         if let Some(icon) = floating.icons.get(&self.base.scale) {
             self.render_icon(
                 &icon,
                 &bounds,
-                x1,
+                x1 + ns.offsets.toplevel_icon.get(),
                 y1,
                 theme.window_icons_grayscale.get(),
                 sizes.title_icon_size.get(),
             );
-            x1 += th;
         }
         if let Some(title) = floating.title_textures.borrow().get(&self.base.scale)
             && let Some(texture) = title.texture()
         {
-            let (x, y) = self.base.scale_point(x1, y1);
+            let (x, y) = self.base.scale_point(x1 + ns.offsets.title.get(), y1);
             self.base.render_texture(
                 &texture,
                 x,

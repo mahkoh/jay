@@ -93,7 +93,9 @@ pub struct FloatNode {
     workspace: CloneCell<Rc<WorkspaceNode>>,
     location: Cell<NodeLocation>,
     seat_state: NodeSeatState,
+    layout_phase_scheduled: Cell<bool>,
     layout_scheduled: Cell<bool>,
+    title_offsets_scheduled: Cell<bool>,
     render_titles_scheduled: Cell<bool>,
     title: RefCell<String>,
     pub title_textures: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
@@ -123,6 +125,15 @@ pub struct FloatNodeState {
     pub attention_requested: Cell<bool>,
     pub pinned: Cell<bool>,
     pub theme: FloatTheme,
+    pub offsets: Offsets,
+}
+
+#[derive(CachedValue)]
+pub struct Offsets {
+    pub overlay_icon: Cell<i32>,
+    pub pin_icon: Cell<i32>,
+    pub toplevel_icon: Cell<i32>,
+    pub title: Cell<i32>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -187,11 +198,15 @@ pub struct FloatThemeSizes {
     pub title_icon_size: Cell<i32>,
 }
 
-pub async fn float_layout(state: Rc<State>) {
+pub async fn float_layout_phase(state: Rc<State>) {
     loop {
-        let node = state.pending_float_layout.pop().await;
+        let node = state.pending_float_layout_phase.pop().await;
+        node.layout_phase_scheduled.take();
         if node.layout_scheduled.get() {
             node.perform_layout();
+        }
+        if node.title_offsets_scheduled.get() {
+            node.update_title_offsets();
         }
     }
 }
@@ -236,7 +251,9 @@ impl FloatNode {
             workspace: CloneCell::new(ws.clone()),
             location: Cell::new(ws.location()),
             seat_state: Default::default(),
+            layout_phase_scheduled: Default::default(),
             layout_scheduled: Cell::new(false),
+            title_offsets_scheduled: Default::default(),
             render_titles_scheduled: Cell::new(false),
             title: Default::default(),
             title_textures: Default::default(),
@@ -292,13 +309,19 @@ impl FloatNode {
         if child.tl_data().pinned.get() {
             floater.toggle_pinned();
         }
+        floater.schedule_title_offsets();
         floater
     }
 
-    fn schedule_layout(self: &Rc<Self>) {
-        if !self.layout_scheduled.replace(true) {
-            self.state.pending_float_layout.push(self.clone());
+    fn push_layout_phase(self: &Rc<Self>) {
+        if !self.layout_phase_scheduled.replace(true) {
+            self.state.pending_float_layout_phase.push(self.clone());
         }
+    }
+
+    fn schedule_layout(self: &Rc<Self>) {
+        self.layout_scheduled.set(true);
+        self.push_layout_phase();
     }
 
     fn perform_layout(self: &Rc<Self>) {
@@ -351,20 +374,13 @@ impl FloatNode {
             let tex = tt.get_or_insert_with(*scale, || TextTexture::new(&self.state, &ctx));
             let mut th = tr.height();
             let mut scalef = None;
-            let mut width = tr.width();
+            let mut width = (tr.width() - ns.offsets.title.get()).max(0);
             let icon = theme
                 .show_window_icons
                 .get()
                 .and_then(|| self.icon.get(*scale));
             if let Some(icon) = icon {
-                width = (width - th).max(0);
                 self.icons.insert(*scale, icon);
-            }
-            if ns.workspace_ty.get() == WorkspaceType::Overlay {
-                width = (width - th).max(0);
-            }
-            if theme.show_pin_icon.get() || self.pinned_link.borrow().is_some() {
-                width = (width - th).max(0);
             }
             if *scale != 1 {
                 let scale = scale.to_f64();
@@ -561,6 +577,7 @@ impl FloatNode {
         self.workspace_listener.attach(&ws.listeners);
         if ns.workspace_ty.get() != ws.ty {
             self.set_ns_workspace_type(ws.ty);
+            self.schedule_title_offsets();
             self.display_link
                 .borrow_mut()
                 .restack_on(self.state.float_stack(ws.ty));
@@ -703,7 +720,7 @@ impl FloatNode {
             tl.tl_data().pinned.set(pl.is_some());
         }
         self.set_ns_pinned(pl.is_some());
-        self.schedule_render_titles();
+        self.schedule_title_offsets();
     }
 
     fn button(
@@ -928,6 +945,65 @@ impl FloatNode {
             show_pin_icon,
             window_icons_grayscale,
             title_font,
+        }
+    }
+
+    fn schedule_title_offsets(self: &Rc<Self>) {
+        self.title_offsets_scheduled.set(true);
+        self.push_layout_phase();
+    }
+
+    fn update_title_offsets(self: &Rc<Self>) {
+        self.title_offsets_scheduled.set(false);
+        let ns = &self.node_state[LiveTL];
+        let theme = &ns.theme;
+        let th = theme.sizes.title_height.get();
+        let mut x = 0;
+        macro_rules! snapshot {
+            ($x:ident) => {
+                let $x = Cell::new(x);
+            };
+        }
+        snapshot!(overlay_icon);
+        if ns.workspace_ty.get() == WorkspaceType::Overlay {
+            x += th;
+        }
+        snapshot!(pin_icon);
+        if ns.pinned.get() || theme.show_pin_icon.get() {
+            x += th;
+        }
+        snapshot!(toplevel_icon);
+        if self.icon.has_icon() && theme.show_window_icons.get() {
+            x += th;
+        }
+        snapshot!(title);
+        let offsets = Offsets {
+            overlay_icon,
+            pin_icon,
+            toplevel_icon,
+            title,
+        };
+        let changed = ns.offsets.cached_update(offsets, |op| {
+            self.add_transaction_op(FloatTransactionOp::SetOffset(op));
+        });
+        let OffsetsChanged {
+            overlay_icon,
+            pin_icon,
+            toplevel_icon,
+            title,
+        } = changed;
+        if title {
+            self.schedule_render_titles();
+        }
+        let damage = or_chain!(________)
+            || overlay_icon
+            || pin_icon
+            || toplevel_icon
+            || title
+            || or_chain!();
+        if damage && self.node_visible(LiveTL) {
+            self.state
+                .schedule_damage(self.node_absolute_position(LiveTL));
         }
     }
 }
@@ -1186,6 +1262,7 @@ impl ContainingNode for FloatNode {
         self.pull_child_properties();
         self.update_effective_visible();
         self.schedule_layout();
+        self.schedule_title_offsets();
     }
 
     fn cnode_remove_child2(self: Rc<Self>, _child: &dyn Node, _preserve_focus: bool) {
@@ -1284,6 +1361,7 @@ impl ContainingNode for FloatNode {
 
     fn cnode_child_icon_changed(self: Rc<Self>, child: &dyn ToplevelNode) {
         child.tl_update_icon(&self.icon);
+        self.schedule_title_offsets();
         self.schedule_render_titles();
     }
 }
@@ -1398,12 +1476,11 @@ impl ThemeChangeListener for FloatNode {
             }
             self.schedule_layout();
         }
-        let title = or_chain!()
+        let title = or_chain!(___________)
             || focused_title_text
             || unfocused_title_text
             || show_window_icons
             || title_font
-            || show_pin_icon
             || or_chain!();
         if title {
             self.schedule_render_titles();
@@ -1418,9 +1495,17 @@ impl ThemeChangeListener for FloatNode {
             || unfocused_title_background
             || separator
             || or_chain!();
-        if damage {
+        if damage && self.node_visible(LiveTL) {
             self.state
                 .schedule_damage(self.node_absolute_position(LiveTL));
+        }
+        let title_offsets = or_chain!(_________)
+            || title_height
+            || show_window_icons
+            || show_pin_icon
+            || or_chain!();
+        if title_offsets {
+            self.schedule_title_offsets();
         }
     }
 }
@@ -1431,6 +1516,7 @@ impl GfxCtxChangedListener for FloatNode {
         self.icon.clear();
         self.icons.clear();
         self.schedule_render_titles();
+        self.schedule_title_offsets();
     }
 }
 
@@ -1467,6 +1553,7 @@ pub enum FloatTransactionOp {
     ScheduleRenderTitles,
     ClearLink,
     ThemeOp(FloatThemeOp),
+    SetOffset(OffsetsOp),
 }
 
 impl Transactionable for FloatNode {
@@ -1551,6 +1638,9 @@ impl Transactionable for FloatNode {
             }
             FloatTransactionOp::ThemeOp(v) => {
                 s.theme.cached_apply(v);
+            }
+            FloatTransactionOp::SetOffset(v) => {
+                s.offsets.cached_apply(v);
             }
         }
     }

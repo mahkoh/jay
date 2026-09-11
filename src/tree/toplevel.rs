@@ -144,15 +144,14 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
             self.tl_mark_ancestor_fullscreen(parent.cnode_self_or_ancestor_fullscreen());
         }
         let mut is_root_container = false;
-        data.is_overlay_root_container.set(false);
+        let mut is_overlay_root_container = false;
         if let ToplevelType::Container = data.kind
             && let Some(ws) = parent.clone().node_into_workspace()
         {
             is_root_container = true;
-            data.is_overlay_root_container
-                .set(ws.ty == WorkspaceType::Overlay);
+            is_overlay_root_container = ws.ty == WorkspaceType::Overlay;
         }
-        data.set_is_root_container(is_root_container);
+        data.set_is_root_container(is_root_container, is_overlay_root_container);
         let parent_was_none = data.parent.set(Some(parent.clone())).is_none();
         if parent_was_none {
             data.mapped_during_iteration.set(data.state.eng.iteration());
@@ -396,7 +395,7 @@ pub enum ToplevelDataTransactionOp {
     SetIsFullscreen(bool),
     SetWorkspace(Option<Rc<WorkspaceNode>>),
     SetVisible(bool),
-    SetIsRootContainer(bool),
+    SetIsRootContainer(bool, bool),
 }
 
 pub struct FullscreenedData {
@@ -489,7 +488,7 @@ pub struct ToplevelData {
     property_changed_source: OnceCell<Rc<LazyEventSource>>,
     pub session: CloneCell<Option<Rc<ToplevelSession>>>,
     pub is_root_container: SplitView<Cell<bool>>,
-    pub is_overlay_root_container: Cell<bool>,
+    pub is_overlay_root_container: SplitView<Cell<bool>>,
     output_listener: EventListener<dyn OutputEventListener>,
     workspace_listener: EventListener<dyn WorkspaceEventListener>,
 }
@@ -706,8 +705,7 @@ impl ToplevelData {
         self.output_listener.detach();
         self.workspace_listener.detach();
         self.seat_state.destroy_node(node);
-        self.is_overlay_root_container.set(false);
-        self.set_is_root_container(false);
+        self.set_is_root_container(false, false);
     }
 
     pub fn broadcast(&self, toplevel: Rc<dyn ToplevelNode>) {
@@ -1093,12 +1091,17 @@ impl ToplevelData {
         }
     }
 
-    fn set_is_root_container(&self, value: bool) {
-        if self.is_root_container[LiveTL].replace(value) != value {
+    fn set_is_root_container(&self, value: bool, overlay: bool) {
+        let mut changed = false;
+        changed |= self.is_root_container[LiveTL].replace(value) != value;
+        changed |= self.is_overlay_root_container[LiveTL].replace(overlay) != overlay;
+        if changed {
             self.property_changed(TL_CHANGED_IS_WORKSPACE_CONTAINER);
             if let Some(slf) = self.slf.upgrade() {
                 slf.clone()
-                    .tl_schedule_data_op(ToplevelDataTransactionOp::SetIsRootContainer(value));
+                    .tl_schedule_data_op(ToplevelDataTransactionOp::SetIsRootContainer(
+                        value, overlay,
+                    ));
                 slf.tl_is_root_container_changed();
             }
         }
@@ -1123,8 +1126,9 @@ impl ToplevelData {
             ToplevelDataTransactionOp::SetVisible(v) => {
                 self.visible[RenderTL].set(v);
             }
-            ToplevelDataTransactionOp::SetIsRootContainer(v) => {
+            ToplevelDataTransactionOp::SetIsRootContainer(v, o) => {
                 self.is_root_container[RenderTL].set(v);
+                self.is_overlay_root_container[RenderTL].set(o);
             }
         }
     }

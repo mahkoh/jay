@@ -305,12 +305,11 @@ pub struct State {
     pub config: CloneCell<Option<Rc<ConfigProxy>>>,
     pub config_locked_shortcuts: Cell<bool>,
     pub theme: Theme,
-    pub pending_container_layout: AsyncQueue<Rc<ContainerNode>>,
-    pub pending_container_child_types: AsyncQueue<Rc<ContainerNode>>,
-    pub pending_container_render_positions: AsyncQueue<Rc<ContainerNode>>,
+    pub pending_container_layout_phase: AsyncQueue<Rc<ContainerNode>>,
+    pub pending_container_post_layout_phase: AsyncQueue<Rc<ContainerNode>>,
     pub pending_container_render_title: AsyncQueue<Rc<ContainerNode>>,
     pub pending_output_render_data: AsyncQueue<Rc<OutputNode>>,
-    pub pending_float_layout: AsyncQueue<Rc<FloatNode>>,
+    pub pending_float_layout_phase: AsyncQueue<Rc<FloatNode>>,
     pub pending_float_titles: AsyncQueue<Rc<FloatNode>>,
     pub pending_input_popup_positioning: AsyncQueue<Rc<ZwpInputPopupSurfaceV2>>,
     pub pending_toplevel_screencasts: AsyncQueue<Rc<JayScreencast>>,
@@ -1452,9 +1451,8 @@ impl State {
         }
         self.wlr_output_managers.clear();
         self.dbus.clear();
-        self.pending_container_layout.clear();
-        self.pending_container_child_types.clear();
-        self.pending_float_layout.clear();
+        self.pending_container_layout_phase.clear();
+        self.pending_float_layout_phase.clear();
         self.pending_input_popup_positioning.clear();
         self.pending_toplevel_screencasts.clear();
         self.pending_screencast_reallocs_or_reconfigures.clear();
@@ -2543,7 +2541,7 @@ impl Transactionable for State {
     fn apply(self: &Rc<Self>, op: Self::T) {
         match op {
             StateTransactionOp::Clear => {
-                self.pending_container_render_positions.clear();
+                self.pending_container_post_layout_phase.clear();
                 self.pending_container_render_title.clear();
                 self.pending_output_render_data.clear();
                 self.pending_float_titles.clear();

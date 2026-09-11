@@ -73,6 +73,7 @@ pub struct XdgToplevelIconV1 {
 }
 
 pub struct ToplevelIconUser {
+    have_icon: Cell<bool>,
     size: Cell<i32>,
     icons: SmallMap<Scale, ToplevelIcon, 2>,
 }
@@ -86,6 +87,7 @@ pub enum ToplevelIcon {
 impl ToplevelIconUser {
     fn new(size: i32) -> Self {
         Self {
+            have_icon: Default::default(),
             size: Cell::new(size),
             icons: Default::default(),
         }
@@ -93,6 +95,7 @@ impl ToplevelIconUser {
 
     pub fn clear(&self) {
         self.icons.clear();
+        self.have_icon.set(false);
     }
 
     pub fn set_size(&self, size: i32) -> bool {
@@ -101,6 +104,10 @@ impl ToplevelIconUser {
 
     pub fn get(&self, scale: Scale) -> Option<ToplevelIcon> {
         self.icons.get(&scale)
+    }
+
+    pub fn has_icon(&self) -> bool {
+        self.have_icon.get()
     }
 }
 
@@ -468,6 +475,7 @@ impl XdgToplevelIconV1 {
 
     pub fn update_user(&self, user: &ToplevelIconUser) {
         user.icons.clear();
+        user.have_icon.set(true);
         for (&scale, _) in &*self.client.state.scales.lock() {
             let key = IconKey {
                 size: user.size.get(),
