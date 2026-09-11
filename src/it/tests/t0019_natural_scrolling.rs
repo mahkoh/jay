@@ -1,5 +1,6 @@
 use crate::ifs::wl_seat::wl_pointer::IDENTICAL;
 use crate::ifs::wl_seat::wl_pointer::INVERTED;
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestResult;
 use crate::it::test_utils::test_container_node_ext::TestContainerExt;
 use crate::it::test_utils::test_ouput_node_ext::TestOutputNodeExt;
@@ -13,7 +14,7 @@ testcase!();
 async fn test(run: Rc<TestRun>) -> TestResult {
     let ds = run.create_default_setup().await?;
 
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
     let win1 = client.create_window().await?;
     win1.map2().await?;
 

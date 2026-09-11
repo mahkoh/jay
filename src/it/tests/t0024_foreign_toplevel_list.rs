@@ -1,3 +1,4 @@
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
 use crate::utils::bhash::BHashSet;
@@ -9,16 +10,16 @@ testcase!();
 async fn test(run: Rc<TestRun>) -> TestResult {
     let _ds = run.create_default_setup().await?;
 
-    let client1 = run.create_client().await?;
-    let client2 = run.create_client().await?;
+    let client1 = run.create_client()?;
+    let client2 = run.create_client()?;
 
-    let list = client2.registry.get_foreign_toplevel_list().await?;
+    let list = client2.new_foreign_toplevel_list();
 
     let win1 = client1.create_window().await?;
-    win1.tl.core.set_title("a")?;
+    win1.tl.core.set_title("a");
     win1.map().await?;
     let win2 = client1.create_window().await?;
-    win2.tl.core.set_title("b")?;
+    win2.tl.core.set_title("b");
     win2.map().await?;
 
     client2.sync().await;
@@ -32,14 +33,14 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     ids.insert(tls[0].identifier.take().unwrap());
     ids.insert(tls[1].identifier.take().unwrap());
 
-    win2.tl.core.set_title("c")?;
+    win2.tl.core.set_title("c");
     client1.sync().await;
 
     client2.sync().await;
     tassert_eq!(tls[1].title.take().as_deref(), Some("c"));
 
-    win2.surface.attach(WlBufferId::NONE)?;
-    win2.surface.commit()?;
+    win2.surface.attach(WlBufferId::NONE);
+    win2.surface.commit();
     client1.sync().await;
 
     client2.sync().await;

@@ -1,16 +1,13 @@
+use crate::client::Client;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
-use crate::it::test_error::TestError;
+use crate::it::test_error::TestErrorError;
 use crate::it::test_error::TestResult;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
 use crate::it::test_utils::test_window::TestWindow;
-use crate::it::testrun::ParseFull;
 use crate::tree::ContainerNode;
 use crate::tree::ContainingNode;
 use crate::tree::FloatNode;
 use crate::tree::ToplevelNodeBase;
 use crate::utils::bhash::BHashSet;
-use crate::utils::buffd::MsgParser;
 use crate::wire::XdgToplevelId;
 use crate::wire::xdg_toplevel::*;
 use std::cell::Cell;
@@ -22,8 +19,7 @@ use std::task::Waker;
 
 pub struct TestXdgToplevelCore {
     pub id: XdgToplevelId,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    pub client: Rc<Client>,
 
     pub configured: Cell<bool>,
     pub configured_waiter: Cell<Option<Waker>>,
@@ -66,27 +62,17 @@ impl TestXdgToplevel {
 }
 
 impl TestXdgToplevelCore {
-    pub fn destroy(&self) -> Result<(), TestError> {
-        if !self.destroyed.replace(true) {
-            self.tran.send(Destroy { self_id: self.id })?;
-        }
-        Ok(())
+    pub fn destroy(&self) {
+        self.client.send_xdg_toplevel_destroy(self.id);
     }
 
-    pub fn set_title(&self, title: &str) -> Result<(), TestError> {
-        self.tran.send(SetTitle {
-            self_id: self.id,
-            title,
-        })?;
-        Ok(())
+    pub fn set_title(&self, title: &str) {
+        self.client.send_xdg_toplevel_set_title(self.id, title);
     }
 
-    pub fn set_parent(&self, parent: &TestWindow) -> Result<(), TestError> {
-        self.tran.send(SetParent {
-            self_id: self.id,
-            parent: parent.tl.server.id,
-        })?;
-        Ok(())
+    pub fn set_parent(&self, parent: &TestWindow) {
+        self.client
+            .send_xdg_toplevel_set_parent(self.id, parent.tl.server.id);
     }
 
     pub async fn configured(&self) {
@@ -99,9 +85,14 @@ impl TestXdgToplevelCore {
         })
         .await;
     }
+}
 
-    fn handle_configure(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = Configure::parse_full(parser)?;
+synthetic_event_handler!(TestXdgToplevelCore);
+
+impl XdgToplevelEventHandler for TestXdgToplevelCore {
+    type Error = TestErrorError;
+
+    fn configure(&self, ev: Configure<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.width.set(ev.width);
         self.height.set(ev.height);
         *self.states.borrow_mut() = ev.states.iter().copied().collect();
@@ -112,36 +103,16 @@ impl TestXdgToplevelCore {
         Ok(())
     }
 
-    fn handle_close(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let _ev = Close::parse_full(parser)?;
+    fn close(&self, _ev: Close, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.close_requested.set(true);
         Ok(())
     }
 
-    fn handle_configure_bounds(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let _ev = ConfigureBounds::parse_full(parser)?;
+    fn configure_bounds(&self, _ev: ConfigureBounds, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn handle_wm_capabilities(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let _ev = WmCapabilities::parse_full(parser)?;
+    fn wm_capabilities(&self, _ev: WmCapabilities<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 }
-
-impl Drop for TestXdgToplevelCore {
-    fn drop(&mut self) {
-        let _ = self.destroy();
-    }
-}
-
-test_object! {
-    TestXdgToplevelCore, XdgToplevel;
-
-    CONFIGURE => handle_configure,
-    CLOSE => handle_close,
-    CONFIGURE_BOUNDS => handle_configure_bounds,
-    WM_CAPABILITIES => handle_wm_capabilities,
-}
-
-impl TestObject for TestXdgToplevelCore {}

@@ -1,4 +1,5 @@
 use crate::fixed::Fixed;
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
 use crate::tree::NodeBase;
@@ -10,7 +11,7 @@ testcase!();
 async fn test(run: Rc<TestRun>) -> TestResult {
     let ds = run.create_default_setup().await?;
 
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
 
     let seat = client.get_default_seat().await?;
     let enter = seat.pointer.enter.expect()?;
@@ -27,9 +28,6 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     run.state.idle().await;
     client.sync().await;
 
-    // Get the pointer warp manager through the client infrastructure
-    let warp_manager = &client.pointer_warp;
-
     // Get the enter serial
     let enter_serial = enter.last()?.serial;
 
@@ -38,7 +36,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     // and doesn't crash when used with valid parameters
     let warp_x = Fixed::from_int(200);
     let warp_y = Fixed::from_int(150);
-    warp_manager.warp_pointer(&win1.surface, &seat.pointer, warp_x, warp_y, enter_serial)?;
+    client.warp_pointer(&win1.surface, &seat.pointer, warp_x, warp_y, enter_serial);
 
     // Sync to ensure the warp request is processed without errors
     client.sync().await;

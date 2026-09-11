@@ -1,9 +1,5 @@
-use crate::it::test_error::TestError;
-use crate::it::test_error::TestResult;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
-use crate::it::testrun::ParseFull;
-use crate::utils::buffd::MsgParser;
+use crate::client::Client;
+use crate::it::test_error::TestErrorError;
 use crate::wire::ExtForeignToplevelHandleV1Id;
 use crate::wire::ext_foreign_toplevel_handle_v1::*;
 use std::cell::Cell;
@@ -11,8 +7,7 @@ use std::rc::Rc;
 
 pub struct TestExtForeignToplevelHandle {
     pub id: ExtForeignToplevelHandleV1Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    pub client: Rc<Client>,
     pub closed: Cell<bool>,
     pub title: Cell<Option<String>>,
     pub app_id: Cell<Option<String>>,
@@ -20,52 +15,39 @@ pub struct TestExtForeignToplevelHandle {
 }
 
 impl TestExtForeignToplevelHandle {
-    fn destroy(&self) -> TestResult {
-        if !self.destroyed.replace(true) {
-            self.tran.send(Destroy { self_id: self.id })?;
-        }
-        Ok(())
+    fn destroy(&self) {
+        self.client
+            .send_ext_foreign_toplevel_handle_v1_destroy(self.id);
     }
+}
 
-    fn handle_closed(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let _ev = Closed::parse_full(parser)?;
+synthetic_event_handler!(TestExtForeignToplevelHandle);
+
+impl ExtForeignToplevelHandleV1EventHandler for TestExtForeignToplevelHandle {
+    type Error = TestErrorError;
+
+    fn closed(&self, _ev: Closed, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.closed.set(true);
-        self.destroy()?;
+        self.destroy();
         Ok(())
     }
 
-    fn handle_done(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let _ev = Done::parse_full(parser)?;
+    fn done(&self, _ev: Done, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn handle_title(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = Title::parse_full(parser)?;
+    fn title(&self, ev: Title<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.title.set(Some(ev.title.to_string()));
         Ok(())
     }
 
-    fn handle_app_id(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = AppId::parse_full(parser)?;
+    fn app_id(&self, ev: AppId<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.app_id.set(Some(ev.app_id.to_string()));
         Ok(())
     }
 
-    fn handle_identifier(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = Identifier::parse_full(parser)?;
+    fn identifier(&self, ev: Identifier<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.identifier.set(Some(ev.identifier.to_string()));
         Ok(())
     }
 }
-
-test_object! {
-    TestExtForeignToplevelHandle, ExtForeignToplevelHandleV1;
-
-    CLOSED => handle_closed,
-    DONE => handle_done,
-    TITLE => handle_title,
-    APP_ID => handle_app_id,
-    IDENTIFIER => handle_identifier,
-}
-
-impl TestObject for TestExtForeignToplevelHandle {}

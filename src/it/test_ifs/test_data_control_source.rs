@@ -1,10 +1,7 @@
-use crate::it::test_error::TestError;
-use crate::it::test_error::TestResult;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
+use crate::client::Client;
+use crate::it::test_client::TestClient;
+use crate::it::test_error::TestErrorError;
 use crate::it::test_utils::test_expected_event::TEEH;
-use crate::it::testrun::ParseFull;
-use crate::utils::buffd::MsgParser;
 use crate::wire::ZwlrDataControlSourceV1Id;
 use crate::wire::zwlr_data_control_source_v1::*;
 use std::cell::Cell;
@@ -13,52 +10,45 @@ use uapi::OwnedFd;
 
 pub struct TestDataControlSource {
     pub id: ZwlrDataControlSourceV1Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    pub client: Rc<Client>,
     pub cancelled: Cell<bool>,
     pub sends: TEEH<(String, Rc<OwnedFd>)>,
 }
 
 impl TestDataControlSource {
-    fn destroy(&self) -> TestResult {
-        if !self.destroyed.replace(true) {
-            self.tran.send(Destroy { self_id: self.id })?;
-        }
-        Ok(())
+    pub fn offer(&self, mime_type: &str) {
+        self.client
+            .send_zwlr_data_control_source_v1_offer(self.id, mime_type);
     }
+}
 
-    pub fn offer(&self, mime_type: &str) -> TestResult {
-        self.tran.send(Offer {
-            self_id: self.id,
-            mime_type,
-        })?;
-        Ok(())
-    }
+synthetic_event_handler!(TestDataControlSource);
 
-    fn handle_send(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = Send::parse_full(parser)?;
+impl ZwlrDataControlSourceV1EventHandler for TestDataControlSource {
+    type Error = TestErrorError;
+
+    fn send(&self, ev: Send<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.sends.push((ev.mime_type.to_string(), ev.fd));
         Ok(())
     }
 
-    fn handle_cancelled(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let _ev = Cancelled::parse_full(parser)?;
+    fn cancelled(&self, _ev: Cancelled, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.cancelled.set(true);
         Ok(())
     }
 }
 
-impl Drop for TestDataControlSource {
-    fn drop(&mut self) {
-        let _ = self.destroy();
+impl TestClient {
+    pub fn create_data_control_source(&self) -> Rc<TestDataControlSource> {
+        let client = &self.client;
+        let id = client.send_zwlr_data_control_manager_v1_create_data_source();
+        let source = Rc::new(TestDataControlSource {
+            id,
+            client: client.clone(),
+            cancelled: Cell::new(false),
+            sends: Default::default(),
+        });
+        client.set_synthetic_event_handler(id, &source);
+        source
     }
 }
-
-test_object! {
-    TestDataControlSource, ZwlrDataControlSourceV1;
-
-    SEND => handle_send,
-    CANCELLED => handle_cancelled,
-}
-
-impl TestObject for TestDataControlSource {}

@@ -1,4 +1,5 @@
 use crate::ifs::wl_seat::BTN_LEFT;
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
 use crate::tree::NodeBase;
@@ -10,7 +11,7 @@ testcase!();
 async fn test(run: Rc<TestRun>) -> TestResult {
     let ds = run.create_default_setup().await?;
 
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
 
     let win1 = client.create_window().await?;
     win1.map2().await?;
@@ -25,10 +26,10 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     let click = ds.mouse.click(BTN_LEFT);
 
     client.sync().await;
-    let dev = client.data_device_manager.get_data_device(&seat.seat)?;
-    let src = client.data_device_manager.create_data_source()?;
-    src.set_actions(1)?;
-    dev.start_drag(&src, &win1.surface, None, button.next()?.serial)?;
+    let dev = client.get_data_device(&seat.seat);
+    let src = client.create_data_source();
+    src.set_actions(1);
+    dev.start_drag(&src, &win1.surface, None, button.next()?.serial);
 
     client.sync().await;
     let enter = seat.pointer.enter.expect()?;

@@ -1,3 +1,4 @@
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
 use crate::syncobj::SyncobjError;
@@ -41,23 +42,22 @@ async fn test(run: Rc<TestRun>) -> TestResult {
             .wait_for_syncobj
             .wait(&syncobj, SyncobjPoint(2), true, waiter.clone())?;
 
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
 
-    let buf1 = client.spbm.create_buffer(Color::SOLID_BLACK)?;
-    let buf2 = client.spbm.create_buffer(Color::SOLID_BLACK)?;
+    let buf1 = client.create_single_pixel_buffer(Color::SOLID_BLACK);
+    let buf2 = client.create_single_pixel_buffer(Color::SOLID_BLACK);
 
-    let syncobj_manager = client.registry.get_syncobj_manager().await?;
-    let timeline = syncobj_manager.import_timeline(&syncobj)?;
+    let timeline = client.import_syncobj_timeline(&syncobj);
 
     let win = client.create_window().await?;
-    let sync = syncobj_manager.get_surface(&win.surface)?;
-    win.surface.attach(buf1.id)?;
-    sync.set_acquire_point(&timeline, 1)?;
-    sync.set_release_point(&timeline, 2)?;
-    win.surface.commit()?;
-    sync.destroy()?;
-    win.surface.attach(buf2.id)?;
-    win.surface.commit()?;
+    let sync = client.get_syncobj_surface(&win.surface);
+    win.surface.attach(buf1.id);
+    sync.set_acquire_point(&timeline, 1);
+    sync.set_release_point(&timeline, 2);
+    win.surface.commit();
+    sync.destroy();
+    win.surface.attach(buf2.id);
+    win.surface.commit();
 
     client.sync().await;
     tassert_eq!(waiter.0.get(), false);

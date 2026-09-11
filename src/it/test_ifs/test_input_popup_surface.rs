@@ -1,34 +1,19 @@
-use crate::it::test_error::TestError;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
-use crate::wire::ZwpInputPopupSurfaceV2Id;
+use crate::it::test_error::TestErrorError;
 use crate::wire::zwp_input_popup_surface_v2::*;
-use std::cell::Cell;
 use std::rc::Rc;
 
-pub struct TestInputPopupSurface {
-    pub id: ZwpInputPopupSurfaceV2Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
-}
+pub struct TestInputPopupSurface;
 
-impl TestInputPopupSurface {
-    fn destroy(&self) -> Result<(), TestError> {
-        if !self.destroyed.replace(true) {
-            self.tran.send(Destroy { self_id: self.id })?;
-        }
+synthetic_event_handler!(TestInputPopupSurface);
+
+impl ZwpInputPopupSurfaceV2EventHandler for TestInputPopupSurface {
+    type Error = TestErrorError;
+
+    fn text_input_rectangle(
+        &self,
+        _ev: TextInputRectangle,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         Ok(())
     }
 }
-
-impl Drop for TestInputPopupSurface {
-    fn drop(&mut self) {
-        let _ = self.destroy();
-    }
-}
-
-test_object! {
-    TestInputPopupSurface, ZwpInputPopupSurfaceV2;
-}
-
-impl TestObject for TestInputPopupSurface {}

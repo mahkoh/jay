@@ -1,3 +1,6 @@
+use crate::format::ARGB8888;
+use crate::it::test_client::TestClient;
+use crate::it::test_error::TestResult;
 use crate::it::test_ifs::test_buffer::TestBuffer;
 use crate::it::test_mem::TestMem;
 use crate::theme::Color;
@@ -30,5 +33,12 @@ impl Deref for TestShmBuffer {
 
     fn deref(&self) -> &Self::Target {
         &self.mem[self.range.clone()]
+    }
+}
+
+impl TestClient {
+    pub fn create_shm_buffer(&self, width: i32, height: i32) -> TestResult<Rc<TestShmBuffer>> {
+        let pool = self.create_shm_pool((width * height * 4) as _)?;
+        pool.create_buffer(0, width, height, width * 4, ARGB8888)
     }
 }

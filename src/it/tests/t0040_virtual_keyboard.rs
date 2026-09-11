@@ -1,5 +1,6 @@
 use crate::backend::KeyState;
 use crate::clientmem::ClientMem;
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
 use crate::kbvm::KbvmContext;
@@ -18,7 +19,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     let ds = run.create_default_setup().await?;
 
-    let s_client = run.create_client().await?;
+    let s_client = run.create_client()?;
     let s_seat = s_client.get_default_seat().await?;
     let s_win = s_client.create_window().await?;
     s_win.map2().await?;
@@ -29,20 +30,16 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     let s_modifiers = s_seat.kb.modifiers.expect()?;
 
     {
-        let v_client = run.create_client().await?;
+        let v_client = run.create_client()?;
         let v_seat = v_client.get_default_seat().await?;
-        let v_kb = v_client
-            .registry
-            .get_virtual_keyboard_manager()
-            .await?
-            .create_virtual_keyboard(&v_seat.seat)?;
-        v_kb.set_keymap(VIRTUAL_KEYMAP)?;
-        v_kb.key(10, KeyState::Pressed)?;
-        v_kb.key(10, KeyState::Released)?;
-        v_kb.modifiers(1, 2, 3, 0)?;
-        v_kb.key(10, KeyState::Pressed)?;
-        v_kb.key(10, KeyState::Released)?;
-        v_kb.modifiers(0, 0, 0, 1)?;
+        let v_kb = v_client.create_virtual_keyboard(&v_seat.seat);
+        v_kb.set_keymap(VIRTUAL_KEYMAP);
+        v_kb.key(10, KeyState::Pressed);
+        v_kb.key(10, KeyState::Released);
+        v_kb.modifiers(1, 2, 3, 0);
+        v_kb.key(10, KeyState::Pressed);
+        v_kb.key(10, KeyState::Released);
+        v_kb.modifiers(0, 0, 0, 1);
         v_client.sync().await;
     }
 

@@ -1,4 +1,5 @@
 use crate::globals::GlobalBase;
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestError;
 use crate::it::testrun::TestRun;
 use std::rc::Rc;
@@ -7,17 +8,19 @@ testcase!();
 
 /// Test seat creation and broadcast
 async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
+    let registry = client.new_registry();
+    client.sync().await;
 
-    tassert_eq!(client.registry.seats.len(), 1);
+    tassert_eq!(registry.seats.len(), 1);
 
     let seat = run.get_seat("new-seat")?;
 
     client.sync().await;
 
-    tassert_eq!(client.registry.seats.len(), 2);
+    tassert_eq!(registry.seats.len(), 2);
 
-    let client_seat = client.registry.seats.get(&seat.name());
+    let client_seat = registry.seats.get(&seat.name());
     tassert!(client_seat.is_some());
 
     let client_seat = client_seat.unwrap();

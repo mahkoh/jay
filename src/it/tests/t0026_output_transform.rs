@@ -1,3 +1,4 @@
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
 use jay_config::video::Transform;
@@ -11,7 +12,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     run.cfg
         .set_output_transform(&ds.output, Transform::FlipRotate90)?;
 
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
     let win = client.create_window().await?;
 
     let transform = win.surface.preferred_buffer_transform.expect()?;

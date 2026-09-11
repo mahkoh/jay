@@ -77,7 +77,7 @@ request get_input {
 }
 
 request take_screenshot2 {
-    id: id(jay_screenshot),
+    id: id(jay_screenshot) (new),
     include_cursor: bool,
 }
 

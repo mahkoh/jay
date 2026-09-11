@@ -1,110 +1,88 @@
-use crate::it::test_error::TestResult;
+use crate::client::Client;
+use crate::it::test_client::TestClient;
+use crate::it::test_error::TestErrorError;
 use crate::it::test_ifs::test_data_offer::TestDataOffer;
 use crate::it::test_ifs::test_data_source::TestDataSource;
+use crate::it::test_ifs::test_seat::TestSeat;
 use crate::it::test_ifs::test_surface::TestSurface;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
-use crate::it::testrun::ParseFull;
-use crate::utils::buffd::MsgParser;
 use crate::wire::WlDataDeviceId;
 use crate::wire::WlSurfaceId;
 use crate::wire::wl_data_device::*;
-use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestDataDevice {
     pub id: WlDataDeviceId,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    pub client: Rc<Client>,
 }
 
 impl TestDataDevice {
-    fn destroy(&self) -> TestResult {
-        if !self.destroyed.replace(true) {
-            self.tran.send(Release { self_id: self.id })?;
-        }
-        Ok(())
-    }
-
     pub fn start_drag(
         &self,
         source: &TestDataSource,
         origin: &TestSurface,
         icon: Option<&TestSurface>,
         serial: u32,
-    ) -> TestResult {
-        self.tran.send(StartDrag {
-            self_id: self.id,
-            source: source.id,
-            origin: origin.id,
-            icon: icon.map(|i| i.id).unwrap_or(WlSurfaceId::NONE),
+    ) {
+        self.client.send_wl_data_device_start_drag(
+            self.id,
+            source.id,
+            origin.id,
+            icon.map(|i| i.id).unwrap_or(WlSurfaceId::NONE),
             serial,
-        })?;
-        Ok(())
+        );
     }
 
-    pub fn set_selection(&self, source: &TestDataSource, serial: u32) -> TestResult {
-        self.tran.send(SetSelection {
-            self_id: self.id,
-            source: source.id,
-            serial,
-        })?;
-        Ok(())
+    pub fn set_selection(&self, source: &TestDataSource, serial: u32) {
+        self.client
+            .send_wl_data_device_set_selection(self.id, source.id, serial);
     }
+}
 
-    fn handle_data_offer(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let ev = DataOffer::parse_full(parser)?;
+synthetic_event_handler!(TestDataDevice);
+
+impl WlDataDeviceEventHandler for TestDataDevice {
+    type Error = TestErrorError;
+
+    fn data_offer(&self, ev: DataOffer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let offer = Rc::new(TestDataOffer {
             id: ev.id,
-            tran: self.tran.clone(),
-            destroyed: Cell::new(false),
+            client: self.client.clone(),
         });
-        self.tran.add_obj(offer.clone())?;
-        offer.destroy()?;
+        self.client.set_synthetic_event_handler(ev.id, &offer);
+        offer.destroy();
         Ok(())
     }
 
-    fn handle_enter(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = Enter::parse_full(parser)?;
+    fn enter(&self, _ev: Enter, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn handle_leave(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = Leave::parse_full(parser)?;
+    fn leave(&self, _ev: Leave, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn handle_motion(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = Motion::parse_full(parser)?;
+    fn motion(&self, _ev: Motion, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn handle_drop(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = Drop::parse_full(parser)?;
+    fn drop_(&self, _ev: Drop, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 
-    fn handle_selection(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = Selection::parse_full(parser)?;
+    fn selection(&self, _ev: Selection, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 }
 
-impl std::ops::Drop for TestDataDevice {
-    fn drop(&mut self) {
-        let _ = self.destroy();
+impl TestClient {
+    pub fn get_data_device(&self, seat: &TestSeat) -> Rc<TestDataDevice> {
+        let client = &self.client;
+        let id = client.send_wl_data_device_manager_get_data_device(seat.id);
+        let dev = Rc::new(TestDataDevice {
+            id,
+            client: client.clone(),
+        });
+        client.set_synthetic_event_handler(id, &dev);
+        dev
     }
 }
-
-test_object! {
-    TestDataDevice, WlDataDevice;
-
-    DATA_OFFER => handle_data_offer,
-    ENTER => handle_enter,
-    LEAVE => handle_leave,
-    MOTION => handle_motion,
-    DROP => handle_drop,
-    SELECTION => handle_selection,
-}
-
-impl TestObject for TestDataDevice {}

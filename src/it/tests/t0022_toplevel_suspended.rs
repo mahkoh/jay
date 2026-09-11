@@ -1,4 +1,5 @@
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::STATE_SUSPENDED;
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestResult;
 use crate::it::test_utils::test_ouput_node_ext::TestOutputNodeExt;
 use crate::it::test_utils::test_toplevel_node_ext::TestToplevelNodeExt;
@@ -11,7 +12,7 @@ testcase!();
 async fn test(run: Rc<TestRun>) -> TestResult {
     let ds = run.create_default_setup().await?;
 
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
 
     let win1 = client.create_window().await?;
     win1.set_color(255, 0, 0, 255);

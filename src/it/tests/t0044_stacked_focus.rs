@@ -1,3 +1,4 @@
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestError;
 use crate::it::testrun::TestRun;
 use crate::tree::ToplevelNodeBase;
@@ -9,7 +10,7 @@ testcase!();
 /// Test that container focus is set to a lone stacked window when switching to its workspace
 async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let ds = run.create_default_setup().await?;
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
 
     run.cfg.show_workspace(ds.seat.id(), "1")?;
     let win1 = client.create_window().await?;

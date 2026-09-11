@@ -1,116 +1,107 @@
-use crate::it::test_error::TestError;
-use crate::it::test_error::TestResult;
+use crate::client::Client;
+use crate::it::test_client::TestClient;
+use crate::it::test_error::TestErrorError;
 use crate::it::test_ifs::test_input_method_keyboard_grab::TestInputMethodKeyboardGrab;
 use crate::it::test_ifs::test_input_popup_surface::TestInputPopupSurface;
+use crate::it::test_ifs::test_seat::TestSeat;
 use crate::it::test_ifs::test_surface::TestSurface;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
 use crate::it::test_utils::test_expected_event::TEEH;
-use crate::it::testrun::ParseFull;
-use crate::utils::buffd::MsgParser;
 use crate::utils::numcell::NumCell;
 use crate::wire::ZwpInputMethodV2Id;
 use crate::wire::zwp_input_method_v2::*;
-use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestInputMethod {
     pub id: ZwpInputMethodV2Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    pub client: Rc<Client>,
     pub activate: TEEH<bool>,
     pub done: TEEH<()>,
     pub done_received: NumCell<u32>,
 }
 
 impl TestInputMethod {
-    pub fn commit_string(&self, s: &str) -> TestResult {
-        self.tran.send(CommitString {
-            self_id: self.id,
-            text: s,
-        })
+    pub fn commit_string(&self, s: &str) {
+        self.client
+            .send_zwp_input_method_v2_commit_string(self.id, s);
     }
 
-    pub fn commit(&self) -> TestResult {
-        self.tran.send(Commit {
-            self_id: self.id,
-            serial: self.done_received.get(),
-        })
+    pub fn commit(&self) {
+        self.client
+            .send_zwp_input_method_v2_commit(self.id, self.done_received.get());
     }
 
     #[expect(unused)]
-    pub fn grab(&self) -> TestResult<Rc<TestInputMethodKeyboardGrab>> {
-        let obj = Rc::new(TestInputMethodKeyboardGrab {
-            id: self.tran.id(),
-            tran: self.tran.clone(),
-            destroyed: Cell::new(false),
-            keymap: Rc::new(Default::default()),
-            key: Rc::new(Default::default()),
-            modifiers: Rc::new(Default::default()),
-            repeat_info: Rc::new(Default::default()),
-        });
-        self.tran.add_obj(obj.clone())?;
-        self.tran.send(GrabKeyboard {
-            self_id: self.id,
-            keyboard: obj.id,
-        })?;
-        Ok(obj)
+    pub fn grab(&self) -> Rc<TestInputMethodKeyboardGrab> {
+        let client = &self.client;
+        let id = client.send_zwp_input_method_v2_grab_keyboard(self.id);
+        let obj = Rc::new(TestInputMethodKeyboardGrab::default());
+        client.set_synthetic_event_handler(id, &obj);
+        obj
     }
 
-    pub fn get_popup(&self, surface: &TestSurface) -> TestResult<Rc<TestInputPopupSurface>> {
-        let obj = Rc::new(TestInputPopupSurface {
-            id: self.tran.id(),
-            tran: self.tran.clone(),
-            destroyed: Cell::new(false),
-        });
-        self.tran.add_obj(obj.clone())?;
-        self.tran.send(GetInputPopupSurface {
-            self_id: self.id,
-            id: obj.id,
-            surface: surface.id,
-        })?;
-        Ok(obj)
+    pub fn get_popup(&self, surface: &TestSurface) -> Rc<TestInputPopupSurface> {
+        let client = &self.client;
+        let id = client.send_zwp_input_method_v2_get_input_popup_surface(self.id, surface.id);
+        let obj = Rc::new(TestInputPopupSurface);
+        client.set_synthetic_event_handler(id, &obj);
+        obj
     }
+}
 
-    fn destroy(&self) -> Result<(), TestError> {
-        if !self.destroyed.replace(true) {
-            self.tran.send(Destroy { self_id: self.id })?;
-        }
-        Ok(())
-    }
+synthetic_event_handler!(TestInputMethod);
 
-    fn handle_activate(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let _ev = Activate::parse_full(parser)?;
+impl ZwpInputMethodV2EventHandler for TestInputMethod {
+    type Error = TestErrorError;
+
+    fn activate(&self, _ev: Activate, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.activate.push(true);
         Ok(())
     }
 
-    fn handle_deactivate(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let _ev = Deactivate::parse_full(parser)?;
+    fn deactivate(&self, _ev: Deactivate, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.activate.push(false);
         Ok(())
     }
 
-    fn handle_done(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let _ev = Done::parse_full(parser)?;
+    fn surrounding_text(
+        &self,
+        _ev: SurroundingText<'_>,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn text_change_cause(&self, _ev: TextChangeCause, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn content_type(&self, _ev: ContentType, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn done(&self, _ev: Done, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.done.push(());
         self.done_received.fetch_add(1);
         Ok(())
     }
-}
 
-impl Drop for TestInputMethod {
-    fn drop(&mut self) {
-        let _ = self.destroy();
+    fn unavailable(&self, _ev: Unavailable, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        Ok(())
     }
 }
 
-test_object! {
-    TestInputMethod, ZwpInputMethodV2;
-
-    ACTIVATE => handle_activate,
-    DEACTIVATE => handle_deactivate,
-    DONE => handle_done,
+impl TestClient {
+    pub fn get_input_method(&self, seat: &TestSeat) -> Rc<TestInputMethod> {
+        let client = &self.client;
+        let id = client.send_zwp_input_method_manager_v2_get_input_method(seat.id);
+        let im = Rc::new(TestInputMethod {
+            id,
+            client: client.clone(),
+            activate: Rc::new(Default::default()),
+            done: Rc::new(Default::default()),
+            done_received: Default::default(),
+        });
+        client.set_synthetic_event_handler(id, &im);
+        im
+    }
 }
-
-impl TestObject for TestInputMethod {}

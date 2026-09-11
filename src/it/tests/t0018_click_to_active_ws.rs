@@ -1,4 +1,5 @@
 use crate::ifs::wl_seat::BTN_LEFT;
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
 use crate::tree::TreeTimeline::LiveTL;
@@ -10,7 +11,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     let ds = run.create_default_setup().await?;
     run.cfg.show_workspace(ds.seat.id(), "1")?;
 
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
 
     let win1 = client.create_window().await?;
     win1.map().await?;

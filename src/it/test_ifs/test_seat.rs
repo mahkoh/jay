@@ -1,14 +1,8 @@
-use crate::ifs::wl_seat::WlSeat;
-use crate::it::test_error::TestError;
-use crate::it::test_error::TestResult;
+use crate::client::Client;
+use crate::it::test_error::TestErrorError;
 use crate::it::test_ifs::test_keyboard::TestKeyboard;
 use crate::it::test_ifs::test_pointer::TestPointer;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
-use crate::it::testrun::ParseFull;
-use crate::utils::buffd::MsgParser;
 use crate::utils::clonecell::CloneCell;
-use crate::utils::once::Once;
 use crate::wire::WlSeatId;
 use crate::wire::wl_seat::*;
 use std::cell::Cell;
@@ -16,32 +10,15 @@ use std::rc::Rc;
 
 pub struct TestSeat {
     pub id: WlSeatId,
-    pub tran: Rc<TestTransport>,
-    pub server: CloneCell<Option<Rc<WlSeat>>>,
-    pub destroyed: Once,
+    pub client: Rc<Client>,
     pub caps: Cell<u32>,
     pub name: CloneCell<Option<Rc<String>>>,
 }
 
 impl TestSeat {
-    fn destroy(&self) -> Result<(), TestError> {
-        if self.destroyed.set() {
-            self.tran.send(Release { self_id: self.id })?;
-        }
-        Ok(())
-    }
-
-    pub async fn get_keyboard(&self) -> TestResult<Rc<TestKeyboard>> {
-        let id = self.tran.id();
-        self.tran.send(GetKeyboard {
-            self_id: self.id,
-            id,
-        })?;
+    pub fn get_keyboard(&self) -> Rc<TestKeyboard> {
+        let id = self.client.send_wl_seat_get_keyboard(self.id);
         let kb = Rc::new(TestKeyboard {
-            id,
-            tran: self.tran.clone(),
-            server: Default::default(),
-            destroyed: Default::default(),
             keymap: Default::default(),
             key: Default::default(),
             modifiers: Default::default(),
@@ -49,61 +26,38 @@ impl TestSeat {
             leave: Default::default(),
             event_id: Default::default(),
         });
-        self.tran.add_obj(kb.clone())?;
-        self.tran.sync().await;
-        let server = self.tran.get_server_obj(id)?;
-        kb.server.set(Some(server));
-        Ok(kb)
+        self.client.set_synthetic_event_handler(id, &kb);
+        kb
     }
 
-    pub async fn get_pointer(&self) -> TestResult<Rc<TestPointer>> {
-        let id = self.tran.id();
-        self.tran.send(GetPointer {
-            self_id: self.id,
-            id,
-        })?;
+    pub fn get_pointer(&self) -> Rc<TestPointer> {
+        let id = self.client.send_wl_seat_get_pointer(self.id);
         let pointer = Rc::new(TestPointer {
             id,
-            tran: self.tran.clone(),
-            server: Default::default(),
-            destroyed: Default::default(),
-            leave: Rc::new(Default::default()),
-            enter: Rc::new(Default::default()),
-            motion: Rc::new(Default::default()),
-            button: Rc::new(Default::default()),
-            axis_relative_direction: Rc::new(Default::default()),
+            client: self.client.clone(),
+            leave: Default::default(),
+            enter: Default::default(),
+            motion: Default::default(),
+            button: Default::default(),
+            axis_relative_direction: Default::default(),
         });
-        self.tran.add_obj(pointer.clone())?;
-        self.tran.sync().await;
-        let server = self.tran.get_server_obj(id)?;
-        pointer.server.set(Some(server));
-        Ok(pointer)
+        self.client.set_synthetic_event_handler(id, &pointer);
+        pointer
     }
+}
 
-    fn handle_capabilities(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = Capabilities::parse_full(parser)?;
+synthetic_event_handler!(TestSeat);
+
+impl WlSeatEventHandler for TestSeat {
+    type Error = TestErrorError;
+
+    fn capabilities(&self, ev: Capabilities, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.caps.set(ev.capabilities);
         Ok(())
     }
 
-    fn handle_name(&self, parser: MsgParser<'_, '_>) -> Result<(), TestError> {
-        let ev = Name::parse_full(parser)?;
+    fn name(&self, ev: Name<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.name.set(Some(Rc::new(ev.name.to_string())));
         Ok(())
     }
 }
-
-impl Drop for TestSeat {
-    fn drop(&mut self) {
-        let _ = self.destroy();
-    }
-}
-
-test_object! {
-    TestSeat, WlSeat;
-
-    CAPABILITIES => handle_capabilities,
-    NAME => handle_name,
-}
-
-impl TestObject for TestSeat {}

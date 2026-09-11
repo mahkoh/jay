@@ -1,55 +1,34 @@
-use crate::it::test_error::TestResult;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
-use crate::it::testrun::ParseFull;
-use crate::utils::buffd::MsgParser;
+use crate::client::Client;
+use crate::it::test_error::TestErrorError;
 use crate::wire::WlDataOfferId;
 use crate::wire::wl_data_offer::*;
-use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestDataOffer {
     pub id: WlDataOfferId,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    pub client: Rc<Client>,
 }
 
 impl TestDataOffer {
-    pub fn destroy(&self) -> TestResult {
-        if !self.destroyed.replace(true) {
-            self.tran.send(Destroy { self_id: self.id })?;
-        }
-        Ok(())
-    }
-
-    fn handle_offer(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = Offer::parse_full(parser)?;
-        Ok(())
-    }
-
-    fn handle_source_actions(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = SourceActions::parse_full(parser)?;
-        Ok(())
-    }
-
-    fn handle_action(&self, parser: MsgParser<'_, '_>) -> TestResult {
-        let _ev = Action::parse_full(parser)?;
-        Ok(())
+    pub fn destroy(&self) {
+        self.client.send_wl_data_offer_destroy(self.id);
     }
 }
 
-impl Drop for TestDataOffer {
-    fn drop(&mut self) {
-        let _ = self.destroy();
+synthetic_event_handler!(TestDataOffer);
+
+impl WlDataOfferEventHandler for TestDataOffer {
+    type Error = TestErrorError;
+
+    fn offer(&self, _ev: Offer<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn source_actions(&self, _ev: SourceActions, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn action(&self, _ev: Action, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        Ok(())
     }
 }
-
-test_object! {
-    TestDataOffer, WlDataOffer;
-
-    OFFER => handle_offer,
-    SOURCE_ACTIONS => handle_source_actions,
-    ACTION => handle_action,
-}
-
-impl TestObject for TestDataOffer {}

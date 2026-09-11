@@ -1,51 +1,26 @@
+use crate::client::Client;
 use crate::fixed::Fixed;
-use crate::it::test_error::TestError;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
 use crate::wire::WpViewportId;
-use crate::wire::wp_viewport::*;
 use std::rc::Rc;
 
 pub struct TestViewport {
     pub id: WpViewportId,
-    pub tran: Rc<TestTransport>,
+    pub client: Rc<Client>,
 }
 
 impl TestViewport {
-    fn destroy(&self) -> Result<(), TestError> {
-        self.tran.send(Destroy { self_id: self.id })?;
-        Ok(())
+    pub fn set_source(&self, x: i32, y: i32, width: i32, height: i32) {
+        self.client.send_wp_viewport_set_source(
+            self.id,
+            Fixed::from_int(x),
+            Fixed::from_int(y),
+            Fixed::from_int(width),
+            Fixed::from_int(height),
+        );
     }
 
-    pub fn set_source(&self, x: i32, y: i32, width: i32, height: i32) -> Result<(), TestError> {
-        self.tran.send(SetSource {
-            self_id: self.id,
-            x: Fixed::from_int(x),
-            y: Fixed::from_int(y),
-            width: Fixed::from_int(width),
-            height: Fixed::from_int(height),
-        })?;
-        Ok(())
-    }
-
-    pub fn set_destination(&self, width: i32, height: i32) -> Result<(), TestError> {
-        self.tran.send(SetDestination {
-            self_id: self.id,
-            width: width.max(1),
-            height: height.max(1),
-        })?;
-        Ok(())
+    pub fn set_destination(&self, width: i32, height: i32) {
+        self.client
+            .send_wp_viewport_set_destination(self.id, width.max(1), height.max(1));
     }
 }
-
-impl Drop for TestViewport {
-    fn drop(&mut self) {
-        let _ = self.destroy();
-    }
-}
-
-test_object! {
-    TestViewport, WpViewport;
-}
-
-impl TestObject for TestViewport {}

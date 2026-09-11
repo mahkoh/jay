@@ -1,3 +1,4 @@
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
 use std::rc::Rc;
@@ -10,8 +11,8 @@ testcase!();
 /// it's a good time to start drawing the next frame, and they should be posted after
 /// the compositor has finished presenting the previous frame (i.e., after vblank).
 async fn test(run: Rc<TestRun>) -> TestResult {
-    run.backend.install_default()?;
-    let client = run.create_client().await?;
+    run.backend.install_default().await?;
+    let client = run.create_client()?;
 
     // Create a visible window so frame callbacks can be triggered
     let window = client.create_window().await?;
@@ -21,8 +22,8 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     // Test 1: Basic frame callback functionality
     let surface = &window.surface.surface;
-    let callback1 = surface.frame()?;
-    surface.commit()?;
+    let callback1 = surface.frame();
+    surface.commit();
     client.sync().await;
 
     // Manually trigger vblank event to simulate frame completion
@@ -36,9 +37,9 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     tassert!(callback1.done.get());
 
     // Test 2: Multiple frame callbacks
-    let callback2 = surface.frame()?;
-    let callback3 = surface.frame()?;
-    surface.commit()?;
+    let callback2 = surface.frame();
+    let callback3 = surface.frame();
+    surface.commit();
     client.sync().await;
 
     // Before triggering vblank, callbacks should not be done yet
@@ -55,14 +56,12 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     // Test 3: Frame callbacks on invisible surface should not be processed
     // Create a new surface but don't make it visible
-    let invisible_surface = client.comp.create_surface().await?;
-    let buffer = client
-        .spbm
-        .create_buffer(crate::theme::Color::from_srgb(255, 0, 0))?;
-    invisible_surface.attach(buffer.id)?;
+    let invisible_surface = client.create_surface().await?;
+    let buffer = client.create_single_pixel_buffer(crate::theme::Color::from_srgb(255, 0, 0));
+    invisible_surface.attach(buffer.id);
 
-    let callback_invisible = invisible_surface.frame()?;
-    invisible_surface.commit()?;
+    let callback_invisible = invisible_surface.frame();
+    invisible_surface.commit();
     client.sync().await;
 
     // Trigger vblank manually - this processes frame callbacks
@@ -73,8 +72,8 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     tassert!(!callback_invisible.done.get());
 
     // Test 4: Frame callback timing - verify they happen after vblank
-    let callback_timing = surface.frame()?;
-    surface.commit()?;
+    let callback_timing = surface.frame();
+    surface.commit();
     client.sync().await;
 
     // The callback should not be done immediately after commit

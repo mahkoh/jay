@@ -1,3 +1,4 @@
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestError;
 use crate::it::testrun::TestRun;
 use crate::rect::Rect;
@@ -9,9 +10,9 @@ testcase!();
 
 /// Create and map two surfaces
 async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
-    run.backend.install_default()?;
+    run.backend.install_default().await?;
 
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
 
     let window = client.create_window().await?;
     window.map().await?;

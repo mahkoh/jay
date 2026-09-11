@@ -1,3 +1,4 @@
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestError;
 use crate::it::test_utils::test_container_node_ext::TestContainerExt;
 use crate::it::test_utils::test_ouput_node_ext::TestOutputNodeExt;
@@ -12,18 +13,18 @@ testcase!();
 async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let ds = run.create_default_setup().await?;
 
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
     let seat = client.get_default_seat().await?;
     let enter = seat.pointer.enter.expect()?;
     let win1 = client.create_window().await?;
     win1.map2().await?;
 
-    let buffer = client.spbm.create_buffer(Color::from_srgb(255, 0, 0))?;
-    let surface = client.comp.create_surface().await?;
-    let vp = client.viewporter.get_viewport(&surface)?;
-    vp.set_destination(100, 100)?;
-    surface.attach(buffer.id)?;
-    surface.commit()?;
+    let buffer = client.create_single_pixel_buffer(Color::from_srgb(255, 0, 0));
+    let surface = client.create_surface().await?;
+    let vp = client.get_viewport(&surface);
+    vp.set_destination(100, 100);
+    surface.attach(buffer.id);
+    surface.commit();
 
     let (x, y) = ds
         .output
@@ -35,13 +36,12 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
 
     client.sync().await;
     let enter = enter.next()?;
-    seat.pointer
-        .set_cursor(enter.serial, Some(&surface), 0, 0)?;
+    seat.pointer.set_cursor(enter.serial, Some(&surface), 0, 0);
 
     client.compare_screenshot("1", true).await?;
 
-    surface.offset(-100, -100)?;
-    surface.commit()?;
+    surface.offset(-100, -100);
+    surface.commit();
 
     client.compare_screenshot("2", true).await?;
 

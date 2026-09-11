@@ -105,7 +105,7 @@ macro_rules! global_base {
     };
 }
 
-#[expect(unused)]
+#[allow(unused)]
 macro_rules! synthetic_event_handler {
     ($oname:ty) => {
         impl crate::object::SyntheticObjectEventHandler for $oname {

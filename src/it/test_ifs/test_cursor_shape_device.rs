@@ -1,38 +1,29 @@
-use crate::it::test_error::TestResult;
-use crate::it::test_object::TestObject;
-use crate::it::test_transport::TestTransport;
+use crate::client::Client;
+use crate::it::test_client::TestClient;
+use crate::it::test_ifs::test_pointer::TestPointer;
 use crate::wire::WpCursorShapeDeviceV1Id;
-use crate::wire::wp_cursor_shape_device_v1::*;
-use std::cell::Cell;
 use std::rc::Rc;
 
 pub struct TestCursorShapeDevice {
     pub id: WpCursorShapeDeviceV1Id,
-    pub tran: Rc<TestTransport>,
-    pub destroyed: Cell<bool>,
+    pub client: Rc<Client>,
 }
 
 impl TestCursorShapeDevice {
-    #[expect(unused)]
-    pub fn destroy(&self) -> TestResult {
-        if !self.destroyed.replace(true) {
-            self.tran.send(Destroy { self_id: self.id })?;
-        }
-        Ok(())
-    }
-
-    pub fn set_shape(&self, serial: u32, shape: u32) -> TestResult {
-        self.tran.send(SetShape {
-            self_id: self.id,
-            serial,
-            shape,
-        })?;
-        Ok(())
+    pub fn set_shape(&self, serial: u32, shape: u32) {
+        self.client
+            .send_wp_cursor_shape_device_v1_set_shape(self.id, serial, shape);
     }
 }
 
-test_object! {
-    TestCursorShapeDevice, WpCursorShapeDeviceV1;
+impl TestClient {
+    pub fn get_cursor_shape_device(&self, pointer: &TestPointer) -> Rc<TestCursorShapeDevice> {
+        let id = self
+            .client
+            .send_wp_cursor_shape_manager_v1_get_pointer(pointer.id);
+        Rc::new(TestCursorShapeDevice {
+            id,
+            client: self.client.clone(),
+        })
+    }
 }
-
-impl TestObject for TestCursorShapeDevice {}

@@ -212,11 +212,11 @@ impl TestBackend {
         Ok(())
     }
 
-    pub fn install_default(&self) -> TestResult {
-        self.install_default2(false)
+    pub async fn install_default(&self) -> TestResult {
+        self.install_default2(false).await
     }
 
-    pub fn install_default2(&self, need_drm: bool) -> TestResult {
+    pub async fn install_default2(&self, need_drm: bool) -> TestResult {
         self.state
             .backend_events
             .push(BackendEvent::NewDrmDevice(self.default_drm_dev.clone()));
@@ -233,6 +233,7 @@ impl TestBackend {
         self.state
             .backend_events
             .push(BackendEvent::NewInputDevice(self.default_mouse.clone()));
+        self.state.eng.idle().await;
         Ok(())
     }
 

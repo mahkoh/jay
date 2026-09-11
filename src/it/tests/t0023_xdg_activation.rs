@@ -1,3 +1,4 @@
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestResult;
 use crate::it::test_utils::test_ouput_node_ext::TestOutputNodeExt;
 use crate::it::test_utils::test_toplevel_node_ext::TestToplevelNodeExt;
@@ -9,7 +10,7 @@ testcase!();
 async fn test(run: Rc<TestRun>) -> TestResult {
     let ds = run.create_default_setup().await?;
 
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
 
     let win1 = client.create_window().await?;
     win1.set_color(255, 0, 0, 255);
@@ -25,8 +26,8 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     client.sync().await;
     run.cfg.set_mono(ds.seat.id(), true)?;
 
-    let token = client.activation.get_token().await?;
-    client.activation.activate(&win2.surface, &token)?;
+    let token = client.get_activation_token().await?;
+    client.activate(&win2.surface, &token);
     client.sync().await;
 
     client.compare_screenshot("1", false).await?;

@@ -20,7 +20,7 @@ pub struct TestWindow {
 impl TestWindow {
     pub async fn map(&self) -> Result<(), TestError> {
         if let Some(serial) = self.xdg.last_serial.take() {
-            self.xdg.ack_configure(serial)?;
+            self.xdg.ack_configure(serial);
         }
         self.surface
             .map(self.tl.core.width.get(), self.tl.core.height.get())

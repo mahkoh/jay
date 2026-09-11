@@ -1,4 +1,5 @@
 use crate::ifs::wl_seat::BTN_LEFT;
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestErrorExt;
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
@@ -13,22 +14,22 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     ds.mouse.rel(1.0, 1.0);
     run.sync().await;
 
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
     let cds = client.get_default_seat().await?;
 
     let window = client.create_window().await?;
     window.map().await?;
     window.map().await?;
 
-    let ns = client.comp.create_surface().await?;
-    let nsv = client.viewporter.get_viewport(&ns)?;
-    let nss = client.sub.get_subsurface(ns.id, window.surface.id).await?;
-    nss.set_position(100, 100)?;
-    let buffer = client.spbm.create_buffer(Color::SOLID_BLACK)?;
-    ns.attach(buffer.id)?;
-    nsv.set_source(0, 0, 1, 1)?;
-    nsv.set_destination(100, 100)?;
-    ns.commit()?;
+    let ns = client.create_surface().await?;
+    let nsv = client.get_viewport(&ns);
+    let nss = client.get_subsurface(ns.id, window.surface.id);
+    nss.set_position(100, 100);
+    let buffer = client.create_single_pixel_buffer(Color::SOLID_BLACK);
+    ns.attach(buffer.id);
+    nsv.set_source(0, 0, 1, 1);
+    nsv.set_destination(100, 100);
+    ns.commit();
 
     run.cfg.set_fullscreen(ds.seat.id(), true)?;
     client.sync().await;

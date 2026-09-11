@@ -1,3 +1,4 @@
+use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestError;
 use crate::it::test_utils::test_window::TestWindow;
 use crate::it::testrun::TestRun;
@@ -12,7 +13,7 @@ testcase!();
 async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let ds = run.create_default_setup().await?;
 
-    let client = run.create_client().await?;
+    let client = run.create_client()?;
 
     let window1 = client.create_window().await?;
     window1.map().await?;
@@ -27,7 +28,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
     let assert_visible = |w: &TestWindow| {
         tassert!(w.tl.server.node_visible(LiveTL));
         tassert_eq!(w.tl.server.node_output_id(), Some(ds.output.id));
-        Ok(())
+        Ok::<(), TestError>(())
     };
 
     let assert_invisible = |w: &TestWindow| {
@@ -36,7 +37,7 @@ async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
             w.tl.server.node_output_id(),
             Some(run.state.dummy_output_id),
         );
-        Ok(())
+        Ok::<(), TestError>(())
     };
 
     tassert!(!window1.tl.server.tl_data().parent_is_float.get());
