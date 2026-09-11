@@ -282,7 +282,8 @@ fn start_compositor2(
     let color_manager = ColorManager::new();
     let crit_ids = Rc::new(CritMatcherIds::default());
     let eventfd_cache = EventfdCache::new(&ring, &engine);
-    let sqlite = Sqlite::open(&ring, &engine, test_future.is_some())
+    let is_test = test_future.is_some();
+    let sqlite = Sqlite::open(&ring, &engine, is_test)
         .inspect_err(|e| {
             log::warn!("Could not open sqlite: {}", ErrorFmt(e));
         })
@@ -489,6 +490,7 @@ fn start_compositor2(
         spaces_changed: Default::default(),
         theme_listeners: Default::default(),
         scales_changed: Default::default(),
+        is_test,
     });
     state.tracker.register(ClientId::from_raw(0));
     state.add_output_scale(Scale::from_int(1));
