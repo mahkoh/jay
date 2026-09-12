@@ -43,7 +43,7 @@ impl ZwpPrimarySelectionDeviceManagerV1Global {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -58,7 +58,7 @@ impl ZwpPrimarySelectionDeviceManagerV1RequestHandler for ZwpPrimarySelectionDev
             self.version,
         ));
         track!(self.client, res);
-        self.client.add_client_obj(&res)?;
+        self.client.add_client_obj(&res);
         Ok(())
     }
 
@@ -72,7 +72,7 @@ impl ZwpPrimarySelectionDeviceManagerV1RequestHandler for ZwpPrimarySelectionDev
         ));
         track!(self.client, dev);
         seat.global.add_primary_selection_device(&dev);
-        self.client.add_client_obj(&dev)?;
+        self.client.add_client_obj(&dev);
         Ok(())
     }
 

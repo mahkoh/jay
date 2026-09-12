@@ -33,7 +33,7 @@ impl WpContentTypeManagerV1Global {
             version,
         });
         track!(client, mgr);
-        client.add_client_obj(&mgr)?;
+        client.add_client_obj(&mgr);
         Ok(())
     }
 }
@@ -81,7 +81,7 @@ impl WpContentTypeManagerV1RequestHandler for WpContentTypeManagerV1 {
             version: self.version,
         });
         track!(self.client, device);
-        self.client.add_client_obj(&device)?;
+        self.client.add_client_obj(&device);
         Ok(())
     }
 }

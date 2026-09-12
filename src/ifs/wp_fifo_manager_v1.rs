@@ -42,7 +42,7 @@ impl WpFifoManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -70,7 +70,7 @@ impl WpFifoManagerV1RequestHandler for WpFifoManagerV1 {
         let fs = Rc::new(WpFifoV1::new(req.id, self.version, &surface));
         track!(self.client, fs);
         fs.install()?;
-        self.client.add_client_obj(&fs)?;
+        self.client.add_client_obj(&fs);
         Ok(())
     }
 }

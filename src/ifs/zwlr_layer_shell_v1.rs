@@ -53,7 +53,7 @@ impl ZwlrLayerShellV1Global {
             bugs: bugs::get_by_comm(&client.pid_info.comm),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -92,7 +92,7 @@ impl ZwlrLayerShellV1RequestHandler for ZwlrLayerShellV1 {
             req.namespace,
         ));
         track!(self.client, surface);
-        self.client.add_client_obj(&surface)?;
+        self.client.add_client_obj(&surface);
         surface.install()?;
         Ok(())
     }

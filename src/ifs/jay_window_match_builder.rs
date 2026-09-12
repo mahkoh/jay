@@ -56,7 +56,7 @@ impl JayWindowMatchBuilderRequestHandler for JayWindowMatchBuilder {
             m: self.builder.build()?,
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         Ok(())
     }
 

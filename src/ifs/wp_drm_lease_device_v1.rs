@@ -51,7 +51,7 @@ impl WpDrmLeaseDeviceV1Global {
             destroyed: Cell::new(false),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         if let Some(dev) = client.state.drm_devs.get(&self.device) {
             if let Some(node) = &dev.devnode {
                 match reopen_card(node) {
@@ -169,7 +169,7 @@ impl WpDrmLeaseDeviceV1RequestHandler for WpDrmLeaseDeviceV1 {
             connectors: Default::default(),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         Ok(())
     }
 

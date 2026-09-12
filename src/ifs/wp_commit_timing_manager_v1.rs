@@ -44,7 +44,7 @@ impl WpCommitTimingManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -72,7 +72,7 @@ impl WpCommitTimingManagerV1RequestHandler for WpCommitTimingManagerV1 {
         let obj = Rc::new(WpCommitTimerV1::new(req.id, self.version, &surface));
         track!(self.client, obj);
         obj.install()?;
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         Ok(())
     }
 }

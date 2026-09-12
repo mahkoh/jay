@@ -39,7 +39,7 @@ impl ExtIdleNotifierV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -72,7 +72,7 @@ impl ExtIdleNotifierV1 {
             version: self.version,
         });
         track!(self.client, notification);
-        self.client.add_client_obj(&notification)?;
+        self.client.add_client_obj(&notification);
         let future = self.client.state.eng.spawn(
             "idle notifier",
             run(notification.clone(), skip_if_inhibited),

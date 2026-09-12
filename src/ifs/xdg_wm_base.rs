@@ -61,7 +61,7 @@ impl XdgWmBaseGlobal {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -88,7 +88,7 @@ impl XdgWmBaseRequestHandler for XdgWmBase {
     fn create_positioner(&self, req: CreatePositioner, slf: &Rc<Self>) -> Result<(), Self::Error> {
         let pos = Rc::new(XdgPositioner::new(slf, req.id, &self.client));
         track!(self.client, pos);
-        self.client.add_client_obj(&pos)?;
+        self.client.add_client_obj(&pos);
         Ok(())
     }
 
@@ -96,7 +96,7 @@ impl XdgWmBaseRequestHandler for XdgWmBase {
         let surface = self.client.lookup(req.surface)?;
         let xdg_surface = Rc::new(XdgSurface::new(slf, req.id, &surface));
         track!(self.client, xdg_surface);
-        self.client.add_client_obj(&xdg_surface)?;
+        self.client.add_client_obj(&xdg_surface);
         xdg_surface.install()?;
         self.surfaces.set(req.id, xdg_surface);
         Ok(())

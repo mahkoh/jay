@@ -41,7 +41,7 @@ impl ZwpTextInputManagerV3Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -73,7 +73,7 @@ impl ZwpTextInputManagerV3RequestHandler for ZwpTextInputManagerV3 {
             self.version,
         ));
         track!(self.client, ti);
-        self.client.add_client_obj(&ti)?;
+        self.client.add_client_obj(&ti);
         seat.global
             .text_inputs
             .borrow_mut()

@@ -85,7 +85,7 @@ impl JayCompositorGlobal {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         obj.send_capabilities();
         Ok(())
     }
@@ -142,7 +142,7 @@ impl JayCompositor {
             tracker: Default::default(),
         });
         track!(self.client, ss);
-        self.client.add_client_obj(&ss)?;
+        self.client.add_client_obj(&ss);
         match take_screenshot(&self.client.state, include_cursor, hdr10) {
             Ok(s) => {
                 let dmabuf = s.bo.dmabuf();
@@ -196,7 +196,7 @@ impl JayCompositorRequestHandler for JayCompositor {
     fn get_log_file(&self, req: GetLogFile, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let log_file = Rc::new(JayLogFile::new(req.id, self.version, &self.client));
         track!(self.client, log_file);
-        self.client.add_client_obj(&log_file)?;
+        self.client.add_client_obj(&log_file);
         match &self.client.state.logger {
             Some(logger) => log_file.send_path(logger.path().as_bstr()),
             _ => log_file.send_path(b"".as_bstr()),
@@ -237,7 +237,7 @@ impl JayCompositorRequestHandler for JayCompositor {
             version: self.version,
         });
         track!(self.client, idle);
-        self.client.add_client_obj(&idle)?;
+        self.client.add_client_obj(&idle);
         Ok(())
     }
 
@@ -288,7 +288,7 @@ impl JayCompositorRequestHandler for JayCompositor {
             tracker: Default::default(),
         });
         track!(self.client, se);
-        self.client.add_client_obj(&se)?;
+        self.client.add_client_obj(&se);
         self.client
             .state
             .testers
@@ -307,7 +307,7 @@ impl JayCompositorRequestHandler for JayCompositor {
             tracker: Default::default(),
         });
         track!(self.client, jo);
-        self.client.add_client_obj(&jo)?;
+        self.client.add_client_obj(&jo);
         if let Some(node) = jo.output.node() {
             node.jay_outputs.set((self.client.id, req.id), jo.clone());
             jo.send_linear_id();
@@ -327,7 +327,7 @@ impl JayCompositorRequestHandler for JayCompositor {
             tracker: Default::default(),
         });
         track!(self.client, ctx);
-        self.client.add_client_obj(&ctx)?;
+        self.client.add_client_obj(&ctx);
         Ok(())
     }
 
@@ -339,7 +339,7 @@ impl JayCompositorRequestHandler for JayCompositor {
             version: self.version,
         });
         track!(self.client, ctx);
-        self.client.add_client_obj(&ctx)?;
+        self.client.add_client_obj(&ctx);
         self.client
             .state
             .render_ctx_watchers
@@ -357,7 +357,7 @@ impl JayCompositorRequestHandler for JayCompositor {
             tracker: Default::default(),
         });
         track!(self.client, watcher);
-        self.client.add_client_obj(&watcher)?;
+        self.client.add_client_obj(&watcher);
         self.client
             .state
             .workspace_watchers
@@ -371,28 +371,28 @@ impl JayCompositorRequestHandler for JayCompositor {
     fn create_screencast(&self, req: CreateScreencast, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let sc = Rc::new_cyclic(|slf| JayScreencast::new(req.id, &self.client, slf, self.version));
         track!(self.client, sc);
-        self.client.add_client_obj(&sc)?;
+        self.client.add_client_obj(&sc);
         Ok(())
     }
 
     fn get_randr(&self, req: GetRandr, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let sc = Rc::new(JayRandr::new(req.id, &self.client, self.version));
         track!(self.client, sc);
-        self.client.add_client_obj(&sc)?;
+        self.client.add_client_obj(&sc);
         Ok(())
     }
 
     fn get_input(&self, req: GetInput, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let sc = Rc::new(JayInput::new(req.id, &self.client, self.version));
         track!(self.client, sc);
-        self.client.add_client_obj(&sc)?;
+        self.client.add_client_obj(&sc);
         Ok(())
     }
 
     fn select_toplevel(&self, req: SelectToplevel, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let obj = JaySelectToplevel::new(&self.client, req.id, self.version);
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         let selector = JayToplevelSelector {
             tl: Default::default(),
             jst: obj.clone(),
@@ -421,7 +421,7 @@ impl JayCompositorRequestHandler for JayCompositor {
             destroyed: Cell::new(false),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         let selector = JayWorkspaceSelector {
             ws: Default::default(),
             jsw: obj.clone(),
@@ -447,7 +447,7 @@ impl JayCompositorRequestHandler for JayCompositor {
             app_id: Default::default(),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         Ok(())
     }
 
@@ -459,14 +459,14 @@ impl JayCompositorRequestHandler for JayCompositor {
             version: self.version,
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         Ok(())
     }
 
     fn get_toplevel(&self, req: GetToplevel<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let obj = JaySelectToplevel::new(&self.client, req.id, self.version);
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         let tl = match ToplevelIdentifier::from_str(req.toplevel_id) {
             Ok(id) => self
                 .client
@@ -495,7 +495,7 @@ impl JayCompositorRequestHandler for JayCompositor {
             version: self.version,
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         Ok(())
     }
 
@@ -508,7 +508,7 @@ impl JayCompositorRequestHandler for JayCompositor {
             args: Default::default(),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         Ok(())
     }
 
@@ -519,7 +519,7 @@ impl JayCompositorRequestHandler for JayCompositor {
     ) -> Result<(), Self::Error> {
         let obj = Rc::new(JayClientQuery::new(&self.client, req.id, self.version));
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         Ok(())
     }
 
@@ -533,7 +533,7 @@ impl JayCompositorRequestHandler for JayCompositor {
     fn create_tree_query(&self, req: CreateTreeQuery, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let obj = Rc::new(JayTreeQuery::new(&self.client, req.id, self.version));
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         Ok(())
     }
 
@@ -549,7 +549,7 @@ impl JayCompositorRequestHandler for JayCompositor {
             version: self.version,
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         let state = &self.client.state;
         match state.tagged_acceptors.get(state, req.tag) {
             Ok(d) => obj.send_done(&d),
@@ -566,7 +566,7 @@ impl JayCompositorRequestHandler for JayCompositor {
         let surface = self.client.lookup(req.surface)?;
         let obj = Rc::new(JaySyncFileSurface::new(req.id, self.version, &surface));
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         Ok(())
     }
 
@@ -590,7 +590,7 @@ impl JayCompositorRequestHandler for JayCompositor {
             version: self.version,
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         if let Err(e) = self.client.state.open_control_center() {
             obj.send_failed(e);
         }
@@ -611,7 +611,7 @@ impl JayCompositorRequestHandler for JayCompositor {
             shortcuts_group: Default::default(),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         Ok(())
     }
 
@@ -629,7 +629,7 @@ impl JayCompositorRequestHandler for JayCompositor {
             builder,
         });
         track!(self.client, cmb);
-        self.client.add_client_obj(&cmb)?;
+        self.client.add_client_obj(&cmb);
         JayGenericMatchBuilder::create(req.gmb, &self.client, self.version, &cmb.builder)?;
         Ok(())
     }
@@ -648,7 +648,7 @@ impl JayCompositorRequestHandler for JayCompositor {
             builder,
         });
         track!(self.client, cmb);
-        self.client.add_client_obj(&cmb)?;
+        self.client.add_client_obj(&cmb);
         JayGenericMatchBuilder::create(req.gmb, &self.client, self.version, &cmb.builder)?;
         Ok(())
     }

@@ -44,7 +44,7 @@ impl WlDrmGlobal {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         if let Some(rc) = client.state.render_ctx.get() {
             if let Some(rn) = rc.render_node() {
                 obj.send_device(&rn);
@@ -162,7 +162,7 @@ impl WlDrmRequestHandler for WlDrm {
         );
         let buffer = WlBuffer::new_dmabuf(req.id, &self.client, format, dmabuf, None);
         track!(self.client, buffer);
-        self.client.add_client_obj(&buffer)?;
+        self.client.add_client_obj(&buffer);
         Ok(())
     }
 }

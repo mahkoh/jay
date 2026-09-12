@@ -33,7 +33,7 @@ impl XdgToplevelDragManagerV1Global {
             version,
         });
         track!(client, mgr);
-        client.add_client_obj(&mgr)?;
+        client.add_client_obj(&mgr);
         Ok(())
     }
 }
@@ -78,7 +78,7 @@ impl XdgToplevelDragManagerV1RequestHandler for XdgToplevelDragManagerV1 {
         }
         let drag = Rc::new(XdgToplevelDragV1::new(req.id, &source, self.version));
         track!(&self.client, drag);
-        self.client.add_client_obj(&drag)?;
+        self.client.add_client_obj(&drag);
         source.toplevel_drag.set(Some(drag));
         Ok(())
     }

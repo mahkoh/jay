@@ -35,7 +35,7 @@ impl ZwlrGammaControlManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -69,7 +69,7 @@ impl ZwlrGammaControlManagerV1RequestHandler for ZwlrGammaControlManagerV1 {
         let output = self.client.lookup(req.output)?.global.clone();
         let p = Rc::new(ZwlrGammaControlV1::new(req.id, slf, output.clone()));
         track!(self.client, p);
-        self.client.add_client_obj(&p)?;
+        self.client.add_client_obj(&p);
         let Some(size) = p.gamma_lut_size() else {
             p.send_failed();
             return Ok(());

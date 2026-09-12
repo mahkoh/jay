@@ -121,7 +121,7 @@ impl WpImageDescriptionCreatorParamsV1RequestHandler for WpImageDescriptionCreat
             description: Some(description),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         obj.send_ready();
         self.client.remove_obj(self);
         Ok(())

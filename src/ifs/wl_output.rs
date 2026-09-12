@@ -310,7 +310,7 @@ impl WlOutputGlobal {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         self.bindings
             .borrow_mut()
             .entry(client.id)

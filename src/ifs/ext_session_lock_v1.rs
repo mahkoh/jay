@@ -84,7 +84,7 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
         });
         track!(new.client, new);
         new.install()?;
-        self.client.add_client_obj(&new)?;
+        self.client.add_client_obj(&new);
         if !self.finished.get()
             && let Some(node) = output.global.node()
         {

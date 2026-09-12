@@ -33,7 +33,7 @@ impl WpSinglePixelBufferManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -74,7 +74,7 @@ impl WpSinglePixelBufferManagerV1RequestHandler for WpSinglePixelBufferManagerV1
     ) -> Result<(), Self::Error> {
         let buffer = WlBuffer::new_single_pixel(req.id, &self.client, req.r, req.g, req.b, req.a);
         track!(self.client, buffer);
-        self.client.add_client_obj(&buffer)?;
+        self.client.add_client_obj(&buffer);
         Ok(())
     }
 }

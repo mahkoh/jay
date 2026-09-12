@@ -38,7 +38,7 @@ impl ExtImageCopyCaptureManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -66,7 +66,7 @@ impl ExtImageCopyCaptureManagerV1RequestHandler for ExtImageCopyCaptureManagerV1
             )
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         'send_constraints: {
             let id = (self.client.id, obj.id);
             match &source.ty {
@@ -125,7 +125,7 @@ impl ExtImageCopyCaptureManagerV1RequestHandler for ExtImageCopyCaptureManagerV1
             have_session: Default::default(),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         Ok(())
     }
 

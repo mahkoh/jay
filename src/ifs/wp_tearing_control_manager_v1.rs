@@ -34,7 +34,7 @@ impl WpTearingControlManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -78,7 +78,7 @@ impl WpTearingControlManagerV1RequestHandler for WpTearingControlManagerV1 {
             version: self.version,
         });
         track!(self.client, control);
-        self.client.add_client_obj(&control)?;
+        self.client.add_client_obj(&control);
         control.install()?;
         Ok(())
     }

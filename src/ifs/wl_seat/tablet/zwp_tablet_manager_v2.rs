@@ -41,7 +41,7 @@ impl ZwpTabletManagerV2Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -69,7 +69,7 @@ impl ZwpTabletManagerV2RequestHandler for ZwpTabletManagerV2 {
             version: self.version,
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         seat.tablet_add_seat(&obj);
         Ok(())
     }

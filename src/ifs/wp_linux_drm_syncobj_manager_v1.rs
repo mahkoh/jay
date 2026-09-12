@@ -45,7 +45,7 @@ impl WpLinuxDrmSyncobjManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -82,7 +82,7 @@ impl WpLinuxDrmSyncobjManagerV1RequestHandler for WpLinuxDrmSyncobjManagerV1 {
         ));
         track!(self.client, sync);
         sync.install()?;
-        self.client.add_client_obj(&sync)?;
+        self.client.add_client_obj(&sync);
         Ok(())
     }
 
@@ -95,7 +95,7 @@ impl WpLinuxDrmSyncobjManagerV1RequestHandler for WpLinuxDrmSyncobjManagerV1 {
             self.version,
         ));
         track!(self.client, sync);
-        self.client.add_client_obj(&sync)?;
+        self.client.add_client_obj(&sync);
         Ok(())
     }
 }

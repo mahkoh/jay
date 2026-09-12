@@ -35,7 +35,7 @@ impl WpCursorShapeManagerV1Global {
             version,
         });
         track!(client, mgr);
-        client.add_client_obj(&mgr)?;
+        client.add_client_obj(&mgr);
         Ok(())
     }
 }
@@ -72,7 +72,7 @@ impl WpCursorShapeManagerV1 {
             version: self.version,
         });
         track!(self.client, device);
-        self.client.add_client_obj(&device)?;
+        self.client.add_client_obj(&device);
         Ok(())
     }
 }

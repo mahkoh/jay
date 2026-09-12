@@ -180,7 +180,7 @@ impl ZwpPointerConstraintsV1Global {
             version,
         });
         track!(client, cs);
-        client.add_client_obj(&cs)?;
+        client.add_client_obj(&cs);
         Ok(())
     }
 }
@@ -271,7 +271,7 @@ impl ZwpPointerConstraintsV1RequestHandler for ZwpPointerConstraintsV1 {
             version: self.version,
         });
         track!(self.client, lp);
-        self.client.add_client_obj(&lp)?;
+        self.client.add_client_obj(&lp);
         lp.constraint.owner.set(Some(lp.clone()));
         lp.constraint
             .surface
@@ -296,7 +296,7 @@ impl ZwpPointerConstraintsV1RequestHandler for ZwpPointerConstraintsV1 {
             version: self.version,
         });
         track!(self.client, lp);
-        self.client.add_client_obj(&lp)?;
+        self.client.add_client_obj(&lp);
         lp.constraint.owner.set(Some(lp.clone()));
         lp.constraint
             .surface

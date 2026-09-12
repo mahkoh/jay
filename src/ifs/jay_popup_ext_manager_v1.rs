@@ -42,7 +42,7 @@ impl JayPopupExtManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -74,7 +74,7 @@ impl JayPopupExtManagerV1RequestHandler for JayPopupExtManagerV1 {
             &popup,
         ));
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         obj.install()?;
         Ok(())
     }

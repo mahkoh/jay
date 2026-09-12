@@ -145,7 +145,7 @@ impl ZwpLinuxBufferParamsV1 {
         };
         track!(self.parent.client, buffer);
         if buffer_id.is_some() {
-            self.parent.client.add_client_obj(&buffer)?;
+            self.parent.client.add_client_obj(&buffer);
         } else {
             self.parent.client.add_server_obj(&buffer);
         }

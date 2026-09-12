@@ -34,7 +34,7 @@ impl WpViewporterGlobal {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -70,7 +70,7 @@ impl WpViewporterRequestHandler for WpViewporter {
         let viewport = Rc::new(WpViewport::new(req.id, &surface, self.version));
         track!(self.client, viewport);
         viewport.install()?;
-        self.client.add_client_obj(&viewport)?;
+        self.client.add_client_obj(&viewport);
         Ok(())
     }
 }

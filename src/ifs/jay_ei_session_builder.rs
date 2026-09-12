@@ -56,7 +56,7 @@ impl JayEiSessionBuilderRequestHandler for JayEiSessionBuilder {
             version: self.version,
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         match res {
             Ok((_, fd)) => obj.send_created(&fd),
             Err(e) => {

@@ -533,7 +533,7 @@ impl XdgSurfaceRequestHandler for XdgSurface {
         }
         let toplevel = Rc::new_cyclic(|weak| XdgToplevel::new(req.id, slf, weak));
         track!(self.surface.client, toplevel);
-        self.surface.client.add_client_obj(&toplevel)?;
+        self.surface.client.add_client_obj(&toplevel);
         self.ext.set(Some(toplevel.clone()));
         if self.base.version >= WM_CAPABILITIES_SINCE {
             toplevel.send_wm_capabilities();
@@ -562,7 +562,7 @@ impl XdgSurfaceRequestHandler for XdgSurface {
         }
         let popup = Rc::new(XdgPopup::new(req.id, slf, &positioner)?);
         track!(self.surface.client, popup);
-        self.surface.client.add_client_obj(&popup)?;
+        self.surface.client.add_client_obj(&popup);
         if let Some(parent) = &parent {
             let user = Rc::new(Popup {
                 parent: parent.clone(),

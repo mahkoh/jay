@@ -33,7 +33,7 @@ impl ZxdgDecorationManagerV1Global {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -77,7 +77,7 @@ impl ZxdgDecorationManagerV1RequestHandler for ZxdgDecorationManagerV1 {
             self.version,
         ));
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         obj.do_send_configure();
         Ok(())
     }

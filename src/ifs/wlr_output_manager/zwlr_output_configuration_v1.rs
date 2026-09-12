@@ -160,7 +160,7 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
             tracker: Default::default(),
         });
         track!(self.client, configuration_head);
-        self.client.add_client_obj(&configuration_head)?;
+        self.client.add_client_obj(&configuration_head);
         self.enabled_outputs
             .set(head.connector_id, configuration_head);
         Ok(())

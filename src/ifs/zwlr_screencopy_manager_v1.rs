@@ -40,7 +40,7 @@ impl ZwlrScreencopyManagerV1Global {
             version,
         });
         track!(client, mgr);
-        client.add_client_obj(&mgr)?;
+        client.add_client_obj(&mgr);
         Ok(())
     }
 }
@@ -130,7 +130,7 @@ impl ZwlrScreencopyManagerV1 {
             pending: Default::default(),
         });
         track!(self.client, frame);
-        self.client.add_client_obj(&frame)?;
+        self.client.add_client_obj(&frame);
         frame.send_buffer();
         if self.version >= 3 {
             frame.send_linux_dmabuf();

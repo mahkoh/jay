@@ -229,7 +229,7 @@ impl ZwpInputMethodV2RequestHandler for ZwpInputMethodV2 {
             was_on_screen: Default::default(),
         });
         track!(self.client, popup);
-        self.client.add_client_obj(&popup)?;
+        self.client.add_client_obj(&popup);
         popup.install()?;
         Ok(())
     }
@@ -247,7 +247,7 @@ impl ZwpInputMethodV2RequestHandler for ZwpInputMethodV2 {
             kb_state_id: Cell::new(KeyboardStateId::from_raw(0)),
         });
         track!(self.client, grab);
-        self.client.add_client_obj(&grab)?;
+        self.client.add_client_obj(&grab);
         grab.send_repeat_info();
         self.seat.input_method_grab.set(Some(grab));
         Ok(())

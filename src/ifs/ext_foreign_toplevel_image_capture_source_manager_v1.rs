@@ -34,7 +34,7 @@ impl ExtForeignToplevelImageCaptureSourceManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -62,7 +62,7 @@ impl ExtForeignToplevelImageCaptureSourceManagerV1RequestHandler
             ty: ImageCaptureSource::Toplevel(handle.toplevel.clone()),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         Ok(())
     }
 

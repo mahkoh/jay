@@ -79,7 +79,7 @@ impl WlShmPoolRequestHandler for WlShmPool {
             None,
         )?;
         track!(self.client, buffer);
-        self.client.add_client_obj(&buffer)?;
+        self.client.add_client_obj(&buffer);
         Ok(())
     }
 

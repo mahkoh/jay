@@ -37,7 +37,7 @@ impl RemovedWpDrmLeaseDeviceV1Global {
             destroyed: Cell::new(false),
         });
         track!(client, dev);
-        client.add_client_obj(&dev)?;
+        client.add_client_obj(&dev);
         dev.send_done();
         dev.bindings.add(client, &dev);
         Ok(())

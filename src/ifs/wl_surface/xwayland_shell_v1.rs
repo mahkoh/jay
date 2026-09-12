@@ -43,7 +43,7 @@ impl XwaylandShellV1Global {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -74,7 +74,7 @@ impl XwaylandShellV1RequestHandler for XwaylandShellV1 {
         });
         track!(self.client, xws);
         xws.x.xwayland_surface.set(Some(xws.clone()));
-        self.client.add_client_obj(&xws)?;
+        self.client.add_client_obj(&xws);
         Ok(())
     }
 }

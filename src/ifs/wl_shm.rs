@@ -44,7 +44,7 @@ impl WlShmGlobal {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         if let Some(ctx) = client.state.render_ctx.get() {
             for format in ctx.formats().values() {
                 if format.supports_shm {
@@ -74,7 +74,7 @@ impl WlShmRequestHandler for WlShm {
             self.version,
         )?);
         track!(self.client, pool);
-        self.client.add_client_obj(&pool)?;
+        self.client.add_client_obj(&pool);
         Ok(())
     }
 

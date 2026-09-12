@@ -190,7 +190,7 @@ impl JayClientTrace {
         if server {
             client.add_server_obj(&slf);
         } else {
-            client.add_client_obj(&slf)?;
+            client.add_client_obj(&slf);
         }
         if let Some(target) = target
             && let Some(sink) = &slf.sink

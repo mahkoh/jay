@@ -63,7 +63,7 @@ impl WpImageDescriptionV1RequestHandler for WpImageDescriptionV1 {
             version: self.version,
             tracker: Default::default(),
         });
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         track!(self.client, obj);
         obj.send_description(desc);
         self.client.remove_obj(&*obj);

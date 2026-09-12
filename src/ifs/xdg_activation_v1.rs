@@ -36,7 +36,7 @@ impl XdgActivationV1Global {
             version,
         });
         track!(client, mgr);
-        client.add_client_obj(&mgr)?;
+        client.add_client_obj(&mgr);
         Ok(())
     }
 }
@@ -78,7 +78,7 @@ impl XdgActivationV1RequestHandler for XdgActivationV1 {
             self.version,
         ));
         track!(self.client, token);
-        self.client.add_client_obj(&token)?;
+        self.client.add_client_obj(&token);
         Ok(())
     }
 

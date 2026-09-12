@@ -62,7 +62,7 @@ impl XdgSessionV1 {
             restored: Default::default(),
         });
         track!(self.client, &obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         let Some(session) = self.session.get() else {
             return Ok(());
         };

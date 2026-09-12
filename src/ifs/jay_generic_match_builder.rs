@@ -137,7 +137,7 @@ impl JayGenericMatchBuilder {
             builder: builder.clone(),
         });
         track!(client, slf);
-        client.add_client_obj(&slf)?;
+        client.add_client_obj(&slf);
         Ok(())
     }
 }

@@ -42,7 +42,7 @@ impl WpAlphaModifierV1Global {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -62,7 +62,7 @@ impl WpAlphaModifierV1RequestHandler for WpAlphaModifierV1 {
             self.version,
         ));
         track!(self.client, modifier);
-        self.client.add_client_obj(&modifier)?;
+        self.client.add_client_obj(&modifier);
         modifier.install()?;
         Ok(())
     }

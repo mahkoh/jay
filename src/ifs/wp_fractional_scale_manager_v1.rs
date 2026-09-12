@@ -42,7 +42,7 @@ impl WpFractionalScaleManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -74,7 +74,7 @@ impl WpFractionalScaleManagerV1RequestHandler for WpFractionalScaleManagerV1 {
         let fs = Rc::new(WpFractionalScaleV1::new(req.id, &surface, self.version));
         track!(self.client, fs);
         fs.install()?;
-        self.client.add_client_obj(&fs)?;
+        self.client.add_client_obj(&fs);
         fs.send_preferred_scale();
         Ok(())
     }

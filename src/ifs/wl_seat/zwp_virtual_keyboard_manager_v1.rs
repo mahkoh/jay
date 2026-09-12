@@ -45,7 +45,7 @@ impl ZwpVirtualKeyboardManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -93,7 +93,7 @@ impl ZwpVirtualKeyboardManagerV1RequestHandler for ZwpVirtualKeyboardManagerV1 {
             })),
         });
         track!(self.client, kb);
-        self.client.add_client_obj(&kb)?;
+        self.client.add_client_obj(&kb);
         Ok(())
     }
 }

@@ -34,7 +34,7 @@ impl XdgWmDialogV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -75,7 +75,7 @@ impl XdgWmDialogV1RequestHandler for XdgWmDialogV1 {
             version: self.version,
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         obj.install()?;
         Ok(())
     }

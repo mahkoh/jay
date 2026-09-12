@@ -82,7 +82,7 @@ impl ZwlrOutputManagerV1Global {
             destroyed: Cell::new(false),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         client
             .state
             .wlr_output_managers
@@ -120,7 +120,7 @@ impl ZwlrOutputManagerV1RequestHandler for ZwlrOutputManagerV1 {
             configured_outputs: Default::default(),
         });
         track!(self.client, configuration);
-        self.client.add_client_obj(&configuration)?;
+        self.client.add_client_obj(&configuration);
         Ok(())
     }
 

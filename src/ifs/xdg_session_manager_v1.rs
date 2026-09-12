@@ -48,7 +48,7 @@ impl XdgSessionManagerV1Global {
             sm: sm.clone(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -107,7 +107,7 @@ impl XdgSessionManagerV1RequestHandler for XdgSessionManagerV1 {
             link: Default::default(),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         let (session, status) = self
             .sm
             .get(name, req.session_id.is_some(), reason, obj.clone());

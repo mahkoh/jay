@@ -73,7 +73,7 @@ impl ExtWorkspaceManagerV1Global {
             done_scheduled: Cell::new(false),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         obj.opt.set(Some(obj.clone()));
         client
             .state

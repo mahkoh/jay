@@ -42,7 +42,7 @@ impl ZwlrForeignToplevelManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         client
             .state
             .visit_all_nodes(&mut ZwlrToplevelVisitor { manager: &obj });

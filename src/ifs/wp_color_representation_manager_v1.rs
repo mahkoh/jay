@@ -51,7 +51,7 @@ impl WpColorRepresentationManagerV1Global {
             supports_alpha_modes,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         obj.send_capabilities();
         Ok(())
     }
@@ -116,7 +116,7 @@ impl WpColorRepresentationManagerV1RequestHandler for WpColorRepresentationManag
             supports_alpha_modes: self.supports_alpha_modes,
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         obj.install()?;
         Ok(())
     }

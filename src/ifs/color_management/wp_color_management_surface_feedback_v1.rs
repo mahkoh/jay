@@ -40,7 +40,7 @@ impl WpColorManagementSurfaceFeedbackV1 {
             ),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         obj.send_ready();
         Ok(())
     }

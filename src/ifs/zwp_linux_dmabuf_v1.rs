@@ -37,7 +37,7 @@ impl ZwpLinuxDmabufV1Global {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         if version < FEEDBACK_SINCE_VERSION
             && let Some(ctx) = client.state.render_ctx.get()
         {
@@ -108,7 +108,7 @@ impl ZwpLinuxDmabufV1 {
             self.version,
         ));
         track!(self.client, fb);
-        self.client.add_client_obj(&fb)?;
+        self.client.add_client_obj(&fb);
         let connector = if let Some(surface) = surface {
             surface.dmabuf_feedback.set(id, fb.clone());
             surface.fullscreen.id()
@@ -138,7 +138,7 @@ impl ZwpLinuxDmabufV1RequestHandler for ZwpLinuxDmabufV1 {
     fn create_params(&self, req: CreateParams, slf: &Rc<Self>) -> Result<(), Self::Error> {
         let params = Rc::new(ZwpLinuxBufferParamsV1::new(req.params_id, slf));
         track!(self.client, params);
-        self.client.add_client_obj(&params)?;
+        self.client.add_client_obj(&params);
         Ok(())
     }
 

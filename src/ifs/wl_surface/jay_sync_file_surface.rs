@@ -62,7 +62,7 @@ impl JaySyncFileSurfaceRequestHandler for JaySyncFileSurface {
             self.version,
         ));
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         let pending = &mut *self.surface.pending.borrow_mut();
         if pending.sync_file_release.is_some() {
             return Err(JaySyncFileSurfaceError::HasRelease);

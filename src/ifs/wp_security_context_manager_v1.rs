@@ -33,7 +33,7 @@ impl WpSecurityContextManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -78,7 +78,7 @@ impl WpSecurityContextManagerV1RequestHandler for WpSecurityContextManagerV1 {
             committed: Default::default(),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         Ok(())
     }
 }

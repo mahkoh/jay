@@ -41,7 +41,7 @@ impl ZwpRelativePointerManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -81,7 +81,7 @@ impl ZwpRelativePointerManagerV1RequestHandler for ZwpRelativePointerManagerV1 {
             version: self.version,
         });
         track!(self.client, rp);
-        self.client.add_client_obj(&rp)?;
+        self.client.add_client_obj(&rp);
         pointer.seat.relative_pointers.set(req.id, rp);
         Ok(())
     }

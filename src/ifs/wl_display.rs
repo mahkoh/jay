@@ -44,7 +44,7 @@ impl WlDisplayRequestHandler for WlDisplay {
     fn sync(&self, req: Sync, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let cb = Rc::new(WlCallback::new(req.callback, &self.client));
         track!(self.client, cb);
-        self.client.add_client_obj(&cb)?;
+        self.client.add_client_obj(&cb);
         cb.send_done(0);
         self.client.remove_obj(&*cb);
         Ok(())
@@ -53,7 +53,7 @@ impl WlDisplayRequestHandler for WlDisplay {
     fn get_registry(&self, req: GetRegistry, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let registry = Rc::new(WlRegistry::new(req.registry, &self.client));
         track!(self.client, registry);
-        self.client.add_client_obj(&registry)?;
+        self.client.add_client_obj(&registry);
         self.client.state.globals.notify_all(&registry);
         Ok(())
     }

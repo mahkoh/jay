@@ -43,7 +43,7 @@ impl ZwpInputMethodManagerV2Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -81,7 +81,7 @@ impl ZwpInputMethodManagerV2RequestHandler for ZwpInputMethodManagerV2 {
             pending: Default::default(),
         });
         track!(self.client, im);
-        self.client.add_client_obj(&im)?;
+        self.client.add_client_obj(&im);
         if inert {
             im.send_unavailable();
         } else {

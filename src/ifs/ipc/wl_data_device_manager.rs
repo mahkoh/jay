@@ -51,7 +51,7 @@ impl WlDataDeviceManagerGlobal {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -66,7 +66,7 @@ impl WlDataDeviceManagerRequestHandler for WlDataDeviceManager {
     ) -> Result<(), Self::Error> {
         let res = Rc::new(WlDataSource::new(req.id, &self.client, self.version));
         track!(self.client, res);
-        self.client.add_client_obj(&res)?;
+        self.client.add_client_obj(&res);
         Ok(())
     }
 
@@ -80,7 +80,7 @@ impl WlDataDeviceManagerRequestHandler for WlDataDeviceManager {
         ));
         track!(self.client, dev);
         seat.global.add_data_device(&dev);
-        self.client.add_client_obj(&dev)?;
+        self.client.add_client_obj(&dev);
         Ok(())
     }
 

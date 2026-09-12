@@ -43,7 +43,7 @@ impl WlCompositorGlobal {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -54,7 +54,7 @@ impl WlCompositorRequestHandler for WlCompositor {
     fn create_surface(&self, req: CreateSurface, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let surface = Rc::new_cyclic(|slf| WlSurface::new(req.id, &self.client, self.version, slf));
         track!(self.client, surface);
-        self.client.add_client_obj(&surface)?;
+        self.client.add_client_obj(&surface);
         if self.client.is_xwayland {
             self.client
                 .state
@@ -68,7 +68,7 @@ impl WlCompositorRequestHandler for WlCompositor {
     fn create_region(&self, req: CreateRegion, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let region = Rc::new(WlRegion::new(req.id, &self.client, self.version));
         track!(self.client, region);
-        self.client.add_client_obj(&region)?;
+        self.client.add_client_obj(&region);
         Ok(())
     }
 

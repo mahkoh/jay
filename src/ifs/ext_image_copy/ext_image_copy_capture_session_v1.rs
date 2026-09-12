@@ -271,7 +271,7 @@ impl ExtImageCopyCaptureSessionV1RequestHandler for ExtImageCopyCaptureSessionV1
             session: slf.clone(),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         self.frame.set(Some(obj));
         Ok(())
     }

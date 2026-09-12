@@ -1267,7 +1267,7 @@ impl WlSurfaceRequestHandler for WlSurface {
     fn frame(&self, req: Frame, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let cb = Rc::new(WlCallback::new(req.callback, &self.client));
         track!(self.client, cb);
-        self.client.add_client_obj(&cb)?;
+        self.client.add_client_obj(&cb);
         self.pending
             .borrow_mut()
             .frame_request
@@ -1367,7 +1367,7 @@ impl WlSurfaceRequestHandler for WlSurface {
     fn get_release(&self, req: GetRelease, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let cb = Rc::new(WlCallback::new(req.callback, &self.client));
         track!(self.client, cb);
-        self.client.add_client_obj(&cb)?;
+        self.client.add_client_obj(&cb);
         let release = SurfaceRelease { cb };
         self.pending.borrow_mut().surface_release.push(release);
         Ok(())

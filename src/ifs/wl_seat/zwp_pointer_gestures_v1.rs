@@ -43,7 +43,7 @@ impl ZwpPointerGesturesV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -71,7 +71,7 @@ impl ZwpPointerGesturesV1RequestHandler for ZwpPointerGesturesV1 {
             version: self.version,
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         seat.swipe_bindings.add(&self.client, &obj);
         Ok(())
     }
@@ -86,7 +86,7 @@ impl ZwpPointerGesturesV1RequestHandler for ZwpPointerGesturesV1 {
             version: self.version,
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         seat.pinch_bindings.add(&self.client, &obj);
         Ok(())
     }
@@ -106,7 +106,7 @@ impl ZwpPointerGesturesV1RequestHandler for ZwpPointerGesturesV1 {
             version: self.version,
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         seat.hold_bindings.add(&self.client, &obj);
         Ok(())
     }

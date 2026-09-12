@@ -45,7 +45,7 @@ impl WlSubcompositorGlobal {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -63,7 +63,7 @@ impl WlSubcompositorRequestHandler for WlSubcompositor {
         let parent = self.client.lookup(req.parent)?;
         let subsurface = Rc::new(WlSubsurface::new(req.id, &surface, &parent, self.version));
         track!(self.client, subsurface);
-        self.client.add_client_obj(&subsurface)?;
+        self.client.add_client_obj(&subsurface);
         subsurface.install()?;
         Ok(())
     }

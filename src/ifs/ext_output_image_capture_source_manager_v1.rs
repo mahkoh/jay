@@ -34,7 +34,7 @@ impl ExtOutputImageCaptureSourceManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -60,7 +60,7 @@ impl ExtOutputImageCaptureSourceManagerV1RequestHandler for ExtOutputImageCaptur
             ty: ImageCaptureSource::Output(output.global.clone()),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         Ok(())
     }
 

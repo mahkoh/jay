@@ -41,7 +41,7 @@ impl ZxdgOutputManagerV1Global {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -64,7 +64,7 @@ impl ZxdgOutputManagerV1RequestHandler for ZxdgOutputManagerV1 {
             tracker: Default::default(),
         });
         track!(self.client, xdg_output);
-        self.client.add_client_obj(&xdg_output)?;
+        self.client.add_client_obj(&xdg_output);
         xdg_output.send_updates(true);
         output.xdg_outputs.set(req.id, xdg_output);
         Ok(())

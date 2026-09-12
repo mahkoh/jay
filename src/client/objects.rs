@@ -74,26 +74,26 @@ impl Objects {
         }
     }
 
-    pub fn add_server_object(&self, obj: Rc<dyn Object>) {
-        let id = obj.id();
+    pub fn add_server_object(&self, id: ObjectId, obj: Rc<dyn Object>) {
         assert!(id.raw() >= MIN_SERVER_ID);
         assert!(!self.registry.contains(&id));
-        self.registry.set(id, obj.clone());
+        self.registry.set(id, obj);
     }
 
-    pub fn add_client_object(&self, obj: Rc<dyn Object>) -> Result<(), ClientError> {
-        let id = obj.id();
-        let res = (|| {
-            let raw = id.raw();
-            if raw == 0 || (raw >= MIN_SERVER_ID && raw < FIRST_SYNTHETIC_ID) {
-                return Err(ClientError::ClientIdOutOfBounds);
-            }
-            if self.registry.contains(&id) {
-                return Err(ClientError::IdAlreadyInUse);
-            }
-            self.registry.set(id, obj.clone());
+    pub fn add_client_object(&self, id: ObjectId, obj: Rc<dyn Object>) -> Result<(), ClientError> {
+        let raw = id.raw();
+        let res = if raw == 0 || (raw >= MIN_SERVER_ID && raw < FIRST_SYNTHETIC_ID) {
+            Err(ClientError::ClientIdOutOfBounds)
+        } else if self.registry.contains(&id) {
+            Err(ClientError::IdAlreadyInUse)
+        } else {
             Ok(())
-        })();
+        };
+        let mut registry_id = id;
+        if res.is_err() {
+            registry_id = self.synthetic_id();
+        }
+        self.registry.set(registry_id, obj);
         if let Err(e) = res {
             return Err(ClientError::AddObjectError(id, Box::new(e)));
         }

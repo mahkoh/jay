@@ -47,7 +47,7 @@ impl ExtImageCopyCaptureCursorSessionV1RequestHandler for ExtImageCopyCaptureCur
             )
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         obj.send_shm_formats();
         obj.send_buffer_size(1, 1);
         obj.send_done();

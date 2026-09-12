@@ -37,7 +37,7 @@ impl ExtSessionLockManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -70,7 +70,7 @@ impl ExtSessionLockManagerV1RequestHandler for ExtSessionLockManagerV1 {
             version: self.version,
         });
         track!(new.client, new);
-        self.client.add_client_obj(&new)?;
+        self.client.add_client_obj(&new);
         if did_lock {
             log::info!("Client {} locks the screen", self.client.id);
             let state = &self.client.state;

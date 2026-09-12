@@ -35,7 +35,7 @@ impl ZwpIdleInhibitManagerV1Global {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -77,7 +77,7 @@ impl ZwpIdleInhibitManagerV1RequestHandler for ZwpIdleInhibitManagerV1 {
             version: self.version,
         });
         track!(self.client, inhibit);
-        self.client.add_client_obj(&inhibit)?;
+        self.client.add_client_obj(&inhibit);
         inhibit.install()?;
         Ok(())
     }

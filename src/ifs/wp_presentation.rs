@@ -36,7 +36,7 @@ impl WpPresentationGlobal {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         obj.send_clock_id();
         Ok(())
     }
@@ -91,7 +91,7 @@ impl WpPresentationRequestHandler for WpPresentation {
             version: self.version,
         });
         track!(self.client, fb);
-        self.client.add_client_obj(&fb)?;
+        self.client.add_client_obj(&fb);
         surface.add_presentation_feedback(PresentationFeedback::new(fb));
         Ok(())
     }

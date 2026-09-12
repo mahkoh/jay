@@ -63,7 +63,7 @@ impl WpColorManagementOutputV1RequestHandler for WpColorManagementOutputV1 {
                 .map(|o| o.node_state[LiveTL].color_description.get()),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         if obj.description.is_some() {
             obj.send_ready();
         } else {

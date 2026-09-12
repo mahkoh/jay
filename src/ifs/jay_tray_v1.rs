@@ -43,7 +43,7 @@ impl JayTrayV1Global {
             output: self.output.clone(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -82,7 +82,7 @@ impl JayTrayV1RequestHandler for JayTrayV1 {
         ));
         track!(self.client, fs);
         fs.install()?;
-        self.client.add_client_obj(&fs)?;
+        self.client.add_client_obj(&fs);
         Ok(())
     }
 }

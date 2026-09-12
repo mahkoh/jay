@@ -61,7 +61,7 @@ impl JayGlobalTracer {
             m: m.clone(),
         });
         track!(client, slf);
-        client.add_client_obj(&slf)?;
+        client.add_client_obj(&slf);
         state.global_tracers.map.set(slf.tracer_id, slf.clone());
         let clients: Vec<_> = state
             .clients

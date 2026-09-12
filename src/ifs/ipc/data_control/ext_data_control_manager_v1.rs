@@ -46,7 +46,7 @@ impl ExtDataControlManagerV1Global {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -65,7 +65,7 @@ impl ExtDataControlManagerV1RequestHandler for ExtDataControlManagerV1 {
             self.version,
         ));
         track!(self.client, res);
-        self.client.add_client_obj(&res)?;
+        self.client.add_client_obj(&res);
         Ok(())
     }
 
@@ -79,7 +79,7 @@ impl ExtDataControlManagerV1RequestHandler for ExtDataControlManagerV1 {
         ));
         track!(self.client, dev);
         seat.global.add_data_control_device(dev.clone());
-        self.client.add_client_obj(&dev)?;
+        self.client.add_client_obj(&dev);
         dev.clone()
             .handle_new_source(IpcLocation::Clipboard, seat.global.get_selection());
         dev.clone().handle_new_source(

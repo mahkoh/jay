@@ -274,7 +274,9 @@ impl Clients {
         let display = Rc::new(WlDisplay::new(&data));
         track!(data, display);
         data.objects.display.set(Some(display.clone()));
-        data.objects.add_client_object(display).expect("");
+        data.objects
+            .add_client_object(WL_DISPLAY_ID.into(), display)
+            .expect("");
         let client = ClientHolder {
             _handler: global.eng.spawn("client", tasks::client(data.clone())),
             data: data.clone(),
@@ -640,12 +642,14 @@ impl Client {
         self.objects.registries()
     }
 
-    pub fn add_client_obj<T: Object>(&self, obj: &Rc<T>) -> Result<(), ClientError> {
+    pub fn add_client_obj<T: Object>(&self, obj: &Rc<T>) {
         if obj.id().raw() >= FIRST_SYNTHETIC_ID {
             self.add_server_obj(obj);
-            return Ok(());
+            return;
         }
-        self.add_obj(obj, true)
+        if let Err(e) = self.add_obj(obj, true) {
+            self.error(e);
+        }
     }
 
     pub fn add_server_obj<T: Object>(&self, obj: &Rc<T>) {
@@ -653,10 +657,11 @@ impl Client {
     }
 
     fn add_obj<T: Object>(&self, obj: &Rc<T>, client: bool) -> Result<(), ClientError> {
+        let id = obj.id();
         if client {
-            self.objects.add_client_object(obj.clone())?;
+            self.objects.add_client_object(id, obj.clone())?;
         } else {
-            self.objects.add_server_object(obj.clone());
+            self.objects.add_server_object(id, obj.clone());
         }
         obj.add(self);
         Ok(())
@@ -673,6 +678,9 @@ impl Client {
     }
 
     pub fn remove_obj<T: Object>(self: &Rc<Self>, obj: &T) {
+        if self.terminating.get() {
+            return;
+        }
         let id = obj.id();
         if id.raw() >= FIRST_SYNTHETIC_ID {
             self.synthetic_events.to_remove.push(id);
