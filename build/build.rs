@@ -28,6 +28,7 @@ mod indent;
 mod egl;
 mod enums;
 mod fuse;
+mod it_tests;
 mod logging;
 mod str_table;
 mod time_lt;
@@ -62,6 +63,7 @@ fn main() -> anyhow::Result<()> {
     logging::main()?;
     time_lt::main()?;
     fuse::main()?;
+    it_tests::main()?;
     str_table::main(open)?;
 
     println!("cargo:rerun-if-changed=build/build.rs");
