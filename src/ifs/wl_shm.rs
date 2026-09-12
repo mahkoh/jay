@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_shm_pool::WlShmPool;
@@ -96,12 +95,9 @@ simple_add_global!(WlShmGlobal);
 
 #[derive(Debug, Error)]
 pub enum WlShmError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("The passed size is negative")]
     NegativeSize,
     #[error(transparent)]
     WlShmPoolError(Box<WlShmPoolError>),
 }
-efrom!(WlShmError, ClientError);
 efrom!(WlShmError, WlShmPoolError);

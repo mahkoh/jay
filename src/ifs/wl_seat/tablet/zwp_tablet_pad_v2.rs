@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_seat::tablet::PadButtonState;
 use crate::ifs::wl_seat::tablet::TabletPad;
 use crate::ifs::wl_seat::tablet::zwp_tablet_pad_group_v2::ZwpTabletPadGroupV2;
@@ -13,8 +12,8 @@ use crate::wire::ZwpTabletPadV2Id;
 use crate::wire::zwp_tablet_pad_v2::*;
 use jay_proc::Object;
 use std::cell::Cell;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Object)]
 #[break_loops]
@@ -95,7 +94,7 @@ impl ZwpTabletPadV2 {
 }
 
 impl ZwpTabletPadV2RequestHandler for ZwpTabletPadV2 {
-    type Error = ZwpTabletPadV2Error;
+    type Error = Infallible;
 
     fn set_feedback(&self, _req: SetFeedback<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
@@ -113,10 +112,3 @@ impl BreakLoops for ZwpTabletPadV2 {
         self.detach();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwpTabletPadV2Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwpTabletPadV2Error, ClientError);

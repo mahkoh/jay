@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::client::ClientId;
 use crate::fixed::Fixed;
 use crate::ifs::ipc::DataOffer;
@@ -212,8 +211,6 @@ impl BreakLoops for WlDataOffer {
 
 #[derive(Debug, Error)]
 pub enum WlDataOfferError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("`finish` was already called")]
     AlreadyFinished,
     #[error("The drag operation is still ongoing")]
@@ -227,4 +224,3 @@ pub enum WlDataOfferError {
     #[error("Multiple preferred actions were specified")]
     MultiplePreferred,
 }
-efrom!(WlDataOfferError, ClientError);

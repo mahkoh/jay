@@ -29,7 +29,6 @@ use crate::backend::InputDeviceScrollMethod;
 use crate::backend::Leds;
 use crate::backend::TransformMatrix;
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::client::ClientId;
 use crate::control_center::CCI_INPUT;
 use crate::cursor_user::CursorUser;
@@ -1950,15 +1949,12 @@ impl BreakLoops for WlSeat {
 #[derive(Debug, Error)]
 pub enum WlSeatError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error(transparent)]
     IpcError(#[from] IpcError),
     #[error(transparent)]
     WlKeyboardError(Box<WlKeyboardError>),
     #[error("Data source has a toplevel attached")]
     OfferHasDrag,
 }
-efrom!(WlSeatError, ClientError);
 efrom!(WlSeatError, WlKeyboardError);
 
 pub fn collect_kb_foci2(node: Rc<dyn Node>, seats: &mut SmallVec<[Rc<WlSeatGlobal>; 3]>) {

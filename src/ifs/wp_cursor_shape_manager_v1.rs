@@ -59,11 +59,7 @@ pub struct WpCursorShapeManagerV1 {
 }
 
 impl WpCursorShapeManagerV1 {
-    fn get(
-        &self,
-        id: WpCursorShapeDeviceV1Id,
-        cursor_user: CursorShapeCursorUser,
-    ) -> Result<(), WpCursorShapeManagerV1Error> {
+    fn get(&self, id: WpCursorShapeDeviceV1Id, cursor_user: CursorShapeCursorUser) {
         let device = Rc::new(WpCursorShapeDeviceV1 {
             id,
             client: self.client.clone(),
@@ -73,7 +69,6 @@ impl WpCursorShapeManagerV1 {
         });
         track!(self.client, device);
         self.client.add_client_obj(&device);
-        Ok(())
     }
 }
 
@@ -90,7 +85,8 @@ impl WpCursorShapeManagerV1RequestHandler for WpCursorShapeManagerV1 {
         self.get(
             req.cursor_shape_device,
             CursorShapeCursorUser::Seat(pointer.seat.global.clone()),
-        )
+        );
+        Ok(())
     }
 
     fn get_tablet_tool_v2(&self, req: GetTabletToolV2, _slf: &Rc<Self>) -> Result<(), Self::Error> {
@@ -98,7 +94,8 @@ impl WpCursorShapeManagerV1RequestHandler for WpCursorShapeManagerV1 {
         self.get(
             req.cursor_shape_device,
             CursorShapeCursorUser::TabletTool(tool.tool.clone()),
-        )
+        );
+        Ok(())
     }
 }
 

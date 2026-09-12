@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_surface::WlSurface;
@@ -9,8 +8,8 @@ use crate::object::Version;
 use crate::wire::ZwpPointerGestureSwipeV1Id;
 use crate::wire::zwp_pointer_gesture_swipe_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Object)]
 #[break_loops]
@@ -57,7 +56,7 @@ impl ZwpPointerGestureSwipeV1 {
 }
 
 impl ZwpPointerGestureSwipeV1RequestHandler for ZwpPointerGestureSwipeV1 {
-    type Error = ZwpPointerGestureSwipeV1Error;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
@@ -71,10 +70,3 @@ impl BreakLoops for ZwpPointerGestureSwipeV1 {
         self.detach();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwpPointerGestureSwipeV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwpPointerGestureSwipeV1Error, ClientError);

@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
 use crate::object::Version;
@@ -7,8 +6,8 @@ use crate::tree::ToplevelOpt;
 use crate::wire::ExtForeignToplevelHandleV1Id;
 use crate::wire::ext_foreign_toplevel_handle_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Object)]
 #[break_loops]
@@ -29,7 +28,7 @@ impl ExtForeignToplevelHandleV1 {
 }
 
 impl ExtForeignToplevelHandleV1RequestHandler for ExtForeignToplevelHandleV1 {
-    type Error = ExtForeignToplevelHandleV1Error;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
@@ -74,10 +73,3 @@ impl BreakLoops for ExtForeignToplevelHandleV1 {
         self.detach();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ExtForeignToplevelHandleV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ExtForeignToplevelHandleV1Error, ClientError);

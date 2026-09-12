@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::format::formats;
 use crate::gfx_api::GfxError;
 use crate::globals::Global;
@@ -169,8 +168,6 @@ impl WlDrmRequestHandler for WlDrm {
 
 #[derive(Debug, Error)]
 pub enum WlDrmError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("This api is not supported")]
     Unsupported,
     #[error("The format {0} is not supported")]
@@ -178,4 +175,3 @@ pub enum WlDrmError {
     #[error("Could not import the buffer")]
     ImportError(#[from] GfxError),
 }
-efrom!(WlDrmError, ClientError);

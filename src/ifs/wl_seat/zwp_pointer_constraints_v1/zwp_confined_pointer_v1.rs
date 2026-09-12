@@ -1,4 +1,3 @@
-use crate::client::ClientError;
 use crate::ifs::wl_seat::zwp_pointer_constraints_v1::ConstraintOwner;
 use crate::ifs::wl_seat::zwp_pointer_constraints_v1::SeatConstraint;
 use crate::ifs::wl_seat::zwp_pointer_constraints_v1::ZwpPointerConstraintsV1Error;
@@ -56,8 +55,5 @@ impl BreakLoops for ZwpConfinedPointerV1 {
 #[derive(Debug, Error)]
 pub enum ZwpConfinedPointerV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error(transparent)]
     ZwpPointerConstraintsV1Error(#[from] ZwpPointerConstraintsV1Error),
 }
-efrom!(ZwpConfinedPointerV1Error, ClientError);

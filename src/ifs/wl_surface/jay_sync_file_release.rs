@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::gfx_api::SyncFile;
 use crate::leaks::Tracker;
 use crate::object::Version;
@@ -7,8 +6,8 @@ use crate::wire::JaySyncFileReleaseId;
 use crate::wire::jay_sync_file_release::*;
 use jay_proc::Object;
 use std::cell::Cell;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct SyncFileRelease {
     pub release: Option<Rc<JaySyncFileRelease>>,
@@ -67,7 +66,7 @@ impl JaySyncFileRelease {
 }
 
 impl JaySyncFileReleaseRequestHandler for JaySyncFileRelease {
-    type Error = JaySyncFileReleaseError;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.destroyed.set(true);
@@ -75,10 +74,3 @@ impl JaySyncFileReleaseRequestHandler for JaySyncFileRelease {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum JaySyncFileReleaseError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(JaySyncFileReleaseError, ClientError);

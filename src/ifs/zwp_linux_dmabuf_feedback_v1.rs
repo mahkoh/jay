@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::dmabuf_feedback::DmaBufFeedbackId;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
@@ -9,8 +8,8 @@ use crate::wire::ZwpLinuxDmabufFeedbackV1Id;
 use crate::wire::zwp_linux_dmabuf_feedback_v1::*;
 use jay_proc::Object;
 use std::cell::Cell;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 use uapi::OwnedFd;
 use uapi::c;
 
@@ -91,7 +90,7 @@ impl ZwpLinuxDmabufFeedbackV1 {
 }
 
 impl ZwpLinuxDmabufFeedbackV1RequestHandler for ZwpLinuxDmabufFeedbackV1 {
-    type Error = ZwpLinuxDmabufFeedbackV1Error;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
@@ -119,10 +118,3 @@ impl BreakLoops for ZwpLinuxDmabufFeedbackV1 {
         self.detach();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwpLinuxDmabufFeedbackV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwpLinuxDmabufFeedbackV1Error, ClientError);

@@ -96,11 +96,7 @@ impl ZwpLinuxDmabufV1 {
         })
     }
 
-    fn get_feedback(
-        &self,
-        id: ZwpLinuxDmabufFeedbackV1Id,
-        surface: Option<&Rc<WlSurface>>,
-    ) -> Result<(), ZwpLinuxDmabufV1Error> {
+    fn get_feedback(&self, id: ZwpLinuxDmabufFeedbackV1Id, surface: Option<&Rc<WlSurface>>) {
         let fb = Rc::new(ZwpLinuxDmabufFeedbackV1::new(
             id,
             &self.client,
@@ -123,7 +119,6 @@ impl ZwpLinuxDmabufV1 {
         if let Some(dfb) = self.client.state.dmabuf_feedback.fb.get() {
             dfb.send(&fb, connector);
         }
-        Ok(())
     }
 }
 
@@ -147,7 +142,7 @@ impl ZwpLinuxDmabufV1RequestHandler for ZwpLinuxDmabufV1 {
         req: GetDefaultFeedback,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        self.get_feedback(req.id, None)?;
+        self.get_feedback(req.id, None);
         Ok(())
     }
 
@@ -157,7 +152,7 @@ impl ZwpLinuxDmabufV1RequestHandler for ZwpLinuxDmabufV1 {
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
         let surface = self.client.lookup(req.surface)?;
-        self.get_feedback(req.id, Some(&surface))?;
+        self.get_feedback(req.id, Some(&surface));
         Ok(())
     }
 }

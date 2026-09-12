@@ -3,13 +3,12 @@ use crate::client::ClientError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1;
-use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1Error;
-use crate::ifs::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Error;
 use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::ZwpIdleInhibitManagerV1Id;
 use crate::wire::zwp_idle_inhibit_manager_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -27,7 +26,7 @@ impl ZwpIdleInhibitManagerV1Global {
         id: ZwpIdleInhibitManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), ZxdgDecorationManagerV1Error> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(ZwpIdleInhibitManagerV1 {
             id,
             client: client.clone(),
@@ -78,7 +77,7 @@ impl ZwpIdleInhibitManagerV1RequestHandler for ZwpIdleInhibitManagerV1 {
         });
         track!(self.client, inhibit);
         self.client.add_client_obj(&inhibit);
-        inhibit.install()?;
+        inhibit.install();
         Ok(())
     }
 }
@@ -87,7 +86,5 @@ impl ZwpIdleInhibitManagerV1RequestHandler for ZwpIdleInhibitManagerV1 {
 pub enum ZwpIdleInhibitManagerV1Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
-    #[error(transparent)]
-    ZwpIdleInhibitorV1Error(#[from] ZwpIdleInhibitorV1Error),
 }
 efrom!(ZwpIdleInhibitManagerV1Error, ClientError);

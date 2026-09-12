@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::ext_image_capture_source_v1::ImageCaptureSource;
 use crate::ifs::ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1;
 use crate::leaks::Tracker;
@@ -57,9 +56,6 @@ impl ExtImageCopyCaptureCursorSessionV1RequestHandler for ExtImageCopyCaptureCur
 
 #[derive(Debug, Error)]
 pub enum ExtImageCopyCaptureCursorSessionV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("The session has already been created")]
     HaveSession,
 }
-efrom!(ExtImageCopyCaptureCursorSessionV1Error, ClientError);

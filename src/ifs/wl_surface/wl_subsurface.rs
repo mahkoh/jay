@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_surface::AttachedSubsurfaceState;
 use crate::ifs::wl_surface::CommitAction;
 use crate::ifs::wl_surface::PendingState;
@@ -527,12 +526,9 @@ pub enum WlSubsurfaceError {
     MaxDepthExceeded,
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("Cannot place {0} above/below itself")]
     AboveSelf(WlSurfaceId),
     #[error("{0} is not a sibling of {1}")]
     NotASibling(WlSurfaceId, WlSurfaceId),
 }
 efrom!(WlSubsurfaceError, WlSurfaceError);
-efrom!(WlSubsurfaceError, ClientError);

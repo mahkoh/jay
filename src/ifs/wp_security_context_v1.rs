@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::WpSecurityContextV1Id;
@@ -94,8 +93,6 @@ impl WpSecurityContextV1RequestHandler for WpSecurityContextV1 {
 
 #[derive(Debug, Error)]
 pub enum WpSecurityContextV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("The sandbox engine has already been set")]
     EnginSet,
     #[error("The app id has already been set")]
@@ -105,4 +102,3 @@ pub enum WpSecurityContextV1Error {
     #[error("The context has already been committed")]
     Committed,
 }
-efrom!(WpSecurityContextV1Error, ClientError);

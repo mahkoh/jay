@@ -5,7 +5,6 @@ use crate::backend::BackendColorSpace;
 use crate::backend::BackendEotfs;
 use crate::backend::BackendLuminance;
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::client::ClientId;
 use crate::cmm::cmm_primaries::Primaries;
 use crate::format::Format;
@@ -41,10 +40,10 @@ use jay_proc::Object;
 use linearize::Linearize;
 use std::cell::Cell;
 use std::cell::RefCell;
+use std::convert::Infallible;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::rc::Rc;
-use thiserror::Error;
 
 const SP_UNKNOWN: i32 = 0;
 #[expect(unused)]
@@ -300,7 +299,7 @@ impl WlOutputGlobal {
         id: WlOutputId,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), WlOutputError> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(WlOutput {
             global: self.opt.clone(),
             id,
@@ -487,7 +486,7 @@ impl WlOutput {
 }
 
 impl WlOutputRequestHandler for WlOutput {
-    type Error = WlOutputError;
+    type Error = Infallible;
 
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.xdg_outputs.clear();
@@ -503,10 +502,3 @@ impl BreakLoops for WlOutput {
         self.remove_binding();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum WlOutputError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(WlOutputError, ClientError);

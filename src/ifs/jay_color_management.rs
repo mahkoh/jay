@@ -1,12 +1,11 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::JayColorManagementId;
 use crate::wire::jay_color_management::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Object)]
 pub struct JayColorManagement {
@@ -33,7 +32,7 @@ impl JayColorManagement {
 }
 
 impl JayColorManagementRequestHandler for JayColorManagement {
-    type Error = JayColorManagementError;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
@@ -51,10 +50,3 @@ impl JayColorManagementRequestHandler for JayColorManagement {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum JayColorManagementError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(JayColorManagementError, ClientError);

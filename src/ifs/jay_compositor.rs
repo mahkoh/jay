@@ -630,7 +630,7 @@ impl JayCompositorRequestHandler for JayCompositor {
         });
         track!(self.client, cmb);
         self.client.add_client_obj(&cmb);
-        JayGenericMatchBuilder::create(req.gmb, &self.client, self.version, &cmb.builder)?;
+        JayGenericMatchBuilder::create(req.gmb, &self.client, self.version, &cmb.builder);
         Ok(())
     }
 
@@ -649,7 +649,7 @@ impl JayCompositorRequestHandler for JayCompositor {
         });
         track!(self.client, cmb);
         self.client.add_client_obj(&cmb);
-        JayGenericMatchBuilder::create(req.gmb, &self.client, self.version, &cmb.builder)?;
+        JayGenericMatchBuilder::create(req.gmb, &self.client, self.version, &cmb.builder);
         Ok(())
     }
 
@@ -690,13 +690,13 @@ impl JayCompositorRequestHandler for JayCompositor {
             target.as_ref(),
             self.version,
             false,
-        )?;
+        );
         Ok(())
     }
 
     fn trace_clients(&self, req: TraceClients, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let obj = self.client.lookup(req.client_match)?;
-        JayGlobalTracer::install(req.clients, &self.client, &obj.m, self.version)?;
+        JayGlobalTracer::install(req.clients, &self.client, &obj.m, self.version);
         Ok(())
     }
 }

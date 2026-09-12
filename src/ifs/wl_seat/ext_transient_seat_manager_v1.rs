@@ -1,7 +1,6 @@
 use crate::client::CAP_SEAT_MANAGER;
 use crate::client::Client;
 use crate::client::ClientCaps;
-use crate::client::ClientError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_seat::ext_transient_seat_v1::ExtTransientSeatV1;
@@ -10,8 +9,8 @@ use crate::object::Version;
 use crate::wire::ExtTransientSeatManagerV1Id;
 use crate::wire::ext_transient_seat_manager_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct ExtTransientSeatManagerV1Global {
     name: GlobalName,
@@ -35,7 +34,7 @@ impl ExtTransientSeatManagerV1Global {
         id: ExtTransientSeatManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), ExtTransientSeatManagerV1Error> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(ExtTransientSeatManagerV1 {
             id,
             client: client.clone(),
@@ -63,7 +62,7 @@ impl Global for ExtTransientSeatManagerV1Global {
 simple_add_global!(ExtTransientSeatManagerV1Global);
 
 impl ExtTransientSeatManagerV1RequestHandler for ExtTransientSeatManagerV1 {
-    type Error = ExtTransientSeatManagerV1Error;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
@@ -83,10 +82,3 @@ impl ExtTransientSeatManagerV1RequestHandler for ExtTransientSeatManagerV1 {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ExtTransientSeatManagerV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ExtTransientSeatManagerV1Error, ClientError);

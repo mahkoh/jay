@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::criteria::CritUpstreamNode;
 use crate::ifs::jay_client_trace::JayClientTrace;
 use crate::leaks::Tracker;
@@ -10,8 +9,8 @@ use crate::wire::JayClientTraceId;
 use crate::wire::JayGlobalTracerId;
 use crate::wire::jay_global_tracer::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Default)]
 pub struct GlobalTracers {
@@ -50,7 +49,7 @@ impl JayGlobalTracer {
         client: &Rc<Client>,
         m: &Rc<dyn CritUpstreamNode<Rc<Client>>>,
         version: Version,
-    ) -> Result<(), ClientError> {
+    ) {
         let state = &client.state;
         let slf = Rc::new(JayGlobalTracer {
             id,
@@ -75,7 +74,6 @@ impl JayGlobalTracer {
         for client in &clients {
             slf.announce_client_unchecked(client);
         }
-        Ok(())
     }
 
     fn announce_client(&self, target: &Rc<Client>) {
@@ -86,15 +84,9 @@ impl JayGlobalTracer {
     }
 
     fn announce_client_unchecked(&self, target: &Rc<Client>) {
-        if let Err(e) = self.announce_client_(target) {
-            self.client.error(e);
-        }
-    }
-
-    fn announce_client_(&self, target: &Rc<Client>) -> Result<(), ClientError> {
         let id = self.client.new_id(self);
         self.send_client_trace(id);
-        JayClientTrace::install(id, &self.client, Some(target), self.version, true)
+        JayClientTrace::install(id, &self.client, Some(target), self.version, true);
     }
 
     fn send_stopped(&self) {
@@ -114,7 +106,7 @@ impl JayGlobalTracer {
 }
 
 impl JayGlobalTracerRequestHandler for JayGlobalTracer {
-    type Error = JayClientsTracerError;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
@@ -134,10 +126,3 @@ impl BreakLoops for JayGlobalTracer {
         self.detach();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum JayClientsTracerError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(JayClientsTracerError, ClientError);

@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
@@ -8,8 +7,8 @@ use crate::tree::TreeTimeline::LiveTL;
 use crate::wire::ZwpIdleInhibitorV1Id;
 use crate::wire::zwp_idle_inhibitor_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 linear_ids!(IdleInhibitorIds, IdleInhibitorId, u64);
 
@@ -25,7 +24,7 @@ pub struct ZwpIdleInhibitorV1 {
 }
 
 impl ZwpIdleInhibitorV1RequestHandler for ZwpIdleInhibitorV1 {
-    type Error = ZwpIdleInhibitorV1Error;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
@@ -37,12 +36,11 @@ impl ZwpIdleInhibitorV1RequestHandler for ZwpIdleInhibitorV1 {
 }
 
 impl ZwpIdleInhibitorV1 {
-    pub fn install(self: &Rc<Self>) -> Result<(), ZwpIdleInhibitorV1Error> {
+    pub fn install(self: &Rc<Self>) {
         self.surface.idle_inhibitors.insert(self.id, self.clone());
         if self.surface.visible[LiveTL].get() {
             self.activate();
         }
-        Ok(())
     }
 
     pub fn activate(self: &Rc<Self>) {
@@ -61,10 +59,3 @@ impl BreakLoops for ZwpIdleInhibitorV1 {
         self.deactivate();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwpIdleInhibitorV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwpIdleInhibitorV1Error, ClientError);

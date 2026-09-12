@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::clientmem::ClientMem;
 use crate::clientmem::ClientMemError;
 use crate::format::formats;
@@ -112,8 +111,6 @@ impl WlShmPoolRequestHandler for WlShmPool {
 #[derive(Debug, Error)]
 pub enum WlShmPoolError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error(transparent)]
     ClientMemError(Box<ClientMemError>),
     #[error("Tried to shrink the pool")]
     CannotShrink,
@@ -126,6 +123,5 @@ pub enum WlShmPoolError {
     #[error(transparent)]
     WlBufferError(Box<WlBufferError>),
 }
-efrom!(WlShmPoolError, ClientError);
 efrom!(WlShmPoolError, ClientMemError);
 efrom!(WlShmPoolError, WlBufferError);

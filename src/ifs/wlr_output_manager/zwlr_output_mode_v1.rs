@@ -1,6 +1,5 @@
 use crate::backend::Mode;
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wlr_output_manager::zwlr_output_head_v1::WlrOutputHeadId;
 use crate::leaks::Tracker;
 use crate::object::Version;
@@ -8,8 +7,8 @@ use crate::wire::ZwlrOutputModeV1Id;
 use crate::wire::zwlr_output_mode_v1::*;
 use jay_proc::Object;
 use std::cell::Cell;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Object)]
 pub struct ZwlrOutputModeV1 {
@@ -58,7 +57,7 @@ impl ZwlrOutputModeV1 {
 }
 
 impl ZwlrOutputModeV1RequestHandler for ZwlrOutputModeV1 {
-    type Error = ZwlrOutputModeV1Error;
+    type Error = Infallible;
 
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.destroyed.set(true);
@@ -66,10 +65,3 @@ impl ZwlrOutputModeV1RequestHandler for ZwlrOutputModeV1 {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwlrOutputModeV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwlrOutputModeV1Error, ClientError);

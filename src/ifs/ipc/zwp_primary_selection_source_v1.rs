@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::ipc::DataSource;
 use crate::ifs::ipc::DynDataSource;
 use crate::ifs::ipc::SourceData;
@@ -19,8 +18,8 @@ use crate::object::Version;
 use crate::wire::ZwpPrimarySelectionSourceV1Id;
 use crate::wire::zwp_primary_selection_source_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 use uapi::OwnedFd;
 
 #[derive(Object)]
@@ -84,7 +83,7 @@ impl ZwpPrimarySelectionSourceV1 {
 }
 
 impl ZwpPrimarySelectionSourceV1RequestHandler for ZwpPrimarySelectionSourceV1 {
-    type Error = ZwpPrimarySelectionSourceV1Error;
+    type Error = Infallible;
 
     fn offer(&self, req: Offer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         add_data_source_mime_type::<PrimarySelectionIpc>(self, req.mime_type);
@@ -103,10 +102,3 @@ impl BreakLoops for ZwpPrimarySelectionSourceV1 {
         break_source_loops::<PrimarySelectionIpc>(&*self);
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwpPrimarySelectionSourceV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwpPrimarySelectionSourceV1Error, ClientError);

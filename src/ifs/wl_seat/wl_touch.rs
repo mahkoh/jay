@@ -1,4 +1,3 @@
-use crate::client::ClientError;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::WlSeat;
 use crate::leaks::Tracker;
@@ -7,8 +6,8 @@ use crate::wire::WlSurfaceId;
 use crate::wire::WlTouchId;
 use crate::wire::wl_touch::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[expect(unused)]
 pub const SHAPE_SINCE_VERSION: Version = Version(6);
@@ -103,7 +102,7 @@ impl WlTouch {
 }
 
 impl WlTouchRequestHandler for WlTouch {
-    type Error = WlTouchError;
+    type Error = Infallible;
 
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.seat.touches.remove(&self.id);
@@ -111,10 +110,3 @@ impl WlTouchRequestHandler for WlTouch {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum WlTouchError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(WlTouchError, ClientError);

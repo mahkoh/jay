@@ -1,14 +1,13 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1;
 use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::JayIdleId;
 use crate::wire::jay_idle::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
 use std::time::Duration;
-use thiserror::Error;
 
 #[derive(Object)]
 pub struct JayIdle {
@@ -50,7 +49,7 @@ impl JayIdle {
 }
 
 impl JayIdleRequestHandler for JayIdle {
-    type Error = JayIdleError;
+    type Error = Infallible;
 
     fn get_status(&self, _req: GetStatus, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.send_interval();
@@ -80,10 +79,3 @@ impl JayIdleRequestHandler for JayIdle {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum JayIdleError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(JayIdleError, ClientError);

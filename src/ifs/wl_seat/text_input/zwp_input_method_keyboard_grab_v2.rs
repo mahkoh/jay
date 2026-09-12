@@ -1,6 +1,5 @@
 use crate::backend::KeyState;
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_seat::text_input::InputMethodKeyboardGrab;
 use crate::ifs::wl_seat::text_input::zwp_input_method_v2::ZwpInputMethodV2;
 use crate::ifs::wl_seat::wl_keyboard;
@@ -14,8 +13,8 @@ use crate::wire::ZwpInputMethodKeyboardGrabV2Id;
 use crate::wire::zwp_input_method_keyboard_grab_v2::*;
 use jay_proc::Object;
 use std::cell::Cell;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Object)]
 #[break_loops]
@@ -123,7 +122,7 @@ impl InputMethodKeyboardGrab for ZwpInputMethodKeyboardGrabV2 {
 }
 
 impl ZwpInputMethodKeyboardGrabV2RequestHandler for ZwpInputMethodKeyboardGrabV2 {
-    type Error = ZwpInputMethodKeyboardGrabV2Error;
+    type Error = Infallible;
 
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
@@ -137,10 +136,3 @@ impl BreakLoops for ZwpInputMethodKeyboardGrabV2 {
         self.detach();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwpInputMethodKeyboardGrabV2Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwpInputMethodKeyboardGrabV2Error, ClientError);

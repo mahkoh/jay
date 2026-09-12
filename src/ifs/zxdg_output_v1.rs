@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_output::SEND_DONE_SINCE;
 use crate::ifs::wl_output::WlOutput;
 use crate::leaks::Tracker;
@@ -8,8 +7,8 @@ use crate::tree::TreeTimeline::LiveTL;
 use crate::wire::ZxdgOutputV1Id;
 use crate::wire::zxdg_output_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub const NAME_SINCE: Version = Version(2);
 pub const DESCRIPTION_SINCE: Version = Version(2);
@@ -88,7 +87,7 @@ impl ZxdgOutputV1 {
 }
 
 impl ZxdgOutputV1RequestHandler for ZxdgOutputV1 {
-    type Error = ZxdgOutputV1Error;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.output.xdg_outputs.remove(&self.id);
@@ -96,10 +95,3 @@ impl ZxdgOutputV1RequestHandler for ZxdgOutputV1 {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZxdgOutputV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZxdgOutputV1Error, ClientError);

@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::cmm::cmm_description::ColorDescription;
 use crate::format::FORMATS;
 use crate::format::Format;
@@ -339,9 +338,6 @@ impl BreakLoops for ExtImageCopyCaptureSessionV1 {
 
 #[derive(Debug, Error)]
 pub enum ExtImageCopyCaptureSessionV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("There already is a pending frame")]
     HaveFrame,
 }
-efrom!(ExtImageCopyCaptureSessionV1Error, ClientError);

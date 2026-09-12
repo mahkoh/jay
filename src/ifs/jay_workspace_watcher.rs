@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::jay_workspace::JayWorkspace;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
@@ -9,8 +8,8 @@ use crate::utils::clonecell::CloneCell;
 use crate::wire::JayWorkspaceWatcherId;
 use crate::wire::jay_workspace_watcher::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Object)]
 #[break_loops]
@@ -52,7 +51,7 @@ impl JayWorkspaceWatcher {
 }
 
 impl JayWorkspaceWatcherRequestHandler for JayWorkspaceWatcher {
-    type Error = JayWorkspaceWatcherError;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.remove_from_state();
@@ -66,10 +65,3 @@ impl BreakLoops for JayWorkspaceWatcher {
         self.remove_from_state();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum JayWorkspaceWatcherError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(JayWorkspaceWatcherError, ClientError);

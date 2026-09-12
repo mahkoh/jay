@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::utils::clone3::Forked;
@@ -13,8 +12,8 @@ use jay_algorithms::oserror::OsErrorExt;
 use jay_proc::Object;
 use std::array::from_mut;
 use std::cell::RefCell;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 use uapi::OwnedFd;
 use uapi::UstrPtr;
 use uapi::c;
@@ -110,7 +109,7 @@ impl JayReexec {
 }
 
 impl JayReexecRequestHandler for JayReexec {
-    type Error = JayReexecError;
+    type Error = Infallible;
 
     fn arg(&self, req: Arg<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.args.borrow_mut().push(req.arg.to_owned());
@@ -132,10 +131,3 @@ impl JayReexecRequestHandler for JayReexec {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum JayReexecError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(JayReexecError, ClientError);

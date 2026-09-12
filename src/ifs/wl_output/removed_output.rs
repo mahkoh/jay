@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::globals::RemovableWaylandGlobal;
@@ -8,8 +7,8 @@ use crate::ifs::wl_output::WlOutput;
 use crate::ifs::wl_output::WlOutputGlobal;
 use crate::object::Version;
 use crate::wire::WlOutputId;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 struct RemovedOutputGlobal {
     name: GlobalName,
@@ -21,7 +20,7 @@ impl RemovedOutputGlobal {
         id: WlOutputId,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), RemovedOutputError> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(WlOutput {
             global: Default::default(),
             id,
@@ -51,10 +50,3 @@ impl RemovableWaylandGlobal for WlOutputGlobal {
         Rc::new(RemovedOutputGlobal { name: self.name })
     }
 }
-
-#[derive(Debug, Error)]
-enum RemovedOutputError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(RemovedOutputError, ClientError);

@@ -1,7 +1,6 @@
 use crate::client::CAP_JAY_COMPOSITOR;
 use crate::client::Client;
 use crate::client::ClientCaps;
-use crate::client::ClientError;
 use crate::cmm::cmm_eotf::Eotf;
 use crate::gfx_api::AlphaMode;
 use crate::globals::Global;
@@ -16,9 +15,9 @@ use crate::wire::jay_damage_tracking::SetVisualizerColor;
 use crate::wire::jay_damage_tracking::SetVisualizerDecay;
 use crate::wire::jay_damage_tracking::SetVisualizerEnabled;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
 use std::time::Duration;
-use thiserror::Error;
 
 pub struct JayDamageTrackingGlobal {
     name: GlobalName,
@@ -34,7 +33,7 @@ impl JayDamageTrackingGlobal {
         id: JayCompositorId,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), JayDamageTrackingError> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(JayDamageTracking {
             id,
             client: client.clone(),
@@ -70,7 +69,7 @@ pub struct JayDamageTracking {
 }
 
 impl JayDamageTrackingRequestHandler for JayDamageTracking {
-    type Error = JayDamageTrackingError;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
@@ -116,10 +115,3 @@ impl JayDamageTrackingRequestHandler for JayDamageTracking {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum JayDamageTrackingError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(JayDamageTrackingError, ClientError);

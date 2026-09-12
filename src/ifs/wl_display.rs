@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_registry::WlRegistry;
 use crate::leaks::Tracker;
@@ -10,8 +9,8 @@ use crate::wire::ObjectId;
 use crate::wire::WlDisplayId;
 use crate::wire::wl_display::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 const INVALID_OBJECT: u32 = 0;
 const INVALID_METHOD: u32 = 1;
@@ -39,7 +38,7 @@ impl WlDisplay {
 }
 
 impl WlDisplayRequestHandler for WlDisplay {
-    type Error = WlDisplayError;
+    type Error = Infallible;
 
     fn sync(&self, req: Sync, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let cb = Rc::new(WlCallback::new(req.callback, &self.client));
@@ -96,10 +95,3 @@ impl WlDisplay {
         })
     }
 }
-
-#[derive(Debug, Error)]
-pub enum WlDisplayError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(WlDisplayError, ClientError);

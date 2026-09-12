@@ -2,7 +2,6 @@ use crate::backend::DrmDeviceId;
 use crate::client::CAP_DRM_LEASE;
 use crate::client::Client;
 use crate::client::ClientCaps;
-use crate::client::ClientError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::globals::RemovableWaylandGlobal;
@@ -12,8 +11,8 @@ use crate::object::Version;
 use crate::utils::bindings::Bindings;
 use crate::wire::WpDrmLeaseDeviceV1Id;
 use std::cell::Cell;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 struct RemovedWpDrmLeaseDeviceV1Global {
     name: GlobalName,
@@ -26,7 +25,7 @@ impl RemovedWpDrmLeaseDeviceV1Global {
         id: WpDrmLeaseDeviceV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), RemovedWpDrmLeaseDeviceV1Error> {
+    ) -> Result<(), Infallible> {
         let dev = Rc::new(WpDrmLeaseDeviceV1 {
             id,
             client: client.clone(),
@@ -66,10 +65,3 @@ impl RemovableWaylandGlobal for WpDrmLeaseDeviceV1Global {
         })
     }
 }
-
-#[derive(Debug, Error)]
-pub enum RemovedWpDrmLeaseDeviceV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(RemovedWpDrmLeaseDeviceV1Error, ClientError);

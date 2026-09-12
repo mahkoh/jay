@@ -1,6 +1,5 @@
 use crate::async_engine::AsyncEngine;
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
 use crate::object::Version;
@@ -26,6 +25,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::borrow::Cow;
 use std::cell::Cell;
+use std::convert::Infallible;
 use std::io;
 use std::io::Write;
 use std::rc::Rc;
@@ -159,7 +159,7 @@ impl JayClientTrace {
         target: Option<&Rc<Client>>,
         version: Version,
         server: bool,
-    ) -> Result<(), ClientError> {
+    ) {
         let state = &client.state;
         let mut error = String::new();
         let sink = target.is_some().and_then(|| {
@@ -210,7 +210,6 @@ impl JayClientTrace {
         } else {
             slf.send_failed(&error);
         }
-        Ok(())
     }
 
     fn send_failed(&self, msg: &str) {
@@ -247,7 +246,7 @@ impl JayClientTrace {
 }
 
 impl JayClientTraceRequestHandler for JayClientTrace {
-    type Error = JayClientDebuggerError;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
@@ -261,10 +260,3 @@ impl BreakLoops for JayClientTrace {
         self.detach();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum JayClientDebuggerError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(JayClientDebuggerError, ClientError);

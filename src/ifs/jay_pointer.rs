@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::cursor::KnownCursor;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::leaks::Tracker;
@@ -50,9 +49,6 @@ impl JayPointerRequestHandler for JayPointer {
 
 #[derive(Debug, Error)]
 pub enum JayPointerError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("Cursor index is out of bounds")]
     OutOfBounds,
 }
-efrom!(JayPointerError, ClientError);

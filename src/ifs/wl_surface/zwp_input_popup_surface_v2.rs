@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_seat::text_input::zwp_input_method_v2::ZwpInputMethodV2;
 use crate::ifs::wl_surface::SurfaceExt;
 use crate::ifs::wl_surface::SurfaceRole;
@@ -205,9 +204,6 @@ impl BreakLoops for ZwpInputPopupSurfaceV2 {
 #[derive(Debug, Error)]
 pub enum ZwpInputPopupSurfaceV2Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
 }
 efrom!(ZwpInputPopupSurfaceV2Error, WlSurfaceError);
-efrom!(ZwpInputPopupSurfaceV2Error, ClientError);

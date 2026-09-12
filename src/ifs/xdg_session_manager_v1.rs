@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::xdg_session_v1::XdgSessionV1;
@@ -131,11 +130,8 @@ impl XdgSessionManagerV1RequestHandler for XdgSessionManagerV1 {
 
 #[derive(Debug, Error)]
 pub enum XdgSessionManagerV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("The session manager is not available")]
     SessionManagerNotAvailable,
     #[error("Unknown reason {0}")]
     UnknownReason(u32),
 }
-efrom!(XdgSessionManagerV1Error, ClientError);

@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
 use crate::object::Version;
@@ -60,9 +59,6 @@ impl WpFifoV1RequestHandler for WpFifoV1 {
 
 #[derive(Debug, Error)]
 pub enum WpFifoV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("The surface already has a fifo extension attached")]
     Exists,
 }
-efrom!(WpFifoV1Error, ClientError);

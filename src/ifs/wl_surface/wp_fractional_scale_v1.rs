@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
 use crate::object::Version;
@@ -64,9 +63,6 @@ impl WpFractionalScaleV1RequestHandler for WpFractionalScaleV1 {
 
 #[derive(Debug, Error)]
 pub enum WpFractionalScaleError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("The surface already has a fractional scale extension attached")]
     Exists,
 }
-efrom!(WpFractionalScaleError, ClientError);

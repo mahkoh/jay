@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
 use crate::object::Version;
@@ -71,8 +70,6 @@ impl WpCommitTimerV1RequestHandler for WpCommitTimerV1 {
 
 #[derive(Debug, Error)]
 pub enum WpCommitTimerV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("The surface already has a commit timer extension attached")]
     Exists,
     #[error("The tv_nsec is larger than 999_999_999")]
@@ -82,4 +79,3 @@ pub enum WpCommitTimerV1Error {
     #[error("The commit already has a timestamp")]
     TimestampExists,
 }
-efrom!(WpCommitTimerV1Error, ClientError);

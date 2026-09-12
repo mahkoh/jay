@@ -1,7 +1,6 @@
 use crate::backend;
 use crate::backend::ConnectorId;
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::fixed::Fixed;
 use crate::ifs::wlr_output_manager::zwlr_output_manager_v1::ZwlrOutputManagerV1;
 use crate::ifs::wlr_output_manager::zwlr_output_mode_v1::ZwlrOutputModeV1;
@@ -18,8 +17,8 @@ use crate::utils::event_listener::EventListener;
 use crate::wire::ZwlrOutputHeadV1Id;
 use crate::wire::zwlr_output_head_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub const MAKE_SINCE: Version = Version(2);
 pub const MODEL_SINCE: Version = Version(2);
@@ -220,7 +219,7 @@ impl OutputEventListener for ZwlrOutputHeadV1 {
 }
 
 impl ZwlrOutputHeadV1RequestHandler for ZwlrOutputHeadV1 {
-    type Error = ZwlrOutputHeadV1Error;
+    type Error = Infallible;
 
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.send_finished();
@@ -229,10 +228,3 @@ impl ZwlrOutputHeadV1RequestHandler for ZwlrOutputHeadV1 {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwlrOutputHeadV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwlrOutputHeadV1Error, ClientError);

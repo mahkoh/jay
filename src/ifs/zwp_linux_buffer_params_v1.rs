@@ -1,4 +1,3 @@
-use crate::client::ClientError;
 use crate::clientmem::ClientMem;
 use crate::clientmem::ClientMemError;
 use crate::format::formats;
@@ -225,8 +224,6 @@ impl ZwpLinuxBufferParamsV1RequestHandler for ZwpLinuxBufferParamsV1 {
 
 #[derive(Debug, Error)]
 pub enum ZwpLinuxBufferParamsV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("The params object has already been used")]
     AlreadyUsed,
     #[error("A buffer can contain at most 4 planes")]
@@ -248,5 +245,4 @@ pub enum ZwpLinuxBufferParamsV1Error {
     #[error(transparent)]
     WlBufferError(Box<WlBufferError>),
 }
-efrom!(ZwpLinuxBufferParamsV1Error, ClientError);
 efrom!(ZwpLinuxBufferParamsV1Error, WlBufferError);

@@ -35,7 +35,7 @@ impl ZwpInputMethodManagerV2Global {
         id: ZwpInputMethodManagerV2Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), ZwpTextInputManagerV3Error> {
+    ) -> Result<(), ZwpInputMethodManagerV2Error> {
         let obj = Rc::new(ZwpInputMethodManagerV2 {
             id,
             client: client.clone(),
@@ -63,7 +63,7 @@ impl Global for ZwpInputMethodManagerV2Global {
 simple_add_global!(ZwpInputMethodManagerV2Global);
 
 impl ZwpInputMethodManagerV2RequestHandler for ZwpInputMethodManagerV2 {
-    type Error = ZwpTextInputManagerV3Error;
+    type Error = ZwpInputMethodManagerV2Error;
 
     fn get_input_method(&self, req: GetInputMethod, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let seat = self.client.lookup(req.seat)?;
@@ -97,8 +97,8 @@ impl ZwpInputMethodManagerV2RequestHandler for ZwpInputMethodManagerV2 {
 }
 
 #[derive(Debug, Error)]
-pub enum ZwpTextInputManagerV3Error {
+pub enum ZwpInputMethodManagerV2Error {
     #[error(transparent)]
     ClientError(Box<ClientError>),
 }
-efrom!(ZwpTextInputManagerV3Error, ClientError);
+efrom!(ZwpInputMethodManagerV2Error, ClientError);

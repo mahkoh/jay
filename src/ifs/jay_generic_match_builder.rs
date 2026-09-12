@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::criteria::CritLiteralOrRegex;
 use crate::criteria::CritMgrExt;
 use crate::criteria::CritTarget;
@@ -128,7 +127,7 @@ impl JayGenericMatchBuilder {
         client: &Rc<Client>,
         version: Version,
         builder: &Rc<impl MatchBuilderDyn>,
-    ) -> Result<(), ClientError> {
+    ) {
         let slf = Rc::new(Self {
             id,
             client: client.clone(),
@@ -138,7 +137,6 @@ impl JayGenericMatchBuilder {
         });
         track!(client, slf);
         client.add_client_obj(&slf);
-        Ok(())
     }
 }
 
@@ -172,8 +170,6 @@ impl JayGenericMatchBuilderRequestHandler for JayGenericMatchBuilder {
 
 #[derive(Debug, Error)]
 pub enum JayGenericMatchBuilderError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("The stack is empty")]
     NoPreviousMatch,
     #[error("The builder does not contain exactly one element")]
@@ -181,4 +177,3 @@ pub enum JayGenericMatchBuilderError {
     #[error("The regex is invalid")]
     InvalidRegex(#[source] regex::Error),
 }
-efrom!(JayGenericMatchBuilderError, ClientError);

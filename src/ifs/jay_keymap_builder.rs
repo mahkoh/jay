@@ -1,13 +1,12 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::JayKeymapBuilderId;
 use crate::wire::jay_keymap_builder::*;
 use jay_proc::Object;
 use std::cell::Cell;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 use uapi::OwnedFd;
 
 #[derive(Object)]
@@ -35,7 +34,7 @@ pub enum MapKind {
 }
 
 impl JayKeymapBuilderRequestHandler for JayKeymapBuilder {
-    type Error = JayKeymapBuilderError;
+    type Error = Infallible;
 
     fn set_map(&self, req: SetMap, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.kind.set(Some(MapKind::Map {
@@ -70,10 +69,3 @@ impl JayKeymapBuilderRequestHandler for JayKeymapBuilder {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum JayKeymapBuilderError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(JayKeymapBuilderError, ClientError);

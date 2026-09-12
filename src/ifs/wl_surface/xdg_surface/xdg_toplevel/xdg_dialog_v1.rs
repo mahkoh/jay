@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
@@ -62,9 +61,6 @@ impl BreakLoops for XdgDialogV1 {
 
 #[derive(Debug, Error)]
 pub enum XdgDialogV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("Toplevel {0} already has an xdg_dialog_v1")]
     AlreadyAttached(XdgToplevelId),
 }
-efrom!(XdgDialogV1Error, ClientError);

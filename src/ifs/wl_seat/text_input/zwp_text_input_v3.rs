@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_seat::text_input::InputMethod;
 use crate::ifs::wl_seat::text_input::MAX_TEXT_SIZE;
@@ -300,8 +299,6 @@ impl BreakLoops for ZwpTextInputV3 {
 
 #[derive(Debug, Error)]
 pub enum ZwpTextInputV3Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("Rectangle is invalid")]
     InvalidRectangle,
     #[error("The cursor is not at a char boundary")]
@@ -311,4 +308,3 @@ pub enum ZwpTextInputV3Error {
     #[error("Text is larger than {} bytes", MAX_TEXT_SIZE)]
     TooLarge,
 }
-efrom!(ZwpTextInputV3Error, ClientError);
