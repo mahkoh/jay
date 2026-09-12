@@ -327,7 +327,6 @@ impl Renderer<'_> {
             let srgb = &srgb_srgb.linear;
             let perceptual = RenderIntent::Perceptual;
             let rd = container.render_data.borrow_mut();
-            let ns = &container.node_state[RenderTL];
             for (color, rects) in &rd.color_rects {
                 self.base.fill_boxes2(rects, color, srgb, perceptual, x, y);
             }
@@ -370,7 +369,7 @@ impl Renderer<'_> {
                             x + offsets.toplevel_icon.get(),
                             rect.y1(),
                             cns.theme.window_icons_grayscale.get(),
-                            ns.theme.sizes.title_icon_size.get(),
+                            cns.theme.sizes.title_icon_size.get(),
                         );
                     }
                     if let Some(tex) = &rd.tex {

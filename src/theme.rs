@@ -852,7 +852,10 @@ pub fn compute_title_height(show_titles: bool, title_height: i32) -> i32 {
     if show_titles { title_height } else { 0 }
 }
 
-pub fn title_icon_size(show_titles: bool, title_height: i32) -> i32 {
+pub fn title_icon_size(show_titles: bool, show_window_icons: bool, title_height: i32) -> i32 {
+    if !show_window_icons {
+        return 0;
+    }
     (compute_title_height(show_titles, title_height) - 2).max(0)
 }
 

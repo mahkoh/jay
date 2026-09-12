@@ -171,7 +171,6 @@ enum OpType {
 pub struct FloatTheme {
     pub colors: FloatThemeColors,
     pub sizes: FloatThemeSizes,
-    show_window_icons: Cell<bool>,
     pub show_pin_icon: Cell<bool>,
     pub window_icons_grayscale: Cell<bool>,
     title_font: CloneCell<Rc<Arc<str>>>,
@@ -375,10 +374,7 @@ impl FloatNode {
             let mut th = tr.height();
             let mut scalef = None;
             let mut width = (tr.width() - ns.offsets.title.get()).max(0);
-            let icon = theme
-                .show_window_icons
-                .get()
-                .and_then(|| self.icon.get(*scale));
+            let icon = (theme.sizes.title_icon_size.get() > 0).and_then(|| self.icon.get(*scale));
             if let Some(icon) = icon {
                 self.icons.insert(*scale, icon);
             }
@@ -913,14 +909,14 @@ impl FloatNode {
         define_ident!(Cell::new(theme.sizes.@border_width.val.get()));
         define_ident!(theme.sizes.@title_height.val.get());
         define_ident!(theme.@show_titles.get());
-        define_ident!(Cell::new(theme.@show_window_icons.get()));
+        define_ident!(theme.@show_window_icons.get());
         define_ident!(Cell::new(theme.@window_icons_grayscale.get()));
         define_ident!(CloneCell::new(theme.@title_font()));
         define_ident!(Cell::new(compute_focused_border(@focused_border, border)));
         define_ident!(Cell::new(@border));
         define_ident!(Cell::new(@title_plus_underline_height(show_titles, title_height)));
         define_ident!(Cell::new(@title_underline_height(show_titles)));
-        define_ident!(Cell::new(@title_icon_size(show_titles, title_height)));
+        define_ident!(Cell::new(@title_icon_size(show_titles, show_window_icons, title_height)));
         define_ident!(Cell::new(compute_title_height(show_titles, @title_height)));
         define_ident!(Cell::new(state.@show_pin_icon.get()));
         FloatTheme {
@@ -941,7 +937,6 @@ impl FloatNode {
                 title_underline_height,
                 title_icon_size,
             },
-            show_window_icons,
             show_pin_icon,
             window_icons_grayscale,
             title_font,
@@ -973,7 +968,7 @@ impl FloatNode {
             x += th;
         }
         snapshot!(toplevel_icon);
-        if self.icon.has_icon() && theme.show_window_icons.get() {
+        if self.icon.has_icon() && theme.sizes.title_icon_size.get() > 0 {
             x += th;
         }
         snapshot!(title);
@@ -1456,7 +1451,6 @@ impl ThemeChangeListener for FloatNode {
                     title_underline_height,
                     title_icon_size,
                 },
-            show_window_icons,
             show_pin_icon,
             window_icons_grayscale,
             title_font,
@@ -1479,7 +1473,7 @@ impl ThemeChangeListener for FloatNode {
         let title = or_chain!(___________)
             || focused_title_text
             || unfocused_title_text
-            || show_window_icons
+            || title_icon_size
             || title_font
             || or_chain!();
         if title {
@@ -1499,9 +1493,9 @@ impl ThemeChangeListener for FloatNode {
             self.state
                 .schedule_damage(self.node_absolute_position(LiveTL));
         }
-        let title_offsets = or_chain!(_________)
+        let title_offsets = or_chain!(__________)
             || title_height
-            || show_window_icons
+            || title_icon_size
             || show_pin_icon
             || or_chain!();
         if title_offsets {
