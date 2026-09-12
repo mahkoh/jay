@@ -41,7 +41,6 @@ impl WpSinglePixelBufferManagerV1Global {
 global_base!(
     WpSinglePixelBufferManagerV1Global,
     WpSinglePixelBufferManagerV1,
-    WpSinglePixelBufferManagerV1Error
 );
 
 impl Global for WpSinglePixelBufferManagerV1Global {

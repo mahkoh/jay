@@ -47,11 +47,7 @@ impl JayDamageTrackingGlobal {
     }
 }
 
-global_base!(
-    JayDamageTrackingGlobal,
-    JayDamageTracking,
-    JayDamageTrackingError
-);
+global_base!(JayDamageTrackingGlobal, JayDamageTracking);
 
 impl Global for JayDamageTrackingGlobal {
     fn version(&self) -> u32 {

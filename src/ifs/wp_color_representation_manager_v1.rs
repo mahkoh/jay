@@ -124,7 +124,6 @@ impl WpColorRepresentationManagerV1RequestHandler for WpColorRepresentationManag
 global_base!(
     WpColorRepresentationManagerV1Global,
     WpColorRepresentationManagerV1,
-    WpColorRepresentationManagerV1Error
 );
 
 impl Global for WpColorRepresentationManagerV1Global {

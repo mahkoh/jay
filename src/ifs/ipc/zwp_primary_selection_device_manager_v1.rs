@@ -84,7 +84,6 @@ impl ZwpPrimarySelectionDeviceManagerV1RequestHandler for ZwpPrimarySelectionDev
 global_base!(
     ZwpPrimarySelectionDeviceManagerV1Global,
     ZwpPrimarySelectionDeviceManagerV1,
-    ZwpPrimarySelectionDeviceManagerV1Error
 );
 
 impl Global for ZwpPrimarySelectionDeviceManagerV1Global {

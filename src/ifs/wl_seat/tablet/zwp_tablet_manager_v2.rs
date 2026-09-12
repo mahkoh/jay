@@ -45,11 +45,7 @@ impl ZwpTabletManagerV2Global {
     }
 }
 
-global_base!(
-    ZwpTabletManagerV2Global,
-    ZwpTabletManagerV2,
-    ZwpTabletManagerV2Error
-);
+global_base!(ZwpTabletManagerV2Global, ZwpTabletManagerV2);
 
 impl Global for ZwpTabletManagerV2Global {
     fn version(&self) -> u32 {

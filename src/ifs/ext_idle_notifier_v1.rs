@@ -138,11 +138,7 @@ async fn run(n: Rc<ExtIdleNotificationV1>, skip_if_inhibited: bool) {
     }
 }
 
-global_base!(
-    ExtIdleNotifierV1Global,
-    ExtIdleNotifierV1,
-    ExtIdleNotifierV1Error
-);
+global_base!(ExtIdleNotifierV1Global, ExtIdleNotifierV1);
 
 impl Global for ExtIdleNotifierV1Global {
     fn version(&self) -> u32 {

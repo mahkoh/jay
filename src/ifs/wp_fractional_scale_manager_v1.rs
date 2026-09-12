@@ -46,11 +46,7 @@ impl WpFractionalScaleManagerV1Global {
     }
 }
 
-global_base!(
-    WpFractionalScaleManagerV1Global,
-    WpFractionalScaleManagerV1,
-    WpFractionalScaleManagerError
-);
+global_base!(WpFractionalScaleManagerV1Global, WpFractionalScaleManagerV1);
 
 impl Global for WpFractionalScaleManagerV1Global {
     fn version(&self) -> u32 {

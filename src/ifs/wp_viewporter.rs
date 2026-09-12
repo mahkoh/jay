@@ -39,7 +39,7 @@ impl WpViewporterGlobal {
     }
 }
 
-global_base!(WpViewporterGlobal, WpViewporter, WpViewporterError);
+global_base!(WpViewporterGlobal, WpViewporter);
 
 impl Global for WpViewporterGlobal {
     fn version(&self) -> u32 {

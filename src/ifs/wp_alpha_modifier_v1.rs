@@ -67,11 +67,7 @@ impl WpAlphaModifierV1RequestHandler for WpAlphaModifierV1 {
     }
 }
 
-global_base!(
-    WpAlphaModifierV1Global,
-    WpAlphaModifierV1,
-    WpAlphaModifierV1Error
-);
+global_base!(WpAlphaModifierV1Global, WpAlphaModifierV1);
 
 impl Global for WpAlphaModifierV1Global {
     fn version(&self) -> u32 {

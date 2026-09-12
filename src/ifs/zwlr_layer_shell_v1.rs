@@ -102,11 +102,7 @@ impl ZwlrLayerShellV1RequestHandler for ZwlrLayerShellV1 {
     }
 }
 
-global_base!(
-    ZwlrLayerShellV1Global,
-    ZwlrLayerShellV1,
-    ZwlrLayerShellV1Error
-);
+global_base!(ZwlrLayerShellV1Global, ZwlrLayerShellV1);
 
 impl Global for ZwlrLayerShellV1Global {
     fn version(&self) -> u32 {

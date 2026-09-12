@@ -41,11 +41,7 @@ impl XdgToplevelIconManagerV1Global {
     }
 }
 
-global_base!(
-    XdgToplevelIconManagerV1Global,
-    XdgToplevelIconManagerV1,
-    XdgToplevelIconManagerV1Error
-);
+global_base!(XdgToplevelIconManagerV1Global, XdgToplevelIconManagerV1);
 
 impl Global for XdgToplevelIconManagerV1Global {
     fn version(&self) -> u32 {

@@ -47,11 +47,7 @@ impl ExtTransientSeatManagerV1Global {
     }
 }
 
-global_base!(
-    ExtTransientSeatManagerV1Global,
-    ExtTransientSeatManagerV1,
-    ExtTransientSeatManagerV1Error
-);
+global_base!(ExtTransientSeatManagerV1Global, ExtTransientSeatManagerV1);
 
 impl Global for ExtTransientSeatManagerV1Global {
     fn version(&self) -> u32 {

@@ -348,7 +348,7 @@ impl WlOutputGlobal {
     }
 }
 
-global_base!(WlOutputGlobal, WlOutput, WlOutputError);
+global_base!(WlOutputGlobal, WlOutput);
 
 const OUTPUT_VERSION: u32 = 4;
 

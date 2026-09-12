@@ -46,7 +46,7 @@ impl WpFifoManagerV1Global {
     }
 }
 
-global_base!(WpFifoManagerV1Global, WpFifoManagerV1, WpFifoManagerV1Error);
+global_base!(WpFifoManagerV1Global, WpFifoManagerV1);
 
 impl Global for WpFifoManagerV1Global {
     fn version(&self) -> u32 {

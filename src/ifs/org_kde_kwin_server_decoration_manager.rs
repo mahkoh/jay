@@ -48,7 +48,6 @@ impl OrgKdeKwinServerDecorationManagerGlobal {
 global_base!(
     OrgKdeKwinServerDecorationManagerGlobal,
     OrgKdeKwinServerDecorationManager,
-    OrgKdeKwinServerDecorationManagerError
 );
 
 impl Global for OrgKdeKwinServerDecorationManagerGlobal {

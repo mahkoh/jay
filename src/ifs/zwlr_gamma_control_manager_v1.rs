@@ -40,11 +40,7 @@ impl ZwlrGammaControlManagerV1Global {
     }
 }
 
-global_base!(
-    ZwlrGammaControlManagerV1Global,
-    ZwlrGammaControlManagerV1,
-    ZwlrGammaControlManagerV1Error
-);
+global_base!(ZwlrGammaControlManagerV1Global, ZwlrGammaControlManagerV1);
 
 simple_add_global!(ZwlrGammaControlManagerV1Global);
 

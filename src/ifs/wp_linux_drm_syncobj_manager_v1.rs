@@ -49,11 +49,7 @@ impl WpLinuxDrmSyncobjManagerV1Global {
     }
 }
 
-global_base!(
-    WpLinuxDrmSyncobjManagerV1Global,
-    WpLinuxDrmSyncobjManagerV1,
-    WpLinuxDrmSyncobjManagerV1Error
-);
+global_base!(WpLinuxDrmSyncobjManagerV1Global, WpLinuxDrmSyncobjManagerV1);
 
 impl Global for WpLinuxDrmSyncobjManagerV1Global {
     fn version(&self) -> u32 {

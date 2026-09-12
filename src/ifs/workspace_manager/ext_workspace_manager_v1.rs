@@ -196,11 +196,7 @@ impl ExtWorkspaceManagerV1 {
     }
 }
 
-global_base!(
-    ExtWorkspaceManagerV1Global,
-    ExtWorkspaceManagerV1,
-    ExtWorkspaceManagerV1Error
-);
+global_base!(ExtWorkspaceManagerV1Global, ExtWorkspaceManagerV1);
 
 impl Global for ExtWorkspaceManagerV1Global {
     fn version(&self) -> u32 {

@@ -45,11 +45,7 @@ impl ZwlrScreencopyManagerV1Global {
     }
 }
 
-global_base!(
-    ZwlrScreencopyManagerV1Global,
-    ZwlrScreencopyManagerV1,
-    ZwlrScreencopyManagerV1Error
-);
+global_base!(ZwlrScreencopyManagerV1Global, ZwlrScreencopyManagerV1);
 
 simple_add_global!(ZwlrScreencopyManagerV1Global);
 

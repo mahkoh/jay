@@ -94,11 +94,7 @@ impl ExtDataControlManagerV1RequestHandler for ExtDataControlManagerV1 {
     }
 }
 
-global_base!(
-    ExtDataControlManagerV1Global,
-    ExtDataControlManagerV1,
-    ExtDataControlManagerV1Error
-);
+global_base!(ExtDataControlManagerV1Global, ExtDataControlManagerV1);
 
 impl Global for ExtDataControlManagerV1Global {
     fn version(&self) -> u32 {

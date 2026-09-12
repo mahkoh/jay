@@ -88,11 +88,7 @@ impl ExtSessionLockManagerV1RequestHandler for ExtSessionLockManagerV1 {
     }
 }
 
-global_base!(
-    ExtSessionLockManagerV1Global,
-    ExtSessionLockManagerV1,
-    ExtSessionLockManagerV1Error
-);
+global_base!(ExtSessionLockManagerV1Global, ExtSessionLockManagerV1);
 
 impl Global for ExtSessionLockManagerV1Global {
     fn version(&self) -> u32 {

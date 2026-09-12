@@ -38,11 +38,7 @@ impl WpSecurityContextManagerV1Global {
     }
 }
 
-global_base!(
-    WpSecurityContextManagerV1Global,
-    WpSecurityContextManagerV1,
-    WpSecurityContextManagerV1Error
-);
+global_base!(WpSecurityContextManagerV1Global, WpSecurityContextManagerV1);
 
 impl Global for WpSecurityContextManagerV1Global {
     fn version(&self) -> u32 {

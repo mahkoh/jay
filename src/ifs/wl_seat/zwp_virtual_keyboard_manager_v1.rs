@@ -52,7 +52,6 @@ impl ZwpVirtualKeyboardManagerV1Global {
 global_base!(
     ZwpVirtualKeyboardManagerV1Global,
     ZwpVirtualKeyboardManagerV1,
-    ZwpVirtualKeyboardManagerV1Error
 );
 
 impl Global for ZwpVirtualKeyboardManagerV1Global {

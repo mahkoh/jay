@@ -68,7 +68,7 @@ impl WlSubcompositorRequestHandler for WlSubcompositor {
     }
 }
 
-global_base!(WlSubcompositorGlobal, WlSubcompositor, WlSubcompositorError);
+global_base!(WlSubcompositorGlobal, WlSubcompositor);
 
 impl Global for WlSubcompositorGlobal {
     fn version(&self) -> u32 {

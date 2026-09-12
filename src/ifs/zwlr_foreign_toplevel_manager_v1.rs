@@ -123,7 +123,6 @@ impl ZwlrForeignToplevelManagerV1 {
 global_base!(
     ZwlrForeignToplevelManagerV1Global,
     ZwlrForeignToplevelManagerV1,
-    ZwlrForeignToplevelManagerV1Error
 );
 
 impl Global for ZwlrForeignToplevelManagerV1Global {

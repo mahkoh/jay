@@ -47,11 +47,7 @@ impl ZwpInputMethodManagerV2Global {
     }
 }
 
-global_base!(
-    ZwpInputMethodManagerV2Global,
-    ZwpInputMethodManagerV2,
-    ZwpTextInputManagerV3Error
-);
+global_base!(ZwpInputMethodManagerV2Global, ZwpInputMethodManagerV2);
 
 impl Global for ZwpInputMethodManagerV2Global {
     fn version(&self) -> u32 {

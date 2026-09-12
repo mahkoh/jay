@@ -38,11 +38,7 @@ impl XdgToplevelDragManagerV1Global {
     }
 }
 
-global_base!(
-    XdgToplevelDragManagerV1Global,
-    XdgToplevelDragManagerV1,
-    XdgToplevelDragManagerV1Error
-);
+global_base!(XdgToplevelDragManagerV1Global, XdgToplevelDragManagerV1);
 
 simple_add_global!(XdgToplevelDragManagerV1Global);
 

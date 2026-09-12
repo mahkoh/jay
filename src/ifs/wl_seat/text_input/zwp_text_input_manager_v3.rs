@@ -45,11 +45,7 @@ impl ZwpTextInputManagerV3Global {
     }
 }
 
-global_base!(
-    ZwpTextInputManagerV3Global,
-    ZwpTextInputManagerV3,
-    ZwpTextInputManagerV3Error
-);
+global_base!(ZwpTextInputManagerV3Global, ZwpTextInputManagerV3);
 
 impl Global for ZwpTextInputManagerV3Global {
     fn version(&self) -> u32 {

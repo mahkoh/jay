@@ -58,11 +58,7 @@ impl ZwpLinuxDmabufV1Global {
 const MODIFIERS_SINCE_VERSION: Version = Version(3);
 const FEEDBACK_SINCE_VERSION: Version = Version(4);
 
-global_base!(
-    ZwpLinuxDmabufV1Global,
-    ZwpLinuxDmabufV1,
-    ZwpLinuxDmabufV1Error
-);
+global_base!(ZwpLinuxDmabufV1Global, ZwpLinuxDmabufV1);
 
 impl Global for ZwpLinuxDmabufV1Global {
     fn version(&self) -> u32 {

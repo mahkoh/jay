@@ -53,11 +53,7 @@ impl XdgSessionManagerV1Global {
     }
 }
 
-global_base!(
-    XdgSessionManagerV1Global,
-    XdgSessionManagerV1,
-    XdgSessionManagerV1Error
-);
+global_base!(XdgSessionManagerV1Global, XdgSessionManagerV1);
 
 impl Global for XdgSessionManagerV1Global {
     fn version(&self) -> u32 {

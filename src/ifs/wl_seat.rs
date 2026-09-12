@@ -1802,7 +1802,7 @@ impl CursorUserOwner for WlSeatGlobal {
     }
 }
 
-global_base!(WlSeatGlobal, WlSeat, WlSeatError);
+global_base!(WlSeatGlobal, WlSeat);
 
 impl Global for WlSeatGlobal {
     fn version(&self) -> u32 {

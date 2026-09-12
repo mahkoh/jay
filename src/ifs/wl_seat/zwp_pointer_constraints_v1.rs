@@ -306,11 +306,7 @@ impl ZwpPointerConstraintsV1RequestHandler for ZwpPointerConstraintsV1 {
     }
 }
 
-global_base!(
-    ZwpPointerConstraintsV1Global,
-    ZwpPointerConstraintsV1,
-    ZwpPointerConstraintsV1Error
-);
+global_base!(ZwpPointerConstraintsV1Global, ZwpPointerConstraintsV1);
 
 impl Global for ZwpPointerConstraintsV1Global {
     fn version(&self) -> u32 {

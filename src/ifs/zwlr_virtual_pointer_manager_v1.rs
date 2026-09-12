@@ -47,7 +47,6 @@ impl ZwlrVirtualPointerManagerV1Global {
 global_base!(
     ZwlrVirtualPointerManagerV1Global,
     ZwlrVirtualPointerManagerV1,
-    ZwlrVirtualPointerManagerV1Error
 );
 
 simple_add_global!(ZwlrVirtualPointerManagerV1Global);

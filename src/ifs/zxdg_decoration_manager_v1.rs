@@ -38,11 +38,7 @@ impl ZxdgDecorationManagerV1Global {
     }
 }
 
-global_base!(
-    ZxdgDecorationManagerV1Global,
-    ZxdgDecorationManagerV1,
-    ZxdgDecorationManagerV1Error
-);
+global_base!(ZxdgDecorationManagerV1Global, ZxdgDecorationManagerV1);
 
 impl Global for ZxdgDecorationManagerV1Global {
     fn version(&self) -> u32 {

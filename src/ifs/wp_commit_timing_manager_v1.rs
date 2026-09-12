@@ -48,11 +48,7 @@ impl WpCommitTimingManagerV1Global {
     }
 }
 
-global_base!(
-    WpCommitTimingManagerV1Global,
-    WpCommitTimingManagerV1,
-    WpCommitTimingManagerV1Error
-);
+global_base!(WpCommitTimingManagerV1Global, WpCommitTimingManagerV1);
 
 impl Global for WpCommitTimingManagerV1Global {
     fn version(&self) -> u32 {

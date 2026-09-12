@@ -48,7 +48,6 @@ impl ZwpRelativePointerManagerV1Global {
 global_base!(
     ZwpRelativePointerManagerV1Global,
     ZwpRelativePointerManagerV1,
-    ZwpRelativePointerManagerV1Error
 );
 
 impl Global for ZwpRelativePointerManagerV1Global {

@@ -39,11 +39,7 @@ impl XdgToplevelTagManagerV1Global {
     }
 }
 
-global_base!(
-    XdgToplevelTagManagerV1Global,
-    XdgToplevelTagManagerV1,
-    XdgTopleveTagManagerV1Error
-);
+global_base!(XdgToplevelTagManagerV1Global, XdgToplevelTagManagerV1);
 
 impl Global for XdgToplevelTagManagerV1Global {
     fn version(&self) -> u32 {

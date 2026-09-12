@@ -71,7 +71,6 @@ impl ExtOutputImageCaptureSourceManagerV1RequestHandler for ExtOutputImageCaptur
 global_base!(
     ExtOutputImageCaptureSourceManagerV1Global,
     ExtOutputImageCaptureSourceManagerV1,
-    ExtOutputImageCaptureSourceManagerV1Error
 );
 
 impl Global for ExtOutputImageCaptureSourceManagerV1Global {

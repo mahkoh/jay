@@ -70,11 +70,7 @@ impl ZxdgOutputManagerV1RequestHandler for ZxdgOutputManagerV1 {
     }
 }
 
-global_base!(
-    ZxdgOutputManagerV1Global,
-    ZxdgOutputManagerV1,
-    ZxdgOutputManagerV1Error
-);
+global_base!(ZxdgOutputManagerV1Global, ZxdgOutputManagerV1);
 
 impl Global for ZxdgOutputManagerV1Global {
     fn version(&self) -> u32 {

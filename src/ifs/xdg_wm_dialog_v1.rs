@@ -39,7 +39,7 @@ impl XdgWmDialogV1Global {
     }
 }
 
-global_base!(XdgWmDialogV1Global, XdgWmDialogV1, XdgWmDialogV1Error);
+global_base!(XdgWmDialogV1Global, XdgWmDialogV1);
 
 impl Global for XdgWmDialogV1Global {
     fn version(&self) -> u32 {

@@ -41,7 +41,7 @@ impl XdgActivationV1Global {
     }
 }
 
-global_base!(XdgActivationV1Global, XdgActivationV1, XdgActivationV1Error);
+global_base!(XdgActivationV1Global, XdgActivationV1);
 
 simple_add_global!(XdgActivationV1Global);
 

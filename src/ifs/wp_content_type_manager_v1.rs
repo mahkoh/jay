@@ -38,11 +38,7 @@ impl WpContentTypeManagerV1Global {
     }
 }
 
-global_base!(
-    WpContentTypeManagerV1Global,
-    WpContentTypeManagerV1,
-    WpContentTypeManagerV1Error
-);
+global_base!(WpContentTypeManagerV1Global, WpContentTypeManagerV1);
 
 simple_add_global!(WpContentTypeManagerV1Global);
 

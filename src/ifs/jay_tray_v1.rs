@@ -47,7 +47,7 @@ impl JayTrayV1Global {
     }
 }
 
-global_base!(JayTrayV1Global, JayTrayV1, JayTrayManagerV1Error);
+global_base!(JayTrayV1Global, JayTrayV1);
 
 impl Global for JayTrayV1Global {
     fn version(&self) -> u32 {

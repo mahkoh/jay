@@ -83,7 +83,7 @@ impl WlShmRequestHandler for WlShm {
     }
 }
 
-global_base!(WlShmGlobal, WlShm, WlShmError);
+global_base!(WlShmGlobal, WlShm);
 
 impl Global for WlShmGlobal {
     fn version(&self) -> u32 {

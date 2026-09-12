@@ -46,11 +46,7 @@ impl JayPopupExtManagerV1Global {
     }
 }
 
-global_base!(
-    JayPopupExtManagerV1Global,
-    JayPopupExtManagerV1,
-    JayPopupExtManagerV1Error
-);
+global_base!(JayPopupExtManagerV1Global, JayPopupExtManagerV1);
 
 impl Global for JayPopupExtManagerV1Global {
     fn version(&self) -> u32 {

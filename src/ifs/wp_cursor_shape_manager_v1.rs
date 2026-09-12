@@ -40,11 +40,7 @@ impl WpCursorShapeManagerV1Global {
     }
 }
 
-global_base!(
-    WpCursorShapeManagerV1Global,
-    WpCursorShapeManagerV1,
-    WpCursorShapeManagerV1Error
-);
+global_base!(WpCursorShapeManagerV1Global, WpCursorShapeManagerV1);
 
 simple_add_global!(WpCursorShapeManagerV1Global);
 

@@ -319,11 +319,7 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
     }
 }
 
-global_base!(
-    WpColorManagerV1Global,
-    WpColorManagerV1,
-    WpColorManagerV1Error
-);
+global_base!(WpColorManagerV1Global, WpColorManagerV1);
 
 impl Global for WpColorManagerV1Global {
     fn version(&self) -> u32 {

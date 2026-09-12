@@ -40,11 +40,7 @@ impl ZwpIdleInhibitManagerV1Global {
     }
 }
 
-global_base!(
-    ZwpIdleInhibitManagerV1Global,
-    ZwpIdleInhibitManagerV1,
-    ZwpIdleInhibitManagerV1Error
-);
+global_base!(ZwpIdleInhibitManagerV1Global, ZwpIdleInhibitManagerV1);
 
 impl Global for ZwpIdleInhibitManagerV1Global {
     fn version(&self) -> u32 {

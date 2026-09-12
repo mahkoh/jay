@@ -55,7 +55,7 @@ impl WlDrmGlobal {
     }
 }
 
-global_base!(WlDrmGlobal, WlDrm, WlDrmError);
+global_base!(WlDrmGlobal, WlDrm);
 
 impl Global for WlDrmGlobal {
     fn version(&self) -> u32 {

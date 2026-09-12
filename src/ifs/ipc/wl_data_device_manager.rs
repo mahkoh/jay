@@ -89,11 +89,7 @@ impl WlDataDeviceManagerRequestHandler for WlDataDeviceManager {
     }
 }
 
-global_base!(
-    WlDataDeviceManagerGlobal,
-    WlDataDeviceManager,
-    WlDataDeviceManagerError
-);
+global_base!(WlDataDeviceManagerGlobal, WlDataDeviceManager);
 
 impl Global for WlDataDeviceManagerGlobal {
     fn version(&self) -> u32 {

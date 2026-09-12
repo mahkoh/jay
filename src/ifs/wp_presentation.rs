@@ -42,7 +42,7 @@ impl WpPresentationGlobal {
     }
 }
 
-global_base!(WpPresentationGlobal, WpPresentation, WpPresentationError);
+global_base!(WpPresentationGlobal, WpPresentation);
 
 impl Global for WpPresentationGlobal {
     fn version(&self) -> u32 {

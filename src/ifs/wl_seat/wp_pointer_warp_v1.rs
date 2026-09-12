@@ -42,7 +42,7 @@ impl WpPointerWarpV1Global {
     }
 }
 
-global_base!(WpPointerWarpV1Global, WpPointerWarpV1, WpPointerWarpV1Error);
+global_base!(WpPointerWarpV1Global, WpPointerWarpV1);
 
 impl Global for WpPointerWarpV1Global {
     fn version(&self) -> u32 {

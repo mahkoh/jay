@@ -77,7 +77,7 @@ impl WlCompositorRequestHandler for WlCompositor {
     }
 }
 
-global_base!(WlCompositorGlobal, WlCompositor, WlCompositorError);
+global_base!(WlCompositorGlobal, WlCompositor);
 
 impl Global for WlCompositorGlobal {
     fn version(&self) -> u32 {

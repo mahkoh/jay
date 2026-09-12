@@ -47,11 +47,7 @@ impl ZwpPointerGesturesV1Global {
     }
 }
 
-global_base!(
-    ZwpPointerGesturesV1Global,
-    ZwpPointerGesturesV1,
-    ZwpPointerGesturesV1Error
-);
+global_base!(ZwpPointerGesturesV1Global, ZwpPointerGesturesV1);
 
 impl Global for ZwpPointerGesturesV1Global {
     fn version(&self) -> u32 {

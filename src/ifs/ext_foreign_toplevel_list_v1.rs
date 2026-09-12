@@ -123,11 +123,7 @@ impl ExtForeignToplevelListV1 {
     }
 }
 
-global_base!(
-    ExtForeignToplevelListV1Global,
-    ExtForeignToplevelListV1,
-    ExtForeignToplevelListV1Error
-);
+global_base!(ExtForeignToplevelListV1Global, ExtForeignToplevelListV1);
 
 impl Global for ExtForeignToplevelListV1Global {
     fn version(&self) -> u32 {

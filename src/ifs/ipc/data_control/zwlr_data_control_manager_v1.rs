@@ -94,11 +94,7 @@ impl ZwlrDataControlManagerV1RequestHandler for ZwlrDataControlManagerV1 {
     }
 }
 
-global_base!(
-    ZwlrDataControlManagerV1Global,
-    ZwlrDataControlManagerV1,
-    ZwlrDataControlManagerV1Error
-);
+global_base!(ZwlrDataControlManagerV1Global, ZwlrDataControlManagerV1);
 
 impl Global for ZwlrDataControlManagerV1Global {
     fn version(&self) -> u32 {

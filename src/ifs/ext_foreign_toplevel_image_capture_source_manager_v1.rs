@@ -73,7 +73,6 @@ impl ExtForeignToplevelImageCaptureSourceManagerV1RequestHandler
 global_base!(
     ExtForeignToplevelImageCaptureSourceManagerV1Global,
     ExtForeignToplevelImageCaptureSourceManagerV1,
-    ExtForeignToplevelImageCaptureSourceManagerV1Error
 );
 
 impl Global for ExtForeignToplevelImageCaptureSourceManagerV1Global {

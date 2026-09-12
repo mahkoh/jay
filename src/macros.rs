@@ -67,7 +67,7 @@ macro_rules! object_base {
 }
 
 macro_rules! global_base {
-    ($oname:ty, $ifname:ident, $ename:ty) => {
+    ($oname:ty, $ifname:ident $(,)?) => {
         impl crate::globals::GlobalBase for $oname {
             fn name(&self) -> crate::globals::GlobalName {
                 self.name
@@ -80,7 +80,11 @@ macro_rules! global_base {
                 version: crate::object::Version,
             ) -> Result<(), crate::globals::GlobalsError> {
                 if let Err(e) = self.bind_(id.into(), client, version) {
-                    return Err(crate::globals::GlobalsError::GlobalError(e.into()));
+                    let e = crate::globals::GlobalError {
+                        interface: crate::wire::$ifname,
+                        error: Box::new(e),
+                    };
+                    return Err(crate::globals::GlobalsError::GlobalError(e));
                 }
                 Ok(())
             }
@@ -91,15 +95,6 @@ macro_rules! global_base {
 
             fn singleton(&self) -> Option<crate::globals::Singleton> {
                 crate::globals::interface_singletons::$ifname
-            }
-        }
-
-        impl From<$ename> for crate::globals::GlobalError {
-            fn from(e: $ename) -> Self {
-                Self {
-                    interface: crate::wire::$ifname,
-                    error: Box::new(e),
-                }
             }
         }
     };

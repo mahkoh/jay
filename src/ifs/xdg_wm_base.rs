@@ -104,7 +104,7 @@ impl XdgWmBaseRequestHandler for XdgWmBase {
     }
 }
 
-global_base!(XdgWmBaseGlobal, XdgWmBase, XdgWmBaseError);
+global_base!(XdgWmBaseGlobal, XdgWmBase);
 
 impl Global for XdgWmBaseGlobal {
     fn version(&self) -> u32 {

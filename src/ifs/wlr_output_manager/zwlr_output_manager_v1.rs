@@ -257,11 +257,7 @@ impl ZwlrOutputManagerV1 {
     }
 }
 
-global_base!(
-    ZwlrOutputManagerV1Global,
-    ZwlrOutputManagerV1,
-    ZwlrOutputManagerV1Error
-);
+global_base!(ZwlrOutputManagerV1Global, ZwlrOutputManagerV1);
 
 impl Global for ZwlrOutputManagerV1Global {
     fn version(&self) -> u32 {

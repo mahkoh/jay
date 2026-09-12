@@ -39,11 +39,7 @@ impl WpTearingControlManagerV1Global {
     }
 }
 
-global_base!(
-    WpTearingControlManagerV1Global,
-    WpTearingControlManagerV1,
-    WpTearingControlManagerV1Error
-);
+global_base!(WpTearingControlManagerV1Global, WpTearingControlManagerV1);
 
 impl Global for WpTearingControlManagerV1Global {
     fn version(&self) -> u32 {

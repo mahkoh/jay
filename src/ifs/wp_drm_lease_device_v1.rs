@@ -74,11 +74,7 @@ impl WpDrmLeaseDeviceV1Global {
     }
 }
 
-global_base!(
-    WpDrmLeaseDeviceV1Global,
-    WpDrmLeaseDeviceV1,
-    WpDrmLeaseDeviceV1Error
-);
+global_base!(WpDrmLeaseDeviceV1Global, WpDrmLeaseDeviceV1);
 
 simple_add_global!(WpDrmLeaseDeviceV1Global);
 

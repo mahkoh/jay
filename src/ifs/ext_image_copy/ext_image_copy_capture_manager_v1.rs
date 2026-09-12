@@ -137,7 +137,6 @@ impl ExtImageCopyCaptureManagerV1RequestHandler for ExtImageCopyCaptureManagerV1
 global_base!(
     ExtImageCopyCaptureManagerV1Global,
     ExtImageCopyCaptureManagerV1,
-    ExtImageCopyCaptureManagerV1Error
 );
 
 impl Global for ExtImageCopyCaptureManagerV1Global {

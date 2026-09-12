@@ -37,7 +37,7 @@ impl WlFixesGlobal {
     }
 }
 
-global_base!(WlFixesGlobal, WlFixes, WlFixesError);
+global_base!(WlFixesGlobal, WlFixes);
 
 simple_add_global!(WlFixesGlobal);
 

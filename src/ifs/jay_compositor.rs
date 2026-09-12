@@ -91,7 +91,7 @@ impl JayCompositorGlobal {
     }
 }
 
-global_base!(JayCompositorGlobal, JayCompositor, JayCompositorError);
+global_base!(JayCompositorGlobal, JayCompositor);
 
 impl Global for JayCompositorGlobal {
     fn version(&self) -> u32 {
