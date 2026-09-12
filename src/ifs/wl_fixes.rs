@@ -58,13 +58,13 @@ impl WlFixesRequestHandler for WlFixes {
     type Error = WlFixesError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 
     fn destroy_registry(&self, req: DestroyRegistry, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let registry = self.client.lookup(req.registry)?;
-        self.client.remove_obj(&*registry)?;
+        self.client.remove_obj(&*registry);
         Ok(())
     }
 

@@ -217,7 +217,7 @@ impl WlDataSourceRequestHandler for WlDataSource {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         destroy_data_source::<ClipboardIpc>(self);
-        self.data.client.remove_obj(self)?;
+        self.data.client.remove_obj(self);
         Ok(())
     }
 

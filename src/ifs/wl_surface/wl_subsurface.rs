@@ -390,7 +390,7 @@ impl WlSubsurfaceRequestHandler for WlSubsurface {
                 parent_opt = parent.ext.get().subsurface_parent();
             }
         }
-        self.surface.client.remove_obj(self)?;
+        self.surface.client.remove_obj(self);
         if self.surface.toplevel.is_some() {
             self.damage();
         }

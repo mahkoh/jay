@@ -50,7 +50,7 @@ impl WpTearingControlV1RequestHandler for WpTearingControlV1 {
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.surface.pending.borrow_mut().tearing = Some(false);
         self.surface.tearing_control.take();
-        self.surface.client.remove_obj(self)?;
+        self.surface.client.remove_obj(self);
         Ok(())
     }
 }

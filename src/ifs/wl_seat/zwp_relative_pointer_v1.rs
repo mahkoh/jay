@@ -44,7 +44,7 @@ impl ZwpRelativePointerV1RequestHandler for ZwpRelativePointerV1 {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.seat.relative_pointers.remove(&self.id);
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

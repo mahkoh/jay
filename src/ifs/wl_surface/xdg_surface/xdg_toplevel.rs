@@ -299,7 +299,7 @@ impl XdgToplevelRequestHandler for XdgToplevel {
                 parent.children.borrow_mut().remove(&self.id);
             }
         }
-        self.xdg.surface.client.remove_obj(self)?;
+        self.xdg.surface.client.remove_obj(self);
         self.xdg.surface.set_toplevel(None);
         if let Some(icon) = self.icon.set(None) {
             icon.toplevels.remove(&self.id);

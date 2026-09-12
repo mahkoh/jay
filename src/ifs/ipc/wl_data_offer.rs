@@ -147,7 +147,7 @@ impl WlDataOfferRequestHandler for WlDataOffer {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         destroy_data_offer_with_reason::<ClipboardIpc>(self, OfferDestroyReason::OfferClient);
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

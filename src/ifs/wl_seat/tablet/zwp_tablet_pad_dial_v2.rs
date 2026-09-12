@@ -48,7 +48,7 @@ impl ZwpTabletPadDialV2RequestHandler for ZwpTabletPadDialV2 {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

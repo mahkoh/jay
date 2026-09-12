@@ -43,7 +43,7 @@ impl WpAlphaModifierSurfaceV1RequestHandler for WpAlphaModifierSurfaceV1 {
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.surface.alpha_modifier.take();
         self.surface.pending.borrow_mut().alpha_multiplier = Some(None);
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

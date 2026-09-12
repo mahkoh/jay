@@ -40,7 +40,7 @@ impl PresentationFeedback {
                 refresh = 0;
             }
             fb.send_presented(tv_sec, tv_nsec, refresh, seq, flags);
-            let _ = fb.client.remove_obj(&*fb);
+            fb.client.remove_obj(&*fb);
         }
     }
 }
@@ -49,7 +49,7 @@ impl Drop for PresentationFeedback {
     fn drop(&mut self) {
         if let Some(fb) = self.fb.take() {
             fb.send_discarded();
-            let _ = fb.client.remove_obj(&*fb);
+            fb.client.remove_obj(&*fb);
         }
     }
 }

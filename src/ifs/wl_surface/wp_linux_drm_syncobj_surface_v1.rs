@@ -52,7 +52,7 @@ impl WpLinuxDrmSyncobjSurfaceV1RequestHandler for WpLinuxDrmSyncobjSurfaceV1 {
         let pending = &mut *self.surface.pending.borrow_mut();
         pending.release_point.take();
         pending.acquire_point.take();
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

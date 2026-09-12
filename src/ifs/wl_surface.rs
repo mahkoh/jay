@@ -1227,7 +1227,7 @@ impl WlSurfaceRequestHandler for WlSurface {
         }
         self.flush_frame_requests(&mut self.frame_requests.borrow_mut());
         self.toplevel.set(None);
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         self.idle_inhibitors.clear();
         self.constraints.take();
         self.destroyed.set(true);
@@ -2653,7 +2653,7 @@ pub struct FrameRequest {
 impl Drop for FrameRequest {
     fn drop(&mut self) {
         self.cb.send_done(self.now_msec);
-        let _ = self.cb.client.remove_obj(&*self.cb);
+        self.cb.client.remove_obj(&*self.cb);
     }
 }
 
@@ -2714,7 +2714,7 @@ pub struct SurfaceRelease {
 impl Drop for SurfaceRelease {
     fn drop(&mut self) {
         self.cb.send_done(0);
-        let _ = self.cb.client.remove_obj(&*self.cb);
+        self.cb.client.remove_obj(&*self.cb);
     }
 }
 

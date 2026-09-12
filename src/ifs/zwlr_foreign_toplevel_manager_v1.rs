@@ -86,7 +86,7 @@ impl ZwlrForeignToplevelManagerV1RequestHandler for ZwlrForeignToplevelManagerV1
     fn stop(&self, _req: Stop, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
         self.send_finished();
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

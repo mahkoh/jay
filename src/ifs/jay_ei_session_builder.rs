@@ -29,7 +29,7 @@ impl JayEiSessionBuilderRequestHandler for JayEiSessionBuilder {
     type Error = JayEiSessionBuilderError;
 
     fn commit(&self, req: Commit, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         let app_id = self.app_id.borrow().clone();
         if app_id.is_none() {
             return Err(JayEiSessionBuilderError::NoAppId);

@@ -48,7 +48,7 @@ impl JayPopupExtV1RequestHandler for JayPopupExtV1 {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.popup.jay_popup_ext.take();
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

@@ -125,7 +125,7 @@ impl ZwlrOutputManagerV1RequestHandler for ZwlrOutputManagerV1 {
         self.destroyed.set(true);
         self.detach();
         self.send_finished();
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

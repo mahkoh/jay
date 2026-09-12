@@ -70,7 +70,7 @@ impl JaySyncFileReleaseRequestHandler for JaySyncFileRelease {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.destroyed.set(true);
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

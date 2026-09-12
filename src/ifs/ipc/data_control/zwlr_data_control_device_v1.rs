@@ -84,7 +84,7 @@ impl ZwlrDataControlDeviceV1RequestHandler for ZwlrDataControlDeviceV1 {
     }
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        logic::device_destroy(self)?;
+        logic::device_destroy(self);
         Ok(())
     }
 

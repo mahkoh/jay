@@ -38,7 +38,7 @@ impl WpLinuxDrmSyncobjTimelineV1RequestHandler for WpLinuxDrmSyncobjTimelineV1 {
     type Error = WpLinuxDrmSyncobjTimelineV1Error;
 
     fn destroy(&self, _destroy: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

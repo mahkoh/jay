@@ -67,7 +67,7 @@ impl WpCursorShapeDeviceV1RequestHandler for WpCursorShapeDeviceV1 {
     type Error = WpCursorShapeDeviceV1Error;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

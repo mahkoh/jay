@@ -63,7 +63,7 @@ impl ZxdgDecorationManagerV1RequestHandler for ZxdgDecorationManagerV1 {
     type Error = ZxdgDecorationManagerV1Error;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

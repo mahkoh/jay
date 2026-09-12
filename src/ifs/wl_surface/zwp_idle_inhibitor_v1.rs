@@ -25,7 +25,7 @@ impl ZwpIdleInhibitorV1RequestHandler for ZwpIdleInhibitorV1 {
     type Error = ZwpIdleInhibitorV1Error;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         if self.surface.idle_inhibitors.remove(&self.id).is_some() {
             self.deactivate();
         }

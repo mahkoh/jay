@@ -92,7 +92,7 @@ impl XdgToplevelDragV1RequestHandler for XdgToplevelDragV1 {
             return Err(XdgToplevelDragV1Error::ActiveDrag);
         }
         self.detach();
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

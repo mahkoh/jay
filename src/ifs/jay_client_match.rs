@@ -21,7 +21,7 @@ impl JayClientMatchRequestHandler for JayClientMatch {
     type Error = JayClientMatchError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

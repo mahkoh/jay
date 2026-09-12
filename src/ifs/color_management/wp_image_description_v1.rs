@@ -48,7 +48,7 @@ impl WpImageDescriptionV1RequestHandler for WpImageDescriptionV1 {
     type Error = WpImageDescriptionV1Error;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 
@@ -65,7 +65,7 @@ impl WpImageDescriptionV1RequestHandler for WpImageDescriptionV1 {
         self.client.add_client_obj(&obj)?;
         track!(self.client, obj);
         obj.send_description(desc);
-        self.client.remove_obj(&*obj)?;
+        self.client.remove_obj(&*obj);
         Ok(())
     }
 }

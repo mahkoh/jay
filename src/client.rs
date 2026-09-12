@@ -672,7 +672,7 @@ impl Client {
             .set_synthetic_event_handler(id.into(), event_handler.clone());
     }
 
-    pub fn remove_obj<T: WaylandObject>(self: &Rc<Self>, obj: &T) -> Result<(), ClientError> {
+    pub fn remove_obj<T: WaylandObject>(self: &Rc<Self>, obj: &T) {
         let id = obj.id();
         if id.raw() >= FIRST_SYNTHETIC_ID {
             self.synthetic_events.to_remove.push(id);
@@ -680,7 +680,9 @@ impl Client {
             self.synthetic_events.trigger.trigger();
         }
         obj.remove(self);
-        self.objects.remove_obj(self, id)
+        if let Err(e) = self.objects.remove_obj(self, id) {
+            self.error(e);
+        }
     }
 
     pub fn lookup<Id: WaylandObjectLookup>(&self, id: Id) -> Result<Rc<Id::Object>, ClientError> {

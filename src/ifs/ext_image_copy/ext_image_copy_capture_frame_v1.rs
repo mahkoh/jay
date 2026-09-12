@@ -308,7 +308,7 @@ impl ExtImageCopyCaptureFrameV1RequestHandler for ExtImageCopyCaptureFrameV1 {
         self.session.pending_download.take();
         self.session.status.set(FrameStatus::Unused);
         self.session.buffer.take();
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

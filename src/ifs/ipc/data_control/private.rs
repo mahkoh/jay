@@ -353,12 +353,11 @@ pub mod logic {
         Ok(())
     }
 
-    pub fn device_destroy<D: DataControlDevice>(d: &D) -> Result<(), DataControlError> {
+    pub fn device_destroy<D: DataControlDevice>(d: &D) {
         destroy_data_device::<Clipboard<D::Ipc>>(d);
         destroy_data_device::<PrimarySelection<D::Ipc>>(d);
         d.data().seat.remove_data_control_device(d);
-        d.data().client.remove_obj(d)?;
-        Ok(())
+        d.data().client.remove_obj(d);
     }
 
     pub fn device_set_primary_selection<D: DataControlDevice>(
@@ -381,13 +380,12 @@ pub mod logic {
         Ok(())
     }
 
-    pub fn data_source_destroy<S: DataControlSource>(s: &S) -> Result<(), DataControlError> {
+    pub fn data_source_destroy<S: DataControlSource>(s: &S) {
         match s.data().location.get() {
             IpcLocation::Clipboard => destroy_data_source::<Clipboard<S::Ipc>>(s),
             IpcLocation::PrimarySelection => destroy_data_source::<PrimarySelection<S::Ipc>>(s),
         }
-        s.data().data.client.remove_obj(s)?;
-        Ok(())
+        s.data().data.client.remove_obj(s);
     }
 
     pub fn data_source_break_loops<S: DataControlSource>(s: &S) {
@@ -406,7 +404,7 @@ pub mod logic {
         }
     }
 
-    pub fn data_offer_destroy<O: DataControlOffer>(o: &O) -> Result<(), DataControlError> {
+    pub fn data_offer_destroy<O: DataControlOffer>(o: &O) {
         macro_rules! destroy {
             ($t:ident) => {
                 destroy_data_offer_with_reason::<$t<O::Ipc>>(o, OfferDestroyReason::OfferClient)
@@ -416,8 +414,7 @@ pub mod logic {
             IpcLocation::Clipboard => destroy!(Clipboard),
             IpcLocation::PrimarySelection => destroy!(PrimarySelection),
         }
-        o.data().client.remove_obj(o)?;
-        Ok(())
+        o.data().client.remove_obj(o);
     }
 
     pub fn data_offer_break_loops<O: DataControlOffer>(o: &O) {

@@ -48,7 +48,7 @@ impl WpColorRepresentationSurfaceV1RequestHandler for WpColorRepresentationSurfa
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.surface.color_representation_surface.take();
         self.surface.pending.borrow_mut().alpha_mode = Some(Default::default());
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 
