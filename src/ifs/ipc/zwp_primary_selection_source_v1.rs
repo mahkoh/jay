@@ -109,7 +109,7 @@ impl Object for ZwpPrimarySelectionSourceV1 {
 dedicated_add_obj!(
     ZwpPrimarySelectionSourceV1,
     ZwpPrimarySelectionSourceV1Id,
-    zwp_primary_selection_source
+    zwp_primary_selection_source,
 );
 
 #[derive(Debug, Error)]

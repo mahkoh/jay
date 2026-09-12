@@ -341,7 +341,7 @@ impl Object for ExtImageCopyCaptureSessionV1 {
 dedicated_add_obj!(
     ExtImageCopyCaptureSessionV1,
     ExtImageCopyCaptureSessionV1Id,
-    ext_copy_sessions
+    ext_copy_sessions,
 );
 
 #[derive(Debug, Error)]

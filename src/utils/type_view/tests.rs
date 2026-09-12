@@ -38,6 +38,11 @@ where
     assert_eq!(Rc::as_ptr(unwrapped_ref), ptr);
     assert_eq!(Rc::strong_count(&rc), 1);
 
+    let unwrapped_ref: &Rc<T> = view_ref.tv_unwrap_rc_ref();
+    assert_eq!(Rc::as_ptr(unwrapped_ref), ptr);
+    assert_eq!(**unwrapped_ref, t);
+    assert_eq!(Rc::strong_count(&rc), 1);
+
     let cloned: Rc<TypeView<T, V>> = rc.tv_wrap_rc_ref_clone::<V>();
     assert_eq!(Rc::as_ptr(&cloned).cast::<T>(), ptr);
     assert_eq!(Rc::strong_count(&rc), 2);
@@ -100,6 +105,41 @@ fn nested_views() {
     let rc = inner.tv_unwrap_rc();
     assert_eq!(Rc::as_ptr(&rc), ptr);
     assert_eq!(*rc, 5);
+}
+
+#[test]
+fn unwrap_rc_ref_shares_allocation() {
+    let rc = Rc::new(5u32);
+    let ptr = Rc::as_ptr(&rc);
+    let view: Rc<TypeView<u32, MarkerA>> = rc.tv_wrap_rc::<MarkerA>();
+    assert_eq!(Rc::strong_count(&view), 1);
+
+    // The reference is a view of `view` itself, not a new handle.
+    let unwrapped: &Rc<u32> = view.tv_unwrap_rc_ref();
+    assert_eq!(Rc::as_ptr(unwrapped), ptr);
+    assert_eq!(**unwrapped, 5);
+    assert_eq!(Rc::strong_count(unwrapped), 1);
+
+    // Cloning through it shares the refcount with `view`.
+    let cloned = unwrapped.clone();
+    assert_eq!(Rc::strong_count(&view), 2);
+    assert_eq!(Rc::as_ptr(&cloned), ptr);
+    drop(view);
+    assert_eq!(Rc::strong_count(&cloned), 1);
+    assert_eq!(*cloned, 5);
+}
+
+#[test]
+fn unwrap_rc_ref_nested() {
+    let rc = Rc::new(5u32);
+    let ptr = Rc::as_ptr(&rc);
+    let inner: Rc<TypeView<u32, MarkerA>> = rc.tv_wrap_rc::<MarkerA>();
+    let outer: Rc<TypeView<TypeView<u32, MarkerA>, MarkerB>> = inner.tv_wrap_rc::<MarkerB>();
+    let inner: &Rc<TypeView<u32, MarkerA>> = outer.tv_unwrap_rc_ref();
+    let rc: &Rc<u32> = inner.tv_unwrap_rc_ref();
+    assert_eq!(Rc::as_ptr(rc), ptr);
+    assert_eq!(**rc, 5);
+    assert_eq!(Rc::strong_count(&outer), 1);
 }
 
 #[test]

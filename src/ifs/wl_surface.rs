@@ -5,6 +5,7 @@ pub mod ext_session_lock_surface_v1;
 pub mod jay_sync_file_release;
 pub mod jay_sync_file_surface;
 pub mod prime;
+pub mod surface_render_cache;
 pub mod tray;
 pub mod wl_subsurface;
 pub mod wp_alpha_modifier_surface_v1;
@@ -147,6 +148,7 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::double_buffered::DoubleBuffered;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::event_listener::EventListener;
+use crate::utils::lazy_event_source::LazyEventSource;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::numcell::NumCell;
 use crate::utils::obj_and_id::ObjAndId;
@@ -174,6 +176,7 @@ use jay_proc::Reset;
 use linearize::LinearizeExt;
 use smallvec::SmallVec;
 use std::cell::Cell;
+use std::cell::OnceCell;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -366,6 +369,7 @@ pub struct WlSurface {
     output_listener: EventListener<dyn OutputEventListener>,
     workspace_listener: EventListener<dyn WorkspaceEventListener>,
     _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
+    tree_committed_listeners: OnceCell<Rc<LazyEventSource>>,
 }
 
 impl Debug for WlSurface {
@@ -430,6 +434,10 @@ trait SurfaceExt {
         } else {
             Ok(())
         }
+    }
+
+    fn subsurface_root(&self, surface: &Rc<WlSurface>) -> Rc<WlSurface> {
+        surface.clone()
     }
 
     fn subsurface_parent(&self) -> Option<Rc<WlSurface>> {
@@ -784,6 +792,7 @@ impl WlSurface {
             output_listener: EventListener::new(slf.clone()),
             workspace_listener: EventListener::new(slf.clone()),
             _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
+            tree_committed_listeners: Default::default(),
         }
     }
 
@@ -1089,18 +1098,6 @@ impl WlSurface {
         }
     }
 
-    fn get_root(self: &Rc<Self>) -> Rc<WlSurface> {
-        let mut root = self.clone();
-        loop {
-            if let Some(parent) = root.ext.get().subsurface_parent() {
-                root = parent;
-                continue;
-            }
-            break;
-        }
-        root
-    }
-
     fn unset_cursors(&self) {
         while let Some((_, cursor)) = self.cursors.pop() {
             cursor.handle_surface_destroy();
@@ -1194,6 +1191,12 @@ impl WlSurface {
             self.add_transaction_op(WlSurfaceTransactionOp::UnblockUnmap);
         }
     }
+
+    fn tree_committed(&self) {
+        if let Some(v) = self.tree_committed_listeners.get() {
+            v.trigger();
+        }
+    }
 }
 
 const MAX_DAMAGE: usize = 32;
@@ -1211,7 +1214,7 @@ impl WlSurfaceRequestHandler for WlSurface {
             let mut children = self.children.borrow_mut();
             if let Some(children) = &mut *children {
                 for ss in children.subsurfaces.values() {
-                    ss.surface.unset_ext();
+                    ss.handle_parent_destroy();
                 }
             }
             *children = None;
@@ -1370,6 +1373,7 @@ impl WlSurfaceRequestHandler for WlSurface {
 
 impl WlSurface {
     fn apply_state(self: &Rc<Self>, pending: &mut PendingState) -> Result<(), WlSurfaceError> {
+        self.tree_committed();
         for (_, pending) in &mut pending.subsurfaces {
             pending.subsurface.apply_state(&mut pending.pending)?;
         }

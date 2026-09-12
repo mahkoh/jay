@@ -99,6 +99,7 @@ where
 {
     fn tv_unwrap_ref(&self) -> &T;
     fn tv_unwrap_rc(self: Rc<Self>) -> Rc<T>;
+    fn tv_unwrap_rc_ref(self: &Rc<Self>) -> &Rc<T>;
 }
 
 impl<T, V> TypeViewExt2<T> for TypeView<T, V>
@@ -114,6 +115,10 @@ where
         assert_same_layout!(*const T, Rc<T>);
         // SAFETY: As above.
         unsafe { mem::transmute(self) }
+    }
+
+    fn tv_unwrap_rc_ref(self: &Rc<Self>) -> &Rc<T> {
+        tv_unwrap_rc_ref(self)
     }
 }
 

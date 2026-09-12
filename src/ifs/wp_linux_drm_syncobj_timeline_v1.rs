@@ -53,7 +53,7 @@ impl Object for WpLinuxDrmSyncobjTimelineV1 {}
 dedicated_add_obj!(
     WpLinuxDrmSyncobjTimelineV1,
     WpLinuxDrmSyncobjTimelineV1Id,
-    timelines
+    timelines,
 );
 
 #[derive(Debug, Error)]

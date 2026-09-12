@@ -93,7 +93,7 @@ impl Object for ZwlrDataControlSourceV1 {
 dedicated_add_obj!(
     ZwlrDataControlSourceV1,
     ZwlrDataControlSourceV1Id,
-    zwlr_data_sources
+    zwlr_data_sources,
 );
 
 #[derive(Debug, Error)]

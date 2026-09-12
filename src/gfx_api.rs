@@ -656,7 +656,7 @@ impl dyn GfxFramebuffer {
         )
     }
 
-    fn create_render_pass(
+    pub fn create_render_pass(
         &self,
         node: &dyn Node,
         state: &State,

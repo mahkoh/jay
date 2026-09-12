@@ -149,7 +149,7 @@ impl Object for XdgToplevelIconManagerV1 {}
 dedicated_add_obj!(
     XdgToplevelIconManagerV1,
     XdgToplevelIconManagerV1Id,
-    xdg_toplevel_icon_managers
+    xdg_toplevel_icon_managers,
 );
 
 #[derive(Debug, Error)]

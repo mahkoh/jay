@@ -42,7 +42,7 @@ impl Object for ExtImageCaptureSourceV1 {}
 dedicated_add_obj!(
     ExtImageCaptureSourceV1,
     ExtImageCaptureSourceV1Id,
-    image_capture_sources
+    image_capture_sources,
 );
 
 #[derive(Debug, Error)]

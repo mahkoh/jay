@@ -80,7 +80,7 @@ impl Object for ExtForeignToplevelHandleV1 {
 dedicated_add_obj!(
     ExtForeignToplevelHandleV1,
     ExtForeignToplevelHandleV1Id,
-    foreign_toplevel_handles
+    foreign_toplevel_handles,
 );
 
 #[derive(Debug, Error)]
