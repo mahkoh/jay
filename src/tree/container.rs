@@ -2142,28 +2142,7 @@ impl ContainerNode {
     }
 
     fn compute_theme(&self) -> ContainerTheme {
-        let theme = &self.state.theme;
-        define_ident!(Cell::new(theme.@container_borders.get()));
-        define_ident!(theme.@show_titles.get());
-        define_ident!(Cell::new(theme.colors.@border.get()));
-        define_ident!(Cell::new(theme.colors.@separator.get()));
-        define_ident!(Cell::new(theme.sizes.@border_width.val.get()));
-        define_ident!(theme.sizes.@title_height.val.get());
-        define_ident!(Cell::new(@title_plus_underline_height(show_titles, title_height)));
-        define_ident!(Cell::new(@title_underline_height(show_titles)));
-        define_ident!(Cell::new(@title_icon_size(show_titles, title_height)));
-        define_ident!(Cell::new(compute_title_height(show_titles, @title_height)));
-        ContainerTheme {
-            container_borders,
-            colors: ContainerThemeColors { border, separator },
-            sizes: ContainerThemeSizes {
-                border_width,
-                title_height,
-                title_plus_underline_height,
-                title_underline_height,
-                title_icon_size,
-            },
-        }
+        compute_theme(&self.state.theme)
     }
 
     fn compute_child_theme(&self) -> ContainerChildTheme {
@@ -3344,6 +3323,30 @@ pub fn default_tile_drag_destination(
         None => tile_drag_destination_in_mono(tl, abs_bounds, abs_x, abs_y),
         Some(s) => tile_drag_destination_in_split(tl, s, abs_bounds, abs_x, abs_y),
     })
+}
+
+fn compute_theme(theme: &Theme) -> ContainerTheme {
+    define_ident!(Cell::new(theme.@container_borders.get()));
+    define_ident!(theme.@show_titles.get());
+    define_ident!(Cell::new(theme.colors.@border.get()));
+    define_ident!(Cell::new(theme.colors.@separator.get()));
+    define_ident!(Cell::new(theme.sizes.@border_width.val.get()));
+    define_ident!(theme.sizes.@title_height.val.get());
+    define_ident!(Cell::new(@title_plus_underline_height(show_titles, title_height)));
+    define_ident!(Cell::new(@title_underline_height(show_titles)));
+    define_ident!(Cell::new(@title_icon_size(show_titles, title_height)));
+    define_ident!(Cell::new(compute_title_height(show_titles, @title_height)));
+    ContainerTheme {
+        container_borders,
+        colors: ContainerThemeColors { border, separator },
+        sizes: ContainerThemeSizes {
+            border_width,
+            title_height,
+            title_plus_underline_height,
+            title_underline_height,
+            title_icon_size,
+        },
+    }
 }
 
 fn compute_child_theme(theme: &Theme) -> ContainerChildTheme {
