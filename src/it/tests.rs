@@ -100,6 +100,7 @@ mod t0066_float_pin;
 mod t0067_container_title_offsets;
 mod t0068_float_title_offsets;
 mod t0069_icon_title_offsets;
+mod t0070_container_title_offsets_no_icons;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
@@ -188,5 +189,6 @@ pub fn tests() -> Vec<&'static dyn TestCase> {
         t0067_container_title_offsets,
         t0068_float_title_offsets,
         t0069_icon_title_offsets,
+        t0070_container_title_offsets_no_icons,
     }
 }

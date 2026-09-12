@@ -305,6 +305,8 @@ pub struct ContainerTheme {
     container_borders: Cell<ContainerBordersSetting>,
     colors: ContainerThemeColors,
     pub sizes: ContainerThemeSizes,
+    show_titles: Cell<bool>,
+    show_window_icons: Cell<bool>,
 }
 
 #[derive(Clone, CachedValue)]
@@ -319,13 +321,12 @@ pub struct ContainerThemeSizes {
     pub title_height: Cell<i32>,
     title_plus_underline_height: Cell<i32>,
     title_underline_height: Cell<i32>,
-    pub title_icon_size: Cell<i32>,
 }
 
 #[derive(Clone, CachedValue)]
 pub struct ContainerChildTheme {
     colors: ContainerChildThemeColors,
-    show_window_icons: Cell<bool>,
+    pub sizes: ContainerChildThemeSizes,
     pub window_icons_grayscale: Cell<bool>,
     title_font: CloneCell<Rc<Arc<str>>>,
 }
@@ -342,9 +343,15 @@ pub struct ContainerChildThemeColors {
     focused_inactive_title_background: Cell<Color>,
 }
 
+#[derive(Clone, CachedValue)]
+pub struct ContainerChildThemeSizes {
+    pub title_icon_size: Cell<i32>,
+}
+
 impl ContainerChildInner {
     fn new(
         state: &Rc<State>,
+        theme: &ContainerTheme,
         node: &Rc<dyn ToplevelNode>,
         factor: f64,
         resize_handle: Option<Rect>,
@@ -364,7 +371,7 @@ impl ContainerChildInner {
             resize_handle: Cell::new(resize_handle),
             title_offsets_scheduled: Default::default(),
         };
-        let theme = compute_child_theme(&state.theme);
+        let theme = compute_child_theme(&state.theme, theme);
         slf.node_state[LiveTL].theme.cached_set(theme.clone());
         slf.node_state[RenderTL].theme.cached_set(theme);
         slf
@@ -412,9 +419,10 @@ impl ContainerNode {
         child: Rc<dyn ToplevelNode>,
         split: ContainerSplit,
     ) -> Rc<Self> {
+        let theme = compute_theme(&state.theme);
         let children = LinkedList::default();
         let child_node = children.add_last(TreeLink::new(ContainerChildInner::new(
-            state, &child, 1.0, None,
+            state, &theme, &child, 1.0, None,
         )));
         child.tl_update_icon(&child_node.icon);
         let child_node_ref = child_node.clone();
@@ -461,7 +469,6 @@ impl ContainerNode {
             _scales_listener: EventListener::attached(weak.clone(), &state.scales_changed),
         });
         {
-            let theme = slf.compute_theme();
             slf.node_state[LiveTL].theme.cached_set(theme.clone());
             slf.node_state[RenderTL].theme.cached_set(theme);
         }
@@ -563,6 +570,7 @@ impl ContainerNode {
     where
         F: FnOnce(ContainerChild) -> LinkedNode<ContainerChild>,
     {
+        let ns = &self.node_state[LiveTL];
         let new_ref = {
             let mut links = self.child_nodes.borrow_mut();
             if links.contains_key(&new.node_id()) {
@@ -571,6 +579,7 @@ impl ContainerNode {
             }
             let link = f(TreeLink::new(ContainerChildInner::new(
                 &self.state,
+                &ns.theme,
                 &new,
                 0.0,
                 None,
@@ -598,7 +607,7 @@ impl ContainerNode {
             sum_factors += factor;
         }
         self.sum_factors.set(sum_factors);
-        if self.node_state[LiveTL].mono_child.is_some() {
+        if ns.mono_child.is_some() {
             self.activate_child(&new_ref);
         }
         // log::info!("add_child");
@@ -1064,10 +1073,8 @@ impl ContainerNode {
                 let mut th = th;
                 let mut scalef = None;
                 let mut width = (rect.width() - cns.offsets.title.get()).max(0);
-                let icon = ctheme
-                    .show_window_icons
-                    .get()
-                    .and_then(|| child.icon.get(*scale));
+                let icon =
+                    (ctheme.sizes.title_icon_size.get() > 0).and_then(|| child.icon.get(*scale));
                 if let Some(icon) = icon {
                     child.icons.insert(*scale, icon);
                 }
@@ -2142,32 +2149,11 @@ impl ContainerNode {
     }
 
     fn compute_theme(&self) -> ContainerTheme {
-        let theme = &self.state.theme;
-        define_ident!(Cell::new(theme.@container_borders.get()));
-        define_ident!(theme.@show_titles.get());
-        define_ident!(Cell::new(theme.colors.@border.get()));
-        define_ident!(Cell::new(theme.colors.@separator.get()));
-        define_ident!(Cell::new(theme.sizes.@border_width.val.get()));
-        define_ident!(theme.sizes.@title_height.val.get());
-        define_ident!(Cell::new(@title_plus_underline_height(show_titles, title_height)));
-        define_ident!(Cell::new(@title_underline_height(show_titles)));
-        define_ident!(Cell::new(@title_icon_size(show_titles, title_height)));
-        define_ident!(Cell::new(compute_title_height(show_titles, @title_height)));
-        ContainerTheme {
-            container_borders,
-            colors: ContainerThemeColors { border, separator },
-            sizes: ContainerThemeSizes {
-                border_width,
-                title_height,
-                title_plus_underline_height,
-                title_underline_height,
-                title_icon_size,
-            },
-        }
+        compute_theme(&self.state.theme)
     }
 
     fn compute_child_theme(&self) -> ContainerChildTheme {
-        compute_child_theme(&self.state.theme)
+        compute_child_theme(&self.state.theme, &self.node_state[LiveTL].theme)
     }
 
     fn child_theme_changed(
@@ -2193,7 +2179,10 @@ impl ContainerNode {
                     unfocused_title_background,
                     focused_inactive_title_background,
                 },
-            show_window_icons,
+            sizes:
+                ContainerChildThemeSizesChanged {
+                    title_icon_size, //
+                },
             window_icons_grayscale,
             title_font,
         } = changed;
@@ -2201,7 +2190,7 @@ impl ContainerNode {
             || focused_title_text
             || focused_inactive_title_text
             || unfocused_title_text
-            || show_window_icons
+            || title_icon_size
             || title_font
             || or_chain!();
         if title {
@@ -2219,9 +2208,14 @@ impl ContainerNode {
         if render_positions {
             self.schedule_compute_render_positions();
         }
-        let title_offsets = or_chain!(________________________)
+        if title_icon_size {
+            if child.icon.set_size(ns.theme.sizes.title_icon_size.get()) {
+                child.node.tl_update_icon(&child.icon);
+            }
+        }
+        let title_offsets = or_chain!(___________________________________________)
             || title_offsets
-            || show_window_icons
+            || title_icon_size
             || or_chain!();
         if title_offsets {
             self.schedule_title_offsets(child);
@@ -2252,7 +2246,7 @@ impl ContainerNode {
             x += th;
         }
         snapshot!(toplevel_icon);
-        if child.icon.has_icon() && ctheme.show_window_icons.get() {
+        if child.icon.has_icon() && ctheme.sizes.title_icon_size.get() > 0 {
             x += th;
         }
         snapshot!(title);
@@ -2672,6 +2666,7 @@ impl ContainingNode for ContainerNode {
         self.discard_child_properties(&node);
         let link = node.append(TreeLink::new(ContainerChildInner::new(
             &self.state,
+            &ns.theme,
             &new,
             node.factor.get(),
             node.resize_handle.get(),
@@ -3153,15 +3148,15 @@ impl ThemeChangeListener for ContainerNode {
                     title_height,
                     title_plus_underline_height,
                     title_underline_height,
-                    title_icon_size,
                 },
+            show_titles: _,
+            show_window_icons: _,
         } = changed;
         let layout = or_chain!()
             || border_width
             || title_height
             || title_plus_underline_height
             || title_underline_height
-            || title_icon_size
             || container_borders
             || or_chain!();
         if layout {
@@ -3187,13 +3182,6 @@ impl ThemeChangeListener for ContainerNode {
             || title_height
             || or_chain!();
         for child in self.children.iter_valid(LiveTL) {
-            let mut offsets = offsets;
-            if title_icon_size {
-                if child.icon.set_size(ns.theme.sizes.title_icon_size.get()) {
-                    child.node.tl_update_icon(&child.icon);
-                    offsets = true;
-                }
-            }
             self.child_theme_changed(render_positions, offsets, &child);
         }
     }
@@ -3346,7 +3334,33 @@ pub fn default_tile_drag_destination(
     })
 }
 
-fn compute_child_theme(theme: &Theme) -> ContainerChildTheme {
+fn compute_theme(theme: &Theme) -> ContainerTheme {
+    define_ident!(Cell::new(theme.@container_borders.get()));
+    define_ident!(theme.@show_titles.get());
+    define_ident!(Cell::new(theme.colors.@border.get()));
+    define_ident!(Cell::new(theme.colors.@separator.get()));
+    define_ident!(Cell::new(theme.sizes.@border_width.val.get()));
+    define_ident!(theme.sizes.@title_height.val.get());
+    define_ident!(Cell::new(@title_plus_underline_height(show_titles, title_height)));
+    define_ident!(Cell::new(@title_underline_height(show_titles)));
+    define_ident!(Cell::new(compute_title_height(show_titles, @title_height)));
+    define_ident!(Cell::new(@show_titles));
+    define_ident!(Cell::new(theme.@show_window_icons.get()));
+    ContainerTheme {
+        container_borders,
+        colors: ContainerThemeColors { border, separator },
+        sizes: ContainerThemeSizes {
+            border_width,
+            title_height,
+            title_plus_underline_height,
+            title_underline_height,
+        },
+        show_titles,
+        show_window_icons,
+    }
+}
+
+fn compute_child_theme(theme: &Theme, container_theme: &ContainerTheme) -> ContainerChildTheme {
     define_ident!(theme.colors.@border.val.get());
     define_ident!(Cell::new(theme.colors.@focused_title_text.val.get()));
     define_ident!(Cell::new(theme.colors.@focused_inactive_title_text.val.get()));
@@ -3356,10 +3370,14 @@ fn compute_child_theme(theme: &Theme) -> ContainerChildTheme {
     define_ident!(Cell::new(theme.colors.@unfocused_title_background.val.get()));
     define_ident!(Cell::new(theme.colors.@focused_inactive_title_background.val.get()));
     define_ident!(theme.colors.@focused_border.get_opt());
-    define_ident!(Cell::new(theme.@show_window_icons.get()));
     define_ident!(Cell::new(theme.@window_icons_grayscale.get()));
     define_ident!(CloneCell::new(theme.@title_font()));
     define_ident!(Cell::new(compute_focused_border(@focused_border, border)));
+    define_ident!(Cell::new(@title_icon_size(
+        container_theme.show_titles.get(),
+        container_theme.show_window_icons.get(),
+        container_theme.sizes.title_height.get(),
+    )));
     ContainerChildTheme {
         colors: ContainerChildThemeColors {
             focused_title_text,
@@ -3371,7 +3389,9 @@ fn compute_child_theme(theme: &Theme) -> ContainerChildTheme {
             unfocused_title_background,
             focused_inactive_title_background,
         },
-        show_window_icons,
+        sizes: ContainerChildThemeSizes {
+            title_icon_size, //
+        },
         window_icons_grayscale,
         title_font,
     }
