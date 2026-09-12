@@ -49,7 +49,7 @@ impl ZxdgOutputManagerV1RequestHandler for ZxdgOutputManagerV1 {
     type Error = ZxdgOutputManagerV1Error;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

@@ -37,7 +37,7 @@ impl XwaylandSurfaceV1RequestHandler for XwaylandSurfaceV1 {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.x.xwayland_surface.set(None);
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

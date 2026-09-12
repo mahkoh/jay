@@ -222,9 +222,9 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
     }
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         for head in self.enabled_outputs.lock().drain_values() {
-            self.client.remove_obj(&*head)?;
+            self.client.remove_obj(&*head);
         }
         Ok(())
     }

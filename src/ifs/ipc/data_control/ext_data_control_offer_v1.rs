@@ -46,7 +46,7 @@ impl ExtDataControlOfferV1RequestHandler for ExtDataControlOfferV1 {
     }
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        logic::data_offer_destroy(self)?;
+        logic::data_offer_destroy(self);
         Ok(())
     }
 }

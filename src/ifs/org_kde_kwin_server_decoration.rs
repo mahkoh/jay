@@ -46,7 +46,7 @@ impl OrgKdeKwinServerDecorationRequestHandler for OrgKdeKwinServerDecoration {
     type Error = OrgKdeKwinServerDecorationError;
 
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

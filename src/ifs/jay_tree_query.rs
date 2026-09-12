@@ -274,7 +274,7 @@ impl JayTreeQueryRequestHandler for JayTreeQuery {
     type Error = JayTreeQueryError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

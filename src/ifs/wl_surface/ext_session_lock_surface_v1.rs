@@ -90,7 +90,7 @@ impl ExtSessionLockSurfaceV1RequestHandler for ExtSessionLockSurfaceV1 {
         self.destroyed.set(true);
         self.configurable_data.ready();
         self.surface.unset_ext();
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

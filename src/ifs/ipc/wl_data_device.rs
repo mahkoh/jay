@@ -149,7 +149,7 @@ impl WlDataDeviceRequestHandler for WlDataDevice {
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         destroy_data_device::<ClipboardIpc>(self);
         self.seat.remove_data_device(self);
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

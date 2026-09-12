@@ -224,7 +224,7 @@ impl ZwlrOutputHeadV1RequestHandler for ZwlrOutputHeadV1 {
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.send_finished();
         self.listener.detach();
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

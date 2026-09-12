@@ -22,7 +22,7 @@ impl ZwpConfinedPointerV1RequestHandler for ZwpConfinedPointerV1 {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.constraint.detach();
-        self.constraint.client.remove_obj(self)?;
+        self.constraint.client.remove_obj(self);
         Ok(())
     }
 

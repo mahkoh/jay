@@ -58,7 +58,7 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
         if !self.finished.get() {
             self.client.state.lock.lock.take();
         }
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 
@@ -109,7 +109,7 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
         if !self.finished.get() {
             self.client.state.do_unlock();
         }
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

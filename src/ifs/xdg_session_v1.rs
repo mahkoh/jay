@@ -104,7 +104,7 @@ impl XdgSessionV1RequestHandler for XdgSessionV1 {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.disown_to_peer();
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 
@@ -113,7 +113,7 @@ impl XdgSessionV1RequestHandler for XdgSessionV1 {
             session.remove();
         }
         self.disown_from_peer(false);
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

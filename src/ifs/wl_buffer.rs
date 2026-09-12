@@ -668,7 +668,7 @@ impl WlBufferRequestHandler for WlBuffer {
     type Error = WlBufferError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         self.destroyed.set(true);
         Ok(())
     }

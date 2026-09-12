@@ -346,7 +346,7 @@ impl ZwlrLayerSurfaceV1RequestHandler for ZwlrLayerSurfaceV1 {
             return Err(ZwlrLayerSurfaceV1Error::HasPopups);
         }
         slf.destroy_node();
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         self.surface.unset_ext();
         Ok(())
     }

@@ -78,7 +78,7 @@ impl ZwpTabletManagerV2RequestHandler for ZwpTabletManagerV2 {
     }
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

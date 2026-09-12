@@ -92,7 +92,7 @@ impl ZwpPrimarySelectionDeviceV1RequestHandler for ZwpPrimarySelectionDeviceV1 {
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         destroy_data_device::<PrimarySelectionIpc>(self);
         self.seat.remove_primary_selection_device(self);
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

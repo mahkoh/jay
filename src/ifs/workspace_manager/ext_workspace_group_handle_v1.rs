@@ -148,7 +148,7 @@ impl ExtWorkspaceGroupHandleV1RequestHandler for ExtWorkspaceGroupHandleV1 {
             }
         }
         self.detach();
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

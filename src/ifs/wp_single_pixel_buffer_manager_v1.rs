@@ -63,7 +63,7 @@ impl WpSinglePixelBufferManagerV1RequestHandler for WpSinglePixelBufferManagerV1
     type Error = WpSinglePixelBufferManagerV1Error;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

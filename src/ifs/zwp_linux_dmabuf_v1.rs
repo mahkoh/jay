@@ -134,7 +134,7 @@ impl ZwpLinuxDmabufV1RequestHandler for ZwpLinuxDmabufV1 {
     type Error = ZwpLinuxDmabufV1Error;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

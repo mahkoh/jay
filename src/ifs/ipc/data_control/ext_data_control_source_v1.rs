@@ -74,7 +74,7 @@ impl ExtDataControlSourceV1RequestHandler for ExtDataControlSourceV1 {
     }
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        logic::data_source_destroy(self)?;
+        logic::data_source_destroy(self);
         Ok(())
     }
 }

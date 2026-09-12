@@ -80,7 +80,7 @@ impl JaySelectToplevel {
                 }
             }
         }
-        let _ = self.client.remove_obj(self);
+        self.client.remove_obj(self);
     }
 
     pub fn new(client: &Rc<Client>, id: JaySelectToplevelId, version: Version) -> Rc<Self> {

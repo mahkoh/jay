@@ -104,7 +104,7 @@ impl WlTouchRequestHandler for WlTouch {
 
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.seat.touches.remove(&self.id);
-        self.seat.client.remove_obj(self)?;
+        self.seat.client.remove_obj(self);
         Ok(())
     }
 }

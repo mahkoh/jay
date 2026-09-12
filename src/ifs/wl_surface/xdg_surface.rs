@@ -508,7 +508,7 @@ impl XdgSurfaceRequestHandler for XdgSurface {
         }
         self.surface.unset_ext();
         self.base.surfaces.remove(&self.id);
-        self.surface.client.remove_obj(self)?;
+        self.surface.client.remove_obj(self);
         Ok(())
     }
 

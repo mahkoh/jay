@@ -178,7 +178,7 @@ impl JayCompositor {
                 ss.send_error(&msg);
             }
         }
-        self.client.remove_obj(ss.deref())?;
+        self.client.remove_obj(ss.deref());
         Ok(())
     }
 }
@@ -187,7 +187,7 @@ impl JayCompositorRequestHandler for JayCompositor {
     type Error = JayCompositorError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

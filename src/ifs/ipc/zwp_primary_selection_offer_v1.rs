@@ -83,7 +83,7 @@ impl ZwpPrimarySelectionOfferV1RequestHandler for ZwpPrimarySelectionOfferV1 {
             self,
             OfferDestroyReason::OfferClient,
         );
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

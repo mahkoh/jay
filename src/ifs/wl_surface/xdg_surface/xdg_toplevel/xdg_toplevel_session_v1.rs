@@ -124,7 +124,7 @@ impl XdgToplevelSessionV1RequestHandler for XdgToplevelSessionV1 {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.parent.bump();
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         self.disown_to_peer();
         Ok(())
     }

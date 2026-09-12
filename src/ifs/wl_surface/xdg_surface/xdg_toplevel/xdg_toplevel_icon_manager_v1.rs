@@ -89,7 +89,7 @@ impl XdgToplevelIconManagerV1RequestHandler for XdgToplevelIconManagerV1 {
     type Error = XdgToplevelIconManagerV1Error;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

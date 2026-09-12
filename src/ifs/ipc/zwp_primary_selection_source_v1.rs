@@ -90,7 +90,7 @@ impl ZwpPrimarySelectionSourceV1RequestHandler for ZwpPrimarySelectionSourceV1 {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         destroy_data_source::<PrimarySelectionIpc>(self);
-        self.data.client.remove_obj(self)?;
+        self.data.client.remove_obj(self);
         Ok(())
     }
 }

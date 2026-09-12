@@ -40,7 +40,7 @@ impl WpDrmLeaseRequestV1RequestHandler for WpDrmLeaseRequestV1 {
     }
 
     fn submit(&self, req: Submit, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         let obj = Rc::new(WpDrmLeaseV1 {
             id: req.id,
             client: self.client.clone(),

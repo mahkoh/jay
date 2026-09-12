@@ -153,7 +153,7 @@ impl ZwpLinuxBufferParamsV1RequestHandler for ZwpLinuxBufferParamsV1 {
     type Error = ZwpLinuxBufferParamsV1Error;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.parent.client.remove_obj(self)?;
+        self.parent.client.remove_obj(self);
         Ok(())
     }
 

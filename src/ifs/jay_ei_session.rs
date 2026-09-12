@@ -56,7 +56,7 @@ impl JayEiSessionRequestHandler for JayEiSession {
 
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.kill(false);
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

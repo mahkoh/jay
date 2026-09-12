@@ -65,7 +65,7 @@ impl WpContentTypeV1RequestHandler for WpContentTypeV1 {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.surface.has_content_type_manager.set(false);
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

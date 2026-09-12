@@ -59,7 +59,7 @@ impl Drop for JayWorkspaceSelector {
                 jw.send_initial_properties(&ws);
             }
         };
-        let _ = self.jsw.client.remove_obj(&*self.jsw);
+        self.jsw.client.remove_obj(&*self.jsw);
     }
 }
 

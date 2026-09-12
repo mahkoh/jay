@@ -78,7 +78,7 @@ impl XdgWmBaseRequestHandler for XdgWmBase {
             );
             return Err(XdgWmBaseError::DefunctSurfaces);
         }
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

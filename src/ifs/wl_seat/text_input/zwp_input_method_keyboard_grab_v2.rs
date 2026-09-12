@@ -124,7 +124,7 @@ impl ZwpInputMethodKeyboardGrabV2RequestHandler for ZwpInputMethodKeyboardGrabV2
 
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

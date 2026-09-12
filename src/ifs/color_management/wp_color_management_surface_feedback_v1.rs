@@ -64,7 +64,7 @@ impl WpColorManagementSurfaceFeedbackV1RequestHandler for WpColorManagementSurfa
     type Error = WpColorManagementSurfaceFeedbackV1Error;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         self.surface.remove_color_management_feedback(self);
         Ok(())
     }

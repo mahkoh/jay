@@ -61,7 +61,7 @@ impl ZwlrOutputModeV1RequestHandler for ZwlrOutputModeV1 {
 
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.destroyed.set(true);
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

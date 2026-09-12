@@ -63,7 +63,7 @@ impl WpCommitTimerV1RequestHandler for WpCommitTimerV1 {
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.surface.commit_timer.take();
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

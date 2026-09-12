@@ -25,7 +25,7 @@ impl ExtTransientSeatV1RequestHandler for ExtTransientSeatV1 {
     type Error = ExtTransientSeatV1Error;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

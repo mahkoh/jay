@@ -45,7 +45,7 @@ impl WpViewportRequestHandler for WpViewport {
         pending.src_rect = Some(None);
         pending.dst_size = Some(None);
         self.surface.viewporter.take();
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

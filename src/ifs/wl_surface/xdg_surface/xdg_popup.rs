@@ -306,7 +306,7 @@ impl XdgPopupRequestHandler for XdgPopup {
         }
         slf.destroy_node();
         self.xdg.unset_ext();
-        self.xdg.surface.client.remove_obj(self)?;
+        self.xdg.surface.client.remove_obj(self);
         Ok(())
     }
 

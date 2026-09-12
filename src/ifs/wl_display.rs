@@ -42,7 +42,7 @@ impl WlDisplayRequestHandler for WlDisplay {
         track!(self.client, cb);
         self.client.add_client_obj(&cb)?;
         cb.send_done(0);
-        self.client.remove_obj(&*cb)?;
+        self.client.remove_obj(&*cb);
         Ok(())
     }
 

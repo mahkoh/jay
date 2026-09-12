@@ -67,7 +67,7 @@ impl JayTrayV1RequestHandler for JayTrayV1 {
     type Error = JayTrayManagerV1Error;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 

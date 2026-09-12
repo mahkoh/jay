@@ -1921,7 +1921,7 @@ impl WlSeatRequestHandler for WlSeat {
                 }
             }
         }
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

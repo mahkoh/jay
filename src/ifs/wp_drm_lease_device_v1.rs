@@ -177,7 +177,7 @@ impl WpDrmLeaseDeviceV1RequestHandler for WpDrmLeaseDeviceV1 {
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
         self.send_released();
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 }

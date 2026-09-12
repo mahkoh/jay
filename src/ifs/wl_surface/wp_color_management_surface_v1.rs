@@ -39,7 +39,7 @@ impl WpColorManagementSurfaceV1RequestHandler for WpColorManagementSurfaceV1 {
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.surface.color_management_surface.take();
         self.surface.pending.borrow_mut().color_description = Some(None);
-        self.client.remove_obj(self)?;
+        self.client.remove_obj(self);
         Ok(())
     }
 
