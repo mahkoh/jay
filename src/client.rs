@@ -257,6 +257,7 @@ impl Clients {
             tracers: ClientTracers::new(&global.eng),
             terminate_shutdown: Default::default(),
             terminate_kill: Default::default(),
+            terminating: Default::default(),
             terminate: Default::default(),
             request_blockers: Default::default(),
             requests_unblocked: Default::default(),
@@ -338,6 +339,7 @@ pub struct ClientHolder {
 
 impl Drop for ClientHolder {
     fn drop(&mut self) {
+        self.data.terminating.set(true);
         let clear = ClientClear {
             data: self.data.clone(),
         };
@@ -418,6 +420,7 @@ pub struct Client {
     pub tracers: ClientTracers,
     terminate_shutdown: Cell<bool>,
     terminate_kill: Cell<bool>,
+    terminating: Cell<bool>,
     terminate: AsyncEvent,
     request_blockers: NumCell<u64>,
     requests_unblocked: AsyncEvent,
@@ -540,6 +543,9 @@ impl Client {
     }
 
     pub fn error(&self, message: impl Error) {
+        if self.terminating.get() {
+            return;
+        }
         let msg = ErrorFmt(message).to_string();
         log::error!("Client {}: A fatal error occurred: {}", self.id.0, msg,);
         match self.display() {
@@ -702,11 +708,13 @@ impl Client {
     }
 
     pub fn kill(&self) {
+        self.terminating.set(true);
         self.terminate_kill.set(true);
         self.terminate.trigger();
     }
 
     fn shutdown(&self) {
+        self.terminating.set(true);
         self.terminate_shutdown.set(true);
         self.terminate.trigger();
     }
