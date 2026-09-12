@@ -3,14 +3,15 @@ use crate::client::ClientError;
 use crate::ifs::ext_image_capture_source_v1::ImageCaptureSource;
 use crate::ifs::ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ExtImageCopyCaptureCursorSessionV1Id;
 use crate::wire::ext_image_copy_capture_cursor_session_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct ExtImageCopyCaptureCursorSessionV1 {
     pub(super) id: ExtImageCopyCaptureCursorSessionV1Id,
     pub(super) client: Rc<Client>,
@@ -53,12 +54,6 @@ impl ExtImageCopyCaptureCursorSessionV1RequestHandler for ExtImageCopyCaptureCur
         Ok(())
     }
 }
-
-object_base!(ExtImageCopyCaptureCursorSessionV1);
-
-impl Object for ExtImageCopyCaptureCursorSessionV1 {}
-
-simple_add_obj!(ExtImageCopyCaptureCursorSessionV1);
 
 #[derive(Debug, Error)]
 pub enum ExtImageCopyCaptureCursorSessionV1Error {

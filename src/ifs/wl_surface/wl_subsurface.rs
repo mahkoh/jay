@@ -12,7 +12,7 @@ use crate::ifs::wl_surface::WlSurfaceError;
 use crate::ifs::wl_surface::WlSurfaceId;
 use crate::ifs::wl_surface::tray::TrayItemId;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::tree::Node;
 use crate::tree::NodeBase;
@@ -31,6 +31,7 @@ use crate::wire::ObjectId;
 use crate::wire::WlSubsurfaceId;
 use crate::wire::wl_subsurface::*;
 use hashbrown::hash_map::OccupiedEntry;
+use jay_proc::Object;
 use linearize::LinearizeExt;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -45,6 +46,8 @@ const MAX_SUBSURFACE_DEPTH: u32 = 100;
 
 linear_ids!(SubsurfaceIds, SubsurfaceId, u64);
 
+#[derive(Object)]
+#[break_loops]
 pub struct WlSubsurface {
     id: WlSubsurfaceId,
     unique_id: SubsurfaceId,
@@ -424,16 +427,12 @@ impl WlSubsurfaceRequestHandler for WlSubsurface {
     }
 }
 
-object_base!(WlSubsurface);
-
-impl Object for WlSubsurface {
+impl BreakLoops for WlSubsurface {
     fn break_loops(self: Rc<Self>) {
         *self.node.borrow_mut() = None;
         self.latest_node.take();
     }
 }
-
-simple_add_obj!(WlSubsurface);
 
 impl SurfaceExt for WlSubsurface {
     fn object_id(&self) -> Option<ObjectId> {

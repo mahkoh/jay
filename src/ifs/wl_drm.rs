@@ -6,7 +6,6 @@ use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::state::State;
 use crate::video::INVALID_MODIFIER;
@@ -16,6 +15,7 @@ use crate::video::dmabuf::PlaneVec;
 use crate::wire::WlDrmId;
 use crate::wire::wl_drm::*;
 use bstr::ByteSlice;
+use jay_proc::Object;
 use std::ffi::CString;
 use std::rc::Rc;
 use thiserror::Error;
@@ -72,6 +72,7 @@ impl Global for WlDrmGlobal {
 
 simple_add_global!(WlDrmGlobal);
 
+#[derive(Object)]
 pub struct WlDrm {
     id: WlDrmId,
     client: Rc<Client>,
@@ -165,12 +166,6 @@ impl WlDrmRequestHandler for WlDrm {
         Ok(())
     }
 }
-
-object_base!(WlDrm);
-
-impl Object for WlDrm {}
-
-simple_add_obj!(WlDrm);
 
 #[derive(Debug, Error)]
 pub enum WlDrmError {

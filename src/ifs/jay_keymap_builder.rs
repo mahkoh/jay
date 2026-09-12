@@ -1,15 +1,17 @@
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::JayKeymapBuilderId;
 use crate::wire::jay_keymap_builder::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
 
+#[derive(Object)]
+#[dedicated(jay_keymap_builders)]
 pub struct JayKeymapBuilder {
     pub id: JayKeymapBuilderId,
     pub client: Rc<Client>,
@@ -69,12 +71,6 @@ impl JayKeymapBuilderRequestHandler for JayKeymapBuilder {
         Ok(())
     }
 }
-
-object_base!(JayKeymapBuilder);
-
-impl Object for JayKeymapBuilder {}
-
-dedicated_add_obj!(JayKeymapBuilder, JayKeymapBuilderId, jay_keymap_builders);
 
 #[derive(Debug, Error)]
 pub enum JayKeymapBuilderError {

@@ -25,7 +25,7 @@ use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::Xdg
 use crate::ifs::xdg_toplevel_drag_v1::XdgToplevelDragV1;
 use crate::ifs::zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::renderer::Renderer;
@@ -72,6 +72,7 @@ use crate::wire::ObjectId;
 use crate::wire::XdgToplevelId;
 use crate::wire::xdg_toplevel::*;
 use arrayvec::ArrayVec;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -135,6 +136,9 @@ pub struct XdgToplevelToplevelData {
     pub tag: RefCell<String>,
 }
 
+#[derive(Object)]
+#[dedicated(xdg_toplevel)]
+#[break_loops]
 pub struct XdgToplevel {
     pub id: XdgToplevelId,
     pub state: Rc<State>,
@@ -564,9 +568,7 @@ impl XdgToplevel {
     }
 }
 
-object_base!(XdgToplevel);
-
-impl Object for XdgToplevel {
+impl BreakLoops for XdgToplevel {
     fn break_loops(self: Rc<Self>) {
         self.toplevel_data.disown_session();
         self.tl_destroy();
@@ -576,8 +578,6 @@ impl Object for XdgToplevel {
         let _children = mem::take(&mut *self.children.borrow_mut());
     }
 }
-
-dedicated_add_obj!(XdgToplevel, XdgToplevelId, xdg_toplevel);
 
 impl NodeBase for XdgToplevel {
     fn node_id(&self) -> NodeId {

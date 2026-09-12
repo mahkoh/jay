@@ -3,14 +3,15 @@ use crate::client::ClientError;
 use crate::cursor::KnownCursor;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::JayPointerId;
 use crate::wire::jay_pointer::*;
+use jay_proc::Object;
 use num_traits::FromPrimitive;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct JayPointer {
     pub id: JayPointerId,
     pub version: Version,
@@ -46,12 +47,6 @@ impl JayPointerRequestHandler for JayPointer {
         Ok(())
     }
 }
-
-object_base!(JayPointer);
-
-impl Object for JayPointer {}
-
-simple_add_obj!(JayPointer);
 
 #[derive(Debug, Error)]
 pub enum JayPointerError {

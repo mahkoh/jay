@@ -8,7 +8,7 @@ use crate::ifs::wl_seat::text_input::TextDisconnectReason;
 use crate::ifs::wl_seat::text_input::TextInputConnection;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::utils::clonecell::CloneCell;
@@ -16,11 +16,14 @@ use crate::utils::numcell::NumCell;
 use crate::wire::ZwpTextInputV3Id;
 use crate::wire::zwp_text_input_v3::*;
 use hashbrown::hash_map::Entry;
+use jay_proc::Object;
 use std::cell::RefCell;
 use std::mem;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct ZwpTextInputV3 {
     id: ZwpTextInputV3Id,
     pub client: Rc<Client>,
@@ -289,15 +292,11 @@ impl ZwpTextInputV3RequestHandler for ZwpTextInputV3 {
     }
 }
 
-object_base!(ZwpTextInputV3);
-
-impl Object for ZwpTextInputV3 {
+impl BreakLoops for ZwpTextInputV3 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(ZwpTextInputV3);
 
 #[derive(Debug, Error)]
 pub enum ZwpTextInputV3Error {

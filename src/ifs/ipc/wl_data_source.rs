@@ -23,13 +23,14 @@ use crate::ifs::ipc::x_data_device::XIpcDevice;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::xdg_toplevel_drag_v1::XdgToplevelDragV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::utils::bitflags::BitflagsExt;
 use crate::utils::cell_ext::CellExt;
 use crate::utils::clonecell::CloneCell;
 use crate::wire::WlDataSourceId;
 use crate::wire::wl_data_source::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
@@ -39,6 +40,9 @@ const INVALID_ACTION_MASK: u32 = 0;
 #[expect(unused)]
 const INVALID_SOURCE: u32 = 1;
 
+#[derive(Object)]
+#[dedicated(wl_data_source)]
+#[break_loops]
 pub struct WlDataSource {
     id: WlDataSourceId,
     pub data: SourceData,
@@ -233,16 +237,12 @@ impl WlDataSourceRequestHandler for WlDataSource {
     }
 }
 
-object_base!(WlDataSource);
-
-impl Object for WlDataSource {
+impl BreakLoops for WlDataSource {
     fn break_loops(self: Rc<Self>) {
         break_source_loops::<ClipboardIpc>(&*self);
         self.toplevel_drag.take();
     }
 }
-
-dedicated_add_obj!(WlDataSource, WlDataSourceId, wl_data_source);
 
 #[derive(Debug, Error)]
 pub enum WlDataSourceError {

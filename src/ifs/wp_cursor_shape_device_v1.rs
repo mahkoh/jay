@@ -4,10 +4,10 @@ use crate::cursor::KnownCursor;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_seat::tablet::TabletToolOpt;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WpCursorShapeDeviceV1Id;
 use crate::wire::wp_cursor_shape_device_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -55,6 +55,7 @@ pub enum CursorShapeCursorUser {
     TabletTool(Rc<TabletToolOpt>),
 }
 
+#[derive(Object)]
 pub struct WpCursorShapeDeviceV1 {
     pub id: WpCursorShapeDeviceV1Id,
     pub client: Rc<Client>,
@@ -181,12 +182,6 @@ impl KnownCursor {
         }
     }
 }
-
-object_base!(WpCursorShapeDeviceV1);
-
-impl Object for WpCursorShapeDeviceV1 {}
-
-simple_add_obj!(WpCursorShapeDeviceV1);
 
 #[derive(Debug, Error)]
 pub enum WpCursorShapeDeviceV1Error {

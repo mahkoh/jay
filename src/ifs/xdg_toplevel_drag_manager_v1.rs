@@ -4,10 +4,10 @@ use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::xdg_toplevel_drag_v1::XdgToplevelDragV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::XdgToplevelDragManagerV1Id;
 use crate::wire::xdg_toplevel_drag_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -48,6 +48,7 @@ impl Global for XdgToplevelDragManagerV1Global {
     }
 }
 
+#[derive(Object)]
 pub struct XdgToplevelDragManagerV1 {
     id: XdgToplevelDragManagerV1Id,
     client: Rc<Client>,
@@ -82,12 +83,6 @@ impl XdgToplevelDragManagerV1RequestHandler for XdgToplevelDragManagerV1 {
         Ok(())
     }
 }
-
-object_base!(XdgToplevelDragManagerV1);
-
-impl Object for XdgToplevelDragManagerV1 {}
-
-simple_add_obj!(XdgToplevelDragManagerV1);
 
 #[derive(Debug, Error)]
 pub enum XdgToplevelDragManagerV1Error {

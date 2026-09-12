@@ -9,15 +9,18 @@ use crate::ifs::ipc::data_control::private::logic;
 use crate::ifs::ipc::data_control::private::logic::DataControlError;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::wire::ExtDataControlDeviceV1Id;
 use crate::wire::ExtDataControlOfferV1Id;
 use crate::wire::ExtDataControlSourceV1Id;
 use crate::wire::ext_data_control_device_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct ExtDataControlDeviceV1 {
     id: ExtDataControlDeviceV1Id,
     version: Version,
@@ -136,15 +139,11 @@ impl DataControlDevice for ExtDataControlDeviceV1 {
     }
 }
 
-object_base!(ExtDataControlDeviceV1);
-
-impl Object for ExtDataControlDeviceV1 {
+impl BreakLoops for ExtDataControlDeviceV1 {
     fn break_loops(self: Rc<Self>) {
         logic::data_device_break_loops(&*self);
     }
 }
-
-simple_add_obj!(ExtDataControlDeviceV1);
 
 #[derive(Debug, Error)]
 pub enum ExtDataControlDeviceV1Error {

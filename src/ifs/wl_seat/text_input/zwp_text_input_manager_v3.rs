@@ -4,10 +4,10 @@ use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_seat::text_input::zwp_text_input_v3::ZwpTextInputV3;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ZwpTextInputManagerV3Id;
 use crate::wire::zwp_text_input_manager_v3::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -15,6 +15,7 @@ pub struct ZwpTextInputManagerV3Global {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct ZwpTextInputManagerV3 {
     id: ZwpTextInputManagerV3Id,
     client: Rc<Client>,
@@ -88,12 +89,6 @@ impl ZwpTextInputManagerV3RequestHandler for ZwpTextInputManagerV3 {
         Ok(())
     }
 }
-
-object_base!(ZwpTextInputManagerV3);
-
-impl Object for ZwpTextInputManagerV3 {}
-
-simple_add_obj!(ZwpTextInputManagerV3);
 
 #[derive(Debug, Error)]
 pub enum ZwpTextInputManagerV3Error {

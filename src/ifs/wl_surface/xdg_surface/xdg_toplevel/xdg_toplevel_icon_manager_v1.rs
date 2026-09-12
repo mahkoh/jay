@@ -4,10 +4,10 @@ use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::XdgToplevelIconV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::XdgToplevelIconManagerV1Id;
 use crate::wire::xdg_toplevel_icon_manager_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
@@ -51,6 +51,8 @@ impl Global for XdgToplevelIconManagerV1Global {
 
 simple_add_global!(XdgToplevelIconManagerV1Global);
 
+#[derive(Object)]
+#[dedicated(xdg_toplevel_icon_managers)]
 pub struct XdgToplevelIconManagerV1 {
     id: XdgToplevelIconManagerV1Id,
     client: Rc<Client>,
@@ -134,16 +136,6 @@ impl XdgToplevelIconManagerV1RequestHandler for XdgToplevelIconManagerV1 {
         Ok(())
     }
 }
-
-object_base!(XdgToplevelIconManagerV1);
-
-impl Object for XdgToplevelIconManagerV1 {}
-
-dedicated_add_obj!(
-    XdgToplevelIconManagerV1,
-    XdgToplevelIconManagerV1Id,
-    xdg_toplevel_icon_managers,
-);
 
 #[derive(Debug, Error)]
 pub enum XdgToplevelIconManagerV1Error {

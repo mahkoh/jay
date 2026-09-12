@@ -10,14 +10,15 @@ use crate::ifs::wl_surface::WlSurface;
 use crate::kbvm::KbvmError;
 use crate::keyboard::KeyboardState;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ZwpVirtualKeyboardV1Id;
 use crate::wire::zwp_virtual_keyboard_v1::*;
+use jay_proc::Object;
 use std::cell::RefCell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct ZwpVirtualKeyboardV1 {
     pub id: ZwpVirtualKeyboardV1Id,
     pub client: Rc<Client>,
@@ -125,12 +126,6 @@ impl ZwpVirtualKeyboardV1RequestHandler for ZwpVirtualKeyboardV1 {
         Ok(())
     }
 }
-
-object_base!(ZwpVirtualKeyboardV1);
-
-impl Object for ZwpVirtualKeyboardV1 {}
-
-simple_add_obj!(ZwpVirtualKeyboardV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpVirtualKeyboardV1Error {

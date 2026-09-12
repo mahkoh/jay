@@ -2,15 +2,16 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WpCommitTimerV1Id;
 use crate::wire::wp_commit_timer_v1::Destroy;
 use crate::wire::wp_commit_timer_v1::SetTimestamp;
 use crate::wire::wp_commit_timer_v1::WpCommitTimerV1RequestHandler;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct WpCommitTimerV1 {
     id: WpCommitTimerV1Id,
     client: Rc<Client>,
@@ -67,12 +68,6 @@ impl WpCommitTimerV1RequestHandler for WpCommitTimerV1 {
         Ok(())
     }
 }
-
-object_base!(WpCommitTimerV1);
-
-impl Object for WpCommitTimerV1 {}
-
-simple_add_obj!(WpCommitTimerV1);
 
 #[derive(Debug, Error)]
 pub enum WpCommitTimerV1Error {

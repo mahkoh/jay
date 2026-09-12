@@ -5,12 +5,12 @@ use crate::globals::GlobalName;
 use crate::ifs::wl_surface::wp_commit_timer_v1::WpCommitTimerV1;
 use crate::ifs::wl_surface::wp_commit_timer_v1::WpCommitTimerV1Error;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WpCommitTimingManagerV1Id;
 use crate::wire::wp_commit_timing_manager_v1::Destroy;
 use crate::wire::wp_commit_timing_manager_v1::GetTimer;
 use crate::wire::wp_commit_timing_manager_v1::WpCommitTimingManagerV1RequestHandler;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -18,6 +18,7 @@ pub struct WpCommitTimingManagerV1Global {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct WpCommitTimingManagerV1 {
     id: WpCommitTimingManagerV1Id,
     client: Rc<Client>,
@@ -75,12 +76,6 @@ impl WpCommitTimingManagerV1RequestHandler for WpCommitTimingManagerV1 {
         Ok(())
     }
 }
-
-object_base!(WpCommitTimingManagerV1);
-
-impl Object for WpCommitTimingManagerV1 {}
-
-simple_add_obj!(WpCommitTimingManagerV1);
 
 #[derive(Debug, Error)]
 pub enum WpCommitTimingManagerV1Error {

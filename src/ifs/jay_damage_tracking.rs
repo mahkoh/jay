@@ -7,7 +7,6 @@ use crate::gfx_api::AlphaMode;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::theme::Color;
 use crate::wire::JayCompositorId;
@@ -16,6 +15,7 @@ use crate::wire::jay_damage_tracking::JayDamageTrackingRequestHandler;
 use crate::wire::jay_damage_tracking::SetVisualizerColor;
 use crate::wire::jay_damage_tracking::SetVisualizerDecay;
 use crate::wire::jay_damage_tracking::SetVisualizerEnabled;
+use jay_proc::Object;
 use std::rc::Rc;
 use std::time::Duration;
 use thiserror::Error;
@@ -61,6 +61,7 @@ impl Global for JayDamageTrackingGlobal {
 
 simple_add_global!(JayDamageTrackingGlobal);
 
+#[derive(Object)]
 pub struct JayDamageTracking {
     id: JayCompositorId,
     client: Rc<Client>,
@@ -115,12 +116,6 @@ impl JayDamageTrackingRequestHandler for JayDamageTracking {
         Ok(())
     }
 }
-
-object_base!(JayDamageTracking);
-
-impl Object for JayDamageTracking {}
-
-simple_add_obj!(JayDamageTracking);
 
 #[derive(Debug, Error)]
 pub enum JayDamageTrackingError {

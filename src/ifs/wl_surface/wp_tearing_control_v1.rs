@@ -1,11 +1,11 @@
 use crate::client::ClientError;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WlSurfaceId;
 use crate::wire::WpTearingControlV1Id;
 use crate::wire::wp_tearing_control_v1::*;
+use jay_proc::Object;
 use std::fmt::Debug;
 use std::rc::Rc;
 use thiserror::Error;
@@ -13,6 +13,7 @@ use thiserror::Error;
 const VSYNC: u32 = 0;
 const ASYNC: u32 = 1;
 
+#[derive(Object)]
 pub struct WpTearingControlV1 {
     pub id: WpTearingControlV1Id,
     pub surface: Rc<WlSurface>,
@@ -54,12 +55,6 @@ impl WpTearingControlV1RequestHandler for WpTearingControlV1 {
         Ok(())
     }
 }
-
-object_base!(WpTearingControlV1);
-
-impl Object for WpTearingControlV1 {}
-
-simple_add_obj!(WpTearingControlV1);
 
 #[derive(Debug, Error)]
 pub enum WpTearingControlV1Error {

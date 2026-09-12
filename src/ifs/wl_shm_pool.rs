@@ -7,16 +7,17 @@ use crate::format::map_wayland_format_id;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::wl_buffer::WlBufferError;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::utils::clonecell::CloneCell;
 use crate::wire::WlShmPoolId;
 use crate::wire::wl_shm_pool::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
 
+#[derive(Object)]
 pub struct WlShmPool {
     id: WlShmPoolId,
     client: Rc<Client>,
@@ -107,12 +108,6 @@ impl WlShmPoolRequestHandler for WlShmPool {
         Ok(())
     }
 }
-
-object_base!(WlShmPool);
-
-impl Object for WlShmPool {}
-
-simple_add_obj!(WlShmPool);
 
 #[derive(Debug, Error)]
 pub enum WlShmPoolError {

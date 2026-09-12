@@ -5,10 +5,10 @@ use crate::globals::GlobalName;
 use crate::ifs::wl_surface::wp_tearing_control_v1::WpTearingControlV1;
 use crate::ifs::wl_surface::wp_tearing_control_v1::WpTearingControlV1Error;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WpTearingControlManagerV1Id;
 use crate::wire::wp_tearing_control_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -49,14 +49,13 @@ impl Global for WpTearingControlManagerV1Global {
 
 simple_add_global!(WpTearingControlManagerV1Global);
 
+#[derive(Object)]
 pub struct WpTearingControlManagerV1 {
     id: WpTearingControlManagerV1Id,
     client: Rc<Client>,
     tracker: Tracker<Self>,
     version: Version,
 }
-
-object_base!(WpTearingControlManagerV1);
 
 impl WpTearingControlManagerV1RequestHandler for WpTearingControlManagerV1 {
     type Error = WpTearingControlManagerV1Error;
@@ -84,10 +83,6 @@ impl WpTearingControlManagerV1RequestHandler for WpTearingControlManagerV1 {
         Ok(())
     }
 }
-
-impl Object for WpTearingControlManagerV1 {}
-
-simple_add_obj!(WpTearingControlManagerV1);
 
 #[derive(Debug, Error)]
 pub enum WpTearingControlManagerV1Error {

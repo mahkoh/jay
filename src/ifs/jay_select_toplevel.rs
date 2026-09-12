@@ -5,17 +5,20 @@ use crate::ifs::jay_toplevel::ID_SINCE;
 use crate::ifs::jay_toplevel::JayToplevel;
 use crate::ifs::wl_seat::ToplevelSelector;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::tree::ToplevelNode;
 use crate::utils::clonecell::CloneCell;
 use crate::wire::JaySelectToplevelId;
 use crate::wire::JayToplevelId;
 use crate::wire::jay_select_toplevel::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct JaySelectToplevel {
     id: JaySelectToplevelId,
     client: Rc<Client>,
@@ -105,15 +108,11 @@ impl JaySelectToplevelRequestHandler for JaySelectToplevel {
     type Error = JaySelectToplevelError;
 }
 
-object_base!(JaySelectToplevel);
-
-impl Object for JaySelectToplevel {
+impl BreakLoops for JaySelectToplevel {
     fn break_loops(self: Rc<Self>) {
         self.destroyed.set(true);
     }
 }
-
-simple_add_obj!(JaySelectToplevel);
 
 #[derive(Debug, Error)]
 pub enum JaySelectToplevelError {

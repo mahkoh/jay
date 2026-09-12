@@ -3,11 +3,11 @@ use crate::client::ClientError;
 use crate::ifs::wl_output::SEND_DONE_SINCE;
 use crate::ifs::wl_output::WlOutput;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::wire::ZxdgOutputV1Id;
 use crate::wire::zxdg_output_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -15,6 +15,7 @@ pub const NAME_SINCE: Version = Version(2);
 pub const DESCRIPTION_SINCE: Version = Version(2);
 pub const NO_DONE_SINCE: Version = Version(3);
 
+#[derive(Object)]
 pub struct ZxdgOutputV1 {
     pub id: ZxdgOutputV1Id,
     pub version: Version,
@@ -95,12 +96,6 @@ impl ZxdgOutputV1RequestHandler for ZxdgOutputV1 {
         Ok(())
     }
 }
-
-object_base!(ZxdgOutputV1);
-
-impl Object for ZxdgOutputV1 {}
-
-simple_add_obj!(ZxdgOutputV1);
 
 #[derive(Debug, Error)]
 pub enum ZxdgOutputV1Error {

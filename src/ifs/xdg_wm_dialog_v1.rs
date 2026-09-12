@@ -5,10 +5,10 @@ use crate::globals::GlobalName;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_dialog_v1::XdgDialogV1;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_dialog_v1::XdgDialogV1Error;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::XdgWmDialogV1Id;
 use crate::wire::xdg_wm_dialog_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -49,6 +49,7 @@ impl Global for XdgWmDialogV1Global {
 
 simple_add_global!(XdgWmDialogV1Global);
 
+#[derive(Object)]
 pub struct XdgWmDialogV1 {
     id: XdgWmDialogV1Id,
     client: Rc<Client>,
@@ -79,12 +80,6 @@ impl XdgWmDialogV1RequestHandler for XdgWmDialogV1 {
         Ok(())
     }
 }
-
-object_base!(XdgWmDialogV1);
-
-impl Object for XdgWmDialogV1 {}
-
-simple_add_obj!(XdgWmDialogV1);
 
 #[derive(Debug, Error)]
 pub enum XdgWmDialogV1Error {

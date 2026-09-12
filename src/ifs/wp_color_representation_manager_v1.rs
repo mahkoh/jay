@@ -10,7 +10,6 @@ use crate::ifs::wl_surface::wp_color_representation_surface_v1::RANGE_FULL;
 use crate::ifs::wl_surface::wp_color_representation_surface_v1::WpColorRepresentationSurfaceV1;
 use crate::ifs::wl_surface::wp_color_representation_surface_v1::WpColorRepresentationSurfaceV1Error;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WpColorRepresentationManagerV1Id;
 use crate::wire::wp_color_representation_manager_v1::Destroy;
@@ -19,6 +18,7 @@ use crate::wire::wp_color_representation_manager_v1::GetSurface;
 use crate::wire::wp_color_representation_manager_v1::SupportedAlphaMode;
 use crate::wire::wp_color_representation_manager_v1::SupportedCoefficientsAndRanges;
 use crate::wire::wp_color_representation_manager_v1::WpColorRepresentationManagerV1RequestHandler;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -57,6 +57,7 @@ impl WpColorRepresentationManagerV1Global {
     }
 }
 
+#[derive(Object)]
 pub struct WpColorRepresentationManagerV1 {
     id: WpColorRepresentationManagerV1Id,
     client: Rc<Client>,
@@ -133,12 +134,6 @@ impl Global for WpColorRepresentationManagerV1Global {
 }
 
 simple_add_global!(WpColorRepresentationManagerV1Global);
-
-object_base!(WpColorRepresentationManagerV1);
-
-impl Object for WpColorRepresentationManagerV1 {}
-
-simple_add_obj!(WpColorRepresentationManagerV1);
 
 #[derive(Debug, Error)]
 pub enum WpColorRepresentationManagerV1Error {

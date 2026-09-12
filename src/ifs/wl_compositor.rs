@@ -5,11 +5,11 @@ use crate::globals::GlobalName;
 use crate::ifs::wl_region::WlRegion;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WlCompositorId;
 use crate::wire::wl_compositor::*;
 use crate::xwayland::XWaylandEvent;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -17,6 +17,7 @@ pub struct WlCompositorGlobal {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct WlCompositor {
     id: WlCompositorId,
     client: Rc<Client>,
@@ -86,12 +87,6 @@ impl Global for WlCompositorGlobal {
 }
 
 simple_add_global!(WlCompositorGlobal);
-
-object_base!(WlCompositor);
-
-impl Object for WlCompositor {}
-
-simple_add_obj!(WlCompositor);
 
 #[derive(Debug, Error)]
 pub enum WlCompositorError {

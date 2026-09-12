@@ -6,11 +6,11 @@ use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::ext_session_lock_v1::ExtSessionLockV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::wire::ExtSessionLockManagerV1Id;
 use crate::wire::ext_session_lock_manager_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
@@ -42,6 +42,7 @@ impl ExtSessionLockManagerV1Global {
     }
 }
 
+#[derive(Object)]
 pub struct ExtSessionLockManagerV1 {
     id: ExtSessionLockManagerV1Id,
     client: Rc<Client>,
@@ -101,12 +102,6 @@ impl Global for ExtSessionLockManagerV1Global {
 }
 
 simple_add_global!(ExtSessionLockManagerV1Global);
-
-object_base!(ExtSessionLockManagerV1);
-
-impl Object for ExtSessionLockManagerV1 {}
-
-simple_add_obj!(ExtSessionLockManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ExtSessionLockManagerV1Error {

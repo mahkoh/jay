@@ -5,13 +5,16 @@ use crate::ifs::wl_seat::tablet::TabletPadRing;
 use crate::ifs::wl_seat::tablet::TabletRingEventSource;
 use crate::ifs::wl_seat::tablet::zwp_tablet_seat_v2::ZwpTabletSeatV2;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::wire::ZwpTabletPadRingV2Id;
 use crate::wire::zwp_tablet_pad_ring_v2::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct ZwpTabletPadRingV2 {
     pub id: ZwpTabletPadRingV2Id,
     pub client: Rc<Client>,
@@ -68,15 +71,11 @@ impl ZwpTabletPadRingV2RequestHandler for ZwpTabletPadRingV2 {
     }
 }
 
-object_base!(ZwpTabletPadRingV2);
-
-impl Object for ZwpTabletPadRingV2 {
+impl BreakLoops for ZwpTabletPadRingV2 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(ZwpTabletPadRingV2);
 
 #[derive(Debug, Error)]
 pub enum ZwpTabletPadRingV2Error {

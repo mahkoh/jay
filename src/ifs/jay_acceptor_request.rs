@@ -1,15 +1,16 @@
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::wire::JayAcceptorRequestId;
 use crate::wire::jay_acceptor_request::*;
+use jay_proc::Object;
 use std::error::Error;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct JayAcceptorRequest {
     pub id: JayAcceptorRequestId,
     pub client: Rc<Client>,
@@ -42,12 +43,6 @@ impl JayAcceptorRequestRequestHandler for JayAcceptorRequest {
         Ok(())
     }
 }
-
-object_base!(JayAcceptorRequest);
-
-impl Object for JayAcceptorRequest {}
-
-simple_add_obj!(JayAcceptorRequest);
 
 #[derive(Debug, Error)]
 pub enum JayAcceptorRequestError {

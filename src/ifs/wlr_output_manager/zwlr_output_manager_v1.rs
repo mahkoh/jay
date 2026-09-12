@@ -14,7 +14,7 @@ use crate::ifs::wlr_output_manager::zwlr_output_head_v1::WlrOutputHeadId;
 use crate::ifs::wlr_output_manager::zwlr_output_head_v1::ZwlrOutputHeadV1;
 use crate::ifs::wlr_output_manager::zwlr_output_mode_v1::ZwlrOutputModeV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::state::OutputData;
 use crate::tree::TreeTimeline::LiveTL;
@@ -25,6 +25,7 @@ use crate::wire::ZwlrOutputHeadV1Id;
 use crate::wire::ZwlrOutputManagerV1Id;
 use crate::wire::zwlr_output_manager_v1::*;
 use isnt::std_1::string::IsntStringExt;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use std::slice;
@@ -36,6 +37,8 @@ pub struct ZwlrOutputManagerV1Global {
     name: GlobalName,
 }
 
+#[derive(Object)]
+#[break_loops]
 pub struct ZwlrOutputManagerV1 {
     id: ZwlrOutputManagerV1Id,
     manager_id: WlrOutputManagerId,
@@ -271,11 +274,7 @@ impl Global for ZwlrOutputManagerV1Global {
 
 simple_add_global!(ZwlrOutputManagerV1Global);
 
-object_base!(ZwlrOutputManagerV1);
-
-simple_add_obj!(ZwlrOutputManagerV1);
-
-impl Object for ZwlrOutputManagerV1 {
+impl BreakLoops for ZwlrOutputManagerV1 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }

@@ -3,7 +3,6 @@ use crate::client::ClientError;
 use crate::client::ClientId;
 use crate::criteria::CritUpstreamNode;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::wire::JayClientQueryId;
@@ -26,11 +25,13 @@ use crate::wire::jay_client_query::Sandboxed;
 use crate::wire::jay_client_query::Start;
 use crate::wire::jay_client_query::Tag;
 use crate::wire::jay_client_query::Uid;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct JayClientQuery {
     id: JayClientQueryId,
     client: Rc<Client>,
@@ -163,12 +164,6 @@ impl JayClientQueryRequestHandler for JayClientQuery {
         Ok(())
     }
 }
-
-object_base!(JayClientQuery);
-
-impl Object for JayClientQuery {}
-
-simple_add_obj!(JayClientQuery);
 
 #[derive(Debug, Error)]
 pub enum JayClientQueryError {

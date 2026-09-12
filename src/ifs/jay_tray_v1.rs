@@ -7,10 +7,10 @@ use crate::ifs::wl_output::OutputGlobalOpt;
 use crate::ifs::wl_surface::tray::jay_tray_item_v1::JayTrayItemV1;
 use crate::ifs::wl_surface::tray::jay_tray_item_v1::JayTrayItemV1Error;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::JayTrayV1Id;
 use crate::wire::jay_tray_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -19,6 +19,7 @@ pub struct JayTrayV1Global {
     pub output: Rc<OutputGlobalOpt>,
 }
 
+#[derive(Object)]
 pub struct JayTrayV1 {
     id: JayTrayV1Id,
     client: Rc<Client>,
@@ -85,12 +86,6 @@ impl JayTrayV1RequestHandler for JayTrayV1 {
         Ok(())
     }
 }
-
-object_base!(JayTrayV1);
-
-impl Object for JayTrayV1 {}
-
-simple_add_obj!(JayTrayV1);
 
 #[derive(Debug, Error)]
 pub enum JayTrayManagerV1Error {

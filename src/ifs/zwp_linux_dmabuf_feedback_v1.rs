@@ -3,10 +3,11 @@ use crate::client::ClientError;
 use crate::dmabuf_feedback::DmaBufFeedbackId;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::wire::ZwpLinuxDmabufFeedbackV1Id;
 use crate::wire::zwp_linux_dmabuf_feedback_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
@@ -16,6 +17,8 @@ use uapi::c;
 pub const FB_SCANOUT: u32 = 1;
 pub const FB_SAMPLING: u32 = 2;
 
+#[derive(Object)]
+#[break_loops]
 pub struct ZwpLinuxDmabufFeedbackV1 {
     id: ZwpLinuxDmabufFeedbackV1Id,
     client: Rc<Client>,
@@ -111,15 +114,11 @@ impl ZwpLinuxDmabufFeedbackV1 {
     }
 }
 
-object_base!(ZwpLinuxDmabufFeedbackV1);
-
-impl Object for ZwpLinuxDmabufFeedbackV1 {
+impl BreakLoops for ZwpLinuxDmabufFeedbackV1 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(ZwpLinuxDmabufFeedbackV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpLinuxDmabufFeedbackV1Error {

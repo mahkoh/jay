@@ -18,7 +18,7 @@ use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopupParent;
 use crate::ifs::zwlr_layer_shell_v1::OVERLAY;
 use crate::ifs::zwlr_layer_shell_v1::ZwlrLayerShellV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::rect::Size;
@@ -54,6 +54,7 @@ use crate::wire::ObjectId;
 use crate::wire::XdgPopupId;
 use crate::wire::ZwlrLayerSurfaceV1Id;
 use crate::wire::zwlr_layer_surface_v1::*;
+use jay_proc::Object;
 use jay_proc::Reset;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -71,6 +72,8 @@ const LEFT: u32 = 4;
 const RIGHT: u32 = 8;
 
 tree_id!(ZwlrLayerSurfaceV1NodeId);
+#[derive(Object)]
+#[break_loops]
 pub struct ZwlrLayerSurfaceV1 {
     id: ZwlrLayerSurfaceV1Id,
     node_id: ZwlrLayerSurfaceV1NodeId,
@@ -880,9 +883,7 @@ impl XdgPopupParent for Popup {
     }
 }
 
-object_base!(ZwlrLayerSurfaceV1);
-
-impl Object for ZwlrLayerSurfaceV1 {
+impl BreakLoops for ZwlrLayerSurfaceV1 {
     fn break_loops(self: Rc<Self>) {
         self.destroy_node();
         self.link.borrow_mut().take();
@@ -890,8 +891,6 @@ impl Object for ZwlrLayerSurfaceV1 {
         self.configurable_data.ready();
     }
 }
-
-simple_add_obj!(ZwlrLayerSurfaceV1);
 
 impl Configurable for ZwlrLayerSurfaceV1 {
     type T = Size;

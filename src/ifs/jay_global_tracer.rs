@@ -3,12 +3,13 @@ use crate::client::ClientError;
 use crate::criteria::CritUpstreamNode;
 use crate::ifs::jay_client_trace::JayClientTrace;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::wire::JayClientTraceId;
 use crate::wire::JayGlobalTracerId;
 use crate::wire::jay_global_tracer::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -20,6 +21,8 @@ pub struct GlobalTracers {
 
 linear_ids!(GlobalTracerIds, GlobalTracerId, u64);
 
+#[derive(Object)]
+#[break_loops]
 pub struct JayGlobalTracer {
     id: JayGlobalTracerId,
     tracer_id: GlobalTracerId,
@@ -126,15 +129,11 @@ impl JayGlobalTracerRequestHandler for JayGlobalTracer {
     }
 }
 
-object_base!(JayGlobalTracer);
-
-impl Object for JayGlobalTracer {
+impl BreakLoops for JayGlobalTracer {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(JayGlobalTracer);
 
 #[derive(Debug, Error)]
 pub enum JayClientsTracerError {

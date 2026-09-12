@@ -3,8 +3,8 @@ use crate::client::ClientError;
 use crate::ifs::jay_workspace::JayWorkspace;
 use crate::ifs::wl_seat::WorkspaceSelector;
 use crate::leaks::Tracker;
+use crate::object::BreakLoops;
 use crate::object::Object;
-use crate::object::ObjectBase;
 use crate::object::Version;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::WorkspaceNode;
@@ -12,10 +12,13 @@ use crate::utils::clonecell::CloneCell;
 use crate::wire::JaySelectWorkspaceId;
 use crate::wire::JayWorkspaceId;
 use crate::wire::jay_select_workspace::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct JaySelectWorkspace {
     pub id: JaySelectWorkspaceId,
     pub version: Version,
@@ -84,15 +87,11 @@ impl JaySelectWorkspaceRequestHandler for JaySelectWorkspace {
     type Error = JaySelectWorkspaceError;
 }
 
-object_base!(JaySelectWorkspace);
-
-impl Object for JaySelectWorkspace {
+impl BreakLoops for JaySelectWorkspace {
     fn break_loops(self: Rc<Self>) {
         self.destroyed.set(true);
     }
 }
-
-simple_add_obj!(JaySelectWorkspace);
 
 #[derive(Debug, Error)]
 pub enum JaySelectWorkspaceError {

@@ -12,10 +12,11 @@ use crate::ifs::wl_seat::tablet::zwp_tablet_pad_v2::ZwpTabletPadV2;
 use crate::ifs::wl_seat::tablet::zwp_tablet_tool_v2::ZwpTabletToolV2;
 use crate::ifs::wl_seat::tablet::zwp_tablet_v2::ZwpTabletV2;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::wire::ZwpTabletSeatV2Id;
 use crate::wire::zwp_tablet_seat_v2::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
@@ -23,6 +24,8 @@ use thiserror::Error;
 const BUSTYPE_SINCE: Version = Version(2);
 const DIALS_SINCE: Version = Version(2);
 
+#[derive(Object)]
+#[break_loops]
 pub struct ZwpTabletSeatV2 {
     pub id: ZwpTabletSeatV2Id,
     pub client: Rc<Client>,
@@ -205,15 +208,11 @@ impl ZwpTabletSeatV2RequestHandler for ZwpTabletSeatV2 {
     }
 }
 
-object_base!(ZwpTabletSeatV2);
-
-impl Object for ZwpTabletSeatV2 {
+impl BreakLoops for ZwpTabletSeatV2 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(ZwpTabletSeatV2);
 
 #[derive(Debug, Error)]
 pub enum ZwpTabletSeatV2Error {

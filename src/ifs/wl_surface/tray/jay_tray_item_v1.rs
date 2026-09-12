@@ -19,7 +19,7 @@ use crate::ifs::xdg_positioner::ANCHOR_BOTTOM_RIGHT;
 use crate::ifs::xdg_positioner::ANCHOR_TOP_LEFT;
 use crate::ifs::xdg_positioner::ANCHOR_TOP_RIGHT;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::theme::BarPosition;
 use crate::transactions::TransactionData;
@@ -33,9 +33,12 @@ use crate::wire::JayTrayItemV1Id;
 use crate::wire::ObjectId;
 use crate::wire::XdgPopupId;
 use crate::wire::jay_tray_item_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct JayTrayItemV1 {
     id: JayTrayItemV1Id,
     pub tracker: Tracker<Self>,
@@ -148,17 +151,13 @@ impl TrayItem for JayTrayItemV1 {
     }
 }
 
-object_base!(JayTrayItemV1);
-
-impl Object for JayTrayItemV1 {
+impl BreakLoops for JayTrayItemV1 {
     fn break_loops(self: Rc<Self>) {
         self.clone().destroy_node();
         self.data.destroyed.set(true);
         self.data.configurable.ready();
     }
 }
-
-simple_add_obj!(JayTrayItemV1);
 
 impl Configurable for JayTrayItemV1 {
     type T = TrayItemConfigureData;

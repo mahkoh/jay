@@ -6,7 +6,6 @@ use crate::fixed::Fixed;
 use crate::ifs::wlr_output_manager::zwlr_output_manager_v1::ZwlrOutputManagerV1;
 use crate::ifs::wlr_output_manager::zwlr_output_mode_v1::ZwlrOutputModeV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::scale;
 use crate::state::OutputData;
@@ -18,6 +17,7 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::event_listener::EventListener;
 use crate::wire::ZwlrOutputHeadV1Id;
 use crate::wire::zwlr_output_head_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -36,6 +36,8 @@ pub const ADAPTIVE_SYNC_STATE_ENABLED: u32 = 1;
 
 linear_ids!(WlrOutputHeadIds, WlrOutputHeadId, u64);
 
+#[derive(Object)]
+#[dedicated(zwlr_output_heads)]
 pub struct ZwlrOutputHeadV1 {
     pub(super) id: ZwlrOutputHeadV1Id,
     pub(super) version: Version,
@@ -228,12 +230,6 @@ impl ZwlrOutputHeadV1RequestHandler for ZwlrOutputHeadV1 {
         Ok(())
     }
 }
-
-object_base!(ZwlrOutputHeadV1);
-
-impl Object for ZwlrOutputHeadV1 {}
-
-dedicated_add_obj!(ZwlrOutputHeadV1, ZwlrOutputHeadV1Id, zwlr_output_heads);
 
 #[derive(Debug, Error)]
 pub enum ZwlrOutputHeadV1Error {

@@ -5,10 +5,10 @@ use crate::criteria::CritMgrExt;
 use crate::criteria::CritTarget;
 use crate::criteria::CritUpstreamNode;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::JayGenericMatchBuilderId;
 use crate::wire::jay_generic_match_builder::*;
+use jay_proc::Object;
 use regex::Regex;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -113,6 +113,7 @@ where
     }
 }
 
+#[derive(Object)]
 pub struct JayGenericMatchBuilder {
     id: JayGenericMatchBuilderId,
     client: Rc<Client>,
@@ -168,12 +169,6 @@ impl JayGenericMatchBuilderRequestHandler for JayGenericMatchBuilder {
         Ok(())
     }
 }
-
-object_base!(JayGenericMatchBuilder);
-
-impl Object for JayGenericMatchBuilder {}
-
-simple_add_obj!(JayGenericMatchBuilder);
 
 #[derive(Debug, Error)]
 pub enum JayGenericMatchBuilderError {

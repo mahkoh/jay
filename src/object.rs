@@ -12,7 +12,7 @@ use thiserror::Error;
 
 pub const WL_DISPLAY_ID: WlDisplayId = WlDisplayId::from_raw(1);
 
-pub trait ObjectBase: Any {
+pub trait Object: AddObject + BreakLoops + Any {
     fn id(&self) -> ObjectId;
     fn version(&self) -> Version;
     fn handle_request(
@@ -24,7 +24,16 @@ pub trait ObjectBase: Any {
     fn interface(&self) -> Interface;
 }
 
-pub trait Object: ObjectBase + 'static {
+pub trait AddObject {
+    fn add(self: &Rc<Self>, client: &Client)
+    where
+        Self: Sized;
+    fn remove(&self, client: &Client)
+    where
+        Self: Sized;
+}
+
+pub trait BreakLoops {
     fn break_loops(self: Rc<Self>) {}
 }
 

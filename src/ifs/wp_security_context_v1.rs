@@ -1,16 +1,17 @@
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WpSecurityContextV1Id;
 use crate::wire::wp_security_context_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
 
+#[derive(Object)]
 pub struct WpSecurityContextV1 {
     pub id: WpSecurityContextV1Id,
     pub client: Rc<Client>,
@@ -90,12 +91,6 @@ impl WpSecurityContextV1RequestHandler for WpSecurityContextV1 {
         Ok(())
     }
 }
-
-object_base!(WpSecurityContextV1);
-
-impl Object for WpSecurityContextV1 {}
-
-simple_add_obj!(WpSecurityContextV1);
 
 #[derive(Debug, Error)]
 pub enum WpSecurityContextV1Error {

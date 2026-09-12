@@ -10,7 +10,7 @@ use crate::ifs::wl_surface::zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2;
 use crate::ifs::wl_surface::zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2Error;
 use crate::keyboard::KeyboardStateId;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::numcell::NumCell;
@@ -18,11 +18,14 @@ use crate::utils::smallmap::SmallMap;
 use crate::wire::ZwpInputMethodV2Id;
 use crate::wire::ZwpInputPopupSurfaceV2Id;
 use crate::wire::zwp_input_method_v2::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct ZwpInputMethodV2 {
     pub id: ZwpInputMethodV2Id,
     pub client: Rc<Client>,
@@ -257,15 +260,11 @@ impl ZwpInputMethodV2RequestHandler for ZwpInputMethodV2 {
     }
 }
 
-object_base!(ZwpInputMethodV2);
-
-impl Object for ZwpInputMethodV2 {
+impl BreakLoops for ZwpInputMethodV2 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(ZwpInputMethodV2);
 
 #[derive(Debug, Error)]
 pub enum ZwpInputMethodV2Error {

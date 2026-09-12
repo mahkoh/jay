@@ -6,12 +6,13 @@ use crate::ifs::wl_surface::xdg_surface::XdgSurface;
 use crate::ifs::wl_surface::xdg_surface::XdgSurfaceError;
 use crate::ifs::xdg_positioner::XdgPositioner;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::wire::XdgSurfaceId;
 use crate::wire::XdgWmBaseId;
 use crate::wire::xdg_wm_base::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -31,6 +32,9 @@ pub struct XdgWmBaseGlobal {
     name: GlobalName,
 }
 
+#[derive(Object)]
+#[dedicated(xdg_wm_bases)]
+#[break_loops]
 pub struct XdgWmBase {
     id: XdgWmBaseId,
     client: Rc<Client>,
@@ -114,11 +118,7 @@ impl Global for XdgWmBaseGlobal {
 
 simple_add_global!(XdgWmBaseGlobal);
 
-object_base!(XdgWmBase);
-
-dedicated_add_obj!(XdgWmBase, XdgWmBaseId, xdg_wm_bases);
-
-impl Object for XdgWmBase {
+impl BreakLoops for XdgWmBase {
     fn break_loops(self: Rc<Self>) {
         self.surfaces.clear();
     }

@@ -4,15 +4,18 @@ use crate::configurable::ConfigurableData;
 use crate::ifs::wl_surface::ext_session_lock_surface_v1::ExtSessionLockSurfaceV1;
 use crate::ifs::wl_surface::ext_session_lock_surface_v1::ExtSessionLockSurfaceV1Error;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::wire::ExtSessionLockV1Id;
 use crate::wire::ext_session_lock_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct ExtSessionLockV1 {
     pub id: ExtSessionLockV1Id,
     pub client: Rc<Client>,
@@ -114,17 +117,13 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
     }
 }
 
-object_base!(ExtSessionLockV1);
-
-impl Object for ExtSessionLockV1 {
+impl BreakLoops for ExtSessionLockV1 {
     fn break_loops(self: Rc<Self>) {
         if !self.finished.get() {
             self.client.state.lock.lock.take();
         }
     }
 }
-
-simple_add_obj!(ExtSessionLockV1);
 
 #[derive(Debug, Error)]
 pub enum ExtSessionLockV1Error {

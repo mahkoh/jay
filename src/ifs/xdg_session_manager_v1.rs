@@ -4,7 +4,6 @@ use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::xdg_session_v1::XdgSessionV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::sm::SessionGetStatus;
 use crate::sm::SessionManager;
@@ -14,6 +13,7 @@ use crate::sm::session_name;
 use crate::state::State;
 use crate::wire::XdgSessionManagerV1Id;
 use crate::wire::xdg_session_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use std::str::FromStr;
 use thiserror::Error;
@@ -67,6 +67,7 @@ impl Global for XdgSessionManagerV1Global {
 
 simple_add_global!(XdgSessionManagerV1Global);
 
+#[derive(Object)]
 pub struct XdgSessionManagerV1 {
     id: XdgSessionManagerV1Id,
     client: Rc<Client>,
@@ -127,12 +128,6 @@ impl XdgSessionManagerV1RequestHandler for XdgSessionManagerV1 {
         Ok(())
     }
 }
-
-object_base!(XdgSessionManagerV1);
-
-impl Object for XdgSessionManagerV1 {}
-
-simple_add_obj!(XdgSessionManagerV1);
 
 #[derive(Debug, Error)]
 pub enum XdgSessionManagerV1Error {

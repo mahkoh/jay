@@ -2,12 +2,12 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::ifs::xdg_wm_base::XdgWmBase;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::tree::TreeSerial;
 use crate::wire::XdgPositionerId;
 use crate::wire::xdg_positioner::*;
+use jay_proc::Object;
 use std::cell::RefCell;
 use std::rc::Rc;
 use thiserror::Error;
@@ -61,6 +61,8 @@ bitflags! {
         CA_RESIZE_Y = 32,
 }
 
+#[derive(Object)]
+#[dedicated(xdg_positioners)]
 pub struct XdgPositioner {
     id: XdgPositionerId,
     version: Version,
@@ -258,12 +260,6 @@ impl XdgPositionerRequestHandler for XdgPositioner {
         Ok(())
     }
 }
-
-object_base!(XdgPositioner);
-
-impl Object for XdgPositioner {}
-
-dedicated_add_obj!(XdgPositioner, XdgPositionerId, xdg_positioners);
 
 #[derive(Debug, Error)]
 pub enum XdgPositionerError {

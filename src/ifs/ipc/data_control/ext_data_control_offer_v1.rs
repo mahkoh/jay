@@ -4,13 +4,16 @@ use crate::ifs::ipc::data_control::private::DataControlOfferData;
 use crate::ifs::ipc::data_control::private::logic;
 use crate::ifs::ipc::data_control::private::logic::DataControlError;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::wire::ExtDataControlOfferV1Id;
 use crate::wire::ext_data_control_offer_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct ExtDataControlOfferV1 {
     pub id: ExtDataControlOfferV1Id,
     pub version: Version,
@@ -53,15 +56,11 @@ impl ExtDataControlOfferV1RequestHandler for ExtDataControlOfferV1 {
     }
 }
 
-object_base!(ExtDataControlOfferV1);
-
-impl Object for ExtDataControlOfferV1 {
+impl BreakLoops for ExtDataControlOfferV1 {
     fn break_loops(self: Rc<Self>) {
         logic::data_offer_break_loops(&*self);
     }
 }
-
-simple_add_obj!(ExtDataControlOfferV1);
 
 #[derive(Debug, Error)]
 pub enum ExtDataControlOfferV1Error {

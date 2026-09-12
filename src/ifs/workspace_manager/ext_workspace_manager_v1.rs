@@ -9,7 +9,7 @@ use crate::ifs::workspace_manager::ext_workspace_group_handle_v1::ExtWorkspaceGr
 use crate::ifs::workspace_manager::ext_workspace_handle_v1::ExtWorkspaceHandleV1;
 use crate::ifs::workspace_manager::group_or_dangling;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::tree::OutputNode;
 use crate::tree::TreeTimeline::LiveTL;
@@ -21,6 +21,7 @@ use crate::utils::opt::Opt;
 use crate::utils::syncqueue::SyncQueue;
 use crate::wire::ExtWorkspaceManagerV1Id;
 use crate::wire::ext_workspace_manager_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
@@ -31,6 +32,8 @@ pub struct ExtWorkspaceManagerV1Global {
     name: GlobalName,
 }
 
+#[derive(Object)]
+#[break_loops]
 pub struct ExtWorkspaceManagerV1 {
     id: ExtWorkspaceManagerV1Id,
     manager_id: WorkspaceManagerId,
@@ -210,15 +213,11 @@ impl Global for ExtWorkspaceManagerV1Global {
 
 simple_add_global!(ExtWorkspaceManagerV1Global);
 
-object_base!(ExtWorkspaceManagerV1);
-
-impl Object for ExtWorkspaceManagerV1 {
+impl BreakLoops for ExtWorkspaceManagerV1 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(ExtWorkspaceManagerV1);
 
 impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
     type Error = ExtWorkspaceManagerV1Error;

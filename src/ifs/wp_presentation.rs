@@ -5,11 +5,11 @@ use crate::globals::GlobalName;
 use crate::ifs::wp_presentation_feedback::PresentationFeedback;
 use crate::ifs::wp_presentation_feedback::WpPresentationFeedback;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::state::State;
 pub use crate::wire::WpPresentationId;
 pub use crate::wire::wp_presentation::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::c;
@@ -56,6 +56,7 @@ impl Global for WpPresentationGlobal {
 
 simple_add_global!(WpPresentationGlobal);
 
+#[derive(Object)]
 pub struct WpPresentation {
     id: WpPresentationId,
     client: Rc<Client>,
@@ -95,12 +96,6 @@ impl WpPresentationRequestHandler for WpPresentation {
         Ok(())
     }
 }
-
-object_base!(WpPresentation);
-
-impl Object for WpPresentation {}
-
-simple_add_obj!(WpPresentation);
 
 #[derive(Debug, Error)]
 pub enum WpPresentationError {

@@ -21,7 +21,6 @@ use crate::libinput::consts::LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT;
 use crate::libinput::consts::LIBINPUT_CONFIG_CLICK_METHOD_BUTTON_AREAS;
 use crate::libinput::consts::LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER;
 use crate::libinput::consts::LIBINPUT_CONFIG_CLICK_METHOD_NONE;
-use crate::object::Object;
 use crate::object::Version;
 use crate::state::DeviceHandlerData;
 use crate::state::InputDeviceData;
@@ -31,6 +30,7 @@ use crate::wire::JayInputId;
 use crate::wire::JayKeymapBuilderId;
 use crate::wire::jay_input::*;
 use arrayvec::ArrayVec;
+use jay_proc::Object;
 use kbvm::GroupIndex;
 use linearize::Linearize;
 use linearize::LinearizeExt;
@@ -38,6 +38,7 @@ use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
 
+#[derive(Object)]
 pub struct JayInput {
     id: JayInputId,
     client: Rc<Client>,
@@ -785,12 +786,6 @@ impl JayInputRequestHandler for JayInput {
         })
     }
 }
-
-object_base!(JayInput);
-
-impl Object for JayInput {}
-
-simple_add_obj!(JayInput);
 
 #[derive(Debug, Error)]
 pub enum JayInputError {

@@ -16,7 +16,6 @@ use crate::ifs::ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyC
 use crate::ifs::wl_buffer::WlBufferStorage;
 use crate::ifs::wl_output::TF_NORMAL;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::rect::Region;
 use crate::tree;
@@ -28,6 +27,7 @@ use crate::utils::cell_ext::CellExt;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::wire::ExtImageCopyCaptureFrameV1Id;
 use crate::wire::ext_image_copy_capture_frame_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -47,6 +47,7 @@ pub(super) enum FrameFailureReason {
     Stopped,
 }
 
+#[derive(Object)]
 pub struct ExtImageCopyCaptureFrameV1 {
     pub(super) id: ExtImageCopyCaptureFrameV1Id,
     pub(super) client: Rc<Client>,
@@ -370,12 +371,6 @@ impl AsyncShmGfxTextureCallback for ExtImageCopyCaptureFrameV1 {
         self.maybe_ready();
     }
 }
-
-object_base!(ExtImageCopyCaptureFrameV1);
-
-impl Object for ExtImageCopyCaptureFrameV1 {}
-
-simple_add_obj!(ExtImageCopyCaptureFrameV1);
 
 #[derive(Debug, Error)]
 pub enum ExtImageCopyCaptureFrameV1Error {

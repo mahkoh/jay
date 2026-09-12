@@ -6,17 +6,18 @@ use crate::ifs::wlr_output_manager::zwlr_output_head_v1::ADAPTIVE_SYNC_STATE_DIS
 use crate::ifs::wlr_output_manager::zwlr_output_head_v1::ADAPTIVE_SYNC_STATE_ENABLED;
 use crate::ifs::wlr_output_manager::zwlr_output_head_v1::WlrOutputHeadId;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::scale::Scale;
 use crate::tree::Transform;
 use crate::tree::VrrMode;
 use crate::wire::ZwlrOutputConfigurationHeadV1Id;
 use crate::wire::zwlr_output_configuration_head_v1::*;
+use jay_proc::Object;
 use std::cell::RefCell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct ZwlrOutputConfigurationHeadV1 {
     pub(super) id: ZwlrOutputConfigurationHeadV1Id,
     pub(super) head_id: WlrOutputHeadId,
@@ -117,12 +118,6 @@ impl ZwlrOutputConfigurationHeadV1RequestHandler for ZwlrOutputConfigurationHead
         Ok(())
     }
 }
-
-object_base!(ZwlrOutputConfigurationHeadV1);
-
-impl Object for ZwlrOutputConfigurationHeadV1 {}
-
-simple_add_obj!(ZwlrOutputConfigurationHeadV1);
 
 #[derive(Debug, Error)]
 pub enum ZwlrOutputConfigurationHeadV1Error {

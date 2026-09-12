@@ -1,13 +1,14 @@
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::JayColorManagementId;
 use crate::wire::jay_color_management::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct JayColorManagement {
     pub id: JayColorManagementId,
     pub client: Rc<Client>,
@@ -50,12 +51,6 @@ impl JayColorManagementRequestHandler for JayColorManagement {
         Ok(())
     }
 }
-
-object_base!(JayColorManagement);
-
-impl Object for JayColorManagement {}
-
-simple_add_obj!(JayColorManagement);
 
 #[derive(Debug, Error)]
 pub enum JayColorManagementError {

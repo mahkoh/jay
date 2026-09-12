@@ -98,7 +98,7 @@ use crate::keyboard::KeyboardStateId;
 use crate::keyboard::KeymapFd;
 use crate::keyboard::LedsListener;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::state::DeviceHandlerData;
@@ -163,6 +163,7 @@ use hashbrown::hash_map::Entry;
 use jay_config::input::FallbackOutputMode as ConfigFallbackOutputMode;
 use jay_config::keyboard::syms::KeySym;
 use jay_config::keyboard::syms::SYM_Escape;
+use jay_proc::Object;
 use kbvm::Keycode;
 use linearize::Linearize;
 pub use pointer_owner::ToplevelSelector;
@@ -1812,6 +1813,9 @@ impl Global for WlSeatGlobal {
 
 dedicated_add_global!(WlSeatGlobal, seats);
 
+#[derive(Object)]
+#[dedicated(seats)]
+#[break_loops]
 pub struct WlSeat {
     pub global: Rc<WlSeatGlobal>,
     id: WlSeatId,
@@ -1926,9 +1930,7 @@ impl WlSeatRequestHandler for WlSeat {
     }
 }
 
-object_base!(WlSeat);
-
-impl Object for WlSeat {
+impl BreakLoops for WlSeat {
     fn break_loops(self: Rc<Self>) {
         {
             let mut bindings = self.global.bindings.borrow_mut();
@@ -1945,8 +1947,6 @@ impl Object for WlSeat {
         self.touches.clear();
     }
 }
-
-dedicated_add_obj!(WlSeat, WlSeatId, seats);
 
 #[derive(Debug, Error)]
 pub enum WlSeatError {

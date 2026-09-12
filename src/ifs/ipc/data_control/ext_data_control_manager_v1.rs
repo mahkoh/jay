@@ -9,10 +9,10 @@ use crate::ifs::ipc::data_control::DynDataControlDevice;
 use crate::ifs::ipc::data_control::ext_data_control_device_v1::ExtDataControlDeviceV1;
 use crate::ifs::ipc::data_control::ext_data_control_source_v1::ExtDataControlSourceV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ExtDataControlManagerV1Id;
 use crate::wire::ext_data_control_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -20,6 +20,7 @@ pub struct ExtDataControlManagerV1Global {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct ExtDataControlManagerV1 {
     id: ExtDataControlManagerV1Id,
     client: Rc<Client>,
@@ -107,12 +108,6 @@ impl Global for ExtDataControlManagerV1Global {
 }
 
 simple_add_global!(ExtDataControlManagerV1Global);
-
-object_base!(ExtDataControlManagerV1);
-
-impl Object for ExtDataControlManagerV1 {}
-
-simple_add_obj!(ExtDataControlManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ExtDataControlManagerV1Error {

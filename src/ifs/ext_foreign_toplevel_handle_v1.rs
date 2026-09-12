@@ -1,14 +1,18 @@
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::tree::ToplevelOpt;
 use crate::wire::ExtForeignToplevelHandleV1Id;
 use crate::wire::ext_foreign_toplevel_handle_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[dedicated(foreign_toplevel_handles)]
+#[break_loops]
 pub struct ExtForeignToplevelHandleV1 {
     pub id: ExtForeignToplevelHandleV1Id,
     pub client: Rc<Client>,
@@ -66,19 +70,11 @@ impl ExtForeignToplevelHandleV1 {
     }
 }
 
-object_base!(ExtForeignToplevelHandleV1);
-
-impl Object for ExtForeignToplevelHandleV1 {
+impl BreakLoops for ExtForeignToplevelHandleV1 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-dedicated_add_obj!(
-    ExtForeignToplevelHandleV1,
-    ExtForeignToplevelHandleV1Id,
-    foreign_toplevel_handles,
-);
 
 #[derive(Debug, Error)]
 pub enum ExtForeignToplevelHandleV1Error {

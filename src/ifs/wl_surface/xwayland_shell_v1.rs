@@ -5,11 +5,11 @@ use crate::globals::GlobalName;
 use crate::ifs::wl_surface::WlSurfaceError;
 use crate::ifs::wl_surface::x_surface::xwayland_surface_v1::XwaylandSurfaceV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WlSurfaceId;
 use crate::wire::XwaylandShellV1Id;
 use crate::wire::xwayland_shell_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -17,6 +17,7 @@ pub struct XwaylandShellV1Global {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct XwaylandShellV1 {
     id: XwaylandShellV1Id,
     client: Rc<Client>,
@@ -91,12 +92,6 @@ impl Global for XwaylandShellV1Global {
 }
 
 simple_add_global!(XwaylandShellV1Global);
-
-object_base!(XwaylandShellV1);
-
-impl Object for XwaylandShellV1 {}
-
-simple_add_obj!(XwaylandShellV1);
 
 #[derive(Debug, Error)]
 pub enum XwaylandShellV1Error {

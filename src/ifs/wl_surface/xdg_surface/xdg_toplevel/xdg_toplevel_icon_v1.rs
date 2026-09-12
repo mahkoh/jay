@@ -23,7 +23,7 @@ use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::io_uring::PendingPoll;
 use crate::io_uring::PollCallback;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::rect::Region;
@@ -44,6 +44,7 @@ use crate::wire::XdgToplevelIconV1Id;
 use crate::wire::XdgToplevelId;
 use crate::wire::xdg_toplevel_icon_v1::*;
 use jay_algorithms::oserror::OsError;
+use jay_proc::Object;
 use jay_proc::jay_clone;
 use jay_proc::jay_hash;
 use smallvec::SmallVec;
@@ -56,6 +57,9 @@ use thiserror::Error;
 
 linear_ids!(ToplevelIconIds, ToplevelIconId, u64);
 
+#[derive(Object)]
+#[dedicated(xdg_toplevel_icons)]
+#[break_loops]
 pub struct XdgToplevelIconV1 {
     id: XdgToplevelIconV1Id,
     client: Rc<Client>,
@@ -581,16 +585,12 @@ impl GfxCtxChangedListener for XdgToplevelIconV1 {
     }
 }
 
-object_base!(XdgToplevelIconV1);
-
-impl Object for XdgToplevelIconV1 {
+impl BreakLoops for XdgToplevelIconV1 {
     fn break_loops(self: Rc<Self>) {
         self.toplevels.clear();
         self.pending.clear();
     }
 }
-
-dedicated_add_obj!(XdgToplevelIconV1, XdgToplevelIconV1Id, xdg_toplevel_icons);
 
 #[derive(Debug, Error)]
 pub enum XdgToplevelIconV1Error {

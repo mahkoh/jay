@@ -5,16 +5,17 @@ use crate::client::ClientError;
 use crate::ifs::wp_drm_lease_v1::WpDrmLeaseV1;
 use crate::ifs::wp_drm_lease_v1::WpDrmLeaseV1Lessee;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::wire::WpDrmLeaseConnectorV1Id;
 use crate::wire::WpDrmLeaseRequestV1Id;
 use crate::wire::wp_drm_lease_request_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct WpDrmLeaseRequestV1 {
     pub id: WpDrmLeaseRequestV1Id,
     pub client: Rc<Client>,
@@ -64,12 +65,6 @@ impl WpDrmLeaseRequestV1RequestHandler for WpDrmLeaseRequestV1 {
         Ok(())
     }
 }
-
-object_base!(WpDrmLeaseRequestV1);
-
-impl Object for WpDrmLeaseRequestV1 {}
-
-simple_add_obj!(WpDrmLeaseRequestV1);
 
 #[derive(Debug, Error)]
 pub enum WpDrmLeaseRequestV1Error {

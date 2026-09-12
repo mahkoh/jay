@@ -640,7 +640,7 @@ impl Client {
         self.objects.registries()
     }
 
-    pub fn add_client_obj<T: WaylandObject>(&self, obj: &Rc<T>) -> Result<(), ClientError> {
+    pub fn add_client_obj<T: Object>(&self, obj: &Rc<T>) -> Result<(), ClientError> {
         if obj.id().raw() >= FIRST_SYNTHETIC_ID {
             self.add_server_obj(obj);
             return Ok(());
@@ -648,17 +648,17 @@ impl Client {
         self.add_obj(obj, true)
     }
 
-    pub fn add_server_obj<T: WaylandObject>(&self, obj: &Rc<T>) {
+    pub fn add_server_obj<T: Object>(&self, obj: &Rc<T>) {
         self.add_obj(obj, false).expect("add_server_obj failed")
     }
 
-    fn add_obj<T: WaylandObject>(&self, obj: &Rc<T>, client: bool) -> Result<(), ClientError> {
+    fn add_obj<T: Object>(&self, obj: &Rc<T>, client: bool) -> Result<(), ClientError> {
         if client {
             self.objects.add_client_object(obj.clone())?;
         } else {
             self.objects.add_server_object(obj.clone());
         }
-        obj.clone().add(self);
+        obj.add(self);
         Ok(())
     }
 
@@ -672,7 +672,7 @@ impl Client {
             .set_synthetic_event_handler(id.into(), event_handler.clone());
     }
 
-    pub fn remove_obj<T: WaylandObject>(self: &Rc<Self>, obj: &T) {
+    pub fn remove_obj<T: Object>(self: &Rc<Self>, obj: &T) {
         let id = obj.id();
         if id.raw() >= FIRST_SYNTHETIC_ID {
             self.synthetic_events.to_remove.push(id);
@@ -755,15 +755,6 @@ impl Client {
             self.synthetic_registry.set(id);
         }
         id
-    }
-}
-
-pub trait WaylandObject: Object {
-    fn add(self: Rc<Self>, client: &Client) {
-        let _ = client;
-    }
-    fn remove(&self, client: &Client) {
-        let _ = client;
     }
 }
 

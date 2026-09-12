@@ -3,13 +3,16 @@ use crate::ifs::wl_seat::zwp_pointer_constraints_v1::ConstraintOwner;
 use crate::ifs::wl_seat::zwp_pointer_constraints_v1::SeatConstraint;
 use crate::ifs::wl_seat::zwp_pointer_constraints_v1::ZwpPointerConstraintsV1Error;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::wire::ZwpConfinedPointerV1Id;
 use crate::wire::zwp_confined_pointer_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct ZwpConfinedPointerV1 {
     pub id: ZwpConfinedPointerV1Id,
     pub tracker: Tracker<Self>,
@@ -44,15 +47,11 @@ impl ConstraintOwner for ZwpConfinedPointerV1 {
     }
 }
 
-object_base!(ZwpConfinedPointerV1);
-
-impl Object for ZwpConfinedPointerV1 {
+impl BreakLoops for ZwpConfinedPointerV1 {
     fn break_loops(self: Rc<Self>) {
         self.constraint.detach();
     }
 }
-
-simple_add_obj!(ZwpConfinedPointerV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpConfinedPointerV1Error {

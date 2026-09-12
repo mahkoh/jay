@@ -21,12 +21,13 @@ use crate::ifs::ipc::wl_data_device::WlDataDevice;
 use crate::ifs::ipc::wl_data_device_manager::DND_ALL;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::utils::bitflags::BitflagsExt;
 use crate::wire::WlDataOfferId;
 use crate::wire::WlSurfaceId;
 use crate::wire::wl_data_offer::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -39,6 +40,8 @@ const INVALID_ACTION: u32 = 2;
 #[expect(unused)]
 const INVALID_OFFER: u32 = 3;
 
+#[derive(Object)]
+#[break_loops]
 pub struct WlDataOffer {
     pub id: WlDataOfferId,
     pub offer_id: DataOfferId,
@@ -201,15 +204,11 @@ impl WlDataOfferRequestHandler for WlDataOffer {
     }
 }
 
-object_base!(WlDataOffer);
-
-impl Object for WlDataOffer {
+impl BreakLoops for WlDataOffer {
     fn break_loops(self: Rc<Self>) {
         break_offer_loops::<ClipboardIpc>(&*self);
     }
 }
-
-simple_add_obj!(WlDataOffer);
 
 #[derive(Debug, Error)]
 pub enum WlDataOfferError {

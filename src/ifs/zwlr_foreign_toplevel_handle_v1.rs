@@ -2,7 +2,7 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::ifs::wl_output::WlOutput;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::tree::Direction;
 use crate::tree::OutputNode;
@@ -12,6 +12,7 @@ use crate::tree::TreeTimeline::LiveTL;
 use crate::wire::ZwlrForeignToplevelHandleV1Id;
 use crate::wire::zwlr_foreign_toplevel_handle_v1::*;
 use arrayvec::ArrayVec;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
@@ -21,6 +22,9 @@ const STATE_FULLSCREEN: u32 = 3;
 
 const FULLSCREEN_SINCE: Version = Version(2);
 
+#[derive(Object)]
+#[dedicated(wlr_foreign_toplevel_handles)]
+#[break_loops]
 pub struct ZwlrForeignToplevelHandleV1 {
     pub id: ZwlrForeignToplevelHandleV1Id,
     pub client: Rc<Client>,
@@ -197,19 +201,11 @@ impl ZwlrForeignToplevelHandleV1 {
     }
 }
 
-object_base!(ZwlrForeignToplevelHandleV1);
-
-impl Object for ZwlrForeignToplevelHandleV1 {
+impl BreakLoops for ZwlrForeignToplevelHandleV1 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-dedicated_add_obj!(
-    ZwlrForeignToplevelHandleV1,
-    ZwlrForeignToplevelHandleV1Id,
-    wlr_foreign_toplevel_handles,
-);
 
 #[derive(Debug, Error)]
 pub enum ZwlrForeignToplevelHandleV1Error {

@@ -1,7 +1,7 @@
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::tree::OutputNode;
 use crate::tree::TreeTimeline::LiveTL;
@@ -9,9 +9,13 @@ use crate::tree::WorkspaceNode;
 use crate::utils::clonecell::CloneCell;
 use crate::wire::JayWorkspaceId;
 use crate::wire::jay_workspace::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[dedicated(jay_workspaces)]
+#[break_loops]
 pub struct JayWorkspace {
     pub id: JayWorkspaceId,
     pub version: Version,
@@ -83,15 +87,11 @@ impl JayWorkspaceRequestHandler for JayWorkspace {
     }
 }
 
-object_base!(JayWorkspace);
-
-impl Object for JayWorkspace {
+impl BreakLoops for JayWorkspace {
     fn break_loops(self: Rc<Self>) {
         self.remove_from_node();
     }
 }
-
-dedicated_add_obj!(JayWorkspace, JayWorkspaceId, jay_workspaces);
 
 #[derive(Debug, Error)]
 pub enum JayWorkspaceError {

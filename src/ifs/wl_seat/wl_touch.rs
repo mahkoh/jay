@@ -2,11 +2,11 @@ use crate::client::ClientError;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::WlSeat;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WlSurfaceId;
 use crate::wire::WlTouchId;
 use crate::wire::wl_touch::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -15,6 +15,7 @@ pub const SHAPE_SINCE_VERSION: Version = Version(6);
 #[expect(unused)]
 pub const ORIENTATION_DIRECTION_SINCE_VERSION: Version = Version(6);
 
+#[derive(Object)]
 pub struct WlTouch {
     id: WlTouchId,
     version: Version,
@@ -110,12 +111,6 @@ impl WlTouchRequestHandler for WlTouch {
         Ok(())
     }
 }
-
-object_base!(WlTouch);
-
-impl Object for WlTouch {}
-
-simple_add_obj!(WlTouch);
 
 #[derive(Debug, Error)]
 pub enum WlTouchError {

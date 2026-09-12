@@ -14,14 +14,18 @@ use crate::ifs::ipc::x_data_device::XPrimarySelectionIpc;
 use crate::ifs::ipc::zwp_primary_selection_device_v1::PrimarySelectionIpc;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::wire::ZwpPrimarySelectionSourceV1Id;
 use crate::wire::zwp_primary_selection_source_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
 
+#[derive(Object)]
+#[dedicated(zwp_primary_selection_source)]
+#[break_loops]
 pub struct ZwpPrimarySelectionSourceV1 {
     id: ZwpPrimarySelectionSourceV1Id,
     data: SourceData,
@@ -95,19 +99,11 @@ impl ZwpPrimarySelectionSourceV1RequestHandler for ZwpPrimarySelectionSourceV1 {
     }
 }
 
-object_base!(ZwpPrimarySelectionSourceV1);
-
-impl Object for ZwpPrimarySelectionSourceV1 {
+impl BreakLoops for ZwpPrimarySelectionSourceV1 {
     fn break_loops(self: Rc<Self>) {
         break_source_loops::<PrimarySelectionIpc>(&*self);
     }
 }
-
-dedicated_add_obj!(
-    ZwpPrimarySelectionSourceV1,
-    ZwpPrimarySelectionSourceV1Id,
-    zwp_primary_selection_source,
-);
 
 #[derive(Debug, Error)]
 pub enum ZwpPrimarySelectionSourceV1Error {

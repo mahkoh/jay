@@ -1,12 +1,13 @@
 use crate::client::Client;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WlCallbackId;
 use crate::wire::wl_callback::*;
+use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Object)]
 pub struct WlCallback {
     pub client: Rc<Client>,
     id: WlCallbackId,
@@ -35,9 +36,3 @@ impl WlCallback {
 impl WlCallbackRequestHandler for WlCallback {
     type Error = Infallible;
 }
-
-object_base!(WlCallback);
-
-impl Object for WlCallback {}
-
-simple_add_obj!(WlCallback);

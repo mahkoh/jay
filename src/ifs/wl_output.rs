@@ -16,7 +16,7 @@ use crate::globals::GlobalName;
 use crate::ifs::wl_surface::WlSurface;
 use crate::ifs::zxdg_output_v1::ZxdgOutputV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::state::ConnectorData;
 use crate::state::State;
@@ -37,6 +37,7 @@ use crate::wire::ZxdgOutputV1Id;
 use crate::wire::wl_output::*;
 use derivative::Derivative;
 use hashbrown::hash_map::Entry;
+use jay_proc::Object;
 use linearize::Linearize;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -360,6 +361,9 @@ impl Global for WlOutputGlobal {
 
 dedicated_add_global!(WlOutputGlobal, outputs);
 
+#[derive(Object)]
+#[dedicated(outputs)]
+#[break_loops]
 pub struct WlOutput {
     pub global: Rc<OutputGlobalOpt>,
     pub id: WlOutputId,
@@ -482,16 +486,12 @@ impl WlOutputRequestHandler for WlOutput {
     }
 }
 
-object_base!(WlOutput);
-
-impl Object for WlOutput {
+impl BreakLoops for WlOutput {
     fn break_loops(self: Rc<Self>) {
         self.xdg_outputs.clear();
         self.remove_binding();
     }
 }
-
-dedicated_add_obj!(WlOutput, WlOutputId, outputs);
 
 #[derive(Debug, Error)]
 pub enum WlOutputError {

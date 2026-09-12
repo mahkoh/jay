@@ -1,14 +1,16 @@
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::video::drm::syncobj::Syncobj;
 use crate::wire::WpLinuxDrmSyncobjTimelineV1Id;
 use crate::wire::wp_linux_drm_syncobj_timeline_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[dedicated(timelines)]
 pub struct WpLinuxDrmSyncobjTimelineV1 {
     id: WpLinuxDrmSyncobjTimelineV1Id,
     client: Rc<Client>,
@@ -42,16 +44,6 @@ impl WpLinuxDrmSyncobjTimelineV1RequestHandler for WpLinuxDrmSyncobjTimelineV1 {
         Ok(())
     }
 }
-
-object_base!(WpLinuxDrmSyncobjTimelineV1);
-
-impl Object for WpLinuxDrmSyncobjTimelineV1 {}
-
-dedicated_add_obj!(
-    WpLinuxDrmSyncobjTimelineV1,
-    WpLinuxDrmSyncobjTimelineV1Id,
-    timelines,
-);
 
 #[derive(Debug, Error)]
 pub enum WpLinuxDrmSyncobjTimelineV1Error {

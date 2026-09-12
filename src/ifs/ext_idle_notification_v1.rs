@@ -3,15 +3,18 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::utils::asyncevent::AsyncEvent;
 use crate::wire::ExtIdleNotificationV1Id;
 use crate::wire::ext_idle_notification_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct ExtIdleNotificationV1 {
     pub id: ExtIdleNotificationV1Id,
     pub client: Rc<Client>,
@@ -51,15 +54,11 @@ impl ExtIdleNotificationV1 {
     }
 }
 
-object_base!(ExtIdleNotificationV1);
-
-impl Object for ExtIdleNotificationV1 {
+impl BreakLoops for ExtIdleNotificationV1 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(ExtIdleNotificationV1);
 
 #[derive(Debug, Error)]
 pub enum ExtIdleNotificationV1Error {

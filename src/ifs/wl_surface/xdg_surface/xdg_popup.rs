@@ -25,7 +25,7 @@ use crate::ifs::xdg_positioner::CA_SLIDE_Y;
 use crate::ifs::xdg_positioner::XdgPositioned;
 use crate::ifs::xdg_positioner::XdgPositioner;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::renderer::Renderer;
@@ -54,6 +54,7 @@ use crate::utils::smallmap::SmallMap;
 use crate::wire::ObjectId;
 use crate::wire::XdgPopupId;
 use crate::wire::xdg_popup::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -85,6 +86,9 @@ pub trait XdgPopupParent {
     }
 }
 
+#[derive(Object)]
+#[dedicated(xdg_popups)]
+#[break_loops]
 pub struct XdgPopup {
     pub id: XdgPopupId,
     node_id: PopupId,
@@ -364,16 +368,12 @@ impl XdgPopup {
     }
 }
 
-object_base!(XdgPopup);
-
-impl Object for XdgPopup {
+impl BreakLoops for XdgPopup {
     fn break_loops(self: Rc<Self>) {
         self.jay_popup_ext.take();
         self.destroy_node();
     }
 }
-
-dedicated_add_obj!(XdgPopup, XdgPopupId, xdg_popups);
 
 impl NodeBase for XdgPopup {
     fn node_id(&self) -> NodeId {

@@ -20,7 +20,7 @@ use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::WM_CAPABILITIES_SINCE;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::xdg_wm_base::XdgWmBase;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::transactions::EnabledSurfaceTransactions;
@@ -51,6 +51,7 @@ use crate::wire::ObjectId;
 use crate::wire::XdgPopupId;
 use crate::wire::XdgSurfaceId;
 use crate::wire::xdg_surface::*;
+use jay_proc::Object;
 use jay_proc::Reset;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -89,6 +90,9 @@ pub enum PopupStackType {
     Overlay,
 }
 
+#[derive(Object)]
+#[dedicated(xdg_surfaces)]
+#[break_loops]
 pub struct XdgSurface {
     id: XdgSurfaceId,
     version: Version,
@@ -730,9 +734,7 @@ impl XdgSurface {
     }
 }
 
-object_base!(XdgSurface);
-
-impl Object for XdgSurface {
+impl BreakLoops for XdgSurface {
     fn break_loops(self: Rc<Self>) {
         self.destroyed.set(true);
         self.configure_data.ready();
@@ -742,8 +744,6 @@ impl Object for XdgSurface {
         self.workspace_type.set(None);
     }
 }
-
-dedicated_add_obj!(XdgSurface, XdgSurfaceId, xdg_surfaces);
 
 impl SurfaceExt for XdgSurface {
     fn object_id(&self) -> Option<ObjectId> {

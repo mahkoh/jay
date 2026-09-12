@@ -2,17 +2,20 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::gfx_api::GfxContext;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::wire::JayRenderCtxId;
 use crate::wire::jay_render_ctx::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
 pub const FORMATS_SINCE: Version = Version(7);
 pub const WRITE_MODIFIER_2_SINCE: Version = Version(9);
 
+#[derive(Object)]
+#[break_loops]
 pub struct JayRenderCtx {
     pub id: JayRenderCtxId,
     pub client: Rc<Client>,
@@ -95,15 +98,11 @@ impl JayRenderCtxRequestHandler for JayRenderCtx {
     }
 }
 
-object_base!(JayRenderCtx);
-
-impl Object for JayRenderCtx {
+impl BreakLoops for JayRenderCtx {
     fn break_loops(self: Rc<Self>) {
         self.remove_from_state();
     }
 }
-
-simple_add_obj!(JayRenderCtx);
 
 #[derive(Debug, Error)]
 pub enum JayRenderCtxError {

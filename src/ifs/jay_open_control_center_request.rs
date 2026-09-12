@@ -1,15 +1,16 @@
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::wire::JayOpenControlCenterRequestId;
 use crate::wire::jay_open_control_center_request::*;
+use jay_proc::Object;
 use std::error::Error;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct JayOpenControlCenterRequest {
     pub id: JayOpenControlCenterRequestId,
     pub client: Rc<Client>,
@@ -35,12 +36,6 @@ impl JayOpenControlCenterRequestRequestHandler for JayOpenControlCenterRequest {
         Ok(())
     }
 }
-
-object_base!(JayOpenControlCenterRequest);
-
-impl Object for JayOpenControlCenterRequest {}
-
-simple_add_obj!(JayOpenControlCenterRequest);
 
 #[derive(Debug, Error)]
 pub enum JayOpenControlCenterRequestError {

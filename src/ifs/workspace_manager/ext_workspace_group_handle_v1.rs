@@ -7,15 +7,19 @@ use crate::ifs::workspace_manager::ext_workspace_manager_v1::ExtWorkspaceManager
 use crate::ifs::workspace_manager::ext_workspace_manager_v1::WorkspaceChange;
 use crate::ifs::workspace_manager::ext_workspace_manager_v1::WorkspaceManagerId;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::utils::opt::Opt;
 use crate::wire::ExtWorkspaceGroupHandleV1Id;
 use crate::wire::ext_workspace_group_handle_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[dedicated(ext_workspace_groups)]
+#[break_loops]
 pub struct ExtWorkspaceGroupHandleV1 {
     pub(super) id: ExtWorkspaceGroupHandleV1Id,
     pub(super) client: Rc<Client>,
@@ -94,19 +98,11 @@ impl ExtWorkspaceGroupHandleV1 {
     }
 }
 
-object_base!(ExtWorkspaceGroupHandleV1);
-
-impl Object for ExtWorkspaceGroupHandleV1 {
+impl BreakLoops for ExtWorkspaceGroupHandleV1 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-dedicated_add_obj!(
-    ExtWorkspaceGroupHandleV1,
-    ExtWorkspaceGroupHandleV1Id,
-    ext_workspace_groups,
-);
 
 impl ExtWorkspaceGroupHandleV1RequestHandler for ExtWorkspaceGroupHandleV1 {
     type Error = ExtWorkspaceGroupHandleV1Error;

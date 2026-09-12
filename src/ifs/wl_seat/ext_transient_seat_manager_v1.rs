@@ -6,10 +6,10 @@ use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_seat::ext_transient_seat_v1::ExtTransientSeatV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ExtTransientSeatManagerV1Id;
 use crate::wire::ext_transient_seat_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -17,6 +17,7 @@ pub struct ExtTransientSeatManagerV1Global {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct ExtTransientSeatManagerV1 {
     id: ExtTransientSeatManagerV1Id,
     client: Rc<Client>,
@@ -82,12 +83,6 @@ impl ExtTransientSeatManagerV1RequestHandler for ExtTransientSeatManagerV1 {
         Ok(())
     }
 }
-
-object_base!(ExtTransientSeatManagerV1);
-
-impl Object for ExtTransientSeatManagerV1 {}
-
-simple_add_obj!(ExtTransientSeatManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ExtTransientSeatManagerV1Error {

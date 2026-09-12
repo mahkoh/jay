@@ -4,13 +4,15 @@ use crate::cmm::cmm_description::ColorDescription;
 use crate::ifs::color_management::UNIQUE_CM_IDS_SINCE;
 use crate::ifs::color_management::wp_image_description_info_v1::WpImageDescriptionInfoV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WpImageDescriptionV1Id;
 use crate::wire::wp_image_description_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[dedicated(wp_image_description)]
 pub struct WpImageDescriptionV1 {
     pub id: WpImageDescriptionV1Id,
     pub client: Rc<Client>,
@@ -69,16 +71,6 @@ impl WpImageDescriptionV1RequestHandler for WpImageDescriptionV1 {
         Ok(())
     }
 }
-
-object_base!(WpImageDescriptionV1);
-
-impl Object for WpImageDescriptionV1 {}
-
-dedicated_add_obj!(
-    WpImageDescriptionV1,
-    WpImageDescriptionV1Id,
-    wp_image_description,
-);
 
 #[derive(Debug, Error)]
 pub enum WpImageDescriptionV1Error {

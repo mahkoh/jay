@@ -9,7 +9,7 @@ use crate::ifs::wl_buffer::WlBufferError;
 use crate::ifs::wl_buffer::WlBufferStorage;
 use crate::ifs::wl_output::OutputGlobalOpt;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::tree::TreeTimeline::RenderTL;
@@ -17,6 +17,7 @@ use crate::utils::errorfmt::ErrorFmt;
 use crate::wire::WlBufferId;
 use crate::wire::ZwlrScreencopyFrameV1Id;
 use crate::wire::zwlr_screencopy_frame_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -25,6 +26,8 @@ use thiserror::Error;
 #[expect(unused)]
 pub const FLAGS_Y_INVERT: u32 = 1;
 
+#[derive(Object)]
+#[break_loops]
 pub struct ZwlrScreencopyFrameV1 {
     pub id: ZwlrScreencopyFrameV1Id,
     pub client: Rc<Client>,
@@ -175,11 +178,7 @@ impl AsyncShmGfxTextureCallback for ZwlrScreencopyFrameV1 {
     }
 }
 
-object_base!(ZwlrScreencopyFrameV1);
-
-simple_add_obj!(ZwlrScreencopyFrameV1);
-
-impl Object for ZwlrScreencopyFrameV1 {
+impl BreakLoops for ZwlrScreencopyFrameV1 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }

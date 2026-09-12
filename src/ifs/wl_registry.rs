@@ -5,15 +5,17 @@ use crate::globals::GlobalsError;
 use crate::globals::Singleton;
 use crate::leaks::Tracker;
 use crate::object::Interface;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WlRegistryId;
 use crate::wire::wl_registry::*;
+use jay_proc::Object;
 use linearize::StaticMap;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[dedicated(registries)]
 pub struct WlRegistry {
     id: WlRegistryId,
     version: Version,
@@ -90,12 +92,6 @@ impl WlRegistryRequestHandler for WlRegistry {
         Ok(())
     }
 }
-
-object_base!(WlRegistry);
-
-impl Object for WlRegistry {}
-
-dedicated_add_obj!(WlRegistry, WlRegistryId, registries);
 
 #[derive(Debug, Error)]
 pub enum WlRegistryError {

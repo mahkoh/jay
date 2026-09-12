@@ -9,10 +9,10 @@ use crate::globals::GlobalName;
 use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1;
 use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ZwlrLayerShellV1Id;
 use crate::wire::zwlr_layer_shell_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -25,6 +25,7 @@ pub struct ZwlrLayerShellV1Global {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct ZwlrLayerShellV1 {
     id: ZwlrLayerShellV1Id,
     pub client: Rc<Client>,
@@ -115,12 +116,6 @@ impl Global for ZwlrLayerShellV1Global {
 }
 
 simple_add_global!(ZwlrLayerShellV1Global);
-
-object_base!(ZwlrLayerShellV1);
-
-simple_add_obj!(ZwlrLayerShellV1);
-
-impl Object for ZwlrLayerShellV1 {}
 
 #[derive(Debug, Error)]
 pub enum ZwlrLayerShellV1Error {

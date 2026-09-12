@@ -5,10 +5,10 @@ use crate::globals::GlobalName;
 use crate::ifs::wl_surface::wp_fractional_scale_v1::WpFractionalScaleError;
 use crate::ifs::wl_surface::wp_fractional_scale_v1::WpFractionalScaleV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WpFractionalScaleManagerV1Id;
 use crate::wire::wp_fractional_scale_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -16,6 +16,7 @@ pub struct WpFractionalScaleManagerV1Global {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct WpFractionalScaleManagerV1 {
     id: WpFractionalScaleManagerV1Id,
     client: Rc<Client>,
@@ -78,12 +79,6 @@ impl WpFractionalScaleManagerV1RequestHandler for WpFractionalScaleManagerV1 {
         Ok(())
     }
 }
-
-object_base!(WpFractionalScaleManagerV1);
-
-impl Object for WpFractionalScaleManagerV1 {}
-
-simple_add_obj!(WpFractionalScaleManagerV1);
 
 #[derive(Debug, Error)]
 pub enum WpFractionalScaleManagerError {

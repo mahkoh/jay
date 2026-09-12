@@ -1,14 +1,15 @@
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::JayXwaylandId;
 use crate::wire::jay_xwayland::*;
 use jay_config::xwayland::XScalingMode;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct JayXwayland {
     pub id: JayXwaylandId,
     pub client: Rc<Client>,
@@ -60,12 +61,6 @@ impl JayXwaylandRequestHandler for JayXwayland {
         Ok(())
     }
 }
-
-object_base!(JayXwayland);
-
-impl Object for JayXwayland {}
-
-simple_add_obj!(JayXwayland);
 
 #[derive(Debug, Error)]
 pub enum JayXwaylandError {

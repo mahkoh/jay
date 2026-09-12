@@ -1,6 +1,5 @@
 use crate::client::Client;
 use crate::client::ClientId;
-use crate::client::WaylandObject;
 use crate::client::WaylandObjectLookup;
 use crate::ifs::ipc::DataOffer;
 use crate::ifs::ipc::DataOfferId;
@@ -24,6 +23,7 @@ use crate::ifs::ipc::x_data_device::XClipboardIpc;
 use crate::ifs::ipc::x_data_device::XIpcDevice;
 use crate::ifs::ipc::x_data_device::XPrimarySelectionIpc;
 use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ObjectId;
 use std::cell::Cell;
@@ -61,7 +61,7 @@ pub struct DataControlDeviceData<T: DataControlIpc> {
     pub primary_selection_data: DeviceData<T::Offer>,
 }
 
-pub trait DataControlDevice: WaylandObject {
+pub trait DataControlDevice: Object {
     type Ipc: DataControlIpc<Device = Self>;
 
     fn data(&self) -> &DataControlDeviceData<Self::Ipc>;
@@ -81,7 +81,7 @@ pub struct DataControlOfferData<T: DataControlIpc> {
     location: IpcLocation,
 }
 
-pub trait DataControlOffer: WaylandObject {
+pub trait DataControlOffer: Object {
     type Ipc: DataControlIpc<Offer = Self>;
 
     fn data(&self) -> &DataControlOfferData<Self::Ipc>;
@@ -95,7 +95,7 @@ pub struct DataControlSourceData {
     pub used: Cell<bool>,
 }
 
-pub trait DataControlSource: WaylandObject {
+pub trait DataControlSource: Object {
     type Ipc: DataControlIpc<Source = Self>;
 
     fn data(&self) -> &DataControlSourceData;

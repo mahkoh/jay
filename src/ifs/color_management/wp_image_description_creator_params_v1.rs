@@ -34,7 +34,6 @@ use crate::ifs::color_management::consts::TRANSFER_FUNCTION_ST428;
 use crate::ifs::color_management::consts::TRANSFER_FUNCTION_ST2084_PQ;
 use crate::ifs::color_management::wp_image_description_v1::WpImageDescriptionV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::utils::ordered_float::F32;
 use crate::utils::ordered_float::F64;
@@ -50,10 +49,12 @@ use crate::wire::wp_image_description_creator_params_v1::SetPrimariesNamed;
 use crate::wire::wp_image_description_creator_params_v1::SetTfNamed;
 use crate::wire::wp_image_description_creator_params_v1::SetTfPower;
 use crate::wire::wp_image_description_creator_params_v1::WpImageDescriptionCreatorParamsV1RequestHandler;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct WpImageDescriptionCreatorParamsV1 {
     pub id: WpImageDescriptionCreatorParamsV1Id,
     pub client: Rc<Client>,
@@ -285,12 +286,6 @@ impl WpImageDescriptionCreatorParamsV1RequestHandler for WpImageDescriptionCreat
         Ok(())
     }
 }
-
-object_base!(WpImageDescriptionCreatorParamsV1);
-
-impl Object for WpImageDescriptionCreatorParamsV1 {}
-
-simple_add_obj!(WpImageDescriptionCreatorParamsV1);
 
 #[derive(Debug, Error)]
 pub enum WpImageDescriptionCreatorParamsV1Error {

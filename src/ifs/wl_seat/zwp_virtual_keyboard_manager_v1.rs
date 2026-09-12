@@ -7,10 +7,10 @@ use crate::globals::GlobalName;
 use crate::ifs::wl_seat::zwp_virtual_keyboard_v1::ZwpVirtualKeyboardV1;
 use crate::keyboard::KeyboardState;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ZwpVirtualKeyboardManagerV1Id;
 use crate::wire::zwp_virtual_keyboard_manager_v1::*;
+use jay_proc::Object;
 use std::cell::RefCell;
 use std::rc::Rc;
 use thiserror::Error;
@@ -19,6 +19,7 @@ pub struct ZwpVirtualKeyboardManagerV1Global {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct ZwpVirtualKeyboardManagerV1 {
     id: ZwpVirtualKeyboardManagerV1Id,
     client: Rc<Client>,
@@ -96,12 +97,6 @@ impl ZwpVirtualKeyboardManagerV1RequestHandler for ZwpVirtualKeyboardManagerV1 {
         Ok(())
     }
 }
-
-object_base!(ZwpVirtualKeyboardManagerV1);
-
-impl Object for ZwpVirtualKeyboardManagerV1 {}
-
-simple_add_obj!(ZwpVirtualKeyboardManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpVirtualKeyboardManagerV1Error {

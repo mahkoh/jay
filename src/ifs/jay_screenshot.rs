@@ -1,15 +1,16 @@
 use crate::client::Client;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufPlane;
 use crate::wire::JayScreenshotId;
 use crate::wire::jay_screenshot::*;
+use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 use uapi::OwnedFd;
 
+#[derive(Object)]
 pub struct JayScreenshot {
     pub id: JayScreenshotId,
     pub version: Version,
@@ -86,9 +87,3 @@ impl JayScreenshot {
 impl JayScreenshotRequestHandler for JayScreenshot {
     type Error = Infallible;
 }
-
-object_base!(JayScreenshot);
-
-impl Object for JayScreenshot {}
-
-simple_add_obj!(JayScreenshot);

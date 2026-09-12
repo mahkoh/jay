@@ -8,7 +8,7 @@ use crate::globals::GlobalName;
 use crate::ifs::wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1;
 use crate::ifs::wp_drm_lease_request_v1::WpDrmLeaseRequestV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::state::OutputData;
 use crate::utils::bindings::Bindings;
@@ -19,6 +19,7 @@ use crate::wire::WpDrmLeaseDeviceV1Id;
 use crate::wire::wp_drm_lease_device_v1::*;
 use jay_algorithms::oserror::OsError;
 use jay_algorithms::oserror::OsErrorExt2;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
@@ -88,6 +89,8 @@ impl Global for WpDrmLeaseDeviceV1Global {
     }
 }
 
+#[derive(Object)]
+#[break_loops]
 pub struct WpDrmLeaseDeviceV1 {
     id: WpDrmLeaseDeviceV1Id,
     client: Rc<Client>,
@@ -178,15 +181,11 @@ impl WpDrmLeaseDeviceV1RequestHandler for WpDrmLeaseDeviceV1 {
     }
 }
 
-object_base!(WpDrmLeaseDeviceV1);
-
-impl Object for WpDrmLeaseDeviceV1 {
+impl BreakLoops for WpDrmLeaseDeviceV1 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(WpDrmLeaseDeviceV1);
 
 #[derive(Debug, Error)]
 pub enum WpDrmLeaseDeviceV1Error {

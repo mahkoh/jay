@@ -2,13 +2,15 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::criteria::CritUpstreamNode;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::JayClientMatchId;
 use crate::wire::jay_client_match::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[dedicated(jay_client_match)]
 pub struct JayClientMatch {
     pub id: JayClientMatchId,
     pub client: Rc<Client>,
@@ -25,12 +27,6 @@ impl JayClientMatchRequestHandler for JayClientMatch {
         Ok(())
     }
 }
-
-object_base!(JayClientMatch);
-
-impl Object for JayClientMatch {}
-
-dedicated_add_obj!(JayClientMatch, JayClientMatchId, jay_client_match);
 
 #[derive(Debug, Error)]
 pub enum JayClientMatchError {

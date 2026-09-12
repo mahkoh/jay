@@ -4,10 +4,10 @@ use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_seat::zwp_relative_pointer_v1::ZwpRelativePointerV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ZwpRelativePointerManagerV1Id;
 use crate::wire::zwp_relative_pointer_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -15,6 +15,7 @@ pub struct ZwpRelativePointerManagerV1Global {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct ZwpRelativePointerManagerV1 {
     id: ZwpRelativePointerManagerV1Id,
     client: Rc<Client>,
@@ -85,12 +86,6 @@ impl ZwpRelativePointerManagerV1RequestHandler for ZwpRelativePointerManagerV1 {
         Ok(())
     }
 }
-
-object_base!(ZwpRelativePointerManagerV1);
-
-impl Object for ZwpRelativePointerManagerV1 {}
-
-simple_add_obj!(ZwpRelativePointerManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpRelativePointerManagerV1Error {

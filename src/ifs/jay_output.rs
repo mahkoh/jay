@@ -2,13 +2,17 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::ifs::wl_output::OutputGlobalOpt;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::wire::JayOutputId;
 use crate::wire::jay_output::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[dedicated(jay_outputs)]
+#[break_loops]
 pub struct JayOutput {
     pub id: JayOutputId,
     pub version: Version,
@@ -48,15 +52,11 @@ impl JayOutputRequestHandler for JayOutput {
     }
 }
 
-object_base!(JayOutput);
-
-impl Object for JayOutput {
+impl BreakLoops for JayOutput {
     fn break_loops(self: Rc<Self>) {
         self.remove_from_node();
     }
 }
-
-dedicated_add_obj!(JayOutput, JayOutputId, jay_outputs);
 
 #[derive(Debug, Error)]
 pub enum JayOutputError {

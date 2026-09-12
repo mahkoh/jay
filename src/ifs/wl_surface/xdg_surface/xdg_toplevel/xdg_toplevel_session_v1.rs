@@ -4,7 +4,7 @@ use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::xdg_session_v1::XdgSessionV1;
 use crate::ifs::xdg_session_v1::XdgSessionV1Error;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::sm::SessionGetStatus;
 use crate::sm::SessionManagementError;
@@ -17,10 +17,13 @@ use crate::wire::xdg_toplevel_session_v1::Destroy;
 use crate::wire::xdg_toplevel_session_v1::Rename;
 use crate::wire::xdg_toplevel_session_v1::Restored;
 use crate::wire::xdg_toplevel_session_v1::XdgToplevelSessionV1RequestHandler;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct XdgToplevelSessionV1 {
     id: XdgToplevelSessionV1Id,
     client: Rc<Client>,
@@ -145,15 +148,11 @@ impl XdgToplevelSessionV1 {
     }
 }
 
-object_base!(XdgToplevelSessionV1);
-
-impl Object for XdgToplevelSessionV1 {
+impl BreakLoops for XdgToplevelSessionV1 {
     fn break_loops(self: Rc<Self>) {
         self.disown_to_peer();
     }
 }
-
-simple_add_obj!(XdgToplevelSessionV1);
 
 #[derive(Debug, Error)]
 pub enum XdgToplevelSessionV1Error {

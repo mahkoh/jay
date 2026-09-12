@@ -4,16 +4,17 @@ use crate::configurable::ConfigurableExt;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::Decoration;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ZxdgToplevelDecorationV1Id;
 use crate::wire::zxdg_toplevel_decoration_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
 const CLIENT_SIDE: u32 = 1;
 const SERVER_SIDE: u32 = 2;
 
+#[derive(Object)]
 pub struct ZxdgToplevelDecorationV1 {
     id: ZxdgToplevelDecorationV1Id,
     client: Rc<Client>,
@@ -73,12 +74,6 @@ impl ZxdgToplevelDecorationV1RequestHandler for ZxdgToplevelDecorationV1 {
         Ok(())
     }
 }
-
-object_base!(ZxdgToplevelDecorationV1);
-
-impl Object for ZxdgToplevelDecorationV1 {}
-
-simple_add_obj!(ZxdgToplevelDecorationV1);
 
 #[derive(Debug, Error)]
 pub enum ZxdgToplevelDecorationV1Error {

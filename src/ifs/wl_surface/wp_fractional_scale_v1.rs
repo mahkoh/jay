@@ -2,16 +2,17 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::scale::Scale;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::utils::cell_ext::CellExt;
 use crate::wire::WpFractionalScaleV1Id;
 use crate::wire::wp_fractional_scale_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct WpFractionalScaleV1 {
     id: WpFractionalScaleV1Id,
     client: Rc<Client>,
@@ -60,12 +61,6 @@ impl WpFractionalScaleV1RequestHandler for WpFractionalScaleV1 {
         Ok(())
     }
 }
-
-object_base!(WpFractionalScaleV1);
-
-impl Object for WpFractionalScaleV1 {}
-
-simple_add_obj!(WpFractionalScaleV1);
 
 #[derive(Debug, Error)]
 pub enum WpFractionalScaleError {

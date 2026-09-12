@@ -1,7 +1,6 @@
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::utils::clone3::Forked;
 use crate::utils::clone3::fork_with_pidfd;
@@ -11,6 +10,7 @@ use crate::utils::pipe::pipe;
 use crate::wire::JayReexecId;
 use crate::wire::jay_reexec::*;
 use jay_algorithms::oserror::OsErrorExt;
+use jay_proc::Object;
 use std::array::from_mut;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -22,6 +22,7 @@ use uapi::close_range;
 use uapi::dup2;
 use uapi::waitpid;
 
+#[derive(Object)]
 pub struct JayReexec {
     pub id: JayReexecId,
     pub client: Rc<Client>,
@@ -131,12 +132,6 @@ impl JayReexecRequestHandler for JayReexec {
         Ok(())
     }
 }
-
-object_base!(JayReexec);
-
-impl Object for JayReexec {}
-
-simple_add_obj!(JayReexec);
 
 #[derive(Debug, Error)]
 pub enum JayReexecError {

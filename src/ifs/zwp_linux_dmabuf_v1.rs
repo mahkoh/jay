@@ -6,12 +6,12 @@ use crate::ifs::wl_surface::WlSurface;
 use crate::ifs::zwp_linux_buffer_params_v1::ZwpLinuxBufferParamsV1;
 use crate::ifs::zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::state::State;
 use crate::wire::ZwpLinuxDmabufFeedbackV1Id;
 use crate::wire::ZwpLinuxDmabufV1Id;
 use crate::wire::zwp_linux_dmabuf_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -72,6 +72,7 @@ impl Global for ZwpLinuxDmabufV1Global {
 
 simple_add_global!(ZwpLinuxDmabufV1Global);
 
+#[derive(Object)]
 pub struct ZwpLinuxDmabufV1 {
     id: ZwpLinuxDmabufV1Id,
     pub client: Rc<Client>,
@@ -160,12 +161,6 @@ impl ZwpLinuxDmabufV1RequestHandler for ZwpLinuxDmabufV1 {
         Ok(())
     }
 }
-
-object_base!(ZwpLinuxDmabufV1);
-
-impl Object for ZwpLinuxDmabufV1 {}
-
-simple_add_obj!(ZwpLinuxDmabufV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpLinuxDmabufV1Error {

@@ -3,7 +3,6 @@ use crate::client::ClientError;
 use crate::gfx_api::AlphaMode;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WpColorRepresentationSurfaceV1Id;
 use crate::wire::wp_color_representation_surface_v1::Destroy;
@@ -11,9 +10,11 @@ use crate::wire::wp_color_representation_surface_v1::SetAlphaMode;
 use crate::wire::wp_color_representation_surface_v1::SetChromaLocation;
 use crate::wire::wp_color_representation_surface_v1::SetCoefficientsAndRange;
 use crate::wire::wp_color_representation_surface_v1::WpColorRepresentationSurfaceV1RequestHandler;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct WpColorRepresentationSurfaceV1 {
     pub id: WpColorRepresentationSurfaceV1Id,
     pub client: Rc<Client>,
@@ -90,12 +91,6 @@ impl WpColorRepresentationSurfaceV1RequestHandler for WpColorRepresentationSurfa
         Ok(())
     }
 }
-
-object_base!(WpColorRepresentationSurfaceV1);
-
-impl Object for WpColorRepresentationSurfaceV1 {}
-
-simple_add_obj!(WpColorRepresentationSurfaceV1);
 
 #[derive(Debug, Error)]
 pub enum WpColorRepresentationSurfaceV1Error {

@@ -5,13 +5,14 @@ use crate::ifs::wl_surface::WlSurface;
 use crate::ifs::wl_surface::jay_sync_file_release::JaySyncFileRelease;
 use crate::ifs::wl_surface::jay_sync_file_release::SyncFileRelease;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::JaySyncFileSurfaceId;
 use crate::wire::jay_sync_file_surface::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct JaySyncFileSurface {
     id: JaySyncFileSurfaceId,
     client: Rc<Client>,
@@ -70,12 +71,6 @@ impl JaySyncFileSurfaceRequestHandler for JaySyncFileSurface {
         Ok(())
     }
 }
-
-object_base!(JaySyncFileSurface);
-
-impl Object for JaySyncFileSurface {}
-
-simple_add_obj!(JaySyncFileSurface);
 
 #[derive(Debug, Error)]
 pub enum JaySyncFileSurfaceError {

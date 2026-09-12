@@ -2,13 +2,14 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WpViewportId;
 use crate::wire::wp_viewport::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct WpViewport {
     id: WpViewportId,
     client: Rc<Client>,
@@ -75,12 +76,6 @@ impl WpViewportRequestHandler for WpViewport {
         Ok(())
     }
 }
-
-object_base!(WpViewport);
-
-impl Object for WpViewport {}
-
-simple_add_obj!(WpViewport);
 
 #[derive(Debug, Error)]
 pub enum WpViewportError {

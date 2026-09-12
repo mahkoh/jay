@@ -6,10 +6,10 @@ use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::zwlr_gamma_control_v1::*;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ZwlrGammaControlManagerV1Id;
 use crate::wire::zwlr_gamma_control_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -54,6 +54,7 @@ impl Global for ZwlrGammaControlManagerV1Global {
     }
 }
 
+#[derive(Object)]
 pub struct ZwlrGammaControlManagerV1 {
     id: ZwlrGammaControlManagerV1Id,
     pub client: Rc<Client>,
@@ -91,12 +92,6 @@ impl ZwlrGammaControlManagerV1RequestHandler for ZwlrGammaControlManagerV1 {
         Ok(())
     }
 }
-
-object_base!(ZwlrGammaControlManagerV1);
-
-impl Object for ZwlrGammaControlManagerV1 {}
-
-simple_add_obj!(ZwlrGammaControlManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ZwlrGammaControlManagerV1Error {

@@ -5,10 +5,10 @@ use crate::globals::GlobalName;
 use crate::ifs::ipc::wl_data_device::WlDataDevice;
 use crate::ifs::ipc::wl_data_source::WlDataSource;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WlDataDeviceManagerId;
 use crate::wire::wl_data_device_manager::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -25,6 +25,7 @@ pub struct WlDataDeviceManagerGlobal {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct WlDataDeviceManager {
     id: WlDataDeviceManagerId,
     client: Rc<Client>,
@@ -98,12 +99,6 @@ impl Global for WlDataDeviceManagerGlobal {
 }
 
 simple_add_global!(WlDataDeviceManagerGlobal);
-
-object_base!(WlDataDeviceManager);
-
-impl Object for WlDataDeviceManager {}
-
-simple_add_obj!(WlDataDeviceManager);
 
 #[derive(Debug, Error)]
 pub enum WlDataDeviceManagerError {

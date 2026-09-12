@@ -17,7 +17,7 @@ use crate::ifs::ext_image_copy::ext_image_copy_capture_frame_v1::FrameFailureRea
 use crate::ifs::ext_image_copy::ext_image_copy_capture_frame_v1::FrameStatus;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::time::Time;
 use crate::tree::LatchListener;
@@ -31,12 +31,16 @@ use crate::utils::event_listener::EventListener;
 use crate::video::Modifier;
 use crate::wire::ExtImageCopyCaptureSessionV1Id;
 use crate::wire::ext_image_copy_capture_session_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use std::rc::Weak;
 use thiserror::Error;
 use uapi::c;
 
+#[derive(Object)]
+#[dedicated(ext_copy_sessions)]
+#[break_loops]
 pub struct ExtImageCopyCaptureSessionV1 {
     pub(super) id: ExtImageCopyCaptureSessionV1Id,
     client: Rc<Client>,
@@ -328,19 +332,11 @@ impl PresentationListener for ExtImageCopyCaptureSessionV1 {
     }
 }
 
-object_base!(ExtImageCopyCaptureSessionV1);
-
-impl Object for ExtImageCopyCaptureSessionV1 {
+impl BreakLoops for ExtImageCopyCaptureSessionV1 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-dedicated_add_obj!(
-    ExtImageCopyCaptureSessionV1,
-    ExtImageCopyCaptureSessionV1Id,
-    ext_copy_sessions,
-);
 
 #[derive(Debug, Error)]
 pub enum ExtImageCopyCaptureSessionV1Error {

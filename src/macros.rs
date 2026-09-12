@@ -39,33 +39,6 @@ macro_rules! usr_object_base {
     };
 }
 
-macro_rules! object_base {
-    ($oname:ident) => {
-        impl crate::object::ObjectBase for $oname {
-            fn id(&self) -> crate::wire::ObjectId {
-                self.id.into()
-            }
-
-            fn version(&self) -> crate::object::Version {
-                self.version
-            }
-
-            fn handle_request(
-                self: std::rc::Rc<Self>,
-                client: &crate::client::Client,
-                request: u32,
-                parser: crate::utils::buffd::MsgParser<'_, '_>,
-            ) -> Result<(), crate::client::ClientError> {
-                self.handle_request_impl(client, request, parser)
-            }
-
-            fn interface(&self) -> crate::object::Interface {
-                crate::wire::$oname
-            }
-        }
-    };
-}
-
 macro_rules! global_base {
     ($oname:ty, $ifname:ident $(,)?) => {
         impl crate::globals::GlobalBase for $oname {
@@ -354,34 +327,6 @@ macro_rules! tree_id {
                 self.0 == other.0
             }
         }
-    };
-}
-
-macro_rules! dedicated_add_obj {
-    ($oname:ident, $idname:ident, $field:ident $(,)?) => {
-        impl crate::client::WaylandObject for $oname {
-            fn add(self: Rc<Self>, client: &crate::client::Client) {
-                client.objects.$field.set(self.id.into(), self);
-            }
-            fn remove(&self, client: &crate::client::Client) {
-                client.objects.$field.remove(&self.id.into());
-            }
-        }
-
-        impl crate::client::WaylandObjectLookup for $idname {
-            type Object = $oname;
-            const INTERFACE: crate::object::Interface = crate::wire::$oname;
-
-            fn lookup(client: &crate::client::Client, id: Self) -> Option<Rc<$oname>> {
-                client.objects.$field.get(&id)
-            }
-        }
-    };
-}
-
-macro_rules! simple_add_obj {
-    ($ty:ty) => {
-        impl crate::client::WaylandObject for $ty {}
     };
 }
 

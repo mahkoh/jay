@@ -4,13 +4,16 @@ use crate::ifs::ipc::data_control::private::logic;
 use crate::ifs::ipc::data_control::private::logic::DataControlError;
 use crate::ifs::ipc::data_control::zwlr_data_control_device_v1::WlrDataControlIpc;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::wire::ZwlrDataControlOfferV1Id;
 use crate::wire::zwlr_data_control_offer_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct ZwlrDataControlOfferV1 {
     pub id: ZwlrDataControlOfferV1Id,
     pub version: Version,
@@ -53,15 +56,11 @@ impl ZwlrDataControlOfferV1RequestHandler for ZwlrDataControlOfferV1 {
     }
 }
 
-object_base!(ZwlrDataControlOfferV1);
-
-impl Object for ZwlrDataControlOfferV1 {
+impl BreakLoops for ZwlrDataControlOfferV1 {
     fn break_loops(self: Rc<Self>) {
         logic::data_offer_break_loops(&*self);
     }
 }
-
-simple_add_obj!(ZwlrDataControlOfferV1);
 
 #[derive(Debug, Error)]
 pub enum ZwlrDataControlOfferV1Error {

@@ -4,11 +4,11 @@ use crate::fixed::Fixed;
 use crate::ifs::wl_seat::WlSeat;
 use crate::ifs::wl_surface::WlSurfaceError;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WlPointerId;
 use crate::wire::WlSurfaceId;
 use crate::wire::wl_pointer::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
@@ -71,6 +71,8 @@ impl PendingScroll {
     }
 }
 
+#[derive(Object)]
+#[dedicated(pointers)]
 pub struct WlPointer {
     id: WlPointerId,
     version: Version,
@@ -246,12 +248,6 @@ impl WlPointerRequestHandler for WlPointer {
         Ok(())
     }
 }
-
-object_base!(WlPointer);
-
-impl Object for WlPointer {}
-
-dedicated_add_obj!(WlPointer, WlPointerId, pointers);
 
 #[derive(Debug, Error)]
 pub enum WlPointerError {

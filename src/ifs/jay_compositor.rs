@@ -38,7 +38,6 @@ use crate::ifs::jay_workspace_watcher::JayWorkspaceWatcher;
 use crate::ifs::jay_xwayland::JayXwayland;
 use crate::ifs::wl_surface::jay_sync_file_surface::JaySyncFileSurface;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::screenshoter::take_screenshot;
 use crate::tree::ToplevelIdentifier;
@@ -51,6 +50,7 @@ use crate::wire::jay_compositor;
 use crate::wire::jay_compositor::*;
 use bstr::ByteSlice;
 use jay_algorithms::oserror::OsError;
+use jay_proc::Object;
 use linearize::LinearizeExt;
 use std::cell::Cell;
 use std::ops::Deref;
@@ -105,6 +105,7 @@ impl Global for JayCompositorGlobal {
 
 simple_add_global!(JayCompositorGlobal);
 
+#[derive(Object)]
 pub struct JayCompositor {
     id: JayCompositorId,
     client: Rc<Client>,
@@ -699,12 +700,6 @@ impl JayCompositorRequestHandler for JayCompositor {
         Ok(())
     }
 }
-
-object_base!(JayCompositor);
-
-impl Object for JayCompositor {}
-
-simple_add_obj!(JayCompositor);
 
 #[derive(Debug, Error)]
 pub enum JayCompositorError {

@@ -4,13 +4,14 @@ use crate::ifs::jay_client_match::JayClientMatch;
 use crate::ifs::jay_generic_match_builder::JayGenericMatchBuilderError;
 use crate::ifs::jay_generic_match_builder::MatchBuilder;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::JayClientMatchBuilderId;
 use crate::wire::jay_client_match_builder::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct JayClientMatchBuilder {
     pub id: JayClientMatchBuilderId,
     pub client: Rc<Client>,
@@ -101,12 +102,6 @@ impl JayClientMatchBuilderRequestHandler for JayClientMatchBuilder {
         push_str!(self, req, tag)
     }
 }
-
-object_base!(JayClientMatchBuilder);
-
-impl Object for JayClientMatchBuilder {}
-
-simple_add_obj!(JayClientMatchBuilder);
 
 #[derive(Debug, Error)]
 pub enum JayClientMatchBuilderError {

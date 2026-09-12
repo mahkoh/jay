@@ -502,7 +502,10 @@ fn write_request_handler<W: Write>(
                             }
                             {
                                 push_xn!(xn);
-                                wl!("{xn}Ok(req) => match self.{}(req, &self) {{", msg.safe_name);
+                                wl!(
+                                    "{xn}Ok(req) => match {camel_obj_name}{camel_direction}Handler::{}(&*self, req, &self) {{",
+                                    msg.safe_name,
+                                );
                                 {
                                     push_xn!(xn);
                                     wl!("{xn}Ok(()) => return Ok(()),");

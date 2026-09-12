@@ -2,14 +2,16 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::criteria::CritUpstreamNode;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::tree::ToplevelData;
 use crate::wire::JayWindowMatchId;
 use crate::wire::jay_window_match::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[dedicated(jay_window_match)]
 pub struct JayWindowMatch {
     pub id: JayWindowMatchId,
     pub client: Rc<Client>,
@@ -26,12 +28,6 @@ impl JayWindowMatchRequestHandler for JayWindowMatch {
         Ok(())
     }
 }
-
-object_base!(JayWindowMatch);
-
-impl Object for JayWindowMatch {}
-
-dedicated_add_obj!(JayWindowMatch, JayWindowMatchId, jay_window_match);
 
 #[derive(Debug, Error)]
 pub enum JayWindowMatchError {

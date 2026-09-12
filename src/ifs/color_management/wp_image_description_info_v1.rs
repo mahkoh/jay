@@ -26,15 +26,16 @@ use crate::ifs::color_management::TRANSFER_FUNCTION_ST240;
 use crate::ifs::color_management::TRANSFER_FUNCTION_ST428;
 use crate::ifs::color_management::TRANSFER_FUNCTION_ST2084_PQ;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::utils::ordered_float::F64;
 use crate::wire::WpImageDescriptionInfoV1Id;
 use crate::wire::wp_image_description_info_v1::*;
+use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 use uapi::OwnedFd;
 
+#[derive(Object)]
 pub struct WpImageDescriptionInfoV1 {
     pub id: WpImageDescriptionInfoV1Id,
     pub client: Rc<Client>,
@@ -194,9 +195,3 @@ impl WpImageDescriptionInfoV1 {
 impl WpImageDescriptionInfoV1RequestHandler for WpImageDescriptionInfoV1 {
     type Error = Infallible;
 }
-
-object_base!(WpImageDescriptionInfoV1);
-
-impl Object for WpImageDescriptionInfoV1 {}
-
-simple_add_obj!(WpImageDescriptionInfoV1);

@@ -17,7 +17,6 @@ use crate::gfx_api::GfxTexture;
 use crate::ifs::wl_surface::WlSurface;
 use crate::ifs::wl_surface::prime::PrimeError;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::rect::Region;
@@ -33,6 +32,7 @@ use crate::video::dmabuf::DmaBufPlane;
 use crate::video::dmabuf::PlaneVec;
 use crate::wire::WlBufferId;
 use crate::wire::wl_buffer::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -89,6 +89,8 @@ enum Ty {
     Spb,
 }
 
+#[derive(Object)]
+#[dedicated(buffers)]
 pub struct WlBuffer {
     pub id: WlBufferId,
     destroyed: Cell<bool>,
@@ -675,12 +677,6 @@ impl WlBufferRequestHandler for WlBuffer {
         Ok(())
     }
 }
-
-object_base!(WlBuffer);
-
-impl Object for WlBuffer {}
-
-dedicated_add_obj!(WlBuffer, WlBufferId, buffers);
 
 #[derive(Debug, Error)]
 pub enum WlBufferError {
