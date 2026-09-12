@@ -73,6 +73,7 @@ impl PendingScroll {
 
 pub struct WlPointer {
     id: WlPointerId,
+    version: Version,
     pub seat: Rc<WlSeat>,
     pub tracker: Tracker<Self>,
     last_motion: Cell<(Fixed, Fixed)>,
@@ -82,6 +83,7 @@ impl WlPointer {
     pub fn new(id: WlPointerId, seat: &Rc<WlSeat>) -> Self {
         Self {
             id,
+            version: seat.version,
             seat: seat.clone(),
             tracker: Default::default(),
             last_motion: Default::default(),
@@ -245,10 +247,7 @@ impl WlPointerRequestHandler for WlPointer {
     }
 }
 
-object_base! {
-    self = WlPointer;
-    version = self.seat.version;
-}
+object_base!(WlPointer);
 
 impl Object for WlPointer {}
 

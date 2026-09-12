@@ -86,10 +86,7 @@ impl JayTrayV1RequestHandler for JayTrayV1 {
     }
 }
 
-object_base! {
-    self = JayTrayV1;
-    version = self.version;
-}
+object_base!(JayTrayV1);
 
 impl Object for JayTrayV1 {}
 

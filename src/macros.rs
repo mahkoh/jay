@@ -40,26 +40,26 @@ macro_rules! usr_object_base {
 }
 
 macro_rules! object_base {
-    ($self:ident = $oname:ident; version = $version:expr;) => {
+    ($oname:ident) => {
         impl crate::object::ObjectBase for $oname {
-            fn id(&$self) -> crate::wire::ObjectId {
-                $self.id.into()
+            fn id(&self) -> crate::wire::ObjectId {
+                self.id.into()
             }
 
-            fn version(&$self) -> crate::object::Version {
-                $version
+            fn version(&self) -> crate::object::Version {
+                self.version
             }
 
             fn handle_request(
-                $self: std::rc::Rc<Self>,
+                self: std::rc::Rc<Self>,
                 client: &crate::client::Client,
                 request: u32,
                 parser: crate::utils::buffd::MsgParser<'_, '_>,
             ) -> Result<(), crate::client::ClientError> {
-                $self.handle_request_impl(client, request, parser)
+                self.handle_request_impl(client, request, parser)
             }
 
-            fn interface(&$self) -> crate::object::Interface {
+            fn interface(&self) -> crate::object::Interface {
                 crate::wire::$oname
             }
         }

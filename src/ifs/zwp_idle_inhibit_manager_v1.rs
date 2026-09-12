@@ -82,10 +82,7 @@ impl ZwpIdleInhibitManagerV1RequestHandler for ZwpIdleInhibitManagerV1 {
     }
 }
 
-object_base! {
-    self = ZwpIdleInhibitManagerV1;
-    version = self.version;
-}
+object_base!(ZwpIdleInhibitManagerV1);
 
 impl Object for ZwpIdleInhibitManagerV1 {}
 

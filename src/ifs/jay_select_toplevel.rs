@@ -105,10 +105,7 @@ impl JaySelectToplevelRequestHandler for JaySelectToplevel {
     type Error = JaySelectToplevelError;
 }
 
-object_base! {
-    self = JaySelectToplevel;
-    version = Version(1);
-}
+object_base!(JaySelectToplevel);
 
 impl Object for JaySelectToplevel {
     fn break_loops(self: Rc<Self>) {

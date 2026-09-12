@@ -80,10 +80,7 @@ impl XdgWmDialogV1RequestHandler for XdgWmDialogV1 {
     }
 }
 
-object_base! {
-    self = XdgWmDialogV1;
-    version = self.version;
-}
+object_base!(XdgWmDialogV1);
 
 impl Object for XdgWmDialogV1 {}
 

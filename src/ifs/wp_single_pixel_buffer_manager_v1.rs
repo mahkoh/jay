@@ -78,10 +78,7 @@ impl WpSinglePixelBufferManagerV1RequestHandler for WpSinglePixelBufferManagerV1
     }
 }
 
-object_base! {
-    self = WpSinglePixelBufferManagerV1;
-    version = self.version;
-}
+object_base!(WpSinglePixelBufferManagerV1);
 
 impl Object for WpSinglePixelBufferManagerV1 {}
 

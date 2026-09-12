@@ -129,10 +129,7 @@ impl ZwlrVirtualPointerManagerV1RequestHandler for ZwlrVirtualPointerManagerV1 {
     }
 }
 
-object_base! {
-    self = ZwlrVirtualPointerManagerV1;
-    version = self.version;
-}
+object_base!(ZwlrVirtualPointerManagerV1);
 
 impl Object for ZwlrVirtualPointerManagerV1 {}
 

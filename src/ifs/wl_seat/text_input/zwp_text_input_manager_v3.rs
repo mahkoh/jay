@@ -89,10 +89,7 @@ impl ZwpTextInputManagerV3RequestHandler for ZwpTextInputManagerV3 {
     }
 }
 
-object_base! {
-    self = ZwpTextInputManagerV3;
-    version = self.version;
-}
+object_base!(ZwpTextInputManagerV3);
 
 impl Object for ZwpTextInputManagerV3 {}
 

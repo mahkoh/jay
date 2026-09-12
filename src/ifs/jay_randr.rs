@@ -680,10 +680,7 @@ impl JayRandrRequestHandler for JayRandr {
     }
 }
 
-object_base! {
-    self = JayRandr;
-    version = self.version;
-}
+object_base!(JayRandr);
 
 impl Object for JayRandr {}
 

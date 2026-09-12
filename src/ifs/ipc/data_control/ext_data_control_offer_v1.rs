@@ -5,6 +5,7 @@ use crate::ifs::ipc::data_control::private::logic;
 use crate::ifs::ipc::data_control::private::logic::DataControlError;
 use crate::leaks::Tracker;
 use crate::object::Object;
+use crate::object::Version;
 use crate::wire::ExtDataControlOfferV1Id;
 use crate::wire::ext_data_control_offer_v1::*;
 use std::rc::Rc;
@@ -12,6 +13,7 @@ use thiserror::Error;
 
 pub struct ExtDataControlOfferV1 {
     pub id: ExtDataControlOfferV1Id,
+    pub version: Version,
     pub data: DataControlOfferData<ExtDataControlIpc>,
     pub tracker: Tracker<Self>,
 }
@@ -51,10 +53,7 @@ impl ExtDataControlOfferV1RequestHandler for ExtDataControlOfferV1 {
     }
 }
 
-object_base! {
-    self = ExtDataControlOfferV1;
-    version = self.data.device.data.version;
-}
+object_base!(ExtDataControlOfferV1);
 
 impl Object for ExtDataControlOfferV1 {
     fn break_loops(self: Rc<Self>) {

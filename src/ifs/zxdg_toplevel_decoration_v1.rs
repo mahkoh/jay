@@ -74,10 +74,7 @@ impl ZxdgToplevelDecorationV1RequestHandler for ZxdgToplevelDecorationV1 {
     }
 }
 
-object_base! {
-    self = ZxdgToplevelDecorationV1;
-    version = self.version;
-}
+object_base!(ZxdgToplevelDecorationV1);
 
 impl Object for ZxdgToplevelDecorationV1 {}
 

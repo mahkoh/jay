@@ -164,10 +164,7 @@ impl JayClientQueryRequestHandler for JayClientQuery {
     }
 }
 
-object_base! {
-    self = JayClientQuery;
-    version = self.version;
-}
+object_base!(JayClientQuery);
 
 impl Object for JayClientQuery {}
 

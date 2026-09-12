@@ -92,6 +92,7 @@ enum Ty {
 pub struct WlBuffer {
     pub id: WlBufferId,
     destroyed: Cell<bool>,
+    version: Version,
     pub client: Rc<Client>,
     pub rect: Rect,
     pub format: &'static Format,
@@ -138,6 +139,7 @@ impl WlBuffer {
         Rc::<Self>::new_cyclic(|slf| Self {
             id,
             destroyed: Cell::new(false),
+            version: Version(1),
             client: client.clone(),
             rect: Rect::new_sized_saturating(0, 0, width, height),
             format,
@@ -674,10 +676,7 @@ impl WlBufferRequestHandler for WlBuffer {
     }
 }
 
-object_base! {
-    self = WlBuffer;
-    version = Version(1);
-}
+object_base!(WlBuffer);
 
 impl Object for WlBuffer {}
 

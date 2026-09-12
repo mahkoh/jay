@@ -72,10 +72,7 @@ impl JayToplevelRequestHandler for JayToplevel {
     }
 }
 
-object_base! {
-    self = JayToplevel;
-    version = Version(1);
-}
+object_base!(JayToplevel);
 
 impl Object for JayToplevel {
     fn break_loops(self: Rc<Self>) {

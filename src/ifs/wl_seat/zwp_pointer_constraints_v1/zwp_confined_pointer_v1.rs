@@ -44,10 +44,7 @@ impl ConstraintOwner for ZwpConfinedPointerV1 {
     }
 }
 
-object_base! {
-    self = ZwpConfinedPointerV1;
-    version = self.version;
-}
+object_base!(ZwpConfinedPointerV1);
 
 impl Object for ZwpConfinedPointerV1 {
     fn break_loops(self: Rc<Self>) {

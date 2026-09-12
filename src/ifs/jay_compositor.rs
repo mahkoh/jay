@@ -136,6 +136,7 @@ impl JayCompositor {
     ) -> Result<(), JayCompositorError> {
         let ss = Rc::new(JayScreenshot {
             id,
+            version: self.version,
             client: self.client.clone(),
             tracker: Default::default(),
         });
@@ -192,7 +193,7 @@ impl JayCompositorRequestHandler for JayCompositor {
     }
 
     fn get_log_file(&self, req: GetLogFile, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let log_file = Rc::new(JayLogFile::new(req.id, &self.client));
+        let log_file = Rc::new(JayLogFile::new(req.id, self.version, &self.client));
         track!(self.client, log_file);
         self.client.add_client_obj(&log_file)?;
         match &self.client.state.logger {
@@ -281,6 +282,7 @@ impl JayCompositorRequestHandler for JayCompositor {
     fn seat_events(&self, req: SeatEvents, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let se = Rc::new(JaySeatEvents {
             id: req.id,
+            version: self.version,
             client: self.client.clone(),
             tracker: Default::default(),
         });
@@ -298,6 +300,7 @@ impl JayCompositorRequestHandler for JayCompositor {
         let output = self.client.lookup(req.output)?;
         let jo = Rc::new(JayOutput {
             id: req.id,
+            version: self.version,
             client: self.client.clone(),
             output: output.global.clone(),
             tracker: Default::default(),
@@ -317,6 +320,7 @@ impl JayCompositorRequestHandler for JayCompositor {
         let seat = self.client.lookup(req.seat)?;
         let ctx = Rc::new(JayPointer {
             id: req.id,
+            version: self.version,
             client: self.client.clone(),
             seat: seat.global.clone(),
             tracker: Default::default(),
@@ -347,6 +351,7 @@ impl JayCompositorRequestHandler for JayCompositor {
     fn watch_workspaces(&self, req: WatchWorkspaces, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let watcher = Rc::new(JayWorkspaceWatcher {
             id: req.id,
+            version: self.version,
             client: self.client.clone(),
             tracker: Default::default(),
         });
@@ -409,6 +414,7 @@ impl JayCompositorRequestHandler for JayCompositor {
     fn select_workspace(&self, req: SelectWorkspace, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let obj = Rc::new(JaySelectWorkspace {
             id: req.id,
+            version: self.version,
             client: self.client.clone(),
             tracker: Default::default(),
             destroyed: Cell::new(false),
@@ -694,10 +700,7 @@ impl JayCompositorRequestHandler for JayCompositor {
     }
 }
 
-object_base! {
-    self = JayCompositor;
-    version = self.version;
-}
+object_base!(JayCompositor);
 
 impl Object for JayCompositor {}
 

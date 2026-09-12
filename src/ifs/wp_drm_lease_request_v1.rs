@@ -65,10 +65,7 @@ impl WpDrmLeaseRequestV1RequestHandler for WpDrmLeaseRequestV1 {
     }
 }
 
-object_base! {
-    self = WpDrmLeaseRequestV1;
-    version = self.version;
-}
+object_base!(WpDrmLeaseRequestV1);
 
 impl Object for WpDrmLeaseRequestV1 {}
 

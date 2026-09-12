@@ -96,10 +96,7 @@ impl WpPresentationRequestHandler for WpPresentation {
     }
 }
 
-object_base! {
-    self = WpPresentation;
-    version = self.version;
-}
+object_base!(WpPresentation);
 
 impl Object for WpPresentation {}
 

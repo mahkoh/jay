@@ -193,10 +193,7 @@ impl ZwpInputPopupSurfaceV2RequestHandler for ZwpInputPopupSurfaceV2 {
     }
 }
 
-object_base! {
-    self = ZwpInputPopupSurfaceV2;
-    version = self.version;
-}
+object_base!(ZwpInputPopupSurfaceV2);
 
 impl Object for ZwpInputPopupSurfaceV2 {
     fn break_loops(self: Rc<Self>) {

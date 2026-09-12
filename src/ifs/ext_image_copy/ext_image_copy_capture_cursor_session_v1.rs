@@ -54,10 +54,7 @@ impl ExtImageCopyCaptureCursorSessionV1RequestHandler for ExtImageCopyCaptureCur
     }
 }
 
-object_base! {
-    self = ExtImageCopyCaptureCursorSessionV1;
-    version = self.version;
-}
+object_base!(ExtImageCopyCaptureCursorSessionV1);
 
 impl Object for ExtImageCopyCaptureCursorSessionV1 {}
 

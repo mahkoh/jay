@@ -114,10 +114,7 @@ impl Global for XdgWmBaseGlobal {
 
 simple_add_global!(XdgWmBaseGlobal);
 
-object_base! {
-    self = XdgWmBase;
-    version = self.version;
-}
+object_base!(XdgWmBase);
 
 dedicated_add_obj!(XdgWmBase, XdgWmBaseId, xdg_wm_bases);
 

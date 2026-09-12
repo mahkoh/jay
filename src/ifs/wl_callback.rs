@@ -10,6 +10,7 @@ use std::rc::Rc;
 pub struct WlCallback {
     pub client: Rc<Client>,
     id: WlCallbackId,
+    version: Version,
     pub tracker: Tracker<Self>,
 }
 
@@ -18,6 +19,7 @@ impl WlCallback {
         Self {
             client: client.clone(),
             id,
+            version: Version(1),
             tracker: Default::default(),
         }
     }
@@ -34,10 +36,7 @@ impl WlCallbackRequestHandler for WlCallback {
     type Error = Infallible;
 }
 
-object_base! {
-    self = WlCallback;
-    version = Version(1);
-}
+object_base!(WlCallback);
 
 impl Object for WlCallback {}
 

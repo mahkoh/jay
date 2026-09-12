@@ -482,10 +482,7 @@ impl WlOutputRequestHandler for WlOutput {
     }
 }
 
-object_base! {
-    self = WlOutput;
-    version = self.version;
-}
+object_base!(WlOutput);
 
 impl Object for WlOutput {
     fn break_loops(self: Rc<Self>) {

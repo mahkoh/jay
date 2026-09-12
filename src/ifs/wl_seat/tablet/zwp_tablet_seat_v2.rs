@@ -205,10 +205,7 @@ impl ZwpTabletSeatV2RequestHandler for ZwpTabletSeatV2 {
     }
 }
 
-object_base! {
-    self = ZwpTabletSeatV2;
-    version = self.version;
-}
+object_base!(ZwpTabletSeatV2);
 
 impl Object for ZwpTabletSeatV2 {
     fn break_loops(self: Rc<Self>) {

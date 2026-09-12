@@ -18,6 +18,7 @@ pub enum ImageCaptureSource {
 
 pub struct ExtImageCaptureSourceV1 {
     pub id: ExtImageCaptureSourceV1Id,
+    pub version: Version,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
     pub ty: ImageCaptureSource,
@@ -32,10 +33,7 @@ impl ExtImageCaptureSourceV1RequestHandler for ExtImageCaptureSourceV1 {
     }
 }
 
-object_base! {
-    self = ExtImageCaptureSourceV1;
-    version = Version(1);
-}
+object_base!(ExtImageCaptureSourceV1);
 
 impl Object for ExtImageCaptureSourceV1 {}
 

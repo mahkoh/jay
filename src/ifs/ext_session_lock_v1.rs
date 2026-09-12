@@ -114,10 +114,7 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
     }
 }
 
-object_base! {
-    self = ExtSessionLockV1;
-    version = self.version;
-}
+object_base!(ExtSessionLockV1);
 
 impl Object for ExtSessionLockV1 {
     fn break_loops(self: Rc<Self>) {

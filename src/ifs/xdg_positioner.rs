@@ -3,6 +3,7 @@ use crate::client::ClientError;
 use crate::ifs::xdg_wm_base::XdgWmBase;
 use crate::leaks::Tracker;
 use crate::object::Object;
+use crate::object::Version;
 use crate::rect::Rect;
 use crate::tree::TreeSerial;
 use crate::wire::XdgPositionerId;
@@ -62,7 +63,7 @@ bitflags! {
 
 pub struct XdgPositioner {
     id: XdgPositionerId,
-    base: Rc<XdgWmBase>,
+    version: Version,
     client: Rc<Client>,
     position: RefCell<XdgPositioned>,
     pub tracker: Tracker<Self>,
@@ -141,9 +142,9 @@ impl XdgPositioner {
         Self {
             id,
             client: client.clone(),
-            base: base.clone(),
             position: RefCell::new(Default::default()),
             tracker: Default::default(),
+            version: base.version,
         }
     }
 
@@ -258,10 +259,7 @@ impl XdgPositionerRequestHandler for XdgPositioner {
     }
 }
 
-object_base! {
-    self = XdgPositioner;
-    version = self.base.version;
-}
+object_base!(XdgPositioner);
 
 impl Object for XdgPositioner {}
 

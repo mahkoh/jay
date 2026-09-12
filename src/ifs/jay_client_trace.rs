@@ -253,10 +253,7 @@ impl JayClientTraceRequestHandler for JayClientTrace {
     }
 }
 
-object_base! {
-    self = JayClientTrace;
-    version = self.version;
-}
+object_base!(JayClientTrace);
 
 impl Object for JayClientTrace {
     fn break_loops(self: Rc<Self>) {

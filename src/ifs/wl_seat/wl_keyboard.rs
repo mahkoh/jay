@@ -233,10 +233,7 @@ impl WlKeyboardRequestHandler for WlKeyboard {
     }
 }
 
-object_base! {
-    self = WlKeyboard;
-    version = self.version;
-}
+object_base!(WlKeyboard);
 
 impl Object for WlKeyboard {}
 

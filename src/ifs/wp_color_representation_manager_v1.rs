@@ -134,10 +134,7 @@ impl Global for WpColorRepresentationManagerV1Global {
 
 simple_add_global!(WpColorRepresentationManagerV1Global);
 
-object_base! {
-    self = WpColorRepresentationManagerV1;
-    version = self.version;
-}
+object_base!(WpColorRepresentationManagerV1);
 
 impl Object for WpColorRepresentationManagerV1 {}
 

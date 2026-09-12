@@ -22,6 +22,7 @@ use crate::ifs::ipc::wl_data_device_manager::DND_ALL;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::leaks::Tracker;
 use crate::object::Object;
+use crate::object::Version;
 use crate::utils::bitflags::BitflagsExt;
 use crate::wire::WlDataOfferId;
 use crate::wire::WlSurfaceId;
@@ -42,6 +43,7 @@ pub struct WlDataOffer {
     pub id: WlDataOfferId,
     pub offer_id: DataOfferId,
     pub client: Rc<Client>,
+    pub version: Version,
     pub device: Rc<WlDataDevice>,
     pub data: OfferData<WlDataDevice>,
     pub tracker: Tracker<Self>,
@@ -199,10 +201,7 @@ impl WlDataOfferRequestHandler for WlDataOffer {
     }
 }
 
-object_base! {
-    self = WlDataOffer;
-    version = self.device.version;
-}
+object_base!(WlDataOffer);
 
 impl Object for WlDataOffer {
     fn break_loops(self: Rc<Self>) {

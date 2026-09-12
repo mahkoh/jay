@@ -102,10 +102,7 @@ impl JayClientMatchBuilderRequestHandler for JayClientMatchBuilder {
     }
 }
 
-object_base! {
-    self = JayClientMatchBuilder;
-    version = self.version;
-}
+object_base!(JayClientMatchBuilder);
 
 impl Object for JayClientMatchBuilder {}
 

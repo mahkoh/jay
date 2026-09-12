@@ -108,10 +108,7 @@ impl WlShmPoolRequestHandler for WlShmPool {
     }
 }
 
-object_base! {
-    self = WlShmPool;
-    version = self.version;
-}
+object_base!(WlShmPool);
 
 impl Object for WlShmPool {}
 

@@ -195,10 +195,7 @@ impl WpImageDescriptionInfoV1RequestHandler for WpImageDescriptionInfoV1 {
     type Error = Infallible;
 }
 
-object_base! {
-    self = WpImageDescriptionInfoV1;
-    version = self.version;
-}
+object_base!(WpImageDescriptionInfoV1);
 
 impl Object for WpImageDescriptionInfoV1 {}
 

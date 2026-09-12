@@ -11,14 +11,16 @@ use thiserror::Error;
 
 pub struct JayLogFile {
     id: JayLogFileId,
+    version: Version,
     client: Rc<Client>,
     pub tracker: Tracker<Self>,
 }
 
 impl JayLogFile {
-    pub fn new(id: JayLogFileId, client: &Rc<Client>) -> Self {
+    pub fn new(id: JayLogFileId, version: Version, client: &Rc<Client>) -> Self {
         Self {
             id,
+            version,
             client: client.clone(),
             tracker: Default::default(),
         }
@@ -41,10 +43,7 @@ impl JayLogFileRequestHandler for JayLogFile {
     }
 }
 
-object_base! {
-    self = JayLogFile;
-    version = Version(1);
-}
+object_base!(JayLogFile);
 
 impl Object for JayLogFile {}
 

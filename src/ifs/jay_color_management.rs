@@ -51,10 +51,7 @@ impl JayColorManagementRequestHandler for JayColorManagement {
     }
 }
 
-object_base! {
-    self = JayColorManagement;
-    version = self.version;
-}
+object_base!(JayColorManagement);
 
 impl Object for JayColorManagement {}
 

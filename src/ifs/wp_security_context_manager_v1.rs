@@ -82,10 +82,7 @@ impl WpSecurityContextManagerV1RequestHandler for WpSecurityContextManagerV1 {
     }
 }
 
-object_base! {
-    self = WpSecurityContextManagerV1;
-    version = self.version;
-}
+object_base!(WpSecurityContextManagerV1);
 
 impl Object for WpSecurityContextManagerV1 {}
 

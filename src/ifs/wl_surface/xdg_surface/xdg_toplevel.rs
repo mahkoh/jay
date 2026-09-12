@@ -138,6 +138,7 @@ pub struct XdgToplevelToplevelData {
 pub struct XdgToplevel {
     pub id: XdgToplevelId,
     pub state: Rc<State>,
+    version: Version,
     pub xdg: Rc<XdgSurface>,
     pub node_id: ToplevelNodeId,
     parent: CloneCell<Option<Rc<XdgToplevel>>>,
@@ -201,6 +202,7 @@ impl XdgToplevel {
         Self {
             id,
             state: state.clone(),
+            version: surface.version,
             xdg: surface.clone(),
             node_id,
             parent: Default::default(),
@@ -562,10 +564,7 @@ impl XdgToplevel {
     }
 }
 
-object_base! {
-    self = XdgToplevel;
-    version = self.xdg.base.version;
-}
+object_base!(XdgToplevel);
 
 impl Object for XdgToplevel {
     fn break_loops(self: Rc<Self>) {

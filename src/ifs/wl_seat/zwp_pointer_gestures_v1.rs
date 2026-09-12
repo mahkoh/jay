@@ -111,10 +111,7 @@ impl ZwpPointerGesturesV1RequestHandler for ZwpPointerGesturesV1 {
     }
 }
 
-object_base! {
-    self = ZwpPointerGesturesV1;
-    version = self.version;
-}
+object_base!(ZwpPointerGesturesV1);
 
 impl Object for ZwpPointerGesturesV1 {}
 

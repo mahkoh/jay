@@ -24,6 +24,7 @@ use std::rc::Rc;
 
 pub struct JaySeatEvents {
     pub id: JaySeatEventsId,
+    pub version: Version,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
 }
@@ -539,10 +540,7 @@ impl JaySeatEventsRequestHandler for JaySeatEvents {
     type Error = Infallible;
 }
 
-object_base! {
-    self = JaySeatEvents;
-    version = Version(1);
-}
+object_base!(JaySeatEvents);
 
 impl Object for JaySeatEvents {
     fn break_loops(self: Rc<Self>) {

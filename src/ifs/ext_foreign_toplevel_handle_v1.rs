@@ -66,10 +66,7 @@ impl ExtForeignToplevelHandleV1 {
     }
 }
 
-object_base! {
-    self = ExtForeignToplevelHandleV1;
-    version = self.version;
-}
+object_base!(ExtForeignToplevelHandleV1);
 
 impl Object for ExtForeignToplevelHandleV1 {
     fn break_loops(self: Rc<Self>) {

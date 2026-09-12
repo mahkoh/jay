@@ -92,10 +92,7 @@ impl Global for XwaylandShellV1Global {
 
 simple_add_global!(XwaylandShellV1Global);
 
-object_base! {
-    self = XwaylandShellV1;
-    version = self.version;
-}
+object_base!(XwaylandShellV1);
 
 impl Object for XwaylandShellV1 {}
 

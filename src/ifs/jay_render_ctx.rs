@@ -95,10 +95,7 @@ impl JayRenderCtxRequestHandler for JayRenderCtx {
     }
 }
 
-object_base! {
-    self = JayRenderCtx;
-    version = Version(1);
-}
+object_base!(JayRenderCtx);
 
 impl Object for JayRenderCtx {
     fn break_loops(self: Rc<Self>) {

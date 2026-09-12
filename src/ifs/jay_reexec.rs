@@ -132,10 +132,7 @@ impl JayReexecRequestHandler for JayReexec {
     }
 }
 
-object_base! {
-    self = JayReexec;
-    version = self.version;
-}
+object_base!(JayReexec);
 
 impl Object for JayReexec {}
 

@@ -61,10 +61,7 @@ impl WpFractionalScaleV1RequestHandler for WpFractionalScaleV1 {
     }
 }
 
-object_base! {
-    self = WpFractionalScaleV1;
-    version = self.version;
-}
+object_base!(WpFractionalScaleV1);
 
 impl Object for WpFractionalScaleV1 {}
 

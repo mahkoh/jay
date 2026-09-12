@@ -92,10 +92,7 @@ impl ZwlrGammaControlManagerV1RequestHandler for ZwlrGammaControlManagerV1 {
     }
 }
 
-object_base! {
-    self = ZwlrGammaControlManagerV1;
-    version = self.version;
-}
+object_base!(ZwlrGammaControlManagerV1);
 
 impl Object for ZwlrGammaControlManagerV1 {}
 

@@ -68,10 +68,7 @@ impl WpCommitTimerV1RequestHandler for WpCommitTimerV1 {
     }
 }
 
-object_base! {
-    self = WpCommitTimerV1;
-    version = self.version;
-}
+object_base!(WpCommitTimerV1);
 
 impl Object for WpCommitTimerV1 {}
 

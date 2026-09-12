@@ -79,10 +79,7 @@ impl ZwpTabletManagerV2RequestHandler for ZwpTabletManagerV2 {
     }
 }
 
-object_base! {
-    self = ZwpTabletManagerV2;
-    version = self.version;
-}
+object_base!(ZwpTabletManagerV2);
 
 impl Object for ZwpTabletManagerV2 {}
 

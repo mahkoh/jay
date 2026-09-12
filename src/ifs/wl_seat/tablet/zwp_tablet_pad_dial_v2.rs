@@ -53,10 +53,7 @@ impl ZwpTabletPadDialV2RequestHandler for ZwpTabletPadDialV2 {
     }
 }
 
-object_base! {
-    self = ZwpTabletPadDialV2;
-    version = self.version;
-}
+object_base!(ZwpTabletPadDialV2);
 
 impl Object for ZwpTabletPadDialV2 {
     fn break_loops(self: Rc<Self>) {

@@ -73,10 +73,7 @@ impl WlFixesRequestHandler for WlFixes {
     }
 }
 
-object_base! {
-    self = WlFixes;
-    version = self.version;
-}
+object_base!(WlFixes);
 
 impl Object for WlFixes {}
 

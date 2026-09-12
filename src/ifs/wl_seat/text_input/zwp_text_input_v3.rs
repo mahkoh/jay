@@ -289,10 +289,7 @@ impl ZwpTextInputV3RequestHandler for ZwpTextInputV3 {
     }
 }
 
-object_base! {
-    self = ZwpTextInputV3;
-    version = self.version;
-}
+object_base!(ZwpTextInputV3);
 
 impl Object for ZwpTextInputV3 {
     fn break_loops(self: Rc<Self>) {

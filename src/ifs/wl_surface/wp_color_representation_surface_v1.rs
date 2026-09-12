@@ -91,10 +91,7 @@ impl WpColorRepresentationSurfaceV1RequestHandler for WpColorRepresentationSurfa
     }
 }
 
-object_base! {
-    self = WpColorRepresentationSurfaceV1;
-    version = self.version;
-}
+object_base!(WpColorRepresentationSurfaceV1);
 
 impl Object for WpColorRepresentationSurfaceV1 {}
 

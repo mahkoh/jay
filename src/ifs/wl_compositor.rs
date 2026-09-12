@@ -87,10 +87,7 @@ impl Global for WlCompositorGlobal {
 
 simple_add_global!(WlCompositorGlobal);
 
-object_base! {
-    self = WlCompositor;
-    version = self.version;
-}
+object_base!(WlCompositor);
 
 impl Object for WlCompositor {}
 

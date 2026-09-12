@@ -96,10 +96,7 @@ impl ZxdgOutputV1RequestHandler for ZxdgOutputV1 {
     }
 }
 
-object_base! {
-    self = ZxdgOutputV1;
-    version = self.version;
-}
+object_base!(ZxdgOutputV1);
 
 impl Object for ZxdgOutputV1 {}
 

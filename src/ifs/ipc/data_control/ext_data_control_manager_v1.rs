@@ -108,10 +108,7 @@ impl Global for ExtDataControlManagerV1Global {
 
 simple_add_global!(ExtDataControlManagerV1Global);
 
-object_base! {
-    self = ExtDataControlManagerV1;
-    version = self.version;
-}
+object_base!(ExtDataControlManagerV1);
 
 impl Object for ExtDataControlManagerV1 {}
 

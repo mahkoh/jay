@@ -55,10 +55,7 @@ impl WpTearingControlV1RequestHandler for WpTearingControlV1 {
     }
 }
 
-object_base! {
-    self = WpTearingControlV1;
-    version = self.version;
-}
+object_base!(WpTearingControlV1);
 
 impl Object for WpTearingControlV1 {}
 

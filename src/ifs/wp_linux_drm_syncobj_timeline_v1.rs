@@ -43,10 +43,7 @@ impl WpLinuxDrmSyncobjTimelineV1RequestHandler for WpLinuxDrmSyncobjTimelineV1 {
     }
 }
 
-object_base! {
-    self = WpLinuxDrmSyncobjTimelineV1;
-    version = self.version;
-}
+object_base!(WpLinuxDrmSyncobjTimelineV1);
 
 impl Object for WpLinuxDrmSyncobjTimelineV1 {}
 

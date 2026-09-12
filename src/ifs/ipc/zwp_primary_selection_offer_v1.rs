@@ -88,10 +88,7 @@ impl ZwpPrimarySelectionOfferV1RequestHandler for ZwpPrimarySelectionOfferV1 {
     }
 }
 
-object_base! {
-    self = ZwpPrimarySelectionOfferV1;
-    version = self.version;
-}
+object_base!(ZwpPrimarySelectionOfferV1);
 
 impl Object for ZwpPrimarySelectionOfferV1 {
     fn break_loops(self: Rc<Self>) {

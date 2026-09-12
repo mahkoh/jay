@@ -151,10 +151,7 @@ impl Global for ExtImageCopyCaptureManagerV1Global {
 
 simple_add_global!(ExtImageCopyCaptureManagerV1Global);
 
-object_base! {
-    self = ExtImageCopyCaptureManagerV1;
-    version = self.version;
-}
+object_base!(ExtImageCopyCaptureManagerV1);
 
 impl Object for ExtImageCopyCaptureManagerV1 {}
 

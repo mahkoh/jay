@@ -16,6 +16,7 @@ use thiserror::Error;
 
 pub struct WlRegistry {
     id: WlRegistryId,
+    version: Version,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
     advertised: StaticMap<Singleton, Cell<bool>>,
@@ -25,6 +26,7 @@ impl WlRegistry {
     pub fn new(id: WlRegistryId, client: &Rc<Client>) -> Self {
         Self {
             id,
+            version: Version(1),
             client: client.clone(),
             tracker: Default::default(),
             advertised: Default::default(),
@@ -89,10 +91,7 @@ impl WlRegistryRequestHandler for WlRegistry {
     }
 }
 
-object_base! {
-    self = WlRegistry;
-    version = Version(1);
-}
+object_base!(WlRegistry);
 
 impl Object for WlRegistry {}
 

@@ -55,6 +55,7 @@ impl ExtForeignToplevelImageCaptureSourceManagerV1RequestHandler
         let handle = self.client.lookup(req.toplevel_handle)?;
         let obj = Rc::new(ExtImageCaptureSourceV1 {
             id: req.source,
+            version: self.version,
             client: self.client.clone(),
             tracker: Default::default(),
             ty: ImageCaptureSource::Toplevel(handle.toplevel.clone()),
@@ -83,10 +84,7 @@ impl Global for ExtForeignToplevelImageCaptureSourceManagerV1Global {
 
 simple_add_global!(ExtForeignToplevelImageCaptureSourceManagerV1Global);
 
-object_base! {
-    self = ExtForeignToplevelImageCaptureSourceManagerV1;
-    version = self.version;
-}
+object_base!(ExtForeignToplevelImageCaptureSourceManagerV1);
 
 impl Object for ExtForeignToplevelImageCaptureSourceManagerV1 {}
 

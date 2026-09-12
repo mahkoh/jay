@@ -13,6 +13,7 @@ use thiserror::Error;
 
 pub struct JayPointer {
     pub id: JayPointerId,
+    pub version: Version,
     pub client: Rc<Client>,
     pub seat: Rc<WlSeatGlobal>,
     pub tracker: Tracker<Self>,
@@ -46,10 +47,7 @@ impl JayPointerRequestHandler for JayPointer {
     }
 }
 
-object_base! {
-    self = JayPointer;
-    version = Version(1);
-}
+object_base!(JayPointer);
 
 impl Object for JayPointer {}
 

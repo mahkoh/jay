@@ -80,10 +80,7 @@ impl JayPopupExtV1RequestHandler for JayPopupExtV1 {
     }
 }
 
-object_base! {
-    self = JayPopupExtV1;
-    version = self.version;
-}
+object_base!(JayPopupExtV1);
 
 impl Object for JayPopupExtV1 {}
 

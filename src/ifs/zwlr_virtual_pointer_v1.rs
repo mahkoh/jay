@@ -187,10 +187,7 @@ impl ZwlrVirtualPointerV1RequestHandler for ZwlrVirtualPointerV1 {
     }
 }
 
-object_base! {
-    self = ZwlrVirtualPointerV1;
-    version = self.version;
-}
+object_base!(ZwlrVirtualPointerV1);
 
 impl Object for ZwlrVirtualPointerV1 {
     fn break_loops(self: Rc<Self>) {

@@ -71,10 +71,7 @@ impl WpColorManagementSurfaceV1RequestHandler for WpColorManagementSurfaceV1 {
     }
 }
 
-object_base! {
-    self = WpColorManagementSurfaceV1;
-    version = self.version;
-}
+object_base!(WpColorManagementSurfaceV1);
 
 impl Object for WpColorManagementSurfaceV1 {}
 

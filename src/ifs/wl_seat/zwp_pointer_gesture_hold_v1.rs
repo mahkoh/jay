@@ -53,10 +53,7 @@ impl ZwpPointerGestureHoldV1RequestHandler for ZwpPointerGestureHoldV1 {
     }
 }
 
-object_base! {
-    self = ZwpPointerGestureHoldV1;
-    version = self.version;
-}
+object_base!(ZwpPointerGestureHoldV1);
 
 impl Object for ZwpPointerGestureHoldV1 {
     fn break_loops(self: Rc<Self>) {

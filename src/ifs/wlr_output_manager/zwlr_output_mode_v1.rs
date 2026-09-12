@@ -66,10 +66,7 @@ impl ZwlrOutputModeV1RequestHandler for ZwlrOutputModeV1 {
     }
 }
 
-object_base! {
-    self = ZwlrOutputModeV1;
-    version = self.version;
-}
+object_base!(ZwlrOutputModeV1);
 
 impl Object for ZwlrOutputModeV1 {}
 

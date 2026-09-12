@@ -82,10 +82,7 @@ impl XdgActivationTokenV1 {
     }
 }
 
-object_base! {
-    self = XdgActivationTokenV1;
-    version = self.version;
-}
+object_base!(XdgActivationTokenV1);
 
 impl Object for XdgActivationTokenV1 {}
 

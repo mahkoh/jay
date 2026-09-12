@@ -68,10 +68,7 @@ impl ZwpTabletPadRingV2RequestHandler for ZwpTabletPadRingV2 {
     }
 }
 
-object_base! {
-    self = ZwpTabletPadRingV2;
-    version = self.version;
-}
+object_base!(ZwpTabletPadRingV2);
 
 impl Object for ZwpTabletPadRingV2 {
     fn break_loops(self: Rc<Self>) {

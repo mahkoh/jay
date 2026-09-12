@@ -128,10 +128,7 @@ impl XdgSessionManagerV1RequestHandler for XdgSessionManagerV1 {
     }
 }
 
-object_base! {
-    self = XdgSessionManagerV1;
-    version = self.version;
-}
+object_base!(XdgSessionManagerV1);
 
 impl Object for XdgSessionManagerV1 {}
 

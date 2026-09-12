@@ -21,6 +21,7 @@ use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::xdg_wm_base::XdgWmBase;
 use crate::leaks::Tracker;
 use crate::object::Object;
+use crate::object::Version;
 use crate::rect::Rect;
 use crate::transactions::EnabledSurfaceTransactions;
 use crate::tree::FindTreeResult;
@@ -90,6 +91,7 @@ pub enum PopupStackType {
 
 pub struct XdgSurface {
     id: XdgSurfaceId,
+    version: Version,
     base: Rc<XdgWmBase>,
     role: Cell<XdgSurfaceRole>,
     pub surface: Rc<WlSurface>,
@@ -311,6 +313,7 @@ impl XdgSurface {
     pub fn new(wm_base: &Rc<XdgWmBase>, id: XdgSurfaceId, surface: &Rc<WlSurface>) -> Self {
         Self {
             id,
+            version: wm_base.version,
             base: wm_base.clone(),
             role: Cell::new(XdgSurfaceRole::None),
             surface: surface.clone(),
@@ -727,10 +730,7 @@ impl XdgSurface {
     }
 }
 
-object_base! {
-    self = XdgSurface;
-    version = self.base.version;
-}
+object_base!(XdgSurface);
 
 impl Object for XdgSurface {
     fn break_loops(self: Rc<Self>) {

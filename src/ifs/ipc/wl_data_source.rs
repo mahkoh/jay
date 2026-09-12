@@ -233,10 +233,7 @@ impl WlDataSourceRequestHandler for WlDataSource {
     }
 }
 
-object_base! {
-    self = WlDataSource;
-    version = self.version;
-}
+object_base!(WlDataSource);
 
 impl Object for WlDataSource {
     fn break_loops(self: Rc<Self>) {

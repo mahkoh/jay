@@ -73,10 +73,7 @@ impl JayEiSessionBuilderRequestHandler for JayEiSessionBuilder {
     }
 }
 
-object_base! {
-    self = JayEiSessionBuilder;
-    version = self.version;
-}
+object_base!(JayEiSessionBuilder);
 
 impl Object for JayEiSessionBuilder {}
 

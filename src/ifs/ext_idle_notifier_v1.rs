@@ -152,10 +152,7 @@ impl Global for ExtIdleNotifierV1Global {
 
 simple_add_global!(ExtIdleNotifierV1Global);
 
-object_base! {
-    self = ExtIdleNotifierV1;
-    version = self.version;
-}
+object_base!(ExtIdleNotifierV1);
 
 impl Object for ExtIdleNotifierV1 {}
 

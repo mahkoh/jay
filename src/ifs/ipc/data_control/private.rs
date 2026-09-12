@@ -91,7 +91,6 @@ pub trait DataControlOffer: WaylandObject {
 
 pub struct DataControlSourceData {
     pub data: SourceData,
-    pub version: Version,
     pub location: Cell<IpcLocation>,
     pub used: Cell<bool>,
 }

@@ -11,6 +11,7 @@ use thiserror::Error;
 
 pub struct JayOutput {
     pub id: JayOutputId,
+    pub version: Version,
     pub client: Rc<Client>,
     pub output: Rc<OutputGlobalOpt>,
     pub tracker: Tracker<Self>,
@@ -47,10 +48,7 @@ impl JayOutputRequestHandler for JayOutput {
     }
 }
 
-object_base! {
-    self = JayOutput;
-    version = Version(1);
-}
+object_base!(JayOutput);
 
 impl Object for JayOutput {
     fn break_loops(self: Rc<Self>) {

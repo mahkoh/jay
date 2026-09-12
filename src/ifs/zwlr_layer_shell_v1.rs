@@ -116,10 +116,7 @@ impl Global for ZwlrLayerShellV1Global {
 
 simple_add_global!(ZwlrLayerShellV1Global);
 
-object_base! {
-    self = ZwlrLayerShellV1;
-    version = self.version;
-}
+object_base!(ZwlrLayerShellV1);
 
 simple_add_obj!(ZwlrLayerShellV1);
 

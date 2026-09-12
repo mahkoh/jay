@@ -102,10 +102,7 @@ impl Global for ExtSessionLockManagerV1Global {
 
 simple_add_global!(ExtSessionLockManagerV1Global);
 
-object_base! {
-    self = ExtSessionLockManagerV1;
-    version = self.version;
-}
+object_base!(ExtSessionLockManagerV1);
 
 impl Object for ExtSessionLockManagerV1 {}
 

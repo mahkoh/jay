@@ -72,10 +72,7 @@ impl ZwpPointerGesturePinchV1RequestHandler for ZwpPointerGesturePinchV1 {
     }
 }
 
-object_base! {
-    self = ZwpPointerGesturePinchV1;
-    version = self.version;
-}
+object_base!(ZwpPointerGesturePinchV1);
 
 impl Object for ZwpPointerGesturePinchV1 {
     fn break_loops(self: Rc<Self>) {

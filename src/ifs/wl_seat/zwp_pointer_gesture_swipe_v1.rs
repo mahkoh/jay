@@ -63,10 +63,7 @@ impl ZwpPointerGestureSwipeV1RequestHandler for ZwpPointerGestureSwipeV1 {
     }
 }
 
-object_base! {
-    self = ZwpPointerGestureSwipeV1;
-    version = self.version;
-}
+object_base!(ZwpPointerGestureSwipeV1);
 
 impl Object for ZwpPointerGestureSwipeV1 {
     fn break_loops(self: Rc<Self>) {

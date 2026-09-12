@@ -129,10 +129,7 @@ impl ZwpInputMethodKeyboardGrabV2RequestHandler for ZwpInputMethodKeyboardGrabV2
     }
 }
 
-object_base! {
-    self = ZwpInputMethodKeyboardGrabV2;
-    version = self.version;
-}
+object_base!(ZwpInputMethodKeyboardGrabV2);
 
 impl Object for ZwpInputMethodKeyboardGrabV2 {
     fn break_loops(self: Rc<Self>) {

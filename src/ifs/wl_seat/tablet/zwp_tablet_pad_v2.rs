@@ -105,10 +105,7 @@ impl ZwpTabletPadV2RequestHandler for ZwpTabletPadV2 {
     }
 }
 
-object_base! {
-    self = ZwpTabletPadV2;
-    version = self.version;
-}
+object_base!(ZwpTabletPadV2);
 
 impl Object for ZwpTabletPadV2 {
     fn break_loops(self: Rc<Self>) {

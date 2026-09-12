@@ -148,10 +148,7 @@ impl TrayItem for JayTrayItemV1 {
     }
 }
 
-object_base! {
-    self = JayTrayItemV1;
-    version = self.version;
-}
+object_base!(JayTrayItemV1);
 
 impl Object for JayTrayItemV1 {
     fn break_loops(self: Rc<Self>) {

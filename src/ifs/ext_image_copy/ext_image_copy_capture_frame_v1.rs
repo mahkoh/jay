@@ -17,6 +17,7 @@ use crate::ifs::wl_buffer::WlBufferStorage;
 use crate::ifs::wl_output::TF_NORMAL;
 use crate::leaks::Tracker;
 use crate::object::Object;
+use crate::object::Version;
 use crate::rect::Region;
 use crate::tree;
 use crate::tree::Node;
@@ -50,6 +51,7 @@ pub struct ExtImageCopyCaptureFrameV1 {
     pub(super) id: ExtImageCopyCaptureFrameV1Id,
     pub(super) client: Rc<Client>,
     pub(super) tracker: Tracker<Self>,
+    pub(super) version: Version,
     pub(super) session: Rc<ExtImageCopyCaptureSessionV1>,
 }
 
@@ -369,10 +371,7 @@ impl AsyncShmGfxTextureCallback for ExtImageCopyCaptureFrameV1 {
     }
 }
 
-object_base! {
-    self = ExtImageCopyCaptureFrameV1;
-    version = self.session.version;
-}
+object_base!(ExtImageCopyCaptureFrameV1);
 
 impl Object for ExtImageCopyCaptureFrameV1 {}
 

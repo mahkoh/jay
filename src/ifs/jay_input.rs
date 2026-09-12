@@ -786,10 +786,7 @@ impl JayInputRequestHandler for JayInput {
     }
 }
 
-object_base! {
-    self = JayInput;
-    version = self.version;
-}
+object_base!(JayInput);
 
 impl Object for JayInput {}
 

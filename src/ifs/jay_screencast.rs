@@ -775,10 +775,7 @@ impl JayScreencastRequestHandler for JayScreencast {
     }
 }
 
-object_base! {
-    self = JayScreencast;
-    version = self.version;
-}
+object_base!(JayScreencast);
 
 impl Object for JayScreencast {
     fn break_loops(self: Rc<Self>) {

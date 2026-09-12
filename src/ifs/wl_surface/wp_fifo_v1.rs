@@ -57,10 +57,7 @@ impl WpFifoV1RequestHandler for WpFifoV1 {
     }
 }
 
-object_base! {
-    self = WpFifoV1;
-    version = self.version;
-}
+object_base!(WpFifoV1);
 
 impl Object for WpFifoV1 {}
 

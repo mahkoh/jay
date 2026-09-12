@@ -74,10 +74,7 @@ impl WpFifoManagerV1RequestHandler for WpFifoManagerV1 {
     }
 }
 
-object_base! {
-    self = WpFifoManagerV1;
-    version = self.version;
-}
+object_base!(WpFifoManagerV1);
 
 impl Object for WpFifoManagerV1 {}
 

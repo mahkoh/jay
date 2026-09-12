@@ -72,10 +72,7 @@ impl ZwpTabletV2RequestHandler for ZwpTabletV2 {
     }
 }
 
-object_base! {
-    self = ZwpTabletV2;
-    version = self.version;
-}
+object_base!(ZwpTabletV2);
 
 impl Object for ZwpTabletV2 {
     fn break_loops(self: Rc<Self>) {

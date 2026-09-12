@@ -70,10 +70,7 @@ impl JayKeymapBuilderRequestHandler for JayKeymapBuilder {
     }
 }
 
-object_base! {
-    self = JayKeymapBuilder;
-    version = self.version;
-}
+object_base!(JayKeymapBuilder);
 
 impl Object for JayKeymapBuilder {}
 

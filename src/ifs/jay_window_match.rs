@@ -27,10 +27,7 @@ impl JayWindowMatchRequestHandler for JayWindowMatch {
     }
 }
 
-object_base! {
-    self = JayWindowMatch;
-    version = self.version;
-}
+object_base!(JayWindowMatch);
 
 impl Object for JayWindowMatch {}
 

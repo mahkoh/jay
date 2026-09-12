@@ -126,10 +126,7 @@ impl JayGlobalTracerRequestHandler for JayGlobalTracer {
     }
 }
 
-object_base! {
-    self = JayGlobalTracer;
-    version = self.version;
-}
+object_base!(JayGlobalTracer);
 
 impl Object for JayGlobalTracer {
     fn break_loops(self: Rc<Self>) {

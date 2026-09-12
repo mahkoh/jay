@@ -18,6 +18,7 @@ use uapi::OwnedFd;
 
 pub struct ExtDataControlSourceV1 {
     id: ExtDataControlSourceV1Id,
+    version: Version,
     data: DataControlSourceData,
     pub tracker: Tracker<Self>,
 }
@@ -42,9 +43,9 @@ impl ExtDataControlSourceV1 {
     pub fn new(id: ExtDataControlSourceV1Id, client: &Rc<Client>, version: Version) -> Self {
         Self {
             id,
+            version,
             data: DataControlSourceData {
                 data: SourceData::new(client),
-                version,
                 location: Cell::new(IpcLocation::Clipboard),
                 used: Cell::new(false),
             },
@@ -79,10 +80,7 @@ impl ExtDataControlSourceV1RequestHandler for ExtDataControlSourceV1 {
     }
 }
 
-object_base! {
-    self = ExtDataControlSourceV1;
-    version = self.data.version;
-}
+object_base!(ExtDataControlSourceV1);
 
 impl Object for ExtDataControlSourceV1 {
     fn break_loops(self: Rc<Self>) {

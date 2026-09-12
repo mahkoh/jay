@@ -333,10 +333,7 @@ impl Global for WpColorManagerV1Global {
 
 simple_add_global!(WpColorManagerV1Global);
 
-object_base! {
-    self = WpColorManagerV1;
-    version = self.version;
-}
+object_base!(WpColorManagerV1);
 
 impl Object for WpColorManagerV1 {}
 

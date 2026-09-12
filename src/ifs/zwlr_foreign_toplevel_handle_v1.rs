@@ -197,10 +197,7 @@ impl ZwlrForeignToplevelHandleV1 {
     }
 }
 
-object_base! {
-    self = ZwlrForeignToplevelHandleV1;
-    version = self.version;
-}
+object_base!(ZwlrForeignToplevelHandleV1);
 
 impl Object for ZwlrForeignToplevelHandleV1 {
     fn break_loops(self: Rc<Self>) {

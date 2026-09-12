@@ -98,10 +98,7 @@ impl Global for ZwpPrimarySelectionDeviceManagerV1Global {
 
 simple_add_global!(ZwpPrimarySelectionDeviceManagerV1Global);
 
-object_base! {
-    self = ZwpPrimarySelectionDeviceManagerV1;
-    version = self.version;
-}
+object_base!(ZwpPrimarySelectionDeviceManagerV1);
 
 impl Object for ZwpPrimarySelectionDeviceManagerV1 {}
 

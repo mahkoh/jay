@@ -257,10 +257,7 @@ impl ZwpInputMethodV2RequestHandler for ZwpInputMethodV2 {
     }
 }
 
-object_base! {
-    self = ZwpInputMethodV2;
-    version = self.version;
-}
+object_base!(ZwpInputMethodV2);
 
 impl Object for ZwpInputMethodV2 {
     fn break_loops(self: Rc<Self>) {

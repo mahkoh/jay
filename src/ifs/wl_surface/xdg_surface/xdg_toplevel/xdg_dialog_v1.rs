@@ -51,10 +51,7 @@ impl XdgDialogV1RequestHandler for XdgDialogV1 {
     }
 }
 
-object_base! {
-    self = XdgDialogV1;
-    version = self.version;
-}
+object_base!(XdgDialogV1);
 
 impl Object for XdgDialogV1 {
     fn break_loops(self: Rc<Self>) {

@@ -145,10 +145,7 @@ impl XdgToplevelSessionV1 {
     }
 }
 
-object_base! {
-    self = XdgToplevelSessionV1;
-    version = self.version;
-}
+object_base!(XdgToplevelSessionV1);
 
 impl Object for XdgToplevelSessionV1 {
     fn break_loops(self: Rc<Self>) {

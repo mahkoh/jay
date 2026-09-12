@@ -18,6 +18,7 @@ use uapi::OwnedFd;
 
 pub struct ZwlrDataControlSourceV1 {
     id: ZwlrDataControlSourceV1Id,
+    version: Version,
     data: DataControlSourceData,
     pub tracker: Tracker<Self>,
 }
@@ -42,9 +43,9 @@ impl ZwlrDataControlSourceV1 {
     pub fn new(id: ZwlrDataControlSourceV1Id, client: &Rc<Client>, version: Version) -> Self {
         Self {
             id,
+            version,
             data: DataControlSourceData {
                 data: SourceData::new(client),
-                version,
                 location: Cell::new(IpcLocation::Clipboard),
                 used: Cell::new(false),
             },
@@ -79,10 +80,7 @@ impl ZwlrDataControlSourceV1RequestHandler for ZwlrDataControlSourceV1 {
     }
 }
 
-object_base! {
-    self = ZwlrDataControlSourceV1;
-    version = self.data.version;
-}
+object_base!(ZwlrDataControlSourceV1);
 
 impl Object for ZwlrDataControlSourceV1 {
     fn break_loops(self: Rc<Self>) {

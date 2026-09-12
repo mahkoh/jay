@@ -99,10 +99,7 @@ impl Global for WlDataDeviceManagerGlobal {
 
 simple_add_global!(WlDataDeviceManagerGlobal);
 
-object_base! {
-    self = WlDataDeviceManager;
-    version = self.version;
-}
+object_base!(WlDataDeviceManager);
 
 impl Object for WlDataDeviceManager {}
 

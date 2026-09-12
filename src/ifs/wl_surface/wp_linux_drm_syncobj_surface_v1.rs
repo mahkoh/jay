@@ -76,10 +76,7 @@ impl WpLinuxDrmSyncobjSurfaceV1RequestHandler for WpLinuxDrmSyncobjSurfaceV1 {
     }
 }
 
-object_base! {
-    self = WpLinuxDrmSyncobjSurfaceV1;
-    version = self.version;
-}
+object_base!(WpLinuxDrmSyncobjSurfaceV1);
 
 impl Object for WpLinuxDrmSyncobjSurfaceV1 {}
 

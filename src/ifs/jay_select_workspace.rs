@@ -4,6 +4,7 @@ use crate::ifs::jay_workspace::JayWorkspace;
 use crate::ifs::wl_seat::WorkspaceSelector;
 use crate::leaks::Tracker;
 use crate::object::Object;
+use crate::object::ObjectBase;
 use crate::object::Version;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::WorkspaceNode;
@@ -17,6 +18,7 @@ use thiserror::Error;
 
 pub struct JaySelectWorkspace {
     pub id: JaySelectWorkspaceId,
+    pub version: Version,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
     pub destroyed: Cell<bool>,
@@ -46,6 +48,7 @@ impl Drop for JayWorkspaceSelector {
                 let id = self.jsw.client.new_id(&*self.jsw);
                 let jw = Rc::new(JayWorkspace {
                     id,
+                    version: self.jsw.version(),
                     client: self.jsw.client.clone(),
                     workspace: CloneCell::new(Some(ws.clone())),
                     tracker: Default::default(),
@@ -81,10 +84,7 @@ impl JaySelectWorkspaceRequestHandler for JaySelectWorkspace {
     type Error = JaySelectWorkspaceError;
 }
 
-object_base! {
-    self = JaySelectWorkspace;
-    version = Version(1);
-}
+object_base!(JaySelectWorkspace);
 
 impl Object for JaySelectWorkspace {
     fn break_loops(self: Rc<Self>) {

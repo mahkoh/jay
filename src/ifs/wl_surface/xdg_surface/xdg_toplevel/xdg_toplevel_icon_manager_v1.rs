@@ -135,10 +135,7 @@ impl XdgToplevelIconManagerV1RequestHandler for XdgToplevelIconManagerV1 {
     }
 }
 
-object_base! {
-    self = XdgToplevelIconManagerV1;
-    version = self.version;
-}
+object_base!(XdgToplevelIconManagerV1);
 
 impl Object for XdgToplevelIconManagerV1 {}
 

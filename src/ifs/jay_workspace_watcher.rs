@@ -13,6 +13,7 @@ use thiserror::Error;
 
 pub struct JayWorkspaceWatcher {
     pub id: JayWorkspaceWatcherId,
+    pub version: Version,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
 }
@@ -21,6 +22,7 @@ impl JayWorkspaceWatcher {
     pub fn send_workspace(&self, workspace: &Rc<WorkspaceNode>) {
         let jw = Rc::new(JayWorkspace {
             id: self.client.new_id(self),
+            version: self.version,
             client: self.client.clone(),
             workspace: CloneCell::new(Some(workspace.clone())),
             tracker: Default::default(),
@@ -56,10 +58,7 @@ impl JayWorkspaceWatcherRequestHandler for JayWorkspaceWatcher {
     }
 }
 
-object_base! {
-    self = JayWorkspaceWatcher;
-    version = Version(1);
-}
+object_base!(JayWorkspaceWatcher);
 
 impl Object for JayWorkspaceWatcher {
     fn break_loops(self: Rc<Self>) {

@@ -5,6 +5,7 @@ use crate::ifs::ipc::data_control::private::logic::DataControlError;
 use crate::ifs::ipc::data_control::zwlr_data_control_device_v1::WlrDataControlIpc;
 use crate::leaks::Tracker;
 use crate::object::Object;
+use crate::object::Version;
 use crate::wire::ZwlrDataControlOfferV1Id;
 use crate::wire::zwlr_data_control_offer_v1::*;
 use std::rc::Rc;
@@ -12,6 +13,7 @@ use thiserror::Error;
 
 pub struct ZwlrDataControlOfferV1 {
     pub id: ZwlrDataControlOfferV1Id,
+    pub version: Version,
     pub data: DataControlOfferData<WlrDataControlIpc>,
     pub tracker: Tracker<Self>,
 }
@@ -51,10 +53,7 @@ impl ZwlrDataControlOfferV1RequestHandler for ZwlrDataControlOfferV1 {
     }
 }
 
-object_base! {
-    self = ZwlrDataControlOfferV1;
-    version = self.data.device.data.version;
-}
+object_base!(ZwlrDataControlOfferV1);
 
 impl Object for ZwlrDataControlOfferV1 {
     fn break_loops(self: Rc<Self>) {

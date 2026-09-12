@@ -116,10 +116,7 @@ impl JayDamageTrackingRequestHandler for JayDamageTracking {
     }
 }
 
-object_base! {
-    self = JayDamageTracking;
-    version = self.version;
-}
+object_base!(JayDamageTracking);
 
 impl Object for JayDamageTracking {}
 

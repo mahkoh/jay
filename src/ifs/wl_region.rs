@@ -67,10 +67,7 @@ impl WlRegionRequestHandler for WlRegion {
     }
 }
 
-object_base! {
-    self = WlRegion;
-    version = self.version;
-}
+object_base!(WlRegion);
 
 impl Object for WlRegion {}
 

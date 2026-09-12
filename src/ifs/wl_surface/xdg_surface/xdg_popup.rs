@@ -26,6 +26,7 @@ use crate::ifs::xdg_positioner::XdgPositioned;
 use crate::ifs::xdg_positioner::XdgPositioner;
 use crate::leaks::Tracker;
 use crate::object::Object;
+use crate::object::Version;
 use crate::rect::Rect;
 use crate::renderer::Renderer;
 use crate::transactions::TransactionData;
@@ -87,6 +88,7 @@ pub trait XdgPopupParent {
 pub struct XdgPopup {
     pub id: XdgPopupId,
     node_id: PopupId,
+    version: Version,
     pub xdg: Rc<XdgSurface>,
     pub(in super::super) parent: CloneCell<Option<Rc<dyn XdgPopupParent>>>,
     relative_position: Cell<Rect>,
@@ -120,6 +122,7 @@ impl XdgPopup {
         Ok(Self {
             id,
             node_id: state.node_ids.next(),
+            version: xdg.version,
             xdg: xdg.clone(),
             parent: Default::default(),
             relative_position: Cell::new(Default::default()),
@@ -361,10 +364,7 @@ impl XdgPopup {
     }
 }
 
-object_base! {
-    self = XdgPopup;
-    version = self.xdg.base.version;
-}
+object_base!(XdgPopup);
 
 impl Object for XdgPopup {
     fn break_loops(self: Rc<Self>) {

@@ -161,10 +161,7 @@ impl ZwpLinuxDmabufV1RequestHandler for ZwpLinuxDmabufV1 {
     }
 }
 
-object_base! {
-    self = ZwpLinuxDmabufV1;
-    version = self.version;
-}
+object_base!(ZwpLinuxDmabufV1);
 
 impl Object for ZwpLinuxDmabufV1 {}
 

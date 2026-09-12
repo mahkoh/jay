@@ -17,6 +17,7 @@ pub const ORIENTATION_DIRECTION_SINCE_VERSION: Version = Version(6);
 
 pub struct WlTouch {
     id: WlTouchId,
+    version: Version,
     seat: Rc<WlSeat>,
     pub tracker: Tracker<Self>,
 }
@@ -25,6 +26,7 @@ impl WlTouch {
     pub fn new(id: WlTouchId, seat: &Rc<WlSeat>) -> Self {
         Self {
             id,
+            version: seat.version,
             seat: seat.clone(),
             tracker: Default::default(),
         }
@@ -109,10 +111,7 @@ impl WlTouchRequestHandler for WlTouch {
     }
 }
 
-object_base! {
-    self = WlTouch;
-    version = self.seat.version;
-}
+object_base!(WlTouch);
 
 impl Object for WlTouch {}
 

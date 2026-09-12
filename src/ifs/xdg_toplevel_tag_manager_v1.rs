@@ -89,10 +89,7 @@ impl XdgToplevelTagManagerV1RequestHandler for XdgToplevelTagManagerV1 {
     }
 }
 
-object_base! {
-    self = XdgToplevelTagManagerV1;
-    version = self.version;
-}
+object_base!(XdgToplevelTagManagerV1);
 
 impl Object for XdgToplevelTagManagerV1 {}
 

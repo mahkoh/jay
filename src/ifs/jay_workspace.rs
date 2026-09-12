@@ -14,6 +14,7 @@ use thiserror::Error;
 
 pub struct JayWorkspace {
     pub id: JayWorkspaceId,
+    pub version: Version,
     pub client: Rc<Client>,
     pub workspace: CloneCell<Option<Rc<WorkspaceNode>>>,
     pub tracker: Tracker<Self>,
@@ -82,10 +83,7 @@ impl JayWorkspaceRequestHandler for JayWorkspace {
     }
 }
 
-object_base! {
-    self = JayWorkspace;
-    version = Version(1);
-}
+object_base!(JayWorkspace);
 
 impl Object for JayWorkspace {
     fn break_loops(self: Rc<Self>) {

@@ -210,10 +210,7 @@ impl NodeBase for ExtSessionLockSurfaceV1 {
     }
 }
 
-object_base! {
-    self = ExtSessionLockSurfaceV1;
-    version = self.version;
-}
+object_base!(ExtSessionLockSurfaceV1);
 
 impl Object for ExtSessionLockSurfaceV1 {
     fn break_loops(self: Rc<Self>) {

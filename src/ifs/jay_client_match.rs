@@ -26,10 +26,7 @@ impl JayClientMatchRequestHandler for JayClientMatch {
     }
 }
 
-object_base! {
-    self = JayClientMatch;
-    version = self.version;
-}
+object_base!(JayClientMatch);
 
 impl Object for JayClientMatch {}
 

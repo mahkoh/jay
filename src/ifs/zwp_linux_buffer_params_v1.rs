@@ -8,6 +8,7 @@ use crate::ifs::wl_buffer::WlBufferError;
 use crate::ifs::zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1;
 use crate::leaks::Tracker;
 use crate::object::Object;
+use crate::object::Version;
 use crate::utils::bhash::BHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::hash_map_ext::HashMapExt;
@@ -35,6 +36,7 @@ const MAX_PLANE: u32 = MAX_PLANES as u32 - 1;
 
 pub struct ZwpLinuxBufferParamsV1 {
     id: ZwpLinuxBufferParamsV1Id,
+    version: Version,
     parent: Rc<ZwpLinuxDmabufV1>,
     planes: RefCell<BHashMap<u32, Add>>,
     used: Cell<bool>,
@@ -47,6 +49,7 @@ impl ZwpLinuxBufferParamsV1 {
     pub fn new(id: ZwpLinuxBufferParamsV1Id, parent: &Rc<ZwpLinuxDmabufV1>) -> Self {
         Self {
             id,
+            version: parent.version,
             parent: parent.clone(),
             planes: RefCell::new(Default::default()),
             used: Cell::new(false),
@@ -219,10 +222,7 @@ impl ZwpLinuxBufferParamsV1RequestHandler for ZwpLinuxBufferParamsV1 {
     }
 }
 
-object_base! {
-    self = ZwpLinuxBufferParamsV1;
-    version = self.parent.version;
-}
+object_base!(ZwpLinuxBufferParamsV1);
 
 impl Object for ZwpLinuxBufferParamsV1 {}
 

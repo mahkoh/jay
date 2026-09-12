@@ -102,10 +102,7 @@ impl XdgActivationV1RequestHandler for XdgActivationV1 {
     }
 }
 
-object_base! {
-    self = XdgActivationV1;
-    version = self.version;
-}
+object_base!(XdgActivationV1);
 
 impl Object for XdgActivationV1 {}
 

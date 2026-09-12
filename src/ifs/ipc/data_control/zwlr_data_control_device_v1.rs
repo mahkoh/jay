@@ -22,6 +22,7 @@ pub const PRIMARY_SELECTION_SINCE: Version = Version(2);
 
 pub struct ZwlrDataControlDeviceV1 {
     id: ZwlrDataControlDeviceV1Id,
+    version: Version,
     pub data: DataControlDeviceData<WlrDataControlIpc>,
     pub tracker: Tracker<Self>,
 }
@@ -35,6 +36,7 @@ impl ZwlrDataControlDeviceV1 {
     ) -> Self {
         Self {
             id,
+            version,
             data: DataControlDeviceData {
                 data_control_device_id: client.state.data_control_device_ids.next(),
                 client: client.clone(),
@@ -111,6 +113,7 @@ impl DataControlIpc for WlrDataControlIpc {
     fn create_offer(id: Self::OfferId, data: DataControlOfferData<Self>) -> Rc<Self::Offer> {
         let rc = Rc::new(ZwlrDataControlOfferV1 {
             id,
+            version: data.device.version,
             data,
             tracker: Default::default(),
         });
@@ -139,10 +142,7 @@ impl DataControlDevice for ZwlrDataControlDeviceV1 {
     }
 }
 
-object_base! {
-    self = ZwlrDataControlDeviceV1;
-    version = self.data.version;
-}
+object_base!(ZwlrDataControlDeviceV1);
 
 impl Object for ZwlrDataControlDeviceV1 {
     fn break_loops(self: Rc<Self>) {

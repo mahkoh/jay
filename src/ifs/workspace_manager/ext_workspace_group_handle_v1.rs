@@ -94,10 +94,7 @@ impl ExtWorkspaceGroupHandleV1 {
     }
 }
 
-object_base! {
-    self = ExtWorkspaceGroupHandleV1;
-    version = self.version;
-}
+object_base!(ExtWorkspaceGroupHandleV1);
 
 impl Object for ExtWorkspaceGroupHandleV1 {
     fn break_loops(self: Rc<Self>) {

@@ -85,10 +85,7 @@ impl WpContentTypeV1RequestHandler for WpContentTypeV1 {
     }
 }
 
-object_base! {
-    self = WpContentTypeV1;
-    version = self.version;
-}
+object_base!(WpContentTypeV1);
 
 impl Object for WpContentTypeV1 {}
 

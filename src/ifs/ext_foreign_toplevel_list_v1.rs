@@ -137,10 +137,7 @@ impl Global for ExtForeignToplevelListV1Global {
 
 simple_add_global!(ExtForeignToplevelListV1Global);
 
-object_base! {
-    self = ExtForeignToplevelListV1;
-    version = self.version;
-}
+object_base!(ExtForeignToplevelListV1);
 
 impl Object for ExtForeignToplevelListV1 {
     fn break_loops(self: Rc<Self>) {

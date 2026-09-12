@@ -12,6 +12,7 @@ use uapi::OwnedFd;
 
 pub struct JayScreenshot {
     pub id: JayScreenshotId,
+    pub version: Version,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
 }
@@ -86,10 +87,7 @@ impl JayScreenshotRequestHandler for JayScreenshot {
     type Error = Infallible;
 }
 
-object_base! {
-    self = JayScreenshot;
-    version = Version(1);
-}
+object_base!(JayScreenshot);
 
 impl Object for JayScreenshot {}
 

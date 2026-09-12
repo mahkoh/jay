@@ -91,10 +91,7 @@ impl OrgKdeKwinServerDecorationManagerRequestHandler for OrgKdeKwinServerDecorat
     }
 }
 
-object_base! {
-    self = OrgKdeKwinServerDecorationManager;
-    version = self.version;
-}
+object_base!(OrgKdeKwinServerDecorationManager);
 
 impl Object for OrgKdeKwinServerDecorationManager {}
 

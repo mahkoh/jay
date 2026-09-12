@@ -80,10 +80,7 @@ impl Global for ZxdgOutputManagerV1Global {
 
 simple_add_global!(ZxdgOutputManagerV1Global);
 
-object_base! {
-    self = ZxdgOutputManagerV1;
-    version = self.version;
-}
+object_base!(ZxdgOutputManagerV1);
 
 simple_add_obj!(ZxdgOutputManagerV1);
 

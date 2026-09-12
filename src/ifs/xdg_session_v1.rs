@@ -138,10 +138,7 @@ impl XdgSessionV1RequestHandler for XdgSessionV1 {
     }
 }
 
-object_base! {
-    self = XdgSessionV1;
-    version = self.version;
-}
+object_base!(XdgSessionV1);
 
 impl Object for XdgSessionV1 {
     fn break_loops(self: Rc<Self>) {

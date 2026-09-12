@@ -76,10 +76,7 @@ impl WpViewportRequestHandler for WpViewport {
     }
 }
 
-object_base! {
-    self = WpViewport;
-    version = self.version;
-}
+object_base!(WpViewport);
 
 impl Object for WpViewport {}
 

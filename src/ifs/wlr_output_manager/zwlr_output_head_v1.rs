@@ -229,10 +229,7 @@ impl ZwlrOutputHeadV1RequestHandler for ZwlrOutputHeadV1 {
     }
 }
 
-object_base! {
-    self = ZwlrOutputHeadV1;
-    version = self.version;
-}
+object_base!(ZwlrOutputHeadV1);
 
 impl Object for ZwlrOutputHeadV1 {}
 

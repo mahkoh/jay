@@ -93,10 +93,7 @@ impl Global for WlShmGlobal {
 
 simple_add_global!(WlShmGlobal);
 
-object_base! {
-    self = WlShm;
-    version = self.version;
-}
+object_base!(WlShm);
 
 impl Object for WlShm {}
 

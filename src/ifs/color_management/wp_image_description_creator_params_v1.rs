@@ -286,10 +286,7 @@ impl WpImageDescriptionCreatorParamsV1RequestHandler for WpImageDescriptionCreat
     }
 }
 
-object_base! {
-    self = WpImageDescriptionCreatorParamsV1;
-    version = self.version;
-}
+object_base!(WpImageDescriptionCreatorParamsV1);
 
 impl Object for WpImageDescriptionCreatorParamsV1 {}
 

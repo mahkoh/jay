@@ -82,10 +82,7 @@ impl ZxdgDecorationManagerV1RequestHandler for ZxdgDecorationManagerV1 {
     }
 }
 
-object_base! {
-    self = ZxdgDecorationManagerV1;
-    version = self.version;
-}
+object_base!(ZxdgDecorationManagerV1);
 
 impl Object for ZxdgDecorationManagerV1 {}
 

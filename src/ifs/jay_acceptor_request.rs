@@ -43,10 +43,7 @@ impl JayAcceptorRequestRequestHandler for JayAcceptorRequest {
     }
 }
 
-object_base! {
-    self = JayAcceptorRequest;
-    version = self.version;
-}
+object_base!(JayAcceptorRequest);
 
 impl Object for JayAcceptorRequest {}
 

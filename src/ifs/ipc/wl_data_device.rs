@@ -186,6 +186,7 @@ impl IpcVtable for ClipboardIpc {
             id: device.client.new_id(&**device),
             offer_id: device.client.state.data_offer_ids.next(),
             client: device.client.clone(),
+            version: device.version,
             device: device.clone(),
             data: offer_data,
             tracker: Default::default(),
@@ -211,10 +212,7 @@ impl IpcVtable for ClipboardIpc {
     }
 }
 
-object_base! {
-    self = WlDataDevice;
-    version = self.version;
-}
+object_base!(WlDataDevice);
 
 impl Object for WlDataDevice {
     fn break_loops(self: Rc<Self>) {

@@ -97,10 +97,7 @@ impl ZwpVirtualKeyboardManagerV1RequestHandler for ZwpVirtualKeyboardManagerV1 {
     }
 }
 
-object_base! {
-    self = ZwpVirtualKeyboardManagerV1;
-    version = self.version;
-}
+object_base!(ZwpVirtualKeyboardManagerV1);
 
 impl Object for ZwpVirtualKeyboardManagerV1 {}
 

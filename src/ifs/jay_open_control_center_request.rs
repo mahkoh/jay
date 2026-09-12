@@ -36,10 +36,7 @@ impl JayOpenControlCenterRequestRequestHandler for JayOpenControlCenterRequest {
     }
 }
 
-object_base! {
-    self = JayOpenControlCenterRequest;
-    version = self.version;
-}
+object_base!(JayOpenControlCenterRequest);
 
 impl Object for JayOpenControlCenterRequest {}
 

@@ -210,10 +210,7 @@ impl Global for ExtWorkspaceManagerV1Global {
 
 simple_add_global!(ExtWorkspaceManagerV1Global);
 
-object_base! {
-    self = ExtWorkspaceManagerV1;
-    version = self.version;
-}
+object_base!(ExtWorkspaceManagerV1);
 
 impl Object for ExtWorkspaceManagerV1 {
     fn break_loops(self: Rc<Self>) {

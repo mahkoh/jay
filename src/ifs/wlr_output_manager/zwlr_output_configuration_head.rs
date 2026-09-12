@@ -118,10 +118,7 @@ impl ZwlrOutputConfigurationHeadV1RequestHandler for ZwlrOutputConfigurationHead
     }
 }
 
-object_base! {
-    self = ZwlrOutputConfigurationHeadV1;
-    version = self.version;
-}
+object_base!(ZwlrOutputConfigurationHeadV1);
 
 impl Object for ZwlrOutputConfigurationHeadV1 {}
 

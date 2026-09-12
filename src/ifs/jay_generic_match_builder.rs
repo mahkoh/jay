@@ -169,10 +169,7 @@ impl JayGenericMatchBuilderRequestHandler for JayGenericMatchBuilder {
     }
 }
 
-object_base! {
-    self = JayGenericMatchBuilder;
-    version = self.version;
-}
+object_base!(JayGenericMatchBuilder);
 
 impl Object for JayGenericMatchBuilder {}
 

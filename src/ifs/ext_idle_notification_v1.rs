@@ -51,10 +51,7 @@ impl ExtIdleNotificationV1 {
     }
 }
 
-object_base! {
-    self = ExtIdleNotificationV1;
-    version = self.version;
-}
+object_base!(ExtIdleNotificationV1);
 
 impl Object for ExtIdleNotificationV1 {
     fn break_loops(self: Rc<Self>) {

@@ -137,10 +137,7 @@ impl Global for ZwlrForeignToplevelManagerV1Global {
 
 simple_add_global!(ZwlrForeignToplevelManagerV1Global);
 
-object_base! {
-    self = ZwlrForeignToplevelManagerV1;
-    version = self.version;
-}
+object_base!(ZwlrForeignToplevelManagerV1);
 
 impl Object for ZwlrForeignToplevelManagerV1 {
     fn break_loops(self: Rc<Self>) {

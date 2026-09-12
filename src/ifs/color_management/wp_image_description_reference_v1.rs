@@ -12,6 +12,7 @@ use thiserror::Error;
 #[expect(unused)]
 pub struct WpImageDescriptionReferenceV1 {
     id: WpImageDescriptionReferenceV1Id,
+    version: Version,
     client: Rc<Client>,
     tracker: Tracker<Self>,
     pub description: Rc<ColorDescription>,
@@ -26,10 +27,7 @@ impl WpImageDescriptionReferenceV1RequestHandler for WpImageDescriptionReference
     }
 }
 
-object_base! {
-    self = WpImageDescriptionReferenceV1;
-    version = Version(1);
-}
+object_base!(WpImageDescriptionReferenceV1);
 
 impl Object for WpImageDescriptionReferenceV1 {}
 

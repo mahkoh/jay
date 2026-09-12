@@ -229,10 +229,7 @@ impl ZwpTabletToolV2RequestHandler for ZwpTabletToolV2 {
     }
 }
 
-object_base! {
-    self = ZwpTabletToolV2;
-    version = self.version;
-}
+object_base!(ZwpTabletToolV2);
 
 impl Object for ZwpTabletToolV2 {
     fn break_loops(self: Rc<Self>) {

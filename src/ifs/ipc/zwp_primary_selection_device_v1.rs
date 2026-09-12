@@ -152,10 +152,7 @@ impl IpcVtable for PrimarySelectionIpc {
     }
 }
 
-object_base! {
-    self = ZwpPrimarySelectionDeviceV1;
-    version = self.version;
-}
+object_base!(ZwpPrimarySelectionDeviceV1);
 
 impl Object for ZwpPrimarySelectionDeviceV1 {
     fn break_loops(self: Rc<Self>) {

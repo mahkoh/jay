@@ -53,10 +53,7 @@ impl ZwpIdleInhibitorV1 {
     }
 }
 
-object_base! {
-    self = ZwpIdleInhibitorV1;
-    version = self.version;
-}
+object_base!(ZwpIdleInhibitorV1);
 
 impl Object for ZwpIdleInhibitorV1 {
     fn break_loops(self: Rc<Self>) {

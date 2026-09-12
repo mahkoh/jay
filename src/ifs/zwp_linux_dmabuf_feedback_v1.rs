@@ -111,10 +111,7 @@ impl ZwpLinuxDmabufFeedbackV1 {
     }
 }
 
-object_base! {
-    self = ZwpLinuxDmabufFeedbackV1;
-    version = self.version;
-}
+object_base!(ZwpLinuxDmabufFeedbackV1);
 
 impl Object for ZwpLinuxDmabufFeedbackV1 {
     fn break_loops(self: Rc<Self>) {

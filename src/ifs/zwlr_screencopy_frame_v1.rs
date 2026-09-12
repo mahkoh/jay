@@ -175,10 +175,7 @@ impl AsyncShmGfxTextureCallback for ZwlrScreencopyFrameV1 {
     }
 }
 
-object_base! {
-    self = ZwlrScreencopyFrameV1;
-    version = self.version;
-}
+object_base!(ZwlrScreencopyFrameV1);
 
 simple_add_obj!(ZwlrScreencopyFrameV1);
 

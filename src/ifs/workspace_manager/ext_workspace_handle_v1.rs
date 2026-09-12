@@ -149,10 +149,7 @@ impl ExtWorkspaceHandleV1 {
     }
 }
 
-object_base! {
-    self = ExtWorkspaceHandleV1;
-    version = self.version;
-}
+object_base!(ExtWorkspaceHandleV1);
 
 impl Object for ExtWorkspaceHandleV1 {
     fn break_loops(self: Rc<Self>) {

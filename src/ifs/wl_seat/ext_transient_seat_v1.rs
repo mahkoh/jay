@@ -30,10 +30,7 @@ impl ExtTransientSeatV1RequestHandler for ExtTransientSeatV1 {
     }
 }
 
-object_base! {
-    self = ExtTransientSeatV1;
-    version = self.version;
-}
+object_base!(ExtTransientSeatV1);
 
 impl Object for ExtTransientSeatV1 {}
 

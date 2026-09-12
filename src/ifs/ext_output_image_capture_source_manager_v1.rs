@@ -53,6 +53,7 @@ impl ExtOutputImageCaptureSourceManagerV1RequestHandler for ExtOutputImageCaptur
         let output = self.client.lookup(req.output)?;
         let obj = Rc::new(ExtImageCaptureSourceV1 {
             id: req.source,
+            version: self.version,
             client: self.client.clone(),
             tracker: Default::default(),
             ty: ImageCaptureSource::Output(output.global.clone()),
@@ -81,10 +82,7 @@ impl Global for ExtOutputImageCaptureSourceManagerV1Global {
 
 simple_add_global!(ExtOutputImageCaptureSourceManagerV1Global);
 
-object_base! {
-    self = ExtOutputImageCaptureSourceManagerV1;
-    version = self.version;
-}
+object_base!(ExtOutputImageCaptureSourceManagerV1);
 
 impl Object for ExtOutputImageCaptureSourceManagerV1 {}
 

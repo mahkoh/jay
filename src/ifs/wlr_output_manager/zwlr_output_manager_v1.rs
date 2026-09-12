@@ -271,10 +271,7 @@ impl Global for ZwlrOutputManagerV1Global {
 
 simple_add_global!(ZwlrOutputManagerV1Global);
 
-object_base! {
-    self = ZwlrOutputManagerV1;
-    version = self.version;
-}
+object_base!(ZwlrOutputManagerV1);
 
 simple_add_obj!(ZwlrOutputManagerV1);
 

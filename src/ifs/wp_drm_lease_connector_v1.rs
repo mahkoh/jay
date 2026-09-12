@@ -67,10 +67,7 @@ impl WpDrmLeaseConnectorV1RequestHandler for WpDrmLeaseConnectorV1 {
     }
 }
 
-object_base! {
-    self = WpDrmLeaseConnectorV1;
-    version = self.version;
-}
+object_base!(WpDrmLeaseConnectorV1);
 
 impl Object for WpDrmLeaseConnectorV1 {
     fn break_loops(self: Rc<Self>) {

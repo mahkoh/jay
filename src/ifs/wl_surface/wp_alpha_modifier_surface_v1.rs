@@ -58,10 +58,7 @@ impl WpAlphaModifierSurfaceV1RequestHandler for WpAlphaModifierSurfaceV1 {
     }
 }
 
-object_base! {
-    self = WpAlphaModifierSurfaceV1;
-    version = self.version;
-}
+object_base!(WpAlphaModifierSurfaceV1);
 
 impl Object for WpAlphaModifierSurfaceV1 {}
 

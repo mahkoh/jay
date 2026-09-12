@@ -56,10 +56,7 @@ pub struct WpTearingControlManagerV1 {
     version: Version,
 }
 
-object_base! {
-    self = WpTearingControlManagerV1;
-    version = self.version;
-}
+object_base!(WpTearingControlManagerV1);
 
 impl WpTearingControlManagerV1RequestHandler for WpTearingControlManagerV1 {
     type Error = WpTearingControlManagerV1Error;

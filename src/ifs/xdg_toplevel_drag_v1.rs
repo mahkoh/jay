@@ -152,10 +152,7 @@ impl XdgToplevelDragV1 {
     }
 }
 
-object_base! {
-    self = XdgToplevelDragV1;
-    version = self.version;
-}
+object_base!(XdgToplevelDragV1);
 
 impl Object for XdgToplevelDragV1 {
     fn break_loops(self: Rc<Self>) {

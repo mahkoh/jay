@@ -2094,10 +2094,7 @@ impl WlSurface {
     }
 }
 
-object_base! {
-    self = WlSurface;
-    version = self.version;
-}
+object_base!(WlSurface);
 
 impl Object for WlSurface {
     fn break_loops(self: Rc<Self>) {

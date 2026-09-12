@@ -97,10 +97,7 @@ impl WpPresentationFeedbackRequestHandler for WpPresentationFeedback {
     type Error = Infallible;
 }
 
-object_base! {
-    self = WpPresentationFeedback;
-    version = self.version;
-}
+object_base!(WpPresentationFeedback);
 
 impl Object for WpPresentationFeedback {}
 

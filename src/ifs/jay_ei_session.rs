@@ -61,10 +61,7 @@ impl JayEiSessionRequestHandler for JayEiSession {
     }
 }
 
-object_base! {
-    self = JayEiSession;
-    version = self.version;
-}
+object_base!(JayEiSession);
 
 impl Object for JayEiSession {
     fn break_loops(self: Rc<Self>) {

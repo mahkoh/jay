@@ -581,10 +581,7 @@ impl GfxCtxChangedListener for XdgToplevelIconV1 {
     }
 }
 
-object_base! {
-    self = XdgToplevelIconV1;
-    version = self.version;
-}
+object_base!(XdgToplevelIconV1);
 
 impl Object for XdgToplevelIconV1 {
     fn break_loops(self: Rc<Self>) {

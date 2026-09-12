@@ -95,10 +95,7 @@ impl ZwpInputMethodManagerV2RequestHandler for ZwpInputMethodManagerV2 {
     }
 }
 
-object_base! {
-    self = ZwpInputMethodManagerV2;
-    version = self.version;
-}
+object_base!(ZwpInputMethodManagerV2);
 
 impl Object for ZwpInputMethodManagerV2 {}
 

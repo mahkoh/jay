@@ -1926,10 +1926,7 @@ impl WlSeatRequestHandler for WlSeat {
     }
 }
 
-object_base! {
-    self = WlSeat;
-    version = self.version;
-}
+object_base!(WlSeat);
 
 impl Object for WlSeat {
     fn break_loops(self: Rc<Self>) {

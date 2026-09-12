@@ -316,10 +316,7 @@ impl Global for ZwpPointerConstraintsV1Global {
 
 simple_add_global!(ZwpPointerConstraintsV1Global);
 
-object_base! {
-    self = ZwpPointerConstraintsV1;
-    version = self.version;
-}
+object_base!(ZwpPointerConstraintsV1);
 
 impl Object for ZwpPointerConstraintsV1 {}
 

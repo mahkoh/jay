@@ -101,10 +101,7 @@ impl WpCursorShapeManagerV1RequestHandler for WpCursorShapeManagerV1 {
     }
 }
 
-object_base! {
-    self = WpCursorShapeManagerV1;
-    version = self.version;
-}
+object_base!(WpCursorShapeManagerV1);
 
 impl Object for WpCursorShapeManagerV1 {}
 

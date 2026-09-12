@@ -264,6 +264,7 @@ impl ExtImageCopyCaptureSessionV1RequestHandler for ExtImageCopyCaptureSessionV1
             id: req.frame,
             client: self.client.clone(),
             tracker: Default::default(),
+            version: self.version,
             session: slf.clone(),
         });
         track!(self.client, obj);
@@ -327,10 +328,7 @@ impl PresentationListener for ExtImageCopyCaptureSessionV1 {
     }
 }
 
-object_base! {
-    self = ExtImageCopyCaptureSessionV1;
-    version = self.version;
-}
+object_base!(ExtImageCopyCaptureSessionV1);
 
 impl Object for ExtImageCopyCaptureSessionV1 {
     fn break_loops(self: Rc<Self>) {

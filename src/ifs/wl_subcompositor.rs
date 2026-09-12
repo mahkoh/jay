@@ -78,10 +78,7 @@ impl Global for WlSubcompositorGlobal {
 
 simple_add_global!(WlSubcompositorGlobal);
 
-object_base! {
-    self = WlSubcompositor;
-    version = self.version;
-}
+object_base!(WlSubcompositor);
 
 impl Object for WlSubcompositor {}
 

@@ -138,10 +138,7 @@ impl ZwlrGammaControlV1RequestHandler for ZwlrGammaControlV1 {
     }
 }
 
-object_base! {
-    self = ZwlrGammaControlV1;
-    version = self.version;
-}
+object_base!(ZwlrGammaControlV1);
 
 impl Object for ZwlrGammaControlV1 {
     fn break_loops(self: Rc<Self>) {

@@ -42,10 +42,7 @@ impl XwaylandSurfaceV1RequestHandler for XwaylandSurfaceV1 {
     }
 }
 
-object_base! {
-    self = XwaylandSurfaceV1;
-    version = self.version;
-}
+object_base!(XwaylandSurfaceV1);
 
 impl Object for XwaylandSurfaceV1 {
     fn break_loops(self: Rc<Self>) {

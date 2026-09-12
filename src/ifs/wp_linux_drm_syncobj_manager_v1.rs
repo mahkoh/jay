@@ -99,10 +99,7 @@ impl WpLinuxDrmSyncobjManagerV1RequestHandler for WpLinuxDrmSyncobjManagerV1 {
     }
 }
 
-object_base! {
-    self = WpLinuxDrmSyncobjManagerV1;
-    version = self.version;
-}
+object_base!(WpLinuxDrmSyncobjManagerV1);
 
 impl Object for WpLinuxDrmSyncobjManagerV1 {}
 

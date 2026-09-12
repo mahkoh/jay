@@ -182,10 +182,7 @@ impl KnownCursor {
     }
 }
 
-object_base! {
-    self = WpCursorShapeDeviceV1;
-    version = self.version;
-}
+object_base!(WpCursorShapeDeviceV1);
 
 impl Object for WpCursorShapeDeviceV1 {}
 

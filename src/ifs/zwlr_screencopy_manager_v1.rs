@@ -139,10 +139,7 @@ impl ZwlrScreencopyManagerV1 {
     }
 }
 
-object_base! {
-    self = ZwlrScreencopyManagerV1;
-    version = self.version;
-}
+object_base!(ZwlrScreencopyManagerV1);
 
 impl Object for ZwlrScreencopyManagerV1 {}
 

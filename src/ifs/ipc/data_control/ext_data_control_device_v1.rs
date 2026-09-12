@@ -20,6 +20,7 @@ use thiserror::Error;
 
 pub struct ExtDataControlDeviceV1 {
     id: ExtDataControlDeviceV1Id,
+    version: Version,
     pub data: DataControlDeviceData<ExtDataControlIpc>,
     pub tracker: Tracker<Self>,
 }
@@ -33,6 +34,7 @@ impl ExtDataControlDeviceV1 {
     ) -> Self {
         Self {
             id,
+            version,
             data: DataControlDeviceData {
                 data_control_device_id: client.state.data_control_device_ids.next(),
                 client: client.clone(),
@@ -105,6 +107,7 @@ impl DataControlIpc for ExtDataControlIpc {
     fn create_offer(id: Self::OfferId, data: DataControlOfferData<Self>) -> Rc<Self::Offer> {
         let rc = Rc::new(ExtDataControlOfferV1 {
             id,
+            version: data.device.data.version,
             data,
             tracker: Default::default(),
         });
@@ -133,10 +136,7 @@ impl DataControlDevice for ExtDataControlDeviceV1 {
     }
 }
 
-object_base! {
-    self = ExtDataControlDeviceV1;
-    version = self.data.version;
-}
+object_base!(ExtDataControlDeviceV1);
 
 impl Object for ExtDataControlDeviceV1 {
     fn break_loops(self: Rc<Self>) {

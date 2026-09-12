@@ -80,10 +80,7 @@ impl JayIdleRequestHandler for JayIdle {
     }
 }
 
-object_base! {
-    self = JayIdle;
-    version = self.version;
-}
+object_base!(JayIdle);
 
 impl Object for JayIdle {}
 

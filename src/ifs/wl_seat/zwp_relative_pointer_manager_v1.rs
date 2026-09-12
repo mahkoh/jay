@@ -86,10 +86,7 @@ impl ZwpRelativePointerManagerV1RequestHandler for ZwpRelativePointerManagerV1 {
     }
 }
 
-object_base! {
-    self = ZwpRelativePointerManagerV1;
-    version = self.version;
-}
+object_base!(ZwpRelativePointerManagerV1);
 
 impl Object for ZwpRelativePointerManagerV1 {}
 

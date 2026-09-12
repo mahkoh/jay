@@ -72,10 +72,7 @@ impl WpColorManagementOutputV1RequestHandler for WpColorManagementOutputV1 {
     }
 }
 
-object_base! {
-    self = WpColorManagementOutputV1;
-    version = self.version;
-}
+object_base!(WpColorManagementOutputV1);
 
 impl Object for WpColorManagementOutputV1 {}
 

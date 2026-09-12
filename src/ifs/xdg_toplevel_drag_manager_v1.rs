@@ -83,10 +83,7 @@ impl XdgToplevelDragManagerV1RequestHandler for XdgToplevelDragManagerV1 {
     }
 }
 
-object_base! {
-    self = XdgToplevelDragManagerV1;
-    version = self.version;
-}
+object_base!(XdgToplevelDragManagerV1);
 
 impl Object for XdgToplevelDragManagerV1 {}
 

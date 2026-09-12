@@ -75,10 +75,7 @@ impl JaySyncFileReleaseRequestHandler for JaySyncFileRelease {
     }
 }
 
-object_base! {
-    self = JaySyncFileRelease;
-    version = self.version;
-}
+object_base!(JaySyncFileRelease);
 
 impl Object for JaySyncFileRelease {}
 

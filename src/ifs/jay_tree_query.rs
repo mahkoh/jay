@@ -506,10 +506,7 @@ impl tree::NodeVisitorBase for Visitor<'_> {
     }
 }
 
-object_base! {
-    self = JayTreeQuery;
-    version = self.version;
-}
+object_base!(JayTreeQuery);
 
 impl Object for JayTreeQuery {}
 

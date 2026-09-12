@@ -61,10 +61,7 @@ impl JayXwaylandRequestHandler for JayXwayland {
     }
 }
 
-object_base! {
-    self = JayXwayland;
-    version = self.version;
-}
+object_base!(JayXwayland);
 
 impl Object for JayXwayland {}
 

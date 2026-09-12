@@ -108,10 +108,7 @@ impl Global for ZwlrDataControlManagerV1Global {
 
 simple_add_global!(ZwlrDataControlManagerV1Global);
 
-object_base! {
-    self = ZwlrDataControlManagerV1;
-    version = self.version;
-}
+object_base!(ZwlrDataControlManagerV1);
 
 impl Object for ZwlrDataControlManagerV1 {}
 

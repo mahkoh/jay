@@ -71,10 +71,7 @@ impl JaySyncFileSurfaceRequestHandler for JaySyncFileSurface {
     }
 }
 
-object_base! {
-    self = JaySyncFileSurface;
-    version = self.version;
-}
+object_base!(JaySyncFileSurface);
 
 impl Object for JaySyncFileSurface {}
 

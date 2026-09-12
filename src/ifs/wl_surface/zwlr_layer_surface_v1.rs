@@ -19,6 +19,7 @@ use crate::ifs::zwlr_layer_shell_v1::OVERLAY;
 use crate::ifs::zwlr_layer_shell_v1::ZwlrLayerShellV1;
 use crate::leaks::Tracker;
 use crate::object::Object;
+use crate::object::Version;
 use crate::rect::Rect;
 use crate::rect::Size;
 use crate::renderer::Renderer;
@@ -73,6 +74,7 @@ tree_id!(ZwlrLayerSurfaceV1NodeId);
 pub struct ZwlrLayerSurfaceV1 {
     id: ZwlrLayerSurfaceV1Id,
     node_id: ZwlrLayerSurfaceV1NodeId,
+    version: Version,
     shell: Rc<ZwlrLayerShellV1>,
     client: Rc<Client>,
     pub surface: Rc<WlSurface>,
@@ -186,6 +188,7 @@ impl ZwlrLayerSurfaceV1 {
         Self {
             id,
             node_id: shell.client.state.node_ids.next(),
+            version: shell.version,
             shell: shell.clone(),
             client: shell.client.clone(),
             surface: surface.clone(),
@@ -877,10 +880,7 @@ impl XdgPopupParent for Popup {
     }
 }
 
-object_base! {
-    self = ZwlrLayerSurfaceV1;
-    version = self.shell.version;
-}
+object_base!(ZwlrLayerSurfaceV1);
 
 impl Object for ZwlrLayerSurfaceV1 {
     fn break_loops(self: Rc<Self>) {

@@ -166,10 +166,7 @@ impl WlDrmRequestHandler for WlDrm {
     }
 }
 
-object_base! {
-    self = WlDrm;
-    version = self.version;
-}
+object_base!(WlDrm);
 
 impl Object for WlDrm {}
 

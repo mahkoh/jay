@@ -77,10 +77,7 @@ impl Global for WpAlphaModifierV1Global {
 
 simple_add_global!(WpAlphaModifierV1Global);
 
-object_base! {
-    self = WpAlphaModifierV1;
-    version = self.version;
-}
+object_base!(WpAlphaModifierV1);
 
 impl Object for WpAlphaModifierV1 {}
 

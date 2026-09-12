@@ -70,10 +70,7 @@ impl WpImageDescriptionV1RequestHandler for WpImageDescriptionV1 {
     }
 }
 
-object_base! {
-    self = WpImageDescriptionV1;
-    version = self.version;
-}
+object_base!(WpImageDescriptionV1);
 
 impl Object for WpImageDescriptionV1 {}
 

@@ -424,10 +424,7 @@ impl WlSubsurfaceRequestHandler for WlSubsurface {
     }
 }
 
-object_base! {
-    self = WlSubsurface;
-    version = self.version;
-}
+object_base!(WlSubsurface);
 
 impl Object for WlSubsurface {
     fn break_loops(self: Rc<Self>) {
