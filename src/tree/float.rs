@@ -10,8 +10,8 @@ use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_seat::tablet::TabletTool;
 use crate::ifs::wl_seat::tablet::TabletToolChanges;
 use crate::ifs::wl_seat::tablet::TabletToolId;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::ToplevelIcon;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::ToplevelIconUser;
+use crate::ifs::wl_surface::icon_surface::IconSurfaceOwner;
+use crate::ifs::wl_surface::icon_surface::jay_icon_surface_v1::IconSurface;
 use crate::rect::Rect;
 use crate::renderer::Renderer;
 use crate::scale::Scale;
@@ -68,7 +68,6 @@ use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::event_listener::EventListener;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::on_drop_event::OnDropEvent;
-use crate::utils::smallmap::SmallMap;
 use crate::utils::smallmap::SmallMapMut;
 use arrayvec::ArrayVec;
 use derivative::Derivative;
@@ -99,8 +98,6 @@ pub struct FloatNode {
     render_titles_scheduled: Cell<bool>,
     title: RefCell<String>,
     pub title_textures: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
-    icon: ToplevelIconUser,
-    pub icons: SmallMap<Scale, ToplevelIcon, 2>,
     pub needs_initial_size: Cell<bool>,
     cursors: RefCell<BHashMap<CursorType, CursorState>>,
     transaction_data: TransactionData<FloatTransactionOp>,
@@ -126,6 +123,7 @@ pub struct FloatNodeState {
     pub pinned: Cell<bool>,
     pub theme: FloatTheme,
     pub offsets: Offsets,
+    pub toplevel_icon: CloneCell<Option<IconSurface>>,
 }
 
 #[derive(CachedValue)]
@@ -256,8 +254,6 @@ impl FloatNode {
             render_titles_scheduled: Cell::new(false),
             title: Default::default(),
             title_textures: Default::default(),
-            icon: state.toplevel_icon_user(),
-            icons: Default::default(),
             needs_initial_size: Cell::new(output.is_dummy),
             cursors: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
@@ -293,7 +289,6 @@ impl FloatNode {
         floater.set_position(position);
         floater.set_ns_child(Some(&child));
         floater.set_ns_workspace_type(ws.ty);
-        child.tl_update_icon(&floater.icon);
         floater.pull_child_properties();
         {
             let dl = &mut *floater.display_link.borrow_mut();
@@ -309,6 +304,7 @@ impl FloatNode {
             floater.toggle_pinned();
         }
         floater.schedule_title_offsets();
+        floater.update_icon();
         floater
     }
 
@@ -345,6 +341,7 @@ impl FloatNode {
         self.set_ns_title_rect(tr);
         self.layout_scheduled.set(false);
         self.schedule_render_titles();
+        self.set_icon_position();
     }
 
     fn schedule_render_titles(self: &Rc<Self>) {
@@ -368,16 +365,11 @@ impl FloatNode {
         let scales = self.state.scales.lock();
         let tr = ns.title_rect.get();
         let tt = &mut *self.title_textures.borrow_mut();
-        self.icons.clear();
         for (scale, _) in scales.iter() {
             let tex = tt.get_or_insert_with(*scale, || TextTexture::new(&self.state, &ctx));
             let mut th = tr.height();
             let mut scalef = None;
             let mut width = (tr.width() - ns.offsets.title.get()).max(0);
-            let icon = (theme.sizes.title_icon_size.get() > 0).and_then(|| self.icon.get(*scale));
-            if let Some(icon) = icon {
-                self.icons.insert(*scale, icon);
-            }
             if *scale != 1 {
                 let scale = scale.to_f64();
                 th = (th as f64 * scale).round() as _;
@@ -592,11 +584,33 @@ impl FloatNode {
                 .pinned
                 .add_last_existing(pl);
         }
+        if let Some(v) = ns.toplevel_icon.get() {
+            v.set_workspace(ws);
+        }
     }
 
     pub fn set_position(self: &Rc<Self>, pos: Rect) {
         self.set_ns_position(pos);
         self.schedule_layout();
+        self.set_icon_position();
+    }
+
+    fn calculate_icon_position(&self) -> (i32, i32) {
+        let ns = &self.node_state[LiveTL];
+        let (x, y) = ns.position.get().position();
+        let (dx, dy) = ns.title_rect.get().position();
+        let x = x + dx + 1 + ns.offsets.toplevel_icon.get();
+        let y = y + dy + 1;
+        (x, y)
+    }
+
+    fn set_icon_position(&self) {
+        let ns = &self.node_state[LiveTL];
+        let Some(icon) = ns.toplevel_icon.get() else {
+            return;
+        };
+        let (x, y) = self.calculate_icon_position();
+        icon.set_position(x, y);
     }
 
     pub fn ensure_on_output(self: &Rc<Self>, output: &Rc<OutputNode>) {
@@ -943,6 +957,15 @@ impl FloatNode {
         }
     }
 
+    fn set_ns_toplevel_icon(self: &Rc<Self>, v: Option<IconSurface>) -> Option<IconSurface> {
+        self.add_transaction_op(FloatTransactionOp::SetToplevelIcon(v.clone()));
+        let old = self.node_state[LiveTL].toplevel_icon.set(v);
+        if let Some(v) = &old {
+            v.disown();
+        }
+        old
+    }
+
     fn schedule_title_offsets(self: &Rc<Self>) {
         self.title_offsets_scheduled.set(true);
         self.push_layout_phase();
@@ -968,7 +991,7 @@ impl FloatNode {
             x += th;
         }
         snapshot!(toplevel_icon);
-        if self.icon.has_icon() && theme.sizes.title_icon_size.get() > 0 {
+        if ns.toplevel_icon.is_some() {
             x += th;
         }
         snapshot!(title);
@@ -999,6 +1022,32 @@ impl FloatNode {
         if damage && self.node_visible(LiveTL) {
             self.state
                 .schedule_damage(self.node_absolute_position(LiveTL));
+        }
+        if toplevel_icon {
+            self.set_icon_position();
+        }
+    }
+
+    fn update_icon(self: &Rc<Self>) {
+        let ns = &self.node_state[LiveTL];
+        let theme = &ns.theme;
+        let size = theme.sizes.title_icon_size.get();
+        let surface = (size > 0)
+            .and_then(|| ns.child.get())
+            .and_then(|c| c.tl_icon_surface_factory())
+            .map(|n| n.build_surface(self, self.id));
+        if let Some(surface) = &surface {
+            let (x, y) = self.calculate_icon_position();
+            surface.set_grayscale(theme.window_icons_grayscale.get());
+            surface.set_position(x, y);
+            surface.set_size(size, size);
+            surface.set_visible(ns.visible.get());
+            surface.set_workspace(&self.workspace.get());
+        }
+        let new = surface.as_ref().is_some();
+        let old = self.set_ns_toplevel_icon(surface).is_some();
+        if old != new {
+            self.schedule_title_offsets();
         }
     }
 }
@@ -1253,11 +1302,10 @@ impl ContainingNode for FloatNode {
         self.discard_child_properties();
         self.set_ns_child(Some(&new));
         new.tl_set_parent(self.clone());
-        new.tl_update_icon(&self.icon);
         self.pull_child_properties();
         self.update_effective_visible();
         self.schedule_layout();
-        self.schedule_title_offsets();
+        self.update_icon();
     }
 
     fn cnode_remove_child2(self: Rc<Self>, _child: &dyn Node, _preserve_focus: bool) {
@@ -1268,6 +1316,7 @@ impl ContainingNode for FloatNode {
         self.workspace_link.set(None);
         self.pinned_link.take();
         self.set_ns_pinned(false);
+        self.set_ns_toplevel_icon(None);
     }
 
     fn cnode_accepts_child(&self, _node: &dyn Node) -> bool {
@@ -1354,10 +1403,8 @@ impl ContainingNode for FloatNode {
         Some(self)
     }
 
-    fn cnode_child_icon_changed(self: Rc<Self>, child: &dyn ToplevelNode) {
-        child.tl_update_icon(&self.icon);
-        self.schedule_title_offsets();
-        self.schedule_render_titles();
+    fn cnode_child_icon_factory_changed(self: Rc<Self>, _child: NodeId) {
+        self.update_icon();
     }
 }
 
@@ -1369,6 +1416,9 @@ impl FloatNode {
             self.add_transaction_op(FloatTransactionOp::Damage);
             if visible {
                 self.display_link.borrow().invalidate();
+            }
+            if let Some(v) = ns.toplevel_icon.get() {
+                v.set_visible(visible);
             }
         }
         if let Some(child) = ns.child.get() {
@@ -1455,25 +1505,28 @@ impl ThemeChangeListener for FloatNode {
             window_icons_grayscale,
             title_font,
         } = changed;
+        if title_icon_size {
+            let icon_size = ns.theme.sizes.title_icon_size.get();
+            if icon_size <= 0 {
+                self.set_ns_toplevel_icon(None);
+            } else if let Some(v) = ns.toplevel_icon.get() {
+                v.set_size(icon_size, icon_size);
+            } else {
+                self.update_icon();
+            }
+        }
         let layout = or_chain!()
             || border_width
             || title_height
             || title_plus_underline_height
             || title_underline_height
-            || title_icon_size
             || or_chain!();
         if layout {
-            if self.icon.set_size(ns.theme.sizes.title_icon_size.get())
-                && let Some(child) = ns.child.get()
-            {
-                child.tl_update_icon(&self.icon);
-            }
             self.schedule_layout();
         }
         let title = or_chain!(___________)
             || focused_title_text
             || unfocused_title_text
-            || title_icon_size
             || title_font
             || or_chain!();
         if title {
@@ -1501,14 +1554,16 @@ impl ThemeChangeListener for FloatNode {
         if title_offsets {
             self.schedule_title_offsets();
         }
+        if window_icons_grayscale && let Some(icon) = ns.toplevel_icon.get() {
+            let grayscale = ns.theme.window_icons_grayscale.get();
+            icon.set_grayscale(grayscale);
+        }
     }
 }
 
 impl GfxCtxChangedListener for FloatNode {
     fn handle_gfx_context_change(self: Rc<Self>) {
         self.title_textures.borrow_mut().clear();
-        self.icon.clear();
-        self.icons.clear();
         self.schedule_render_titles();
         self.schedule_title_offsets();
     }
@@ -1548,6 +1603,7 @@ pub enum FloatTransactionOp {
     ClearLink,
     ThemeOp(FloatThemeOp),
     SetOffset(OffsetsOp),
+    SetToplevelIcon(Option<IconSurface>),
 }
 
 impl Transactionable for FloatNode {
@@ -1636,6 +1692,9 @@ impl Transactionable for FloatNode {
             FloatTransactionOp::SetOffset(v) => {
                 s.offsets.cached_apply(v);
             }
+            FloatTransactionOp::SetToplevelIcon(v) => {
+                s.toplevel_icon.set(v);
+            }
         }
     }
 }
@@ -1654,4 +1713,11 @@ pub fn calculate_float_position(output_rect: Rect, mut width: i32, mut height: i
         height = output_rect.height();
     }
     Rect::new_sized_saturating(x1, y1, width, height)
+}
+
+impl IconSurfaceOwner for FloatNode {
+    fn destroyed(self: Rc<Self>, _node_id: NodeId) {
+        self.set_ns_toplevel_icon(None);
+        self.schedule_title_offsets();
+    }
 }

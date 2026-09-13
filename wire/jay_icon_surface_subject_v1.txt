@@ -1,3 +1,5 @@
+synthetics
+
 request destroy (destructor) {
 
 }

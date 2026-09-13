@@ -95,7 +95,6 @@ impl Drop for Liveness {
     }
 }
 
-#[cfg_attr(not(test), expect(unused))]
 pub trait GetLiveness {
     fn get_liveness(&self) -> &Liveness;
 }

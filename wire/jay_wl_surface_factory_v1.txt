@@ -1,7 +1,10 @@
+event_handler
+synthetics
+
 request destroy (destructor) {
 
 }
 
-event surface (dead) {
+event surface {
     id: id(wl_surface) (new),
 }

@@ -16,6 +16,7 @@ pub mod test_fifo;
 pub mod test_input_method;
 pub mod test_input_method_keyboard_grab;
 pub mod test_input_popup_surface;
+pub mod test_jay_icon_surface;
 pub mod test_keyboard;
 pub mod test_pointer;
 pub mod test_pointer_warp;

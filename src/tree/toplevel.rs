@@ -26,7 +26,6 @@ use crate::ifs::wl_surface::WlSurface;
 use crate::ifs::wl_surface::icon_surface::jay_icon_surface_factory_v1::JayIconSurfaceFactoryV1;
 use crate::ifs::wl_surface::x_surface::xwindow::XwindowData;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevelToplevelData;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::ToplevelIconUser;
 use crate::ifs::wp_content_type_v1::ContentType;
 use crate::ifs::zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1;
 use crate::ifs::zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1;
@@ -385,11 +384,6 @@ pub trait ToplevelNodeBase: OutputEventListener + WorkspaceEventListener + Node 
         // nothing
     }
 
-    fn tl_update_icon(&self, user: &ToplevelIconUser) {
-        user.clear();
-    }
-
-    #[expect(unused)]
     fn tl_icon_surface_factory(&self) -> Option<Rc<JayIconSurfaceFactoryV1>> {
         None
     }

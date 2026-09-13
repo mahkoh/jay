@@ -47,7 +47,6 @@ impl IconSurface {
         self.surface.owner.take();
     }
 
-    #[expect(unused)]
     pub fn set_visible(&self, visible: bool) {
         let s = &self.surface;
         s.surface.set_visible(visible);
@@ -62,7 +61,6 @@ impl IconSurface {
         }
     }
 
-    #[expect(unused)]
     pub fn set_position(&self, x: i32, y: i32) {
         let s = &self.surface;
         let pos = Some((x, y));
@@ -71,7 +69,6 @@ impl IconSurface {
         }
     }
 
-    #[expect(unused)]
     pub fn set_size(&self, mut width: i32, mut height: i32) {
         width = width.max(1);
         height = height.max(1);
@@ -82,26 +79,29 @@ impl IconSurface {
         s.schedule_configure();
     }
 
-    #[expect(unused)]
     pub fn set_workspace(&self, v: &Rc<WorkspaceNode>) {
         let s = &self.surface;
         s.workspace.set(Some(v.clone()));
         s.surface.set_workspace(v);
     }
 
-    #[expect(unused)]
     pub fn set_grayscale(&self, grayscale: bool) {
         let s = &self.surface;
         s.add_transaction_op(IconOp::SetGrayscale(grayscale));
     }
 
-    #[expect(unused)]
     pub fn render(&self, renderer: &mut RendererBase, x: i32, y: i32, bounds: Option<&Rect>) {
         let s = &self.surface;
         if !s.surface.node_visible(RenderTL) || s.surface.buffer.is_none() {
             return;
         }
         s.cache.render(renderer, x, y, s.grayscale.get(), bounds);
+    }
+
+    #[cfg(feature = "it")]
+    pub fn grayscale(&self) -> bool {
+        let s = &self.surface;
+        s.grayscale.get()
     }
 }
 

@@ -21,8 +21,7 @@ use crate::ifs::wl_surface::xdg_surface::XdgSurfaceExt;
 use crate::ifs::wl_surface::xdg_surface::XdgSurfaceTransactionOp;
 use crate::ifs::wl_surface::xdg_surface::XdgToplevelConfigureData;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_dialog_v1::XdgDialogV1;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::ToplevelIconUser;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::XdgToplevelIconV1;
+use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1_bridge::XdgToplevelIconBridge;
 use crate::ifs::xdg_toplevel_drag_v1::XdgToplevelDragV1;
 use crate::ifs::zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1;
 use crate::leaks::Tracker;
@@ -68,7 +67,6 @@ use crate::utils::bitflags::BitflagsExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::numcell::NumCell;
-use crate::utils::obj_and_id::ObjAndId;
 use crate::wire::ObjectId;
 use crate::wire::XdgToplevelId;
 use crate::wire::xdg_toplevel::*;
@@ -86,6 +84,7 @@ use thiserror::Error;
 pub mod xdg_dialog_v1;
 pub mod xdg_toplevel_icon_manager_v1;
 pub mod xdg_toplevel_icon_v1;
+pub mod xdg_toplevel_icon_v1_bridge;
 pub mod xdg_toplevel_session_v1;
 
 const STATE_MAXIMIZED: u32 = 1;
@@ -158,9 +157,9 @@ pub struct XdgToplevel {
     extents_set: Cell<bool>,
     pub data: Rc<XdgToplevelToplevelData>,
     committed: Cell<bool>,
-    icon: ObjAndId<Option<Rc<XdgToplevelIconV1>>>,
     transaction_data: TransactionData<XdgToplevelTransactionOp>,
     allow_fixed_size: Cell<bool>,
+    icon_bridge: XdgToplevelIconBridge,
     icon_surface_factory: CloneCell<Option<Rc<JayIconSurfaceFactoryV1>>>,
 }
 
@@ -223,9 +222,9 @@ impl XdgToplevel {
             extents_set: Cell::new(false),
             data,
             committed: Default::default(),
-            icon: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
             allow_fixed_size: Cell::new(true),
+            icon_bridge: XdgToplevelIconBridge::new(&surface.surface.client, id),
             icon_surface_factory: Default::default(),
         }
     }
@@ -265,12 +264,6 @@ impl XdgToplevel {
         })
     }
 
-    fn icon_changed(&self) {
-        if let Some(parent) = self.toplevel_data.parent.get() {
-            parent.cnode_child_icon_changed(self);
-        }
-    }
-
     fn mark_variable_size(&self) {
         self.allow_fixed_size.set(false);
         let d = &self.toplevel_data;
@@ -296,6 +289,7 @@ impl XdgToplevelRequestHandler for XdgToplevel {
     type Error = XdgToplevelError;
 
     fn destroy(&self, _req: Destroy, slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.icon_bridge.set_buffers(None);
         self.toplevel_data.disown_session();
         slf.tl_destroy();
         self.xdg.unset_ext();
@@ -320,9 +314,6 @@ impl XdgToplevelRequestHandler for XdgToplevel {
         }
         self.xdg.surface.client.remove_obj(self);
         self.xdg.surface.set_toplevel(None);
-        if let Some(icon) = self.icon.set(None) {
-            icon.toplevels.remove(&self.id);
-        }
         Ok(())
     }
 
@@ -587,7 +578,6 @@ impl BreakLoops for XdgToplevel {
         self.tl_destroy();
         self.parent.set(None);
         self.dialog.set(None);
-        self.icon.set(None);
         let _children = mem::take(&mut *self.children.borrow_mut());
         self.icon_surface_factory.take();
     }
@@ -826,14 +816,6 @@ impl ToplevelNodeBase for XdgToplevel {
     fn tl_mark_fullscreen_ext(&self) {
         self.xdg
             .update_effective_geometry(UpdateGeometryReason::FullscreenLive);
-    }
-
-    fn tl_update_icon(&self, user: &ToplevelIconUser) {
-        let Some(icon) = self.icon.get() else {
-            user.clear();
-            return;
-        };
-        icon.update_user(user);
     }
 
     fn tl_icon_surface_factory(&self) -> Option<Rc<JayIconSurfaceFactoryV1>> {

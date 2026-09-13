@@ -27,7 +27,6 @@ pub struct JayIconSurfaceFactoryV1 {
 }
 
 impl JayIconSurfaceFactoryV1 {
-    #[expect(unused)]
     pub fn build_surface(
         &self,
         owner: &Rc<impl IconSurfaceOwner + 'static>,

@@ -611,7 +611,6 @@ impl WlBuffer {
         Ok(())
     }
 
-    #[expect(unused)]
     pub fn clone_synthetic(&self) -> SyntheticWlBuffer {
         let id = self.client.new_synthetic_id();
         let slf = Rc::<Self>::new_cyclic(|slf| Self {

@@ -8,7 +8,6 @@ use std::rc::Weak;
 #[cfg(test)]
 mod tests;
 
-#[cfg_attr(not(test), expect(unused))]
 #[repr(transparent)]
 pub struct TypeView<T, V>(PhantomData<fn() -> V>, T)
 where
@@ -92,7 +91,6 @@ impl<T> TypeViewExt1 for T {
     }
 }
 
-#[cfg_attr(not(test), expect(unused))]
 pub trait TypeViewExt2<T>
 where
     T: ?Sized,
@@ -122,7 +120,6 @@ where
     }
 }
 
-#[cfg_attr(not(test), expect(unused))]
 pub const fn tv_wrap_weak<T, V>(t: Weak<T>) -> Weak<TypeView<T, V>>
 where
     V: ?Sized,
@@ -133,7 +130,6 @@ where
     unsafe { mem::transmute(t) }
 }
 
-#[cfg_attr(not(test), expect(unused))]
 pub const fn tv_unwrap_rc_ref<T, V>(t: &Rc<TypeView<T, V>>) -> &Rc<T>
 where
     V: ?Sized,
