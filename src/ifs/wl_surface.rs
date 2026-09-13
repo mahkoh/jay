@@ -2125,6 +2125,7 @@ impl BreakLoops for WlSurface {
         self.color_representation_surface.take();
         self.dmabuf_feedback.clear();
         self.surface_transaction.unblock_all_transactions();
+        self.syncobj_surface.take();
     }
 }
 
