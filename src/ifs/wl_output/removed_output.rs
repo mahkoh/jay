@@ -36,7 +36,7 @@ impl RemovedOutputGlobal {
     }
 }
 
-global_base!(RemovedOutputGlobal, WlOutput, RemovedOutputError);
+global_base!(RemovedOutputGlobal, WlOutput);
 
 impl Global for RemovedOutputGlobal {
     fn version(&self) -> u32 {

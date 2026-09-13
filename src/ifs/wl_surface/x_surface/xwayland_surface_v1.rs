@@ -3,14 +3,17 @@ use crate::client::ClientError;
 use crate::ifs::wl_surface::WlSurfaceError;
 use crate::ifs::wl_surface::x_surface::XSurface;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::utils::cell_ext::CellExt;
 use crate::wire::XwaylandSurfaceV1Id;
 use crate::wire::xwayland_surface_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct XwaylandSurfaceV1 {
     pub id: XwaylandSurfaceV1Id,
     pub client: Rc<Client>,
@@ -42,18 +45,11 @@ impl XwaylandSurfaceV1RequestHandler for XwaylandSurfaceV1 {
     }
 }
 
-object_base! {
-    self = XwaylandSurfaceV1;
-    version = self.version;
-}
-
-impl Object for XwaylandSurfaceV1 {
+impl BreakLoops for XwaylandSurfaceV1 {
     fn break_loops(self: Rc<Self>) {
         self.x.xwayland_surface.set(None);
     }
 }
-
-simple_add_obj!(XwaylandSurfaceV1);
 
 #[derive(Debug, Error)]
 pub enum XwaylandSurfaceV1Error {

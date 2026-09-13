@@ -6,7 +6,7 @@ use crate::ifs::wl_surface::SurfaceRole;
 use crate::ifs::wl_surface::WlSurface;
 use crate::ifs::wl_surface::WlSurfaceError;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::state::State;
@@ -17,10 +17,13 @@ use crate::tree::WorkspaceNode;
 use crate::wire::ObjectId;
 use crate::wire::ZwpInputPopupSurfaceV2Id;
 use crate::wire::zwp_input_popup_surface_v2::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct ZwpInputPopupSurfaceV2 {
     pub id: ZwpInputPopupSurfaceV2Id,
     pub client: Rc<Client>,
@@ -193,18 +196,11 @@ impl ZwpInputPopupSurfaceV2RequestHandler for ZwpInputPopupSurfaceV2 {
     }
 }
 
-object_base! {
-    self = ZwpInputPopupSurfaceV2;
-    version = self.version;
-}
-
-impl Object for ZwpInputPopupSurfaceV2 {
+impl BreakLoops for ZwpInputPopupSurfaceV2 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(ZwpInputPopupSurfaceV2);
 
 #[derive(Debug, Error)]
 pub enum ZwpInputPopupSurfaceV2Error {

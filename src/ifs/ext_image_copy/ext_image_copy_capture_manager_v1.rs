@@ -8,11 +8,11 @@ use crate::ifs::ext_image_capture_source_v1::ImageCaptureSource;
 use crate::ifs::ext_image_copy::ext_image_copy_capture_cursor_session_v1::ExtImageCopyCaptureCursorSessionV1;
 use crate::ifs::ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::wire::ExtImageCopyCaptureManagerV1Id;
 use crate::wire::ext_image_copy_capture_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -43,6 +43,7 @@ impl ExtImageCopyCaptureManagerV1Global {
     }
 }
 
+#[derive(Object)]
 pub struct ExtImageCopyCaptureManagerV1 {
     id: ExtImageCopyCaptureManagerV1Id,
     client: Rc<Client>,
@@ -137,7 +138,6 @@ impl ExtImageCopyCaptureManagerV1RequestHandler for ExtImageCopyCaptureManagerV1
 global_base!(
     ExtImageCopyCaptureManagerV1Global,
     ExtImageCopyCaptureManagerV1,
-    ExtImageCopyCaptureManagerV1Error
 );
 
 impl Global for ExtImageCopyCaptureManagerV1Global {
@@ -151,15 +151,6 @@ impl Global for ExtImageCopyCaptureManagerV1Global {
 }
 
 simple_add_global!(ExtImageCopyCaptureManagerV1Global);
-
-object_base! {
-    self = ExtImageCopyCaptureManagerV1;
-    version = self.version;
-}
-
-impl Object for ExtImageCopyCaptureManagerV1 {}
-
-simple_add_obj!(ExtImageCopyCaptureManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ExtImageCopyCaptureManagerV1Error {

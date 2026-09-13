@@ -5,12 +5,12 @@ use crate::globals::GlobalName;
 use crate::ifs::xdg_activation_token_v1::ActivationToken;
 use crate::ifs::xdg_activation_token_v1::XdgActivationTokenV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::opaque::OpaqueError;
 use crate::wire::XdgActivationV1Id;
 use crate::wire::xdg_activation_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -41,7 +41,7 @@ impl XdgActivationV1Global {
     }
 }
 
-global_base!(XdgActivationV1Global, XdgActivationV1, XdgActivationV1Error);
+global_base!(XdgActivationV1Global, XdgActivationV1);
 
 simple_add_global!(XdgActivationV1Global);
 
@@ -51,6 +51,7 @@ impl Global for XdgActivationV1Global {
     }
 }
 
+#[derive(Object)]
 pub struct XdgActivationV1 {
     id: XdgActivationV1Id,
     client: Rc<Client>,
@@ -101,15 +102,6 @@ impl XdgActivationV1RequestHandler for XdgActivationV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = XdgActivationV1;
-    version = self.version;
-}
-
-impl Object for XdgActivationV1 {}
-
-simple_add_obj!(XdgActivationV1);
 
 #[derive(Debug, Error)]
 pub enum XdgActivationV1Error {

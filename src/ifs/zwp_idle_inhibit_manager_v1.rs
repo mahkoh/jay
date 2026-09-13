@@ -6,10 +6,10 @@ use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1;
 use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1Error;
 use crate::ifs::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Error;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ZwpIdleInhibitManagerV1Id;
 use crate::wire::zwp_idle_inhibit_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -40,11 +40,7 @@ impl ZwpIdleInhibitManagerV1Global {
     }
 }
 
-global_base!(
-    ZwpIdleInhibitManagerV1Global,
-    ZwpIdleInhibitManagerV1,
-    ZwpIdleInhibitManagerV1Error
-);
+global_base!(ZwpIdleInhibitManagerV1Global, ZwpIdleInhibitManagerV1);
 
 impl Global for ZwpIdleInhibitManagerV1Global {
     fn version(&self) -> u32 {
@@ -54,6 +50,7 @@ impl Global for ZwpIdleInhibitManagerV1Global {
 
 simple_add_global!(ZwpIdleInhibitManagerV1Global);
 
+#[derive(Object)]
 pub struct ZwpIdleInhibitManagerV1 {
     id: ZwpIdleInhibitManagerV1Id,
     client: Rc<Client>,
@@ -85,15 +82,6 @@ impl ZwpIdleInhibitManagerV1RequestHandler for ZwpIdleInhibitManagerV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = ZwpIdleInhibitManagerV1;
-    version = self.version;
-}
-
-impl Object for ZwpIdleInhibitManagerV1 {}
-
-simple_add_obj!(ZwpIdleInhibitManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpIdleInhibitManagerV1Error {

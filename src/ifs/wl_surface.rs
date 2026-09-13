@@ -100,7 +100,7 @@ use crate::ifs::zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1;
 use crate::io_uring::IoUringError;
 use crate::keyboard::KeyboardState;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::rect::DamageQueue;
 use crate::rect::Rect;
@@ -172,6 +172,7 @@ use hashbrown::hash_map::Entry;
 use hashbrown::hash_map::OccupiedEntry;
 use isnt::std_1::primitive::IsntSliceExt;
 use isnt::std_1::vec::IsntVecExt;
+use jay_proc::Object;
 use jay_proc::Reset;
 use linearize::LinearizeExt;
 use smallvec::SmallVec;
@@ -284,6 +285,8 @@ pub struct SurfaceShmTexture {
     pub damage: DamageQueue,
 }
 
+#[derive(Object)]
+#[break_loops]
 pub struct WlSurface {
     pub id: WlSurfaceId,
     pub node_id: SurfaceNodeId,
@@ -2094,12 +2097,7 @@ impl WlSurface {
     }
 }
 
-object_base! {
-    self = WlSurface;
-    version = self.version;
-}
-
-impl Object for WlSurface {
+impl BreakLoops for WlSurface {
     fn break_loops(self: Rc<Self>) {
         self.unset_dnd_icons();
         self.unset_cursors();
@@ -2129,8 +2127,6 @@ impl Object for WlSurface {
         self.surface_transaction.unblock_all_transactions();
     }
 }
-
-dedicated_add_obj!(WlSurface, WlSurfaceId, surfaces);
 
 tree_id!(SurfaceNodeId);
 impl NodeBase for WlSurface {

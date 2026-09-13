@@ -8,8 +8,14 @@ mod drm_object_properties;
 mod extract_ident;
 mod liveness;
 mod markers;
+mod object;
 mod reset;
 mod str_fmt;
+
+#[proc_macro_derive(Object, attributes(break_loops))]
+pub fn derive_object(input: TokenStream) -> TokenStream {
+    object::derive_object(input)
+}
 
 #[proc_macro_derive(ResetImmutable)]
 pub fn derive_reset_immutable(input: TokenStream) -> TokenStream {

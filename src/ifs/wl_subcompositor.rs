@@ -5,10 +5,10 @@ use crate::globals::GlobalName;
 use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
 use crate::ifs::wl_surface::wl_subsurface::WlSubsurfaceError;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WlSubcompositorId;
 use crate::wire::wl_subcompositor::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -19,6 +19,7 @@ pub struct WlSubcompositorGlobal {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct WlSubcompositor {
     id: WlSubcompositorId,
     client: Rc<Client>,
@@ -68,7 +69,7 @@ impl WlSubcompositorRequestHandler for WlSubcompositor {
     }
 }
 
-global_base!(WlSubcompositorGlobal, WlSubcompositor, WlSubcompositorError);
+global_base!(WlSubcompositorGlobal, WlSubcompositor);
 
 impl Global for WlSubcompositorGlobal {
     fn version(&self) -> u32 {
@@ -77,15 +78,6 @@ impl Global for WlSubcompositorGlobal {
 }
 
 simple_add_global!(WlSubcompositorGlobal);
-
-object_base! {
-    self = WlSubcompositor;
-    version = self.version;
-}
-
-impl Object for WlSubcompositor {}
-
-simple_add_obj!(WlSubcompositor);
 
 #[derive(Debug, Error)]
 pub enum WlSubcompositorError {

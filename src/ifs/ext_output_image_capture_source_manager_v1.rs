@@ -5,10 +5,10 @@ use crate::globals::GlobalName;
 use crate::ifs::ext_image_capture_source_v1::ExtImageCaptureSourceV1;
 use crate::ifs::ext_image_capture_source_v1::ImageCaptureSource;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ExtOutputImageCaptureSourceManagerV1Id;
 use crate::wire::ext_output_image_capture_source_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -39,6 +39,7 @@ impl ExtOutputImageCaptureSourceManagerV1Global {
     }
 }
 
+#[derive(Object)]
 pub struct ExtOutputImageCaptureSourceManagerV1 {
     id: ExtOutputImageCaptureSourceManagerV1Id,
     client: Rc<Client>,
@@ -53,6 +54,7 @@ impl ExtOutputImageCaptureSourceManagerV1RequestHandler for ExtOutputImageCaptur
         let output = self.client.lookup(req.output)?;
         let obj = Rc::new(ExtImageCaptureSourceV1 {
             id: req.source,
+            version: self.version,
             client: self.client.clone(),
             tracker: Default::default(),
             ty: ImageCaptureSource::Output(output.global.clone()),
@@ -71,7 +73,6 @@ impl ExtOutputImageCaptureSourceManagerV1RequestHandler for ExtOutputImageCaptur
 global_base!(
     ExtOutputImageCaptureSourceManagerV1Global,
     ExtOutputImageCaptureSourceManagerV1,
-    ExtOutputImageCaptureSourceManagerV1Error
 );
 
 impl Global for ExtOutputImageCaptureSourceManagerV1Global {
@@ -81,15 +82,6 @@ impl Global for ExtOutputImageCaptureSourceManagerV1Global {
 }
 
 simple_add_global!(ExtOutputImageCaptureSourceManagerV1Global);
-
-object_base! {
-    self = ExtOutputImageCaptureSourceManagerV1;
-    version = self.version;
-}
-
-impl Object for ExtOutputImageCaptureSourceManagerV1 {}
-
-simple_add_obj!(ExtOutputImageCaptureSourceManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ExtOutputImageCaptureSourceManagerV1Error {

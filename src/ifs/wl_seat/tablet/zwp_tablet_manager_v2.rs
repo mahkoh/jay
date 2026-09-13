@@ -4,10 +4,10 @@ use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_seat::tablet::zwp_tablet_seat_v2::ZwpTabletSeatV2;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ZwpTabletManagerV2Id;
 use crate::wire::zwp_tablet_manager_v2::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -15,6 +15,7 @@ pub struct ZwpTabletManagerV2Global {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct ZwpTabletManagerV2 {
     id: ZwpTabletManagerV2Id,
     client: Rc<Client>,
@@ -45,11 +46,7 @@ impl ZwpTabletManagerV2Global {
     }
 }
 
-global_base!(
-    ZwpTabletManagerV2Global,
-    ZwpTabletManagerV2,
-    ZwpTabletManagerV2Error
-);
+global_base!(ZwpTabletManagerV2Global, ZwpTabletManagerV2);
 
 impl Global for ZwpTabletManagerV2Global {
     fn version(&self) -> u32 {
@@ -82,15 +79,6 @@ impl ZwpTabletManagerV2RequestHandler for ZwpTabletManagerV2 {
         Ok(())
     }
 }
-
-object_base! {
-    self = ZwpTabletManagerV2;
-    version = self.version;
-}
-
-impl Object for ZwpTabletManagerV2 {}
-
-simple_add_obj!(ZwpTabletManagerV2);
 
 #[derive(Debug, Error)]
 pub enum ZwpTabletManagerV2Error {

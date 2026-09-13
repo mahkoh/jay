@@ -19,7 +19,7 @@ use crate::ifs::jay_output::JayOutput;
 use crate::ifs::jay_toplevel::JayToplevel;
 use crate::ifs::wl_buffer::WlBufferStorage;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::scale::Scale;
 use crate::state::State;
@@ -42,6 +42,7 @@ use crate::video::LINEAR_MODIFIER;
 use crate::video::dmabuf::DmaBuf;
 use crate::wire::JayScreencastId;
 use crate::wire::jay_screencast::*;
+use jay_proc::Object;
 use jay_proc::jay_clone;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -77,6 +78,8 @@ pub async fn perform_screencast_realloc(state: Rc<State>) {
 
 pub const CLIENT_BUFFERS_SINCE: Version = Version(7);
 
+#[derive(Object)]
+#[break_loops]
 pub struct JayScreencast {
     pub id: JayScreencastId,
     version: Version,
@@ -775,18 +778,11 @@ impl JayScreencastRequestHandler for JayScreencast {
     }
 }
 
-object_base! {
-    self = JayScreencast;
-    version = self.version;
-}
-
-impl Object for JayScreencast {
+impl BreakLoops for JayScreencast {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-dedicated_add_obj!(JayScreencast, JayScreencastId, screencasts);
 
 #[derive(Debug, Error)]
 pub enum JayScreencastError {

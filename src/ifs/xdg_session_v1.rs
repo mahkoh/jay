@@ -1,7 +1,7 @@
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::sm::Session;
 use crate::sm::SessionGetStatus;
@@ -20,11 +20,14 @@ use crate::wire::xdg_session_v1::Replaced;
 use crate::wire::xdg_session_v1::RestoreToplevel;
 use crate::wire::xdg_session_v1::Restored;
 use crate::wire::xdg_session_v1::XdgSessionV1RequestHandler;
+use jay_proc::Object;
 use std::cell::RefCell;
 use std::error::Error;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct XdgSessionV1 {
     pub id: XdgSessionV1Id,
     pub client: Rc<Client>,
@@ -138,18 +141,11 @@ impl XdgSessionV1RequestHandler for XdgSessionV1 {
     }
 }
 
-object_base! {
-    self = XdgSessionV1;
-    version = self.version;
-}
-
-impl Object for XdgSessionV1 {
+impl BreakLoops for XdgSessionV1 {
     fn break_loops(self: Rc<Self>) {
         self.disown_to_peer();
     }
 }
-
-simple_add_obj!(XdgSessionV1);
 
 #[derive(Debug, Error)]
 pub enum XdgSessionV1Error {

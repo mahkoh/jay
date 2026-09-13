@@ -4,10 +4,10 @@ use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wp_security_context_v1::WpSecurityContextV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WpSecurityContextManagerV1Id;
 use crate::wire::wp_security_context_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -38,11 +38,7 @@ impl WpSecurityContextManagerV1Global {
     }
 }
 
-global_base!(
-    WpSecurityContextManagerV1Global,
-    WpSecurityContextManagerV1,
-    WpSecurityContextManagerV1Error
-);
+global_base!(WpSecurityContextManagerV1Global, WpSecurityContextManagerV1);
 
 impl Global for WpSecurityContextManagerV1Global {
     fn version(&self) -> u32 {
@@ -52,6 +48,7 @@ impl Global for WpSecurityContextManagerV1Global {
 
 simple_add_global!(WpSecurityContextManagerV1Global);
 
+#[derive(Object)]
 pub struct WpSecurityContextManagerV1 {
     id: WpSecurityContextManagerV1Id,
     client: Rc<Client>,
@@ -85,15 +82,6 @@ impl WpSecurityContextManagerV1RequestHandler for WpSecurityContextManagerV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = WpSecurityContextManagerV1;
-    version = self.version;
-}
-
-impl Object for WpSecurityContextManagerV1 {}
-
-simple_add_obj!(WpSecurityContextManagerV1);
 
 #[derive(Debug, Error)]
 pub enum WpSecurityContextManagerV1Error {

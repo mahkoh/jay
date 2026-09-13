@@ -2,16 +2,19 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::wire::ZwpIdleInhibitorV1Id;
 use crate::wire::zwp_idle_inhibitor_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
 linear_ids!(IdleInhibitorIds, IdleInhibitorId, u64);
 
+#[derive(Object)]
+#[break_loops]
 pub struct ZwpIdleInhibitorV1 {
     pub id: ZwpIdleInhibitorV1Id,
     pub inhibit_id: IdleInhibitorId,
@@ -53,18 +56,11 @@ impl ZwpIdleInhibitorV1 {
     }
 }
 
-object_base! {
-    self = ZwpIdleInhibitorV1;
-    version = self.version;
-}
-
-impl Object for ZwpIdleInhibitorV1 {
+impl BreakLoops for ZwpIdleInhibitorV1 {
     fn break_loops(self: Rc<Self>) {
         self.deactivate();
     }
 }
-
-simple_add_obj!(ZwpIdleInhibitorV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpIdleInhibitorV1Error {

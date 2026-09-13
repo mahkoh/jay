@@ -1,17 +1,18 @@
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::rect::Region;
 use crate::rect::RegionBuilder;
 use crate::wire::WlRegionId;
 use crate::wire::wl_region::*;
+use jay_proc::Object;
 use std::cell::RefCell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct WlRegion {
     id: WlRegionId,
     client: Rc<Client>,
@@ -66,15 +67,6 @@ impl WlRegionRequestHandler for WlRegion {
         Ok(())
     }
 }
-
-object_base! {
-    self = WlRegion;
-    version = self.version;
-}
-
-impl Object for WlRegion {}
-
-dedicated_add_obj!(WlRegion, WlRegionId, regions);
 
 #[derive(Debug, Error)]
 pub enum WlRegionError {

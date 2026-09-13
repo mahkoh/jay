@@ -7,7 +7,7 @@ use crate::ifs::wl_buffer::WlBuffer;
 use crate::ifs::wl_buffer::WlBufferError;
 use crate::ifs::zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::Version;
 use crate::utils::bhash::BHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::hash_map_ext::HashMapExt;
@@ -18,6 +18,7 @@ use crate::video::dmabuf::PlaneVec;
 use crate::wire::WlBufferId;
 use crate::wire::ZwpLinuxBufferParamsV1Id;
 use crate::wire::zwp_linux_buffer_params_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -33,8 +34,10 @@ const BOTTOM_FIRST: u32 = 4;
 
 const MAX_PLANE: u32 = MAX_PLANES as u32 - 1;
 
+#[derive(Object)]
 pub struct ZwpLinuxBufferParamsV1 {
     id: ZwpLinuxBufferParamsV1Id,
+    version: Version,
     parent: Rc<ZwpLinuxDmabufV1>,
     planes: RefCell<BHashMap<u32, Add>>,
     used: Cell<bool>,
@@ -47,6 +50,7 @@ impl ZwpLinuxBufferParamsV1 {
     pub fn new(id: ZwpLinuxBufferParamsV1Id, parent: &Rc<ZwpLinuxDmabufV1>) -> Self {
         Self {
             id,
+            version: parent.version,
             parent: parent.clone(),
             planes: RefCell::new(Default::default()),
             used: Cell::new(false),
@@ -218,15 +222,6 @@ impl ZwpLinuxBufferParamsV1RequestHandler for ZwpLinuxBufferParamsV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = ZwpLinuxBufferParamsV1;
-    version = self.parent.version;
-}
-
-impl Object for ZwpLinuxBufferParamsV1 {}
-
-simple_add_obj!(ZwpLinuxBufferParamsV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpLinuxBufferParamsV1Error {

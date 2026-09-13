@@ -5,10 +5,10 @@ use crate::globals::GlobalName;
 use crate::ifs::org_kde_kwin_server_decoration::OrgKdeKwinServerDecoration;
 use crate::ifs::org_kde_kwin_server_decoration::OrgKdeKwinServerDecorationError;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::OrgKdeKwinServerDecorationManagerId;
 use crate::wire::org_kde_kwin_server_decoration_manager::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -48,7 +48,6 @@ impl OrgKdeKwinServerDecorationManagerGlobal {
 global_base!(
     OrgKdeKwinServerDecorationManagerGlobal,
     OrgKdeKwinServerDecorationManager,
-    OrgKdeKwinServerDecorationManagerError
 );
 
 impl Global for OrgKdeKwinServerDecorationManagerGlobal {
@@ -59,6 +58,7 @@ impl Global for OrgKdeKwinServerDecorationManagerGlobal {
 
 simple_add_global!(OrgKdeKwinServerDecorationManagerGlobal);
 
+#[derive(Object)]
 pub struct OrgKdeKwinServerDecorationManager {
     id: OrgKdeKwinServerDecorationManagerId,
     client: Rc<Client>,
@@ -91,15 +91,6 @@ impl OrgKdeKwinServerDecorationManagerRequestHandler for OrgKdeKwinServerDecorat
         Ok(())
     }
 }
-
-object_base! {
-    self = OrgKdeKwinServerDecorationManager;
-    version = self.version;
-}
-
-impl Object for OrgKdeKwinServerDecorationManager {}
-
-simple_add_obj!(OrgKdeKwinServerDecorationManager);
 
 #[derive(Debug, Error)]
 pub enum OrgKdeKwinServerDecorationManagerError {

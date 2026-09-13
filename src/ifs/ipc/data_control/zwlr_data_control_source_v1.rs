@@ -7,17 +7,21 @@ use crate::ifs::ipc::data_control::private::logic;
 use crate::ifs::ipc::data_control::private::logic::DataControlError;
 use crate::ifs::ipc::data_control::zwlr_data_control_device_v1::WlrDataControlIpc;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::wire::ZwlrDataControlSourceV1Id;
 use crate::wire::zwlr_data_control_source_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
 
+#[derive(Object)]
+#[break_loops]
 pub struct ZwlrDataControlSourceV1 {
     id: ZwlrDataControlSourceV1Id,
+    version: Version,
     data: DataControlSourceData,
     pub tracker: Tracker<Self>,
 }
@@ -42,9 +46,9 @@ impl ZwlrDataControlSourceV1 {
     pub fn new(id: ZwlrDataControlSourceV1Id, client: &Rc<Client>, version: Version) -> Self {
         Self {
             id,
+            version,
             data: DataControlSourceData {
                 data: SourceData::new(client),
-                version,
                 location: Cell::new(IpcLocation::Clipboard),
                 used: Cell::new(false),
             },
@@ -79,22 +83,11 @@ impl ZwlrDataControlSourceV1RequestHandler for ZwlrDataControlSourceV1 {
     }
 }
 
-object_base! {
-    self = ZwlrDataControlSourceV1;
-    version = self.data.version;
-}
-
-impl Object for ZwlrDataControlSourceV1 {
+impl BreakLoops for ZwlrDataControlSourceV1 {
     fn break_loops(self: Rc<Self>) {
         logic::data_source_break_loops(&*self);
     }
 }
-
-dedicated_add_obj!(
-    ZwlrDataControlSourceV1,
-    ZwlrDataControlSourceV1Id,
-    zwlr_data_sources,
-);
 
 #[derive(Debug, Error)]
 pub enum ZwlrDataControlSourceV1Error {

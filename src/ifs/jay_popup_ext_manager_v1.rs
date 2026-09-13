@@ -5,10 +5,10 @@ use crate::globals::GlobalName;
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::jay_popup_ext_v1::JayPopupExtV1;
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::jay_popup_ext_v1::JayPopupExtV1Error;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::JayPopupExtManagerV1Id;
 use crate::wire::jay_popup_ext_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -16,6 +16,7 @@ pub struct JayPopupExtManagerV1Global {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct JayPopupExtManagerV1 {
     id: JayPopupExtManagerV1Id,
     client: Rc<Client>,
@@ -46,11 +47,7 @@ impl JayPopupExtManagerV1Global {
     }
 }
 
-global_base!(
-    JayPopupExtManagerV1Global,
-    JayPopupExtManagerV1,
-    JayPopupExtManagerV1Error
-);
+global_base!(JayPopupExtManagerV1Global, JayPopupExtManagerV1);
 
 impl Global for JayPopupExtManagerV1Global {
     fn version(&self) -> u32 {
@@ -82,15 +79,6 @@ impl JayPopupExtManagerV1RequestHandler for JayPopupExtManagerV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = JayPopupExtManagerV1;
-    version = self.version;
-}
-
-impl Object for JayPopupExtManagerV1 {}
-
-simple_add_obj!(JayPopupExtManagerV1);
 
 #[derive(Debug, Error)]
 pub enum JayPopupExtManagerV1Error {

@@ -7,15 +7,18 @@ use crate::ifs::wl_seat::wl_keyboard;
 use crate::keyboard::KeyboardState;
 use crate::keyboard::KeyboardStateId;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::wire::ZwpInputMethodKeyboardGrabV2Id;
 use crate::wire::zwp_input_method_keyboard_grab_v2::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct ZwpInputMethodKeyboardGrabV2 {
     pub id: ZwpInputMethodKeyboardGrabV2Id,
     pub client: Rc<Client>,
@@ -129,18 +132,11 @@ impl ZwpInputMethodKeyboardGrabV2RequestHandler for ZwpInputMethodKeyboardGrabV2
     }
 }
 
-object_base! {
-    self = ZwpInputMethodKeyboardGrabV2;
-    version = self.version;
-}
-
-impl Object for ZwpInputMethodKeyboardGrabV2 {
+impl BreakLoops for ZwpInputMethodKeyboardGrabV2 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(ZwpInputMethodKeyboardGrabV2);
 
 #[derive(Debug, Error)]
 pub enum ZwpInputMethodKeyboardGrabV2Error {

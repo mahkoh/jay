@@ -1,10 +1,10 @@
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::XdgActivationTokenV1Id;
 use crate::wire::xdg_activation_token_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
@@ -13,6 +13,7 @@ opaque!(ActivationToken, activation_token);
 
 const MAX_TOKENS_PER_CLIENT: usize = 8;
 
+#[derive(Object)]
 pub struct XdgActivationTokenV1 {
     id: XdgActivationTokenV1Id,
     client: Rc<Client>,
@@ -81,15 +82,6 @@ impl XdgActivationTokenV1 {
         });
     }
 }
-
-object_base! {
-    self = XdgActivationTokenV1;
-    version = self.version;
-}
-
-impl Object for XdgActivationTokenV1 {}
-
-simple_add_obj!(XdgActivationTokenV1);
 
 #[derive(Debug, Error)]
 pub enum XdgActivationTokenV1Error {

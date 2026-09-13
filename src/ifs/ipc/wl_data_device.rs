@@ -15,18 +15,21 @@ use crate::ifs::wl_seat::WlSeatError;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_surface::WlSurfaceError;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::wire::WlDataDeviceId;
 use crate::wire::WlDataOfferId;
 use crate::wire::WlSurfaceId;
 use crate::wire::wl_data_device::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
 #[expect(unused)]
 const ROLE: u32 = 0;
 
+#[derive(Object)]
+#[break_loops]
 pub struct WlDataDevice {
     pub id: WlDataDeviceId,
     pub client: Rc<Client>,
@@ -186,6 +189,7 @@ impl IpcVtable for ClipboardIpc {
             id: device.client.new_id(&**device),
             offer_id: device.client.state.data_offer_ids.next(),
             client: device.client.clone(),
+            version: device.version,
             device: device.clone(),
             data: offer_data,
             tracker: Default::default(),
@@ -211,19 +215,12 @@ impl IpcVtable for ClipboardIpc {
     }
 }
 
-object_base! {
-    self = WlDataDevice;
-    version = self.version;
-}
-
-impl Object for WlDataDevice {
+impl BreakLoops for WlDataDevice {
     fn break_loops(self: Rc<Self>) {
         break_device_loops::<ClipboardIpc>(&*self);
         self.seat.remove_data_device(&self);
     }
 }
-
-simple_add_obj!(WlDataDevice);
 
 #[derive(Debug, Error)]
 pub enum WlDataDeviceError {

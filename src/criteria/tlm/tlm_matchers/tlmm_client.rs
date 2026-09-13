@@ -91,7 +91,7 @@ impl CritDownstream<Rc<Client>> for TlmMatchClient {
                 handle(tl.tl_data());
             }
         } else {
-            for tl in target.objects.xdg_toplevel.lock().values() {
+            for tl in target.objects.dedicated.xdg_toplevel.lock().values() {
                 handle(tl.tl_data());
             }
         }

@@ -3,13 +3,14 @@ use crate::client::ClientError;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::WlSeat;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ZwpRelativePointerV1Id;
 use crate::wire::zwp_relative_pointer_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct ZwpRelativePointerV1 {
     pub id: ZwpRelativePointerV1Id,
     pub client: Rc<Client>,
@@ -48,15 +49,6 @@ impl ZwpRelativePointerV1RequestHandler for ZwpRelativePointerV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = ZwpRelativePointerV1;
-    version = self.version;
-}
-
-impl Object for ZwpRelativePointerV1 {}
-
-simple_add_obj!(ZwpRelativePointerV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpRelativePointerV1Error {

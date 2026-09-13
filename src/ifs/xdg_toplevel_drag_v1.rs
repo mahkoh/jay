@@ -4,7 +4,7 @@ use crate::ifs::ipc::wl_data_source::WlDataSource;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::renderer::Renderer;
@@ -15,10 +15,13 @@ use crate::tree::TreeTimeline::RenderTL;
 use crate::utils::clonecell::CloneCell;
 use crate::wire::XdgToplevelDragV1Id;
 use crate::wire::xdg_toplevel_drag_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct XdgToplevelDragV1 {
     id: XdgToplevelDragV1Id,
     client: Rc<Client>,
@@ -152,18 +155,11 @@ impl XdgToplevelDragV1 {
     }
 }
 
-object_base! {
-    self = XdgToplevelDragV1;
-    version = self.version;
-}
-
-impl Object for XdgToplevelDragV1 {
+impl BreakLoops for XdgToplevelDragV1 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(XdgToplevelDragV1);
 
 #[derive(Debug, Error)]
 pub enum XdgToplevelDragV1Error {

@@ -1,24 +1,27 @@
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::JayLogFileId;
 use crate::wire::jay_log_file::*;
 use bstr::BStr;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct JayLogFile {
     id: JayLogFileId,
+    version: Version,
     client: Rc<Client>,
     pub tracker: Tracker<Self>,
 }
 
 impl JayLogFile {
-    pub fn new(id: JayLogFileId, client: &Rc<Client>) -> Self {
+    pub fn new(id: JayLogFileId, version: Version, client: &Rc<Client>) -> Self {
         Self {
             id,
+            version,
             client: client.clone(),
             tracker: Default::default(),
         }
@@ -40,15 +43,6 @@ impl JayLogFileRequestHandler for JayLogFile {
         Ok(())
     }
 }
-
-object_base! {
-    self = JayLogFile;
-    version = Version(1);
-}
-
-impl Object for JayLogFile {}
-
-simple_add_obj!(JayLogFile);
 
 #[derive(Debug, Error)]
 pub enum JayLogFileError {

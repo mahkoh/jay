@@ -1,15 +1,16 @@
 use crate::client::Client;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WpImageDescriptionCreatorIccV1Id;
 use crate::wire::wp_image_description_creator_icc_v1::Create;
 use crate::wire::wp_image_description_creator_icc_v1::SetIccFile;
 use crate::wire::wp_image_description_creator_icc_v1::WpImageDescriptionCreatorIccV1RequestHandler;
+use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
 #[expect(unused)]
+#[derive(Object)]
 pub struct WpImageDescriptionCreatorIccV1 {
     id: WpImageDescriptionCreatorIccV1Id,
     client: Rc<Client>,
@@ -28,12 +29,3 @@ impl WpImageDescriptionCreatorIccV1RequestHandler for WpImageDescriptionCreatorI
         unreachable!()
     }
 }
-
-object_base! {
-    self = WpImageDescriptionCreatorIccV1;
-    version = self.version;
-}
-
-impl Object for WpImageDescriptionCreatorIccV1 {}
-
-simple_add_obj!(WpImageDescriptionCreatorIccV1);

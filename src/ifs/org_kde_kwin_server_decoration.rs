@@ -1,10 +1,10 @@
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::OrgKdeKwinServerDecorationId;
 use crate::wire::org_kde_kwin_server_decoration::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
@@ -15,6 +15,7 @@ const NONE: u32 = 0;
 const CLIENT: u32 = 1;
 const SERVER: u32 = 2;
 
+#[derive(Object)]
 pub struct OrgKdeKwinServerDecoration {
     id: OrgKdeKwinServerDecorationId,
     client: Rc<Client>,
@@ -63,15 +64,6 @@ impl OrgKdeKwinServerDecorationRequestHandler for OrgKdeKwinServerDecoration {
         Ok(())
     }
 }
-
-object_base! {
-    self = OrgKdeKwinServerDecoration;
-    version = self.version;
-}
-
-impl Object for OrgKdeKwinServerDecoration {}
-
-simple_add_obj!(OrgKdeKwinServerDecoration);
 
 #[derive(Debug, Error)]
 pub enum OrgKdeKwinServerDecorationError {

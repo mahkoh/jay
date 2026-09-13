@@ -3,14 +3,15 @@ use crate::client::ClientError;
 use crate::ifs::wl_surface::SyncobjRelease;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::video::drm::syncobj::SyncobjPoint;
 use crate::wire::WpLinuxDrmSyncobjSurfaceV1Id;
 use crate::wire::wp_linux_drm_syncobj_surface_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct WpLinuxDrmSyncobjSurfaceV1 {
     id: WpLinuxDrmSyncobjSurfaceV1Id,
     client: Rc<Client>,
@@ -75,15 +76,6 @@ impl WpLinuxDrmSyncobjSurfaceV1RequestHandler for WpLinuxDrmSyncobjSurfaceV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = WpLinuxDrmSyncobjSurfaceV1;
-    version = self.version;
-}
-
-impl Object for WpLinuxDrmSyncobjSurfaceV1 {}
-
-simple_add_obj!(WpLinuxDrmSyncobjSurfaceV1);
 
 #[derive(Debug, Error)]
 pub enum WpLinuxDrmSyncobjSurfaceV1Error {

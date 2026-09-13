@@ -3,11 +3,12 @@ use crate::backend::BackendDrmLessee;
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::utils::clonecell::CloneCell;
 use crate::wire::WpDrmLeaseV1Id;
 use crate::wire::wp_drm_lease_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
@@ -35,6 +36,8 @@ impl Drop for WpDrmLeaseV1Lessee {
     }
 }
 
+#[derive(Object)]
+#[break_loops]
 pub struct WpDrmLeaseV1 {
     pub id: WpDrmLeaseV1Id,
     pub client: Rc<Client>,
@@ -72,18 +75,11 @@ impl WpDrmLeaseV1RequestHandler for WpDrmLeaseV1 {
     }
 }
 
-object_base! {
-    self = WpDrmLeaseV1;
-    version = self.version;
-}
-
-impl Object for WpDrmLeaseV1 {
+impl BreakLoops for WpDrmLeaseV1 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(WpDrmLeaseV1);
 
 #[derive(Debug, Error)]
 pub enum WpDrmLeaseV1Error {

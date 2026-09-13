@@ -4,10 +4,10 @@ use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::zxdg_toplevel_decoration_v1::ZxdgToplevelDecorationV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ZxdgDecorationManagerV1Id;
 use crate::wire::zxdg_decoration_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -38,11 +38,7 @@ impl ZxdgDecorationManagerV1Global {
     }
 }
 
-global_base!(
-    ZxdgDecorationManagerV1Global,
-    ZxdgDecorationManagerV1,
-    ZxdgDecorationManagerV1Error
-);
+global_base!(ZxdgDecorationManagerV1Global, ZxdgDecorationManagerV1);
 
 impl Global for ZxdgDecorationManagerV1Global {
     fn version(&self) -> u32 {
@@ -52,6 +48,7 @@ impl Global for ZxdgDecorationManagerV1Global {
 
 simple_add_global!(ZxdgDecorationManagerV1Global);
 
+#[derive(Object)]
 pub struct ZxdgDecorationManagerV1 {
     id: ZxdgDecorationManagerV1Id,
     client: Rc<Client>,
@@ -85,15 +82,6 @@ impl ZxdgDecorationManagerV1RequestHandler for ZxdgDecorationManagerV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = ZxdgDecorationManagerV1;
-    version = self.version;
-}
-
-impl Object for ZxdgDecorationManagerV1 {}
-
-simple_add_obj!(ZxdgDecorationManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ZxdgDecorationManagerV1Error {

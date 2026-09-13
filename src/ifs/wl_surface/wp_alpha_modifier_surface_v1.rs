@@ -2,13 +2,14 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WpAlphaModifierSurfaceV1Id;
 use crate::wire::wp_alpha_modifier_surface_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct WpAlphaModifierSurfaceV1 {
     id: WpAlphaModifierSurfaceV1Id,
     version: Version,
@@ -57,15 +58,6 @@ impl WpAlphaModifierSurfaceV1RequestHandler for WpAlphaModifierSurfaceV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = WpAlphaModifierSurfaceV1;
-    version = self.version;
-}
-
-impl Object for WpAlphaModifierSurfaceV1 {}
-
-simple_add_obj!(WpAlphaModifierSurfaceV1);
 
 #[derive(Debug, Error)]
 pub enum WpAlphaModifierSurfaceV1Error {

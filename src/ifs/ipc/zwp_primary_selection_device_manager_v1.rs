@@ -5,11 +5,11 @@ use crate::globals::GlobalName;
 use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
 use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::state::State;
 use crate::wire::ZwpPrimarySelectionDeviceManagerV1Id;
 use crate::wire::zwp_primary_selection_device_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -17,6 +17,7 @@ pub struct ZwpPrimarySelectionDeviceManagerV1Global {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct ZwpPrimarySelectionDeviceManagerV1 {
     id: ZwpPrimarySelectionDeviceManagerV1Id,
     client: Rc<Client>,
@@ -84,7 +85,6 @@ impl ZwpPrimarySelectionDeviceManagerV1RequestHandler for ZwpPrimarySelectionDev
 global_base!(
     ZwpPrimarySelectionDeviceManagerV1Global,
     ZwpPrimarySelectionDeviceManagerV1,
-    ZwpPrimarySelectionDeviceManagerV1Error
 );
 
 impl Global for ZwpPrimarySelectionDeviceManagerV1Global {
@@ -98,15 +98,6 @@ impl Global for ZwpPrimarySelectionDeviceManagerV1Global {
 }
 
 simple_add_global!(ZwpPrimarySelectionDeviceManagerV1Global);
-
-object_base! {
-    self = ZwpPrimarySelectionDeviceManagerV1;
-    version = self.version;
-}
-
-impl Object for ZwpPrimarySelectionDeviceManagerV1 {}
-
-simple_add_obj!(ZwpPrimarySelectionDeviceManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpPrimarySelectionDeviceManagerV1Error {

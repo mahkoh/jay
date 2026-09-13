@@ -4,10 +4,10 @@ use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::zxdg_output_v1::ZxdgOutputV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ZxdgOutputManagerV1Id;
 use crate::wire::zxdg_output_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -15,6 +15,7 @@ pub struct ZxdgOutputManagerV1Global {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct ZxdgOutputManagerV1 {
     id: ZxdgOutputManagerV1Id,
     client: Rc<Client>,
@@ -70,11 +71,7 @@ impl ZxdgOutputManagerV1RequestHandler for ZxdgOutputManagerV1 {
     }
 }
 
-global_base!(
-    ZxdgOutputManagerV1Global,
-    ZxdgOutputManagerV1,
-    ZxdgOutputManagerV1Error
-);
+global_base!(ZxdgOutputManagerV1Global, ZxdgOutputManagerV1);
 
 impl Global for ZxdgOutputManagerV1Global {
     fn version(&self) -> u32 {
@@ -83,15 +80,6 @@ impl Global for ZxdgOutputManagerV1Global {
 }
 
 simple_add_global!(ZxdgOutputManagerV1Global);
-
-object_base! {
-    self = ZxdgOutputManagerV1;
-    version = self.version;
-}
-
-simple_add_obj!(ZxdgOutputManagerV1);
-
-impl Object for ZxdgOutputManagerV1 {}
 
 #[derive(Debug, Error)]
 pub enum ZxdgOutputManagerV1Error {

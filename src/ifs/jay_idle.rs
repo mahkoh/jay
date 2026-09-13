@@ -2,14 +2,15 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::JayIdleId;
 use crate::wire::jay_idle::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use std::time::Duration;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct JayIdle {
     pub id: JayIdleId,
     pub client: Rc<Client>,
@@ -79,15 +80,6 @@ impl JayIdleRequestHandler for JayIdle {
         Ok(())
     }
 }
-
-object_base! {
-    self = JayIdle;
-    version = self.version;
-}
-
-impl Object for JayIdle {}
-
-simple_add_obj!(JayIdle);
 
 #[derive(Debug, Error)]
 pub enum JayIdleError {

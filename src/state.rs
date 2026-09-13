@@ -937,10 +937,17 @@ impl State {
 
         let mut scs = vec![];
         for client in self.clients.clients.borrow_mut().values() {
-            for sc in client.data.objects.screencasts.lock().values() {
+            for sc in client.data.objects.dedicated.jay_screencast.lock().values() {
                 scs.push(sc.clone());
             }
-            for sc in client.data.objects.ext_copy_sessions.lock().values() {
+            for sc in client
+                .data
+                .objects
+                .dedicated
+                .ext_image_copy_capture_session_v1
+                .lock()
+                .values()
+            {
                 sc.stop();
             }
         }
@@ -1934,10 +1941,10 @@ impl State {
             if client.wire_scale.replace(wire_scale) == wire_scale {
                 continue;
             }
-            for output in client.objects.outputs.lock().values() {
+            for output in client.objects.dedicated.wl_output.lock().values() {
                 output.send_updates();
             }
-            for surface in client.objects.surfaces.lock().values() {
+            for surface in client.objects.dedicated.wl_surface.lock().values() {
                 surface.handle_xwayland_wire_scale_change();
             }
         }

@@ -4,7 +4,6 @@ use crate::ifs::color_management::CAUSE_NO_OUTPUT;
 use crate::ifs::color_management::wp_image_description_v1::WpImageDescriptionV1;
 use crate::ifs::wl_output::OutputGlobalOpt;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::state::OutputEventListener;
 use crate::tree::OutputNode;
@@ -12,9 +11,11 @@ use crate::tree::TreeTimeline::LiveTL;
 use crate::utils::event_listener::EventListener;
 use crate::wire::WpColorManagementOutputV1Id;
 use crate::wire::wp_color_management_output_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct WpColorManagementOutputV1 {
     pub id: WpColorManagementOutputV1Id,
     pub client: Rc<Client>,
@@ -71,15 +72,6 @@ impl WpColorManagementOutputV1RequestHandler for WpColorManagementOutputV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = WpColorManagementOutputV1;
-    version = self.version;
-}
-
-impl Object for WpColorManagementOutputV1 {}
-
-simple_add_obj!(WpColorManagementOutputV1);
 
 #[derive(Debug, Error)]
 pub enum WpColorManagementOutputV1Error {

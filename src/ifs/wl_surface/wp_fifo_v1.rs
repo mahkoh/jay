@@ -2,13 +2,14 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WpFifoV1Id;
 use crate::wire::wp_fifo_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct WpFifoV1 {
     id: WpFifoV1Id,
     client: Rc<Client>,
@@ -56,15 +57,6 @@ impl WpFifoV1RequestHandler for WpFifoV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = WpFifoV1;
-    version = self.version;
-}
-
-impl Object for WpFifoV1 {}
-
-simple_add_obj!(WpFifoV1);
 
 #[derive(Debug, Error)]
 pub enum WpFifoV1Error {

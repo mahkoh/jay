@@ -1,7 +1,7 @@
 event_handler
 
 request commit (since = 5) {
-    id: id(jay_ei_session),
+    id: id(jay_ei_session) (new),
 }
 
 request set_app_id (since = 5) {

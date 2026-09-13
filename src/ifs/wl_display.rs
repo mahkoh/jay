@@ -9,6 +9,7 @@ use crate::object::WL_DISPLAY_ID;
 use crate::wire::ObjectId;
 use crate::wire::WlDisplayId;
 use crate::wire::wl_display::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -18,8 +19,10 @@ const INVALID_METHOD: u32 = 1;
 const NO_MEMORY: u32 = 2;
 const IMPLEMENTATION: u32 = 3;
 
+#[derive(Object)]
 pub struct WlDisplay {
     id: WlDisplayId,
+    version: Version,
     client: Rc<Client>,
     pub tracker: Tracker<WlDisplay>,
 }
@@ -28,6 +31,7 @@ impl WlDisplay {
     pub fn new(client: &Rc<Client>) -> Self {
         Self {
             id: WL_DISPLAY_ID,
+            version: Version(1),
             client: client.clone(),
             tracker: Default::default(),
         }
@@ -92,13 +96,6 @@ impl WlDisplay {
         })
     }
 }
-
-object_base! {
-    self = WlDisplay;
-    version = Version(1);
-}
-
-impl Object for WlDisplay {}
 
 #[derive(Debug, Error)]
 pub enum WlDisplayError {

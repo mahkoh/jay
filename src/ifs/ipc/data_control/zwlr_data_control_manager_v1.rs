@@ -9,10 +9,10 @@ use crate::ifs::ipc::data_control::DynDataControlDevice;
 use crate::ifs::ipc::data_control::zwlr_data_control_device_v1::ZwlrDataControlDeviceV1;
 use crate::ifs::ipc::data_control::zwlr_data_control_source_v1::ZwlrDataControlSourceV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ZwlrDataControlManagerV1Id;
 use crate::wire::zwlr_data_control_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -20,6 +20,7 @@ pub struct ZwlrDataControlManagerV1Global {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct ZwlrDataControlManagerV1 {
     id: ZwlrDataControlManagerV1Id,
     client: Rc<Client>,
@@ -94,11 +95,7 @@ impl ZwlrDataControlManagerV1RequestHandler for ZwlrDataControlManagerV1 {
     }
 }
 
-global_base!(
-    ZwlrDataControlManagerV1Global,
-    ZwlrDataControlManagerV1,
-    ZwlrDataControlManagerV1Error
-);
+global_base!(ZwlrDataControlManagerV1Global, ZwlrDataControlManagerV1);
 
 impl Global for ZwlrDataControlManagerV1Global {
     fn version(&self) -> u32 {
@@ -111,15 +108,6 @@ impl Global for ZwlrDataControlManagerV1Global {
 }
 
 simple_add_global!(ZwlrDataControlManagerV1Global);
-
-object_base! {
-    self = ZwlrDataControlManagerV1;
-    version = self.version;
-}
-
-impl Object for ZwlrDataControlManagerV1 {}
-
-simple_add_obj!(ZwlrDataControlManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ZwlrDataControlManagerV1Error {

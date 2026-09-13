@@ -6,10 +6,10 @@ use crate::ifs::wl_seat::zwp_pointer_gesture_hold_v1::ZwpPointerGestureHoldV1;
 use crate::ifs::wl_seat::zwp_pointer_gesture_pinch_v1::ZwpPointerGesturePinchV1;
 use crate::ifs::wl_seat::zwp_pointer_gesture_swipe_v1::ZwpPointerGestureSwipeV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ZwpPointerGesturesV1Id;
 use crate::wire::zwp_pointer_gestures_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -17,6 +17,7 @@ pub struct ZwpPointerGesturesV1Global {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct ZwpPointerGesturesV1 {
     id: ZwpPointerGesturesV1Id,
     client: Rc<Client>,
@@ -47,11 +48,7 @@ impl ZwpPointerGesturesV1Global {
     }
 }
 
-global_base!(
-    ZwpPointerGesturesV1Global,
-    ZwpPointerGesturesV1,
-    ZwpPointerGesturesV1Error
-);
+global_base!(ZwpPointerGesturesV1Global, ZwpPointerGesturesV1);
 
 impl Global for ZwpPointerGesturesV1Global {
     fn version(&self) -> u32 {
@@ -114,15 +111,6 @@ impl ZwpPointerGesturesV1RequestHandler for ZwpPointerGesturesV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = ZwpPointerGesturesV1;
-    version = self.version;
-}
-
-impl Object for ZwpPointerGesturesV1 {}
-
-simple_add_obj!(ZwpPointerGesturesV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpPointerGesturesV1Error {

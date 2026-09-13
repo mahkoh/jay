@@ -2,7 +2,7 @@ use crate::async_engine::AsyncEngine;
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::utils::bool_ext::BoolExt;
 use crate::utils::client_trace::ClientTraceMessage;
@@ -20,6 +20,7 @@ use bincode::Options;
 use jay_algorithms::oserror::OsError;
 use jay_algorithms::oserror::OsErrorExt2;
 use jay_config::_private::bincode_ops;
+use jay_proc::Object;
 use jay_proc::StrFmt;
 use serde::Deserialize;
 use serde::Serialize;
@@ -73,6 +74,8 @@ struct TraceTarget {
     client: Rc<Client>,
 }
 
+#[derive(Object)]
+#[break_loops]
 pub struct JayClientTrace {
     id: JayClientTraceId,
     client: Rc<Client>,
@@ -253,18 +256,11 @@ impl JayClientTraceRequestHandler for JayClientTrace {
     }
 }
 
-object_base! {
-    self = JayClientTrace;
-    version = self.version;
-}
-
-impl Object for JayClientTrace {
+impl BreakLoops for JayClientTrace {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(JayClientTrace);
 
 #[derive(Debug, Error)]
 pub enum JayClientDebuggerError {

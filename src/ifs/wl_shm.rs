@@ -5,10 +5,10 @@ use crate::globals::GlobalName;
 use crate::ifs::wl_shm_pool::WlShmPool;
 use crate::ifs::wl_shm_pool::WlShmPoolError;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WlShmId;
 use crate::wire::wl_shm::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -16,6 +16,7 @@ pub struct WlShmGlobal {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct WlShm {
     _global: Rc<WlShmGlobal>,
     id: WlShmId,
@@ -83,7 +84,7 @@ impl WlShmRequestHandler for WlShm {
     }
 }
 
-global_base!(WlShmGlobal, WlShm, WlShmError);
+global_base!(WlShmGlobal, WlShm);
 
 impl Global for WlShmGlobal {
     fn version(&self) -> u32 {
@@ -92,15 +93,6 @@ impl Global for WlShmGlobal {
 }
 
 simple_add_global!(WlShmGlobal);
-
-object_base! {
-    self = WlShm;
-    version = self.version;
-}
-
-impl Object for WlShm {}
-
-simple_add_obj!(WlShm);
 
 #[derive(Debug, Error)]
 pub enum WlShmError {

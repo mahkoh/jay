@@ -108,7 +108,7 @@ impl State {
             fb.send(zfb, None);
         }
         for client in self.clients.clients.borrow().values() {
-            for surface in client.data.objects.surfaces.lock().values() {
+            for surface in client.data.objects.dedicated.wl_surface.lock().values() {
                 surface.send_feedback(&fb);
             }
         }

@@ -4,11 +4,11 @@ use crate::criteria::tlm::TL_CHANGED_TAG;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::tree::ToplevelNodeBase;
 use crate::wire::XdgToplevelTagManagerV1Id;
 use crate::wire::xdg_toplevel_tag_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -39,11 +39,7 @@ impl XdgToplevelTagManagerV1Global {
     }
 }
 
-global_base!(
-    XdgToplevelTagManagerV1Global,
-    XdgToplevelTagManagerV1,
-    XdgTopleveTagManagerV1Error
-);
+global_base!(XdgToplevelTagManagerV1Global, XdgToplevelTagManagerV1);
 
 impl Global for XdgToplevelTagManagerV1Global {
     fn version(&self) -> u32 {
@@ -53,6 +49,7 @@ impl Global for XdgToplevelTagManagerV1Global {
 
 simple_add_global!(XdgToplevelTagManagerV1Global);
 
+#[derive(Object)]
 pub struct XdgToplevelTagManagerV1 {
     id: XdgToplevelTagManagerV1Id,
     client: Rc<Client>,
@@ -92,15 +89,6 @@ impl XdgToplevelTagManagerV1RequestHandler for XdgToplevelTagManagerV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = XdgToplevelTagManagerV1;
-    version = self.version;
-}
-
-impl Object for XdgToplevelTagManagerV1 {}
-
-simple_add_obj!(XdgToplevelTagManagerV1);
 
 #[derive(Debug, Error)]
 pub enum XdgTopleveTagManagerV1Error {

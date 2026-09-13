@@ -6,13 +6,13 @@ use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::ext_idle_notification_v1::ExtIdleNotificationV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::wire::ExtIdleNotificationV1Id;
 use crate::wire::ExtIdleNotifierV1Id;
 use crate::wire::WlSeatId;
 use crate::wire::ext_idle_notifier_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
@@ -44,6 +44,7 @@ impl ExtIdleNotifierV1Global {
     }
 }
 
+#[derive(Object)]
 pub struct ExtIdleNotifierV1 {
     id: ExtIdleNotifierV1Id,
     client: Rc<Client>,
@@ -138,11 +139,7 @@ async fn run(n: Rc<ExtIdleNotificationV1>, skip_if_inhibited: bool) {
     }
 }
 
-global_base!(
-    ExtIdleNotifierV1Global,
-    ExtIdleNotifierV1,
-    ExtIdleNotifierV1Error
-);
+global_base!(ExtIdleNotifierV1Global, ExtIdleNotifierV1);
 
 impl Global for ExtIdleNotifierV1Global {
     fn version(&self) -> u32 {
@@ -155,15 +152,6 @@ impl Global for ExtIdleNotifierV1Global {
 }
 
 simple_add_global!(ExtIdleNotifierV1Global);
-
-object_base! {
-    self = ExtIdleNotifierV1;
-    version = self.version;
-}
-
-impl Object for ExtIdleNotifierV1 {}
-
-simple_add_obj!(ExtIdleNotifierV1);
 
 #[derive(Debug, Error)]
 pub enum ExtIdleNotifierV1Error {

@@ -2,7 +2,6 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::utils::static_text::StaticText;
 use crate::wire::WpContentTypeV1Id;
@@ -12,6 +11,7 @@ use jay_config::window::GAME_CONTENT;
 use jay_config::window::NO_CONTENT_TYPE;
 use jay_config::window::PHOTO_CONTENT;
 use jay_config::window::VIDEO_CONTENT;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -52,6 +52,7 @@ impl ContentTypeExt for Option<ContentType> {
     }
 }
 
+#[derive(Object)]
 pub struct WpContentTypeV1 {
     pub id: WpContentTypeV1Id,
     pub client: Rc<Client>,
@@ -84,15 +85,6 @@ impl WpContentTypeV1RequestHandler for WpContentTypeV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = WpContentTypeV1;
-    version = self.version;
-}
-
-impl Object for WpContentTypeV1 {}
-
-simple_add_obj!(WpContentTypeV1);
 
 #[derive(Debug, Error)]
 pub enum WpContentTypeV1Error {

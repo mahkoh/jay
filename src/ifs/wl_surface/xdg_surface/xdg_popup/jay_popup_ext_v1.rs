@@ -3,13 +3,14 @@ use crate::client::ClientError;
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::map_resize_edges;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::JayPopupExtV1Id;
 use crate::wire::jay_popup_ext_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct JayPopupExtV1 {
     id: JayPopupExtV1Id,
     client: Rc<Client>,
@@ -79,15 +80,6 @@ impl JayPopupExtV1RequestHandler for JayPopupExtV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = JayPopupExtV1;
-    version = self.version;
-}
-
-impl Object for JayPopupExtV1 {}
-
-simple_add_obj!(JayPopupExtV1);
 
 #[derive(Debug, Error)]
 pub enum JayPopupExtV1Error {

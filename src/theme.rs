@@ -837,7 +837,7 @@ pub async fn handle_theme_changes(state: Rc<State>) {
         if state.spaces_changed.is_not_zero() {
             state.icons.update_sizes(&state);
             for client in state.clients.clients.borrow().values() {
-                let mgrs = &client.data.objects.xdg_toplevel_icon_managers;
+                let mgrs = &client.data.objects.dedicated.xdg_toplevel_icon_manager_v1;
                 for v in mgrs.lock().values() {
                     v.send_sizes();
                 }

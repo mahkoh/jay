@@ -282,7 +282,7 @@ impl Globals {
             let xwayland = client.is_xwayland;
             for global in &singletons {
                 if global.permitted(caps, xwayland) {
-                    for registry in client.objects.registries.lock().values() {
+                    for registry in client.objects.dedicated.wl_registry.lock().values() {
                         registry.handle_global(global);
                     }
                 }

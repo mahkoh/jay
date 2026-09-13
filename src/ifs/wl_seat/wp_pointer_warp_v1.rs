@@ -4,7 +4,6 @@ use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_seat::PositionHintRequest;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::tree::NodeBase;
 use crate::tree::TreeTimeline::LiveTL;
@@ -12,6 +11,7 @@ use crate::wire::WpPointerWarpV1Id;
 use crate::wire::wp_pointer_warp_v1::Destroy;
 use crate::wire::wp_pointer_warp_v1::WarpPointer;
 use crate::wire::wp_pointer_warp_v1::WpPointerWarpV1RequestHandler;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -42,7 +42,7 @@ impl WpPointerWarpV1Global {
     }
 }
 
-global_base!(WpPointerWarpV1Global, WpPointerWarpV1, WpPointerWarpV1Error);
+global_base!(WpPointerWarpV1Global, WpPointerWarpV1);
 
 impl Global for WpPointerWarpV1Global {
     fn version(&self) -> u32 {
@@ -52,6 +52,7 @@ impl Global for WpPointerWarpV1Global {
 
 simple_add_global!(WpPointerWarpV1Global);
 
+#[derive(Object)]
 pub struct WpPointerWarpV1 {
     id: WpPointerWarpV1Id,
     client: Rc<Client>,
@@ -98,15 +99,6 @@ impl WpPointerWarpV1RequestHandler for WpPointerWarpV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = WpPointerWarpV1;
-    version = self.version;
-}
-
-impl Object for WpPointerWarpV1 {}
-
-simple_add_obj!(WpPointerWarpV1);
 
 #[derive(Debug, Error)]
 pub enum WpPointerWarpV1Error {

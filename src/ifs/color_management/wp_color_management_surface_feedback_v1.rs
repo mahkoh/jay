@@ -5,15 +5,16 @@ use crate::ifs::color_management::UNIQUE_CM_IDS_SINCE;
 use crate::ifs::color_management::wp_image_description_v1::WpImageDescriptionV1;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::wire::WpColorManagementSurfaceFeedbackV1Id;
 use crate::wire::WpImageDescriptionV1Id;
 use crate::wire::wp_color_management_surface_feedback_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct WpColorManagementSurfaceFeedbackV1 {
     pub id: WpColorManagementSurfaceFeedbackV1Id,
     pub client: Rc<Client>,
@@ -81,15 +82,6 @@ impl WpColorManagementSurfaceFeedbackV1RequestHandler for WpColorManagementSurfa
         self.get_description(req.image_description)
     }
 }
-
-object_base! {
-    self = WpColorManagementSurfaceFeedbackV1;
-    version = self.version;
-}
-
-impl Object for WpColorManagementSurfaceFeedbackV1 {}
-
-simple_add_obj!(WpColorManagementSurfaceFeedbackV1);
 
 #[derive(Debug, Error)]
 pub enum WpColorManagementSurfaceFeedbackV1Error {

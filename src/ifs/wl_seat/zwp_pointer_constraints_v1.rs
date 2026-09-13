@@ -8,7 +8,6 @@ use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_seat::zwp_pointer_constraints_v1::zwp_confined_pointer_v1::ZwpConfinedPointerV1;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::rect::Region;
@@ -19,6 +18,7 @@ use crate::wire::WlRegionId;
 use crate::wire::WlSurfaceId;
 use crate::wire::ZwpPointerConstraintsV1Id;
 use crate::wire::zwp_pointer_constraints_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
@@ -31,6 +31,7 @@ pub struct ZwpPointerConstraintsV1Global {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct ZwpPointerConstraintsV1 {
     id: ZwpPointerConstraintsV1Id,
     client: Rc<Client>,
@@ -306,11 +307,7 @@ impl ZwpPointerConstraintsV1RequestHandler for ZwpPointerConstraintsV1 {
     }
 }
 
-global_base!(
-    ZwpPointerConstraintsV1Global,
-    ZwpPointerConstraintsV1,
-    ZwpPointerConstraintsV1Error
-);
+global_base!(ZwpPointerConstraintsV1Global, ZwpPointerConstraintsV1);
 
 impl Global for ZwpPointerConstraintsV1Global {
     fn version(&self) -> u32 {
@@ -319,15 +316,6 @@ impl Global for ZwpPointerConstraintsV1Global {
 }
 
 simple_add_global!(ZwpPointerConstraintsV1Global);
-
-object_base! {
-    self = ZwpPointerConstraintsV1;
-    version = self.version;
-}
-
-impl Object for ZwpPointerConstraintsV1 {}
-
-simple_add_obj!(ZwpPointerConstraintsV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpPointerConstraintsV1Error {

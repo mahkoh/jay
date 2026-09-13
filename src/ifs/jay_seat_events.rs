@@ -14,16 +14,20 @@ use crate::ifs::wl_seat::tablet::TabletToolId;
 use crate::ifs::wl_seat::tablet::ToolButtonState;
 use crate::ifs::wl_seat::wl_pointer::PendingScroll;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::wire::JaySeatEventsId;
 use crate::wire::jay_seat_events::*;
+use jay_proc::Object;
 use linearize::LinearizeExt;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Object)]
+#[break_loops]
 pub struct JaySeatEvents {
     pub id: JaySeatEventsId,
+    pub version: Version,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
 }
@@ -539,12 +543,7 @@ impl JaySeatEventsRequestHandler for JaySeatEvents {
     type Error = Infallible;
 }
 
-object_base! {
-    self = JaySeatEvents;
-    version = Version(1);
-}
-
-impl Object for JaySeatEvents {
+impl BreakLoops for JaySeatEvents {
     fn break_loops(self: Rc<Self>) {
         self.client
             .state
@@ -553,5 +552,3 @@ impl Object for JaySeatEvents {
             .remove(&(self.client.id, self.id));
     }
 }
-
-simple_add_obj!(JaySeatEvents);

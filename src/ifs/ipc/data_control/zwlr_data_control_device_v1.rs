@@ -9,19 +9,23 @@ use crate::ifs::ipc::data_control::zwlr_data_control_offer_v1::ZwlrDataControlOf
 use crate::ifs::ipc::data_control::zwlr_data_control_source_v1::ZwlrDataControlSourceV1;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::wire::ZwlrDataControlDeviceV1Id;
 use crate::wire::ZwlrDataControlOfferV1Id;
 use crate::wire::ZwlrDataControlSourceV1Id;
 use crate::wire::zwlr_data_control_device_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
 pub const PRIMARY_SELECTION_SINCE: Version = Version(2);
 
+#[derive(Object)]
+#[break_loops]
 pub struct ZwlrDataControlDeviceV1 {
     id: ZwlrDataControlDeviceV1Id,
+    version: Version,
     pub data: DataControlDeviceData<WlrDataControlIpc>,
     pub tracker: Tracker<Self>,
 }
@@ -35,6 +39,7 @@ impl ZwlrDataControlDeviceV1 {
     ) -> Self {
         Self {
             id,
+            version,
             data: DataControlDeviceData {
                 data_control_device_id: client.state.data_control_device_ids.next(),
                 client: client.clone(),
@@ -111,6 +116,7 @@ impl DataControlIpc for WlrDataControlIpc {
     fn create_offer(id: Self::OfferId, data: DataControlOfferData<Self>) -> Rc<Self::Offer> {
         let rc = Rc::new(ZwlrDataControlOfferV1 {
             id,
+            version: data.device.version,
             data,
             tracker: Default::default(),
         });
@@ -139,18 +145,11 @@ impl DataControlDevice for ZwlrDataControlDeviceV1 {
     }
 }
 
-object_base! {
-    self = ZwlrDataControlDeviceV1;
-    version = self.data.version;
-}
-
-impl Object for ZwlrDataControlDeviceV1 {
+impl BreakLoops for ZwlrDataControlDeviceV1 {
     fn break_loops(self: Rc<Self>) {
         logic::data_device_break_loops(&*self);
     }
 }
-
-simple_add_obj!(ZwlrDataControlDeviceV1);
 
 #[derive(Debug, Error)]
 pub enum ZwlrDataControlDeviceV1Error {

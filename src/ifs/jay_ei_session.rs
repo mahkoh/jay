@@ -2,7 +2,7 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::client::ClientId;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::wire::JayEiSessionId;
 use crate::wire::jay_ei_session::Created;
@@ -10,10 +10,13 @@ use crate::wire::jay_ei_session::Destroyed;
 use crate::wire::jay_ei_session::Failed;
 use crate::wire::jay_ei_session::JayEiSessionRequestHandler;
 use crate::wire::jay_ei_session::Release;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
 
+#[derive(Object)]
+#[break_loops]
 pub struct JayEiSession {
     pub id: JayEiSessionId,
     pub client: Rc<Client>,
@@ -61,18 +64,11 @@ impl JayEiSessionRequestHandler for JayEiSession {
     }
 }
 
-object_base! {
-    self = JayEiSession;
-    version = self.version;
-}
-
-impl Object for JayEiSession {
+impl BreakLoops for JayEiSession {
     fn break_loops(self: Rc<Self>) {
         self.kill(false);
     }
 }
-
-simple_add_obj!(JayEiSession);
 
 #[derive(Debug, Error)]
 pub enum JayEiSessionError {

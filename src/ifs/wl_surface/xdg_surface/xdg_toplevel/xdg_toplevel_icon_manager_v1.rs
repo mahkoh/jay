@@ -4,10 +4,10 @@ use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::XdgToplevelIconV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::XdgToplevelIconManagerV1Id;
 use crate::wire::xdg_toplevel_icon_manager_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
@@ -41,11 +41,7 @@ impl XdgToplevelIconManagerV1Global {
     }
 }
 
-global_base!(
-    XdgToplevelIconManagerV1Global,
-    XdgToplevelIconManagerV1,
-    XdgToplevelIconManagerV1Error
-);
+global_base!(XdgToplevelIconManagerV1Global, XdgToplevelIconManagerV1);
 
 impl Global for XdgToplevelIconManagerV1Global {
     fn version(&self) -> u32 {
@@ -55,6 +51,7 @@ impl Global for XdgToplevelIconManagerV1Global {
 
 simple_add_global!(XdgToplevelIconManagerV1Global);
 
+#[derive(Object)]
 pub struct XdgToplevelIconManagerV1 {
     id: XdgToplevelIconManagerV1Id,
     client: Rc<Client>,
@@ -138,19 +135,6 @@ impl XdgToplevelIconManagerV1RequestHandler for XdgToplevelIconManagerV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = XdgToplevelIconManagerV1;
-    version = self.version;
-}
-
-impl Object for XdgToplevelIconManagerV1 {}
-
-dedicated_add_obj!(
-    XdgToplevelIconManagerV1,
-    XdgToplevelIconManagerV1Id,
-    xdg_toplevel_icon_managers,
-);
 
 #[derive(Debug, Error)]
 pub enum XdgToplevelIconManagerV1Error {

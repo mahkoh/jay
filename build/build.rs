@@ -40,6 +40,13 @@ mod wire_dbus;
 mod wire_ei;
 mod wire_xcon;
 
+fn ensure_dir(s: &str) -> io::Result<()> {
+    let mut path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    path.push(s);
+    std::fs::create_dir_all(&path)?;
+    Ok(())
+}
+
 fn open(s: &str) -> io::Result<BufWriter<File>> {
     let mut path = PathBuf::from(env::var("OUT_DIR").unwrap());
     path.push(s);

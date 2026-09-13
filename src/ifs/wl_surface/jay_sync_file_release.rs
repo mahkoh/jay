@@ -2,10 +2,10 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::gfx_api::SyncFile;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::JaySyncFileReleaseId;
 use crate::wire::jay_sync_file_release::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
@@ -28,6 +28,7 @@ impl Drop for SyncFileRelease {
     }
 }
 
+#[derive(Object)]
 pub struct JaySyncFileRelease {
     id: JaySyncFileReleaseId,
     client: Rc<Client>,
@@ -74,15 +75,6 @@ impl JaySyncFileReleaseRequestHandler for JaySyncFileRelease {
         Ok(())
     }
 }
-
-object_base! {
-    self = JaySyncFileRelease;
-    version = self.version;
-}
-
-impl Object for JaySyncFileRelease {}
-
-simple_add_obj!(JaySyncFileRelease);
 
 #[derive(Debug, Error)]
 pub enum JaySyncFileReleaseError {

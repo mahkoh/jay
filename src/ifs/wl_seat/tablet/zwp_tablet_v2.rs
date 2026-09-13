@@ -3,13 +3,16 @@ use crate::client::ClientError;
 use crate::ifs::wl_seat::tablet::Tablet;
 use crate::ifs::wl_seat::tablet::zwp_tablet_seat_v2::ZwpTabletSeatV2;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::wire::ZwpTabletV2Id;
 use crate::wire::zwp_tablet_v2::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct ZwpTabletV2 {
     pub id: ZwpTabletV2Id,
     pub client: Rc<Client>,
@@ -72,18 +75,11 @@ impl ZwpTabletV2RequestHandler for ZwpTabletV2 {
     }
 }
 
-object_base! {
-    self = ZwpTabletV2;
-    version = self.version;
-}
-
-impl Object for ZwpTabletV2 {
+impl BreakLoops for ZwpTabletV2 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(ZwpTabletV2);
 
 #[derive(Debug, Error)]
 pub enum ZwpTabletV2Error {

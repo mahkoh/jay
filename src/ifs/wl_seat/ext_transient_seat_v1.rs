@@ -1,13 +1,14 @@
 use crate::client::Client;
 use crate::client::ClientError;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ExtTransientSeatV1Id;
 use crate::wire::ext_transient_seat_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct ExtTransientSeatV1 {
     pub id: ExtTransientSeatV1Id,
     pub client: Rc<Client>,
@@ -29,15 +30,6 @@ impl ExtTransientSeatV1RequestHandler for ExtTransientSeatV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = ExtTransientSeatV1;
-    version = self.version;
-}
-
-impl Object for ExtTransientSeatV1 {}
-
-simple_add_obj!(ExtTransientSeatV1);
 
 #[derive(Debug, Error)]
 pub enum ExtTransientSeatV1Error {

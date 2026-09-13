@@ -16,7 +16,7 @@ use crate::globals::GlobalName;
 use crate::ifs::wl_surface::WlSurface;
 use crate::ifs::zxdg_output_v1::ZxdgOutputV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::state::ConnectorData;
 use crate::state::State;
@@ -37,6 +37,7 @@ use crate::wire::ZxdgOutputV1Id;
 use crate::wire::wl_output::*;
 use derivative::Derivative;
 use hashbrown::hash_map::Entry;
+use jay_proc::Object;
 use linearize::Linearize;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -326,18 +327,30 @@ impl WlOutputGlobal {
         if obj.version >= SEND_DONE_SINCE {
             obj.send_done();
         }
-        for group in client.objects.ext_workspace_groups.lock().values() {
+        for group in client
+            .objects
+            .dedicated
+            .ext_workspace_group_handle_v1
+            .lock()
+            .values()
+        {
             if rc_eq(&group.output, &self.opt) {
                 group.handle_new_output(&obj);
             }
         }
         if let Some(node) = self.opt.node() {
-            for surface in client.objects.surfaces.lock().values() {
+            for surface in client.objects.dedicated.wl_surface.lock().values() {
                 if surface.node_output_id() == Some(node.id) {
                     surface.send_enter(obj.id);
                 }
             }
-            for handle in client.objects.wlr_foreign_toplevel_handles.lock().values() {
+            for handle in client
+                .objects
+                .dedicated
+                .zwlr_foreign_toplevel_handle_v1
+                .lock()
+                .values()
+            {
                 if handle.output.get() == node.id {
                     handle.send_output_enter(&obj);
                     handle.send_done();
@@ -348,7 +361,7 @@ impl WlOutputGlobal {
     }
 }
 
-global_base!(WlOutputGlobal, WlOutput, WlOutputError);
+global_base!(WlOutputGlobal, WlOutput);
 
 const OUTPUT_VERSION: u32 = 4;
 
@@ -360,6 +373,8 @@ impl Global for WlOutputGlobal {
 
 dedicated_add_global!(WlOutputGlobal, outputs);
 
+#[derive(Object)]
+#[break_loops]
 pub struct WlOutput {
     pub global: Rc<OutputGlobalOpt>,
     pub id: WlOutputId,
@@ -482,19 +497,12 @@ impl WlOutputRequestHandler for WlOutput {
     }
 }
 
-object_base! {
-    self = WlOutput;
-    version = self.version;
-}
-
-impl Object for WlOutput {
+impl BreakLoops for WlOutput {
     fn break_loops(self: Rc<Self>) {
         self.xdg_outputs.clear();
         self.remove_binding();
     }
 }
-
-dedicated_add_obj!(WlOutput, WlOutputId, outputs);
 
 #[derive(Debug, Error)]
 pub enum WlOutputError {

@@ -5,10 +5,10 @@ use crate::globals::GlobalName;
 use crate::ifs::ext_image_capture_source_v1::ExtImageCaptureSourceV1;
 use crate::ifs::ext_image_capture_source_v1::ImageCaptureSource;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ExtForeignToplevelImageCaptureSourceManagerV1Id;
 use crate::wire::ext_foreign_toplevel_image_capture_source_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -39,6 +39,7 @@ impl ExtForeignToplevelImageCaptureSourceManagerV1Global {
     }
 }
 
+#[derive(Object)]
 pub struct ExtForeignToplevelImageCaptureSourceManagerV1 {
     id: ExtForeignToplevelImageCaptureSourceManagerV1Id,
     client: Rc<Client>,
@@ -55,6 +56,7 @@ impl ExtForeignToplevelImageCaptureSourceManagerV1RequestHandler
         let handle = self.client.lookup(req.toplevel_handle)?;
         let obj = Rc::new(ExtImageCaptureSourceV1 {
             id: req.source,
+            version: self.version,
             client: self.client.clone(),
             tracker: Default::default(),
             ty: ImageCaptureSource::Toplevel(handle.toplevel.clone()),
@@ -73,7 +75,6 @@ impl ExtForeignToplevelImageCaptureSourceManagerV1RequestHandler
 global_base!(
     ExtForeignToplevelImageCaptureSourceManagerV1Global,
     ExtForeignToplevelImageCaptureSourceManagerV1,
-    ExtForeignToplevelImageCaptureSourceManagerV1Error
 );
 
 impl Global for ExtForeignToplevelImageCaptureSourceManagerV1Global {
@@ -83,15 +84,6 @@ impl Global for ExtForeignToplevelImageCaptureSourceManagerV1Global {
 }
 
 simple_add_global!(ExtForeignToplevelImageCaptureSourceManagerV1Global);
-
-object_base! {
-    self = ExtForeignToplevelImageCaptureSourceManagerV1;
-    version = self.version;
-}
-
-impl Object for ExtForeignToplevelImageCaptureSourceManagerV1 {}
-
-simple_add_obj!(ExtForeignToplevelImageCaptureSourceManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ExtForeignToplevelImageCaptureSourceManagerV1Error {

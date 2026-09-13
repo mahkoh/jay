@@ -2,15 +2,18 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::wire::XdgDialogV1Id;
 use crate::wire::XdgToplevelId;
 use crate::wire::xdg_dialog_v1::*;
+use jay_proc::Object;
 use std::fmt::Debug;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct XdgDialogV1 {
     pub id: XdgDialogV1Id,
     pub client: Rc<Client>,
@@ -51,18 +54,11 @@ impl XdgDialogV1RequestHandler for XdgDialogV1 {
     }
 }
 
-object_base! {
-    self = XdgDialogV1;
-    version = self.version;
-}
-
-impl Object for XdgDialogV1 {
+impl BreakLoops for XdgDialogV1 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(XdgDialogV1);
 
 #[derive(Debug, Error)]
 pub enum XdgDialogV1Error {

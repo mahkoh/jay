@@ -3,6 +3,7 @@ use crate::client::ClientError;
 use crate::ifs::jay_workspace::JayWorkspace;
 use crate::ifs::wl_seat::WorkspaceSelector;
 use crate::leaks::Tracker;
+use crate::object::BreakLoops;
 use crate::object::Object;
 use crate::object::Version;
 use crate::tree::TreeTimeline::LiveTL;
@@ -11,12 +12,16 @@ use crate::utils::clonecell::CloneCell;
 use crate::wire::JaySelectWorkspaceId;
 use crate::wire::JayWorkspaceId;
 use crate::wire::jay_select_workspace::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct JaySelectWorkspace {
     pub id: JaySelectWorkspaceId,
+    pub version: Version,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
     pub destroyed: Cell<bool>,
@@ -46,6 +51,7 @@ impl Drop for JayWorkspaceSelector {
                 let id = self.jsw.client.new_id(&*self.jsw);
                 let jw = Rc::new(JayWorkspace {
                     id,
+                    version: self.jsw.version(),
                     client: self.jsw.client.clone(),
                     workspace: CloneCell::new(Some(ws.clone())),
                     tracker: Default::default(),
@@ -81,18 +87,11 @@ impl JaySelectWorkspaceRequestHandler for JaySelectWorkspace {
     type Error = JaySelectWorkspaceError;
 }
 
-object_base! {
-    self = JaySelectWorkspace;
-    version = Version(1);
-}
-
-impl Object for JaySelectWorkspace {
+impl BreakLoops for JaySelectWorkspace {
     fn break_loops(self: Rc<Self>) {
         self.destroyed.set(true);
     }
 }
-
-simple_add_obj!(JaySelectWorkspace);
 
 #[derive(Debug, Error)]
 pub enum JaySelectWorkspaceError {

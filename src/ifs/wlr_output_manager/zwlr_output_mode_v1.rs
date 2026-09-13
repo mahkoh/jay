@@ -3,14 +3,15 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::ifs::wlr_output_manager::zwlr_output_head_v1::WlrOutputHeadId;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::ZwlrOutputModeV1Id;
 use crate::wire::zwlr_output_mode_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct ZwlrOutputModeV1 {
     pub(super) id: ZwlrOutputModeV1Id,
     pub(super) head_id: WlrOutputHeadId,
@@ -65,15 +66,6 @@ impl ZwlrOutputModeV1RequestHandler for ZwlrOutputModeV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = ZwlrOutputModeV1;
-    version = self.version;
-}
-
-impl Object for ZwlrOutputModeV1 {}
-
-dedicated_add_obj!(ZwlrOutputModeV1, ZwlrOutputModeV1Id, zwlr_output_modes);
 
 #[derive(Debug, Error)]
 pub enum ZwlrOutputModeV1Error {

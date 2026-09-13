@@ -4,10 +4,10 @@ use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_buffer::WlBuffer;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WpSinglePixelBufferManagerV1Id;
 use crate::wire::wp_single_pixel_buffer_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -41,7 +41,6 @@ impl WpSinglePixelBufferManagerV1Global {
 global_base!(
     WpSinglePixelBufferManagerV1Global,
     WpSinglePixelBufferManagerV1,
-    WpSinglePixelBufferManagerV1Error
 );
 
 impl Global for WpSinglePixelBufferManagerV1Global {
@@ -52,6 +51,7 @@ impl Global for WpSinglePixelBufferManagerV1Global {
 
 simple_add_global!(WpSinglePixelBufferManagerV1Global);
 
+#[derive(Object)]
 pub struct WpSinglePixelBufferManagerV1 {
     id: WpSinglePixelBufferManagerV1Id,
     client: Rc<Client>,
@@ -78,15 +78,6 @@ impl WpSinglePixelBufferManagerV1RequestHandler for WpSinglePixelBufferManagerV1
         Ok(())
     }
 }
-
-object_base! {
-    self = WpSinglePixelBufferManagerV1;
-    version = self.version;
-}
-
-impl Object for WpSinglePixelBufferManagerV1 {}
-
-simple_add_obj!(WpSinglePixelBufferManagerV1);
 
 #[derive(Debug, Error)]
 pub enum WpSinglePixelBufferManagerV1Error {

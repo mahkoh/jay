@@ -4,13 +4,16 @@ use crate::fixed::Fixed;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::wire::ZwpPointerGestureSwipeV1Id;
 use crate::wire::zwp_pointer_gesture_swipe_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct ZwpPointerGestureSwipeV1 {
     pub id: ZwpPointerGestureSwipeV1Id,
     pub client: Rc<Client>,
@@ -63,18 +66,11 @@ impl ZwpPointerGestureSwipeV1RequestHandler for ZwpPointerGestureSwipeV1 {
     }
 }
 
-object_base! {
-    self = ZwpPointerGestureSwipeV1;
-    version = self.version;
-}
-
-impl Object for ZwpPointerGestureSwipeV1 {
+impl BreakLoops for ZwpPointerGestureSwipeV1 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(ZwpPointerGestureSwipeV1);
 
 #[derive(Debug, Error)]
 pub enum ZwpPointerGestureSwipeV1Error {

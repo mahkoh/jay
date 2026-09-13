@@ -5,10 +5,10 @@ use crate::globals::GlobalName;
 use crate::ifs::wl_surface::wp_viewport::WpViewport;
 use crate::ifs::wl_surface::wp_viewport::WpViewportError;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WpViewporterId;
 use crate::wire::wp_viewporter::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -39,7 +39,7 @@ impl WpViewporterGlobal {
     }
 }
 
-global_base!(WpViewporterGlobal, WpViewporter, WpViewporterError);
+global_base!(WpViewporterGlobal, WpViewporter);
 
 impl Global for WpViewporterGlobal {
     fn version(&self) -> u32 {
@@ -49,6 +49,7 @@ impl Global for WpViewporterGlobal {
 
 simple_add_global!(WpViewporterGlobal);
 
+#[derive(Object)]
 pub struct WpViewporter {
     id: WpViewporterId,
     client: Rc<Client>,
@@ -73,15 +74,6 @@ impl WpViewporterRequestHandler for WpViewporter {
         Ok(())
     }
 }
-
-object_base! {
-    self = WpViewporter;
-    version = self.version;
-}
-
-impl Object for WpViewporter {}
-
-simple_add_obj!(WpViewporter);
 
 #[derive(Debug, Error)]
 pub enum WpViewporterError {

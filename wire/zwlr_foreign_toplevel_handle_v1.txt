@@ -1,3 +1,5 @@
+dedicated
+
 # requests
 
 request set_maximized {

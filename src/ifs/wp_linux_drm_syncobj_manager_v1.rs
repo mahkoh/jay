@@ -6,12 +6,12 @@ use crate::ifs::wl_surface::wp_linux_drm_syncobj_surface_v1::WpLinuxDrmSyncobjSu
 use crate::ifs::wl_surface::wp_linux_drm_syncobj_surface_v1::WpLinuxDrmSyncobjSurfaceV1Error;
 use crate::ifs::wp_linux_drm_syncobj_timeline_v1::WpLinuxDrmSyncobjTimelineV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::state::State;
 use crate::video::drm::syncobj::Syncobj;
 use crate::wire::WpLinuxDrmSyncobjManagerV1Id;
 use crate::wire::wp_linux_drm_syncobj_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -19,6 +19,7 @@ pub struct WpLinuxDrmSyncobjManagerV1Global {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct WpLinuxDrmSyncobjManagerV1 {
     id: WpLinuxDrmSyncobjManagerV1Id,
     client: Rc<Client>,
@@ -49,11 +50,7 @@ impl WpLinuxDrmSyncobjManagerV1Global {
     }
 }
 
-global_base!(
-    WpLinuxDrmSyncobjManagerV1Global,
-    WpLinuxDrmSyncobjManagerV1,
-    WpLinuxDrmSyncobjManagerV1Error
-);
+global_base!(WpLinuxDrmSyncobjManagerV1Global, WpLinuxDrmSyncobjManagerV1);
 
 impl Global for WpLinuxDrmSyncobjManagerV1Global {
     fn version(&self) -> u32 {
@@ -102,15 +99,6 @@ impl WpLinuxDrmSyncobjManagerV1RequestHandler for WpLinuxDrmSyncobjManagerV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = WpLinuxDrmSyncobjManagerV1;
-    version = self.version;
-}
-
-impl Object for WpLinuxDrmSyncobjManagerV1 {}
-
-simple_add_obj!(WpLinuxDrmSyncobjManagerV1);
 
 #[derive(Debug, Error)]
 pub enum WpLinuxDrmSyncobjManagerV1Error {

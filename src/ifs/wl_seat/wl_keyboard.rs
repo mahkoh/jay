@@ -6,13 +6,13 @@ use crate::keyboard::KeyboardError;
 use crate::keyboard::KeyboardState;
 use crate::keyboard::KeyboardStateId;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::vecset::VecSet;
 use crate::wire::WlKeyboardId;
 use crate::wire::WlSurfaceId;
 use crate::wire::wl_keyboard::*;
+use jay_proc::Object;
 use kbvm::Components;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -30,6 +30,7 @@ pub const RELEASED: u32 = 0;
 pub const PRESSED: u32 = 1;
 pub const REPEATED: u32 = 2;
 
+#[derive(Object)]
 pub struct WlKeyboard {
     id: WlKeyboardId,
     client: Rc<Client>,
@@ -232,15 +233,6 @@ impl WlKeyboardRequestHandler for WlKeyboard {
         Ok(())
     }
 }
-
-object_base! {
-    self = WlKeyboard;
-    version = self.version;
-}
-
-impl Object for WlKeyboard {}
-
-simple_add_obj!(WlKeyboard);
 
 #[derive(Debug, Error)]
 pub enum WlKeyboardError {

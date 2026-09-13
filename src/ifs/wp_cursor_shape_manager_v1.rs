@@ -5,11 +5,11 @@ use crate::globals::GlobalName;
 use crate::ifs::wp_cursor_shape_device_v1::CursorShapeCursorUser;
 use crate::ifs::wp_cursor_shape_device_v1::WpCursorShapeDeviceV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WpCursorShapeDeviceV1Id;
 use crate::wire::WpCursorShapeManagerV1Id;
 use crate::wire::wp_cursor_shape_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -40,11 +40,7 @@ impl WpCursorShapeManagerV1Global {
     }
 }
 
-global_base!(
-    WpCursorShapeManagerV1Global,
-    WpCursorShapeManagerV1,
-    WpCursorShapeManagerV1Error
-);
+global_base!(WpCursorShapeManagerV1Global, WpCursorShapeManagerV1);
 
 simple_add_global!(WpCursorShapeManagerV1Global);
 
@@ -54,6 +50,7 @@ impl Global for WpCursorShapeManagerV1Global {
     }
 }
 
+#[derive(Object)]
 pub struct WpCursorShapeManagerV1 {
     id: WpCursorShapeManagerV1Id,
     client: Rc<Client>,
@@ -104,15 +101,6 @@ impl WpCursorShapeManagerV1RequestHandler for WpCursorShapeManagerV1 {
         )
     }
 }
-
-object_base! {
-    self = WpCursorShapeManagerV1;
-    version = self.version;
-}
-
-impl Object for WpCursorShapeManagerV1 {}
-
-simple_add_obj!(WpCursorShapeManagerV1);
 
 #[derive(Debug, Error)]
 pub enum WpCursorShapeManagerV1Error {

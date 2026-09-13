@@ -9,7 +9,6 @@ use crate::gfx_api;
 use crate::gfx_api::GfxApi;
 use crate::ifs::wl_output;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::scale::Scale;
 use crate::state::ConnectorData;
@@ -27,11 +26,13 @@ use crate::wire::jay_randr::*;
 use jay_config::video::ScalingFilter as ConfigScalingFilter;
 use jay_config::video::TearingMode as ConfigTearingMode;
 use jay_config::video::VrrMode as ConfigVrrMode;
+use jay_proc::Object;
 use linearize::LinearizeExt;
 use std::rc::Rc;
 use std::slice;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct JayRandr {
     id: JayRandrId,
     client: Rc<Client>,
@@ -679,15 +680,6 @@ impl JayRandrRequestHandler for JayRandr {
         Ok(())
     }
 }
-
-object_base! {
-    self = JayRandr;
-    version = self.version;
-}
-
-impl Object for JayRandr {}
-
-simple_add_obj!(JayRandr);
 
 #[derive(Debug, Error)]
 pub enum JayRandrError {

@@ -7,17 +7,18 @@ use crate::client::ClientError;
 use crate::ifs::wlr_output_manager::zwlr_output_configuration_head::ZwlrOutputConfigurationHeadV1;
 use crate::ifs::wlr_output_manager::zwlr_output_manager_v1::ZwlrOutputManagerV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::wire::ZwlrOutputConfigurationV1Id;
 use crate::wire::zwlr_output_configuration_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct ZwlrOutputConfigurationV1 {
     pub(super) id: ZwlrOutputConfigurationV1Id,
     pub(super) version: Version,
@@ -229,15 +230,6 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = ZwlrOutputConfigurationV1;
-    version = self.version;
-}
-
-impl Object for ZwlrOutputConfigurationV1 {}
-
-simple_add_obj!(ZwlrOutputConfigurationV1);
 
 #[derive(Debug, Error)]
 pub enum ZwlrOutputConfigurationV1Error {

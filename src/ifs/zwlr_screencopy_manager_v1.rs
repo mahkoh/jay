@@ -6,7 +6,6 @@ use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::tree::TreeTimeline::LiveTL;
@@ -14,6 +13,7 @@ use crate::wire::WlOutputId;
 use crate::wire::ZwlrScreencopyFrameV1Id;
 use crate::wire::ZwlrScreencopyManagerV1Id;
 use crate::wire::zwlr_screencopy_manager_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
@@ -45,11 +45,7 @@ impl ZwlrScreencopyManagerV1Global {
     }
 }
 
-global_base!(
-    ZwlrScreencopyManagerV1Global,
-    ZwlrScreencopyManagerV1,
-    ZwlrScreencopyManagerV1Error
-);
+global_base!(ZwlrScreencopyManagerV1Global, ZwlrScreencopyManagerV1);
 
 simple_add_global!(ZwlrScreencopyManagerV1Global);
 
@@ -63,6 +59,7 @@ impl Global for ZwlrScreencopyManagerV1Global {
     }
 }
 
+#[derive(Object)]
 pub struct ZwlrScreencopyManagerV1 {
     id: ZwlrScreencopyManagerV1Id,
     client: Rc<Client>,
@@ -142,15 +139,6 @@ impl ZwlrScreencopyManagerV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = ZwlrScreencopyManagerV1;
-    version = self.version;
-}
-
-impl Object for ZwlrScreencopyManagerV1 {}
-
-simple_add_obj!(ZwlrScreencopyManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ZwlrScreencopyManagerV1Error {

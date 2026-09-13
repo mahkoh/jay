@@ -14,16 +14,19 @@ use crate::ifs::wl_seat::wl_pointer::PRESSED;
 use crate::ifs::wl_seat::wl_pointer::RELEASED;
 use crate::ifs::wl_seat::wl_pointer::WHEEL;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::syncqueue::SyncQueue;
 use crate::wire::ZwlrVirtualPointerV1Id;
 use crate::wire::zwlr_virtual_pointer_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct ZwlrVirtualPointerV1 {
     pub id: ZwlrVirtualPointerV1Id,
     pub client: Rc<Client>,
@@ -187,18 +190,11 @@ impl ZwlrVirtualPointerV1RequestHandler for ZwlrVirtualPointerV1 {
     }
 }
 
-object_base! {
-    self = ZwlrVirtualPointerV1;
-    version = self.version;
-}
-
-impl Object for ZwlrVirtualPointerV1 {
+impl BreakLoops for ZwlrVirtualPointerV1 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(ZwlrVirtualPointerV1);
 
 #[derive(Debug, Error)]
 pub enum ZwlrVirtualPointerV1Error {

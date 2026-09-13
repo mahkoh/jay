@@ -6,13 +6,13 @@ use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::zwlr_virtual_pointer_v1::ZwlrVirtualPointerV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WlOutputId;
 use crate::wire::WlSeatId;
 use crate::wire::ZwlrVirtualPointerManagerV1Id;
 use crate::wire::ZwlrVirtualPointerV1Id;
 use crate::wire::zwlr_virtual_pointer_manager_v1::*;
+use jay_proc::Object;
 use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
@@ -47,7 +47,6 @@ impl ZwlrVirtualPointerManagerV1Global {
 global_base!(
     ZwlrVirtualPointerManagerV1Global,
     ZwlrVirtualPointerManagerV1,
-    ZwlrVirtualPointerManagerV1Error
 );
 
 simple_add_global!(ZwlrVirtualPointerManagerV1Global);
@@ -62,6 +61,7 @@ impl Global for ZwlrVirtualPointerManagerV1Global {
     }
 }
 
+#[derive(Object)]
 pub struct ZwlrVirtualPointerManagerV1 {
     id: ZwlrVirtualPointerManagerV1Id,
     client: Rc<Client>,
@@ -129,15 +129,6 @@ impl ZwlrVirtualPointerManagerV1RequestHandler for ZwlrVirtualPointerManagerV1 {
         self.create_virtual_pointer(req.id, req.seat, req.output)
     }
 }
-
-object_base! {
-    self = ZwlrVirtualPointerManagerV1;
-    version = self.version;
-}
-
-impl Object for ZwlrVirtualPointerManagerV1 {}
-
-simple_add_obj!(ZwlrVirtualPointerManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ZwlrVirtualPointerManagerV1Error {

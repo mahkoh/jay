@@ -5,16 +5,17 @@ use crate::ifs::jay_generic_match_builder::MatchBuilder;
 use crate::ifs::jay_generic_match_builder::MatchBuilderDyn;
 use crate::ifs::jay_window_match::JayWindowMatch;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::tree::ToplevelData;
 use crate::wire::JayWindowMatchBuilderId;
 use crate::wire::jay_window_match_builder::*;
 use jay_config::window::ContentType;
 use jay_config::window::WindowType;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct JayWindowMatchBuilder {
     pub id: JayWindowMatchBuilderId,
     pub client: Rc<Client>,
@@ -146,15 +147,6 @@ impl JayWindowMatchBuilderRequestHandler for JayWindowMatchBuilder {
         push_bool!(self, is_workspace_container)
     }
 }
-
-object_base! {
-    self = JayWindowMatchBuilder;
-    version = self.version;
-}
-
-impl Object for JayWindowMatchBuilder {}
-
-simple_add_obj!(JayWindowMatchBuilder);
 
 #[derive(Debug, Error)]
 pub enum JayWindowMatchBuilderError {

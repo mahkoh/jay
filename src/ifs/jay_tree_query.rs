@@ -9,7 +9,6 @@ use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1;
 use crate::ifs::wp_content_type_v1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::tree;
@@ -34,6 +33,7 @@ use crate::wire::JayTreeQueryId;
 use crate::wire::jay_tree_query;
 use crate::wire::jay_tree_query::*;
 use isnt::std_1::primitive::IsntStrExt;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::ops::Deref;
@@ -57,6 +57,7 @@ const CONTENT_TYPE_SINCE: Version = Version(20);
 
 const WORKSPACE_TYPE_SINCE: Version = Version(31);
 
+#[derive(Object)]
 pub struct JayTreeQuery {
     id: JayTreeQueryId,
     client: Rc<Client>,
@@ -505,15 +506,6 @@ impl tree::NodeVisitorBase for Visitor<'_> {
         s.send_end();
     }
 }
-
-object_base! {
-    self = JayTreeQuery;
-    version = self.version;
-}
-
-impl Object for JayTreeQuery {}
-
-simple_add_obj!(JayTreeQuery);
 
 #[derive(Debug, Error)]
 pub enum JayTreeQueryError {

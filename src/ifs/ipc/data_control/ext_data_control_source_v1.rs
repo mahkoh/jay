@@ -7,17 +7,21 @@ use crate::ifs::ipc::data_control::private::DataControlSourceData;
 use crate::ifs::ipc::data_control::private::logic;
 use crate::ifs::ipc::data_control::private::logic::DataControlError;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::wire::ExtDataControlSourceV1Id;
 use crate::wire::ext_data_control_source_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
 
+#[derive(Object)]
+#[break_loops]
 pub struct ExtDataControlSourceV1 {
     id: ExtDataControlSourceV1Id,
+    version: Version,
     data: DataControlSourceData,
     pub tracker: Tracker<Self>,
 }
@@ -42,9 +46,9 @@ impl ExtDataControlSourceV1 {
     pub fn new(id: ExtDataControlSourceV1Id, client: &Rc<Client>, version: Version) -> Self {
         Self {
             id,
+            version,
             data: DataControlSourceData {
                 data: SourceData::new(client),
-                version,
                 location: Cell::new(IpcLocation::Clipboard),
                 used: Cell::new(false),
             },
@@ -79,22 +83,11 @@ impl ExtDataControlSourceV1RequestHandler for ExtDataControlSourceV1 {
     }
 }
 
-object_base! {
-    self = ExtDataControlSourceV1;
-    version = self.data.version;
-}
-
-impl Object for ExtDataControlSourceV1 {
+impl BreakLoops for ExtDataControlSourceV1 {
     fn break_loops(self: Rc<Self>) {
         logic::data_source_break_loops(&*self);
     }
 }
-
-dedicated_add_obj!(
-    ExtDataControlSourceV1,
-    ExtDataControlSourceV1Id,
-    ext_data_sources,
-);
 
 #[derive(Debug, Error)]
 pub enum ExtDataControlSourceV1Error {

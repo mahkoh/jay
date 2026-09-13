@@ -3,10 +3,10 @@ use crate::client::ClientError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WlFixesId;
 use crate::wire::wl_fixes::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -37,7 +37,7 @@ impl WlFixesGlobal {
     }
 }
 
-global_base!(WlFixesGlobal, WlFixes, WlFixesError);
+global_base!(WlFixesGlobal, WlFixes);
 
 simple_add_global!(WlFixesGlobal);
 
@@ -47,6 +47,7 @@ impl Global for WlFixesGlobal {
     }
 }
 
+#[derive(Object)]
 pub struct WlFixes {
     id: WlFixesId,
     client: Rc<Client>,
@@ -72,15 +73,6 @@ impl WlFixesRequestHandler for WlFixes {
         Ok(())
     }
 }
-
-object_base! {
-    self = WlFixes;
-    version = self.version;
-}
-
-impl Object for WlFixes {}
-
-simple_add_obj!(WlFixes);
 
 #[derive(Debug, Error)]
 pub enum WlFixesError {

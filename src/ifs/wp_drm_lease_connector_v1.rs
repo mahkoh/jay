@@ -3,14 +3,17 @@ use crate::client::Client;
 use crate::client::ClientError;
 use crate::ifs::wp_drm_lease_device_v1::WpDrmLeaseDeviceV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::utils::bindings::Bindings;
 use crate::wire::WpDrmLeaseConnectorV1Id;
 use crate::wire::wp_drm_lease_connector_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct WpDrmLeaseConnectorV1 {
     pub id: WpDrmLeaseConnectorV1Id,
     pub client: Rc<Client>,
@@ -67,22 +70,11 @@ impl WpDrmLeaseConnectorV1RequestHandler for WpDrmLeaseConnectorV1 {
     }
 }
 
-object_base! {
-    self = WpDrmLeaseConnectorV1;
-    version = self.version;
-}
-
-impl Object for WpDrmLeaseConnectorV1 {
+impl BreakLoops for WpDrmLeaseConnectorV1 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-dedicated_add_obj!(
-    WpDrmLeaseConnectorV1,
-    WpDrmLeaseConnectorV1Id,
-    drm_lease_outputs,
-);
 
 #[derive(Debug, Error)]
 pub enum WpDrmLeaseConnectorV1Error {

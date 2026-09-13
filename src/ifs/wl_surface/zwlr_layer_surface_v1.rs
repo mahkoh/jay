@@ -18,7 +18,8 @@ use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopupParent;
 use crate::ifs::zwlr_layer_shell_v1::OVERLAY;
 use crate::ifs::zwlr_layer_shell_v1::ZwlrLayerShellV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
+use crate::object::Version;
 use crate::rect::Rect;
 use crate::rect::Size;
 use crate::renderer::Renderer;
@@ -53,6 +54,7 @@ use crate::wire::ObjectId;
 use crate::wire::XdgPopupId;
 use crate::wire::ZwlrLayerSurfaceV1Id;
 use crate::wire::zwlr_layer_surface_v1::*;
+use jay_proc::Object;
 use jay_proc::Reset;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -70,9 +72,12 @@ const LEFT: u32 = 4;
 const RIGHT: u32 = 8;
 
 tree_id!(ZwlrLayerSurfaceV1NodeId);
+#[derive(Object)]
+#[break_loops]
 pub struct ZwlrLayerSurfaceV1 {
     id: ZwlrLayerSurfaceV1Id,
     node_id: ZwlrLayerSurfaceV1NodeId,
+    version: Version,
     shell: Rc<ZwlrLayerShellV1>,
     client: Rc<Client>,
     pub surface: Rc<WlSurface>,
@@ -186,6 +191,7 @@ impl ZwlrLayerSurfaceV1 {
         Self {
             id,
             node_id: shell.client.state.node_ids.next(),
+            version: shell.version,
             shell: shell.clone(),
             client: shell.client.clone(),
             surface: surface.clone(),
@@ -877,12 +883,7 @@ impl XdgPopupParent for Popup {
     }
 }
 
-object_base! {
-    self = ZwlrLayerSurfaceV1;
-    version = self.shell.version;
-}
-
-impl Object for ZwlrLayerSurfaceV1 {
+impl BreakLoops for ZwlrLayerSurfaceV1 {
     fn break_loops(self: Rc<Self>) {
         self.destroy_node();
         self.link.borrow_mut().take();
@@ -890,8 +891,6 @@ impl Object for ZwlrLayerSurfaceV1 {
         self.configurable_data.ready();
     }
 }
-
-simple_add_obj!(ZwlrLayerSurfaceV1);
 
 impl Configurable for ZwlrLayerSurfaceV1 {
     type T = Size;

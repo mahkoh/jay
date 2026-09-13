@@ -5,10 +5,10 @@ use crate::globals::GlobalName;
 use crate::ifs::wl_surface::wp_fifo_v1::WpFifoV1;
 use crate::ifs::wl_surface::wp_fifo_v1::WpFifoV1Error;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WpFifoManagerV1Id;
 use crate::wire::wp_fifo_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -16,6 +16,7 @@ pub struct WpFifoManagerV1Global {
     name: GlobalName,
 }
 
+#[derive(Object)]
 pub struct WpFifoManagerV1 {
     id: WpFifoManagerV1Id,
     client: Rc<Client>,
@@ -46,7 +47,7 @@ impl WpFifoManagerV1Global {
     }
 }
 
-global_base!(WpFifoManagerV1Global, WpFifoManagerV1, WpFifoManagerV1Error);
+global_base!(WpFifoManagerV1Global, WpFifoManagerV1);
 
 impl Global for WpFifoManagerV1Global {
     fn version(&self) -> u32 {
@@ -73,15 +74,6 @@ impl WpFifoManagerV1RequestHandler for WpFifoManagerV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = WpFifoManagerV1;
-    version = self.version;
-}
-
-impl Object for WpFifoManagerV1 {}
-
-simple_add_obj!(WpFifoManagerV1);
 
 #[derive(Debug, Error)]
 pub enum WpFifoManagerV1Error {

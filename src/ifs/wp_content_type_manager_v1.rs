@@ -4,10 +4,10 @@ use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wp_content_type_v1::WpContentTypeV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WpContentTypeManagerV1Id;
 use crate::wire::wp_content_type_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -38,11 +38,7 @@ impl WpContentTypeManagerV1Global {
     }
 }
 
-global_base!(
-    WpContentTypeManagerV1Global,
-    WpContentTypeManagerV1,
-    WpContentTypeManagerV1Error
-);
+global_base!(WpContentTypeManagerV1Global, WpContentTypeManagerV1);
 
 simple_add_global!(WpContentTypeManagerV1Global);
 
@@ -52,6 +48,7 @@ impl Global for WpContentTypeManagerV1Global {
     }
 }
 
+#[derive(Object)]
 pub struct WpContentTypeManagerV1 {
     id: WpContentTypeManagerV1Id,
     client: Rc<Client>,
@@ -88,15 +85,6 @@ impl WpContentTypeManagerV1RequestHandler for WpContentTypeManagerV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = WpContentTypeManagerV1;
-    version = self.version;
-}
-
-impl Object for WpContentTypeManagerV1 {}
-
-simple_add_obj!(WpContentTypeManagerV1);
 
 #[derive(Debug, Error)]
 pub enum WpContentTypeManagerV1Error {

@@ -2,12 +2,12 @@ use crate::client::Client;
 use crate::ifs::wl_output::WlOutput;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::utils::bhash::BHashMap;
 use crate::wire::WlOutputId;
 use crate::wire::WpPresentationFeedbackId;
 use crate::wire::wp_presentation_feedback::*;
+use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
@@ -54,6 +54,7 @@ impl Drop for PresentationFeedback {
     }
 }
 
+#[derive(Object)]
 pub struct WpPresentationFeedback {
     pub id: WpPresentationFeedbackId,
     pub client: Rc<Client>,
@@ -96,12 +97,3 @@ impl WpPresentationFeedback {
 impl WpPresentationFeedbackRequestHandler for WpPresentationFeedback {
     type Error = Infallible;
 }
-
-object_base! {
-    self = WpPresentationFeedback;
-    version = self.version;
-}
-
-impl Object for WpPresentationFeedback {}
-
-simple_add_obj!(WpPresentationFeedback);

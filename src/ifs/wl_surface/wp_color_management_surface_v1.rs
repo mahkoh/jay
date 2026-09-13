@@ -3,16 +3,17 @@ use crate::client::ClientError;
 use crate::cmm::cmm_render_intent::RenderIntent;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WpColorManagementSurfaceV1Id;
 use crate::wire::wp_color_management_surface_v1::Destroy;
 use crate::wire::wp_color_management_surface_v1::SetImageDescription;
 use crate::wire::wp_color_management_surface_v1::UnsetImageDescription;
 use crate::wire::wp_color_management_surface_v1::WpColorManagementSurfaceV1RequestHandler;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct WpColorManagementSurfaceV1 {
     pub id: WpColorManagementSurfaceV1Id,
     pub client: Rc<Client>,
@@ -70,15 +71,6 @@ impl WpColorManagementSurfaceV1RequestHandler for WpColorManagementSurfaceV1 {
         Ok(())
     }
 }
-
-object_base! {
-    self = WpColorManagementSurfaceV1;
-    version = self.version;
-}
-
-impl Object for WpColorManagementSurfaceV1 {}
-
-simple_add_obj!(WpColorManagementSurfaceV1);
 
 #[derive(Debug, Error)]
 pub enum WpColorManagementSurfaceV1Error {

@@ -8,13 +8,14 @@ use crate::ifs::wl_surface::x_surface::xwindow::Xwindow;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::tree::NodeVisitorBase;
 use crate::tree::OutputNodeId;
 use crate::tree::ToplevelOpt;
 use crate::wire::ZwlrForeignToplevelManagerV1Id;
 use crate::wire::zwlr_foreign_toplevel_manager_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
@@ -64,6 +65,8 @@ impl NodeVisitorBase for ZwlrToplevelVisitor<'_> {
     }
 }
 
+#[derive(Object)]
+#[break_loops]
 pub struct ZwlrForeignToplevelManagerV1 {
     id: ZwlrForeignToplevelManagerV1Id,
     client: Rc<Client>,
@@ -123,7 +126,6 @@ impl ZwlrForeignToplevelManagerV1 {
 global_base!(
     ZwlrForeignToplevelManagerV1Global,
     ZwlrForeignToplevelManagerV1,
-    ZwlrForeignToplevelManagerV1Error
 );
 
 impl Global for ZwlrForeignToplevelManagerV1Global {
@@ -138,18 +140,11 @@ impl Global for ZwlrForeignToplevelManagerV1Global {
 
 simple_add_global!(ZwlrForeignToplevelManagerV1Global);
 
-object_base! {
-    self = ZwlrForeignToplevelManagerV1;
-    version = self.version;
-}
-
-impl Object for ZwlrForeignToplevelManagerV1 {
+impl BreakLoops for ZwlrForeignToplevelManagerV1 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(ZwlrForeignToplevelManagerV1);
 
 #[derive(Debug, Error)]
 pub enum ZwlrForeignToplevelManagerV1Error {

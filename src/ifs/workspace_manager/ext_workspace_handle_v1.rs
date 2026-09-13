@@ -6,7 +6,7 @@ use crate::ifs::workspace_manager::ext_workspace_manager_v1::WorkspaceChange;
 use crate::ifs::workspace_manager::ext_workspace_manager_v1::WorkspaceManagerId;
 use crate::ifs::workspace_manager::group_or_dangling;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::tree::OutputNode;
 use crate::tree::TreeTimeline::LiveTL;
@@ -15,6 +15,7 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::opt::Opt;
 use crate::wire::ExtWorkspaceHandleV1Id;
 use crate::wire::ext_workspace_handle_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
@@ -31,6 +32,8 @@ const CAP_DEACTIVATE: u32 = 2;
 const CAP_REMOVE: u32 = 4;
 const CAP_ASSIGN: u32 = 8;
 
+#[derive(Object)]
+#[break_loops]
 pub struct ExtWorkspaceHandleV1 {
     pub(super) id: ExtWorkspaceHandleV1Id,
     pub(super) client: Rc<Client>,
@@ -149,18 +152,11 @@ impl ExtWorkspaceHandleV1 {
     }
 }
 
-object_base! {
-    self = ExtWorkspaceHandleV1;
-    version = self.version;
-}
-
-impl Object for ExtWorkspaceHandleV1 {
+impl BreakLoops for ExtWorkspaceHandleV1 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(ExtWorkspaceHandleV1);
 
 impl ExtWorkspaceHandleV1RequestHandler for ExtWorkspaceHandleV1 {
     type Error = ExtWorkspaceHandleV1Error;

@@ -13,7 +13,7 @@ use crate::ifs::wl_surface::SurfaceRole;
 use crate::ifs::wl_surface::WlSurface;
 use crate::ifs::wl_surface::WlSurfaceError;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::rect::Size;
@@ -35,10 +35,13 @@ use crate::tree::WorkspaceNode;
 use crate::wire::ExtSessionLockSurfaceV1Id;
 use crate::wire::ObjectId;
 use crate::wire::ext_session_lock_surface_v1::*;
+use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
+#[break_loops]
 pub struct ExtSessionLockSurfaceV1 {
     pub id: ExtSessionLockSurfaceV1Id,
     pub node_id: ExtSessionLockSurfaceV1NodeId,
@@ -210,20 +213,13 @@ impl NodeBase for ExtSessionLockSurfaceV1 {
     }
 }
 
-object_base! {
-    self = ExtSessionLockSurfaceV1;
-    version = self.version;
-}
-
-impl Object for ExtSessionLockSurfaceV1 {
+impl BreakLoops for ExtSessionLockSurfaceV1 {
     fn break_loops(self: Rc<Self>) {
         self.destroy_node();
         self.destroyed.set(true);
         self.configurable_data.ready();
     }
 }
-
-simple_add_obj!(ExtSessionLockSurfaceV1);
 
 impl Configurable for ExtSessionLockSurfaceV1 {
     type T = Size;

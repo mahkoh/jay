@@ -5,17 +5,19 @@ use crate::globals::GlobalsError;
 use crate::globals::Singleton;
 use crate::leaks::Tracker;
 use crate::object::Interface;
-use crate::object::Object;
 use crate::object::Version;
 use crate::wire::WlRegistryId;
 use crate::wire::wl_registry::*;
+use jay_proc::Object;
 use linearize::StaticMap;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Object)]
 pub struct WlRegistry {
     id: WlRegistryId,
+    version: Version,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
     advertised: StaticMap<Singleton, Cell<bool>>,
@@ -25,6 +27,7 @@ impl WlRegistry {
     pub fn new(id: WlRegistryId, client: &Rc<Client>) -> Self {
         Self {
             id,
+            version: Version(1),
             client: client.clone(),
             tracker: Default::default(),
             advertised: Default::default(),
@@ -88,15 +91,6 @@ impl WlRegistryRequestHandler for WlRegistry {
         Ok(())
     }
 }
-
-object_base! {
-    self = WlRegistry;
-    version = Version(1);
-}
-
-impl Object for WlRegistry {}
-
-dedicated_add_obj!(WlRegistry, WlRegistryId, registries);
 
 #[derive(Debug, Error)]
 pub enum WlRegistryError {

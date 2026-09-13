@@ -47,13 +47,13 @@ use crate::ifs::color_management::wp_image_description_v1::WpImageDescriptionV1;
 use crate::ifs::wl_surface::wp_color_management_surface_v1::WpColorManagementSurfaceV1;
 use crate::ifs::wl_surface::wp_color_management_surface_v1::WpColorManagementSurfaceV1Error;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::state::State;
 use crate::utils::event_listener::EventListener;
 use crate::wire::WpColorManagerV1Id;
 use crate::wire::wp_color_manager_v1::SupportedIntent;
 use crate::wire::wp_color_manager_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -85,6 +85,7 @@ impl WpColorManagerV1Global {
     }
 }
 
+#[derive(Object)]
 pub struct WpColorManagerV1 {
     id: WpColorManagerV1Id,
     client: Rc<Client>,
@@ -319,11 +320,7 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
     }
 }
 
-global_base!(
-    WpColorManagerV1Global,
-    WpColorManagerV1,
-    WpColorManagerV1Error
-);
+global_base!(WpColorManagerV1Global, WpColorManagerV1);
 
 impl Global for WpColorManagerV1Global {
     fn version(&self) -> u32 {
@@ -336,15 +333,6 @@ impl Global for WpColorManagerV1Global {
 }
 
 simple_add_global!(WpColorManagerV1Global);
-
-object_base! {
-    self = WpColorManagerV1;
-    version = self.version;
-}
-
-impl Object for WpColorManagerV1 {}
-
-simple_add_obj!(WpColorManagerV1);
 
 #[derive(Debug, Error)]
 pub enum WpColorManagerV1Error {

@@ -3,7 +3,6 @@ use crate::client::ClientError;
 use crate::ei::ei_client::EiClientError;
 use crate::ifs::jay_ei_session::JayEiSession;
 use crate::leaks::Tracker;
-use crate::object::Object;
 use crate::object::Version;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::wire::JayEiSessionBuilderId;
@@ -12,11 +11,13 @@ use crate::wire::jay_ei_session_builder::JayEiSessionBuilderRequestHandler;
 use crate::wire::jay_ei_session_builder::SetAppId;
 use jay_algorithms::oserror::OsError;
 use jay_algorithms::oserror::OsErrorExt2;
+use jay_proc::Object;
 use std::cell::RefCell;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::c;
 
+#[derive(Object)]
 pub struct JayEiSessionBuilder {
     pub id: JayEiSessionBuilderId,
     pub client: Rc<Client>,
@@ -72,15 +73,6 @@ impl JayEiSessionBuilderRequestHandler for JayEiSessionBuilder {
         Ok(())
     }
 }
-
-object_base! {
-    self = JayEiSessionBuilder;
-    version = self.version;
-}
-
-impl Object for JayEiSessionBuilder {}
-
-simple_add_obj!(JayEiSessionBuilder);
 
 #[derive(Debug, Error)]
 pub enum JayEiSessionBuilderError {

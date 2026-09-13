@@ -8,13 +8,14 @@ use crate::ifs::ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1;
 use crate::ifs::wl_surface::x_surface::xwindow::Xwindow;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::leaks::Tracker;
-use crate::object::Object;
+use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::tree::NodeVisitorBase;
 use crate::tree::ToplevelOpt;
 use crate::wire::ExtForeignToplevelHandleV1Id;
 use crate::wire::ExtForeignToplevelListV1Id;
 use crate::wire::ext_foreign_toplevel_list_v1::*;
+use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -63,6 +64,8 @@ impl NodeVisitorBase for ToplevelVisitor<'_> {
     }
 }
 
+#[derive(Object)]
+#[break_loops]
 pub struct ExtForeignToplevelListV1 {
     id: ExtForeignToplevelListV1Id,
     client: Rc<Client>,
@@ -123,11 +126,7 @@ impl ExtForeignToplevelListV1 {
     }
 }
 
-global_base!(
-    ExtForeignToplevelListV1Global,
-    ExtForeignToplevelListV1,
-    ExtForeignToplevelListV1Error
-);
+global_base!(ExtForeignToplevelListV1Global, ExtForeignToplevelListV1);
 
 impl Global for ExtForeignToplevelListV1Global {
     fn version(&self) -> u32 {
@@ -141,18 +140,11 @@ impl Global for ExtForeignToplevelListV1Global {
 
 simple_add_global!(ExtForeignToplevelListV1Global);
 
-object_base! {
-    self = ExtForeignToplevelListV1;
-    version = self.version;
-}
-
-impl Object for ExtForeignToplevelListV1 {
+impl BreakLoops for ExtForeignToplevelListV1 {
     fn break_loops(self: Rc<Self>) {
         self.detach();
     }
 }
-
-simple_add_obj!(ExtForeignToplevelListV1);
 
 #[derive(Debug, Error)]
 pub enum ExtForeignToplevelListV1Error {
