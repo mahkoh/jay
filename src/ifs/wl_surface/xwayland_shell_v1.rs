@@ -9,10 +9,12 @@ use crate::object::Version;
 use crate::wire::WlSurfaceId;
 use crate::wire::XwaylandShellV1Id;
 use crate::wire::xwayland_shell_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Global)]
 pub struct XwaylandShellV1Global {
     name: GlobalName,
 }
@@ -79,8 +81,6 @@ impl XwaylandShellV1RequestHandler for XwaylandShellV1 {
     }
 }
 
-global_base!(XwaylandShellV1Global, XwaylandShellV1);
-
 impl Global for XwaylandShellV1Global {
     fn version(&self) -> u32 {
         1
@@ -90,8 +90,6 @@ impl Global for XwaylandShellV1Global {
         true
     }
 }
-
-simple_add_global!(XwaylandShellV1Global);
 
 #[derive(Debug, Error)]
 pub enum XwaylandShellV1Error {

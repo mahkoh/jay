@@ -39,40 +39,6 @@ macro_rules! usr_object_base {
     };
 }
 
-macro_rules! global_base {
-    ($oname:ty, $ifname:ident $(,)?) => {
-        impl crate::globals::GlobalBase for $oname {
-            fn name(&self) -> crate::globals::GlobalName {
-                self.name
-            }
-
-            fn bind<'a>(
-                self: std::rc::Rc<Self>,
-                client: &'a std::rc::Rc<crate::client::Client>,
-                id: crate::wire::ObjectId,
-                version: crate::object::Version,
-            ) -> Result<(), crate::globals::GlobalsError> {
-                if let Err(e) = self.bind_(id.into(), client, version) {
-                    let e = crate::globals::GlobalError {
-                        interface: crate::wire::$ifname,
-                        error: Box::new(e),
-                    };
-                    return Err(crate::globals::GlobalsError::GlobalError(e));
-                }
-                Ok(())
-            }
-
-            fn interface(&self) -> crate::object::Interface {
-                crate::wire::$ifname
-            }
-
-            fn singleton(&self) -> Option<crate::globals::Singleton> {
-                crate::globals::interface_singletons::$ifname
-            }
-        }
-    };
-}
-
 #[allow(unused)]
 macro_rules! synthetic_event_handler {
     ($oname:ty) => {
@@ -325,25 +291,6 @@ macro_rules! tree_id {
         impl PartialEq<$id> for crate::tree::NodeId {
             fn eq(&self, other: &$id) -> bool {
                 self.0 == other.0
-            }
-        }
-    };
-}
-
-macro_rules! simple_add_global {
-    ($ty:ty) => {
-        impl crate::globals::WaylandGlobal for $ty {}
-    };
-}
-
-macro_rules! dedicated_add_global {
-    ($oname:ident, $field:ident) => {
-        impl crate::globals::WaylandGlobal for $oname {
-            fn add(self: Rc<Self>, globals: &crate::globals::Globals) {
-                globals.$field.set(self.name, self);
-            }
-            fn remove(&self, globals: &crate::globals::Globals) {
-                globals.$field.remove(&self.name);
             }
         }
     };

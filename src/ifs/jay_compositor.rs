@@ -50,6 +50,7 @@ use crate::wire::jay_compositor;
 use crate::wire::jay_compositor::*;
 use bstr::ByteSlice;
 use jay_algorithms::oserror::OsError;
+use jay_proc::Global;
 use jay_proc::Object;
 use linearize::LinearizeExt;
 use std::cell::Cell;
@@ -63,6 +64,7 @@ pub const SCREENSHOT_SPLITUP_SINCE: Version = Version(6);
 pub const GET_TOPLEVEL_SINCE: Version = Version(12);
 pub const SCREENSHOT_DMABUF3_SINCE: Version = Version(40);
 
+#[derive(Global)]
 pub struct JayCompositorGlobal {
     name: GlobalName,
 }
@@ -91,8 +93,6 @@ impl JayCompositorGlobal {
     }
 }
 
-global_base!(JayCompositorGlobal, JayCompositor);
-
 impl Global for JayCompositorGlobal {
     fn version(&self) -> u32 {
         43
@@ -102,8 +102,6 @@ impl Global for JayCompositorGlobal {
         CAP_JAY_COMPOSITOR
     }
 }
-
-simple_add_global!(JayCompositorGlobal);
 
 #[derive(Object)]
 pub struct JayCompositor {

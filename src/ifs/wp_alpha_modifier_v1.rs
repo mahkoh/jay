@@ -8,10 +8,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::WpAlphaModifierV1Id;
 use crate::wire::wp_alpha_modifier_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Global)]
 pub struct WpAlphaModifierV1Global {
     name: GlobalName,
 }
@@ -68,15 +70,11 @@ impl WpAlphaModifierV1RequestHandler for WpAlphaModifierV1 {
     }
 }
 
-global_base!(WpAlphaModifierV1Global, WpAlphaModifierV1);
-
 impl Global for WpAlphaModifierV1Global {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(WpAlphaModifierV1Global);
 
 #[derive(Debug, Error)]
 pub enum WpAlphaModifierV1Error {

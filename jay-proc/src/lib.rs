@@ -6,11 +6,17 @@ use proc_macro::TokenStream;
 mod cached_value;
 mod drm_object_properties;
 mod extract_ident;
+mod global;
 mod liveness;
 mod markers;
 mod object;
 mod reset;
 mod str_fmt;
+
+#[proc_macro_derive(Global, attributes(dedicated, interface))]
+pub fn derive_global(input: TokenStream) -> TokenStream {
+    global::derive_global(input)
+}
 
 #[proc_macro_derive(Object, attributes(break_loops))]
 pub fn derive_object(input: TokenStream) -> TokenStream {

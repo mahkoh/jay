@@ -7,10 +7,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::ZxdgOutputManagerV1Id;
 use crate::wire::zxdg_output_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ZxdgOutputManagerV1Global {
     name: GlobalName,
 }
@@ -71,12 +73,8 @@ impl ZxdgOutputManagerV1RequestHandler for ZxdgOutputManagerV1 {
     }
 }
 
-global_base!(ZxdgOutputManagerV1Global, ZxdgOutputManagerV1);
-
 impl Global for ZxdgOutputManagerV1Global {
     fn version(&self) -> u32 {
         3
     }
 }
-
-simple_add_global!(ZxdgOutputManagerV1Global);

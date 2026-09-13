@@ -8,10 +8,12 @@ use crate::object::Version;
 use crate::tree::ToplevelNodeBase;
 use crate::wire::XdgToplevelTagManagerV1Id;
 use crate::wire::xdg_toplevel_tag_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct XdgToplevelTagManagerV1Global {
     name: GlobalName,
 }
@@ -39,15 +41,11 @@ impl XdgToplevelTagManagerV1Global {
     }
 }
 
-global_base!(XdgToplevelTagManagerV1Global, XdgToplevelTagManagerV1);
-
 impl Global for XdgToplevelTagManagerV1Global {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(XdgToplevelTagManagerV1Global);
 
 #[derive(Object)]
 pub struct XdgToplevelTagManagerV1 {

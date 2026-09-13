@@ -7,10 +7,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::ZxdgDecorationManagerV1Id;
 use crate::wire::zxdg_decoration_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ZxdgDecorationManagerV1Global {
     name: GlobalName,
 }
@@ -38,15 +40,11 @@ impl ZxdgDecorationManagerV1Global {
     }
 }
 
-global_base!(ZxdgDecorationManagerV1Global, ZxdgDecorationManagerV1);
-
 impl Global for ZxdgDecorationManagerV1Global {
     fn version(&self) -> u32 {
         2
     }
 }
-
-simple_add_global!(ZxdgDecorationManagerV1Global);
 
 #[derive(Object)]
 pub struct ZxdgDecorationManagerV1 {

@@ -12,6 +12,7 @@ use crate::sm::session_name;
 use crate::state::State;
 use crate::wire::XdgSessionManagerV1Id;
 use crate::wire::xdg_session_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::rc::Rc;
 use std::str::FromStr;
@@ -21,6 +22,7 @@ pub const REASON_LAUNCH: u32 = 1;
 pub const REASON_RECOVER: u32 = 2;
 const REASON_SESSION_RESTORE: u32 = 3;
 
+#[derive(Global)]
 pub struct XdgSessionManagerV1Global {
     name: GlobalName,
 }
@@ -52,8 +54,6 @@ impl XdgSessionManagerV1Global {
     }
 }
 
-global_base!(XdgSessionManagerV1Global, XdgSessionManagerV1);
-
 impl Global for XdgSessionManagerV1Global {
     fn version(&self) -> u32 {
         1
@@ -63,8 +63,6 @@ impl Global for XdgSessionManagerV1Global {
         state.sm.is_some() && state.session_management_enabled.get()
     }
 }
-
-simple_add_global!(XdgSessionManagerV1Global);
 
 #[derive(Object)]
 pub struct XdgSessionManagerV1 {

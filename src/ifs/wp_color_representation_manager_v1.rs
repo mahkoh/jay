@@ -18,10 +18,12 @@ use crate::wire::wp_color_representation_manager_v1::GetSurface;
 use crate::wire::wp_color_representation_manager_v1::SupportedAlphaMode;
 use crate::wire::wp_color_representation_manager_v1::SupportedCoefficientsAndRanges;
 use crate::wire::wp_color_representation_manager_v1::WpColorRepresentationManagerV1RequestHandler;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Global)]
 pub struct WpColorRepresentationManagerV1Global {
     name: GlobalName,
 }
@@ -122,18 +124,11 @@ impl WpColorRepresentationManagerV1RequestHandler for WpColorRepresentationManag
     }
 }
 
-global_base!(
-    WpColorRepresentationManagerV1Global,
-    WpColorRepresentationManagerV1,
-);
-
 impl Global for WpColorRepresentationManagerV1Global {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(WpColorRepresentationManagerV1Global);
 
 #[derive(Debug, Error)]
 pub enum WpColorRepresentationManagerV1Error {

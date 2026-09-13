@@ -9,11 +9,13 @@ use crate::object::Version;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::wire::ExtSessionLockManagerV1Id;
 use crate::wire::ext_session_lock_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::cell::Cell;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ExtSessionLockManagerV1Global {
     name: GlobalName,
 }
@@ -88,8 +90,6 @@ impl ExtSessionLockManagerV1RequestHandler for ExtSessionLockManagerV1 {
     }
 }
 
-global_base!(ExtSessionLockManagerV1Global, ExtSessionLockManagerV1);
-
 impl Global for ExtSessionLockManagerV1Global {
     fn version(&self) -> u32 {
         1
@@ -99,5 +99,3 @@ impl Global for ExtSessionLockManagerV1Global {
         CAP_SESSION_LOCK_MANAGER
     }
 }
-
-simple_add_global!(ExtSessionLockManagerV1Global);

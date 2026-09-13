@@ -10,10 +10,13 @@ use crate::ifs::wp_drm_lease_device_v1::WpDrmLeaseDeviceV1Global;
 use crate::object::Version;
 use crate::utils::bindings::Bindings;
 use crate::wire::WpDrmLeaseDeviceV1Id;
+use jay_proc::Global;
 use std::cell::Cell;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
+#[interface(WpDrmLeaseDeviceV1)]
 struct RemovedWpDrmLeaseDeviceV1Global {
     name: GlobalName,
     bindings: Rc<Bindings<WpDrmLeaseDeviceV1>>,
@@ -42,10 +45,6 @@ impl RemovedWpDrmLeaseDeviceV1Global {
         Ok(())
     }
 }
-
-global_base!(RemovedWpDrmLeaseDeviceV1Global, WpDrmLeaseDeviceV1);
-
-simple_add_global!(RemovedWpDrmLeaseDeviceV1Global);
 
 impl Global for RemovedWpDrmLeaseDeviceV1Global {
     fn version(&self) -> u32 {

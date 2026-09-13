@@ -13,11 +13,13 @@ use crate::wire::WlOutputId;
 use crate::wire::ZwlrScreencopyFrameV1Id;
 use crate::wire::ZwlrScreencopyManagerV1Id;
 use crate::wire::zwlr_screencopy_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Global)]
 pub struct ZwlrScreencopyManagerV1Global {
     name: GlobalName,
 }
@@ -44,10 +46,6 @@ impl ZwlrScreencopyManagerV1Global {
         Ok(())
     }
 }
-
-global_base!(ZwlrScreencopyManagerV1Global, ZwlrScreencopyManagerV1);
-
-simple_add_global!(ZwlrScreencopyManagerV1Global);
 
 impl Global for ZwlrScreencopyManagerV1Global {
     fn version(&self) -> u32 {

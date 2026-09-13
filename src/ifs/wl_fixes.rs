@@ -6,10 +6,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::WlFixesId;
 use crate::wire::wl_fixes::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct WlFixesGlobal {
     name: GlobalName,
 }
@@ -36,10 +38,6 @@ impl WlFixesGlobal {
         Ok(())
     }
 }
-
-global_base!(WlFixesGlobal, WlFixes);
-
-simple_add_global!(WlFixesGlobal);
 
 impl Global for WlFixesGlobal {
     fn version(&self) -> u32 {

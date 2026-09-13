@@ -7,10 +7,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::ZwpIdleInhibitManagerV1Id;
 use crate::wire::zwp_idle_inhibit_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ZwpIdleInhibitManagerV1Global {
     name: GlobalName,
 }
@@ -38,15 +40,11 @@ impl ZwpIdleInhibitManagerV1Global {
     }
 }
 
-global_base!(ZwpIdleInhibitManagerV1Global, ZwpIdleInhibitManagerV1);
-
 impl Global for ZwpIdleInhibitManagerV1Global {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(ZwpIdleInhibitManagerV1Global);
 
 #[derive(Object)]
 pub struct ZwpIdleInhibitManagerV1 {

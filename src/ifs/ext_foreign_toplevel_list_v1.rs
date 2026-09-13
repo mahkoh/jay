@@ -14,10 +14,12 @@ use crate::tree::ToplevelOpt;
 use crate::wire::ExtForeignToplevelHandleV1Id;
 use crate::wire::ExtForeignToplevelListV1Id;
 use crate::wire::ext_foreign_toplevel_list_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ExtForeignToplevelListV1Global {
     name: GlobalName,
 }
@@ -125,8 +127,6 @@ impl ExtForeignToplevelListV1 {
     }
 }
 
-global_base!(ExtForeignToplevelListV1Global, ExtForeignToplevelListV1);
-
 impl Global for ExtForeignToplevelListV1Global {
     fn version(&self) -> u32 {
         1
@@ -136,8 +136,6 @@ impl Global for ExtForeignToplevelListV1Global {
         CAP_FOREIGN_TOPLEVEL_LIST
     }
 }
-
-simple_add_global!(ExtForeignToplevelListV1Global);
 
 impl BreakLoops for ExtForeignToplevelListV1 {
     fn break_loops(self: Rc<Self>) {

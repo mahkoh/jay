@@ -9,11 +9,13 @@ use crate::object::Version;
 use crate::state::State;
 pub use crate::wire::WpPresentationId;
 pub use crate::wire::wp_presentation::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 use uapi::c;
 
+#[derive(Global)]
 pub struct WpPresentationGlobal {
     name: GlobalName,
 }
@@ -42,8 +44,6 @@ impl WpPresentationGlobal {
     }
 }
 
-global_base!(WpPresentationGlobal, WpPresentation);
-
 impl Global for WpPresentationGlobal {
     fn version(&self) -> u32 {
         2
@@ -53,8 +53,6 @@ impl Global for WpPresentationGlobal {
         state.supports_presentation_feedback.get()
     }
 }
-
-simple_add_global!(WpPresentationGlobal);
 
 #[derive(Object)]
 pub struct WpPresentation {

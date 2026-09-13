@@ -11,10 +11,12 @@ use crate::state::State;
 use crate::video::drm::syncobj::Syncobj;
 use crate::wire::WpLinuxDrmSyncobjManagerV1Id;
 use crate::wire::wp_linux_drm_syncobj_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Global)]
 pub struct WpLinuxDrmSyncobjManagerV1Global {
     name: GlobalName,
 }
@@ -50,8 +52,6 @@ impl WpLinuxDrmSyncobjManagerV1Global {
     }
 }
 
-global_base!(WpLinuxDrmSyncobjManagerV1Global, WpLinuxDrmSyncobjManagerV1);
-
 impl Global for WpLinuxDrmSyncobjManagerV1Global {
     fn version(&self) -> u32 {
         1
@@ -61,8 +61,6 @@ impl Global for WpLinuxDrmSyncobjManagerV1Global {
         state.explicit_sync_enabled.get() && state.explicit_sync_supported.get()
     }
 }
-
-simple_add_global!(WpLinuxDrmSyncobjManagerV1Global);
 
 impl WpLinuxDrmSyncobjManagerV1RequestHandler for WpLinuxDrmSyncobjManagerV1 {
     type Error = WpLinuxDrmSyncobjManagerV1Error;

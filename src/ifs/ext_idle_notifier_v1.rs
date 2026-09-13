@@ -12,11 +12,13 @@ use crate::wire::ExtIdleNotificationV1Id;
 use crate::wire::ExtIdleNotifierV1Id;
 use crate::wire::WlSeatId;
 use crate::wire::ext_idle_notifier_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::cell::Cell;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ExtIdleNotifierV1Global {
     name: GlobalName,
 }
@@ -139,8 +141,6 @@ async fn run(n: Rc<ExtIdleNotificationV1>, skip_if_inhibited: bool) {
     }
 }
 
-global_base!(ExtIdleNotifierV1Global, ExtIdleNotifierV1);
-
 impl Global for ExtIdleNotifierV1Global {
     fn version(&self) -> u32 {
         2
@@ -150,5 +150,3 @@ impl Global for ExtIdleNotifierV1Global {
         CAP_IDLE_NOTIFIER
     }
 }
-
-simple_add_global!(ExtIdleNotifierV1Global);

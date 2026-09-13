@@ -8,10 +8,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::JayPopupExtManagerV1Id;
 use crate::wire::jay_popup_ext_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Global)]
 pub struct JayPopupExtManagerV1Global {
     name: GlobalName,
 }
@@ -47,15 +49,11 @@ impl JayPopupExtManagerV1Global {
     }
 }
 
-global_base!(JayPopupExtManagerV1Global, JayPopupExtManagerV1);
-
 impl Global for JayPopupExtManagerV1Global {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(JayPopupExtManagerV1Global);
 
 impl JayPopupExtManagerV1RequestHandler for JayPopupExtManagerV1 {
     type Error = JayPopupExtManagerV1Error;

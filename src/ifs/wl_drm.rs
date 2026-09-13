@@ -14,6 +14,7 @@ use crate::video::dmabuf::PlaneVec;
 use crate::wire::WlDrmId;
 use crate::wire::wl_drm::*;
 use bstr::ByteSlice;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::ffi::CString;
 use std::rc::Rc;
@@ -21,6 +22,7 @@ use thiserror::Error;
 
 const PRIME: u32 = 1;
 
+#[derive(Global)]
 pub struct WlDrmGlobal {
     name: GlobalName,
 }
@@ -54,8 +56,6 @@ impl WlDrmGlobal {
     }
 }
 
-global_base!(WlDrmGlobal, WlDrm);
-
 impl Global for WlDrmGlobal {
     fn version(&self) -> u32 {
         2
@@ -68,8 +68,6 @@ impl Global for WlDrmGlobal {
         ctx.supports_invalid_modifier()
     }
 }
-
-simple_add_global!(WlDrmGlobal);
 
 #[derive(Object)]
 pub struct WlDrm {

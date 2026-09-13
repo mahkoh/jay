@@ -6,10 +6,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::WpSecurityContextManagerV1Id;
 use crate::wire::wp_security_context_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct WpSecurityContextManagerV1Global {
     name: GlobalName,
 }
@@ -37,15 +39,11 @@ impl WpSecurityContextManagerV1Global {
     }
 }
 
-global_base!(WpSecurityContextManagerV1Global, WpSecurityContextManagerV1);
-
 impl Global for WpSecurityContextManagerV1Global {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(WpSecurityContextManagerV1Global);
 
 #[derive(Object)]
 pub struct WpSecurityContextManagerV1 {

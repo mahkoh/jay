@@ -7,10 +7,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::ZwpTabletManagerV2Id;
 use crate::wire::zwp_tablet_manager_v2::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ZwpTabletManagerV2Global {
     name: GlobalName,
 }
@@ -46,15 +48,11 @@ impl ZwpTabletManagerV2Global {
     }
 }
 
-global_base!(ZwpTabletManagerV2Global, ZwpTabletManagerV2);
-
 impl Global for ZwpTabletManagerV2Global {
     fn version(&self) -> u32 {
         2
     }
 }
-
-simple_add_global!(ZwpTabletManagerV2Global);
 
 impl ZwpTabletManagerV2RequestHandler for ZwpTabletManagerV2 {
     type Error = LookupError;

@@ -20,6 +20,7 @@ use crate::utils::opt::Opt;
 use crate::utils::syncqueue::SyncQueue;
 use crate::wire::ExtWorkspaceManagerV1Id;
 use crate::wire::ext_workspace_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::cell::Cell;
 use std::convert::Infallible;
@@ -27,6 +28,7 @@ use std::rc::Rc;
 
 linear_ids!(WorkspaceManagerIds, WorkspaceManagerId, u64);
 
+#[derive(Global)]
 pub struct ExtWorkspaceManagerV1Global {
     name: GlobalName,
 }
@@ -198,8 +200,6 @@ impl ExtWorkspaceManagerV1 {
     }
 }
 
-global_base!(ExtWorkspaceManagerV1Global, ExtWorkspaceManagerV1);
-
 impl Global for ExtWorkspaceManagerV1Global {
     fn version(&self) -> u32 {
         1
@@ -209,8 +209,6 @@ impl Global for ExtWorkspaceManagerV1Global {
         CAP_WORKSPACE
     }
 }
-
-simple_add_global!(ExtWorkspaceManagerV1Global);
 
 impl BreakLoops for ExtWorkspaceManagerV1 {
     fn break_loops(self: Rc<Self>) {

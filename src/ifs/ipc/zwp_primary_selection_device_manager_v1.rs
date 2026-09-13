@@ -9,10 +9,12 @@ use crate::object::Version;
 use crate::state::State;
 use crate::wire::ZwpPrimarySelectionDeviceManagerV1Id;
 use crate::wire::zwp_primary_selection_device_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ZwpPrimarySelectionDeviceManagerV1Global {
     name: GlobalName,
 }
@@ -82,11 +84,6 @@ impl ZwpPrimarySelectionDeviceManagerV1RequestHandler for ZwpPrimarySelectionDev
     }
 }
 
-global_base!(
-    ZwpPrimarySelectionDeviceManagerV1Global,
-    ZwpPrimarySelectionDeviceManagerV1,
-);
-
 impl Global for ZwpPrimarySelectionDeviceManagerV1Global {
     fn version(&self) -> u32 {
         1
@@ -96,5 +93,3 @@ impl Global for ZwpPrimarySelectionDeviceManagerV1Global {
         state.enable_primary_selection.get()
     }
 }
-
-simple_add_global!(ZwpPrimarySelectionDeviceManagerV1Global);

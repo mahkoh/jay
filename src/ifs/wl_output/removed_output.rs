@@ -7,9 +7,12 @@ use crate::ifs::wl_output::WlOutput;
 use crate::ifs::wl_output::WlOutputGlobal;
 use crate::object::Version;
 use crate::wire::WlOutputId;
+use jay_proc::Global;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
+#[interface(WlOutput)]
 struct RemovedOutputGlobal {
     name: GlobalName,
 }
@@ -35,15 +38,11 @@ impl RemovedOutputGlobal {
     }
 }
 
-global_base!(RemovedOutputGlobal, WlOutput);
-
 impl Global for RemovedOutputGlobal {
     fn version(&self) -> u32 {
         OUTPUT_VERSION
     }
 }
-
-simple_add_global!(RemovedOutputGlobal);
 
 impl RemovableWaylandGlobal for WlOutputGlobal {
     fn create_replacement(self: Rc<Self>) -> Rc<dyn Global> {

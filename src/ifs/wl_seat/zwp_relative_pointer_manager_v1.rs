@@ -7,10 +7,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::ZwpRelativePointerManagerV1Id;
 use crate::wire::zwp_relative_pointer_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ZwpRelativePointerManagerV1Global {
     name: GlobalName,
 }
@@ -46,18 +48,11 @@ impl ZwpRelativePointerManagerV1Global {
     }
 }
 
-global_base!(
-    ZwpRelativePointerManagerV1Global,
-    ZwpRelativePointerManagerV1,
-);
-
 impl Global for ZwpRelativePointerManagerV1Global {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(ZwpRelativePointerManagerV1Global);
 
 impl ZwpRelativePointerManagerV1RequestHandler for ZwpRelativePointerManagerV1 {
     type Error = LookupError;

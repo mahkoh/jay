@@ -8,10 +8,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::WpTearingControlManagerV1Id;
 use crate::wire::wp_tearing_control_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Global)]
 pub struct WpTearingControlManagerV1Global {
     name: GlobalName,
 }
@@ -39,15 +41,11 @@ impl WpTearingControlManagerV1Global {
     }
 }
 
-global_base!(WpTearingControlManagerV1Global, WpTearingControlManagerV1);
-
 impl Global for WpTearingControlManagerV1Global {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(WpTearingControlManagerV1Global);
 
 #[derive(Object)]
 pub struct WpTearingControlManagerV1 {

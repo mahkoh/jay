@@ -9,10 +9,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::ZwpPointerGesturesV1Id;
 use crate::wire::zwp_pointer_gestures_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ZwpPointerGesturesV1Global {
     name: GlobalName,
 }
@@ -48,15 +50,11 @@ impl ZwpPointerGesturesV1Global {
     }
 }
 
-global_base!(ZwpPointerGesturesV1Global, ZwpPointerGesturesV1);
-
 impl Global for ZwpPointerGesturesV1Global {
     fn version(&self) -> u32 {
         3
     }
 }
-
-simple_add_global!(ZwpPointerGesturesV1Global);
 
 impl ZwpPointerGesturesV1RequestHandler for ZwpPointerGesturesV1 {
     type Error = LookupError;

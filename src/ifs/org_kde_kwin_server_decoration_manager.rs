@@ -7,6 +7,7 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::OrgKdeKwinServerDecorationManagerId;
 use crate::wire::org_kde_kwin_server_decoration_manager::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
@@ -17,6 +18,7 @@ const NONE: u32 = 0;
 const CLIENT: u32 = 1;
 const SERVER: u32 = 2;
 
+#[derive(Global)]
 pub struct OrgKdeKwinServerDecorationManagerGlobal {
     name: GlobalName,
 }
@@ -44,18 +46,11 @@ impl OrgKdeKwinServerDecorationManagerGlobal {
     }
 }
 
-global_base!(
-    OrgKdeKwinServerDecorationManagerGlobal,
-    OrgKdeKwinServerDecorationManager,
-);
-
 impl Global for OrgKdeKwinServerDecorationManagerGlobal {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(OrgKdeKwinServerDecorationManagerGlobal);
 
 #[derive(Object)]
 pub struct OrgKdeKwinServerDecorationManager {

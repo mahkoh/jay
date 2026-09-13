@@ -12,10 +12,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::ExtDataControlManagerV1Id;
 use crate::wire::ext_data_control_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ExtDataControlManagerV1Global {
     name: GlobalName,
 }
@@ -95,8 +97,6 @@ impl ExtDataControlManagerV1RequestHandler for ExtDataControlManagerV1 {
     }
 }
 
-global_base!(ExtDataControlManagerV1Global, ExtDataControlManagerV1);
-
 impl Global for ExtDataControlManagerV1Global {
     fn version(&self) -> u32 {
         1
@@ -106,5 +106,3 @@ impl Global for ExtDataControlManagerV1Global {
         CAP_DATA_CONTROL_MANAGER
     }
 }
-
-simple_add_global!(ExtDataControlManagerV1Global);

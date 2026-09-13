@@ -9,10 +9,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::ZwpInputMethodManagerV2Id;
 use crate::wire::zwp_input_method_manager_v2::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ZwpInputMethodManagerV2Global {
     name: GlobalName,
 }
@@ -48,8 +50,6 @@ impl ZwpInputMethodManagerV2Global {
     }
 }
 
-global_base!(ZwpInputMethodManagerV2Global, ZwpInputMethodManagerV2);
-
 impl Global for ZwpInputMethodManagerV2Global {
     fn version(&self) -> u32 {
         1
@@ -59,8 +59,6 @@ impl Global for ZwpInputMethodManagerV2Global {
         CAP_INPUT_METHOD
     }
 }
-
-simple_add_global!(ZwpInputMethodManagerV2Global);
 
 impl ZwpInputMethodManagerV2RequestHandler for ZwpInputMethodManagerV2 {
     type Error = LookupError;

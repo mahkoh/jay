@@ -7,10 +7,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::ZwpTextInputManagerV3Id;
 use crate::wire::zwp_text_input_manager_v3::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ZwpTextInputManagerV3Global {
     name: GlobalName,
 }
@@ -46,15 +48,11 @@ impl ZwpTextInputManagerV3Global {
     }
 }
 
-global_base!(ZwpTextInputManagerV3Global, ZwpTextInputManagerV3);
-
 impl Global for ZwpTextInputManagerV3Global {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(ZwpTextInputManagerV3Global);
 
 impl ZwpTextInputManagerV3RequestHandler for ZwpTextInputManagerV3 {
     type Error = LookupError;
