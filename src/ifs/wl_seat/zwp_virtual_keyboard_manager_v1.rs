@@ -10,11 +10,13 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::ZwpVirtualKeyboardManagerV1Id;
 use crate::wire::zwp_virtual_keyboard_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::cell::RefCell;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ZwpVirtualKeyboardManagerV1Global {
     name: GlobalName,
 }
@@ -50,11 +52,6 @@ impl ZwpVirtualKeyboardManagerV1Global {
     }
 }
 
-global_base!(
-    ZwpVirtualKeyboardManagerV1Global,
-    ZwpVirtualKeyboardManagerV1,
-);
-
 impl Global for ZwpVirtualKeyboardManagerV1Global {
     fn version(&self) -> u32 {
         1
@@ -64,8 +61,6 @@ impl Global for ZwpVirtualKeyboardManagerV1Global {
         CAP_VIRTUAL_KEYBOARD_MANAGER
     }
 }
-
-simple_add_global!(ZwpVirtualKeyboardManagerV1Global);
 
 impl ZwpVirtualKeyboardManagerV1RequestHandler for ZwpVirtualKeyboardManagerV1 {
     type Error = LookupError;

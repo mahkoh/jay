@@ -8,6 +8,7 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::WlDataDeviceManagerId;
 use crate::wire::wl_data_device_manager::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
@@ -21,6 +22,7 @@ pub(super) const DND_MOVE: u32 = 2;
 pub(super) const DND_ASK: u32 = 4;
 pub(super) const DND_ALL: u32 = 7;
 
+#[derive(Global)]
 pub struct WlDataDeviceManagerGlobal {
     name: GlobalName,
 }
@@ -90,12 +92,8 @@ impl WlDataDeviceManagerRequestHandler for WlDataDeviceManager {
     }
 }
 
-global_base!(WlDataDeviceManagerGlobal, WlDataDeviceManager);
-
 impl Global for WlDataDeviceManagerGlobal {
     fn version(&self) -> u32 {
         4
     }
 }
-
-simple_add_global!(WlDataDeviceManagerGlobal);

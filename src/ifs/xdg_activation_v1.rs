@@ -10,10 +10,12 @@ use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::opaque::OpaqueError;
 use crate::wire::XdgActivationV1Id;
 use crate::wire::xdg_activation_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Global)]
 pub struct XdgActivationV1Global {
     name: GlobalName,
 }
@@ -40,10 +42,6 @@ impl XdgActivationV1Global {
         Ok(())
     }
 }
-
-global_base!(XdgActivationV1Global, XdgActivationV1);
-
-simple_add_global!(XdgActivationV1Global);
 
 impl Global for XdgActivationV1Global {
     fn version(&self) -> u32 {

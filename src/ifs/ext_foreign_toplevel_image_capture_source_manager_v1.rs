@@ -8,10 +8,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::ExtForeignToplevelImageCaptureSourceManagerV1Id;
 use crate::wire::ext_foreign_toplevel_image_capture_source_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ExtForeignToplevelImageCaptureSourceManagerV1Global {
     name: GlobalName,
 }
@@ -72,15 +74,8 @@ impl ExtForeignToplevelImageCaptureSourceManagerV1RequestHandler
     }
 }
 
-global_base!(
-    ExtForeignToplevelImageCaptureSourceManagerV1Global,
-    ExtForeignToplevelImageCaptureSourceManagerV1,
-);
-
 impl Global for ExtForeignToplevelImageCaptureSourceManagerV1Global {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(ExtForeignToplevelImageCaptureSourceManagerV1Global);

@@ -53,10 +53,12 @@ use crate::utils::event_listener::EventListener;
 use crate::wire::WpColorManagerV1Id;
 use crate::wire::wp_color_manager_v1::SupportedIntent;
 use crate::wire::wp_color_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Global)]
 pub struct WpColorManagerV1Global {
     name: GlobalName,
 }
@@ -320,8 +322,6 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
     }
 }
 
-global_base!(WpColorManagerV1Global, WpColorManagerV1);
-
 impl Global for WpColorManagerV1Global {
     fn version(&self) -> u32 {
         3
@@ -331,8 +331,6 @@ impl Global for WpColorManagerV1Global {
         state.color_management_available()
     }
 }
-
-simple_add_global!(WpColorManagerV1Global);
 
 #[derive(Debug, Error)]
 pub enum WpColorManagerV1Error {

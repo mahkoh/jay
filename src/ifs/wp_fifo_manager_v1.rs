@@ -8,10 +8,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::WpFifoManagerV1Id;
 use crate::wire::wp_fifo_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Global)]
 pub struct WpFifoManagerV1Global {
     name: GlobalName,
 }
@@ -47,15 +49,11 @@ impl WpFifoManagerV1Global {
     }
 }
 
-global_base!(WpFifoManagerV1Global, WpFifoManagerV1);
-
 impl Global for WpFifoManagerV1Global {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(WpFifoManagerV1Global);
 
 impl WpFifoManagerV1RequestHandler for WpFifoManagerV1 {
     type Error = WpFifoManagerV1Error;

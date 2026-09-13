@@ -14,11 +14,13 @@ use crate::tree::OutputNodeId;
 use crate::tree::ToplevelOpt;
 use crate::wire::ZwlrForeignToplevelManagerV1Id;
 use crate::wire::zwlr_foreign_toplevel_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::cell::Cell;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ZwlrForeignToplevelManagerV1Global {
     name: GlobalName,
 }
@@ -122,11 +124,6 @@ impl ZwlrForeignToplevelManagerV1 {
     }
 }
 
-global_base!(
-    ZwlrForeignToplevelManagerV1Global,
-    ZwlrForeignToplevelManagerV1,
-);
-
 impl Global for ZwlrForeignToplevelManagerV1Global {
     fn version(&self) -> u32 {
         3
@@ -136,8 +133,6 @@ impl Global for ZwlrForeignToplevelManagerV1Global {
         CAP_FOREIGN_TOPLEVEL_MANAGER
     }
 }
-
-simple_add_global!(ZwlrForeignToplevelManagerV1Global);
 
 impl BreakLoops for ZwlrForeignToplevelManagerV1 {
     fn break_loops(self: Rc<Self>) {

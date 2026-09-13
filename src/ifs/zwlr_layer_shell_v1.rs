@@ -12,6 +12,7 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::ZwlrLayerShellV1Id;
 use crate::wire::zwlr_layer_shell_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
@@ -21,6 +22,7 @@ pub const BOTTOM: u32 = 1;
 pub const TOP: u32 = 2;
 pub const OVERLAY: u32 = 3;
 
+#[derive(Global)]
 pub struct ZwlrLayerShellV1Global {
     name: GlobalName,
 }
@@ -103,8 +105,6 @@ impl ZwlrLayerShellV1RequestHandler for ZwlrLayerShellV1 {
     }
 }
 
-global_base!(ZwlrLayerShellV1Global, ZwlrLayerShellV1);
-
 impl Global for ZwlrLayerShellV1Global {
     fn version(&self) -> u32 {
         5
@@ -114,8 +114,6 @@ impl Global for ZwlrLayerShellV1Global {
         CAP_LAYER_SHELL
     }
 }
-
-simple_add_global!(ZwlrLayerShellV1Global);
 
 #[derive(Debug, Error)]
 pub enum ZwlrLayerShellV1Error {

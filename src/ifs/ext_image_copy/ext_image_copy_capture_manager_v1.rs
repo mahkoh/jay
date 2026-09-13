@@ -12,10 +12,12 @@ use crate::object::Version;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::wire::ExtImageCopyCaptureManagerV1Id;
 use crate::wire::ext_image_copy_capture_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ExtImageCopyCaptureManagerV1Global {
     name: GlobalName,
 }
@@ -135,11 +137,6 @@ impl ExtImageCopyCaptureManagerV1RequestHandler for ExtImageCopyCaptureManagerV1
     }
 }
 
-global_base!(
-    ExtImageCopyCaptureManagerV1Global,
-    ExtImageCopyCaptureManagerV1,
-);
-
 impl Global for ExtImageCopyCaptureManagerV1Global {
     fn version(&self) -> u32 {
         1
@@ -149,5 +146,3 @@ impl Global for ExtImageCopyCaptureManagerV1Global {
         CAP_SCREENCOPY_MANAGER
     }
 }
-
-simple_add_global!(ExtImageCopyCaptureManagerV1Global);

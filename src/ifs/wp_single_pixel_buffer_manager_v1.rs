@@ -6,10 +6,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::WpSinglePixelBufferManagerV1Id;
 use crate::wire::wp_single_pixel_buffer_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct WpSinglePixelBufferManagerV1Global {
     name: GlobalName,
 }
@@ -37,18 +39,11 @@ impl WpSinglePixelBufferManagerV1Global {
     }
 }
 
-global_base!(
-    WpSinglePixelBufferManagerV1Global,
-    WpSinglePixelBufferManagerV1,
-);
-
 impl Global for WpSinglePixelBufferManagerV1Global {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(WpSinglePixelBufferManagerV1Global);
 
 #[derive(Object)]
 pub struct WpSinglePixelBufferManagerV1 {

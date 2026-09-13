@@ -18,6 +18,7 @@ use crate::wire::WpDrmLeaseDeviceV1Id;
 use crate::wire::wp_drm_lease_device_v1::*;
 use jay_algorithms::oserror::OsError;
 use jay_algorithms::oserror::OsErrorExt2;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::cell::Cell;
 use std::convert::Infallible;
@@ -28,6 +29,7 @@ use uapi::c;
 
 mod removed_device;
 
+#[derive(Global)]
 pub struct WpDrmLeaseDeviceV1Global {
     pub name: GlobalName,
     pub device: DrmDeviceId,
@@ -74,10 +76,6 @@ impl WpDrmLeaseDeviceV1Global {
         Ok(())
     }
 }
-
-global_base!(WpDrmLeaseDeviceV1Global, WpDrmLeaseDeviceV1);
-
-simple_add_global!(WpDrmLeaseDeviceV1Global);
 
 impl Global for WpDrmLeaseDeviceV1Global {
     fn version(&self) -> u32 {

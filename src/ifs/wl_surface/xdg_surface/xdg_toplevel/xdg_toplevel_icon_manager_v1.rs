@@ -7,11 +7,13 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::XdgToplevelIconManagerV1Id;
 use crate::wire::xdg_toplevel_icon_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::cell::Cell;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct XdgToplevelIconManagerV1Global {
     name: GlobalName,
 }
@@ -41,15 +43,11 @@ impl XdgToplevelIconManagerV1Global {
     }
 }
 
-global_base!(XdgToplevelIconManagerV1Global, XdgToplevelIconManagerV1);
-
 impl Global for XdgToplevelIconManagerV1Global {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(XdgToplevelIconManagerV1Global);
 
 #[derive(Object)]
 pub struct XdgToplevelIconManagerV1 {

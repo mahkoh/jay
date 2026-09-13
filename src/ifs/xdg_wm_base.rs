@@ -12,6 +12,7 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::wire::XdgSurfaceId;
 use crate::wire::XdgWmBaseId;
 use crate::wire::xdg_wm_base::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
@@ -28,6 +29,7 @@ const INVALID_SURFACE_STATE: u32 = 4;
 #[expect(unused)]
 const INVALID_POSITIONER: u32 = 5;
 
+#[derive(Global)]
 pub struct XdgWmBaseGlobal {
     name: GlobalName,
 }
@@ -107,15 +109,11 @@ impl XdgWmBaseRequestHandler for XdgWmBase {
     }
 }
 
-global_base!(XdgWmBaseGlobal, XdgWmBase);
-
 impl Global for XdgWmBaseGlobal {
     fn version(&self) -> u32 {
         7
     }
 }
-
-simple_add_global!(XdgWmBaseGlobal);
 
 impl BreakLoops for XdgWmBase {
     fn break_loops(self: Rc<Self>) {

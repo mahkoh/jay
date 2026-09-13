@@ -10,10 +10,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::JayTrayV1Id;
 use crate::wire::jay_tray_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Global)]
 pub struct JayTrayV1Global {
     pub name: GlobalName,
     pub output: Rc<OutputGlobalOpt>,
@@ -48,15 +50,11 @@ impl JayTrayV1Global {
     }
 }
 
-global_base!(JayTrayV1Global, JayTrayV1);
-
 impl Global for JayTrayV1Global {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(JayTrayV1Global);
 
 impl RemovableWaylandGlobal for JayTrayV1Global {
     fn create_replacement(self: Rc<Self>) -> Rc<dyn Global> {

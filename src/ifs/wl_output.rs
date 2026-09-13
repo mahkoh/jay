@@ -36,6 +36,7 @@ use crate::wire::ZxdgOutputV1Id;
 use crate::wire::wl_output::*;
 use derivative::Derivative;
 use hashbrown::hash_map::Entry;
+use jay_proc::Global;
 use jay_proc::Object;
 use linearize::Linearize;
 use std::cell::Cell;
@@ -70,6 +71,8 @@ const MODE_CURRENT: u32 = 1;
 #[expect(unused)]
 const MODE_PREFERRED: u32 = 2;
 
+#[derive(Global)]
+#[dedicated(outputs)]
 pub struct WlOutputGlobal {
     pub name: GlobalName,
     pub state: Rc<State>,
@@ -360,8 +363,6 @@ impl WlOutputGlobal {
     }
 }
 
-global_base!(WlOutputGlobal, WlOutput);
-
 const OUTPUT_VERSION: u32 = 4;
 
 impl Global for WlOutputGlobal {
@@ -369,8 +370,6 @@ impl Global for WlOutputGlobal {
         OUTPUT_VERSION
     }
 }
-
-dedicated_add_global!(WlOutputGlobal, outputs);
 
 #[derive(Object)]
 #[break_loops]

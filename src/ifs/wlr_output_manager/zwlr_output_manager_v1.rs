@@ -24,6 +24,7 @@ use crate::wire::ZwlrOutputHeadV1Id;
 use crate::wire::ZwlrOutputManagerV1Id;
 use crate::wire::zwlr_output_manager_v1::*;
 use isnt::std_1::string::IsntStringExt;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::cell::Cell;
 use std::convert::Infallible;
@@ -32,6 +33,7 @@ use std::slice;
 
 linear_ids!(WlrOutputManagerIds, WlrOutputManagerId, u64);
 
+#[derive(Global)]
 pub struct ZwlrOutputManagerV1Global {
     name: GlobalName,
 }
@@ -259,8 +261,6 @@ impl ZwlrOutputManagerV1 {
     }
 }
 
-global_base!(ZwlrOutputManagerV1Global, ZwlrOutputManagerV1);
-
 impl Global for ZwlrOutputManagerV1Global {
     fn version(&self) -> u32 {
         4
@@ -270,8 +270,6 @@ impl Global for ZwlrOutputManagerV1Global {
         CAP_HEAD_MANAGER
     }
 }
-
-simple_add_global!(ZwlrOutputManagerV1Global);
 
 impl BreakLoops for ZwlrOutputManagerV1 {
     fn break_loops(self: Rc<Self>) {

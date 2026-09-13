@@ -10,10 +10,12 @@ use crate::wire::WpCommitTimingManagerV1Id;
 use crate::wire::wp_commit_timing_manager_v1::Destroy;
 use crate::wire::wp_commit_timing_manager_v1::GetTimer;
 use crate::wire::wp_commit_timing_manager_v1::WpCommitTimingManagerV1RequestHandler;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Global)]
 pub struct WpCommitTimingManagerV1Global {
     name: GlobalName,
 }
@@ -49,15 +51,11 @@ impl WpCommitTimingManagerV1Global {
     }
 }
 
-global_base!(WpCommitTimingManagerV1Global, WpCommitTimingManagerV1);
-
 impl Global for WpCommitTimingManagerV1Global {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(WpCommitTimingManagerV1Global);
 
 impl WpCommitTimingManagerV1RequestHandler for WpCommitTimingManagerV1 {
     type Error = WpCommitTimingManagerV1Error;

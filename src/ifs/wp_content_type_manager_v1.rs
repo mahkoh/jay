@@ -7,10 +7,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::WpContentTypeManagerV1Id;
 use crate::wire::wp_content_type_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Global)]
 pub struct WpContentTypeManagerV1Global {
     name: GlobalName,
 }
@@ -37,10 +39,6 @@ impl WpContentTypeManagerV1Global {
         Ok(())
     }
 }
-
-global_base!(WpContentTypeManagerV1Global, WpContentTypeManagerV1);
-
-simple_add_global!(WpContentTypeManagerV1Global);
 
 impl Global for WpContentTypeManagerV1Global {
     fn version(&self) -> u32 {

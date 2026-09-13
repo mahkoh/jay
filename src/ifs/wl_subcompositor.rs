@@ -8,6 +8,7 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::WlSubcompositorId;
 use crate::wire::wl_subcompositor::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
@@ -15,6 +16,7 @@ use thiserror::Error;
 #[expect(unused)]
 const BAD_SURFACE: u32 = 0;
 
+#[derive(Global)]
 pub struct WlSubcompositorGlobal {
     name: GlobalName,
 }
@@ -69,15 +71,11 @@ impl WlSubcompositorRequestHandler for WlSubcompositor {
     }
 }
 
-global_base!(WlSubcompositorGlobal, WlSubcompositor);
-
 impl Global for WlSubcompositorGlobal {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(WlSubcompositorGlobal);
 
 #[derive(Debug, Error)]
 pub enum WlSubcompositorError {

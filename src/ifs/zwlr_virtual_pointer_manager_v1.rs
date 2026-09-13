@@ -12,11 +12,13 @@ use crate::wire::WlSeatId;
 use crate::wire::ZwlrVirtualPointerManagerV1Id;
 use crate::wire::ZwlrVirtualPointerV1Id;
 use crate::wire::zwlr_virtual_pointer_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::ops::Deref;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Global)]
 pub struct ZwlrVirtualPointerManagerV1Global {
     name: GlobalName,
 }
@@ -43,13 +45,6 @@ impl ZwlrVirtualPointerManagerV1Global {
         Ok(())
     }
 }
-
-global_base!(
-    ZwlrVirtualPointerManagerV1Global,
-    ZwlrVirtualPointerManagerV1,
-);
-
-simple_add_global!(ZwlrVirtualPointerManagerV1Global);
 
 impl Global for ZwlrVirtualPointerManagerV1Global {
     fn version(&self) -> u32 {

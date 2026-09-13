@@ -9,10 +9,12 @@ use crate::object::Version;
 use crate::wire::WpCursorShapeDeviceV1Id;
 use crate::wire::WpCursorShapeManagerV1Id;
 use crate::wire::wp_cursor_shape_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct WpCursorShapeManagerV1Global {
     name: GlobalName,
 }
@@ -39,10 +41,6 @@ impl WpCursorShapeManagerV1Global {
         Ok(())
     }
 }
-
-global_base!(WpCursorShapeManagerV1Global, WpCursorShapeManagerV1);
-
-simple_add_global!(WpCursorShapeManagerV1Global);
 
 impl Global for WpCursorShapeManagerV1Global {
     fn version(&self) -> u32 {

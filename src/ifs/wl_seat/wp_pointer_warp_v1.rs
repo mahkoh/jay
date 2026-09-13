@@ -11,10 +11,12 @@ use crate::wire::WpPointerWarpV1Id;
 use crate::wire::wp_pointer_warp_v1::Destroy;
 use crate::wire::wp_pointer_warp_v1::WarpPointer;
 use crate::wire::wp_pointer_warp_v1::WpPointerWarpV1RequestHandler;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct WpPointerWarpV1Global {
     name: GlobalName,
 }
@@ -42,15 +44,11 @@ impl WpPointerWarpV1Global {
     }
 }
 
-global_base!(WpPointerWarpV1Global, WpPointerWarpV1);
-
 impl Global for WpPointerWarpV1Global {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(WpPointerWarpV1Global);
 
 #[derive(Object)]
 pub struct WpPointerWarpV1 {

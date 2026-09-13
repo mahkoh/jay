@@ -7,10 +7,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::WlShmId;
 use crate::wire::wl_shm::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Global)]
 pub struct WlShmGlobal {
     name: GlobalName,
 }
@@ -83,15 +85,11 @@ impl WlShmRequestHandler for WlShm {
     }
 }
 
-global_base!(WlShmGlobal, WlShm);
-
 impl Global for WlShmGlobal {
     fn version(&self) -> u32 {
         2
     }
 }
-
-simple_add_global!(WlShmGlobal);
 
 #[derive(Debug, Error)]
 pub enum WlShmError {

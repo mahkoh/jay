@@ -11,10 +11,12 @@ use crate::state::State;
 use crate::wire::ZwpLinuxDmabufFeedbackV1Id;
 use crate::wire::ZwpLinuxDmabufV1Id;
 use crate::wire::zwp_linux_dmabuf_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ZwpLinuxDmabufV1Global {
     name: GlobalName,
 }
@@ -58,8 +60,6 @@ impl ZwpLinuxDmabufV1Global {
 const MODIFIERS_SINCE_VERSION: Version = Version(3);
 const FEEDBACK_SINCE_VERSION: Version = Version(4);
 
-global_base!(ZwpLinuxDmabufV1Global, ZwpLinuxDmabufV1);
-
 impl Global for ZwpLinuxDmabufV1Global {
     fn version(&self) -> u32 {
         6
@@ -69,8 +69,6 @@ impl Global for ZwpLinuxDmabufV1Global {
         state.render_ctx_ever_initialized.get()
     }
 }
-
-simple_add_global!(ZwpLinuxDmabufV1Global);
 
 #[derive(Object)]
 pub struct ZwpLinuxDmabufV1 {

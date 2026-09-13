@@ -8,10 +8,12 @@ use crate::object::Version;
 use crate::wire::WlCompositorId;
 use crate::wire::wl_compositor::*;
 use crate::xwayland::XWaylandEvent;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct WlCompositorGlobal {
     name: GlobalName,
 }
@@ -77,12 +79,8 @@ impl WlCompositorRequestHandler for WlCompositor {
     }
 }
 
-global_base!(WlCompositorGlobal, WlCompositor);
-
 impl Global for WlCompositorGlobal {
     fn version(&self) -> u32 {
         7
     }
 }
-
-simple_add_global!(WlCompositorGlobal);

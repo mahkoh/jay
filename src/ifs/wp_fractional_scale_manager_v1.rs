@@ -8,10 +8,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::WpFractionalScaleManagerV1Id;
 use crate::wire::wp_fractional_scale_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Global)]
 pub struct WpFractionalScaleManagerV1Global {
     name: GlobalName,
 }
@@ -47,15 +49,11 @@ impl WpFractionalScaleManagerV1Global {
     }
 }
 
-global_base!(WpFractionalScaleManagerV1Global, WpFractionalScaleManagerV1);
-
 impl Global for WpFractionalScaleManagerV1Global {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(WpFractionalScaleManagerV1Global);
 
 impl WpFractionalScaleManagerV1RequestHandler for WpFractionalScaleManagerV1 {
     type Error = WpFractionalScaleManagerError;

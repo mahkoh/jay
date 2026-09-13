@@ -162,6 +162,7 @@ use hashbrown::hash_map::Entry;
 use jay_config::input::FallbackOutputMode as ConfigFallbackOutputMode;
 use jay_config::keyboard::syms::KeySym;
 use jay_config::keyboard::syms::SYM_Escape;
+use jay_proc::Global;
 use jay_proc::Object;
 use kbvm::Keycode;
 use linearize::Linearize;
@@ -223,6 +224,8 @@ pub struct PhysicalKeyboard {
 
 linear_ids!(SeatIds, SeatId);
 
+#[derive(Global)]
+#[dedicated(seats)]
 pub struct WlSeatGlobal {
     id: SeatId,
     name: GlobalName,
@@ -1802,15 +1805,11 @@ impl CursorUserOwner for WlSeatGlobal {
     }
 }
 
-global_base!(WlSeatGlobal, WlSeat);
-
 impl Global for WlSeatGlobal {
     fn version(&self) -> u32 {
         11
     }
 }
-
-dedicated_add_global!(WlSeatGlobal, seats);
 
 #[derive(Object)]
 #[break_loops]

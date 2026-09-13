@@ -9,10 +9,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::ZwlrGammaControlManagerV1Id;
 use crate::wire::zwlr_gamma_control_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ZwlrGammaControlManagerV1Global {
     name: GlobalName,
 }
@@ -39,10 +41,6 @@ impl ZwlrGammaControlManagerV1Global {
         Ok(())
     }
 }
-
-global_base!(ZwlrGammaControlManagerV1Global, ZwlrGammaControlManagerV1);
-
-simple_add_global!(ZwlrGammaControlManagerV1Global);
 
 impl Global for ZwlrGammaControlManagerV1Global {
     fn version(&self) -> u32 {

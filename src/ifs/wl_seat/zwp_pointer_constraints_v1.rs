@@ -18,6 +18,7 @@ use crate::wire::WlRegionId;
 use crate::wire::WlSurfaceId;
 use crate::wire::ZwpPointerConstraintsV1Id;
 use crate::wire::zwp_pointer_constraints_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
@@ -27,6 +28,7 @@ use zwp_locked_pointer_v1::ZwpLockedPointerV1;
 pub mod zwp_confined_pointer_v1;
 pub mod zwp_locked_pointer_v1;
 
+#[derive(Global)]
 pub struct ZwpPointerConstraintsV1Global {
     name: GlobalName,
 }
@@ -307,15 +309,11 @@ impl ZwpPointerConstraintsV1RequestHandler for ZwpPointerConstraintsV1 {
     }
 }
 
-global_base!(ZwpPointerConstraintsV1Global, ZwpPointerConstraintsV1);
-
 impl Global for ZwpPointerConstraintsV1Global {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(ZwpPointerConstraintsV1Global);
 
 #[derive(Debug, Error)]
 pub enum ZwpPointerConstraintsV1Error {

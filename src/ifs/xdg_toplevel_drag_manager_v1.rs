@@ -7,10 +7,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::XdgToplevelDragManagerV1Id;
 use crate::wire::xdg_toplevel_drag_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Global)]
 pub struct XdgToplevelDragManagerV1Global {
     name: GlobalName,
 }
@@ -37,10 +39,6 @@ impl XdgToplevelDragManagerV1Global {
         Ok(())
     }
 }
-
-global_base!(XdgToplevelDragManagerV1Global, XdgToplevelDragManagerV1);
-
-simple_add_global!(XdgToplevelDragManagerV1Global);
 
 impl Global for XdgToplevelDragManagerV1Global {
     fn version(&self) -> u32 {

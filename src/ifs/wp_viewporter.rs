@@ -8,10 +8,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::WpViewporterId;
 use crate::wire::wp_viewporter::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
+#[derive(Global)]
 pub struct WpViewporterGlobal {
     name: GlobalName,
 }
@@ -39,15 +41,11 @@ impl WpViewporterGlobal {
     }
 }
 
-global_base!(WpViewporterGlobal, WpViewporter);
-
 impl Global for WpViewporterGlobal {
     fn version(&self) -> u32 {
         1
     }
 }
-
-simple_add_global!(WpViewporterGlobal);
 
 #[derive(Object)]
 pub struct WpViewporter {

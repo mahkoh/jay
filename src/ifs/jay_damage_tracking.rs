@@ -14,11 +14,13 @@ use crate::wire::jay_damage_tracking::JayDamageTrackingRequestHandler;
 use crate::wire::jay_damage_tracking::SetVisualizerColor;
 use crate::wire::jay_damage_tracking::SetVisualizerDecay;
 use crate::wire::jay_damage_tracking::SetVisualizerEnabled;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 use std::time::Duration;
 
+#[derive(Global)]
 pub struct JayDamageTrackingGlobal {
     name: GlobalName,
 }
@@ -46,8 +48,6 @@ impl JayDamageTrackingGlobal {
     }
 }
 
-global_base!(JayDamageTrackingGlobal, JayDamageTracking);
-
 impl Global for JayDamageTrackingGlobal {
     fn version(&self) -> u32 {
         1
@@ -57,8 +57,6 @@ impl Global for JayDamageTrackingGlobal {
         CAP_JAY_COMPOSITOR
     }
 }
-
-simple_add_global!(JayDamageTrackingGlobal);
 
 #[derive(Object)]
 pub struct JayDamageTracking {

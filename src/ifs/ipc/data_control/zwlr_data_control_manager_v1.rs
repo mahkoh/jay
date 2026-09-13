@@ -12,10 +12,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::ZwlrDataControlManagerV1Id;
 use crate::wire::zwlr_data_control_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ZwlrDataControlManagerV1Global {
     name: GlobalName,
 }
@@ -95,8 +97,6 @@ impl ZwlrDataControlManagerV1RequestHandler for ZwlrDataControlManagerV1 {
     }
 }
 
-global_base!(ZwlrDataControlManagerV1Global, ZwlrDataControlManagerV1);
-
 impl Global for ZwlrDataControlManagerV1Global {
     fn version(&self) -> u32 {
         2
@@ -106,5 +106,3 @@ impl Global for ZwlrDataControlManagerV1Global {
         CAP_DATA_CONTROL_MANAGER
     }
 }
-
-simple_add_global!(ZwlrDataControlManagerV1Global);

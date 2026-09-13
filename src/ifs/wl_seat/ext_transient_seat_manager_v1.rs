@@ -8,10 +8,12 @@ use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::ExtTransientSeatManagerV1Id;
 use crate::wire::ext_transient_seat_manager_v1::*;
+use jay_proc::Global;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+#[derive(Global)]
 pub struct ExtTransientSeatManagerV1Global {
     name: GlobalName,
 }
@@ -47,8 +49,6 @@ impl ExtTransientSeatManagerV1Global {
     }
 }
 
-global_base!(ExtTransientSeatManagerV1Global, ExtTransientSeatManagerV1);
-
 impl Global for ExtTransientSeatManagerV1Global {
     fn version(&self) -> u32 {
         1
@@ -58,8 +58,6 @@ impl Global for ExtTransientSeatManagerV1Global {
         CAP_SEAT_MANAGER
     }
 }
-
-simple_add_global!(ExtTransientSeatManagerV1Global);
 
 impl ExtTransientSeatManagerV1RequestHandler for ExtTransientSeatManagerV1 {
     type Error = Infallible;
