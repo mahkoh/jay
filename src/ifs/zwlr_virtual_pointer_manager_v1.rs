@@ -1,7 +1,7 @@
 use crate::client::CAP_VIRTUAL_POINTER_MANAGER;
 use crate::client::Client;
 use crate::client::ClientCaps;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::zwlr_virtual_pointer_v1::ZwlrVirtualPointerV1;
@@ -133,8 +133,7 @@ impl ZwlrVirtualPointerManagerV1RequestHandler for ZwlrVirtualPointerManagerV1 {
 #[derive(Debug, Error)]
 pub enum ZwlrVirtualPointerManagerV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("There are no seats")]
     NoSeat,
 }
-efrom!(ZwlrVirtualPointerManagerV1Error, ClientError);

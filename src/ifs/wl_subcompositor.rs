@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
@@ -82,9 +82,8 @@ simple_add_global!(WlSubcompositorGlobal);
 #[derive(Debug, Error)]
 pub enum WlSubcompositorError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     WlSubsurfaceError(Box<WlSubsurfaceError>),
 }
-efrom!(WlSubcompositorError, ClientError);
 efrom!(WlSubcompositorError, WlSubsurfaceError);

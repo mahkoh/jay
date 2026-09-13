@@ -27,7 +27,7 @@ pub mod zwp_input_popup_surface_v2;
 use crate::backend::ButtonState;
 use crate::backend::KeyState;
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::cmm::cmm_description::ColorDescription;
 use crate::cmm::cmm_render_intent::RenderIntent;
 use crate::configurable::ConfigurableDataCore;
@@ -2480,7 +2480,7 @@ impl NodeBase for WlSurface {
 #[derive(Debug, Error)]
 pub enum WlSurfaceError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     ZwlrLayerSurfaceV1Error(Box<ZwlrLayerSurfaceV1Error>),
     #[error(transparent)]
@@ -2532,7 +2532,6 @@ pub enum WlSurfaceError {
     #[error("The surface already has an extension object")]
     HasExt,
 }
-efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);
 efrom!(WlSurfaceError, XdgToplevelError);
 efrom!(WlSurfaceError, ZwlrLayerSurfaceV1Error);

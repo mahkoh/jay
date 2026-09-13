@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::criteria::tlm::TL_CHANGED_TAG;
 use crate::globals::Global;
 use crate::globals::GlobalName;
@@ -9,8 +9,8 @@ use crate::tree::ToplevelNodeBase;
 use crate::wire::XdgToplevelTagManagerV1Id;
 use crate::wire::xdg_toplevel_tag_manager_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct XdgToplevelTagManagerV1Global {
     name: GlobalName,
@@ -26,7 +26,7 @@ impl XdgToplevelTagManagerV1Global {
         id: XdgToplevelTagManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), XdgTopleveTagManagerV1Error> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(XdgToplevelTagManagerV1 {
             id,
             client: client.clone(),
@@ -58,7 +58,7 @@ pub struct XdgToplevelTagManagerV1 {
 }
 
 impl XdgToplevelTagManagerV1RequestHandler for XdgToplevelTagManagerV1 {
-    type Error = XdgTopleveTagManagerV1Error;
+    type Error = LookupError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
@@ -89,10 +89,3 @@ impl XdgToplevelTagManagerV1RequestHandler for XdgToplevelTagManagerV1 {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum XdgTopleveTagManagerV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(XdgTopleveTagManagerV1Error, ClientError);

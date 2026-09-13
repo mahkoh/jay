@@ -1,7 +1,7 @@
 pub mod jay_popup_ext_v1;
 
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::configurable::ConfigurableExt;
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
@@ -606,11 +606,10 @@ pub enum XdgPopupError {
     #[error("The `xdg_positioner` is incomplete")]
     Incomplete,
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("The popup still has a jay_popup_ext_v1 extension object")]
     HasJayPopupExt,
 }
-efrom!(XdgPopupError, ClientError);
 
 pub enum XdgPopupTransactionOp {
     XdgOp(XdgSurfaceTransactionOp),

@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wp_presentation_feedback::PresentationFeedback;
@@ -10,8 +10,8 @@ use crate::state::State;
 pub use crate::wire::WpPresentationId;
 pub use crate::wire::wp_presentation::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 use uapi::c;
 
 pub struct WpPresentationGlobal {
@@ -28,7 +28,7 @@ impl WpPresentationGlobal {
         id: WpPresentationId,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), WpPresentationError> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(WpPresentation {
             id,
             client: client.clone(),
@@ -74,7 +74,7 @@ impl WpPresentation {
 }
 
 impl WpPresentationRequestHandler for WpPresentation {
-    type Error = WpPresentationError;
+    type Error = LookupError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
@@ -96,10 +96,3 @@ impl WpPresentationRequestHandler for WpPresentation {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum WpPresentationError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(WpPresentationError, ClientError);

@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1;
@@ -10,7 +10,6 @@ use crate::wire::zwp_idle_inhibit_manager_v1::*;
 use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct ZwpIdleInhibitManagerV1Global {
     name: GlobalName,
@@ -58,7 +57,7 @@ pub struct ZwpIdleInhibitManagerV1 {
 }
 
 impl ZwpIdleInhibitManagerV1RequestHandler for ZwpIdleInhibitManagerV1 {
-    type Error = ZwpIdleInhibitManagerV1Error;
+    type Error = LookupError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
@@ -81,10 +80,3 @@ impl ZwpIdleInhibitManagerV1RequestHandler for ZwpIdleInhibitManagerV1 {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwpIdleInhibitManagerV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwpIdleInhibitManagerV1Error, ClientError);

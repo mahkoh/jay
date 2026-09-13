@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::xdg_activation_token_v1::ActivationToken;
@@ -106,8 +106,7 @@ impl XdgActivationV1RequestHandler for XdgActivationV1 {
 #[derive(Debug, Error)]
 pub enum XdgActivationV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("Could not parse the activation token")]
     ParseActivationToken(#[from] OpaqueError),
 }
-efrom!(XdgActivationV1Error, ClientError);

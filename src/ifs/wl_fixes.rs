@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::leaks::Tracker;
@@ -7,8 +7,8 @@ use crate::object::Version;
 use crate::wire::WlFixesId;
 use crate::wire::wl_fixes::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct WlFixesGlobal {
     name: GlobalName,
@@ -24,7 +24,7 @@ impl WlFixesGlobal {
         id: WlFixesId,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), WlFixesError> {
+    ) -> Result<(), Infallible> {
         let mgr = Rc::new(WlFixes {
             id,
             client: client.clone(),
@@ -56,7 +56,7 @@ pub struct WlFixes {
 }
 
 impl WlFixesRequestHandler for WlFixes {
-    type Error = WlFixesError;
+    type Error = LookupError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
@@ -73,10 +73,3 @@ impl WlFixesRequestHandler for WlFixes {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum WlFixesError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(WlFixesError, ClientError);

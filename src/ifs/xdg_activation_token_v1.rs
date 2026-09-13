@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::XdgActivationTokenV1Id;
@@ -86,8 +86,7 @@ impl XdgActivationTokenV1 {
 #[derive(Debug, Error)]
 pub enum XdgActivationTokenV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("The activation token has already been used")]
     AlreadyUsed,
 }
-efrom!(XdgActivationTokenV1Error, ClientError);

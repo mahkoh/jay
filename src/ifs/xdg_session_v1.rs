@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
 use crate::object::Version;
@@ -150,7 +150,7 @@ impl BreakLoops for XdgSessionV1 {
 #[derive(Debug, Error)]
 pub enum XdgSessionV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("The toplevel is already part of a session")]
     HasSession,
     #[error("The toplevel has already been committed")]
@@ -158,4 +158,3 @@ pub enum XdgSessionV1Error {
     #[error(transparent)]
     SessionManagementError(#[from] SessionManagementError),
 }
-efrom!(XdgSessionV1Error, ClientError);

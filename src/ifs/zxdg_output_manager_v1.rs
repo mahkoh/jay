@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::zxdg_output_v1::ZxdgOutputV1;
@@ -8,8 +8,8 @@ use crate::object::Version;
 use crate::wire::ZxdgOutputManagerV1Id;
 use crate::wire::zxdg_output_manager_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct ZxdgOutputManagerV1Global {
     name: GlobalName,
@@ -33,7 +33,7 @@ impl ZxdgOutputManagerV1Global {
         id: ZxdgOutputManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), ZxdgOutputManagerV1Error> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(ZxdgOutputManagerV1 {
             id,
             client: client.clone(),
@@ -47,7 +47,7 @@ impl ZxdgOutputManagerV1Global {
 }
 
 impl ZxdgOutputManagerV1RequestHandler for ZxdgOutputManagerV1 {
-    type Error = ZxdgOutputManagerV1Error;
+    type Error = LookupError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
@@ -80,10 +80,3 @@ impl Global for ZxdgOutputManagerV1Global {
 }
 
 simple_add_global!(ZxdgOutputManagerV1Global);
-
-#[derive(Debug, Error)]
-pub enum ZxdgOutputManagerV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZxdgOutputManagerV1Error, ClientError);

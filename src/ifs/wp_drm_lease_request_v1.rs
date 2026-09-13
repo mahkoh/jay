@@ -1,7 +1,7 @@
 use crate::backend::ConnectorId;
 use crate::backend::DrmDeviceId;
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::ifs::wp_drm_lease_v1::WpDrmLeaseV1;
 use crate::ifs::wp_drm_lease_v1::WpDrmLeaseV1Lessee;
 use crate::leaks::Tracker;
@@ -69,7 +69,7 @@ impl WpDrmLeaseRequestV1RequestHandler for WpDrmLeaseRequestV1 {
 #[derive(Debug, Error)]
 pub enum WpDrmLeaseRequestV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("Connector {0} does not belong to this device")]
     MismatchedDevice(WpDrmLeaseConnectorV1Id),
     #[error("Connector {0} is already part of this request")]
@@ -77,4 +77,3 @@ pub enum WpDrmLeaseRequestV1Error {
     #[error("Lease request is empty")]
     EmptyLease,
 }
-efrom!(WpDrmLeaseRequestV1Error, ClientError);

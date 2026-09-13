@@ -1,7 +1,7 @@
 use crate::client::CAP_INPUT_METHOD;
 use crate::client::Client;
 use crate::client::ClientCaps;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_seat::text_input::zwp_input_method_v2::ZwpInputMethodV2;
@@ -10,8 +10,8 @@ use crate::object::Version;
 use crate::wire::ZwpInputMethodManagerV2Id;
 use crate::wire::zwp_input_method_manager_v2::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct ZwpInputMethodManagerV2Global {
     name: GlobalName,
@@ -35,7 +35,7 @@ impl ZwpInputMethodManagerV2Global {
         id: ZwpInputMethodManagerV2Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), ZwpInputMethodManagerV2Error> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(ZwpInputMethodManagerV2 {
             id,
             client: client.clone(),
@@ -63,7 +63,7 @@ impl Global for ZwpInputMethodManagerV2Global {
 simple_add_global!(ZwpInputMethodManagerV2Global);
 
 impl ZwpInputMethodManagerV2RequestHandler for ZwpInputMethodManagerV2 {
-    type Error = ZwpInputMethodManagerV2Error;
+    type Error = LookupError;
 
     fn get_input_method(&self, req: GetInputMethod, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let seat = self.client.lookup(req.seat)?;
@@ -95,10 +95,3 @@ impl ZwpInputMethodManagerV2RequestHandler for ZwpInputMethodManagerV2 {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwpInputMethodManagerV2Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwpInputMethodManagerV2Error, ClientError);

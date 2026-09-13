@@ -1,6 +1,6 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::client::ClientId;
+use crate::client::LookupError;
 use crate::fixed::Fixed;
 use crate::ifs::ipc::DeviceData;
 use crate::ifs::ipc::IpcVtable;
@@ -225,12 +225,11 @@ impl BreakLoops for WlDataDevice {
 #[derive(Debug, Error)]
 pub enum WlDataDeviceError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     WlSeatError(Box<WlSeatError>),
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
 }
-efrom!(WlDataDeviceError, ClientError);
 efrom!(WlDataDeviceError, WlSeatError);
 efrom!(WlDataDeviceError, WlSurfaceError);

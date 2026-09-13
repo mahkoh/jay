@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::OrgKdeKwinServerDecorationId;
@@ -68,8 +68,7 @@ impl OrgKdeKwinServerDecorationRequestHandler for OrgKdeKwinServerDecoration {
 #[derive(Debug, Error)]
 pub enum OrgKdeKwinServerDecorationError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("Mode {0} does not exist")]
     InvalidMode(u32),
 }
-efrom!(OrgKdeKwinServerDecorationError, ClientError);

@@ -1,8 +1,8 @@
 use crate::client::CAP_JAY_COMPOSITOR;
 use crate::client::Client;
 use crate::client::ClientCaps;
-use crate::client::ClientError;
 use crate::client::ClientId;
+use crate::client::LookupError;
 use crate::compositor::LogLevel;
 use crate::globals::Global;
 use crate::globals::GlobalName;
@@ -704,10 +704,9 @@ impl JayCompositorRequestHandler for JayCompositor {
 #[derive(Debug, Error)]
 pub enum JayCompositorError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("Unknown log level {0}")]
     UnknownLogLevel(u32),
     #[error("Could not open /proc/self/exe")]
     OpenProcSelfExe(#[source] OsError),
 }
-efrom!(JayCompositorError, ClientError);

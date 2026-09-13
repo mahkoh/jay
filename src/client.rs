@@ -1,5 +1,5 @@
 use crate::async_engine::SpawnedFuture;
-use crate::client::error::LookupError;
+pub use crate::client::error::LookupError;
 use crate::client::objects::FIRST_INVALID_ID;
 use crate::client::objects::FIRST_SYNTHETIC_ID;
 use crate::client::objects::Objects;
@@ -693,13 +693,13 @@ impl Client {
         }
     }
 
-    pub fn lookup<Id: WaylandObjectLookup>(&self, id: Id) -> Result<Rc<Id::Object>, ClientError> {
+    pub fn lookup<Id: WaylandObjectLookup>(&self, id: Id) -> Result<Rc<Id::Object>, LookupError> {
         match Id::lookup(self, id) {
             Some(t) => Ok(t),
-            _ => Err(ClientError::LookupError(LookupError {
+            _ => Err(LookupError {
                 interface: Id::INTERFACE,
                 id: id.into(),
-            })),
+            }),
         }
     }
 

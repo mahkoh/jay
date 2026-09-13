@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::xdg_surface::XdgSurface;
@@ -126,11 +126,10 @@ impl BreakLoops for XdgWmBase {
 #[derive(Debug, Error)]
 pub enum XdgWmBaseError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("Tried to destroy xdg_wm_base object before destroying its surfaces")]
     DefunctSurfaces,
     #[error(transparent)]
     XdgSurfaceError(Box<XdgSurfaceError>),
 }
-efrom!(XdgWmBaseError, ClientError);
 efrom!(XdgWmBaseError, XdgSurfaceError);

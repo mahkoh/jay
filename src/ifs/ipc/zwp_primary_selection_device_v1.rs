@@ -1,6 +1,6 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::client::ClientId;
+use crate::client::LookupError;
 use crate::ifs::ipc::DeviceData;
 use crate::ifs::ipc::IpcVtable;
 use crate::ifs::ipc::IterableIpcVtable;
@@ -165,9 +165,8 @@ impl BreakLoops for ZwpPrimarySelectionDeviceV1 {
 #[derive(Debug, Error)]
 pub enum ZwpPrimarySelectionDeviceV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     WlSeatError(Box<WlSeatError>),
 }
-efrom!(ZwpPrimarySelectionDeviceV1Error, ClientError);
 efrom!(ZwpPrimarySelectionDeviceV1Error, WlSeatError);

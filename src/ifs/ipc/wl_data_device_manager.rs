@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::ipc::wl_data_device::WlDataDevice;
@@ -9,8 +9,8 @@ use crate::object::Version;
 use crate::wire::WlDataDeviceManagerId;
 use crate::wire::wl_data_device_manager::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub(super) const DND_NONE: u32 = 0;
 #[expect(unused)]
@@ -43,7 +43,7 @@ impl WlDataDeviceManagerGlobal {
         id: WlDataDeviceManagerId,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), WlDataDeviceManagerError> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(WlDataDeviceManager {
             id,
             client: client.clone(),
@@ -57,7 +57,7 @@ impl WlDataDeviceManagerGlobal {
 }
 
 impl WlDataDeviceManagerRequestHandler for WlDataDeviceManager {
-    type Error = WlDataDeviceManagerError;
+    type Error = LookupError;
 
     fn create_data_source(
         &self,
@@ -99,10 +99,3 @@ impl Global for WlDataDeviceManagerGlobal {
 }
 
 simple_add_global!(WlDataDeviceManagerGlobal);
-
-#[derive(Debug, Error)]
-pub enum WlDataDeviceManagerError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(WlDataDeviceManagerError, ClientError);

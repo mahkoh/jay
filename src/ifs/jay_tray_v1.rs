@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::globals::RemovableWaylandGlobal;
@@ -90,8 +90,7 @@ impl JayTrayV1RequestHandler for JayTrayV1 {
 #[derive(Debug, Error)]
 pub enum JayTrayManagerV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     ExtTrayItemV1Error(#[from] JayTrayItemV1Error),
 }
-efrom!(JayTrayManagerV1Error, ClientError);

@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::WlSurfaceError;
@@ -96,10 +96,9 @@ simple_add_global!(XwaylandShellV1Global);
 #[derive(Debug, Error)]
 pub enum XwaylandShellV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("The `wl_surface` {0} already has an extension object")]
     AlreadyAttached(WlSurfaceId),
     #[error(transparent)]
     WlSurfaceError(#[from] WlSurfaceError),
 }
-efrom!(XwaylandShellV1Error, ClientError);

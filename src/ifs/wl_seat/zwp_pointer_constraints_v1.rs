@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::fixed::Fixed;
 use crate::globals::Global;
 use crate::globals::GlobalName;
@@ -320,10 +320,9 @@ simple_add_global!(ZwpPointerConstraintsV1Global);
 #[derive(Debug, Error)]
 pub enum ZwpPointerConstraintsV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("The surface already has a constraint attached for the seat")]
     AlreadyConstrained,
     #[error("The constraint lifetime {0} is unknown")]
     UnknownLifetime(u32),
 }
-efrom!(ZwpPointerConstraintsV1Error, ClientError);

@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_seat::text_input::InputMethod;
 use crate::ifs::wl_seat::text_input::MAX_TEXT_SIZE;
@@ -269,7 +269,7 @@ impl BreakLoops for ZwpInputMethodV2 {
 #[derive(Debug, Error)]
 pub enum ZwpInputMethodV2Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     ZwpInputPopupSurfaceV2Error(#[from] ZwpInputPopupSurfaceV2Error),
     #[error("Text is larger than {} bytes", MAX_TEXT_SIZE)]
@@ -277,4 +277,3 @@ pub enum ZwpInputMethodV2Error {
     #[error("Seat already has a grab")]
     HasGrab,
 }
-efrom!(ZwpInputMethodV2Error, ClientError);

@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::color_management::ABSOLUTE_NO_ADAPTATION_SINCE;
@@ -337,10 +337,9 @@ simple_add_global!(WpColorManagerV1Global);
 #[derive(Debug, Error)]
 pub enum WpColorManagerV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("create_icc_creator is not supported")]
     CreateIccCreatorNotSupported,
     #[error(transparent)]
     Surface(#[from] WpColorManagementSurfaceV1Error),
 }
-efrom!(WpColorManagerV1Error, ClientError);

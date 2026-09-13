@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::cmm::cmm_description::ColorDescription;
 use crate::gfx_api::AcquireSync;
 use crate::gfx_api::AsyncShmGfxTextureCallback;
@@ -375,10 +375,9 @@ impl AsyncShmGfxTextureCallback for ExtImageCopyCaptureFrameV1 {
 #[derive(Debug, Error)]
 pub enum ExtImageCopyCaptureFrameV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("The frame has already been captured")]
     AlreadyCaptured,
     #[error("The frame does not have a buffer attached")]
     NoBuffer,
 }
-efrom!(ExtImageCopyCaptureFrameV1Error, ClientError);

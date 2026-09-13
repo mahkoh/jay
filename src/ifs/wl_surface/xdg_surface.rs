@@ -1,7 +1,7 @@
+use crate::client::LookupError;
 pub mod xdg_popup;
 pub mod xdg_toplevel;
 
-use crate::client::ClientError;
 use crate::configurable::Configurable;
 use crate::configurable::ConfigurableData;
 use crate::configurable::ConfigurableDataCore;
@@ -891,7 +891,7 @@ pub enum XdgSurfaceError {
         new: XdgSurfaceRole,
     },
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("Tried no set a non-positive width/height")]
     NonPositiveWidthHeight,
     #[error(
@@ -908,7 +908,6 @@ pub enum XdgSurfaceError {
     InvalidSerial(u64, u64),
 }
 efrom!(XdgSurfaceError, WlSurfaceError);
-efrom!(XdgSurfaceError, ClientError);
 
 pub enum XdgSurfaceTransactionOp {
     UpdateGeometry,

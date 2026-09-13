@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::ifs::jay_generic_match_builder::JayGenericMatchBuilderError;
 use crate::ifs::jay_generic_match_builder::MatchBuilder;
 use crate::ifs::jay_generic_match_builder::MatchBuilderDyn;
@@ -151,8 +151,7 @@ impl JayWindowMatchBuilderRequestHandler for JayWindowMatchBuilder {
 #[derive(Debug, Error)]
 pub enum JayWindowMatchBuilderError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     Generic(#[from] JayGenericMatchBuilderError),
 }
-efrom!(JayWindowMatchBuilderError, ClientError);

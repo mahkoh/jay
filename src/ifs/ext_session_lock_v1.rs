@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::configurable::ConfigurableData;
 use crate::ifs::wl_surface::ext_session_lock_surface_v1::ExtSessionLockSurfaceV1;
 use crate::ifs::wl_surface::ext_session_lock_surface_v1::ExtSessionLockSurfaceV1Error;
@@ -128,7 +128,7 @@ impl BreakLoops for ExtSessionLockV1 {
 #[derive(Debug, Error)]
 pub enum ExtSessionLockV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("The lock was not accepted")]
     NeverLocked,
     #[error("The output already has a lock surface attached")]
@@ -136,4 +136,3 @@ pub enum ExtSessionLockV1Error {
     #[error(transparent)]
     ExtSessionLockSurfaceV1Error(#[from] ExtSessionLockSurfaceV1Error),
 }
-efrom!(ExtSessionLockV1Error, ClientError);

@@ -1,6 +1,6 @@
 use crate::backend::Mode;
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::fixed::Fixed;
 use crate::ifs::wlr_output_manager::zwlr_output_head_v1::ADAPTIVE_SYNC_STATE_DISABLED;
 use crate::ifs::wlr_output_manager::zwlr_output_head_v1::ADAPTIVE_SYNC_STATE_ENABLED;
@@ -122,7 +122,7 @@ impl ZwlrOutputConfigurationHeadV1RequestHandler for ZwlrOutputConfigurationHead
 #[derive(Debug, Error)]
 pub enum ZwlrOutputConfigurationHeadV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("Property has already been set")]
     AlreadySet,
     #[error("Mode doesn't belong to head")]
@@ -134,4 +134,3 @@ pub enum ZwlrOutputConfigurationHeadV1Error {
     #[error("Invalid adaptive sync state {0}")]
     InvalidAdaptiveSyncState(u32),
 }
-efrom!(ZwlrOutputConfigurationHeadV1Error, ClientError);

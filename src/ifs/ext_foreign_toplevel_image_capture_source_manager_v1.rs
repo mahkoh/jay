@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::ext_image_capture_source_v1::ExtImageCaptureSourceV1;
@@ -9,8 +9,8 @@ use crate::object::Version;
 use crate::wire::ExtForeignToplevelImageCaptureSourceManagerV1Id;
 use crate::wire::ext_foreign_toplevel_image_capture_source_manager_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct ExtForeignToplevelImageCaptureSourceManagerV1Global {
     name: GlobalName,
@@ -26,7 +26,7 @@ impl ExtForeignToplevelImageCaptureSourceManagerV1Global {
         id: ExtForeignToplevelImageCaptureSourceManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), ExtForeignToplevelImageCaptureSourceManagerV1Error> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(ExtForeignToplevelImageCaptureSourceManagerV1 {
             id,
             client: client.clone(),
@@ -50,7 +50,7 @@ pub struct ExtForeignToplevelImageCaptureSourceManagerV1 {
 impl ExtForeignToplevelImageCaptureSourceManagerV1RequestHandler
     for ExtForeignToplevelImageCaptureSourceManagerV1
 {
-    type Error = ExtForeignToplevelImageCaptureSourceManagerV1Error;
+    type Error = LookupError;
 
     fn create_source(&self, req: CreateSource, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let handle = self.client.lookup(req.toplevel_handle)?;
@@ -84,13 +84,3 @@ impl Global for ExtForeignToplevelImageCaptureSourceManagerV1Global {
 }
 
 simple_add_global!(ExtForeignToplevelImageCaptureSourceManagerV1Global);
-
-#[derive(Debug, Error)]
-pub enum ExtForeignToplevelImageCaptureSourceManagerV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(
-    ExtForeignToplevelImageCaptureSourceManagerV1Error,
-    ClientError
-);

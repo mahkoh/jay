@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::wp_linux_drm_syncobj_surface_v1::WpLinuxDrmSyncobjSurfaceV1;
@@ -103,8 +103,7 @@ impl WpLinuxDrmSyncobjManagerV1RequestHandler for WpLinuxDrmSyncobjManagerV1 {
 #[derive(Debug, Error)]
 pub enum WpLinuxDrmSyncobjManagerV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     WpLinuxDrmSyncobjSurfaceV1Error(#[from] WpLinuxDrmSyncobjSurfaceV1Error),
 }
-efrom!(WpLinuxDrmSyncobjManagerV1Error, ClientError);

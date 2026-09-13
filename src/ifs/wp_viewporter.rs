@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::wp_viewport::WpViewport;
@@ -78,8 +78,7 @@ impl WpViewporterRequestHandler for WpViewporter {
 #[derive(Debug, Error)]
 pub enum WpViewporterError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     WpViewportError(#[from] WpViewportError),
 }
-efrom!(WpViewporterError, ClientError);

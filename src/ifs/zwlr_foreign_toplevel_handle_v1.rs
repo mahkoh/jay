@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::ifs::wl_output::WlOutput;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
@@ -15,7 +15,6 @@ use arrayvec::ArrayVec;
 use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
-use thiserror::Error;
 
 const STATE_ACTIVATED: u32 = 2;
 const STATE_FULLSCREEN: u32 = 3;
@@ -44,7 +43,7 @@ impl ZwlrForeignToplevelHandleV1 {
 }
 
 impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
-    type Error = ZwlrForeignToplevelHandleV1Error;
+    type Error = LookupError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
@@ -205,10 +204,3 @@ impl BreakLoops for ZwlrForeignToplevelHandleV1 {
         self.detach();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwlrForeignToplevelHandleV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwlrForeignToplevelHandleV1Error, ClientError);

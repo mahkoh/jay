@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::ifs::ipc::wl_data_source::WlDataSource;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
@@ -164,7 +164,7 @@ impl BreakLoops for XdgToplevelDragV1 {
 #[derive(Debug, Error)]
 pub enum XdgToplevelDragV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("The toplevel already has a drag attached")]
     AlreadyDragged,
     #[error("There already is a mapped toplevel attached")]
@@ -172,4 +172,3 @@ pub enum XdgToplevelDragV1Error {
     #[error("The drag is ongoing")]
     ActiveDrag,
 }
-efrom!(XdgToplevelDragV1Error, ClientError);

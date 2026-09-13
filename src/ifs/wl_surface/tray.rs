@@ -1,6 +1,6 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::client::ClientId;
+use crate::client::LookupError;
 use crate::configurable::Configurable;
 use crate::configurable::ConfigurableData;
 use crate::configurable::ConfigurableDataCore;
@@ -501,7 +501,7 @@ fn get_popup<T: TrayItem>(
 #[derive(Debug, Error)]
 pub enum TrayItemError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     WlSurfaceError(#[from] WlSurfaceError),
     #[error("Popup already has a parent")]
@@ -511,4 +511,3 @@ pub enum TrayItemError {
     #[error("The serial is not valid")]
     InvalidSerial,
 }
-efrom!(TrayItemError, ClientError);

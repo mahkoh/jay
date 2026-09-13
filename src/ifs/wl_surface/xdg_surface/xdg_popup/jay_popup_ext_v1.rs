@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::map_resize_edges;
 use crate::leaks::Tracker;
@@ -84,10 +84,9 @@ impl JayPopupExtV1RequestHandler for JayPopupExtV1 {
 #[derive(Debug, Error)]
 pub enum JayPopupExtV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("The xdg_popup already has a jay_popup_ext_v1 extension")]
     HasExt,
     #[error("The resize edge {0} is unknown")]
     UnknownResizeEdges(u32),
 }
-efrom!(JayPopupExtV1Error, ClientError);

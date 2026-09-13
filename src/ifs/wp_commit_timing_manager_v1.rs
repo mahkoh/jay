@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::wp_commit_timer_v1::WpCommitTimerV1;
@@ -80,8 +80,7 @@ impl WpCommitTimingManagerV1RequestHandler for WpCommitTimingManagerV1 {
 #[derive(Debug, Error)]
 pub enum WpCommitTimingManagerV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     WpCommitTimerV1Error(#[from] WpCommitTimerV1Error),
 }
-efrom!(WpCommitTimingManagerV1Error, ClientError);

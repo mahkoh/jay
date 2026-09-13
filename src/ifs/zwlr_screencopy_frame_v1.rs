@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::format::XRGB8888;
 use crate::gfx_api::AsyncShmGfxTextureCallback;
 use crate::gfx_api::GfxError;
@@ -197,7 +197,6 @@ pub enum ZwlrScreencopyFrameV1Error {
     #[error(transparent)]
     WlBufferError(Box<WlBufferError>),
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
 }
 efrom!(ZwlrScreencopyFrameV1Error, WlBufferError);
-efrom!(ZwlrScreencopyFrameV1Error, ClientError);

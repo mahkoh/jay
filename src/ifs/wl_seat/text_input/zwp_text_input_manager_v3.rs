@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_seat::text_input::zwp_text_input_v3::ZwpTextInputV3;
@@ -8,8 +8,8 @@ use crate::object::Version;
 use crate::wire::ZwpTextInputManagerV3Id;
 use crate::wire::zwp_text_input_manager_v3::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct ZwpTextInputManagerV3Global {
     name: GlobalName,
@@ -33,7 +33,7 @@ impl ZwpTextInputManagerV3Global {
         id: ZwpTextInputManagerV3Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), ZwpTextInputManagerV3Error> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(ZwpTextInputManagerV3 {
             id,
             client: client.clone(),
@@ -57,7 +57,7 @@ impl Global for ZwpTextInputManagerV3Global {
 simple_add_global!(ZwpTextInputManagerV3Global);
 
 impl ZwpTextInputManagerV3RequestHandler for ZwpTextInputManagerV3 {
-    type Error = ZwpTextInputManagerV3Error;
+    type Error = LookupError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
@@ -89,10 +89,3 @@ impl ZwpTextInputManagerV3RequestHandler for ZwpTextInputManagerV3 {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwpTextInputManagerV3Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwpTextInputManagerV3Error, ClientError);

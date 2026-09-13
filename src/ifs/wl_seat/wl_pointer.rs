@@ -1,4 +1,4 @@
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::cursor::Cursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::WlSeat;
@@ -251,9 +251,8 @@ impl WlPointerRequestHandler for WlPointer {
 #[derive(Debug, Error)]
 pub enum WlPointerError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
 }
-efrom!(WlPointerError, ClientError);
 efrom!(WlPointerError, WlSurfaceError);

@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::xdg_toplevel_drag_v1::XdgToplevelDragV1;
@@ -87,10 +87,9 @@ impl XdgToplevelDragManagerV1RequestHandler for XdgToplevelDragManagerV1 {
 #[derive(Debug, Error)]
 pub enum XdgToplevelDragManagerV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("The data source has already been used")]
     AlreadyUsed,
     #[error("The source already has a drag object")]
     HasDrag,
 }
-efrom!(XdgToplevelDragManagerV1Error, ClientError);

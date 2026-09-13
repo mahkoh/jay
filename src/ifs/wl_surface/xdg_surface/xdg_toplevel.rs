@@ -1,7 +1,7 @@
 use crate::bugs;
 use crate::bugs::Bugs;
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::configurable::ConfigurableExt;
 use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
@@ -996,13 +996,12 @@ impl XdgSurfaceExt for XdgToplevel {
 #[derive(Debug, Error)]
 pub enum XdgToplevelError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("width/height must be non-negative")]
     NonNegative,
     #[error("The minimum width/height must not be greater than the maximum width/height")]
     MinGreaterMax,
 }
-efrom!(XdgToplevelError, ClientError);
 
 pub fn map_resize_edges(edge: u32) -> Option<ResizeEdges> {
     if not_matches!(edge, 0 | 1 | 2 | 4 | 5 | 6 | 8 | 9 | 10) {

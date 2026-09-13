@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::wp_tearing_control_v1::WpTearingControlV1;
@@ -87,8 +87,7 @@ impl WpTearingControlManagerV1RequestHandler for WpTearingControlManagerV1 {
 #[derive(Debug, Error)]
 pub enum WpTearingControlManagerV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     WpTearingControlV1Error(#[from] WpTearingControlV1Error),
 }
-efrom!(WpTearingControlManagerV1Error, ClientError);

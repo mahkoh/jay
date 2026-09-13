@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_seat::tablet::zwp_tablet_seat_v2::ZwpTabletSeatV2;
@@ -8,8 +8,8 @@ use crate::object::Version;
 use crate::wire::ZwpTabletManagerV2Id;
 use crate::wire::zwp_tablet_manager_v2::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct ZwpTabletManagerV2Global {
     name: GlobalName,
@@ -33,7 +33,7 @@ impl ZwpTabletManagerV2Global {
         id: ZwpTabletManagerV2Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), ZwpTabletManagerV2Error> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(ZwpTabletManagerV2 {
             id,
             client: client.clone(),
@@ -57,7 +57,7 @@ impl Global for ZwpTabletManagerV2Global {
 simple_add_global!(ZwpTabletManagerV2Global);
 
 impl ZwpTabletManagerV2RequestHandler for ZwpTabletManagerV2 {
-    type Error = ZwpTabletManagerV2Error;
+    type Error = LookupError;
 
     fn get_tablet_seat(&self, req: GetTabletSeat, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let seat = self.client.lookup(req.seat)?.global.clone();
@@ -79,10 +79,3 @@ impl ZwpTabletManagerV2RequestHandler for ZwpTabletManagerV2 {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwpTabletManagerV2Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwpTabletManagerV2Error, ClientError);
