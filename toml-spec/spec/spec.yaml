@@ -689,6 +689,24 @@ Action:
               description: The log level.
               required: true
               ref: LogLevel
+        warp-mouse-to-focus:
+          description: |
+            Warps the cursor to the center of the current keyboard focus.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-j = { type = "warp-mouse-to-focus", target = "output" }
+              ```
+          fields:
+            target:
+              description: |
+                What to warp the cursor to.
+
+                The default is `window`.
+              required: false
+              ref: WarpTarget
         set-gfx-api:
           description: |
             Sets the graphics API used by new DRM devices.
@@ -3311,25 +3329,22 @@ Config:
 
         The default is `true`.
     unstable-mouse-follows-focus:
-      kind: boolean
+      ref: MouseFollowsFocusMode
       required: false
       description: |
-        Configures whether the mouse cursor is automatically centered on the active window
-        when focus changes via keyboard commands.
-
-        When enabled, the cursor will be automatically positioned to the center of the
-        active window when focus changes through keyboard commands such as `focus-left`,
+        Configures whether and how the mouse cursor is automatically moved when the
+        keyboard focus changes via keyboard commands such as `focus-left`,
         `focus-right`, `show-workspace`, etc.
 
-        The default is `false`.
-        
+        The default is `none`.
+
         This option is unstable due to various issues. It is not subject to the usual
         semver guarantees.
 
         - Example:
 
           ```toml
-          unstable-mouse-follows-focus = true
+          unstable-mouse-follows-focus = "output"
           ```
     window-management-key:
       kind: string
@@ -4673,6 +4688,65 @@ ClientMatchExactly:
         ref: ClientMatch
       required: true
       description: The list of criteria.
+
+
+MouseFollowsFocusMode:
+  description: |
+    Configures whether and how the cursor follows the keyboard focus.
+  kind: variable
+  variants:
+    - kind: boolean
+      description: |
+        If `true`, the cursor is moved to the center of the focused window whenever the
+        keyboard focus changes. This is the same as `window`.
+
+        If `false`, the cursor is never moved. This is the same as `none`.
+
+        - Example:
+
+          ```toml
+          unstable-mouse-follows-focus = true
+          ```
+    - kind: string
+      values:
+        - value: none
+          description: The cursor is never moved when the keyboard focus changes.
+        - value: output
+          description: |
+            The cursor is moved to the center of the focused output whenever the keyboard
+            focus moves to a different output.
+        - value: workspace
+          description: |
+            The cursor is moved to the center of the focused workspace whenever the
+            keyboard focus moves to a different workspace.
+        - value: window
+          description: |
+            The cursor is moved to the center of the focused window whenever the keyboard
+            focus changes.
+      description: |
+        The mode to use.
+
+        - Example:
+
+          ```toml
+          unstable-mouse-follows-focus = "output"
+          ```
+
+
+WarpTarget:
+  kind: string
+  values:
+    - value: window
+      description: The cursor is warped to the center of the focused window.
+    - value: workspace
+      description: |
+        The cursor is warped to the center of the workspace containing the keyboard
+        focus.
+    - value: output
+      description: |
+        The cursor is warped to the center of the output containing the keyboard focus.
+  description: |
+    The target that the cursor is warped to.
 
 
 WindowRule:

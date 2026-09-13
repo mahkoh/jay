@@ -1120,6 +1120,7 @@ impl WlSeatGlobal {
     }
 
     pub fn jump_to_mark(self: &Rc<Self>, kc: Keycode) {
+        let before = self.focus_target();
         if let Some(node) = self.marks.get(&kc)
             && node.node_accepts_focus()
             && node.node_id() != self.keyboard_node.get().node_id()
@@ -1131,7 +1132,7 @@ impl WlSeatGlobal {
                 }
             }
             self.focus_node(node);
-            self.maybe_schedule_warp_mouse_to_focus();
+            self.maybe_schedule_warp_mouse_to_focus(before);
         }
     }
 

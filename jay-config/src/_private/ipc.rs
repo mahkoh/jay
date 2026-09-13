@@ -20,9 +20,11 @@ use crate::input::FocusFollowsMouseMode;
 use crate::input::InputDevice;
 use crate::input::InputEventCode;
 use crate::input::LayerDirection;
+use crate::input::MouseFollowsFocusMode;
 use crate::input::Seat;
 use crate::input::SwitchEvent;
 use crate::input::Timeline;
+use crate::input::WarpTarget;
 use crate::input::acceleration::AccelProfile;
 use crate::input::capability::Capability;
 use crate::input::clickmethod::ClickMethod;
@@ -1083,6 +1085,14 @@ pub enum ClientMessage<'a> {
         window: Window,
         target: ContainerTarget,
         axis: RelativeAxis,
+    },
+    SeatSetMouseFollowsFocusMode {
+        seat: Seat,
+        mode: MouseFollowsFocusMode,
+    },
+    SeatWarpMouseToFocusTarget {
+        seat: Seat,
+        target: WarpTarget,
     },
 }
 

@@ -765,6 +765,11 @@ impl Seat {
         get!().seat_warp_mouse_to_focus(self)
     }
 
+    /// Warps the cursor to the center of the target of the current keyboard focus.
+    pub fn warp_mouse_to_focus_target(self, target: WarpTarget) {
+        get!().seat_warp_mouse_to_focus_target(self, target)
+    }
+
     /// Resizes the focused window.
     pub fn resize(self, dx1: i32, dy1: i32, dx2: i32, dy2: i32) {
         self.window().resize(dx1, dy1, dx2, dy2);
@@ -777,6 +782,15 @@ impl Seat {
     #[deprecated = "This setting is unstable and might be removed in the future"]
     pub fn unstable_set_mouse_follows_focus(self, enabled: bool) {
         get!().seat_set_mouse_follows_focus(self, enabled)
+    }
+
+    /// Sets how the cursor should automatically move when the keyboard focus changes via
+    /// keyboard commands (move-left, focus-right, show-workspace, etc.).
+    ///
+    /// The default is [`MouseFollowsFocusMode::None`].
+    #[deprecated = "This setting is unstable and might be removed in the future"]
+    pub fn unstable_set_mouse_follows_focus_mode(self, mode: MouseFollowsFocusMode) {
+        get!().seat_set_mouse_follows_focus_mode(self, mode)
     }
 
     /// Returns the output that contains the seat's cursor.
@@ -802,6 +816,34 @@ pub enum FocusFollowsMouseMode {
     /// The keyboard focus changes only when clicking on a window or the previously
     /// focused window becomes invisible.
     False,
+}
+
+/// A mouse-follows-focus mode.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum MouseFollowsFocusMode {
+    /// The cursor is never moved when the keyboard focus changes.
+    None,
+    /// The cursor is moved to the center of the focused output whenever the keyboard
+    /// focus moves to a different output.
+    Output,
+    /// The cursor is moved to the center of the focused window whenever the keyboard
+    /// focus changes.
+    Window,
+    /// The cursor is moved to the center of the focused workspace whenever the keyboard
+    /// focus moves to a different workspace.
+    Workspace,
+}
+
+/// The target that the cursor is warped to.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum WarpTarget {
+    /// The focused window.
+    Window,
+    /// The workspace containing the keyboard focus.
+    Workspace,
+    /// The output containing the keyboard focus.
+    Output,
 }
 
 /// Defines which output is used when no particular output is specified.

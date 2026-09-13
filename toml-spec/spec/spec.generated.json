@@ -455,6 +455,22 @@
               ]
             },
             {
+              "description": "Warps the cursor to the center of the current keyboard focus.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-j = { type = \"warp-mouse-to-focus\", target = \"output\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "warp-mouse-to-focus"
+                },
+                "target": {
+                  "description": "What to warp the cursor to.\n\nThe default is `window`.\n",
+                  "$ref": "#/$defs/WarpTarget"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            {
               "description": "Sets the graphics API used by new DRM devices.\n\nSetting this after the compositor has started usually has no effect.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-j = { type = \"set-gfx-api\", api = \"Vulan\" }\n  ```\n",
               "type": "object",
               "properties": {
@@ -1354,8 +1370,8 @@
           "description": "Configures whether moving the mouse over a window automatically moves the keyboard\nfocus to that window.\n\nThe default is `true`.\n"
         },
         "unstable-mouse-follows-focus": {
-          "type": "boolean",
-          "description": "Configures whether the mouse cursor is automatically centered on the active window\nwhen focus changes via keyboard commands.\n\nWhen enabled, the cursor will be automatically positioned to the center of the\nactive window when focus changes through keyboard commands such as `focus-left`,\n`focus-right`, `show-workspace`, etc.\n\nThe default is `false`.\n\nThis option is unstable due to various issues. It is not subject to the usual\nsemver guarantees.\n\n- Example:\n\n  ```toml\n  unstable-mouse-follows-focus = true\n  ```\n"
+          "description": "Configures whether and how the mouse cursor is automatically moved when the\nkeyboard focus changes via keyboard commands such as `focus-left`,\n`focus-right`, `show-workspace`, etc.\n\nThe default is `none`.\n\nThis option is unstable due to various issues. It is not subject to the usual\nsemver guarantees.\n\n- Example:\n\n  ```toml\n  unstable-mouse-follows-focus = \"output\"\n  ```\n",
+          "$ref": "#/$defs/MouseFollowsFocusMode"
         },
         "window-management-key": {
           "type": "string",
@@ -2238,6 +2254,25 @@
         "height"
       ]
     },
+    "MouseFollowsFocusMode": {
+      "description": "Configures whether and how the cursor follows the keyboard focus.\n",
+      "anyOf": [
+        {
+          "type": "boolean",
+          "description": "If `true`, the cursor is moved to the center of the focused window whenever the\nkeyboard focus changes. This is the same as `window`.\n\nIf `false`, the cursor is never moved. This is the same as `none`.\n\n- Example:\n\n  ```toml\n  unstable-mouse-follows-focus = true\n  ```\n"
+        },
+        {
+          "type": "string",
+          "description": "The mode to use.\n\n- Example:\n\n  ```toml\n  unstable-mouse-follows-focus = \"output\"\n  ```\n",
+          "enum": [
+            "none",
+            "output",
+            "workspace",
+            "window"
+          ]
+        }
+      ]
+    },
     "Output": {
       "description": "Describes configuration to apply to an output.\n\n- Example: To set the scale of an output.\n\n  ```toml\n  [[outputs]]\n  match.serial-number = \"33K03894SL0\"\n  scale = 1.25\n  ```\n",
       "type": "object",
@@ -2922,6 +2957,15 @@
         "variant1",
         "variant2",
         "variant3"
+      ]
+    },
+    "WarpTarget": {
+      "type": "string",
+      "description": "The target that the cursor is warped to.\n",
+      "enum": [
+        "window",
+        "workspace",
+        "output"
       ]
     },
     "WindowFloatingPosition": {

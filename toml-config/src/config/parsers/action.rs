@@ -52,6 +52,8 @@ use crate::config::parsers::status::StatusParser;
 use crate::config::parsers::status::StatusParserError;
 use crate::config::parsers::theme::ThemeParser;
 use crate::config::parsers::theme::ThemeParserError;
+use crate::config::parsers::warp_target::WarpTargetParser;
+use crate::config::parsers::warp_target::WarpTargetParserError;
 use crate::config::parsers::workspace::WorkspaceType;
 use crate::config::spanned::SpannedErrorExt;
 use crate::toml::toml_span::DespanExt;
@@ -71,6 +73,7 @@ use jay_config::RelativeAxis::Major;
 use jay_config::RelativeAxis::Minor;
 use jay_config::input::LayerDirection;
 use jay_config::input::Timeline;
+use jay_config::input::WarpTarget;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -106,6 +109,8 @@ pub enum ActionParserError {
     SetLogLevel(#[source] LogLevelParserError),
     #[error("Could not parse a set-gfx-api action")]
     GfxApi(#[source] GfxApiParserError),
+    #[error("Could not parse a warp-mouse-to-focus action")]
+    WarpTarget(#[source] WarpTargetParserError),
     #[error("Could not parse a configure-drm-device action")]
     DrmDevice(#[source] DrmDeviceParserError),
     #[error("Could not parse a set-render-device action")]
@@ -219,7 +224,7 @@ impl ActionParser<'_, '_, '_> {
             "reload-simple-im" => ReloadSimpleIm,
             "enable-unicode-input" => EnableUnicodeInput,
             "open-control-center" => OpenControlCenter,
-            "warp-mouse-to-focus" => WarpMouseToFocus,
+            "warp-mouse-to-focus" => WarpMouseToFocus(WarpTarget::Window),
             "hide-overlays" => HideOverlays,
             "enable-visualize-compositing" => SetVisualizeCompositing(true),
             "disable-visualize-compositing" => SetVisualizeCompositing(false),
@@ -477,6 +482,18 @@ impl ActionParser<'_, '_, '_> {
             .parse_map(&mut LogLevelParser)
             .map_spanned_err(ActionParserError::SetLogLevel)?;
         Ok(Action::SetLogLevel { level })
+    }
+
+    fn parse_warp_mouse_to_focus(&mut self, ext: &mut Extractor<'_, '_, '_>) -> ParseResult<Self> {
+        let mut target = WarpTarget::Window;
+        if let Some(value) = ext.extract(opt(val("target")))? {
+            target = value
+                .parse(&mut WarpTargetParser)
+                .map_spanned_err(ActionParserError::WarpTarget)?;
+        }
+        Ok(Action::SimpleCommand {
+            cmd: SimpleCommand::WarpMouseToFocus(target),
+        })
     }
 
     fn parse_set_gfx_api(&mut self, ext: &mut Extractor<'_, '_, '_>) -> ParseResult<Self> {
@@ -811,6 +828,7 @@ impl Parser for ActionParser<'_, '_, '_> {
             "inc-counter" => self.parse_adj_counter(&mut ext, false),
             "dec-counter" => self.parse_adj_counter(&mut ext, true),
             "set-counter" => self.parse_set_counter(&mut ext),
+            "warp-mouse-to-focus" => self.parse_warp_mouse_to_focus(&mut ext),
             v => {
                 ext.ignore_unused();
                 return Err(ActionParserError::UnknownType(v.to_string()).spanned(ty.span));
