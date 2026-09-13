@@ -1814,7 +1814,6 @@ impl Global for WlSeatGlobal {
 dedicated_add_global!(WlSeatGlobal, seats);
 
 #[derive(Object)]
-#[dedicated(seats)]
 #[break_loops]
 pub struct WlSeat {
     pub global: Rc<WlSeatGlobal>,

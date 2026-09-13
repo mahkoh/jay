@@ -23,7 +23,6 @@ const STATE_FULLSCREEN: u32 = 3;
 const FULLSCREEN_SINCE: Version = Version(2);
 
 #[derive(Object)]
-#[dedicated(wlr_foreign_toplevel_handles)]
 #[break_loops]
 pub struct ZwlrForeignToplevelHandleV1 {
     pub id: ZwlrForeignToplevelHandleV1Id,

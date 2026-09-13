@@ -1,43 +1,8 @@
 use crate::client::Client;
 use crate::client::ClientError;
-use crate::ifs::color_management::wp_image_description_reference_v1::WpImageDescriptionReferenceV1;
-use crate::ifs::color_management::wp_image_description_v1::WpImageDescriptionV1;
-use crate::ifs::ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1;
-use crate::ifs::ext_image_capture_source_v1::ExtImageCaptureSourceV1;
-use crate::ifs::ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1;
-use crate::ifs::ipc::data_control::ext_data_control_source_v1::ExtDataControlSourceV1;
-use crate::ifs::ipc::data_control::zwlr_data_control_source_v1::ZwlrDataControlSourceV1;
-use crate::ifs::ipc::wl_data_source::WlDataSource;
-use crate::ifs::ipc::zwp_primary_selection_source_v1::ZwpPrimarySelectionSourceV1;
-use crate::ifs::jay_client_match::JayClientMatch;
-use crate::ifs::jay_keymap_builder::JayKeymapBuilder;
-use crate::ifs::jay_output::JayOutput;
-use crate::ifs::jay_screencast::JayScreencast;
-use crate::ifs::jay_toplevel::JayToplevel;
-use crate::ifs::jay_window_match::JayWindowMatch;
-use crate::ifs::jay_workspace::JayWorkspace;
-use crate::ifs::wl_buffer::WlBuffer;
+use crate::client::objects::dedicated::Dedicated;
 use crate::ifs::wl_display::WlDisplay;
-use crate::ifs::wl_output::WlOutput;
-use crate::ifs::wl_region::WlRegion;
 use crate::ifs::wl_registry::WlRegistry;
-use crate::ifs::wl_seat::WlSeat;
-use crate::ifs::wl_seat::tablet::zwp_tablet_tool_v2::ZwpTabletToolV2;
-use crate::ifs::wl_seat::wl_pointer::WlPointer;
-use crate::ifs::wl_surface::WlSurface;
-use crate::ifs::wl_surface::xdg_surface::XdgSurface;
-use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_manager_v1::XdgToplevelIconManagerV1;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::XdgToplevelIconV1;
-use crate::ifs::wlr_output_manager::zwlr_output_head_v1::ZwlrOutputHeadV1;
-use crate::ifs::wlr_output_manager::zwlr_output_mode_v1::ZwlrOutputModeV1;
-use crate::ifs::workspace_manager::ext_workspace_group_handle_v1::ExtWorkspaceGroupHandleV1;
-use crate::ifs::wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1;
-use crate::ifs::wp_linux_drm_syncobj_timeline_v1::WpLinuxDrmSyncobjTimelineV1;
-use crate::ifs::xdg_positioner::XdgPositioner;
-use crate::ifs::xdg_wm_base::XdgWmBase;
-use crate::ifs::zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1;
 use crate::object::Object;
 use crate::object::SyntheticObjectEventHandler;
 use crate::utils::clonecell::CloneCell;
@@ -48,99 +13,22 @@ use crate::utils::numcell::NumCell;
 use crate::utils::reset_immutable::ResetImmutable;
 use crate::utils::woid_hash::WoidBuildHasher;
 use crate::utils::woid_hash::WoidCopyHashMap;
-use crate::wire::ExtDataControlSourceV1Id;
-use crate::wire::ExtForeignToplevelHandleV1Id;
-use crate::wire::ExtImageCaptureSourceV1Id;
-use crate::wire::ExtImageCopyCaptureSessionV1Id;
-use crate::wire::ExtWorkspaceGroupHandleV1Id;
-use crate::wire::JayClientMatchId;
-use crate::wire::JayKeymapBuilderId;
-use crate::wire::JayOutputId;
-use crate::wire::JayScreencastId;
-use crate::wire::JayToplevelId;
-use crate::wire::JayWindowMatchId;
-use crate::wire::JayWorkspaceId;
 use crate::wire::ObjectId;
-use crate::wire::WlBufferId;
-use crate::wire::WlDataSourceId;
-use crate::wire::WlOutputId;
-use crate::wire::WlPointerId;
-use crate::wire::WlRegionId;
 use crate::wire::WlRegistryId;
-use crate::wire::WlSeatId;
-use crate::wire::WlSurfaceId;
-use crate::wire::WpDrmLeaseConnectorV1Id;
-use crate::wire::WpImageDescriptionReferenceV1Id;
-use crate::wire::WpImageDescriptionV1Id;
-use crate::wire::WpLinuxDrmSyncobjTimelineV1Id;
-use crate::wire::XdgPopupId;
-use crate::wire::XdgPositionerId;
-use crate::wire::XdgSurfaceId;
-use crate::wire::XdgToplevelIconManagerV1Id;
-use crate::wire::XdgToplevelIconV1Id;
-use crate::wire::XdgToplevelId;
-use crate::wire::XdgWmBaseId;
-use crate::wire::ZwlrDataControlSourceV1Id;
-use crate::wire::ZwlrForeignToplevelHandleV1Id;
-use crate::wire::ZwlrOutputHeadV1Id;
-use crate::wire::ZwlrOutputModeV1Id;
-use crate::wire::ZwpPrimarySelectionSourceV1Id;
-use crate::wire::ZwpTabletToolV2Id;
+use derivative::Derivative;
 use jay_proc::ResetImmutable;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(ResetImmutable)]
+#[derive(ResetImmutable, Derivative)]
+#[derivative(Default)]
 pub struct Objects {
     pub display: CloneCell<Option<Rc<WlDisplay>>>,
     registry: WoidCopyHashMap<ObjectId, Rc<dyn Object>>,
     synthetic_event_handlers: FCopyHashMap<ObjectId, Rc<dyn SyntheticObjectEventHandler>>,
-    pub registries: WoidCopyHashMap<WlRegistryId, Rc<WlRegistry>>,
-    pub outputs: WoidCopyHashMap<WlOutputId, Rc<WlOutput>>,
-    pub surfaces: WoidCopyHashMap<WlSurfaceId, Rc<WlSurface>>,
-    pub xdg_surfaces: WoidCopyHashMap<XdgSurfaceId, Rc<XdgSurface>>,
-    pub xdg_toplevel: WoidCopyHashMap<XdgToplevelId, Rc<XdgToplevel>>,
-    pub wl_data_source: WoidCopyHashMap<WlDataSourceId, Rc<WlDataSource>>,
-    pub zwp_primary_selection_source:
-        WoidCopyHashMap<ZwpPrimarySelectionSourceV1Id, Rc<ZwpPrimarySelectionSourceV1>>,
-    pub xdg_positioners: WoidCopyHashMap<XdgPositionerId, Rc<XdgPositioner>>,
-    pub regions: WoidCopyHashMap<WlRegionId, Rc<WlRegion>>,
-    pub buffers: WoidCopyHashMap<WlBufferId, Rc<WlBuffer>>,
-    pub jay_outputs: WoidCopyHashMap<JayOutputId, Rc<JayOutput>>,
-    pub jay_workspaces: WoidCopyHashMap<JayWorkspaceId, Rc<JayWorkspace>>,
-    pub pointers: WoidCopyHashMap<WlPointerId, Rc<WlPointer>>,
-    pub xdg_wm_bases: WoidCopyHashMap<XdgWmBaseId, Rc<XdgWmBase>>,
-    pub seats: WoidCopyHashMap<WlSeatId, Rc<WlSeat>>,
-    pub screencasts: WoidCopyHashMap<JayScreencastId, Rc<JayScreencast>>,
-    pub timelines: WoidCopyHashMap<WpLinuxDrmSyncobjTimelineV1Id, Rc<WpLinuxDrmSyncobjTimelineV1>>,
-    pub zwlr_data_sources: WoidCopyHashMap<ZwlrDataControlSourceV1Id, Rc<ZwlrDataControlSourceV1>>,
-    pub zwlr_output_heads: WoidCopyHashMap<ZwlrOutputHeadV1Id, Rc<ZwlrOutputHeadV1>>,
-    pub zwlr_output_modes: WoidCopyHashMap<ZwlrOutputModeV1Id, Rc<ZwlrOutputModeV1>>,
-    pub jay_toplevels: WoidCopyHashMap<JayToplevelId, Rc<JayToplevel>>,
-    pub drm_lease_outputs: WoidCopyHashMap<WpDrmLeaseConnectorV1Id, Rc<WpDrmLeaseConnectorV1>>,
-    pub tablet_tools: WoidCopyHashMap<ZwpTabletToolV2Id, Rc<ZwpTabletToolV2>>,
-    pub xdg_popups: WoidCopyHashMap<XdgPopupId, Rc<XdgPopup>>,
-    pub image_capture_sources:
-        WoidCopyHashMap<ExtImageCaptureSourceV1Id, Rc<ExtImageCaptureSourceV1>>,
-    pub foreign_toplevel_handles:
-        WoidCopyHashMap<ExtForeignToplevelHandleV1Id, Rc<ExtForeignToplevelHandleV1>>,
-    pub wlr_foreign_toplevel_handles:
-        WoidCopyHashMap<ZwlrForeignToplevelHandleV1Id, Rc<ZwlrForeignToplevelHandleV1>>,
-    pub ext_copy_sessions:
-        WoidCopyHashMap<ExtImageCopyCaptureSessionV1Id, Rc<ExtImageCopyCaptureSessionV1>>,
-    pub ext_data_sources: WoidCopyHashMap<ExtDataControlSourceV1Id, Rc<ExtDataControlSourceV1>>,
-    pub ext_workspace_groups:
-        WoidCopyHashMap<ExtWorkspaceGroupHandleV1Id, Rc<ExtWorkspaceGroupHandleV1>>,
-    pub wp_image_description: WoidCopyHashMap<WpImageDescriptionV1Id, Rc<WpImageDescriptionV1>>,
-    pub wp_image_description_reference:
-        WoidCopyHashMap<WpImageDescriptionReferenceV1Id, Rc<WpImageDescriptionReferenceV1>>,
-    pub jay_keymap_builders: WoidCopyHashMap<JayKeymapBuilderId, Rc<JayKeymapBuilder>>,
-    pub xdg_toplevel_icons: WoidCopyHashMap<XdgToplevelIconV1Id, Rc<XdgToplevelIconV1>>,
-    pub xdg_toplevel_icon_managers:
-        WoidCopyHashMap<XdgToplevelIconManagerV1Id, Rc<XdgToplevelIconManagerV1>>,
-    pub jay_client_match: WoidCopyHashMap<JayClientMatchId, Rc<JayClientMatch>>,
-    pub jay_window_match: WoidCopyHashMap<JayWindowMatchId, Rc<JayWindowMatch>>,
+    pub dedicated: Dedicated,
     ids: RefCell<Vec<usize>>,
+    #[derivative(Default(value = "NumCell::new(FIRST_SYNTHETIC_ID)"))]
     next_synthetic_id: NumCell<u64>,
 }
 
@@ -150,55 +38,8 @@ pub const FIRST_INVALID_ID: u64 = !0;
 const SEG_SIZE: usize = usize::BITS as usize;
 
 impl Objects {
-    pub fn new() -> Self {
-        Self {
-            display: CloneCell::new(None),
-            registry: Default::default(),
-            synthetic_event_handlers: Default::default(),
-            registries: Default::default(),
-            outputs: Default::default(),
-            surfaces: Default::default(),
-            xdg_surfaces: Default::default(),
-            xdg_toplevel: Default::default(),
-            wl_data_source: Default::default(),
-            zwp_primary_selection_source: Default::default(),
-            xdg_positioners: Default::default(),
-            regions: Default::default(),
-            buffers: Default::default(),
-            jay_outputs: Default::default(),
-            jay_workspaces: Default::default(),
-            pointers: Default::default(),
-            xdg_wm_bases: Default::default(),
-            seats: Default::default(),
-            screencasts: Default::default(),
-            timelines: Default::default(),
-            zwlr_data_sources: Default::default(),
-            zwlr_output_heads: Default::default(),
-            zwlr_output_modes: Default::default(),
-            jay_toplevels: Default::default(),
-            drm_lease_outputs: Default::default(),
-            tablet_tools: Default::default(),
-            xdg_popups: Default::default(),
-            image_capture_sources: Default::default(),
-            foreign_toplevel_handles: Default::default(),
-            wlr_foreign_toplevel_handles: Default::default(),
-            ext_copy_sessions: Default::default(),
-            ext_data_sources: Default::default(),
-            ext_workspace_groups: Default::default(),
-            wp_image_description: Default::default(),
-            wp_image_description_reference: Default::default(),
-            jay_keymap_builders: Default::default(),
-            xdg_toplevel_icons: Default::default(),
-            xdg_toplevel_icon_managers: Default::default(),
-            jay_client_match: Default::default(),
-            jay_window_match: Default::default(),
-            ids: RefCell::new(vec![]),
-            next_synthetic_id: NumCell::new(FIRST_SYNTHETIC_ID),
-        }
-    }
-
     pub fn destroy(&self) {
-        for surface in self.surfaces.lock().values() {
+        for surface in self.dedicated.wl_surface.lock().values() {
             if let Some(tl) = surface.get_toplevel() {
                 tl.tl_destroy_dyn();
             }
@@ -289,7 +130,7 @@ impl Objects {
     }
 
     pub fn registries(&self) -> Locked<'_, WlRegistryId, Rc<WlRegistry>, WoidBuildHasher> {
-        self.registries.lock()
+        self.dedicated.wl_registry.lock()
     }
 
     fn id_offset(&self) -> u32 {
@@ -328,4 +169,8 @@ impl Objects {
     pub fn remove_synthetic_event_handler(&self, id: ObjectId) {
         self.synthetic_event_handlers.remove(&id);
     }
+}
+
+mod dedicated {
+    include!(concat!(env!("OUT_DIR"), "/dedicated.rs"));
 }

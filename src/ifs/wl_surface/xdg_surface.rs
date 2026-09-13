@@ -91,7 +91,6 @@ pub enum PopupStackType {
 }
 
 #[derive(Object)]
-#[dedicated(xdg_surfaces)]
 #[break_loops]
 pub struct XdgSurface {
     id: XdgSurfaceId,

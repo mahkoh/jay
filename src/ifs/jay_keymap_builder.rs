@@ -11,7 +11,6 @@ use thiserror::Error;
 use uapi::OwnedFd;
 
 #[derive(Object)]
-#[dedicated(jay_keymap_builders)]
 pub struct JayKeymapBuilder {
     pub id: JayKeymapBuilderId,
     pub client: Rc<Client>,

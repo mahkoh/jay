@@ -11,7 +11,6 @@ use thiserror::Error;
 
 #[expect(unused)]
 #[derive(Object)]
-#[dedicated(wp_image_description_reference)]
 pub struct WpImageDescriptionReferenceV1 {
     id: WpImageDescriptionReferenceV1Id,
     version: Version,

@@ -33,7 +33,6 @@ pub struct XdgWmBaseGlobal {
 }
 
 #[derive(Object)]
-#[dedicated(xdg_wm_bases)]
 #[break_loops]
 pub struct XdgWmBase {
     id: XdgWmBaseId,

@@ -11,7 +11,6 @@ use std::rc::Rc;
 use thiserror::Error;
 
 #[derive(Object)]
-#[dedicated(foreign_toplevel_handles)]
 #[break_loops]
 pub struct ExtForeignToplevelHandleV1 {
     pub id: ExtForeignToplevelHandleV1Id,

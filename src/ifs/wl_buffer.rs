@@ -90,7 +90,6 @@ enum Ty {
 }
 
 #[derive(Object)]
-#[dedicated(buffers)]
 pub struct WlBuffer {
     pub id: WlBufferId,
     destroyed: Cell<bool>,

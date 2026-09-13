@@ -12,7 +12,6 @@ use std::rc::Rc;
 use thiserror::Error;
 
 #[derive(Object)]
-#[dedicated(zwlr_output_modes)]
 pub struct ZwlrOutputModeV1 {
     pub(super) id: ZwlrOutputModeV1Id,
     pub(super) head_id: WlrOutputHeadId,

@@ -72,7 +72,6 @@ impl PendingScroll {
 }
 
 #[derive(Object)]
-#[dedicated(pointers)]
 pub struct WlPointer {
     id: WlPointerId,
     version: Version,

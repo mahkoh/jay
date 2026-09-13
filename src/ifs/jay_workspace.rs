@@ -14,7 +14,6 @@ use std::rc::Rc;
 use thiserror::Error;
 
 #[derive(Object)]
-#[dedicated(jay_workspaces)]
 #[break_loops]
 pub struct JayWorkspace {
     pub id: JayWorkspaceId,

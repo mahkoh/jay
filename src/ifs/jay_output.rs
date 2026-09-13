@@ -11,7 +11,6 @@ use std::rc::Rc;
 use thiserror::Error;
 
 #[derive(Object)]
-#[dedicated(jay_outputs)]
 #[break_loops]
 pub struct JayOutput {
     pub id: JayOutputId,

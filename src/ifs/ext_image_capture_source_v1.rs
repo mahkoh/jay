@@ -17,7 +17,6 @@ pub enum ImageCaptureSource {
 }
 
 #[derive(Object)]
-#[dedicated(image_capture_sources)]
 pub struct ExtImageCaptureSourceV1 {
     pub id: ExtImageCaptureSourceV1Id,
     pub version: Version,

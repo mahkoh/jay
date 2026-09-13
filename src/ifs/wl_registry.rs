@@ -15,7 +15,6 @@ use std::rc::Rc;
 use thiserror::Error;
 
 #[derive(Object)]
-#[dedicated(registries)]
 pub struct WlRegistry {
     id: WlRegistryId,
     version: Version,

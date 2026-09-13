@@ -18,7 +18,6 @@ use std::rc::Rc;
 use thiserror::Error;
 
 #[derive(Object)]
-#[dedicated(ext_workspace_groups)]
 #[break_loops]
 pub struct ExtWorkspaceGroupHandleV1 {
     pub(super) id: ExtWorkspaceGroupHandleV1Id,

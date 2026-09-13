@@ -286,7 +286,6 @@ pub struct SurfaceShmTexture {
 }
 
 #[derive(Object)]
-#[dedicated(surfaces)]
 #[break_loops]
 pub struct WlSurface {
     pub id: WlSurfaceId,

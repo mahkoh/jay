@@ -11,7 +11,6 @@ use std::rc::Rc;
 use thiserror::Error;
 
 #[derive(Object)]
-#[dedicated(jay_window_match)]
 pub struct JayWindowMatch {
     pub id: JayWindowMatchId,
     pub client: Rc<Client>,

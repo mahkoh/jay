@@ -62,7 +62,6 @@ bitflags! {
 }
 
 #[derive(Object)]
-#[dedicated(xdg_positioners)]
 pub struct XdgPositioner {
     id: XdgPositionerId,
     version: Version,

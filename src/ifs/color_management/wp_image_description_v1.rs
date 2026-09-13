@@ -12,7 +12,6 @@ use std::rc::Rc;
 use thiserror::Error;
 
 #[derive(Object)]
-#[dedicated(wp_image_description)]
 pub struct WpImageDescriptionV1 {
     pub id: WpImageDescriptionV1Id,
     pub client: Rc<Client>,

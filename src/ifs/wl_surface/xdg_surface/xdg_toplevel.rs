@@ -137,7 +137,6 @@ pub struct XdgToplevelToplevelData {
 }
 
 #[derive(Object)]
-#[dedicated(xdg_toplevel)]
 #[break_loops]
 pub struct XdgToplevel {
     pub id: XdgToplevelId,

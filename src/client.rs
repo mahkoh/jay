@@ -223,7 +223,7 @@ impl Clients {
             state: global.clone(),
             checking_queue_size: Cell::new(false),
             socket,
-            objects: Objects::new(),
+            objects: Default::default(),
             invalid_ids: NumCell::new(FIRST_INVALID_ID),
             swapchain: Default::default(),
             flush_request: Default::default(),

@@ -15,7 +15,6 @@ pub const ID_SINCE: Version = Version(12);
 pub const CLIENT_ID_SINCE: Version = Version(18);
 
 #[derive(Object)]
-#[dedicated(jay_toplevels)]
 #[break_loops]
 pub struct JayToplevel {
     pub id: JayToplevelId,

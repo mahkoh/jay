@@ -41,7 +41,6 @@ const INVALID_ACTION_MASK: u32 = 0;
 const INVALID_SOURCE: u32 = 1;
 
 #[derive(Object)]
-#[dedicated(wl_data_source)]
 #[break_loops]
 pub struct WlDataSource {
     id: WlDataSourceId,

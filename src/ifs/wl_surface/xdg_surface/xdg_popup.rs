@@ -87,7 +87,6 @@ pub trait XdgPopupParent {
 }
 
 #[derive(Object)]
-#[dedicated(xdg_popups)]
 #[break_loops]
 pub struct XdgPopup {
     pub id: XdgPopupId,

@@ -10,7 +10,6 @@ use std::rc::Rc;
 use thiserror::Error;
 
 #[derive(Object)]
-#[dedicated(jay_client_match)]
 pub struct JayClientMatch {
     pub id: JayClientMatchId,
     pub client: Rc<Client>,

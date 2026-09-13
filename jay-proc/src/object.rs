@@ -5,6 +5,7 @@ use quote::quote_spanned;
 use syn::Error;
 use syn::Item;
 use syn::ItemStruct;
+use syn::LitStr;
 use syn::Meta;
 use syn::parse::Parse;
 use syn::parse::ParseStream;
@@ -20,32 +21,7 @@ pub fn derive_object(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
             impl crate::object::BreakLoops for #ident { }
         };
     }
-    let mut add = quote! {
-        let _ = client;
-    };
-    let mut remove = quote! {
-        let _ = client;
-    };
-    let mut lookup = quote! {};
-    if let Some(field) = input.dedicated {
-        add = quote_spanned! { input.span => {
-            client.objects.#field.set(self.id, self.clone());
-        }};
-        remove = quote_spanned! { input.span => {
-            client.objects.#field.remove(&self.id);
-        }};
-        let idname = Ident::new(&format!("{}Id", ident), ident.span());
-        lookup = quote_spanned! { input.span =>
-            impl crate::client::WaylandObjectLookup for crate::wire::#idname {
-                type Object = #ident;
-                const INTERFACE: crate::object::Interface = crate::wire::#ident;
-
-                fn lookup(client: &crate::client::Client, id: Self) -> Option<Rc<#ident>> {
-                    client.objects.#field.get(&id)
-                }
-            }
-        };
-    }
+    let include_path = LitStr::new(&format!("/dedicated/{}.rs", ident), ident.span());
     let res = quote_spanned! { input.span =>
         impl crate::object::Object for #ident {
             fn id(&self) -> crate::wire::ObjectId {
@@ -70,19 +46,9 @@ pub fn derive_object(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
             }
         }
 
-        impl crate::object::AddObject for #ident {
-            fn add(self: &Rc<Self>, client: &crate::client::Client) where Self: Sized {
-                #add
-            }
-
-            fn remove(&self, client: &crate::client::Client) where Self: Sized {
-                #remove
-            }
-        }
-
-        #lookup
-
         #break_loops
+
+        include!(concat!(env!("OUT_DIR"), #include_path));
     };
     res.into()
 }
@@ -90,7 +56,6 @@ pub fn derive_object(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 struct Input {
     span: Span,
     ident: Ident,
-    dedicated: Option<Ident>,
     break_loops: bool,
 }
 
@@ -98,24 +63,16 @@ impl Input {
     fn parse_struct(input: ItemStruct) -> syn::Result<Self> {
         let span = input.span();
         let mut break_loops = false;
-        let mut dedicated = None;
         for attr in &input.attrs {
             if let Meta::Path(p) = &attr.meta
                 && p.is_ident("break_loops")
             {
                 break_loops = true;
             }
-            if let Meta::List(l) = &attr.meta
-                && l.path.is_ident("dedicated")
-                && let Ok(id) = l.parse_args::<Ident>()
-            {
-                dedicated = Some(id);
-            }
         }
         Ok(Self {
             span,
             ident: input.ident,
-            dedicated,
             break_loops,
         })
     }

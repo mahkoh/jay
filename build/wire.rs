@@ -3,6 +3,7 @@ mod parser;
 mod singletons;
 mod synthetic;
 
+use crate::ensure_dir;
 use crate::indent::Indent;
 use crate::open;
 use crate::str_table::Interned;
@@ -19,6 +20,7 @@ use crate::wire::singletons::write_singletons;
 use crate::wire::synthetic::write_synthetic_helpers;
 use anyhow::Context;
 use anyhow::Result;
+use std::collections::HashSet;
 use std::env;
 use std::fmt;
 use std::fs::DirEntry;
@@ -610,6 +612,106 @@ fn write_file(f: &mut impl Write, file: &ParsedFile) -> Result<()> {
     Ok(())
 }
 
+fn write_dedicated_file(referenced: &HashSet<&str>, file: &ParsedFile) -> Result<()> {
+    let mut f = open(&format!("dedicated/{}.rs", file.camel_obj_name))?;
+    define_w!(f, w, wl);
+    define_xn!(xn);
+    let name = file.obj_name.raw();
+    let camel = &file.camel_obj_name;
+    let dedicated = referenced.contains(file.obj_name.raw());
+    wl!("{xn}impl crate::object::AddObject for {camel} {{");
+    {
+        push_xn!(xn);
+        wl!(
+            "{xn}fn add(self: &std::rc::Rc<Self>, client: &crate::client::Client) where Self: Sized {{"
+        );
+        {
+            push_xn!(xn);
+            if dedicated {
+                wl!("{xn}client.objects.dedicated.{name}.set(self.id, self.clone());");
+            } else {
+                wl!("{xn}let _ = client;");
+            }
+        }
+        wl!("{xn}}}");
+        wl!("{xn}fn remove(&self, client: &crate::client::Client) where Self: Sized {{");
+        {
+            push_xn!(xn);
+            if dedicated {
+                wl!("{xn}client.objects.dedicated.{name}.remove(&self.id);");
+            } else {
+                wl!("{xn}let _ = client;");
+            }
+        }
+        wl!("{xn}}}");
+    }
+    wl!("{xn}}}");
+    if dedicated {
+        wl!("{xn}impl crate::client::WaylandObjectLookup for crate::wire::{camel}Id {{");
+        {
+            push_xn!(xn);
+            wl!("{xn}type Object = {camel};");
+            wl!("{xn}const INTERFACE: crate::object::Interface = crate::wire::{camel};");
+            wl!(
+                "{xn}fn lookup(client: &crate::client::Client, id: Self) -> Option<std::rc::Rc<Self::Object>> {{"
+            );
+            {
+                push_xn!(xn);
+                wl!("{xn}client.objects.dedicated.{name}.get(&id)");
+            }
+            wl!("{xn}}}");
+        }
+        wl!("{xn}}}");
+    }
+    Ok(())
+}
+
+fn write_dedicated(files: &[ParsedFile]) -> Result<()> {
+    let mut referenced = files
+        .iter()
+        .flat_map(|f| &f.messages.requests)
+        .flat_map(|m| &m.val.fields)
+        .filter(|f| !f.val.attribs.new)
+        .filter_map(|f| match &f.val.ty.val {
+            Type::Id(name, _) => Some(name.raw()),
+            _ => None,
+        })
+        .collect::<HashSet<_>>();
+    for f in files {
+        if f.messages.dedicated {
+            referenced.insert(f.obj_name.raw());
+        }
+    }
+    let mut f = open("dedicated.rs")?;
+    define_w!(f, w, wl);
+    define_xn!(xn);
+    wl!("{xn}use crate::client::WaylandObjectLookup;");
+    wl!("{xn}use crate::utils::woid_hash::WoidCopyHashMap;");
+    wl!("{xn}use crate::wire;");
+    wl!("{xn}use std::rc::Rc;");
+    wl!();
+    wl!("{xn}#[derive(jay_proc::ResetImmutable, Default)]");
+    wl!("{xn}pub struct Dedicated {{");
+    {
+        push_xn!(xn);
+        for f in files {
+            let name = f.obj_name.raw();
+            if referenced.contains(name) {
+                let camel = &f.camel_obj_name;
+                wl!(
+                    "{xn}pub {name}: WoidCopyHashMap<wire::{camel}Id, Rc<<wire::{camel}Id as WaylandObjectLookup>::Object>>,"
+                );
+            }
+        }
+    }
+    wl!("{xn}}}");
+    ensure_dir("dedicated")?;
+    for file in files {
+        write_dedicated_file(&referenced, file)?;
+    }
+    Ok(())
+}
+
 pub fn main() -> Result<()> {
     std::fs::create_dir_all(Path::new(&env::var("OUT_DIR").unwrap()).join("wire"))?;
     let mut f = open("wire/mod.rs")?;
@@ -637,6 +739,7 @@ pub fn main() -> Result<()> {
     write_client_trace_files(&parsed_files)?;
     write_singletons(&parsed_files)?;
     write_synthetic_helpers(&parsed_files)?;
+    write_dedicated(&parsed_files)?;
     for file in &parsed_files {
         write_file(&mut f, file)?;
     }

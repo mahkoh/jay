@@ -21,7 +21,6 @@ use std::rc::Rc;
 use thiserror::Error;
 
 #[derive(Object)]
-#[dedicated(tablet_tools)]
 #[break_loops]
 pub struct ZwpTabletToolV2 {
     pub id: ZwpTabletToolV2Id,

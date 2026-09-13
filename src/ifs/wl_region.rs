@@ -13,7 +13,6 @@ use std::rc::Rc;
 use thiserror::Error;
 
 #[derive(Object)]
-#[dedicated(regions)]
 pub struct WlRegion {
     id: WlRegionId,
     client: Rc<Client>,

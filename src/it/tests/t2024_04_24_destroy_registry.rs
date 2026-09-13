@@ -10,12 +10,12 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     let registry1 = client.new_registry();
 
     client.sync().await;
-    let before = client.client.objects.registries.len();
+    let before = client.client.objects.dedicated.wl_registry.len();
 
     registry1.destroy();
 
     client.sync().await;
-    let after = client.client.objects.registries.len();
+    let after = client.client.objects.dedicated.wl_registry.len();
 
     tassert_eq!(before, after + 1);
 

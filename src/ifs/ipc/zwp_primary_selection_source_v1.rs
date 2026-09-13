@@ -24,7 +24,6 @@ use thiserror::Error;
 use uapi::OwnedFd;
 
 #[derive(Object)]
-#[dedicated(zwp_primary_selection_source)]
 #[break_loops]
 pub struct ZwpPrimarySelectionSourceV1 {
     id: ZwpPrimarySelectionSourceV1Id,

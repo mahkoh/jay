@@ -58,7 +58,6 @@ use thiserror::Error;
 linear_ids!(ToplevelIconIds, ToplevelIconId, u64);
 
 #[derive(Object)]
-#[dedicated(xdg_toplevel_icons)]
 #[break_loops]
 pub struct XdgToplevelIconV1 {
     id: XdgToplevelIconV1Id,

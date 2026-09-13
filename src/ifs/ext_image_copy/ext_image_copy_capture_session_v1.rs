@@ -39,7 +39,6 @@ use thiserror::Error;
 use uapi::c;
 
 #[derive(Object)]
-#[dedicated(ext_copy_sessions)]
 #[break_loops]
 pub struct ExtImageCopyCaptureSessionV1 {
     pub(super) id: ExtImageCopyCaptureSessionV1Id,

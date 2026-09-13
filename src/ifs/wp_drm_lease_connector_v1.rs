@@ -13,7 +13,6 @@ use std::rc::Rc;
 use thiserror::Error;
 
 #[derive(Object)]
-#[dedicated(drm_lease_outputs)]
 #[break_loops]
 pub struct WpDrmLeaseConnectorV1 {
     pub id: WpDrmLeaseConnectorV1Id,

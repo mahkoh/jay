@@ -18,7 +18,6 @@ use thiserror::Error;
 use uapi::OwnedFd;
 
 #[derive(Object)]
-#[dedicated(ext_data_sources)]
 #[break_loops]
 pub struct ExtDataControlSourceV1 {
     id: ExtDataControlSourceV1Id,

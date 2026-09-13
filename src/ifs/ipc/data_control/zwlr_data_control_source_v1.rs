@@ -18,7 +18,6 @@ use thiserror::Error;
 use uapi::OwnedFd;
 
 #[derive(Object)]
-#[dedicated(zwlr_data_sources)]
 #[break_loops]
 pub struct ZwlrDataControlSourceV1 {
     id: ZwlrDataControlSourceV1Id,

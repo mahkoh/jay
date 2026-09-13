@@ -327,18 +327,30 @@ impl WlOutputGlobal {
         if obj.version >= SEND_DONE_SINCE {
             obj.send_done();
         }
-        for group in client.objects.ext_workspace_groups.lock().values() {
+        for group in client
+            .objects
+            .dedicated
+            .ext_workspace_group_handle_v1
+            .lock()
+            .values()
+        {
             if rc_eq(&group.output, &self.opt) {
                 group.handle_new_output(&obj);
             }
         }
         if let Some(node) = self.opt.node() {
-            for surface in client.objects.surfaces.lock().values() {
+            for surface in client.objects.dedicated.wl_surface.lock().values() {
                 if surface.node_output_id() == Some(node.id) {
                     surface.send_enter(obj.id);
                 }
             }
-            for handle in client.objects.wlr_foreign_toplevel_handles.lock().values() {
+            for handle in client
+                .objects
+                .dedicated
+                .zwlr_foreign_toplevel_handle_v1
+                .lock()
+                .values()
+            {
                 if handle.output.get() == node.id {
                     handle.send_output_enter(&obj);
                     handle.send_done();
@@ -362,7 +374,6 @@ impl Global for WlOutputGlobal {
 dedicated_add_global!(WlOutputGlobal, outputs);
 
 #[derive(Object)]
-#[dedicated(outputs)]
 #[break_loops]
 pub struct WlOutput {
     pub global: Rc<OutputGlobalOpt>,

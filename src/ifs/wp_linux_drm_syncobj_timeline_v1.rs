@@ -10,7 +10,6 @@ use std::rc::Rc;
 use thiserror::Error;
 
 #[derive(Object)]
-#[dedicated(timelines)]
 pub struct WpLinuxDrmSyncobjTimelineV1 {
     id: WpLinuxDrmSyncobjTimelineV1Id,
     client: Rc<Client>,

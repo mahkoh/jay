@@ -79,7 +79,6 @@ pub async fn perform_screencast_realloc(state: Rc<State>) {
 pub const CLIENT_BUFFERS_SINCE: Version = Version(7);
 
 #[derive(Object)]
-#[dedicated(screencasts)]
 #[break_loops]
 pub struct JayScreencast {
     pub id: JayScreencastId,

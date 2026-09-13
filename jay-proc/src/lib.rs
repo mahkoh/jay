@@ -12,7 +12,7 @@ mod object;
 mod reset;
 mod str_fmt;
 
-#[proc_macro_derive(Object, attributes(dedicated, break_loops))]
+#[proc_macro_derive(Object, attributes(break_loops))]
 pub fn derive_object(input: TokenStream) -> TokenStream {
     object::derive_object(input)
 }

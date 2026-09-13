@@ -52,7 +52,6 @@ impl Global for XdgToplevelIconManagerV1Global {
 simple_add_global!(XdgToplevelIconManagerV1Global);
 
 #[derive(Object)]
-#[dedicated(xdg_toplevel_icon_managers)]
 pub struct XdgToplevelIconManagerV1 {
     id: XdgToplevelIconManagerV1Id,
     client: Rc<Client>,

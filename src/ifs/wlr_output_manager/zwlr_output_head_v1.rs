@@ -37,7 +37,6 @@ pub const ADAPTIVE_SYNC_STATE_ENABLED: u32 = 1;
 linear_ids!(WlrOutputHeadIds, WlrOutputHeadId, u64);
 
 #[derive(Object)]
-#[dedicated(zwlr_output_heads)]
 pub struct ZwlrOutputHeadV1 {
     pub(super) id: ZwlrOutputHeadV1Id,
     pub(super) version: Version,

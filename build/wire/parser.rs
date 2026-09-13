@@ -271,6 +271,7 @@ pub struct ParseResult {
     pub singleton: bool,
     pub event_handler: bool,
     pub synthetics: bool,
+    pub dedicated: bool,
     pub requests: Vec<Lined<Message>>,
     pub events: Vec<Lined<Message>>,
 }
@@ -287,6 +288,7 @@ impl<'a> Parser<'a> {
         let mut singleton = false;
         let mut event_handler = false;
         let mut synthetics = false;
+        let mut dedicated = false;
         macro_rules! set_and_continue {
             ($name:ident) => {{
                 $name = true;
@@ -302,6 +304,7 @@ impl<'a> Parser<'a> {
                 b"singleton" => set_and_continue!(singleton),
                 b"event_handler" => set_and_continue!(event_handler),
                 b"synthetics" => set_and_continue!(synthetics),
+                b"dedicated" => set_and_continue!(dedicated),
                 b"request" => true,
                 b"event" => false,
                 _ => bail!("In line {}: Unexpected entry {:?}", line, ty),
@@ -317,6 +320,7 @@ impl<'a> Parser<'a> {
             singleton,
             event_handler,
             synthetics,
+            dedicated,
             requests,
             events,
         })
