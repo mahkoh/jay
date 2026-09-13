@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::xdg_session_v1::XdgSessionV1;
 use crate::ifs::xdg_session_v1::XdgSessionV1Error;
@@ -62,7 +61,7 @@ impl XdgSessionV1 {
             restored: Default::default(),
         });
         track!(self.client, &obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         let Some(session) = self.session.get() else {
             return Ok(());
         };
@@ -157,8 +156,5 @@ impl BreakLoops for XdgToplevelSessionV1 {
 #[derive(Debug, Error)]
 pub enum XdgToplevelSessionV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error(transparent)]
     SessionManagementError(#[from] SessionManagementError),
 }
-efrom!(XdgToplevelSessionV1Error, ClientError);

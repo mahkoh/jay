@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_output::OutputGlobalOpt;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
@@ -7,8 +6,8 @@ use crate::object::Version;
 use crate::wire::JayOutputId;
 use crate::wire::jay_output::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Object)]
 #[break_loops]
@@ -42,7 +41,7 @@ impl JayOutput {
 }
 
 impl JayOutputRequestHandler for JayOutput {
-    type Error = JayOutputError;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.remove_from_node();
@@ -56,10 +55,3 @@ impl BreakLoops for JayOutput {
         self.remove_from_node();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum JayOutputError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(JayOutputError, ClientError);

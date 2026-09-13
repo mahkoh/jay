@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::cmm::cmm_render_intent::RenderIntent;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
@@ -75,7 +75,7 @@ impl WpColorManagementSurfaceV1RequestHandler for WpColorManagementSurfaceV1 {
 #[derive(Debug, Error)]
 pub enum WpColorManagementSurfaceV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("{} is not a supported render intent", .0)]
     UnsupportedRenderIntent(u32),
     #[error("wl_surface already has a color-management extension")]
@@ -83,4 +83,3 @@ pub enum WpColorManagementSurfaceV1Error {
     #[error("The color description is not ready")]
     NotReady,
 }
-efrom!(WpColorManagementSurfaceV1Error, ClientError);

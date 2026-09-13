@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::cmm::cmm_description::ColorDescription;
 use crate::ifs::color_management::UNIQUE_CM_IDS_SINCE;
 use crate::ifs::color_management::wp_image_description_v1::WpImageDescriptionV1;
@@ -11,8 +10,8 @@ use crate::wire::WpColorManagementSurfaceFeedbackV1Id;
 use crate::wire::WpImageDescriptionV1Id;
 use crate::wire::wp_color_management_surface_feedback_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Object)]
 pub struct WpColorManagementSurfaceFeedbackV1 {
@@ -24,10 +23,7 @@ pub struct WpColorManagementSurfaceFeedbackV1 {
 }
 
 impl WpColorManagementSurfaceFeedbackV1 {
-    fn get_description(
-        &self,
-        id: WpImageDescriptionV1Id,
-    ) -> Result<(), WpColorManagementSurfaceFeedbackV1Error> {
+    fn get_description(&self, id: WpImageDescriptionV1Id) {
         let obj = Rc::new(WpImageDescriptionV1 {
             id,
             client: self.client.clone(),
@@ -40,9 +36,8 @@ impl WpColorManagementSurfaceFeedbackV1 {
             ),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         obj.send_ready();
-        Ok(())
     }
 
     pub fn send_preferred_changed(&self, cd: &ColorDescription) {
@@ -62,7 +57,7 @@ impl WpColorManagementSurfaceFeedbackV1 {
 }
 
 impl WpColorManagementSurfaceFeedbackV1RequestHandler for WpColorManagementSurfaceFeedbackV1 {
-    type Error = WpColorManagementSurfaceFeedbackV1Error;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
@@ -71,7 +66,8 @@ impl WpColorManagementSurfaceFeedbackV1RequestHandler for WpColorManagementSurfa
     }
 
     fn get_preferred(&self, req: GetPreferred, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.get_description(req.image_description)
+        self.get_description(req.image_description);
+        Ok(())
     }
 
     fn get_preferred_parametric(
@@ -79,13 +75,7 @@ impl WpColorManagementSurfaceFeedbackV1RequestHandler for WpColorManagementSurfa
         req: GetPreferredParametric,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        self.get_description(req.image_description)
+        self.get_description(req.image_description);
+        Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum WpColorManagementSurfaceFeedbackV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(WpColorManagementSurfaceFeedbackV1Error, ClientError);

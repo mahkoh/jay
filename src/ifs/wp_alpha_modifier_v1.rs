@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::wp_alpha_modifier_surface_v1::WpAlphaModifierSurfaceV1;
@@ -42,7 +42,7 @@ impl WpAlphaModifierV1Global {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -62,7 +62,7 @@ impl WpAlphaModifierV1RequestHandler for WpAlphaModifierV1 {
             self.version,
         ));
         track!(self.client, modifier);
-        self.client.add_client_obj(&modifier)?;
+        self.client.add_client_obj(&modifier);
         modifier.install()?;
         Ok(())
     }
@@ -81,9 +81,7 @@ simple_add_global!(WpAlphaModifierV1Global);
 #[derive(Debug, Error)]
 pub enum WpAlphaModifierV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     WpAlphaModifierSurfaceV1Error(#[from] WpAlphaModifierSurfaceV1Error),
 }
-
-efrom!(WpAlphaModifierV1Error, ClientError);

@@ -29,7 +29,6 @@ use crate::backend::InputDeviceScrollMethod;
 use crate::backend::Leds;
 use crate::backend::TransformMatrix;
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::client::ClientId;
 use crate::control_center::CCI_INPUT;
 use crate::cursor_user::CursorUser;
@@ -1577,7 +1576,7 @@ impl WlSeatGlobal {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         obj.send_capabilities();
         if version >= SEAT_NAME_SINCE {
             obj.send_name(&self.seat_name);
@@ -1862,7 +1861,7 @@ impl WlSeatRequestHandler for WlSeat {
     fn get_pointer(&self, req: GetPointer, slf: &Rc<Self>) -> Result<(), Self::Error> {
         let p = Rc::new(WlPointer::new(req.id, slf));
         track!(self.client, p);
-        self.client.add_client_obj(&p)?;
+        self.client.add_client_obj(&p);
         self.pointers.set(req.id, p.clone());
         let surface = self
             .global
@@ -1888,7 +1887,7 @@ impl WlSeatRequestHandler for WlSeat {
     fn get_keyboard(&self, req: GetKeyboard, slf: &Rc<Self>) -> Result<(), Self::Error> {
         let p = Rc::new(WlKeyboard::new(req.id, slf));
         track!(self.client, p);
-        self.client.add_client_obj(&p)?;
+        self.client.add_client_obj(&p);
         self.keyboards.set(req.id, p.clone());
         if let Some(surface) = self.global.keyboard_node.get().node_into_surface()
             && surface.client.id == self.client.id
@@ -1909,7 +1908,7 @@ impl WlSeatRequestHandler for WlSeat {
     fn get_touch(&self, req: GetTouch, slf: &Rc<Self>) -> Result<(), Self::Error> {
         let p = Rc::new(WlTouch::new(req.id, slf));
         track!(self.client, p);
-        self.client.add_client_obj(&p)?;
+        self.client.add_client_obj(&p);
         self.touches.set(req.id, p);
         Ok(())
     }
@@ -1950,15 +1949,12 @@ impl BreakLoops for WlSeat {
 #[derive(Debug, Error)]
 pub enum WlSeatError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error(transparent)]
     IpcError(#[from] IpcError),
     #[error(transparent)]
     WlKeyboardError(Box<WlKeyboardError>),
     #[error("Data source has a toplevel attached")]
     OfferHasDrag,
 }
-efrom!(WlSeatError, ClientError);
 efrom!(WlSeatError, WlKeyboardError);
 
 pub fn collect_kb_foci2(node: Rc<dyn Node>, seats: &mut SmallVec<[Rc<WlSeatGlobal>; 3]>) {

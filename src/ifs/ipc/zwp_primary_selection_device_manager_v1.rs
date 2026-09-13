@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::ipc::zwp_primary_selection_device_v1::ZwpPrimarySelectionDeviceV1;
@@ -10,8 +10,8 @@ use crate::state::State;
 use crate::wire::ZwpPrimarySelectionDeviceManagerV1Id;
 use crate::wire::zwp_primary_selection_device_manager_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct ZwpPrimarySelectionDeviceManagerV1Global {
     name: GlobalName,
@@ -35,7 +35,7 @@ impl ZwpPrimarySelectionDeviceManagerV1Global {
         id: ZwpPrimarySelectionDeviceManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), ZwpPrimarySelectionDeviceManagerV1Error> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(ZwpPrimarySelectionDeviceManagerV1 {
             id,
             client: client.clone(),
@@ -43,13 +43,13 @@ impl ZwpPrimarySelectionDeviceManagerV1Global {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
 
 impl ZwpPrimarySelectionDeviceManagerV1RequestHandler for ZwpPrimarySelectionDeviceManagerV1 {
-    type Error = ZwpPrimarySelectionDeviceManagerV1Error;
+    type Error = LookupError;
 
     fn create_source(&self, req: CreateSource, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let res = Rc::new(ZwpPrimarySelectionSourceV1::new(
@@ -58,7 +58,7 @@ impl ZwpPrimarySelectionDeviceManagerV1RequestHandler for ZwpPrimarySelectionDev
             self.version,
         ));
         track!(self.client, res);
-        self.client.add_client_obj(&res)?;
+        self.client.add_client_obj(&res);
         Ok(())
     }
 
@@ -72,7 +72,7 @@ impl ZwpPrimarySelectionDeviceManagerV1RequestHandler for ZwpPrimarySelectionDev
         ));
         track!(self.client, dev);
         seat.global.add_primary_selection_device(&dev);
-        self.client.add_client_obj(&dev)?;
+        self.client.add_client_obj(&dev);
         Ok(())
     }
 
@@ -98,10 +98,3 @@ impl Global for ZwpPrimarySelectionDeviceManagerV1Global {
 }
 
 simple_add_global!(ZwpPrimarySelectionDeviceManagerV1Global);
-
-#[derive(Debug, Error)]
-pub enum ZwpPrimarySelectionDeviceManagerV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwpPrimarySelectionDeviceManagerV1Error, ClientError);

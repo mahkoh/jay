@@ -1,6 +1,5 @@
 use crate::backend::ConnectorId as BackendConnectorId;
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wp_drm_lease_device_v1::WpDrmLeaseDeviceV1;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
@@ -9,8 +8,8 @@ use crate::utils::bindings::Bindings;
 use crate::wire::WpDrmLeaseConnectorV1Id;
 use crate::wire::wp_drm_lease_connector_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Object)]
 #[break_loops]
@@ -61,7 +60,7 @@ impl WpDrmLeaseConnectorV1 {
 }
 
 impl WpDrmLeaseConnectorV1RequestHandler for WpDrmLeaseConnectorV1 {
-    type Error = WpDrmLeaseConnectorV1Error;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
@@ -75,10 +74,3 @@ impl BreakLoops for WpDrmLeaseConnectorV1 {
         self.detach();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum WpDrmLeaseConnectorV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(WpDrmLeaseConnectorV1Error, ClientError);

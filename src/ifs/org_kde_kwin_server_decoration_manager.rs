@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::org_kde_kwin_server_decoration::OrgKdeKwinServerDecoration;
@@ -9,8 +8,8 @@ use crate::object::Version;
 use crate::wire::OrgKdeKwinServerDecorationManagerId;
 use crate::wire::org_kde_kwin_server_decoration_manager::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[expect(unused)]
 const NONE: u32 = 0;
@@ -31,7 +30,7 @@ impl OrgKdeKwinServerDecorationManagerGlobal {
         id: OrgKdeKwinServerDecorationManagerId,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), OrgKdeKwinServerDecorationManagerError> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(OrgKdeKwinServerDecorationManager {
             id,
             client: client.clone(),
@@ -39,7 +38,7 @@ impl OrgKdeKwinServerDecorationManagerGlobal {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         obj.send_default_mode(SERVER);
         Ok(())
     }
@@ -86,15 +85,8 @@ impl OrgKdeKwinServerDecorationManagerRequestHandler for OrgKdeKwinServerDecorat
             self.version,
         ));
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         obj.send_mode(SERVER);
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum OrgKdeKwinServerDecorationManagerError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(OrgKdeKwinServerDecorationManagerError, ClientError);

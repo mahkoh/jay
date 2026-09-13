@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::jay_popup_ext_v1::JayPopupExtV1;
@@ -42,7 +42,7 @@ impl JayPopupExtManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -74,7 +74,7 @@ impl JayPopupExtManagerV1RequestHandler for JayPopupExtManagerV1 {
             &popup,
         ));
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         obj.install()?;
         Ok(())
     }
@@ -83,8 +83,7 @@ impl JayPopupExtManagerV1RequestHandler for JayPopupExtManagerV1 {
 #[derive(Debug, Error)]
 pub enum JayPopupExtManagerV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     JayPopupExtV1Error(#[from] JayPopupExtV1Error),
 }
-efrom!(JayPopupExtManagerV1Error, ClientError);

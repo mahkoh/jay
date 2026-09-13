@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::client::ClientId;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
@@ -11,8 +10,8 @@ use crate::wire::jay_ei_session::Failed;
 use crate::wire::jay_ei_session::JayEiSessionRequestHandler;
 use crate::wire::jay_ei_session::Release;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 use uapi::OwnedFd;
 
 #[derive(Object)]
@@ -55,7 +54,7 @@ impl JayEiSession {
 }
 
 impl JayEiSessionRequestHandler for JayEiSession {
-    type Error = JayEiSessionError;
+    type Error = Infallible;
 
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.kill(false);
@@ -69,10 +68,3 @@ impl BreakLoops for JayEiSession {
         self.kill(false);
     }
 }
-
-#[derive(Debug, Error)]
-pub enum JayEiSessionError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(JayEiSessionError, ClientError);

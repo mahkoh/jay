@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::wl_subsurface::WlSubsurface;
@@ -45,7 +45,7 @@ impl WlSubcompositorGlobal {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -63,7 +63,7 @@ impl WlSubcompositorRequestHandler for WlSubcompositor {
         let parent = self.client.lookup(req.parent)?;
         let subsurface = Rc::new(WlSubsurface::new(req.id, &surface, &parent, self.version));
         track!(self.client, subsurface);
-        self.client.add_client_obj(&subsurface)?;
+        self.client.add_client_obj(&subsurface);
         subsurface.install()?;
         Ok(())
     }
@@ -82,9 +82,8 @@ simple_add_global!(WlSubcompositorGlobal);
 #[derive(Debug, Error)]
 pub enum WlSubcompositorError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     WlSubsurfaceError(Box<WlSubsurfaceError>),
 }
-efrom!(WlSubcompositorError, ClientError);
 efrom!(WlSubcompositorError, WlSubsurfaceError);

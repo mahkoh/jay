@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
 use crate::object::Version;
@@ -88,9 +87,6 @@ impl WpContentTypeV1RequestHandler for WpContentTypeV1 {
 
 #[derive(Debug, Error)]
 pub enum WpContentTypeV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("Content type {0} is unknown")]
     UnknownContentType(u32),
 }
-efrom!(WpContentTypeV1Error, ClientError);

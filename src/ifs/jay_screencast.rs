@@ -3,7 +3,7 @@ use crate::allocator::BO_USE_LINEAR;
 use crate::allocator::BO_USE_RENDERING;
 use crate::allocator::BufferObject;
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::cmm::cmm_description::ColorDescription;
 use crate::format::XRGB8888;
 use crate::gfx_api::AcquireSync;
@@ -787,7 +787,7 @@ impl BreakLoops for JayScreencast {
 #[derive(Debug, Error)]
 pub enum JayScreencastError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("Buffer index {0} is out-of-bounds")]
     OutOfBounds(u32),
     #[error(transparent)]
@@ -803,7 +803,6 @@ pub enum JayScreencastError {
     #[error("Buffer is not a dmabuf")]
     NotDmabuf,
 }
-efrom!(JayScreencastError, ClientError);
 
 fn target_size(target: Option<&Target>) -> (i32, i32) {
     if let Some(target) = target {

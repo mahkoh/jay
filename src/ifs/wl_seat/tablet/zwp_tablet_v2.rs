@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_seat::tablet::Tablet;
 use crate::ifs::wl_seat::tablet::zwp_tablet_seat_v2::ZwpTabletSeatV2;
 use crate::leaks::Tracker;
@@ -8,8 +7,8 @@ use crate::object::Version;
 use crate::wire::ZwpTabletV2Id;
 use crate::wire::zwp_tablet_v2::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Object)]
 #[break_loops]
@@ -66,7 +65,7 @@ impl ZwpTabletV2 {
 }
 
 impl ZwpTabletV2RequestHandler for ZwpTabletV2 {
-    type Error = ZwpTabletV2Error;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
@@ -80,10 +79,3 @@ impl BreakLoops for ZwpTabletV2 {
         self.detach();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwpTabletV2Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwpTabletV2Error, ClientError);

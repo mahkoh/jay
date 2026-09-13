@@ -1,7 +1,6 @@
 use crate::client::CAP_WORKSPACE;
 use crate::client::Client;
 use crate::client::ClientCaps;
-use crate::client::ClientError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_output::OutputGlobalOpt;
@@ -23,8 +22,8 @@ use crate::wire::ExtWorkspaceManagerV1Id;
 use crate::wire::ext_workspace_manager_v1::*;
 use jay_proc::Object;
 use std::cell::Cell;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 linear_ids!(WorkspaceManagerIds, WorkspaceManagerId, u64);
 
@@ -61,7 +60,7 @@ impl ExtWorkspaceManagerV1Global {
         id: ExtWorkspaceManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), ExtWorkspaceManagerV1Error> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(ExtWorkspaceManagerV1 {
             id,
             manager_id: client.state.workspace_managers.ids.next(),
@@ -73,7 +72,7 @@ impl ExtWorkspaceManagerV1Global {
             done_scheduled: Cell::new(false),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         obj.opt.set(Some(obj.clone()));
         client
             .state
@@ -220,7 +219,7 @@ impl BreakLoops for ExtWorkspaceManagerV1 {
 }
 
 impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
-    type Error = ExtWorkspaceManagerV1Error;
+    type Error = Infallible;
 
     fn commit(&self, _req: Commit, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         while let Some(change) = self.pending.pop() {
@@ -273,10 +272,3 @@ impl ExtWorkspaceManagerV1RequestHandler for ExtWorkspaceManagerV1 {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ExtWorkspaceManagerV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ExtWorkspaceManagerV1Error, ClientError);

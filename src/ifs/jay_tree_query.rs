@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::criteria::CritUpstreamNode;
 use crate::globals::GlobalBase;
 use crate::ifs::wl_surface::ext_session_lock_surface_v1::ExtSessionLockSurfaceV1;
@@ -510,10 +510,9 @@ impl tree::NodeVisitorBase for Visitor<'_> {
 #[derive(Debug, Error)]
 pub enum JayTreeQueryError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("Toplevel id is ill-formed")]
     InvalidToplevelId(OpaqueError),
     #[error("No root node was set")]
     NoRootSet,
 }
-efrom!(JayTreeQueryError, ClientError);

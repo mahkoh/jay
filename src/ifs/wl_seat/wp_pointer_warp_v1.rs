@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_seat::PositionHintRequest;
@@ -12,8 +12,8 @@ use crate::wire::wp_pointer_warp_v1::Destroy;
 use crate::wire::wp_pointer_warp_v1::WarpPointer;
 use crate::wire::wp_pointer_warp_v1::WpPointerWarpV1RequestHandler;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct WpPointerWarpV1Global {
     name: GlobalName,
@@ -29,7 +29,7 @@ impl WpPointerWarpV1Global {
         id: WpPointerWarpV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), WpPointerWarpV1Error> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(WpPointerWarpV1 {
             id,
             client: client.clone(),
@@ -37,7 +37,7 @@ impl WpPointerWarpV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -61,7 +61,7 @@ pub struct WpPointerWarpV1 {
 }
 
 impl WpPointerWarpV1RequestHandler for WpPointerWarpV1 {
-    type Error = WpPointerWarpV1Error;
+    type Error = LookupError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
@@ -99,10 +99,3 @@ impl WpPointerWarpV1RequestHandler for WpPointerWarpV1 {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum WpPointerWarpV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(WpPointerWarpV1Error, ClientError);

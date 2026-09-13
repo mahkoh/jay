@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_surface::WlSurfaceError;
 use crate::ifs::wl_surface::x_surface::XSurface;
 use crate::leaks::Tracker;
@@ -59,7 +58,4 @@ pub enum XwaylandSurfaceV1Error {
     NonMonotonicSerial,
     #[error(transparent)]
     WlSurfaceError(#[from] WlSurfaceError),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
 }
-efrom!(XwaylandSurfaceV1Error, ClientError);

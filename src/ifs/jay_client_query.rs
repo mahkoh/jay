@@ -1,6 +1,6 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::client::ClientId;
+use crate::client::LookupError;
 use crate::criteria::CritUpstreamNode;
 use crate::leaks::Tracker;
 use crate::object::Version;
@@ -29,7 +29,6 @@ use jay_proc::Object;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Object)]
 pub struct JayClientQuery {
@@ -59,7 +58,7 @@ impl JayClientQuery {
 }
 
 impl JayClientQueryRequestHandler for JayClientQuery {
-    type Error = JayClientQueryError;
+    type Error = LookupError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
@@ -164,10 +163,3 @@ impl JayClientQueryRequestHandler for JayClientQuery {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum JayClientQueryError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(JayClientQueryError, ClientError);

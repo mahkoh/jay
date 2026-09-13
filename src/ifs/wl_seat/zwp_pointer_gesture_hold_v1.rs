@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
@@ -8,8 +7,8 @@ use crate::object::Version;
 use crate::wire::ZwpPointerGestureHoldV1Id;
 use crate::wire::zwp_pointer_gesture_hold_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Object)]
 #[break_loops]
@@ -47,7 +46,7 @@ impl ZwpPointerGestureHoldV1 {
 }
 
 impl ZwpPointerGestureHoldV1RequestHandler for ZwpPointerGestureHoldV1 {
-    type Error = ZwpPointerGestureHoldV1Error;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
@@ -61,10 +60,3 @@ impl BreakLoops for ZwpPointerGestureHoldV1 {
         self.detach();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwpPointerGestureHoldV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwpPointerGestureHoldV1Error, ClientError);

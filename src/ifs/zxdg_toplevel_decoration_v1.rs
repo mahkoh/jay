@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::configurable::ConfigurableExt;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::Decoration;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
@@ -8,8 +7,8 @@ use crate::object::Version;
 use crate::wire::ZxdgToplevelDecorationV1Id;
 use crate::wire::zxdg_toplevel_decoration_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 const CLIENT_SIDE: u32 = 1;
 const SERVER_SIDE: u32 = 2;
@@ -57,7 +56,7 @@ impl ZxdgToplevelDecorationV1 {
 }
 
 impl ZxdgToplevelDecorationV1RequestHandler for ZxdgToplevelDecorationV1 {
-    type Error = ZxdgToplevelDecorationV1Error;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
@@ -74,10 +73,3 @@ impl ZxdgToplevelDecorationV1RequestHandler for ZxdgToplevelDecorationV1 {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZxdgToplevelDecorationV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZxdgToplevelDecorationV1Error, ClientError);

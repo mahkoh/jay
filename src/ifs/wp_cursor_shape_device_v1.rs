@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::cursor::KnownCursor;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_seat::tablet::TabletToolOpt;
@@ -185,9 +184,6 @@ impl KnownCursor {
 
 #[derive(Debug, Error)]
 pub enum WpCursorShapeDeviceV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("Shape {0} is unknown")]
     UnknownShape(u32),
 }
-efrom!(WpCursorShapeDeviceV1Error, ClientError);

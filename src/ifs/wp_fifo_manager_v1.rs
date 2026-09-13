@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::wp_fifo_v1::WpFifoV1;
@@ -42,7 +42,7 @@ impl WpFifoManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -70,7 +70,7 @@ impl WpFifoManagerV1RequestHandler for WpFifoManagerV1 {
         let fs = Rc::new(WpFifoV1::new(req.id, self.version, &surface));
         track!(self.client, fs);
         fs.install()?;
-        self.client.add_client_obj(&fs)?;
+        self.client.add_client_obj(&fs);
         Ok(())
     }
 }
@@ -78,8 +78,7 @@ impl WpFifoManagerV1RequestHandler for WpFifoManagerV1 {
 #[derive(Debug, Error)]
 pub enum WpFifoManagerV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     WpFifoV1Error(#[from] WpFifoV1Error),
 }
-efrom!(WpFifoManagerV1Error, ClientError);

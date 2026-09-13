@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::gfx_api::GfxContext;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
@@ -8,8 +7,8 @@ use crate::utils::errorfmt::ErrorFmt;
 use crate::wire::JayRenderCtxId;
 use crate::wire::jay_render_ctx::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub const FORMATS_SINCE: Version = Version(7);
 pub const WRITE_MODIFIER_2_SINCE: Version = Version(9);
@@ -89,7 +88,7 @@ impl JayRenderCtx {
 }
 
 impl JayRenderCtxRequestHandler for JayRenderCtx {
-    type Error = JayRenderCtxError;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.remove_from_state();
@@ -103,10 +102,3 @@ impl BreakLoops for JayRenderCtx {
         self.remove_from_state();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum JayRenderCtxError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(JayRenderCtxError, ClientError);

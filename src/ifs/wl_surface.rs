@@ -27,7 +27,7 @@ pub mod zwp_input_popup_surface_v2;
 use crate::backend::ButtonState;
 use crate::backend::KeyState;
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::cmm::cmm_description::ColorDescription;
 use crate::cmm::cmm_render_intent::RenderIntent;
 use crate::configurable::ConfigurableDataCore;
@@ -1267,7 +1267,7 @@ impl WlSurfaceRequestHandler for WlSurface {
     fn frame(&self, req: Frame, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let cb = Rc::new(WlCallback::new(req.callback, &self.client));
         track!(self.client, cb);
-        self.client.add_client_obj(&cb)?;
+        self.client.add_client_obj(&cb);
         self.pending
             .borrow_mut()
             .frame_request
@@ -1367,7 +1367,7 @@ impl WlSurfaceRequestHandler for WlSurface {
     fn get_release(&self, req: GetRelease, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let cb = Rc::new(WlCallback::new(req.callback, &self.client));
         track!(self.client, cb);
-        self.client.add_client_obj(&cb)?;
+        self.client.add_client_obj(&cb);
         let release = SurfaceRelease { cb };
         self.pending.borrow_mut().surface_release.push(release);
         Ok(())
@@ -2125,6 +2125,7 @@ impl BreakLoops for WlSurface {
         self.color_representation_surface.take();
         self.dmabuf_feedback.clear();
         self.surface_transaction.unblock_all_transactions();
+        self.syncobj_surface.take();
     }
 }
 
@@ -2479,7 +2480,7 @@ impl NodeBase for WlSurface {
 #[derive(Debug, Error)]
 pub enum WlSurfaceError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     ZwlrLayerSurfaceV1Error(Box<ZwlrLayerSurfaceV1Error>),
     #[error(transparent)]
@@ -2531,7 +2532,6 @@ pub enum WlSurfaceError {
     #[error("The surface already has an extension object")]
     HasExt,
 }
-efrom!(WlSurfaceError, ClientError);
 efrom!(WlSurfaceError, XdgSurfaceError);
 efrom!(WlSurfaceError, XdgToplevelError);
 efrom!(WlSurfaceError, ZwlrLayerSurfaceV1Error);

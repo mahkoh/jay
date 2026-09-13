@@ -1,6 +1,5 @@
 use crate::backend::DrmDeviceId;
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::clientmem::ClientMem;
 use crate::clientmem::ClientMemError;
 use crate::clientmem::ClientMemOffset;
@@ -687,8 +686,6 @@ pub enum WlBufferError {
     ClientMemError(#[source] Box<ClientMemError>),
     #[error("The graphics library could not import the client image")]
     GfxError(#[from] GfxError),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("Could not prepare prime copy")]
     PreparePrimeCopy(#[source] PrimeError),
     #[error("Could not perform a prime copy")]
@@ -697,4 +694,3 @@ pub enum WlBufferError {
     CrossDeviceImportDenied,
 }
 efrom!(WlBufferError, ClientMemError);
-efrom!(WlBufferError, ClientError);

@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::ifs::wl_surface::SyncobjRelease;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
@@ -80,8 +80,7 @@ impl WpLinuxDrmSyncobjSurfaceV1RequestHandler for WpLinuxDrmSyncobjSurfaceV1 {
 #[derive(Debug, Error)]
 pub enum WpLinuxDrmSyncobjSurfaceV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("The surface already has a syncobj extension attached")]
     Exists,
 }
-efrom!(WpLinuxDrmSyncobjSurfaceV1Error, ClientError);

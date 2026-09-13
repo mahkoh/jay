@@ -1,17 +1,15 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1;
-use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1Error;
-use crate::ifs::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Error;
 use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::ZwpIdleInhibitManagerV1Id;
 use crate::wire::zwp_idle_inhibit_manager_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct ZwpIdleInhibitManagerV1Global {
     name: GlobalName,
@@ -27,7 +25,7 @@ impl ZwpIdleInhibitManagerV1Global {
         id: ZwpIdleInhibitManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), ZxdgDecorationManagerV1Error> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(ZwpIdleInhibitManagerV1 {
             id,
             client: client.clone(),
@@ -35,7 +33,7 @@ impl ZwpIdleInhibitManagerV1Global {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -59,7 +57,7 @@ pub struct ZwpIdleInhibitManagerV1 {
 }
 
 impl ZwpIdleInhibitManagerV1RequestHandler for ZwpIdleInhibitManagerV1 {
-    type Error = ZwpIdleInhibitManagerV1Error;
+    type Error = LookupError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
@@ -77,17 +75,8 @@ impl ZwpIdleInhibitManagerV1RequestHandler for ZwpIdleInhibitManagerV1 {
             version: self.version,
         });
         track!(self.client, inhibit);
-        self.client.add_client_obj(&inhibit)?;
-        inhibit.install()?;
+        self.client.add_client_obj(&inhibit);
+        inhibit.install();
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwpIdleInhibitManagerV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error(transparent)]
-    ZwpIdleInhibitorV1Error(#[from] ZwpIdleInhibitorV1Error),
-}
-efrom!(ZwpIdleInhibitManagerV1Error, ClientError);

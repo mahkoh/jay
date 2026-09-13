@@ -1,6 +1,5 @@
 use crate::async_engine::SpawnedFuture;
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
@@ -10,8 +9,8 @@ use crate::wire::ExtIdleNotificationV1Id;
 use crate::wire::ext_idle_notification_v1::*;
 use jay_proc::Object;
 use std::cell::Cell;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Object)]
 #[break_loops]
@@ -35,7 +34,7 @@ impl ExtIdleNotificationV1 {
 }
 
 impl ExtIdleNotificationV1RequestHandler for ExtIdleNotificationV1 {
-    type Error = ExtIdleNotificationV1Error;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
@@ -59,10 +58,3 @@ impl BreakLoops for ExtIdleNotificationV1 {
         self.detach();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ExtIdleNotificationV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ExtIdleNotificationV1Error, ClientError);

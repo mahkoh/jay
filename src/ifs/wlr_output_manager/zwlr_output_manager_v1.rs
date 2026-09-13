@@ -2,7 +2,6 @@ use crate::backend::Mode;
 use crate::client::CAP_HEAD_MANAGER;
 use crate::client::Client;
 use crate::client::ClientCaps;
-use crate::client::ClientError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wlr_output_manager::zwlr_output_configuration_v1::ZwlrOutputConfigurationV1;
@@ -27,9 +26,9 @@ use crate::wire::zwlr_output_manager_v1::*;
 use isnt::std_1::string::IsntStringExt;
 use jay_proc::Object;
 use std::cell::Cell;
+use std::convert::Infallible;
 use std::rc::Rc;
 use std::slice;
-use thiserror::Error;
 
 linear_ids!(WlrOutputManagerIds, WlrOutputManagerId, u64);
 
@@ -70,7 +69,7 @@ impl ZwlrOutputManagerV1Global {
         id: ZwlrOutputManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), ZwlrOutputManagerV1Error> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(ZwlrOutputManagerV1 {
             id,
             manager_id: client.state.wlr_output_managers.ids.next(),
@@ -82,7 +81,7 @@ impl ZwlrOutputManagerV1Global {
             destroyed: Cell::new(false),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         client
             .state
             .wlr_output_managers
@@ -96,7 +95,7 @@ impl ZwlrOutputManagerV1Global {
 }
 
 impl ZwlrOutputManagerV1RequestHandler for ZwlrOutputManagerV1 {
-    type Error = ZwlrOutputManagerV1Error;
+    type Error = Infallible;
 
     fn create_configuration(
         &self,
@@ -120,7 +119,7 @@ impl ZwlrOutputManagerV1RequestHandler for ZwlrOutputManagerV1 {
             configured_outputs: Default::default(),
         });
         track!(self.client, configuration);
-        self.client.add_client_obj(&configuration)?;
+        self.client.add_client_obj(&configuration);
         Ok(())
     }
 
@@ -279,10 +278,3 @@ impl BreakLoops for ZwlrOutputManagerV1 {
         self.detach();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwlrOutputManagerV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwlrOutputManagerV1Error, ClientError);

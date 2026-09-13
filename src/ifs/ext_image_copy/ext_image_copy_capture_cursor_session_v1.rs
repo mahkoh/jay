@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::ext_image_capture_source_v1::ImageCaptureSource;
 use crate::ifs::ext_image_copy::ext_image_copy_capture_session_v1::ExtImageCopyCaptureSessionV1;
 use crate::leaks::Tracker;
@@ -47,7 +46,7 @@ impl ExtImageCopyCaptureCursorSessionV1RequestHandler for ExtImageCopyCaptureCur
             )
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         obj.send_shm_formats();
         obj.send_buffer_size(1, 1);
         obj.send_done();
@@ -57,9 +56,6 @@ impl ExtImageCopyCaptureCursorSessionV1RequestHandler for ExtImageCopyCaptureCur
 
 #[derive(Debug, Error)]
 pub enum ExtImageCopyCaptureCursorSessionV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("The session has already been created")]
     HaveSession,
 }
-efrom!(ExtImageCopyCaptureCursorSessionV1Error, ClientError);

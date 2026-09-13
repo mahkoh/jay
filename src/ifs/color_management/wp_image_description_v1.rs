@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::cmm::cmm_description::ColorDescription;
 use crate::ifs::color_management::UNIQUE_CM_IDS_SINCE;
 use crate::ifs::color_management::wp_image_description_info_v1::WpImageDescriptionInfoV1;
@@ -63,7 +62,7 @@ impl WpImageDescriptionV1RequestHandler for WpImageDescriptionV1 {
             version: self.version,
             tracker: Default::default(),
         });
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         track!(self.client, obj);
         obj.send_description(desc);
         self.client.remove_obj(&*obj);
@@ -73,9 +72,6 @@ impl WpImageDescriptionV1RequestHandler for WpImageDescriptionV1 {
 
 #[derive(Debug, Error)]
 pub enum WpImageDescriptionV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("The description is not ready")]
     NotReady,
 }
-efrom!(WpImageDescriptionV1Error, ClientError);

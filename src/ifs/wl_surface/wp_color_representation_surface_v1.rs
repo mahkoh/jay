@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::gfx_api::AlphaMode;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
@@ -94,8 +93,6 @@ impl WpColorRepresentationSurfaceV1RequestHandler for WpColorRepresentationSurfa
 
 #[derive(Debug, Error)]
 pub enum WpColorRepresentationSurfaceV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("wl_surface already has a color-representation extension")]
     HasSurface,
     #[error("{0} is not a supported alpha mode")]
@@ -103,4 +100,3 @@ pub enum WpColorRepresentationSurfaceV1Error {
     #[error("{0}/{1} are not supported coefficients and range")]
     UnsupportedCoefficientsAndRange(u32, u32),
 }
-efrom!(WpColorRepresentationSurfaceV1Error, ClientError);

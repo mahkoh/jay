@@ -1,7 +1,7 @@
 use crate::client::CAP_SCREENCOPY_MANAGER;
 use crate::client::Client;
 use crate::client::ClientCaps;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::zwlr_screencopy_frame_v1::ZwlrScreencopyFrameV1;
@@ -40,7 +40,7 @@ impl ZwlrScreencopyManagerV1Global {
             version,
         });
         track!(client, mgr);
-        client.add_client_obj(&mgr)?;
+        client.add_client_obj(&mgr);
         Ok(())
     }
 }
@@ -130,7 +130,7 @@ impl ZwlrScreencopyManagerV1 {
             pending: Default::default(),
         });
         track!(self.client, frame);
-        self.client.add_client_obj(&frame)?;
+        self.client.add_client_obj(&frame);
         frame.send_buffer();
         if self.version >= 3 {
             frame.send_linux_dmabuf();
@@ -143,8 +143,7 @@ impl ZwlrScreencopyManagerV1 {
 #[derive(Debug, Error)]
 pub enum ZwlrScreencopyManagerV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("The passed region is invalid")]
     InvalidRegion,
 }
-efrom!(ZwlrScreencopyManagerV1Error, ClientError);

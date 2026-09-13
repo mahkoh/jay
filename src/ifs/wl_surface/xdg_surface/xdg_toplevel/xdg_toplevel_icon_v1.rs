@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::cmm::cmm_eotf::Eotf;
 use crate::cmm::cmm_render_intent::RenderIntent;
 use crate::gfx_api::AcquireSync;
@@ -594,10 +594,9 @@ impl BreakLoops for XdgToplevelIconV1 {
 #[derive(Debug, Error)]
 pub enum XdgToplevelIconV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("Toplevel icon is immutable")]
     Immutable,
     #[error("Buffer is not a square")]
     NotSquare,
 }
-efrom!(XdgToplevelIconV1Error, ClientError);

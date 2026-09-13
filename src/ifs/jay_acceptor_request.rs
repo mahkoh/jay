@@ -1,14 +1,13 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::wire::JayAcceptorRequestId;
 use crate::wire::jay_acceptor_request::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::error::Error;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Object)]
 pub struct JayAcceptorRequest {
@@ -36,17 +35,10 @@ impl JayAcceptorRequest {
 }
 
 impl JayAcceptorRequestRequestHandler for JayAcceptorRequest {
-    type Error = JayAcceptorRequestError;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum JayAcceptorRequestError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(JayAcceptorRequestError, ClientError);

@@ -1,6 +1,5 @@
 use crate::backend::KeyState;
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_seat::WlSeat;
 use crate::keyboard::KeyboardError;
 use crate::keyboard::KeyboardState;
@@ -237,8 +236,5 @@ impl WlKeyboardRequestHandler for WlKeyboard {
 #[derive(Debug, Error)]
 pub enum WlKeyboardError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error(transparent)]
     KeyboardError(#[from] KeyboardError),
 }
-efrom!(WlKeyboardError, ClientError);

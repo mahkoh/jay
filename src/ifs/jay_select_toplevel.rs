@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::jay_toplevel::CLIENT_ID_SINCE;
 use crate::ifs::jay_toplevel::ID_SINCE;
 use crate::ifs::jay_toplevel::JayToplevel;
@@ -14,8 +13,8 @@ use crate::wire::JayToplevelId;
 use crate::wire::jay_select_toplevel::*;
 use jay_proc::Object;
 use std::cell::Cell;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Object)]
 #[break_loops]
@@ -105,7 +104,7 @@ impl JaySelectToplevel {
 }
 
 impl JaySelectToplevelRequestHandler for JaySelectToplevel {
-    type Error = JaySelectToplevelError;
+    type Error = Infallible;
 }
 
 impl BreakLoops for JaySelectToplevel {
@@ -113,10 +112,3 @@ impl BreakLoops for JaySelectToplevel {
         self.destroyed.set(true);
     }
 }
-
-#[derive(Debug, Error)]
-pub enum JaySelectToplevelError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(JaySelectToplevelError, ClientError);

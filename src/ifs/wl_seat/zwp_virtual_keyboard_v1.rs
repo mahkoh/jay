@@ -1,6 +1,5 @@
 use crate::backend::KeyState;
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::clientmem::ClientMem;
 use crate::clientmem::ClientMemError;
 use crate::ifs::wl_seat::WlSeatGlobal;
@@ -129,8 +128,6 @@ impl ZwpVirtualKeyboardV1RequestHandler for ZwpVirtualKeyboardV1 {
 
 #[derive(Debug, Error)]
 pub enum ZwpVirtualKeyboardV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("Unknown key state {0}")]
     UnknownState(u32),
     #[error("Unsupported keymap format {0}")]
@@ -146,4 +143,3 @@ pub enum ZwpVirtualKeyboardV1Error {
     #[error("Could not parse the keymap")]
     ParseKeymap(#[source] KbvmError),
 }
-efrom!(ZwpVirtualKeyboardV1Error, ClientError);

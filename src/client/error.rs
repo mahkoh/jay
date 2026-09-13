@@ -40,8 +40,6 @@ pub enum ClientError {
         #[source]
         error: Box<dyn Error + 'static>,
     },
-    #[error(transparent)]
-    LookupError(LookupError),
     #[error("Could not add object {0} to the client")]
     AddObjectError(ObjectId, #[source] Box<ClientError>),
 }

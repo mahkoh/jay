@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_seat::zwp_pointer_gesture_hold_v1::ZwpPointerGestureHoldV1;
@@ -10,8 +10,8 @@ use crate::object::Version;
 use crate::wire::ZwpPointerGesturesV1Id;
 use crate::wire::zwp_pointer_gestures_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct ZwpPointerGesturesV1Global {
     name: GlobalName,
@@ -35,7 +35,7 @@ impl ZwpPointerGesturesV1Global {
         id: ZwpPointerGesturesV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), ZwpPointerGesturesV1Error> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(ZwpPointerGesturesV1 {
             id,
             client: client.clone(),
@@ -43,7 +43,7 @@ impl ZwpPointerGesturesV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -59,7 +59,7 @@ impl Global for ZwpPointerGesturesV1Global {
 simple_add_global!(ZwpPointerGesturesV1Global);
 
 impl ZwpPointerGesturesV1RequestHandler for ZwpPointerGesturesV1 {
-    type Error = ZwpPointerGesturesV1Error;
+    type Error = LookupError;
 
     fn get_swipe_gesture(&self, req: GetSwipeGesture, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let seat = self.client.lookup(req.pointer)?.seat.global.clone();
@@ -71,7 +71,7 @@ impl ZwpPointerGesturesV1RequestHandler for ZwpPointerGesturesV1 {
             version: self.version,
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         seat.swipe_bindings.add(&self.client, &obj);
         Ok(())
     }
@@ -86,7 +86,7 @@ impl ZwpPointerGesturesV1RequestHandler for ZwpPointerGesturesV1 {
             version: self.version,
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         seat.pinch_bindings.add(&self.client, &obj);
         Ok(())
     }
@@ -106,15 +106,8 @@ impl ZwpPointerGesturesV1RequestHandler for ZwpPointerGesturesV1 {
             version: self.version,
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         seat.hold_bindings.add(&self.client, &obj);
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwpPointerGesturesV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwpPointerGesturesV1Error, ClientError);

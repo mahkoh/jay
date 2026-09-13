@@ -3,7 +3,7 @@ use crate::backend::transaction::BackendConnectorTransactionError;
 use crate::backend::transaction::ConnectorTransaction;
 use crate::backend::transaction::PreparedConnectorTransaction;
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::ifs::wlr_output_manager::zwlr_output_configuration_head::ZwlrOutputConfigurationHeadV1;
 use crate::ifs::wlr_output_manager::zwlr_output_manager_v1::ZwlrOutputManagerV1;
 use crate::leaks::Tracker;
@@ -160,7 +160,7 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
             tracker: Default::default(),
         });
         track!(self.client, configuration_head);
-        self.client.add_client_obj(&configuration_head)?;
+        self.client.add_client_obj(&configuration_head);
         self.enabled_outputs
             .set(head.connector_id, configuration_head);
         Ok(())
@@ -234,7 +234,7 @@ impl ZwlrOutputConfigurationV1RequestHandler for ZwlrOutputConfigurationV1 {
 #[derive(Debug, Error)]
 pub enum ZwlrOutputConfigurationV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("Head {0} has alread been configured")]
     AlreadyConfiguredHead(Rc<String>),
     #[error("Head {0} has not been configured")]
@@ -242,4 +242,3 @@ pub enum ZwlrOutputConfigurationV1Error {
     #[error("Configuration has already been tested or applied")]
     AlreadyUsed,
 }
-efrom!(ZwlrOutputConfigurationV1Error, ClientError);

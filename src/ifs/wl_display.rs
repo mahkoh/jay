@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_callback::WlCallback;
 use crate::ifs::wl_registry::WlRegistry;
 use crate::leaks::Tracker;
@@ -10,8 +9,8 @@ use crate::wire::ObjectId;
 use crate::wire::WlDisplayId;
 use crate::wire::wl_display::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 const INVALID_OBJECT: u32 = 0;
 const INVALID_METHOD: u32 = 1;
@@ -39,12 +38,12 @@ impl WlDisplay {
 }
 
 impl WlDisplayRequestHandler for WlDisplay {
-    type Error = WlDisplayError;
+    type Error = Infallible;
 
     fn sync(&self, req: Sync, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let cb = Rc::new(WlCallback::new(req.callback, &self.client));
         track!(self.client, cb);
-        self.client.add_client_obj(&cb)?;
+        self.client.add_client_obj(&cb);
         cb.send_done(0);
         self.client.remove_obj(&*cb);
         Ok(())
@@ -53,7 +52,7 @@ impl WlDisplayRequestHandler for WlDisplay {
     fn get_registry(&self, req: GetRegistry, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let registry = Rc::new(WlRegistry::new(req.registry, &self.client));
         track!(self.client, registry);
-        self.client.add_client_obj(&registry)?;
+        self.client.add_client_obj(&registry);
         self.client.state.globals.notify_all(&registry);
         Ok(())
     }
@@ -96,10 +95,3 @@ impl WlDisplay {
         })
     }
 }
-
-#[derive(Debug, Error)]
-pub enum WlDisplayError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(WlDisplayError, ClientError);

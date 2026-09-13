@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::client::ClientId;
 use crate::ifs::ipc::DataOffer;
 use crate::ifs::ipc::DataOfferId;
@@ -19,8 +18,8 @@ use crate::object::Version;
 use crate::wire::ZwpPrimarySelectionOfferV1Id;
 use crate::wire::zwp_primary_selection_offer_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Object)]
 #[break_loops]
@@ -74,7 +73,7 @@ impl ZwpPrimarySelectionOfferV1 {
 }
 
 impl ZwpPrimarySelectionOfferV1RequestHandler for ZwpPrimarySelectionOfferV1 {
-    type Error = ZwpPrimarySelectionOfferV1Error;
+    type Error = Infallible;
 
     fn receive(&self, req: Receive, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         receive_data_offer::<PrimarySelectionIpc>(self, req.mime_type, req.fd);
@@ -96,10 +95,3 @@ impl BreakLoops for ZwpPrimarySelectionOfferV1 {
         break_offer_loops::<PrimarySelectionIpc>(&*self);
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwpPrimarySelectionOfferV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwpPrimarySelectionOfferV1Error, ClientError);

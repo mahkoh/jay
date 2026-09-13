@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::ipc::wl_data_device::WlDataDevice;
@@ -9,8 +9,8 @@ use crate::object::Version;
 use crate::wire::WlDataDeviceManagerId;
 use crate::wire::wl_data_device_manager::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub(super) const DND_NONE: u32 = 0;
 #[expect(unused)]
@@ -43,7 +43,7 @@ impl WlDataDeviceManagerGlobal {
         id: WlDataDeviceManagerId,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), WlDataDeviceManagerError> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(WlDataDeviceManager {
             id,
             client: client.clone(),
@@ -51,13 +51,13 @@ impl WlDataDeviceManagerGlobal {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
 
 impl WlDataDeviceManagerRequestHandler for WlDataDeviceManager {
-    type Error = WlDataDeviceManagerError;
+    type Error = LookupError;
 
     fn create_data_source(
         &self,
@@ -66,7 +66,7 @@ impl WlDataDeviceManagerRequestHandler for WlDataDeviceManager {
     ) -> Result<(), Self::Error> {
         let res = Rc::new(WlDataSource::new(req.id, &self.client, self.version));
         track!(self.client, res);
-        self.client.add_client_obj(&res)?;
+        self.client.add_client_obj(&res);
         Ok(())
     }
 
@@ -80,7 +80,7 @@ impl WlDataDeviceManagerRequestHandler for WlDataDeviceManager {
         ));
         track!(self.client, dev);
         seat.global.add_data_device(&dev);
-        self.client.add_client_obj(&dev)?;
+        self.client.add_client_obj(&dev);
         Ok(())
     }
 
@@ -99,10 +99,3 @@ impl Global for WlDataDeviceManagerGlobal {
 }
 
 simple_add_global!(WlDataDeviceManagerGlobal);
-
-#[derive(Debug, Error)]
-pub enum WlDataDeviceManagerError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(WlDataDeviceManagerError, ClientError);

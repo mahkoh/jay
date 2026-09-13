@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::cursor::Cursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::tablet::TabletToolCapability;
@@ -241,9 +241,8 @@ impl BreakLoops for ZwpTabletToolV2 {
 #[derive(Debug, Error)]
 pub enum ZwpTabletToolV2Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
 }
-efrom!(ZwpTabletToolV2Error, ClientError);
 efrom!(ZwpTabletToolV2Error, WlSurfaceError);

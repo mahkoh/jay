@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::WlSeat;
 use crate::leaks::Tracker;
@@ -7,8 +6,8 @@ use crate::object::Version;
 use crate::wire::ZwpRelativePointerV1Id;
 use crate::wire::zwp_relative_pointer_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Object)]
 pub struct ZwpRelativePointerV1 {
@@ -41,7 +40,7 @@ impl ZwpRelativePointerV1 {
 }
 
 impl ZwpRelativePointerV1RequestHandler for ZwpRelativePointerV1 {
-    type Error = ZwpRelativePointerV1Error;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.seat.relative_pointers.remove(&self.id);
@@ -49,10 +48,3 @@ impl ZwpRelativePointerV1RequestHandler for ZwpRelativePointerV1 {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwpRelativePointerV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwpRelativePointerV1Error, ClientError);

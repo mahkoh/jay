@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::ifs::workspace_manager::ext_workspace_group_handle_v1::ExtWorkspaceGroupHandleV1;
 use crate::ifs::workspace_manager::ext_workspace_manager_v1::ExtWorkspaceManagerV1;
 use crate::ifs::workspace_manager::ext_workspace_manager_v1::WorkspaceChange;
@@ -18,7 +18,6 @@ use crate::wire::ext_workspace_handle_v1::*;
 use jay_proc::Object;
 use std::cell::Cell;
 use std::rc::Rc;
-use thiserror::Error;
 
 const STATE_ACTIVE: u32 = 1;
 const STATE_URGENT: u32 = 2;
@@ -159,7 +158,7 @@ impl BreakLoops for ExtWorkspaceHandleV1 {
 }
 
 impl ExtWorkspaceHandleV1RequestHandler for ExtWorkspaceHandleV1 {
-    type Error = ExtWorkspaceHandleV1Error;
+    type Error = LookupError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
@@ -203,10 +202,3 @@ impl ExtWorkspaceHandleV1RequestHandler for ExtWorkspaceHandleV1 {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ExtWorkspaceHandleV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ExtWorkspaceHandleV1Error, ClientError);

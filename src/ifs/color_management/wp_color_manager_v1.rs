@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::color_management::ABSOLUTE_NO_ADAPTATION_SINCE;
@@ -79,7 +79,7 @@ impl WpColorManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         obj.send_capabilities();
         Ok(())
     }
@@ -192,7 +192,7 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
             listener: EventListener::new(slf.clone()),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         if let Some(global) = output.global.get() {
             obj.listener.attach(&global.connector.listeners);
         }
@@ -209,7 +209,7 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
             surface: surface.clone(),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         obj.install()?;
         Ok(())
     }
@@ -228,7 +228,7 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
             surface: surface.clone(),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         surface.add_color_management_feedback(&obj);
         Ok(())
     }
@@ -260,7 +260,7 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
             max_fall: Default::default(),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         Ok(())
     }
 
@@ -277,7 +277,7 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
             description: Some(self.client.state.color_manager.windows_scrgb().clone()),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         obj.send_ready();
         Ok(())
     }
@@ -296,7 +296,7 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
             description: Some(desc.description.clone()),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         obj.send_ready();
         Ok(())
     }
@@ -314,7 +314,7 @@ impl WpColorManagerV1RequestHandler for WpColorManagerV1 {
             description: Some(self.client.state.color_manager.windows_bt2100().clone()),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         obj.send_ready();
         Ok(())
     }
@@ -337,10 +337,9 @@ simple_add_global!(WpColorManagerV1Global);
 #[derive(Debug, Error)]
 pub enum WpColorManagerV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("create_icc_creator is not supported")]
     CreateIccCreatorNotSupported,
     #[error(transparent)]
     Surface(#[from] WpColorManagementSurfaceV1Error),
 }
-efrom!(WpColorManagerV1Error, ClientError);

@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_seat::zwp_relative_pointer_v1::ZwpRelativePointerV1;
@@ -8,8 +8,8 @@ use crate::object::Version;
 use crate::wire::ZwpRelativePointerManagerV1Id;
 use crate::wire::zwp_relative_pointer_manager_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct ZwpRelativePointerManagerV1Global {
     name: GlobalName,
@@ -33,7 +33,7 @@ impl ZwpRelativePointerManagerV1Global {
         id: ZwpRelativePointerManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), ZwpRelativePointerManagerV1Error> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(ZwpRelativePointerManagerV1 {
             id,
             client: client.clone(),
@@ -41,7 +41,7 @@ impl ZwpRelativePointerManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -60,7 +60,7 @@ impl Global for ZwpRelativePointerManagerV1Global {
 simple_add_global!(ZwpRelativePointerManagerV1Global);
 
 impl ZwpRelativePointerManagerV1RequestHandler for ZwpRelativePointerManagerV1 {
-    type Error = ZwpRelativePointerManagerV1Error;
+    type Error = LookupError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
@@ -81,15 +81,8 @@ impl ZwpRelativePointerManagerV1RequestHandler for ZwpRelativePointerManagerV1 {
             version: self.version,
         });
         track!(self.client, rp);
-        self.client.add_client_obj(&rp)?;
+        self.client.add_client_obj(&rp);
         pointer.seat.relative_pointers.set(req.id, rp);
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwpRelativePointerManagerV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwpRelativePointerManagerV1Error, ClientError);

@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::wp_fractional_scale_v1::WpFractionalScaleError;
@@ -42,7 +42,7 @@ impl WpFractionalScaleManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -74,7 +74,7 @@ impl WpFractionalScaleManagerV1RequestHandler for WpFractionalScaleManagerV1 {
         let fs = Rc::new(WpFractionalScaleV1::new(req.id, &surface, self.version));
         track!(self.client, fs);
         fs.install()?;
-        self.client.add_client_obj(&fs)?;
+        self.client.add_client_obj(&fs);
         fs.send_preferred_scale();
         Ok(())
     }
@@ -83,8 +83,7 @@ impl WpFractionalScaleManagerV1RequestHandler for WpFractionalScaleManagerV1 {
 #[derive(Debug, Error)]
 pub enum WpFractionalScaleManagerError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     WpFractionalScaleError(#[from] WpFractionalScaleError),
 }
-efrom!(WpFractionalScaleManagerError, ClientError);

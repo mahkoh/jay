@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_region::WlRegion;
@@ -10,8 +9,8 @@ use crate::wire::WlCompositorId;
 use crate::wire::wl_compositor::*;
 use crate::xwayland::XWaylandEvent;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct WlCompositorGlobal {
     name: GlobalName,
@@ -35,7 +34,7 @@ impl WlCompositorGlobal {
         id: WlCompositorId,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), WlCompositorError> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(WlCompositor {
             id,
             client: client.clone(),
@@ -43,18 +42,18 @@ impl WlCompositorGlobal {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
 
 impl WlCompositorRequestHandler for WlCompositor {
-    type Error = WlCompositorError;
+    type Error = Infallible;
 
     fn create_surface(&self, req: CreateSurface, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let surface = Rc::new_cyclic(|slf| WlSurface::new(req.id, &self.client, self.version, slf));
         track!(self.client, surface);
-        self.client.add_client_obj(&surface)?;
+        self.client.add_client_obj(&surface);
         if self.client.is_xwayland {
             self.client
                 .state
@@ -68,7 +67,7 @@ impl WlCompositorRequestHandler for WlCompositor {
     fn create_region(&self, req: CreateRegion, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let region = Rc::new(WlRegion::new(req.id, &self.client, self.version));
         track!(self.client, region);
-        self.client.add_client_obj(&region)?;
+        self.client.add_client_obj(&region);
         Ok(())
     }
 
@@ -87,11 +86,3 @@ impl Global for WlCompositorGlobal {
 }
 
 simple_add_global!(WlCompositorGlobal);
-
-#[derive(Debug, Error)]
-pub enum WlCompositorError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-
-efrom!(WlCompositorError, ClientError);

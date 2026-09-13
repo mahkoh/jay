@@ -1,12 +1,11 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::ExtTransientSeatV1Id;
 use crate::wire::ext_transient_seat_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Object)]
 pub struct ExtTransientSeatV1 {
@@ -23,17 +22,10 @@ impl ExtTransientSeatV1 {
 }
 
 impl ExtTransientSeatV1RequestHandler for ExtTransientSeatV1 {
-    type Error = ExtTransientSeatV1Error;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ExtTransientSeatV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ExtTransientSeatV1Error, ClientError);

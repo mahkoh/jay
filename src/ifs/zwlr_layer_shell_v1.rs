@@ -3,7 +3,7 @@ use crate::bugs::Bugs;
 use crate::client::CAP_LAYER_SHELL;
 use crate::client::Client;
 use crate::client::ClientCaps;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1;
@@ -53,7 +53,7 @@ impl ZwlrLayerShellV1Global {
             bugs: bugs::get_by_comm(&client.pid_info.comm),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -92,7 +92,7 @@ impl ZwlrLayerShellV1RequestHandler for ZwlrLayerShellV1 {
             req.namespace,
         ));
         track!(self.client, surface);
-        self.client.add_client_obj(&surface)?;
+        self.client.add_client_obj(&surface);
         surface.install()?;
         Ok(())
     }
@@ -120,7 +120,7 @@ simple_add_global!(ZwlrLayerShellV1Global);
 #[derive(Debug, Error)]
 pub enum ZwlrLayerShellV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("Unknown layer {0}")]
     UnknownLayer(u32),
     #[error("There are no outputs")]
@@ -128,5 +128,4 @@ pub enum ZwlrLayerShellV1Error {
     #[error(transparent)]
     ZwlrLayerSurfaceV1Error(Box<ZwlrLayerSurfaceV1Error>),
 }
-efrom!(ZwlrLayerShellV1Error, ClientError);
 efrom!(ZwlrLayerShellV1Error, ZwlrLayerSurfaceV1Error);

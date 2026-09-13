@@ -297,7 +297,7 @@ impl<T: DataControlOffer> DynDataOffer for T {
 }
 
 pub mod logic {
-    use crate::client::ClientError;
+    use crate::client::LookupError;
     use crate::ifs::ipc::IpcLocation;
     use crate::ifs::ipc::OfferDestroyReason;
     use crate::ifs::ipc::add_data_source_mime_type;
@@ -426,12 +426,11 @@ pub mod logic {
     #[derive(Debug, Error)]
     pub enum DataControlError {
         #[error(transparent)]
-        ClientError(Box<ClientError>),
+        Lookup(#[from] LookupError),
         #[error(transparent)]
         WlSeatError(Box<WlSeatError>),
         #[error("The source has already been used")]
         AlreadyUsed,
     }
-    efrom!(DataControlError, ClientError);
     efrom!(DataControlError, WlSeatError);
 }

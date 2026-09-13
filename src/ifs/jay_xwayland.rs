@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::wire::JayXwaylandId;
@@ -64,9 +63,6 @@ impl JayXwaylandRequestHandler for JayXwayland {
 
 #[derive(Debug, Error)]
 pub enum JayXwaylandError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("Unknown scaling mode {}", .0)]
     UnknownMode(u32),
 }
-efrom!(JayXwaylandError, ClientError);

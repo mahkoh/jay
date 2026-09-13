@@ -1,7 +1,7 @@
 use crate::client::CAP_SCREENCOPY_MANAGER;
 use crate::client::Client;
 use crate::client::ClientCaps;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::ext_image_capture_source_v1::ImageCaptureSource;
@@ -13,8 +13,8 @@ use crate::tree::TreeTimeline::LiveTL;
 use crate::wire::ExtImageCopyCaptureManagerV1Id;
 use crate::wire::ext_image_copy_capture_manager_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct ExtImageCopyCaptureManagerV1Global {
     name: GlobalName,
@@ -30,7 +30,7 @@ impl ExtImageCopyCaptureManagerV1Global {
         id: ExtImageCopyCaptureManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), ExtImageCopyCaptureManagerV1Error> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(ExtImageCopyCaptureManagerV1 {
             id,
             client: client.clone(),
@@ -38,7 +38,7 @@ impl ExtImageCopyCaptureManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -52,7 +52,7 @@ pub struct ExtImageCopyCaptureManagerV1 {
 }
 
 impl ExtImageCopyCaptureManagerV1RequestHandler for ExtImageCopyCaptureManagerV1 {
-    type Error = ExtImageCopyCaptureManagerV1Error;
+    type Error = LookupError;
 
     fn create_session(&self, req: CreateSession, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let source = self.client.lookup(req.source)?;
@@ -66,7 +66,7 @@ impl ExtImageCopyCaptureManagerV1RequestHandler for ExtImageCopyCaptureManagerV1
             )
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         'send_constraints: {
             let id = (self.client.id, obj.id);
             match &source.ty {
@@ -125,7 +125,7 @@ impl ExtImageCopyCaptureManagerV1RequestHandler for ExtImageCopyCaptureManagerV1
             have_session: Default::default(),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         Ok(())
     }
 
@@ -151,10 +151,3 @@ impl Global for ExtImageCopyCaptureManagerV1Global {
 }
 
 simple_add_global!(ExtImageCopyCaptureManagerV1Global);
-
-#[derive(Debug, Error)]
-pub enum ExtImageCopyCaptureManagerV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ExtImageCopyCaptureManagerV1Error, ClientError);

@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
 use crate::object::Version;
@@ -8,8 +7,8 @@ use crate::wire::JayToplevelId;
 use crate::wire::jay_toplevel::*;
 use jay_proc::Object;
 use std::cell::Cell;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub const ID_SINCE: Version = Version(12);
 pub const CLIENT_ID_SINCE: Version = Version(18);
@@ -66,7 +65,7 @@ impl JayToplevel {
 }
 
 impl JayToplevelRequestHandler for JayToplevel {
-    type Error = JayToplevelError;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
@@ -80,10 +79,3 @@ impl BreakLoops for JayToplevel {
         self.detach();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum JayToplevelError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(JayToplevelError, ClientError);

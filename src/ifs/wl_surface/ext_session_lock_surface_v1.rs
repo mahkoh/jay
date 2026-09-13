@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::configurable::Configurable;
 use crate::configurable::ConfigurableData;
 use crate::configurable::ConfigurableDataCore;
@@ -256,8 +255,5 @@ impl Configurable for ExtSessionLockSurfaceV1 {
 #[derive(Debug, Error)]
 pub enum ExtSessionLockSurfaceV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error(transparent)]
     WlSurfaceError(#[from] WlSurfaceError),
 }
-efrom!(ExtSessionLockSurfaceV1Error, ClientError);

@@ -1,7 +1,6 @@
 use crate::backend::BackendDrmLease;
 use crate::backend::BackendDrmLessee;
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
 use crate::object::Version;
@@ -10,8 +9,8 @@ use crate::wire::WpDrmLeaseV1Id;
 use crate::wire::wp_drm_lease_v1::*;
 use jay_proc::Object;
 use std::cell::Cell;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 use uapi::OwnedFd;
 
 pub struct WpDrmLeaseV1Lessee {
@@ -66,7 +65,7 @@ impl WpDrmLeaseV1 {
 }
 
 impl WpDrmLeaseV1RequestHandler for WpDrmLeaseV1 {
-    type Error = WpDrmLeaseV1Error;
+    type Error = Infallible;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
@@ -80,10 +79,3 @@ impl BreakLoops for WpDrmLeaseV1 {
         self.detach();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum WpDrmLeaseV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(WpDrmLeaseV1Error, ClientError);

@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::XdgToplevelIconV1;
@@ -9,8 +9,8 @@ use crate::wire::XdgToplevelIconManagerV1Id;
 use crate::wire::xdg_toplevel_icon_manager_v1::*;
 use jay_proc::Object;
 use std::cell::Cell;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct XdgToplevelIconManagerV1Global {
     name: GlobalName,
@@ -26,7 +26,7 @@ impl XdgToplevelIconManagerV1Global {
         id: XdgToplevelIconManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), XdgToplevelIconManagerV1Error> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(XdgToplevelIconManagerV1 {
             id,
             client: client.clone(),
@@ -35,7 +35,7 @@ impl XdgToplevelIconManagerV1Global {
             last_size: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         obj.send_sizes();
         Ok(())
     }
@@ -83,7 +83,7 @@ impl XdgToplevelIconManagerV1 {
 }
 
 impl XdgToplevelIconManagerV1RequestHandler for XdgToplevelIconManagerV1 {
-    type Error = XdgToplevelIconManagerV1Error;
+    type Error = LookupError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
@@ -93,7 +93,7 @@ impl XdgToplevelIconManagerV1RequestHandler for XdgToplevelIconManagerV1 {
     fn create_icon(&self, req: CreateIcon, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let obj = XdgToplevelIconV1::new(req.id, &self.client, self.version);
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         self.client
             .state
             .toplevel_icons
@@ -135,10 +135,3 @@ impl XdgToplevelIconManagerV1RequestHandler for XdgToplevelIconManagerV1 {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum XdgToplevelIconManagerV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(XdgToplevelIconManagerV1Error, ClientError);

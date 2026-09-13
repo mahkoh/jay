@@ -1,7 +1,6 @@
 use crate::client::CAP_FOREIGN_TOPLEVEL_MANAGER;
 use crate::client::Client;
 use crate::client::ClientCaps;
-use crate::client::ClientError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::x_surface::xwindow::Xwindow;
@@ -17,8 +16,8 @@ use crate::wire::ZwlrForeignToplevelManagerV1Id;
 use crate::wire::zwlr_foreign_toplevel_manager_v1::*;
 use jay_proc::Object;
 use std::cell::Cell;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct ZwlrForeignToplevelManagerV1Global {
     name: GlobalName,
@@ -34,7 +33,7 @@ impl ZwlrForeignToplevelManagerV1Global {
         id: ZwlrForeignToplevelManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), ZwlrForeignToplevelManagerV1Error> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(ZwlrForeignToplevelManagerV1 {
             id,
             client: client.clone(),
@@ -42,7 +41,7 @@ impl ZwlrForeignToplevelManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         client
             .state
             .visit_all_nodes(&mut ZwlrToplevelVisitor { manager: &obj });
@@ -84,7 +83,7 @@ impl ZwlrForeignToplevelManagerV1 {
 }
 
 impl ZwlrForeignToplevelManagerV1RequestHandler for ZwlrForeignToplevelManagerV1 {
-    type Error = ZwlrForeignToplevelManagerV1Error;
+    type Error = Infallible;
 
     fn stop(&self, _req: Stop, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();
@@ -145,10 +144,3 @@ impl BreakLoops for ZwlrForeignToplevelManagerV1 {
         self.detach();
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwlrForeignToplevelManagerV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwlrForeignToplevelManagerV1Error, ClientError);

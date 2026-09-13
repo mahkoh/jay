@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::jay_client_match::JayClientMatch;
 use crate::ifs::jay_generic_match_builder::JayGenericMatchBuilderError;
 use crate::ifs::jay_generic_match_builder::MatchBuilder;
@@ -52,7 +51,7 @@ impl JayClientMatchBuilderRequestHandler for JayClientMatchBuilder {
             m: self.builder.build()?,
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         Ok(())
     }
 
@@ -106,8 +105,5 @@ impl JayClientMatchBuilderRequestHandler for JayClientMatchBuilder {
 #[derive(Debug, Error)]
 pub enum JayClientMatchBuilderError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error(transparent)]
     Generic(#[from] JayGenericMatchBuilderError),
 }
-efrom!(JayClientMatchBuilderError, ClientError);

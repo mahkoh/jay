@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::configurable::Configurable;
 use crate::configurable::ConfigurableData;
 use crate::configurable::ConfigurableDataCore;
@@ -934,7 +934,7 @@ pub enum ZwlrLayerSurfaceV1Error {
     #[error(transparent)]
     WlSurfaceError(Box<WlSurfaceError>),
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("Unknown layer {0}")]
     UnknownLayer(u32),
     #[error("Surface size must not be larger than 65535x65535")]
@@ -957,7 +957,6 @@ pub enum ZwlrLayerSurfaceV1Error {
     HasPopups,
 }
 efrom!(ZwlrLayerSurfaceV1Error, WlSurfaceError);
-efrom!(ZwlrLayerSurfaceV1Error, ClientError);
 
 pub enum LayerSurfaceTransactionOp {
     SetValid(NodeRef<LayerSurfaceLink>),

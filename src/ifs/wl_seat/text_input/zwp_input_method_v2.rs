@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_seat::text_input::InputMethod;
 use crate::ifs::wl_seat::text_input::MAX_TEXT_SIZE;
@@ -229,7 +229,7 @@ impl ZwpInputMethodV2RequestHandler for ZwpInputMethodV2 {
             was_on_screen: Default::default(),
         });
         track!(self.client, popup);
-        self.client.add_client_obj(&popup)?;
+        self.client.add_client_obj(&popup);
         popup.install()?;
         Ok(())
     }
@@ -247,7 +247,7 @@ impl ZwpInputMethodV2RequestHandler for ZwpInputMethodV2 {
             kb_state_id: Cell::new(KeyboardStateId::from_raw(0)),
         });
         track!(self.client, grab);
-        self.client.add_client_obj(&grab)?;
+        self.client.add_client_obj(&grab);
         grab.send_repeat_info();
         self.seat.input_method_grab.set(Some(grab));
         Ok(())
@@ -269,7 +269,7 @@ impl BreakLoops for ZwpInputMethodV2 {
 #[derive(Debug, Error)]
 pub enum ZwpInputMethodV2Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     ZwpInputPopupSurfaceV2Error(#[from] ZwpInputPopupSurfaceV2Error),
     #[error("Text is larger than {} bytes", MAX_TEXT_SIZE)]
@@ -277,4 +277,3 @@ pub enum ZwpInputMethodV2Error {
     #[error("Seat already has a grab")]
     HasGrab,
 }
-efrom!(ZwpInputMethodV2Error, ClientError);

@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
 use crate::object::Version;
@@ -79,8 +78,6 @@ impl WpViewportRequestHandler for WpViewport {
 
 #[derive(Debug, Error)]
 pub enum WpViewportError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("The surface already has a viewport")]
     ViewportExists,
     #[error("Rectangle is empty or outside the first quadrant")]
@@ -88,4 +85,3 @@ pub enum WpViewportError {
     #[error("Rectangle is empty")]
     InvalidDestRect,
 }
-efrom!(WpViewportError, ClientError);

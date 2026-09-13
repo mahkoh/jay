@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::leaks::Tracker;
 use crate::object::Version;
 use crate::rect::Rect;
@@ -70,9 +69,6 @@ impl WlRegionRequestHandler for WlRegion {
 
 #[derive(Debug, Error)]
 pub enum WlRegionError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("width and/or height are negative")]
     NegativeExtents,
 }
-efrom!(WlRegionError, ClientError);

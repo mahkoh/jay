@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ei::ei_client::EiClientError;
 use crate::ifs::jay_ei_session::JayEiSession;
 use crate::leaks::Tracker;
@@ -56,7 +55,7 @@ impl JayEiSessionBuilderRequestHandler for JayEiSessionBuilder {
             version: self.version,
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         match res {
             Ok((_, fd)) => obj.send_created(&fd),
             Err(e) => {
@@ -76,8 +75,6 @@ impl JayEiSessionBuilderRequestHandler for JayEiSessionBuilder {
 
 #[derive(Debug, Error)]
 pub enum JayEiSessionBuilderError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("Could not create a socketpair")]
     SocketPair(#[source] OsError),
     #[error("Could not spawn a new client")]
@@ -85,4 +82,3 @@ pub enum JayEiSessionBuilderError {
     #[error("Commit called without app-id")]
     NoAppId,
 }
-efrom!(JayEiSessionBuilderError, ClientError);

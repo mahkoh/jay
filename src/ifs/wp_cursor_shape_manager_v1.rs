@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wp_cursor_shape_device_v1::CursorShapeCursorUser;
@@ -10,8 +10,8 @@ use crate::wire::WpCursorShapeDeviceV1Id;
 use crate::wire::WpCursorShapeManagerV1Id;
 use crate::wire::wp_cursor_shape_manager_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct WpCursorShapeManagerV1Global {
     name: GlobalName,
@@ -27,7 +27,7 @@ impl WpCursorShapeManagerV1Global {
         id: WpCursorShapeManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), WpCursorShapeManagerV1Error> {
+    ) -> Result<(), Infallible> {
         let mgr = Rc::new(WpCursorShapeManagerV1 {
             id,
             client: client.clone(),
@@ -35,7 +35,7 @@ impl WpCursorShapeManagerV1Global {
             version,
         });
         track!(client, mgr);
-        client.add_client_obj(&mgr)?;
+        client.add_client_obj(&mgr);
         Ok(())
     }
 }
@@ -59,11 +59,7 @@ pub struct WpCursorShapeManagerV1 {
 }
 
 impl WpCursorShapeManagerV1 {
-    fn get(
-        &self,
-        id: WpCursorShapeDeviceV1Id,
-        cursor_user: CursorShapeCursorUser,
-    ) -> Result<(), WpCursorShapeManagerV1Error> {
+    fn get(&self, id: WpCursorShapeDeviceV1Id, cursor_user: CursorShapeCursorUser) {
         let device = Rc::new(WpCursorShapeDeviceV1 {
             id,
             client: self.client.clone(),
@@ -72,13 +68,12 @@ impl WpCursorShapeManagerV1 {
             version: self.version,
         });
         track!(self.client, device);
-        self.client.add_client_obj(&device)?;
-        Ok(())
+        self.client.add_client_obj(&device);
     }
 }
 
 impl WpCursorShapeManagerV1RequestHandler for WpCursorShapeManagerV1 {
-    type Error = WpCursorShapeManagerV1Error;
+    type Error = LookupError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
@@ -90,7 +85,8 @@ impl WpCursorShapeManagerV1RequestHandler for WpCursorShapeManagerV1 {
         self.get(
             req.cursor_shape_device,
             CursorShapeCursorUser::Seat(pointer.seat.global.clone()),
-        )
+        );
+        Ok(())
     }
 
     fn get_tablet_tool_v2(&self, req: GetTabletToolV2, _slf: &Rc<Self>) -> Result<(), Self::Error> {
@@ -98,13 +94,7 @@ impl WpCursorShapeManagerV1RequestHandler for WpCursorShapeManagerV1 {
         self.get(
             req.cursor_shape_device,
             CursorShapeCursorUser::TabletTool(tool.tool.clone()),
-        )
+        );
+        Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum WpCursorShapeManagerV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(WpCursorShapeManagerV1Error, ClientError);

@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::wp_tearing_control_v1::WpTearingControlV1;
@@ -34,7 +34,7 @@ impl WpTearingControlManagerV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -78,7 +78,7 @@ impl WpTearingControlManagerV1RequestHandler for WpTearingControlManagerV1 {
             version: self.version,
         });
         track!(self.client, control);
-        self.client.add_client_obj(&control)?;
+        self.client.add_client_obj(&control);
         control.install()?;
         Ok(())
     }
@@ -87,8 +87,7 @@ impl WpTearingControlManagerV1RequestHandler for WpTearingControlManagerV1 {
 #[derive(Debug, Error)]
 pub enum WpTearingControlManagerV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     WpTearingControlV1Error(#[from] WpTearingControlV1Error),
 }
-efrom!(WpTearingControlManagerV1Error, ClientError);

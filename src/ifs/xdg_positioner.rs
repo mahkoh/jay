@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::xdg_wm_base::XdgWmBase;
 use crate::leaks::Tracker;
 use crate::object::Version;
@@ -274,7 +273,4 @@ pub enum XdgPositionerError {
     UnknownCa(u32),
     #[error("Cannot set a negative parent size")]
     NegativeParentSize,
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
 }
-efrom!(XdgPositionerError, ClientError);

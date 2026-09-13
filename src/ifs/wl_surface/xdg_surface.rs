@@ -1,7 +1,7 @@
+use crate::client::LookupError;
 pub mod xdg_popup;
 pub mod xdg_toplevel;
 
-use crate::client::ClientError;
 use crate::configurable::Configurable;
 use crate::configurable::ConfigurableData;
 use crate::configurable::ConfigurableDataCore;
@@ -533,7 +533,7 @@ impl XdgSurfaceRequestHandler for XdgSurface {
         }
         let toplevel = Rc::new_cyclic(|weak| XdgToplevel::new(req.id, slf, weak));
         track!(self.surface.client, toplevel);
-        self.surface.client.add_client_obj(&toplevel)?;
+        self.surface.client.add_client_obj(&toplevel);
         self.ext.set(Some(toplevel.clone()));
         if self.base.version >= WM_CAPABILITIES_SINCE {
             toplevel.send_wm_capabilities();
@@ -562,7 +562,7 @@ impl XdgSurfaceRequestHandler for XdgSurface {
         }
         let popup = Rc::new(XdgPopup::new(req.id, slf, &positioner)?);
         track!(self.surface.client, popup);
-        self.surface.client.add_client_obj(&popup)?;
+        self.surface.client.add_client_obj(&popup);
         if let Some(parent) = &parent {
             let user = Rc::new(Popup {
                 parent: parent.clone(),
@@ -891,7 +891,7 @@ pub enum XdgSurfaceError {
         new: XdgSurfaceRole,
     },
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("Tried no set a non-positive width/height")]
     NonPositiveWidthHeight,
     #[error(
@@ -908,7 +908,6 @@ pub enum XdgSurfaceError {
     InvalidSerial(u64, u64),
 }
 efrom!(XdgSurfaceError, WlSurfaceError);
-efrom!(XdgSurfaceError, ClientError);
 
 pub enum XdgSurfaceTransactionOp {
     UpdateGeometry,

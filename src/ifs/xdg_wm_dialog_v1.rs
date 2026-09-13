@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_dialog_v1::XdgDialogV1;
@@ -34,7 +34,7 @@ impl XdgWmDialogV1Global {
             version,
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         Ok(())
     }
 }
@@ -75,7 +75,7 @@ impl XdgWmDialogV1RequestHandler for XdgWmDialogV1 {
             version: self.version,
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         obj.install()?;
         Ok(())
     }
@@ -84,8 +84,7 @@ impl XdgWmDialogV1RequestHandler for XdgWmDialogV1 {
 #[derive(Debug, Error)]
 pub enum XdgWmDialogV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error(transparent)]
     XdgDialogV1Error(#[from] XdgDialogV1Error),
 }
-efrom!(XdgWmDialogV1Error, ClientError);

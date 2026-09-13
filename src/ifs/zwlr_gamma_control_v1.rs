@@ -1,7 +1,6 @@
 use crate::backend::BackendGammaLut;
 use crate::backend::BackendGammaLutElement;
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::client::ClientId;
 use crate::clientmem::ClientMem;
 use crate::clientmem::ClientMemError;
@@ -150,8 +149,5 @@ impl BreakLoops for ZwlrGammaControlV1 {
 #[derive(Debug, Error)]
 pub enum ZwlrGammaControlV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
-    #[error(transparent)]
     CLientMemError(#[from] ClientMemError),
 }
-efrom!(ZwlrGammaControlV1Error, ClientError);

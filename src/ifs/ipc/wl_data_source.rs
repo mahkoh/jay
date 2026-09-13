@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::ipc::DataSource;
 use crate::ifs::ipc::DynDataOffer;
 use crate::ifs::ipc::DynDataSource;
@@ -245,11 +244,8 @@ impl BreakLoops for WlDataSource {
 
 #[derive(Debug, Error)]
 pub enum WlDataSourceError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("The set of actions is invalid")]
     InvalidActions,
     #[error("The actions have already been set")]
     AlreadySet,
 }
-efrom!(WlDataSourceError, ClientError);

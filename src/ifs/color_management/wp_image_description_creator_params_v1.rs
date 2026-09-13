@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::cmm::cmm_eotf::Eotf;
 use crate::cmm::cmm_eotf::EotfPow;
 use crate::cmm::cmm_luminance::Luminance;
@@ -121,7 +120,7 @@ impl WpImageDescriptionCreatorParamsV1RequestHandler for WpImageDescriptionCreat
             description: Some(description),
         });
         track!(self.client, obj);
-        self.client.add_client_obj(&obj)?;
+        self.client.add_client_obj(&obj);
         obj.send_ready();
         self.client.remove_obj(self);
         Ok(())
@@ -289,8 +288,6 @@ impl WpImageDescriptionCreatorParamsV1RequestHandler for WpImageDescriptionCreat
 
 #[derive(Debug, Error)]
 pub enum WpImageDescriptionCreatorParamsV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("{} is not a supported named primary", .0)]
     UnsupportedPrimaries(u32),
     #[error("The exponent is out of bounds")]
@@ -320,4 +317,3 @@ pub enum WpImageDescriptionCreatorParamsV1Error {
     #[error("The max FALL has already been set")]
     MaxFallAlreadySet,
 }
-efrom!(WpImageDescriptionCreatorParamsV1Error, ClientError);

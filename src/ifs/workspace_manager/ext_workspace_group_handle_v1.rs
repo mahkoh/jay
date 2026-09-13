@@ -1,5 +1,4 @@
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::ifs::wl_output::OutputGlobalOpt;
 use crate::ifs::wl_output::WlOutput;
 use crate::ifs::workspace_manager::ext_workspace_handle_v1::ExtWorkspaceHandleV1;
@@ -14,8 +13,8 @@ use crate::utils::opt::Opt;
 use crate::wire::ExtWorkspaceGroupHandleV1Id;
 use crate::wire::ext_workspace_group_handle_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 #[derive(Object)]
 #[break_loops]
@@ -104,7 +103,7 @@ impl BreakLoops for ExtWorkspaceGroupHandleV1 {
 }
 
 impl ExtWorkspaceGroupHandleV1RequestHandler for ExtWorkspaceGroupHandleV1 {
-    type Error = ExtWorkspaceGroupHandleV1Error;
+    type Error = Infallible;
 
     fn create_workspace(
         &self,
@@ -144,10 +143,3 @@ impl ExtWorkspaceGroupHandleV1RequestHandler for ExtWorkspaceGroupHandleV1 {
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ExtWorkspaceGroupHandleV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ExtWorkspaceGroupHandleV1Error, ClientError);

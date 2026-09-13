@@ -4,7 +4,7 @@ use crate::backend::InputDeviceClickMethod;
 use crate::backend::InputDeviceId;
 use crate::backend::InputDeviceScrollMethod;
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::clientmem::ClientMem;
 use crate::clientmem::ClientMemError;
 use crate::evdev::input_event_codes::InputEventCode;
@@ -790,7 +790,7 @@ impl JayInputRequestHandler for JayInput {
 #[derive(Debug, Error)]
 pub enum JayInputError {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("There is no seat called {0}")]
     SeatDoesNotExist(String),
     #[error("There is no device with id {0}")]
@@ -816,4 +816,3 @@ pub enum JayInputError {
     #[error("There is no input event code with id {0}")]
     UnknownInputEventCode(u32),
 }
-efrom!(JayInputError, ClientError);

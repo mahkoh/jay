@@ -1,4 +1,3 @@
-use crate::client::ClientError;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
 use crate::object::Version;
@@ -62,7 +61,4 @@ pub enum WpTearingControlV1Error {
     AlreadyAttached(WlSurfaceId),
     #[error("Unknown presentation hint {0}")]
     UnknownPresentationHint(u32),
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
 }
-efrom!(WpTearingControlV1Error, ClientError);

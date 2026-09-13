@@ -2,7 +2,6 @@ use crate::backend::AxisSource as BackendAxisSource;
 use crate::backend::ButtonState;
 use crate::backend::ScrollAxis;
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::fixed::Fixed;
 use crate::ifs::wl_output::OutputGlobalOpt;
 use crate::ifs::wl_seat::PX_PER_SCROLL;
@@ -198,8 +197,6 @@ impl BreakLoops for ZwlrVirtualPointerV1 {
 
 #[derive(Debug, Error)]
 pub enum ZwlrVirtualPointerV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("Unknown button state {0}")]
     UnknownButtonState(u32),
     #[error("Unknown axis {0}")]
@@ -207,4 +204,3 @@ pub enum ZwlrVirtualPointerV1Error {
     #[error("Unknown axis source {0}")]
     UnknownAxisSource(u32),
 }
-efrom!(ZwlrVirtualPointerV1Error, ClientError);

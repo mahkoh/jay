@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wl_surface::WlSurface;
@@ -12,8 +12,8 @@ use crate::wire::ZwpLinuxDmabufFeedbackV1Id;
 use crate::wire::ZwpLinuxDmabufV1Id;
 use crate::wire::zwp_linux_dmabuf_v1::*;
 use jay_proc::Object;
+use std::convert::Infallible;
 use std::rc::Rc;
-use thiserror::Error;
 
 pub struct ZwpLinuxDmabufV1Global {
     name: GlobalName,
@@ -29,7 +29,7 @@ impl ZwpLinuxDmabufV1Global {
         id: ZwpLinuxDmabufV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), ZwpLinuxDmabufV1Error> {
+    ) -> Result<(), Infallible> {
         let obj = Rc::new(ZwpLinuxDmabufV1 {
             id,
             client: client.clone(),
@@ -37,7 +37,7 @@ impl ZwpLinuxDmabufV1Global {
             tracker: Default::default(),
         });
         track!(client, obj);
-        client.add_client_obj(&obj)?;
+        client.add_client_obj(&obj);
         if version < FEEDBACK_SINCE_VERSION
             && let Some(ctx) = client.state.render_ctx.get()
         {
@@ -96,11 +96,7 @@ impl ZwpLinuxDmabufV1 {
         })
     }
 
-    fn get_feedback(
-        &self,
-        id: ZwpLinuxDmabufFeedbackV1Id,
-        surface: Option<&Rc<WlSurface>>,
-    ) -> Result<(), ZwpLinuxDmabufV1Error> {
+    fn get_feedback(&self, id: ZwpLinuxDmabufFeedbackV1Id, surface: Option<&Rc<WlSurface>>) {
         let fb = Rc::new(ZwpLinuxDmabufFeedbackV1::new(
             id,
             &self.client,
@@ -108,7 +104,7 @@ impl ZwpLinuxDmabufV1 {
             self.version,
         ));
         track!(self.client, fb);
-        self.client.add_client_obj(&fb)?;
+        self.client.add_client_obj(&fb);
         let connector = if let Some(surface) = surface {
             surface.dmabuf_feedback.set(id, fb.clone());
             surface.fullscreen.id()
@@ -123,12 +119,11 @@ impl ZwpLinuxDmabufV1 {
         if let Some(dfb) = self.client.state.dmabuf_feedback.fb.get() {
             dfb.send(&fb, connector);
         }
-        Ok(())
     }
 }
 
 impl ZwpLinuxDmabufV1RequestHandler for ZwpLinuxDmabufV1 {
-    type Error = ZwpLinuxDmabufV1Error;
+    type Error = LookupError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
@@ -138,7 +133,7 @@ impl ZwpLinuxDmabufV1RequestHandler for ZwpLinuxDmabufV1 {
     fn create_params(&self, req: CreateParams, slf: &Rc<Self>) -> Result<(), Self::Error> {
         let params = Rc::new(ZwpLinuxBufferParamsV1::new(req.params_id, slf));
         track!(self.client, params);
-        self.client.add_client_obj(&params)?;
+        self.client.add_client_obj(&params);
         Ok(())
     }
 
@@ -147,7 +142,7 @@ impl ZwpLinuxDmabufV1RequestHandler for ZwpLinuxDmabufV1 {
         req: GetDefaultFeedback,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        self.get_feedback(req.id, None)?;
+        self.get_feedback(req.id, None);
         Ok(())
     }
 
@@ -157,14 +152,7 @@ impl ZwpLinuxDmabufV1RequestHandler for ZwpLinuxDmabufV1 {
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
         let surface = self.client.lookup(req.surface)?;
-        self.get_feedback(req.id, Some(&surface))?;
+        self.get_feedback(req.id, Some(&surface));
         Ok(())
     }
 }
-
-#[derive(Debug, Error)]
-pub enum ZwpLinuxDmabufV1Error {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
-}
-efrom!(ZwpLinuxDmabufV1Error, ClientError);

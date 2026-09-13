@@ -2,7 +2,6 @@ use crate::backend;
 use crate::backend::BackendColorSpace;
 use crate::backend::BackendEotfs;
 use crate::client::Client;
-use crate::client::ClientError;
 use crate::compositor::MAX_EXTENTS;
 use crate::format::named_formats;
 use crate::gfx_api;
@@ -683,8 +682,6 @@ impl JayRandrRequestHandler for JayRandr {
 
 #[derive(Debug, Error)]
 pub enum JayRandrError {
-    #[error(transparent)]
-    ClientError(Box<ClientError>),
     #[error("Unknown VRR mode {0}")]
     UnknownVrrMode(u32),
     #[error("Unknown tearing mode {0}")]
@@ -696,4 +693,3 @@ pub enum JayRandrError {
     #[error("Unknown EOTF {0}")]
     UnknownEotf(String),
 }
-efrom!(JayRandrError, ClientError);

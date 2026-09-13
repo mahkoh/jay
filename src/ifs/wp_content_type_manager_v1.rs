@@ -1,5 +1,5 @@
 use crate::client::Client;
-use crate::client::ClientError;
+use crate::client::LookupError;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::wp_content_type_v1::WpContentTypeV1;
@@ -33,7 +33,7 @@ impl WpContentTypeManagerV1Global {
             version,
         });
         track!(client, mgr);
-        client.add_client_obj(&mgr)?;
+        client.add_client_obj(&mgr);
         Ok(())
     }
 }
@@ -81,7 +81,7 @@ impl WpContentTypeManagerV1RequestHandler for WpContentTypeManagerV1 {
             version: self.version,
         });
         track!(self.client, device);
-        self.client.add_client_obj(&device)?;
+        self.client.add_client_obj(&device);
         Ok(())
     }
 }
@@ -89,8 +89,7 @@ impl WpContentTypeManagerV1RequestHandler for WpContentTypeManagerV1 {
 #[derive(Debug, Error)]
 pub enum WpContentTypeManagerV1Error {
     #[error(transparent)]
-    ClientError(Box<ClientError>),
+    Lookup(#[from] LookupError),
     #[error("Surface already has a content type object")]
     DuplicateContentType,
 }
-efrom!(WpContentTypeManagerV1Error, ClientError);
