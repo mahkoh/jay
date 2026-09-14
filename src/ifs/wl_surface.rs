@@ -1208,6 +1208,7 @@ impl WlSurfaceRequestHandler for WlSurface {
     type Error = WlSurfaceError;
 
     fn destroy(&self, _req: Destroy, slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.commit_timeline.schedule_unblock_transactions(slf);
         self.commit_timeline.clear(ClearReason::Destroy);
         self.unset_dnd_icons();
         self.unset_cursors();
