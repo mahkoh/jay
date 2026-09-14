@@ -53,7 +53,7 @@ pub struct ExtSessionLockSurfaceV1 {
     pub destroyed: Cell<bool>,
     pub configurable_data: ConfigurableData<Size>,
     pub desired_size: Cell<Size>,
-    pub _enabled_transactions: EnabledSurfaceTransactions,
+    pub enabled_transactions: Cell<Option<EnabledSurfaceTransactions>>,
 }
 
 impl ExtSessionLockSurfaceV1 {
@@ -114,6 +114,7 @@ impl ExtSessionLockSurfaceV1 {
         }
         self.surface.destroy_node();
         self.seat_state.destroy_node(self);
+        self.enabled_transactions.take();
     }
 }
 
