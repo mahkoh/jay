@@ -5,6 +5,7 @@ use crate::gfx_api::GfxTexture;
 use crate::gfx_api::ReleaseSync;
 use crate::gfx_api::ScalingFilter;
 use crate::ifs::wl_surface::WlSurface;
+use crate::rect::Rect;
 use crate::renderer::renderer_base::RenderTexture;
 use crate::renderer::renderer_base::RendererBase;
 use crate::scale::Scale;
@@ -71,7 +72,14 @@ impl SurfaceRenderCache {
     }
 
     #[expect(unused)]
-    pub fn render(&self, renderer: &mut RendererBase, x: i32, y: i32, grayscale: bool) {
+    pub fn render(
+        &self,
+        renderer: &mut RendererBase,
+        x: i32,
+        y: i32,
+        grayscale: bool,
+        bounds: Option<&Rect>,
+    ) {
         let state = &self.surface.state;
         let scale = renderer.scale;
         let scales = &mut *self.scaled.borrow_mut();
@@ -139,6 +147,7 @@ impl SurfaceRenderCache {
                 release_sync: ReleaseSync::None,
                 cd: Some(&self.surface.color_description()),
                 grayscale,
+                bounds,
                 ..Default::default()
             },
         )
