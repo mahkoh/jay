@@ -234,6 +234,18 @@ impl CommitTimeline {
         }
     }
 
+    pub(super) fn schedule_unblock_transactions(&self, surface: &Rc<WlSurface>) {
+        if self.own_timeline.entries.is_not_empty() {
+            add_entry(
+                &self.own_timeline,
+                &self.shared,
+                EntryKind::UnblockTransactions(surface.clone()),
+            );
+        } else {
+            surface.surface_transaction.unblock_all_transactions();
+        }
+    }
+
     pub(super) fn commit(
         &self,
         surface: &Rc<WlSurface>,
@@ -530,6 +542,7 @@ enum EntryKind {
     Commit(CachedBox<Commit, BoxUninit>),
     Wait(Rc<Cell<bool>>),
     Signal(Rc<Inner>, Rc<Cell<bool>>),
+    UnblockTransactions(Rc<WlSurface>),
     Gc(CommitTimelineId),
 }
 
@@ -655,6 +668,10 @@ impl Entry {
             EntryKind::Signal(next, signaled) => {
                 signaled.set(true);
                 flush_list(next)?;
+                Ok(true)
+            }
+            EntryKind::UnblockTransactions(surface) => {
+                surface.surface_transaction.unblock_all_transactions();
                 Ok(true)
             }
             EntryKind::Gc(id) => {
