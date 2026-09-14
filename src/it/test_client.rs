@@ -8,7 +8,6 @@ use crate::globals::Singleton;
 use crate::it::test_error::TestError;
 use crate::it::test_error::TestResult;
 use crate::it::test_ifs::test_buffer::TestBuffer;
-use crate::it::test_ifs::test_callback::TestCallback;
 use crate::it::test_ifs::test_keyboard::TestKeyboard;
 use crate::it::test_ifs::test_pointer::TestPointer;
 use crate::it::test_ifs::test_registry::TestRegistry;
@@ -31,7 +30,6 @@ use crate::wire::WlSurfaceId;
 use std::cell::Cell;
 use std::ops::Deref;
 use std::rc::Rc;
-use std::task::Poll;
 use uapi::OwnedFd;
 
 pub struct TestClient {
@@ -115,22 +113,6 @@ pub trait TestClientExt {
 
 impl TestClientExt for Client {
     async fn sync(self: &Rc<Self>) {
-        let id = self.send_wl_display_sync();
-        let cb = Rc::new(TestCallback::default());
-        self.set_synthetic_event_handler(id, &cb);
-        self.state.eng.yield_now().await;
-        futures_util::future::poll_fn(move |ctx| {
-            if cb.done.get() {
-                Poll::Ready(())
-            } else {
-                cb.handler.set(Some({
-                    let waker = ctx.waker().clone();
-                    Box::new(move || waker.wake())
-                }));
-                Poll::Pending
-            }
-        })
-        .await;
         self.state.idle().await;
     }
 
