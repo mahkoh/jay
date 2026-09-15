@@ -13,6 +13,8 @@ use jay_proc::Object;
 use std::convert::Infallible;
 use std::rc::Rc;
 
+pub const WL_COMPOSITOR_VERSION: u32 = 7;
+
 #[derive(Global)]
 pub struct WlCompositorGlobal {
     name: GlobalName,
@@ -81,6 +83,6 @@ impl WlCompositorRequestHandler for WlCompositor {
 
 impl Global for WlCompositorGlobal {
     fn version(&self) -> u32 {
-        7
+        WL_COMPOSITOR_VERSION
     }
 }

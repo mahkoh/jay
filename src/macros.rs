@@ -39,7 +39,6 @@ macro_rules! usr_object_base {
     };
 }
 
-#[allow(unused)]
 macro_rules! synthetic_event_handler {
     ($oname:ty) => {
         impl crate::object::SyntheticObjectEventHandler for $oname {
@@ -60,7 +59,7 @@ macro_rules! id_noconvert {
         #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
         pub struct $name(u64);
 
-        #[expect(unused)]
+        #[allow(unused)]
         impl $name {
             pub const NONE: Self = $name(0);
 

@@ -667,7 +667,6 @@ impl Client {
         Ok(())
     }
 
-    #[cfg_attr(not(feature = "it"), expect(unused))]
     pub fn set_synthetic_event_handler(
         &self,
         id: impl Into<ObjectId>,
@@ -729,7 +728,6 @@ impl Client {
         self.terminate.trigger();
     }
 
-    #[cfg_attr(not(feature = "it"), expect(unused))]
     pub fn get_synthetic_singleton<T>(self: &Rc<Self>, singleton: Singleton) -> T
     where
         T: From<ObjectId>,

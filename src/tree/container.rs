@@ -14,8 +14,8 @@ use crate::ifs::wl_seat::tablet::TabletTool;
 use crate::ifs::wl_seat::tablet::TabletToolChanges;
 use crate::ifs::wl_seat::tablet::TabletToolId;
 use crate::ifs::wl_seat::wl_pointer::PendingScroll;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::ToplevelIcon;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::ToplevelIconUser;
+use crate::ifs::wl_surface::icon_surface::IconSurfaceOwner;
+use crate::ifs::wl_surface::icon_surface::jay_icon_surface_v1::IconSurface;
 use crate::rect::Rect;
 use crate::renderer::Renderer;
 use crate::scale::Scale;
@@ -166,7 +166,6 @@ tree_id!(ContainerNodeId);
 #[jay_clone]
 pub struct ContainerTitle {
     pub tex: Option<Rc<dyn GfxTexture>>,
-    pub icon: Option<ToplevelIcon>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
@@ -255,6 +254,7 @@ pub struct ContainerChildNodeState {
     pub ty: Cell<ContainerChildType>,
     pub theme: ContainerChildTheme,
     pub offsets: Offsets,
+    pub toplevel_icon: CloneCell<Option<IconSurface>>,
     // fields below only valid in tabbed layout
     pub body: Cell<Rect>,
     pub content: Cell<Rect>,
@@ -270,14 +270,13 @@ pub struct Offsets {
 pub type ContainerChild = TreeLink<ContainerChildInner>;
 
 pub struct ContainerChildInner {
+    id: NodeId,
     pub node: Rc<dyn ToplevelNode>,
     pub active: Cell<bool>,
     pub rd: SmallMap<Scale, ContainerTitle, 2>,
     attention_requested: Cell<bool>,
     title: RefCell<String>,
     title_tex: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
-    icon: ToplevelIconUser,
-    icons: SmallMap<Scale, ToplevelIcon, 2>,
     focus_history: Cell<Option<LinkedNode<NodeRef<ContainerChild>>>>,
     pub node_state: SplitView<ContainerChildNodeState>,
     factor: Cell<f64>,
@@ -326,7 +325,7 @@ pub struct ContainerThemeSizes {
 #[derive(Clone, CachedValue)]
 pub struct ContainerChildTheme {
     colors: ContainerChildThemeColors,
-    pub sizes: ContainerChildThemeSizes,
+    sizes: ContainerChildThemeSizes,
     pub window_icons_grayscale: Cell<bool>,
     title_font: CloneCell<Rc<Arc<str>>>,
 }
@@ -357,14 +356,13 @@ impl ContainerChildInner {
         resize_handle: Option<Rect>,
     ) -> Self {
         let slf = Self {
+            id: node.node_id(),
             node: node.clone(),
             active: Default::default(),
             rd: Default::default(),
             attention_requested: Default::default(),
             title: Default::default(),
             title_tex: Default::default(),
-            icon: state.toplevel_icon_user(),
-            icons: Default::default(),
             focus_history: Default::default(),
             node_state: Default::default(),
             factor: Cell::new(factor),
@@ -381,13 +379,11 @@ impl ContainerChildInner {
 impl ContainerChildInner {
     fn add_title(&self, scale: Scale, title: &TextTexture) {
         let tex = title.texture();
-        let icon = self.icons.get(&scale);
-        if tex.is_some() || icon.is_some() {
+        if tex.is_some() {
             self.rd.insert(
                 scale,
                 ContainerTitle {
                     tex, //
-                    icon,
                 },
             );
         }
@@ -424,7 +420,6 @@ impl ContainerNode {
         let child_node = children.add_last(TreeLink::new(ContainerChildInner::new(
             state, &theme, &child, 1.0, None,
         )));
-        child.tl_update_icon(&child_node.icon);
         let child_node_ref = child_node.clone();
         let mut child_nodes = BHashMap::default();
         child_nodes.insert(child.node_id(), child_node);
@@ -498,6 +493,7 @@ impl ContainerNode {
 
     fn schedule_validate_child(self: &Rc<Self>, child: &NodeRef<ContainerChild>) {
         self.add_child_op(child, ContainerChildTransactionOp::SetValid);
+        self.update_icon(child);
     }
 
     fn schedule_unlink_child(
@@ -507,6 +503,7 @@ impl ContainerNode {
         self.schedule_child_types();
         child.set_invalid();
         child.focus_history.take();
+        self.set_child_ns_toplevel_icon(&child, None);
         let ref_ = child.to_ref();
         self.add_transaction_op(ContainerTransactionOp::Unlink(child));
         ref_
@@ -589,7 +586,6 @@ impl ContainerNode {
             r
         };
         self.schedule_validate_child(&new_ref);
-        new.tl_update_icon(&new_ref.icon);
         new.tl_set_parent(self.clone());
         self.pull_child_properties(&new_ref);
         new.tl_set_visible(self.toplevel_data.visible[LiveTL].get());
@@ -658,6 +654,7 @@ impl ContainerNode {
         } else {
             self.perform_split_layout();
         }
+        self.update_icon_positions();
         self.state.tree_changed();
         // log::info!("perform_layout");
         self.schedule_render_titles();
@@ -1067,17 +1064,11 @@ impl ContainerNode {
             };
             let title = child.title.borrow_mut();
             let tt = &mut *child.title_tex.borrow_mut();
-            child.icons.clear();
             for (scale, _) in scales.iter() {
                 let tex = tt.get_or_insert_with(*scale, || TextTexture::new(&self.state, &ctx));
                 let mut th = th;
                 let mut scalef = None;
                 let mut width = (rect.width() - cns.offsets.title.get()).max(0);
-                let icon =
-                    (ctheme.sizes.title_icon_size.get() > 0).and_then(|| child.icon.get(*scale));
-                if let Some(icon) = icon {
-                    child.icons.insert(*scale, icon);
-                }
                 if *scale != 1 {
                     let scale = scale.to_f64();
                     th = (th as f64 * scale).round() as _;
@@ -2190,7 +2181,6 @@ impl ContainerNode {
             || focused_title_text
             || focused_inactive_title_text
             || unfocused_title_text
-            || title_icon_size
             || title_font
             || or_chain!();
         if title {
@@ -2209,9 +2199,18 @@ impl ContainerNode {
             self.schedule_compute_render_positions();
         }
         if title_icon_size {
-            if child.icon.set_size(ns.theme.sizes.title_icon_size.get()) {
-                child.node.tl_update_icon(&child.icon);
+            let size = ns.theme.sizes.title_icon_size.get();
+            if size <= 0 {
+                self.set_child_ns_toplevel_icon(child, None);
+                self.schedule_title_offsets(child);
+            } else if let Some(icon) = ns.toplevel_icon.get() {
+                icon.set_size(size, size);
+            } else {
+                self.update_icon(child);
             }
+        }
+        if window_icons_grayscale && let Some(icon) = ns.toplevel_icon.get() {
+            icon.set_grayscale(ns.theme.window_icons_grayscale.get());
         }
         let title_offsets = or_chain!(___________________________________________)
             || title_offsets
@@ -2233,7 +2232,6 @@ impl ContainerNode {
         let ns = &self.node_state[LiveTL];
         let cns = &child.node_state[LiveTL];
         let theme = &ns.theme;
-        let ctheme = &cns.theme;
         let th = theme.sizes.title_height.get();
         let mut x = 0;
         macro_rules! snapshot {
@@ -2246,7 +2244,7 @@ impl ContainerNode {
             x += th;
         }
         snapshot!(toplevel_icon);
-        if child.icon.has_icon() && ctheme.sizes.title_icon_size.get() > 0 {
+        if cns.toplevel_icon.is_some() {
             x += th;
         }
         snapshot!(title);
@@ -2266,6 +2264,9 @@ impl ContainerNode {
         if title {
             self.schedule_render_titles();
         }
+        if toplevel_icon {
+            self.set_icon_position(child);
+        }
         let damage = or_chain!(____________________)
             || overlay_icon
             || toplevel_icon
@@ -2275,6 +2276,66 @@ impl ContainerNode {
             let x = ns.abs_x1.get();
             let y = ns.abs_y1.get();
             self.state.schedule_damage(cns.title_rect.get().move_(x, y));
+        }
+    }
+
+    fn set_child_ns_toplevel_icon(
+        self: &Rc<Self>,
+        child: &NodeRef<ContainerChild>,
+        v: Option<IconSurface>,
+    ) -> Option<IconSurface> {
+        self.add_child_op(child, ContainerChildTransactionOp::SetIcon(v.clone()));
+        let old = child.node_state[LiveTL].toplevel_icon.set(v);
+        if let Some(v) = &old {
+            v.disown();
+        }
+        old
+    }
+
+    fn update_icon(self: &Rc<Self>, child: &NodeRef<ContainerChild>) {
+        let cns = &child.node_state[LiveTL];
+        let ctheme = &cns.theme;
+        let size = ctheme.sizes.title_icon_size.get();
+        let surface = (size > 0)
+            .and_then(|| child.node.tl_icon_surface_factory())
+            .map(|n| n.build_surface(self, child.id));
+        if let Some(surface) = &surface {
+            let (x, y) = self.calculate_icon_position(child);
+            surface.set_grayscale(ctheme.window_icons_grayscale.get());
+            surface.set_position(x, y);
+            surface.set_size(size, size);
+            surface.set_visible(self.node_visible(LiveTL));
+            surface.set_workspace(&self.workspace.get());
+        }
+        let new = surface.as_ref().is_some();
+        let old = self.set_child_ns_toplevel_icon(child, surface).is_some();
+        if old != new {
+            self.schedule_title_offsets(child);
+        }
+    }
+
+    fn calculate_icon_position(&self, child: &ContainerChildInner) -> (i32, i32) {
+        let ns = &self.node_state[LiveTL];
+        let cns = &child.node_state[LiveTL];
+        let (x, y) = (ns.abs_x1.get(), ns.abs_y1.get());
+        let (dx, dy) = cns.title_rect.get().position();
+        let x = x + dx + 1 + cns.offsets.toplevel_icon.get();
+        let y = y + dy + 1;
+        (x, y)
+    }
+
+    fn set_icon_position(&self, child: &ContainerChildInner) {
+        let cns = &child.node_state[LiveTL];
+        let Some(icon) = cns.toplevel_icon.get() else {
+            return;
+        };
+        let (x, y) = self.calculate_icon_position(child);
+        icon.set_position(x, y);
+    }
+
+    fn update_icon_positions(&self) {
+        for child in self.children.iter_valid(LiveTL) {
+            self.set_icon_position(&child);
         }
     }
 }
@@ -2689,7 +2750,6 @@ impl ContainingNode for ContainerNode {
         let link_ref = link.to_ref();
         self.schedule_validate_child(&link);
         self.child_nodes.borrow_mut().insert(new.node_id(), link);
-        new.tl_update_icon(&link_ref.icon);
         new.tl_set_parent(self.clone());
         self.pull_child_properties(&link_ref);
         new.tl_set_visible(visible);
@@ -2961,14 +3021,12 @@ impl ContainingNode for ContainerNode {
         self.tl_data().self_or_ancestor_is_fullscreen.get()
     }
 
-    fn cnode_child_icon_changed(self: Rc<Self>, child: &dyn ToplevelNode) {
-        let children = self.child_nodes.borrow();
-        let Some(cc) = children.get(&child.node_id()) else {
+    fn cnode_child_icon_factory_changed(self: Rc<Self>, child: NodeId) {
+        let children = &*self.child_nodes.borrow();
+        let Some(child) = children.get(&child) else {
             return;
         };
-        child.tl_update_icon(&cc.icon);
-        self.schedule_title_offsets(cc);
-        self.schedule_render_titles();
+        self.update_icon(child);
     }
 }
 
@@ -2981,6 +3039,9 @@ impl ToplevelNodeBase for ContainerNode {
         self.workspace.set(ws.clone());
         self.location.set(ws.location());
         for child in self.children.iter_valid(LiveTL) {
+            if let Some(icon) = child.node_state[LiveTL].toplevel_icon.get() {
+                icon.set_workspace(ws);
+            }
             child.node.clone().tl_set_workspace(ws);
         }
     }
@@ -3014,6 +3075,7 @@ impl ToplevelNodeBase for ContainerNode {
                     child.node.clone().tl_change_extents(&body);
                 }
             }
+            self.update_icon_positions();
         }
     }
 
@@ -3032,6 +3094,11 @@ impl ToplevelNodeBase for ContainerNode {
     }
 
     fn tl_set_visible_impl(&self, visible: bool) {
+        for child in self.children.iter_valid(LiveTL) {
+            if let Some(icon) = child.node_state[LiveTL].toplevel_icon.get() {
+                icon.set_visible(visible);
+            }
+        }
         if let Some(mc) = self.node_state[LiveTL].mono_child.get() {
             mc.node.tl_set_visible(visible);
         } else {
@@ -3192,9 +3259,6 @@ impl GfxCtxChangedListener for ContainerNode {
         self.children.iter().for_each(|c| {
             c.rd.clear();
             c.title_tex.borrow_mut().clear();
-            c.icon.clear();
-            c.icons.clear();
-            self.schedule_title_offsets(&c);
         });
         self.schedule_render_titles();
     }
@@ -3397,6 +3461,17 @@ fn compute_child_theme(theme: &Theme, container_theme: &ContainerTheme) -> Conta
     }
 }
 
+impl IconSurfaceOwner for ContainerNode {
+    fn destroyed(self: Rc<Self>, node_id: NodeId) {
+        let cn = self.child_nodes.borrow();
+        let Some(child) = cn.get(&node_id) else {
+            return;
+        };
+        self.set_child_ns_toplevel_icon(child, None);
+        self.schedule_title_offsets(child);
+    }
+}
+
 pub enum ContainerTransactionOp {
     SetSplit(ContainerSplit),
     SetMonoChild(Option<NodeRef<ContainerChild>>),
@@ -3426,6 +3501,7 @@ pub enum ContainerChildTransactionOp {
     SetType(ContainerChildType),
     ThemeOp(ContainerChildThemeOp),
     SetOffset(OffsetsOp),
+    SetIcon(Option<IconSurface>),
 }
 
 impl Transactionable for ContainerNode {
@@ -3494,6 +3570,9 @@ impl Transactionable for ContainerNode {
                     }
                     ContainerChildTransactionOp::SetOffset(v) => {
                         cs.offsets.cached_apply(v);
+                    }
+                    ContainerChildTransactionOp::SetIcon(v) => {
+                        cs.toplevel_icon.set(v);
                     }
                 }
             }

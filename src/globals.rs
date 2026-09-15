@@ -321,6 +321,7 @@ mod singletons {
     pub(super) use crate::ifs::jay_compositor::JayCompositorGlobal;
     pub(super) use crate::ifs::jay_damage_tracking::JayDamageTrackingGlobal;
     pub(super) use crate::ifs::jay_popup_ext_manager_v1::JayPopupExtManagerV1Global;
+    pub(super) use crate::ifs::jay_wl_surface_factory_manager_v1::JayWlSurfaceFactoryManagerV1Global;
     pub(super) use crate::ifs::org_kde_kwin_server_decoration_manager::OrgKdeKwinServerDecorationManagerGlobal;
     pub(super) use crate::ifs::wl_compositor::WlCompositorGlobal;
     pub(super) use crate::ifs::wl_drm::WlDrmGlobal;
@@ -336,6 +337,8 @@ mod singletons {
     pub(super) use crate::ifs::wl_seat::zwp_virtual_keyboard_manager_v1::ZwpVirtualKeyboardManagerV1Global;
     pub(super) use crate::ifs::wl_shm::WlShmGlobal;
     pub(super) use crate::ifs::wl_subcompositor::WlSubcompositorGlobal;
+    pub(super) use crate::ifs::wl_surface::icon_surface::jay_icon_surface_manager_v1::JayIconSurfaceManagerV1Global;
+    pub(super) use crate::ifs::wl_surface::icon_surface::jay_toplevel_icon_subject_manager_v1::JayToplevelIconSubjectManagerV1Global;
     pub(super) use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_manager_v1::XdgToplevelIconManagerV1Global;
     pub(super) use crate::ifs::wl_surface::xwayland_shell_v1::XwaylandShellV1Global;
     pub(super) use crate::ifs::wlr_output_manager::zwlr_output_manager_v1::ZwlrOutputManagerV1Global;

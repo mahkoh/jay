@@ -1,0 +1,12 @@
+singleton
+synthetics
+
+request destroy (destructor) {
+
+}
+
+request create_factory {
+    id: id(jay_icon_surface_factory_v1) (new),
+    subject: id(jay_icon_surface_subject_v1),
+    surface_factory: id(jay_wl_surface_factory_v1),
+}

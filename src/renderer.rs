@@ -14,7 +14,6 @@ use crate::ifs::wl_surface::WlSurface;
 use crate::ifs::wl_surface::x_surface::xwindow::Xwindow;
 use crate::ifs::wl_surface::xdg_surface::XdgSurface;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::ToplevelIcon;
 use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1;
 use crate::rect::Rect;
 use crate::renderer::renderer_base::RenderTexture;
@@ -361,17 +360,12 @@ impl Renderer<'_> {
                         );
                     }
                 }
+                if let Some(surface) = cns.toplevel_icon.get() {
+                    let x = x + 1 + cns.offsets.toplevel_icon.get();
+                    let y = rect.y1() + 1;
+                    surface.render(&mut self.base, x, y, Some(&bounds));
+                }
                 if let Some(rd) = child.rd.get(&self.base.scale) {
-                    if let Some(icon) = &rd.icon {
-                        self.render_icon(
-                            &icon,
-                            &bounds,
-                            x + offsets.toplevel_icon.get(),
-                            rect.y1(),
-                            cns.theme.window_icons_grayscale.get(),
-                            cns.theme.sizes.title_icon_size.get(),
-                        );
-                    }
                     if let Some(tex) = &rd.tex {
                         let (x, y) = self.base.scale_point(x + offsets.title.get(), rect.y1());
                         self.base.render_texture(
@@ -723,15 +717,10 @@ impl Renderer<'_> {
                 );
             }
         }
-        if let Some(icon) = floating.icons.get(&self.base.scale) {
-            self.render_icon(
-                &icon,
-                &bounds,
-                x1 + ns.offsets.toplevel_icon.get(),
-                y1,
-                theme.window_icons_grayscale.get(),
-                sizes.title_icon_size.get(),
-            );
+        if let Some(surface) = ns.toplevel_icon.get() {
+            let x = x1 + 1 + ns.offsets.toplevel_icon.get();
+            let y = y1 + 1;
+            surface.render(&mut self.base, x, y, Some(&bounds));
         }
         if let Some(title) = floating.title_textures.borrow().get(&self.base.scale)
             && let Some(texture) = title.texture()
@@ -779,49 +768,5 @@ impl Renderer<'_> {
         let surface_size = self.base.scale_rect(surface_size);
         let bounds = bounds.move_(-x, -y).intersect(surface_size);
         region.contains_rect2(&bounds, |r| self.base.scale_rect(*r))
-    }
-
-    fn render_icon(
-        &mut self,
-        icon: &ToplevelIcon,
-        bounds: &Rect,
-        x1: i32,
-        y1: i32,
-        window_icons_grayscale: bool,
-        title_icon_size: i32,
-    ) {
-        let (x, y) = self.base.scale_point(x1 + 1, y1 + 1);
-        let grayscale = window_icons_grayscale;
-        let srgb = self.state.color_manager.srgb_gamma22();
-        let perceptual = RenderIntent::Perceptual;
-        match icon {
-            ToplevelIcon::Srgb(color) => {
-                let tis = title_icon_size + 1;
-                let (x2, y2) = self.base.scale_point(x1 + tis, y1 + tis);
-                let color = match grayscale {
-                    true => color.to_grayscale(),
-                    false => *color,
-                };
-                self.base.fill_scaled_boxes(
-                    slice::from_ref(&Rect::new_saturating(x, y, x2, y2)),
-                    &color,
-                    None,
-                    &srgb.linear,
-                    perceptual,
-                )
-            }
-            ToplevelIcon::Tex(tex) => {
-                self.base.render_texture(
-                    &tex,
-                    x,
-                    y,
-                    RenderTexture {
-                        bounds: Some(bounds),
-                        grayscale,
-                        ..Default::default()
-                    },
-                );
-            }
-        }
     }
 }

@@ -127,9 +127,6 @@ use crate::ifs::wl_surface::tray::TrayItemIds;
 use crate::ifs::wl_surface::wl_subsurface::SubsurfaceIds;
 use crate::ifs::wl_surface::x_surface::xwindow::Xwindow;
 use crate::ifs::wl_surface::x_surface::xwindow::XwindowId;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::ToplevelIconId;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::ToplevelIconIds;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::XdgToplevelIconV1;
 use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::IdleInhibitorId;
 use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::IdleInhibitorIds;
 use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1;
@@ -423,8 +420,6 @@ pub struct State {
     pub sm: Option<Rc<SessionManager>>,
     pub session_management_enabled: Cell<bool>,
     pub fallback_output: Cell<Option<ConnectorId>>,
-    pub toplevel_icon_ids: ToplevelIconIds,
-    pub toplevel_icons: CopyHashMap<ToplevelIconId, Weak<XdgToplevelIconV1>>,
     pub tree: Rc<TreeState>,
     pub commit_cache: CommitCache,
     pub dmabuf_feedback: DmaBufFeedbackState,
@@ -853,15 +848,6 @@ impl State {
         self.reload_cursors();
         self.update_xwayland_wire_scale();
         self.icons.update_sizes(self);
-        self.update_toplevel_icon_sizes();
-    }
-
-    pub fn update_toplevel_icon_sizes(&self) {
-        for v in self.toplevel_icons.lock().values() {
-            if let Some(v) = v.upgrade() {
-                v.update_sizes();
-            }
-        }
     }
 
     fn cursor_sizes_changed(&self) {
@@ -2390,7 +2376,6 @@ impl State {
         TreeSerial::from_raw(serial)
     }
 
-    #[expect(unused)]
     pub fn validate_tree_serial(&self, s: u64) -> Option<TreeSerial> {
         let last = self.tree.serials.last().raw();
         if s > last {

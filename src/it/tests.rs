@@ -101,6 +101,14 @@ mod t2026_09_11_float_pin;
 mod t2026_09_11_float_title_offsets;
 mod t2026_09_11_icon_title_offsets;
 mod t2026_09_12_container_title_offsets_no_icons;
+mod t2026_09_12_icon_position;
+mod t2026_09_12_icon_surface_buffer;
+mod t2026_09_12_window_icons_disabled;
+mod t2026_09_13_container_icon_position;
+mod t2026_09_13_container_icon_recreate;
+mod t2026_09_13_container_icon_visible;
+mod t2026_09_13_container_icon_workspace;
+mod t2026_09_13_xdg_toplevel_icon_bridge;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;

@@ -23,9 +23,9 @@ use crate::ifs::wl_seat::NodeSeatState;
 use crate::ifs::wl_seat::SeatId;
 use crate::ifs::wl_seat::collect_kb_foci;
 use crate::ifs::wl_surface::WlSurface;
+use crate::ifs::wl_surface::icon_surface::jay_icon_surface_factory_v1::JayIconSurfaceFactoryV1;
 use crate::ifs::wl_surface::x_surface::xwindow::XwindowData;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevelToplevelData;
-use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::ToplevelIconUser;
 use crate::ifs::wp_content_type_v1::ContentType;
 use crate::ifs::zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1;
 use crate::ifs::zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1;
@@ -384,8 +384,8 @@ pub trait ToplevelNodeBase: OutputEventListener + WorkspaceEventListener + Node 
         // nothing
     }
 
-    fn tl_update_icon(&self, user: &ToplevelIconUser) {
-        user.clear();
+    fn tl_icon_surface_factory(&self) -> Option<Rc<JayIconSurfaceFactoryV1>> {
+        None
     }
 
     fn tl_schedule_data_op(self: Rc<Self>, op: ToplevelDataTransactionOp);

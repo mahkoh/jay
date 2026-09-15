@@ -124,6 +124,7 @@ impl Scales {
         self.indices.get(&scale).unwrap_or(ScaleIndex::INVALID)
     }
 
+    #[expect(unused)]
     pub fn version(&self) -> u64 {
         self.scales.version()
     }

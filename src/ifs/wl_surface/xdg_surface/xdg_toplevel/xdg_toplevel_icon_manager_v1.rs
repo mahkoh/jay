@@ -5,6 +5,7 @@ use crate::globals::GlobalName;
 use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1::XdgToplevelIconV1;
 use crate::leaks::Tracker;
 use crate::object::Version;
+use crate::utils::hash_map_ext::HashMapExt;
 use crate::wire::XdgToplevelIconManagerV1Id;
 use crate::wire::xdg_toplevel_icon_manager_v1::*;
 use jay_proc::Global;
@@ -65,6 +66,9 @@ impl XdgToplevelIconManagerV1 {
             return;
         }
         self.send_icon_size(size);
+        for i in 3..8 {
+            self.send_icon_size(1 << i);
+        }
         self.send_done();
     }
 
@@ -92,44 +96,19 @@ impl XdgToplevelIconManagerV1RequestHandler for XdgToplevelIconManagerV1 {
         let obj = XdgToplevelIconV1::new(req.id, &self.client, self.version);
         track!(self.client, obj);
         self.client.add_client_obj(&obj);
-        self.client
-            .state
-            .toplevel_icons
-            .set(obj.toplevel_icon_id, Rc::downgrade(&obj));
         Ok(())
     }
 
     fn set_icon(&self, req: SetIcon, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let (id, new) = if req.icon.is_none() {
-            (None, None)
+        let buffers = if req.icon.is_none() {
+            None
         } else {
             let icon = self.client.lookup(req.icon)?;
-            let was_mutable = !icon.immutable.replace(true);
-            if icon.is_empty() {
-                (None, None)
-            } else {
-                if was_mutable {
-                    icon.update_sizes();
-                }
-                (Some(icon.toplevel_icon_id), Some(icon))
-            }
+            let buffers = icon.buffers();
+            buffers.is_not_empty().then(|| buffers.clone())
         };
         let tl = self.client.lookup(req.toplevel)?;
-        if tl.icon.id() == id {
-            return Ok(());
-        }
-        let old = tl.icon.set(new.clone());
-        if let Some(i) = old {
-            i.toplevels.remove(&tl.id);
-        }
-        if let Some(i) = &new {
-            i.toplevels.set(tl.id, tl.clone());
-            if i.has_no_pending() {
-                tl.icon_changed();
-            }
-        } else {
-            tl.icon_changed();
-        }
+        tl.icon_bridge.set_buffers(buffers);
         Ok(())
     }
 }

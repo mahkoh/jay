@@ -40,6 +40,7 @@ use thiserror::Error;
 use uapi::OwnedFd;
 use uapi::c;
 
+#[derive(Clone)]
 pub enum WlBufferStorage {
     Shm {
         mem: Rc<ClientMemOffset>,
@@ -49,6 +50,7 @@ pub enum WlBufferStorage {
     Dmabuf(WlBufferDmabufStorage),
 }
 
+#[derive(Clone)]
 pub struct WlBufferDmabufStorage {
     pub dmabuf: Rc<DmaBuf>,
     pub tex: Option<Rc<dyn GfxTexture>>,
@@ -56,6 +58,7 @@ pub struct WlBufferDmabufStorage {
     copy_obj: Option<Option<Rc<CopyDeviceSrcObject>>>,
 }
 
+#[derive(Clone)]
 pub struct DmabufBufferParams {
     size: usize,
     udmabuf: Option<Rc<OwnedFd>>,
@@ -108,6 +111,11 @@ pub struct WlBuffer {
     _gfx_ctx_changed: EventListener<dyn GfxCtxChangedListener>,
     pub tracker: Tracker<Self>,
     pub had_buffer_texture: Cell<bool>,
+}
+
+pub struct SyntheticWlBuffer {
+    pub id: WlBufferId,
+    client: Rc<Client>,
 }
 
 impl WlBuffer {
@@ -601,6 +609,45 @@ impl WlBuffer {
             return Err(WlBufferError::CrossDeviceImportDenied);
         }
         Ok(())
+    }
+
+    pub fn clone_synthetic(&self) -> SyntheticWlBuffer {
+        let id = self.client.new_synthetic_id();
+        let slf = Rc::<Self>::new_cyclic(|slf| Self {
+            id,
+            destroyed: Default::default(),
+            version: self.version,
+            client: self.client.clone(),
+            rect: self.rect,
+            format: self.format,
+            client_dmabuf: self.client_dmabuf.clone(),
+            client_dmabuf_device: self.client_dmabuf_device.clone(),
+            exclusive_device: self.exclusive_device,
+            render_ctx_version: self.render_ctx_version.clone(),
+            storage: self.storage.clone(),
+            ty: self.ty,
+            color: self.color,
+            width: self.width,
+            height: self.height,
+            _gfx_ctx_changed: EventListener::attached(
+                slf.clone(),
+                &self.client.state.gfx_ctx_changed,
+            ),
+            tracker: Default::default(),
+            had_buffer_texture: self.had_buffer_texture.clone(),
+        });
+        track!(self.client, slf);
+        slf.client.add_server_obj(&slf);
+        SyntheticWlBuffer {
+            id,
+            client: self.client.clone(),
+        }
+    }
+}
+
+impl Drop for SyntheticWlBuffer {
+    fn drop(&mut self) {
+        self.client.request(Destroy { self_id: self.id });
     }
 }
 

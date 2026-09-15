@@ -472,8 +472,6 @@ fn start_compositor2(
         sm,
         session_management_enabled: Cell::new(true),
         fallback_output: Default::default(),
-        toplevel_icon_ids: Default::default(),
-        toplevel_icons: Default::default(),
         transaction_data: TransactionData::new(&tree),
         tree,
         commit_cache: Default::default(),

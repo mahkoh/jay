@@ -1,0 +1,18 @@
+event_handler
+synthetics
+
+request destroy (destructor) {
+
+}
+
+request stop {
+
+}
+
+event stopped {
+
+}
+
+event surface {
+    id: id(jay_icon_surface_v1) (new),
+}

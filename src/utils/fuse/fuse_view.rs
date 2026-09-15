@@ -12,7 +12,6 @@ use crate::utils::type_view::tv_wrap_weak;
 use std::rc::Rc;
 use std::rc::Weak;
 
-#[cfg_attr(not(test), expect(unused))]
 pub trait FuseView<T>: 'static
 where
     T: ?Sized,

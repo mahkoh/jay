@@ -2,6 +2,7 @@ pub mod commit_timeline;
 pub mod cursor;
 pub mod dnd_icon;
 pub mod ext_session_lock_surface_v1;
+pub mod icon_surface;
 pub mod jay_sync_file_release;
 pub mod jay_sync_file_surface;
 pub mod prime;
@@ -213,6 +214,7 @@ pub enum SurfaceRole {
     ExtSessionLockSurface,
     InputPopup,
     TrayItem,
+    Icon,
 }
 
 impl SurfaceRole {
@@ -228,6 +230,7 @@ impl SurfaceRole {
             SurfaceRole::ExtSessionLockSurface => "ext_session_lock_surface",
             SurfaceRole::InputPopup => "input_popup_surface",
             SurfaceRole::TrayItem => "tray_item",
+            SurfaceRole::Icon => "icon",
         }
     }
 }
@@ -1029,7 +1032,9 @@ impl WlSurface {
         }
         self.role.set(role);
         let transactional = match role {
-            XdgSurface | XSurface | ZwlrLayerSurface | ExtSessionLockSurface | TrayItem => true,
+            XdgSurface | XSurface | ZwlrLayerSurface | ExtSessionLockSurface | TrayItem | Icon => {
+                true
+            }
             None | Subsurface | Cursor | DndIcon | InputPopup => false,
         };
         self.transactional.set(transactional);

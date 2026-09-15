@@ -5,6 +5,7 @@ use crate::gfx_api::GfxTexture;
 use crate::gfx_api::ReleaseSync;
 use crate::gfx_api::ScalingFilter;
 use crate::ifs::wl_surface::WlSurface;
+use crate::rect::Rect;
 use crate::renderer::renderer_base::RenderTexture;
 use crate::renderer::renderer_base::RendererBase;
 use crate::scale::Scale;
@@ -39,7 +40,6 @@ struct Scaled {
 }
 
 impl SurfaceRenderCache {
-    #[expect(unused)]
     pub fn new(surface: &Rc<WlSurface>) -> Rc<Self> {
         let state = &surface.state;
         Rc::<Self>::new_cyclic(|slf| Self {
@@ -61,7 +61,6 @@ impl SurfaceRenderCache {
         self.scaled.borrow_mut().clear();
     }
 
-    #[expect(unused)]
     pub fn set_size(&self, width: i32, height: i32) {
         let size = [width, height];
         if self.size.replace(size) == size {
@@ -70,8 +69,14 @@ impl SurfaceRenderCache {
         self.clear_tex();
     }
 
-    #[expect(unused)]
-    pub fn render(&self, renderer: &mut RendererBase, x: i32, y: i32, grayscale: bool) {
+    pub fn render(
+        &self,
+        renderer: &mut RendererBase,
+        x: i32,
+        y: i32,
+        grayscale: bool,
+        bounds: Option<&Rect>,
+    ) {
         let state = &self.surface.state;
         let scale = renderer.scale;
         let scales = &mut *self.scaled.borrow_mut();
@@ -139,6 +144,7 @@ impl SurfaceRenderCache {
                 release_sync: ReleaseSync::None,
                 cd: Some(&self.surface.color_description()),
                 grayscale,
+                bounds,
                 ..Default::default()
             },
         )

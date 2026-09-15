@@ -842,7 +842,6 @@ pub async fn handle_theme_changes(state: Rc<State>) {
                     v.send_sizes();
                 }
             }
-            state.update_toplevel_icon_sizes();
         }
         state.trigger_cci(CCI_LOOK_AND_FEEL);
     }

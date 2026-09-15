@@ -2,8 +2,9 @@ event_handler
 synthetics
 
 request destroy (destructor) {
+
 }
 
-event preferred_scale {
-    scale: u32,
+event surface {
+    id: id(wl_surface) (new),
 }

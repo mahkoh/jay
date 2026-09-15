@@ -1,5 +1,6 @@
 use crate::tree::FloatNode;
 use crate::tree::Node;
+use crate::tree::NodeId;
 use crate::tree::ToplevelNode;
 use crate::tree::WorkspaceNode;
 use std::rc::Rc;
@@ -45,7 +46,7 @@ pub trait ContainingNode: Node {
     fn cnode_self_or_ancestor_fullscreen(&self) -> bool {
         false
     }
-    fn cnode_child_icon_changed(self: Rc<Self>, child: &dyn ToplevelNode) {
+    fn cnode_child_icon_factory_changed(self: Rc<Self>, child: NodeId) {
         let _ = child;
     }
 }
