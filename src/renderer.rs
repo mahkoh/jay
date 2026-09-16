@@ -8,7 +8,6 @@ use crate::gfx_api::ReleaseSync;
 use crate::gfx_api::SampleRect;
 use crate::icons::IconState;
 use crate::icons::SizedBarIcons;
-use crate::icons::SizedTitleIcons;
 use crate::ifs::wl_surface::SurfaceBuffer;
 use crate::ifs::wl_surface::WlSurface;
 use crate::ifs::wl_surface::x_surface::xwindow::Xwindow;
@@ -19,6 +18,7 @@ use crate::rect::Rect;
 use crate::renderer::renderer_base::RenderTexture;
 use crate::renderer::renderer_base::RendererBase;
 use crate::scale::Scale;
+use crate::scale::ScaleIndex;
 use crate::state::State;
 use crate::theme::Color;
 use crate::tree::ContainerChildType;
@@ -33,6 +33,7 @@ use crate::tree::ToplevelNodeBase;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::tree::WorkspaceNode;
 use crate::tree::WorkspaceType;
+use std::cell::LazyCell;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::slice;
@@ -44,7 +45,7 @@ pub struct Renderer<'a> {
     pub state: &'a State,
     pub logical_extents: Rect,
     pub pixel_extents: Rect,
-    pub title_icons: Option<Rc<SizedTitleIcons>>,
+    pub scale_idx: ScaleIndex,
     pub bar_icons: Option<Rc<SizedBarIcons>>,
 }
 
@@ -337,7 +338,7 @@ impl Renderer<'_> {
                 let bounds = self.base.scale_rect(rect);
                 let x = rect.x1();
                 if draw_overlay_icon {
-                    if let Some(icons) = &self.title_icons {
+                    if let Some(icons) = child.title_icons.get(self.scale_idx) {
                         let (x, y) = self
                             .base
                             .scale_point(x + offsets.overlay_icon.get(), rect.y1());
@@ -668,8 +669,9 @@ impl Renderer<'_> {
         let rect = ns.title_rect.get().move_(x, y);
         let bounds = self.base.scale_rect(rect);
         let (x1, y1) = rect.position();
+        let title_icons = LazyCell::new(|| floating.title_icons.get(self.scale_idx));
         if ns.workspace_ty.get() == WorkspaceType::Overlay {
-            if let Some(icons) = &self.title_icons {
+            if let Some(icons) = &*title_icons {
                 let icon = if ns.active.get() {
                     &icons.overlay_focused_title
                 } else if ns.attention_requested.get() {
@@ -694,7 +696,7 @@ impl Renderer<'_> {
         let is_pinned = ns.pinned.get();
         if is_pinned || theme.show_pin_icon.get() {
             let (x, y) = self.base.scale_point(x1 + ns.offsets.pin_icon.get(), y1);
-            if let Some(icons) = &self.title_icons {
+            if let Some(icons) = &*title_icons {
                 let icon = if ns.active.get() {
                     &icons.pin_focused_title
                 } else if ns.attention_requested.get() {

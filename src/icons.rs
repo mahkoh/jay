@@ -5,7 +5,9 @@ use crate::format::ARGB8888;
 use crate::gfx_api::GfxContext;
 use crate::gfx_api::GfxError;
 use crate::gfx_api::GfxTexture;
+use crate::icons::titles::Titles;
 use crate::scale::Scale;
+use crate::scale::ScaleIndex;
 use crate::state::State;
 use crate::theme::Theme;
 use crate::utils::bhash::BHashSet;
@@ -13,7 +15,6 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::windows::WindowsExt;
 use linearize::Linearize;
 use linearize::StaticMap;
-use linearize::static_map;
 use std::cell::Cell;
 use std::f32::consts::PI;
 use std::mem;
@@ -28,9 +29,11 @@ use tiny_skia::PathBuilder;
 use tiny_skia::Pixmap;
 use tiny_skia::Transform;
 
+pub mod titles;
+
 #[derive(Default)]
 pub struct Icons {
-    title_icons: CopyHashMap<i32, Option<Rc<SizedTitleIcons>>>,
+    titles: Titles,
     bar_icons: CopyHashMap<i32, Option<Rc<SizedBarIcons>>>,
     compositing_icon: CopyHashMap<i32, Option<Rc<SizedCompositingIcon>>>,
 }
@@ -72,8 +75,17 @@ pub enum IconsError {
 }
 
 impl Icons {
+    pub fn add_scale(&self, state: &State, scale: Scale, idx: ScaleIndex) {
+        self.titles.add_scale(scale, idx);
+        self.update_sizes(state);
+    }
+
+    pub fn remove_scale(&self, state: &State, scale: Scale, idx: ScaleIndex) {
+        self.titles.remove_scale(scale, idx);
+        self.update_sizes(state);
+    }
+
     pub fn update_sizes(&self, state: &State) {
-        self.update_sizes_(state, state.theme.title_height(), &self.title_icons);
         self.update_sizes_(state, state.theme.sizes.bar_height(), &self.bar_icons);
         self.update_sizes_(state, 100, &self.compositing_icon);
     }
@@ -89,20 +101,14 @@ impl Icons {
         map.lock().retain(|size, _| sizes.contains(size));
     }
 
-    pub fn clear(&self) {
-        self.title_icons.clear();
-        self.bar_icons.clear();
-        self.compositing_icon.clear();
+    pub fn set_render_ctx(&self, ctx: Option<&Rc<dyn GfxContext>>) {
+        self.titles.set_render_ctx(ctx);
+        self.clear();
     }
 
-    pub fn get_title_icons(&self, state: &State, scale: Scale) -> Option<Rc<SizedTitleIcons>> {
-        self.get(
-            state,
-            scale,
-            state.theme.title_height(),
-            &self.title_icons,
-            create_title_icons,
-        )
+    pub fn clear(&self) {
+        self.bar_icons.clear();
+        self.compositing_icon.clear();
     }
 
     pub fn get_bar_icons(&self, state: &State, scale: Scale) -> Option<Rc<SizedBarIcons>> {
@@ -180,44 +186,6 @@ fn create_icon(
     upload_pixmap(pixmap, ctx)
 }
 
-fn create_title_icons(
-    size: i32,
-    theme: &Theme,
-    ctx: &Rc<dyn GfxContext>,
-) -> Result<SizedTitleIcons, IconsError> {
-    if size <= 0 {
-        return Err(IconsError::NonPositiveSize);
-    }
-    let size = size as u32;
-
-    let create_icon = |path: &Path, color: Color| create_icon(size, ctx, path, color);
-    let create_pins = |color: crate::theme::Color| {
-        let colors = calculate_accents(color);
-        Ok(static_map! {
-            IconState::Passive => create_icon(&PIN_PATH, colors[0])?,
-            IconState::Active => create_icon(&PIN_PATH, colors[1])?,
-        })
-    };
-    let create_overlay = |color: crate::theme::Color| {
-        let colors = calculate_accents(color);
-        create_icon(&OVERLAY_PATH, colors[0])
-    };
-
-    Ok(SizedTitleIcons {
-        pin_unfocused_title: create_pins(theme.colors.unfocused_title_background.get())?,
-        pin_focused_title: create_pins(theme.colors.focused_title_background.get())?,
-        pin_attention_requested: create_pins(theme.colors.attention_requested_background.get())?,
-        overlay_unfocused_title: create_overlay(theme.colors.unfocused_title_background.get())?,
-        overlay_attention_requested: create_overlay(
-            theme.colors.attention_requested_background.get(),
-        )?,
-        overlay_focused_title: create_overlay(theme.colors.focused_title_background.get())?,
-        overlay_focused_inactive_title: create_overlay(
-            theme.colors.focused_inactive_title_background.get(),
-        )?,
-    })
-}
-
 fn create_bar_icons(
     size: i32,
     theme: &Theme,
@@ -291,34 +259,6 @@ fn upload_pixmap(
         )
         .map_err(IconsError::CreateTexture)?;
     Ok(tex)
-}
-
-static PIN_PATH: LazyLock<Path> = LazyLock::new(|| {
-    let cx = 50.0f32;
-    let cy = 40.0f32;
-    let r = 30.0f32;
-    let xx = cx;
-    let xy = 90.0f32;
-    let d = xy - cy;
-    let v1 = r / d * (d * d - r * r).sqrt();
-    let v2 = 1.0 / d * (d * d - r * r);
-
-    let mut path = PathBuilder::new();
-    path.move_to(cx, cy - r);
-    path.arc_cw_to(cx, cy, cx + r, cy);
-    path.arc_cw_to(cx, cy, xx + v1, xy - v2);
-    path.line_to(xx, xy);
-    path.line_to(xx - v1, xy - v2);
-    path.arc_cw_to(cx, cy, cx - r, cy);
-    path.arc_cw_to(cx, cy, cx, cy - r);
-    path.close();
-    path.push_circle(cx, cy, r / 2.5);
-    path.finish().unwrap()
-});
-
-#[test]
-fn pin_path() {
-    let _path = &*PIN_PATH;
 }
 
 static OVERLAY_PATH: LazyLock<Path> = LazyLock::new(|| {

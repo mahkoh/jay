@@ -92,7 +92,7 @@ pub struct Scales {
 #[jay_hash]
 #[jay_clone(Copy)]
 #[derive(Debug, Eq, Ord, PartialOrd)]
-pub struct ScaleIndex(usize);
+pub struct ScaleIndex(pub usize);
 
 impl ScaleIndex {
     pub const INVALID: Self = Self(usize::MAX);
@@ -119,7 +119,6 @@ impl Scales {
         }
     }
 
-    #[expect(unused)]
     pub fn get_index(&self, scale: Scale) -> ScaleIndex {
         self.indices.get(&scale).unwrap_or(ScaleIndex::INVALID)
     }

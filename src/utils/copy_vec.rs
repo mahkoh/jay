@@ -32,7 +32,6 @@ impl<V> CopyVec<V> {
         unsafe { self.map.get().deref_mut() }
     }
 
-    #[expect(unused)]
     pub fn set(&self, idx: usize, v: V) -> V
     where
         V: JayClone + Default,
@@ -52,7 +51,6 @@ impl<V> CopyVec<V> {
         mem::replace(&mut map[idx], v)
     }
 
-    #[expect(unused)]
     pub fn get(&self, idx: usize) -> Option<V>
     where
         V: JayClone,

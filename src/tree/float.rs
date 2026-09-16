@@ -2,6 +2,8 @@ use crate::backend::ButtonState;
 use crate::cursor::KnownCursor;
 use crate::cursor_user::CursorUser;
 use crate::fixed::Fixed;
+use crate::icons::titles::TitleIconKey;
+use crate::icons::titles::TitleIconsUser;
 use crate::ifs::wl_seat::BTN_LEFT;
 use crate::ifs::wl_seat::BTN_RIGHT;
 use crate::ifs::wl_seat::NodeSeatState;
@@ -99,6 +101,7 @@ pub struct FloatNode {
     title: RefCell<String>,
     pub title_textures: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
     pub needs_initial_size: Cell<bool>,
+    pub title_icons: TitleIconsUser,
     cursors: RefCell<BHashMap<CursorType, CursorState>>,
     transaction_data: TransactionData<FloatTransactionOp>,
     workspace_listener: EventListener<dyn WorkspaceEventListener>,
@@ -255,6 +258,7 @@ impl FloatNode {
             title: Default::default(),
             title_textures: Default::default(),
             needs_initial_size: Cell::new(output.is_dummy),
+            title_icons: state.icons.title_user(),
             cursors: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
             workspace_listener: EventListener::attached(slf.clone(), &ws.listeners),
@@ -266,6 +270,7 @@ impl FloatNode {
             let theme = floater.compute_theme();
             floater.node_state[LiveTL].theme.cached_set(theme.clone());
             floater.node_state[RenderTL].theme.cached_set(theme);
+            floater.add_transaction_op(FloatTransactionOp::UpdateTitleIcons);
         }
         let ns = &floater.node_state[LiveTL];
         let theme = &ns.theme;
@@ -1558,6 +1563,15 @@ impl ThemeChangeListener for FloatNode {
             let grayscale = ns.theme.window_icons_grayscale.get();
             icon.set_grayscale(grayscale);
         }
+        let title_icons = or_chain!()
+            || title_height
+            || unfocused_title_background
+            || attention_requested_background
+            || focused_title_background
+            || or_chain!();
+        if title_icons {
+            self.add_transaction_op(FloatTransactionOp::UpdateTitleIcons);
+        }
     }
 }
 
@@ -1604,6 +1618,7 @@ pub enum FloatTransactionOp {
     ThemeOp(FloatThemeOp),
     SetOffset(OffsetsOp),
     SetToplevelIcon(Option<IconSurface>),
+    UpdateTitleIcons,
 }
 
 impl Transactionable for FloatNode {
@@ -1694,6 +1709,21 @@ impl Transactionable for FloatNode {
             }
             FloatTransactionOp::SetToplevelIcon(v) => {
                 s.toplevel_icon.set(v);
+            }
+            FloatTransactionOp::UpdateTitleIcons => {
+                let theme = &s.theme;
+                define_ident!(theme.sizes.@title_height.get());
+                define_ident!(theme.colors.@unfocused_title_background.get());
+                define_ident!(theme.colors.@focused_title_background.get());
+                define_ident!(theme.colors.@attention_requested_background.get());
+                let key = TitleIconKey {
+                    title_height,
+                    unfocused_title_background,
+                    focused_title_background,
+                    attention_requested_background,
+                    focused_inactive_title_background: focused_title_background,
+                };
+                self.title_icons.set_key(key);
             }
         }
     }

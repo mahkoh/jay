@@ -343,7 +343,7 @@ impl ConnectorHandler {
             item.item.clone().destroy_node();
         }
         self.state
-            .remove_output_scale(on.node_state[LiveTL].scale.get());
+            .schedule_remove_output_scale(on.node_state[LiveTL].scale.get());
         if let Some(zwlr_gamma_control) = on.active_zwlr_gamma_control.take() {
             zwlr_gamma_control.send_failed();
         }

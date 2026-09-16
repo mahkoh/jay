@@ -688,7 +688,7 @@ impl OutputNode {
         if self.set_ns_scale(scale) != scale {
             self.global.send_mode();
         }
-        self.state.remove_output_scale(old_scale);
+        self.state.schedule_remove_output_scale(old_scale);
         self.state.add_output_scale(scale);
         let rect = self.calculate_extents();
         self.change_extents_(&rect);

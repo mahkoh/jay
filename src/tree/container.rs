@@ -3,6 +3,8 @@ use crate::cursor::KnownCursor;
 use crate::cursor_user::CursorUser;
 use crate::fixed::Fixed;
 use crate::gfx_api::GfxTexture;
+use crate::icons::titles::TitleIconKey;
+use crate::icons::titles::TitleIconsUser;
 use crate::ifs::wl_seat::BTN_LEFT;
 use crate::ifs::wl_seat::BTN_RIGHT;
 use crate::ifs::wl_seat::NodeSeatState;
@@ -282,6 +284,7 @@ pub struct ContainerChildInner {
     factor: Cell<f64>,
     resize_handle: Cell<Option<Rect>>,
     title_offsets_scheduled: Cell<bool>,
+    pub title_icons: TitleIconsUser,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -368,6 +371,7 @@ impl ContainerChildInner {
             factor: Cell::new(factor),
             resize_handle: Cell::new(resize_handle),
             title_offsets_scheduled: Default::default(),
+            title_icons: state.icons.title_user(),
         };
         let theme = compute_child_theme(&state.theme, theme);
         slf.node_state[LiveTL].theme.cached_set(theme.clone());
@@ -493,6 +497,7 @@ impl ContainerNode {
 
     fn schedule_validate_child(self: &Rc<Self>, child: &NodeRef<ContainerChild>) {
         self.add_child_op(child, ContainerChildTransactionOp::SetValid);
+        self.add_child_op(child, ContainerChildTransactionOp::UpdateTitleIcons);
         self.update_icon(child);
     }
 
@@ -2151,6 +2156,7 @@ impl ContainerNode {
         self: &Rc<Self>,
         render_positions: bool,
         title_offsets: bool,
+        title_icons: bool,
         child: &NodeRef<ContainerChild>,
     ) {
         let ns = &child.node_state[LiveTL];
@@ -2218,6 +2224,16 @@ impl ContainerNode {
             || or_chain!();
         if title_offsets {
             self.schedule_title_offsets(child);
+        }
+        let title_icons = or_chain!()
+            || title_icons
+            || unfocused_title_background
+            || attention_requested_background
+            || focused_title_background
+            || focused_inactive_title_background
+            || or_chain!();
+        if title_icons {
+            self.add_child_op(child, ContainerChildTransactionOp::UpdateTitleIcons);
         }
     }
 
@@ -3248,8 +3264,11 @@ impl ThemeChangeListener for ContainerNode {
         let offsets = or_chain!(_______________________________________________)
             || title_height
             || or_chain!();
+        let title_icons = or_chain!(______________________________________________)
+            || title_height
+            || or_chain!();
         for child in self.children.iter_valid(LiveTL) {
-            self.child_theme_changed(render_positions, offsets, &child);
+            self.child_theme_changed(render_positions, offsets, title_icons, &child);
         }
     }
 }
@@ -3502,6 +3521,7 @@ pub enum ContainerChildTransactionOp {
     ThemeOp(ContainerChildThemeOp),
     SetOffset(OffsetsOp),
     SetIcon(Option<IconSurface>),
+    UpdateTitleIcons,
 }
 
 impl Transactionable for ContainerNode {
@@ -3573,6 +3593,22 @@ impl Transactionable for ContainerNode {
                     }
                     ContainerChildTransactionOp::SetIcon(v) => {
                         cs.toplevel_icon.set(v);
+                    }
+                    ContainerChildTransactionOp::UpdateTitleIcons => {
+                        let theme = &cs.theme;
+                        define_ident!(s.theme.sizes.@title_height.get());
+                        define_ident!(theme.colors.@unfocused_title_background.get());
+                        define_ident!(theme.colors.@focused_title_background.get());
+                        define_ident!(theme.colors.@attention_requested_background.get());
+                        define_ident!(theme.colors.@focused_inactive_title_background.get());
+                        let key = TitleIconKey {
+                            title_height,
+                            unfocused_title_background,
+                            focused_title_background,
+                            attention_requested_background,
+                            focused_inactive_title_background,
+                        };
+                        child.title_icons.set_key(key);
                     }
                 }
             }
