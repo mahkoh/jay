@@ -52,6 +52,7 @@ use crate::config::parsers::status::StatusParser;
 use crate::config::parsers::status::StatusParserError;
 use crate::config::parsers::theme::ThemeParser;
 use crate::config::parsers::theme::ThemeParserError;
+use crate::config::parsers::theme::WindowThemeParser;
 use crate::config::parsers::workspace::WorkspaceType;
 use crate::config::spanned::SpannedErrorExt;
 use crate::toml::toml_span::DespanExt;
@@ -102,6 +103,10 @@ pub enum ActionParserError {
     Status(#[source] StatusParserError),
     #[error("Could not parse a set-theme action")]
     Theme(#[source] ThemeParserError),
+    #[error("Could not parse a set-window-theme action")]
+    WindowTheme(#[source] ThemeParserError),
+    #[error("Could not parse a set-container-theme action")]
+    ContainerTheme(#[source] ThemeParserError),
     #[error("Could not parse a set-log-level action")]
     SetLogLevel(#[source] LogLevelParserError),
     #[error("Could not parse a set-gfx-api action")]
@@ -227,6 +232,7 @@ impl ActionParser<'_, '_, '_> {
             "enable-split-reuses-container" => SetSplitReusesContainer(true),
             "disable-split-reuses-container" => SetSplitReusesContainer(false),
             "toggle-split-reuses-container" => ToggleSplitReusesContainer,
+            "reset-window-theme" => ResetWindowTheme,
             _ => {
                 return Err(
                     ActionParserError::UnknownSimpleAction(string.to_string()).spanned(span)
@@ -236,11 +242,10 @@ impl ActionParser<'_, '_, '_> {
         Ok(Action::SimpleCommand { cmd })
     }
 
-    fn parse_targeted(
+    fn parse_container_target(
         &mut self,
         ext: &mut Extractor<'_, '_, '_>,
-        f: impl FnOnce(ContainerTarget) -> SimpleCommand,
-    ) -> ParseResult<Self> {
+    ) -> Result<ContainerTarget, Spanned<ActionParserError>> {
         let target = ext.extract(recover(opt(str("target"))))?;
         let mut container_target = Parent;
         if let Some(target) = target {
@@ -251,9 +256,54 @@ impl ActionParser<'_, '_, '_> {
                 _ => log::error!("Unknown target: {}", self.0.error3(target.span)),
             }
         }
+        Ok(container_target)
+    }
+
+    fn parse_targeted(
+        &mut self,
+        ext: &mut Extractor<'_, '_, '_>,
+        f: impl FnOnce(ContainerTarget) -> SimpleCommand,
+    ) -> ParseResult<Self> {
+        let container_target = self.parse_container_target(ext)?;
         Ok(Action::SimpleCommand {
             cmd: f(container_target),
         })
+    }
+
+    fn parse_set_window_theme(&mut self, ext: &mut Extractor<'_, '_, '_>) -> ParseResult<Self> {
+        let theme = ext
+            .extract(val("theme"))?
+            .parse_map(&mut WindowThemeParser {
+                cx: self.0,
+                container: false,
+            })
+            .map_spanned_err(ActionParserError::WindowTheme)?;
+        Ok(Action::SetWindowTheme {
+            theme: Box::new(theme),
+        })
+    }
+
+    fn parse_set_container_theme(&mut self, ext: &mut Extractor<'_, '_, '_>) -> ParseResult<Self> {
+        let target = self.parse_container_target(ext)?;
+        let theme = ext
+            .extract(val("theme"))?
+            .parse_map(&mut WindowThemeParser {
+                cx: self.0,
+                container: true,
+            })
+            .map_spanned_err(ActionParserError::ContainerTheme)?;
+        Ok(Action::SetContainerTheme {
+            target,
+            theme: Box::new(theme),
+        })
+    }
+
+    fn parse_reset_container_theme(
+        &mut self,
+        ext: &mut Extractor<'_, '_, '_>,
+    ) -> ParseResult<Self> {
+        let target = self.parse_container_target(ext)?;
+        Ok(Action::ResetContainerTheme { target })
     }
 
     fn parse_multi(&mut self, _span: Span, array: &[Spanned<Value>]) -> ParseResult<Self> {
@@ -811,6 +861,9 @@ impl Parser for ActionParser<'_, '_, '_> {
             "inc-counter" => self.parse_adj_counter(&mut ext, false),
             "dec-counter" => self.parse_adj_counter(&mut ext, true),
             "set-counter" => self.parse_set_counter(&mut ext),
+            "set-window-theme" => self.parse_set_window_theme(&mut ext),
+            "set-container-theme" => self.parse_set_container_theme(&mut ext),
+            "reset-container-theme" => self.parse_reset_container_theme(&mut ext),
             v => {
                 ext.ignore_unused();
                 return Err(ActionParserError::UnknownType(v.to_string()).spanned(ty.span));

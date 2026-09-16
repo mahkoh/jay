@@ -109,6 +109,11 @@ mod t2026_09_13_container_icon_recreate;
 mod t2026_09_13_container_icon_visible;
 mod t2026_09_13_container_icon_workspace;
 mod t2026_09_13_xdg_toplevel_icon_bridge;
+mod t2026_09_16_container_theme;
+mod t2026_09_16_float_theme_replace_child;
+mod t2026_09_16_window_theme_float;
+mod t2026_09_16_window_theme_screenshot;
+mod t2026_09_16_window_theme_tiled;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;

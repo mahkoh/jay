@@ -614,6 +614,31 @@ Content Type
 Client
 : Full client details (same as the Clients pane)
 
+Below these fields are collapsible sections for the
+[per-window theme](configuration/theme.md#per-window-themes) of the window:
+
+Theme
+: The window theme.
+
+Container Theme
+: The container theme. Only shown for containers.
+
+Each section contains **Show Titles**, **Show Window Icons**, **Window Icons
+Grayscale**, and **Title Font**, as well as collapsible **Sizes** and
+**Colors** sections. The **Container Theme** section also contains **Container
+Borders**.
+
+A setting that is not set is drawn dimmed, shows the value from the global
+theme, and is marked **Unset**. For **Title Font**, the global font is shown as
+placeholder text. Changing the value sets the setting. A setting that is set
+has a button next to it that unsets it. Clearing **Title Font** also unsets it.
+The **Unset All** button at the top of the section unsets all settings of the
+theme.
+
+A setting that has no effect in the current state of the window is marked
+**Unused**. Hovering over the marker shows the reason. Unused settings can still
+be changed.
+
 Click the **open in new pane** icon on any window to open a dedicated pane for
 that window.
 

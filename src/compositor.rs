@@ -109,6 +109,7 @@ use crate::tree::container_post_layout_phase;
 use crate::tree::container_render_titles;
 use crate::tree::float_layout_phase;
 use crate::tree::float_titles;
+use crate::tree::handle_toplevel_theme_change;
 use crate::tree::output_render_data;
 use crate::tree::placeholder_render_textures;
 use crate::tree_serial_groups::handle_tree_serial_groups_scheduled;
@@ -489,6 +490,8 @@ fn start_compositor2(
         theme_listeners: Default::default(),
         scales_changed: Default::default(),
         is_test,
+        toplevel_theme_cache: Default::default(),
+        toplevel_theme_changed: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     state.add_output_scale(Scale::from_int(1));
@@ -737,6 +740,10 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
         ),
         eng.spawn("theme changes", handle_theme_changes(state.clone())),
         eng.spawn("clear clients", handle_client_clear(state.clone())),
+        eng.spawn(
+            "toplevel theme changes",
+            handle_toplevel_theme_change(state.clone()),
+        ),
     ]
 }
 

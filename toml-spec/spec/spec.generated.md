@@ -1296,6 +1296,90 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
     The value of this field should be a [ContainerTarget](#types-ContainerTarget).
 
+- `set-window-theme`:
+
+  Sets theme overrides of a window.
+  
+  In a window rule, this applies to the matched window. Otherwise it applies to
+  the focused window.
+  
+  Only the settings listed in the theme are changed. Other overrides of the
+  window are kept.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "set-window-theme", theme.focused-title-bg-color = "#ff0000" }
+    ```
+
+  The table has the following fields:
+
+  - `theme` (required):
+
+    The theme overrides.
+
+    The value of this field should be a [WindowTheme](#types-WindowTheme).
+
+- `set-container-theme`:
+
+  Sets theme overrides of how a container decorates its children.
+  
+  In a window rule, the target is determined relative to the matched window.
+  Otherwise it is determined relative to the focused window. The action has no
+  effect if the target is not a container.
+  
+  Only the settings listed in the theme are changed. Other overrides of the
+  container are kept.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "set-container-theme", theme.border-width = 8 }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
+  - `theme` (required):
+
+    The theme overrides.
+
+    The value of this field should be a [ContainerTheme](#types-ContainerTheme).
+
+- `reset-container-theme`:
+
+  Removes all theme overrides of how a container decorates its children.
+  
+  In a window rule, the target is determined relative to the matched window.
+  Otherwise it is determined relative to the focused window. The action has no
+  effect if the target is not a container.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "reset-container-theme", target = "self" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
 
 <a name="types-BarPosition"></a>
 ### `BarPosition`
@@ -3048,6 +3132,142 @@ The string should have one of the following values:
 
   The window itself if it is a container, otherwise its parent container.
 
+
+
+<a name="types-ContainerTheme"></a>
+### `ContainerTheme`
+
+Theme overrides of how a container decorates its children.
+
+This has no effect if the window is not a container.
+
+Settings that are not set fall back to the global theme. Not every setting has an
+effect on every container.
+
+- Example:
+
+  ```toml
+  [shortcuts]
+  alt-a = { type = "set-container-theme", theme.border-width = 8 }
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `attention-requested-bg-color` (optional):
+
+  The background color of titles that have requested attention.
+
+  The value of this field should be a [Color](#types-Color).
+
+- `border-color` (optional):
+
+  The color of the borders.
+
+  The value of this field should be a [Color](#types-Color).
+
+- `focused-border-color` (optional):
+
+  The color of the borders around focused children.
+  
+  Requires the `full` container borders style.
+
+  The value of this field should be a [Color](#types-Color).
+
+- `focused-inactive-title-bg-color` (optional):
+
+  The background color of focused titles that are inactive.
+
+  The value of this field should be a [Color](#types-Color).
+
+- `focused-inactive-title-text-color` (optional):
+
+  The text color of focused titles that are inactive.
+
+  The value of this field should be a [Color](#types-Color).
+
+- `focused-title-bg-color` (optional):
+
+  The background color of focused titles.
+
+  The value of this field should be a [Color](#types-Color).
+
+- `focused-title-text-color` (optional):
+
+  The text color of focused titles.
+
+  The value of this field should be a [Color](#types-Color).
+
+- `separator-color` (optional):
+
+  The color of the separators between titles and window content.
+
+  The value of this field should be a [Color](#types-Color).
+
+- `unfocused-title-bg-color` (optional):
+
+  The background color of unfocused titles.
+
+  The value of this field should be a [Color](#types-Color).
+
+- `unfocused-title-text-color` (optional):
+
+  The text color of unfocused titles.
+
+  The value of this field should be a [Color](#types-Color).
+
+- `border-width` (optional):
+
+  The width of the borders.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+  The numbers should be greater than or equal to 0.
+
+- `title-height` (optional):
+
+  The height of the titles.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+  The numbers should be greater than or equal to 0.
+
+- `show-titles` (optional):
+
+  Whether titles are shown.
+
+  The value of this field should be a boolean.
+
+- `title-font` (optional):
+
+  The name of the font to use in the titles.
+
+  The value of this field should be a string.
+
+- `show-window-icons` (optional):
+
+  Whether window icons set by the client are shown in the titles.
+
+  The value of this field should be a boolean.
+
+- `window-icons-grayscale` (optional):
+
+  Whether window icons are rendered grayscale.
+  
+  This is only supported on the Vulkan renderer.
+
+  The value of this field should be a boolean.
+
+- `container-borders` (optional):
+
+  The container border style.
+
+  The value of this field should be a [ContainerBorders](#types-ContainerBorders).
 
 
 <a name="types-ContentTypeMask"></a>
@@ -5147,6 +5367,7 @@ instead of the focused window:
 - `toggle-float-pinned`
 - `pin-float`
 - `unpin-float`
+- `reset-window-theme`
 
 
 - Example:
@@ -5514,6 +5735,20 @@ The string should have one of the following values:
 - `toggle-visualize-compositing`:
 
   Toggles the compositing visualizer.
+
+- `reset-window-theme`:
+
+  Removes all theme overrides of a window.
+  
+  In a window rule, this applies to the matched window. Otherwise it applies to
+  the focused window.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = "reset-window-theme"
+    ```
 
 
 
@@ -6787,6 +7022,135 @@ The table has the following fields:
   unspecified.
 
   The value of this field should be a [WindowFloatingPosition](#types-WindowFloatingPosition).
+
+
+<a name="types-WindowTheme"></a>
+### `WindowTheme`
+
+Theme overrides of a window.
+
+This contains the theme of the window itself. How a container decorates its
+children is configured with `ContainerTheme`.
+
+Settings that are not set fall back to the theme of the parent container, if any,
+and then to the global theme. Not every setting has an effect on every window.
+
+- Example:
+
+  ```toml
+  [shortcuts]
+  alt-a = { type = "set-window-theme", theme.focused-title-bg-color = "#ff0000" }
+  ```
+
+Values of this type should be tables.
+
+The table has the following fields:
+
+- `attention-requested-bg-color` (optional):
+
+  The background color of titles that have requested attention.
+
+  The value of this field should be a [Color](#types-Color).
+
+- `border-color` (optional):
+
+  The color of the borders.
+
+  The value of this field should be a [Color](#types-Color).
+
+- `focused-border-color` (optional):
+
+  The color of the borders when the window is focused.
+
+  The value of this field should be a [Color](#types-Color).
+
+- `focused-inactive-title-bg-color` (optional):
+
+  The background color of focused titles that are inactive.
+
+  The value of this field should be a [Color](#types-Color).
+
+- `focused-inactive-title-text-color` (optional):
+
+  The text color of focused titles that are inactive.
+
+  The value of this field should be a [Color](#types-Color).
+
+- `focused-title-bg-color` (optional):
+
+  The background color of focused titles.
+
+  The value of this field should be a [Color](#types-Color).
+
+- `focused-title-text-color` (optional):
+
+  The text color of focused titles.
+
+  The value of this field should be a [Color](#types-Color).
+
+- `separator-color` (optional):
+
+  The color of the separator between the title and the window content.
+
+  The value of this field should be a [Color](#types-Color).
+
+- `unfocused-title-bg-color` (optional):
+
+  The background color of unfocused titles.
+
+  The value of this field should be a [Color](#types-Color).
+
+- `unfocused-title-text-color` (optional):
+
+  The text color of unfocused titles.
+
+  The value of this field should be a [Color](#types-Color).
+
+- `border-width` (optional):
+
+  The width of the borders.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+  The numbers should be greater than or equal to 0.
+
+- `title-height` (optional):
+
+  The height of the title.
+
+  The value of this field should be a number.
+
+  The numbers should be integers.
+
+  The numbers should be greater than or equal to 0.
+
+- `show-titles` (optional):
+
+  Whether the title is shown.
+
+  The value of this field should be a boolean.
+
+- `title-font` (optional):
+
+  The name of the font to use in the title.
+
+  The value of this field should be a string.
+
+- `show-window-icons` (optional):
+
+  Whether window icons set by the client are shown in the title.
+
+  The value of this field should be a boolean.
+
+- `window-icons-grayscale` (optional):
+
+  Whether window icons are rendered grayscale.
+  
+  This is only supported on the Vulkan renderer.
+
+  The value of this field should be a boolean.
 
 
 <a name="types-WindowTypeMask"></a>

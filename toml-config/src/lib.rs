@@ -35,6 +35,7 @@ use crate::config::TomlTrigger;
 use crate::config::TomlWorkspace;
 pub use crate::config::WindowMatch;
 use crate::config::WindowRule;
+use crate::config::WindowTheme;
 use crate::config::counter::Counter;
 pub use crate::config::parse_client_match;
 use crate::config::parse_config;
@@ -46,6 +47,7 @@ use ahash::AHashMap;
 use ahash::AHashSet;
 pub use config::input_event_codes::input_event_code_from_name;
 use error_reporter::Report;
+use jay_config::ContainerTarget;
 use jay_config::Workspace;
 use jay_config::client::Client;
 use jay_config::config;
@@ -99,6 +101,7 @@ use jay_config::status::unset_status_command;
 use jay_config::switch_to_vt;
 use jay_config::tasks;
 use jay_config::tasks::JoinHandle;
+use jay_config::theme::ThemeOverrides;
 use jay_config::theme::reset_colors;
 use jay_config::theme::reset_font;
 use jay_config::theme::reset_sizes;
@@ -134,6 +137,7 @@ use jay_config::video::set_gfx_api;
 use jay_config::video::set_tearing_mode;
 use jay_config::video::set_vrr_cursor_hz;
 use jay_config::video::set_vrr_mode;
+use jay_config::window::CONTAINER;
 use jay_config::window::Window;
 use jay_config::workspace::set_workspace_display_order;
 use jay_config::xwayland::set_x_scaling_mode;
@@ -253,6 +257,21 @@ impl Action {
                 })
             }};
         }
+        macro_rules! window {
+            ($name:ident, $expr:expr) => {{
+                let state = state.clone();
+                b.new(move || {
+                    let $name = match state.window.get() {
+                        Some(Some(w)) => w,
+                        Some(None) => return,
+                        None => s.window(),
+                    };
+                    if $name.exists() {
+                        $expr;
+                    }
+                })
+            }};
+        }
         match self {
             Action::SimpleCommand { cmd } => match cmd {
                 SimpleCommand::Focus(dir) => b.new(move || s.focus(dir)),
@@ -359,6 +378,7 @@ impl Action {
                     b.new(move || set_split_reuses_container(v))
                 }
                 SimpleCommand::ToggleSplitReusesContainer => b.new(toggle_split_reuses_container),
+                SimpleCommand::ResetWindowTheme => window!(w, w.theme().reset()),
             },
             Action::Multi { actions } => {
                 let actions: Vec<_> = actions.into_iter().map(|a| a.into_fn(state)).collect();
@@ -634,8 +654,89 @@ impl Action {
                     }
                 })
             }
+            Action::SetWindowTheme { theme } => {
+                window!(w, apply_window_theme(*w.theme(), &theme))
+            }
+            Action::SetContainerTheme { target, theme } => window!(w, {
+                if let Some(c) = container_target_window(w, target) {
+                    let t = c.container_theme();
+                    apply_window_theme(*t, &theme);
+                    if let Some(v) = theme.container_borders {
+                        t.set_container_borders(v);
+                    }
+                }
+            }),
+            Action::ResetContainerTheme { target } => window!(w, {
+                if let Some(c) = container_target_window(w, target) {
+                    c.container_theme().reset();
+                }
+            }),
         }
     }
+}
+
+fn apply_window_theme(t: ThemeOverrides, theme: &WindowTheme) {
+    use jay_config::theme::colors::*;
+    use jay_config::theme::sized::*;
+    macro_rules! color {
+        ($colorable:ident, $field:ident) => {
+            if let Some(color) = theme.$field {
+                t.set_color($colorable, color);
+            }
+        };
+    }
+    color!(
+        ATTENTION_REQUESTED_BACKGROUND_COLOR,
+        attention_requested_bg_color
+    );
+    color!(BORDER_COLOR, border_color);
+    color!(FOCUSED_BORDER_COLOR, focused_border_color);
+    color!(
+        FOCUSED_INACTIVE_TITLE_BACKGROUND_COLOR,
+        focused_inactive_title_bg_color
+    );
+    color!(
+        FOCUSED_INACTIVE_TITLE_TEXT_COLOR,
+        focused_inactive_title_text_color
+    );
+    color!(FOCUSED_TITLE_BACKGROUND_COLOR, focused_title_bg_color);
+    color!(FOCUSED_TITLE_TEXT_COLOR, focused_title_text_color);
+    color!(SEPARATOR_COLOR, separator_color);
+    color!(UNFOCUSED_TITLE_BACKGROUND_COLOR, unfocused_title_bg_color);
+    color!(UNFOCUSED_TITLE_TEXT_COLOR, unfocused_title_text_color);
+    macro_rules! size {
+        ($sized:ident, $field:ident) => {
+            if let Some(v) = theme.$field {
+                t.set_size($sized, v);
+            }
+        };
+    }
+    size!(BORDER_WIDTH, border_width);
+    size!(TITLE_HEIGHT, title_height);
+    if let Some(font) = &theme.title_font {
+        t.set_title_font(font);
+    }
+    if let Some(v) = theme.show_titles {
+        t.set_show_titles(v);
+    }
+    if let Some(v) = theme.show_window_icons {
+        t.set_show_window_icons(v);
+    }
+    if let Some(v) = theme.window_icons_grayscale {
+        t.set_window_icons_grayscale(v);
+    }
+}
+
+fn container_target_window(window: Window, target: ContainerTarget) -> Option<Window> {
+    let is_container = |w: Window| w.type_() & CONTAINER == CONTAINER;
+    let container = match target {
+        ContainerTarget::Parent => window.parent(),
+        ContainerTarget::Itself => window,
+        ContainerTarget::Auto if is_container(window) => window,
+        ContainerTarget::Auto => window.parent(),
+        _ => return None,
+    };
+    (container.exists() && is_container(container)).then_some(container)
 }
 
 fn apply_recursive_match<'a, U>(

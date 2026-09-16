@@ -792,7 +792,8 @@ pub fn set_tearing_mode(mode: TearingMode) {
 ///
 /// This is a no-op if a virtual output with that name already exists.
 ///
-/// The created connector can be accessed with [`get_connector_by_name("VO-{name}")`].
+/// The created connector can be accessed with
+/// [`get_connector_by_name("VO-{name}")`](get_connector_by_name).
 ///
 /// A newly created connector is initially disabled. When a connector is destroyed and
 /// later recreated, its previous state is restored.

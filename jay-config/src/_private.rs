@@ -178,3 +178,9 @@ pub enum KeymapBuildParamsV1Kind<'a> {
         options: Option<Vec<&'a str>>,
     },
 }
+
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum WindowThemeKind {
+    ParentTheme,
+    SelfTheme,
+}

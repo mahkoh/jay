@@ -2,6 +2,7 @@ use crate::_private::ClientCriterionIpc;
 use crate::_private::KeymapBuildParamsV1;
 use crate::_private::PollableId;
 use crate::_private::WindowCriterionIpc;
+use crate::_private::WindowThemeKind;
 use crate::_private::WireMode;
 use crate::_private::WorkspaceShowOpV1;
 use crate::_private::WorkspaceShowOpV2;
@@ -1084,6 +1085,65 @@ pub enum ClientMessage<'a> {
         target: ContainerTarget,
         axis: RelativeAxis,
     },
+    ResetWindowTheme {
+        window: Window,
+        kind: WindowThemeKind,
+    },
+    SetWindowThemeColor {
+        window: Window,
+        kind: WindowThemeKind,
+        colorable: Colorable,
+        color: Option<Color>,
+    },
+    GetWindowThemeColor {
+        window: Window,
+        kind: WindowThemeKind,
+        colorable: Colorable,
+    },
+    SetWindowThemeSize {
+        window: Window,
+        kind: WindowThemeKind,
+        sized: Resizable,
+        size: Option<i32>,
+    },
+    GetWindowThemeSize {
+        window: Window,
+        kind: WindowThemeKind,
+        sized: Resizable,
+    },
+    SetWindowThemeShowTitles {
+        window: Window,
+        kind: WindowThemeKind,
+        show: Option<bool>,
+    },
+    GetWindowThemeShowTitles {
+        window: Window,
+        kind: WindowThemeKind,
+    },
+    SetWindowThemeShowWindowIcons {
+        window: Window,
+        kind: WindowThemeKind,
+        show: Option<bool>,
+    },
+    SetWindowThemeWindowIconsGrayscale {
+        window: Window,
+        kind: WindowThemeKind,
+        grayscale: Option<bool>,
+    },
+    SetWindowThemeTitleFont {
+        window: Window,
+        kind: WindowThemeKind,
+        font: Option<&'a str>,
+    },
+    SetWindowThemeContainerBorders {
+        window: Window,
+        kind: WindowThemeKind,
+        borders: Option<ContainerBorders>,
+    },
+    GetWindowThemeContainerBorders {
+        window: Window,
+        kind: WindowThemeKind,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1372,6 +1432,18 @@ pub enum Response {
     },
     GetSplitReusesContainer {
         reuse: bool,
+    },
+    GetWindowThemeColor {
+        color: Option<Color>,
+    },
+    GetWindowThemeSize {
+        size: Option<i32>,
+    },
+    GetWindowThemeShowTitles {
+        show: Option<bool>,
+    },
+    GetWindowThemeContainerBorders {
+        borders: Option<ContainerBorders>,
     },
 }
 

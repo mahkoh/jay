@@ -1,5 +1,6 @@
 //! Tools for inspecting and manipulating windows.
 
+use crate::_private::WindowThemeKind;
 use crate::Axis;
 use crate::ContainerTarget;
 use crate::Direction;
@@ -8,6 +9,9 @@ use crate::Workspace;
 use crate::client::Client;
 use crate::client::ClientCriterion;
 use crate::input::Seat;
+use crate::theme::ContainerTheme;
+use crate::theme::ThemeOverrides;
+use crate::theme::WindowTheme;
 use serde::Deserialize;
 use serde::Serialize;
 use std::ops::Deref;
@@ -308,6 +312,28 @@ impl Window {
     pub fn size(self) -> (i32, i32) {
         let (_, _, width, height) = get!((0, 0)).get_window_position(self);
         (width, height)
+    }
+
+    /// Returns the theme overrides of this window.
+    ///
+    /// See [`WindowTheme`] for details.
+    pub fn theme(self) -> WindowTheme {
+        WindowTheme(ThemeOverrides {
+            window: self,
+            kind: WindowThemeKind::ParentTheme,
+        })
+    }
+
+    /// Returns the theme overrides of how this container decorates its children.
+    ///
+    /// This is only supported for containers.
+    ///
+    /// See [`ContainerTheme`] for details.
+    pub fn container_theme(self) -> ContainerTheme {
+        ContainerTheme(ThemeOverrides {
+            window: self,
+            kind: WindowThemeKind::SelfTheme,
+        })
     }
 }
 

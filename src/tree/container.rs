@@ -59,6 +59,8 @@ use crate::tree::ToplevelData;
 use crate::tree::ToplevelDataTransactionOp;
 use crate::tree::ToplevelNode;
 use crate::tree::ToplevelNodeBase;
+use crate::tree::ToplevelThemeType::ParentTheme;
+use crate::tree::ToplevelThemeType::SelfTheme;
 use crate::tree::ToplevelType;
 use crate::tree::TreeLink;
 use crate::tree::TreeTimeline;
@@ -304,22 +306,21 @@ struct CursorState {
 
 #[derive(Clone, CachedValue)]
 pub struct ContainerTheme {
-    container_borders: Cell<ContainerBordersSetting>,
-    colors: ContainerThemeColors,
+    pub container_borders: Cell<ContainerBordersSetting>,
+    pub colors: ContainerThemeColors,
     pub sizes: ContainerThemeSizes,
-    show_titles: Cell<bool>,
-    show_window_icons: Cell<bool>,
+    pub show_titles: Cell<bool>,
 }
 
 #[derive(Clone, CachedValue)]
 pub struct ContainerThemeColors {
-    border: Cell<Color>,
-    separator: Cell<Color>,
+    pub border: Cell<Color>,
+    pub separator: Cell<Color>,
 }
 
 #[derive(Clone, CachedValue)]
 pub struct ContainerThemeSizes {
-    border_width: Cell<i32>,
+    pub border_width: Cell<i32>,
     pub title_height: Cell<i32>,
     title_plus_underline_height: Cell<i32>,
     title_underline_height: Cell<i32>,
@@ -327,10 +328,10 @@ pub struct ContainerThemeSizes {
 
 #[derive(Clone, CachedValue)]
 pub struct ContainerChildTheme {
-    colors: ContainerChildThemeColors,
-    sizes: ContainerChildThemeSizes,
+    pub colors: ContainerChildThemeColors,
+    pub sizes: ContainerChildThemeSizes,
     pub window_icons_grayscale: Cell<bool>,
-    title_font: CloneCell<Rc<Arc<str>>>,
+    pub title_font: CloneCell<Rc<Arc<str>>>,
 }
 
 #[derive(Clone, CachedValue)]
@@ -338,10 +339,10 @@ pub struct ContainerChildThemeColors {
     focused_title_text: Cell<Color>,
     focused_inactive_title_text: Cell<Color>,
     unfocused_title_text: Cell<Color>,
-    focused_border: Cell<Color>,
-    focused_title_background: Cell<Color>,
+    pub focused_border: Cell<Color>,
+    pub focused_title_background: Cell<Color>,
     attention_requested_background: Cell<Color>,
-    unfocused_title_background: Cell<Color>,
+    pub unfocused_title_background: Cell<Color>,
     focused_inactive_title_background: Cell<Color>,
 }
 
@@ -353,10 +354,11 @@ pub struct ContainerChildThemeSizes {
 impl ContainerChildInner {
     fn new(
         state: &Rc<State>,
-        theme: &ContainerTheme,
+        container_theme: &ContainerTheme,
         node: &Rc<dyn ToplevelNode>,
         factor: f64,
         resize_handle: Option<Rect>,
+        self_tl_data: Option<&ToplevelData>,
     ) -> Self {
         let slf = Self {
             id: node.node_id(),
@@ -373,7 +375,8 @@ impl ContainerChildInner {
             title_offsets_scheduled: Default::default(),
             title_icons: state.icons.title_user(),
         };
-        let theme = compute_child_theme(&state.theme, theme);
+        let theme =
+            compute_child_theme(&state.theme, container_theme, self_tl_data, node.tl_data());
         slf.node_state[LiveTL].theme.cached_set(theme.clone());
         slf.node_state[RenderTL].theme.cached_set(theme);
         slf
@@ -419,10 +422,10 @@ impl ContainerNode {
         child: Rc<dyn ToplevelNode>,
         split: ContainerSplit,
     ) -> Rc<Self> {
-        let theme = compute_theme(&state.theme);
+        let theme = compute_theme(&state.theme, None);
         let children = LinkedList::default();
         let child_node = children.add_last(TreeLink::new(ContainerChildInner::new(
-            state, &theme, &child, 1.0, None,
+            state, &theme, &child, 1.0, None, None,
         )));
         let child_node_ref = child_node.clone();
         let mut child_nodes = BHashMap::default();
@@ -585,6 +588,7 @@ impl ContainerNode {
                 &new,
                 0.0,
                 None,
+                Some(&self.toplevel_data),
             )));
             let r = link.to_ref();
             links.insert(new.node_id(), link);
@@ -2033,7 +2037,7 @@ impl ContainerNode {
         None
     }
 
-    fn container_borders(&self, timeline: TreeTimeline) -> ContainerBorders {
+    pub fn container_borders(&self, timeline: TreeTimeline) -> ContainerBorders {
         let ns = &self.node_state[timeline];
         match ns.theme.container_borders.get() {
             ContainerBordersSetting::Separators => ContainerBorders::Separators,
@@ -2145,11 +2149,16 @@ impl ContainerNode {
     }
 
     fn compute_theme(&self) -> ContainerTheme {
-        compute_theme(&self.state.theme)
+        compute_theme(&self.state.theme, Some(&self.toplevel_data))
     }
 
-    fn compute_child_theme(&self) -> ContainerChildTheme {
-        compute_child_theme(&self.state.theme, &self.node_state[LiveTL].theme)
+    fn compute_child_theme(&self, child: &ContainerChild) -> ContainerChildTheme {
+        compute_child_theme(
+            &self.state.theme,
+            &self.node_state[LiveTL].theme,
+            Some(&self.toplevel_data),
+            child.node.tl_data(),
+        )
     }
 
     fn child_theme_changed(
@@ -2160,7 +2169,7 @@ impl ContainerNode {
         child: &NodeRef<ContainerChild>,
     ) {
         let ns = &child.node_state[LiveTL];
-        let theme = self.compute_child_theme();
+        let theme = self.compute_child_theme(child);
         let changed = ns.theme.cached_update(theme, |op| {
             self.add_child_op(child, ContainerChildTransactionOp::ThemeOp(op));
         });
@@ -2353,6 +2362,10 @@ impl ContainerNode {
         for child in self.children.iter_valid(LiveTL) {
             self.set_icon_position(&child);
         }
+    }
+
+    pub fn get_child_node(&self, node_id: NodeId) -> Option<NodeRef<ContainerChild>> {
+        self.child_nodes.borrow().get(&node_id).map(|c| c.to_ref())
     }
 }
 
@@ -2747,6 +2760,7 @@ impl ContainingNode for ContainerNode {
             &new,
             node.factor.get(),
             node.resize_handle.get(),
+            Some(&self.toplevel_data),
         )));
         self.set_child_ns_title_rect(&link, node.node_state[LiveTL].title_rect.get());
         self.set_child_ns_body(&link, node.node_state[LiveTL].body.get());
@@ -3044,6 +3058,14 @@ impl ContainingNode for ContainerNode {
         };
         self.update_icon(child);
     }
+
+    fn cnode_child_theme_changed(self: Rc<Self>, child: NodeId) {
+        let child_nodes = &*self.child_nodes.borrow();
+        let Some(child) = child_nodes.get(&child) else {
+            return;
+        };
+        self.child_theme_changed(false, false, false, child);
+    }
 }
 
 impl ToplevelNodeBase for ContainerNode {
@@ -3193,6 +3215,10 @@ impl ToplevelNodeBase for ContainerNode {
     fn tl_schedule_data_op(self: Rc<Self>, op: ToplevelDataTransactionOp) {
         self.add_transaction_op(ContainerTransactionOp::ToplevelData(op));
     }
+
+    fn tl_theme_changed(self: Rc<Self>) {
+        ThemeChangeListener::changed(self)
+    }
 }
 
 impl OutputEventListener for ContainerNode {
@@ -3233,7 +3259,6 @@ impl ThemeChangeListener for ContainerNode {
                     title_underline_height,
                 },
             show_titles: _,
-            show_window_icons: _,
         } = changed;
         let layout = or_chain!()
             || border_width
@@ -3417,18 +3442,29 @@ pub fn default_tile_drag_destination(
     })
 }
 
-fn compute_theme(theme: &Theme) -> ContainerTheme {
-    define_ident!(Cell::new(theme.@container_borders.get()));
-    define_ident!(theme.@show_titles.get());
-    define_ident!(Cell::new(theme.colors.@border.get()));
-    define_ident!(Cell::new(theme.colors.@separator.get()));
-    define_ident!(Cell::new(theme.sizes.@border_width.val.get()));
-    define_ident!(theme.sizes.@title_height.val.get());
+fn compute_theme(theme: &Theme, slf: Option<&ToplevelData>) -> ContainerTheme {
+    define_ident_mut!(theme.@container_borders.get());
+    define_ident_mut!(theme.@show_titles.get());
+    define_ident_mut!(theme.colors.@border.get());
+    define_ident_mut!(theme.colors.@separator.get());
+    define_ident_mut!(theme.sizes.@border_width.val.get());
+    define_ident_mut!(theme.sizes.@title_height.val.get());
+    if let Some(theme) = slf.and_then(|d| d.theme(SelfTheme)) {
+        write_ident_opt!(theme.@container_borders.get());
+        write_ident_opt!(theme.@show_titles.get());
+        write_ident_opt!(theme.colors.@border.get());
+        write_ident_opt!(theme.colors.@separator.get());
+        write_ident_opt!(theme.sizes.@border_width.get());
+        write_ident_opt!(theme.sizes.@title_height.get());
+    }
     define_ident!(Cell::new(@title_plus_underline_height(show_titles, title_height)));
     define_ident!(Cell::new(@title_underline_height(show_titles)));
     define_ident!(Cell::new(compute_title_height(show_titles, @title_height)));
     define_ident!(Cell::new(@show_titles));
-    define_ident!(Cell::new(theme.@show_window_icons.get()));
+    define_ident!(Cell::new(@container_borders));
+    define_ident!(Cell::new(@border));
+    define_ident!(Cell::new(@separator));
+    define_ident!(Cell::new(@border_width));
     ContainerTheme {
         container_borders,
         colors: ContainerThemeColors { border, separator },
@@ -3439,28 +3475,61 @@ fn compute_theme(theme: &Theme) -> ContainerTheme {
             title_underline_height,
         },
         show_titles,
-        show_window_icons,
     }
 }
 
-fn compute_child_theme(theme: &Theme, container_theme: &ContainerTheme) -> ContainerChildTheme {
-    define_ident!(theme.colors.@border.val.get());
-    define_ident!(Cell::new(theme.colors.@focused_title_text.val.get()));
-    define_ident!(Cell::new(theme.colors.@focused_inactive_title_text.val.get()));
-    define_ident!(Cell::new(theme.colors.@unfocused_title_text.val.get()));
-    define_ident!(Cell::new(theme.colors.@focused_title_background.val.get()));
-    define_ident!(Cell::new(theme.colors.@attention_requested_background.val.get()));
-    define_ident!(Cell::new(theme.colors.@unfocused_title_background.val.get()));
-    define_ident!(Cell::new(theme.colors.@focused_inactive_title_background.val.get()));
-    define_ident!(theme.colors.@focused_border.get_opt());
-    define_ident!(Cell::new(theme.@window_icons_grayscale.get()));
-    define_ident!(CloneCell::new(theme.@title_font()));
+fn compute_child_theme(
+    theme: &Theme,
+    container_theme: &ContainerTheme,
+    slf: Option<&ToplevelData>,
+    cld: &ToplevelData,
+) -> ContainerChildTheme {
+    define_ident_mut!(theme.colors.@border.val.get());
+    define_ident_mut!(theme.colors.@focused_title_text.val.get());
+    define_ident_mut!(theme.colors.@focused_inactive_title_text.val.get());
+    define_ident_mut!(theme.colors.@unfocused_title_text.val.get());
+    define_ident_mut!(theme.colors.@focused_title_background.val.get());
+    define_ident_mut!(theme.colors.@attention_requested_background.val.get());
+    define_ident_mut!(theme.colors.@unfocused_title_background.val.get());
+    define_ident_mut!(theme.colors.@focused_inactive_title_background.val.get());
+    define_ident_mut!(theme.colors.@focused_border.get_opt());
+    define_ident_mut!(theme.@show_window_icons.get());
+    define_ident_mut!(theme.@window_icons_grayscale.get());
+    define_ident_mut!(theme.@title_font());
+    for theme in [
+        slf.and_then(|d| d.theme(SelfTheme)), //
+        cld.theme(ParentTheme),
+    ] {
+        if let Some(theme) = theme {
+            write_ident_opt!(theme.colors.@border.get());
+            write_ident_opt!(theme.colors.@focused_title_text.get());
+            write_ident_opt!(theme.colors.@focused_inactive_title_text.get());
+            write_ident_opt!(theme.colors.@unfocused_title_text.get());
+            write_ident_opt!(theme.colors.@focused_title_background.get());
+            write_ident_opt!(theme.colors.@attention_requested_background.get());
+            write_ident_opt!(theme.colors.@unfocused_title_background.get());
+            write_ident_opt!(theme.colors.@focused_inactive_title_background.get());
+            write_ident_or!(theme.colors.@focused_border.get());
+            write_ident_opt!(theme.@show_window_icons.get());
+            write_ident_opt!(theme.@window_icons_grayscale.get());
+            write_ident_opt!(theme.@title_font.get());
+        }
+    }
+    define_ident!(Cell::new(@focused_title_text));
+    define_ident!(Cell::new(@focused_inactive_title_text));
+    define_ident!(Cell::new(@unfocused_title_text));
+    define_ident!(Cell::new(@focused_title_background));
+    define_ident!(Cell::new(@attention_requested_background));
+    define_ident!(Cell::new(@unfocused_title_background));
+    define_ident!(Cell::new(@focused_inactive_title_background));
     define_ident!(Cell::new(compute_focused_border(@focused_border, border)));
     define_ident!(Cell::new(@title_icon_size(
         container_theme.show_titles.get(),
-        container_theme.show_window_icons.get(),
+        show_window_icons,
         container_theme.sizes.title_height.get(),
     )));
+    define_ident!(Cell::new(@window_icons_grayscale));
+    define_ident!(CloneCell::new(@title_font));
     ContainerChildTheme {
         colors: ContainerChildThemeColors {
             focused_title_text,
