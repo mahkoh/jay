@@ -1174,6 +1174,78 @@ Action:
                 The container the action applies to.
 
                 The default is `parent`.
+        set-window-theme:
+          description: |
+            Sets theme overrides of a window.
+
+            In a window rule, this applies to the matched window. Otherwise it applies to
+            the focused window.
+
+            Only the settings listed in the theme are changed. Other overrides of the
+            window are kept.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-a = { type = "set-window-theme", theme.focused-title-bg-color = "#ff0000" }
+              ```
+          fields:
+            theme:
+              ref: WindowTheme
+              required: true
+              description: The theme overrides.
+        set-container-theme:
+          description: |
+            Sets theme overrides of how a container decorates its children.
+
+            In a window rule, the target is determined relative to the matched window.
+            Otherwise it is determined relative to the focused window. The action has no
+            effect if the target is not a container.
+
+            Only the settings listed in the theme are changed. Other overrides of the
+            container are kept.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-a = { type = "set-container-theme", theme.border-width = 8 }
+              ```
+          fields:
+            target:
+              ref: ContainerTarget
+              required: false
+              description: |
+                The container the action applies to.
+
+                The default is `parent`.
+            theme:
+              ref: ContainerTheme
+              required: true
+              description: The theme overrides.
+        reset-container-theme:
+          description: |
+            Removes all theme overrides of how a container decorates its children.
+
+            In a window rule, the target is determined relative to the matched window.
+            Otherwise it is determined relative to the focused window. The action has no
+            effect if the target is not a container.
+
+            - Example:
+
+              ```toml
+              [shortcuts]
+              alt-a = { type = "reset-container-theme", target = "self" }
+              ```
+          fields:
+            target:
+              ref: ContainerTarget
+              required: false
+              description: |
+                The container the action applies to.
+
+                The default is `parent`.
 
 
 ContainerTarget:
@@ -1341,6 +1413,7 @@ SimpleActionName:
     - `toggle-float-pinned`
     - `pin-float`
     - `unpin-float`
+    - `reset-window-theme`
 
 
     - Example:
@@ -1590,6 +1663,19 @@ SimpleActionName:
         `enable-visualize-compositing`.
     - value: toggle-visualize-compositing
       description: Toggles the compositing visualizer.
+    - value: reset-window-theme
+      description: |
+        Removes all theme overrides of a window.
+
+        In a window rule, this applies to the matched window. Otherwise it applies to
+        the focused window.
+
+        - Example:
+
+          ```toml
+          [shortcuts]
+          alt-a = "reset-window-theme"
+          ```
 
 
 Color:
@@ -2873,6 +2959,224 @@ Theme:
       ref: ContainerBorders
       required: false
       description: The container border style. Defaults to `separators` if not set.
+
+
+WindowTheme:
+  kind: table
+  description: |
+    Theme overrides of a window.
+
+    This contains the theme of the window itself. How a container decorates its
+    children is configured with `ContainerTheme`.
+
+    Settings that are not set fall back to the theme of the parent container, if any,
+    and then to the global theme. Not every setting has an effect on every window.
+
+    - Example:
+
+      ```toml
+      [shortcuts]
+      alt-a = { type = "set-window-theme", theme.focused-title-bg-color = "#ff0000" }
+      ```
+  fields:
+    attention-requested-bg-color:
+      ref: Color
+      required: false
+      description: |
+        The background color of titles that have requested attention.
+    border-color:
+      ref: Color
+      required: false
+      description: |
+        The color of the borders.
+    focused-border-color:
+      ref: Color
+      required: false
+      description: |
+        The color of the borders when the window is focused.
+    focused-inactive-title-bg-color:
+      ref: Color
+      required: false
+      description: |
+        The background color of focused titles that are inactive.
+    focused-inactive-title-text-color:
+      ref: Color
+      required: false
+      description: |
+        The text color of focused titles that are inactive.
+    focused-title-bg-color:
+      ref: Color
+      required: false
+      description: |
+        The background color of focused titles.
+    focused-title-text-color:
+      ref: Color
+      required: false
+      description: |
+        The text color of focused titles.
+    separator-color:
+      ref: Color
+      required: false
+      description: |
+        The color of the separator between the title and the window content.
+    unfocused-title-bg-color:
+      ref: Color
+      required: false
+      description: |
+        The background color of unfocused titles.
+    unfocused-title-text-color:
+      ref: Color
+      required: false
+      description: |
+        The text color of unfocused titles.
+    border-width:
+      kind: number
+      integer_only: true
+      minimum: 0
+      required: false
+      description: |
+        The width of the borders.
+    title-height:
+      kind: number
+      integer_only: true
+      minimum: 0
+      required: false
+      description: |
+        The height of the title.
+    show-titles:
+      kind: boolean
+      required: false
+      description: |
+        Whether the title is shown.
+    title-font:
+      kind: string
+      required: false
+      description: |
+        The name of the font to use in the title.
+    show-window-icons:
+      kind: boolean
+      required: false
+      description: |
+        Whether window icons set by the client are shown in the title.
+    window-icons-grayscale:
+      kind: boolean
+      required: false
+      description: |
+        Whether window icons are rendered grayscale.
+
+        This is only supported on the Vulkan renderer.
+
+
+ContainerTheme:
+  kind: table
+  description: |
+    Theme overrides of how a container decorates its children.
+
+    This has no effect if the window is not a container.
+
+    Settings that are not set fall back to the global theme. Not every setting has an
+    effect on every container.
+
+    - Example:
+
+      ```toml
+      [shortcuts]
+      alt-a = { type = "set-container-theme", theme.border-width = 8 }
+      ```
+  fields:
+    attention-requested-bg-color:
+      ref: Color
+      required: false
+      description: |
+        The background color of titles that have requested attention.
+    border-color:
+      ref: Color
+      required: false
+      description: |
+        The color of the borders.
+    focused-border-color:
+      ref: Color
+      required: false
+      description: |
+        The color of the borders around focused children.
+
+        Requires the `full` container borders style.
+    focused-inactive-title-bg-color:
+      ref: Color
+      required: false
+      description: |
+        The background color of focused titles that are inactive.
+    focused-inactive-title-text-color:
+      ref: Color
+      required: false
+      description: |
+        The text color of focused titles that are inactive.
+    focused-title-bg-color:
+      ref: Color
+      required: false
+      description: |
+        The background color of focused titles.
+    focused-title-text-color:
+      ref: Color
+      required: false
+      description: |
+        The text color of focused titles.
+    separator-color:
+      ref: Color
+      required: false
+      description: |
+        The color of the separators between titles and window content.
+    unfocused-title-bg-color:
+      ref: Color
+      required: false
+      description: |
+        The background color of unfocused titles.
+    unfocused-title-text-color:
+      ref: Color
+      required: false
+      description: |
+        The text color of unfocused titles.
+    border-width:
+      kind: number
+      integer_only: true
+      minimum: 0
+      required: false
+      description: |
+        The width of the borders.
+    title-height:
+      kind: number
+      integer_only: true
+      minimum: 0
+      required: false
+      description: |
+        The height of the titles.
+    show-titles:
+      kind: boolean
+      required: false
+      description: |
+        Whether titles are shown.
+    title-font:
+      kind: string
+      required: false
+      description: |
+        The name of the font to use in the titles.
+    show-window-icons:
+      kind: boolean
+      required: false
+      description: |
+        Whether window icons set by the client are shown in the titles.
+    window-icons-grayscale:
+      kind: boolean
+      required: false
+      description: |
+        Whether window icons are rendered grayscale.
+
+        This is only supported on the Vulkan renderer.
+    container-borders:
+      ref: ContainerBorders
+      required: false
+      description: |
+        The container border style.
 
 
 Config:

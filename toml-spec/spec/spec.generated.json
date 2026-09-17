@@ -919,6 +919,60 @@
               "required": [
                 "type"
               ]
+            },
+            {
+              "description": "Sets theme overrides of a window.\n\nIn a window rule, this applies to the matched window. Otherwise it applies to\nthe focused window.\n\nOnly the settings listed in the theme are changed. Other overrides of the\nwindow are kept.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-a = { type = \"set-window-theme\", theme.focused-title-bg-color = \"#ff0000\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "set-window-theme"
+                },
+                "theme": {
+                  "description": "The theme overrides.",
+                  "$ref": "#/$defs/WindowTheme"
+                }
+              },
+              "required": [
+                "type",
+                "theme"
+              ]
+            },
+            {
+              "description": "Sets theme overrides of how a container decorates its children.\n\nIn a window rule, the target is determined relative to the matched window.\nOtherwise it is determined relative to the focused window. The action has no\neffect if the target is not a container.\n\nOnly the settings listed in the theme are changed. Other overrides of the\ncontainer are kept.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-a = { type = \"set-container-theme\", theme.border-width = 8 }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "set-container-theme"
+                },
+                "target": {
+                  "description": "The container the action applies to.\n\nThe default is `parent`.\n",
+                  "$ref": "#/$defs/ContainerTarget"
+                },
+                "theme": {
+                  "description": "The theme overrides.",
+                  "$ref": "#/$defs/ContainerTheme"
+                }
+              },
+              "required": [
+                "type",
+                "theme"
+              ]
+            },
+            {
+              "description": "Removes all theme overrides of how a container decorates its children.\n\nIn a window rule, the target is determined relative to the matched window.\nOtherwise it is determined relative to the focused window. The action has no\neffect if the target is not a container.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-a = { type = \"reset-container-theme\", target = \"self\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "reset-container-theme"
+                },
+                "target": {
+                  "description": "The container the action applies to.\n\nThe default is `parent`.\n",
+                  "$ref": "#/$defs/ContainerTarget"
+                }
+              },
+              "required": [
+                "type"
+              ]
             }
           ]
         }
@@ -1572,6 +1626,83 @@
         "self",
         "auto"
       ]
+    },
+    "ContainerTheme": {
+      "description": "Theme overrides of how a container decorates its children.\n\nThis has no effect if the window is not a container.\n\nSettings that are not set fall back to the global theme. Not every setting has an\neffect on every container.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-a = { type = \"set-container-theme\", theme.border-width = 8 }\n  ```\n",
+      "type": "object",
+      "properties": {
+        "attention-requested-bg-color": {
+          "description": "The background color of titles that have requested attention.\n",
+          "$ref": "#/$defs/Color"
+        },
+        "border-color": {
+          "description": "The color of the borders.\n",
+          "$ref": "#/$defs/Color"
+        },
+        "focused-border-color": {
+          "description": "The color of the borders around focused children.\n\nRequires the `full` container borders style.\n",
+          "$ref": "#/$defs/Color"
+        },
+        "focused-inactive-title-bg-color": {
+          "description": "The background color of focused titles that are inactive.\n",
+          "$ref": "#/$defs/Color"
+        },
+        "focused-inactive-title-text-color": {
+          "description": "The text color of focused titles that are inactive.\n",
+          "$ref": "#/$defs/Color"
+        },
+        "focused-title-bg-color": {
+          "description": "The background color of focused titles.\n",
+          "$ref": "#/$defs/Color"
+        },
+        "focused-title-text-color": {
+          "description": "The text color of focused titles.\n",
+          "$ref": "#/$defs/Color"
+        },
+        "separator-color": {
+          "description": "The color of the separators between titles and window content.\n",
+          "$ref": "#/$defs/Color"
+        },
+        "unfocused-title-bg-color": {
+          "description": "The background color of unfocused titles.\n",
+          "$ref": "#/$defs/Color"
+        },
+        "unfocused-title-text-color": {
+          "description": "The text color of unfocused titles.\n",
+          "$ref": "#/$defs/Color"
+        },
+        "border-width": {
+          "type": "integer",
+          "description": "The width of the borders.\n",
+          "minimum": 0.0
+        },
+        "title-height": {
+          "type": "integer",
+          "description": "The height of the titles.\n",
+          "minimum": 0.0
+        },
+        "show-titles": {
+          "type": "boolean",
+          "description": "Whether titles are shown.\n"
+        },
+        "title-font": {
+          "type": "string",
+          "description": "The name of the font to use in the titles.\n"
+        },
+        "show-window-icons": {
+          "type": "boolean",
+          "description": "Whether window icons set by the client are shown in the titles.\n"
+        },
+        "window-icons-grayscale": {
+          "type": "boolean",
+          "description": "Whether window icons are rendered grayscale.\n\nThis is only supported on the Vulkan renderer.\n"
+        },
+        "container-borders": {
+          "description": "The container border style.\n",
+          "$ref": "#/$defs/ContainerBorders"
+        }
+      },
+      "required": []
     },
     "ContentTypeMask": {
       "description": "A mask of content types.\n",
@@ -2434,7 +2565,7 @@
     },
     "SimpleActionName": {
       "type": "string",
-      "description": "The name of a `simple` Action.\n\nWhen used inside a window rule, the following actions apply to the matched window\ninstead of the focused window:\n\n- `move-left`\n- `move-down`\n- `move-up`\n- `move-right`\n- `split-horizontal`\n- `split-vertical`\n- `split-major`\n- `split-minor`\n- `toggle-split`\n- `tile-horizontal`\n- `tile-vertical`\n- `tile-major`\n- `tile-minor`\n- `toggle-mono`\n- `show-single`\n- `show-all`\n- `toggle-fullscreen`\n- `enter-fullscreen`\n- `exit-fullscreen`\n- `close`\n- `toggle-floating`\n- `float`\n- `tile`\n- `toggle-float-pinned`\n- `pin-float`\n- `unpin-float`\n\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-q = \"quit\"\n  ```\n",
+      "description": "The name of a `simple` Action.\n\nWhen used inside a window rule, the following actions apply to the matched window\ninstead of the focused window:\n\n- `move-left`\n- `move-down`\n- `move-up`\n- `move-right`\n- `split-horizontal`\n- `split-vertical`\n- `split-major`\n- `split-minor`\n- `toggle-split`\n- `tile-horizontal`\n- `tile-vertical`\n- `tile-major`\n- `tile-minor`\n- `toggle-mono`\n- `show-single`\n- `show-all`\n- `toggle-fullscreen`\n- `enter-fullscreen`\n- `exit-fullscreen`\n- `close`\n- `toggle-floating`\n- `float`\n- `tile`\n- `toggle-float-pinned`\n- `pin-float`\n- `unpin-float`\n- `reset-window-theme`\n\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-q = \"quit\"\n  ```\n",
       "enum": [
         "focus-left",
         "focus-down",
@@ -2509,7 +2640,8 @@
         "hide-overlays",
         "enable-visualize-compositing",
         "disable-visualize-compositing",
-        "toggle-visualize-compositing"
+        "toggle-visualize-compositing",
+        "reset-window-theme"
       ]
     },
     "SimpleIm": {
@@ -3149,6 +3281,79 @@
         "initial-floating-position": {
           "description": "Specifies the position of the window when it is initially mapped floating.\n\nThis has no effect on windows that are initially mapped tiled, even if they\nlater become floating.\n\nIf multiple matching rules specify this field, the used position is\nunspecified.\n",
           "$ref": "#/$defs/WindowFloatingPosition"
+        }
+      },
+      "required": []
+    },
+    "WindowTheme": {
+      "description": "Theme overrides of a window.\n\nThis contains the theme of the window itself. How a container decorates its\nchildren is configured with `ContainerTheme`.\n\nSettings that are not set fall back to the theme of the parent container, if any,\nand then to the global theme. Not every setting has an effect on every window.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-a = { type = \"set-window-theme\", theme.focused-title-bg-color = \"#ff0000\" }\n  ```\n",
+      "type": "object",
+      "properties": {
+        "attention-requested-bg-color": {
+          "description": "The background color of titles that have requested attention.\n",
+          "$ref": "#/$defs/Color"
+        },
+        "border-color": {
+          "description": "The color of the borders.\n",
+          "$ref": "#/$defs/Color"
+        },
+        "focused-border-color": {
+          "description": "The color of the borders when the window is focused.\n",
+          "$ref": "#/$defs/Color"
+        },
+        "focused-inactive-title-bg-color": {
+          "description": "The background color of focused titles that are inactive.\n",
+          "$ref": "#/$defs/Color"
+        },
+        "focused-inactive-title-text-color": {
+          "description": "The text color of focused titles that are inactive.\n",
+          "$ref": "#/$defs/Color"
+        },
+        "focused-title-bg-color": {
+          "description": "The background color of focused titles.\n",
+          "$ref": "#/$defs/Color"
+        },
+        "focused-title-text-color": {
+          "description": "The text color of focused titles.\n",
+          "$ref": "#/$defs/Color"
+        },
+        "separator-color": {
+          "description": "The color of the separator between the title and the window content.\n",
+          "$ref": "#/$defs/Color"
+        },
+        "unfocused-title-bg-color": {
+          "description": "The background color of unfocused titles.\n",
+          "$ref": "#/$defs/Color"
+        },
+        "unfocused-title-text-color": {
+          "description": "The text color of unfocused titles.\n",
+          "$ref": "#/$defs/Color"
+        },
+        "border-width": {
+          "type": "integer",
+          "description": "The width of the borders.\n",
+          "minimum": 0.0
+        },
+        "title-height": {
+          "type": "integer",
+          "description": "The height of the title.\n",
+          "minimum": 0.0
+        },
+        "show-titles": {
+          "type": "boolean",
+          "description": "Whether the title is shown.\n"
+        },
+        "title-font": {
+          "type": "string",
+          "description": "The name of the font to use in the title.\n"
+        },
+        "show-window-icons": {
+          "type": "boolean",
+          "description": "Whether window icons set by the client are shown in the title.\n"
+        },
+        "window-icons-grayscale": {
+          "type": "boolean",
+          "description": "Whether window icons are rendered grayscale.\n\nThis is only supported on the Vulkan renderer.\n"
         }
       },
       "required": []

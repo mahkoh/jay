@@ -10,6 +10,7 @@ use bincode::Options;
 use isnt::std_1::primitive::IsntConstPtrExt;
 use jay_config::_private::ConfigEntry;
 use jay_config::_private::VERSION;
+use jay_config::_private::WindowThemeKind;
 use jay_config::_private::bincode_ops;
 use jay_config::_private::ipc::ClientMessage;
 use jay_config::_private::ipc::Response;
@@ -21,10 +22,14 @@ use jay_config::input::Seat;
 use jay_config::keyboard::Keymap;
 use jay_config::keyboard::ModifiedKeySym;
 use jay_config::theme::BarPosition;
+use jay_config::theme::Color;
+use jay_config::theme::ContainerBorders;
+use jay_config::theme::colors::Colorable;
 use jay_config::theme::sized::BAR_SEPARATOR_WIDTH;
 use jay_config::theme::sized::Resizable;
 use jay_config::video::Connector;
 use jay_config::video::Transform;
+use jay_config::window::Window;
 use std::cell::Cell;
 use std::ops::Deref;
 use std::ptr;
@@ -337,6 +342,150 @@ impl TestConfig {
 
     pub fn set_show_titles(&self, show: bool) -> TestResult {
         self.send(ClientMessage::SetShowTitles { show })
+    }
+
+    pub fn get_keyboard_window(&self, seat: SeatId) -> TestResult<Window> {
+        let reply = self.send_with_reply(ClientMessage::GetSeatKeyboardWindow {
+            seat: Seat(seat.raw() as _),
+        })?;
+        get_response!(reply, GetSeatKeyboardWindow { window });
+        Ok(window)
+    }
+
+    pub fn get_window_parent(&self, window: Window) -> TestResult<Window> {
+        let reply = self.send_with_reply(ClientMessage::GetWindowParent { window })?;
+        get_response!(reply, GetWindowParent { window });
+        Ok(window)
+    }
+
+    pub fn reset_window_theme(&self, window: Window, kind: WindowThemeKind) -> TestResult {
+        self.send(ClientMessage::ResetWindowTheme { window, kind })
+    }
+
+    pub fn set_window_theme_color(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        colorable: Colorable,
+        color: Option<Color>,
+    ) -> TestResult {
+        self.send(ClientMessage::SetWindowThemeColor {
+            window,
+            kind,
+            colorable,
+            color,
+        })
+    }
+
+    pub fn get_window_theme_color(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        colorable: Colorable,
+    ) -> TestResult<Option<Color>> {
+        let reply = self.send_with_reply(ClientMessage::GetWindowThemeColor {
+            window,
+            kind,
+            colorable,
+        })?;
+        get_response!(reply, GetWindowThemeColor { color });
+        Ok(color)
+    }
+
+    pub fn set_window_theme_size(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        sized: Resizable,
+        size: Option<i32>,
+    ) -> TestResult {
+        self.send(ClientMessage::SetWindowThemeSize {
+            window,
+            kind,
+            sized,
+            size,
+        })
+    }
+
+    pub fn get_window_theme_size(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        sized: Resizable,
+    ) -> TestResult<Option<i32>> {
+        let reply = self.send_with_reply(ClientMessage::GetWindowThemeSize {
+            window,
+            kind,
+            sized,
+        })?;
+        get_response!(reply, GetWindowThemeSize { size });
+        Ok(size)
+    }
+
+    pub fn set_window_theme_show_titles(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        show: Option<bool>,
+    ) -> TestResult {
+        self.send(ClientMessage::SetWindowThemeShowTitles { window, kind, show })
+    }
+
+    pub fn get_window_theme_show_titles(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+    ) -> TestResult<Option<bool>> {
+        let reply =
+            self.send_with_reply(ClientMessage::GetWindowThemeShowTitles { window, kind })?;
+        get_response!(reply, GetWindowThemeShowTitles { show });
+        Ok(show)
+    }
+
+    pub fn set_window_theme_window_icons_grayscale(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        grayscale: Option<bool>,
+    ) -> TestResult {
+        self.send(ClientMessage::SetWindowThemeWindowIconsGrayscale {
+            window,
+            kind,
+            grayscale,
+        })
+    }
+
+    pub fn set_window_theme_title_font(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        font: Option<&str>,
+    ) -> TestResult {
+        self.send(ClientMessage::SetWindowThemeTitleFont { window, kind, font })
+    }
+
+    pub fn set_window_theme_container_borders(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        borders: Option<ContainerBorders>,
+    ) -> TestResult {
+        self.send(ClientMessage::SetWindowThemeContainerBorders {
+            window,
+            kind,
+            borders,
+        })
+    }
+
+    pub fn get_window_theme_container_borders(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+    ) -> TestResult<Option<ContainerBorders>> {
+        let reply =
+            self.send_with_reply(ClientMessage::GetWindowThemeContainerBorders { window, kind })?;
+        get_response!(reply, GetWindowThemeContainerBorders { borders });
+        Ok(borders)
     }
 }
 

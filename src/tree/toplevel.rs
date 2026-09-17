@@ -34,6 +34,7 @@ use crate::sm::ToplevelSession;
 use crate::state::ConnectorData;
 use crate::state::OutputEventListener;
 use crate::state::State;
+use crate::theme::ToplevelTheme;
 use crate::tree::ContainerNode;
 use crate::tree::ContainerSplit;
 use crate::tree::ContainerTarget;
@@ -47,6 +48,8 @@ use crate::tree::NodeLayerLink;
 use crate::tree::OutputNode;
 use crate::tree::PlaceholderNode;
 use crate::tree::SplitView;
+use crate::tree::ToplevelThemeType::ParentTheme;
+use crate::tree::ToplevelThemeType::SelfTheme;
 use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
@@ -54,6 +57,9 @@ use crate::tree::WorkspaceEventListener;
 use crate::tree::WorkspaceNode;
 use crate::tree::WorkspaceType;
 use crate::utils::array_to_tuple::ArrayToTuple;
+use crate::utils::as_double_deref::AsDoubleDeref;
+use crate::utils::box_cache::BoxUninit;
+use crate::utils::box_cache::CachedBox;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::event_listener::EventListener;
@@ -69,6 +75,8 @@ use crate::wire::JayToplevelId;
 use crate::wire::ZwlrForeignToplevelHandleV1Id;
 use jay_config::window;
 use jay_config::window::WindowType;
+use linearize::Linearize;
+use linearize::StaticMap;
 use std::borrow::Borrow;
 use std::cell::Cell;
 use std::cell::OnceCell;
@@ -389,6 +397,10 @@ pub trait ToplevelNodeBase: OutputEventListener + WorkspaceEventListener + Node 
     }
 
     fn tl_schedule_data_op(self: Rc<Self>, op: ToplevelDataTransactionOp);
+
+    fn tl_theme_changed(self: Rc<Self>) {
+        // nothing
+    }
 }
 
 pub enum ToplevelDataTransactionOp {
@@ -436,6 +448,12 @@ impl ToplevelType {
             ToplevelType::XWindow { .. } => window::X_WINDOW,
         }
     }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Linearize)]
+pub enum ToplevelThemeType {
+    ParentTheme,
+    SelfTheme,
 }
 
 pub struct ToplevelData {
@@ -491,6 +509,9 @@ pub struct ToplevelData {
     pub is_overlay_root_container: SplitView<Cell<bool>>,
     output_listener: EventListener<dyn OutputEventListener>,
     workspace_listener: EventListener<dyn WorkspaceEventListener>,
+    theme: StaticMap<ToplevelThemeType, OnceCell<CachedBox<ToplevelTheme, BoxUninit>>>,
+    theme_change_queued: Cell<bool>,
+    theme_change: StaticMap<ToplevelThemeType, Cell<bool>>,
 }
 
 impl ToplevelData {
@@ -565,6 +586,9 @@ impl ToplevelData {
             is_overlay_root_container: Default::default(),
             output_listener: EventListener::new(slf.clone()),
             workspace_listener: EventListener::new(slf.clone()),
+            theme: Default::default(),
+            theme_change_queued: Default::default(),
+            theme_change: Default::default(),
         }
     }
 
@@ -1161,6 +1185,20 @@ impl ToplevelData {
             sc.buffer_size_changed();
         }
     }
+
+    pub fn theme(&self, ty: ToplevelThemeType) -> Option<&ToplevelTheme> {
+        self.theme[ty].get().as_double_deref()
+    }
+
+    pub fn modify_theme<R>(&self, ty: ToplevelThemeType, f: impl FnOnce(&ToplevelTheme) -> R) -> R {
+        let theme = &self.theme[ty];
+        let r = f(theme.get_or_init(|| self.state.toplevel_theme_cache.get(Default::default())));
+        self.theme_change[ty].set(true);
+        if !self.theme_change_queued.replace(true) {
+            self.state.toplevel_theme_changed.push(self.slf.clone());
+        }
+        r
+    }
 }
 
 impl Drop for ToplevelData {
@@ -1331,5 +1369,24 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
     }
     if fullscreen {
         tl.tl_set_fullscreen(true, Some(ws.clone()));
+    }
+}
+
+pub async fn handle_toplevel_theme_change(state: Rc<State>) {
+    loop {
+        let tl = state.toplevel_theme_changed.pop().await;
+        if let Some(tl) = tl.upgrade() {
+            let data = tl.tl_data();
+            data.theme_change_queued.set(false);
+            if data.theme_change[SelfTheme].take() {
+                tl.clone().tl_theme_changed();
+            }
+            if data.theme_change[ParentTheme].take()
+                && let Some(parent) = data.parent.get()
+            {
+                parent.cnode_child_theme_changed(data.node_id);
+            }
+            data.trigger_property_source();
+        }
     }
 }

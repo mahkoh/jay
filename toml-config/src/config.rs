@@ -127,6 +127,7 @@ pub enum SimpleCommand {
     ToggleSplitReusesContainer,
     SetSplitRelative(ContainerTarget, RelativeAxis),
     SplitRelative(RelativeAxis),
+    ResetWindowTheme,
 }
 
 #[derive(Debug, Clone)]
@@ -246,6 +247,16 @@ pub enum Action {
         counter: Rc<CounterSlot>,
         value: i64,
     },
+    SetWindowTheme {
+        theme: Box<WindowTheme>,
+    },
+    SetContainerTheme {
+        target: ContainerTarget,
+        theme: Box<WindowTheme>,
+    },
+    ResetContainerTheme {
+        target: ContainerTarget,
+    },
 }
 
 #[derive(Debug)]
@@ -282,6 +293,27 @@ pub struct Theme {
     pub bar_font: Option<String>,
     pub bar_position: Option<BarPosition>,
     pub bar_separator_width: Option<i32>,
+    pub show_window_icons: Option<bool>,
+    pub window_icons_grayscale: Option<bool>,
+    pub container_borders: Option<ContainerBorders>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct WindowTheme {
+    pub attention_requested_bg_color: Option<Color>,
+    pub border_color: Option<Color>,
+    pub focused_border_color: Option<Color>,
+    pub focused_inactive_title_bg_color: Option<Color>,
+    pub focused_inactive_title_text_color: Option<Color>,
+    pub focused_title_bg_color: Option<Color>,
+    pub focused_title_text_color: Option<Color>,
+    pub separator_color: Option<Color>,
+    pub unfocused_title_bg_color: Option<Color>,
+    pub unfocused_title_text_color: Option<Color>,
+    pub border_width: Option<i32>,
+    pub title_height: Option<i32>,
+    pub title_font: Option<String>,
+    pub show_titles: Option<bool>,
     pub show_window_icons: Option<bool>,
     pub window_icons_grayscale: Option<bool>,
     pub container_borders: Option<ContainerBorders>,

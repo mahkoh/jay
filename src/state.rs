@@ -166,6 +166,7 @@ use crate::theme::ContainerBordersSetting;
 use crate::theme::Theme;
 use crate::theme::ThemeColored;
 use crate::theme::ThemeSized;
+use crate::theme::ToplevelTheme;
 use crate::time::Time;
 use crate::transactions::TransactionData;
 use crate::transactions::Transactionable;
@@ -211,6 +212,8 @@ use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::bhash::BHashMap;
 use crate::utils::bhash::BHashSet;
 use crate::utils::bindings::Bindings;
+use crate::utils::box_cache::BoxCache;
+use crate::utils::box_cache::BoxUninit;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
@@ -438,6 +441,8 @@ pub struct State {
     pub theme_listeners: EventSource<dyn ThemeChangeListener>,
     pub scales_changed: EventSource<dyn ScalesChangedListener>,
     pub is_test: bool,
+    pub toplevel_theme_cache: Rc<BoxCache<ToplevelTheme, BoxUninit>>,
+    pub toplevel_theme_changed: AsyncQueue<Weak<dyn ToplevelNode>>,
 }
 
 pub trait ThemeChangeListener {

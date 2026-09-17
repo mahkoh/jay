@@ -13,6 +13,7 @@ use jay_algorithms::tf::eotfs;
 use jay_algorithms::tf::inv_eotfs;
 use jay_config::theme::BarPosition as ConfigBarPosition;
 use jay_config::theme::ContainerBorders as ConfigContainerBorders;
+use jay_proc::ResetImmutable;
 use jay_proc::jay_clone;
 use linearize::Linearize;
 use std::cell::Cell;
@@ -868,4 +869,129 @@ pub fn title_plus_underline_height(show_titles: bool, title_height: i32) -> i32 
 
 pub fn compute_focused_border(focused_border: Option<Color>, border: Color) -> Color {
     focused_border.unwrap_or(border)
+}
+
+#[derive(Default, ResetImmutable)]
+pub struct ToplevelTheme {
+    pub sizes: ToplevelThemeSizes,
+    pub colors: ToplevelThemeColors,
+    pub show_titles: Cell<Option<bool>>,
+    pub show_window_icons: Cell<Option<bool>>,
+    pub window_icons_grayscale: Cell<Option<bool>>,
+    pub title_font: CloneCell<Option<Rc<Arc<str>>>>,
+    pub container_borders: Cell<Option<ContainerBordersSetting>>,
+}
+
+macro_rules! toplevel_theme_sizes {
+    ($($name:ident = ($min:expr, $max:expr),)*) => {
+        #[derive(Default, ResetImmutable)]
+        pub struct ToplevelThemeSizes {
+            $(
+                pub $name: Cell<Option<i32>>,
+            )*
+        }
+
+        #[derive(Copy, Clone, Debug, Linearize, PartialEq)]
+        #[allow(non_camel_case_types)]
+        pub enum ToplevelThemeSized {
+            $($name,)*
+        }
+
+        impl ToplevelThemeSized {
+            pub fn min(self) -> i32 {
+                match self {
+                    $(Self::$name => $min,)*
+                }
+            }
+
+            pub fn max(self) -> i32 {
+                match self {
+                    $(Self::$name => $max,)*
+                }
+            }
+
+            pub fn admits(self, val: i32) -> bool {
+                match self {
+                    $(Self::$name => $min <= val && val <= $max,)*
+                }
+            }
+
+            pub fn not_admits(self, val: i32) -> bool {
+                !self.admits(val)
+            }
+
+            pub fn field(self, theme: &ToplevelTheme) -> &Cell<Option<i32>> {
+                let sizes = &theme.sizes;
+                match self {
+                    $(Self::$name => &sizes.$name,)*
+                }
+            }
+
+            pub fn theme(self) -> ThemeSized {
+                match self {
+                    $(Self::$name => ThemeSized::$name,)*
+                }
+            }
+        }
+    };
+}
+
+toplevel_theme_sizes! {
+    title_height = (0, 1000),
+    border_width = (0, 1000),
+}
+
+impl StaticText for ToplevelThemeSized {
+    fn text(&self) -> &'static str {
+        self.theme().text()
+    }
+}
+
+macro_rules! toplevel_theme_colors {
+    ($($name:ident,)*) => {
+        #[derive(Default, ResetImmutable)]
+        pub struct ToplevelThemeColors {
+            $(pub $name: Cell<Option<Color>>,)*
+        }
+
+        #[derive(Copy, Clone, Debug, Linearize, PartialEq)]
+        #[allow(non_camel_case_types)]
+        pub enum ToplevelThemeColored {
+            $($name,)*
+        }
+
+        impl ToplevelThemeColored {
+            pub fn field(self, theme: &ToplevelTheme) -> &Cell<Option<Color>> {
+                let colors = &theme.colors;
+                match self {
+                    $(Self::$name => &colors.$name,)*
+                }
+            }
+
+            pub fn theme(self) -> ThemeColored {
+                match self {
+                    $(Self::$name => ThemeColored::$name,)*
+                }
+            }
+        }
+    };
+}
+
+toplevel_theme_colors! {
+    unfocused_title_background,
+    focused_title_background,
+    focused_inactive_title_background,
+    unfocused_title_text,
+    focused_title_text,
+    focused_inactive_title_text,
+    separator,
+    border,
+    focused_border,
+    attention_requested_background,
+}
+
+impl StaticText for ToplevelThemeColored {
+    fn text(&self) -> &'static str {
+        self.theme().text()
+    }
 }

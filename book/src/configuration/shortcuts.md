@@ -156,6 +156,8 @@ alt-shift-r = "reload-config-toml"
   the only window in its container reuses that container instead of wrapping
   it in another container. See
   [`split-reuses-container`](misc.md#split-reuses-container).
+- `reset-window-theme` -- remove the theme overrides of the window (see
+  [Per-Window Themes](theme.md#per-window-themes))
 - `reload-config-so` -- reload the shared-library configuration (`config.so`)
 
 See the [specification](https://github.com/mahkoh/jay/blob/master/toml-spec/spec/spec.generated.md) for the full list of simple
@@ -313,6 +315,10 @@ alt-t = { type = "toggle-split", target = "auto" }
 - `configure-direct-scanout` -- enable or disable direct scanout
 - `configure-drm-device` -- apply settings to a DRM device
 - `set-theme` -- change theme settings
+- `set-window-theme` -- change the theme overrides of a window (see
+  [Per-Window Themes](theme.md#per-window-themes))
+- `set-container-theme` / `reset-container-theme` -- change or remove the theme
+  overrides of a container
 - `set-log-level` -- change the compositor log level
 - `set-gfx-api` -- set the graphics API for new DRM devices (usually only
   effective at startup)
@@ -657,9 +663,11 @@ affected actions are: `move-left`, `move-down`, `move-up`, `move-right`,
 `toggle-split`, `tile-horizontal`, `tile-vertical`, `tile-major`,
 `tile-minor`, `toggle-mono`, `show-single`, `show-all`, `toggle-fullscreen`,
 `enter-fullscreen`, `exit-fullscreen`, `close`, `toggle-floating`, `float`,
-`tile`, `toggle-float-pinned`, `pin-float`, and `unpin-float`.
+`tile`, `toggle-float-pinned`, `pin-float`, `unpin-float`, and
+`reset-window-theme`.
 
-The parameterized `resize` action also applies to the matched window. For a
+The parameterized `resize` and `set-window-theme` actions also apply to the
+matched window. For a
 rule that matches a container, give the
 [container actions](#container-actions) `target = "self"`.
 

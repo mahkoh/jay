@@ -46,6 +46,9 @@ use crate::state::State;
 use crate::tagged_acceptor::TaggedAcceptorError;
 use crate::theme::ThemeColored;
 use crate::theme::ThemeSized;
+use crate::theme::ToplevelTheme;
+use crate::theme::ToplevelThemeColored;
+use crate::theme::ToplevelThemeSized;
 use crate::tree::ContainerSplit;
 use crate::tree::ContainerTarget;
 use crate::tree::NodeBase;
@@ -57,6 +60,7 @@ use crate::tree::TileState;
 use crate::tree::ToplevelData;
 use crate::tree::ToplevelIdentifier;
 use crate::tree::ToplevelNode;
+use crate::tree::ToplevelThemeType;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::VrrMode;
 use crate::tree::WorkspaceNode;
@@ -74,6 +78,7 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::markers::JayHash;
 use crate::utils::numcell::NumCell;
+use crate::utils::reset_immutable::ResetImmutable;
 use crate::utils::stack::Stack;
 use crate::utils::timer::TimerError;
 use crate::utils::timer::TimerFd;
@@ -87,6 +92,7 @@ use jay_config::_private::KeymapBuildParamsV1Kind;
 use jay_config::_private::PollableId;
 use jay_config::_private::WindowCriterionIpc;
 use jay_config::_private::WindowCriterionStringField;
+use jay_config::_private::WindowThemeKind;
 use jay_config::_private::WireMode;
 use jay_config::_private::WorkspaceShowOpV1;
 use jay_config::_private::WorkspaceShowOpV2;
@@ -3454,6 +3460,215 @@ impl ConfigProxyHandler {
         });
     }
 
+    fn modify_window_theme(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        set: bool,
+        f: impl FnOnce(&ToplevelTheme),
+    ) -> Result<(), CphError> {
+        let window = self.get_window(window)?;
+        let ty = map_window_theme_kind(kind);
+        let data = window.tl_data();
+        if !set && data.theme(ty).is_none() {
+            return Ok(());
+        }
+        data.modify_theme(ty, f);
+        Ok(())
+    }
+
+    fn read_window_theme<T>(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        f: impl FnOnce(&ToplevelTheme) -> Option<T>,
+    ) -> Result<Option<T>, CphError> {
+        let window = self.get_window(window)?;
+        let ty = map_window_theme_kind(kind);
+        Ok(window.tl_data().theme(ty).and_then(f))
+    }
+
+    fn get_window_theme_colored(
+        &self,
+        colorable: Colorable,
+    ) -> Result<ToplevelThemeColored, CphError> {
+        use jay_config::theme::colors::*;
+        let colorable = match colorable {
+            UNFOCUSED_TITLE_BACKGROUND_COLOR => ToplevelThemeColored::unfocused_title_background,
+            FOCUSED_TITLE_BACKGROUND_COLOR => ToplevelThemeColored::focused_title_background,
+            FOCUSED_INACTIVE_TITLE_BACKGROUND_COLOR => {
+                ToplevelThemeColored::focused_inactive_title_background
+            }
+            UNFOCUSED_TITLE_TEXT_COLOR => ToplevelThemeColored::unfocused_title_text,
+            FOCUSED_TITLE_TEXT_COLOR => ToplevelThemeColored::focused_title_text,
+            FOCUSED_INACTIVE_TITLE_TEXT_COLOR => ToplevelThemeColored::focused_inactive_title_text,
+            SEPARATOR_COLOR => ToplevelThemeColored::separator,
+            BORDER_COLOR => ToplevelThemeColored::border,
+            FOCUSED_BORDER_COLOR => ToplevelThemeColored::focused_border,
+            ATTENTION_REQUESTED_BACKGROUND_COLOR => {
+                ToplevelThemeColored::attention_requested_background
+            }
+            _ => return Err(CphError::UnsupportedWindowThemeColor(colorable.0)),
+        };
+        Ok(colorable)
+    }
+
+    fn get_window_theme_sized(&self, sized: Resizable) -> Result<ToplevelThemeSized, CphError> {
+        use jay_config::theme::sized::*;
+        let sized = match sized {
+            TITLE_HEIGHT => ToplevelThemeSized::title_height,
+            BORDER_WIDTH => ToplevelThemeSized::border_width,
+            _ => return Err(CphError::UnsupportedWindowThemeSized(sized.0)),
+        };
+        Ok(sized)
+    }
+
+    fn handle_reset_window_theme(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+    ) -> Result<(), CphError> {
+        self.modify_window_theme(window, kind, false, |t| t.reset_immutable())
+    }
+
+    fn handle_set_window_theme_color(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        colorable: Colorable,
+        color: Option<jay_config::theme::Color>,
+    ) -> Result<(), CphError> {
+        let tc = self.get_window_theme_colored(colorable)?;
+        self.modify_window_theme(window, kind, color.is_some(), |t| {
+            tc.field(t).set(color.map(|c| c.into()))
+        })
+    }
+
+    fn handle_get_window_theme_color(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        colorable: Colorable,
+    ) -> Result<(), CphError> {
+        let tc = self.get_window_theme_colored(colorable)?;
+        let color = self.read_window_theme(window, kind, |t| tc.field(t).get())?;
+        let color = color.map(|c| {
+            let [r, g, b, a] = c.to_array(Eotf::Gamma22);
+            jay_config::theme::Color::new_f32_premultiplied(r, g, b, a)
+        });
+        self.respond(Response::GetWindowThemeColor { color });
+        Ok(())
+    }
+
+    fn handle_set_window_theme_size(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        sized: Resizable,
+        size: Option<i32>,
+    ) -> Result<(), CphError> {
+        let ts = self.get_window_theme_sized(sized)?;
+        if let Some(size) = size
+            && ts.not_admits(size)
+        {
+            return Err(CphError::InvalidSize(size, ts.theme()));
+        }
+        self.modify_window_theme(window, kind, size.is_some(), |t| ts.field(t).set(size))
+    }
+
+    fn handle_get_window_theme_size(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        sized: Resizable,
+    ) -> Result<(), CphError> {
+        let ts = self.get_window_theme_sized(sized)?;
+        let size = self.read_window_theme(window, kind, |t| ts.field(t).get())?;
+        self.respond(Response::GetWindowThemeSize { size });
+        Ok(())
+    }
+
+    fn handle_set_window_theme_show_titles(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        show: Option<bool>,
+    ) -> Result<(), CphError> {
+        self.modify_window_theme(window, kind, show.is_some(), |t| t.show_titles.set(show))
+    }
+
+    fn handle_get_window_theme_show_titles(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+    ) -> Result<(), CphError> {
+        let show = self.read_window_theme(window, kind, |t| t.show_titles.get())?;
+        self.respond(Response::GetWindowThemeShowTitles { show });
+        Ok(())
+    }
+
+    fn handle_set_window_theme_show_window_icons(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        show: Option<bool>,
+    ) -> Result<(), CphError> {
+        self.modify_window_theme(window, kind, show.is_some(), |t| {
+            t.show_window_icons.set(show)
+        })
+    }
+
+    fn handle_set_window_theme_window_icons_grayscale(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        grayscale: Option<bool>,
+    ) -> Result<(), CphError> {
+        self.modify_window_theme(window, kind, grayscale.is_some(), |t| {
+            t.window_icons_grayscale.set(grayscale)
+        })
+    }
+
+    fn handle_set_window_theme_title_font(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        font: Option<&str>,
+    ) -> Result<(), CphError> {
+        self.modify_window_theme(window, kind, font.is_some(), |t| {
+            t.title_font.set(font.map(|f| Rc::new(f.into())));
+        })
+    }
+
+    fn handle_set_window_theme_container_borders(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        borders: Option<ContainerBorders>,
+    ) -> Result<(), CphError> {
+        let borders = borders
+            .map(|b| {
+                b.try_into()
+                    .map_err(|_| CphError::UnknownContainerBorders(b))
+            })
+            .transpose()?;
+        self.modify_window_theme(window, kind, borders.is_some(), |t| {
+            t.container_borders.set(borders)
+        })
+    }
+
+    fn handle_get_window_theme_container_borders(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+    ) -> Result<(), CphError> {
+        let borders = self.read_window_theme(window, kind, |t| t.container_borders.get())?;
+        self.respond(Response::GetWindowThemeContainerBorders {
+            borders: borders.map(|b| b.into()),
+        });
+        Ok(())
+    }
+
     fn handle_set_workspace_initial_connector(
         &self,
         workspace: Workspace,
@@ -4292,6 +4507,68 @@ impl ConfigProxyHandler {
             } => self
                 .handle_set_window_split_relative(window, target, axis)
                 .wrn("set_window_container_split_relative")?,
+            ClientMessage::ResetWindowTheme { window, kind } => self
+                .handle_reset_window_theme(window, kind)
+                .wrn("reset_window_theme")?,
+            ClientMessage::SetWindowThemeColor {
+                window,
+                kind,
+                colorable,
+                color,
+            } => self
+                .handle_set_window_theme_color(window, kind, colorable, color)
+                .wrn("set_window_theme_color")?,
+            ClientMessage::GetWindowThemeColor {
+                window,
+                kind,
+                colorable,
+            } => self
+                .handle_get_window_theme_color(window, kind, colorable)
+                .wrn("get_window_theme_color")?,
+            ClientMessage::SetWindowThemeSize {
+                window,
+                kind,
+                sized,
+                size,
+            } => self
+                .handle_set_window_theme_size(window, kind, sized, size)
+                .wrn("set_window_theme_size")?,
+            ClientMessage::GetWindowThemeSize {
+                window,
+                kind,
+                sized,
+            } => self
+                .handle_get_window_theme_size(window, kind, sized)
+                .wrn("get_window_theme_size")?,
+            ClientMessage::SetWindowThemeShowTitles { window, kind, show } => self
+                .handle_set_window_theme_show_titles(window, kind, show)
+                .wrn("set_window_theme_show_titles")?,
+            ClientMessage::GetWindowThemeShowTitles { window, kind } => self
+                .handle_get_window_theme_show_titles(window, kind)
+                .wrn("get_window_theme_show_titles")?,
+            ClientMessage::SetWindowThemeShowWindowIcons { window, kind, show } => self
+                .handle_set_window_theme_show_window_icons(window, kind, show)
+                .wrn("set_window_theme_show_window_icons")?,
+            ClientMessage::SetWindowThemeWindowIconsGrayscale {
+                window,
+                kind,
+                grayscale,
+            } => self
+                .handle_set_window_theme_window_icons_grayscale(window, kind, grayscale)
+                .wrn("set_window_theme_window_icons_grayscale")?,
+            ClientMessage::SetWindowThemeTitleFont { window, kind, font } => self
+                .handle_set_window_theme_title_font(window, kind, font)
+                .wrn("set_window_theme_title_font")?,
+            ClientMessage::SetWindowThemeContainerBorders {
+                window,
+                kind,
+                borders,
+            } => self
+                .handle_set_window_theme_container_borders(window, kind, borders)
+                .wrn("set_window_theme_container_borders")?,
+            ClientMessage::GetWindowThemeContainerBorders { window, kind } => self
+                .handle_get_window_theme_container_borders(window, kind)
+                .wrn("get_window_theme_container_borders")?,
         }
         Ok(())
     }
@@ -4485,6 +4762,10 @@ enum CphError {
     UnknownContainerTarget(ConfigContainerTarget),
     #[error("Tried to use an unknown relative axis: {0:?}")]
     UnknownRelativeAxis(ConfigRelativeAxis),
+    #[error("Colorable element {0} is not supported in window themes")]
+    UnsupportedWindowThemeColor(u32),
+    #[error("Sized element {0} is not supported in window themes")]
+    UnsupportedWindowThemeSized(u32),
 }
 
 trait WithRequestName {
@@ -4540,4 +4821,11 @@ fn map_relative_axis(axis: ConfigRelativeAxis) -> Result<RelativeAxis, CphError>
         _ => return Err(CphError::UnknownRelativeAxis(axis)),
     };
     Ok(res)
+}
+
+fn map_window_theme_kind(kind: WindowThemeKind) -> ToplevelThemeType {
+    match kind {
+        WindowThemeKind::ParentTheme => ToplevelThemeType::ParentTheme,
+        WindowThemeKind::SelfTheme => ToplevelThemeType::SelfTheme,
+    }
 }

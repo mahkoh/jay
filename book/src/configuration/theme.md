@@ -180,6 +180,114 @@ alt-F9 = { type = "set-theme", theme.bg-color = "#000000" }
 
 Only the fields you include are changed; everything else stays the same.
 
+## Per-Window Themes
+
+The `[theme]` table applies to all windows. Individual windows and containers
+can override parts of it. There are two kinds of overrides:
+
+Window theme
+: Applies to any window.
+
+Container theme
+: Applies to the decorations a container draws for its children.
+
+Overrides are set with actions, usually from a shortcut or a
+[window rule](../window-rules.md):
+
+`set-window-theme`
+: Sets overrides in the window theme. Takes a `theme` table.
+
+`reset-window-theme`
+: Removes all overrides from the window theme. This is a simple action and is
+  written as a plain string.
+
+`set-container-theme`
+: Sets overrides in the container theme. Takes a `theme` table and an optional
+  `target`.
+
+`reset-container-theme`
+: Removes all overrides from the container theme. Takes an optional `target`.
+
+In a window rule, these actions apply to the matched window. Otherwise they
+apply to the focused window. As with `set-theme`, the `set-*` actions only
+change the fields that are included in the `theme` table.
+
+The `target` field selects the container relative to that window, in the same
+way as for [`toggle-split`](shortcuts.md):
+
+`parent`
+: The parent container of the window (default).
+
+`self`
+: The window itself.
+
+`auto`
+: The window itself if it is a container, otherwise its parent container.
+
+If the target is not a container, the container actions have no effect.
+
+### Available Fields
+
+Both kinds of theme accept the following fields. They have the same meaning as
+the corresponding fields in the `[theme]` table.
+
+- `attention-requested-bg-color`
+- `border-color`
+- `focused-border-color`
+- `focused-inactive-title-bg-color`
+- `focused-inactive-title-text-color`
+- `focused-title-bg-color`
+- `focused-title-text-color`
+- `separator-color`
+- `unfocused-title-bg-color`
+- `unfocused-title-text-color`
+- `border-width`
+- `title-height`
+- `title-font`
+- `show-titles`
+- `show-window-icons`
+- `window-icons-grayscale`
+
+The container theme also accepts `container-borders`.
+
+Settings that are not set fall back to other themes and finally to the
+`[theme]` table. Not every setting has an effect on every window. The control
+center marks settings that currently have no effect as unused.
+
+### Examples
+
+Remove the title and borders around a splash screen:
+
+```toml
+[[windows]]
+match.title = "GIMP Startup"
+match.app-id = "gimp"
+initial-tile-state = "floating"
+action = {
+    type = "set-window-theme",
+    theme = { show-titles = false, border-width = 0 },
+}
+```
+
+Use thicker borders and full container borders in the container of the focused
+window:
+
+```toml
+[shortcuts]
+alt-F10 = {
+    type = "set-container-theme",
+    target = "auto",
+    theme = { border-width = 8, container-borders = "full" },
+}
+alt-shift-F10 = { type = "reset-container-theme", target = "auto" }
+```
+
+Per-window themes can also be inspected and edited in the control center. See
+[Window Search](../control-center.md#window-search).
+
+The full list of fields is in the
+[auto-generated specification](https://github.com/mahkoh/jay/blob/master/toml-spec/spec/spec.generated.md).
+
 ## Window Icons
 
 Applications can provide custom icons for their windows via the

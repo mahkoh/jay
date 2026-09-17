@@ -1,5 +1,7 @@
+use crate::cmm::cmm_eotf::Eotf;
 use crate::control_center::CcBehavior;
 use crate::control_center::ControlCenterInner;
+use crate::control_center::GridExt;
 use crate::control_center::PaneType;
 use crate::control_center::cc_clients::ClientCrit;
 use crate::control_center::cc_clients::show_client_collapsible;
@@ -7,33 +9,52 @@ use crate::control_center::cc_criterion::CcCriterion;
 use crate::control_center::cc_criterion::CritImpl;
 use crate::control_center::cc_criterion::CritRegex;
 use crate::control_center::grid;
+use crate::control_center::grid_label;
 use crate::control_center::icon_label;
 use crate::control_center::label;
 use crate::control_center::read_only_bool;
 use crate::criteria::CritMgrExt;
 use crate::criteria::CritUpstreamNode;
 use crate::criteria::crit_leaf::CritLeafMatcher;
+use crate::egui_adapter::egui_platform::icons::ICON_CLOSE;
 use crate::egui_adapter::egui_platform::icons::ICON_OPEN_IN_NEW;
+use crate::gfx_api::AlphaMode;
 use crate::state::State;
+use crate::theme::Color;
+use crate::theme::ContainerBorders;
+use crate::theme::ContainerBordersSetting;
+use crate::theme::ToplevelThemeColored;
+use crate::theme::ToplevelThemeSized;
 use crate::tree::NodeId;
 use crate::tree::ToplevelData;
 use crate::tree::ToplevelIdentifier;
 use crate::tree::ToplevelNode;
+use crate::tree::ToplevelNodeBase;
+use crate::tree::ToplevelThemeType;
+use crate::tree::ToplevelThemeType::ParentTheme;
 use crate::tree::ToplevelType;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::utils::bhash::BHashMap;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::event_listener::EventListener;
 use crate::utils::lazy_event_source::LazyEventSourceListener;
+use crate::utils::reset_immutable::ResetImmutable;
 use crate::utils::static_text::StaticText;
+use ToplevelThemeType::SelfTheme;
 use derivative::Derivative;
+use egui::Button;
+use egui::Checkbox;
 use egui::CollapsingHeader;
+use egui::ComboBox;
+use egui::DragValue;
 use egui::Sense;
+use egui::TextEdit;
 use egui::TextFormat;
 use egui::Ui;
 use egui::Widget;
 use egui::cache::CacheTrait;
 use egui::text::LayoutJob;
+use egui::vec2;
 use isnt::std_1::primitive::IsntStrExt;
 use jay_config::window::ContentType;
 use jay_config::window::GAME_CONTENT;
@@ -41,9 +62,12 @@ use jay_config::window::NO_CONTENT_TYPE;
 use jay_config::window::PHOTO_CONTENT;
 use jay_config::window::VIDEO_CONTENT;
 use linearize::Linearize;
+use linearize::LinearizeExt;
+use std::cell::LazyCell;
 use std::mem;
 use std::rc::Rc;
 use std::rc::Weak;
+use std::sync::Arc;
 
 #[derive(Derivative)]
 #[derivative(Default)]
@@ -424,6 +448,164 @@ fn show_window(behavior: &mut CcBehavior<'_>, ui: &mut Ui, window: &dyn Toplevel
             label(ui, "Content Type", ct.text());
         }
     });
+    let theme = &behavior.cc.state.theme;
+    let usage = LazyCell::new(|| TlThemeUsage::new(&behavior.cc.state, data));
+    for ttt in ToplevelThemeType::variants() {
+        let name = match ttt {
+            ParentTheme => "Theme",
+            SelfTheme if not_matches!(data.kind, ToplevelType::Container) => continue,
+            SelfTheme => "Container Theme",
+        };
+        ui.collapsing(name, |ui| {
+            let t = data.theme(ttt);
+            if ui
+                .add_enabled(t.is_some(), Button::new("Unset All"))
+                .clicked()
+            {
+                data.modify_theme(ttt, |t| t.reset_immutable());
+            }
+            macro_rules! map {
+                ($($path:ident).+) => {
+                    t.and_then(|t| t.$($path).+.get())
+                };
+            }
+            let unused = |setting| usage.unused(ttt, setting);
+            macro_rules! bool {
+                ($ui:expr, $name:expr, $field:ident, $setting:ident $(,)?) => {
+                    let v = map!($field);
+                    tl_theme_row(
+                        $ui,
+                        $name,
+                        unused(TlThemeSetting::$setting),
+                        v.is_some(),
+                        || data.modify_theme(ttt, |t| t.$field.set(None)),
+                        |ui| {
+                            let mut b = v.unwrap_or(theme.$field.get());
+                            if Checkbox::without_text(&mut b).ui(ui).changed() {
+                                data.modify_theme(ttt, |t| t.$field.set(Some(b)));
+                            }
+                        },
+                    );
+                };
+            }
+            grid(ui, "settings", |ui| {
+                bool!(ui, "Show Titles", show_titles, ShowTitles);
+                bool!(ui, "Show Window Icons", show_window_icons, ShowWindowIcons);
+                bool!(
+                    ui,
+                    "Window Icons Grayscale",
+                    window_icons_grayscale,
+                    WindowIconsGrayscale,
+                );
+                let font = map!(title_font);
+                tl_theme_row(
+                    ui,
+                    "Title Font",
+                    unused(TlThemeSetting::TitleFont),
+                    font.is_some(),
+                    || {
+                        data.modify_theme(ttt, |t| t.title_font.set(None));
+                    },
+                    |ui| {
+                        let mut v = font.map(|v| v.to_string()).unwrap_or_default();
+                        let res = TextEdit::singleline(&mut v)
+                            .clip_text(false)
+                            .min_size(vec2(200.0, 0.0))
+                            .hint_text(&**theme.title_font())
+                            .ui(ui);
+                        if res.changed() {
+                            data.modify_theme(ttt, |t| {
+                                t.title_font
+                                    .set(v.is_not_empty().then(|| Rc::new(Arc::from(v))))
+                            });
+                        }
+                    },
+                );
+                if ttt == SelfTheme {
+                    let borders = map!(container_borders);
+                    tl_theme_row(
+                        ui,
+                        "Container Borders",
+                        unused(TlThemeSetting::ContainerBorders),
+                        borders.is_some(),
+                        || data.modify_theme(ttt, |t| t.container_borders.set(None)),
+                        |ui| {
+                            let v = borders.unwrap_or(theme.container_borders.get());
+                            let mut selected = None;
+                            ComboBox::from_id_salt("Container Borders")
+                                .selected_text(v.text())
+                                .show_ui(ui, |ui| {
+                                    for s in ContainerBordersSetting::variants() {
+                                        if ui.selectable_label(v == s, s.text()).clicked() {
+                                            selected = Some(s);
+                                        }
+                                    }
+                                });
+                            if let Some(s) = selected {
+                                data.modify_theme(ttt, |t| t.container_borders.set(Some(s)));
+                            }
+                        },
+                    );
+                }
+            });
+            ui.collapsing("Sizes", |ui| {
+                grid(ui, "Sizes", |ui| {
+                    for ts in ToplevelThemeSized::variants() {
+                        let v = t.and_then(|t| ts.field(t).get());
+                        tl_theme_row(
+                            ui,
+                            ts.text(),
+                            unused(TlThemeSetting::Size(ts)),
+                            v.is_some(),
+                            || data.modify_theme(ttt, |t| ts.field(t).set(None)),
+                            |ui| {
+                                let mut i = v.unwrap_or_else(|| ts.theme().field(theme).val.get());
+                                if DragValue::new(&mut i)
+                                    .range(ts.min()..=ts.max())
+                                    .speed(1.0)
+                                    .ui(ui)
+                                    .changed()
+                                {
+                                    data.modify_theme(ttt, |t| ts.field(t).set(Some(i)));
+                                }
+                            },
+                        );
+                    }
+                });
+            });
+            ui.collapsing("Colors", |ui| {
+                grid(ui, "Colors", |ui| {
+                    for tc in ToplevelThemeColored::variants() {
+                        let c = t.and_then(|t| tc.field(t).get());
+                        tl_theme_row(
+                            ui,
+                            tc.text(),
+                            unused(TlThemeSetting::Color(tc)),
+                            c.is_some(),
+                            || data.modify_theme(ttt, |t| tc.field(t).set(None)),
+                            |ui| {
+                                let mut v = c
+                                    .unwrap_or_else(|| tc.theme().field(theme).val.get())
+                                    .to_array(Eotf::Linear);
+                                if ui.color_edit_button_rgba_premultiplied(&mut v).changed() {
+                                    let [r, g, b, a] = v;
+                                    let c = Color::new(
+                                        Eotf::Linear,
+                                        AlphaMode::PremultipliedOptical,
+                                        r,
+                                        g,
+                                        b,
+                                        a,
+                                    );
+                                    data.modify_theme(ttt, |t| tc.field(t).set(Some(c)));
+                                }
+                            },
+                        );
+                    }
+                });
+            });
+        });
+    }
     if let Some(client) = &data.client {
         show_client_collapsible(behavior, ui, client);
     }
@@ -498,4 +680,243 @@ fn show_content_types(ui: &mut Ui, ct: &mut ContentType) -> bool {
         v |= GAME_CONTENT;
     }
     mem::replace(ct, v) != v
+}
+
+#[derive(Copy, Clone)]
+enum TlThemeSetting {
+    ShowTitles,
+    ShowWindowIcons,
+    WindowIconsGrayscale,
+    TitleFont,
+    ContainerBorders,
+    Size(ToplevelThemeSized),
+    Color(ToplevelThemeColored),
+}
+
+struct TlThemeUsage {
+    parent: TlParentUsage,
+    container: Option<TlContainerUsage>,
+}
+
+enum TlParentUsage {
+    Floating {
+        show_titles: bool,
+        titles_visible: bool,
+        borders_visible: bool,
+        icons_visible: bool,
+    },
+    Tiled {
+        titles_visible: bool,
+        icons_visible: bool,
+        focused_border_visible: bool,
+        focused_border_set: bool,
+    },
+    Other,
+}
+
+struct TlContainerUsage {
+    show_titles: bool,
+    titles_visible: bool,
+    has_borders: bool,
+    borders_visible: bool,
+    focused_border_visible: bool,
+}
+
+const NOT_FLOATING_OR_TILED: &str = "The window is neither floating nor tiled.";
+const TITLES_HIDDEN: &str = "Titles are hidden.";
+const TITLES_NOT_VISIBLE: &str = "Titles are not visible.";
+const ICONS_NOT_VISIBLE: &str = "Window icons are not visible.";
+const BORDERS_NOT_VISIBLE: &str = "No borders are visible.";
+const NO_BORDERS: &str = "The container has no borders because it has only one child and \
+    does not use full borders.";
+const NOT_FLOATING: &str = "This setting is not used for floating windows.";
+const NOT_TILED: &str = "This setting is not used for tiled windows. \
+    The value is taken from the container theme of the parent container.";
+const FOCUSED_BORDER_NOT_VISIBLE: &str = "Focused borders are only visible if the parent \
+    container uses full borders and has a border width larger than 0.";
+const BORDER_NOT_VISIBLE_TILED: &str = "For tiled windows, this color is only used as the \
+    default of the focused border color. Focused borders are only visible if the parent \
+    container uses full borders and has a border width larger than 0.";
+const BORDER_FOCUSED_BORDER_SET: &str = "For tiled windows, this color is only used as the \
+    default of the focused border color, but the focused border color is set.";
+const CONTAINER_FOCUSED_BORDER_NOT_VISIBLE: &str = "Focused borders are only visible if the \
+    container uses full borders and has a border width larger than 0.";
+
+impl TlThemeUsage {
+    fn new(state: &State, data: &ToplevelData) -> Self {
+        let container = data
+            .slf
+            .upgrade()
+            .and_then(|tl| tl.node_into_container())
+            .map(|c| {
+                let ns = &c.node_state[LiveTL];
+                let theme = &ns.theme;
+                let bw = theme.sizes.border_width.get();
+                let full = c.container_borders(LiveTL) == ContainerBorders::Full;
+                let has_borders = full || ns.num_children.get() > 1;
+                TlContainerUsage {
+                    show_titles: theme.show_titles.get(),
+                    titles_visible: theme.sizes.title_height.get() > 0,
+                    has_borders,
+                    borders_visible: bw > 0 && has_borders,
+                    focused_border_visible: bw > 0 && full,
+                }
+            });
+        let parent = 'parent: {
+            if data.is_fullscreen[LiveTL].get() {
+                break 'parent TlParentUsage::Other;
+            }
+            let Some(parent) = data.parent.get() else {
+                break 'parent TlParentUsage::Other;
+            };
+            if let Some(float) = parent.clone().node_into_float() {
+                let theme = &float.node_state[LiveTL].theme;
+                break 'parent TlParentUsage::Floating {
+                    show_titles: theme.sizes.title_underline_height.get() > 0,
+                    titles_visible: theme.sizes.title_height.get() > 0,
+                    borders_visible: theme.sizes.border_width.get() > 0,
+                    icons_visible: theme.sizes.title_icon_size.get() > 0,
+                };
+            }
+            let Some(container) = parent.node_into_container() else {
+                break 'parent TlParentUsage::Other;
+            };
+            let Some(child) = container.get_child_node(data.node_id) else {
+                break 'parent TlParentUsage::Other;
+            };
+            let ptheme = &container.node_state[LiveTL].theme;
+            let focused_border_set = state.theme.colors.focused_border.get_opt().is_some()
+                || [
+                    container.tl_data().theme(SelfTheme),
+                    data.theme(ParentTheme),
+                ]
+                .into_iter()
+                .flatten()
+                .any(|t| t.colors.focused_border.get().is_some());
+            TlParentUsage::Tiled {
+                titles_visible: ptheme.sizes.title_height.get() > 0,
+                icons_visible: child.node_state[LiveTL].theme.sizes.title_icon_size.get() > 0,
+                focused_border_visible: ptheme.sizes.border_width.get() > 0
+                    && container.container_borders(LiveTL) == ContainerBorders::Full,
+                focused_border_set,
+            }
+        };
+        Self { parent, container }
+    }
+
+    fn unused(&self, ttt: ToplevelThemeType, setting: TlThemeSetting) -> Option<&'static str> {
+        use TlThemeSetting::*;
+        use ToplevelThemeColored::*;
+        use ToplevelThemeSized::*;
+        match ttt {
+            ParentTheme => self.parent_unused(setting),
+            SelfTheme => {
+                let c = self.container.as_ref()?;
+                let titles = || (!c.titles_visible).then_some(TITLES_NOT_VISIBLE);
+                match setting {
+                    ShowTitles | ContainerBorders => None,
+                    Size(title_height) | Color(separator) => {
+                        (!c.show_titles).then_some(TITLES_HIDDEN)
+                    }
+                    Size(border_width) => (!c.has_borders).then_some(NO_BORDERS),
+                    Color(border) => (!c.borders_visible).then_some(BORDERS_NOT_VISIBLE),
+                    Color(focused_border) => {
+                        (!c.focused_border_visible).then_some(CONTAINER_FOCUSED_BORDER_NOT_VISIBLE)
+                    }
+                    ShowWindowIcons | WindowIconsGrayscale | TitleFont | Color(_) => titles(),
+                }
+            }
+        }
+    }
+
+    fn parent_unused(&self, setting: TlThemeSetting) -> Option<&'static str> {
+        use TlThemeSetting::*;
+        use ToplevelThemeColored::*;
+        use ToplevelThemeSized::*;
+        match self.parent {
+            TlParentUsage::Other => Some(NOT_FLOATING_OR_TILED),
+            TlParentUsage::Floating {
+                show_titles,
+                titles_visible,
+                borders_visible,
+                icons_visible,
+            } => {
+                let titles = || (!titles_visible).then_some(TITLES_NOT_VISIBLE);
+                match setting {
+                    ShowTitles | ContainerBorders => None,
+                    Size(title_height) | Color(separator) => {
+                        (!show_titles).then_some(TITLES_HIDDEN)
+                    }
+                    Size(border_width) => None,
+                    Color(border | focused_border) => {
+                        (!borders_visible).then_some(BORDERS_NOT_VISIBLE)
+                    }
+                    Color(focused_inactive_title_background | focused_inactive_title_text) => {
+                        Some(NOT_FLOATING)
+                    }
+                    WindowIconsGrayscale => {
+                        titles().or((!icons_visible).then_some(ICONS_NOT_VISIBLE))
+                    }
+                    ShowWindowIcons | TitleFont | Color(_) => titles(),
+                }
+            }
+            TlParentUsage::Tiled {
+                titles_visible,
+                icons_visible,
+                focused_border_visible,
+                focused_border_set,
+            } => {
+                let titles = || (!titles_visible).then_some(TITLES_NOT_VISIBLE);
+                match setting {
+                    ShowTitles | ContainerBorders | Size(_) | Color(separator) => Some(NOT_TILED),
+                    Color(focused_border) => {
+                        (!focused_border_visible).then_some(FOCUSED_BORDER_NOT_VISIBLE)
+                    }
+                    Color(border) => {
+                        if !focused_border_visible {
+                            Some(BORDER_NOT_VISIBLE_TILED)
+                        } else if focused_border_set {
+                            Some(BORDER_FOCUSED_BORDER_SET)
+                        } else {
+                            None
+                        }
+                    }
+                    WindowIconsGrayscale => {
+                        titles().or((!icons_visible).then_some(ICONS_NOT_VISIBLE))
+                    }
+                    ShowWindowIcons | TitleFont | Color(_) => titles(),
+                }
+            }
+        }
+    }
+}
+
+fn tl_theme_row(
+    ui: &mut Ui,
+    name: &str,
+    unused: Option<&str>,
+    is_set: bool,
+    unset: impl FnOnce(),
+    add_contents: impl FnOnce(&mut Ui),
+) {
+    let ui = &mut *ui.row();
+    grid_label(ui, name);
+    ui.scope(|ui| {
+        if !is_set {
+            ui.multiply_opacity(0.5);
+        }
+        add_contents(ui);
+    });
+    if is_set {
+        if ui.button(ICON_CLOSE).on_hover_text("Unset").clicked() {
+            unset();
+        }
+    } else {
+        ui.weak("Unset").on_hover_text(
+            "This setting is not set. The displayed value is taken from the global theme.",
+        );
+    }
+    if let Some(reason) = unused {
+        ui.weak("Unused").on_hover_text(reason);
+    }
 }

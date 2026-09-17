@@ -477,6 +477,22 @@ initial-tile-state = "floating"
 auto-focus = false
 ```
 
+### Remove Decorations Around Splash Screens
+
+```toml
+[[windows]]
+match.title = "GIMP Startup"
+match.app-id = "gimp"
+initial-tile-state = "floating"
+action = {
+    type = "set-window-theme",
+    theme = { show-titles = false, border-width = 0 },
+}
+```
+
+See [Per-Window Themes](configuration/theme.md#per-window-themes) for the
+available fields.
+
 ### Run a Command When a Window Appears
 
 ```toml

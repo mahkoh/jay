@@ -949,7 +949,6 @@ macro_rules! _define_ident_mut {
     };
 }
 
-#[expect(unused)]
 macro_rules! define_ident_mut {
     ($($tt:tt)*) => {
         jay_proc::extract_ident!(_define_ident_mut!, $($tt)*)
@@ -964,7 +963,6 @@ macro_rules! _write_ident_opt {
     };
 }
 
-#[expect(unused)]
 macro_rules! write_ident_opt {
     ($($tt:tt)*) => {
         jay_proc::extract_ident!(_write_ident_opt!, $($tt)*)
@@ -979,7 +977,6 @@ macro_rules! _write_ident_or {
     };
 }
 
-#[expect(unused)]
 macro_rules! write_ident_or {
     ($($tt:tt)*) => {
         jay_proc::extract_ident!(_write_ident_or!, $($tt)*)

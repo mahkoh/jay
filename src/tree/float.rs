@@ -49,7 +49,9 @@ use crate::tree::PinnedNode;
 use crate::tree::SplitView;
 use crate::tree::StackedNode;
 use crate::tree::TileDragDestination;
+use crate::tree::ToplevelData;
 use crate::tree::ToplevelNode;
+use crate::tree::ToplevelThemeType::ParentTheme;
 use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
@@ -174,7 +176,7 @@ pub struct FloatTheme {
     pub sizes: FloatThemeSizes,
     pub show_pin_icon: Cell<bool>,
     pub window_icons_grayscale: Cell<bool>,
-    title_font: CloneCell<Rc<Arc<str>>>,
+    pub title_font: CloneCell<Rc<Arc<str>>>,
 }
 
 #[derive(Clone, CachedValue)]
@@ -266,8 +268,9 @@ impl FloatNode {
             _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
             _scales_listener: EventListener::attached(slf.clone(), &state.scales_changed),
         });
+        let tl_data = child.tl_data();
         {
-            let theme = floater.compute_theme();
+            let theme = floater.compute_theme(tl_data);
             floater.node_state[LiveTL].theme.cached_set(theme.clone());
             floater.node_state[RenderTL].theme.cached_set(theme);
             floater.add_transaction_op(FloatTransactionOp::UpdateTitleIcons);
@@ -305,7 +308,7 @@ impl FloatNode {
         child.tl_set_parent(floater.clone());
         floater.update_effective_visible();
         child.tl_restack_popups();
-        if child.tl_data().pinned.get() {
+        if tl_data.pinned.get() {
             floater.toggle_pinned();
         }
         floater.schedule_title_offsets();
@@ -914,23 +917,39 @@ impl FloatNode {
         self.node_state[LiveTL].pinned.set(v);
     }
 
-    fn compute_theme(&self) -> FloatTheme {
+    fn compute_theme(&self, data: &ToplevelData) -> FloatTheme {
         let state = &self.state;
         let theme = &state.theme;
-        define_ident!(Cell::new(theme.colors.@focused_title_text.val.get()));
-        define_ident!(Cell::new(theme.colors.@unfocused_title_text.val.get()));
-        define_ident!(theme.colors.@border.val.get());
-        define_ident!(Cell::new(theme.colors.@focused_title_background.val.get()));
-        define_ident!(Cell::new(theme.colors.@attention_requested_background.val.get()));
-        define_ident!(Cell::new(theme.colors.@unfocused_title_background.val.get()));
-        define_ident!(Cell::new(theme.colors.@separator.val.get()));
-        define_ident!(theme.colors.@focused_border.get_opt());
-        define_ident!(Cell::new(theme.sizes.@border_width.val.get()));
-        define_ident!(theme.sizes.@title_height.val.get());
-        define_ident!(theme.@show_titles.get());
-        define_ident!(theme.@show_window_icons.get());
-        define_ident!(Cell::new(theme.@window_icons_grayscale.get()));
-        define_ident!(CloneCell::new(theme.@title_font()));
+        define_ident_mut!(theme.colors.@focused_title_text.val.get());
+        define_ident_mut!(theme.colors.@unfocused_title_text.val.get());
+        define_ident_mut!(theme.colors.@border.val.get());
+        define_ident_mut!(theme.colors.@focused_title_background.val.get());
+        define_ident_mut!(theme.colors.@attention_requested_background.val.get());
+        define_ident_mut!(theme.colors.@unfocused_title_background.val.get());
+        define_ident_mut!(theme.colors.@separator.val.get());
+        define_ident_mut!(theme.colors.@focused_border.get_opt());
+        define_ident_mut!(theme.sizes.@border_width.val.get());
+        define_ident_mut!(theme.sizes.@title_height.val.get());
+        define_ident_mut!(theme.@show_titles.get());
+        define_ident_mut!(theme.@show_window_icons.get());
+        define_ident_mut!(theme.@window_icons_grayscale.get());
+        define_ident_mut!(theme.@title_font());
+        if let Some(theme) = data.theme(ParentTheme) {
+            write_ident_opt!(theme.colors.@focused_title_text.get());
+            write_ident_opt!(theme.colors.@unfocused_title_text.get());
+            write_ident_opt!(theme.colors.@border.get());
+            write_ident_opt!(theme.colors.@focused_title_background.get());
+            write_ident_opt!(theme.colors.@attention_requested_background.get());
+            write_ident_opt!(theme.colors.@unfocused_title_background.get());
+            write_ident_opt!(theme.colors.@separator.get());
+            write_ident_opt!(theme.sizes.@border_width.get());
+            write_ident_opt!(theme.sizes.@title_height.get());
+            write_ident_opt!(theme.@show_titles.get());
+            write_ident_opt!(theme.@show_window_icons.get());
+            write_ident_opt!(theme.@window_icons_grayscale.get());
+            write_ident_opt!(theme.@title_font.get());
+            write_ident_or!(theme.colors.@focused_border.get());
+        }
         define_ident!(Cell::new(compute_focused_border(@focused_border, border)));
         define_ident!(Cell::new(@border));
         define_ident!(Cell::new(@title_plus_underline_height(show_titles, title_height)));
@@ -938,6 +957,15 @@ impl FloatNode {
         define_ident!(Cell::new(@title_icon_size(show_titles, show_window_icons, title_height)));
         define_ident!(Cell::new(compute_title_height(show_titles, @title_height)));
         define_ident!(Cell::new(state.@show_pin_icon.get()));
+        define_ident!(Cell::new(@focused_title_text));
+        define_ident!(Cell::new(@unfocused_title_text));
+        define_ident!(Cell::new(@focused_title_background));
+        define_ident!(Cell::new(@attention_requested_background));
+        define_ident!(Cell::new(@unfocused_title_background));
+        define_ident!(Cell::new(@separator));
+        define_ident!(Cell::new(@border_width));
+        define_ident!(Cell::new(@window_icons_grayscale));
+        define_ident!(CloneCell::new(@title_font));
         FloatTheme {
             colors: FloatThemeColors {
                 focused_title_text,
@@ -1311,6 +1339,7 @@ impl ContainingNode for FloatNode {
         self.update_effective_visible();
         self.schedule_layout();
         self.update_icon();
+        ThemeChangeListener::changed(self);
     }
 
     fn cnode_remove_child2(self: Rc<Self>, _child: &dyn Node, _preserve_focus: bool) {
@@ -1411,6 +1440,10 @@ impl ContainingNode for FloatNode {
     fn cnode_child_icon_factory_changed(self: Rc<Self>, _child: NodeId) {
         self.update_icon();
     }
+
+    fn cnode_child_theme_changed(self: Rc<Self>, _child: NodeId) {
+        ThemeChangeListener::changed(self)
+    }
 }
 
 impl FloatNode {
@@ -1482,7 +1515,10 @@ impl WorkspaceEventListener for FloatNode {
 impl ThemeChangeListener for FloatNode {
     fn changed(self: Rc<Self>) {
         let ns = &self.node_state[LiveTL];
-        let theme = self.compute_theme();
+        let Some(child) = ns.child.get() else {
+            return;
+        };
+        let theme = self.compute_theme(child.tl_data());
         let changed = ns.theme.cached_update(theme, |op| {
             self.add_transaction_op(FloatTransactionOp::ThemeOp(op));
         });

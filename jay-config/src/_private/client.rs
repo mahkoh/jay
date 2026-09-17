@@ -11,6 +11,7 @@ use crate::_private::PollableId;
 use crate::_private::VERSION;
 use crate::_private::WindowCriterionIpc;
 use crate::_private::WindowCriterionStringField;
+use crate::_private::WindowThemeKind;
 use crate::_private::WireMode;
 use crate::_private::bincode_ops;
 use crate::_private::ipc::ClientMessage;
@@ -2493,6 +2494,145 @@ impl ConfigClient {
             ContainerBorders::Separators,
             GetContainerBorders { borders }
         );
+        borders
+    }
+
+    pub fn reset_window_theme(&self, window: Window, kind: WindowThemeKind) {
+        self.send(&ClientMessage::ResetWindowTheme { window, kind });
+    }
+
+    pub fn set_window_theme_color(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        colorable: Colorable,
+        color: Option<Color>,
+    ) {
+        self.send(&ClientMessage::SetWindowThemeColor {
+            window,
+            kind,
+            colorable,
+            color,
+        });
+    }
+
+    pub fn get_window_theme_color(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        colorable: Colorable,
+    ) -> Option<Color> {
+        let res = self.send_with_response(&ClientMessage::GetWindowThemeColor {
+            window,
+            kind,
+            colorable,
+        });
+        get_response!(res, None, GetWindowThemeColor { color });
+        color
+    }
+
+    pub fn set_window_theme_size(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        sized: Resizable,
+        size: Option<i32>,
+    ) {
+        self.send(&ClientMessage::SetWindowThemeSize {
+            window,
+            kind,
+            sized,
+            size,
+        });
+    }
+
+    pub fn get_window_theme_size(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        sized: Resizable,
+    ) -> Option<i32> {
+        let res = self.send_with_response(&ClientMessage::GetWindowThemeSize {
+            window,
+            kind,
+            sized,
+        });
+        get_response!(res, None, GetWindowThemeSize { size });
+        size
+    }
+
+    pub fn set_window_theme_show_titles(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        show: Option<bool>,
+    ) {
+        self.send(&ClientMessage::SetWindowThemeShowTitles { window, kind, show });
+    }
+
+    pub fn get_window_theme_show_titles(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+    ) -> Option<bool> {
+        let res =
+            self.send_with_response(&ClientMessage::GetWindowThemeShowTitles { window, kind });
+        get_response!(res, None, GetWindowThemeShowTitles { show });
+        show
+    }
+
+    pub fn set_window_theme_show_window_icons(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        show: Option<bool>,
+    ) {
+        self.send(&ClientMessage::SetWindowThemeShowWindowIcons { window, kind, show });
+    }
+
+    pub fn set_window_theme_window_icons_grayscale(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        grayscale: Option<bool>,
+    ) {
+        self.send(&ClientMessage::SetWindowThemeWindowIconsGrayscale {
+            window,
+            kind,
+            grayscale,
+        });
+    }
+
+    pub fn set_window_theme_title_font(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        font: Option<&str>,
+    ) {
+        self.send(&ClientMessage::SetWindowThemeTitleFont { window, kind, font });
+    }
+
+    pub fn set_window_theme_container_borders(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+        borders: Option<ContainerBorders>,
+    ) {
+        self.send(&ClientMessage::SetWindowThemeContainerBorders {
+            window,
+            kind,
+            borders,
+        });
+    }
+
+    pub fn get_window_theme_container_borders(
+        &self,
+        window: Window,
+        kind: WindowThemeKind,
+    ) -> Option<ContainerBorders> {
+        let res = self
+            .send_with_response(&ClientMessage::GetWindowThemeContainerBorders { window, kind });
+        get_response!(res, None, GetWindowThemeContainerBorders { borders });
         borders
     }
 

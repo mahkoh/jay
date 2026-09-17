@@ -49,4 +49,7 @@ pub trait ContainingNode: Node {
     fn cnode_child_icon_factory_changed(self: Rc<Self>, child: NodeId) {
         let _ = child;
     }
+    fn cnode_child_theme_changed(self: Rc<Self>, child: NodeId) {
+        let _ = child;
+    }
 }

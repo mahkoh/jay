@@ -135,6 +135,11 @@ fn write_variant_spec(buf: &mut Vec<u8>, spec: &VariantSpec) -> Result<()> {
 }
 
 fn write_single_table_spec(buf: &mut Vec<u8>, spec: &SingleTableSpec, pad: &str) -> Result<()> {
+    if spec.fields.is_empty() {
+        writeln!(buf, "{pad}The table has no fields.")?;
+        writeln!(buf)?;
+        return Ok(());
+    }
     writeln!(buf, "{pad}The table has the following fields:")?;
     writeln!(buf)?;
     for (name, fs) in &spec.fields {
