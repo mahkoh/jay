@@ -128,6 +128,7 @@ use crate::tree::NodeLayerLink;
 use crate::tree::NodeLocation;
 use crate::tree::NodeVisitor;
 use crate::tree::OutputNode;
+use crate::tree::PresentFlags;
 use crate::tree::PresentationListener;
 use crate::tree::SplitView;
 use crate::tree::ToplevelNode;
@@ -2595,13 +2596,12 @@ impl PresentationListener for WlSurface {
         tv_nsec: u32,
         refresh: u32,
         seq: u64,
-        flags: u32,
-        vrr: bool,
+        flags: PresentFlags,
     ) {
         let bindings = output.global.bindings.borrow();
         let bindings = bindings.get(&self.client.id);
         for pf in self.latched_presentation_feedback.borrow_mut().drain(..) {
-            pf.presented(bindings, tv_sec, tv_nsec, refresh, seq, flags, vrr);
+            pf.presented(bindings, tv_sec, tv_nsec, refresh, seq, flags);
         }
         self.presentation_listener.detach();
     }

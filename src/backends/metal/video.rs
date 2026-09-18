@@ -59,11 +59,13 @@ use crate::gfx_api::GfxApi;
 use crate::gfx_api::GfxContext;
 use crate::gfx_api::GfxFramebuffer;
 use crate::ifs::wl_output::OutputId;
-use crate::ifs::wp_presentation_feedback::KIND_HW_COMPLETION;
-use crate::ifs::wp_presentation_feedback::KIND_VSYNC;
-use crate::ifs::wp_presentation_feedback::KIND_ZERO_COPY;
 use crate::state::State;
 use crate::tree::OutputNode;
+use crate::tree::PF_HW_COMPLETION;
+use crate::tree::PF_LOCKED;
+use crate::tree::PF_VRR;
+use crate::tree::PF_VSYNC;
+use crate::tree::PF_ZERO_COPY;
 use crate::udev::UdevDevice;
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::bhash::BHashMap;
@@ -2384,12 +2386,18 @@ impl MetalBackend {
                     connector.vblank_miss_this_sec.fetch_add(1);
                 }
             }
-            let mut flags = KIND_HW_COMPLETION;
+            let mut flags = PF_HW_COMPLETION;
             if connector.presentation_is_sync.get() {
-                flags |= KIND_VSYNC;
+                flags |= PF_VSYNC;
             }
             if connector.presentation_is_zero_copy.get() {
-                flags |= KIND_ZERO_COPY;
+                flags |= PF_ZERO_COPY;
+            }
+            if dd.persistent.state.borrow().vrr {
+                flags |= PF_VRR;
+            }
+            if dd.drm_state.locked {
+                flags |= PF_LOCKED;
             }
             if let Some(g) = &global {
                 g.presented(
@@ -2398,8 +2406,6 @@ impl MetalBackend {
                     dd.refresh,
                     crtc.sequence.get(),
                     flags,
-                    dd.persistent.state.borrow().vrr,
-                    dd.drm_state.locked,
                 );
             }
         }

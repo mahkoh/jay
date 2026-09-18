@@ -42,14 +42,16 @@ use crate::gfx_api::TextureUse;
 use crate::gfx_api::create_render_pass;
 use crate::ifs::wl_output::BlendSpace;
 use crate::ifs::wl_output::OutputId;
-use crate::ifs::wp_presentation_feedback::KIND_HW_CLOCK;
-use crate::ifs::wp_presentation_feedback::KIND_HW_COMPLETION;
-use crate::ifs::wp_presentation_feedback::KIND_VSYNC;
-use crate::ifs::wp_presentation_feedback::KIND_ZERO_COPY;
 use crate::rect::Region;
 use crate::state::State;
 use crate::tasks::handle_connector;
 use crate::tree::OutputNode;
+use crate::tree::PF_HW_CLOCK;
+use crate::tree::PF_HW_COMPLETION;
+use crate::tree::PF_LOCKED;
+use crate::tree::PF_VRR;
+use crate::tree::PF_VSYNC;
+use crate::tree::PF_ZERO_COPY;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::utils::asyncevent::AsyncEvent;
@@ -766,12 +768,18 @@ impl VirtualOutput {
             let flip_ns = self.state.now_nsec();
             let tv_sec = flip_ns / NSEC_PER_SEC;
             let tv_nsec = (flip_ns % NSEC_PER_SEC) as u32;
-            let mut flags = KIND_HW_COMPLETION | KIND_HW_CLOCK;
+            let mut flags = PF_HW_COMPLETION | PF_HW_CLOCK;
             if !flip.tearing {
-                flags |= KIND_VSYNC;
+                flags |= PF_VSYNC;
             }
             if direct_scanout {
-                flags |= KIND_ZERO_COPY;
+                flags |= PF_ZERO_COPY;
+            }
+            if flip.vrr {
+                flags |= PF_VRR;
+            }
+            if flip.locked {
+                flags |= PF_LOCKED;
             }
             let seq = self.seq.get();
             flip.on.presented(
@@ -780,8 +788,6 @@ impl VirtualOutput {
                 flip.refresh_ns.try_into().unwrap_or(0),
                 seq,
                 flags,
-                flip.vrr,
-                flip.locked,
             );
             self.trigger_present();
             if let Some(expected_seq) = flip.expected_seq

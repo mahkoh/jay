@@ -3,6 +3,12 @@ use crate::ifs::wl_output::WlOutput;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
 use crate::object::Version;
+use crate::tree::PF_HW_CLOCK;
+use crate::tree::PF_HW_COMPLETION;
+use crate::tree::PF_VRR;
+use crate::tree::PF_VSYNC;
+use crate::tree::PF_ZERO_COPY;
+use crate::tree::PresentFlags;
 use crate::utils::bhash::BHashMap;
 use crate::wire::WlOutputId;
 use crate::wire::WpPresentationFeedbackId;
@@ -27,8 +33,7 @@ impl PresentationFeedback {
         tv_nsec: u32,
         mut refresh: u32,
         seq: u64,
-        flags: u32,
-        vrr: bool,
+        flags: PresentFlags,
     ) {
         if let Some(fb) = self.fb.take() {
             if let Some(outputs) = outputs {
@@ -36,10 +41,25 @@ impl PresentationFeedback {
                     fb.send_sync_output(output);
                 }
             }
-            if vrr && fb.version < VRR_REFRESH_SINCE {
-                refresh = 0;
+            let mut flags2 = 0;
+            if flags.contains(PF_VSYNC) {
+                flags2 |= KIND_VSYNC;
             }
-            fb.send_presented(tv_sec, tv_nsec, refresh, seq, flags);
+            if flags.contains(PF_HW_CLOCK) {
+                flags2 |= KIND_HW_CLOCK;
+            }
+            if flags.contains(PF_HW_COMPLETION) {
+                flags2 |= KIND_HW_COMPLETION;
+            }
+            if flags.contains(PF_ZERO_COPY) {
+                flags2 |= KIND_ZERO_COPY;
+            }
+            if fb.version < VRR_REFRESH_SINCE {
+                if flags.contains(PF_VRR) {
+                    refresh = 0;
+                }
+            }
+            fb.send_presented(tv_sec, tv_nsec, refresh, seq, flags2);
             fb.client.remove_obj(&*fb);
         }
     }
@@ -63,12 +83,12 @@ pub struct WpPresentationFeedback {
     pub version: Version,
 }
 
-pub const KIND_VSYNC: u32 = 0x1;
-pub const KIND_HW_CLOCK: u32 = 0x2;
-pub const KIND_HW_COMPLETION: u32 = 0x4;
-pub const KIND_ZERO_COPY: u32 = 0x8;
+const KIND_VSYNC: u32 = 0x1;
+const KIND_HW_CLOCK: u32 = 0x2;
+const KIND_HW_COMPLETION: u32 = 0x4;
+const KIND_ZERO_COPY: u32 = 0x8;
 
-pub const VRR_REFRESH_SINCE: Version = Version(2);
+const VRR_REFRESH_SINCE: Version = Version(2);
 
 impl WpPresentationFeedback {
     fn send_sync_output(&self, output: &WlOutput) {
