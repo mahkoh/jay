@@ -40,7 +40,7 @@ ahash = "0.8.7"
 log = { version = "0.4.20", features = ["std"] }
 futures-util = "0.3.30"
 num-traits = "0.2.17"
-num-derive = "0.4.2"
+num-derive = "0.5.1"
 libloading = "0.9.0"
 bstr = { version = "1.9.0", default-features = false, features = ["std"] }
 isnt = "0.2.0"
@@ -58,7 +58,7 @@ chrono = "0.4.33"
 parking_lot = "0.12.1"
 arrayvec = "0.7.4"
 indexmap = "2.2.0"
-ash = { package = "jay-ash", version = "0.11.0" }
+ash = { package = "jay-ash", version = "0.19.0" }
 gpu-alloc = "0.6.0"
 gpu-alloc-types = "0.3.0"
 serde = { version = "1.0.196", features = ["derive"] }
@@ -80,7 +80,7 @@ numeric-sort = "0.1.5"
 dlopen-note = "0.1.0"
 derivative = "2.2.0"
 az = "1.3.0"
-hashbrown = { version = "0.17.1", default-features = false }
+hashbrown = { version = "0.17.1", default-features = false, features = ["raw-entry"] }
 static_assertions = "1.1.0"
 zmij = "1.0.23"
 itoa = "1.0.18"

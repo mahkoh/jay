@@ -9,6 +9,7 @@ use crate::ast::Message;
 use crate::ast::MessageType;
 use crate::ast::Protocol;
 use quick_xml::Reader;
+use quick_xml::XmlVersion;
 use quick_xml::events::Event;
 use quick_xml::events::attributes::AttrError;
 use quick_xml::events::attributes::Attribute;
@@ -17,7 +18,6 @@ use std::borrow::Cow;
 use std::num::ParseIntError;
 use std::str::FromStr;
 use std::str::ParseBoolError;
-use std::string::FromUtf8Error;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -48,8 +48,6 @@ pub(crate) enum ProtocolError {
 pub(crate) enum CopyrightError {
     #[error("Could not read the next event")]
     ReadEvent(#[from] quick_xml::Error),
-    #[error("Could not decode the body as UTF-8")]
-    DecodeUtf8(#[source] FromUtf8Error),
 }
 
 #[derive(Debug, Error)]
@@ -58,8 +56,6 @@ pub(crate) enum DescriptionError {
     Attribute(#[from] AttributeError),
     #[error("Could not read the next event")]
     ReadEvent(#[from] quick_xml::Error),
-    #[error("Could not decode the body as UTF-8")]
-    DecodeUtf8(#[source] FromUtf8Error),
 }
 
 #[derive(Debug, Error)]
@@ -180,7 +176,7 @@ pub(crate) fn parse(input: &[u8]) -> Result<Vec<Protocol>, ParserError> {
             _ => continue,
         };
         match start.local_name().as_ref() {
-            b"protocol" => protocols.push(parse_protocol(&mut reader, start.attributes(), empty)?),
+            "protocol" => protocols.push(parse_protocol(&mut reader, start.attributes(), empty)?),
             _ => continue,
         }
     }
@@ -196,9 +192,11 @@ macro_rules! parse_attr {
     };
 }
 
-fn parse_attr<'a>(attr: &'a Attribute) -> Result<(&'a [u8], Cow<'a, str>), AttributeError> {
+fn parse_attr<'a>(attr: &'a Attribute) -> Result<(&'a str, Cow<'a, str>), AttributeError> {
     let name = attr.key.local_name().into_inner();
-    let value = attr.unescape_value().map_err(AttributeError::DecodeUtf8)?;
+    let value = attr
+        .normalized_value(XmlVersion::Implicit1_0)
+        .map_err(AttributeError::DecodeUtf8)?;
     Ok((name, value))
 }
 
@@ -211,7 +209,7 @@ fn parse_protocol(
     for attr in attributes {
         let (n, value) = parse_attr!(attr)?;
         match n {
-            b"name" => name = Some(value.into_owned()),
+            "name" => name = Some(value.into_owned()),
             _ => continue,
         }
     }
@@ -228,15 +226,13 @@ fn parse_protocol(
                 _ => continue,
             };
             match start.local_name().as_ref() {
-                b"copyright" => {
+                "copyright" => {
                     copyright = Some(parse_copyright(reader, start.attributes(), empty)?)
                 }
-                b"description" => {
+                "description" => {
                     description = Some(parse_description(reader, start.attributes(), empty)?)
                 }
-                b"interface" => {
-                    interfaces.push(parse_interface(reader, start.attributes(), empty)?)
-                }
+                "interface" => interfaces.push(parse_interface(reader, start.attributes(), empty)?),
                 _ => continue,
             }
         }
@@ -254,20 +250,18 @@ fn parse_copyright(
     _attributes: Attributes,
     empty: bool,
 ) -> Result<Copyright, CopyrightError> {
-    let mut body = Vec::new();
+    let mut body = String::new();
     if !empty {
         loop {
             let event = reader.read_event().map_err(CopyrightError::ReadEvent)?;
             match event {
-                Event::Text(s) => body.extend_from_slice(s.as_ref()),
+                Event::Text(s) => body.push_str(s.as_ref()),
                 Event::End(_) => break,
                 _ => continue,
             }
         }
     }
-    Ok(Copyright {
-        _body: String::from_utf8(body).map_err(CopyrightError::DecodeUtf8)?,
-    })
+    Ok(Copyright { _body: body })
 }
 
 fn parse_description(
@@ -279,16 +273,16 @@ fn parse_description(
     for attr in attributes {
         let (n, value) = parse_attr!(attr)?;
         match n {
-            b"summary" => summary = Some(value.into_owned()),
+            "summary" => summary = Some(value.into_owned()),
             _ => continue,
         }
     }
-    let mut body = Vec::new();
+    let mut body = String::new();
     if !empty {
         loop {
             let event = reader.read_event().map_err(DescriptionError::ReadEvent)?;
             match event {
-                Event::Text(s) => body.extend_from_slice(s.as_ref()),
+                Event::Text(s) => body.push_str(s.as_ref()),
                 Event::End(_) => break,
                 _ => continue,
             }
@@ -296,7 +290,7 @@ fn parse_description(
     }
     Ok(Description {
         _summary: summary,
-        _body: String::from_utf8(body).map_err(DescriptionError::DecodeUtf8)?,
+        _body: body,
     })
 }
 
@@ -310,8 +304,8 @@ fn parse_interface(
     for attr in attributes {
         let (n, value) = parse_attr!(attr)?;
         match n {
-            b"name" => name = Some(value.into_owned()),
-            b"version" => version = Some(value.parse().map_err(InterfaceError::Version)?),
+            "name" => name = Some(value.into_owned()),
+            "version" => version = Some(value.parse().map_err(InterfaceError::Version)?),
             _ => continue,
         }
     }
@@ -328,18 +322,18 @@ fn parse_interface(
                 _ => continue,
             };
             match start.local_name().as_ref() {
-                b"description" => {
+                "description" => {
                     description = Some(parse_description(reader, start.attributes(), empty)?)
                 }
-                b"request" => messages.push(
+                "request" => messages.push(
                     parse_message(reader, start.attributes(), empty, true)
                         .map_err(InterfaceError::Request)?,
                 ),
-                b"event" => messages.push(
+                "event" => messages.push(
                     parse_message(reader, start.attributes(), empty, false)
                         .map_err(InterfaceError::Event)?,
                 ),
-                b"enum" => enums.push(parse_enum(reader, start.attributes(), empty)?),
+                "enum" => enums.push(parse_enum(reader, start.attributes(), empty)?),
                 _ => continue,
             }
         }
@@ -366,13 +360,13 @@ fn parse_message(
     for attr in attributes {
         let (n, value) = parse_attr!(attr)?;
         match n {
-            b"name" => name = Some(value.into_owned()),
-            b"type" => match value.as_ref() {
+            "name" => name = Some(value.into_owned()),
+            "type" => match value.as_ref() {
                 "destructor" => ty = Some(MessageType::Destructor),
                 _ => return Err(MessageError::UnknownMessageType(value.into_owned())),
             },
-            b"since" => since = Some(value.parse().map_err(MessageError::Since)?),
-            b"deprecated-since" => {
+            "since" => since = Some(value.parse().map_err(MessageError::Since)?),
+            "deprecated-since" => {
                 deprecated_since = Some(value.parse().map_err(MessageError::DeprecatedSince)?)
             }
             _ => continue,
@@ -390,10 +384,10 @@ fn parse_message(
                 _ => continue,
             };
             match start.local_name().as_ref() {
-                b"description" => {
+                "description" => {
                     description = Some(parse_description(reader, start.attributes(), empty)?)
                 }
-                b"arg" => args.push(parse_arg(reader, start.attributes(), empty)?),
+                "arg" => args.push(parse_arg(reader, start.attributes(), empty)?),
                 _ => continue,
             }
         }
@@ -423,8 +417,8 @@ fn parse_arg(
     for attr in attributes {
         let (n, value) = parse_attr!(attr)?;
         match n {
-            b"name" => name = Some(value.into_owned()),
-            b"type" => {
+            "name" => name = Some(value.into_owned()),
+            "type" => {
                 ty = Some(match value.as_ref() {
                     "int" => ArgType::Int,
                     "uint" => ArgType::Uint,
@@ -437,10 +431,10 @@ fn parse_arg(
                     _ => return Err(ArgError::UnknownArgType(value.into_owned())),
                 })
             }
-            b"summary" => summary = Some(value.into_owned()),
-            b"interface" => interface = Some(value.into_owned()),
-            b"allow-null" => allow_null = Some(value.parse().map_err(ArgError::AllowNull)?),
-            b"enum" => enum_ = Some(value.into_owned()),
+            "summary" => summary = Some(value.into_owned()),
+            "interface" => interface = Some(value.into_owned()),
+            "allow-null" => allow_null = Some(value.parse().map_err(ArgError::AllowNull)?),
+            "enum" => enum_ = Some(value.into_owned()),
             _ => continue,
         }
     }
@@ -455,7 +449,7 @@ fn parse_arg(
                 _ => continue,
             };
             match start.local_name().as_ref() {
-                b"description" => {
+                "description" => {
                     description = Some(parse_description(reader, start.attributes(), empty)?)
                 }
                 _ => continue,
@@ -484,9 +478,9 @@ fn parse_enum(
     for attr in attributes {
         let (n, v) = parse_attr!(attr)?;
         match n {
-            b"name" => name = Some(v.into_owned()),
-            b"since" => since = Some(v.parse().map_err(EnumError::Since)?),
-            b"bitfield" => bitfield = Some(v.parse().map_err(EnumError::AllowNull)?),
+            "name" => name = Some(v.into_owned()),
+            "since" => since = Some(v.parse().map_err(EnumError::Since)?),
+            "bitfield" => bitfield = Some(v.parse().map_err(EnumError::AllowNull)?),
             _ => continue,
         }
     }
@@ -502,10 +496,10 @@ fn parse_enum(
                 _ => continue,
             };
             match start.local_name().as_ref() {
-                b"description" => {
+                "description" => {
                     description = Some(parse_description(reader, start.attributes(), empty)?)
                 }
-                b"entry" => entries.push(parse_entry(reader, start.attributes(), empty)?),
+                "entry" => entries.push(parse_entry(reader, start.attributes(), empty)?),
                 _ => continue,
             }
         }
@@ -532,11 +526,11 @@ fn parse_entry(
     for attr in attributes {
         let (n, v) = parse_attr!(attr)?;
         match n {
-            b"name" => name = Some(v.into_owned()),
-            b"value" => value = Some(v.into_owned()),
-            b"summary" => summary = Some(v.into_owned()),
-            b"since" => since = Some(v.parse().map_err(EntryError::Since)?),
-            b"deprecated-since" => {
+            "name" => name = Some(v.into_owned()),
+            "value" => value = Some(v.into_owned()),
+            "summary" => summary = Some(v.into_owned()),
+            "since" => since = Some(v.parse().map_err(EntryError::Since)?),
+            "deprecated-since" => {
                 deprecated_since = Some(v.parse().map_err(EntryError::DeprecatedSince)?)
             }
             _ => continue,
@@ -553,7 +547,7 @@ fn parse_entry(
                 _ => continue,
             };
             match start.local_name().as_ref() {
-                b"description" => {
+                "description" => {
                     description = Some(parse_description(reader, start.attributes(), empty)?)
                 }
                 _ => continue,
