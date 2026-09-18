@@ -143,6 +143,14 @@ impl Idle {
         }
         tran.prepare()?.apply()?.commit();
         self.state.set_backend_idle(idle);
+        if !idle {
+            let seats: Vec<_> = self.state.globals.seats.lock().values().cloned().collect();
+            for seat in seats {
+                if seat.get_keyboard_node().node_is_display() {
+                    seat.focus_prev();
+                }
+            }
+        }
         Ok(())
     }
 }
