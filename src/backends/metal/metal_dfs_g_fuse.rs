@@ -138,6 +138,7 @@ dir crtc {
     mode_type: reg,
     connector: link (opt),
     pending_flip: link (opt),
+    pending_flip_iteration: reg (opt),
     possible_planes: view (key = 0),
 }
 
@@ -1120,7 +1121,23 @@ impl crtc::Dir for MetalCrtc {
 
     fn readlink_pending_flip(&self, depth: u64, buf: &mut String) {
         if let Some(t) = self.pending_flip.get() {
-            write_obj_link(buf, depth, t.master.dev(), CONNECTORS, t.id.0);
+            write_obj_link(
+                buf,
+                depth,
+                t.connector.master.dev(),
+                CONNECTORS,
+                t.connector.id.0,
+            );
+        }
+    }
+
+    fn has_pending_flip_iteration(&self) -> bool {
+        self.pending_flip.is_some()
+    }
+
+    fn read_pending_flip_iteration(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        if let Some(t) = self.pending_flip.get() {
+            t.trigger_iteration.str_fmt(buf, ctx);
         }
     }
 }

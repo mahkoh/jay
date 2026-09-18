@@ -108,6 +108,7 @@ pub struct VirtualOutput {
     events: OnChange<ConnectorEvent>,
     damage: NumCell<u64>,
     present_trigger: AsyncEvent,
+    present_trigger_iteration: Cell<u64>,
     persistent_state: Rc<PersistentVirtualOutputState>,
     vo_state: CloneCell<Rc<VoState>>,
     tasks: Cell<Option<[SpawnedFuture<()>; 2]>>,
@@ -142,6 +143,7 @@ struct ScheduledFlip {
     expected_seq: Option<u64>,
     locked: bool,
     frame_data: Option<Option<FrameData>>,
+    trigger_iteration: u64,
 }
 
 #[derive(Default, Clone)]
@@ -306,6 +308,7 @@ impl VirtualOutputs {
             events: Default::default(),
             damage: Default::default(),
             present_trigger: Default::default(),
+            present_trigger_iteration: Cell::new(u64::MAX),
             persistent_state,
             vo_state: Default::default(),
             tasks: Default::default(),
@@ -380,6 +383,7 @@ impl Connector for VirtualOutput {
     fn damage(&self) {
         self.damage.fetch_add(1);
         self.trigger_present();
+        self.set_present_trigger_iteration();
     }
 
     fn drm_dev(&self) -> Option<DrmDeviceId> {
@@ -428,6 +432,7 @@ impl HardwareCursor for VirtualHc {
     fn damage(&self) {
         self.o.cursor_damage.set(true);
         self.o.trigger_present();
+        self.o.set_present_trigger_iteration();
     }
 }
 
@@ -449,6 +454,13 @@ impl VirtualOutput {
             if self.cursor_damage.get() || self.damage.get() > 0 {
                 self.present_trigger.trigger();
             }
+        }
+    }
+
+    fn set_present_trigger_iteration(&self) {
+        let pti = &self.present_trigger_iteration;
+        if pti.get() == u64::MAX {
+            pti.set(self.state.eng.iteration());
         }
     }
 
@@ -504,6 +516,7 @@ impl VirtualOutput {
             }
             let cursor_latched = self.latch_cursor(&on, &fbs.fbs[FbType::Cursor]);
             let latched = self.latch(&on);
+            let trigger_iteration = self.present_trigger_iteration.replace(u64::MAX);
             on.latched(tearing);
             if latched.is_none() && cursor_latched.is_none() {
                 continue;
@@ -596,6 +609,7 @@ impl VirtualOutput {
                 expected_seq: (!tearing).then_some(expected_seq),
                 locked: vo_state.locked.get(),
                 frame_data: frame_data.map(Some),
+                trigger_iteration,
             }));
             if vrr {
                 self.need_vblank.trigger();
@@ -788,6 +802,7 @@ impl VirtualOutput {
                 flip.refresh_ns.try_into().unwrap_or(0),
                 seq,
                 flags,
+                flip.trigger_iteration,
             );
             self.trigger_present();
             if let Some(expected_seq) = flip.expected_seq

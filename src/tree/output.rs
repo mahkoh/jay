@@ -301,6 +301,7 @@ pub trait PresentationListener {
         refresh: u32,
         seq: u64,
         flags: PresentFlags,
+        trigger_iteration: u64,
     );
 }
 
@@ -442,9 +443,18 @@ impl OutputNode {
         refresh: u32,
         seq: u64,
         flags: PresentFlags,
+        trigger_iteration: u64,
     ) {
         self.presentation_event.for_each(|listener| {
-            listener.presented(self, tv_sec, tv_nsec, refresh, seq, flags);
+            listener.presented(
+                self,
+                tv_sec,
+                tv_nsec,
+                refresh,
+                seq,
+                flags,
+                trigger_iteration,
+            );
         });
         if flags.contains(PF_LOCKED)
             && let Some(lock) = self.state.lock.lock.get()

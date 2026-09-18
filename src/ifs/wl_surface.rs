@@ -2614,6 +2614,7 @@ impl PresentationListener for WlSurface {
         refresh: u32,
         seq: u64,
         flags: PresentFlags,
+        _trigger_iteration: u64,
     ) {
         let bindings = output.global.bindings.borrow();
         let bindings = bindings.get(&self.client.id);
