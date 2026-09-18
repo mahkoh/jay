@@ -21,6 +21,7 @@ use crate::object::Version;
 use crate::time::Time;
 use crate::tree::LatchListener;
 use crate::tree::OutputNode;
+use crate::tree::PresentFlags;
 use crate::tree::PresentationListener;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
@@ -315,8 +316,7 @@ impl PresentationListener for ExtImageCopyCaptureSessionV1 {
         tv_nsec: u32,
         _refresh: u32,
         _seq: u64,
-        _flags: u32,
-        _vrr: bool,
+        _flags: PresentFlags,
     ) {
         self.presentation_listener.detach();
         let Some(frame) = self.frame.get() else {

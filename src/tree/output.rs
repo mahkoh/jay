@@ -48,7 +48,6 @@ use crate::ifs::wl_surface::zwlr_layer_surface_v1::LayerSurfaceLink;
 use crate::ifs::workspace_manager::ext_workspace_group_handle_v1::ExtWorkspaceGroupHandleV1;
 use crate::ifs::workspace_manager::ext_workspace_manager_v1::WorkspaceManagerId;
 use crate::ifs::wp_content_type_v1::ContentType;
-use crate::ifs::wp_presentation_feedback::KIND_VSYNC;
 use crate::ifs::zwlr_gamma_control_v1::ZwlrGammaControlV1;
 use crate::ifs::zwlr_layer_shell_v1::BACKGROUND;
 use crate::ifs::zwlr_layer_shell_v1::BOTTOM;
@@ -94,7 +93,6 @@ use crate::tree::WorkspaceOutputLink;
 use crate::tree::WorkspaceType;
 use crate::tree::walker::NodeVisitor;
 use crate::utils::asyncevent::AsyncEvent;
-use crate::utils::bitflags::BitflagsExt;
 use crate::utils::cached_value::CachedValue;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
@@ -272,6 +270,16 @@ pub trait LatchListener {
     fn after_latch(self: Rc<Self>, on: &OutputNode, tearing: bool);
 }
 
+bitflags! {
+    PresentFlags: u64;
+        PF_VSYNC,
+        PF_HW_CLOCK,
+        PF_HW_COMPLETION,
+        PF_ZERO_COPY,
+        PF_VRR,
+        PF_LOCKED,
+}
+
 pub trait VblankListener {
     fn after_vblank(self: Rc<Self>);
 }
@@ -284,8 +292,7 @@ pub trait PresentationListener {
         tv_nsec: u32,
         refresh: u32,
         seq: u64,
-        flags: u32,
-        vrr: bool,
+        flags: PresentFlags,
     );
 }
 
@@ -425,17 +432,17 @@ impl OutputNode {
         tv_nsec: u32,
         refresh: u32,
         seq: u64,
-        flags: u32,
-        vrr: bool,
-        locked: bool,
+        flags: PresentFlags,
     ) {
         self.presentation_event.for_each(|listener| {
-            listener.presented(self, tv_sec, tv_nsec, refresh, seq, flags, vrr);
+            listener.presented(self, tv_sec, tv_nsec, refresh, seq, flags);
         });
-        if locked && let Some(lock) = self.state.lock.lock.get() {
+        if flags.contains(PF_LOCKED)
+            && let Some(lock) = self.state.lock.lock.get()
+        {
             lock.check_locked()
         }
-        let tearing = flags.not_contains(KIND_VSYNC);
+        let tearing = flags.not_contains(PF_VSYNC);
         if self.tearing.replace(tearing) != tearing {
             self.global
                 .connector
