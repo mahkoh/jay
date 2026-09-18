@@ -1,0 +1,6 @@
+[cooldown]
+incompatible-publish-age = "deny"
+lockfile-baseline = "ignore"
+
+[registry]
+global-min-publish-age = "14 days"
