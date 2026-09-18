@@ -1392,6 +1392,15 @@ fn map_key(kc: Keysym, mods: &mut Modifiers) -> Option<Key> {
         s::F34 => K::F34,
         s::F35 => K::F35,
         s::XF86Back => K::BrowserBack,
+        s::Shift_L => K::ShiftLeft,
+        s::Shift_R => K::ShiftRight,
+        s::Control_L => K::ControlLeft,
+        s::Control_R => K::ControlRight,
+        s::Alt_L => K::AltLeft,
+        s::Alt_R => K::AltRight,
+        s::ISO_Level3_Shift => K::AltRight,
+        s::Super_L => K::SuperLeft,
+        s::Super_R => K::SuperRight,
         _ => return None,
     };
     Some(key)
