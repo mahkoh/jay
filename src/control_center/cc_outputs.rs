@@ -251,6 +251,7 @@ impl Behavior<Pane> for B<'_> {
             prune_single_child_containers: false,
             all_panes_must_have_tabs: false,
             join_nested_linear_containers: false,
+            flatten_tabs_in_tabs: false,
         }
     }
 

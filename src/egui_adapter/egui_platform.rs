@@ -115,6 +115,7 @@ use std::cell::RefCell;
 use std::collections::btree_map::Entry;
 use std::fs;
 use std::mem;
+use std::ptr;
 use std::rc::Rc;
 use std::rc::Weak;
 use std::sync::Arc;
@@ -1007,17 +1008,12 @@ impl EggWindowInner {
         let size = self.logical_size.get();
         let size =
             egui::Rect::from_min_size(Pos2::default(), Vec2::new(size[0] as f32, size[1] as f32));
-        let mut modifiers = Modifiers::default();
-        if let Some(seat) = self.active_seat.get() {
-            modifiers = seat.kb_modifiers.get();
-        }
         RawInput {
             viewport_id: ViewportId::ROOT,
             viewports: std::iter::once((ViewportId::ROOT, viewport_info)).collect(),
             screen_rect: Some(size),
             max_texture_side: Some(self.ctx.renderer.max_texture_side()),
             time: Some(self.ctx.state.now_nsec() as f64 / 1_000_000_000.0),
-            modifiers,
             ..Default::default()
         }
     }
@@ -1200,7 +1196,18 @@ impl UsrWlKeyboardOwner for EggSeatInner {
     }
 
     fn modifiers(self: Rc<Self>, mods: ModifierMask) {
-        self.kb_modifiers.set(map_mods(mods));
+        let mods = map_mods(mods);
+        self.kb_modifiers.set(mods);
+        let mut kb_window = ptr::null();
+        if let Some(window) = self.activate_kb_window() {
+            window.event(Event::ModifiersChanged(mods));
+            kb_window = Rc::as_ptr(&window);
+        }
+        if let Some(window) = self.activate_pointer_window()
+            && Rc::as_ptr(&window) != kb_window
+        {
+            window.event(Event::ModifiersChanged(mods));
+        }
     }
 
     fn down(self: Rc<Self>, lookup: Lookup<'_>, serial: u32) {
@@ -1385,6 +1392,15 @@ fn map_key(kc: Keysym, mods: &mut Modifiers) -> Option<Key> {
         s::F34 => K::F34,
         s::F35 => K::F35,
         s::XF86Back => K::BrowserBack,
+        s::Shift_L => K::ShiftLeft,
+        s::Shift_R => K::ShiftRight,
+        s::Control_L => K::ControlLeft,
+        s::Control_R => K::ControlRight,
+        s::Alt_L => K::AltLeft,
+        s::Alt_R => K::AltRight,
+        s::ISO_Level3_Shift => K::AltRight,
+        s::Super_L => K::SuperLeft,
+        s::Super_R => K::SuperRight,
         _ => return None,
     };
     Some(key)

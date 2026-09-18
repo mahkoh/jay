@@ -8,6 +8,7 @@ use crate::gfx_api::SyncFile;
 use crate::io_uring::IoUring;
 use crate::syncobj::SyncobjCtx;
 use crate::utils::bhash::BHashMap;
+use crate::utils::bhash::BHashSet;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::queue::AsyncQueue;
@@ -213,6 +214,7 @@ use std::cell::RefCell;
 use std::ffi::CStr;
 use std::io;
 use std::io::Cursor;
+use std::mem;
 use std::mem::ManuallyDrop;
 use std::mem::offset_of;
 use std::ptr;
@@ -395,6 +397,8 @@ struct EgvRendererCache {
     initial_image_memory_barriers: Vec<ImageMemoryBarrier2<'static>>,
     final_image_memory_barriers: Vec<ImageMemoryBarrier2<'static>>,
     semaphores: Vec<EgvSemaphore>,
+    have_image_barrier: BHashSet<Image>,
+    have_image_upload: BHashSet<Image>,
 }
 
 struct EgvBuffer {
@@ -1599,12 +1603,14 @@ impl EgvFramebuffer {
 
     pub fn render(
         &self,
-        delta: TexturesDelta,
+        mut delta: TexturesDelta,
         pixels_per_point: f32,
         primitives: &[ClippedPrimitive],
         offset: (f32, f32),
         sync_file: Option<&SyncFile>,
     ) -> Result<Option<FdSync>, EgvError> {
+        let delta_set = mem::take(&mut delta.set);
+        let delta_free = mem::take(&mut delta.free);
         let renderer = &self.renderer;
         let ri = &renderer.ri;
         let dev = &ri.device;
@@ -1614,58 +1620,63 @@ impl EgvFramebuffer {
             self.create_vertex_buffer(cache, pixels_per_point, primitives, offset)?;
         let uploads = &mut cache.upload_todos;
         uploads.clear();
-        for (id, delta) in delta.set {
+        for (id, deltas) in delta_set {
             let id = (self.ctx.id, id);
-            let mut options = delta.options;
-            options.mipmap_mode = None;
-            let mut create_sampled_image = || -> Result<_, EgvError> {
-                let sampler = renderer.get_sampler(&mut cache.samplers, &options)?;
-                let image = renderer.create_image(&delta.image)?;
-                let sampled = EgvSampledImage {
-                    image: image.clone(),
-                    sampler,
+            for delta in deltas {
+                let mut options = delta.options;
+                options.mipmap_mode = None;
+                let mut create_sampled_image = || -> Result<_, EgvError> {
+                    let sampler = renderer.get_sampler(&mut cache.samplers, &options)?;
+                    let image = renderer.create_image(&delta.image)?;
+                    let sampled = EgvSampledImage {
+                        image: image.clone(),
+                        sampler,
+                    };
+                    Ok((image, sampled))
                 };
-                Ok((image, sampled))
-            };
-            let image = match cache.images.entry(id) {
-                Entry::Occupied(mut o) => {
-                    let t = o.get();
-                    if delta.pos.is_none()
-                        && [t.image.width as usize, t.image.height as usize] != delta.image.size()
-                    {
+                let image = match cache.images.entry(id) {
+                    Entry::Occupied(mut o) => {
+                        let t = o.get();
+                        if delta.pos.is_none()
+                            && [t.image.width as usize, t.image.height as usize]
+                                != delta.image.size()
+                        {
+                            let (image, sampled) = create_sampled_image()?;
+                            *o.get_mut() = sampled;
+                            image
+                        } else if t.sampler.options != options {
+                            let sampler =
+                                self.renderer.get_sampler(&mut cache.samplers, &options)?;
+                            let image = t.image.clone();
+                            *o.get_mut() = EgvSampledImage {
+                                image: image.clone(),
+                                sampler,
+                            };
+                            image
+                        } else {
+                            t.image.clone()
+                        }
+                    }
+                    Entry::Vacant(v) => {
+                        if delta.pos.is_some() {
+                            return Err(EgvError::PartialTextureUpdateForUnknownTexture(id.1));
+                        }
                         let (image, sampled) = create_sampled_image()?;
-                        *o.get_mut() = sampled;
+                        v.insert(sampled);
                         image
-                    } else if t.sampler.options != options {
-                        let sampler = self.renderer.get_sampler(&mut cache.samplers, &options)?;
-                        let image = t.image.clone();
-                        *o.get_mut() = EgvSampledImage {
-                            image: image.clone(),
-                            sampler,
-                        };
-                        image
-                    } else {
-                        t.image.clone()
+                    }
+                };
+                if let Some(pos) = delta.pos {
+                    let x2 = pos[0].saturating_add(delta.image.width());
+                    let y2 = pos[1].saturating_add(delta.image.height());
+                    if x2 > image.width as usize || y2 > image.height as usize {
+                        return Err(EgvError::TextureUpdateOutOfBounds(id.1));
                     }
                 }
-                Entry::Vacant(v) => {
-                    if delta.pos.is_some() {
-                        return Err(EgvError::PartialTextureUpdateForUnknownTexture(id.1));
-                    }
-                    let (image, sampled) = create_sampled_image()?;
-                    v.insert(sampled);
-                    image
-                }
-            };
-            if let Some(pos) = delta.pos {
-                let x2 = pos[0].saturating_add(delta.image.width());
-                let y2 = pos[1].saturating_add(delta.image.height());
-                if x2 > image.width as usize || y2 > image.height as usize {
-                    return Err(EgvError::TextureUpdateOutOfBounds(id.1));
-                }
+                let size =
+                    delta.image.width() as u64 * delta.image.height() as u64 * SRGB_FORMAT_BPP;
+                uploads.push((image.clone(), renderer.create_staging_buffer(size)?, delta));
             }
-            let size = delta.image.width() as u64 * delta.image.height() as u64 * SRGB_FORMAT_BPP;
-            uploads.push((image.clone(), renderer.create_staging_buffer(size)?, delta));
         }
         let buffer_memory_barriers = &mut cache.buffer_memory_barriers;
         buffer_memory_barriers.clear();
@@ -1673,6 +1684,8 @@ impl EgvFramebuffer {
         initial_image_barriers.clear();
         let final_image_barriers = &mut cache.final_image_memory_barriers;
         final_image_barriers.clear();
+        let have_image_barrier = &mut cache.have_image_barrier;
+        have_image_barrier.clear();
         for (image, buf, delta) in &*uploads {
             match &delta.image {
                 ImageData::Color(c) => {
@@ -1689,28 +1702,30 @@ impl EgvFramebuffer {
                     .buffer(buf.buffer)
                     .size(WHOLE_SIZE),
             );
-            initial_image_barriers.push(
-                ImageMemoryBarrier2::default()
-                    .src_access_mask(AccessFlags2::SHADER_READ)
-                    .src_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER)
-                    .dst_access_mask(AccessFlags2::TRANSFER_WRITE)
-                    .dst_stage_mask(PipelineStageFlags2::TRANSFER)
-                    .old_layout(image.layout.get())
-                    .new_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
-                    .image(image.image)
-                    .subresource_range(IMAGE_SUBRESOURCE_RANGE),
-            );
-            final_image_barriers.push(
-                ImageMemoryBarrier2::default()
-                    .src_access_mask(AccessFlags2::TRANSFER_WRITE)
-                    .src_stage_mask(PipelineStageFlags2::TRANSFER)
-                    .dst_access_mask(AccessFlags2::SHADER_READ)
-                    .dst_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER)
-                    .old_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
-                    .new_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL)
-                    .image(image.image)
-                    .subresource_range(IMAGE_SUBRESOURCE_RANGE),
-            );
+            if have_image_barrier.insert(image.image) {
+                initial_image_barriers.push(
+                    ImageMemoryBarrier2::default()
+                        .src_access_mask(AccessFlags2::SHADER_READ)
+                        .src_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER)
+                        .dst_access_mask(AccessFlags2::TRANSFER_WRITE)
+                        .dst_stage_mask(PipelineStageFlags2::TRANSFER)
+                        .old_layout(image.layout.get())
+                        .new_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
+                        .image(image.image)
+                        .subresource_range(IMAGE_SUBRESOURCE_RANGE),
+                );
+                final_image_barriers.push(
+                    ImageMemoryBarrier2::default()
+                        .src_access_mask(AccessFlags2::TRANSFER_WRITE)
+                        .src_stage_mask(PipelineStageFlags2::TRANSFER)
+                        .dst_access_mask(AccessFlags2::SHADER_READ)
+                        .dst_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER)
+                        .old_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
+                        .new_layout(ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+                        .image(image.image)
+                        .subresource_range(IMAGE_SUBRESOURCE_RANGE),
+                );
+            }
         }
         let cmd = renderer.allocate_command_buffer()?;
         let buf = cmd.buf;
@@ -1728,7 +1743,25 @@ impl EgvFramebuffer {
                 .image_memory_barriers(&initial_image_barriers);
             dev.cmd_pipeline_barrier2(buf, &info);
         }
+        let have_image_upload = &mut cache.have_image_upload;
+        have_image_upload.clear();
         for (image, staging, delta) in &*uploads {
+            if !have_image_upload.insert(image.image) {
+                let barrier = ImageMemoryBarrier2::default()
+                    .src_access_mask(AccessFlags2::TRANSFER_WRITE)
+                    .src_stage_mask(PipelineStageFlags2::TRANSFER)
+                    .dst_access_mask(AccessFlags2::TRANSFER_WRITE)
+                    .dst_stage_mask(PipelineStageFlags2::TRANSFER)
+                    .old_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
+                    .new_layout(ImageLayout::TRANSFER_DST_OPTIMAL)
+                    .image(image.image)
+                    .subresource_range(IMAGE_SUBRESOURCE_RANGE);
+                let info =
+                    DependencyInfo::default().image_memory_barriers(slice::from_ref(&barrier));
+                unsafe {
+                    dev.cmd_pipeline_barrier2(buf, &info);
+                }
+            }
             let x = delta.pos.unwrap_or_default()[0] as i32;
             let y = delta.pos.unwrap_or_default()[1] as i32;
             let region = BufferImageCopy2::default()
@@ -1948,7 +1981,7 @@ impl EgvFramebuffer {
             dev.queue_submit2(ri.queue, slice::from_ref(&submit_info), vulkan_sync.fence())
                 .map_err(EgvError::Submit)?;
         }
-        for id in delta.free {
+        for id in delta_free {
             cache.images.remove(&(self.ctx.id, id));
         }
         let mut used_uploads = Vec::with_capacity(uploads.len());

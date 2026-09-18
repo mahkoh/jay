@@ -21,7 +21,6 @@ use quick_xml::events::BytesDecl;
 use quick_xml::events::BytesText;
 use quick_xml::events::Event;
 use std::io;
-use std::os::unix::ffi::OsStrExt;
 use std::path::PathBuf;
 
 #[path = "../../build/wire/parser.rs"]
@@ -65,7 +64,7 @@ fn main() -> anyhow::Result<()> {
                     .max()
                     .unwrap_or(1);
                 w.create_element("interface")
-                    .with_attribute((&b"name"[..], if_name.as_bytes()))
+                    .with_attribute(("name", if_name.to_str().unwrap()))
                     .with_attribute(("version", &*version.to_string()))
                     .write_inner_content(|w| {
                         w.create_element("description")
