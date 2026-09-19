@@ -282,7 +282,7 @@ granted access. See
 | wp_fractional_scale_manager_v1                       | 1       |            |
 | wp_linux_drm_syncobj_manager_v1                      | 1       |            |
 | wp_pointer_warp_v1                                   | 1       |            |
-| wp_presentation                                      | 2       |            |
+| wp_presentation                                      | 3       |            |
 | wp_security_context_manager_v1                       | 1       |            |
 | wp_single_pixel_buffer_manager_v1                    | 1       |            |
 | wp_tearing_control_manager_v1                        | 1       |            |

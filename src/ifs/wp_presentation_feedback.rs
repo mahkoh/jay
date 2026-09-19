@@ -34,6 +34,7 @@ impl PresentationFeedback {
         mut refresh: u32,
         seq: u64,
         flags: PresentFlags,
+        driver: bool,
     ) {
         if let Some(fb) = self.fb.take() {
             if let Some(outputs) = outputs {
@@ -57,6 +58,17 @@ impl PresentationFeedback {
             if fb.version < VRR_REFRESH_SINCE {
                 if flags.contains(PF_VRR) {
                     refresh = 0;
+                }
+            }
+            if fb.version >= VRR_SINCE && refresh > 0 {
+                if flags.contains(PF_VRR) {
+                    if driver {
+                        flags2 |= KIND_VARIABLE_RATE;
+                    }
+                } else {
+                    if flags.contains(PF_VSYNC) {
+                        flags2 |= KIND_FIXED_RATE;
+                    }
                 }
             }
             fb.send_presented(tv_sec, tv_nsec, refresh, seq, flags2);
@@ -87,8 +99,11 @@ const KIND_VSYNC: u32 = 0x1;
 const KIND_HW_CLOCK: u32 = 0x2;
 const KIND_HW_COMPLETION: u32 = 0x4;
 const KIND_ZERO_COPY: u32 = 0x8;
+const KIND_FIXED_RATE: u32 = 0x10;
+const KIND_VARIABLE_RATE: u32 = 0x20;
 
 const VRR_REFRESH_SINCE: Version = Version(2);
+const VRR_SINCE: Version = Version(3);
 
 impl WpPresentationFeedback {
     fn send_sync_output(&self, output: &WlOutput) {

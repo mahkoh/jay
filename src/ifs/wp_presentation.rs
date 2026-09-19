@@ -46,7 +46,7 @@ impl WpPresentationGlobal {
 
 impl Global for WpPresentationGlobal {
     fn version(&self) -> u32 {
-        2
+        3
     }
 
     fn exposed(&self, state: &State) -> bool {
