@@ -941,6 +941,7 @@ dependencies = [
  "bstr",
  "error_reporter",
  "futures-util",
+ "jay-proc",
  "log",
  "run-on-drop",
  "serde",

@@ -41,7 +41,7 @@ use crate::video::drm::syncobj::SyncobjPoint;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use jay_algorithms::oserror::OsErrorExt;
-use jay_config::video::GfxApi as ConfigGfxApi;
+use jay_config::video::JcGfxApi;
 use jay_config::video::ScalingFilter as ConfigScalingFilter;
 use jay_proc::jay_clone;
 use jay_proc::jay_hash;
@@ -74,24 +74,11 @@ impl StaticText for GfxApi {
     }
 }
 
-impl TryFrom<ConfigGfxApi> for GfxApi {
-    type Error = ();
-
-    fn try_from(value: ConfigGfxApi) -> Result<Self, Self::Error> {
-        let v = match value {
-            ConfigGfxApi::OpenGl => GfxApi::OpenGl,
-            ConfigGfxApi::Vulkan => GfxApi::Vulkan,
-            _ => return Err(()),
-        };
-        Ok(v)
-    }
-}
-
-impl Into<ConfigGfxApi> for GfxApi {
-    fn into(self) -> ConfigGfxApi {
-        match self {
-            GfxApi::OpenGl => ConfigGfxApi::OpenGl,
-            GfxApi::Vulkan => ConfigGfxApi::Vulkan,
+impl From<JcGfxApi> for GfxApi {
+    fn from(value: JcGfxApi) -> Self {
+        match value {
+            JcGfxApi::OpenGl => GfxApi::OpenGl,
+            JcGfxApi::Vulkan => GfxApi::Vulkan,
         }
     }
 }

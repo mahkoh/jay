@@ -11,8 +11,8 @@ use crate::utils::markers::JayHash;
 use crate::utils::static_text::StaticText;
 use jay_algorithms::tf::eotfs;
 use jay_algorithms::tf::inv_eotfs;
-use jay_config::theme::BarPosition as ConfigBarPosition;
-use jay_config::theme::ContainerBorders as ConfigContainerBorders;
+use jay_config::theme::JcBarPosition;
+use jay_config::theme::JcContainerBorders;
 use jay_proc::ResetImmutable;
 use jay_proc::jay_clone;
 use linearize::Linearize;
@@ -594,24 +594,20 @@ impl StaticText for BarPosition {
     }
 }
 
-impl TryFrom<ConfigBarPosition> for BarPosition {
-    type Error = ();
-
-    fn try_from(value: ConfigBarPosition) -> Result<Self, Self::Error> {
-        let v = match value {
-            ConfigBarPosition::Top => Self::Top,
-            ConfigBarPosition::Bottom => Self::Bottom,
-            _ => return Err(()),
-        };
-        Ok(v)
+impl From<JcBarPosition> for BarPosition {
+    fn from(value: JcBarPosition) -> Self {
+        match value {
+            JcBarPosition::Top => Self::Top,
+            JcBarPosition::Bottom => Self::Bottom,
+        }
     }
 }
 
-impl Into<ConfigBarPosition> for BarPosition {
-    fn into(self) -> ConfigBarPosition {
+impl Into<JcBarPosition> for BarPosition {
+    fn into(self) -> JcBarPosition {
         match self {
-            BarPosition::Top => ConfigBarPosition::Top,
-            BarPosition::Bottom => ConfigBarPosition::Bottom,
+            BarPosition::Top => JcBarPosition::Top,
+            BarPosition::Bottom => JcBarPosition::Bottom,
         }
     }
 }
@@ -640,26 +636,22 @@ impl StaticText for ContainerBordersSetting {
     }
 }
 
-impl TryFrom<ConfigContainerBorders> for ContainerBordersSetting {
-    type Error = ();
-
-    fn try_from(value: ConfigContainerBorders) -> Result<Self, Self::Error> {
-        let v = match value {
-            ConfigContainerBorders::Separators => ContainerBordersSetting::Separators,
-            ConfigContainerBorders::Full => ContainerBordersSetting::Full,
-            ConfigContainerBorders::FullSmart => ContainerBordersSetting::FullSmart,
-            _ => return Err(()),
-        };
-        Ok(v)
+impl From<JcContainerBorders> for ContainerBordersSetting {
+    fn from(value: JcContainerBorders) -> Self {
+        match value {
+            JcContainerBorders::Separators => ContainerBordersSetting::Separators,
+            JcContainerBorders::Full => ContainerBordersSetting::Full,
+            JcContainerBorders::FullSmart => ContainerBordersSetting::FullSmart,
+        }
     }
 }
 
-impl Into<ConfigContainerBorders> for ContainerBordersSetting {
-    fn into(self) -> ConfigContainerBorders {
+impl Into<JcContainerBorders> for ContainerBordersSetting {
+    fn into(self) -> JcContainerBorders {
         match self {
-            ContainerBordersSetting::Separators => ConfigContainerBorders::Separators,
-            ContainerBordersSetting::Full => ConfigContainerBorders::Full,
-            ContainerBordersSetting::FullSmart => ConfigContainerBorders::FullSmart,
+            ContainerBordersSetting::Separators => JcContainerBorders::Separators,
+            ContainerBordersSetting::Full => JcContainerBorders::Full,
+            ContainerBordersSetting::FullSmart => JcContainerBorders::FullSmart,
         }
     }
 }

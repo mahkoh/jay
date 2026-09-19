@@ -46,7 +46,7 @@ pub use display::*;
 pub use float::*;
 use jay_config::Direction as JayDirection;
 use jay_config::video::Transform as ConfigTransform;
-use jay_config::window::TileState as ConfigTileState;
+use jay_config::window::JcTileState;
 use jay_config::workspace::WorkspaceDisplayOrder as ConfigWorkspaceDisplayOrder;
 use linearize::Linearize;
 use linearize::LinearizeExt;
@@ -233,24 +233,20 @@ pub enum TileState {
     Floating,
 }
 
-impl TryFrom<ConfigTileState> for TileState {
-    type Error = ();
-
-    fn try_from(value: ConfigTileState) -> Result<Self, Self::Error> {
-        let v = match value {
-            ConfigTileState::Tiled => TileState::Tiled,
-            ConfigTileState::Floating => TileState::Floating,
-            _ => return Err(()),
-        };
-        Ok(v)
+impl From<JcTileState> for TileState {
+    fn from(value: JcTileState) -> Self {
+        match value {
+            JcTileState::Tiled => TileState::Tiled,
+            JcTileState::Floating => TileState::Floating,
+        }
     }
 }
 
-impl Into<ConfigTileState> for TileState {
-    fn into(self) -> ConfigTileState {
+impl Into<JcTileState> for TileState {
+    fn into(self) -> JcTileState {
         match self {
-            TileState::Tiled => ConfigTileState::Tiled,
-            TileState::Floating => ConfigTileState::Floating,
+            TileState::Tiled => JcTileState::Tiled,
+            TileState::Floating => JcTileState::Floating,
         }
     }
 }

@@ -2,7 +2,7 @@ use crate::it::test_error::TestError;
 use crate::it::testrun::TestRun;
 use crate::tree::OutputNode;
 use crate::tree::TreeTimeline::LiveTL;
-use jay_config::theme::BarPosition;
+use jay_config::theme::JcBarPosition;
 use std::rc::Rc;
 
 testcase!();
@@ -26,7 +26,7 @@ async fn test_bar(
     let output_rect = output.node_state[LiveTL].pos.get();
 
     run.cfg.set_bar_separator_width(separator_width)?;
-    run.cfg.set_bar_position(BarPosition::Top)?;
+    run.cfg.set_bar_position(JcBarPosition::Top)?;
     run.sync().await;
 
     let bar_height = run.state.theme.sizes.bar_height();
@@ -44,7 +44,7 @@ async fn test_bar(
     tassert_eq!(ws_rect.y1(), output_rect.y1() + bar_total_height);
     tassert_eq!(ws_rect.height(), output_rect.height() - bar_total_height);
 
-    run.cfg.set_bar_position(BarPosition::Bottom)?;
+    run.cfg.set_bar_position(JcBarPosition::Bottom)?;
     run.sync().await;
 
     let bar_rect = output.node_state[LiveTL].rects.bar_with_separator.get();

@@ -103,18 +103,18 @@ use jay_config::_private::ipc::ServerMessage;
 use jay_config::_private::ipc::WorkspaceSource;
 use jay_config::_private::serialize_server_message;
 use jay_config::Axis;
-use jay_config::ContainerTarget as ConfigContainerTarget;
 use jay_config::Direction;
-use jay_config::RelativeAxis as ConfigRelativeAxis;
+use jay_config::JcContainerTarget;
+use jay_config::JcRelativeAxis;
+use jay_config::JcWorkspaceKind;
 use jay_config::Workspace;
-use jay_config::WorkspaceKind;
 use jay_config::client::Client as ConfigClient;
 use jay_config::client::ClientCapabilities;
 use jay_config::client::ClientMatcher;
-use jay_config::input::FallbackOutputMode;
 use jay_config::input::FocusFollowsMouseMode;
 use jay_config::input::InputDevice;
 use jay_config::input::InputEventCode as ConfigInputEventCode;
+use jay_config::input::JcFallbackOutputMode;
 use jay_config::input::LayerDirection;
 use jay_config::input::Seat;
 use jay_config::input::Timeline;
@@ -143,8 +143,8 @@ use jay_config::keyboard::Keymap;
 use jay_config::keyboard::mods::Modifiers;
 use jay_config::keyboard::syms::KeySym;
 use jay_config::logging::LogLevel as ConfigLogLevel;
-use jay_config::theme::BarPosition;
-use jay_config::theme::ContainerBorders;
+use jay_config::theme::JcBarPosition;
+use jay_config::theme::JcContainerBorders;
 use jay_config::theme::colors::Colorable;
 use jay_config::theme::sized::Resizable;
 use jay_config::timer::Timer as JayTimer;
@@ -154,12 +154,12 @@ use jay_config::video::Connector;
 use jay_config::video::DrmDevice;
 use jay_config::video::Eotf as ConfigEotf;
 use jay_config::video::Format as ConfigFormat;
-use jay_config::video::GfxApi;
+use jay_config::video::JcGfxApi;
 use jay_config::video::ScalingFilter as ConfigScalingFilter;
 use jay_config::video::TearingMode as ConfigTearingMode;
 use jay_config::video::Transform;
 use jay_config::video::VrrMode as ConfigVrrMode;
-use jay_config::window::TileState as ConfigTileState;
+use jay_config::window::JcTileState;
 use jay_config::window::Window;
 use jay_config::window::WindowMatcher;
 use jay_config::workspace::WorkspaceDisplayOrder;
@@ -604,11 +604,10 @@ impl ConfigProxyHandler {
     fn handle_set_fallback_output_mode(
         &self,
         seat: Seat,
-        mode: FallbackOutputMode,
+        mode: JcFallbackOutputMode,
     ) -> Result<(), CphError> {
-        let mode = map_fallback_output_mode(mode)?;
         let seat = self.get_seat(seat)?;
-        seat.set_fallback_output_mode(mode);
+        seat.set_fallback_output_mode(mode.into());
         Ok(())
     }
 
@@ -1141,8 +1140,8 @@ impl ConfigProxyHandler {
             .map(|ws| ws.ty)
             .unwrap_or(ws.ty.get());
         let kind = match kind {
-            WorkspaceType::Normal => WorkspaceKind::Normal,
-            WorkspaceType::Overlay => WorkspaceKind::Overlay,
+            WorkspaceType::Normal => JcWorkspaceKind::Normal,
+            WorkspaceType::Overlay => JcWorkspaceKind::Overlay,
         };
         self.respond(Response::GetWorkspaceKind { kind });
         Ok(())
@@ -1170,10 +1169,8 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_set_gfx_api(&self, device: Option<DrmDevice>, api: GfxApi) -> Result<(), CphError> {
-        let Ok(api) = api.try_into() else {
-            return Err(CphError::UnknownGfxApi(api));
-        };
+    fn handle_set_gfx_api(&self, device: Option<DrmDevice>, api: JcGfxApi) -> Result<(), CphError> {
+        let api = api.into();
         match device {
             Some(dev) => self.get_drm_device(dev)?.dev.set_gfx_api(api),
             _ => self.state.default_gfx_api.set(api),
@@ -1360,9 +1357,7 @@ impl ConfigProxyHandler {
                 let o = if let Some(o) = get_output()? {
                     o
                 } else if let Some(s) = get_seat(seat_opt)? {
-                    let fom = fallback_output_mode
-                        .map(map_fallback_output_mode)
-                        .transpose()?;
+                    let fom = fallback_output_mode.map(Into::into);
                     s.get_fallback_output2(fom)
                 } else {
                     return Ok(None);
@@ -1859,12 +1854,8 @@ impl ConfigProxyHandler {
         });
     }
 
-    fn handle_set_bar_position(&self, position: BarPosition) -> Result<(), CphError> {
-        let Ok(position) = position.try_into() else {
-            return Err(CphError::UnknownBarPosition(position));
-        };
-        self.state.set_bar_position(position);
-        Ok(())
+    fn handle_set_bar_position(&self, position: JcBarPosition) {
+        self.state.set_bar_position(position.into());
     }
 
     fn handle_get_bar_position(&self) {
@@ -2126,9 +2117,9 @@ impl ConfigProxyHandler {
     fn handle_get_seat_mono(
         &self,
         seat: Seat,
-        target: Option<ConfigContainerTarget>,
+        target: Option<JcContainerTarget>,
     ) -> Result<(), CphError> {
-        let target = map_container_target_opt(target)?;
+        let target = map_container_target_opt(target);
         let seat = self.get_seat(seat)?;
         self.respond(Response::GetMono {
             mono: seat.get_mono(target).unwrap_or(false),
@@ -2139,10 +2130,10 @@ impl ConfigProxyHandler {
     fn handle_set_seat_mono(
         &self,
         seat: Seat,
-        target: Option<ConfigContainerTarget>,
+        target: Option<JcContainerTarget>,
         mono: bool,
     ) -> Result<(), CphError> {
-        let target = map_container_target_opt(target)?;
+        let target = map_container_target_opt(target);
         let seat = self.get_seat(seat)?;
         seat.set_mono(target, mono);
         Ok(())
@@ -2151,9 +2142,9 @@ impl ConfigProxyHandler {
     fn handle_get_window_mono(
         &self,
         window: Window,
-        target: Option<ConfigContainerTarget>,
+        target: Option<JcContainerTarget>,
     ) -> Result<(), CphError> {
-        let target = map_container_target_opt(target)?;
+        let target = map_container_target_opt(target);
         let window = self.get_window(window)?;
         self.respond(Response::GetWindowMono {
             mono: toplevel_target_container(&window, target)
@@ -2166,10 +2157,10 @@ impl ConfigProxyHandler {
     fn handle_set_window_mono(
         &self,
         window: Window,
-        target: Option<ConfigContainerTarget>,
+        target: Option<JcContainerTarget>,
         mono: bool,
     ) -> Result<(), CphError> {
-        let target = map_container_target_opt(target)?;
+        let target = map_container_target_opt(target);
         let window = self.get_window(window)?;
         toplevel_set_target_mono(&window, target, mono);
         Ok(())
@@ -2178,9 +2169,9 @@ impl ConfigProxyHandler {
     fn handle_get_seat_split(
         &self,
         seat: Seat,
-        target: Option<ConfigContainerTarget>,
+        target: Option<JcContainerTarget>,
     ) -> Result<(), CphError> {
-        let target = map_container_target_opt(target)?;
+        let target = map_container_target_opt(target);
         let seat = self.get_seat(seat)?;
         self.respond(Response::GetSplit {
             axis: seat
@@ -2194,10 +2185,10 @@ impl ConfigProxyHandler {
     fn handle_set_seat_split(
         &self,
         seat: Seat,
-        target: Option<ConfigContainerTarget>,
+        target: Option<JcContainerTarget>,
         axis: Axis,
     ) -> Result<(), CphError> {
-        let target = map_container_target_opt(target)?;
+        let target = map_container_target_opt(target);
         let seat = self.get_seat(seat)?;
         seat.set_split(target, axis.into());
         Ok(())
@@ -2206,9 +2197,9 @@ impl ConfigProxyHandler {
     fn handle_get_window_split(
         &self,
         window: Window,
-        target: Option<ConfigContainerTarget>,
+        target: Option<JcContainerTarget>,
     ) -> Result<(), CphError> {
-        let target = map_container_target_opt(target)?;
+        let target = map_container_target_opt(target);
         let window = self.get_window(window)?;
         self.respond(Response::GetWindowSplit {
             axis: toplevel_target_container(&window, target)
@@ -2222,10 +2213,10 @@ impl ConfigProxyHandler {
     fn handle_set_window_split(
         &self,
         window: Window,
-        target: Option<ConfigContainerTarget>,
+        target: Option<JcContainerTarget>,
         axis: Axis,
     ) -> Result<(), CphError> {
-        let target = map_container_target_opt(target)?;
+        let target = map_container_target_opt(target);
         let window = self.get_window(window)?;
         if let Some(c) = toplevel_target_container(&window, target) {
             c.set_split(axis.into());
@@ -2236,9 +2227,9 @@ impl ConfigProxyHandler {
     fn handle_create_seat_split_relative(
         &self,
         seat: Seat,
-        axis: ConfigRelativeAxis,
+        axis: JcRelativeAxis,
     ) -> Result<(), CphError> {
-        let axis = map_relative_axis(axis)?;
+        let axis = map_relative_axis(axis);
         let seat = self.get_seat(seat)?;
         seat.create_split_relative(axis);
         Ok(())
@@ -2247,9 +2238,9 @@ impl ConfigProxyHandler {
     fn handle_create_window_split_relative(
         &self,
         window: Window,
-        axis: ConfigRelativeAxis,
+        axis: JcRelativeAxis,
     ) -> Result<(), CphError> {
-        let axis = map_relative_axis(axis)?;
+        let axis = map_relative_axis(axis);
         let window = self.get_window(window)?;
         let pos = window.node_absolute_position(LiveTL);
         let split = ContainerSplit::from_relative_axis(axis, &pos);
@@ -2260,11 +2251,11 @@ impl ConfigProxyHandler {
     fn handle_set_seat_split_relative(
         &self,
         seat: Seat,
-        target: ConfigContainerTarget,
-        axis: ConfigRelativeAxis,
+        target: JcContainerTarget,
+        axis: JcRelativeAxis,
     ) -> Result<(), CphError> {
-        let target = map_container_target(target)?;
-        let axis = map_relative_axis(axis)?;
+        let target = map_container_target(target);
+        let axis = map_relative_axis(axis);
         let seat = self.get_seat(seat)?;
         seat.set_split_relative(target, axis);
         Ok(())
@@ -2273,11 +2264,11 @@ impl ConfigProxyHandler {
     fn handle_set_window_split_relative(
         &self,
         window: Window,
-        target: ConfigContainerTarget,
-        axis: ConfigRelativeAxis,
+        target: JcContainerTarget,
+        axis: JcRelativeAxis,
     ) -> Result<(), CphError> {
-        let target = map_container_target(target)?;
-        let axis = map_relative_axis(axis)?;
+        let target = map_container_target(target);
+        let axis = map_relative_axis(axis);
         let window = self.get_window(window)?;
         if let Some(c) = toplevel_target_container(&window, target) {
             let pos = c.node_absolute_position(LiveTL);
@@ -2854,14 +2845,11 @@ impl ConfigProxyHandler {
     fn handle_set_window_matcher_initial_tile_state(
         &self,
         matcher: WindowMatcher,
-        tile_state: ConfigTileState,
+        tile_state: JcTileState,
     ) -> Result<(), CphError> {
-        let Ok(tile_state) = tile_state.try_into() else {
-            return Err(CphError::UnknownTileState(tile_state));
-        };
         self.ensure_window_matcher_properties(matcher)?
             .initial_tile_state
-            .set(Some(tile_state));
+            .set(Some(tile_state.into()));
         Ok(())
     }
 
@@ -3446,12 +3434,8 @@ impl ConfigProxyHandler {
             .set_configure_timeout_ns(SaturatingCast::saturating_cast(timeout.as_nanos()));
     }
 
-    fn handle_set_container_borders(&self, borders: ContainerBorders) -> Result<(), CphError> {
-        let Ok(borders) = borders.try_into() else {
-            return Err(CphError::UnknownContainerBorders(borders));
-        };
-        self.state.set_container_borders(borders);
-        Ok(())
+    fn handle_set_container_borders(&self, borders: JcContainerBorders) {
+        self.state.set_container_borders(borders.into());
     }
 
     fn handle_get_container_borders(&self) {
@@ -3644,16 +3628,10 @@ impl ConfigProxyHandler {
         &self,
         window: Window,
         kind: WindowThemeKind,
-        borders: Option<ContainerBorders>,
+        borders: Option<JcContainerBorders>,
     ) -> Result<(), CphError> {
-        let borders = borders
-            .map(|b| {
-                b.try_into()
-                    .map_err(|_| CphError::UnknownContainerBorders(b))
-            })
-            .transpose()?;
         self.modify_window_theme(window, kind, borders.is_some(), |t| {
-            t.container_borders.set(borders)
+            t.container_borders.set(borders.map(Into::into))
         })
     }
 
@@ -4246,9 +4224,7 @@ impl ConfigProxyHandler {
             ClientMessage::GetShowBar => self.handle_get_show_bar(),
             ClientMessage::SetShowTitles { show } => self.handle_set_show_titles(show),
             ClientMessage::GetShowTitles => self.handle_get_show_titles(),
-            ClientMessage::SetBarPosition { position } => self
-                .handle_set_bar_position(position)
-                .wrn("set_bar_position")?,
+            ClientMessage::SetBarPosition { position } => self.handle_set_bar_position(position),
             ClientMessage::GetBarPosition => self.handle_get_bar_position(),
             ClientMessage::SeatFocusHistory { seat, timeline } => self
                 .handle_seat_focus_history(seat, timeline)
@@ -4419,9 +4395,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetConfigureTimeout { timeout } => {
                 self.handle_set_configure_timeout(timeout)
             }
-            ClientMessage::SetContainerBorders { borders } => self
-                .handle_set_container_borders(borders)
-                .wrn("set_container_borders")?,
+            ClientMessage::SetContainerBorders { borders } => {
+                self.handle_set_container_borders(borders)
+            }
             ClientMessage::GetContainerBorders => self.handle_get_container_borders(),
             ClientMessage::SetWorkspaceInitialConnector {
                 workspace,
@@ -4738,30 +4714,16 @@ enum CphError {
     ModifyConnectorState(#[source] BackendConnectorTransactionError),
     #[error("Unknown blend space {0:?}")]
     UnknownBlendSpace(ConfigBlendSpace),
-    #[error("Unknown bar position {0:?}")]
-    UnknownBarPosition(BarPosition),
-    #[error("Unknown gfx API {0:?}")]
-    UnknownGfxApi(GfxApi),
-    #[error("Unknown fallback output mode {0:?}")]
-    UnknownFallbackOutputMode(FallbackOutputMode),
-    #[error("Unknown tile state {0:?}")]
-    UnknownTileState(ConfigTileState),
     #[error("Could not create a tagged acceptor")]
     CreateTaggedAcceptor(#[source] TaggedAcceptorError),
     #[error("Keymap must be defined through a map or rmlvo names")]
     MissingKeymapKind,
-    #[error("Unknown container borders {0:?}")]
-    UnknownContainerBorders(ContainerBorders),
     #[error("Tried to set an unknown scroll method: {}", (.0).0)]
     UnknownScrollMethod(ScrollMethod),
     #[error("Tried to set an unknown scroll button: {}", (.0).0)]
     UnknownScrollButton(ConfigInputEventCode),
     #[error("Tried to set an unknown scaling filter: {}", (.0).0)]
     UnknownScalingFilter(ConfigScalingFilter),
-    #[error("Tried to use an unknown container target: {0:?}")]
-    UnknownContainerTarget(ConfigContainerTarget),
-    #[error("Tried to use an unknown relative axis: {0:?}")]
-    UnknownRelativeAxis(ConfigRelativeAxis),
     #[error("Colorable element {0} is not supported in window themes")]
     UnsupportedWindowThemeColor(u32),
     #[error("Sized element {0} is not supported in window themes")]
@@ -4788,39 +4750,26 @@ impl ClientCapabilitiesExt for ClientCapabilities {
     }
 }
 
-fn map_fallback_output_mode(
-    fom: FallbackOutputMode,
-) -> Result<crate::ifs::wl_seat::FallbackOutputMode, CphError> {
-    fom.try_into()
-        .map_err(|_| CphError::UnknownFallbackOutputMode(fom))
-}
-
-fn map_container_target_opt(
-    target: Option<ConfigContainerTarget>,
-) -> Result<ContainerTarget, CphError> {
+fn map_container_target_opt(target: Option<JcContainerTarget>) -> ContainerTarget {
     let Some(target) = target else {
-        return Ok(ContainerTarget::Parent);
+        return ContainerTarget::Parent;
     };
     map_container_target(target)
 }
 
-fn map_container_target(target: ConfigContainerTarget) -> Result<ContainerTarget, CphError> {
-    let res = match target {
-        ConfigContainerTarget::Parent => ContainerTarget::Parent,
-        ConfigContainerTarget::Itself => ContainerTarget::Itself,
-        ConfigContainerTarget::Auto => ContainerTarget::Auto,
-        _ => return Err(CphError::UnknownContainerTarget(target)),
-    };
-    Ok(res)
+fn map_container_target(target: JcContainerTarget) -> ContainerTarget {
+    match target {
+        JcContainerTarget::Parent => ContainerTarget::Parent,
+        JcContainerTarget::Itself => ContainerTarget::Itself,
+        JcContainerTarget::Auto => ContainerTarget::Auto,
+    }
 }
 
-fn map_relative_axis(axis: ConfigRelativeAxis) -> Result<RelativeAxis, CphError> {
-    let res = match axis {
-        ConfigRelativeAxis::Major => RelativeAxis::Major,
-        ConfigRelativeAxis::Minor => RelativeAxis::Minor,
-        _ => return Err(CphError::UnknownRelativeAxis(axis)),
-    };
-    Ok(res)
+fn map_relative_axis(axis: JcRelativeAxis) -> RelativeAxis {
+    match axis {
+        JcRelativeAxis::Major => RelativeAxis::Major,
+        JcRelativeAxis::Minor => RelativeAxis::Minor,
+    }
 }
 
 fn map_window_theme_kind(kind: WindowThemeKind) -> ToplevelThemeType {

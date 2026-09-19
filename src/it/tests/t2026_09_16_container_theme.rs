@@ -10,7 +10,7 @@ use crate::tree::TreeTimeline::LiveTL;
 use crate::utils::linkedlist::NodeRef;
 use jay_config::_private::WindowThemeKind;
 use jay_config::theme::Color as ConfigColor;
-use jay_config::theme::ContainerBorders;
+use jay_config::theme::JcContainerBorders;
 use jay_config::theme::colors::BORDER_COLOR;
 use jay_config::theme::colors::FOCUSED_BORDER_COLOR;
 use jay_config::theme::colors::FOCUSED_TITLE_BACKGROUND_COLOR;
@@ -82,7 +82,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     run.cfg.set_window_theme_container_borders(
         container_window,
         C,
-        Some(ContainerBorders::Full),
+        Some(JcContainerBorders::Full),
     )?;
     client.sync().await;
     tassert_eq!(ctheme.sizes.title_height.get(), global_th + 7);
@@ -96,7 +96,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     tassert_eq!(
         run.cfg
             .get_window_theme_container_borders(container_window, C)?,
-        Some(ContainerBorders::Full),
+        Some(JcContainerBorders::Full),
     );
 
     // The border color is the default of the focused border color of the children.

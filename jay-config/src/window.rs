@@ -12,6 +12,7 @@ use crate::input::Seat;
 use crate::theme::ContainerTheme;
 use crate::theme::ThemeOverrides;
 use crate::theme::WindowTheme;
+use jay_proc::PrivateEnum;
 use serde::Deserialize;
 use serde::Serialize;
 use std::ops::Deref;
@@ -64,7 +65,7 @@ bitflags! {
 
 /// The tile state of a window.
 #[non_exhaustive]
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq, PrivateEnum)]
 pub enum TileState {
     /// The window is tiled.
     Tiled,
@@ -175,12 +176,12 @@ impl Window {
 
     /// Returns whether the target container of the window is in mono-mode.
     pub fn container_mono(self, target: ContainerTarget) -> bool {
-        get!(false).window_container_mono(self, target)
+        get!(false).window_container_mono(self, target.to_private())
     }
 
     /// Sets whether the target container of the window is in mono-mode.
     pub fn set_container_mono(self, target: ContainerTarget, mono: bool) {
-        get!().set_window_container_mono(self, target, mono)
+        get!().set_window_container_mono(self, target.to_private(), mono)
     }
 
     /// Toggles whether the target container of the window is in mono-mode.
@@ -190,12 +191,12 @@ impl Window {
 
     /// Returns the split axis of the target container of the window.
     pub fn container_split(self, target: ContainerTarget) -> Axis {
-        get!(Axis::Horizontal).window_container_split(self, target)
+        get!(Axis::Horizontal).window_container_split(self, target.to_private())
     }
 
     /// Sets the split axis of the target container of the window.
     pub fn set_container_split(self, target: ContainerTarget, axis: Axis) {
-        get!().set_window_container_split(self, target, axis)
+        get!().set_window_container_split(self, target.to_private(), axis)
     }
 
     /// Toggles the split axis of the target container of the window.
@@ -206,7 +207,7 @@ impl Window {
     /// Sets the split axis of the target container of the window relative to the
     /// dimensions of that container.
     pub fn set_container_split_relative(self, target: ContainerTarget, axis: RelativeAxis) {
-        get!().set_window_container_split_relative(self, target, axis)
+        get!().set_window_container_split_relative(self, target.to_private(), axis.to_private())
     }
 
     /// Creates a new container with the specified split in place of the window.
@@ -225,7 +226,7 @@ impl Window {
     /// [`set_split_reuses_container`](crate::set_split_reuses_container) is enabled, the
     /// split axis of that container is changed instead.
     pub fn create_split_relative(self, axis: RelativeAxis) {
-        get!().create_window_split_relative(self, axis);
+        get!().create_window_split_relative(self, axis.to_private());
     }
 
     /// Requests the window to be closed.
@@ -511,7 +512,7 @@ impl WindowMatcher {
     /// If multiple such window matchers match a window, the used tile state is
     /// unspecified.
     pub fn set_initial_tile_state(self, tile_state: TileState) {
-        get!().set_window_matcher_initial_tile_state(self, tile_state);
+        get!().set_window_matcher_initial_tile_state(self, tile_state.to_private());
     }
 
     /// Sets the size that matched windows have when they are initially mapped floating.

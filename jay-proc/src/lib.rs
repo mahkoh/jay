@@ -10,8 +10,14 @@ mod global;
 mod liveness;
 mod markers;
 mod object;
+mod private_enum;
 mod reset;
 mod str_fmt;
+
+#[proc_macro_derive(PrivateEnum)]
+pub fn derive_private_enum(input: TokenStream) -> TokenStream {
+    private_enum::derive_private_enum(input)
+}
 
 #[proc_macro_derive(Global, attributes(dedicated, interface))]
 pub fn derive_global(input: TokenStream) -> TokenStream {

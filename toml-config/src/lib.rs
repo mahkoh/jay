@@ -1304,6 +1304,9 @@ impl State {
         if let Some(v) = theme.container_borders {
             set_container_borders(v);
         }
+        if let Some(v) = theme.bar_position {
+            set_bar_position(v);
+        }
     }
 
     fn handle_switch_device(self: &Rc<Self>, dev: InputDevice, actions: &Rc<SwitchActions>) {
@@ -1998,9 +2001,6 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     }
     if let Some(v) = config.show_titles {
         set_show_titles(v);
-    }
-    if let Some(v) = config.theme.bar_position {
-        set_bar_position(v);
     }
     if let Some(v) = config.focus_history {
         if let Some(v) = v.only_visible {
