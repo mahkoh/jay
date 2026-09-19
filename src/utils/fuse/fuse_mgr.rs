@@ -92,7 +92,6 @@ impl FuseMgr {
 }
 
 impl State {
-    #[expect(unused)]
     pub fn fuse_mount(
         &self,
         owner: Rc<dyn FuseMountOwner>,

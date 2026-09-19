@@ -180,6 +180,10 @@ request trace_clients (since = 42) {
     client_match: id(jay_client_match),
 }
 
+request get_debugfs (since = 44) {
+    id: id(jay_debugfs) (new),
+}
+
 # events
 
 event client_id {

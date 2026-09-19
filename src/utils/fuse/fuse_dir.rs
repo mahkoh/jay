@@ -90,7 +90,6 @@ impl DirentName {
 }
 
 impl FuseDirents {
-    #[expect(unused)]
     pub fn add<I>(&mut self, timeout_ns: u64, inode: &Rc<I>, key: u64, name: FuseDirentName<'_>)
     where
         I: FuseInode + 'static,

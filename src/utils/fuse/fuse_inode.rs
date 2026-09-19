@@ -18,6 +18,7 @@ use uapi::pod_zeroed;
 pub enum FuseInodeTy {
     Regular,
     Directory,
+    #[expect(unused)]
     Symlink,
 }
 
@@ -125,7 +126,6 @@ where
 }
 
 impl dyn FuseInode {
-    #[expect(unused)]
     pub fn with_key(self: Rc<Self>, key: u64) -> FuseInodeWithKey {
         FuseInodeWithKey { inode: self, key }
     }
@@ -137,7 +137,6 @@ impl dyn FuseInode {
 }
 
 impl FuseInodeProps {
-    #[expect(unused)]
     pub fn dir() -> Self {
         Self {
             ty: FuseInodeTy::Directory,
@@ -145,7 +144,6 @@ impl FuseInodeProps {
         }
     }
 
-    #[expect(unused)]
     pub fn reg() -> Self {
         Self {
             ty: FuseInodeTy::Regular,

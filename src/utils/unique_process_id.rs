@@ -23,7 +23,6 @@ enum E {
     Getversion(#[source] OsError),
 }
 
-#[expect(unused)]
 pub fn unique_process_id() -> u64 {
     static ONCE: LazyLock<u64> = LazyLock::new(compute);
     *ONCE

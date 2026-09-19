@@ -1,0 +1,16 @@
+request destroy (destructor) {
+}
+
+request create_snapshot {
+    id: id(jay_debugfs_snapshot) (new),
+    root: str,
+    json: bool,
+}
+
+request mount {
+    id: id(jay_debugfs_mount_request) (new),
+}
+
+request unmount {
+
+}

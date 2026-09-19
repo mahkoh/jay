@@ -1,0 +1,11 @@
+request destroy (destructor) {
+
+}
+
+event success {
+    fd: fd,
+}
+
+event failure {
+    msg: str,
+}
