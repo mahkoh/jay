@@ -22,7 +22,6 @@ pub enum JarToTarError {
     MissingLink,
 }
 
-#[expect(unused)]
 pub fn jar_to_tar(root: &str, src: &OwnedFd, dst: &OwnedFd) -> Result<(), JarToTarError> {
     let mut reader = JarReader::new(src).map_err(JarToTarError::OpenJar)?;
     let filename = format!("{root}.tar");

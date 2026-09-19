@@ -75,6 +75,10 @@ The following commands support `--json`:
 `jay config path`
 : The config file path as a JSON string.
 
+`jay debugfs snapshot`
+: The files inside the archive contain JSON instead of human-readable text.
+  Nothing is printed to the terminal.
+
 `jay idle status`
 : Idle interval, grace period, and inhibitors.
 
@@ -932,6 +936,57 @@ tablet, and switch events to stdout:
 ~$ jay seat-test default
 ~$ jay seat-test -a              # test all seats simultaneously
 ```
+
+### `jay debugfs`
+
+Expose the internal state of the compositor as a read-only filesystem. The
+state is a tree of directories and text files that can be read with ordinary
+tools.
+
+Mount the filesystem and print its path:
+
+```shell
+~$ jay debugfs mount
+/run/user/1000/wayland-1-jay/debugfs
+```
+
+The filesystem stays mounted after the command exits, so it can be browsed like
+any other directory:
+
+```shell
+~$ cat /run/user/1000/wayland-1-jay/debugfs/version
+```
+
+Running `jay debugfs mount` again prints the path of the existing mount. Unmount
+the filesystem with:
+
+```shell
+~$ jay debugfs unmount
+```
+
+The whole filesystem can also be written to a gzipped tar archive without
+mounting it, for example to attach the state to a bug report:
+
+```shell
+~$ jay debugfs snapshot                 # jay-debugfs-<timestamp>.tar.gz
+~$ jay debugfs snapshot state.tar.gz
+~$ jay debugfs snapshot - | tar tvz     # standard output
+```
+
+The filename must end in `.tar.gz`. With the global `--json` flag, the files in
+the archive contain JSON instead of human-readable text:
+
+```shell
+~$ jay --json debugfs snapshot state.tar.gz
+```
+
+> [!NOTE]
+> Mounting requires the `fusermount3` program from the FUSE 3 userspace tools.
+> `jay debugfs snapshot` works without it.
+
+> [!WARNING]
+> The layout of the filesystem and the contents of its files are debugging aids.
+> They can change in any release.
 
 ### `jay run-privileged`
 

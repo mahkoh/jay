@@ -11,6 +11,7 @@ use crate::ifs::jay_client_match_builder::JayClientMatchBuilder;
 use crate::ifs::jay_client_query::JayClientQuery;
 use crate::ifs::jay_client_trace::JayClientTrace;
 use crate::ifs::jay_color_management::JayColorManagement;
+use crate::ifs::jay_debugfs::JayDebugfs;
 use crate::ifs::jay_ei_session_builder::JayEiSessionBuilder;
 use crate::ifs::jay_generic_match_builder::JayGenericMatchBuilder;
 use crate::ifs::jay_generic_match_builder::MatchBuilder;
@@ -95,7 +96,7 @@ impl JayCompositorGlobal {
 
 impl Global for JayCompositorGlobal {
     fn version(&self) -> u32 {
-        43
+        44
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -695,6 +696,18 @@ impl JayCompositorRequestHandler for JayCompositor {
     fn trace_clients(&self, req: TraceClients, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let obj = self.client.lookup(req.client_match)?;
         JayGlobalTracer::install(req.clients, &self.client, &obj.m, self.version);
+        Ok(())
+    }
+
+    fn get_debugfs(&self, req: GetDebugfs, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let obj = Rc::new(JayDebugfs {
+            id: req.id,
+            client: self.client.clone(),
+            tracker: Default::default(),
+            version: self.version,
+        });
+        track!(self.client, obj);
+        self.client.add_client_obj(&obj);
         Ok(())
     }
 }

@@ -4,6 +4,7 @@ mod color_management;
 mod config;
 mod control_center;
 mod damage_tracking;
+mod debugfs;
 mod duration;
 mod generate;
 mod idle;
@@ -29,6 +30,7 @@ use crate::cli::clients::ClientsArgs;
 use crate::cli::color_management::ColorManagementArgs;
 use crate::cli::config::ConfigArgs;
 use crate::cli::damage_tracking::DamageTrackingArgs;
+use crate::cli::debugfs::DebugfsArgs;
 use crate::cli::idle::IdleCmd;
 use crate::cli::input::InputArgs;
 use crate::cli::json::VERBOSE_JSON;
@@ -138,6 +140,7 @@ pub enum Cmd {
     /// Prints the Jay PID and exits.
     Pid,
     Trace(TraceArgs),
+    Debugfs(DebugfsArgs),
     #[cfg(feature = "it")]
     RunTests,
 }
@@ -334,5 +337,6 @@ pub fn main() {
         Cmd::ControlCenter => control_center::main(cli.global),
         Cmd::Config(a) => config::main(cli.global, a),
         Cmd::Trace(a) => trace::main(cli.global, a),
+        Cmd::Debugfs(a) => debugfs::main(cli.global, a),
     }
 }

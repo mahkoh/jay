@@ -60,6 +60,7 @@ use crate::cursor_user::CursorUserGroupIds;
 use crate::cursor_user::CursorUserIds;
 use crate::damage::DamageVisualizer;
 use crate::dbus::Dbus;
+use crate::dfs::DfsManager;
 use crate::dmabuf_feedback::DmaBufFeedbackState;
 use crate::egui_adapter::egui_platform::EggState;
 use crate::ei::ei_acceptor::EiAcceptor;
@@ -224,6 +225,7 @@ use crate::utils::fuse::fuse_mgr::FuseMgr;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::lazy_event_source::LazyEventSources;
 use crate::utils::linkedlist::LinkedList;
+use crate::utils::liveness::Liveness;
 use crate::utils::numcell::NumCell;
 use crate::utils::obj_and_id::ObjAndId;
 use crate::utils::obj_and_id::ObjWithId;
@@ -249,6 +251,7 @@ use crate::xwayland::XWaylandEvent;
 use bstr::ByteSlice;
 use isnt::std_1::primitive::IsntSliceExt;
 use jay_config::PciId;
+use jay_proc::GetLiveness;
 use linearize::StaticCopyMap;
 use linearize::StaticMap;
 use std::cell::Cell;
@@ -269,6 +272,9 @@ use uapi::OwnedFd;
 use uapi::c;
 use uapi::c::dev_t;
 
+mod state_dfs_g_fuse;
+
+#[derive(GetLiveness)]
 pub struct State {
     pub pid: c::pid_t,
     pub kb_ctx: KbvmContext,
@@ -443,6 +449,8 @@ pub struct State {
     pub is_test: bool,
     pub toplevel_theme_cache: Rc<BoxCache<ToplevelTheme, BoxUninit>>,
     pub toplevel_theme_changed: AsyncQueue<Weak<dyn ToplevelNode>>,
+    pub liveness: Liveness,
+    pub debugfs: DfsManager,
 }
 
 pub trait ThemeChangeListener {
@@ -1522,6 +1530,7 @@ impl State {
         self.tree.configure_groups.clear();
         self.tree.transactions.clear(self);
         self.global_tracers.clear();
+        self.debugfs.clear();
     }
 
     pub fn remove_toplevel_id(&self, id: ToplevelIdentifier) {

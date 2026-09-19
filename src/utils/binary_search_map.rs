@@ -218,7 +218,6 @@ impl<'a, K, V, const N: usize> Iterator for BinarySearchMapMutIterMut<'a, K, V, 
     }
 }
 
-#[expect(unused)]
 pub trait BinarySearchMapDyn<K, V> {
     fn get(&self, k: &K) -> Option<&V>
     where

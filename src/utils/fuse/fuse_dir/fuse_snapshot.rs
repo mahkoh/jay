@@ -41,7 +41,6 @@ struct DirentsWithOffset {
 }
 
 impl dyn FuseInode {
-    #[expect(unused)]
     pub fn snapshot(
         self: &Rc<Self>,
         key: u64,

@@ -4,7 +4,6 @@ use std::io::SeekFrom;
 use std::io::Write;
 use uapi::c;
 
-#[expect(unused)]
 pub struct SeekableFd(pub c::c_int);
 
 impl Write for SeekableFd {

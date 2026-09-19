@@ -72,6 +72,7 @@ mod cursor;
 mod cursor_user;
 mod damage;
 mod dbus;
+mod dfs;
 mod dmabuf_feedback;
 mod edid;
 mod egui_adapter;
