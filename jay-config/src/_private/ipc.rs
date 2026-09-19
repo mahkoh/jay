@@ -7,19 +7,19 @@ use crate::_private::WireMode;
 use crate::_private::WorkspaceShowOpV1;
 use crate::_private::WorkspaceShowOpV2;
 use crate::Axis;
-use crate::ContainerTarget;
 use crate::Direction;
+use crate::JcContainerTarget;
+use crate::JcRelativeAxis;
+use crate::JcWorkspaceKind;
 use crate::PciId;
-use crate::RelativeAxis;
 use crate::Workspace;
-use crate::WorkspaceKind;
 use crate::client::Client;
 use crate::client::ClientCapabilities;
 use crate::client::ClientMatcher;
-use crate::input::FallbackOutputMode;
 use crate::input::FocusFollowsMouseMode;
 use crate::input::InputDevice;
 use crate::input::InputEventCode;
+use crate::input::JcFallbackOutputMode;
 use crate::input::LayerDirection;
 use crate::input::Seat;
 use crate::input::SwitchEvent;
@@ -33,9 +33,9 @@ use crate::keyboard::Keymap;
 use crate::keyboard::mods::Modifiers;
 use crate::keyboard::syms::KeySym;
 use crate::logging::LogLevel;
-use crate::theme::BarPosition;
 use crate::theme::Color;
-use crate::theme::ContainerBorders;
+use crate::theme::JcBarPosition;
+use crate::theme::JcContainerBorders;
 use crate::theme::colors::Colorable;
 use crate::theme::sized::Resizable;
 use crate::timer::Timer;
@@ -45,14 +45,14 @@ use crate::video::Connector;
 use crate::video::DrmDevice;
 use crate::video::Eotf;
 use crate::video::Format;
-use crate::video::GfxApi;
+use crate::video::JcGfxApi;
 use crate::video::ScalingFilter;
 use crate::video::TearingMode;
 use crate::video::Transform;
 use crate::video::VrrMode;
 use crate::video::connector_type::ConnectorType;
 use crate::window::ContentType;
-use crate::window::TileState;
+use crate::window::JcTileState;
 use crate::window::Window;
 use crate::window::WindowMatcher;
 use crate::window::WindowType;
@@ -439,7 +439,7 @@ pub enum ClientMessage<'a> {
     },
     SetGfxApi {
         device: Option<DrmDevice>,
-        api: GfxApi,
+        api: JcGfxApi,
     },
     SetDirectScanoutEnabled {
         device: Option<DrmDevice>,
@@ -753,7 +753,7 @@ pub enum ClientMessage<'a> {
     },
     SetWindowMatcherInitialTileState {
         matcher: WindowMatcher,
-        tile_state: TileState,
+        tile_state: JcTileState,
     },
     SetPointerRevertKey {
         seat: Seat,
@@ -860,7 +860,7 @@ pub enum ClientMessage<'a> {
         direction: Direction,
     },
     SetBarPosition {
-        position: BarPosition,
+        position: JcBarPosition,
     },
     GetBarPosition,
     ConnectorSetUseNativeGamut {
@@ -875,7 +875,7 @@ pub enum ClientMessage<'a> {
     },
     SetFallbackOutputMode {
         seat: Seat,
-        mode: FallbackOutputMode,
+        mode: JcFallbackOutputMode,
     },
     SetXWaylandEnabled {
         enabled: bool,
@@ -974,7 +974,7 @@ pub enum ClientMessage<'a> {
         timeout: Duration,
     },
     SetContainerBorders {
-        borders: ContainerBorders,
+        borders: JcContainerBorders,
     },
     GetContainerBorders,
     SetWorkspaceInitialConnector {
@@ -1033,57 +1033,57 @@ pub enum ClientMessage<'a> {
     },
     GetSeatContainerMono {
         seat: Seat,
-        target: ContainerTarget,
+        target: JcContainerTarget,
     },
     SetSeatContainerMono {
         seat: Seat,
-        target: ContainerTarget,
+        target: JcContainerTarget,
         mono: bool,
     },
     GetSeatContainerSplit {
         seat: Seat,
-        target: ContainerTarget,
+        target: JcContainerTarget,
     },
     SetSeatContainerSplit {
         seat: Seat,
-        target: ContainerTarget,
+        target: JcContainerTarget,
         axis: Axis,
     },
     GetWindowContainerMono {
         window: Window,
-        target: ContainerTarget,
+        target: JcContainerTarget,
     },
     SetWindowContainerMono {
         window: Window,
-        target: ContainerTarget,
+        target: JcContainerTarget,
         mono: bool,
     },
     GetWindowContainerSplit {
         window: Window,
-        target: ContainerTarget,
+        target: JcContainerTarget,
     },
     SetWindowContainerSplit {
         window: Window,
-        target: ContainerTarget,
+        target: JcContainerTarget,
         axis: Axis,
     },
     CreateSeatSplitRelative {
         seat: Seat,
-        axis: RelativeAxis,
+        axis: JcRelativeAxis,
     },
     CreateWindowSplitRelative {
         window: Window,
-        axis: RelativeAxis,
+        axis: JcRelativeAxis,
     },
     SetSeatContainerSplitRelative {
         seat: Seat,
-        target: ContainerTarget,
-        axis: RelativeAxis,
+        target: JcContainerTarget,
+        axis: JcRelativeAxis,
     },
     SetWindowContainerSplitRelative {
         window: Window,
-        target: ContainerTarget,
-        axis: RelativeAxis,
+        target: JcContainerTarget,
+        axis: JcRelativeAxis,
     },
     ResetWindowTheme {
         window: Window,
@@ -1138,7 +1138,7 @@ pub enum ClientMessage<'a> {
     SetWindowThemeContainerBorders {
         window: Window,
         kind: WindowThemeKind,
-        borders: Option<ContainerBorders>,
+        borders: Option<JcContainerBorders>,
     },
     GetWindowThemeContainerBorders {
         window: Window,
@@ -1389,7 +1389,7 @@ pub enum Response {
         connector: Connector,
     },
     GetBarPosition {
-        position: BarPosition,
+        position: JcBarPosition,
     },
     KeymapFromNames {
         keymap: Keymap,
@@ -1404,7 +1404,7 @@ pub enum Response {
         compositor_output: bool,
     },
     GetWorkspaceKind {
-        kind: WorkspaceKind,
+        kind: JcWorkspaceKind,
     },
     ParseKeymap2 {
         keymap: Keymap,
@@ -1413,7 +1413,7 @@ pub enum Response {
         visualize: bool,
     },
     GetContainerBorders {
-        borders: ContainerBorders,
+        borders: JcContainerBorders,
     },
     GetPlaneColorPipelinesEnabled {
         enabled: bool,
@@ -1443,7 +1443,7 @@ pub enum Response {
         show: Option<bool>,
     },
     GetWindowThemeContainerBorders {
-        borders: Option<ContainerBorders>,
+        borders: Option<JcContainerBorders>,
     },
 }
 

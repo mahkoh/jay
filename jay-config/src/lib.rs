@@ -51,6 +51,7 @@ use crate::input::Seat;
 use crate::keyboard::ModifiedKeySym;
 use crate::video::Connector;
 use crate::window::Window;
+use jay_proc::PrivateEnum;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt::Debug;
@@ -108,7 +109,7 @@ impl Axis {
 ///
 /// If the node is exactly as wide as it is high, `Major` is `Axis::Horizontal` and
 /// `Minor` is `Axis::Vertical`.
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq, PrivateEnum)]
 #[non_exhaustive]
 pub enum RelativeAxis {
     /// The axis along the larger dimension of the node.
@@ -118,7 +119,7 @@ pub enum RelativeAxis {
 }
 
 /// The container that an action operates on.
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq, Default)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq, Default, PrivateEnum)]
 #[non_exhaustive]
 pub enum ContainerTarget {
     /// The parent container of the window. This is the default.
@@ -242,7 +243,9 @@ impl Workspace {
 
     /// Returns the kind of this workspace.
     pub fn kind(self) -> WorkspaceKind {
-        get!(WorkspaceKind::Normal).get_workspace_kind(self)
+        get!(WorkspaceKind::Normal)
+            .get_workspace_kind(self)
+            .to_public()
     }
 
     /// Hides this workspace.
@@ -338,7 +341,7 @@ impl WorkspaceShowOp {
     ///
     /// The default is determined via [`Seat::set_fallback_output_mode`].
     pub fn fallback_output_mode(mut self, mode: FallbackOutputMode) -> Self {
-        self.v1.fallback_output_mode = Some(mode);
+        self.v1.fallback_output_mode = Some(mode.to_private());
         self
     }
 
@@ -360,7 +363,7 @@ impl WorkspaceShowOp {
 }
 
 /// The kind of a workspace.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, PrivateEnum)]
 #[non_exhaustive]
 pub enum WorkspaceKind {
     /// A normal workspace.

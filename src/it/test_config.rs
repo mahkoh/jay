@@ -21,9 +21,9 @@ use jay_config::input::InputDevice;
 use jay_config::input::Seat;
 use jay_config::keyboard::Keymap;
 use jay_config::keyboard::ModifiedKeySym;
-use jay_config::theme::BarPosition;
 use jay_config::theme::Color;
-use jay_config::theme::ContainerBorders;
+use jay_config::theme::JcBarPosition;
+use jay_config::theme::JcContainerBorders;
 use jay_config::theme::colors::Colorable;
 use jay_config::theme::sized::BAR_SEPARATOR_WIDTH;
 use jay_config::theme::sized::Resizable;
@@ -326,7 +326,7 @@ impl TestConfig {
         self.set_size(BAR_SEPARATOR_WIDTH, width)
     }
 
-    pub fn set_bar_position(&self, position: BarPosition) -> TestResult {
+    pub fn set_bar_position(&self, position: JcBarPosition) -> TestResult {
         self.send(ClientMessage::SetBarPosition { position })
     }
 
@@ -468,7 +468,7 @@ impl TestConfig {
         &self,
         window: Window,
         kind: WindowThemeKind,
-        borders: Option<ContainerBorders>,
+        borders: Option<JcContainerBorders>,
     ) -> TestResult {
         self.send(ClientMessage::SetWindowThemeContainerBorders {
             window,
@@ -481,7 +481,7 @@ impl TestConfig {
         &self,
         window: Window,
         kind: WindowThemeKind,
-    ) -> TestResult<Option<ContainerBorders>> {
+    ) -> TestResult<Option<JcContainerBorders>> {
         let reply =
             self.send_with_reply(ClientMessage::GetWindowThemeContainerBorders { window, kind })?;
         get_response!(reply, GetWindowThemeContainerBorders { borders });

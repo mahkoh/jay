@@ -27,6 +27,7 @@ use crate::video::connector_type::CON_VGA;
 use crate::video::connector_type::CON_VIRTUAL;
 use crate::video::connector_type::CON_WRITEBACK;
 use crate::video::connector_type::ConnectorType;
+use jay_proc::PrivateEnum;
 use serde::Deserialize;
 use serde::Serialize;
 use std::str::FromStr;
@@ -640,7 +641,7 @@ impl DrmDevice {
     ///
     /// If the API cannot be used, the compositor will try other APIs.
     pub fn set_gfx_api(self, gfx_api: GfxApi) {
-        get!().set_gfx_api(Some(self), gfx_api);
+        get!().set_gfx_api(Some(self), gfx_api.to_private());
     }
 
     /// Enables or disables direct scanout of client surfaces for this device.
@@ -678,7 +679,7 @@ impl DrmDevice {
 
 /// A graphics API.
 #[non_exhaustive]
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq, PrivateEnum)]
 pub enum GfxApi {
     OpenGl,
     Vulkan,
@@ -692,7 +693,7 @@ pub enum GfxApi {
 ///
 /// This call has no effect on devices that have already been initialized.
 pub fn set_gfx_api(gfx_api: GfxApi) {
-    get!().set_gfx_api(None, gfx_api);
+    get!().set_gfx_api(None, gfx_api.to_private());
 }
 
 /// Enables or disables direct scanout of client surfaces.

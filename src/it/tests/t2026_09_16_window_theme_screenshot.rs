@@ -3,7 +3,7 @@ use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
 use jay_config::_private::WindowThemeKind;
 use jay_config::theme::Color;
-use jay_config::theme::ContainerBorders;
+use jay_config::theme::JcContainerBorders;
 use jay_config::theme::colors::BORDER_COLOR;
 use jay_config::theme::colors::FOCUSED_BORDER_COLOR;
 use jay_config::theme::colors::FOCUSED_TITLE_BACKGROUND_COLOR;
@@ -54,7 +54,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     run.cfg
         .set_window_theme_color(container, C, SEPARATOR_COLOR, Some(yellow))?;
     run.cfg
-        .set_window_theme_container_borders(container, C, Some(ContainerBorders::Full))?;
+        .set_window_theme_container_borders(container, C, Some(JcContainerBorders::Full))?;
     run.cfg
         .set_window_theme_color(container, C, FOCUSED_TITLE_BACKGROUND_COLOR, Some(magenta))?;
     run.cfg

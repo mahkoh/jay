@@ -22,13 +22,13 @@ use crate::_private::ipc::ServerMessage;
 use crate::_private::ipc::WorkspaceSource;
 use crate::_private::logging;
 use crate::Axis;
-use crate::ContainerTarget;
 use crate::Direction;
+use crate::JcContainerTarget;
+use crate::JcRelativeAxis;
+use crate::JcWorkspaceKind;
 use crate::ModifiedKeySym;
 use crate::PciId;
-use crate::RelativeAxis;
 use crate::Workspace;
-use crate::WorkspaceKind;
 use crate::WorkspaceShowOp;
 use crate::client::Client;
 use crate::client::ClientCapabilities;
@@ -36,10 +36,10 @@ use crate::client::ClientCriterion;
 use crate::client::ClientMatcher;
 use crate::client::MatchedClient;
 use crate::exec::Command;
-use crate::input::FallbackOutputMode;
 use crate::input::FocusFollowsMouseMode;
 use crate::input::InputDevice;
 use crate::input::InputEventCode;
+use crate::input::JcFallbackOutputMode;
 use crate::input::LayerDirection;
 use crate::input::Seat;
 use crate::input::SwitchEvent;
@@ -57,9 +57,9 @@ use crate::keyboard::syms::KeySym;
 use crate::logging::LogLevel;
 use crate::tasks::JoinHandle;
 use crate::tasks::JoinSlot;
-use crate::theme::BarPosition;
 use crate::theme::Color;
-use crate::theme::ContainerBorders;
+use crate::theme::JcBarPosition;
+use crate::theme::JcContainerBorders;
 use crate::theme::colors::Colorable;
 use crate::theme::sized::Resizable;
 use crate::timer::Timer;
@@ -69,7 +69,7 @@ use crate::video::Connector;
 use crate::video::DrmDevice;
 use crate::video::Eotf;
 use crate::video::Format;
-use crate::video::GfxApi;
+use crate::video::JcGfxApi;
 use crate::video::Mode;
 use crate::video::ScalingFilter;
 use crate::video::TearingMode;
@@ -78,8 +78,8 @@ use crate::video::VrrMode;
 use crate::video::connector_type::CON_UNKNOWN;
 use crate::video::connector_type::ConnectorType;
 use crate::window::ContentType;
+use crate::window::JcTileState;
 use crate::window::MatchedWindow;
-use crate::window::TileState;
 use crate::window::Window;
 use crate::window::WindowCriterion;
 use crate::window::WindowMatcher;
@@ -933,34 +933,34 @@ impl ConfigClient {
         self.send(&ClientMessage::CreateWindowSplit { window, axis });
     }
 
-    pub fn seat_container_mono(&self, seat: Seat, target: ContainerTarget) -> bool {
+    pub fn seat_container_mono(&self, seat: Seat, target: JcContainerTarget) -> bool {
         let res = self.send_with_response(&ClientMessage::GetSeatContainerMono { seat, target });
         get_response!(res, false, GetMono { mono });
         mono
     }
 
-    pub fn set_seat_container_mono(&self, seat: Seat, target: ContainerTarget, mono: bool) {
+    pub fn set_seat_container_mono(&self, seat: Seat, target: JcContainerTarget, mono: bool) {
         self.send(&ClientMessage::SetSeatContainerMono { seat, target, mono });
     }
 
-    pub fn seat_container_split(&self, seat: Seat, target: ContainerTarget) -> Axis {
+    pub fn seat_container_split(&self, seat: Seat, target: JcContainerTarget) -> Axis {
         let res = self.send_with_response(&ClientMessage::GetSeatContainerSplit { seat, target });
         get_response!(res, Axis::Horizontal, GetSplit { axis });
         axis
     }
 
-    pub fn set_seat_container_split(&self, seat: Seat, target: ContainerTarget, axis: Axis) {
+    pub fn set_seat_container_split(&self, seat: Seat, target: JcContainerTarget, axis: Axis) {
         self.send(&ClientMessage::SetSeatContainerSplit { seat, target, axis });
     }
 
-    pub fn window_container_mono(&self, window: Window, target: ContainerTarget) -> bool {
+    pub fn window_container_mono(&self, window: Window, target: JcContainerTarget) -> bool {
         let res =
             self.send_with_response(&ClientMessage::GetWindowContainerMono { window, target });
         get_response!(res, false, GetWindowMono { mono });
         mono
     }
 
-    pub fn set_window_container_mono(&self, window: Window, target: ContainerTarget, mono: bool) {
+    pub fn set_window_container_mono(&self, window: Window, target: JcContainerTarget, mono: bool) {
         self.send(&ClientMessage::SetWindowContainerMono {
             window,
             target,
@@ -968,14 +968,19 @@ impl ConfigClient {
         });
     }
 
-    pub fn window_container_split(&self, window: Window, target: ContainerTarget) -> Axis {
+    pub fn window_container_split(&self, window: Window, target: JcContainerTarget) -> Axis {
         let res =
             self.send_with_response(&ClientMessage::GetWindowContainerSplit { window, target });
         get_response!(res, Axis::Horizontal, GetWindowSplit { axis });
         axis
     }
 
-    pub fn set_window_container_split(&self, window: Window, target: ContainerTarget, axis: Axis) {
+    pub fn set_window_container_split(
+        &self,
+        window: Window,
+        target: JcContainerTarget,
+        axis: Axis,
+    ) {
         self.send(&ClientMessage::SetWindowContainerSplit {
             window,
             target,
@@ -983,19 +988,19 @@ impl ConfigClient {
         });
     }
 
-    pub fn create_seat_split_relative(&self, seat: Seat, axis: RelativeAxis) {
+    pub fn create_seat_split_relative(&self, seat: Seat, axis: JcRelativeAxis) {
         self.send(&ClientMessage::CreateSeatSplitRelative { seat, axis });
     }
 
-    pub fn create_window_split_relative(&self, window: Window, axis: RelativeAxis) {
+    pub fn create_window_split_relative(&self, window: Window, axis: JcRelativeAxis) {
         self.send(&ClientMessage::CreateWindowSplitRelative { window, axis });
     }
 
     pub fn set_seat_container_split_relative(
         &self,
         seat: Seat,
-        target: ContainerTarget,
-        axis: RelativeAxis,
+        target: JcContainerTarget,
+        axis: JcRelativeAxis,
     ) {
         self.send(&ClientMessage::SetSeatContainerSplitRelative { seat, target, axis });
     }
@@ -1003,8 +1008,8 @@ impl ConfigClient {
     pub fn set_window_container_split_relative(
         &self,
         window: Window,
-        target: ContainerTarget,
-        axis: RelativeAxis,
+        target: JcContainerTarget,
+        axis: JcRelativeAxis,
     ) {
         self.send(&ClientMessage::SetWindowContainerSplitRelative {
             window,
@@ -1190,7 +1195,7 @@ impl ConfigClient {
         self.send(&ClientMessage::MakeRenderDevice { device });
     }
 
-    pub fn set_gfx_api(&self, device: Option<DrmDevice>, api: GfxApi) {
+    pub fn set_gfx_api(&self, device: Option<DrmDevice>, api: JcGfxApi) {
         self.send(&ClientMessage::SetGfxApi { device, api });
     }
 
@@ -1268,13 +1273,13 @@ impl ConfigClient {
         show
     }
 
-    pub fn set_bar_position(&self, position: BarPosition) {
+    pub fn set_bar_position(&self, position: JcBarPosition) {
         self.send(&ClientMessage::SetBarPosition { position });
     }
 
-    pub fn get_bar_position(&self) -> BarPosition {
+    pub fn get_bar_position(&self) -> JcBarPosition {
         let res = self.send_with_response(&ClientMessage::GetBarPosition);
-        get_response!(res, BarPosition::Top, GetBarPosition { position });
+        get_response!(res, JcBarPosition::Top, GetBarPosition { position });
         position
     }
 
@@ -1693,7 +1698,7 @@ impl ConfigClient {
         self.send(&ClientMessage::SetFocusFollowsMouseMode { seat, mode })
     }
 
-    pub fn set_fallback_output_mode(&self, seat: Seat, mode: FallbackOutputMode) {
+    pub fn set_fallback_output_mode(&self, seat: Seat, mode: JcFallbackOutputMode) {
         self.send(&ClientMessage::SetFallbackOutputMode { seat, mode })
     }
 
@@ -1777,9 +1782,9 @@ impl ConfigClient {
         connector
     }
 
-    pub fn get_workspace_kind(&self, workspace: Workspace) -> WorkspaceKind {
+    pub fn get_workspace_kind(&self, workspace: Workspace) -> JcWorkspaceKind {
         let res = self.send_with_response(&ClientMessage::GetWorkspaceKind { workspace });
-        get_response!(res, WorkspaceKind::Normal, GetWorkspaceKind { kind });
+        get_response!(res, JcWorkspaceKind::Normal, GetWorkspaceKind { kind });
         kind
     }
 
@@ -2282,7 +2287,7 @@ impl ConfigClient {
     pub fn set_window_matcher_initial_tile_state(
         &self,
         matcher: WindowMatcher,
-        tile_state: TileState,
+        tile_state: JcTileState,
     ) {
         self.send(&ClientMessage::SetWindowMatcherInitialTileState {
             matcher,
@@ -2483,15 +2488,15 @@ impl ConfigClient {
         let _tmp = self.tasks.tasks.borrow_mut().remove(&id);
     }
 
-    pub fn set_container_borders(&self, borders: ContainerBorders) {
+    pub fn set_container_borders(&self, borders: JcContainerBorders) {
         self.send(&ClientMessage::SetContainerBorders { borders });
     }
 
-    pub fn get_container_borders(&self) -> ContainerBorders {
+    pub fn get_container_borders(&self) -> JcContainerBorders {
         let res = self.send_with_response(&ClientMessage::GetContainerBorders);
         get_response!(
             res,
-            ContainerBorders::Separators,
+            JcContainerBorders::Separators,
             GetContainerBorders { borders }
         );
         borders
@@ -2616,7 +2621,7 @@ impl ConfigClient {
         &self,
         window: Window,
         kind: WindowThemeKind,
-        borders: Option<ContainerBorders>,
+        borders: Option<JcContainerBorders>,
     ) {
         self.send(&ClientMessage::SetWindowThemeContainerBorders {
             window,
@@ -2629,7 +2634,7 @@ impl ConfigClient {
         &self,
         window: Window,
         kind: WindowThemeKind,
-    ) -> Option<ContainerBorders> {
+    ) -> Option<JcContainerBorders> {
         let res = self
             .send_with_response(&ClientMessage::GetWindowThemeContainerBorders { window, kind });
         get_response!(res, None, GetWindowThemeContainerBorders { borders });

@@ -6,7 +6,7 @@ use crate::_private::ipc::ClientMessage;
 use crate::_private::ipc::ServerMessage;
 use crate::Workspace;
 use crate::client::ClientMatcher;
-use crate::input::FallbackOutputMode;
+use crate::input::JcFallbackOutputMode;
 use crate::input::Seat;
 use crate::keyboard::Group;
 use crate::video::Connector;
@@ -152,7 +152,7 @@ pub struct WorkspaceShowOpV1 {
     pub connector: Option<Connector>,
     pub move_to_connector: bool,
     pub seat: Option<Seat>,
-    pub fallback_output_mode: Option<FallbackOutputMode>,
+    pub fallback_output_mode: Option<JcFallbackOutputMode>,
     pub focus: bool,
 }
 

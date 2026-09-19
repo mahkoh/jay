@@ -4,6 +4,7 @@ use crate::_private::WindowThemeKind;
 use crate::theme::colors::Colorable;
 use crate::theme::sized::Resizable;
 use crate::window::Window;
+use jay_proc::PrivateEnum;
 use serde::Deserialize;
 use serde::Serialize;
 use std::ops::Deref;
@@ -184,7 +185,7 @@ pub fn reset_font() {
 }
 
 #[non_exhaustive]
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Default)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Default, PrivateEnum)]
 pub enum BarPosition {
     #[default]
     Top,
@@ -195,16 +196,16 @@ pub enum BarPosition {
 ///
 /// Default: `Top`.
 pub fn set_bar_position(position: BarPosition) {
-    get!().set_bar_position(position);
+    get!().set_bar_position(position.to_private());
 }
 
 /// Gets the position of the bar.
 pub fn get_bar_position() -> BarPosition {
-    get!(BarPosition::Top).get_bar_position()
+    get!(BarPosition::Top).get_bar_position().to_public()
 }
 
 #[non_exhaustive]
-#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Default)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone, PartialEq, Eq, Default, PrivateEnum)]
 pub enum ContainerBorders {
     /// Only separators are drawn between children.
     #[default]
@@ -221,12 +222,14 @@ pub enum ContainerBorders {
 ///
 /// Default: `Separators`.
 pub fn set_container_borders(borders: ContainerBorders) {
-    get!().set_container_borders(borders);
+    get!().set_container_borders(borders.to_private());
 }
 
 /// Gets the container border style.
 pub fn get_container_borders() -> ContainerBorders {
-    get!(ContainerBorders::Separators).get_container_borders()
+    get!(ContainerBorders::Separators)
+        .get_container_borders()
+        .to_public()
 }
 
 /// Sets the proportional fonts used by egui windows.
@@ -604,7 +607,11 @@ const _: () = {
         ///
         /// See also [`set_container_borders`].
         pub fn set_container_borders(&self, borders: ContainerBorders) {
-            get!().set_window_theme_container_borders(self.0.window, self.0.kind, Some(borders));
+            get!().set_window_theme_container_borders(
+                self.0.window,
+                self.0.kind,
+                Some(borders.to_private()),
+            );
         }
 
         /// Removes the override of the container border style.
@@ -616,7 +623,9 @@ const _: () = {
 
         /// Gets the override of the container border style.
         pub fn get_container_borders(&self) -> Option<ContainerBorders> {
-            get!(None).get_window_theme_container_borders(self.0.window, self.0.kind)
+            get!(None)
+                .get_window_theme_container_borders(self.0.window, self.0.kind)
+                .map(|v| v.to_public())
         }
     }
 };

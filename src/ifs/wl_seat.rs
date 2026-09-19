@@ -159,7 +159,7 @@ use crate::wire_ei::EiSeatId;
 use CursorPositionType::Warp;
 pub use event_handling::NodeSeatState;
 use hashbrown::hash_map::Entry;
-use jay_config::input::FallbackOutputMode as ConfigFallbackOutputMode;
+use jay_config::input::JcFallbackOutputMode;
 use jay_config::keyboard::syms::KeySym;
 use jay_config::keyboard::syms::SYM_Escape;
 use jay_proc::Global;
@@ -345,24 +345,20 @@ impl StaticText for FallbackOutputMode {
     }
 }
 
-impl TryFrom<ConfigFallbackOutputMode> for FallbackOutputMode {
-    type Error = ();
-
-    fn try_from(value: ConfigFallbackOutputMode) -> Result<Self, Self::Error> {
-        let v = match value {
-            ConfigFallbackOutputMode::Cursor => FallbackOutputMode::Cursor,
-            ConfigFallbackOutputMode::Focus => FallbackOutputMode::Focus,
-            _ => return Err(()),
-        };
-        Ok(v)
+impl From<JcFallbackOutputMode> for FallbackOutputMode {
+    fn from(value: JcFallbackOutputMode) -> Self {
+        match value {
+            JcFallbackOutputMode::Cursor => FallbackOutputMode::Cursor,
+            JcFallbackOutputMode::Focus => FallbackOutputMode::Focus,
+        }
     }
 }
 
-impl Into<ConfigFallbackOutputMode> for FallbackOutputMode {
-    fn into(self) -> ConfigFallbackOutputMode {
+impl Into<JcFallbackOutputMode> for FallbackOutputMode {
+    fn into(self) -> JcFallbackOutputMode {
         match self {
-            FallbackOutputMode::Cursor => ConfigFallbackOutputMode::Cursor,
-            FallbackOutputMode::Focus => ConfigFallbackOutputMode::Focus,
+            FallbackOutputMode::Cursor => JcFallbackOutputMode::Cursor,
+            FallbackOutputMode::Focus => JcFallbackOutputMode::Focus,
         }
     }
 }

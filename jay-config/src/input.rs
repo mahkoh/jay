@@ -23,6 +23,7 @@ use crate::keyboard::mods::Modifiers;
 use crate::keyboard::syms::KeySym;
 use crate::video::Connector;
 use crate::window::Window;
+use jay_proc::PrivateEnum;
 use serde::Deserialize;
 use serde::Serialize;
 use std::time::Duration;
@@ -440,12 +441,12 @@ impl Seat {
     /// Returns whether the target container of the currently focused window is in
     /// mono-mode.
     pub fn container_mono(self, target: ContainerTarget) -> bool {
-        get!(false).seat_container_mono(self, target)
+        get!(false).seat_container_mono(self, target.to_private())
     }
 
     /// Sets whether the target container of the currently focused window is in mono-mode.
     pub fn set_container_mono(self, target: ContainerTarget, mono: bool) {
-        get!().set_seat_container_mono(self, target, mono)
+        get!().set_seat_container_mono(self, target.to_private(), mono)
     }
 
     /// Toggles whether the target container of the currently focused window is in
@@ -456,12 +457,12 @@ impl Seat {
 
     /// Returns the split axis of the target container of the currently focused window.
     pub fn container_split(self, target: ContainerTarget) -> Axis {
-        get!(Axis::Horizontal).seat_container_split(self, target)
+        get!(Axis::Horizontal).seat_container_split(self, target.to_private())
     }
 
     /// Sets the split axis of the target container of the currently focused window.
     pub fn set_container_split(self, target: ContainerTarget, axis: Axis) {
-        get!().set_seat_container_split(self, target, axis)
+        get!().set_seat_container_split(self, target.to_private(), axis)
     }
 
     /// Toggles the split axis of the target container of the currently focused window.
@@ -472,7 +473,7 @@ impl Seat {
     /// Sets the split axis of the target container of the currently focused window
     /// relative to the dimensions of that container.
     pub fn set_container_split_relative(self, target: ContainerTarget, axis: RelativeAxis) {
-        get!().set_seat_container_split_relative(self, target, axis)
+        get!().set_seat_container_split_relative(self, target.to_private(), axis.to_private())
     }
 
     /// Returns the input devices assigned to this seat.
@@ -496,7 +497,7 @@ impl Seat {
     /// [`set_split_reuses_container`](crate::set_split_reuses_container) is enabled, the
     /// split axis of that container is changed instead.
     pub fn create_split_relative(self, axis: RelativeAxis) {
-        get!().create_seat_split_relative(self, axis);
+        get!().create_seat_split_relative(self, axis.to_private());
     }
 
     /// Focuses the parent node of the currently focused window.
@@ -621,7 +622,7 @@ impl Seat {
     ///
     /// The default is `Cursor`.
     pub fn set_fallback_output_mode(self, mode: FallbackOutputMode) {
-        get!().set_fallback_output_mode(self, mode);
+        get!().set_fallback_output_mode(self, mode.to_private());
     }
 
     /// Enables or disable window management mode.
@@ -808,7 +809,7 @@ pub enum FocusFollowsMouseMode {
 ///
 /// This configures where to place a newly opened window or workspace, what window to focus when a
 /// window is closed, which workspace is moved with [`Seat::move_to_output`], and similar actions.
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq, PrivateEnum)]
 #[non_exhaustive]
 pub enum FallbackOutputMode {
     /// Use the output the cursor is on.
