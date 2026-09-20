@@ -144,10 +144,6 @@ pub trait ButtonOwner {
 }
 
 impl GuiElement for Button {
-    fn hover_cursor(&self) -> KnownCursor {
-        KnownCursor::Pointer
-    }
-
     fn data(&self) -> &GuiElementData {
         &self.data
     }
@@ -226,6 +222,16 @@ impl GuiElement for Button {
         None
     }
 
+    fn hover_cursor(&self) -> KnownCursor {
+        KnownCursor::Pointer
+    }
+
+    fn button(&self, seat: &PortalSeat, button: u32, state: u32) {
+        if let Some(owner) = self.owner.get() {
+            owner.button(seat, button, state);
+        }
+    }
+
     fn hover(&self, seat: &PortalSeat, hover: bool) -> bool {
         let ret;
         let mut set = self.hover.borrow_mut();
@@ -241,12 +247,6 @@ impl GuiElement for Button {
 
     fn destroy(&self) {
         self.owner.take();
-    }
-
-    fn button(&self, seat: &PortalSeat, button: u32, state: u32) {
-        if let Some(owner) = self.owner.get() {
-            owner.button(seat, button, state);
-        }
     }
 }
 

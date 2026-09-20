@@ -68,10 +68,6 @@ impl DynDataOffer for WlDataOffer {
         self.client.id
     }
 
-    fn send_action(&self, action: u32) {
-        WlDataOffer::send_action(self, action);
-    }
-
     fn send_offer(&self, mime_type: &str) {
         WlDataOffer::send_offer(self, mime_type);
     }
@@ -80,16 +76,20 @@ impl DynDataOffer for WlDataOffer {
         cancel_offer::<ClipboardIpc>(self);
     }
 
+    fn get_seat(&self) -> Rc<WlSeatGlobal> {
+        self.device.seat.clone()
+    }
+
+    fn send_action(&self, action: u32) {
+        WlDataOffer::send_action(self, action);
+    }
+
     fn send_enter(&self, surface: WlSurfaceId, x: Fixed, y: Fixed, serial: u64) {
         self.device.send_enter(surface, x, y, self.id, serial);
     }
 
     fn send_source_actions(&self) {
         WlDataOffer::send_source_actions(self);
-    }
-
-    fn get_seat(&self) -> Rc<WlSeatGlobal> {
-        self.device.seat.clone()
     }
 }
 

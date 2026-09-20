@@ -220,14 +220,6 @@ impl JayCompositorRequestHandler for JayCompositor {
         self.take_screenshot_impl(req.id, false, false)
     }
 
-    fn take_screenshot2(&self, req: TakeScreenshot2, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.take_screenshot_impl(req.id, req.include_cursor, false)
-    }
-
-    fn take_screenshot3(&self, req: TakeScreenshot3, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.take_screenshot_impl(req.id, req.include_cursor, req.hdr10)
-    }
-
     fn get_idle(&self, req: GetIdle, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let idle = Rc::new(JayIdle {
             id: req.id,
@@ -386,6 +378,10 @@ impl JayCompositorRequestHandler for JayCompositor {
         track!(self.client, sc);
         self.client.add_client_obj(&sc);
         Ok(())
+    }
+
+    fn take_screenshot2(&self, req: TakeScreenshot2, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.take_screenshot_impl(req.id, req.include_cursor, false)
     }
 
     fn select_toplevel(&self, req: SelectToplevel, _slf: &Rc<Self>) -> Result<(), Self::Error> {
@@ -665,6 +661,10 @@ impl JayCompositorRequestHandler for JayCompositor {
             }
         }
         Ok(())
+    }
+
+    fn take_screenshot3(&self, req: TakeScreenshot3, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.take_screenshot_impl(req.id, req.include_cursor, req.hdr10)
     }
 
     fn get_exe(&self, _req: GetExe, _slf: &Rc<Self>) -> Result<(), Self::Error> {

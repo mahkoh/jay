@@ -166,8 +166,27 @@ impl ZwlrOutputHeadV1 {
 }
 
 impl OutputEventListener for ZwlrOutputHeadV1 {
-    fn transform_changed(self: Rc<Self>, _on: &Rc<OutputNode>, transform: tree::Transform) {
-        self.send_transform(transform);
+    fn disconnected(self: Rc<Self>) {
+        self.listener.detach();
+        self.send_finished();
+        for mode in self.modes.lock().values() {
+            if !mode.destroyed.get() {
+                mode.send_finished();
+            }
+        }
+        self.manager.schedule_done();
+    }
+
+    fn position_changed(self: Rc<Self>, _on: &Rc<OutputNode>, x: i32, y: i32) {
+        self.send_position(x, y);
+        self.manager.schedule_done();
+    }
+
+    fn vrr_mode_changed(self: Rc<Self>, _on: &Rc<OutputNode>, mode: &VrrMode) {
+        if self.version < ADAPTIVE_SYNC_SINCE {
+            return;
+        }
+        self.send_adaptive_sync(mode);
         self.manager.schedule_done();
     }
 
@@ -188,32 +207,13 @@ impl OutputEventListener for ZwlrOutputHeadV1 {
         self.manager.schedule_done();
     }
 
-    fn position_changed(self: Rc<Self>, _on: &Rc<OutputNode>, x: i32, y: i32) {
-        self.send_position(x, y);
-        self.manager.schedule_done();
-    }
-
-    fn vrr_mode_changed(self: Rc<Self>, _on: &Rc<OutputNode>, mode: &VrrMode) {
-        if self.version < ADAPTIVE_SYNC_SINCE {
-            return;
-        }
-        self.send_adaptive_sync(mode);
-        self.manager.schedule_done();
-    }
-
     fn scale_changed(self: Rc<Self>, _on: &Rc<OutputNode>, scale: scale::Scale) {
         self.send_scale(scale);
         self.manager.schedule_done();
     }
 
-    fn disconnected(self: Rc<Self>) {
-        self.listener.detach();
-        self.send_finished();
-        for mode in self.modes.lock().values() {
-            if !mode.destroyed.get() {
-                mode.send_finished();
-            }
-        }
+    fn transform_changed(self: Rc<Self>, _on: &Rc<OutputNode>, transform: tree::Transform) {
+        self.send_transform(transform);
         self.manager.schedule_done();
     }
 }

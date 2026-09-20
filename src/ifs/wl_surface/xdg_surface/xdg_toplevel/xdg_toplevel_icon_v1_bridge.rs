@@ -277,11 +277,6 @@ mod icon_surface {
             Ok(())
         }
 
-        fn configure_size(&self, ev: ConfigureSize, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-            self.pending_size.set(Some((ev.width, ev.height)));
-            Ok(())
-        }
-
         fn configure(&self, ev: Configure, _slf: &Rc<Self>) -> Result<(), Self::Error> {
             self.client
                 .send_jay_icon_surface_v1_ack_configure(self.icon, ev.serial);
@@ -289,6 +284,11 @@ mod icon_surface {
                 self.size.set(v);
             }
             self.commit();
+            Ok(())
+        }
+
+        fn configure_size(&self, ev: ConfigureSize, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+            self.pending_size.set(Some((ev.width, ev.height)));
             Ok(())
         }
     }

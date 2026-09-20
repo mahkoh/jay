@@ -116,10 +116,6 @@ pub struct PortalSeat {
 }
 
 impl UsrWlSeatOwner for PortalSeat {
-    fn name(&self, name: &str) {
-        *self.name.borrow_mut() = name.to_string();
-    }
-
     fn capabilities(self: Rc<Self>, value: u32) {
         let old = self.capabilities.replace(value);
         if old.contains(POINTER) != value.contains(POINTER) {
@@ -133,6 +129,10 @@ impl UsrWlSeatOwner for PortalSeat {
                 self.pointer.set(Some(pointer));
             }
         }
+    }
+
+    fn name(&self, name: &str) {
+        *self.name.borrow_mut() = name.to_string();
     }
 }
 
