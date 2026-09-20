@@ -48,7 +48,7 @@ use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::rc::Rc;
 
-pub(crate) struct TexProg {
+pub struct TexProg {
     pub(crate) prog: GlProgram,
     pub(crate) pos: GLint,
     pub(crate) texcoord: GLint,

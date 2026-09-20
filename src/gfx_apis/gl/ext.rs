@@ -88,7 +88,7 @@ bitflags! {
         ANDROID_NATIVE_FENCE_SYNC,
 }
 
-pub(crate) unsafe fn get_display_ext(dpy: EGLDisplay) -> DisplayExt {
+pub unsafe fn get_display_ext(dpy: EGLDisplay) -> DisplayExt {
     let map = [
         ("EGL_KHR_image_base", KHR_IMAGE_BASE),
         ("EGL_EXT_image_dma_buf_import", EXT_IMAGE_DMA_BUF_IMPORT),

@@ -44,9 +44,9 @@ pub mod display;
 pub mod image;
 pub mod sys;
 
-pub(crate) static PROCS: LazyLock<Option<ExtProc>> = LazyLock::new(ExtProc::load);
+pub static PROCS: LazyLock<Option<ExtProc>> = LazyLock::new(ExtProc::load);
 
-pub(crate) static EXTS: LazyLock<ClientExt> = LazyLock::new(get_client_ext);
+pub static EXTS: LazyLock<ClientExt> = LazyLock::new(get_client_ext);
 
 pub(in crate::gfx_apis::gl) fn init() -> Result<(), RenderError> {
     let Some(egl) = EGL.as_ref() else {
