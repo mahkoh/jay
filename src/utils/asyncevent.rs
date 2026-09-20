@@ -48,7 +48,7 @@ pub struct AsyncEventTriggered<'a> {
     ae: &'a AsyncEvent,
 }
 
-impl<'a> Future for AsyncEventTriggered<'a> {
+impl Future for AsyncEventTriggered<'_> {
     type Output = u64;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {

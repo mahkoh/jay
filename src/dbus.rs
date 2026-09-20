@@ -779,14 +779,14 @@ impl<T> PendingReply<T>
 where
     T: Message<'static>,
 {
-    pub fn ok<'a>(&self, msg: &T::Generic<'a>) {
+    pub fn ok(&self, msg: &T::Generic<'_>) {
         if self.reply_expected {
             self.socket.send_reply(&self.destination, self.serial, msg);
         }
     }
 
     #[expect(unused)]
-    pub fn complete<'a>(&self, res: Result<&T::Generic<'a>, &str>) {
+    pub fn complete(&self, res: Result<&T::Generic<'_>, &str>) {
         match res {
             Ok(m) => self.ok(m),
             Err(e) => self.err(e),
@@ -850,14 +850,14 @@ impl MethodHandlerApi for PropertyGetHandlerProxy {
         Get::<u32>::SIGNATURE
     }
 
-    fn handle<'a>(
+    fn handle(
         &self,
         object: &DbusObjectData,
         socket: &Rc<DbusSocket>,
         dest: &str,
         serial: u32,
         reply_expected: bool,
-        parser: &mut Parser<'a>,
+        parser: &mut Parser<'_>,
     ) -> Result<(), DbusError> {
         if !reply_expected {
             return Ok(());
@@ -886,14 +886,14 @@ impl MethodHandlerApi for PropertyGetAllHandlerProxy {
         GetAll::SIGNATURE
     }
 
-    fn handle<'a>(
+    fn handle(
         &self,
         object: &DbusObjectData,
         socket: &Rc<DbusSocket>,
         dest: &str,
         serial: u32,
         reply_expected: bool,
-        parser: &mut Parser<'a>,
+        parser: &mut Parser<'_>,
     ) -> Result<(), DbusError> {
         if !reply_expected {
             return Ok(());

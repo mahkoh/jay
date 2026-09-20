@@ -75,7 +75,7 @@ impl Drop for SqliteStmt<'_> {
     }
 }
 
-impl<'bind, 'stmt> Drop for SqliteActiveStmt<'bind, 'stmt> {
+impl Drop for SqliteActiveStmt<'_, '_> {
     fn drop(&mut self) {
         if let Err(e) = self.exec_() {
             log::error!("Could not step statement: {}", ErrorFmt(e));
@@ -161,7 +161,7 @@ impl<'stmt> SqliteStmt<'stmt> {
     }
 }
 
-impl<'bind, 'stmt> SqliteActiveStmt<'bind, 'stmt> {
+impl<'bind> SqliteActiveStmt<'bind, '_> {
     pub fn bind_user_id(&self, idx: c_int, v: SqliteUserId) -> Result<(), SqliteError> {
         self.bind_i64(idx, v.0)
     }

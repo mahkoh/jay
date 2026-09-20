@@ -1149,7 +1149,7 @@ impl Change {
     }
 }
 
-impl<'a> ObjectChange<'a> {
+impl ObjectChange<'_> {
     pub fn change(&mut self, property_id: DrmProperty, value: impl ObjectChangeValue) {
         self.change.props.push(property_id.0);
         self.change.values.push(value.into_u64());

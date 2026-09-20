@@ -634,7 +634,7 @@ struct Cancellable<'a> {
     data: &'a IoUringData,
 }
 
-impl<'a> Drop for Cancellable<'a> {
+impl Drop for Cancellable<'_> {
     fn drop(&mut self) {
         self.data.cancel_task(self.id);
     }

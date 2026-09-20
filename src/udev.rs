@@ -309,7 +309,7 @@ impl Drop for UdevEnumerate {
     }
 }
 
-impl<'a> UdevListEntry<'a> {
+impl UdevListEntry<'_> {
     pub fn next(self) -> Option<Self> {
         unsafe {
             let res = udev_list_entry_get_next(self.list_entry);

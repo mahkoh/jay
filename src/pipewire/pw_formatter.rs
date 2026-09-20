@@ -30,7 +30,7 @@ pub struct PwFormatter<'a> {
     first: bool,
 }
 
-impl<'a> PwFormatter<'a> {
+impl PwFormatter<'_> {
     pub fn write_bool(&mut self, b: bool) {
         if !self.array || self.first {
             self.data.extend_from_slice(uapi::as_bytes(&4u32));
@@ -277,7 +277,7 @@ pub struct PwObjectFormatter<'a> {
     fds: &'a mut Vec<Rc<OwnedFd>>,
 }
 
-impl<'a> PwObjectFormatter<'a> {
+impl PwObjectFormatter<'_> {
     pub fn write_property<F>(&mut self, key: u32, flags: PwPropFlag, f: F)
     where
         F: FnOnce(&mut PwFormatter),

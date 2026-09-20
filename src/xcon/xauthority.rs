@@ -43,7 +43,7 @@ struct Parser<'a> {
     buf: &'a [u8],
 }
 
-impl<'a> Parser<'a> {
+impl Parser<'_> {
     fn parse(buf: &[u8]) -> Result<Vec<XAuthority>, XconError> {
         let mut slf = Parser { pos: 0, buf };
         let mut res = vec![];

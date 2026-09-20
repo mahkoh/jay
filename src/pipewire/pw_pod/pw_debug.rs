@@ -374,7 +374,7 @@ fn object_debugger(obj: PwPodObjectType) -> Option<&'static dyn PwPodObjectDebug
     Some(res)
 }
 
-impl<'a> Debug for PwPodObject<'a> {
+impl Debug for PwPodObject<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let debugger = object_debugger(self.ty);
         let mut s = f.debug_struct("object");
@@ -415,7 +415,7 @@ impl<'a> Debug for PwPodObject<'a> {
     }
 }
 
-impl<'a> Debug for PwPodSequence<'a> {
+impl Debug for PwPodSequence<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut s = f.debug_struct("sequence");
         s.field("unit", &self.unit);
@@ -443,7 +443,7 @@ impl<'a> Debug for PwPodSequence<'a> {
     }
 }
 
-impl<'a> Debug for PwPodStruct<'a> {
+impl Debug for PwPodStruct<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut parser = self.fields;
         let mut s = f.debug_struct("struct");
@@ -470,7 +470,7 @@ impl<'a> Debug for PwPodStruct<'a> {
     }
 }
 
-impl<'a> Debug for PwPodArray<'a> {
+impl Debug for PwPodArray<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut list = f.debug_list();
         let mut parser = self.elements;
@@ -490,7 +490,7 @@ impl<'a> Debug for PwPodArray<'a> {
     }
 }
 
-impl<'a> Debug for PwPod<'a> {
+impl Debug for PwPod<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             PwPod::None => write!(f, "None"),

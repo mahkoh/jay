@@ -152,8 +152,7 @@ pub struct ClientTraceEvent<'a> {
     pub msg: Option<ClientTraceMsg<'a>>,
 }
 
-pub type Reader =
-    for<'a, 'b> unsafe fn(*mut u32, &'b mut [MaybeUninit<ClientTraceArg<'a>>; MAX_ARGS]);
+pub type Reader = unsafe fn(*mut u32, &mut [MaybeUninit<ClientTraceArg<'_>>; MAX_ARGS]);
 
 impl IdMap {
     fn get(&mut self, n: u64) -> u64 {

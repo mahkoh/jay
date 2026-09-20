@@ -135,7 +135,7 @@ pub struct LibInputEventTouch<'a> {
     _phantom: PhantomData<&'a ()>,
 }
 
-impl<'a> Drop for LibInputEvent<'a> {
+impl Drop for LibInputEvent<'_> {
     fn drop(&mut self) {
         unsafe {
             libinput_event_destroy(self.event);
@@ -159,7 +159,7 @@ macro_rules! converter {
     };
 }
 
-impl<'a> LibInputEvent<'a> {
+impl LibInputEvent<'_> {
     pub fn ty(&self) -> EventType {
         unsafe { EventType(libinput_event_get_type(self.event)) }
     }
@@ -208,7 +208,7 @@ impl<'a> LibInputEvent<'a> {
     );
 }
 
-impl<'a> LibInputEventKeyboard<'a> {
+impl LibInputEventKeyboard<'_> {
     pub fn key(&self) -> u32 {
         unsafe { libinput_event_keyboard_get_key(self.event) }
     }
@@ -222,7 +222,7 @@ impl<'a> LibInputEventKeyboard<'a> {
     }
 }
 
-impl<'a> LibInputEventPointer<'a> {
+impl LibInputEventPointer<'_> {
     pub fn x_transformed(&self, width: u32) -> f64 {
         unsafe { libinput_event_pointer_get_absolute_x_transformed(self.event, width) }
     }
@@ -272,7 +272,7 @@ impl<'a> LibInputEventPointer<'a> {
     }
 }
 
-impl<'a> LibInputEventGesture<'a> {
+impl LibInputEventGesture<'_> {
     pub fn time_usec(&self) -> u64 {
         unsafe { libinput_event_gesture_get_time_usec(self.event) }
     }
@@ -310,7 +310,7 @@ impl<'a> LibInputEventGesture<'a> {
     }
 }
 
-impl<'a> LibInputEventSwitch<'a> {
+impl LibInputEventSwitch<'_> {
     pub fn time_usec(&self) -> u64 {
         unsafe { libinput_event_switch_get_time_usec(self.event) }
     }
@@ -348,7 +348,7 @@ macro_rules! has_capability {
     };
 }
 
-impl<'a> LibInputTabletTool<'a> {
+impl LibInputTabletTool<'_> {
     pub fn user_data(&self) -> usize {
         unsafe { libinput_tablet_tool_get_user_data(self.tool) }
     }
@@ -378,7 +378,7 @@ impl<'a> LibInputTabletTool<'a> {
     has_capability!(has_wheel, libinput_tablet_tool_has_wheel);
 }
 
-impl<'a> LibInputEventTabletTool<'a> {
+impl LibInputEventTabletTool<'_> {
     pub fn tool(&self) -> LibInputTabletTool<'_> {
         LibInputTabletTool {
             tool: unsafe { libinput_event_tablet_tool_get_tool(self.event) },
@@ -477,7 +477,7 @@ impl<'a> LibInputEventTabletTool<'a> {
     }
 }
 
-impl<'a> LibInputEventTabletPad<'a> {
+impl LibInputEventTabletPad<'_> {
     pub fn time_usec(&self) -> u64 {
         unsafe { libinput_event_tablet_pad_get_time_usec(self.event) }
     }
@@ -534,7 +534,7 @@ impl<'a> LibInputEventTabletPad<'a> {
     }
 }
 
-impl<'a> LibInputEventTouch<'a> {
+impl LibInputEventTouch<'_> {
     pub fn seat_slot(&self) -> i32 {
         unsafe { libinput_event_touch_get_seat_slot(self.event) }
     }

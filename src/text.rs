@@ -84,7 +84,7 @@ pub enum TextError {
     MapMemfd(#[source] OsError),
 }
 
-impl<'a> Config<'a> {
+impl Config<'_> {
     fn to_static(self) -> Config<'static> {
         match self {
             Config::None => Config::None,

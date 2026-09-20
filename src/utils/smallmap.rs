@@ -109,7 +109,7 @@ pub struct SmallMapIter<'a, K, V, const N: usize> {
     map: &'a SmallMap<K, V, N>,
 }
 
-impl<'a, K: Copy, V: JayClone, const N: usize> Iterator for SmallMapIter<'a, K, V, N> {
+impl<K: Copy, V: JayClone, const N: usize> Iterator for SmallMapIter<'_, K, V, N> {
     type Item = (K, V);
 
     fn next(&mut self) -> Option<Self::Item> {

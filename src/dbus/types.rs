@@ -222,7 +222,7 @@ unsafe impl<'a> DbusType<'a> for Cow<'a, str> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Signature<'a>(pub Cow<'a, str>);
 
-impl<'a> Deref for Signature<'a> {
+impl Deref for Signature<'_> {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
@@ -249,7 +249,7 @@ unsafe impl<'a> DbusType<'a> for Signature<'a> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ObjectPath<'a>(pub Cow<'a, str>);
 
-impl<'a> Deref for ObjectPath<'a> {
+impl Deref for ObjectPath<'_> {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {

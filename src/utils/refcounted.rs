@@ -84,7 +84,7 @@ pub struct Locked<'a, T> {
     vec: Vec<(T, usize)>,
 }
 
-impl<'a, T> Deref for Locked<'a, T> {
+impl<T> Deref for Locked<'_, T> {
     type Target = [(T, usize)];
 
     fn deref(&self) -> &Self::Target {
@@ -92,7 +92,7 @@ impl<'a, T> Deref for Locked<'a, T> {
     }
 }
 
-impl<'a, T> Drop for Locked<'a, T> {
+impl<T> Drop for Locked<'_, T> {
     fn drop(&mut self) {
         unsafe {
             *self.rc.map.get().deref_mut() = mem::take(&mut self.vec);

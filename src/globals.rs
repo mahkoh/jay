@@ -61,9 +61,9 @@ impl Display for GlobalName {
 
 pub trait GlobalBase {
     fn name(&self) -> GlobalName;
-    fn bind<'a>(
+    fn bind(
         self: Rc<Self>,
-        client: &'a Rc<Client>,
+        client: &Rc<Client>,
         id: ObjectId,
         version: Version,
     ) -> Result<(), GlobalsError>;
@@ -144,11 +144,11 @@ impl Globals {
         GlobalName(id)
     }
 
-    fn insert_no_broadcast<'a>(&'a self, global: Rc<dyn Global>) {
+    fn insert_no_broadcast(&self, global: Rc<dyn Global>) {
         self.insert_no_broadcast_(&global);
     }
 
-    fn insert_no_broadcast_<'a>(&'a self, global: &Rc<dyn Global>) {
+    fn insert_no_broadcast_(&self, global: &Rc<dyn Global>) {
         self.registry.set(global.name(), global.clone());
     }
 

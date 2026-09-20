@@ -276,7 +276,7 @@ pub struct BorrowedBuf<'a> {
     _phantom: PhantomData<&'a mut DynamicBuf>,
 }
 
-impl<'a> Drop for BorrowedBuf<'a> {
+impl Drop for BorrowedBuf<'_> {
     fn drop(&mut self) {
         assert_eq!(self.buf.rc().get(), 2);
     }

@@ -80,7 +80,7 @@ pub struct AsyncQueuePop<'a, T> {
     queue: &'a AsyncQueue<T>,
 }
 
-impl<'a, T> Future for AsyncQueuePop<'a, T> {
+impl<T> Future for AsyncQueuePop<'_, T> {
     type Output = T;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -97,7 +97,7 @@ pub struct AsyncQueueNonEmpty<'a, T> {
     queue: &'a AsyncQueue<T>,
 }
 
-impl<'a, T> Future for AsyncQueueNonEmpty<'a, T> {
+impl<T> Future for AsyncQueueNonEmpty<'_, T> {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {

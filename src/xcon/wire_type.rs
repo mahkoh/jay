@@ -67,7 +67,7 @@ simple!(i32);
 simple!(u64);
 simple!(i64);
 
-unsafe impl<'a> Message<'a> for () {
+unsafe impl Message<'_> for () {
     type Generic<'b> = ();
     const IS_POD: bool = false;
     const HAS_FDS: bool = false;
@@ -127,7 +127,7 @@ pub(super) struct SendEvent {
     pub event_mask: u32,
 }
 
-unsafe impl<'a> Message<'a> for SendEvent {
+unsafe impl Message<'_> for SendEvent {
     type Generic<'b> = SendEvent;
     const IS_POD: bool = false;
     const HAS_FDS: bool = false;

@@ -102,7 +102,7 @@ pub struct AsyncStackNonEmpty<'a, T> {
     stack: &'a AsyncStack<T>,
 }
 
-impl<'a, T> Future for AsyncStackNonEmpty<'a, T> {
+impl<T> Future for AsyncStackNonEmpty<'_, T> {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
