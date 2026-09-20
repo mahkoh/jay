@@ -5,7 +5,6 @@ use crate::allocator::BufferObject;
 use crate::async_engine::SpawnedFuture;
 use crate::client::Client;
 use crate::client::ClientCaps;
-use crate::client::ClientError;
 use crate::cursor::KnownCursor;
 use crate::egui_adapter::egui_vulkan::EGV_FORMAT;
 use crate::egui_adapter::egui_vulkan::EgvContext;
@@ -127,8 +126,6 @@ use uapi::c;
 pub enum EggError {
     #[error("Could not create a socket pair")]
     CreateSocketPair(#[source] OsError),
-    #[error("Could not spawn a client")]
-    SpawnClient(#[source] ClientError),
     #[error("Could not create a renderer")]
     CreateRenderer(#[source] EgvError),
     #[error("There is no render context")]
@@ -409,20 +406,17 @@ impl State {
             &Rc::new(client1),
             0,
         );
-        let client = self
-            .clients
-            .spawn2(
-                self.clients.id(),
-                self,
-                Rc::new(client2),
-                uapi::getuid(),
-                uapi::getpid(),
-                ClientCaps::all(),
-                true,
-                false,
-                &Rc::new(AcceptorMetadata::secure()),
-            )
-            .map_err(EggError::SpawnClient)?;
+        let client = self.clients.spawn2(
+            self.clients.id(),
+            self,
+            Rc::new(client2),
+            uapi::getuid(),
+            uapi::getpid(),
+            ClientCaps::all(),
+            true,
+            false,
+            &Rc::new(AcceptorMetadata::secure()),
+        );
         let registry = con.get_registry();
         let jay_compositor = {
             let obj = Rc::new(UsrJayCompositor {

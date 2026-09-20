@@ -136,8 +136,6 @@ pub enum VulkanError {
     NonPositiveImageSize,
     #[error("The image is too large")]
     ImageTooLarge,
-    #[error("Could not retrieve device properties")]
-    GetDeviceProperties(#[source] vk::Result),
     #[error("The dmabuf has an incorrect number of planes")]
     BadPlaneCount,
     #[error("The dmabuf is disjoint but the modifier does not support disjoint buffers")]

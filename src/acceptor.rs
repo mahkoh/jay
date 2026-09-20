@@ -186,13 +186,9 @@ async fn accept(fd: Rc<OwnedFd>, state: Rc<State>, secure: bool) {
             }
         };
         let id = state.clients.id();
-        if let Err(e) = state
+        state
             .clients
-            .spawn(id, &state, fd, ClientCaps::all(), false, &metadata)
-        {
-            log::error!("Could not spawn a client: {}", ErrorFmt(e));
-            break;
-        }
+            .spawn(id, &state, fd, ClientCaps::all(), false, &metadata);
     }
     state.ring.stop();
 }

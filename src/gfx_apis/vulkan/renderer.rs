@@ -458,8 +458,8 @@ impl VulkanDevice {
                 )
             })
             .collect();
-        let allocator = self.create_allocator()?;
-        let shm_allocator = self.create_threaded_allocator()?;
+        let allocator = self.create_allocator();
+        let shm_allocator = self.create_threaded_allocator();
         let shader_buffer_cache = {
             // TODO: https://github.com/KhronosGroup/Vulkan-Samples/issues/1286
             let usage = BufferUsageFlags::SHADER_DEVICE_ADDRESS | BufferUsageFlags::STORAGE_BUFFER;

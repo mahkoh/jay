@@ -1196,9 +1196,8 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_set_x_wayland_enabled(&self, enabled: bool) -> Result<(), CphError> {
+    fn handle_set_x_wayland_enabled(&self, enabled: bool) {
         self.state.set_xwayland_enabled(enabled);
-        Ok(())
     }
 
     fn handle_set_ui_drag_enabled(&self, enabled: bool) {
@@ -1999,11 +1998,7 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_get_connector(
-        &self,
-        ty: jay_config::video::connector_type::ConnectorType,
-        idx: u32,
-    ) -> Result<(), CphError> {
+    fn handle_get_connector(&self, ty: jay_config::video::connector_type::ConnectorType, idx: u32) {
         let connectors = self.state.connectors.lock();
         let connector = 'get_connector: {
             for connector in connectors.values() {
@@ -2015,7 +2010,6 @@ impl ConfigProxyHandler {
             Connector(0)
         };
         self.respond(Response::GetConnector { connector });
-        Ok(())
     }
 
     fn handle_get_connector_by_name(&self, name: &str) {
@@ -2451,14 +2445,14 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_add_pollable(self: &Rc<Self>, fd: i32) -> Result<(), CphError> {
+    fn handle_add_pollable(self: &Rc<Self>, fd: i32) {
         let fd = match fcntl_dupfd_cloexec(fd, 0).to_os_error() {
             Ok(fd) => Rc::new(fd),
             Err(e) => {
                 let err = format!("Could not invoke F_DUPFD_CLOEXEC: {}", ErrorFmt(e));
                 log::error!("{}", err);
                 self.respond(Response::AddPollable { id: Err(err) });
-                return Ok(());
+                return;
             }
         };
         let id = self.pollable_id.fetch_add(1);
@@ -2493,7 +2487,6 @@ impl ConfigProxyHandler {
             }),
         );
         self.respond(Response::AddPollable { id: Ok(id) });
-        Ok(())
     }
 
     fn handle_remove_pollable(self: &Rc<Self>, id: PollableId) {
@@ -3767,7 +3760,7 @@ impl ConfigProxyHandler {
                 .handle_set_seat_workspace(seat, workspace)
                 .wrn("set_seat_workspace")?,
             ClientMessage::GetConnector { ty, idx } => {
-                self.handle_get_connector(ty, idx).wrn("get_connector")?;
+                self.handle_get_connector(ty, idx);
             }
             ClientMessage::ConnectorConnected { connector } => self
                 .handle_connector_connected(connector)
@@ -3915,7 +3908,7 @@ impl ConfigProxyHandler {
                 .handle_connector_set_mode(connector, mode)
                 .wrn("connector_set_mode")?,
             ClientMessage::AddPollable { fd } => {
-                self.handle_add_pollable(fd).wrn("add_pollable")?;
+                self.handle_add_pollable(fd);
             }
             ClientMessage::RemovePollable { id } => self.handle_remove_pollable(id),
             ClientMessage::AddInterest { pollable, writable } => self
@@ -4311,9 +4304,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetFallbackOutputMode { seat, mode } => self
                 .handle_set_fallback_output_mode(seat, mode)
                 .wrn("set_fallback_output_mode")?,
-            ClientMessage::SetXWaylandEnabled { enabled } => self
-                .handle_set_x_wayland_enabled(enabled)
-                .wrn("set_x_wayland_enabled")?,
+            ClientMessage::SetXWaylandEnabled { enabled } => {
+                self.handle_set_x_wayland_enabled(enabled);
+            }
             ClientMessage::Run3 {
                 prog,
                 args,

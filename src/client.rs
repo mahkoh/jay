@@ -184,9 +184,9 @@ impl Clients {
         bounding_caps: ClientCaps,
         set_bounding_caps_for_children: bool,
         acceptor: &Rc<AcceptorMetadata>,
-    ) -> Result<(), ClientError> {
+    ) {
         let Some((uid, pid)) = get_socket_creds(&socket) else {
-            return Ok(());
+            return;
         };
         self.spawn2(
             id,
@@ -198,8 +198,7 @@ impl Clients {
             set_bounding_caps_for_children,
             false,
             acceptor,
-        )?;
-        Ok(())
+        );
     }
 
     pub fn spawn2(
@@ -213,7 +212,7 @@ impl Clients {
         set_bounding_caps_for_children: bool,
         is_xwayland: bool,
         acceptor: &Rc<AcceptorMetadata>,
-    ) -> Result<Rc<Client>, ClientError> {
+    ) -> Rc<Client> {
         let effective_caps = match acceptor.sandboxed {
             true => CAPS_DEFAULT_SANDBOXED,
             false => CAPS_DEFAULT,
@@ -293,7 +292,7 @@ impl Clients {
         client.data.property_changed(CL_CHANGED_NEW);
         global.global_tracers.announce(&client.data);
         self.clients.borrow_mut().insert(client.data.id, client);
-        Ok(data)
+        data
     }
 
     fn kill(&self, client: ClientId) {

@@ -251,7 +251,7 @@ impl ServerCursorTemplate {
                             )?,
                         );
                     }
-                    let cursor = CursorImage::from_sizes(0, sizes)?;
+                    let cursor = CursorImage::from_sizes(0, sizes);
                     Ok(ServerCursorTemplate {
                         var: ServerCursorTemplateVariant::Static(Rc::new(cursor)),
                         xcursor: cs.images,
@@ -270,7 +270,7 @@ impl ServerCursorTemplate {
                                 )?,
                             );
                         }
-                        let img = CursorImage::from_sizes(delay_ms as _, sizes)?;
+                        let img = CursorImage::from_sizes(delay_ms as _, sizes);
                         images.push(img);
                     }
                     Ok(ServerCursorTemplate {
@@ -291,7 +291,7 @@ impl ServerCursorTemplate {
                         );
                     }
                 }
-                let cursor = CursorImage::from_sizes(0, img_sizes)?;
+                let cursor = CursorImage::from_sizes(0, img_sizes);
                 Ok(ServerCursorTemplate {
                     var: ServerCursorTemplateVariant::Static(Rc::new(cursor)),
                     xcursor: Default::default(),
@@ -366,11 +366,11 @@ impl CursorImage {
     fn from_sizes(
         delay_ms: u64,
         sizes: SmallMapMut<(Scale, u32), Rc<CursorImageScaled>, 2>,
-    ) -> Result<Self, CursorError> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             delay_ns: delay_ms.max(1) * 1_000_000,
             sizes,
-        })
+        }
     }
 
     fn for_size(&self, size: u32) -> InstantiatedCursorImage {

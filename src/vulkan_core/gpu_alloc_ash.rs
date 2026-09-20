@@ -127,7 +127,7 @@ impl MemoryDevice<vk::DeviceMemory> for AshMemoryDevice {
 pub unsafe fn device_properties(
     instance: &Instance,
     physical_device: vk::PhysicalDevice,
-) -> Result<DeviceProperties<'static>, vk::Result> {
+) -> DeviceProperties<'static> {
     let mut properties_11 = PhysicalDeviceVulkan11Properties::default();
     let mut properties = PhysicalDeviceProperties2::default().push_next(&mut properties_11);
     unsafe {
@@ -144,7 +144,7 @@ pub unsafe fn device_properties(
         }
         bda_features.buffer_device_address != 0
     };
-    Ok(DeviceProperties {
+    DeviceProperties {
         max_memory_allocation_count: limits.max_memory_allocation_count,
         max_memory_allocation_size: properties_11.max_memory_allocation_size,
         non_coherent_atom_size: limits.non_coherent_atom_size,
@@ -164,7 +164,7 @@ pub unsafe fn device_properties(
             })
             .collect(),
         buffer_device_address,
-    })
+    }
 }
 
 fn memory_properties_from_ash(props: vk::MemoryPropertyFlags) -> MemoryPropertyFlags {
