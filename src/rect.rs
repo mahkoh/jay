@@ -278,7 +278,7 @@ where
         U: Tag,
     {
         self.raw.x1 <= rect.raw.x1
-            && self.raw.y1 <= rect.raw.x1
+            && self.raw.y1 <= rect.raw.y1
             && rect.raw.x2 <= self.raw.x2
             && rect.raw.y2 <= self.raw.y2
     }
