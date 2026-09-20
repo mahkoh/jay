@@ -238,7 +238,7 @@ fn upload_pixmap(
     ctx: &Rc<dyn GfxContext>,
 ) -> Result<Rc<dyn GfxTexture>, IconsError> {
     let width = pixmap.width();
-    let height = pixmap.width();
+    let height = pixmap.height();
     let bytes = unsafe { mem::transmute::<Vec<u8>, Vec<Cell<u8>>>(pixmap.take()) };
     for chunk in bytes.array_chunks_ext::<4>() {
         let r = chunk[0].get();
