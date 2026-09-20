@@ -29,17 +29,23 @@ use crate::tree::WorkspaceDragDestination;
 use crate::tree::WorkspaceNode;
 use crate::tree::walker::NodeVisitor;
 use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::linkedlist::LinkedListIter;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::linkedlist::NodeRef;
 use crate::utils::linkedlist::RevLinkedListIter;
+use crate::utils::liveness::Liveness;
+use jay_proc::GetLiveness;
 use linearize::LinearizeExt;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
 
+mod display_dfs_g_fuse;
+
+#[derive(GetLiveness)]
 pub struct DisplayNode {
     id: NodeId,
     pub node_state: SplitView<DisplayNodeState>,
@@ -49,6 +55,7 @@ pub struct DisplayNode {
     pub stacked_in_overlay: Rc<NodesStack>,
     seat_state: NodeSeatState,
     transaction_data: TransactionData<DisplayTransactionOp>,
+    liveness: Liveness,
 }
 
 #[derive(Default)]
@@ -80,6 +87,7 @@ impl DisplayNode {
             stacked_in_overlay: Default::default(),
             seat_state: Default::default(),
             transaction_data: TransactionData::new(tree),
+            liveness: Default::default(),
         };
         slf.seat_state.disable_focus_history();
         slf
@@ -222,6 +230,10 @@ impl NodeBase for DisplayNode {
 
     fn node_layer(&self) -> NodeLayerLink {
         NodeLayerLink::Display
+    }
+
+    fn node_debugfs(self: Rc<Self>) -> FuseInodeWithKey {
+        self.debugfs()
     }
 
     fn node_find_tree_at(

@@ -1,4 +1,5 @@
 pub mod jay_popup_ext_v1;
+mod xdg_popup_dfs_g_fuse;
 
 use crate::client::Client;
 use crate::client::LookupError;
@@ -26,6 +27,7 @@ use crate::ifs::xdg_positioner::XdgPositioned;
 use crate::ifs::xdg_positioner::XdgPositioner;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
+use crate::object::ObjectDebugfs;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::renderer::Renderer;
@@ -50,10 +52,13 @@ use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::WorkspaceNode;
 use crate::utils::clonecell::CloneCell;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
+use crate::utils::liveness::Liveness;
 use crate::utils::smallmap::SmallMap;
 use crate::wire::ObjectId;
 use crate::wire::XdgPopupId;
 use crate::wire::xdg_popup::*;
+use jay_proc::GetLiveness;
 use jay_proc::Object;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -86,8 +91,9 @@ pub trait XdgPopupParent {
     }
 }
 
-#[derive(Object)]
+#[derive(Object, GetLiveness)]
 #[break_loops]
+#[debugfs]
 pub struct XdgPopup {
     pub id: XdgPopupId,
     node_id: PopupId,
@@ -103,6 +109,7 @@ pub struct XdgPopup {
     interactive_moves: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     reposition_token: Cell<Option<u32>>,
     transaction_data: TransactionData<XdgPopupTransactionOp>,
+    liveness: Liveness,
 }
 
 impl Debug for XdgPopup {
@@ -137,6 +144,7 @@ impl XdgPopup {
             interactive_moves: Default::default(),
             reposition_token: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
+            liveness: Default::default(),
         })
     }
 
@@ -371,6 +379,12 @@ impl BreakLoops for XdgPopup {
     fn break_loops(self: Rc<Self>) {
         self.jay_popup_ext.take();
         self.destroy_node();
+    }
+}
+
+impl ObjectDebugfs for XdgPopup {
+    fn object_debugfs(self: Rc<Self>, _client: &Rc<Client>) -> FuseInodeWithKey {
+        self.debugfs()
     }
 }
 

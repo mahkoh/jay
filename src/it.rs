@@ -60,7 +60,7 @@ fn run_tests_(tests: Vec<&'static dyn TestCase>) {
         for test in tests {
             with_test_config(|cfg| {
                 run_test(&it_run, test, cfg);
-            })
+            });
         }
     } else {
         let queue = Arc::new(Mutex::new(VecDeque::from_iter(tests)));
@@ -69,19 +69,18 @@ fn run_tests_(tests: Vec<&'static dyn TestCase>) {
             Ok(n) => n,
             Err(e) => fatal!("Could not determine the number of cpus: {}", ErrorFmt(e)),
         };
-        log::info!("Running {} tests in parallel", num_cpus);
+        log::info!("Running {num_cpus} tests in parallel");
         for _ in 0..num_cpus {
             let queue = queue.clone();
             let it_run = it_run.clone();
             threads.push(std::thread::spawn(move || {
                 loop {
-                    let test = match queue.lock().pop_front() {
-                        Some(t) => t,
-                        _ => break,
+                    let Some(test) = queue.lock().pop_front() else {
+                        break;
                     };
                     with_test_config(|cfg| {
                         run_test(&it_run, test, cfg);
-                    })
+                    });
                 }
             }));
         }
@@ -95,9 +94,9 @@ fn run_tests_(tests: Vec<&'static dyn TestCase>) {
         failed.sort_by_key(|f| f.0);
         log::error!("The following tests failed:");
         for (name, errors) in failed {
-            log::error!("    {}:", name);
+            log::error!("    {name}:");
             for error in errors {
-                log::error!("        {}", error);
+                log::error!("        {error}");
             }
         }
         fatal!("Some tests failed");
@@ -113,7 +112,7 @@ fn run_test(it_run: &ItRun, test: &'static dyn TestCase, cfg: Rc<TestConfig>) {
     log::info!("Running {}", test.name());
     let dir = format!("{}/{}", it_run.path, test.name());
     std::fs::create_dir_all(&dir).unwrap();
-    let log_path = format!("{}/log", dir);
+    let log_path = format!("{dir}/log");
     let log_file = Rc::new(uapi::open(log_path.as_str(), c::O_WRONLY | c::O_CREAT, 0o644).unwrap());
     test_logger::set_file(log_file);
     let errors = Rc::new(Cell::new(Vec::new()));
@@ -145,7 +144,7 @@ fn run_test(it_run: &ItRun, test: &'static dyn TestCase, cfg: Rc<TestConfig>) {
             }
             errors.set(testrun.errors.take());
             state.ring.stop();
-            pending().await
+            pending::<()>().await;
         })
     }));
     let mut errors = errors.take();
@@ -155,7 +154,7 @@ fn run_test(it_run: &ItRun, test: &'static dyn TestCase, cfg: Rc<TestConfig>) {
     if errors.len() > 0 {
         log::error!("The following errors occurred:");
         for e in &errors {
-            log::error!("    {}", e);
+            log::error!("    {e}");
         }
         it_run.failed.lock().insert(test.name(), errors);
     }

@@ -1,3 +1,4 @@
+use crate::client::Client;
 use crate::configurable::Configurable;
 use crate::configurable::ConfigurableData;
 use crate::ifs::wl_output::OutputGlobalOpt;
@@ -20,6 +21,7 @@ use crate::ifs::xdg_positioner::ANCHOR_TOP_LEFT;
 use crate::ifs::xdg_positioner::ANCHOR_TOP_RIGHT;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
+use crate::object::ObjectDebugfs;
 use crate::object::Version;
 use crate::theme::BarPosition;
 use crate::transactions::TransactionData;
@@ -29,22 +31,29 @@ use crate::tree::TreeSerial;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
+use crate::utils::liveness::Liveness;
 use crate::wire::JayTrayItemV1Id;
 use crate::wire::ObjectId;
 use crate::wire::XdgPopupId;
 use crate::wire::jay_tray_item_v1::*;
+use jay_proc::GetLiveness;
 use jay_proc::Object;
 use std::rc::Rc;
 use thiserror::Error;
 
-#[derive(Object)]
+mod jay_tray_dfs_g_fuse;
+
+#[derive(Object, GetLiveness)]
 #[break_loops]
+#[debugfs]
 pub struct JayTrayItemV1 {
     id: JayTrayItemV1Id,
     pub tracker: Tracker<Self>,
     version: Version,
     data: TrayItemData,
     popups: CopyHashMap<XdgPopupId, Rc<Popup<Self>>>,
+    liveness: Liveness,
 }
 
 impl JayTrayItemV1 {
@@ -60,6 +69,7 @@ impl JayTrayItemV1 {
             version,
             popups: Default::default(),
             data: TrayItemData::new(surface, output),
+            liveness: Default::default(),
         }
     }
 
@@ -156,6 +166,12 @@ impl BreakLoops for JayTrayItemV1 {
         self.clone().destroy_node();
         self.data.destroyed.set(true);
         self.data.configurable.ready();
+    }
+}
+
+impl ObjectDebugfs for JayTrayItemV1 {
+    fn object_debugfs(self: Rc<Self>, _client: &Rc<Client>) -> FuseInodeWithKey {
+        self.debugfs()
     }
 }
 

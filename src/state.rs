@@ -1442,7 +1442,7 @@ impl State {
             forker.clear();
         }
         self.acceptor.set(None);
-        self.backend.set(Rc::new(DummyBackend)).clear();
+        self.backend.set(Rc::new(DummyBackend::default())).clear();
         self.run_toplevel.clear();
         self.xwayland.handler.borrow_mut().take();
         self.xwayland.queue.clear();

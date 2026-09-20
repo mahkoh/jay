@@ -35,10 +35,14 @@ use crate::rect::Rect;
 use crate::renderer::Renderer;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
+use crate::utils::fuse::fuse_inode::FuseInodeExt;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::linkedlist::NodeRef;
+use crate::utils::liveness::GetLiveness;
 use crate::utils::numcell::NumCell;
 use crate::utils::static_text::StaticText;
+use crate::utils::type_view::TypeViewExt1;
 use crate::wire::ObjectId;
 pub use container::*;
 pub use containing::*;
@@ -61,6 +65,7 @@ use std::fmt::Display;
 use std::ops::Deref;
 use std::rc::Rc;
 pub use toplevel::*;
+pub use tree_dfs_g_fuse::NodeView;
 pub use walker::*;
 pub use workspace::*;
 
@@ -72,6 +77,7 @@ mod output;
 mod placeholder;
 mod stacked;
 mod toplevel;
+mod tree_dfs_g_fuse;
 mod walker;
 mod workspace;
 
@@ -288,7 +294,6 @@ impl NodeIds {
         NodeId(self.next.fetch_add(1)).into()
     }
 
-    #[expect(unused)]
     pub fn last(&self) -> u32 {
         self.next.get() - 1
     }
@@ -298,7 +303,6 @@ impl NodeIds {
 pub struct NodeId(pub u32);
 
 impl NodeId {
-    #[expect(unused)]
     pub fn raw(&self) -> u32 {
         self.0
     }
@@ -426,6 +430,30 @@ impl NodeLayer {
     }
 }
 
+impl StaticText for NodeLayer {
+    fn text(&self) -> &'static str {
+        match self {
+            NodeLayer::Display => "Display",
+            NodeLayer::Layer0 => "Layer0",
+            NodeLayer::Layer1 => "Layer1",
+            NodeLayer::Output => "Output",
+            NodeLayer::Workspace => "Workspace",
+            NodeLayer::Tiled => "Tiled",
+            NodeLayer::Fullscreen => "Fullscreen",
+            NodeLayer::Stacked => "Stacked",
+            NodeLayer::Layer2 => "Layer2",
+            NodeLayer::Layer3 => "Layer3",
+            NodeLayer::StackedAboveLayers => "StackedAboveLayers",
+            NodeLayer::Lock => "Lock",
+            NodeLayer::InputMethod => "InputMethod",
+            NodeLayer::Overlay => "Overlay",
+            NodeLayer::OverlayTiled => "OverlayTiled",
+            NodeLayer::OverlayFullscreen => "OverlayFullscreen",
+            NodeLayer::OverlayStacked => "OverlayStacked",
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum WorkspaceChangeReason {
     InitialGrab,
@@ -438,7 +466,7 @@ impl TreeSerial {
     pub const NONE: Self = Self(0);
 }
 
-pub trait NodeBase: 'static {
+pub trait NodeBase: GetLiveness + 'static {
     fn node_id(&self) -> NodeId;
     fn node_seat_state(&self) -> &NodeSeatState;
     fn node_visit(self: &Rc<Self>, visitor: &mut dyn NodeVisitor)
@@ -454,6 +482,19 @@ pub trait NodeBase: 'static {
 
     fn node_output_id(&self) -> Option<OutputNodeId> {
         self.node_output().map(|o| o.id)
+    }
+
+    fn node_debugfs(self: Rc<Self>) -> FuseInodeWithKey
+    where
+        Self: Sized,
+    {
+        if let Some(id) = self.node_object_id()
+            && let Some(client) = self.node_client()
+        {
+            client.object_link(id)
+        } else {
+            self.tv_wrap_rc::<NodeView>().without_key()
+        }
     }
 
     fn node_child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {
@@ -514,7 +555,6 @@ pub trait NodeBase: 'static {
         self.node_client().map(|c| c.id)
     }
 
-    #[expect(unused)]
     fn node_object_id(&self) -> Option<ObjectId> {
         None
     }
@@ -949,6 +989,7 @@ pub trait Node: NodeBase {
     fn node_visit_dyn(self: Rc<Self>, visitor: &mut dyn NodeVisitor);
     fn node_do_focus_dyn(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction);
     fn node_make_visible_dyn(self: Rc<Self>);
+    fn node_debugfs_dyn(self: Rc<Self>) -> FuseInodeWithKey;
 }
 
 impl<T> Node for T
@@ -965,6 +1006,10 @@ where
 
     fn node_make_visible_dyn(self: Rc<Self>) {
         self.node_make_visible();
+    }
+
+    fn node_debugfs_dyn(self: Rc<Self>) -> FuseInodeWithKey {
+        self.node_debugfs()
     }
 }
 

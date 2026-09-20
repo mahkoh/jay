@@ -4,6 +4,7 @@ pub mod ext_transient_seat_v1;
 mod gesture_owner;
 mod kb_owner;
 mod pointer_owner;
+mod seat_dfs_g_fuse;
 pub mod tablet;
 pub mod text_input;
 mod touch_owner;
@@ -135,15 +136,19 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::event_listener::EventListener;
 use crate::utils::event_listener::EventSource;
+use crate::utils::fuse::fuse_inode::FuseInodeExt;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::linkedlist::NodeRef;
+use crate::utils::liveness::Liveness;
 use crate::utils::numcell::NumCell;
 use crate::utils::rc_eq::rc_eq;
 use crate::utils::rc_eq::rc_weak_eq;
 use crate::utils::smallmap::SmallMap;
 use crate::utils::smallmap::SmallMapMut;
 use crate::utils::static_text::StaticText;
+use crate::utils::type_view::TypeViewExt1;
 use crate::wire::ExtIdleNotificationV1Id;
 use crate::wire::WlDataDeviceId;
 use crate::wire::WlKeyboardId;
@@ -162,6 +167,7 @@ use hashbrown::hash_map::Entry;
 use jay_config::input::JcFallbackOutputMode;
 use jay_config::keyboard::syms::KeySym;
 use jay_config::keyboard::syms::SYM_Escape;
+use jay_proc::GetLiveness;
 use jay_proc::Global;
 use jay_proc::Object;
 use kbvm::Keycode;
@@ -169,6 +175,7 @@ use linearize::Linearize;
 pub use pointer_owner::ToplevelSelector;
 pub use pointer_owner::WorkspaceSelector;
 use run_on_drop::on_drop;
+pub use seat_dfs_g_fuse::SeatView;
 use smallvec::SmallVec;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -224,7 +231,7 @@ pub struct PhysicalKeyboard {
 
 linear_ids!(SeatIds, SeatId);
 
-#[derive(Global)]
+#[derive(Global, GetLiveness)]
 #[dedicated(seats)]
 pub struct WlSeatGlobal {
     id: SeatId,
@@ -311,6 +318,7 @@ pub struct WlSeatGlobal {
     simple_im_enabled: Cell<bool>,
     warp_mouse_to_focus_scheduled: Cell<bool>,
     mouse_follows_focus: Cell<bool>,
+    liveness: Liveness,
 }
 
 impl PartialEq for WlSeatGlobal {
@@ -460,6 +468,7 @@ impl WlSeatGlobal {
             simple_im_enabled: Cell::new(true),
             warp_mouse_to_focus_scheduled: Cell::new(false),
             mouse_follows_focus: Cell::new(false),
+            liveness: Default::default(),
         });
         slf.pointer_cursor.set_owner(slf.clone());
         slf.create_repeat_handler();
@@ -1798,6 +1807,10 @@ impl CursorUserOwner for WlSeatGlobal {
 impl Global for WlSeatGlobal {
     fn version(&self) -> u32 {
         11
+    }
+
+    fn debugfs(self: Rc<Self>, _state: &Rc<State>) -> FuseInodeWithKey {
+        self.tv_wrap_rc::<SeatView>().without_key()
     }
 }
 

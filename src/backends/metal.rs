@@ -1,5 +1,6 @@
 mod allocator;
 mod input;
+mod metal_dfs_g_fuse;
 mod monitor;
 mod present;
 mod transaction;
@@ -66,7 +67,9 @@ use crate::utils::bitflags::BitflagsExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::hash_map_ext::HashMapExt;
+use crate::utils::liveness::Liveness;
 use crate::utils::numcell::NumCell;
 use crate::utils::smallmap::SmallMap;
 use crate::utils::syncqueue::SyncQueue;
@@ -75,6 +78,7 @@ use crate::video::gbm::GbmError;
 use bstr::ByteSlice;
 use jay_algorithms::oserror::OsError;
 use jay_algorithms::oserror::OsErrorExt2;
+use jay_proc::GetLiveness;
 use jay_proc::jay_clone;
 use linearize::LinearizeExt;
 use linearize::StaticCopyMap;
@@ -153,6 +157,7 @@ pub enum MetalError {
     NoCmProgramming,
 }
 
+#[derive(GetLiveness)]
 pub struct MetalBackend {
     state: Rc<State>,
     udev: Rc<Udev>,
@@ -167,6 +172,7 @@ pub struct MetalBackend {
     ctx: CloneCell<Option<Rc<MetalRenderContext>>>,
     signaled_sync_file: CloneCell<Option<SyncFile>>,
     persistent_display_data: CopyHashMap<Rc<OutputId>, Rc<PersistentDisplayData>>,
+    liveness: Liveness,
 }
 
 impl Debug for MetalBackend {
@@ -275,6 +281,10 @@ impl Backend for MetalBackend {
         }
         res
     }
+
+    fn debugfs(self: Rc<Self>) -> Option<FuseInodeWithKey> {
+        self.debugfs()
+    }
 }
 
 fn dup_fd(fd: c::c_int) -> Result<Rc<OwnedFd>, MetalError> {
@@ -324,6 +334,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<MetalBackend>, MetalError> {
         ctx: Default::default(),
         signaled_sync_file: Default::default(),
         persistent_display_data: Default::default(),
+        liveness: Default::default(),
     });
     metal.pause_handler.set(Some({
         let mtl = metal.clone();

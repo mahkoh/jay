@@ -81,6 +81,7 @@ impl ExtSessionLockV1RequestHandler for ExtSessionLockV1 {
             destroyed: Cell::new(false),
             configurable_data: ConfigurableData::new(&self.client.state),
             desired_size: Default::default(),
+            liveness: Default::default(),
         });
         track!(new.client, new);
         new.install()?;

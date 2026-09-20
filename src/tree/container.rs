@@ -81,6 +81,7 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::double_click_state::DoubleClickState;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::event_listener::EventListener;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::fx_hash::FHashMap;
 use crate::utils::fx_hash::FHashSet;
 use crate::utils::hash_map_ext::HashMapExt;
@@ -95,10 +96,12 @@ use crate::utils::smallmap::SmallMapMut;
 use crate::utils::sorted_comparison::SortedResult;
 use crate::utils::sorted_comparison::sorted_comparison;
 use crate::utils::sorted_comparison::sorted_comparison_by;
+use crate::utils::static_text::StaticText;
 use crate::utils::threshold_counter::ThresholdCounter;
 use hashbrown::hash_map::Entry;
 use jay_config::Axis;
 use jay_proc::CachedValue;
+use jay_proc::GetLiveness;
 use jay_proc::jay_clone;
 use smallvec::SmallVec;
 use std::cell::Cell;
@@ -112,11 +115,22 @@ use std::ops::Sub;
 use std::rc::Rc;
 use std::sync::Arc;
 
+mod container_dfs_g_fuse;
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
 pub enum ContainerSplit {
     #[default]
     Horizontal,
     Vertical,
+}
+
+impl StaticText for ContainerSplit {
+    fn text(&self) -> &'static str {
+        match self {
+            ContainerSplit::Horizontal => "Horizontal",
+            ContainerSplit::Vertical => "Vertical",
+        }
+    }
 }
 
 impl ContainerSplit {
@@ -213,6 +227,7 @@ pub struct ContainerNodeState {
     pub theme: ContainerTheme,
 }
 
+#[derive(GetLiveness)]
 pub struct ContainerNode {
     id: ContainerNodeId,
     pub node_state: SplitView<ContainerNodeState>,
@@ -234,6 +249,7 @@ pub struct ContainerNode {
     pub render_data: RefCell<ContainerRenderData>,
     main_axis_ranges: RefCell<Vec<MainAxisRange>>,
     scroller: Scroller,
+    #[liveness]
     toplevel_data: ToplevelData,
     attention_requests: ThresholdCounter,
     transaction_data: TransactionData<ContainerTransactionOp>,
@@ -2464,6 +2480,10 @@ impl NodeBase for ContainerNode {
 
     fn node_layer(&self) -> NodeLayerLink {
         self.toplevel_data.node_layer()
+    }
+
+    fn node_debugfs(self: Rc<Self>) -> FuseInodeWithKey {
+        self.debugfs()
     }
 
     fn node_child_title_changed(self: Rc<Self>, child: &dyn Node, title: &str) {

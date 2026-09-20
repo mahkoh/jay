@@ -36,6 +36,7 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::copyhashmap::Locked;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::linkedlist::LinkedList;
+use crate::utils::liveness::Liveness;
 use crate::utils::numcell::NumCell;
 use crate::utils::pending_serial::PendingSerial;
 use crate::utils::pid_info::PidInfo;
@@ -48,8 +49,10 @@ use crate::utils::static_text::StaticText;
 use crate::utils::woid_hash::WoidBuildHasher;
 use crate::wire::ObjectId;
 use crate::wire::WlRegistryId;
+pub use client_dfs_g_fuse::ClientView;
 pub use error::ClientError;
 pub use error::ParserError;
+use jay_proc::GetLiveness;
 use jay_proc::jay_hash;
 use linearize::StaticMap;
 pub use objects::MIN_SERVER_ID;
@@ -67,6 +70,7 @@ use std::rc::Weak;
 use uapi::OwnedFd;
 use uapi::c;
 
+mod client_dfs_g_fuse;
 mod error;
 mod objects;
 mod synthetic_helpers;
@@ -264,6 +268,7 @@ impl Clients {
             synthetic_events: Default::default(),
             synthetic_singletons: StaticMap::from_fn(|_| Cell::new(ObjectId::NONE)),
             synthetic_registry: Cell::new(WlRegistryId::NONE),
+            liveness: Default::default(),
         });
         track!(data, data);
         global.update_capabilities(&data, bounding_caps, set_bounding_caps_for_children);
@@ -387,6 +392,7 @@ pub trait RequestParser<'a>: Sized + ClientTraceMessage {
     fn parse(parser: &mut MsgParser<'_, 'a>) -> Result<Self, MsgParserError>;
 }
 
+#[derive(GetLiveness)]
 pub struct Client {
     pub id: ClientId,
     pub state: Rc<State>,
@@ -429,6 +435,7 @@ pub struct Client {
     synthetic_events: Synthetic,
     synthetic_singletons: StaticMap<Singleton, Cell<ObjectId>>,
     synthetic_registry: Cell<WlRegistryId>,
+    liveness: Liveness,
 }
 
 #[derive(Default)]

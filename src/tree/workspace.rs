@@ -45,15 +45,19 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::event_listener::EventListener;
 use crate::utils::event_listener::EventSource;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::linkedlist::LinkedList;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::linkedlist::NodeRef;
+use crate::utils::liveness::Liveness;
 use crate::utils::numcell::NumCell;
 use crate::utils::obj_and_id::ObjAndId;
 use crate::utils::obj_and_id::ObjWithId;
 use crate::utils::opt::Opt;
+use crate::utils::static_text::StaticText;
 use crate::utils::threshold_counter::ThresholdCounter;
 use crate::wire::JayWorkspaceId;
+use jay_proc::GetLiveness;
 use linearize::Linearize;
 use smallvec::SmallVec;
 use std::cell::Cell;
@@ -61,6 +65,9 @@ use std::cell::RefCell;
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::rc::Rc;
+pub use workspace_dfs_g_fuse::WorkspaceNodeView;
+
+mod workspace_dfs_g_fuse;
 
 tree_id!(WorkspaceNodeId);
 
@@ -72,6 +79,16 @@ pub enum WorkspaceType {
     Overlay,
 }
 
+impl StaticText for WorkspaceType {
+    fn text(&self) -> &'static str {
+        match self {
+            WorkspaceType::Normal => "Normal",
+            WorkspaceType::Overlay => "Overlay",
+        }
+    }
+}
+
+#[derive(GetLiveness)]
 pub struct WorkspaceNode {
     pub id: WorkspaceNodeId,
     pub state: Rc<State>,
@@ -97,6 +114,7 @@ pub struct WorkspaceNode {
     pub listeners: EventSource<dyn WorkspaceEventListener>,
     _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
     _scales_listener: EventListener<dyn ScalesChangedListener>,
+    liveness: Liveness,
 }
 
 pub struct WorkspaceNodeState {
@@ -159,6 +177,7 @@ impl WorkspaceNode {
             listeners: Default::default(),
             _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
             _scales_listener: EventListener::attached(slf.clone(), &state.scales_changed),
+            liveness: Default::default(),
         });
         slf.seat_state.disable_focus_history();
         slf
@@ -517,6 +536,10 @@ impl NodeBase for WorkspaceNode {
             return NodeLayerLink::Overlay;
         }
         NodeLayerLink::Workspace
+    }
+
+    fn node_debugfs(self: Rc<Self>) -> FuseInodeWithKey {
+        self.debugfs()
     }
 
     fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, direction: Direction) {

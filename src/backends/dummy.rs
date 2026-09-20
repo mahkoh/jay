@@ -9,11 +9,16 @@ use crate::backend::ConnectorId;
 use crate::backend::ConnectorKernelId;
 use crate::backend::DrmDeviceId;
 use crate::format::XRGB8888;
+use crate::utils::liveness::Liveness;
 use crate::video::drm::ConnectorType;
+use jay_proc::GetLiveness;
 use std::error::Error;
 use std::rc::Rc;
 
-pub struct DummyBackend;
+#[derive(Default, GetLiveness)]
+pub struct DummyBackend {
+    liveness: Liveness,
+}
 
 impl Backend for DummyBackend {
     fn run(self: Rc<Self>) -> SpawnedFuture<Result<(), Box<dyn Error>>> {

@@ -39,9 +39,8 @@ impl WlRegistryEventHandler for TestRegistry {
         let prev = self.globals.set(ev.name, global.clone());
         let name = GlobalName::from_raw(ev.name);
         if ev.interface == WlSeat.name() {
-            let seat = match self.client.state.globals.seats.get(&name) {
-                Some(s) => s,
-                _ => bail!("Compositor sent seat global but seat does not exist"),
+            let Some(seat) = self.client.state.globals.seats.get(&name) else {
+                bail!("Compositor sent seat global but seat does not exist");
             };
             self.seats.set(name, seat);
         }
@@ -52,12 +51,11 @@ impl WlRegistryEventHandler for TestRegistry {
     }
 
     fn global_remove(&self, ev: GlobalRemove, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let global = match self.globals.remove(&ev.name) {
-            Some(g) => g,
-            _ => bail!(
+        let Some(global) = self.globals.remove(&ev.name) else {
+            bail!(
                 "Compositor sent global_remove for {} which does not exist",
                 ev.name
-            ),
+            );
         };
         let name = GlobalName::from_raw(ev.name);
         if global.interface == WlSeat.name() {

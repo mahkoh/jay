@@ -1,7 +1,9 @@
 use crate::client::LookupError;
 pub mod xdg_popup;
+mod xdg_surface_dfs_g_fuse;
 pub mod xdg_toplevel;
 
+use crate::client::Client;
 use crate::configurable::Configurable;
 use crate::configurable::ConfigurableData;
 use crate::configurable::ConfigurableDataCore;
@@ -21,6 +23,7 @@ use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::XdgToplevel;
 use crate::ifs::xdg_wm_base::XdgWmBase;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
+use crate::object::ObjectDebugfs;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::transactions::EnabledSurfaceTransactions;
@@ -45,12 +48,15 @@ use crate::utils::box_cache::CachedBox;
 use crate::utils::cell_ext::CellExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::linkedlist::LinkedNode;
+use crate::utils::liveness::Liveness;
 use crate::wire::ObjectId;
 use crate::wire::XdgPopupId;
 use crate::wire::XdgSurfaceId;
 use crate::wire::xdg_surface::*;
+use jay_proc::GetLiveness;
 use jay_proc::Object;
 use jay_proc::Reset;
 use std::cell::Cell;
@@ -90,8 +96,9 @@ pub enum PopupStackType {
     Overlay,
 }
 
-#[derive(Object)]
+#[derive(Object, GetLiveness)]
 #[break_loops]
+#[debugfs]
 pub struct XdgSurface {
     id: XdgSurfaceId,
     version: Version,
@@ -114,6 +121,7 @@ pub struct XdgSurface {
     destroyed: Cell<bool>,
     configure_data: ConfigurableData<XdgSurfaceConfigureData>,
     enabled_transactions: Cell<Option<EnabledSurfaceTransactions>>,
+    liveness: Liveness,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Default)]
@@ -239,7 +247,6 @@ impl PendingXdgSurfaceData {
 }
 
 trait XdgSurfaceExt: Node + Debug {
-    #[expect(unused)]
     fn object_id(&self) -> ObjectId;
 
     fn initial_configure(self: Rc<Self>) {
@@ -336,6 +343,7 @@ impl XdgSurface {
             destroyed: Default::default(),
             configure_data: ConfigurableData::new(&surface.state),
             enabled_transactions: Default::default(),
+            liveness: Default::default(),
         }
     }
 
@@ -742,6 +750,12 @@ impl BreakLoops for XdgSurface {
         self.popups.clear();
         self.workspace.set(None);
         self.workspace_type.set(None);
+    }
+}
+
+impl ObjectDebugfs for XdgSurface {
+    fn object_debugfs(self: Rc<Self>, _client: &Rc<Client>) -> FuseInodeWithKey {
+        self.debugfs()
     }
 }
 

@@ -276,8 +276,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
                 expected_damage2.y2()
             ));
             run.errors.push(format!(
-                "Found damage1: {}, Found damage2: {}",
-                found_damage1, found_damage2
+                "Found damage1: {found_damage1}, Found damage2: {found_damage2}",
             ));
         }
 

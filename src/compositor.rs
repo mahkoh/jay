@@ -296,7 +296,7 @@ fn start_compositor2(
     let state = Rc::new(State {
         pid,
         kb_ctx,
-        backend: CloneCell::new(Rc::new(DummyBackend)),
+        backend: CloneCell::new(Rc::new(DummyBackend::default())),
         forker: Default::default(),
         default_keymap: kb_keymap,
         eng: engine.clone(),

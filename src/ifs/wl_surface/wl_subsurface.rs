@@ -12,6 +12,7 @@ use crate::ifs::wl_surface::WlSurfaceId;
 use crate::ifs::wl_surface::tray::TrayItemId;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
+use crate::object::ObjectDebugfs;
 use crate::object::Version;
 use crate::tree::Node;
 use crate::tree::NodeBase;
@@ -23,13 +24,16 @@ use crate::tree::WorkspaceNode;
 use crate::utils::box_cache::BoxReset;
 use crate::utils::box_cache::CachedBox;
 use crate::utils::clonecell::CloneCell;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::linkedlist::LinkedNode;
 use crate::utils::linkedlist::NodeRef;
+use crate::utils::liveness::Liveness;
 use crate::utils::numcell::NumCell;
 use crate::wire::ObjectId;
 use crate::wire::WlSubsurfaceId;
 use crate::wire::wl_subsurface::*;
 use hashbrown::hash_map::OccupiedEntry;
+use jay_proc::GetLiveness;
 use jay_proc::Object;
 use linearize::LinearizeExt;
 use std::cell::Cell;
@@ -38,6 +42,8 @@ use std::cell::RefMut;
 use std::rc::Rc;
 use thiserror::Error;
 
+mod wl_subsurface_dfs_g_fuse;
+
 #[expect(unused)]
 const BAD_SURFACE: u32 = 0;
 
@@ -45,8 +51,9 @@ const MAX_SUBSURFACE_DEPTH: u32 = 100;
 
 linear_ids!(SubsurfaceIds, SubsurfaceId, u64);
 
-#[derive(Object)]
+#[derive(Object, GetLiveness)]
 #[break_loops]
+#[debugfs]
 pub struct WlSubsurface {
     id: WlSubsurfaceId,
     unique_id: SubsurfaceId,
@@ -63,6 +70,7 @@ pub struct WlSubsurface {
     had_buffer: Cell<bool>,
     version: Version,
     initial_commit: Cell<bool>,
+    liveness: Liveness,
 }
 
 #[derive(Default)]
@@ -145,6 +153,7 @@ impl WlSubsurface {
             had_buffer: Cell::new(false),
             version,
             initial_commit: Cell::new(true),
+            liveness: Default::default(),
         }
     }
 
@@ -428,6 +437,12 @@ impl BreakLoops for WlSubsurface {
     fn break_loops(self: Rc<Self>) {
         *self.node.borrow_mut() = None;
         self.latest_node.take();
+    }
+}
+
+impl ObjectDebugfs for WlSubsurface {
+    fn object_debugfs(self: Rc<Self>, _client: &Rc<Client>) -> FuseInodeWithKey {
+        self.debugfs()
     }
 }
 

@@ -142,7 +142,7 @@ impl AsyncEngine {
                 Poll::Ready(())
             }
         })
-        .await
+        .await;
     }
 
     fn push(&self, runnable: Runnable, phase: Phase) {

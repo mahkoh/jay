@@ -40,8 +40,10 @@ use crate::tree::default_tile_drag_destination;
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::event_listener::EventListener;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::on_drop_event::OnDropEvent;
 use crate::utils::smallmap::SmallMapMut;
+use jay_proc::GetLiveness;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::ops::Deref;
@@ -49,10 +51,14 @@ use std::rc::Rc;
 use std::rc::Weak;
 use std::sync::Arc;
 
+mod placeholder_dfs_g_fuse;
+
 tree_id!(PlaceholderNodeId);
 
+#[derive(GetLiveness)]
 pub struct PlaceholderNode {
     id: PlaceholderNodeId,
+    #[liveness]
     toplevel: ToplevelData,
     destroyed: Cell<bool>,
     update_textures_scheduled: Cell<bool>,
@@ -217,6 +223,10 @@ impl NodeBase for PlaceholderNode {
 
     fn node_layer(&self) -> NodeLayerLink {
         self.toplevel.node_layer()
+    }
+
+    fn node_debugfs(self: Rc<Self>) -> FuseInodeWithKey {
+        self.debugfs()
     }
 
     fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {

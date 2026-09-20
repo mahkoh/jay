@@ -24,7 +24,7 @@ use std::rc::Rc;
 #[derivative(Default)]
 pub struct Objects {
     pub display: CloneCell<Option<Rc<WlDisplay>>>,
-    registry: WoidCopyHashMap<ObjectId, Rc<dyn Object>>,
+    pub registry: WoidCopyHashMap<ObjectId, Rc<dyn Object>>,
     synthetic_event_handlers: FCopyHashMap<ObjectId, Rc<dyn SyntheticObjectEventHandler>>,
     pub dedicated: Dedicated,
     ids: RefCell<Vec<usize>>,

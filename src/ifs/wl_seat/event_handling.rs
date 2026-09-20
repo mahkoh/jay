@@ -92,6 +92,8 @@ use std::mem;
 use std::rc::Rc;
 use std::rc::Weak;
 
+mod event_handling_dfs_g_fuse;
+
 #[derive(Default)]
 pub struct NodeSeatState {
     pointer_foci: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,

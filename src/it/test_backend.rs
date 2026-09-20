@@ -50,6 +50,7 @@ use crate::utils::bhash::BHashMap;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::liveness::Liveness;
 use crate::utils::numcell::NumCell;
 use crate::utils::on_change::OnChange;
 use crate::utils::syncqueue::SyncQueue;
@@ -62,6 +63,7 @@ use crate::video::gbm::GbmError;
 use bstr::ByteSlice;
 use jay_algorithms::oserror::OsError;
 use jay_algorithms::oserror::OsErrorExt2;
+use jay_proc::GetLiveness;
 use std::any::Any;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -94,6 +96,7 @@ pub enum TestBackendError {
     CreateVulkanAllocator(#[source] AllocatorError),
 }
 
+#[derive(GetLiveness)]
 pub struct TestBackend {
     pub state: Rc<State>,
     test_future: TestFuture,
@@ -103,6 +106,7 @@ pub struct TestBackend {
     pub default_mouse: Rc<TestBackendMouse>,
     pub default_kb: Rc<TestBackendKb>,
     render_context_installed: Cell<bool>,
+    liveness: Liveness,
 }
 
 impl TestBackend {
@@ -200,6 +204,7 @@ impl TestBackend {
             default_mouse,
             default_kb,
             render_context_installed: Cell::new(false),
+            liveness: Default::default(),
         }
     }
 
@@ -492,7 +497,7 @@ impl TestBackendMouse {
             dy: Fixed::from_f64(dy * self.accel_speed.get()),
             dx_unaccelerated: Fixed::from_f64(dx),
             dy_unaccelerated: Fixed::from_f64(dy),
-        })
+        });
     }
 
     pub fn abs(&self, connector: &TestConnector, x: f64, y: f64) {
@@ -501,7 +506,7 @@ impl TestBackendMouse {
             connector: connector.id,
             x: Fixed::from_f64(x),
             y: Fixed::from_f64(y),
-        })
+        });
     }
 
     pub fn click(self: &Rc<Self>, button: u32) -> TestMouseClick {
@@ -594,15 +599,15 @@ impl TestInputDevice for TestBackendMouse {
     }
 
     fn set_left_handed(&self, left_handed: bool) {
-        self.left_handed.set(left_handed)
+        self.left_handed.set(left_handed);
     }
 
     fn set_accel_profile(&self, profile: InputDeviceAccelProfile) {
-        self.accel_profile.set(profile)
+        self.accel_profile.set(profile);
     }
 
     fn set_accel_speed(&self, speed: f64) {
-        self.accel_speed.set(speed)
+        self.accel_speed.set(speed);
     }
 
     fn set_transform_matrix(&self, matrix: TransformMatrix) {
@@ -711,19 +716,19 @@ impl<T: TestInputDevice> InputDevice for T {
     }
 
     fn set_left_handed(&self, left_handed: bool) {
-        <Self as TestInputDevice>::set_left_handed(self, left_handed)
+        <Self as TestInputDevice>::set_left_handed(self, left_handed);
     }
 
     fn set_accel_profile(&self, profile: InputDeviceAccelProfile) {
-        <Self as TestInputDevice>::set_accel_profile(self, profile)
+        <Self as TestInputDevice>::set_accel_profile(self, profile);
     }
 
     fn set_accel_speed(&self, speed: f64) {
-        <Self as TestInputDevice>::set_accel_speed(self, speed)
+        <Self as TestInputDevice>::set_accel_speed(self, speed);
     }
 
     fn set_transform_matrix(&self, matrix: TransformMatrix) {
-        <Self as TestInputDevice>::set_transform_matrix(self, matrix)
+        <Self as TestInputDevice>::set_transform_matrix(self, matrix);
     }
 
     fn name(&self) -> Rc<String> {
@@ -735,39 +740,39 @@ impl<T: TestInputDevice> InputDevice for T {
     }
 
     fn set_tap_enabled(&self, enabled: bool) {
-        <Self as TestInputDevice>::set_tap_enabled(self, enabled)
+        <Self as TestInputDevice>::set_tap_enabled(self, enabled);
     }
 
     fn set_drag_enabled(&self, enabled: bool) {
-        <Self as TestInputDevice>::set_drag_enabled(self, enabled)
+        <Self as TestInputDevice>::set_drag_enabled(self, enabled);
     }
 
     fn set_drag_lock_enabled(&self, enabled: bool) {
-        <Self as TestInputDevice>::set_drag_lock_enabled(self, enabled)
+        <Self as TestInputDevice>::set_drag_lock_enabled(self, enabled);
     }
 
     fn set_natural_scrolling_enabled(&self, enabled: bool) {
-        <Self as TestInputDevice>::set_natural_scrolling_enabled(self, enabled)
+        <Self as TestInputDevice>::set_natural_scrolling_enabled(self, enabled);
     }
 
     fn set_click_method(&self, method: InputDeviceClickMethod) {
-        <Self as TestInputDevice>::set_click_method(self, method)
+        <Self as TestInputDevice>::set_click_method(self, method);
     }
 
     fn set_middle_button_emulation_enabled(&self, enabled: bool) {
-        <Self as TestInputDevice>::set_middle_button_emulation_enabled(self, enabled)
+        <Self as TestInputDevice>::set_middle_button_emulation_enabled(self, enabled);
     }
 
     fn set_scroll_method(&self, method: InputDeviceScrollMethod) {
-        <Self as TestInputDevice>::set_scroll_method(self, method)
+        <Self as TestInputDevice>::set_scroll_method(self, method);
     }
 
     fn set_scroll_button(&self, button: Option<InputEventCode>) {
-        <Self as TestInputDevice>::set_scroll_button(self, button)
+        <Self as TestInputDevice>::set_scroll_button(self, button);
     }
 
     fn set_scroll_button_lock(&self, enabled: bool) {
-        <Self as TestInputDevice>::set_scroll_button_lock(self, enabled)
+        <Self as TestInputDevice>::set_scroll_button_lock(self, enabled);
     }
 }
 

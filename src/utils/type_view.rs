@@ -36,7 +36,6 @@ where
     }
 }
 
-#[cfg_attr(not(test), expect(unused))]
 pub trait TypeViewExt1 {
     fn tv_wrap_rc_ref<V>(self: &Rc<Self>) -> &Rc<TypeView<Self, V>>
     where
