@@ -1486,13 +1486,13 @@ fn show_tearing(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool {
                 }
                 let mut limit_windows = surface.is_some();
                 ui.checkbox(&mut limit_windows, "Limit Windows");
-                if !limit_windows {
-                    surface = None;
-                } else {
+                if limit_windows {
                     ui.indent("limit windows", |ui| {
                         let surface = surface.get_or_insert_default();
                         ui.checkbox(&mut surface.tearing_requested, "Requests Tearing");
                     });
+                } else {
+                    surface = None;
                 }
             }
         });
@@ -1566,16 +1566,12 @@ fn show_vrr(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool {
                 }
                 let mut limit_windows = surface.is_some();
                 ui.checkbox(&mut limit_windows, "Limit Windows");
-                if !limit_windows {
-                    surface = None;
-                } else {
+                if limit_windows {
                     ui.indent("limit windows", |ui| {
                         let surface = surface.get_or_insert_default();
                         let mut limit_content_type = surface.content_type.is_some();
                         ui.checkbox(&mut limit_content_type, "Limit Content Types");
-                        if !limit_content_type {
-                            surface.content_type = None;
-                        } else {
+                        if limit_content_type {
                             ui.indent("limit content type", |ui| {
                                 let limit = surface.content_type.get_or_insert_default();
                                 let fields = [
@@ -1587,8 +1583,12 @@ fn show_vrr(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool {
                                     ui.checkbox(field, name);
                                 }
                             });
+                        } else {
+                            surface.content_type = None;
                         }
                     });
+                } else {
+                    surface = None;
                 }
             }
         });

@@ -134,14 +134,7 @@ impl Incoming {
                         };
                     if let Some(handler) = handler {
                         let sig = headers.signature.as_deref().unwrap_or("");
-                        if sig != handler.signature() {
-                            let msg = format!(
-                                "Method call has an invalid signature: expected: {}, actual: {}",
-                                handler.signature(),
-                                sig,
-                            );
-                            self.socket.send_error(sender.deref(), serial, &msg);
-                        } else {
+                        if sig == handler.signature() {
                             let reply_expected = !flags.contains(NO_REPLY_EXPECTED);
                             if let Err(e) = handler.handle(
                                 &object,
@@ -157,6 +150,13 @@ impl Incoming {
                                     ErrorFmt(e)
                                 );
                             }
+                        } else {
+                            let msg = format!(
+                                "Method call has an invalid signature: expected: {}, actual: {}",
+                                handler.signature(),
+                                sig,
+                            );
+                            self.socket.send_error(sender.deref(), serial, &msg);
                         }
                     } else {
                         self.socket
@@ -190,14 +190,7 @@ impl Incoming {
                         reply.handle_error(&self.socket, DbusError::CallError(error));
                     } else {
                         let sig = headers.signature.as_deref().unwrap_or("");
-                        if sig != reply.signature() {
-                            log::error!(
-                                "{}: Message reply has an invalid signature: expected: {}, actual: {}",
-                                self.socket.bus_name,
-                                reply.signature(),
-                                sig,
-                            );
-                        } else {
+                        if sig == reply.signature() {
                             let buf = unsafe { std::mem::take(msg_buf_data.get().deref_mut()) };
                             if let Err(e) = reply.handle(&self.socket, &headers, &mut parser, buf) {
                                 log::error!(
@@ -206,6 +199,13 @@ impl Incoming {
                                     ErrorFmt(e)
                                 );
                             }
+                        } else {
+                            log::error!(
+                                "{}: Message reply has an invalid signature: expected: {}, actual: {}",
+                                self.socket.bus_name,
+                                reply.signature(),
+                                sig,
+                            );
                         }
                     }
                 }
@@ -224,14 +224,7 @@ impl Incoming {
                         .or(handler.unconditional.as_ref());
                     if let Some(handler) = handler {
                         let sig = headers.signature.as_deref().unwrap_or("");
-                        if sig != handler.signature() {
-                            log::error!(
-                                "{}: Signal has an invalid signature: expected: {}, actual: {}",
-                                self.socket.bus_name,
-                                handler.signature(),
-                                sig,
-                            );
-                        } else {
+                        if sig == handler.signature() {
                             if let Err(e) = handler.handle(&mut parser) {
                                 log::error!(
                                     "{}: Could not handle signal: {}",
@@ -239,6 +232,13 @@ impl Incoming {
                                     ErrorFmt(e)
                                 );
                             }
+                        } else {
+                            log::error!(
+                                "{}: Signal has an invalid signature: expected: {}, actual: {}",
+                                self.socket.bus_name,
+                                handler.signature(),
+                                sig,
+                            );
                         }
                     }
                 }

@@ -371,11 +371,11 @@ fn run_iteration(
             for member in &*cg.members.borrow() {
                 of_interest_2.push(member.clone());
                 let d = member.data();
-                if d.iteration.replace(iteration) != iteration {
+                if d.iteration.replace(iteration) == iteration {
+                    d.num_ready.fetch_add(1);
+                } else {
                     d.num_ready.set(1);
                     all_with_ready.push(member.clone());
-                } else {
-                    d.num_ready.fetch_add(1);
                 }
             }
         }

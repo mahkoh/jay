@@ -51,11 +51,11 @@ impl<T> LinkedList<T> {
 
     fn endpoint(&self, ep: NonNull<NodeData<T>>) -> Option<NodeRef<T>> {
         unsafe {
-            if ep != self.root.data {
+            if ep == self.root.data {
+                None
+            } else {
                 ep.deref().rc.fetch_add(1);
                 Some(NodeRef { data: ep })
-            } else {
-                None
             }
         }
     }

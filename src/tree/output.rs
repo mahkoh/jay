@@ -739,10 +739,10 @@ impl OutputNode {
         let font = theme.bar_font.get();
         let bh = theme.sizes.bar_height.get();
         let scale = self.node_state[RenderTL].scale.get();
-        let scale = if scale != 1 {
-            Some(scale.to_f64())
-        } else {
+        let scale = if scale == 1 {
             None
+        } else {
+            Some(scale.to_f64())
         };
         let mut texture_height = bh;
         if let Some(scale) = scale {
@@ -818,10 +818,10 @@ impl OutputNode {
         let non_exclusive_rect_rel = ns.rects.non_exclusive_rel.get();
         let y1 = bar_rect_rel.y1() - non_exclusive_rect_rel.y1();
         let scale = self.node_state[RenderTL].scale.get();
-        let scale = if scale != 1 {
-            Some(scale.to_f64())
-        } else {
+        let scale = if scale == 1 {
             None
+        } else {
+            Some(scale.to_f64())
         };
         let active_id = ns.workspace.id();
         rd.bar_separator = ns

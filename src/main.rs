@@ -50,6 +50,7 @@
     clippy::unnecessary_semicolon,
     clippy::elidable_lifetime_names,
     clippy::uninlined_format_args,
+    clippy::if_not_else,
 )]
 
 #[macro_use]

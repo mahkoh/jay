@@ -98,15 +98,15 @@ unsafe extern "C" fn egl_log(
         EGL_DEBUG_MSG_INFO_KHR => Level::Info,
         _ => Level::Warn,
     };
-    let command = if !command.is_null() {
+    let command = if command.is_null() {
+        b"none"
+    } else {
         unsafe { CStr::from_ptr(command).to_bytes() }
-    } else {
-        b"none"
     };
-    let message = if !message.is_null() {
-        unsafe { CStr::from_ptr(message).to_bytes() }
-    } else {
+    let message = if message.is_null() {
         b"none"
+    } else {
+        unsafe { CStr::from_ptr(message).to_bytes() }
     };
     let err_name = error_name(error);
     log::log!(

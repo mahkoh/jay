@@ -79,14 +79,14 @@ impl Cursor for CursorSurface {
         if extents.intersects(&renderer.logical_extents()) {
             let (hot_x, hot_y) = self.hotspot.get();
             let scale = renderer.scale();
-            if scale != 1 {
+            if scale == 1 {
+                renderer.render_surface(&self.surface, x_int - hot_x, y_int - hot_y, None);
+            } else {
                 let scale = scale.to_f64();
                 let (hot_x, hot_y) = (Fixed::from_int(hot_x), Fixed::from_int(hot_y));
                 let x = ((x - hot_x).to_f64() * scale).round() as _;
                 let y = ((y - hot_y).to_f64() * scale).round() as _;
                 renderer.render_surface_scaled(&self.surface, x, y, None, None, false);
-            } else {
-                renderer.render_surface(&self.surface, x_int - hot_x, y_int - hot_y, None);
             }
         }
     }

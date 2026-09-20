@@ -717,10 +717,10 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
     }
 
     fn focus_node(&self) -> Option<Rc<dyn Node>> {
-        if self.keyboard_interactivity.get() != KI_NONE {
-            Some(self.surface.clone())
-        } else {
+        if self.keyboard_interactivity.get() == KI_NONE {
             None
+        } else {
+            Some(self.surface.clone())
         }
     }
 

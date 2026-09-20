@@ -104,11 +104,11 @@ impl WlKeyboard {
     }
 
     pub fn enter(self: &Rc<Self>, serial: u64, surface: WlSurfaceId, kb_state: &KeyboardState) {
-        if kb_state.id != self.kb_state_id.get() {
-            self.send_kb_state(serial, kb_state, surface, false);
-        } else {
+        if kb_state.id == self.kb_state_id.get() {
             self.send_enter(serial, surface, &kb_state.pressed_keys);
             self.send_modifiers(serial, &kb_state.mods);
+        } else {
+            self.send_kb_state(serial, kb_state, surface, false);
         }
     }
 
@@ -192,10 +192,10 @@ impl WlKeyboard {
         surface: WlSurfaceId,
         kb_state: &KeyboardState,
     ) {
-        if self.kb_state_id.get() != kb_state.id {
-            self.send_kb_state(serial, kb_state, surface, true);
-        } else {
+        if self.kb_state_id.get() == kb_state.id {
             self.send_modifiers(serial, &kb_state.mods);
+        } else {
+            self.send_kb_state(serial, kb_state, surface, true);
         }
     }
 

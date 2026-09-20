@@ -414,13 +414,13 @@ fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer<'_>, x: F
     let Some(img) = image.scales.get(&scale) else {
         return;
     };
-    let extents = if scale != 1 {
+    let extents = if scale == 1 {
+        img.extents.move_(x.round_down(), y.round_down())
+    } else {
         let scalef = scale.to_f64();
         let x = (x.to_f64() * scalef).round() as i32;
         let y = (y.to_f64() * scalef).round() as i32;
         img.extents.move_(x, y)
-    } else {
-        img.extents.move_(x.round_down(), y.round_down())
     };
     if extents.intersects(&renderer.pixel_extents()) {
         renderer.base.render_texture(
