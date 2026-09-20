@@ -116,7 +116,7 @@ impl JaySeatEvents {
                 self.client.event(AxisInverted {
                     self_id: self.id,
                     axis: axis as _,
-                    inverted: ps.inverted[axis].get() as _,
+                    inverted: ps.inverted[axis].get(),
                 });
                 self.client.event(AxisPx {
                     self_id: self.id,

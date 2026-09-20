@@ -110,7 +110,7 @@ impl AsyncCpuWork for ReadWriteWorkConfig {
                 }
                 if self.len == 0 {
                     break Ok(());
-                };
+                }
                 let res = if self.write {
                     ring.write_no_cancel(
                         Fd::new(self.fd),

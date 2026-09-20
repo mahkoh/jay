@@ -30,9 +30,9 @@ pub fn config_dir() -> Option<&'static str> {
             if let Ok(dir) = env::var(JAY_CONFIG_DIR) {
                 Some(dir)
             } else if let Ok(xdg) = env::var(XDG_CONFIG_HOME) {
-                Some(format!("{}/jay", xdg))
+                Some(format!("{xdg}/jay"))
             } else if let Ok(home) = env::var(HOME) {
-                Some(format!("{}/.config/jay", home))
+                Some(format!("{home}/.config/jay"))
             } else {
                 eprintln!(
                     "None of {JAY_CONFIG_DIR}, {XDG_CONFIG_HOME}, {HOME} are set. Cannot determine config dir.",

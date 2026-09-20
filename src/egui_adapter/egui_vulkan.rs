@@ -274,8 +274,6 @@ pub enum EgvError {
     CreateSemaphore(#[source] vk::Result),
     #[error("could not submit a command buffer")]
     Submit(#[source] vk::Result),
-    #[error("could not get device properties")]
-    GetDeviceProperties(#[source] vk::Result),
     #[error("could not create a command pool")]
     CreateCommandPool(#[source] vk::Result),
     #[error("driver does not support all required format features")]
@@ -835,7 +833,7 @@ impl EgvRenderer {
             }
         };
         let destroy_descriptor_set_layout = on_drop(|| unsafe {
-            device.destroy_descriptor_set_layout(descriptor_set_layout, None)
+            device.destroy_descriptor_set_layout(descriptor_set_layout, None);
         });
         let pipeline_layout = {
             let create_info = PipelineLayoutCreateInfo::default()
@@ -850,7 +848,6 @@ impl EgvRenderer {
             on_drop(|| unsafe { device.destroy_pipeline_layout(pipeline_layout, None) });
         let mut device_properties = unsafe {
             crate::vulkan_core::gpu_alloc_ash::device_properties(instance, physical_device)
-                .map_err(EgvError::GetDeviceProperties)?
         };
         device_properties.buffer_device_address = false;
         let non_coherent_atom_size = device_properties.non_coherent_atom_size;
@@ -1504,7 +1501,7 @@ impl EgvContext {
                 let _ = fd.unwrap();
                 memories.push(device_memory);
                 free_memories.push(on_drop(move || unsafe {
-                    dev.free_memory(device_memory, None)
+                    dev.free_memory(device_memory, None);
                 }));
             }
             let mut bind_image_memory_infos = PlaneVec::new();
@@ -1805,7 +1802,7 @@ impl EgvFramebuffer {
                     .dst_queue_family_index(ri.queue_family)
                     .image(self.image.image)
                     .subresource_range(IMAGE_SUBRESOURCE_RANGE),
-            )
+            );
         }
         unsafe {
             let info = DependencyInfo::default().image_memory_barriers(&final_image_barriers);

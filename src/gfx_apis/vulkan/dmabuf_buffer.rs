@@ -48,7 +48,7 @@ impl VulkanDevice {
                     dmabuf.raw(),
                     &mut memory_fd_properties,
                 )
-                .map_err(VulkanError::MemoryFdProperties)?
+                .map_err(VulkanError::MemoryFdProperties)?;
         }
         let buffer = {
             let mut external_info = ExternalMemoryBufferCreateInfo::default()

@@ -58,7 +58,7 @@ pub fn main(_global: GlobalArgs, args: ScreenshotArgs) {
     if args.hdr10 && args.format != ScreenshotFormat::Png {
         fatal!("--hdr10 is only supported with --format=png");
     }
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         let screenshot = Rc::new(Screenshot {
             tc: tc.clone(),
             args,
@@ -139,7 +139,7 @@ async fn run(screenshot: Rc<Screenshot>) {
                 ev.modifier,
                 planes.take(),
             );
-            res.push(Ok((buf, dev.take())))
+            res.push(Ok((buf, dev.take())));
         },
     );
     Dmabuf3::handle(
@@ -162,7 +162,7 @@ async fn run(screenshot: Rc<Screenshot>) {
                 ev.modifier,
                 planes.take(),
             );
-            res.push(Ok((buf, dev.take())))
+            res.push(Ok((buf, dev.take())));
         },
     );
     let (buf, drm_dev) = match result.pop().await {
@@ -324,7 +324,7 @@ pub fn buf_to_bytes(
             .chunks_exact(bo_map.stride() as usize);
         for line in lines {
             for pixel in line[..(buf.width as usize * 4)].array_chunks_ext::<4>() {
-                image_data.extend_from_slice(&[pixel[2], pixel[1], pixel[0], 255])
+                image_data.extend_from_slice(&[pixel[2], pixel[1], pixel[0], 255]);
             }
         }
         (BitDepth::Eight, image_data)

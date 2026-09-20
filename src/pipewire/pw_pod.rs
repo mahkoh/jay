@@ -1090,7 +1090,7 @@ pub struct PwPodObject<'a> {
     pub probs: PwParser<'a>,
 }
 
-impl<'a> PwPodObject<'a> {
+impl PwPodObject<'_> {
     pub fn get_param(&mut self, key: u32) -> Result<Option<PwProp<'_>>, PwParserError> {
         let start = self.probs.pos();
         loop {

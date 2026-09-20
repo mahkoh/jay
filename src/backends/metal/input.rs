@@ -48,28 +48,23 @@ use uapi::c;
 
 macro_rules! unpack {
     ($slf:expr, $ev:expr) => {{
-        let slot = match $ev.device().slot() {
-            Some(s) => s,
-            _ => return,
+        let Some(slot) = $ev.device().slot() else {
+            return;
         };
-        let data = match $slf
+        let Some(data) = $slf
             .device_holder
             .input_devices
             .borrow_mut()
             .get(slot)
             .cloned()
             .and_then(|v| v)
-        {
-            Some(d) => d,
-            _ => return,
+        else {
+            return;
         };
         data
     }};
     ($slf:expr, $ev:expr, $conv:ident) => {{
-        let event = match $ev.$conv() {
-            Some(e) => e,
-            _ => return,
-        };
+        let Some(event) = $ev.$conv() else { return };
         let data = unpack!($slf, $ev);
         (event, data)
     }};
@@ -103,7 +98,7 @@ impl MetalBackend {
         log::error!("Libinput task exited. Future input events will be ignored.");
     }
 
-    fn handle_event(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_event(self: &Rc<Self>, event: LibInputEvent<'_>) {
         use crate::libinput::consts as c;
 
         match event.ty() {
@@ -114,13 +109,13 @@ impl MetalBackend {
             c::LIBINPUT_EVENT_POINTER_MOTION_ABSOLUTE => self.handle_pointer_motion_absolute(event),
             c::LIBINPUT_EVENT_POINTER_BUTTON => self.handle_pointer_button(event),
             c::LIBINPUT_EVENT_POINTER_SCROLL_WHEEL => {
-                self.handle_pointer_axis(event, AxisSource::Wheel)
+                self.handle_pointer_axis(event, AxisSource::Wheel);
             }
             c::LIBINPUT_EVENT_POINTER_SCROLL_FINGER => {
-                self.handle_pointer_axis(event, AxisSource::Finger)
+                self.handle_pointer_axis(event, AxisSource::Finger);
             }
             c::LIBINPUT_EVENT_POINTER_SCROLL_CONTINUOUS => {
-                self.handle_pointer_axis(event, AxisSource::Continuous)
+                self.handle_pointer_axis(event, AxisSource::Continuous);
             }
             c::LIBINPUT_EVENT_GESTURE_SWIPE_BEGIN => self.handle_gesture_swipe_begin(event),
             c::LIBINPUT_EVENT_GESTURE_SWIPE_UPDATE => self.handle_gesture_swipe_update(event),
@@ -148,17 +143,17 @@ impl MetalBackend {
         }
     }
 
-    fn handle_device_added(self: &Rc<Self>, _event: LibInputEvent) {
+    fn handle_device_added(self: &Rc<Self>, _event: LibInputEvent<'_>) {
         // let dev = unpack!(self, event);
     }
 
-    fn handle_li_device_removed(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_li_device_removed(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let dev = unpack!(self, event);
         dev.inputdev.set(None);
         event.device().unset_slot();
     }
 
-    fn handle_keyboard_key(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_keyboard_key(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, keyboard_event);
         let state = if event.key_state() == LIBINPUT_KEY_STATE_PRESSED {
             if dev.pressed_keys.insert(event.key(), ()).is_some() {
@@ -178,7 +173,7 @@ impl MetalBackend {
         });
     }
 
-    fn handle_pointer_axis(self: &Rc<Self>, event: LibInputEvent, source: AxisSource) {
+    fn handle_pointer_axis(self: &Rc<Self>, event: LibInputEvent<'_>, source: AxisSource) {
         let (event, dev) = unpack!(self, event, pointer_event);
         let axes = [
             (
@@ -226,7 +221,7 @@ impl MetalBackend {
         });
     }
 
-    fn handle_pointer_button(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_pointer_button(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, pointer_event);
         let state = if event.button_state() == LIBINPUT_BUTTON_STATE_PRESSED {
             if dev.pressed_buttons.insert(event.button(), ()).is_some() {
@@ -246,7 +241,7 @@ impl MetalBackend {
         });
     }
 
-    fn handle_pointer_motion(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_pointer_motion(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, pointer_event);
         let mut dx = event.dx();
         let mut dy = event.dy();
@@ -265,7 +260,7 @@ impl MetalBackend {
         });
     }
 
-    fn handle_pointer_motion_absolute(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_pointer_motion_absolute(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, pointer_event);
         dev.event(InputEvent::MotionAbsolute {
             time_usec: event.time_usec(),
@@ -274,7 +269,7 @@ impl MetalBackend {
         });
     }
 
-    fn handle_gesture_swipe_begin(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_gesture_swipe_begin(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, gesture_event);
         dev.event(InputEvent::SwipeBegin {
             time_usec: event.time_usec(),
@@ -282,7 +277,7 @@ impl MetalBackend {
         });
     }
 
-    fn handle_gesture_swipe_update(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_gesture_swipe_update(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, gesture_event);
         dev.event(InputEvent::SwipeUpdate {
             time_usec: event.time_usec(),
@@ -293,7 +288,7 @@ impl MetalBackend {
         });
     }
 
-    fn handle_gesture_swipe_end(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_gesture_swipe_end(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, gesture_event);
         dev.event(InputEvent::SwipeEnd {
             time_usec: event.time_usec(),
@@ -301,7 +296,7 @@ impl MetalBackend {
         });
     }
 
-    fn handle_gesture_pinch_begin(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_gesture_pinch_begin(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, gesture_event);
         dev.event(InputEvent::PinchBegin {
             time_usec: event.time_usec(),
@@ -309,7 +304,7 @@ impl MetalBackend {
         });
     }
 
-    fn handle_gesture_pinch_update(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_gesture_pinch_update(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, gesture_event);
         dev.event(InputEvent::PinchUpdate {
             time_usec: event.time_usec(),
@@ -322,7 +317,7 @@ impl MetalBackend {
         });
     }
 
-    fn handle_gesture_pinch_end(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_gesture_pinch_end(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, gesture_event);
         dev.event(InputEvent::PinchEnd {
             time_usec: event.time_usec(),
@@ -330,7 +325,7 @@ impl MetalBackend {
         });
     }
 
-    fn handle_gesture_hold_begin(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_gesture_hold_begin(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, gesture_event);
         dev.event(InputEvent::HoldBegin {
             time_usec: event.time_usec(),
@@ -338,7 +333,7 @@ impl MetalBackend {
         });
     }
 
-    fn handle_gesture_hold_end(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_gesture_hold_end(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, gesture_event);
         dev.event(InputEvent::HoldEnd {
             time_usec: event.time_usec(),
@@ -346,7 +341,7 @@ impl MetalBackend {
         });
     }
 
-    fn handle_switch_toggle(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_switch_toggle(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, switch_event);
         let switch_event = match (event.switch(), event.switch_state()) {
             (LIBINPUT_SWITCH_LID, LIBINPUT_SWITCH_STATE_OFF) => SwitchEvent::LidOpened,
@@ -365,7 +360,7 @@ impl MetalBackend {
         });
     }
 
-    fn get_tool_id(&self, event: &LibInputEventTabletTool) -> TabletToolId {
+    fn get_tool_id(&self, event: &LibInputEventTabletTool<'_>) -> TabletToolId {
         let tool = event.tool();
         let mut user_data = tool.user_data();
         if user_data == 0 {
@@ -377,7 +372,7 @@ impl MetalBackend {
 
     fn build_tablet_tool_changed(
         &self,
-        event: &LibInputEventTabletTool,
+        event: &LibInputEventTabletTool<'_>,
         down: Option<bool>,
     ) -> InputEvent {
         let mut changes = Box::<TabletToolChanges>::default();
@@ -392,7 +387,7 @@ impl MetalBackend {
                     x: event.y_transformed(1),
                     dx: event.dy(),
                 },
-            })
+            });
         }
         if event.pressure_has_changed() {
             changes.pressure = Some(event.pressure());
@@ -425,7 +420,7 @@ impl MetalBackend {
         }
     }
 
-    fn handle_tablet_tool_proximity(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_tablet_tool_proximity(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, tablet_tool_event);
         let id = self.get_tool_id(&event);
         if event.proximity_state() == LIBINPUT_TABLET_TOOL_PROXIMITY_STATE_IN {
@@ -478,7 +473,7 @@ impl MetalBackend {
         }
     }
 
-    fn handle_tablet_tool_tip(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_tablet_tool_tip(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, tablet_tool_event);
         let down = match event.tip_state() {
             LIBINPUT_TABLET_TOOL_TIP_UP => false,
@@ -488,12 +483,12 @@ impl MetalBackend {
         dev.event(self.build_tablet_tool_changed(&event, Some(down)));
     }
 
-    fn handle_tablet_tool_axis(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_tablet_tool_axis(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, tablet_tool_event);
         dev.event(self.build_tablet_tool_changed(&event, None));
     }
 
-    fn handle_tablet_tool_button(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_tablet_tool_button(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, tablet_tool_event);
         dev.event(InputEvent::TabletToolButton {
             time_usec: event.time_usec(),
@@ -507,11 +502,10 @@ impl MetalBackend {
         });
     }
 
-    fn handle_tablet_pad_button(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_tablet_pad_button(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, tablet_pad_event);
-        let id = match dev.tablet_pad_id.get() {
-            None => return,
-            Some(id) => id,
+        let Some(id) = dev.tablet_pad_id.get() else {
+            return;
         };
         let state = match event.button_state() {
             LIBINPUT_BUTTON_STATE_RELEASED => PadButtonState::Released,
@@ -532,7 +526,7 @@ impl MetalBackend {
         });
     }
 
-    fn handle_tablet_pad_ring(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_tablet_pad_ring(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, tablet_pad_event);
         dev.event(InputEvent::TabletPadRing {
             time_usec: event.time_usec(),
@@ -552,7 +546,7 @@ impl MetalBackend {
         });
     }
 
-    fn handle_tablet_pad_strip(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_tablet_pad_strip(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, tablet_pad_event);
         dev.event(InputEvent::TabletPadStrip {
             time_usec: event.time_usec(),
@@ -572,7 +566,7 @@ impl MetalBackend {
         });
     }
 
-    fn handle_tablet_pad_dial(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_tablet_pad_dial(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, tablet_pad_event);
         let Some(dial) = event.dial_number() else {
             return;
@@ -591,46 +585,46 @@ impl MetalBackend {
         });
     }
 
-    fn handle_touch_down(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_touch_down(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, touch_event);
         dev.event(InputEvent::TouchDown {
             time_usec: event.time_usec(),
             id: event.seat_slot(),
             x_normed: Fixed::from_f64(event.x_transformed(1)),
             y_normed: Fixed::from_f64(event.y_transformed(1)),
-        })
+        });
     }
 
-    fn handle_touch_up(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_touch_up(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, touch_event);
         dev.event(InputEvent::TouchUp {
             time_usec: event.time_usec(),
             id: event.seat_slot(),
-        })
+        });
     }
 
-    fn handle_touch_motion(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_touch_motion(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, touch_event);
         dev.event(InputEvent::TouchMotion {
             time_usec: event.time_usec(),
             id: event.seat_slot(),
             x_normed: Fixed::from_f64(event.x_transformed(1)),
             y_normed: Fixed::from_f64(event.y_transformed(1)),
-        })
+        });
     }
 
-    fn handle_touch_cancel(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_touch_cancel(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, touch_event);
         dev.event(InputEvent::TouchCancel {
             time_usec: event.time_usec(),
             id: event.seat_slot(),
-        })
+        });
     }
 
-    fn handle_touch_frame(self: &Rc<Self>, event: LibInputEvent) {
+    fn handle_touch_frame(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, touch_event);
         dev.event(InputEvent::TouchFrame {
             time_usec: event.time_usec(),
-        })
+        });
     }
 }

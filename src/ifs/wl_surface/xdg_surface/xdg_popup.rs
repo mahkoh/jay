@@ -147,21 +147,21 @@ impl XdgPopup {
             y,
             width,
             height,
-        })
+        });
     }
 
     fn send_repositioned(&self, token: u32) {
         self.xdg.surface.client.event(Repositioned {
             self_id: self.id,
             token,
-        })
+        });
     }
 
     fn send_popup_done(&self) {
         self.xdg
             .surface
             .client
-            .event(PopupDone { self_id: self.id })
+            .event(PopupDone { self_id: self.id });
     }
 
     fn update_position(&self, parent: &dyn XdgPopupParent) {
@@ -443,8 +443,8 @@ impl NodeBase for XdgPopup {
         self.xdg.find_tree_at(x, y, tree)
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, bounds: Option<&Rect>) {
-        renderer.render_xdg_surface(&self.xdg, x, y, bounds)
+    fn node_render(&self, renderer: &mut Renderer<'_>, x: i32, y: i32, bounds: Option<&Rect>) {
+        renderer.render_xdg_surface(&self.xdg, x, y, bounds);
     }
 
     fn node_client(&self) -> Option<Rc<Client>> {
@@ -477,7 +477,7 @@ impl NodeBase for XdgPopup {
         _x: Fixed,
         _y: Fixed,
     ) {
-        tool.cursor().set_known(KnownCursor::Default)
+        tool.cursor().set_known(KnownCursor::Default);
     }
 
     fn node_into_popup(self: Rc<Self>) -> Option<Rc<XdgPopup>> {

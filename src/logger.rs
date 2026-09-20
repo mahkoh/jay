@@ -101,7 +101,7 @@ impl Logger {
 
     pub fn clean_logs_older_than(&self, time: SystemTime) {
         let time_formatted = humantime::format_rfc3339_millis(time);
-        log::info!("Cleaning unused log files older than {}", time_formatted);
+        log::info!("Cleaning unused log files older than {time_formatted}");
         let path = self.path();
         thread::spawn(move || {
             if let Err(e) = clean_logs_older_than(path.as_bstr(), time) {
@@ -210,10 +210,10 @@ fn set_panic_hook() {
             log::error!("Panic at unknown location");
         }
         if let Some(msg) = p.payload().downcast_ref::<&str>() {
-            log::error!("Message: {}", msg);
+            log::error!("Message: {msg}");
         }
         if let Some(msg) = p.payload().downcast_ref::<String>() {
-            log::error!("Message: {}", msg);
+            log::error!("Message: {msg}");
         }
         log::error!("Backtrace:\n{:?}", Backtrace::new());
     }));
@@ -224,11 +224,11 @@ struct LogWrapper {
 }
 
 impl Log for LogWrapper {
-    fn enabled(&self, metadata: &Metadata) -> bool {
+    fn enabled(&self, metadata: &Metadata<'_>) -> bool {
         metadata.level() as u32 <= self.logger.filter.load(Relaxed)
     }
 
-    fn log(&self, record: &Record) {
+    fn log(&self, record: &Record<'_>) {
         if record.level() <= Level::Warn {
             self.logger.num_warnings.fetch_add(1, Relaxed);
         }
@@ -298,7 +298,7 @@ fn clean_logs_older_than(current_log_path: &BStr, time: SystemTime) -> Result<()
     }
     fn process_entry(
         parent: c::c_int,
-        entry: &Dirent,
+        entry: &Dirent<'_>,
         time: c::time_t,
     ) -> Result<(), CleanLogsError> {
         if entry.d_type != c::DT_REG {

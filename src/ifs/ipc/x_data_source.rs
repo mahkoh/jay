@@ -59,6 +59,6 @@ impl DynDataSource for XDataSource {
     }
 
     fn cancel_unprivileged_offers(&self) {
-        cancel_offers(self, false)
+        cancel_offers(self, false);
     }
 }

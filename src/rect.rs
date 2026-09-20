@@ -46,7 +46,7 @@ impl<T> StrFmt for Rect<T>
 where
     T: Tag,
 {
-    fn str_fmt(&self, dst: &mut String, _ctx: &StrCtx) {
+    fn str_fmt(&self, dst: &mut String, _ctx: &StrCtx<'_>) {
         let mut buf = itoa::Buffer::new();
         dst.push_str("[");
         dst.push_str(buf.format(self.raw.x1));
@@ -278,7 +278,7 @@ where
         U: Tag,
     {
         self.raw.x1 <= rect.raw.x1
-            && self.raw.y1 <= rect.raw.x1
+            && self.raw.y1 <= rect.raw.y1
             && rect.raw.x2 <= self.raw.x2
             && rect.raw.y2 <= self.raw.y2
     }

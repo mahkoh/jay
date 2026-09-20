@@ -41,7 +41,7 @@ async fn handle_signals(fd: Rc<OwnedFd>, ring: Rc<IoUring>) {
             return;
         }
         let sig = buf.t().ssi_signo as i32;
-        log::info!("Received signal {}", sig);
+        log::info!("Received signal {sig}");
         if matches!(sig, c::SIGINT | c::SIGTERM) {
             log::info!("Exiting");
             ring.stop();

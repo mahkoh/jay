@@ -76,7 +76,7 @@ impl<K: Eq, V, const N: usize> SmallMap<K, V, N> {
         unsafe { self.m.get().deref_mut().pop() }
     }
 
-    pub fn iter<'a>(&'a self) -> SmallMapIter<'a, K, V, N> {
+    pub fn iter(&self) -> SmallMapIter<'_, K, V, N> {
         SmallMapIter { pos: 0, map: self }
     }
 }
@@ -109,7 +109,7 @@ pub struct SmallMapIter<'a, K, V, const N: usize> {
     map: &'a SmallMap<K, V, N>,
 }
 
-impl<'a, K: Copy, V: JayClone, const N: usize> Iterator for SmallMapIter<'a, K, V, N> {
+impl<K: Copy, V: JayClone, const N: usize> Iterator for SmallMapIter<'_, K, V, N> {
     type Item = (K, V);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -239,11 +239,11 @@ impl<K: Eq, V, const N: usize> SmallMapMut<K, V, N> {
     }
 
     #[expect(unused)]
-    pub(crate) fn iter<'a>(&'a self) -> SmallMapMutIter<'a, K, V, N> {
+    pub(crate) fn iter(&self) -> SmallMapMutIter<'_, K, V, N> {
         SmallMapMutIter { pos: 0, map: self }
     }
 
-    pub fn iter_mut<'a>(&'a mut self) -> SmallMapMutIterMut<'a, K, V, N> {
+    pub fn iter_mut(&mut self) -> SmallMapMutIterMut<'_, K, V, N> {
         SmallMapMutIterMut { pos: 0, map: self }
     }
 

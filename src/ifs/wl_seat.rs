@@ -618,9 +618,8 @@ impl WlSeatGlobal {
     }
 
     pub fn set_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) {
-        let tl = match self.keyboard_node.get().node_toplevel() {
-            Some(tl) => tl,
-            _ => return,
+        let Some(tl) = self.keyboard_node.get().node_toplevel() else {
+            return;
         };
         toplevel_set_workspace(&self.state, tl, ws);
         self.maybe_schedule_warp_mouse_to_focus();
@@ -629,9 +628,9 @@ impl WlSeatGlobal {
     pub fn mark_last_active(self: &Rc<Self>) {
         let link = &mut *self.queue_link.borrow_mut();
         if let Some(link) = link {
-            self.state.seat_queue.add_last_existing(link)
+            self.state.seat_queue.add_last_existing(link);
         } else {
-            *link = Some(self.state.seat_queue.add_last(self.clone()))
+            *link = Some(self.state.seat_queue.add_last(self.clone()));
         }
     }
 
@@ -814,9 +813,8 @@ impl WlSeatGlobal {
     }
 
     pub fn create_split(&self, axis: ContainerSplit) {
-        let tl = match self.keyboard_node.get().node_toplevel() {
-            Some(tl) => tl,
-            _ => return,
+        let Some(tl) = self.keyboard_node.get().node_toplevel() else {
+            return;
         };
         toplevel_create_split(&self.state, tl, axis);
     }
@@ -851,9 +849,8 @@ impl WlSeatGlobal {
     }
 
     pub fn set_floating(self: &Rc<Self>, floating: bool) {
-        let tl = match self.keyboard_node.get().node_toplevel() {
-            Some(tl) => tl,
-            _ => return,
+        let Some(tl) = self.keyboard_node.get().node_toplevel() else {
+            return;
         };
         toplevel_set_floating(&self.state, tl, floating);
     }
@@ -890,19 +887,16 @@ impl WlSeatGlobal {
     }
 
     pub fn move_focus(self: &Rc<Self>, direction: Direction) {
-        let tl = match self.keyboard_node.get().node_toplevel() {
-            Some(tl) => tl,
-            _ => {
-                if let Some(ws) = self.keyboard_node.get().node_into_workspace()
-                    && let Some(target) = self
-                        .state
-                        .find_output_in_direction(&ws.node_state[LiveTL].output.get(), direction)
-                {
-                    target.take_keyboard_navigation_focus(self, direction);
-                    self.maybe_schedule_warp_mouse_to_focus();
-                }
-                return;
+        let Some(tl) = self.keyboard_node.get().node_toplevel() else {
+            if let Some(ws) = self.keyboard_node.get().node_into_workspace()
+                && let Some(target) = self
+                    .state
+                    .find_output_in_direction(&ws.node_state[LiveTL].output.get(), direction)
+            {
+                target.take_keyboard_navigation_focus(self, direction);
+                self.maybe_schedule_warp_mouse_to_focus();
             }
+            return;
         };
         if direction == Direction::Down && tl.node_is_container() {
             tl.node_do_focus_dyn(self, direction);
@@ -1716,7 +1710,7 @@ impl WlSeatGlobal {
                     item.destroy_popups();
                 }
                 retain
-            })
+            });
         }
         node.node_on_button(self, time_usec, button, state, serial);
     }
@@ -1828,14 +1822,14 @@ impl WlSeat {
         self.client.event(Capabilities {
             self_id: self.id,
             capabilities: self.global.capabilities.get(),
-        })
+        });
     }
 
     fn send_name(self: &Rc<Self>, name: &str) {
         self.client.event(Name {
             self_id: self.id,
             name,
-        })
+        });
     }
 
     fn keymap_fd(&self, state: &KeyboardState) -> Result<KeymapFd, WlKeyboardError> {
@@ -2011,7 +2005,7 @@ impl DeviceHandlerData {
         self.mods_listener.detach();
         if let Some(seat) = self.seat.get() {
             seat.destroy_physical_keyboard(self.keyboard_id);
-        };
+        }
     }
 
     fn attach_event_listeners(&self) {
@@ -2023,7 +2017,7 @@ impl DeviceHandlerData {
                 &self.mods_listener,
                 self.keymap.get().as_ref(),
             );
-        };
+        }
     }
 
     pub fn set_keymap(&self, state: &State, keymap: Option<Rc<KbvmMap>>) {
@@ -2145,7 +2139,7 @@ impl LedsListener for DeviceHandlerData {
 
 impl LedsListener for WlSeatGlobal {
     fn leds(&self, leds: Leds) {
-        self.dispatch_seat_leds_listeners(leds)
+        self.dispatch_seat_leds_listeners(leds);
     }
 }
 

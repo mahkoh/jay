@@ -34,7 +34,7 @@ impl PwClient {
         let _id = p2.read_int()?;
         let _change_mask = p2.read_long()?;
         let props = p2.read_dict_struct()?;
-        log::debug!("Pipewire properties: {:#?}", props);
+        log::debug!("Pipewire properties: {props:#?}");
         Ok(())
     }
 

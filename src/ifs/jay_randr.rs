@@ -67,7 +67,7 @@ impl JayRandr {
         self.client.event(Global {
             self_id: self.id,
             default_gfx_api: self.client.state.default_gfx_api.get().to_str(),
-        })
+        });
     }
 
     fn send_drm_device(&self, data: &DrmDevData) {
@@ -81,13 +81,13 @@ impl JayRandr {
             model_name: data.model.as_deref().unwrap_or_default(),
             devnode: data.devnode.as_deref().unwrap_or_default(),
             gfx_api: data.dev.gfx_api().to_str(),
-            render_device: data.dev.is_render_device() as _,
+            render_device: data.dev.is_render_device(),
         });
         if self.version >= USE_PLANE_COLOR_PIPELINES_SINCE {
             self.client.event(PlaneColorPipelines {
                 self_id: self.id,
-                enabled: data.dev.use_plane_color_pipelines() as _,
-                supported: data.dev.supports_plane_color_pipelines() as _,
+                enabled: data.dev.use_plane_color_pipelines(),
+                supported: data.dev.supports_plane_color_pipelines(),
             });
         }
     }
@@ -102,25 +102,22 @@ impl JayRandr {
                 .as_ref()
                 .map(|d| d.dev.id().raw() as _)
                 .unwrap_or_default(),
-            enabled: state_enabled as _,
+            enabled: state_enabled,
             name: &data.name,
         });
         let Some(output) = self.client.state.outputs.get(&data.connector.id()) else {
             return;
         };
-        let node = match &output.node {
-            Some(n) => n,
-            None => {
-                self.client.event(NonDesktopOutput {
-                    self_id: self.id,
-                    manufacturer: &output.monitor_info.output_id.manufacturer,
-                    product: &output.monitor_info.output_id.model,
-                    serial_number: &output.monitor_info.output_id.serial_number,
-                    width_mm: output.monitor_info.width_mm,
-                    height_mm: output.monitor_info.height_mm,
-                });
-                return;
-            }
+        let Some(node) = &output.node else {
+            self.client.event(NonDesktopOutput {
+                self_id: self.id,
+                manufacturer: &output.monitor_info.output_id.manufacturer,
+                product: &output.monitor_info.output_id.model,
+                serial_number: &output.monitor_info.output_id.serial_number,
+                width_mm: output.monitor_info.width_mm,
+                height_mm: output.monitor_info.height_mm,
+            });
+            return;
         };
         let global = &node.global;
         let ons = &node.node_state[LiveTL];
@@ -142,8 +139,8 @@ impl JayRandr {
         if self.version >= VRR_CAPABLE_SINCE {
             self.client.event(VrrState {
                 self_id: self.id,
-                capable: output.monitor_info.vrr_capable as _,
-                enabled: node.schedule.vrr_enabled() as _,
+                capable: output.monitor_info.vrr_capable,
+                enabled: node.schedule.vrr_enabled(),
                 mode: node.global.persistent.vrr_mode.get().to_config().0,
             });
             if let Some(hz) = node.global.persistent.vrr_cursor_hz.get() {
@@ -195,7 +192,7 @@ impl JayRandr {
                 width: mode.width,
                 height: mode.height,
                 refresh_rate_millihz: mode.refresh_rate_millihz,
-                current: (mode == &current_mode) as _,
+                current: mode == &current_mode,
             });
         }
         if self.version >= COLORIMETRY_SINCE {
@@ -290,9 +287,9 @@ impl JayRandr {
             return Some(candidates[0].clone());
         }
         if candidates.len() == 0 {
-            self.send_error(&format!("Found no device matching `{}`", name));
+            self.send_error(&format!("Found no device matching `{name}`"));
         } else {
-            self.send_error(&format!("The device suffix `{}` is ambiguous", name));
+            self.send_error(&format!("The device suffix `{name}` is ambiguous"));
         }
         None
     }
@@ -309,7 +306,7 @@ impl JayRandr {
                 return Some(c.clone());
             }
         }
-        self.send_error(&format!("Found no connector matching `{}`", name));
+        self.send_error(&format!("Found no connector matching `{name}`"));
         None
     }
 
@@ -364,7 +361,7 @@ impl JayRandrRequestHandler for JayRandr {
         Ok(())
     }
 
-    fn set_api(&self, req: SetApi, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_api(&self, req: SetApi<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let Some(dev) = self.get_device(req.dev) else {
             return Ok(());
         };
@@ -378,7 +375,7 @@ impl JayRandrRequestHandler for JayRandr {
 
     fn make_render_device(
         &self,
-        req: MakeRenderDevice,
+        req: MakeRenderDevice<'_>,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
         let Some(dev) = self.get_device(req.dev) else {
@@ -390,7 +387,7 @@ impl JayRandrRequestHandler for JayRandr {
 
     fn set_direct_scanout(
         &self,
-        req: SetDirectScanout,
+        req: SetDirectScanout<'_>,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
         let Some(dev) = self.get_device(req.dev) else {
@@ -400,7 +397,7 @@ impl JayRandrRequestHandler for JayRandr {
         Ok(())
     }
 
-    fn set_transform(&self, req: SetTransform, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_transform(&self, req: SetTransform<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
@@ -412,7 +409,7 @@ impl JayRandrRequestHandler for JayRandr {
         Ok(())
     }
 
-    fn set_scale(&self, req: SetScale, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_scale(&self, req: SetScale<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
@@ -420,7 +417,7 @@ impl JayRandrRequestHandler for JayRandr {
         Ok(())
     }
 
-    fn set_mode(&self, req: SetMode, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_mode(&self, req: SetMode<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let Some(c) = self.get_connector(req.output) else {
             return Ok(());
         };
@@ -437,7 +434,7 @@ impl JayRandrRequestHandler for JayRandr {
         Ok(())
     }
 
-    fn set_position(&self, req: SetPosition, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_position(&self, req: SetPosition<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
@@ -453,7 +450,7 @@ impl JayRandrRequestHandler for JayRandr {
         Ok(())
     }
 
-    fn set_enabled(&self, req: SetEnabled, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_enabled(&self, req: SetEnabled<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let Some(c) = self.get_connector(req.output) else {
             return Ok(());
         };
@@ -478,7 +475,7 @@ impl JayRandrRequestHandler for JayRandr {
             s.non_desktop_override = non_desktop;
         });
         if let Err(e) = res {
-            self.send_error(&format!("Could not change non-desktop override: {}", e));
+            self.send_error(&format!("Could not change non-desktop override: {e}"));
         }
         Ok(())
     }
@@ -530,7 +527,7 @@ impl JayRandrRequestHandler for JayRandr {
         };
         let res = c.modify_state(&self.state, |s| s.format = format);
         if let Err(e) = res {
-            self.send_error(&format!("Could not modify connector format: {}", e));
+            self.send_error(&format!("Could not modify connector format: {e}"));
         }
         Ok(())
     }

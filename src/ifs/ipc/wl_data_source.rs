@@ -119,12 +119,9 @@ impl WlDataSource {
 
     fn update_selected_action(&self) {
         let shared = self.data.shared.get();
-        let server_actions = match self.data.actions.get() {
-            Some(n) => n,
-            _ => {
-                log::error!("Server actions not set");
-                return;
-            }
+        let Some(server_actions) = self.data.actions.get() else {
+            log::error!("Server actions not set");
+            return;
         };
         let actions = server_actions & shared.receiver_actions.get();
         let action = if actions.contains(shared.receiver_preferred_action.get()) {
@@ -173,7 +170,7 @@ impl WlDataSource {
         if let Some(drag) = self.toplevel_drag.take() {
             drag.finish_drag(seat);
         }
-        self.data.client.event(Cancelled { self_id: self.id })
+        self.data.client.event(Cancelled { self_id: self.id });
     }
 
     fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>) {
@@ -181,38 +178,38 @@ impl WlDataSource {
             self_id: self.id,
             mime_type,
             fd,
-        })
+        });
     }
 
     fn send_target(&self, mime_type: Option<&str>) {
         self.data.client.event(Target {
             self_id: self.id,
             mime_type,
-        })
+        });
     }
 
     fn send_dnd_finished(&self) {
-        self.data.client.event(DndFinished { self_id: self.id })
+        self.data.client.event(DndFinished { self_id: self.id });
     }
 
     fn send_action(&self, dnd_action: u32) {
         self.data.client.event(Action {
             self_id: self.id,
             dnd_action,
-        })
+        });
     }
 
     fn send_dnd_drop_performed(&self) {
         self.data
             .client
-            .event(DndDropPerformed { self_id: self.id })
+            .event(DndDropPerformed { self_id: self.id });
     }
 }
 
 impl WlDataSourceRequestHandler for WlDataSource {
     type Error = WlDataSourceError;
 
-    fn offer(&self, req: Offer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn offer(&self, req: Offer<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         add_data_source_mime_type::<ClipboardIpc>(self, req.mime_type);
         Ok(())
     }

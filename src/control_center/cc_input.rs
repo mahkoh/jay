@@ -167,7 +167,7 @@ impl InputPane {
                             let v = get(&mut v);
                             DragValue::new(v).range(0..=i32::MAX).ui(ui);
                             if ui.button("-20").clicked() {
-                                *v = v.saturating_sub(20).max(0)
+                                *v = v.saturating_sub(20).max(0);
                             }
                             if ui.button("+20").clicked() {
                                 *v = v.saturating_add(20);
@@ -390,7 +390,7 @@ impl InputPane {
                     }
                     if let Some(old) = dev.device.natural_scrolling_enabled() {
                         bool(ui, "Natural Scrolling", old, |v| {
-                            dev.set_natural_scrolling_enabled(&self.state, v)
+                            dev.set_natural_scrolling_enabled(&self.state, v);
                         });
                     }
                     if dev.device.has_capability(InputDeviceCapability::Pointer) {
@@ -426,42 +426,42 @@ impl InputPane {
                     }
                     if let Some(old) = dev.device.accel_profile() {
                         combo_box(ui, "Accel Profile", old, |v| {
-                            dev.set_accel_profile(&self.state, v)
+                            dev.set_accel_profile(&self.state, v);
                         });
                     }
                     if let Some(old) = dev.device.accel_speed() {
                         drag_value(ui, "Accel Speed", old, -1.0..=1.0, 0.01, |v| {
-                            dev.set_accel_speed(&self.state, v)
+                            dev.set_accel_speed(&self.state, v);
                         });
                     }
                     if let Some(old) = dev.device.click_method() {
                         combo_box(ui, "Click Method", old, |v| {
-                            dev.set_click_method(&self.state, v)
+                            dev.set_click_method(&self.state, v);
                         });
                     }
                     if let Some(old) = dev.device.tap_enabled() {
                         bool(ui, "Tap Enabled", old, |v| {
-                            dev.set_tap_enabled(&self.state, v)
+                            dev.set_tap_enabled(&self.state, v);
                         });
                     }
                     if let Some(old) = dev.device.drag_enabled() {
                         bool(ui, "Tap Drag Enabled", old, |v| {
-                            dev.set_drag_enabled(&self.state, v)
+                            dev.set_drag_enabled(&self.state, v);
                         });
                     }
                     if let Some(old) = dev.device.drag_lock_enabled() {
                         bool(ui, "Tap Drag Lock Enabled", old, |v| {
-                            dev.set_drag_lock_enabled(&self.state, v)
+                            dev.set_drag_lock_enabled(&self.state, v);
                         });
                     }
                     if let Some(old) = dev.device.left_handed() {
                         bool(ui, "Left Handed", old, |v| {
-                            dev.set_left_handed(&self.state, v)
+                            dev.set_left_handed(&self.state, v);
                         });
                     }
                     if let Some(old) = dev.device.middle_button_emulation_enabled() {
                         bool(ui, "Middle Button Emulation", old, |v| {
-                            dev.set_middle_button_emulation_enabled(&self.state, v)
+                            dev.set_middle_button_emulation_enabled(&self.state, v);
                         });
                     }
                     if let Some(old) = dev.device.scroll_method() {
@@ -491,7 +491,7 @@ impl InputPane {
                         });
                         if let Some(old) = dev.device.scroll_button_lock() {
                             bool(ui, "Scroll Button Lock", old, |v| {
-                                dev.set_scroll_button_lock(&self.state, v)
+                                dev.set_scroll_button_lock(&self.state, v);
                             });
                         }
                     }

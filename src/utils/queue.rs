@@ -4,7 +4,6 @@ use derivative::Derivative;
 use std::cell::Cell;
 use std::cell::UnsafeCell;
 use std::collections::VecDeque;
-use std::future::Future;
 use std::mem;
 use std::pin::Pin;
 use std::task::Context;
@@ -41,11 +40,11 @@ impl<T> AsyncQueue<T> {
         unsafe { self.data.get().deref_mut().pop_front() }
     }
 
-    pub fn pop<'a>(&'a self) -> AsyncQueuePop<'a, T> {
+    pub fn pop(&self) -> AsyncQueuePop<'_, T> {
         AsyncQueuePop { queue: self }
     }
 
-    pub fn non_empty<'a>(&'a self) -> AsyncQueueNonEmpty<'a, T> {
+    pub fn non_empty(&self) -> AsyncQueueNonEmpty<'_, T> {
         AsyncQueueNonEmpty { queue: self }
     }
 
@@ -81,7 +80,7 @@ pub struct AsyncQueuePop<'a, T> {
     queue: &'a AsyncQueue<T>,
 }
 
-impl<'a, T> Future for AsyncQueuePop<'a, T> {
+impl<T> Future for AsyncQueuePop<'_, T> {
     type Output = T;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -98,7 +97,7 @@ pub struct AsyncQueueNonEmpty<'a, T> {
     queue: &'a AsyncQueue<T>,
 }
 
-impl<'a, T> Future for AsyncQueueNonEmpty<'a, T> {
+impl<T> Future for AsyncQueueNonEmpty<'_, T> {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {

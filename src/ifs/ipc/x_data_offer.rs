@@ -45,7 +45,7 @@ impl DynDataOffer for XDataOffer {
             seat: self.device.seat.id(),
             offer: self.offer_id,
             mime_type: mime_type.to_string(),
-        })
+        });
     }
 
     fn cancel(&self) {

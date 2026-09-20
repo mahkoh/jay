@@ -63,11 +63,11 @@ impl ZwpLinuxBufferParamsV1 {
         self.parent.client.event(Created {
             self_id: self.id,
             buffer: buffer_id,
-        })
+        });
     }
 
     fn send_failed(&self) {
-        self.parent.client.event(Failed { self_id: self.id })
+        self.parent.client.event(Failed { self_id: self.id });
     }
 
     fn do_create(
@@ -83,9 +83,8 @@ impl ZwpLinuxBufferParamsV1 {
             Some(f) => *f,
             None => return Err(ZwpLinuxBufferParamsV1Error::InvalidFormat(format)),
         };
-        let modifier = match self.modifier.get() {
-            Some(m) => m,
-            _ => return Err(ZwpLinuxBufferParamsV1Error::NoPlanes),
+        let Some(modifier) = self.modifier.get() else {
+            return Err(ZwpLinuxBufferParamsV1Error::NoPlanes);
         };
         let mut planes: Vec<_> = self.planes.borrow_mut().drain_values().collect();
         planes.sort_by_key(|a| a.plane_idx);

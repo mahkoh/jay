@@ -99,6 +99,7 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
     write_message_type(f, obj, message, has_reference_type)?;
     let lifetime = if has_reference_type { "<'a>" } else { "" };
     let lifetime_b = if has_reference_type { "<'b>" } else { "" };
+    let lifetime_anon = if has_reference_type { "<'_>" } else { "" };
     wl!(
         "impl<'a> RequestParser<'a> for {}{} {{",
         message.camel_name,
@@ -134,10 +135,9 @@ fn write_message<W: Write>(f: &mut W, obj: &str, message: &Message) -> Result<()
     }
     wl!("}}");
     wl!(
-        "impl{} EventFormatter for {}{} {{",
-        lifetime,
+        "impl EventFormatter for {}{} {{",
         message.camel_name,
-        lifetime
+        lifetime_anon
     );
     {
         push_xn!(xn);

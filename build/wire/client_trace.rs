@@ -132,7 +132,7 @@ fn write_client_trace_file(
         }
         wl!("}}");
         wl!();
-        wl!("pub unsafe fn read_{safe_name}<'a, 'b>(");
+        wl!("pub unsafe fn read_{safe_name}(");
         {
             push_xn!(xn);
             if message.val.is_fixed_size {
@@ -140,7 +140,7 @@ fn write_client_trace_file(
             } else {
                 wl!("{xn}mut data: *mut u32,");
             }
-            wl!("{xn}vals: &'b mut [MaybeUninit<ClientTraceArg<'a>>; MAX_ARGS],");
+            wl!("{xn}vals: &mut [MaybeUninit<ClientTraceArg<'_>>; MAX_ARGS],");
         }
         wl!(") {{");
         {
@@ -379,7 +379,7 @@ pub fn write_client_trace_files(files: &[ParsedFile]) -> anyhow::Result<()> {
     wl!("impl StrFmt for ClientTraceArray<'_> {{");
     {
         push_xn!(xn);
-        wl!("{xn}fn str_fmt(&self, dst: &mut String, ctx: &StrCtx) {{",);
+        wl!("{xn}fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {{",);
         {
             push_xn!(xn);
             wl!("{xn}match *self {{");
@@ -412,7 +412,7 @@ pub fn write_client_trace_files(files: &[ParsedFile]) -> anyhow::Result<()> {
     wl!("impl StrFmt for ClientTracePod {{");
     {
         push_xn!(xn);
-        wl!("{xn}fn str_fmt(&self, dst: &mut String, ctx: &StrCtx) {{",);
+        wl!("{xn}fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {{",);
         {
             push_xn!(xn);
             wl!("{xn}match self {{");

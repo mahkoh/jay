@@ -62,11 +62,6 @@ impl Global for ExtTransientSeatManagerV1Global {
 impl ExtTransientSeatManagerV1RequestHandler for ExtTransientSeatManagerV1 {
     type Error = Infallible;
 
-    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.client.remove_obj(self);
-        Ok(())
-    }
-
     fn create(&self, req: Create, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let obj = Rc::new(ExtTransientSeatV1 {
             id: req.seat,
@@ -77,6 +72,11 @@ impl ExtTransientSeatManagerV1RequestHandler for ExtTransientSeatManagerV1 {
         track!(self.client, obj);
         self.client.add_client_obj(&obj);
         obj.send_denied();
+        Ok(())
+    }
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.client.remove_obj(self);
         Ok(())
     }
 }

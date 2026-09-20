@@ -65,7 +65,7 @@ impl WlDisplay {
             object_id: object_id.into(),
             code,
             message,
-        })
+        });
     }
 
     pub fn send_invalid_request(self: &Rc<Self>, obj: &dyn Object, request: u32) {
@@ -76,22 +76,22 @@ impl WlDisplay {
             obj.interface().name(),
             request
         );
-        self.send_error(id, INVALID_METHOD, &msg)
+        self.send_error(id, INVALID_METHOD, &msg);
     }
 
     pub fn send_invalid_object(self: &Rc<Self>, id: ObjectId) {
-        let msg = format!("Object {} does not exist", id,);
-        self.send_error(id, INVALID_OBJECT, &msg)
+        let msg = format!("Object {id} does not exist",);
+        self.send_error(id, INVALID_OBJECT, &msg);
     }
 
     pub fn send_implementation_error(self: &Rc<Self>, msg: String) {
-        self.send_error(WL_DISPLAY_ID, IMPLEMENTATION, &msg)
+        self.send_error(WL_DISPLAY_ID, IMPLEMENTATION, &msg);
     }
 
     pub fn send_delete_id(self: &Rc<Self>, id: ObjectId) {
         self.client.event(DeleteId {
             self_id: self.id,
             id,
-        })
+        });
     }
 }

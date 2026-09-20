@@ -42,11 +42,11 @@ where
     type Op = V;
 
     fn cached_set(&self, v: Self) {
-        self.set(v.into_inner())
+        self.set(v.into_inner());
     }
 
     fn cached_apply(&self, v: Self::Op) {
-        self.set(v)
+        self.set(v);
     }
 
     fn cached_update(&self, v: Self, mut handle_change: impl FnMut(Self::Op)) -> Self::Changed {

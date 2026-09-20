@@ -38,14 +38,14 @@ impl ZwlrDataControlOfferV1 {
         self.data.client.event(Offer {
             self_id: self.id,
             mime_type,
-        })
+        });
     }
 }
 
 impl ZwlrDataControlOfferV1RequestHandler for ZwlrDataControlOfferV1 {
     type Error = ZwlrDataControlOfferV1Error;
 
-    fn receive(&self, req: Receive, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn receive(&self, req: Receive<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         logic::data_offer_receive(self, req.mime_type, req.fd);
         Ok(())
     }

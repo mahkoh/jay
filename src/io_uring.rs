@@ -490,14 +490,10 @@ impl IoUringData {
             let head = self.sqhead.deref().load(Acquire);
             let available = self.sqlen - tail.wrapping_sub(head);
             while encoded < available {
-                let id = match self.to_encode.pop() {
-                    Some(t) => t,
-                    _ => break,
+                let Some(id) = self.to_encode.pop() else {
+                    break;
                 };
-                let task = match tasks.get(&id) {
-                    Some(t) => t,
-                    _ => continue,
-                };
+                let Some(task) = tasks.get(&id) else { continue };
                 let has_timeout = task.has_timeout;
                 if has_timeout && (available - encoded) < 2 {
                     self.to_encode.push_front(id);
@@ -634,7 +630,7 @@ struct Cancellable<'a> {
     data: &'a IoUringData,
 }
 
-impl<'a> Drop for Cancellable<'a> {
+impl Drop for Cancellable<'_> {
     fn drop(&mut self) {
         self.data.cancel_task(self.id);
     }

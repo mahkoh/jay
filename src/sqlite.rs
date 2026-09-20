@@ -279,7 +279,7 @@ impl Sqlite {
                 ptr::null(),
             )
             .result()
-            .map_err(SqliteError::Open)?
+            .map_err(SqliteError::Open)?;
         }
         db.exec_(include_str!("sqlite/sql/init.sql"))
             .map_err(SqliteError::InitDb)?;

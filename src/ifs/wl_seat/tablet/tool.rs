@@ -26,7 +26,7 @@ impl WlSeatGlobal {
             return;
         };
         self.state.for_each_seat_tester(|t| {
-            t.send_tablet_tool_proximity_out(self.id, tool.tablet.dev, tool.id, time_usec)
+            t.send_tablet_tool_proximity_out(self.id, tool.tablet.dev, tool.id, time_usec);
         });
         tool.opt.tool.take();
         tool.cursor.detach();
@@ -65,7 +65,7 @@ impl WlSeatGlobal {
         tool.cursor.set_known(KnownCursor::Default);
         self.tablet.tools.set(init.id, tool.clone());
         self.state.for_each_seat_tester(|t| {
-            t.send_tablet_tool_proximity_in(self.id, tool.tablet.dev, tool.id, time_usec)
+            t.send_tablet_tool_proximity_in(self.id, tool.tablet.dev, tool.id, time_usec);
         });
         self.tablet_for_each_seat_obj(|s| s.announce_tool(&tool));
     }
@@ -156,7 +156,7 @@ impl TabletTool {
                 return;
             };
             f(&tablet, &tool);
-        })
+        });
     }
 
     fn for_each_entered(&self, n: &WlSurface, mut f: impl FnMut(&ZwpTabletToolV2)) {
@@ -168,7 +168,7 @@ impl TabletTool {
                 return;
             }
             f(&tool);
-        })
+        });
     }
 
     pub fn surface_leave(&self, n: &WlSurface, time_usec: u64) {
@@ -176,7 +176,7 @@ impl TabletTool {
         self.for_each_entered(n, |t| {
             t.send_proximity_out();
             t.send_frame(time);
-        })
+        });
     }
 
     pub fn surface_enter(&self, n: &WlSurface, time_usec: u64, x: Fixed, y: Fixed) {
@@ -194,7 +194,7 @@ impl TabletTool {
             tool.send_rotation(Fixed::from_f64(self.rotation.get()));
             tool.send_slider(normalizei(self.slider.get()));
             tool.send_frame(time);
-        })
+        });
     }
 
     pub fn surface_button(

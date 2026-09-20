@@ -10,19 +10,19 @@ use std::time::SystemTime;
 mod impls;
 
 pub trait StrFmt {
-    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx);
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>);
 }
 
 #[expect(unused)]
 pub trait StrFmtExt {
-    fn to_str_fmt(&self, ctx: &StrCtx) -> String;
+    fn to_str_fmt(&self, ctx: &StrCtx<'_>) -> String;
 }
 
 impl<T> StrFmtExt for T
 where
     T: StrFmt + ?Sized,
 {
-    fn to_str_fmt(&self, ctx: &StrCtx) -> String {
+    fn to_str_fmt(&self, ctx: &StrCtx<'_>) -> String {
         let mut dst = String::new();
         self.str_fmt(&mut dst, ctx);
         dst
@@ -104,7 +104,7 @@ impl StrCtx<'_> {
 pub struct StrFmtUs(pub u64);
 
 impl StrFmt for StrFmtUs {
-    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx) {
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
         if ctx.fmt == StrFmtFmt::Jsonl {
             self.0.str_fmt(dst, ctx);
         } else {

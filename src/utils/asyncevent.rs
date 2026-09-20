@@ -2,7 +2,6 @@ use crate::utils::numcell::NumCell;
 use std::cell::Cell;
 use std::fmt::Debug;
 use std::fmt::Formatter;
-use std::future::Future;
 use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
@@ -49,7 +48,7 @@ pub struct AsyncEventTriggered<'a> {
     ae: &'a AsyncEvent,
 }
 
-impl<'a> Future for AsyncEventTriggered<'a> {
+impl Future for AsyncEventTriggered<'_> {
     type Output = u64;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {

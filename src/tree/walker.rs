@@ -87,55 +87,55 @@ pub trait NodeVisitor {
 
 impl<T: NodeVisitorBase> NodeVisitor for T {
     fn visit_surface(&mut self, node: &Rc<WlSurface>) {
-        <T as NodeVisitorBase>::visit_surface(self, node)
+        <T as NodeVisitorBase>::visit_surface(self, node);
     }
 
     fn visit_container(&mut self, node: &Rc<ContainerNode>) {
-        <T as NodeVisitorBase>::visit_container(self, node)
+        <T as NodeVisitorBase>::visit_container(self, node);
     }
 
     fn visit_toplevel(&mut self, node: &Rc<XdgToplevel>) {
-        <T as NodeVisitorBase>::visit_toplevel(self, node)
+        <T as NodeVisitorBase>::visit_toplevel(self, node);
     }
 
     fn visit_popup(&mut self, node: &Rc<XdgPopup>) {
-        <T as NodeVisitorBase>::visit_popup(self, node)
+        <T as NodeVisitorBase>::visit_popup(self, node);
     }
 
     fn visit_display(&mut self, node: &Rc<DisplayNode>) {
-        <T as NodeVisitorBase>::visit_display(self, node)
+        <T as NodeVisitorBase>::visit_display(self, node);
     }
 
     fn visit_output(&mut self, node: &Rc<OutputNode>) {
-        <T as NodeVisitorBase>::visit_output(self, node)
+        <T as NodeVisitorBase>::visit_output(self, node);
     }
 
     fn visit_float(&mut self, node: &Rc<FloatNode>) {
-        <T as NodeVisitorBase>::visit_float(self, node)
+        <T as NodeVisitorBase>::visit_float(self, node);
     }
 
     fn visit_workspace(&mut self, node: &Rc<WorkspaceNode>) {
-        <T as NodeVisitorBase>::visit_workspace(self, node)
+        <T as NodeVisitorBase>::visit_workspace(self, node);
     }
 
     fn visit_layer_surface(&mut self, node: &Rc<ZwlrLayerSurfaceV1>) {
-        <T as NodeVisitorBase>::visit_layer_surface(self, node)
+        <T as NodeVisitorBase>::visit_layer_surface(self, node);
     }
 
     fn visit_xwindow(&mut self, node: &Rc<Xwindow>) {
-        <T as NodeVisitorBase>::visit_xwindow(self, node)
+        <T as NodeVisitorBase>::visit_xwindow(self, node);
     }
 
     fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
-        <T as NodeVisitorBase>::visit_placeholder(self, node)
+        <T as NodeVisitorBase>::visit_placeholder(self, node);
     }
 
     fn visit_lock_surface(&mut self, node: &Rc<ExtSessionLockSurfaceV1>) {
-        <T as NodeVisitorBase>::visit_lock_surface(self, node)
+        <T as NodeVisitorBase>::visit_lock_surface(self, node);
     }
 
     fn visit_tray_item(&mut self, node: &Rc<JayTrayItemV1>) {
-        <T as NodeVisitorBase>::visit_tray_item(self, node)
+        <T as NodeVisitorBase>::visit_tray_item(self, node);
     }
 }
 

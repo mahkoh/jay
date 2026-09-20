@@ -144,7 +144,7 @@ pub(super) struct DescriptorHeapDevice {
 
 impl DescriptorHeapDevice {
     pub(super) unsafe fn push_data(&self, buf: CommandBuffer, data: &impl Packed) {
-        let info: PushDataInfoEXT = PushDataInfoEXT::default()
+        let info: PushDataInfoEXT<'_> = PushDataInfoEXT::default()
             .offset(0)
             .data(HostAddressRangeConstEXT::default().address(uapi::as_bytes(data)));
         unsafe {
@@ -178,7 +178,7 @@ impl VulkanDevice {
     }
 
     #[inline(always)]
-    pub(super) fn idl(&self) -> impl Fn(&vk::Result) + use<'_> {
+    pub(super) fn idl(&self) -> impl Fn(&vk::Result) {
         |res| {
             if *res == vk::Result::ERROR_DEVICE_LOST {
                 self.lost.set(true);
@@ -325,7 +325,7 @@ impl VulkanInstance {
             .collect();
         unsafe {
             self.instance
-                .get_physical_device_queue_family_properties2(phy_dev, &mut props[..])
+                .get_physical_device_queue_family_properties2(phy_dev, &mut props[..]);
         }
         let gfx_queue = props
             .iter()
@@ -739,7 +739,7 @@ fn log_device(
     level: log::Level,
     props: &PhysicalDeviceProperties,
     extensions: Option<&Extensions>,
-    driver_props: Option<&PhysicalDeviceDriverProperties>,
+    driver_props: Option<&PhysicalDeviceDriverProperties<'_>>,
 ) {
     log::log!(
         level,

@@ -5,7 +5,7 @@ pub enum RefCow<'a, T> {
     Owned(T),
 }
 
-impl<'a, T> Deref for RefCow<'a, T> {
+impl<T> Deref for RefCow<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -16,7 +16,7 @@ impl<'a, T> Deref for RefCow<'a, T> {
     }
 }
 
-impl<'a, T> PartialEq for RefCow<'a, T>
+impl<T> PartialEq for RefCow<'_, T>
 where
     T: PartialEq,
 {
@@ -25,7 +25,7 @@ where
     }
 }
 
-impl<'a, T> Default for RefCow<'a, T>
+impl<T> Default for RefCow<'_, T>
 where
     T: Default,
 {
@@ -34,7 +34,7 @@ where
     }
 }
 
-impl<'a, T> RefCow<'a, T> {
+impl<T> RefCow<'_, T> {
     pub fn to_static(self) -> RefCow<'static, T>
     where
         T: Clone,

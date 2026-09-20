@@ -14,8 +14,6 @@
     clippy::single_char_pattern
 )]
 
-extern crate core;
-
 use std::env;
 use std::fs::File;
 use std::fs::OpenOptions;

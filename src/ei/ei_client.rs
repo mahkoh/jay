@@ -66,13 +66,12 @@ impl EiClients {
         mem::take(self.shutdown_clients.borrow_mut().deref_mut());
     }
 
-    pub fn spawn(&self, global: &Rc<State>, socket: Rc<OwnedFd>) -> Result<(), EiClientError> {
+    pub fn spawn(&self, global: &Rc<State>, socket: Rc<OwnedFd>) {
         let Some((uid, pid)) = get_socket_creds(&socket) else {
-            return Ok(());
+            return;
         };
         let pid_info = get_pid_info(uid, pid);
-        self.spawn2(global, socket, Some(pid_info), None)?;
-        Ok(())
+        self.spawn2(global, socket, Some(pid_info), None);
     }
 
     pub fn spawn2(
@@ -81,7 +80,7 @@ impl EiClients {
         socket: Rc<OwnedFd>,
         pid_info: Option<PidInfo>,
         app_id: Option<String>,
-    ) -> Result<Rc<EiClient>, EiClientError> {
+    ) -> Rc<EiClient> {
         let versions = EiInterfaceVersions {
             ei_button: EiInterfaceVersion::new(1),
             ei_callback: EiInterfaceVersion::new(1),
@@ -140,11 +139,11 @@ impl EiClients {
             }),
         );
         self.clients.borrow_mut().insert(client.data.id, client);
-        Ok(data)
+        data
     }
 
     fn kill(&self, client: ClientId) {
-        log::info!("Removing client {}", client);
+        log::info!("Removing client {client}");
         if self.clients.borrow_mut().remove(&client).is_none() {
             self.shutdown_clients.borrow_mut().remove(&client);
         }

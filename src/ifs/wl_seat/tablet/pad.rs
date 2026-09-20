@@ -103,7 +103,7 @@ impl WlSeatGlobal {
             && group.mode.replace(mode) != mode
         {
             self.state.for_each_seat_tester(|t| {
-                t.send_tablet_pad_mode_switch(self.id, pad.dev, time_usec, group_idx, mode)
+                t.send_tablet_pad_mode_switch(self.id, pad.dev, time_usec, group_idx, mode);
             });
             if pad.tablet.is_some() {
                 let node = pad.node.get();
@@ -121,7 +121,7 @@ impl WlSeatGlobal {
     ) {
         if let Some(pad) = self.tablet.pads.get(&pad) {
             self.state.for_each_seat_tester(|t| {
-                t.send_tablet_pad_button(self.id, pad.dev, time_usec, button, state)
+                t.send_tablet_pad_button(self.id, pad.dev, time_usec, button, state);
             });
             if pad.tablet.is_some() {
                 pad.pad_owner.button(&pad, time_usec, button, state);
@@ -139,7 +139,7 @@ impl WlSeatGlobal {
     ) {
         if let Some(pad) = self.tablet.pads.get(&pad) {
             self.state.for_each_seat_tester(|t| {
-                t.send_tablet_pad_ring(self.id, pad.dev, time_usec, ring, source, angle)
+                t.send_tablet_pad_ring(self.id, pad.dev, time_usec, ring, source, angle);
             });
             if pad.tablet.is_some()
                 && let Some(ring) = pad.rings.get(ring as usize)
@@ -160,7 +160,7 @@ impl WlSeatGlobal {
     ) {
         if let Some(pad) = self.tablet.pads.get(&pad) {
             self.state.for_each_seat_tester(|t| {
-                t.send_tablet_pad_strip(self.id, pad.dev, time_usec, strip, source, position)
+                t.send_tablet_pad_strip(self.id, pad.dev, time_usec, strip, source, position);
             });
             if pad.tablet.is_some()
                 && let Some(strip) = pad.strips.get(strip as usize)
@@ -180,7 +180,7 @@ impl WlSeatGlobal {
     ) {
         if let Some(pad) = self.tablet.pads.get(&pad) {
             self.state.for_each_seat_tester(|t| {
-                t.send_tablet_pad_dial(self.id, pad.dev, time_usec, value120, dial)
+                t.send_tablet_pad_dial(self.id, pad.dev, time_usec, value120, dial);
             });
             if pad.tablet.is_some()
                 && let Some(dial) = pad.dials.get(dial as usize)
@@ -205,7 +205,7 @@ impl TabletPad {
                 return;
             };
             f(&tablet, &pad);
-        })
+        });
     }
 
     fn for_each_entered(&self, n: &WlSurface, mut f: impl FnMut(&ZwpTabletPadV2)) {
@@ -216,7 +216,7 @@ impl TabletPad {
             if pad.entered.get() {
                 f(&pad);
             }
-        })
+        });
     }
 
     pub fn surface_enter(self: &Rc<Self>, n: &WlSurface) {
@@ -330,6 +330,6 @@ impl TabletPad {
         let time = usec_to_msec(time_usec);
         self.for_each_entered(n, |pad| {
             pad.send_button(time, button, state);
-        })
+        });
     }
 }

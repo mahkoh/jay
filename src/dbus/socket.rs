@@ -140,7 +140,7 @@ impl DbusSocket {
         F: for<'b> FnOnce(Result<&<T::Type as DbusType<'static>>::Generic<'b>, DbusError>)
             + 'static,
     {
-        let msg: Get<T::Type> = Get {
+        let msg: Get<'_, T::Type> = Get {
             interface_name: T::INTERFACE.into(),
             property_name: T::PROPERTY.into(),
             _phantom: PhantomData,
@@ -155,7 +155,7 @@ impl DbusSocket {
         destination: &str,
         path: &str,
     ) -> AsyncProperty<T> {
-        let msg: Get<T::Type> = Get {
+        let msg: Get<'_, T::Type> = Get {
             interface_name: T::INTERFACE.into(),
             property_name: T::PROPERTY.into(),
             _phantom: PhantomData,
@@ -203,10 +203,10 @@ impl DbusSocket {
             T::MEMBER
         );
         if let Some(sender) = sender {
-            let _ = write!(rule, ",sender='{}'", sender);
+            let _ = write!(rule, ",sender='{sender}'");
         }
         if let Some(path) = path {
-            let _ = write!(rule, ",path='{}'", path);
+            let _ = write!(rule, ",path='{path}'");
         }
         let shd: SignalHandlerData<T, _> = SignalHandlerData {
             path: path.map(|s| s.to_owned()),
@@ -446,7 +446,7 @@ impl DbusSocket {
 
     fn format_header(
         &self,
-        fmt: &mut Formatter,
+        fmt: &mut Formatter<'_>,
         ty: u8,
         flags: u8,
         serial: u32,
@@ -469,7 +469,7 @@ impl DbusSocket {
         0u32.marshal(fmt);
         serial.marshal(fmt);
         let mut headers = self.headers.borrow_mut();
-        let mut headers = headers.take_as::<(u8, Variant)>();
+        let mut headers = headers.take_as::<(u8, Variant<'_>)>();
         if let Some(path) = path {
             headers.push((HDR_PATH, Variant::ObjectPath(ObjectPath(path.into()))));
         }
@@ -514,13 +514,13 @@ where
     }
 
     fn handle_error(self: Box<Self>, _socket: &Rc<DbusSocket>, error: DbusError) {
-        (self.0)(Err(error))
+        (self.0)(Err(error));
     }
 
     fn handle<'a>(
         self: Box<Self>,
         socket: &Rc<DbusSocket>,
-        _headers: &Headers,
+        _headers: &Headers<'_>,
         parser: &mut Parser<'a>,
         buf: Vec<u8>,
     ) -> Result<(), DbusError> {
@@ -560,7 +560,7 @@ where
     fn handle<'a>(
         self: Box<Self>,
         socket: &Rc<DbusSocket>,
-        _headers: &Headers,
+        _headers: &Headers<'_>,
         parser: &mut Parser<'a>,
         buf: Vec<u8>,
     ) -> Result<(), DbusError> {

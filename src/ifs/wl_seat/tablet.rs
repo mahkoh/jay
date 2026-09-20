@@ -369,7 +369,7 @@ impl WlSeatGlobal {
     fn tablet_for_each_seat(&self, surface: &WlSurface, f: impl FnMut(&ZwpTabletSeatV2)) {
         self.tablet
             .seats
-            .for_each(surface.client.id, Version::ALL, f)
+            .for_each(surface.client.id, Version::ALL, f);
     }
 
     pub(super) fn tablet_apply_changes(self: &Rc<Self>) {

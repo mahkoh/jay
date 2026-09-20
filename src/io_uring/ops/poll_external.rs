@@ -106,7 +106,7 @@ unsafe impl Task for PollExternalTask {
             } else {
                 Ok(res as _)
             };
-            cb.completed(res)
+            cb.completed(res);
         }
         ring.cached_polls_external.push(self);
     }

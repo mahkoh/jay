@@ -1203,7 +1203,7 @@ impl CopyDevice {
                 let _ = fd.unwrap();
                 memories.push(device_memory);
                 free_memories.push(on_drop(move || unsafe {
-                    dev.free_memory(device_memory, None)
+                    dev.free_memory(device_memory, None);
                 }));
             }
             let mut bind_image_memory_infos = PlaneVec::new();
@@ -2152,7 +2152,7 @@ fn record_command_buffer(
                 dev.cmd_pipeline_barrier2(cmd, &final_dependency_info);
             }
         }
-    };
+    }
     unsafe {
         dev.end_command_buffer(cmd)
             .map_err(CopyDeviceError::EndCommandBuffer)?;

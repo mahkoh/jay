@@ -41,11 +41,11 @@ impl ExtSessionLockV1 {
     }
 
     fn send_locked(&self) {
-        self.client.event(Locked { self_id: self.id })
+        self.client.event(Locked { self_id: self.id });
     }
 
     fn send_finished(&self) {
-        self.client.event(Finished { self_id: self.id })
+        self.client.event(Finished { self_id: self.id });
     }
 
     pub fn finish(&self) {

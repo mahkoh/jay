@@ -93,7 +93,7 @@ use std::fmt::Formatter;
 use std::fmt::Write;
 
 trait PwPodObjectDebugger: Sync {
-    fn debug_property(&self, fmt: &mut Formatter<'_>, value: PwProp<'_>) -> std::fmt::Result;
+    fn debug_property(&self, fmt: &mut Formatter<'_>, value: PwProp<'_>) -> fmt::Result;
     fn id_name(&self, id: u32) -> Option<&'static str>;
 }
 
@@ -106,10 +106,10 @@ struct PwPodObjectDebuggerSimple<F, G, H> {
 impl<F, G, H> PwPodObjectDebugger for PwPodObjectDebuggerSimple<F, G, H>
 where
     F: Fn(u32) -> Option<&'static str> + Sync,
-    G: Fn(u32, &mut Formatter<'_>, PwPod<'_>) -> std::fmt::Result + Sync,
+    G: Fn(u32, &mut Formatter<'_>, PwPod<'_>) -> fmt::Result + Sync,
     H: Fn(u32) -> Option<&'static str> + Sync,
 {
-    fn debug_property(&self, fmt: &mut Formatter<'_>, value: PwProp<'_>) -> std::fmt::Result {
+    fn debug_property(&self, fmt: &mut Formatter<'_>, value: PwProp<'_>) -> fmt::Result {
         let mut s = fmt.debug_struct("PwProp");
         match (self.key_name)(value.key) {
             Some(n) => s.field("key", &n),
@@ -128,9 +128,9 @@ where
     }
 }
 
-fn choice_debug<F>(fmt: &mut Formatter<'_>, p: PwPod<'_>, ty: PwPodType, f: F) -> std::fmt::Result
+fn choice_debug<F>(fmt: &mut Formatter<'_>, p: PwPod<'_>, ty: PwPodType, f: F) -> fmt::Result
 where
-    F: Fn(&mut Formatter<'_>, PwPod<'_>) -> std::fmt::Result,
+    F: Fn(&mut Formatter<'_>, PwPod<'_>) -> fmt::Result,
 {
     match p {
         PwPod::Choice(c) if c.elements.ty == ty => fmt
@@ -149,7 +149,7 @@ where
                             Err(e) => {
                                 let e = ErrorFmt(e);
                                 l.entry(&fmt::from_fn(|fmt| {
-                                    write!(fmt, "Could not read choice element: {}", e)
+                                    write!(fmt, "Could not read choice element: {e}")
                                 }));
                                 false
                             }
@@ -163,9 +163,9 @@ where
     }
 }
 
-fn id_debug<F>(fmt: &mut Formatter<'_>, p: PwPod<'_>, f: F) -> std::fmt::Result
+fn id_debug<F>(fmt: &mut Formatter<'_>, p: PwPod<'_>, f: F) -> fmt::Result
 where
-    F: Fn(&mut Formatter<'_>, u32) -> std::fmt::Result,
+    F: Fn(&mut Formatter<'_>, u32) -> fmt::Result,
 {
     choice_debug(fmt, p, PW_TYPE_Id, |fmt, p| match p {
         PwPod::Id(id) => f(fmt, id),
@@ -173,9 +173,9 @@ where
     })
 }
 
-fn array_body_debug<F>(fmt: &mut Formatter<'_>, mut a: PwPodArray<'_>, f: F) -> std::fmt::Result
+fn array_body_debug<F>(fmt: &mut Formatter<'_>, mut a: PwPodArray<'_>, f: F) -> fmt::Result
 where
-    F: Fn(&mut DebugList, &mut PwParser<'_>) -> bool,
+    F: Fn(&mut DebugList<'_, '_>, &mut PwParser<'_>) -> bool,
 {
     let mut l = fmt.debug_list();
     for _ in 0..a.n_elements {
@@ -186,9 +186,9 @@ where
     l.finish()
 }
 
-fn array_debug<F>(fmt: &mut Formatter<'_>, p: PwPod<'_>, ty: PwPodType, f: F) -> std::fmt::Result
+fn array_debug<F>(fmt: &mut Formatter<'_>, p: PwPod<'_>, ty: PwPodType, f: F) -> fmt::Result
 where
-    F: Fn(&mut DebugList, &mut PwParser<'_>) -> bool,
+    F: Fn(&mut DebugList<'_, '_>, &mut PwParser<'_>) -> bool,
 {
     match p {
         PwPod::Array(a) if a.ty == ty => array_body_debug(fmt, a, f),
@@ -196,9 +196,9 @@ where
     }
 }
 
-fn array_id_debug<F, T>(fmt: &mut Formatter<'_>, p: PwPod<'_>, f: F) -> std::fmt::Result
+fn array_id_debug<F, T>(fmt: &mut Formatter<'_>, p: PwPod<'_>, f: F) -> fmt::Result
 where
-    F: Fn(&mut DebugList, u32) -> T,
+    F: Fn(&mut DebugList<'_, '_>, u32) -> T,
 {
     array_debug(fmt, p, PW_TYPE_Id, |l, p| match p.read_id() {
         Ok(a) => {
@@ -207,7 +207,7 @@ where
         }
         Err(e) => {
             let e = ErrorFmt(e);
-            l.entry(&fmt::from_fn(|f| write!(f, "Could not read id: {}", e)));
+            l.entry(&fmt::from_fn(|f| write!(f, "Could not read id: {e}")));
             false
         }
     })
@@ -374,8 +374,8 @@ fn object_debugger(obj: PwPodObjectType) -> Option<&'static dyn PwPodObjectDebug
     Some(res)
 }
 
-impl<'a> Debug for PwPodObject<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl Debug for PwPodObject<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let debugger = object_debugger(self.ty);
         let mut s = f.debug_struct("object");
         s.field("type", &self.ty);
@@ -415,8 +415,8 @@ impl<'a> Debug for PwPodObject<'a> {
     }
 }
 
-impl<'a> Debug for PwPodSequence<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl Debug for PwPodSequence<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut s = f.debug_struct("sequence");
         s.field("unit", &self.unit);
         s.field(
@@ -443,8 +443,8 @@ impl<'a> Debug for PwPodSequence<'a> {
     }
 }
 
-impl<'a> Debug for PwPodStruct<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl Debug for PwPodStruct<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut parser = self.fields;
         let mut s = f.debug_struct("struct");
         let mut field = String::new();
@@ -453,7 +453,7 @@ impl<'a> Debug for PwPodStruct<'a> {
                 break;
             }
             field.clear();
-            let _ = write!(&mut field, "\"{}\"", i);
+            let _ = write!(&mut field, "\"{i}\"");
             match parser.read_pod() {
                 Ok(p) => s.field(&field, &p),
                 Err(e) => {
@@ -470,8 +470,8 @@ impl<'a> Debug for PwPodStruct<'a> {
     }
 }
 
-impl<'a> Debug for PwPodArray<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl Debug for PwPodArray<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut list = f.debug_list();
         let mut parser = self.elements;
         for _ in 0..self.n_elements {
@@ -490,17 +490,17 @@ impl<'a> Debug for PwPodArray<'a> {
     }
 }
 
-impl<'a> Debug for PwPod<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl Debug for PwPod<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             PwPod::None => write!(f, "None"),
-            PwPod::Bool(b) => write!(f, "{}", b),
-            PwPod::Id(id) => write!(f, "id({})", id),
-            PwPod::Int(i) => write!(f, "int({})", i),
-            PwPod::Long(l) => write!(f, "long({})", l),
-            PwPod::Float(v) => write!(f, "float({})", v),
-            PwPod::Double(d) => write!(f, "double({})", d),
-            PwPod::String(s) => write!(f, "string({:?})", s),
+            PwPod::Bool(b) => write!(f, "{b}"),
+            PwPod::Id(id) => write!(f, "id({id})"),
+            PwPod::Int(i) => write!(f, "int({i})"),
+            PwPod::Long(l) => write!(f, "long({l})"),
+            PwPod::Float(v) => write!(f, "float({v})"),
+            PwPod::Double(d) => write!(f, "double({d})"),
+            PwPod::String(s) => write!(f, "string({s:?})"),
             PwPod::Bytes(b) => write!(f, "bytes(len = {})", b.len()),
             PwPod::Rectangle(r) => write!(f, "rectangle({}x{})", r.width, r.height),
             PwPod::Fraction(v) => write!(f, "fraction({}/{})", v.num, v.denom),
@@ -510,7 +510,7 @@ impl<'a> Debug for PwPod<'a> {
             PwPod::Object(o) => o.fmt(f),
             PwPod::Sequence(s) => s.fmt(f),
             PwPod::Pointer(p) => p.fmt(f),
-            PwPod::Fd(v) => write!(f, "fd({})", v),
+            PwPod::Fd(v) => write!(f, "fd({v})"),
             PwPod::Choice(c) => c.fmt(f),
         }
     }

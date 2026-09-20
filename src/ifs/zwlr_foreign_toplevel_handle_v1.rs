@@ -45,12 +45,6 @@ impl ZwlrForeignToplevelHandleV1 {
 impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
     type Error = LookupError;
 
-    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.detach();
-        self.client.remove_obj(self);
-        Ok(())
-    }
-
     fn set_maximized(&self, _req: SetMaximized, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -90,6 +84,12 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
     }
 
     fn set_rectangle(&self, _req: SetRectangle, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
+    fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.detach();
+        self.client.remove_obj(self);
         Ok(())
     }
 

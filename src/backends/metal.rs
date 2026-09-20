@@ -106,7 +106,7 @@ pub enum MetalError {
     #[error(transparent)]
     LibInput(#[from] LibInputError),
     #[error("Dupfd failed")]
-    Dup(#[source] jay_algorithms::oserror::OsError),
+    Dup(#[source] OsError),
     #[error("Could not create GBM device")]
     GbmDevice(#[source] GbmError),
     #[error("Could not update the drm properties")]
@@ -253,7 +253,7 @@ impl Backend for MetalBackend {
             if let Err(e) = res {
                 log::error!("Could not switch to VT {}: {}", vtnr, ErrorFmt(e));
             }
-        })
+        });
     }
 
     fn import_environment(&self) -> bool {
@@ -947,7 +947,7 @@ impl MetalInputDevice {
         }
     }
 
-    fn get_device_group(&self, dev: &LibInputDevice) -> InputDeviceGroupId {
+    fn get_device_group(&self, dev: &LibInputDevice<'_>) -> InputDeviceGroupId {
         let group = dev.device_group();
         let mut id = group.user_data();
         if id == 0 {

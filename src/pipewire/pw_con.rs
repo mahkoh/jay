@@ -159,7 +159,7 @@ impl PwCon {
     where
         P: PwObject,
         O: PwOpcode,
-        F: FnOnce(&mut PwFormatter),
+        F: FnOnce(&mut PwFormatter<'_>),
     {
         self.send2(proxy.data().id, proxy.interface(), opcode, f);
     }
@@ -167,7 +167,7 @@ impl PwCon {
     fn send2<O, F>(&self, id: u32, interface: &str, opcode: O, f: F)
     where
         O: PwOpcode,
-        F: FnOnce(&mut PwFormatter),
+        F: FnOnce(&mut PwFormatter<'_>),
     {
         if self.dead.get() {
             return;
@@ -195,7 +195,7 @@ impl PwCon {
             },
         );
         if log::log_enabled!(log::Level::Trace) {
-            log::trace!("CALL {}@{}: `{:?}`:", interface, id, opcode);
+            log::trace!("CALL {interface}@{id}: `{opcode:?}`:");
             let mut parser = PwParser::new(&buf[16..buf.len()], &fds);
             while parser.len() > 0 {
                 log::trace!("{:#?}", parser.read_pod().unwrap());
@@ -313,13 +313,12 @@ impl PwConHolder {
             sun_family: c::AF_UNIX as _,
             ..uapi::pod_zeroed()
         };
-        let xrd = match *XDG_RUNTIME_DIR {
-            Some(xrd) => xrd,
-            _ => return Err(PwConError::XrdNotSet),
+        let Some(xrd) = *XDG_RUNTIME_DIR else {
+            return Err(PwConError::XrdNotSet);
         };
         {
             let mut path = uapi::as_bytes_mut(&mut addr.sun_path[..]);
-            let _ = write!(path, "{}/pipewire-0", xrd);
+            let _ = write!(path, "{xrd}/pipewire-0");
         }
         if let Err(e) = ring.connect(&fd, &addr).await {
             return Err(PwConError::ConnectSocket(e));
@@ -422,9 +421,9 @@ impl Incoming {
                         let mut p3 = s2.fields;
                         let generation = p3.read_ulong()?;
                         self.con.registry_generation.set(generation);
-                        log::debug!("registry generation = {}", generation);
+                        log::debug!("registry generation = {generation}");
                     } else {
-                        log::warn!("Unknown message footer: {}", opcode);
+                        log::warn!("Unknown message footer: {opcode}");
                     }
                 }
             }

@@ -16,7 +16,6 @@ use std::cell::Cell;
 use std::cell::RefCell;
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
-use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::task::Context;

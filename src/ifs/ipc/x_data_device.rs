@@ -107,6 +107,6 @@ impl<T: XIpc> IpcVtable for T {
     }
 
     fn unset(seat: &Rc<WlSeatGlobal>, _role: Role) {
-        T::x_unset(seat)
+        T::x_unset(seat);
     }
 }

@@ -144,7 +144,7 @@ where
     access_count: u64,
 }
 
-impl<'a, K, V, S> Drop for Locked<'a, K, V, S>
+impl<K, V, S> Drop for Locked<'_, K, V, S>
 where
     S: LockableRandomState,
 {
@@ -167,7 +167,7 @@ where
     }
 }
 
-impl<'a, K, V, S> Deref for Locked<'a, K, V, S>
+impl<K, V, S> Deref for Locked<'_, K, V, S>
 where
     S: LockableRandomState,
 {
@@ -178,7 +178,7 @@ where
     }
 }
 
-impl<'a, K, V, S> DerefMut for Locked<'a, K, V, S>
+impl<K, V, S> DerefMut for Locked<'_, K, V, S>
 where
     S: LockableRandomState,
 {

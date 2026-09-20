@@ -30,7 +30,7 @@ pub struct PwFormatter<'a> {
     first: bool,
 }
 
-impl<'a> PwFormatter<'a> {
+impl PwFormatter<'_> {
     pub fn write_bool(&mut self, b: bool) {
         if !self.array || self.first {
             self.data.extend_from_slice(uapi::as_bytes(&4u32));
@@ -57,7 +57,7 @@ impl<'a> PwFormatter<'a> {
 
     pub fn write_object<F>(&mut self, ty: PwPodObjectType, id: u32, f: F)
     where
-        F: FnOnce(&mut PwObjectFormatter),
+        F: FnOnce(&mut PwObjectFormatter<'_>),
     {
         let start = self.data.len();
         self.data.extend_from_slice(uapi::as_bytes(&0u32));
@@ -75,7 +75,7 @@ impl<'a> PwFormatter<'a> {
     }
 
     pub fn write_uint(&mut self, int: u32) {
-        self.write_int(int as _)
+        self.write_int(int as _);
     }
 
     pub fn write_int(&mut self, int: i32) {
@@ -91,7 +91,7 @@ impl<'a> PwFormatter<'a> {
     }
 
     pub fn write_ulong(&mut self, long: u64) {
-        self.write_long(long as _)
+        self.write_long(long as _);
     }
 
     fn write_long(&mut self, long: i64) {
@@ -202,7 +202,7 @@ impl<'a> PwFormatter<'a> {
 
     pub fn write_struct<F>(&mut self, f: F)
     where
-        F: FnOnce(&mut PwFormatter),
+        F: FnOnce(&mut PwFormatter<'_>),
     {
         self.write_compound(PW_TYPE_Struct, |fmt| {
             let mut fmt = PwFormatter {
@@ -218,7 +218,7 @@ impl<'a> PwFormatter<'a> {
     #[expect(unused)]
     pub fn write_array<F>(&mut self, f: F)
     where
-        F: FnOnce(&mut PwFormatter),
+        F: FnOnce(&mut PwFormatter<'_>),
     {
         self.write_compound(PW_TYPE_Array, |fmt| {
             fmt.write_array_body(f);
@@ -228,7 +228,7 @@ impl<'a> PwFormatter<'a> {
 
     fn write_array_body<F>(&mut self, f: F)
     where
-        F: FnOnce(&mut PwFormatter),
+        F: FnOnce(&mut PwFormatter<'_>),
     {
         let mut fmt = PwFormatter {
             data: self.data,
@@ -244,7 +244,7 @@ impl<'a> PwFormatter<'a> {
 
     pub fn write_choice<F>(&mut self, ty: PwChoiceType, flags: u32, f: F)
     where
-        F: FnOnce(&mut PwFormatter),
+        F: FnOnce(&mut PwFormatter<'_>),
     {
         self.write_compound(PW_TYPE_Choice, |fmt| {
             fmt.data.extend_from_slice(uapi::as_bytes(&ty.0));
@@ -256,7 +256,7 @@ impl<'a> PwFormatter<'a> {
 
     fn write_compound<F>(&mut self, ty: PwPodType, f: F)
     where
-        F: FnOnce(&mut PwFormatter),
+        F: FnOnce(&mut PwFormatter<'_>),
     {
         let start = self.data.len();
         self.data.extend_from_slice(uapi::as_bytes(&0u32));
@@ -277,10 +277,10 @@ pub struct PwObjectFormatter<'a> {
     fds: &'a mut Vec<Rc<OwnedFd>>,
 }
 
-impl<'a> PwObjectFormatter<'a> {
+impl PwObjectFormatter<'_> {
     pub fn write_property<F>(&mut self, key: u32, flags: PwPropFlag, f: F)
     where
-        F: FnOnce(&mut PwFormatter),
+        F: FnOnce(&mut PwFormatter<'_>),
     {
         self.data.extend_from_slice(uapi::as_bytes(&key));
         self.data.extend_from_slice(uapi::as_bytes(&flags.0));
@@ -302,7 +302,7 @@ pub fn format<F>(
     seq: u32,
     f: F,
 ) where
-    F: FnOnce(&mut PwFormatter),
+    F: FnOnce(&mut PwFormatter<'_>),
 {
     buf.clear();
     buf.extend_from_slice(uapi::as_bytes(&id));

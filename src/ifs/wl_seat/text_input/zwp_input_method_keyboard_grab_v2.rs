@@ -73,7 +73,7 @@ impl ZwpInputMethodKeyboardGrabV2 {
                 KeyState::Pressed => wl_keyboard::PRESSED,
                 KeyState::Repeated => return,
             },
-        })
+        });
     }
 
     fn on_modifiers(&self, kb_state: &KeyboardState) {
@@ -92,7 +92,7 @@ impl ZwpInputMethodKeyboardGrabV2 {
             mods_latched: kb_state.mods.mods_latched.0,
             mods_locked: kb_state.mods.mods_locked.0,
             group: kb_state.mods.group.0,
-        })
+        });
     }
 
     pub fn send_repeat_info(&self) {
@@ -101,7 +101,7 @@ impl ZwpInputMethodKeyboardGrabV2 {
             self_id: self.id,
             rate,
             delay,
-        })
+        });
     }
 }
 

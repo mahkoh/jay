@@ -51,11 +51,11 @@ impl<T> LinkedList<T> {
 
     fn endpoint(&self, ep: NonNull<NodeData<T>>) -> Option<NodeRef<T>> {
         unsafe {
-            if ep != self.root.data {
+            if ep == self.root.data {
+                None
+            } else {
                 ep.deref().rc.fetch_add(1);
                 Some(NodeRef { data: ep })
-            } else {
-                None
             }
         }
     }
@@ -85,12 +85,12 @@ impl<T> LinkedList<T> {
     }
 
     pub fn add_last_existing(&self, t: &NodeRef<T>) {
-        self.root.prepend_existing(t)
+        self.root.prepend_existing(t);
     }
 
     #[expect(unused)]
     pub fn add_first_existing(&self, t: &NodeRef<T>) {
-        self.root.append_existing(t)
+        self.root.append_existing(t);
     }
 
     pub fn rotate_last(&self, t: &NodeRef<T>) {

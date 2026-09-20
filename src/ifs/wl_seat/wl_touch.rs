@@ -50,7 +50,7 @@ impl WlTouch {
             id,
             x,
             y,
-        })
+        });
     }
 
     pub fn send_up(&self, serial: u64, time: u32, id: i32) {
@@ -59,7 +59,7 @@ impl WlTouch {
             serial: serial as _,
             time,
             id,
-        })
+        });
     }
 
     pub fn send_motion(&self, time: u32, id: i32, mut x: Fixed, mut y: Fixed) {
@@ -70,15 +70,15 @@ impl WlTouch {
             id,
             x,
             y,
-        })
+        });
     }
 
     pub fn send_frame(&self) {
-        self.seat.client.event(Frame { self_id: self.id })
+        self.seat.client.event(Frame { self_id: self.id });
     }
 
     pub fn send_cancel(&self) {
-        self.seat.client.event(Cancel { self_id: self.id })
+        self.seat.client.event(Cancel { self_id: self.id });
     }
 
     #[expect(unused)]
@@ -88,7 +88,7 @@ impl WlTouch {
             id,
             major,
             minor,
-        })
+        });
     }
 
     #[expect(unused)]
@@ -97,7 +97,7 @@ impl WlTouch {
             self_id: self.id,
             id,
             orientation,
-        })
+        });
     }
 }
 

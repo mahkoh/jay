@@ -496,9 +496,8 @@ impl WlBuffer {
 
     fn update_texture(&self, surface: &WlSurface, sync_copies: bool) -> Result<(), WlBufferError> {
         let storage = &mut *self.storage.borrow_mut();
-        let storage = match storage {
-            Some(s) => s,
-            _ => return Ok(()),
+        let Some(storage) = storage else {
+            return Ok(());
         };
         let state = &self.client.state;
         let Some(ctx) = state.render_ctx.get() else {
@@ -574,9 +573,8 @@ impl WlBuffer {
 
     pub fn update_framebuffer(&self) -> Result<(), WlBufferError> {
         let storage = &mut *self.storage.borrow_mut();
-        let storage = match storage {
-            Some(s) => s,
-            _ => return Ok(()),
+        let Some(storage) = storage else {
+            return Ok(());
         };
         match storage {
             WlBufferStorage::Shm { .. } => {
@@ -592,7 +590,7 @@ impl WlBuffer {
     }
 
     fn send_release(&self) {
-        self.client.event(Release { self_id: self.id })
+        self.client.event(Release { self_id: self.id });
     }
 
     pub fn client_copy_device(&self) -> Option<&Rc<CopyDevice>> {

@@ -29,11 +29,11 @@ use uapi::ftruncate;
 #[derive(Debug, Error)]
 pub enum ClientMemError {
     #[error("Could not install the sigbus handler")]
-    SigactionFailed(#[source] jay_algorithms::oserror::OsError),
+    SigactionFailed(#[source] OsError),
     #[error("A SIGBUS occurred while accessing mapped memory")]
     Sigbus,
     #[error("mmap failed")]
-    MmapFailed(#[source] jay_algorithms::oserror::OsError),
+    MmapFailed(#[source] OsError),
     #[error("Length was not a multiple of the data element size")]
     InvalidLength,
 }
@@ -189,11 +189,11 @@ impl ClientMemOffset {
     }
 
     pub fn read<T: Pod>(&self, dst: &mut Vec<T>) -> Result<(), ClientMemError> {
-        if self.data.len().checked_rem(std::mem::size_of::<T>()) != Some(0) {
+        if self.data.len().checked_rem(size_of::<T>()) != Some(0) {
             return Err(ClientMemError::InvalidLength);
         }
         self.access(|v| {
-            let len_elements = v.len() / std::mem::size_of::<T>();
+            let len_elements = v.len() / size_of::<T>();
             dst.reserve(len_elements);
             let (_, unused) = dst.split_at_spare_mut_bytes_ext();
             unused[..v.len()].copy_from_slice(uapi::as_maybe_uninit_bytes(v));

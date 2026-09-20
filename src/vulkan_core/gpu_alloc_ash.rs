@@ -55,7 +55,7 @@ impl MemoryDevice<vk::DeviceMemory> for AshMemoryDevice {
             Err(vk::Result::ERROR_OUT_OF_DEVICE_MEMORY) => Err(OutOfMemory::OutOfDeviceMemory),
             Err(vk::Result::ERROR_OUT_OF_HOST_MEMORY) => Err(OutOfMemory::OutOfHostMemory),
             Err(vk::Result::ERROR_TOO_MANY_OBJECTS) => panic!("Too many objects"),
-            Err(err) => panic!("Unexpected Vulkan error: `{}`", err),
+            Err(err) => panic!("Unexpected Vulkan error: `{err}`"),
         }
     }
 
@@ -83,7 +83,7 @@ impl MemoryDevice<vk::DeviceMemory> for AshMemoryDevice {
             Err(vk::Result::ERROR_OUT_OF_DEVICE_MEMORY) => Err(DeviceMapError::OutOfDeviceMemory),
             Err(vk::Result::ERROR_OUT_OF_HOST_MEMORY) => Err(DeviceMapError::OutOfHostMemory),
             Err(vk::Result::ERROR_MEMORY_MAP_FAILED) => Err(DeviceMapError::MapFailed),
-            Err(err) => panic!("Unexpected Vulkan error: `{}`", err),
+            Err(err) => panic!("Unexpected Vulkan error: `{err}`"),
         }
     }
 
@@ -103,7 +103,7 @@ impl MemoryDevice<vk::DeviceMemory> for AshMemoryDevice {
                 .map_err(|err| match err {
                     vk::Result::ERROR_OUT_OF_DEVICE_MEMORY => OutOfMemory::OutOfDeviceMemory,
                     vk::Result::ERROR_OUT_OF_HOST_MEMORY => OutOfMemory::OutOfHostMemory,
-                    err => panic!("Unexpected Vulkan error: `{}`", err),
+                    err => panic!("Unexpected Vulkan error: `{err}`"),
                 })
         }
     }
@@ -118,7 +118,7 @@ impl MemoryDevice<vk::DeviceMemory> for AshMemoryDevice {
                 .map_err(|err| match err {
                     vk::Result::ERROR_OUT_OF_DEVICE_MEMORY => OutOfMemory::OutOfDeviceMemory,
                     vk::Result::ERROR_OUT_OF_HOST_MEMORY => OutOfMemory::OutOfHostMemory,
-                    err => panic!("Unexpected Vulkan error: `{}`", err),
+                    err => panic!("Unexpected Vulkan error: `{err}`"),
                 })
         }
     }
@@ -127,7 +127,7 @@ impl MemoryDevice<vk::DeviceMemory> for AshMemoryDevice {
 pub unsafe fn device_properties(
     instance: &Instance,
     physical_device: vk::PhysicalDevice,
-) -> Result<DeviceProperties<'static>, vk::Result> {
+) -> DeviceProperties<'static> {
     let mut properties_11 = PhysicalDeviceVulkan11Properties::default();
     let mut properties = PhysicalDeviceProperties2::default().push_next(&mut properties_11);
     unsafe {
@@ -144,7 +144,7 @@ pub unsafe fn device_properties(
         }
         bda_features.buffer_device_address != 0
     };
-    Ok(DeviceProperties {
+    DeviceProperties {
         max_memory_allocation_count: limits.max_memory_allocation_count,
         max_memory_allocation_size: properties_11.max_memory_allocation_size,
         non_coherent_atom_size: limits.non_coherent_atom_size,
@@ -164,7 +164,7 @@ pub unsafe fn device_properties(
             })
             .collect(),
         buffer_device_address,
-    })
+    }
 }
 
 fn memory_properties_from_ash(props: vk::MemoryPropertyFlags) -> MemoryPropertyFlags {

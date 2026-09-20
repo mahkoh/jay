@@ -1129,7 +1129,7 @@ impl Change {
     pub fn change_object<T, F>(&mut self, obj: T, f: F) -> bool
     where
         T: DrmObject,
-        F: FnOnce(&mut ObjectChange),
+        F: FnOnce(&mut ObjectChange<'_>),
     {
         let old_len = self.props.len();
         let mut oc = ObjectChange { change: self };
@@ -1149,7 +1149,7 @@ impl Change {
     }
 }
 
-impl<'a> ObjectChange<'a> {
+impl ObjectChange<'_> {
     pub fn change(&mut self, property_id: DrmProperty, value: impl ObjectChangeValue) {
         self.change.props.push(property_id.0);
         self.change.values.push(value.into_u64());
@@ -1332,7 +1332,7 @@ impl ConnectorType {
 impl Display for ConnectorType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            Self::Unknown(n) => return write!(f, "Unknown({})", n),
+            Self::Unknown(n) => return write!(f, "Unknown({n})"),
             Self::VGA => "VGA",
             Self::DVII => "DVI-I",
             Self::DVID => "DVI-D",

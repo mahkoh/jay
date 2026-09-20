@@ -509,7 +509,7 @@ impl PwClientNode {
         let memid = p2.read_uint()?;
         let offset = p2.read_uint()?;
         let size = p2.read_uint()?;
-        log::debug!("set io {:?}", id);
+        log::debug!("set io {id:?}");
         if memid == !0 {
             self.ios.remove(&id);
         } else {
@@ -550,7 +550,7 @@ impl PwClientNode {
                 }
             }
             v => {
-                log::warn!("Unhandled node command {:?}", v);
+                log::warn!("Unhandled node command {v:?}");
             }
         }
         Ok(())
@@ -569,12 +569,9 @@ impl PwClientNode {
         port: &Rc<PwClientNodePort>,
         obj: Option<PwPodObject<'_>>,
     ) -> Result<(), PwClientNodeError> {
-        let mut obj = match obj {
-            Some(obj) => obj,
-            _ => {
-                port.negotiated_format.take();
-                return Ok(());
-            }
+        let Some(mut obj) = obj else {
+            port.negotiated_format.take();
+            return Ok(());
         };
         let mut format = PwClientNodePortFormat::default();
         if let Some(mt) = obj.get_param(SPA_FORMAT_mediaType.0)? {
@@ -630,10 +627,7 @@ impl PwClientNode {
                 }
             }
             _ => {
-                log::warn!(
-                    "port_set_param: Ignoring unexpected port parameter {:?}",
-                    id
-                );
+                log::warn!("port_set_param: Ignoring unexpected port parameter {id:?}");
             }
         }
         Ok(())
@@ -665,8 +659,8 @@ impl PwClientNode {
 
             let mem = self.con.mem.map(mem_id, offset, size)?;
 
-            log::debug!("  mem_id={}, offset={}, size={}", mem_id, offset, size);
-            log::debug!("  n_metas={}", n_metas);
+            log::debug!("  mem_id={mem_id}, offset={offset}, size={size}");
+            log::debug!("  n_metas={n_metas}");
 
             let mut offset = 0;
 
@@ -705,7 +699,7 @@ impl PwClientNode {
 
             let n_datas = p1.read_uint()?;
 
-            log::debug!("  offset = {}, n_datas={}", offset, n_datas);
+            log::debug!("  offset = {offset}, n_datas={n_datas}");
 
             for _ in 0..n_datas {
                 let ty = SpaDataType(p1.read_id()?);
@@ -858,12 +852,7 @@ impl PwClientNode {
         let peer_id = p1.read_int()?;
         let dict = p1.read_dict_struct()?;
         let _port = self.get_port(direction, port_id)?;
-        log::debug!(
-            "mix info: mix_id={}, peer_id={}, dict={:#?}",
-            mix_id,
-            peer_id,
-            dict
-        );
+        log::debug!("mix info: mix_id={mix_id}, peer_id={peer_id}, dict={dict:#?}");
         Ok(())
     }
 

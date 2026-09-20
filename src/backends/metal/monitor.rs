@@ -56,10 +56,7 @@ impl MetalBackend {
                 _ => {}
             }
             while let Some(dev) = self.monitor.receive_device() {
-                let action = match dev.action() {
-                    Some(c) => c,
-                    _ => continue,
-                };
+                let Some(action) = dev.action() else { continue };
                 match action.to_bytes() {
                     b"add" => self.handle_device_add(dev),
                     b"change" => self.handle_device_change(dev),
@@ -70,7 +67,7 @@ impl MetalBackend {
         log::error!("Monitor task exited. Future hotplug events will be ignored.");
     }
 
-    pub fn handle_device_pause(self: &Rc<Self>, pause: PauseDevice) {
+    pub fn handle_device_pause(self: &Rc<Self>, pause: PauseDevice<'_>) {
         if pause.ty == "pause" {
             self.session.device_paused(pause.major, pause.minor);
         }
@@ -84,9 +81,8 @@ impl MetalBackend {
 
     pub fn handle_device_resume(self: &Rc<Self>, resume: ResumeDevice) {
         let dev = uapi::makedev(resume.major as _, resume.minor as _);
-        let dev = match self.device_holder.devices.get(&dev) {
-            Some(d) => d,
-            _ => return,
+        let Some(dev) = self.device_holder.devices.get(&dev) else {
+            return;
         };
         match dev {
             MetalDevice::Input(id) => self.handle_input_device_resume(&id, resume.fd),
@@ -122,9 +118,8 @@ impl MetalBackend {
     }
 
     fn handle_device_removed(self: &Rc<Self>, dev: c::dev_t) {
-        let dev = match self.device_holder.devices.remove(&dev) {
-            Some(d) => d,
-            _ => return,
+        let Some(dev) = self.device_holder.devices.remove(&dev) else {
+            return;
         };
         match dev {
             MetalDevice::Input(id) => self.handle_input_device_removed(&id),
@@ -153,9 +148,8 @@ impl MetalBackend {
     }
 
     fn handle_device_paused(self: &Rc<Self>, dev: c::dev_t) {
-        let dev = match self.device_holder.devices.get(&dev) {
-            Some(d) => d,
-            _ => return,
+        let Some(dev) = self.device_holder.devices.get(&dev) else {
+            return;
         };
         match dev {
             MetalDevice::Input(id) => self.handle_input_device_paused(&id),
@@ -415,6 +409,6 @@ impl MetalBackend {
                 // Set to 1 to ensure this branch is never taken again.
                 slf.device_holder.num_pending_devices.set(1);
             }
-        })
+        });
     }
 }

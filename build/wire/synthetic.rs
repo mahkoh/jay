@@ -35,6 +35,7 @@ fn write_synthetic_helper(file: &ParsedFile) -> anyhow::Result<()> {
     wl!("{xn}#![allow(unused_imports)]");
     wl!("{xn}#![allow(unused_parens)]");
     wl!("{xn}#![allow(clippy::unused_unit)]");
+    wl!("{xn}#![allow(clippy::semicolon_if_nothing_returned)]");
     wl!();
     wl!("{xn}use std::rc::Rc;");
     wl!("{xn}use uapi::OwnedFd;");

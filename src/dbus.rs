@@ -2,9 +2,6 @@ use crate::async_engine::AsyncEngine;
 use crate::async_engine::SpawnedFuture;
 use crate::dbus::property::Get;
 use crate::dbus::property::GetReply;
-use crate::dbus::types::ObjectPath;
-use crate::dbus::types::Signature;
-use crate::dbus::types::Variant;
 use crate::env::DBUS_SESSION_BUS_ADDRESS;
 use crate::env::XDG_RUNTIME_DIR;
 use crate::io_uring::IoUring;
@@ -31,7 +28,6 @@ use std::cell::Cell;
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::fmt::Display;
-use std::future::Future;
 use std::marker::PhantomData;
 use std::mem;
 use std::ops::Deref;
@@ -222,7 +218,7 @@ impl Dbus {
             log::warn!("{} is invalid", DBUS_SESSION_BUS_ADDRESS.as_env());
             None
         };
-        log::info!("dbus path = {:?}", user_path);
+        log::info!("dbus path = {user_path:?}");
         Self {
             eng: eng.clone(),
             ring: ring.clone(),
@@ -249,9 +245,8 @@ impl Dbus {
     }
 
     pub async fn session(&self) -> Result<Rc<DbusSocket>, DbusError> {
-        let sba = match self.user_path.as_deref() {
-            None => return Err(DbusError::SessionBusAddressNotSet),
-            Some(sba) => sba,
+        let Some(sba) = self.user_path.as_deref() else {
+            return Err(DbusError::SessionBusAddressNotSet);
         };
         self.session
             .get(&self.eng, &self.ring, sba, "Session bus")
@@ -265,8 +260,8 @@ unsafe trait ReplyHandler {
     fn handle(
         self: Box<Self>,
         socket: &Rc<DbusSocket>,
-        headers: &Headers,
-        parser: &mut Parser,
+        headers: &Headers<'_>,
+        parser: &mut Parser<'_>,
         buf: Vec<u8>,
     ) -> Result<(), DbusError>;
 }
@@ -445,7 +440,7 @@ pub unsafe trait Message<'a>: Sized + 'a {
     const MEMBER: &'static str;
     type Generic<'b>: Message<'b>;
 
-    fn marshal(&self, w: &mut Formatter);
+    fn marshal(&self, w: &mut Formatter<'_>);
     fn unmarshal(p: &mut Parser<'a>) -> Result<Self, DbusError>;
     fn num_fds(&self) -> u32;
 }
@@ -460,8 +455,8 @@ unsafe impl<'a> Message<'a> for ErrorMessage<'a> {
     const MEMBER: &'static str = "";
     type Generic<'b> = ErrorMessage<'b>;
 
-    fn marshal(&self, w: &mut Formatter) {
-        self.msg.marshal(w)
+    fn marshal(&self, w: &mut Formatter<'_>) {
+        self.msg.marshal(w);
     }
 
     fn unmarshal(p: &mut Parser<'a>) -> Result<Self, DbusError> {
@@ -495,7 +490,7 @@ pub unsafe trait DbusType<'a>: Clone + 'a {
     fn consume_signature(s: &mut &[u8]) -> Result<(), DbusError>;
     #[allow(dead_code)]
     fn write_signature(w: &mut Vec<u8>);
-    fn marshal(&self, fmt: &mut Formatter);
+    fn marshal(&self, fmt: &mut Formatter<'_>);
     fn unmarshal(parser: &mut Parser<'a>) -> Result<Self, DbusError>;
 
     fn num_fds(&self) -> u32 {
@@ -523,7 +518,7 @@ where
 }
 
 impl<T: Property> PropertyValue<T> {
-    pub fn get<'a>(&'a self) -> &'a <T::Type as DbusType<'static>>::Generic<'a> {
+    pub fn get(&self) -> &<T::Type as DbusType<'static>>::Generic<'_> {
         &self.reply.get().value
     }
 }
@@ -538,7 +533,7 @@ where
 }
 
 impl<T: Message<'static>> Reply<T> {
-    pub fn get<'a>(&'a self) -> &'a T::Generic<'a> {
+    pub fn get(&self) -> &T::Generic<'_> {
         unsafe { mem::transmute(&self.t) }
     }
 }
@@ -609,7 +604,7 @@ trait SignalHandlerApi {
     fn signature(&self) -> &'static str;
     fn path(&self) -> Option<&str>;
     fn rule(&self) -> &str;
-    fn handle(&self, parser: &mut Parser) -> Result<(), DbusError>;
+    fn handle(&self, parser: &mut Parser<'_>) -> Result<(), DbusError>;
 }
 
 impl<T, F> SignalHandlerApi for SignalHandlerData<T, F>
@@ -733,7 +728,7 @@ impl DbusObject {
 trait PropertyHandlerApi {
     fn interface(&self) -> &'static str;
     fn member(&self) -> &'static str;
-    fn value<'a>(&'a self) -> Variant<'a>;
+    fn value(&self) -> Variant<'_>;
 }
 
 struct PropertyHandlerData<T> {
@@ -753,7 +748,7 @@ where
         T::PROPERTY
     }
 
-    fn value<'a>(&'a self) -> Variant<'a> {
+    fn value(&self) -> Variant<'_> {
         self.data.borrow()
     }
 }
@@ -783,14 +778,14 @@ impl<T> PendingReply<T>
 where
     T: Message<'static>,
 {
-    pub fn ok<'a>(&self, msg: &T::Generic<'a>) {
+    pub fn ok(&self, msg: &T::Generic<'_>) {
         if self.reply_expected {
             self.socket.send_reply(&self.destination, self.serial, msg);
         }
     }
 
     #[expect(unused)]
-    pub fn complete<'a>(&self, res: Result<&T::Generic<'a>, &str>) {
+    pub fn complete(&self, res: Result<&T::Generic<'_>, &str>) {
         match res {
             Ok(m) => self.ok(m),
             Err(e) => self.err(e),
@@ -807,7 +802,7 @@ trait MethodHandlerApi {
         dest: &str,
         serial: u32,
         reply_expected: bool,
-        parser: &mut Parser,
+        parser: &mut Parser<'_>,
     ) -> Result<(), DbusError>;
 }
 
@@ -854,14 +849,14 @@ impl MethodHandlerApi for PropertyGetHandlerProxy {
         Get::<u32>::SIGNATURE
     }
 
-    fn handle<'a>(
+    fn handle(
         &self,
         object: &DbusObjectData,
         socket: &Rc<DbusSocket>,
         dest: &str,
         serial: u32,
         reply_expected: bool,
-        parser: &mut Parser<'a>,
+        parser: &mut Parser<'_>,
     ) -> Result<(), DbusError> {
         if !reply_expected {
             return Ok(());
@@ -890,14 +885,14 @@ impl MethodHandlerApi for PropertyGetAllHandlerProxy {
         GetAll::SIGNATURE
     }
 
-    fn handle<'a>(
+    fn handle(
         &self,
         object: &DbusObjectData,
         socket: &Rc<DbusSocket>,
         dest: &str,
         serial: u32,
         reply_expected: bool,
-        parser: &mut Parser<'a>,
+        parser: &mut Parser<'_>,
     ) -> Result<(), DbusError> {
         if !reply_expected {
             return Ok(());

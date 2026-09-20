@@ -547,7 +547,7 @@ impl NodeBase for WorkspaceNode {
         FindTreeResult::Other
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, _bounds: Option<&Rect>) {
+    fn node_render(&self, renderer: &mut Renderer<'_>, x: i32, y: i32, _bounds: Option<&Rect>) {
         renderer.render_workspace(self, x, y);
     }
 
@@ -571,7 +571,7 @@ impl NodeBase for WorkspaceNode {
         _x: Fixed,
         _y: Fixed,
     ) {
-        tool.cursor().set_known(KnownCursor::Default)
+        tool.cursor().set_known(KnownCursor::Default);
     }
 
     fn node_into_workspace(self: Rc<Self>) -> Option<Rc<WorkspaceNode>> {
@@ -592,12 +592,9 @@ impl ContainingNode for WorkspaceNode {
         if let Some(container) = self.node_state[LiveTL].container.get()
             && container.node_id() == old.node_id()
         {
-            let new = match new.node_into_container() {
-                Some(c) => c,
-                _ => {
-                    log::error!("cnode_replace_child called with non-container new");
-                    return;
-                }
+            let Some(new) = new.node_into_container() else {
+                log::error!("cnode_replace_child called with non-container new");
+                return;
             };
             self.set_container(&new);
             return;

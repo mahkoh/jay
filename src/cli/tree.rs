@@ -84,7 +84,7 @@ struct QueryWorkspaceNameArgs {
 }
 
 pub fn main(global: GlobalArgs, tree_args: TreeArgs) {
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         let comp = tc.jay_compositor().await;
         let tree = Rc::new(Tree {
             tc: tc.clone(),
@@ -464,7 +464,7 @@ impl Printer {
             let client = self.clients.get(&client_id);
             if client.is_some() && (self.printed_clients.insert(client_id) || self.verbose) {
                 println!("{p}    client:");
-                let mut prefix = format!("{}      ", p);
+                let mut prefix = format!("{p}      ");
                 let mut cp = ClientPrinter {
                     prefix: &mut prefix,
                 };

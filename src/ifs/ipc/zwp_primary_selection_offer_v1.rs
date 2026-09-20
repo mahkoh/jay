@@ -68,14 +68,14 @@ impl ZwpPrimarySelectionOfferV1 {
         self.client.event(Offer {
             self_id: self.id,
             mime_type,
-        })
+        });
     }
 }
 
 impl ZwpPrimarySelectionOfferV1RequestHandler for ZwpPrimarySelectionOfferV1 {
     type Error = Infallible;
 
-    fn receive(&self, req: Receive, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn receive(&self, req: Receive<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         receive_data_offer::<PrimarySelectionIpc>(self, req.mime_type, req.fd);
         Ok(())
     }

@@ -83,7 +83,7 @@ impl ZwpLinuxDmabufV1 {
         self.client.event(Format {
             self_id: self.id,
             format,
-        })
+        });
     }
 
     fn send_modifier(&self, format: u32, modifier: u64) {
@@ -91,7 +91,7 @@ impl ZwpLinuxDmabufV1 {
             self_id: self.id,
             format,
             modifier,
-        })
+        });
     }
 
     fn get_feedback(&self, id: ZwpLinuxDmabufFeedbackV1Id, surface: Option<&Rc<WlSurface>>) {

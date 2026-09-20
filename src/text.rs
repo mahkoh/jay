@@ -84,7 +84,7 @@ pub enum TextError {
     MapMemfd(#[source] OsError),
 }
 
-impl<'a> Config<'a> {
+impl Config<'_> {
     fn to_static(self) -> Config<'static> {
         match self {
             Config::None => Config::None,
@@ -558,7 +558,7 @@ impl TextTexture {
             markup,
             scale,
         };
-        self.apply_config(on_completed, config)
+        self.apply_config(on_completed, config);
     }
 
     pub fn schedule_render_fitting(
@@ -579,7 +579,7 @@ impl TextTexture {
             markup,
             scale,
         };
-        self.apply_config(on_completed, config)
+        self.apply_config(on_completed, config);
     }
 
     pub fn flip(&self) -> Result<(), TextError> {

@@ -87,7 +87,7 @@ impl JayInput {
             name: data.seat_name(),
             repeat_rate: data.get_rate().0,
             repeat_delay: data.get_rate().1,
-            hardware_cursor: data.cursor_group().hardware_cursor() as _,
+            hardware_cursor: data.cursor_group().hardware_cursor(),
         });
     }
 
@@ -133,7 +133,7 @@ impl JayInput {
             devnode: data.data.devnode.as_deref().unwrap_or_default(),
             name: dev.name().as_str(),
             capabilities: &caps,
-            accel_available: accel_profile.is_some() as _,
+            accel_available: accel_profile.is_some(),
             accel_profile: match accel_profile {
                 None => 0,
                 Some(p) => match p {
@@ -142,15 +142,15 @@ impl JayInput {
                 },
             },
             accel_speed: dev.accel_speed().unwrap_or_default(),
-            left_handed_available: left_handed.is_some() as _,
-            left_handed: left_handed.unwrap_or_default() as _,
-            natural_scrolling_available: natural_scrolling.is_some() as _,
-            natural_scrolling_enabled: natural_scrolling.unwrap_or_default() as _,
+            left_handed_available: left_handed.is_some(),
+            left_handed: left_handed.unwrap_or_default(),
+            natural_scrolling_available: natural_scrolling.is_some(),
+            natural_scrolling_enabled: natural_scrolling.unwrap_or_default(),
             px_per_wheel_scroll: data.data.px_per_scroll_wheel.get(),
-            tap_available: tap_enabled.is_some() as _,
-            tap_enabled: tap_enabled.unwrap_or_default() as _,
-            tap_drag_enabled: dev.drag_enabled().unwrap_or_default() as _,
-            tap_drag_lock_enabled: dev.drag_lock_enabled().unwrap_or_default() as _,
+            tap_available: tap_enabled.is_some(),
+            tap_enabled: tap_enabled.unwrap_or_default(),
+            tap_drag_enabled: dev.drag_enabled().unwrap_or_default(),
+            tap_drag_lock_enabled: dev.drag_lock_enabled().unwrap_or_default(),
             transform_matrix: transform_matrix
                 .as_ref()
                 .map(uapi::as_bytes)
@@ -199,7 +199,7 @@ impl JayInput {
         {
             self.client.event(MiddleButtonEmulation {
                 self_id: self.id,
-                middle_button_emulation_enabled: middle_button_emulation as _,
+                middle_button_emulation_enabled: middle_button_emulation,
             });
         }
         if self.version >= SCROLL_METHOD_SINCE {
@@ -363,7 +363,7 @@ impl JayInputRequestHandler for JayInput {
         Ok(())
     }
 
-    fn set_repeat_rate(&self, req: SetRepeatRate, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_repeat_rate(&self, req: SetRepeatRate<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             if req.repeat_rate < 0 {
                 return Err(JayInputError::NegativeRepeatRate);
@@ -377,7 +377,7 @@ impl JayInputRequestHandler for JayInput {
         })
     }
 
-    fn set_keymap(&self, req: SetKeymap, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_keymap(&self, req: SetKeymap<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.set_keymap_impl(&req.keymap, req.keymap_len, None, |map| {
             let seat = self.seat(req.seat)?;
             seat.set_seat_keymap(&map);
@@ -387,7 +387,7 @@ impl JayInputRequestHandler for JayInput {
 
     fn use_hardware_cursor(
         &self,
-        req: UseHardwareCursor,
+        req: UseHardwareCursor<'_>,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
         self.or_error(|| {
@@ -398,7 +398,7 @@ impl JayInputRequestHandler for JayInput {
         })
     }
 
-    fn get_keymap(&self, req: GetKeymap, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn get_keymap(&self, req: GetKeymap<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let seat = self.seat(req.seat)?;
             self.send_keymap(&seat.keymap());
@@ -503,7 +503,7 @@ impl JayInputRequestHandler for JayInput {
         })
     }
 
-    fn set_cursor_size(&self, req: SetCursorSize, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_cursor_size(&self, req: SetCursorSize<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let seat = self.seat(req.seat)?;
             seat.cursor_group().set_cursor_size(req.size);
@@ -511,7 +511,7 @@ impl JayInputRequestHandler for JayInput {
         })
     }
 
-    fn attach(&self, req: Attach, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn attach(&self, req: Attach<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let seat = self.seat(req.seat)?;
             let dev = self.device(req.id)?;
@@ -528,7 +528,7 @@ impl JayInputRequestHandler for JayInput {
         })
     }
 
-    fn get_seat(&self, req: GetSeat, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn get_seat(&self, req: GetSeat<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let seat = self.seat(req.name)?;
             self.send_seat(&seat);

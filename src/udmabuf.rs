@@ -300,7 +300,7 @@ impl Drop for UdmabufMap {
         unsafe {
             let res = munmap(self.ptr, self.len);
             if let Err(e) = map_err!(res).to_os_error() {
-                log::error!("Could not unmap udmabuf: {}", e);
+                log::error!("Could not unmap udmabuf: {e}");
             }
         }
     }

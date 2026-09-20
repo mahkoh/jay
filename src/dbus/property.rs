@@ -20,7 +20,7 @@ unsafe impl<'a, T: DbusType<'static>> Message<'a> for Get<'a, T> {
     const MEMBER: &'static str = "Get";
     type Generic<'b> = Get<'b, T>;
 
-    fn marshal(&self, fmt: &mut Formatter) {
+    fn marshal(&self, fmt: &mut Formatter<'_>) {
         fmt.marshal(&self.interface_name);
         fmt.marshal(&self.property_name);
     }
@@ -54,7 +54,7 @@ unsafe impl<'a, T: DbusType<'a>> Message<'a> for GetReply<'a, T> {
     const MEMBER: &'static str = "Get";
     type Generic<'b> = GetReply<'b, T::Generic<'b>>;
 
-    fn marshal(&self, _fmt: &mut Formatter) {
+    fn marshal(&self, _fmt: &mut Formatter<'_>) {
         unimplemented!();
     }
 

@@ -30,7 +30,7 @@ pub enum ColorManagementCmd {
 }
 
 pub fn main(global: GlobalArgs, args: ColorManagementArgs) {
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         let cm = ColorManagement { tc: tc.clone() };
         cm.run(&global, args).await;
     });
@@ -87,7 +87,7 @@ impl ColorManagement {
         let tc = &self.tc;
         tc.send(jay_color_management::SetEnabled {
             self_id: id,
-            enabled: enabled as _,
+            enabled,
         });
         tc.round_trip().await;
     }

@@ -101,9 +101,8 @@ impl Objects {
     }
 
     pub fn remove_obj(&self, client_data: &Rc<Client>, id: ObjectId) -> Result<(), ClientError> {
-        let _obj = match self.registry.remove(&id) {
-            Some(o) => o,
-            _ => return Err(ClientError::UnknownId),
+        let Some(_obj) = self.registry.remove(&id) else {
+            return Err(ClientError::UnknownId);
         };
         if id.raw() >= FIRST_SYNTHETIC_ID {
             return Ok(());

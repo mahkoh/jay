@@ -9,7 +9,7 @@ use crate::utils::time_lt::split_usec;
 use bstr::ByteSlice;
 
 impl ClientTraceMsg<'_> {
-    pub fn fmt_text(&self, dst: &mut String, ctx: &StrCtx, color: bool, client_id: u64) {
+    pub fn fmt_text(&self, dst: &mut String, ctx: &StrCtx<'_>, color: bool, client_id: u64) {
         let ctx = &StrCtx {
             fmt: StrFmtFmt::Trace,
             ..*ctx
@@ -131,7 +131,7 @@ impl ClientTraceMsg<'_> {
         dst.push_str(")\n");
     }
 
-    pub fn fmt_jsonl(&self, dst: &mut String, ctx: &StrCtx, client_id: u64) {
+    pub fn fmt_jsonl(&self, dst: &mut String, ctx: &StrCtx<'_>, client_id: u64) {
         let ctx = &StrCtx {
             fmt: StrFmtFmt::Jsonl,
             ..*ctx

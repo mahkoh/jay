@@ -216,7 +216,7 @@ impl CommitTimeline {
                 self.toplevel_restored_waiter.take();
                 self.serial_waiter.take();
                 self.unmap_waiter.take();
-                break_loops(&self.own_timeline)
+                break_loops(&self.own_timeline);
             }
             ClearReason::Destroy => {
                 self.clear_fifo_barrier();

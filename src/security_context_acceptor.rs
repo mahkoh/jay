@@ -120,13 +120,8 @@ impl Acceptor {
                 }
             };
             let id = s.clients.id();
-            if let Err(e) = s
-                .clients
-                .spawn(id, s, fd, self.bounding_caps, true, &self.metadata)
-            {
-                log::error!("Could not spawn a client: {}", ErrorFmt(e));
-                break;
-            }
+            s.clients
+                .spawn(id, s, fd, self.bounding_caps, true, &self.metadata);
         }
         self.kill();
     }

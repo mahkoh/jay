@@ -699,7 +699,7 @@ impl Display for ScanoutBufferError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         writeln!(f)?;
         if let Some(v) = self.prime {
-            writeln!(f, "prime type: {}", v)?;
+            writeln!(f, "prime type: {v}")?;
         }
         writeln!(f, "scanout device: {}", self.dev)?;
         writeln!(f, "format: {}", self.format.name)?;
@@ -707,49 +707,49 @@ impl Display for ScanoutBufferError {
         writeln!(f, "size: {}x{}", self.width, self.height)?;
         writeln!(f, "cursor: {}", self.cursor)?;
         if let Some(v) = &self.dbg.dev_copy_src_modifiers {
-            writeln!(f, "scanout copy src modifiers: {:x?}", v)?;
+            writeln!(f, "scanout copy src modifiers: {v:x?}")?;
         }
         if let Some(v) = &self.dbg.dev_copy_dst_modifiers {
-            writeln!(f, "scanout copy dst modifiers: {:x?}", v)?;
+            writeln!(f, "scanout copy dst modifiers: {v:x?}")?;
         }
         if let Some(v) = &self.dbg.dev_gfx_write_modifiers {
-            writeln!(f, "scanout gfx writable modifiers: {:x?}", v)?;
+            writeln!(f, "scanout gfx writable modifiers: {v:x?}")?;
         }
         if let Some(v) = &self.dbg.dev_modifiers_possible {
-            writeln!(f, "scanout dev possible modifiers: {:x?}", v)?;
+            writeln!(f, "scanout dev possible modifiers: {v:x?}")?;
         }
         if let Some(v) = &self.dbg.dev_usage {
-            writeln!(f, "scanout dev gbm usage: {:x}", v)?;
+            writeln!(f, "scanout dev gbm usage: {v:x}")?;
         }
         if let Some(v) = &self.dbg.dev_modifier {
-            writeln!(f, "scanout dev modifier: {:x}", v)?;
+            writeln!(f, "scanout dev modifier: {v:x}")?;
         }
         if let Some(v) = &self.render_name {
-            writeln!(f, "render device: {}", v)?;
+            writeln!(f, "render device: {v}")?;
         }
         if let Some(v) = &self.dbg.render_copy_src_modifiers {
-            writeln!(f, "render copy src modifiers: {:x?}", v)?;
+            writeln!(f, "render copy src modifiers: {v:x?}")?;
         }
         if let Some(v) = &self.dbg.render_copy_dst_modifiers {
-            writeln!(f, "render copy dst modifiers: {:x?}", v)?;
+            writeln!(f, "render copy dst modifiers: {v:x?}")?;
         }
         if let Some(v) = &self.dbg.render_gfx_write_modifiers {
-            writeln!(f, "render gfx writable modifiers: {:x?}", v)?;
+            writeln!(f, "render gfx writable modifiers: {v:x?}")?;
         }
         if let Some(v) = &self.dbg.render_gfx_read_modifiers {
-            writeln!(f, "render gfx readable modifiers: {:x?}", v)?;
+            writeln!(f, "render gfx readable modifiers: {v:x?}")?;
         }
         if let Some(v) = &self.dbg.dev_gfx_read_modifiers {
-            writeln!(f, "scanout gfx readable modifiers: {:x?}", v)?;
+            writeln!(f, "scanout gfx readable modifiers: {v:x?}")?;
         }
         if let Some(v) = &self.dbg.render_modifiers_possible {
-            writeln!(f, "render dev possible modifiers: {:x?}", v)?;
+            writeln!(f, "render dev possible modifiers: {v:x?}")?;
         }
         if let Some(v) = &self.dbg.render_usage {
-            writeln!(f, "render dev gbm usage: {:x}", v)?;
+            writeln!(f, "render dev gbm usage: {v:x}")?;
         }
         if let Some(v) = &self.dbg.render_modifier {
-            writeln!(f, "render dev modifier: {:x}", v)?;
+            writeln!(f, "render dev modifier: {v:x}")?;
         }
         Ok(())
     }
@@ -1548,7 +1548,7 @@ fn prime_methods() -> PrimeMethods {
                 allow = false;
             }
             let Some(method) = PrimeMethod::variants().find(|m| m.name() == name) else {
-                log::warn!("Unknown prime method {}", name);
+                log::warn!("Unknown prime method {name}");
                 continue;
             };
             apply(method, allow);
@@ -1557,7 +1557,7 @@ fn prime_methods() -> PrimeMethods {
     for method in PrimeMethod::variants() {
         apply(method, true);
     }
-    log::info!("Prime methods: {:?}", res);
+    log::info!("Prime methods: {res:?}");
     res
 }
 

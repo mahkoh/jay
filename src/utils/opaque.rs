@@ -39,7 +39,7 @@ impl Opaque {
     pub fn to_string(self) -> ArrayString<OPAQUE_LEN> {
         use std::fmt::Write;
         let mut s = ArrayString::new();
-        write!(s, "{}", self).unwrap();
+        write!(s, "{self}").unwrap();
         s
     }
 

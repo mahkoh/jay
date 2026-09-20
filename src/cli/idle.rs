@@ -60,7 +60,7 @@ pub struct IdleSetGracePeriodArgs {
 }
 
 pub fn main(global: GlobalArgs, args: IdleArgs) {
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         let idle = Idle { tc: tc.clone() };
         idle.run(&global, args).await;
     });
@@ -139,13 +139,13 @@ impl Idle {
                         write!(f, " disabled")?;
                     } else {
                         if minutes > 0 {
-                            write!(f, " {} minute", minutes)?;
+                            write!(f, " {minutes} minute")?;
                             if minutes > 1 {
                                 write!(f, "s")?;
                             }
                         }
                         if seconds > 0 {
-                            write!(f, " {} second", seconds)?;
+                            write!(f, " {seconds} second")?;
                             if seconds > 1 {
                                 write!(f, "s")?;
                             }

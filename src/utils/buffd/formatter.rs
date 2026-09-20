@@ -107,7 +107,7 @@ impl<'a> MsgFormatter<'a> {
     pub fn object<T: Into<ObjectId>>(&mut self, obj: T) -> &mut Self {
         let id = obj.into().raw();
         if self.wide {
-            self.data(&[id as u32, (id >> 32) as u32])
+            self.data(&[id as u32, (id >> 32) as u32]);
         } else {
             self.uint(id as u32);
         }
@@ -161,7 +161,7 @@ impl<'a> MsgFormatter<'a> {
             self.meta.fds.push_back(MsgFds {
                 pos: self.pos,
                 fds: mem::take(self.fds),
-            })
+            });
         }
     }
 }

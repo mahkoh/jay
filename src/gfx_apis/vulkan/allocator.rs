@@ -195,32 +195,29 @@ impl VulkanDevice {
     fn create_allocator_<T>(
         self: &Rc<Self>,
         map: impl FnOnce(GpuAllocator<DeviceMemory>) -> T,
-    ) -> Result<Rc<VulkanAllocatorType<T>>, VulkanError> {
+    ) -> Rc<VulkanAllocatorType<T>> {
         let config = Config::i_am_prototyping();
-        let props = unsafe {
+        let mut props = unsafe {
             gpu_alloc_ash::device_properties(&self.instance.instance, self.physical_device)
         };
-        let mut props = props.map_err(VulkanError::GetDeviceProperties)?;
         props.buffer_device_address = self.uses_descriptor_memory();
         let non_coherent_atom_size = props.non_coherent_atom_size;
         let allocator = GpuAllocator::new(config, props);
-        Ok(Rc::new(VulkanAllocatorType {
+        Rc::new(VulkanAllocatorType {
             non_coherent_atom_mask: non_coherent_atom_size - 1,
             storage: map(allocator),
             total: Default::default(),
-        }))
+        })
     }
 
-    pub fn create_allocator(self: &Rc<Self>) -> Result<Rc<VulkanAllocator>, VulkanError> {
+    pub fn create_allocator(self: &Rc<Self>) -> Rc<VulkanAllocator> {
         self.create_allocator_(|a| UnsyncAllocatorStorage {
             allocator: UnsafeCell::new(a),
             device: self.clone(),
         })
     }
 
-    pub fn create_threaded_allocator(
-        self: &Rc<Self>,
-    ) -> Result<Rc<VulkanThreadedAllocator>, VulkanError> {
+    pub fn create_threaded_allocator(self: &Rc<Self>) -> Rc<VulkanThreadedAllocator> {
         self.create_allocator_(|a| SyncAllocatorStorage {
             allocator: Arc::new(Mutex::new(a)),
             device: self.clone(),

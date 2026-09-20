@@ -3,9 +3,8 @@ use crate::utils::errorfmt::ErrorFmt;
 use std::ops::Range;
 
 pub fn parse_color(string: &str) -> Color {
-    let hex = match string.strip_prefix("#") {
-        Some(s) => s,
-        _ => fatal!("Color must start with #"),
+    let Some(hex) = string.strip_prefix("#") else {
+        fatal!("Color must start with #")
     };
     let d = |range: Range<usize>| match u8::from_str_radix(&hex[range.clone()], 16) {
         Ok(n) => n,

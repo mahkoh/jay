@@ -57,7 +57,7 @@ pub struct SnapshotArgs {
 }
 
 pub fn main(global: GlobalArgs, args: DebugfsArgs) {
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         let debugfs = Debugfs { tc: tc.clone() };
         debugfs.run(&global, args).await;
     });
@@ -147,7 +147,7 @@ impl Debugfs {
                 0o644,
             )
             .map_os_err(SnapshotError::OpenFile)?;
-        };
+        }
         let id = tc.id();
         tc.send(jay_debugfs::CreateSnapshot {
             self_id: debugfs,
@@ -183,6 +183,6 @@ impl Debugfs {
         Failure::handle(tc, id, (), |_, _msg| {
             fatal!("Could not mount filesystem");
         });
-        pending().await
+        pending::<()>().await;
     }
 }

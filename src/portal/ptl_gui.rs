@@ -71,7 +71,7 @@ pub trait GuiElement {
         max_width: f32,
         max_height: f32,
     ) -> (f32, f32);
-    fn render_at(&self, color_manager: &ColorManager, r: &mut RendererBase, x: f32, y: f32);
+    fn render_at(&self, color_manager: &ColorManager, r: &mut RendererBase<'_>, x: f32, y: f32);
     fn child_at(&self, x: f32, y: f32) -> Option<Rc<dyn GuiElement>>;
 
     fn hover_cursor(&self) -> KnownCursor {
@@ -144,10 +144,6 @@ pub trait ButtonOwner {
 }
 
 impl GuiElement for Button {
-    fn hover_cursor(&self) -> KnownCursor {
-        KnownCursor::Pointer
-    }
-
     fn data(&self) -> &GuiElementData {
         &self.data
     }
@@ -183,7 +179,7 @@ impl GuiElement for Button {
         (extents.width, extents.height)
     }
 
-    fn render_at(&self, color_manager: &ColorManager, r: &mut RendererBase, x1: f32, y1: f32) {
+    fn render_at(&self, color_manager: &ColorManager, r: &mut RendererBase<'_>, x1: f32, y1: f32) {
         let srgb_srgb = color_manager.srgb_gamma22();
         let srgb = &srgb_srgb.linear;
         let x2 = x1 + self.data.width.get();
@@ -226,6 +222,16 @@ impl GuiElement for Button {
         None
     }
 
+    fn hover_cursor(&self) -> KnownCursor {
+        KnownCursor::Pointer
+    }
+
+    fn button(&self, seat: &PortalSeat, button: u32, state: u32) {
+        if let Some(owner) = self.owner.get() {
+            owner.button(seat, button, state);
+        }
+    }
+
     fn hover(&self, seat: &PortalSeat, hover: bool) -> bool {
         let ret;
         let mut set = self.hover.borrow_mut();
@@ -241,12 +247,6 @@ impl GuiElement for Button {
 
     fn destroy(&self) {
         self.owner.take();
-    }
-
-    fn button(&self, seat: &PortalSeat, button: u32, state: u32) {
-        if let Some(owner) = self.owner.get() {
-            owner.button(seat, button, state);
-        }
     }
 }
 
@@ -295,7 +295,7 @@ impl GuiElement for Label {
         (width as f32 / scale, height as f32 / scale)
     }
 
-    fn render_at(&self, _color_manager: &ColorManager, r: &mut RendererBase, x: f32, y: f32) {
+    fn render_at(&self, _color_manager: &ColorManager, r: &mut RendererBase<'_>, x: f32, y: f32) {
         if let Some(tex) = self.tex.get() {
             let (tx, ty) = r.scale_point_f(x, y);
             r.render_texture(
@@ -415,7 +415,7 @@ impl GuiElement for Flow {
         (w.min(max_width), h.min(max_height))
     }
 
-    fn render_at(&self, color_manager: &ColorManager, r: &mut RendererBase, x: f32, y: f32) {
+    fn render_at(&self, color_manager: &ColorManager, r: &mut RendererBase<'_>, x: f32, y: f32) {
         for element in self.elements.borrow_mut().deref() {
             element.render_at(
                 color_manager,
@@ -566,14 +566,12 @@ impl WindowData {
     }
 
     fn layout(&self) {
-        let ctx = match self.dpy.render_ctx.get() {
-            Some(ctx) => ctx,
-            _ => return,
+        let Some(ctx) = self.dpy.render_ctx.get() else {
+            return;
         };
         let scale = self.scale.get().to_f64() as f32;
-        let content = match self.content.get() {
-            Some(c) => c,
-            _ => return,
+        let Some(content) = self.content.get() else {
+            return;
         };
         let (mut width, mut height) =
             content.layout(&ctx.ctx.ctx, scale, f32::INFINITY, f32::INFINITY);
@@ -626,7 +624,7 @@ impl WindowData {
             srgb_gamma22,
             &mut |r| {
                 if let Some(content) = self.content.get() {
-                    content.render_at(&self.dpy.state.color_manager, r, 0.0, 0.0)
+                    content.render_at(&self.dpy.state.color_manager, r, 0.0, 0.0);
                 }
             },
         );
@@ -680,24 +678,19 @@ impl WindowData {
                 buf.wl.con.remove_obj(buf.wl.deref());
             }
         }
-        let ctx = match self.dpy.render_ctx.get() {
-            Some(ctx) => ctx,
-            _ => return,
+        let Some(ctx) = self.dpy.render_ctx.get() else {
+            return;
         };
-        let dmabuf = match self.dpy.dmabuf.get() {
-            Some(dmabuf) => dmabuf,
-            _ => return,
+        let Some(dmabuf) = self.dpy.dmabuf.get() else {
+            return;
         };
         self.frame_missed.set(true);
         let width = (self.width.get() as f64 * self.scale.get().to_f64()).round() as i32;
         let height = (self.height.get() as f64 * self.scale.get().to_f64()).round() as i32;
         let formats = &ctx.usable_formats;
-        let format = match formats.get(&ARGB8888.drm) {
-            None => {
-                log::error!("Render context does not support ARGB8888 format");
-                return;
-            }
-            Some(f) => f,
+        let Some(format) = formats.get(&ARGB8888.drm) else {
+            log::error!("Render context does not support ARGB8888 format");
+            return;
         };
         if format.write_modifiers.is_empty() {
             log::error!("Render context cannot render to ARGB8888 format");
@@ -748,9 +741,8 @@ impl WindowData {
     }
 
     fn tree_at(&self, tree: &mut Vec<Rc<dyn GuiElement>>, mut x: f32, mut y: f32) {
-        let mut element = match self.content.get() {
-            Some(e) => e,
-            _ => return,
+        let Some(mut element) = self.content.get() else {
+            return;
         };
         tree.push(element.clone());
         while let Some(c) = element.child_at(x, y) {
@@ -808,9 +800,8 @@ impl WindowData {
     }
 
     pub fn button(&self, pseat: &PortalSeat, button: u32, state: u32) {
-        let seat = match self.seats.get(&pseat.global_id) {
-            Some(s) => s,
-            _ => return,
+        let Some(seat) = self.seats.get(&pseat.global_id) else {
+            return;
         };
         let element = seat.tree.borrow_mut().last().cloned();
         if let Some(e) = element {

@@ -79,12 +79,9 @@ impl Incoming {
                 let (ext, code) = if code < 128 {
                     (None, code)
                 } else if let Some(ed) = &self.ed {
-                    let r = match find_range(&ed.errors, code) {
-                        Some(r) => r,
-                        _ => {
-                            log::error!("Received an out of bounds error code {}", code);
-                            break 'handle_error;
-                        }
+                    let Some(r) = find_range(&ed.errors, code) else {
+                        log::error!("Received an out of bounds error code {code}");
+                        break 'handle_error;
                     };
                     match r.extension {
                         Some(e) => (Some(e), code - r.first),
@@ -169,8 +166,7 @@ impl Incoming {
                         Some(ext) => *ext,
                         _ => {
                             log::warn!(
-                                "Received an event from an unconfigured extension: `{}`",
-                                opcode
+                                "Received an event from an unconfigured extension: `{opcode}`"
                             );
                             break 'handle_event;
                         }
@@ -180,12 +176,9 @@ impl Incoming {
                 } else if ev < 64 {
                     (None, ev as u16)
                 } else if let Some(ed) = &self.ed {
-                    let r = match find_range(&ed.events, ev) {
-                        Some(r) => r,
-                        _ => {
-                            log::error!("Received an out of bounds event {}", ev);
-                            break 'handle_event;
-                        }
+                    let Some(r) = find_range(&ed.events, ev) else {
+                        log::error!("Received an out of bounds event {ev}");
+                        break 'handle_event;
                     };
                     match r.extension {
                         Some(e) => (Some(e), (ev - r.first) as u16),

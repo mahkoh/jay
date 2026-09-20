@@ -59,7 +59,7 @@ impl Drop for VulkanSampler {
 impl DescriptorHeapDevice {
     pub(super) fn create_sampler_descriptor(
         &self,
-        sampler: &SamplerCreateInfo,
+        sampler: &SamplerCreateInfo<'_>,
     ) -> Result<Box<[u8]>, VulkanError> {
         let mut buf = vec![0; self.sampler_descriptor_size].into_boxed_slice();
         let descriptor = HostAddressRangeEXT::default().address(&mut buf);

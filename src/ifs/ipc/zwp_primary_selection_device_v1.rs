@@ -54,7 +54,7 @@ impl ZwpPrimarySelectionDeviceV1 {
         self.client.event(DataOffer {
             self_id: self.id,
             offer: offer.id,
-        })
+        });
     }
 
     fn send_selection(&self, offer: Option<&Rc<ZwpPrimarySelectionOfferV1>>) {
@@ -64,7 +64,7 @@ impl ZwpPrimarySelectionDeviceV1 {
         self.client.event(Selection {
             self_id: self.id,
             id,
-        })
+        });
     }
 }
 
@@ -107,7 +107,7 @@ impl IterableIpcVtable for PrimarySelectionIpc {
     where
         C: FnMut(&Rc<Self::Device>),
     {
-        seat.for_each_primary_selection_device(Version::ALL, client, f)
+        seat.for_each_primary_selection_device(Version::ALL, client, f);
     }
 }
 

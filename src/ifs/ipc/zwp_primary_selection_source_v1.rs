@@ -43,7 +43,7 @@ impl DynDataSource for ZwpPrimarySelectionSourceV1 {
     }
 
     fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>) {
-        ZwpPrimarySelectionSourceV1::send_send(self, mime_type, fd)
+        ZwpPrimarySelectionSourceV1::send_send(self, mime_type, fd);
     }
 
     fn offer_to_x(self: Rc<Self>, dd: &Rc<XIpcDevice>) {
@@ -78,14 +78,14 @@ impl ZwpPrimarySelectionSourceV1 {
             self_id: self.id,
             mime_type,
             fd,
-        })
+        });
     }
 }
 
 impl ZwpPrimarySelectionSourceV1RequestHandler for ZwpPrimarySelectionSourceV1 {
     type Error = Infallible;
 
-    fn offer(&self, req: Offer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn offer(&self, req: Offer<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         add_data_source_mime_type::<PrimarySelectionIpc>(self, req.mime_type);
         Ok(())
     }

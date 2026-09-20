@@ -158,7 +158,7 @@ impl WlSubsurface {
         children_set_root(self, &self.surface);
     }
 
-    fn pending<'a>(self: &'a Rc<Self>) -> RefMut<'a, PendingSubsurfaceData> {
+    fn pending(self: &Rc<Self>) -> RefMut<'_, PendingSubsurfaceData> {
         RefMut::map(self.parent.pending.borrow_mut(), |m| {
             &mut m
                 .subsurfaces
@@ -266,13 +266,11 @@ impl WlSubsurface {
                     _ => pdata.below.add_last(element),
                 }
             } else {
-                let sibling = match pdata.subsurfaces.get(&sibling) {
-                    Some(s) => s,
-                    _ => return Err(WlSubsurfaceError::NotASibling(sibling, self.surface.id)),
+                let Some(sibling) = pdata.subsurfaces.get(&sibling) else {
+                    return Err(WlSubsurfaceError::NotASibling(sibling, self.surface.id));
                 };
-                let sibling_node = match sibling.latest_node.get() {
-                    Some(n) => n,
-                    _ => return Ok(()),
+                let Some(sibling_node) = sibling.latest_node.get() else {
+                    return Ok(());
                 };
                 match above {
                     true => sibling_node.append(element),
@@ -487,7 +485,7 @@ impl SurfaceExt for WlSubsurface {
         surface: &WlSurface,
         child: SubsurfaceId,
         consume: &mut dyn FnMut(
-            OccupiedEntry<SubsurfaceId, AttachedSubsurfaceState, ahash::RandomState>,
+            OccupiedEntry<'_, SubsurfaceId, AttachedSubsurfaceState, ahash::RandomState>,
         ) -> Result<(), WlSurfaceError>,
     ) -> Result<(), WlSurfaceError> {
         self.parent

@@ -60,12 +60,9 @@ impl IoUring {
             Ok(n) => {
                 let mut cmsg_data = &cmsg[..cmsg_len.get()];
                 while cmsg_data.len() > 0 {
-                    let (_, hdr, data) = match uapi::cmsg_read(&mut cmsg_data) {
-                        Ok(m) => m,
-                        Err(_) => {
-                            return_cmsg!();
-                            return Err(IoUringError::InvalidCmsgData);
-                        }
+                    let Ok((_, hdr, data)) = uapi::cmsg_read(&mut cmsg_data) else {
+                        return_cmsg!();
+                        return Err(IoUringError::InvalidCmsgData);
                     };
                     if (hdr.cmsg_level, hdr.cmsg_type) == (c::SOL_SOCKET, c::SCM_RIGHTS) {
                         fds.extend(uapi::pod_iter(data).unwrap().map(Rc::new));

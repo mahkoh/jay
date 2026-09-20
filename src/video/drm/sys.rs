@@ -66,7 +66,7 @@ struct drm_mode_create_lease {
     fd: u32,
 }
 
-pub fn create_lease(fd: c::c_int, objects: &[u32], flags: u32) -> Result<(OwnedFd, u32), OsError> {
+pub fn create_lease(fd: c_int, objects: &[u32], flags: u32) -> Result<(OwnedFd, u32), OsError> {
     let mut create = drm_mode_create_lease {
         object_ids: objects.as_ptr() as usize as _,
         object_count: objects.len() as _,
@@ -87,7 +87,7 @@ struct drm_mode_revoke_lease {
     lessee_id: u32,
 }
 
-pub fn revoke_lease(fd: c::c_int, lessee_id: u32) -> Result<(), OsError> {
+pub fn revoke_lease(fd: c_int, lessee_id: u32) -> Result<(), OsError> {
     let mut revoke = drm_mode_revoke_lease { lessee_id };
     unsafe {
         ioctl(fd, DRM_IOCTL_MODE_REVOKE_LEASE, &mut revoke)?;
@@ -95,7 +95,7 @@ pub fn revoke_lease(fd: c::c_int, lessee_id: u32) -> Result<(), OsError> {
     Ok(())
 }
 
-pub fn get_node_type_from_fd(fd: c::c_int) -> Result<NodeType, OsError> {
+pub fn get_node_type_from_fd(fd: c_int) -> Result<NodeType, OsError> {
     let (_, dev_t) = drm_stat(fd)?;
     get_minor_type(dev_t)
 }
@@ -125,7 +125,7 @@ fn device_dir(dev_t: c::dev_t) -> Ustring {
     uapi::format_ustr!("/sys/dev/char/{major}:{minor}/device/drm")
 }
 
-pub fn get_minor_name_from_fd(fd: c::c_int, ty: NodeType) -> Result<Ustring, OsError> {
+pub fn get_minor_name_from_fd(fd: c_int, ty: NodeType) -> Result<Ustring, OsError> {
     let (_, mami) = drm_stat(fd)?;
 
     let dir = device_dir(mami);
@@ -144,7 +144,7 @@ pub fn get_minor_name_from_fd(fd: c::c_int, ty: NodeType) -> Result<Ustring, OsE
     Err(OsError(c::ENOENT))
 }
 
-fn drm_stat(fd: c::c_int) -> Result<(c::stat, c::dev_t), OsError> {
+fn drm_stat(fd: c_int) -> Result<(c::stat, c::dev_t), OsError> {
     let stat = uapi::fstat(fd).to_os_error()?;
 
     if !is_drm(stat.st_rdev, &stat) {
@@ -158,7 +158,7 @@ fn is_drm(dev_t: c::dev_t, stat: &c::stat) -> bool {
     stat.st_mode & c::S_IFMT == c::S_IFCHR && node_is_drm(dev_t)
 }
 
-pub fn get_device_name_from_fd2(fd: c::c_int) -> Result<Ustring, OsError> {
+pub fn get_device_name_from_fd2(fd: c_int) -> Result<Ustring, OsError> {
     let (_, dev_t) = drm_stat(fd)?;
     get_device_name_from_dev_t(dev_t)
 }
@@ -207,7 +207,7 @@ pub fn get_drm_dev_ts(dev_t: c::dev_t) -> Result<StaticMap<NodeType, Option<c::d
     Ok(res)
 }
 
-pub fn get_nodes(fd: c::c_int) -> Result<StaticMap<NodeType, Option<CString>>, OsError> {
+pub fn get_nodes(fd: c_int) -> Result<StaticMap<NodeType, Option<CString>>, OsError> {
     let (_, dev) = drm_stat(fd)?;
     get_drm_nodes_from_dev(dev)
 }
@@ -286,7 +286,7 @@ struct drm_mode_property_enum {
 }
 
 pub fn mode_getproperty(
-    fd: c::c_int,
+    fd: c_int,
     property_id: DrmProperty,
 ) -> Result<DrmPropertyDefinition, DrmError> {
     let mut prop = drm_mode_get_property {
@@ -341,7 +341,7 @@ pub fn mode_getproperty(
                 values.push(DrmPropertyEnumValue {
                     value: v.value,
                     name: v.name.split(|n| *n == 0).next().unwrap().to_vec().into(),
-                })
+                });
             }
             DrmPropertyType::Enum {
                 values,
@@ -383,7 +383,7 @@ struct drm_mode_obj_get_properties {
 const DRM_IOCTL_MODE_OBJ_GETPROPERTIES: u64 = drm_iowr::<drm_mode_obj_get_properties>(0xb9);
 
 pub fn mode_obj_getproperties(
-    fd: c::c_int,
+    fd: c_int,
     obj_id: u32,
     obj_type: u32,
 ) -> Result<Vec<DrmPropertyValue>, DrmError> {
@@ -432,7 +432,7 @@ pub fn mode_obj_getproperties(
         props.push(DrmPropertyValue {
             id: DrmProperty(id),
             value,
-        })
+        });
     }
     Ok(props)
 }
@@ -481,7 +481,7 @@ const DRM_IOCTL_SET_CLIENT_CAP: u64 = drm_iow::<drm_set_client_cap>(0x0d);
 pub const DRM_CLIENT_CAP_ATOMIC: u64 = 3;
 pub const DRM_CLIENT_CAP_PLANE_COLOR_PIPELINE: u64 = 7;
 
-pub fn set_client_cap(fd: c::c_int, capability: u64, value: u64) -> Result<(), OsError> {
+pub fn set_client_cap(fd: c_int, capability: u64, value: u64) -> Result<(), OsError> {
     let mut cap = drm_set_client_cap { capability, value };
     unsafe {
         ioctl(fd, DRM_IOCTL_SET_CLIENT_CAP, &mut cap)?;
@@ -497,7 +497,7 @@ struct drm_get_cap {
 
 const DRM_IOCTL_GET_CAP: u64 = drm_iowr::<drm_get_cap>(0x0c);
 
-pub fn get_cap(fd: c::c_int, capability: u64) -> Result<u64, OsError> {
+pub fn get_cap(fd: c_int, capability: u64) -> Result<u64, OsError> {
     let mut cap = drm_get_cap {
         capability,
         value: 0,
@@ -527,7 +527,7 @@ struct drm_mode_card_res {
 
 const DRM_IOCTL_MODE_GETRESOURCES: u64 = drm_iowr::<drm_mode_card_res>(0xa0);
 
-pub fn mode_get_resources(fd: c::c_int) -> Result<DrmCardResources, DrmError> {
+pub fn mode_get_resources(fd: c_int) -> Result<DrmCardResources, DrmError> {
     let mut res = drm_mode_card_res::default();
 
     let get = |res: &mut drm_mode_card_res| {
@@ -614,7 +614,7 @@ struct drm_mode_get_plane_res {
 
 const DRM_IOCTL_MODE_GETPLANERESOURCES: u64 = drm_iowr::<drm_mode_get_plane_res>(0xb5);
 
-pub fn mode_getplaneresources(fd: c::c_int) -> Result<Vec<DrmPlane>, DrmError> {
+pub fn mode_getplaneresources(fd: c_int) -> Result<Vec<DrmPlane>, DrmError> {
     let mut res = drm_mode_get_plane_res {
         plane_id_ptr: 0,
         count_planes: 0,
@@ -665,7 +665,7 @@ struct drm_mode_get_plane {
 
 const DRM_IOCTL_MODE_GETPLANE: u64 = drm_iowr::<drm_mode_get_plane>(0xb6);
 
-pub fn mode_getplane(fd: c::c_int, plane_id: u32) -> Result<DrmPlaneInfo, DrmError> {
+pub fn mode_getplane(fd: c_int, plane_id: u32) -> Result<DrmPlaneInfo, DrmError> {
     let mut res = drm_mode_get_plane {
         plane_id,
         ..Default::default()
@@ -720,7 +720,7 @@ struct drm_mode_get_encoder {
 
 const DRM_IOCTL_MODE_GETENCODER: u64 = drm_iowr::<drm_mode_get_encoder>(0xa6);
 
-pub fn mode_getencoder(fd: c::c_int, encoder_id: u32) -> Result<DrmEncoderInfo, DrmError> {
+pub fn mode_getencoder(fd: c_int, encoder_id: u32) -> Result<DrmEncoderInfo, DrmError> {
     let mut res = drm_mode_get_encoder {
         encoder_id,
         ..Default::default()
@@ -819,7 +819,7 @@ struct drm_mode_get_connector {
 const DRM_IOCTL_MODE_GETCONNECTOR: u64 = drm_iowr::<drm_mode_get_connector>(0xa7);
 
 pub fn mode_getconnector(
-    fd: c::c_int,
+    fd: c_int,
     connector: u32,
     force: bool,
 ) -> Result<DrmConnectorInfo, DrmError> {
@@ -920,7 +920,7 @@ pub const DRM_MODE_ATOMIC_NONBLOCK: u32 = 0x0200;
 pub const DRM_MODE_ATOMIC_ALLOW_MODESET: u32 = 0x0400;
 
 pub fn mode_atomic(
-    fd: c::c_int,
+    fd: c_int,
     flags: u32,
     objs: &[u32],
     count_props: &[u32],
@@ -967,7 +967,7 @@ struct drm_mode_create_blob {
 
 const DRM_IOCTL_MODE_CREATEPROPBLOB: u64 = drm_iowr::<drm_mode_create_blob>(0xbd);
 
-pub fn mode_create_blob<T: ?Sized>(fd: c::c_int, t: &T) -> Result<DrmBlob, OsError> {
+pub fn mode_create_blob<T: ?Sized>(fd: c_int, t: &T) -> Result<DrmBlob, OsError> {
     let mut res = drm_mode_create_blob {
         data: t as *const T as *const () as _,
         length: size_of_val(t) as _,
@@ -987,7 +987,7 @@ struct drm_mode_destroy_blob {
 
 const DRM_IOCTL_MODE_DESTROYPROPBLOB: u64 = drm_iowr::<drm_mode_destroy_blob>(0xbe);
 
-pub fn mode_destroy_blob(fd: c::c_int, id: DrmBlob) -> Result<(), OsError> {
+pub fn mode_destroy_blob(fd: c_int, id: DrmBlob) -> Result<(), OsError> {
     let mut res = drm_mode_destroy_blob { blob_id: id.0 };
 
     unsafe {
@@ -1017,7 +1017,7 @@ pub const DRM_MODE_FB_MODIFIERS: u32 = 1 << 1;
 const DRM_IOCTL_MODE_ADDFB2: u64 = drm_iowr::<drm_mode_fb_cmd2>(0xb8);
 
 pub fn mode_addfb2(
-    fd: c::c_int,
+    fd: c_int,
     width: u32,
     height: u32,
     pixel_format: u32,
@@ -1049,7 +1049,7 @@ pub fn mode_addfb2(
 
 const DRM_IOCTL_MODE_RMFB: u64 = drm_iowr::<c::c_uint>(0xaf);
 
-pub fn mode_rmfb(fd: c::c_int, id: DrmFb) -> Result<(), OsError> {
+pub fn mode_rmfb(fd: c_int, id: DrmFb) -> Result<(), OsError> {
     let mut res = id.0 as c::c_uint;
     unsafe {
         ioctl(fd, DRM_IOCTL_MODE_RMFB, &mut res)?;
@@ -1066,7 +1066,7 @@ struct drm_prime_handle {
 
 const DRM_IOCTL_PRIME_FD_TO_HANDLE: u64 = drm_iowr::<drm_prime_handle>(0x2e);
 
-pub fn prime_fd_to_handle(fd: c::c_int, prime: c::c_int) -> Result<u32, OsError> {
+pub fn prime_fd_to_handle(fd: c_int, prime: c_int) -> Result<u32, OsError> {
     let mut res = drm_prime_handle {
         handle: 0,
         flags: 0,
@@ -1086,7 +1086,7 @@ struct drm_gem_close {
 
 const DRM_IOCTL_GEM_CLOSE: u64 = drm_iow::<drm_gem_close>(0x09);
 
-pub fn gem_close(fd: c::c_int, handle: u32) -> Result<(), OsError> {
+pub fn gem_close(fd: c_int, handle: u32) -> Result<(), OsError> {
     let mut res = drm_gem_close { handle, pad: 0 };
     unsafe {
         ioctl(fd, DRM_IOCTL_GEM_CLOSE, &mut res)?;
@@ -1136,7 +1136,7 @@ struct drm_mode_get_blob {
 const DRM_IOCTL_MODE_GETPROPBLOB: u64 = drm_iowr::<drm_mode_get_blob>(0xac);
 
 pub fn mode_getprobblob<T: Pod + ?Sized>(
-    fd: c::c_int,
+    fd: c_int,
     blob_id: u32,
     t: &mut T,
 ) -> Result<usize, OsError> {
@@ -1154,9 +1154,9 @@ pub fn mode_getprobblob<T: Pod + ?Sized>(
 #[repr(C)]
 #[derive(Pod)]
 struct drm_version {
-    version_major: c::c_int,
-    version_minor: c::c_int,
-    version_patchlevel: c::c_int,
+    version_major: c_int,
+    version_minor: c_int,
+    version_patchlevel: c_int,
     name_len: usize, // actually __kernel_size_t but nobody cares about x32
     name: *mut u8,
     date_len: usize,
@@ -1167,7 +1167,7 @@ struct drm_version {
 
 const DRM_IOCTL_VERSION: u64 = drm_iowr::<drm_version>(0x00);
 
-pub fn get_version(fd: c::c_int) -> Result<DrmVersion, OsError> {
+pub fn get_version(fd: c_int) -> Result<DrmVersion, OsError> {
     let mut name = Vec::<u8>::new();
     let mut date = Vec::<u8>::new();
     let mut desc = Vec::<u8>::new();
@@ -1239,7 +1239,7 @@ struct drm_syncobj_create {
 
 const DRM_IOCTL_SYNCOBJ_CREATE: u64 = drm_iowr::<drm_syncobj_create>(0xBF);
 
-pub fn syncobj_create(drm: c::c_int, flags: u32) -> Result<u32, OsError> {
+pub fn syncobj_create(drm: c_int, flags: u32) -> Result<u32, OsError> {
     let mut res = drm_syncobj_create { handle: 0, flags };
     unsafe {
         ioctl(drm, DRM_IOCTL_SYNCOBJ_CREATE, &mut res)?;
@@ -1255,7 +1255,7 @@ struct drm_syncobj_destroy {
 
 const DRM_IOCTL_SYNCOBJ_DESTROY: u64 = drm_iowr::<drm_syncobj_destroy>(0xC0);
 
-pub fn syncobj_destroy(drm: c::c_int, handle: u32) -> Result<(), OsError> {
+pub fn syncobj_destroy(drm: c_int, handle: u32) -> Result<(), OsError> {
     let mut res = drm_syncobj_destroy { handle, pad: 0 };
     unsafe {
         ioctl(drm, DRM_IOCTL_SYNCOBJ_DESTROY, &mut res)?;
@@ -1282,7 +1282,7 @@ const DRM_IOCTL_SYNCOBJ_HANDLE_TO_FD: u64 = drm_iowr::<drm_syncobj_handle>(0xC1)
 const DRM_IOCTL_SYNCOBJ_FD_TO_HANDLE: u64 = drm_iowr::<drm_syncobj_handle>(0xC2);
 
 pub fn syncobj_handle_to_fd(
-    drm: c::c_int,
+    drm: c_int,
     handle: u32,
     flags: u32,
     point: u64,
@@ -1301,8 +1301,8 @@ pub fn syncobj_handle_to_fd(
 }
 
 pub fn syncobj_fd_to_handle(
-    drm: c::c_int,
-    fd: c::c_int,
+    drm: c_int,
+    fd: c_int,
     flags: u32,
     handle: u32,
     point: u64,
@@ -1336,8 +1336,8 @@ struct drm_syncobj_eventfd {
 const DRM_IOCTL_SYNCOBJ_EVENTFD: u64 = drm_iowr::<drm_syncobj_eventfd>(0xCF);
 
 pub fn syncobj_eventfd(
-    drm: c::c_int,
-    eventfd: c::c_int,
+    drm: c_int,
+    eventfd: c_int,
     handle: u32,
     point: u64,
     flags: u32,
@@ -1365,7 +1365,7 @@ struct drm_syncobj_timeline_array {
 
 const DRM_IOCTL_SYNCOBJ_TIMELINE_SIGNAL: u64 = drm_iowr::<drm_syncobj_timeline_array>(0xCD);
 
-pub fn syncobj_signal(drm: c::c_int, handle: u32, point: u64) -> Result<(), OsError> {
+pub fn syncobj_signal(drm: c_int, handle: u32, point: u64) -> Result<(), OsError> {
     let mut res = drm_syncobj_timeline_array {
         handles: &handle as *const u32 as u64,
         points: &point as *const u64 as u64,
@@ -1380,7 +1380,7 @@ pub fn syncobj_signal(drm: c::c_int, handle: u32, point: u64) -> Result<(), OsEr
 
 const DRM_IOCTL_SYNCOBJ_QUERY: u64 = drm_iowr::<drm_syncobj_timeline_array>(0xCB);
 
-pub fn syncobj_query(drm: c::c_int, handle: u32) -> Result<u64, OsError> {
+pub fn syncobj_query(drm: c_int, handle: u32) -> Result<u64, OsError> {
     let mut point = 0u64;
     let mut res = drm_syncobj_timeline_array {
         handles: &handle as *const u32 as u64,
@@ -1407,7 +1407,7 @@ struct drm_syncobj_transfer {
 const DRM_IOCTL_SYNCOBJ_TRANSFER: u64 = drm_iowr::<drm_syncobj_transfer>(0xCC);
 
 pub fn syncobj_transfer(
-    drm: c::c_int,
+    drm: c_int,
     src_handle: u32,
     src_point: u64,
     dst_handle: u32,
@@ -1441,7 +1441,7 @@ const SYNC_IOC_MAGIC: u64 = b'>' as _;
 
 const SYNC_IOC_MERGE: u64 = uapi::_IOWR::<sync_merge_data>(SYNC_IOC_MAGIC, 3);
 
-pub fn sync_ioc_merge(left: c::c_int, right: c::c_int) -> Result<OwnedFd, OsError> {
+pub fn sync_ioc_merge(left: c_int, right: c_int) -> Result<OwnedFd, OsError> {
     let mut res = sync_merge_data {
         name: [0; 32],
         fd2: right,
@@ -1457,7 +1457,7 @@ pub fn sync_ioc_merge(left: c::c_int, right: c::c_int) -> Result<OwnedFd, OsErro
 
 const DRM_IOCTL_DROP_MASTER: u64 = drm_io(0x1f);
 
-pub fn drop_master(fd: c::c_int) -> Result<(), OsError> {
+pub fn drop_master(fd: c_int) -> Result<(), OsError> {
     let mut res = 0u8;
     unsafe {
         ioctl(fd, DRM_IOCTL_DROP_MASTER, &mut res)?;
@@ -1472,7 +1472,7 @@ struct drm_auth {
     magic: c::c_uint,
 }
 
-pub fn auth_magic(fd: c::c_int, magic: c::c_uint) -> Result<(), OsError> {
+pub fn auth_magic(fd: c_int, magic: c::c_uint) -> Result<(), OsError> {
     let mut res = drm_auth { magic };
     unsafe {
         ioctl(fd, DRM_IOCTL_AUTH_MAGIC, &mut res)?;
@@ -1493,7 +1493,7 @@ struct drm_crtc_queue_sequence {
 
 const DRM_IOCTL_CRTC_QUEUE_SEQUENCE: u64 = drm_iowr::<drm_crtc_queue_sequence>(0x3c);
 
-pub fn queue_sequence(fd: c::c_int, crtc: DrmCrtc) -> Result<(), OsError> {
+pub fn queue_sequence(fd: c_int, crtc: DrmCrtc) -> Result<(), OsError> {
     let mut res = drm_crtc_queue_sequence {
         crtc_id: crtc.0,
         flags: DRM_CRTC_SEQUENCE_RELATIVE,

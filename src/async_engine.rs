@@ -11,7 +11,6 @@ pub use ae_task::SpawnedFuture;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::VecDeque;
-use std::future::Future;
 use std::rc::Rc;
 use std::task::Waker;
 

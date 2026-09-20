@@ -239,7 +239,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
                 session.set_float_pos(data);
             }
         }
-        self.tl_change_extents_impl(rect)
+        self.tl_change_extents_impl(rect);
     }
 
     fn tl_set_visible(&self, visible: bool) {
@@ -301,7 +301,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
             session.set_fullscreen(fullscreen);
         }
         if let Some(surface) = self.tl_surface() {
-            surface.mark_fullscreen(connector)
+            surface.mark_fullscreen(connector);
         }
     }
 
@@ -872,7 +872,7 @@ impl ToplevelData {
             handle.send_app_id(app_id);
             handle.send_done();
         }
-        self.property_changed(TL_CHANGED_APP_ID)
+        self.property_changed(TL_CHANGED_APP_ID);
     }
 
     pub fn set_fullscreen(
@@ -897,12 +897,9 @@ impl ToplevelData {
             log::info!("Cannot fullscreen a node that is already fullscreen");
             return;
         }
-        let parent = match node.tl_data().parent.get() {
-            None => {
-                log::warn!("Cannot fullscreen a node without a parent");
-                return;
-            }
-            Some(p) => p,
+        let Some(parent) = node.tl_data().parent.get() else {
+            log::warn!("Cannot fullscreen a node without a parent");
+            return;
         };
         if parent.node_is_workspace() {
             log::warn!("Cannot fullscreen root container in a workspace");
@@ -942,12 +939,9 @@ impl ToplevelData {
             log::warn!("Cannot unset fullscreen on a node that is not fullscreen");
             return;
         }
-        let fd = match self.fullscrceen_data.borrow_mut().take() {
-            Some(fd) => fd,
-            _ => {
-                log::error!("is_fullscreen = true but data is None");
-                return;
-            }
+        let Some(fd) = self.fullscrceen_data.borrow_mut().take() else {
+            log::error!("is_fullscreen = true but data is None");
+            return;
         };
         node.tl_mark_fullscreen(None);
         self.property_changed(TL_CHANGED_FULLSCREEN);
@@ -1049,7 +1043,7 @@ impl ToplevelData {
         if let Some(ws) = self.workspace[tl].get() {
             let scale = ws.node_state[tl].output.get().node_state[tl].scale.get();
             return scale.pixel_size([dw, dh]).to_tuple();
-        };
+        }
         (0, 0)
     }
 
@@ -1284,9 +1278,8 @@ pub fn toplevel_create_split(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, axis: 
     if tl.tl_data().is_fullscreen[LiveTL].get() {
         return;
     }
-    let ws = match tl.tl_data().workspace[LiveTL].get() {
-        Some(ws) => ws,
-        _ => return,
+    let Some(ws) = tl.tl_data().workspace[LiveTL].get() else {
+        return;
     };
     if state.split_reuses_container.get()
         && let Some(pn) = toplevel_parent_container(&*tl)
@@ -1295,9 +1288,8 @@ pub fn toplevel_create_split(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, axis: 
         pn.set_split(axis);
         return;
     }
-    let pn = match tl.tl_data().parent.get() {
-        Some(pn) => pn,
-        _ => return,
+    let Some(pn) = tl.tl_data().parent.get() else {
+        return;
     };
     if let Some(pn) = pn.node_into_containing_node() {
         let cn = ContainerNode::new(state, &ws, tl.clone(), axis);
@@ -1313,9 +1305,8 @@ pub fn toplevel_set_floating(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, floati
     if data.parent_is_float.get() == floating {
         return;
     }
-    let parent = match data.parent.get() {
-        Some(p) => p,
-        _ => return,
+    let Some(parent) = data.parent.get() else {
+        return;
     };
     if !floating {
         parent.cnode_remove_child2(&*tl, true);
@@ -1328,9 +1319,8 @@ pub fn toplevel_set_floating(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, floati
 }
 
 pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &Rc<WorkspaceNode>) {
-    let old_ws = match tl.tl_data().workspace[LiveTL].get() {
-        Some(ws) => ws,
-        _ => return,
+    let Some(old_ws) = tl.tl_data().workspace[LiveTL].get() else {
+        return;
     };
     if old_ws.id == ws.id {
         return;
@@ -1350,9 +1340,8 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
             return;
         }
     }
-    let cn = match tl.tl_data().parent.get() {
-        Some(cn) => cn,
-        _ => return,
+    let Some(cn) = tl.tl_data().parent.get() else {
+        return;
     };
     let kb_foci = collect_kb_foci(tl.clone());
     cn.cnode_remove_child2(&*tl, true);

@@ -57,7 +57,7 @@ pub struct DecayArgs {
 }
 
 pub fn main(_global: GlobalArgs, damage_tracking_args: DamageTrackingArgs) {
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         let damage_tracking = Rc::new(DamageTracking { tc: tc.clone() });
         damage_tracking.run(damage_tracking_args).await;
     });

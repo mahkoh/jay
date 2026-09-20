@@ -160,11 +160,11 @@ impl<T: DataControlIpc> DataControlLocationIpc for ClipboardCore<T> {
     }
 
     fn loc_send_selection(dd: &Device<Self::Ipc>, offer: Option<&Rc<Offer<Self::Ipc>>>) {
-        dd.send_selection(offer)
+        dd.send_selection(offer);
     }
 
     fn loc_unset(seat: &Rc<WlSeatGlobal>) {
-        seat.unset_selection()
+        seat.unset_selection();
     }
 }
 
@@ -177,11 +177,11 @@ impl<T: DataControlIpc> DataControlLocationIpc for PrimarySelectionCore<T> {
     }
 
     fn loc_send_selection(dd: &Device<Self::Ipc>, offer: Option<&Rc<Offer<Self::Ipc>>>) {
-        dd.send_primary_selection(offer)
+        dd.send_primary_selection(offer);
     }
 
     fn loc_unset(seat: &Rc<WlSeatGlobal>) {
-        seat.unset_primary_selection()
+        seat.unset_primary_selection();
     }
 }
 
@@ -216,7 +216,7 @@ impl<T: DataControlLocationIpc> IpcVtable for DataControlIpcImpl<T> {
     }
 
     fn send_selection(dd: &Self::Device, offer: Option<&Rc<Self::Offer>>) {
-        T::loc_send_selection(dd, offer)
+        T::loc_send_selection(dd, offer);
     }
 
     fn send_offer(dd: &Self::Device, offer: &Rc<Self::Offer>) {
@@ -224,7 +224,7 @@ impl<T: DataControlLocationIpc> IpcVtable for DataControlIpcImpl<T> {
     }
 
     fn unset(seat: &Rc<WlSeatGlobal>, _role: Role) {
-        T::loc_unset(seat)
+        T::loc_unset(seat);
     }
 }
 
@@ -251,11 +251,11 @@ impl<T: DataControlSource> DynDataSource for T {
     }
 
     fn detach_seat(&self, seat: &Rc<WlSeatGlobal>) {
-        detach_seat(self, seat)
+        detach_seat(self, seat);
     }
 
     fn cancel_unprivileged_offers(&self) {
-        cancel_offers(self, false)
+        cancel_offers(self, false);
     }
 }
 
@@ -398,7 +398,7 @@ pub mod logic {
         match o.data().location {
             IpcLocation::Clipboard => receive_data_offer::<Clipboard<O::Ipc>>(o, mime_type, fd),
             IpcLocation::PrimarySelection => {
-                receive_data_offer::<PrimarySelection<O::Ipc>>(o, mime_type, fd)
+                receive_data_offer::<PrimarySelection<O::Ipc>>(o, mime_type, fd);
             }
         }
     }

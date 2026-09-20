@@ -44,9 +44,9 @@ pub mod display;
 pub mod image;
 pub mod sys;
 
-pub(crate) static PROCS: LazyLock<Option<ExtProc>> = LazyLock::new(ExtProc::load);
+pub static PROCS: LazyLock<Option<ExtProc>> = LazyLock::new(ExtProc::load);
 
-pub(crate) static EXTS: LazyLock<ClientExt> = LazyLock::new(get_client_ext);
+pub static EXTS: LazyLock<ClientExt> = LazyLock::new(get_client_ext);
 
 pub(in crate::gfx_apis::gl) fn init() -> Result<(), RenderError> {
     let Some(egl) = EGL.as_ref() else {
@@ -98,15 +98,15 @@ unsafe extern "C" fn egl_log(
         EGL_DEBUG_MSG_INFO_KHR => Level::Info,
         _ => Level::Warn,
     };
-    let command = if !command.is_null() {
+    let command = if command.is_null() {
+        b"none"
+    } else {
         unsafe { CStr::from_ptr(command).to_bytes() }
-    } else {
-        b"none"
     };
-    let message = if !message.is_null() {
-        unsafe { CStr::from_ptr(message).to_bytes() }
-    } else {
+    let message = if message.is_null() {
         b"none"
+    } else {
+        unsafe { CStr::from_ptr(message).to_bytes() }
     };
     let err_name = error_name(error);
     log::log!(

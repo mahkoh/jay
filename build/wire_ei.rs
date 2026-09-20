@@ -361,6 +361,7 @@ fn write_message_type<W: Write>(
 ) -> Result<()> {
     define_w!(f, w, wl);
     let lifetime = if needs_lifetime { "<'a>" } else { "" };
+    let lifetime_anon = if needs_lifetime { "<'_>" } else { "" };
     wl!("{xn}pub struct {}{} {{", message.camel_name, lifetime);
     {
         push_xn!(xn);
@@ -371,10 +372,9 @@ fn write_message_type<W: Write>(
     }
     wl!("{xn}}}");
     wl!(
-        "{xn}impl{} std::fmt::Debug for {}{} {{",
-        lifetime,
+        "{xn}impl std::fmt::Debug for {}{} {{",
         message.camel_name,
-        lifetime
+        lifetime_anon,
     );
     {
         push_xn!(xn);
@@ -414,6 +414,7 @@ fn write_message<W: Write>(f: &mut W, xn: &Indent, obj: &str, message: &Message)
     write_message_type(f, xn, obj, message, has_reference_type)?;
     let lifetime = if has_reference_type { "<'a>" } else { "" };
     let lifetime_b = if has_reference_type { "<'b>" } else { "" };
+    let lifetime_anon = if has_reference_type { "<'_>" } else { "" };
     let parser = if message.fields.len() > 0 {
         "parser"
     } else {
@@ -462,10 +463,9 @@ fn write_message<W: Write>(f: &mut W, xn: &Indent, obj: &str, message: &Message)
     }
     wl!("{xn}}}");
     wl!(
-        "{xn}impl{} EiEventFormatter for {}{} {{",
-        lifetime,
+        "{xn}impl EiEventFormatter for {}{} {{",
         message.camel_name,
-        lifetime
+        lifetime_anon,
     );
     {
         push_xn!(xn);

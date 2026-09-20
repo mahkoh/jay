@@ -138,7 +138,7 @@ macro_rules! impl_to_hash {
     };
 }
 
-impl<'a> FuseInodeKeyRef<'a> {
+impl FuseInodeKeyRef<'_> {
     fn to_hash(&self) -> FuseInodeKeyHash<'_> {
         impl_to_hash!(self)
     }

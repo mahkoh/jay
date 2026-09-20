@@ -148,7 +148,7 @@ impl Color {
             Eotf::St2084Pq => convert!(st2084_pq),
             Eotf::Bt1886(c) => {
                 let bt1886 = eotfs::bt1886::<()>(c.0);
-                convert2!(bt1886)
+                convert2!(bt1886);
             }
             Eotf::Gamma22 => convert!(gamma22),
             Eotf::Gamma24 => convert!(gamma24),
@@ -159,7 +159,7 @@ impl Color {
             Eotf::St428 => convert!(st428),
             Eotf::Pow(n) => {
                 let pow = eotfs::pow::<()>(n.eotf_f32());
-                convert2!(pow)
+                convert2!(pow);
             }
             Eotf::CompoundPower24 => convert!(compound_power_2_4),
         }

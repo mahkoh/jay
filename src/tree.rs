@@ -499,7 +499,7 @@ pub trait NodeBase: 'static {
         let _ = (child, active, depth);
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, bounds: Option<&Rect>) {
+    fn node_render(&self, renderer: &mut Renderer<'_>, x: i32, y: i32, bounds: Option<&Rect>) {
         let _ = renderer;
         let _ = x;
         let _ = y;

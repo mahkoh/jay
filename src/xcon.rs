@@ -51,7 +51,6 @@ use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::fmt::Debug;
-use std::future::Future;
 use std::io::Write;
 use std::mem;
 use std::mem::MaybeUninit;
@@ -247,7 +246,7 @@ impl Event {
         let mut parser = Parser::new(&self.buf, vec![]);
         let res = M::deserialize(&mut parser);
         if let Ok(res) = &res {
-            log::trace!("event {:?}", res);
+            log::trace!("event {res:?}");
         }
         res
     }
@@ -260,7 +259,7 @@ impl Drop for Event {
 }
 
 impl<T: Message<'static>> Reply<T> {
-    pub fn get<'a>(&'a self) -> &'a T::Generic<'a> {
+    pub fn get(&self) -> &T::Generic<'_> {
         unsafe { mem::transmute(&self.t) }
     }
 }
@@ -331,7 +330,7 @@ unsafe impl<T: Message<'static>> ReplyHandler for AsyncReplyHandler<T> {
                 return Err(XconError::XconError(e));
             }
         };
-        log::trace!("result {:?}", msg);
+        log::trace!("result {msg:?}");
         let reply = Reply {
             socket: socket.clone(),
             buf,
@@ -357,7 +356,7 @@ unsafe impl<T: Message<'static>> ReplyHandler for AsyncReplyHandler<T> {
     }
 
     fn handle_error(self: Box<Self>, error: XconError) {
-        self.done(Err(error))
+        self.done(Err(error));
     }
 }
 
@@ -404,16 +403,13 @@ impl Xcon {
     }
 
     pub async fn connect(state: &Rc<State>) -> Result<Rc<Self>, XconError> {
-        let authority = match XAuthority::load() {
-            Ok(a) => a,
-            Err(e) => {
-                log::warn!(
-                    "Could not parse Xauthority file. Proceeding without authorization: {}",
-                    ErrorFmt(e)
-                );
-                vec![]
-            }
-        };
+        let authority = XAuthority::load().unwrap_or_else(|e| {
+            log::warn!(
+                "Could not parse Xauthority file. Proceeding without authorization: {}",
+                ErrorFmt(e)
+            );
+            vec![]
+        });
         let display = parse_display()?;
         let mut addr = c::sockaddr_un {
             sun_family: c::AF_UNIX as _,
@@ -421,7 +417,7 @@ impl Xcon {
         };
         {
             let mut path = uapi::as_bytes_mut(&mut addr.sun_path[..]);
-            let _ = write!(path, "/tmp/.X11-unix/X{}", display);
+            let _ = write!(path, "/tmp/.X11-unix/X{display}");
         }
         let fd = uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
             .map(Rc::new)
@@ -535,7 +531,7 @@ impl Xcon {
     }
 
     pub fn call<'a, T: Request<'a>>(self: &Rc<Self>, t: &T) -> AsyncReply<T::Reply> {
-        log::trace!("send {:?}", t);
+        log::trace!("send {t:?}");
         self.data.call_with_serial(t, &self.extensions).0
     }
 
@@ -543,7 +539,7 @@ impl Xcon {
         self: &Rc<Self>,
         t: &T,
     ) -> (AsyncReply<T::Reply>, u64) {
-        log::trace!("send {:?}", t);
+        log::trace!("send {t:?}");
         self.data.call_with_serial(t, &self.extensions)
     }
 
@@ -554,7 +550,7 @@ impl Xcon {
         event_mask: u32,
         t: &T,
     ) -> AsyncReply<()> {
-        log::trace!("send {:?}", t);
+        log::trace!("send {t:?}");
         self.data
             .send_event(t, &self.extensions, propagate, destination, event_mask)
     }
@@ -929,17 +925,14 @@ impl XconData {
 }
 
 fn parse_display() -> Result<u32, XconError> {
-    let display = match *DISPLAY {
-        Some(d) => d,
-        _ => return Err(XconError::DisplayNotSet),
+    let Some(display) = *DISPLAY else {
+        return Err(XconError::DisplayNotSet);
     };
-    let num = match display.strip_prefix(":") {
-        Some(p) => p,
-        _ => return Err(XconError::InvalidDisplayFormat),
+    let Some(num) = display.strip_prefix(":") else {
+        return Err(XconError::InvalidDisplayFormat);
     };
-    let num = match num.parse() {
-        Ok(v) => v,
-        _ => return Err(XconError::InvalidDisplayFormat),
+    let Ok(num) = num.parse() else {
+        return Err(XconError::InvalidDisplayFormat);
     };
     Ok(num)
 }

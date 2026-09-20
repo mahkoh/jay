@@ -134,19 +134,19 @@ impl<K, V, const N: usize> BinarySearchMap<K, V, N> {
         mem::take(&mut self.m)
     }
 
-    fn iter<'a>(&'a self) -> BinarySearchMapIter<'a, K, V, N> {
+    fn iter(&self) -> BinarySearchMapIter<'_, K, V, N> {
         BinarySearchMapIter { pos: 0, map: self }
     }
 
-    pub fn values<'a>(&'a self) -> impl Iterator<Item = &'a V> + 'a {
+    pub fn values(&self) -> impl Iterator<Item = &V> {
         self.iter().map(|(_, v)| v)
     }
 
-    fn iter_mut<'a>(&'a mut self) -> BinarySearchMapMutIterMut<'a, K, V, N> {
+    fn iter_mut(&mut self) -> BinarySearchMapMutIterMut<'_, K, V, N> {
         BinarySearchMapMutIterMut { pos: 0, map: self }
     }
 
-    pub fn values_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut V> + 'a {
+    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut V> {
         self.iter_mut().map(|(_, v)| v)
     }
 

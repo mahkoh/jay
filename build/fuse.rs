@@ -208,7 +208,9 @@ fn generate(target: &Target) -> Result<()> {
                                 if de.use_has() {
                                     wl!("{xn}fn has_{name}(&self) -> bool;");
                                 }
-                                wl!("{xn}fn read_{name}(&self, buf: &mut String, ctx: &StrCtx);");
+                                wl!(
+                                    "{xn}fn read_{name}(&self, buf: &mut String, ctx: &StrCtx<'_>);"
+                                );
                             }
                             EntTy::Link => {
                                 if de.use_has() {
@@ -551,7 +553,7 @@ fn generate(target: &Target) -> Result<()> {
                             wl!("{xn}}}");
                             if child_dirents_range[EntTy::Reg].is_not_empty() {
                                 wl!(
-                                    "{xn}fn read(t: &T, key: u64, buf: &mut String, ctx: &StrCtx) {{"
+                                    "{xn}fn read(t: &T, key: u64, buf: &mut String, ctx: &StrCtx<'_>) {{"
                                 );
                                 {
                                     push_xn!(xn);

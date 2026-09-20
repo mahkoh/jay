@@ -17,7 +17,7 @@ pub struct UsrWlOutput {
 }
 
 pub trait UsrWlOutputOwner {
-    fn geometry(&self, ev: &Geometry) {
+    fn geometry(&self, ev: &Geometry<'_>) {
         let _ = ev;
     }
 
@@ -31,11 +31,11 @@ pub trait UsrWlOutputOwner {
         let _ = ev;
     }
 
-    fn name(&self, ev: &Name) {
+    fn name(&self, ev: &Name<'_>) {
         let _ = ev;
     }
 
-    fn description(&self, ev: &Description) {
+    fn description(&self, ev: &Description<'_>) {
         let _ = ev;
     }
 }

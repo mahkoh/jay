@@ -42,21 +42,17 @@ impl TestRun {
     fn create_client2(self: &Rc<Self>) -> Result<TestClient, TestError> {
         let (client1, client2) = uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
             .with_context(|| "Could not create a unix socket")?;
-        let client = self
-            .state
-            .clients
-            .spawn2(
-                self.state.clients.id(),
-                &self.state,
-                Rc::new(client2),
-                uapi::getuid(),
-                uapi::getpid(),
-                ClientCaps::all(),
-                true,
-                false,
-                &Rc::new(AcceptorMetadata::secure()),
-            )
-            .with_context(|| "Could not create a client")?;
+        let client = self.state.clients.spawn2(
+            self.state.clients.id(),
+            &self.state,
+            Rc::new(client2),
+            uapi::getuid(),
+            uapi::getpid(),
+            ClientCaps::all(),
+            true,
+            false,
+            &Rc::new(AcceptorMetadata::secure()),
+        );
         client.send_jay_compositor_enable_symmetric_delete();
         Ok(TestClient {
             run: self.clone(),

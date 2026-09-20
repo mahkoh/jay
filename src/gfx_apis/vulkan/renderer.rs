@@ -458,8 +458,8 @@ impl VulkanDevice {
                 )
             })
             .collect();
-        let allocator = self.create_allocator()?;
-        let shm_allocator = self.create_threaded_allocator()?;
+        let allocator = self.create_allocator();
+        let shm_allocator = self.create_threaded_allocator();
         let shader_buffer_cache = {
             // TODO: https://github.com/KhronosGroup/Vulkan-Samples/issues/1286
             let usage = BufferUsageFlags::SHADER_DEVICE_ADDRESS | BufferUsageFlags::STORAGE_BUFFER;
@@ -854,7 +854,7 @@ impl VulkanRenderer {
         ] {
             let buffer = cache.allocate(writer.len() as DeviceSize)?;
             buffer.buffer.allocation.upload(|ptr, _| unsafe {
-                ptr::copy_nonoverlapping(writer.as_ptr(), ptr, writer.len())
+                ptr::copy_nonoverlapping(writer.as_ptr(), ptr, writer.len());
             })?;
             let info = DescriptorBufferBindingInfoEXT::default()
                 .usage(cache.usage())
@@ -1248,7 +1248,7 @@ impl VulkanRenderer {
                         QueueTransfer::Impossible => continue,
                     }
                     if let VulkanImageMemory::DmaBuf(_) = &tex.ty {
-                        memory.dmabuf_sample.push(tex.clone())
+                        memory.dmabuf_sample.push(tex.clone());
                     }
                     memory.textures.push(UsedTexture {
                         tex: tex.clone(),
@@ -1930,7 +1930,7 @@ impl VulkanRenderer {
         let mut memory = self.memory.borrow_mut();
         let memory = &mut *memory;
         memory.wait_semaphore_infos.clear();
-        let import_sync_file = |infos: &mut Vec<SemaphoreSubmitInfoKHR>,
+        let import_sync_file = |infos: &mut Vec<SemaphoreSubmitInfoKHR<'_>>,
                                 semaphores: &mut Vec<Rc<VulkanSemaphore>>,
                                 fd: OwnedFd|
          -> Result<(), VulkanError> {
@@ -1944,7 +1944,7 @@ impl VulkanRenderer {
             semaphores.push(semaphore);
             Ok(())
         };
-        let import = |infos: &mut Vec<SemaphoreSubmitInfoKHR>,
+        let import = |infos: &mut Vec<SemaphoreSubmitInfoKHR<'_>>,
                       semaphores: &mut Vec<Rc<VulkanSemaphore>>,
                       img: &VulkanImage,
                       sync: &AcquireSync,
@@ -2012,9 +2012,8 @@ impl VulkanRenderer {
     fn import_release_semaphore(&self, fb: &VulkanImage, fb_release_sync: ReleaseSync) {
         zone!("import_release_semaphore");
         let memory = &mut *self.memory.borrow_mut();
-        let fd_sync = match memory.release_sync.as_ref() {
-            Some(sync) => sync,
-            _ => return,
+        let Some(fd_sync) = memory.release_sync.as_ref() else {
+            return;
         };
         let sync_file = LazyCell::new(|| fd_sync.get_sync_file());
         let import =
@@ -2761,7 +2760,7 @@ impl ColorTransforms {
     ) -> Color {
         if let Some(ct) = self.get_or_create(src, dst, intent) {
             color = ct.matrix * color;
-        };
+        }
         color
     }
 

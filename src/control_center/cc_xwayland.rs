@@ -53,7 +53,7 @@ impl XwaylandPane {
         let s = &self.state;
         grid(ui, "settings", |ui| {
             bool(ui, "Enabled", s.xwayland.enabled.get(), |b| {
-                s.set_xwayland_enabled(b)
+                s.set_xwayland_enabled(b);
             });
             let mode = match self.state.xwayland.use_wire_scale.get() {
                 true => ScalingMode::Downscaled,

@@ -184,7 +184,7 @@ impl VulkanShmImage {
         img: &Rc<VulkanImage>,
         buffer: Buffer,
         size: DeviceSize,
-        regions: &[BufferImageCopy2],
+        regions: &[BufferImageCopy2<'_>],
         use_transfer_queue: bool,
         tt: TransferType,
         foreign_buffer: bool,
@@ -254,7 +254,7 @@ impl VulkanShmImage {
         if transfer_queue_family_idx == img.renderer.device.graphics_queue_idx {
             initial_image_barrier = initial_image_barrier
                 .src_access_mask(AccessFlags2::SHADER_SAMPLED_READ)
-                .src_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER)
+                .src_stage_mask(PipelineStageFlags2::FRAGMENT_SHADER);
         }
         let initial_buffer_barrier = memory_barrier(false);
         let initial_dep_info = DependencyInfoKHR::default()

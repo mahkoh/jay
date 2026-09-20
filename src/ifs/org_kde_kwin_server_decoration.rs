@@ -39,7 +39,7 @@ impl OrgKdeKwinServerDecoration {
         self.client.event(Mode {
             self_id: self.id,
             mode,
-        })
+        });
     }
 }
 

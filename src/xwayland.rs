@@ -2,7 +2,6 @@ mod xsocket;
 mod xwm;
 
 use crate::client::ClientCaps;
-use crate::client::ClientError;
 use crate::control_center::CCI_XWAYLAND;
 use crate::env::DISPLAY;
 use crate::forker::ForkerError;
@@ -83,8 +82,6 @@ enum XWaylandError {
     SetCursor(#[source] XconError),
     #[error("composite_redirect_subwindows failed")]
     CompositeRedirectSubwindows(#[source] XconError),
-    #[error("Could not spawn the Xwayland client")]
-    SpawnClient(#[source] ClientError),
     #[error("An unspecified XconError occurred")]
     XconError(#[from] XconError),
     #[error("Could not create a window to manage a selection")]
@@ -97,12 +94,9 @@ enum XWaylandError {
 
 pub async fn manage(state: Rc<State>) {
     loop {
-        let forker = match state.forker.get() {
-            Some(f) => f,
-            None => {
-                log::error!("There is no forker. Cannot start Xwayland.");
-                return;
-            }
+        let Some(forker) = state.forker.get() else {
+            log::error!("There is no forker. Cannot start Xwayland.");
+            return;
         };
         let (xsocket, socket) = match allocate_socket() {
             Ok(s) => s,
@@ -200,10 +194,6 @@ async fn run(
         true,
         &Rc::new(AcceptorMetadata::default()),
     );
-    let client = match client {
-        Ok(c) => c,
-        Err(e) => return Err(XWaylandError::SpawnClient(e)),
-    };
     state.update_xwayland_wire_scale();
     state.ring.readable(&Rc::new(dfdread)).await?;
     state.xwayland.queue.clear();

@@ -61,9 +61,9 @@ impl Display for GlobalName {
 
 pub trait GlobalBase {
     fn name(&self) -> GlobalName;
-    fn bind<'a>(
+    fn bind(
         self: Rc<Self>,
-        client: &'a Rc<Client>,
+        client: &Rc<Client>,
         id: ObjectId,
         version: Version,
     ) -> Result<(), GlobalsError>;
@@ -144,18 +144,18 @@ impl Globals {
         GlobalName(id)
     }
 
-    fn insert_no_broadcast<'a>(&'a self, global: Rc<dyn Global>) {
+    fn insert_no_broadcast(&self, global: Rc<dyn Global>) {
         self.insert_no_broadcast_(&global);
     }
 
-    fn insert_no_broadcast_<'a>(&'a self, global: &Rc<dyn Global>) {
+    fn insert_no_broadcast_(&self, global: &Rc<dyn Global>) {
         self.registry.set(global.name(), global.clone());
     }
 
     fn insert(&self, state: &State, global: Rc<dyn Global>) {
         self.insert_no_broadcast_(&global);
         self.broadcast(state, global.required_caps(), global.xwayland_only(), |r| {
-            r.handle_global(&global)
+            r.handle_global(&global);
         });
     }
 
@@ -184,7 +184,7 @@ impl Globals {
         assert_eq!(global.interface().0, replacement.interface().0);
         self.removed.set(global.name(), replacement);
         self.broadcast(state, global.required_caps(), global.xwayland_only(), |r| {
-            r.handle_global_removed(&**global)
+            r.handle_global_removed(&**global);
         });
         Ok(())
     }
@@ -255,7 +255,7 @@ impl Globals {
 
     pub fn add_global<T: WaylandGlobal>(&self, state: &State, global: &Rc<T>) {
         global.clone().add(self);
-        self.insert(state, global.clone())
+        self.insert(state, global.clone());
     }
 
     fn add_global_no_broadcast<T: WaylandGlobal>(&self, global: &Rc<T>) {

@@ -5,7 +5,7 @@ use crate::wire::jay_compositor::Unlock;
 use std::rc::Rc;
 
 pub fn main(_global: GlobalArgs) {
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         let logger = Rc::new(Unlocker { tc: tc.clone() });
         run(logger).await;
     });

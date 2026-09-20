@@ -246,7 +246,7 @@ impl JayScreencast {
             }
         }
         self.missed_frame.set(true);
-        self.client.event(MissedFrame { self_id: self.id })
+        self.client.event(MissedFrame { self_id: self.id });
     }
 
     fn send_buffers(&self) {
@@ -303,7 +303,7 @@ impl JayScreencast {
         }
         self.client.event(ConfigAllowAllWorkspaces {
             self_id: self.id,
-            allow_all: self.show_all.get() as _,
+            allow_all: self.show_all.get(),
         });
         for &ws in self.show_workspaces.borrow_mut().iter() {
             self.client.event(ConfigAllowWorkspace {
@@ -313,11 +313,11 @@ impl JayScreencast {
         }
         self.client.event(ConfigUseLinearBuffers {
             self_id: self.id,
-            use_linear: self.linear.get() as _,
+            use_linear: self.linear.get(),
         });
         self.client.event(ConfigRunning {
             self_id: self.id,
-            running: self.running.get() as _,
+            running: self.running.get(),
         });
         self.client.event(ConfigDone {
             self_id: self.id,
@@ -344,9 +344,8 @@ impl JayScreencast {
         }
         let ons = &on.node_state[RenderTL];
         if !self.show_all.get() {
-            let ws = match ons.workspace.get() {
-                Some(ws) => ws,
-                _ => return,
+            let Some(ws) = ons.workspace.get() else {
+                return;
             };
             if !self.show_workspaces.borrow_mut().contains(&ws.id) {
                 return;
@@ -393,7 +392,7 @@ impl JayScreencast {
             }
         }
         self.missed_frame.set(true);
-        self.client.event(MissedFrame { self_id: self.id })
+        self.client.event(MissedFrame { self_id: self.id });
     }
 
     fn detach(&self) {
@@ -448,9 +447,8 @@ impl JayScreencast {
         self.need_realloc_or_reconfigure.set(false);
         let mut buffers = vec![];
         let formats = ctx.formats();
-        let format = match formats.get(&XRGB8888.drm) {
-            Some(f) => f,
-            _ => return Err(JayScreencastError::XRGB8888),
+        let Some(format) = formats.get(&XRGB8888.drm) else {
+            return Err(JayScreencastError::XRGB8888);
         };
         if let Some(target) = self.target.get() {
             let (width, height) = target_size(Some(&target));

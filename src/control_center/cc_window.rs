@@ -350,12 +350,12 @@ impl WindowPane {
     }
 
     pub fn show(&mut self, behavior: &mut CcBehavior<'_>, ui: &mut Ui) {
-        show_window(behavior, ui, &*self.window)
+        show_window(behavior, ui, &*self.window);
     }
 }
 
 pub fn show_window_collapsible(
-    behavior: &mut CcBehavior,
+    behavior: &mut CcBehavior<'_>,
     ui: &mut Ui,
     window: &Rc<dyn ToplevelNode>,
 ) {
@@ -387,7 +387,7 @@ pub fn show_window_collapsible(
             {
                 behavior.open = Some(PaneType::Window(behavior.cc.create_window_pane(window)));
             }
-            show_window(behavior, ui, &**window)
+            show_window(behavior, ui, &**window);
         })
         .fully_closed();
     if closed {

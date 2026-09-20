@@ -68,16 +68,20 @@ impl DynDataOffer for WlDataOffer {
         self.client.id
     }
 
-    fn send_action(&self, action: u32) {
-        WlDataOffer::send_action(self, action);
-    }
-
     fn send_offer(&self, mime_type: &str) {
         WlDataOffer::send_offer(self, mime_type);
     }
 
     fn cancel(&self) {
         cancel_offer::<ClipboardIpc>(self);
+    }
+
+    fn get_seat(&self) -> Rc<WlSeatGlobal> {
+        self.device.seat.clone()
+    }
+
+    fn send_action(&self, action: u32) {
+        WlDataOffer::send_action(self, action);
     }
 
     fn send_enter(&self, surface: WlSurfaceId, x: Fixed, y: Fixed, serial: u64) {
@@ -87,10 +91,6 @@ impl DynDataOffer for WlDataOffer {
     fn send_source_actions(&self) {
         WlDataOffer::send_source_actions(self);
     }
-
-    fn get_seat(&self) -> Rc<WlSeatGlobal> {
-        self.device.seat.clone()
-    }
 }
 
 impl WlDataOffer {
@@ -98,7 +98,7 @@ impl WlDataOffer {
         self.client.event(Offer {
             self_id: self.id,
             mime_type,
-        })
+        });
     }
 
     fn send_source_actions(&self) {
@@ -108,7 +108,7 @@ impl WlDataOffer {
             self.client.event(SourceActions {
                 self_id: self.id,
                 source_actions,
-            })
+            });
         }
     }
 
@@ -116,14 +116,14 @@ impl WlDataOffer {
         self.client.event(Action {
             self_id: self.id,
             dnd_action,
-        })
+        });
     }
 }
 
 impl WlDataOfferRequestHandler for WlDataOffer {
     type Error = WlDataOfferError;
 
-    fn accept(&self, req: Accept, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn accept(&self, req: Accept<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let _ = req.serial; // unused
         let mut state = self.data.shared.state.get();
         if state.contains(OFFER_STATE_FINISHED) {
@@ -141,7 +141,7 @@ impl WlDataOfferRequestHandler for WlDataOffer {
         Ok(())
     }
 
-    fn receive(&self, req: Receive, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn receive(&self, req: Receive<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.data.shared.state.get().contains(OFFER_STATE_FINISHED) {
             return Err(WlDataOfferError::AlreadyFinished);
         }

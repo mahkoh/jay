@@ -9,7 +9,7 @@ mod matrices {
 
     fn check(primaries: Primaries, expected: [[f64; 4]; 3]) {
         let (ltg, gtl) = primaries.matrices();
-        println!("{:#?}", ltg);
+        println!("{ltg:#?}");
         assert!((ltg.0[0][0].0 - expected[0][0]).abs() < 0.001);
         assert!((ltg.0[0][1].0 - expected[0][1]).abs() < 0.001);
         assert!((ltg.0[0][2].0 - expected[0][2]).abs() < 0.001);
@@ -165,7 +165,7 @@ mod transforms {
         let m = d1
             .linear
             .color_transform(&d2.linear, RenderIntent::Perceptual);
-        println!("{:#?}", m);
+        println!("{m:#?}");
         assert!((m.0[0][0].0 - expected[0][0]).abs() < 0.001);
         assert!((m.0[0][1].0 - expected[0][1]).abs() < 0.001);
         assert!((m.0[0][2].0 - expected[0][2]).abs() < 0.001);
@@ -190,7 +190,7 @@ mod transforms {
                 [0.069097, 0.919540, 0.011362, 0.0],
                 [0.016391, 0.088013, 0.895595, 0.0],
             ],
-        )
+        );
     }
 
     #[test]
@@ -203,7 +203,7 @@ mod transforms {
                 [-0.124550, 1.132900, -0.008349, 0.0],
                 [-0.018151, -0.100579, 1.118730, 0.0],
             ],
-        )
+        );
     }
 
     #[test]
@@ -216,7 +216,7 @@ mod transforms {
                 [0.034540, 0.961811, 0.003648, 0.0],
                 [0.016771, 0.071040, 0.912189, 0.0],
             ],
-        )
+        );
     }
 }
 

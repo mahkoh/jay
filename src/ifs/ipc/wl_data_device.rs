@@ -60,7 +60,7 @@ impl WlDataDevice {
         self.client.event(DataOffer {
             self_id: self.id,
             id: offer.id,
-        })
+        });
     }
 
     fn send_selection(&self, offer: Option<&Rc<WlDataOffer>>) {
@@ -68,11 +68,11 @@ impl WlDataDevice {
         self.client.event(Selection {
             self_id: self.id,
             id,
-        })
+        });
     }
 
     pub fn send_leave(&self) {
-        self.client.event(Leave { self_id: self.id })
+        self.client.event(Leave { self_id: self.id });
     }
 
     pub fn send_enter(
@@ -90,7 +90,7 @@ impl WlDataDevice {
             x,
             y,
             id: offer,
-        })
+        });
     }
 
     pub fn send_motion(&self, time_usec: u64, x: Fixed, y: Fixed) {
@@ -99,11 +99,11 @@ impl WlDataDevice {
             time: (time_usec / 1000) as _,
             x,
             y,
-        })
+        });
     }
 
     pub fn send_drop(&self) {
-        self.client.event(Drop { self_id: self.id })
+        self.client.event(Drop { self_id: self.id });
     }
 }
 

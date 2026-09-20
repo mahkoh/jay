@@ -84,7 +84,7 @@ usr_object_base! {
 
 impl UsrObject for UsrXdgToplevel {
     fn destroy(&self) {
-        self.con.request(Destroy { self_id: self.id })
+        self.con.request(Destroy { self_id: self.id });
     }
 
     fn break_loops(&self) {

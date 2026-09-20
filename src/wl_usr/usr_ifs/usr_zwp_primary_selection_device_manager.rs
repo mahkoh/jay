@@ -25,6 +25,6 @@ usr_object_base! {
 
 impl UsrObject for UsrZwpPrimarySelectionDeviceManagerV1 {
     fn destroy(&self) {
-        self.con.request(Destroy { self_id: self.id })
+        self.con.request(Destroy { self_id: self.id });
     }
 }

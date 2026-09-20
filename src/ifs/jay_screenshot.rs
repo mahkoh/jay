@@ -52,7 +52,7 @@ impl JayScreenshot {
         self.client.event(DrmDev {
             self_id: self.id,
             drm_dev: drm.clone(),
-        })
+        });
     }
 
     pub fn send_plane(&self, plane: &DmaBufPlane) {
@@ -61,7 +61,7 @@ impl JayScreenshot {
             fd: plane.fd.clone(),
             offset: plane.offset,
             stride: plane.stride,
-        })
+        });
     }
 
     pub fn send_dmabuf2(&self, buf: &DmaBuf) {
@@ -70,7 +70,7 @@ impl JayScreenshot {
             width: buf.width,
             height: buf.height,
             modifier: buf.modifier,
-        })
+        });
     }
 
     pub fn send_dmabuf3(&self, buf: &DmaBuf) {
@@ -80,7 +80,7 @@ impl JayScreenshot {
             height: buf.height,
             modifier: buf.modifier,
             format: buf.format.drm,
-        })
+        });
     }
 }
 

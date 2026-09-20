@@ -24,7 +24,7 @@ pub struct RunTaggedArgs {
 }
 
 pub fn main(_global: GlobalArgs, run_tagged_args: RunTaggedArgs) {
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         let run_tagged = Rc::new(RunTagged { tc: tc.clone() });
         run_tagged.run(run_tagged_args).await;
     });

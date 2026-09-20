@@ -116,16 +116,7 @@ impl SessionAcquireWork {
     ) -> Result<SessionAcquireOutcome, SessionUpsertError> {
         db_state!(s, self, ctx);
         let tx = ctx.tx.begin_write()?;
-        let restored = if !self.restore {
-            let mut stmt = s.s.session_del_unchecked.activate();
-            stmt.bind_blob(1, self.session.0.as_bytes())?;
-            if stmt.step()? == SqliteStep::Done {
-                s.sessions_created += 1;
-            }
-            stmt.exec()?;
-            serialize_session(&mut self.stash, &self.data);
-            None
-        } else {
+        let restored = if self.restore {
             let mut stmt = s.s.session_load.activate();
             stmt.bind_blob(1, self.session.0.as_bytes())?;
             let res = match stmt.step()? {
@@ -141,6 +132,15 @@ impl SessionAcquireWork {
             };
             stmt.exec()?;
             res
+        } else {
+            let mut stmt = s.s.session_del_unchecked.activate();
+            stmt.bind_blob(1, self.session.0.as_bytes())?;
+            if stmt.step()? == SqliteStep::Done {
+                s.sessions_created += 1;
+            }
+            stmt.exec()?;
+            serialize_session(&mut self.stash, &self.data);
+            None
         };
         let id = {
             let mut stmt = s.s.session_upsert.activate();

@@ -166,7 +166,9 @@ impl Drop for CpuWorker {
     fn drop(&mut self) {
         self.data.do_equeue_jobs();
         if self.data.pending_jobs.is_not_empty() {
-            log::warn!("CpuWorker dropped with pending jobs. Completed jobs will not be triggered.")
+            log::warn!(
+                "CpuWorker dropped with pending jobs. Completed jobs will not be triggered."
+            );
         }
     }
 }
@@ -288,7 +290,7 @@ impl CpuWorker {
                         stop_write,
                         have_new_jobs,
                         have_completed_jobs,
-                    )
+                    );
                 }
             })
             .unwrap();

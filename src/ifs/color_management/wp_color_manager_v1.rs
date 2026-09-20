@@ -51,7 +51,6 @@ use crate::object::Version;
 use crate::state::State;
 use crate::utils::event_listener::EventListener;
 use crate::wire::WpColorManagerV1Id;
-use crate::wire::wp_color_manager_v1::SupportedIntent;
 use crate::wire::wp_color_manager_v1::*;
 use jay_proc::Global;
 use jay_proc::Object;

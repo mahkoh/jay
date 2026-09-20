@@ -75,7 +75,7 @@ fn create_accept_gui(surface: &Rc<SelectionGuiSurface>, for_restore: bool) -> Rc
     let text = if app.is_empty() {
         format!("An application wants to capture the screen")
     } else {
-        format!("`{}` wants to capture the screen", app)
+        format!("`{app}` wants to capture the screen")
     };
     let label = Rc::new(Label::default());
     *label.text.borrow_mut() = text;
@@ -173,9 +173,10 @@ impl ButtonOwner for StaticButton {
             | ButtonRole::SelectWorkspace
             | ButtonRole::SelectWindow => {
                 log::info!("User has accepted the request");
-                let selecting = match self.surface.gui.screencast_session.sc_phase.get() {
-                    ScreencastPhase::Selecting(selecting) => selecting,
-                    _ => return,
+                let ScreencastPhase::Selecting(selecting) =
+                    self.surface.gui.screencast_session.sc_phase.get()
+                else {
+                    return;
                 };
                 for gui in selecting.guis.lock().drain_values() {
                     gui.kill(false);
@@ -274,14 +275,11 @@ impl UsrJaySelectWorkspaceOwner for SelectingWorkspaceScreencast {
             }
         }
         log::info!("User has selected a workspace");
-        let output = match self.dpy.outputs.get(&output) {
-            Some(o) => o,
-            _ => {
-                log::warn!("Workspace does not belong to any known output");
-                self.dpy.con.remove_obj(&*ws);
-                self.core.session.kill();
-                return;
-            }
+        let Some(output) = self.dpy.outputs.get(&output) else {
+            log::warn!("Workspace does not belong to any known output");
+            self.dpy.con.remove_obj(&*ws);
+            self.core.session.kill();
+            return;
         };
         self.core
             .starting(&self.dpy, ScreencastTarget::Workspace(output, ws, true));

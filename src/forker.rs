@@ -140,14 +140,14 @@ impl ForkerProxy {
         self.outgoing.push(ServerMessage::SetEnv {
             var: key.to_vec(),
             val: Some(val.to_vec()),
-        })
+        });
     }
 
     pub fn unsetenv(&self, key: &[u8]) {
         self.outgoing.push(ServerMessage::SetEnv {
             var: key.to_vec(),
             val: None,
-        })
+        });
     }
 
     async fn pidfd(&self, id: u32) -> Result<(Rc<OwnedFd>, c::pid_t), ForkerError> {
@@ -200,7 +200,7 @@ impl ForkerProxy {
         env: Vec<(String, Option<String>)>,
         fds: Vec<(i32, Rc<OwnedFd>)>,
     ) {
-        self.spawn_(prog, args, env, fds, None)
+        self.spawn_(prog, args, env, fds, None);
     }
 
     fn spawn_(
@@ -221,7 +221,7 @@ impl ForkerProxy {
             env,
             fds,
             pidfd_id,
-        })
+        });
     }
 
     async fn incoming(self: Rc<Self>, state: Rc<State>) {
@@ -270,7 +270,7 @@ impl ForkerProxy {
             5 => Level::Trace,
             _ => Level::Error,
         };
-        log::log!(level, "{}", msg);
+        log::log!(level, "{msg}");
     }
 
     async fn outgoing(self: Rc<Self>, state: Rc<State>) {
@@ -356,8 +356,8 @@ impl Forker {
             let socket = socket.raw();
             Box::new(move |pi| {
                 let msg = ForkerMessage::Log {
-                    level: log::Level::Error as _,
-                    msg: format!("The ol' forker panicked: {}", pi),
+                    level: Level::Error as _,
+                    msg: format!("The ol' forker panicked: {pi}"),
                 };
                 let msg = bincode_ops().serialize(&msg).unwrap();
                 let _ = Fd::new(socket).write_all(&msg);
@@ -396,12 +396,9 @@ impl Forker {
     async fn incoming(self: Rc<Self>) {
         let mut io = IoIn::new(&self.socket, &self.ring);
         loop {
-            let msg = match io.read_msg().await {
-                Ok(m) => m,
-                _ => {
-                    self.ring.stop();
-                    return;
-                }
+            let Ok(msg) = io.read_msg().await else {
+                self.ring.stop();
+                return;
             };
             self.handle_msg(msg, &mut io);
         }
@@ -443,7 +440,7 @@ impl Forker {
             .into_iter()
             .map(|a| (a, Rc::try_unwrap(io.pop_fd().unwrap()).unwrap()))
             .collect();
-        self.spawn(prog, args, env, fds, pidfd_id)
+        self.spawn(prog, args, env, fds, pidfd_id);
     }
 
     fn spawn(
@@ -460,7 +457,7 @@ impl Forker {
             Err(e) => {
                 self.fail_pidfd(pidfd_id);
                 self.outgoing.push(ForkerMessage::Log {
-                    level: log::Level::Error as usize,
+                    level: Level::Error as usize,
                     msg: ErrorFmt(e).to_string(),
                 });
                 return;
@@ -483,8 +480,8 @@ impl Forker {
                         let _ = Fd::new(read.raw()).read_to_string(&mut s);
                         if s.len() > 0 {
                             slf.outgoing.push(ForkerMessage::Log {
-                                level: log::Level::Error as _,
-                                msg: format!("Could not spawn `{}`: {}", prog, s),
+                                level: Level::Error as _,
+                                msg: format!("Could not spawn `{prog}`: {s}"),
                             });
                             slf.fail_pidfd(pidfd_id);
                         } else {

@@ -105,11 +105,11 @@ impl VulkanBufferCache {
             });
         }
         if let Some(idx) = smallest {
-            log::debug!("discarding size {}", smallest_size);
+            log::debug!("discarding size {smallest_size}");
             buffers.swap_remove(idx);
         }
         let size = capacity.checked_next_power_of_two().unwrap();
-        log::debug!("allocating size {}", size);
+        log::debug!("allocating size {size}");
         let buffer = self.device.allocate_uncached_buffer(
             size,
             self.min_alignment,

@@ -339,7 +339,7 @@ impl JayTreeQueryRequestHandler for JayTreeQuery {
 
     fn set_root_workspace_name(
         &self,
-        req: SetRootWorkspaceName,
+        req: SetRootWorkspaceName<'_>,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
         let root = &mut *self.root.borrow_mut();

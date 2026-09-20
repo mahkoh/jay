@@ -440,7 +440,7 @@ impl OutputNode {
         if flags.contains(PF_LOCKED)
             && let Some(lock) = self.state.lock.lock.get()
         {
-            lock.check_locked()
+            lock.check_locked();
         }
         let tearing = flags.not_contains(PF_VSYNC);
         if self.tearing.replace(tearing) != tearing {
@@ -572,13 +572,10 @@ impl OutputNode {
         let ns = &self.node_state[RenderTL];
         let now = self.state.now();
         for capture in self.screencopies.lock().drain_values() {
-            let wl_buffer = match capture.buffer.take() {
-                Some(b) => b,
-                _ => {
-                    log::warn!("Capture frame is pending but has no buffer attached");
-                    capture.send_failed();
-                    continue;
-                }
+            let Some(wl_buffer) = capture.buffer.take() else {
+                log::warn!("Capture frame is pending but has no buffer attached");
+                capture.send_failed();
+                continue;
             };
             if wl_buffer.destroyed() {
                 capture.send_failed();
@@ -619,13 +616,10 @@ impl OutputNode {
                         }
                     }
                     WlBufferStorage::Dmabuf(storage) => {
-                        let fb = match &storage.fb {
-                            Some(fb) => fb,
-                            _ => {
-                                log::warn!("Capture buffer has no framebuffer");
-                                capture.send_failed();
-                                continue;
-                            }
+                        let Some(fb) = &storage.fb else {
+                            log::warn!("Capture buffer has no framebuffer");
+                            capture.send_failed();
+                            continue;
                         };
                         let res = self.state.perform_screencopy(
                             tex,
@@ -745,10 +739,10 @@ impl OutputNode {
         let font = theme.bar_font.get();
         let bh = theme.sizes.bar_height.get();
         let scale = self.node_state[RenderTL].scale.get();
-        let scale = if scale != 1 {
-            Some(scale.to_f64())
-        } else {
+        let scale = if scale == 1 {
             None
+        } else {
+            Some(scale.to_f64())
         };
         let mut texture_height = bh;
         if let Some(scale) = scale {
@@ -824,10 +818,10 @@ impl OutputNode {
         let non_exclusive_rect_rel = ns.rects.non_exclusive_rel.get();
         let y1 = bar_rect_rel.y1() - non_exclusive_rect_rel.y1();
         let scale = self.node_state[RenderTL].scale.get();
-        let scale = if scale != 1 {
-            Some(scale.to_f64())
-        } else {
+        let scale = if scale == 1 {
             None
+        } else {
+            Some(scale.to_f64())
         };
         let active_id = ns.workspace.id();
         rd.bar_separator = ns
@@ -1331,7 +1325,7 @@ impl OutputNode {
         }
         self.global.send_mode();
         for seat in self.state.globals.seats.lock().values() {
-            seat.cursor_group().output_pos_changed(self)
+            seat.cursor_group().output_pos_changed(self);
         }
         self.state.tree_changed();
         self.global
@@ -1599,9 +1593,8 @@ impl OutputNode {
     }
 
     fn button(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, id: PointerType, button: u32) {
-        let (x, y) = match self.pointer_positions.get(&id) {
-            Some(p) => p,
-            _ => return,
+        let Some((x, y)) = self.pointer_positions.get(&id) else {
+            return;
         };
         if let PointerType::Seat(s) = id
             && button == BTN_LEFT
@@ -1667,7 +1660,7 @@ impl OutputNode {
             .connector
             .modify_state(&self.state, |s| s.vrr = enabled);
         if let Err(e) = res {
-            log::error!("Could not set vrr mode: {}", e);
+            log::error!("Could not set vrr mode: {e}");
         }
     }
 
@@ -1704,7 +1697,7 @@ impl OutputNode {
             .connector
             .modify_state(&self.state, |s| s.tearing = enabled);
         if let Err(e) = res {
-            log::error!("Could not set tearing mode: {}", e);
+            log::error!("Could not set tearing mode: {e}");
         }
     }
 
@@ -2602,7 +2595,7 @@ impl NodeBase for OutputNode {
         }
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, _bounds: Option<&Rect>) {
+    fn node_render(&self, renderer: &mut Renderer<'_>, x: i32, y: i32, _bounds: Option<&Rect>) {
         renderer.render_output(self, x, y);
     }
 
@@ -2625,16 +2618,14 @@ impl NodeBase for OutputNode {
     }
 
     fn node_on_axis_event(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, event: &PendingScroll) {
-        let steps = match self.scroll.handle(event) {
-            Some(e) => e,
-            _ => return,
+        let Some(steps) = self.scroll.handle(event) else {
+            return;
         };
         if steps == 0 {
             return;
         }
-        let ws = match self.node_state[LiveTL].workspace.get() {
-            Some(ws) => ws,
-            _ => return,
+        let Some(ws) = self.node_state[LiveTL].workspace.get() else {
+            return;
         };
         let mut ws = 'ws: {
             for r in self.workspaces.iter_valid(LiveTL) {
@@ -2728,11 +2719,7 @@ impl NodeBase for OutputNode {
     }
 }
 
-fn calculate_logical_size(
-    mode: (i32, i32),
-    transform: Transform,
-    scale: crate::scale::Scale,
-) -> (i32, i32) {
+fn calculate_logical_size(mode: (i32, i32), transform: Transform, scale: Scale) -> (i32, i32) {
     let (mut width, mut height) = transform.maybe_swap(mode);
     if scale != 1 {
         let scale = scale.to_f64();
@@ -2951,7 +2938,7 @@ impl OutputNodeOrPersistent {
     pub fn set_cursor_hz(&self, state: &State, hz: Option<f64>) {
         match self {
             OutputNodeOrPersistent::Node(n) => {
-                n.schedule.set_cursor_hz(state, hz.unwrap_or(f64::INFINITY))
+                n.schedule.set_cursor_hz(state, hz.unwrap_or(f64::INFINITY));
             }
             OutputNodeOrPersistent::Persistent(p) => p.vrr_cursor_hz.set(hz),
         }

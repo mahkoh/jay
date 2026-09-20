@@ -284,7 +284,7 @@ impl Renderer<'_> {
 
     pub fn render_workspace(&mut self, workspace: &WorkspaceNode, x: i32, y: i32) {
         if let Some(node) = workspace.node_state[RenderTL].container.get() {
-            self.render_container(&node, x, y)
+            self.render_container(&node, x, y);
         }
     }
 
@@ -297,7 +297,7 @@ impl Renderer<'_> {
     ) {
         let pos = placeholder.tl_data().content_size.get();
         self.base.fill_boxes(
-            std::slice::from_ref(&pos.at_point(x, y)),
+            slice::from_ref(&pos.at_point(x, y)),
             &Color::from_srgba_straight(20, 20, 20, 255),
             &self.state.color_manager.srgb_gamma22().linear,
             RenderIntent::Perceptual,
@@ -545,7 +545,7 @@ impl Renderer<'_> {
         let cd = surface.color_description();
         let intent = surface.render_intent();
         let alpha_mode = surface.alpha_mode();
-        let render_texture = |slf: &mut Renderer,
+        let render_texture = |slf: &mut Renderer<'_>,
                               tex: &Rc<dyn GfxTexture>,
                               buffer: Rc<dyn BufferResv>,
                               release_sync: ReleaseSync,
@@ -617,10 +617,7 @@ impl Renderer<'_> {
 
     pub fn render_floating(&mut self, floating: &FloatNode, x: i32, y: i32) {
         let ns = &floating.node_state[RenderTL];
-        let child = match ns.child.get() {
-            Some(c) => c,
-            _ => return,
-        };
+        let Some(child) = ns.child.get() else { return };
         let pos = ns.position.get();
         let theme = &ns.theme;
         let colors = &theme.colors;

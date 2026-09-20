@@ -42,7 +42,7 @@ impl ZxdgToplevelDecorationV1 {
         self.client.event(Configure {
             self_id: self.id,
             mode,
-        })
+        });
     }
 
     pub fn do_send_configure(&self) {

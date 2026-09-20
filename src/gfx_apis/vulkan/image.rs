@@ -515,7 +515,7 @@ impl VulkanDmaBufImageTemplate {
             fd.unwrap();
             device_memories.push(device_memory);
             free_device_memories.push(on_drop(move || unsafe {
-                device.device.free_memory(device_memory, None)
+                device.device.free_memory(device_memory, None);
             }));
         }
         let mut bind_image_memory_infos = Vec::with_capacity(num_device_memories);
@@ -536,7 +536,7 @@ impl VulkanDmaBufImageTemplate {
             let (bridge_image, allocation) = self.create_bridge()?;
             primary_image = bridge_image;
             destroy_bridge_image = Some(on_drop(|| unsafe {
-                device.device.destroy_image(primary_image, None)
+                device.device.destroy_image(primary_image, None);
             }));
             bridge = Some(VulkanFramebufferBridge {
                 dmabuf_image: image,

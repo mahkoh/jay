@@ -61,18 +61,18 @@ impl ExtDataControlSourceV1 {
             self_id: self.id,
             mime_type,
             fd,
-        })
+        });
     }
 
     fn send_cancelled(&self) {
-        self.data.data.client.event(Cancelled { self_id: self.id })
+        self.data.data.client.event(Cancelled { self_id: self.id });
     }
 }
 
 impl ExtDataControlSourceV1RequestHandler for ExtDataControlSourceV1 {
     type Error = ExtDataControlSourceV1Error;
 
-    fn offer(&self, req: Offer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn offer(&self, req: Offer<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         logic::data_source_offer(self, req.mime_type)?;
         Ok(())
     }

@@ -70,14 +70,14 @@ pub(super) struct PipelineCreateInfo<'a> {
 impl VulkanDevice {
     pub(super) fn create_pipeline<P>(
         &self,
-        info: PipelineCreateInfo,
+        info: PipelineCreateInfo<'_>,
     ) -> Result<Rc<VulkanPipeline>, VulkanError> {
         self.create_pipeline2(info, size_of::<P>())
     }
 
     pub(super) fn create_pipeline2(
         &self,
-        info: PipelineCreateInfo,
+        info: PipelineCreateInfo<'_>,
         push_size: usize,
     ) -> Result<Rc<VulkanPipeline>, VulkanError> {
         let mut pipeline_layout = PipelineLayout::null();

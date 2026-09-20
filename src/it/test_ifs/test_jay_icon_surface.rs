@@ -114,15 +114,15 @@ impl JayIconSurfaceV1EventHandler for TestIconSurface {
         Ok(())
     }
 
-    fn configure_size(&self, ev: ConfigureSize, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.configure_size.set(Some((ev.width, ev.height)));
-        Ok(())
-    }
-
     fn configure(&self, ev: Configure, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client
             .send_jay_icon_surface_v1_ack_configure(self.id, ev.serial);
         self.configure.set(Some(ev.serial));
+        Ok(())
+    }
+
+    fn configure_size(&self, ev: ConfigureSize, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.configure_size.set(Some((ev.width, ev.height)));
         Ok(())
     }
 }

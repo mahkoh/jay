@@ -73,9 +73,8 @@ async fn receive(data: Rc<EiClient>) {
             unsafe {
                 data_buf.set_len(len);
             }
-            let obj = match data.objects.get_obj(obj_id) {
-                Some(obj) => obj,
-                _ => match data.connection.get() {
+            let Some(obj) = data.objects.get_obj(obj_id) else {
+                match data.connection.get() {
                     None => {
                         return Err(EiClientError::InvalidObject(obj_id));
                     }
@@ -83,7 +82,7 @@ async fn receive(data: Rc<EiClient>) {
                         c.send_invalid_object(obj_id);
                         continue;
                     }
-                },
+                }
             };
             let parser = EiMsgParser::new(&mut buf, &data_buf[..]);
             if let Err(e) = obj.handle_request(&data, request, parser) {

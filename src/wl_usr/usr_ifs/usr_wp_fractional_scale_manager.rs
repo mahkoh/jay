@@ -43,6 +43,6 @@ usr_object_base! {
 
 impl UsrObject for UsrWpFractionalScaleManager {
     fn destroy(&self) {
-        self.con.request(Destroy { self_id: self.id })
+        self.con.request(Destroy { self_id: self.id });
     }
 }

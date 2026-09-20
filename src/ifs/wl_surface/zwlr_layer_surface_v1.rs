@@ -717,10 +717,10 @@ impl SurfaceExt for ZwlrLayerSurfaceV1 {
     }
 
     fn focus_node(&self) -> Option<Rc<dyn Node>> {
-        if self.keyboard_interactivity.get() != KI_NONE {
-            Some(self.surface.clone())
-        } else {
+        if self.keyboard_interactivity.get() == KI_NONE {
             None
+        } else {
+            Some(self.surface.clone())
         }
     }
 
@@ -789,7 +789,7 @@ impl NodeBase for ZwlrLayerSurfaceV1 {
     }
 
     fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
-        seat.focus_node(self.surface.clone())
+        seat.focus_node(self.surface.clone());
     }
 
     fn node_find_tree_at(
@@ -803,7 +803,7 @@ impl NodeBase for ZwlrLayerSurfaceV1 {
         self.surface.find_tree_at_(x + dx, y + dy, tree)
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, _bounds: Option<&Rect>) {
+    fn node_render(&self, renderer: &mut Renderer<'_>, x: i32, y: i32, _bounds: Option<&Rect>) {
         renderer.render_layer_surface(self, x, y);
     }
 

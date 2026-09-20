@@ -18,7 +18,7 @@ use uapi::c;
 
 #[expect(unused)]
 pub trait FuseRegView<T>: 'static {
-    fn read(t: &T, key: u64, buf: &mut String, ctx: &StrCtx);
+    fn read(t: &T, key: u64, buf: &mut String, ctx: &StrCtx<'_>);
 
     fn add_newline(key: u64) -> bool {
         let _ = key;
@@ -45,7 +45,7 @@ mod fuse_reg {
             FuseInodeProps::reg()
         }
 
-        fn read(t: &T, key: u64, buf: &mut String, ctx: &StrCtx) {
+        fn read(t: &T, key: u64, buf: &mut String, ctx: &StrCtx<'_>) {
             V::read(t, key, buf, ctx);
             if ctx.fmt == StrFmtFmt::Human && V::add_newline(key) {
                 buf.push_str("\n");

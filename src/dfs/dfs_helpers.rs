@@ -20,7 +20,7 @@ pub fn write_root_link(buf: &mut String, depth: u64) {
 }
 
 #[expect(unused)]
-pub fn dfs_split_view<T>(dst: &mut String, ctx: &StrCtx, mut f: impl FnMut(TreeTimeline) -> T)
+pub fn dfs_split_view<T>(dst: &mut String, ctx: &StrCtx<'_>, mut f: impl FnMut(TreeTimeline) -> T)
 where
     T: StrFmt,
 {

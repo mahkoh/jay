@@ -267,7 +267,7 @@ impl PwClientNodeOwner for StartedScreencast {
                 self.session.kill();
                 return;
             }
-        };
+        }
         log::debug!(
             "Negotiated format {} with modifier 0x{modifier:08x} at size {}x{}",
             fmt.name,
@@ -420,7 +420,7 @@ impl SelectingScreencastCore {
 impl PortalSession {
     fn dbus_select_sources(
         self: &Rc<Self>,
-        req: SelectSources,
+        req: SelectSources<'_>,
         reply: PendingReply<SelectSourcesReply<'static>>,
     ) {
         match self.sc_phase.get() {
@@ -765,15 +765,15 @@ pub(super) fn add_screencast_dbus_members(
     use org::freedesktop::impl_::portal::screen_cast::*;
     let state = state_.clone();
     let pw_con = pw_con.clone();
-    object.add_method::<CreateSession, _>(move |req, pr| {
+    object.add_method::<CreateSession<'_>, _>(move |req, pr| {
         dbus_create_session(&state, &pw_con, req, pr);
     });
     let state = state_.clone();
-    object.add_method::<SelectSources, _>(move |req, pr| {
+    object.add_method::<SelectSources<'_>, _>(move |req, pr| {
         dbus_select_sources(&state, req, pr);
     });
     let state = state_.clone();
-    object.add_method::<Start, _>(move |req, pr| {
+    object.add_method::<Start<'_>, _>(move |req, pr| {
         dbus_start(&state, req, pr);
     });
     object.set_property::<AvailableSourceTypes>(Variant::U32(MONITOR.0));
@@ -784,20 +784,17 @@ pub(super) fn add_screencast_dbus_members(
 fn dbus_create_session(
     state: &Rc<PortalState>,
     pw_con: &Rc<PwCon>,
-    req: CreateSession,
+    req: CreateSession<'_>,
     reply: PendingReply<CreateSessionReply<'static>>,
 ) {
-    log::info!("Create Session {:#?}", req);
+    log::info!("Create Session {req:#?}");
     if state.sessions.contains(req.session_handle.0.deref()) {
         reply.err("Session already exists");
         return;
     }
-    let obj = match state.dbus.add_object(req.session_handle.0.to_string()) {
-        Ok(obj) => obj,
-        Err(_) => {
-            reply.err("Session path is not unique");
-            return;
-        }
+    let Ok(obj) = state.dbus.add_object(req.session_handle.0.to_string()) else {
+        reply.err("Session path is not unique");
+        return;
     };
     let session = Rc::new(PortalSession {
         _id: state.id(),
@@ -829,7 +826,7 @@ fn dbus_create_session(
 
 fn dbus_select_sources(
     state: &Rc<PortalState>,
-    req: SelectSources,
+    req: SelectSources<'_>,
     reply: PendingReply<SelectSourcesReply<'static>>,
 ) {
     if let Some(s) = get_session(state, &reply, &req.session_handle.0) {
@@ -837,7 +834,7 @@ fn dbus_select_sources(
     }
 }
 
-fn dbus_start(state: &Rc<PortalState>, req: Start, reply: PendingReply<StartReply<'static>>) {
+fn dbus_start(state: &Rc<PortalState>, req: Start<'_>, reply: PendingReply<StartReply<'static>>) {
     if let Some(s) = get_session(state, &reply, &req.session_handle.0) {
         s.dbus_start_screencast(req, reply);
     }
@@ -850,7 +847,7 @@ fn get_session<T>(
 ) -> Option<Rc<PortalSession>> {
     let res = state.sessions.get(handle);
     if res.is_none() {
-        let msg = format!("Screencast session `{}` does not exist", handle);
+        let msg = format!("Screencast session `{handle}` does not exist");
         reply.err(&msg);
     }
     res
@@ -912,13 +909,13 @@ pub enum RestoreError {
     GetToplevel,
 }
 
-fn get_restore_data(req: &SelectSources) -> Option<Result<RestoreData, RestoreError>> {
+fn get_restore_data(req: &SelectSources<'_>) -> Option<Result<RestoreData, RestoreError>> {
     let restore_data = req.options.iter().find(|n| n.key == "restore_data")?;
     Some(get_restore_data_(restore_data))
 }
 
 fn get_restore_data_(
-    restore_data: &DictEntry<Cow<str>, Variant>,
+    restore_data: &DictEntry<Cow<'_, str>, Variant<'_>>,
 ) -> Result<RestoreData, RestoreError> {
     let Variant::Struct(s) = &restore_data.value else {
         return Err(RestoreError::NotAStruct);

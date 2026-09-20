@@ -18,11 +18,11 @@ impl<T> Default for VecStorage<T> {
 }
 
 impl<T> VecStorage<T> {
-    pub fn take<'a>(&'a mut self) -> RealizedVec<'a, T, T> {
+    pub fn take(&mut self) -> RealizedVec<'_, T, T> {
         self.take_as()
     }
 
-    pub fn take_as<'a, U>(&'a mut self) -> RealizedVec<'a, T, U> {
+    pub fn take_as<U>(&mut self) -> RealizedVec<'_, T, U> {
         assert_size_eq!(T, U);
         assert_align_eq!(T, U);
         unsafe {
@@ -51,7 +51,7 @@ pub struct RealizedVec<'a, T, U> {
     storage: &'a mut VecStorage<T>,
 }
 
-impl<'a, T, U> Drop for RealizedVec<'a, T, U> {
+impl<T, U> Drop for RealizedVec<'_, T, U> {
     fn drop(&mut self) {
         self.vec.clear();
         self.storage.ptr = self.vec.as_mut_ptr() as _;
@@ -59,7 +59,7 @@ impl<'a, T, U> Drop for RealizedVec<'a, T, U> {
     }
 }
 
-impl<'a, T, U> Deref for RealizedVec<'a, T, U> {
+impl<T, U> Deref for RealizedVec<'_, T, U> {
     type Target = Vec<U>;
 
     fn deref(&self) -> &Self::Target {
@@ -67,7 +67,7 @@ impl<'a, T, U> Deref for RealizedVec<'a, T, U> {
     }
 }
 
-impl<'a, T, U> DerefMut for RealizedVec<'a, T, U> {
+impl<T, U> DerefMut for RealizedVec<'_, T, U> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.vec.deref_mut()
     }

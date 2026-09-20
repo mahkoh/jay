@@ -63,7 +63,7 @@ fn bind_socket(
 ) -> Result<EiAllocatedSocket, EiAcceptorError> {
     let mut addr: c::sockaddr_un = uapi::pod_zeroed();
     addr.sun_family = c::AF_UNIX as _;
-    let name = format!("eis-{}", id);
+    let name = format!("eis-{id}");
     let path = format_ustr!("{}/{}", xrd, name);
     let lock_path = format_ustr!("{}.lock", path.display());
     if path.len() + 1 > addr.sun_path.len() {
@@ -95,9 +95,8 @@ fn bind_socket(
 }
 
 fn allocate_socket() -> Result<EiAllocatedSocket, EiAcceptorError> {
-    let xrd = match *XDG_RUNTIME_DIR {
-        Some(d) => d,
-        _ => return Err(EiAcceptorError::XrdNotSet),
+    let Some(xrd) = *XDG_RUNTIME_DIR else {
+        return Err(EiAcceptorError::XrdNotSet);
     };
     let socket = uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
         .map(Rc::new)
@@ -142,10 +141,7 @@ async fn accept(fd: Rc<OwnedFd>, state: Rc<State>) {
                 break;
             }
         };
-        if let Err(e) = state.ei_clients.spawn(&state, fd) {
-            log::error!("Could not spawn a client: {}", ErrorFmt(e));
-            break;
-        }
+        state.ei_clients.spawn(&state, fd);
     }
     state.ring.stop();
 }

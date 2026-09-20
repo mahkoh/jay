@@ -66,7 +66,6 @@ use jay_toml_config::WindowMatch;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::VecDeque;
-use std::future::Future;
 use std::mem;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -109,7 +108,7 @@ pub struct ToolClient {
     handlers: RefCell<
         BHashMap<
             ObjectId,
-            BHashMap<u32, Rc<dyn Fn(&mut MsgParser) -> Result<(), ToolClientError>>>,
+            BHashMap<u32, Rc<dyn Fn(&mut MsgParser<'_, '_>) -> Result<(), ToolClientError>>>,
         >,
     >,
     swapchain: Rc<RefCell<OutBufferSwapchain>>,
@@ -122,10 +121,9 @@ pub struct ToolClient {
     jay_damage_tracking: Cell<Option<Option<JayDamageTrackingId>>>,
 }
 
-pub fn with_tool_client<T, F>(f: F)
+pub fn with_tool_client<F>(f: F)
 where
-    F: FnOnce(Rc<ToolClient>) -> T + 'static,
-    T: Future<Output = ()> + 'static,
+    F: AsyncFnOnce(Rc<ToolClient>) + 'static,
 {
     if let Err(e) = with_tool_client_(f) {
         handle_error(e);
@@ -136,10 +134,9 @@ fn handle_error(e: ToolClientError) -> ! {
     fatal!("Could not create a tool client: {}", ErrorFmt(e));
 }
 
-fn with_tool_client_<T, F>(f: F) -> Result<(), ToolClientError>
+fn with_tool_client_<F>(f: F) -> Result<(), ToolClientError>
 where
-    F: FnOnce(Rc<ToolClient>) -> T + 'static,
-    T: Future<Output = ()> + 'static,
+    F: AsyncFnOnce(Rc<ToolClient>) + 'static,
 {
     reset_sigpipe();
     let logger = Logger::install_stderr(initial_log_level());
@@ -180,13 +177,11 @@ impl ToolClient {
             Ok(w) => w,
             Err(e) => return Err(ToolClientError::CreateWheel(e)),
         };
-        let xrd = match *XDG_RUNTIME_DIR {
-            Some(d) => d,
-            _ => return Err(ToolClientError::XrdNotSet),
+        let Some(xrd) = *XDG_RUNTIME_DIR else {
+            return Err(ToolClientError::XrdNotSet);
         };
-        let wd = match *WAYLAND_DISPLAY {
-            Some(d) => d,
-            _ => return Err(ToolClientError::WaylandDisplayNotSet),
+        let Some(wd) = *WAYLAND_DISPLAY else {
+            return Err(ToolClientError::WaylandDisplayNotSet);
         };
         let mut path = format_ustr!("{}/{}", xrd, wd);
         let suffix = b".jay";
@@ -268,7 +263,7 @@ impl ToolClient {
         R: 'static,
         H: for<'a> Fn(&R, T::Generic<'a>) + 'static,
     {
-        let handler: Rc<dyn Fn(&mut MsgParser) -> Result<(), ToolClientError>> =
+        let handler: Rc<dyn Fn(&mut MsgParser<'_, '_>) -> Result<(), ToolClientError>> =
             Rc::new(move |parser| {
                 let val = Self::parse::<T>(parser)?;
                 h(&recv, val);
@@ -290,7 +285,7 @@ impl ToolClient {
         self: &Rc<Self>,
         id: ObjectId,
         req: u32,
-        handler: Rc<dyn Fn(&mut MsgParser) -> Result<(), ToolClientError>>,
+        handler: Rc<dyn Fn(&mut MsgParser<'_, '_>) -> Result<(), ToolClientError>>,
     ) {
         let mut handlers = self.handlers.borrow_mut();
         handlers.entry(id).or_default().insert(req, handler);
@@ -806,7 +801,7 @@ impl ToolClient {
         } = m;
 
         self.generic_match(gmb, generic, |m| {
-            self.create_window_match_(comp, gmb, cmb, m)
+            self.create_window_match_(comp, gmb, cmb, m);
         });
         if let Some(c) = client {
             self.send(jay_window_match_builder::Client {

@@ -47,7 +47,7 @@ impl JayToplevel {
         self.client.event(Id {
             self_id: self.id,
             id: &s,
-        })
+        });
     }
 
     pub fn send_client_id(&self) {
@@ -55,12 +55,12 @@ impl JayToplevel {
             self.client.event(ClientId {
                 self_id: self.id,
                 id: cl.id.raw(),
-            })
+            });
         }
     }
 
     pub fn send_done(&self) {
-        self.client.event(Done { self_id: self.id })
+        self.client.event(Done { self_id: self.id });
     }
 }
 

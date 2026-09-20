@@ -28,7 +28,6 @@ use byteorder::ReadBytesExt;
 use isnt::std_1::primitive::IsntSliceExt;
 use num_derive::FromPrimitive;
 use std::cell::Cell;
-use std::convert::TryInto;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::fs::File;
@@ -62,8 +61,8 @@ pub static DEFAULT_CURSOR_SIZE: LazyLock<u32> = LazyLock::new(|| {
 });
 
 pub trait Cursor {
-    fn render(&self, renderer: &mut Renderer, x: Fixed, y: Fixed);
-    fn render_hardware_cursor(&self, renderer: &mut Renderer);
+    fn render(&self, renderer: &mut Renderer<'_>, x: Fixed, y: Fixed);
+    fn render_hardware_cursor(&self, renderer: &mut Renderer<'_>);
     fn extents_at_scale(&self, scale: Scale) -> Rect;
     fn set_output(&self, output: &Rc<OutputNode>) {
         let _ = output;
@@ -169,7 +168,7 @@ pub enum KnownCursor {
 impl ServerCursors {
     pub fn load(ctx: &Rc<dyn GfxContext>, state: &State) -> Result<Option<Self>, CursorError> {
         let paths = find_cursor_paths();
-        log::debug!("Trying to load cursors from paths {:?}", paths);
+        log::debug!("Trying to load cursors from paths {paths:?}");
         let sizes = state.cursor_sizes.to_vec();
         let scales = state.scales.to_vec();
         if sizes.is_empty() || scales.is_empty() {
@@ -252,7 +251,7 @@ impl ServerCursorTemplate {
                             )?,
                         );
                     }
-                    let cursor = CursorImage::from_sizes(0, sizes)?;
+                    let cursor = CursorImage::from_sizes(0, sizes);
                     Ok(ServerCursorTemplate {
                         var: ServerCursorTemplateVariant::Static(Rc::new(cursor)),
                         xcursor: cs.images,
@@ -271,7 +270,7 @@ impl ServerCursorTemplate {
                                 )?,
                             );
                         }
-                        let img = CursorImage::from_sizes(delay_ms as _, sizes)?;
+                        let img = CursorImage::from_sizes(delay_ms as _, sizes);
                         images.push(img);
                     }
                     Ok(ServerCursorTemplate {
@@ -292,7 +291,7 @@ impl ServerCursorTemplate {
                         );
                     }
                 }
-                let cursor = CursorImage::from_sizes(0, img_sizes)?;
+                let cursor = CursorImage::from_sizes(0, img_sizes);
                 Ok(ServerCursorTemplate {
                     var: ServerCursorTemplateVariant::Static(Rc::new(cursor)),
                     xcursor: Default::default(),
@@ -367,11 +366,11 @@ impl CursorImage {
     fn from_sizes(
         delay_ms: u64,
         sizes: SmallMapMut<(Scale, u32), Rc<CursorImageScaled>, 2>,
-    ) -> Result<Self, CursorError> {
-        Ok(Self {
+    ) -> Self {
+        Self {
             delay_ns: delay_ms.max(1) * 1_000_000,
             sizes,
-        })
+        }
     }
 
     fn for_size(&self, size: u32) -> InstantiatedCursorImage {
@@ -410,19 +409,18 @@ struct StaticCursor {
     image: InstantiatedCursorImage,
 }
 
-fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer, x: Fixed, y: Fixed) {
+fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer<'_>, x: Fixed, y: Fixed) {
     let scale = renderer.scale();
-    let img = match image.scales.get(&scale) {
-        Some(img) => img,
-        _ => return,
+    let Some(img) = image.scales.get(&scale) else {
+        return;
     };
-    let extents = if scale != 1 {
+    let extents = if scale == 1 {
+        img.extents.move_(x.round_down(), y.round_down())
+    } else {
         let scalef = scale.to_f64();
         let x = (x.to_f64() * scalef).round() as i32;
         let y = (y.to_f64() * scalef).round() as i32;
         img.extents.move_(x, y)
-    } else {
-        img.extents.move_(x.round_down(), y.round_down())
     };
     if extents.intersects(&renderer.pixel_extents()) {
         renderer.base.render_texture(
@@ -435,11 +433,11 @@ fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer, x: Fixed
 }
 
 impl Cursor for StaticCursor {
-    fn render(&self, renderer: &mut Renderer, x: Fixed, y: Fixed) {
+    fn render(&self, renderer: &mut Renderer<'_>, x: Fixed, y: Fixed) {
         render_img(&self.image, renderer, x, y);
     }
 
-    fn render_hardware_cursor(&self, renderer: &mut Renderer) {
+    fn render_hardware_cursor(&self, renderer: &mut Renderer<'_>) {
         if let Some(img) = self.image.scales.get(&renderer.scale()) {
             renderer
                 .base
@@ -469,12 +467,12 @@ struct AnimatedCursor {
 }
 
 impl Cursor for AnimatedCursor {
-    fn render(&self, renderer: &mut Renderer, x: Fixed, y: Fixed) {
+    fn render(&self, renderer: &mut Renderer<'_>, x: Fixed, y: Fixed) {
         let img = &self.images[self.idx.get()];
         render_img(img, renderer, x, y);
     }
 
-    fn render_hardware_cursor(&self, renderer: &mut Renderer) {
+    fn render_hardware_cursor(&self, renderer: &mut Renderer<'_>) {
         let img = &self.images[self.idx.get()];
         if let Some(img) = img.scales.get(&renderer.scale()) {
             renderer
@@ -549,9 +547,8 @@ fn open_cursor(
             }
         }
     }
-    let file = match file {
-        Some(f) => f,
-        _ => return Err(CursorError::NotFound),
+    let Some(file) = file else {
+        return Err(CursorError::NotFound);
     };
     let mut file = BufReader::new(file);
     parser_cursor_file(&mut file, scales, sizes)
@@ -622,9 +619,8 @@ fn find_cursor_paths() -> Vec<BString> {
 fn find_parent_themes(path: &[u8]) -> Option<Vec<BString>> {
     // NOTE: The files we're reading here are really INI files with a hierarchy. This
     // algorithm treats it as a flat list and is inherited from libxcursor.
-    let file = match File::open(path.to_os_str().unwrap()) {
-        Ok(f) => f,
-        _ => return None,
+    let Ok(file) = File::open(path.to_os_str().unwrap()) else {
+        return None;
     };
     let mut buf_reader = BufReader::new(file);
     let mut buf = vec![];
@@ -634,9 +630,8 @@ fn find_parent_themes(path: &[u8]) -> Option<Vec<BString>> {
             Ok(n) if n > 0 => {}
             _ => return None,
         }
-        let mut suffix = match buf.strip_prefix(b"Inherits") {
-            Some(s) => s,
-            _ => continue,
+        let Some(mut suffix) = buf.strip_prefix(b"Inherits") else {
+            continue;
         };
         while suffix.first() == Some(&b' ') {
             suffix = &suffix[1..];

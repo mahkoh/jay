@@ -515,7 +515,7 @@ fn write_message<W: Write>(
         wl!("{xn}const MEMBER: &'static str = \"{}\";", msg_name,);
         wl!("{xn}type Generic<'b> = {}{};", name, ltb,);
         wl!();
-        wl!("{xn}fn marshal(&self, fmt: &mut Formatter) {{");
+        wl!("{xn}fn marshal(&self, fmt: &mut Formatter<'_>) {{");
         {
             push_xn!(xn);
             if fields.is_empty() {
@@ -562,8 +562,9 @@ fn write_message<W: Write>(
     wl!("{xn}}}");
     if let Some(rn) = reply_name {
         let reply_lt = if reply_has_lt { "<'static>" } else { "" };
+        let mclt = if needs_lt { "<'a>" } else { "<'_>" };
         wl!();
-        wl!("{xn}impl<'a> MethodCall<'a> for {}{} {{", name, lt);
+        wl!("{xn}impl{lt} MethodCall{mclt} for {}{lt} {{", name);
         {
             push_xn!(xn);
             wl!("{xn}type Reply = {}{};", rn, reply_lt);
@@ -620,8 +621,9 @@ fn write_signal<W: Write>(f: &mut W, xn: &Indent, element: &Element, sig: &Signa
     write_message(f, xn, element, &sig.name, &name, &sig.fields, None, false)?;
     let has_lt = sig.fields.iter().any(|f| needs_lifetime(&f.ty));
     let lt = if has_lt { "<'a>" } else { "" };
+    let slt = if has_lt { "<'a>" } else { "<'_>" };
     wl!();
-    wl!("{xn}impl<'a> Signal<'a> for {}{} {{ }}", name, lt);
+    wl!("{xn}impl{lt} Signal{slt} for {}{} {{ }}", name, lt);
     Ok(())
 }
 

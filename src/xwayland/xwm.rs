@@ -489,13 +489,11 @@ impl Wm {
             });
         }
         'set_root_cursor: {
-            let cursors = match state.cursors.get() {
-                Some(g) => g,
-                _ => break 'set_root_cursor,
+            let Some(cursors) = state.cursors.get() else {
+                break 'set_root_cursor;
             };
-            let first = match cursors.default.xcursor.first() {
-                Some(f) => f,
-                _ => break 'set_root_cursor,
+            let Some(first) = cursors.default.xcursor.first() else {
+                break 'set_root_cursor;
             };
             let first = match first.iter().find(|i| i.0.0 == 1) {
                 Some(f) => f.1,
@@ -655,18 +653,18 @@ impl Wm {
     async fn handle_xwayland_event(&mut self, e: XWaylandEvent) {
         match e {
             XWaylandEvent::SurfaceCreated(event) => {
-                self.handle_xwayland_surface_created(event).await
+                self.handle_xwayland_surface_created(event).await;
             }
             XWaylandEvent::SurfaceSerialAssigned(event) => {
-                self.handle_xwayland_surface_serial_assigned(event).await
+                self.handle_xwayland_surface_serial_assigned(event).await;
             }
             XWaylandEvent::Configure(event) => self.handle_xwayland_configure(event).await,
             XWaylandEvent::SurfaceDestroyed(surface_id, serial) => {
-                self.handle_xwayland_surface_destroyed(surface_id, serial)
+                self.handle_xwayland_surface_destroyed(surface_id, serial);
             }
             XWaylandEvent::Activate(window) => {
                 self.activate_window(Some(&window), Initiator::Wayland)
-                    .await
+                    .await;
             }
             XWaylandEvent::ActivateRoot => self.activate_window(None, Initiator::Wayland).await,
             XWaylandEvent::Close(window) => self.close_window(&window).await,
@@ -677,7 +675,7 @@ impl Wm {
                 source,
             } => match location {
                 IpcLocation::Clipboard => {
-                    self.dd_cancel_source::<XClipboardIpc>(&self.shared.clone().data, seat, source)
+                    self.dd_cancel_source::<XClipboardIpc>(&self.shared.clone().data, seat, source);
                 }
                 IpcLocation::PrimarySelection => self.dd_cancel_source::<XPrimarySelectionIpc>(
                     &self.shared.clone().primary_selection,
@@ -700,7 +698,7 @@ impl Wm {
                         mime_type,
                         fd,
                     )
-                    .await
+                    .await;
                 }
                 IpcLocation::PrimarySelection => {
                     self.dd_send_source::<XPrimarySelectionIpc>(
@@ -710,7 +708,7 @@ impl Wm {
                         mime_type,
                         fd,
                     )
-                    .await
+                    .await;
                 }
             },
             XWaylandEvent::IpcSetOffer {
@@ -720,7 +718,7 @@ impl Wm {
             } => match location {
                 IpcLocation::Clipboard => {
                     self.dd_set_offer::<XClipboardIpc>(&self.shared.clone().data, seat, offer)
-                        .await
+                        .await;
                 }
                 IpcLocation::PrimarySelection => {
                     self.dd_set_offer::<XPrimarySelectionIpc>(
@@ -728,7 +726,7 @@ impl Wm {
                         seat,
                         offer,
                     )
-                    .await
+                    .await;
                 }
             },
             XWaylandEvent::IpcSetSelection {
@@ -738,7 +736,7 @@ impl Wm {
             } => match location {
                 IpcLocation::Clipboard => {
                     self.dd_set_selection::<XClipboardIpc>(&self.shared.clone().data, seat, offer)
-                        .await
+                        .await;
                 }
                 IpcLocation::PrimarySelection => {
                     self.dd_set_selection::<XPrimarySelectionIpc>(
@@ -746,7 +744,7 @@ impl Wm {
                         seat,
                         offer,
                     )
-                    .await
+                    .await;
                 }
             },
             XWaylandEvent::IpcAddOfferMimeType {
@@ -762,7 +760,7 @@ impl Wm {
                         offer,
                         mime_type,
                     )
-                    .await
+                    .await;
                 }
                 IpcLocation::PrimarySelection => {
                     self.dd_add_offer_mime_type::<XPrimarySelectionIpc>(
@@ -771,7 +769,7 @@ impl Wm {
                         offer,
                         mime_type,
                     )
-                    .await
+                    .await;
                 }
             },
         }
@@ -830,24 +828,18 @@ impl Wm {
         seat: SeatId,
         offer: Option<Rc<XDataOffer>>,
     ) {
-        let offer = match offer {
-            None => {
-                if let Some(offer) = sd.offers.remove(&seat) {
-                    destroy_data_offer::<T>(&offer.offer);
-                    if offer.active.get() {
-                        sd.active_offer.take();
-                    }
+        let Some(offer) = offer else {
+            if let Some(offer) = sd.offers.remove(&seat) {
+                destroy_data_offer::<T>(&offer.offer);
+                if offer.active.get() {
+                    sd.active_offer.take();
                 }
-                return;
             }
-            Some(offer) => offer,
+            return;
         };
-        let enhanced = match sd.offers.get(&seat) {
-            None => {
-                destroy_data_offer::<T>(&offer);
-                return;
-            }
-            Some(e) => e,
+        let Some(enhanced) = sd.offers.get(&seat) else {
+            destroy_data_offer::<T>(&offer);
+            return;
         };
         if !rc_eq(&enhanced.offer, &offer) {
             destroy_data_offer::<T>(&offer);
@@ -927,9 +919,8 @@ impl Wm {
         mime_type: String,
         fd: Rc<OwnedFd>,
     ) {
-        let actual_src = match sd.sources.get(&seat) {
-            None => return,
-            Some(src) => src,
+        let Some(actual_src) = sd.sources.get(&seat) else {
+            return;
         };
         if actual_src.source_data().id != src {
             return;
@@ -1060,22 +1051,19 @@ impl Wm {
             // log::info!("xwm unfocus {:?}", old.window_id);
             self.set_net_wm_state(&old).await;
         }
-        let window = match window {
-            Some(w) => w,
-            _ => {
-                if let Err(e) = self
-                    .c
-                    .call(&SetInputFocus {
-                        revert_to: INPUT_FOCUS_POINTER_ROOT,
-                        focus: 0,
-                        time: 0,
-                    })
-                    .await
-                {
-                    log::error!("Could not unset pointer focus: {}", ErrorFmt(e));
-                }
-                return;
+        let Some(window) = window else {
+            if let Err(e) = self
+                .c
+                .call(&SetInputFocus {
+                    revert_to: INPUT_FOCUS_POINTER_ROOT,
+                    focus: 0,
+                    time: 0,
+                })
+                .await
+            {
+                log::error!("Could not unset pointer focus: {}", ErrorFmt(e));
             }
+            return;
         };
         if window.info.override_redirect.get() {
             // log::info!("xwm or => return");
@@ -1272,13 +1260,7 @@ impl Wm {
         if let Ok(res) = &res {
             ty_name = res.get().name;
         }
-        log::error!(
-            "Property {} of window {} has unexpected type {} ({})",
-            prop,
-            window,
-            ty_name,
-            ty
-        );
+        log::error!("Property {prop} of window {window} has unexpected type {ty_name} ({ty})");
     }
 
     async fn load_window_wm_name(&self, data: &Rc<XwindowData>) {
@@ -1590,9 +1572,8 @@ impl Wm {
     }
 
     async fn handle_xwayland_surface_created(&mut self, surface: WlSurfaceId) {
-        let surface = match self.client.lookup(surface) {
-            Ok(s) => s,
-            _ => return,
+        let Ok(surface) = self.client.lookup(surface) else {
+            return;
         };
         let data = match self.windows_by_surface_id.get(&surface.id) {
             Some(w) => w.clone(),
@@ -1602,13 +1583,11 @@ impl Wm {
     }
 
     async fn handle_xwayland_surface_serial_assigned(&mut self, surface: WlSurfaceId) {
-        let surface = match self.client.lookup(surface) {
-            Ok(s) => s,
-            _ => return,
+        let Ok(surface) = self.client.lookup(surface) else {
+            return;
         };
-        let serial = match surface.xwayland_serial() {
-            Some(s) => s,
-            _ => return,
+        let Some(serial) = surface.xwayland_serial() else {
+            return;
         };
         let data = match self.windows_by_surface_serial.get(&serial) {
             Some(w) => w.clone(),
@@ -1755,7 +1734,7 @@ impl Wm {
                         }
                     };
                     if !present {
-                        log::error!("Peer requested unavailable target {}", mt);
+                        log::error!("Peer requested unavailable target {mt}");
                         break 'convert;
                     }
                     let Pipe {
@@ -1764,7 +1743,7 @@ impl Wm {
                     } = match pipe() {
                         Ok(p) => p,
                         Err(e) => {
-                            log::error!("Could not create pipe: {}", e);
+                            log::error!("Could not create pipe: {e}");
                             break 'convert;
                         }
                     };
@@ -1877,7 +1856,7 @@ impl Wm {
                 )
                 .await;
             if let Err(e) = gp {
-                log::error!("Could not get converted property: {}", e);
+                log::error!("Could not get converted property: {e}");
                 return Ok(());
             }
             let mut data = Buf::from_slice(&data);
@@ -1930,9 +1909,8 @@ impl Wm {
 
     async fn handle_unmap_notify(&mut self, revent: &Event) -> Result<(), XWaylandError> {
         let event: UnmapNotify = revent.parse()?;
-        let data = match self.windows.get(&event.window) {
-            Some(w) => w,
-            _ => return Ok(()),
+        let Some(data) = self.windows.get(&event.window) else {
+            return Ok(());
         };
         if data.map_link.replace(None).is_some() {
             self.num_mapped -= 1;
@@ -2035,9 +2013,8 @@ impl Wm {
         // if let Ok(name) = name {
         //     log::info!("{}", name.get().name);
         // }
-        let data = match self.windows.get(&event.window) {
-            Some(w) => w,
-            _ => return Ok(()),
+        let Some(data) = self.windows.get(&event.window) else {
+            return Ok(());
         };
         if event.atom == ATOM_WM_CLASS {
             // log::debug!("ATOM_WM_CLASS changed");
@@ -2081,9 +2058,8 @@ impl Wm {
 
     async fn handle_destroy_notify(&mut self, event: &Event) -> Result<(), XWaylandError> {
         let event: DestroyNotify = event.parse()?;
-        let data = match self.windows.remove(&event.window) {
-            Some(w) => w,
-            _ => return Ok(()),
+        let Some(data) = self.windows.remove(&event.window) else {
+            return Ok(());
         };
         // log::info!("xwm destroy_notify {}", event.window);
         data.destroyed.set(true);
@@ -2146,7 +2122,7 @@ impl Wm {
     }
 
     async fn handle_client_message(&mut self, event: &Event) -> Result<(), XWaylandError> {
-        let event: ClientMessage = event.parse()?;
+        let event: ClientMessage<'_> = event.parse()?;
         if event.ty == self.atoms.WL_SURFACE_ID {
             self.handle_wl_surface_id(&event).await?;
         } else if event.ty == self.atoms._NET_WM_STATE {
@@ -2284,10 +2260,7 @@ impl Wm {
 
     async fn configure_stack_position(&mut self, window: &Rc<XwindowData>) {
         let sl = window.stack_link.borrow_mut();
-        let sl = match sl.deref() {
-            Some(sl) => sl,
-            _ => return,
-        };
+        let Some(sl) = sl.deref() else { return };
         let (sibling, stack_mode) = match sl.prev() {
             Some(n) => (Some(n), STACK_MODE_ABOVE),
             _ => match sl.next() {
@@ -2327,9 +2300,8 @@ impl Wm {
 
     fn handle_configure_notify(&mut self, event: &Event) -> Result<(), XWaylandError> {
         let event: ConfigureNotify = event.parse()?;
-        let data = match self.windows.get(&event.window) {
-            Some(d) => d,
-            _ => return Ok(()),
+        let Some(data) = self.windows.get(&event.window) else {
+            return Ok(());
         };
         self.update_override_redirect(data, event.override_redirect);
         if data.info.override_redirect.get() {
@@ -2351,9 +2323,8 @@ impl Wm {
 
     async fn handle_configure_request(&mut self, event: &Event) -> Result<(), XWaylandError> {
         let event: ConfigureRequest = event.parse()?;
-        let data = match self.windows.get(&event.window) {
-            Some(d) => d,
-            _ => return Ok(()),
+        let Some(data) = self.windows.get(&event.window) else {
+            return Ok(());
         };
         if let Some(window) = data.window.get()
             && window.is_mapped()
@@ -2391,9 +2362,8 @@ impl Wm {
         &mut self,
         event: &ClientMessage<'_>,
     ) -> Result<(), XWaylandError> {
-        let _data = match self.windows.get(&event.window) {
-            Some(d) => d,
-            _ => return Ok(()),
+        let Some(_data) = self.windows.get(&event.window) else {
+            return Ok(());
         };
         let _detail = event.data[2];
         Ok(())
@@ -2403,9 +2373,8 @@ impl Wm {
         &mut self,
         event: &ClientMessage<'_>,
     ) -> Result<(), XWaylandError> {
-        let data = match self.windows.get(&event.window) {
-            Some(d) => d,
-            _ => return Ok(()),
+        let Some(data) = self.windows.get(&event.window) else {
+            return Ok(());
         };
         let minimize = match event.data[0] {
             ICCCM_WM_STATE_NORMAL => false,
@@ -2432,9 +2401,8 @@ impl Wm {
         &mut self,
         event: &ClientMessage<'_>,
     ) -> Result<(), XWaylandError> {
-        let data = match self.windows.get(&event.window) {
-            Some(d) => d,
-            _ => return Ok(()),
+        let Some(data) = self.windows.get(&event.window) else {
+            return Ok(());
         };
         let mut startup_info = data.startup_info.borrow_mut();
         let mut msg = uapi::as_bytes(event.data);
@@ -2460,20 +2428,17 @@ impl Wm {
         &mut self,
         event: &ClientMessage<'_>,
     ) -> Result<(), XWaylandError> {
-        let data = match self.windows.get(&event.window) {
-            Some(d) => d,
-            _ => return Ok(()),
+        let Some(data) = self.windows.get(&event.window) else {
+            return Ok(());
         };
-        let fw = match &self.focus_window {
-            Some(w) => w,
-            _ => return Ok(()),
+        let Some(fw) = &self.focus_window else {
+            return Ok(());
         };
         if data.info.pid.is_none() || data.info.pid.get() != fw.info.pid.get() {
             return Ok(());
         }
-        let win = match data.window.get() {
-            Some(w) => w,
-            _ => return Ok(()),
+        let Some(win) = data.window.get() else {
+            return Ok(());
         };
         if win.toplevel_data.visible[LiveTL].get() {
             let seats = self.state.globals.seats.lock();
@@ -2490,9 +2455,8 @@ impl Wm {
         &mut self,
         event: &ClientMessage<'_>,
     ) -> Result<(), XWaylandError> {
-        let data = match self.windows.get(&event.window) {
-            Some(d) => d,
-            _ => return Ok(()),
+        let Some(data) = self.windows.get(&event.window) else {
+            return Ok(());
         };
         let mut changed = false;
         let mut fullscreen = data.info.fullscreen.get();

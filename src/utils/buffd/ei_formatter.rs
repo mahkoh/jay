@@ -100,7 +100,7 @@ impl<'a> EiMsgFormatter<'a> {
             self.meta.fds.push_back(MsgFds {
                 pos: self.pos,
                 fds: mem::take(self.fds),
-            })
+            });
         }
     }
 }

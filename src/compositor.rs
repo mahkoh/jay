@@ -147,7 +147,6 @@ use linearize::Linearize;
 use log::LevelFilter;
 use std::cell::Cell;
 use std::cell::RefCell;
-use std::future::Future;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -195,8 +194,8 @@ pub fn start_compositor(_global: GlobalArgs, args: RunArgs) {
     leaks::log_leaked();
     if let Err(e) = res {
         let e = ErrorFmt(e);
-        log::error!("A fatal error occurred: {}", e);
-        eprintln!("A fatal error occurred: {}", e);
+        log::error!("A fatal error occurred: {e}");
+        eprintln!("A fatal error occurred: {e}");
         eprintln!("See {} for more details.", logger.path());
         std::process::exit(1);
     }
@@ -527,13 +526,10 @@ fn start_compositor2(
 async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
     let is_test = test_future.is_some();
 
-    let backend = match create_backend(&state, test_future).await {
-        Some(b) => b,
-        _ => {
-            log::error!("Could not create a backend");
-            state.ring.stop();
-            return;
-        }
+    let Some(backend) = create_backend(&state, test_future).await else {
+        log::error!("Could not create a backend");
+        state.ring.stop();
+        return;
     };
     state.backend.set(backend.clone());
     state

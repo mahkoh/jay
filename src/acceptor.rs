@@ -74,7 +74,7 @@ fn bind_socket(
 ) -> Result<AllocatedSocket, AcceptorError> {
     let mut addr: c::sockaddr_un = uapi::pod_zeroed();
     addr.sun_family = c::AF_UNIX as _;
-    let name = format!("wayland-{}", id);
+    let name = format!("wayland-{id}");
     let path = format_ustr!("{}/{}", xrd, name);
     let jay_path = format_ustr!("{}.jay", path.display());
     let lock_path = format_ustr!("{}.lock", path.display());
@@ -110,9 +110,8 @@ fn bind_socket(
 }
 
 fn allocate_socket() -> Result<AllocatedSocket, AcceptorError> {
-    let xrd = match *XDG_RUNTIME_DIR {
-        Some(d) => d,
-        _ => return Err(AcceptorError::XrdNotSet),
+    let Some(xrd) = *XDG_RUNTIME_DIR else {
+        return Err(AcceptorError::XrdNotSet);
     };
     let mut fds = [None, None];
     for fd in &mut fds {
@@ -187,13 +186,9 @@ async fn accept(fd: Rc<OwnedFd>, state: Rc<State>, secure: bool) {
             }
         };
         let id = state.clients.id();
-        if let Err(e) = state
+        state
             .clients
-            .spawn(id, &state, fd, ClientCaps::all(), false, &metadata)
-        {
-            log::error!("Could not spawn a client: {}", ErrorFmt(e));
-            break;
-        }
+            .spawn(id, &state, fd, ClientCaps::all(), false, &metadata);
     }
     state.ring.stop();
 }

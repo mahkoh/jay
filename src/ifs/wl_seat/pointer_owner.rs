@@ -79,7 +79,7 @@ impl Default for PointerOwnerHolder {
 
 impl PointerOwnerHolder {
     pub fn button(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, button: u32, state: ButtonState) {
-        self.owner.get().button(seat, time_usec, button, state)
+        self.owner.get().button(seat, time_usec, button, state);
     }
 
     pub fn axis_source(&self, axis_source: AxisSource) {
@@ -143,7 +143,7 @@ impl PointerOwnerHolder {
     }
 
     pub fn apply_changes(&self, seat: &Rc<WlSeatGlobal>) {
-        self.owner.get().apply_changes(seat)
+        self.owner.get().apply_changes(seat);
     }
 
     pub fn start_drag(
@@ -160,11 +160,11 @@ impl PointerOwnerHolder {
     }
 
     pub fn cancel_dnd(&self, seat: &Rc<WlSeatGlobal>) {
-        self.owner.get().cancel_dnd(seat)
+        self.owner.get().cancel_dnd(seat);
     }
 
     pub fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>) {
-        self.owner.get().revert_to_default(seat)
+        self.owner.get().revert_to_default(seat);
     }
 
     pub fn grab_node_removed(&self, seat: &Rc<WlSeatGlobal>) {
@@ -184,7 +184,7 @@ impl PointerOwnerHolder {
     }
 
     pub fn remove_dnd_icon(&self) {
-        self.owner.get().remove_dnd_icon()
+        self.owner.get().remove_dnd_icon();
     }
 
     pub fn clear(&self) {
@@ -211,7 +211,7 @@ impl PointerOwnerHolder {
             selector,
             latest: Default::default(),
         });
-        self.select_element(seat, usecase)
+        self.select_element(seat, usecase);
     }
 
     pub fn select_workspace(&self, seat: &Rc<WlSeatGlobal>, selector: impl WorkspaceSelector) {
@@ -220,7 +220,7 @@ impl PointerOwnerHolder {
             selector,
             latest: Default::default(),
         });
-        self.select_element(seat, usecase)
+        self.select_element(seat, usecase);
     }
 
     pub fn set_window_management_enabled(&self, seat: &Rc<WlSeatGlobal>, enabled: bool) {
@@ -401,9 +401,8 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimplePointerOwner<T> {
         if state != ButtonState::Pressed {
             return;
         }
-        let pn = match seat.pointer_node() {
-            Some(n) => n,
-            _ => return,
+        let Some(pn) = seat.pointer_node() else {
+            return;
         };
         if self.usecase.default_button(self, seat, button, &pn) {
             return;
@@ -715,7 +714,7 @@ impl PointerOwner for DndPointerOwner {
     }
 
     fn revert_to_default(&self, seat: &Rc<WlSeatGlobal>) {
-        self.cancel_dnd(seat)
+        self.cancel_dnd(seat);
     }
 
     fn dnd_target_removed(&self, seat: &Rc<WlSeatGlobal>) {
@@ -917,9 +916,8 @@ impl SimplePointerOwnerUsecase for DefaultPointerUsecase {
         icon: Option<Rc<DndIcon>>,
         serial: u64,
     ) -> Result<(), WlSeatError> {
-        let button = match grab.buttons.iter().next() {
-            Some((b, _)) => b,
-            None => return Ok(()),
+        let Some((button, _)) = grab.buttons.iter().next() else {
+            return Ok(());
         };
         if grab.buttons.len() != 1 {
             return Ok(());
@@ -1108,7 +1106,7 @@ impl<U: NodeSelectorUsecase> SimplePointerOwnerUsecase for Rc<U> {
     }
 
     fn node_focus(&self, seat: &Rc<WlSeatGlobal>, node: &Rc<dyn Node>) {
-        <U as NodeSelectorUsecase>::node_focus(self, seat, node)
+        <U as NodeSelectorUsecase>::node_focus(self, seat, node);
     }
 }
 
@@ -1641,7 +1639,7 @@ impl UiDragUsecase for TileDragUsecase {
                 match before {
                     true => container.add_child_before(&*neighbor, src),
                     false => container.add_child_after(&*neighbor, src),
-                };
+                }
                 src_parent.cnode_remove_child(&*placeholder);
             }
             TddType::NewWorkspace { output } => {

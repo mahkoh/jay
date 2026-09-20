@@ -324,7 +324,7 @@ impl PresentationListener for ExtImageCopyCaptureSessionV1 {
         };
         if self.status.get() != FrameStatus::Captured {
             return;
-        };
+        }
         self.presented.set(Some((tv_sec, tv_nsec)));
         frame.maybe_ready();
     }

@@ -147,7 +147,7 @@ impl Buf {
     }
 
     #[expect(unused)]
-    pub fn write_fmt(&mut self, args: Arguments) -> Result<Self, io::Error> {
+    pub fn write_fmt(&mut self, args: Arguments<'_>) -> Result<Self, io::Error> {
         let cap = self.len();
         let mut buf = self.deref_mut();
         buf.write_fmt(args)?;
@@ -276,7 +276,7 @@ pub struct BorrowedBuf<'a> {
     _phantom: PhantomData<&'a mut DynamicBuf>,
 }
 
-impl<'a> Drop for BorrowedBuf<'a> {
+impl Drop for BorrowedBuf<'_> {
     fn drop(&mut self) {
         assert_eq!(self.buf.rc().get(), 2);
     }

@@ -59,7 +59,7 @@ pub trait FuseInodeBase: 'static {
         let _ = key;
         let _ = dirents;
     }
-    fn read(&self, key: u64, buf: &mut String, ctx: &StrCtx) {
+    fn read(&self, key: u64, buf: &mut String, ctx: &StrCtx<'_>) {
         let _ = key;
         let _ = buf;
         let _ = ctx;
@@ -172,7 +172,7 @@ impl FuseInodeProps {
             FuseInodeTy::Symlink => {
                 mode |= c::S_IFLNK;
             }
-        };
+        }
         if self.writable {
             mode |= 0o200;
         }

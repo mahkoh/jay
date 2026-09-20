@@ -120,12 +120,9 @@ impl OutputSchedule {
     }
 
     pub fn set_cursor_hz(&self, state: &State, hz: f64) {
-        let (hz, delta) = match map_cursor_hz(hz) {
-            None => {
-                log::warn!("Ignoring cursor frequency {hz}");
-                return;
-            }
-            Some(v) => v,
+        let Some((hz, delta)) = map_cursor_hz(hz) else {
+            log::warn!("Ignoring cursor frequency {hz}");
+            return;
         };
         self.persistent.vrr_cursor_hz.set(hz);
         self.connector.head_manager.handle_cursor_hz_change(hz);

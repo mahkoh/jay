@@ -248,7 +248,7 @@ impl NodeBase for DisplayNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, _bounds: Option<&Rect>) {
+    fn node_render(&self, renderer: &mut Renderer<'_>, x: i32, y: i32, _bounds: Option<&Rect>) {
         renderer.render_display(self, x, y);
     }
 
@@ -264,7 +264,7 @@ impl NodeBase for DisplayNode {
         _x: Fixed,
         _y: Fixed,
     ) {
-        tool.cursor().set_known(KnownCursor::Default)
+        tool.cursor().set_known(KnownCursor::Default);
     }
 
     fn node_is_display(&self) -> bool {

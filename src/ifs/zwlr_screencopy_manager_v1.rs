@@ -77,9 +77,8 @@ impl ZwlrScreencopyManagerV1RequestHandler for ZwlrScreencopyManagerV1 {
         req: CaptureOutputRegion,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        let region = match Rect::new_sized(req.x, req.y, req.width, req.height) {
-            Some(r) => r,
-            _ => return Err(ZwlrScreencopyManagerV1Error::InvalidRegion),
+        let Some(region) = Rect::new_sized(req.x, req.y, req.width, req.height) else {
+            return Err(ZwlrScreencopyManagerV1Error::InvalidRegion);
         };
         self.do_capture_output(req.output, req.overlay_cursor != 0, req.frame, Some(region))
     }

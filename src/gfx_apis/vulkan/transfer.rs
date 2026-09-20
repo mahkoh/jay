@@ -454,7 +454,7 @@ impl VulkanShmImage {
         img: &Rc<VulkanImage>,
         data: &VulkanShmImageAsyncData,
         staging: &VulkanStagingBuffer,
-        copies: &[BufferImageCopy2],
+        copies: &[BufferImageCopy2<'_>],
         client_mem: &Rc<dyn ShmMemory>,
         tt: TransferType,
     ) -> Result<(), VulkanError> {
@@ -598,7 +598,7 @@ impl VulkanShmImage {
         &self,
         img: &Rc<VulkanImage>,
         staging: &VulkanStagingBuffer,
-        copies: &[BufferImageCopy2],
+        copies: &[BufferImageCopy2<'_>],
     ) -> Result<(), VulkanError> {
         if img.queue_state.get().acquire(QueueFamily::Transfer) == QueueTransfer::Impossible {
             return Ok(());
@@ -658,7 +658,7 @@ impl CpuJob for IoTransferJob {
         let img = self.img.take().unwrap();
         let res = self.work.config().result.take().unwrap();
         complete_async_host_copy(&img, self.id, res, self.tt, |data| {
-            data.io_job.set(Some(self))
+            data.io_job.set(Some(self));
         });
     }
 }
@@ -672,7 +672,7 @@ impl CpuJob for CopyTransferJob {
         self._mem = None;
         let img = self.img.take().unwrap();
         complete_async_host_copy(&img, self.id, Ok(()), self.tt, |data| {
-            data.copy_job.set(Some(self))
+            data.copy_job.set(Some(self));
         });
     }
 }

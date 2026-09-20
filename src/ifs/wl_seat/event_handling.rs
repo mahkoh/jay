@@ -448,7 +448,12 @@ impl WlSeatGlobal {
                 x_normed,
                 y_normed,
             } => {
-                self.motion_absolute_event(time_usec, dev.get_rect(&self.state), x_normed, y_normed)
+                self.motion_absolute_event(
+                    time_usec,
+                    dev.get_rect(&self.state),
+                    x_normed,
+                    y_normed,
+                );
             }
             InputEvent::Button {
                 time_usec,
@@ -470,11 +475,11 @@ impl WlSeatGlobal {
                 if let Some(mul) = dev.px_scroll_multiplier.get() {
                     dist *= mul;
                 }
-                self.axis_px(Fixed::from_f64(dist), axis, inverted)
+                self.axis_px(Fixed::from_f64(dist), axis, inverted);
             }
             InputEvent::AxisStop { axis } => self.axis_stop(axis),
             InputEvent::AxisFrame { time_usec } => {
-                self.axis_frame(dev.px_per_scroll_wheel.get(), time_usec)
+                self.axis_frame(dev.px_per_scroll_wheel.get(), time_usec);
             }
             InputEvent::SwipeBegin {
                 time_usec,
@@ -525,10 +530,10 @@ impl WlSeatGlobal {
                 cancelled,
             } => self.hold_end(time_usec, cancelled),
             InputEvent::SwitchEvent { time_usec, event } => {
-                self.switch_event(dev.device.id(), time_usec, event)
+                self.switch_event(dev.device.id(), time_usec, event);
             }
             InputEvent::TabletToolAdded { time_usec, init } => {
-                self.tablet_handle_new_tool(time_usec, &init)
+                self.tablet_handle_new_tool(time_usec, &init);
             }
             InputEvent::TabletToolChanged {
                 time_usec,
@@ -542,7 +547,7 @@ impl WlSeatGlobal {
                 state,
             } => self.tablet_event_tool_button(id, time_usec, button, state),
             InputEvent::TabletToolRemoved { time_usec, id } => {
-                self.tablet_handle_remove_tool(time_usec, id)
+                self.tablet_handle_remove_tool(time_usec, id);
             }
             InputEvent::TabletPadButton {
                 time_usec,
@@ -619,9 +624,8 @@ impl WlSeatGlobal {
         mut x: Fixed,
         mut y: Fixed,
     ) {
-        let output = match self.state.root.outputs.get(&connector) {
-            Some(o) => o,
-            _ => return,
+        let Some(output) = self.state.root.outputs.get(&connector) else {
+            return;
         };
         let pos = output.node_state[LiveTL].pos.get();
         x += Fixed::from_int(pos.x1());
@@ -754,7 +758,7 @@ impl WlSeatGlobal {
             t.send_swipe_begin(self.id, time_usec, finger_count);
         });
         self.gesture_owner
-            .swipe_begin(self, time_usec, finger_count)
+            .swipe_begin(self, time_usec, finger_count);
     }
 
     fn swipe_update(
@@ -775,14 +779,14 @@ impl WlSeatGlobal {
                 dy_unaccelerated,
             );
         });
-        self.gesture_owner.swipe_update(self, time_usec, dx, dy)
+        self.gesture_owner.swipe_update(self, time_usec, dx, dy);
     }
 
     fn swipe_end(self: &Rc<Self>, time_usec: u64, cancelled: bool) {
         self.state.for_each_seat_tester(|t| {
             t.send_swipe_end(self.id, time_usec, cancelled);
         });
-        self.gesture_owner.swipe_end(self, time_usec, cancelled)
+        self.gesture_owner.swipe_end(self, time_usec, cancelled);
     }
 
     fn pinch_begin(self: &Rc<Self>, time_usec: u64, finger_count: u32) {
@@ -790,7 +794,7 @@ impl WlSeatGlobal {
             t.send_pinch_begin(self.id, time_usec, finger_count);
         });
         self.gesture_owner
-            .pinch_begin(self, time_usec, finger_count)
+            .pinch_begin(self, time_usec, finger_count);
     }
 
     fn pinch_update(
@@ -816,28 +820,28 @@ impl WlSeatGlobal {
             );
         });
         self.gesture_owner
-            .pinch_update(self, time_usec, dx, dy, scale, rotation)
+            .pinch_update(self, time_usec, dx, dy, scale, rotation);
     }
 
     fn pinch_end(self: &Rc<Self>, time_usec: u64, cancelled: bool) {
         self.state.for_each_seat_tester(|t| {
             t.send_pinch_end(self.id, time_usec, cancelled);
         });
-        self.gesture_owner.pinch_end(self, time_usec, cancelled)
+        self.gesture_owner.pinch_end(self, time_usec, cancelled);
     }
 
     fn hold_begin(self: &Rc<Self>, time_usec: u64, finger_count: u32) {
         self.state.for_each_seat_tester(|t| {
             t.send_hold_begin(self.id, time_usec, finger_count);
         });
-        self.gesture_owner.hold_begin(self, time_usec, finger_count)
+        self.gesture_owner.hold_begin(self, time_usec, finger_count);
     }
 
     fn hold_end(self: &Rc<Self>, time_usec: u64, cancelled: bool) {
         self.state.for_each_seat_tester(|t| {
             t.send_hold_end(self.id, time_usec, cancelled);
         });
-        self.gesture_owner.hold_end(self, time_usec, cancelled)
+        self.gesture_owner.hold_end(self, time_usec, cancelled);
     }
 
     fn switch_event(self: &Rc<Self>, dev: InputDeviceId, time_usec: u64, event: SwitchEvent) {
@@ -1082,7 +1086,7 @@ impl WlSeatGlobal {
                 kc.to_evdev(),
                 key_state,
                 kb_state,
-            )
+            );
         }
     }
 
@@ -1157,7 +1161,7 @@ impl WlSeatGlobal {
             forward_to_node = g.on_modifiers(kb_state);
         }
         if forward_to_node {
-            self.keyboard_node.get().node_on_mods(self, kb_state)
+            self.keyboard_node.get().node_on_mods(self, kb_state);
         }
     }
 
@@ -1226,7 +1230,7 @@ impl WlSeatGlobal {
             for pointer in pointers.values() {
                 f(pointer);
             }
-        })
+        });
     }
 
     fn for_each_relative_pointer<C>(&self, client: ClientId, mut f: C)
@@ -1238,7 +1242,7 @@ impl WlSeatGlobal {
             for pointer in pointers.values() {
                 f(pointer);
             }
-        })
+        });
     }
 
     fn for_each_kb<C>(&self, ver: Version, client: ClientId, mut f: C)
@@ -1250,7 +1254,7 @@ impl WlSeatGlobal {
             for keyboard in keyboards.values() {
                 f(keyboard);
             }
-        })
+        });
     }
 
     fn for_each_touch<C>(&self, ver: Version, client: ClientId, mut f: C)
@@ -1262,7 +1266,7 @@ impl WlSeatGlobal {
             for touch in touches.values() {
                 f(touch);
             }
-        })
+        });
     }
 
     pub fn for_each_data_device<C>(&self, ver: Version, client: ClientId, mut f: C)
@@ -1501,7 +1505,7 @@ impl WlSeatGlobal {
         };
         let time = (time_usec / 1000) as u32;
         self.surface_pointer_event(Version::ALL, surface, |p| {
-            p.send_button(serial, time, button, state)
+            p.send_button(serial, time, button, state);
         });
         self.surface_pointer_frame(surface);
         if pressed && let Some(node) = surface.get_focus_node() {
@@ -1655,7 +1659,7 @@ impl WlSeatGlobal {
         }
 
         let serial = surface.client.next_serial();
-        self.surface_kb_event(Version::ALL, surface, |k| k.send_leave(serial, surface.id))
+        self.surface_kb_event(Version::ALL, surface, |k| k.send_leave(serial, surface.id));
     }
 }
 
@@ -1712,7 +1716,7 @@ impl WlSeatGlobal {
     pub fn mods_surface(&self, surface: &WlSurface, kb_state: &KeyboardState) {
         let serial = surface.client.next_serial();
         self.surface_kb_event(Version::ALL, surface, |k| {
-            k.on_mods_changed(serial, surface.id, kb_state)
+            k.on_mods_changed(serial, surface.id, kb_state);
         });
     }
 }
@@ -1731,7 +1735,7 @@ impl WlSeatGlobal {
         surface.client.focus_stealing_serial.set(Some(serial));
         let time = (time_usec / 1000) as _;
         self.surface_touch_event(Version::ALL, surface, |t| {
-            t.send_down(serial, time, surface.id, id, x, y)
+            t.send_down(serial, time, surface.id, id, x, y);
         });
         if let Some(node) = surface.get_focus_node() {
             self.focus_node_with_serial(node, serial);
@@ -1741,7 +1745,7 @@ impl WlSeatGlobal {
     pub fn touch_up_surface(&self, surface: &WlSurface, time_usec: u64, id: i32) {
         let serial = surface.client.next_serial();
         let time = (time_usec / 1000) as _;
-        self.surface_touch_event(Version::ALL, surface, |t| t.send_up(serial, time, id))
+        self.surface_touch_event(Version::ALL, surface, |t| t.send_up(serial, time, id));
     }
 
     pub fn touch_motion_surface(
@@ -1757,11 +1761,11 @@ impl WlSeatGlobal {
     }
 
     pub fn touch_frame_surface(&self, surface: &WlSurface) {
-        self.surface_touch_event(Version::ALL, surface, |t| t.send_frame())
+        self.surface_touch_event(Version::ALL, surface, |t| t.send_frame());
     }
 
     pub fn touch_cancel_surface(&self, surface: &WlSurface) {
-        self.surface_touch_event(Version::ALL, surface, |t| t.send_cancel())
+        self.surface_touch_event(Version::ALL, surface, |t| t.send_cancel());
     }
 }
 
@@ -1771,7 +1775,7 @@ impl WlSeatGlobal {
         if dnd.src.is_some() || surface.client.id == dnd.client.id {
             self.for_each_data_device(Version::ALL, surface.client.id, |dd| {
                 dd.send_leave();
-            })
+            });
         }
         if let Some(src) = &dnd.src {
             src.on_leave();
@@ -1783,7 +1787,7 @@ impl WlSeatGlobal {
         if dnd.src.is_some() || surface.client.id == dnd.client.id {
             self.for_each_data_device(Version::ALL, surface.client.id, |dd| {
                 dd.send_drop();
-            })
+            });
         }
         // surface.client.flush();
     }
@@ -1803,11 +1807,11 @@ impl WlSeatGlobal {
             src.for_each_data_offer(|offer| {
                 offer.send_enter(surface.id, x, y, serial);
                 offer.send_source_actions();
-            })
+            });
         } else if surface.client.id == dnd.client.id {
             self.for_each_data_device(Version::ALL, dnd.client.id, |dd| {
                 dd.send_enter(surface.id, x, y, WlDataOfferId::NONE, serial);
-            })
+            });
         }
         // surface.client.flush();
     }
@@ -1823,7 +1827,7 @@ impl WlSeatGlobal {
         if dnd.src.is_some() || surface.client.id == dnd.client.id {
             self.for_each_data_device(Version::ALL, surface.client.id, |dd| {
                 dd.send_motion(time_usec, x, y);
-            })
+            });
         }
         // surface.client.flush();
     }
@@ -1835,31 +1839,31 @@ impl WlSeatGlobal {
         let serial = n.client.next_serial();
         self.swipe_bindings
             .for_each(n.client.id, Version::ALL, |obj| {
-                obj.send_swipe_begin(n, serial, time_usec, finger_count)
-            })
+                obj.send_swipe_begin(n, serial, time_usec, finger_count);
+            });
     }
 
     pub fn swipe_update_surface(&self, n: &WlSurface, time_usec: u64, dx: Fixed, dy: Fixed) {
         self.swipe_bindings
             .for_each(n.client.id, Version::ALL, |obj| {
-                obj.send_swipe_update(time_usec, dx, dy)
-            })
+                obj.send_swipe_update(time_usec, dx, dy);
+            });
     }
 
     pub fn swipe_end_surface(&self, n: &WlSurface, time_usec: u64, cancelled: bool) {
         let serial = n.client.next_serial();
         self.swipe_bindings
             .for_each(n.client.id, Version::ALL, |obj| {
-                obj.send_swipe_end(serial, time_usec, cancelled)
-            })
+                obj.send_swipe_end(serial, time_usec, cancelled);
+            });
     }
 
     pub fn pinch_begin_surface(&self, n: &WlSurface, time_usec: u64, finger_count: u32) {
         let serial = n.client.next_serial();
         self.pinch_bindings
             .for_each(n.client.id, Version::ALL, |obj| {
-                obj.send_pinch_begin(n, serial, time_usec, finger_count)
-            })
+                obj.send_pinch_begin(n, serial, time_usec, finger_count);
+            });
     }
 
     pub fn pinch_update_surface(
@@ -1873,31 +1877,31 @@ impl WlSeatGlobal {
     ) {
         self.pinch_bindings
             .for_each(n.client.id, Version::ALL, |obj| {
-                obj.send_pinch_update(time_usec, dx, dy, scale, rotation)
-            })
+                obj.send_pinch_update(time_usec, dx, dy, scale, rotation);
+            });
     }
 
     pub fn pinch_end_surface(&self, n: &WlSurface, time_usec: u64, cancelled: bool) {
         let serial = n.client.next_serial();
         self.pinch_bindings
             .for_each(n.client.id, Version::ALL, |obj| {
-                obj.send_pinch_end(serial, time_usec, cancelled)
-            })
+                obj.send_pinch_end(serial, time_usec, cancelled);
+            });
     }
 
     pub fn hold_begin_surface(&self, n: &WlSurface, time_usec: u64, finger_count: u32) {
         let serial = n.client.next_serial();
         self.hold_bindings
             .for_each(n.client.id, Version::ALL, |obj| {
-                obj.send_hold_begin(n, serial, time_usec, finger_count)
-            })
+                obj.send_hold_begin(n, serial, time_usec, finger_count);
+            });
     }
 
     pub fn hold_end_surface(&self, n: &WlSurface, time_usec: u64, cancelled: bool) {
         let serial = n.client.next_serial();
         self.hold_bindings
             .for_each(n.client.id, Version::ALL, |obj| {
-                obj.send_hold_end(serial, time_usec, cancelled)
-            })
+                obj.send_hold_end(serial, time_usec, cancelled);
+            });
     }
 }

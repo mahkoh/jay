@@ -41,7 +41,7 @@ impl XdgActivationTokenV1RequestHandler for XdgActivationTokenV1 {
         Ok(())
     }
 
-    fn set_app_id(&self, _req: SetAppId, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_app_id(&self, _req: SetAppId<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())
     }
 

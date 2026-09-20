@@ -327,7 +327,7 @@ impl ConfigProxyHandler {
     }
 
     fn respond(&self, msg: Response) {
-        self.send(&ServerMessage::Response { response: msg })
+        self.send(&ServerMessage::Response { response: msg });
     }
 
     fn id(&self) -> u64 {
@@ -372,16 +372,16 @@ impl ConfigProxyHandler {
         };
         let debug = fmt::from_fn(|fmt| {
             if let Some(file) = file {
-                write!(fmt, "{}", file)?;
+                write!(fmt, "{file}")?;
                 if let Some(line) = line {
-                    write!(fmt, ":{}", line)?;
+                    write!(fmt, ":{line}")?;
                 }
                 write!(fmt, ": ")?;
             }
-            write!(fmt, "{}", msg)?;
+            write!(fmt, "{msg}")?;
             Ok(())
         });
-        log::log!(level, "{:?}", debug);
+        log::log!(level, "{debug:?}");
     }
 
     fn handle_get_seat(&self, name: &str) {
@@ -1196,9 +1196,8 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_set_x_wayland_enabled(&self, enabled: bool) -> Result<(), CphError> {
+    fn handle_set_x_wayland_enabled(&self, enabled: bool) {
         self.state.set_xwayland_enabled(enabled);
-        Ok(())
     }
 
     fn handle_set_ui_drag_enabled(&self, enabled: bool) {
@@ -1999,11 +1998,7 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_get_connector(
-        &self,
-        ty: jay_config::video::connector_type::ConnectorType,
-        idx: u32,
-    ) -> Result<(), CphError> {
+    fn handle_get_connector(&self, ty: jay_config::video::connector_type::ConnectorType, idx: u32) {
         let connectors = self.state.connectors.lock();
         let connector = 'get_connector: {
             for connector in connectors.values() {
@@ -2015,7 +2010,6 @@ impl ConfigProxyHandler {
             Connector(0)
         };
         self.respond(Response::GetConnector { connector });
-        Ok(())
     }
 
     fn handle_get_connector_by_name(&self, name: &str) {
@@ -2315,10 +2309,7 @@ impl ConfigProxyHandler {
     fn handle_get_input_devices(&self, seat: Option<Seat>) {
         let id = seat.map(|s| SeatId::from_raw(s.0 as _));
         let matches = |dhd: &DeviceHandlerData| {
-            let id = match id {
-                Some(id) => id,
-                _ => return true,
-            };
+            let Some(id) = id else { return true };
             if let Some(seat) = dhd.seat.get() {
                 return seat.id() == id;
             }
@@ -2367,9 +2358,8 @@ impl ConfigProxyHandler {
             .into_iter()
             .map(|(a, b)| (a, Rc::new(OwnedFd::new(b))))
             .collect();
-        let forker = match self.state.forker.get() {
-            Some(f) => f,
-            _ => return Err(CphError::NoForker),
+        let Some(forker) = self.state.forker.get() else {
+            return Err(CphError::NoForker);
         };
         let env = env.into_iter().map(|(k, v)| (k, Some(v))).collect();
         forker.spawn(prog.to_string(), args, env, fds);
@@ -2455,14 +2445,14 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
-    fn handle_add_pollable(self: &Rc<Self>, fd: i32) -> Result<(), CphError> {
+    fn handle_add_pollable(self: &Rc<Self>, fd: i32) {
         let fd = match fcntl_dupfd_cloexec(fd, 0).to_os_error() {
             Ok(fd) => Rc::new(fd),
             Err(e) => {
                 let err = format!("Could not invoke F_DUPFD_CLOEXEC: {}", ErrorFmt(e));
-                log::error!("{}", err);
+                log::error!("{err}");
                 self.respond(Response::AddPollable { id: Err(err) });
-                return Ok(());
+                return;
             }
         };
         let id = self.pollable_id.fetch_add(1);
@@ -2497,7 +2487,6 @@ impl ConfigProxyHandler {
             }),
         );
         self.respond(Response::AddPollable { id: Ok(id) });
-        Ok(())
     }
 
     fn handle_remove_pollable(self: &Rc<Self>, id: PollableId) {
@@ -2560,7 +2549,7 @@ impl ConfigProxyHandler {
     {
         match generic {
             GenericCriterionIpc::List { list, .. } | GenericCriterionIpc::Exactly { list, .. } => {
-                list.sort_by_key(key)
+                list.sort_by_key(key);
             }
             GenericCriterionIpc::Matcher(_) | GenericCriterionIpc::Not(_) => {}
         }
@@ -3370,7 +3359,7 @@ impl ConfigProxyHandler {
         self.respond(Response::ConnectorCompositorOutput { compositor_output });
     }
 
-    fn handle_parse_keymap_2(&self, v1: KeymapBuildParamsV1) -> Result<(), CphError> {
+    fn handle_parse_keymap_2(&self, v1: KeymapBuildParamsV1<'_>) -> Result<(), CphError> {
         let Some(kind) = v1.kind else {
             return Err(CphError::MissingKeymapKind);
         };
@@ -3524,7 +3513,7 @@ impl ConfigProxyHandler {
     ) -> Result<(), CphError> {
         let tc = self.get_window_theme_colored(colorable)?;
         self.modify_window_theme(window, kind, color.is_some(), |t| {
-            tc.field(t).set(color.map(|c| c.into()))
+            tc.field(t).set(color.map(|c| c.into()));
         })
     }
 
@@ -3598,7 +3587,7 @@ impl ConfigProxyHandler {
         show: Option<bool>,
     ) -> Result<(), CphError> {
         self.modify_window_theme(window, kind, show.is_some(), |t| {
-            t.show_window_icons.set(show)
+            t.show_window_icons.set(show);
         })
     }
 
@@ -3609,7 +3598,7 @@ impl ConfigProxyHandler {
         grayscale: Option<bool>,
     ) -> Result<(), CphError> {
         self.modify_window_theme(window, kind, grayscale.is_some(), |t| {
-            t.window_icons_grayscale.set(grayscale)
+            t.window_icons_grayscale.set(grayscale);
         })
     }
 
@@ -3631,7 +3620,7 @@ impl ConfigProxyHandler {
         borders: Option<JcContainerBorders>,
     ) -> Result<(), CphError> {
         self.modify_window_theme(window, kind, borders.is_some(), |t| {
-            t.container_borders.set(borders.map(Into::into))
+            t.container_borders.set(borders.map(Into::into));
         })
     }
 
@@ -3677,22 +3666,22 @@ impl ConfigProxyHandler {
             } => self.handle_log_request(level, msg, file, line),
             ClientMessage::GetSeat { name } => self.handle_get_seat(name),
             ClientMessage::ParseKeymap { keymap } => {
-                self.handle_parse_keymap(keymap).wrn("parse_keymap")?
+                self.handle_parse_keymap(keymap).wrn("parse_keymap")?;
             }
             ClientMessage::SeatSetKeymap { seat, keymap } => {
-                self.handle_set_keymap(seat, keymap).wrn("set_keymap")?
+                self.handle_set_keymap(seat, keymap).wrn("set_keymap")?;
             }
             ClientMessage::SeatGetRepeatRate { seat } => {
-                self.handle_get_repeat_rate(seat).wrn("get_repeat_rate")?
+                self.handle_get_repeat_rate(seat).wrn("get_repeat_rate")?;
             }
             ClientMessage::SeatSetRepeatRate { seat, rate, delay } => self
                 .handle_set_repeat_rate(seat, rate, delay)
                 .wrn("set_repeat_rate")?,
             ClientMessage::SetSeat { device, seat } => {
-                self.handle_set_seat(device, seat).wrn("set_seat")?
+                self.handle_set_seat(device, seat).wrn("set_seat")?;
             }
             ClientMessage::GetSeatMono { seat } => {
-                self.handle_get_seat_mono(seat, None).wrn("get_seat_mono")?
+                self.handle_get_seat_mono(seat, None).wrn("get_seat_mono")?;
             }
             ClientMessage::SetSeatMono { seat, mono } => self
                 .handle_set_seat_mono(seat, None, mono)
@@ -3710,23 +3699,23 @@ impl ConfigProxyHandler {
                 .handle_remove_shortcut(seat, mods, sym)
                 .wrn("remove_shortcut")?,
             ClientMessage::SeatFocus { seat, direction } => {
-                self.handle_seat_focus(seat, direction).wrn("seat_focus")?
+                self.handle_seat_focus(seat, direction).wrn("seat_focus")?;
             }
             ClientMessage::SeatMove { seat, direction } => {
-                self.handle_seat_move(seat, direction).wrn("seat_move")?
+                self.handle_seat_move(seat, direction).wrn("seat_move")?;
             }
             ClientMessage::GetInputDevices { seat } => self.handle_get_input_devices(seat),
             ClientMessage::GetSeats => self.handle_get_seats(),
             ClientMessage::RemoveSeat { .. } => {}
             ClientMessage::Run { prog, args, env } => {
-                self.handle_run(prog, args, env, vec![], None).wrn("run")?
+                self.handle_run(prog, args, env, vec![], None).wrn("run")?;
             }
             ClientMessage::GrabKb { kb, grab } => self.handle_grab(kb, grab).wrn("grab")?,
             ClientMessage::SetColor { colorable, color } => {
-                self.handle_set_color(colorable, color).wrn("set_color")?
+                self.handle_set_color(colorable, color).wrn("set_color")?;
             }
             ClientMessage::GetColor { colorable } => {
-                self.handle_get_color(colorable).wrn("get_color")?
+                self.handle_get_color(colorable).wrn("get_color")?;
             }
             ClientMessage::CreateSeatSplit { seat, axis } => self
                 .handle_create_seat_split(seat, axis)
@@ -3761,7 +3750,7 @@ impl ConfigProxyHandler {
                 .handle_set_transform_matrix(device, matrix)
                 .wrn("set_transform_matrix")?,
             ClientMessage::GetDeviceName { device } => {
-                self.handle_get_device_name(device).wrn("get_device_name")?
+                self.handle_get_device_name(device).wrn("get_device_name")?;
             }
             ClientMessage::GetWorkspace { name } => self.handle_get_workspace(name),
             ClientMessage::ShowWorkspace { seat, workspace } => self
@@ -3771,7 +3760,7 @@ impl ConfigProxyHandler {
                 .handle_set_seat_workspace(seat, workspace)
                 .wrn("set_seat_workspace")?,
             ClientMessage::GetConnector { ty, idx } => {
-                self.handle_get_connector(ty, idx).wrn("get_connector")?
+                self.handle_get_connector(ty, idx);
             }
             ClientMessage::ConnectorConnected { connector } => self
                 .handle_connector_connected(connector)
@@ -3792,7 +3781,7 @@ impl ConfigProxyHandler {
             ClientMessage::SetStatus { status } => self.handle_set_status(status),
             ClientMessage::GetTimer { name } => self.handle_get_timer(name).wrn("get_timer")?,
             ClientMessage::RemoveTimer { timer } => {
-                self.handle_remove_timer(timer).wrn("remove_timer")?
+                self.handle_remove_timer(timer).wrn("remove_timer")?;
             }
             ClientMessage::ProgramTimer {
                 timer,
@@ -3829,7 +3818,7 @@ impl ConfigProxyHandler {
             ClientMessage::ResetSizes => self.handle_reset_sizes(),
             ClientMessage::GetSize { sized } => self.handle_get_size(sized).wrn("get_size")?,
             ClientMessage::SetSize { sized, size } => {
-                self.handle_set_size(sized, size).wrn("set_size")?
+                self.handle_set_size(sized, size).wrn("set_size")?;
             }
             ClientMessage::ResetFont => self.handle_reset_font(),
             ClientMessage::GetFont => self.handle_get_font(),
@@ -3880,10 +3869,10 @@ impl ConfigProxyHandler {
                 .handle_get_seat_keyboard_workspace(seat)
                 .wrn("get_seat_keyboard_workspace")?,
             ClientMessage::SetDefaultWorkspaceCapture { capture } => {
-                self.handle_set_default_workspace_capture(capture)
+                self.handle_set_default_workspace_capture(capture);
             }
             ClientMessage::GetDefaultWorkspaceCapture => {
-                self.handle_get_default_workspace_capture()
+                self.handle_get_default_workspace_capture();
             }
             ClientMessage::SetWorkspaceCapture { workspace, capture } => self
                 .handle_set_workspace_capture(workspace, capture)
@@ -3895,7 +3884,7 @@ impl ConfigProxyHandler {
                 .handle_set_natural_scrolling_enabled(device, enabled)
                 .wrn("set_natural_scrolling_enabled")?,
             ClientMessage::SetGfxApi { device, api } => {
-                self.handle_set_gfx_api(device, api).wrn("set_gfx_api")?
+                self.handle_set_gfx_api(device, api).wrn("set_gfx_api")?;
             }
             ClientMessage::SetDirectScanoutEnabled { device, enabled } => self
                 .handle_set_direct_scanout_enabled(device, enabled)
@@ -3907,10 +3896,10 @@ impl ConfigProxyHandler {
                 .handle_connector_set_transform(connector, transform)
                 .wrn("connector_set_transform")?,
             ClientMessage::SetDoubleClickIntervalUsec { usec } => {
-                self.handle_set_double_click_interval_usec(usec)
+                self.handle_set_double_click_interval_usec(usec);
             }
             ClientMessage::SetDoubleClickDistance { dist } => {
-                self.handle_set_double_click_distance(dist)
+                self.handle_set_double_click_distance(dist);
             }
             ClientMessage::ConnectorModes { connector } => self
                 .handle_connector_modes(connector)
@@ -3919,7 +3908,7 @@ impl ConfigProxyHandler {
                 .handle_connector_set_mode(connector, mode)
                 .wrn("connector_set_mode")?,
             ClientMessage::AddPollable { fd } => {
-                self.handle_add_pollable(fd).wrn("add_pollable")?
+                self.handle_add_pollable(fd);
             }
             ClientMessage::RemovePollable { id } => self.handle_remove_pollable(id),
             ClientMessage::AddInterest { pollable, writable } => self
@@ -3975,14 +3964,14 @@ impl ConfigProxyHandler {
                 .handle_move_to_output(workspace, connector)
                 .wrn("move_to_output")?,
             ClientMessage::SetExplicitSyncEnabled { enabled } => {
-                self.handle_set_explicit_sync_enabled(enabled)
+                self.handle_set_explicit_sync_enabled(enabled);
             }
             ClientMessage::GetSocketPath => self.handle_get_socket_path(),
             ClientMessage::DeviceSetKeymap { device, keymap } => self
                 .handle_set_device_keymap(device, keymap)
                 .wrn("set_device_keymap")?,
             ClientMessage::SetForward { seat, forward } => {
-                self.handle_set_forward(seat, forward).wrn("set_forward")?
+                self.handle_set_forward(seat, forward).wrn("set_forward")?;
             }
             ClientMessage::AddShortcut2 {
                 seat,
@@ -4020,7 +4009,7 @@ impl ConfigProxyHandler {
                 .handle_set_calibration_matrix(device, matrix)
                 .wrn("set_calibration_matrix")?,
             ClientMessage::SetEiSocketEnabled { enabled } => {
-                self.handle_set_ei_socket_enabled(enabled)
+                self.handle_set_ei_socket_enabled(enabled);
             }
             ClientMessage::ConnectorSetFormat { connector, format } => self
                 .handle_connector_set_format(connector, format)
@@ -4030,16 +4019,16 @@ impl ConfigProxyHandler {
                 .wrn("set_flip_margin")?,
             ClientMessage::SetUiDragEnabled { enabled } => self.handle_set_ui_drag_enabled(enabled),
             ClientMessage::SetUiDragThreshold { threshold } => {
-                self.handle_set_ui_drag_threshold(threshold)
+                self.handle_set_ui_drag_threshold(threshold);
             }
             ClientMessage::SetXScalingMode { mode } => self
                 .handle_set_x_scaling_mode(mode)
                 .wrn("set_x_scaling_mode")?,
             ClientMessage::SetIdleGracePeriod { period } => {
-                self.handle_set_idle_grace_period(period)
+                self.handle_set_idle_grace_period(period);
             }
             ClientMessage::SetColorManagementEnabled { enabled } => {
-                self.handle_set_color_management_enabled(enabled)
+                self.handle_set_color_management_enabled(enabled);
             }
             ClientMessage::ConnectorSetColors {
                 connector,
@@ -4055,7 +4044,7 @@ impl ConfigProxyHandler {
                 .handle_connector_set_brightness(connector, brightness)
                 .wrn("connector_set_brightness")?,
             ClientMessage::SetFloatAboveFullscreen { above } => {
-                self.handle_set_float_above_fullscreen(above)
+                self.handle_set_float_above_fullscreen(above);
             }
             ClientMessage::GetFloatAboveFullscreen => self.handle_get_float_above_fullscreen(),
             ClientMessage::GetSeatFloatPinned { seat } => self
@@ -4065,7 +4054,7 @@ impl ConfigProxyHandler {
                 .handle_set_seat_float_pinned(seat, pinned)
                 .wrn("set_seat_float_pinned")?,
             ClientMessage::SetShowFloatPinIcon { show } => {
-                self.handle_set_show_float_pin_icon(show)
+                self.handle_set_show_float_pin_icon(show);
             }
             ClientMessage::GetConnectorActiveWorkspace { connector } => self
                 .handle_get_connector_active_workspace(connector)
@@ -4102,10 +4091,10 @@ impl ConfigProxyHandler {
                 .handle_get_window_title(window)
                 .wrn("get_window_title")?,
             ClientMessage::GetWindowType { window } => {
-                self.handle_get_window_type(window).wrn("get_window_type")?
+                self.handle_get_window_type(window).wrn("get_window_type")?;
             }
             ClientMessage::GetWindowId { window } => {
-                self.handle_get_window_id(window).wrn("get_window_id")?
+                self.handle_get_window_id(window).wrn("get_window_id")?;
             }
             ClientMessage::GetWindowParent { window } => self
                 .handle_get_window_parent(window)
@@ -4135,7 +4124,7 @@ impl ConfigProxyHandler {
                 .handle_create_window_split(window, axis)
                 .wrn("create_window_split")?,
             ClientMessage::WindowClose { window } => {
-                self.handle_window_close(window).wrn("close_window")?
+                self.handle_window_close(window).wrn("close_window")?;
             }
             ClientMessage::GetWindowFloating { window } => self
                 .handle_get_window_floating(window)
@@ -4168,7 +4157,7 @@ impl ConfigProxyHandler {
                 .handle_create_client_matcher(criterion)
                 .wrn("create_window_matcher")?,
             ClientMessage::DestroyClientMatcher { matcher } => {
-                self.handle_destroy_client_matcher(matcher)
+                self.handle_destroy_client_matcher(matcher);
             }
             ClientMessage::EnableClientMatcherEvents { matcher } => self
                 .handle_enable_client_matcher_events(matcher)
@@ -4177,7 +4166,7 @@ impl ConfigProxyHandler {
                 .handle_create_window_matcher(criterion)
                 .wrn("create_window_matcher")?,
             ClientMessage::DestroyWindowMatcher { matcher } => {
-                self.handle_destroy_window_matcher(matcher)
+                self.handle_destroy_window_matcher(matcher);
             }
             ClientMessage::EnableWindowMatcherEvents { matcher } => self
                 .handle_enable_window_matcher_events(matcher)
@@ -4217,7 +4206,7 @@ impl ConfigProxyHandler {
                 .handle_get_content_type(window)
                 .wrn("get_content_type")?,
             ClientMessage::SetSplitReusesContainer { reuse } => {
-                self.handle_set_split_reuses_container(reuse)
+                self.handle_set_split_reuses_container(reuse);
             }
             ClientMessage::GetSplitReusesContainer => self.handle_get_split_reuses_container(),
             ClientMessage::SetShowBar { show } => self.handle_set_show_bar(show),
@@ -4242,13 +4231,13 @@ impl ConfigProxyHandler {
                 .handle_seat_focus_layer_rel(seat, direction)
                 .wrn("seat_focus_layer_rel")?,
             ClientMessage::SeatFocusTiles { seat } => {
-                self.handle_seat_focus_tiles(seat).wrn("seat_focus_tiles")?
+                self.handle_seat_focus_tiles(seat).wrn("seat_focus_tiles")?;
             }
             ClientMessage::SetMiddleClickPasteEnabled { enabled } => {
-                self.handle_set_middle_click_paste_enabled(enabled)
+                self.handle_set_middle_click_paste_enabled(enabled);
             }
             ClientMessage::SetWorkspaceDisplayOrder { order } => {
-                self.handle_set_workspace_display_order(order)
+                self.handle_set_workspace_display_order(order);
             }
             ClientMessage::SeatCreateMark { seat, kc } => self
                 .handle_seat_create_mark(seat, kc)
@@ -4315,9 +4304,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetFallbackOutputMode { seat, mode } => self
                 .handle_set_fallback_output_mode(seat, mode)
                 .wrn("set_fallback_output_mode")?,
-            ClientMessage::SetXWaylandEnabled { enabled } => self
-                .handle_set_x_wayland_enabled(enabled)
-                .wrn("set_x_wayland_enabled")?,
+            ClientMessage::SetXWaylandEnabled { enabled } => {
+                self.handle_set_x_wayland_enabled(enabled);
+            }
             ClientMessage::Run3 {
                 prog,
                 args,
@@ -4353,7 +4342,7 @@ impl ConfigProxyHandler {
                 .handle_get_workspace_position(workspace)
                 .wrn("get_workspace_position")?,
             ClientMessage::SetSessionManagementEnabled { enabled } => {
-                self.handle_set_session_management_enabled(enabled)
+                self.handle_set_session_management_enabled(enabled);
             }
             ClientMessage::GetSeatCursorConnector { seat } => self
                 .handle_get_seat_cursor_connector(seat)
@@ -4362,10 +4351,10 @@ impl ConfigProxyHandler {
                 .handle_get_seat_keyboard_connector(seat)
                 .wrn("get_seat_keyboard_connector")?,
             ClientMessage::ConnectorCompositorOutput { connector } => {
-                self.handle_connector_compositor_output(connector)
+                self.handle_connector_compositor_output(connector);
             }
             ClientMessage::ShowWorkspace3 { v1 } => {
-                self.handle_show_workspace_3(v1).wrn("show_workspace_3")?
+                self.handle_show_workspace_3(v1).wrn("show_workspace_3")?;
             }
             ClientMessage::ShowWorkspace4 { v1, v2 } => self
                 .handle_show_workspace_4(v1, v2)
@@ -4379,24 +4368,24 @@ impl ConfigProxyHandler {
                 .handle_get_workspace_kind(workspace)
                 .wrn("get_workspace_kind")?,
             ClientMessage::ParseKeymap2 { v1 } => {
-                self.handle_parse_keymap_2(v1).wrn("parse_keymap_2")?
+                self.handle_parse_keymap_2(v1).wrn("parse_keymap_2")?;
             }
             ClientMessage::SetShowWindowIcons { show } => self.state.set_show_window_icons(show),
             ClientMessage::SetWindowIconsGrayscale { grayscale } => {
-                self.state.set_window_icons_grayscale(grayscale)
+                self.state.set_window_icons_grayscale(grayscale);
             }
             ClientMessage::SetVisualizeCompositing { visualize } => {
-                self.handle_set_visualize_compositing(visualize)
+                self.handle_set_visualize_compositing(visualize);
             }
             ClientMessage::GetVisualizeCompositing => self.handle_get_visualize_compositing(),
             ClientMessage::SetTransactionTimeout { timeout } => {
-                self.handle_set_transaction_timeout(timeout)
+                self.handle_set_transaction_timeout(timeout);
             }
             ClientMessage::SetConfigureTimeout { timeout } => {
-                self.handle_set_configure_timeout(timeout)
+                self.handle_set_configure_timeout(timeout);
             }
             ClientMessage::SetContainerBorders { borders } => {
-                self.handle_set_container_borders(borders)
+                self.handle_set_container_borders(borders);
             }
             ClientMessage::GetContainerBorders => self.handle_get_container_borders(),
             ClientMessage::SetWorkspaceInitialConnector {

@@ -108,13 +108,13 @@ pub struct RegisteredDevice {
     pub(super) dev: *mut libinput_device,
 }
 
-impl<'a> LibInputDevice<'a> {
+impl LibInputDevice<'_> {
     pub fn set_slot(&self, slot: usize) {
-        self.set_slot_(slot + 1)
+        self.set_slot_(slot + 1);
     }
 
     pub fn unset_slot(&self) {
-        self.set_slot_(0)
+        self.set_slot_(0);
     }
 
     fn set_slot_(&self, slot: usize) {
@@ -437,7 +437,7 @@ impl<'a> LibInputDevice<'a> {
     }
 }
 
-impl<'a> LibInputDeviceGroup<'a> {
+impl LibInputDeviceGroup<'_> {
     pub fn user_data(&self) -> usize {
         unsafe { libinput_device_group_get_user_data(self.group) }
     }
@@ -447,7 +447,7 @@ impl<'a> LibInputDeviceGroup<'a> {
     }
 }
 
-impl<'a> LibInputTabletPadModeGroup<'a> {
+impl LibInputTabletPadModeGroup<'_> {
     pub fn index(&self) -> u32 {
         unsafe { libinput_tablet_pad_mode_group_get_index(self.group) as u32 }
     }

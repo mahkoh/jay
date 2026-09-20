@@ -64,7 +64,7 @@ impl WlRegistry {
 impl WlRegistryRequestHandler for WlRegistry {
     type Error = WlRegistryError;
 
-    fn bind(&self, bind: Bind, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn bind(&self, bind: Bind<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let name = GlobalName::from_raw(bind.name);
         let globals = &self.client.state.globals;
         let global = globals.get(

@@ -7,7 +7,7 @@ use linearize::Linearize;
 use std::rc::Rc;
 
 pub fn main(_global: GlobalArgs, args: SetLogArgs) {
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         let logger = Rc::new(Log {
             tc: tc.clone(),
             args,

@@ -116,10 +116,6 @@ pub struct PortalSeat {
 }
 
 impl UsrWlSeatOwner for PortalSeat {
-    fn name(&self, name: &str) {
-        *self.name.borrow_mut() = name.to_string();
-    }
-
     fn capabilities(self: Rc<Self>, value: u32) {
         let old = self.capabilities.replace(value);
         if old.contains(POINTER) != value.contains(POINTER) {
@@ -133,6 +129,10 @@ impl UsrWlSeatOwner for PortalSeat {
                 self.pointer.set(Some(pointer));
             }
         }
+    }
+
+    fn name(&self, name: &str) {
+        *self.name.borrow_mut() = name.to_string();
     }
 }
 
@@ -296,18 +296,13 @@ impl UsrJayOutputOwner for PortalOutput {
 impl UsrWlOutputOwner for PortalOutput {}
 
 async fn maybe_add_display(state: &Rc<PortalState>, name: &str) {
-    let tail = match name.strip_prefix("wayland-") {
-        Some(t) => t,
-        _ => return,
+    let Some(tail) = name.strip_prefix("wayland-") else {
+        return;
     };
-    let head = match tail.strip_suffix(".jay") {
-        Some(h) => h,
-        _ => return,
+    let Some(head) = tail.strip_suffix(".jay") else {
+        return;
     };
-    let num = match u32::from_str(head) {
-        Ok(n) => n,
-        _ => return,
-    };
+    let Ok(num) = u32::from_str(head) else { return };
     let path = format!("{}/{}", state.xrd, name);
     let con = match UsrCon::new(
         &state.ring,

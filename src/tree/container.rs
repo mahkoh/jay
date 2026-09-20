@@ -1206,7 +1206,7 @@ impl ContainerNode {
                 };
                 if !active && !last {
                     hi -= bw;
-                };
+                }
                 let mut lo = None;
                 let color = if active {
                     prev_focused_border
@@ -1331,7 +1331,7 @@ impl ContainerNode {
                     SortedResult::Equal((_, lrs), (_, rrs)) => {
                         for c in sorted_comparison(lrs, rrs) {
                             if let SortedResult::Left(rect) | SortedResult::Right(rect) = c {
-                                damage(rect)
+                                damage(rect);
                             }
                         }
                     }
@@ -1494,12 +1494,9 @@ impl ContainerNode {
             true => child.prev_valid(LiveTL),
             false => child.next_valid(LiveTL),
         };
-        let sibling = match sibling {
-            Some(s) => s,
-            None => {
-                focus_in_parent();
-                return;
-            }
+        let Some(sibling) = sibling else {
+            focus_in_parent();
+            return;
         };
         if mc.is_some() {
             self.activate_child(&sibling);
@@ -1597,12 +1594,9 @@ impl ContainerNode {
             neighbor = parent.clone();
             parent_opt = parent.parent_container();
         }
-        let parent = match parent_opt {
-            Some(p) => p,
-            _ => {
-                move_to_neighboring_output(child);
-                return;
-            }
+        let Some(parent) = parent_opt else {
+            move_to_neighboring_output(child);
+            return;
         };
         self.cnode_remove_child2(&*child, true);
         match prev {
@@ -1729,9 +1723,8 @@ impl ContainerNode {
         button: u32,
     ) {
         let mut seat_datas = self.cursors.borrow_mut();
-        let seat_data = match seat_datas.get_mut(&id) {
-            Some(s) => s,
-            _ => return,
+        let Some(seat_data) = seat_datas.get_mut(&id) else {
+            return;
         };
         let ns = &self.node_state[LiveTL];
         if button == BTN_RIGHT && pressed {
@@ -1799,7 +1792,7 @@ impl ContainerNode {
                 kind,
                 x: seat_data.x,
                 y: seat_data.y,
-            })
+            });
         } else if !pressed {
             seat_data.op = None;
             drop(seat_datas);
@@ -2548,11 +2541,11 @@ impl NodeBase for ContainerNode {
         }
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, _bounds: Option<&Rect>) {
+    fn node_render(&self, renderer: &mut Renderer<'_>, x: i32, y: i32, _bounds: Option<&Rect>) {
         renderer.render_container(self, x, y);
     }
 
-    fn node_toplevel(self: Rc<Self>) -> Option<Rc<dyn crate::tree::ToplevelNode>> {
+    fn node_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {
         Some(self)
     }
 
@@ -2596,21 +2589,18 @@ impl NodeBase for ContainerNode {
     fn node_on_axis_event(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, event: &PendingScroll) {
         let mut seat_datas = self.cursors.borrow_mut();
         let id = CursorType::Seat(seat.id());
-        let seat_data = match seat_datas.get_mut(&id) {
-            Some(s) => s,
-            _ => return,
+        let Some(seat_data) = seat_datas.get_mut(&id) else {
+            return;
         };
-        let cur_mc = match self.node_state[LiveTL].mono_child.get() {
-            Some(mc) => mc,
-            _ => return,
+        let Some(cur_mc) = self.node_state[LiveTL].mono_child.get() else {
+            return;
         };
         let title_rect = cur_mc.node_state[LiveTL].title_rect.get();
         if seat_data.y < title_rect.y1() || seat_data.y >= title_rect.y2() {
             return;
         }
-        let discrete = match self.scroller.handle(event) {
-            Some(d) => d,
-            _ => return,
+        let Some(discrete) = self.scroller.handle(event) else {
+            return;
         };
         let mut new_mc = cur_mc.clone();
         for _ in 0..discrete.abs() {
@@ -2741,12 +2731,9 @@ impl NodeBase for ContainerNode {
 
 impl ContainingNode for ContainerNode {
     fn cnode_replace_child(self: Rc<Self>, old: &dyn Node, new: Rc<dyn ToplevelNode>) {
-        let node = match self.child_nodes.borrow_mut().remove(&old.node_id()) {
-            Some(c) => c,
-            None => {
-                log::error!("Trying to replace a node that isn't a child of this container");
-                return;
-            }
+        let Some(node) = self.child_nodes.borrow_mut().remove(&old.node_id()) else {
+            log::error!("Trying to replace a node that isn't a child of this container");
+            return;
         };
         let ns = &self.node_state[LiveTL];
         let (have_mc, was_mc) = match ns.mono_child.get() {
@@ -2776,7 +2763,7 @@ impl ContainingNode for ContainerNode {
             body = Some(ns.mono_body.get());
         } else if !have_mc {
             body = Some(link.node_state[LiveTL].body.get());
-        };
+        }
         let link_ref = link.to_ref();
         self.schedule_validate_child(&link);
         self.child_nodes.borrow_mut().insert(new.node_id(), link);
@@ -2794,9 +2781,8 @@ impl ContainingNode for ContainerNode {
     }
 
     fn cnode_remove_child2(self: Rc<Self>, child: &dyn Node, preserve_focus: bool) {
-        let node = match self.child_nodes.borrow_mut().remove(&child.node_id()) {
-            Some(c) => c,
-            None => return,
+        let Some(node) = self.child_nodes.borrow_mut().remove(&child.node_id()) else {
+            return;
         };
         node.focus_history.set(None);
         self.discard_child_properties(&node);
@@ -2826,7 +2812,7 @@ impl ContainingNode for ContainerNode {
         if rem <= 0.0 {
             let factor = 1.0 / num_children as f64;
             for child in self.children.iter_valid(LiveTL) {
-                child.factor.set(factor)
+                child.factor.set(factor);
             }
             sum = 1.0;
         } else {
@@ -2850,9 +2836,8 @@ impl ContainingNode for ContainerNode {
 
     fn cnode_child_attention_request_changed(self: Rc<Self>, child: &dyn Node, set: bool) {
         let children = self.child_nodes.borrow();
-        let child = match children.get(&child.node_id()) {
-            Some(c) => c,
-            _ => return,
+        let Some(child) = children.get(&child.node_id()) else {
+            return;
         };
         if child.attention_requested.replace(set) == set {
             return;
@@ -3217,7 +3202,7 @@ impl ToplevelNodeBase for ContainerNode {
     }
 
     fn tl_theme_changed(self: Rc<Self>) {
-        ThemeChangeListener::changed(self)
+        ThemeChangeListener::changed(self);
     }
 }
 
