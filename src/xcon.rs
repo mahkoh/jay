@@ -404,16 +404,13 @@ impl Xcon {
     }
 
     pub async fn connect(state: &Rc<State>) -> Result<Rc<Self>, XconError> {
-        let authority = match XAuthority::load() {
-            Ok(a) => a,
-            Err(e) => {
-                log::warn!(
-                    "Could not parse Xauthority file. Proceeding without authorization: {}",
-                    ErrorFmt(e)
-                );
-                vec![]
-            }
-        };
+        let authority = XAuthority::load().unwrap_or_else(|e| {
+            log::warn!(
+                "Could not parse Xauthority file. Proceeding without authorization: {}",
+                ErrorFmt(e)
+            );
+            vec![]
+        });
         let display = parse_display()?;
         let mut addr = c::sockaddr_un {
             sun_family: c::AF_UNIX as _,
