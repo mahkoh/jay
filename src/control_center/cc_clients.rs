@@ -329,7 +329,7 @@ pub fn show_client_collapsible(behavior: &mut CcBehavior<'_>, ui: &mut Ui, clien
             {
                 behavior.open = Some(PaneType::Client(behavior.cc.create_client_pane(client)));
             }
-            show_client(behavior, ui, client)
+            show_client(behavior, ui, client);
         });
 }
 

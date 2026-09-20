@@ -629,9 +629,9 @@ impl WlSeatGlobal {
     pub fn mark_last_active(self: &Rc<Self>) {
         let link = &mut *self.queue_link.borrow_mut();
         if let Some(link) = link {
-            self.state.seat_queue.add_last_existing(link)
+            self.state.seat_queue.add_last_existing(link);
         } else {
-            *link = Some(self.state.seat_queue.add_last(self.clone()))
+            *link = Some(self.state.seat_queue.add_last(self.clone()));
         }
     }
 
@@ -1716,7 +1716,7 @@ impl WlSeatGlobal {
                     item.destroy_popups();
                 }
                 retain
-            })
+            });
         }
         node.node_on_button(self, time_usec, button, state, serial);
     }
@@ -1828,14 +1828,14 @@ impl WlSeat {
         self.client.event(Capabilities {
             self_id: self.id,
             capabilities: self.global.capabilities.get(),
-        })
+        });
     }
 
     fn send_name(self: &Rc<Self>, name: &str) {
         self.client.event(Name {
             self_id: self.id,
             name,
-        })
+        });
     }
 
     fn keymap_fd(&self, state: &KeyboardState) -> Result<KeymapFd, WlKeyboardError> {
@@ -2145,7 +2145,7 @@ impl LedsListener for DeviceHandlerData {
 
 impl LedsListener for WlSeatGlobal {
     fn leds(&self, leds: Leds) {
-        self.dispatch_seat_leds_listeners(leds)
+        self.dispatch_seat_leds_listeners(leds);
     }
 }
 

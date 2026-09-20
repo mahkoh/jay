@@ -264,7 +264,7 @@ impl NodeBase for DisplayNode {
         _x: Fixed,
         _y: Fixed,
     ) {
-        tool.cursor().set_known(KnownCursor::Default)
+        tool.cursor().set_known(KnownCursor::Default);
     }
 
     fn node_is_display(&self) -> bool {

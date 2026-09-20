@@ -25,7 +25,7 @@ impl KbOwnerHolder {
     }
 
     pub fn ungrab(&self, seat: &Rc<WlSeatGlobal>) {
-        self.owner.get().ungrab(seat)
+        self.owner.get().ungrab(seat);
     }
 
     pub fn set_kb_node(&self, seat: &Rc<WlSeatGlobal>, node: Rc<dyn Node>, serial: u64) {

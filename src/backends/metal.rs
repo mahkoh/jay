@@ -253,7 +253,7 @@ impl Backend for MetalBackend {
             if let Err(e) = res {
                 log::error!("Could not switch to VT {}: {}", vtnr, ErrorFmt(e));
             }
-        })
+        });
     }
 
     fn import_environment(&self) -> bool {

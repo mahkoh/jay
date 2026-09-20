@@ -653,7 +653,7 @@ impl Client {
     }
 
     pub fn add_server_obj<T: Object>(&self, obj: &Rc<T>) {
-        self.add_obj(obj, false).expect("add_server_obj failed")
+        self.add_obj(obj, false).expect("add_server_obj failed");
     }
 
     fn add_obj<T: Object>(&self, obj: &Rc<T>, client: bool) -> Result<(), ClientError> {

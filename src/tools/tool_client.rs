@@ -803,7 +803,7 @@ impl ToolClient {
         } = m;
 
         self.generic_match(gmb, generic, |m| {
-            self.create_window_match_(comp, gmb, cmb, m)
+            self.create_window_match_(comp, gmb, cmb, m);
         });
         if let Some(c) = client {
             self.send(jay_window_match_builder::Client {

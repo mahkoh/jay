@@ -68,7 +68,7 @@ impl ZwpPrimarySelectionOfferV1 {
         self.client.event(Offer {
             self_id: self.id,
             mime_type,
-        })
+        });
     }
 }
 

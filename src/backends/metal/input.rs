@@ -114,13 +114,13 @@ impl MetalBackend {
             c::LIBINPUT_EVENT_POINTER_MOTION_ABSOLUTE => self.handle_pointer_motion_absolute(event),
             c::LIBINPUT_EVENT_POINTER_BUTTON => self.handle_pointer_button(event),
             c::LIBINPUT_EVENT_POINTER_SCROLL_WHEEL => {
-                self.handle_pointer_axis(event, AxisSource::Wheel)
+                self.handle_pointer_axis(event, AxisSource::Wheel);
             }
             c::LIBINPUT_EVENT_POINTER_SCROLL_FINGER => {
-                self.handle_pointer_axis(event, AxisSource::Finger)
+                self.handle_pointer_axis(event, AxisSource::Finger);
             }
             c::LIBINPUT_EVENT_POINTER_SCROLL_CONTINUOUS => {
-                self.handle_pointer_axis(event, AxisSource::Continuous)
+                self.handle_pointer_axis(event, AxisSource::Continuous);
             }
             c::LIBINPUT_EVENT_GESTURE_SWIPE_BEGIN => self.handle_gesture_swipe_begin(event),
             c::LIBINPUT_EVENT_GESTURE_SWIPE_UPDATE => self.handle_gesture_swipe_update(event),
@@ -392,7 +392,7 @@ impl MetalBackend {
                     x: event.y_transformed(1),
                     dx: event.dy(),
                 },
-            })
+            });
         }
         if event.pressure_has_changed() {
             changes.pressure = Some(event.pressure());
@@ -598,7 +598,7 @@ impl MetalBackend {
             id: event.seat_slot(),
             x_normed: Fixed::from_f64(event.x_transformed(1)),
             y_normed: Fixed::from_f64(event.y_transformed(1)),
-        })
+        });
     }
 
     fn handle_touch_up(self: &Rc<Self>, event: LibInputEvent<'_>) {
@@ -606,7 +606,7 @@ impl MetalBackend {
         dev.event(InputEvent::TouchUp {
             time_usec: event.time_usec(),
             id: event.seat_slot(),
-        })
+        });
     }
 
     fn handle_touch_motion(self: &Rc<Self>, event: LibInputEvent<'_>) {
@@ -616,7 +616,7 @@ impl MetalBackend {
             id: event.seat_slot(),
             x_normed: Fixed::from_f64(event.x_transformed(1)),
             y_normed: Fixed::from_f64(event.y_transformed(1)),
-        })
+        });
     }
 
     fn handle_touch_cancel(self: &Rc<Self>, event: LibInputEvent<'_>) {
@@ -624,13 +624,13 @@ impl MetalBackend {
         dev.event(InputEvent::TouchCancel {
             time_usec: event.time_usec(),
             id: event.seat_slot(),
-        })
+        });
     }
 
     fn handle_touch_frame(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, touch_event);
         dev.event(InputEvent::TouchFrame {
             time_usec: event.time_usec(),
-        })
+        });
     }
 }

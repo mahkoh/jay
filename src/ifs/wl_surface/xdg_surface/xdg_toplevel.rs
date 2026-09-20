@@ -254,14 +254,14 @@ impl XdgToplevel {
             width,
             height,
             states: &states,
-        })
+        });
     }
 
     pub fn send_wm_capabilities(&self) {
         self.xdg.surface.client.event(WmCapabilities {
             self_id: self.id,
             capabilities: &[CAP_FULLSCREEN],
-        })
+        });
     }
 
     fn mark_variable_size(&self) {
@@ -649,7 +649,7 @@ impl NodeBase for XdgToplevel {
     }
 
     fn node_render(&self, renderer: &mut Renderer<'_>, x: i32, y: i32, bounds: Option<&Rect>) {
-        renderer.render_xdg_toplevel(self, x, y, bounds)
+        renderer.render_xdg_toplevel(self, x, y, bounds);
     }
 
     fn node_client(&self) -> Option<Rc<Client>> {
@@ -665,7 +665,7 @@ impl NodeBase for XdgToplevel {
     }
 
     fn node_make_visible(self: &Rc<Self>) {
-        self.toplevel_data.make_visible(&**self)
+        self.toplevel_data.make_visible(&**self);
     }
 
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, _x: Fixed, _y: Fixed) {
@@ -684,7 +684,7 @@ impl NodeBase for XdgToplevel {
         _x: Fixed,
         _y: Fixed,
     ) {
-        tool.cursor().set_known(KnownCursor::Default)
+        tool.cursor().set_known(KnownCursor::Default);
     }
 
     fn node_into_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {

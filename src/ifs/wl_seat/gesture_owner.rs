@@ -26,19 +26,19 @@ impl GestureOwnerHolder {
     }
 
     pub fn swipe_begin(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, finger_count: u32) {
-        self.owner.get().swipe_begin(seat, time_usec, finger_count)
+        self.owner.get().swipe_begin(seat, time_usec, finger_count);
     }
 
     pub fn swipe_update(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, dx: Fixed, dy: Fixed) {
-        self.owner.get().swipe_update(seat, time_usec, dx, dy)
+        self.owner.get().swipe_update(seat, time_usec, dx, dy);
     }
 
     pub fn swipe_end(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, cancelled: bool) {
-        self.owner.get().swipe_end(seat, time_usec, cancelled)
+        self.owner.get().swipe_end(seat, time_usec, cancelled);
     }
 
     pub fn pinch_begin(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, finger_count: u32) {
-        self.owner.get().pinch_begin(seat, time_usec, finger_count)
+        self.owner.get().pinch_begin(seat, time_usec, finger_count);
     }
 
     pub fn pinch_update(
@@ -52,19 +52,19 @@ impl GestureOwnerHolder {
     ) {
         self.owner
             .get()
-            .pinch_update(seat, time_usec, dx, dy, scale, rotation)
+            .pinch_update(seat, time_usec, dx, dy, scale, rotation);
     }
 
     pub fn pinch_end(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, cancelled: bool) {
-        self.owner.get().pinch_end(seat, time_usec, cancelled)
+        self.owner.get().pinch_end(seat, time_usec, cancelled);
     }
 
     pub fn hold_begin(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, finger_count: u32) {
-        self.owner.get().hold_begin(seat, time_usec, finger_count)
+        self.owner.get().hold_begin(seat, time_usec, finger_count);
     }
 
     pub fn hold_end(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, cancelled: bool) {
-        self.owner.get().hold_end(seat, time_usec, cancelled)
+        self.owner.get().hold_end(seat, time_usec, cancelled);
     }
 
     fn set_default_owner(&self) {
@@ -210,7 +210,7 @@ impl GestureOwner for PinchGesture {
         rotation: Fixed,
     ) {
         self.node
-            .node_on_pinch_update(seat, time_usec, dx, dy, scale, rotation)
+            .node_on_pinch_update(seat, time_usec, dx, dy, scale, rotation);
     }
 
     fn pinch_end(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, cancelled: bool) {

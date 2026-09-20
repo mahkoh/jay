@@ -51,6 +51,6 @@ usr_object_base! {
 
 impl UsrObject for UsrXdgWmBase {
     fn destroy(&self) {
-        self.con.request(Destroy { self_id: self.id })
+        self.con.request(Destroy { self_id: self.id });
     }
 }

@@ -1331,7 +1331,7 @@ impl ContainerNode {
                     SortedResult::Equal((_, lrs), (_, rrs)) => {
                         for c in sorted_comparison(lrs, rrs) {
                             if let SortedResult::Left(rect) | SortedResult::Right(rect) = c {
-                                damage(rect)
+                                damage(rect);
                             }
                         }
                     }
@@ -1799,7 +1799,7 @@ impl ContainerNode {
                 kind,
                 x: seat_data.x,
                 y: seat_data.y,
-            })
+            });
         } else if !pressed {
             seat_data.op = None;
             drop(seat_datas);
@@ -2826,7 +2826,7 @@ impl ContainingNode for ContainerNode {
         if rem <= 0.0 {
             let factor = 1.0 / num_children as f64;
             for child in self.children.iter_valid(LiveTL) {
-                child.factor.set(factor)
+                child.factor.set(factor);
             }
             sum = 1.0;
         } else {
@@ -3217,7 +3217,7 @@ impl ToplevelNodeBase for ContainerNode {
     }
 
     fn tl_theme_changed(self: Rc<Self>) {
-        ThemeChangeListener::changed(self)
+        ThemeChangeListener::changed(self);
     }
 }
 

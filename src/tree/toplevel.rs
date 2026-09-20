@@ -239,7 +239,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
                 session.set_float_pos(data);
             }
         }
-        self.tl_change_extents_impl(rect)
+        self.tl_change_extents_impl(rect);
     }
 
     fn tl_set_visible(&self, visible: bool) {
@@ -301,7 +301,7 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
             session.set_fullscreen(fullscreen);
         }
         if let Some(surface) = self.tl_surface() {
-            surface.mark_fullscreen(connector)
+            surface.mark_fullscreen(connector);
         }
     }
 
@@ -872,7 +872,7 @@ impl ToplevelData {
             handle.send_app_id(app_id);
             handle.send_done();
         }
-        self.property_changed(TL_CHANGED_APP_ID)
+        self.property_changed(TL_CHANGED_APP_ID);
     }
 
     pub fn set_fullscreen(

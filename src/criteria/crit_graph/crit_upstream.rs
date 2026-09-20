@@ -120,7 +120,7 @@ where
     }
 
     pub fn clear(&self) {
-        self.nodes.clear()
+        self.nodes.clear();
     }
 
     pub fn update_matched(

@@ -140,14 +140,14 @@ impl ForkerProxy {
         self.outgoing.push(ServerMessage::SetEnv {
             var: key.to_vec(),
             val: Some(val.to_vec()),
-        })
+        });
     }
 
     pub fn unsetenv(&self, key: &[u8]) {
         self.outgoing.push(ServerMessage::SetEnv {
             var: key.to_vec(),
             val: None,
-        })
+        });
     }
 
     async fn pidfd(&self, id: u32) -> Result<(Rc<OwnedFd>, c::pid_t), ForkerError> {
@@ -200,7 +200,7 @@ impl ForkerProxy {
         env: Vec<(String, Option<String>)>,
         fds: Vec<(i32, Rc<OwnedFd>)>,
     ) {
-        self.spawn_(prog, args, env, fds, None)
+        self.spawn_(prog, args, env, fds, None);
     }
 
     fn spawn_(
@@ -221,7 +221,7 @@ impl ForkerProxy {
             env,
             fds,
             pidfd_id,
-        })
+        });
     }
 
     async fn incoming(self: Rc<Self>, state: Rc<State>) {
@@ -443,7 +443,7 @@ impl Forker {
             .into_iter()
             .map(|a| (a, Rc::try_unwrap(io.pop_fd().unwrap()).unwrap()))
             .collect();
-        self.spawn(prog, args, env, fds, pidfd_id)
+        self.spawn(prog, args, env, fds, pidfd_id);
     }
 
     fn spawn(

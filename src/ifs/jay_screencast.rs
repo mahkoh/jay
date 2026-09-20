@@ -246,7 +246,7 @@ impl JayScreencast {
             }
         }
         self.missed_frame.set(true);
-        self.client.event(MissedFrame { self_id: self.id })
+        self.client.event(MissedFrame { self_id: self.id });
     }
 
     fn send_buffers(&self) {
@@ -393,7 +393,7 @@ impl JayScreencast {
             }
         }
         self.missed_frame.set(true);
-        self.client.event(MissedFrame { self_id: self.id })
+        self.client.event(MissedFrame { self_id: self.id });
     }
 
     fn detach(&self) {

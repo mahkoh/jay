@@ -49,7 +49,7 @@ impl Idle {
                 _ = self.state.idle.change.triggered().fuse() => self.handle_idle_changes(),
             }
         }
-        log::error!("Due to the above error, monitors will no longer be (de)activated.")
+        log::error!("Due to the above error, monitors will no longer be (de)activated.");
     }
 
     fn handle_expired(&mut self, res: Result<u64, TimerError>) {
@@ -127,7 +127,7 @@ impl Idle {
 
     fn set_idle(&self, idle: bool) {
         if let Err(e) = self.try_set_idle(idle) {
-            log::error!("Could not change idle status of backend: {}", ErrorFmt(e))
+            log::error!("Could not change idle status of backend: {}", ErrorFmt(e));
         }
         if let Some(lock) = self.state.lock.lock.get() {
             lock.check_locked();

@@ -356,7 +356,7 @@ unsafe impl<T: Message<'static>> ReplyHandler for AsyncReplyHandler<T> {
     }
 
     fn handle_error(self: Box<Self>, error: XconError) {
-        self.done(Err(error))
+        self.done(Err(error));
     }
 }
 

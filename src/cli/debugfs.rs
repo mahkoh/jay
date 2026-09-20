@@ -183,6 +183,6 @@ impl Debugfs {
         Failure::handle(tc, id, (), |_, _msg| {
             fatal!("Could not mount filesystem");
         });
-        pending().await
+        pending::<()>().await;
     }
 }

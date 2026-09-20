@@ -971,14 +971,14 @@ impl WlSurface {
         self.client.event(Enter {
             self_id: self.id,
             output,
-        })
+        });
     }
 
     pub fn send_leave(&self, output: WlOutputId) {
         self.client.event(Leave {
             self_id: self.id,
             output,
-        })
+        });
     }
 
     fn send_preferred_buffer_scale(&self) {
@@ -1100,7 +1100,7 @@ impl WlSurface {
         self.need_extents_update.set(false);
         if old_extents != extents {
             if propagate {
-                self.ext.get().extents_changed()
+                self.ext.get().extents_changed();
             } else {
                 self.need_extents_propagation.set(true);
             }
@@ -2243,11 +2243,11 @@ impl NodeBase for WlSurface {
         x: Fixed,
         y: Fixed,
     ) {
-        seat.touch_down_surface(&self, time_usec, id, x, y)
+        seat.touch_down_surface(&self, time_usec, id, x, y);
     }
 
     fn node_on_touch_up(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, time_usec: u64, id: i32) {
-        seat.touch_up_surface(&self, time_usec, id)
+        seat.touch_up_surface(&self, time_usec, id);
     }
 
     fn node_on_touch_motion(
@@ -2258,15 +2258,15 @@ impl NodeBase for WlSurface {
         x: Fixed,
         y: Fixed,
     ) {
-        seat.touch_motion_surface(&self, time_usec, id, x, y)
+        seat.touch_motion_surface(&self, time_usec, id, x, y);
     }
 
     fn node_on_touch_frame(&self, seat: &WlSeatGlobal) {
-        seat.touch_frame_surface(&self)
+        seat.touch_frame_surface(&self);
     }
 
     fn node_on_touch_cancel(&self, seat: &WlSeatGlobal) {
-        seat.touch_cancel_surface(&self)
+        seat.touch_cancel_surface(&self);
     }
 
     fn node_on_button(
@@ -2305,11 +2305,11 @@ impl NodeBase for WlSurface {
     }
 
     fn node_on_pointer_enter(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
-        seat.enter_surface(&self, x, y)
+        seat.enter_surface(&self, x, y);
     }
 
     fn node_on_pointer_motion(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, x: Fixed, y: Fixed) {
-        seat.motion_surface(&self, x, y)
+        seat.motion_surface(&self, x, y);
     }
 
     fn node_on_pointer_relative_motion(
@@ -2341,19 +2341,19 @@ impl NodeBase for WlSurface {
     }
 
     fn node_on_swipe_begin(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, finger_count: u32) {
-        seat.swipe_begin_surface(self, time_usec, finger_count)
+        seat.swipe_begin_surface(self, time_usec, finger_count);
     }
 
     fn node_on_swipe_update(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, dx: Fixed, dy: Fixed) {
-        seat.swipe_update_surface(self, time_usec, dx, dy)
+        seat.swipe_update_surface(self, time_usec, dx, dy);
     }
 
     fn node_on_swipe_end(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, cancelled: bool) {
-        seat.swipe_end_surface(self, time_usec, cancelled)
+        seat.swipe_end_surface(self, time_usec, cancelled);
     }
 
     fn node_on_pinch_begin(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, finger_count: u32) {
-        seat.pinch_begin_surface(self, time_usec, finger_count)
+        seat.pinch_begin_surface(self, time_usec, finger_count);
     }
 
     fn node_on_pinch_update(
@@ -2365,19 +2365,19 @@ impl NodeBase for WlSurface {
         scale: Fixed,
         rotation: Fixed,
     ) {
-        seat.pinch_update_surface(self, time_usec, dx, dy, scale, rotation)
+        seat.pinch_update_surface(self, time_usec, dx, dy, scale, rotation);
     }
 
     fn node_on_pinch_end(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, cancelled: bool) {
-        seat.pinch_end_surface(self, time_usec, cancelled)
+        seat.pinch_end_surface(self, time_usec, cancelled);
     }
 
     fn node_on_hold_begin(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, finger_count: u32) {
-        seat.hold_begin_surface(self, time_usec, finger_count)
+        seat.hold_begin_surface(self, time_usec, finger_count);
     }
 
     fn node_on_hold_end(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, cancelled: bool) {
-        seat.hold_end_surface(self, time_usec, cancelled)
+        seat.hold_end_surface(self, time_usec, cancelled);
     }
 
     fn node_on_tablet_pad_enter(&self, pad: &Rc<TabletPad>) {

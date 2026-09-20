@@ -325,7 +325,7 @@ impl VulkanInstance {
             .collect();
         unsafe {
             self.instance
-                .get_physical_device_queue_family_properties2(phy_dev, &mut props[..])
+                .get_physical_device_queue_family_properties2(phy_dev, &mut props[..]);
         }
         let gfx_queue = props
             .iter()

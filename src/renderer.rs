@@ -284,7 +284,7 @@ impl Renderer<'_> {
 
     pub fn render_workspace(&mut self, workspace: &WorkspaceNode, x: i32, y: i32) {
         if let Some(node) = workspace.node_state[RenderTL].container.get() {
-            self.render_container(&node, x, y)
+            self.render_container(&node, x, y);
         }
     }
 

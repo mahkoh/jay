@@ -100,7 +100,7 @@ impl WlPointer {
             surface,
             surface_x: x,
             surface_y: y,
-        })
+        });
     }
 
     pub fn send_leave(&self, serial: u64, surface: WlSurfaceId) {
@@ -108,7 +108,7 @@ impl WlPointer {
             self_id: self.id,
             serial: serial as u32,
             surface,
-        })
+        });
     }
 
     pub fn send_warp(&self, mut x: Fixed, mut y: Fixed) {
@@ -120,7 +120,7 @@ impl WlPointer {
             self_id: self.id,
             surface_x: x,
             surface_y: y,
-        })
+        });
     }
 
     pub fn send_motion(&self, time: u32, mut x: Fixed, mut y: Fixed) {
@@ -133,7 +133,7 @@ impl WlPointer {
             time,
             surface_x: x,
             surface_y: y,
-        })
+        });
     }
 
     pub fn send_button(&self, serial: u64, time: u32, button: u32, state: u32) {
@@ -143,7 +143,7 @@ impl WlPointer {
             time,
             button,
             state,
-        })
+        });
     }
 
     pub fn send_axis_relative_direction(&self, axis: u32, direction: u32) {
@@ -151,7 +151,7 @@ impl WlPointer {
             self_id: self.id,
             axis,
             direction,
-        })
+        });
     }
 
     pub fn send_axis(&self, time: u32, axis: u32, mut value: Fixed) {
@@ -161,18 +161,18 @@ impl WlPointer {
             time,
             axis,
             value,
-        })
+        });
     }
 
     pub fn send_frame(&self) {
-        self.seat.client.event(Frame { self_id: self.id })
+        self.seat.client.event(Frame { self_id: self.id });
     }
 
     pub fn send_axis_source(&self, axis_source: u32) {
         self.seat.client.event(AxisSource {
             self_id: self.id,
             axis_source,
-        })
+        });
     }
 
     pub fn send_axis_stop(&self, time: u32, axis: u32) {
@@ -180,7 +180,7 @@ impl WlPointer {
             self_id: self.id,
             time,
             axis,
-        })
+        });
     }
 
     pub fn send_axis_discrete(&self, axis: u32, discrete: i32) {
@@ -188,7 +188,7 @@ impl WlPointer {
             self_id: self.id,
             axis,
             discrete,
-        })
+        });
     }
 
     pub fn send_axis_value120(&self, axis: u32, value120: i32) {
@@ -196,7 +196,7 @@ impl WlPointer {
             self_id: self.id,
             axis,
             value120,
-        })
+        });
     }
 }
 

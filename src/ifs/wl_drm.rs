@@ -82,18 +82,18 @@ impl WlDrm {
         self.client.event(Device {
             self_id: self.id,
             name: device.as_bytes().as_bstr(),
-        })
+        });
     }
 
     fn send_authenticated(&self) {
-        self.client.event(Authenticated { self_id: self.id })
+        self.client.event(Authenticated { self_id: self.id });
     }
 
     fn send_capabilities(&self, value: u32) {
         self.client.event(Capabilities {
             self_id: self.id,
             value,
-        })
+        });
     }
 }
 

@@ -82,7 +82,7 @@ impl XdgToplevelDragV1 {
         {
             let (x, y) = tl.xdg.absolute_desired_extents[RenderTL].get().position();
             let (x, y) = cursor_rect.translate(x, y);
-            renderer.render_xdg_surface(&tl.xdg, x, y, None)
+            renderer.render_xdg_surface(&tl.xdg, x, y, None);
         }
     }
 }
@@ -134,7 +134,7 @@ impl XdgToplevelDragV1 {
         self.client.state.tree_changed();
         if let Some(seat) = self.source.data.seat.get() {
             let (x, y) = seat.pointer_cursor().position_int();
-            self.move2(x, y, false)
+            self.move2(x, y, false);
         }
     }
 

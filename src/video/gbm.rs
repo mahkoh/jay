@@ -225,7 +225,7 @@ unsafe fn export_bo(
                         offset,
                         stride,
                         fd: Rc::new(OwnedFd::new(fd)),
-                    })
+                    });
                 }
                 planes
             },

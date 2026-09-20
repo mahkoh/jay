@@ -67,7 +67,7 @@ impl JayRandr {
         self.client.event(Global {
             self_id: self.id,
             default_gfx_api: self.client.state.default_gfx_api.get().to_str(),
-        })
+        });
     }
 
     fn send_drm_device(&self, data: &DrmDevData) {

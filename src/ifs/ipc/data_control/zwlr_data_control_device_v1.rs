@@ -56,7 +56,7 @@ impl ZwlrDataControlDeviceV1 {
         self.data.client.event(DataOffer {
             self_id: self.id,
             id: offer.id,
-        })
+        });
     }
 
     fn send_selection(&self, offer: Option<&Rc<ZwlrDataControlOfferV1>>) {
@@ -66,7 +66,7 @@ impl ZwlrDataControlDeviceV1 {
         self.data.client.event(Selection {
             self_id: self.id,
             id,
-        })
+        });
     }
 
     fn send_primary_selection(&self, offer: Option<&Rc<ZwlrDataControlOfferV1>>) {
@@ -76,7 +76,7 @@ impl ZwlrDataControlDeviceV1 {
         self.data.client.event(PrimarySelection {
             self_id: self.id,
             id,
-        })
+        });
     }
 }
 
@@ -133,15 +133,15 @@ impl DataControlDevice for ZwlrDataControlDeviceV1 {
     }
 
     fn send_data_offer(&self, offer: &Rc<<Self::Ipc as DataControlIpc>::Offer>) {
-        self.send_data_offer(offer)
+        self.send_data_offer(offer);
     }
 
     fn send_selection(&self, offer: Option<&Rc<<Self::Ipc as DataControlIpc>::Offer>>) {
-        self.send_selection(offer)
+        self.send_selection(offer);
     }
 
     fn send_primary_selection(&self, offer: Option<&Rc<<Self::Ipc as DataControlIpc>::Offer>>) {
-        self.send_primary_selection(offer)
+        self.send_primary_selection(offer);
     }
 }
 

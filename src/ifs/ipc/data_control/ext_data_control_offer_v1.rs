@@ -38,7 +38,7 @@ impl ExtDataControlOfferV1 {
         self.data.client.event(Offer {
             self_id: self.id,
             mime_type,
-        })
+        });
     }
 }
 

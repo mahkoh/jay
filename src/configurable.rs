@@ -407,6 +407,6 @@ fn run_iteration(
     }
     for group in groups_to_recycle.drain(..) {
         group.members.borrow_mut().clear();
-        cgs.unused_groups.push(group)
+        cgs.unused_groups.push(group);
     }
 }

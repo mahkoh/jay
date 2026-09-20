@@ -147,7 +147,7 @@ impl SurfaceRenderCache {
                 bounds,
                 ..Default::default()
             },
-        )
+        );
     }
 }
 

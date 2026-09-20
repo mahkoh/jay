@@ -29,7 +29,7 @@ impl Storage {
     unsafe fn dec(slf: *mut Self) {
         let rc = unsafe { slf.deref().rc.sub_fetch(1) };
         if rc == 0 {
-            Self::free(slf)
+            Self::free(slf);
         }
     }
 

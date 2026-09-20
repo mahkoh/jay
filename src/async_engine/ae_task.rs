@@ -271,7 +271,7 @@ impl<T, F: Future<Output = T>> Task<T, F> {
                 self.drop_data();
             } else if &self.state & RUN_AGAIN != 0 {
                 self.state.and_assign(!RUN_AGAIN);
-                self.schedule_run()
+                self.schedule_run();
             }
         }
     }

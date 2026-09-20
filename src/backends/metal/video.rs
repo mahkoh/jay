@@ -238,7 +238,7 @@ impl BackendDrmDevice for MetalDrmDevice {
     }
 
     fn set_gfx_api(&self, api: GfxApi) {
-        self.backend.set_gfx_api(self, api)
+        self.backend.set_gfx_api(self, api);
     }
 
     fn gfx_api(&self) -> GfxApi {

@@ -101,7 +101,7 @@ impl ExtForeignToplevelListV1RequestHandler for ExtForeignToplevelListV1 {
 
 impl ExtForeignToplevelListV1 {
     fn send_finished(&self) {
-        self.client.event(Finished { self_id: self.id })
+        self.client.event(Finished { self_id: self.id });
     }
 
     fn send_handle(&self, handle: &ExtForeignToplevelHandleV1) {

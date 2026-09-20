@@ -266,7 +266,7 @@ impl JayCompositorRequestHandler for JayCompositor {
                 self_id: self.id,
                 id: seat.id().raw(),
                 name: seat.seat_name(),
-            })
+            });
         }
         Ok(())
     }

@@ -145,6 +145,6 @@ impl DrvDevHandler {
             "Using {:?} for device {}",
             api,
             self.data.devnode.as_deref().unwrap_or(""),
-        )
+        );
     }
 }

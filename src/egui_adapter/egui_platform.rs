@@ -301,11 +301,11 @@ impl EggState {
     }
 
     pub fn set_proportional_fonts(&self, fonts: &[&str]) {
-        self.change_fonts(fonts, |f| &mut f.proportional)
+        self.change_fonts(fonts, |f| &mut f.proportional);
     }
 
     pub fn set_monospace_fonts(&self, fonts: &[&str]) {
-        self.change_fonts(fonts, |f| &mut f.monospace)
+        self.change_fonts(fonts, |f| &mut f.monospace);
     }
 
     fn change_fonts(&self, fonts: &[&str], field: impl Fn(&mut EggFonts) -> &mut Vec<String>) {

@@ -41,16 +41,16 @@ impl LookAndFeelPane {
         let t = &self.state.theme;
         grid(ui, "settings", |ui| {
             bool(ui, "Show Bar", self.state.show_bar.get(), |v| {
-                self.state.set_show_bar(v)
+                self.state.set_show_bar(v);
             });
             combo_box(ui, "Bar Position", t.bar_position.get(), |p| {
                 self.state.set_bar_position(p);
             });
             bool(ui, "Show Titles", t.show_titles.get(), |v| {
-                self.state.set_show_titles(v)
+                self.state.set_show_titles(v);
             });
             bool(ui, "Show Window Icons", t.show_window_icons.get(), |v| {
-                self.state.set_show_window_icons(v)
+                self.state.set_show_window_icons(v);
             });
             bool_ui(
                 ui,
@@ -156,7 +156,7 @@ impl LookAndFeelPane {
                 }
             });
             combo_box(ui, "Container Borders", t.container_borders.get(), |p| {
-                self.state.set_container_borders(p)
+                self.state.set_container_borders(p);
             });
         });
         if ui.button("Reset Sizes").clicked() {

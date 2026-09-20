@@ -186,7 +186,7 @@ impl VulkanBoAllocator {
                 data.device
                     .image_drm_format_modifier
                     .get_image_drm_format_modifier_properties(image, &mut props)
-                    .map_err(VulkanError::GetModifier)?
+                    .map_err(VulkanError::GetModifier)?;
             }
             props.drm_format_modifier
         };
@@ -436,7 +436,7 @@ impl VulkanBoAllocator {
             fd.unwrap();
             device_memories.push(device_memory);
             free_device_memories.push(on_drop(move || unsafe {
-                data.device.device.free_memory(device_memory, None)
+                data.device.device.free_memory(device_memory, None);
             }));
         }
         let mut bind_image_memory_infos = Vec::with_capacity(num_device_memories);

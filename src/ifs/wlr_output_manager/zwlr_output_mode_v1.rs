@@ -52,7 +52,7 @@ impl ZwlrOutputModeV1 {
     }
 
     pub fn send_finished(&self) {
-        self.client.event(Finished { self_id: self.id })
+        self.client.event(Finished { self_id: self.id });
     }
 }
 

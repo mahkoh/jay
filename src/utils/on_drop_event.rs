@@ -14,6 +14,6 @@ impl OnDropEvent {
 
 impl Drop for OnDropEvent {
     fn drop(&mut self) {
-        self.ae.trigger()
+        self.ae.trigger();
     }
 }

@@ -415,6 +415,6 @@ impl MetalBackend {
                 // Set to 1 to ensure this branch is never taken again.
                 slf.device_holder.num_pending_devices.set(1);
             }
-        })
+        });
     }
 }

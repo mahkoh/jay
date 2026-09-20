@@ -60,15 +60,15 @@ where
     }
 
     fn getdents(self: Rc<Self>, key: u64, dirents: &mut FuseDirents) {
-        V::getdents(self.tv_unwrap_rc(), key, dirents)
+        V::getdents(self.tv_unwrap_rc(), key, dirents);
     }
 
     fn read(&self, key: u64, buf: &mut String, ctx: &StrCtx<'_>) {
-        V::read(self, key, buf, ctx)
+        V::read(self, key, buf, ctx);
     }
 
     fn readlink(&self, key: u64, depth: u64, buf: &mut String) {
-        V::readlink(self, key, depth, buf)
+        V::readlink(self, key, depth, buf);
     }
 
     fn downgrade(self: &Rc<Self>) -> Weak<Self>

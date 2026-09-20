@@ -98,7 +98,7 @@ impl WlDataOffer {
         self.client.event(Offer {
             self_id: self.id,
             mime_type,
-        })
+        });
     }
 
     fn send_source_actions(&self) {
@@ -108,7 +108,7 @@ impl WlDataOffer {
             self.client.event(SourceActions {
                 self_id: self.id,
                 source_actions,
-            })
+            });
         }
     }
 
@@ -116,7 +116,7 @@ impl WlDataOffer {
         self.client.event(Action {
             self_id: self.id,
             dnd_action,
-        })
+        });
     }
 }
 

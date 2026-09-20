@@ -31,7 +31,7 @@ impl State {
 
 impl root::Dir for State {
     fn read_version(&self, buf: &mut String, ctx: &StrCtx<'_>) {
-        VERSION.str_fmt(buf, ctx)
+        VERSION.str_fmt(buf, ctx);
     }
 }
 

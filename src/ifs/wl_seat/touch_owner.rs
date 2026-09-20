@@ -22,23 +22,23 @@ impl Default for TouchOwnerHolder {
 
 impl TouchOwnerHolder {
     pub fn down(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, id: i32, x: Fixed, y: Fixed) {
-        self.owner.get().down(seat, time_usec, id, x, y)
+        self.owner.get().down(seat, time_usec, id, x, y);
     }
 
     pub fn up(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, id: i32) {
-        self.owner.get().up(seat, time_usec, id)
+        self.owner.get().up(seat, time_usec, id);
     }
 
     pub fn motion(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, id: i32, x: Fixed, y: Fixed) {
-        self.owner.get().motion(seat, time_usec, id, x, y)
+        self.owner.get().motion(seat, time_usec, id, x, y);
     }
 
     pub fn frame(&self, seat: &Rc<WlSeatGlobal>) {
-        self.owner.get().frame(seat)
+        self.owner.get().frame(seat);
     }
 
     pub fn cancel(&self, seat: &Rc<WlSeatGlobal>) {
-        self.owner.get().cancel(seat)
+        self.owner.get().cancel(seat);
     }
 
     pub fn clear(&self) {

@@ -173,7 +173,7 @@ impl WlDataSource {
         if let Some(drag) = self.toplevel_drag.take() {
             drag.finish_drag(seat);
         }
-        self.data.client.event(Cancelled { self_id: self.id })
+        self.data.client.event(Cancelled { self_id: self.id });
     }
 
     fn send_send(&self, mime_type: &str, fd: Rc<OwnedFd>) {
@@ -181,31 +181,31 @@ impl WlDataSource {
             self_id: self.id,
             mime_type,
             fd,
-        })
+        });
     }
 
     fn send_target(&self, mime_type: Option<&str>) {
         self.data.client.event(Target {
             self_id: self.id,
             mime_type,
-        })
+        });
     }
 
     fn send_dnd_finished(&self) {
-        self.data.client.event(DndFinished { self_id: self.id })
+        self.data.client.event(DndFinished { self_id: self.id });
     }
 
     fn send_action(&self, dnd_action: u32) {
         self.data.client.event(Action {
             self_id: self.id,
             dnd_action,
-        })
+        });
     }
 
     fn send_dnd_drop_performed(&self) {
         self.data
             .client
-            .event(DndDropPerformed { self_id: self.id })
+            .event(DndDropPerformed { self_id: self.id });
     }
 }
 

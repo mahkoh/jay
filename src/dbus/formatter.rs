@@ -12,7 +12,7 @@ impl<'a> Formatter<'a> {
     }
 
     pub fn marshal<'b, T: DbusType<'b>>(&mut self, t: &T) {
-        t.marshal(self)
+        t.marshal(self);
     }
 
     pub fn pad_to(&mut self, alignment: usize) {

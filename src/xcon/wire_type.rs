@@ -79,7 +79,7 @@ unsafe impl<'a> Message<'a> for &'a BStr {
     const HAS_FDS: bool = false;
 
     fn serialize(&self, formatter: &mut Formatter<'_>) {
-        formatter.write_packed(self.as_bytes())
+        formatter.write_packed(self.as_bytes());
     }
 }
 

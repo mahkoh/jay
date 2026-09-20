@@ -242,7 +242,7 @@ impl CliTrace {
         let eng = &self.tc.eng;
         let _f1 = eng.spawn("todos", tracer.clone().handle_todos());
         let _f2 = eng.spawn("disco", tracer.clone().handle_disconnected());
-        pending().await
+        pending::<()>().await;
     }
 }
 
@@ -250,7 +250,7 @@ impl Tracer {
     async fn handle_todos(self: Rc<Self>) {
         if let Model::Combined(fd) = &self.model {
             let color = self.format == Format::Text && isatty(fd.raw()).is_ok();
-            self.flush_todos(fd, color).await
+            self.flush_todos(fd, color).await;
         }
     }
 

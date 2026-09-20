@@ -789,7 +789,7 @@ impl NodeBase for ZwlrLayerSurfaceV1 {
     }
 
     fn node_do_focus(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>, _direction: Direction) {
-        seat.focus_node(self.surface.clone())
+        seat.focus_node(self.surface.clone());
     }
 
     fn node_find_tree_at(

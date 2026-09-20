@@ -341,7 +341,7 @@ pub fn mode_getproperty(
                 values.push(DrmPropertyEnumValue {
                     value: v.value,
                     name: v.name.split(|n| *n == 0).next().unwrap().to_vec().into(),
-                })
+                });
             }
             DrmPropertyType::Enum {
                 values,
@@ -432,7 +432,7 @@ pub fn mode_obj_getproperties(
         props.push(DrmPropertyValue {
             id: DrmProperty(id),
             value,
-        })
+        });
     }
     Ok(props)
 }

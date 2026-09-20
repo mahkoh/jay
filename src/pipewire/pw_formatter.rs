@@ -75,7 +75,7 @@ impl PwFormatter<'_> {
     }
 
     pub fn write_uint(&mut self, int: u32) {
-        self.write_int(int as _)
+        self.write_int(int as _);
     }
 
     pub fn write_int(&mut self, int: i32) {
@@ -91,7 +91,7 @@ impl PwFormatter<'_> {
     }
 
     pub fn write_ulong(&mut self, long: u64) {
-        self.write_long(long as _)
+        self.write_long(long as _);
     }
 
     fn write_long(&mut self, long: i64) {

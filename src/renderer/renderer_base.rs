@@ -94,7 +94,7 @@ impl RendererBase<'_> {
             let y1 = (rect.1 as f64 * self.scalef).round() as _;
             let x2 = (rect.2 as f64 * self.scalef).round() as _;
             let y2 = (rect.3 as f64 * self.scalef).round() as _;
-            rect = (x1, y1, x2, y2)
+            rect = (x1, y1, x2, y2);
         }
         rect
     }

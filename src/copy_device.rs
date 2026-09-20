@@ -1203,7 +1203,7 @@ impl CopyDevice {
                 let _ = fd.unwrap();
                 memories.push(device_memory);
                 free_memories.push(on_drop(move || unsafe {
-                    dev.free_memory(device_memory, None)
+                    dev.free_memory(device_memory, None);
                 }));
             }
             let mut bind_image_memory_infos = PlaneVec::new();

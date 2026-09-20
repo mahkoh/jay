@@ -61,11 +61,11 @@ impl ZwlrDataControlSourceV1 {
             self_id: self.id,
             mime_type,
             fd,
-        })
+        });
     }
 
     fn send_cancelled(&self) {
-        self.data.data.client.event(Cancelled { self_id: self.id })
+        self.data.data.client.event(Cancelled { self_id: self.id });
     }
 }
 

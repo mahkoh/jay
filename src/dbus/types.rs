@@ -281,7 +281,7 @@ unsafe impl<'a> DbusType<'a> for Rc<OwnedFd> {
     signature!(TY_UNIX_FD);
 
     fn marshal(&self, fmt: &mut Formatter<'_>) {
-        fmt.write_fd(self)
+        fmt.write_fd(self);
     }
 
     fn unmarshal(parser: &mut Parser<'a>) -> Result<Self, DbusError> {

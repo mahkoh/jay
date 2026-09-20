@@ -300,7 +300,7 @@ impl OutputsPane {
                 false => LinearDir::Horizontal,
             };
         }
-        self.tree.ui(&mut B(&mut self.inner, ps), ui)
+        self.tree.ui(&mut B(&mut self.inner, ps), ui);
     }
 }
 
@@ -846,7 +846,7 @@ impl OutputsPaneInner {
                     vertical_arrows: true,
                     escape: false,
                 },
-            )
+            );
         });
     }
 

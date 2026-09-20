@@ -38,7 +38,7 @@ where
                     if idx > 0 {
                         dst.push_str(",");
                     }
-                    v.str_fmt(dst, ctx)
+                    v.str_fmt(dst, ctx);
                 }
                 dst.push_str("]");
             }
@@ -176,7 +176,7 @@ where
     T: StrFmt + ?Sized,
 {
     fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
-        T::str_fmt(*self, dst, ctx)
+        T::str_fmt(*self, dst, ctx);
     }
 }
 
@@ -198,7 +198,7 @@ where
     T: StrFmt + ?Sized,
 {
     fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
-        T::str_fmt(self, dst, ctx)
+        T::str_fmt(self, dst, ctx);
     }
 }
 
@@ -208,6 +208,6 @@ where
 {
     fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
         let t: &T = self.borrow();
-        t.str_fmt(dst, ctx)
+        t.str_fmt(dst, ctx);
     }
 }

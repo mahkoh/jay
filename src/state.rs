@@ -875,7 +875,7 @@ impl State {
 
     pub fn devices_enumerated(&self) {
         if let Some(config) = self.config.get() {
-            config.devices_enumerated()
+            config.devices_enumerated();
         }
         if self.render_ctx.is_none() {
             let drm_devs: Vec<_> = self.drm_devs.lock().values().cloned().collect();
@@ -981,7 +981,7 @@ impl State {
     }
 
     pub fn add_global<T: WaylandGlobal>(&self, global: &Rc<T>) {
-        self.globals.add_global(self, global)
+        self.globals.add_global(self, global);
     }
 
     pub fn remove_global<T: RemovableWaylandGlobal>(
@@ -1553,7 +1553,7 @@ impl State {
             u.update_hardware_cursor();
             return;
         }
-        self.damage_hardware_cursors(false)
+        self.damage_hardware_cursors(false);
     }
 
     pub fn present_hardware_cursor(

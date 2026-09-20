@@ -655,18 +655,18 @@ impl Wm {
     async fn handle_xwayland_event(&mut self, e: XWaylandEvent) {
         match e {
             XWaylandEvent::SurfaceCreated(event) => {
-                self.handle_xwayland_surface_created(event).await
+                self.handle_xwayland_surface_created(event).await;
             }
             XWaylandEvent::SurfaceSerialAssigned(event) => {
-                self.handle_xwayland_surface_serial_assigned(event).await
+                self.handle_xwayland_surface_serial_assigned(event).await;
             }
             XWaylandEvent::Configure(event) => self.handle_xwayland_configure(event).await,
             XWaylandEvent::SurfaceDestroyed(surface_id, serial) => {
-                self.handle_xwayland_surface_destroyed(surface_id, serial)
+                self.handle_xwayland_surface_destroyed(surface_id, serial);
             }
             XWaylandEvent::Activate(window) => {
                 self.activate_window(Some(&window), Initiator::Wayland)
-                    .await
+                    .await;
             }
             XWaylandEvent::ActivateRoot => self.activate_window(None, Initiator::Wayland).await,
             XWaylandEvent::Close(window) => self.close_window(&window).await,
@@ -677,7 +677,7 @@ impl Wm {
                 source,
             } => match location {
                 IpcLocation::Clipboard => {
-                    self.dd_cancel_source::<XClipboardIpc>(&self.shared.clone().data, seat, source)
+                    self.dd_cancel_source::<XClipboardIpc>(&self.shared.clone().data, seat, source);
                 }
                 IpcLocation::PrimarySelection => self.dd_cancel_source::<XPrimarySelectionIpc>(
                     &self.shared.clone().primary_selection,
@@ -700,7 +700,7 @@ impl Wm {
                         mime_type,
                         fd,
                     )
-                    .await
+                    .await;
                 }
                 IpcLocation::PrimarySelection => {
                     self.dd_send_source::<XPrimarySelectionIpc>(
@@ -710,7 +710,7 @@ impl Wm {
                         mime_type,
                         fd,
                     )
-                    .await
+                    .await;
                 }
             },
             XWaylandEvent::IpcSetOffer {
@@ -720,7 +720,7 @@ impl Wm {
             } => match location {
                 IpcLocation::Clipboard => {
                     self.dd_set_offer::<XClipboardIpc>(&self.shared.clone().data, seat, offer)
-                        .await
+                        .await;
                 }
                 IpcLocation::PrimarySelection => {
                     self.dd_set_offer::<XPrimarySelectionIpc>(
@@ -728,7 +728,7 @@ impl Wm {
                         seat,
                         offer,
                     )
-                    .await
+                    .await;
                 }
             },
             XWaylandEvent::IpcSetSelection {
@@ -738,7 +738,7 @@ impl Wm {
             } => match location {
                 IpcLocation::Clipboard => {
                     self.dd_set_selection::<XClipboardIpc>(&self.shared.clone().data, seat, offer)
-                        .await
+                        .await;
                 }
                 IpcLocation::PrimarySelection => {
                     self.dd_set_selection::<XPrimarySelectionIpc>(
@@ -746,7 +746,7 @@ impl Wm {
                         seat,
                         offer,
                     )
-                    .await
+                    .await;
                 }
             },
             XWaylandEvent::IpcAddOfferMimeType {
@@ -762,7 +762,7 @@ impl Wm {
                         offer,
                         mime_type,
                     )
-                    .await
+                    .await;
                 }
                 IpcLocation::PrimarySelection => {
                     self.dd_add_offer_mime_type::<XPrimarySelectionIpc>(
@@ -771,7 +771,7 @@ impl Wm {
                         offer,
                         mime_type,
                     )
-                    .await
+                    .await;
                 }
             },
         }

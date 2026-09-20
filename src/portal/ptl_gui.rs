@@ -626,7 +626,7 @@ impl WindowData {
             srgb_gamma22,
             &mut |r| {
                 if let Some(content) = self.content.get() {
-                    content.render_at(&self.dpy.state.color_manager, r, 0.0, 0.0)
+                    content.render_at(&self.dpy.state.color_manager, r, 0.0, 0.0);
                 }
             },
         );

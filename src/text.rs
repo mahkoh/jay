@@ -558,7 +558,7 @@ impl TextTexture {
             markup,
             scale,
         };
-        self.apply_config(on_completed, config)
+        self.apply_config(on_completed, config);
     }
 
     pub fn schedule_render_fitting(
@@ -579,7 +579,7 @@ impl TextTexture {
             markup,
             scale,
         };
-        self.apply_config(on_completed, config)
+        self.apply_config(on_completed, config);
     }
 
     pub fn flip(&self) -> Result<(), TextError> {

@@ -641,7 +641,7 @@ fn combo_box_ui<R, T>(
 ) where
     T: StaticText + Linearize + PartialEq + Copy,
 {
-    combo_box_ui_filtered(ui, name, StaticCopyMap::from_fn(|_| true), label, v, set)
+    combo_box_ui_filtered(ui, name, StaticCopyMap::from_fn(|_| true), label, v, set);
 }
 
 fn combo_box_ui_filtered<R, T>(

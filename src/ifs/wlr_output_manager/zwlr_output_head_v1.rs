@@ -118,7 +118,7 @@ impl ZwlrOutputHeadV1 {
     }
 
     fn send_finished(&self) {
-        self.client.event(Finished { self_id: self.id })
+        self.client.event(Finished { self_id: self.id });
     }
 
     pub fn send_make(&self, make: &str) {

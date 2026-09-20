@@ -440,7 +440,7 @@ impl OutputNode {
         if flags.contains(PF_LOCKED)
             && let Some(lock) = self.state.lock.lock.get()
         {
-            lock.check_locked()
+            lock.check_locked();
         }
         let tearing = flags.not_contains(PF_VSYNC);
         if self.tearing.replace(tearing) != tearing {
@@ -1331,7 +1331,7 @@ impl OutputNode {
         }
         self.global.send_mode();
         for seat in self.state.globals.seats.lock().values() {
-            seat.cursor_group().output_pos_changed(self)
+            seat.cursor_group().output_pos_changed(self);
         }
         self.state.tree_changed();
         self.global
@@ -2947,7 +2947,7 @@ impl OutputNodeOrPersistent {
     pub fn set_cursor_hz(&self, state: &State, hz: Option<f64>) {
         match self {
             OutputNodeOrPersistent::Node(n) => {
-                n.schedule.set_cursor_hz(state, hz.unwrap_or(f64::INFINITY))
+                n.schedule.set_cursor_hz(state, hz.unwrap_or(f64::INFINITY));
             }
             OutputNodeOrPersistent::Persistent(p) => p.vrr_cursor_hz.set(hz),
         }

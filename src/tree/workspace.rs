@@ -571,7 +571,7 @@ impl NodeBase for WorkspaceNode {
         _x: Fixed,
         _y: Fixed,
     ) {
-        tool.cursor().set_known(KnownCursor::Default)
+        tool.cursor().set_known(KnownCursor::Default);
     }
 
     fn node_into_workspace(self: Rc<Self>) -> Option<Rc<WorkspaceNode>> {

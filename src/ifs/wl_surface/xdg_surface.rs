@@ -445,7 +445,7 @@ impl XdgSurface {
         self.surface.client.event(Configure {
             self_id: self.id,
             serial: serial.raw() as _,
-        })
+        });
     }
 
     pub fn install(self: &Rc<Self>) -> Result<(), XdgSurfaceError> {

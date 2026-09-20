@@ -279,13 +279,13 @@ impl WlOutputGlobal {
     pub fn send_enter(&self, surface: &WlSurface) {
         self.for_each_binding(surface.client.id, |b| {
             surface.send_enter(b.id);
-        })
+        });
     }
 
     pub fn send_leave(&self, surface: &WlSurface) {
         self.for_each_binding(surface.client.id, |b| {
             surface.send_leave(b.id);
-        })
+        });
     }
 
     pub fn send_mode(&self) {

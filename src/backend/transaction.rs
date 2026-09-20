@@ -71,7 +71,7 @@ where
             hasher: RefCell::new(hasher),
         };
         TypeId::of::<Self>().hash(&mut hasher);
-        self.hash(&mut hasher)
+        self.hash(&mut hasher);
     }
 }
 
@@ -85,7 +85,7 @@ impl Eq for dyn BackendConnectorTransactionTypeDyn {}
 
 impl Hash for dyn BackendConnectorTransactionTypeDyn {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.hash(state)
+        self.hash(state);
     }
 }
 

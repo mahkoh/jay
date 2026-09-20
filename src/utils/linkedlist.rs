@@ -85,12 +85,12 @@ impl<T> LinkedList<T> {
     }
 
     pub fn add_last_existing(&self, t: &NodeRef<T>) {
-        self.root.prepend_existing(t)
+        self.root.prepend_existing(t);
     }
 
     #[expect(unused)]
     pub fn add_first_existing(&self, t: &NodeRef<T>) {
-        self.root.append_existing(t)
+        self.root.append_existing(t);
     }
 
     pub fn rotate_last(&self, t: &NodeRef<T>) {

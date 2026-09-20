@@ -110,11 +110,11 @@ pub struct RegisteredDevice {
 
 impl LibInputDevice<'_> {
     pub fn set_slot(&self, slot: usize) {
-        self.set_slot_(slot + 1)
+        self.set_slot_(slot + 1);
     }
 
     pub fn unset_slot(&self) {
-        self.set_slot_(0)
+        self.set_slot_(0);
     }
 
     fn set_slot_(&self, slot: usize) {

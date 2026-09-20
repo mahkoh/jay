@@ -65,7 +65,7 @@ impl OrgKdeKwinServerDecorationManager {
         self.client.event(DefaultMode {
             self_id: self.id,
             mode,
-        })
+        });
     }
 }
 

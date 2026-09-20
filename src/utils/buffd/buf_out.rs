@@ -112,7 +112,7 @@ impl BufFdOut {
             let mut f = buffer.meta.fds.front().map(|f| f.pos);
             if f == Some(buffer.meta.read_pos) {
                 fds = buffer.meta.fds.pop_front().unwrap().fds;
-                f = buffer.meta.fds.front().map(|f| f.pos)
+                f = buffer.meta.fds.front().map(|f| f.pos);
             }
             if let Some(next_pos) = f {
                 buf = buffer.buf.slice(buffer.meta.read_pos..next_pos);

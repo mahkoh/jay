@@ -455,7 +455,7 @@ impl NodeBase for Xwindow {
     }
 
     fn node_render(&self, renderer: &mut Renderer<'_>, x: i32, y: i32, bounds: Option<&Rect>) {
-        renderer.render_xwindow(self, x, y, bounds)
+        renderer.render_xwindow(self, x, y, bounds);
     }
 
     fn node_client(&self) -> Option<Rc<Client>> {
@@ -486,7 +486,7 @@ impl NodeBase for Xwindow {
         _x: Fixed,
         _y: Fixed,
     ) {
-        tool.cursor().set_known(KnownCursor::Default)
+        tool.cursor().set_known(KnownCursor::Default);
     }
 
     fn node_into_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {

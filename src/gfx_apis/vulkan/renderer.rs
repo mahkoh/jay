@@ -854,7 +854,7 @@ impl VulkanRenderer {
         ] {
             let buffer = cache.allocate(writer.len() as DeviceSize)?;
             buffer.buffer.allocation.upload(|ptr, _| unsafe {
-                ptr::copy_nonoverlapping(writer.as_ptr(), ptr, writer.len())
+                ptr::copy_nonoverlapping(writer.as_ptr(), ptr, writer.len());
             })?;
             let info = DescriptorBufferBindingInfoEXT::default()
                 .usage(cache.usage())
@@ -1248,7 +1248,7 @@ impl VulkanRenderer {
                         QueueTransfer::Impossible => continue,
                     }
                     if let VulkanImageMemory::DmaBuf(_) = &tex.ty {
-                        memory.dmabuf_sample.push(tex.clone())
+                        memory.dmabuf_sample.push(tex.clone());
                     }
                     memory.textures.push(UsedTexture {
                         tex: tex.clone(),

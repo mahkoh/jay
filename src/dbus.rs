@@ -457,7 +457,7 @@ unsafe impl<'a> Message<'a> for ErrorMessage<'a> {
     type Generic<'b> = ErrorMessage<'b>;
 
     fn marshal(&self, w: &mut Formatter<'_>) {
-        self.msg.marshal(w)
+        self.msg.marshal(w);
     }
 
     fn unmarshal(p: &mut Parser<'a>) -> Result<Self, DbusError> {

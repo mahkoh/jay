@@ -514,7 +514,7 @@ where
     }
 
     fn handle_error(self: Box<Self>, _socket: &Rc<DbusSocket>, error: DbusError) {
-        (self.0)(Err(error))
+        (self.0)(Err(error));
     }
 
     fn handle<'a>(

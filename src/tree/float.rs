@@ -1194,7 +1194,7 @@ impl NodeBase for FloatNode {
     }
 
     fn node_render(&self, renderer: &mut Renderer<'_>, x: i32, y: i32, _bounds: Option<&Rect>) {
-        renderer.render_floating(self, x, y)
+        renderer.render_floating(self, x, y);
     }
 
     fn node_make_visible(self: &Rc<Self>) {
@@ -1442,7 +1442,7 @@ impl ContainingNode for FloatNode {
     }
 
     fn cnode_child_theme_changed(self: Rc<Self>, _child: NodeId) {
-        ThemeChangeListener::changed(self)
+        ThemeChangeListener::changed(self);
     }
 }
 

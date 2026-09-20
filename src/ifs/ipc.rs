@@ -64,19 +64,19 @@ pub trait DynDataSource: 'static {
         log::warn!(
             "send_target called on data source of type {}",
             any::type_name_of_val(self)
-        )
+        );
     }
     fn send_dnd_finished(&self) {
         log::warn!(
             "send_dnd_finished called on data source of type {}",
             any::type_name_of_val(self)
-        )
+        );
     }
     fn update_selected_action(&self) {
         log::warn!(
             "update_selected_action called on data source of type {}",
             any::type_name_of_val(self)
-        )
+        );
     }
 }
 
@@ -102,7 +102,7 @@ pub trait DynDataOffer: 'static {
         log::warn!(
             "send_action called on data source of type {}",
             any::type_name_of_val(self)
-        )
+        );
     }
     fn send_enter(&self, surface: WlSurfaceId, x: Fixed, y: Fixed, serial: u64) {
         let _ = surface;
@@ -112,13 +112,13 @@ pub trait DynDataOffer: 'static {
         log::warn!(
             "send_enter called on data source of type {}",
             any::type_name_of_val(self)
-        )
+        );
     }
     fn send_source_actions(&self) {
         log::warn!(
             "send_source_actions called on data source of type {}",
             any::type_name_of_val(self)
-        )
+        );
     }
 }
 
@@ -374,7 +374,7 @@ pub enum OfferDestroyReason {
 }
 
 pub fn destroy_data_offer<T: IpcVtable>(offer: &T::Offer) {
-    destroy_data_offer_with_reason::<T>(offer, OfferDestroyReason::Other)
+    destroy_data_offer_with_reason::<T>(offer, OfferDestroyReason::Other);
 }
 
 fn destroy_data_offer_with_reason<T: IpcVtable>(offer: &T::Offer, reason: OfferDestroyReason) {

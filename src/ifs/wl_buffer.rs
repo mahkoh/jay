@@ -592,7 +592,7 @@ impl WlBuffer {
     }
 
     fn send_release(&self) {
-        self.client.event(Release { self_id: self.id })
+        self.client.event(Release { self_id: self.id });
     }
 
     pub fn client_copy_device(&self) -> Option<&Rc<CopyDevice>> {

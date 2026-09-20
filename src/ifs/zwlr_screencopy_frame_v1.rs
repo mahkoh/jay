@@ -88,7 +88,7 @@ impl ZwlrScreencopyFrameV1 {
     }
 
     pub fn send_buffer_done(&self) {
-        self.client.event(BufferDone { self_id: self.id })
+        self.client.event(BufferDone { self_id: self.id });
     }
 
     #[expect(unused)]
@@ -96,7 +96,7 @@ impl ZwlrScreencopyFrameV1 {
         self.client.event(Flags {
             self_id: self.id,
             flags,
-        })
+        });
     }
 
     fn do_copy(
