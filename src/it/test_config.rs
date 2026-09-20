@@ -4,6 +4,7 @@ use crate::it::test_error::TestError;
 use crate::it::test_error::TestResult;
 use crate::tree::OutputNode;
 use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::ptr_ext::PtrExt;
 use crate::utils::stack::Stack;
 use bincode::Options;
@@ -100,7 +101,7 @@ unsafe extern "C" fn handle_msg(data: *const u8, msg: *const u8, size: usize) {
     let msg = match res {
         Ok(msg) => msg,
         Err(e) => {
-            log::error!("could not deserialize message: {}", e);
+            log::error!("could not deserialize message: {}", ErrorFmt(e));
             return;
         }
     };
@@ -163,24 +164,20 @@ pub struct TestConfig {
 
 macro_rules! get_response {
     ($res:expr, $ty:ident { $($field:ident),+ }) => {
-        let ($($field,)+) = match $res {
-            Response::$ty { $($field,)+ } => ($($field,)+),
-            _ => {
-                bail!("Server did not send a response to a {} request", stringify!($ty));
-            }
+        let Response::$ty { $($field,)+ } = $res else {
+            bail!("Server did not send a response to a {} request", stringify!($ty));
         };
     }
 }
 
 impl TestConfig {
-    fn send(&self, msg: ClientMessage) -> Result<(), TestError> {
+    fn send(&self, msg: ClientMessage<'_>) -> Result<(), TestError> {
         self.send_(&msg)
     }
 
-    fn send_(&self, msg: &ClientMessage) -> Result<(), TestError> {
-        let srv = match self.srv.get() {
-            Some(srv) => srv,
-            _ => bail!("srv not set"),
+    fn send_(&self, msg: &ClientMessage<'_>) -> Result<(), TestError> {
+        let Some(srv) = self.srv.get() else {
+            bail!("srv not set");
         };
         let mut buf = vec![];
         bincode_ops().serialize_into(&mut buf, msg).unwrap();
@@ -190,7 +187,7 @@ impl TestConfig {
         Ok(())
     }
 
-    fn send_with_reply(&self, msg: ClientMessage) -> Result<Response, TestError> {
+    fn send_with_reply(&self, msg: ClientMessage<'_>) -> Result<Response, TestError> {
         self.send_(&msg)?;
         match self.responses.pop() {
             Some(r) => Ok(r),

@@ -40,11 +40,11 @@ pub fn unset_file() {
 struct Logger;
 
 impl Log for Logger {
-    fn enabled(&self, metadata: &Metadata) -> bool {
+    fn enabled(&self, metadata: &Metadata<'_>) -> bool {
         metadata.level() as usize <= LEVEL.load(Ordering::Relaxed)
     }
 
-    fn log(&self, record: &Record) {
+    fn log(&self, record: &Record<'_>) {
         if record.level() as usize > LEVEL.load(Ordering::Relaxed) {
             return;
         }
