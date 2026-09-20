@@ -2,7 +2,6 @@ use crate::utils::numcell::NumCell;
 use std::cell::Cell;
 use std::fmt::Debug;
 use std::fmt::Formatter;
-use std::future::Future;
 use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;

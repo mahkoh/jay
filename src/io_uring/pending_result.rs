@@ -3,7 +3,6 @@ use crate::utils::ptr_ext::PtrExt;
 use crate::utils::stack::Stack;
 use jay_algorithms::oserror::OsError;
 use std::cell::Cell;
-use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::rc::Weak;

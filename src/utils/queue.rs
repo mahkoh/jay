@@ -4,7 +4,6 @@ use derivative::Derivative;
 use std::cell::Cell;
 use std::cell::UnsafeCell;
 use std::collections::VecDeque;
-use std::future::Future;
 use std::mem;
 use std::pin::Pin;
 use std::task::Context;

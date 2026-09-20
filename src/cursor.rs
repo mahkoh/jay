@@ -28,7 +28,6 @@ use byteorder::ReadBytesExt;
 use isnt::std_1::primitive::IsntSliceExt;
 use num_derive::FromPrimitive;
 use std::cell::Cell;
-use std::convert::TryInto;
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::fs::File;

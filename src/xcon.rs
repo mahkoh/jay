@@ -51,7 +51,6 @@ use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::fmt::Debug;
-use std::future::Future;
 use std::io::Write;
 use std::mem;
 use std::mem::MaybeUninit;

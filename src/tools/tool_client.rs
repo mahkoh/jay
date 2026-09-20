@@ -66,7 +66,6 @@ use jay_toml_config::WindowMatch;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::VecDeque;
-use std::future::Future;
 use std::mem;
 use std::rc::Rc;
 use std::sync::Arc;

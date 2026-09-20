@@ -6,7 +6,6 @@ use crate::utils::ptr_ext::MutPtrExt;
 use crate::utils::ptr_ext::PtrExt;
 use std::cell::Cell;
 use std::cell::UnsafeCell;
-use std::future::Future;
 use std::mem::ManuallyDrop;
 use std::pin::Pin;
 use std::ptr;
