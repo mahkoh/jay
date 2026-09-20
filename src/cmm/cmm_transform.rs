@@ -54,7 +54,7 @@ impl<T, U> Debug for ColorMatrix<T, U> {
     }
 }
 
-pub fn format_matrix<'a>(m: &'a [[F64; 4]; 3]) -> impl Debug + use<'a> {
+pub fn format_matrix(m: &[[F64; 4]; 3]) -> impl Debug {
     fmt::from_fn(move |f| {
         let iter = m
             .iter()

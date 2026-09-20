@@ -178,7 +178,7 @@ impl VulkanDevice {
     }
 
     #[inline(always)]
-    pub(super) fn idl(&self) -> impl Fn(&vk::Result) + use<'_> {
+    pub(super) fn idl(&self) -> impl Fn(&vk::Result) {
         |res| {
             if *res == vk::Result::ERROR_DEVICE_LOST {
                 self.lost.set(true);
