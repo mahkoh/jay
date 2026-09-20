@@ -58,7 +58,7 @@ pub fn main(_global: GlobalArgs, args: ScreenshotArgs) {
     if args.hdr10 && args.format != ScreenshotFormat::Png {
         fatal!("--hdr10 is only supported with --format=png");
     }
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         let screenshot = Rc::new(Screenshot {
             tc: tc.clone(),
             args,

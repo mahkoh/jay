@@ -19,7 +19,7 @@ use std::process::Command;
 use std::rc::Rc;
 
 pub fn main(global: GlobalArgs, args: LogArgs) {
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         let logger = Rc::new(Log {
             tc: tc.clone(),
             path: RefCell::new(None),

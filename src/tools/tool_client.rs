@@ -121,10 +121,9 @@ pub struct ToolClient {
     jay_damage_tracking: Cell<Option<Option<JayDamageTrackingId>>>,
 }
 
-pub fn with_tool_client<T, F>(f: F)
+pub fn with_tool_client<F>(f: F)
 where
-    F: FnOnce(Rc<ToolClient>) -> T + 'static,
-    T: Future<Output = ()> + 'static,
+    F: AsyncFnOnce(Rc<ToolClient>) + 'static,
 {
     if let Err(e) = with_tool_client_(f) {
         handle_error(e);
@@ -135,10 +134,9 @@ fn handle_error(e: ToolClientError) -> ! {
     fatal!("Could not create a tool client: {}", ErrorFmt(e));
 }
 
-fn with_tool_client_<T, F>(f: F) -> Result<(), ToolClientError>
+fn with_tool_client_<F>(f: F) -> Result<(), ToolClientError>
 where
-    F: FnOnce(Rc<ToolClient>) -> T + 'static,
-    T: Future<Output = ()> + 'static,
+    F: AsyncFnOnce(Rc<ToolClient>) + 'static,
 {
     reset_sigpipe();
     let logger = Logger::install_stderr(initial_log_level());

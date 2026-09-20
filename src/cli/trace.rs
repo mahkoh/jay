@@ -91,7 +91,7 @@ struct TraceIdArgs {
 }
 
 pub fn main(global: GlobalArgs, trace_args: TraceArgs) {
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         let trace = Rc::new(CliTrace { tc: tc.clone() });
         trace.run(&global, trace_args).await;
     });

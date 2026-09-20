@@ -80,7 +80,7 @@ struct KillIdArgs {
 }
 
 pub fn main(global: GlobalArgs, clients_args: ClientsArgs) {
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         let clients = Rc::new(Clients { tc: tc.clone() });
         clients.run(&global, clients_args).await;
     });

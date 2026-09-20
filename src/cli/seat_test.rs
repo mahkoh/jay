@@ -72,7 +72,7 @@ use std::ops::Deref;
 use std::rc::Rc;
 
 pub fn main(global: GlobalArgs, args: SeatTestArgs) {
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         let screenshot = Rc::new(SeatTest {
             tc: tc.clone(),
             args,

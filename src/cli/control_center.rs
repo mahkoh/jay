@@ -7,7 +7,7 @@ use crate::wire::jay_open_control_center_request;
 use std::rc::Rc;
 
 pub fn main(_global: GlobalArgs) {
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         let cc = ControlCenter { tc: tc.clone() };
         cc.run().await;
     });

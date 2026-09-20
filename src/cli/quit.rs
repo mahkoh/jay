@@ -5,7 +5,7 @@ use crate::wire::jay_compositor::Quit;
 use std::rc::Rc;
 
 pub fn main(_global: GlobalArgs) {
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         run(tc).await;
     });
 }

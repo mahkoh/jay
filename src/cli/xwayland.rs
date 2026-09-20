@@ -44,7 +44,7 @@ pub enum CliScalingMode {
 }
 
 pub fn main(global: GlobalArgs, args: XwaylandArgs) {
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         let xwayland = Xwayland { tc: tc.clone() };
         xwayland.run(&global, args).await;
     });

@@ -19,7 +19,7 @@ pub struct ReexecArgs {
 }
 
 pub fn main(_global: GlobalArgs, reexec_args: ReexecArgs) {
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         let rexec = Rc::new(Reexec { tc: tc.clone() });
         rexec.run(reexec_args).await;
     });

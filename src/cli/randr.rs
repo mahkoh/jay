@@ -540,7 +540,7 @@ pub struct RemoveVirtualOutputArgs {
 }
 
 pub fn main(global: GlobalArgs, args: RandrArgs) {
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         let idle = Rc::new(Randr { tc: tc.clone() });
         idle.run(&global, args).await;
     });

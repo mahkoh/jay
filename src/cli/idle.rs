@@ -60,7 +60,7 @@ pub struct IdleSetGracePeriodArgs {
 }
 
 pub fn main(global: GlobalArgs, args: IdleArgs) {
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         let idle = Idle { tc: tc.clone() };
         idle.run(&global, args).await;
     });

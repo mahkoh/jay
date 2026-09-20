@@ -57,7 +57,7 @@ pub struct SnapshotArgs {
 }
 
 pub fn main(global: GlobalArgs, args: DebugfsArgs) {
-    with_tool_client(|tc| async move {
+    with_tool_client(async move |tc| {
         let debugfs = Debugfs { tc: tc.clone() };
         debugfs.run(&global, args).await;
     });
