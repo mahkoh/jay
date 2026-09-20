@@ -26,6 +26,5 @@ kbvm = "0.1.7"
 derivative = "2.2.0"
 
 [dev-dependencies]
-simplelog = { version = "0.12.2", features = ["test"] }
 serde_json = "1.0.114"
 walkdir = "2.5.0"
