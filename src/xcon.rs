@@ -259,7 +259,7 @@ impl Drop for Event {
 }
 
 impl<T: Message<'static>> Reply<T> {
-    pub fn get<'a>(&'a self) -> &'a T::Generic<'a> {
+    pub fn get(&self) -> &T::Generic<'_> {
         unsafe { mem::transmute(&self.t) }
     }
 }

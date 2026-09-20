@@ -960,13 +960,13 @@ fn format_xevent<F: Write>(
 ) -> Result<()> {
     define_w!(f, w, wl);
     define_xn!(xn);
-    let lt_a = if struct_needs_lt(s, protocols)? {
-        "<'a>"
+    let (lt_a, event_lt) = if struct_needs_lt(s, protocols)? {
+        ("<'a>", "<'a>")
     } else {
-        ""
+        ("", "<'_>")
     };
     wl!();
-    wl!("impl<'a> XEvent<'a> for {}{lt_a} {{", name);
+    wl!("impl{lt_a} XEvent{event_lt} for {}{lt_a} {{", name);
     {
         push_xn!(xn);
         wl!("{xn}const EXTENSION: Option<usize> = {:?};", ext);
@@ -1020,13 +1020,16 @@ fn format_request<F: Write>(f: &mut F, s: &Request, protocols: &Protocols) -> Re
         reply_has_lt = struct_needs_lt(reply, protocols)?;
         format_struct(f, reply, protocols, &StructUsecase::Reply)?;
     }
-    let lt_a = if struct_needs_lt(&s.request, protocols)? {
-        "<'a>"
+    let (lt_a, request_lt) = if struct_needs_lt(&s.request, protocols)? {
+        ("<'a>", "<'a>")
     } else {
-        ""
+        ("", "<'_>")
     };
     wl!();
-    wl!("impl<'a> Request<'a> for {}{lt_a} {{", s.request.name);
+    wl!(
+        "impl{lt_a} Request{request_lt} for {}{lt_a} {{",
+        s.request.name
+    );
     {
         push_xn!(xn);
         w!("{xn}type Reply = ");
@@ -1333,6 +1336,11 @@ fn format_struct<F: Write>(
     };
     let needs_lt = struct_needs_lt(s, protocols)?;
     let (lt_a, lt_b) = if needs_lt { ("<'a>", "<'b>") } else { ("", "") };
+    let (impl_lt, message_lt) = if needs_lt || !matches!(usecase, StructUsecase::Request { .. }) {
+        ("<'a>", "<'a>")
+    } else {
+        ("", "<'_>")
+    };
     wl!();
     wl!("#[derive(Debug, Clone)]");
     wl!("pub struct {}{lt_a} {{", struct_name);
@@ -1370,7 +1378,10 @@ fn format_struct<F: Write>(
         wl!("}}");
     }
     wl!();
-    wl!("unsafe impl<'a> Message<'a> for {}{lt_a} {{", struct_name);
+    wl!(
+        "unsafe impl{impl_lt} Message{message_lt} for {}{lt_a} {{",
+        struct_name
+    );
     {
         push_xn!(xn);
         wl!("{xn}type Generic<'b> = {}{lt_b};", struct_name);

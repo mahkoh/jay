@@ -518,7 +518,7 @@ where
 }
 
 impl<T: Property> PropertyValue<T> {
-    pub fn get<'a>(&'a self) -> &'a <T::Type as DbusType<'static>>::Generic<'a> {
+    pub fn get(&self) -> &<T::Type as DbusType<'static>>::Generic<'_> {
         &self.reply.get().value
     }
 }
@@ -533,7 +533,7 @@ where
 }
 
 impl<T: Message<'static>> Reply<T> {
-    pub fn get<'a>(&'a self) -> &'a T::Generic<'a> {
+    pub fn get(&self) -> &T::Generic<'_> {
         unsafe { mem::transmute(&self.t) }
     }
 }
@@ -728,7 +728,7 @@ impl DbusObject {
 trait PropertyHandlerApi {
     fn interface(&self) -> &'static str;
     fn member(&self) -> &'static str;
-    fn value<'a>(&'a self) -> Variant<'a>;
+    fn value(&self) -> Variant<'_>;
 }
 
 struct PropertyHandlerData<T> {
@@ -748,7 +748,7 @@ where
         T::PROPERTY
     }
 
-    fn value<'a>(&'a self) -> Variant<'a> {
+    fn value(&self) -> Variant<'_> {
         self.data.borrow()
     }
 }

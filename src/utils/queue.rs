@@ -40,11 +40,11 @@ impl<T> AsyncQueue<T> {
         unsafe { self.data.get().deref_mut().pop_front() }
     }
 
-    pub fn pop<'a>(&'a self) -> AsyncQueuePop<'a, T> {
+    pub fn pop(&self) -> AsyncQueuePop<'_, T> {
         AsyncQueuePop { queue: self }
     }
 
-    pub fn non_empty<'a>(&'a self) -> AsyncQueueNonEmpty<'a, T> {
+    pub fn non_empty(&self) -> AsyncQueueNonEmpty<'_, T> {
         AsyncQueueNonEmpty { queue: self }
     }
 

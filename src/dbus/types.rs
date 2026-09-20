@@ -515,7 +515,7 @@ impl<'a> Variant<'a> {
         w.push(c);
     }
 
-    pub fn borrow<'b>(&'b self) -> Variant<'b> {
+    pub fn borrow(&self) -> Variant<'_> {
         match self {
             Variant::U8(v) => Variant::U8(*v),
             Variant::Bool(v) => Variant::Bool(*v),

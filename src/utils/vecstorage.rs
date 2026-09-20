@@ -18,11 +18,11 @@ impl<T> Default for VecStorage<T> {
 }
 
 impl<T> VecStorage<T> {
-    pub fn take<'a>(&'a mut self) -> RealizedVec<'a, T, T> {
+    pub fn take(&mut self) -> RealizedVec<'_, T, T> {
         self.take_as()
     }
 
-    pub fn take_as<'a, U>(&'a mut self) -> RealizedVec<'a, T, U> {
+    pub fn take_as<U>(&mut self) -> RealizedVec<'_, T, U> {
         assert_size_eq!(T, U);
         assert_align_eq!(T, U);
         unsafe {

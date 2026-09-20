@@ -158,7 +158,7 @@ impl WlSubsurface {
         children_set_root(self, &self.surface);
     }
 
-    fn pending<'a>(self: &'a Rc<Self>) -> RefMut<'a, PendingSubsurfaceData> {
+    fn pending(self: &Rc<Self>) -> RefMut<'_, PendingSubsurfaceData> {
         RefMut::map(self.parent.pending.borrow_mut(), |m| {
             &mut m
                 .subsurfaces

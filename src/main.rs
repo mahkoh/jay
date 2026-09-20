@@ -48,6 +48,7 @@
     clippy::semicolon_if_nothing_returned,
     clippy::manual_let_else,
     clippy::unnecessary_semicolon,
+    clippy::elidable_lifetime_names,
 )]
 
 #[macro_use]
