@@ -248,7 +248,7 @@ impl NodeBase for DisplayNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, _bounds: Option<&Rect>) {
+    fn node_render(&self, renderer: &mut Renderer<'_>, x: i32, y: i32, _bounds: Option<&Rect>) {
         renderer.render_display(self, x, y);
     }
 

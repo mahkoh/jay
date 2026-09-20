@@ -123,7 +123,7 @@ impl WlDataOffer {
 impl WlDataOfferRequestHandler for WlDataOffer {
     type Error = WlDataOfferError;
 
-    fn accept(&self, req: Accept, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn accept(&self, req: Accept<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let _ = req.serial; // unused
         let mut state = self.data.shared.state.get();
         if state.contains(OFFER_STATE_FINISHED) {
@@ -141,7 +141,7 @@ impl WlDataOfferRequestHandler for WlDataOffer {
         Ok(())
     }
 
-    fn receive(&self, req: Receive, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn receive(&self, req: Receive<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if self.data.shared.state.get().contains(OFFER_STATE_FINISHED) {
             return Err(WlDataOfferError::AlreadyFinished);
         }

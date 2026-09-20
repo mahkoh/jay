@@ -454,7 +454,7 @@ impl VulkanShmImage {
         img: &Rc<VulkanImage>,
         data: &VulkanShmImageAsyncData,
         staging: &VulkanStagingBuffer,
-        copies: &[BufferImageCopy2],
+        copies: &[BufferImageCopy2<'_>],
         client_mem: &Rc<dyn ShmMemory>,
         tt: TransferType,
     ) -> Result<(), VulkanError> {
@@ -598,7 +598,7 @@ impl VulkanShmImage {
         &self,
         img: &Rc<VulkanImage>,
         staging: &VulkanStagingBuffer,
-        copies: &[BufferImageCopy2],
+        copies: &[BufferImageCopy2<'_>],
     ) -> Result<(), VulkanError> {
         if img.queue_state.get().acquire(QueueFamily::Transfer) == QueueTransfer::Impossible {
             return Ok(());

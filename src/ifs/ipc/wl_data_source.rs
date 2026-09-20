@@ -212,7 +212,7 @@ impl WlDataSource {
 impl WlDataSourceRequestHandler for WlDataSource {
     type Error = WlDataSourceError;
 
-    fn offer(&self, req: Offer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn offer(&self, req: Offer<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         add_data_source_mime_type::<ClipboardIpc>(self, req.mime_type);
         Ok(())
     }

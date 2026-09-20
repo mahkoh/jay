@@ -71,7 +71,7 @@ pub trait GuiElement {
         max_width: f32,
         max_height: f32,
     ) -> (f32, f32);
-    fn render_at(&self, color_manager: &ColorManager, r: &mut RendererBase, x: f32, y: f32);
+    fn render_at(&self, color_manager: &ColorManager, r: &mut RendererBase<'_>, x: f32, y: f32);
     fn child_at(&self, x: f32, y: f32) -> Option<Rc<dyn GuiElement>>;
 
     fn hover_cursor(&self) -> KnownCursor {
@@ -179,7 +179,7 @@ impl GuiElement for Button {
         (extents.width, extents.height)
     }
 
-    fn render_at(&self, color_manager: &ColorManager, r: &mut RendererBase, x1: f32, y1: f32) {
+    fn render_at(&self, color_manager: &ColorManager, r: &mut RendererBase<'_>, x1: f32, y1: f32) {
         let srgb_srgb = color_manager.srgb_gamma22();
         let srgb = &srgb_srgb.linear;
         let x2 = x1 + self.data.width.get();
@@ -295,7 +295,7 @@ impl GuiElement for Label {
         (width as f32 / scale, height as f32 / scale)
     }
 
-    fn render_at(&self, _color_manager: &ColorManager, r: &mut RendererBase, x: f32, y: f32) {
+    fn render_at(&self, _color_manager: &ColorManager, r: &mut RendererBase<'_>, x: f32, y: f32) {
         if let Some(tex) = self.tex.get() {
             let (tx, ty) = r.scale_point_f(x, y);
             r.render_texture(
@@ -415,7 +415,7 @@ impl GuiElement for Flow {
         (w.min(max_width), h.min(max_height))
     }
 
-    fn render_at(&self, color_manager: &ColorManager, r: &mut RendererBase, x: f32, y: f32) {
+    fn render_at(&self, color_manager: &ColorManager, r: &mut RendererBase<'_>, x: f32, y: f32) {
         for element in self.elements.borrow_mut().deref() {
             element.render_at(
                 color_manager,

@@ -120,8 +120,11 @@ impl Session {
     where
         F: for<'b> Fn(PauseDevice<'b>) + 'static,
     {
-        self.socket
-            .handle_signal::<PauseDevice, _>(Some(LOGIND_NAME), Some(&self.session_path), f)
+        self.socket.handle_signal::<PauseDevice<'_>, _>(
+            Some(LOGIND_NAME),
+            Some(&self.session_path),
+            f,
+        )
     }
 
     pub fn on_resume<F>(&self, f: F) -> Result<SignalHandler, DbusError>

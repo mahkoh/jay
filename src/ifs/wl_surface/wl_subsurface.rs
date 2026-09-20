@@ -487,7 +487,7 @@ impl SurfaceExt for WlSubsurface {
         surface: &WlSurface,
         child: SubsurfaceId,
         consume: &mut dyn FnMut(
-            OccupiedEntry<SubsurfaceId, AttachedSubsurfaceState, ahash::RandomState>,
+            OccupiedEntry<'_, SubsurfaceId, AttachedSubsurfaceState, ahash::RandomState>,
         ) -> Result<(), WlSurfaceError>,
     ) -> Result<(), WlSurfaceError> {
         self.parent

@@ -1183,7 +1183,7 @@ fn format_enum<F: Write>(f: &mut F, s: &Enum, protocols: &Protocols) -> Result<(
         }
         wl!("{xn}}}");
         wl!();
-        wl!("{xn}pub fn serialize(&self, formatter: &mut Formatter) {{");
+        wl!("{xn}pub fn serialize(&self, formatter: &mut Formatter<'_>) {{");
         {
             push_xn!(xn);
             wl!("{xn}match self {{");
@@ -1257,7 +1257,7 @@ fn format_bitmask<F: Write>(f: &mut F, s: &Bitmask, protocols: &Protocols) -> Re
         }
         wl!("{xn}}}");
         wl!();
-        wl!("{xn}pub fn serialize(&self, formatter: &mut Formatter) {{");
+        wl!("{xn}pub fn serialize(&self, formatter: &mut Formatter<'_>) {{");
         {
             push_xn!(xn);
             wl!("{xn}let mut bytes = [0; {}];", s.variants.len() * 4);
@@ -1276,7 +1276,7 @@ fn format_bitmask<F: Write>(f: &mut F, s: &Bitmask, protocols: &Protocols) -> Re
         wl!("{xn}}}");
         wl!();
         wl!(
-            "{xn}pub fn deserialize(&self, parser: &mut Parser, bitmask: u32) -> Result<Self, XconError> {{"
+            "{xn}pub fn deserialize(&self, parser: &mut Parser<'_>, bitmask: u32) -> Result<Self, XconError> {{"
         );
         {
             push_xn!(xn);
@@ -1387,7 +1387,7 @@ fn format_struct<F: Write>(
         }
         if write_serialize {
             wl!();
-            wl!("{xn}fn serialize(&self, formatter: &mut Formatter) {{");
+            wl!("{xn}fn serialize(&self, formatter: &mut Formatter<'_>) {{");
             {
                 push_xn!(xn);
                 if let StructUsecase::EventCopy { .. } = usecase {

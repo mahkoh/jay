@@ -355,7 +355,7 @@ impl WindowPane {
 }
 
 pub fn show_window_collapsible(
-    behavior: &mut CcBehavior,
+    behavior: &mut CcBehavior<'_>,
     ui: &mut Ui,
     window: &Rc<dyn ToplevelNode>,
 ) {

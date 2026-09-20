@@ -1129,7 +1129,7 @@ impl Change {
     pub fn change_object<T, F>(&mut self, obj: T, f: F) -> bool
     where
         T: DrmObject,
-        F: FnOnce(&mut ObjectChange),
+        F: FnOnce(&mut ObjectChange<'_>),
     {
         let old_len = self.props.len();
         let mut oc = ObjectChange { change: self };

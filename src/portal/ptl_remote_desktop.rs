@@ -125,7 +125,7 @@ impl SelectingDisplay {
 impl PortalSession {
     fn dbus_select_devices(
         self: &Rc<Self>,
-        _req: SelectDevices,
+        _req: SelectDevices<'_>,
         reply: PendingReply<SelectDevicesReply<'static>>,
     ) {
         match self.rd_phase.get() {
@@ -197,7 +197,7 @@ impl PortalSession {
 
     fn dbus_connect_to_eis(
         self: &Rc<Self>,
-        _req: ConnectToEIS,
+        _req: ConnectToEIS<'_>,
         reply: PendingReply<ConnectToEISReply>,
     ) {
         let RemoteDesktopPhase::Started(started) = self.rd_phase.get() else {
@@ -223,19 +223,19 @@ impl UsrJayEiSessionOwner for StartedRemoteDesktop {
 pub(super) fn add_remote_desktop_dbus_members(state_: &Rc<PortalState>, object: &DbusObject) {
     use org::freedesktop::impl_::portal::remote_desktop::*;
     let state = state_.clone();
-    object.add_method::<CreateSession, _>(move |req, pr| {
+    object.add_method::<CreateSession<'_>, _>(move |req, pr| {
         dbus_create_session(&state, req, pr);
     });
     let state = state_.clone();
-    object.add_method::<SelectDevices, _>(move |req, pr| {
+    object.add_method::<SelectDevices<'_>, _>(move |req, pr| {
         dbus_select_devices(&state, req, pr);
     });
     let state = state_.clone();
-    object.add_method::<Start, _>(move |req, pr| {
+    object.add_method::<Start<'_>, _>(move |req, pr| {
         dbus_start(&state, req, pr);
     });
     let state = state_.clone();
-    object.add_method::<ConnectToEIS, _>(move |req, pr| {
+    object.add_method::<ConnectToEIS<'_>, _>(move |req, pr| {
         dbus_connect_to_eis(&state, req, pr);
     });
     object.set_property::<AvailableDeviceTypes>(Variant::U32(DeviceTypes::all().0));
@@ -244,7 +244,7 @@ pub(super) fn add_remote_desktop_dbus_members(state_: &Rc<PortalState>, object: 
 
 fn dbus_create_session(
     state: &Rc<PortalState>,
-    req: CreateSession,
+    req: CreateSession<'_>,
     reply: PendingReply<CreateSessionReply<'static>>,
 ) {
     log::info!("Create remote desktop session {:#?}", req);
@@ -289,7 +289,7 @@ fn dbus_create_session(
 
 fn dbus_select_devices(
     state: &Rc<PortalState>,
-    req: SelectDevices,
+    req: SelectDevices<'_>,
     reply: PendingReply<SelectDevicesReply<'static>>,
 ) {
     if let Some(s) = get_session(state, &reply, &req.session_handle.0) {
@@ -297,7 +297,7 @@ fn dbus_select_devices(
     }
 }
 
-fn dbus_start(state: &Rc<PortalState>, req: Start, reply: PendingReply<StartReply<'static>>) {
+fn dbus_start(state: &Rc<PortalState>, req: Start<'_>, reply: PendingReply<StartReply<'static>>) {
     if let Some(s) = get_session(state, &reply, &req.session_handle.0) {
         s.dbus_start_remote_desktop(req, reply);
     }
@@ -305,7 +305,7 @@ fn dbus_start(state: &Rc<PortalState>, req: Start, reply: PendingReply<StartRepl
 
 fn dbus_connect_to_eis(
     state: &Rc<PortalState>,
-    req: ConnectToEIS,
+    req: ConnectToEIS<'_>,
     reply: PendingReply<ConnectToEISReply>,
 ) {
     if let Some(s) = get_session(state, &reply, &req.session_handle.0) {

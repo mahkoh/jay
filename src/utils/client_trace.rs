@@ -77,7 +77,7 @@ pub enum ClientTraceArgVal<'a> {
     Pod(ClientTracePod),
 }
 
-static_assertions::assert_impl_all!(ClientTraceArgVal: Copy);
+static_assertions::assert_impl_all!(ClientTraceArgVal<'_>: Copy);
 
 mod private {
     use crate::utils::client_trace::MAX_MESSAGE_WORDS;

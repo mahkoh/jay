@@ -147,7 +147,7 @@ impl Buf {
     }
 
     #[expect(unused)]
-    pub fn write_fmt(&mut self, args: Arguments) -> Result<Self, io::Error> {
+    pub fn write_fmt(&mut self, args: Arguments<'_>) -> Result<Self, io::Error> {
         let cap = self.len();
         let mut buf = self.deref_mut();
         buf.write_fmt(args)?;

@@ -379,7 +379,7 @@ pub fn write_client_trace_files(files: &[ParsedFile]) -> anyhow::Result<()> {
     wl!("impl StrFmt for ClientTraceArray<'_> {{");
     {
         push_xn!(xn);
-        wl!("{xn}fn str_fmt(&self, dst: &mut String, ctx: &StrCtx) {{",);
+        wl!("{xn}fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {{",);
         {
             push_xn!(xn);
             wl!("{xn}match *self {{");
@@ -412,7 +412,7 @@ pub fn write_client_trace_files(files: &[ParsedFile]) -> anyhow::Result<()> {
     wl!("impl StrFmt for ClientTracePod {{");
     {
         push_xn!(xn);
-        wl!("{xn}fn str_fmt(&self, dst: &mut String, ctx: &StrCtx) {{",);
+        wl!("{xn}fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {{",);
         {
             push_xn!(xn);
             wl!("{xn}match self {{");

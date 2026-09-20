@@ -71,7 +71,7 @@ impl SurfaceRenderCache {
 
     pub fn render(
         &self,
-        renderer: &mut RendererBase,
+        renderer: &mut RendererBase<'_>,
         x: i32,
         y: i32,
         grayscale: bool,

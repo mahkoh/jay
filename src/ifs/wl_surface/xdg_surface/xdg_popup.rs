@@ -443,7 +443,7 @@ impl NodeBase for XdgPopup {
         self.xdg.find_tree_at(x, y, tree)
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, bounds: Option<&Rect>) {
+    fn node_render(&self, renderer: &mut Renderer<'_>, x: i32, y: i32, bounds: Option<&Rect>) {
         renderer.render_xdg_surface(&self.xdg, x, y, bounds)
     }
 

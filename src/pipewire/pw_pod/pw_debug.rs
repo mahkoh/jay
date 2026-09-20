@@ -175,7 +175,7 @@ where
 
 fn array_body_debug<F>(fmt: &mut Formatter<'_>, mut a: PwPodArray<'_>, f: F) -> fmt::Result
 where
-    F: Fn(&mut DebugList, &mut PwParser<'_>) -> bool,
+    F: Fn(&mut DebugList<'_, '_>, &mut PwParser<'_>) -> bool,
 {
     let mut l = fmt.debug_list();
     for _ in 0..a.n_elements {
@@ -188,7 +188,7 @@ where
 
 fn array_debug<F>(fmt: &mut Formatter<'_>, p: PwPod<'_>, ty: PwPodType, f: F) -> fmt::Result
 where
-    F: Fn(&mut DebugList, &mut PwParser<'_>) -> bool,
+    F: Fn(&mut DebugList<'_, '_>, &mut PwParser<'_>) -> bool,
 {
     match p {
         PwPod::Array(a) if a.ty == ty => array_body_debug(fmt, a, f),
@@ -198,7 +198,7 @@ where
 
 fn array_id_debug<F, T>(fmt: &mut Formatter<'_>, p: PwPod<'_>, f: F) -> fmt::Result
 where
-    F: Fn(&mut DebugList, u32) -> T,
+    F: Fn(&mut DebugList<'_, '_>, u32) -> T,
 {
     array_debug(fmt, p, PW_TYPE_Id, |l, p| match p.read_id() {
         Ok(a) => {

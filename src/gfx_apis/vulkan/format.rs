@@ -241,7 +241,7 @@ impl VulkanInstance {
         phy_dev: PhysicalDevice,
         format: &Format,
         internal_format_properties: &FormatProperties,
-        props: &DrmFormatModifierPropertiesListEXT,
+        props: &DrmFormatModifierPropertiesListEXT<'_>,
     ) -> Result<BHashMap<Modifier, VulkanModifier>, VulkanError> {
         if props.drm_format_modifier_count == 0 {
             return Ok(BHashMap::default());

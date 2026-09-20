@@ -159,7 +159,7 @@ impl PwCon {
     where
         P: PwObject,
         O: PwOpcode,
-        F: FnOnce(&mut PwFormatter),
+        F: FnOnce(&mut PwFormatter<'_>),
     {
         self.send2(proxy.data().id, proxy.interface(), opcode, f);
     }
@@ -167,7 +167,7 @@ impl PwCon {
     fn send2<O, F>(&self, id: u32, interface: &str, opcode: O, f: F)
     where
         O: PwOpcode,
-        F: FnOnce(&mut PwFormatter),
+        F: FnOnce(&mut PwFormatter<'_>),
     {
         if self.dead.get() {
             return;

@@ -108,7 +108,7 @@ pub struct ToolClient {
     handlers: RefCell<
         BHashMap<
             ObjectId,
-            BHashMap<u32, Rc<dyn Fn(&mut MsgParser) -> Result<(), ToolClientError>>>,
+            BHashMap<u32, Rc<dyn Fn(&mut MsgParser<'_, '_>) -> Result<(), ToolClientError>>>,
         >,
     >,
     swapchain: Rc<RefCell<OutBufferSwapchain>>,
@@ -265,7 +265,7 @@ impl ToolClient {
         R: 'static,
         H: for<'a> Fn(&R, T::Generic<'a>) + 'static,
     {
-        let handler: Rc<dyn Fn(&mut MsgParser) -> Result<(), ToolClientError>> =
+        let handler: Rc<dyn Fn(&mut MsgParser<'_, '_>) -> Result<(), ToolClientError>> =
             Rc::new(move |parser| {
                 let val = Self::parse::<T>(parser)?;
                 h(&recv, val);
@@ -287,7 +287,7 @@ impl ToolClient {
         self: &Rc<Self>,
         id: ObjectId,
         req: u32,
-        handler: Rc<dyn Fn(&mut MsgParser) -> Result<(), ToolClientError>>,
+        handler: Rc<dyn Fn(&mut MsgParser<'_, '_>) -> Result<(), ToolClientError>>,
     ) {
         let mut handlers = self.handlers.borrow_mut();
         handlers.entry(id).or_default().insert(req, handler);

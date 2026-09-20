@@ -624,7 +624,7 @@ impl dyn GfxFramebuffer {
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
         default_cd: &Rc<ColorDescription>,
-        f: &mut dyn FnMut(&mut RendererBase),
+        f: &mut dyn FnMut(&mut RendererBase<'_>),
     ) -> Result<Option<FdSync>, GfxError> {
         let mut ops = vec![];
         let mut renderer =

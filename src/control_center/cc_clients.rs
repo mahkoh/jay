@@ -293,7 +293,7 @@ impl ClientPane {
     }
 }
 
-pub fn show_client_collapsible(behavior: &mut CcBehavior, ui: &mut Ui, client: &Rc<Client>) {
+pub fn show_client_collapsible(behavior: &mut CcBehavior<'_>, ui: &mut Ui, client: &Rc<Client>) {
     let mut layout_job = LayoutJob::default();
     layout_job.append(
         "Client",

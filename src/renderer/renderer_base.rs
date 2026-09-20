@@ -218,7 +218,7 @@ impl RendererBase<'_> {
         texture: &Rc<dyn GfxTexture>,
         x: i32,
         y: i32,
-        args: RenderTexture,
+        args: RenderTexture<'_>,
     ) {
         // log::info!("rendering texture {:?}", std::ptr::from_ref(&**texture) as *const u8);
         // log::info!("{:?}", backtrace::Backtrace::new());

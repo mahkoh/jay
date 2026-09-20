@@ -803,7 +803,7 @@ impl NodeBase for ZwlrLayerSurfaceV1 {
         self.surface.find_tree_at_(x + dx, y + dy, tree)
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, _bounds: Option<&Rect>) {
+    fn node_render(&self, renderer: &mut Renderer<'_>, x: i32, y: i32, _bounds: Option<&Rect>) {
         renderer.render_layer_surface(self, x, y);
     }
 

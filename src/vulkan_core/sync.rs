@@ -73,7 +73,7 @@ pub trait VulkanDeviceSyncExt: VulkanDeviceInf {
     fn create_sync<'a>(
         self: &Rc<Self>,
         tls: Option<&Rc<VulkanTimelineSemaphore<Self>>>,
-        semaphore_submit_info: &'a mut SemaphoreSubmitInfo,
+        semaphore_submit_info: &'a mut SemaphoreSubmitInfo<'_>,
         submit_info: &mut SubmitInfo2<'a>,
     ) -> Result<VulkanSync<Self>, VulkanCoreError>;
 }
@@ -85,7 +85,7 @@ where
     fn create_sync<'a>(
         self: &Rc<Self>,
         tls: Option<&Rc<VulkanTimelineSemaphore<Self>>>,
-        semaphore_submit_info: &'a mut SemaphoreSubmitInfo,
+        semaphore_submit_info: &'a mut SemaphoreSubmitInfo<'_>,
         submit_info: &mut SubmitInfo2<'a>,
     ) -> Result<VulkanSync<Self>, VulkanCoreError> {
         if let Some(tls) = tls {
@@ -103,7 +103,7 @@ where
 fn create_tls_sync<'a, D>(
     device: &Rc<D>,
     tls: &Rc<VulkanTimelineSemaphore<D>>,
-    semaphore_submit_info: &'a mut SemaphoreSubmitInfo,
+    semaphore_submit_info: &'a mut SemaphoreSubmitInfo<'_>,
     submit_info: &mut SubmitInfo2<'a>,
 ) -> Result<VulkanSync<D>, VulkanCoreError>
 where

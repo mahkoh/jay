@@ -326,13 +326,13 @@ impl XdgToplevelRequestHandler for XdgToplevel {
         Ok(())
     }
 
-    fn set_title(&self, req: SetTitle, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_title(&self, req: SetTitle<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.toplevel_data.set_title(req.title);
         self.tl_title_changed();
         Ok(())
     }
 
-    fn set_app_id(&self, req: SetAppId, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_app_id(&self, req: SetAppId<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.toplevel_data.set_app_id(req.app_id);
         self.bugs.set(bugs::get_by_app_id(req.app_id));
         Ok(())
@@ -648,7 +648,7 @@ impl NodeBase for XdgToplevel {
         self.xdg.find_tree_at(x, y, tree)
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, bounds: Option<&Rect>) {
+    fn node_render(&self, renderer: &mut Renderer<'_>, x: i32, y: i32, bounds: Option<&Rect>) {
         renderer.render_xdg_toplevel(self, x, y, bounds)
     }
 

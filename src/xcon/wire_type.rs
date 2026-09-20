@@ -18,7 +18,7 @@ pub unsafe trait Message<'a>: Clone + Debug + 'a {
     const IS_POD: bool;
     const HAS_FDS: bool;
 
-    fn serialize(&self, formatter: &mut Formatter) {
+    fn serialize(&self, formatter: &mut Formatter<'_>) {
         let _ = formatter;
         unimplemented()
     }
@@ -47,7 +47,7 @@ macro_rules! simple {
             const IS_POD: bool = true;
             const HAS_FDS: bool = false;
 
-            fn serialize(&self, formatter: &mut Formatter) {
+            fn serialize(&self, formatter: &mut Formatter<'_>) {
                 formatter.write_packed(self);
             }
 
@@ -78,7 +78,7 @@ unsafe impl<'a> Message<'a> for &'a BStr {
     const IS_POD: bool = true;
     const HAS_FDS: bool = false;
 
-    fn serialize(&self, formatter: &mut Formatter) {
+    fn serialize(&self, formatter: &mut Formatter<'_>) {
         formatter.write_packed(self.as_bytes())
     }
 }
@@ -88,7 +88,7 @@ unsafe impl<'a, T: Message<'a>> Message<'a> for &'a [T] {
     const IS_POD: bool = false;
     const HAS_FDS: bool = false;
 
-    fn serialize(&self, formatter: &mut Formatter) {
+    fn serialize(&self, formatter: &mut Formatter<'_>) {
         formatter.write_list(self);
     }
 }
@@ -101,7 +101,7 @@ where
     const IS_POD: bool = false;
     const HAS_FDS: bool = false;
 
-    fn serialize(&self, formatter: &mut Formatter) {
+    fn serialize(&self, formatter: &mut Formatter<'_>) {
         formatter.write_list(self);
     }
 }
@@ -111,7 +111,7 @@ unsafe impl<'a> Message<'a> for Rc<OwnedFd> {
     const IS_POD: bool = false;
     const HAS_FDS: bool = true;
 
-    fn serialize(&self, formatter: &mut Formatter) {
+    fn serialize(&self, formatter: &mut Formatter<'_>) {
         formatter.add_fd(self);
     }
 
@@ -132,7 +132,7 @@ unsafe impl Message<'_> for SendEvent {
     const IS_POD: bool = false;
     const HAS_FDS: bool = false;
 
-    fn serialize(&self, formatter: &mut Formatter) {
+    fn serialize(&self, formatter: &mut Formatter<'_>) {
         {
             let propagate_bytes = self.propagate.to_ne_bytes();
             let destination_bytes = self.destination.to_ne_bytes();

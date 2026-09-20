@@ -545,7 +545,7 @@ impl Renderer<'_> {
         let cd = surface.color_description();
         let intent = surface.render_intent();
         let alpha_mode = surface.alpha_mode();
-        let render_texture = |slf: &mut Renderer,
+        let render_texture = |slf: &mut Renderer<'_>,
                               tex: &Rc<dyn GfxTexture>,
                               buffer: Rc<dyn BufferResv>,
                               release_sync: ReleaseSync,

@@ -184,7 +184,7 @@ impl VulkanShmImage {
         img: &Rc<VulkanImage>,
         buffer: Buffer,
         size: DeviceSize,
-        regions: &[BufferImageCopy2],
+        regions: &[BufferImageCopy2<'_>],
         use_transfer_queue: bool,
         tt: TransferType,
         foreign_buffer: bool,

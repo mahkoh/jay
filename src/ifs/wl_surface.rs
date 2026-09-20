@@ -472,7 +472,7 @@ trait SurfaceExt {
         surface: &WlSurface,
         child: SubsurfaceId,
         consume: &mut dyn FnMut(
-            OccupiedEntry<SubsurfaceId, AttachedSubsurfaceState, ahash::RandomState>,
+            OccupiedEntry<'_, SubsurfaceId, AttachedSubsurfaceState, ahash::RandomState>,
         ) -> Result<(), WlSurfaceError>,
     ) -> Result<(), WlSurfaceError> {
         surface.pending.borrow_mut().consume_child(child, consume)
@@ -654,7 +654,7 @@ impl PendingState {
         &mut self,
         child: SubsurfaceId,
         consume: impl FnOnce(
-            OccupiedEntry<SubsurfaceId, AttachedSubsurfaceState, ahash::RandomState>,
+            OccupiedEntry<'_, SubsurfaceId, AttachedSubsurfaceState, ahash::RandomState>,
         ) -> Result<(), WlSurfaceError>,
     ) -> Result<(), WlSurfaceError> {
         match self.subsurfaces.entry(child) {
@@ -2010,7 +2010,7 @@ impl WlSurface {
         &self,
         child: SubsurfaceId,
         mut consume: impl FnMut(
-            OccupiedEntry<SubsurfaceId, AttachedSubsurfaceState, ahash::RandomState>,
+            OccupiedEntry<'_, SubsurfaceId, AttachedSubsurfaceState, ahash::RandomState>,
         ) -> Result<(), WlSurfaceError>,
     ) -> Result<(), WlSurfaceError> {
         self.ext
@@ -2194,7 +2194,7 @@ impl NodeBase for WlSurface {
         }
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, bounds: Option<&Rect>) {
+    fn node_render(&self, renderer: &mut Renderer<'_>, x: i32, y: i32, bounds: Option<&Rect>) {
         renderer.render_surface(self, x, y, bounds);
     }
 

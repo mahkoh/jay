@@ -947,7 +947,7 @@ impl MetalInputDevice {
         }
     }
 
-    fn get_device_group(&self, dev: &LibInputDevice) -> InputDeviceGroupId {
+    fn get_device_group(&self, dev: &LibInputDevice<'_>) -> InputDeviceGroupId {
         let group = dev.device_group();
         let mut id = group.user_data();
         if id == 0 {

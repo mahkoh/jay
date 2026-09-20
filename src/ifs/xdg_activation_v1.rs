@@ -80,7 +80,7 @@ impl XdgActivationV1RequestHandler for XdgActivationV1 {
         Ok(())
     }
 
-    fn activate(&self, req: Activate, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn activate(&self, req: Activate<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let token: ActivationToken = match req.token.parse() {
             Ok(t) => t,
             Err(e) => {

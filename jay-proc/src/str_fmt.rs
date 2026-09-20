@@ -40,7 +40,7 @@ pub fn derive_str_fmt(input: proc_macro::TokenStream) -> proc_macro::TokenStream
             crate::utils::str_fmt::StrFmt for #ident #type_generics
             #where_clause
             {
-                fn str_fmt(&self, dst: &mut String, ctx: &crate::utils::str_fmt::StrCtx) {
+                fn str_fmt(&self, dst: &mut String, ctx: &crate::utils::str_fmt::StrCtx<'_>) {
                     ctx.struct_prefix(dst);
                     #str_fmt
                     ctx.struct_suffix(dst);

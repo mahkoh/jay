@@ -72,7 +72,7 @@ impl ZwlrDataControlSourceV1 {
 impl ZwlrDataControlSourceV1RequestHandler for ZwlrDataControlSourceV1 {
     type Error = ZwlrDataControlSourceV1Error;
 
-    fn offer(&self, req: Offer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn offer(&self, req: Offer<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         logic::data_source_offer(self, req.mime_type)?;
         Ok(())
     }

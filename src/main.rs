@@ -42,7 +42,10 @@
     clippy::needless_late_init,
     clippy::manual_range_contains
 )]
-#![warn(unsafe_op_in_unsafe_fn)]
+#![warn(
+    unsafe_op_in_unsafe_fn, //
+    elided_lifetimes_in_paths,
+)]
 
 #[macro_use]
 mod macros;

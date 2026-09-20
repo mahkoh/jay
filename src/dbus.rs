@@ -261,8 +261,8 @@ unsafe trait ReplyHandler {
     fn handle(
         self: Box<Self>,
         socket: &Rc<DbusSocket>,
-        headers: &Headers,
-        parser: &mut Parser,
+        headers: &Headers<'_>,
+        parser: &mut Parser<'_>,
         buf: Vec<u8>,
     ) -> Result<(), DbusError>;
 }
@@ -441,7 +441,7 @@ pub unsafe trait Message<'a>: Sized + 'a {
     const MEMBER: &'static str;
     type Generic<'b>: Message<'b>;
 
-    fn marshal(&self, w: &mut Formatter);
+    fn marshal(&self, w: &mut Formatter<'_>);
     fn unmarshal(p: &mut Parser<'a>) -> Result<Self, DbusError>;
     fn num_fds(&self) -> u32;
 }
@@ -456,7 +456,7 @@ unsafe impl<'a> Message<'a> for ErrorMessage<'a> {
     const MEMBER: &'static str = "";
     type Generic<'b> = ErrorMessage<'b>;
 
-    fn marshal(&self, w: &mut Formatter) {
+    fn marshal(&self, w: &mut Formatter<'_>) {
         self.msg.marshal(w)
     }
 
@@ -491,7 +491,7 @@ pub unsafe trait DbusType<'a>: Clone + 'a {
     fn consume_signature(s: &mut &[u8]) -> Result<(), DbusError>;
     #[allow(dead_code)]
     fn write_signature(w: &mut Vec<u8>);
-    fn marshal(&self, fmt: &mut Formatter);
+    fn marshal(&self, fmt: &mut Formatter<'_>);
     fn unmarshal(parser: &mut Parser<'a>) -> Result<Self, DbusError>;
 
     fn num_fds(&self) -> u32 {
@@ -605,7 +605,7 @@ trait SignalHandlerApi {
     fn signature(&self) -> &'static str;
     fn path(&self) -> Option<&str>;
     fn rule(&self) -> &str;
-    fn handle(&self, parser: &mut Parser) -> Result<(), DbusError>;
+    fn handle(&self, parser: &mut Parser<'_>) -> Result<(), DbusError>;
 }
 
 impl<T, F> SignalHandlerApi for SignalHandlerData<T, F>
@@ -803,7 +803,7 @@ trait MethodHandlerApi {
         dest: &str,
         serial: u32,
         reply_expected: bool,
-        parser: &mut Parser,
+        parser: &mut Parser<'_>,
     ) -> Result<(), DbusError>;
 }
 

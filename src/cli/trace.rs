@@ -413,7 +413,7 @@ impl Tracer {
         res.is_err()
     }
 
-    fn fmt_connected(&self, buf: &mut String, info: &ClientTraceInfo) {
+    fn fmt_connected(&self, buf: &mut String, info: &ClientTraceInfo<'_>) {
         match self.format {
             Format::Jsonl => {
                 let ctx = StrCtx {

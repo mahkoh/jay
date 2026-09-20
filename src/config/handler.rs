@@ -3370,7 +3370,7 @@ impl ConfigProxyHandler {
         self.respond(Response::ConnectorCompositorOutput { compositor_output });
     }
 
-    fn handle_parse_keymap_2(&self, v1: KeymapBuildParamsV1) -> Result<(), CphError> {
+    fn handle_parse_keymap_2(&self, v1: KeymapBuildParamsV1<'_>) -> Result<(), CphError> {
         let Some(kind) = v1.kind else {
             return Err(CphError::MissingKeymapKind);
         };

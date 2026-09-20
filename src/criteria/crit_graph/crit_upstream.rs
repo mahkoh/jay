@@ -126,7 +126,7 @@ where
     pub fn update_matched(
         &self,
         target: &Target,
-        mut node: RefMut<CritUpstreamNodeData<Target, T>>,
+        mut node: RefMut<'_, CritUpstreamNodeData<Target, T>>,
         matched: bool,
         remove: bool,
     ) {

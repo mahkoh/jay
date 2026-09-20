@@ -58,7 +58,7 @@ unsafe impl<'a> DbusType<'a> for u8 {
 
     signature!(TY_BYTE);
 
-    fn marshal(&self, fmt: &mut Formatter) {
+    fn marshal(&self, fmt: &mut Formatter<'_>) {
         fmt.write_packed(self);
     }
 
@@ -82,7 +82,7 @@ unsafe impl<'a> DbusType<'a> for Bool {
 
     signature!(TY_BOOLEAN);
 
-    fn marshal(&self, fmt: &mut Formatter) {
+    fn marshal(&self, fmt: &mut Formatter<'_>) {
         fmt.write_packed(self);
     }
 
@@ -98,7 +98,7 @@ unsafe impl<'a> DbusType<'a> for i16 {
 
     signature!(TY_INT16);
 
-    fn marshal(&self, fmt: &mut Formatter) {
+    fn marshal(&self, fmt: &mut Formatter<'_>) {
         fmt.write_packed(self);
     }
 
@@ -114,7 +114,7 @@ unsafe impl<'a> DbusType<'a> for u16 {
 
     signature!(TY_UINT16);
 
-    fn marshal(&self, fmt: &mut Formatter) {
+    fn marshal(&self, fmt: &mut Formatter<'_>) {
         fmt.write_packed(self);
     }
 
@@ -130,7 +130,7 @@ unsafe impl<'a> DbusType<'a> for i32 {
 
     signature!(TY_INT32);
 
-    fn marshal(&self, fmt: &mut Formatter) {
+    fn marshal(&self, fmt: &mut Formatter<'_>) {
         fmt.write_packed(self);
     }
 
@@ -146,7 +146,7 @@ unsafe impl<'a> DbusType<'a> for u32 {
 
     signature!(TY_UINT32);
 
-    fn marshal(&self, fmt: &mut Formatter) {
+    fn marshal(&self, fmt: &mut Formatter<'_>) {
         fmt.write_packed(self);
     }
 
@@ -162,7 +162,7 @@ unsafe impl<'a> DbusType<'a> for i64 {
 
     signature!(TY_INT64);
 
-    fn marshal(&self, fmt: &mut Formatter) {
+    fn marshal(&self, fmt: &mut Formatter<'_>) {
         fmt.write_packed(self);
     }
 
@@ -178,7 +178,7 @@ unsafe impl<'a> DbusType<'a> for u64 {
 
     signature!(TY_UINT64);
 
-    fn marshal(&self, fmt: &mut Formatter) {
+    fn marshal(&self, fmt: &mut Formatter<'_>) {
         fmt.write_packed(self);
     }
 
@@ -194,7 +194,7 @@ unsafe impl<'a> DbusType<'a> for f64 {
 
     signature!(TY_DOUBLE);
 
-    fn marshal(&self, fmt: &mut Formatter) {
+    fn marshal(&self, fmt: &mut Formatter<'_>) {
         fmt.write_packed(&self.to_bits());
     }
 
@@ -210,7 +210,7 @@ unsafe impl<'a> DbusType<'a> for Cow<'a, str> {
 
     signature!(TY_STRING);
 
-    fn marshal(&self, fmt: &mut Formatter) {
+    fn marshal(&self, fmt: &mut Formatter<'_>) {
         fmt.write_str(self);
     }
 
@@ -237,7 +237,7 @@ unsafe impl<'a> DbusType<'a> for Signature<'a> {
 
     signature!(TY_SIGNATURE);
 
-    fn marshal(&self, fmt: &mut Formatter) {
+    fn marshal(&self, fmt: &mut Formatter<'_>) {
         fmt.write_signature(self.0.as_bytes());
     }
 
@@ -264,7 +264,7 @@ unsafe impl<'a> DbusType<'a> for ObjectPath<'a> {
 
     signature!(TY_OBJECT_PATH);
 
-    fn marshal(&self, fmt: &mut Formatter) {
+    fn marshal(&self, fmt: &mut Formatter<'_>) {
         fmt.write_str(&self.0);
     }
 
@@ -280,7 +280,7 @@ unsafe impl<'a> DbusType<'a> for Rc<OwnedFd> {
 
     signature!(TY_UNIX_FD);
 
-    fn marshal(&self, fmt: &mut Formatter) {
+    fn marshal(&self, fmt: &mut Formatter<'_>) {
         fmt.write_fd(self)
     }
 
@@ -308,7 +308,7 @@ unsafe impl<'a, T: DbusType<'a>> DbusType<'a> for Cow<'a, [T]> {
         T::write_signature(w);
     }
 
-    fn marshal(&self, fmt: &mut Formatter) {
+    fn marshal(&self, fmt: &mut Formatter<'_>) {
         fmt.write_array(self);
     }
 
@@ -351,7 +351,7 @@ unsafe impl<'a, K: DbusType<'a>, V: DbusType<'a>> DbusType<'a> for DictEntry<K, 
         w.push(b'}');
     }
 
-    fn marshal(&self, fmt: &mut Formatter) {
+    fn marshal(&self, fmt: &mut Formatter<'_>) {
         fmt.pad_to(8);
         self.key.marshal(fmt);
         self.value.marshal(fmt);
@@ -391,7 +391,7 @@ macro_rules! tuple {
                 w.push(b')');
             }
 
-            fn marshal(&self, fmt: &mut Formatter) {
+            fn marshal(&self, fmt: &mut Formatter<'_>) {
                 let ($($p,)*) = self;
                 fmt.pad_to(8);
                 $(
@@ -549,7 +549,7 @@ unsafe impl<'a> DbusType<'a> for Variant<'a> {
 
     signature!(TY_VARIANT);
 
-    fn marshal(&self, fmt: &mut Formatter) {
+    fn marshal(&self, fmt: &mut Formatter<'_>) {
         fmt.write_variant(self);
     }
 

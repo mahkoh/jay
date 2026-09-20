@@ -17,7 +17,7 @@ pub fn major_minor(dev_t: c::dev_t) -> MajorMinor {
 }
 
 impl StrFmt for MajorMinor {
-    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx) {
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
         let mut buf = itoa::Buffer::new();
         if ctx.fmt == StrFmtFmt::Jsonl {
             dst.push_str("\"");

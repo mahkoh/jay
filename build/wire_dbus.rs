@@ -515,7 +515,7 @@ fn write_message<W: Write>(
         wl!("{xn}const MEMBER: &'static str = \"{}\";", msg_name,);
         wl!("{xn}type Generic<'b> = {}{};", name, ltb,);
         wl!();
-        wl!("{xn}fn marshal(&self, fmt: &mut Formatter) {{");
+        wl!("{xn}fn marshal(&self, fmt: &mut Formatter<'_>) {{");
         {
             push_xn!(xn);
             if fields.is_empty() {

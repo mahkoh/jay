@@ -40,7 +40,7 @@ pub trait UsrJayCompositorOwner {
         let _ = ev;
     }
 
-    fn seat(&self, ev: Seat) {
+    fn seat(&self, ev: Seat<'_>) {
         let _ = ev;
     }
 }

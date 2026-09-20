@@ -2146,7 +2146,7 @@ impl Wm {
     }
 
     async fn handle_client_message(&mut self, event: &Event) -> Result<(), XWaylandError> {
-        let event: ClientMessage = event.parse()?;
+        let event: ClientMessage<'_> = event.parse()?;
         if event.ty == self.atoms.WL_SURFACE_ID {
             self.handle_wl_surface_id(&event).await?;
         } else if event.ty == self.atoms._NET_WM_STATE {

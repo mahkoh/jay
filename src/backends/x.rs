@@ -900,7 +900,7 @@ impl XBackend {
         event: &Event,
         state: ButtonState,
     ) -> Result<(), XBackendError> {
-        let event: XiButtonPress = event.parse()?;
+        let event: XiButtonPress<'_> = event.parse()?;
         if let Some(seat) = self.mouse_seats.get(&event.deviceid) {
             let button = event.detail;
             // let button = seat.button_map.get(&event.detail).unwrap_or(event.detail);
@@ -952,7 +952,7 @@ impl XBackend {
         event: &Event,
         state: KeyState,
     ) -> Result<(), XBackendError> {
-        let event: XiKeyPress = event.parse()?;
+        let event: XiKeyPress<'_> = event.parse()?;
         if let Some(seat) = self.seats.get(&event.deviceid) {
             seat.kb_event(InputEvent::Key {
                 time_usec: self.state.now_usec(),
@@ -964,7 +964,7 @@ impl XBackend {
     }
 
     async fn handle_input_hierarchy(self: &Rc<Self>, event: &Event) -> Result<(), XBackendError> {
-        let event: XiHierarchy = event.parse()?;
+        let event: XiHierarchy<'_> = event.parse()?;
         for info in event.infos.iter() {
             if info.flags & INPUT_HIERARCHY_MASK_MASTER_ADDED != 0 {
                 if let Err(e) = self.query_devices(info.deviceid).await {
@@ -983,7 +983,7 @@ impl XBackend {
     }
 
     fn handle_input_enter(&self, event: &Event) -> Result<(), XBackendError> {
-        let event: XiEnter = event.parse()?;
+        let event: XiEnter<'_> = event.parse()?;
         if let (Some(win), Some(seat)) = (
             self.outputs.get(&event.event),
             self.mouse_seats.get(&event.deviceid),
@@ -999,7 +999,7 @@ impl XBackend {
     }
 
     fn handle_input_motion(&self, event: &Event) -> Result<(), XBackendError> {
-        let event: XiMotion = event.parse()?;
+        let event: XiMotion<'_> = event.parse()?;
         let (win, seat) = match (
             self.outputs.get(&event.event),
             self.mouse_seats.get(&event.deviceid),

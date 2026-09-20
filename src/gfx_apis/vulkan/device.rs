@@ -144,7 +144,7 @@ pub(super) struct DescriptorHeapDevice {
 
 impl DescriptorHeapDevice {
     pub(super) unsafe fn push_data(&self, buf: CommandBuffer, data: &impl Packed) {
-        let info: PushDataInfoEXT = PushDataInfoEXT::default()
+        let info: PushDataInfoEXT<'_> = PushDataInfoEXT::default()
             .offset(0)
             .data(HostAddressRangeConstEXT::default().address(uapi::as_bytes(data)));
         unsafe {
@@ -739,7 +739,7 @@ fn log_device(
     level: log::Level,
     props: &PhysicalDeviceProperties,
     extensions: Option<&Extensions>,
-    driver_props: Option<&PhysicalDeviceDriverProperties>,
+    driver_props: Option<&PhysicalDeviceDriverProperties<'_>>,
 ) {
     log::log!(
         level,

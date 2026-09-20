@@ -1930,7 +1930,7 @@ impl VulkanRenderer {
         let mut memory = self.memory.borrow_mut();
         let memory = &mut *memory;
         memory.wait_semaphore_infos.clear();
-        let import_sync_file = |infos: &mut Vec<SemaphoreSubmitInfoKHR>,
+        let import_sync_file = |infos: &mut Vec<SemaphoreSubmitInfoKHR<'_>>,
                                 semaphores: &mut Vec<Rc<VulkanSemaphore>>,
                                 fd: OwnedFd|
          -> Result<(), VulkanError> {
@@ -1944,7 +1944,7 @@ impl VulkanRenderer {
             semaphores.push(semaphore);
             Ok(())
         };
-        let import = |infos: &mut Vec<SemaphoreSubmitInfoKHR>,
+        let import = |infos: &mut Vec<SemaphoreSubmitInfoKHR<'_>>,
                       semaphores: &mut Vec<Rc<VulkanSemaphore>>,
                       img: &VulkanImage,
                       sync: &AcquireSync,

@@ -237,7 +237,7 @@ impl NodeBase for PlaceholderNode {
         FindTreeResult::AcceptsInput
     }
 
-    fn node_render(&self, renderer: &mut Renderer, x: i32, y: i32, bounds: Option<&Rect>) {
+    fn node_render(&self, renderer: &mut Renderer<'_>, x: i32, y: i32, bounds: Option<&Rect>) {
         renderer.render_placeholder(self, x, y, bounds);
     }
 

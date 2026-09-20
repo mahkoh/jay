@@ -11,7 +11,7 @@ impl<T> StrFmt for [T]
 where
     T: StrFmt,
 {
-    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx) {
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
         let ctx = &StrCtx {
             toplevel: false,
             ..*ctx
@@ -57,7 +57,7 @@ where
 }
 
 impl StrFmt for BStr {
-    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx) {
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
         if ctx.toplevel && ctx.fmt == StrFmtFmt::Human {
             for chunk in self.utf8_chunks() {
                 dst.push_str(chunk.valid());
@@ -79,7 +79,7 @@ impl StrFmt for BStr {
 }
 
 impl StrFmt for str {
-    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx) {
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
         if ctx.toplevel && ctx.fmt == StrFmtFmt::Human {
             dst.push_str(self);
             return;
@@ -90,7 +90,7 @@ impl StrFmt for str {
     }
 }
 
-fn fmt_str(dst: &mut String, b: &str, ctx: &StrCtx) {
+fn fmt_str(dst: &mut String, b: &str, ctx: &StrCtx<'_>) {
     let dst = unsafe { dst.as_mut_vec() };
     for &b in b.as_bytes() {
         match b {
@@ -119,7 +119,7 @@ fn fmt_str(dst: &mut String, b: &str, ctx: &StrCtx) {
 macro_rules! integer {
     ($ty:ty) => {
         impl StrFmt for $ty {
-            fn str_fmt(&self, dst: &mut String, _ctx: &StrCtx) {
+            fn str_fmt(&self, dst: &mut String, _ctx: &StrCtx<'_>) {
                 let mut buf = itoa::Buffer::new();
                 let str = buf.format(*self);
                 dst.push_str(str);
@@ -144,7 +144,7 @@ integer!(isize);
 macro_rules! float {
     ($ty:ty) => {
         impl StrFmt for $ty {
-            fn str_fmt(&self, dst: &mut String, _ctx: &StrCtx) {
+            fn str_fmt(&self, dst: &mut String, _ctx: &StrCtx<'_>) {
                 let mut buf = zmij::Buffer::new();
                 let str = buf.format(*self);
                 dst.push_str(str);
@@ -157,13 +157,13 @@ float!(f32);
 float!(f64);
 
 impl StrFmt for Fixed {
-    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx) {
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
         self.to_f64().str_fmt(dst, ctx);
     }
 }
 
 impl StrFmt for bool {
-    fn str_fmt(&self, dst: &mut String, _ctx: &StrCtx) {
+    fn str_fmt(&self, dst: &mut String, _ctx: &StrCtx<'_>) {
         match *self {
             true => dst.push_str("true"),
             false => dst.push_str("false"),
@@ -175,7 +175,7 @@ impl<T> StrFmt for &T
 where
     T: StrFmt + ?Sized,
 {
-    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx) {
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
         T::str_fmt(*self, dst, ctx)
     }
 }
@@ -184,7 +184,7 @@ impl<T> StrFmt for Option<T>
 where
     T: StrFmt,
 {
-    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx) {
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
         match self {
             None if ctx.fmt == StrFmtFmt::Jsonl => dst.push_str("null"),
             None => dst.push_str("nil"),
@@ -197,7 +197,7 @@ impl<T> StrFmt for Box<T>
 where
     T: StrFmt + ?Sized,
 {
-    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx) {
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
         T::str_fmt(self, dst, ctx)
     }
 }
@@ -206,7 +206,7 @@ impl<T> StrFmt for Cow<'_, T>
 where
     T: ToOwned + StrFmt + ?Sized,
 {
-    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx) {
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
         let t: &T = self.borrow();
         t.str_fmt(dst, ctx)
     }

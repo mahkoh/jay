@@ -60,7 +60,7 @@ impl<'a> Formatter<'a> {
         self.fds.push(fd.clone());
     }
 
-    pub fn write_variant(&mut self, variant: &Variant) {
+    pub fn write_variant(&mut self, variant: &Variant<'_>) {
         let pos = self.buf.len();
         self.buf.push(0);
         variant.write_signature(self.buf);
@@ -69,7 +69,7 @@ impl<'a> Formatter<'a> {
         self.write_variant_body(variant);
     }
 
-    fn write_variant_body(&mut self, variant: &Variant) {
+    fn write_variant_body(&mut self, variant: &Variant<'_>) {
         match variant {
             Variant::U8(v) => v.marshal(self),
             Variant::Bool(v) => v.marshal(self),

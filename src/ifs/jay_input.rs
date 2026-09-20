@@ -363,7 +363,7 @@ impl JayInputRequestHandler for JayInput {
         Ok(())
     }
 
-    fn set_repeat_rate(&self, req: SetRepeatRate, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_repeat_rate(&self, req: SetRepeatRate<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             if req.repeat_rate < 0 {
                 return Err(JayInputError::NegativeRepeatRate);
@@ -377,7 +377,7 @@ impl JayInputRequestHandler for JayInput {
         })
     }
 
-    fn set_keymap(&self, req: SetKeymap, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_keymap(&self, req: SetKeymap<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.set_keymap_impl(&req.keymap, req.keymap_len, None, |map| {
             let seat = self.seat(req.seat)?;
             seat.set_seat_keymap(&map);
@@ -387,7 +387,7 @@ impl JayInputRequestHandler for JayInput {
 
     fn use_hardware_cursor(
         &self,
-        req: UseHardwareCursor,
+        req: UseHardwareCursor<'_>,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
         self.or_error(|| {
@@ -398,7 +398,7 @@ impl JayInputRequestHandler for JayInput {
         })
     }
 
-    fn get_keymap(&self, req: GetKeymap, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn get_keymap(&self, req: GetKeymap<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let seat = self.seat(req.seat)?;
             self.send_keymap(&seat.keymap());
@@ -503,7 +503,7 @@ impl JayInputRequestHandler for JayInput {
         })
     }
 
-    fn set_cursor_size(&self, req: SetCursorSize, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_cursor_size(&self, req: SetCursorSize<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let seat = self.seat(req.seat)?;
             seat.cursor_group().set_cursor_size(req.size);
@@ -511,7 +511,7 @@ impl JayInputRequestHandler for JayInput {
         })
     }
 
-    fn attach(&self, req: Attach, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn attach(&self, req: Attach<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let seat = self.seat(req.seat)?;
             let dev = self.device(req.id)?;
@@ -528,7 +528,7 @@ impl JayInputRequestHandler for JayInput {
         })
     }
 
-    fn get_seat(&self, req: GetSeat, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn get_seat(&self, req: GetSeat<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.or_error(|| {
             let seat = self.seat(req.name)?;
             self.send_seat(&seat);

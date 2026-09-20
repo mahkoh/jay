@@ -90,7 +90,7 @@ impl IconSurface {
         s.add_transaction_op(IconOp::SetGrayscale(grayscale));
     }
 
-    pub fn render(&self, renderer: &mut RendererBase, x: i32, y: i32, bounds: Option<&Rect>) {
+    pub fn render(&self, renderer: &mut RendererBase<'_>, x: i32, y: i32, bounds: Option<&Rect>) {
         let s = &self.surface;
         if !s.surface.node_visible(RenderTL) || s.surface.buffer.is_none() {
             return;

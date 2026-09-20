@@ -72,7 +72,7 @@ impl CursorSurface {
 }
 
 impl Cursor for CursorSurface {
-    fn render(&self, renderer: &mut Renderer, x: Fixed, y: Fixed) {
+    fn render(&self, renderer: &mut Renderer<'_>, x: Fixed, y: Fixed) {
         let x_int = x.round_down();
         let y_int = y.round_down();
         let extents = self.extents.get().move_(x_int, y_int);
@@ -91,7 +91,7 @@ impl Cursor for CursorSurface {
         }
     }
 
-    fn render_hardware_cursor(&self, renderer: &mut Renderer) {
+    fn render_hardware_cursor(&self, renderer: &mut Renderer<'_>) {
         let extents = self.surface.extents.get();
         renderer.render_surface(&self.surface, -extents.x1(), -extents.y1(), None);
 

@@ -61,8 +61,8 @@ pub static DEFAULT_CURSOR_SIZE: LazyLock<u32> = LazyLock::new(|| {
 });
 
 pub trait Cursor {
-    fn render(&self, renderer: &mut Renderer, x: Fixed, y: Fixed);
-    fn render_hardware_cursor(&self, renderer: &mut Renderer);
+    fn render(&self, renderer: &mut Renderer<'_>, x: Fixed, y: Fixed);
+    fn render_hardware_cursor(&self, renderer: &mut Renderer<'_>);
     fn extents_at_scale(&self, scale: Scale) -> Rect;
     fn set_output(&self, output: &Rc<OutputNode>) {
         let _ = output;
@@ -409,7 +409,7 @@ struct StaticCursor {
     image: InstantiatedCursorImage,
 }
 
-fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer, x: Fixed, y: Fixed) {
+fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer<'_>, x: Fixed, y: Fixed) {
     let scale = renderer.scale();
     let img = match image.scales.get(&scale) {
         Some(img) => img,
@@ -434,11 +434,11 @@ fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer, x: Fixed
 }
 
 impl Cursor for StaticCursor {
-    fn render(&self, renderer: &mut Renderer, x: Fixed, y: Fixed) {
+    fn render(&self, renderer: &mut Renderer<'_>, x: Fixed, y: Fixed) {
         render_img(&self.image, renderer, x, y);
     }
 
-    fn render_hardware_cursor(&self, renderer: &mut Renderer) {
+    fn render_hardware_cursor(&self, renderer: &mut Renderer<'_>) {
         if let Some(img) = self.image.scales.get(&renderer.scale()) {
             renderer
                 .base
@@ -468,12 +468,12 @@ struct AnimatedCursor {
 }
 
 impl Cursor for AnimatedCursor {
-    fn render(&self, renderer: &mut Renderer, x: Fixed, y: Fixed) {
+    fn render(&self, renderer: &mut Renderer<'_>, x: Fixed, y: Fixed) {
         let img = &self.images[self.idx.get()];
         render_img(img, renderer, x, y);
     }
 
-    fn render_hardware_cursor(&self, renderer: &mut Renderer) {
+    fn render_hardware_cursor(&self, renderer: &mut Renderer<'_>) {
         let img = &self.images[self.idx.get()];
         if let Some(img) = img.scales.get(&renderer.scale()) {
             renderer

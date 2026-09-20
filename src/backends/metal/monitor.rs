@@ -70,7 +70,7 @@ impl MetalBackend {
         log::error!("Monitor task exited. Future hotplug events will be ignored.");
     }
 
-    pub fn handle_device_pause(self: &Rc<Self>, pause: PauseDevice) {
+    pub fn handle_device_pause(self: &Rc<Self>, pause: PauseDevice<'_>) {
         if pause.ty == "pause" {
             self.session.device_paused(pause.major, pause.minor);
         }

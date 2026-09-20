@@ -63,7 +63,11 @@ impl ZwlrLayerShellV1Global {
 impl ZwlrLayerShellV1RequestHandler for ZwlrLayerShellV1 {
     type Error = ZwlrLayerShellV1Error;
 
-    fn get_layer_surface(&self, req: GetLayerSurface, slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn get_layer_surface(
+        &self,
+        req: GetLayerSurface<'_>,
+        slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         let surface = self.client.lookup(req.surface)?;
         let output = 'get_output: {
             if req.output.is_some() {

@@ -28,7 +28,7 @@ where
         let _ = key;
         let _ = dirents;
     }
-    fn read(t: &T, key: u64, buf: &mut String, ctx: &StrCtx) {
+    fn read(t: &T, key: u64, buf: &mut String, ctx: &StrCtx<'_>) {
         let _ = t;
         let _ = key;
         let _ = buf;
@@ -63,7 +63,7 @@ where
         V::getdents(self.tv_unwrap_rc(), key, dirents)
     }
 
-    fn read(&self, key: u64, buf: &mut String, ctx: &StrCtx) {
+    fn read(&self, key: u64, buf: &mut String, ctx: &StrCtx<'_>) {
         V::read(self, key, buf, ctx)
     }
 

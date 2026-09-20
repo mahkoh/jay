@@ -57,7 +57,7 @@ impl PwFormatter<'_> {
 
     pub fn write_object<F>(&mut self, ty: PwPodObjectType, id: u32, f: F)
     where
-        F: FnOnce(&mut PwObjectFormatter),
+        F: FnOnce(&mut PwObjectFormatter<'_>),
     {
         let start = self.data.len();
         self.data.extend_from_slice(uapi::as_bytes(&0u32));
@@ -202,7 +202,7 @@ impl PwFormatter<'_> {
 
     pub fn write_struct<F>(&mut self, f: F)
     where
-        F: FnOnce(&mut PwFormatter),
+        F: FnOnce(&mut PwFormatter<'_>),
     {
         self.write_compound(PW_TYPE_Struct, |fmt| {
             let mut fmt = PwFormatter {
@@ -218,7 +218,7 @@ impl PwFormatter<'_> {
     #[expect(unused)]
     pub fn write_array<F>(&mut self, f: F)
     where
-        F: FnOnce(&mut PwFormatter),
+        F: FnOnce(&mut PwFormatter<'_>),
     {
         self.write_compound(PW_TYPE_Array, |fmt| {
             fmt.write_array_body(f);
@@ -228,7 +228,7 @@ impl PwFormatter<'_> {
 
     fn write_array_body<F>(&mut self, f: F)
     where
-        F: FnOnce(&mut PwFormatter),
+        F: FnOnce(&mut PwFormatter<'_>),
     {
         let mut fmt = PwFormatter {
             data: self.data,
@@ -244,7 +244,7 @@ impl PwFormatter<'_> {
 
     pub fn write_choice<F>(&mut self, ty: PwChoiceType, flags: u32, f: F)
     where
-        F: FnOnce(&mut PwFormatter),
+        F: FnOnce(&mut PwFormatter<'_>),
     {
         self.write_compound(PW_TYPE_Choice, |fmt| {
             fmt.data.extend_from_slice(uapi::as_bytes(&ty.0));
@@ -256,7 +256,7 @@ impl PwFormatter<'_> {
 
     fn write_compound<F>(&mut self, ty: PwPodType, f: F)
     where
-        F: FnOnce(&mut PwFormatter),
+        F: FnOnce(&mut PwFormatter<'_>),
     {
         let start = self.data.len();
         self.data.extend_from_slice(uapi::as_bytes(&0u32));
@@ -280,7 +280,7 @@ pub struct PwObjectFormatter<'a> {
 impl PwObjectFormatter<'_> {
     pub fn write_property<F>(&mut self, key: u32, flags: PwPropFlag, f: F)
     where
-        F: FnOnce(&mut PwFormatter),
+        F: FnOnce(&mut PwFormatter<'_>),
     {
         self.data.extend_from_slice(uapi::as_bytes(&key));
         self.data.extend_from_slice(uapi::as_bytes(&flags.0));
@@ -302,7 +302,7 @@ pub fn format<F>(
     seq: u32,
     f: F,
 ) where
-    F: FnOnce(&mut PwFormatter),
+    F: FnOnce(&mut PwFormatter<'_>),
 {
     buf.clear();
     buf.extend_from_slice(uapi::as_bytes(&id));

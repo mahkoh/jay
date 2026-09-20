@@ -312,7 +312,7 @@ pub fn map_extension_properties(props: Vec<ExtensionProperties>) -> Extensions {
 unsafe extern "system" fn debug_callback(
     message_severity: DebugUtilsMessageSeverityFlagsEXT,
     _message_types: DebugUtilsMessageTypeFlagsEXT,
-    p_callback_data: *const DebugUtilsMessengerCallbackDataEXT,
+    p_callback_data: *const DebugUtilsMessengerCallbackDataEXT<'_>,
     _p_user_data: *mut c_void,
 ) -> Bool32 {
     let _level = match message_severity {

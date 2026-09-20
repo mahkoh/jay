@@ -224,11 +224,11 @@ struct LogWrapper {
 }
 
 impl Log for LogWrapper {
-    fn enabled(&self, metadata: &Metadata) -> bool {
+    fn enabled(&self, metadata: &Metadata<'_>) -> bool {
         metadata.level() as u32 <= self.logger.filter.load(Relaxed)
     }
 
-    fn log(&self, record: &Record) {
+    fn log(&self, record: &Record<'_>) {
         if record.level() <= Level::Warn {
             self.logger.num_warnings.fetch_add(1, Relaxed);
         }
@@ -298,7 +298,7 @@ fn clean_logs_older_than(current_log_path: &BStr, time: SystemTime) -> Result<()
     }
     fn process_entry(
         parent: c::c_int,
-        entry: &Dirent,
+        entry: &Dirent<'_>,
         time: c::time_t,
     ) -> Result<(), CleanLogsError> {
         if entry.d_type != c::DT_REG {

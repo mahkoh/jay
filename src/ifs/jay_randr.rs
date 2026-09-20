@@ -364,7 +364,7 @@ impl JayRandrRequestHandler for JayRandr {
         Ok(())
     }
 
-    fn set_api(&self, req: SetApi, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_api(&self, req: SetApi<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let Some(dev) = self.get_device(req.dev) else {
             return Ok(());
         };
@@ -378,7 +378,7 @@ impl JayRandrRequestHandler for JayRandr {
 
     fn make_render_device(
         &self,
-        req: MakeRenderDevice,
+        req: MakeRenderDevice<'_>,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
         let Some(dev) = self.get_device(req.dev) else {
@@ -390,7 +390,7 @@ impl JayRandrRequestHandler for JayRandr {
 
     fn set_direct_scanout(
         &self,
-        req: SetDirectScanout,
+        req: SetDirectScanout<'_>,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
         let Some(dev) = self.get_device(req.dev) else {
@@ -400,7 +400,7 @@ impl JayRandrRequestHandler for JayRandr {
         Ok(())
     }
 
-    fn set_transform(&self, req: SetTransform, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_transform(&self, req: SetTransform<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
@@ -412,7 +412,7 @@ impl JayRandrRequestHandler for JayRandr {
         Ok(())
     }
 
-    fn set_scale(&self, req: SetScale, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_scale(&self, req: SetScale<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
@@ -420,7 +420,7 @@ impl JayRandrRequestHandler for JayRandr {
         Ok(())
     }
 
-    fn set_mode(&self, req: SetMode, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_mode(&self, req: SetMode<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let Some(c) = self.get_connector(req.output) else {
             return Ok(());
         };
@@ -437,7 +437,7 @@ impl JayRandrRequestHandler for JayRandr {
         Ok(())
     }
 
-    fn set_position(&self, req: SetPosition, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_position(&self, req: SetPosition<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let Some(c) = self.get_output_node(req.output) else {
             return Ok(());
         };
@@ -453,7 +453,7 @@ impl JayRandrRequestHandler for JayRandr {
         Ok(())
     }
 
-    fn set_enabled(&self, req: SetEnabled, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_enabled(&self, req: SetEnabled<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let Some(c) = self.get_connector(req.output) else {
             return Ok(());
         };
