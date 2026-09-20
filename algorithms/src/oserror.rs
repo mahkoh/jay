@@ -174,9 +174,9 @@ static ERRORS: LazyLock<&'static [Option<&'static str>]> = LazyLock::new(|| {
 });
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct OsError(pub c::c_int);
+pub struct OsError(pub c_int);
 
-impl From<c::c_int> for OsError {
+impl From<c_int> for OsError {
     #[inline]
     fn from(v: c_int) -> Self {
         Self(v)

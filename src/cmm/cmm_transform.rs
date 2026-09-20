@@ -47,7 +47,7 @@ impl<T, U> Hash for ColorMatrix<T, U> {
 unsafe impl<T, U> JayHash for ColorMatrix<T, U> {}
 
 impl<T, U> Debug for ColorMatrix<T, U> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("ColorMatrix")
             .field(&format_matrix(&self.0))
             .finish()

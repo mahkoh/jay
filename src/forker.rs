@@ -356,7 +356,7 @@ impl Forker {
             let socket = socket.raw();
             Box::new(move |pi| {
                 let msg = ForkerMessage::Log {
-                    level: log::Level::Error as _,
+                    level: Level::Error as _,
                     msg: format!("The ol' forker panicked: {}", pi),
                 };
                 let msg = bincode_ops().serialize(&msg).unwrap();
@@ -460,7 +460,7 @@ impl Forker {
             Err(e) => {
                 self.fail_pidfd(pidfd_id);
                 self.outgoing.push(ForkerMessage::Log {
-                    level: log::Level::Error as usize,
+                    level: Level::Error as usize,
                     msg: ErrorFmt(e).to_string(),
                 });
                 return;
@@ -483,7 +483,7 @@ impl Forker {
                         let _ = Fd::new(read.raw()).read_to_string(&mut s);
                         if s.len() > 0 {
                             slf.outgoing.push(ForkerMessage::Log {
-                                level: log::Level::Error as _,
+                                level: Level::Error as _,
                                 msg: format!("Could not spawn `{}`: {}", prog, s),
                             });
                             slf.fail_pidfd(pidfd_id);

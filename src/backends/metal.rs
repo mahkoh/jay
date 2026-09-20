@@ -106,7 +106,7 @@ pub enum MetalError {
     #[error(transparent)]
     LibInput(#[from] LibInputError),
     #[error("Dupfd failed")]
-    Dup(#[source] jay_algorithms::oserror::OsError),
+    Dup(#[source] OsError),
     #[error("Could not create GBM device")]
     GbmDevice(#[source] GbmError),
     #[error("Could not update the drm properties")]

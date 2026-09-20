@@ -93,7 +93,7 @@ use std::fmt::Formatter;
 use std::fmt::Write;
 
 trait PwPodObjectDebugger: Sync {
-    fn debug_property(&self, fmt: &mut Formatter<'_>, value: PwProp<'_>) -> std::fmt::Result;
+    fn debug_property(&self, fmt: &mut Formatter<'_>, value: PwProp<'_>) -> fmt::Result;
     fn id_name(&self, id: u32) -> Option<&'static str>;
 }
 
@@ -106,10 +106,10 @@ struct PwPodObjectDebuggerSimple<F, G, H> {
 impl<F, G, H> PwPodObjectDebugger for PwPodObjectDebuggerSimple<F, G, H>
 where
     F: Fn(u32) -> Option<&'static str> + Sync,
-    G: Fn(u32, &mut Formatter<'_>, PwPod<'_>) -> std::fmt::Result + Sync,
+    G: Fn(u32, &mut Formatter<'_>, PwPod<'_>) -> fmt::Result + Sync,
     H: Fn(u32) -> Option<&'static str> + Sync,
 {
-    fn debug_property(&self, fmt: &mut Formatter<'_>, value: PwProp<'_>) -> std::fmt::Result {
+    fn debug_property(&self, fmt: &mut Formatter<'_>, value: PwProp<'_>) -> fmt::Result {
         let mut s = fmt.debug_struct("PwProp");
         match (self.key_name)(value.key) {
             Some(n) => s.field("key", &n),
@@ -128,9 +128,9 @@ where
     }
 }
 
-fn choice_debug<F>(fmt: &mut Formatter<'_>, p: PwPod<'_>, ty: PwPodType, f: F) -> std::fmt::Result
+fn choice_debug<F>(fmt: &mut Formatter<'_>, p: PwPod<'_>, ty: PwPodType, f: F) -> fmt::Result
 where
-    F: Fn(&mut Formatter<'_>, PwPod<'_>) -> std::fmt::Result,
+    F: Fn(&mut Formatter<'_>, PwPod<'_>) -> fmt::Result,
 {
     match p {
         PwPod::Choice(c) if c.elements.ty == ty => fmt
@@ -163,9 +163,9 @@ where
     }
 }
 
-fn id_debug<F>(fmt: &mut Formatter<'_>, p: PwPod<'_>, f: F) -> std::fmt::Result
+fn id_debug<F>(fmt: &mut Formatter<'_>, p: PwPod<'_>, f: F) -> fmt::Result
 where
-    F: Fn(&mut Formatter<'_>, u32) -> std::fmt::Result,
+    F: Fn(&mut Formatter<'_>, u32) -> fmt::Result,
 {
     choice_debug(fmt, p, PW_TYPE_Id, |fmt, p| match p {
         PwPod::Id(id) => f(fmt, id),
@@ -173,7 +173,7 @@ where
     })
 }
 
-fn array_body_debug<F>(fmt: &mut Formatter<'_>, mut a: PwPodArray<'_>, f: F) -> std::fmt::Result
+fn array_body_debug<F>(fmt: &mut Formatter<'_>, mut a: PwPodArray<'_>, f: F) -> fmt::Result
 where
     F: Fn(&mut DebugList, &mut PwParser<'_>) -> bool,
 {
@@ -186,7 +186,7 @@ where
     l.finish()
 }
 
-fn array_debug<F>(fmt: &mut Formatter<'_>, p: PwPod<'_>, ty: PwPodType, f: F) -> std::fmt::Result
+fn array_debug<F>(fmt: &mut Formatter<'_>, p: PwPod<'_>, ty: PwPodType, f: F) -> fmt::Result
 where
     F: Fn(&mut DebugList, &mut PwParser<'_>) -> bool,
 {
@@ -196,7 +196,7 @@ where
     }
 }
 
-fn array_id_debug<F, T>(fmt: &mut Formatter<'_>, p: PwPod<'_>, f: F) -> std::fmt::Result
+fn array_id_debug<F, T>(fmt: &mut Formatter<'_>, p: PwPod<'_>, f: F) -> fmt::Result
 where
     F: Fn(&mut DebugList, u32) -> T,
 {
@@ -375,7 +375,7 @@ fn object_debugger(obj: PwPodObjectType) -> Option<&'static dyn PwPodObjectDebug
 }
 
 impl<'a> Debug for PwPodObject<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let debugger = object_debugger(self.ty);
         let mut s = f.debug_struct("object");
         s.field("type", &self.ty);
@@ -416,7 +416,7 @@ impl<'a> Debug for PwPodObject<'a> {
 }
 
 impl<'a> Debug for PwPodSequence<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut s = f.debug_struct("sequence");
         s.field("unit", &self.unit);
         s.field(
@@ -444,7 +444,7 @@ impl<'a> Debug for PwPodSequence<'a> {
 }
 
 impl<'a> Debug for PwPodStruct<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut parser = self.fields;
         let mut s = f.debug_struct("struct");
         let mut field = String::new();
@@ -471,7 +471,7 @@ impl<'a> Debug for PwPodStruct<'a> {
 }
 
 impl<'a> Debug for PwPodArray<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut list = f.debug_list();
         let mut parser = self.elements;
         for _ in 0..self.n_elements {
@@ -491,7 +491,7 @@ impl<'a> Debug for PwPodArray<'a> {
 }
 
 impl<'a> Debug for PwPod<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             PwPod::None => write!(f, "None"),
             PwPod::Bool(b) => write!(f, "{}", b),

@@ -660,7 +660,7 @@ impl NodeBase for XdgToplevel {
         Some(self.id.into())
     }
 
-    fn node_toplevel(self: Rc<Self>) -> Option<Rc<dyn crate::tree::ToplevelNode>> {
+    fn node_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {
         Some(self)
     }
 

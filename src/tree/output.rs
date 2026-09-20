@@ -2728,11 +2728,7 @@ impl NodeBase for OutputNode {
     }
 }
 
-fn calculate_logical_size(
-    mode: (i32, i32),
-    transform: Transform,
-    scale: crate::scale::Scale,
-) -> (i32, i32) {
+fn calculate_logical_size(mode: (i32, i32), transform: Transform, scale: Scale) -> (i32, i32) {
     let (mut width, mut height) = transform.maybe_swap(mode);
     if scale != 1 {
         let scale = scale.to_f64();

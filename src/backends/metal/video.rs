@@ -139,7 +139,7 @@ pub mod metal_cm;
 
 pub struct PendingDrmDevice {
     pub id: DrmDeviceId,
-    pub devnum: c::dev_t,
+    pub devnum: dev_t,
     pub devnode: CString,
 }
 
@@ -174,7 +174,7 @@ pub struct MetalDrmVendor {
 pub struct MetalDrmDevice {
     pub backend: Rc<MetalBackend>,
     pub id: DrmDeviceId,
-    pub devnum: c::dev_t,
+    pub devnum: dev_t,
     pub devnode: CString,
     pub master: Rc<DrmMaster>,
     supports_kms: bool,

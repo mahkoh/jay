@@ -121,11 +121,7 @@ impl Session {
         F: for<'b> Fn(PauseDevice<'b>) + 'static,
     {
         self.socket
-            .handle_signal::<org::freedesktop::login1::session::PauseDevice, _>(
-                Some(LOGIND_NAME),
-                Some(&self.session_path),
-                f,
-            )
+            .handle_signal::<PauseDevice, _>(Some(LOGIND_NAME), Some(&self.session_path), f)
     }
 
     pub fn on_resume<F>(&self, f: F) -> Result<SignalHandler, DbusError>
@@ -133,11 +129,7 @@ impl Session {
         F: Fn(ResumeDevice) + 'static,
     {
         self.socket
-            .handle_signal::<org::freedesktop::login1::session::ResumeDevice, _>(
-                Some(LOGIND_NAME),
-                Some(&self.session_path),
-                f,
-            )
+            .handle_signal::<ResumeDevice, _>(Some(LOGIND_NAME), Some(&self.session_path), f)
     }
 
     pub fn device_paused(&self, major: u32, minor: u32) {

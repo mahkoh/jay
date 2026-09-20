@@ -297,7 +297,7 @@ impl Renderer<'_> {
     ) {
         let pos = placeholder.tl_data().content_size.get();
         self.base.fill_boxes(
-            std::slice::from_ref(&pos.at_point(x, y)),
+            slice::from_ref(&pos.at_point(x, y)),
             &Color::from_srgba_straight(20, 20, 20, 255),
             &self.state.color_manager.srgb_gamma22().linear,
             RenderIntent::Perceptual,

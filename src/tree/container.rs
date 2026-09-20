@@ -2552,7 +2552,7 @@ impl NodeBase for ContainerNode {
         renderer.render_container(self, x, y);
     }
 
-    fn node_toplevel(self: Rc<Self>) -> Option<Rc<dyn crate::tree::ToplevelNode>> {
+    fn node_toplevel(self: Rc<Self>) -> Option<Rc<dyn ToplevelNode>> {
         Some(self)
     }
 

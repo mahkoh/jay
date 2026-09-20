@@ -82,7 +82,7 @@ impl FieldDef {
 }
 
 impl Display for FieldDef {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         for attr in &self.attrs {
             write!(f, "{attr} ")?;
         }
@@ -94,7 +94,7 @@ impl Display for FieldDef {
 }
 
 impl Display for FieldsDef {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let fields: Vec<_> = self.fields.iter().map(|f| f.to_string()).collect();
         match self.kind {
             FieldsKind::Unit => write!(f, "(no fields)"),

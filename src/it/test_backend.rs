@@ -730,7 +730,7 @@ impl<T: TestInputDevice> InputDevice for T {
         self.common().name.clone()
     }
 
-    fn dev_t(&self) -> Option<c::dev_t> {
+    fn dev_t(&self) -> Option<dev_t> {
         None
     }
 
