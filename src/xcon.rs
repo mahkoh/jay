@@ -246,7 +246,7 @@ impl Event {
         let mut parser = Parser::new(&self.buf, vec![]);
         let res = M::deserialize(&mut parser);
         if let Ok(res) = &res {
-            log::trace!("event {:?}", res);
+            log::trace!("event {res:?}");
         }
         res
     }
@@ -330,7 +330,7 @@ unsafe impl<T: Message<'static>> ReplyHandler for AsyncReplyHandler<T> {
                 return Err(XconError::XconError(e));
             }
         };
-        log::trace!("result {:?}", msg);
+        log::trace!("result {msg:?}");
         let reply = Reply {
             socket: socket.clone(),
             buf,
@@ -417,7 +417,7 @@ impl Xcon {
         };
         {
             let mut path = uapi::as_bytes_mut(&mut addr.sun_path[..]);
-            let _ = write!(path, "/tmp/.X11-unix/X{}", display);
+            let _ = write!(path, "/tmp/.X11-unix/X{display}");
         }
         let fd = uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
             .map(Rc::new)
@@ -531,7 +531,7 @@ impl Xcon {
     }
 
     pub fn call<'a, T: Request<'a>>(self: &Rc<Self>, t: &T) -> AsyncReply<T::Reply> {
-        log::trace!("send {:?}", t);
+        log::trace!("send {t:?}");
         self.data.call_with_serial(t, &self.extensions).0
     }
 
@@ -539,7 +539,7 @@ impl Xcon {
         self: &Rc<Self>,
         t: &T,
     ) -> (AsyncReply<T::Reply>, u64) {
-        log::trace!("send {:?}", t);
+        log::trace!("send {t:?}");
         self.data.call_with_serial(t, &self.extensions)
     }
 
@@ -550,7 +550,7 @@ impl Xcon {
         event_mask: u32,
         t: &T,
     ) -> AsyncReply<()> {
-        log::trace!("send {:?}", t);
+        log::trace!("send {t:?}");
         self.data
             .send_event(t, &self.extensions, propagate, destination, event_mask)
     }

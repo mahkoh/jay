@@ -80,7 +80,7 @@ impl WlDisplay {
     }
 
     pub fn send_invalid_object(self: &Rc<Self>, id: ObjectId) {
-        let msg = format!("Object {} does not exist", id,);
+        let msg = format!("Object {id} does not exist",);
         self.send_error(id, INVALID_OBJECT, &msg);
     }
 

@@ -155,7 +155,7 @@ fn bind_socket(
 ) -> Result<Option<AllocatedSocket>, TaggedAcceptorError> {
     let mut addr: c::sockaddr_un = uapi::pod_zeroed();
     addr.sun_family = c::AF_UNIX as _;
-    let name = Rc::new(format!("wayland-{}", id));
+    let name = Rc::new(format!("wayland-{id}"));
     let path = format_ustr!("{}/{}", xrd, name);
     let lock_path = format_ustr!("{}.lock", path.display());
     if path.len() + 1 > addr.sun_path.len() {

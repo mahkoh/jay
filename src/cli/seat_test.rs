@@ -339,7 +339,7 @@ async fn run(global: &GlobalArgs, seat_test: Rc<SeatTest>) {
                 }
                 print!("Time: {:.4}, ", time(ev.time_usec));
                 if let Some(source) = source {
-                    print!("Source: {}", source);
+                    print!("Source: {source}");
                     need_comma = true;
                 }
                 for (axis, px, steps, stop, inverted) in [
@@ -348,15 +348,15 @@ async fn run(global: &GlobalArgs, seat_test: Rc<SeatTest>) {
                 ] {
                     if px.is_some() || steps.is_some() || stop {
                         comma!();
-                        print!("Axis {}: ", axis);
+                        print!("Axis {axis}: ");
                     }
                     if let Some(dist) = px {
-                        print!("{:+.4}px", dist);
+                        print!("{dist:+.4}px");
                         need_comma = true;
                     }
                     if let Some(dist) = steps {
                         comma!();
-                        print!("steps: {:+}/120", dist);
+                        print!("steps: {dist:+}/120");
                         need_comma = true;
                     }
                     if stop {
@@ -990,7 +990,7 @@ fn choose_seat(st: &SeatTest) -> u32 {
             seats.sort();
             eprintln!("Seats:");
             for seat in seats {
-                eprintln!("  - {}", seat);
+                eprintln!("  - {seat}");
             }
             eprint!("Name a seat to test: ");
             let mut name = String::new();

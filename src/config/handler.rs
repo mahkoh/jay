@@ -372,16 +372,16 @@ impl ConfigProxyHandler {
         };
         let debug = fmt::from_fn(|fmt| {
             if let Some(file) = file {
-                write!(fmt, "{}", file)?;
+                write!(fmt, "{file}")?;
                 if let Some(line) = line {
-                    write!(fmt, ":{}", line)?;
+                    write!(fmt, ":{line}")?;
                 }
                 write!(fmt, ": ")?;
             }
-            write!(fmt, "{}", msg)?;
+            write!(fmt, "{msg}")?;
             Ok(())
         });
-        log::log!(level, "{:?}", debug);
+        log::log!(level, "{debug:?}");
     }
 
     fn handle_get_seat(&self, name: &str) {
@@ -2450,7 +2450,7 @@ impl ConfigProxyHandler {
             Ok(fd) => Rc::new(fd),
             Err(e) => {
                 let err = format!("Could not invoke F_DUPFD_CLOEXEC: {}", ErrorFmt(e));
-                log::error!("{}", err);
+                log::error!("{err}");
                 self.respond(Response::AddPollable { id: Err(err) });
                 return;
             }

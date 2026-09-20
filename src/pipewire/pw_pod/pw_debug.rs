@@ -149,7 +149,7 @@ where
                             Err(e) => {
                                 let e = ErrorFmt(e);
                                 l.entry(&fmt::from_fn(|fmt| {
-                                    write!(fmt, "Could not read choice element: {}", e)
+                                    write!(fmt, "Could not read choice element: {e}")
                                 }));
                                 false
                             }
@@ -207,7 +207,7 @@ where
         }
         Err(e) => {
             let e = ErrorFmt(e);
-            l.entry(&fmt::from_fn(|f| write!(f, "Could not read id: {}", e)));
+            l.entry(&fmt::from_fn(|f| write!(f, "Could not read id: {e}")));
             false
         }
     })
@@ -453,7 +453,7 @@ impl Debug for PwPodStruct<'_> {
                 break;
             }
             field.clear();
-            let _ = write!(&mut field, "\"{}\"", i);
+            let _ = write!(&mut field, "\"{i}\"");
             match parser.read_pod() {
                 Ok(p) => s.field(&field, &p),
                 Err(e) => {
@@ -494,13 +494,13 @@ impl Debug for PwPod<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             PwPod::None => write!(f, "None"),
-            PwPod::Bool(b) => write!(f, "{}", b),
-            PwPod::Id(id) => write!(f, "id({})", id),
-            PwPod::Int(i) => write!(f, "int({})", i),
-            PwPod::Long(l) => write!(f, "long({})", l),
-            PwPod::Float(v) => write!(f, "float({})", v),
-            PwPod::Double(d) => write!(f, "double({})", d),
-            PwPod::String(s) => write!(f, "string({:?})", s),
+            PwPod::Bool(b) => write!(f, "{b}"),
+            PwPod::Id(id) => write!(f, "id({id})"),
+            PwPod::Int(i) => write!(f, "int({i})"),
+            PwPod::Long(l) => write!(f, "long({l})"),
+            PwPod::Float(v) => write!(f, "float({v})"),
+            PwPod::Double(d) => write!(f, "double({d})"),
+            PwPod::String(s) => write!(f, "string({s:?})"),
             PwPod::Bytes(b) => write!(f, "bytes(len = {})", b.len()),
             PwPod::Rectangle(r) => write!(f, "rectangle({}x{})", r.width, r.height),
             PwPod::Fraction(v) => write!(f, "fraction({}/{})", v.num, v.denom),
@@ -510,7 +510,7 @@ impl Debug for PwPod<'_> {
             PwPod::Object(o) => o.fmt(f),
             PwPod::Sequence(s) => s.fmt(f),
             PwPod::Pointer(p) => p.fmt(f),
-            PwPod::Fd(v) => write!(f, "fd({})", v),
+            PwPod::Fd(v) => write!(f, "fd({v})"),
             PwPod::Choice(c) => c.fmt(f),
         }
     }

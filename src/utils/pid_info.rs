@@ -14,14 +14,14 @@ pub struct PidInfo {
 }
 
 pub fn get_pid_info(uid: c::uid_t, pid: c::pid_t) -> PidInfo {
-    let comm = match std::fs::read(format!("/proc/{}/comm", pid)) {
+    let comm = match std::fs::read(format!("/proc/{pid}/comm")) {
         Ok(name) => name.trim_ascii_end().as_bstr().to_string(),
         Err(e) => {
             log::warn!("Could not read `comm` of pid {}: {}", pid, ErrorFmt(e));
             "Unknown".to_string()
         }
     };
-    let exe = match std::fs::read_link(format!("/proc/{}/exe", pid)) {
+    let exe = match std::fs::read_link(format!("/proc/{pid}/exe")) {
         Ok(name) => name
             .as_os_str()
             .as_bytes()

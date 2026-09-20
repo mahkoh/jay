@@ -80,7 +80,7 @@ impl Incoming {
                     (None, code)
                 } else if let Some(ed) = &self.ed {
                     let Some(r) = find_range(&ed.errors, code) else {
-                        log::error!("Received an out of bounds error code {}", code);
+                        log::error!("Received an out of bounds error code {code}");
                         break 'handle_error;
                     };
                     match r.extension {
@@ -166,8 +166,7 @@ impl Incoming {
                         Some(ext) => *ext,
                         _ => {
                             log::warn!(
-                                "Received an event from an unconfigured extension: `{}`",
-                                opcode
+                                "Received an event from an unconfigured extension: `{opcode}`"
                             );
                             break 'handle_event;
                         }
@@ -178,7 +177,7 @@ impl Incoming {
                     (None, ev as u16)
                 } else if let Some(ed) = &self.ed {
                     let Some(r) = find_range(&ed.events, ev) else {
-                        log::error!("Received an out of bounds event {}", ev);
+                        log::error!("Received an out of bounds event {ev}");
                         break 'handle_event;
                     };
                     match r.extension {

@@ -464,7 +464,7 @@ impl Printer {
             let client = self.clients.get(&client_id);
             if client.is_some() && (self.printed_clients.insert(client_id) || self.verbose) {
                 println!("{p}    client:");
-                let mut prefix = format!("{}      ", p);
+                let mut prefix = format!("{p}      ");
                 let mut cp = ClientPrinter {
                     prefix: &mut prefix,
                 };

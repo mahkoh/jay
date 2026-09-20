@@ -58,7 +58,7 @@ impl JayEiSessionBuilderRequestHandler for JayEiSessionBuilder {
             Ok((_, fd)) => obj.send_created(&fd),
             Err(e) => {
                 let e = format!("Could not spawn client: {}", ErrorFmt(e));
-                log::error!("{}", e);
+                log::error!("{e}");
                 obj.send_failed(&e);
             }
         }

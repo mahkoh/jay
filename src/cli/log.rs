@@ -56,7 +56,7 @@ async fn run(global: &GlobalArgs, log: Rc<Log>) {
             let path = path.to_string();
             jsonl(&path);
         } else {
-            println!("{}", path);
+            println!("{path}");
         }
         process::exit(0);
     }

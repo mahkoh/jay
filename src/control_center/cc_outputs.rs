@@ -1325,7 +1325,7 @@ fn show_brightness(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> boo
             "{}",
             fmt::from_fn(|f| match m.brightness {
                 None => f.write_str("disabled"),
-                Some(v) => write!(f, "{}", v),
+                Some(v) => write!(f, "{v}"),
             })
         ));
     }
@@ -1768,7 +1768,7 @@ fn show_cursor_hz(ui: &mut Ui, m: &HeadState, t: &mut Option<HeadState>) -> bool
             "{}",
             fmt::from_fn(|f| match m.vrr_cursor_hz {
                 None => f.write_str("disabled"),
-                Some(v) => write!(f, "{}", v),
+                Some(v) => write!(f, "{v}"),
             })
         ));
     }

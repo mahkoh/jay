@@ -872,7 +872,7 @@ impl XBackend {
             notifies: Default::default(),
         };
         if let Err(e) = self.c.call(&pp).await {
-            log::error!("Could not present image: {:?}", e);
+            log::error!("Could not present image: {e:?}");
             return;
         }
 

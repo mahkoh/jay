@@ -101,7 +101,7 @@ impl Logger {
 
     pub fn clean_logs_older_than(&self, time: SystemTime) {
         let time_formatted = humantime::format_rfc3339_millis(time);
-        log::info!("Cleaning unused log files older than {}", time_formatted);
+        log::info!("Cleaning unused log files older than {time_formatted}");
         let path = self.path();
         thread::spawn(move || {
             if let Err(e) = clean_logs_older_than(path.as_bstr(), time) {
@@ -210,10 +210,10 @@ fn set_panic_hook() {
             log::error!("Panic at unknown location");
         }
         if let Some(msg) = p.payload().downcast_ref::<&str>() {
-            log::error!("Message: {}", msg);
+            log::error!("Message: {msg}");
         }
         if let Some(msg) = p.payload().downcast_ref::<String>() {
-            log::error!("Message: {}", msg);
+            log::error!("Message: {msg}");
         }
         log::error!("Backtrace:\n{:?}", Backtrace::new());
     }));

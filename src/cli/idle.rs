@@ -139,13 +139,13 @@ impl Idle {
                         write!(f, " disabled")?;
                     } else {
                         if minutes > 0 {
-                            write!(f, " {} minute", minutes)?;
+                            write!(f, " {minutes} minute")?;
                             if minutes > 1 {
                                 write!(f, "s")?;
                             }
                         }
                         if seconds > 0 {
-                            write!(f, " {} second", seconds)?;
+                            write!(f, " {seconds} second")?;
                             if seconds > 1 {
                                 write!(f, "s")?;
                             }

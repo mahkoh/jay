@@ -49,6 +49,7 @@
     clippy::manual_let_else,
     clippy::unnecessary_semicolon,
     clippy::elidable_lifetime_names,
+    clippy::uninlined_format_args,
 )]
 
 #[macro_use]

@@ -75,7 +75,7 @@ fn create_accept_gui(surface: &Rc<SelectionGuiSurface>, for_restore: bool) -> Rc
     let text = if app.is_empty() {
         format!("An application wants to capture the screen")
     } else {
-        format!("`{}` wants to capture the screen", app)
+        format!("`{app}` wants to capture the screen")
     };
     let label = Rc::new(Label::default());
     *label.text.borrow_mut() = text;

@@ -178,7 +178,7 @@ impl Debug for StereoViewingSupport {
             StereoViewingSupport::FourWayInterleaved => "4-way interleaved",
             StereoViewingSupport::SideBySideInterleaved => "side-by-side interleaved",
         };
-        write!(f, "\"{}\"", msg)
+        write!(f, "\"{msg}\"")
     }
 }
 

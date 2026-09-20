@@ -1660,7 +1660,7 @@ impl OutputNode {
             .connector
             .modify_state(&self.state, |s| s.vrr = enabled);
         if let Err(e) = res {
-            log::error!("Could not set vrr mode: {}", e);
+            log::error!("Could not set vrr mode: {e}");
         }
     }
 
@@ -1697,7 +1697,7 @@ impl OutputNode {
             .connector
             .modify_state(&self.state, |s| s.tearing = enabled);
         if let Err(e) = res {
-            log::error!("Could not set tearing mode: {}", e);
+            log::error!("Could not set tearing mode: {e}");
         }
     }
 

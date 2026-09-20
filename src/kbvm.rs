@@ -212,7 +212,7 @@ fn create_keymap_memfd(map: &Keymap, xwayland: bool) -> Result<(String, KeymapFd
     if xwayland {
         format = format.lookup_only(true).rename_long_keys(true);
     }
-    let str = format!("{}\n", format);
+    let str = format!("{format}\n");
     let mut memfd =
         uapi::memfd_create("keymap", c::MFD_CLOEXEC | c::MFD_ALLOW_SEALING).to_os_error()?;
     memfd.write_all(str.as_bytes())?;

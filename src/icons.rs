@@ -150,7 +150,7 @@ impl Icons {
         let icons = match self.create(state, size, f) {
             Ok(i) => Some(i),
             Err(e) => {
-                log::error!("Could not create icons: {}", e);
+                log::error!("Could not create icons: {e}");
                 None
             }
         };

@@ -19,7 +19,7 @@ pub fn udev_props(dev_t: c::dev_t, depth: usize) -> UdevProps {
     let udev = match Udev::new() {
         Ok(udev) => Rc::new(udev),
         Err(e) => {
-            log::error!("Could not create a udev instance: {}", e);
+            log::error!("Could not create a udev instance: {e}");
             return res;
         }
     };

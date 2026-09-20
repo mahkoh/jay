@@ -577,7 +577,7 @@ impl Input {
         match args.command.unwrap_or_default() {
             SeatCommand::Show(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not retrieve seat data: {}", e);
+                    eprintln!("Could not retrieve seat data: {e}");
                 });
                 tc.send(jay_input::GetSeat {
                     self_id: input,
@@ -592,7 +592,7 @@ impl Input {
             }
             SeatCommand::SetRepeatRate(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not set repeat rate: {}", e);
+                    eprintln!("Could not set repeat rate: {e}");
                 });
                 tc.send(jay_input::SetRepeatRate {
                     self_id: input,
@@ -603,7 +603,7 @@ impl Input {
             }
             SeatCommand::SetKeymap(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not set keymap: {}", e);
+                    eprintln!("Could not set keymap: {e}");
                 });
                 if self.tc.jay_compositor_version().await >= KEYMAP_BUILDER_SINCE {
                     tc.send(jay_input::SetKeymapFromBuilder {
@@ -623,7 +623,7 @@ impl Input {
             }
             SeatCommand::UseHardwareCursor(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not set hardware cursor: {}", e);
+                    eprintln!("Could not set hardware cursor: {e}");
                 });
                 tc.send(jay_input::UseHardwareCursor {
                     self_id: input,
@@ -633,7 +633,7 @@ impl Input {
             }
             SeatCommand::Keymap => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not retrieve the keymap: {}", e);
+                    eprintln!("Could not retrieve the keymap: {e}");
                 });
                 tc.send(jay_input::GetKeymap {
                     self_id: input,
@@ -644,7 +644,7 @@ impl Input {
             }
             SeatCommand::SetCursorSize(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not set cursor size: {}", e);
+                    eprintln!("Could not set cursor size: {e}");
                 });
                 tc.send(jay_input::SetCursorSize {
                     self_id: input,
@@ -655,7 +655,7 @@ impl Input {
             SeatCommand::SimpleIm(a) => match a.command {
                 SimpleImCommand::Enable | SimpleImCommand::Disable => {
                     self.handle_error(input, |e| {
-                        eprintln!("Could not enable/disable the simple IM: {}", e);
+                        eprintln!("Could not enable/disable the simple IM: {e}");
                     });
                     tc.send(jay_input::SetSimpleImEnabled {
                         self_id: input,
@@ -665,7 +665,7 @@ impl Input {
                 }
                 SimpleImCommand::Reload => {
                     self.handle_error(input, |e| {
-                        eprintln!("Could not reload the simple IM: {}", e);
+                        eprintln!("Could not reload the simple IM: {e}");
                     });
                     tc.send(jay_input::ReloadSimpleIm {
                         self_id: input,
@@ -675,7 +675,7 @@ impl Input {
             },
             SeatCommand::SetKeymapFromNames(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not set keymap: {}", e);
+                    eprintln!("Could not set keymap: {e}");
                 });
                 if tc.jay_compositor_version().await >= KEYMAP_BUILDER_SINCE {
                     tc.send(jay_input::SetKeymapFromBuilder {
@@ -704,7 +704,7 @@ impl Input {
         match args.command.unwrap_or_default() {
             DeviceCommand::Show => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not retrieve device data: {}", e);
+                    eprintln!("Could not retrieve device data: {e}");
                 });
                 tc.send(jay_input::GetDevice {
                     self_id: input,
@@ -725,7 +725,7 @@ impl Input {
                     AccelProfile::Adaptive => LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE.0,
                 };
                 self.handle_error(input, |e| {
-                    eprintln!("Could not set the acceleration profile: {}", e);
+                    eprintln!("Could not set the acceleration profile: {e}");
                 });
                 tc.send(jay_input::SetAccelProfile {
                     self_id: input,
@@ -735,7 +735,7 @@ impl Input {
             }
             DeviceCommand::SetAccelSpeed(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not set the acceleration speed: {}", e);
+                    eprintln!("Could not set the acceleration speed: {e}");
                 });
                 tc.send(jay_input::SetAccelSpeed {
                     self_id: input,
@@ -745,7 +745,7 @@ impl Input {
             }
             DeviceCommand::SetTapEnabled(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not modify the tap-enabled setting: {}", e);
+                    eprintln!("Could not modify the tap-enabled setting: {e}");
                 });
                 tc.send(jay_input::SetTapEnabled {
                     self_id: input,
@@ -755,7 +755,7 @@ impl Input {
             }
             DeviceCommand::SetTapDragEnabled(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not modify the tap-drag-enabled setting: {}", e);
+                    eprintln!("Could not modify the tap-drag-enabled setting: {e}");
                 });
                 tc.send(jay_input::SetTapDragEnabled {
                     self_id: input,
@@ -765,7 +765,7 @@ impl Input {
             }
             DeviceCommand::SetTapDragLockEnabled(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not modify the tap-drag-lock-enabled setting: {}", e);
+                    eprintln!("Could not modify the tap-drag-lock-enabled setting: {e}");
                 });
                 tc.send(jay_input::SetTapDragLockEnabled {
                     self_id: input,
@@ -775,7 +775,7 @@ impl Input {
             }
             DeviceCommand::SetLeftHanded(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not modify the left-handed setting: {}", e);
+                    eprintln!("Could not modify the left-handed setting: {e}");
                 });
                 tc.send(jay_input::SetLeftHanded {
                     self_id: input,
@@ -785,7 +785,7 @@ impl Input {
             }
             DeviceCommand::SetNaturalScrolling(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not modify the natural-scrolling setting: {}", e);
+                    eprintln!("Could not modify the natural-scrolling setting: {e}");
                 });
                 tc.send(jay_input::SetNaturalScrolling {
                     self_id: input,
@@ -795,7 +795,7 @@ impl Input {
             }
             DeviceCommand::SetPxPerWheelScroll(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not modify the px-per-wheel-scroll setting: {}", e);
+                    eprintln!("Could not modify the px-per-wheel-scroll setting: {e}");
                 });
                 tc.send(jay_input::SetPxPerWheelScroll {
                     self_id: input,
@@ -805,7 +805,7 @@ impl Input {
             }
             DeviceCommand::SetPxScrollMultiplier(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not modify the px-scroll-multiplier setting: {}", e);
+                    eprintln!("Could not modify the px-scroll-multiplier setting: {e}");
                 });
                 tc.send(jay_input::SetPxScrollMultiplier {
                     self_id: input,
@@ -815,7 +815,7 @@ impl Input {
             }
             DeviceCommand::SetTransformMatrix(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not modify the transform matrix: {}", e);
+                    eprintln!("Could not modify the transform matrix: {e}");
                 });
                 tc.send(jay_input::SetTransformMatrix {
                     self_id: input,
@@ -828,7 +828,7 @@ impl Input {
             }
             DeviceCommand::Attach(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not attach the device: {}", e);
+                    eprintln!("Could not attach the device: {e}");
                 });
                 tc.send(jay_input::Attach {
                     self_id: input,
@@ -838,7 +838,7 @@ impl Input {
             }
             DeviceCommand::Detach => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not detach the device: {}", e);
+                    eprintln!("Could not detach the device: {e}");
                 });
                 tc.send(jay_input::Detach {
                     self_id: input,
@@ -847,7 +847,7 @@ impl Input {
             }
             DeviceCommand::SetKeymap(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not set keymap: {}", e);
+                    eprintln!("Could not set keymap: {e}");
                 });
                 if self.tc.jay_compositor_version().await >= KEYMAP_BUILDER_SINCE {
                     tc.send(jay_input::SetDeviceKeymapFromBuilder {
@@ -867,7 +867,7 @@ impl Input {
             }
             DeviceCommand::Keymap => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not retrieve the keymap: {}", e);
+                    eprintln!("Could not retrieve the keymap: {e}");
                 });
                 tc.send(jay_input::GetDeviceKeymap {
                     self_id: input,
@@ -878,7 +878,7 @@ impl Input {
             }
             DeviceCommand::MapToOutput(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not map the device to an output: {}", e);
+                    eprintln!("Could not map the device to an output: {e}");
                 });
                 tc.send(jay_input::MapToOutput {
                     self_id: input,
@@ -888,7 +888,7 @@ impl Input {
             }
             DeviceCommand::RemoveMapping => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not remove the output mapping: {}", e);
+                    eprintln!("Could not remove the output mapping: {e}");
                 });
                 tc.send(jay_input::MapToOutput {
                     self_id: input,
@@ -898,7 +898,7 @@ impl Input {
             }
             DeviceCommand::SetCalibrationMatrix(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not modify the calibration matrix: {}", e);
+                    eprintln!("Could not modify the calibration matrix: {e}");
                 });
                 tc.send(jay_input::SetCalibrationMatrix {
                     self_id: input,
@@ -918,7 +918,7 @@ impl Input {
                     ClickMethod::Clickfinger => LIBINPUT_CONFIG_CLICK_METHOD_CLICKFINGER.0,
                 };
                 self.handle_error(input, |e| {
-                    eprintln!("Could not set the click method: {}", e);
+                    eprintln!("Could not set the click method: {e}");
                 });
                 tc.send(jay_input::SetClickMethod {
                     self_id: input,
@@ -928,10 +928,7 @@ impl Input {
             }
             DeviceCommand::SetMiddleButtonEmulation(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!(
-                        "Could not modify the middle-button-emulation setting: {}",
-                        e
-                    );
+                    eprintln!("Could not modify the middle-button-emulation setting: {e}");
                 });
                 tc.send(jay_input::SetMiddleButtonEmulation {
                     self_id: input,
@@ -941,7 +938,7 @@ impl Input {
             }
             DeviceCommand::SetKeymapFromNames(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not set keymap: {}", e);
+                    eprintln!("Could not set keymap: {e}");
                 });
                 if self.tc.jay_compositor_version().await >= KEYMAP_BUILDER_SINCE {
                     tc.send(jay_input::SetDeviceKeymapFromBuilder {
@@ -969,7 +966,7 @@ impl Input {
                     ScrollMethod::OnButtonDown => LIBINPUT_CONFIG_SCROLL_ON_BUTTON_DOWN,
                 };
                 self.handle_error(input, |e| {
-                    eprintln!("Could not set the scroll method: {}", e);
+                    eprintln!("Could not set the scroll method: {e}");
                 });
                 tc.send(jay_input::SetScrollMethod {
                     self_id: input,
@@ -979,7 +976,7 @@ impl Input {
             }
             DeviceCommand::SetScrollButton(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not set the scroll button: {}", e);
+                    eprintln!("Could not set the scroll button: {e}");
                 });
                 tc.send(jay_input::SetScrollButton {
                     self_id: input,
@@ -989,7 +986,7 @@ impl Input {
             }
             DeviceCommand::SetScrollButtonLock(a) => {
                 self.handle_error(input, |e| {
-                    eprintln!("Could not set the scroll button lock: {}", e);
+                    eprintln!("Could not set the scroll button lock: {e}");
                 });
                 tc.send(jay_input::SetScrollButtonLock {
                     self_id: input,
@@ -1069,13 +1066,13 @@ impl Input {
         println!("{prefix}  name: {}", device.name);
         if print_seat {
             let seat = device.seat.as_deref().unwrap_or("<detached>");
-            println!("{prefix}  seat: {}", seat);
+            println!("{prefix}  seat: {seat}");
         }
         if let Some(v) = &device.syspath {
-            println!("{prefix}  syspath: {}", v);
+            println!("{prefix}  syspath: {v}");
         }
         if let Some(v) = &device.devnode {
-            println!("{prefix}  devnode: {}", v);
+            println!("{prefix}  devnode: {v}");
         }
         print!("{prefix}  capabilities:");
         let mut first = true;
@@ -1092,37 +1089,37 @@ impl Input {
                 InputDeviceAccelProfile::Flat => "flat",
                 InputDeviceAccelProfile::Adaptive => "adaptive",
             };
-            println!("{prefix}  accel profile: {}", name);
+            println!("{prefix}  accel profile: {name}");
         }
         if let Some(v) = &device.accel_speed {
-            println!("{prefix}  accel speed: {}", v);
+            println!("{prefix}  accel speed: {v}");
         }
         if let Some(v) = &device.tap_enabled {
-            println!("{prefix}  tap enabled: {}", v);
+            println!("{prefix}  tap enabled: {v}");
         }
         if let Some(v) = &device.tap_drag_enabled {
-            println!("{prefix}  tap drag enabled: {}", v);
+            println!("{prefix}  tap drag enabled: {v}");
         }
         if let Some(v) = &device.tap_drag_lock_enabled {
-            println!("{prefix}  tap drag lock enabled: {}", v);
+            println!("{prefix}  tap drag lock enabled: {v}");
         }
         if let Some(v) = &device.left_handed {
-            println!("{prefix}  left handed: {}", v);
+            println!("{prefix}  left handed: {v}");
         }
         if let Some(v) = &device.natural_scrolling_enabled {
-            println!("{prefix}  natural scrolling: {}", v);
+            println!("{prefix}  natural scrolling: {v}");
         }
         if let Some(v) = &device.px_per_wheel_scroll {
-            println!("{prefix}  px per wheel scroll: {}", v);
+            println!("{prefix}  px per wheel scroll: {v}");
         }
         if let Some(v) = &device.transform_matrix {
-            println!("{prefix}  transform matrix: {:?}", v);
+            println!("{prefix}  transform matrix: {v:?}");
         }
         if let Some(v) = &device.output {
-            println!("{prefix}  mapped to output: {}", v);
+            println!("{prefix}  mapped to output: {v}");
         }
         if let Some(v) = &device.calibration_matrix {
-            println!("{prefix}  calibration matrix: {:?}", v);
+            println!("{prefix}  calibration matrix: {v:?}");
         }
         if let Some(v) = &device.click_method {
             let name = match v {
@@ -1130,10 +1127,10 @@ impl Input {
                 InputDeviceClickMethod::ButtonAreas => "button-areas",
                 InputDeviceClickMethod::Clickfinger => "clickfinger",
             };
-            println!("{prefix}  click method: {}", name);
+            println!("{prefix}  click method: {name}");
         }
         if let Some(v) = &device.middle_button_emulation_enabled {
-            println!("{prefix}  middle button emulation: {}", v);
+            println!("{prefix}  middle button emulation: {v}");
         }
         if let Some(v) = &device.scroll_method {
             println!("{prefix}  scroll method: {}", scroll_method_name(*v));

@@ -787,7 +787,7 @@ fn dbus_create_session(
     req: CreateSession<'_>,
     reply: PendingReply<CreateSessionReply<'static>>,
 ) {
-    log::info!("Create Session {:#?}", req);
+    log::info!("Create Session {req:#?}");
     if state.sessions.contains(req.session_handle.0.deref()) {
         reply.err("Session already exists");
         return;
@@ -847,7 +847,7 @@ fn get_session<T>(
 ) -> Option<Rc<PortalSession>> {
     let res = state.sessions.get(handle);
     if res.is_none() {
-        let msg = format!("Screencast session `{}` does not exist", handle);
+        let msg = format!("Screencast session `{handle}` does not exist");
         reply.err(&msg);
     }
     res

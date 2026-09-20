@@ -1261,10 +1261,7 @@ fn create_connector_display_data(
             break 'fetch_edid;
         }
         let Ok(edid) = props.get("EDID") else {
-            log::warn!(
-                "Connector {} is connected but has no EDID blob",
-                connector_id,
-            );
+            log::warn!("Connector {connector_id} is connected but has no EDID blob",);
             break 'fetch_edid;
         };
         let blob = match dev.master.getblob_vec::<u8>(DrmBlob(edid.value as _)) {
@@ -1303,14 +1300,12 @@ fn create_connector_display_data(
         }
         if name.is_empty() {
             log::warn!(
-                "The display attached to connector {} does not have a product name descriptor",
-                connector_id,
+                "The display attached to connector {connector_id} does not have a product name descriptor",
             );
         }
         if serial_number.is_empty() {
             log::warn!(
-                "The display attached to connector {} does not have a serial number descriptor",
-                connector_id,
+                "The display attached to connector {connector_id} does not have a serial number descriptor",
             );
             serial_number = edid.base_block.id_serial_number.to_string();
         }
@@ -1381,7 +1376,7 @@ fn create_connector_display_data(
     let persistent = match dev.backend.persistent_display_data.get(&output_id) {
         Some(ds) => {
             if connection != ConnectorStatus::Disconnected {
-                log::info!("Reusing desired state for {:?}", output_id);
+                log::info!("Reusing desired state for {output_id:?}");
             }
             ds
         }

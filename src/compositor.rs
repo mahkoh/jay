@@ -194,8 +194,8 @@ pub fn start_compositor(_global: GlobalArgs, args: RunArgs) {
     leaks::log_leaked();
     if let Err(e) = res {
         let e = ErrorFmt(e);
-        log::error!("A fatal error occurred: {}", e);
-        eprintln!("A fatal error occurred: {}", e);
+        log::error!("A fatal error occurred: {e}");
+        eprintln!("A fatal error occurred: {e}");
         eprintln!("See {} for more details.", logger.path());
         std::process::exit(1);
     }

@@ -168,7 +168,7 @@ pub enum KnownCursor {
 impl ServerCursors {
     pub fn load(ctx: &Rc<dyn GfxContext>, state: &State) -> Result<Option<Self>, CursorError> {
         let paths = find_cursor_paths();
-        log::debug!("Trying to load cursors from paths {:?}", paths);
+        log::debug!("Trying to load cursors from paths {paths:?}");
         let sizes = state.cursor_sizes.to_vec();
         let scales = state.scales.to_vec();
         if sizes.is_empty() || scales.is_empty() {

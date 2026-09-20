@@ -58,7 +58,7 @@ impl Reexec {
                 }
             };
             let Some(exe) = exe.to_str() else {
-                log::error!("Executable path is not a string: {:?}", exe);
+                log::error!("Executable path is not a string: {exe:?}");
                 std::process::exit(1);
             };
             tc.send(jay_reexec::Arg {

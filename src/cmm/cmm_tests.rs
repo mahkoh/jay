@@ -9,7 +9,7 @@ mod matrices {
 
     fn check(primaries: Primaries, expected: [[f64; 4]; 3]) {
         let (ltg, gtl) = primaries.matrices();
-        println!("{:#?}", ltg);
+        println!("{ltg:#?}");
         assert!((ltg.0[0][0].0 - expected[0][0]).abs() < 0.001);
         assert!((ltg.0[0][1].0 - expected[0][1]).abs() < 0.001);
         assert!((ltg.0[0][2].0 - expected[0][2]).abs() < 0.001);
@@ -165,7 +165,7 @@ mod transforms {
         let m = d1
             .linear
             .color_transform(&d2.linear, RenderIntent::Perceptual);
-        println!("{:#?}", m);
+        println!("{m:#?}");
         assert!((m.0[0][0].0 - expected[0][0]).abs() < 0.001);
         assert!((m.0[0][1].0 - expected[0][1]).abs() < 0.001);
         assert!((m.0[0][2].0 - expected[0][2]).abs() < 0.001);

@@ -1260,13 +1260,7 @@ impl Wm {
         if let Ok(res) = &res {
             ty_name = res.get().name;
         }
-        log::error!(
-            "Property {} of window {} has unexpected type {} ({})",
-            prop,
-            window,
-            ty_name,
-            ty
-        );
+        log::error!("Property {prop} of window {window} has unexpected type {ty_name} ({ty})");
     }
 
     async fn load_window_wm_name(&self, data: &Rc<XwindowData>) {
@@ -1740,7 +1734,7 @@ impl Wm {
                         }
                     };
                     if !present {
-                        log::error!("Peer requested unavailable target {}", mt);
+                        log::error!("Peer requested unavailable target {mt}");
                         break 'convert;
                     }
                     let Pipe {
@@ -1749,7 +1743,7 @@ impl Wm {
                     } = match pipe() {
                         Ok(p) => p,
                         Err(e) => {
-                            log::error!("Could not create pipe: {}", e);
+                            log::error!("Could not create pipe: {e}");
                             break 'convert;
                         }
                     };
@@ -1862,7 +1856,7 @@ impl Wm {
                 )
                 .await;
             if let Err(e) = gp {
-                log::error!("Could not get converted property: {}", e);
+                log::error!("Could not get converted property: {e}");
                 return Ok(());
             }
             let mut data = Buf::from_slice(&data);

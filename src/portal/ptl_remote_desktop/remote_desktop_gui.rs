@@ -65,7 +65,7 @@ fn create_accept_gui(surface: &Rc<SelectionGuiSurface>) -> Rc<dyn GuiElement> {
     let text = if app.is_empty() {
         format!("An application wants to generate/monitor input")
     } else {
-        format!("`{}` wants to generate/monitor input", app)
+        format!("`{app}` wants to generate/monitor input")
     };
     let label = Rc::new(Label::default());
     *label.text.borrow_mut() = text;

@@ -154,7 +154,7 @@ impl Display for ConnectorKernelId {
 impl StrFmt for ConnectorKernelId {
     fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
         let mut buf = ArrayString::<64>::new();
-        let _ = write!(buf, "{}", self);
+        let _ = write!(buf, "{self}");
         buf.as_str().str_fmt(dst, ctx);
     }
 }

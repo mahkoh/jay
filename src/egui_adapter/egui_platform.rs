@@ -1461,7 +1461,7 @@ impl UsrWlDataSourceOwner for EggSeatInner {
         let ring = self.ctx.state.ring.clone();
         let task = self.ctx.state.eng.spawn("egg-copy-text", async move {
             if let Err(e) = ring.write(&fd, buf, None).await {
-                log::error!("Could not send text to client: {}", e);
+                log::error!("Could not send text to client: {e}");
             }
         });
         self.copy_task.set(Some(task));

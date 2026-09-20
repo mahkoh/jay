@@ -154,7 +154,7 @@ impl UnicodeInput {
                     f.write_char(char)
                 }
             });
-            let _ = write!(self.text, " = {}", s);
+            let _ = write!(self.text, " = {s}");
         }
     }
 

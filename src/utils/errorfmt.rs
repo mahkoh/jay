@@ -10,10 +10,10 @@ impl<E: Error> Display for ErrorFmt<E> {
         let mut first = true;
         while let Some(e) = e_opt {
             if first {
-                write!(f, "{}", e)?;
+                write!(f, "{e}")?;
                 first = false;
             } else {
-                write!(f, ": {}", e)?;
+                write!(f, ": {e}")?;
             }
             e_opt = e.source();
         }

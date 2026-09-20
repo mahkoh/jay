@@ -96,9 +96,9 @@ impl Xwayland {
                 implied_scale: scale.get().map(|s| s as f64),
             });
         } else {
-            println!("scaling mode: {}", mode);
+            println!("scaling mode: {mode}");
             if let Some(scale) = scale.get() {
-                println!("implied scale: {}", scale);
+                println!("implied scale: {scale}");
             }
         }
     }

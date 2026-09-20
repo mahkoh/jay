@@ -42,7 +42,7 @@ async fn import_environment_(
         Ok(s) => s,
         Err(e) => return Err(UserSessionError::AcquireSessionBus(e)),
     };
-    let setting = format!("{}={}", key, value);
+    let setting = format!("{key}={value}");
     session.call(
         BUS_DEST,
         BUS_PATH,

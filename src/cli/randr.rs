@@ -673,7 +673,7 @@ impl Randr {
         match args.command {
             OutputCommand::Transform(t) => {
                 self.handle_error(randr, |msg| {
-                    eprintln!("Could not modify the transform: {}", msg);
+                    eprintln!("Could not modify the transform: {msg}");
                 });
                 let transform = match t.command {
                     TransformCmd::None => Transform::None,
@@ -693,7 +693,7 @@ impl Randr {
             }
             OutputCommand::Scale(t) => {
                 self.handle_error(randr, |msg| {
-                    eprintln!("Could not modify the scale: {}", msg);
+                    eprintln!("Could not modify the scale: {msg}");
                 });
                 let scale = match t.round_to_float {
                     true => Scale::from_f64_as_float(t.scale),
@@ -743,7 +743,7 @@ impl Randr {
                     return;
                 };
                 self.handle_error(randr, |msg| {
-                    eprintln!("Could not modify the mode: {}", msg);
+                    eprintln!("Could not modify the mode: {msg}");
                 });
                 tc.send(jay_randr::SetMode {
                     self_id: randr,
@@ -755,7 +755,7 @@ impl Randr {
             }
             OutputCommand::Position(t) => {
                 self.handle_error(randr, |msg| {
-                    eprintln!("Could not modify the position: {}", msg);
+                    eprintln!("Could not modify the position: {msg}");
                 });
                 tc.send(jay_randr::SetPosition {
                     self_id: randr,
@@ -770,7 +770,7 @@ impl Randr {
                     _ => (false, "disable"),
                 };
                 self.handle_error(randr, move |msg| {
-                    eprintln!("Could not {} the output: {}", name, msg);
+                    eprintln!("Could not {name} the output: {msg}");
                 });
                 tc.send(jay_randr::SetEnabled {
                     self_id: randr,
@@ -780,7 +780,7 @@ impl Randr {
             }
             OutputCommand::NonDesktop(a) => {
                 self.handle_error(randr, move |msg| {
-                    eprintln!("Could not change the non-desktop setting: {}", msg);
+                    eprintln!("Could not change the non-desktop setting: {msg}");
                 });
                 tc.send(jay_randr::SetNonDesktop {
                     self_id: randr,
@@ -790,7 +790,7 @@ impl Randr {
             }
             OutputCommand::Vrr(a) => {
                 self.handle_error(randr, move |msg| {
-                    eprintln!("Could not change the VRR setting: {}", msg);
+                    eprintln!("Could not change the VRR setting: {msg}");
                 });
                 let parse_rate = |rate: &str| {
                     if rate.eq_ignore_ascii_case("none") {
@@ -831,7 +831,7 @@ impl Randr {
             }
             OutputCommand::Tearing(a) => {
                 self.handle_error(randr, move |msg| {
-                    eprintln!("Could not change the tearing setting: {}", msg);
+                    eprintln!("Could not change the tearing setting: {msg}");
                 });
                 match a.command {
                     TearingCommand::SetMode(a) => {
@@ -852,7 +852,7 @@ impl Randr {
             }
             OutputCommand::Format(a) => {
                 self.handle_error(randr, move |msg| {
-                    eprintln!("Could not change the framebuffer format: {}", msg);
+                    eprintln!("Could not change the framebuffer format: {msg}");
                 });
                 match a.command {
                     FormatCommand::Set { format } => {
@@ -866,7 +866,7 @@ impl Randr {
             }
             OutputCommand::Colors(a) => {
                 self.handle_error(randr, move |msg| {
-                    eprintln!("Could not change the colors: {}", msg);
+                    eprintln!("Could not change the colors: {msg}");
                 });
                 match a.command {
                     ColorsCommand::Set { color_space, eotf } => {
@@ -881,7 +881,7 @@ impl Randr {
             }
             OutputCommand::Brightness(a) => {
                 self.handle_error(randr, move |msg| {
-                    eprintln!("Could not change the brightness: {}", msg);
+                    eprintln!("Could not change the brightness: {msg}");
                 });
                 match a.brightness {
                     Brightness::Default => {
@@ -901,7 +901,7 @@ impl Randr {
             }
             OutputCommand::BlendSpace(a) => {
                 self.handle_error(randr, move |msg| {
-                    eprintln!("Could not set the blend space: {}", msg);
+                    eprintln!("Could not set the blend space: {msg}");
                 });
                 tc.send(jay_randr::SetBlendSpace {
                     self_id: randr,
@@ -912,8 +912,7 @@ impl Randr {
             OutputCommand::UseNativeGamut(a) => {
                 self.handle_error(randr, move |msg| {
                     eprintln!(
-                        "Could not change whether the compositor uses the native gamut: {}",
-                        msg,
+                        "Could not change whether the compositor uses the native gamut: {msg}",
                     );
                 });
                 tc.send(jay_randr::SetUseNativeGamut {
@@ -924,7 +923,7 @@ impl Randr {
             }
             OutputCommand::ScalingFilter(a) => {
                 self.handle_error(randr, move |msg| {
-                    eprintln!("Could not change the scaling filter: {}", msg,);
+                    eprintln!("Could not change the scaling filter: {msg}",);
                 });
                 tc.send(jay_randr::SetScalingFilter {
                     self_id: randr,
@@ -944,7 +943,7 @@ impl Randr {
         match args.command {
             VirtualOutputCommand::Create(t) => {
                 self.handle_error(randr, |msg| {
-                    eprintln!("Could not create a virtual output: {}", msg);
+                    eprintln!("Could not create a virtual output: {msg}");
                 });
                 tc.send(jay_randr::CreateVirtualOutput {
                     self_id: randr,
@@ -953,7 +952,7 @@ impl Randr {
             }
             VirtualOutputCommand::Remove(t) => {
                 self.handle_error(randr, |msg| {
-                    eprintln!("Could not remove a virtual output: {}", msg);
+                    eprintln!("Could not remove a virtual output: {msg}");
                 });
                 tc.send(jay_randr::RemoveVirtualOutput {
                     self_id: randr,
@@ -969,7 +968,7 @@ impl Randr {
         match args.command {
             CardCommand::Primary => {
                 self.handle_error(randr, |msg| {
-                    eprintln!("Could not set the primary device: {}", msg);
+                    eprintln!("Could not set the primary device: {msg}");
                 });
                 tc.send(jay_randr::MakeRenderDevice {
                     self_id: randr,
@@ -978,7 +977,7 @@ impl Randr {
             }
             CardCommand::Api(api) => {
                 self.handle_error(randr, |msg| {
-                    eprintln!("Could not set the API: {}", msg);
+                    eprintln!("Could not set the API: {msg}");
                 });
                 let api = match &api.cmd {
                     ApiCmd::OpenGl => "opengl",
@@ -992,7 +991,7 @@ impl Randr {
             }
             CardCommand::DirectScanout(ds) => {
                 self.handle_error(randr, |msg| {
-                    eprintln!("Could not modify direct-scanout behavior: {}", msg);
+                    eprintln!("Could not modify direct-scanout behavior: {msg}");
                 });
                 tc.send(jay_randr::SetDirectScanout {
                     self_id: randr,
@@ -1006,7 +1005,7 @@ impl Randr {
             CardCommand::Timing(ts) => match ts.cmd {
                 TimingCmd::SetFlipMargin(sfm) => {
                     self.handle_error(randr, |msg| {
-                        eprintln!("Could not modify the flip margin: {}", msg);
+                        eprintln!("Could not modify the flip margin: {msg}");
                     });
                     tc.send(jay_randr::SetFlipMargin {
                         self_id: randr,
@@ -1017,7 +1016,7 @@ impl Randr {
             },
             CardCommand::PlaneColorPipelines(ps) => {
                 self.handle_error(randr, |msg| {
-                    eprintln!("Could not modify plane-color-pipelines settings: {}", msg);
+                    eprintln!("Could not modify plane-color-pipelines settings: {msg}");
                 });
                 tc.send(jay_randr::SetPlaneColorPipelines {
                     self_id: randr,
@@ -1127,7 +1126,7 @@ impl Randr {
                     true => "enabled",
                     false => "disabled",
                 };
-                write!(f, "{}", s)?;
+                write!(f, "{s}")?;
                 if !dev.plane_color_pipelines_supported {
                     write!(f, " (unsupported)")?;
                 }
@@ -1175,9 +1174,9 @@ impl Randr {
                     &mode_str
                 }
             };
-            println!("        VRR mode: {}", mode);
+            println!("        VRR mode: {mode}");
             if let Some(hz) = o.vrr_cursor_hz {
-                println!("        VRR cursor hz: {}", hz);
+                println!("        VRR cursor hz: {hz}");
             }
         }
         {
@@ -1193,7 +1192,7 @@ impl Randr {
                     &mode_str
                 }
             };
-            println!("        Tearing mode: {}", mode);
+            println!("        Tearing mode: {mode}");
         }
         println!("        position: {} x {}", o.x, o.y);
         println!("        logical size: {} x {}", o.width, o.height);
@@ -1246,13 +1245,13 @@ impl Randr {
             o.supported_eotfs.iter().for_each(|tf| handle_tf(tf));
         }
         if let Some((min, max)) = o.brightness_range {
-            println!("        min brightness: {:>10.4} cd/m^2", min);
-            println!("        max brightness: {:>10.4} cd/m^2", max);
+            println!("        min brightness: {min:>10.4} cd/m^2");
+            println!("        max brightness: {max:>10.4} cd/m^2");
         } else {
             println!("        max brightness: {:>10.4} cd/m^2 (implied)", 80.0);
         }
         if let Some(lux) = o.brightness {
-            println!("        brightness:     {:>10.4} cd/m^2", lux);
+            println!("        brightness:     {lux:>10.4} cd/m^2");
         }
         if let Some(bs) = &o.blend_space {
             println!("        blend space: {bs}");
@@ -1295,7 +1294,7 @@ impl Randr {
     }
 
     fn print_mode(&self, m: &Mode, print_current: bool) {
-        print!("{}", m);
+        print!("{m}");
         if print_current && m.current {
             print!(" (current)");
         }

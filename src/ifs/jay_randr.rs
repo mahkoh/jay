@@ -287,9 +287,9 @@ impl JayRandr {
             return Some(candidates[0].clone());
         }
         if candidates.len() == 0 {
-            self.send_error(&format!("Found no device matching `{}`", name));
+            self.send_error(&format!("Found no device matching `{name}`"));
         } else {
-            self.send_error(&format!("The device suffix `{}` is ambiguous", name));
+            self.send_error(&format!("The device suffix `{name}` is ambiguous"));
         }
         None
     }
@@ -306,7 +306,7 @@ impl JayRandr {
                 return Some(c.clone());
             }
         }
-        self.send_error(&format!("Found no connector matching `{}`", name));
+        self.send_error(&format!("Found no connector matching `{name}`"));
         None
     }
 
@@ -475,7 +475,7 @@ impl JayRandrRequestHandler for JayRandr {
             s.non_desktop_override = non_desktop;
         });
         if let Err(e) = res {
-            self.send_error(&format!("Could not change non-desktop override: {}", e));
+            self.send_error(&format!("Could not change non-desktop override: {e}"));
         }
         Ok(())
     }
@@ -527,7 +527,7 @@ impl JayRandrRequestHandler for JayRandr {
         };
         let res = c.modify_state(&self.state, |s| s.format = format);
         if let Err(e) = res {
-            self.send_error(&format!("Could not modify connector format: {}", e));
+            self.send_error(&format!("Could not modify connector format: {e}"));
         }
         Ok(())
     }

@@ -63,7 +63,7 @@ fn bind_socket(
 ) -> Result<EiAllocatedSocket, EiAcceptorError> {
     let mut addr: c::sockaddr_un = uapi::pod_zeroed();
     addr.sun_family = c::AF_UNIX as _;
-    let name = format!("eis-{}", id);
+    let name = format!("eis-{id}");
     let path = format_ustr!("{}/{}", xrd, name);
     let lock_path = format_ustr!("{}.lock", path.display());
     if path.len() + 1 > addr.sun_path.len() {

@@ -1332,7 +1332,7 @@ impl ConnectorType {
 impl Display for ConnectorType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            Self::Unknown(n) => return write!(f, "Unknown({})", n),
+            Self::Unknown(n) => return write!(f, "Unknown({n})"),
             Self::VGA => "VGA",
             Self::DVII => "DVI-I",
             Self::DVID => "DVI-D",

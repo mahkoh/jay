@@ -203,10 +203,10 @@ impl DbusSocket {
             T::MEMBER
         );
         if let Some(sender) = sender {
-            let _ = write!(rule, ",sender='{}'", sender);
+            let _ = write!(rule, ",sender='{sender}'");
         }
         if let Some(path) = path {
-            let _ = write!(rule, ",path='{}'", path);
+            let _ = write!(rule, ",path='{path}'");
         }
         let shd: SignalHandlerData<T, _> = SignalHandlerData {
             path: path.map(|s| s.to_owned()),

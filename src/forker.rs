@@ -270,7 +270,7 @@ impl ForkerProxy {
             5 => Level::Trace,
             _ => Level::Error,
         };
-        log::log!(level, "{}", msg);
+        log::log!(level, "{msg}");
     }
 
     async fn outgoing(self: Rc<Self>, state: Rc<State>) {
@@ -357,7 +357,7 @@ impl Forker {
             Box::new(move |pi| {
                 let msg = ForkerMessage::Log {
                     level: Level::Error as _,
-                    msg: format!("The ol' forker panicked: {}", pi),
+                    msg: format!("The ol' forker panicked: {pi}"),
                 };
                 let msg = bincode_ops().serialize(&msg).unwrap();
                 let _ = Fd::new(socket).write_all(&msg);
@@ -481,7 +481,7 @@ impl Forker {
                         if s.len() > 0 {
                             slf.outgoing.push(ForkerMessage::Log {
                                 level: Level::Error as _,
-                                msg: format!("Could not spawn `{}`: {}", prog, s),
+                                msg: format!("Could not spawn `{prog}`: {s}"),
                             });
                             slf.fail_pidfd(pidfd_id);
                         } else {

@@ -300,7 +300,7 @@ impl VirtualOutputs {
             id,
             kernel_id,
             output_id: OutputId::new(kernel_id.to_string(), "Jay", "VirtualOutput", name),
-            name: format!("VO-{}", name),
+            name: format!("VO-{name}"),
             frontend_state: Default::default(),
             needs_format_update: Default::default(),
             events: Default::default(),
@@ -722,7 +722,7 @@ impl VirtualOutput {
             loop {
                 let next_vblank = handle_vblank();
                 if let Err(e) = self.state.ring.timeout(next_vblank).await {
-                    log::error!("Could not wait for next vblank: {}", e);
+                    log::error!("Could not wait for next vblank: {e}");
                     return;
                 }
                 self.need_vblank.triggered().await;

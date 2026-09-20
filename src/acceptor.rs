@@ -74,7 +74,7 @@ fn bind_socket(
 ) -> Result<AllocatedSocket, AcceptorError> {
     let mut addr: c::sockaddr_un = uapi::pod_zeroed();
     addr.sun_family = c::AF_UNIX as _;
-    let name = format!("wayland-{}", id);
+    let name = format!("wayland-{id}");
     let path = format_ustr!("{}/{}", xrd, name);
     let jay_path = format_ustr!("{}.jay", path.display());
     let lock_path = format_ustr!("{}.lock", path.display());

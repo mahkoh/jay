@@ -218,7 +218,7 @@ impl Dbus {
             log::warn!("{} is invalid", DBUS_SESSION_BUS_ADDRESS.as_env());
             None
         };
-        log::info!("dbus path = {:?}", user_path);
+        log::info!("dbus path = {user_path:?}");
         Self {
             eng: eng.clone(),
             ring: ring.clone(),

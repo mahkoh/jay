@@ -94,7 +94,7 @@ impl UsrJayEiSessionOwner for StartingRemoteDesktop {
     }
 
     fn failed(&self, reason: &str) {
-        log::error!("Could not create session: {}", reason);
+        log::error!("Could not create session: {reason}");
         self.session.reply_err(reason);
         self.session.kill();
     }
@@ -244,7 +244,7 @@ fn dbus_create_session(
     req: CreateSession<'_>,
     reply: PendingReply<CreateSessionReply<'static>>,
 ) {
-    log::info!("Create remote desktop session {:#?}", req);
+    log::info!("Create remote desktop session {req:#?}");
     if state.sessions.contains(req.session_handle.0.deref()) {
         reply.err("Session already exists");
         return;
@@ -314,7 +314,7 @@ fn get_session<T>(
 ) -> Option<Rc<PortalSession>> {
     let res = state.sessions.get(handle);
     if res.is_none() {
-        let msg = format!("Remote desktop session `{}` does not exist", handle);
+        let msg = format!("Remote desktop session `{handle}` does not exist");
         reply.err(&msg);
     }
     res

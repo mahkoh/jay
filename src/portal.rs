@@ -301,7 +301,7 @@ async fn init_dbus_session(dbus: &Dbus, logger: Arc<Logger>, path_sink: OwnedFd)
         .await;
     match rv {
         Ok(r) if r.get().rv == DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER => {
-            log::info!("Acquired unique name {}", UNIQUE_NAME);
+            log::info!("Acquired unique name {UNIQUE_NAME}");
             let log_file = logger.redirect("portal");
             log::info!("version = {VERSION}");
             let sink = BufWriter::new(path_sink);

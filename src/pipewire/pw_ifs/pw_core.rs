@@ -61,7 +61,7 @@ impl PwCore {
         log::info!(
             "info: id={id}, cookie={cookie}, user_name={user_name}, host_name={host_name}, version_name={version_name}, name={name}, change_mask={change_mask}"
         );
-        log::info!("dict: {:#?}", dict);
+        log::info!("dict: {dict:#?}");
         Ok(())
     }
 
@@ -138,7 +138,7 @@ impl PwCore {
             SPA_DATA_MemFd => PwMemType::MemFd,
             SPA_DATA_DmaBuf => PwMemType::DmaBuf,
             _ => {
-                log::error!("Ignoring unknown mem type {:?}", ty);
+                log::error!("Ignoring unknown mem type {ty:?}");
                 return Ok(());
             }
         };
