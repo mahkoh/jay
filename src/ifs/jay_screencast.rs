@@ -303,7 +303,7 @@ impl JayScreencast {
         }
         self.client.event(ConfigAllowAllWorkspaces {
             self_id: self.id,
-            allow_all: self.show_all.get() as _,
+            allow_all: self.show_all.get(),
         });
         for &ws in self.show_workspaces.borrow_mut().iter() {
             self.client.event(ConfigAllowWorkspace {
@@ -313,11 +313,11 @@ impl JayScreencast {
         }
         self.client.event(ConfigUseLinearBuffers {
             self_id: self.id,
-            use_linear: self.linear.get() as _,
+            use_linear: self.linear.get(),
         });
         self.client.event(ConfigRunning {
             self_id: self.id,
-            running: self.running.get() as _,
+            running: self.running.get(),
         });
         self.client.event(ConfigDone {
             self_id: self.id,

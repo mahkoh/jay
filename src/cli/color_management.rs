@@ -87,7 +87,7 @@ impl ColorManagement {
         let tc = &self.tc;
         tc.send(jay_color_management::SetEnabled {
             self_id: id,
-            enabled: enabled as _,
+            enabled,
         });
         tc.round_trip().await;
     }

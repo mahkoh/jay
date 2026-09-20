@@ -64,7 +64,7 @@ impl JayWorkspace {
     pub fn send_visible(&self, visible: bool) {
         self.client.event(Visible {
             self_id: self.id,
-            visible: visible as _,
+            visible,
         });
     }
 

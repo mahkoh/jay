@@ -87,7 +87,7 @@ impl JayInput {
             name: data.seat_name(),
             repeat_rate: data.get_rate().0,
             repeat_delay: data.get_rate().1,
-            hardware_cursor: data.cursor_group().hardware_cursor() as _,
+            hardware_cursor: data.cursor_group().hardware_cursor(),
         });
     }
 
@@ -133,7 +133,7 @@ impl JayInput {
             devnode: data.data.devnode.as_deref().unwrap_or_default(),
             name: dev.name().as_str(),
             capabilities: &caps,
-            accel_available: accel_profile.is_some() as _,
+            accel_available: accel_profile.is_some(),
             accel_profile: match accel_profile {
                 None => 0,
                 Some(p) => match p {
@@ -142,15 +142,15 @@ impl JayInput {
                 },
             },
             accel_speed: dev.accel_speed().unwrap_or_default(),
-            left_handed_available: left_handed.is_some() as _,
-            left_handed: left_handed.unwrap_or_default() as _,
-            natural_scrolling_available: natural_scrolling.is_some() as _,
-            natural_scrolling_enabled: natural_scrolling.unwrap_or_default() as _,
+            left_handed_available: left_handed.is_some(),
+            left_handed: left_handed.unwrap_or_default(),
+            natural_scrolling_available: natural_scrolling.is_some(),
+            natural_scrolling_enabled: natural_scrolling.unwrap_or_default(),
             px_per_wheel_scroll: data.data.px_per_scroll_wheel.get(),
-            tap_available: tap_enabled.is_some() as _,
-            tap_enabled: tap_enabled.unwrap_or_default() as _,
-            tap_drag_enabled: dev.drag_enabled().unwrap_or_default() as _,
-            tap_drag_lock_enabled: dev.drag_lock_enabled().unwrap_or_default() as _,
+            tap_available: tap_enabled.is_some(),
+            tap_enabled: tap_enabled.unwrap_or_default(),
+            tap_drag_enabled: dev.drag_enabled().unwrap_or_default(),
+            tap_drag_lock_enabled: dev.drag_lock_enabled().unwrap_or_default(),
             transform_matrix: transform_matrix
                 .as_ref()
                 .map(uapi::as_bytes)
@@ -199,7 +199,7 @@ impl JayInput {
         {
             self.client.event(MiddleButtonEmulation {
                 self_id: self.id,
-                middle_button_emulation_enabled: middle_button_emulation as _,
+                middle_button_emulation_enabled: middle_button_emulation,
             });
         }
         if self.version >= SCROLL_METHOD_SINCE {

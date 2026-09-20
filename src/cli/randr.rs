@@ -765,7 +765,7 @@ impl Randr {
                 });
             }
             OutputCommand::Enable | OutputCommand::Disable => {
-                let (enable, name) = match args.command {
+                let (enabled, name) = match args.command {
                     OutputCommand::Enable => (true, "enable"),
                     _ => (false, "disable"),
                 };
@@ -775,7 +775,7 @@ impl Randr {
                 tc.send(jay_randr::SetEnabled {
                     self_id: randr,
                     output: &args.output,
-                    enabled: enable as _,
+                    enabled,
                 });
             }
             OutputCommand::NonDesktop(a) => {
@@ -919,7 +919,7 @@ impl Randr {
                 tc.send(jay_randr::SetUseNativeGamut {
                     self_id: randr,
                     output: &args.output,
-                    use_native_gamut: a.use_native_gamut as _,
+                    use_native_gamut: a.use_native_gamut,
                 });
             }
             OutputCommand::ScalingFilter(a) => {

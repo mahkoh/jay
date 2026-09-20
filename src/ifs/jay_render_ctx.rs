@@ -38,7 +38,7 @@ impl JayRenderCtx {
                                 self_id: self.id,
                                 format: format.format.drm,
                                 modifier: *modifier,
-                                needs_render_usage: gwm.needs_render_usage as _,
+                                needs_render_usage: gwm.needs_render_usage,
                             });
                         } else {
                             self.client.event(WriteModifier {
