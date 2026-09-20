@@ -329,10 +329,7 @@ impl FloatNode {
 
     fn perform_layout(self: &Rc<Self>) {
         let ns = &self.node_state[LiveTL];
-        let child = match ns.child.get() {
-            Some(c) => c,
-            _ => return,
-        };
+        let Some(child) = ns.child.get() else { return };
         let pos = ns.position.get();
         let theme = &ns.theme;
         let bw = theme.sizes.border_width.get();
@@ -366,9 +363,8 @@ impl FloatNode {
         };
         let font = theme.title_font.get();
         let title = self.title.borrow_mut();
-        let ctx = match self.state.render_ctx.get() {
-            Some(c) => c,
-            _ => return on_completed.event(),
+        let Some(ctx) = self.state.render_ctx.get() else {
+            return on_completed.event();
         };
         let scales = self.state.scales.lock();
         let tr = ns.title_rect.get();
@@ -684,9 +680,8 @@ impl FloatNode {
     }
 
     fn pull_child_properties(self: &Rc<Self>) {
-        let child = match self.node_state[LiveTL].child.get() {
-            None => return,
-            Some(c) => c,
+        let Some(child) = self.node_state[LiveTL].child.get() else {
+            return;
         };
         let data = child.tl_data();
         let activation_requested = data.wants_attention.get();
@@ -750,9 +745,8 @@ impl FloatNode {
         pressed: bool,
     ) {
         let mut cursors = self.cursors.borrow_mut();
-        let cursor_data = match cursors.get_mut(&id) {
-            Some(s) => s,
-            _ => return,
+        let Some(cursor_data) = cursors.get_mut(&id) else {
+            return;
         };
         let ns = &self.node_state[LiveTL];
         let theme = &ns.theme;
@@ -1175,9 +1169,8 @@ impl NodeBase for FloatNode {
         if y < bw + tpuh || y >= pos.height() - bw {
             return FindTreeResult::AcceptsInput;
         }
-        let child = match ns.child.get() {
-            Some(c) => c,
-            _ => return FindTreeResult::Other,
+        let Some(child) = ns.child.get() else {
+            return FindTreeResult::Other;
         };
         let x = x - bw;
         let y = y - bw - tpuh;

@@ -216,13 +216,10 @@ impl WlPointerRequestHandler for WlPointer {
             cursor.set_hotspot(req.hotspot_x, req.hotspot_y);
             cursor_opt = Some(cursor as Rc<dyn Cursor>);
         }
-        let pointer_node = match self.seat.global.pointer_node() {
-            Some(n) => n,
-            _ => {
-                // cannot happen
-                log::warn!("ignoring wl_pointer.set_cursor (1)");
-                return Ok(());
-            }
+        let Some(pointer_node) = self.seat.global.pointer_node() else {
+            // cannot happen
+            log::warn!("ignoring wl_pointer.set_cursor (1)");
+            return Ok(());
         };
         if pointer_node.node_client_id() != Some(self.seat.client.id) {
             // log::warn!("ignoring wl_pointer.set_cursor (2)");

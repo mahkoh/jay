@@ -2315,10 +2315,7 @@ impl ConfigProxyHandler {
     fn handle_get_input_devices(&self, seat: Option<Seat>) {
         let id = seat.map(|s| SeatId::from_raw(s.0 as _));
         let matches = |dhd: &DeviceHandlerData| {
-            let id = match id {
-                Some(id) => id,
-                _ => return true,
-            };
+            let Some(id) = id else { return true };
             if let Some(seat) = dhd.seat.get() {
                 return seat.id() == id;
             }
@@ -2367,9 +2364,8 @@ impl ConfigProxyHandler {
             .into_iter()
             .map(|(a, b)| (a, Rc::new(OwnedFd::new(b))))
             .collect();
-        let forker = match self.state.forker.get() {
-            Some(f) => f,
-            _ => return Err(CphError::NoForker),
+        let Some(forker) = self.state.forker.get() else {
+            return Err(CphError::NoForker);
         };
         let env = env.into_iter().map(|(k, v)| (k, Some(v))).collect();
         forker.spawn(prog.to_string(), args, env, fds);

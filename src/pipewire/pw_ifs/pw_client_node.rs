@@ -569,12 +569,9 @@ impl PwClientNode {
         port: &Rc<PwClientNodePort>,
         obj: Option<PwPodObject<'_>>,
     ) -> Result<(), PwClientNodeError> {
-        let mut obj = match obj {
-            Some(obj) => obj,
-            _ => {
-                port.negotiated_format.take();
-                return Ok(());
-            }
+        let Some(mut obj) = obj else {
+            port.negotiated_format.take();
+            return Ok(());
         };
         let mut format = PwClientNodePortFormat::default();
         if let Some(mt) = obj.get_param(SPA_FORMAT_mediaType.0)? {

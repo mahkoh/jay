@@ -83,9 +83,8 @@ impl ZwpLinuxBufferParamsV1 {
             Some(f) => *f,
             None => return Err(ZwpLinuxBufferParamsV1Error::InvalidFormat(format)),
         };
-        let modifier = match self.modifier.get() {
-            Some(m) => m,
-            _ => return Err(ZwpLinuxBufferParamsV1Error::NoPlanes),
+        let Some(modifier) = self.modifier.get() else {
+            return Err(ZwpLinuxBufferParamsV1Error::NoPlanes);
         };
         let mut planes: Vec<_> = self.planes.borrow_mut().drain_values().collect();
         planes.sort_by_key(|a| a.plane_idx);

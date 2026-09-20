@@ -566,14 +566,12 @@ impl WindowData {
     }
 
     fn layout(&self) {
-        let ctx = match self.dpy.render_ctx.get() {
-            Some(ctx) => ctx,
-            _ => return,
+        let Some(ctx) = self.dpy.render_ctx.get() else {
+            return;
         };
         let scale = self.scale.get().to_f64() as f32;
-        let content = match self.content.get() {
-            Some(c) => c,
-            _ => return,
+        let Some(content) = self.content.get() else {
+            return;
         };
         let (mut width, mut height) =
             content.layout(&ctx.ctx.ctx, scale, f32::INFINITY, f32::INFINITY);
@@ -680,24 +678,19 @@ impl WindowData {
                 buf.wl.con.remove_obj(buf.wl.deref());
             }
         }
-        let ctx = match self.dpy.render_ctx.get() {
-            Some(ctx) => ctx,
-            _ => return,
+        let Some(ctx) = self.dpy.render_ctx.get() else {
+            return;
         };
-        let dmabuf = match self.dpy.dmabuf.get() {
-            Some(dmabuf) => dmabuf,
-            _ => return,
+        let Some(dmabuf) = self.dpy.dmabuf.get() else {
+            return;
         };
         self.frame_missed.set(true);
         let width = (self.width.get() as f64 * self.scale.get().to_f64()).round() as i32;
         let height = (self.height.get() as f64 * self.scale.get().to_f64()).round() as i32;
         let formats = &ctx.usable_formats;
-        let format = match formats.get(&ARGB8888.drm) {
-            None => {
-                log::error!("Render context does not support ARGB8888 format");
-                return;
-            }
-            Some(f) => f,
+        let Some(format) = formats.get(&ARGB8888.drm) else {
+            log::error!("Render context does not support ARGB8888 format");
+            return;
         };
         if format.write_modifiers.is_empty() {
             log::error!("Render context cannot render to ARGB8888 format");
@@ -748,9 +741,8 @@ impl WindowData {
     }
 
     fn tree_at(&self, tree: &mut Vec<Rc<dyn GuiElement>>, mut x: f32, mut y: f32) {
-        let mut element = match self.content.get() {
-            Some(e) => e,
-            _ => return,
+        let Some(mut element) = self.content.get() else {
+            return;
         };
         tree.push(element.clone());
         while let Some(c) = element.child_at(x, y) {
@@ -808,9 +800,8 @@ impl WindowData {
     }
 
     pub fn button(&self, pseat: &PortalSeat, button: u32, state: u32) {
-        let seat = match self.seats.get(&pseat.global_id) {
-            Some(s) => s,
-            _ => return,
+        let Some(seat) = self.seats.get(&pseat.global_id) else {
+            return;
         };
         let element = seat.tree.borrow_mut().last().cloned();
         if let Some(e) = element {

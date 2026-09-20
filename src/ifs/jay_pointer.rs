@@ -28,16 +28,12 @@ impl JayPointerRequestHandler for JayPointer {
     }
 
     fn set_known_cursor(&self, req: SetKnownCursor, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let cursor = match KnownCursor::from_u32(req.idx) {
-            Some(c) => c,
-            _ => return Err(JayPointerError::OutOfBounds),
+        let Some(cursor) = KnownCursor::from_u32(req.idx) else {
+            return Err(JayPointerError::OutOfBounds);
         };
-        let pointer_node = match self.seat.pointer_node() {
-            Some(n) => n,
-            _ => {
-                // cannot happen
-                return Ok(());
-            }
+        let Some(pointer_node) = self.seat.pointer_node() else {
+            // cannot happen
+            return Ok(());
         };
         if pointer_node.node_client_id() != Some(self.client.id) {
             return Ok(());

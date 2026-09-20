@@ -108,19 +108,16 @@ impl JayRandr {
         let Some(output) = self.client.state.outputs.get(&data.connector.id()) else {
             return;
         };
-        let node = match &output.node {
-            Some(n) => n,
-            None => {
-                self.client.event(NonDesktopOutput {
-                    self_id: self.id,
-                    manufacturer: &output.monitor_info.output_id.manufacturer,
-                    product: &output.monitor_info.output_id.model,
-                    serial_number: &output.monitor_info.output_id.serial_number,
-                    width_mm: output.monitor_info.width_mm,
-                    height_mm: output.monitor_info.height_mm,
-                });
-                return;
-            }
+        let Some(node) = &output.node else {
+            self.client.event(NonDesktopOutput {
+                self_id: self.id,
+                manufacturer: &output.monitor_info.output_id.manufacturer,
+                product: &output.monitor_info.output_id.model,
+                serial_number: &output.monitor_info.output_id.serial_number,
+                width_mm: output.monitor_info.width_mm,
+                height_mm: output.monitor_info.height_mm,
+            });
+            return;
         };
         let global = &node.global;
         let ons = &node.node_state[LiveTL];

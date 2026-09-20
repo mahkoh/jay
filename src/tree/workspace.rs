@@ -592,12 +592,9 @@ impl ContainingNode for WorkspaceNode {
         if let Some(container) = self.node_state[LiveTL].container.get()
             && container.node_id() == old.node_id()
         {
-            let new = match new.node_into_container() {
-                Some(c) => c,
-                _ => {
-                    log::error!("cnode_replace_child called with non-container new");
-                    return;
-                }
+            let Some(new) = new.node_into_container() else {
+                log::error!("cnode_replace_child called with non-container new");
+                return;
             };
             self.set_container(&new);
             return;

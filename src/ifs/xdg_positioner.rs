@@ -191,18 +191,16 @@ impl XdgPositionerRequestHandler for XdgPositioner {
     }
 
     fn set_anchor(&self, req: SetAnchor, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let anchor = match Edge::from_enum(req.anchor) {
-            Some(a) => a,
-            _ => return Err(XdgPositionerError::UnknownAnchor(req.anchor)),
+        let Some(anchor) = Edge::from_enum(req.anchor) else {
+            return Err(XdgPositionerError::UnknownAnchor(req.anchor));
         };
         self.position.borrow_mut().anchor = anchor;
         Ok(())
     }
 
     fn set_gravity(&self, req: SetGravity, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let gravity = match Edge::from_enum(req.gravity) {
-            Some(a) => a,
-            _ => return Err(XdgPositionerError::UnknownGravity(req.gravity)),
+        let Some(gravity) = Edge::from_enum(req.gravity) else {
+            return Err(XdgPositionerError::UnknownGravity(req.gravity));
         };
         self.position.borrow_mut().gravity = gravity;
         Ok(())

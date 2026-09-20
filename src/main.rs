@@ -46,6 +46,7 @@
     unsafe_op_in_unsafe_fn, //
     elided_lifetimes_in_paths,
     clippy::semicolon_if_nothing_returned,
+    clippy::manual_let_else,
 )]
 
 #[macro_use]

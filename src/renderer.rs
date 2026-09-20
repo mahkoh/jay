@@ -617,10 +617,7 @@ impl Renderer<'_> {
 
     pub fn render_floating(&mut self, floating: &FloatNode, x: i32, y: i32) {
         let ns = &floating.node_state[RenderTL];
-        let child = match ns.child.get() {
-            Some(c) => c,
-            _ => return,
-        };
+        let Some(child) = ns.child.get() else { return };
         let pos = ns.position.get();
         let theme = &ns.theme;
         let colors = &theme.colors;

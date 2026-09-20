@@ -266,13 +266,11 @@ impl WlSubsurface {
                     _ => pdata.below.add_last(element),
                 }
             } else {
-                let sibling = match pdata.subsurfaces.get(&sibling) {
-                    Some(s) => s,
-                    _ => return Err(WlSubsurfaceError::NotASibling(sibling, self.surface.id)),
+                let Some(sibling) = pdata.subsurfaces.get(&sibling) else {
+                    return Err(WlSubsurfaceError::NotASibling(sibling, self.surface.id));
                 };
-                let sibling_node = match sibling.latest_node.get() {
-                    Some(n) => n,
-                    _ => return Ok(()),
+                let Some(sibling_node) = sibling.latest_node.get() else {
+                    return Ok(());
                 };
                 match above {
                     true => sibling_node.append(element),

@@ -456,9 +456,8 @@ impl XBackend {
     ) -> Result<[XImage; 2], XBackendError> {
         let mut images = [None, None];
         let formats = self.ctx.formats();
-        let format = match formats.get(&FORMAT.drm) {
-            Some(f) => f,
-            None => return Err(XBackendError::XRGB8888),
+        let Some(format) = formats.get(&FORMAT.drm) else {
+            return Err(XBackendError::XRGB8888);
         };
         for image in &mut images {
             let bo = self.gbm.create_bo(
@@ -783,9 +782,8 @@ impl XBackend {
     fn handle_present_complete(self: &Rc<Self>, event: &Event) -> Result<(), XBackendError> {
         let event: PresentCompleteNotify = event.parse()?;
         let window = event.window;
-        let output = match self.outputs.get(&window) {
-            Some(o) => o,
-            _ => return Ok(()),
+        let Some(output) = self.outputs.get(&window) else {
+            return Ok(());
         };
         output.next_msc.set(event.msc + 1);
         let image = &output.images[output.next_image.get() % output.images.len()];
@@ -800,9 +798,8 @@ impl XBackend {
 
     fn handle_present_idle(self: &Rc<Self>, event: &Event) -> Result<(), XBackendError> {
         let event: PresentIdleNotify = event.parse()?;
-        let output = match self.outputs.get(&event.window) {
-            Some(o) => o,
-            _ => return Ok(()),
+        let Some(output) = self.outputs.get(&event.window) else {
+            return Ok(());
         };
         let mut matched_any = false;
         for image in &output.images {
@@ -1000,12 +997,11 @@ impl XBackend {
 
     fn handle_input_motion(&self, event: &Event) -> Result<(), XBackendError> {
         let event: XiMotion<'_> = event.parse()?;
-        let (win, seat) = match (
+        let (Some(win), Some(seat)) = (
             self.outputs.get(&event.event),
             self.mouse_seats.get(&event.deviceid),
-        ) {
-            (Some(a), Some(b)) => (a, b),
-            _ => return Ok(()),
+        ) else {
+            return Ok(());
         };
         seat.mouse_event(InputEvent::ConnectorPosition {
             time_usec: self.state.now_nsec(),
@@ -1019,9 +1015,8 @@ impl XBackend {
     fn handle_destroy(&self, event: &Event) -> Result<(), XBackendError> {
         self.state.ring.stop();
         let event: DestroyNotify = event.parse()?;
-        let output = match self.outputs.remove(&event.event) {
-            Some(o) => o,
-            _ => return Ok(()),
+        let Some(output) = self.outputs.remove(&event.event) else {
+            return Ok(());
         };
         output.events.push(ConnectorEvent::Disconnected);
         output.events.push(ConnectorEvent::Removed);
@@ -1031,9 +1026,8 @@ impl XBackend {
 
     async fn handle_configure(&self, event: &Event) -> Result<(), XBackendError> {
         let event: ConfigureNotify = event.parse()?;
-        let output = match self.outputs.get(&event.event) {
-            Some(o) => o,
-            _ => return Ok(()),
+        let Some(output) = self.outputs.get(&event.event) else {
+            return Ok(());
         };
         let width = event.width as i32;
         let height = event.height as i32;

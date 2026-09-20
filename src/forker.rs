@@ -396,12 +396,9 @@ impl Forker {
     async fn incoming(self: Rc<Self>) {
         let mut io = IoIn::new(&self.socket, &self.ring);
         loop {
-            let msg = match io.read_msg().await {
-                Ok(m) => m,
-                _ => {
-                    self.ring.stop();
-                    return;
-                }
+            let Ok(msg) = io.read_msg().await else {
+                self.ring.stop();
+                return;
             };
             self.handle_msg(msg, &mut io);
         }

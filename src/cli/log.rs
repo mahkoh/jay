@@ -48,9 +48,8 @@ async fn run(global: &GlobalArgs, log: Rc<Log>) {
     });
     tc.round_trip().await;
     let path = log.path.borrow_mut();
-    let path = match path.deref() {
-        Some(p) => p,
-        _ => fatal!("Server did not send the path of the log file"),
+    let Some(path) = path.deref() else {
+        fatal!("Server did not send the path of the log file")
     };
     if log.args.path {
         if global.json {

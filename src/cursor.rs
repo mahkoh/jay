@@ -411,9 +411,8 @@ struct StaticCursor {
 
 fn render_img(image: &InstantiatedCursorImage, renderer: &mut Renderer<'_>, x: Fixed, y: Fixed) {
     let scale = renderer.scale();
-    let img = match image.scales.get(&scale) {
-        Some(img) => img,
-        _ => return,
+    let Some(img) = image.scales.get(&scale) else {
+        return;
     };
     let extents = if scale != 1 {
         let scalef = scale.to_f64();
@@ -548,9 +547,8 @@ fn open_cursor(
             }
         }
     }
-    let file = match file {
-        Some(f) => f,
-        _ => return Err(CursorError::NotFound),
+    let Some(file) = file else {
+        return Err(CursorError::NotFound);
     };
     let mut file = BufReader::new(file);
     parser_cursor_file(&mut file, scales, sizes)
@@ -621,9 +619,8 @@ fn find_cursor_paths() -> Vec<BString> {
 fn find_parent_themes(path: &[u8]) -> Option<Vec<BString>> {
     // NOTE: The files we're reading here are really INI files with a hierarchy. This
     // algorithm treats it as a flat list and is inherited from libxcursor.
-    let file = match File::open(path.to_os_str().unwrap()) {
-        Ok(f) => f,
-        _ => return None,
+    let Ok(file) = File::open(path.to_os_str().unwrap()) else {
+        return None;
     };
     let mut buf_reader = BufReader::new(file);
     let mut buf = vec![];
@@ -633,9 +630,8 @@ fn find_parent_themes(path: &[u8]) -> Option<Vec<BString>> {
             Ok(n) if n > 0 => {}
             _ => return None,
         }
-        let mut suffix = match buf.strip_prefix(b"Inherits") {
-            Some(s) => s,
-            _ => continue,
+        let Some(mut suffix) = buf.strip_prefix(b"Inherits") else {
+            continue;
         };
         while suffix.first() == Some(&b' ') {
             suffix = &suffix[1..];

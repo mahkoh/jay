@@ -6,9 +6,8 @@ use std::rc::Rc;
 
 pub async fn handle_hardware_cursor_tick(state: Rc<State>) {
     loop {
-        let cursor = match state.hardware_tick_cursor.pop().await {
-            Some(c) => c,
-            _ => continue,
+        let Some(cursor) = state.hardware_tick_cursor.pop().await else {
+            continue;
         };
         if !cursor.needs_tick() {
             continue;

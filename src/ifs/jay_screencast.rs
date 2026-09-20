@@ -344,9 +344,8 @@ impl JayScreencast {
         }
         let ons = &on.node_state[RenderTL];
         if !self.show_all.get() {
-            let ws = match ons.workspace.get() {
-                Some(ws) => ws,
-                _ => return,
+            let Some(ws) = ons.workspace.get() else {
+                return;
             };
             if !self.show_workspaces.borrow_mut().contains(&ws.id) {
                 return;
@@ -448,9 +447,8 @@ impl JayScreencast {
         self.need_realloc_or_reconfigure.set(false);
         let mut buffers = vec![];
         let formats = ctx.formats();
-        let format = match formats.get(&XRGB8888.drm) {
-            Some(f) => f,
-            _ => return Err(JayScreencastError::XRGB8888),
+        let Some(format) = formats.get(&XRGB8888.drm) else {
+            return Err(JayScreencastError::XRGB8888);
         };
         if let Some(target) = self.target.get() {
             let (width, height) = target_size(Some(&target));

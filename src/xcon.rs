@@ -925,17 +925,14 @@ impl XconData {
 }
 
 fn parse_display() -> Result<u32, XconError> {
-    let display = match *DISPLAY {
-        Some(d) => d,
-        _ => return Err(XconError::DisplayNotSet),
+    let Some(display) = *DISPLAY else {
+        return Err(XconError::DisplayNotSet);
     };
-    let num = match display.strip_prefix(":") {
-        Some(p) => p,
-        _ => return Err(XconError::InvalidDisplayFormat),
+    let Some(num) = display.strip_prefix(":") else {
+        return Err(XconError::InvalidDisplayFormat);
     };
-    let num = match num.parse() {
-        Ok(v) => v,
-        _ => return Err(XconError::InvalidDisplayFormat),
+    let Ok(num) = num.parse() else {
+        return Err(XconError::InvalidDisplayFormat);
     };
     Ok(num)
 }

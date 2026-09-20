@@ -135,9 +135,10 @@ impl ButtonOwner for StaticButton {
         match self.role {
             ButtonRole::Accept => {
                 log::info!("User has accepted the request");
-                let selecting = match self.surface.gui.remote_desktop_session.rd_phase.get() {
-                    RemoteDesktopPhase::Selecting(selecting) => selecting,
-                    _ => return,
+                let RemoteDesktopPhase::Selecting(selecting) =
+                    self.surface.gui.remote_desktop_session.rd_phase.get()
+                else {
+                    return;
                 };
                 for gui in selecting.guis.lock().drain_values() {
                     gui.kill(false);

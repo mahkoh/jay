@@ -313,9 +313,8 @@ impl PwConHolder {
             sun_family: c::AF_UNIX as _,
             ..uapi::pod_zeroed()
         };
-        let xrd = match *XDG_RUNTIME_DIR {
-            Some(xrd) => xrd,
-            _ => return Err(PwConError::XrdNotSet),
+        let Some(xrd) = *XDG_RUNTIME_DIR else {
+            return Err(PwConError::XrdNotSet);
         };
         {
             let mut path = uapi::as_bytes_mut(&mut addr.sun_path[..]);

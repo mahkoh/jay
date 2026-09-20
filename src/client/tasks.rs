@@ -79,13 +79,10 @@ async fn receive(data: Rc<Client>) {
                 cold_path();
                 data.requests_unblocked.triggered().await;
             }
-            let obj = match data.objects.get_obj(obj_id) {
-                Ok(obj) => obj,
-                _ => {
-                    display.send_invalid_object(obj_id);
-                    data.shutdown();
-                    return Err(ClientError::InvalidObject(obj_id));
-                }
+            let Ok(obj) = data.objects.get_obj(obj_id) else {
+                display.send_invalid_object(obj_id);
+                data.shutdown();
+                return Err(ClientError::InvalidObject(obj_id));
             };
             let parser = MsgParser::new(fds, body);
             if let Err(e) = obj.handle_request(&data, message, parser) {

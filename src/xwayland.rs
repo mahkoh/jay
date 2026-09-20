@@ -97,12 +97,9 @@ enum XWaylandError {
 
 pub async fn manage(state: Rc<State>) {
     loop {
-        let forker = match state.forker.get() {
-            Some(f) => f,
-            None => {
-                log::error!("There is no forker. Cannot start Xwayland.");
-                return;
-            }
+        let Some(forker) = state.forker.get() else {
+            log::error!("There is no forker. Cannot start Xwayland.");
+            return;
         };
         let (xsocket, socket) = match allocate_socket() {
             Ok(s) => s,

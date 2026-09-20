@@ -52,9 +52,8 @@ pub fn take_screenshot(
     include_cursor: bool,
     hdr10: bool,
 ) -> Result<Screenshot, ScreenshooterError> {
-    let ctx = match state.render_ctx.get() {
-        Some(ctx) => ctx,
-        _ => return Err(ScreenshooterError::NoRenderContext),
+    let Some(ctx) = state.render_ctx.get() else {
+        return Err(ScreenshooterError::NoRenderContext);
     };
     if hdr10 && !ctx.supports_color_management() {
         return Err(ScreenshooterError::NoColorManagementSupport);

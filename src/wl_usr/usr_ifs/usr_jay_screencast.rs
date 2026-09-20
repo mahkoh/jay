@@ -144,9 +144,8 @@ impl JayScreencastEventHandler for UsrJayScreencast {
     }
 
     fn buffer(&self, ev: Buffer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        let format = match formats().get(&ev.format) {
-            Some(f) => f,
-            _ => return Err(UsrJayScreencastError::UnknownFormat(ev.format)),
+        let Some(format) = formats().get(&ev.format) else {
+            return Err(UsrJayScreencastError::UnknownFormat(ev.format));
         };
         self.pending_buffers.borrow_mut().push(DmaBuf::new(
             &self.con.dma_buf_ids,

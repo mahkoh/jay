@@ -56,10 +56,7 @@ impl MetalBackend {
                 _ => {}
             }
             while let Some(dev) = self.monitor.receive_device() {
-                let action = match dev.action() {
-                    Some(c) => c,
-                    _ => continue,
-                };
+                let Some(action) = dev.action() else { continue };
                 match action.to_bytes() {
                     b"add" => self.handle_device_add(dev),
                     b"change" => self.handle_device_change(dev),
@@ -84,9 +81,8 @@ impl MetalBackend {
 
     pub fn handle_device_resume(self: &Rc<Self>, resume: ResumeDevice) {
         let dev = uapi::makedev(resume.major as _, resume.minor as _);
-        let dev = match self.device_holder.devices.get(&dev) {
-            Some(d) => d,
-            _ => return,
+        let Some(dev) = self.device_holder.devices.get(&dev) else {
+            return;
         };
         match dev {
             MetalDevice::Input(id) => self.handle_input_device_resume(&id, resume.fd),
@@ -122,9 +118,8 @@ impl MetalBackend {
     }
 
     fn handle_device_removed(self: &Rc<Self>, dev: c::dev_t) {
-        let dev = match self.device_holder.devices.remove(&dev) {
-            Some(d) => d,
-            _ => return,
+        let Some(dev) = self.device_holder.devices.remove(&dev) else {
+            return;
         };
         match dev {
             MetalDevice::Input(id) => self.handle_input_device_removed(&id),
@@ -153,9 +148,8 @@ impl MetalBackend {
     }
 
     fn handle_device_paused(self: &Rc<Self>, dev: c::dev_t) {
-        let dev = match self.device_holder.devices.get(&dev) {
-            Some(d) => d,
-            _ => return,
+        let Some(dev) = self.device_holder.devices.get(&dev) else {
+            return;
         };
         match dev {
             MetalDevice::Input(id) => self.handle_input_device_paused(&id),

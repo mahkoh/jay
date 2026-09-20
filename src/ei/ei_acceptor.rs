@@ -95,9 +95,8 @@ fn bind_socket(
 }
 
 fn allocate_socket() -> Result<EiAllocatedSocket, EiAcceptorError> {
-    let xrd = match *XDG_RUNTIME_DIR {
-        Some(d) => d,
-        _ => return Err(EiAcceptorError::XrdNotSet),
+    let Some(xrd) = *XDG_RUNTIME_DIR else {
+        return Err(EiAcceptorError::XrdNotSet);
     };
     let socket = uapi::socket(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
         .map(Rc::new)

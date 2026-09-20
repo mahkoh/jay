@@ -526,13 +526,10 @@ fn start_compositor2(
 async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
     let is_test = test_future.is_some();
 
-    let backend = match create_backend(&state, test_future).await {
-        Some(b) => b,
-        _ => {
-            log::error!("Could not create a backend");
-            state.ring.stop();
-            return;
-        }
+    let Some(backend) = create_backend(&state, test_future).await else {
+        log::error!("Could not create a backend");
+        state.ring.stop();
+        return;
     };
     state.backend.set(backend.clone());
     state

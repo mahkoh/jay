@@ -119,12 +119,9 @@ impl WlDataSource {
 
     fn update_selected_action(&self) {
         let shared = self.data.shared.get();
-        let server_actions = match self.data.actions.get() {
-            Some(n) => n,
-            _ => {
-                log::error!("Server actions not set");
-                return;
-            }
+        let Some(server_actions) = self.data.actions.get() else {
+            log::error!("Server actions not set");
+            return;
         };
         let actions = server_actions & shared.receiver_actions.get();
         let action = if actions.contains(shared.receiver_preferred_action.get()) {

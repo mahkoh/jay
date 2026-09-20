@@ -548,18 +548,15 @@ impl ToplevelSession {
             self.job.set(Some(ToplevelJob::Roundtrip(job)));
             return;
         };
-        let id = match self.id.get() {
-            Some(id) => id,
-            None => {
-                let job = self.session.add_job(self, |job: &mut ToplevelAcquireJob| {
-                    job.work.name_text = self.name_text.borrow().clone();
-                    job.work.name = self.name.get();
-                    job.work.session_id = session_id;
-                    job.work.restore = self.restore.get();
-                });
-                self.job.set(Some(ToplevelJob::Acquire(job)));
-                return;
-            }
+        let Some(id) = self.id.get() else {
+            let job = self.session.add_job(self, |job: &mut ToplevelAcquireJob| {
+                job.work.name_text = self.name_text.borrow().clone();
+                job.work.name = self.name.get();
+                job.work.session_id = session_id;
+                job.work.restore = self.restore.get();
+            });
+            self.job.set(Some(ToplevelJob::Acquire(job)));
+            return;
         };
         if self.renamed.take() {
             let job = self.session.add_job(self, |job: &mut ToplevelRenameJob| {

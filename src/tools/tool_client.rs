@@ -177,13 +177,11 @@ impl ToolClient {
             Ok(w) => w,
             Err(e) => return Err(ToolClientError::CreateWheel(e)),
         };
-        let xrd = match *XDG_RUNTIME_DIR {
-            Some(d) => d,
-            _ => return Err(ToolClientError::XrdNotSet),
+        let Some(xrd) = *XDG_RUNTIME_DIR else {
+            return Err(ToolClientError::XrdNotSet);
         };
-        let wd = match *WAYLAND_DISPLAY {
-            Some(d) => d,
-            _ => return Err(ToolClientError::WaylandDisplayNotSet),
+        let Some(wd) = *WAYLAND_DISPLAY else {
+            return Err(ToolClientError::WaylandDisplayNotSet);
         };
         let mut path = format_ustr!("{}/{}", xrd, wd);
         let suffix = b".jay";

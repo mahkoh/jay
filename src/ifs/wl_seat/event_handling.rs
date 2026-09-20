@@ -624,9 +624,8 @@ impl WlSeatGlobal {
         mut x: Fixed,
         mut y: Fixed,
     ) {
-        let output = match self.state.root.outputs.get(&connector) {
-            Some(o) => o,
-            _ => return,
+        let Some(output) = self.state.root.outputs.get(&connector) else {
+            return;
         };
         let pos = output.node_state[LiveTL].pos.get();
         x += Fixed::from_int(pos.x1());

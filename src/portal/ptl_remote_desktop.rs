@@ -156,13 +156,10 @@ impl PortalSession {
                 return;
             }
         }
-        let request_obj = match self.state.dbus.add_object(req.handle.to_string()) {
-            Ok(r) => r,
-            Err(_) => {
-                self.kill();
-                reply.err("Request handle is not unique");
-                return;
-            }
+        let Ok(request_obj) = self.state.dbus.add_object(req.handle.to_string()) else {
+            self.kill();
+            reply.err("Request handle is not unique");
+            return;
         };
         {
             use org::freedesktop::impl_::portal::request::*;
@@ -252,12 +249,9 @@ fn dbus_create_session(
         reply.err("Session already exists");
         return;
     }
-    let obj = match state.dbus.add_object(req.session_handle.0.to_string()) {
-        Ok(obj) => obj,
-        Err(_) => {
-            reply.err("Session path is not unique");
-            return;
-        }
+    let Ok(obj) = state.dbus.add_object(req.session_handle.0.to_string()) else {
+        reply.err("Session path is not unique");
+        return;
     };
     let session = Rc::new(PortalSession {
         _id: state.id(),

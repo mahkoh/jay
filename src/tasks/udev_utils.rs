@@ -44,24 +44,18 @@ pub fn udev_props(dev_t: c::dev_t, depth: usize) -> UdevProps {
     res.vendor = dev.vendor().map(|s| s.to_string_lossy().into_owned());
     res.model = dev.model().map(|s| s.to_string_lossy().into_owned());
     {
-        let id = match dev.pci_id() {
-            Some(id) => id,
-            _ => return res,
-        };
+        let Some(id) = dev.pci_id() else { return res };
         let id = id.to_string_lossy();
-        let colon = match id.find(':') {
-            Some(pos) => pos,
-            _ => return res,
+        let Some(colon) = id.find(':') else {
+            return res;
         };
         let vendor = &id[..colon];
         let model = &id[colon + 1..];
-        let vendor = match u32::from_str_radix(vendor, 16) {
-            Ok(v) => v,
-            _ => return res,
+        let Ok(vendor) = u32::from_str_radix(vendor, 16) else {
+            return res;
         };
-        let model = match u32::from_str_radix(model, 16) {
-            Ok(v) => v,
-            _ => return res,
+        let Ok(model) = u32::from_str_radix(model, 16) else {
+            return res;
         };
         res.pci_id = Some(PciId { vendor, model });
     }

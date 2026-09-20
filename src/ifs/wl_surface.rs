@@ -1851,15 +1851,12 @@ impl WlSurface {
 
     fn find_surface_at(self: &Rc<Self>, x: i32, y: i32) -> Option<(Rc<Self>, i32, i32)> {
         let children = self.children.borrow();
-        let children = match children.deref() {
-            Some(c) => c,
-            _ => {
-                return if self.accepts_input_at(x, y) {
-                    Some((self.clone(), x, y))
-                } else {
-                    None
-                };
-            }
+        let Some(children) = children.deref() else {
+            return if self.accepts_input_at(x, y) {
+                Some((self.clone(), x, y))
+            } else {
+                None
+            };
         };
         let ss = |c: &LinkedList<StackElement>| {
             for child in c.rev_iter() {

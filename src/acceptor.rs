@@ -110,9 +110,8 @@ fn bind_socket(
 }
 
 fn allocate_socket() -> Result<AllocatedSocket, AcceptorError> {
-    let xrd = match *XDG_RUNTIME_DIR {
-        Some(d) => d,
-        _ => return Err(AcceptorError::XrdNotSet),
+    let Some(xrd) = *XDG_RUNTIME_DIR else {
+        return Err(AcceptorError::XrdNotSet);
     };
     let mut fds = [None, None];
     for fd in &mut fds {

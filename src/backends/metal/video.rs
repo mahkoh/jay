@@ -1260,15 +1260,12 @@ fn create_connector_display_data(
         if connection != ConnectorStatus::Connected {
             break 'fetch_edid;
         }
-        let edid = match props.get("EDID") {
-            Ok(e) => e,
-            _ => {
-                log::warn!(
-                    "Connector {} is connected but has no EDID blob",
-                    connector_id,
-                );
-                break 'fetch_edid;
-            }
+        let Ok(edid) = props.get("EDID") else {
+            log::warn!(
+                "Connector {} is connected but has no EDID blob",
+                connector_id,
+            );
+            break 'fetch_edid;
         };
         let blob = match dev.master.getblob_vec::<u8>(DrmBlob(edid.value as _)) {
             Ok(b) => b,
@@ -1785,9 +1782,8 @@ impl CollectedProperties {
 
 impl MetalBackend {
     pub fn check_render_context(&self, dev: &Rc<MetalDrmDevice>) -> bool {
-        let ctx = match self.ctx.get() {
-            Some(ctx) => ctx,
-            None => return false,
+        let Some(ctx) = self.ctx.get() else {
+            return false;
         };
         if let Some(r) = ctx
             .gfx
@@ -1833,10 +1829,7 @@ impl MetalBackend {
     // }
 
     pub fn handle_drm_change(self: &Rc<Self>, dev: UdevDevice) -> Option<()> {
-        let dev = match self.device_holder.drm_devices.get(&dev.devnum()) {
-            Some(dev) => dev,
-            _ => return None,
-        };
+        let dev = self.device_holder.drm_devices.get(&dev.devnum())?;
         if let Err(e) = self.handle_drm_change_(&dev) {
             log::error!("Could not handle change of drm device: {}", ErrorFmt(e));
         }
@@ -2333,14 +2326,12 @@ impl MetalBackend {
         time_ns: i64,
         sequence: u64,
     ) {
-        let crtc = match dev.dev.crtcs.get(&crtc_id) {
-            Some(c) => c,
-            _ => return,
+        let Some(crtc) = dev.dev.crtcs.get(&crtc_id) else {
+            return;
         };
         crtc.have_queued_sequence.set(false);
-        let connector = match crtc.connector.get() {
-            Some(c) => c,
-            _ => return,
+        let Some(connector) = crtc.connector.get() else {
+            return;
         };
         crtc.update_sequence(sequence);
         crtc.queue_sequence();
@@ -2359,9 +2350,8 @@ impl MetalBackend {
         tv_usec: u32,
         sequence: u32,
     ) {
-        let crtc = match dev.dev.crtcs.get(&crtc_id) {
-            Some(c) => c,
-            _ => return,
+        let Some(crtc) = dev.dev.crtcs.get(&crtc_id) else {
+            return;
         };
         crtc.update_u32_sequence(sequence);
         let wants_present = |c: &MetalConnector| {
@@ -2624,10 +2614,7 @@ impl MetalBackend {
             if disable_direct_scanout {
                 tran.disable_direct_scanout();
             }
-            let err = match apply(tran) {
-                Ok(_) => break,
-                Err(e) => e,
-            };
+            let Err(err) = apply(tran) else { break };
             log::error!(
                 "Could not initialize DRM device {}: {}",
                 dev.dev.devnode.as_bytes().as_bstr(),

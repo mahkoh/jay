@@ -310,12 +310,9 @@ impl CursorUser {
 
     pub fn set_known(&self, cursor: KnownCursor) {
         self.desired_known_cursor.set(Some(cursor));
-        let cursors = match self.group.state.cursors.get() {
-            Some(c) => c,
-            None => {
-                self.set_cursor2(None);
-                return;
-            }
+        let Some(cursors) = self.group.state.cursors.get() else {
+            self.set_cursor2(None);
+            return;
         };
         let tpl = match cursor {
             KnownCursor::Default => &cursors.default,

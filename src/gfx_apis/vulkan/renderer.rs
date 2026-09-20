@@ -2012,9 +2012,8 @@ impl VulkanRenderer {
     fn import_release_semaphore(&self, fb: &VulkanImage, fb_release_sync: ReleaseSync) {
         zone!("import_release_semaphore");
         let memory = &mut *self.memory.borrow_mut();
-        let fd_sync = match memory.release_sync.as_ref() {
-            Some(sync) => sync,
-            _ => return,
+        let Some(fd_sync) = memory.release_sync.as_ref() else {
+            return;
         };
         let sync_file = LazyCell::new(|| fd_sync.get_sync_file());
         let import =

@@ -572,13 +572,10 @@ impl OutputNode {
         let ns = &self.node_state[RenderTL];
         let now = self.state.now();
         for capture in self.screencopies.lock().drain_values() {
-            let wl_buffer = match capture.buffer.take() {
-                Some(b) => b,
-                _ => {
-                    log::warn!("Capture frame is pending but has no buffer attached");
-                    capture.send_failed();
-                    continue;
-                }
+            let Some(wl_buffer) = capture.buffer.take() else {
+                log::warn!("Capture frame is pending but has no buffer attached");
+                capture.send_failed();
+                continue;
             };
             if wl_buffer.destroyed() {
                 capture.send_failed();
@@ -619,13 +616,10 @@ impl OutputNode {
                         }
                     }
                     WlBufferStorage::Dmabuf(storage) => {
-                        let fb = match &storage.fb {
-                            Some(fb) => fb,
-                            _ => {
-                                log::warn!("Capture buffer has no framebuffer");
-                                capture.send_failed();
-                                continue;
-                            }
+                        let Some(fb) = &storage.fb else {
+                            log::warn!("Capture buffer has no framebuffer");
+                            capture.send_failed();
+                            continue;
                         };
                         let res = self.state.perform_screencopy(
                             tex,
@@ -1599,9 +1593,8 @@ impl OutputNode {
     }
 
     fn button(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, id: PointerType, button: u32) {
-        let (x, y) = match self.pointer_positions.get(&id) {
-            Some(p) => p,
-            _ => return,
+        let Some((x, y)) = self.pointer_positions.get(&id) else {
+            return;
         };
         if let PointerType::Seat(s) = id
             && button == BTN_LEFT
@@ -2625,16 +2618,14 @@ impl NodeBase for OutputNode {
     }
 
     fn node_on_axis_event(self: Rc<Self>, seat: &Rc<WlSeatGlobal>, event: &PendingScroll) {
-        let steps = match self.scroll.handle(event) {
-            Some(e) => e,
-            _ => return,
+        let Some(steps) = self.scroll.handle(event) else {
+            return;
         };
         if steps == 0 {
             return;
         }
-        let ws = match self.node_state[LiveTL].workspace.get() {
-            Some(ws) => ws,
-            _ => return,
+        let Some(ws) = self.node_state[LiveTL].workspace.get() else {
+            return;
         };
         let mut ws = 'ws: {
             for r in self.workspaces.iter_valid(LiveTL) {

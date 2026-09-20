@@ -245,9 +245,8 @@ impl Dbus {
     }
 
     pub async fn session(&self) -> Result<Rc<DbusSocket>, DbusError> {
-        let sba = match self.user_path.as_deref() {
-            None => return Err(DbusError::SessionBusAddressNotSet),
-            Some(sba) => sba,
+        let Some(sba) = self.user_path.as_deref() else {
+            return Err(DbusError::SessionBusAddressNotSet);
         };
         self.session
             .get(&self.eng, &self.ring, sba, "Session bus")

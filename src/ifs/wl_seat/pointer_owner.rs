@@ -401,9 +401,8 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimplePointerOwner<T> {
         if state != ButtonState::Pressed {
             return;
         }
-        let pn = match seat.pointer_node() {
-            Some(n) => n,
-            _ => return,
+        let Some(pn) = seat.pointer_node() else {
+            return;
         };
         if self.usecase.default_button(self, seat, button, &pn) {
             return;
@@ -917,9 +916,8 @@ impl SimplePointerOwnerUsecase for DefaultPointerUsecase {
         icon: Option<Rc<DndIcon>>,
         serial: u64,
     ) -> Result<(), WlSeatError> {
-        let button = match grab.buttons.iter().next() {
-            Some((b, _)) => b,
-            None => return Ok(()),
+        let Some((button, _)) = grab.buttons.iter().next() else {
+            return Ok(());
         };
         if grab.buttons.len() != 1 {
             return Ok(());

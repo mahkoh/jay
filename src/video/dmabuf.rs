@@ -89,14 +89,12 @@ impl DmaBuf {
             if self.planes.len() <= 1 {
                 return false;
             }
-            let stat = match uapi::fstat(self.planes[0].fd.raw()) {
-                Ok(s) => s,
-                _ => return true,
+            let Ok(stat) = uapi::fstat(self.planes[0].fd.raw()) else {
+                return true;
             };
             for plane in &self.planes[1..] {
-                let stat2 = match uapi::fstat(plane.fd.raw()) {
-                    Ok(s) => s,
-                    _ => return true,
+                let Ok(stat2) = uapi::fstat(plane.fd.raw()) else {
+                    return true;
                 };
                 if stat2.st_ino != stat.st_ino {
                     return true;
@@ -117,9 +115,8 @@ impl DmaBuf {
         if self.modifier != LINEAR_MODIFIER {
             return None;
         }
-        let stat = match uapi::fstat(self.planes[0].fd.raw()) {
-            Ok(s) => s,
-            _ => return None,
+        let Ok(stat) = uapi::fstat(self.planes[0].fd.raw()) else {
+            return None;
         };
         static DMABUF_DEV: OnceLock<dev_t> = OnceLock::new();
         match DMABUF_DEV.get() {

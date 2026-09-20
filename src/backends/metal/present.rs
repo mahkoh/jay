@@ -262,13 +262,11 @@ impl MetalConnector {
         if !crtc.drm_state.borrow().active.value {
             return Ok(());
         }
-        let plane = match self.primary_plane.get() {
-            Some(p) => p,
-            _ => return Ok(()),
+        let Some(plane) = self.primary_plane.get() else {
+            return Ok(());
         };
-        let buffers = match self.buffers.get() {
-            Some(b) => b,
-            _ => return Ok(()),
+        let Some(buffers) = self.buffers.get() else {
+            return Ok(());
         };
         let mut connector_drm_state = self.display.borrow().drm_state.clone();
         let next_buffer_idx = ((connector_drm_state.fb_idx + 1) % buffers.len() as u64) as usize;

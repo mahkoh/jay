@@ -187,9 +187,8 @@ impl WaiterInner {
     }
 
     async fn wait(&self, buf: &mut Buf, job: &Job) -> Result<(), SyncobjError> {
-        let ctx = match self.inner.ctx.get() {
-            None => return Err(SyncobjError::NoSyncobjContextAvailable),
-            Some(c) => c,
+        let Some(ctx) = self.inner.ctx.get() else {
+            return Err(SyncobjError::NoSyncobjContextAvailable);
         };
         ctx.wait_for_point(&self.eventfd, &job.syncobj, job.point, job.signaled)?;
         self.inner

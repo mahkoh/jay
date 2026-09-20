@@ -38,9 +38,8 @@ pub struct Session {
 
 impl Session {
     pub async fn get(socket: &Rc<DbusSocket>) -> Result<Self, LogindError> {
-        let session_id = match *XDG_SESSION_ID {
-            Some(id) => id,
-            _ => return Err(LogindError::XdgSessionId),
+        let Some(session_id) = *XDG_SESSION_ID else {
+            return Err(LogindError::XdgSessionId);
         };
         let session_path = {
             let session = socket

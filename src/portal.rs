@@ -231,11 +231,8 @@ async fn run_async(
     let (_rtl_future, rtl) = RunToplevel::install(&eng);
     let dbus = Dbus::new(&eng, &ring, &rtl);
     let dbus = init_dbus_session(&dbus, logger, path_sink).await;
-    let xrd = match *XDG_RUNTIME_DIR {
-        Some(xrd) => xrd,
-        _ => {
-            fatal!("XDG_RUNTIME_DIR is not set");
-        }
+    let Some(xrd) = *XDG_RUNTIME_DIR else {
+        fatal!("XDG_RUNTIME_DIR is not set");
     };
     let wheel = match Wheel::new(&eng, &ring) {
         Ok(w) => w,

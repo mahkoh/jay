@@ -48,28 +48,23 @@ use uapi::c;
 
 macro_rules! unpack {
     ($slf:expr, $ev:expr) => {{
-        let slot = match $ev.device().slot() {
-            Some(s) => s,
-            _ => return,
+        let Some(slot) = $ev.device().slot() else {
+            return;
         };
-        let data = match $slf
+        let Some(data) = $slf
             .device_holder
             .input_devices
             .borrow_mut()
             .get(slot)
             .cloned()
             .and_then(|v| v)
-        {
-            Some(d) => d,
-            _ => return,
+        else {
+            return;
         };
         data
     }};
     ($slf:expr, $ev:expr, $conv:ident) => {{
-        let event = match $ev.$conv() {
-            Some(e) => e,
-            _ => return,
-        };
+        let Some(event) = $ev.$conv() else { return };
         let data = unpack!($slf, $ev);
         (event, data)
     }};
@@ -509,9 +504,8 @@ impl MetalBackend {
 
     fn handle_tablet_pad_button(self: &Rc<Self>, event: LibInputEvent<'_>) {
         let (event, dev) = unpack!(self, event, tablet_pad_event);
-        let id = match dev.tablet_pad_id.get() {
-            None => return,
-            Some(id) => id,
+        let Some(id) = dev.tablet_pad_id.get() else {
+            return;
         };
         let state = match event.button_state() {
             LIBINPUT_BUTTON_STATE_RELEASED => PadButtonState::Released,

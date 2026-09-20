@@ -107,14 +107,13 @@ impl Incoming {
         };
         match msg_ty {
             MSG_METHOD_CALL => {
-                let (sender, interface, member, path) = match (
+                let (Some(sender), Some(interface), Some(member), Some(path)) = (
                     &headers.sender,
                     &headers.interface,
                     &headers.member,
                     &headers.path,
-                ) {
-                    (Some(s), Some(i), Some(m), Some(p)) => (s, i, m, p),
-                    _ => return Err(DbusError::MissingMethodCallHeaders),
+                ) else {
+                    return Err(DbusError::MissingMethodCallHeaders);
                 };
                 if let Some(object) = self.socket.objects.get(path.deref()) {
                     let method_handler;
@@ -169,9 +168,8 @@ impl Incoming {
                 }
             }
             MSG_METHOD_RETURN | MSG_ERROR => {
-                let serial = match headers.reply_serial {
-                    Some(s) => s,
-                    _ => return Err(DbusError::NoReplySerial),
+                let Some(serial) = headers.reply_serial else {
+                    return Err(DbusError::NoReplySerial);
                 };
                 if let Some(reply) = self.socket.reply_handlers.remove(&serial) {
                     if msg_ty == MSG_ERROR {
@@ -213,11 +211,11 @@ impl Incoming {
                 }
             }
             MSG_SIGNAL => {
-                let (interface, member, path) =
-                    match (&headers.interface, &headers.member, &headers.path) {
-                        (Some(i), Some(m), Some(p)) => (i, m, p),
-                        _ => return Err(DbusError::MissingSignalHeaders),
-                    };
+                let (Some(interface), Some(member), Some(path)) =
+                    (&headers.interface, &headers.member, &headers.path)
+                else {
+                    return Err(DbusError::MissingSignalHeaders);
+                };
                 let handlers = self.socket.signal_handlers.borrow_mut();
                 if let Some(handler) = handlers.get(&(interface.deref(), member.deref())) {
                     let handler = handler

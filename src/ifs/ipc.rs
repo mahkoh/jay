@@ -334,12 +334,9 @@ pub fn offer_source_to_regular_client<T: IterableIpcVtable>(
     client: &Rc<Client>,
 ) {
     let data = src.source_data();
-    let seat = match data.seat.get() {
-        Some(a) => a,
-        _ => {
-            log::error!("Trying to create an offer from a unattached data source");
-            return;
-        }
+    let Some(seat) = data.seat.get() else {
+        log::error!("Trying to create an offer from a unattached data source");
+        return;
     };
     src.cancel_unprivileged_offers();
     let shared = data.shared.get();
