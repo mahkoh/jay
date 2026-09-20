@@ -11,6 +11,7 @@ use crate::backends::metal::video::MetalConnector;
 use crate::backends::metal::video::MetalCrtc;
 use crate::backends::metal::video::MetalHardwareCursorChange;
 use crate::backends::metal::video::MetalPlane;
+use crate::backends::metal::video::PendingFlip;
 use crate::backends::metal::video::metal_cm::MetalCmProgramming;
 use crate::cmm::cmm_description::ColorDescription;
 use crate::cmm::cmm_description::ColorDescriptionId;
@@ -181,6 +182,13 @@ impl MetalConnector {
         self.present_trigger.trigger();
     }
 
+    pub fn set_present_trigger_iteration(&self) {
+        let pti = &self.present_trigger_iteration;
+        if pti.get() == u64::MAX {
+            pti.set(self.state.eng.iteration());
+        }
+    }
+
     pub async fn present_loop(self: Rc<Self>) {
         #[cfg_attr(not(feature = "tracy"), expect(unused))]
         let frame_name = FrameName::get(&self.kernel_id().to_string());
@@ -289,6 +297,7 @@ impl MetalConnector {
         self.latch_cursor(&node, &connector_drm_state, &cd)?;
         let cursor_programming = self.compute_cursor_programming(&connector_drm_state);
         let latched = self.latch(&node, buffer);
+        let trigger_iteration = self.present_trigger_iteration.replace(u64::MAX);
         node.latched(self.try_async_flip());
 
         if cursor_programming.is_none() && latched.is_none() {
@@ -384,7 +393,10 @@ impl MetalConnector {
             }
             Err(e)
         } else {
-            crtc.pending_flip.set(Some(self.clone()));
+            crtc.pending_flip.set(Some(PendingFlip {
+                connector: self.clone(),
+                trigger_iteration,
+            }));
             self.crtc_idle.set(false);
             self.color_description.set(cd);
             self.display.borrow_mut().drm_state = connector_drm_state;

@@ -623,6 +623,7 @@ pub struct MetalConnector {
     pub on_change: OnChange<ConnectorEvent>,
 
     pub present_trigger: AsyncEvent,
+    pub present_trigger_iteration: Cell<u64>,
 
     pub cursor_x: Cell<i32>,
     pub cursor_y: Cell<i32>,
@@ -683,6 +684,7 @@ impl Debug for MetalHardwareCursor {
 impl HardwareCursor for MetalHardwareCursor {
     fn damage(&self) {
         self.connector.cursor_damage.set(true);
+        self.connector.set_present_trigger_iteration();
         if self.connector.buffers_idle.get() && self.connector.crtc_idle.get() {
             self.connector.schedule_present();
         }
@@ -914,6 +916,7 @@ impl Connector for MetalConnector {
 
     fn damage(&self) {
         self.has_damage.fetch_add(1);
+        self.set_present_trigger_iteration();
         if self.buffers_idle.get() && self.crtc_idle.get() {
             self.schedule_present();
         }
@@ -985,6 +988,11 @@ impl Connector for MetalConnector {
     }
 }
 
+pub struct PendingFlip {
+    pub connector: Rc<MetalConnector>,
+    pub trigger_iteration: u64,
+}
+
 pub struct MetalCrtc {
     pub id: DrmCrtc,
     idx: usize,
@@ -997,7 +1005,7 @@ pub struct MetalCrtc {
     pub possible_planes: BinarySearchMap<DrmPlane, Rc<MetalPlane>, 8>,
 
     pub connector: CloneCell<Option<Rc<MetalConnector>>>,
-    pub pending_flip: CloneCell<Option<Rc<MetalConnector>>>,
+    pub pending_flip: Cell<Option<PendingFlip>>,
 
     pub out_fence_ptr: DrmProperty,
     gamma_lut_size: Option<u32>,
@@ -1189,6 +1197,7 @@ fn create_connector(
         crtc: Default::default(),
         on_change: Default::default(),
         present_trigger: Default::default(),
+        present_trigger_iteration: Cell::new(u64::MAX),
         cursor_x: Cell::new(0),
         cursor_y: Cell::new(0),
         cursor_enabled: Cell::new(false),
@@ -2367,7 +2376,8 @@ impl MetalBackend {
         let wants_present = |c: &MetalConnector| {
             c.has_damage.is_not_zero() || c.cursor_damage.get() || c.cursor_changed.get()
         };
-        if let Some(connector) = crtc.pending_flip.take() {
+        if let Some(flip) = crtc.pending_flip.take() {
+            let connector = flip.connector;
             connector.buffers_idle.set(true);
             if let Some(fb) = connector.next_framebuffer.take() {
                 *connector.active_framebuffer.borrow_mut() = Some(fb);
@@ -2406,6 +2416,7 @@ impl MetalBackend {
                     dd.refresh,
                     crtc.sequence.get(),
                     flags,
+                    flip.trigger_iteration,
                 );
             }
         }
