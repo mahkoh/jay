@@ -54,7 +54,7 @@ struct ColorOp {
 
 #[derive(Debug)]
 enum ColorOpType {
-    Curve1d(ColorOpCurve1d),
+    Curve1d(Box<ColorOpCurve1d>),
     Lut1d(ColorOpLut1d),
     Lut1dToSmall,
     Lut1dLowPrecision,
@@ -337,7 +337,7 @@ fn parse_color_op_type(
                 res.supported_curves[ty] = true;
                 types[ty] = Some((v.value, name));
             }
-            ColorOpType::Curve1d(ColorOpCurve1d { types, ty: def.id })
+            ColorOpType::Curve1d(Box::new(ColorOpCurve1d { types, ty: def.id }))
         }
         LUT_1D => {
             let first_lut = mem::take(first_lut);
