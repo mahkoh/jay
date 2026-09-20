@@ -525,7 +525,7 @@ impl MetalDeviceTransaction {
                         format = CURSOR_FORMAT;
                         old_buffers = connector.obj.cursor_buffers.get();
                     }
-                };
+                }
                 plane.new.buffers = old_buffers.clone();
                 plane.new.src_x.value = 0;
                 plane.new.src_y.value = 0;

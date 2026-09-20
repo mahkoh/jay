@@ -267,7 +267,7 @@ impl PwClientNodeOwner for StartedScreencast {
                 self.session.kill();
                 return;
             }
-        };
+        }
         log::debug!(
             "Negotiated format {} with modifier 0x{modifier:08x} at size {}x{}",
             fmt.name,

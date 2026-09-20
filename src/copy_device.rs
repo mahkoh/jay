@@ -2152,7 +2152,7 @@ fn record_command_buffer(
                 dev.cmd_pipeline_barrier2(cmd, &final_dependency_info);
             }
         }
-    };
+    }
     unsafe {
         dev.end_command_buffer(cmd)
             .map_err(CopyDeviceError::EndCommandBuffer)?;

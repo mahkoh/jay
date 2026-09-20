@@ -141,7 +141,7 @@ impl Dirent {
                 FuseInodeTy::Directory => c::DT_DIR,
                 FuseInodeTy::Symlink => c::DT_LNK,
             };
-        };
+        }
         fuse_dirent {
             ino: ino.map(|v| v.0.get()).unwrap_or(0),
             off: (idx + 1) as u64,

@@ -199,7 +199,7 @@ impl JayCompositorRequestHandler for JayCompositor {
         match &self.client.state.logger {
             Some(logger) => log_file.send_path(logger.path().as_bstr()),
             _ => log_file.send_path(b"".as_bstr()),
-        };
+        }
         Ok(())
     }
 

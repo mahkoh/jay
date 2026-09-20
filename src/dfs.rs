@@ -97,7 +97,7 @@ impl State {
                 if let Err(e) = std::fs::create_dir_all(&dfs_dir) {
                     log::error!("Could not create {dfs_dir}: {}", ErrorFmt(e));
                     return pending;
-                };
+                }
                 for file in std::fs::read_dir(&dfs_dir).ok().into_iter().flatten() {
                     let Ok(file) = file else {
                         continue;
@@ -109,7 +109,7 @@ impl State {
                 if let Err(e) = std::fs::create_dir_all(&mount_dir) {
                     log::error!("Could not create {mount_dir}: {}", ErrorFmt(e));
                     return pending;
-                };
+                }
                 let symlink = format!("{jay_dir}/debugfs.{unique}.{id}");
                 if let Err(e) = uapi::symlink(&*local_mount_dir, &*symlink) {
                     log::error!("Could not symlink {symlink}: {}", ErrorFmt(e));

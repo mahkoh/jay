@@ -47,6 +47,7 @@
     elided_lifetimes_in_paths,
     clippy::semicolon_if_nothing_returned,
     clippy::manual_let_else,
+    clippy::unnecessary_semicolon,
 )]
 
 #[macro_use]

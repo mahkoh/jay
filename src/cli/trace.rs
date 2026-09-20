@@ -238,7 +238,7 @@ impl CliTrace {
                 expr: Some(String::new()),
                 file: None,
             }),
-        };
+        }
         let eng = &self.tc.eng;
         let _f1 = eng.spawn("todos", tracer.clone().handle_todos());
         let _f2 = eng.spawn("disco", tracer.clone().handle_disconnected());

@@ -763,7 +763,7 @@ impl MetalConnector {
                 // https://gitlab.freedesktop.org/drm/amd/-/issues/3186
                 return Err(MetalDirectScanoutError::CrossDevice);
             }
-        };
+        }
         let Some(dmabuf) = dmabuf else {
             // Shm buffers cannot be scanned out.
             return Err(MetalDirectScanoutError::Shm);
@@ -973,7 +973,7 @@ impl MetalConnector {
                     .ok_or(MetalError::NoCmProgramming)?;
                 tex = buffer.render.tex.clone();
             }
-        };
+        }
         Ok(PresentFb {
             fb_intent,
             copy,

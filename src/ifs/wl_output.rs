@@ -480,7 +480,7 @@ impl WlOutput {
             if e.get().is_empty() {
                 e.remove();
             }
-        };
+        }
     }
 }
 

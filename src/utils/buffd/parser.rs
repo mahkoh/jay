@@ -169,10 +169,10 @@ impl<'a, 'b> MsgParser<'a, 'b> {
     pub fn binary_array<T: Pod>(&mut self) -> Result<&'b [T], MsgParserError> {
         if align_of::<T>() > 4 {
             panic!("Alignment of binary array element is too large");
-        };
+        }
         if size_of::<T>() == 0 {
             panic!("Size of binary array element is 0");
-        };
+        }
         let array = self.array()?;
         if array.len() % size_of::<T>() != 0 {
             return Err(MsgParserError::BinaryArraySize);

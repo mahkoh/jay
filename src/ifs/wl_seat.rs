@@ -2005,7 +2005,7 @@ impl DeviceHandlerData {
         self.mods_listener.detach();
         if let Some(seat) = self.seat.get() {
             seat.destroy_physical_keyboard(self.keyboard_id);
-        };
+        }
     }
 
     fn attach_event_listeners(&self) {
@@ -2017,7 +2017,7 @@ impl DeviceHandlerData {
                 &self.mods_listener,
                 self.keymap.get().as_ref(),
             );
-        };
+        }
     }
 
     pub fn set_keymap(&self, state: &State, keymap: Option<Rc<KbvmMap>>) {

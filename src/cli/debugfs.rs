@@ -147,7 +147,7 @@ impl Debugfs {
                 0o644,
             )
             .map_os_err(SnapshotError::OpenFile)?;
-        };
+        }
         let id = tc.id();
         tc.send(jay_debugfs::CreateSnapshot {
             self_id: debugfs,

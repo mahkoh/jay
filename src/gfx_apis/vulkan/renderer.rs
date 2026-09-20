@@ -2760,7 +2760,7 @@ impl ColorTransforms {
     ) -> Color {
         if let Some(ct) = self.get_or_create(src, dst, intent) {
             color = ct.matrix * color;
-        };
+        }
         color
     }
 

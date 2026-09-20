@@ -1206,7 +1206,7 @@ impl ContainerNode {
                 };
                 if !active && !last {
                     hi -= bw;
-                };
+                }
                 let mut lo = None;
                 let color = if active {
                     prev_focused_border
@@ -2763,7 +2763,7 @@ impl ContainingNode for ContainerNode {
             body = Some(ns.mono_body.get());
         } else if !have_mc {
             body = Some(link.node_state[LiveTL].body.get());
-        };
+        }
         let link_ref = link.to_ref();
         self.schedule_validate_child(&link);
         self.child_nodes.borrow_mut().insert(new.node_id(), link);

@@ -76,7 +76,7 @@ pub fn double_fork() -> Result<Option<OwnedFd>, ForkerError> {
                         return Ok(None);
                     }
                 }
-            };
+            }
             unsafe {
                 c::_exit(0);
             }

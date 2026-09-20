@@ -251,7 +251,7 @@ impl GbmDevice {
         match create_bo(&gbm) {
             Ok(..) => return Ok(gbm),
             Err(e) => log::warn!("Render node cannot allocate buffers: {}", ErrorFmt(e)),
-        };
+        }
         let gbm = open(drm.dup_primary()?)?;
         create_bo(&gbm)?;
         Ok(gbm)

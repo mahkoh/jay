@@ -587,7 +587,7 @@ impl XBackend {
             };
             if let Err(e) = self.c.call(&cp).await {
                 return Err(XBackendError::WmClass(e));
-            };
+            }
         }
         {
             let cwa = ChangeWindowAttributes {

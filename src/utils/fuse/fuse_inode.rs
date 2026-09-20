@@ -172,7 +172,7 @@ impl FuseInodeProps {
             FuseInodeTy::Symlink => {
                 mode |= c::S_IFLNK;
             }
-        };
+        }
         if self.writable {
             mode |= 0o200;
         }

@@ -540,7 +540,7 @@ impl VirtualOutput {
                         }
                     };
                     frame_data = Some(FrameData { dsd: None });
-                };
+                }
                 if let Some(sync) = sync {
                     sync.signaled(&self.state.ring, "primary").await;
                 }

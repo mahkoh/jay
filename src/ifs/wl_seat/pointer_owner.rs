@@ -1639,7 +1639,7 @@ impl UiDragUsecase for TileDragUsecase {
                 match before {
                     true => container.add_child_before(&*neighbor, src),
                     false => container.add_child_after(&*neighbor, src),
-                };
+                }
                 src_parent.cnode_remove_child(&*placeholder);
             }
             TddType::NewWorkspace { output } => {

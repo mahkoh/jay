@@ -1043,7 +1043,7 @@ impl ToplevelData {
         if let Some(ws) = self.workspace[tl].get() {
             let scale = ws.node_state[tl].output.get().node_state[tl].scale.get();
             return scale.pixel_size([dw, dh]).to_tuple();
-        };
+        }
         (0, 0)
     }
 
