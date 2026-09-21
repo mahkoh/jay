@@ -21,6 +21,8 @@ use crate::pipewire::pw_pod::SPA_VIDEO_FORMAT_xBGR_210LE;
 use crate::pipewire::pw_pod::SPA_VIDEO_FORMAT_xRGB_210LE;
 use crate::pipewire::pw_pod::SpaVideoFormat;
 use crate::utils::bhash::BHashMap;
+use crate::utils::str_fmt::StrCtx;
+use crate::utils::str_fmt::StrFmt;
 use ash::vk;
 use jay_config::video::Format as ConfigFormat;
 use std::fmt;
@@ -73,6 +75,12 @@ impl PartialEq for Format {
 }
 
 impl Eq for Format {}
+
+impl StrFmt for Format {
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
+        self.name.str_fmt(dst, ctx);
+    }
+}
 
 static FORMATS_MAP: LazyLock<BHashMap<u32, &'static Format>> = LazyLock::new(|| {
     let mut map = BHashMap::default();

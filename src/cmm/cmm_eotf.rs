@@ -1,4 +1,7 @@
 use crate::utils::ordered_float::F32;
+use crate::utils::static_text::StaticText;
+use crate::utils::str_fmt::StrCtx;
+use crate::utils::str_fmt::StrFmt;
 use jay_algorithms::tf::AlgoEotf;
 use jay_proc::jay_hash;
 
@@ -43,7 +46,53 @@ impl EotfPow {
     }
 }
 
+impl StrFmt for Eotf {
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
+        let name = self.text();
+        match self.arg() {
+            None => name.str_fmt(dst, ctx),
+            Some(arg) => {
+                let mut buf = zmij::Buffer::new();
+                let arg = buf.format(arg);
+                let mut text = String::with_capacity(name.len() + 1 + arg.len() + 1);
+                text.push_str(name);
+                text.push_str("(");
+                text.push_str(arg);
+                text.push_str(")");
+                text.str_fmt(dst, ctx);
+            }
+        }
+    }
+}
+
+impl StaticText for Eotf {
+    fn text(&self) -> &'static str {
+        match self {
+            Eotf::Linear => "linear",
+            Eotf::St2084Pq => "st2084_pq",
+            Eotf::Bt1886(_) => "bt1886",
+            Eotf::Gamma22 => "gamma22",
+            Eotf::Gamma24 => "gamma24",
+            Eotf::Gamma28 => "gamma28",
+            Eotf::St240 => "st240",
+            Eotf::Log100 => "log100",
+            Eotf::Log316 => "log316",
+            Eotf::St428 => "st428",
+            Eotf::Pow(_) => "pow",
+            Eotf::CompoundPower24 => "compound_power24",
+        }
+    }
+}
+
 impl Eotf {
+    pub fn arg(self) -> Option<f32> {
+        match self {
+            Eotf::Bt1886(p) => Some(p.0),
+            Eotf::Pow(p) => Some(p.eotf_f32()),
+            _ => None,
+        }
+    }
+
     pub fn to_algo(self) -> AlgoEotf {
         match self {
             Eotf::Linear => AlgoEotf::Linear,

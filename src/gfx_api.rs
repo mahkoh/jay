@@ -43,6 +43,7 @@ use indexmap::IndexSet;
 use jay_algorithms::oserror::OsErrorExt;
 use jay_config::video::JcGfxApi;
 use jay_config::video::ScalingFilter as ConfigScalingFilter;
+use jay_proc::StrFmt;
 use jay_proc::jay_clone;
 use jay_proc::jay_hash;
 use linearize::Linearize;
@@ -405,6 +406,30 @@ impl Debug for AcquireSync {
     }
 }
 
+impl StaticText for AcquireSync {
+    fn text(&self) -> &'static str {
+        match self {
+            AcquireSync::None => "none",
+            AcquireSync::Implicit => "implicit",
+            AcquireSync::FdSync(v) => match v {
+                FdSync::SyncFile(_) => "sync_file",
+                FdSync::Syncobj(_) => "syncobj",
+            },
+            AcquireSync::Unnecessary => "unnecessary",
+        }
+    }
+}
+
+impl StaticText for ReleaseSync {
+    fn text(&self) -> &'static str {
+        match self {
+            ReleaseSync::None => "none",
+            ReleaseSync::Implicit => "implicit",
+            ReleaseSync::Explicit => "explicit",
+        }
+    }
+}
+
 pub trait BufferResv: Debug {
     fn set_sync(&self, user: BufferResvUser, sync: &FdSync);
 }
@@ -434,6 +459,16 @@ pub enum AlphaMode {
     PremultipliedElectrical,
     PremultipliedOptical,
     Straight,
+}
+
+impl StaticText for AlphaMode {
+    fn text(&self) -> &'static str {
+        match self {
+            AlphaMode::PremultipliedElectrical => "premultiplied_electrical",
+            AlphaMode::PremultipliedOptical => "premultiplied_optical",
+            AlphaMode::Straight => "straight",
+        }
+    }
 }
 
 pub trait GfxBlendBuffer: Any + Debug {}
@@ -1410,7 +1445,7 @@ impl FdSync {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, StrFmt)]
 pub struct DirectScanoutPosition {
     pub src_width: i32,
     pub src_height: i32,

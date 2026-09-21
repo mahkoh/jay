@@ -5,7 +5,7 @@ dir xdg_popup {
     relative_position: reg,
     has_parent: reg,
     set_visible_prepared: reg,
-    has_jay_popup_ext: reg,
+    jay_popup_ext: link (opt),
     num_interactive_moves: reg,
     reposition_token: reg,
     size_width: reg,
@@ -54,8 +54,14 @@ impl xdg_popup::Dir for XdgPopup {
         self.set_visible_prepared.get().str_fmt(buf, ctx);
     }
 
-    fn read_has_jay_popup_ext(&self, buf: &mut String, ctx: &StrCtx<'_>) {
-        self.jay_popup_ext.get().is_some().str_fmt(buf, ctx);
+    fn has_jay_popup_ext(&self) -> bool {
+        self.jay_popup_ext.is_some()
+    }
+
+    fn readlink_jay_popup_ext(&self, depth: u64, buf: &mut String) {
+        if let Some(ext) = self.jay_popup_ext.get() {
+            format_object_link(buf, depth, self.xdg.surface.client.id, ext.id());
+        }
     }
 
     fn read_num_interactive_moves(&self, buf: &mut String, ctx: &StrCtx<'_>) {

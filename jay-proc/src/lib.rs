@@ -39,7 +39,7 @@ pub fn derive_reset(input: TokenStream) -> TokenStream {
     reset::derive_reset(input)
 }
 
-#[proc_macro_derive(StrFmt)]
+#[proc_macro_derive(StrFmt, attributes(str_fmt))]
 pub fn derive_str_fmt(input: TokenStream) -> TokenStream {
     str_fmt::derive_str_fmt(input)
 }

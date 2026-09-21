@@ -180,7 +180,8 @@ macro_rules! linear_ids {
         }
 
         #[jay_proc::jay_hash]
-        #[derive(Copy, Clone, Debug, Eq, Ord, PartialOrd)]
+        #[derive(Copy, Clone, Debug, Eq, Ord, PartialOrd, jay_proc::StrFmt)]
+        #[str_fmt(transparent)]
         pub struct $id($ty);
 
         impl $id {

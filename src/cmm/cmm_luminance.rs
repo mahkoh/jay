@@ -2,10 +2,11 @@ use crate::cmm::cmm_render_intent::RenderIntent;
 use crate::cmm::cmm_transform::ColorMatrix;
 use crate::cmm::cmm_transform::Xyz;
 use crate::utils::ordered_float::F64;
+use jay_proc::StrFmt;
 use jay_proc::jay_hash;
 
 #[jay_hash]
-#[derive(Copy, Clone, Debug, Eq)]
+#[derive(Copy, Clone, Debug, Eq, StrFmt)]
 pub struct Luminance {
     pub min: F64,
     pub max: F64,
@@ -13,7 +14,7 @@ pub struct Luminance {
 }
 
 #[jay_hash]
-#[derive(Copy, Clone, Debug, Eq)]
+#[derive(Copy, Clone, Debug, Eq, StrFmt)]
 pub struct TargetLuminance {
     pub min: F64,
     pub max: F64,
