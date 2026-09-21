@@ -40,6 +40,7 @@ list and must be updated when adding a new chapter. Chapter-to-topic mapping:
 | `control-center.md` | All control center panes (see pane list below) |
 | `cli.md` | All CLI subcommands, JSON output |
 | `tracing.md` | `jay trace`: selecting clients, text output, unique object IDs, dropped messages, `-o` redirection, JSONL record format |
+| `debugfs-internals.md` | For developers: declaring debugfs directories in `*_g_fuse.rs` files, running the generator, generated traits, keys, timeouts, liveness, `StrFmt`, collection views |
 
 ### Source-of-truth files (from repo root)
 

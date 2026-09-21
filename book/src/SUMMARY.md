@@ -48,3 +48,4 @@
 
 - [Command-Line Interface](cli.md)
 - [Troubleshooting](troubleshooting.md)
+- [Debugfs Development](debugfs-internals.md)
