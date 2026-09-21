@@ -1,5 +1,13 @@
 # Unreleased
 
+## Stacked Mono Style
+
+Containers in mono mode can now show their title bars below each other instead
+of next to each other, like i3's stacking layout. Use the `mono-stacked`,
+`mono-tabbed`, and `toggle-mono-style` actions to change the style of a
+container, and the `default-mono-style` setting to configure the style of newly
+created containers.
+
 # 1.14.0 (2026-07-02)
 
 ## Fixes

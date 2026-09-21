@@ -30,6 +30,7 @@ use jay_config::theme::sized::BAR_SEPARATOR_WIDTH;
 use jay_config::theme::sized::Resizable;
 use jay_config::video::Connector;
 use jay_config::video::Transform;
+use jay_config::window::MonoStyle;
 use jay_config::window::Window;
 use std::cell::Cell;
 use std::ops::Deref;
@@ -241,6 +242,13 @@ impl TestConfig {
         self.send(ClientMessage::SetSeatMono {
             seat: Seat(seat.raw() as _),
             mono,
+        })
+    }
+
+    pub fn set_mono_style(&self, seat: SeatId, style: MonoStyle) -> TestResult {
+        self.send(ClientMessage::SetSeatMonoStyle {
+            seat: Seat(seat.raw() as _),
+            style,
         })
     }
 

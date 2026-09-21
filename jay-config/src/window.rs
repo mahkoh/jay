@@ -73,6 +73,18 @@ pub enum TileState {
     Floating,
 }
 
+/// The mono style of a container.
+///
+/// This determines how the title bars of a container in mono-mode are laid out.
+#[non_exhaustive]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, PrivateEnum)]
+pub enum MonoStyle {
+    /// The title bars are shown next to each other in a single row.
+    Tabbed,
+    /// The title bars are shown below each other, each spanning the full width.
+    Stacked,
+}
+
 /// A window created by a client.
 ///
 /// This is the same as `XDG_TOPLEVEL | X_WINDOW`.
@@ -157,6 +169,27 @@ impl Window {
     /// Toggles whether the parent-container of the window is in mono-mode.
     pub fn toggle_mono(self) {
         self.set_mono(!self.mono());
+    }
+
+    /// Returns the mono style of the parent-container of the window.
+    pub fn mono_style(self, target: ContainerTarget) -> MonoStyle {
+        get!(MonoStyle::Tabbed)
+            .window_mono_style(self, target.to_private())
+            .to_public()
+    }
+
+    /// Sets the mono style of the parent-container of the window.
+    pub fn set_mono_style(self, style: MonoStyle, target: ContainerTarget) {
+        get!().set_window_mono_style(self, style.to_private(), target.to_private())
+    }
+
+    /// Toggles the mono style of the parent-container of the window.
+    pub fn toggle_mono_style(self, target: ContainerTarget) {
+        let style = match self.mono_style(target) {
+            MonoStyle::Stacked => MonoStyle::Tabbed,
+            _ => MonoStyle::Stacked,
+        };
+        self.set_mono_style(style, target);
     }
 
     /// Returns the split axis of the parent-container of the window.
