@@ -38,6 +38,10 @@ dir output_node {
     workspaces: view (key = 0),
     layers: view (key = 0),
     tray_items: view (key = 0),
+    color_description_live: reg,
+    color_description_render: reg,
+    linear_color_description_live: reg,
+    linear_color_description_render: reg,
     connector: custom (opt),
 }
  */
@@ -244,6 +248,34 @@ impl output_node::Dir for OutputNode {
         if let Some(t) = self.node_state[LiveTL].lock_surface.get() {
             format_object_link(buf, depth, t.client.id, t.id);
         }
+    }
+
+    fn read_color_description_live(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        self.node_state[LiveTL]
+            .color_description
+            .get()
+            .str_fmt(buf, ctx);
+    }
+
+    fn read_color_description_render(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        self.node_state[RenderTL]
+            .color_description
+            .get()
+            .str_fmt(buf, ctx);
+    }
+
+    fn read_linear_color_description_live(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        self.node_state[LiveTL]
+            .linear_color_description
+            .get()
+            .str_fmt(buf, ctx);
+    }
+
+    fn read_linear_color_description_render(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        self.node_state[RenderTL]
+            .linear_color_description
+            .get()
+            .str_fmt(buf, ctx);
     }
 
     fn get_connector(self: &Rc<Self>, _key: u64) -> Option<FuseInodeWithKey> {

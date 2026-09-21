@@ -91,15 +91,15 @@ struct DirectScanoutData {
 }
 
 #[derive(Debug)]
-struct DirectScanoutDataCore {
-    tex: Rc<dyn GfxTexture>,
-    tex_resv: Option<Rc<dyn BufferResv>>,
-    acquire_sync: AcquireSync,
-    release_sync: ReleaseSync,
-    _fb_resv: Option<Rc<dyn BufferResv>>,
-    lazy: Option<Rc<dyn LazyTexture>>,
-    fb: Rc<DrmFramebuffer>,
-    position: DirectScanoutPosition,
+pub struct DirectScanoutDataCore {
+    pub tex: Rc<dyn GfxTexture>,
+    pub tex_resv: Option<Rc<dyn BufferResv>>,
+    pub acquire_sync: AcquireSync,
+    pub release_sync: ReleaseSync,
+    pub fb_resv: Option<Rc<dyn BufferResv>>,
+    pub lazy: Option<Rc<dyn LazyTexture>>,
+    pub fb: Rc<DrmFramebuffer>,
+    pub position: DirectScanoutPosition,
 }
 
 struct PresentFb {
@@ -111,10 +111,10 @@ struct PresentFb {
 }
 
 pub struct PresentFbCore {
-    fb: Rc<DrmFramebuffer>,
-    fb_cd: Rc<ColorDescription>,
-    tex: Rc<dyn GfxTexture>,
-    direct_scanout_data: Option<DirectScanoutDataCore>,
+    pub fb: Rc<DrmFramebuffer>,
+    pub fb_cd: Rc<ColorDescription>,
+    pub tex: Rc<dyn GfxTexture>,
+    pub direct_scanout_data: Option<DirectScanoutDataCore>,
     pub locked: bool,
 }
 
@@ -799,7 +799,7 @@ impl MetalConnector {
                 tex_resv: ct.buffer_resv.clone(),
                 acquire_sync: ct.acquire_sync.clone(),
                 release_sync,
-                _fb_resv: fb_resv,
+                fb_resv,
                 lazy: ct.lazy.clone(),
                 fb,
                 position,

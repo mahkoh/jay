@@ -9,12 +9,11 @@ dir xdg_toplevel {
     committed: reg,
     extents_set: reg,
     allow_fixed_size: reg,
-    has_drag: reg,
-    has_dialog: reg,
     num_children: reg,
-    has_parent: reg,
     xdg_surface: link,
     surface: link,
+    drag: link (opt),
+    dialog: link (opt),
     parent: link (opt, key = 0),
     children: view (key = 0),
 }
@@ -77,20 +76,8 @@ impl xdg_toplevel::Dir for XdgToplevel {
         self.allow_fixed_size.get().str_fmt(buf, ctx);
     }
 
-    fn read_has_drag(&self, buf: &mut String, ctx: &StrCtx<'_>) {
-        self.drag.get().is_some().str_fmt(buf, ctx);
-    }
-
-    fn read_has_dialog(&self, buf: &mut String, ctx: &StrCtx<'_>) {
-        self.dialog.get().is_some().str_fmt(buf, ctx);
-    }
-
     fn read_num_children(&self, buf: &mut String, ctx: &StrCtx<'_>) {
         self.children.borrow().len().str_fmt(buf, ctx);
-    }
-
-    fn read_has_parent(&self, buf: &mut String, ctx: &StrCtx<'_>) {
-        self.parent.get().is_some().str_fmt(buf, ctx);
     }
 
     fn readlink_xdg_surface(&self, depth: u64, buf: &mut String) {
@@ -99,6 +86,26 @@ impl xdg_toplevel::Dir for XdgToplevel {
 
     fn readlink_surface(&self, depth: u64, buf: &mut String) {
         format_object_link(buf, depth, self.xdg.surface.client.id, self.xdg.surface.id);
+    }
+
+    fn has_drag(&self) -> bool {
+        self.drag.is_some()
+    }
+
+    fn readlink_drag(&self, depth: u64, buf: &mut String) {
+        if let Some(drag) = self.drag.get() {
+            format_object_link(buf, depth, self.xdg.surface.client.id, drag.id());
+        }
+    }
+
+    fn has_dialog(&self) -> bool {
+        self.dialog.is_some()
+    }
+
+    fn readlink_dialog(&self, depth: u64, buf: &mut String) {
+        if let Some(dialog) = self.dialog.get() {
+            format_object_link(buf, depth, self.xdg.surface.client.id, dialog.id());
+        }
     }
 
     fn has_parent(&self) -> bool {

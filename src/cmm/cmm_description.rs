@@ -10,8 +10,10 @@ use crate::cmm::cmm_transform::ColorMatrix;
 use crate::cmm::cmm_transform::Local;
 use crate::cmm::cmm_transform::Xyz;
 use crate::cmm::cmm_transform::bradford_adjustment;
+use crate::utils::liveness::Liveness;
 use crate::utils::ordered_float::F64;
 use jay_algorithms::triangles::triangle_contains_points;
+use jay_proc::GetLiveness;
 use jay_proc::StrFmt;
 use std::cell::OnceCell;
 use std::rc::Rc;
@@ -37,7 +39,7 @@ pub struct LinearColorDescription {
     pub(super) shared: Rc<Shared>,
 }
 
-#[derive(Debug, StrFmt)]
+#[derive(Debug, GetLiveness, StrFmt)]
 pub struct ColorDescription {
     pub id: ColorDescriptionId,
     pub linear: Rc<LinearColorDescription>,
@@ -45,6 +47,8 @@ pub struct ColorDescription {
     pub eotf: Eotf,
     #[str_fmt(skip)]
     pub(super) shared: Rc<Shared>,
+    #[str_fmt(skip)]
+    pub(super) liveness: Liveness,
 }
 
 impl LinearColorDescription {

@@ -16,6 +16,7 @@ use crate::gfx_api::GfxTexture;
 use crate::ifs::wl_surface::WlSurface;
 use crate::ifs::wl_surface::prime::PrimeError;
 use crate::leaks::Tracker;
+use crate::object::ObjectDebugfs;
 use crate::object::Version;
 use crate::rect::Rect;
 use crate::rect::Region;
@@ -23,6 +24,8 @@ use crate::state::DrmDevData;
 use crate::state::GfxCtxChangedListener;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::event_listener::EventListener;
+use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
+use crate::utils::liveness::Liveness;
 use crate::utils::page_size::page_size;
 use crate::utils::rc_eq::rc_opt_eq;
 use crate::video::LINEAR_MODIFIER;
@@ -31,6 +34,7 @@ use crate::video::dmabuf::DmaBufPlane;
 use crate::video::dmabuf::PlaneVec;
 use crate::wire::WlBufferId;
 use crate::wire::wl_buffer::*;
+use jay_proc::GetLiveness;
 use jay_proc::Object;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -39,6 +43,8 @@ use std::slice;
 use thiserror::Error;
 use uapi::OwnedFd;
 use uapi::c;
+
+mod wl_buffer_dfs_g_fuse;
 
 #[derive(Clone)]
 pub enum WlBufferStorage {
@@ -91,7 +97,8 @@ enum Ty {
     Spb,
 }
 
-#[derive(Object)]
+#[derive(Object, GetLiveness)]
+#[debugfs]
 pub struct WlBuffer {
     pub id: WlBufferId,
     destroyed: Cell<bool>,
@@ -111,6 +118,7 @@ pub struct WlBuffer {
     _gfx_ctx_changed: EventListener<dyn GfxCtxChangedListener>,
     pub tracker: Tracker<Self>,
     pub had_buffer_texture: Cell<bool>,
+    liveness: Liveness,
 }
 
 pub struct SyntheticWlBuffer {
@@ -163,6 +171,7 @@ impl WlBuffer {
             color,
             _gfx_ctx_changed: EventListener::attached(slf.clone(), &client.state.gfx_ctx_changed),
             had_buffer_texture: Default::default(),
+            liveness: Default::default(),
         })
     }
 
@@ -633,6 +642,7 @@ impl WlBuffer {
             ),
             tracker: Default::default(),
             had_buffer_texture: self.had_buffer_texture.clone(),
+            liveness: Default::default(),
         });
         track!(self.client, slf);
         slf.client.add_server_obj(&slf);
@@ -702,6 +712,12 @@ impl WlBufferDmabufStorage {
         }
         let obj = dev.create_src_object(&self.dmabuf)?;
         Ok(self.copy_obj.insert(Some(Rc::new(obj))).clone())
+    }
+}
+
+impl ObjectDebugfs for WlBuffer {
+    fn object_debugfs(self: Rc<Self>, _client: &Rc<Client>) -> FuseInodeWithKey {
+        self.debugfs()
     }
 }
 

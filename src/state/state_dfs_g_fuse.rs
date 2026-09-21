@@ -55,6 +55,7 @@ dir root {
     visualize_compositing: reg,
     workspace_display_order: reg,
     clients: view (key = 0),
+    color_descriptions: view (key = 0),
     outputs: view (key = 0),
     workspaces: view (key = 0),
     seats: view (key = 0),
@@ -71,6 +72,7 @@ dir seats {
 use crate::client::Client;
 use crate::client::ClientId;
 use crate::client::ClientView;
+use crate::cmm::cmm_description::ColorDescription;
 use crate::dfs::dfs_helpers::DfsGlobalLink;
 use crate::dfs::dfs_helpers::write_root_link;
 use crate::globals::DfsGlobalsView;
@@ -90,6 +92,8 @@ use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::fuse::fuse_views::CopyHashMapDir2;
 use crate::utils::fuse::fuse_views::CopyHashMapDir2View;
 use crate::utils::fuse::fuse_views::FuseLink;
+use crate::utils::fuse::fuse_views::FuseReg;
+use crate::utils::fuse::fuse_views::FuseRegView;
 use crate::utils::fuse::fuse_views::IterDir;
 use crate::utils::fuse::fuse_views::IterDirKeyed;
 use crate::utils::fuse::fuse_views::IterDirKeyedView;
@@ -121,6 +125,7 @@ impl State {
 
 impl root::Dir for State {
     type ViewClients = IterDir<Clients>;
+    type ViewColorDescriptions = IterDirKeyed<ColorDescriptions>;
     type ViewOutputs = IterDir<Outputs>;
     type ViewWorkspaces = CopyHashMapDir2<Workspaces>;
     type ViewSeats = seats::View;
@@ -428,6 +433,39 @@ impl seats::Dir for State {
     fn readlink_by_id(&self, depth: u64, buf: &mut String) {
         write_root_link(buf, depth);
         buf.push_str("globals/seats");
+    }
+}
+
+struct ColorDescriptions;
+
+impl IterDirKeyedView<State> for ColorDescriptions {
+    type Value = ColorDescription;
+    type View = FuseReg<ColorDescriptionReg>;
+
+    fn iter(t: Rc<State>, _key: u64, mut f: impl FnMut(&str, &Rc<Self::Value>, u64)) {
+        let mut buf = itoa::Buffer::new();
+        t.color_manager.descriptions(|cd| {
+            f(buf.format(cd.id.raw()), cd, cd.id.raw());
+        });
+    }
+
+    fn get(t: Rc<State>, _key: u64, name: &str) -> Option<(Rc<Self::Value>, u64)> {
+        let id = u64::from_str(name).ok()?;
+        let mut res = None;
+        t.color_manager.descriptions(|cd| {
+            if cd.id.raw() == id {
+                res = Some((cd.clone(), id));
+            }
+        });
+        res
+    }
+}
+
+struct ColorDescriptionReg;
+
+impl FuseRegView<ColorDescription> for ColorDescriptionReg {
+    fn read(t: &ColorDescription, _key: u64, buf: &mut String, ctx: &StrCtx<'_>) {
+        t.str_fmt(buf, ctx);
     }
 }
 

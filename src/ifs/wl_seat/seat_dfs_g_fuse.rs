@@ -29,7 +29,7 @@ dir seat {
     num_kb_states: reg,
     has_input_method: reg,
     has_input_method_grab: reg,
-    has_text_input: reg,
+    text_input: link (opt),
     pos_time_usec: reg,
     last_input_usec: reg,
     pointer_stack_modified: reg,
@@ -44,8 +44,10 @@ dir seat {
     num_x_data_devices: reg,
 }
  */
+use crate::dfs::dfs_helpers::format_object_link;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_seat::seat_dfs_g_fuse::generated::seat;
+use crate::object::Object;
 use crate::utils::str_fmt::StrCtx;
 use crate::utils::str_fmt::StrFmt;
 pub use seat::View as SeatView;
@@ -163,8 +165,14 @@ impl seat::Dir for WlSeatGlobal {
         self.input_method_grab.get().is_some().str_fmt(buf, ctx);
     }
 
-    fn read_has_text_input(&self, buf: &mut String, ctx: &StrCtx<'_>) {
-        self.text_input.get().is_some().str_fmt(buf, ctx);
+    fn has_text_input(&self) -> bool {
+        self.text_input.is_some()
+    }
+
+    fn readlink_text_input(&self, depth: u64, buf: &mut String) {
+        if let Some(ti) = self.text_input.get() {
+            format_object_link(buf, depth, ti.client.id, ti.id());
+        }
     }
 
     fn read_pos_time_usec(&self, buf: &mut String, ctx: &StrCtx<'_>) {

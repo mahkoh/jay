@@ -163,6 +163,14 @@ impl ColorManager {
         )
     }
 
+    pub fn descriptions(&self, mut f: impl FnMut(&Rc<ColorDescription>)) {
+        for d in self.complete_descriptions.lock().values() {
+            if let Some(d) = d.upgrade() {
+                f(&d);
+            }
+        }
+    }
+
     pub fn get_with_tf(
         self: &Rc<Self>,
         cd: &Rc<ColorDescription>,
@@ -242,6 +250,7 @@ fn get_description(
         named_primaries,
         eotf,
         shared: shared.clone(),
+        liveness: Default::default(),
     });
     complete_descriptions.set(key, Rc::downgrade(&d));
     d
@@ -271,6 +280,7 @@ fn get_description2(
         named_primaries,
         eotf,
         shared: shared.clone(),
+        liveness: Default::default(),
     });
     complete_descriptions.set(key, Rc::downgrade(&d));
     d

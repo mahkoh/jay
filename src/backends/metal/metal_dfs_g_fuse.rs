@@ -73,8 +73,7 @@ dir connector {
     presentation_is_zero_copy: reg,
     direct_scanout_active: reg,
     last_direct_scanout_error: reg,
-    has_active_framebuffer: reg,
-    active_framebuffer_locked: reg,
+    active_framebuffer: view (opt, key = 0),
     has_gamma_lut: reg,
     color_description: reg,
     fb_color_description: reg,
@@ -170,13 +169,38 @@ dir plane {
     crtc_w: reg,
     crtc_h: reg,
 }
+
+dir framebuffer {
+    fb: reg,
+    fb_cd: reg,
+    size: reg,
+    format: reg,
+    dmabuf: reg (opt),
+    locked: reg,
+    direct_scanout_data: view (opt, key = 0),
+}
+
+dir direct_scanout_data {
+    size: reg,
+    format: reg,
+    dmabuf: reg (opt),
+    has_tex_resv: reg,
+    acquire_sync: reg,
+    release_sync: reg,
+    has_fb_resv: reg,
+    is_lazy: reg,
+    fb: reg,
+    position: reg,
+}
  */
 use crate::backends::metal::MetalBackend;
 use crate::backends::metal::metal_dfs_g_fuse::generated::backend;
 use crate::backends::metal::metal_dfs_g_fuse::generated::connector;
 use crate::backends::metal::metal_dfs_g_fuse::generated::crtc;
 use crate::backends::metal::metal_dfs_g_fuse::generated::dev;
+use crate::backends::metal::metal_dfs_g_fuse::generated::direct_scanout_data;
 use crate::backends::metal::metal_dfs_g_fuse::generated::encoder;
+use crate::backends::metal::metal_dfs_g_fuse::generated::framebuffer;
 use crate::backends::metal::metal_dfs_g_fuse::generated::plane;
 use crate::backends::metal::metal_dfs_g_fuse::generated::render_ctx;
 use crate::backends::metal::video::FrontState;
@@ -220,6 +244,7 @@ use crate::video::drm::DrmPlane;
 use arrayvec::ArrayString;
 use bstr::ByteSlice;
 use hashbrown::HashMap;
+use jay_proc::StrFmt;
 use std::cell::Ref;
 use std::rc::Rc;
 use std::str::FromStr;
@@ -550,6 +575,7 @@ impl HashMapDirView<MetalDrmDeviceData> for Planes {
 }
 
 impl connector::Dir for MetalConnector {
+    type ViewActiveFramebuffer = framebuffer::View;
     type ViewPossibleCrtcs = BinarySearchMapDir<PossibleCrtcs>;
 
     fn read_id(&self, buf: &mut String, ctx: &StrCtx<'_>) {
@@ -689,16 +715,8 @@ impl connector::Dir for MetalConnector {
         }
     }
 
-    fn read_has_active_framebuffer(&self, buf: &mut String, ctx: &StrCtx<'_>) {
-        self.active_framebuffer.borrow().is_some().str_fmt(buf, ctx);
-    }
-
-    fn read_active_framebuffer_locked(&self, buf: &mut String, ctx: &StrCtx<'_>) {
-        self.active_framebuffer
-            .borrow()
-            .as_ref()
-            .map(|fb| fb.locked)
-            .str_fmt(buf, ctx);
+    fn has_active_framebuffer(&self, _key: u64) -> bool {
+        self.active_framebuffer.borrow().is_some()
     }
 
     fn read_has_gamma_lut(&self, buf: &mut String, ctx: &StrCtx<'_>) {
@@ -706,11 +724,11 @@ impl connector::Dir for MetalConnector {
     }
 
     fn read_color_description(&self, buf: &mut String, ctx: &StrCtx<'_>) {
-        self.color_description.get().id.raw().str_fmt(buf, ctx);
+        self.color_description.get().str_fmt(buf, ctx);
     }
 
     fn read_fb_color_description(&self, buf: &mut String, ctx: &StrCtx<'_>) {
-        self.fb_color_description.get().id.raw().str_fmt(buf, ctx);
+        self.fb_color_description.get().str_fmt(buf, ctx);
     }
 
     fn read_fb_render_intent(&self, buf: &mut String, ctx: &StrCtx<'_>) {
@@ -1278,6 +1296,139 @@ struct ExternalConnectorLink;
 impl FuseLinkView<MetalConnector> for ExternalConnectorLink {
     fn readlink(t: &MetalConnector, _key: u64, depth: u64, buf: &mut String) {
         write_obj_link2(buf, depth, t.master.dev(), CONNECTORS, t.id.0, true);
+    }
+}
+
+macro_rules! framebuffer {
+    ($slf:expr, $v:pat, $body:expr) => {
+        if let Some($v) = &*$slf.active_framebuffer.borrow() {
+            $body
+        }
+    };
+}
+
+impl framebuffer::Dir for MetalConnector {
+    type ViewDirectScanoutData = direct_scanout_data::View;
+
+    fn read_fb(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        framebuffer!(self, v, v.fb.id().0.str_fmt(buf, ctx));
+    }
+
+    fn read_fb_cd(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        framebuffer!(self, v, v.fb_cd.str_fmt(buf, ctx));
+    }
+
+    fn read_size(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        #[derive(StrFmt)]
+        struct Size {
+            width: i32,
+            height: i32,
+        }
+        framebuffer!(self, v, {
+            let (width, height) = v.tex.size();
+            Size { width, height }.str_fmt(buf, ctx);
+        });
+    }
+
+    fn read_format(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        framebuffer!(self, v, v.tex.format().str_fmt(buf, ctx));
+    }
+
+    fn has_dmabuf(&self) -> bool {
+        let mut has = false;
+        framebuffer!(self, v, has = v.tex.dmabuf().is_some());
+        has
+    }
+
+    fn read_dmabuf(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        framebuffer!(self, v, {
+            if let Some(v) = v.tex.dmabuf() {
+                v.str_fmt(buf, ctx);
+            }
+        });
+    }
+
+    fn read_locked(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        framebuffer!(self, v, v.locked.str_fmt(buf, ctx));
+    }
+
+    fn has_direct_scanout_data(&self, _key: u64) -> bool {
+        self.active_framebuffer
+            .borrow()
+            .as_ref()
+            .is_some_and(|v| v.direct_scanout_data.is_some())
+    }
+}
+
+macro_rules! dsd {
+    ($slf:expr, $v:pat, $body:expr) => {
+        framebuffer!($slf, v, {
+            if let Some($v) = &v.direct_scanout_data {
+                $body
+            }
+        });
+    };
+}
+
+impl direct_scanout_data::Dir for MetalConnector {
+    fn read_size(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        #[derive(StrFmt)]
+        struct Size {
+            width: i32,
+            height: i32,
+        }
+        dsd!(self, v, {
+            let (width, height) = v.tex.size();
+            Size { width, height }.str_fmt(buf, ctx);
+        });
+    }
+
+    fn read_format(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        dsd!(self, v, v.tex.format().str_fmt(buf, ctx));
+    }
+
+    fn has_dmabuf(&self) -> bool {
+        let mut has = false;
+        dsd!(self, v, has = v.tex.dmabuf().is_some());
+        has
+    }
+
+    fn read_dmabuf(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        dsd!(
+            self,
+            v,
+            if let Some(v) = v.tex.dmabuf() {
+                v.str_fmt(buf, ctx);
+            }
+        );
+    }
+
+    fn read_has_tex_resv(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        dsd!(self, v, v.tex_resv.is_some().str_fmt(buf, ctx));
+    }
+
+    fn read_acquire_sync(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        dsd!(self, v, v.acquire_sync.text().str_fmt(buf, ctx));
+    }
+
+    fn read_release_sync(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        dsd!(self, v, v.release_sync.text().str_fmt(buf, ctx));
+    }
+
+    fn read_has_fb_resv(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        dsd!(self, v, v.fb_resv.is_some().str_fmt(buf, ctx));
+    }
+
+    fn read_is_lazy(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        dsd!(self, v, v.lazy.is_some().str_fmt(buf, ctx));
+    }
+
+    fn read_fb(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        dsd!(self, v, v.fb.id().0.str_fmt(buf, ctx));
+    }
+
+    fn read_position(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        dsd!(self, v, v.position.str_fmt(buf, ctx));
     }
 }
 
