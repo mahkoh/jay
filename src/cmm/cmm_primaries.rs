@@ -1,5 +1,11 @@
 use crate::utils::ordered_float::F64;
+use crate::utils::static_text::StaticText;
+use crate::utils::str_fmt::StrCtx;
+use crate::utils::str_fmt::StrFmt;
+use crate::utils::str_fmt::StrFmtFmt;
+use jay_proc::StrFmt;
 use jay_proc::jay_hash;
+use std::fmt::Write as _;
 use std::hash::Hash;
 
 #[jay_hash]
@@ -15,6 +21,29 @@ pub enum NamedPrimaries {
     DciP3,
     DisplayP3,
     AdobeRgb,
+}
+
+impl StrFmt for NamedPrimaries {
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
+        self.text().str_fmt(dst, ctx);
+    }
+}
+
+impl StaticText for NamedPrimaries {
+    fn text(&self) -> &'static str {
+        match self {
+            NamedPrimaries::Srgb => "srgb",
+            NamedPrimaries::PalM => "pal_m",
+            NamedPrimaries::Pal => "pal",
+            NamedPrimaries::Ntsc => "ntsc",
+            NamedPrimaries::GenericFilm => "generic_film",
+            NamedPrimaries::Bt2020 => "bt2020",
+            NamedPrimaries::Cie1931Xyz => "cie1931_xyz",
+            NamedPrimaries::DciP3 => "dci_p3",
+            NamedPrimaries::DisplayP3 => "display_p3",
+            NamedPrimaries::AdobeRgb => "adobe_rgb",
+        }
+    }
 }
 
 #[jay_hash]
@@ -121,6 +150,44 @@ impl NamedPrimaries {
             NamedPrimaries::DciP3 => Primaries::DCI_P3,
             NamedPrimaries::DisplayP3 => Primaries::DISPLAY_P3,
             NamedPrimaries::AdobeRgb => Primaries::ADOBE_RGB,
+        }
+    }
+}
+
+impl StrFmt for Primaries {
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
+        if ctx.fmt == StrFmtFmt::Human {
+            let mut first = true;
+            for (n, (x, y)) in [
+                (" r", self.r),
+                (" g", self.g),
+                (" b", self.b),
+                ("wp", self.wp),
+            ] {
+                if !first {
+                    dst.push_str("\n");
+                    dst.push_str(ctx.prefix);
+                    dst.push_str(ctx.spaces);
+                }
+                first = false;
+                dst.push_str(n);
+                dst.push_str(": ");
+                let _ = write!(dst, "{x:.04} {y:.04}");
+            }
+        } else {
+            #[derive(StrFmt)]
+            struct F {
+                r: (F64, F64),
+                g: (F64, F64),
+                b: (F64, F64),
+                wp: (F64, F64),
+            }
+            define_ident!(self.@r);
+            define_ident!(self.@g);
+            define_ident!(self.@b);
+            define_ident!(self.@wp);
+            let f = F { r, g, b, wp };
+            f.str_fmt(dst, ctx);
         }
     }
 }

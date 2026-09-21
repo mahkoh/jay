@@ -23,6 +23,7 @@ use crate::video::drm::syncobj::merge_sync_files;
 use arrayvec::ArrayVec;
 use bstr::ByteSlice;
 use jay_algorithms::oserror::OsError;
+use jay_proc::StrFmt;
 use smallvec::SmallVec;
 use std::cell::Cell;
 use std::cell::OnceCell;
@@ -40,7 +41,7 @@ use uapi::c::dev_t;
 use uapi::c::ioctl;
 use uapi::format_ustr;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, StrFmt)]
 pub struct DmaBufPlane {
     pub offset: u32,
     pub stride: u32,
@@ -49,7 +50,7 @@ pub struct DmaBufPlane {
 
 linear_ids!(DmaBufIds, DmaBufId);
 
-#[derive(Debug)]
+#[derive(Debug, StrFmt)]
 pub struct DmaBuf {
     pub id: DmaBufId,
     pub width: i32,

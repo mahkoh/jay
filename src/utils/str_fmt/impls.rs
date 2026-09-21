@@ -3,9 +3,13 @@ use crate::utils::spaces::spaces;
 use crate::utils::str_fmt::StrCtx;
 use crate::utils::str_fmt::StrFmt;
 use crate::utils::str_fmt::StrFmtFmt;
+use arrayvec::ArrayVec;
 use bstr::BStr;
 use std::borrow::Borrow;
 use std::borrow::Cow;
+use std::cell::OnceCell;
+use std::rc::Rc;
+use uapi::OwnedFd;
 
 impl<T> StrFmt for [T]
 where
@@ -53,6 +57,15 @@ where
                 dst.push_str("]");
             }
         }
+    }
+}
+
+impl<T, const N: usize> StrFmt for [T; N]
+where
+    T: StrFmt,
+{
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
+        self[..].str_fmt(dst, ctx);
     }
 }
 
@@ -193,6 +206,37 @@ where
     }
 }
 
+impl<A, B> StrFmt for (A, B)
+where
+    A: StrFmt,
+    B: StrFmt,
+{
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
+        ctx.struct_prefix(dst);
+        ctx.struct_field(dst, "0", &self.0, true);
+        ctx.struct_field(dst, "1", &self.1, false);
+        ctx.struct_suffix(dst);
+    }
+}
+
+impl<T> StrFmt for Rc<T>
+where
+    T: StrFmt + ?Sized,
+{
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
+        T::str_fmt(self, dst, ctx);
+    }
+}
+
+impl<T> StrFmt for OnceCell<T>
+where
+    T: StrFmt,
+{
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
+        self.get().str_fmt(dst, ctx);
+    }
+}
+
 impl<T> StrFmt for Box<T>
 where
     T: StrFmt + ?Sized,
@@ -209,5 +253,20 @@ where
     fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
         let t: &T = self.borrow();
         t.str_fmt(dst, ctx);
+    }
+}
+
+impl StrFmt for OwnedFd {
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
+        self.raw().str_fmt(dst, ctx);
+    }
+}
+
+impl<T, const N: usize> StrFmt for ArrayVec<T, N>
+where
+    T: StrFmt,
+{
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
+        self.as_slice().str_fmt(dst, ctx);
     }
 }

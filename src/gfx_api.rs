@@ -436,6 +436,16 @@ pub enum AlphaMode {
     Straight,
 }
 
+impl StaticText for AlphaMode {
+    fn text(&self) -> &'static str {
+        match self {
+            AlphaMode::PremultipliedElectrical => "premultiplied_electrical",
+            AlphaMode::PremultipliedOptical => "premultiplied_optical",
+            AlphaMode::Straight => "straight",
+        }
+    }
+}
+
 pub trait GfxBlendBuffer: Any + Debug {}
 
 pub trait GfxFramebuffer: Debug {

@@ -4,6 +4,7 @@ use crate::gfx_api::AlphaMode;
 use crate::theme::Color;
 use crate::utils::markers::JayHash;
 use crate::utils::ordered_float::F64;
+use jay_proc::StrFmt;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Formatter;
@@ -13,7 +14,12 @@ use std::marker::PhantomData;
 use std::ops::Mul;
 use std::ops::MulAssign;
 
-pub struct ColorMatrix<To = Local, From = Local>(pub [[F64; 4]; 3], PhantomData<(To, From)>);
+#[derive(StrFmt)]
+#[str_fmt(transparent)]
+pub struct ColorMatrix<To = Local, From = Local>(
+    pub [[F64; 4]; 3],
+    #[str_fmt(skip)] PhantomData<(To, From)>,
+);
 
 #[derive(Copy, Clone)]
 pub struct Local;

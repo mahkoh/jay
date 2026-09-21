@@ -11,7 +11,8 @@ use std::ops::Sub;
 
 macro_rules! define {
     ($big:ident, $little:ty) => {
-        #[derive(Copy, Clone)]
+        #[derive(Copy, Clone, jay_proc::StrFmt)]
+        #[str_fmt(transparent)]
         #[repr(transparent)]
         pub struct $big(pub $little);
 
