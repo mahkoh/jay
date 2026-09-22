@@ -1,5 +1,414 @@
 # Unreleased
 
+## Fixes
+
+As always, this release contains many bug fixes. Thanks to the following people
+for reporting or fixing bugs:
+
+- @boxoloxo
+- @danielfikko
+- @Flrian
+- @hamburg3rz
+- @Ktrompfl
+- @Medowe
+- @nanomatters
+- @njdom24
+- @Paizo-dev
+- @sbe-visma
+- @Skylewl
+- @witchlliee
+- @yian04475-cmyk
+
+## Plane Color Pipelines
+
+Jay can now use hardware color pipelines to support direct scanout in situations
+where fullscreen windows produce images that aren't directly supported by the
+display.
+
+This happens most commonly when the display is operating in HDR mode and a game
+is producing SDR or scRGB images. Previously, this required running the full
+composition pipeline.
+
+Color pipelines are a relatively new feature of the kernel, and both the API and
+individual drivers have bugs. This feature is therefore disabled by default. It
+can be enabled per GPU:
+
+```toml
+[[drm-devices]]
+match = { pci-vendor = 0x1002, pci-model = 0x73ff }
+plane-color-pipelines = true
+```
+
+The setting can also be changed ad hoc in the GPUs pane of the control center.
+The *Visualize Compositing* feature in the Compositor pane can be used to check
+if direct scanout is active.
+
+Whether a GPU supports color pipelines and whether they are active can be
+queried with `jay randr`.
+
+Color pipelines give the compositor a large amount of freedom to configure
+individual hardware blocks of the GPU to achieve the desired transformation. The
+matching algorithm in Jay is sophisticated enough to enumerate all viable
+configurations almost instantaneously. With most modern AMD and NVIDIA devices,
+this usually yields at least one configuration.
+
+However, in practice, these hardware blocks have undocumented limitations that
+cannot be queried by the compositor. Such limitations have to be discovered by
+trial and error on actual hardware.
+
+Jay refuses to use certain hardware blocks that have been discovered to produce
+output that is not identical to that of the composition pipeline. This
+restriction can be overridden with environment variables. This is documented in
+the *Env Variables Read by Jay* section in the book.
+
+## Changing the Config Directory
+
+By default, Jay looks for configuration files in `~/.config/jay`. This can now
+be changed by setting the path to the config directory either with the
+`JAY_CONFIG_DIR` environment variable or with the global `--config-dir` CLI
+flag.
+
+## Configuration with `jay.env`
+
+Jay reads some environment variables to configure itself. These environment
+variables are used for debugging and changing some unstable behavior, as
+described above.
+
+To make this more convenient, these variables can now be configured in the
+`jay.env` file in the config directory (`~/.config/jay/jay.env` by default).
+Environment variables set in this file are not propagated to applications
+spawned by Jay.
+
+The file uses the standard dotenv syntax:
+
+```dotenv
+# This is a comment
+JAY_MCM_AMD_ALLOW_CURSOR=true
+```
+
+This is documented in the *Env Variables Read by Jay* section in the book.
+
+## HDR Screenshots
+
+You can now take HDR10 screenshots with `jay screenshot --hdr10`.
+
+This adds metadata to the PNG file. This metadata was standardized only recently
+and might not yet be supported by many image viewers. Chromium and mpv can
+display such images correctly.
+
+Thanks to @hamburg3rz for implementing this.
+
+## Per-Window Theming
+
+Each window can now have its own theme, affecting things such as border colors,
+fonts, and border sizes.
+
+The theme can be configured with the `set-window-theme` action:
+
+```toml
+# Remove decorations around the GIMP splash screen
+[[windows]]
+match = { title = "GIMP Startup", app-id = "gimp" }
+action = {
+  type = "set-window-theme",
+  theme = { show-titles = false, border-width = 0 },
+}
+```
+
+The available fields and additional actions are documented in the *Theme &
+Appearance* section in the book.
+
+You can experiment with this by using the *Window Search* pane in the control
+center, which allows inspecting and changing window themes.
+
+Thanks to @michaeladler for writing an initial implementation.
+
+## Toml Matchers in the CLI
+
+The window and client matchers from the toml config can now also be used in the
+CLI:
+
+```shell
+~$ jay tree query match-windows -e 'app-id = "chromium"'
+- xdg-toplevel:
+    id: f924f0fbc25ee80d2ffa61b00adc91b0d9dae4038bfa388e
+    pos: 0x36 + 1920x1044
+    client:
+      id: 6
+      uid: 1000
+      pid: 395961
+      comm: chromium
+      exe: /usr/lib/chromium/chromium
+    title: New tab - Chromium
+    app-id: chromium
+    workspace: 1
+```
+
+The full syntax with and/or/exactly conditions is available. If you want to
+reuse an expression, you can also store it in a file:
+
+```shell
+~$ jay tree query match-windows -f match.toml
+```
+
+This is documented in the *Match Expressions* subsection of the *Command-Line
+Interface* section in the book.
+
+## Client Tracing
+
+The well-known `WAYLAND_DEBUG=1` environment variable can be used to print the
+traffic between Wayland applications and the compositor. However, this comes
+with some limitations:
+
+- The environment variable must be set before starting the program. It's not
+  possible to inspect the traffic of an already-running application.
+- Many applications create multiple Wayland connections, and the environment
+  variable affects all of them, causing their messages to be mixed together.
+
+Jay now has a built-in tracing mechanism that is inspired by `strace`.
+
+```shell
+~$ jay trace select-window
+[...]
+> exe: "/usr/lib/chromium/chromium"
+> connect_time_us: 2026-09-19T23:23:38.697326Z
+> now_us: 2026-09-22T14:49:12.817747Z
+[14:49:12.851780] {6} -> wp_linux_drm_syncobj_surface_v1#6.set_acquire_point(timeline: wp_linux_drm_syncobj_timeline_v1#7, point: 1351137)
+[14:49:12.851780] {6} -> wp_linux_drm_syncobj_surface_v1#6.set_release_point(timeline: wp_linux_drm_syncobj_timeline_v1#8, point: 91750)
+[14:49:12.851780] {6} -> wl_surface#2.attach(buffer: wl_buffer#9, x: 0, y: 0)
+[14:49:12.851780] {6} -> wl_surface#2.damage(x: 158, y: 55, width: 1, height: 17)
+[14:49:12.851780] {6} -> wl_surface#2.commit()
+[...]
+```
+
+The trace subcommand supports the following operations:
+
+- `all` - Trace all clients
+- `id` - Trace the client with a given ID
+- `select-window` - Interactively select a window and trace its client
+- `match` - Trace clients matching a toml client match
+
+The `all` and `match` operations capture all clients that are already connected
+and all clients that connect afterwards. This can be used to capture clients
+that have not yet started.
+
+Since `all` and `match` can capture multiple clients, it can be useful to store
+the output in files, with one file per client. This can be accomplished with the
+`-o` flag:
+
+```
+-o, --output <OUTPUT>
+        The file prefix to store the output in, or a
+        command to pipe the output to
+```
+
+The global `--json` flag can be used to generate JSON output instead of the
+default format:
+
+```shell
+~$ jay --json trace select-window
+{"t":"n","cl":6,"info":{"id":6,"sandboxed":false,"sandbox_engine":null,"sandbox_app_id":null,"sandbox_instance_id":null,"uid":1000,"pid":395961,"is_xwayland":false,"comm":"chromium","exe":"/usr/lib/chromium/chromium","tag":null,"connect_time_us":1789860218697326,"now_us":1790089232004291}}
+{"t":"m","cl":6,"us":1790089232087696,"inf":"wp_linux_drm_syncobj_surface_v1","id":6,"msg":"set_acquire_point","args":{"timeline":7,"point":1351329}}
+{"t":"m","cl":6,"us":1790089232087696,"inf":"wp_linux_drm_syncobj_surface_v1","id":6,"msg":"set_release_point","args":{"timeline":8,"point":91814}}
+{"t":"m","cl":6,"us":1790089232087696,"inf":"wl_surface","id":2,"msg":"attach","args":{"buffer":9,"x":0,"y":0}}
+{"t":"m","cl":6,"us":1790089232087696,"inf":"wl_surface","id":2,"msg":"damage","args":{"x":158,"y":55,"width":1,"height":17}}
+{"t":"m","cl":6,"us":1790089232087696,"inf":"wl_surface","id":2,"msg":"commit","args":{}}
+```
+
+The infrastructure is optimized so that tracing has negligible impact on
+performance.
+
+More details can be found in the *Tracing Wayland Messages* section in the book.
+
+## Debug Filesystem
+
+Jay now has a built-in FUSE filesystem that can be used to inspect the internal
+state of the compositor.
+
+The easiest way to use it is to create an atomic snapshot of the entire
+filesystem:
+
+```shell
+~$ jay debugfs snapshot
+~$ ls
+jay-debugfs-2026-09-22T151954.555Z.tar.gz
+~$ tar xf jay-debugfs-2026-09-22T151954.555Z.tar.gz
+~$ tree
+.
+├── jay-debugfs-2026-09-22T151954.555Z
+│   ├── backend
+│   │   ├── backend_import_environment
+│   │   ├── backend_name
+│   │   ├── backend_supports_presentation_feedback
+│   │   ├── devs
+│   │   │   ├── 226:0
+│   │   │   │   ├── connectors
+│   │   │   │   │   ├── 383
+[...]
+```
+
+The filesystem can be mounted to get a live view:
+
+```shell
+~$ jay debugfs mount
+/run/user/1000/wayland-1-jay/debugfs
+~$ cd /run/user/1000/wayland-1-jay/debugfs
+/run/user/1000/wayland-1-jay/debugfs$ cat version
+1.14.0 (2a9d4d463a8665fdf8332e393f0fb3bd904ac42e)
+```
+
+Mounting requires the fusermount3 utility to be installed. Creating a snapshot
+has no dependencies.
+
+The intention behind the filesystem is to make it easier to debug issues, since
+debugging previously often involved adding ad-hoc log messages to infer the
+internal state of the compositor. No stability guarantees are made regarding the
+layout of the filesystem.
+
+The filesystem is still somewhat bare-bones. It will grow as the need arises.
+
+To learn more about using the filesystem, read the *Command-Line Interface*
+section in the book.
+
+To learn how to add new files to the filesystem, read the *Debugfs Development*
+section.
+
+## Smart Container Borders
+
+The new `full-smart` container border style works like the `full` style except
+that, in a workspace whose root container contains only a single window, no
+borders are drawn around the root container.
+
+```toml
+[theme]
+container-borders = "full-smart"
+```
+
+Thanks to @khyperia for implementing this.
+
+## Config Improvements
+
+### Counters & Triggers
+
+It is often incorrect to change global compositor state from window rules.
+Consider the following:
+
+```toml
+# Disable idle while a window is fullscreen
+[[windows]]
+match.fullscreen = true
+action = { type = "configure-idle", idle.minutes = 0 }
+latch  = { type = "configure-idle", idle.minutes = 10 }
+```
+
+This does not work if you have multiple displays. The condition that you want to
+encode is "there is at least one fullscreen window". This can now be done with
+counters and triggers:
+
+```toml
+[[windows]]
+match.fullscreen = true
+action = { type = "inc-counter", name = "num-fullscreen" }
+latch  = { type = "dec-counter", name = "num-fullscreen" }
+
+[[triggers]]
+match.counter.num-fullscreen.gt = 0
+action = { type = "configure-idle", idle.minutes = 0 }
+latch  = { type = "configure-idle", idle.minutes = 10 }
+```
+
+The match rules on triggers allow combining multiple counters with
+and/or/exactly rules, and each counter supports the usual arithmetic conditions.
+This allows implementing complex conditions such as "disable idle if there is a
+fullscreen application except if a key is held down except if there are exactly
+3 browser windows open".
+
+This is documented in the *Counters & Triggers* section in the book.
+
+### Major/Minor Tiling
+
+The new `split-major` and `split-minor` actions can be used to split an existing
+window into a container along its major (longer) or minor (shorter) axis.
+
+The `tile-major` and `tile-minor` actions change the split of an existing
+container in the same way.
+
+This can be used to implement a manual dwindle layout.
+
+Thanks to @Ktrompfl for implementing this.
+
+### Container Action Targets
+
+Actions that modify containers operate on the parent container of the focused
+window by default. It is now possible for them to operate instead on the focused
+window itself:
+
+```toml
+[[windows]]
+match.types = "container"
+action = { type = "tile-major", target = "self" }
+```
+
+Thanks to @Ktrompfl for implementing this.
+
+### `is-workspace-container` Window Match Rule
+
+The new `is-workspace-container` rule can be used to match the root container of
+a workspace:
+
+```toml
+[[windows]]
+match.is-workspace-container = true
+```
+
+Thanks to @Ktrompfl for implementing this.
+
+### Setting the Initial Size and Position of Floating Windows
+
+By default, floating windows are spawned at the center of the screen, and their
+size is half of the screen size in each dimension. This behavior can now be
+overridden with window rules:
+
+```toml
+[[windows]]
+match = { }
+initial-floating-position = { x = 50, y = 50 }
+initial-floating-size = { width = 100, height = 100 }
+```
+
+Thanks to @Ktrompfl for implementing this.
+
+### Reusing Existing Containers when Splitting
+
+The `split-horizontal` and `split-vertical` actions create a new split by
+default, even if the window being split is the only child of an existing
+container.
+
+This behavior can now be changed with the top-level `split-reuses-container`
+setting:
+
+```toml
+split-reuses-container = true
+```
+
+When enabled, split actions that would create such a nested container instead
+change the split direction of the parent container.
+
+Thanks to @michaeladler for implementing this.
+
+## Protocol Updates and Additions
+
+This version of Jay supports the following new and improved protocols:
+
+| Global                               | Old | New |
+|--------------------------------------|:----|:----|
+| jay_icon_surface_manager_v1          |     | 1   |
+| jay_toplevel_icon_subject_manager_v1 |     | 1   |
+| jay_wl_surface_factory_manager_v1    |     | N/A |
+
+The `jay_wl_surface_factory_manager_v1` version is tied to the `wl_compositor`
+version.
+
 # 1.14.0 (2026-07-02)
 
 ## Fixes
