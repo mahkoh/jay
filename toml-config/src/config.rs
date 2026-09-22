@@ -38,6 +38,7 @@ use jay_config::get_workspace;
 use jay_config::input::FallbackOutputMode;
 use jay_config::input::InputEventCode;
 use jay_config::input::LayerDirection;
+use jay_config::input::MouseFollowsFocusMode;
 use jay_config::input::SwitchEvent;
 use jay_config::input::Timeline;
 use jay_config::input::WarpTarget;
@@ -673,7 +674,7 @@ pub struct Config {
     pub workspace_display_order: Option<WorkspaceDisplayOrder>,
     pub simple_im: Option<SimpleIm>,
     pub fallback_output_mode: Option<FallbackOutputMode>,
-    pub mouse_follows_focus: Option<bool>,
+    pub mouse_follows_focus: Option<MouseFollowsFocusMode>,
     pub transactions: Option<Transactions>,
     pub cursor_size: Option<i32>,
     pub configure_all_devices: bool,

@@ -2034,7 +2034,7 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
         #[allow(deprecated)]
         persistent
             .seat
-            .unstable_set_mouse_follows_focus(mouse_follows_focus);
+            .unstable_set_mouse_follows_focus_mode(mouse_follows_focus);
     }
     if let Some(v) = config.transactions {
         if let Some(v) = v.transaction_timeout {
