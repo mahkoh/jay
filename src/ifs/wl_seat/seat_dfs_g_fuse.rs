@@ -9,7 +9,7 @@ dir seat {
     forward: reg,
     focus_follows_mouse: reg,
     mouse_follows_focus: reg,
-    warp_mouse_to_focus_scheduled: reg,
+    warp_mouse_to_focus_target: reg,
     simple_im_enabled: reg,
     focus_history_visible_only: reg,
     focus_history_same_workspace: reg,
@@ -85,8 +85,8 @@ impl seat::Dir for WlSeatGlobal {
         self.mouse_follows_focus.get().str_fmt(buf, ctx);
     }
 
-    fn read_warp_mouse_to_focus_scheduled(&self, buf: &mut String, ctx: &StrCtx<'_>) {
-        self.warp_mouse_to_focus_scheduled.get().str_fmt(buf, ctx);
+    fn read_warp_mouse_to_focus_target(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        self.warp_mouse_to_focus_target.get().str_fmt(buf, ctx);
     }
 
     fn read_simple_im_enabled(&self, buf: &mut String, ctx: &StrCtx<'_>) {
