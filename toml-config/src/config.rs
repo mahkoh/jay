@@ -40,6 +40,7 @@ use jay_config::input::InputEventCode;
 use jay_config::input::LayerDirection;
 use jay_config::input::SwitchEvent;
 use jay_config::input::Timeline;
+use jay_config::input::WarpTarget;
 use jay_config::input::acceleration::AccelProfile;
 use jay_config::input::clickmethod::ClickMethod;
 use jay_config::input::scrollmethod::ScrollMethod;
@@ -119,7 +120,7 @@ pub enum SimpleCommand {
     ReloadSimpleIm,
     EnableUnicodeInput,
     OpenControlCenter,
-    WarpMouseToFocus,
+    WarpMouseToFocus(WarpTarget),
     HideOverlays,
     SetVisualizeCompositing(bool),
     ToggleVisualizeCompositing,

@@ -455,6 +455,22 @@
               ]
             },
             {
+              "description": "Warps the cursor to the center of the current keyboard focus.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-j = { type = \"warp-mouse-to-focus\", target = \"output\" }\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "warp-mouse-to-focus"
+                },
+                "target": {
+                  "description": "What to warp the cursor to.\n\nThe default is `window`.\n",
+                  "$ref": "#/$defs/WarpTarget"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            {
               "description": "Sets the graphics API used by new DRM devices.\n\nSetting this after the compositor has started usually has no effect.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-j = { type = \"set-gfx-api\", api = \"Vulan\" }\n  ```\n",
               "type": "object",
               "properties": {
@@ -3054,6 +3070,15 @@
         "variant1",
         "variant2",
         "variant3"
+      ]
+    },
+    "WarpTarget": {
+      "type": "string",
+      "description": "The target that the cursor is warped to.\n",
+      "enum": [
+        "window",
+        "workspace",
+        "output"
       ]
     },
     "WindowFloatingPosition": {
