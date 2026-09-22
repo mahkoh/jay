@@ -3633,25 +3633,22 @@ Config:
 
         The default is `true`.
     unstable-mouse-follows-focus:
-      kind: boolean
+      ref: MouseFollowsFocusMode
       required: false
       description: |
-        Configures whether the mouse cursor is automatically centered on the active window
-        when focus changes via keyboard commands.
+        Configures whether and how the mouse cursor is automatically moved when a
+        keyboard command such as `focus-left`, `move-right`, or `show-workspace`
+        changes the keyboard focus, or moves the focused window or workspace.
 
-        When enabled, the cursor will be automatically positioned to the center of the
-        active window when focus changes through keyboard commands such as `focus-left`,
-        `focus-right`, `show-workspace`, etc.
+        The default is `none`.
 
-        The default is `false`.
-        
         This option is unstable due to various issues. It is not subject to the usual
         semver guarantees.
 
         - Example:
 
           ```toml
-          unstable-mouse-follows-focus = true
+          unstable-mouse-follows-focus = "output"
           ```
     window-management-key:
       kind: string
@@ -4995,6 +4992,34 @@ ClientMatchExactly:
         ref: ClientMatch
       required: true
       description: The list of criteria.
+
+
+MouseFollowsFocusMode:
+  kind: string
+  values:
+    - value: none
+      description: The cursor is never moved when the keyboard focus changes.
+    - value: output
+      description: |
+        The cursor is moved to the center of the focused output when the focus moves
+        to a different output.
+    - value: workspace
+      description: |
+        The cursor is moved to the center of the focused workspace when the focus
+        moves to a different workspace, or when the focused workspace is moved to
+        another output.
+    - value: window
+      description: |
+        The cursor is moved to the center of the focused window when the focus moves
+        to a different window, or when the focused window is moved.
+  description: |
+    Configures whether and how the cursor follows the keyboard focus.
+
+    - Example:
+
+      ```toml
+      unstable-mouse-follows-focus = "output"
+      ```
 
 
 WarpTarget:

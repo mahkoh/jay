@@ -45,6 +45,7 @@ mod log_level;
 pub mod mark_id;
 mod mode;
 pub mod modified_keysym;
+mod mouse_follows_focus_mode;
 mod output;
 mod output_match;
 mod repeat_rate;
