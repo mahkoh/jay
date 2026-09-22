@@ -31,6 +31,7 @@ use crate::gfx_api::ScalingFilter;
 use crate::ifs::wl_output::BlendSpace;
 use crate::ifs::wl_output::PersistentOutputState;
 use crate::ifs::wl_seat::SeatId;
+use crate::ifs::wl_seat::WarpTarget;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wp_content_type_v1::ContentTypeExt;
 use crate::io_uring::TaskResultExt;
@@ -115,6 +116,7 @@ use jay_config::input::FocusFollowsMouseMode;
 use jay_config::input::InputDevice;
 use jay_config::input::InputEventCode as ConfigInputEventCode;
 use jay_config::input::JcFallbackOutputMode;
+use jay_config::input::JcWarpTarget;
 use jay_config::input::LayerDirection;
 use jay_config::input::Seat;
 use jay_config::input::Timeline;
@@ -2978,9 +2980,19 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_seat_warp_mouse_to_focus_target(
+        &self,
+        seat: Seat,
+        target: JcWarpTarget,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.schedule_warp_mouse_to_focus(target.into());
+        Ok(())
+    }
+
     fn handle_seat_warp_mouse_to_focus(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        seat.schedule_warp_mouse_to_focus();
+        seat.schedule_warp_mouse_to_focus(WarpTarget::Window);
         Ok(())
     }
 
@@ -4287,6 +4299,9 @@ impl ConfigProxyHandler {
             ClientMessage::SeatSetMouseFollowsFocus { seat, enabled } => self
                 .handle_seat_set_mouse_follows_focus(seat, enabled)
                 .wrn("seat_set_mouse_follows_focus")?,
+            ClientMessage::SeatWarpMouseToFocusTarget { seat, target } => self
+                .handle_seat_warp_mouse_to_focus_target(seat, target)
+                .wrn("seat_warp_mouse_to_focus_target")?,
             ClientMessage::ConnectorSetUseNativeGamut {
                 connector,
                 use_native_gamut,

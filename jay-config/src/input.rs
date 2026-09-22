@@ -766,6 +766,11 @@ impl Seat {
         get!().seat_warp_mouse_to_focus(self)
     }
 
+    /// Warps the cursor to the center of the target of the current keyboard focus.
+    pub fn warp_mouse_to_focus_target(self, target: WarpTarget) {
+        get!().seat_warp_mouse_to_focus_target(self, target.to_private())
+    }
+
     /// Resizes the focused window.
     pub fn resize(self, dx1: i32, dy1: i32, dx2: i32, dy2: i32) {
         self.window().resize(dx1, dy1, dx2, dy2);
@@ -803,6 +808,18 @@ pub enum FocusFollowsMouseMode {
     /// The keyboard focus changes only when clicking on a window or the previously
     /// focused window becomes invisible.
     False,
+}
+
+/// The target that the cursor is warped to.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq, PrivateEnum)]
+#[non_exhaustive]
+pub enum WarpTarget {
+    /// The focused window.
+    Window,
+    /// The workspace containing the keyboard focus.
+    Workspace,
+    /// The output containing the keyboard focus.
+    Output,
 }
 
 /// Defines which output is used when no particular output is specified.

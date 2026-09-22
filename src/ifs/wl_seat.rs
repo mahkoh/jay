@@ -148,6 +148,8 @@ use crate::utils::rc_eq::rc_weak_eq;
 use crate::utils::smallmap::SmallMap;
 use crate::utils::smallmap::SmallMapMut;
 use crate::utils::static_text::StaticText;
+use crate::utils::str_fmt::StrCtx;
+use crate::utils::str_fmt::StrFmt;
 use crate::utils::type_view::TypeViewExt1;
 use crate::wire::ExtIdleNotificationV1Id;
 use crate::wire::WlDataDeviceId;
@@ -165,6 +167,7 @@ use CursorPositionType::Warp;
 pub use event_handling::NodeSeatState;
 use hashbrown::hash_map::Entry;
 use jay_config::input::JcFallbackOutputMode;
+use jay_config::input::JcWarpTarget;
 use jay_config::keyboard::syms::KeySym;
 use jay_config::keyboard::syms::SYM_Escape;
 use jay_proc::GetLiveness;
@@ -316,7 +319,7 @@ pub struct WlSeatGlobal {
     modifiers_forward: EventSource<dyn LedsListener>,
     simple_im: CloneCell<Option<Rc<SimpleIm>>>,
     simple_im_enabled: Cell<bool>,
-    warp_mouse_to_focus_scheduled: Cell<bool>,
+    warp_mouse_to_focus_scheduled: Cell<Option<WarpTarget>>,
     mouse_follows_focus: Cell<bool>,
     liveness: Liveness,
 }
@@ -336,6 +339,34 @@ struct Shortcut {
 enum MarkMode {
     Mark,
     Jump,
+}
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq)]
+pub enum WarpTarget {
+    Window,
+    Workspace,
+    Output,
+}
+
+impl StrFmt for WarpTarget {
+    fn str_fmt(&self, dst: &mut String, ctx: &StrCtx<'_>) {
+        let text = match self {
+            WarpTarget::Window => "Window",
+            WarpTarget::Workspace => "Workspace",
+            WarpTarget::Output => "Output",
+        };
+        text.str_fmt(dst, ctx);
+    }
+}
+
+impl From<JcWarpTarget> for WarpTarget {
+    fn from(value: JcWarpTarget) -> Self {
+        match value {
+            JcWarpTarget::Window => WarpTarget::Window,
+            JcWarpTarget::Workspace => WarpTarget::Workspace,
+            JcWarpTarget::Output => WarpTarget::Output,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Linearize)]
@@ -466,7 +497,7 @@ impl WlSeatGlobal {
             modifiers_forward: Default::default(),
             simple_im: CloneCell::new(simple_im),
             simple_im_enabled: Cell::new(true),
-            warp_mouse_to_focus_scheduled: Cell::new(false),
+            warp_mouse_to_focus_scheduled: Cell::new(None),
             mouse_follows_focus: Cell::new(false),
             liveness: Default::default(),
         });
@@ -925,12 +956,16 @@ impl WlSeatGlobal {
 
     pub fn maybe_schedule_warp_mouse_to_focus(self: &Rc<Self>) {
         if self.mouse_follows_focus() {
-            self.schedule_warp_mouse_to_focus();
+            self.schedule_warp_mouse_to_focus(WarpTarget::Window);
         }
     }
 
-    pub fn schedule_warp_mouse_to_focus(self: &Rc<Self>) {
-        if !self.warp_mouse_to_focus_scheduled.replace(true) {
+    pub fn schedule_warp_mouse_to_focus(self: &Rc<Self>, target: WarpTarget) {
+        if self
+            .warp_mouse_to_focus_scheduled
+            .replace(Some(target))
+            .is_none()
+        {
             self.state.pending_warp_mouse_to_focus.push(self.clone());
         }
     }
@@ -2184,15 +2219,31 @@ pub async fn handle_warp_mouse_to_focus(state: Rc<State>) {
         state.pending_warp_mouse_to_focus.non_empty().await;
         state.eng.yield_now().await;
         while let Some(seat) = state.pending_warp_mouse_to_focus.try_pop() {
-            seat.warp_mouse_to_focus_scheduled.set(false);
+            let Some(target) = seat.warp_mouse_to_focus_scheduled.take() else {
+                continue;
+            };
             let node = seat.keyboard_node.get();
             if node.node_is_display() {
                 continue;
             }
-            let (mut x, mut y) = node.node_absolute_position(LiveTL).center();
-            if let Some(tl) = node.node_toplevel() {
-                (x, y) = tl.node_absolute_position(LiveTL).center();
-            }
+            let pos = match target {
+                WarpTarget::Output => match seat.get_keyboard_output() {
+                    Some(output) => output.node_absolute_position(LiveTL),
+                    _ => continue,
+                },
+                WarpTarget::Workspace => match seat.get_keyboard_workspace() {
+                    Some(ws) => ws.node_absolute_position(LiveTL),
+                    _ => continue,
+                },
+                WarpTarget::Window => {
+                    let pos = node.node_absolute_position(LiveTL);
+                    match node.node_toplevel() {
+                        Some(tl) => tl.node_absolute_position(LiveTL),
+                        _ => pos,
+                    }
+                }
+            };
+            let (x, y) = pos.center();
             let (x, y) = (Fixed::from_int(x), Fixed::from_int(y));
             seat.motion_event_abs(state.now_usec(), x, y, Warp);
         }

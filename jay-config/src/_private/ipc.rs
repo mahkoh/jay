@@ -20,6 +20,7 @@ use crate::input::FocusFollowsMouseMode;
 use crate::input::InputDevice;
 use crate::input::InputEventCode;
 use crate::input::JcFallbackOutputMode;
+use crate::input::JcWarpTarget;
 use crate::input::LayerDirection;
 use crate::input::Seat;
 use crate::input::SwitchEvent;
@@ -1143,6 +1144,10 @@ pub enum ClientMessage<'a> {
     GetWindowThemeContainerBorders {
         window: Window,
         kind: WindowThemeKind,
+    },
+    SeatWarpMouseToFocusTarget {
+        seat: Seat,
+        target: JcWarpTarget,
     },
 }
 

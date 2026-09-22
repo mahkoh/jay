@@ -691,6 +691,27 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
     The value of this field should be a [LogLevel](#types-LogLevel).
 
+- `warp-mouse-to-focus`:
+
+  Warps the cursor to the center of the current keyboard focus.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-j = { type = "warp-mouse-to-focus", target = "output" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    What to warp the cursor to.
+    
+    The default is `window`.
+
+    The value of this field should be a [WarpTarget](#types-WarpTarget).
+
 - `set-gfx-api`:
 
   Sets the graphics API used by new DRM devices.
@@ -6584,6 +6605,30 @@ The string should have one of the following values:
   VRR is enabled when a single application is displayed fullscreen and
   describes its content type as video or game through the
   wp_content_type_v1 protocol.
+
+
+
+<a name="types-WarpTarget"></a>
+### `WarpTarget`
+
+The target that the cursor is warped to.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `window`:
+
+  The cursor is warped to the center of the focused window.
+
+- `workspace`:
+
+  The cursor is warped to the center of the workspace containing the keyboard
+  focus.
+
+- `output`:
+
+  The cursor is warped to the center of the output containing the keyboard focus.
 
 
 

@@ -365,9 +365,9 @@ impl Action {
                     b.new(move || persistent.seat.enable_unicode_input())
                 }
                 SimpleCommand::OpenControlCenter => b.new(open_control_center),
-                SimpleCommand::WarpMouseToFocus => {
+                SimpleCommand::WarpMouseToFocus(target) => {
                     let persistent = state.persistent.clone();
-                    b.new(move || persistent.seat.warp_mouse_to_focus())
+                    b.new(move || persistent.seat.warp_mouse_to_focus_target(target))
                 }
                 SimpleCommand::HideOverlays => b.new(hide_overlays),
                 SimpleCommand::SetVisualizeCompositing(v) => {
