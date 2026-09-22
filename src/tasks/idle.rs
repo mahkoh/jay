@@ -7,6 +7,7 @@ use crate::utils::timer::TimerError;
 use crate::utils::timer::TimerFd;
 use futures_util::FutureExt;
 use futures_util::select;
+use std::pin::pin;
 use std::rc::Rc;
 use std::time::Duration;
 use uapi::c;
@@ -43,10 +44,18 @@ struct Idle {
 
 impl Idle {
     async fn run(&mut self) {
+        // Keep a single timer read for all iterations, otherwise we can drop
+        // a read when a change event wins, and idle never fires again.
+        let timer = self.timer.clone();
+        let state = self.state.clone();
+        let mut expired = pin!(timer.expired(&state.ring).fuse());
         while !self.dead {
             select! {
-                res = self.timer.expired(&self.state.ring).fuse() => self.handle_expired(res),
-                _ = self.state.idle.change.triggered().fuse() => self.handle_idle_changes(),
+                res = expired => {
+                    self.handle_expired(res);
+                    expired.set(timer.expired(&state.ring).fuse());
+                }
+                _ = state.idle.change.triggered().fuse() => self.handle_idle_changes(),
             }
         }
         log::error!("Due to the above error, monitors will no longer be (de)activated.");

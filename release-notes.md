@@ -5,6 +5,7 @@
 As always, this release contains many bug fixes. Thanks to the following people
 for reporting or fixing bugs:
 
+- @Alphare
 - @boxoloxo
 - @danielfikko
 - @Flrian
