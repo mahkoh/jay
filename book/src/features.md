@@ -75,6 +75,7 @@ Commands:
   version              Prints the Jay version and exits
   pid                  Prints the Jay PID and exits
   trace                Traces wayland messages
+  debugfs              Inspects/manipulates the debug filesystem
   help                 Print this message or the help of the given subcommand(s)
 
 Options:
@@ -260,8 +261,11 @@ granted access. See
 | ext_session_lock_manager_v1                          | 1       | Yes        |
 | ext_transient_seat_manager_v1                        | 1[^3]   | Yes        |
 | ext_workspace_manager_v1                             | 1       | Yes        |
+| jay_icon_surface_manager_v1                          | 1       |            |
 | jay_popup_ext_manager_v1                             | 1       |            |
+| jay_toplevel_icon_subject_manager_v1                 | 1       |            |
 | jay_tray_v1                                          | 1       |            |
+| jay_wl_surface_factory_manager_v1                    | [^4]    |            |
 | org_kde_kwin_server_decoration_manager               | 1       |            |
 | wl_compositor                                        | 7       |            |
 | wl_data_device_manager                               | 4       |            |
@@ -317,3 +321,4 @@ granted access. See
 [^1]: Sandboxes can restrict access to this protocol.
 [^2]: Cursors are always composited.
 [^3]: Seat creation is always rejected.
+[^4]: The `jay_wl_surface_factory_manager_v1` version is tied to the `wl_compositor` version.
