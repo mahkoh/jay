@@ -21,6 +21,7 @@ use crate::input::FocusFollowsMouseMode;
 use crate::input::InputDevice;
 use crate::input::InputEventCode;
 use crate::input::JcFallbackOutputMode;
+use crate::input::JcMouseFollowsFocusMode;
 use crate::input::JcWarpTarget;
 use crate::input::LayerDirection;
 use crate::input::Seat;
@@ -1152,6 +1153,10 @@ pub enum ClientMessage<'a> {
     SeatWarpMouseToFocusTarget {
         seat: Seat,
         target: JcWarpTarget,
+    },
+    SeatSetMouseFollowsFocusMode {
+        seat: Seat,
+        mode: JcMouseFollowsFocusMode,
     },
 }
 

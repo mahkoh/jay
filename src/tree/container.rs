@@ -1563,11 +1563,10 @@ impl ContainerNode {
         }
     }
 
-    //
-    pub fn move_child(self: Rc<Self>, child: Rc<dyn ToplevelNode>, direction: Direction) {
+    pub fn move_child(self: Rc<Self>, child: Rc<dyn ToplevelNode>, direction: Direction) -> bool {
         let move_to_neighboring_output = |child: Rc<dyn ToplevelNode>| {
             let Some(output) = self.find_neighboring_output(direction) else {
-                return;
+                return false;
             };
             let ws = output.ensure_workspace();
             let mut foci = SmallVec::new();
@@ -1575,27 +1574,29 @@ impl ContainerNode {
             if move_foci {
                 collect_kb_foci2(child.clone(), &mut foci);
             }
-            if let Some(c) = ws.node_state[LiveTL].container.get() {
+            let moved = if let Some(c) = ws.node_state[LiveTL].container.get() {
                 self.clone().cnode_remove_child2(&*child, true);
                 c.insert_child(child, direction);
+                true
             } else {
-                toplevel_set_workspace(&self.state, child, &ws);
-            }
+                toplevel_set_workspace(&self.state, child, &ws)
+            };
             if move_foci {
                 for seat in foci {
                     ws.do_focus(&seat, Direction::Unspecified);
                 }
             }
+            moved
         };
         let ns = &self.node_state[LiveTL];
 
         // CASE 1: This is the only child of the container. Replace the container by the child.
         if ns.num_children.get() == 1 {
-            match self.try_replace_with_sole_child(child.clone()) {
-                ReplaceWithSoleChild::Flattened | ReplaceWithSoleChild::NotApplicable => {}
+            return match self.try_replace_with_sole_child(child.clone()) {
+                ReplaceWithSoleChild::Flattened => true,
+                ReplaceWithSoleChild::NotApplicable => false,
                 ReplaceWithSoleChild::Rejected => move_to_neighboring_output(child),
-            }
-            return;
+            };
         }
         let (split, prev) = direction_to_split(direction);
         // CASE 2: We're moving the child within the container.
@@ -1604,7 +1605,7 @@ impl ContainerNode {
         {
             let cc = match self.child_nodes.borrow().get(&child.node_id()) {
                 Some(l) => l.to_ref(),
-                None => return,
+                None => return false,
             };
             let neighbor = match prev {
                 true => cc.prev_valid(LiveTL),
@@ -1621,7 +1622,7 @@ impl ContainerNode {
                     }
                     self.cnode_remove_child2(&*child, true);
                     cn.insert_child(child, direction);
-                    return;
+                    return true;
                 }
                 match prev {
                     true => neighbor.prepend_existing(&cc),
@@ -1630,7 +1631,7 @@ impl ContainerNode {
                 // log::info!("move_child");
                 self.cancel_seat_ops();
                 self.schedule_layout();
-                return;
+                return true;
             }
         }
         // CASE 3: We're moving the child out of the container.
@@ -1644,8 +1645,7 @@ impl ContainerNode {
             parent_opt = parent.parent_container();
         }
         let Some(parent) = parent_opt else {
-            move_to_neighboring_output(child);
-            return;
+            return move_to_neighboring_output(child);
         };
         let placeholder = Rc::new_cyclic(|weak| PlaceholderNode::new_empty(&self.state, weak));
         self.clone()
@@ -1655,6 +1655,7 @@ impl ContainerNode {
             false => parent.add_child_after(&*neighbor, child.clone()),
         }
         self.cnode_remove_child2(&*placeholder, true);
+        true
     }
 
     fn insert_child(self: &Rc<Self>, node: Rc<dyn ToplevelNode>, direction: Direction) {
