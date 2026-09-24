@@ -10,7 +10,7 @@ anyhow = { version = "1.0.103", default-features = false, features = ["std"] }
 indexmap = { version = "2.14.0", default-features = false, features = ["std"] }
 regex = { version = "1.12.4", default-features = false, features = ["std", "unicode-perl"] }
 linearize = { version = "0.1.7", default-features = false, features = ["derive"] }
-kbvm = { version = "0.1.7", default-features = false }
+kbvm = { version = "0.2.0", default-features = false }
 tempfile = { version = "3.27.0", default-features = false }
 with_builtin_macros = { version = "0.1.0", default-features = false }
 uapi = { version = "0.2.13", default-features = false }
