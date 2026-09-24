@@ -8,3 +8,11 @@ global-min-publish-age = "14 days"
 [[allow.package]]
 crate = "jay-ash"
 min-publish-age = "0"
+
+[[allow.package]]
+crate = "uapi"
+min-publish-age = "0"
+
+[[allow.package]]
+crate = "uapi-proc"
+min-publish-age = "0"
