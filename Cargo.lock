@@ -443,13 +443,13 @@ dependencies = [
 
 [[package]]
 name = "dlopen-note"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "764ae42ff1ff6f8ddc5daad1dc27a9c5e586a8e47c592c65c42f6a9b929a8f9f"
+checksum = "1dc0a89244bbc3c1b34a967691b835cd8fad109e96a49da7d997fbb202910f8f"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.119",
+ "syn 3.0.5",
 ]
 
 [[package]]
@@ -985,9 +985,9 @@ dependencies = [
 
 [[package]]
 name = "kbvm"
-version = "0.1.7"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b94f5d60d5a403a78e11c98c222fe4f7d22a16d089450f4c3eae89584c7e20f"
+checksum = "87848566101698caf999ac33fca97f46a4127150168280a384ebf2987a46a194"
 dependencies = [
  "arrayvec",
  "bstr",
@@ -1008,13 +1008,13 @@ dependencies = [
 
 [[package]]
 name = "kbvm-proc"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28067e7361c0069c3753795d131653f9ea5333aeb35a3855fb2de66447c48ac8"
+checksum = "634c57aa7634150e449ddee5625e759a71077e9f71d44677bea5ad7196ca91da"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.119",
+ "syn 3.0.5",
 ]
 
 [[package]]
@@ -1062,9 +1062,9 @@ dependencies = [
 
 [[package]]
 name = "linearize"
-version = "0.1.7"
+version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9c733520a3e6c2c5ff9933f88e5bbde446838d4fa65d357ce9b20eb4d264dcd9"
+checksum = "7f8c5e7ca4987243a1ced6f0ecad7c7731650479bdc52997687eff4e912fef9f"
 dependencies = [
  "cfg-if",
  "linearize-derive",
@@ -1076,13 +1076,13 @@ dependencies = [
 
 [[package]]
 name = "linearize-derive"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f657db73fbcad5341c5991ddee6c464d4bfd521575c0dc1a47913e0f434defeb"
+checksum = "401d53eac39730352d7443646e75fda6cb933bf6dff060fe20a4f0d979f1bef3"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.119",
+ "syn 3.0.5",
 ]
 
 [[package]]
