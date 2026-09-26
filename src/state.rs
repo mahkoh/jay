@@ -1260,6 +1260,7 @@ impl State {
         ty: WorkspaceType,
         mut output: Option<Rc<OutputNode>>,
     ) {
+        let before = seat.focus_target();
         let mut output = || {
             output
                 .get_or_insert_with(|| seat.get_fallback_output())
@@ -1284,7 +1285,7 @@ impl State {
             WorkspaceType::Overlay => output(),
         };
         self.show_workspace2(Some(seat), &output, &ws);
-        seat.maybe_schedule_warp_mouse_to_focus();
+        seat.maybe_schedule_warp_mouse_to_focus(before, None);
     }
 
     pub fn float_map_ws(&self) -> Rc<WorkspaceNode> {
@@ -2069,12 +2070,12 @@ impl State {
         node
     }
 
-    pub fn move_ws_to_output(&self, ws: &Rc<WorkspaceNode>, output: &Rc<OutputNode>) {
+    pub fn move_ws_to_output(&self, ws: &Rc<WorkspaceNode>, output: &Rc<OutputNode>) -> bool {
         if output.is_dummy {
-            return;
+            return false;
         }
         if ws.node_state[LiveTL].output.id() == output.id {
-            return;
+            return false;
         }
         let config = WsMoveConfig {
             make_visible_always: false,
@@ -2082,9 +2083,10 @@ impl State {
             source_is_destroyed: false,
             before: None,
         };
-        move_ws_to_output(ws, &output, config);
+        let moved = move_ws_to_output(ws, &output, config);
         ws.desired_output.set(output.global.output_id.clone());
         self.tree_changed();
+        moved
     }
 
     fn expose_new_singletons(&self) {
