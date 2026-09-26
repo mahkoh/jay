@@ -1018,10 +1018,26 @@ impl<'a> EdidParser<'a> {
     }
 
     fn parse_cta_amd_vendor_data_block(&mut self) -> Result<CtaDataBlock, EdidError> {
-        let _ = self.read_n::<2>()?;
+        let version = self.read_u8()?;
+        let _flags1 = self.read_u8()?;
+        let minimum_refresh_hz = self.read_u8()?;
+        let mut maximum_refresh_hz = self.read_u8()? as u16;
+        let _mccs_vcp_code = self.read_u8()?;
+        if version > 1 {
+            let _flags5 = self.read_u8()?;
+            let _max_lum = self.read_u8()?;
+            let _min_lum = self.read_u8()?;
+            let _max_lum_wld = self.read_u8()?;
+            let _min_lum_wld = self.read_u8()?;
+        }
+        if version > 2 {
+            let max_lo = self.read_u8()? as u16;
+            let max_hi = self.read_u8()? as u16;
+            maximum_refresh_hz = ((max_hi & 0x3) << 8) | max_lo;
+        }
         Ok(CtaDataBlock::VendorAmd(CtaAmdVendorDataBlock {
-            minimum_refresh_hz: self.read_u8()?,
-            maximum_refresh_hz: self.read_u8()?,
+            minimum_refresh_hz,
+            maximum_refresh_hz,
         }))
     }
 
@@ -1228,7 +1244,7 @@ pub enum CtaDataBlock {
 pub struct CtaAmdVendorDataBlock {
     pub minimum_refresh_hz: u8,
     #[expect(unused)]
-    maximum_refresh_hz: u8,
+    maximum_refresh_hz: u16,
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -1298,3 +1314,10 @@ const CP437: &[&str] = &[
     "π", "Σ", "σ", "µ", "τ", "Φ", "Θ", "Ω", "δ", "∞", "φ", "ε", "∩", "≡", "±", "≥", "≤", "⌠", "⌡",
     "÷", "≈", "°", "∙", "·", "√", "ⁿ", "²", "■", "\u{a0}",
 ];
+
+// #[test]
+// fn test() {
+//     let edid = include_bytes!("/home/julian/c/EDID/Digital/Acer/ACR08DE/4681FB3A3FA2.bin");
+//     let parsed = parse(edid).unwrap();
+//     println!("{:#?}", parsed);
+// }
