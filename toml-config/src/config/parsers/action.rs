@@ -30,6 +30,8 @@ use crate::config::parsers::exec::ExecParser;
 use crate::config::parsers::exec::ExecParserError;
 use crate::config::parsers::fallback_output_mode::FallbackOutputModeParser;
 use crate::config::parsers::fallback_output_mode::FallbackOutputModeParserError;
+use crate::config::parsers::focus::FocusParserError;
+use crate::config::parsers::focus::FocusTargetParser;
 use crate::config::parsers::gfx_api::GfxApiParser;
 use crate::config::parsers::gfx_api::GfxApiParserError;
 use crate::config::parsers::idle::IdleParser;
@@ -137,6 +139,8 @@ pub enum ActionParserError {
     UnknownDirection(String),
     #[error("Exactly one of `output` or `direction` must be specified")]
     OutputAndDirectionMutuallyExclusive,
+    #[error("Could not parse a focus action")]
+    FocusTarget(FocusParserError),
 }
 
 #[derive(Debug, Error)]
@@ -771,6 +775,39 @@ impl ActionParser<'_, '_, '_> {
             value: value.value,
         })
     }
+
+    fn parse_focus(
+        &mut self,
+        direction: Direction,
+        ext: &mut Extractor<'_, '_, '_>,
+    ) -> ParseResult<Self> {
+        use jay_config::focus::EdgeMode;
+        let array = ext.extract(arr("targets"))?.value;
+        if array.is_empty() {
+            // TODO: warn if edge_mode is present (because it's ignored)?
+            return Ok(Action::SimpleCommand {
+                cmd: SimpleCommand::Focus(direction),
+            });
+        }
+        let mut targets = vec![];
+        for (n, el) in array.iter().enumerate() {
+            let default_edge_mode = if n < array.len() - 1 {
+                EdgeMode::Traverse
+            } else {
+                EdgeMode::Stop
+            };
+            let target = el
+                .parse(&mut FocusTargetParser {
+                    cx: self.0,
+                    default_edge_mode,
+                    direction,
+                })
+                .map_spanned_err(ActionParserError::FocusTarget)?;
+            targets.push(target);
+        }
+
+        Ok(Action::Focus { targets })
+    }
 }
 
 struct ShowWorkspaceDefaults {
@@ -864,6 +901,10 @@ impl Parser for ActionParser<'_, '_, '_> {
             "set-window-theme" => self.parse_set_window_theme(&mut ext),
             "set-container-theme" => self.parse_set_container_theme(&mut ext),
             "reset-container-theme" => self.parse_reset_container_theme(&mut ext),
+            "focus-left" => self.parse_focus(Direction::Left, &mut ext),
+            "focus-down" => self.parse_focus(Direction::Down, &mut ext),
+            "focus-up" => self.parse_focus(Direction::Up, &mut ext),
+            "focus-right" => self.parse_focus(Direction::Right, &mut ext),
             v => {
                 ext.ignore_unused();
                 return Err(ActionParserError::UnknownType(v.to_string()).spanned(ty.span));

@@ -2730,6 +2730,10 @@ impl NodeBase for OutputNode {
             }
         }
     }
+
+    fn node_is_output(&self) -> bool {
+        true
+    }
 }
 
 fn calculate_logical_size(mode: (i32, i32), transform: Transform, scale: Scale) -> (i32, i32) {
