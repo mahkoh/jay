@@ -33,6 +33,7 @@ use jay_config::Direction;
 use jay_config::RelativeAxis;
 use jay_config::Workspace;
 use jay_config::client::ClientCapabilities;
+use jay_config::focus;
 use jay_config::get_overlay;
 use jay_config::get_workspace;
 use jay_config::input::FallbackOutputMode;
@@ -256,6 +257,9 @@ pub enum Action {
     },
     ResetContainerTheme {
         target: ContainerTarget,
+    },
+    Focus {
+        targets: Vec<focus::Target>,
     },
 }
 
