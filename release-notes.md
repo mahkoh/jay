@@ -1,5 +1,7 @@
 # Unreleased
 
+# 1.15.0 (2026-09-28)
+
 ## Fixes
 
 As always, this release contains many bug fixes. Thanks to the following people
