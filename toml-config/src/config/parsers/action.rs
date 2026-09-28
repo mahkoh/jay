@@ -72,6 +72,7 @@ use jay_config::RelativeAxis::Major;
 use jay_config::RelativeAxis::Minor;
 use jay_config::input::LayerDirection;
 use jay_config::input::Timeline;
+use jay_config::window::MonoStyle;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -179,6 +180,9 @@ impl ActionParser<'_, '_, '_> {
             "toggle-mono" => ToggleMono(Parent),
             "show-single" => SetMono(Parent, true),
             "show-all" => SetMono(Parent, false),
+            "toggle-mono-style" => ToggleMonoStyle(Parent),
+            "mono-tabbed" => SetMonoStyle(MonoStyle::Tabbed, Parent),
+            "mono-stacked" => SetMonoStyle(MonoStyle::Stacked, Parent),
             "toggle-fullscreen" => ToggleFullscreen,
             "enter-fullscreen" => SetFullscreen(true),
             "exit-fullscreen" => SetFullscreen(false),
