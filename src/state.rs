@@ -555,7 +555,6 @@ impl IdleState {
         self.grace_start.get().is_some()
     }
 
-    #[expect(unused)]
     pub fn grace_fade_alpha(&self, presentation_nsec: u64) -> Option<f32> {
         if !self.grace_period_fade.get() {
             return None;

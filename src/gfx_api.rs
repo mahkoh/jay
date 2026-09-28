@@ -24,6 +24,7 @@ use crate::scale::ScaleIndex;
 use crate::state::State;
 use crate::syncobj::SyncobjCtx;
 use crate::theme::Color;
+use crate::time::Time;
 use crate::tree::Node;
 use crate::tree::NodeBase;
 use crate::tree::OutputNode;
@@ -1204,19 +1205,24 @@ pub fn create_render_pass(
     render_hardware_cursor: bool,
     black_background: bool,
     fill_black_in_grace_period: bool,
-    #[expect(unused)] presentation_nsec: Option<u64>,
+    presentation_nsec: Option<u64>,
     transform: Transform,
     visualizer: Option<&DamageVisualizer>,
     visualize_compositing: bool,
 ) -> GfxRenderPass {
     let srgb_gamma22 = state.color_manager.srgb_gamma22();
+    let mut grace_fade_alpha = None;
     if fill_black_in_grace_period && state.idle.in_grace_period() {
-        return GfxRenderPass {
-            ops: vec![],
-            clear: Some(Color::SOLID_BLACK),
-            clear_cd: srgb_gamma22.linear.clone(),
-            flags: Default::default(),
-        };
+        let nsec = presentation_nsec.unwrap_or_else(|| Time::now_unchecked().nsec());
+        grace_fade_alpha = state.idle.grace_fade_alpha(nsec);
+        if grace_fade_alpha.is_none() {
+            return GfxRenderPass {
+                ops: vec![],
+                clear: Some(Color::SOLID_BLACK),
+                clear_cd: srgb_gamma22.linear.clone(),
+                flags: Default::default(),
+            };
+        }
     }
     let mut ops = vec![];
     let mut renderer = Renderer {
@@ -1295,6 +1301,16 @@ pub fn create_render_pass(
                 skip_for_scanout: true,
                 ..Default::default()
             },
+        );
+    }
+    if let Some(alpha) = grace_fade_alpha {
+        renderer.base.sync();
+        renderer.base.fill_scaled_boxes(
+            &[renderer.pixel_extents],
+            &Color::SOLID_BLACK,
+            Some(alpha),
+            &srgb_gamma22.linear,
+            RenderIntent::Perceptual,
         );
     }
     let c = match black_background {

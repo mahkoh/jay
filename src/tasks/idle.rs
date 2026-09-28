@@ -13,6 +13,10 @@ use std::rc::Rc;
 use std::time::Duration;
 use uapi::c;
 
+// Well below the refresh interval of high-refresh-rate outputs so that every
+// vblank picks up a newly damaged frame during the fade.
+const GRACE_FADE_INTERVAL: Duration = Duration::from_millis(4);
+
 pub async fn idle(state: Rc<State>) {
     let timer = match TimerFd::new(c::CLOCK_MONOTONIC) {
         Ok(t) => t,
@@ -21,11 +25,19 @@ pub async fn idle(state: Rc<State>) {
             return;
         }
     };
+    let fade_timer = match TimerFd::new(c::CLOCK_MONOTONIC) {
+        Ok(t) => t,
+        Err(e) => {
+            log::error!("Could not create grace fade timer: {}", ErrorFmt(e));
+            return;
+        }
+    };
     state.idle.change.trigger();
     state.idle.timeout_changed.set(true);
     let mut idle = Idle {
         state,
         timer,
+        fade_timer,
         idle: false,
         dead: false,
         is_inhibited: false,
@@ -37,6 +49,7 @@ pub async fn idle(state: Rc<State>) {
 struct Idle {
     state: Rc<State>,
     timer: TimerFd,
+    fade_timer: TimerFd,
     idle: bool,
     dead: bool,
     is_inhibited: bool,
@@ -48,13 +61,19 @@ impl Idle {
         // Keep a single timer read for all iterations, otherwise we can drop
         // a read when a change event wins, and idle never fires again.
         let timer = self.timer.clone();
+        let fade_timer = self.fade_timer.clone();
         let state = self.state.clone();
         let mut expired = pin!(timer.expired(&state.ring).fuse());
+        let mut fade_expired = pin!(fade_timer.expired(&state.ring).fuse());
         while !self.dead {
             select! {
                 res = expired => {
                     self.handle_expired(res);
                     expired.set(timer.expired(&state.ring).fuse());
+                }
+                res = fade_expired => {
+                    self.handle_fade_tick(res);
+                    fade_expired.set(fade_timer.expired(&state.ring).fuse());
                 }
                 _ = state.idle.change.triggered().fuse() => self.handle_idle_changes(),
             }
@@ -98,11 +117,44 @@ impl Idle {
         }
         if val {
             idle.grace_start.set(Some(Time::now_unchecked()));
+            if idle.grace_period_fade.get() {
+                self.program_fade_timer(Some(GRACE_FADE_INTERVAL));
+            }
         } else {
             idle.grace_start.set(None);
+            self.program_fade_timer(None);
         }
         self.state.damage_full(RenderTL);
         self.state.damage_hardware_cursors(false);
+    }
+
+    fn handle_fade_tick(&mut self, res: Result<u64, TimerError>) {
+        if let Err(e) = res {
+            log::error!(
+                "Could not wait for grace fade timer to expire: {}",
+                ErrorFmt(e)
+            );
+            self.program_fade_timer(None);
+            return;
+        }
+        let idle = &self.state.idle;
+        if !idle.in_grace_period() {
+            self.program_fade_timer(None);
+            return;
+        }
+        if idle
+            .grace_fade_alpha(Time::now_unchecked().nsec())
+            .is_none()
+        {
+            self.program_fade_timer(None);
+        }
+        self.state.damage_full(RenderTL);
+    }
+
+    fn program_fade_timer(&mut self, interval: Option<Duration>) {
+        if let Err(e) = self.fade_timer.program(interval, interval) {
+            log::error!("Could not program grace fade timer: {}", ErrorFmt(e));
+        }
     }
 
     fn handle_idle_changes(&mut self) {

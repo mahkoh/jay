@@ -2,6 +2,7 @@ use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestErrorExt;
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
+use crate::time::Time;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -47,6 +48,23 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     run.cfg.set_idle_grace_period_fade(true)?;
     tassert!(run.state.idle.grace_period_fade.get());
+    run.cfg.set_idle_grace_period(Duration::from_secs(10))?;
+
+    run.state.wheel.timeout(3).await?;
+
+    tassert!(run.state.idle.in_grace_period());
+    tassert!(idle.next().is_err());
+    tassert!(
+        run.state
+            .idle
+            .grace_fade_alpha(Time::now_unchecked().nsec())
+            .is_some()
+    );
+
+    ds.mouse.rel(1.0, 1.0);
+    run.state.eng.yield_now().await;
+
+    tassert!(!run.state.idle.in_grace_period());
 
     Ok(())
 }
