@@ -639,6 +639,7 @@ impl VirtualOutput {
             false,
             on.has_fullscreen(RenderTL),
             true,
+            None,
             on.node_state[RenderTL].transform.get(),
             Some(&self.state.damage_visualizer),
             true,
