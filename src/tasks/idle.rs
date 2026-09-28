@@ -1,6 +1,7 @@
 use crate::backend::transaction::BackendConnectorTransactionError;
 use crate::backend::transaction::ConnectorTransaction;
 use crate::state::State;
+use crate::time::Time;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::timer::TimerError;
@@ -91,8 +92,14 @@ impl Idle {
     }
 
     fn set_in_grace_period(&mut self, val: bool) {
-        if self.state.idle.in_grace_period.replace(val) == val {
+        let idle = &self.state.idle;
+        if idle.in_grace_period() == val {
             return;
+        }
+        if val {
+            idle.grace_start.set(Some(Time::now_unchecked()));
+        } else {
+            idle.grace_start.set(None);
         }
         self.state.damage_full(RenderTL);
         self.state.damage_hardware_cursors(false);

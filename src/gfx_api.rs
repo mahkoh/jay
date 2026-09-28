@@ -690,6 +690,7 @@ impl dyn GfxFramebuffer {
         render_hardware_cursor: bool,
         black_background: bool,
         fill_black_in_grace_period: bool,
+        presentation_nsec: Option<u64>,
         transform: Transform,
         visualizer: Option<&DamageVisualizer>,
         visualize_compositing: bool,
@@ -705,6 +706,7 @@ impl dyn GfxFramebuffer {
             render_hardware_cursor,
             black_background,
             fill_black_in_grace_period,
+            presentation_nsec,
             transform,
             visualizer,
             visualize_compositing,
@@ -746,6 +748,7 @@ impl dyn GfxFramebuffer {
         scale: Scale,
         render_hardware_cursor: bool,
         fill_black_in_grace_period: bool,
+        presentation_nsec: Option<u64>,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
         visualize_compositing: bool,
@@ -763,6 +766,7 @@ impl dyn GfxFramebuffer {
             render_hardware_cursor,
             node.has_fullscreen(RenderTL),
             fill_black_in_grace_period,
+            presentation_nsec,
             node.node_state[RenderTL].transform.get(),
             blend_buffer,
             blend_cd,
@@ -784,6 +788,7 @@ impl dyn GfxFramebuffer {
         render_hardware_cursor: bool,
         black_background: bool,
         fill_black_in_grace_period: bool,
+        presentation_nsec: Option<u64>,
         transform: Transform,
         blend_buffer: Option<&Rc<dyn GfxBlendBuffer>>,
         blend_cd: &Rc<ColorDescription>,
@@ -799,6 +804,7 @@ impl dyn GfxFramebuffer {
             render_hardware_cursor,
             black_background,
             fill_black_in_grace_period,
+            presentation_nsec,
             transform,
             None,
             visualize_compositing,
@@ -1198,12 +1204,13 @@ pub fn create_render_pass(
     render_hardware_cursor: bool,
     black_background: bool,
     fill_black_in_grace_period: bool,
+    #[expect(unused)] presentation_nsec: Option<u64>,
     transform: Transform,
     visualizer: Option<&DamageVisualizer>,
     visualize_compositing: bool,
 ) -> GfxRenderPass {
     let srgb_gamma22 = state.color_manager.srgb_gamma22();
-    if fill_black_in_grace_period && state.idle.in_grace_period.get() {
+    if fill_black_in_grace_period && state.idle.in_grace_period() {
         return GfxRenderPass {
             ops: vec![],
             clear: Some(Color::SOLID_BLACK),

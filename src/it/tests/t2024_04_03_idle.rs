@@ -45,5 +45,8 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     let enter = enters.next().with_context(|| "wake focus enter")?;
     tassert_eq!(enter.surface, window.surface.id);
 
+    run.cfg.set_idle_grace_period_fade(true)?;
+    tassert!(run.state.idle.grace_period_fade.get());
+
     Ok(())
 }
