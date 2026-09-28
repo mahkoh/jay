@@ -269,6 +269,9 @@ mod leaks {
         unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
             unsafe {
                 let res = c::aligned_alloc(layout.align(), layout.size()) as *mut u8;
+                if res.is_null() {
+                    return res;
+                }
                 c::memset(res.cast(), 0, layout.size());
                 if IN_ALLOCATOR.get() == 0 {
                     IN_ALLOCATOR.set(1);
