@@ -1,10 +1,16 @@
 use libloading::os::unix::Library;
+use std::ffi::VaList;
 use std::sync::LazyLock;
 use uapi::c;
 
 include!(concat!(env!("OUT_DIR"), "/libinput_tys.rs"));
 
-pub type libinput_log_handler = unsafe extern "C" fn();
+pub type libinput_log_handler = unsafe extern "C" fn(
+    libinput: *mut libinput,
+    priority: libinput_log_priority,
+    format: *const c::c_char,
+    args: VaList<'_>,
+);
 
 #[repr(transparent)]
 pub struct libinput(u8);
