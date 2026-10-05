@@ -6,33 +6,14 @@ lockfile-baseline = "ignore"
 global-min-publish-age = "14 days"
 
 [[allow.package]]
-crate = "jay-ash"
 min-publish-age = "0"
-
-[[allow.package]]
-crate = "uapi"
-min-publish-age = "0"
-
-[[allow.package]]
-crate = "uapi-proc"
-min-publish-age = "0"
-
-[[allow.package]]
-crate = "linearize"
-min-publish-age = "0"
-
-[[allow.package]]
-crate = "linearize-derive"
-min-publish-age = "0"
-
-[[allow.package]]
-crate = "dlopen-note"
-min-publish-age = "0"
-
-[[allow.package]]
-crate = "kbvm"
-min-publish-age = "0"
-
-[[allow.package]]
-crate = "kbvm-proc"
-min-publish-age = "0"
+crates = [
+    "jay-ash",
+    "uapi",
+    "uapi-proc",
+    "linearize",
+    "linearize-derive",
+    "dlopen-note",
+    "kbvm",
+    "kbvm-proc",
+]
