@@ -26,7 +26,7 @@ where
     type T = T;
 
     fn into_aliasable(self) -> AliasableBox<Self::T> {
-        unsafe { AliasableBox(NonNull::new_unchecked(Box::into_raw(self))) }
+        AliasableBox(Box::into_non_null(self))
     }
 }
 

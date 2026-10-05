@@ -400,12 +400,12 @@ unsafe fn prepend_existing<T>(data: NonNull<NodeData<T>>, t: &NodeRef<T>) {
 unsafe fn prepend<T>(data: NonNull<NodeData<T>>, t: T) -> LinkedNode<T> {
     unsafe {
         let dref = data.deref();
-        let node = NonNull::new_unchecked(Box::into_raw(Box::new(NodeData {
+        let node = Box::into_non_null(Box::new(NodeData {
             rc: NumCell::new(LINKED_NODE_REF_COUNT),
             prev: Cell::new(dref.prev.get()),
             next: Cell::new(data),
             data: Some(t),
-        })));
+        }));
         dref.prev.get().deref().next.set(node);
         dref.prev.set(node);
         LinkedNode { data: node }
@@ -431,12 +431,12 @@ unsafe fn append_existing<T>(data: NonNull<NodeData<T>>, t: &NodeRef<T>) {
 unsafe fn append<T>(data: NonNull<NodeData<T>>, t: T) -> LinkedNode<T> {
     unsafe {
         let dref = data.deref();
-        let node = NonNull::new_unchecked(Box::into_raw(Box::new(NodeData {
+        let node = Box::into_non_null(Box::new(NodeData {
             rc: NumCell::new(LINKED_NODE_REF_COUNT),
             prev: Cell::new(data),
             next: Cell::new(dref.next.get()),
             data: Some(t),
-        })));
+        }));
         dref.next.get().deref().prev.set(node);
         dref.next.set(node);
         LinkedNode { data: node }
