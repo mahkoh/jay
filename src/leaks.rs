@@ -86,12 +86,10 @@ mod leaks {
         allocation.backtrace.resolve();
         let bt = format!("{:?}", allocation.backtrace);
         for line in bt.lines() {
-            log::info!("{}    {}", prefix, line);
+            log::info!("{prefix}    {line}");
         }
 
-        if !logged.insert(allocation.addr) {
-            log::error!("{} LOOP", prefix);
-        } else {
+        if logged.insert(allocation.addr) {
             let containers = find_allocations_pointing_to(allocation.addr);
             if containers.is_empty() {
                 let mut frames = vec![];
@@ -123,24 +121,26 @@ mod leaks {
                                     _ => String::new(),
                                 };
                                 name =
-                                    format!("{} {:?}:{:?}", symname, sym.filename(), sym.lineno())
+                                    format!("{} {:?}:{:?}", symname, sym.filename(), sym.lineno());
                             });
                             if !name.starts_with("jay::leaks::") {
-                                log::info!("{} REFERENCED ON THE STACK: {}", prefix, name);
+                                log::info!("{prefix} REFERENCED ON THE STACK: {name}");
                                 referenced_on_stack = true;
                             }
                         }
                     }
                 }
                 if !referenced_on_stack {
-                    log::error!("{} NO REFERENCES", prefix);
+                    log::error!("{prefix} NO REFERENCES");
                 }
             }
-            let new_prefix = format!("{}    ", prefix);
+            let new_prefix = format!("{prefix}    ");
             for (mut allocation, offset) in containers {
                 log_containers(&new_prefix, &mut allocation, offset, logged);
             }
             logged.remove(&allocation.addr);
+        } else {
+            log::error!("{prefix} LOOP");
         }
     }
 
@@ -167,7 +167,7 @@ mod leaks {
                     log::info!("  [{}] {}", time.format("%H:%M:%S%.3f"), obj.ty,);
                     match find_allocation_containing(obj.addr) {
                         Some(mut alloc) => {
-                            log_containers("    ", &mut alloc, 0, &mut BHashSet::default())
+                            log_containers("    ", &mut alloc, 0, &mut BHashSet::default());
                         }
                         _ => log::error!("    Not contained in any allocation??"),
                     }
