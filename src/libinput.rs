@@ -26,10 +26,12 @@ use crate::libinput::sys::libinput_unref;
 use crate::udev::UdevError;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::ptr_ext::PtrExt;
+use crate::utils::vasprintf::vasprintf;
 use bstr::ByteSlice;
-use isnt::std_1::primitive::IsntConstPtrExt;
 use jay_algorithms::oserror::OsError;
 use std::ffi::CStr;
+use std::ffi::VaList;
+use std::ptr;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::IntoUstr;
@@ -93,10 +95,6 @@ pub struct LibInput {
     li: *mut libinput,
 }
 
-unsafe extern "C" {
-    fn jay_libinput_log_handler_bridge();
-}
-
 impl LibInput {
     pub fn new(adapter: Rc<dyn LibInputAdapter>) -> Result<Self, LibInputError> {
         let mut ud = Box::new(UserData { adapter });
@@ -107,7 +105,7 @@ impl LibInput {
             return Err(LibInputError::New);
         }
         unsafe {
-            libinput_log_set_handler(li, jay_libinput_log_handler_bridge);
+            libinput_log_set_handler(li, log_handler);
             let priority = if log::log_enabled!(log::Level::Debug) {
                 LIBINPUT_LOG_PRIORITY_DEBUG
             } else if log::log_enabled!(log::Level::Info) {
@@ -173,13 +171,21 @@ impl Drop for LibInput {
     }
 }
 
-#[unsafe(no_mangle)]
-unsafe extern "C" fn jay_libinput_log_handler(
+unsafe extern "C" fn log_handler(
     _libinput: *mut libinput,
     priority: libinput_log_priority,
-    line: *const c::c_char,
+    format: *const c::c_char,
+    args: VaList<'_>,
 ) {
-    assert!(line.is_not_null());
+    let mut line = ptr::null_mut();
+    let ret = unsafe { vasprintf(&mut line, format, args) };
+    if ret < 0 {
+        log::error!(
+            "Could not format libinput message: {}",
+            ErrorFmt(OsError::default()),
+        );
+        return;
+    }
     let str = unsafe { CStr::from_ptr(line) };
     let priority = match LogPriority(priority as _) {
         LIBINPUT_LOG_PRIORITY_DEBUG => log::Level::Debug,
@@ -192,4 +198,7 @@ unsafe extern "C" fn jay_libinput_log_handler(
         "libinput: {}",
         str.to_bytes().trim_ascii().as_bstr()
     );
+    unsafe {
+        c::free(line.cast());
+    }
 }

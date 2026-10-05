@@ -4,14 +4,7 @@ use std::io::Write as _;
 use std::process::Command;
 
 pub fn main() -> anyhow::Result<()> {
-    create_bridge()?;
     create_version()?;
-    Ok(())
-}
-
-fn create_bridge() -> anyhow::Result<()> {
-    println!("cargo:rerun-if-changed=src/bridge.c");
-    cc::Build::new().file("src/bridge.c").compile("bridge");
     Ok(())
 }
 

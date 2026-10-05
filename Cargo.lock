@@ -873,7 +873,6 @@ dependencies = [
  "blake3",
  "bstr",
  "byteorder",
- "cc",
  "chrono",
  "clap",
  "clap_complete",
