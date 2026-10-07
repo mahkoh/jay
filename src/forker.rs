@@ -351,6 +351,7 @@ impl Forker {
         unsafe {
             c::signal(c::SIGCHLD, c::SIG_IGN);
         }
+        uapi::setsid().unwrap();
         let socket = Rc::new(setup_fds(socket));
         std::panic::set_hook({
             let socket = socket.raw();
@@ -517,6 +518,7 @@ impl Forker {
                     unsafe {
                         c::signal(c::SIGCHLD, c::SIG_DFL);
                     }
+                    uapi::setpgid(0, 0).map_os_err(SpawnError::Setpgid)?;
                     for (key, val) in env {
                         unsafe {
                             match val {
@@ -555,6 +557,8 @@ impl Forker {
 
 #[derive(Debug, Error)]
 enum SpawnError {
+    #[error("setpgid failed")]
+    Setpgid(#[source] jay_algorithms::oserror::OsError),
     #[error("exec failed")]
     Exec(#[source] jay_algorithms::oserror::OsError),
     #[error("Could not unset cloexec flag")]
