@@ -149,6 +149,10 @@ impl Backend for HeadlessBackend {
         }
     }
 
+    fn supports_presentation_feedback(&self) -> bool {
+        true
+    }
+
     fn debugfs(self: Rc<Self>) -> Option<FuseInodeWithKey> {
         self.debugfs()
     }
