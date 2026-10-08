@@ -185,6 +185,7 @@ impl HeadlessBackend {
         self.state
             .backend_events
             .push(BackendEvent::DevicesEnumerated);
+        self.state.set_backend_idle(false);
         loop {
             let res = self
                 .state
