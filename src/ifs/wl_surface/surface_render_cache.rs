@@ -115,6 +115,7 @@ impl SurfaceRenderCache {
                 false,
                 false,
                 false,
+                None,
                 Transform::None,
                 None,
                 false,

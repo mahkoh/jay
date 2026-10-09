@@ -4102,6 +4102,20 @@ GracePeriod:
       integer_only: true
       minimum: 0
       required: false
+    fade:
+      description: |
+        Whether the screen gradually fades to black over the course of the grace
+        period instead of turning black immediately.
+
+        - Example:
+
+          ```toml
+          idle.grace-period = { seconds = 5, fade = true }
+          ```
+
+        The default is `false`.
+      kind: boolean
+      required: false
 
 
 CleanLogsOlderThan:
