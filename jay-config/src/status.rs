@@ -152,6 +152,27 @@ async fn handle_i3bar(name: String, mut read: BufReader<Async<OwnedFd>>) {
         full_text: String,
         color: Option<String>,
         background: Option<String>,
+        separator: Option<bool>,
+        separator_block_width: Option<i64>,
+    }
+    #[derive(Copy, Clone)]
+    enum Gap {
+        None,
+        Blank,
+        Separator,
+    }
+    impl Component {
+        // Pixel widths can't be honored in text. Only 0 is special.
+        fn gap(&self) -> Gap {
+            match (
+                self.separator.unwrap_or(true),
+                self.separator_block_width.unwrap_or(9),
+            ) {
+                (_, ..=0) => Gap::None,
+                (true, _) => Gap::Separator,
+                (false, _) => Gap::Blank,
+            }
+        }
     }
     let mut line = String::new();
     macro_rules! read_line {
@@ -206,15 +227,20 @@ async fn handle_i3bar(name: String, mut read: BufReader<Async<OwnedFd>>) {
             _ => r##" <span color="#333333">|</span> "##,
         };
         status.clear();
-        let mut first = true;
+        let mut gap = Gap::None;
         for component in &components {
             if component.full_text.is_empty() {
                 continue;
             }
-            if !first {
-                status.push_str(separator);
+            match gap {
+                Gap::None => {}
+                // Invisible, but as wide as the separator.
+                Gap::Blank => {
+                    let _ = write!(status, r#"<span fgalpha="1">{separator}</span>"#);
+                }
+                Gap::Separator => status.push_str(separator),
             }
-            first = false;
+            gap = component.gap();
             let have_span = component.color.is_some() || component.background.is_some();
             if have_span {
                 status.push_str("<span");
