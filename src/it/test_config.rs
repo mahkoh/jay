@@ -18,6 +18,7 @@ use jay_config::_private::ipc::Response;
 use jay_config::_private::ipc::ServerMessage;
 use jay_config::Axis;
 use jay_config::Direction;
+use jay_config::JcContainerTarget;
 use jay_config::input::InputDevice;
 use jay_config::input::Seat;
 use jay_config::keyboard::Keymap;
@@ -30,6 +31,7 @@ use jay_config::theme::sized::BAR_SEPARATOR_WIDTH;
 use jay_config::theme::sized::Resizable;
 use jay_config::video::Connector;
 use jay_config::video::Transform;
+use jay_config::window::JcMonoStyle;
 use jay_config::window::Window;
 use std::cell::Cell;
 use std::ops::Deref;
@@ -241,6 +243,19 @@ impl TestConfig {
         self.send(ClientMessage::SetSeatMono {
             seat: Seat(seat.raw() as _),
             mono,
+        })
+    }
+
+    pub fn set_mono_style(
+        &self,
+        seat: SeatId,
+        style: JcMonoStyle,
+        target: JcContainerTarget,
+    ) -> TestResult {
+        self.send(ClientMessage::SetSeatMonoStyle {
+            seat: Seat(seat.raw() as _),
+            style,
+            target,
         })
     }
 

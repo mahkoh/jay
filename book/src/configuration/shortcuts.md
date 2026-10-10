@@ -158,6 +158,9 @@ alt-shift-r = "reload-config-toml"
   [`split-reuses-container`](misc.md#split-reuses-container).
 - `reset-window-theme` -- remove the theme overrides of the window (see
   [Per-Window Themes](theme.md#per-window-themes))
+- `toggle-mono-style`, `mono-tabbed`, `mono-stacked` -- control whether the
+  titles of a container in mono mode are shown next to each other (tabbed) or
+  below each other (stacked). See [Mono Styles](../tiling.md#mono-styles).
 - `reload-config-so` -- reload the shared-library configuration (`config.so`)
 
 See the [specification](https://github.com/mahkoh/jay/blob/master/toml-spec/spec/spec.generated.md) for the full list of simple
@@ -660,11 +663,24 @@ When certain simple actions are used inside a [window rule](../window-rules.md),
 they apply to the **matched window** instead of the focused window. The
 affected actions are: `move-left`, `move-down`, `move-up`, `move-right`,
 `split-horizontal`, `split-vertical`, `split-major`, `split-minor`,
+<<<<<<< HEAD
 `toggle-split`, `tile-horizontal`, `tile-vertical`, `tile-major`,
 `tile-minor`, `toggle-mono`, `show-single`, `show-all`, `toggle-fullscreen`,
 `enter-fullscreen`, `exit-fullscreen`, `close`, `toggle-floating`, `float`,
 `tile`, `toggle-float-pinned`, `pin-float`, `unpin-float`, and
 `reset-window-theme`.
+||||||| parent of 1d9e08393 (book: document stacked mono style)
+`toggle-split`, `tile-horizontal`, `tile-vertical`, `tile-major`,
+`tile-minor`, `toggle-mono`, `show-single`, `show-all`, `toggle-fullscreen`,
+`enter-fullscreen`, `exit-fullscreen`, `close`, `toggle-floating`, `float`,
+`tile`, `toggle-float-pinned`, `pin-float`, and `unpin-float`.
+=======
+`toggle-split`, `tile-horizontal`, `tile-vertical`, `tile-major`, `tile-minor`,
+`toggle-mono`, `show-single`, `show-all`, `toggle-mono-style`, `mono-tabbed`,
+`mono-stacked`, `toggle-fullscreen`, `enter-fullscreen`, `exit-fullscreen`,
+`close`, `toggle-floating`, `float`, `tile`, `toggle-float-pinned`,
+`pin-float`, and `unpin-float`.
+>>>>>>> 1d9e08393 (book: document stacked mono style)
 
 The parameterized `resize` and `set-window-theme` actions also apply to the
 matched window. For a
