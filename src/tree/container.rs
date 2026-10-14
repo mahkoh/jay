@@ -188,6 +188,15 @@ impl ContainerMonoStyle {
     }
 }
 
+impl StaticText for ContainerMonoStyle {
+    fn text(&self) -> &'static str {
+        match self {
+            ContainerMonoStyle::Tabbed => "Tabbed",
+            ContainerMonoStyle::Stacked => "Stacked",
+        }
+    }
+}
+
 #[expect(unused)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum ContainerFocus {
