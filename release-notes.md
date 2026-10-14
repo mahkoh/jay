@@ -6,6 +6,11 @@ Moving a window across the titles of a mono container now moves it out of the
 container, the same way the focus leaves it. Previously, moving a tab up or down
 in a tabbed container with a vertical split reordered the tabs.
 
+Moves into and out of nested containers follow the same rule: a window moved
+right into a tabbed container now becomes its first tab, and a window moved left
+or right out of a container nested in a tabbed container now stops at the tabbed
+container, even if the tabbed container has a vertical split.
+
 # 1.15.0 (2026-09-28)
 
 ## Fixes

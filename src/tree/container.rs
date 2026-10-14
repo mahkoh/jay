@@ -1660,7 +1660,7 @@ impl ContainerNode {
         let mut neighbor = self.clone();
         let mut parent_opt = self.parent_container();
         while let Some(parent) = &parent_opt {
-            if parent.node_state[LiveTL].split.get() == split {
+            if parent.moves_along(split) {
                 break;
             }
             neighbor = parent.clone();
@@ -1679,7 +1679,7 @@ impl ContainerNode {
 
     fn insert_child(self: &Rc<Self>, node: Rc<dyn ToplevelNode>, direction: Direction) {
         let (split, right) = direction_to_split(direction);
-        if split != self.node_state[LiveTL].split.get() || right {
+        if !self.moves_along(split) || right {
             self.append_child(node);
         } else {
             self.prepend_child(node);
