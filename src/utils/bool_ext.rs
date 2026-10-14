@@ -1,7 +1,6 @@
 pub trait BoolExt {
     fn and_then<T>(self, f: impl FnOnce() -> Option<T>) -> Option<T>;
 
-    #[expect(unused)]
     fn and<T>(self, f: Option<T>) -> Option<T>;
 }
 

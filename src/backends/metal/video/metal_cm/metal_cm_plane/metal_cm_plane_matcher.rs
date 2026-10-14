@@ -4,7 +4,6 @@ use crate::backends::metal::video::metal_cm::PlaneColorOpProps;
 use crate::backends::metal::video::metal_cm::PlaneProgramming;
 use crate::backends::metal::video::metal_cm::PlaneProps;
 use crate::backends::metal::video::metal_cm::Shared;
-use crate::backends::metal::video::metal_cm::dst_lut_out_scale;
 use crate::backends::metal::video::metal_cm::metal_cm_lut::CurveConfig;
 use crate::backends::metal::video::metal_cm::metal_cm_lut::LutConfig;
 use crate::backends::metal::video::metal_cm::metal_cm_lut::create_lut;
@@ -25,13 +24,13 @@ use crate::backends::metal::video::metal_cm::metal_cm_plane::ColorPipeline;
 use crate::backends::metal::video::metal_cm::metal_cm_plane::PlaneColorPipelines;
 use crate::backends::metal::video::metal_cm::metal_cm_plane::to_s3132;
 use crate::cmm::cmm_description::ColorDescription;
-use crate::cmm::cmm_description::ColorDescriptionId;
 use crate::cmm::cmm_transform::ColorMatrix;
 use crate::cmm::cmm_transform::format_matrix;
 use crate::utils::bool_ext::BoolExt;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
 use crate::utils::obj_and_id::ObjWithId;
+use crate::utils::ordered_float::F32;
 use crate::video::drm::DrmColorop;
 use crate::video::drm::DrmMaster;
 use crate::video::drm::DrmObject;
@@ -76,6 +75,7 @@ enum ColorOpMatchType {
         size: usize,
         scale_for_dst_lut: bool,
         input_is_scaled_for_dst_lut: bool,
+        dst_lut_out_scale: Option<f64>,
     },
     Lut3d {
         interpolation: DrmPropertyValue,
@@ -118,11 +118,10 @@ pub struct MatrixKey {
 #[jay_hash]
 #[derive(Copy, Clone, Debug)]
 pub struct Lut1dKey {
-    dst: ColorDescriptionId,
     eotf: CurveConfig,
     size: usize,
-    scale_for_dst_lut: bool,
-    input_is_scaled_for_dst_lut: bool,
+    src_scale: Option<F32>,
+    dst_scale: Option<F32>,
 }
 
 #[jay_hash]
@@ -140,6 +139,7 @@ impl PlaneColorPipelines {
         curve_type: StaticCopyMap<PlaneOpTarget, Option<ColorOpCurve1dType>>,
         multiply: StaticCopyMap<PlaneOpTarget, f64>,
         matrix: ColorMatrix,
+        dst_lut_out_scale: Option<f64>,
         criteria: Linearized<Criteria>,
         path_idx: usize,
         path: &[PlaneOpKind],
@@ -162,6 +162,7 @@ impl PlaneColorPipelines {
                 curve_type,
                 multiply,
                 matrix,
+                dst_lut_out_scale,
                 criteria,
                 path_idx,
                 path,
@@ -191,6 +192,7 @@ impl ColorPipeline {
         curve_type: StaticCopyMap<PlaneOpTarget, Option<ColorOpCurve1dType>>,
         multiply: StaticCopyMap<PlaneOpTarget, f64>,
         matrix: ColorMatrix,
+        dst_lut_out_scale: Option<f64>,
         criteria: Linearized<Criteria>,
         path_idx: usize,
         path: &[PlaneOpKind],
@@ -209,6 +211,7 @@ impl ColorPipeline {
             serial: cache.serials.add_fetch(1),
             partials: &mut partials,
             matrix,
+            dst_lut_out_scale,
             path,
             descriptions,
             multiply,
@@ -300,6 +303,7 @@ impl PlaneColorPipelineMatch {
                     size,
                     scale_for_dst_lut,
                     input_is_scaled_for_dst_lut,
+                    dst_lut_out_scale,
                     ..
                 } => {
                     log::log!(level, "    type: Lut1d");
@@ -316,6 +320,7 @@ impl PlaneColorPipelineMatch {
                         level,
                         "    input_is_scaled_for_dst_lut: {input_is_scaled_for_dst_lut:?}"
                     );
+                    log::log!(level, "    dst_lut_out_scale: {dst_lut_out_scale:?}");
                 }
                 ColorOpMatchType::Matrix3x4 { matrix, .. } => {
                     log::log!(level, "    type: Matrix3x4");
@@ -348,7 +353,6 @@ impl PlaneColorPipelineMatch {
         &self,
         master: &Rc<DrmMaster>,
         shared: &Shared,
-        dst: &Rc<ColorDescription>,
     ) -> Option<(PlaneProgramming, Vec<PlaneColorOpProgramming>)> {
         let Some(pipeline) = self.pipeline else {
             return Some((
@@ -397,26 +401,29 @@ impl PlaneColorPipelineMatch {
                     size,
                     scale_for_dst_lut,
                     input_is_scaled_for_dst_lut,
+                    dst_lut_out_scale,
                 } => {
                     let key = Lut1dKey {
-                        dst: dst.id,
                         eotf,
                         size,
-                        scale_for_dst_lut,
-                        input_is_scaled_for_dst_lut,
+                        src_scale: input_is_scaled_for_dst_lut
+                            .and(dst_lut_out_scale)
+                            .map(|v| (1.0 / v) as f32)
+                            .map(F32),
+                        dst_scale: scale_for_dst_lut
+                            .and(dst_lut_out_scale)
+                            .map(|v| v as f32)
+                            .map(F32),
                     };
                     let blob_key = BlobRegistryKey::Lut1d(key);
                     let blob = match shared.blob_registry.get(&blob_key) {
                         Some(b) => b,
                         None => {
-                            let dst_lut_scale = || dst_lut_out_scale(dst).map(|v| v as f32);
                             let curve = create_lut_curve(
                                 key.eotf,
                                 key.size,
-                                key.input_is_scaled_for_dst_lut
-                                    .and_then(dst_lut_scale)
-                                    .map(|v| 1.0 / v),
-                                key.scale_for_dst_lut.and_then(dst_lut_scale),
+                                key.src_scale.map(|v| v.0),
+                                key.dst_scale.map(|v| v.0),
                             );
                             let lut = create_lut::<u32>(LutConfig::Curve(&curve), None, None);
                             let blob = create_blob!(&*lut);
@@ -535,6 +542,7 @@ struct Matcher<'a, 'b, 'c> {
     serial: u64,
     partials: &'b mut [Partial],
     matrix: ColorMatrix,
+    dst_lut_out_scale: Option<f64>,
     path: &'a [PlaneOpKind],
     descriptions: StaticCopyMap<PlaneOpTarget, &'c Rc<ColorDescription>>,
     multiply: StaticCopyMap<PlaneOpTarget, f64>,
@@ -613,6 +621,8 @@ impl Matcher<'_, '_, '_> {
                             size: l.size,
                             scale_for_dst_lut,
                             input_is_scaled_for_dst_lut,
+                            dst_lut_out_scale: (scale_for_dst_lut || input_is_scaled_for_dst_lut)
+                                .and(self.dst_lut_out_scale),
                         };
                         Some(ty)
                     }
@@ -640,9 +650,7 @@ impl Matcher<'_, '_, '_> {
                             if apply_dst_curve_scale {
                                 s *= self.multiply[Dst];
                             }
-                            if scale_for_dst_lut
-                                && let Some(v) = dst_lut_out_scale(&self.descriptions[Dst])
-                            {
+                            if scale_for_dst_lut && let Some(v) = self.dst_lut_out_scale {
                                 s *= v;
                             }
                             for r in 0..3 {
@@ -721,9 +729,7 @@ impl Matcher<'_, '_, '_> {
                         if apply_dst_curve_scale {
                             multiplier *= self.multiply[Dst];
                         }
-                        if scale_for_dst_lut
-                            && let Some(v) = dst_lut_out_scale(&self.descriptions[Dst])
-                        {
+                        if scale_for_dst_lut && let Some(v) = self.dst_lut_out_scale {
                             multiplier *= v;
                         }
                         let ty = ColorOpMatchType::Multiply {
@@ -738,9 +744,7 @@ impl Matcher<'_, '_, '_> {
                             && l.size >= 2 =>
                     {
                         let mut matrix = self.matrix;
-                        if scale_for_dst_lut
-                            && let Some(s) = dst_lut_out_scale(&self.descriptions[Dst])
-                        {
+                        if scale_for_dst_lut && let Some(s) = self.dst_lut_out_scale {
                             for r in 0..3 {
                                 for c in 0..4 {
                                     matrix.0[r][c].0 *= s;

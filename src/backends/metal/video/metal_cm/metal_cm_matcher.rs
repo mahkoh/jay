@@ -3,6 +3,7 @@ use crate::backends::metal::video::metal_cm::MetalCmCrtc;
 use crate::backends::metal::video::metal_cm::MetalCmPlane;
 use crate::backends::metal::video::metal_cm::Programming;
 use crate::backends::metal::video::metal_cm::Shared;
+use crate::backends::metal::video::metal_cm::dst_lut_out_scale;
 use crate::backends::metal::video::metal_cm::metal_cm_crtc::metal_cm_crtc_matcher::CrtcColorPipelineMatch;
 use crate::backends::metal::video::metal_cm::metal_cm_paths::Criteria;
 use crate::backends::metal::video::metal_cm::metal_cm_paths::DstEotfCriterion;
@@ -100,8 +101,8 @@ fn compute_programming_(
     )?;
     plane.log();
     crtc.log();
-    let (plane, plane_color_ops) = plane.compute_programming(master, shared, dst)?;
-    let crtc_color_ops = crtc.compute_programming(master, shared, dst, client_gamma_lut)?;
+    let (plane, plane_color_ops) = plane.compute_programming(master, shared)?;
+    let crtc_color_ops = crtc.compute_programming(master, shared, client_gamma_lut)?;
     Some(Programming {
         failed: false,
         plane,
@@ -178,6 +179,7 @@ fn find_matches(
         true => src.linear.color_transform(&dst.linear, intent),
         false => ColorMatrix::IDENTITY,
     };
+    let dst_lut_out_scale = dst_lut_out_scale(src, dst, &matrix);
     let criteria = if !needs_matrix
         && let SrcEotfCriterion::None = src_eotf_criterion
         && let DstEotfCriterion::None = dst_eotf_criterion
@@ -248,6 +250,7 @@ fn find_matches(
             plane_curve_types,
             multiply,
             matrix,
+            dst_lut_out_scale,
             criteria,
             path_idx,
             &plane_path,
@@ -256,9 +259,14 @@ fn find_matches(
             continue;
         };
         path.crtc(&mut crtc_path);
-        let res = crtc
-            .pipelines
-            .find_match(shared, descriptions, criteria, path_idx, &crtc_path);
+        let res = crtc.pipelines.find_match(
+            shared,
+            descriptions,
+            criteria,
+            path_idx,
+            &crtc_path,
+            dst_lut_out_scale,
+        );
         let Some(crtc_match) = res else {
             continue;
         };

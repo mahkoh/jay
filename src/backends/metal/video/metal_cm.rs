@@ -19,6 +19,7 @@ use crate::cmm::cmm_description::ColorDescriptionId;
 use crate::cmm::cmm_eotf::Eotf;
 use crate::cmm::cmm_luminance::Luminance;
 use crate::cmm::cmm_render_intent::RenderIntent;
+use crate::cmm::cmm_transform::ColorMatrix;
 use crate::env::JAY_MCM_AMD_ALLOW_CURSOR;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::obj_and_id::ObjWithId;
@@ -344,10 +345,34 @@ impl MetalCmDevice {
     }
 }
 
-fn dst_lut_out_scale(desc: &Rc<ColorDescription>) -> Option<f64> {
-    if desc.eotf == Eotf::St2084Pq {
-        Some(Luminance::ST2084_PQ.max.0 / desc.linear.target_luminance.max.0)
-    } else {
-        None
+fn dst_lut_out_scale(
+    src: &Rc<ColorDescription>,
+    dst: &Rc<ColorDescription>,
+    matrix: &ColorMatrix,
+) -> Option<f64> {
+    if dst.eotf != Eotf::St2084Pq {
+        return None;
     }
+    let max_vis = |cd: &ColorDescription| {
+        cd.linear
+            .max_cll
+            .unwrap_or(cd.linear.target_luminance.max)
+            .0
+    };
+    let to_norm = |nits: f64, lum: &Luminance| (nits - lum.min.0) / (lum.max.0 - lum.min.0);
+    let src_lum = &src.linear.luminance;
+    let src_max_norm = to_norm(max_vis(src), src_lum);
+    let src_max_norm = matrix
+        .0
+        .iter()
+        .map(|row| {
+            let linear: f64 = row[..3].iter().map(|v| v.0.abs()).sum();
+            linear * src_max_norm + row[3].0
+        })
+        .fold(f64::NEG_INFINITY, f64::max);
+    let dst_lum = &dst.linear.luminance;
+    let dst_max_norm = to_norm(max_vis(dst), dst_lum);
+    let dst_white_norm = to_norm(dst_lum.white.0, dst_lum);
+    let max_norm = src_max_norm.max(dst_white_norm).min(dst_max_norm);
+    Some(1.0 / max_norm)
 }
