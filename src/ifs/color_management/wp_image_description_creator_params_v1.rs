@@ -264,6 +264,9 @@ impl WpImageDescriptionCreatorParamsV1RequestHandler for WpImageDescriptionCreat
     }
 
     fn set_max_cll(&self, req: SetMaxCll, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        if req.max_cll == 0 {
+            return Ok(());
+        }
         if self
             .max_cll
             .replace(Some(F64(req.max_cll as f64)))
@@ -275,6 +278,9 @@ impl WpImageDescriptionCreatorParamsV1RequestHandler for WpImageDescriptionCreat
     }
 
     fn set_max_fall(&self, req: SetMaxFall, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        if req.max_fall == 0 {
+            return Ok(());
+        }
         if self
             .max_fall
             .replace(Some(F64(req.max_fall as f64)))
