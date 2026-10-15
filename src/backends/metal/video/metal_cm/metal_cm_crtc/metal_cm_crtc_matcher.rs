@@ -5,7 +5,6 @@ use crate::backends::metal::video::metal_cm::CrtcColorOpProgramming;
 use crate::backends::metal::video::metal_cm::CrtcColorOpProps;
 use crate::backends::metal::video::metal_cm::MIN_LUT_SIZE;
 use crate::backends::metal::video::metal_cm::Shared;
-use crate::backends::metal::video::metal_cm::dst_lut_out_scale;
 use crate::backends::metal::video::metal_cm::metal_cm_crtc::ColorOp;
 use crate::backends::metal::video::metal_cm::metal_cm_crtc::ColorOpType;
 use crate::backends::metal::video::metal_cm::metal_cm_crtc::ColorPipeline;
@@ -22,11 +21,11 @@ use crate::backends::metal::video::metal_cm::metal_cm_paths::PlaneOpTarget;
 use crate::backends::metal::video::metal_cm::metal_cm_paths::PlaneOpTarget::Dst;
 use crate::backends::metal::video::metal_cm::metal_cm_paths::PlaneOpTarget::Src;
 use crate::cmm::cmm_description::ColorDescription;
-use crate::cmm::cmm_description::ColorDescriptionId;
 use crate::utils::bool_ext::BoolExt;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::numcell::NumCell;
 use crate::utils::obj_and_id::ObjWithId;
+use crate::utils::ordered_float::F32;
 use crate::video::drm::DrmBlob;
 use crate::video::drm::DrmCrtc;
 use crate::video::drm::DrmMaster;
@@ -63,6 +62,7 @@ enum ColorOpMatchType {
         eotf: Option<CurveConfig>,
         size: usize,
         input_is_scaled_for_dst_lut: bool,
+        dst_lut_out_scale: Option<f64>,
     },
 }
 
@@ -79,10 +79,9 @@ pub struct CrtcColorPipelineMatch {
 #[jay_hash]
 #[derive(Copy, Clone, Debug)]
 pub struct GammaLutKey {
-    dst: Option<ColorDescriptionId>,
     eotf: Option<CurveConfig>,
     size: usize,
-    input_is_scaled_for_dst_lut: bool,
+    src_scale: Option<F32>,
     client_gamma_lut: Option<BackendGammaLutId>,
 }
 
@@ -94,10 +93,17 @@ impl CrtcColorPipelines {
         criteria: Linearized<Criteria>,
         path_idx: usize,
         path: &[CrtcOpKind],
+        dst_lut_out_scale: Option<f64>,
     ) -> Option<CrtcColorPipelineMatch> {
         for pipeline in &self.pipelines {
-            let Some(matches) = pipeline.find_match(shared, descriptions, criteria, path_idx, path)
-            else {
+            let Some(matches) = pipeline.find_match(
+                shared,
+                descriptions,
+                criteria,
+                path_idx,
+                path,
+                dst_lut_out_scale,
+            ) else {
                 continue;
             };
             return Some(CrtcColorPipelineMatch { matches });
@@ -116,6 +122,7 @@ impl ColorPipeline {
         criteria: Linearized<Criteria>,
         path_idx: usize,
         path: &[CrtcOpKind],
+        dst_lut_out_scale: Option<f64>,
     ) -> Option<Vec<ColorOpMatch>> {
         if !self.filter.contains(criteria, path_idx) {
             return None;
@@ -133,6 +140,7 @@ impl ColorPipeline {
             partials: &mut partials,
             path,
             descriptions,
+            dst_lut_out_scale,
         };
         let mut matches = Vec::new();
         let ok = matcher.match_at(0, 0);
@@ -172,6 +180,7 @@ impl CrtcColorPipelineMatch {
                     eotf,
                     size,
                     input_is_scaled_for_dst_lut,
+                    dst_lut_out_scale,
                     ..
                 } => {
                     log::log!(level, "    type: GammaLut");
@@ -181,6 +190,7 @@ impl CrtcColorPipelineMatch {
                         level,
                         "    input_is_scaled_for_dst_lut: {input_is_scaled_for_dst_lut:?}"
                     );
+                    log::log!(level, "    dst_lut_out_scale: {dst_lut_out_scale:?}");
                 }
             }
         }
@@ -190,7 +200,6 @@ impl CrtcColorPipelineMatch {
         self,
         master: &Rc<DrmMaster>,
         shared: &Shared,
-        dst: &Rc<ColorDescription>,
         client_gamma_lut: Option<&Rc<BackendGammaLut>>,
     ) -> Option<Vec<CrtcColorOpProgramming>> {
         macro_rules! create_blob {
@@ -222,27 +231,27 @@ impl CrtcColorPipelineMatch {
                     eotf,
                     size,
                     input_is_scaled_for_dst_lut,
+                    dst_lut_out_scale,
                 } => {
                     let key = GammaLutKey {
-                        dst: input_is_scaled_for_dst_lut.then_some(dst.id),
                         eotf,
                         size,
-                        input_is_scaled_for_dst_lut,
+                        src_scale: input_is_scaled_for_dst_lut
+                            .and(dst_lut_out_scale)
+                            .map(|v| (1.0 / v) as f32)
+                            .map(F32),
                         client_gamma_lut: client_gamma_lut.id(),
                     };
                     let blob_key = BlobRegistryKey::GammaLut(key);
                     let blob = match shared.blob_registry.get(&blob_key) {
                         Some(b) => b,
                         None => {
-                            let dst_lut_scale = || dst_lut_out_scale(dst).map(|v| v as f32);
                             let lut_obj;
                             let lut = if let Some(eotf) = key.eotf {
                                 let curve = create_lut_curve(
                                     eotf,
                                     key.size,
-                                    key.input_is_scaled_for_dst_lut
-                                        .and_then(dst_lut_scale)
-                                        .map(|v| 1.0 / v),
+                                    key.src_scale.map(|v| v.0),
                                     None,
                                 );
                                 lut_obj = create_lut::<u16>(
@@ -292,6 +301,7 @@ struct Matcher<'a, 'b, 'c> {
     partials: &'b mut [Partial],
     path: &'a [CrtcOpKind],
     descriptions: StaticCopyMap<PlaneOpTarget, &'c Rc<ColorDescription>>,
+    dst_lut_out_scale: Option<f64>,
 }
 
 impl Matcher<'_, '_, '_> {
@@ -337,6 +347,7 @@ impl Matcher<'_, '_, '_> {
                         eotf,
                         size: l.size,
                         input_is_scaled_for_dst_lut,
+                        dst_lut_out_scale: input_is_scaled_for_dst_lut.and(self.dst_lut_out_scale),
                     };
                     Some(ty)
                 }
