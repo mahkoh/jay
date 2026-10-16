@@ -1,5 +1,8 @@
 # Unreleased
 
+- The idle grace period can fade to black gradually instead of turning black immediately.
+  This can be enabled with `idle.grace-period.fade = true`.
+
 # 1.15.0 (2026-09-28)
 
 ## Fixes

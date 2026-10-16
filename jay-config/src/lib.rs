@@ -450,6 +450,16 @@ pub fn set_idle_grace_period(timeout: Duration) {
     get!().set_idle_grace_period(timeout)
 }
 
+/// Configures whether the screen fades to black during the idle grace period.
+///
+/// If enabled, the screen gradually fades to black over the course of the grace period
+/// instead of turning black immediately.
+///
+/// The default is `false`.
+pub fn set_idle_grace_period_fade(fade: bool) {
+    get!().set_idle_grace_period_fade(fade)
+}
+
 /// Enables or disables explicit sync.
 ///
 /// Calling this after the compositor has started has no effect.

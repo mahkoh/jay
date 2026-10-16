@@ -689,6 +689,11 @@ impl MetalConnector {
         };
         let render_hw_cursor = !self.cursor_enabled.get();
         let mode = node.global.mode.get();
+        // Sample at presentation time so that animation steps are uniform.
+        let presentation_nsec = match self.try_async_flip() {
+            true => Time::now_unchecked().nsec(),
+            false => self.next_vblank_nsec.get(),
+        };
         let pass = create_render_pass(
             (mode.width, mode.height),
             &**node,
@@ -700,6 +705,7 @@ impl MetalConnector {
             render_hw_cursor,
             node.has_fullscreen(RenderTL),
             true,
+            Some(presentation_nsec),
             node.node_state[RenderTL].transform.get(),
             Some(&self.state.damage_visualizer),
             true,

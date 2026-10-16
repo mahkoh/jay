@@ -87,6 +87,8 @@ pub struct JsonIdle<'a> {
     pub idle_sec: u64,
     #[serde(skip_serializing_if = "is_zero")]
     pub grace_sec: u64,
+    #[serde(skip_serializing_if = "is_false")]
+    pub grace_fade: bool,
     #[serde(skip_serializing_if = "is_empty")]
     pub inhibitors: Vec<JsonIdleInhibitor<'a>>,
 }

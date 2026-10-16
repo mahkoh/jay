@@ -18,6 +18,7 @@ pub struct JayIdle {
 }
 
 const GRACE_PERIOD_SINCE: Version = Version(13);
+const FADE_SINCE: Version = Version(45);
 
 impl JayIdle {
     fn send_interval(&self) {
@@ -33,6 +34,14 @@ impl JayIdle {
         self.client.event(GracePeriod {
             self_id: self.id,
             period: to.as_secs(),
+        });
+    }
+
+    fn send_fade(&self) {
+        let fade = self.client.state.idle.grace_period_fade.get();
+        self.client.event(Fade {
+            self_id: self.id,
+            fade: fade as u32,
         });
     }
 
@@ -56,6 +65,9 @@ impl JayIdleRequestHandler for JayIdle {
         if self.version >= GRACE_PERIOD_SINCE {
             self.send_grace_period();
         }
+        if self.version >= FADE_SINCE {
+            self.send_fade();
+        }
         {
             let inhibitors = self.client.state.idle.inhibitors.lock();
             for inhibitor in inhibitors.values() {
@@ -76,6 +88,12 @@ impl JayIdleRequestHandler for JayIdle {
         let period = Duration::from_secs(req.period);
         let state = &self.client.state;
         state.idle.set_grace_period(state, period);
+        Ok(())
+    }
+
+    fn set_fade(&self, req: SetFade, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        let state = &self.client.state;
+        state.idle.set_grace_period_fade(state, req.fade != 0);
         Ok(())
     }
 }
