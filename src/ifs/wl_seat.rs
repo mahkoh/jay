@@ -38,6 +38,7 @@ use crate::cursor_user::CursorUserOwner;
 use crate::ei::ei_ifs::ei_seat::EiSeat;
 use crate::evdev::input_event_codes::InputEventCode;
 use crate::fixed::Fixed;
+use crate::focus;
 use crate::globals::Global;
 use crate::globals::GlobalName;
 use crate::ifs::ext_idle_notification_v1::ExtIdleNotificationV1;
@@ -921,6 +922,16 @@ impl WlSeatGlobal {
             }
         }
         self.maybe_schedule_warp_mouse_to_focus();
+    }
+
+    pub fn focus(self: &Rc<Self>, targets: &[focus::Target]) {
+        let Some(tl) = self.keyboard_node.get().node_toplevel() else {
+            log::info!("focus targets: no toplevel (noop)");
+            return;
+        };
+        if focus::neighbor(self, tl, targets).is_some() {
+            self.maybe_schedule_warp_mouse_to_focus();
+        }
     }
 
     pub fn maybe_schedule_warp_mouse_to_focus(self: &Rc<Self>) {

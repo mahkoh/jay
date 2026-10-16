@@ -1011,7 +1011,7 @@ impl ContainerNode {
         }
     }
 
-    fn last_active(&self) -> Option<NodeId> {
+    pub fn last_active(&self) -> Option<NodeId> {
         match self.node_state[LiveTL].mono_child.get() {
             Some(c) => Some(c.node.node_id()),
             None => self.focus_history.last().map(|v| v.node.node_id()),
@@ -1356,7 +1356,7 @@ impl ContainerNode {
         }
     }
 
-    fn activate_child(self: &Rc<Self>, child: &NodeRef<ContainerChild>) {
+    pub fn activate_child(self: &Rc<Self>, child: &NodeRef<ContainerChild>) {
         self.activate_child2(child, false);
     }
 
