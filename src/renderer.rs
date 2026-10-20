@@ -573,6 +573,10 @@ impl Renderer<'_> {
                     alpha_mode,
                     client_buf,
                     lazy,
+                    scanout_feedback: surface
+                        .fullscreen
+                        .id()
+                        .zip(surface.fullscreen_dma_buf_watermark.get()),
                     ..Default::default()
                 },
             );
