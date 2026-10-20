@@ -1790,6 +1790,11 @@ impl EgvFramebuffer {
                     .image(self.image.image)
                     .subresource_range(IMAGE_SUBRESOURCE_RANGE),
             );
+            unsafe {
+                let info = DependencyInfo::default().image_memory_barriers(&final_image_barriers);
+                dev.cmd_pipeline_barrier2(buf, &info);
+            }
+            final_image_barriers.clear();
             final_image_barriers.push(
                 ImageMemoryBarrier2::default()
                     .src_access_mask(AccessFlags2::COLOR_ATTACHMENT_WRITE)
@@ -1803,10 +1808,10 @@ impl EgvFramebuffer {
                     .image(self.image.image)
                     .subresource_range(IMAGE_SUBRESOURCE_RANGE),
             );
-        }
-        unsafe {
-            let info = DependencyInfo::default().image_memory_barriers(&final_image_barriers);
-            dev.cmd_pipeline_barrier2(buf, &info);
+            unsafe {
+                let info = DependencyInfo::default().image_memory_barriers(&final_image_barriers);
+                dev.cmd_pipeline_barrier2(buf, &info);
+            }
         }
         for primitive in primitives {
             match &primitive.primitive {
@@ -1930,6 +1935,11 @@ impl EgvFramebuffer {
                     .image(self.image.image)
                     .subresource_range(IMAGE_SUBRESOURCE_RANGE),
             );
+            unsafe {
+                let info = DependencyInfo::default().image_memory_barriers(&final_image_barriers);
+                dev.cmd_pipeline_barrier2(buf, &info);
+            }
+            final_image_barriers.clear();
             final_image_barriers.push(
                 ImageMemoryBarrier2::default()
                     .src_access_mask(AccessFlags2::COLOR_ATTACHMENT_WRITE)
