@@ -1,6 +1,7 @@
 use crate::allocator::Allocator;
 use crate::allocator::AllocatorError;
 use crate::allocator::BO_USE_RENDERING;
+use crate::allocator::BO_USE_SCANOUT;
 use crate::allocator::BufferObject;
 use crate::async_engine::SpawnedFuture;
 use crate::client::Client;
@@ -773,17 +774,21 @@ impl EggWindowInner {
                     })
                     .map(|s| s.modifier)
                     .collect();
-                let bo = self
-                    .ctx
-                    .allocator
-                    .create_bo(
+                // The buffer might be used for direct scanout. Without the scanout usage,
+                // nvidia allocates buffers that are displayed incorrectly even though the
+                // atomic commit succeeds.
+                let create_bo = |usage| {
+                    self.ctx.allocator.create_bo(
                         &self.ctx.state.dma_buf_ids,
                         physical_size[0],
                         physical_size[1],
                         EGV_FORMAT,
                         &modifiers,
-                        BO_USE_RENDERING,
+                        usage,
                     )
+                };
+                let bo = create_bo(BO_USE_RENDERING | BO_USE_SCANOUT)
+                    .or_else(|_| create_bo(BO_USE_RENDERING))
                     .map_err(EggError::AllocateBuffer)?;
                 let egv = self
                     .egv
