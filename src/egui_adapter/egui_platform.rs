@@ -13,6 +13,7 @@ use crate::egui_adapter::egui_vulkan::EgvFramebuffer;
 use crate::egui_adapter::egui_vulkan::EgvRenderer;
 use crate::fixed::Fixed;
 use crate::fontconfig::match_font;
+use crate::gfx_api::FdSync;
 use crate::gfx_api::SyncFile;
 use crate::globals::GlobalName;
 use crate::globals::Singleton;
@@ -701,35 +702,46 @@ impl EggWindowInner {
     async fn render_frames(self: Rc<Self>) {
         loop {
             self.frame_task.triggered().await;
-            if let Err(e) = self.render_frame() {
-                log::error!("Could not render frame: {}", ErrorFmt(e));
-                break;
+            loop {
+                match self.render_frame() {
+                    Ok(None) => break,
+                    Ok(Some(sync_file)) => {
+                        if let Err(e) = self.ctx.state.ring.readable(&sync_file).await {
+                            log::error!("Could not wait for the acquire fence: {}", ErrorFmt(e));
+                            break;
+                        }
+                    }
+                    Err(e) => {
+                        log::error!("Could not render frame: {}", ErrorFmt(e));
+                        return;
+                    }
+                }
             }
         }
     }
 
-    fn render_frame(self: &Rc<Self>) -> Result<(), EggError> {
+    fn render_frame(self: &Rc<Self>) -> Result<Option<SyncFile>, EggError> {
         if self.fonts_changed.take() {
             self.egui
                 .set_fonts(self.ctx.state.egg_state.font_definitions());
         }
         if self.initial_commit_pending.get() {
-            return Ok(());
+            return Ok(None);
         }
         if !self.have_frame.get() {
-            return Ok(());
+            return Ok(None);
         }
         if !self.want_frame.get() {
-            return Ok(());
+            return Ok(None);
         }
         let Some(owner) = self.owner.get() else {
-            return Ok(());
+            return Ok(None);
         };
         let Some(render_ctx) = self.ctx.state.render_ctx.get() else {
-            return Ok(());
+            return Ok(None);
         };
         let Some(format) = render_ctx.formats().get(&EGV_FORMAT.drm) else {
-            return Ok(());
+            return Ok(None);
         };
         let logical_size = self.logical_size.get();
         let physical_size = self.physical_size.get();
@@ -794,8 +806,16 @@ impl EggWindowInner {
             }
         };
         let Some(sync_file) = fb.client_acquire_fence.get() else {
-            return Ok(());
+            return Ok(None);
         };
+        // Wait for the fence on the CPU instead of letting the GPU wait for it. If the
+        // submission waits for a semaphore imported from a sync file, the nvidia driver
+        // can export a sync file that signals before the submission has completed.
+        if let Some(sync_file) = sync_file
+            && FdSync::SyncFile(sync_file.clone()).is_unsignaled()
+        {
+            return Ok(Some(sync_file));
+        }
         let raw_input = self
             .raw_input
             .take()
@@ -818,7 +838,7 @@ impl EggWindowInner {
                 pixels_per_point,
                 &primitives,
                 (0.0, 0.0),
-                sync_file.as_ref(),
+                None,
             )
             .map_err(EggError::Render)?;
         let PlatformOutput {
@@ -937,7 +957,7 @@ impl EggWindowInner {
         if self.close.get() {
             owner.close();
         }
-        Ok(())
+        Ok(None)
     }
 }
 
