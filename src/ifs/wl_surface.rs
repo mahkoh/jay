@@ -130,6 +130,7 @@ use crate::tree::NodeLayerLink;
 use crate::tree::NodeLocation;
 use crate::tree::NodeVisitor;
 use crate::tree::OutputNode;
+use crate::tree::PF_VRR;
 use crate::tree::PresentFlags;
 use crate::tree::PresentationListener;
 use crate::tree::SplitView;
@@ -359,6 +360,8 @@ pub struct WlSurface {
     presentation_listener: EventListener<dyn PresentationListener>,
     commit_version: NumCell<u64>,
     latched_commit_version: Cell<u64>,
+    commit_iteration: Cell<u64>,
+    latched_commit_iteration: Cell<u64>,
     fifo: CloneCell<Option<Rc<WpFifoV1>>>,
     clear_fifo_on_vblank: Cell<bool>,
     commit_timer: CloneCell<Option<Rc<WpCommitTimerV1>>>,
@@ -783,6 +786,8 @@ impl WlSurface {
             presentation_listener: EventListener::new(slf.clone()),
             commit_version: Default::default(),
             latched_commit_version: Default::default(),
+            commit_iteration: Default::default(),
+            latched_commit_iteration: Default::default(),
             fifo: Default::default(),
             clear_fifo_on_vblank: Default::default(),
             commit_timer: Default::default(),
@@ -1749,6 +1754,7 @@ impl WlSurface {
             self.ext.get().extents_changed();
         }
         self.commit_version.fetch_add(1);
+        self.commit_iteration.set(self.state.eng.iteration());
         Ok(())
     }
 
@@ -2584,6 +2590,8 @@ impl LatchListener for WlSurface {
                         .attach(&self.output.get().presentation_event);
                 }
                 self.latched_commit_version.set(self.commit_version.get());
+                self.latched_commit_iteration
+                    .set(self.commit_iteration.get());
             }
         }
         if tearing && self.visible[LiveTL].get() {
@@ -2607,11 +2615,14 @@ impl PresentationListener for WlSurface {
         refresh: u32,
         seq: u64,
         flags: PresentFlags,
+        trigger_iteration: u64,
     ) {
         let bindings = output.global.bindings.borrow();
         let bindings = bindings.get(&self.client.id);
+        let driver =
+            flags.contains(PF_VRR) && self.latched_commit_iteration.get() == trigger_iteration;
         for pf in self.latched_presentation_feedback.borrow_mut().drain(..) {
-            pf.presented(bindings, tv_sec, tv_nsec, refresh, seq, flags);
+            pf.presented(bindings, tv_sec, tv_nsec, refresh, seq, flags, driver);
         }
         self.presentation_listener.detach();
     }
