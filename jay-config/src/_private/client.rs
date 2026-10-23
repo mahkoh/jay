@@ -40,6 +40,8 @@ use crate::input::FocusFollowsMouseMode;
 use crate::input::InputDevice;
 use crate::input::InputEventCode;
 use crate::input::JcFallbackOutputMode;
+use crate::input::JcMouseFollowsFocusMode;
+use crate::input::JcWarpTarget;
 use crate::input::LayerDirection;
 use crate::input::Seat;
 use crate::input::SwitchEvent;
@@ -473,6 +475,10 @@ impl ConfigClient {
 
     pub fn seat_warp_mouse_to_focus(&self, seat: Seat) {
         self.send(&ClientMessage::SeatWarpMouseToFocus { seat });
+    }
+
+    pub fn seat_warp_mouse_to_focus_target(&self, seat: Seat, target: JcWarpTarget) {
+        self.send(&ClientMessage::SeatWarpMouseToFocusTarget { seat, target });
     }
 
     pub fn window_move(&self, window: Window, direction: Direction) {
@@ -1332,8 +1338,8 @@ impl ConfigClient {
         self.send(&ClientMessage::SeatEnableUnicodeInput { seat });
     }
 
-    pub fn seat_set_mouse_follows_focus(&self, seat: Seat, enabled: bool) {
-        self.send(&ClientMessage::SeatSetMouseFollowsFocus { seat, enabled });
+    pub fn seat_set_mouse_follows_focus_mode(&self, seat: Seat, mode: JcMouseFollowsFocusMode) {
+        self.send(&ClientMessage::SeatSetMouseFollowsFocusMode { seat, mode });
     }
 
     pub fn set_show_float_pin_icon(&self, show: bool) {

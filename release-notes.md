@@ -1,5 +1,28 @@
 # Unreleased
 
+## Mouse Follows Focus Modes
+
+The `unstable-mouse-follows-focus` setting now takes one of `none`, `output`,
+`workspace`, or `window`. The boolean values are no longer supported.
+
+```toml
+unstable-mouse-follows-focus = "workspace"
+```
+
+The cursor is now only warped if the action moved the focus to a different
+window, workspace, or output, or moved the focused window or workspace.
+Previously it was warped on every focus action.
+
+The `warp-mouse-to-focus` action gained a `target` option to warp to the focused
+workspace or output instead of the focused window:
+
+```toml
+[shortcuts]
+alt-x = { type = "warp-mouse-to-focus", target = "workspace" }
+```
+
+Thanks to @Ktrompfl for implementing this.
+
 # 1.15.0 (2026-09-28)
 
 ## Fixes
