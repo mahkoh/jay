@@ -115,6 +115,33 @@ alt-s = "show-single"   # Enter mono mode
 alt-a = "show-all"      # Exit mono mode
 ```
 
+### Mono Styles
+
+By default, the titles of a container in mono mode are shown next to each other
+in a single row, like tabs. The stacked style shows them below each other
+instead, each spanning the full width of the container -- like i3's stacking
+layout.
+
+`toggle-mono-style`
+: Toggle the container between tabbed and stacked
+
+`mono-tabbed`
+: Show the titles next to each other
+
+`mono-stacked`
+: Show the titles below each other
+
+```toml
+[shortcuts]
+alt-w = "toggle-mono-style"
+```
+
+In the stacked style, focus and move actions follow the title orientation: use
+`focus-up`/`focus-down` and `move-up`/`move-down` to navigate the stack.
+
+The [`default-mono-style`](configuration/misc.md#default-mono-style) option
+configures the style of newly created containers.
+
 ## Target Container
 
 The [container actions](configuration/shortcuts.md#container-actions) change
@@ -204,6 +231,15 @@ Double-click a tile's title bar to toggle it between tiled and floating. See
 
 `show-all`
 : Exit mono mode
+
+`toggle-mono-style`
+: Toggle mono style between tabbed and stacked
+
+`mono-tabbed`
+: Set mono style to tabbed
+
+`mono-stacked`
+: Set mono style to stacked
 
 `toggle-fullscreen`
 : Toggle fullscreen

@@ -52,6 +52,7 @@ use crate::video::Transform;
 use crate::video::VrrMode;
 use crate::video::connector_type::ConnectorType;
 use crate::window::ContentType;
+use crate::window::JcMonoStyle;
 use crate::window::JcTileState;
 use crate::window::Window;
 use crate::window::WindowMatcher;
@@ -1144,6 +1145,28 @@ pub enum ClientMessage<'a> {
         window: Window,
         kind: WindowThemeKind,
     },
+    GetSeatMonoStyle {
+        seat: Seat,
+        target: JcContainerTarget,
+    },
+    SetSeatMonoStyle {
+        seat: Seat,
+        style: JcMonoStyle,
+        target: JcContainerTarget,
+    },
+    GetWindowMonoStyle {
+        window: Window,
+        target: JcContainerTarget,
+    },
+    SetWindowMonoStyle {
+        window: Window,
+        style: JcMonoStyle,
+        target: JcContainerTarget,
+    },
+    SetDefaultMonoStyle {
+        style: JcMonoStyle,
+    },
+    GetDefaultMonoStyle,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1444,6 +1467,15 @@ pub enum Response {
     },
     GetWindowThemeContainerBorders {
         borders: Option<JcContainerBorders>,
+    },
+    GetSeatMonoStyle {
+        style: JcMonoStyle,
+    },
+    GetWindowMonoStyle {
+        style: JcMonoStyle,
+    },
+    GetDefaultMonoStyle {
+        style: JcMonoStyle,
     },
 }
 
