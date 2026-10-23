@@ -175,6 +175,8 @@ pub enum MetalDirectScanoutError {
     NoCmProgramming,
     #[error("The commit failed")]
     Commit,
+    #[error("The buffer was not allocated after the client received scanout feedback")]
+    NoScanoutFeedback,
 }
 
 impl MetalConnector {
@@ -780,6 +782,16 @@ impl MetalConnector {
             // Shm buffers cannot be scanned out.
             return Err(MetalDirectScanoutError::Shm);
         };
+        if self.dev.vendor.is_nvidia {
+            // Clients only allocate buffers for scanout after they have received scanout
+            // feedback. Nvidia accepts other buffers in atomic commits but displays them
+            // with artifacts.
+            match ct.scanout_feedback {
+                Some((connector, watermark))
+                    if connector == self.connector_id && dmabuf.id > watermark => {}
+                _ => return Err(MetalDirectScanoutError::NoScanoutFeedback),
+            }
+        }
         let key = DirectScanoutKey {
             dma_buf_id: dmabuf.id,
             plane: plane.id,
