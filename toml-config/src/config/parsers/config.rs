@@ -57,6 +57,7 @@ use crate::config::parsers::vrr::VrrParser;
 use crate::config::parsers::window_rule::WindowRulesParser;
 use crate::config::parsers::workspace::WorkspacesParser;
 use crate::config::parsers::workspace_display_order::WorkspaceDisplayOrderParser;
+use crate::config::parsers::workspace_empty_behavior::WorkspaceEmptyBehaviorParser;
 use crate::config::parsers::xwayland::XwaylandParser;
 use crate::config::spanned::SpannedErrorExt;
 use crate::toml::toml_span::DespanExt;
@@ -177,6 +178,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 split_reuses_container,
                 triggers_val,
                 max_trigger_depth_val,
+                workspace_empty_behavior_val,
             ),
         ) = ext.extract((
             (
@@ -247,6 +249,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 recover(opt(bol("split-reuses-container"))),
                 opt(val("triggers")),
                 opt(int("max-trigger-depth")),
+                opt(val("workspace-empty-behavior")),
             ),
         ))?;
         let mut keymap = None;
@@ -661,6 +664,18 @@ impl Parser for ConfigParser<'_, '_, '_> {
             }
             max_trigger_depth = value.value as _;
         }
+        let mut workspace_empty_behavior = None;
+        if let Some(value) = workspace_empty_behavior_val {
+            match value.parse(&mut WorkspaceEmptyBehaviorParser) {
+                Ok(v) => workspace_empty_behavior = Some(v),
+                Err(e) => {
+                    log::warn!(
+                        "Could not parse the workspace empty behavior: {}",
+                        self.0.error(e)
+                    );
+                }
+            }
+        }
         Ok(Config {
             keymap,
             repeat_rate,
@@ -718,6 +733,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
             configure_all_devices,
             triggers,
             max_trigger_depth,
+            workspace_empty_behavior,
         })
     }
 }
