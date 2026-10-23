@@ -259,6 +259,7 @@ impl ExtImageCopyCaptureFrameV1 {
                 true,
                 true,
                 false,
+                None,
                 tree::Transform::None,
                 None,
                 self.client.state.color_manager.srgb_linear(),
