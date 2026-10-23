@@ -671,6 +671,7 @@ impl Action {
                     c.container_theme().reset();
                 }
             }),
+            Action::Focus { targets } => b.new(move || s.focus_targets(&targets)),
         }
     }
 }
