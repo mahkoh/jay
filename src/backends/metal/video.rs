@@ -52,6 +52,7 @@ use crate::copy_device::CopyDeviceRegistry;
 use crate::edid::CtaDataBlock;
 use crate::edid::Descriptor;
 use crate::edid::EdidExtension;
+use crate::env::JAY_NO_INTEL_CCS_SCANOUT;
 use crate::format::Format;
 use crate::format::XRGB8888;
 use crate::gfx_api::FdSync;
@@ -1648,6 +1649,41 @@ fn create_crtc(
     })
 }
 
+fn is_not_intel_ccs(modifier: &Modifier) -> bool {
+    const fn intel(v: u64) -> Modifier {
+        (0x01 << 56) | v
+    }
+    const I915_FORMAT_MOD_Y_TILED_CCS: Modifier = intel(4);
+    const I915_FORMAT_MOD_YF_TILED_CCS: Modifier = intel(5);
+    const I915_FORMAT_MOD_Y_TILED_GEN12_RC_CCS: Modifier = intel(6);
+    const I915_FORMAT_MOD_Y_TILED_GEN12_MC_CCS: Modifier = intel(7);
+    const I915_FORMAT_MOD_Y_TILED_GEN12_RC_CCS_CC: Modifier = intel(8);
+    const I915_FORMAT_MOD_4_TILED_DG2_RC_CCS: Modifier = intel(10);
+    const I915_FORMAT_MOD_4_TILED_DG2_MC_CCS: Modifier = intel(11);
+    const I915_FORMAT_MOD_4_TILED_DG2_RC_CCS_CC: Modifier = intel(12);
+    const I915_FORMAT_MOD_4_TILED_MTL_RC_CCS: Modifier = intel(13);
+    const I915_FORMAT_MOD_4_TILED_MTL_MC_CCS: Modifier = intel(14);
+    const I915_FORMAT_MOD_4_TILED_MTL_RC_CCS_CC: Modifier = intel(15);
+    const I915_FORMAT_MOD_4_TILED_LNL_CCS: Modifier = intel(16);
+    const I915_FORMAT_MOD_4_TILED_BMG_CCS: Modifier = intel(17);
+    not_matches!(
+        *modifier,
+        I915_FORMAT_MOD_Y_TILED_CCS
+            | I915_FORMAT_MOD_YF_TILED_CCS
+            | I915_FORMAT_MOD_Y_TILED_GEN12_RC_CCS
+            | I915_FORMAT_MOD_Y_TILED_GEN12_MC_CCS
+            | I915_FORMAT_MOD_Y_TILED_GEN12_RC_CCS_CC
+            | I915_FORMAT_MOD_4_TILED_DG2_RC_CCS
+            | I915_FORMAT_MOD_4_TILED_DG2_MC_CCS
+            | I915_FORMAT_MOD_4_TILED_DG2_RC_CCS_CC
+            | I915_FORMAT_MOD_4_TILED_MTL_RC_CCS
+            | I915_FORMAT_MOD_4_TILED_MTL_MC_CCS
+            | I915_FORMAT_MOD_4_TILED_MTL_RC_CCS_CC
+            | I915_FORMAT_MOD_4_TILED_LNL_CCS
+            | I915_FORMAT_MOD_4_TILED_BMG_CCS
+    )
+}
+
 fn create_plane(
     plane: DrmPlane,
     master: &Rc<DrmMaster>,
@@ -1658,7 +1694,10 @@ fn create_plane(
     let mut formats = BHashMap::default();
     let mut scanout_formats = Vec::new();
     if let Some((_, v)) = props.props.get(b"IN_FORMATS".as_bstr()) {
-        for format in master.get_in_formats(*v as _)? {
+        for mut format in master.get_in_formats(*v as _)? {
+            if *JAY_NO_INTEL_CCS_SCANOUT {
+                format.modifiers.retain(is_not_intel_ccs);
+            }
             if format.modifiers.is_empty() {
                 continue;
             }
