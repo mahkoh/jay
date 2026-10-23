@@ -104,6 +104,7 @@ use jay_config::_private::ipc::WorkspaceSource;
 use jay_config::_private::serialize_server_message;
 use jay_config::Axis;
 use jay_config::Direction;
+use jay_config::FlattenTree as ConfigFlattenTree;
 use jay_config::JcContainerTarget;
 use jay_config::JcRelativeAxis;
 use jay_config::JcWorkspaceKind;
@@ -2926,6 +2927,14 @@ impl ConfigProxyHandler {
         self.state.set_primary_selection_enabled(enabled);
     }
 
+    fn handle_set_flatten_tree(&self, mode: ConfigFlattenTree) -> Result<(), CphError> {
+        let Ok(mode) = mode.try_into() else {
+            return Err(CphError::UnknownFlattenTree(mode));
+        };
+        self.state.set_flatten_tree(mode);
+        Ok(())
+    }
+
     fn handle_seat_create_mark(&self, seat: Seat, kc: Option<u32>) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         if let Some(kc) = kc {
@@ -4236,6 +4245,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetMiddleClickPasteEnabled { enabled } => {
                 self.handle_set_middle_click_paste_enabled(enabled);
             }
+            ClientMessage::SetFlattenTree { mode } => {
+                self.handle_set_flatten_tree(mode).wrn("set_flatten_tree")?
+            }
             ClientMessage::SetWorkspaceDisplayOrder { order } => {
                 self.handle_set_workspace_display_order(order);
             }
@@ -4717,6 +4729,8 @@ enum CphError {
     UnsupportedWindowThemeColor(u32),
     #[error("Sized element {0} is not supported in window themes")]
     UnsupportedWindowThemeSized(u32),
+    #[error("Unknown flatten tree mode {0:?}")]
+    UnknownFlattenTree(ConfigFlattenTree),
 }
 
 trait WithRequestName {
