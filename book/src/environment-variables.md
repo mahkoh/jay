@@ -156,6 +156,13 @@ on unusual hardware or for diagnosing problems.
 : Set to `1` to disable the use of Vulkan descriptor heaps, even on devices
   that support them.
 
+`JAY_NO_INTEL_CCS_SCANOUT`
+: Set to `1` to hide the Intel CCS (compressed) modifiers that the display
+  hardware reports as supported. Jay then does not allocate compressed buffers
+  for scanout and does not scan out compressed client buffers directly.
+  Compressed buffers increase the display bandwidth, which can prevent some
+  monitor configurations from working.
+
 ### Hardware color management
 
 These variables control Jay's use of the display hardware's color pipeline on

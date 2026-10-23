@@ -232,6 +232,7 @@ declare_bool!(JAY_MCM_AMD_USE_FIRST_LUT);
 declare_bool!(JAY_MCM_NVIDIA_USE_LUTS);
 declare_bool!(JAY_NO_CLIENT_PRIME);
 declare_bool!(JAY_NO_DESCRIPTOR_HEAP);
+declare_bool!(JAY_NO_INTEL_CCS_SCANOUT);
 declare_bool!(JAY_NO_REALTIME);
 declare_bool!(JAY_VULKAN_VALIDATION);
 declare_str!(DBUS_SESSION_BUS_ADDRESS);
