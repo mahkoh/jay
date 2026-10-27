@@ -834,6 +834,7 @@ impl OutputNode {
             if ns.title_visible.get() {
                 self.state.damage(rd.full_area);
             }
+            rd.full_area = Default::default();
             return;
         }
         let mut pos = 0;
