@@ -157,7 +157,6 @@ pub struct OutputNode {
     update_render_data_scheduled: Cell<bool>,
     pub screencasts: CopyHashMap<(ClientId, JayScreencastId), Rc<JayScreencast>>,
     pub screencopies: CopyHashMap<(ClientId, ZwlrScreencopyFrameV1Id), Rc<ZwlrScreencopyFrameV1>>,
-    title_visible: Cell<bool>,
     pub schedule: Rc<OutputSchedule>,
     pub latch_event: EventSource<dyn LatchListener>,
     pub vblank_event: EventSource<dyn VblankListener>,
@@ -206,6 +205,7 @@ pub struct OutputNodeState {
     damage_matrix: Cell<DamageMatrix>,
     pub rects: OutputNodeRects<CellWrapper>,
     pub theme: OutputTheme,
+    title_visible: Cell<bool>,
 }
 
 #[derive(Clone, Default)]
@@ -362,7 +362,6 @@ impl OutputNode {
             update_render_data_scheduled: Cell::new(false),
             hardware_cursor_needs_render: Cell::new(false),
             screencopies: Default::default(),
-            title_visible: Default::default(),
             schedule: schedule.clone(),
             latch_event: Default::default(),
             vblank_event: Default::default(),
@@ -933,7 +932,7 @@ impl OutputNode {
         }
         let old_full_area = rd.full_area;
         rd.full_area = ns.rects.bar_with_separator.get();
-        if self.title_visible.get() {
+        if self.node_state[LiveTL].title_visible.get() {
             self.state.damage(rd.full_area.union(old_full_area));
         }
     }
@@ -1540,7 +1539,7 @@ impl OutputNode {
         self.schedule_update_render_data();
     }
 
-    pub fn update_visible(&self) {
+    pub fn update_visible(self: &Rc<Self>) {
         let mut visible = self.state.root_visible();
         let ns = &self.node_state[LiveTL];
         if self.state.lock.locked[LiveTL].get() {
@@ -1566,7 +1565,7 @@ impl OutputNode {
             have_fullscreen = ws.node_state[LiveTL].fullscreen.is_some();
         }
         let lower_visible = visible && !have_fullscreen;
-        self.title_visible.set(lower_visible);
+        self.set_ns_title_visible(lower_visible);
         set_layer_visible!(self.layers[0], lower_visible);
         set_layer_visible!(self.layers[1], lower_visible);
         set_layer_visible!(self.layers[2], lower_visible);
@@ -2196,6 +2195,13 @@ impl OutputNode {
     fn set_ns_rects(self: &Rc<Self>, v: OutputNodeRects<NoWrapper>) {
         self.add_transaction_op(OutputTransactionOp::SetRects(Box::new(v.clone())));
         self.node_state[LiveTL].rects.set(&v);
+    }
+
+    fn set_ns_title_visible(self: &Rc<Self>, v: bool) {
+        if self.node_state[LiveTL].title_visible.replace(v) == v {
+            return;
+        }
+        self.add_transaction_op(OutputTransactionOp::SetTitleVisible(v));
     }
 
     pub fn schedule_damage(self: &Rc<Self>) {
@@ -3016,6 +3022,7 @@ impl OutputNodeState {
             damage_matrix: Default::default(),
             rects: Default::default(),
             theme: Default::default(),
+            title_visible: Default::default(),
         }
     }
 }
@@ -3037,6 +3044,7 @@ pub enum OutputTransactionOp {
     Damage,
     ScheduleUpdateRenderData,
     ThemeOp(OutputThemeOp),
+    SetTitleVisible(bool),
 }
 
 impl Transactionable for OutputNode {
@@ -3097,6 +3105,9 @@ impl Transactionable for OutputNode {
             }
             OutputTransactionOp::ThemeOp(v) => {
                 s.theme.cached_apply(v);
+            }
+            OutputTransactionOp::SetTitleVisible(v) => {
+                s.title_visible.set(v);
             }
         }
     }
