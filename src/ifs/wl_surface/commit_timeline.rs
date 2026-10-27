@@ -450,13 +450,19 @@ impl CommitTimeline {
     }
 }
 
+impl Commit {
+    fn error(&self, e: CommitTimelineError) {
+        self.surface.client.error(e);
+    }
+}
+
 impl SyncobjWaiter for Entry {
     fn done(self: Rc<Self>, result: Result<(), SyncobjError>) {
         let EntryKind::Commit(commit) = &self.kind else {
             unreachable!();
         };
         if let Err(e) = result {
-            commit.surface.client.error(CommitTimelineError::Wait(e));
+            commit.error(CommitTimelineError::Wait(e));
             return;
         }
         commit.syncobj.fetch_sub(1);
@@ -466,7 +472,7 @@ impl SyncobjWaiter for Entry {
 
 fn flush_commit(list: &Rc<Inner>, commit: &Commit) {
     if let Err(e) = flush_list(list) {
-        commit.surface.client.error(e);
+        commit.error(e);
     }
 }
 
@@ -476,10 +482,7 @@ impl AsyncShmGfxTextureCallback for Entry {
             unreachable!();
         };
         if let Err(e) = res {
-            commit
-                .surface
-                .client
-                .error(CommitTimelineError::ShmUpload(e));
+            commit.error(CommitTimelineError::ShmUpload(e));
             return;
         }
         commit.pending_uploads.fetch_sub(1);
@@ -493,10 +496,7 @@ impl ChainedCopyCallback for Entry {
             unreachable!();
         };
         if let Err(e) = res {
-            commit
-                .surface
-                .client
-                .error(CommitTimelineError::PrimeCopy(e));
+            commit.error(CommitTimelineError::PrimeCopy(e));
             return;
         }
         commit.pending_prime_copies.fetch_sub(1);
@@ -510,10 +510,7 @@ impl PollCallback for Entry {
             unreachable!();
         };
         if let Err(e) = res {
-            commit
-                .surface
-                .client
-                .error(CommitTimelineError::PollDmabuf(e));
+            commit.error(CommitTimelineError::PollDmabuf(e));
             return;
         }
         commit.num_pending_polls.fetch_sub(1);
@@ -529,10 +526,7 @@ impl TimeoutCallback for Entry {
         commit.surface.commit_timeline.commit_time_waiter.take();
         commit.surface.before_latch_listener.detach();
         if let Err(e) = res {
-            commit
-                .surface
-                .client
-                .error(CommitTimelineError::CommitTimeout(e));
+            commit.error(CommitTimelineError::CommitTimeout(e));
             return;
         }
         *commit.commit_times.borrow_mut() = CommitTimesState::Ready;
