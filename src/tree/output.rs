@@ -123,6 +123,7 @@ use jay_proc::GetLiveness;
 use jay_proc::jay_hash;
 use numeric_sort::cmp;
 pub use output_dfs_g_fuse::OutputNodeView;
+use run_on_drop::on_drop;
 use smallvec::SmallVec;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -180,6 +181,7 @@ pub struct OutputNode {
     _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
     _scales_listener: EventListener<dyn ScalesChangedListener>,
     liveness: Liveness,
+    damage_after_transaction: Cell<bool>,
 }
 
 impl ObjWithId for OutputNode {
@@ -384,6 +386,7 @@ impl OutputNode {
             _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
             _scales_listener: EventListener::attached(slf.clone(), &state.scales_changed),
             liveness: Default::default(),
+            damage_after_transaction: Default::default(),
         });
         {
             let theme = on.compute_theme();
@@ -3055,6 +3058,9 @@ impl Transactionable for OutputNode {
     }
 
     fn apply(self: &Rc<Self>, op: Self::T) {
+        let auto_damage = on_drop(|| {
+            self.damage_after_transaction.set(true);
+        });
         let s = &self.node_state[RenderTL];
         match op {
             OutputTransactionOp::SetPos(v) => {
@@ -3099,6 +3105,7 @@ impl Transactionable for OutputNode {
             }
             OutputTransactionOp::Damage => {}
             OutputTransactionOp::ScheduleUpdateRenderData => {
+                auto_damage.forget();
                 if !self.update_render_data_scheduled.replace(true) {
                     self.state.pending_output_render_data.push(self.clone());
                 }
@@ -3107,6 +3114,7 @@ impl Transactionable for OutputNode {
                 s.theme.cached_apply(v);
             }
             OutputTransactionOp::SetTitleVisible(v) => {
+                auto_damage.forget();
                 s.title_visible.set(v);
             }
         }
@@ -3117,7 +3125,8 @@ impl Transactionable for OutputNode {
     }
 
     fn after_apply(self: &Rc<Self>) {
-        if self.node_visible(RenderTL) {
+        let damage = self.damage_after_transaction.take();
+        if damage && self.node_visible(RenderTL) {
             self.state.damage(self.node_state[RenderTL].pos.get());
         }
     }
