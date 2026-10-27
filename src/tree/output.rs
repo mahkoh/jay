@@ -831,7 +831,9 @@ impl OutputNode {
         let ns = &self.node_state[RenderTL];
         let theme = &ns.theme;
         if !theme.show_bar.get() {
-            self.state.damage(rd.full_area);
+            if ns.title_visible.get() {
+                self.state.damage(rd.full_area);
+            }
             return;
         }
         let mut pos = 0;
@@ -935,7 +937,7 @@ impl OutputNode {
         }
         let old_full_area = rd.full_area;
         rd.full_area = ns.rects.bar_with_separator.get();
-        if self.node_state[LiveTL].title_visible.get() {
+        if ns.title_visible.get() {
             self.state.damage(rd.full_area.union(old_full_area));
         }
     }
@@ -1495,7 +1497,9 @@ impl OutputNode {
 
     pub fn set_status(self: &Rc<Self>, status: &Rc<String>) {
         self.status.set(status.clone());
-        self.schedule_update_render_data();
+        if self.node_state[LiveTL].title_visible.get() {
+            self.schedule_update_render_data();
+        }
     }
 
     fn pointer_move(self: &Rc<Self>, id: PointerType, x: Fixed, y: Fixed) {
@@ -2205,6 +2209,9 @@ impl OutputNode {
             return;
         }
         self.add_transaction_op(OutputTransactionOp::SetTitleVisible(v));
+        if v {
+            self.schedule_update_render_data();
+        }
     }
 
     pub fn schedule_damage(self: &Rc<Self>) {
