@@ -29,6 +29,7 @@ use crate::utils::box_cache::BoxCache;
 use crate::utils::box_cache::BoxReset;
 use crate::utils::box_cache::BoxUninit;
 use crate::utils::box_cache::CachedBox;
+use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::numcell::NumCell;
@@ -44,6 +45,7 @@ use crate::video::drm::syncobj::SyncobjPoint;
 use isnt::std_1::primitive::IsntSliceExt;
 use isnt::std_1::vec::IsntVecExt;
 use jay_algorithms::oserror::OsError;
+use jay_proc::jay_clone;
 use smallvec::SmallVec;
 use std::cell::Cell;
 use std::cell::LazyCell;
@@ -95,6 +97,7 @@ pub struct CommitCache {
 struct Inner {
     id: CommitTimelineId,
     entries: SyncQueue<Rc<Entry>>,
+    last_buffer_entry: CloneCell<Option<Rc<Entry>>>,
 }
 
 impl ObjWithId for Inner {
@@ -111,9 +114,22 @@ fn add_entry(inner: &Rc<Inner>, shared: &Rc<CommitTimelines>, kind: EntryKind) -
         inner: inner.clone(),
         shared: shared.clone(),
         kind,
+        next_buffer_entry: Default::default(),
+        head_of_buffer_queue: Default::default(),
     });
     inner.entries.push(entry.clone());
     entry
+}
+
+fn set_last_buffer_entry(inner: &Rc<Inner>, entry: &Rc<Entry>) {
+    entry.next_buffer_entry.set(BufferTimelineLink::Last);
+    let prev = inner.last_buffer_entry.set(Some(entry.clone()));
+    if let Some(prev) = prev {
+        prev.next_buffer_entry
+            .set(BufferTimelineLink::Next(entry.clone()));
+    } else {
+        entry.head_of_buffer_queue.set(true);
+    }
 }
 
 #[derive(Debug, Error)]
@@ -178,6 +194,7 @@ impl CommitTimelines {
         let timeline = Rc::new(Inner {
             id,
             entries: Default::default(),
+            last_buffer_entry: Default::default(),
         });
         CommitTimeline {
             shared: self.clone(),
@@ -216,6 +233,7 @@ fn break_loops(inner: &Rc<Inner>) {
             *c.commit_times.borrow_mut() = CommitTimesState::Ready;
         }
     }
+    inner.last_buffer_entry.take();
 }
 
 impl CommitTimeline {
@@ -275,10 +293,12 @@ impl CommitTimeline {
             acquire_files: Default::default(),
             commit_time: Default::default(),
             toplevel_restored: Default::default(),
+            has_attach: Default::default(),
         };
         collector.collect(&mut pending);
         let points = collector.acquire_points;
         let pending_uploads = collector.shm_uploads;
+        let has_attach = collector.has_attach;
         let has_dmabuf = collector.has_dmabuf;
         let needs_prime_copies = collector.needs_prime_copies;
         let acquire_files = collector.acquire_files;
@@ -337,10 +357,10 @@ impl CommitTimeline {
             })),
         );
         let mut needs_flush = commit_fifo_state == CommitFifoState::Queued;
+        let EntryKind::Commit(commit) = &entry.kind else {
+            unreachable!();
+        };
         if has_dependencies {
-            let EntryKind::Commit(commit) = &entry.kind else {
-                unreachable!();
-            };
             if points.is_not_empty() {
                 let mut wait_handles = SmallVec::new();
                 for (syncobj, point) in points {
@@ -385,6 +405,10 @@ impl CommitTimeline {
             if is_unmap {
                 needs_flush = true;
             }
+        }
+        if has_attach {
+            set_last_buffer_entry(&self.own_timeline, &entry);
+            schedule_buffer_ops(&entry, commit)?;
         }
         if needs_flush && queue_was_empty {
             flush_list(&self.own_timeline)?;
@@ -454,6 +478,10 @@ impl Commit {
     fn error(&self, e: CommitTimelineError) {
         self.surface.client.error(e);
     }
+
+    fn may_access_buffers(&self) -> bool {
+        self.syncobj.get() == 0 && self.num_pending_polls.get() == 0
+    }
 }
 
 impl SyncobjWaiter for Entry {
@@ -465,7 +493,12 @@ impl SyncobjWaiter for Entry {
             commit.error(CommitTimelineError::Wait(e));
             return;
         }
-        commit.syncobj.fetch_sub(1);
+        if commit.syncobj.sub_fetch(1) > 0 {
+            return;
+        }
+        if schedule_buffer_ops_fatal(&self, commit).is_err() {
+            return;
+        }
         flush_commit(&self.inner, commit);
     }
 }
@@ -513,7 +546,12 @@ impl PollCallback for Entry {
             commit.error(CommitTimelineError::PollDmabuf(e));
             return;
         }
-        commit.num_pending_polls.fetch_sub(1);
+        if commit.num_pending_polls.sub_fetch(1) > 0 {
+            return;
+        }
+        if schedule_buffer_ops_fatal(&self, commit).is_err() {
+            return;
+        }
         flush_commit(&self.inner, commit);
     }
 }
@@ -534,10 +572,21 @@ impl TimeoutCallback for Entry {
     }
 }
 
+#[jay_clone]
+#[derive(Default)]
+enum BufferTimelineLink {
+    #[default]
+    Unlinked,
+    Last,
+    Next(Rc<Entry>),
+}
+
 struct Entry {
     inner: Rc<Inner>,
     shared: Rc<CommitTimelines>,
     kind: EntryKind,
+    next_buffer_entry: CloneCell<BufferTimelineLink>,
+    head_of_buffer_queue: Cell<bool>,
 }
 
 enum EntryKind {
@@ -585,6 +634,7 @@ fn flush_list(inner: &Rc<Inner>) -> Result<(), CommitTimelineError> {
     while let Some(el) = inner.entries.pop() {
         if el.maybe_apply()? {
             el.shared.depth.fetch_sub(1);
+            schedule_next_buffer_ops(inner, &el)?;
         } else {
             inner.entries.push_front(el);
             break;
@@ -593,24 +643,56 @@ fn flush_list(inner: &Rc<Inner>) -> Result<(), CommitTimelineError> {
     Ok(())
 }
 
+fn schedule_next_buffer_ops(
+    inner: &Rc<Inner>,
+    prev: &Rc<Entry>,
+) -> Result<(), CommitTimelineError> {
+    match prev.next_buffer_entry.take() {
+        BufferTimelineLink::Unlinked => {}
+        BufferTimelineLink::Last => {
+            inner.last_buffer_entry.take();
+        }
+        BufferTimelineLink::Next(next) => {
+            next.head_of_buffer_queue.set(true);
+            if let EntryKind::Commit(c) = &next.kind {
+                schedule_buffer_ops(&next, c)?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn schedule_buffer_ops_fatal(entry: &Rc<Entry>, c: &Commit) -> Result<(), ()> {
+    schedule_buffer_ops(entry, c).map_err(|e| {
+        c.error(e);
+    })
+}
+
+fn schedule_buffer_ops(entry: &Rc<Entry>, c: &Commit) -> Result<(), CommitTimelineError> {
+    if !c.may_access_buffers() || !entry.head_of_buffer_queue.get() {
+        return Ok(());
+    }
+    if c.pending_uploads.get() > 0 {
+        check_shm_uploads(entry, c)?;
+    }
+    if c.has_dmabuf && c.pending_prime_copies.get() == 0 {
+        check_prime_copies(entry, c)?;
+    }
+    Ok(())
+}
+
 impl Entry {
     fn maybe_apply(self: &Rc<Self>) -> Result<bool, CommitTimelineError> {
         match &self.kind {
             EntryKind::Commit(c) => {
-                let mut has_unmet_dependencies = false;
-                let may_access_buffer = c.syncobj.get() == 0 && c.num_pending_polls.get() == 0;
-                if may_access_buffer {
-                    if c.pending_uploads.get() > 0 {
-                        check_shm_uploads(self, c)?;
-                        has_unmet_dependencies |= c.pending_uploads.get() > 0;
-                    }
-                    if c.has_dmabuf && c.pending_prime_copies.get() == 0 {
-                        check_prime_copies(self, c)?;
-                    }
-                    has_unmet_dependencies |= c.pending_prime_copies.get() > 0;
-                } else {
-                    has_unmet_dependencies = true;
+                let may_access_buffers = c.may_access_buffers();
+                if may_access_buffers && c.has_dmabuf && c.pending_prime_copies.get() == 0 {
+                    check_prime_copies(self, c)?;
                 }
+                let mut has_unmet_dependencies = false;
+                has_unmet_dependencies |= !may_access_buffers;
+                has_unmet_dependencies |= c.pending_uploads.get() > 0;
+                has_unmet_dependencies |= c.pending_prime_copies.get() > 0;
                 let tl = &c.surface.commit_timeline;
                 if tl.fifo_barrier_set.get() {
                     match c.fifo_state.get() {
@@ -973,6 +1055,7 @@ struct CommitDataCollector<F> {
     acquire_files: SmallVec<[Rc<OwnedFd>; 1]>,
     commit_time: u64,
     toplevel_restored: Option<Rc<Cell<bool>>>,
+    has_attach: bool,
 }
 
 impl<F> CommitDataCollector<F>
@@ -980,6 +1063,7 @@ where
     F: FnOnce() -> Option<RenderCtx>,
 {
     fn collect(&mut self, pending: &mut PendingState) {
+        self.has_attach |= pending.buffer.is_some();
         if let Some(Some(buffer)) = &pending.buffer {
             let buffer = &buffer.buf;
             if buffer.is_shm() {
@@ -1033,11 +1117,12 @@ fn set_effective_timeline(
         let prev = timeline.effective_timeline.set(effective.clone());
         if prev.entries.is_not_empty() {
             let signaled = Rc::new(Cell::new(false));
-            add_entry(
+            let entry = add_entry(
                 effective,
                 &timeline.shared,
                 EntryKind::Wait(signaled.clone()),
             );
+            set_last_buffer_entry(effective, &entry);
             add_entry(
                 &prev,
                 &timeline.shared,
