@@ -309,11 +309,7 @@ impl ServerCursorTemplate {
                 let images: Vec<_> = a.iter().map(|c| c.for_size(size)).collect();
                 let mut damage_extents = Rect::default();
                 for image in &images {
-                    if damage_extents.is_empty() {
-                        damage_extents = image.damage_extents;
-                    } else {
-                        damage_extents = damage_extents.union(image.damage_extents);
-                    }
+                    damage_extents = damage_extents.union(image.damage_extents);
                 }
                 Rc::new(AnimatedCursor {
                     start: state.now(),
@@ -390,11 +386,7 @@ impl CursorImage {
                         (v.extents.y2() as f64 / scalef).ceil() as i32,
                     )
                 };
-                if damage_extents.is_empty() {
-                    damage_extents = normal_extents;
-                } else {
-                    damage_extents = damage_extents.union(normal_extents);
-                }
+                damage_extents = damage_extents.union(normal_extents);
             }
         }
         InstantiatedCursorImage {
