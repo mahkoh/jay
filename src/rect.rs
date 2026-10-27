@@ -172,14 +172,20 @@ impl Rect {
     }
 
     pub fn union(&self, other: Self) -> Self {
-        Self {
-            raw: RectRaw {
-                x1: self.raw.x1.min(other.raw.x1),
-                y1: self.raw.y1.min(other.raw.y1),
-                x2: self.raw.x2.max(other.raw.x2),
-                y2: self.raw.y2.max(other.raw.y2),
-                tag: NoTag,
-            },
+        if self.is_empty() {
+            other
+        } else if other.is_empty() {
+            *self
+        } else {
+            Self {
+                raw: RectRaw {
+                    x1: self.raw.x1.min(other.raw.x1),
+                    y1: self.raw.y1.min(other.raw.y1),
+                    x2: self.raw.x2.max(other.raw.x2),
+                    y2: self.raw.y2.max(other.raw.y2),
+                    tag: NoTag,
+                },
+            }
         }
     }
 

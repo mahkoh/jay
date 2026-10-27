@@ -1100,11 +1100,7 @@ impl WlSurface {
                 if !ce.is_empty() {
                     let cp = ss.position.get();
                     let ce = ce.move_(cp.0, cp.1);
-                    extents = if extents.is_empty() {
-                        ce
-                    } else {
-                        extents.union(ce)
-                    };
+                    extents = extents.union(ce);
                 }
             }
         }

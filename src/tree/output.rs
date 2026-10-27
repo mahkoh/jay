@@ -123,6 +123,7 @@ use jay_proc::GetLiveness;
 use jay_proc::jay_hash;
 use numeric_sort::cmp;
 pub use output_dfs_g_fuse::OutputNodeView;
+use run_on_drop::on_drop;
 use smallvec::SmallVec;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -157,7 +158,6 @@ pub struct OutputNode {
     update_render_data_scheduled: Cell<bool>,
     pub screencasts: CopyHashMap<(ClientId, JayScreencastId), Rc<JayScreencast>>,
     pub screencopies: CopyHashMap<(ClientId, ZwlrScreencopyFrameV1Id), Rc<ZwlrScreencopyFrameV1>>,
-    title_visible: Cell<bool>,
     pub schedule: Rc<OutputSchedule>,
     pub latch_event: EventSource<dyn LatchListener>,
     pub vblank_event: EventSource<dyn VblankListener>,
@@ -181,6 +181,7 @@ pub struct OutputNode {
     _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
     _scales_listener: EventListener<dyn ScalesChangedListener>,
     liveness: Liveness,
+    damage_after_transaction: Cell<bool>,
 }
 
 impl ObjWithId for OutputNode {
@@ -206,6 +207,7 @@ pub struct OutputNodeState {
     damage_matrix: Cell<DamageMatrix>,
     pub rects: OutputNodeRects<CellWrapper>,
     pub theme: OutputTheme,
+    title_visible: Cell<bool>,
 }
 
 #[derive(Clone, Default)]
@@ -362,7 +364,6 @@ impl OutputNode {
             update_render_data_scheduled: Cell::new(false),
             hardware_cursor_needs_render: Cell::new(false),
             screencopies: Default::default(),
-            title_visible: Default::default(),
             schedule: schedule.clone(),
             latch_event: Default::default(),
             vblank_event: Default::default(),
@@ -385,6 +386,7 @@ impl OutputNode {
             _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
             _scales_listener: EventListener::attached(slf.clone(), &state.scales_changed),
             liveness: Default::default(),
+            damage_after_transaction: Default::default(),
         });
         {
             let theme = on.compute_theme();
@@ -829,7 +831,10 @@ impl OutputNode {
         let ns = &self.node_state[RenderTL];
         let theme = &ns.theme;
         if !theme.show_bar.get() {
-            self.state.damage(rd.full_area);
+            if ns.title_visible.get() {
+                self.state.damage(rd.full_area);
+            }
+            rd.full_area = Default::default();
             return;
         }
         let mut pos = 0;
@@ -933,7 +938,7 @@ impl OutputNode {
         }
         let old_full_area = rd.full_area;
         rd.full_area = ns.rects.bar_with_separator.get();
-        if self.title_visible.get() {
+        if ns.title_visible.get() {
             self.state.damage(rd.full_area.union(old_full_area));
         }
     }
@@ -1493,7 +1498,9 @@ impl OutputNode {
 
     pub fn set_status(self: &Rc<Self>, status: &Rc<String>) {
         self.status.set(status.clone());
-        self.schedule_update_render_data();
+        if self.node_state[LiveTL].title_visible.get() {
+            self.schedule_update_render_data();
+        }
     }
 
     fn pointer_move(self: &Rc<Self>, id: PointerType, x: Fixed, y: Fixed) {
@@ -1540,7 +1547,7 @@ impl OutputNode {
         self.schedule_update_render_data();
     }
 
-    pub fn update_visible(&self) {
+    pub fn update_visible(self: &Rc<Self>) {
         let mut visible = self.state.root_visible();
         let ns = &self.node_state[LiveTL];
         if self.state.lock.locked[LiveTL].get() {
@@ -1566,7 +1573,7 @@ impl OutputNode {
             have_fullscreen = ws.node_state[LiveTL].fullscreen.is_some();
         }
         let lower_visible = visible && !have_fullscreen;
-        self.title_visible.set(lower_visible);
+        self.set_ns_title_visible(lower_visible);
         set_layer_visible!(self.layers[0], lower_visible);
         set_layer_visible!(self.layers[1], lower_visible);
         set_layer_visible!(self.layers[2], lower_visible);
@@ -2196,6 +2203,16 @@ impl OutputNode {
     fn set_ns_rects(self: &Rc<Self>, v: OutputNodeRects<NoWrapper>) {
         self.add_transaction_op(OutputTransactionOp::SetRects(Box::new(v.clone())));
         self.node_state[LiveTL].rects.set(&v);
+    }
+
+    fn set_ns_title_visible(self: &Rc<Self>, v: bool) {
+        if self.node_state[LiveTL].title_visible.replace(v) == v {
+            return;
+        }
+        self.add_transaction_op(OutputTransactionOp::SetTitleVisible(v));
+        if v {
+            self.schedule_update_render_data();
+        }
     }
 
     pub fn schedule_damage(self: &Rc<Self>) {
@@ -3016,6 +3033,7 @@ impl OutputNodeState {
             damage_matrix: Default::default(),
             rects: Default::default(),
             theme: Default::default(),
+            title_visible: Default::default(),
         }
     }
 }
@@ -3037,6 +3055,7 @@ pub enum OutputTransactionOp {
     Damage,
     ScheduleUpdateRenderData,
     ThemeOp(OutputThemeOp),
+    SetTitleVisible(bool),
 }
 
 impl Transactionable for OutputNode {
@@ -3047,6 +3066,9 @@ impl Transactionable for OutputNode {
     }
 
     fn apply(self: &Rc<Self>, op: Self::T) {
+        let auto_damage = on_drop(|| {
+            self.damage_after_transaction.set(true);
+        });
         let s = &self.node_state[RenderTL];
         match op {
             OutputTransactionOp::SetPos(v) => {
@@ -3091,12 +3113,17 @@ impl Transactionable for OutputNode {
             }
             OutputTransactionOp::Damage => {}
             OutputTransactionOp::ScheduleUpdateRenderData => {
+                auto_damage.forget();
                 if !self.update_render_data_scheduled.replace(true) {
                     self.state.pending_output_render_data.push(self.clone());
                 }
             }
             OutputTransactionOp::ThemeOp(v) => {
                 s.theme.cached_apply(v);
+            }
+            OutputTransactionOp::SetTitleVisible(v) => {
+                auto_damage.forget();
+                s.title_visible.set(v);
             }
         }
     }
@@ -3106,7 +3133,8 @@ impl Transactionable for OutputNode {
     }
 
     fn after_apply(self: &Rc<Self>) {
-        if self.node_visible(RenderTL) {
+        let damage = self.damage_after_transaction.take();
+        if damage && self.node_visible(RenderTL) {
             self.state.damage(self.node_state[RenderTL].pos.get());
         }
     }

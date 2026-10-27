@@ -45,6 +45,7 @@ dir output_node {
     connector: custom (opt),
 }
  */
+use crate::dfs::dfs_helpers::dfs_split_view;
 use crate::dfs::dfs_helpers::format_object_link;
 use crate::dfs::dfs_helpers::format_path_link;
 use crate::dfs::dfs_helpers::format_workspace_link;
@@ -97,7 +98,7 @@ impl output_node::Dir for OutputNode {
     }
 
     fn read_title_visible(&self, buf: &mut String, ctx: &StrCtx<'_>) {
-        self.title_visible.get().str_fmt(buf, ctx);
+        dfs_split_view(buf, ctx, |tl| self.node_state[tl].title_visible.get());
     }
 
     fn read_tearing(&self, buf: &mut String, ctx: &StrCtx<'_>) {
