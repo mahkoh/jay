@@ -11,6 +11,7 @@ use crate::ifs::wl_buffer::WlBufferStorage;
 use crate::ifs::wl_surface::PendingState;
 use crate::ifs::wl_surface::WlSurface;
 use crate::ifs::wl_surface::WlSurfaceError;
+use crate::ifs::wl_surface::prime::PrimeError;
 use crate::ifs::wl_surface::prime::PrimeValidity;
 use crate::io_uring::IoUring;
 use crate::io_uring::IoUringError;
@@ -137,6 +138,16 @@ pub enum CommitTimelineError {
     CommitTimeout(#[source] OsError),
     #[error("Could not perform prime copy")]
     PrimeCopy(#[source] ChainedCopyError),
+    #[error("Could not register a commit timeout")]
+    RegisterCommitTimeout(#[source] IoUringError),
+    #[error("Could not prepare prime copy")]
+    PreparePrimeCopy(#[source] PrimeError),
+    #[error("Could not prepare upload to a shm texture")]
+    PrepareAsyncUpload(#[source] GfxError),
+    #[error("Could not create a shm texture")]
+    CreateAsyncShmTexture(#[source] GfxError),
+    #[error("There is no render context")]
+    NoRenderContext,
 }
 
 impl CommitTimelines {
@@ -376,7 +387,7 @@ impl CommitTimeline {
             }
         }
         if needs_flush && queue_was_empty {
-            flush_list(&self.own_timeline).map_err(CommitTimelineError::DelayedCommit)?;
+            flush_list(&self.own_timeline)?;
         }
         Ok(())
     }
@@ -455,10 +466,7 @@ impl SyncobjWaiter for Entry {
 
 fn flush_commit(list: &Rc<Inner>, commit: &Commit) {
     if let Err(e) = flush_list(list) {
-        commit
-            .surface
-            .client
-            .error(CommitTimelineError::DelayedCommit(e));
+        commit.surface.client.error(e);
     }
 }
 
@@ -579,7 +587,7 @@ struct Commit {
     unmap: Option<Cell<bool>>,
 }
 
-fn flush_list(inner: &Rc<Inner>) -> Result<(), WlSurfaceError> {
+fn flush_list(inner: &Rc<Inner>) -> Result<(), CommitTimelineError> {
     while let Some(el) = inner.entries.pop() {
         if el.maybe_apply()? {
             el.shared.depth.fetch_sub(1);
@@ -592,7 +600,7 @@ fn flush_list(inner: &Rc<Inner>) -> Result<(), WlSurfaceError> {
 }
 
 impl Entry {
-    fn maybe_apply(self: &Rc<Self>) -> Result<bool, WlSurfaceError> {
+    fn maybe_apply(self: &Rc<Self>) -> Result<bool, CommitTimelineError> {
         match &self.kind {
             EntryKind::Commit(c) => {
                 let mut has_unmet_dependencies = false;
@@ -661,7 +669,9 @@ impl Entry {
                 if has_unmet_dependencies {
                     return Ok(false);
                 }
-                c.surface.apply_state(c.pending.borrow_mut().deref_mut())?;
+                c.surface
+                    .apply_state(c.pending.borrow_mut().deref_mut())
+                    .map_err(CommitTimelineError::DelayedCommit)?;
                 Ok(true)
             }
             EntryKind::Wait(signaled) => Ok(signaled.get()),
@@ -682,7 +692,7 @@ impl Entry {
     }
 }
 
-fn check_shm_uploads(entry: &Rc<Entry>, c: &Commit) -> Result<(), WlSurfaceError> {
+fn check_shm_uploads(entry: &Rc<Entry>, c: &Commit) -> Result<(), CommitTimelineError> {
     let state = &mut *c.shm_upload.borrow_mut();
     if let ShmUploadState::Todo = state {
         let mut pending = SmallVec::new();
@@ -693,7 +703,7 @@ fn check_shm_uploads(entry: &Rc<Entry>, c: &Commit) -> Result<(), WlSurfaceError
     Ok(())
 }
 
-fn check_prime_copies(entry: &Rc<Entry>, c: &Commit) -> Result<(), WlSurfaceError> {
+fn check_prime_copies(entry: &Rc<Entry>, c: &Commit) -> Result<(), CommitTimelineError> {
     let validities = &mut *c.prime_validities.borrow_mut();
     if let Some(validities) = validities
         && validities.iter().all(|v| v.valid())
@@ -721,7 +731,7 @@ fn register_commit_time(
     rc: &Rc<Entry>,
     c: &Commit,
     time: u64,
-) -> Result<CommitTimesState, WlSurfaceError> {
+) -> Result<CommitTimesState, CommitTimelineError> {
     let output = c.surface.output.get();
     let render_margin = output.render_margin_ns.get();
     let flip_margin = output.flip_margin_ns.get().unwrap_or_default();
@@ -735,7 +745,7 @@ fn register_commit_time(
         .shared
         .ring
         .timeout_external(timeout, rc.clone(), 0)
-        .map_err(WlSurfaceError::RegisterCommitTimeout)?;
+        .map_err(CommitTimelineError::RegisterCommitTimeout)?;
     *tl.commit_time_waiter.borrow_mut() = Some(CommitTimeWaiter {
         node: rc.clone(),
         present: time,
@@ -751,7 +761,7 @@ fn schedule_async_uploads(
     surface: &WlSurface,
     pending: &PendingState,
     uploads: &mut SmallVec<[PendingShmTransfer; 1]>,
-) -> Result<(), WlSurfaceError> {
+) -> Result<(), CommitTimelineError> {
     if let Some(pending) = schedule_async_upload(node_ref, surface, pending)? {
         uploads.push(pending);
     }
@@ -767,7 +777,7 @@ fn schedule_async_upload(
     node_ref: &Rc<Entry>,
     surface: &WlSurface,
     pending: &PendingState,
-) -> Result<Option<PendingShmTransfer>, WlSurfaceError> {
+) -> Result<Option<PendingShmTransfer>, CommitTimelineError> {
     let Some(Some(buf)) = &pending.buffer else {
         return Ok(None);
     };
@@ -785,7 +795,7 @@ fn schedule_async_upload(
     let ctx = state
         .render_ctx
         .get()
-        .ok_or(WlSurfaceError::NoRenderContext)?;
+        .ok_or(CommitTimelineError::NoRenderContext)?;
     if ctx.fast_ram_access()
         && buf
             .import_udmabuf_texture(&ctx, mem, *stride, dmabuf_buffer_params)
@@ -828,7 +838,7 @@ fn schedule_async_upload(
                     *stride,
                     &state.cpu_worker,
                 )
-                .map_err(WlSurfaceError::CreateAsyncShmTexture)?;
+                .map_err(CommitTimelineError::CreateAsyncShmTexture)?;
             back.tex.set(Some(back_tex.clone()));
             back_tex
         }
@@ -836,7 +846,7 @@ fn schedule_async_upload(
     if let Some(hb) = buf.get_gfx_buffer(&ctx, mem, dmabuf_buffer_params) {
         return back_tex
             .async_upload_from_buffer(&hb, node_ref.clone(), back.damage.get())
-            .map_err(WlSurfaceError::PrepareAsyncUpload);
+            .map_err(CommitTimelineError::PrepareAsyncUpload);
     }
     let mut staging_opt = surface.shm_staging.get();
     if let Some(staging) = &staging_opt
@@ -851,7 +861,7 @@ fn schedule_async_upload(
                 .state
                 .render_ctx
                 .get()
-                .ok_or(WlSurfaceError::NoRenderContext)?
+                .ok_or(CommitTimelineError::NoRenderContext)?
                 .create_staging_buffer(back_tex.staging_size(), STAGING_UPLOAD);
             surface.shm_staging.set(Some(s.clone()));
             s
@@ -859,7 +869,7 @@ fn schedule_async_upload(
     };
     back_tex
         .async_upload(&staging, node_ref.clone(), mem.clone(), back.damage.get())
-        .map_err(WlSurfaceError::PrepareAsyncUpload)
+        .map_err(CommitTimelineError::PrepareAsyncUpload)
 }
 
 fn schedule_prime_copies(
@@ -868,7 +878,7 @@ fn schedule_prime_copies(
     pending: &mut PendingState,
     copies: &mut SmallVec<[PendingChainedCopy; 1]>,
     validities: &mut SmallVec<[PrimeValidity; 1]>,
-) -> Result<(), WlSurfaceError> {
+) -> Result<(), CommitTimelineError> {
     let state = &surface.state;
     let Some(ctx) = state.render_ctx.get() else {
         return Ok(());
@@ -893,7 +903,7 @@ fn schedule_prime_copies_(
     pending: &mut PendingState,
     copies: &mut SmallVec<[PendingChainedCopy; 1]>,
     validities: &mut SmallVec<[PrimeValidity; 1]>,
-) -> Result<(), WlSurfaceError> {
+) -> Result<(), CommitTimelineError> {
     let (copy, validity) = schedule_prime_copy(&ctx, render_device, entry, surface, pending)?;
     if let Some(copy) = copy {
         copies.push(copy);
@@ -923,7 +933,7 @@ fn schedule_prime_copy(
     entry: &Rc<Entry>,
     surface: &WlSurface,
     pending: &mut PendingState,
-) -> Result<(Option<PendingChainedCopy>, Option<PrimeValidity>), WlSurfaceError> {
+) -> Result<(Option<PendingChainedCopy>, Option<PrimeValidity>), CommitTimelineError> {
     let Some(Some(buf)) = &pending.buffer else {
         return Ok((None, None));
     };
@@ -943,7 +953,7 @@ fn schedule_prime_copy(
     let allow_lazy = ctx.supports_wait_sync();
     let copies = surface
         .prepare_prime_copies(ctx, render_dev, buf, storage, damage, allow_lazy)
-        .map_err(WlSurfaceError::PreparePrimeCopy)?;
+        .map_err(CommitTimelineError::PreparePrimeCopy)?;
     let Some((copies, psb)) = copies else {
         pending.prime_buffer = None;
         return Ok((None, Some(validity)));
@@ -951,7 +961,7 @@ fn schedule_prime_copy(
     let chain = surface
         .state
         .schedule_chained_copy(&copies, entry.clone(), psb.take_sync(), Some(psb.damage()))
-        .map_err(WlSurfaceError::PrimeCopy)?;
+        .map_err(CommitTimelineError::PrimeCopy)?;
     pending.prime_buffer = Some(psb);
     Ok((chain, Some(validity)))
 }
