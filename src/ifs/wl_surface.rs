@@ -43,7 +43,6 @@ use crate::gfx_api::AsyncShmGfxTexture;
 use crate::gfx_api::BufferResv;
 use crate::gfx_api::BufferResvUser;
 use crate::gfx_api::FdSync;
-use crate::gfx_api::GfxError;
 use crate::gfx_api::GfxStagingBuffer;
 use crate::gfx_api::ReleaseSync;
 use crate::gfx_api::SampleRect;
@@ -75,7 +74,6 @@ use crate::ifs::wl_surface::commit_timeline::CommitTimelineError;
 use crate::ifs::wl_surface::cursor::CursorSurface;
 use crate::ifs::wl_surface::dnd_icon::DndIcon;
 use crate::ifs::wl_surface::jay_sync_file_release::SyncFileRelease;
-use crate::ifs::wl_surface::prime::PrimeError;
 use crate::ifs::wl_surface::prime::PrimeSurfaceBuffer;
 use crate::ifs::wl_surface::prime::SurfacePrimeState;
 use crate::ifs::wl_surface::tray::TrayItemId;
@@ -99,7 +97,6 @@ use crate::ifs::wl_surface::zwlr_layer_surface_v1::ZwlrLayerSurfaceV1Error;
 use crate::ifs::wp_content_type_v1::ContentType;
 use crate::ifs::wp_presentation_feedback::PresentationFeedback;
 use crate::ifs::zwp_linux_dmabuf_feedback_v1::ZwpLinuxDmabufFeedbackV1;
-use crate::io_uring::IoUringError;
 use crate::keyboard::KeyboardState;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
@@ -162,7 +159,6 @@ use crate::utils::obj_and_id::ObjAndId;
 use crate::utils::obj_and_id::ObjWithId;
 use crate::utils::reset::Reset;
 use crate::utils::smallmap::SmallMap;
-use crate::video::dmabuf::ChainedCopyError;
 use crate::video::dmabuf::DMA_BUF_SYNC_READ;
 use crate::video::drm::syncobj::Syncobj;
 use crate::video::drm::syncobj::SyncobjPoint;
@@ -2532,22 +2528,10 @@ pub enum WlSurfaceError {
     UnexpectedSyncPoints,
     #[error("The supplied region is invalid")]
     InvalidRect,
-    #[error("There is no render context")]
-    NoRenderContext,
-    #[error("Could not create a shm texture")]
-    CreateAsyncShmTexture(#[source] GfxError),
-    #[error("Could not prepare upload to a shm texture")]
-    PrepareAsyncUpload(#[source] GfxError),
-    #[error("Could not register a commit timeout")]
-    RegisterCommitTimeout(#[source] IoUringError),
     #[error("Content update contains release callbacks but no non-null buffer")]
     SurfaceReleaseWithoutAttach,
     #[error("Content update contains sync file release but no non-null buffer")]
     SyncFileReleaseWithoutAttach,
-    #[error("Could not prepare prime copy")]
-    PreparePrimeCopy(#[source] PrimeError),
-    #[error("Could not perform prime copy")]
-    PrimeCopy(#[source] ChainedCopyError),
     #[error("The surface already has an extension object")]
     HasExt,
 }
