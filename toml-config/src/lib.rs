@@ -291,6 +291,12 @@ impl Action {
                 }
                 SimpleCommand::ToggleMono(t) => window_or_seat!(s, s.toggle_container_mono(t)),
                 SimpleCommand::SetMono(t, b) => window_or_seat!(s, s.set_container_mono(t, b)),
+                SimpleCommand::ToggleMonoStyle(t) => {
+                    window_or_seat!(s, s.toggle_container_mono_style(t))
+                }
+                SimpleCommand::SetMonoStyle(t, st) => {
+                    window_or_seat!(s, s.set_container_mono_style(t, st))
+                }
                 SimpleCommand::ToggleFullscreen => window_or_seat!(s, s.toggle_fullscreen()),
                 SimpleCommand::SetFullscreen(b) => window_or_seat!(s, s.set_fullscreen(b)),
                 SimpleCommand::FocusParent => b.new(move || s.focus_parent()),

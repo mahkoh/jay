@@ -72,6 +72,7 @@ use jay_config::RelativeAxis::Major;
 use jay_config::RelativeAxis::Minor;
 use jay_config::input::LayerDirection;
 use jay_config::input::Timeline;
+use jay_config::window::MonoStyle;
 use std::rc::Rc;
 use thiserror::Error;
 
@@ -179,6 +180,9 @@ impl ActionParser<'_, '_, '_> {
             "toggle-mono" => ToggleMono(Parent),
             "show-single" => SetMono(Parent, true),
             "show-all" => SetMono(Parent, false),
+            "toggle-mono-style" => ToggleMonoStyle(Parent),
+            "mono-tabbed" => SetMonoStyle(Parent, MonoStyle::Tabbed),
+            "mono-stacked" => SetMonoStyle(Parent, MonoStyle::Stacked),
             "toggle-fullscreen" => ToggleFullscreen,
             "enter-fullscreen" => SetFullscreen(true),
             "exit-fullscreen" => SetFullscreen(false),
@@ -856,6 +860,13 @@ impl Parser for ActionParser<'_, '_, '_> {
             "toggle-mono" => self.parse_targeted(&mut ext, SimpleCommand::ToggleMono),
             "show-single" => self.parse_targeted(&mut ext, |t| SimpleCommand::SetMono(t, true)),
             "show-all" => self.parse_targeted(&mut ext, |t| SimpleCommand::SetMono(t, false)),
+            "toggle-mono-style" => self.parse_targeted(&mut ext, SimpleCommand::ToggleMonoStyle),
+            "mono-tabbed" => self.parse_targeted(&mut ext, |t| {
+                SimpleCommand::SetMonoStyle(t, MonoStyle::Tabbed)
+            }),
+            "mono-stacked" => self.parse_targeted(&mut ext, |t| {
+                SimpleCommand::SetMonoStyle(t, MonoStyle::Stacked)
+            }),
             "show-overlay" => self.parse_show_overlay(&mut ext),
             "toggle-overlay" => self.parse_toggle_overlay(&mut ext),
             "inc-counter" => self.parse_adj_counter(&mut ext, false),
