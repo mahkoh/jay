@@ -1296,6 +1296,70 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
     The value of this field should be a [ContainerTarget](#types-ContainerTarget).
 
+- `toggle-mono-style`:
+
+  Toggle the mono style of the target container between tabbed and
+  stacked.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "toggle-mono-style", target = "self" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
+- `mono-tabbed`:
+
+  Sets the mono style of the target container to tabbed.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "mono-tabbed", target = "self" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
+- `mono-stacked`:
+
+  Sets the mono style of the target container to stacked.
+  
+  - Example:
+  
+    ```toml
+    [shortcuts]
+    alt-a = { type = "mono-stacked", target = "self" }
+    ```
+
+  The table has the following fields:
+
+  - `target` (optional):
+
+    The container the action applies to.
+    
+    The default is `parent`.
+
+    The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
 - `set-window-theme`:
 
   Sets theme overrides of a window.
@@ -2823,6 +2887,16 @@ The table has the following fields:
   The default is `false`.
 
   The value of this field should be a boolean.
+
+- `default-mono-style` (optional):
+
+  Configures the mono style of newly created containers.
+  
+  Changing this does not affect existing containers.
+  
+  The default is `tabbed`.
+
+  The value of this field should be a [MonoStyle](#types-MonoStyle).
 
 - `show-bar` (optional):
 
@@ -4864,6 +4938,27 @@ The table has the following fields:
   The value of this field should be a number.
 
 
+<a name="types-MonoStyle"></a>
+### `MonoStyle`
+
+The mono style of a container.
+
+This determines how the title bars of a container in mono-mode are laid out.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `tabbed`:
+
+  The title bars are shown next to each other in a single row.
+
+- `stacked`:
+
+  The title bars are shown below each other, each spanning the full width.
+
+
+
 <a name="types-Output"></a>
 ### `Output`
 
@@ -5357,6 +5452,9 @@ instead of the focused window:
 - `toggle-mono`
 - `show-single`
 - `show-all`
+- `toggle-mono-style`
+- `mono-tabbed`
+- `mono-stacked`
 - `toggle-fullscreen`
 - `enter-fullscreen`
 - `exit-fullscreen`
@@ -5471,6 +5569,19 @@ The string should have one of the following values:
 - `show-all`:
 
   Makes the currently focused container show all children.
+
+- `toggle-mono-style`:
+
+  Toggle the mono style of the currently focused container between tabbed and
+  stacked.
+
+- `mono-tabbed`:
+
+  Sets the mono style of the currently focused container to tabbed.
+
+- `mono-stacked`:
+
+  Sets the mono style of the currently focused container to stacked.
 
 - `toggle-fullscreen`:
 
