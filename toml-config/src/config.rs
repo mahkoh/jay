@@ -65,6 +65,7 @@ use jay_config::video::TearingMode;
 use jay_config::video::Transform;
 use jay_config::video::VrrMode;
 use jay_config::window::ContentType;
+use jay_config::window::MonoStyle;
 use jay_config::window::TileState;
 use jay_config::window::WindowType;
 use jay_config::workspace::WorkspaceDisplayOrder;
@@ -97,6 +98,8 @@ pub enum SimpleCommand {
     SetFullscreen(bool),
     ToggleMono(ContainerTarget),
     SetMono(ContainerTarget, bool),
+    ToggleMonoStyle(ContainerTarget),
+    SetMonoStyle(ContainerTarget, MonoStyle),
     ToggleSplit(ContainerTarget),
     SetSplit(ContainerTarget, Axis),
     Forward(bool),
