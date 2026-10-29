@@ -122,6 +122,7 @@ mod t2026_09_16_float_theme_replace_child;
 mod t2026_09_16_window_theme_float;
 mod t2026_09_16_window_theme_screenshot;
 mod t2026_09_16_window_theme_tiled;
+mod t2026_10_30_mono_move_out;
 mod t2026_11_09_subsurface_destroy_queued_placement;
 mod t2026_11_09_subsurface_desync_queued_parent;
 

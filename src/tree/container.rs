@@ -1495,7 +1495,10 @@ impl ContainerNode {
 
     fn moves_along(&self, split: ContainerSplit) -> bool {
         let ns = &self.node_state[LiveTL];
-        split == ns.split.get() || (ns.mono_child.is_some() && split == ContainerSplit::Horizontal)
+        match ns.mono_child.is_some() {
+            true => split == ContainerSplit::Horizontal,
+            false => split == ns.split.get(),
+        }
     }
 
     fn find_neighboring_output(&self, direction: Direction) -> Option<Rc<OutputNode>> {
