@@ -22,6 +22,7 @@ use crate::keyboard::Keymap;
 use crate::keyboard::mods::Modifiers;
 use crate::keyboard::syms::KeySym;
 use crate::video::Connector;
+use crate::window::MonoStyle;
 use crate::window::Window;
 use jay_proc::PrivateEnum;
 use serde::Deserialize;
@@ -453,6 +454,28 @@ impl Seat {
     /// mono-mode.
     pub fn toggle_container_mono(self, target: ContainerTarget) {
         self.set_container_mono(target, !self.container_mono(target));
+    }
+
+    /// Returns the mono style of the target container of the currently focused window.
+    pub fn container_mono_style(self, target: ContainerTarget) -> MonoStyle {
+        get!(MonoStyle::Tabbed)
+            .seat_container_mono_style(self, target.to_private())
+            .to_public()
+    }
+
+    /// Sets the mono style of the target container of the currently focused window.
+    pub fn set_container_mono_style(self, target: ContainerTarget, style: MonoStyle) {
+        get!().set_seat_container_mono_style(self, target.to_private(), style.to_private())
+    }
+
+    /// Toggles the mono style of the target container of the currently focused window
+    /// between tabbed and stacked.
+    pub fn toggle_container_mono_style(self, target: ContainerTarget) {
+        let style = match self.container_mono_style(target) {
+            MonoStyle::Tabbed => MonoStyle::Stacked,
+            MonoStyle::Stacked => MonoStyle::Tabbed,
+        };
+        self.set_container_mono_style(target, style);
     }
 
     /// Returns the split axis of the target container of the currently focused window.

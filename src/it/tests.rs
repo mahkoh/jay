@@ -125,6 +125,7 @@ mod t2026_09_16_window_theme_tiled;
 mod t2026_09_19_mono_style;
 mod t2026_10_14_tabbed_move_child;
 mod t2026_10_30_mono_move_out;
+mod t2026_10_30_mono_style_config;
 mod t2026_11_09_subsurface_destroy_queued_placement;
 mod t2026_11_09_subsurface_desync_queued_parent;
 mod t2026_11_27_container_border_offsets;
