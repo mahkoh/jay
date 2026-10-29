@@ -46,6 +46,7 @@ mod log_level;
 pub mod mark_id;
 mod mode;
 pub mod modified_keysym;
+mod mono_style;
 mod output;
 mod output_match;
 mod repeat_rate;

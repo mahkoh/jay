@@ -670,6 +670,7 @@ pub struct Config {
     pub use_hardware_cursor: Option<bool>,
     pub show_bar: Option<bool>,
     pub split_reuses_container: Option<bool>,
+    pub default_mono_style: Option<MonoStyle>,
     pub show_titles: Option<bool>,
     pub flatten_container: Option<FlattenContainer>,
     pub focus_history: Option<FocusHistory>,

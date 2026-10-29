@@ -40,6 +40,7 @@ use crate::config::parsers::input_mode::InputModesParser;
 use crate::config::parsers::keymap::KeymapParser;
 use crate::config::parsers::libei::LibeiParser;
 use crate::config::parsers::log_level::LogLevelParser;
+use crate::config::parsers::mono_style::MonoStyleParser;
 use crate::config::parsers::output::OutputsParser;
 use crate::config::parsers::repeat_rate::RepeatRateParser;
 use crate::config::parsers::session_management::SessionManagementParser;
@@ -179,6 +180,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 triggers_val,
                 max_trigger_depth_val,
                 flatten_container_val,
+                default_mono_style_val,
             ),
         ) = ext.extract((
             (
@@ -250,6 +252,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 opt(val("triggers")),
                 opt(int("max-trigger-depth")),
                 opt(val("flatten-container")),
+                opt(val("default-mono-style")),
             ),
         ))?;
         let mut keymap = None;
@@ -614,6 +617,18 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 }
             }
         }
+        let mut default_mono_style = None;
+        if let Some(value) = default_mono_style_val {
+            match value.parse(&mut MonoStyleParser) {
+                Ok(v) => default_mono_style = Some(v),
+                Err(e) => {
+                    log::warn!(
+                        "Could not parse the default mono style: {}",
+                        self.0.error(e)
+                    );
+                }
+            }
+        }
         if let Some(value) = workspaces_val {
             if let Err(e) = value.parse(&mut WorkspacesParser(self.0)) {
                 log::warn!("Could not parse the workspaces: {}", self.0.error(e),);
@@ -717,6 +732,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
             use_hardware_cursor: use_hardware_cursor.despan(),
             show_bar: show_bar.despan(),
             split_reuses_container: split_reuses_container.despan(),
+            default_mono_style,
             show_titles: show_titles.despan(),
             flatten_container,
             focus_history,
