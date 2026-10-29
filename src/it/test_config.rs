@@ -259,6 +259,10 @@ impl TestConfig {
         })
     }
 
+    pub fn set_default_mono_style(&self, style: JcMonoStyle) -> TestResult {
+        self.send(ClientMessage::SetDefaultMonoStyle { style })
+    }
+
     pub fn add_shortcut<T: Into<ModifiedKeySym>>(
         &self,
         seat: SeatId,
