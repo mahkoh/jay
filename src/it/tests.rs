@@ -117,6 +117,7 @@ mod t2026_09_16_window_theme_tiled;
 mod t2026_09_19_mono_style;
 mod t2026_10_14_tabbed_move_child;
 mod t2026_10_30_mono_move_out;
+mod t2026_10_30_mono_style_config;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
