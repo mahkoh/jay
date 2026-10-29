@@ -1,5 +1,11 @@
 # Unreleased
 
+## Moves in Mono Containers
+
+Moving a window across the titles of a mono container now moves it out of the
+container, the same way the focus leaves it. Previously, moving a tab up or down
+in a tabbed container with a vertical split reordered the tabs.
+
 # 1.15.0 (2026-09-28)
 
 ## Fixes

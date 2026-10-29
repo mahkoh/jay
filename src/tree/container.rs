@@ -1496,11 +1496,13 @@ impl ContainerNode {
     }
 
     /// Whether moving a child along `split` keeps it in this container. Mono
-    /// containers also accept the axis of their titles.
+    /// containers only move children along the axis of their titles.
     fn moves_along(&self, split: ContainerSplit) -> bool {
         let ns = &self.node_state[LiveTL];
-        split == ns.split.get()
-            || (ns.mono_child.is_some() && split == ns.mono_style.get().title_axis())
+        match ns.mono_child.is_some() {
+            true => split == ns.mono_style.get().title_axis(),
+            false => split == ns.split.get(),
+        }
     }
 
     fn find_neighboring_output(&self, direction: Direction) -> Option<Rc<OutputNode>> {
