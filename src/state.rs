@@ -145,6 +145,7 @@ use crate::kbvm::KbvmMap;
 use crate::keyboard::KeyboardStateIds;
 use crate::keyboard::LedsListener;
 use crate::leaks::Tracker;
+use crate::libinput::LibInputState;
 use crate::logger::Logger;
 use crate::pr_caps::PrCapsThread;
 use crate::rect::Rect;
@@ -451,6 +452,7 @@ pub struct State {
     pub toplevel_theme_changed: AsyncQueue<Weak<dyn ToplevelNode>>,
     pub liveness: Liveness,
     pub debugfs: DfsManager,
+    pub libinput_state: LibInputState,
 }
 
 pub trait ThemeChangeListener {
