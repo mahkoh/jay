@@ -573,7 +573,7 @@ impl FloatNode {
         }
         self.workspace_link
             .set(Some(ws.stacked.add_last(self.clone())));
-        self.workspace.set(ws.clone());
+        let old_ws = self.workspace.set(ws.clone());
         self.workspace_listener.attach(&ws.listeners);
         if ns.workspace_ty.get() != ws.ty {
             self.set_ns_workspace_type(ws.ty);
@@ -598,6 +598,9 @@ impl FloatNode {
         }
         if let Some(v) = ns.toplevel_icon.get() {
             v.set_workspace(ws);
+        }
+        if old_ws.id != ws.id {
+            old_ws.enforce_empty_behavior();
         }
     }
 
@@ -1356,6 +1359,8 @@ impl ContainingNode for FloatNode {
         self.pinned_link.take();
         self.set_ns_pinned(false);
         self.set_ns_toplevel_icon(None);
+        let ws = self.workspace.get();
+        ws.enforce_empty_behavior();
     }
 
     fn cnode_accepts_child(&self, _node: &dyn Node) -> bool {

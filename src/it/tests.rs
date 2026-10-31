@@ -114,6 +114,8 @@ mod t2026_09_16_float_theme_replace_child;
 mod t2026_09_16_window_theme_float;
 mod t2026_09_16_window_theme_screenshot;
 mod t2026_09_16_window_theme_tiled;
+mod t2026_09_28_ext_workspace_manager;
+mod t2026_09_28_workspace_empty_behavior;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
