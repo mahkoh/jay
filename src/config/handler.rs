@@ -36,6 +36,7 @@ use crate::ifs::wp_content_type_v1::ContentTypeExt;
 use crate::io_uring::TaskResultExt;
 use crate::kbvm::KbvmError;
 use crate::kbvm::KbvmMap;
+use crate::libinput::LibInputPluginPath;
 use crate::output_schedule::map_cursor_hz;
 use crate::scale::Scale;
 use crate::state::ConnectorData;
@@ -3636,6 +3637,38 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_libinput_plugin_append_default_paths(&self) -> Result<(), CphError> {
+        if self.state.libinput_state.has_loaded_plugins.get() {
+            return Err(CphError::LibinputPluginTooLate);
+        }
+        self.state
+            .libinput_state
+            .plugin_paths
+            .borrow_mut()
+            .push(LibInputPluginPath::DefaultPaths);
+        Ok(())
+    }
+
+    fn handle_libinput_plugin_append_path(&self, path: String) -> Result<(), CphError> {
+        if self.state.libinput_state.has_loaded_plugins.get() {
+            return Err(CphError::LibinputPluginTooLate);
+        }
+        self.state
+            .libinput_state
+            .plugin_paths
+            .borrow_mut()
+            .push(LibInputPluginPath::Path(path.into()));
+        Ok(())
+    }
+
+    fn handle_libinput_enable_plugins(&self) -> Result<(), CphError> {
+        if self.state.libinput_state.has_loaded_plugins.get() {
+            return Err(CphError::LibinputPluginTooLate);
+        }
+        self.state.libinput_state.should_load_plugins.set(true);
+        Ok(())
+    }
+
     fn handle_set_workspace_initial_connector(
         &self,
         workspace: Workspace,
@@ -4534,6 +4567,15 @@ impl ConfigProxyHandler {
             ClientMessage::GetWindowThemeContainerBorders { window, kind } => self
                 .handle_get_window_theme_container_borders(window, kind)
                 .wrn("get_window_theme_container_borders")?,
+            ClientMessage::LibinputAppendDefaultPaths => self
+                .handle_libinput_plugin_append_default_paths()
+                .wrn("libinput_plugin_append_default_paths")?,
+            ClientMessage::LibinputAppendPath { path } => self
+                .handle_libinput_plugin_append_path(path)
+                .wrn("libinput_plugin_append_path")?,
+            ClientMessage::LibinputEnablePlugins => self
+                .handle_libinput_enable_plugins()
+                .wrn("libinput_enable_plugins")?,
         }
         Ok(())
     }
@@ -4717,6 +4759,8 @@ enum CphError {
     UnsupportedWindowThemeColor(u32),
     #[error("Sized element {0} is not supported in window themes")]
     UnsupportedWindowThemeSized(u32),
+    #[error("Cannot modify libinput plugin settings after initialization")]
+    LibinputPluginTooLate,
 }
 
 trait WithRequestName {

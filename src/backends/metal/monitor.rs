@@ -372,6 +372,7 @@ impl MetalBackend {
     }
 
     fn reinit_input_device(&self, dev: &Rc<MetalInputDevice>, fd: &Rc<OwnedFd>) {
+        self.libinput.before_open(&self.state.libinput_state);
         if let Err(e) = set_nonblock(fd.raw()) {
             log::error!("Could set input fd to non-blocking: {}", ErrorFmt(e));
             return;

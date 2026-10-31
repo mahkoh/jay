@@ -1094,6 +1094,18 @@ impl ConfigClient {
         self.send(&ClientMessage::DisableDefaultSeat);
     }
 
+    pub fn libinput_plugin_append_path(&self, path: String) {
+        self.send(&ClientMessage::LibinputAppendPath { path })
+    }
+
+    pub fn libinput_plugin_append_default_paths(&self) {
+        self.send(&ClientMessage::LibinputAppendDefaultPaths)
+    }
+
+    pub fn libinput_enable_plugins(&self) {
+        self.send(&ClientMessage::LibinputEnablePlugins)
+    }
+
     pub fn connector_get_position(&self, connector: Connector) -> (i32, i32) {
         let res = self.send_with_response(&ClientMessage::ConnectorGetPosition { connector });
         get_response!(res, (0, 0), ConnectorGetPosition { x, y });

@@ -1144,6 +1144,11 @@ pub enum ClientMessage<'a> {
         window: Window,
         kind: WindowThemeKind,
     },
+    LibinputAppendPath {
+        path: String,
+    },
+    LibinputAppendDefaultPaths,
+    LibinputEnablePlugins,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
