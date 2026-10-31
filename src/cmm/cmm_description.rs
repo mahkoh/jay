@@ -11,6 +11,7 @@ use crate::cmm::cmm_transform::Local;
 use crate::cmm::cmm_transform::Xyz;
 use crate::cmm::cmm_transform::bradford_adjustment;
 use crate::utils::liveness::Liveness;
+use crate::utils::obj_and_id::ObjWithId;
 use crate::utils::ordered_float::F64;
 use jay_algorithms::triangles::triangle_contains_points;
 use jay_proc::GetLiveness;
@@ -49,6 +50,14 @@ pub struct ColorDescription {
     pub(super) shared: Rc<Shared>,
     #[str_fmt(skip)]
     pub(super) liveness: Liveness,
+}
+
+impl ObjWithId for ColorDescription {
+    type Id = ColorDescriptionId;
+
+    fn id(&self) -> Self::Id {
+        self.id
+    }
 }
 
 impl LinearColorDescription {
