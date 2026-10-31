@@ -160,6 +160,7 @@ use crate::utils::obj_and_id::ObjWithId;
 use crate::utils::reset::Reset;
 use crate::utils::smallmap::SmallMap;
 use crate::video::dmabuf::DMA_BUF_SYNC_READ;
+use crate::video::dmabuf::DmaBufId;
 use crate::video::drm::syncobj::Syncobj;
 use crate::video::drm::syncobj::SyncobjPoint;
 use crate::video::drm::syncobj::merge_sync_files;
@@ -392,6 +393,7 @@ pub struct WlSurface {
     requested_serial: Cell<TreeSerial>,
     flush_frame_requests: Cell<bool>,
     pub fullscreen: ObjAndId<Option<Rc<ConnectorData>>>,
+    pub fullscreen_dma_buf_watermark: Cell<Option<DmaBufId>>,
     pub dmabuf_feedback: CopyHashMap<ZwpLinuxDmabufFeedbackV1Id, Rc<ZwpLinuxDmabufFeedbackV1>>,
     transaction_data: TransactionData<WlSurfaceTransactionOp>,
     pub surface_transaction: SurfaceTransaction,
@@ -817,6 +819,7 @@ impl WlSurface {
             requested_serial: Cell::new(TreeSerial::from_raw(0)),
             flush_frame_requests: Default::default(),
             fullscreen: Default::default(),
+            fullscreen_dma_buf_watermark: Default::default(),
             dmabuf_feedback: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
             surface_transaction: Default::default(),
@@ -2101,6 +2104,10 @@ impl WlSurface {
             return;
         }
         self.fullscreen.set(connector.cloned());
+        // Buffers imported after this point were allocated with knowledge of the scanout
+        // feedback sent below.
+        self.fullscreen_dma_buf_watermark
+            .set(connector.map(|_| self.state.dma_buf_ids.last()));
         if let Some(fb) = fb {
             self.send_feedback(fb);
         }
