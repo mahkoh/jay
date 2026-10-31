@@ -392,6 +392,7 @@ pub enum ReleaseSync {
     None,
     Implicit,
     Explicit,
+    Keepalive,
 }
 
 impl Debug for AcquireSync {
@@ -426,6 +427,7 @@ impl StaticText for ReleaseSync {
             ReleaseSync::None => "none",
             ReleaseSync::Implicit => "implicit",
             ReleaseSync::Explicit => "explicit",
+            ReleaseSync::Keepalive => "keepalive",
         }
     }
 }

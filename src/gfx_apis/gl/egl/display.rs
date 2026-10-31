@@ -1,7 +1,5 @@
-use crate::allocator::BufferObject;
 use crate::backend::DrmDeviceId;
 use crate::format::Format;
-use crate::format::XRGB8888;
 use crate::format::formats;
 use crate::gfx_api::GfxFormat;
 use crate::gfx_api::GfxWriteModifier;
@@ -70,19 +68,15 @@ use crate::gfx_apis::gl::sys::Egl;
 use crate::gfx_apis::gl::sys::GLESV2;
 use crate::gfx_apis::gl::sys::GlesV2;
 use crate::utils::bhash::BHashMap;
-use crate::utils::bitflags::BitflagsExt;
 use crate::video::INVALID_MODIFIER;
 use crate::video::Modifier;
 use crate::video::dmabuf::DmaBuf;
-use crate::video::dmabuf::DmaBufIds;
 use crate::video::drm::Drm;
-use crate::video::gbm::GBM_BO_USE_RENDERING;
 use crate::video::gbm::GbmDevice;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use std::ptr;
 use std::rc::Rc;
-use uapi::c::O_RDWR;
 
 #[derive(Debug)]
 pub struct EglFormat {
@@ -108,7 +102,6 @@ pub struct EglDisplay {
     pub gbm: Rc<GbmDevice>,
     pub dpy: EGLDisplay,
     pub explicit_sync: bool,
-    pub fast_ram_access: bool,
 }
 
 impl EglDisplay {
@@ -149,7 +142,6 @@ impl EglDisplay {
                 gbm: Rc::new(gbm),
                 dpy,
                 explicit_sync: false,
-                fast_ram_access: false,
             };
             let mut major = 0;
             let mut minor = 0;
@@ -162,7 +154,6 @@ impl EglDisplay {
                 if !software {
                     return Err(RenderError::NoHardwareRenderer);
                 }
-                dpy.fast_ram_access = true;
             }
             dpy.exts = get_display_ext(dpy.dpy);
             if !dpy.exts.intersects(KHR_IMAGE_BASE) {
@@ -181,23 +172,6 @@ impl EglDisplay {
                 return Err(RenderError::SurfacelessContext);
             }
             dpy.formats = query_formats(procs, dpy.dpy)?;
-            if dpy.fast_ram_access {
-                dpy.fast_ram_access = false;
-                if let Some(formats) = dpy.formats.get(&XRGB8888.drm)
-                    && let Ok(bo) = dpy.gbm.create_bo(
-                        &DmaBufIds::default(),
-                        1,
-                        1,
-                        XRGB8888,
-                        formats.modifiers.keys(),
-                        GBM_BO_USE_RENDERING,
-                    )
-                    && let Ok(fl) = uapi::fcntl_getfl(bo.dmabuf().planes[0].fd.raw())
-                    && fl.contains(O_RDWR)
-                {
-                    dpy.fast_ram_access = true;
-                }
-            }
             dpy.explicit_sync = dpy
                 .exts
                 .contains(KHR_FENCE_SYNC | KHR_WAIT_SYNC | ANDROID_NATIVE_FENCE_SYNC);

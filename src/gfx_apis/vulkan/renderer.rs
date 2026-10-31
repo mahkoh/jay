@@ -1234,22 +1234,22 @@ impl VulkanRenderer {
             for cmd in &mut memory.ops[pass] {
                 if let VulkanOp::Tex(c) = cmd {
                     let tex = &c.tex;
-                    if tex.execution_version.replace(execution) == execution {
-                        continue;
+                    if tex.execution_version.get() != execution {
+                        if let Some(dh) = &tex.descriptor_heap
+                            && let Some(entry) = dh.sampled_image_descriptor_entry.get()
+                        {
+                            memory.used_heap_entries.push(entry);
+                        }
+                        match tex.queue_state.get().acquire(QueueFamily::Gfx) {
+                            QueueTransfer::Unnecessary => {}
+                            QueueTransfer::Possible => memory.queue_transfer.push(tex.clone()),
+                            QueueTransfer::Impossible => continue,
+                        }
+                        if let VulkanImageMemory::DmaBuf(_) = &tex.ty {
+                            memory.dmabuf_sample.push(tex.clone());
+                        }
                     }
-                    if let Some(dh) = &tex.descriptor_heap
-                        && let Some(entry) = dh.sampled_image_descriptor_entry.get()
-                    {
-                        memory.used_heap_entries.push(entry);
-                    }
-                    match tex.queue_state.get().acquire(QueueFamily::Gfx) {
-                        QueueTransfer::Unnecessary => {}
-                        QueueTransfer::Possible => memory.queue_transfer.push(tex.clone()),
-                        QueueTransfer::Impossible => continue,
-                    }
-                    if let VulkanImageMemory::DmaBuf(_) = &tex.ty {
-                        memory.dmabuf_sample.push(tex.clone());
-                    }
+                    tex.execution_version.set(execution);
                     memory.textures.push(UsedTexture {
                         tex: tex.clone(),
                         resv: c.buffer_resv.take(),
@@ -2036,12 +2036,14 @@ impl VulkanRenderer {
         let attach_async_shm_sync_file = self.device.transfer_queue.is_some()
             && self.device.distinct_transfer_queue_family_idx.is_none();
         for texture in &mut memory.textures {
-            import(
-                &texture.tex,
-                texture.release_sync,
-                texture.resv.take(),
-                DMA_BUF_SYNC_READ,
-            );
+            if texture.release_sync != ReleaseSync::Keepalive {
+                import(
+                    &texture.tex,
+                    texture.release_sync,
+                    texture.resv.take(),
+                    DMA_BUF_SYNC_READ,
+                );
+            }
             if attach_async_shm_sync_file
                 && let VulkanImageMemory::Internal(shm) = &texture.tex.ty
                 && let Some(data) = &shm.async_data
