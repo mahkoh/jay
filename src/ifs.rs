@@ -102,6 +102,7 @@ pub mod xdg_toplevel_drag_v1;
 pub mod xdg_toplevel_tag_manager_v1;
 pub mod xdg_wm_base;
 pub mod xdg_wm_dialog_v1;
+pub mod xx_image_capture_source_colors_v1;
 pub mod zwlr_foreign_toplevel_handle_v1;
 pub mod zwlr_foreign_toplevel_manager_v1;
 pub mod zwlr_gamma_control_manager_v1;

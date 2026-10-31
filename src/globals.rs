@@ -319,6 +319,7 @@ mod singletons {
     pub(super) use crate::ifs::ext_foreign_toplevel_list_v1::ExtForeignToplevelListV1Global;
     pub(super) use crate::ifs::ext_idle_notifier_v1::ExtIdleNotifierV1Global;
     pub(super) use crate::ifs::ext_image_copy::ext_image_copy_capture_manager_v1::ExtImageCopyCaptureManagerV1Global;
+    pub(super) use crate::ifs::ext_image_copy::xx_image_capture_color_manager_v1::XxImageCaptureColorManagerV1Global;
     pub(super) use crate::ifs::ext_output_image_capture_source_manager_v1::ExtOutputImageCaptureSourceManagerV1Global;
     pub(super) use crate::ifs::ext_session_lock_manager_v1::ExtSessionLockManagerV1Global;
     pub(super) use crate::ifs::ipc::data_control::ext_data_control_manager_v1::ExtDataControlManagerV1Global;

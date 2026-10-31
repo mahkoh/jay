@@ -150,6 +150,7 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::double_buffered::DoubleBuffered;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::event_listener::EventListener;
+use crate::utils::event_listener::EventSource;
 use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
 use crate::utils::lazy_event_source::LazyEventSource;
 use crate::utils::linkedlist::LinkedList;
@@ -181,6 +182,7 @@ use jay_proc::Reset;
 use linearize::LinearizeExt;
 use smallvec::SmallVec;
 use std::cell::Cell;
+use std::cell::LazyCell;
 use std::cell::OnceCell;
 use std::cell::RefCell;
 use std::fmt::Debug;
@@ -402,12 +404,17 @@ pub struct WlSurface {
     _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
     tree_committed_listeners: OnceCell<Rc<LazyEventSource>>,
     liveness: Liveness,
+    pub color_description_changed: LazyCell<EventSource<dyn SurfaceColorDescriptionListener>>,
 }
 
 impl Debug for WlSurface {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("WlSurface").finish_non_exhaustive()
     }
+}
+
+pub trait SurfaceColorDescriptionListener {
+    fn changed(&self, new: &Rc<ColorDescription>);
 }
 
 #[derive(Default)]
@@ -827,6 +834,7 @@ impl WlSurface {
             _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
             tree_committed_listeners: Default::default(),
             liveness: Default::default(),
+            color_description_changed: Default::default(),
         }
     }
 
@@ -1453,8 +1461,18 @@ impl WlSurface {
         if let Some(desc) = pending.color_description.take() {
             color_description_changed = true;
             let (intent, desc) = desc.unzip();
-            self.color_description.set(desc);
+            let new_id = desc.id();
+            let old_id = self.color_description.set(desc).id();
             self.render_intent.set(intent.unwrap_or_default());
+            if new_id != old_id
+                && let Some(source) = LazyCell::get(&self.color_description_changed)
+                && source.has_listeners()
+            {
+                let cd = self.color_description();
+                source.for_each(|listener| {
+                    listener.changed(&cd);
+                });
+            }
         }
         let mut alpha_mode_changed = false;
         if let Some(alpha_mode) = pending.alpha_mode.take()
