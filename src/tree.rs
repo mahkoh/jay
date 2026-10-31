@@ -983,6 +983,10 @@ pub trait NodeBase: GetLiveness + 'static {
     fn node_is_placeholder(&self) -> bool {
         false
     }
+
+    fn node_is_output(&self) -> bool {
+        false
+    }
 }
 
 pub trait Node: NodeBase {
