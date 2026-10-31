@@ -752,7 +752,7 @@ impl MetalConnector {
             Some(buf) if buf.buffer.buf.exclusive_device == Some(self.dev.id) => {
                 fb_resv = Some(buf.clone() as Rc<dyn BufferResv>);
                 dmabuf = buf.buffer.buf.client_dmabuf.as_ref();
-                release_sync = buf.release_sync;
+                release_sync = buf.release_sync.get();
             }
             _ if self.dev.is_render_device() => {
                 if let Some(lazy) = &ct.lazy

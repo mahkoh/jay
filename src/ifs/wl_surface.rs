@@ -241,7 +241,7 @@ impl SurfaceRole {
 pub struct SurfaceBuffer {
     pub buffer: AttachedBuffer,
     syncs: SmallMap<BufferResvUser, FdSync, 1>,
-    pub release_sync: ReleaseSync,
+    pub release_sync: Cell<ReleaseSync>,
     release: Option<SyncobjRelease>,
     _surface_release: SmallVec<[SurfaceRelease; 1]>,
     sync_file_release: Option<SyncFileRelease>,
@@ -283,6 +283,25 @@ impl Debug for SurfaceBuffer {
 impl BufferResv for SurfaceBuffer {
     fn set_sync(&self, user: BufferResvUser, sync: &FdSync) {
         self.syncs.insert(user, sync.clone());
+    }
+}
+
+impl SurfaceBuffer {
+    fn compute_release_sync(&self) {
+        let sync = if self.release.is_some() || self.sync_file_release.is_some() {
+            ReleaseSync::Explicit
+        } else if self.buffer.buf.is_shm() {
+            if self.buffer.buf.is_udmabuf_texture() {
+                ReleaseSync::Keepalive
+            } else {
+                ReleaseSync::None
+            }
+        } else if self.buffer.buf.is_spb() {
+            ReleaseSync::None
+        } else {
+            ReleaseSync::Implicit
+        };
+        self.release_sync.set(sync);
     }
 }
 
@@ -1492,18 +1511,15 @@ impl WlSurface {
                     handle_tex_type(TexType::Direct);
                 }
                 buffer.buf.update_texture_or_log(self, false);
-                let mut release_sync = ReleaseSync::Implicit;
-                if pending.syncobj_sync || pending.sync_file_release.is_some() {
-                    release_sync = ReleaseSync::Explicit;
-                }
                 let surface_buffer = SurfaceBuffer {
                     buffer,
                     syncs: Default::default(),
-                    release_sync,
+                    release_sync: Cell::new(ReleaseSync::Keepalive),
                     release: pending.release_point.take(),
                     _surface_release: mem::take(&mut pending.surface_release),
                     sync_file_release: pending.sync_file_release.take(),
                 };
+                surface_buffer.compute_release_sync();
                 self.buffer.set(Some(Rc::new(surface_buffer)));
             } else {
                 handle_tex_type(TexType::None);
@@ -2644,6 +2660,7 @@ impl GfxCtxChangedListener for WlSurface {
             if had_shm_texture || had_prime_texture || had_buffer_texture {
                 buf.update_texture_or_log(&self, true);
             }
+            buffer.compute_release_sync();
         }
     }
 }

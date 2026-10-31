@@ -2036,12 +2036,14 @@ impl VulkanRenderer {
         let attach_async_shm_sync_file = self.device.transfer_queue.is_some()
             && self.device.distinct_transfer_queue_family_idx.is_none();
         for texture in &mut memory.textures {
-            import(
-                &texture.tex,
-                texture.release_sync,
-                texture.resv.take(),
-                DMA_BUF_SYNC_READ,
-            );
+            if texture.release_sync != ReleaseSync::Keepalive {
+                import(
+                    &texture.tex,
+                    texture.release_sync,
+                    texture.resv.take(),
+                    DMA_BUF_SYNC_READ,
+                );
+            }
             if attach_async_shm_sync_file
                 && let VulkanImageMemory::Internal(shm) = &texture.tex.ty
                 && let Some(data) = &shm.async_data

@@ -593,7 +593,14 @@ impl Renderer<'_> {
             );
         } else {
             if let Some(tex) = buf.get_texture(surface) {
-                render_texture(self, &tex, buffer.clone(), buffer.release_sync, None, None);
+                render_texture(
+                    self,
+                    &tex,
+                    buffer.clone(),
+                    buffer.release_sync.get(),
+                    None,
+                    None,
+                );
             } else if let Some(color) = &buf.color {
                 if let Some(rect) = Rect::new_sized(x, y, tsize.0, tsize.1) {
                     let rect = match bounds {

@@ -139,6 +139,10 @@ impl WlBuffer {
         self.ty == Ty::DmaBuf
     }
 
+    pub fn is_spb(&self) -> bool {
+        self.ty == Ty::Spb
+    }
+
     fn new(
         id: WlBufferId,
         client: &Rc<Client>,
@@ -650,6 +654,16 @@ impl WlBuffer {
             id,
             client: self.client.clone(),
         }
+    }
+
+    pub fn is_udmabuf_texture(&self) -> bool {
+        matches!(
+            *self.storage.borrow(),
+            Some(WlBufferStorage::Shm {
+                dmabuf_buffer_params: DmabufBufferParams { tex: Some(_), .. },
+                ..
+            })
+        )
     }
 }
 
