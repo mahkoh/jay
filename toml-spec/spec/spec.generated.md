@@ -3991,6 +3991,21 @@ The table has the following fields:
 
   The numbers should be greater than or equal to 0.
 
+- `fade` (optional):
+
+  Whether the screen gradually fades to black over the course of the grace
+  period instead of turning black immediately.
+  
+  - Example:
+  
+    ```toml
+    idle.grace-period = { seconds = 5, fade = true }
+    ```
+  
+  The default is `false`.
+
+  The value of this field should be a boolean.
+
 
 <a name="types-Idle"></a>
 ### `Idle`

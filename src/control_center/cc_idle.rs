@@ -1,4 +1,5 @@
 use crate::control_center::ControlCenterInner;
+use crate::control_center::bool;
 use crate::control_center::grid;
 use crate::control_center::row;
 use crate::state::State;
@@ -57,6 +58,14 @@ impl IdlePane {
                     }
                 });
             }
+            bool(
+                ui,
+                "Grace period fade",
+                self.state.idle.grace_period_fade.get(),
+                |b| {
+                    self.state.idle.set_grace_period_fade(&self.state, b);
+                },
+            );
         });
         let inhibitors = self.state.idle.inhibitors.lock();
         let mut is: Vec<_> = inhibitors.values().collect();

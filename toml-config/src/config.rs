@@ -145,6 +145,7 @@ pub enum Action {
     ConfigureIdle {
         idle: Option<Duration>,
         grace_period: Option<Duration>,
+        grace_period_fade: Option<bool>,
     },
     ConfigureInput {
         input: Box<Input>,
@@ -646,6 +647,7 @@ pub struct Config {
     pub inputs: Vec<Input>,
     pub idle: Option<Duration>,
     pub grace_period: Option<Duration>,
+    pub grace_period_fade: Option<bool>,
     pub explicit_sync_enabled: Option<bool>,
     pub focus_follows_mouse: bool,
     pub window_management_key: Option<ModifiedKeySym>,

@@ -286,6 +286,10 @@ impl TestConfig {
         self.send(ClientMessage::SetIdleGracePeriod { period })
     }
 
+    pub fn set_idle_grace_period_fade(&self, fade: bool) -> TestResult {
+        self.send(ClientMessage::SetIdleGracePeriodFade { fade })
+    }
+
     pub fn set_floating(&self, seat: SeatId, floating: bool) -> TestResult {
         self.send(ClientMessage::SetSeatFloating {
             seat: Seat(seat.raw() as _),
