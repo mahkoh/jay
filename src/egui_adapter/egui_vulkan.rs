@@ -472,7 +472,7 @@ struct Pending {
     _cmd: EgvCommandBuffer,
     _uploads: Vec<(Rc<EgvImage<EgvAllocatedMemory>>, EgvBuffer)>,
     _sampled: Vec<EgvSampledImage>,
-    _fb: Rc<EgvImage<EgvImportedMemory>>,
+    _fb: Option<Rc<EgvImage<EgvImportedMemory>>>,
     index_buffer: Option<EgvBuffer>,
     vertex_buffer: Option<EgvBuffer>,
 }
@@ -988,7 +988,54 @@ impl EgvRenderer {
             ri: renderer,
             _task: task,
         };
+        if let Err(e) = renderer.perform_empty_submit() {
+            log::warn!("Could not perform an empty submission: {}", ErrorFmt(e));
+        }
         Ok(Rc::new(renderer))
+    }
+
+    /// https://forums.developer.nvidia.com/t/vulkan-sync-fd-exported-from-the-first-fence-signals-before-the-submission-completes-when-it-waits-on-an-imported-sync-fd-semaphore-xid-31/386422
+    fn perform_empty_submit(&self) -> Result<(), EgvError> {
+        let ri = &self.ri;
+        let cmd = self.allocate_command_buffer()?;
+        let begin_info =
+            CommandBufferBeginInfo::default().flags(CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+        unsafe {
+            ri.device
+                .begin_command_buffer(cmd.buf, &begin_info)
+                .map_err(EgvError::BeginCommandBuffer)?;
+            ri.device
+                .end_command_buffer(cmd.buf)
+                .map_err(EgvError::EndCommandBuffer)?;
+        }
+        let command_buffer_info = CommandBufferSubmitInfo::default().command_buffer(cmd.buf);
+        let mut submit_info =
+            SubmitInfo2::default().command_buffer_infos(slice::from_ref(&command_buffer_info));
+        let mut semaphore_submit_info = SemaphoreSubmitInfo::default();
+        let vulkan_sync = ri.create_sync(
+            self.timeline_semaphore.as_ref(),
+            &mut semaphore_submit_info,
+            &mut submit_info,
+        )?;
+        unsafe {
+            ri.device
+                .queue_submit2(ri.queue, slice::from_ref(&submit_info), vulkan_sync.fence())
+                .map_err(EgvError::Submit)?;
+        }
+        let sync = vulkan_sync.to_sync(|| ri.wait_idle());
+        ri.submissions.pending.push(Pending {
+            ri: ri.clone(),
+            sync,
+            semaphore: None,
+            vulkan_sync,
+            _cmd: cmd,
+            _uploads: vec![],
+            _sampled: vec![],
+            _fb: None,
+            index_buffer: None,
+            vertex_buffer: None,
+        });
+        Ok(())
     }
 
     fn create_semaphore(&self) -> Result<EgvSemaphore, EgvError> {
@@ -2005,7 +2052,7 @@ impl EgvFramebuffer {
             _cmd: cmd,
             _uploads: used_uploads,
             _sampled: sampled_images,
-            _fb: self.image.clone(),
+            _fb: Some(self.image.clone()),
             index_buffer: Some(index_buffer),
             vertex_buffer: Some(vertex_buffer),
         };
