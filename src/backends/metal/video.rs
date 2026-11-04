@@ -606,7 +606,7 @@ pub struct MetalConnector {
 
     pub connector_id: ConnectorId,
 
-    pub buffers: CloneCell<Option<Rc<[RenderBuffer; 2]>>>,
+    pub buffers: CloneCell<Option<Rc<[RenderBuffer]>>>,
 
     pub color_description: CloneCell<Rc<ColorDescription>>,
     pub fb_color_description: CloneCell<Rc<ColorDescription>>,
@@ -638,7 +638,7 @@ pub struct MetalConnector {
     pub cursor_x: Cell<i32>,
     pub cursor_y: Cell<i32>,
     pub cursor_enabled: Cell<bool>,
-    pub cursor_buffers: CloneCell<Option<Rc<[RenderBuffer; 2]>>>,
+    pub cursor_buffers: CloneCell<Option<Rc<[RenderBuffer]>>>,
     pub cursor_swap_buffer: Cell<bool>,
     pub cursor_sync: CloneCell<Option<FdSync>>,
 
