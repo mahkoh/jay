@@ -1,3 +1,4 @@
+use crate::backend::ConnectorId;
 use crate::cmm::cmm_description::ColorDescription;
 use crate::cmm::cmm_description::LinearColorDescription;
 use crate::cmm::cmm_render_intent::RenderIntent;
@@ -20,6 +21,7 @@ use crate::rect::Rect;
 use crate::scale::Scale;
 use crate::theme::Color;
 use crate::tree::Transform;
+use crate::video::dmabuf::DmaBufId;
 use derivative::Derivative;
 use std::hint::cold_path;
 use std::rc::Rc;
@@ -60,6 +62,7 @@ pub struct RenderTexture<'a> {
     pub client_buf: Option<Rc<SurfaceBuffer>>,
     pub lazy: Option<Rc<dyn LazyTexture>>,
     pub skip_for_scanout: bool,
+    pub scanout_feedback: Option<(ConnectorId, DmaBufId)>,
 }
 
 impl RendererBase<'_> {
@@ -240,6 +243,7 @@ impl RendererBase<'_> {
             client_buf,
             lazy,
             skip_for_scanout,
+            scanout_feedback,
         } = args;
         let tscale = tscale.unwrap_or(self.scale);
 
@@ -296,6 +300,7 @@ impl RendererBase<'_> {
             client_buf,
             lazy,
             skip_for_scanout,
+            scanout_feedback,
             scaling_filter: self.scaling_filter,
         }));
     }
