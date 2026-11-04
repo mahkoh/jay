@@ -71,7 +71,7 @@ const LOGGING: Option<&Logging> = Some(&Logging {
 #[derive(Clone, Debug, Reset)]
 pub struct DrmPlaneState {
     pub assigned_crtc: DrmCrtc,
-    pub buffers: Option<Rc<[RenderBuffer; 2]>>,
+    pub buffers: Option<Rc<[RenderBuffer]>>,
     pub props: DrmPlaneStateProps,
 }
 
@@ -612,7 +612,7 @@ impl MetalDeviceTransaction {
                                 "Using prime method {method} for {dev} {connector} ({plane})",
                             );
                         }
-                        let buffers = Rc::new(res);
+                        let buffers: Rc<[RenderBuffer]> = res.into();
                         plane.new.buffers = Some(buffers.clone());
                         new_buffers = Some(buffers.clone());
                         buffers
