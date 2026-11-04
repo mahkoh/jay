@@ -8,6 +8,7 @@ mod sys;
 use crate::libinput::consts::LIBINPUT_LOG_PRIORITY_DEBUG;
 use crate::libinput::consts::LIBINPUT_LOG_PRIORITY_ERROR;
 use crate::libinput::consts::LIBINPUT_LOG_PRIORITY_INFO;
+use crate::libinput::consts::LIBINPUT_PLUGIN_SYSTEM_FLAG_NONE;
 use crate::libinput::consts::LogPriority;
 use crate::libinput::device::RegisteredDevice;
 use crate::libinput::event::LibInputEvent;
@@ -22,6 +23,9 @@ use crate::libinput::sys::libinput_log_set_handler;
 use crate::libinput::sys::libinput_log_set_priority;
 use crate::libinput::sys::libinput_path_add_device;
 use crate::libinput::sys::libinput_path_create_context;
+use crate::libinput::sys::libinput_plugin_system_append_default_paths;
+use crate::libinput::sys::libinput_plugin_system_append_path;
+use crate::libinput::sys::libinput_plugin_system_load_plugins;
 use crate::libinput::sys::libinput_unref;
 use crate::udev::UdevError;
 use crate::utils::errorfmt::ErrorFmt;
@@ -29,6 +33,8 @@ use crate::utils::ptr_ext::PtrExt;
 use crate::utils::vasprintf::vasprintf;
 use bstr::ByteSlice;
 use jay_algorithms::oserror::OsError;
+use std::cell::Cell;
+use std::cell::RefCell;
 use std::ffi::CStr;
 use std::ffi::VaList;
 use std::ptr;
@@ -36,6 +42,7 @@ use std::rc::Rc;
 use thiserror::Error;
 use uapi::IntoUstr;
 use uapi::OwnedFd;
+use uapi::Ustring;
 use uapi::c;
 
 static INTERFACE: libinput_interface = libinput_interface {
@@ -88,6 +95,18 @@ pub enum LibInputError {
     Udev(#[from] UdevError),
     #[error("Stat failed")]
     Stat(#[source] OsError),
+}
+
+pub enum LibInputPluginPath {
+    DefaultPaths,
+    Path(Ustring),
+}
+
+#[derive(Default)]
+pub struct LibInputState {
+    pub has_loaded_plugins: Cell<bool>,
+    pub should_load_plugins: Cell<bool>,
+    pub plugin_paths: RefCell<Vec<LibInputPluginPath>>,
 }
 
 pub struct LibInput {
@@ -159,6 +178,30 @@ impl LibInput {
                 event: res,
                 _phantom: Default::default(),
             })
+        }
+    }
+
+    pub fn before_open(&self, state: &LibInputState) {
+        if state.has_loaded_plugins.replace(true) || !state.should_load_plugins.get() {
+            return;
+        }
+        for path in &*state.plugin_paths.borrow() {
+            match path {
+                LibInputPluginPath::DefaultPaths => unsafe {
+                    libinput_plugin_system_append_default_paths(self.li);
+                },
+                LibInputPluginPath::Path(path) => unsafe {
+                    libinput_plugin_system_append_path(self.li, path.as_ptr());
+                },
+            }
+        }
+        let flags = LIBINPUT_PLUGIN_SYSTEM_FLAG_NONE.raw();
+        let res = unsafe { libinput_plugin_system_load_plugins(self.li, flags) };
+        if res < 0 {
+            log::warn!(
+                "libinput_plugin_system_load_plugins returned {}",
+                ErrorFmt(OsError(-res))
+            );
         }
     }
 }
