@@ -7,6 +7,8 @@ dir container_node {
     split_render: reg,
     is_mono_live: reg,
     is_mono_render: reg,
+    mono_style_live: reg,
+    mono_style_render: reg,
     num_children_live: reg,
     num_children_render: reg,
     sum_factors: reg,
@@ -95,6 +97,22 @@ impl container_node::Dir for ContainerNode {
         self.node_state[RenderTL]
             .mono_child
             .is_some()
+            .str_fmt(buf, ctx);
+    }
+
+    fn read_mono_style_live(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        self.node_state[LiveTL]
+            .mono_style
+            .get()
+            .text()
+            .str_fmt(buf, ctx);
+    }
+
+    fn read_mono_style_render(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        self.node_state[RenderTL]
+            .mono_style
+            .get()
+            .text()
             .str_fmt(buf, ctx);
     }
 

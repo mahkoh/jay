@@ -49,6 +49,7 @@ use crate::theme::ThemeSized;
 use crate::theme::ToplevelTheme;
 use crate::theme::ToplevelThemeColored;
 use crate::theme::ToplevelThemeSized;
+use crate::tree::ContainerMonoStyle;
 use crate::tree::ContainerSplit;
 use crate::tree::ContainerTarget;
 use crate::tree::NodeBase;
@@ -159,6 +160,7 @@ use jay_config::video::ScalingFilter as ConfigScalingFilter;
 use jay_config::video::TearingMode as ConfigTearingMode;
 use jay_config::video::Transform;
 use jay_config::video::VrrMode as ConfigVrrMode;
+use jay_config::window::JcMonoStyle;
 use jay_config::window::JcTileState;
 use jay_config::window::Window;
 use jay_config::window::WindowMatcher;
@@ -1833,6 +1835,16 @@ impl ConfigProxyHandler {
         });
     }
 
+    fn handle_set_default_mono_style(&self, style: JcMonoStyle) {
+        self.state.set_default_mono_style(style.into());
+    }
+
+    fn handle_get_default_mono_style(&self) {
+        self.respond(Response::GetDefaultMonoStyle {
+            style: self.state.default_mono_style.get().into(),
+        });
+    }
+
     fn handle_set_show_bar(&self, show: bool) {
         self.state.set_show_bar(show);
     }
@@ -2267,6 +2279,64 @@ impl ConfigProxyHandler {
         if let Some(c) = toplevel_target_container(&window, target) {
             let pos = c.node_absolute_position(LiveTL);
             c.set_split(ContainerSplit::from_relative_axis(axis, &pos));
+        }
+        Ok(())
+    }
+
+    fn handle_get_seat_mono_style(
+        &self,
+        seat: Seat,
+        target: JcContainerTarget,
+    ) -> Result<(), CphError> {
+        let target = map_container_target(target);
+        let seat = self.get_seat(seat)?;
+        self.respond(Response::GetMonoStyle {
+            style: seat
+                .get_mono_style(target)
+                .unwrap_or(ContainerMonoStyle::Tabbed)
+                .into(),
+        });
+        Ok(())
+    }
+
+    fn handle_set_seat_mono_style(
+        &self,
+        seat: Seat,
+        target: JcContainerTarget,
+        style: JcMonoStyle,
+    ) -> Result<(), CphError> {
+        let target = map_container_target(target);
+        let seat = self.get_seat(seat)?;
+        seat.set_mono_style(target, style.into());
+        Ok(())
+    }
+
+    fn handle_get_window_mono_style(
+        &self,
+        window: Window,
+        target: JcContainerTarget,
+    ) -> Result<(), CphError> {
+        let target = map_container_target(target);
+        let window = self.get_window(window)?;
+        self.respond(Response::GetWindowMonoStyle {
+            style: toplevel_target_container(&window, target)
+                .map(|c| c.node_state[LiveTL].mono_style.get())
+                .unwrap_or(ContainerMonoStyle::Tabbed)
+                .into(),
+        });
+        Ok(())
+    }
+
+    fn handle_set_window_mono_style(
+        &self,
+        window: Window,
+        target: JcContainerTarget,
+        style: JcMonoStyle,
+    ) -> Result<(), CphError> {
+        let target = map_container_target(target);
+        let window = self.get_window(window)?;
+        if let Some(c) = toplevel_target_container(&window, target) {
+            c.set_mono_style(style.into());
         }
         Ok(())
     }
@@ -4209,6 +4279,10 @@ impl ConfigProxyHandler {
                 self.handle_set_split_reuses_container(reuse);
             }
             ClientMessage::GetSplitReusesContainer => self.handle_get_split_reuses_container(),
+            ClientMessage::SetDefaultMonoStyle { style } => {
+                self.handle_set_default_mono_style(style);
+            }
+            ClientMessage::GetDefaultMonoStyle => self.handle_get_default_mono_style(),
             ClientMessage::SetShowBar { show } => self.handle_set_show_bar(show),
             ClientMessage::GetShowBar => self.handle_get_show_bar(),
             ClientMessage::SetShowTitles { show } => self.handle_set_show_titles(show),
@@ -4472,6 +4546,26 @@ impl ConfigProxyHandler {
             } => self
                 .handle_set_window_split_relative(window, target, axis)
                 .wrn("set_window_container_split_relative")?,
+            ClientMessage::GetSeatContainerMonoStyle { seat, target } => self
+                .handle_get_seat_mono_style(seat, target)
+                .wrn("get_seat_container_mono_style")?,
+            ClientMessage::SetSeatContainerMonoStyle {
+                seat,
+                target,
+                style,
+            } => self
+                .handle_set_seat_mono_style(seat, target, style)
+                .wrn("set_seat_container_mono_style")?,
+            ClientMessage::GetWindowContainerMonoStyle { window, target } => self
+                .handle_get_window_mono_style(window, target)
+                .wrn("get_window_container_mono_style")?,
+            ClientMessage::SetWindowContainerMonoStyle {
+                window,
+                target,
+                style,
+            } => self
+                .handle_set_window_mono_style(window, target, style)
+                .wrn("set_window_container_mono_style")?,
             ClientMessage::ResetWindowTheme { window, kind } => self
                 .handle_reset_window_theme(window, kind)
                 .wrn("reset_window_theme")?,

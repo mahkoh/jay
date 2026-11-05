@@ -73,6 +73,18 @@ pub enum TileState {
     Floating,
 }
 
+/// The mono style of a container.
+///
+/// This determines how the title bars of a container in mono-mode are laid out.
+#[non_exhaustive]
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, PrivateEnum)]
+pub enum MonoStyle {
+    /// The title bars are shown next to each other in a single row.
+    Tabbed,
+    /// The title bars are shown below each other, each spanning the full width.
+    Stacked,
+}
+
 /// A window created by a client.
 ///
 /// This is the same as `XDG_TOPLEVEL | X_WINDOW`.
@@ -187,6 +199,28 @@ impl Window {
     /// Toggles whether the target container of the window is in mono-mode.
     pub fn toggle_container_mono(self, target: ContainerTarget) {
         self.set_container_mono(target, !self.container_mono(target));
+    }
+
+    /// Returns the mono style of the target container of the window.
+    pub fn container_mono_style(self, target: ContainerTarget) -> MonoStyle {
+        get!(MonoStyle::Tabbed)
+            .window_container_mono_style(self, target.to_private())
+            .to_public()
+    }
+
+    /// Sets the mono style of the target container of the window.
+    pub fn set_container_mono_style(self, target: ContainerTarget, style: MonoStyle) {
+        get!().set_window_container_mono_style(self, target.to_private(), style.to_private())
+    }
+
+    /// Toggles the mono style of the target container of the window between tabbed and
+    /// stacked.
+    pub fn toggle_container_mono_style(self, target: ContainerTarget) {
+        let style = match self.container_mono_style(target) {
+            MonoStyle::Tabbed => MonoStyle::Stacked,
+            MonoStyle::Stacked => MonoStyle::Tabbed,
+        };
+        self.set_container_mono_style(target, style);
     }
 
     /// Returns the split axis of the target container of the window.

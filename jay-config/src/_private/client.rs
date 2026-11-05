@@ -78,6 +78,7 @@ use crate::video::VrrMode;
 use crate::video::connector_type::CON_UNKNOWN;
 use crate::video::connector_type::ConnectorType;
 use crate::window::ContentType;
+use crate::window::JcMonoStyle;
 use crate::window::JcTileState;
 use crate::window::MatchedWindow;
 use crate::window::Window;
@@ -1018,6 +1019,50 @@ impl ConfigClient {
         });
     }
 
+    pub fn seat_container_mono_style(&self, seat: Seat, target: JcContainerTarget) -> JcMonoStyle {
+        let res =
+            self.send_with_response(&ClientMessage::GetSeatContainerMonoStyle { seat, target });
+        get_response!(res, JcMonoStyle::Tabbed, GetMonoStyle { style });
+        style
+    }
+
+    pub fn set_seat_container_mono_style(
+        &self,
+        seat: Seat,
+        target: JcContainerTarget,
+        style: JcMonoStyle,
+    ) {
+        self.send(&ClientMessage::SetSeatContainerMonoStyle {
+            seat,
+            target,
+            style,
+        });
+    }
+
+    pub fn window_container_mono_style(
+        &self,
+        window: Window,
+        target: JcContainerTarget,
+    ) -> JcMonoStyle {
+        let res =
+            self.send_with_response(&ClientMessage::GetWindowContainerMonoStyle { window, target });
+        get_response!(res, JcMonoStyle::Tabbed, GetWindowMonoStyle { style });
+        style
+    }
+
+    pub fn set_window_container_mono_style(
+        &self,
+        window: Window,
+        target: JcContainerTarget,
+        style: JcMonoStyle,
+    ) {
+        self.send(&ClientMessage::SetWindowContainerMonoStyle {
+            window,
+            target,
+            style,
+        });
+    }
+
     pub fn seat_close(&self, seat: Seat) {
         self.send(&ClientMessage::SeatClose { seat });
     }
@@ -1251,6 +1296,16 @@ impl ConfigClient {
         let res = self.send_with_response(&ClientMessage::GetSplitReusesContainer);
         get_response!(res, false, GetSplitReusesContainer { reuse });
         reuse
+    }
+
+    pub fn set_default_mono_style(&self, style: JcMonoStyle) {
+        self.send(&ClientMessage::SetDefaultMonoStyle { style });
+    }
+
+    pub fn get_default_mono_style(&self) -> JcMonoStyle {
+        let res = self.send_with_response(&ClientMessage::GetDefaultMonoStyle);
+        get_response!(res, JcMonoStyle::Tabbed, GetDefaultMonoStyle { style });
+        style
     }
 
     pub fn set_show_bar(&self, show: bool) {
