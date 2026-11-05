@@ -90,6 +90,7 @@ mod env;
 mod evdev;
 mod eventfd_cache;
 mod fixed;
+mod focus;
 mod fontconfig;
 mod forker;
 mod format;

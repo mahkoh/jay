@@ -16,6 +16,7 @@ use crate::Workspace;
 use crate::client::Client;
 use crate::client::ClientCapabilities;
 use crate::client::ClientMatcher;
+use crate::focus;
 use crate::input::FocusFollowsMouseMode;
 use crate::input::InputDevice;
 use crate::input::InputEventCode;
@@ -1143,6 +1144,10 @@ pub enum ClientMessage<'a> {
     GetWindowThemeContainerBorders {
         window: Window,
         kind: WindowThemeKind,
+    },
+    SeatFocusTargets {
+        seat: Seat,
+        targets: Vec<focus::Target>,
     },
 }
 

@@ -36,6 +36,7 @@ use crate::client::ClientCriterion;
 use crate::client::ClientMatcher;
 use crate::client::MatchedClient;
 use crate::exec::Command;
+use crate::focus;
 use crate::input::FocusFollowsMouseMode;
 use crate::input::InputDevice;
 use crate::input::InputEventCode;
@@ -465,6 +466,13 @@ impl ConfigClient {
 
     pub fn seat_focus(&self, seat: Seat, direction: Direction) {
         self.send(&ClientMessage::SeatFocus { seat, direction });
+    }
+
+    pub fn seat_focus_targets(&self, seat: Seat, targets: &[focus::Target]) {
+        self.send(&ClientMessage::SeatFocusTargets {
+            seat,
+            targets: targets.to_vec(),
+        });
     }
 
     pub fn seat_move(&self, seat: Seat, direction: Direction) {

@@ -32,6 +32,7 @@ mod env;
 pub mod exec;
 mod fallback_output_mode;
 pub mod float;
+mod focus;
 pub mod focus_history;
 mod format;
 mod gfx_api;
