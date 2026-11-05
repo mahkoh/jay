@@ -21,7 +21,6 @@ use std::rc::Rc;
 
 const STATE_ACTIVE: u32 = 1;
 const STATE_URGENT: u32 = 2;
-#[expect(unused)]
 const STATE_HIDDEN: u32 = 4;
 
 const CAP_ACTIVATE: u32 = 1;
@@ -87,6 +86,9 @@ impl ExtWorkspaceHandleV1 {
         }
         if ws.attention_requests.active() {
             state |= STATE_URGENT;
+        }
+        if ws.hidden.get() {
+            state |= STATE_HIDDEN;
         }
         self.send_state(state);
     }

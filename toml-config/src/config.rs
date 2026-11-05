@@ -22,7 +22,7 @@ use crate::config::parsers::transactions::Transactions;
 pub use crate::config::parsers::trigger::TomlTrigger;
 use crate::config::parsers::trigger::Trigger;
 pub use crate::config::parsers::window_match::parse_window_match;
-use crate::config::parsers::workspace::WorkspaceSlot;
+pub(crate) use crate::config::parsers::workspace::WorkspaceSlot;
 use crate::config::parsers::workspace::WorkspaceType;
 use crate::toml;
 use ahash::AHashMap;
@@ -66,6 +66,7 @@ use jay_config::window::ContentType;
 use jay_config::window::TileState;
 use jay_config::window::WindowType;
 use jay_config::workspace::WorkspaceDisplayOrder;
+use jay_config::workspace::WorkspaceEmptyBehavior;
 use jay_config::xwayland::XScalingMode;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -678,6 +679,7 @@ pub struct Config {
     pub configure_all_devices: bool,
     pub triggers: Vec<Rc<Trigger>>,
     pub max_trigger_depth: u64,
+    pub workspace_empty_behavior: Option<WorkspaceEmptyBehavior>,
 }
 
 #[derive(Debug, Error)]
@@ -755,4 +757,31 @@ where
 fn default_config_parses() {
     let input = crate::DEFAULT;
     parse_config(input, &Default::default(), &mut Default::default(), |_| ()).unwrap();
+}
+
+#[test]
+fn workspace_empty_behavior_parses() {
+    let input = br#"
+workspace-empty-behavior = "hide-on-leave"
+
+[workspaces.one]
+empty-behavior = "preserve"
+
+[workspaces.two]
+empty-behavior = "destroy"
+"#;
+    let mut workspaces = Default::default();
+    let config = parse_config(input, &Default::default(), &mut workspaces, |_| ()).unwrap();
+    assert_eq!(
+        config.workspace_empty_behavior,
+        Some(WorkspaceEmptyBehavior::HideOnLeave)
+    );
+    assert_eq!(
+        workspaces["one"].empty_behavior.get(),
+        Some(WorkspaceEmptyBehavior::Preserve)
+    );
+    assert_eq!(
+        workspaces["two"].empty_behavior.get(),
+        Some(WorkspaceEmptyBehavior::Destroy)
+    );
 }
