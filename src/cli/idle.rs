@@ -14,6 +14,7 @@ use crate::wire::jay_compositor;
 use crate::wire::jay_idle;
 use clap::Args;
 use clap::Subcommand;
+use clap::ValueEnum;
 use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
@@ -27,6 +28,8 @@ pub enum IdleCmd {
     Set(IdleSetArgs),
     /// Set the idle grace period.
     SetGracePeriod(IdleSetGracePeriodArgs),
+    /// Enable or disable fading to black during the grace period.
+    SetFade(IdleSetFadeArgs),
 }
 
 #[derive(Args, Debug)]
@@ -59,6 +62,21 @@ pub struct IdleSetGracePeriodArgs {
     period: Vec<String>,
 }
 
+#[derive(Args, Debug)]
+pub struct IdleSetFadeArgs {
+    /// Whether the screen fades to black during the grace period.
+    #[clap(value_enum)]
+    fade: IdleFade,
+}
+
+#[derive(ValueEnum, Debug, Copy, Clone, Hash, Eq, PartialEq)]
+pub enum IdleFade {
+    /// The screen fades to black over the course of the grace period.
+    Enabled,
+    /// The screen turns black immediately.
+    Disabled,
+}
+
 pub fn main(global: GlobalArgs, args: IdleArgs) {
     with_tool_client(async move |tc| {
         let idle = Idle { tc: tc.clone() };
@@ -83,6 +101,7 @@ impl Idle {
             IdleCmd::Status => self.status(global, idle).await,
             IdleCmd::Set(args) => self.set(idle, args).await,
             IdleCmd::SetGracePeriod(args) => self.set_grace_period(idle, args).await,
+            IdleCmd::SetFade(args) => self.set_fade(idle, args).await,
         }
     }
 
@@ -96,6 +115,10 @@ impl Idle {
         let grace = Rc::new(Cell::new(0u64));
         jay_idle::GracePeriod::handle(tc, idle, grace.clone(), |iv, msg| {
             iv.set(msg.period);
+        });
+        let fade = Rc::new(Cell::new(false));
+        jay_idle::Fade::handle(tc, idle, fade.clone(), |iv, msg| {
+            iv.set(msg.fade != 0);
         });
         struct Inhibitor {
             surface: WlSurfaceId,
@@ -119,6 +142,7 @@ impl Idle {
             let mut json = JsonIdle {
                 idle_sec: timeout.get(),
                 grace_sec: grace.get(),
+                grace_fade: fade.get(),
                 inhibitors: vec![],
             };
             for inhibitor in &inhibitors {
@@ -156,6 +180,11 @@ impl Idle {
             };
             println!("Interval:{}", interval(timeout.get()));
             println!("Grace period:{}", interval(grace.get()));
+            let fade = match fade.get() {
+                true => "enabled",
+                false => "disabled",
+            };
+            println!("Grace period fade: {fade}");
             if inhibitors.len() > 0 {
                 println!("Inhibitors:");
                 for inhibitor in inhibitors {
@@ -182,6 +211,15 @@ impl Idle {
         tc.send(jay_idle::SetGracePeriod {
             self_id: idle,
             period: parse_idle_time(&args.period),
+        });
+        tc.round_trip().await;
+    }
+
+    async fn set_fade(self, idle: JayIdleId, args: IdleSetFadeArgs) {
+        let tc = &self.tc;
+        tc.send(jay_idle::SetFade {
+            self_id: idle,
+            fade: (args.fade == IdleFade::Enabled) as u32,
         });
         tc.round_trip().await;
     }

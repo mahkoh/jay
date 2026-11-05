@@ -1,6 +1,7 @@
 use crate::config::context::Context;
 use crate::config::extractor::Extractor;
 use crate::config::extractor::ExtractorError;
+use crate::config::extractor::bol;
 use crate::config::extractor::n64;
 use crate::config::extractor::opt;
 use crate::config::extractor::val;
@@ -28,7 +29,12 @@ pub struct IdleParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
 pub struct Idle {
     pub timeout: Option<Duration>,
-    pub grace_period: Option<Duration>,
+    pub grace_period: Option<GracePeriod>,
+}
+
+pub struct GracePeriod {
+    pub period: Duration,
+    pub fade: Option<bool>,
 }
 
 impl Parser for IdleParser<'_, '_, '_> {
@@ -69,7 +75,7 @@ impl Parser for IdleParser<'_, '_, '_> {
 struct GracePeriodParser<'a, 'b, 'c>(pub &'a Context<'b, 'c>);
 
 impl Parser for GracePeriodParser<'_, '_, '_> {
-    type Value = Duration;
+    type Value = GracePeriod;
     type Error = IdleParserError;
     const EXPECTED: &'static [DataType] = &[DataType::Table];
 
@@ -82,12 +88,16 @@ impl Parser for GracePeriodParser<'_, '_, '_> {
         let (
             minutes, //
             seconds,
+            fade,
         ) = ext.extract((
             opt(n64("minutes")), //
             opt(n64("seconds")),
+            opt(bol("fade")),
         ))?;
-        let grace_period = parse_duration(&minutes, &seconds);
-        Ok(grace_period)
+        Ok(GracePeriod {
+            period: parse_duration(&minutes, &seconds),
+            fade: fade.despan(),
+        })
     }
 }
 

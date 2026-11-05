@@ -443,7 +443,8 @@ impl ActionParser<'_, '_, '_> {
             .map_spanned_err(ActionParserError::ConfigureIdle)?;
         Ok(Action::ConfigureIdle {
             idle: idle.timeout,
-            grace_period: idle.grace_period,
+            grace_period: idle.grace_period.as_ref().map(|gp| gp.period),
+            grace_period_fade: idle.grace_period.and_then(|gp| gp.fade),
         })
     }
 

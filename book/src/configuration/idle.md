@@ -52,6 +52,17 @@ action when the timeout expires):
 idle.grace-period = { seconds = 0 }
 ```
 
+By default, the screen turns black immediately when the grace period starts.
+Set `fade` to make it fade to black gradually over the course of the grace
+period instead:
+
+```toml
+idle.grace-period = {
+    seconds = 5,
+    fade = true,
+}
+```
+
 ## On-idle action
 
 The `on-idle` field defines what happens when the idle timeout (plus grace
@@ -133,6 +144,13 @@ This means:
 ```shell
 ~$ jay idle set-grace-period 10s
 ~$ jay idle set-grace-period 0s
+```
+
+### Changing the grace period fade
+
+```shell
+~$ jay idle set-fade enabled
+~$ jay idle set-fade disabled
 ```
 
 ### Duration format

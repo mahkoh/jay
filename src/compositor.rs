@@ -357,7 +357,8 @@ fn start_compositor2(
             inhibitors_changed: Default::default(),
             inhibited_idle_notifications: Default::default(),
             backend_idle: Cell::new(true),
-            in_grace_period: Cell::new(false),
+            grace_period_fade: Cell::new(false),
+            grace_start: Cell::new(None),
         },
         run_args,
         xwayland: XWaylandState {

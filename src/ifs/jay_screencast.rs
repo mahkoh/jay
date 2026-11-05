@@ -224,6 +224,7 @@ impl JayScreencast {
                     true,
                     false,
                     false,
+                    None,
                     Transform::None,
                     None,
                     self.client.state.color_manager.srgb_linear(),

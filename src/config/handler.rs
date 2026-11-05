@@ -1537,6 +1537,10 @@ impl ConfigProxyHandler {
         self.state.idle.set_grace_period(&self.state, period);
     }
 
+    fn handle_set_idle_grace_period_fade(&self, fade: bool) {
+        self.state.idle.set_grace_period_fade(&self.state, fade);
+    }
+
     fn handle_set_explicit_sync_enabled(&self, enabled: bool) {
         self.state.set_explicit_sync_enabled(enabled);
     }
@@ -4026,6 +4030,9 @@ impl ConfigProxyHandler {
                 .wrn("set_x_scaling_mode")?,
             ClientMessage::SetIdleGracePeriod { period } => {
                 self.handle_set_idle_grace_period(period);
+            }
+            ClientMessage::SetIdleGracePeriodFade { fade } => {
+                self.handle_set_idle_grace_period_fade(fade)
             }
             ClientMessage::SetColorManagementEnabled { enabled } => {
                 self.handle_set_color_management_enabled(enabled);
