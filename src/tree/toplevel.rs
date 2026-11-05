@@ -1328,12 +1328,16 @@ pub fn toplevel_set_floating(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, floati
     }
 }
 
-pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &Rc<WorkspaceNode>) {
+pub fn toplevel_set_workspace(
+    state: &Rc<State>,
+    tl: Rc<dyn ToplevelNode>,
+    ws: &Rc<WorkspaceNode>,
+) -> bool {
     let Some(old_ws) = tl.tl_data().workspace[LiveTL].get() else {
-        return;
+        return false;
     };
     if old_ws.id == ws.id {
-        return;
+        return false;
     }
     let data = tl.tl_data();
     let fullscreen = data.is_fullscreen[LiveTL].get();
@@ -1343,15 +1347,15 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
             old.tl_set_fullscreen(false, None);
         }
         if wns.fullscreen.is_some() {
-            return;
+            return false;
         }
         tl.clone().tl_set_fullscreen(false, None);
         if data.is_fullscreen[LiveTL].get() {
-            return;
+            return false;
         }
     }
     let Some(cn) = tl.tl_data().parent.get() else {
-        return;
+        return false;
     };
     let kb_foci = collect_kb_foci(tl.clone());
     cn.cnode_remove_child2(&*tl, true);
@@ -1369,6 +1373,7 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
     if fullscreen {
         tl.tl_set_fullscreen(true, Some(ws.clone()));
     }
+    true
 }
 
 pub async fn handle_toplevel_theme_change(state: Rc<State>) {
