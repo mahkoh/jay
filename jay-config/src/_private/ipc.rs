@@ -8,6 +8,7 @@ use crate::_private::WorkspaceShowOpV1;
 use crate::_private::WorkspaceShowOpV2;
 use crate::Axis;
 use crate::Direction;
+use crate::FlattenTree;
 use crate::JcContainerTarget;
 use crate::JcRelativeAxis;
 use crate::JcWorkspaceKind;
@@ -1143,6 +1144,9 @@ pub enum ClientMessage<'a> {
     GetWindowThemeContainerBorders {
         window: Window,
         kind: WindowThemeKind,
+    },
+    SetFlattenTree {
+        mode: FlattenTree,
     },
 }
 

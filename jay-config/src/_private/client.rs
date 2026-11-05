@@ -23,6 +23,7 @@ use crate::_private::ipc::WorkspaceSource;
 use crate::_private::logging;
 use crate::Axis;
 use crate::Direction;
+use crate::FlattenTree;
 use crate::JcContainerTarget;
 use crate::JcRelativeAxis;
 use crate::JcWorkspaceKind;
@@ -1292,6 +1293,10 @@ impl ConfigClient {
 
     pub fn set_middle_click_paste_enabled(&self, enabled: bool) {
         self.send(&ClientMessage::SetMiddleClickPasteEnabled { enabled });
+    }
+
+    pub fn set_flatten_tree(&self, mode: FlattenTree) {
+        self.send(&ClientMessage::SetFlattenTree { mode });
     }
 
     pub fn open_control_center(&self) {
