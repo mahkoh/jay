@@ -10,6 +10,10 @@ pub struct TestSubsurface {
 }
 
 impl TestSubsurface {
+    pub fn destroy(&self) {
+        self.client.send_wl_subsurface_destroy(self.id);
+    }
+
     pub fn set_position(&self, x: i32, y: i32) {
         self.client.send_wl_subsurface_set_position(self.id, x, y);
     }
