@@ -114,6 +114,7 @@ mod t2026_09_16_float_theme_replace_child;
 mod t2026_09_16_window_theme_float;
 mod t2026_09_16_window_theme_screenshot;
 mod t2026_09_16_window_theme_tiled;
+mod t2026_11_09_subsurface_desync_queued_parent;
 
 pub trait TestCase: Sync {
     fn name(&self) -> &'static str;

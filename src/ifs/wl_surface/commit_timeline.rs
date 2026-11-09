@@ -280,6 +280,7 @@ impl CommitTimeline {
         surface: &Rc<WlSurface>,
         mut pending: CachedBox<PendingState, BoxReset>,
     ) -> Result<(), CommitTimelineError> {
+        set_effective_timeline(self, &pending, &self.own_timeline);
         let state = &surface.state;
         let mut collector = CommitDataCollector {
             render_ctx: LazyCell::new(|| {
@@ -326,7 +327,6 @@ impl CommitTimeline {
         if self.shared.depth.get() >= MAX_TIMELINE_DEPTH {
             return Err(CommitTimelineError::Depth);
         }
-        set_effective_timeline(self, &pending, &self.own_timeline);
         let queue_was_empty = self.own_timeline.entries.is_empty();
         let commit_fifo_state = match pending.fifo_barrier_wait {
             true => CommitFifoState::Queued,
