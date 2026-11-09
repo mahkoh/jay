@@ -71,6 +71,7 @@ pub struct WlSubsurface {
     version: Version,
     initial_commit: Cell<bool>,
     liveness: Liveness,
+    destroyed: Cell<bool>,
 }
 
 #[derive(Default)]
@@ -154,6 +155,7 @@ impl WlSubsurface {
             version,
             initial_commit: Cell::new(true),
             liveness: Default::default(),
+            destroyed: Default::default(),
         }
     }
 
@@ -186,6 +188,9 @@ impl WlSubsurface {
         }
         if let Some(state) = &mut pending.state.take() {
             self.surface.apply_state(state)?;
+        }
+        if self.destroyed.get() {
+            return Ok(());
         }
         let mut stacking_changed = false;
         let mut position_changed = false;
@@ -372,6 +377,8 @@ impl WlSubsurfaceRequestHandler for WlSubsurface {
     type Error = WlSubsurfaceError;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+        self.destroyed.set(true);
+        self.initial_commit.take();
         self.detach_subtree();
         self.surface.unset_ext();
         self.parent.consume_pending_child(self.unique_id, |oe| {
