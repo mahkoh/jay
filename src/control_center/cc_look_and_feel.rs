@@ -133,6 +133,20 @@ impl LookAndFeelPane {
                 self.state.split_reuses_container.get(),
                 |v| self.state.set_split_reuses_container(v),
             );
+            bool_ui(
+                ui,
+                "Autotile",
+                |ui| {
+                    tip(ui, |ui| {
+                        ui.label(concat!(
+                            "New tiled windows split the focused window ",
+                            "along its longest axis.",
+                        ));
+                    });
+                },
+                self.state.autotile.get(),
+                |v| self.state.set_autotile(v),
+            );
             row(ui, "Font", |ui| {
                 let mut v = self.state.theme.font.get().to_string();
                 if text_edit(ui, &mut v).changed() {

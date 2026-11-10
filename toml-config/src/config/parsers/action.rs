@@ -232,6 +232,9 @@ impl ActionParser<'_, '_, '_> {
             "enable-split-reuses-container" => SetSplitReusesContainer(true),
             "disable-split-reuses-container" => SetSplitReusesContainer(false),
             "toggle-split-reuses-container" => ToggleSplitReusesContainer,
+            "enable-autotile" => SetAutotile(true),
+            "disable-autotile" => SetAutotile(false),
+            "toggle-autotile" => ToggleAutotile,
             "reset-window-theme" => ResetWindowTheme,
             _ => {
                 return Err(

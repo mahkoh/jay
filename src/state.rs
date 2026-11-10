@@ -173,6 +173,7 @@ use crate::transactions::TransactionData;
 use crate::transactions::Transactionable;
 use crate::transactions::TransactionableExt;
 use crate::transactions::Transactions;
+use crate::tree::ContainingNode;
 use crate::tree::ContainerNode;
 use crate::tree::ContainerSplit;
 use crate::tree::Direction;
@@ -411,6 +412,7 @@ pub struct State {
     pub head_names: HeadNames,
     pub show_bar: Cell<bool>,
     pub split_reuses_container: Cell<bool>,
+    pub autotile: Cell<bool>,
     pub enable_primary_selection: Cell<bool>,
     pub workspace_display_order: Cell<WorkspaceDisplayOrder>,
     pub outputs_without_hc: NumCell<usize>,
@@ -1155,7 +1157,36 @@ impl State {
                 .get()
                 .and_then(|n| n.node_into_container());
             if let Some(lap) = lap {
-                lap.add_child_after(&*la, node);
+                if self.should_autotile(node.tl_data()) {
+                    let rect = la.node_absolute_position(LiveTL);
+                    let width = rect.x2() - rect.x1();
+                    let height = rect.y2() - rect.y1();
+                    if width > 0 && height > 0 {
+                        let target_split = if width > height {
+                            ContainerSplit::Horizontal
+                        } else {
+                            ContainerSplit::Vertical
+                        };
+                        let num_children = lap.node_state[LiveTL].num_children.get();
+                        if num_children == 1 {
+                            // Single child: update split direction and add alongside
+                            lap.set_split(target_split);
+                            lap.add_child_after(&*la, node);
+                        } else if lap.node_state[LiveTL].split.get() == target_split {
+                            // Same direction: add next to the active child
+                            lap.add_child_after(&*la, node);
+                        } else {
+                            // Different direction: wrap la in a new sub-container
+                            let cn = ContainerNode::new(self, ws, la.clone(), target_split);
+                            lap.cnode_replace_child(&*la, cn.clone());
+                            cn.add_child_after(&*la, node);
+                        }
+                    } else {
+                        lap.add_child_after(&*la, node);
+                    }
+                } else {
+                    lap.add_child_after(&*la, node);
+                }
             } else {
                 c.append_child(node);
             }
@@ -1977,6 +2008,17 @@ impl State {
         self.config.get()?.initial_tile_state(data)
     }
 
+    pub fn should_autotile(&self, data: &ToplevelData) -> bool {
+        // Check per-window rule override first
+        if let Some(config) = self.config.get() {
+            if let Some(override_val) = config.autotile(data) {
+                return override_val;
+            }
+        }
+        // Fall back to global setting
+        self.autotile.get()
+    }
+
     pub fn update_capabilities(
         &self,
         data: &Rc<Client>,
@@ -2522,6 +2564,11 @@ impl State {
 
     pub fn set_split_reuses_container(&self, v: bool) {
         self.split_reuses_container.set(v);
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
+    }
+
+    pub fn set_autotile(&self, v: bool) {
+        self.autotile.set(v);
         self.trigger_cci(CCI_LOOK_AND_FEEL);
     }
 }
