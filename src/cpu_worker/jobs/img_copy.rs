@@ -6,9 +6,9 @@ use std::ptr;
 pub struct ImgCopyWork {
     pub src: *mut u8,
     pub dst: *mut u8,
-    pub width: i32,
-    pub stride: i32,
-    pub bpp: i32,
+    pub width: usize,
+    pub stride: usize,
+    pub bpp: usize,
     pub rects: Vec<Rect>,
     _priv: (),
 }
@@ -33,22 +33,21 @@ impl CpuWork for ImgCopyWork {
     fn run(&mut self) -> Option<Box<dyn AsyncCpuWork>> {
         zone!("ImgCopyWork");
         for rect in &self.rects {
-            let mut offset = rect.y1() * self.stride + rect.x1() * self.bpp;
-            if rect.width() == self.width {
-                let offset = offset as usize;
-                let len = rect.height() * self.stride;
+            let x1 = rect.x1() as usize;
+            let y1 = rect.y1() as usize;
+            let width = rect.width() as usize;
+            let height = rect.height() as usize;
+            let mut offset = y1 * self.stride + x1 * self.bpp;
+            if width == self.width {
+                let len = height * self.stride;
                 unsafe {
-                    ptr::copy_nonoverlapping(self.src.add(offset), self.dst.add(offset), len as _);
+                    ptr::copy_nonoverlapping(self.src.add(offset), self.dst.add(offset), len);
                 }
             } else {
-                let len = rect.width() * self.bpp;
-                for _ in 0..rect.height() {
+                let len = width * self.bpp;
+                for _ in 0..height {
                     unsafe {
-                        ptr::copy_nonoverlapping(
-                            self.src.add(offset as _),
-                            self.dst.add(offset as _),
-                            len as _,
-                        );
+                        ptr::copy_nonoverlapping(self.src.add(offset), self.dst.add(offset), len);
                     }
                     offset += self.stride;
                 }

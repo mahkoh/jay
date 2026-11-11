@@ -411,6 +411,9 @@ impl VulkanRenderer {
             return Err(VulkanError::ImageTooLarge);
         }
         let size = stride.checked_mul(height).ok_or(VulkanError::ShmOverflow)? as u64;
+        if size > isize::MAX as u64 {
+            return Err(VulkanError::ShmOverflow);
+        }
         let usage = ImageUsageFlags::TRANSFER_SRC
             | match for_download {
                 true => ImageUsageFlags::COLOR_ATTACHMENT,
