@@ -9,7 +9,6 @@ use crate::wire::OrgKdeKwinServerDecorationManagerId;
 use crate::wire::org_kde_kwin_server_decoration_manager::*;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[expect(unused)]
@@ -32,7 +31,7 @@ impl OrgKdeKwinServerDecorationManagerGlobal {
         id: OrgKdeKwinServerDecorationManagerId,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(OrgKdeKwinServerDecorationManager {
             id,
             client: client.clone(),

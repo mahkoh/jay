@@ -5,7 +5,6 @@ use crate::wire::jay_toplevel::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
 use std::cell::RefCell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrJayToplevel {
@@ -22,7 +21,7 @@ pub trait UsrJayToplevelOwner {
 }
 
 impl JayToplevelEventHandler for UsrJayToplevel {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroyed(&self, _ev: Destroyed, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {

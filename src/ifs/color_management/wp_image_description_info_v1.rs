@@ -31,7 +31,6 @@ use crate::utils::ordered_float::F64;
 use crate::wire::WpImageDescriptionInfoV1Id;
 use crate::wire::wp_image_description_info_v1::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 use uapi::OwnedFd;
 
@@ -193,5 +192,5 @@ impl WpImageDescriptionInfoV1 {
 }
 
 impl WpImageDescriptionInfoV1RequestHandler for WpImageDescriptionInfoV1 {
-    type Error = Infallible;
+    type Error = !;
 }

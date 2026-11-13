@@ -5,7 +5,6 @@ use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_ifs::usr_wl_surface::UsrWlSurface;
 use crate::wl_usr::usr_ifs::usr_wp_fractional_scale::UsrWpFractionalScale;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrWpFractionalScaleManager {
@@ -33,7 +32,7 @@ impl UsrWpFractionalScaleManager {
 }
 
 impl WpFractionalScaleManagerV1EventHandler for UsrWpFractionalScaleManager {
-    type Error = Infallible;
+    type Error = !;
 }
 
 usr_object_base! {

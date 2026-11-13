@@ -5,7 +5,6 @@ use crate::object::Version;
 use crate::wire::JayIdleId;
 use crate::wire::jay_idle::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -49,7 +48,7 @@ impl JayIdle {
 }
 
 impl JayIdleRequestHandler for JayIdle {
-    type Error = Infallible;
+    type Error = !;
 
     fn get_status(&self, _req: GetStatus, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.send_interval();

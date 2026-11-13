@@ -4,7 +4,6 @@ use crate::wire::WlDataSourceId;
 use crate::wire::wl_data_source::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 use uapi::OwnedFd;
 
@@ -29,7 +28,7 @@ impl UsrWlDataSource {
 }
 
 impl WlDataSourceEventHandler for UsrWlDataSource {
-    type Error = Infallible;
+    type Error = !;
 
     fn target(&self, ev: Target<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let _ = ev;

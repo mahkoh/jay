@@ -183,14 +183,13 @@ mod wl_surface_factory {
     use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1_bridge::ToplevelIconBridge;
     use crate::utils::type_view::TypeView;
     use crate::wire::jay_wl_surface_factory_v1::*;
-    use std::convert::Infallible;
     use std::rc::Rc;
 
     pub struct View;
     synthetic_event_handler!(TypeView<ToplevelIconBridge, View>);
 
     impl JayWlSurfaceFactoryV1EventHandler for TypeView<ToplevelIconBridge, View> {
-        type Error = Infallible;
+        type Error = !;
 
         fn surface(&self, ev: Surface, _slf: &Rc<Self>) -> Result<(), Self::Error> {
             self.pending_surface.set(ev.id);
@@ -209,14 +208,13 @@ mod factory {
     use crate::utils::type_view::TypeViewExt1;
     use crate::utils::type_view::TypeViewExt2;
     use crate::wire::jay_icon_surface_factory_v1::*;
-    use std::convert::Infallible;
     use std::rc::Rc;
 
     pub struct View;
     synthetic_event_handler!(TypeView<ToplevelIconBridge, View>);
 
     impl JayIconSurfaceFactoryV1EventHandler for TypeView<ToplevelIconBridge, View> {
-        type Error = Infallible;
+        type Error = !;
 
         fn stopped(&self, _ev: Stopped, _slf: &Rc<Self>) -> Result<(), Self::Error> {
             self.client
@@ -263,14 +261,13 @@ mod icon_surface {
     use crate::ifs::wl_surface::xdg_surface::xdg_toplevel::xdg_toplevel_icon_v1_bridge::ToplevelIconSurfaceBridge;
     use crate::utils::type_view::TypeView;
     use crate::wire::jay_icon_surface_v1::*;
-    use std::convert::Infallible;
     use std::rc::Rc;
 
     pub struct View;
     synthetic_event_handler!(TypeView<ToplevelIconSurfaceBridge, View>);
 
     impl JayIconSurfaceV1EventHandler for TypeView<ToplevelIconSurfaceBridge, View> {
-        type Error = Infallible;
+        type Error = !;
 
         fn finished(&self, _ev: Finished, _slf: &Rc<Self>) -> Result<(), Self::Error> {
             self.destroy();
@@ -299,14 +296,13 @@ mod fractional_scale {
     use crate::scale::Scale;
     use crate::utils::type_view::TypeView;
     use crate::wire::wp_fractional_scale_v1::*;
-    use std::convert::Infallible;
     use std::rc::Rc;
 
     pub struct View;
     synthetic_event_handler!(TypeView<ToplevelIconSurfaceBridge, View>);
 
     impl WpFractionalScaleV1EventHandler for TypeView<ToplevelIconSurfaceBridge, View> {
-        type Error = Infallible;
+        type Error = !;
 
         fn preferred_scale(&self, ev: PreferredScale, _slf: &Rc<Self>) -> Result<(), Self::Error> {
             self.scale.set(Scale::from_wl(ev.scale));

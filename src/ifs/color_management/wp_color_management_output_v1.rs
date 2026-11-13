@@ -11,7 +11,6 @@ use crate::utils::event_listener::EventListener;
 use crate::wire::WpColorManagementOutputV1Id;
 use crate::wire::wp_color_management_output_v1::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -38,7 +37,7 @@ impl WpColorManagementOutputV1 {
 }
 
 impl WpColorManagementOutputV1RequestHandler for WpColorManagementOutputV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.listener.detach();

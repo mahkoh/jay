@@ -10,7 +10,6 @@ use crate::wire::ExtOutputImageCaptureSourceManagerV1Id;
 use crate::wire::ext_output_image_capture_source_manager_v1::*;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -28,7 +27,7 @@ impl ExtOutputImageCaptureSourceManagerV1Global {
         id: ExtOutputImageCaptureSourceManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(ExtOutputImageCaptureSourceManagerV1 {
             id,
             client: client.clone(),

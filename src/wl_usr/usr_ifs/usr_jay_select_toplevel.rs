@@ -7,7 +7,6 @@ use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_ifs::usr_jay_toplevel::UsrJayToplevel;
 use crate::wl_usr::usr_ifs::usr_jay_toplevel::UsrJayToplevelOwner;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrJaySelectToplevel {
@@ -35,7 +34,7 @@ pub trait UsrJaySelectToplevelOwner {
 }
 
 impl JaySelectToplevelEventHandler for UsrJaySelectToplevel {
-    type Error = Infallible;
+    type Error = !;
 
     fn done(&self, ev: Done, slf: &Rc<Self>) -> Result<(), Self::Error> {
         let tl = if ev.id.is_none() {

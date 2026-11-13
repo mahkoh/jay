@@ -20,7 +20,6 @@ use crate::wire::JaySeatEventsId;
 use crate::wire::jay_seat_events::*;
 use jay_proc::Object;
 use linearize::LinearizeExt;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -540,7 +539,7 @@ impl JaySeatEvents {
 }
 
 impl JaySeatEventsRequestHandler for JaySeatEvents {
-    type Error = Infallible;
+    type Error = !;
 }
 
 impl BreakLoops for JaySeatEvents {

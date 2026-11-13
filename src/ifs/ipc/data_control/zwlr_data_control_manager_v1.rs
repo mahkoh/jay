@@ -14,7 +14,6 @@ use crate::wire::ZwlrDataControlManagerV1Id;
 use crate::wire::zwlr_data_control_manager_v1::*;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -40,7 +39,7 @@ impl ZwlrDataControlManagerV1Global {
         id: ZwlrDataControlManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(ZwlrDataControlManagerV1 {
             id,
             client: client.clone(),

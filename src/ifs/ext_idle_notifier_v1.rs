@@ -15,7 +15,6 @@ use crate::wire::ext_idle_notifier_v1::*;
 use jay_proc::Global;
 use jay_proc::Object;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -33,7 +32,7 @@ impl ExtIdleNotifierV1Global {
         id: ExtIdleNotifierV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(ExtIdleNotifierV1 {
             id,
             client: client.clone(),

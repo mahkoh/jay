@@ -4,7 +4,6 @@ use crate::wire::ZwlrLayerSurfaceV1Id;
 use crate::wire::zwlr_layer_surface_v1::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrWlrLayerSurface {
@@ -49,7 +48,7 @@ impl UsrWlrLayerSurface {
 }
 
 impl ZwlrLayerSurfaceV1EventHandler for UsrWlrLayerSurface {
-    type Error = Infallible;
+    type Error = !;
 
     fn configure(&self, ev: Configure, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {

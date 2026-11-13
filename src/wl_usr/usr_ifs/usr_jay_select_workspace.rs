@@ -8,7 +8,6 @@ use crate::wl_usr::usr_ifs::usr_jay_workspace::UsrJayWorkspace;
 use crate::wl_usr::usr_ifs::usr_jay_workspace::UsrJayWorkspaceOwner;
 use crate::wl_usr::usr_object::UsrObject;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrJaySelectWorkspace {
@@ -23,7 +22,7 @@ pub trait UsrJaySelectWorkspaceOwner {
 }
 
 impl JaySelectWorkspaceEventHandler for UsrJaySelectWorkspace {
-    type Error = Infallible;
+    type Error = !;
 
     fn cancelled(&self, _ev: Cancelled, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {

@@ -7,7 +7,6 @@ use crate::wire::JayToplevelId;
 use crate::wire::jay_toplevel::*;
 use jay_proc::Object;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub const ID_SINCE: Version = Version(12);
@@ -65,7 +64,7 @@ impl JayToplevel {
 }
 
 impl JayToplevelRequestHandler for JayToplevel {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();

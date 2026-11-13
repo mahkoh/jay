@@ -8,7 +8,6 @@ use crate::wire::WpSinglePixelBufferManagerV1Id;
 use crate::wire::wp_single_pixel_buffer_manager_v1::*;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -26,7 +25,7 @@ impl WpSinglePixelBufferManagerV1Global {
         id: WpSinglePixelBufferManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(WpSinglePixelBufferManagerV1 {
             id,
             client: client.clone(),
@@ -54,7 +53,7 @@ pub struct WpSinglePixelBufferManagerV1 {
 }
 
 impl WpSinglePixelBufferManagerV1RequestHandler for WpSinglePixelBufferManagerV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);

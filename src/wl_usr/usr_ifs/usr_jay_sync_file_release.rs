@@ -5,7 +5,6 @@ use crate::wire::JaySyncFileReleaseId;
 use crate::wire::jay_sync_file_release::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 use uapi::OwnedFd;
 
@@ -30,7 +29,7 @@ impl UsrJaySyncFileRelease {
 }
 
 impl JaySyncFileReleaseEventHandler for UsrJaySyncFileRelease {
-    type Error = Infallible;
+    type Error = !;
 
     fn release_immediate(&self, _ev: ReleaseImmediate, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.release(None);

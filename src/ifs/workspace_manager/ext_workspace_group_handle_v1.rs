@@ -13,7 +13,6 @@ use crate::utils::opt::Opt;
 use crate::wire::ExtWorkspaceGroupHandleV1Id;
 use crate::wire::ext_workspace_group_handle_v1::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -103,7 +102,7 @@ impl BreakLoops for ExtWorkspaceGroupHandleV1 {
 }
 
 impl ExtWorkspaceGroupHandleV1RequestHandler for ExtWorkspaceGroupHandleV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn create_workspace(
         &self,

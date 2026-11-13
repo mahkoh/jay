@@ -4,7 +4,6 @@ use crate::wire::WpCursorShapeDeviceV1Id;
 use crate::wire::wp_cursor_shape_device_v1::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrWpCursorShapeDeviceV1 {
@@ -24,7 +23,7 @@ impl UsrWpCursorShapeDeviceV1 {
 }
 
 impl WpCursorShapeDeviceV1EventHandler for UsrWpCursorShapeDeviceV1 {
-    type Error = Infallible;
+    type Error = !;
 }
 
 usr_object_base! {

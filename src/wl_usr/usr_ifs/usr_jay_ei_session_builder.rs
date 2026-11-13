@@ -6,7 +6,6 @@ use crate::wire::jay_ei_session_builder::SetAppId;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_ifs::usr_jay_ei_session::UsrJayEiSession;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrJayEiSessionBuilder {
@@ -41,7 +40,7 @@ impl UsrJayEiSessionBuilder {
 }
 
 impl JayEiSessionBuilderEventHandler for UsrJayEiSessionBuilder {
-    type Error = Infallible;
+    type Error = !;
 }
 
 usr_object_base! {

@@ -8,7 +8,6 @@ use crate::utils::clonecell::CloneCell;
 use crate::wire::JayWorkspaceWatcherId;
 use crate::wire::jay_workspace_watcher::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -51,7 +50,7 @@ impl JayWorkspaceWatcher {
 }
 
 impl JayWorkspaceWatcherRequestHandler for JayWorkspaceWatcher {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.remove_from_state();

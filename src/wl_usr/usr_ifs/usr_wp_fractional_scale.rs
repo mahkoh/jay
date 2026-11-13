@@ -4,7 +4,6 @@ use crate::wire::WpFractionalScaleV1Id;
 use crate::wire::wp_fractional_scale_v1::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrWpFractionalScale {
@@ -21,7 +20,7 @@ pub trait UsrWpFractionalScaleOwner {
 }
 
 impl WpFractionalScaleV1EventHandler for UsrWpFractionalScale {
-    type Error = Infallible;
+    type Error = !;
 
     fn preferred_scale(&self, ev: PreferredScale, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {

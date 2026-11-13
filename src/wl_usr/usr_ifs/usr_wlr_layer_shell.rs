@@ -6,7 +6,6 @@ use crate::wl_usr::usr_ifs::usr_wl_output::UsrWlOutput;
 use crate::wl_usr::usr_ifs::usr_wl_surface::UsrWlSurface;
 use crate::wl_usr::usr_ifs::usr_wlr_layer_surface::UsrWlrLayerSurface;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrWlrLayerShell {
@@ -42,7 +41,7 @@ impl UsrWlrLayerShell {
 }
 
 impl ZwlrLayerShellV1EventHandler for UsrWlrLayerShell {
-    type Error = Infallible;
+    type Error = !;
 }
 
 usr_object_base! {

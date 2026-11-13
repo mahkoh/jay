@@ -224,6 +224,7 @@ impl ColorPipeline {
             let mut i = 0;
             let mut j = 0;
             while i < self.ops.len() {
+                #[allow(clippy::needless_range_loop)]
                 for x in prev_i + 1..i {
                     let op = &self.ops[x];
                     matches.push(ColorOpMatch {
@@ -639,6 +640,7 @@ impl Matcher<'_, '_, '_> {
                         let mut matrix = self.matrix;
                         if apply_src_curve_scale {
                             let s = self.multiply[Src];
+                            #[allow(clippy::needless_range_loop)]
                             for r in 0..3 {
                                 for c in 0..3 {
                                     matrix.0[r][c].0 *= s;
@@ -653,6 +655,7 @@ impl Matcher<'_, '_, '_> {
                             if scale_for_dst_lut && let Some(v) = self.dst_lut_out_scale {
                                 s *= v;
                             }
+                            #[allow(clippy::needless_range_loop)]
                             for r in 0..3 {
                                 for c in 0..4 {
                                     matrix.0[r][c].0 *= s;
@@ -745,6 +748,7 @@ impl Matcher<'_, '_, '_> {
                     {
                         let mut matrix = self.matrix;
                         if scale_for_dst_lut && let Some(s) = self.dst_lut_out_scale {
+                            #[allow(clippy::needless_range_loop)]
                             for r in 0..3 {
                                 for c in 0..4 {
                                     matrix.0[r][c].0 *= s;

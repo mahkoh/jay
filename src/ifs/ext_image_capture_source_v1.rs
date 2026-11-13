@@ -6,7 +6,6 @@ use crate::tree::ToplevelOpt;
 use crate::wire::ExtImageCaptureSourceV1Id;
 use crate::wire::ext_image_capture_source_v1::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Clone)]
@@ -25,7 +24,7 @@ pub struct ExtImageCaptureSourceV1 {
 }
 
 impl ExtImageCaptureSourceV1RequestHandler for ExtImageCaptureSourceV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);

@@ -13,7 +13,6 @@ use crate::wire::XxImageCaptureSourceColorsV1Id;
 use crate::wire::xx_image_capture_source_colors_v1::*;
 use jay_proc::Object;
 use std::cell::OnceCell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -55,7 +54,7 @@ impl SurfaceColorDescriptionListener for XxImageCaptureSourceColorsV1 {
 }
 
 impl XxImageCaptureSourceColorsV1RequestHandler for XxImageCaptureSourceColorsV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);

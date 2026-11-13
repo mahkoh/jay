@@ -4,7 +4,6 @@ use crate::wire::WlBufferId;
 use crate::wire::wl_buffer::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrWlBuffer {
@@ -19,7 +18,7 @@ pub trait UsrWlBufferOwner {
 }
 
 impl WlBufferEventHandler for UsrWlBuffer {
-    type Error = Infallible;
+    type Error = !;
 
     fn release(&self, _ev: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {

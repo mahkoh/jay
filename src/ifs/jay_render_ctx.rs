@@ -7,7 +7,6 @@ use crate::utils::errorfmt::ErrorFmt;
 use crate::wire::JayRenderCtxId;
 use crate::wire::jay_render_ctx::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub const FORMATS_SINCE: Version = Version(7);
@@ -88,7 +87,7 @@ impl JayRenderCtx {
 }
 
 impl JayRenderCtxRequestHandler for JayRenderCtx {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.remove_from_state();

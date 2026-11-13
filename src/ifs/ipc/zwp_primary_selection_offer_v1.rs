@@ -18,7 +18,6 @@ use crate::object::Version;
 use crate::wire::ZwpPrimarySelectionOfferV1Id;
 use crate::wire::zwp_primary_selection_offer_v1::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -73,7 +72,7 @@ impl ZwpPrimarySelectionOfferV1 {
 }
 
 impl ZwpPrimarySelectionOfferV1RequestHandler for ZwpPrimarySelectionOfferV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn receive(&self, req: Receive<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         receive_data_offer::<PrimarySelectionIpc>(self, req.mime_type, req.fd);

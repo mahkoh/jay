@@ -5,7 +5,6 @@ use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_ifs::usr_wl_surface::UsrWlSurface;
 use crate::wl_usr::usr_ifs::usr_xdg_surface::UsrXdgSurface;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrXdgWmBase {
@@ -33,7 +32,7 @@ impl UsrXdgWmBase {
 }
 
 impl XdgWmBaseEventHandler for UsrXdgWmBase {
-    type Error = Infallible;
+    type Error = !;
 
     fn ping(&self, ev: Ping, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.con.request(Pong {

@@ -12,7 +12,6 @@ use crate::wire::ext_session_lock_manager_v1::*;
 use jay_proc::Global;
 use jay_proc::Object;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -30,7 +29,7 @@ impl ExtSessionLockManagerV1Global {
         id: ExtSessionLockManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(ExtSessionLockManagerV1 {
             id,
             client: client.clone(),
@@ -52,7 +51,7 @@ pub struct ExtSessionLockManagerV1 {
 }
 
 impl ExtSessionLockManagerV1RequestHandler for ExtSessionLockManagerV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);

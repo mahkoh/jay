@@ -9,7 +9,6 @@ use crate::wire::ZwpTextInputManagerV3Id;
 use crate::wire::zwp_text_input_manager_v3::*;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -35,7 +34,7 @@ impl ZwpTextInputManagerV3Global {
         id: ZwpTextInputManagerV3Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(ZwpTextInputManagerV3 {
             id,
             client: client.clone(),

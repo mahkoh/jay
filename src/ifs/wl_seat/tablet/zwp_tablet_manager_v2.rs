@@ -9,7 +9,6 @@ use crate::wire::ZwpTabletManagerV2Id;
 use crate::wire::zwp_tablet_manager_v2::*;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -35,7 +34,7 @@ impl ZwpTabletManagerV2Global {
         id: ZwpTabletManagerV2Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(ZwpTabletManagerV2 {
             id,
             client: client.clone(),

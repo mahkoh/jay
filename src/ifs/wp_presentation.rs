@@ -11,7 +11,6 @@ pub use crate::wire::WpPresentationId;
 pub use crate::wire::wp_presentation::*;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 use uapi::c;
 
@@ -30,7 +29,7 @@ impl WpPresentationGlobal {
         id: WpPresentationId,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(WpPresentation {
             id,
             client: client.clone(),

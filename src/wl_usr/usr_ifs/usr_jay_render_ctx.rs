@@ -11,7 +11,6 @@ use crate::wire::jay_render_ctx::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
 use std::cell::RefCell;
-use std::convert::Infallible;
 use std::rc::Rc;
 use uapi::OwnedFd;
 
@@ -42,7 +41,7 @@ impl UsrJayRenderCtx {
 }
 
 impl JayRenderCtxEventHandler for UsrJayRenderCtx {
-    type Error = Infallible;
+    type Error = !;
 
     fn no_device(&self, _ev: NoDevice, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.formats.take();

@@ -9,7 +9,6 @@ use ahash::AHashMap;
 use ahash::AHashSet;
 use error_reporter::Report;
 use std::cell::RefCell;
-use std::convert::Infallible;
 use std::error::Error;
 use std::rc::Rc;
 
@@ -46,7 +45,7 @@ impl<'a> Context<'a, '_> {
         }
     }
 
-    pub fn error3(&self, span: Span) -> SpannedError<'a, Infallible> {
+    pub fn error3(&self, span: Span) -> SpannedError<'a, !> {
         SpannedError {
             input: self.input.into(),
             span,

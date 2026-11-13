@@ -5,7 +5,6 @@ use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_ifs::usr_wl_output::UsrWlOutput;
 use crate::wl_usr::usr_ifs::usr_zwlr_screencopy_frame::UsrZwlrScreencopyFrame;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrZwlrScreencopyManager {
@@ -35,7 +34,7 @@ impl UsrZwlrScreencopyManager {
 }
 
 impl ZwlrScreencopyManagerV1EventHandler for UsrZwlrScreencopyManager {
-    type Error = Infallible;
+    type Error = !;
 }
 
 usr_object_base! {

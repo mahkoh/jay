@@ -17,7 +17,6 @@ use crate::utils::event_listener::EventListener;
 use crate::wire::ZwlrOutputHeadV1Id;
 use crate::wire::zwlr_output_head_v1::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub const MAKE_SINCE: Version = Version(2);
@@ -219,7 +218,7 @@ impl OutputEventListener for ZwlrOutputHeadV1 {
 }
 
 impl ZwlrOutputHeadV1RequestHandler for ZwlrOutputHeadV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.send_finished();

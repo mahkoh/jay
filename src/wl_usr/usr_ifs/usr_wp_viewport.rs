@@ -4,7 +4,6 @@ use crate::wire::WpViewportId;
 use crate::wire::wp_viewport::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrWpViewport {
@@ -35,7 +34,7 @@ impl UsrWpViewport {
 }
 
 impl WpViewportEventHandler for UsrWpViewport {
-    type Error = Infallible;
+    type Error = !;
 }
 
 usr_object_base! {

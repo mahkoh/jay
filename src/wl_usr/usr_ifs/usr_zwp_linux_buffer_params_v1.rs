@@ -6,7 +6,6 @@ use crate::wire::zwp_linux_buffer_params_v1::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_ifs::usr_wl_buffer::UsrWlBuffer;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 use uapi::OwnedFd;
 
@@ -56,7 +55,7 @@ impl UsrZwpLinuxBufferParamsV1 {
 }
 
 impl ZwpLinuxBufferParamsV1EventHandler for UsrZwpLinuxBufferParamsV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn created(&self, _ev: Created, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())

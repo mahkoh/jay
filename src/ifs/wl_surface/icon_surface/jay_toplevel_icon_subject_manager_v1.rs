@@ -12,7 +12,6 @@ use crate::wire::JayToplevelIconSubjectManagerV1Id;
 use crate::wire::jay_toplevel_icon_subject_manager_v1::*;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -30,7 +29,7 @@ impl JayToplevelIconSubjectManagerV1Global {
         id: JayToplevelIconSubjectManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(JayToplevelIconSubjectManagerV1 {
             id,
             client: client.clone(),

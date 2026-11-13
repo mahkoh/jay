@@ -16,7 +16,6 @@ use crate::wire::ExtForeignToplevelListV1Id;
 use crate::wire::ext_foreign_toplevel_list_v1::*;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -34,7 +33,7 @@ impl ExtForeignToplevelListV1Global {
         id: ExtForeignToplevelListV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(ExtForeignToplevelListV1 {
             id,
             client: client.clone(),
@@ -84,7 +83,7 @@ impl ExtForeignToplevelListV1 {
 }
 
 impl ExtForeignToplevelListV1RequestHandler for ExtForeignToplevelListV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn stop(&self, _req: Stop, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();

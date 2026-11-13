@@ -8,7 +8,6 @@ use crate::object::Version;
 use crate::wire::ZwpPointerGesturePinchV1Id;
 use crate::wire::zwp_pointer_gesture_pinch_v1::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -65,7 +64,7 @@ impl ZwpPointerGesturePinchV1 {
 }
 
 impl ZwpPointerGesturePinchV1RequestHandler for ZwpPointerGesturePinchV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();

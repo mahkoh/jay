@@ -9,7 +9,6 @@ use crate::wire::ZxdgDecorationManagerV1Id;
 use crate::wire::zxdg_decoration_manager_v1::*;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -27,7 +26,7 @@ impl ZxdgDecorationManagerV1Global {
         id: ZxdgDecorationManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(ZxdgDecorationManagerV1 {
             id,
             client: client.clone(),

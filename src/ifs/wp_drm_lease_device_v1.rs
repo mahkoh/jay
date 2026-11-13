@@ -21,7 +21,6 @@ use jay_algorithms::oserror::OsErrorExt2;
 use jay_proc::Global;
 use jay_proc::Object;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::OwnedFd;
@@ -42,7 +41,7 @@ impl WpDrmLeaseDeviceV1Global {
         id: WpDrmLeaseDeviceV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(WpDrmLeaseDeviceV1 {
             id,
             client: client.clone(),
@@ -151,7 +150,7 @@ impl WpDrmLeaseDeviceV1 {
 }
 
 impl WpDrmLeaseDeviceV1RequestHandler for WpDrmLeaseDeviceV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn create_lease_request(
         &self,

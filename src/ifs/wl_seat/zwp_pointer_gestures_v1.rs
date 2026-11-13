@@ -11,7 +11,6 @@ use crate::wire::ZwpPointerGesturesV1Id;
 use crate::wire::zwp_pointer_gestures_v1::*;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -37,7 +36,7 @@ impl ZwpPointerGesturesV1Global {
         id: ZwpPointerGesturesV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(ZwpPointerGesturesV1 {
             id,
             client: client.clone(),

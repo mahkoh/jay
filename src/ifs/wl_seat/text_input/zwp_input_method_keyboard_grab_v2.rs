@@ -13,7 +13,6 @@ use crate::wire::ZwpInputMethodKeyboardGrabV2Id;
 use crate::wire::zwp_input_method_keyboard_grab_v2::*;
 use jay_proc::Object;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -122,7 +121,7 @@ impl InputMethodKeyboardGrab for ZwpInputMethodKeyboardGrabV2 {
 }
 
 impl ZwpInputMethodKeyboardGrabV2RequestHandler for ZwpInputMethodKeyboardGrabV2 {
-    type Error = Infallible;
+    type Error = !;
 
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();

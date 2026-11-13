@@ -13,7 +13,6 @@ use crate::wire::zwp_virtual_keyboard_manager_v1::*;
 use jay_proc::Global;
 use jay_proc::Object;
 use std::cell::RefCell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -39,7 +38,7 @@ impl ZwpVirtualKeyboardManagerV1Global {
         id: ZwpVirtualKeyboardManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(ZwpVirtualKeyboardManagerV1 {
             id,
             client: client.clone(),

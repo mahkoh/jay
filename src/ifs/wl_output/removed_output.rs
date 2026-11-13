@@ -8,7 +8,6 @@ use crate::ifs::wl_output::WlOutputGlobal;
 use crate::object::Version;
 use crate::wire::WlOutputId;
 use jay_proc::Global;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -23,7 +22,7 @@ impl RemovedOutputGlobal {
         id: WlOutputId,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(WlOutput {
             global: Default::default(),
             id,

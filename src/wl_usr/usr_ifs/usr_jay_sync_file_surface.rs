@@ -5,7 +5,6 @@ use crate::wire::jay_sync_file_surface::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_ifs::usr_jay_sync_file_release::UsrJaySyncFileRelease;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrJaySyncFileSurface {
@@ -46,7 +45,7 @@ impl UsrJaySyncFileSurface {
 }
 
 impl JaySyncFileSurfaceEventHandler for UsrJaySyncFileSurface {
-    type Error = Infallible;
+    type Error = !;
 }
 
 usr_object_base! {

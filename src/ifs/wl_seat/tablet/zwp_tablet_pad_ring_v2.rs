@@ -9,7 +9,6 @@ use crate::object::Version;
 use crate::wire::ZwpTabletPadRingV2Id;
 use crate::wire::zwp_tablet_pad_ring_v2::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -57,7 +56,7 @@ impl ZwpTabletPadRingV2 {
 }
 
 impl ZwpTabletPadRingV2RequestHandler for ZwpTabletPadRingV2 {
-    type Error = Infallible;
+    type Error = !;
 
     fn set_feedback(&self, _req: SetFeedback<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())

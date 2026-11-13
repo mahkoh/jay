@@ -4,7 +4,6 @@ use crate::wire::JayPointerId;
 use crate::wire::jay_pointer::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrJayPointer {
@@ -23,7 +22,7 @@ impl UsrJayPointer {
 }
 
 impl JayPointerEventHandler for UsrJayPointer {
-    type Error = Infallible;
+    type Error = !;
 }
 
 usr_object_base! {

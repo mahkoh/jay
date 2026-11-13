@@ -8,7 +8,6 @@ use crate::toml::toml_span::SpannedExt;
 use crate::toml::toml_value::Value;
 use bstr::BStr;
 use bstr::ByteSlice;
-use std::convert::Infallible;
 use std::os::unix::ffi::OsStrExt;
 use std::panic::AssertUnwindSafe;
 use std::panic::catch_unwind;
@@ -124,7 +123,7 @@ impl<'a> ErrorHandler for NoErrorHandler<'a> {
             SpannedError {
                 input: self.1.into(),
                 span: prev,
-                cause: None::<Infallible>,
+                cause: None::<!>,
             }
         );
     }

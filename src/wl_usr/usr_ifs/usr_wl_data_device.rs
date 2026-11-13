@@ -6,7 +6,6 @@ use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_ifs::usr_wl_data_offer::UsrWlDataOffer;
 use crate::wl_usr::usr_ifs::usr_wl_data_source::UsrWlDataSource;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrWlDataDevice {
@@ -28,7 +27,7 @@ impl UsrWlDataDevice {
 }
 
 impl WlDataDeviceEventHandler for UsrWlDataDevice {
-    type Error = Infallible;
+    type Error = !;
 
     fn data_offer(&self, ev: DataOffer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let obj = Rc::new(UsrWlDataOffer {

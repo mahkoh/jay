@@ -7,7 +7,6 @@ use crate::tree::TreeTimeline::LiveTL;
 use crate::wire::ZwpIdleInhibitorV1Id;
 use crate::wire::zwp_idle_inhibitor_v1::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 linear_ids!(IdleInhibitorIds, IdleInhibitorId, u64);
@@ -24,7 +23,7 @@ pub struct ZwpIdleInhibitorV1 {
 }
 
 impl ZwpIdleInhibitorV1RequestHandler for ZwpIdleInhibitorV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);

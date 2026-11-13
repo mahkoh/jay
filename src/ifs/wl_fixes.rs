@@ -8,7 +8,6 @@ use crate::wire::WlFixesId;
 use crate::wire::wl_fixes::*;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -26,7 +25,7 @@ impl WlFixesGlobal {
         id: WlFixesId,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let mgr = Rc::new(WlFixes {
             id,
             client: client.clone(),

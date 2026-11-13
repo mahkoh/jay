@@ -17,7 +17,6 @@ use crate::wire::zwlr_foreign_toplevel_manager_v1::*;
 use jay_proc::Global;
 use jay_proc::Object;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -35,7 +34,7 @@ impl ZwlrForeignToplevelManagerV1Global {
         id: ZwlrForeignToplevelManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(ZwlrForeignToplevelManagerV1 {
             id,
             client: client.clone(),
@@ -85,7 +84,7 @@ impl ZwlrForeignToplevelManagerV1 {
 }
 
 impl ZwlrForeignToplevelManagerV1RequestHandler for ZwlrForeignToplevelManagerV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn stop(&self, _req: Stop, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();

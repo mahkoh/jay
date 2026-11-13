@@ -5,7 +5,6 @@ use crate::wire::JayKeymapBuilderId;
 use crate::wire::jay_keymap_builder::*;
 use jay_proc::Object;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 use uapi::OwnedFd;
 
@@ -34,7 +33,7 @@ pub enum MapKind {
 }
 
 impl JayKeymapBuilderRequestHandler for JayKeymapBuilder {
-    type Error = Infallible;
+    type Error = !;
 
     fn set_map(&self, req: SetMap, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.kind.set(Some(MapKind::Map {

@@ -17,7 +17,6 @@ use crate::wire::ZwpTabletSeatV2Id;
 use crate::wire::zwp_tablet_seat_v2::*;
 use jay_proc::Object;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 const BUSTYPE_SINCE: Version = Version(2);
@@ -198,7 +197,7 @@ impl ZwpTabletSeatV2 {
 }
 
 impl ZwpTabletSeatV2RequestHandler for ZwpTabletSeatV2 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();

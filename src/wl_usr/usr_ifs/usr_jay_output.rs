@@ -4,7 +4,6 @@ use crate::wire::JayOutputId;
 use crate::wire::jay_output::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrJayOutput {
@@ -23,7 +22,7 @@ pub trait UsrJayOutputOwner {
 }
 
 impl JayOutputEventHandler for UsrJayOutput {
-    type Error = Infallible;
+    type Error = !;
 
     fn linear_id(&self, ev: LinearId, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {

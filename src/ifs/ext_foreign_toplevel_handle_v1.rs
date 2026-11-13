@@ -6,7 +6,6 @@ use crate::tree::ToplevelOpt;
 use crate::wire::ExtForeignToplevelHandleV1Id;
 use crate::wire::ext_foreign_toplevel_handle_v1::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -28,7 +27,7 @@ impl ExtForeignToplevelHandleV1 {
 }
 
 impl ExtForeignToplevelHandleV1RequestHandler for ExtForeignToplevelHandleV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();

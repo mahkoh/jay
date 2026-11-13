@@ -27,7 +27,6 @@ use isnt::std_1::string::IsntStringExt;
 use jay_proc::Global;
 use jay_proc::Object;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 use std::slice;
 
@@ -71,7 +70,7 @@ impl ZwlrOutputManagerV1Global {
         id: ZwlrOutputManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(ZwlrOutputManagerV1 {
             id,
             manager_id: client.state.wlr_output_managers.ids.next(),
@@ -97,7 +96,7 @@ impl ZwlrOutputManagerV1Global {
 }
 
 impl ZwlrOutputManagerV1RequestHandler for ZwlrOutputManagerV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn create_configuration(
         &self,

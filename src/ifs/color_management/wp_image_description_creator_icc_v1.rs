@@ -6,7 +6,6 @@ use crate::wire::wp_image_description_creator_icc_v1::Create;
 use crate::wire::wp_image_description_creator_icc_v1::SetIccFile;
 use crate::wire::wp_image_description_creator_icc_v1::WpImageDescriptionCreatorIccV1RequestHandler;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[expect(unused)]
@@ -19,7 +18,7 @@ pub struct WpImageDescriptionCreatorIccV1 {
 }
 
 impl WpImageDescriptionCreatorIccV1RequestHandler for WpImageDescriptionCreatorIccV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn create(&self, _req: Create, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         unreachable!()

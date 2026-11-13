@@ -9,7 +9,6 @@ use crate::utils::clonecell::CloneCell;
 use crate::wire::JayWorkspaceId;
 use crate::wire::jay_workspace::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -76,7 +75,7 @@ impl JayWorkspace {
 }
 
 impl JayWorkspaceRequestHandler for JayWorkspace {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.remove_from_node();

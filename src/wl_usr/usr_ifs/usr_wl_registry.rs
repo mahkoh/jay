@@ -5,7 +5,6 @@ use crate::wire::WlRegistryId;
 use crate::wire::wl_registry::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrWlRegistry {
@@ -40,7 +39,7 @@ impl UsrWlRegistry {
 }
 
 impl WlRegistryEventHandler for UsrWlRegistry {
-    type Error = Infallible;
+    type Error = !;
 
     fn global(&self, ev: Global<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {

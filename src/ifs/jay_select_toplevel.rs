@@ -13,7 +13,6 @@ use crate::wire::JayToplevelId;
 use crate::wire::jay_select_toplevel::*;
 use jay_proc::Object;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -104,7 +103,7 @@ impl JaySelectToplevel {
 }
 
 impl JaySelectToplevelRequestHandler for JaySelectToplevel {
-    type Error = Infallible;
+    type Error = !;
 }
 
 impl BreakLoops for JaySelectToplevel {
