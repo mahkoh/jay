@@ -36,7 +36,8 @@ where
 
     #[cfg_attr(not(test), expect(unused))]
     pub fn get_or_create(&self, init: impl FnOnce() -> Rc<T>) -> Rc<T> {
-        self.get_or_try_create::<!>(|| Ok(init())).unwrap()
+        let Ok(v) = self.get_or_try_create::<!>(|| Ok(init()));
+        v
     }
 
     pub fn get_or_try_create<E>(
