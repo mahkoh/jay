@@ -54,6 +54,13 @@ unsafe extern "C" {
     pub fn libinput_dispatch(libinput: *mut libinput) -> c::c_int;
     pub fn libinput_get_event(libinput: *mut libinput) -> *mut libinput_event;
 
+    pub fn libinput_plugin_system_append_path(libinput: *mut libinput, path: *const c::c_char);
+    pub fn libinput_plugin_system_append_default_paths(libinput: *mut libinput);
+    pub fn libinput_plugin_system_load_plugins(
+        libinput: *mut libinput,
+        flags: libinput_plugin_system_flags,
+    ) -> c::c_int;
+
     pub fn libinput_device_set_user_data(device: *mut libinput_device, user_data: *mut c::c_void);
     pub fn libinput_device_get_user_data(device: *mut libinput_device) -> *mut c::c_void;
     pub fn libinput_device_ref(device: *mut libinput_device) -> *mut libinput_device;

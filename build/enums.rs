@@ -155,6 +155,11 @@ pub fn main() -> anyhow::Result<()> {
         libinput::LIBINPUT_CONFIG_SCROLL_BUTTON_LOCK_STATE,
         "libinput_config_scroll_button_lock_state",
     )?;
+    write_ty(
+        &mut f,
+        libinput::LIBINPUT_PLUGIN_SYSTEM_FLAGS,
+        "libinput_plugin_system_flags",
+    )?;
 
     let mut f = open("pango_tys.rs")?;
     write_ty(&mut f, pango::CAIRO_FORMATS, "cairo_format_t")?;
