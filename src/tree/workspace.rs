@@ -667,14 +667,17 @@ pub struct WsMoveConfig {
     pub before: Option<Rc<WorkspaceNode>>,
 }
 
-pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config: WsMoveConfig) {
+pub fn move_ws_to_output(
+    ws: &Rc<WorkspaceNode>,
+    target: &Rc<OutputNode>,
+    config: WsMoveConfig,
+) -> bool {
     if ws.ty == WorkspaceType::Overlay {
-        target.show_workspace(&ws);
-        return;
+        return target.show_workspace(&ws);
     }
     let ns = &ws.node_state[LiveTL];
     if ns.output_link.is_none() {
-        return;
+        return false;
     }
     let source = ns.output.get();
     let sns = &source.node_state[LiveTL];
@@ -751,6 +754,7 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
     if target.node_visible(LiveTL) {
         target.schedule_damage();
     }
+    true
 }
 
 pub struct WorkspaceDragDestination {
