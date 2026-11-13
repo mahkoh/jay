@@ -40,7 +40,8 @@
     clippy::obfuscated_if_else,
     clippy::manual_div_ceil,
     clippy::needless_late_init,
-    clippy::manual_range_contains
+    clippy::manual_range_contains,
+    clippy::needless_bool
 )]
 #![warn(
     unsafe_op_in_unsafe_fn, //

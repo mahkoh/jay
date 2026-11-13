@@ -51,6 +51,7 @@ pub fn derive_global(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
                 id: crate::wire::ObjectId,
                 version: crate::object::Version,
             ) -> Result<(), crate::globals::GlobalsError> {
+                #[allow(unreachable_code)]
                 if let Err(e) = self.bind_(id.into(), client, version) {
                     let e = crate::globals::GlobalError {
                         interface: crate::wire::#interface,
