@@ -116,6 +116,7 @@ pub fn take_screenshot(
         true,
         false,
         false,
+        None,
         Transform::None,
         None,
         &blend_cd,

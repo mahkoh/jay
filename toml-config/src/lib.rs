@@ -84,6 +84,7 @@ use jay_config::set_explicit_sync_enabled;
 use jay_config::set_float_above_fullscreen;
 use jay_config::set_idle;
 use jay_config::set_idle_grace_period;
+use jay_config::set_idle_grace_period_fade;
 use jay_config::set_middle_click_paste_enabled;
 use jay_config::set_session_management_enabled;
 use jay_config::set_show_bar;
@@ -509,12 +510,19 @@ impl Action {
                     }
                 })
             }
-            Action::ConfigureIdle { idle, grace_period } => b.new(move || {
+            Action::ConfigureIdle {
+                idle,
+                grace_period,
+                grace_period_fade,
+            } => b.new(move || {
                 if let Some(idle) = idle {
                     set_idle(Some(idle))
                 }
                 if let Some(period) = grace_period {
                     set_idle_grace_period(period)
+                }
+                if let Some(fade) = grace_period_fade {
+                    set_idle_grace_period_fade(fade)
                 }
             }),
             Action::MoveToOutput {
@@ -1847,6 +1855,9 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
         }
         if let Some(period) = config.grace_period {
             set_idle_grace_period(period);
+        }
+        if let Some(fade) = config.grace_period_fade {
+            set_idle_grace_period_fade(fade);
         }
     }
     on_devices_enumerated({
