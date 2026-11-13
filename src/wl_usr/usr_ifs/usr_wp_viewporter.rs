@@ -5,7 +5,6 @@ use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_ifs::usr_wl_surface::UsrWlSurface;
 use crate::wl_usr::usr_ifs::usr_wp_viewport::UsrWpViewport;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrWpViewporter {
@@ -32,7 +31,7 @@ impl UsrWpViewporter {
 }
 
 impl WpViewporterEventHandler for UsrWpViewporter {
-    type Error = Infallible;
+    type Error = !;
 }
 
 usr_object_base! {

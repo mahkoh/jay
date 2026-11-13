@@ -5,7 +5,6 @@ use crate::wire::XdgToplevelId;
 use crate::wire::xdg_toplevel::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrXdgToplevel {
@@ -52,7 +51,7 @@ pub trait UsrXdgToplevelOwner {
 impl UsrXdgToplevel {}
 
 impl XdgToplevelEventHandler for UsrXdgToplevel {
-    type Error = Infallible;
+    type Error = !;
 
     fn configure(&self, ev: Configure<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {

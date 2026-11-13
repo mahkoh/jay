@@ -8,7 +8,6 @@ use crate::wire::jay_ei_session::JayEiSessionEventHandler;
 use crate::wire::jay_ei_session::Release;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 use uapi::OwnedFd;
 
@@ -32,7 +31,7 @@ pub trait UsrJayEiSessionOwner {
 }
 
 impl JayEiSessionEventHandler for UsrJayEiSession {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroyed(&self, _ev: Destroyed, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {

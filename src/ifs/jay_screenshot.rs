@@ -6,7 +6,6 @@ use crate::video::dmabuf::DmaBufPlane;
 use crate::wire::JayScreenshotId;
 use crate::wire::jay_screenshot::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 use uapi::OwnedFd;
 
@@ -85,5 +84,5 @@ impl JayScreenshot {
 }
 
 impl JayScreenshotRequestHandler for JayScreenshot {
-    type Error = Infallible;
+    type Error = !;
 }

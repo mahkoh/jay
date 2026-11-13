@@ -5,7 +5,6 @@ use crate::video::drm::syncobj::Syncobj;
 use crate::wire::WpLinuxDrmSyncobjTimelineV1Id;
 use crate::wire::wp_linux_drm_syncobj_timeline_v1::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -35,7 +34,7 @@ impl WpLinuxDrmSyncobjTimelineV1 {
 }
 
 impl WpLinuxDrmSyncobjTimelineV1RequestHandler for WpLinuxDrmSyncobjTimelineV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _destroy: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);

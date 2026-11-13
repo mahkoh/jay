@@ -9,7 +9,6 @@ use crate::wire::ObjectId;
 use crate::wire::WlDisplayId;
 use crate::wire::wl_display::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 const INVALID_OBJECT: u32 = 0;
@@ -38,7 +37,7 @@ impl WlDisplay {
 }
 
 impl WlDisplayRequestHandler for WlDisplay {
-    type Error = Infallible;
+    type Error = !;
 
     fn sync(&self, req: Sync, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let cb = Rc::new(WlCallback::new(req.callback, &self.client));

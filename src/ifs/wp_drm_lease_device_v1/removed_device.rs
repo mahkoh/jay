@@ -12,7 +12,6 @@ use crate::utils::bindings::Bindings;
 use crate::wire::WpDrmLeaseDeviceV1Id;
 use jay_proc::Global;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -28,7 +27,7 @@ impl RemovedWpDrmLeaseDeviceV1Global {
         id: WpDrmLeaseDeviceV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let dev = Rc::new(WpDrmLeaseDeviceV1 {
             id,
             client: client.clone(),

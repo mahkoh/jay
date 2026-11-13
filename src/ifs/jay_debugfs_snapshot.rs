@@ -4,7 +4,6 @@ use crate::object::Version;
 use crate::wire::JayDebugfsSnapshotId;
 use crate::wire::jay_debugfs_snapshot::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 use uapi::OwnedFd;
 
@@ -33,7 +32,7 @@ impl JayDebugfsSnapshot {
 }
 
 impl JayDebugfsSnapshotRequestHandler for JayDebugfsSnapshot {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);

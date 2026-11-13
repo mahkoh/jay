@@ -5,7 +5,6 @@ use crate::utils::errorfmt::ErrorFmt;
 use crate::wire::JayOpenControlCenterRequestId;
 use crate::wire::jay_open_control_center_request::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::error::Error;
 use std::rc::Rc;
 
@@ -28,7 +27,7 @@ impl JayOpenControlCenterRequest {
 }
 
 impl JayOpenControlCenterRequestRequestHandler for JayOpenControlCenterRequest {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);

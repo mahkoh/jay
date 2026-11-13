@@ -41,7 +41,6 @@ use jay_proc::Object;
 use linearize::Linearize;
 use std::cell::Cell;
 use std::cell::RefCell;
-use std::convert::Infallible;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::rc::Rc;
@@ -302,7 +301,7 @@ impl WlOutputGlobal {
         id: WlOutputId,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(WlOutput {
             global: self.opt.clone(),
             id,
@@ -485,7 +484,7 @@ impl WlOutput {
 }
 
 impl WlOutputRequestHandler for WlOutput {
-    type Error = Infallible;
+    type Error = !;
 
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.xdg_outputs.clear();

@@ -10,7 +10,6 @@ use crate::wire::WlDataDeviceManagerId;
 use crate::wire::wl_data_device_manager::*;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub(super) const DND_NONE: u32 = 0;
@@ -45,7 +44,7 @@ impl WlDataDeviceManagerGlobal {
         id: WlDataDeviceManagerId,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(WlDataDeviceManager {
             id,
             client: client.clone(),

@@ -12,7 +12,6 @@ use crate::wire::ZwpTabletPadV2Id;
 use crate::wire::zwp_tablet_pad_v2::*;
 use jay_proc::Object;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -94,7 +93,7 @@ impl ZwpTabletPadV2 {
 }
 
 impl ZwpTabletPadV2RequestHandler for ZwpTabletPadV2 {
-    type Error = Infallible;
+    type Error = !;
 
     fn set_feedback(&self, _req: SetFeedback<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())

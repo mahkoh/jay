@@ -8,7 +8,6 @@ use crate::wire::WpSecurityContextManagerV1Id;
 use crate::wire::wp_security_context_manager_v1::*;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -26,7 +25,7 @@ impl WpSecurityContextManagerV1Global {
         id: WpSecurityContextManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(WpSecurityContextManagerV1 {
             id,
             client: client.clone(),
@@ -54,7 +53,7 @@ pub struct WpSecurityContextManagerV1 {
 }
 
 impl WpSecurityContextManagerV1RequestHandler for WpSecurityContextManagerV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);

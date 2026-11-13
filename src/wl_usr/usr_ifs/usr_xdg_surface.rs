@@ -5,7 +5,6 @@ use crate::wire::xdg_surface::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_ifs::usr_xdg_toplevel::UsrXdgToplevel;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrXdgSurface {
@@ -39,7 +38,7 @@ impl UsrXdgSurface {
 }
 
 impl XdgSurfaceEventHandler for UsrXdgSurface {
-    type Error = Infallible;
+    type Error = !;
 
     fn configure(&self, ev: Configure, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.con.request(AckConfigure {

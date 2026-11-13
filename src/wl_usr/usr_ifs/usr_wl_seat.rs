@@ -7,7 +7,6 @@ use crate::wl_usr::usr_ifs::usr_wl_keyboard::UsrWlKeyboard;
 use crate::wl_usr::usr_ifs::usr_wl_pointer::UsrWlPointer;
 use crate::wl_usr::usr_object::UsrObject;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrWlSeat {
@@ -63,7 +62,7 @@ impl UsrWlSeat {
 }
 
 impl WlSeatEventHandler for UsrWlSeat {
-    type Error = Infallible;
+    type Error = !;
 
     fn capabilities(&self, ev: Capabilities, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {

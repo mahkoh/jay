@@ -8,7 +8,6 @@ use crate::utils::bindings::Bindings;
 use crate::wire::WpDrmLeaseConnectorV1Id;
 use crate::wire::wp_drm_lease_connector_v1::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -60,7 +59,7 @@ impl WpDrmLeaseConnectorV1 {
 }
 
 impl WpDrmLeaseConnectorV1RequestHandler for WpDrmLeaseConnectorV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();

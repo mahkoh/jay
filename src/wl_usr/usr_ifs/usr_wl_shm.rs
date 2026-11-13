@@ -7,7 +7,6 @@ use crate::wire::wl_shm::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_ifs::usr_wl_shm_pool::UsrWlShmPool;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 use uapi::OwnedFd;
 
@@ -38,7 +37,7 @@ impl UsrWlShm {
 }
 
 impl WlShmEventHandler for UsrWlShm {
-    type Error = Infallible;
+    type Error = !;
 
     fn format(&self, ev: Format, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let format = map_wayland_format_id(ev.format);

@@ -10,7 +10,6 @@ use crate::wire::WpColorManagementSurfaceFeedbackV1Id;
 use crate::wire::WpImageDescriptionV1Id;
 use crate::wire::wp_color_management_surface_feedback_v1::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -57,7 +56,7 @@ impl WpColorManagementSurfaceFeedbackV1 {
 }
 
 impl WpColorManagementSurfaceFeedbackV1RequestHandler for WpColorManagementSurfaceFeedbackV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);

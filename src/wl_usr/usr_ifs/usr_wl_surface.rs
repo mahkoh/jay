@@ -5,7 +5,6 @@ use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_ifs::usr_wl_buffer::UsrWlBuffer;
 use crate::wl_usr::usr_ifs::usr_wl_callback::UsrWlCallback;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrWlSurface {
@@ -50,7 +49,7 @@ impl UsrWlSurface {
 }
 
 impl WlSurfaceEventHandler for UsrWlSurface {
-    type Error = Infallible;
+    type Error = !;
 
     fn enter(&self, _ev: Enter, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())

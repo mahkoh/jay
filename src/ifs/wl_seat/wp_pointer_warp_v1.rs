@@ -13,7 +13,6 @@ use crate::wire::wp_pointer_warp_v1::WarpPointer;
 use crate::wire::wp_pointer_warp_v1::WpPointerWarpV1RequestHandler;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -31,7 +30,7 @@ impl WpPointerWarpV1Global {
         id: WpPointerWarpV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(WpPointerWarpV1 {
             id,
             client: client.clone(),

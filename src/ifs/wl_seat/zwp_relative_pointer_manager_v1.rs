@@ -9,7 +9,6 @@ use crate::wire::ZwpRelativePointerManagerV1Id;
 use crate::wire::zwp_relative_pointer_manager_v1::*;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -35,7 +34,7 @@ impl ZwpRelativePointerManagerV1Global {
         id: ZwpRelativePointerManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(ZwpRelativePointerManagerV1 {
             id,
             client: client.clone(),

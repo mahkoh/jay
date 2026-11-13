@@ -9,7 +9,6 @@ use crate::wire::JayClientTraceId;
 use crate::wire::JayGlobalTracerId;
 use crate::wire::jay_global_tracer::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Default)]
@@ -106,7 +105,7 @@ impl JayGlobalTracer {
 }
 
 impl JayGlobalTracerRequestHandler for JayGlobalTracer {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();

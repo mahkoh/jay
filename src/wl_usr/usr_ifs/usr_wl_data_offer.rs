@@ -5,7 +5,6 @@ use crate::wire::wl_data_offer::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
 use std::cell::RefCell;
-use std::convert::Infallible;
 use std::rc::Rc;
 use uapi::OwnedFd;
 
@@ -27,7 +26,7 @@ impl UsrWlDataOffer {
 }
 
 impl WlDataOfferEventHandler for UsrWlDataOffer {
-    type Error = Infallible;
+    type Error = !;
 
     fn offer(&self, ev: Offer<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.mime_types

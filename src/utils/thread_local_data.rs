@@ -3,7 +3,6 @@ use crate::utils::stack::Stack;
 use crate::utils::thread_id::ThreadId;
 use isnt::std_1::primitive::IsntConstPtrExt;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[cfg(test)]
@@ -37,7 +36,7 @@ where
 
     #[cfg_attr(not(test), expect(unused))]
     pub fn get_or_create(&self, init: impl FnOnce() -> Rc<T>) -> Rc<T> {
-        self.get_or_try_create::<Infallible>(|| Ok(init())).unwrap()
+        self.get_or_try_create::<!>(|| Ok(init())).unwrap()
     }
 
     pub fn get_or_try_create<E>(

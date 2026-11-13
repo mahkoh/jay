@@ -5,7 +5,6 @@ use crate::utils::errorfmt::ErrorFmt;
 use crate::wire::JayAcceptorRequestId;
 use crate::wire::jay_acceptor_request::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::error::Error;
 use std::rc::Rc;
 
@@ -35,7 +34,7 @@ impl JayAcceptorRequest {
 }
 
 impl JayAcceptorRequestRequestHandler for JayAcceptorRequest {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);

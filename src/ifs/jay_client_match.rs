@@ -5,7 +5,6 @@ use crate::object::Version;
 use crate::wire::JayClientMatchId;
 use crate::wire::jay_client_match::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -18,7 +17,7 @@ pub struct JayClientMatch {
 }
 
 impl JayClientMatchRequestHandler for JayClientMatch {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);

@@ -5,7 +5,6 @@ use crate::wire::wl_compositor::WlCompositorEventHandler;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_ifs::usr_wl_surface::UsrWlSurface;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrWlCompositor {
@@ -31,7 +30,7 @@ impl UsrWlCompositor {
 }
 
 impl WlCompositorEventHandler for UsrWlCompositor {
-    type Error = Infallible;
+    type Error = !;
 }
 
 usr_object_base! {

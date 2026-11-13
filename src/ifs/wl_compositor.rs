@@ -10,7 +10,6 @@ use crate::wire::wl_compositor::*;
 use crate::xwayland::XWaylandEvent;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub const WL_COMPOSITOR_VERSION: u32 = 7;
@@ -38,7 +37,7 @@ impl WlCompositorGlobal {
         id: WlCompositorId,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(WlCompositor {
             id,
             client: client.clone(),
@@ -52,7 +51,7 @@ impl WlCompositorGlobal {
 }
 
 impl WlCompositorRequestHandler for WlCompositor {
-    type Error = Infallible;
+    type Error = !;
 
     fn create_surface(&self, req: CreateSurface, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let surface = Rc::new_cyclic(|slf| WlSurface::new(req.id, &self.client, self.version, slf));

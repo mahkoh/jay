@@ -5,7 +5,6 @@ use crate::object::Version;
 use crate::wire::JayIconSurfaceSubjectV1Id;
 use crate::wire::jay_icon_surface_subject_v1::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -23,7 +22,7 @@ pub trait JayIconSurfaceSubject {
 }
 
 impl JayIconSurfaceSubjectV1RequestHandler for JayIconSurfaceSubjectV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);

@@ -7,7 +7,6 @@ use crate::object::Version;
 use crate::wire::ZwpTabletV2Id;
 use crate::wire::zwp_tablet_v2::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -65,7 +64,7 @@ impl ZwpTabletV2 {
 }
 
 impl ZwpTabletV2RequestHandler for ZwpTabletV2 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();

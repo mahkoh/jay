@@ -11,7 +11,6 @@ use crate::wire::xdg_toplevel_icon_manager_v1::*;
 use jay_proc::Global;
 use jay_proc::Object;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -29,7 +28,7 @@ impl XdgToplevelIconManagerV1Global {
         id: XdgToplevelIconManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(XdgToplevelIconManagerV1 {
             id,
             client: client.clone(),

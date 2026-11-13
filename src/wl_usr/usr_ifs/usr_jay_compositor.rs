@@ -18,7 +18,6 @@ use crate::wl_usr::usr_ifs::usr_wl_seat::UsrWlSeat;
 use crate::wl_usr::usr_ifs::usr_wl_surface::UsrWlSurface;
 use crate::wl_usr::usr_object::UsrObject;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrJayCompositor {
@@ -205,7 +204,7 @@ impl UsrJayCompositor {
 }
 
 impl JayCompositorEventHandler for UsrJayCompositor {
-    type Error = Infallible;
+    type Error = !;
 
     fn client_id(&self, ev: ClientId, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {

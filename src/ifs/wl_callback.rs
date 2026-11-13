@@ -4,7 +4,6 @@ use crate::object::Version;
 use crate::wire::WlCallbackId;
 use crate::wire::wl_callback::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -34,5 +33,5 @@ impl WlCallback {
 }
 
 impl WlCallbackRequestHandler for WlCallback {
-    type Error = Infallible;
+    type Error = !;
 }

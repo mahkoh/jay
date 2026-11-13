@@ -7,7 +7,6 @@ use crate::tree::TreeTimeline::LiveTL;
 use crate::wire::ZxdgOutputV1Id;
 use crate::wire::zxdg_output_v1::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub const NAME_SINCE: Version = Version(2);
@@ -87,7 +86,7 @@ impl ZxdgOutputV1 {
 }
 
 impl ZxdgOutputV1RequestHandler for ZxdgOutputV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.output.xdg_outputs.remove(&self.id);

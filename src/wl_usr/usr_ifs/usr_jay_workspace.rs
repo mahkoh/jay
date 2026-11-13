@@ -7,7 +7,6 @@ use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
 use std::cell::Cell;
 use std::cell::RefCell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrJayWorkspace {
@@ -39,7 +38,7 @@ pub trait UsrJayWorkspaceOwner {
 }
 
 impl JayWorkspaceEventHandler for UsrJayWorkspace {
-    type Error = Infallible;
+    type Error = !;
 
     fn linear_id(&self, ev: LinearId, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.linear_id.set(ev.linear_id);

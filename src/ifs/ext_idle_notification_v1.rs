@@ -9,7 +9,6 @@ use crate::wire::ExtIdleNotificationV1Id;
 use crate::wire::ext_idle_notification_v1::*;
 use jay_proc::Object;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -34,7 +33,7 @@ impl ExtIdleNotificationV1 {
 }
 
 impl ExtIdleNotificationV1RequestHandler for ExtIdleNotificationV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();

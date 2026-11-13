@@ -3,7 +3,6 @@ use crate::wire::WlShmPoolId;
 use crate::wire::wl_shm_pool::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrWlShmPool {
@@ -23,7 +22,7 @@ impl UsrWlShmPool {
 }
 
 impl WlShmPoolEventHandler for UsrWlShmPool {
-    type Error = Infallible;
+    type Error = !;
 }
 
 usr_object_base! {

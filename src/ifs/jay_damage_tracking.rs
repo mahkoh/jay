@@ -16,7 +16,6 @@ use crate::wire::jay_damage_tracking::SetVisualizerDecay;
 use crate::wire::jay_damage_tracking::SetVisualizerEnabled;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -35,7 +34,7 @@ impl JayDamageTrackingGlobal {
         id: JayCompositorId,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(JayDamageTracking {
             id,
             client: client.clone(),
@@ -67,7 +66,7 @@ pub struct JayDamageTracking {
 }
 
 impl JayDamageTrackingRequestHandler for JayDamageTracking {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);

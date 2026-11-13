@@ -8,7 +8,6 @@ use crate::wire::zwp_linux_dmabuf_v1::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_ifs::usr_linux_buffer_params::UsrLinuxBufferParams;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrLinuxDmabuf {
@@ -43,7 +42,7 @@ impl UsrLinuxDmabuf {
 }
 
 impl ZwpLinuxDmabufV1EventHandler for UsrLinuxDmabuf {
-    type Error = Infallible;
+    type Error = !;
 
     fn format(&self, _ev: zwp_linux_dmabuf_v1::Format, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())

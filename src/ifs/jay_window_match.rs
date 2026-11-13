@@ -6,7 +6,6 @@ use crate::tree::ToplevelData;
 use crate::wire::JayWindowMatchId;
 use crate::wire::jay_window_match::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -19,7 +18,7 @@ pub struct JayWindowMatch {
 }
 
 impl JayWindowMatchRequestHandler for JayWindowMatch {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);

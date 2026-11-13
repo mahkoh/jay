@@ -21,7 +21,6 @@ use crate::utils::pipe::pipe;
 use bstr::ByteSlice;
 use jay_algorithms::oserror::OsErrorExt2;
 use std::collections::VecDeque;
-use std::convert::Infallible;
 use std::future::pending;
 use std::mem::ManuallyDrop;
 use std::rc::Rc;
@@ -75,7 +74,7 @@ async fn try_fusermount(
     path: &str,
     holder: &Rc<FuseMountOwnerHolder>,
     root: Weak<dyn FuseInode>,
-) -> Result<Infallible, FuseError> {
+) -> Result<!, FuseError> {
     let inodes = InodeCache::new()?;
     let Some(root) = root.upgrade() else {
         return Err(FuseError::RootInodeDropped);

@@ -6,7 +6,6 @@ use crate::object::Version;
 use crate::wire::ZwpRelativePointerV1Id;
 use crate::wire::zwp_relative_pointer_v1::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -40,7 +39,7 @@ impl ZwpRelativePointerV1 {
 }
 
 impl ZwpRelativePointerV1RequestHandler for ZwpRelativePointerV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.seat.relative_pointers.remove(&self.id);

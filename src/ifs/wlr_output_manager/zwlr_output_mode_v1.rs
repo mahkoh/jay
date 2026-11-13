@@ -7,7 +7,6 @@ use crate::wire::ZwlrOutputModeV1Id;
 use crate::wire::zwlr_output_mode_v1::*;
 use jay_proc::Object;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -57,7 +56,7 @@ impl ZwlrOutputModeV1 {
 }
 
 impl ZwlrOutputModeV1RequestHandler for ZwlrOutputModeV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.destroyed.set(true);

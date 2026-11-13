@@ -12,7 +12,6 @@ use jay_algorithms::oserror::OsErrorExt;
 use jay_proc::Object;
 use std::array::from_mut;
 use std::cell::RefCell;
-use std::convert::Infallible;
 use std::rc::Rc;
 use uapi::OwnedFd;
 use uapi::UstrPtr;
@@ -109,7 +108,7 @@ impl JayReexec {
 }
 
 impl JayReexecRequestHandler for JayReexec {
-    type Error = Infallible;
+    type Error = !;
 
     fn arg(&self, req: Arg<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.args.borrow_mut().push(req.arg.to_owned());

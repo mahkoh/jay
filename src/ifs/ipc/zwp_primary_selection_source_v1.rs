@@ -18,7 +18,6 @@ use crate::object::Version;
 use crate::wire::ZwpPrimarySelectionSourceV1Id;
 use crate::wire::zwp_primary_selection_source_v1::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 use uapi::OwnedFd;
 
@@ -83,7 +82,7 @@ impl ZwpPrimarySelectionSourceV1 {
 }
 
 impl ZwpPrimarySelectionSourceV1RequestHandler for ZwpPrimarySelectionSourceV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn offer(&self, req: Offer<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         add_data_source_mime_type::<PrimarySelectionIpc>(self, req.mime_type);

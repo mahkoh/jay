@@ -8,7 +8,6 @@ use crate::wire::JayDebugfsMountRequestId;
 use crate::wire::jay_debugfs_mount_request::*;
 use jay_proc::Object;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -28,7 +27,7 @@ impl JayDebugfsMountRequest {
 }
 
 impl JayDebugfsMountRequestRequestHandler for JayDebugfsMountRequest {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();

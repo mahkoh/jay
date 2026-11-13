@@ -25,7 +25,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::borrow::Cow;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::io;
 use std::io::Write;
 use std::rc::Rc;
@@ -246,7 +245,7 @@ impl JayClientTrace {
 }
 
 impl JayClientTraceRequestHandler for JayClientTrace {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();

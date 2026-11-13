@@ -5,7 +5,6 @@ use crate::wire::wl_output::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
 use std::cell::RefCell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrWlOutput {
@@ -41,7 +40,7 @@ pub trait UsrWlOutputOwner {
 }
 
 impl WlOutputEventHandler for UsrWlOutput {
-    type Error = Infallible;
+    type Error = !;
 
     fn geometry(&self, ev: Geometry<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {

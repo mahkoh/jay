@@ -11,7 +11,6 @@ use crate::wire::ZwpPrimarySelectionDeviceManagerV1Id;
 use crate::wire::zwp_primary_selection_device_manager_v1::*;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -37,7 +36,7 @@ impl ZwpPrimarySelectionDeviceManagerV1Global {
         id: ZwpPrimarySelectionDeviceManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(ZwpPrimarySelectionDeviceManagerV1 {
             id,
             client: client.clone(),

@@ -10,7 +10,6 @@ use crate::wire::jay_ei_session::Failed;
 use crate::wire::jay_ei_session::JayEiSessionRequestHandler;
 use crate::wire::jay_ei_session::Release;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 use uapi::OwnedFd;
 
@@ -54,7 +53,7 @@ impl JayEiSession {
 }
 
 impl JayEiSessionRequestHandler for JayEiSession {
-    type Error = Infallible;
+    type Error = !;
 
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.kill(false);

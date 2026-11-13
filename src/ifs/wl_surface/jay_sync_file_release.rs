@@ -6,7 +6,6 @@ use crate::wire::JaySyncFileReleaseId;
 use crate::wire::jay_sync_file_release::*;
 use jay_proc::Object;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct SyncFileRelease {
@@ -66,7 +65,7 @@ impl JaySyncFileRelease {
 }
 
 impl JaySyncFileReleaseRequestHandler for JaySyncFileRelease {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.destroyed.set(true);

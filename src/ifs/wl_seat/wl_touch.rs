@@ -6,7 +6,6 @@ use crate::wire::WlSurfaceId;
 use crate::wire::WlTouchId;
 use crate::wire::wl_touch::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[expect(unused)]
@@ -102,7 +101,7 @@ impl WlTouch {
 }
 
 impl WlTouchRequestHandler for WlTouch {
-    type Error = Infallible;
+    type Error = !;
 
     fn release(&self, _req: Release, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.seat.touches.remove(&self.id);

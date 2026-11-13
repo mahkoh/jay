@@ -13,7 +13,6 @@ use crate::wire::ZwpLinuxDmabufV1Id;
 use crate::wire::zwp_linux_dmabuf_v1::*;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -31,7 +30,7 @@ impl ZwpLinuxDmabufV1Global {
         id: ZwpLinuxDmabufV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(ZwpLinuxDmabufV1 {
             id,
             client: client.clone(),

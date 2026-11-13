@@ -5,7 +5,6 @@ use crate::object::Version;
 use crate::wire::WpImageDescriptionReferenceV1Id;
 use crate::wire::wp_image_description_reference_v1::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -18,7 +17,7 @@ pub struct WpImageDescriptionReferenceV1 {
 }
 
 impl WpImageDescriptionReferenceV1RequestHandler for WpImageDescriptionReferenceV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);

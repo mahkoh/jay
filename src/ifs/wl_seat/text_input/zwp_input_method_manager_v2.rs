@@ -11,7 +11,6 @@ use crate::wire::ZwpInputMethodManagerV2Id;
 use crate::wire::zwp_input_method_manager_v2::*;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -37,7 +36,7 @@ impl ZwpInputMethodManagerV2Global {
         id: ZwpInputMethodManagerV2Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(ZwpInputMethodManagerV2 {
             id,
             client: client.clone(),

@@ -6,7 +6,6 @@ use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_ifs::usr_wl_buffer::UsrWlBuffer;
 use crate::wl_usr::usr_ifs::usr_zwp_linux_buffer_params_v1::UsrZwpLinuxBufferParamsV1;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrZwpLinuxDmabufV1 {
@@ -37,7 +36,7 @@ impl UsrZwpLinuxDmabufV1 {
 }
 
 impl ZwpLinuxDmabufV1EventHandler for UsrZwpLinuxDmabufV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn format(&self, _ev: Format, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())

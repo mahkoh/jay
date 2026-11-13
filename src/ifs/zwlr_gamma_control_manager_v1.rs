@@ -11,7 +11,6 @@ use crate::wire::ZwlrGammaControlManagerV1Id;
 use crate::wire::zwlr_gamma_control_manager_v1::*;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -29,7 +28,7 @@ impl ZwlrGammaControlManagerV1Global {
         id: ZwlrGammaControlManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(ZwlrGammaControlManagerV1 {
             id,
             client: client.clone(),

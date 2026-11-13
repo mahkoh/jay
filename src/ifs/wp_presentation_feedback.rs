@@ -14,7 +14,6 @@ use crate::wire::WlOutputId;
 use crate::wire::WpPresentationFeedbackId;
 use crate::wire::wp_presentation_feedback::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct PresentationFeedback {
@@ -130,5 +129,5 @@ impl WpPresentationFeedback {
 }
 
 impl WpPresentationFeedbackRequestHandler for WpPresentationFeedback {
-    type Error = Infallible;
+    type Error = !;
 }

@@ -8,7 +8,6 @@ use crate::object::Version;
 use crate::wire::ZwpTabletPadStripV2Id;
 use crate::wire::zwp_tablet_pad_strip_v2::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -56,7 +55,7 @@ impl ZwpTabletPadStripV2 {
 }
 
 impl ZwpTabletPadStripV2RequestHandler for ZwpTabletPadStripV2 {
-    type Error = Infallible;
+    type Error = !;
 
     fn set_feedback(&self, _req: SetFeedback<'_>, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         Ok(())

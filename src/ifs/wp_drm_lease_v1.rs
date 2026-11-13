@@ -9,7 +9,6 @@ use crate::wire::WpDrmLeaseV1Id;
 use crate::wire::wp_drm_lease_v1::*;
 use jay_proc::Object;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 use uapi::OwnedFd;
 
@@ -65,7 +64,7 @@ impl WpDrmLeaseV1 {
 }
 
 impl WpDrmLeaseV1RequestHandler for WpDrmLeaseV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();

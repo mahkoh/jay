@@ -9,7 +9,6 @@ use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_ifs::usr_wl_surface::UsrWlSurface;
 use crate::wl_usr::usr_object::UsrObject;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrWlPointer {
@@ -57,7 +56,7 @@ impl UsrWlPointer {
 }
 
 impl WlPointerEventHandler for UsrWlPointer {
-    type Error = Infallible;
+    type Error = !;
 
     fn enter(&self, ev: Enter, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {

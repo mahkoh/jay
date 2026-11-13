@@ -7,7 +7,6 @@ use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_ifs::usr_jay_workspace::UsrJayWorkspace;
 use crate::wl_usr::usr_object::UsrObject;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::ops::Deref;
 use std::rc::Rc;
 
@@ -26,7 +25,7 @@ pub trait UsrJayWorkspaceWatcherOwner {
 }
 
 impl JayWorkspaceWatcherEventHandler for UsrJayWorkspaceWatcher {
-    type Error = Infallible;
+    type Error = !;
 
     fn new(&self, ev: New, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let jw = Rc::new(UsrJayWorkspace {

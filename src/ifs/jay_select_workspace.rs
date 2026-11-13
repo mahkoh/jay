@@ -13,7 +13,6 @@ use crate::wire::JayWorkspaceId;
 use crate::wire::jay_select_workspace::*;
 use jay_proc::Object;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -83,7 +82,7 @@ impl JaySelectWorkspace {
 }
 
 impl JaySelectWorkspaceRequestHandler for JaySelectWorkspace {
-    type Error = Infallible;
+    type Error = !;
 }
 
 impl BreakLoops for JaySelectWorkspace {

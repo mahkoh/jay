@@ -10,7 +10,6 @@ use crate::wire::ExtTransientSeatManagerV1Id;
 use crate::wire::ext_transient_seat_manager_v1::*;
 use jay_proc::Global;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Global)]
@@ -36,7 +35,7 @@ impl ExtTransientSeatManagerV1Global {
         id: ExtTransientSeatManagerV1Id,
         client: &Rc<Client>,
         version: Version,
-    ) -> Result<(), Infallible> {
+    ) -> Result<(), !> {
         let obj = Rc::new(ExtTransientSeatManagerV1 {
             id,
             client: client.clone(),
@@ -60,7 +59,7 @@ impl Global for ExtTransientSeatManagerV1Global {
 }
 
 impl ExtTransientSeatManagerV1RequestHandler for ExtTransientSeatManagerV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn create(&self, req: Create, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let obj = Rc::new(ExtTransientSeatV1 {

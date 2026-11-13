@@ -12,7 +12,6 @@ use crate::wire::JayIconSurfaceFactoryV1Id;
 use crate::wire::JayIconSurfaceV1Id;
 use crate::wire::jay_icon_surface_factory_v1::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -67,7 +66,7 @@ impl JayIconSurfaceFactoryV1 {
 }
 
 impl JayIconSurfaceFactoryV1RequestHandler for JayIconSurfaceFactoryV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.detach();

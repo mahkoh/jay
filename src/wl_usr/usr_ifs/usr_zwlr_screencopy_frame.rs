@@ -5,7 +5,6 @@ use crate::wire::zwlr_screencopy_frame_v1::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_ifs::usr_wl_buffer::UsrWlBuffer;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrZwlrScreencopyFrame {
@@ -60,7 +59,7 @@ impl UsrZwlrScreencopyFrame {
 }
 
 impl ZwlrScreencopyFrameV1EventHandler for UsrZwlrScreencopyFrame {
-    type Error = Infallible;
+    type Error = !;
 
     fn buffer(&self, ev: Buffer, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(owner) = self.owner.get() {

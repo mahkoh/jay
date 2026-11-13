@@ -6,7 +6,6 @@ use crate::wl_usr::usr_ifs::usr_wl_data_device::UsrWlDataDevice;
 use crate::wl_usr::usr_ifs::usr_wl_data_source::UsrWlDataSource;
 use crate::wl_usr::usr_ifs::usr_wl_seat::UsrWlSeat;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrWlDataDeviceManager {
@@ -50,7 +49,7 @@ impl UsrWlDataDeviceManager {
 }
 
 impl WlDataDeviceManagerEventHandler for UsrWlDataDeviceManager {
-    type Error = Infallible;
+    type Error = !;
 }
 
 usr_object_base! {

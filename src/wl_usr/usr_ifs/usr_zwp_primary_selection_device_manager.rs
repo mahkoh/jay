@@ -3,7 +3,6 @@ use crate::wire::ZwpPrimarySelectionDeviceManagerV1Id;
 use crate::wire::zwp_primary_selection_device_manager_v1::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrZwpPrimarySelectionDeviceManagerV1 {
@@ -15,7 +14,7 @@ pub struct UsrZwpPrimarySelectionDeviceManagerV1 {
 impl UsrZwpPrimarySelectionDeviceManagerV1 {}
 
 impl ZwpPrimarySelectionDeviceManagerV1EventHandler for UsrZwpPrimarySelectionDeviceManagerV1 {
-    type Error = Infallible;
+    type Error = !;
 }
 
 usr_object_base! {

@@ -6,7 +6,6 @@ use crate::object::Version;
 use crate::wire::JayOutputId;
 use crate::wire::jay_output::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -41,7 +40,7 @@ impl JayOutput {
 }
 
 impl JayOutputRequestHandler for JayOutput {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.remove_from_node();

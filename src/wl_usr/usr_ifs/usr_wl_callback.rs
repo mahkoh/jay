@@ -4,7 +4,6 @@ use crate::wire::wl_callback::*;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::usr_object::UsrObject;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 pub struct UsrWlCallback {
@@ -41,7 +40,7 @@ impl UsrWlCallback {
 }
 
 impl WlCallbackEventHandler for UsrWlCallback {
-    type Error = Infallible;
+    type Error = !;
 
     fn done(&self, _ev: Done, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(handler) = self.owner.take() {

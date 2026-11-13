@@ -4,7 +4,6 @@ use crate::object::Version;
 use crate::wire::JayColorManagementId;
 use crate::wire::jay_color_management::*;
 use jay_proc::Object;
-use std::convert::Infallible;
 use std::rc::Rc;
 
 #[derive(Object)]
@@ -32,7 +31,7 @@ impl JayColorManagement {
 }
 
 impl JayColorManagementRequestHandler for JayColorManagement {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         self.client.remove_obj(self);
