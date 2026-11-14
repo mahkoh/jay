@@ -60,15 +60,6 @@ fn write_egl_procs<W: Write>(f: &mut W) -> anyhow::Result<()> {
             ][..],
         ),
         (
-            "eglQueryDisplayAttribEXT",
-            "EGLBoolean",
-            &[
-                ("dpy", "EGLDisplay"),
-                ("attribute", "EGLint"),
-                ("value", "*mut EGLAttrib"),
-            ][..],
-        ),
-        (
             "glEGLImageTargetRenderbufferStorageOES",
             "()",
             &[("target", "GLenum"), ("image", "GLeglImageOES")][..],
@@ -111,6 +102,15 @@ fn write_egl_procs<W: Write>(f: &mut W) -> anyhow::Result<()> {
             "eglQueryDeviceStringEXT",
             "*const c::c_char",
             &[("device", "EGLDeviceEXT"), ("name", "EGLint")][..],
+        ),
+        (
+            "eglQueryDevicesEXT",
+            "EGLBoolean",
+            &[
+                ("max_devices", "EGLint"),
+                ("devices", "*mut EGLDeviceEXT"),
+                ("num_devices", "*mut EGLint"),
+            ][..],
         ),
     ];
 

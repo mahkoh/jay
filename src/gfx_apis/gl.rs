@@ -1,6 +1,6 @@
 macro_rules! egl_transparent {
     ($name:ident) => {
-        #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+        #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
         #[repr(transparent)]
         pub struct $name(pub *mut u8);
 
@@ -15,6 +15,8 @@ macro_rules! egl_transparent {
                 self.0.is_null()
             }
         }
+
+        unsafe impl crate::utils::markers::JayHash for $name {}
     };
 }
 
@@ -65,6 +67,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::LazyLock;
 use thiserror::Error;
+use uapi::c::dev_t;
 
 mod egl;
 mod ext;
@@ -109,8 +112,12 @@ enum RenderError {
     ProgramLink,
     #[error("Could not bind to `EGL_OPENGL_ES_API`")]
     BindFailed,
-    #[error("EGL library does not support the GBM platform")]
-    GbmExt,
+    #[error("EGL library does not support `EGL_EXT_platform_device`")]
+    ExtPlatformDevice,
+    #[error("EGL library does not support `EGL_EXT_device_enumeration`")]
+    ExtDeviceEnumeration,
+    #[error("EGL library does not support `EGL_EXT_device_query`")]
+    ExtDeviceQuery,
     #[error("Could not create a GBM device")]
     Gbm(#[source] GbmError),
     #[error("`eglCreateContext` failed")]
@@ -173,10 +180,12 @@ enum RenderError {
     AccessFailed(#[source] Box<dyn Error + Sync + Send>),
     #[error("OpenGL does not support blend buffers")]
     NoBlendBuffer,
-    #[error("Hardware renderer was requested but EGL device is a software renderer")]
-    NoHardwareRenderer,
-    #[error("Could not query display device")]
-    QueryDisplayDevice,
+    #[error("`eglQueryDevicesEXT` failed")]
+    QueryDevices,
+    #[error("Could not find an EGL device that matches dev_t {0}")]
+    NoDeviceFound(dev_t),
+    #[error("There is no EGL software renderer")]
+    NoSoftwareRenderer,
     #[error("Could not allocate buffer object")]
     AllocateBo(#[source] AllocatorError),
 }

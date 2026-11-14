@@ -257,10 +257,6 @@ impl GbmDevice {
         Ok(gbm)
     }
 
-    pub fn raw(&self) -> *mut Device {
-        self.dev.dev
-    }
-
     pub fn create_bo<'a>(
         &self,
         dma_buf_ids: &DmaBufIds,
