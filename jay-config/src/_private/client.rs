@@ -1253,6 +1253,20 @@ impl ConfigClient {
         reuse
     }
 
+    pub fn set_autotile(&self, enabled: bool) {
+        self.send(&ClientMessage::SetAutotile { enabled });
+    }
+
+    pub fn get_autotile(&self) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetAutotile);
+        get_response!(res, false, GetAutotile { enabled });
+        enabled
+    }
+
+    pub fn set_window_matcher_autotile(&self, matcher: WindowMatcher, autotile: bool) {
+        self.send(&ClientMessage::SetWindowMatcherAutotile { matcher, autotile });
+    }
+
     pub fn set_show_bar(&self, show: bool) {
         self.send(&ClientMessage::SetShowBar { show });
     }

@@ -453,6 +453,7 @@ fn start_compositor2(
         head_names: Default::default(),
         show_bar: Cell::new(true),
         split_reuses_container: Cell::new(false),
+        autotile: Cell::new(false),
         enable_primary_selection: Cell::new(true),
         workspace_display_order: Cell::new(WorkspaceDisplayOrder::Manual),
         outputs_without_hc: Default::default(),

@@ -208,6 +208,10 @@ impl ConfigProxy {
         self.handler.get()?.initial_tile_state(data)
     }
 
+    pub fn autotile(&self, data: &ToplevelData) -> Option<bool> {
+        self.handler.get()?.autotile(data)
+    }
+
     pub fn initial_floating_size(&self, data: &ToplevelData) -> Option<(i32, i32)> {
         self.handler.get()?.initial_floating_size(data)
     }

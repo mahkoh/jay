@@ -359,6 +359,9 @@ impl Rule for WindowRule {
         if let Some((x, y)) = self.initial_floating_position {
             matcher.set_initial_floating_position(x, y);
         }
+        if let Some(autotile) = self.autotile {
+            matcher.set_autotile(autotile);
+        }
     }
 
     fn gen_matcher(m: Self::Matcher) -> Self::Criterion<'static> {
