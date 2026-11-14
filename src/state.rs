@@ -2182,6 +2182,7 @@ impl State {
             config.destroy();
             for seat in self.globals.seats.lock().values() {
                 seat.clear_shortcuts();
+                seat.set_window_management_enabled(false);
             }
         }
         self.config_locked_shortcuts.set(false);

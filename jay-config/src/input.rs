@@ -20,6 +20,7 @@ use crate::input::clickmethod::ClickMethod;
 use crate::input::scrollmethod::ScrollMethod;
 use crate::keyboard::Keymap;
 use crate::keyboard::mods::Modifiers;
+use crate::keyboard::mods::RELEASE;
 use crate::keyboard::syms::KeySym;
 use crate::video::Connector;
 use crate::window::Window;
@@ -656,22 +657,27 @@ impl Seat {
     /// This is a shorthand for
     ///
     /// ```rust,ignore
-    /// self.bind(mod_sym, move || {
+    /// self.bind_masked(Modifiers::NONE, mod_sym, move || {
     ///     self.set_window_management_enabled(true);
     ///     self.forward();
     ///     self.latch(move || {
     ///         self.set_window_management_enabled(false);
     ///     });
+    ///     self.set_bind_allow_inhibited(RELEASE | mod_sym.sym, true);
     /// });
+    /// self.set_bind_allow_inhibited(mod_sym, true);
     /// ```
     pub fn set_window_management_key<T: Into<ModifiedKeySym>>(self, mod_sym: T) {
-        self.bind(mod_sym, move || {
+        let mod_sym = mod_sym.into();
+        self.bind_masked(Modifiers::NONE, mod_sym, move || {
             self.set_window_management_enabled(true);
             self.forward();
             self.latch(move || {
                 self.set_window_management_enabled(false);
             });
+            self.set_bind_allow_inhibited(RELEASE | mod_sym.sym, true);
         });
+        self.set_bind_allow_inhibited(mod_sym, true);
     }
 
     /// Gets whether the currently focused window is pinned.
