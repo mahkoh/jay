@@ -1,8 +1,8 @@
 use crate::backend::BackendDrmDevice;
+use crate::compositor::TestBackendConfig;
 use crate::format::ARGB8888;
 use crate::ifs::zwp_linux_dmabuf_feedback_v1::FB_SAMPLING;
 use crate::ifs::zwp_linux_dmabuf_feedback_v1::FB_SCANOUT;
-use crate::it::test_backend::TestrunSetupOptions;
 use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestErrorExt;
 use crate::it::test_error::TestResult;
@@ -10,15 +10,10 @@ use crate::it::testrun::TestRun;
 use crate::video::LINEAR_MODIFIER;
 use std::rc::Rc;
 
-testcase!();
+testcase!(TestBackendConfig { needs_drm: true });
 
 async fn test(run: Rc<TestRun>) -> TestResult {
-    let ds = run
-        .create_default_setup2(TestrunSetupOptions {
-            need_drm: true,
-            ..Default::default()
-        })
-        .await?;
+    let ds = run.create_default_setup().await?;
 
     ds.connector
         .scanout_formats
@@ -44,7 +39,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     tassert_eq!(fb.tranches.len(), 2);
     tassert_eq!(
         fb.tranches[0].target_device,
-        run.backend.default_drm_dev.dev_t(),
+        run.backend.default_drm_dev.as_ref().unwrap().dev_t(),
     );
     tassert_eq!(fb.tranches[0].flags, FB_SCANOUT | FB_SAMPLING);
     tassert_eq!(fb.tranches[1].flags, FB_SAMPLING);

@@ -31,6 +31,7 @@ use crate::backend::transaction::BackendConnectorTransactionType;
 use crate::backend::transaction::BackendConnectorTransactionTypeDyn;
 use crate::backend::transaction::BackendPreparedConnectorTransaction;
 use crate::cmm::cmm_primaries::Primaries;
+use crate::compositor::TestBackendArgs;
 use crate::compositor::TestFuture;
 use crate::evdev::input_event_codes::InputEventCode;
 use crate::fixed::Fixed;
@@ -73,7 +74,6 @@ pub enum TestBackendError {
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct TestrunSetupOptions {
-    pub need_drm: bool,
     pub need_syncobj: bool,
 }
 
@@ -81,7 +81,7 @@ pub struct TestrunSetupOptions {
 pub struct TestBackend {
     pub state: Rc<State>,
     test_future: TestFuture,
-    pub default_drm_dev: Rc<TestDrmDevice>,
+    pub default_drm_dev: Option<Rc<TestDrmDevice>>,
     pub default_monitor_info: MonitorInfo,
     pub default_connector: Rc<TestConnector>,
     pub default_mouse: Rc<TestBackendMouse>,
@@ -91,7 +91,8 @@ pub struct TestBackend {
 }
 
 impl TestBackend {
-    pub fn new(state: &Rc<State>, future: TestFuture) -> Self {
+    pub fn new(state: &Rc<State>, args: TestBackendArgs) -> Self {
+        let TestBackendArgs { future, config } = args;
         state.set_backend_idle(false);
         let mode = Mode {
             width: 800,
@@ -111,13 +112,15 @@ impl TestBackend {
             eotf: Default::default(),
             gamma_lut: Default::default(),
         };
-        let default_drm_dev = Rc::new(TestDrmDevice {
-            id: state.drm_dev_ids.next(),
-            dev_t: 1234,
+        let default_drm_dev = config.needs_drm.then(|| {
+            Rc::new(TestDrmDevice {
+                id: state.drm_dev_ids.next(),
+                dev_t: 1234,
+            })
         });
         let default_connector = Rc::new(TestConnector {
             id: state.connector_ids.next(),
-            drm_dev_id: default_drm_dev.id,
+            drm_dev_id: default_drm_dev.as_ref().map(|v| v.id),
             kernel_id: ConnectorKernelId {
                 ty: ConnectorType::VGA,
                 idx: 1,
@@ -203,9 +206,11 @@ impl TestBackend {
     }
 
     pub async fn install_default2(&self, options: TestrunSetupOptions) -> TestResult {
-        self.state
-            .backend_events
-            .push(BackendEvent::NewDrmDevice(self.default_drm_dev.clone()));
+        if let Some(v) = &self.default_drm_dev {
+            self.state
+                .backend_events
+                .push(BackendEvent::NewDrmDevice(v.clone()));
+        }
         self.install_render_context(options)?;
         self.state
             .backend_events
@@ -229,7 +234,7 @@ impl TestBackend {
             .map_err(TestBackendError::CreateUdmabuf)?;
         let ctx = match TestGfxCtx::new(
             &udmabuf,
-            options.need_drm.then_some(self.default_drm_dev.id),
+            self.default_drm_dev.as_ref().map(|v| v.id),
             options.need_syncobj,
         ) {
             Ok(ctx) => ctx,
@@ -261,7 +266,7 @@ impl Backend for TestBackend {
 
 pub struct TestConnector {
     pub id: ConnectorId,
-    pub drm_dev_id: DrmDeviceId,
+    pub drm_dev_id: Option<DrmDeviceId>,
     pub kernel_id: ConnectorKernelId,
     pub events: OnChange<ConnectorEvent>,
     pub idle: TEEH<bool>,
@@ -292,7 +297,7 @@ impl Connector for TestConnector {
     }
 
     fn drm_dev(&self) -> Option<DrmDeviceId> {
-        Some(self.drm_dev_id)
+        self.drm_dev_id
     }
 
     fn effectively_locked(&self) -> bool {

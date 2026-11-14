@@ -15,10 +15,7 @@ testcase!();
 
 async fn test(run: Rc<TestRun>) -> TestResult {
     let _ds = run
-        .create_default_setup2(TestrunSetupOptions {
-            need_drm: true,
-            need_syncobj: true,
-        })
+        .create_default_setup2(TestrunSetupOptions { need_syncobj: true })
         .await?;
 
     #[derive(Default)]

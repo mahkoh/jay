@@ -1,3 +1,4 @@
+use crate::compositor::TestBackendConfig;
 use crate::it::test_error::TestError;
 use crate::it::testrun::TestRun;
 use std::future::Future;
@@ -5,6 +6,9 @@ use std::rc::Rc;
 
 macro_rules! testcase {
     () => {
+        testcase!(Default::default());
+    };
+    ($config:expr) => {
         pub struct Test;
 
         impl crate::it::tests::TestCase for Test {
@@ -21,6 +25,10 @@ macro_rules! testcase {
                 testrun: std::rc::Rc<crate::it::testrun::TestRun>,
             ) -> Box<dyn std::future::Future<Output = crate::it::test_error::TestResult>> {
                 Box::new(test(testrun))
+            }
+
+            fn config(&self) -> crate::compositor::TestBackendConfig {
+                $config
             }
         }
 
@@ -121,6 +129,7 @@ pub trait TestCase: Sync {
     fn name(&self) -> &'static str;
     fn dir(&self) -> &'static str;
     fn run(&self, testrun: Rc<TestRun>) -> Box<dyn Future<Output = Result<(), TestError>>>;
+    fn config(&self) -> TestBackendConfig;
 }
 
 include!(concat!(env!("OUT_DIR"), "/it_tests.rs"));
