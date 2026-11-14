@@ -10,13 +10,11 @@ use crate::allocator::BO_USE_SCANOUT;
 use crate::allocator::BO_USE_WRITE;
 use crate::allocator::BufferObject;
 use crate::allocator::BufferUsage;
-use crate::allocator::MappedBuffer;
 use crate::format::Format;
 use crate::format::XRGB8888;
 use crate::format::formats;
 use crate::gfx_api::SyncFile;
 use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::ptr_ext::PtrExt;
 use crate::video::INVALID_MODIFIER;
 use crate::video::Modifier;
 use crate::video::dmabuf::DMA_BUF_SYNC_WRITE;
@@ -32,7 +30,6 @@ use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::ptr;
 use std::rc::Rc;
-use std::slice;
 use thiserror::Error;
 use uapi::OwnedFd;
 use uapi::c;
@@ -49,8 +46,6 @@ pub enum GbmError {
     UnknownFormat,
     #[error("Could not retrieve a drm-buf fd")]
     DrmFd,
-    #[error("Could not map bo")]
-    MapBo(#[source] OsError),
     #[error("Tried to allocate a buffer with no modifier")]
     NoModifier,
 }
@@ -77,30 +72,12 @@ const GBM_BO_IMPORT_WL_BUFFER: u32 = 0x5501;
 const GBM_BO_IMPORT_EGL_IMAGE: u32 = 0x5502;
 #[expect(unused)]
 const GBM_BO_IMPORT_FD: u32 = 0x5503;
-const GBM_BO_IMPORT_FD_MODIFIER: u32 = 0x5504;
-
-const GBM_BO_TRANSFER_READ: u32 = 1 << 0;
-const GBM_BO_TRANSFER_WRITE: u32 = 1 << 1;
-const GBM_BO_TRANSFER_READ_WRITE: u32 = GBM_BO_TRANSFER_READ | GBM_BO_TRANSFER_WRITE;
-
-#[repr(C)]
-struct gbm_import_fd_modifier_data {
-    width: u32,
-    height: u32,
-    format: u32,
-    num_fds: u32,
-    fds: [c::c_int; 4],
-    strides: [c::c_int; 4],
-    offsets: [c::c_int; 4],
-    modifier: u64,
-}
 
 #[link(name = "gbm")]
 unsafe extern "C" {
     fn gbm_create_device(fd: c::c_int) -> *mut Device;
     fn gbm_device_destroy(dev: *mut Device);
 
-    fn gbm_bo_import(dev: *mut Device, ty: u32, buffer: *mut u8, flags: u32) -> *mut Bo;
     fn gbm_bo_create_with_modifiers2(
         dev: *mut Device,
         width: u32,
@@ -123,17 +100,6 @@ unsafe extern "C" {
     fn gbm_bo_get_format(bo: *mut Bo) -> u32;
     #[expect(unused)]
     fn gbm_bo_get_bpp(bo: *mut Bo) -> u32;
-    fn gbm_bo_map(
-        bo: *mut Bo,
-        x: u32,
-        y: u32,
-        width: u32,
-        height: u32,
-        flags: u32,
-        strid: *mut u32,
-        map_data: *mut *mut u8,
-    ) -> *mut u8;
-    fn gbm_bo_unmap(bo: *mut Bo, map_data: *mut u8);
 }
 
 struct DeviceHolder {
@@ -157,7 +123,7 @@ struct BoHolder {
 }
 
 pub struct GbmBo {
-    bo: BoHolder,
+    _bo: BoHolder,
     dmabuf: Rc<DmaBuf>,
     initial_sync: Cell<Option<SyncFile>>,
 }
@@ -165,27 +131,6 @@ pub struct GbmBo {
 impl Debug for GbmBo {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("GbmBo").finish_non_exhaustive()
-    }
-}
-
-pub struct GbmBoMap {
-    bo: Rc<GbmBo>,
-    data: *mut [u8],
-    opaque: *mut u8,
-    stride: i32,
-}
-
-impl MappedBuffer for GbmBoMap {
-    unsafe fn data(&self) -> &[u8] {
-        unsafe { self.data.deref() }
-    }
-
-    fn data_ptr(&self) -> *mut u8 {
-        self.data as _
-    }
-
-    fn stride(&self) -> i32 {
-        self.stride
     }
 }
 
@@ -296,47 +241,9 @@ impl GbmDevice {
             let dma = export_bo(dma_buf_ids, bo.bo, &modifiers)?;
             let initial_sync = dma.export_sync_file(DMA_BUF_SYNC_WRITE).ok().flatten();
             Ok(GbmBo {
-                bo,
+                _bo: bo,
                 dmabuf: dma,
                 initial_sync: Cell::new(initial_sync),
-            })
-        }
-    }
-
-    fn import_dmabuf(&self, dmabuf: &Rc<DmaBuf>, usage: u32) -> Result<GbmBo, GbmError> {
-        let mut import = gbm_import_fd_modifier_data {
-            width: dmabuf.width as _,
-            height: dmabuf.height as _,
-            format: dmabuf.format.drm as _,
-            num_fds: dmabuf.planes.len() as _,
-            fds: [0; 4],
-            strides: [0; 4],
-            offsets: [0; 4],
-            modifier: dmabuf.modifier,
-        };
-        for (i, plane) in dmabuf.planes.iter().enumerate() {
-            import.fds[i] = plane.fd.raw();
-            import.strides[i] = plane.stride as _;
-            import.offsets[i] = plane.offset as _;
-        }
-        unsafe {
-            let bo = gbm_bo_import(
-                self.dev.dev,
-                GBM_BO_IMPORT_FD_MODIFIER,
-                &mut import as *const _ as _,
-                usage,
-            );
-            if bo.is_null() {
-                return Err(GbmError::CreateBo(OsError::default()));
-            }
-            let bo = BoHolder {
-                bo,
-                _dev: self.dev.clone(),
-            };
-            Ok(GbmBo {
-                bo,
-                dmabuf: dmabuf.clone(),
-                initial_sync: Default::default(),
             })
         }
     }
@@ -358,17 +265,6 @@ impl Allocator for GbmDevice {
     ) -> Result<Rc<dyn BufferObject>, AllocatorError> {
         let usage = map_usage(usage);
         self.create_bo(dma_buf_ids, width, height, format, modifiers, usage)
-            .map(|v| Rc::new(v) as _)
-            .map_err(|v| v.into())
-    }
-
-    fn import_dmabuf(
-        &self,
-        dmabuf: &Rc<DmaBuf>,
-        usage: BufferUsage,
-    ) -> Result<Rc<dyn BufferObject>, AllocatorError> {
-        let usage = map_usage(usage);
-        self.import_dmabuf(dmabuf, usage)
             .map(|v| Rc::new(v) as _)
             .map_err(|v| v.into())
     }
@@ -400,70 +296,13 @@ impl Drop for DeviceHolder {
     }
 }
 
-impl GbmBo {
-    fn map_read(self: &Rc<Self>) -> Result<GbmBoMap, GbmError> {
-        self.map2(GBM_BO_TRANSFER_READ)
-    }
-
-    fn map_write(self: &Rc<Self>) -> Result<GbmBoMap, GbmError> {
-        self.map2(GBM_BO_TRANSFER_READ_WRITE)
-    }
-
-    fn map2(self: &Rc<Self>, flags: u32) -> Result<GbmBoMap, GbmError> {
-        let mut stride = 0;
-        let mut map_data = ptr::null_mut();
-        unsafe {
-            let map = gbm_bo_map(
-                self.bo.bo,
-                0,
-                0,
-                self.dmabuf.width as _,
-                self.dmabuf.height as _,
-                flags,
-                &mut stride,
-                &mut map_data,
-            );
-            if map.is_null() {
-                return Err(GbmError::MapBo(OsError::default()));
-            }
-            let map = slice::from_raw_parts_mut(map, (stride * self.dmabuf.height as u32) as usize);
-            Ok(GbmBoMap {
-                bo: self.clone(),
-                data: map,
-                opaque: map_data,
-                stride: stride as i32,
-            })
-        }
-    }
-}
-
 impl BufferObject for GbmBo {
     fn dmabuf(&self) -> &Rc<DmaBuf> {
         &self.dmabuf
     }
 
-    fn map_read(self: Rc<Self>) -> Result<Box<dyn MappedBuffer>, AllocatorError> {
-        GbmBo::map_read(&self)
-            .map(|v| Box::new(v) as _)
-            .map_err(|v| v.into())
-    }
-
-    fn map_write(self: Rc<Self>) -> Result<Box<dyn MappedBuffer>, AllocatorError> {
-        GbmBo::map_write(&self)
-            .map(|v| Box::new(v) as _)
-            .map_err(|v| v.into())
-    }
-
     fn take_initial_sync(&self) -> Option<SyncFile> {
         self.initial_sync.take()
-    }
-}
-
-impl Drop for GbmBoMap {
-    fn drop(&mut self) {
-        unsafe {
-            gbm_bo_unmap(self.bo.bo.bo, self.opaque);
-        }
     }
 }
 

@@ -106,7 +106,6 @@ pub struct VulkanDevice {
     pub(super) external_semaphore_fd: external_semaphore_fd::Device,
     external_fence_fd: external_fence_fd::Device,
     pub(super) push_descriptor: push_descriptor::Device,
-    pub(super) image_drm_format_modifier: image_drm_format_modifier::Device,
     pub(super) formats: BHashMap<u32, VulkanFormat>,
     pub(super) blend_limits: VulkanBlendBufferLimits,
     memory_types: ArrayVec<MemoryType, MAX_MEMORY_TYPES>,
@@ -594,8 +593,6 @@ impl VulkanInstance {
         let external_semaphore_fd = external_semaphore_fd::Device::new(&self.instance, &device);
         let external_fence_fd = external_fence_fd::Device::new(&self.instance, &device);
         let push_descriptor = push_descriptor::Device::new(&self.instance, &device);
-        let image_drm_format_modifier =
-            image_drm_format_modifier::Device::new(&self.instance, &device);
         let mut descriptor_heap_props = PhysicalDeviceDescriptorHeapPropertiesEXT::default();
         let mut descriptor_buffer_props = PhysicalDeviceDescriptorBufferPropertiesEXT::default();
         let mut physical_device_vulkan12_properties = PhysicalDeviceVulkan12Properties::default();
@@ -704,7 +701,6 @@ impl VulkanInstance {
             external_semaphore_fd,
             external_fence_fd,
             push_descriptor,
-            image_drm_format_modifier,
             formats,
             memory_types,
             graphics_queue,

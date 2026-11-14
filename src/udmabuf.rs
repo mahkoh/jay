@@ -2,7 +2,6 @@ use crate::allocator::Allocator;
 use crate::allocator::AllocatorError;
 use crate::allocator::BufferObject;
 use crate::allocator::BufferUsage;
-use crate::allocator::MappedBuffer;
 use crate::format::Format;
 use crate::gfx_api::SyncFile;
 use crate::utils::clonecell::CloneCell;
@@ -10,7 +9,6 @@ use crate::utils::compat::IoctlNumber;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::once::Once;
 use crate::utils::page_size::page_size;
-use crate::utils::ptr_ext::PtrExt;
 use crate::video::LINEAR_MODIFIER;
 use crate::video::LINEAR_STRIDE_ALIGN;
 use crate::video::Modifier;
@@ -20,23 +18,16 @@ use crate::video::dmabuf::DmaBufPlane;
 use crate::video::dmabuf::PlaneVec;
 use crate::video::drm::Drm;
 use jay_algorithms::oserror::OsError;
-use jay_algorithms::oserror::OsErrorExt;
 use jay_algorithms::oserror::OsErrorExt2;
-use std::ptr;
 use std::rc::Rc;
 use thiserror::Error;
 use uapi::_IOW;
 use uapi::OwnedFd;
 use uapi::c;
 use uapi::c::F_SEAL_SHRINK;
-use uapi::c::MAP_SHARED;
 use uapi::c::MFD_ALLOW_SEALING;
 use uapi::c::O_RDONLY;
-use uapi::c::PROT_READ;
-use uapi::c::PROT_WRITE;
 use uapi::c::ioctl;
-use uapi::c::mmap;
-use uapi::c::munmap;
 use uapi::map_err;
 use uapi::open;
 
@@ -56,16 +47,6 @@ pub enum UdmabufError {
     Seal(#[source] OsError),
     #[error("Could not create a dmabuf")]
     CreateDmabuf(#[source] OsError),
-    #[error("Only a single plane is supported")]
-    Planes,
-    #[error("Stride is invalid")]
-    Stride,
-    #[error("Could not stat the dmabuf")]
-    Stat(#[source] OsError),
-    #[error("Dmabuf is too small for required size")]
-    Size,
-    #[error("Could not map dmabuf")]
-    Map(#[source] OsError),
 }
 
 #[derive(Default)]
@@ -172,10 +153,7 @@ impl Udmabuf {
             LINEAR_MODIFIER,
             planes,
         );
-        Ok(UdmabufBo {
-            buf: dmabuf,
-            size: size as _,
-        })
+        Ok(UdmabufBo { buf: dmabuf })
     }
 }
 
@@ -203,47 +181,10 @@ impl Allocator for Udmabuf {
             format,
         )?))
     }
-
-    fn import_dmabuf(
-        &self,
-        dmabuf: &Rc<DmaBuf>,
-        _usage: BufferUsage,
-    ) -> Result<Rc<dyn BufferObject>, AllocatorError> {
-        if dmabuf.planes.len() != 1 {
-            return Err(UdmabufError::Planes.into());
-        }
-        if dmabuf.modifier != LINEAR_MODIFIER {
-            return Err(UdmabufError::Modifier.into());
-        }
-        let plane = &dmabuf.planes[0];
-        let height = dmabuf.height as u64;
-        let width = dmabuf.width as u64;
-        let stride = plane.stride as u64;
-        let offset = plane.offset as u64;
-        if height > 1 << 16 || width > 1 << 16 {
-            return Err(UdmabufError::Overflow.into());
-        }
-        if stride < width * dmabuf.format.bpp as u64 {
-            return Err(UdmabufError::Stride.into());
-        }
-        let size = offset + stride * height;
-        if usize::try_from(size).is_err() {
-            return Err(UdmabufError::Overflow.into());
-        }
-        let stat = uapi::fstat(plane.fd.raw()).map_os_err(UdmabufError::Stat)?;
-        if (stat.st_size as u64) < size {
-            return Err(UdmabufError::Size.into());
-        }
-        Ok(Rc::new(UdmabufBo {
-            buf: dmabuf.clone(),
-            size: size as usize,
-        }))
-    }
 }
 
-struct UdmabufBo {
+pub struct UdmabufBo {
     buf: Rc<DmaBuf>,
-    size: usize,
 }
 
 impl BufferObject for UdmabufBo {
@@ -251,72 +192,8 @@ impl BufferObject for UdmabufBo {
         &self.buf
     }
 
-    fn map_read(self: Rc<Self>) -> Result<Box<dyn MappedBuffer>, AllocatorError> {
-        self.map_write()
-    }
-
-    fn map_write(self: Rc<Self>) -> Result<Box<dyn MappedBuffer>, AllocatorError> {
-        let plane = &self.buf.planes[0];
-        unsafe {
-            let res = mmap(
-                ptr::null_mut(),
-                self.size,
-                PROT_READ | PROT_WRITE,
-                MAP_SHARED,
-                plane.fd.raw(),
-                0,
-            );
-            if res == c::MAP_FAILED {
-                return Err(UdmabufError::Map(OsError::default()).into());
-            }
-            let offset = plane.offset as _;
-            let data =
-                std::slice::from_raw_parts_mut((res as *mut u8).add(offset), self.size - offset);
-            Ok(Box::new(UdmabufMap {
-                data,
-                stride: plane.stride as _,
-                ptr: res,
-                len: self.size,
-                _bo: self,
-            }))
-        }
-    }
-
     fn take_initial_sync(&self) -> Option<SyncFile> {
         None
-    }
-}
-
-struct UdmabufMap {
-    _bo: Rc<UdmabufBo>,
-    data: *mut [u8],
-    stride: i32,
-    ptr: *mut c::c_void,
-    len: usize,
-}
-
-impl Drop for UdmabufMap {
-    fn drop(&mut self) {
-        unsafe {
-            let res = munmap(self.ptr, self.len);
-            if let Err(e) = map_err!(res).to_os_error() {
-                log::error!("Could not unmap udmabuf: {e}");
-            }
-        }
-    }
-}
-
-impl MappedBuffer for UdmabufMap {
-    unsafe fn data(&self) -> &[u8] {
-        unsafe { self.data.deref() }
-    }
-
-    fn data_ptr(&self) -> *mut u8 {
-        self.data as _
-    }
-
-    fn stride(&self) -> i32 {
-        self.stride
     }
 }
 

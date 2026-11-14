@@ -1,7 +1,6 @@
 mod allocator;
 mod alpha_modes;
 mod blend_buffer;
-mod bo_allocator;
 mod buffer_cache;
 mod command;
 mod descriptor;
@@ -23,7 +22,6 @@ mod staging;
 mod transfer;
 
 use crate::allocator::Allocator;
-use crate::allocator::AllocatorError;
 use crate::async_engine::AsyncEngine;
 use crate::backend::DrmDeviceId;
 use crate::cpu_worker::CpuWorker;
@@ -180,20 +178,6 @@ pub enum VulkanError {
     InvalidStride,
     #[error("Shm stride and height do not match buffer size")]
     InvalidBufferSize,
-    #[error("Only BO_USE_RENDERING and BO_USE_WRITE are supported")]
-    UnsupportedBufferUsage,
-    #[error("None of the supplied modifiers are supported")]
-    NoSupportedModifiers,
-    #[error("Could not retrieve the image modifier")]
-    GetModifier(#[source] vk::Result),
-    #[error("Vulkan allocated the image with an invalid modifier")]
-    InvalidModifier,
-    #[error("Could not export the DmaBuf")]
-    GetDmaBuf(#[source] vk::Result),
-    #[error("Could not wait for the device to become idle")]
-    WaitIdle(#[source] vk::Result),
-    #[error("Could not dup a DRM device")]
-    DupDrm(#[source] DrmError),
     #[error("Graphics context has already been dropped")]
     Defunct,
     #[error("Could not perform an async copy to the staging buffer")]
@@ -269,17 +253,6 @@ pub fn create_graphics_context(
     };
     let renderer = device.create_renderer(eng, ring)?;
     Ok(Rc::new(Context(renderer)))
-}
-
-#[expect(unused)]
-pub fn create_vulkan_allocator(
-    drm: &Drm,
-    eventfd_cache: &Rc<EventfdCache>,
-) -> Result<Rc<dyn Allocator>, AllocatorError> {
-    let instance = VulkanInstance::new(Level::Debug)?;
-    let device = instance.create_device(None, drm, eventfd_cache, false, false)?;
-    let allocator = device.create_bo_allocator(drm)?;
-    Ok(Rc::new(allocator))
 }
 
 #[derive(Debug)]
