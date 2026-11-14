@@ -502,31 +502,30 @@ impl VulkanInstance {
         let mut uniform_buffer_standard_layout_features =
             PhysicalDeviceUniformBufferStandardLayoutFeatures::default()
                 .uniform_buffer_standard_layout(true);
-        let mut gfx_queue_device_queue_global_priority_create_info =
-            DeviceQueueGlobalPriorityCreateInfoKHR::default()
-                .global_priority(max_graphics_priority);
-        let mut trn_queue_device_queue_global_priority_create_info =
-            DeviceQueueGlobalPriorityCreateInfoKHR::default()
-                .global_priority(max_transfer_priority);
+        let mut gqgpci = DeviceQueueGlobalPriorityCreateInfoKHR::default()
+            .global_priority(max_graphics_priority);
+        let mut tqgpci = DeviceQueueGlobalPriorityCreateInfoKHR::default()
+            .global_priority(max_transfer_priority);
+        let mut queues = ArrayVec::<_, 2>::new();
+        let gq_idx = graphics_queue_family_idx;
+        if let Some(tq_idx) = distinct_transfer_queue_family_idx {
+            queues.push((gq_idx, &mut gqgpci, 1));
+            queues.push((tq_idx, &mut tqgpci, 1));
+        } else if transfer_queue_family.is_some() {
+            queues.push((gq_idx, &mut gqgpci, 2));
+        } else {
+            queues.push((gq_idx, &mut gqgpci, 1));
+        }
         let mut queue_create_infos = ArrayVec::<_, 2>::new();
-        let queue_create_info = |idx, priority_info| {
+        for (idx, global_prio, num) in queues {
+            let prios = &[1.0, 1.0];
             let mut info = DeviceQueueCreateInfo::default()
                 .queue_family_index(idx)
-                .queue_priorities(&[1.0]);
+                .queue_priorities(&prios[..num]);
             if high_priority {
-                info = info.push_next(priority_info);
+                info = info.push_next(global_prio);
             }
-            info
-        };
-        queue_create_infos.push(queue_create_info(
-            graphics_queue_family_idx,
-            &mut gfx_queue_device_queue_global_priority_create_info,
-        ));
-        if let Some((tq, _, _)) = transfer_queue_family {
-            queue_create_infos.push(queue_create_info(
-                tq,
-                &mut trn_queue_device_queue_global_priority_create_info,
-            ));
+            queue_create_infos.push(info);
         }
         let mut device_create_info = DeviceCreateInfo::default()
             .push_next(&mut semaphore_features)
