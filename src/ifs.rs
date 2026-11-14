@@ -113,6 +113,7 @@ pub mod zwlr_screencopy_manager_v1;
 pub mod zwlr_virtual_pointer_manager_v1;
 pub mod zwlr_virtual_pointer_v1;
 pub mod zwp_idle_inhibit_manager_v1;
+pub mod zwp_keyboard_shortcuts_inhibit_manager_v1;
 pub mod zwp_linux_buffer_params_v1;
 pub mod zwp_linux_dmabuf_feedback_v1;
 pub mod zwp_linux_dmabuf_v1;

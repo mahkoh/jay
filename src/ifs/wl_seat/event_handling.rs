@@ -1008,6 +1008,7 @@ impl WlSeatGlobal {
                     }
                     if (!self.state.lock.locked[LiveTL].get()
                         || self.state.config_locked_shortcuts.get())
+                        && !self.shortcuts_inhibited()
                         && let Some(key_mods) = scs.get(&sym)
                     {
                         for (&key_mods, sc) in key_mods {

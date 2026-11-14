@@ -85,6 +85,11 @@ impl KbOwner for DefaultKbOwner {
         if old.node_seat_state().unfocus(seat) {
             old.node_active_changed(false);
         }
+        if let Some(old_surface) = old.node_into_surface() {
+            if let Some(inhibitor) = old_surface.shortcuts_inhibitors.get(&seat.id) {
+                inhibitor.deactivate();
+            }
+        }
 
         if node.node_seat_state().focus(&node, seat) {
             node.node_active_changed(true);
@@ -92,6 +97,11 @@ impl KbOwner for DefaultKbOwner {
         // log::info!("focus {}", node.node_id());
         node.clone().node_on_focus(seat);
         notify_matcher!(node, data, data.seat_foci.set(seat.id, ()));
+        if let Some(new_surface) = node.clone().node_into_surface() {
+            if let Some(inhibitor) = new_surface.shortcuts_inhibitors.get(&seat.id) {
+                inhibitor.activate();
+            }
+        }
         seat.keyboard_node_serial.set(serial);
         seat.keyboard_node.set(node.clone());
         seat.tablet_on_keyboard_node_change();

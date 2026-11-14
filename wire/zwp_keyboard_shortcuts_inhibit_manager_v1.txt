@@ -1,0 +1,10 @@
+singleton
+
+request destroy (destructor) {
+}
+
+request inhibit_shortcuts {
+    id: id(zwp_keyboard_shortcuts_inhibitor_v1) (new),
+    surface: id(wl_surface),
+    seat: id(wl_seat),
+}
