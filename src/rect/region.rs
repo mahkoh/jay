@@ -316,6 +316,16 @@ impl DamageQueue {
         })
     }
 
+    pub fn new_dyn(n: usize) -> Vec<DamageQueue> {
+        let datas = Rc::new(UnsafeCell::new(vec![vec!(); n]));
+        (0..n)
+            .map(|this| DamageQueue {
+                this,
+                datas: datas.clone(),
+            })
+            .collect()
+    }
+
     pub fn damage(&self, rects: &[Rect]) {
         let datas = unsafe { self.datas.get().deref_mut() };
         for data in datas {

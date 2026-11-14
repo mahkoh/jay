@@ -416,7 +416,7 @@ struct IndirectCopyPull {
 }
 
 impl MetalBackend {
-    pub fn create_scanout_buffers<const N: usize>(
+    pub fn create_scanout_buffers(
         &self,
         dev: &Rc<MetalDrmDevice>,
         format: &'static Format,
@@ -425,7 +425,17 @@ impl MetalBackend {
         height: i32,
         render_ctx: &Rc<MetalRenderContext>,
         cursor: bool,
-    ) -> Result<[RenderBuffer; N], MetalError> {
+    ) -> Result<Vec<RenderBuffer>, MetalError> {
+        // On nvidia, the page-flip event can arrive while the display engine is
+        // still reading the previous framebuffer. This has been observed at
+        // 3840x2160@240Hz, where rendering into the previous framebuffer directly
+        // after the event caused partially rendered frames to be displayed. With
+        // three buffers, we only render into a buffer that was replaced two flips
+        // ago.
+        let num_buffers = match dev.vendor.is_nvidia {
+            true => 3,
+            false => 2,
+        };
         let Some(render_fmt) = render_ctx.gfx.formats().get(&format.drm) else {
             return Err(MetalError::RenderUnsupportedFormat);
         };
@@ -454,7 +464,7 @@ impl MetalBackend {
         if render_ctx.dev_id == dev.id {
             return wrap_error(&builder, None, |dbg| {
                 let prepared = &builder.prepare_prime_none(dbg)?;
-                self.create_scanout_buffers_(|damage| {
+                self.create_scanout_buffers_(num_buffers, |damage| {
                     builder.create_prime_none(prepared, damage, dbg)
                 })
             })
@@ -466,7 +476,7 @@ impl MetalBackend {
                 macro_rules! x {
                     ($prepare:ident, $create:ident $(,)?) => {{
                         let prepared = &builder.$prepare(dbg)?;
-                        self.create_scanout_buffers_(|damage| {
+                        self.create_scanout_buffers_(num_buffers, |damage| {
                             builder.$create(prepared, damage, dbg)
                         })
                     }};
@@ -513,20 +523,19 @@ impl MetalBackend {
         Err(MetalError::AllocateScanoutBufferPrime(errors))
     }
 
-    fn create_scanout_buffers_<const N: usize>(
+    fn create_scanout_buffers_(
         &self,
+        num_buffers: usize,
         allocate: impl Fn(DamageQueue) -> Result<RenderBuffer, ScanoutBufferErrorKind>,
-    ) -> Result<[RenderBuffer; N], ScanoutBufferErrorKind> {
-        let mut damage_queue = ArrayVec::from(DamageQueue::new::<N>());
-        let mut array = ArrayVec::<_, N>::new();
-        for _ in 0..N {
-            let damage_queue = damage_queue.pop().unwrap();
-            array.push(allocate(damage_queue)?);
+    ) -> Result<Vec<RenderBuffer>, ScanoutBufferErrorKind> {
+        let mut buffers = Vec::with_capacity(num_buffers);
+        for damage_queue in DamageQueue::new_dyn(num_buffers) {
+            buffers.push(allocate(damage_queue)?);
         }
-        if let Some(buffer) = array.first() {
+        if let Some(buffer) = buffers.first() {
             buffer.damage_full();
         }
-        Ok(array.into_inner().unwrap())
+        Ok(buffers)
     }
 }
 
