@@ -71,6 +71,12 @@ pub enum TestBackendError {
     CreateUdmabuf(#[source] UdmabufError),
 }
 
+#[derive(Copy, Clone, Debug, Default)]
+pub struct TestrunSetupOptions {
+    pub need_drm: bool,
+    pub need_syncobj: bool,
+}
+
 #[derive(GetLiveness)]
 pub struct TestBackend {
     pub state: Rc<State>,
@@ -183,24 +189,24 @@ impl TestBackend {
         }
     }
 
-    pub fn install_render_context(&self, need_drm: bool) -> TestResult {
+    pub fn install_render_context(&self, options: TestrunSetupOptions) -> TestResult {
         if self.render_context_installed.get() {
             return Ok(());
         }
-        self.create_render_context(need_drm)?;
+        self.create_render_context(options)?;
         self.render_context_installed.set(true);
         Ok(())
     }
 
     pub async fn install_default(&self) -> TestResult {
-        self.install_default2(false).await
+        self.install_default2(Default::default()).await
     }
 
-    pub async fn install_default2(&self, need_drm: bool) -> TestResult {
+    pub async fn install_default2(&self, options: TestrunSetupOptions) -> TestResult {
         self.state
             .backend_events
             .push(BackendEvent::NewDrmDevice(self.default_drm_dev.clone()));
-        self.install_render_context(need_drm)?;
+        self.install_render_context(options)?;
         self.state
             .backend_events
             .push(BackendEvent::NewConnector(self.default_connector.clone()));
@@ -217,11 +223,15 @@ impl TestBackend {
         Ok(())
     }
 
-    fn create_render_context(&self, need_drm: bool) -> Result<(), TestBackendError> {
+    fn create_render_context(&self, options: TestrunSetupOptions) -> Result<(), TestBackendError> {
         let udmabuf = Udmabuf::new()
             .map(Rc::new)
             .map_err(TestBackendError::CreateUdmabuf)?;
-        let ctx = match TestGfxCtx::new(&udmabuf, need_drm.then_some(self.default_drm_dev.id)) {
+        let ctx = match TestGfxCtx::new(
+            &udmabuf,
+            options.need_drm.then_some(self.default_drm_dev.id),
+            options.need_syncobj,
+        ) {
             Ok(ctx) => ctx,
             Err(e) => return Err(TestBackendError::RenderContext(e)),
         };

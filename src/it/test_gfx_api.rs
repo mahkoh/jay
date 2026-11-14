@@ -38,10 +38,14 @@ use crate::syncobj::SyncobjCtx;
 use crate::theme::Color;
 use crate::udmabuf::Udmabuf;
 use crate::utils::bhash::BHashMap;
+use crate::utils::errorfmt::ErrorFmt;
 use crate::video::LINEAR_MODIFIER;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
+use bstr::ByteSlice;
 use indexmap::IndexSet;
+use jay_algorithms::oserror::OsError;
+use jay_algorithms::oserror::OsErrorExt2;
 use std::any::Any;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -49,10 +53,14 @@ use std::error::Error;
 use std::ffi::CString;
 use std::fmt::Debug;
 use std::fmt::Formatter;
+use std::io;
 use std::ops::Deref;
+use std::os::unix::ffi::OsStrExt;
 use std::ptr;
 use std::rc::Rc;
 use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c;
 
 #[derive(Error, Debug)]
 enum TestGfxError {
@@ -64,6 +72,12 @@ enum TestGfxError {
     AccessFailed(#[source] Box<dyn Error + Sync + Send>),
     #[error("Text API does not support blend buffers")]
     NoBlendBuffer,
+    #[error("Could not read /dev/dri")]
+    ReadDri(#[source] io::Error),
+    #[error("There are no drm nodes in /dev/dri")]
+    NoDrmNode,
+    #[error("Could not open drm node {0}")]
+    OpenDrmNode(String, #[source] OsError),
 }
 
 impl From<TestGfxError> for GfxError {
@@ -76,12 +90,14 @@ pub struct TestGfxCtx {
     formats: Rc<BHashMap<u32, GfxFormat>>,
     udmabuf: Rc<Udmabuf>,
     drm_device_id: Option<DrmDeviceId>,
+    syncobj_ctx: Option<Rc<SyncobjCtx>>,
 }
 
 impl TestGfxCtx {
     pub fn new(
         udmabuf: &Rc<Udmabuf>,
         drm_device_id: Option<DrmDeviceId>,
+        need_syncobj: bool,
     ) -> Result<Rc<Self>, GfxError> {
         let mut modifiers = IndexSet::new();
         modifiers.insert(LINEAR_MODIFIER);
@@ -112,6 +128,7 @@ impl TestGfxCtx {
             formats: Rc::new(formats),
             udmabuf: udmabuf.clone(),
             drm_device_id,
+            syncobj_ctx: need_syncobj.then(create_syncobj_ctx).flatten(),
         }))
     }
 
@@ -124,6 +141,47 @@ impl TestGfxCtx {
                 .map_err(TestGfxError::ImportDmaBuf)?,
         })))
     }
+}
+
+fn create_syncobj_ctx() -> Option<Rc<SyncobjCtx>> {
+    match open_drm_node() {
+        Ok(fd) => Some(Rc::new(SyncobjCtx::new(&fd))),
+        Err(e) => {
+            log::warn!("Could not create a syncobj context: {}", ErrorFmt(e));
+            None
+        }
+    }
+}
+
+fn open_drm_node() -> Result<Rc<OwnedFd>, TestGfxError> {
+    let dri = std::fs::read_dir("/dev/dri").map_err(TestGfxError::ReadDri)?;
+    let mut files = vec![];
+    for f in dri {
+        let f = f.map_err(TestGfxError::ReadDri)?;
+        files.push(f.path());
+    }
+    let node = 'node: {
+        for f in &files {
+            if let Some(file) = f.file_name()
+                && file.as_bytes().starts_with_str("renderD")
+            {
+                break 'node f;
+            }
+        }
+        for f in &files {
+            if let Some(file) = f.file_name()
+                && file.as_bytes().starts_with_str("card")
+            {
+                break 'node f;
+            }
+        }
+        return Err(TestGfxError::NoDrmNode);
+    };
+    uapi::open(node.as_path(), c::O_RDWR | c::O_CLOEXEC, 0)
+        .map(Rc::new)
+        .map_os_err(|e| {
+            TestGfxError::OpenDrmNode(node.as_os_str().as_bytes().as_bstr().to_string(), e)
+        })
 }
 
 impl Debug for TestGfxCtx {
@@ -261,7 +319,7 @@ impl GfxContext for TestGfxCtx {
     }
 
     fn syncobj_ctx(&self) -> Option<&Rc<SyncobjCtx>> {
-        None
+        self.syncobj_ctx.as_ref()
     }
 
     fn acquire_blend_buffer(

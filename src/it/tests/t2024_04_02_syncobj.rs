@@ -1,9 +1,11 @@
+use crate::it::test_backend::TestrunSetupOptions;
 use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestResult;
 use crate::it::testrun::TestRun;
 use crate::syncobj::SyncobjError;
 use crate::syncobj::wait_for_syncobj::SyncobjWaiter;
 use crate::theme::Color;
+use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::video::drm::syncobj::SyncobjPoint;
 use std::cell::Cell;
@@ -12,16 +14,23 @@ use std::rc::Rc;
 testcase!();
 
 async fn test(run: Rc<TestRun>) -> TestResult {
-    let _ds = run.create_default_setup2(true).await?;
+    let _ds = run
+        .create_default_setup2(TestrunSetupOptions {
+            need_drm: true,
+            need_syncobj: true,
+        })
+        .await?;
 
-    struct Waiter(Cell<bool>);
+    #[derive(Default)]
+    struct Waiter(Cell<bool>, AsyncEvent);
     impl SyncobjWaiter for Waiter {
         fn done(self: Rc<Self>, result: Result<(), SyncobjError>) {
             result.unwrap();
             self.0.set(true);
+            self.1.trigger();
         }
     }
-    let waiter = Rc::new(Waiter(Cell::new(false)));
+    let waiter = Rc::new(Waiter::default());
 
     let eng = run.state.render_ctx.get().unwrap();
     let Some(ctx) = eng.syncobj_ctx() else {
@@ -64,7 +73,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     ctx.signal(&syncobj, SyncobjPoint(1))?;
 
-    client.sync().await;
+    waiter.1.triggered().await;
     tassert_eq!(waiter.0.get(), true);
 
     Ok(())

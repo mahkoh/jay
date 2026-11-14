@@ -2,6 +2,7 @@ use crate::backend::BackendDrmDevice;
 use crate::format::ARGB8888;
 use crate::ifs::zwp_linux_dmabuf_feedback_v1::FB_SAMPLING;
 use crate::ifs::zwp_linux_dmabuf_feedback_v1::FB_SCANOUT;
+use crate::it::test_backend::TestrunSetupOptions;
 use crate::it::test_client::TestClientExt;
 use crate::it::test_error::TestErrorExt;
 use crate::it::test_error::TestResult;
@@ -12,7 +13,12 @@ use std::rc::Rc;
 testcase!();
 
 async fn test(run: Rc<TestRun>) -> TestResult {
-    let ds = run.create_default_setup2(true).await?;
+    let ds = run
+        .create_default_setup2(TestrunSetupOptions {
+            need_drm: true,
+            ..Default::default()
+        })
+        .await?;
 
     ds.connector
         .scanout_formats

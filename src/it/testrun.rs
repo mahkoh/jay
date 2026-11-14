@@ -10,6 +10,7 @@ use crate::it::test_backend::TestBackend;
 use crate::it::test_backend::TestBackendKb;
 use crate::it::test_backend::TestBackendMouse;
 use crate::it::test_backend::TestConnector;
+use crate::it::test_backend::TestrunSetupOptions;
 use crate::it::test_client::TestClient;
 use crate::it::test_config::TestConfig;
 use crate::it::test_error::TestError;
@@ -72,11 +73,14 @@ impl TestRun {
     }
 
     pub async fn create_default_setup(&self) -> Result<DefaultSetup, TestError> {
-        self.create_default_setup2(false).await
+        self.create_default_setup2(Default::default()).await
     }
 
-    pub async fn create_default_setup2(&self, need_drm: bool) -> Result<DefaultSetup, TestError> {
-        self.backend.install_default2(need_drm).await?;
+    pub async fn create_default_setup2(
+        &self,
+        options: TestrunSetupOptions,
+    ) -> Result<DefaultSetup, TestError> {
+        self.backend.install_default2(options).await?;
         let seat = self.get_seat("default")?;
         self.state.eng.yield_now().await;
         let output = match self.state.root.outputs.lock().values().next() {
@@ -134,7 +138,7 @@ impl TestRun {
     }
 
     pub async fn create_session_management_setup(&self) -> Result<SmSetup, TestError> {
-        self.backend.install_render_context(false)?;
+        self.backend.install_render_context(Default::default())?;
         let mut outputs = ArrayVec::new();
         for i in 0..outputs.capacity() {
             let (vo, node) = self.create_virtual_output(&format!("o{i}")).await?;
