@@ -1,5 +1,10 @@
 # Unreleased
 
+# 1.15.1 (2026-11-14)
+
+This release fixes a bug in the Vulkan renderer that caused Jay to crash on the
+llvmpipe driver.
+
 # 1.15.0 (2026-09-28)
 
 ## Fixes
