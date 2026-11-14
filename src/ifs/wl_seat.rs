@@ -330,6 +330,7 @@ impl PartialEq for WlSeatGlobal {
 struct Shortcut {
     mask: u32,
     repeat: bool,
+    allow_inhibited: bool,
 }
 
 #[derive(Copy, Clone)]
@@ -593,12 +594,22 @@ impl WlSeatGlobal {
     }
 
     pub fn shortcuts_inhibited(&self) -> bool {
-        if let Some(surface) = self.keyboard_node.get().node_into_surface() {
-            if let Some(inhibitor) = surface.shortcuts_inhibitors.get(&self.id) {
-                return inhibitor.active.get();
-            }
+        self.keyboard_node
+            .get()
+            .node_seat_state()
+            .shortcuts_inhibited(self)
+    }
+
+    pub fn disable_shortcuts_inhibitor(&self) {
+        if let Some(inhibitor) = self
+            .keyboard_node
+            .get()
+            .node_seat_state()
+            .shortcuts_inhibitors
+            .get(&self.id)
+        {
+            inhibitor.deactivate();
         }
-        false
     }
 
     pub fn get_keyboard_output(&self) -> Option<Rc<OutputNode>> {

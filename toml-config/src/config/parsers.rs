@@ -36,6 +36,7 @@ pub mod focus_history;
 mod format;
 mod gfx_api;
 mod idle;
+pub mod inhibit_shortcuts;
 mod input;
 mod input_match;
 pub mod input_mode;

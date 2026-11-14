@@ -74,6 +74,7 @@ impl Parser for ShortcutsParser<'_, '_, '_, '_> {
                 keysym,
                 repeat: false,
                 allow_locked: false,
+                allow_inhibited: false,
                 action,
                 latch: None,
             });
@@ -146,12 +147,14 @@ impl Parser for ComplexShortcutParser<'_, '_, '_> {
             latch_val,
             repeat,
             allow_locked,
+            allow_inhibited,
         ) = ext.extract((
             opt(str("mod-mask")),
             opt(val("action")),
             opt(val("latch")),
             recover(opt(bol("repeat"))),
             recover(opt(bol("allow-locked"))),
+            recover(opt(bol("allow-inhibited"))),
         ))?;
         let mod_mask = match mod_mask_val {
             None => Modifiers(!0),
@@ -179,6 +182,7 @@ impl Parser for ComplexShortcutParser<'_, '_, '_> {
             keysym: self.keysym,
             repeat: repeat.despan().unwrap_or(false),
             allow_locked: allow_locked.despan().unwrap_or(false),
+            allow_inhibited: allow_inhibited.despan().unwrap_or(false),
             action,
             latch,
         })

@@ -86,6 +86,7 @@ use jay_config::set_idle;
 use jay_config::set_idle_grace_period;
 use jay_config::set_middle_click_paste_enabled;
 use jay_config::set_session_management_enabled;
+use jay_config::set_shortcuts_inhibit_enabled;
 use jay_config::set_show_bar;
 use jay_config::set_show_float_pin_icon;
 use jay_config::set_show_titles;
@@ -115,6 +116,7 @@ use jay_config::theme::set_show_window_icons;
 use jay_config::theme::set_title_font;
 use jay_config::theme::set_window_icons_grayscale;
 use jay_config::toggle_float_above_fullscreen;
+use jay_config::toggle_shortcuts_inhibit_enabled;
 use jay_config::toggle_show_bar;
 use jay_config::toggle_show_titles;
 use jay_config::toggle_split_reuses_container;
@@ -297,6 +299,15 @@ impl Action {
                 SimpleCommand::Close => window_or_seat!(s, s.close()),
                 SimpleCommand::DisablePointerConstraint => {
                     b.new(move || s.disable_pointer_constraint())
+                }
+                SimpleCommand::DisableShortcutsInhibitor => {
+                    b.new(move || s.disable_shortcuts_inhibitor())
+                }
+                SimpleCommand::SetShortcutsInhibitEnabled(enabled) => {
+                    b.new(move || set_shortcuts_inhibit_enabled(enabled))
+                }
+                SimpleCommand::ToggleShortcutsInhibitEnabled => {
+                    b.new(toggle_shortcuts_inhibit_enabled)
                 }
                 SimpleCommand::ToggleFloating => window_or_seat!(s, s.toggle_floating()),
                 SimpleCommand::SetFloating(b) => window_or_seat!(s, s.set_floating(b)),
@@ -1982,6 +1993,12 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     {
         set_session_management_enabled(enabled);
     }
+    set_shortcuts_inhibit_enabled(
+        config
+            .inhibit_shortcuts
+            .and_then(|c| c.enabled)
+            .unwrap_or(false),
+    );
     if let Some(float) = config.float
         && let Some(show) = float.show_pin_icon
     {

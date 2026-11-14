@@ -331,6 +331,19 @@ impl Seat {
         get!().set_bind_locked(self, mod_sym.into(), locked);
     }
 
+    /// Configures whether the given bind executes even if shortcuts are inhibited.
+    ///
+    /// The default is `false`.
+    ///
+    /// Binding resets the value to the default.
+    pub fn set_bind_allow_inhibited<T: Into<ModifiedKeySym>>(
+        self,
+        mod_sym: T,
+        allow_inhibited: bool,
+    ) {
+        get!().set_bind_allow_inhibited(self, mod_sym.into(), allow_inhibited);
+    }
+
     /// Registers a callback to be executed when the currently pressed key is released.
     ///
     /// This should only be called in callbacks for key-press binds.
@@ -586,6 +599,11 @@ impl Seat {
     /// Disables the currently active pointer constraint on this seat.
     pub fn disable_pointer_constraint(self) {
         get!().disable_pointer_constraint(self)
+    }
+
+    /// Temporarily disables the currently active keyboard shortcuts inhibitor on this seat until focus changes.
+    pub fn disable_shortcuts_inhibitor(self) {
+        get!().disable_shortcuts_inhibitor(self)
     }
 
     /// Moves the currently focused workspace to another output.
