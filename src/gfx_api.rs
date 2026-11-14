@@ -1,4 +1,5 @@
 use crate::allocator::Allocator;
+use crate::backend::ConnectorId;
 use crate::backend::DrmDeviceId;
 use crate::cmm::cmm_description::ColorDescription;
 use crate::cmm::cmm_description::LinearColorDescription;
@@ -35,6 +36,7 @@ use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::static_text::StaticText;
 use crate::video::Modifier;
 use crate::video::dmabuf::DmaBuf;
+use crate::video::dmabuf::DmaBufId;
 use crate::video::dmabuf::DmaBufIds;
 use crate::video::drm::syncobj::Syncobj;
 use crate::video::drm::syncobj::SyncobjPoint;
@@ -295,6 +297,7 @@ pub struct CopyTexture {
     pub client_buf: Option<Rc<SurfaceBuffer>>,
     pub lazy: Option<Rc<dyn LazyTexture>>,
     pub skip_for_scanout: bool,
+    pub scanout_feedback: Option<(ConnectorId, DmaBufId)>,
     pub scaling_filter: ScalingFilter,
 }
 
