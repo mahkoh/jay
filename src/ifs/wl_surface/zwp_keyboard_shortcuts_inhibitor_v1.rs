@@ -1,24 +1,27 @@
 use crate::client::Client;
-use crate::ifs::wl_seat::SeatId;
+use crate::control_center::CCI_INPUT;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wl_surface::WlSurface;
 use crate::leaks::Tracker;
 use crate::object::BreakLoops;
 use crate::object::Version;
+use crate::tree::NodeBase;
 use crate::wire::ZwpKeyboardShortcutsInhibitorV1Id;
 use crate::wire::zwp_keyboard_shortcuts_inhibitor_v1::*;
 use jay_proc::Object;
 use std::cell::Cell;
-use std::convert::Infallible;
 use std::rc::Rc;
+
+linear_ids!(ShortcutsInhibitorIds, ShortcutsInhibitorId, u64);
 
 #[derive(Object)]
 #[break_loops]
 pub struct ZwpKeyboardShortcutsInhibitorV1 {
     pub id: ZwpKeyboardShortcutsInhibitorV1Id,
+    pub inhibit_id: ShortcutsInhibitorId,
     pub client: Rc<Client>,
     pub surface: Rc<WlSurface>,
-    pub seat_id: SeatId,
+    pub seat: Rc<WlSeatGlobal>,
     pub active: Cell<bool>,
     pub tracker: Tracker<Self>,
     pub version: Version,
@@ -27,53 +30,79 @@ pub struct ZwpKeyboardShortcutsInhibitorV1 {
 impl ZwpKeyboardShortcutsInhibitorV1 {
     pub fn new(
         id: ZwpKeyboardShortcutsInhibitorV1Id,
+        inhibit_id: ShortcutsInhibitorId,
         client: &Rc<Client>,
         surface: &Rc<WlSurface>,
-        seat_id: SeatId,
+        seat: &Rc<WlSeatGlobal>,
         version: Version,
     ) -> Self {
         Self {
             id,
+            inhibit_id,
             client: client.clone(),
             surface: surface.clone(),
-            seat_id,
+            seat: seat.clone(),
             active: Cell::new(false),
             tracker: Default::default(),
             version,
         }
     }
 
-    pub fn install(self: &Rc<Self>, seat: &Rc<WlSeatGlobal>) {
-        self.surface
+    pub fn install(self: &Rc<Self>) {
+        self.client
+            .state
             .shortcuts_inhibitors
-            .insert(self.seat_id, self.clone());
-        // If the keyboard-focused surface of this seat is our surface, activate immediately.
-        if let Some(focused) = seat.get_keyboard_node().node_into_surface() {
-            if focused.id == self.surface.id {
-                self.activate();
-            }
+            .set((self.client.id, self.id), self.clone());
+        self.surface
+            .node_seat_state()
+            .shortcuts_inhibitors
+            .insert(self.seat.id(), self.clone());
+        self.client.state.trigger_cci(CCI_INPUT);
+        if self.seat.get_keyboard_node().node_id() == self.surface.node_id() {
+            self.activate();
         }
     }
 
-    pub fn activate(self: &Rc<Self>) {
+    pub fn is_active(&self) -> bool {
+        self.active.get()
+    }
+
+    pub fn activate(&self) {
+        if !self.client.state.shortcuts_inhibit_enabled.get() {
+            return;
+        }
         if !self.active.replace(true) {
             self.client.event(Active { self_id: self.id });
+            self.client.state.trigger_cci(CCI_INPUT);
         }
     }
 
     pub fn deactivate(&self) {
         if self.active.replace(false) {
             self.client.event(Inactive { self_id: self.id });
+            self.client.state.trigger_cci(CCI_INPUT);
         }
+    }
+
+    fn detach(&self) {
+        self.surface
+            .node_seat_state()
+            .shortcuts_inhibitors
+            .remove(&self.seat.id());
+        self.client
+            .state
+            .shortcuts_inhibitors
+            .remove(&(self.client.id, self.id));
+        self.deactivate();
+        self.client.state.trigger_cci(CCI_INPUT);
     }
 }
 
 impl ZwpKeyboardShortcutsInhibitorV1RequestHandler for ZwpKeyboardShortcutsInhibitorV1 {
-    type Error = Infallible;
+    type Error = !;
 
     fn destroy(&self, _req: Destroy, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.surface.shortcuts_inhibitors.remove(&self.seat_id);
-        self.deactivate();
+        self.detach();
         self.client.remove_obj(self);
         Ok(())
     }
@@ -81,7 +110,6 @@ impl ZwpKeyboardShortcutsInhibitorV1RequestHandler for ZwpKeyboardShortcutsInhib
 
 impl BreakLoops for ZwpKeyboardShortcutsInhibitorV1 {
     fn break_loops(self: Rc<Self>) {
-        self.surface.shortcuts_inhibitors.remove(&self.seat_id);
-        self.deactivate();
+        self.detach();
     }
 }

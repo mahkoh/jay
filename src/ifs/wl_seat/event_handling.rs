@@ -52,6 +52,7 @@ use crate::ifs::wl_seat::zwp_pointer_constraints_v1::SeatConstraintStatus;
 use crate::ifs::wl_seat::zwp_relative_pointer_v1::ZwpRelativePointerV1;
 use crate::ifs::wl_surface::WlSurface;
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
+use crate::ifs::wl_surface::zwp_keyboard_shortcuts_inhibitor_v1::ZwpKeyboardShortcutsInhibitorV1;
 use crate::kbvm::EventOrRepeat;
 use crate::kbvm::KbvmState;
 use crate::keyboard::KeyboardState;
@@ -108,6 +109,7 @@ pub struct NodeSeatState {
     tablet_tool_foci: SmallMap<TabletToolId, Rc<TabletTool>, 1>,
     ui_drags: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     marks: RefCell<SmallMapMut<SeatId, Marks, 1>>,
+    pub shortcuts_inhibitors: SmallMap<SeatId, Rc<ZwpKeyboardShortcutsInhibitorV1>, 1>,
 }
 
 struct Marks {
@@ -158,11 +160,17 @@ impl NodeSeatState {
             }
         }
         self.kb_foci.insert(seat.id, seat.clone());
+        if let Some(inhibitor) = self.shortcuts_inhibitors.get(&seat.id) {
+            inhibitor.activate();
+        }
         self.kb_foci.len() == 1
     }
 
     pub(super) fn unfocus(&self, seat: &WlSeatGlobal) -> bool {
         self.kb_foci.remove(&seat.id);
+        if let Some(inhibitor) = self.shortcuts_inhibitors.get(&seat.id) {
+            inhibitor.deactivate();
+        }
         self.kb_foci.len() == 0
     }
 
@@ -306,6 +314,9 @@ impl NodeSeatState {
         while let Some((_, seat)) = self.touch_foci.pop() {
             seat.touch_owner.cancel(&seat);
         }
+        for (_, inhibitor) in &self.shortcuts_inhibitors {
+            inhibitor.deactivate();
+        }
         self.release_kb_focus2(focus_last);
     }
 
@@ -331,6 +342,9 @@ impl NodeSeatState {
         self.pointer_foci.remove(&seat.id);
         self.dnd_targets.remove(&seat.id);
         self.pointer_grabs.remove(&seat.id);
+        if let Some(inhibitor) = self.shortcuts_inhibitors.remove(&seat.id) {
+            inhibitor.deactivate();
+        }
     }
 
     pub fn clear(&self) {
@@ -338,6 +352,18 @@ impl NodeSeatState {
         self.pointer_foci.clear();
         self.dnd_targets.clear();
         self.pointer_grabs.clear();
+        for (_, inhibitor) in &self.shortcuts_inhibitors {
+            inhibitor.deactivate();
+        }
+        self.shortcuts_inhibitors.clear();
+    }
+
+    pub fn shortcuts_inhibited(&self, seat: &WlSeatGlobal) -> bool {
+        seat.state.shortcuts_inhibit_enabled.get()
+            && self
+                .shortcuts_inhibitors
+                .get(&seat.id)
+                .is_some_and(|i| i.is_active())
     }
 }
 
@@ -1000,6 +1026,7 @@ impl WlSeatGlobal {
                     .unwrap_or(kbvm_state.kb_state.mods.group);
                 let keysyms = map.lookup_table.lookup(group, ModifierMask::default(), kc);
                 repeats = keysyms.repeats();
+                let shortcuts_inhibited = self.shortcuts_inhibited();
                 let mut revert_pointer_to_default = false;
                 for props in keysyms {
                     let sym = props.keysym().0;
@@ -1008,12 +1035,12 @@ impl WlSeatGlobal {
                     }
                     if (!self.state.lock.locked[LiveTL].get()
                         || self.state.config_locked_shortcuts.get())
-                        && !self.shortcuts_inhibited()
                         && let Some(key_mods) = scs.get(&sym)
                     {
                         for (&key_mods, sc) in key_mods {
                             if mods & sc.mask == key_mods
                                 && (sc.repeat || key_state != KeyState::Repeated)
+                                && (!shortcuts_inhibited || sc.allow_inhibited)
                             {
                                 shortcuts.push(InvokedShortcut {
                                     unmasked_mods: Modifiers(mods),
@@ -1376,6 +1403,7 @@ impl WlSeatGlobal {
                 Shortcut {
                     mask: mod_mask.0,
                     repeat: Default::default(),
+                    allow_inhibited: Default::default(),
                 },
             );
     }
@@ -1394,6 +1422,19 @@ impl WlSeatGlobal {
             && let Some(sc) = scs.get_mut(&mods.0)
         {
             sc.repeat = repeat;
+        }
+    }
+
+    pub fn set_shortcut_allow_inhibited(
+        &self,
+        mods: Modifiers,
+        keysym: KeySym,
+        allow_inhibited: bool,
+    ) {
+        if let Some(scs) = self.shortcuts.borrow_mut().get_mut(&keysym.0)
+            && let Some(sc) = scs.get_mut(&mods.0)
+        {
+            sc.allow_inhibited = allow_inhibited;
         }
     }
 

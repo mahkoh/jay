@@ -1144,6 +1144,19 @@ pub enum ClientMessage<'a> {
         window: Window,
         kind: WindowThemeKind,
     },
+    DisableShortcutsInhibitor {
+        seat: Seat,
+    },
+    SetInhibitedShortcut {
+        seat: Seat,
+        mods: Modifiers,
+        sym: KeySym,
+        allow_inhibited: bool,
+    },
+    SetShortcutsInhibitEnabled {
+        enabled: bool,
+    },
+    GetShortcutsInhibitEnabled,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1444,6 +1457,9 @@ pub enum Response {
     },
     GetWindowThemeContainerBorders {
         borders: Option<JcContainerBorders>,
+    },
+    GetShortcutsInhibitEnabled {
+        enabled: bool,
     },
 }
 

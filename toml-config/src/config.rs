@@ -16,6 +16,7 @@ use crate::config::parsers::config::ConfigParser;
 use crate::config::parsers::config::ConfigParserError;
 use crate::config::parsers::float::Float;
 use crate::config::parsers::focus_history::FocusHistory;
+use crate::config::parsers::inhibit_shortcuts::InhibitShortcuts;
 pub use crate::config::parsers::input_mode::InputMode;
 use crate::config::parsers::session_management::SessionManagement;
 use crate::config::parsers::transactions::Transactions;
@@ -81,6 +82,7 @@ use toml::toml_parser;
 pub enum SimpleCommand {
     Close,
     DisablePointerConstraint,
+    DisableShortcutsInhibitor,
     Focus(Direction),
     FocusParent,
     Move(Direction),
@@ -127,6 +129,8 @@ pub enum SimpleCommand {
     ToggleSplitReusesContainer,
     SetSplitRelative(ContainerTarget, RelativeAxis),
     SplitRelative(RelativeAxis),
+    SetShortcutsInhibitEnabled(bool),
+    ToggleShortcutsInhibitEnabled,
     ResetWindowTheme,
 }
 
@@ -610,6 +614,7 @@ pub struct Shortcut {
     pub keysym: ModifiedKeySym,
     pub repeat: bool,
     pub allow_locked: bool,
+    pub allow_inhibited: bool,
     pub action: Action,
     pub latch: Option<Action>,
 }
@@ -656,6 +661,7 @@ pub struct Config {
     pub xwayland: Option<Xwayland>,
     pub color_management: Option<ColorManagement>,
     pub session_management: Option<SessionManagement>,
+    pub inhibit_shortcuts: Option<InhibitShortcuts>,
     pub float: Option<Float>,
     pub named_actions: Vec<NamedAction>,
     pub max_action_depth: u64,
@@ -755,4 +761,125 @@ where
 fn default_config_parses() {
     let input = crate::DEFAULT;
     parse_config(input, &Default::default(), &mut Default::default(), |_| ()).unwrap();
+}
+
+#[test]
+fn inhibit_shortcuts_parses() {
+    let parse = |s: &str| {
+        parse_config(
+            s.as_bytes(),
+            &Default::default(),
+            &mut Default::default(),
+            |_| (),
+        )
+        .unwrap()
+    };
+
+    let cfg = parse("");
+    assert!(cfg.inhibit_shortcuts.is_none());
+
+    let cfg = parse("[inhibit-shortcuts]\n");
+    assert_eq!(cfg.inhibit_shortcuts.unwrap().enabled, None);
+
+    let cfg = parse("[inhibit-shortcuts]\nenabled = true\n");
+    assert_eq!(cfg.inhibit_shortcuts.unwrap().enabled, Some(true));
+
+    let cfg = parse("[inhibit-shortcuts]\nenabled = false\n");
+    assert_eq!(cfg.inhibit_shortcuts.unwrap().enabled, Some(false));
+
+    let cfg = parse("[inhibit-shortcuts]\nenabled = \"bad\"\n");
+    assert!(cfg.inhibit_shortcuts.is_none());
+
+    let cfg = parse(
+        "[inhibit-shortcuts-whitelist]\nkeys = [\"logo-shift-f\"]\n\n[shortcuts]\nlogo-shift-f = \"toggle-fullscreen\"\nalt-q = \"quit\"\n",
+    );
+    assert!(cfg.inhibit_shortcuts.is_none());
+    assert_eq!(cfg.shortcuts.len(), 2);
+    assert!(cfg.shortcuts[0].allow_inhibited);
+    assert!(!cfg.shortcuts[1].allow_inhibited);
+
+    let cfg = parse(
+        "[inhibit-shortcuts-whitelist]\nkeys = [\"logo-b\"]\n[complex-shortcuts.logo-b]\naction = \"quit\"\n",
+    );
+    assert_eq!(cfg.shortcuts.len(), 1);
+    assert!(cfg.shortcuts[0].allow_inhibited);
+
+    let cfg = parse(
+        "[inhibit-shortcuts-whitelist]\nkeys = [\"alt-q\"]\nlogo-shift-q = \"disable-shortcuts-inhibit\"\n",
+    );
+    assert!(cfg.shortcuts.is_empty());
+
+    let cfg = parse(
+        "[inhibit-shortcuts-whitelist]\nkeys = \"bad\"\n[shortcuts]\nlogo-shift-f = \"toggle-fullscreen\"\n",
+    );
+    assert_eq!(cfg.shortcuts.len(), 1);
+    assert!(!cfg.shortcuts[0].allow_inhibited);
+
+    let cfg = parse(
+        "[inhibit-shortcuts-whitelist]\nkeys = [\"not-a-key\", \"logo-shift-f\"]\n[shortcuts]\nlogo-shift-f = \"toggle-fullscreen\"\n",
+    );
+    assert_eq!(cfg.shortcuts.len(), 1);
+    assert!(cfg.shortcuts[0].allow_inhibited);
+
+    let cfg = parse(
+        "[shortcuts]\nlogo-shift-f = \"none\"\n[inhibit-shortcuts-whitelist]\nkeys = [\"logo-shift-f\"]\n",
+    );
+    assert_eq!(cfg.shortcuts.len(), 1);
+    assert!(!cfg.shortcuts[0].allow_inhibited);
+
+    let cfg = parse(
+        "[inhibit-shortcuts-whitelist]\nkeys = [\"logo-a\"]\n[modes.m.shortcuts]\nlogo-a = \"toggle-fullscreen\"\n",
+    );
+    assert_eq!(cfg.input_modes["m"].shortcuts.len(), 1);
+    assert!(cfg.input_modes["m"].shortcuts[0].allow_inhibited);
+
+    let cfg = parse(
+        "[shortcuts]\nlogo-shift-q = \"inhibitor-temporarily-assign-disable\"\nalt-F4 = \"close\"\nlogo-F1 = \"enable-shortcuts-inhibit\"\nlogo-F2 = \"disable-shortcuts-inhibit\"\nlogo-F3 = \"toggle-shortcuts-inhibit\"\nlogo-F4 = \"disable-shortcuts-inhibitor\"\n",
+    );
+    assert_eq!(cfg.shortcuts.len(), 5);
+    assert!(matches!(
+        cfg.shortcuts[0].action,
+        Action::SimpleCommand {
+            cmd: SimpleCommand::DisableShortcutsInhibitor,
+        }
+    ));
+    assert!(crate::shortcuts::shortcut_allows_inhibited(
+        &cfg.shortcuts[0]
+    ));
+    assert!(matches!(
+        cfg.shortcuts[1].action,
+        Action::SimpleCommand {
+            cmd: SimpleCommand::Close,
+        }
+    ));
+    assert!(crate::shortcuts::shortcut_allows_inhibited(
+        &cfg.shortcuts[1]
+    ));
+    assert!(matches!(
+        cfg.shortcuts[2].action,
+        Action::SimpleCommand {
+            cmd: SimpleCommand::SetShortcutsInhibitEnabled(true),
+        }
+    ));
+    assert!(!crate::shortcuts::shortcut_allows_inhibited(
+        &cfg.shortcuts[2]
+    ));
+    assert!(matches!(
+        cfg.shortcuts[3].action,
+        Action::SimpleCommand {
+            cmd: SimpleCommand::SetShortcutsInhibitEnabled(false),
+        }
+    ));
+    assert!(crate::shortcuts::shortcut_allows_inhibited(
+        &cfg.shortcuts[3]
+    ));
+    assert!(matches!(
+        cfg.shortcuts[4].action,
+        Action::SimpleCommand {
+            cmd: SimpleCommand::ToggleShortcutsInhibitEnabled,
+        }
+    ));
+    assert!(crate::shortcuts::shortcut_allows_inhibited(
+        &cfg.shortcuts[4]
+    ));
 }

@@ -763,6 +763,10 @@ impl ConfigClient {
         self.send(&ClientMessage::DisablePointerConstraint { seat });
     }
 
+    pub fn disable_shortcuts_inhibitor(&self, seat: Seat) {
+        self.send(&ClientMessage::DisableShortcutsInhibitor { seat });
+    }
+
     pub fn move_to_output(&self, workspace: WorkspaceSource, connector: Connector) {
         self.send(&ClientMessage::MoveToOutput {
             workspace,
@@ -1231,6 +1235,16 @@ impl ConfigClient {
 
     pub fn set_session_management_enabled(&self, enabled: bool) {
         self.send(&ClientMessage::SetSessionManagementEnabled { enabled });
+    }
+
+    pub fn set_shortcuts_inhibit_enabled(&self, enabled: bool) {
+        self.send(&ClientMessage::SetShortcutsInhibitEnabled { enabled });
+    }
+
+    pub fn get_shortcuts_inhibit_enabled(&self) -> bool {
+        let res = self.send_with_response(&ClientMessage::GetShortcutsInhibitEnabled);
+        get_response!(res, false, GetShortcutsInhibitEnabled { enabled });
+        enabled
     }
 
     pub fn set_float_above_fullscreen(&self, above: bool) {
@@ -1912,6 +1926,20 @@ impl ConfigClient {
         if let Some(bind) = self.key_handlers.borrow_mut().get_mut(&(seat, mod_sym)) {
             bind.locked = locked;
         }
+    }
+
+    pub fn set_bind_allow_inhibited(
+        &self,
+        seat: Seat,
+        mod_sym: ModifiedKeySym,
+        allow_inhibited: bool,
+    ) {
+        self.send(&ClientMessage::SetInhibitedShortcut {
+            seat,
+            mods: mod_sym.mods,
+            sym: mod_sym.sym,
+            allow_inhibited,
+        });
     }
 
     pub fn log(&self, level: LogLevel, msg: &str, file: Option<&str>, line: Option<u32>) {

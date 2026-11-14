@@ -133,6 +133,27 @@ impl InputPane {
         for dev in dev {
             self.show_device(ps, ui, &dev.data, &seats, &outputs);
         }
+        let mut is: Vec<_> = state
+            .shortcuts_inhibitors
+            .lock()
+            .values()
+            .cloned()
+            .collect();
+        is.sort_by_key(|i| i.inhibit_id);
+        CollapsingHeader::new(format!("Shortcuts Inhibitors ({})", is.len()))
+            .id_salt("ShortcutsInhibitors")
+            .show(ui, |ui| {
+                let mut enabled = state.shortcuts_inhibit_enabled.get();
+                if ui.checkbox(&mut enabled, "Enabled").changed() {
+                    state.set_shortcuts_inhibit_enabled(enabled);
+                }
+                for i in is {
+                    ui.horizontal(|ui| {
+                        ui.label(&i.client.pid_info.comm);
+                        ui.label(if i.is_active() { "active" } else { "inactive" });
+                    });
+                }
+            });
     }
 
     fn show_seat(&mut self, ps: &mut PaneState, ui: &mut Ui, seat: &Rc<WlSeatGlobal>) {

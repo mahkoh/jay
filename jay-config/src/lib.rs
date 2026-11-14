@@ -491,6 +491,23 @@ pub fn set_session_management_enabled(enabled: bool) {
     get!().set_session_management_enabled(enabled);
 }
 
+/// Enables or disables the keyboard-shortcuts-inhibit protocol.
+///
+/// The default is `false`.
+pub fn set_shortcuts_inhibit_enabled(enabled: bool) {
+    get!().set_shortcuts_inhibit_enabled(enabled);
+}
+
+/// Gets whether the keyboard-shortcuts-inhibit protocol is enabled.
+pub fn get_shortcuts_inhibit_enabled() -> bool {
+    get!().get_shortcuts_inhibit_enabled()
+}
+
+/// Toggles whether the keyboard-shortcuts-inhibit protocol is enabled.
+pub fn toggle_shortcuts_inhibit_enabled() {
+    set_shortcuts_inhibit_enabled(!get_shortcuts_inhibit_enabled());
+}
+
 /// Sets whether floating windows are shown above fullscreen windows.
 ///
 /// The default is `false`.

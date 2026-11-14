@@ -5,6 +5,7 @@ use crate::globals::GlobalName;
 use crate::ifs::wl_surface::zwp_keyboard_shortcuts_inhibitor_v1::ZwpKeyboardShortcutsInhibitorV1;
 use crate::leaks::Tracker;
 use crate::object::Version;
+use crate::tree::NodeBase;
 use crate::wire::ZwpKeyboardShortcutsInhibitManagerV1Id;
 use crate::wire::zwp_keyboard_shortcuts_inhibit_manager_v1::*;
 use jay_proc::Global;
@@ -67,19 +68,24 @@ impl ZwpKeyboardShortcutsInhibitManagerV1RequestHandler for ZwpKeyboardShortcuts
         let seat: Rc<crate::ifs::wl_seat::WlSeat> = self.client.lookup(req.seat)?;
         let seat_global = seat.global.clone();
         let seat_id = seat_global.id();
-        if surface.shortcuts_inhibitors.contains(&seat_id) {
+        if surface
+            .node_seat_state()
+            .shortcuts_inhibitors
+            .contains(&seat_id)
+        {
             return Err(ZwpKeyboardShortcutsInhibitManagerV1Error::AlreadyInhibited);
         }
         let inhibitor = Rc::new(ZwpKeyboardShortcutsInhibitorV1::new(
             req.id,
+            self.client.state.shortcuts_inhibitor_ids.next(),
             &self.client,
             &surface,
-            seat_id,
+            &seat_global,
             self.version,
         ));
         track!(self.client, inhibitor);
         self.client.add_client_obj(&inhibitor);
-        inhibitor.install(&seat_global);
+        inhibitor.install();
         Ok(())
     }
 }
