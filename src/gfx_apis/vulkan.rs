@@ -271,6 +271,7 @@ pub fn create_graphics_context(
     Ok(Rc::new(Context(renderer)))
 }
 
+#[expect(unused)]
 pub fn create_vulkan_allocator(
     drm: &Drm,
     eventfd_cache: &Rc<EventfdCache>,

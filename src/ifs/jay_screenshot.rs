@@ -1,45 +1,30 @@
 use crate::client::Client;
+use crate::gfx_api::PendingShmTransfer;
 use crate::leaks::Tracker;
+use crate::object::BreakLoops;
 use crate::object::Version;
+use crate::screenshoter::ScreenshooterError;
+use crate::screenshoter::ScreenshotCallback;
+use crate::utils::errorfmt::ErrorFmt;
 use crate::video::dmabuf::DmaBuf;
-use crate::video::dmabuf::DmaBufPlane;
 use crate::wire::JayScreenshotId;
 use crate::wire::jay_screenshot::*;
 use jay_proc::Object;
+use std::cell::Cell;
+use std::ops::Deref;
 use std::rc::Rc;
-use uapi::OwnedFd;
 
 #[derive(Object)]
+#[break_loops]
 pub struct JayScreenshot {
     pub id: JayScreenshotId,
     pub version: Version,
     pub client: Rc<Client>,
     pub tracker: Tracker<Self>,
+    pub pending: Cell<Option<PendingShmTransfer>>,
 }
 
 impl JayScreenshot {
-    pub fn send_dmabuf(
-        &self,
-        drm_dev: &Rc<OwnedFd>,
-        fd: &Rc<OwnedFd>,
-        width: i32,
-        height: i32,
-        offset: u32,
-        stride: u32,
-        modifier: u64,
-    ) {
-        self.client.event(Dmabuf {
-            self_id: self.id,
-            drm_dev: drm_dev.clone(),
-            fd: fd.clone(),
-            width: width as _,
-            height: height as _,
-            offset,
-            stride,
-            modifier,
-        });
-    }
-
     pub fn send_error(&self, msg: &str) {
         self.client.event(Error {
             self_id: self.id,
@@ -47,39 +32,38 @@ impl JayScreenshot {
         });
     }
 
-    pub fn send_drm_dev(&self, drm: &Rc<OwnedFd>) {
-        self.client.event(DrmDev {
+    pub fn send_udmabuf(&self, buf: &DmaBuf) {
+        let plane = &buf.planes[0];
+        self.client.event(Udmabuf {
             self_id: self.id,
-            drm_dev: drm.clone(),
-        });
-    }
-
-    pub fn send_plane(&self, plane: &DmaBufPlane) {
-        self.client.event(Plane {
-            self_id: self.id,
+            width: buf.width,
+            height: buf.height,
+            format: buf.format.drm,
             fd: plane.fd.clone(),
-            offset: plane.offset,
             stride: plane.stride,
         });
     }
+}
 
-    pub fn send_dmabuf2(&self, buf: &DmaBuf) {
-        self.client.event(Dmabuf2 {
-            self_id: self.id,
-            width: buf.width,
-            height: buf.height,
-            modifier: buf.modifier,
-        });
+impl ScreenshotCallback for JayScreenshot {
+    fn completed(self: Rc<Self>, res: Result<Rc<DmaBuf>, ScreenshooterError>) {
+        self.pending.take();
+        match res {
+            Ok(dmabuf) => {
+                self.send_udmabuf(&dmabuf);
+            }
+            Err(e) => {
+                let msg = ErrorFmt(e).to_string();
+                self.send_error(&msg);
+            }
+        }
+        self.client.remove_obj(self.deref());
     }
+}
 
-    pub fn send_dmabuf3(&self, buf: &DmaBuf) {
-        self.client.event(Dmabuf3 {
-            self_id: self.id,
-            width: buf.width,
-            height: buf.height,
-            modifier: buf.modifier,
-            format: buf.format.drm,
-        });
+impl BreakLoops for JayScreenshot {
+    fn break_loops(self: Rc<Self>) {
+        self.pending.take();
     }
 }
 
