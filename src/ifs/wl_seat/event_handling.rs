@@ -1447,11 +1447,35 @@ impl WlSeatGlobal {
     }
 
     pub(super) fn apply_changes(self: &Rc<Self>) {
-        self.pointer_owner.apply_changes(self);
-        if self.changes.get().contains(CHANGE_TREE) {
-            self.tablet_apply_changes();
+        if self.applying_changes.replace(true) {
+            self.reapply_changes.set(true);
+            return;
         }
-        self.changes.set(0);
+        struct ResetApplyingChanges<'a>(&'a Cell<bool>);
+        impl Drop for ResetApplyingChanges<'_> {
+            fn drop(&mut self) {
+                self.0.set(false);
+            }
+        }
+        let _reset = ResetApplyingChanges(&self.applying_changes);
+        let mut iterations = 0;
+        loop {
+            self.reapply_changes.set(false);
+            self.pointer_owner.apply_changes(self);
+            if self.changes.get().contains(CHANGE_TREE) {
+                self.tablet_apply_changes();
+            }
+            self.changes.set(0);
+            if !self.reapply_changes.replace(false) {
+                break;
+            }
+            iterations += 1;
+            if iterations >= 4 {
+                self.trigger_tree_changed(false);
+                break;
+            }
+            self.changes.or_assign(CHANGE_TREE);
+        }
     }
 
     fn set_repeat_key(&self, key: Keycode, state: &Rc<RefCell<KbvmState>>, shortcuts_only: bool) {

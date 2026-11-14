@@ -319,6 +319,8 @@ pub struct WlSeatGlobal {
     warp_mouse_to_focus_scheduled: Cell<bool>,
     mouse_follows_focus: Cell<bool>,
     window_management_requested: Cell<bool>,
+    applying_changes: Cell<bool>,
+    reapply_changes: Cell<bool>,
     liveness: Liveness,
 }
 
@@ -471,6 +473,8 @@ impl WlSeatGlobal {
             warp_mouse_to_focus_scheduled: Cell::new(false),
             mouse_follows_focus: Cell::new(false),
             window_management_requested: Cell::new(false),
+            applying_changes: Cell::new(false),
+            reapply_changes: Cell::new(false),
             liveness: Default::default(),
         });
         slf.pointer_cursor.set_owner(slf.clone());
@@ -1539,6 +1543,7 @@ impl WlSeatGlobal {
 
     pub fn clear(self: &Rc<Self>) {
         self.window_management_requested.set(false);
+        self.reapply_changes.set(false);
         mem::take(self.pointer_stack.borrow_mut().deref_mut());
         mem::take(self.found_tree.borrow_mut().deref_mut());
         self.keyboard_node.set(self.state.root.clone());
