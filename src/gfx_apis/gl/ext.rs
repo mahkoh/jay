@@ -4,8 +4,6 @@ use crate::gfx_apis::gl::egl::sys::EGLDisplay;
 use crate::gfx_apis::gl::gl::sys::GL_EXTENSIONS;
 use crate::gfx_apis::gl::proc::ExtProc;
 use crate::gfx_apis::gl::sys::EGL;
-use crate::gfx_apis::gl::sys::EGL_DEVICE_EXT;
-use crate::gfx_apis::gl::sys::EGL_TRUE;
 use crate::gfx_apis::gl::sys::EGLDeviceEXT;
 use crate::gfx_apis::gl::sys::GLESV2;
 use crate::utils::bhash::BHashSet;
@@ -55,17 +53,23 @@ bitflags! {
     ClientExt: u32;
         EXT_CLIENT_EXTENSION,
         EXT_PLATFORM_BASE,
-        KHR_PLATFORM_GBM,
+        EXT_PLATFORM_DEVICE,
         KHR_DEBUG,
         EXT_DEVICE_QUERY,
+        EXT_DEVICE_ENUMERATION,
 }
 
 pub fn get_client_ext() -> ClientExt {
     let map = [
         ("EGL_EXT_platform_base", EXT_PLATFORM_BASE),
-        ("EGL_KHR_platform_gbm", KHR_PLATFORM_GBM),
+        ("EGL_EXT_platform_device", EXT_PLATFORM_DEVICE),
         ("EGL_KHR_debug", KHR_DEBUG),
         ("EGL_EXT_device_query", EXT_DEVICE_QUERY),
+        ("EGL_EXT_device_enumeration", EXT_DEVICE_ENUMERATION),
+        (
+            "EGL_EXT_device_base",
+            EXT_DEVICE_QUERY | EXT_DEVICE_ENUMERATION,
+        ),
     ];
     match unsafe { get_dpy_extensions(EGLDisplay::none()) } {
         Some(exts) => get_typed_ext(&exts, EXT_CLIENT_EXTENSION, &map),
@@ -137,20 +141,21 @@ pub fn get_gl_ext() -> Result<GlExt, RenderError> {
 bitflags! {
     DevExt: u32;
         MESA_DEVICE_SOFTWARE,
+        EXT_DEVICE_DRM,
+        EXT_DEVICE_DRM_RENDER_NODE,
 }
 
-pub fn get_device_ext(procs: &ExtProc, dpy: EGLDisplay) -> Result<DevExt, RenderError> {
-    let map = [("EGL_MESA_device_software", MESA_DEVICE_SOFTWARE)];
+pub fn get_device_ext(procs: &ExtProc, device: EGLDeviceEXT) -> DevExt {
+    let map = [
+        ("EGL_MESA_device_software", MESA_DEVICE_SOFTWARE),
+        ("EGL_EXT_device_drm", EXT_DEVICE_DRM),
+        ("EGL_EXT_device_drm_render_node", EXT_DEVICE_DRM_RENDER_NODE),
+    ];
     unsafe {
-        let mut device = 0;
-        if procs.eglQueryDisplayAttribEXT(dpy, EGL_DEVICE_EXT, &mut device) != EGL_TRUE {
-            return Err(RenderError::QueryDisplayDevice);
-        }
-        let device = EGLDeviceEXT(device as _);
         let ext = procs.eglQueryDeviceStringEXT(device, EGL_EXTENSIONS);
         match get_extensions(ext) {
-            Some(exts) => Ok(get_typed_ext(&exts, DevExt::none(), &map)),
-            _ => Ok(DevExt::none()),
+            Some(exts) => get_typed_ext(&exts, DevExt::none(), &map),
+            _ => DevExt::none(),
         }
     }
 }

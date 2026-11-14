@@ -4,7 +4,6 @@ use crate::format::formats;
 use crate::gfx_api::GfxFormat;
 use crate::gfx_api::GfxWriteModifier;
 use crate::gfx_apis::gl::RenderError;
-use crate::gfx_apis::gl::egl::EXTS;
 use crate::gfx_apis::gl::egl::PROCS;
 use crate::gfx_apis::gl::egl::context::EglContext;
 use crate::gfx_apis::gl::egl::image::EglImage;
@@ -29,6 +28,8 @@ use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE3_MODIFIER_HI_EXT;
 use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE3_MODIFIER_LO_EXT;
 use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE3_OFFSET_EXT;
 use crate::gfx_apis::gl::egl::sys::EGL_DMA_BUF_PLANE3_PITCH_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DRM_DEVICE_FILE_EXT;
+use crate::gfx_apis::gl::egl::sys::EGL_DRM_RENDER_NODE_FILE_EXT;
 use crate::gfx_apis::gl::egl::sys::EGL_HEIGHT;
 use crate::gfx_apis::gl::egl::sys::EGL_IMAGE_PRESERVED_KHR;
 use crate::gfx_apis::gl::egl::sys::EGL_LINUX_DMA_BUF_EXT;
@@ -39,12 +40,14 @@ use crate::gfx_apis::gl::egl::sys::EGL_WIDTH;
 use crate::gfx_apis::gl::egl::sys::EGLClientBuffer;
 use crate::gfx_apis::gl::egl::sys::EGLConfig;
 use crate::gfx_apis::gl::egl::sys::EGLContext;
+use crate::gfx_apis::gl::egl::sys::EGLDeviceEXT;
 use crate::gfx_apis::gl::egl::sys::EGLDisplay;
 use crate::gfx_apis::gl::egl::sys::EGLint;
 use crate::gfx_apis::gl::ext::ANDROID_NATIVE_FENCE_SYNC;
 use crate::gfx_apis::gl::ext::DisplayExt;
 use crate::gfx_apis::gl::ext::EXT_CREATE_CONTEXT_ROBUSTNESS;
-use crate::gfx_apis::gl::ext::EXT_DEVICE_QUERY;
+use crate::gfx_apis::gl::ext::EXT_DEVICE_DRM;
+use crate::gfx_apis::gl::ext::EXT_DEVICE_DRM_RENDER_NODE;
 use crate::gfx_apis::gl::ext::EXT_IMAGE_DMA_BUF_IMPORT_MODIFIERS;
 use crate::gfx_apis::gl::ext::GL_OES_EGL_IMAGE;
 use crate::gfx_apis::gl::ext::GL_OES_EGL_IMAGE_EXTERNAL;
@@ -63,11 +66,12 @@ use crate::gfx_apis::gl::proc::ExtProc;
 use crate::gfx_apis::gl::sys::EGL;
 use crate::gfx_apis::gl::sys::EGL_CONTEXT_OPENGL_RESET_NOTIFICATION_STRATEGY_EXT;
 use crate::gfx_apis::gl::sys::EGL_LOSE_CONTEXT_ON_RESET_EXT;
-use crate::gfx_apis::gl::sys::EGL_PLATFORM_GBM_KHR;
+use crate::gfx_apis::gl::sys::EGL_PLATFORM_DEVICE_EXT;
 use crate::gfx_apis::gl::sys::Egl;
 use crate::gfx_apis::gl::sys::GLESV2;
 use crate::gfx_apis::gl::sys::GlesV2;
 use crate::utils::bhash::BHashMap;
+use crate::utils::copyhashmap::CopyHashMap;
 use crate::video::INVALID_MODIFIER;
 use crate::video::Modifier;
 use crate::video::dmabuf::DmaBuf;
@@ -75,8 +79,10 @@ use crate::video::drm::Drm;
 use crate::video::gbm::GbmDevice;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
+use std::ffi::CStr;
 use std::ptr;
 use std::rc::Rc;
+use std::rc::Weak;
 
 #[derive(Debug)]
 pub struct EglFormat {
@@ -102,6 +108,13 @@ pub struct EglDisplay {
     pub gbm: Rc<GbmDevice>,
     pub dpy: EGLDisplay,
     pub explicit_sync: bool,
+    _holder: Rc<EglDisplayHolder>,
+}
+
+#[derive(Debug)]
+struct EglDisplayHolder {
+    egl: &'static Egl,
+    dpy: EGLDisplay,
 }
 
 impl EglDisplay {
@@ -124,14 +137,7 @@ impl EglDisplay {
                 Ok(gbm) => gbm,
                 Err(e) => return Err(RenderError::Gbm(e)),
             };
-            let dpy = procs.eglGetPlatformDisplayEXT(
-                EGL_PLATFORM_GBM_KHR as _,
-                gbm.raw() as _,
-                ptr::null(),
-            );
-            if dpy.is_none() {
-                return Err(RenderError::GetDisplay);
-            }
+            let holder = get_or_create_display(egl, procs, drm, software)?;
             let mut dpy = EglDisplay {
                 drm_device_id,
                 egl,
@@ -140,21 +146,10 @@ impl EglDisplay {
                 exts: DisplayExt::none(),
                 formats: BHashMap::default(),
                 gbm: Rc::new(gbm),
-                dpy,
+                dpy: holder.dpy,
                 explicit_sync: false,
+                _holder: holder,
             };
-            let mut major = 0;
-            let mut minor = 0;
-            if (egl.eglInitialize)(dpy.dpy, &mut major, &mut minor) != EGL_TRUE {
-                return Err(RenderError::Initialize);
-            }
-            if EXTS.contains(EXT_DEVICE_QUERY)
-                && get_device_ext(procs, dpy.dpy)?.contains(MESA_DEVICE_SOFTWARE)
-            {
-                if !software {
-                    return Err(RenderError::NoHardwareRenderer);
-                }
-            }
             dpy.exts = get_display_ext(dpy.dpy);
             if !dpy.exts.intersects(KHR_IMAGE_BASE) {
                 return Err(RenderError::ImageBase);
@@ -347,16 +342,6 @@ impl EglDisplay {
     }
 }
 
-impl Drop for EglDisplay {
-    fn drop(&mut self) {
-        unsafe {
-            if (self.egl.eglTerminate)(self.dpy) != EGL_TRUE {
-                log::warn!("`eglTerminate` failed");
-            }
-        }
-    }
-}
-
 unsafe fn query_formats(
     procs: &ExtProc,
     dpy: EGLDisplay,
@@ -456,4 +441,121 @@ unsafe fn query_modifiers(
         },
     );
     Ok((res, external_only))
+}
+
+unsafe fn query_devices(procs: &ExtProc) -> Result<Vec<EGLDeviceEXT>, RenderError> {
+    let mut vec = vec![];
+    let mut num = 0;
+    let res = unsafe { procs.eglQueryDevicesEXT(num, ptr::null_mut(), &mut num) };
+    if res != EGL_TRUE {
+        return Err(RenderError::QueryDevices);
+    }
+    if num > 0 {
+        vec.reserve_exact(num as usize);
+        let res = unsafe { procs.eglQueryDevicesEXT(num, vec.as_mut_ptr(), &mut num) };
+        if res != EGL_TRUE {
+            return Err(RenderError::QueryDevices);
+        }
+        unsafe {
+            vec.set_len(num as usize);
+        }
+    }
+    Ok(vec)
+}
+
+thread_local! {
+    static DISPLAY_CACHE: CopyHashMap<EGLDisplay, Weak<EglDisplayHolder>> = CopyHashMap::new();
+}
+
+unsafe fn get_or_create_display(
+    egl: &'static Egl,
+    procs: &ExtProc,
+    drm: &Drm,
+    software: bool,
+) -> Result<Rc<EglDisplayHolder>, RenderError> {
+    unsafe {
+        let devices = query_devices(procs)?;
+        let device = match software {
+            false => find_device(procs, &devices, drm)?,
+            true => find_software_device(procs, &devices)?,
+        };
+        let dpy =
+            procs.eglGetPlatformDisplayEXT(EGL_PLATFORM_DEVICE_EXT as _, device.0, ptr::null());
+        if dpy.is_none() {
+            return Err(RenderError::GetDisplay);
+        }
+        DISPLAY_CACHE.with(|cache| {
+            if let Some(holder) = cache.get(&dpy)
+                && let Some(holder) = holder.upgrade()
+            {
+                return Ok(holder);
+            }
+            let mut major = 0;
+            let mut minor = 0;
+            if (egl.eglInitialize)(dpy, &mut major, &mut minor) != EGL_TRUE {
+                return Err(RenderError::Initialize);
+            }
+            let holder = Rc::new(EglDisplayHolder { egl, dpy });
+            cache.set(dpy, Rc::downgrade(&holder));
+            Ok(holder)
+        })
+    }
+}
+
+impl Drop for EglDisplayHolder {
+    fn drop(&mut self) {
+        DISPLAY_CACHE.with(|cache| {
+            cache.remove(&self.dpy);
+        });
+        unsafe {
+            if (self.egl.eglTerminate)(self.dpy) != EGL_TRUE {
+                log::warn!("`eglTerminate` failed");
+            }
+        }
+    }
+}
+
+unsafe fn find_device(
+    procs: &ExtProc,
+    devices: &[EGLDeviceEXT],
+    drm: &Drm,
+) -> Result<EGLDeviceEXT, RenderError> {
+    let dev = drm.dev();
+    let files = [
+        (EXT_DEVICE_DRM, EGL_DRM_DEVICE_FILE_EXT),
+        (EXT_DEVICE_DRM_RENDER_NODE, EGL_DRM_RENDER_NODE_FILE_EXT),
+    ];
+    for &device in devices {
+        let exts = get_device_ext(procs, device);
+        if exts.contains(MESA_DEVICE_SOFTWARE) {
+            continue;
+        }
+        for (ext, name) in files {
+            if !exts.contains(ext) {
+                continue;
+            }
+            let file = unsafe { procs.eglQueryDeviceStringEXT(device, name) };
+            if file.is_null() {
+                continue;
+            }
+            let file = unsafe { CStr::from_ptr(file) };
+            if let Ok(stat) = uapi::stat(file)
+                && stat.st_rdev == dev
+            {
+                return Ok(device);
+            }
+        }
+    }
+    Err(RenderError::NoDeviceFound(dev))
+}
+
+unsafe fn find_software_device(
+    procs: &ExtProc,
+    devices: &[EGLDeviceEXT],
+) -> Result<EGLDeviceEXT, RenderError> {
+    devices
+        .iter()
+        .find(|&&device| get_device_ext(procs, device).contains(MESA_DEVICE_SOFTWARE))
+        .copied()
+        .ok_or(RenderError::NoSoftwareRenderer)
 }

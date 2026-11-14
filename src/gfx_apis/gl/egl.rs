@@ -11,9 +11,11 @@ use crate::gfx_apis::gl::egl::sys::EGLLabelKHR;
 use crate::gfx_apis::gl::egl::sys::EGLenum;
 use crate::gfx_apis::gl::egl::sys::EGLint;
 use crate::gfx_apis::gl::ext::ClientExt;
+use crate::gfx_apis::gl::ext::EXT_DEVICE_ENUMERATION;
+use crate::gfx_apis::gl::ext::EXT_DEVICE_QUERY;
 use crate::gfx_apis::gl::ext::EXT_PLATFORM_BASE;
+use crate::gfx_apis::gl::ext::EXT_PLATFORM_DEVICE;
 use crate::gfx_apis::gl::ext::KHR_DEBUG;
-use crate::gfx_apis::gl::ext::KHR_PLATFORM_GBM;
 use crate::gfx_apis::gl::ext::get_client_ext;
 use crate::gfx_apis::gl::proc::ExtProc;
 use crate::gfx_apis::gl::sys::EGL;
@@ -58,8 +60,14 @@ pub(in crate::gfx_apis::gl) fn init() -> Result<(), RenderError> {
     if !EXTS.contains(EXT_PLATFORM_BASE) {
         return Err(RenderError::ExtPlatformBase);
     }
-    if !EXTS.contains(KHR_PLATFORM_GBM) {
-        return Err(RenderError::GbmExt);
+    if !EXTS.contains(EXT_PLATFORM_DEVICE) {
+        return Err(RenderError::ExtPlatformDevice);
+    }
+    if !EXTS.contains(EXT_DEVICE_ENUMERATION) {
+        return Err(RenderError::ExtDeviceEnumeration);
+    }
+    if !EXTS.contains(EXT_DEVICE_QUERY) {
+        return Err(RenderError::ExtDeviceQuery);
     }
     if EXTS.contains(KHR_DEBUG) {
         let attrib: &[EGLAttrib] = &[
