@@ -30,6 +30,8 @@ use crate::config::parsers::exec::ExecParser;
 use crate::config::parsers::exec::ExecParserError;
 use crate::config::parsers::fallback_output_mode::FallbackOutputModeParser;
 use crate::config::parsers::fallback_output_mode::FallbackOutputModeParserError;
+use crate::config::parsers::focus::FocusTargetParser;
+use crate::config::parsers::focus::FocusTargetParserError;
 use crate::config::parsers::gfx_api::GfxApiParser;
 use crate::config::parsers::gfx_api::GfxApiParserError;
 use crate::config::parsers::idle::IdleParser;
@@ -137,6 +139,10 @@ pub enum ActionParserError {
     UnknownDirection(String),
     #[error("Exactly one of `output` or `direction` must be specified")]
     OutputAndDirectionMutuallyExclusive,
+    #[error("Unknown focus edge mode {0}")]
+    UnknownFocusEdgeMode(String),
+    #[error("Could not parse a focus target")]
+    FocusTarget(#[source] FocusTargetParserError),
 }
 
 #[derive(Debug, Error)]
@@ -771,6 +777,67 @@ impl ActionParser<'_, '_, '_> {
             value: value.value,
         })
     }
+
+    fn parse_focus(
+        &mut self,
+        direction: Direction,
+        ext: &mut Extractor<'_, '_, '_>,
+    ) -> ParseResult<Self> {
+        use jay_config::focus::EdgeMode;
+        let (targets_arr, edge_mode) = ext.extract((arr("targets"), opt(str("edge_mode"))))?;
+        if targets_arr.value.is_empty() {
+            if edge_mode.is_some() {
+                log::warn!("edge_mode ignored if targets not set");
+            }
+            return Ok(Action::SimpleCommand {
+                cmd: SimpleCommand::Focus(direction),
+            });
+        }
+        let last_edge_mode = if let Some(mode) = edge_mode {
+            match mode.value.to_ascii_lowercase().as_str() {
+                "stop" => EdgeMode::Stop,
+                "wrap" => EdgeMode::Wrap,
+                "traverse" => EdgeMode::Traverse,
+                "inactive" => EdgeMode::Inactive,
+                _ => {
+                    return Err(
+                        ActionParserError::UnknownFocusEdgeMode(mode.value.to_string())
+                            .spanned(mode.span),
+                    );
+                }
+            }
+        } else {
+            EdgeMode::Stop
+        };
+        let axis = match direction {
+            Direction::Up | Direction::Down => Vertical,
+            Direction::Left | Direction::Right => Horizontal,
+        };
+        let backward = match direction {
+            Direction::Up | Direction::Left => true,
+            Direction::Down | Direction::Right => false,
+        };
+        let mut targets = vec![];
+
+        for (n, el) in targets_arr.value.iter().enumerate() {
+            let edge_mode = if n < targets_arr.value.len() - 1 {
+                EdgeMode::Traverse
+            } else {
+                last_edge_mode
+            };
+            targets.push(
+                el.parse(&mut FocusTargetParser {
+                    edge_mode,
+                    direction,
+                    axis,
+                    backward,
+                })
+                .map_spanned_err(ActionParserError::FocusTarget)?,
+            );
+        }
+
+        Ok(Action::Focus { targets })
+    }
 }
 
 struct ShowWorkspaceDefaults {
@@ -864,6 +931,10 @@ impl Parser for ActionParser<'_, '_, '_> {
             "set-window-theme" => self.parse_set_window_theme(&mut ext),
             "set-container-theme" => self.parse_set_container_theme(&mut ext),
             "reset-container-theme" => self.parse_reset_container_theme(&mut ext),
+            "focus-left" => self.parse_focus(Direction::Left, &mut ext),
+            "focus-down" => self.parse_focus(Direction::Down, &mut ext),
+            "focus-up" => self.parse_focus(Direction::Up, &mut ext),
+            "focus-right" => self.parse_focus(Direction::Right, &mut ext),
             v => {
                 ext.ignore_unused();
                 return Err(ActionParserError::UnknownType(v.to_string()).spanned(ty.span));
