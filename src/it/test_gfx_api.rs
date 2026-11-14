@@ -1,7 +1,4 @@
 use crate::allocator::Allocator;
-use crate::allocator::AllocatorError;
-use crate::allocator::BufferObject;
-use crate::allocator::BufferUsage;
 use crate::backend::DrmDeviceId;
 use crate::cmm::cmm_description::ColorDescription;
 use crate::cmm::cmm_description::LinearColorDescription;
@@ -44,6 +41,8 @@ use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
 use bstr::ByteSlice;
 use indexmap::IndexSet;
+use jay_algorithms::mmap::Mmapped;
+use jay_algorithms::mmap::mmap;
 use jay_algorithms::oserror::OsError;
 use jay_algorithms::oserror::OsErrorExt2;
 use std::any::Any;
@@ -64,10 +63,6 @@ use uapi::c;
 
 #[derive(Error, Debug)]
 enum TestGfxError {
-    #[error("Could not map dmabuf")]
-    MapDmaBuf(#[source] AllocatorError),
-    #[error("Could not import dmabuf")]
-    ImportDmaBuf(#[source] AllocatorError),
     #[error("Could not access the client memory")]
     AccessFailed(#[source] Box<dyn Error + Sync + Send>),
     #[error("Text API does not support blend buffers")]
@@ -133,12 +128,20 @@ impl TestGfxCtx {
     }
 
     fn create_img(&self, buf: &Rc<DmaBuf>) -> Result<Rc<TestGfxImage>, TestGfxError> {
+        let plane = &buf.planes[0];
+        let size = buf.height as usize * plane.stride as usize;
+        let map = mmap(
+            size,
+            c::PROT_READ | c::PROT_WRITE,
+            c::MAP_SHARED,
+            plane.fd.raw(),
+            0,
+        )
+        .unwrap();
         Ok(Rc::new(TestGfxImage::DmaBuf(TestDmaBufGfxImage {
             buf: buf.clone(),
-            bo: self
-                .udmabuf
-                .import_dmabuf(buf, BufferUsage::none())
-                .map_err(TestGfxError::ImportDmaBuf)?,
+            stride: plane.stride as i32,
+            map,
         })))
     }
 }
@@ -351,7 +354,8 @@ struct TestShmGfxImage {
 
 struct TestDmaBufGfxImage {
     buf: Rc<DmaBuf>,
-    bo: Rc<dyn BufferObject>,
+    stride: i32,
+    map: Mmapped,
 }
 
 impl TestGfxImage {
@@ -371,15 +375,7 @@ impl TestGfxImage {
                 );
             }
             TestGfxImage::DmaBuf(d) => {
-                let map = d.bo.clone().map_read().map_err(TestGfxError::MapDmaBuf)?;
-                unsafe {
-                    copy(
-                        d.buf.height,
-                        map.stride(),
-                        map.data().as_ptr(),
-                        shm.as_ptr() as _,
-                    );
-                }
+                copy(d.buf.height, d.stride, d.map.ptr.cast(), shm.as_ptr() as _);
             }
         }
         Ok(())
@@ -608,12 +604,11 @@ impl GfxFramebuffer for TestGfxFb {
                         s.format,
                     ),
                     TestGfxImage::DmaBuf(d) => {
-                        let map = d.bo.clone().map_read().map_err(TestGfxError::MapDmaBuf)?;
                         copy(
-                            map.data_ptr(),
+                            d.map.ptr.cast(),
                             d.buf.width,
                             d.buf.height,
-                            map.stride(),
+                            d.stride,
                             d.buf.format,
                         );
                     }
@@ -641,12 +636,11 @@ impl GfxFramebuffer for TestGfxFb {
                 s.format,
             )?,
             TestGfxImage::DmaBuf(d) => {
-                let map = d.bo.clone().map_write().map_err(TestGfxError::MapDmaBuf)?;
                 apply(
-                    map.data_ptr(),
+                    d.map.ptr.cast_mut().cast(),
                     d.buf.width,
                     d.buf.height,
-                    map.stride(),
+                    d.stride,
                     d.buf.format,
                 )?;
             }
