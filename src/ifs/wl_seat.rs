@@ -592,6 +592,15 @@ impl WlSeatGlobal {
         self.keyboard_node.get()
     }
 
+    pub fn shortcuts_inhibited(&self) -> bool {
+        if let Some(surface) = self.keyboard_node.get().node_into_surface() {
+            if let Some(inhibitor) = surface.shortcuts_inhibitors.get(&self.id) {
+                return inhibitor.active.get();
+            }
+        }
+        false
+    }
+
     pub fn get_keyboard_output(&self) -> Option<Rc<OutputNode>> {
         self.keyboard_node.get().node_output()
     }

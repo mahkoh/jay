@@ -25,6 +25,7 @@ pub mod xwayland_shell_v1;
 pub mod zwlr_layer_surface_v1;
 pub mod zwp_idle_inhibitor_v1;
 pub mod zwp_input_popup_surface_v2;
+pub mod zwp_keyboard_shortcuts_inhibitor_v1;
 
 use crate::backend::ButtonState;
 use crate::backend::KeyState;
@@ -195,6 +196,7 @@ use std::rc::Weak;
 use thiserror::Error;
 use wp_color_management_surface_v1::WpColorManagementSurfaceV1;
 use zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1;
+use zwp_keyboard_shortcuts_inhibitor_v1::ZwpKeyboardShortcutsInhibitorV1;
 
 #[expect(unused)]
 const INVALID_SCALE: u32 = 0;
@@ -355,6 +357,7 @@ pub struct WlSurface {
     dnd_icons: SmallMap<SeatId, Rc<DndIcon>, 1>,
     pub tracker: Tracker<Self>,
     idle_inhibitors: SmallMap<ZwpIdleInhibitorV1Id, Rc<ZwpIdleInhibitorV1>, 1>,
+    pub shortcuts_inhibitors: SmallMap<SeatId, Rc<ZwpKeyboardShortcutsInhibitorV1>, 1>,
     viewporter: CloneCell<Option<Rc<WpViewport>>>,
     output: CloneCell<Rc<OutputNode>>,
     location: Cell<NodeLocation>,
@@ -786,6 +789,7 @@ impl WlSurface {
             dnd_icons: Default::default(),
             tracker: Default::default(),
             idle_inhibitors: Default::default(),
+            shortcuts_inhibitors: Default::default(),
             viewporter: Default::default(),
             location: Cell::new(NodeLocation::Output(dummy_output.id)),
             output: CloneCell::new(dummy_output),
@@ -1270,6 +1274,9 @@ impl WlSurfaceRequestHandler for WlSurface {
         self.toplevel.set(None);
         self.client.remove_obj(self);
         self.idle_inhibitors.clear();
+        for (_, inhibitor) in self.shortcuts_inhibitors.take() {
+            inhibitor.deactivate();
+        }
         self.constraints.take();
         self.destroyed.set(true);
         Ok(())
@@ -2151,6 +2158,9 @@ impl BreakLoops for WlSurface {
         self.add_transaction_op(WlSurfaceTransactionOp::Clear);
         self.toplevel.set(None);
         self.idle_inhibitors.clear();
+        for (_, inhibitor) in self.shortcuts_inhibitors.take() {
+            inhibitor.deactivate();
+        }
         self.pending.borrow_mut().reset();
         self.presentation_feedback.borrow_mut().clear();
         self.latched_presentation_feedback.borrow_mut().clear();
