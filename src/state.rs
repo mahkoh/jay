@@ -42,6 +42,7 @@ use crate::control_center::CCI_COLOR_MANAGEMENT;
 use crate::control_center::CCI_COMPOSITOR;
 use crate::control_center::CCI_GPUS;
 use crate::control_center::CCI_IDLE;
+use crate::control_center::CCI_INPUT;
 use crate::control_center::CCI_LOOK_AND_FEEL;
 use crate::control_center::CCI_OUTPUTS;
 use crate::control_center::CCI_WORKSPACES;
@@ -132,6 +133,8 @@ use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::IdleInhibitorId;
 use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::IdleInhibitorIds;
 use crate::ifs::wl_surface::zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1;
 use crate::ifs::wl_surface::zwp_input_popup_surface_v2::ZwpInputPopupSurfaceV2;
+use crate::ifs::wl_surface::zwp_keyboard_shortcuts_inhibitor_v1::ShortcutsInhibitorIds;
+use crate::ifs::wl_surface::zwp_keyboard_shortcuts_inhibitor_v1::ZwpKeyboardShortcutsInhibitorV1;
 use crate::ifs::wlr_output_manager::WlrOutputManagerState;
 use crate::ifs::workspace_manager::WorkspaceManagerState;
 use crate::ifs::wp_drm_lease_connector_v1::WpDrmLeaseConnectorV1;
@@ -246,6 +249,7 @@ use crate::wire::JayRenderCtxId;
 use crate::wire::JaySeatEventsId;
 use crate::wire::JayWorkspaceWatcherId;
 use crate::wire::ZwlrForeignToplevelManagerV1Id;
+use crate::wire::ZwpKeyboardShortcutsInhibitorV1Id;
 use crate::xwayland;
 use crate::xwayland::XWaylandEvent;
 use bstr::ByteSlice;
@@ -297,6 +301,12 @@ pub struct State {
     pub drm_dev_ids: DrmDeviceIds,
     pub seat_ids: SeatIds,
     pub idle_inhibitor_ids: IdleInhibitorIds,
+    pub shortcuts_inhibitor_ids: ShortcutsInhibitorIds,
+    pub shortcuts_inhibitors: CopyHashMap<
+        (ClientId, ZwpKeyboardShortcutsInhibitorV1Id),
+        Rc<ZwpKeyboardShortcutsInhibitorV1>,
+    >,
+    pub shortcuts_inhibit_enabled: Cell<bool>,
     pub input_device_ids: InputDeviceIds,
     pub node_ids: NodeIds,
     pub root: Rc<DisplayNode>,
@@ -1449,6 +1459,7 @@ impl State {
         self.xwayland.windows.clear();
         self.idle.inhibitors.clear();
         self.idle.change.clear();
+        self.shortcuts_inhibitors.clear();
         for drm_dev in self.drm_devs.lock().drain_values() {
             drm_dev.handler.take();
             drm_dev.connectors.clear();
@@ -2103,6 +2114,20 @@ impl State {
         self.trigger_cci(CCI_COMPOSITOR);
     }
 
+    pub fn set_shortcuts_inhibit_enabled(&self, enabled: bool) {
+        self.shortcuts_inhibit_enabled.set(enabled);
+        for i in self.shortcuts_inhibitors.lock().values() {
+            if enabled {
+                if i.seat.get_keyboard_node().node_id() == i.surface.node_id() {
+                    i.activate();
+                }
+            } else {
+                i.deactivate();
+            }
+        }
+        self.trigger_cci(CCI_INPUT);
+    }
+
     pub fn set_primary_selection_enabled(&self, enabled: bool) {
         self.enable_primary_selection.set(enabled);
         self.expose_new_singletons();
@@ -2157,6 +2182,7 @@ impl State {
             config.destroy();
             for seat in self.globals.seats.lock().values() {
                 seat.clear_shortcuts();
+                seat.set_window_management_enabled(false);
             }
         }
         self.config_locked_shortcuts.set(false);

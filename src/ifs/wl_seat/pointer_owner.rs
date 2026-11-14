@@ -534,6 +534,7 @@ impl<T: SimplePointerOwnerUsecase> SimpleGrabPointerOwner<T> {
 impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
     fn button(&self, seat: &Rc<WlSeatGlobal>, time_usec: u64, button: u32, state: ButtonState) {
         let serial = seat.state.next_serial(self.node.node_client().as_deref());
+        let mut grab_released = false;
         match state {
             ButtonState::Released => {
                 if self.buttons.remove(&button).is_none() {
@@ -544,6 +545,7 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
                     // log::info!("button");
                     self.usecase.release_grab(seat);
                     seat.tree_changed.trigger();
+                    grab_released = true;
                 }
             }
             ButtonState::Pressed => {
@@ -553,6 +555,9 @@ impl<T: SimplePointerOwnerUsecase> PointerOwner for SimpleGrabPointerOwner<T> {
             }
         }
         seat.handle_node_button(self.node.clone(), time_usec, button, state, serial);
+        if grab_released {
+            seat.update_window_management_enabled();
+        }
     }
 
     fn axis_node(&self, _seat: &Rc<WlSeatGlobal>) -> Option<Rc<dyn Node>> {

@@ -94,6 +94,7 @@ impl KbOwner for DefaultKbOwner {
         notify_matcher!(node, data, data.seat_foci.set(seat.id, ()));
         seat.keyboard_node_serial.set(serial);
         seat.keyboard_node.set(node.clone());
+        seat.update_window_management_enabled();
         seat.tablet_on_keyboard_node_change();
     }
 }

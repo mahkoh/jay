@@ -34,6 +34,9 @@ use crate::config::parsers::float::FloatParser;
 use crate::config::parsers::focus_history::FocusHistoryParser;
 use crate::config::parsers::gfx_api::GfxApiParser;
 use crate::config::parsers::idle::IdleParser;
+use crate::config::parsers::inhibit_shortcuts::InhibitShortcutsParser;
+use crate::config::parsers::inhibit_shortcuts::InhibitShortcutsWhitelistParser;
+use crate::config::parsers::inhibit_shortcuts::apply_inhibit_shortcuts_whitelist;
 use crate::config::parsers::input::InputsParser;
 use crate::config::parsers::input_mode::InputModesParser;
 use crate::config::parsers::keymap::KeymapParser;
@@ -177,6 +180,8 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 split_reuses_container,
                 triggers_val,
                 max_trigger_depth_val,
+                inhibit_shortcuts_val,
+                inhibit_shortcuts_whitelist_val,
             ),
         ) = ext.extract((
             (
@@ -247,6 +252,8 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 recover(opt(bol("split-reuses-container"))),
                 opt(val("triggers")),
                 opt(int("max-trigger-depth")),
+                opt(val("inhibit-shortcuts")),
+                opt(val("inhibit-shortcuts-whitelist")),
             ),
         ))?;
         let mut keymap = None;
@@ -505,6 +512,18 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 }
             }
         }
+        let mut inhibit_shortcuts = None;
+        if let Some(value) = inhibit_shortcuts_val {
+            match value.parse(&mut InhibitShortcutsParser(self.0)) {
+                Ok(v) => inhibit_shortcuts = Some(v),
+                Err(e) => {
+                    log::warn!(
+                        "Could not parse the inhibit-shortcuts settings: {}",
+                        self.0.error(e)
+                    );
+                }
+            }
+        }
         let mut float = None;
         if let Some(value) = float_val {
             match value.parse(&mut FloatParser(self.0)) {
@@ -575,6 +594,22 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 Ok(v) => input_modes = v,
                 Err(e) => {
                     log::warn!("Could not parse the input modes: {}", self.0.error(e),);
+                }
+            }
+        }
+        if let Some(value) = inhibit_shortcuts_whitelist_val {
+            match value.parse(&mut InhibitShortcutsWhitelistParser(self.0)) {
+                Ok(keys) => apply_inhibit_shortcuts_whitelist(
+                    self.0,
+                    &keys,
+                    &mut shortcuts,
+                    &mut input_modes,
+                ),
+                Err(e) => {
+                    log::warn!(
+                        "Could not parse the inhibit-shortcuts-whitelist: {}",
+                        self.0.error(e),
+                    );
                 }
             }
         }
@@ -696,6 +731,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
             xwayland,
             color_management,
             session_management,
+            inhibit_shortcuts,
             float,
             named_actions,
             max_action_depth,

@@ -1682,6 +1682,18 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_disable_shortcuts_inhibitor(&self, seat: Seat) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.disable_shortcuts_inhibitor();
+        Ok(())
+    }
+
+    fn handle_get_shortcuts_inhibit_enabled(&self) {
+        self.respond(Response::GetShortcutsInhibitEnabled {
+            enabled: self.state.shortcuts_inhibit_enabled.get(),
+        });
+    }
+
     fn handle_set_use_hardware_cursor(
         &self,
         seat: Seat,
@@ -2303,6 +2315,18 @@ impl ConfigProxyHandler {
     ) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.set_shortcut_repeat(mods, sym, repeat);
+        Ok(())
+    }
+
+    fn handle_set_shortcut_allow_inhibited(
+        &self,
+        seat: Seat,
+        mods: Modifiers,
+        sym: KeySym,
+        allow_inhibited: bool,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_shortcut_allow_inhibited(mods, sym, allow_inhibited);
         Ok(())
     }
 
@@ -4534,6 +4558,23 @@ impl ConfigProxyHandler {
             ClientMessage::GetWindowThemeContainerBorders { window, kind } => self
                 .handle_get_window_theme_container_borders(window, kind)
                 .wrn("get_window_theme_container_borders")?,
+            ClientMessage::DisableShortcutsInhibitor { seat } => self
+                .handle_disable_shortcuts_inhibitor(seat)
+                .wrn("disable_shortcuts_inhibitor")?,
+            ClientMessage::SetInhibitedShortcut {
+                seat,
+                mods,
+                sym,
+                allow_inhibited,
+            } => self
+                .handle_set_shortcut_allow_inhibited(seat, mods, sym, allow_inhibited)
+                .wrn("set_shortcut_allow_inhibited")?,
+            ClientMessage::SetShortcutsInhibitEnabled { enabled } => {
+                self.state.set_shortcuts_inhibit_enabled(enabled);
+            }
+            ClientMessage::GetShortcutsInhibitEnabled => {
+                self.handle_get_shortcuts_inhibit_enabled();
+            }
         }
         Ok(())
     }

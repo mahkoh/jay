@@ -20,6 +20,7 @@ use crate::input::clickmethod::ClickMethod;
 use crate::input::scrollmethod::ScrollMethod;
 use crate::keyboard::Keymap;
 use crate::keyboard::mods::Modifiers;
+use crate::keyboard::mods::RELEASE;
 use crate::keyboard::syms::KeySym;
 use crate::video::Connector;
 use crate::window::Window;
@@ -331,6 +332,19 @@ impl Seat {
         get!().set_bind_locked(self, mod_sym.into(), locked);
     }
 
+    /// Configures whether the given bind executes even if shortcuts are inhibited.
+    ///
+    /// The default is `false`.
+    ///
+    /// Binding resets the value to the default.
+    pub fn set_bind_allow_inhibited<T: Into<ModifiedKeySym>>(
+        self,
+        mod_sym: T,
+        allow_inhibited: bool,
+    ) {
+        get!().set_bind_allow_inhibited(self, mod_sym.into(), allow_inhibited);
+    }
+
     /// Registers a callback to be executed when the currently pressed key is released.
     ///
     /// This should only be called in callbacks for key-press binds.
@@ -588,6 +602,11 @@ impl Seat {
         get!().disable_pointer_constraint(self)
     }
 
+    /// Temporarily disables the currently active keyboard shortcuts inhibitor on this seat until focus changes.
+    pub fn disable_shortcuts_inhibitor(self) {
+        get!().disable_shortcuts_inhibitor(self)
+    }
+
     /// Moves the currently focused workspace to another output.
     pub fn move_to_output(self, connector: Connector) {
         get!().move_to_output(WorkspaceSource::Seat(self), connector);
@@ -638,22 +657,27 @@ impl Seat {
     /// This is a shorthand for
     ///
     /// ```rust,ignore
-    /// self.bind(mod_sym, move || {
+    /// self.bind_masked(Modifiers::NONE, mod_sym, move || {
     ///     self.set_window_management_enabled(true);
     ///     self.forward();
     ///     self.latch(move || {
     ///         self.set_window_management_enabled(false);
     ///     });
+    ///     self.set_bind_allow_inhibited(RELEASE | mod_sym.sym, true);
     /// });
+    /// self.set_bind_allow_inhibited(mod_sym, true);
     /// ```
     pub fn set_window_management_key<T: Into<ModifiedKeySym>>(self, mod_sym: T) {
-        self.bind(mod_sym, move || {
+        let mod_sym = mod_sym.into();
+        self.bind_masked(Modifiers::NONE, mod_sym, move || {
             self.set_window_management_enabled(true);
             self.forward();
             self.latch(move || {
                 self.set_window_management_enabled(false);
             });
+            self.set_bind_allow_inhibited(RELEASE | mod_sym.sym, true);
         });
+        self.set_bind_allow_inhibited(mod_sym, true);
     }
 
     /// Gets whether the currently focused window is pinned.

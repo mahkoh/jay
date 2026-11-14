@@ -52,6 +52,7 @@ use crate::ifs::wl_seat::zwp_pointer_constraints_v1::SeatConstraintStatus;
 use crate::ifs::wl_seat::zwp_relative_pointer_v1::ZwpRelativePointerV1;
 use crate::ifs::wl_surface::WlSurface;
 use crate::ifs::wl_surface::xdg_surface::xdg_popup::XdgPopup;
+use crate::ifs::wl_surface::zwp_keyboard_shortcuts_inhibitor_v1::ZwpKeyboardShortcutsInhibitorV1;
 use crate::kbvm::EventOrRepeat;
 use crate::kbvm::KbvmState;
 use crate::keyboard::KeyboardState;
@@ -108,6 +109,7 @@ pub struct NodeSeatState {
     tablet_tool_foci: SmallMap<TabletToolId, Rc<TabletTool>, 1>,
     ui_drags: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     marks: RefCell<SmallMapMut<SeatId, Marks, 1>>,
+    pub shortcuts_inhibitors: SmallMap<SeatId, Rc<ZwpKeyboardShortcutsInhibitorV1>, 1>,
 }
 
 struct Marks {
@@ -158,11 +160,17 @@ impl NodeSeatState {
             }
         }
         self.kb_foci.insert(seat.id, seat.clone());
+        if let Some(inhibitor) = self.shortcuts_inhibitors.get(&seat.id) {
+            inhibitor.activate_(false);
+        }
         self.kb_foci.len() == 1
     }
 
     pub(super) fn unfocus(&self, seat: &WlSeatGlobal) -> bool {
         self.kb_foci.remove(&seat.id);
+        if let Some(inhibitor) = self.shortcuts_inhibitors.get(&seat.id) {
+            inhibitor.deactivate_(false);
+        }
         self.kb_foci.len() == 0
     }
 
@@ -306,6 +314,9 @@ impl NodeSeatState {
         while let Some((_, seat)) = self.touch_foci.pop() {
             seat.touch_owner.cancel(&seat);
         }
+        for (_, inhibitor) in &self.shortcuts_inhibitors {
+            inhibitor.deactivate_(false);
+        }
         self.release_kb_focus2(focus_last);
     }
 
@@ -331,6 +342,9 @@ impl NodeSeatState {
         self.pointer_foci.remove(&seat.id);
         self.dnd_targets.remove(&seat.id);
         self.pointer_grabs.remove(&seat.id);
+        if let Some(inhibitor) = self.shortcuts_inhibitors.remove(&seat.id) {
+            inhibitor.deactivate();
+        }
     }
 
     pub fn clear(&self) {
@@ -338,6 +352,18 @@ impl NodeSeatState {
         self.pointer_foci.clear();
         self.dnd_targets.clear();
         self.pointer_grabs.clear();
+        for (_, inhibitor) in &self.shortcuts_inhibitors {
+            inhibitor.deactivate();
+        }
+        self.shortcuts_inhibitors.clear();
+    }
+
+    pub fn shortcuts_inhibited(&self, seat: &WlSeatGlobal) -> bool {
+        seat.state.shortcuts_inhibit_enabled.get()
+            && self
+                .shortcuts_inhibitors
+                .get(&seat.id)
+                .is_some_and(|i| i.is_active())
     }
 }
 
@@ -1000,6 +1026,7 @@ impl WlSeatGlobal {
                     .unwrap_or(kbvm_state.kb_state.mods.group);
                 let keysyms = map.lookup_table.lookup(group, ModifierMask::default(), kc);
                 repeats = keysyms.repeats();
+                let shortcuts_inhibited = self.shortcuts_inhibited();
                 let mut revert_pointer_to_default = false;
                 for props in keysyms {
                     let sym = props.keysym().0;
@@ -1013,6 +1040,7 @@ impl WlSeatGlobal {
                         for (&key_mods, sc) in key_mods {
                             if mods & sc.mask == key_mods
                                 && (sc.repeat || key_state != KeyState::Repeated)
+                                && (!shortcuts_inhibited || sc.allow_inhibited)
                             {
                                 shortcuts.push(InvokedShortcut {
                                     unmasked_mods: Modifiers(mods),
@@ -1375,6 +1403,7 @@ impl WlSeatGlobal {
                 Shortcut {
                     mask: mod_mask.0,
                     repeat: Default::default(),
+                    allow_inhibited: Default::default(),
                 },
             );
     }
@@ -1396,6 +1425,19 @@ impl WlSeatGlobal {
         }
     }
 
+    pub fn set_shortcut_allow_inhibited(
+        &self,
+        mods: Modifiers,
+        keysym: KeySym,
+        allow_inhibited: bool,
+    ) {
+        if let Some(scs) = self.shortcuts.borrow_mut().get_mut(&keysym.0)
+            && let Some(sc) = scs.get_mut(&mods.0)
+        {
+            sc.allow_inhibited = allow_inhibited;
+        }
+    }
+
     pub fn trigger_tree_changed(&self, needs_layout: bool) {
         // log::info!("trigger_tree_changed");
         if needs_layout {
@@ -1405,11 +1447,35 @@ impl WlSeatGlobal {
     }
 
     pub(super) fn apply_changes(self: &Rc<Self>) {
-        self.pointer_owner.apply_changes(self);
-        if self.changes.get().contains(CHANGE_TREE) {
-            self.tablet_apply_changes();
+        if self.applying_changes.replace(true) {
+            self.reapply_changes.set(true);
+            return;
         }
-        self.changes.set(0);
+        struct ResetApplyingChanges<'a>(&'a Cell<bool>);
+        impl Drop for ResetApplyingChanges<'_> {
+            fn drop(&mut self) {
+                self.0.set(false);
+            }
+        }
+        let _reset = ResetApplyingChanges(&self.applying_changes);
+        let mut iterations = 0;
+        loop {
+            self.reapply_changes.set(false);
+            self.pointer_owner.apply_changes(self);
+            if self.changes.get().contains(CHANGE_TREE) {
+                self.tablet_apply_changes();
+            }
+            self.changes.set(0);
+            if !self.reapply_changes.replace(false) {
+                break;
+            }
+            iterations += 1;
+            if iterations >= 4 {
+                self.trigger_tree_changed(false);
+                break;
+            }
+            self.changes.or_assign(CHANGE_TREE);
+        }
     }
 
     fn set_repeat_key(&self, key: Keycode, state: &Rc<RefCell<KbvmState>>, shortcuts_only: bool) {

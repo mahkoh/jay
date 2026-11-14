@@ -318,6 +318,9 @@ pub struct WlSeatGlobal {
     simple_im_enabled: Cell<bool>,
     warp_mouse_to_focus_scheduled: Cell<bool>,
     mouse_follows_focus: Cell<bool>,
+    window_management_requested: Cell<bool>,
+    applying_changes: Cell<bool>,
+    reapply_changes: Cell<bool>,
     liveness: Liveness,
 }
 
@@ -330,6 +333,7 @@ impl PartialEq for WlSeatGlobal {
 struct Shortcut {
     mask: u32,
     repeat: bool,
+    allow_inhibited: bool,
 }
 
 #[derive(Copy, Clone)]
@@ -468,6 +472,9 @@ impl WlSeatGlobal {
             simple_im_enabled: Cell::new(true),
             warp_mouse_to_focus_scheduled: Cell::new(false),
             mouse_follows_focus: Cell::new(false),
+            window_management_requested: Cell::new(false),
+            applying_changes: Cell::new(false),
+            reapply_changes: Cell::new(false),
             liveness: Default::default(),
         });
         slf.pointer_cursor.set_owner(slf.clone());
@@ -590,6 +597,25 @@ impl WlSeatGlobal {
 
     pub fn get_keyboard_node(&self) -> Rc<dyn Node> {
         self.keyboard_node.get()
+    }
+
+    pub fn shortcuts_inhibited(&self) -> bool {
+        self.keyboard_node
+            .get()
+            .node_seat_state()
+            .shortcuts_inhibited(self)
+    }
+
+    pub fn disable_shortcuts_inhibitor(&self) {
+        if let Some(inhibitor) = self
+            .keyboard_node
+            .get()
+            .node_seat_state()
+            .shortcuts_inhibitors
+            .get(&self.id)
+        {
+            inhibitor.deactivate();
+        }
     }
 
     pub fn get_keyboard_output(&self) -> Option<Rc<OutputNode>> {
@@ -1516,6 +1542,8 @@ impl WlSeatGlobal {
     }
 
     pub fn clear(self: &Rc<Self>) {
+        self.window_management_requested.set(false);
+        self.reapply_changes.set(false);
         mem::take(self.pointer_stack.borrow_mut().deref_mut());
         mem::take(self.found_tree.borrow_mut().deref_mut());
         self.keyboard_node.set(self.state.root.clone());
@@ -1664,6 +1692,12 @@ impl WlSeatGlobal {
     }
 
     pub fn set_window_management_enabled(self: &Rc<Self>, enabled: bool) {
+        self.window_management_requested.set(enabled);
+        self.update_window_management_enabled();
+    }
+
+    pub fn update_window_management_enabled(self: &Rc<Self>) {
+        let enabled = self.window_management_requested.get() && !self.shortcuts_inhibited();
         self.pointer_owner
             .set_window_management_enabled(self, enabled);
     }
