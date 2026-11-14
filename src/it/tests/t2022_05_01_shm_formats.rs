@@ -8,7 +8,7 @@ testcase!();
 
 /// Test that wl_shm supports the required formats
 async fn test(run: Rc<TestRun>) -> Result<(), TestError> {
-    run.backend.install_render_context(false)?;
+    run.backend.install_render_context(Default::default())?;
     let client = run.create_client()?;
     let shm = client.new_shm();
     let formats = shm.formats().await;

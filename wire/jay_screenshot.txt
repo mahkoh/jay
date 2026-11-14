@@ -1,38 +1,28 @@
 # events
 
-event dmabuf {
-    drm_dev: fd,
-    fd: fd,
-    width: u32,
-    height: u32,
-    offset: u32,
-    stride: u32,
-    modifier: u64_rev,
+event unused1 (dead) {
 }
 
 event error {
     msg: str,
 }
 
-event drm_dev (since = 6) {
-    drm_dev: fd,
+event unused2 (dead) {
 }
 
-event plane (since = 6) {
+event unused3 (dead) {
+}
+
+event unused4 (dead) {
+}
+
+event unused5 (dead) {
+}
+
+event udmabuf (since = 45) {
     fd: fd,
-    offset: u32,
-    stride: u32,
-}
-
-event dmabuf2 (since = 6) {
-    width: i32,
-    height: i32,
-    modifier: pod(u64),
-}
-
-event dmabuf3 (since = 40) {
-    width: i32,
-    height: i32,
-    modifier: u64,
     format: u32,
+    width: i32,
+    height: i32,
+    stride: u32,
 }

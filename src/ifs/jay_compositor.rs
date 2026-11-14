@@ -40,6 +40,7 @@ use crate::ifs::jay_xwayland::JayXwayland;
 use crate::ifs::wl_surface::jay_sync_file_surface::JaySyncFileSurface;
 use crate::leaks::Tracker;
 use crate::object::Version;
+use crate::screenshoter::ScreenshotCallback;
 use crate::screenshoter::take_screenshot;
 use crate::tree::ToplevelIdentifier;
 use crate::tree::TreeTimeline::LiveTL;
@@ -61,9 +62,8 @@ use std::str::FromStr;
 use thiserror::Error;
 
 pub const CREATE_EI_SESSION_SINCE: Version = Version(5);
-pub const SCREENSHOT_SPLITUP_SINCE: Version = Version(6);
 pub const GET_TOPLEVEL_SINCE: Version = Version(12);
-pub const SCREENSHOT_DMABUF3_SINCE: Version = Version(40);
+pub const UDMABUF_SCREENSHOT_SINCE: Version = Version(45);
 
 #[derive(Global)]
 pub struct JayCompositorGlobal {
@@ -96,7 +96,7 @@ impl JayCompositorGlobal {
 
 impl Global for JayCompositorGlobal {
     fn version(&self) -> u32 {
-        44
+        45
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -139,47 +139,19 @@ impl JayCompositor {
             version: self.version,
             client: self.client.clone(),
             tracker: Default::default(),
+            pending: Default::default(),
         });
         track!(self.client, ss);
         self.client.add_client_obj(&ss);
-        match take_screenshot(&self.client.state, include_cursor, hdr10) {
-            Ok(s) => {
-                let dmabuf = s.bo.dmabuf();
-                if self.version < SCREENSHOT_SPLITUP_SINCE {
-                    if let Some(drm) = &s.drm {
-                        let plane = &dmabuf.planes[0];
-                        ss.send_dmabuf(
-                            drm,
-                            &plane.fd,
-                            dmabuf.width,
-                            dmabuf.height,
-                            plane.offset,
-                            plane.stride,
-                            dmabuf.modifier,
-                        );
-                    } else {
-                        ss.send_error("Buffer has no associated DRM device");
-                    }
-                } else {
-                    if let Some(drm) = &s.drm {
-                        ss.send_drm_dev(drm);
-                    }
-                    for plane in &dmabuf.planes {
-                        ss.send_plane(plane);
-                    }
-                    if self.version >= SCREENSHOT_DMABUF3_SINCE {
-                        ss.send_dmabuf3(dmabuf);
-                    } else {
-                        ss.send_dmabuf2(dmabuf);
-                    }
-                }
-            }
-            Err(e) => {
-                let msg = ErrorFmt(e).to_string();
-                ss.send_error(&msg);
+        if self.version < UDMABUF_SCREENSHOT_SINCE {
+            ss.send_error("This client version is no longer supported");
+            self.client.remove_obj(&*ss);
+        } else {
+            match take_screenshot(&self.client.state, include_cursor, hdr10, ss.clone()) {
+                Ok(p) => ss.pending.set(p),
+                Err(e) => ss.completed(Err(e)),
             }
         }
-        self.client.remove_obj(ss.deref());
         Ok(())
     }
 }

@@ -42,7 +42,6 @@ pub struct VulkanModifier {
     pub features: FormatFeatureFlags,
     pub render_limits: Option<VulkanModifierLimits>,
     pub texture_limits: Option<VulkanModifierLimits>,
-    pub transfer_limits: Option<VulkanModifierLimits>,
     pub render_needs_bridge: bool,
 }
 
@@ -271,13 +270,6 @@ impl VulkanInstance {
             )?;
             let texture_limits =
                 self.get_max_extents(phy_dev, format, TEX_FEATURES, TEX_USAGE, &modifier)?;
-            let transfer_limits = self.get_max_extents(
-                phy_dev,
-                format,
-                TRANSFER_FEATURES,
-                TRANSFER_USAGE,
-                &modifier,
-            )?;
             let mut render_needs_bridge = false;
             if render_limits.is_none() && modifier.drm_format_modifier == LINEAR_MODIFIER {
                 render_limits = self.get_fb_bridged_max_extents(
@@ -298,7 +290,6 @@ impl VulkanInstance {
                     features: modifier.drm_format_modifier_tiling_features,
                     render_limits,
                     texture_limits,
-                    transfer_limits,
                     render_needs_bridge,
                 },
             );

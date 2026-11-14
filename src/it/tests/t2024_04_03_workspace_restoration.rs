@@ -45,7 +45,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     };
     let new_connector = Rc::new(TestConnector {
         id: run.state.connector_ids.next(),
-        drm_dev_id: run.backend.default_drm_dev.id(),
+        drm_dev_id: run.backend.default_drm_dev.as_ref().map(|v| v.id()),
         kernel_id: ConnectorKernelId {
             ty: ConnectorType::VGA,
             idx: 2,

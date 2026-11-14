@@ -9,7 +9,6 @@ use crate::pr_caps::PrCapsThread;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::video::drm::Drm;
 use std::rc::Rc;
-pub use vulkan::create_vulkan_allocator;
 
 pub mod gl;
 mod vulkan;

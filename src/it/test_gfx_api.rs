@@ -1,7 +1,4 @@
 use crate::allocator::Allocator;
-use crate::allocator::AllocatorError;
-use crate::allocator::BufferObject;
-use crate::allocator::BufferUsage;
 use crate::backend::DrmDeviceId;
 use crate::cmm::cmm_description::ColorDescription;
 use crate::cmm::cmm_description::LinearColorDescription;
@@ -36,11 +33,18 @@ use crate::rect::Rect;
 use crate::rect::Region;
 use crate::syncobj::SyncobjCtx;
 use crate::theme::Color;
+use crate::udmabuf::Udmabuf;
 use crate::utils::bhash::BHashMap;
+use crate::utils::errorfmt::ErrorFmt;
 use crate::video::LINEAR_MODIFIER;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
+use bstr::ByteSlice;
 use indexmap::IndexSet;
+use jay_algorithms::mmap::Mmapped;
+use jay_algorithms::mmap::mmap;
+use jay_algorithms::oserror::OsError;
+use jay_algorithms::oserror::OsErrorExt2;
 use std::any::Any;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -48,21 +52,27 @@ use std::error::Error;
 use std::ffi::CString;
 use std::fmt::Debug;
 use std::fmt::Formatter;
+use std::io;
 use std::ops::Deref;
+use std::os::unix::ffi::OsStrExt;
 use std::ptr;
 use std::rc::Rc;
 use thiserror::Error;
+use uapi::OwnedFd;
+use uapi::c;
 
 #[derive(Error, Debug)]
 enum TestGfxError {
-    #[error("Could not map dmabuf")]
-    MapDmaBuf(#[source] AllocatorError),
-    #[error("Could not import dmabuf")]
-    ImportDmaBuf(#[source] AllocatorError),
     #[error("Could not access the client memory")]
     AccessFailed(#[source] Box<dyn Error + Sync + Send>),
     #[error("Text API does not support blend buffers")]
     NoBlendBuffer,
+    #[error("Could not read /dev/dri")]
+    ReadDri(#[source] io::Error),
+    #[error("There are no drm nodes in /dev/dri")]
+    NoDrmNode,
+    #[error("Could not open drm node {0}")]
+    OpenDrmNode(String, #[source] OsError),
 }
 
 impl From<TestGfxError> for GfxError {
@@ -73,14 +83,16 @@ impl From<TestGfxError> for GfxError {
 
 pub struct TestGfxCtx {
     formats: Rc<BHashMap<u32, GfxFormat>>,
-    allocator: Rc<dyn Allocator>,
+    udmabuf: Rc<Udmabuf>,
     drm_device_id: Option<DrmDeviceId>,
+    syncobj_ctx: Option<Rc<SyncobjCtx>>,
 }
 
 impl TestGfxCtx {
     pub fn new(
-        allocator: Rc<dyn Allocator>,
+        udmabuf: &Rc<Udmabuf>,
         drm_device_id: Option<DrmDeviceId>,
+        need_syncobj: bool,
     ) -> Result<Rc<Self>, GfxError> {
         let mut modifiers = IndexSet::new();
         modifiers.insert(LINEAR_MODIFIER);
@@ -109,20 +121,70 @@ impl TestGfxCtx {
         }
         Ok(Rc::new(Self {
             formats: Rc::new(formats),
-            allocator,
+            udmabuf: udmabuf.clone(),
             drm_device_id,
+            syncobj_ctx: need_syncobj.then(create_syncobj_ctx).flatten(),
         }))
     }
 
     fn create_img(&self, buf: &Rc<DmaBuf>) -> Result<Rc<TestGfxImage>, TestGfxError> {
+        let plane = &buf.planes[0];
+        let size = buf.height as usize * plane.stride as usize;
+        let map = mmap(
+            size,
+            c::PROT_READ | c::PROT_WRITE,
+            c::MAP_SHARED,
+            plane.fd.raw(),
+            0,
+        )
+        .unwrap();
         Ok(Rc::new(TestGfxImage::DmaBuf(TestDmaBufGfxImage {
             buf: buf.clone(),
-            bo: self
-                .allocator
-                .import_dmabuf(buf, BufferUsage::none())
-                .map_err(TestGfxError::ImportDmaBuf)?,
+            stride: plane.stride as i32,
+            map,
         })))
     }
+}
+
+fn create_syncobj_ctx() -> Option<Rc<SyncobjCtx>> {
+    match open_drm_node() {
+        Ok(fd) => Some(Rc::new(SyncobjCtx::new(&fd))),
+        Err(e) => {
+            log::warn!("Could not create a syncobj context: {}", ErrorFmt(e));
+            None
+        }
+    }
+}
+
+fn open_drm_node() -> Result<Rc<OwnedFd>, TestGfxError> {
+    let dri = std::fs::read_dir("/dev/dri").map_err(TestGfxError::ReadDri)?;
+    let mut files = vec![];
+    for f in dri {
+        let f = f.map_err(TestGfxError::ReadDri)?;
+        files.push(f.path());
+    }
+    let node = 'node: {
+        for f in &files {
+            if let Some(file) = f.file_name()
+                && file.as_bytes().starts_with_str("renderD")
+            {
+                break 'node f;
+            }
+        }
+        for f in &files {
+            if let Some(file) = f.file_name()
+                && file.as_bytes().starts_with_str("card")
+            {
+                break 'node f;
+            }
+        }
+        return Err(TestGfxError::NoDrmNode);
+    };
+    uapi::open(node.as_path(), c::O_RDWR | c::O_CLOEXEC, 0)
+        .map(Rc::new)
+        .map_os_err(|e| {
+            TestGfxError::OpenDrmNode(node.as_os_str().as_bytes().as_bstr().to_string(), e)
+        })
 }
 
 impl Debug for TestGfxCtx {
@@ -209,7 +271,7 @@ impl GfxContext for TestGfxCtx {
     }
 
     fn allocator(&self) -> Rc<dyn Allocator> {
-        self.allocator.clone()
+        self.udmabuf.clone()
     }
 
     fn gfx_api(&self) -> GfxApi {
@@ -260,7 +322,7 @@ impl GfxContext for TestGfxCtx {
     }
 
     fn syncobj_ctx(&self) -> Option<&Rc<SyncobjCtx>> {
-        None
+        self.syncobj_ctx.as_ref()
     }
 
     fn acquire_blend_buffer(
@@ -292,7 +354,8 @@ struct TestShmGfxImage {
 
 struct TestDmaBufGfxImage {
     buf: Rc<DmaBuf>,
-    bo: Rc<dyn BufferObject>,
+    stride: i32,
+    map: Mmapped,
 }
 
 impl TestGfxImage {
@@ -312,15 +375,7 @@ impl TestGfxImage {
                 );
             }
             TestGfxImage::DmaBuf(d) => {
-                let map = d.bo.clone().map_read().map_err(TestGfxError::MapDmaBuf)?;
-                unsafe {
-                    copy(
-                        d.buf.height,
-                        map.stride(),
-                        map.data().as_ptr(),
-                        shm.as_ptr() as _,
-                    );
-                }
+                copy(d.buf.height, d.stride, d.map.ptr.cast(), shm.as_ptr() as _);
             }
         }
         Ok(())
@@ -549,12 +604,11 @@ impl GfxFramebuffer for TestGfxFb {
                         s.format,
                     ),
                     TestGfxImage::DmaBuf(d) => {
-                        let map = d.bo.clone().map_read().map_err(TestGfxError::MapDmaBuf)?;
                         copy(
-                            map.data_ptr(),
+                            d.map.ptr.cast(),
                             d.buf.width,
                             d.buf.height,
-                            map.stride(),
+                            d.stride,
                             d.buf.format,
                         );
                     }
@@ -582,12 +636,11 @@ impl GfxFramebuffer for TestGfxFb {
                 s.format,
             )?,
             TestGfxImage::DmaBuf(d) => {
-                let map = d.bo.clone().map_write().map_err(TestGfxError::MapDmaBuf)?;
                 apply(
-                    map.data_ptr(),
+                    d.map.ptr.cast_mut().cast(),
                     d.buf.width,
                     d.buf.height,
-                    map.stride(),
+                    d.stride,
                     d.buf.format,
                 )?;
             }

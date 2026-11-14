@@ -33,23 +33,9 @@ pub trait Allocator {
         modifiers: &[Modifier],
         usage: BufferUsage,
     ) -> Result<Rc<dyn BufferObject>, AllocatorError>;
-    fn import_dmabuf(
-        &self,
-        dmabuf: &Rc<DmaBuf>,
-        usage: BufferUsage,
-    ) -> Result<Rc<dyn BufferObject>, AllocatorError>;
 }
 
 pub trait BufferObject {
     fn dmabuf(&self) -> &Rc<DmaBuf>;
-    fn map_read(self: Rc<Self>) -> Result<Box<dyn MappedBuffer>, AllocatorError>;
-    fn map_write(self: Rc<Self>) -> Result<Box<dyn MappedBuffer>, AllocatorError>;
     fn take_initial_sync(&self) -> Option<SyncFile>;
-}
-
-pub trait MappedBuffer {
-    unsafe fn data(&self) -> &[u8];
-    #[cfg_attr(not(feature = "it"), expect(unused))]
-    fn data_ptr(&self) -> *mut u8;
-    fn stride(&self) -> i32;
 }

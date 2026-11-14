@@ -9,7 +9,7 @@ async fn test(run: Rc<TestRun>) -> TestResult {
 
     tassert!(!run.cfg.graphics_initialized.get());
 
-    run.backend.install_render_context(false)?;
+    run.backend.install_render_context(Default::default())?;
 
     tassert!(run.cfg.graphics_initialized.get());
 

@@ -203,16 +203,8 @@ pub fn start_compositor(_global: GlobalArgs, args: RunArgs) {
 }
 
 #[cfg(feature = "it")]
-pub fn start_compositor_for_test(future: TestFuture) -> Result<(), CompositorError> {
-    let res = start_compositor2(
-        None,
-        None,
-        None,
-        None,
-        RunArgs::default(),
-        Some(future),
-        None,
-    );
+pub fn start_compositor_for_test(args: TestBackendArgs) -> Result<(), CompositorError> {
+    let res = start_compositor2(None, None, None, None, RunArgs::default(), Some(args), None);
     leaks::log_leaked();
     res
 }
@@ -250,13 +242,25 @@ const STATIC_VARS: &[(&str, &str)] = &[
 
 pub type TestFuture = Box<dyn Fn(&Rc<State>) -> Box<dyn Future<Output = ()>>>;
 
+#[derive(Default)]
+#[cfg_attr(not(feature = "it"), expect(unused))]
+pub struct TestBackendConfig {
+    pub needs_drm: bool,
+}
+
+#[cfg_attr(not(feature = "it"), expect(unused))]
+pub struct TestBackendArgs {
+    pub future: TestFuture,
+    pub config: TestBackendConfig,
+}
+
 fn start_compositor2(
     forker: Option<Rc<ForkerProxy>>,
     sleeper: Option<Sleeper>,
     portal: Option<PortalStartup>,
     logger: Option<Arc<Logger>>,
     run_args: RunArgs,
-    test_future: Option<TestFuture>,
+    test_args: Option<TestBackendArgs>,
     caps_thread: Option<PrCapsThread>,
 ) -> Result<(), CompositorError> {
     let pid = uapi::getpid();
@@ -282,7 +286,7 @@ fn start_compositor2(
     let color_manager = ColorManager::new();
     let crit_ids = Rc::new(CritMatcherIds::default());
     let eventfd_cache = EventfdCache::new(&ring, &engine);
-    let is_test = test_future.is_some();
+    let is_test = test_args.is_some();
     let sqlite = Sqlite::open(&ring, &engine, is_test)
         .inspect_err(|e| {
             log::warn!("Could not open sqlite: {}", ErrorFmt(e));
@@ -515,7 +519,7 @@ fn start_compositor2(
             portal.spawn(engine.clone(), ring.clone(), logger.clone()),
         ));
     }
-    let compositor = engine.spawn("compositor", start_compositor3(state.clone(), test_future));
+    let compositor = engine.spawn("compositor", start_compositor3(state.clone(), test_args));
     ring.run()?;
     drop(compositor);
     state.clear();
@@ -523,10 +527,10 @@ fn start_compositor2(
     Ok(())
 }
 
-async fn start_compositor3(state: Rc<State>, test_future: Option<TestFuture>) {
-    let is_test = test_future.is_some();
+async fn start_compositor3(state: Rc<State>, test_args: Option<TestBackendArgs>) {
+    let is_test = test_args.is_some();
 
-    let Some(backend) = create_backend(&state, test_future).await else {
+    let Some(backend) = create_backend(&state, test_args).await else {
         log::error!("Could not create a backend");
         state.ring.stop();
         return;
@@ -747,10 +751,10 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
 
 async fn create_backend(
     state: &Rc<State>,
-    #[allow(unused_variables)] test_future: Option<TestFuture>,
+    #[allow(unused_variables)] test_args: Option<TestBackendArgs>,
 ) -> Option<Rc<dyn Backend>> {
     #[cfg(feature = "it")]
-    if let Some(tf) = test_future {
+    if let Some(tf) = test_args {
         return Some(Rc::new(TestBackend::new(state, tf)));
     }
     let mut backends = &state.run_args.backends[..];

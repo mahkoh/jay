@@ -1,4 +1,6 @@
 use crate::async_engine::Phase;
+use crate::compositor::TestBackendArgs;
+use crate::compositor::TestFuture;
 use crate::it::test_backend::TestBackend;
 use crate::it::test_config::TestConfig;
 use crate::it::test_config::with_test_config;
@@ -117,7 +119,7 @@ fn run_test(it_run: &ItRun, test: &'static dyn TestCase, cfg: Rc<TestConfig>) {
     test_logger::set_file(log_file);
     let errors = Rc::new(Cell::new(Vec::new()));
     let errors2 = errors.clone();
-    let res = crate::compositor::start_compositor_for_test(Box::new(move |state| {
+    let future: TestFuture = Box::new(move |state| {
         let state = state.clone();
         let backend: Rc<TestBackend> = (state.backend.get() as Rc<dyn Any>).downcast().unwrap();
         let testrun = Rc::new(TestRun {
@@ -146,7 +148,11 @@ fn run_test(it_run: &ItRun, test: &'static dyn TestCase, cfg: Rc<TestConfig>) {
             state.ring.stop();
             pending::<()>().await;
         })
-    }));
+    });
+    let res = crate::compositor::start_compositor_for_test(TestBackendArgs {
+        future,
+        config: test.config(),
+    });
     let mut errors = errors.take();
     if let Err(e) = res {
         errors.push(format!("The compositor failed: {}", ErrorFmt(e)));

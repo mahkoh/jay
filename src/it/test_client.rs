@@ -107,7 +107,7 @@ pub trait TestClientExt {
     async fn take_screenshot(
         self: &Rc<Self>,
         include_cursor: bool,
-    ) -> Result<(Rc<DmaBuf>, Option<Rc<OwnedFd>>), TestError>;
+    ) -> Result<Rc<DmaBuf>, TestError>;
     fn new_registry(self: &Rc<Self>) -> Rc<TestRegistry>;
 }
 
@@ -177,14 +177,8 @@ impl TestClientExt for Client {
     }
 
     async fn screenshot_qoi(self: &Rc<Self>, include_cursor: bool) -> Result<Vec<u8>, TestError> {
-        let (dmabuf, dev) = self.take_screenshot(include_cursor).await?;
-        let qoi = buf_to_bytes(
-            &self.state.eventfd_cache,
-            dev.as_ref(),
-            &dmabuf,
-            ScreenshotFormat::Qoi,
-            false,
-        )?;
+        let dmabuf = self.take_screenshot(include_cursor).await?;
+        let qoi = buf_to_bytes(&dmabuf, ScreenshotFormat::Qoi, false)?;
         Ok(qoi)
     }
 
@@ -261,19 +255,17 @@ impl TestClientExt for Client {
     async fn take_screenshot(
         self: &Rc<Self>,
         include_cursor: bool,
-    ) -> Result<(Rc<DmaBuf>, Option<Rc<OwnedFd>>), TestError> {
+    ) -> Result<Rc<DmaBuf>, TestError> {
         self.sync().await;
         let id = self.send_jay_compositor_take_screenshot2(include_cursor);
         let js = Rc::new(TestJayScreenshot {
             state: self.state.clone(),
-            drm_dev: Default::default(),
-            planes: Default::default(),
             result: Default::default(),
         });
         self.set_synthetic_event_handler(id, &js);
         self.sync().await;
         match js.result.take() {
-            Some(Ok(res)) => Ok((res, js.drm_dev.take())),
+            Some(Ok(res)) => Ok(res),
             Some(Err(res)) => bail!("Compositor could not take a screenshot: {}", res),
             None => bail!("Compositor did not send a screenshot"),
         }
