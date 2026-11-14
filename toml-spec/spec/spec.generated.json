@@ -24,6 +24,11 @@
           "pattern": "^\\$.*$"
         },
         {
+          "type": "string",
+          "description": "Shorthand for a `global-shortcut` action targeting `<app-id>` and `<shortcut-id>`.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  logo-m = \"global-shortcut:obs:mute\"\n  ```\n",
+          "pattern": "^global-shortcut:[^:]*:.+$"
+        },
+        {
           "type": "array",
           "description": "A list of actions to execute in sequence.\n\n- Example:\n\n  ```toml\n  [shortcuts]\n  alt-q = [\n    { type = \"exec\", exec = [\"notify-send\", \"exiting\"] },\n    \"quit\",\n  ]\n  ```\n",
           "items": {
@@ -972,6 +977,28 @@
               },
               "required": [
                 "type"
+              ]
+            },
+            {
+              "description": "Triggers a global shortcut registered by an application via\n`hyprland-global-shortcuts-v1` or the `GlobalShortcuts` xdg-desktop-portal\ninterface.\n\n- Example 1:\n\n  ```toml\n  [shortcuts]\n  logo-m = { type = \"global-shortcut\", app-id = \"obs\", shortcut-id = \"mute\" }\n  ```\n\n- Example 2:\n\n  ```toml\n  [shortcuts]\n  logo-m = \"global-shortcut:obs:mute\"\n  ```\n",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "global-shortcut"
+                },
+                "app-id": {
+                  "type": "string",
+                  "description": "The application ID that registered the global shortcut."
+                },
+                "shortcut-id": {
+                  "type": "string",
+                  "description": "The shortcut ID chosen by the application."
+                }
+              },
+              "required": [
+                "type",
+                "app-id",
+                "shortcut-id"
               ]
             }
           ]

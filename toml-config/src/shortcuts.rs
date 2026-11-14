@@ -208,10 +208,12 @@ impl State {
     }
 
     fn convert_shortcut(self: &Rc<Self>, shortcut: Shortcut) -> Option<ConvertedShortcut> {
-        if let Action::SimpleCommand {
-            cmd: SimpleCommand::None,
-        } = shortcut.action
-            && shortcut.latch.is_none()
+        if matches!(
+            shortcut.action,
+            Action::SimpleCommand {
+                cmd: SimpleCommand::None,
+            } | Action::GlobalShortcut { .. }
+        ) && shortcut.latch.is_none()
         {
             return None;
         }

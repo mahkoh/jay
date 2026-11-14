@@ -497,6 +497,7 @@ fn start_compositor2(
         toplevel_theme_changed: Default::default(),
         liveness: Default::default(),
         debugfs: Default::default(),
+        global_shortcuts: Default::default(),
     });
     state.tracker.register(ClientId::from_raw(0));
     state.add_output_scale(Scale::from_int(1));

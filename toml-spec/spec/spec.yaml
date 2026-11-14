@@ -173,6 +173,17 @@ Action:
           [shortcuts]
           alt-q = "$q"
           ```
+    - kind: string
+      pattern: "^global-shortcut:[^:]*:.+$"
+      description: |
+        Shorthand for a `global-shortcut` action targeting `<app-id>` and `<shortcut-id>`.
+
+        - Example:
+
+          ```toml
+          [shortcuts]
+          logo-m = "global-shortcut:obs:mute"
+          ```
     - kind: array
       items:
         ref: Action
@@ -1246,6 +1257,34 @@ Action:
                 The container the action applies to.
 
                 The default is `parent`.
+        global-shortcut:
+          description: |
+            Triggers a global shortcut registered by an application via
+            `hyprland-global-shortcuts-v1` or the `GlobalShortcuts` xdg-desktop-portal
+            interface.
+
+            - Example 1:
+
+              ```toml
+              [shortcuts]
+              logo-m = { type = "global-shortcut", app-id = "obs", shortcut-id = "mute" }
+              ```
+
+            - Example 2:
+
+              ```toml
+              [shortcuts]
+              logo-m = "global-shortcut:obs:mute"
+              ```
+          fields:
+            app-id:
+              required: true
+              kind: string
+              description: The application ID that registered the global shortcut.
+            shortcut-id:
+              required: true
+              kind: string
+              description: The shortcut ID chosen by the application.
 
 
 ContainerTarget:

@@ -7,6 +7,8 @@ use crate::globals::GlobalName;
 use crate::ifs::wl_seat::POINTER;
 use crate::object::Version;
 use crate::portal::PortalState;
+use crate::portal::ptl_global_shortcuts::register_display_shortcuts;
+use crate::portal::ptl_global_shortcuts::remove_display_shortcuts;
 use crate::portal::ptl_gui::WindowData;
 use crate::portal::ptl_render_ctx::PortalRenderCtx;
 use crate::portal::ptl_render_ctx::PortalServerRenderCtx;
@@ -20,6 +22,7 @@ use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::opaque::Opaque;
 use crate::utils::opaque::opaque;
 use crate::video::drm::Drm;
+use crate::wire::HyprlandGlobalShortcutsManagerV1;
 use crate::wire::JayCompositor;
 use crate::wire::WlCompositor;
 use crate::wire::WlOutput;
@@ -32,6 +35,7 @@ use crate::wire::ZwpLinuxDmabufV1;
 use crate::wire::wl_pointer;
 use crate::wl_usr::UsrCon;
 use crate::wl_usr::UsrConOwner;
+use crate::wl_usr::usr_ifs::usr_hyprland_global_shortcuts_manager_v1::UsrHyprlandGlobalShortcutsManagerV1;
 use crate::wl_usr::usr_ifs::usr_jay_compositor::UsrJayCompositor;
 use crate::wl_usr::usr_ifs::usr_jay_output::UsrJayOutput;
 use crate::wl_usr::usr_ifs::usr_jay_output::UsrJayOutputOwner;
@@ -95,6 +99,7 @@ pub struct PortalDisplay {
 
     pub windows: CopyHashMap<WlSurfaceId, Rc<WindowData>>,
     pub sessions: CopyHashMap<String, Rc<PortalSession>>,
+    pub global_shortcuts: CloneCell<Option<Rc<UsrHyprlandGlobalShortcutsManagerV1>>>,
 }
 
 pub struct PortalOutput {
@@ -241,6 +246,7 @@ impl UsrConOwner for PortalDisplay {
         for sc in self.sessions.lock().drain_values() {
             sc.kill();
         }
+        remove_display_shortcuts(&self.state, self.id);
         self.windows.clear();
         self.state.displays.remove(&self.id);
     }
@@ -262,6 +268,12 @@ impl UsrWlRegistryOwner for PortalDisplay {
             self.con.add_object(ls.clone());
             self.registry.bind(name, ls.deref());
             self.dmabuf.set(Some(ls));
+        } else if interface == HyprlandGlobalShortcutsManagerV1.name() {
+            if self.global_shortcuts.get().is_none() {
+                let gs = bind_global_shortcuts(&self.con, &self.registry, name, version);
+                self.global_shortcuts.set(Some(gs));
+                register_display_shortcuts(&self);
+            }
         }
     }
 }
@@ -345,6 +357,7 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
     let mut comp_opt = None;
     let mut vp_opt = None;
     let mut dmabuf_opt = None;
+    let mut global_shortcuts_opt = None;
     let mut outputs = vec![];
     let mut seats = vec![];
     for (interface, instances) in dpy.globals.borrow_mut().deref() {
@@ -406,6 +419,15 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
                 dpy.con.add_object(ls.clone());
                 dpy.registry.bind(name, ls.deref());
                 dmabuf_opt = Some(ls);
+            } else if interface == HyprlandGlobalShortcutsManagerV1.name() {
+                if global_shortcuts_opt.is_none() {
+                    global_shortcuts_opt = Some(bind_global_shortcuts(
+                        &dpy.con,
+                        &dpy.registry,
+                        name,
+                        version,
+                    ));
+                }
             } else if interface == WlOutput.name() {
                 outputs.push((name, version));
             } else if interface == WlSeat.name() {
@@ -451,12 +473,14 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
         windows: Default::default(),
         sessions: Default::default(),
         workspaces: Default::default(),
+        global_shortcuts: CloneCell::new(global_shortcuts_opt),
     });
 
     dpy.state.displays.set(dpy.id, dpy.clone());
     dpy.con.owner.set(Some(dpy.clone()));
     dpy.registry.owner.set(Some(dpy.clone()));
     ww.owner.set(Some(dpy.clone()));
+    register_display_shortcuts(&dpy);
 
     let jrc = dpy.jc.get_render_context();
     jrc.owner.set(Some(dpy.clone()));
@@ -468,6 +492,22 @@ fn finish_display_connect(dpy: Rc<PortalDisplayPrelude>) {
         add_seat(&dpy, name, version);
     }
     log::info!("Display {} initialized", dpy.id);
+}
+
+fn bind_global_shortcuts(
+    con: &Rc<UsrCon>,
+    registry: &UsrWlRegistry,
+    name: GlobalName,
+    version: u32,
+) -> Rc<UsrHyprlandGlobalShortcutsManagerV1> {
+    let gs = Rc::new(UsrHyprlandGlobalShortcutsManagerV1 {
+        id: con.id(),
+        con: con.clone(),
+        version: Version(version.min(1)),
+    });
+    con.add_object(gs.clone());
+    registry.bind(name, gs.deref());
+    gs
 }
 
 fn add_seat(dpy: &Rc<PortalDisplay>, name: GlobalName, version: u32) {

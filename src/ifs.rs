@@ -10,6 +10,8 @@ pub mod ext_output_image_capture_source_manager_v1;
 pub mod ext_session_lock_manager_v1;
 pub mod ext_session_lock_v1;
 pub mod head_management;
+pub mod hyprland_global_shortcut_v1;
+pub mod hyprland_global_shortcuts_manager_v1;
 pub mod ipc;
 pub mod jay_acceptor_request;
 pub mod jay_client_match;

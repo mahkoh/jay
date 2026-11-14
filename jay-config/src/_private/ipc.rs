@@ -1144,6 +1144,14 @@ pub enum ClientMessage<'a> {
         window: Window,
         kind: WindowThemeKind,
     },
+    BindGlobalShortcut {
+        app_id: &'a str,
+        shortcut_id: &'a str,
+        mods: Modifiers,
+        sym: KeySym,
+        trigger_description: &'a str,
+    },
+    ClearGlobalShortcuts,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
