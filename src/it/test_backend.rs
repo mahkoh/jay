@@ -1,5 +1,3 @@
-use crate::allocator::Allocator;
-use crate::allocator::AllocatorError;
 use crate::async_engine::SpawnedFuture;
 use crate::backend::AxisSource;
 use crate::backend::Backend;
@@ -39,61 +37,38 @@ use crate::fixed::Fixed;
 use crate::format::XRGB8888;
 use crate::gfx_api::GfxApi;
 use crate::gfx_api::GfxError;
-use crate::gfx_apis::create_vulkan_allocator;
 use crate::ifs::wl_output::OutputId;
 use crate::it::test_error::TestResult;
 use crate::it::test_gfx_api::TestGfxCtx;
 use crate::it::test_utils::test_expected_event::TEEH;
 use crate::state::State;
 use crate::udmabuf::Udmabuf;
+use crate::udmabuf::UdmabufError;
 use crate::utils::bhash::BHashMap;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
-use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::liveness::Liveness;
 use crate::utils::numcell::NumCell;
 use crate::utils::on_change::OnChange;
 use crate::utils::syncqueue::SyncQueue;
 use crate::video::drm::ConnectorType;
-use crate::video::drm::Drm;
 use crate::video::drm::DrmError;
 use crate::video::drm::DrmVersion;
-use crate::video::gbm::GbmDevice;
-use crate::video::gbm::GbmError;
-use bstr::ByteSlice;
-use jay_algorithms::oserror::OsError;
-use jay_algorithms::oserror::OsErrorExt2;
 use jay_proc::GetLiveness;
 use std::any::Any;
 use std::cell::Cell;
 use std::cell::RefCell;
-use std::error::Error;
-use std::io;
-use std::os::unix::ffi::OsStrExt;
 use std::pin::Pin;
 use std::rc::Rc;
 use thiserror::Error;
-use uapi::c;
 use uapi::c::dev_t;
 
 #[derive(Debug, Error)]
 pub enum TestBackendError {
-    #[error("Could not read /dev/dri")]
-    ReadDri(#[source] io::Error),
-    #[error("There are no drm nodes in /dev/dri")]
-    NoDrmNode,
-    #[error("Could not open drm node {0}")]
-    OpenDrmNode(String, #[source] OsError),
-    #[error("Could not open the drm device")]
-    OpenDrmDevice(#[source] DrmError),
     #[error("Could not create a render context")]
     RenderContext(#[source] GfxError),
-    #[error("Could not create a gbm device")]
-    CreateGbmDevice(#[source] GbmError),
-    #[error("Could not create any allocator")]
-    CreateAllocator,
-    #[error("Could not create a vulkan allocator")]
-    CreateVulkanAllocator(#[source] AllocatorError),
+    #[error("Could not create a udmabuf allocator")]
+    CreateUdmabuf(#[source] UdmabufError),
 }
 
 #[derive(GetLiveness)]
@@ -243,101 +218,16 @@ impl TestBackend {
     }
 
     fn create_render_context(&self, need_drm: bool) -> Result<(), TestBackendError> {
-        macro_rules! constructor {
-            ($c:expr) => {
-                constructor!($c, |a| Rc::new(a) as Rc<dyn Allocator>)
-            };
-            ($c:expr, nomap) => {
-                constructor!($c, |a| a)
-            };
-            ($c:expr, $map:expr) => {
-                (&|| $c.map($map).map_err(|e| Box::new(e) as Box<dyn Error>))
-                    as &dyn Fn() -> Result<Rc<dyn Allocator>, Box<dyn Error>>
-            };
-        }
-        let udmabuf = ("udmabuf", constructor!(Udmabuf::new()));
-        let vulkan = (
-            "Vulkan",
-            constructor!(create_vk_allocator(&self.state), nomap),
-        );
-        let gbm = ("GBM", constructor!(create_gbm_allocator()));
-        let allocators = match need_drm {
-            true => [vulkan, gbm, udmabuf],
-            false => [udmabuf, vulkan, gbm],
-        };
-        let mut allocator = None::<Rc<dyn Allocator>>;
-        for (name, f) in allocators {
-            match f() {
-                Ok(a) => {
-                    allocator = Some(a);
-                    break;
-                }
-                Err(e) => {
-                    log::error!("Could not create {name} allocator: {}", ErrorFmt(&*e));
-                }
-            }
-        }
-        let allocator = allocator.ok_or(TestBackendError::CreateAllocator)?;
-        let ctx = match TestGfxCtx::new(allocator, need_drm.then_some(self.default_drm_dev.id)) {
+        let udmabuf = Udmabuf::new()
+            .map(Rc::new)
+            .map_err(TestBackendError::CreateUdmabuf)?;
+        let ctx = match TestGfxCtx::new(&udmabuf, need_drm.then_some(self.default_drm_dev.id)) {
             Ok(ctx) => ctx,
             Err(e) => return Err(TestBackendError::RenderContext(e)),
         };
         self.state.set_render_ctx(Some(ctx));
         Ok(())
     }
-}
-
-fn create_gbm_allocator() -> Result<GbmDevice, TestBackendError> {
-    create_drm_allocator(|drm| GbmDevice::new(&drm).map_err(TestBackendError::CreateGbmDevice))
-}
-
-fn create_vk_allocator(state: &State) -> Result<Rc<dyn Allocator>, TestBackendError> {
-    create_drm_allocator(|drm| {
-        create_vulkan_allocator(&drm, &state.eventfd_cache)
-            .map_err(TestBackendError::CreateVulkanAllocator)
-    })
-}
-
-fn create_drm_allocator<T, F>(f: F) -> Result<T, TestBackendError>
-where
-    F: FnOnce(Drm) -> Result<T, TestBackendError>,
-{
-    let dri = match std::fs::read_dir("/dev/dri") {
-        Ok(d) => d,
-        Err(e) => return Err(TestBackendError::ReadDri(e)),
-    };
-    let mut files = vec![];
-    for f in dri {
-        let f = match f {
-            Ok(f) => f,
-            Err(e) => return Err(TestBackendError::ReadDri(e)),
-        };
-        files.push(f.path());
-    }
-    let node = 'node: {
-        for f in &files {
-            if let Some(file) = f.file_name()
-                && file.as_bytes().starts_with_str("renderD")
-            {
-                break 'node f;
-            }
-        }
-        for f in &files {
-            if let Some(file) = f.file_name()
-                && file.as_bytes().starts_with_str("card")
-            {
-                break 'node f;
-            }
-        }
-        return Err(TestBackendError::NoDrmNode);
-    };
-    let file = uapi::open(node.as_path(), c::O_RDWR | c::O_CLOEXEC, 0)
-        .map(Rc::new)
-        .map_os_err(|e| {
-            TestBackendError::OpenDrmNode(node.as_os_str().as_bytes().as_bstr().to_string(), e)
-        })?;
-    let drm = Drm::open_existing(file).map_err(TestBackendError::OpenDrmDevice)?;
-    f(drm)
 }
 
 impl Backend for TestBackend {

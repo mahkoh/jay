@@ -36,6 +36,7 @@ use crate::rect::Rect;
 use crate::rect::Region;
 use crate::syncobj::SyncobjCtx;
 use crate::theme::Color;
+use crate::udmabuf::Udmabuf;
 use crate::utils::bhash::BHashMap;
 use crate::video::LINEAR_MODIFIER;
 use crate::video::dmabuf::DmaBuf;
@@ -73,13 +74,13 @@ impl From<TestGfxError> for GfxError {
 
 pub struct TestGfxCtx {
     formats: Rc<BHashMap<u32, GfxFormat>>,
-    allocator: Rc<dyn Allocator>,
+    udmabuf: Rc<Udmabuf>,
     drm_device_id: Option<DrmDeviceId>,
 }
 
 impl TestGfxCtx {
     pub fn new(
-        allocator: Rc<dyn Allocator>,
+        udmabuf: &Rc<Udmabuf>,
         drm_device_id: Option<DrmDeviceId>,
     ) -> Result<Rc<Self>, GfxError> {
         let mut modifiers = IndexSet::new();
@@ -109,7 +110,7 @@ impl TestGfxCtx {
         }
         Ok(Rc::new(Self {
             formats: Rc::new(formats),
-            allocator,
+            udmabuf: udmabuf.clone(),
             drm_device_id,
         }))
     }
@@ -118,7 +119,7 @@ impl TestGfxCtx {
         Ok(Rc::new(TestGfxImage::DmaBuf(TestDmaBufGfxImage {
             buf: buf.clone(),
             bo: self
-                .allocator
+                .udmabuf
                 .import_dmabuf(buf, BufferUsage::none())
                 .map_err(TestGfxError::ImportDmaBuf)?,
         })))
@@ -209,7 +210,7 @@ impl GfxContext for TestGfxCtx {
     }
 
     fn allocator(&self) -> Rc<dyn Allocator> {
-        self.allocator.clone()
+        self.udmabuf.clone()
     }
 
     fn gfx_api(&self) -> GfxApi {
