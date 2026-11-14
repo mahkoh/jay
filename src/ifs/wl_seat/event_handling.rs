@@ -161,7 +161,7 @@ impl NodeSeatState {
         }
         self.kb_foci.insert(seat.id, seat.clone());
         if let Some(inhibitor) = self.shortcuts_inhibitors.get(&seat.id) {
-            inhibitor.activate();
+            inhibitor.activate_(false);
         }
         self.kb_foci.len() == 1
     }
@@ -169,7 +169,7 @@ impl NodeSeatState {
     pub(super) fn unfocus(&self, seat: &WlSeatGlobal) -> bool {
         self.kb_foci.remove(&seat.id);
         if let Some(inhibitor) = self.shortcuts_inhibitors.get(&seat.id) {
-            inhibitor.deactivate();
+            inhibitor.deactivate_(false);
         }
         self.kb_foci.len() == 0
     }
@@ -315,7 +315,7 @@ impl NodeSeatState {
             seat.touch_owner.cancel(&seat);
         }
         for (_, inhibitor) in &self.shortcuts_inhibitors {
-            inhibitor.deactivate();
+            inhibitor.deactivate_(false);
         }
         self.release_kb_focus2(focus_last);
     }

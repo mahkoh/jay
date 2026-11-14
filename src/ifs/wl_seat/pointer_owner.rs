@@ -963,6 +963,7 @@ impl SimplePointerOwnerUsecase for DefaultPointerUsecase {
 
     fn release_grab(&self, seat: &Rc<WlSeatGlobal>) {
         seat.pointer_owner.set_default_pointer_owner(seat);
+        seat.update_window_management_enabled();
     }
 
     fn start_tile_drag(

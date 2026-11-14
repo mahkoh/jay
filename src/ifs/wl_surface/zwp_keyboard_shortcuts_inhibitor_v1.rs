@@ -68,19 +68,33 @@ impl ZwpKeyboardShortcutsInhibitorV1 {
     }
 
     pub fn activate(&self) {
+        self.activate_(true);
+    }
+
+    pub(crate) fn activate_(&self, update_seat: bool) {
         if !self.client.state.shortcuts_inhibit_enabled.get() {
             return;
         }
         if !self.active.replace(true) {
             self.client.event(Active { self_id: self.id });
             self.client.state.trigger_cci(CCI_INPUT);
+            if update_seat {
+                self.seat.update_window_management_enabled();
+            }
         }
     }
 
     pub fn deactivate(&self) {
+        self.deactivate_(true);
+    }
+
+    pub(crate) fn deactivate_(&self, update_seat: bool) {
         if self.active.replace(false) {
             self.client.event(Inactive { self_id: self.id });
             self.client.state.trigger_cci(CCI_INPUT);
+            if update_seat {
+                self.seat.update_window_management_enabled();
+            }
         }
     }
 
