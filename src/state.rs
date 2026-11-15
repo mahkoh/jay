@@ -526,7 +526,8 @@ pub struct IdleState {
     pub backend_idle: Cell<bool>,
     pub inhibited_idle_notifications:
         CopyHashMap<(ClientId, ExtIdleNotificationV1Id), Rc<ExtIdleNotificationV1>>,
-    pub in_grace_period: Cell<bool>,
+    pub grace_period_fade: Cell<bool>,
+    pub grace_start: Cell<Option<Time>>,
 }
 
 impl IdleState {
@@ -538,6 +539,33 @@ impl IdleState {
     pub fn set_grace_period(&self, state: &State, grace_period: Duration) {
         self.grace_period.set(grace_period);
         self.timeout_changed(state);
+    }
+
+    pub fn set_grace_period_fade(&self, state: &Rc<State>, fade: bool) {
+        if self.grace_period_fade.replace(fade) == fade {
+            return;
+        }
+        if self.in_grace_period() {
+            state.damage_full(RenderTL);
+        }
+        state.trigger_cci(CCI_IDLE);
+    }
+
+    pub fn in_grace_period(&self) -> bool {
+        self.grace_start.get().is_some()
+    }
+
+    pub fn grace_fade_alpha(&self, presentation_nsec: u64) -> Option<f32> {
+        if !self.grace_period_fade.get() {
+            return None;
+        }
+        let start = self.grace_start.get()?;
+        let period = self.grace_period.get();
+        let elapsed = presentation_nsec.saturating_sub(start.nsec()) as u128;
+        if elapsed >= period.as_nanos() {
+            return None;
+        }
+        Some((elapsed as f64 / period.as_nanos() as f64) as f32)
     }
 
     fn timeout_changed(&self, state: &State) {
@@ -1561,7 +1589,7 @@ impl State {
         output: &Rc<OutputNode>,
         hc: &mut dyn HardwareCursorUpdate,
     ) {
-        if self.idle.in_grace_period.get() {
+        if self.idle.in_grace_period() {
             hc.set_enabled(false);
             return;
         }
@@ -1601,6 +1629,7 @@ impl State {
             output.node_state[RenderTL].scale.get(),
             render_hw_cursor,
             true,
+            None,
             blend_buffer,
             blend_cd,
             true,

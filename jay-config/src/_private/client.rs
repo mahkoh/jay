@@ -1569,6 +1569,10 @@ impl ConfigClient {
         self.send(&ClientMessage::SetIdleGracePeriod { period })
     }
 
+    pub fn set_idle_grace_period_fade(&self, fade: bool) {
+        self.send(&ClientMessage::SetIdleGracePeriodFade { fade })
+    }
+
     pub fn set_explicit_sync_enabled(&self, enabled: bool) {
         self.send(&ClientMessage::SetExplicitSyncEnabled { enabled })
     }

@@ -437,6 +437,9 @@ Interval
 Grace period
 : Minutes and seconds of the warning phase (screen goes black but is not yet locked)
 
+Grace period fade
+: Whether the screen gradually fades to black over the course of the grace period instead of turning black immediately
+
 Inhibitors
 : Collapsible list showing which applications are currently preventing idle (e.g. video players), with a count in the header
 
