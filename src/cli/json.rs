@@ -83,6 +83,35 @@ pub struct JsonColorManagementStatus {
 }
 
 #[derive(Serialize)]
+pub struct JsonGlobalShortcuts<'a> {
+    #[serde(skip_serializing_if = "is_empty")]
+    pub shortcuts: Vec<JsonGlobalShortcut<'a>>,
+    #[serde(skip_serializing_if = "is_empty")]
+    pub configured_triggers: Vec<JsonConfiguredGlobalTrigger<'a>>,
+}
+
+#[derive(Serialize)]
+pub struct JsonGlobalShortcut<'a> {
+    pub app_id: &'a str,
+    pub shortcut_id: &'a str,
+    #[serde(skip_serializing_if = "is_none")]
+    pub description: Option<&'a str>,
+    #[serde(skip_serializing_if = "is_none")]
+    pub preferred_trigger: Option<&'a str>,
+    #[serde(skip_serializing_if = "is_none")]
+    pub configured_trigger: Option<&'a str>,
+    pub config_action: String,
+}
+
+#[derive(Serialize)]
+pub struct JsonConfiguredGlobalTrigger<'a> {
+    pub app_id: &'a str,
+    pub shortcut_id: &'a str,
+    pub trigger: &'a str,
+    pub config_action: String,
+}
+
+#[derive(Serialize)]
 pub struct JsonIdle<'a> {
     pub idle_sec: u64,
     #[serde(skip_serializing_if = "is_zero")]

@@ -1,0 +1,16 @@
+event_handler
+
+request destroy (destructor) {
+}
+
+event pressed {
+    tv_sec_hi: u32,
+    tv_sec_lo: u32,
+    tv_nsec: u32,
+}
+
+event released {
+    tv_sec_hi: u32,
+    tv_sec_lo: u32,
+    tv_nsec: u32,
+}

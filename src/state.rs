@@ -98,6 +98,7 @@ use crate::ifs::ext_idle_notification_v1::ExtIdleNotificationV1;
 use crate::ifs::ext_session_lock_v1::ExtSessionLockV1;
 use crate::ifs::head_management::HeadManager;
 use crate::ifs::head_management::HeadNames;
+pub use crate::ifs::hyprland_global_shortcuts_manager_v1::GlobalShortcutsRegistry;
 use crate::ifs::ipc::DataOfferIds;
 use crate::ifs::ipc::DataSourceIds;
 use crate::ifs::ipc::data_control::DataControlDeviceIds;
@@ -451,6 +452,7 @@ pub struct State {
     pub toplevel_theme_changed: AsyncQueue<Weak<dyn ToplevelNode>>,
     pub liveness: Liveness,
     pub debugfs: DfsManager,
+    pub global_shortcuts: GlobalShortcutsRegistry,
 }
 
 pub trait ThemeChangeListener {
@@ -1505,6 +1507,7 @@ impl State {
         self.slow_ei_clients.clear();
         self.toplevels.clear();
         self.workspace_managers.clear();
+        self.global_shortcuts.clear();
         self.cl_matcher_manager.clear();
         self.tl_matcher_manager.clear();
         self.node_at_tree.borrow_mut().clear();

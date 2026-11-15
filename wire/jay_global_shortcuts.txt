@@ -1,0 +1,23 @@
+# requests
+
+request destroy {
+}
+
+request get {
+}
+
+# events
+
+event shortcut {
+    app_id: str,
+    shortcut_id: str,
+    description: str,
+    preferred_trigger: str,
+    configured_trigger: str,
+}
+
+event configured_trigger {
+    app_id: str,
+    shortcut_id: str,
+    trigger: str,
+}

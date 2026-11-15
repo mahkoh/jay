@@ -257,6 +257,10 @@ pub enum Action {
     ResetContainerTheme {
         target: ContainerTarget,
     },
+    GlobalShortcut {
+        app_id: String,
+        shortcut_id: String,
+    },
 }
 
 #[derive(Debug)]
@@ -755,4 +759,34 @@ where
 fn default_config_parses() {
     let input = crate::DEFAULT;
     parse_config(input, &Default::default(), &mut Default::default(), |_| ()).unwrap();
+}
+
+#[test]
+fn global_shortcut_parses() {
+    let parse = |src: &str| {
+        parse_config(
+            src.as_bytes(),
+            &Default::default(),
+            &mut Default::default(),
+            |_| (),
+        )
+        .unwrap()
+    };
+    let cfg = parse(
+        "[shortcuts]\nlogo-m = \"global-shortcut:obs:mute\"\nlogo-p = { type = \"global-shortcut\", app-id = \"obs\", shortcut-id = \"ptt\" }\n",
+    );
+    assert!(matches!(
+        &cfg.shortcuts[0].action,
+        Action::GlobalShortcut { app_id, shortcut_id } if app_id == "obs" && shortcut_id == "mute"
+    ));
+    assert!(matches!(
+        &cfg.shortcuts[1].action,
+        Action::GlobalShortcut { app_id, shortcut_id } if app_id == "obs" && shortcut_id == "ptt"
+    ));
+
+    let cfg = parse("[shortcuts]\nlogo-m = \"global-shortcut:obs\"\n");
+    assert!(cfg.shortcuts.is_empty());
+
+    let cfg = parse("[shortcuts]\nlogo-m = \"global-shortcut:obs:\"\n");
+    assert!(cfg.shortcuts.is_empty());
 }

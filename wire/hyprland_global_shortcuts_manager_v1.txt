@@ -1,0 +1,13 @@
+singleton
+event_handler
+
+request register_shortcut {
+    shortcut: id(hyprland_global_shortcut_v1) (new),
+    id: str,
+    app_id: str,
+    description: str,
+    trigger_description: str,
+}
+
+request destroy (destructor) {
+}

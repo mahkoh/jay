@@ -1,4 +1,5 @@
 mod ptl_display;
+mod ptl_global_shortcuts;
 mod ptl_gui;
 mod ptl_remote_desktop;
 mod ptl_render_ctx;
@@ -28,6 +29,8 @@ use crate::pipewire::pw_con::PwConOwner;
 use crate::portal::ptl_display::PortalDisplay;
 use crate::portal::ptl_display::PortalDisplayId;
 use crate::portal::ptl_display::watch_displays;
+use crate::portal::ptl_global_shortcuts::GlobalShortcutsSession;
+use crate::portal::ptl_global_shortcuts::add_global_shortcuts_dbus_members;
 use crate::portal::ptl_remote_desktop::add_remote_desktop_dbus_members;
 use crate::portal::ptl_render_ctx::PortalRenderCtx;
 use crate::portal::ptl_screencast::add_screencast_dbus_members;
@@ -257,6 +260,7 @@ async fn run_async(
         displays: Default::default(),
         dbus,
         sessions: Default::default(),
+        global_shortcuts_sessions: Default::default(),
         next_id: NumCell::new(1),
         render_ctxs: Default::default(),
         dma_buf_ids: Default::default(),
@@ -267,19 +271,18 @@ async fn run_async(
         pw_con.con.owner.set(Some(state.clone()));
     }
     let _root = {
-        let obj = state
-            .dbus
-            .add_object("/org/freedesktop/portal/desktop")
-            .unwrap();
+        let obj = state.dbus.add_object(DESKTOP_PATH).unwrap();
         if let Some(pw_con) = &pw_con {
             add_screencast_dbus_members(&state, &pw_con.con, &obj);
         }
         add_remote_desktop_dbus_members(&state, &obj);
+        add_global_shortcuts_dbus_members(&state, &obj);
         obj
     };
     watch_displays(state.clone()).await;
 }
 
+pub(super) const DESKTOP_PATH: &str = "/org/freedesktop/portal/desktop";
 const UNIQUE_NAME: &str = "org.freedesktop.impl.portal.desktop.jay";
 
 async fn init_dbus_session(dbus: &Dbus, logger: Arc<Logger>, path_sink: OwnedFd) -> Rc<DbusSocket> {
@@ -337,6 +340,7 @@ struct PortalState {
     displays: CopyHashMap<PortalDisplayId, Rc<PortalDisplay>>,
     dbus: Rc<DbusSocket>,
     sessions: CopyHashMap<String, Rc<PortalSession>>,
+    global_shortcuts_sessions: CopyHashMap<String, Rc<GlobalShortcutsSession>>,
     next_id: NumCell<u32>,
     render_ctxs: CopyHashMap<c::dev_t, Weak<PortalRenderCtx>>,
     dma_buf_ids: Rc<DmaBufIds>,

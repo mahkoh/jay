@@ -28,6 +28,7 @@ use crate::config::InputMatch;
 pub use crate::config::MatchExactly;
 use crate::config::Output;
 use crate::config::OutputMatch;
+use crate::config::Shortcut;
 use crate::config::SimpleCommand;
 use crate::config::Status;
 use crate::config::Theme;
@@ -47,8 +48,11 @@ use ahash::AHashMap;
 use ahash::AHashSet;
 pub use config::input_event_codes::input_event_code_from_name;
 use error_reporter::Report;
+use indexmap::IndexMap;
 use jay_config::ContainerTarget;
 use jay_config::Workspace;
+use jay_config::bind_global_shortcut;
+use jay_config::clear_global_shortcuts;
 use jay_config::client::Client;
 use jay_config::config;
 use jay_config::config_dir;
@@ -69,6 +73,15 @@ use jay_config::input::set_libei_socket_enabled;
 use jay_config::io::Async;
 use jay_config::is_reload;
 use jay_config::keyboard::Keymap;
+use jay_config::keyboard::ModifiedKeySym;
+use jay_config::keyboard::mods::ALT;
+use jay_config::keyboard::mods::CAPS;
+use jay_config::keyboard::mods::CTRL;
+use jay_config::keyboard::mods::LOGO;
+use jay_config::keyboard::mods::MOD3;
+use jay_config::keyboard::mods::MOD5;
+use jay_config::keyboard::mods::NUM;
+use jay_config::keyboard::mods::SHIFT;
 use jay_config::logging::clean_logs_older_than;
 use jay_config::logging::set_log_level;
 use jay_config::on_devices_enumerated;
@@ -671,6 +684,7 @@ impl Action {
                     c.container_theme().reset();
                 }
             }),
+            Action::GlobalShortcut { .. } => b.new(|| ()),
         }
     }
 }
@@ -1764,6 +1778,7 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
         Some(a) => on_idle(a.into_fn(&state)),
     }
     state.init_modes(&config.shortcuts, &config.input_modes);
+    apply_global_shortcuts(&config.shortcuts);
     if let Some(keymap) = config.keymap {
         state.set_keymap(&keymap);
     }
@@ -2072,6 +2087,124 @@ fn create_command(exec: &Exec) -> Command {
 }
 
 pub const DEFAULT: &[u8] = include_bytes!("default-config.toml");
+
+fn collect_global_shortcuts<'a>(action: &'a Action, out: &mut Vec<(&'a str, &'a str)>) {
+    match action {
+        Action::GlobalShortcut {
+            app_id,
+            shortcut_id,
+        } => out.push((app_id.as_str(), shortcut_id.as_str())),
+        Action::Multi { actions } => {
+            for action in actions {
+                collect_global_shortcuts(action, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn apply_global_shortcuts(shortcuts: &[Shortcut]) {
+    clear_global_shortcuts();
+    let mut active: IndexMap<ModifiedKeySym, Vec<(&str, &str)>> = IndexMap::new();
+    for sc in shortcuts {
+        let mut found = Vec::new();
+        collect_global_shortcuts(&sc.action, &mut found);
+        if found.is_empty() {
+            active.shift_remove(&sc.keysym);
+        } else {
+            active.insert(sc.keysym, found);
+        }
+    }
+    for (keysym, targets) in active {
+        let desc = format_trigger_description(keysym);
+        for (app_id, shortcut_id) in targets {
+            bind_global_shortcut(app_id, shortcut_id, keysym, &desc);
+        }
+    }
+}
+
+#[cfg(test)]
+mod global_shortcut_tests {
+    use super::collect_global_shortcuts;
+    use crate::config::Action;
+    use crate::config::parse_config;
+
+    #[test]
+    fn collect_global_shortcuts_handles_single_and_multi() {
+        let cfg = parse_config(
+            concat!(
+                "[shortcuts]\n",
+                "KP_Divide = [\n",
+                "  \"global-shortcut:com.discordapp.Discord:discord-toggle-mute\",\n",
+                "  \"global-shortcut:com.obsproject.Studio:libobs.mute.Mic/Aux\",\n",
+                "]\n",
+                "KP_Add = \"global-shortcut:com.obsproject.Studio:_toggle_streaming\"\n",
+            )
+            .as_bytes(),
+            &Default::default(),
+            &mut Default::default(),
+            |_| (),
+        )
+        .unwrap();
+
+        let mut divide = Vec::new();
+        collect_global_shortcuts(&cfg.shortcuts[0].action, &mut divide);
+        assert_eq!(
+            divide,
+            vec![
+                ("com.discordapp.Discord", "discord-toggle-mute"),
+                ("com.obsproject.Studio", "libobs.mute.Mic/Aux"),
+            ]
+        );
+
+        let mut add = Vec::new();
+        collect_global_shortcuts(&cfg.shortcuts[1].action, &mut add);
+        assert_eq!(add, vec![("com.obsproject.Studio", "_toggle_streaming")]);
+
+        let mixed = Action::Multi {
+            actions: vec![
+                Action::GlobalShortcut {
+                    app_id: "app".into(),
+                    shortcut_id: "id".into(),
+                },
+                Action::SimpleCommand {
+                    cmd: crate::config::SimpleCommand::Quit,
+                },
+            ],
+        };
+        let mut out = Vec::new();
+        collect_global_shortcuts(&mixed, &mut out);
+        assert_eq!(out, vec![("app", "id")]);
+    }
+}
+
+fn format_trigger_description(keysym: ModifiedKeySym) -> String {
+    let mut parts = Vec::new();
+    let mods = keysym.mods.0;
+    for (flag, name) in [
+        (LOGO.0, "Super"),
+        (CTRL.0, "Ctrl"),
+        (ALT.0, "Alt"),
+        (SHIFT.0, "Shift"),
+        (CAPS.0, "Caps"),
+        (NUM.0, "Num"),
+        (MOD3.0, "Mod3"),
+        (MOD5.0, "Mod5"),
+    ] {
+        if mods & flag != 0 {
+            parts.push(name);
+        }
+    }
+    let sym = kbvm::Keysym(keysym.sym.0)
+        .name()
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("{:#x}", keysym.sym.0));
+    if parts.is_empty() {
+        sym
+    } else {
+        format!("{}+{sym}", parts.join("+"))
+    }
+}
 
 pub fn configure() {
     let persistent = Rc::new(PersistentState {
