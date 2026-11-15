@@ -106,6 +106,7 @@ pub struct WorkspaceNode {
     pub attention_requests: ThresholdCounter,
     pub render_highlight: NumCell<u32>,
     pub ext_workspaces: CopyHashMap<WorkspaceManagerId, Rc<ExtWorkspaceHandleV1>>,
+    pub coordinate: Cell<Option<u32>>,
     pub opt: Rc<Opt<WorkspaceNode>>,
     pub node_state: SplitView<WorkspaceNodeState>,
     output_link: Cell<Option<LinkedNode<WorkspaceOutputLink>>>,
@@ -169,6 +170,7 @@ impl WorkspaceNode {
             attention_requests: Default::default(),
             render_highlight: Default::default(),
             ext_workspaces: Default::default(),
+            coordinate: Default::default(),
             opt: Default::default(),
             node_state: SplitView::from_fn(|_| WorkspaceNodeState::new(output)),
             output_link: Default::default(),
@@ -726,6 +728,8 @@ pub fn move_ws_to_output(ws: &Rc<WorkspaceNode>, target: &Rc<OutputNode>, config
         }
     };
     ws.set_ns_output_link(Some(link));
+    source.schedule_workspace_coordinate_update();
+    target.schedule_workspace_coordinate_update();
     let tns = &target.node_state[LiveTL];
     let make_visible = !target.is_dummy
         && (config.make_visible_always

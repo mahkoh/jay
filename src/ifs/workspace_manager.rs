@@ -21,12 +21,18 @@ pub struct WorkspaceManagerState {
     dangling_group: Rc<Opt<ExtWorkspaceGroupHandleV1>>,
     ids: WorkspaceManagerIds,
     managers: CopyHashMap<WorkspaceManagerId, Rc<ExtWorkspaceManagerV1>>,
+    pending_coordinates: AsyncQueue<Rc<OutputNode>>,
 }
 
 impl WorkspaceManagerState {
     pub fn clear(&self) {
         self.managers.clear();
         self.queue.clear();
+        self.pending_coordinates.clear();
+    }
+
+    pub fn schedule_coordinate_update(&self, output: &Rc<OutputNode>) {
+        self.pending_coordinates.push(output.clone());
     }
 
     pub fn announce_output(&self, on: &OutputNode) {
@@ -39,6 +45,13 @@ impl WorkspaceManagerState {
         for manager in self.managers.lock().values() {
             manager.announce_workspace(output, ws);
         }
+    }
+}
+
+pub async fn workspace_coordinate_update(state: Rc<State>) {
+    loop {
+        let output = state.workspace_managers.pending_coordinates.pop().await;
+        output.update_workspace_coordinates();
     }
 }
 
