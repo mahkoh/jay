@@ -147,6 +147,9 @@ impl ExtWorkspaceManagerV1 {
         ws.send_capabilities();
         ws.send_id(&workspace.name);
         ws.send_name(&workspace.name);
+        if let Some(coordinate) = workspace.coordinate.get() {
+            ws.update_coordinates(coordinate);
+        }
         ws.send_current_state();
         if let Some(group) = group {
             group.send_workspace_enter(&ws);

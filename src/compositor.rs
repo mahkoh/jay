@@ -62,6 +62,7 @@ use crate::ifs::wl_surface::NoneSurfaceExt;
 use crate::ifs::wl_surface::prime::no_client_prime;
 use crate::ifs::wl_surface::zwp_input_popup_surface_v2::input_popup_positioning;
 use crate::ifs::wlr_output_manager::wlr_output_manager_done;
+use crate::ifs::workspace_manager::workspace_coordinate_update;
 use crate::ifs::workspace_manager::workspace_manager_done;
 use crate::io_uring::IoUring;
 use crate::io_uring::IoUringError;
@@ -674,7 +675,12 @@ fn start_global_event_handlers(state: &Rc<State>) -> Vec<SpawnedFuture<()>> {
             handle_const_40hz_latch(state.clone()),
         ),
         eng.spawn(
+            "workspace coordinate update",
+            workspace_coordinate_update(state.clone()),
+        ),
+        eng.spawn2(
             "workspace manager done",
+            Phase::Layout,
             workspace_manager_done(state.clone()),
         ),
         eng.spawn("cl matcher manager", handle_cl_changes(state.clone())),
