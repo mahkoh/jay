@@ -376,6 +376,7 @@ mod singletons {
     pub(super) use crate::ifs::zwlr_screencopy_manager_v1::ZwlrScreencopyManagerV1Global;
     pub(super) use crate::ifs::zwlr_virtual_pointer_manager_v1::ZwlrVirtualPointerManagerV1Global;
     pub(super) use crate::ifs::zwp_idle_inhibit_manager_v1::ZwpIdleInhibitManagerV1Global;
+    pub(super) use crate::ifs::zwp_keyboard_shortcuts_inhibit_manager_v1::ZwpKeyboardShortcutsInhibitManagerV1Global;
     pub(super) use crate::ifs::zwp_linux_dmabuf_v1::ZwpLinuxDmabufV1Global;
     pub(super) use crate::ifs::zxdg_decoration_manager_v1::ZxdgDecorationManagerV1Global;
     pub(super) use crate::ifs::zxdg_output_manager_v1::ZxdgOutputManagerV1Global;

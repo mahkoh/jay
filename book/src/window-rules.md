@@ -153,7 +153,7 @@ Available capability values: `none`, `all`, `data-control`,
 `virtual-keyboard`, `foreign-toplevel-list`, `idle-notifier`, `session-lock`,
 `layer-shell`, `screencopy`, `seat-manager`, `drm-lease`, `input-method`,
 `workspace-manager`, `foreign-toplevel-manager`, `head-manager`,
-`gamma-control-manager`, `virtual-pointer`.
+`gamma-control-manager`, `virtual-pointer`, `keyboard-shortcuts-inhibit`.
 
 **Default capabilities:** unsandboxed clients receive `layer-shell` and
 `drm-lease`. Sandboxed clients receive only `drm-lease`. If any client rule

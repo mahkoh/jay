@@ -331,6 +331,19 @@ impl Seat {
         get!().set_bind_locked(self, mod_sym.into(), locked);
     }
 
+    /// Configures whether the given bind executes even if the focused window inhibits
+    /// shortcuts.
+    ///
+    /// Windows can only inhibit shortcuts if they have the
+    /// `CC_KEYBOARD_SHORTCUTS_INHIBIT` capability.
+    ///
+    /// The default is `false`.
+    ///
+    /// Binding resets the value to the default.
+    pub fn set_bind_allow_inhibited<T: Into<ModifiedKeySym>>(self, mod_sym: T, allow: bool) {
+        get!().set_bind_allow_inhibited(self, mod_sym.into(), allow);
+    }
+
     /// Registers a callback to be executed when the currently pressed key is released.
     ///
     /// This should only be called in callbacks for key-press binds.

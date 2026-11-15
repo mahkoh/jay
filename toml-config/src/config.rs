@@ -610,6 +610,7 @@ pub struct Shortcut {
     pub keysym: ModifiedKeySym,
     pub repeat: bool,
     pub allow_locked: bool,
+    pub allow_inhibited: bool,
     pub action: Action,
     pub latch: Option<Action>,
 }

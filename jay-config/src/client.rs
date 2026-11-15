@@ -201,35 +201,37 @@ bitflags! {
     pub struct ClientCapabilities(pub u64) {
         /// Grants access to the `ext_data_control_manager_v1` and
         /// `zwlr_data_control_manager_v1` globals.
-        pub const CC_DATA_CONTROL             = 1 << 0,
+        pub const CC_DATA_CONTROL               = 1 << 0,
         /// Grants access to the `zwp_virtual_keyboard_manager_v1` global.
-        pub const CC_VIRTUAL_KEYBOARD         = 1 << 1,
+        pub const CC_VIRTUAL_KEYBOARD           = 1 << 1,
         /// Grants access to the `ext_foreign_toplevel_list_v1` global.
-        pub const CC_FOREIGN_TOPLEVEL_LIST    = 1 << 2,
+        pub const CC_FOREIGN_TOPLEVEL_LIST      = 1 << 2,
         /// Grants access to the `ext_idle_notifier_v1` global.
-        pub const CC_IDLE_NOTIFIER            = 1 << 3,
+        pub const CC_IDLE_NOTIFIER              = 1 << 3,
         /// Grants access to the `ext_session_lock_manager_v1` global.
-        pub const CC_SESSION_LOCK             = 1 << 4,
+        pub const CC_SESSION_LOCK               = 1 << 4,
         /// Grants access to the `zwlr_layer_shell_v1` global.
-        pub const CC_LAYER_SHELL              = 1 << 6,
+        pub const CC_LAYER_SHELL                = 1 << 6,
         /// Grants access to the `ext_image_copy_capture_manager_v1` and
         /// `zwlr_screencopy_manager_v1` globals.
-        pub const CC_SCREENCOPY               = 1 << 7,
+        pub const CC_SCREENCOPY                 = 1 << 7,
         /// Grants access to the `ext_transient_seat_manager_v1` global.
-        pub const CC_SEAT_MANAGER             = 1 << 8,
+        pub const CC_SEAT_MANAGER               = 1 << 8,
         /// Grants access to the `wp_drm_lease_device_v1` global.
-        pub const CC_DRM_LEASE                = 1 << 9,
+        pub const CC_DRM_LEASE                  = 1 << 9,
         /// Grants access to the `zwp_input_method_manager_v2` global.
-        pub const CC_INPUT_METHOD             = 1 << 10,
+        pub const CC_INPUT_METHOD               = 1 << 10,
         /// Grants access to the `ext_workspace_manager_v1` global.
-        pub const CC_WORKSPACE_MANAGER        = 1 << 11,
+        pub const CC_WORKSPACE_MANAGER          = 1 << 11,
         /// Grants access to the `zwlr_foreign_toplevel_manager_v1` global.
-        pub const CC_FOREIGN_TOPLEVEL_MANAGER = 1 << 12,
+        pub const CC_FOREIGN_TOPLEVEL_MANAGER   = 1 << 12,
         /// Grants access to the `zwlr_output_manager_v1` global.
-        pub const CC_HEAD_MANAGER             = 1 << 13,
+        pub const CC_HEAD_MANAGER               = 1 << 13,
         /// Grants access to the `zwlr_gamma_control_manager_v1` global.
-        pub const CC_GAMMA_CONTROL_MANAGER    = 1 << 14,
+        pub const CC_GAMMA_CONTROL_MANAGER      = 1 << 14,
         /// Grants access to the `zwlr_virtual_pointer_manager_v1` global.
-        pub const CC_VIRTUAL_POINTER          = 1 << 15,
+        pub const CC_VIRTUAL_POINTER            = 1 << 15,
+        /// Grants access to the `zwp_keyboard_shortcuts_inhibit_manager_v1` global.
+        pub const CC_KEYBOARD_SHORTCUTS_INHIBIT = 1 << 16,
     }
 }
