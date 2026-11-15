@@ -27,6 +27,7 @@ pub mod jay_debugfs_snapshot;
 pub mod jay_ei_session;
 pub mod jay_ei_session_builder;
 pub mod jay_generic_match_builder;
+pub mod jay_global_shortcuts;
 pub mod jay_global_tracer;
 pub mod jay_idle;
 pub mod jay_input;

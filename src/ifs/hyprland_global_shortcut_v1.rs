@@ -19,6 +19,8 @@ pub struct HyprlandGlobalShortcutV1 {
     pub version: Version,
     pub app_id: String,
     pub shortcut_id: String,
+    pub description: String,
+    pub preferred_trigger_description: String,
     pub preferred_trigger: Option<(Modifiers, KeySym)>,
     pub pressed_keycode: Cell<Option<u32>>,
 }

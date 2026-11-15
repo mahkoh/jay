@@ -184,6 +184,10 @@ request get_debugfs (since = 44) {
     id: id(jay_debugfs) (new),
 }
 
+request get_global_shortcuts (since = 46) {
+    id: id(jay_global_shortcuts) (new),
+}
+
 # events
 
 event client_id {

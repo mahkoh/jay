@@ -40,10 +40,30 @@ impl Equivalent<(String, String)> for ShortcutKeyRef<'_> {
     }
 }
 
+struct ConfiguredTrigger {
+    mods: Modifiers,
+    sym: KeySym,
+    description: String,
+}
+
+pub struct RegisteredGlobalShortcutInfo {
+    pub app_id: String,
+    pub shortcut_id: String,
+    pub description: String,
+    pub preferred_trigger: String,
+    pub configured_trigger: String,
+}
+
+pub struct ConfiguredGlobalTriggerInfo {
+    pub app_id: String,
+    pub shortcut_id: String,
+    pub trigger: String,
+}
+
 #[derive(Default)]
 pub struct GlobalShortcutsRegistry {
     shortcuts: RefCell<BHashMap<(String, String), Rc<HyprlandGlobalShortcutV1>>>,
-    configured_triggers: RefCell<BHashMap<(String, String), (Modifiers, KeySym)>>,
+    configured_triggers: RefCell<BHashMap<(String, String), ConfiguredTrigger>>,
 }
 
 impl GlobalShortcutsRegistry {
@@ -55,10 +75,13 @@ impl GlobalShortcutsRegistry {
         sym: KeySym,
         trigger_description: &str,
     ) {
-        let _ = trigger_description;
         self.configured_triggers.borrow_mut().insert(
             (app_id.to_string(), shortcut_id.to_string()),
-            (Modifiers(mods.0 & !RELEASE.0), sym),
+            ConfiguredTrigger {
+                mods: Modifiers(mods.0 & !RELEASE.0),
+                sym,
+                description: trigger_description.to_string(),
+            },
         );
     }
 
@@ -73,6 +96,46 @@ impl GlobalShortcutsRegistry {
         drop(configured);
     }
 
+    pub fn snapshot(
+        &self,
+    ) -> (
+        Vec<RegisteredGlobalShortcutInfo>,
+        Vec<ConfiguredGlobalTriggerInfo>,
+    ) {
+        let shortcuts = self.shortcuts.borrow();
+        let configured = self.configured_triggers.borrow();
+        let mut registered: Vec<_> = shortcuts
+            .values()
+            .map(|sc| {
+                let configured_trigger = configured
+                    .get(&ShortcutKeyRef(&sc.app_id, &sc.shortcut_id))
+                    .map(|t| t.description.clone())
+                    .unwrap_or_default();
+                RegisteredGlobalShortcutInfo {
+                    app_id: sc.app_id.clone(),
+                    shortcut_id: sc.shortcut_id.clone(),
+                    description: sc.description.clone(),
+                    preferred_trigger: sc.preferred_trigger_description.clone(),
+                    configured_trigger,
+                }
+            })
+            .collect();
+        registered.sort_by(|a, b| (&a.app_id, &a.shortcut_id).cmp(&(&b.app_id, &b.shortcut_id)));
+        let mut triggers: Vec<_> = configured
+            .iter()
+            .map(
+                |((app_id, shortcut_id), trigger)| ConfiguredGlobalTriggerInfo {
+                    app_id: app_id.clone(),
+                    shortcut_id: shortcut_id.clone(),
+                    trigger: trigger.description.clone(),
+                },
+            )
+            .collect();
+        triggers.sort_by(|a, b| (&a.app_id, &a.shortcut_id).cmp(&(&b.app_id, &b.shortcut_id)));
+        (registered, triggers)
+    }
+
+    #[expect(clippy::too_many_arguments)]
     pub fn register_shortcut(
         &self,
         client: &Rc<Client>,
@@ -80,6 +143,7 @@ impl GlobalShortcutsRegistry {
         id: HyprlandGlobalShortcutV1Id,
         shortcut_id: &str,
         app_id: &str,
+        description: &str,
         trigger_description: &str,
     ) -> Result<(), HyprlandGlobalShortcutsManagerV1Error> {
         {
@@ -96,6 +160,8 @@ impl GlobalShortcutsRegistry {
             version,
             app_id: app_id.to_string(),
             shortcut_id: shortcut_id.to_string(),
+            description: description.to_string(),
+            preferred_trigger_description: trigger_description.to_string(),
             preferred_trigger,
             pressed_keycode: Cell::new(None),
         });
@@ -141,7 +207,7 @@ impl GlobalShortcutsRegistry {
             }
             let effective = configured
                 .get(&ShortcutKeyRef(&shortcut.app_id, &shortcut.shortcut_id))
-                .copied()
+                .map(|t| (t.mods, t.sym))
                 .or(shortcut.preferred_trigger);
             let Some((trigger_mods, trigger_sym)) = effective else {
                 continue;
@@ -279,13 +345,13 @@ impl HyprlandGlobalShortcutsManagerV1RequestHandler for HyprlandGlobalShortcutsM
         req: RegisterShortcut<'_>,
         _slf: &Rc<Self>,
     ) -> Result<(), Self::Error> {
-        let _ = req.description;
         self.client.state.global_shortcuts.register_shortcut(
             &self.client,
             self.version,
             req.shortcut,
             req.id,
             req.app_id,
+            req.description,
             req.trigger_description,
         )
     }

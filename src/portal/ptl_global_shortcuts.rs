@@ -207,6 +207,26 @@ fn dbus_create_session(
     });
 }
 
+fn has_conflicting_shortcut(
+    state: &PortalState,
+    session: &Rc<GlobalShortcutsSession>,
+    shortcut_id: &str,
+) -> bool {
+    state
+        .global_shortcuts_sessions
+        .lock()
+        .values()
+        .any(|other| {
+            !Rc::ptr_eq(other, session)
+                && other.app == session.app
+                && other
+                    .shortcuts
+                    .borrow()
+                    .iter()
+                    .any(|s| s.shortcut_id == shortcut_id)
+        })
+}
+
 fn dbus_bind_shortcuts(
     state: &Rc<PortalState>,
     req: BindShortcuts<'_>,
@@ -215,6 +235,24 @@ fn dbus_bind_shortcuts(
     let Some(session) = get_session(state, &reply, &req.session_handle.0) else {
         return;
     };
+    for (shortcut_id, _) in req.shortcuts.iter() {
+        if has_conflicting_shortcut(state, &session, shortcut_id.deref()) {
+            let msg = format!(
+                "Global shortcut `{}:{}` is already registered by another session",
+                session.app,
+                shortcut_id.deref(),
+            );
+            log::warn!("{msg}");
+            reply.err(&msg);
+            return;
+        }
+    }
+    log::info!(
+        "Bind {} global shortcut(s) for `{}` ({}):",
+        req.shortcuts.len(),
+        session.app,
+        session.session_obj.path(),
+    );
     let session_weak = Rc::downgrade(&session);
     for (shortcut_id, vardict) in req.shortcuts.iter() {
         let mut description = "";
@@ -239,6 +277,12 @@ fn dbus_bind_shortcuts(
         } else {
             preferred_trigger.to_string()
         };
+        log::info!(
+            "  global-shortcut:{}:{} ({})",
+            session.app,
+            shortcut_id.deref(),
+            description,
+        );
         let old = {
             let mut shortcuts = session.shortcuts.borrow_mut();
             shortcuts

@@ -15,6 +15,7 @@ use crate::ifs::jay_debugfs::JayDebugfs;
 use crate::ifs::jay_ei_session_builder::JayEiSessionBuilder;
 use crate::ifs::jay_generic_match_builder::JayGenericMatchBuilder;
 use crate::ifs::jay_generic_match_builder::MatchBuilder;
+use crate::ifs::jay_global_shortcuts::JayGlobalShortcuts;
 use crate::ifs::jay_global_tracer::JayGlobalTracer;
 use crate::ifs::jay_idle::JayIdle;
 use crate::ifs::jay_input::JayInput;
@@ -96,7 +97,7 @@ impl JayCompositorGlobal {
 
 impl Global for JayCompositorGlobal {
     fn version(&self) -> u32 {
-        45
+        46
     }
 
     fn required_caps(&self) -> ClientCaps {
@@ -673,6 +674,22 @@ impl JayCompositorRequestHandler for JayCompositor {
 
     fn get_debugfs(&self, req: GetDebugfs, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         let obj = Rc::new(JayDebugfs {
+            id: req.id,
+            client: self.client.clone(),
+            tracker: Default::default(),
+            version: self.version,
+        });
+        track!(self.client, obj);
+        self.client.add_client_obj(&obj);
+        Ok(())
+    }
+
+    fn get_global_shortcuts(
+        &self,
+        req: GetGlobalShortcuts,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
+        let obj = Rc::new(JayGlobalShortcuts {
             id: req.id,
             client: self.client.clone(),
             tracker: Default::default(),
