@@ -39,6 +39,7 @@ use crate::config::parsers::input_mode::InputModesParser;
 use crate::config::parsers::keymap::KeymapParser;
 use crate::config::parsers::libei::LibeiParser;
 use crate::config::parsers::log_level::LogLevelParser;
+use crate::config::parsers::mouse_follows_focus_mode::MouseFollowsFocusModeParser;
 use crate::config::parsers::output::OutputsParser;
 use crate::config::parsers::repeat_rate::RepeatRateParser;
 use crate::config::parsers::session_management::SessionManagementParser;
@@ -166,7 +167,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 fallback_output_mode_val,
                 egui_val,
                 clean_logs_older_than_val,
-                mouse_follows_focus,
+                mouse_follows_focus_val,
             ),
             (
                 session_management_val,
@@ -236,7 +237,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 opt(val("fallback-output-mode")),
                 opt(val("egui")),
                 opt(val("clean-logs-older-than")),
-                recover(opt(bol("unstable-mouse-follows-focus"))),
+                opt(val("unstable-mouse-follows-focus")),
             ),
             (
                 opt(val("session-management")),
@@ -599,6 +600,18 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 }
             }
         }
+        let mut mouse_follows_focus = None;
+        if let Some(value) = mouse_follows_focus_val {
+            match value.parse(&mut MouseFollowsFocusModeParser) {
+                Ok(v) => mouse_follows_focus = Some(v),
+                Err(e) => {
+                    log::warn!(
+                        "Could not parse the mouse follows focus mode: {}",
+                        self.0.error(e)
+                    );
+                }
+            }
+        }
         let mut fallback_output_mode = None;
         if let Some(value) = fallback_output_mode_val {
             match value.parse(&mut FallbackOutputModeParser) {
@@ -712,7 +725,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
             workspace_display_order,
             simple_im,
             fallback_output_mode,
-            mouse_follows_focus: mouse_follows_focus.despan(),
+            mouse_follows_focus,
             transactions,
             cursor_size: cursor_size.despan(),
             configure_all_devices,

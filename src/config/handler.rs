@@ -30,7 +30,9 @@ use crate::format::config_formats;
 use crate::gfx_api::ScalingFilter;
 use crate::ifs::wl_output::BlendSpace;
 use crate::ifs::wl_output::PersistentOutputState;
+use crate::ifs::wl_seat::MouseFollowsFocusMode;
 use crate::ifs::wl_seat::SeatId;
+use crate::ifs::wl_seat::WarpTarget;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wp_content_type_v1::ContentTypeExt;
 use crate::io_uring::TaskResultExt;
@@ -115,6 +117,8 @@ use jay_config::input::FocusFollowsMouseMode;
 use jay_config::input::InputDevice;
 use jay_config::input::InputEventCode as ConfigInputEventCode;
 use jay_config::input::JcFallbackOutputMode;
+use jay_config::input::JcMouseFollowsFocusMode;
+use jay_config::input::JcWarpTarget;
 use jay_config::input::LayerDirection;
 use jay_config::input::Seat;
 use jay_config::input::Timeline;
@@ -1406,9 +1410,11 @@ impl ConfigProxyHandler {
                 seat,
             }
         };
-        let mut did_focus = false;
+        if let Some(seat) = &seat {
+            seat.schedule_warp_mouse_to_focus_if_changed();
+        }
         if move_ {
-            move_ws_to_output(
+            let moved = move_ws_to_output(
                 &ws,
                 &output,
                 WsMoveConfig {
@@ -1419,19 +1425,17 @@ impl ConfigProxyHandler {
                 },
             );
             if let Some(seat) = &seat {
-                did_focus = ws.do_focus(seat, crate::tree::Direction::Unspecified);
+                if moved {
+                    seat.schedule_warp_mouse_to_focus_if_moved(WarpTarget::Workspace);
+                }
+                ws.do_focus(seat, crate::tree::Direction::Unspecified);
             }
             if !output.is_dummy {
                 ws.desired_output.set(output.global.output_id.clone());
             }
             self.state.tree_changed();
         } else {
-            did_focus = self.state.show_workspace2(seat.as_ref(), &output, &ws);
-        }
-        if (did_focus || ws.ty == WorkspaceType::Normal)
-            && let Some(seat) = &seat
-        {
-            seat.maybe_schedule_warp_mouse_to_focus();
+            self.state.show_workspace2(seat.as_ref(), &output, &ws);
         }
         Ok(())
     }
@@ -1525,7 +1529,13 @@ impl ConfigProxyHandler {
                 _ => return Ok(()),
             },
         };
-        self.state.move_ws_to_output(&ws, &output);
+        if self.state.move_ws_to_output(&ws, &output) {
+            for seat in self.state.globals.seats.lock().values() {
+                if seat.get_keyboard_workspace().map(|w| w.id) == Some(ws.id) {
+                    seat.schedule_warp_mouse_to_focus_if_moved(WarpTarget::Output);
+                }
+            }
+        }
         Ok(())
     }
 
@@ -2978,9 +2988,29 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_seat_warp_mouse_to_focus_target(
+        &self,
+        seat: Seat,
+        target: JcWarpTarget,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.schedule_warp_mouse_to_focus(target.into(), true);
+        Ok(())
+    }
+
+    fn handle_seat_set_mouse_follows_focus_mode(
+        &self,
+        seat: Seat,
+        mode: JcMouseFollowsFocusMode,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_mouse_follows_focus(mode.into());
+        Ok(())
+    }
+
     fn handle_seat_warp_mouse_to_focus(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        seat.schedule_warp_mouse_to_focus();
+        seat.schedule_warp_mouse_to_focus(WarpTarget::Window, true);
         Ok(())
     }
 
@@ -2990,7 +3020,11 @@ impl ConfigProxyHandler {
         enabled: bool,
     ) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        seat.set_mouse_follows_focus(enabled);
+        let mode = match enabled {
+            true => MouseFollowsFocusMode::Window,
+            false => MouseFollowsFocusMode::None,
+        };
+        seat.set_mouse_follows_focus(mode);
         Ok(())
     }
 
@@ -3168,8 +3202,8 @@ impl ConfigProxyHandler {
         if !window.node_visible(LiveTL) {
             return Err(CphError::WindowNotVisible(window_id));
         }
+        seat.schedule_warp_mouse_to_focus_if_changed();
         seat.focus_toplevel(window);
-        seat.maybe_schedule_warp_mouse_to_focus();
         Ok(())
     }
 
@@ -4287,6 +4321,12 @@ impl ConfigProxyHandler {
             ClientMessage::SeatSetMouseFollowsFocus { seat, enabled } => self
                 .handle_seat_set_mouse_follows_focus(seat, enabled)
                 .wrn("seat_set_mouse_follows_focus")?,
+            ClientMessage::SeatSetMouseFollowsFocusMode { seat, mode } => self
+                .handle_seat_set_mouse_follows_focus_mode(seat, mode)
+                .wrn("seat_set_mouse_follows_focus_mode")?,
+            ClientMessage::SeatWarpMouseToFocusTarget { seat, target } => self
+                .handle_seat_warp_mouse_to_focus_target(seat, target)
+                .wrn("seat_warp_mouse_to_focus_target")?,
             ClientMessage::ConnectorSetUseNativeGamut {
                 connector,
                 use_native_gamut,

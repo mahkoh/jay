@@ -86,7 +86,7 @@ impl seat::Dir for WlSeatGlobal {
     }
 
     fn read_warp_mouse_to_focus_scheduled(&self, buf: &mut String, ctx: &StrCtx<'_>) {
-        self.warp_mouse_to_focus_scheduled.get().str_fmt(buf, ctx);
+        self.warp_mouse_to_focus_target.get().str_fmt(buf, ctx);
     }
 
     fn read_simple_im_enabled(&self, buf: &mut String, ctx: &StrCtx<'_>) {
