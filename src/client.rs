@@ -78,22 +78,23 @@ mod tasks;
 
 bitflags! {
     ClientCaps: u32;
-        CAP_DATA_CONTROL_MANAGER     = 1 << 0,
-        CAP_VIRTUAL_KEYBOARD_MANAGER = 1 << 1,
-        CAP_FOREIGN_TOPLEVEL_LIST    = 1 << 2,
-        CAP_IDLE_NOTIFIER            = 1 << 3,
-        CAP_SESSION_LOCK_MANAGER     = 1 << 4,
-        CAP_JAY_COMPOSITOR           = 1 << 5,
-        CAP_LAYER_SHELL              = 1 << 6,
-        CAP_SCREENCOPY_MANAGER       = 1 << 7,
-        CAP_SEAT_MANAGER             = 1 << 8,
-        CAP_DRM_LEASE                = 1 << 9,
-        CAP_INPUT_METHOD             = 1 << 10,
-        CAP_WORKSPACE                = 1 << 11,
-        CAP_FOREIGN_TOPLEVEL_MANAGER = 1 << 12,
-        CAP_HEAD_MANAGER             = 1 << 13,
-        CAP_GAMMA_CONTROL_MANAGER    = 1 << 14,
-        CAP_VIRTUAL_POINTER_MANAGER  = 1 << 15,
+        CAP_DATA_CONTROL_MANAGER       = 1 << 0,
+        CAP_VIRTUAL_KEYBOARD_MANAGER   = 1 << 1,
+        CAP_FOREIGN_TOPLEVEL_LIST      = 1 << 2,
+        CAP_IDLE_NOTIFIER              = 1 << 3,
+        CAP_SESSION_LOCK_MANAGER       = 1 << 4,
+        CAP_JAY_COMPOSITOR             = 1 << 5,
+        CAP_LAYER_SHELL                = 1 << 6,
+        CAP_SCREENCOPY_MANAGER         = 1 << 7,
+        CAP_SEAT_MANAGER               = 1 << 8,
+        CAP_DRM_LEASE                  = 1 << 9,
+        CAP_INPUT_METHOD               = 1 << 10,
+        CAP_WORKSPACE                  = 1 << 11,
+        CAP_FOREIGN_TOPLEVEL_MANAGER   = 1 << 12,
+        CAP_HEAD_MANAGER               = 1 << 13,
+        CAP_GAMMA_CONTROL_MANAGER      = 1 << 14,
+        CAP_VIRTUAL_POINTER_MANAGER    = 1 << 15,
+        CAP_KEYBOARD_SHORTCUTS_INHIBIT = 1 << 16,
 }
 
 impl StaticText for ClientCapsEnum {
@@ -115,6 +116,7 @@ impl StaticText for ClientCapsEnum {
             ClientCapsEnum::CAP_HEAD_MANAGER => "head-manager",
             ClientCapsEnum::CAP_GAMMA_CONTROL_MANAGER => "gamma-control-manager",
             ClientCapsEnum::CAP_VIRTUAL_POINTER_MANAGER => "virtual-pointer",
+            ClientCapsEnum::CAP_KEYBOARD_SHORTCUTS_INHIBIT => "keyboard-shortcuts-inhibit",
         }
     }
 }

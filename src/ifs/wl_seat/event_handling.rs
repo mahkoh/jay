@@ -108,6 +108,7 @@ pub struct NodeSeatState {
     tablet_tool_foci: SmallMap<TabletToolId, Rc<TabletTool>, 1>,
     ui_drags: SmallMap<SeatId, Rc<WlSeatGlobal>, 1>,
     marks: RefCell<SmallMapMut<SeatId, Marks, 1>>,
+    pub shortcuts_inhibitors: SmallMap<SeatId, (), 1>,
 }
 
 struct Marks {
@@ -1000,6 +1001,14 @@ impl WlSeatGlobal {
                     .unwrap_or(kbvm_state.kb_state.mods.group);
                 let keysyms = map.lookup_table.lookup(group, ModifierMask::default(), kc);
                 repeats = keysyms.repeats();
+                // Do not inhibit releases. Latches of keys pressed before the focus change must run.
+                let shortcuts_inhibited = key_state != KeyState::Released
+                    && self
+                        .keyboard_node
+                        .get()
+                        .node_seat_state()
+                        .shortcuts_inhibitors
+                        .contains(&self.id);
                 let mut revert_pointer_to_default = false;
                 for props in keysyms {
                     let sym = props.keysym().0;
@@ -1013,6 +1022,7 @@ impl WlSeatGlobal {
                         for (&key_mods, sc) in key_mods {
                             if mods & sc.mask == key_mods
                                 && (sc.repeat || key_state != KeyState::Repeated)
+                                && (sc.allow_inhibited || !shortcuts_inhibited)
                             {
                                 shortcuts.push(InvokedShortcut {
                                     unmasked_mods: Modifiers(mods),
@@ -1375,6 +1385,7 @@ impl WlSeatGlobal {
                 Shortcut {
                     mask: mod_mask.0,
                     repeat: Default::default(),
+                    allow_inhibited: Default::default(),
                 },
             );
     }
@@ -1393,6 +1404,14 @@ impl WlSeatGlobal {
             && let Some(sc) = scs.get_mut(&mods.0)
         {
             sc.repeat = repeat;
+        }
+    }
+
+    pub fn set_shortcut_allow_inhibited(&self, mods: Modifiers, keysym: KeySym, allow: bool) {
+        if let Some(scs) = self.shortcuts.borrow_mut().get_mut(&keysym.0)
+            && let Some(sc) = scs.get_mut(&mods.0)
+        {
+            sc.allow_inhibited = allow;
         }
     }
 

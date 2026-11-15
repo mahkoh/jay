@@ -1914,6 +1914,15 @@ impl ConfigClient {
         }
     }
 
+    pub fn set_bind_allow_inhibited(&self, seat: Seat, mod_sym: ModifiedKeySym, allow: bool) {
+        self.send(&ClientMessage::SetShortcutAllowInhibited {
+            seat,
+            mods: mod_sym.mods,
+            sym: mod_sym.sym,
+            allow,
+        });
+    }
+
     pub fn log(&self, level: LogLevel, msg: &str, file: Option<&str>, line: Option<u32>) {
         self.send(&ClientMessage::Log {
             level,

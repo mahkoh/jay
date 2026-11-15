@@ -1144,6 +1144,12 @@ pub enum ClientMessage<'a> {
         window: Window,
         kind: WindowThemeKind,
     },
+    SetShortcutAllowInhibited {
+        seat: Seat,
+        mods: Modifiers,
+        sym: KeySym,
+        allow: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

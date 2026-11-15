@@ -2306,6 +2306,18 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_shortcut_allow_inhibited(
+        &self,
+        seat: Seat,
+        mods: Modifiers,
+        sym: KeySym,
+        allow: bool,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_shortcut_allow_inhibited(mods, sym, allow);
+        Ok(())
+    }
+
     fn handle_get_input_devices(&self, seat: Option<Seat>) {
         let id = seat.map(|s| SeatId::from_raw(s.0 as _));
         let matches = |dhd: &DeviceHandlerData| {
@@ -4412,6 +4424,14 @@ impl ConfigProxyHandler {
                 .handle_set_shortcut_repeat(seat, mods, sym, repeat)
                 .wrn("set_shortcut_repeat")?,
             ClientMessage::EnableLockedShortcuts => self.state.config_locked_shortcuts.set(true),
+            ClientMessage::SetShortcutAllowInhibited {
+                seat,
+                mods,
+                sym,
+                allow,
+            } => self
+                .handle_set_shortcut_allow_inhibited(seat, mods, sym, allow)
+                .wrn("set_shortcut_allow_inhibited")?,
             ClientMessage::ConnectorSetScalingFilter {
                 connector,
                 scaling_filter,
