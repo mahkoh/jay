@@ -208,13 +208,7 @@ impl State {
     }
 
     fn convert_shortcut(self: &Rc<Self>, shortcut: Shortcut) -> Option<ConvertedShortcut> {
-        if matches!(
-            shortcut.action,
-            Action::SimpleCommand {
-                cmd: SimpleCommand::None,
-            } | Action::GlobalShortcut { .. }
-        ) && shortcut.latch.is_none()
-        {
+        if is_noop_compositor_action(&shortcut.action) && shortcut.latch.is_none() {
             return None;
         }
         let mut f = shortcut.action.into_shortcut_fn(self);
@@ -296,5 +290,43 @@ impl State {
                 v.insert(Rc::new(diffs)).clone()
             }
         }
+    }
+}
+
+fn is_noop_compositor_action(action: &Action) -> bool {
+    match action {
+        Action::SimpleCommand {
+            cmd: SimpleCommand::None,
+        }
+        | Action::GlobalShortcut { .. } => true,
+        Action::Multi { actions } => actions.iter().all(is_noop_compositor_action),
+        _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_noop_compositor_action;
+    use crate::config::Action;
+    use crate::config::SimpleCommand;
+
+    #[test]
+    fn noop_compositor_action_covers_multi_global_shortcuts() {
+        let gs = |app: &str, id: &str| Action::GlobalShortcut {
+            app_id: app.into(),
+            shortcut_id: id.into(),
+        };
+        assert!(is_noop_compositor_action(&gs("discord", "mute")));
+        assert!(is_noop_compositor_action(&Action::Multi {
+            actions: vec![gs("discord", "mute"), gs("obs", "mic")],
+        }));
+        assert!(!is_noop_compositor_action(&Action::Multi {
+            actions: vec![
+                gs("discord", "mute"),
+                Action::SimpleCommand {
+                    cmd: SimpleCommand::Quit,
+                },
+            ],
+        }));
     }
 }

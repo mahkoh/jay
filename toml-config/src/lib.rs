@@ -2088,25 +2088,93 @@ fn create_command(exec: &Exec) -> Command {
 
 pub const DEFAULT: &[u8] = include_bytes!("default-config.toml");
 
-fn apply_global_shortcuts(shortcuts: &[Shortcut]) {
-    clear_global_shortcuts();
-    let mut active = IndexMap::new();
-    for sc in shortcuts {
-        match &sc.action {
-            Action::GlobalShortcut {
-                app_id,
-                shortcut_id,
-            } => {
-                active.insert(sc.keysym, (app_id.as_str(), shortcut_id.as_str()));
-            }
-            _ => {
-                active.shift_remove(&sc.keysym);
+fn collect_global_shortcuts<'a>(action: &'a Action, out: &mut Vec<(&'a str, &'a str)>) {
+    match action {
+        Action::GlobalShortcut {
+            app_id,
+            shortcut_id,
+        } => out.push((app_id.as_str(), shortcut_id.as_str())),
+        Action::Multi { actions } => {
+            for action in actions {
+                collect_global_shortcuts(action, out);
             }
         }
+        _ => {}
     }
-    for (keysym, (app_id, shortcut_id)) in active {
+}
+
+fn apply_global_shortcuts(shortcuts: &[Shortcut]) {
+    clear_global_shortcuts();
+    let mut active: IndexMap<ModifiedKeySym, Vec<(&str, &str)>> = IndexMap::new();
+    for sc in shortcuts {
+        let mut found = Vec::new();
+        collect_global_shortcuts(&sc.action, &mut found);
+        if found.is_empty() {
+            active.shift_remove(&sc.keysym);
+        } else {
+            active.insert(sc.keysym, found);
+        }
+    }
+    for (keysym, targets) in active {
         let desc = format_trigger_description(keysym);
-        bind_global_shortcut(app_id, shortcut_id, keysym, &desc);
+        for (app_id, shortcut_id) in targets {
+            bind_global_shortcut(app_id, shortcut_id, keysym, &desc);
+        }
+    }
+}
+
+#[cfg(test)]
+mod global_shortcut_tests {
+    use super::collect_global_shortcuts;
+    use crate::config::Action;
+    use crate::config::parse_config;
+
+    #[test]
+    fn collect_global_shortcuts_handles_single_and_multi() {
+        let cfg = parse_config(
+            concat!(
+                "[shortcuts]\n",
+                "KP_Divide = [\n",
+                "  \"global-shortcut:com.discordapp.Discord:discord-toggle-mute\",\n",
+                "  \"global-shortcut:com.obsproject.Studio:libobs.mute.Mic/Aux\",\n",
+                "]\n",
+                "KP_Add = \"global-shortcut:com.obsproject.Studio:_toggle_streaming\"\n",
+            )
+            .as_bytes(),
+            &Default::default(),
+            &mut Default::default(),
+            |_| (),
+        )
+        .unwrap();
+
+        let mut divide = Vec::new();
+        collect_global_shortcuts(&cfg.shortcuts[0].action, &mut divide);
+        assert_eq!(
+            divide,
+            vec![
+                ("com.discordapp.Discord", "discord-toggle-mute"),
+                ("com.obsproject.Studio", "libobs.mute.Mic/Aux"),
+            ]
+        );
+
+        let mut add = Vec::new();
+        collect_global_shortcuts(&cfg.shortcuts[1].action, &mut add);
+        assert_eq!(add, vec![("com.obsproject.Studio", "_toggle_streaming")]);
+
+        let mixed = Action::Multi {
+            actions: vec![
+                Action::GlobalShortcut {
+                    app_id: "app".into(),
+                    shortcut_id: "id".into(),
+                },
+                Action::SimpleCommand {
+                    cmd: crate::config::SimpleCommand::Quit,
+                },
+            ],
+        };
+        let mut out = Vec::new();
+        collect_global_shortcuts(&mixed, &mut out);
+        assert_eq!(out, vec![("app", "id")]);
     }
 }
 
