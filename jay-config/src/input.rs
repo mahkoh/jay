@@ -14,6 +14,7 @@ use crate::Direction;
 use crate::ModifiedKeySym;
 use crate::RelativeAxis;
 use crate::Workspace;
+use crate::focus;
 use crate::input::acceleration::AccelProfile;
 use crate::input::capability::Capability;
 use crate::input::clickmethod::ClickMethod;
@@ -383,6 +384,10 @@ impl Seat {
     /// Moves the keyboard focus of the seat in the specified direction.
     pub fn focus(self, direction: Direction) {
         get!().seat_focus(self, direction)
+    }
+
+    pub fn focus_targets(self, targets: &[focus::Target]) {
+        get!().seat_focus_targets(self, targets)
     }
 
     /// Moves the focused window in the specified direction.

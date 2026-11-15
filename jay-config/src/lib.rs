@@ -66,6 +66,7 @@ pub mod _private;
 pub mod client;
 pub mod embedded;
 pub mod exec;
+pub mod focus;
 pub mod input;
 pub mod io;
 pub mod keyboard;
