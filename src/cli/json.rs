@@ -319,6 +319,8 @@ pub struct JsonInputDevice<'a> {
     pub scroll_button: Option<&'a str>,
     #[serde(skip_serializing_if = "is_none")]
     pub scroll_button_lock: Option<bool>,
+    #[serde(skip_serializing_if = "is_none")]
+    pub dwt_enabled: Option<bool>,
 }
 
 pub struct JsonTreeNodeType(pub u32);

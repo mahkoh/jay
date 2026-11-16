@@ -1079,6 +1079,12 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_dwt_enabled(&self, device: InputDevice, enabled: bool) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(device)?;
+        dev.set_dwt_enabled(&self.state, enabled);
+        Ok(())
+    }
+
     fn handle_set_middle_button_emulation_enabled(
         &self,
         device: InputDevice,
@@ -4403,6 +4409,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetScrollButtonLock { device, enabled } => self
                 .handle_set_scroll_button_lock(device, enabled)
                 .wrn("set_scroll_button_lock")?,
+            ClientMessage::SetDwtEnabled { device, enabled } => self
+                .handle_set_dwt_enabled(device, enabled)
+                .wrn("set_dwt_enabled")?,
             ClientMessage::SetRepeatShortcut {
                 seat,
                 mods,

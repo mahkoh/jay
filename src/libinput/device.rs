@@ -4,6 +4,7 @@ use crate::libinput::consts::AccelProfile;
 use crate::libinput::consts::ConfigClickMethod;
 use crate::libinput::consts::ConfigDragLockState;
 use crate::libinput::consts::ConfigDragState;
+use crate::libinput::consts::ConfigDwtState;
 use crate::libinput::consts::ConfigMiddleEmulationState;
 use crate::libinput::consts::ConfigScrollButtonLockState;
 use crate::libinput::consts::ConfigScrollMethod;
@@ -13,6 +14,8 @@ use crate::libinput::consts::LIBINPUT_CONFIG_DRAG_DISABLED;
 use crate::libinput::consts::LIBINPUT_CONFIG_DRAG_ENABLED;
 use crate::libinput::consts::LIBINPUT_CONFIG_DRAG_LOCK_DISABLED;
 use crate::libinput::consts::LIBINPUT_CONFIG_DRAG_LOCK_ENABLED;
+use crate::libinput::consts::LIBINPUT_CONFIG_DWT_DISABLED;
+use crate::libinput::consts::LIBINPUT_CONFIG_DWT_ENABLED;
 use crate::libinput::consts::LIBINPUT_CONFIG_MIDDLE_EMULATION_DISABLED;
 use crate::libinput::consts::LIBINPUT_CONFIG_MIDDLE_EMULATION_ENABLED;
 use crate::libinput::consts::LIBINPUT_CONFIG_SCROLL_BUTTON_LOCK_DISABLED;
@@ -32,6 +35,9 @@ use crate::libinput::sys::libinput_device_config_calibration_set_matrix;
 use crate::libinput::sys::libinput_device_config_click_get_method;
 use crate::libinput::sys::libinput_device_config_click_get_methods;
 use crate::libinput::sys::libinput_device_config_click_set_method;
+use crate::libinput::sys::libinput_device_config_dwt_get_enabled;
+use crate::libinput::sys::libinput_device_config_dwt_is_available;
+use crate::libinput::sys::libinput_device_config_dwt_set_enabled;
 use crate::libinput::sys::libinput_device_config_left_handed_get;
 use crate::libinput::sys::libinput_device_config_left_handed_is_available;
 use crate::libinput::sys::libinput_device_config_left_handed_set;
@@ -340,6 +346,28 @@ impl LibInputDevice<'_> {
 
     pub fn middle_button_emulation_available(&self) -> bool {
         unsafe { libinput_device_config_middle_emulation_is_available(self.dev) != 0 }
+    }
+
+    pub fn dwt_available(&self) -> bool {
+        unsafe { libinput_device_config_dwt_is_available(self.dev) != 0 }
+    }
+
+    pub fn dwt_enabled(&self) -> bool {
+        let enabled = unsafe { ConfigDwtState(libinput_device_config_dwt_get_enabled(self.dev)) };
+        match enabled {
+            LIBINPUT_CONFIG_DWT_ENABLED => true,
+            _ => false,
+        }
+    }
+
+    pub fn set_dwt_enabled(&self, enabled: bool) {
+        let enabled = match enabled {
+            true => LIBINPUT_CONFIG_DWT_ENABLED,
+            false => LIBINPUT_CONFIG_DWT_DISABLED,
+        };
+        unsafe {
+            libinput_device_config_dwt_set_enabled(self.dev, enabled.raw() as _);
+        }
     }
 
     pub fn device_group(&self) -> LibInputDeviceGroup<'_> {

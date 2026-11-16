@@ -401,6 +401,7 @@ struct InputDeviceProperties {
     scroll_method: Cell<Option<ConfigScrollMethod>>,
     scroll_button: Cell<Option<Option<InputEventCode>>>,
     scroll_button_lock: Cell<Option<bool>>,
+    dwt_enabled: Cell<Option<bool>>,
 }
 
 #[jay_clone]
@@ -476,6 +477,9 @@ impl MetalInputDevice {
         if let Some(enabled) = self.desired.scroll_button_lock.get() {
             self.set_scroll_button_lock(enabled);
         }
+        if let Some(enabled) = self.desired.dwt_enabled.get() {
+            self.set_dwt_enabled(enabled);
+        }
         self.fetch_effective();
     }
 
@@ -529,6 +533,9 @@ impl MetalInputDevice {
         self.effective
             .scroll_button_lock
             .set(Some(device.scroll_button_lock_enabled()));
+        if device.dwt_available() {
+            self.effective.dwt_enabled.set(Some(device.dwt_enabled()));
+        }
     }
 
     fn pre_pause(&self) {
@@ -946,6 +953,22 @@ impl InputDevice for MetalInputDevice {
             self.effective
                 .scroll_button_lock
                 .set(Some(dev.device().scroll_button_lock_enabled()));
+        }
+    }
+
+    fn dwt_enabled(&self) -> Option<bool> {
+        self.effective.dwt_enabled.get()
+    }
+
+    fn set_dwt_enabled(&self, enabled: bool) {
+        self.desired.dwt_enabled.set(Some(enabled));
+        if let Some(dev) = self.inputdev.get()
+            && dev.device().dwt_available()
+        {
+            dev.device().set_dwt_enabled(enabled);
+            self.effective
+                .dwt_enabled
+                .set(Some(dev.device().dwt_enabled()));
         }
     }
 }

@@ -536,6 +536,7 @@ pub struct Input {
     pub scroll_method: Option<ScrollMethod>,
     pub scroll_button: Option<InputEventCode>,
     pub scroll_button_lock: Option<bool>,
+    pub dwt_enabled: Option<bool>,
     pub detached: Option<bool>,
 }
 
@@ -755,4 +756,12 @@ where
 fn default_config_parses() {
     let input = crate::DEFAULT;
     parse_config(input, &Default::default(), &mut Default::default(), |_| ()).unwrap();
+}
+
+#[test]
+fn input_dwt_parses() {
+    let input = b"[inputs]\nmatch.is-pointer = true\ndwt-enabled = false\n";
+    let config = parse_config(input, &Default::default(), &mut Default::default(), |_| ()).unwrap();
+    let input = &config.inputs[0];
+    assert_eq!(input.dwt_enabled, Some(false));
 }

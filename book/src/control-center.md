@@ -406,6 +406,9 @@ Left Handed
 Middle Button Emulation
 : Simultaneous left+right produces middle click. Shown for devices that support it.
 
+Disable While Typing
+: Toggle whether the touchpad is disabled while typing on the keyboard. Shown for devices that support it.
+
 Scroll Method
 : Dropdown: no-scroll, two-fingers, edge, on-button-down. Only methods the device supports are selectable. Shown for devices that support it.
 

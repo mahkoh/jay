@@ -2142,6 +2142,11 @@ impl DeviceHandlerData {
         self.device.set_scroll_button_lock(v);
         state.trigger_cci(CCI_INPUT);
     }
+
+    pub fn set_dwt_enabled(&self, state: &State, v: bool) {
+        self.device.set_dwt_enabled(v);
+        state.trigger_cci(CCI_INPUT);
+    }
 }
 
 impl LedsListener for DeviceHandlerData {

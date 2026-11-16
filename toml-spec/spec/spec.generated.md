@@ -4140,6 +4140,14 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `dwt-enabled` (optional):
+
+  Whether the touchpad is disabled while typing.
+  
+  See the libinput documentation for more details.
+
+  The value of this field should be a boolean.
+
 - `click-method` (optional):
 
   Defines how button events are triggered on a clickable touchpad.

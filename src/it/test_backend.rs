@@ -593,6 +593,10 @@ trait TestInputDevice: InputDevice {
     fn set_scroll_button_lock(&self, enabled: bool) {
         let _ = enabled;
     }
+
+    fn set_dwt_enabled(&self, enabled: bool) {
+        let _ = enabled;
+    }
 }
 
 impl<T: TestInputDevice> InputDevice for T {
@@ -678,6 +682,10 @@ impl<T: TestInputDevice> InputDevice for T {
 
     fn set_scroll_button_lock(&self, enabled: bool) {
         <Self as TestInputDevice>::set_scroll_button_lock(self, enabled);
+    }
+
+    fn set_dwt_enabled(&self, enabled: bool) {
+        <Self as TestInputDevice>::set_dwt_enabled(self, enabled);
     }
 }
 

@@ -191,6 +191,11 @@ request set_scroll_button_lock (since = 36) {
     enabled: bool,
 }
 
+request set_dwt_enabled (since = 45) {
+    id: u32,
+    enabled: bool,
+}
+
 # events
 
 event seat {
@@ -266,5 +271,9 @@ event scroll_button (since = 35) {
 }
 
 event scroll_button_lock (since = 36) {
+    enabled: bool,
+}
+
+event dwt (since = 45) {
     enabled: bool,
 }

@@ -196,6 +196,8 @@ pub enum DeviceCommand {
     SetScrollButton(SetScrollButtonArgs),
     /// Set the scroll button locking.
     SetScrollButtonLock(SetScrollButtonLockArgs),
+    /// Set whether the touchpad is disabled while typing.
+    SetDwtEnabled(SetDwtEnabledArgs),
 }
 
 #[derive(ValueEnum, Debug, Clone)]
@@ -318,6 +320,13 @@ pub struct SetScrollButtonArgs {
 #[derive(Args, Debug, Clone)]
 pub struct SetScrollButtonLockArgs {
     /// Whether scroll button locking is enabled.
+    #[arg(action = clap::ArgAction::Set)]
+    enabled: bool,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct SetDwtEnabledArgs {
+    /// Whether the touchpad is disabled while typing.
     #[arg(action = clap::ArgAction::Set)]
     enabled: bool,
 }
@@ -449,6 +458,7 @@ struct InputDevice {
     scroll_method: Option<InputDeviceScrollMethod>,
     scroll_button: Option<Option<InputEventCode>>,
     scroll_button_lock: Option<bool>,
+    dwt_enabled: Option<bool>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -994,6 +1004,16 @@ impl Input {
                     enabled: a.enabled,
                 });
             }
+            DeviceCommand::SetDwtEnabled(a) => {
+                self.handle_error(input, |e| {
+                    eprintln!("Could not set the disable-while-typing setting: {e}");
+                });
+                tc.send(jay_input::SetDwtEnabled {
+                    self_id: input,
+                    id: args.device,
+                    enabled: a.enabled,
+                });
+            }
         }
         tc.round_trip().await;
     }
@@ -1147,6 +1167,9 @@ impl Input {
         if let Some(v) = &device.scroll_button_lock {
             println!("{prefix}  scroll button lock: {v}");
         }
+        if let Some(v) = &device.dwt_enabled {
+            println!("{prefix}  dwt enabled: {v}");
+        }
     }
 
     fn print_data_json(&self, mut data: Data) {
@@ -1264,6 +1287,7 @@ impl Input {
                 scroll_method: None,
                 scroll_button: None,
                 scroll_button_lock: None,
+                dwt_enabled: None,
             });
         });
         jay_input::InputDeviceOutput::handle(tc, input, data.clone(), |data, msg| {
@@ -1328,6 +1352,12 @@ impl Input {
                 last.scroll_button_lock = Some(msg.enabled);
             }
         });
+        jay_input::Dwt::handle(tc, input, data.clone(), |data, msg| {
+            let mut data = data.borrow_mut();
+            if let Some(last) = data.input_device.last_mut() {
+                last.dwt_enabled = Some(msg.enabled);
+            }
+        });
         tc.round_trip().await;
         data.borrow_mut().clone()
     }
@@ -1385,5 +1415,6 @@ fn make_json_device(device: &InputDevice) -> JsonInputDevice<'_> {
         supported_scroll_methods: device.scroll_methods.map(supported_scroll_method_names),
         scroll_button: device.scroll_button.map(scroll_button_name),
         scroll_button_lock: device.scroll_button_lock,
+        dwt_enabled: device.dwt_enabled,
     }
 }

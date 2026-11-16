@@ -1144,6 +1144,10 @@ pub enum ClientMessage<'a> {
         window: Window,
         kind: WindowThemeKind,
     },
+    SetDwtEnabled {
+        device: InputDevice,
+        enabled: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
