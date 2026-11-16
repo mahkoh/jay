@@ -42,6 +42,12 @@ impl TimerFd {
     #[allow(clippy::await_holding_refcell_ref)]
     pub async fn expired(&self, ring: &IoUring) -> Result<u64, TimerError> {
         let mut buf = self.buf.borrow_mut();
+        if !buf.is_unique() {
+            // Rare case of a a cancelled read still holding the buffer,
+            // allocate a new one, otherwise we panic if the read is still
+            // in the kernel and the cancellation hasn't arrived yet.
+            *buf = TypedBuf::new();
+        }
         if let Err(e) = ring.read(&self.fd, buf.buf()).await {
             return Err(TimerError::TimerReadError(e));
         }

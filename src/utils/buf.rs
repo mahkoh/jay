@@ -115,6 +115,10 @@ impl Buf {
         }
     }
 
+    fn is_unique(&self) -> bool {
+        self.rc().get() == 1
+    }
+
     fn assert_unique(&self) {
         assert_eq!(self.rc().get(), 1);
     }
@@ -322,6 +326,12 @@ impl<T: Pod> TypedBuf<T> {
 
     pub fn buf(&mut self) -> Buf {
         self.buf.clone()
+    }
+
+    /// Returns whether no other `Buf` references this buffer, such as one still owned
+    /// by an io_uring operation that has not completed yet.
+    pub fn is_unique(&self) -> bool {
+        self.buf.is_unique()
     }
 
     pub fn t(&self) -> T {
