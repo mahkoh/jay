@@ -550,8 +550,8 @@ Toggle disable-while-typing, so the touchpad is not disabled while typing on
 the keyboard:
 
 ```shell
-~$ jay input device 15 set-dwt-enabled false
-~$ jay input device 15 set-dwt-enabled true
+~$ jay input device 15 set-disable-while-typing false
+~$ jay input device 15 set-disable-while-typing true
 ```
 
 Set a per-device keymap:

@@ -401,7 +401,7 @@ struct InputDeviceProperties {
     scroll_method: Cell<Option<ConfigScrollMethod>>,
     scroll_button: Cell<Option<Option<InputEventCode>>>,
     scroll_button_lock: Cell<Option<bool>>,
-    dwt_enabled: Cell<Option<bool>>,
+    disable_while_typing: Cell<Option<bool>>,
 }
 
 #[jay_clone]
@@ -477,8 +477,8 @@ impl MetalInputDevice {
         if let Some(enabled) = self.desired.scroll_button_lock.get() {
             self.set_scroll_button_lock(enabled);
         }
-        if let Some(enabled) = self.desired.dwt_enabled.get() {
-            self.set_dwt_enabled(enabled);
+        if let Some(enabled) = self.desired.disable_while_typing.get() {
+            self.set_disable_while_typing(enabled);
         }
         self.fetch_effective();
     }
@@ -534,7 +534,9 @@ impl MetalInputDevice {
             .scroll_button_lock
             .set(Some(device.scroll_button_lock_enabled()));
         if device.dwt_available() {
-            self.effective.dwt_enabled.set(Some(device.dwt_enabled()));
+            self.effective
+                .disable_while_typing
+                .set(Some(device.dwt_enabled()));
         }
     }
 
@@ -956,18 +958,18 @@ impl InputDevice for MetalInputDevice {
         }
     }
 
-    fn dwt_enabled(&self) -> Option<bool> {
-        self.effective.dwt_enabled.get()
+    fn disable_while_typing(&self) -> Option<bool> {
+        self.effective.disable_while_typing.get()
     }
 
-    fn set_dwt_enabled(&self, enabled: bool) {
-        self.desired.dwt_enabled.set(Some(enabled));
+    fn set_disable_while_typing(&self, enabled: bool) {
+        self.desired.disable_while_typing.set(Some(enabled));
         if let Some(dev) = self.inputdev.get()
             && dev.device().dwt_available()
         {
             dev.device().set_dwt_enabled(enabled);
             self.effective
-                .dwt_enabled
+                .disable_while_typing
                 .set(Some(dev.device().dwt_enabled()));
         }
     }

@@ -191,7 +191,7 @@ request set_scroll_button_lock (since = 36) {
     enabled: bool,
 }
 
-request set_dwt_enabled (since = 45) {
+request set_disable_while_typing (since = 45) {
     id: u32,
     enabled: bool,
 }
@@ -274,6 +274,6 @@ event scroll_button_lock (since = 36) {
     enabled: bool,
 }
 
-event dwt (since = 45) {
+event disable_while_typing (since = 45) {
     enabled: bool,
 }

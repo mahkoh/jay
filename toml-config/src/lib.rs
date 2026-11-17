@@ -992,8 +992,8 @@ impl Input {
         if let Some(v) = self.scroll_button_lock {
             c.set_scroll_button_lock(v);
         }
-        if let Some(v) = self.dwt_enabled {
-            c.set_dwt_enabled(v);
+        if let Some(v) = self.disable_while_typing {
+            c.set_disable_while_typing(v);
         }
         if let Some(v) = self.detached {
             let seat = match v {

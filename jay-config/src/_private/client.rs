@@ -1648,8 +1648,8 @@ impl ConfigClient {
         self.send(&ClientMessage::SetScrollButtonLock { device, enabled })
     }
 
-    pub fn set_input_dwt_enabled(&self, device: InputDevice, enabled: bool) {
-        self.send(&ClientMessage::SetDwtEnabled { device, enabled })
+    pub fn set_input_disable_while_typing(&self, device: InputDevice, enabled: bool) {
+        self.send(&ClientMessage::SetDisableWhileTyping { device, enabled })
     }
 
     pub fn device_name(&self, device: InputDevice) -> String {

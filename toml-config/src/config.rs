@@ -536,7 +536,7 @@ pub struct Input {
     pub scroll_method: Option<ScrollMethod>,
     pub scroll_button: Option<InputEventCode>,
     pub scroll_button_lock: Option<bool>,
-    pub dwt_enabled: Option<bool>,
+    pub disable_while_typing: Option<bool>,
     pub detached: Option<bool>,
 }
 
@@ -759,9 +759,9 @@ fn default_config_parses() {
 }
 
 #[test]
-fn input_dwt_parses() {
-    let input = b"[inputs]\nmatch.is-pointer = true\ndwt-enabled = false\n";
+fn input_disable_while_typing_parses() {
+    let input = b"[inputs]\nmatch.is-pointer = true\ndisable-while-typing = false\n";
     let config = parse_config(input, &Default::default(), &mut Default::default(), |_| ()).unwrap();
     let input = &config.inputs[0];
-    assert_eq!(input.dwt_enabled, Some(false));
+    assert_eq!(input.disable_while_typing, Some(false));
 }

@@ -53,7 +53,7 @@ const MIDDLE_BUTTON_EMULATION_SINCE: Version = Version(19);
 const SCROLL_METHOD_SINCE: Version = Version(34);
 const SCROLL_BUTTON_SINCE: Version = Version(35);
 const SCROLL_BUTTON_LOCK_SINCE: Version = Version(36);
-const DWT_SINCE: Version = Version(45);
+const DISABLE_WHILE_TYPING_SINCE: Version = Version(45);
 
 impl JayInput {
     pub fn new(id: JayInputId, client: &Rc<Client>, version: Version) -> Self {
@@ -239,10 +239,10 @@ impl JayInput {
                 }
             }
         }
-        if self.version >= DWT_SINCE
-            && let Some(v) = dev.dwt_enabled()
+        if self.version >= DISABLE_WHILE_TYPING_SINCE
+            && let Some(v) = dev.disable_while_typing()
         {
-            self.client.event(Dwt {
+            self.client.event(DisableWhileTyping {
                 self_id: self.id,
                 enabled: v,
             });
@@ -795,10 +795,14 @@ impl JayInputRequestHandler for JayInput {
         })
     }
 
-    fn set_dwt_enabled(&self, req: SetDwtEnabled, _slf: &Rc<Self>) -> Result<(), Self::Error> {
+    fn set_disable_while_typing(
+        &self,
+        req: SetDisableWhileTyping,
+        _slf: &Rc<Self>,
+    ) -> Result<(), Self::Error> {
         self.or_error(|| {
             let dev = self.device(req.id)?;
-            dev.set_dwt_enabled(&self.state, req.enabled);
+            dev.set_disable_while_typing(&self.state, req.enabled);
             Ok(())
         })
     }

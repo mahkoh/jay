@@ -192,8 +192,8 @@ impl InputDevice {
     /// Sets whether the touchpad is disabled while typing.
     ///
     /// See <https://wayland.freedesktop.org/libinput/doc/latest/palm-detection.html#disable-while-typing>
-    pub fn set_dwt_enabled(self, enabled: bool) {
-        get!().set_input_dwt_enabled(self, enabled);
+    pub fn set_disable_while_typing(self, enabled: bool) {
+        get!().set_input_disable_while_typing(self, enabled);
     }
 
     /// Returns the syspath of this device.

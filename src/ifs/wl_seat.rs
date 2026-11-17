@@ -2143,8 +2143,8 @@ impl DeviceHandlerData {
         state.trigger_cci(CCI_INPUT);
     }
 
-    pub fn set_dwt_enabled(&self, state: &State, v: bool) {
-        self.device.set_dwt_enabled(v);
+    pub fn set_disable_while_typing(&self, state: &State, v: bool) {
+        self.device.set_disable_while_typing(v);
         state.trigger_cci(CCI_INPUT);
     }
 }

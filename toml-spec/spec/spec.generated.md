@@ -4140,7 +4140,7 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
-- `dwt-enabled` (optional):
+- `disable-while-typing` (optional):
 
   Whether the touchpad is disabled while typing.
   

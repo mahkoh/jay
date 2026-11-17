@@ -594,7 +594,7 @@ trait TestInputDevice: InputDevice {
         let _ = enabled;
     }
 
-    fn set_dwt_enabled(&self, enabled: bool) {
+    fn set_disable_while_typing(&self, enabled: bool) {
         let _ = enabled;
     }
 }
@@ -684,8 +684,8 @@ impl<T: TestInputDevice> InputDevice for T {
         <Self as TestInputDevice>::set_scroll_button_lock(self, enabled);
     }
 
-    fn set_dwt_enabled(&self, enabled: bool) {
-        <Self as TestInputDevice>::set_dwt_enabled(self, enabled);
+    fn set_disable_while_typing(&self, enabled: bool) {
+        <Self as TestInputDevice>::set_disable_while_typing(self, enabled);
     }
 }
 

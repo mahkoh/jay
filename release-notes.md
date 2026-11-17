@@ -6,18 +6,18 @@ Touchpads that support the disable-while-typing feature are disabled for a
 short time after a key is pressed on the keyboard. It is enabled by default in 
 libinput on supported devices, but previously could not be controlled from jay
 
-It can now be configured with the `dwt-enabled` input setting:
+It can now be configured with the `disable-while-typing` input setting:
 
 ```toml
 [[inputs]]
 match.is-pointer = true
-dwt-enabled = false
+disable-while-typing = false
 ```
 
 It can also be changed at runtime with `jay input`:
 
 ```shell
-~$ jay input device <id> set-dwt-enabled false
+~$ jay input device <id> set-disable-while-typing false
 ```
 
 Or in the Input pane of the control center, which now has a *Disable While

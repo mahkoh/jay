@@ -107,7 +107,7 @@ impl Parser for InputParser<'_, '_, '_> {
                 scroll_method,
                 scroll_button,
                 scroll_button_lock,
-                dwt_enabled,
+                disable_while_typing,
                 detached,
             ),
         ) = ext.extract((
@@ -141,7 +141,7 @@ impl Parser for InputParser<'_, '_, '_> {
                 recover(opt(str("scroll-method"))),
                 recover(opt(str("scroll-button"))),
                 recover(opt(bol("scroll-button-lock"))),
-                recover(opt(bol("dwt-enabled"))),
+                recover(opt(bol("disable-while-typing"))),
                 recover(opt(bol("detached"))),
             ),
         ))?;
@@ -326,7 +326,7 @@ impl Parser for InputParser<'_, '_, '_> {
             scroll_method,
             scroll_button,
             scroll_button_lock: scroll_button_lock.despan(),
-            dwt_enabled: dwt_enabled.despan(),
+            disable_while_typing: disable_while_typing.despan(),
             detached: detached.despan(),
         })
     }

@@ -165,13 +165,13 @@ middle-button-emulation = true
 
 Touchpads that support this feature can be disabled for a short time after a key is
 pressed on the keyboard. This prevents accidental pointer motion and clicks
-while typing. It is enabled by default where available. Use the `dwt-enabled`
-setting to control it:
+while typing. It is enabled by default where available. Use the
+`disable-while-typing` setting to control it:
 
 ```toml
 [[inputs]]
 match.is-pointer = true
-dwt-enabled = false
+disable-while-typing = false
 ```
 
 This only has an effect on devices that support the feature.
@@ -457,7 +457,7 @@ type flags, and current settings.
 ~$ jay input device <id> set-left-handed true
 ~$ jay input device <id> set-natural-scrolling true
 ~$ jay input device <id> set-scroll-method two-fingers
-~$ jay input device <id> set-dwt-enabled false
+~$ jay input device <id> set-disable-while-typing false
 ~$ jay input device <id> set-transform-matrix 0.35 0 0 0.35
 ```
 

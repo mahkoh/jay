@@ -1415,7 +1415,7 @@ impl InputDevice for XSeatKeyboard {
         let _ = enabled;
     }
 
-    fn set_dwt_enabled(&self, enabled: bool) {
+    fn set_disable_while_typing(&self, enabled: bool) {
         let _ = enabled;
     }
 }
@@ -1508,7 +1508,7 @@ impl InputDevice for XSeatMouse {
         let _ = enabled;
     }
 
-    fn set_dwt_enabled(&self, enabled: bool) {
+    fn set_disable_while_typing(&self, enabled: bool) {
         let _ = enabled;
     }
 }

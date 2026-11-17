@@ -2072,7 +2072,7 @@
           "type": "boolean",
           "description": "Converts a simultaneous left and right button click into a middle button click.\n\nSee the libinput documentation for more details.\n"
         },
-        "dwt-enabled": {
+        "disable-while-typing": {
           "type": "boolean",
           "description": "Whether the touchpad is disabled while typing.\n\nSee the libinput documentation for more details.\n"
         },

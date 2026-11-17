@@ -1144,7 +1144,7 @@ pub enum ClientMessage<'a> {
         window: Window,
         kind: WindowThemeKind,
     },
-    SetDwtEnabled {
+    SetDisableWhileTyping {
         device: InputDevice,
         enabled: bool,
     },
