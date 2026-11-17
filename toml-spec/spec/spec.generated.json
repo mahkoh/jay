@@ -2072,6 +2072,10 @@
           "type": "boolean",
           "description": "Converts a simultaneous left and right button click into a middle button click.\n\nSee the libinput documentation for more details.\n"
         },
+        "disable-while-typing": {
+          "type": "boolean",
+          "description": "Whether the touchpad is disabled while typing.\n\nSee the libinput documentation for more details.\n"
+        },
         "click-method": {
           "description": "Defines how button events are triggered on a clickable touchpad.\n\nSee the libinput documentation for more details.\n",
           "$ref": "#/$defs/ClickMethod"

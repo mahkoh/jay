@@ -2225,6 +2225,13 @@ Input:
         Converts a simultaneous left and right button click into a middle button click.
         
         See the libinput documentation for more details.
+    disable-while-typing:
+      kind: boolean
+      required: false
+      description: |
+        Whether the touchpad is disabled while typing.
+        
+        See the libinput documentation for more details.
     click-method:
       ref: ClickMethod
       required: false

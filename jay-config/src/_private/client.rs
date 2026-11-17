@@ -1648,6 +1648,10 @@ impl ConfigClient {
         self.send(&ClientMessage::SetScrollButtonLock { device, enabled })
     }
 
+    pub fn set_input_disable_while_typing(&self, device: InputDevice, enabled: bool) {
+        self.send(&ClientMessage::SetDisableWhileTyping { device, enabled })
+    }
+
     pub fn device_name(&self, device: InputDevice) -> String {
         let res = self.send_with_response(&ClientMessage::GetDeviceName { device });
         get_response!(res, String::new(), GetDeviceName { name });

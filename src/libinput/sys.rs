@@ -160,6 +160,14 @@ unsafe extern "C" {
     pub fn libinput_device_config_middle_emulation_is_available(
         device: *mut libinput_device,
     ) -> c::c_int;
+    pub fn libinput_device_config_dwt_set_enabled(
+        device: *mut libinput_device,
+        enable: libinput_config_dwt_state,
+    ) -> libinput_config_status;
+    pub fn libinput_device_config_dwt_get_enabled(
+        device: *mut libinput_device,
+    ) -> libinput_config_dwt_state;
+    pub fn libinput_device_config_dwt_is_available(device: *mut libinput_device) -> c::c_int;
 
     pub fn libinput_event_destroy(event: *mut libinput_event);
     pub fn libinput_event_get_type(event: *mut libinput_event) -> libinput_event_type;
