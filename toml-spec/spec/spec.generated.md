@@ -685,7 +685,7 @@ This table is a tagged union. The variant is determined by the `type` field. It 
 
   The table has the following fields:
 
-  - `theme` (required):
+  - `level` (required):
 
     The log level.
 
@@ -2627,7 +2627,7 @@ The table has the following fields:
 
   The configuration of the idle timeout.
   
-  Changing thise field after compositor startup has no effect. Use `jay idle`
+  Changing this field after compositor startup has no effect. Use `jay idle`
   or a `configure-idle` action to change the idle timeout at runtime.
   
   - Example:
@@ -2952,8 +2952,8 @@ The table has the following fields:
   
     ```toml
     [focus-history]
-    only-visible: true
-    same-workspace: true
+    only-visible = true
+    same-workspace = true
     ```
 
   The value of this field should be a [FocusHistory](#types-FocusHistory).
@@ -3924,8 +3924,8 @@ Describes settings of the focus history.
 
   ```toml
   [focus-history]
-  only-visible: true
-  same-workspace: true
+  only-visible = true
+  same-workspace = true
   ```
 
 Values of this type should be tables.

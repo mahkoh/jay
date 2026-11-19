@@ -685,7 +685,7 @@ Action:
               alt-j = { type = "set-log-level", level = "debug" }
               ```
           fields:
-            theme:
+            level:
               description: The log level.
               required: true
               ref: LogLevel
@@ -3697,7 +3697,7 @@ Config:
       description: |
         The configuration of the idle timeout.
         
-        Changing thise field after compositor startup has no effect. Use `jay idle`
+        Changing this field after compositor startup has no effect. Use `jay idle`
         or a `configure-idle` action to change the idle timeout at runtime.
 
         - Example:
@@ -4003,8 +4003,8 @@ Config:
         
           ```toml
           [focus-history]
-          only-visible: true
-          same-workspace: true
+          only-visible = true
+          same-workspace = true
           ```
     middle-click-paste:
       kind: boolean
@@ -5542,8 +5542,8 @@ FocusHistory:
     
       ```toml
       [focus-history]
-      only-visible: true
-      same-workspace: true
+      only-visible = true
+      same-workspace = true
       ```
   fields:
     only-visible:
