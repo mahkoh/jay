@@ -2,7 +2,6 @@ use crate::allocator::Allocator;
 use crate::allocator::BO_USE_RENDERING;
 use crate::allocator::BufferObject;
 use crate::allocator::BufferUsage;
-use crate::backend::DrmDeviceId;
 use crate::cpu_worker::CpuWorker;
 use crate::format::Format;
 use crate::format::XRGB8888;
@@ -88,6 +87,7 @@ pub(in crate::gfx_apis::gl) enum TexSourceType {
 
 pub(in crate::gfx_apis::gl) struct GlRenderContext {
     pub(crate) ctx: Rc<EglContext>,
+    drm: Drm,
     gbm: Rc<GbmDevice>,
     sync_ctx: Rc<SyncobjCtx>,
 
@@ -117,7 +117,6 @@ impl GlRenderContext {
     }
 
     pub(in crate::gfx_apis::gl) fn from_drm_device(
-        drm_device_id: Option<DrmDeviceId>,
         drm: &Drm,
         software: bool,
     ) -> Result<Self, RenderError> {
@@ -125,7 +124,7 @@ impl GlRenderContext {
             .get_render_node()?
             .ok_or(RenderError::NoRenderNode)
             .map(Rc::new)?;
-        let dpy = EglDisplay::create(drm_device_id, drm, software)?;
+        let dpy = EglDisplay::create(drm, software)?;
         if !dpy.formats.contains_key(&XRGB8888.drm) {
             return Err(RenderError::XRGB888);
         }
@@ -180,8 +179,9 @@ impl GlRenderContext {
         };
         Ok(Self {
             ctx: ctx.clone(),
+            drm: ctx.dpy.drm.clone(),
             gbm: ctx.dpy.gbm.clone(),
-            sync_ctx: Rc::new(SyncobjCtx::new(ctx.dpy.gbm.drm.fd())),
+            sync_ctx: Rc::new(SyncobjCtx::new(ctx.dpy.drm.fd())),
 
             render_node: node.clone(),
 
@@ -273,10 +273,6 @@ impl GfxContext for GlRenderContext {
         self.reset_status()
     }
 
-    fn drm_device_id(&self) -> Option<DrmDeviceId> {
-        self.ctx.dpy.drm_device_id
-    }
-
     fn render_node(&self) -> Option<Rc<CString>> {
         Some(self.render_node())
     }
@@ -348,6 +344,10 @@ impl GfxContext for GlRenderContext {
             ctx: self,
             format,
         }))
+    }
+
+    fn drm(&self) -> Option<&Drm> {
+        Some(&self.drm)
     }
 
     fn allocator(&self) -> Rc<dyn Allocator> {

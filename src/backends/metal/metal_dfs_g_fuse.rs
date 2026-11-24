@@ -358,7 +358,7 @@ impl backend::Dir for MetalBackend {
 
     fn readlink_render_device(&self, depth: u64, buf: &mut String) {
         if let Some(ctx) = self.ctx.get() {
-            write_dev_link(buf, depth, ctx.gbm.drm.dev());
+            write_dev_link(buf, depth, ctx.master.dev());
         }
     }
 
@@ -369,7 +369,7 @@ impl backend::Dir for MetalBackend {
 
 impl render_ctx::Dir for MetalRenderContext {
     fn readlink_dev(&self, depth: u64, buf: &mut String) {
-        write_dev_link(buf, depth, self.gbm.drm.dev());
+        write_dev_link(buf, depth, self.master.dev());
     }
 
     fn read_dev_id(&self, buf: &mut String, ctx: &StrCtx<'_>) {

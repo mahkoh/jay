@@ -36,11 +36,13 @@ use crate::theme::Color;
 use crate::udmabuf::Udmabuf;
 use crate::utils::bhash::BHashMap;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::fx_hash::FHashSet;
 use crate::video::LINEAR_MODIFIER;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
+use crate::video::drm::Drm;
+use crate::video::drm::DrmError;
 use bstr::ByteSlice;
-use indexmap::IndexSet;
 use jay_algorithms::mmap::Mmapped;
 use jay_algorithms::mmap::mmap;
 use jay_algorithms::oserror::OsError;
@@ -73,6 +75,10 @@ enum TestGfxError {
     NoDrmNode,
     #[error("Could not open drm node {0}")]
     OpenDrmNode(String, #[source] OsError),
+    #[error("Could not open /dev/null")]
+    OpenDevNull(#[source] OsError),
+    #[error("Could not create Drm object")]
+    CreateDrm(#[source] DrmError),
 }
 
 impl From<TestGfxError> for GfxError {
@@ -84,7 +90,7 @@ impl From<TestGfxError> for GfxError {
 pub struct TestGfxCtx {
     formats: Rc<BHashMap<u32, GfxFormat>>,
     udmabuf: Rc<Udmabuf>,
-    drm_device_id: Option<DrmDeviceId>,
+    drm: Option<Drm>,
     syncobj_ctx: Option<Rc<SyncobjCtx>>,
 }
 
@@ -94,7 +100,13 @@ impl TestGfxCtx {
         drm_device_id: Option<DrmDeviceId>,
         need_syncobj: bool,
     ) -> Result<Rc<Self>, GfxError> {
-        let mut modifiers = IndexSet::new();
+        let mut drm = None;
+        if let Some(id) = drm_device_id {
+            let file = uapi::open("/dev/null", c::O_RDONLY | c::O_CLOEXEC, 0)
+                .map_os_err(TestGfxError::OpenDevNull)?;
+            drm = Some(Drm::open_existing(id, Rc::new(file)).map_err(TestGfxError::CreateDrm)?);
+        }
+        let mut modifiers = FHashSet::default();
         modifiers.insert(LINEAR_MODIFIER);
         let mut formats = BHashMap::default();
         for f in [XRGB8888, ARGB8888] {
@@ -122,7 +134,7 @@ impl TestGfxCtx {
         Ok(Rc::new(Self {
             formats: Rc::new(formats),
             udmabuf: udmabuf.clone(),
-            drm_device_id,
+            drm,
             syncobj_ctx: need_syncobj.then(create_syncobj_ctx).flatten(),
         }))
     }
@@ -198,10 +210,6 @@ impl GfxContext for TestGfxCtx {
         None
     }
 
-    fn drm_device_id(&self) -> Option<DrmDeviceId> {
-        self.drm_device_id
-    }
-
     fn render_node(&self) -> Option<Rc<CString>> {
         None
     }
@@ -268,6 +276,10 @@ impl GfxContext for TestGfxCtx {
             stride,
             format,
         })))
+    }
+
+    fn drm(&self) -> Option<&Drm> {
+        self.drm.as_ref()
     }
 
     fn allocator(&self) -> Rc<dyn Allocator> {

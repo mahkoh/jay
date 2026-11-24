@@ -23,7 +23,6 @@ mod transfer;
 
 use crate::allocator::Allocator;
 use crate::async_engine::AsyncEngine;
-use crate::backend::DrmDeviceId;
 use crate::cpu_worker::CpuWorker;
 use crate::cpu_worker::jobs::read_write::ReadWriteJobError;
 use crate::eventfd_cache::EventfdCache;
@@ -232,7 +231,6 @@ pub fn create_graphics_context(
     eng: &Rc<AsyncEngine>,
     ring: &Rc<IoUring>,
     eventfd_cache: &Rc<EventfdCache>,
-    drm_device_id: Option<DrmDeviceId>,
     drm: &Drm,
     caps_thread: Option<&PrCapsThread>,
     software: bool,
@@ -240,16 +238,14 @@ pub fn create_graphics_context(
     let instance = VulkanInstance::new(Level::Info)?;
     let device = 'device: {
         if let Some(t) = caps_thread {
-            match unsafe {
-                t.run(|| instance.create_device(drm_device_id, drm, eventfd_cache, true, software))
-            } {
+            match unsafe { t.run(|| instance.create_device(drm, eventfd_cache, true, software)) } {
                 Ok(d) => break 'device d,
                 Err(e) => {
                     log::warn!("Could not create high-priority device: {}", ErrorFmt(e));
                 }
             }
         }
-        instance.create_device(drm_device_id, drm, eventfd_cache, false, software)?
+        instance.create_device(drm, eventfd_cache, false, software)?
     };
     let renderer = device.create_renderer(eng, ring)?;
     Ok(Rc::new(Context(renderer)))
@@ -261,10 +257,6 @@ struct Context(Rc<VulkanRenderer>);
 impl GfxContext for Context {
     fn reset_status(&self) -> Option<ResetStatus> {
         self.0.device.lost.get().then_some(ResetStatus::Unknown)
-    }
-
-    fn drm_device_id(&self) -> Option<DrmDeviceId> {
-        self.0.device.drm_device_id
     }
 
     fn render_node(&self) -> Option<Rc<CString>> {
@@ -346,6 +338,10 @@ impl GfxContext for Context {
             Some(cpu_worker),
         )?;
         Ok(tex)
+    }
+
+    fn drm(&self) -> Option<&Drm> {
+        Some(&self.0.device.drm)
     }
 
     fn allocator(&self) -> Rc<dyn Allocator> {

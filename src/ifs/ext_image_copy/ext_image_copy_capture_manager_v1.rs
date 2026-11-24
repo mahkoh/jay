@@ -96,7 +96,7 @@ impl ExtImageCopyCaptureManagerV1RequestHandler for ExtImageCopyCaptureManagerV1
             };
             obj.send_current_buffer_size();
             obj.send_shm_formats();
-            if let Some(drm) = ctx.allocator().drm() {
+            if let Some(drm) = ctx.drm() {
                 obj.send_dmabuf_device(drm.dev());
                 for format in ctx.formats().values() {
                     if format.write_modifiers.is_empty() {

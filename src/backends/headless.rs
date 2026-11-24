@@ -237,10 +237,11 @@ impl HeadlessBackend {
             .or(nodes[NodeType::Primary].as_ref())
             .ok_or(NoDrmNodes)?;
         let fd = uapi::open(&**node, c::O_RDWR | c::O_CLOEXEC, 0).map_os_err(OpenDrmNode)?;
-        let drm = Drm::open_existing(Rc::new(fd)).map_err(CreateDrm)?;
+        let drm =
+            Drm::open_existing(self.state.drm_dev_ids.next(), Rc::new(fd)).map_err(CreateDrm)?;
         let dev = Rc::new(HeadlessDrmDevice {
             backend: self.clone(),
-            id: self.state.drm_dev_ids.next(),
+            id: drm.id(),
             dev: devnum,
             api: Cell::new(self.state.default_gfx_api.get()),
             drm,
@@ -258,11 +259,7 @@ impl HeadlessBackend {
 
 impl HeadlessDrmDevice {
     fn create_ctx(&self, api: GfxApi) -> Option<Rc<dyn GfxContext>> {
-        match self
-            .backend
-            .state
-            .create_gfx_context(self.id, &self.drm, Some(api))
-        {
+        match self.backend.state.create_gfx_context(&self.drm, Some(api)) {
             Ok(c) => Some(c),
             Err(e) => {
                 log::error!("Could not create GFX context: {}", ErrorFmt(e));

@@ -119,7 +119,7 @@ impl State {
             self.dmabuf_feedback.fb.set(None);
             return Ok(None);
         };
-        let Some(ctx_dev) = ctx.drm_device_id().and_then(|id| self.drm_devs.get(&id)) else {
+        let Some(ctx_dev) = ctx.drm().and_then(|drm| self.drm_devs.get(&drm.id())) else {
             self.dmabuf_feedback.fb.set(None);
             return Ok(None);
         };

@@ -1,5 +1,4 @@
 use crate::allocator::Allocator;
-use crate::backend::DrmDeviceId;
 use crate::cmm::cmm_description::ColorDescription;
 use crate::cmm::cmm_description::LinearColorDescription;
 use crate::cmm::cmm_render_intent::RenderIntent;
@@ -32,14 +31,15 @@ use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::utils::bhash::BHashMap;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::fx_hash::FHashMap;
+use crate::utils::fx_hash::FHashSet;
 use crate::utils::static_text::StaticText;
 use crate::video::Modifier;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
+use crate::video::drm::Drm;
 use crate::video::drm::syncobj::Syncobj;
 use crate::video::drm::syncobj::SyncobjPoint;
-use indexmap::IndexMap;
-use indexmap::IndexSet;
 use jay_algorithms::oserror::OsErrorExt;
 use jay_config::video::JcGfxApi;
 use jay_config::video::ScalingFilter as ConfigScalingFilter;
@@ -1000,7 +1000,6 @@ pub trait AsyncShmGfxTexture: GfxTexture {
 
 pub trait GfxContext: Debug {
     fn reset_status(&self) -> Option<ResetStatus>;
-    fn drm_device_id(&self) -> Option<DrmDeviceId>;
 
     fn render_node(&self) -> Option<Rc<CString>>;
 
@@ -1031,6 +1030,8 @@ pub trait GfxContext: Debug {
         stride: i32,
         cpu_worker: &Rc<CpuWorker>,
     ) -> Result<Rc<dyn AsyncShmGfxTexture>, GfxError>;
+
+    fn drm(&self) -> Option<&Drm>;
 
     fn allocator(&self) -> Rc<dyn Allocator>;
 
@@ -1123,8 +1124,8 @@ pub fn needs_render_usage<'a>(mut modifiers: impl Iterator<Item = &'a GfxWriteMo
 #[derive(Debug)]
 pub struct GfxFormat {
     pub format: &'static Format,
-    pub read_modifiers: IndexSet<Modifier>,
-    pub write_modifiers: IndexMap<Modifier, GfxWriteModifier>,
+    pub read_modifiers: FHashSet<Modifier>,
+    pub write_modifiers: FHashMap<Modifier, GfxWriteModifier>,
     pub supports_shm: bool,
 }
 
