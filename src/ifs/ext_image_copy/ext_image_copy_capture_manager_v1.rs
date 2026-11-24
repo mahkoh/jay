@@ -102,7 +102,7 @@ impl ExtImageCopyCaptureManagerV1RequestHandler for ExtImageCopyCaptureManagerV1
                     if format.write_modifiers.is_empty() {
                         continue;
                     }
-                    let modifiers: Vec<_> = format.write_modifiers.keys().copied().collect();
+                    let modifiers: Vec<_> = format.write_modifiers.iter().copied().collect();
                     obj.send_dmabuf_format(format.format, &modifiers);
                 }
             }

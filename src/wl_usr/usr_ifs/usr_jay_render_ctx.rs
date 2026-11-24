@@ -1,6 +1,5 @@
 use crate::format::formats;
 use crate::gfx_api::GfxFormat;
-use crate::gfx_api::GfxWriteModifier;
 use crate::ifs::jay_render_ctx::FORMATS_SINCE;
 use crate::object::Version;
 use crate::utils::bhash::BHashMap;
@@ -31,11 +30,9 @@ pub trait UsrJayRenderCtxOwner {
 }
 
 impl UsrJayRenderCtx {
-    fn add_write_modifier(&self, format: u32, modifier: Modifier, needs_render_usage: bool) {
+    fn add_write_modifier(&self, format: u32, modifier: Modifier) {
         if let Some(format) = self.formats.borrow_mut().get_mut(&format) {
-            format
-                .write_modifiers
-                .insert(modifier, GfxWriteModifier { needs_render_usage });
+            format.write_modifiers.insert(modifier);
         }
     }
 }
@@ -68,7 +65,7 @@ impl JayRenderCtxEventHandler for UsrJayRenderCtx {
     }
 
     fn write_modifier(&self, ev: WriteModifier, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.add_write_modifier(ev.format, ev.modifier, true);
+        self.add_write_modifier(ev.format, ev.modifier);
         Ok(())
     }
 
@@ -88,7 +85,7 @@ impl JayRenderCtxEventHandler for UsrJayRenderCtx {
     }
 
     fn write_modifier2(&self, ev: WriteModifier2, _slf: &Rc<Self>) -> Result<(), Self::Error> {
-        self.add_write_modifier(ev.format, ev.modifier, ev.needs_render_usage);
+        self.add_write_modifier(ev.format, ev.modifier);
         Ok(())
     }
 }

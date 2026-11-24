@@ -1,7 +1,6 @@
 use crate::format::Format;
 use crate::format::formats;
 use crate::gfx_api::GfxFormat;
-use crate::gfx_api::GfxWriteModifier;
 use crate::gfx_apis::gl::RenderError;
 use crate::gfx_apis::gl::egl::PROCS;
 use crate::gfx_apis::gl::egl::context::EglContext;
@@ -217,18 +216,13 @@ impl EglDisplay {
                     continue;
                 }
                 let mut read_modifiers = FHashSet::default();
-                let mut write_modifiers = FHashMap::default();
+                let mut write_modifiers = FHashSet::default();
                 for modifier in format.modifiers.values() {
                     if modifier.external_only && !supports_external_only {
                         continue;
                     }
                     if !modifier.external_only {
-                        write_modifiers.insert(
-                            modifier.modifier,
-                            GfxWriteModifier {
-                                needs_render_usage: true,
-                            },
-                        );
+                        write_modifiers.insert(modifier.modifier);
                     }
                     read_modifiers.insert(modifier.modifier);
                 }

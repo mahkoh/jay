@@ -470,7 +470,7 @@ impl XBackend {
                 width,
                 height,
                 FORMAT,
-                format.write_modifiers.keys().copied(),
+                format.write_modifiers.iter().copied(),
             )?;
             let fb = match self.ctx.clone().dmabuf_fb(dma) {
                 Ok(f) => f,

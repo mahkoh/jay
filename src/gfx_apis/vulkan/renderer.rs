@@ -17,7 +17,6 @@ use crate::gfx_api::GfxApiOp;
 use crate::gfx_api::GfxBlendBuffer;
 use crate::gfx_api::GfxFormat;
 use crate::gfx_api::GfxTexture;
-use crate::gfx_api::GfxWriteModifier;
 use crate::gfx_api::ReleaseSync;
 use crate::gfx_api::ScalingFilter;
 use crate::gfx_apis::vulkan::VulkanError;
@@ -444,14 +443,7 @@ impl VulkanDevice {
                             .modifiers
                             .values()
                             .filter(|m| m.render_limits.is_some())
-                            .map(|m| {
-                                (
-                                    m.modifier,
-                                    GfxWriteModifier {
-                                        needs_render_usage: !m.render_needs_bridge,
-                                    },
-                                )
-                            })
+                            .map(|m| m.modifier)
                             .collect(),
                         supports_shm: vk.shm.is_some(),
                     },

@@ -17,7 +17,6 @@ use crate::gfx_api::GfxError;
 use crate::gfx_api::GfxFormat;
 use crate::gfx_api::GfxFramebuffer;
 use crate::gfx_api::GfxTexture;
-use crate::gfx_api::GfxWriteModifier;
 use crate::gfx_api::ReleaseSync;
 use crate::rect::DamageQueue;
 use crate::rect::Rect;
@@ -26,7 +25,6 @@ use crate::udmabuf::Udmabuf;
 use crate::udmabuf::UdmabufError;
 use crate::utils::bhash::BHashSet;
 use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::fx_hash::FHashMap;
 use crate::utils::fx_hash::FHashSet;
 use crate::utils::rc_eq::rc_eq;
 use crate::video::LINEAR_MODIFIER;
@@ -784,11 +782,11 @@ fn wrap_error<T>(
 impl BoAllocationSettings {
     fn new1(
         common: &Builder<'_>,
-        modifiers: &FHashMap<Modifier, &GfxWriteModifier>,
+        modifiers: &FHashSet<Modifier>,
         scanout: bool,
         usage_out: &mut Option<BufferUsage>,
     ) -> Self {
-        Self::new2(common, modifiers.keys(), scanout, usage_out)
+        Self::new2(common, modifiers.iter(), scanout, usage_out)
     }
 
     fn new2<'a>(
@@ -958,16 +956,16 @@ impl Builder<'_> {
             plane_modifiers,
             ..
         } = *self;
-        let modifiers: FHashMap<_, _> = render_fmt
+        let modifiers: FHashSet<_> = render_fmt
             .write_modifiers
             .iter()
-            .map(|(m, v)| (*m, v))
-            .filter(|(m, _)| plane_modifiers.contains(m))
-            .filter(|(m, _)| render_fmt.read_modifiers.contains(m))
+            .copied()
+            .filter(|m| plane_modifiers.contains(m))
+            .filter(|m| render_fmt.read_modifiers.contains(m))
             .collect();
         dbg.dev_gfx_write_modifiers = Some(render_modifiers(render_fmt));
         dbg.dev_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
-        dbg.dev_modifiers_possible = Some(modifiers.keys().copied().collect());
+        dbg.dev_modifiers_possible = Some(modifiers.iter().copied().collect());
         if modifiers.is_empty() {
             return Err(ScanoutBufferErrorKind::SodWriteReadPlaneIntersection);
         }
@@ -1017,28 +1015,28 @@ impl Builder<'_> {
         let Some(dev_fmt) = dev_ctx.gfx.formats().get(&format.drm) else {
             return Err(ScanoutBufferErrorKind::SodUnsupportedFormat);
         };
-        let render_modifiers_possible: FHashMap<_, _> = render_fmt
+        let render_modifiers_possible: FHashSet<_> = render_fmt
             .write_modifiers
             .iter()
-            .filter(|(m, _)| render_fmt.read_modifiers.contains(*m))
-            .filter(|(m, _)| dev_fmt.read_modifiers.contains(*m))
-            .map(|(m, v)| (*m, v))
+            .copied()
+            .filter(|m| render_fmt.read_modifiers.contains(m))
+            .filter(|m| dev_fmt.read_modifiers.contains(m))
             .collect();
         dbg.dev_gfx_read_modifiers = Some(sample_modifiers(dev_fmt));
         dbg.render_gfx_write_modifiers = Some(render_modifiers(render_fmt));
         dbg.render_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
-        dbg.render_modifiers_possible = Some(render_modifiers_possible.keys().copied().collect());
+        dbg.render_modifiers_possible = Some(render_modifiers_possible.iter().copied().collect());
         if render_modifiers_possible.is_empty() {
             return Err(ScanoutBufferErrorKind::RenderWriteReadSodReadIntersection);
         }
-        let dev_modifiers_possible: FHashMap<_, _> = dev_fmt
+        let dev_modifiers_possible: FHashSet<_> = dev_fmt
             .write_modifiers
             .iter()
-            .filter(|(m, _)| plane_modifiers.contains(*m))
-            .map(|(m, v)| (*m, v))
+            .copied()
+            .filter(|m| plane_modifiers.contains(m))
             .collect();
         dbg.dev_gfx_write_modifiers = Some(render_modifiers(dev_fmt));
-        dbg.dev_modifiers_possible = Some(dev_modifiers_possible.keys().copied().collect());
+        dbg.dev_modifiers_possible = Some(dev_modifiers_possible.iter().copied().collect());
         if dev_modifiers_possible.is_empty() {
             return Err(ScanoutBufferErrorKind::SodWritePlaneIntersection);
         }
@@ -1519,7 +1517,7 @@ fn sample_modifiers(fmt: &GfxFormat) -> FHashSet<Modifier> {
 }
 
 fn render_modifiers(fmt: &GfxFormat) -> FHashSet<Modifier> {
-    fmt.write_modifiers.keys().copied().collect()
+    fmt.write_modifiers.iter().copied().collect()
 }
 
 fn intersect_modifiers<'a>(
@@ -1539,7 +1537,7 @@ fn intersect_render_modifiers<'a>(
 ) -> FHashSet<Modifier> {
     intersect_modifiers(
         left.write_modifiers
-            .keys()
+            .iter()
             .filter(|m| left.read_modifiers.contains(*m)),
         right,
     )

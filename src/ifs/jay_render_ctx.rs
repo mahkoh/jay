@@ -31,13 +31,13 @@ impl JayRenderCtx {
                         self_id: self.id,
                         format: format.format.drm,
                     });
-                    for (modifier, gwm) in &format.write_modifiers {
+                    for modifier in &format.write_modifiers {
                         if self.version >= WRITE_MODIFIER_2_SINCE {
                             self.client.event(WriteModifier2 {
                                 self_id: self.id,
                                 format: format.format.drm,
                                 modifier: *modifier,
-                                needs_render_usage: gwm.needs_render_usage,
+                                needs_render_usage: false,
                             });
                         } else {
                             self.client.event(WriteModifier {

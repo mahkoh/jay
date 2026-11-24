@@ -713,7 +713,7 @@ fn init_supported_formats(
         }
         let ptl_format = PwClientNodePortSupportedFormat {
             format: format.format,
-            modifiers: format.write_modifiers.keys().copied().collect(),
+            modifiers: format.write_modifiers.iter().copied().collect(),
         };
         supported_formats.formats.push(ptl_format);
     }

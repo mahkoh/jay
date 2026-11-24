@@ -1125,23 +1125,15 @@ fn allocate_scanout_buffers(
     let Some(gfx_format) = ctx.formats().get(&format.drm) else {
         return Err(AllocError::GfxFormatNotSupported);
     };
-    let mut modifiers = vec![];
-    for modifier in gfx_format.read_modifiers.iter().copied() {
-        let Some(_) = gfx_format.write_modifiers.get(&modifier) else {
-            continue;
-        };
-        modifiers.push(modifier);
-    }
     let create_fb = |(width, height): (i32, i32)| {
+        let modifiers = gfx_format
+            .read_modifiers
+            .iter()
+            .copied()
+            .filter(|v| gfx_format.write_modifiers.contains(v));
         let bo = ctx
             .allocator()
-            .allocate(
-                &state.dma_buf_ids,
-                width,
-                height,
-                format,
-                modifiers.iter().copied(),
-            )
+            .allocate(&state.dma_buf_ids, width, height, format, modifiers)
             .map_err(AllocError::CreateBo)?;
         let tex = ctx
             .clone()

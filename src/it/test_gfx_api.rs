@@ -22,7 +22,6 @@ use crate::gfx_api::GfxFramebuffer;
 use crate::gfx_api::GfxInternalFramebuffer;
 use crate::gfx_api::GfxStagingBuffer;
 use crate::gfx_api::GfxTexture;
-use crate::gfx_api::GfxWriteModifier;
 use crate::gfx_api::PendingShmTransfer;
 use crate::gfx_api::ReleaseSync;
 use crate::gfx_api::ResetStatus;
@@ -118,18 +117,7 @@ impl TestGfxCtx {
                 GfxFormat {
                     format: f,
                     read_modifiers: modifiers.clone(),
-                    write_modifiers: modifiers
-                        .iter()
-                        .copied()
-                        .map(|m| {
-                            (
-                                m,
-                                GfxWriteModifier {
-                                    needs_render_usage: false,
-                                },
-                            )
-                        })
-                        .collect(),
+                    write_modifiers: modifiers.clone(),
                     supports_shm: true,
                 },
             );

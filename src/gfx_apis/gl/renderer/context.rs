@@ -370,12 +370,11 @@ impl GfxContext for GlRenderContext {
         let Some(format) = self.formats().get(&format.drm) else {
             return Err(RenderError::UnsupportedFormat.into());
         };
-        let mut modifiers = vec![];
-        for (modifier, _) in format.write_modifiers.iter() {
-            if format.read_modifiers.contains(modifier) {
-                modifiers.push(*modifier);
-            }
-        }
+        let modifiers = format
+            .write_modifiers
+            .iter()
+            .copied()
+            .filter(|v| format.read_modifiers.contains(v));
         let bo = allocator
             .allocate(dma_buf_ids, width, height, format.format, modifiers)
             .map_err(RenderError::AllocateBo)?;

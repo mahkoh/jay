@@ -698,7 +698,7 @@ impl WindowData {
                 width,
                 height,
                 ARGB8888,
-                format.write_modifiers.keys().copied(),
+                format.write_modifiers.iter().copied(),
             ) {
                 Ok(b) => b,
                 Err(e) => {
