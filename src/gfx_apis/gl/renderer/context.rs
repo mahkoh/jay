@@ -87,6 +87,7 @@ pub(in crate::gfx_apis::gl) enum TexSourceType {
 
 pub(in crate::gfx_apis::gl) struct GlRenderContext {
     pub(crate) ctx: Rc<EglContext>,
+    drm: Drm,
     gbm: Rc<GbmDevice>,
     sync_ctx: Rc<SyncobjCtx>,
 
@@ -178,8 +179,9 @@ impl GlRenderContext {
         };
         Ok(Self {
             ctx: ctx.clone(),
+            drm: ctx.dpy.drm.clone(),
             gbm: ctx.dpy.gbm.clone(),
-            sync_ctx: Rc::new(SyncobjCtx::new(ctx.dpy.gbm.drm.fd())),
+            sync_ctx: Rc::new(SyncobjCtx::new(ctx.dpy.drm.fd())),
 
             render_node: node.clone(),
 
@@ -345,7 +347,7 @@ impl GfxContext for GlRenderContext {
     }
 
     fn drm(&self) -> Option<&Drm> {
-        Some(&self.gbm.drm)
+        Some(&self.drm)
     }
 
     fn allocator(&self) -> Rc<dyn Allocator> {

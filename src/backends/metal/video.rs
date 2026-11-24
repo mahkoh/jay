@@ -152,6 +152,7 @@ pub struct PendingDrmDevice {
 pub struct MetalRenderContext {
     pub dev_id: DrmDeviceId,
     pub gfx: Rc<dyn GfxContext>,
+    pub master: Rc<DrmMaster>,
     pub gbm: Rc<GbmDevice>,
     pub devnode: CString,
     pub copy_device: Rc<CopyDeviceHolder>,
@@ -190,7 +191,6 @@ pub struct MetalDrmDevice {
     pub cursor_width: u64,
     pub cursor_height: u64,
     pub supports_async_commit: bool,
-    gbm: Rc<GbmDevice>,
     pub handle_events: HandleEvents,
     pub ctx: CloneCell<Rc<MetalRenderContext>>,
     pub copy_device: Rc<CopyDeviceHolder>,
@@ -252,7 +252,7 @@ impl BackendDrmDevice for MetalDrmDevice {
     }
 
     fn version(&self) -> Result<DrmVersion, DrmError> {
-        self.gbm.drm.version()
+        self.master.version()
     }
 
     fn set_direct_scanout_enabled(&self, enabled: bool) {
@@ -2159,6 +2159,7 @@ impl MetalBackend {
         let ctx = Rc::new(MetalRenderContext {
             dev_id: pending.id,
             gfx,
+            master: master.clone(),
             gbm: gbm.clone(),
             devnode: pending.devnode.clone(),
             copy_device: copy_device.clone(),
@@ -2178,7 +2179,6 @@ impl MetalBackend {
             cursor_width,
             cursor_height,
             supports_async_commit: master.supports_async_commit(),
-            gbm,
             handle_events: HandleEvents {
                 handle_events: Cell::new(None),
             },
@@ -2582,6 +2582,7 @@ impl MetalBackend {
         dev.ctx.set(Rc::new(MetalRenderContext {
             dev_id: dev.id,
             gfx,
+            master: old_ctx.master.clone(),
             gbm: old_ctx.gbm.clone(),
             devnode: old_ctx.devnode.clone(),
             copy_device: old_ctx.copy_device.clone(),

@@ -341,7 +341,7 @@ impl GfxContext for Context {
     }
 
     fn drm(&self) -> Option<&Drm> {
-        Some(&self.0.device.gbm.drm)
+        Some(&self.0.device.drm)
     }
 
     fn allocator(&self) -> Rc<dyn Allocator> {

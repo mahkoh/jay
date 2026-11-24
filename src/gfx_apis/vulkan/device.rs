@@ -95,6 +95,7 @@ use vk::QueueFamilyGlobalPriorityPropertiesKHR;
 pub struct VulkanDevice {
     pub(super) physical_device: PhysicalDevice,
     pub(super) render_node: Rc<CString>,
+    pub(super) drm: Drm,
     pub(super) gbm: Rc<GbmDevice>,
     pub(super) sync_ctx: Rc<SyncobjCtx>,
     pub(super) instance: Rc<VulkanInstance>,
@@ -687,7 +688,8 @@ impl VulkanInstance {
         Ok(Rc::new(VulkanDevice {
             physical_device: phy_dev,
             render_node,
-            sync_ctx: Rc::new(SyncobjCtx::new(gbm.drm.fd())),
+            drm: drm.clone(),
+            sync_ctx: Rc::new(SyncobjCtx::new(drm.fd())),
             gbm: Rc::new(gbm),
             instance: self.clone(),
             device: Arc::new(device),

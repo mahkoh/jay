@@ -218,6 +218,7 @@ fn reopen(fd: c::c_int, need_primary: bool) -> Result<Rc<OwnedFd>, DrmError> {
         .map_os_err(DrmError::ReopenNode)
 }
 
+#[derive(Debug, Clone)]
 pub struct Drm {
     id: DrmDeviceId,
     fd: Rc<OwnedFd>,

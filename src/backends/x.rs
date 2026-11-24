@@ -258,7 +258,6 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
             Err(e) => return Err(XBackendError::DriOpen(e)),
         }
     };
-    let drm_dev = drm.dev();
     let gbm = GbmDevice::new(&drm)?;
     let ctx = match state.create_gfx_context(&drm, None) {
         Ok(r) => r,
@@ -314,12 +313,12 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
         seats: Default::default(),
         mouse_seats: Default::default(),
         ctx: ctx.clone(),
+        drm,
         gbm,
         cursor,
         root,
         scheduled_present: Default::default(),
         grab_requests: Default::default(),
-        drm_dev,
         liveness: Default::default(),
     });
     data.add_output().await?;
@@ -349,12 +348,12 @@ pub struct XBackend {
     seats: CopyHashMap<u16, Rc<XSeat>>,
     mouse_seats: CopyHashMap<u16, Rc<XSeat>>,
     ctx: Rc<dyn GfxContext>,
+    drm: Drm,
     gbm: GbmDevice,
     cursor: u32,
     root: u32,
     scheduled_present: AsyncQueue<Rc<XOutput>>,
     grab_requests: AsyncQueue<(Rc<XSeat>, bool)>,
-    drm_dev: dev_t,
     liveness: Liveness,
 }
 
@@ -381,8 +380,8 @@ impl XBackend {
             .backend_events
             .push(BackendEvent::NewDrmDevice(Rc::new(XDrmDevice {
                 backend: self.clone(),
-                id: self.gbm.drm.id(),
-                dev: self.drm_dev,
+                id: self.drm.id(),
+                dev: self.drm.dev(),
             })));
         for output in self.outputs.lock().values() {
             self.active_output(output).await;
@@ -1106,7 +1105,7 @@ impl BackendDrmDevice for XDrmDevice {
     }
 
     fn version(&self) -> Result<DrmVersion, DrmError> {
-        self.backend.gbm.drm.version()
+        self.backend.drm.version()
     }
 
     fn set_direct_scanout_enabled(&self, enabled: bool) {
@@ -1178,7 +1177,7 @@ impl Connector for XOutput {
     }
 
     fn drm_dev(&self) -> Option<DrmDeviceId> {
-        Some(self.backend.gbm.drm.id())
+        Some(self.backend.drm.id())
     }
 
     fn effectively_locked(&self) -> bool {

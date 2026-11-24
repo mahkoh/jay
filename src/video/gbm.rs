@@ -107,7 +107,7 @@ struct DeviceHolder {
 }
 
 pub struct GbmDevice {
-    pub drm: Drm,
+    _drm: Drm,
     dev: Rc<DeviceHolder>,
 }
 
@@ -186,7 +186,7 @@ impl GbmDevice {
                 Err(GbmError::CreateDevice)
             } else {
                 let dev = Rc::new(DeviceHolder { dev });
-                Ok(Self { drm, dev })
+                Ok(Self { _drm: drm, dev })
             }
         };
         let dma_buf_ids = DmaBufIds::default();
