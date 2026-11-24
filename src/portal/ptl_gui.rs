@@ -11,7 +11,6 @@ use crate::gfx_api::GfxFramebuffer;
 use crate::gfx_api::GfxTexture;
 use crate::gfx_api::ReleaseSync;
 use crate::gfx_api::ScalingFilter;
-use crate::gfx_api::needs_render_usage;
 use crate::globals::GlobalName;
 use crate::ifs::zwlr_layer_shell_v1::OVERLAY;
 use crate::portal::ptl_display::PortalDisplay;
@@ -30,8 +29,6 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::rc_eq::rc_eq;
-use crate::video::allocator::BO_USE_RENDERING;
-use crate::video::allocator::BufferUsage;
 use crate::wire::ZwpLinuxBufferParamsV1Id;
 use crate::wire::wp_fractional_scale_v1::PreferredScale;
 use crate::wire::zwlr_layer_surface_v1::Configure;
@@ -695,10 +692,6 @@ impl WindowData {
             log::error!("Render context cannot render to ARGB8888 format");
             return;
         }
-        let mut usage = BO_USE_RENDERING;
-        if !needs_render_usage(format.write_modifiers.values()) {
-            usage = BufferUsage::none();
-        }
         for _ in 0..NUM_BUFFERS {
             let bo = match ctx.ctx.ctx.allocator().allocate(
                 &self.dpy.state.dma_buf_ids,
@@ -706,7 +699,6 @@ impl WindowData {
                 height,
                 ARGB8888,
                 format.write_modifiers.keys().copied(),
-                usage,
             ) {
                 Ok(b) => b,
                 Err(e) => {

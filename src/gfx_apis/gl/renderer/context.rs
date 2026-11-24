@@ -30,8 +30,6 @@ use crate::rect::Rect;
 use crate::syncobj::SyncobjCtx;
 use crate::utils::bhash::BHashMap;
 use crate::video::allocator::Allocator;
-use crate::video::allocator::BO_USE_RENDERING;
-use crate::video::allocator::BufferUsage;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
 use crate::video::drm::Drm;
@@ -372,20 +370,14 @@ impl GfxContext for GlRenderContext {
         let Some(format) = self.formats().get(&format.drm) else {
             return Err(RenderError::UnsupportedFormat.into());
         };
-        let mut needs_render_usage = false;
         let mut modifiers = vec![];
-        for (modifier, gwm) in format.write_modifiers.iter() {
+        for (modifier, _) in format.write_modifiers.iter() {
             if format.read_modifiers.contains(modifier) {
-                needs_render_usage |= gwm.needs_render_usage;
                 modifiers.push(*modifier);
             }
         }
-        let mut usage = BufferUsage::none();
-        if needs_render_usage {
-            usage |= BO_USE_RENDERING;
-        }
         let bo = allocator
-            .allocate(dma_buf_ids, width, height, format.format, modifiers, usage)
+            .allocate(dma_buf_ids, width, height, format.format, modifiers)
             .map_err(RenderError::AllocateBo)?;
         let img = self.dmabuf_img(&bo)?;
         let tex = img.to_texture()?;

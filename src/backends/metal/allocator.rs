@@ -19,7 +19,6 @@ use crate::gfx_api::GfxFramebuffer;
 use crate::gfx_api::GfxTexture;
 use crate::gfx_api::GfxWriteModifier;
 use crate::gfx_api::ReleaseSync;
-use crate::gfx_api::needs_render_usage;
 use crate::rect::DamageQueue;
 use crate::rect::Rect;
 use crate::rect::Region;
@@ -34,7 +33,6 @@ use crate::video::LINEAR_MODIFIER;
 use crate::video::Modifier;
 use crate::video::allocator::AllocatorError;
 use crate::video::allocator::BO_USE_LINEAR;
-use crate::video::allocator::BO_USE_RENDERING;
 use crate::video::allocator::BO_USE_SCANOUT;
 use crate::video::allocator::BufferUsage;
 use crate::video::dmabuf::DmaBuf;
@@ -788,42 +786,15 @@ impl BoAllocationSettings {
         common: &Builder<'_>,
         modifiers: &FHashMap<Modifier, &GfxWriteModifier>,
         scanout: bool,
-        rendering: bool,
         usage_out: &mut Option<BufferUsage>,
     ) -> Self {
-        let needs_render_usage = rendering && needs_render_usage(modifiers.values().copied());
-        Self::new3(
-            common,
-            modifiers.keys(),
-            scanout,
-            needs_render_usage,
-            usage_out,
-        )
+        Self::new2(common, modifiers.keys(), scanout, usage_out)
     }
 
     fn new2<'a>(
         common: &Builder<'_>,
-        modifiers: impl IntoIterator<Item = &'a Modifier> + Clone,
-        fmt: &GfxFormat,
-        scanout: bool,
-        rendering: bool,
-        usage_out: &mut Option<BufferUsage>,
-    ) -> Self {
-        let needs_render_usage = rendering
-            && needs_render_usage(
-                modifiers
-                    .clone()
-                    .into_iter()
-                    .filter_map(|m| fmt.write_modifiers.get(m)),
-            );
-        Self::new3(common, modifiers, scanout, needs_render_usage, usage_out)
-    }
-
-    fn new3<'a>(
-        common: &Builder<'_>,
         modifiers: impl IntoIterator<Item = &'a Modifier>,
         scanout: bool,
-        needs_render_usage: bool,
         usage_out: &mut Option<BufferUsage>,
     ) -> Self {
         let mut usage = BufferUsage::none();
@@ -832,9 +803,6 @@ impl BoAllocationSettings {
             if common.cursor {
                 usage |= BO_USE_LINEAR;
             }
-        }
-        if needs_render_usage {
-            usage |= BO_USE_RENDERING;
         }
         *usage_out = Some(usage);
         Self {
@@ -879,7 +847,7 @@ impl Builder<'_> {
         ctx: &MetalRenderContext,
         settings: &BoAllocationSettings,
     ) -> Result<Rc<DmaBuf>, AllocatorError> {
-        ctx.allocator.allocate(
+        ctx.allocator.allocate_with_usage(
             &self.slf.state.dma_buf_ids,
             self.width,
             self.height,
@@ -1004,7 +972,7 @@ impl Builder<'_> {
             return Err(ScanoutBufferErrorKind::SodWriteReadPlaneIntersection);
         }
         let allocation_settings =
-            BoAllocationSettings::new1(self, &modifiers, true, true, &mut dbg.render_usage);
+            BoAllocationSettings::new1(self, &modifiers, true, &mut dbg.render_usage);
         Ok(NoPrime {
             allocation_settings,
         })
@@ -1078,16 +1046,10 @@ impl Builder<'_> {
             self,
             &render_modifiers_possible,
             false,
-            true,
             &mut dbg.render_usage,
         );
-        let dev_allocation_settings = BoAllocationSettings::new1(
-            self,
-            &dev_modifiers_possible,
-            true,
-            true,
-            &mut dbg.dev_usage,
-        );
+        let dev_allocation_settings =
+            BoAllocationSettings::new1(self, &dev_modifiers_possible, true, &mut dbg.dev_usage);
         Ok(PrimeSampling {
             render_allocation_settings,
             dev_allocation_settings,
@@ -1172,13 +1134,11 @@ impl Builder<'_> {
         let render_allocation_settings = BoAllocationSettings::new2(
             self,
             &render_modifiers_possible,
-            render_fmt,
             false,
-            true,
             &mut dbg.render_usage,
         );
         let dev_allocation_settings =
-            BoAllocationSettings::new3(self, &dev_modifiers, true, false, &mut dbg.dev_usage);
+            BoAllocationSettings::new2(self, &dev_modifiers, true, &mut dbg.dev_usage);
         Ok(DirectCopyPush {
             render_copy_dev,
             dev_copy_dev,
@@ -1255,13 +1215,11 @@ impl Builder<'_> {
         let render_allocation_settings = BoAllocationSettings::new2(
             self,
             &render_modifiers_possible,
-            render_fmt,
             false,
-            true,
             &mut dbg.render_usage,
         );
         let dev_allocation_settings =
-            BoAllocationSettings::new3(self, &dev_modifiers, true, false, &mut dbg.dev_usage);
+            BoAllocationSettings::new2(self, &dev_modifiers, true, &mut dbg.dev_usage);
         Ok(DirectCopyPull {
             dev_copy_dev,
             render_allocation_settings,
@@ -1346,13 +1304,11 @@ impl Builder<'_> {
         let render_allocation_settings = BoAllocationSettings::new2(
             self,
             &render_modifiers_possible,
-            render_fmt,
             false,
-            true,
             &mut dbg.render_usage,
         );
         let dev_allocation_settings =
-            BoAllocationSettings::new3(self, &dev_modifiers, true, false, &mut dbg.dev_usage);
+            BoAllocationSettings::new2(self, &dev_modifiers, true, &mut dbg.dev_usage);
         Ok(IndirectCopyPull {
             render_allocation_settings,
             render_copy_dev,
@@ -1456,13 +1412,11 @@ impl Builder<'_> {
         let render_allocation_settings = BoAllocationSettings::new2(
             self,
             &render_modifiers_possible,
-            render_fmt,
             false,
-            true,
             &mut dbg.render_usage,
         );
         let dev_allocation_settings =
-            BoAllocationSettings::new3(self, &dev_modifiers, true, false, &mut dbg.dev_usage);
+            BoAllocationSettings::new2(self, &dev_modifiers, true, &mut dbg.dev_usage);
         Ok(CopyUdmabuf {
             udmabuf,
             render_allocation_settings,

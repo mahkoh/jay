@@ -1117,6 +1117,7 @@ pub struct GfxWriteModifier {
     pub needs_render_usage: bool,
 }
 
+#[expect(unused)]
 pub fn needs_render_usage<'a>(mut modifiers: impl Iterator<Item = &'a GfxWriteModifier>) -> bool {
     modifiers.any(|m| m.needs_render_usage)
 }

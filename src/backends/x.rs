@@ -57,7 +57,6 @@ use crate::utils::queue::AsyncQueue;
 use crate::utils::syncqueue::SyncQueue;
 use crate::video::allocator::Allocator;
 use crate::video::allocator::AllocatorError;
-use crate::video::allocator::BO_USE_RENDERING;
 use crate::video::drm::ConnectorType;
 use crate::video::drm::Drm;
 use crate::video::drm::DrmError;
@@ -472,7 +471,6 @@ impl XBackend {
                 height,
                 FORMAT,
                 format.write_modifiers.keys().copied(),
-                BO_USE_RENDERING,
             )?;
             let fb = match self.ctx.clone().dmabuf_fb(dma) {
                 Ok(f) => f,

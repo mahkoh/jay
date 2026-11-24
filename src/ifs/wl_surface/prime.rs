@@ -441,7 +441,7 @@ impl WlSurface {
                         .map(|s| s.modifier);
                     let bo = ctx
                         .allocator()
-                        .allocate(
+                        .allocate_with_usage(
                             &state.dma_buf_ids,
                             buf.width,
                             buf.height,

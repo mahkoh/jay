@@ -28,7 +28,6 @@ pub enum AllocatorError {
 
 bitflags! {
     BufferUsage: u32;
-        BO_USE_RENDERING,
         BO_USE_SCANOUT,
         BO_USE_LINEAR,
 }
@@ -60,6 +59,24 @@ impl Allocator {
     }
 
     pub fn allocate(
+        &self,
+        dma_buf_ids: &DmaBufIds,
+        width: i32,
+        height: i32,
+        format: &'static Format,
+        modifiers: impl IntoIterator<Item = Modifier>,
+    ) -> Result<Rc<DmaBuf>, AllocatorError> {
+        self.allocate_with_usage(
+            dma_buf_ids,
+            width,
+            height,
+            format,
+            modifiers,
+            BufferUsage::none(),
+        )
+    }
+
+    pub fn allocate_with_usage(
         &self,
         dma_buf_ids: &DmaBufIds,
         width: i32,

@@ -36,7 +36,6 @@ use crate::utils::pipe::pipe;
 use crate::utils::rc_eq::rc_eq;
 use crate::video::allocator::Allocator;
 use crate::video::allocator::AllocatorError;
-use crate::video::allocator::BO_USE_RENDERING;
 use crate::video::dmabuf::DmaBuf;
 use crate::wire::WlSurfaceId;
 use crate::wire::wl_pointer::Button;
@@ -767,7 +766,6 @@ impl EggWindowInner {
                         physical_size[1],
                         EGV_FORMAT,
                         modifiers,
-                        BO_USE_RENDERING,
                     )
                     .map_err(EggError::AllocateBuffer)?;
                 let egv = self

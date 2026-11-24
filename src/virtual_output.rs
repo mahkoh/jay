@@ -63,8 +63,6 @@ use crate::utils::on_change::OnChange;
 use crate::utils::rc_eq::rc_eq;
 use crate::utils::timer::TimerFd;
 use crate::video::allocator::AllocatorError;
-use crate::video::allocator::BO_USE_RENDERING;
-use crate::video::allocator::BufferUsage;
 use crate::video::drm::ConnectorType;
 use linearize::Linearize;
 use linearize::LinearizeExt;
@@ -1127,18 +1125,12 @@ fn allocate_scanout_buffers(
     let Some(gfx_format) = ctx.formats().get(&format.drm) else {
         return Err(AllocError::GfxFormatNotSupported);
     };
-    let mut needs_render_usage = false;
     let mut modifiers = vec![];
     for modifier in gfx_format.read_modifiers.iter().copied() {
-        let Some(write_modifier) = gfx_format.write_modifiers.get(&modifier) else {
+        let Some(_) = gfx_format.write_modifiers.get(&modifier) else {
             continue;
         };
-        needs_render_usage |= write_modifier.needs_render_usage;
         modifiers.push(modifier);
-    }
-    let mut usage = BufferUsage::none();
-    if needs_render_usage {
-        usage |= BO_USE_RENDERING;
     }
     let create_fb = |(width, height): (i32, i32)| {
         let bo = ctx
@@ -1149,7 +1141,6 @@ fn allocate_scanout_buffers(
                 height,
                 format,
                 modifiers.iter().copied(),
-                usage,
             )
             .map_err(AllocError::CreateBo)?;
         let tex = ctx
