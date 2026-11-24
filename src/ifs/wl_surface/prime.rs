@@ -1,7 +1,3 @@
-use crate::allocator::AllocatorError;
-use crate::allocator::BO_USE_SCANOUT;
-use crate::allocator::BufferObject;
-use crate::allocator::BufferUsage;
 use crate::backend::DrmDeviceId;
 use crate::copy_device::CopyDevice;
 use crate::copy_device::CopyDeviceDstObject;
@@ -39,6 +35,9 @@ use crate::utils::obj_and_id::ObjWithId;
 use crate::utils::rc_eq::rc_opt_eq;
 use crate::utils::smallmap::SmallMap;
 use crate::utils::syncqueue::SyncQueue;
+use crate::video::allocator::AllocatorError;
+use crate::video::allocator::BO_USE_SCANOUT;
+use crate::video::allocator::BufferUsage;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmabufCopy;
 use arrayvec::ArrayVec;
@@ -109,7 +108,7 @@ struct PrimeStorage {
     udmabuf: CloneCell<Option<Rc<DmaBuf>>>,
     udmabuf_objects: CopyHashMap<DrmDeviceId, Rc<CopyDeviceDstObject>>,
 
-    bo: CloneCell<Option<Rc<dyn BufferObject>>>,
+    bo: CloneCell<Option<Rc<DmaBuf>>>,
     bo_object: CloneCell<Option<Rc<CopyDeviceDstObject>>>,
     bo_flags: BufferUsage,
     bo_modifiers: Option<PrimeModifiers>,
@@ -401,7 +400,7 @@ impl WlSurface {
                 let Some(bo) = spt.bo.get() else {
                     continue;
                 };
-                if incompatible(buf, bo.dmabuf()) {
+                if incompatible(buf, &bo) {
                     continue;
                 }
             } else {
@@ -429,9 +428,8 @@ impl WlSurface {
                 }
                 _ => {
                     damage_full();
-                    let modifiers = &mut *state.render_ctx_prime_modifiers_stash.borrow_mut();
-                    modifiers.clear();
-                    spt.bo_modifiers
+                    let modifiers = spt
+                        .bo_modifiers
                         .as_ref()
                         .and_then(|m| m.get(&buf.format.drm))
                         .map(|m| &**m)
@@ -440,10 +438,10 @@ impl WlSurface {
                         .filter(|s| {
                             s.max_width >= buf.width as u32 && s.max_height >= buf.height as u32
                         })
-                        .for_each(|s| modifiers.push(s.modifier));
+                        .map(|s| s.modifier);
                     let bo = ctx
                         .allocator()
-                        .create_bo(
+                        .allocate(
                             &state.dma_buf_ids,
                             buf.width,
                             buf.height,
@@ -461,7 +459,7 @@ impl WlSurface {
                 _ => {
                     let tex = ctx
                         .clone()
-                        .dmabuf_tex(bo.dmabuf())
+                        .dmabuf_tex(&bo)
                         .map_err(PrimeError::CreateBoTexture)?;
                     spt.tex.set(Some(tex.clone()));
                     tex
@@ -469,7 +467,7 @@ impl WlSurface {
             };
             if spt.bo_object.is_none() {
                 let obj = render_dev
-                    .create_dst_object(bo.dmabuf())
+                    .create_dst_object(&bo)
                     .map_err(PrimeError::CreateBoDst)?;
                 spt.bo_object.set(Some(Rc::new(obj)));
             }

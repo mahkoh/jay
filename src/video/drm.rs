@@ -255,6 +255,7 @@ impl Drm {
         self.fd.raw()
     }
 
+    #[expect(unused)]
     pub fn dup_primary(&self) -> Result<Self, DrmError> {
         Self::reopen(self.id, self.fd.raw(), true)
     }

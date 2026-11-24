@@ -1,4 +1,3 @@
-use crate::allocator::Allocator;
 use crate::backend::DrmDeviceId;
 use crate::cmm::cmm_description::ColorDescription;
 use crate::cmm::cmm_description::LinearColorDescription;
@@ -38,6 +37,8 @@ use crate::utils::bhash::BHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::fx_hash::FHashSet;
 use crate::video::LINEAR_MODIFIER;
+use crate::video::allocator::Allocator;
+use crate::video::allocator::AllocatorError;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
 use crate::video::drm::Drm;
@@ -79,6 +80,8 @@ enum TestGfxError {
     OpenDevNull(#[source] OsError),
     #[error("Could not create Drm object")]
     CreateDrm(#[source] DrmError),
+    #[error("Could not create an allocator")]
+    CreateAllocator(#[source] AllocatorError),
 }
 
 impl From<TestGfxError> for GfxError {
@@ -89,7 +92,7 @@ impl From<TestGfxError> for GfxError {
 
 pub struct TestGfxCtx {
     formats: Rc<BHashMap<u32, GfxFormat>>,
-    udmabuf: Rc<Udmabuf>,
+    udmabuf: Rc<Allocator>,
     drm: Option<Drm>,
     syncobj_ctx: Option<Rc<SyncobjCtx>>,
 }
@@ -133,7 +136,9 @@ impl TestGfxCtx {
         }
         Ok(Rc::new(Self {
             formats: Rc::new(formats),
-            udmabuf: udmabuf.clone(),
+            udmabuf: Allocator::new(None, &udmabuf.fd)
+                .map(Rc::new)
+                .map_err(TestGfxError::CreateAllocator)?,
             drm,
             syncobj_ctx: need_syncobj.then(create_syncobj_ctx).flatten(),
         }))
@@ -282,7 +287,7 @@ impl GfxContext for TestGfxCtx {
         self.drm.as_ref()
     }
 
-    fn allocator(&self) -> Rc<dyn Allocator> {
+    fn allocator(&self) -> Rc<Allocator> {
         self.udmabuf.clone()
     }
 

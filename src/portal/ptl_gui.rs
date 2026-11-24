@@ -1,6 +1,3 @@
-use crate::allocator::BO_USE_RENDERING;
-use crate::allocator::BufferObject;
-use crate::allocator::BufferUsage;
 use crate::async_engine::Phase;
 use crate::async_engine::SpawnedFuture;
 use crate::cmm::cmm_manager::ColorManager;
@@ -33,6 +30,8 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::rc_eq::rc_eq;
+use crate::video::allocator::BO_USE_RENDERING;
+use crate::video::allocator::BufferUsage;
 use crate::wire::ZwpLinuxBufferParamsV1Id;
 use crate::wire::wp_fractional_scale_v1::PreferredScale;
 use crate::wire::zwlr_layer_surface_v1::Configure;
@@ -696,18 +695,17 @@ impl WindowData {
             log::error!("Render context cannot render to ARGB8888 format");
             return;
         }
-        let modifiers: Vec<_> = format.write_modifiers.keys().copied().collect();
         let mut usage = BO_USE_RENDERING;
         if !needs_render_usage(format.write_modifiers.values()) {
             usage = BufferUsage::none();
         }
         for _ in 0..NUM_BUFFERS {
-            let bo = match ctx.ctx.ctx.allocator().create_bo(
+            let bo = match ctx.ctx.ctx.allocator().allocate(
                 &self.dpy.state.dma_buf_ids,
                 width,
                 height,
                 ARGB8888,
-                &modifiers,
+                format.write_modifiers.keys().copied(),
                 usage,
             ) {
                 Ok(b) => b,
@@ -716,7 +714,7 @@ impl WindowData {
                     return;
                 }
             };
-            let fb = match ctx.ctx.ctx.clone().dmabuf_fb(bo.dmabuf()) {
+            let fb = match ctx.ctx.ctx.clone().dmabuf_fb(&bo) {
                 Ok(b) => b,
                 Err(e) => {
                     log::error!(
@@ -727,9 +725,8 @@ impl WindowData {
                 }
             };
             let params = dmabuf.create_params();
-            params.create(bo.dmabuf());
+            params.create(&bo);
             let pending = Rc::new(GuiBufferPending {
-                bo: Cell::new(Some(bo)),
                 window: self.clone(),
                 fb,
                 params,
@@ -814,13 +811,11 @@ pub struct GuiBuffer {
     wl: Rc<UsrWlBuffer>,
     window: Rc<WindowData>,
     fb: Rc<dyn GfxFramebuffer>,
-    _bo: Option<Rc<dyn BufferObject>>,
     free: Cell<bool>,
     _size: (i32, i32),
 }
 
 struct GuiBufferPending {
-    bo: Cell<Option<Rc<dyn BufferObject>>>,
     window: Rc<WindowData>,
     fb: Rc<dyn GfxFramebuffer>,
     params: Rc<UsrLinuxBufferParams>,
@@ -874,7 +869,6 @@ impl UsrLinuxBufferParamsOwner for GuiBufferPending {
             wl: buffer,
             window: self.window.clone(),
             fb: self.fb.clone(),
-            _bo: self.bo.take(),
             free: Cell::new(true),
             _size: self.size,
         });

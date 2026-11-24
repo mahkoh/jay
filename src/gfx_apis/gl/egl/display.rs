@@ -75,9 +75,9 @@ use crate::utils::fx_hash::FHashMap;
 use crate::utils::fx_hash::FHashSet;
 use crate::video::INVALID_MODIFIER;
 use crate::video::Modifier;
+use crate::video::allocator::Allocator;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::drm::Drm;
-use crate::video::gbm::GbmDevice;
 use std::ffi::CStr;
 use std::ptr;
 use std::rc::Rc;
@@ -104,7 +104,7 @@ pub struct EglDisplay {
     pub exts: DisplayExt,
     pub formats: BHashMap<u32, EglFormat>,
     pub drm: Drm,
-    pub gbm: Rc<GbmDevice>,
+    pub allocator: Rc<Allocator>,
     pub dpy: EGLDisplay,
     pub explicit_sync: bool,
     _holder: Rc<EglDisplayHolder>,
@@ -131,9 +131,9 @@ impl EglDisplay {
             let Some(procs) = PROCS.as_ref() else {
                 return Err(RenderError::LoadEglProcs);
             };
-            let gbm = match GbmDevice::new(drm) {
-                Ok(gbm) => gbm,
-                Err(e) => return Err(RenderError::Gbm(e)),
+            let allocator = match Allocator::from_drm(drm) {
+                Ok(allocator) => allocator,
+                Err(e) => return Err(RenderError::Allocator(e)),
             };
             let holder = get_or_create_display(egl, procs, drm, software)?;
             let mut dpy = EglDisplay {
@@ -143,7 +143,7 @@ impl EglDisplay {
                 exts: DisplayExt::none(),
                 formats: BHashMap::default(),
                 drm: drm.clone(),
-                gbm: Rc::new(gbm),
+                allocator: Rc::new(allocator),
                 dpy: holder.dpy,
                 explicit_sync: false,
                 _holder: holder,

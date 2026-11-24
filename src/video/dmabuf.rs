@@ -149,6 +149,7 @@ impl DmaBuf {
         Ok(())
     }
 
+    #[expect(unused)]
     pub fn export_sync_file(&self, flags: u32) -> Result<Option<SyncFile>, DrmError> {
         let mut sf = PlaneVec::new();
         for plane in &self.planes {

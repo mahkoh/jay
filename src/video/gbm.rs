@@ -1,3 +1,4 @@
+#![expect(unused)]
 #![allow(non_camel_case_types)]
 
 use crate::allocator::Allocator;

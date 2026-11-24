@@ -1,4 +1,3 @@
-use crate::allocator::BufferObject;
 use crate::async_engine::AsyncEngine;
 use crate::async_engine::SpawnedFuture;
 use crate::eventfd_cache::EventfdCache;
@@ -13,6 +12,7 @@ use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::queue::AsyncQueue;
 use crate::video::Modifier;
+use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::PlaneVec;
 use crate::vulkan_core::VULKAN_API_VERSION;
 use crate::vulkan_core::VulkanCoreError;
@@ -411,7 +411,6 @@ struct EgvBuffer {
 
 struct EgvImportedMemory {
     ri: Rc<EgvRendererInner>,
-    _bo: Rc<dyn BufferObject>,
     memories: PlaneVec<DeviceMemory>,
 }
 
@@ -1407,10 +1406,9 @@ impl EgvRendererInner {
 impl EgvContext {
     pub fn import_framebuffer(
         self: &Rc<Self>,
-        bo: &Rc<dyn BufferObject>,
+        buf: &Rc<DmaBuf>,
     ) -> Result<Rc<EgvFramebuffer>, EgvError> {
         let ri = &self.renderer.ri;
-        let buf = bo.dmabuf();
         if buf.format != EGV_FORMAT {
             return Err(EgvError::WrongFbFormat);
         }
@@ -1594,7 +1592,6 @@ impl EgvContext {
             image_view,
             _memory: EgvImportedMemory {
                 ri: ri.clone(),
-                _bo: bo.clone(),
                 memories,
             },
             layout: Cell::new(ImageLayout::UNDEFINED),

@@ -1,14 +1,7 @@
-use crate::allocator::Allocator;
-use crate::allocator::AllocatorError;
-use crate::allocator::BufferObject;
-use crate::allocator::BufferUsage;
 use crate::format::Format;
-use crate::gfx_api::SyncFile;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::once::Once;
-use crate::video::LINEAR_MODIFIER;
-use crate::video::Modifier;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
 use crate::video::dmabuf::DmaBufPlane;
@@ -28,8 +21,6 @@ use uapi::open;
 pub enum UdmabufError {
     #[error("Could not open /dev/udmabuf")]
     Open(#[source] OsError),
-    #[error("Only the linear modifier can be allocated")]
-    Modifier,
     #[error("Could not create a dmabuf")]
     CreateUdmabuf(#[source] dmabuf_allocator::Error),
     #[error("Could not compute the udmabuf layout")]
@@ -123,43 +114,5 @@ impl Udmabuf {
             planes,
         );
         Ok(dmabuf)
-    }
-}
-
-impl Allocator for Udmabuf {
-    fn create_bo(
-        &self,
-        dma_buf_ids: &DmaBufIds,
-        width: i32,
-        height: i32,
-        format: &'static Format,
-        modifiers: &[Modifier],
-        _usage: BufferUsage,
-    ) -> Result<Rc<dyn BufferObject>, AllocatorError> {
-        if !modifiers.contains(&LINEAR_MODIFIER) {
-            return Err(UdmabufError::Modifier.into());
-        }
-        let buf = self.create_dmabuf(dma_buf_ids, width, height, format)?;
-        Ok(Rc::new(UdmabufBo { buf }))
-    }
-}
-
-pub struct UdmabufBo {
-    buf: Rc<DmaBuf>,
-}
-
-impl BufferObject for UdmabufBo {
-    fn dmabuf(&self) -> &Rc<DmaBuf> {
-        &self.buf
-    }
-
-    fn take_initial_sync(&self) -> Option<SyncFile> {
-        None
-    }
-}
-
-impl From<UdmabufError> for AllocatorError {
-    fn from(value: UdmabufError) -> Self {
-        Self(Box::new(value))
     }
 }

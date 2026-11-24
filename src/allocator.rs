@@ -1,3 +1,5 @@
+#![expect(unused)]
+
 use crate::format::Format;
 use crate::gfx_api::SyncFile;
 use crate::video::Modifier;

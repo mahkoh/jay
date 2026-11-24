@@ -22,6 +22,7 @@ struct Pollable<T> {
     idx: usize,
 }
 
+#[expect(unused)]
 impl<T> ObjectDropQueue<T> {
     pub fn new(ring: &Rc<IoUring>) -> Self {
         Self {

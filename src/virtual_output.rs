@@ -1,7 +1,3 @@
-use crate::allocator::AllocatorError;
-use crate::allocator::BO_USE_RENDERING;
-use crate::allocator::BufferObject;
-use crate::allocator::BufferUsage;
 use crate::async_engine::Phase;
 use crate::async_engine::SpawnedFuture;
 use crate::backend::BackendConnectorState;
@@ -66,6 +62,9 @@ use crate::utils::numcell::NumCell;
 use crate::utils::on_change::OnChange;
 use crate::utils::rc_eq::rc_eq;
 use crate::utils::timer::TimerFd;
+use crate::video::allocator::AllocatorError;
+use crate::video::allocator::BO_USE_RENDERING;
+use crate::video::allocator::BufferUsage;
 use crate::video::drm::ConnectorType;
 use linearize::Linearize;
 use linearize::LinearizeExt;
@@ -168,7 +167,6 @@ struct FbState {
 struct VoFb {
     width: i32,
     height: i32,
-    _bo: Rc<dyn BufferObject>,
     tex: Rc<dyn GfxTexture>,
     fb: Rc<dyn GfxFramebuffer>,
 }
@@ -1145,20 +1143,23 @@ fn allocate_scanout_buffers(
     let create_fb = |(width, height): (i32, i32)| {
         let bo = ctx
             .allocator()
-            .create_bo(&state.dma_buf_ids, width, height, format, &modifiers, usage)
+            .allocate(
+                &state.dma_buf_ids,
+                width,
+                height,
+                format,
+                modifiers.iter().copied(),
+                usage,
+            )
             .map_err(AllocError::CreateBo)?;
         let tex = ctx
             .clone()
-            .dmabuf_tex(bo.dmabuf())
+            .dmabuf_tex(&bo)
             .map_err(AllocError::CreateTexture)?;
-        let fb = ctx
-            .clone()
-            .dmabuf_fb(bo.dmabuf())
-            .map_err(AllocError::CreateFb)?;
+        let fb = ctx.clone().dmabuf_fb(&bo).map_err(AllocError::CreateFb)?;
         Ok(VoFb {
             width,
             height,
-            _bo: bo,
             tex,
             fb,
         })

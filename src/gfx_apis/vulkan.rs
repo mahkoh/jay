@@ -21,7 +21,6 @@ mod shm_image;
 mod staging;
 mod transfer;
 
-use crate::allocator::Allocator;
 use crate::async_engine::AsyncEngine;
 use crate::cpu_worker::CpuWorker;
 use crate::cpu_worker::jobs::read_write::ReadWriteJobError;
@@ -53,11 +52,12 @@ use crate::rect::Rect;
 use crate::syncobj::SyncobjCtx;
 use crate::utils::bhash::BHashMap;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::video::allocator::Allocator;
+use crate::video::allocator::AllocatorError;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
 use crate::video::drm::Drm;
 use crate::video::drm::DrmError;
-use crate::video::gbm::GbmError;
 use crate::vulkan_core;
 use crate::vulkan_core::VulkanCoreError;
 use ash::vk;
@@ -77,8 +77,8 @@ use uapi::c::dev_t;
 pub enum VulkanError {
     #[error(transparent)]
     Core(#[from] VulkanCoreError),
-    #[error("Could not create a GBM device")]
-    Gbm(#[source] GbmError),
+    #[error("Could not create an allocator")]
+    Allocator(#[source] AllocatorError),
     #[error("Could not list device extensions")]
     DeviceExtensions(#[source] vk::Result),
     #[error("Could not create the device")]
@@ -199,12 +199,6 @@ pub enum VulkanError {
     NonVulkanBuffer,
     #[error("Mixed vulkan device use")]
     MixedVulkanDeviceUse,
-    #[error("Could not allocate GBM BO")]
-    AllocGbm(#[source] GbmError),
-    #[error("Could not retrieve file description flags")]
-    GetFl(#[source] OsError),
-    #[error("GBM implementation cannot be used with software renderer")]
-    SoftwareRendererNotUsable,
     #[error("DMABUF buffer offsets must be aligned to 4 bytes and the pixel size")]
     DmaBufBufferOffsetAlignment,
     #[error("Framebuffer has no image view")]
@@ -344,8 +338,8 @@ impl GfxContext for Context {
         Some(&self.0.device.drm)
     }
 
-    fn allocator(&self) -> Rc<dyn Allocator> {
-        self.0.device.gbm.clone()
+    fn allocator(&self) -> Rc<Allocator> {
+        self.0.device.allocator.clone()
     }
 
     fn gfx_api(&self) -> GfxApi {

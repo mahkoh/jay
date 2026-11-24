@@ -1,4 +1,3 @@
-use crate::allocator::Allocator;
 use crate::cmm::cmm_description::ColorDescription;
 use crate::cmm::cmm_description::LinearColorDescription;
 use crate::cmm::cmm_render_intent::RenderIntent;
@@ -35,6 +34,7 @@ use crate::utils::fx_hash::FHashMap;
 use crate::utils::fx_hash::FHashSet;
 use crate::utils::static_text::StaticText;
 use crate::video::Modifier;
+use crate::video::allocator::Allocator;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
 use crate::video::drm::Drm;
@@ -1033,7 +1033,7 @@ pub trait GfxContext: Debug {
 
     fn drm(&self) -> Option<&Drm>;
 
-    fn allocator(&self) -> Rc<dyn Allocator>;
+    fn allocator(&self) -> Rc<Allocator>;
 
     fn gfx_api(&self) -> GfxApi;
 

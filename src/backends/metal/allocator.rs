@@ -1,4 +1,3 @@
-use crate::allocator::BufferObject;
 use crate::backends::metal::MetalBackend;
 use crate::backends::metal::MetalError;
 use crate::backends::metal::video::MetalDrmDevice;
@@ -33,14 +32,14 @@ use crate::utils::fx_hash::FHashSet;
 use crate::utils::rc_eq::rc_eq;
 use crate::video::LINEAR_MODIFIER;
 use crate::video::Modifier;
+use crate::video::allocator::AllocatorError;
+use crate::video::allocator::BO_USE_LINEAR;
+use crate::video::allocator::BO_USE_RENDERING;
+use crate::video::allocator::BO_USE_SCANOUT;
+use crate::video::allocator::BufferUsage;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::drm::DrmError;
 use crate::video::drm::DrmFramebuffer;
-use crate::video::gbm::GBM_BO_USE_LINEAR;
-use crate::video::gbm::GBM_BO_USE_RENDERING;
-use crate::video::gbm::GBM_BO_USE_SCANOUT;
-use crate::video::gbm::GbmBo;
-use crate::video::gbm::GbmError;
 use arrayvec::ArrayVec;
 use bstr::ByteSlice;
 use isnt::std_1::primitive::IsntSliceExt;
@@ -77,7 +76,7 @@ pub struct RenderBuffer {
 #[derive(Debug)]
 pub struct RenderBufferRender {
     pub ctx: Rc<MetalRenderContext>,
-    bo: GbmBo,
+    bo: Rc<DmaBuf>,
     pub tex: Rc<dyn GfxTexture>,
     pub fb: Rc<dyn GfxFramebuffer>,
 }
@@ -86,7 +85,7 @@ pub struct RenderBufferRender {
 pub enum RenderBufferPrime {
     None,
     Sampling {
-        dev_bo: GbmBo,
+        dev_bo: Rc<DmaBuf>,
         dev_fb: Rc<dyn GfxFramebuffer>,
         // Import of the render dmabuf into the dev ctx.
         dev_render_tex: Rc<dyn GfxTexture>,
@@ -95,24 +94,24 @@ pub enum RenderBufferPrime {
         render_copy: CopyDeviceCopy,
         dev_copy_dev: Rc<CopyDevice>,
         dev_copy: CopyDeviceCopy,
-        dev_bo: GbmBo,
+        dev_bo: Rc<DmaBuf>,
     },
     CopyDirectPull {
         dev_copy_dev: Rc<CopyDevice>,
         dev_copy: CopyDeviceCopy,
-        dev_bo: GbmBo,
+        dev_bo: Rc<DmaBuf>,
     },
     CopyIndirectPull {
         render_copy: CopyDeviceCopy,
         _render_secondary_bo: CopyDeviceBuffer,
         dev_copy_dev: Rc<CopyDevice>,
         dev_copy: CopyDeviceCopy,
-        dev_bo: GbmBo,
+        dev_bo: Rc<DmaBuf>,
     },
     CopyDirectPush {
         render_copy: CopyDeviceCopy,
         dev_copy_dev: Rc<CopyDevice>,
-        dev_bo: GbmBo,
+        dev_bo: Rc<DmaBuf>,
     },
 }
 
@@ -256,7 +255,7 @@ impl RenderBuffer {
 
         if let Some(dev) = new.dev_copy_device().or(old.dev_copy_device()) {
             return dev
-                .create_copy(old.dev_bo().dmabuf(), new.dev_bo().dmabuf())
+                .create_copy(old.dev_bo(), new.dev_bo())
                 .map_err(RenderBufferError::CreateCopyDeviceCopy)?
                 .execute(None, None)
                 .map_err(RenderBufferError::ExecuteCopyDeviceCopy);
@@ -295,7 +294,7 @@ impl RenderBuffer {
                     &new.render.fb,
                     &old.render.ctx,
                     &old.render.tex,
-                    old.render.bo.dmabuf(),
+                    &old.render.bo,
                 )?,
                 RenderBufferPrime::Sampling {
                     dev_fb: new_dev_fb, ..
@@ -304,7 +303,7 @@ impl RenderBuffer {
                     new_dev_fb,
                     &old.render.ctx,
                     &old.render.tex,
-                    old.render.bo.dmabuf(),
+                    &old.render.bo,
                 )?,
                 _ => unreachable!(),
             },
@@ -318,7 +317,7 @@ impl RenderBuffer {
                     &new.render.fb,
                     &old.dev_ctx,
                     old_dev_render_tex,
-                    old_dev_bo.dmabuf(),
+                    old_dev_bo,
                 )?,
                 RenderBufferPrime::Sampling {
                     dev_fb: new_dev_fb, ..
@@ -327,7 +326,7 @@ impl RenderBuffer {
                     &new_dev_fb,
                     &old.dev_ctx,
                     old_dev_render_tex,
-                    old_dev_bo.dmabuf(),
+                    old_dev_bo,
                 )?,
                 _ => unreachable!(),
             },
@@ -336,7 +335,7 @@ impl RenderBuffer {
         Ok(sf)
     }
 
-    pub fn dev_bo(&self) -> &GbmBo {
+    pub fn dev_bo(&self) -> &Rc<DmaBuf> {
         match &self.prime {
             RenderBufferPrime::None => &self.render.bo,
             RenderBufferPrime::Sampling { dev_bo, .. } => dev_bo,
@@ -375,7 +374,7 @@ struct Builder<'a> {
 
 struct BoAllocationSettings {
     modifiers: Vec<Modifier>,
-    usage: u32,
+    usage: BufferUsage,
 }
 
 struct NoPrime {
@@ -535,7 +534,7 @@ pub enum ScanoutBufferErrorKind {
     #[error("Scanout device: The format is not supported")]
     SodUnsupportedFormat,
     #[error("Scanout device: Buffer allocation failed")]
-    SodBufferAllocation(#[source] GbmError),
+    SodBufferAllocation(#[source] AllocatorError),
     #[error("Scanout device: addfb2 failed")]
     SodAddfb2(#[source] DrmError),
     #[error("Scanout device: Could not turn imported SCANOUT buffer into gfx API FB")]
@@ -555,7 +554,7 @@ pub enum ScanoutBufferErrorKind {
     #[error("Scanout device: The intersection of plane/copy_dst modifiers is empty")]
     SodPlaneCopyDstIntersection,
     #[error("Render device: Buffer allocation failed")]
-    RenderBufferAllocation(#[source] GbmError),
+    RenderBufferAllocation(#[source] AllocatorError),
     #[error("Render device: Could not turn imported RENDER buffer into gfx API FB")]
     RenderImportFb(#[source] GfxError),
     #[error("Render device: Could not clear RENDER buffer")]
@@ -670,14 +669,14 @@ struct RenderBufferAllocationDebug {
     dev_gfx_write_modifiers: Option<FHashSet<Modifier>>,
     dev_gfx_read_modifiers: Option<FHashSet<Modifier>>,
     dev_modifiers_possible: Option<FHashSet<Modifier>>,
-    dev_usage: Option<u32>,
+    dev_usage: Option<BufferUsage>,
     dev_modifier: Option<Modifier>,
     render_copy_src_modifiers: Option<FHashSet<Modifier>>,
     render_copy_dst_modifiers: Option<FHashSet<Modifier>>,
     render_gfx_write_modifiers: Option<FHashSet<Modifier>>,
     render_gfx_read_modifiers: Option<FHashSet<Modifier>>,
     render_modifiers_possible: Option<FHashSet<Modifier>>,
-    render_usage: Option<u32>,
+    render_usage: Option<BufferUsage>,
     render_modifier: Option<Modifier>,
 }
 
@@ -719,7 +718,7 @@ impl Display for ScanoutBufferError {
             writeln!(f, "scanout dev possible modifiers: {v:x?}")?;
         }
         if let Some(v) = &self.dbg.dev_usage {
-            writeln!(f, "scanout dev gbm usage: {v:x}")?;
+            writeln!(f, "scanout dev usage: {v:?}")?;
         }
         if let Some(v) = &self.dbg.dev_modifier {
             writeln!(f, "scanout dev modifier: {v:x}")?;
@@ -746,7 +745,7 @@ impl Display for ScanoutBufferError {
             writeln!(f, "render dev possible modifiers: {v:x?}")?;
         }
         if let Some(v) = &self.dbg.render_usage {
-            writeln!(f, "render dev gbm usage: {v:x}")?;
+            writeln!(f, "render dev usage: {v:?}")?;
         }
         if let Some(v) = &self.dbg.render_modifier {
             writeln!(f, "render dev modifier: {v:x}")?;
@@ -790,7 +789,7 @@ impl BoAllocationSettings {
         modifiers: &FHashMap<Modifier, &GfxWriteModifier>,
         scanout: bool,
         rendering: bool,
-        usage_out: &mut Option<u32>,
+        usage_out: &mut Option<BufferUsage>,
     ) -> Self {
         let needs_render_usage = rendering && needs_render_usage(modifiers.values().copied());
         Self::new3(
@@ -808,7 +807,7 @@ impl BoAllocationSettings {
         fmt: &GfxFormat,
         scanout: bool,
         rendering: bool,
-        usage_out: &mut Option<u32>,
+        usage_out: &mut Option<BufferUsage>,
     ) -> Self {
         let needs_render_usage = rendering
             && needs_render_usage(
@@ -825,17 +824,17 @@ impl BoAllocationSettings {
         modifiers: impl IntoIterator<Item = &'a Modifier>,
         scanout: bool,
         needs_render_usage: bool,
-        usage_out: &mut Option<u32>,
+        usage_out: &mut Option<BufferUsage>,
     ) -> Self {
-        let mut usage = 0;
+        let mut usage = BufferUsage::none();
         if scanout {
-            usage |= GBM_BO_USE_SCANOUT;
+            usage |= BO_USE_SCANOUT;
             if common.cursor {
-                usage |= GBM_BO_USE_LINEAR;
+                usage |= BO_USE_LINEAR;
             }
         }
         if needs_render_usage {
-            usage |= GBM_BO_USE_RENDERING;
+            usage |= BO_USE_RENDERING;
         }
         *usage_out = Some(usage);
         Self {
@@ -879,13 +878,13 @@ impl Builder<'_> {
         &self,
         ctx: &MetalRenderContext,
         settings: &BoAllocationSettings,
-    ) -> Result<GbmBo, GbmError> {
-        ctx.gbm.create_bo(
+    ) -> Result<Rc<DmaBuf>, AllocatorError> {
+        ctx.allocator.allocate(
             &self.slf.state.dma_buf_ids,
             self.width,
             self.height,
             self.format,
-            &settings.modifiers,
+            settings.modifiers.iter().copied(),
             settings.usage,
         )
     }
@@ -894,17 +893,17 @@ impl Builder<'_> {
         &self,
         settings: &BoAllocationSettings,
         dbg: &RefCell<RenderBufferAllocationDebug>,
-    ) -> Result<(GbmBo, Rc<DrmFramebuffer>), ScanoutBufferErrorKind> {
+    ) -> Result<(Rc<DmaBuf>, Rc<DrmFramebuffer>), ScanoutBufferErrorKind> {
         let bo = self
             .create_bo(self.dev_ctx, settings)
             .map_err(ScanoutBufferErrorKind::SodBufferAllocation)?;
         let send_dev_modifier = on_drop(|| {
-            dbg.borrow_mut().dev_modifier = Some(bo.dmabuf().modifier);
+            dbg.borrow_mut().dev_modifier = Some(bo.modifier);
         });
         let drm = self
             .dev
             .master
-            .add_fb(bo.dmabuf(), None)
+            .add_fb(&bo, None)
             .map(Rc::new)
             .map_err(ScanoutBufferErrorKind::SodAddfb2)?;
         send_dev_modifier.forget();
@@ -921,17 +920,17 @@ impl Builder<'_> {
             .create_bo(render_ctx, settings)
             .map_err(ScanoutBufferErrorKind::RenderBufferAllocation)?;
         let send_render_modifier = on_drop(|| {
-            dbg.borrow_mut().render_modifier = Some(bo.dmabuf().modifier);
+            dbg.borrow_mut().render_modifier = Some(bo.modifier);
         });
         let tex = render_ctx
             .gfx
             .clone()
-            .dmabuf_tex(bo.dmabuf())
+            .dmabuf_tex(&bo)
             .map_err(ScanoutBufferErrorKind::RenderImportRenderTexture)?;
         let fb = render_ctx
             .gfx
             .clone()
-            .dmabuf_fb(bo.dmabuf())
+            .dmabuf_fb(&bo)
             .map_err(ScanoutBufferErrorKind::RenderImportFb)?;
         fb.clear(
             AcquireSync::Unnecessary,
@@ -1023,11 +1022,11 @@ impl Builder<'_> {
         let Self { dev, .. } = *self;
         let render = self.create_render_buffer_render(allocation_settings, dbg)?;
         let send_dev_modifier = on_drop(|| {
-            dbg.borrow_mut().dev_modifier = Some(render.bo.dmabuf().modifier);
+            dbg.borrow_mut().dev_modifier = Some(render.bo.modifier);
         });
         let drm = dev
             .master
-            .add_fb(render.bo.dmabuf(), None)
+            .add_fb(&render.bo, None)
             .map(Rc::new)
             .map_err(ScanoutBufferErrorKind::SodAddfb2)?;
         send_dev_modifier.forget();
@@ -1108,21 +1107,21 @@ impl Builder<'_> {
         let Self { dev_ctx, .. } = *self;
         let render = self.create_render_buffer_render(render_allocation_settings, dbg)?;
         let send_render_modifier = on_drop(|| {
-            dbg.borrow_mut().render_modifier = Some(render.bo.dmabuf().modifier);
+            dbg.borrow_mut().render_modifier = Some(render.bo.modifier);
         });
         let dev_render_tex = dev_ctx
             .gfx
             .clone()
-            .dmabuf_tex(render.bo.dmabuf())
+            .dmabuf_tex(&render.bo)
             .map_err(ScanoutBufferErrorKind::SodImportRenderTexture)?;
         let (dev_bo, drm) = self.create_dev_bo(dev_allocation_settings, dbg)?;
         let send_dev_modifier = on_drop(|| {
-            dbg.borrow_mut().dev_modifier = Some(dev_bo.dmabuf().modifier);
+            dbg.borrow_mut().dev_modifier = Some(dev_bo.modifier);
         });
         let dev_fb = dev_ctx
             .gfx
             .clone()
-            .dmabuf_fb(dev_bo.dmabuf())
+            .dmabuf_fb(&dev_bo)
             .map_err(ScanoutBufferErrorKind::SodImportFb)?;
         send_dev_modifier.forget();
         send_render_modifier.forget();
@@ -1202,14 +1201,14 @@ impl Builder<'_> {
         } = prepared;
         let render = self.create_render_buffer_render(render_allocation_settings, dbg)?;
         let send_render_modifier = on_drop(|| {
-            dbg.borrow_mut().render_modifier = Some(render.bo.dmabuf().modifier);
+            dbg.borrow_mut().render_modifier = Some(render.bo.modifier);
         });
         let (dev_bo, drm) = self.create_dev_bo(dev_allocation_settings, dbg)?;
         let send_dev_modifier = on_drop(|| {
-            dbg.borrow_mut().dev_modifier = Some(dev_bo.dmabuf().modifier);
+            dbg.borrow_mut().dev_modifier = Some(dev_bo.modifier);
         });
         let render_copy = render_copy_dev
-            .create_copy(&render.bo.dmabuf(), &dev_bo.dmabuf())
+            .create_copy(&render.bo, &dev_bo)
             .map_err(ScanoutBufferErrorKind::RenderCreateCopyToSod)?;
         send_dev_modifier.forget();
         send_render_modifier.forget();
@@ -1283,14 +1282,14 @@ impl Builder<'_> {
         } = prepared;
         let render = self.create_render_buffer_render(render_allocation_settings, dbg)?;
         let send_render_modifier = on_drop(|| {
-            dbg.borrow_mut().render_modifier = Some(render.bo.dmabuf().modifier);
+            dbg.borrow_mut().render_modifier = Some(render.bo.modifier);
         });
         let (dev_bo, drm) = self.create_dev_bo(dev_allocation_settings, dbg)?;
         let send_dev_modifier = on_drop(|| {
-            dbg.borrow_mut().dev_modifier = Some(dev_bo.dmabuf().modifier);
+            dbg.borrow_mut().dev_modifier = Some(dev_bo.modifier);
         });
         let dev_copy = dev_copy_dev
-            .create_copy(&render.bo.dmabuf(), &dev_bo.dmabuf())
+            .create_copy(&render.bo, &dev_bo)
             .map_err(ScanoutBufferErrorKind::SodCreateCopyFromRender)?;
         send_dev_modifier.forget();
         send_render_modifier.forget();
@@ -1385,17 +1384,17 @@ impl Builder<'_> {
             .map_err(ScanoutBufferErrorKind::RenderCreateCopyBuffer)?;
         let render = self.create_render_buffer_render(render_allocation_settings, dbg)?;
         let send_render_modifier = on_drop(|| {
-            dbg.borrow_mut().render_modifier = Some(render.bo.dmabuf().modifier);
+            dbg.borrow_mut().render_modifier = Some(render.bo.modifier);
         });
         let (dev_bo, drm) = self.create_dev_bo(dev_allocation_settings, dbg)?;
         let send_dev_modifier = on_drop(|| {
-            dbg.borrow_mut().dev_modifier = Some(dev_bo.dmabuf().modifier);
+            dbg.borrow_mut().dev_modifier = Some(dev_bo.modifier);
         });
         let render_copy = render_copy_dev
-            .create_copy(render.bo.dmabuf(), render_secondary_bo.dmabuf())
+            .create_copy(&render.bo, render_secondary_bo.dmabuf())
             .map_err(ScanoutBufferErrorKind::RenderCreateCopyToSecondary)?;
         let dev_copy = dev_copy_dev
-            .create_copy(render_secondary_bo.dmabuf(), dev_bo.dmabuf())
+            .create_copy(render_secondary_bo.dmabuf(), &dev_bo)
             .map_err(ScanoutBufferErrorKind::SodCreateCopyFromSecondary)?;
         send_render_modifier.forget();
         send_dev_modifier.forget();
@@ -1497,17 +1496,17 @@ impl Builder<'_> {
             .map_err(ScanoutBufferErrorKind::CreateUdmabuf)?;
         let render = self.create_render_buffer_render(render_allocation_settings, dbg)?;
         let send_render_modifier = on_drop(|| {
-            dbg.borrow_mut().render_modifier = Some(render.bo.dmabuf().modifier);
+            dbg.borrow_mut().render_modifier = Some(render.bo.modifier);
         });
         let (dev_bo, drm) = self.create_dev_bo(dev_allocation_settings, dbg)?;
         let send_dev_modifier = on_drop(|| {
-            dbg.borrow_mut().dev_modifier = Some(dev_bo.dmabuf().modifier);
+            dbg.borrow_mut().dev_modifier = Some(dev_bo.modifier);
         });
         let render_copy = render_copy_dev
-            .create_copy(&render.bo.dmabuf(), &udmabuf)
+            .create_copy(&render.bo, &udmabuf)
             .map_err(ScanoutBufferErrorKind::RenderCreateCopyToUdmabuf)?;
         let dev_copy = dev_copy_dev
-            .create_copy(&udmabuf, &dev_bo.dmabuf())
+            .create_copy(&udmabuf, &dev_bo)
             .map_err(ScanoutBufferErrorKind::SodCreateCopyFromUdmabuf)?;
         send_render_modifier.forget();
         send_dev_modifier.forget();
