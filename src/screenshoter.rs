@@ -124,7 +124,7 @@ pub fn take_screenshot(
             state.color_manager.srgb_linear().clone(),
         )
     };
-    let buf = udmabuf.create_dmabuf(
+    let [buf] = udmabuf.create_dmabuf(
         &state.dma_buf_ids,
         extents.width(),
         extents.height(),

@@ -1443,7 +1443,7 @@ impl Builder<'_> {
             height,
             ..
         } = *self;
-        let udmabuf = udmabuf
+        let [render_udmabuf, dev_udmabuf] = udmabuf
             .create_dmabuf(&self.slf.state.dma_buf_ids, width, height, format)
             .map_err(ScanoutBufferErrorKind::CreateUdmabuf)?;
         let render = self.create_render_buffer_render(render_allocation_settings, dbg)?;
@@ -1455,10 +1455,10 @@ impl Builder<'_> {
             dbg.borrow_mut().dev_modifier = Some(dev_bo.modifier);
         });
         let render_copy = render_copy_dev
-            .create_copy(&render.bo, &udmabuf)
+            .create_copy(&render.bo, &render_udmabuf)
             .map_err(ScanoutBufferErrorKind::RenderCreateCopyToUdmabuf)?;
         let dev_copy = dev_copy_dev
-            .create_copy(&udmabuf, &dev_bo)
+            .create_copy(&dev_udmabuf, &dev_bo)
             .map_err(ScanoutBufferErrorKind::SodCreateCopyFromUdmabuf)?;
         send_render_modifier.forget();
         send_dev_modifier.forget();

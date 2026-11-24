@@ -42,6 +42,7 @@ use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmabufCopy;
 use arrayvec::ArrayVec;
 use jay_algorithms::oserror::OsError;
+use jay_proc::jay_clone;
 use linearize::StaticMap;
 use smallvec::SmallVec;
 use std::cell::Cell;
@@ -79,7 +80,7 @@ pub struct SurfacePrimeState {
     pub buffer: CloneCell<Option<Rc<PrimeSurfaceBuffer>>>,
     inner: Rc<StateInner>,
     damage: Rc<DynamicDamageQueue>,
-    udmabuf: CloneCell<Option<Rc<DmaBuf>>>,
+    udmabuf: CloneCell<Option<PrimeUdmabuf>>,
     udmabuf_src_object: CloneCell<Option<Rc<CopyDeviceSrcObject>>>,
     udmabuf_dst_objects: CopyHashMap<DrmDeviceId, Rc<CopyDeviceDstObject>>,
 }
@@ -105,7 +106,7 @@ struct PrimeStorage {
     damage: DynamicDamageQueueElement,
     tex: CloneCell<Option<Rc<dyn GfxTexture>>>,
 
-    udmabuf: CloneCell<Option<Rc<DmaBuf>>>,
+    udmabuf: CloneCell<Option<PrimeUdmabuf>>,
     udmabuf_objects: CopyHashMap<DrmDeviceId, Rc<CopyDeviceDstObject>>,
 
     bo: CloneCell<Option<Rc<DmaBuf>>>,
@@ -120,6 +121,12 @@ struct PrimeStorage {
 pub struct PrimeValidity {
     version: u64,
     inner: Rc<StateInner>,
+}
+
+#[jay_clone]
+struct PrimeUdmabuf {
+    client: Rc<DmaBuf>,
+    render: Rc<DmaBuf>,
 }
 
 pub fn no_client_prime(udmabuf: &UdmabufHolder) -> bool {
@@ -349,8 +356,10 @@ impl WlSurface {
             let Some(dev) = &udmabuf_dev else {
                 return Err(PrimeError::UdmabufNotAvailable);
             };
-            dev.create_dmabuf(&state.dma_buf_ids, buf.width, buf.height, buf.format)
-                .map_err(PrimeError::CreateUdmabuf)
+            let [client, render] = dev
+                .create_dmabuf::<2>(&state.dma_buf_ids, buf.width, buf.height, buf.format)
+                .map_err(PrimeError::CreateUdmabuf)?;
+            Ok(PrimeUdmabuf { client, render })
         };
         let client_copy_device = buf.client_copy_device();
         let mut direct_scanout_connector = self.fullscreen.get();
@@ -407,7 +416,7 @@ impl WlSurface {
                 let Some(dmabuf) = spt.udmabuf.get() else {
                     continue;
                 };
-                if incompatible(buf, &dmabuf) {
+                if incompatible(buf, &dmabuf.client) {
                     continue;
                 }
             }
@@ -492,7 +501,7 @@ impl WlSurface {
                 _ => {
                     let tex = ctx
                         .clone()
-                        .dmabuf_tex(&udmabuf)
+                        .dmabuf_tex(&udmabuf.render)
                         .map_err(PrimeError::CreateUdmabufTexture)?;
                     spt.tex.set(Some(tex.clone()));
                     tex
@@ -507,7 +516,7 @@ impl WlSurface {
                     Some(obj) => obj,
                     None => {
                         let obj = client_dev
-                            .create_dst_object(&udmabuf)
+                            .create_dst_object(&udmabuf.client)
                             .map(Rc::new)
                             .map_err(PrimeError::ImportUdmabufDst)?;
                         spt.udmabuf_objects.set(client_id, obj.clone());
@@ -520,7 +529,7 @@ impl WlSurface {
             {
                 let mut udmabuf_opt = prime.udmabuf.get();
                 if let Some(udmabuf) = &udmabuf_opt
-                    && incompatible(buf, udmabuf)
+                    && incompatible(buf, &udmabuf.client)
                 {
                     udmabuf_opt = None;
                     prime.udmabuf.take();
@@ -539,7 +548,7 @@ impl WlSurface {
                     Some(obj) => obj,
                     _ => {
                         let obj = client_dev
-                            .create_dst_object(&udmabuf)
+                            .create_dst_object(&udmabuf.client)
                             .map_err(PrimeError::ImportUdmabufDst)
                             .map(Rc::new)?;
                         prime.udmabuf_dst_objects.set(client_id, obj.clone());
@@ -550,7 +559,7 @@ impl WlSurface {
                     Some(obj) => obj,
                     None => {
                         let obj = render_dev
-                            .create_src_object(&udmabuf)
+                            .create_src_object(&udmabuf.render)
                             .map_err(PrimeError::ImportUdmabufSrc)
                             .map(Rc::new)?;
                         prime.udmabuf_src_object.set(Some(obj.clone()));

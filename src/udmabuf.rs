@@ -2,10 +2,12 @@ use crate::format::Format;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::once::Once;
+use crate::video::LINEAR_MODIFIER;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
 use crate::video::dmabuf::DmaBufPlane;
 use crate::video::dmabuf::PlaneVec;
+use arrayvec::ArrayVec;
 use dmabuf_allocator::udmabuf;
 use dmabuf_allocator::udmabuf::Memfd;
 use jay_algorithms::oserror::OsError;
@@ -82,37 +84,34 @@ impl Udmabuf {
             .map_err(UdmabufError::CreateUdmabuf)
     }
 
-    pub fn create_dmabuf(
+    pub fn create_dmabuf<const N: usize>(
         &self,
         dma_buf_ids: &DmaBufIds,
         width: i32,
         height: i32,
         format: &'static Format,
-    ) -> Result<Rc<DmaBuf>, UdmabufError> {
+    ) -> Result<[Rc<DmaBuf>; N], UdmabufError> {
         let layout = udmabuf::layout(format.da_format, width as u32, height as u32)
             .map_err(UdmabufError::ComputeLayout)?;
         let Memfd { fd, size, .. } =
             udmabuf::create_memfd(&layout).map_err(UdmabufError::CreateMemfd)?;
-        let fd = udmabuf::create_dmabuf(self.fd.raw(), fd.fd(), 0, size)
-            .map(|v| OwnedFd::new(v.unwrap()))
-            .map(Rc::new)
-            .map_err(UdmabufError::CreateUdmabuf)?;
-        let mut planes = PlaneVec::new();
-        for p in layout.planes() {
-            planes.push(DmaBufPlane {
-                offset: p.offset() as u32,
-                stride: p.stride() as u32,
-                fd: fd.clone(),
-            });
+        let mut res = ArrayVec::<_, N>::new();
+        for _ in 0..N {
+            let fd = udmabuf::create_dmabuf(self.fd.raw(), fd.fd(), 0, size)
+                .map(|v| OwnedFd::new(v.unwrap()))
+                .map(Rc::new)
+                .map_err(UdmabufError::CreateUdmabuf)?;
+            let mut planes = PlaneVec::new();
+            for p in layout.planes() {
+                planes.push(DmaBufPlane {
+                    offset: p.offset() as u32,
+                    stride: p.stride() as u32,
+                    fd: fd.clone(),
+                });
+            }
+            let dmabuf = DmaBuf::new(dma_buf_ids, width, height, format, LINEAR_MODIFIER, planes);
+            res.push(dmabuf);
         }
-        let dmabuf = DmaBuf::new(
-            dma_buf_ids,
-            width,
-            height,
-            format,
-            layout.modifier(),
-            planes,
-        );
-        Ok(dmabuf)
+        Ok(res.into_inner().unwrap())
     }
 }
