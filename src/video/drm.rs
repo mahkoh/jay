@@ -176,8 +176,6 @@ pub enum DrmError {
     TransferPoint(#[source] OsError),
     #[error("Could not merge two sync files")]
     Merge(#[source] OsError),
-    #[error("Could not export a sync file")]
-    ExportSyncFile(#[source] OsError),
     #[error("Could not create a lease")]
     CreateLease(#[source] OsError),
     #[error("Could not drop DRM master")]
@@ -255,11 +253,6 @@ impl Drm {
 
     pub fn raw(&self) -> c::c_int {
         self.fd.raw()
-    }
-
-    #[expect(unused)]
-    pub fn dup_primary(&self) -> Result<Self, DrmError> {
-        Self::reopen(self.id, self.fd.raw(), true)
     }
 
     pub fn dup_render(&self) -> Result<Self, DrmError> {

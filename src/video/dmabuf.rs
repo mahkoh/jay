@@ -5,7 +5,6 @@ use crate::copy_device::CopyDeviceError;
 use crate::copy_device::CopyDeviceSrcObject;
 use crate::format::Format;
 use crate::gfx_api::FdSync;
-use crate::gfx_api::SyncFile;
 use crate::io_uring::IoUring;
 use crate::io_uring::IoUringError;
 use crate::io_uring::PendingPoll;
@@ -21,8 +20,6 @@ use crate::utils::ptr_ext::MutPtrExt;
 use crate::video::INVALID_MODIFIER;
 use crate::video::LINEAR_MODIFIER;
 use crate::video::Modifier;
-use crate::video::drm::DrmError;
-use crate::video::drm::syncobj::merge_sync_files;
 use arrayvec::ArrayVec;
 use bstr::ByteSlice;
 use jay_algorithms::oserror::OsError;
@@ -164,23 +161,6 @@ impl DmaBuf {
             }
         }
         Ok(())
-    }
-
-    #[expect(unused)]
-    pub fn export_sync_file(&self, flags: u32) -> Result<Option<SyncFile>, DrmError> {
-        let mut sf = PlaneVec::new();
-        for plane in &self.planes {
-            sf.push(
-                dma_buf_export_sync_file(&plane.fd, flags)
-                    .map(Rc::new)
-                    .map(SyncFile)
-                    .map_err(DrmError::ExportSyncFile)?,
-            );
-            if self.is_one_file() {
-                break;
-            }
-        }
-        merge_sync_files(sf.iter())
     }
 
     pub fn interop_modifier(
