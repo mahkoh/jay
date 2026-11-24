@@ -55,7 +55,7 @@ impl WpDrmLeaseDeviceV1Global {
         client.add_client_obj(&obj);
         if let Some(dev) = client.state.drm_devs.get(&self.device) {
             if let Some(node) = &dev.devnode {
-                match reopen_card(node) {
+                match reopen_card(dev.id, node) {
                     Ok(f) => obj.send_drm_fd(&f),
                     Err(e) => {
                         log::error!("Could not open master device: {}", ErrorFmt(e));
@@ -194,10 +194,10 @@ enum ReopenError {
     DropMaster(#[source] DrmError),
 }
 
-fn reopen_card(devnode: &str) -> Result<Rc<OwnedFd>, ReopenError> {
+fn reopen_card(id: DrmDeviceId, devnode: &str) -> Result<Rc<OwnedFd>, ReopenError> {
     let fd = uapi::open(devnode, c::O_RDWR | c::O_CLOEXEC, 0).map_os_err(ReopenError::OpenNode)?;
     let fd = Rc::new(fd);
-    let drm = Drm::open_existing(fd.clone()).map_err(ReopenError::CreateDrm)?;
+    let drm = Drm::open_existing(id, fd.clone()).map_err(ReopenError::CreateDrm)?;
     if drm.is_master() {
         drm.drop_master().map_err(ReopenError::DropMaster)?;
     }

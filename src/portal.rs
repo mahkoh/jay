@@ -7,6 +7,7 @@ mod ptl_session;
 mod ptl_text;
 
 use crate::async_engine::AsyncEngine;
+use crate::backend::DrmDeviceIds;
 use crate::cli::GlobalArgs;
 use crate::cmm::cmm_manager::ColorManager;
 use crate::compositor::LogLevel;
@@ -262,6 +263,7 @@ async fn run_async(
         dma_buf_ids: Default::default(),
         pw_con: pw_con.as_ref().map(|c| c.con.clone()),
         color_manager: ColorManager::new(),
+        drm_dev_ids: Default::default(),
     });
     if let Some(pw_con) = &pw_con {
         pw_con.con.owner.set(Some(state.clone()));
@@ -342,6 +344,7 @@ struct PortalState {
     dma_buf_ids: Rc<DmaBufIds>,
     pw_con: Option<Rc<PwCon>>,
     color_manager: Rc<ColorManager>,
+    drm_dev_ids: DrmDeviceIds,
 }
 
 impl PortalState {

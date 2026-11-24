@@ -1,5 +1,4 @@
 use crate::allocator::BufferObject;
-use crate::backend::DrmDeviceId;
 use crate::env::JAY_NO_DESCRIPTOR_HEAP;
 use crate::eventfd_cache::EventfdCache;
 use crate::format::XRGB8888;
@@ -94,7 +93,6 @@ use uapi::c::O_RDWR;
 use vk::QueueFamilyGlobalPriorityPropertiesKHR;
 
 pub struct VulkanDevice {
-    pub(super) drm_device_id: Option<DrmDeviceId>,
     pub(super) physical_device: PhysicalDevice,
     pub(super) render_node: Rc<CString>,
     pub(super) gbm: Rc<GbmDevice>,
@@ -407,7 +405,6 @@ impl VulkanInstance {
 
     pub fn create_device(
         self: &Rc<Self>,
-        drm_device_id: Option<DrmDeviceId>,
         drm: &Drm,
         eventfd_cache: &Rc<EventfdCache>,
         mut high_priority: bool,
@@ -688,7 +685,6 @@ impl VulkanInstance {
             });
         }
         Ok(Rc::new(VulkanDevice {
-            drm_device_id,
             physical_device: phy_dev,
             render_node,
             sync_ctx: Rc::new(SyncobjCtx::new(gbm.drm.fd())),

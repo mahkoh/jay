@@ -232,7 +232,6 @@ pub fn create_graphics_context(
     eng: &Rc<AsyncEngine>,
     ring: &Rc<IoUring>,
     eventfd_cache: &Rc<EventfdCache>,
-    drm_device_id: Option<DrmDeviceId>,
     drm: &Drm,
     caps_thread: Option<&PrCapsThread>,
     software: bool,
@@ -240,16 +239,14 @@ pub fn create_graphics_context(
     let instance = VulkanInstance::new(Level::Info)?;
     let device = 'device: {
         if let Some(t) = caps_thread {
-            match unsafe {
-                t.run(|| instance.create_device(drm_device_id, drm, eventfd_cache, true, software))
-            } {
+            match unsafe { t.run(|| instance.create_device(drm, eventfd_cache, true, software)) } {
                 Ok(d) => break 'device d,
                 Err(e) => {
                     log::warn!("Could not create high-priority device: {}", ErrorFmt(e));
                 }
             }
         }
-        instance.create_device(drm_device_id, drm, eventfd_cache, false, software)?
+        instance.create_device(drm, eventfd_cache, false, software)?
     };
     let renderer = device.create_renderer(eng, ring)?;
     Ok(Rc::new(Context(renderer)))
@@ -264,7 +261,7 @@ impl GfxContext for Context {
     }
 
     fn drm_device_id(&self) -> Option<DrmDeviceId> {
-        self.0.device.drm_device_id
+        Some(self.0.device.gbm.drm.id())
     }
 
     fn render_node(&self) -> Option<Rc<CString>> {

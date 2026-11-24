@@ -254,14 +254,13 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
             })
             .await;
         match res {
-            Ok(r) => Drm::reopen(r.get().device_fd.raw(), false)?,
+            Ok(r) => Drm::reopen(state.drm_dev_ids.next(), r.get().device_fd.raw(), false)?,
             Err(e) => return Err(XBackendError::DriOpen(e)),
         }
     };
     let drm_dev = drm.dev();
     let gbm = GbmDevice::new(&drm)?;
-    let drm_device_id = state.drm_dev_ids.next();
-    let ctx = match state.create_gfx_context(drm_device_id, &drm, None) {
+    let ctx = match state.create_gfx_context(&drm, None) {
         Ok(r) => r,
         Err(e) => return Err(XBackendError::CreateEgl(e)),
     };
@@ -320,7 +319,6 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
         root,
         scheduled_present: Default::default(),
         grab_requests: Default::default(),
-        drm_device_id,
         drm_dev,
         liveness: Default::default(),
     });
@@ -356,7 +354,6 @@ pub struct XBackend {
     root: u32,
     scheduled_present: AsyncQueue<Rc<XOutput>>,
     grab_requests: AsyncQueue<(Rc<XSeat>, bool)>,
-    drm_device_id: DrmDeviceId,
     drm_dev: dev_t,
     liveness: Liveness,
 }
@@ -384,7 +381,7 @@ impl XBackend {
             .backend_events
             .push(BackendEvent::NewDrmDevice(Rc::new(XDrmDevice {
                 backend: self.clone(),
-                id: self.drm_device_id,
+                id: self.gbm.drm.id(),
                 dev: self.drm_dev,
             })));
         for output in self.outputs.lock().values() {
@@ -1181,7 +1178,7 @@ impl Connector for XOutput {
     }
 
     fn drm_dev(&self) -> Option<DrmDeviceId> {
-        Some(self.backend.drm_device_id)
+        Some(self.backend.gbm.drm.id())
     }
 
     fn effectively_locked(&self) -> bool {

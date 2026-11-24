@@ -816,7 +816,6 @@ impl DrmDevData {
 impl State {
     pub fn create_gfx_context(
         &self,
-        drm_device_id: DrmDeviceId,
         drm: &Drm,
         api: Option<GfxApi>,
     ) -> Result<Rc<dyn GfxContext>, GfxError> {
@@ -824,7 +823,6 @@ impl State {
             &self.eng,
             &self.ring,
             &self.eventfd_cache,
-            Some(drm_device_id),
             drm,
             api.unwrap_or(self.default_gfx_api.get()),
             self.caps_thread.as_ref(),

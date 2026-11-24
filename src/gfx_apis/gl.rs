@@ -21,7 +21,6 @@ macro_rules! egl_transparent {
 }
 
 use crate::allocator::AllocatorError;
-use crate::backend::DrmDeviceId;
 use crate::cmm::cmm_eotf::Eotf;
 use crate::gfx_api::AcquireSync;
 use crate::gfx_api::CopyTexture;
@@ -84,14 +83,13 @@ static INIT: LazyLock<Result<(), Arc<RenderError>>> =
     LazyLock::new(|| egl::init().map_err(Arc::new));
 
 pub(super) fn create_gfx_context(
-    drm_device_id: Option<DrmDeviceId>,
     drm: &Drm,
     software: bool,
 ) -> Result<Rc<dyn GfxContext>, GfxError> {
     if let Err(e) = &*INIT {
         return Err(GfxError(Box::new(e.clone())));
     }
-    GlRenderContext::from_drm_device(drm_device_id, drm, software)
+    GlRenderContext::from_drm_device(drm, software)
         .map(|v| Rc::new(v) as Rc<dyn GfxContext>)
         .map_err(|e| e.into())
 }

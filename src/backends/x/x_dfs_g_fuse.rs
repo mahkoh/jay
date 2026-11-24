@@ -82,7 +82,7 @@ impl backend::Dir for XBackend {
     type ViewSeats = CopyHashMapDir<Seats>;
 
     fn read_render_device(&self, buf: &mut String, ctx: &StrCtx<'_>) {
-        self.drm_device_id.raw().str_fmt(buf, ctx);
+        self.gbm.drm.id().raw().str_fmt(buf, ctx);
     }
 
     fn read_drm_dev(&self, buf: &mut String, ctx: &StrCtx<'_>) {

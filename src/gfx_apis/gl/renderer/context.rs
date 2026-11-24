@@ -117,7 +117,6 @@ impl GlRenderContext {
     }
 
     pub(in crate::gfx_apis::gl) fn from_drm_device(
-        drm_device_id: Option<DrmDeviceId>,
         drm: &Drm,
         software: bool,
     ) -> Result<Self, RenderError> {
@@ -125,7 +124,7 @@ impl GlRenderContext {
             .get_render_node()?
             .ok_or(RenderError::NoRenderNode)
             .map(Rc::new)?;
-        let dpy = EglDisplay::create(drm_device_id, drm, software)?;
+        let dpy = EglDisplay::create(drm, software)?;
         if !dpy.formats.contains_key(&XRGB8888.drm) {
             return Err(RenderError::XRGB888);
         }
@@ -274,7 +273,7 @@ impl GfxContext for GlRenderContext {
     }
 
     fn drm_device_id(&self) -> Option<DrmDeviceId> {
-        self.ctx.dpy.drm_device_id
+        Some(self.ctx.dpy.gbm.drm.id())
     }
 
     fn render_node(&self) -> Option<Rc<CString>> {

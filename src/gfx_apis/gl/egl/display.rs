@@ -1,4 +1,3 @@
-use crate::backend::DrmDeviceId;
 use crate::format::Format;
 use crate::format::formats;
 use crate::gfx_api::GfxFormat;
@@ -99,7 +98,6 @@ pub struct EglModifier {
 
 #[derive(Debug)]
 pub struct EglDisplay {
-    pub drm_device_id: Option<DrmDeviceId>,
     pub egl: &'static Egl,
     pub gles: &'static GlesV2,
     pub procs: &'static ExtProc,
@@ -119,7 +117,6 @@ struct EglDisplayHolder {
 
 impl EglDisplay {
     pub(in crate::gfx_apis::gl) fn create(
-        drm_device_id: Option<DrmDeviceId>,
         drm: &Drm,
         software: bool,
     ) -> Result<Rc<Self>, RenderError> {
@@ -139,7 +136,6 @@ impl EglDisplay {
             };
             let holder = get_or_create_display(egl, procs, drm, software)?;
             let mut dpy = EglDisplay {
-                drm_device_id,
                 egl,
                 gles,
                 procs,
