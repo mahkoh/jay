@@ -39,6 +39,7 @@ pub struct FormatShmInfo {
 pub struct Format {
     pub name: &'static str,
     pub vk_format: vk::Format,
+    pub da_format: dmabuf_allocator::Format,
     pub drm: u32,
     pub wl_id: Option<u32>,
     pub external_only_guess: bool,
@@ -54,6 +55,7 @@ const fn default(cc: &[u8; 4], config: ConfigFormat) -> Format {
     Format {
         name: "",
         vk_format: vk::Format::UNDEFINED,
+        da_format: dmabuf_allocator::get_format(cc).unwrap(),
         drm: u32::from_le_bytes(*cc),
         wl_id: None,
         external_only_guess: false,

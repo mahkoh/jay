@@ -5,29 +5,23 @@ use crate::allocator::BufferUsage;
 use crate::format::Format;
 use crate::gfx_api::SyncFile;
 use crate::utils::clonecell::CloneCell;
-use crate::utils::compat::IoctlNumber;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::once::Once;
-use crate::utils::page_size::page_size;
 use crate::video::LINEAR_MODIFIER;
-use crate::video::LINEAR_STRIDE_ALIGN;
 use crate::video::Modifier;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
 use crate::video::dmabuf::DmaBufPlane;
 use crate::video::dmabuf::PlaneVec;
+use dmabuf_allocator::udmabuf;
+use dmabuf_allocator::udmabuf::Memfd;
 use jay_algorithms::oserror::OsError;
 use jay_algorithms::oserror::OsErrorExt2;
 use std::rc::Rc;
 use thiserror::Error;
-use uapi::_IOW;
 use uapi::OwnedFd;
 use uapi::c;
-use uapi::c::F_SEAL_SHRINK;
-use uapi::c::MFD_ALLOW_SEALING;
 use uapi::c::O_RDONLY;
-use uapi::c::ioctl;
-use uapi::map_err;
 use uapi::open;
 
 #[derive(Debug, Error)]
@@ -36,16 +30,12 @@ pub enum UdmabufError {
     Open(#[source] OsError),
     #[error("Only the linear modifier can be allocated")]
     Modifier,
-    #[error("Could not create a memfd")]
-    Memfd(#[source] OsError),
-    #[error("Size calculation overflowed")]
-    Overflow,
-    #[error("Could not resize the memfd")]
-    Truncate(#[source] OsError),
-    #[error("Could not seal the memfd")]
-    Seal(#[source] OsError),
     #[error("Could not create a dmabuf")]
-    CreateDmabuf(#[source] OsError),
+    CreateUdmabuf(#[source] dmabuf_allocator::Error),
+    #[error("Could not compute the udmabuf layout")]
+    ComputeLayout(#[source] dmabuf_allocator::Error),
+    #[error("Could not create a memfd")]
+    CreateMemfd(#[source] dmabuf_allocator::Error),
 }
 
 #[derive(Default)]
@@ -80,7 +70,7 @@ impl UdmabufHolder {
 }
 
 pub struct Udmabuf {
-    fd: OwnedFd,
+    pub fd: OwnedFd,
 }
 
 impl Udmabuf {
@@ -95,17 +85,10 @@ impl Udmabuf {
         offset: usize,
         size: usize,
     ) -> Result<OwnedFd, UdmabufError> {
-        let mut cmd = udmabuf_create {
-            memfd: memfd.raw() as u32,
-            flags: UDMABUF_FLAGS_CLOEXEC,
-            offset: offset as u64,
-            size: size as u64,
-        };
-        let dmabuf = unsafe { ioctl(self.fd.raw(), UDMABUF_CREATE, &mut cmd) };
-        let dmabuf = map_err!(dmabuf)
+        udmabuf::create_dmabuf(self.fd.raw(), memfd.raw(), offset as _, size as _)
+            .map(|v| v.unwrap())
             .map(OwnedFd::new)
-            .map_os_err(UdmabufError::CreateDmabuf)?;
-        Ok(dmabuf)
+            .map_err(UdmabufError::CreateUdmabuf)
     }
 
     pub fn create_dmabuf(
@@ -115,44 +98,31 @@ impl Udmabuf {
         height: i32,
         format: &'static Format,
     ) -> Result<Rc<DmaBuf>, UdmabufError> {
-        Ok(self.create_bo(dma_buf_ids, width, height, format)?.buf)
-    }
-
-    fn create_bo(
-        &self,
-        dma_buf_ids: &DmaBufIds,
-        width: i32,
-        height: i32,
-        format: &'static Format,
-    ) -> Result<UdmabufBo, UdmabufError> {
-        let height = height as u64;
-        let width = width as u64;
-        if height > 1 << 16 || width > 1 << 16 {
-            return Err(UdmabufError::Overflow);
-        }
-        let stride = (width * format.bpp as u64).next_multiple_of(LINEAR_STRIDE_ALIGN);
-        let size_mask = page_size() as u64 - 1;
-        let size = (height * stride + size_mask) & !size_mask;
-        let memfd =
-            uapi::memfd_create("udmabuf", MFD_ALLOW_SEALING).map_os_err(UdmabufError::Memfd)?;
-        uapi::ftruncate(memfd.raw(), size as _).map_os_err(UdmabufError::Truncate)?;
-        uapi::fcntl_add_seals(memfd.raw(), F_SEAL_SHRINK).map_os_err(UdmabufError::Seal)?;
-        let dmabuf = self.create_dmabuf_from_memfd(&memfd, 0, size as _)?;
+        let layout = udmabuf::layout(format.da_format, width as u32, height as u32)
+            .map_err(UdmabufError::ComputeLayout)?;
+        let Memfd { fd, size, .. } =
+            udmabuf::create_memfd(&layout).map_err(UdmabufError::CreateMemfd)?;
+        let fd = udmabuf::create_dmabuf(self.fd.raw(), fd.fd(), 0, size)
+            .map(|v| OwnedFd::new(v.unwrap()))
+            .map(Rc::new)
+            .map_err(UdmabufError::CreateUdmabuf)?;
         let mut planes = PlaneVec::new();
-        planes.push(DmaBufPlane {
-            offset: 0,
-            stride: stride as _,
-            fd: Rc::new(dmabuf),
-        });
+        for p in layout.planes() {
+            planes.push(DmaBufPlane {
+                offset: p.offset() as u32,
+                stride: p.stride() as u32,
+                fd: fd.clone(),
+            });
+        }
         let dmabuf = DmaBuf::new(
             dma_buf_ids,
-            width as _,
-            height as _,
+            width,
+            height,
             format,
-            LINEAR_MODIFIER,
+            layout.modifier(),
             planes,
         );
-        Ok(UdmabufBo { buf: dmabuf })
+        Ok(dmabuf)
     }
 }
 
@@ -169,12 +139,8 @@ impl Allocator for Udmabuf {
         if !modifiers.contains(&LINEAR_MODIFIER) {
             return Err(UdmabufError::Modifier.into());
         }
-        Ok(Rc::new(self.create_bo(
-            dma_buf_ids,
-            width,
-            height,
-            format,
-        )?))
+        let buf = self.create_dmabuf(dma_buf_ids, width, height, format)?;
+        Ok(Rc::new(UdmabufBo { buf }))
     }
 }
 
@@ -197,16 +163,3 @@ impl From<UdmabufError> for AllocatorError {
         Self(Box::new(value))
     }
 }
-
-#[repr(C)]
-#[derive(Debug)]
-struct udmabuf_create {
-    memfd: u32,
-    flags: u32,
-    offset: u64,
-    size: u64,
-}
-
-const UDMABUF_FLAGS_CLOEXEC: u32 = 0x01;
-
-const UDMABUF_CREATE: IoctlNumber = _IOW::<udmabuf_create>(b'u' as u64, 0x42) as IoctlNumber;

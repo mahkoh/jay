@@ -16,4 +16,6 @@ crates = [
     "dlopen-note",
     "kbvm",
     "kbvm-proc",
+    "dmabuf-allocator",
+    "dmabuf-allocator-impl",
 ]
