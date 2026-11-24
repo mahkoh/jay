@@ -3,7 +3,6 @@ use crate::gfx_api::SyncFile;
 use crate::video::Modifier;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
-use crate::video::drm::Drm;
 use std::error::Error;
 use std::rc::Rc;
 use thiserror::Error;
@@ -23,7 +22,6 @@ bitflags! {
 }
 
 pub trait Allocator {
-    fn drm(&self) -> Option<&Drm>;
     fn create_bo(
         &self,
         dma_buf_ids: &DmaBufIds,

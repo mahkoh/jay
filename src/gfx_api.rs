@@ -1,5 +1,4 @@
 use crate::allocator::Allocator;
-use crate::backend::DrmDeviceId;
 use crate::cmm::cmm_description::ColorDescription;
 use crate::cmm::cmm_description::LinearColorDescription;
 use crate::cmm::cmm_render_intent::RenderIntent;
@@ -38,6 +37,7 @@ use crate::utils::static_text::StaticText;
 use crate::video::Modifier;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
+use crate::video::drm::Drm;
 use crate::video::drm::syncobj::Syncobj;
 use crate::video::drm::syncobj::SyncobjPoint;
 use jay_algorithms::oserror::OsErrorExt;
@@ -1000,7 +1000,6 @@ pub trait AsyncShmGfxTexture: GfxTexture {
 
 pub trait GfxContext: Debug {
     fn reset_status(&self) -> Option<ResetStatus>;
-    fn drm_device_id(&self) -> Option<DrmDeviceId>;
 
     fn render_node(&self) -> Option<Rc<CString>>;
 
@@ -1031,6 +1030,8 @@ pub trait GfxContext: Debug {
         stride: i32,
         cpu_worker: &Rc<CpuWorker>,
     ) -> Result<Rc<dyn AsyncShmGfxTexture>, GfxError>;
+
+    fn drm(&self) -> Option<&Drm>;
 
     fn allocator(&self) -> Rc<dyn Allocator>;
 

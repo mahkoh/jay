@@ -2404,7 +2404,7 @@ impl State {
 
     pub fn update_render_device(&self, render_ctx_changed: bool) {
         let ctx = self.render_ctx.get();
-        let id = ctx.as_ref().and_then(|c| c.drm_device_id());
+        let id = ctx.as_ref().and_then(|c| c.drm().map(|d| d.id()));
         let drm_dev = id.and_then(|id| self.drm_devs.get(&id));
         if !render_ctx_changed && drm_dev.id() == self.render_ctx_drm_device.id() {
             return;

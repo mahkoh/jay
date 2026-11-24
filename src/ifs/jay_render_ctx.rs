@@ -56,8 +56,7 @@ impl JayRenderCtx {
                     }
                 }
             }
-            let allocator = ctx.allocator();
-            match allocator.drm() {
+            match ctx.drm() {
                 Some(drm) => match drm.dup_render() {
                     Ok(d) => fd = Some(d.fd().clone()),
                     Err(e) => {
@@ -65,7 +64,7 @@ impl JayRenderCtx {
                     }
                 },
                 None => {
-                    log::error!("Allocator does not have a DRM device");
+                    log::error!("Context does not have a DRM device");
                 }
             }
         }

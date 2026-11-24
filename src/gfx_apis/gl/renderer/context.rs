@@ -2,7 +2,6 @@ use crate::allocator::Allocator;
 use crate::allocator::BO_USE_RENDERING;
 use crate::allocator::BufferObject;
 use crate::allocator::BufferUsage;
-use crate::backend::DrmDeviceId;
 use crate::cpu_worker::CpuWorker;
 use crate::format::Format;
 use crate::format::XRGB8888;
@@ -272,10 +271,6 @@ impl GfxContext for GlRenderContext {
         self.reset_status()
     }
 
-    fn drm_device_id(&self) -> Option<DrmDeviceId> {
-        Some(self.ctx.dpy.gbm.drm.id())
-    }
-
     fn render_node(&self) -> Option<Rc<CString>> {
         Some(self.render_node())
     }
@@ -347,6 +342,10 @@ impl GfxContext for GlRenderContext {
             ctx: self,
             format,
         }))
+    }
+
+    fn drm(&self) -> Option<&Drm> {
+        Some(&self.gbm.drm)
     }
 
     fn allocator(&self) -> Rc<dyn Allocator> {

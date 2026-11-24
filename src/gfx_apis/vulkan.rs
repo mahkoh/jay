@@ -23,7 +23,6 @@ mod transfer;
 
 use crate::allocator::Allocator;
 use crate::async_engine::AsyncEngine;
-use crate::backend::DrmDeviceId;
 use crate::cpu_worker::CpuWorker;
 use crate::cpu_worker::jobs::read_write::ReadWriteJobError;
 use crate::eventfd_cache::EventfdCache;
@@ -260,10 +259,6 @@ impl GfxContext for Context {
         self.0.device.lost.get().then_some(ResetStatus::Unknown)
     }
 
-    fn drm_device_id(&self) -> Option<DrmDeviceId> {
-        Some(self.0.device.gbm.drm.id())
-    }
-
     fn render_node(&self) -> Option<Rc<CString>> {
         Some(self.0.device.render_node.clone())
     }
@@ -343,6 +338,10 @@ impl GfxContext for Context {
             Some(cpu_worker),
         )?;
         Ok(tex)
+    }
+
+    fn drm(&self) -> Option<&Drm> {
+        Some(&self.0.device.gbm.drm)
     }
 
     fn allocator(&self) -> Rc<dyn Allocator> {

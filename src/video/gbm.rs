@@ -250,10 +250,6 @@ impl GbmDevice {
 }
 
 impl Allocator for GbmDevice {
-    fn drm(&self) -> Option<&Drm> {
-        Some(&self.drm)
-    }
-
     fn create_bo(
         &self,
         dma_buf_ids: &DmaBufIds,

@@ -16,7 +16,6 @@ use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
 use crate::video::dmabuf::DmaBufPlane;
 use crate::video::dmabuf::PlaneVec;
-use crate::video::drm::Drm;
 use jay_algorithms::oserror::OsError;
 use jay_algorithms::oserror::OsErrorExt2;
 use std::rc::Rc;
@@ -158,10 +157,6 @@ impl Udmabuf {
 }
 
 impl Allocator for Udmabuf {
-    fn drm(&self) -> Option<&Drm> {
-        None
-    }
-
     fn create_bo(
         &self,
         dma_buf_ids: &DmaBufIds,
