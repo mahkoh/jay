@@ -10,6 +10,7 @@ use crate::io_uring::IoUringError;
 use crate::utils::bhash::BHashMap;
 use crate::utils::buf::Buf;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::fx_hash::FHashSet;
 use crate::utils::obj_and_id::ObjWithId;
 use crate::utils::ordered_float::F64;
 use crate::utils::reset::Reset;
@@ -70,7 +71,6 @@ use crate::video::drm::sys::set_client_cap;
 use bstr::BString;
 use bstr::ByteSlice;
 pub use consts::*;
-use indexmap::IndexSet;
 use jay_algorithms::oserror::OsError;
 use jay_algorithms::oserror::OsErrorExt2;
 use jay_proc::Pod;
@@ -285,7 +285,7 @@ impl Drm {
 
 pub struct InFormat {
     pub format: u32,
-    pub modifiers: IndexSet<Modifier>,
+    pub modifiers: FHashSet<Modifier>,
 }
 
 pub struct DrmMaster {
@@ -563,7 +563,7 @@ impl DrmMaster {
             .unwrap()
             .map(|f| InFormat {
                 format: f,
-                modifiers: IndexSet::new(),
+                modifiers: FHashSet::default(),
             })
             .collect();
         let modifiers =

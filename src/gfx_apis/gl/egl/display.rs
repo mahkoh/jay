@@ -72,13 +72,13 @@ use crate::gfx_apis::gl::sys::GLESV2;
 use crate::gfx_apis::gl::sys::GlesV2;
 use crate::utils::bhash::BHashMap;
 use crate::utils::copyhashmap::CopyHashMap;
+use crate::utils::fx_hash::FHashMap;
+use crate::utils::fx_hash::FHashSet;
 use crate::video::INVALID_MODIFIER;
 use crate::video::Modifier;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::drm::Drm;
 use crate::video::gbm::GbmDevice;
-use indexmap::IndexMap;
-use indexmap::IndexSet;
 use std::ffi::CStr;
 use std::ptr;
 use std::rc::Rc;
@@ -88,7 +88,7 @@ use std::rc::Weak;
 pub struct EglFormat {
     format: &'static Format,
     implicit_external_only: bool,
-    modifiers: IndexMap<u64, EglModifier>,
+    modifiers: FHashMap<u64, EglModifier>,
 }
 
 #[derive(Debug)]
@@ -218,8 +218,8 @@ impl EglDisplay {
                 if format.implicit_external_only && !supports_external_only {
                     continue;
                 }
-                let mut read_modifiers = IndexSet::new();
-                let mut write_modifiers = IndexMap::new();
+                let mut read_modifiers = FHashSet::default();
+                let mut write_modifiers = FHashMap::default();
                 for modifier in format.modifiers.values() {
                     if modifier.external_only && !supports_external_only {
                         continue;
@@ -383,7 +383,7 @@ unsafe fn query_modifiers(
     dpy: EGLDisplay,
     gl_format: EGLint,
     format: &'static Format,
-) -> Result<(IndexMap<Modifier, EglModifier>, bool), RenderError> {
+) -> Result<(FHashMap<Modifier, EglModifier>, bool), RenderError> {
     let mut mods = vec![];
     let mut ext_only = vec![];
     let mut num = 0;
@@ -419,7 +419,7 @@ unsafe fn query_modifiers(
         mods.set_len(num as usize);
         ext_only.set_len(num as usize);
     }
-    let mut res = IndexMap::new();
+    let mut res = FHashMap::default();
     for (modifier, ext_only) in mods.iter().copied().zip(ext_only.iter().copied()) {
         res.insert(
             modifier as _,

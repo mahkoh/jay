@@ -78,6 +78,7 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
+use crate::utils::fx_hash::FHashSet;
 use crate::utils::geometric_decay::GeometricDecay;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::liveness::Liveness;
@@ -121,8 +122,6 @@ use crate::video::gbm::GbmDevice;
 use bstr::BString;
 use bstr::ByteSlice;
 use hashbrown::hash_map::Entry;
-use indexmap::IndexSet;
-use indexmap::indexset;
 use jay_algorithms::oserror::OsError;
 use jay_proc::GetLiveness;
 use jay_proc::jay_clone;
@@ -1068,7 +1067,7 @@ impl StaticText for PlaneType {
 #[derive(Debug)]
 pub struct PlaneFormat {
     pub format: &'static Format,
-    pub modifiers: IndexSet<Modifier>,
+    pub modifiers: FHashSet<Modifier>,
 }
 
 pub type PlaneDefaultPropertyFilter = StaticCopyMap<PlaneType, bool>;
@@ -1718,11 +1717,13 @@ fn create_plane(
         for format in info.format_types {
             if let Some(f) = crate::format::formats().get(&format) {
                 scanout_formats.push((*f, INVALID_MODIFIER));
+                let mut modifiers = FHashSet::default();
+                modifiers.insert(INVALID_MODIFIER);
                 formats.insert(
                     format,
                     PlaneFormat {
                         format: f,
-                        modifiers: indexset![INVALID_MODIFIER],
+                        modifiers,
                     },
                 );
             }

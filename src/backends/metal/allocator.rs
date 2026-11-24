@@ -28,6 +28,8 @@ use crate::udmabuf::Udmabuf;
 use crate::udmabuf::UdmabufError;
 use crate::utils::bhash::BHashSet;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::fx_hash::FHashMap;
+use crate::utils::fx_hash::FHashSet;
 use crate::utils::rc_eq::rc_eq;
 use crate::video::LINEAR_MODIFIER;
 use crate::video::Modifier;
@@ -41,8 +43,6 @@ use crate::video::gbm::GbmBo;
 use crate::video::gbm::GbmError;
 use arrayvec::ArrayVec;
 use bstr::ByteSlice;
-use indexmap::IndexMap;
-use indexmap::IndexSet;
 use isnt::std_1::primitive::IsntSliceExt;
 use linearize::Linearize;
 use linearize::LinearizeExt;
@@ -365,7 +365,7 @@ struct Builder<'a> {
     dev_ctx: &'a Rc<MetalRenderContext>,
     format: &'static Format,
     render_fmt: &'a GfxFormat,
-    plane_modifiers: &'a IndexSet<Modifier>,
+    plane_modifiers: &'a FHashSet<Modifier>,
     width: i32,
     height: i32,
     render_ctx: &'a Rc<MetalRenderContext>,
@@ -420,7 +420,7 @@ impl MetalBackend {
         &self,
         dev: &Rc<MetalDrmDevice>,
         format: &'static Format,
-        plane_modifiers: &IndexSet<Modifier>,
+        plane_modifiers: &FHashSet<Modifier>,
         width: i32,
         height: i32,
         render_ctx: &Rc<MetalRenderContext>,
@@ -603,7 +603,7 @@ pub struct ScanoutBufferError {
     dev: String,
     render_name: Option<String>,
     format: &'static Format,
-    plane_modifiers: IndexSet<Modifier>,
+    plane_modifiers: FHashSet<Modifier>,
     width: i32,
     height: i32,
     cursor: bool,
@@ -665,18 +665,18 @@ impl RenderBufferPrime {
 
 #[derive(Default, Debug)]
 struct RenderBufferAllocationDebug {
-    dev_copy_src_modifiers: Option<Vec<Modifier>>,
-    dev_copy_dst_modifiers: Option<Vec<Modifier>>,
-    dev_gfx_write_modifiers: Option<Vec<Modifier>>,
-    dev_gfx_read_modifiers: Option<Vec<Modifier>>,
-    dev_modifiers_possible: Option<Vec<Modifier>>,
+    dev_copy_src_modifiers: Option<FHashSet<Modifier>>,
+    dev_copy_dst_modifiers: Option<FHashSet<Modifier>>,
+    dev_gfx_write_modifiers: Option<FHashSet<Modifier>>,
+    dev_gfx_read_modifiers: Option<FHashSet<Modifier>>,
+    dev_modifiers_possible: Option<FHashSet<Modifier>>,
     dev_usage: Option<u32>,
     dev_modifier: Option<Modifier>,
-    render_copy_src_modifiers: Option<Vec<Modifier>>,
-    render_copy_dst_modifiers: Option<Vec<Modifier>>,
-    render_gfx_write_modifiers: Option<Vec<Modifier>>,
-    render_gfx_read_modifiers: Option<Vec<Modifier>>,
-    render_modifiers_possible: Option<Vec<Modifier>>,
+    render_copy_src_modifiers: Option<FHashSet<Modifier>>,
+    render_copy_dst_modifiers: Option<FHashSet<Modifier>>,
+    render_gfx_write_modifiers: Option<FHashSet<Modifier>>,
+    render_gfx_read_modifiers: Option<FHashSet<Modifier>>,
+    render_modifiers_possible: Option<FHashSet<Modifier>>,
     render_usage: Option<u32>,
     render_modifier: Option<Modifier>,
 }
@@ -787,7 +787,7 @@ fn wrap_error<T>(
 impl BoAllocationSettings {
     fn new1(
         common: &Builder<'_>,
-        modifiers: &IndexMap<Modifier, &GfxWriteModifier>,
+        modifiers: &FHashMap<Modifier, &GfxWriteModifier>,
         scanout: bool,
         rendering: bool,
         usage_out: &mut Option<u32>,
@@ -956,15 +956,15 @@ impl Builder<'_> {
             .map(move |s| s.modifier)
     }
 
-    fn copy_modifiers(&self, support: &[CopyDeviceSupport]) -> Vec<Modifier> {
+    fn copy_modifiers(&self, support: &[CopyDeviceSupport]) -> FHashSet<Modifier> {
         self.copy_modifiers_iter(support).collect()
     }
 
-    fn copy_src_modifiers(&self, dev: &CopyDevice) -> Vec<Modifier> {
+    fn copy_src_modifiers(&self, dev: &CopyDevice) -> FHashSet<Modifier> {
         self.copy_modifiers(dev.src_support(self.format))
     }
 
-    fn copy_dst_modifiers(&self, dev: &CopyDevice) -> Vec<Modifier> {
+    fn copy_dst_modifiers(&self, dev: &CopyDevice) -> FHashSet<Modifier> {
         self.copy_modifiers(dev.dst_support(self.format))
     }
 
@@ -991,7 +991,7 @@ impl Builder<'_> {
             plane_modifiers,
             ..
         } = *self;
-        let modifiers: IndexMap<_, _> = render_fmt
+        let modifiers: FHashMap<_, _> = render_fmt
             .write_modifiers
             .iter()
             .map(|(m, v)| (*m, v))
@@ -1050,7 +1050,7 @@ impl Builder<'_> {
         let Some(dev_fmt) = dev_ctx.gfx.formats().get(&format.drm) else {
             return Err(ScanoutBufferErrorKind::SodUnsupportedFormat);
         };
-        let render_modifiers_possible: IndexMap<_, _> = render_fmt
+        let render_modifiers_possible: FHashMap<_, _> = render_fmt
             .write_modifiers
             .iter()
             .filter(|(m, _)| render_fmt.read_modifiers.contains(*m))
@@ -1064,7 +1064,7 @@ impl Builder<'_> {
         if render_modifiers_possible.is_empty() {
             return Err(ScanoutBufferErrorKind::RenderWriteReadSodReadIntersection);
         }
-        let dev_modifiers_possible: IndexMap<_, _> = dev_fmt
+        let dev_modifiers_possible: FHashMap<_, _> = dev_fmt
             .write_modifiers
             .iter()
             .filter(|(m, _)| plane_modifiers.contains(*m))
@@ -1561,18 +1561,18 @@ fn prime_methods() -> PrimeMethods {
     res
 }
 
-fn sample_modifiers(fmt: &GfxFormat) -> Vec<Modifier> {
+fn sample_modifiers(fmt: &GfxFormat) -> FHashSet<Modifier> {
     fmt.read_modifiers.iter().copied().collect()
 }
 
-fn render_modifiers(fmt: &GfxFormat) -> Vec<Modifier> {
+fn render_modifiers(fmt: &GfxFormat) -> FHashSet<Modifier> {
     fmt.write_modifiers.keys().copied().collect()
 }
 
 fn intersect_modifiers<'a>(
     left: impl IntoIterator<Item = &'a Modifier>,
     right: impl IntoIterator<Item = &'a Modifier>,
-) -> Vec<Modifier> {
+) -> FHashSet<Modifier> {
     let right: BHashSet<_> = right.into_iter().copied().collect();
     left.into_iter()
         .copied()
@@ -1583,7 +1583,7 @@ fn intersect_modifiers<'a>(
 fn intersect_render_modifiers<'a>(
     left: &'a GfxFormat,
     right: impl IntoIterator<Item = &'a Modifier>,
-) -> Vec<Modifier> {
+) -> FHashSet<Modifier> {
     intersect_modifiers(
         left.write_modifiers
             .keys()
@@ -1592,8 +1592,9 @@ fn intersect_render_modifiers<'a>(
     )
 }
 
-fn make_linear_only(modifiers: &mut Vec<Modifier>) {
+fn make_linear_only(modifiers: &mut FHashSet<Modifier>) {
     if modifiers.contains(&LINEAR_MODIFIER) {
-        *modifiers = vec![LINEAR_MODIFIER];
+        modifiers.clear();
+        modifiers.insert(LINEAR_MODIFIER);
     }
 }

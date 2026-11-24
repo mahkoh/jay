@@ -36,11 +36,11 @@ use crate::theme::Color;
 use crate::udmabuf::Udmabuf;
 use crate::utils::bhash::BHashMap;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::fx_hash::FHashSet;
 use crate::video::LINEAR_MODIFIER;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
 use bstr::ByteSlice;
-use indexmap::IndexSet;
 use jay_algorithms::mmap::Mmapped;
 use jay_algorithms::mmap::mmap;
 use jay_algorithms::oserror::OsError;
@@ -94,7 +94,7 @@ impl TestGfxCtx {
         drm_device_id: Option<DrmDeviceId>,
         need_syncobj: bool,
     ) -> Result<Rc<Self>, GfxError> {
-        let mut modifiers = IndexSet::new();
+        let mut modifiers = FHashSet::default();
         modifiers.insert(LINEAR_MODIFIER);
         let mut formats = BHashMap::default();
         for f in [XRGB8888, ARGB8888] {
