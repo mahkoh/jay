@@ -57,6 +57,7 @@ use crate::utils::queue::AsyncQueue;
 use crate::utils::syncqueue::SyncQueue;
 use crate::video::allocator::Allocator;
 use crate::video::allocator::AllocatorError;
+use crate::video::allocator::BO_USE_IMPLICIT_SYNC;
 use crate::video::drm::ConnectorType;
 use crate::video::drm::Drm;
 use crate::video::drm::DrmError;
@@ -465,12 +466,13 @@ impl XBackend {
             return Err(XBackendError::XRGB8888);
         };
         for image in &mut images {
-            let dma = &self.allocator.allocate(
+            let dma = &self.allocator.allocate_with_usage(
                 &self.state.dma_buf_ids,
                 width,
                 height,
                 FORMAT,
                 format.write_modifiers.iter().copied(),
+                BO_USE_IMPLICIT_SYNC,
             )?;
             let fb = match self.ctx.clone().dmabuf_fb(dma) {
                 Ok(f) => f,

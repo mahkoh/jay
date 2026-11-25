@@ -29,6 +29,7 @@ use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::rc_eq::rc_eq;
+use crate::video::allocator::BO_USE_IMPLICIT_SYNC;
 use crate::wire::ZwpLinuxBufferParamsV1Id;
 use crate::wire::wp_fractional_scale_v1::PreferredScale;
 use crate::wire::zwlr_layer_surface_v1::Configure;
@@ -693,12 +694,13 @@ impl WindowData {
             return;
         }
         for _ in 0..NUM_BUFFERS {
-            let bo = match ctx.ctx.ctx.allocator().allocate(
+            let bo = match ctx.ctx.ctx.allocator().allocate_with_usage(
                 &self.dpy.state.dma_buf_ids,
                 width,
                 height,
                 ARGB8888,
                 format.write_modifiers.iter().copied(),
+                BO_USE_IMPLICIT_SYNC,
             ) {
                 Ok(b) => b,
                 Err(e) => {

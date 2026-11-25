@@ -42,6 +42,7 @@ use crate::utils::opaque::Opaque;
 use crate::video::LINEAR_MODIFIER;
 use crate::video::Modifier;
 use crate::video::allocator::AllocatorError;
+use crate::video::allocator::BO_USE_IMPLICIT_SYNC;
 use crate::video::dmabuf::DmaBuf;
 use crate::wire::jay_screencast::Ready;
 use crate::wire_dbus::org;
@@ -353,12 +354,13 @@ impl StartedScreencast {
         let Some(ctx) = self.dpy.render_ctx.get() else {
             return Err(BufferAllocationError::NoRenderContext);
         };
-        let buffer = ctx.ctx.ctx.allocator().allocate(
+        let buffer = ctx.ctx.ctx.allocator().allocate_with_usage(
             &self.dpy.state.dma_buf_ids,
             self.width.get(),
             self.height.get(),
             format,
             modifiers.iter().copied(),
+            BO_USE_IMPLICIT_SYNC,
         )?;
         Ok(buffer)
     }

@@ -37,8 +37,8 @@ use crate::video::INVALID_MODIFIER;
 use crate::video::LINEAR_MODIFIER;
 use crate::video::allocator::AllocatorError;
 use crate::video::allocator::BO_USE_IMPLICIT_INTEROP;
+use crate::video::allocator::BO_USE_IMPLICIT_SYNC;
 use crate::video::allocator::BO_USE_LINEAR;
-use crate::video::allocator::BufferUsage;
 use crate::video::dmabuf::DmaBuf;
 use crate::wire::JayScreencastId;
 use crate::wire::jay_screencast::*;
@@ -456,7 +456,7 @@ impl JayScreencast {
                 if width == 0 || height == 0 {
                     continue;
                 }
-                let mut usage = BufferUsage::none();
+                let mut usage = BO_USE_IMPLICIT_SYNC;
                 let modifiers = match self.linear.get() {
                     true if format.write_modifiers.contains(&LINEAR_MODIFIER) => {
                         vec![LINEAR_MODIFIER]

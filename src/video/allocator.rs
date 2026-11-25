@@ -32,6 +32,7 @@ bitflags! {
         BO_USE_SCANOUT,
         BO_USE_LINEAR,
         BO_USE_IMPLICIT_INTEROP,
+        BO_USE_IMPLICIT_SYNC,
 }
 
 pub struct Allocator {
@@ -115,7 +116,7 @@ impl Allocator {
             .modifiers(&modifiers)
             .size(width as u32, height as u32)
             .name(&self.buffer_name)
-            .implicit_sync(true)
+            .implicit_sync(usage.contains(BO_USE_IMPLICIT_SYNC))
             .scanout(usage.contains(BO_USE_SCANOUT))
             .implicit_linear(usage.contains(BO_USE_LINEAR))
             .implicit_interop(implicit_interop.is_some())
