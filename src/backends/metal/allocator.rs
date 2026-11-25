@@ -957,6 +957,8 @@ impl Builder<'_> {
             plane_modifiers,
             ..
         } = *self;
+        dbg.dev_gfx_write_modifiers = Some(render_modifiers(render_fmt));
+        dbg.dev_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
         let modifiers: FHashSet<_> = render_fmt
             .write_modifiers
             .iter()
@@ -964,8 +966,6 @@ impl Builder<'_> {
             .filter(|m| plane_modifiers.contains(m))
             .filter(|m| render_fmt.read_modifiers.contains(m))
             .collect();
-        dbg.dev_gfx_write_modifiers = Some(render_modifiers(render_fmt));
-        dbg.dev_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
         dbg.dev_modifiers_possible = Some(modifiers.iter().copied().collect());
         if modifiers.is_empty() {
             return Err(ScanoutBufferErrorKind::SodWriteReadPlaneIntersection);
@@ -1016,6 +1016,9 @@ impl Builder<'_> {
         let Some(dev_fmt) = dev_ctx.gfx.formats().get(&format.drm) else {
             return Err(ScanoutBufferErrorKind::SodUnsupportedFormat);
         };
+        dbg.dev_gfx_read_modifiers = Some(sample_modifiers(dev_fmt));
+        dbg.render_gfx_write_modifiers = Some(render_modifiers(render_fmt));
+        dbg.render_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
         let render_modifiers_possible: FHashSet<_> = render_fmt
             .write_modifiers
             .iter()
@@ -1023,20 +1026,17 @@ impl Builder<'_> {
             .filter(|m| render_fmt.read_modifiers.contains(m))
             .filter(|m| dev_fmt.read_modifiers.contains(m))
             .collect();
-        dbg.dev_gfx_read_modifiers = Some(sample_modifiers(dev_fmt));
-        dbg.render_gfx_write_modifiers = Some(render_modifiers(render_fmt));
-        dbg.render_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
         dbg.render_modifiers_possible = Some(render_modifiers_possible.iter().copied().collect());
         if render_modifiers_possible.is_empty() {
             return Err(ScanoutBufferErrorKind::RenderWriteReadSodReadIntersection);
         }
+        dbg.dev_gfx_write_modifiers = Some(render_modifiers(dev_fmt));
         let dev_modifiers_possible: FHashSet<_> = dev_fmt
             .write_modifiers
             .iter()
             .copied()
             .filter(|m| plane_modifiers.contains(m))
             .collect();
-        dbg.dev_gfx_write_modifiers = Some(render_modifiers(dev_fmt));
         dbg.dev_modifiers_possible = Some(dev_modifiers_possible.iter().copied().collect());
         if dev_modifiers_possible.is_empty() {
             return Err(ScanoutBufferErrorKind::SodWritePlaneIntersection);
@@ -1116,10 +1116,10 @@ impl Builder<'_> {
             DropGuard::new(self.copy_src_modifiers(&render_copy_dev), |v| {
                 dbg.render_copy_src_modifiers = Some(v);
             });
-        let render_modifiers_possible =
-            intersect_render_modifiers(render_fmt, &*render_copy_src_modifiers);
         dbg.render_gfx_write_modifiers = Some(render_modifiers(render_fmt));
         dbg.render_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
+        let render_modifiers_possible =
+            intersect_render_modifiers(render_fmt, &*render_copy_src_modifiers);
         dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
         if render_modifiers_possible.is_empty() {
             return Err(ScanoutBufferErrorKind::RenderWriteReadCopySrcIntersection);
@@ -1200,10 +1200,10 @@ impl Builder<'_> {
         let dev_copy_src_modifiers = DropGuard::new(self.copy_src_modifiers(&dev_copy_dev), |v| {
             dbg.dev_copy_src_modifiers = Some(v);
         });
-        let render_modifiers_possible =
-            intersect_render_modifiers(render_fmt, &*dev_copy_src_modifiers);
         dbg.render_gfx_write_modifiers = Some(render_modifiers(render_fmt));
         dbg.render_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
+        let render_modifiers_possible =
+            intersect_render_modifiers(render_fmt, &*dev_copy_src_modifiers);
         dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
         if render_modifiers_possible.is_empty() {
             return Err(ScanoutBufferErrorKind::RenderWriteReadSodCopySrcIntersection);
@@ -1286,10 +1286,10 @@ impl Builder<'_> {
             DropGuard::new(self.copy_src_modifiers(&render_copy_dev), |v| {
                 dbg.render_copy_src_modifiers = Some(v);
             });
-        let render_modifiers_possible =
-            intersect_render_modifiers(render_fmt, &*render_copy_src_modifiers);
         dbg.render_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
         dbg.render_gfx_write_modifiers = Some(render_modifiers(render_fmt));
+        let render_modifiers_possible =
+            intersect_render_modifiers(render_fmt, &*render_copy_src_modifiers);
         dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
         if render_modifiers_possible.is_empty() {
             return Err(ScanoutBufferErrorKind::RenderWriteReadCopySrcIntersection);
@@ -1403,10 +1403,10 @@ impl Builder<'_> {
             DropGuard::new(self.copy_src_modifiers(&render_copy_dev), |v| {
                 dbg.render_copy_src_modifiers = Some(v);
             });
-        let render_modifiers_possible =
-            intersect_render_modifiers(render_fmt, &*render_copy_src_modifiers);
         dbg.render_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
         dbg.render_gfx_write_modifiers = Some(render_modifiers(render_fmt));
+        let render_modifiers_possible =
+            intersect_render_modifiers(render_fmt, &*render_copy_src_modifiers);
         dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
         if render_modifiers_possible.is_empty() {
             return Err(ScanoutBufferErrorKind::RenderWriteReadCopySrcIntersection);
