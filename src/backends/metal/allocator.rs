@@ -51,6 +51,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::mem::DropGuard;
 use std::rc::Rc;
 use std::sync::LazyLock;
 use thiserror::Error;
@@ -1111,19 +1112,23 @@ impl Builder<'_> {
         let Some(dev_copy_dev) = dev.copy_device.get() else {
             return Err(ScanoutBufferErrorKind::SodNoCopyDevice);
         };
-        let render_copy_src_modifiers = self.copy_src_modifiers(&render_copy_dev);
+        let render_copy_src_modifiers =
+            DropGuard::new(self.copy_src_modifiers(&render_copy_dev), |v| {
+                dbg.render_copy_src_modifiers = Some(v);
+            });
         let render_modifiers_possible =
-            intersect_render_modifiers(render_fmt, &render_copy_src_modifiers);
+            intersect_render_modifiers(render_fmt, &*render_copy_src_modifiers);
         dbg.render_gfx_write_modifiers = Some(render_modifiers(render_fmt));
         dbg.render_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
-        dbg.render_copy_src_modifiers = Some(render_copy_src_modifiers);
         dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
         if render_modifiers_possible.is_empty() {
             return Err(ScanoutBufferErrorKind::RenderWriteReadCopySrcIntersection);
         }
-        let render_copy_dst_modifiers = self.copy_dst_modifiers(&render_copy_dev);
-        let mut dev_modifiers = intersect_modifiers(plane_modifiers, &render_copy_dst_modifiers);
-        dbg.render_copy_dst_modifiers = Some(render_copy_dst_modifiers);
+        let render_copy_dst_modifiers =
+            DropGuard::new(self.copy_dst_modifiers(&render_copy_dev), |v| {
+                dbg.render_copy_dst_modifiers = Some(v);
+            });
+        let mut dev_modifiers = intersect_modifiers(plane_modifiers, &*render_copy_dst_modifiers);
         make_linear_only(&mut dev_modifiers);
         dbg.dev_modifiers_possible = Some(dev_modifiers.clone());
         if dev_modifiers.is_empty() {
@@ -1192,19 +1197,21 @@ impl Builder<'_> {
         let Some(dev_copy_dev) = dev.copy_device.get() else {
             return Err(ScanoutBufferErrorKind::SodNoCopyDevice);
         };
-        let dev_copy_src_modifiers = self.copy_src_modifiers(&dev_copy_dev);
+        let dev_copy_src_modifiers = DropGuard::new(self.copy_src_modifiers(&dev_copy_dev), |v| {
+            dbg.dev_copy_src_modifiers = Some(v);
+        });
         let render_modifiers_possible =
-            intersect_render_modifiers(render_fmt, &dev_copy_src_modifiers);
+            intersect_render_modifiers(render_fmt, &*dev_copy_src_modifiers);
         dbg.render_gfx_write_modifiers = Some(render_modifiers(render_fmt));
         dbg.render_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
-        dbg.dev_copy_src_modifiers = Some(dev_copy_src_modifiers);
         dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
         if render_modifiers_possible.is_empty() {
             return Err(ScanoutBufferErrorKind::RenderWriteReadSodCopySrcIntersection);
         }
-        let dev_copy_dst_modifiers = self.copy_dst_modifiers(&dev_copy_dev);
-        let mut dev_modifiers = intersect_modifiers(plane_modifiers, &dev_copy_dst_modifiers);
-        dbg.dev_copy_dst_modifiers = Some(dev_copy_dst_modifiers);
+        let dev_copy_dst_modifiers = DropGuard::new(self.copy_dst_modifiers(&dev_copy_dev), |v| {
+            dbg.dev_copy_dst_modifiers = Some(v);
+        });
+        let mut dev_modifiers = intersect_modifiers(plane_modifiers, &*dev_copy_dst_modifiers);
         make_linear_only(&mut dev_modifiers);
         dbg.dev_modifiers_possible = Some(dev_modifiers.clone());
         if dev_modifiers.is_empty() {
@@ -1275,10 +1282,12 @@ impl Builder<'_> {
         let Some(dev_copy_dev) = dev.copy_device.get() else {
             return Err(ScanoutBufferErrorKind::SodNoCopyDevice);
         };
-        let render_copy_src_modifiers = self.copy_src_modifiers(&render_copy_dev);
+        let render_copy_src_modifiers =
+            DropGuard::new(self.copy_src_modifiers(&render_copy_dev), |v| {
+                dbg.render_copy_src_modifiers = Some(v);
+            });
         let render_modifiers_possible =
-            intersect_render_modifiers(render_fmt, &render_copy_src_modifiers);
-        dbg.render_copy_src_modifiers = Some(render_copy_src_modifiers);
+            intersect_render_modifiers(render_fmt, &*render_copy_src_modifiers);
         dbg.render_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
         dbg.render_gfx_write_modifiers = Some(render_modifiers(render_fmt));
         dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
@@ -1291,9 +1300,10 @@ impl Builder<'_> {
         if !self.copy_src_supports_linear(&dev_copy_dev) {
             return Err(ScanoutBufferErrorKind::SodNoCopyFromLinear);
         }
-        let dev_copy_dst_modifiers = self.copy_dst_modifiers(&dev_copy_dev);
-        let mut dev_modifiers = intersect_modifiers(plane_modifiers, &dev_copy_dst_modifiers);
-        dbg.dev_copy_dst_modifiers = Some(dev_copy_dst_modifiers);
+        let dev_copy_dst_modifiers = DropGuard::new(self.copy_dst_modifiers(&dev_copy_dev), |v| {
+            dbg.dev_copy_dst_modifiers = Some(v);
+        });
+        let mut dev_modifiers = intersect_modifiers(plane_modifiers, &*dev_copy_dst_modifiers);
         make_linear_only(&mut dev_modifiers);
         dbg.dev_modifiers_possible = Some(dev_modifiers.clone());
         if dev_modifiers.is_empty() {
@@ -1389,19 +1399,22 @@ impl Builder<'_> {
         if !self.copy_src_supports_linear(&dev_copy_dev) {
             return Err(ScanoutBufferErrorKind::SodNoCopyFromLinear);
         }
-        let render_copy_src_modifiers = self.copy_src_modifiers(&render_copy_dev);
+        let render_copy_src_modifiers =
+            DropGuard::new(self.copy_src_modifiers(&render_copy_dev), |v| {
+                dbg.render_copy_src_modifiers = Some(v);
+            });
         let render_modifiers_possible =
-            intersect_render_modifiers(render_fmt, &render_copy_src_modifiers);
-        dbg.render_copy_src_modifiers = Some(render_copy_src_modifiers);
+            intersect_render_modifiers(render_fmt, &*render_copy_src_modifiers);
         dbg.render_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
         dbg.render_gfx_write_modifiers = Some(render_modifiers(render_fmt));
         dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
         if render_modifiers_possible.is_empty() {
             return Err(ScanoutBufferErrorKind::RenderWriteReadCopySrcIntersection);
         }
-        let dev_copy_dst_modifiers = self.copy_dst_modifiers(&dev_copy_dev);
-        let mut dev_modifiers = intersect_modifiers(plane_modifiers, &dev_copy_dst_modifiers);
-        dbg.dev_copy_dst_modifiers = Some(dev_copy_dst_modifiers);
+        let dev_copy_dst_modifiers = DropGuard::new(self.copy_dst_modifiers(&dev_copy_dev), |v| {
+            dbg.dev_copy_dst_modifiers = Some(v);
+        });
+        let mut dev_modifiers = intersect_modifiers(plane_modifiers, &*dev_copy_dst_modifiers);
         make_linear_only(&mut dev_modifiers);
         dbg.dev_modifiers_possible = Some(dev_modifiers.clone());
         if dev_modifiers.is_empty() {
