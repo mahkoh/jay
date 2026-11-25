@@ -871,7 +871,11 @@ impl MetalConnector {
         if !format.modifiers.contains(&dmabuf.modifier) {
             return Err(MetalDirectScanoutError::UnsupportedModifier);
         }
-        let fb = match self.dev.master.add_fb(dmabuf, Some(format.format)) {
+        let fb = match self
+            .dev
+            .master
+            .add_fb(dmabuf, Some(format.format), &format.modifiers)
+        {
             Ok(fb) => Some(Rc::new(fb)),
             Err(e) => {
                 log::debug!(

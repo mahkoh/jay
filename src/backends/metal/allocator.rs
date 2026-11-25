@@ -30,6 +30,7 @@ use crate::video::INVALID_MODIFIER;
 use crate::video::LINEAR_MODIFIER;
 use crate::video::Modifier;
 use crate::video::allocator::AllocatorError;
+use crate::video::allocator::BO_USE_IMPLICIT_INTEROP;
 use crate::video::allocator::BO_USE_LINEAR;
 use crate::video::allocator::BO_USE_SCANOUT;
 use crate::video::allocator::BufferUsage;
@@ -783,11 +784,17 @@ fn wrap_error<T>(
 impl BoAllocationSettings {
     fn new(
         common: &Builder<'_>,
-        mods: FHashSet<Modifier>,
+        Intersected {
+            mods,
+            implicit_interop,
+        }: Intersected,
         scanout: bool,
         usage_out: &mut Option<BufferUsage>,
     ) -> Self {
         let mut usage = BufferUsage::none();
+        if implicit_interop {
+            usage |= BO_USE_IMPLICIT_INTEROP;
+        }
         if scanout {
             usage |= BO_USE_SCANOUT;
             if common.cursor {
@@ -861,7 +868,7 @@ impl Builder<'_> {
         let drm = self
             .dev
             .master
-            .add_fb(&bo, None)
+            .add_fb(&bo, None, self.plane_modifiers)
             .map(Rc::new)
             .map_err(ScanoutBufferErrorKind::SodAddfb2)?;
         send_dev_modifier.forget();
@@ -956,7 +963,7 @@ impl Builder<'_> {
             plane_modifiers,
         ])
         .ok_or(ScanoutBufferErrorKind::SodWriteReadPlaneIntersection)?;
-        dbg.dev_modifiers_possible = Some(modifiers.clone());
+        dbg.dev_modifiers_possible = Some(modifiers.mods.clone());
         let allocation_settings =
             BoAllocationSettings::new(self, modifiers, true, &mut dbg.render_usage);
         Ok(NoPrime {
@@ -980,7 +987,7 @@ impl Builder<'_> {
         });
         let drm = dev
             .master
-            .add_fb(&render.bo, None)
+            .add_fb(&render.bo, None, self.plane_modifiers)
             .map(Rc::new)
             .map_err(ScanoutBufferErrorKind::SodAddfb2)?;
         send_dev_modifier.forget();
@@ -1012,12 +1019,12 @@ impl Builder<'_> {
             &dev_fmt.read_modifiers,
         ])
         .ok_or(ScanoutBufferErrorKind::RenderWriteReadSodReadIntersection)?;
-        dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
+        dbg.render_modifiers_possible = Some(render_modifiers_possible.mods.clone());
         dbg.dev_gfx_write_modifiers = Some(render_modifiers(dev_fmt));
         let dev_modifiers_possible =
             intersect_modifiers([&dev_fmt.write_modifiers, plane_modifiers])
                 .ok_or(ScanoutBufferErrorKind::SodWritePlaneIntersection)?;
-        dbg.dev_modifiers_possible = Some(dev_modifiers_possible.clone());
+        dbg.dev_modifiers_possible = Some(dev_modifiers_possible.mods.clone());
         let render_allocation_settings = BoAllocationSettings::new(
             self,
             render_modifiers_possible,
@@ -1101,7 +1108,7 @@ impl Builder<'_> {
             &render_copy_src_modifiers,
         ])
         .ok_or(ScanoutBufferErrorKind::RenderWriteReadCopySrcIntersection)?;
-        dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
+        dbg.render_modifiers_possible = Some(render_modifiers_possible.mods.clone());
         let render_copy_dst_modifiers =
             DropGuard::new(self.copy_dst_modifiers(&render_copy_dev), |v| {
                 dbg.render_copy_dst_modifiers = Some(v);
@@ -1109,8 +1116,8 @@ impl Builder<'_> {
         let mut dev_modifiers =
             intersect_modifiers_explicit([plane_modifiers, &render_copy_dst_modifiers])
                 .ok_or(ScanoutBufferErrorKind::SodPlaneRenderCopyDstIntersection)?;
-        make_linear_only(&mut dev_modifiers);
-        dbg.dev_modifiers_possible = Some(dev_modifiers.clone());
+        make_linear_only(&mut dev_modifiers.mods);
+        dbg.dev_modifiers_possible = Some(dev_modifiers.mods.clone());
         let render_allocation_settings = BoAllocationSettings::new(
             self,
             render_modifiers_possible,
@@ -1185,14 +1192,14 @@ impl Builder<'_> {
             &dev_copy_src_modifiers,
         ])
         .ok_or(ScanoutBufferErrorKind::RenderWriteReadSodCopySrcIntersection)?;
-        dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
+        dbg.render_modifiers_possible = Some(render_modifiers_possible.mods.clone());
         let dev_copy_dst_modifiers = DropGuard::new(self.copy_dst_modifiers(&dev_copy_dev), |v| {
             dbg.dev_copy_dst_modifiers = Some(v);
         });
         let mut dev_modifiers = intersect_modifiers([plane_modifiers, &dev_copy_dst_modifiers])
             .ok_or(ScanoutBufferErrorKind::SodPlaneCopyDstIntersection)?;
-        make_linear_only(&mut dev_modifiers);
-        dbg.dev_modifiers_possible = Some(dev_modifiers.clone());
+        make_linear_only(&mut dev_modifiers.mods);
+        dbg.dev_modifiers_possible = Some(dev_modifiers.mods.clone());
         let render_allocation_settings = BoAllocationSettings::new(
             self,
             render_modifiers_possible,
@@ -1270,7 +1277,7 @@ impl Builder<'_> {
             &render_copy_src_modifiers,
         ])
         .ok_or(ScanoutBufferErrorKind::RenderWriteReadCopySrcIntersection)?;
-        dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
+        dbg.render_modifiers_possible = Some(render_modifiers_possible.mods.clone());
         if !self.copy_dst_supports_linear(&render_copy_dev) {
             return Err(ScanoutBufferErrorKind::RenderNoCopyToLinear);
         }
@@ -1282,8 +1289,8 @@ impl Builder<'_> {
         });
         let mut dev_modifiers = intersect_modifiers([plane_modifiers, &dev_copy_dst_modifiers])
             .ok_or(ScanoutBufferErrorKind::SodPlaneCopyDstIntersection)?;
-        make_linear_only(&mut dev_modifiers);
-        dbg.dev_modifiers_possible = Some(dev_modifiers.clone());
+        make_linear_only(&mut dev_modifiers.mods);
+        dbg.dev_modifiers_possible = Some(dev_modifiers.mods.clone());
         let render_allocation_settings = BoAllocationSettings::new(
             self,
             render_modifiers_possible,
@@ -1386,14 +1393,14 @@ impl Builder<'_> {
             &render_copy_src_modifiers,
         ])
         .ok_or(ScanoutBufferErrorKind::RenderWriteReadCopySrcIntersection)?;
-        dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
+        dbg.render_modifiers_possible = Some(render_modifiers_possible.mods.clone());
         let dev_copy_dst_modifiers = DropGuard::new(self.copy_dst_modifiers(&dev_copy_dev), |v| {
             dbg.dev_copy_dst_modifiers = Some(v);
         });
         let mut dev_modifiers = intersect_modifiers([plane_modifiers, &dev_copy_dst_modifiers])
             .ok_or(ScanoutBufferErrorKind::SodPlaneCopyDstIntersection)?;
-        make_linear_only(&mut dev_modifiers);
-        dbg.dev_modifiers_possible = Some(dev_modifiers.clone());
+        make_linear_only(&mut dev_modifiers.mods);
+        dbg.dev_modifiers_possible = Some(dev_modifiers.mods.clone());
         let render_allocation_settings = BoAllocationSettings::new(
             self,
             render_modifiers_possible,
@@ -1514,28 +1521,45 @@ fn make_linear_only(modifiers: &mut FHashSet<Modifier>) {
     }
 }
 
-fn intersect_modifiers<const N: usize>(
-    lists: [&FHashSet<Modifier>; N],
-) -> Option<FHashSet<Modifier>> {
-    let mods = intersect_modifiers_(lists);
-    if mods.len() > 0 {
-        return Some(mods);
+struct Intersected {
+    mods: FHashSet<Modifier>,
+    implicit_interop: bool,
+}
+
+fn intersect_modifiers<const N: usize>(lists: [&FHashSet<Modifier>; N]) -> Option<Intersected> {
+    for implicit_interop in [false, true] {
+        let mut mods = intersect_modifiers_(lists, implicit_interop);
+        if !implicit_interop {
+            mods.remove(&INVALID_MODIFIER);
+        }
+        if mods.len() > 0 {
+            return Some(Intersected {
+                mods,
+                implicit_interop,
+            });
+        }
     }
     None
 }
 
 fn intersect_modifiers_explicit<const N: usize>(
     lists: [&FHashSet<Modifier>; N],
-) -> Option<FHashSet<Modifier>> {
-    let mut mods = intersect_modifiers_(lists);
+) -> Option<Intersected> {
+    let mut mods = intersect_modifiers_(lists, false);
     mods.remove(&INVALID_MODIFIER);
     if mods.len() > 0 {
-        return Some(mods);
+        return Some(Intersected {
+            mods,
+            implicit_interop: false,
+        });
     }
     None
 }
 
-fn intersect_modifiers_<const N: usize>(lists: [&FHashSet<Modifier>; N]) -> FHashSet<Modifier> {
+fn intersect_modifiers_<const N: usize>(
+    lists: [&FHashSet<Modifier>; N],
+    implicit_interop: bool,
+) -> FHashSet<Modifier> {
     if N == 0 {
         return Default::default();
     }
@@ -1548,5 +1572,22 @@ fn intersect_modifiers_<const N: usize>(lists: [&FHashSet<Modifier>; N]) -> FHas
                 .collect()
         };
     }
-    intersect!(lists)
+    if implicit_interop {
+        let mut implicit = ArrayVec::<&FHashSet<Modifier>, N>::new();
+        let mut explicit = ArrayVec::<&FHashSet<Modifier>, N>::new();
+        for el in lists {
+            if el.contains(&INVALID_MODIFIER) {
+                implicit.push(el);
+            } else {
+                explicit.push(el);
+            }
+        }
+        if explicit.is_empty() {
+            implicit.iter().flat_map(|v| v.iter().copied()).collect()
+        } else {
+            intersect!(explicit)
+        }
+    } else {
+        intersect!(lists)
+    }
 }

@@ -1,5 +1,6 @@
 use crate::backend::DrmDeviceId;
 use crate::format::Format;
+use crate::utils::bool_ext::BoolExt;
 use crate::utils::unique_process_id::unique_process_id;
 use crate::video::Modifier;
 use crate::video::dmabuf::DmaBuf;
@@ -30,9 +31,11 @@ bitflags! {
     BufferUsage: u32;
         BO_USE_SCANOUT,
         BO_USE_LINEAR,
+        BO_USE_IMPLICIT_INTEROP,
 }
 
 pub struct Allocator {
+    dev: Option<DrmDeviceId>,
     alloc: dmabuf_allocator::Allocator,
     buffer_name: CString,
 }
@@ -48,8 +51,9 @@ impl Allocator {
         Self::new(Some(drm.id()), drm.fd())
     }
 
-    pub fn new(_dev: Option<DrmDeviceId>, fd: &OwnedFd) -> Result<Self, AllocatorError> {
+    pub fn new(dev: Option<DrmDeviceId>, fd: &OwnedFd) -> Result<Self, AllocatorError> {
         Ok(Self {
+            dev,
             alloc: dmabuf_allocator::Allocator::new(fd.raw())
                 .map_err(AllocatorError::CreateAllocator)?,
             buffer_name: format_ustr!("jay-{}", unique_process_id())
@@ -103,6 +107,7 @@ impl Allocator {
         modifiers: &[Modifier],
         usage: BufferUsage,
     ) -> Result<Rc<DmaBuf>, AllocatorError> {
+        let implicit_interop = usage.contains(BO_USE_IMPLICIT_INTEROP).and(self.dev);
         let Allocation { layout, dmabuf, .. } = self
             .alloc
             .builder()
@@ -113,6 +118,7 @@ impl Allocator {
             .implicit_sync(true)
             .scanout(usage.contains(BO_USE_SCANOUT))
             .implicit_linear(usage.contains(BO_USE_LINEAR))
+            .implicit_interop(implicit_interop.is_some())
             .allocate()
             .map_err(AllocatorError::Allocate)?;
         let fd = Rc::new(OwnedFd::from(dmabuf.into_std()));
@@ -124,13 +130,14 @@ impl Allocator {
                 fd: fd.clone(),
             });
         }
-        let dmabuf = DmaBuf::new(
+        let dmabuf = DmaBuf::new_with_interop(
             dma_buf_ids,
             width,
             height,
             format,
             layout.modifier(),
             planes,
+            implicit_interop,
         );
         Ok(dmabuf)
     }

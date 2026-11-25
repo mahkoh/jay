@@ -188,6 +188,8 @@ pub enum DrmError {
     Stat(#[source] OsError),
     #[error("Device has no device nodes")]
     NoDeviceNodes,
+    #[error("The modifier {0:#x} is not supported")]
+    UnsupportedModifier(Modifier),
 }
 
 fn render_node_name(fd: c::c_int) -> Result<Ustring, DrmError> {
@@ -451,11 +453,15 @@ impl DrmMaster {
         self: &Rc<Self>,
         dma: &DmaBuf,
         format: Option<&Format>,
+        supported: &FHashSet<Modifier>,
     ) -> Result<DrmFramebuffer, DrmError> {
-        let mut modifier = 0;
+        let mut modifier = dma
+            .interop_modifier(self.id, supported)
+            .ok_or(DrmError::UnsupportedModifier(dma.modifier))?;
         let mut flags = 0;
-        if dma.modifier != INVALID_MODIFIER {
-            modifier = dma.modifier;
+        if modifier == INVALID_MODIFIER {
+            modifier = 0;
+        } else {
             flags |= DRM_MODE_FB_MODIFIERS;
         }
         let mut strides = [0; 4];

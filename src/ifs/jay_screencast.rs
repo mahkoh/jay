@@ -36,6 +36,7 @@ use crate::utils::option_ext::OptionExt;
 use crate::video::INVALID_MODIFIER;
 use crate::video::LINEAR_MODIFIER;
 use crate::video::allocator::AllocatorError;
+use crate::video::allocator::BO_USE_IMPLICIT_INTEROP;
 use crate::video::allocator::BO_USE_LINEAR;
 use crate::video::allocator::BufferUsage;
 use crate::video::dmabuf::DmaBuf;
@@ -461,8 +462,8 @@ impl JayScreencast {
                         vec![LINEAR_MODIFIER]
                     }
                     true if format.write_modifiers.contains(&INVALID_MODIFIER) => {
-                        usage |= BO_USE_LINEAR;
-                        vec![INVALID_MODIFIER]
+                        usage |= BO_USE_LINEAR | BO_USE_IMPLICIT_INTEROP;
+                        vec![LINEAR_MODIFIER, INVALID_MODIFIER]
                     }
                     true => return Err(JayScreencastError::Modifier),
                     false if format.write_modifiers.is_empty() => {

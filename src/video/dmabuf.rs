@@ -1,3 +1,4 @@
+use crate::backend::DrmDeviceId;
 use crate::copy_device::CopyDeviceCopy;
 use crate::copy_device::CopyDeviceDstObject;
 use crate::copy_device::CopyDeviceError;
@@ -14,8 +15,10 @@ use crate::state::DrmDevData;
 use crate::state::State;
 use crate::utils::compat::IoctlNumber;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::fx_hash::FHashSet;
 use crate::utils::numcell::NumCell;
 use crate::utils::ptr_ext::MutPtrExt;
+use crate::video::INVALID_MODIFIER;
 use crate::video::LINEAR_MODIFIER;
 use crate::video::Modifier;
 use crate::video::drm::DrmError;
@@ -59,6 +62,7 @@ pub struct DmaBuf {
     pub modifier: Modifier,
     pub planes: PlaneVec<DmaBufPlane>,
     is_disjoint: OnceCell<bool>,
+    implicit_interop: Option<DrmDeviceId>,
 }
 
 pub const MAX_PLANES: usize = 4;
@@ -74,6 +78,18 @@ impl DmaBuf {
         modifier: Modifier,
         planes: PlaneVec<DmaBufPlane>,
     ) -> Rc<Self> {
+        Self::new_with_interop(ids, width, height, format, modifier, planes, None)
+    }
+
+    pub fn new_with_interop(
+        ids: &DmaBufIds,
+        width: i32,
+        height: i32,
+        format: &'static Format,
+        modifier: Modifier,
+        planes: PlaneVec<DmaBufPlane>,
+        implicit_interop: Option<DrmDeviceId>,
+    ) -> Rc<Self> {
         Rc::new(Self {
             id: ids.next(),
             width,
@@ -82,6 +98,7 @@ impl DmaBuf {
             modifier,
             planes,
             is_disjoint: Default::default(),
+            implicit_interop,
         })
     }
 
@@ -164,6 +181,20 @@ impl DmaBuf {
             }
         }
         merge_sync_files(sf.iter())
+    }
+
+    pub fn interop_modifier(
+        &self,
+        dev: DrmDeviceId,
+        supported: &FHashSet<Modifier>,
+    ) -> Option<Modifier> {
+        if supported.contains(&self.modifier) {
+            return Some(self.modifier);
+        }
+        if self.implicit_interop == Some(dev) && supported.contains(&INVALID_MODIFIER) {
+            return Some(INVALID_MODIFIER);
+        }
+        None
     }
 }
 

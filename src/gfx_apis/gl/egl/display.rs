@@ -87,6 +87,7 @@ pub struct EglFormat {
     format: &'static Format,
     implicit_external_only: bool,
     modifiers: FHashMap<u64, EglModifier>,
+    modifiers_set: FHashSet<Modifier>,
 }
 
 #[derive(Debug)]
@@ -253,12 +254,14 @@ impl EglDisplay {
         self: &Rc<Self>,
         buf: &Rc<DmaBuf>,
     ) -> Result<Rc<EglImage>, RenderError> {
-        let format = match self.formats.get(&buf.format.drm) {
-            Some(fmt) => match fmt.modifiers.get(&buf.modifier) {
-                Some(fmt) => fmt,
-                _ => return Err(RenderError::UnsupportedModifier),
-            },
-            _ => return Err(RenderError::UnsupportedFormat),
+        let Some(fmt) = self.formats.get(&buf.format.drm) else {
+            return Err(RenderError::UnsupportedFormat);
+        };
+        let Some(modifier) = buf.interop_modifier(self.drm.id(), &fmt.modifiers_set) else {
+            return Err(RenderError::UnsupportedModifier);
+        };
+        let Some(format) = fmt.modifiers.get(&modifier) else {
+            return Err(RenderError::UnsupportedModifier);
         };
         struct PlaneKey {
             fd: EGLint,
@@ -307,9 +310,9 @@ impl EglDisplay {
             attribs.extend_from_slice(&[key.fd, plane.fd.raw()]);
             attribs.extend_from_slice(&[key.pitch, plane.stride as _]);
             attribs.extend_from_slice(&[key.offset, plane.offset as _]);
-            if buf.modifier != INVALID_MODIFIER {
-                attribs.extend_from_slice(&[key.mod_lo, buf.modifier as i32]);
-                attribs.extend_from_slice(&[key.mod_hi, (buf.modifier >> 32) as i32]);
+            if modifier != INVALID_MODIFIER {
+                attribs.extend_from_slice(&[key.mod_lo, modifier as i32]);
+                attribs.extend_from_slice(&[key.mod_hi, (modifier >> 32) as i32]);
             }
         }
         attribs.push(EGL_NONE);
@@ -362,6 +365,7 @@ unsafe fn query_formats(
                 EglFormat {
                     format,
                     implicit_external_only: external_only,
+                    modifiers_set: modifiers.keys().copied().collect(),
                     modifiers,
                 },
             );

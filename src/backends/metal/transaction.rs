@@ -553,7 +553,10 @@ impl MetalDeviceTransaction {
                         }
                         let modifiers = &plane.obj.formats.get(&format.drm).unwrap().modifiers;
                         for b in &**b {
-                            if !modifiers.contains(&b.dev_bo().modifier) {
+                            if b.dev_bo()
+                                .interop_modifier(dev_ctx.dev_id, modifiers)
+                                .is_none()
+                            {
                                 discard!();
                             }
                         }
