@@ -1607,6 +1607,7 @@ impl ContainerNode {
                     false => neighbor.append_existing(&cc),
                 }
                 // log::info!("move_child");
+                self.cancel_seat_ops();
                 self.schedule_layout();
                 return;
             }
