@@ -1064,6 +1064,26 @@ impl ConfigClient {
         self.send(&ClientMessage::SwitchTo { vtnr })
     }
 
+    pub fn bind_global_shortcut(
+        &self,
+        app_id: &str,
+        shortcut_id: &str,
+        mod_sym: ModifiedKeySym,
+        trigger_description: &str,
+    ) {
+        self.send(&ClientMessage::BindGlobalShortcut {
+            app_id,
+            shortcut_id,
+            mods: mod_sym.mods,
+            sym: mod_sym.sym,
+            trigger_description,
+        })
+    }
+
+    pub fn clear_global_shortcuts(&self) {
+        self.send(&ClientMessage::ClearGlobalShortcuts)
+    }
+
     pub fn on_new_input_device<F: FnMut(InputDevice) + 'static>(&self, f: F) {
         *self.on_new_input_device.borrow_mut() = Some(cb(f));
     }

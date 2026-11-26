@@ -406,6 +406,34 @@ impl Display for PciId {
     }
 }
 
+/// Assigns a key combination to a global shortcut registered by an application.
+///
+/// Applications register global shortcuts via the `hyprland-global-shortcuts-v1`
+/// protocol or the `org.freedesktop.portal.GlobalShortcuts` portal. Each shortcut is
+/// identified by the application ID and the shortcut ID chosen by the application.
+///
+/// When the key combination is pressed or released, the compositor sends the
+/// corresponding pressed/released events to the application. The configured trigger
+/// takes precedence over the trigger preferred by the application.
+///
+/// `trigger_description` is a human-readable description of the trigger that is
+/// shown to the application.
+///
+/// All bindings are removed when the configuration is reloaded.
+pub fn bind_global_shortcut(
+    app_id: &str,
+    shortcut_id: &str,
+    mod_sym: impl Into<ModifiedKeySym>,
+    trigger_description: &str,
+) {
+    get!().bind_global_shortcut(app_id, shortcut_id, mod_sym.into(), trigger_description)
+}
+
+/// Removes all global shortcut bindings configured by the configuration.
+pub fn clear_global_shortcuts() {
+    get!().clear_global_shortcuts()
+}
+
 /// Sets the callback to be called when the display goes idle.
 pub fn on_idle<F: FnMut() + 'static>(f: F) {
     get!().on_idle(f)

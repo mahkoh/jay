@@ -1,0 +1,51 @@
+fn CreateSession(
+    handle: object_path,
+    session_handle: object_path,
+    app_id: string,
+    options: array(dict(string, variant)),
+) {
+    response: u32,
+    results: array(dict(string, variant)),
+}
+
+fn BindShortcuts(
+    handle: object_path,
+    session_handle: object_path,
+    shortcuts: array(struct(string, array(dict(string, variant)))),
+    parent_window: string,
+    options: array(dict(string, variant)),
+) {
+    response: u32,
+    results: array(dict(string, variant)),
+}
+
+fn ListShortcuts(
+    handle: object_path,
+    session_handle: object_path,
+) {
+    response: u32,
+    results: array(dict(string, variant)),
+}
+
+fn ConfigureShortcuts(
+    session_handle: object_path,
+    parent_window: string,
+    options: array(dict(string, variant)),
+) {
+}
+
+sig Activated {
+    session_handle: object_path,
+    shortcut_id: string,
+    timestamp: u64,
+    options: array(dict(string, variant)),
+}
+
+sig Deactivated {
+    session_handle: object_path,
+    shortcut_id: string,
+    timestamp: u64,
+    options: array(dict(string, variant)),
+}
+
+prop version = u32

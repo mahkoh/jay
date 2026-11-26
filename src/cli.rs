@@ -7,6 +7,7 @@ mod damage_tracking;
 mod debugfs;
 mod duration;
 mod generate;
+mod global_shortcuts;
 mod idle;
 mod input;
 mod json;
@@ -31,6 +32,7 @@ use crate::cli::color_management::ColorManagementArgs;
 use crate::cli::config::ConfigArgs;
 use crate::cli::damage_tracking::DamageTrackingArgs;
 use crate::cli::debugfs::DebugfsArgs;
+use crate::cli::global_shortcuts::GlobalShortcutsArgs;
 use crate::cli::idle::IdleCmd;
 use crate::cli::input::InputArgs;
 use crate::cli::json::VERBOSE_JSON;
@@ -126,6 +128,8 @@ pub enum Cmd {
     Xwayland(XwaylandArgs),
     /// Inspect/modify the color-management settings.
     ColorManagement(ColorManagementArgs),
+    /// Inspect registered global shortcuts and configured triggers.
+    GlobalShortcuts(GlobalShortcutsArgs),
     /// Replace the compositor by another process. (Only for development.)
     #[clap(hide = true)]
     Reexec(ReexecArgs),
@@ -327,6 +331,7 @@ pub fn main() {
         Cmd::DamageTracking(a) => damage_tracking::main(cli.global, a),
         Cmd::Xwayland(a) => xwayland::main(cli.global, a),
         Cmd::ColorManagement(a) => color_management::main(cli.global, a),
+        Cmd::GlobalShortcuts(a) => global_shortcuts::main(cli.global, a),
         Cmd::Clients(a) => clients::main(cli.global, a),
         Cmd::Tree(a) => tree::main(cli.global, a),
         Cmd::Version => version::main(cli.global),

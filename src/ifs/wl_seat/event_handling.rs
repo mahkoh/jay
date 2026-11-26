@@ -990,6 +990,7 @@ impl WlSeatGlobal {
             let repeats;
             {
                 let mut mods = kbvm_state.kb_state.mods.mods.0 & !(CAPS.0 | NUM.0);
+                let gs_mods = Modifiers(mods);
                 if key_state == KeyState::Released {
                     mods |= RELEASE.0;
                 }
@@ -998,7 +999,10 @@ impl WlSeatGlobal {
                 let group = map
                     .shortcuts_group
                     .unwrap_or(kbvm_state.kb_state.mods.group);
-                let keysyms = map.lookup_table.lookup(group, ModifierMask::default(), kc);
+                // Preserve active NumLock so keypad keys match `KP_0`..`KP_Decimal` when
+                // NumLock is on, while ignoring Shift/Caps/Ctrl/Alt/Logo during lookup.
+                let lookup_mods = ModifierMask(kbvm_state.kb_state.mods.mods.0 & NUM.0);
+                let keysyms = map.lookup_table.lookup(group, lookup_mods, kc);
                 repeats = keysyms.repeats();
                 let mut revert_pointer_to_default = false;
                 for props in keysyms {
@@ -1022,6 +1026,25 @@ impl WlSeatGlobal {
                             }
                         }
                     }
+                }
+                match key_state {
+                    KeyState::Pressed
+                        if !self.state.lock.locked[LiveTL].get()
+                            || self.state.config_locked_shortcuts.get() =>
+                    {
+                        self.state.global_shortcuts.handle_key_pressed(
+                            time_usec,
+                            kc.raw(),
+                            gs_mods,
+                            keysyms,
+                        );
+                    }
+                    KeyState::Released => {
+                        self.state
+                            .global_shortcuts
+                            .handle_key_released(time_usec, kc.raw());
+                    }
+                    _ => {}
                 }
                 if revert_pointer_to_default {
                     drop(kbvm_state);

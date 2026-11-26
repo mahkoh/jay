@@ -141,6 +141,7 @@ use jay_config::input::scrollmethod::ScrollMethod;
 use jay_config::keyboard::Group;
 use jay_config::keyboard::Keymap;
 use jay_config::keyboard::mods::Modifiers;
+use jay_config::keyboard::mods::RELEASE;
 use jay_config::keyboard::syms::KeySym;
 use jay_config::logging::LogLevel as ConfigLogLevel;
 use jay_config::theme::JcBarPosition;
@@ -314,6 +315,8 @@ impl ConfigProxyHandler {
 
         self.window_matcher_leafs.clear();
         self.window_matchers.clear();
+
+        self.state.global_shortcuts.clear_configured_triggers();
     }
 
     pub fn send(&self, msg: &ServerMessage) {
@@ -2292,6 +2295,24 @@ impl ConfigProxyHandler {
         let seat = self.get_seat(seat)?;
         seat.remove_shortcut(mods, sym);
         Ok(())
+    }
+
+    fn handle_bind_global_shortcut(
+        &self,
+        app_id: &str,
+        shortcut_id: &str,
+        mods: Modifiers,
+        sym: KeySym,
+        trigger_description: &str,
+    ) {
+        let mods = mods & !RELEASE;
+        self.state.global_shortcuts.set_configured_trigger(
+            app_id,
+            shortcut_id,
+            mods,
+            sym,
+            trigger_description,
+        );
     }
 
     fn handle_set_shortcut_repeat(
@@ -4534,6 +4555,22 @@ impl ConfigProxyHandler {
             ClientMessage::GetWindowThemeContainerBorders { window, kind } => self
                 .handle_get_window_theme_container_borders(window, kind)
                 .wrn("get_window_theme_container_borders")?,
+            ClientMessage::BindGlobalShortcut {
+                app_id,
+                shortcut_id,
+                mods,
+                sym,
+                trigger_description,
+            } => self.handle_bind_global_shortcut(
+                app_id,
+                shortcut_id,
+                mods,
+                sym,
+                trigger_description,
+            ),
+            ClientMessage::ClearGlobalShortcuts => {
+                self.state.global_shortcuts.clear_configured_triggers();
+            }
         }
         Ok(())
     }

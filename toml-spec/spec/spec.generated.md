@@ -75,6 +75,19 @@ This is the same as using the `named` action with the `$` removed.
 
 The string should match the following regular expression: `^\$.*$`
 
+#### A string
+
+Shorthand for a `global-shortcut` action targeting `<app-id>` and `<shortcut-id>`.
+
+- Example:
+
+  ```toml
+  [shortcuts]
+  logo-m = "global-shortcut:obs:mute"
+  ```
+
+The string should match the following regular expression: `^global-shortcut:[^:]*:.+$`
+
 #### An array
 
 A list of actions to execute in sequence.
@@ -1379,6 +1392,40 @@ This table is a tagged union. The variant is determined by the `type` field. It 
     The default is `parent`.
 
     The value of this field should be a [ContainerTarget](#types-ContainerTarget).
+
+- `global-shortcut`:
+
+  Triggers a global shortcut registered by an application via
+  `hyprland-global-shortcuts-v1` or the `GlobalShortcuts` xdg-desktop-portal
+  interface.
+  
+  - Example 1:
+  
+    ```toml
+    [shortcuts]
+    logo-m = { type = "global-shortcut", app-id = "obs", shortcut-id = "mute" }
+    ```
+  
+  - Example 2:
+  
+    ```toml
+    [shortcuts]
+    logo-m = "global-shortcut:obs:mute"
+    ```
+
+  The table has the following fields:
+
+  - `app-id` (required):
+
+    The application ID that registered the global shortcut.
+
+    The value of this field should be a string.
+
+  - `shortcut-id` (required):
+
+    The shortcut ID chosen by the application.
+
+    The value of this field should be a string.
 
 
 <a name="types-BarPosition"></a>

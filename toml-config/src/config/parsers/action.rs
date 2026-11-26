@@ -137,6 +137,10 @@ pub enum ActionParserError {
     UnknownDirection(String),
     #[error("Exactly one of `output` or `direction` must be specified")]
     OutputAndDirectionMutuallyExclusive,
+    #[error(
+        "Invalid global-shortcut action `{0}`; expected `global-shortcut:<app_id>:<shortcut_id>`"
+    )]
+    InvalidGlobalShortcut(String),
 }
 
 #[derive(Debug, Error)]
@@ -771,6 +775,20 @@ impl ActionParser<'_, '_, '_> {
             value: value.value,
         })
     }
+
+    fn parse_global_shortcut(&mut self, ext: &mut Extractor<'_, '_, '_>) -> ParseResult<Self> {
+        let (
+            app_id, //
+            shortcut_id,
+        ) = ext.extract((
+            str("app-id"), //
+            str("shortcut-id"),
+        ))?;
+        Ok(Action::GlobalShortcut {
+            app_id: app_id.value.to_string(),
+            shortcut_id: shortcut_id.value.to_string(),
+        })
+    }
 }
 
 struct ShowWorkspaceDefaults {
@@ -785,6 +803,22 @@ impl Parser for ActionParser<'_, '_, '_> {
     const EXPECTED: &'static [DataType] = &[DataType::String, DataType::Array, DataType::Table];
 
     fn parse_string(&mut self, span: Span, string: &str) -> ParseResult<Self> {
+        if let Some(rest) = string.strip_prefix("global-shortcut:") {
+            let Some((app_id, shortcut_id)) = rest.split_once(':') else {
+                return Err(
+                    ActionParserError::InvalidGlobalShortcut(string.to_string()).spanned(span)
+                );
+            };
+            if shortcut_id.is_empty() {
+                return Err(
+                    ActionParserError::InvalidGlobalShortcut(string.to_string()).spanned(span)
+                );
+            }
+            return Ok(Action::GlobalShortcut {
+                app_id: app_id.to_string(),
+                shortcut_id: shortcut_id.to_string(),
+            });
+        }
         self.parse_simple_cmd(span, string)
     }
 
@@ -864,6 +898,7 @@ impl Parser for ActionParser<'_, '_, '_> {
             "set-window-theme" => self.parse_set_window_theme(&mut ext),
             "set-container-theme" => self.parse_set_container_theme(&mut ext),
             "reset-container-theme" => self.parse_reset_container_theme(&mut ext),
+            "global-shortcut" => self.parse_global_shortcut(&mut ext),
             v => {
                 ext.ignore_unused();
                 return Err(ActionParserError::UnknownType(v.to_string()).spanned(ty.span));

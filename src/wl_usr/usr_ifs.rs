@@ -1,3 +1,5 @@
+pub mod usr_hyprland_global_shortcut_v1;
+pub mod usr_hyprland_global_shortcuts_manager_v1;
 pub mod usr_jay_compositor;
 pub mod usr_jay_ei_session;
 pub mod usr_jay_ei_session_builder;
