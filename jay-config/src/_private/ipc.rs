@@ -1144,6 +1144,9 @@ pub enum ClientMessage<'a> {
         window: Window,
         kind: WindowThemeKind,
     },
+    SetIdleGracePeriodFade {
+        fade: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

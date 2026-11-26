@@ -11,6 +11,10 @@ request set_grace_period (since = 13) {
     period: pod(u64),
 }
 
+request set_fade (since = 45) {
+    fade: pod(u32),
+}
+
 # events
 
 event interval {
@@ -26,4 +30,8 @@ event inhibitor {
 
 event grace_period (since = 13) {
     period: pod(u64),
+}
+
+event fade (since = 45) {
+    fade: pod(u32),
 }

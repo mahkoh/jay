@@ -607,6 +607,15 @@ Set the grace period (screens go black but are not locked/disabled):
 ~$ jay idle set-grace-period disabled
 ```
 
+### `jay idle set-fade`
+
+Enable or disable fading to black during the grace period:
+
+```shell
+~$ jay idle set-fade enabled
+~$ jay idle set-fade disabled
+```
+
 ### `jay unlock`
 
 Unlock the compositor. This is useful when the screen locker crashes and the
