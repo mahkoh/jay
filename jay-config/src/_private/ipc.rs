@@ -8,8 +8,8 @@ use crate::_private::WorkspaceShowOpV1;
 use crate::_private::WorkspaceShowOpV2;
 use crate::Axis;
 use crate::Direction;
-use crate::FlattenContainer;
 use crate::JcContainerTarget;
+use crate::JcFlattenContainer;
 use crate::JcRelativeAxis;
 use crate::JcWorkspaceKind;
 use crate::PciId;
@@ -1146,7 +1146,7 @@ pub enum ClientMessage<'a> {
         kind: WindowThemeKind,
     },
     SetFlattenContainer {
-        mode: FlattenContainer,
+        mode: JcFlattenContainer,
     },
 }
 

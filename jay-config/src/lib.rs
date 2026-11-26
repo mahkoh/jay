@@ -89,7 +89,7 @@ pub enum Direction {
 }
 
 /// Configures how single-child containers are flattened.
-#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq, PrivateEnum)]
 #[non_exhaustive]
 pub enum FlattenContainer {
     /// Never flatten single-child containers.
@@ -615,7 +615,7 @@ pub fn set_middle_click_paste_enabled(enabled: bool) {
 ///
 /// The default is [`FlattenContainer::Never`].
 pub fn set_flatten_container(mode: FlattenContainer) {
-    get!().set_flatten_container(mode);
+    get!().set_flatten_container(mode.to_private());
 }
 
 /// Opens the control center.

@@ -49,7 +49,7 @@ pub use containing::*;
 pub use display::*;
 pub use float::*;
 use jay_config::Direction as JayDirection;
-use jay_config::FlattenContainer as ConfigFlattenContainer;
+use jay_config::JcFlattenContainer;
 use jay_config::video::Transform as ConfigTransform;
 use jay_config::window::JcTileState;
 use jay_config::workspace::WorkspaceDisplayOrder as ConfigWorkspaceDisplayOrder;
@@ -285,16 +285,12 @@ pub enum FlattenContainer {
     OnRemove,
 }
 
-impl TryFrom<ConfigFlattenContainer> for FlattenContainer {
-    type Error = ();
-
-    fn try_from(value: ConfigFlattenContainer) -> Result<Self, Self::Error> {
-        let v = match value {
-            ConfigFlattenContainer::Never => FlattenContainer::Never,
-            ConfigFlattenContainer::OnRemove => FlattenContainer::OnRemove,
-            _ => return Err(()),
-        };
-        Ok(v)
+impl From<JcFlattenContainer> for FlattenContainer {
+    fn from(value: JcFlattenContainer) -> Self {
+        match value {
+            JcFlattenContainer::Never => FlattenContainer::Never,
+            JcFlattenContainer::OnRemove => FlattenContainer::OnRemove,
+        }
     }
 }
 
