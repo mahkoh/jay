@@ -645,6 +645,17 @@ impl ContainerNode {
         }
     }
 
+    fn fixup_seat_ops(&self, old: &NodeRef<ContainerChild>, new: &NodeRef<ContainerChild>) {
+        let mut seats = self.cursors.borrow_mut();
+        for seat in seats.values_mut() {
+            if let Some(op) = &mut seat.op
+                && op.child.id == old.id
+            {
+                op.child = new.clone();
+            }
+        }
+    }
+
     fn damage(self: &Rc<Self>) {
         self.schedule_damage(self.node_absolute_position(LiveTL), true);
     }
@@ -2769,6 +2780,7 @@ impl ContainingNode for ContainerNode {
             node.resize_handle.get(),
             Some(&self.toplevel_data),
         )));
+        self.fixup_seat_ops(&node, &link);
         self.set_child_ns_title_rect(&link, node.node_state[LiveTL].title_rect.get());
         self.set_child_ns_body(&link, node.node_state[LiveTL].body.get());
         if let Some(fh) = node.focus_history.take() {
