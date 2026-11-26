@@ -111,6 +111,7 @@ use jay_config::Workspace;
 use jay_config::client::Client as ConfigClient;
 use jay_config::client::ClientCapabilities;
 use jay_config::client::ClientMatcher;
+use jay_config::focus;
 use jay_config::input::FocusFollowsMouseMode;
 use jay_config::input::InputDevice;
 use jay_config::input::InputEventCode as ConfigInputEventCode;
@@ -753,6 +754,16 @@ impl ConfigProxyHandler {
     fn handle_seat_focus(&self, seat: Seat, direction: Direction) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         seat.move_focus(direction.into());
+        Ok(())
+    }
+
+    fn handle_seat_focus_targets(
+        &self,
+        seat: Seat,
+        targets: &[focus::Target],
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.focus(targets);
         Ok(())
     }
 
@@ -3700,6 +3711,10 @@ impl ConfigProxyHandler {
                 .wrn("remove_shortcut")?,
             ClientMessage::SeatFocus { seat, direction } => {
                 self.handle_seat_focus(seat, direction).wrn("seat_focus")?;
+            }
+            ClientMessage::SeatFocusTargets { seat, targets } => {
+                self.handle_seat_focus_targets(seat, &targets)
+                    .wrn("seat_focus_targets")?;
             }
             ClientMessage::SeatMove { seat, direction } => {
                 self.handle_seat_move(seat, direction).wrn("seat_move")?;
