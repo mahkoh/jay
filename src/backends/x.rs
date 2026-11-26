@@ -1,4 +1,3 @@
-use crate::allocator::BufferObject;
 use crate::async_engine::Phase;
 use crate::async_engine::SpawnedFuture;
 use crate::backend::AXIS_120;
@@ -56,14 +55,13 @@ use crate::utils::liveness::Liveness;
 use crate::utils::numcell::NumCell;
 use crate::utils::queue::AsyncQueue;
 use crate::utils::syncqueue::SyncQueue;
+use crate::video::allocator::Allocator;
+use crate::video::allocator::AllocatorError;
+use crate::video::allocator::BO_USE_IMPLICIT_SYNC;
 use crate::video::drm::ConnectorType;
 use crate::video::drm::Drm;
 use crate::video::drm::DrmError;
 use crate::video::drm::DrmVersion;
-use crate::video::gbm::GBM_BO_USE_RENDERING;
-use crate::video::gbm::GbmBo;
-use crate::video::gbm::GbmDevice;
-use crate::video::gbm::GbmError;
 use crate::wire_xcon::ChangeProperty;
 use crate::wire_xcon::ChangeWindowAttributes;
 use crate::wire_xcon::ConfigureNotify;
@@ -170,8 +168,8 @@ pub enum XBackendError {
     SelectHierarchyEvents(#[source] XconError),
     #[error("The drm subsystem returned an error")]
     DrmError(#[from] DrmError),
-    #[error("The gbm subsystem returned an error")]
-    GbmError(#[from] GbmError),
+    #[error("The allocator returned an error")]
+    Allocator(#[from] AllocatorError),
     #[error("Could not import a dma-buf")]
     ImportBuffer(#[source] XconError),
     #[error("Could not create a graphics API context")]
@@ -258,7 +256,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
             Err(e) => return Err(XBackendError::DriOpen(e)),
         }
     };
-    let gbm = GbmDevice::new(&drm)?;
+    let allocator = Allocator::from_drm(&drm)?;
     let ctx = match state.create_gfx_context(&drm, None) {
         Ok(r) => r,
         Err(e) => return Err(XBackendError::CreateEgl(e)),
@@ -314,7 +312,7 @@ pub async fn create(state: &Rc<State>) -> Result<Rc<XBackend>, XBackendError> {
         mouse_seats: Default::default(),
         ctx: ctx.clone(),
         drm,
-        gbm,
+        allocator,
         cursor,
         root,
         scheduled_present: Default::default(),
@@ -349,7 +347,7 @@ pub struct XBackend {
     mouse_seats: CopyHashMap<u16, Rc<XSeat>>,
     ctx: Rc<dyn GfxContext>,
     drm: Drm,
-    gbm: GbmDevice,
+    allocator: Allocator,
     cursor: u32,
     root: u32,
     scheduled_present: AsyncQueue<Rc<XOutput>>,
@@ -468,15 +466,14 @@ impl XBackend {
             return Err(XBackendError::XRGB8888);
         };
         for image in &mut images {
-            let bo = self.gbm.create_bo(
+            let dma = &self.allocator.allocate_with_usage(
                 &self.state.dma_buf_ids,
                 width,
                 height,
                 FORMAT,
-                format.write_modifiers.keys(),
-                GBM_BO_USE_RENDERING,
+                format.write_modifiers.iter().copied(),
+                BO_USE_IMPLICIT_SYNC,
             )?;
-            let dma = bo.dmabuf();
             let fb = match self.ctx.clone().dmabuf_fb(dma) {
                 Ok(f) => f,
                 Err(e) => return Err(XBackendError::CreateFramebuffer(e)),
@@ -518,7 +515,6 @@ impl XBackend {
             };
             *image = Some(XImage {
                 pixmap: Cell::new(pixmap),
-                _bo: bo,
                 fb: CloneCell::new(fb),
                 tex: CloneCell::new(tex),
                 idle: Cell::new(true),
@@ -1136,7 +1132,6 @@ struct XOutput {
 
 struct XImage {
     pixmap: Cell<u32>,
-    _bo: GbmBo,
     fb: CloneCell<Rc<dyn GfxFramebuffer>>,
     tex: CloneCell<Rc<dyn GfxTexture>>,
     idle: Cell<bool>,

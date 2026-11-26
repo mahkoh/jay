@@ -1,5 +1,4 @@
 use crate::acceptor::Acceptor;
-use crate::allocator::BufferObject;
 use crate::async_engine::AsyncEngine;
 use crate::async_engine::SpawnedFuture;
 use crate::backend::Backend;
@@ -229,7 +228,6 @@ use crate::utils::liveness::Liveness;
 use crate::utils::numcell::NumCell;
 use crate::utils::obj_and_id::ObjAndId;
 use crate::utils::obj_and_id::ObjWithId;
-use crate::utils::object_drop_queue::ObjectDropQueue;
 use crate::utils::queue::AsyncQueue;
 use crate::utils::refcounted::RefCounted;
 use crate::utils::run_toplevel::RunToplevel;
@@ -286,7 +284,6 @@ pub struct State {
     pub render_ctx_drm_device: ObjAndId<Option<Rc<DrmDevData>>>,
     pub render_ctx_prime_copy_device: CloneCell<Option<Rc<CopyDevice>>>,
     pub render_ctx_prime_modifiers: CopyHashMap<Option<ConnectorId>, PrimeModifiers>,
-    pub render_ctx_prime_modifiers_stash: RefCell<Vec<Modifier>>,
     pub render_ctx_version: NumCell<u32>,
     pub render_ctx_ever_initialized: Cell<bool>,
     pub cursors: CloneCell<Option<Rc<ServerCursors>>>,
@@ -421,7 +418,6 @@ pub struct State {
     pub supports_presentation_feedback: Cell<bool>,
     pub eventfd_cache: Rc<EventfdCache>,
     pub lazy_event_sources: Rc<LazyEventSources>,
-    pub bo_drop_queue: Rc<ObjectDropQueue<Rc<dyn BufferObject>>>,
     pub egg_state: EggState,
     pub control_centers: ControlCenters,
     pub virtual_outputs: VirtualOutputs,
@@ -1514,7 +1510,6 @@ impl State {
         self.cpu_worker.clear();
         self.wait_for_syncobj.clear();
         self.lazy_event_sources.clear();
-        self.bo_drop_queue.kill();
         self.egg_state.clear();
         self.control_centers.clear();
         self.virtual_outputs.clear();

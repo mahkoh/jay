@@ -176,8 +176,6 @@ pub enum DrmError {
     TransferPoint(#[source] OsError),
     #[error("Could not merge two sync files")]
     Merge(#[source] OsError),
-    #[error("Could not export a sync file")]
-    ExportSyncFile(#[source] OsError),
     #[error("Could not create a lease")]
     CreateLease(#[source] OsError),
     #[error("Could not drop DRM master")]
@@ -188,6 +186,8 @@ pub enum DrmError {
     Stat(#[source] OsError),
     #[error("Device has no device nodes")]
     NoDeviceNodes,
+    #[error("The modifier {0:#x} is not supported")]
+    UnsupportedModifier(Modifier),
 }
 
 fn render_node_name(fd: c::c_int) -> Result<Ustring, DrmError> {
@@ -253,10 +253,6 @@ impl Drm {
 
     pub fn raw(&self) -> c::c_int {
         self.fd.raw()
-    }
-
-    pub fn dup_primary(&self) -> Result<Self, DrmError> {
-        Self::reopen(self.id, self.fd.raw(), true)
     }
 
     pub fn dup_render(&self) -> Result<Self, DrmError> {
@@ -450,11 +446,15 @@ impl DrmMaster {
         self: &Rc<Self>,
         dma: &DmaBuf,
         format: Option<&Format>,
+        supported: &FHashSet<Modifier>,
     ) -> Result<DrmFramebuffer, DrmError> {
-        let mut modifier = 0;
+        let mut modifier = dma
+            .interop_modifier(self.id, supported)
+            .ok_or(DrmError::UnsupportedModifier(dma.modifier))?;
         let mut flags = 0;
-        if dma.modifier != INVALID_MODIFIER {
-            modifier = dma.modifier;
+        if modifier == INVALID_MODIFIER {
+            modifier = 0;
+        } else {
             flags |= DRM_MODE_FB_MODIFIERS;
         }
         let mut strides = [0; 4];

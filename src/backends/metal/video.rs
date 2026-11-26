@@ -92,6 +92,7 @@ use crate::utils::ordered_float::F64;
 use crate::utils::static_text::StaticText;
 use crate::video::INVALID_MODIFIER;
 use crate::video::Modifier;
+use crate::video::allocator::Allocator;
 use crate::video::dmabuf::DmaBufId;
 use crate::video::drm::ConnectorStatus;
 use crate::video::drm::ConnectorType;
@@ -118,7 +119,6 @@ use crate::video::drm::DrmVersion;
 use crate::video::drm::PrepareDrmObjectProperties;
 use crate::video::drm::drm_mode_modeinfo;
 use crate::video::drm::hdr_output_metadata;
-use crate::video::gbm::GbmDevice;
 use bstr::BString;
 use bstr::ByteSlice;
 use hashbrown::hash_map::Entry;
@@ -153,7 +153,7 @@ pub struct MetalRenderContext {
     pub dev_id: DrmDeviceId,
     pub gfx: Rc<dyn GfxContext>,
     pub master: Rc<DrmMaster>,
-    pub gbm: Rc<GbmDevice>,
+    pub allocator: Rc<Allocator>,
     pub devnode: CString,
     pub copy_device: Rc<CopyDeviceHolder>,
     liveness: Liveness,
@@ -2140,9 +2140,9 @@ impl MetalBackend {
             }
         }
 
-        let gbm = match GbmDevice::new(master) {
+        let allocator = match Allocator::from_drm(master) {
             Ok(g) => Rc::new(g),
-            Err(e) => return Err(MetalError::GbmDevice(e)),
+            Err(e) => return Err(MetalError::Allocator(e)),
         };
 
         let copy_device = Rc::new(CopyDeviceHolder {
@@ -2160,7 +2160,7 @@ impl MetalBackend {
             dev_id: pending.id,
             gfx,
             master: master.clone(),
-            gbm: gbm.clone(),
+            allocator: allocator.clone(),
             devnode: pending.devnode.clone(),
             copy_device: copy_device.clone(),
             liveness: Default::default(),
@@ -2583,7 +2583,7 @@ impl MetalBackend {
             dev_id: dev.id,
             gfx,
             master: old_ctx.master.clone(),
-            gbm: old_ctx.gbm.clone(),
+            allocator: old_ctx.allocator.clone(),
             devnode: old_ctx.devnode.clone(),
             copy_device: old_ctx.copy_device.clone(),
             liveness: Default::default(),

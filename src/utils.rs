@@ -61,7 +61,6 @@ pub mod nonblock;
 pub mod num_cpus;
 pub mod numcell;
 pub mod obj_and_id;
-pub mod object_drop_queue;
 pub mod object_registry;
 pub mod on_change;
 pub mod on_drop_event;

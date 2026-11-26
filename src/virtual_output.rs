@@ -1,7 +1,3 @@
-use crate::allocator::AllocatorError;
-use crate::allocator::BO_USE_RENDERING;
-use crate::allocator::BufferObject;
-use crate::allocator::BufferUsage;
 use crate::async_engine::Phase;
 use crate::async_engine::SpawnedFuture;
 use crate::backend::BackendConnectorState;
@@ -66,6 +62,7 @@ use crate::utils::numcell::NumCell;
 use crate::utils::on_change::OnChange;
 use crate::utils::rc_eq::rc_eq;
 use crate::utils::timer::TimerFd;
+use crate::video::allocator::AllocatorError;
 use crate::video::drm::ConnectorType;
 use linearize::Linearize;
 use linearize::LinearizeExt;
@@ -168,7 +165,6 @@ struct FbState {
 struct VoFb {
     width: i32,
     height: i32,
-    _bo: Rc<dyn BufferObject>,
     tex: Rc<dyn GfxTexture>,
     fb: Rc<dyn GfxFramebuffer>,
 }
@@ -1129,36 +1125,24 @@ fn allocate_scanout_buffers(
     let Some(gfx_format) = ctx.formats().get(&format.drm) else {
         return Err(AllocError::GfxFormatNotSupported);
     };
-    let mut needs_render_usage = false;
-    let mut modifiers = vec![];
-    for modifier in gfx_format.read_modifiers.iter().copied() {
-        let Some(write_modifier) = gfx_format.write_modifiers.get(&modifier) else {
-            continue;
-        };
-        needs_render_usage |= write_modifier.needs_render_usage;
-        modifiers.push(modifier);
-    }
-    let mut usage = BufferUsage::none();
-    if needs_render_usage {
-        usage |= BO_USE_RENDERING;
-    }
     let create_fb = |(width, height): (i32, i32)| {
+        let modifiers = gfx_format
+            .read_modifiers
+            .iter()
+            .copied()
+            .filter(|v| gfx_format.write_modifiers.contains(v));
         let bo = ctx
             .allocator()
-            .create_bo(&state.dma_buf_ids, width, height, format, &modifiers, usage)
+            .allocate(&state.dma_buf_ids, width, height, format, modifiers)
             .map_err(AllocError::CreateBo)?;
         let tex = ctx
             .clone()
-            .dmabuf_tex(bo.dmabuf())
+            .dmabuf_tex(&bo)
             .map_err(AllocError::CreateTexture)?;
-        let fb = ctx
-            .clone()
-            .dmabuf_fb(bo.dmabuf())
-            .map_err(AllocError::CreateFb)?;
+        let fb = ctx.clone().dmabuf_fb(&bo).map_err(AllocError::CreateFb)?;
         Ok(VoFb {
             width,
             height,
-            _bo: bo,
             tex,
             fb,
         })

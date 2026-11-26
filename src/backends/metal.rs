@@ -73,8 +73,8 @@ use crate::utils::liveness::Liveness;
 use crate::utils::numcell::NumCell;
 use crate::utils::smallmap::SmallMap;
 use crate::utils::syncqueue::SyncQueue;
+use crate::video::allocator::AllocatorError;
 use crate::video::drm::DrmError;
-use crate::video::gbm::GbmError;
 use bstr::ByteSlice;
 use jay_algorithms::oserror::OsError;
 use jay_algorithms::oserror::OsErrorExt2;
@@ -111,8 +111,8 @@ pub enum MetalError {
     LibInput(#[from] LibInputError),
     #[error("Dupfd failed")]
     Dup(#[source] OsError),
-    #[error("Could not create GBM device")]
-    GbmDevice(#[source] GbmError),
+    #[error("Could not create allocator")]
+    Allocator(#[source] AllocatorError),
     #[error("Could not update the drm properties")]
     UpdateProperties(#[source] DrmError),
     #[error("Could not create a render context")]

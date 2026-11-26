@@ -1,7 +1,3 @@
-use crate::allocator::AllocatorError;
-use crate::allocator::BO_USE_LINEAR;
-use crate::allocator::BO_USE_RENDERING;
-use crate::allocator::BufferObject;
 use crate::client::Client;
 use crate::client::LookupError;
 use crate::cmm::cmm_description::ColorDescription;
@@ -39,6 +35,10 @@ use crate::utils::numcell::NumCell;
 use crate::utils::option_ext::OptionExt;
 use crate::video::INVALID_MODIFIER;
 use crate::video::LINEAR_MODIFIER;
+use crate::video::allocator::AllocatorError;
+use crate::video::allocator::BO_USE_IMPLICIT_INTEROP;
+use crate::video::allocator::BO_USE_IMPLICIT_SYNC;
+use crate::video::allocator::BO_USE_LINEAR;
 use crate::video::dmabuf::DmaBuf;
 use crate::wire::JayScreencastId;
 use crate::wire::jay_screencast::*;
@@ -132,7 +132,6 @@ struct Pending {
 }
 
 struct ScreencastBuffer {
-    _bo: Option<Rc<dyn BufferObject>>,
     dmabuf: Option<Rc<DmaBuf>>,
     fb: Rc<dyn GfxFramebuffer>,
     free: bool,
@@ -457,33 +456,32 @@ impl JayScreencast {
                 if width == 0 || height == 0 {
                     continue;
                 }
-                let mut usage = BO_USE_RENDERING;
+                let mut usage = BO_USE_IMPLICIT_SYNC;
                 let modifiers = match self.linear.get() {
-                    true if format.write_modifiers.contains_key(&LINEAR_MODIFIER) => {
+                    true if format.write_modifiers.contains(&LINEAR_MODIFIER) => {
                         vec![LINEAR_MODIFIER]
                     }
-                    true if format.write_modifiers.contains_key(&INVALID_MODIFIER) => {
-                        usage |= BO_USE_LINEAR;
-                        vec![INVALID_MODIFIER]
+                    true if format.write_modifiers.contains(&INVALID_MODIFIER) => {
+                        usage |= BO_USE_LINEAR | BO_USE_IMPLICIT_INTEROP;
+                        vec![LINEAR_MODIFIER, INVALID_MODIFIER]
                     }
                     true => return Err(JayScreencastError::Modifier),
                     false if format.write_modifiers.is_empty() => {
                         return Err(JayScreencastError::XRGB8888Writing);
                     }
-                    false => format.write_modifiers.keys().copied().collect(),
+                    false => format.write_modifiers.iter().copied().collect(),
                 };
-                let buffer = ctx.allocator().create_bo(
+                let dmabuf = ctx.allocator().allocate_with_usage(
                     &self.client.state.dma_buf_ids,
                     width,
                     height,
                     format.format,
-                    &modifiers,
+                    modifiers,
                     usage,
                 )?;
-                let fb = ctx.clone().dmabuf_fb(buffer.dmabuf())?;
+                let fb = ctx.clone().dmabuf_fb(&dmabuf)?;
                 buffers.push(ScreencastBuffer {
-                    dmabuf: Some(buffer.dmabuf().clone()),
-                    _bo: Some(buffer),
+                    dmabuf: Some(dmabuf),
                     fb,
                     free: true,
                 });
@@ -656,7 +654,6 @@ impl JayScreencastRequestHandler for JayScreencast {
         }
         for buffer in self.pending.buffers.borrow_mut().drain(..) {
             self.buffers.borrow_mut().push(ScreencastBuffer {
-                _bo: None,
                 dmabuf: None,
                 fb: buffer,
                 free: true,

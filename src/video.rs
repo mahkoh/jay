@@ -1,6 +1,6 @@
+pub mod allocator;
 pub mod dmabuf;
 pub mod drm;
-pub mod gbm;
 
 pub type Modifier = u64;
 

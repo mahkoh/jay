@@ -1,4 +1,3 @@
-use crate::allocator::Allocator;
 use crate::cmm::cmm_description::ColorDescription;
 use crate::cmm::cmm_description::LinearColorDescription;
 use crate::cmm::cmm_render_intent::RenderIntent;
@@ -31,10 +30,10 @@ use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::utils::bhash::BHashMap;
 use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::fx_hash::FHashMap;
 use crate::utils::fx_hash::FHashSet;
 use crate::utils::static_text::StaticText;
 use crate::video::Modifier;
+use crate::video::allocator::Allocator;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
 use crate::video::drm::Drm;
@@ -1033,7 +1032,7 @@ pub trait GfxContext: Debug {
 
     fn drm(&self) -> Option<&Drm>;
 
-    fn allocator(&self) -> Rc<dyn Allocator>;
+    fn allocator(&self) -> Rc<Allocator>;
 
     fn gfx_api(&self) -> GfxApi;
 
@@ -1112,20 +1111,11 @@ pub trait GfxContext: Debug {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct GfxWriteModifier {
-    pub needs_render_usage: bool,
-}
-
-pub fn needs_render_usage<'a>(mut modifiers: impl Iterator<Item = &'a GfxWriteModifier>) -> bool {
-    modifiers.any(|m| m.needs_render_usage)
-}
-
 #[derive(Debug)]
 pub struct GfxFormat {
     pub format: &'static Format,
     pub read_modifiers: FHashSet<Modifier>,
-    pub write_modifiers: FHashMap<Modifier, GfxWriteModifier>,
+    pub write_modifiers: FHashSet<Modifier>,
     pub supports_shm: bool,
 }
 
@@ -1148,13 +1138,13 @@ impl GfxFormat {
                 .read_modifiers
                 .iter()
                 .copied()
-                .filter(|m| other.write_modifiers.contains_key(m))
+                .filter(|m| other.write_modifiers.contains(m))
                 .collect(),
             write_modifiers: self
                 .write_modifiers
                 .iter()
-                .map(|(m, v)| (*m, v.clone()))
-                .filter(|(m, _)| other.read_modifiers.contains(m))
+                .copied()
+                .filter(|m| other.read_modifiers.contains(m))
                 .collect(),
             supports_shm: self.supports_shm && other.supports_shm,
         }

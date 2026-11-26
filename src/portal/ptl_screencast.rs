@@ -1,9 +1,5 @@
 mod screencast_gui;
 
-use crate::allocator::AllocatorError;
-use crate::allocator::BO_USE_RENDERING;
-use crate::allocator::BufferObject;
-use crate::allocator::BufferUsage;
 use crate::dbus::DbusObject;
 use crate::dbus::DictEntry;
 use crate::dbus::PendingReply;
@@ -45,6 +41,8 @@ use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::opaque::Opaque;
 use crate::video::LINEAR_MODIFIER;
 use crate::video::Modifier;
+use crate::video::allocator::AllocatorError;
+use crate::video::allocator::BO_USE_IMPLICIT_SYNC;
 use crate::video::dmabuf::DmaBuf;
 use crate::wire::jay_screencast::Ready;
 use crate::wire_dbus::org;
@@ -137,7 +135,6 @@ pub struct StartedScreencast {
     session: Rc<PortalSession>,
     pub node: Rc<PwClientNode>,
     port: Rc<PwClientNodePort>,
-    buffer_objects: RefCell<Vec<Rc<dyn BufferObject>>>,
     buffers: RefCell<Vec<Rc<DmaBuf>>>,
     pub pending_buffers: RefCell<Vec<Rc<UsrLinuxBufferParams>>>,
     buffers_valid: Cell<bool>,
@@ -224,7 +221,6 @@ impl PwClientNodeOwner for StartingScreencast {
             session: self.session.clone(),
             node: self.node.clone(),
             port,
-            buffer_objects: Default::default(),
             buffers: Default::default(),
             pending_buffers: Default::default(),
             buffers_valid: Cell::new(false),
@@ -257,8 +253,7 @@ impl PwClientNodeOwner for StartedScreencast {
         let modifier;
         let planes;
         match self.allocate_buffer(fmt, modifiers) {
-            Ok(bo) => {
-                let dmabuf = bo.dmabuf();
+            Ok(dmabuf) => {
                 modifier = dmabuf.modifier;
                 planes = dmabuf.planes.len();
             }
@@ -301,7 +296,6 @@ impl PwClientNodeOwner for StartedScreencast {
         };
         self.jay_screencast.clear_buffers();
         self.jay_screencast.configure();
-        self.buffer_objects.borrow_mut().clear();
         self.buffers.borrow_mut().clear();
         for buffer in self.pending_buffers.borrow_mut().drain(..) {
             self.dpy.con.remove_obj(&*buffer);
@@ -311,10 +305,9 @@ impl PwClientNodeOwner for StartedScreencast {
             match res {
                 Ok(b) => {
                     let params = dmabuf.create_params();
-                    params.create(&b.dmabuf());
+                    params.create(&b);
                     params.owner.set(Some(self.clone()));
-                    self.buffers.borrow_mut().push(b.dmabuf().clone());
-                    self.buffer_objects.borrow_mut().push(b);
+                    self.buffers.borrow_mut().push(b);
                     self.pending_buffers.borrow_mut().push(params);
                 }
                 Err(e) => {
@@ -357,32 +350,17 @@ impl StartedScreencast {
         &self,
         format: &'static Format,
         modifiers: &[Modifier],
-    ) -> Result<Rc<dyn BufferObject>, BufferAllocationError> {
+    ) -> Result<Rc<DmaBuf>, BufferAllocationError> {
         let Some(ctx) = self.dpy.render_ctx.get() else {
             return Err(BufferAllocationError::NoRenderContext);
         };
-        let mut usage = BO_USE_RENDERING;
-        if let Some(sf) = &ctx.server_formats
-            && let Some(format) = sf.get(&format.drm)
-        {
-            let no_render_usage = modifiers.iter().all(|m| {
-                format
-                    .write_modifiers
-                    .get(m)
-                    .map(|w| !w.needs_render_usage)
-                    .unwrap_or(false)
-            });
-            if no_render_usage {
-                usage = BufferUsage::none();
-            }
-        }
-        let buffer = ctx.ctx.ctx.allocator().create_bo(
+        let buffer = ctx.ctx.ctx.allocator().allocate_with_usage(
             &self.dpy.state.dma_buf_ids,
             self.width.get(),
             self.height.get(),
             format,
-            modifiers,
-            usage,
+            modifiers.iter().copied(),
+            BO_USE_IMPLICIT_SYNC,
         )?;
         Ok(buffer)
     }
@@ -737,7 +715,7 @@ fn init_supported_formats(
         }
         let ptl_format = PwClientNodePortSupportedFormat {
             format: format.format,
-            modifiers: format.write_modifiers.keys().copied().collect(),
+            modifiers: format.write_modifiers.iter().copied().collect(),
         };
         supported_formats.formats.push(ptl_format);
     }

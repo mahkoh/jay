@@ -1,7 +1,3 @@
-use crate::allocator::Allocator;
-use crate::allocator::BO_USE_RENDERING;
-use crate::allocator::BufferObject;
-use crate::allocator::BufferUsage;
 use crate::cpu_worker::CpuWorker;
 use crate::format::Format;
 use crate::format::XRGB8888;
@@ -33,10 +29,10 @@ use crate::gfx_apis::gl::renderer::image::Image;
 use crate::rect::Rect;
 use crate::syncobj::SyncobjCtx;
 use crate::utils::bhash::BHashMap;
+use crate::video::allocator::Allocator;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
 use crate::video::drm::Drm;
-use crate::video::gbm::GbmDevice;
 use linearize::Linearize;
 use linearize::StaticMap;
 use linearize::static_map;
@@ -88,7 +84,7 @@ pub(in crate::gfx_apis::gl) enum TexSourceType {
 pub(in crate::gfx_apis::gl) struct GlRenderContext {
     pub(crate) ctx: Rc<EglContext>,
     drm: Drm,
-    gbm: Rc<GbmDevice>,
+    allocator: Rc<Allocator>,
     sync_ctx: Rc<SyncobjCtx>,
 
     render_node: Rc<CString>,
@@ -180,7 +176,7 @@ impl GlRenderContext {
         Ok(Self {
             ctx: ctx.clone(),
             drm: ctx.dpy.drm.clone(),
-            gbm: ctx.dpy.gbm.clone(),
+            allocator: ctx.dpy.allocator.clone(),
             sync_ctx: Rc::new(SyncobjCtx::new(ctx.dpy.drm.fd())),
 
             render_node: node.clone(),
@@ -219,20 +215,11 @@ impl GlRenderContext {
     }
 
     fn dmabuf_img(self: &Rc<Self>, buf: &Rc<DmaBuf>) -> Result<Image, RenderError> {
-        self.dmabuf_img2(buf, None)
-    }
-
-    fn dmabuf_img2(
-        self: &Rc<Self>,
-        buf: &Rc<DmaBuf>,
-        bo: Option<Rc<dyn BufferObject>>,
-    ) -> Result<Image, RenderError> {
         self.ctx.with_current(|| {
             let img = self.ctx.dpy.import_dmabuf(buf)?;
             Ok(Image {
                 ctx: self.clone(),
                 gl: img,
-                _bo: bo,
             })
         })
     }
@@ -350,8 +337,8 @@ impl GfxContext for GlRenderContext {
         Some(&self.drm)
     }
 
-    fn allocator(&self) -> Rc<dyn Allocator> {
-        self.gbm.clone()
+    fn allocator(&self) -> Rc<Allocator> {
+        self.allocator.clone()
     }
 
     fn gfx_api(&self) -> GfxApi {
@@ -383,22 +370,15 @@ impl GfxContext for GlRenderContext {
         let Some(format) = self.formats().get(&format.drm) else {
             return Err(RenderError::UnsupportedFormat.into());
         };
-        let mut needs_render_usage = false;
-        let mut modifiers = vec![];
-        for (modifier, gwm) in format.write_modifiers.iter() {
-            if format.read_modifiers.contains(modifier) {
-                needs_render_usage |= gwm.needs_render_usage;
-                modifiers.push(*modifier);
-            }
-        }
-        let mut usage = BufferUsage::none();
-        if needs_render_usage {
-            usage |= BO_USE_RENDERING;
-        }
+        let modifiers = format
+            .write_modifiers
+            .iter()
+            .copied()
+            .filter(|v| format.read_modifiers.contains(v));
         let bo = allocator
-            .create_bo(dma_buf_ids, width, height, format.format, &modifiers, usage)
+            .allocate(dma_buf_ids, width, height, format.format, modifiers)
             .map_err(RenderError::AllocateBo)?;
-        let img = self.dmabuf_img2(bo.dmabuf(), Some(bo.clone()))?;
+        let img = self.dmabuf_img(&bo)?;
         let tex = img.to_texture()?;
         let fb = img.to_framebuffer()?;
         Ok((fb, tex))

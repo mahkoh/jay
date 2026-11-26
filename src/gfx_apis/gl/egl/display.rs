@@ -1,7 +1,6 @@
 use crate::format::Format;
 use crate::format::formats;
 use crate::gfx_api::GfxFormat;
-use crate::gfx_api::GfxWriteModifier;
 use crate::gfx_apis::gl::RenderError;
 use crate::gfx_apis::gl::egl::PROCS;
 use crate::gfx_apis::gl::egl::context::EglContext;
@@ -75,9 +74,9 @@ use crate::utils::fx_hash::FHashMap;
 use crate::utils::fx_hash::FHashSet;
 use crate::video::INVALID_MODIFIER;
 use crate::video::Modifier;
+use crate::video::allocator::Allocator;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::drm::Drm;
-use crate::video::gbm::GbmDevice;
 use std::ffi::CStr;
 use std::ptr;
 use std::rc::Rc;
@@ -88,6 +87,7 @@ pub struct EglFormat {
     format: &'static Format,
     implicit_external_only: bool,
     modifiers: FHashMap<u64, EglModifier>,
+    modifiers_set: FHashSet<Modifier>,
 }
 
 #[derive(Debug)]
@@ -104,7 +104,7 @@ pub struct EglDisplay {
     pub exts: DisplayExt,
     pub formats: BHashMap<u32, EglFormat>,
     pub drm: Drm,
-    pub gbm: Rc<GbmDevice>,
+    pub allocator: Rc<Allocator>,
     pub dpy: EGLDisplay,
     pub explicit_sync: bool,
     _holder: Rc<EglDisplayHolder>,
@@ -131,9 +131,9 @@ impl EglDisplay {
             let Some(procs) = PROCS.as_ref() else {
                 return Err(RenderError::LoadEglProcs);
             };
-            let gbm = match GbmDevice::new(drm) {
-                Ok(gbm) => gbm,
-                Err(e) => return Err(RenderError::Gbm(e)),
+            let allocator = match Allocator::from_drm(drm) {
+                Ok(allocator) => allocator,
+                Err(e) => return Err(RenderError::Allocator(e)),
             };
             let holder = get_or_create_display(egl, procs, drm, software)?;
             let mut dpy = EglDisplay {
@@ -143,7 +143,7 @@ impl EglDisplay {
                 exts: DisplayExt::none(),
                 formats: BHashMap::default(),
                 drm: drm.clone(),
-                gbm: Rc::new(gbm),
+                allocator: Rc::new(allocator),
                 dpy: holder.dpy,
                 explicit_sync: false,
                 _holder: holder,
@@ -217,18 +217,13 @@ impl EglDisplay {
                     continue;
                 }
                 let mut read_modifiers = FHashSet::default();
-                let mut write_modifiers = FHashMap::default();
+                let mut write_modifiers = FHashSet::default();
                 for modifier in format.modifiers.values() {
                     if modifier.external_only && !supports_external_only {
                         continue;
                     }
                     if !modifier.external_only {
-                        write_modifiers.insert(
-                            modifier.modifier,
-                            GfxWriteModifier {
-                                needs_render_usage: true,
-                            },
-                        );
+                        write_modifiers.insert(modifier.modifier);
                     }
                     read_modifiers.insert(modifier.modifier);
                 }
@@ -259,12 +254,14 @@ impl EglDisplay {
         self: &Rc<Self>,
         buf: &Rc<DmaBuf>,
     ) -> Result<Rc<EglImage>, RenderError> {
-        let format = match self.formats.get(&buf.format.drm) {
-            Some(fmt) => match fmt.modifiers.get(&buf.modifier) {
-                Some(fmt) => fmt,
-                _ => return Err(RenderError::UnsupportedModifier),
-            },
-            _ => return Err(RenderError::UnsupportedFormat),
+        let Some(fmt) = self.formats.get(&buf.format.drm) else {
+            return Err(RenderError::UnsupportedFormat);
+        };
+        let Some(modifier) = buf.interop_modifier(self.drm.id(), &fmt.modifiers_set) else {
+            return Err(RenderError::UnsupportedModifier);
+        };
+        let Some(format) = fmt.modifiers.get(&modifier) else {
+            return Err(RenderError::UnsupportedModifier);
         };
         struct PlaneKey {
             fd: EGLint,
@@ -313,9 +310,9 @@ impl EglDisplay {
             attribs.extend_from_slice(&[key.fd, plane.fd.raw()]);
             attribs.extend_from_slice(&[key.pitch, plane.stride as _]);
             attribs.extend_from_slice(&[key.offset, plane.offset as _]);
-            if buf.modifier != INVALID_MODIFIER {
-                attribs.extend_from_slice(&[key.mod_lo, buf.modifier as i32]);
-                attribs.extend_from_slice(&[key.mod_hi, (buf.modifier >> 32) as i32]);
+            if modifier != INVALID_MODIFIER {
+                attribs.extend_from_slice(&[key.mod_lo, modifier as i32]);
+                attribs.extend_from_slice(&[key.mod_hi, (modifier >> 32) as i32]);
             }
         }
         attribs.push(EGL_NONE);
@@ -368,6 +365,7 @@ unsafe fn query_formats(
                 EglFormat {
                     format,
                     implicit_external_only: external_only,
+                    modifiers_set: modifiers.keys().copied().collect(),
                     modifiers,
                 },
             );

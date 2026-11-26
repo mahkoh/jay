@@ -41,7 +41,6 @@
           installShellFiles,
           pkgconf,
           fontconfig,
-          libgbm,
           libglvnd,
           libinput,
           pango,
@@ -75,7 +74,6 @@
 
             buildInputs = [
               fontconfig
-              libgbm
               libinput
               pango
               udev

@@ -1,4 +1,3 @@
-use crate::allocator::BufferObject;
 use crate::backends::metal::MetalBackend;
 use crate::backends::metal::MetalError;
 use crate::backends::metal::video::MetalDrmDevice;
@@ -18,29 +17,26 @@ use crate::gfx_api::GfxError;
 use crate::gfx_api::GfxFormat;
 use crate::gfx_api::GfxFramebuffer;
 use crate::gfx_api::GfxTexture;
-use crate::gfx_api::GfxWriteModifier;
 use crate::gfx_api::ReleaseSync;
-use crate::gfx_api::needs_render_usage;
 use crate::rect::DamageQueue;
 use crate::rect::Rect;
 use crate::rect::Region;
 use crate::udmabuf::Udmabuf;
 use crate::udmabuf::UdmabufError;
-use crate::utils::bhash::BHashSet;
 use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::fx_hash::FHashMap;
 use crate::utils::fx_hash::FHashSet;
 use crate::utils::rc_eq::rc_eq;
+use crate::video::INVALID_MODIFIER;
 use crate::video::LINEAR_MODIFIER;
 use crate::video::Modifier;
+use crate::video::allocator::AllocatorError;
+use crate::video::allocator::BO_USE_IMPLICIT_INTEROP;
+use crate::video::allocator::BO_USE_LINEAR;
+use crate::video::allocator::BO_USE_SCANOUT;
+use crate::video::allocator::BufferUsage;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::drm::DrmError;
 use crate::video::drm::DrmFramebuffer;
-use crate::video::gbm::GBM_BO_USE_LINEAR;
-use crate::video::gbm::GBM_BO_USE_RENDERING;
-use crate::video::gbm::GBM_BO_USE_SCANOUT;
-use crate::video::gbm::GbmBo;
-use crate::video::gbm::GbmError;
 use arrayvec::ArrayVec;
 use bstr::ByteSlice;
 use isnt::std_1::primitive::IsntSliceExt;
@@ -56,6 +52,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::mem::DropGuard;
 use std::rc::Rc;
 use std::sync::LazyLock;
 use thiserror::Error;
@@ -77,7 +74,7 @@ pub struct RenderBuffer {
 #[derive(Debug)]
 pub struct RenderBufferRender {
     pub ctx: Rc<MetalRenderContext>,
-    bo: GbmBo,
+    bo: Rc<DmaBuf>,
     pub tex: Rc<dyn GfxTexture>,
     pub fb: Rc<dyn GfxFramebuffer>,
 }
@@ -86,7 +83,7 @@ pub struct RenderBufferRender {
 pub enum RenderBufferPrime {
     None,
     Sampling {
-        dev_bo: GbmBo,
+        dev_bo: Rc<DmaBuf>,
         dev_fb: Rc<dyn GfxFramebuffer>,
         // Import of the render dmabuf into the dev ctx.
         dev_render_tex: Rc<dyn GfxTexture>,
@@ -95,24 +92,24 @@ pub enum RenderBufferPrime {
         render_copy: CopyDeviceCopy,
         dev_copy_dev: Rc<CopyDevice>,
         dev_copy: CopyDeviceCopy,
-        dev_bo: GbmBo,
+        dev_bo: Rc<DmaBuf>,
     },
     CopyDirectPull {
         dev_copy_dev: Rc<CopyDevice>,
         dev_copy: CopyDeviceCopy,
-        dev_bo: GbmBo,
+        dev_bo: Rc<DmaBuf>,
     },
     CopyIndirectPull {
         render_copy: CopyDeviceCopy,
         _render_secondary_bo: CopyDeviceBuffer,
         dev_copy_dev: Rc<CopyDevice>,
         dev_copy: CopyDeviceCopy,
-        dev_bo: GbmBo,
+        dev_bo: Rc<DmaBuf>,
     },
     CopyDirectPush {
         render_copy: CopyDeviceCopy,
         dev_copy_dev: Rc<CopyDevice>,
-        dev_bo: GbmBo,
+        dev_bo: Rc<DmaBuf>,
     },
 }
 
@@ -256,7 +253,7 @@ impl RenderBuffer {
 
         if let Some(dev) = new.dev_copy_device().or(old.dev_copy_device()) {
             return dev
-                .create_copy(old.dev_bo().dmabuf(), new.dev_bo().dmabuf())
+                .create_copy(old.dev_bo(), new.dev_bo())
                 .map_err(RenderBufferError::CreateCopyDeviceCopy)?
                 .execute(None, None)
                 .map_err(RenderBufferError::ExecuteCopyDeviceCopy);
@@ -295,7 +292,7 @@ impl RenderBuffer {
                     &new.render.fb,
                     &old.render.ctx,
                     &old.render.tex,
-                    old.render.bo.dmabuf(),
+                    &old.render.bo,
                 )?,
                 RenderBufferPrime::Sampling {
                     dev_fb: new_dev_fb, ..
@@ -304,7 +301,7 @@ impl RenderBuffer {
                     new_dev_fb,
                     &old.render.ctx,
                     &old.render.tex,
-                    old.render.bo.dmabuf(),
+                    &old.render.bo,
                 )?,
                 _ => unreachable!(),
             },
@@ -318,7 +315,7 @@ impl RenderBuffer {
                     &new.render.fb,
                     &old.dev_ctx,
                     old_dev_render_tex,
-                    old_dev_bo.dmabuf(),
+                    old_dev_bo,
                 )?,
                 RenderBufferPrime::Sampling {
                     dev_fb: new_dev_fb, ..
@@ -327,7 +324,7 @@ impl RenderBuffer {
                     &new_dev_fb,
                     &old.dev_ctx,
                     old_dev_render_tex,
-                    old_dev_bo.dmabuf(),
+                    old_dev_bo,
                 )?,
                 _ => unreachable!(),
             },
@@ -336,7 +333,7 @@ impl RenderBuffer {
         Ok(sf)
     }
 
-    pub fn dev_bo(&self) -> &GbmBo {
+    pub fn dev_bo(&self) -> &Rc<DmaBuf> {
         match &self.prime {
             RenderBufferPrime::None => &self.render.bo,
             RenderBufferPrime::Sampling { dev_bo, .. } => dev_bo,
@@ -374,8 +371,8 @@ struct Builder<'a> {
 }
 
 struct BoAllocationSettings {
-    modifiers: Vec<Modifier>,
-    usage: u32,
+    modifiers: FHashSet<Modifier>,
+    usage: BufferUsage,
 }
 
 struct NoPrime {
@@ -535,7 +532,7 @@ pub enum ScanoutBufferErrorKind {
     #[error("Scanout device: The format is not supported")]
     SodUnsupportedFormat,
     #[error("Scanout device: Buffer allocation failed")]
-    SodBufferAllocation(#[source] GbmError),
+    SodBufferAllocation(#[source] AllocatorError),
     #[error("Scanout device: addfb2 failed")]
     SodAddfb2(#[source] DrmError),
     #[error("Scanout device: Could not turn imported SCANOUT buffer into gfx API FB")]
@@ -555,7 +552,7 @@ pub enum ScanoutBufferErrorKind {
     #[error("Scanout device: The intersection of plane/copy_dst modifiers is empty")]
     SodPlaneCopyDstIntersection,
     #[error("Render device: Buffer allocation failed")]
-    RenderBufferAllocation(#[source] GbmError),
+    RenderBufferAllocation(#[source] AllocatorError),
     #[error("Render device: Could not turn imported RENDER buffer into gfx API FB")]
     RenderImportFb(#[source] GfxError),
     #[error("Render device: Could not clear RENDER buffer")]
@@ -670,14 +667,14 @@ struct RenderBufferAllocationDebug {
     dev_gfx_write_modifiers: Option<FHashSet<Modifier>>,
     dev_gfx_read_modifiers: Option<FHashSet<Modifier>>,
     dev_modifiers_possible: Option<FHashSet<Modifier>>,
-    dev_usage: Option<u32>,
+    dev_usage: Option<BufferUsage>,
     dev_modifier: Option<Modifier>,
     render_copy_src_modifiers: Option<FHashSet<Modifier>>,
     render_copy_dst_modifiers: Option<FHashSet<Modifier>>,
     render_gfx_write_modifiers: Option<FHashSet<Modifier>>,
     render_gfx_read_modifiers: Option<FHashSet<Modifier>>,
     render_modifiers_possible: Option<FHashSet<Modifier>>,
-    render_usage: Option<u32>,
+    render_usage: Option<BufferUsage>,
     render_modifier: Option<Modifier>,
 }
 
@@ -719,7 +716,7 @@ impl Display for ScanoutBufferError {
             writeln!(f, "scanout dev possible modifiers: {v:x?}")?;
         }
         if let Some(v) = &self.dbg.dev_usage {
-            writeln!(f, "scanout dev gbm usage: {v:x}")?;
+            writeln!(f, "scanout dev usage: {v:?}")?;
         }
         if let Some(v) = &self.dbg.dev_modifier {
             writeln!(f, "scanout dev modifier: {v:x}")?;
@@ -746,7 +743,7 @@ impl Display for ScanoutBufferError {
             writeln!(f, "render dev possible modifiers: {v:x?}")?;
         }
         if let Some(v) = &self.dbg.render_usage {
-            writeln!(f, "render dev gbm usage: {v:x}")?;
+            writeln!(f, "render dev usage: {v:?}")?;
         }
         if let Some(v) = &self.dbg.render_modifier {
             writeln!(f, "render dev modifier: {v:x}")?;
@@ -785,61 +782,28 @@ fn wrap_error<T>(
 }
 
 impl BoAllocationSettings {
-    fn new1(
+    fn new(
         common: &Builder<'_>,
-        modifiers: &FHashMap<Modifier, &GfxWriteModifier>,
+        Intersected {
+            mods,
+            implicit_interop,
+        }: Intersected,
         scanout: bool,
-        rendering: bool,
-        usage_out: &mut Option<u32>,
+        usage_out: &mut Option<BufferUsage>,
     ) -> Self {
-        let needs_render_usage = rendering && needs_render_usage(modifiers.values().copied());
-        Self::new3(
-            common,
-            modifiers.keys(),
-            scanout,
-            needs_render_usage,
-            usage_out,
-        )
-    }
-
-    fn new2<'a>(
-        common: &Builder<'_>,
-        modifiers: impl IntoIterator<Item = &'a Modifier> + Clone,
-        fmt: &GfxFormat,
-        scanout: bool,
-        rendering: bool,
-        usage_out: &mut Option<u32>,
-    ) -> Self {
-        let needs_render_usage = rendering
-            && needs_render_usage(
-                modifiers
-                    .clone()
-                    .into_iter()
-                    .filter_map(|m| fmt.write_modifiers.get(m)),
-            );
-        Self::new3(common, modifiers, scanout, needs_render_usage, usage_out)
-    }
-
-    fn new3<'a>(
-        common: &Builder<'_>,
-        modifiers: impl IntoIterator<Item = &'a Modifier>,
-        scanout: bool,
-        needs_render_usage: bool,
-        usage_out: &mut Option<u32>,
-    ) -> Self {
-        let mut usage = 0;
-        if scanout {
-            usage |= GBM_BO_USE_SCANOUT;
-            if common.cursor {
-                usage |= GBM_BO_USE_LINEAR;
-            }
+        let mut usage = BufferUsage::none();
+        if implicit_interop {
+            usage |= BO_USE_IMPLICIT_INTEROP;
         }
-        if needs_render_usage {
-            usage |= GBM_BO_USE_RENDERING;
+        if scanout {
+            usage |= BO_USE_SCANOUT;
+            if common.cursor {
+                usage |= BO_USE_LINEAR;
+            }
         }
         *usage_out = Some(usage);
         Self {
-            modifiers: modifiers.into_iter().copied().collect(),
+            modifiers: mods,
             usage,
         }
     }
@@ -879,13 +843,13 @@ impl Builder<'_> {
         &self,
         ctx: &MetalRenderContext,
         settings: &BoAllocationSettings,
-    ) -> Result<GbmBo, GbmError> {
-        ctx.gbm.create_bo(
+    ) -> Result<Rc<DmaBuf>, AllocatorError> {
+        ctx.allocator.allocate_with_usage(
             &self.slf.state.dma_buf_ids,
             self.width,
             self.height,
             self.format,
-            &settings.modifiers,
+            settings.modifiers.iter().copied(),
             settings.usage,
         )
     }
@@ -894,17 +858,17 @@ impl Builder<'_> {
         &self,
         settings: &BoAllocationSettings,
         dbg: &RefCell<RenderBufferAllocationDebug>,
-    ) -> Result<(GbmBo, Rc<DrmFramebuffer>), ScanoutBufferErrorKind> {
+    ) -> Result<(Rc<DmaBuf>, Rc<DrmFramebuffer>), ScanoutBufferErrorKind> {
         let bo = self
             .create_bo(self.dev_ctx, settings)
             .map_err(ScanoutBufferErrorKind::SodBufferAllocation)?;
         let send_dev_modifier = on_drop(|| {
-            dbg.borrow_mut().dev_modifier = Some(bo.dmabuf().modifier);
+            dbg.borrow_mut().dev_modifier = Some(bo.modifier);
         });
         let drm = self
             .dev
             .master
-            .add_fb(bo.dmabuf(), None)
+            .add_fb(&bo, None, self.plane_modifiers)
             .map(Rc::new)
             .map_err(ScanoutBufferErrorKind::SodAddfb2)?;
         send_dev_modifier.forget();
@@ -921,17 +885,17 @@ impl Builder<'_> {
             .create_bo(render_ctx, settings)
             .map_err(ScanoutBufferErrorKind::RenderBufferAllocation)?;
         let send_render_modifier = on_drop(|| {
-            dbg.borrow_mut().render_modifier = Some(bo.dmabuf().modifier);
+            dbg.borrow_mut().render_modifier = Some(bo.modifier);
         });
         let tex = render_ctx
             .gfx
             .clone()
-            .dmabuf_tex(bo.dmabuf())
+            .dmabuf_tex(&bo)
             .map_err(ScanoutBufferErrorKind::RenderImportRenderTexture)?;
         let fb = render_ctx
             .gfx
             .clone()
-            .dmabuf_fb(bo.dmabuf())
+            .dmabuf_fb(&bo)
             .map_err(ScanoutBufferErrorKind::RenderImportFb)?;
         fb.clear(
             AcquireSync::Unnecessary,
@@ -991,21 +955,17 @@ impl Builder<'_> {
             plane_modifiers,
             ..
         } = *self;
-        let modifiers: FHashMap<_, _> = render_fmt
-            .write_modifiers
-            .iter()
-            .map(|(m, v)| (*m, v))
-            .filter(|(m, _)| plane_modifiers.contains(m))
-            .filter(|(m, _)| render_fmt.read_modifiers.contains(m))
-            .collect();
         dbg.dev_gfx_write_modifiers = Some(render_modifiers(render_fmt));
         dbg.dev_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
-        dbg.dev_modifiers_possible = Some(modifiers.keys().copied().collect());
-        if modifiers.is_empty() {
-            return Err(ScanoutBufferErrorKind::SodWriteReadPlaneIntersection);
-        }
+        let modifiers = intersect_modifiers([
+            &render_fmt.write_modifiers,
+            &render_fmt.read_modifiers,
+            plane_modifiers,
+        ])
+        .ok_or(ScanoutBufferErrorKind::SodWriteReadPlaneIntersection)?;
+        dbg.dev_modifiers_possible = Some(modifiers.mods.clone());
         let allocation_settings =
-            BoAllocationSettings::new1(self, &modifiers, true, true, &mut dbg.render_usage);
+            BoAllocationSettings::new(self, modifiers, true, &mut dbg.render_usage);
         Ok(NoPrime {
             allocation_settings,
         })
@@ -1023,11 +983,11 @@ impl Builder<'_> {
         let Self { dev, .. } = *self;
         let render = self.create_render_buffer_render(allocation_settings, dbg)?;
         let send_dev_modifier = on_drop(|| {
-            dbg.borrow_mut().dev_modifier = Some(render.bo.dmabuf().modifier);
+            dbg.borrow_mut().dev_modifier = Some(render.bo.modifier);
         });
         let drm = dev
             .master
-            .add_fb(render.bo.dmabuf(), None)
+            .add_fb(&render.bo, None, self.plane_modifiers)
             .map(Rc::new)
             .map_err(ScanoutBufferErrorKind::SodAddfb2)?;
         send_dev_modifier.forget();
@@ -1050,45 +1010,29 @@ impl Builder<'_> {
         let Some(dev_fmt) = dev_ctx.gfx.formats().get(&format.drm) else {
             return Err(ScanoutBufferErrorKind::SodUnsupportedFormat);
         };
-        let render_modifiers_possible: FHashMap<_, _> = render_fmt
-            .write_modifiers
-            .iter()
-            .filter(|(m, _)| render_fmt.read_modifiers.contains(*m))
-            .filter(|(m, _)| dev_fmt.read_modifiers.contains(*m))
-            .map(|(m, v)| (*m, v))
-            .collect();
         dbg.dev_gfx_read_modifiers = Some(sample_modifiers(dev_fmt));
         dbg.render_gfx_write_modifiers = Some(render_modifiers(render_fmt));
         dbg.render_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
-        dbg.render_modifiers_possible = Some(render_modifiers_possible.keys().copied().collect());
-        if render_modifiers_possible.is_empty() {
-            return Err(ScanoutBufferErrorKind::RenderWriteReadSodReadIntersection);
-        }
-        let dev_modifiers_possible: FHashMap<_, _> = dev_fmt
-            .write_modifiers
-            .iter()
-            .filter(|(m, _)| plane_modifiers.contains(*m))
-            .map(|(m, v)| (*m, v))
-            .collect();
+        let render_modifiers_possible = intersect_modifiers_explicit([
+            &render_fmt.write_modifiers,
+            &render_fmt.read_modifiers,
+            &dev_fmt.read_modifiers,
+        ])
+        .ok_or(ScanoutBufferErrorKind::RenderWriteReadSodReadIntersection)?;
+        dbg.render_modifiers_possible = Some(render_modifiers_possible.mods.clone());
         dbg.dev_gfx_write_modifiers = Some(render_modifiers(dev_fmt));
-        dbg.dev_modifiers_possible = Some(dev_modifiers_possible.keys().copied().collect());
-        if dev_modifiers_possible.is_empty() {
-            return Err(ScanoutBufferErrorKind::SodWritePlaneIntersection);
-        }
-        let render_allocation_settings = BoAllocationSettings::new1(
+        let dev_modifiers_possible =
+            intersect_modifiers([&dev_fmt.write_modifiers, plane_modifiers])
+                .ok_or(ScanoutBufferErrorKind::SodWritePlaneIntersection)?;
+        dbg.dev_modifiers_possible = Some(dev_modifiers_possible.mods.clone());
+        let render_allocation_settings = BoAllocationSettings::new(
             self,
-            &render_modifiers_possible,
+            render_modifiers_possible,
             false,
-            true,
             &mut dbg.render_usage,
         );
-        let dev_allocation_settings = BoAllocationSettings::new1(
-            self,
-            &dev_modifiers_possible,
-            true,
-            true,
-            &mut dbg.dev_usage,
-        );
+        let dev_allocation_settings =
+            BoAllocationSettings::new(self, dev_modifiers_possible, true, &mut dbg.dev_usage);
         Ok(PrimeSampling {
             render_allocation_settings,
             dev_allocation_settings,
@@ -1108,21 +1052,21 @@ impl Builder<'_> {
         let Self { dev_ctx, .. } = *self;
         let render = self.create_render_buffer_render(render_allocation_settings, dbg)?;
         let send_render_modifier = on_drop(|| {
-            dbg.borrow_mut().render_modifier = Some(render.bo.dmabuf().modifier);
+            dbg.borrow_mut().render_modifier = Some(render.bo.modifier);
         });
         let dev_render_tex = dev_ctx
             .gfx
             .clone()
-            .dmabuf_tex(render.bo.dmabuf())
+            .dmabuf_tex(&render.bo)
             .map_err(ScanoutBufferErrorKind::SodImportRenderTexture)?;
         let (dev_bo, drm) = self.create_dev_bo(dev_allocation_settings, dbg)?;
         let send_dev_modifier = on_drop(|| {
-            dbg.borrow_mut().dev_modifier = Some(dev_bo.dmabuf().modifier);
+            dbg.borrow_mut().dev_modifier = Some(dev_bo.modifier);
         });
         let dev_fb = dev_ctx
             .gfx
             .clone()
-            .dmabuf_fb(dev_bo.dmabuf())
+            .dmabuf_fb(&dev_bo)
             .map_err(ScanoutBufferErrorKind::SodImportFb)?;
         send_dev_modifier.forget();
         send_render_modifier.forget();
@@ -1152,34 +1096,36 @@ impl Builder<'_> {
         let Some(dev_copy_dev) = dev.copy_device.get() else {
             return Err(ScanoutBufferErrorKind::SodNoCopyDevice);
         };
-        let render_copy_src_modifiers = self.copy_src_modifiers(&render_copy_dev);
-        let render_modifiers_possible =
-            intersect_render_modifiers(render_fmt, &render_copy_src_modifiers);
+        let render_copy_src_modifiers =
+            DropGuard::new(self.copy_src_modifiers(&render_copy_dev), |v| {
+                dbg.render_copy_src_modifiers = Some(v);
+            });
         dbg.render_gfx_write_modifiers = Some(render_modifiers(render_fmt));
         dbg.render_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
-        dbg.render_copy_src_modifiers = Some(render_copy_src_modifiers);
-        dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
-        if render_modifiers_possible.is_empty() {
-            return Err(ScanoutBufferErrorKind::RenderWriteReadCopySrcIntersection);
-        }
-        let render_copy_dst_modifiers = self.copy_dst_modifiers(&render_copy_dev);
-        let mut dev_modifiers = intersect_modifiers(plane_modifiers, &render_copy_dst_modifiers);
-        dbg.render_copy_dst_modifiers = Some(render_copy_dst_modifiers);
-        make_linear_only(&mut dev_modifiers);
-        dbg.dev_modifiers_possible = Some(dev_modifiers.clone());
-        if dev_modifiers.is_empty() {
-            return Err(ScanoutBufferErrorKind::SodPlaneRenderCopyDstIntersection);
-        }
-        let render_allocation_settings = BoAllocationSettings::new2(
+        let render_modifiers_possible = intersect_modifiers([
+            &render_fmt.write_modifiers,
+            &render_fmt.read_modifiers,
+            &render_copy_src_modifiers,
+        ])
+        .ok_or(ScanoutBufferErrorKind::RenderWriteReadCopySrcIntersection)?;
+        dbg.render_modifiers_possible = Some(render_modifiers_possible.mods.clone());
+        let render_copy_dst_modifiers =
+            DropGuard::new(self.copy_dst_modifiers(&render_copy_dev), |v| {
+                dbg.render_copy_dst_modifiers = Some(v);
+            });
+        let mut dev_modifiers =
+            intersect_modifiers_explicit([plane_modifiers, &render_copy_dst_modifiers])
+                .ok_or(ScanoutBufferErrorKind::SodPlaneRenderCopyDstIntersection)?;
+        make_linear_only(&mut dev_modifiers.mods);
+        dbg.dev_modifiers_possible = Some(dev_modifiers.mods.clone());
+        let render_allocation_settings = BoAllocationSettings::new(
             self,
-            &render_modifiers_possible,
-            render_fmt,
+            render_modifiers_possible,
             false,
-            true,
             &mut dbg.render_usage,
         );
         let dev_allocation_settings =
-            BoAllocationSettings::new3(self, &dev_modifiers, true, false, &mut dbg.dev_usage);
+            BoAllocationSettings::new(self, dev_modifiers, true, &mut dbg.dev_usage);
         Ok(DirectCopyPush {
             render_copy_dev,
             dev_copy_dev,
@@ -1202,14 +1148,14 @@ impl Builder<'_> {
         } = prepared;
         let render = self.create_render_buffer_render(render_allocation_settings, dbg)?;
         let send_render_modifier = on_drop(|| {
-            dbg.borrow_mut().render_modifier = Some(render.bo.dmabuf().modifier);
+            dbg.borrow_mut().render_modifier = Some(render.bo.modifier);
         });
         let (dev_bo, drm) = self.create_dev_bo(dev_allocation_settings, dbg)?;
         let send_dev_modifier = on_drop(|| {
-            dbg.borrow_mut().dev_modifier = Some(dev_bo.dmabuf().modifier);
+            dbg.borrow_mut().dev_modifier = Some(dev_bo.modifier);
         });
         let render_copy = render_copy_dev
-            .create_copy(&render.bo.dmabuf(), &dev_bo.dmabuf())
+            .create_copy(&render.bo, &dev_bo)
             .map_err(ScanoutBufferErrorKind::RenderCreateCopyToSod)?;
         send_dev_modifier.forget();
         send_render_modifier.forget();
@@ -1235,34 +1181,33 @@ impl Builder<'_> {
         let Some(dev_copy_dev) = dev.copy_device.get() else {
             return Err(ScanoutBufferErrorKind::SodNoCopyDevice);
         };
-        let dev_copy_src_modifiers = self.copy_src_modifiers(&dev_copy_dev);
-        let render_modifiers_possible =
-            intersect_render_modifiers(render_fmt, &dev_copy_src_modifiers);
+        let dev_copy_src_modifiers = DropGuard::new(self.copy_src_modifiers(&dev_copy_dev), |v| {
+            dbg.dev_copy_src_modifiers = Some(v);
+        });
         dbg.render_gfx_write_modifiers = Some(render_modifiers(render_fmt));
         dbg.render_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
-        dbg.dev_copy_src_modifiers = Some(dev_copy_src_modifiers);
-        dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
-        if render_modifiers_possible.is_empty() {
-            return Err(ScanoutBufferErrorKind::RenderWriteReadSodCopySrcIntersection);
-        }
-        let dev_copy_dst_modifiers = self.copy_dst_modifiers(&dev_copy_dev);
-        let mut dev_modifiers = intersect_modifiers(plane_modifiers, &dev_copy_dst_modifiers);
-        dbg.dev_copy_dst_modifiers = Some(dev_copy_dst_modifiers);
-        make_linear_only(&mut dev_modifiers);
-        dbg.dev_modifiers_possible = Some(dev_modifiers.clone());
-        if dev_modifiers.is_empty() {
-            return Err(ScanoutBufferErrorKind::SodPlaneCopyDstIntersection);
-        }
-        let render_allocation_settings = BoAllocationSettings::new2(
+        let render_modifiers_possible = intersect_modifiers_explicit([
+            &render_fmt.read_modifiers,
+            &render_fmt.write_modifiers,
+            &dev_copy_src_modifiers,
+        ])
+        .ok_or(ScanoutBufferErrorKind::RenderWriteReadSodCopySrcIntersection)?;
+        dbg.render_modifiers_possible = Some(render_modifiers_possible.mods.clone());
+        let dev_copy_dst_modifiers = DropGuard::new(self.copy_dst_modifiers(&dev_copy_dev), |v| {
+            dbg.dev_copy_dst_modifiers = Some(v);
+        });
+        let mut dev_modifiers = intersect_modifiers([plane_modifiers, &dev_copy_dst_modifiers])
+            .ok_or(ScanoutBufferErrorKind::SodPlaneCopyDstIntersection)?;
+        make_linear_only(&mut dev_modifiers.mods);
+        dbg.dev_modifiers_possible = Some(dev_modifiers.mods.clone());
+        let render_allocation_settings = BoAllocationSettings::new(
             self,
-            &render_modifiers_possible,
-            render_fmt,
+            render_modifiers_possible,
             false,
-            true,
             &mut dbg.render_usage,
         );
         let dev_allocation_settings =
-            BoAllocationSettings::new3(self, &dev_modifiers, true, false, &mut dbg.dev_usage);
+            BoAllocationSettings::new(self, dev_modifiers, true, &mut dbg.dev_usage);
         Ok(DirectCopyPull {
             dev_copy_dev,
             render_allocation_settings,
@@ -1283,14 +1228,14 @@ impl Builder<'_> {
         } = prepared;
         let render = self.create_render_buffer_render(render_allocation_settings, dbg)?;
         let send_render_modifier = on_drop(|| {
-            dbg.borrow_mut().render_modifier = Some(render.bo.dmabuf().modifier);
+            dbg.borrow_mut().render_modifier = Some(render.bo.modifier);
         });
         let (dev_bo, drm) = self.create_dev_bo(dev_allocation_settings, dbg)?;
         let send_dev_modifier = on_drop(|| {
-            dbg.borrow_mut().dev_modifier = Some(dev_bo.dmabuf().modifier);
+            dbg.borrow_mut().dev_modifier = Some(dev_bo.modifier);
         });
         let dev_copy = dev_copy_dev
-            .create_copy(&render.bo.dmabuf(), &dev_bo.dmabuf())
+            .create_copy(&render.bo, &dev_bo)
             .map_err(ScanoutBufferErrorKind::SodCreateCopyFromRender)?;
         send_dev_modifier.forget();
         send_render_modifier.forget();
@@ -1320,40 +1265,40 @@ impl Builder<'_> {
         let Some(dev_copy_dev) = dev.copy_device.get() else {
             return Err(ScanoutBufferErrorKind::SodNoCopyDevice);
         };
-        let render_copy_src_modifiers = self.copy_src_modifiers(&render_copy_dev);
-        let render_modifiers_possible =
-            intersect_render_modifiers(render_fmt, &render_copy_src_modifiers);
-        dbg.render_copy_src_modifiers = Some(render_copy_src_modifiers);
+        let render_copy_src_modifiers =
+            DropGuard::new(self.copy_src_modifiers(&render_copy_dev), |v| {
+                dbg.render_copy_src_modifiers = Some(v);
+            });
         dbg.render_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
         dbg.render_gfx_write_modifiers = Some(render_modifiers(render_fmt));
-        dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
-        if render_modifiers_possible.is_empty() {
-            return Err(ScanoutBufferErrorKind::RenderWriteReadCopySrcIntersection);
-        }
+        let render_modifiers_possible = intersect_modifiers([
+            &render_fmt.write_modifiers,
+            &render_fmt.read_modifiers,
+            &render_copy_src_modifiers,
+        ])
+        .ok_or(ScanoutBufferErrorKind::RenderWriteReadCopySrcIntersection)?;
+        dbg.render_modifiers_possible = Some(render_modifiers_possible.mods.clone());
         if !self.copy_dst_supports_linear(&render_copy_dev) {
             return Err(ScanoutBufferErrorKind::RenderNoCopyToLinear);
         }
         if !self.copy_src_supports_linear(&dev_copy_dev) {
             return Err(ScanoutBufferErrorKind::SodNoCopyFromLinear);
         }
-        let dev_copy_dst_modifiers = self.copy_dst_modifiers(&dev_copy_dev);
-        let mut dev_modifiers = intersect_modifiers(plane_modifiers, &dev_copy_dst_modifiers);
-        dbg.dev_copy_dst_modifiers = Some(dev_copy_dst_modifiers);
-        make_linear_only(&mut dev_modifiers);
-        dbg.dev_modifiers_possible = Some(dev_modifiers.clone());
-        if dev_modifiers.is_empty() {
-            return Err(ScanoutBufferErrorKind::SodPlaneCopyDstIntersection);
-        }
-        let render_allocation_settings = BoAllocationSettings::new2(
+        let dev_copy_dst_modifiers = DropGuard::new(self.copy_dst_modifiers(&dev_copy_dev), |v| {
+            dbg.dev_copy_dst_modifiers = Some(v);
+        });
+        let mut dev_modifiers = intersect_modifiers([plane_modifiers, &dev_copy_dst_modifiers])
+            .ok_or(ScanoutBufferErrorKind::SodPlaneCopyDstIntersection)?;
+        make_linear_only(&mut dev_modifiers.mods);
+        dbg.dev_modifiers_possible = Some(dev_modifiers.mods.clone());
+        let render_allocation_settings = BoAllocationSettings::new(
             self,
-            &render_modifiers_possible,
-            render_fmt,
+            render_modifiers_possible,
             false,
-            true,
             &mut dbg.render_usage,
         );
         let dev_allocation_settings =
-            BoAllocationSettings::new3(self, &dev_modifiers, true, false, &mut dbg.dev_usage);
+            BoAllocationSettings::new(self, dev_modifiers, true, &mut dbg.dev_usage);
         Ok(IndirectCopyPull {
             render_allocation_settings,
             render_copy_dev,
@@ -1385,17 +1330,17 @@ impl Builder<'_> {
             .map_err(ScanoutBufferErrorKind::RenderCreateCopyBuffer)?;
         let render = self.create_render_buffer_render(render_allocation_settings, dbg)?;
         let send_render_modifier = on_drop(|| {
-            dbg.borrow_mut().render_modifier = Some(render.bo.dmabuf().modifier);
+            dbg.borrow_mut().render_modifier = Some(render.bo.modifier);
         });
         let (dev_bo, drm) = self.create_dev_bo(dev_allocation_settings, dbg)?;
         let send_dev_modifier = on_drop(|| {
-            dbg.borrow_mut().dev_modifier = Some(dev_bo.dmabuf().modifier);
+            dbg.borrow_mut().dev_modifier = Some(dev_bo.modifier);
         });
         let render_copy = render_copy_dev
-            .create_copy(render.bo.dmabuf(), render_secondary_bo.dmabuf())
+            .create_copy(&render.bo, render_secondary_bo.dmabuf())
             .map_err(ScanoutBufferErrorKind::RenderCreateCopyToSecondary)?;
         let dev_copy = dev_copy_dev
-            .create_copy(render_secondary_bo.dmabuf(), dev_bo.dmabuf())
+            .create_copy(render_secondary_bo.dmabuf(), &dev_bo)
             .map_err(ScanoutBufferErrorKind::SodCreateCopyFromSecondary)?;
         send_render_modifier.forget();
         send_dev_modifier.forget();
@@ -1436,34 +1381,34 @@ impl Builder<'_> {
         if !self.copy_src_supports_linear(&dev_copy_dev) {
             return Err(ScanoutBufferErrorKind::SodNoCopyFromLinear);
         }
-        let render_copy_src_modifiers = self.copy_src_modifiers(&render_copy_dev);
-        let render_modifiers_possible =
-            intersect_render_modifiers(render_fmt, &render_copy_src_modifiers);
-        dbg.render_copy_src_modifiers = Some(render_copy_src_modifiers);
+        let render_copy_src_modifiers =
+            DropGuard::new(self.copy_src_modifiers(&render_copy_dev), |v| {
+                dbg.render_copy_src_modifiers = Some(v);
+            });
         dbg.render_gfx_read_modifiers = Some(sample_modifiers(render_fmt));
         dbg.render_gfx_write_modifiers = Some(render_modifiers(render_fmt));
-        dbg.render_modifiers_possible = Some(render_modifiers_possible.clone());
-        if render_modifiers_possible.is_empty() {
-            return Err(ScanoutBufferErrorKind::RenderWriteReadCopySrcIntersection);
-        }
-        let dev_copy_dst_modifiers = self.copy_dst_modifiers(&dev_copy_dev);
-        let mut dev_modifiers = intersect_modifiers(plane_modifiers, &dev_copy_dst_modifiers);
-        dbg.dev_copy_dst_modifiers = Some(dev_copy_dst_modifiers);
-        make_linear_only(&mut dev_modifiers);
-        dbg.dev_modifiers_possible = Some(dev_modifiers.clone());
-        if dev_modifiers.is_empty() {
-            return Err(ScanoutBufferErrorKind::SodPlaneCopyDstIntersection);
-        }
-        let render_allocation_settings = BoAllocationSettings::new2(
+        let render_modifiers_possible = intersect_modifiers([
+            &render_fmt.write_modifiers,
+            &render_fmt.read_modifiers,
+            &render_copy_src_modifiers,
+        ])
+        .ok_or(ScanoutBufferErrorKind::RenderWriteReadCopySrcIntersection)?;
+        dbg.render_modifiers_possible = Some(render_modifiers_possible.mods.clone());
+        let dev_copy_dst_modifiers = DropGuard::new(self.copy_dst_modifiers(&dev_copy_dev), |v| {
+            dbg.dev_copy_dst_modifiers = Some(v);
+        });
+        let mut dev_modifiers = intersect_modifiers([plane_modifiers, &dev_copy_dst_modifiers])
+            .ok_or(ScanoutBufferErrorKind::SodPlaneCopyDstIntersection)?;
+        make_linear_only(&mut dev_modifiers.mods);
+        dbg.dev_modifiers_possible = Some(dev_modifiers.mods.clone());
+        let render_allocation_settings = BoAllocationSettings::new(
             self,
-            &render_modifiers_possible,
-            render_fmt,
+            render_modifiers_possible,
             false,
-            true,
             &mut dbg.render_usage,
         );
         let dev_allocation_settings =
-            BoAllocationSettings::new3(self, &dev_modifiers, true, false, &mut dbg.dev_usage);
+            BoAllocationSettings::new(self, dev_modifiers, true, &mut dbg.dev_usage);
         Ok(CopyUdmabuf {
             udmabuf,
             render_allocation_settings,
@@ -1492,22 +1437,22 @@ impl Builder<'_> {
             height,
             ..
         } = *self;
-        let udmabuf = udmabuf
+        let [render_udmabuf, dev_udmabuf] = udmabuf
             .create_dmabuf(&self.slf.state.dma_buf_ids, width, height, format)
             .map_err(ScanoutBufferErrorKind::CreateUdmabuf)?;
         let render = self.create_render_buffer_render(render_allocation_settings, dbg)?;
         let send_render_modifier = on_drop(|| {
-            dbg.borrow_mut().render_modifier = Some(render.bo.dmabuf().modifier);
+            dbg.borrow_mut().render_modifier = Some(render.bo.modifier);
         });
         let (dev_bo, drm) = self.create_dev_bo(dev_allocation_settings, dbg)?;
         let send_dev_modifier = on_drop(|| {
-            dbg.borrow_mut().dev_modifier = Some(dev_bo.dmabuf().modifier);
+            dbg.borrow_mut().dev_modifier = Some(dev_bo.modifier);
         });
         let render_copy = render_copy_dev
-            .create_copy(&render.bo.dmabuf(), &udmabuf)
+            .create_copy(&render.bo, &render_udmabuf)
             .map_err(ScanoutBufferErrorKind::RenderCreateCopyToUdmabuf)?;
         let dev_copy = dev_copy_dev
-            .create_copy(&udmabuf, &dev_bo.dmabuf())
+            .create_copy(&dev_udmabuf, &dev_bo)
             .map_err(ScanoutBufferErrorKind::SodCreateCopyFromUdmabuf)?;
         send_render_modifier.forget();
         send_dev_modifier.forget();
@@ -1566,35 +1511,83 @@ fn sample_modifiers(fmt: &GfxFormat) -> FHashSet<Modifier> {
 }
 
 fn render_modifiers(fmt: &GfxFormat) -> FHashSet<Modifier> {
-    fmt.write_modifiers.keys().copied().collect()
-}
-
-fn intersect_modifiers<'a>(
-    left: impl IntoIterator<Item = &'a Modifier>,
-    right: impl IntoIterator<Item = &'a Modifier>,
-) -> FHashSet<Modifier> {
-    let right: BHashSet<_> = right.into_iter().copied().collect();
-    left.into_iter()
-        .copied()
-        .filter(|m| right.contains(m))
-        .collect()
-}
-
-fn intersect_render_modifiers<'a>(
-    left: &'a GfxFormat,
-    right: impl IntoIterator<Item = &'a Modifier>,
-) -> FHashSet<Modifier> {
-    intersect_modifiers(
-        left.write_modifiers
-            .keys()
-            .filter(|m| left.read_modifiers.contains(*m)),
-        right,
-    )
+    fmt.write_modifiers.iter().copied().collect()
 }
 
 fn make_linear_only(modifiers: &mut FHashSet<Modifier>) {
     if modifiers.contains(&LINEAR_MODIFIER) {
         modifiers.clear();
         modifiers.insert(LINEAR_MODIFIER);
+    }
+}
+
+struct Intersected {
+    mods: FHashSet<Modifier>,
+    implicit_interop: bool,
+}
+
+fn intersect_modifiers<const N: usize>(lists: [&FHashSet<Modifier>; N]) -> Option<Intersected> {
+    for implicit_interop in [false, true] {
+        let mut mods = intersect_modifiers_(lists, implicit_interop);
+        if !implicit_interop {
+            mods.remove(&INVALID_MODIFIER);
+        }
+        if mods.len() > 0 {
+            return Some(Intersected {
+                mods,
+                implicit_interop,
+            });
+        }
+    }
+    None
+}
+
+fn intersect_modifiers_explicit<const N: usize>(
+    lists: [&FHashSet<Modifier>; N],
+) -> Option<Intersected> {
+    let mut mods = intersect_modifiers_(lists, false);
+    mods.remove(&INVALID_MODIFIER);
+    if mods.len() > 0 {
+        return Some(Intersected {
+            mods,
+            implicit_interop: false,
+        });
+    }
+    None
+}
+
+fn intersect_modifiers_<const N: usize>(
+    lists: [&FHashSet<Modifier>; N],
+    implicit_interop: bool,
+) -> FHashSet<Modifier> {
+    if N == 0 {
+        return Default::default();
+    }
+    macro_rules! intersect {
+        ($array:expr) => {
+            $array[0]
+                .iter()
+                .copied()
+                .filter(|v| $array[1..].iter().all(|t| t.contains(v)))
+                .collect()
+        };
+    }
+    if implicit_interop {
+        let mut implicit = ArrayVec::<&FHashSet<Modifier>, N>::new();
+        let mut explicit = ArrayVec::<&FHashSet<Modifier>, N>::new();
+        for el in lists {
+            if el.contains(&INVALID_MODIFIER) {
+                implicit.push(el);
+            } else {
+                explicit.push(el);
+            }
+        }
+        if explicit.is_empty() {
+            implicit.iter().flat_map(|v| v.iter().copied()).collect()
+        } else {
+            intersect!(explicit)
+        }
+    } else {
+        intersect!(lists)
     }
 }

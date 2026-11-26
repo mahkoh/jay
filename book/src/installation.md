@@ -8,7 +8,6 @@ at build time.
 | Library       | Arch Linux     | Fedora               | Debian / Ubuntu      |
 |---------------|----------------|----------------------|----------------------|
 | libinput      | `libinput`     | `libinput-devel`     | `libinput-dev`       |
-| libgbm        | `mesa`         | `mesa-libgbm-devel`  | `libgbm-dev`         |
 | libudev       | `systemd-libs` | `systemd-devel`      | `libudev-dev`        |
 | libpangocairo | `pango`        | `pango-devel`        | `libpango1.0-dev`    |
 | libfontconfig | `fontconfig`   | `fontconfig-devel`   | `libfontconfig-dev`  |
@@ -24,13 +23,13 @@ Arch Linux:
 Fedora:
 
 ```shell
-~$ sudo dnf install libinput-devel mesa-libgbm-devel systemd-devel pango-devel fontconfig-devel
+~$ sudo dnf install libinput-devel systemd-devel pango-devel fontconfig-devel
 ```
 
 Debian / Ubuntu:
 
 ```shell
-~$ sudo apt install libinput-dev libgbm-dev libudev-dev libpango1.0-dev libfontconfig-dev
+~$ sudo apt install libinput-dev libudev-dev libpango1.0-dev libfontconfig-dev
 ```
 
 You also need a C compiler (GCC or Clang) and the latest stable version of

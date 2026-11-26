@@ -1,4 +1,3 @@
-use crate::allocator::Allocator;
 use crate::backend::DrmDeviceId;
 use crate::cmm::cmm_description::ColorDescription;
 use crate::cmm::cmm_description::LinearColorDescription;
@@ -23,7 +22,6 @@ use crate::gfx_api::GfxFramebuffer;
 use crate::gfx_api::GfxInternalFramebuffer;
 use crate::gfx_api::GfxStagingBuffer;
 use crate::gfx_api::GfxTexture;
-use crate::gfx_api::GfxWriteModifier;
 use crate::gfx_api::PendingShmTransfer;
 use crate::gfx_api::ReleaseSync;
 use crate::gfx_api::ResetStatus;
@@ -38,6 +36,8 @@ use crate::utils::bhash::BHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::fx_hash::FHashSet;
 use crate::video::LINEAR_MODIFIER;
+use crate::video::allocator::Allocator;
+use crate::video::allocator::AllocatorError;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
 use crate::video::drm::Drm;
@@ -79,6 +79,8 @@ enum TestGfxError {
     OpenDevNull(#[source] OsError),
     #[error("Could not create Drm object")]
     CreateDrm(#[source] DrmError),
+    #[error("Could not create an allocator")]
+    CreateAllocator(#[source] AllocatorError),
 }
 
 impl From<TestGfxError> for GfxError {
@@ -89,7 +91,7 @@ impl From<TestGfxError> for GfxError {
 
 pub struct TestGfxCtx {
     formats: Rc<BHashMap<u32, GfxFormat>>,
-    udmabuf: Rc<Udmabuf>,
+    udmabuf: Rc<Allocator>,
     drm: Option<Drm>,
     syncobj_ctx: Option<Rc<SyncobjCtx>>,
 }
@@ -115,25 +117,16 @@ impl TestGfxCtx {
                 GfxFormat {
                     format: f,
                     read_modifiers: modifiers.clone(),
-                    write_modifiers: modifiers
-                        .iter()
-                        .copied()
-                        .map(|m| {
-                            (
-                                m,
-                                GfxWriteModifier {
-                                    needs_render_usage: false,
-                                },
-                            )
-                        })
-                        .collect(),
+                    write_modifiers: modifiers.clone(),
                     supports_shm: true,
                 },
             );
         }
         Ok(Rc::new(Self {
             formats: Rc::new(formats),
-            udmabuf: udmabuf.clone(),
+            udmabuf: Allocator::new(None, &udmabuf.fd)
+                .map(Rc::new)
+                .map_err(TestGfxError::CreateAllocator)?,
             drm,
             syncobj_ctx: need_syncobj.then(create_syncobj_ctx).flatten(),
         }))
@@ -282,7 +275,7 @@ impl GfxContext for TestGfxCtx {
         self.drm.as_ref()
     }
 
-    fn allocator(&self) -> Rc<dyn Allocator> {
+    fn allocator(&self) -> Rc<Allocator> {
         self.udmabuf.clone()
     }
 

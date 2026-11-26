@@ -1,10 +1,10 @@
+use crate::backend::DrmDeviceId;
 use crate::copy_device::CopyDeviceCopy;
 use crate::copy_device::CopyDeviceDstObject;
 use crate::copy_device::CopyDeviceError;
 use crate::copy_device::CopyDeviceSrcObject;
 use crate::format::Format;
 use crate::gfx_api::FdSync;
-use crate::gfx_api::SyncFile;
 use crate::io_uring::IoUring;
 use crate::io_uring::IoUringError;
 use crate::io_uring::PendingPoll;
@@ -14,12 +14,12 @@ use crate::state::DrmDevData;
 use crate::state::State;
 use crate::utils::compat::IoctlNumber;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::fx_hash::FHashSet;
 use crate::utils::numcell::NumCell;
 use crate::utils::ptr_ext::MutPtrExt;
+use crate::video::INVALID_MODIFIER;
 use crate::video::LINEAR_MODIFIER;
 use crate::video::Modifier;
-use crate::video::drm::DrmError;
-use crate::video::drm::syncobj::merge_sync_files;
 use arrayvec::ArrayVec;
 use bstr::ByteSlice;
 use jay_algorithms::oserror::OsError;
@@ -59,6 +59,7 @@ pub struct DmaBuf {
     pub modifier: Modifier,
     pub planes: PlaneVec<DmaBufPlane>,
     is_disjoint: OnceCell<bool>,
+    implicit_interop: Option<DrmDeviceId>,
 }
 
 pub const MAX_PLANES: usize = 4;
@@ -74,6 +75,18 @@ impl DmaBuf {
         modifier: Modifier,
         planes: PlaneVec<DmaBufPlane>,
     ) -> Rc<Self> {
+        Self::new_with_interop(ids, width, height, format, modifier, planes, None)
+    }
+
+    pub fn new_with_interop(
+        ids: &DmaBufIds,
+        width: i32,
+        height: i32,
+        format: &'static Format,
+        modifier: Modifier,
+        planes: PlaneVec<DmaBufPlane>,
+        implicit_interop: Option<DrmDeviceId>,
+    ) -> Rc<Self> {
         Rc::new(Self {
             id: ids.next(),
             width,
@@ -82,6 +95,7 @@ impl DmaBuf {
             modifier,
             planes,
             is_disjoint: Default::default(),
+            implicit_interop,
         })
     }
 
@@ -149,20 +163,18 @@ impl DmaBuf {
         Ok(())
     }
 
-    pub fn export_sync_file(&self, flags: u32) -> Result<Option<SyncFile>, DrmError> {
-        let mut sf = PlaneVec::new();
-        for plane in &self.planes {
-            sf.push(
-                dma_buf_export_sync_file(&plane.fd, flags)
-                    .map(Rc::new)
-                    .map(SyncFile)
-                    .map_err(DrmError::ExportSyncFile)?,
-            );
-            if self.is_one_file() {
-                break;
-            }
+    pub fn interop_modifier(
+        &self,
+        dev: DrmDeviceId,
+        supported: &FHashSet<Modifier>,
+    ) -> Option<Modifier> {
+        if supported.contains(&self.modifier) {
+            return Some(self.modifier);
         }
-        merge_sync_files(sf.iter())
+        if self.implicit_interop == Some(dev) && supported.contains(&INVALID_MODIFIER) {
+            return Some(INVALID_MODIFIER);
+        }
+        None
     }
 }
 
