@@ -544,6 +544,25 @@ pub fn toggle_split_reuses_container() {
     get.set_split_reuses_container(!get.get_split_reuses_container());
 }
 
+/// Enables or disables autotiling.
+///
+/// When enabled, newly mapped tiled windows are automatically placed by splitting
+/// the focused window along its longest axis, similar to the Sway autotiling script.
+pub fn set_autotile(enabled: bool) {
+    get!().set_autotile(enabled)
+}
+
+/// Returns whether autotiling is currently enabled.
+pub fn get_autotile() -> bool {
+    get!(false).get_autotile()
+}
+
+/// Toggles autotiling.
+pub fn toggle_autotile() {
+    let get = get!();
+    get.set_autotile(!get.get_autotile());
+}
+
 /// Sets whether the built-in bar is shown.
 ///
 /// The default is `true`.

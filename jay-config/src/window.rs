@@ -481,6 +481,16 @@ impl WindowCriterion<'_> {
     pub fn set_initial_floating_position(self, x: i32, y: i32) {
         self.to_matcher().set_initial_floating_position(x, y);
     }
+
+    /// Sets whether autotiling applies when a newly mapped window matches this criterion.
+    ///
+    /// When set to `false`, autotiling is disabled for windows matching this criterion,
+    /// even if autotiling is globally enabled.
+    ///
+    /// This leaks the matcher.
+    pub fn set_autotile(self, autotile: bool) {
+        self.to_matcher().set_autotile(autotile);
+    }
 }
 
 impl WindowMatcher {
@@ -539,6 +549,14 @@ impl WindowMatcher {
     /// If multiple such window matchers match a window, the used position is unspecified.
     pub fn set_initial_floating_position(self, x: i32, y: i32) {
         get!().set_window_matcher_initial_floating_position(self, x, y);
+    }
+
+    /// Sets whether autotiling applies when a newly mapped window matches this matcher.
+    ///
+    /// When set to `false`, autotiling is disabled for windows matching this matcher,
+    /// even if autotiling is globally enabled.
+    pub fn set_autotile(self, autotile: bool) {
+        get!().set_window_matcher_autotile(self, autotile);
     }
 }
 

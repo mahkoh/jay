@@ -244,6 +244,7 @@ pub struct WindowMatcherProperties {
     initial_tile_state: Cell<Option<TileState>>,
     initial_floating_size: Cell<Option<(i32, i32)>>,
     initial_floating_position: Cell<Option<(i32, i32)>>,
+    autotile: Cell<Option<bool>>,
 }
 
 pub struct ConfigWorkspace {
@@ -1833,6 +1834,27 @@ impl ConfigProxyHandler {
         });
     }
 
+    fn handle_set_autotile(&self, enabled: bool) {
+        self.state.set_autotile(enabled);
+    }
+
+    fn handle_get_autotile(&self) {
+        self.respond(Response::GetAutotile {
+            enabled: self.state.autotile.get(),
+        });
+    }
+
+    fn handle_set_window_matcher_autotile(
+        &self,
+        matcher: WindowMatcher,
+        autotile: bool,
+    ) -> Result<(), CphError> {
+        self.ensure_window_matcher_properties(matcher)?
+            .autotile
+            .set(Some(autotile));
+        Ok(())
+    }
+
     fn handle_set_show_bar(&self, show: bool) {
         self.state.set_show_bar(show);
     }
@@ -2788,6 +2810,7 @@ impl ConfigProxyHandler {
             initial_tile_state: Default::default(),
             initial_floating_size: Default::default(),
             initial_floating_position: Default::default(),
+            autotile: Default::default(),
         });
         self.window_matcher_properties.set(matcher, p.clone());
         Ok(p)
@@ -4209,6 +4232,11 @@ impl ConfigProxyHandler {
                 self.handle_set_split_reuses_container(reuse);
             }
             ClientMessage::GetSplitReusesContainer => self.handle_get_split_reuses_container(),
+            ClientMessage::SetAutotile { enabled } => self.handle_set_autotile(enabled),
+            ClientMessage::GetAutotile => self.handle_get_autotile(),
+            ClientMessage::SetWindowMatcherAutotile { matcher, autotile } => self
+                .handle_set_window_matcher_autotile(matcher, autotile)
+                .wrn("set_window_matcher_autotile")?,
             ClientMessage::SetShowBar { show } => self.handle_set_show_bar(show),
             ClientMessage::GetShowBar => self.handle_get_show_bar(),
             ClientMessage::SetShowTitles { show } => self.handle_set_show_titles(show),
@@ -4568,6 +4596,10 @@ impl ConfigProxyHandler {
 
     pub fn initial_floating_position(&self, data: &ToplevelData) -> Option<(i32, i32)> {
         self.window_property(data, |p| p.initial_floating_position.get())
+    }
+
+    pub fn autotile(&self, data: &ToplevelData) -> Option<bool> {
+        self.window_property(data, |p| p.autotile.get())
     }
 
     pub fn initial_output_for_workspace(&self, name: &str) -> Option<Option<Rc<OutputNode>>> {

@@ -63,6 +63,7 @@ impl Parser for WindowRuleParser<'_, '_, '_> {
             initial_tile_state_val,
             initial_floating_size_val,
             initial_floating_position_val,
+            autotile,
         ) = ext.extract((
             opt(str("name")),
             opt(val("match")),
@@ -72,6 +73,7 @@ impl Parser for WindowRuleParser<'_, '_, '_> {
             opt(val("initial-tile-state")),
             opt(val("initial-floating-size")),
             opt(val("initial-floating-position")),
+            recover(opt(bol("autotile"))),
         ))?;
         let mut action = None;
         if let Some(value) = action_val {
@@ -141,6 +143,7 @@ impl Parser for WindowRuleParser<'_, '_, '_> {
             initial_tile_state,
             initial_floating_size,
             initial_floating_position,
+            autotile: autotile.despan(),
         })
     }
 }

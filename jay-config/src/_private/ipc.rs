@@ -1144,6 +1144,14 @@ pub enum ClientMessage<'a> {
         window: Window,
         kind: WindowThemeKind,
     },
+    SetAutotile {
+        enabled: bool,
+    },
+    GetAutotile,
+    SetWindowMatcherAutotile {
+        matcher: WindowMatcher,
+        autotile: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -1444,6 +1452,9 @@ pub enum Response {
     },
     GetWindowThemeContainerBorders {
         borders: Option<JcContainerBorders>,
+    },
+    GetAutotile {
+        enabled: bool,
     },
 }
 
