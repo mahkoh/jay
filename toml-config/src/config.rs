@@ -536,6 +536,7 @@ pub struct Input {
     pub scroll_method: Option<ScrollMethod>,
     pub scroll_button: Option<InputEventCode>,
     pub scroll_button_lock: Option<bool>,
+    pub disable_while_typing: Option<bool>,
     pub detached: Option<bool>,
 }
 
@@ -755,4 +756,12 @@ where
 fn default_config_parses() {
     let input = crate::DEFAULT;
     parse_config(input, &Default::default(), &mut Default::default(), |_| ()).unwrap();
+}
+
+#[test]
+fn input_disable_while_typing_parses() {
+    let input = b"[inputs]\nmatch.is-pointer = true\ndisable-while-typing = false\n";
+    let config = parse_config(input, &Default::default(), &mut Default::default(), |_| ()).unwrap();
+    let input = &config.inputs[0];
+    assert_eq!(input.disable_while_typing, Some(false));
 }

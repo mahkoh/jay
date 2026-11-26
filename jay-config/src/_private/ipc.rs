@@ -1144,6 +1144,10 @@ pub enum ClientMessage<'a> {
         window: Window,
         kind: WindowThemeKind,
     },
+    SetDisableWhileTyping {
+        device: InputDevice,
+        enabled: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

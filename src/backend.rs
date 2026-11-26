@@ -324,6 +324,10 @@ pub trait InputDevice {
         None
     }
     fn set_scroll_button_lock(&self, enabled: bool);
+    fn disable_while_typing(&self) -> Option<bool> {
+        None
+    }
+    fn set_disable_while_typing(&self, enabled: bool);
 }
 
 #[jay_hash]

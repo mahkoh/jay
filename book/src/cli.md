@@ -546,6 +546,14 @@ release instead of having to be held down:
 ~$ jay input device 42 set-scroll-button-lock false
 ```
 
+Toggle disable-while-typing, so the touchpad is not disabled while typing on
+the keyboard:
+
+```shell
+~$ jay input device 15 set-disable-while-typing false
+~$ jay input device 15 set-disable-while-typing true
+```
+
 Set a per-device keymap:
 
 ```shell

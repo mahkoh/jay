@@ -1079,6 +1079,16 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_set_disable_while_typing(
+        &self,
+        device: InputDevice,
+        enabled: bool,
+    ) -> Result<(), CphError> {
+        let dev = self.get_device_handler_data(device)?;
+        dev.set_disable_while_typing(&self.state, enabled);
+        Ok(())
+    }
+
     fn handle_set_middle_button_emulation_enabled(
         &self,
         device: InputDevice,
@@ -4403,6 +4413,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetScrollButtonLock { device, enabled } => self
                 .handle_set_scroll_button_lock(device, enabled)
                 .wrn("set_scroll_button_lock")?,
+            ClientMessage::SetDisableWhileTyping { device, enabled } => self
+                .handle_set_disable_while_typing(device, enabled)
+                .wrn("set_disable_while_typing")?,
             ClientMessage::SetRepeatShortcut {
                 seat,
                 mods,

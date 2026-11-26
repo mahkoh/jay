@@ -464,6 +464,11 @@ impl InputPane {
                             dev.set_middle_button_emulation_enabled(&self.state, v);
                         });
                     }
+                    if let Some(old) = dev.device.disable_while_typing() {
+                        bool(ui, "Disable While Typing", old, |v| {
+                            dev.set_disable_while_typing(&self.state, v)
+                        });
+                    }
                     if let Some(old) = dev.device.scroll_method() {
                         combo_box_filtered(ui, "Scroll Method", dev.scroll_methods, old, |v| {
                             dev.set_scroll_method(&self.state, v);
