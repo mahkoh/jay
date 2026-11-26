@@ -682,7 +682,7 @@ impl WlBufferDmabufStorage {
         if let Some(tex) = &self.tex {
             return Ok(tex.clone());
         }
-        buf.check_import(ctx.drm_device_id())?;
+        buf.check_import(ctx.drm().map(|d| d.id()))?;
         let tex = ctx.clone().dmabuf_tex(&self.dmabuf)?;
         Ok(self.tex.insert(tex).clone())
     }
@@ -695,7 +695,7 @@ impl WlBufferDmabufStorage {
         if let Some(fb) = &self.fb {
             return Ok(fb.clone());
         }
-        buf.check_import(ctx.drm_device_id())?;
+        buf.check_import(ctx.drm().map(|d| d.id()))?;
         let fb = ctx.clone().dmabuf_fb(&self.dmabuf)?;
         Ok(self.fb.insert(fb).clone())
     }

@@ -78,6 +78,7 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
+use crate::utils::fx_hash::FHashSet;
 use crate::utils::geometric_decay::GeometricDecay;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::liveness::Liveness;
@@ -91,6 +92,7 @@ use crate::utils::ordered_float::F64;
 use crate::utils::static_text::StaticText;
 use crate::video::INVALID_MODIFIER;
 use crate::video::Modifier;
+use crate::video::allocator::Allocator;
 use crate::video::dmabuf::DmaBufId;
 use crate::video::drm::ConnectorStatus;
 use crate::video::drm::ConnectorType;
@@ -117,12 +119,9 @@ use crate::video::drm::DrmVersion;
 use crate::video::drm::PrepareDrmObjectProperties;
 use crate::video::drm::drm_mode_modeinfo;
 use crate::video::drm::hdr_output_metadata;
-use crate::video::gbm::GbmDevice;
 use bstr::BString;
 use bstr::ByteSlice;
 use hashbrown::hash_map::Entry;
-use indexmap::IndexSet;
-use indexmap::indexset;
 use jay_algorithms::oserror::OsError;
 use jay_proc::GetLiveness;
 use jay_proc::jay_clone;
@@ -153,7 +152,8 @@ pub struct PendingDrmDevice {
 pub struct MetalRenderContext {
     pub dev_id: DrmDeviceId,
     pub gfx: Rc<dyn GfxContext>,
-    pub gbm: Rc<GbmDevice>,
+    pub master: Rc<DrmMaster>,
+    pub allocator: Rc<Allocator>,
     pub devnode: CString,
     pub copy_device: Rc<CopyDeviceHolder>,
     liveness: Liveness,
@@ -191,7 +191,6 @@ pub struct MetalDrmDevice {
     pub cursor_width: u64,
     pub cursor_height: u64,
     pub supports_async_commit: bool,
-    gbm: Rc<GbmDevice>,
     pub handle_events: HandleEvents,
     pub ctx: CloneCell<Rc<MetalRenderContext>>,
     pub copy_device: Rc<CopyDeviceHolder>,
@@ -253,7 +252,7 @@ impl BackendDrmDevice for MetalDrmDevice {
     }
 
     fn version(&self) -> Result<DrmVersion, DrmError> {
-        self.gbm.drm.version()
+        self.master.version()
     }
 
     fn set_direct_scanout_enabled(&self, enabled: bool) {
@@ -1068,7 +1067,7 @@ impl StaticText for PlaneType {
 #[derive(Debug)]
 pub struct PlaneFormat {
     pub format: &'static Format,
-    pub modifiers: IndexSet<Modifier>,
+    pub modifiers: FHashSet<Modifier>,
 }
 
 pub type PlaneDefaultPropertyFilter = StaticCopyMap<PlaneType, bool>;
@@ -1718,11 +1717,13 @@ fn create_plane(
         for format in info.format_types {
             if let Some(f) = crate::format::formats().get(&format) {
                 scanout_formats.push((*f, INVALID_MODIFIER));
+                let mut modifiers = FHashSet::default();
+                modifiers.insert(INVALID_MODIFIER);
                 formats.insert(
                     format,
                     PlaneFormat {
                         format: f,
-                        modifiers: indexset![INVALID_MODIFIER],
+                        modifiers,
                     },
                 );
             }
@@ -2139,9 +2140,9 @@ impl MetalBackend {
             }
         }
 
-        let gbm = match GbmDevice::new(master) {
+        let allocator = match Allocator::from_drm(master) {
             Ok(g) => Rc::new(g),
-            Err(e) => return Err(MetalError::GbmDevice(e)),
+            Err(e) => return Err(MetalError::Allocator(e)),
         };
 
         let copy_device = Rc::new(CopyDeviceHolder {
@@ -2151,14 +2152,15 @@ impl MetalBackend {
             dev: Default::default(),
         });
 
-        let gfx = match self.state.create_gfx_context(pending.id, master, None) {
+        let gfx = match self.state.create_gfx_context(master, None) {
             Ok(r) => r,
             Err(e) => return Err(MetalError::CreateRenderContex(e)),
         };
         let ctx = Rc::new(MetalRenderContext {
             dev_id: pending.id,
             gfx,
-            gbm: gbm.clone(),
+            master: master.clone(),
+            allocator: allocator.clone(),
             devnode: pending.devnode.clone(),
             copy_device: copy_device.clone(),
             liveness: Default::default(),
@@ -2177,7 +2179,6 @@ impl MetalBackend {
             cursor_width,
             cursor_height,
             supports_async_commit: master.supports_async_commit(),
-            gbm,
             handle_events: HandleEvents {
                 handle_events: Cell::new(None),
             },
@@ -2565,10 +2566,7 @@ impl MetalBackend {
         if old_ctx.gfx.gfx_api() == api {
             return;
         }
-        let gfx = match self
-            .state
-            .create_gfx_context(dev.id, &dev.master, Some(api))
-        {
+        let gfx = match self.state.create_gfx_context(&dev.master, Some(api)) {
             Ok(r) => r,
             Err(e) => {
                 log::error!(
@@ -2584,7 +2582,8 @@ impl MetalBackend {
         dev.ctx.set(Rc::new(MetalRenderContext {
             dev_id: dev.id,
             gfx,
-            gbm: old_ctx.gbm.clone(),
+            master: old_ctx.master.clone(),
+            allocator: old_ctx.allocator.clone(),
             devnode: old_ctx.devnode.clone(),
             copy_device: old_ctx.copy_device.clone(),
             liveness: Default::default(),

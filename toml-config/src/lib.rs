@@ -81,6 +81,7 @@ use jay_config::set_color_management_enabled;
 use jay_config::set_configure_timeout;
 use jay_config::set_default_workspace_capture;
 use jay_config::set_explicit_sync_enabled;
+use jay_config::set_flatten_container;
 use jay_config::set_float_above_fullscreen;
 use jay_config::set_idle;
 use jay_config::set_idle_grace_period;
@@ -365,9 +366,9 @@ impl Action {
                     b.new(move || persistent.seat.enable_unicode_input())
                 }
                 SimpleCommand::OpenControlCenter => b.new(open_control_center),
-                SimpleCommand::WarpMouseToFocus => {
+                SimpleCommand::WarpMouseToFocus(target) => {
                     let persistent = state.persistent.clone();
-                    b.new(move || persistent.seat.warp_mouse_to_focus())
+                    b.new(move || persistent.seat.warp_mouse_to_focus_target(target))
                 }
                 SimpleCommand::HideOverlays => b.new(hide_overlays),
                 SimpleCommand::SetVisualizeCompositing(v) => {
@@ -2001,6 +2002,9 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
     }
     if let Some(v) = config.show_titles {
         set_show_titles(v);
+    }
+    if let Some(v) = config.flatten_container {
+        set_flatten_container(v);
     }
     if let Some(v) = config.focus_history {
         if let Some(v) = v.only_visible {

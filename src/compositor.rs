@@ -126,7 +126,6 @@ use crate::utils::lazy_event_source::handle_lazy_event_sources;
 use crate::utils::nice::did_elevate_scheduler;
 use crate::utils::nice::elevate_scheduler;
 use crate::utils::numcell::NumCell;
-use crate::utils::object_drop_queue::ObjectDropQueue;
 use crate::utils::queue::AsyncQueue;
 use crate::utils::rc_eq::RcEq;
 use crate::utils::run_toplevel::RunToplevel;
@@ -308,7 +307,6 @@ fn start_compositor2(
         render_ctx_drm_device: Default::default(),
         render_ctx_prime_copy_device: Default::default(),
         render_ctx_prime_modifiers: Default::default(),
-        render_ctx_prime_modifiers_stash: Default::default(),
         render_ctx_version: NumCell::new(1),
         render_ctx_ever_initialized: Cell::new(false),
         cursors: Default::default(),
@@ -444,6 +442,7 @@ fn start_compositor2(
         color_management_enabled: Cell::new(false),
         color_manager,
         float_above_fullscreen: Cell::new(false),
+        flatten_container: Default::default(),
         icons: Default::default(),
         show_pin_icon: Cell::new(false),
         cl_matcher_manager: Rc::new(ClMatcherManager::new(&crit_ids)),
@@ -467,7 +466,6 @@ fn start_compositor2(
         supports_presentation_feedback: Default::default(),
         eventfd_cache,
         lazy_event_sources: Default::default(),
-        bo_drop_queue: Rc::new(ObjectDropQueue::new(&ring)),
         egg_state: Default::default(),
         control_centers: Default::default(),
         virtual_outputs: Default::default(),

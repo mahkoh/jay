@@ -1,5 +1,4 @@
 use crate::acceptor::Acceptor;
-use crate::allocator::BufferObject;
 use crate::async_engine::AsyncEngine;
 use crate::async_engine::SpawnedFuture;
 use crate::backend::Backend;
@@ -178,6 +177,7 @@ use crate::tree::ContainerSplit;
 use crate::tree::Direction;
 use crate::tree::DisplayNode;
 use crate::tree::FindTreeUsecase;
+use crate::tree::FlattenContainer;
 use crate::tree::FloatNode;
 use crate::tree::FoundNode;
 use crate::tree::LatchListener;
@@ -229,7 +229,6 @@ use crate::utils::liveness::Liveness;
 use crate::utils::numcell::NumCell;
 use crate::utils::obj_and_id::ObjAndId;
 use crate::utils::obj_and_id::ObjWithId;
-use crate::utils::object_drop_queue::ObjectDropQueue;
 use crate::utils::queue::AsyncQueue;
 use crate::utils::refcounted::RefCounted;
 use crate::utils::run_toplevel::RunToplevel;
@@ -286,7 +285,6 @@ pub struct State {
     pub render_ctx_drm_device: ObjAndId<Option<Rc<DrmDevData>>>,
     pub render_ctx_prime_copy_device: CloneCell<Option<Rc<CopyDevice>>>,
     pub render_ctx_prime_modifiers: CopyHashMap<Option<ConnectorId>, PrimeModifiers>,
-    pub render_ctx_prime_modifiers_stash: RefCell<Vec<Modifier>>,
     pub render_ctx_version: NumCell<u32>,
     pub render_ctx_ever_initialized: Cell<bool>,
     pub cursors: CloneCell<Option<Rc<ServerCursors>>>,
@@ -399,6 +397,7 @@ pub struct State {
     pub color_management_enabled: Cell<bool>,
     pub color_manager: Rc<ColorManager>,
     pub float_above_fullscreen: Cell<bool>,
+    pub flatten_container: Cell<FlattenContainer>,
     pub icons: Icons,
     pub show_pin_icon: Cell<bool>,
     pub cl_matcher_manager: Rc<ClMatcherManager>,
@@ -421,7 +420,6 @@ pub struct State {
     pub supports_presentation_feedback: Cell<bool>,
     pub eventfd_cache: Rc<EventfdCache>,
     pub lazy_event_sources: Rc<LazyEventSources>,
-    pub bo_drop_queue: Rc<ObjectDropQueue<Rc<dyn BufferObject>>>,
     pub egg_state: EggState,
     pub control_centers: ControlCenters,
     pub virtual_outputs: VirtualOutputs,
@@ -816,7 +814,6 @@ impl DrmDevData {
 impl State {
     pub fn create_gfx_context(
         &self,
-        drm_device_id: DrmDeviceId,
         drm: &Drm,
         api: Option<GfxApi>,
     ) -> Result<Rc<dyn GfxContext>, GfxError> {
@@ -824,7 +821,6 @@ impl State {
             &self.eng,
             &self.ring,
             &self.eventfd_cache,
-            Some(drm_device_id),
             drm,
             api.unwrap_or(self.default_gfx_api.get()),
             self.caps_thread.as_ref(),
@@ -1516,7 +1512,6 @@ impl State {
         self.cpu_worker.clear();
         self.wait_for_syncobj.clear();
         self.lazy_event_sources.clear();
-        self.bo_drop_queue.kill();
         self.egg_state.clear();
         self.control_centers.clear();
         self.virtual_outputs.clear();
@@ -2237,6 +2232,11 @@ impl State {
         self.root.update_visible(self);
     }
 
+    pub fn set_flatten_container(&self, v: FlattenContainer) {
+        self.flatten_container.set(v);
+        self.trigger_cci(CCI_LOOK_AND_FEEL);
+    }
+
     pub fn reset_sizes(self: &Rc<Self>) {
         self.theme.sizes.reset();
         self.spaces_changed();
@@ -2406,7 +2406,7 @@ impl State {
 
     pub fn update_render_device(&self, render_ctx_changed: bool) {
         let ctx = self.render_ctx.get();
-        let id = ctx.as_ref().and_then(|c| c.drm_device_id());
+        let id = ctx.as_ref().and_then(|c| c.drm().map(|d| d.id()));
         let drm_dev = id.and_then(|id| self.drm_devs.get(&id));
         if !render_ctx_changed && drm_dev.id() == self.render_ctx_drm_device.id() {
             return;

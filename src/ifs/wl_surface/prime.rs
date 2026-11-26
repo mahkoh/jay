@@ -1,7 +1,3 @@
-use crate::allocator::AllocatorError;
-use crate::allocator::BO_USE_SCANOUT;
-use crate::allocator::BufferObject;
-use crate::allocator::BufferUsage;
 use crate::backend::DrmDeviceId;
 use crate::copy_device::CopyDevice;
 use crate::copy_device::CopyDeviceDstObject;
@@ -39,10 +35,14 @@ use crate::utils::obj_and_id::ObjWithId;
 use crate::utils::rc_eq::rc_opt_eq;
 use crate::utils::smallmap::SmallMap;
 use crate::utils::syncqueue::SyncQueue;
+use crate::video::allocator::AllocatorError;
+use crate::video::allocator::BO_USE_SCANOUT;
+use crate::video::allocator::BufferUsage;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmabufCopy;
 use arrayvec::ArrayVec;
 use jay_algorithms::oserror::OsError;
+use jay_proc::jay_clone;
 use linearize::StaticMap;
 use smallvec::SmallVec;
 use std::cell::Cell;
@@ -80,7 +80,7 @@ pub struct SurfacePrimeState {
     pub buffer: CloneCell<Option<Rc<PrimeSurfaceBuffer>>>,
     inner: Rc<StateInner>,
     damage: Rc<DynamicDamageQueue>,
-    udmabuf: CloneCell<Option<Rc<DmaBuf>>>,
+    udmabuf: CloneCell<Option<PrimeUdmabuf>>,
     udmabuf_src_object: CloneCell<Option<Rc<CopyDeviceSrcObject>>>,
     udmabuf_dst_objects: CopyHashMap<DrmDeviceId, Rc<CopyDeviceDstObject>>,
 }
@@ -106,10 +106,10 @@ struct PrimeStorage {
     damage: DynamicDamageQueueElement,
     tex: CloneCell<Option<Rc<dyn GfxTexture>>>,
 
-    udmabuf: CloneCell<Option<Rc<DmaBuf>>>,
+    udmabuf: CloneCell<Option<PrimeUdmabuf>>,
     udmabuf_objects: CopyHashMap<DrmDeviceId, Rc<CopyDeviceDstObject>>,
 
-    bo: CloneCell<Option<Rc<dyn BufferObject>>>,
+    bo: CloneCell<Option<Rc<DmaBuf>>>,
     bo_object: CloneCell<Option<Rc<CopyDeviceDstObject>>>,
     bo_flags: BufferUsage,
     bo_modifiers: Option<PrimeModifiers>,
@@ -121,6 +121,12 @@ struct PrimeStorage {
 pub struct PrimeValidity {
     version: u64,
     inner: Rc<StateInner>,
+}
+
+#[jay_clone]
+struct PrimeUdmabuf {
+    client: Rc<DmaBuf>,
+    render: Rc<DmaBuf>,
 }
 
 pub fn no_client_prime(udmabuf: &UdmabufHolder) -> bool {
@@ -350,8 +356,10 @@ impl WlSurface {
             let Some(dev) = &udmabuf_dev else {
                 return Err(PrimeError::UdmabufNotAvailable);
             };
-            dev.create_dmabuf(&state.dma_buf_ids, buf.width, buf.height, buf.format)
-                .map_err(PrimeError::CreateUdmabuf)
+            let [client, render] = dev
+                .create_dmabuf::<2>(&state.dma_buf_ids, buf.width, buf.height, buf.format)
+                .map_err(PrimeError::CreateUdmabuf)?;
+            Ok(PrimeUdmabuf { client, render })
         };
         let client_copy_device = buf.client_copy_device();
         let mut direct_scanout_connector = self.fullscreen.get();
@@ -401,14 +409,14 @@ impl WlSurface {
                 let Some(bo) = spt.bo.get() else {
                     continue;
                 };
-                if incompatible(buf, bo.dmabuf()) {
+                if incompatible(buf, &bo) {
                     continue;
                 }
             } else {
                 let Some(dmabuf) = spt.udmabuf.get() else {
                     continue;
                 };
-                if incompatible(buf, &dmabuf) {
+                if incompatible(buf, &dmabuf.client) {
                     continue;
                 }
             }
@@ -429,9 +437,8 @@ impl WlSurface {
                 }
                 _ => {
                     damage_full();
-                    let modifiers = &mut *state.render_ctx_prime_modifiers_stash.borrow_mut();
-                    modifiers.clear();
-                    spt.bo_modifiers
+                    let modifiers = spt
+                        .bo_modifiers
                         .as_ref()
                         .and_then(|m| m.get(&buf.format.drm))
                         .map(|m| &**m)
@@ -440,10 +447,10 @@ impl WlSurface {
                         .filter(|s| {
                             s.max_width >= buf.width as u32 && s.max_height >= buf.height as u32
                         })
-                        .for_each(|s| modifiers.push(s.modifier));
+                        .map(|s| s.modifier);
                     let bo = ctx
                         .allocator()
-                        .create_bo(
+                        .allocate_with_usage(
                             &state.dma_buf_ids,
                             buf.width,
                             buf.height,
@@ -461,7 +468,7 @@ impl WlSurface {
                 _ => {
                     let tex = ctx
                         .clone()
-                        .dmabuf_tex(bo.dmabuf())
+                        .dmabuf_tex(&bo)
                         .map_err(PrimeError::CreateBoTexture)?;
                     spt.tex.set(Some(tex.clone()));
                     tex
@@ -469,7 +476,7 @@ impl WlSurface {
             };
             if spt.bo_object.is_none() {
                 let obj = render_dev
-                    .create_dst_object(bo.dmabuf())
+                    .create_dst_object(&bo)
                     .map_err(PrimeError::CreateBoDst)?;
                 spt.bo_object.set(Some(Rc::new(obj)));
             }
@@ -494,7 +501,7 @@ impl WlSurface {
                 _ => {
                     let tex = ctx
                         .clone()
-                        .dmabuf_tex(&udmabuf)
+                        .dmabuf_tex(&udmabuf.render)
                         .map_err(PrimeError::CreateUdmabufTexture)?;
                     spt.tex.set(Some(tex.clone()));
                     tex
@@ -509,7 +516,7 @@ impl WlSurface {
                     Some(obj) => obj,
                     None => {
                         let obj = client_dev
-                            .create_dst_object(&udmabuf)
+                            .create_dst_object(&udmabuf.client)
                             .map(Rc::new)
                             .map_err(PrimeError::ImportUdmabufDst)?;
                         spt.udmabuf_objects.set(client_id, obj.clone());
@@ -522,7 +529,7 @@ impl WlSurface {
             {
                 let mut udmabuf_opt = prime.udmabuf.get();
                 if let Some(udmabuf) = &udmabuf_opt
-                    && incompatible(buf, udmabuf)
+                    && incompatible(buf, &udmabuf.client)
                 {
                     udmabuf_opt = None;
                     prime.udmabuf.take();
@@ -541,7 +548,7 @@ impl WlSurface {
                     Some(obj) => obj,
                     _ => {
                         let obj = client_dev
-                            .create_dst_object(&udmabuf)
+                            .create_dst_object(&udmabuf.client)
                             .map_err(PrimeError::ImportUdmabufDst)
                             .map(Rc::new)?;
                         prime.udmabuf_dst_objects.set(client_id, obj.clone());
@@ -552,7 +559,7 @@ impl WlSurface {
                     Some(obj) => obj,
                     None => {
                         let obj = render_dev
-                            .create_src_object(&udmabuf)
+                            .create_src_object(&udmabuf.render)
                             .map_err(PrimeError::ImportUdmabufSrc)
                             .map(Rc::new)?;
                         prime.udmabuf_src_object.set(Some(obj.clone()));

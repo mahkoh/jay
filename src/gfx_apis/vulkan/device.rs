@@ -1,5 +1,3 @@
-use crate::allocator::BufferObject;
-use crate::backend::DrmDeviceId;
 use crate::env::JAY_NO_DESCRIPTOR_HEAP;
 use crate::eventfd_cache::EventfdCache;
 use crate::format::XRGB8888;
@@ -10,15 +8,12 @@ use crate::gfx_apis::vulkan::format::VulkanFormat;
 use crate::gfx_apis::vulkan::instance::VulkanInstance;
 use crate::syncobj::SyncobjCtx;
 use crate::utils::bhash::BHashMap;
-use crate::utils::bitflags::BitflagsExt;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::major_minor::MajorMinor;
 use crate::utils::major_minor::major_minor;
 use crate::utils::page_alloc::PageAllocCtx;
-use crate::video::dmabuf::DmaBufIds;
+use crate::video::allocator::Allocator;
 use crate::video::drm::Drm;
-use crate::video::gbm::GBM_BO_USE_RENDERING;
-use crate::video::gbm::GbmDevice;
 use crate::vulkan_core::ApiVersionDisplay;
 use crate::vulkan_core::Extensions;
 use crate::vulkan_core::VULKAN_API_VERSION;
@@ -79,7 +74,6 @@ use ash::vk::QueueFamilyProperties2;
 use ash::vk::QueueFlags;
 use ash::vk::QueueGlobalPriorityKHR;
 use bstr::ByteSlice;
-use jay_algorithms::oserror::OsErrorExt2;
 use linearize::StaticMap;
 use linearize::static_map;
 use run_on_drop::on_drop;
@@ -90,14 +84,13 @@ use std::rc::Rc;
 use std::sync::Arc;
 use uapi::Packed;
 use uapi::Ustr;
-use uapi::c::O_RDWR;
 use vk::QueueFamilyGlobalPriorityPropertiesKHR;
 
 pub struct VulkanDevice {
-    pub(super) drm_device_id: Option<DrmDeviceId>,
     pub(super) physical_device: PhysicalDevice,
     pub(super) render_node: Rc<CString>,
-    pub(super) gbm: Rc<GbmDevice>,
+    pub(super) drm: Drm,
+    pub(super) allocator: Rc<Allocator>,
     pub(super) sync_ctx: Rc<SyncobjCtx>,
     pub(super) instance: Rc<VulkanInstance>,
     pub(super) device: Arc<Device>,
@@ -407,7 +400,6 @@ impl VulkanInstance {
 
     pub fn create_device(
         self: &Rc<Self>,
-        drm_device_id: Option<DrmDeviceId>,
         drm: &Drm,
         eventfd_cache: &Rc<EventfdCache>,
         mut high_priority: bool,
@@ -418,7 +410,7 @@ impl VulkanInstance {
             .map_err(VulkanError::FetchRenderNode)?
             .ok_or(VulkanError::NoRenderNode)
             .map(Rc::new)?;
-        let gbm = GbmDevice::new(drm).map_err(VulkanError::Gbm)?;
+        let allocator = Allocator::from_drm(drm).map_err(VulkanError::Allocator)?;
         let (phy_dev, dev_ty) = match software {
             true => self.find_software_renderer()?,
             false => self.find_dev(drm)?,
@@ -570,23 +562,6 @@ impl VulkanInstance {
         if !supports_xrgb8888 {
             return Err(VulkanError::XRGB8888);
         }
-        if software {
-            let bo = gbm
-                .create_bo(
-                    &DmaBufIds::default(),
-                    1,
-                    1,
-                    XRGB8888,
-                    formats.get(&XRGB8888.drm).unwrap().modifiers.keys(),
-                    GBM_BO_USE_RENDERING,
-                )
-                .map_err(VulkanError::AllocGbm)?;
-            let fl =
-                uapi::fcntl_getfl(bo.dmabuf().planes[0].fd.raw()).map_os_err(VulkanError::GetFl)?;
-            if fl.not_contains(O_RDWR) {
-                return Err(VulkanError::SoftwareRendererNotUsable);
-            }
-        }
         destroy_device.forget();
         let external_memory_fd = external_memory_fd::Device::new(&self.instance, &device);
         let external_semaphore_fd = external_semaphore_fd::Device::new(&self.instance, &device);
@@ -688,11 +663,11 @@ impl VulkanInstance {
             });
         }
         Ok(Rc::new(VulkanDevice {
-            drm_device_id,
             physical_device: phy_dev,
             render_node,
-            sync_ctx: Rc::new(SyncobjCtx::new(gbm.drm.fd())),
-            gbm: Rc::new(gbm),
+            drm: drm.clone(),
+            sync_ctx: Rc::new(SyncobjCtx::new(drm.fd())),
+            allocator: Rc::new(allocator),
             instance: self.clone(),
             device: Arc::new(device),
             eventfd_cache: eventfd_cache.clone(),

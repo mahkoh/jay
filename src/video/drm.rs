@@ -3,6 +3,7 @@ mod sys;
 
 use crate::backend;
 use crate::backend::BackendLuminance;
+use crate::backend::DrmDeviceId;
 use crate::cmm::cmm_primaries::Primaries;
 use crate::format::Format;
 use crate::io_uring::IoUring;
@@ -10,6 +11,7 @@ use crate::io_uring::IoUringError;
 use crate::utils::bhash::BHashMap;
 use crate::utils::buf::Buf;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::utils::fx_hash::FHashSet;
 use crate::utils::obj_and_id::ObjWithId;
 use crate::utils::ordered_float::F64;
 use crate::utils::reset::Reset;
@@ -70,7 +72,6 @@ use crate::video::drm::sys::set_client_cap;
 use bstr::BString;
 use bstr::ByteSlice;
 pub use consts::*;
-use indexmap::IndexSet;
 use jay_algorithms::oserror::OsError;
 use jay_algorithms::oserror::OsErrorExt2;
 use jay_proc::Pod;
@@ -175,8 +176,6 @@ pub enum DrmError {
     TransferPoint(#[source] OsError),
     #[error("Could not merge two sync files")]
     Merge(#[source] OsError),
-    #[error("Could not export a sync file")]
-    ExportSyncFile(#[source] OsError),
     #[error("Could not create a lease")]
     CreateLease(#[source] OsError),
     #[error("Could not drop DRM master")]
@@ -187,6 +186,8 @@ pub enum DrmError {
     Stat(#[source] OsError),
     #[error("Device has no device nodes")]
     NoDeviceNodes,
+    #[error("The modifier {0:#x} is not supported")]
+    UnsupportedModifier(Modifier),
 }
 
 fn render_node_name(fd: c::c_int) -> Result<Ustring, DrmError> {
@@ -217,22 +218,29 @@ fn reopen(fd: c::c_int, need_primary: bool) -> Result<Rc<OwnedFd>, DrmError> {
         .map_os_err(DrmError::ReopenNode)
 }
 
+#[derive(Debug, Clone)]
 pub struct Drm {
+    id: DrmDeviceId,
     fd: Rc<OwnedFd>,
     dev: c::dev_t,
 }
 
 impl Drm {
-    pub fn open_existing(fd: Rc<OwnedFd>) -> Result<Self, DrmError> {
+    pub fn id(&self) -> DrmDeviceId {
+        self.id
+    }
+
+    pub fn open_existing(id: DrmDeviceId, fd: Rc<OwnedFd>) -> Result<Self, DrmError> {
         let stat = uapi::fstat(fd.raw()).map_os_err(DrmError::Stat)?;
         Ok(Self {
+            id,
             fd,
             dev: stat.st_rdev,
         })
     }
 
-    pub fn reopen(fd: c::c_int, need_primary: bool) -> Result<Self, DrmError> {
-        Self::open_existing(reopen(fd, need_primary)?)
+    pub fn reopen(id: DrmDeviceId, fd: c::c_int, need_primary: bool) -> Result<Self, DrmError> {
+        Self::open_existing(id, reopen(fd, need_primary)?)
     }
 
     pub fn dev(&self) -> c::dev_t {
@@ -247,12 +255,8 @@ impl Drm {
         self.fd.raw()
     }
 
-    pub fn dup_primary(&self) -> Result<Self, DrmError> {
-        Self::reopen(self.fd.raw(), true)
-    }
-
     pub fn dup_render(&self) -> Result<Self, DrmError> {
-        Self::reopen(self.fd.raw(), false)
+        Self::reopen(self.id, self.fd.raw(), false)
     }
 
     fn get_nodes(&self) -> Result<StaticMap<NodeType, Option<CString>>, DrmError> {
@@ -285,7 +289,7 @@ impl Drm {
 
 pub struct InFormat {
     pub format: u32,
-    pub modifiers: IndexSet<Modifier>,
+    pub modifiers: FHashSet<Modifier>,
 }
 
 pub struct DrmMaster {
@@ -343,9 +347,9 @@ impl DrmLease {
 }
 
 impl DrmMaster {
-    pub fn new(ring: &Rc<IoUring>, fd: Rc<OwnedFd>) -> Result<Self, DrmError> {
+    pub fn new(ring: &Rc<IoUring>, id: DrmDeviceId, fd: Rc<OwnedFd>) -> Result<Self, DrmError> {
         Ok(Self {
-            drm: Drm::open_existing(fd)?,
+            drm: Drm::open_existing(id, fd)?,
             u32_bufs: Default::default(),
             u64_bufs: Default::default(),
             gem_handles: Default::default(),
@@ -442,11 +446,15 @@ impl DrmMaster {
         self: &Rc<Self>,
         dma: &DmaBuf,
         format: Option<&Format>,
+        supported: &FHashSet<Modifier>,
     ) -> Result<DrmFramebuffer, DrmError> {
-        let mut modifier = 0;
+        let mut modifier = dma
+            .interop_modifier(self.id, supported)
+            .ok_or(DrmError::UnsupportedModifier(dma.modifier))?;
         let mut flags = 0;
-        if dma.modifier != INVALID_MODIFIER {
-            modifier = dma.modifier;
+        if modifier == INVALID_MODIFIER {
+            modifier = 0;
+        } else {
             flags |= DRM_MODE_FB_MODIFIERS;
         }
         let mut strides = [0; 4];
@@ -563,7 +571,7 @@ impl DrmMaster {
             .unwrap()
             .map(|f| InFormat {
                 format: f,
-                modifiers: IndexSet::new(),
+                modifiers: FHashSet::default(),
             })
             .collect();
         let modifiers =

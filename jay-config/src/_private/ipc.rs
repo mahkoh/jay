@@ -9,6 +9,7 @@ use crate::_private::WorkspaceShowOpV2;
 use crate::Axis;
 use crate::Direction;
 use crate::JcContainerTarget;
+use crate::JcFlattenContainer;
 use crate::JcRelativeAxis;
 use crate::JcWorkspaceKind;
 use crate::PciId;
@@ -20,6 +21,7 @@ use crate::input::FocusFollowsMouseMode;
 use crate::input::InputDevice;
 use crate::input::InputEventCode;
 use crate::input::JcFallbackOutputMode;
+use crate::input::JcWarpTarget;
 use crate::input::LayerDirection;
 use crate::input::Seat;
 use crate::input::SwitchEvent;
@@ -1143,6 +1145,13 @@ pub enum ClientMessage<'a> {
     GetWindowThemeContainerBorders {
         window: Window,
         kind: WindowThemeKind,
+    },
+    SetFlattenContainer {
+        mode: JcFlattenContainer,
+    },
+    SeatWarpMouseToFocusTarget {
+        seat: Seat,
+        target: JcWarpTarget,
     },
     SetShortcutAllowInhibited {
         seat: Seat,

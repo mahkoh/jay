@@ -43,6 +43,7 @@ use crate::tree::ContainingNode;
 use crate::tree::Direction;
 use crate::tree::FindTreeResult;
 use crate::tree::FindTreeUsecase;
+use crate::tree::FlattenContainer;
 use crate::tree::FloatNode;
 use crate::tree::FoundNode;
 use crate::tree::Node;
@@ -51,6 +52,7 @@ use crate::tree::NodeId;
 use crate::tree::NodeLayerLink;
 use crate::tree::NodeLocation;
 use crate::tree::OutputNode;
+use crate::tree::PlaceholderNode;
 use crate::tree::RelativeAxis;
 use crate::tree::SplitView;
 use crate::tree::TddType;
@@ -209,6 +211,13 @@ struct MainAxisRange {
     lo: i32,
     hi: i32,
     color: Color,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum ReplaceWithSoleChild {
+    Flattened,
+    Rejected,
+    NotApplicable,
 }
 
 #[derive(Default)]
@@ -533,6 +542,28 @@ impl ContainerNode {
         ref_
     }
 
+    fn try_replace_with_sole_child(
+        self: &Rc<Self>,
+        child: Rc<dyn ToplevelNode>,
+    ) -> ReplaceWithSoleChild {
+        let Some(parent) = self.toplevel_data.parent.get() else {
+            return ReplaceWithSoleChild::NotApplicable;
+        };
+        if self.toplevel_data.is_fullscreen[LiveTL].get() {
+            return ReplaceWithSoleChild::NotApplicable;
+        }
+        if !parent.cnode_accepts_child(&*child) {
+            return ReplaceWithSoleChild::Rejected;
+        }
+        parent.cnode_replace_child(self.deref(), child);
+        self.toplevel_data.parent.take();
+        for cn in self.child_nodes.borrow_mut().drain_values() {
+            self.schedule_unlink_child(cn);
+        }
+        self.tl_destroy();
+        ReplaceWithSoleChild::Flattened
+    }
+
     fn prepend_child(self: &Rc<Self>, new: Rc<dyn ToplevelNode>) {
         if let Some(child) = self.children.first() {
             self.add_child_before_(&child, new);
@@ -642,6 +673,17 @@ impl ContainerNode {
         let mut seats = self.cursors.borrow_mut();
         for seat in seats.values_mut() {
             seat.op = None;
+        }
+    }
+
+    fn fixup_seat_ops(&self, old: &NodeRef<ContainerChild>, new: &NodeRef<ContainerChild>) {
+        let mut seats = self.cursors.borrow_mut();
+        for seat in seats.values_mut() {
+            if let Some(op) = &mut seat.op
+                && op.child.id == old.id
+            {
+                op.child = new.clone();
+            }
         }
     }
 
@@ -1549,19 +1591,9 @@ impl ContainerNode {
 
         // CASE 1: This is the only child of the container. Replace the container by the child.
         if ns.num_children.get() == 1 {
-            if let Some(parent) = self.toplevel_data.parent.get()
-                && !self.toplevel_data.is_fullscreen[LiveTL].get()
-            {
-                if parent.cnode_accepts_child(&*child) {
-                    parent.cnode_replace_child(self.deref(), child.clone());
-                    self.toplevel_data.parent.take();
-                    for cn in self.child_nodes.borrow_mut().drain_values() {
-                        self.schedule_unlink_child(cn);
-                    }
-                    self.tl_destroy();
-                } else {
-                    move_to_neighboring_output(child);
-                }
+            match self.try_replace_with_sole_child(child.clone()) {
+                ReplaceWithSoleChild::Flattened | ReplaceWithSoleChild::NotApplicable => {}
+                ReplaceWithSoleChild::Rejected => move_to_neighboring_output(child),
             }
             return;
         }
@@ -1596,6 +1628,7 @@ impl ContainerNode {
                     false => neighbor.append_existing(&cc),
                 }
                 // log::info!("move_child");
+                self.cancel_seat_ops();
                 self.schedule_layout();
                 return;
             }
@@ -1614,11 +1647,14 @@ impl ContainerNode {
             move_to_neighboring_output(child);
             return;
         };
-        self.cnode_remove_child2(&*child, true);
+        let placeholder = Rc::new_cyclic(|weak| PlaceholderNode::new_empty(&self.state, weak));
+        self.clone()
+            .cnode_replace_child(&*child, placeholder.clone());
         match prev {
             true => parent.add_child_before(&*neighbor, child.clone()),
             false => parent.add_child_after(&*neighbor, child.clone()),
         }
+        self.cnode_remove_child2(&*placeholder, true);
     }
 
     fn insert_child(self: &Rc<Self>, node: Rc<dyn ToplevelNode>, direction: Direction) {
@@ -2769,6 +2805,7 @@ impl ContainingNode for ContainerNode {
             node.resize_handle.get(),
             Some(&self.toplevel_data),
         )));
+        self.fixup_seat_ops(&node, &link);
         self.set_child_ns_title_rect(&link, node.node_state[LiveTL].title_rect.get());
         self.set_child_ns_body(&link, node.node_state[LiveTL].body.get());
         if let Some(fh) = node.focus_history.take() {
@@ -2822,6 +2859,14 @@ impl ContainingNode for ContainerNode {
         }
         let node = self.schedule_unlink_child(node);
         let num_children = self.adj_ns_num_children(|value| value - 1);
+        if num_children == 1
+            && self.state.flatten_container.get() == FlattenContainer::OnRemove
+            && let Some(remaining) = self.children.first_valid(LiveTL)
+            && self.try_replace_with_sole_child(remaining.node.clone())
+                == ReplaceWithSoleChild::Flattened
+        {
+            return;
+        }
         if num_children == 0 {
             self.tl_destroy();
             return;

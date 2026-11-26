@@ -21,9 +21,7 @@ mod shm_image;
 mod staging;
 mod transfer;
 
-use crate::allocator::Allocator;
 use crate::async_engine::AsyncEngine;
-use crate::backend::DrmDeviceId;
 use crate::cpu_worker::CpuWorker;
 use crate::cpu_worker::jobs::read_write::ReadWriteJobError;
 use crate::eventfd_cache::EventfdCache;
@@ -54,11 +52,12 @@ use crate::rect::Rect;
 use crate::syncobj::SyncobjCtx;
 use crate::utils::bhash::BHashMap;
 use crate::utils::errorfmt::ErrorFmt;
+use crate::video::allocator::Allocator;
+use crate::video::allocator::AllocatorError;
 use crate::video::dmabuf::DmaBuf;
 use crate::video::dmabuf::DmaBufIds;
 use crate::video::drm::Drm;
 use crate::video::drm::DrmError;
-use crate::video::gbm::GbmError;
 use crate::vulkan_core;
 use crate::vulkan_core::VulkanCoreError;
 use ash::vk;
@@ -78,8 +77,8 @@ use uapi::c::dev_t;
 pub enum VulkanError {
     #[error(transparent)]
     Core(#[from] VulkanCoreError),
-    #[error("Could not create a GBM device")]
-    Gbm(#[source] GbmError),
+    #[error("Could not create an allocator")]
+    Allocator(#[source] AllocatorError),
     #[error("Could not list device extensions")]
     DeviceExtensions(#[source] vk::Result),
     #[error("Could not create the device")]
@@ -200,12 +199,6 @@ pub enum VulkanError {
     NonVulkanBuffer,
     #[error("Mixed vulkan device use")]
     MixedVulkanDeviceUse,
-    #[error("Could not allocate GBM BO")]
-    AllocGbm(#[source] GbmError),
-    #[error("Could not retrieve file description flags")]
-    GetFl(#[source] OsError),
-    #[error("GBM implementation cannot be used with software renderer")]
-    SoftwareRendererNotUsable,
     #[error("DMABUF buffer offsets must be aligned to 4 bytes and the pixel size")]
     DmaBufBufferOffsetAlignment,
     #[error("Framebuffer has no image view")]
@@ -232,7 +225,6 @@ pub fn create_graphics_context(
     eng: &Rc<AsyncEngine>,
     ring: &Rc<IoUring>,
     eventfd_cache: &Rc<EventfdCache>,
-    drm_device_id: Option<DrmDeviceId>,
     drm: &Drm,
     caps_thread: Option<&PrCapsThread>,
     software: bool,
@@ -240,16 +232,14 @@ pub fn create_graphics_context(
     let instance = VulkanInstance::new(Level::Info)?;
     let device = 'device: {
         if let Some(t) = caps_thread {
-            match unsafe {
-                t.run(|| instance.create_device(drm_device_id, drm, eventfd_cache, true, software))
-            } {
+            match unsafe { t.run(|| instance.create_device(drm, eventfd_cache, true, software)) } {
                 Ok(d) => break 'device d,
                 Err(e) => {
                     log::warn!("Could not create high-priority device: {}", ErrorFmt(e));
                 }
             }
         }
-        instance.create_device(drm_device_id, drm, eventfd_cache, false, software)?
+        instance.create_device(drm, eventfd_cache, false, software)?
     };
     let renderer = device.create_renderer(eng, ring)?;
     Ok(Rc::new(Context(renderer)))
@@ -261,10 +251,6 @@ struct Context(Rc<VulkanRenderer>);
 impl GfxContext for Context {
     fn reset_status(&self) -> Option<ResetStatus> {
         self.0.device.lost.get().then_some(ResetStatus::Unknown)
-    }
-
-    fn drm_device_id(&self) -> Option<DrmDeviceId> {
-        self.0.device.drm_device_id
     }
 
     fn render_node(&self) -> Option<Rc<CString>> {
@@ -348,8 +334,12 @@ impl GfxContext for Context {
         Ok(tex)
     }
 
-    fn allocator(&self) -> Rc<dyn Allocator> {
-        self.0.device.gbm.clone()
+    fn drm(&self) -> Option<&Drm> {
+        Some(&self.0.device.drm)
+    }
+
+    fn allocator(&self) -> Rc<Allocator> {
+        self.0.device.allocator.clone()
     }
 
     fn gfx_api(&self) -> GfxApi {

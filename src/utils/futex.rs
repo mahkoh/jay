@@ -23,7 +23,7 @@ pub fn futex_wake(v: &AtomicU32) -> Result<(), OsError> {
             c::SYS_futex,
             v.as_ptr().expose_provenance(),
             (c::FUTEX_WAKE | c::FUTEX_PRIVATE_FLAG) as usize,
-            c::INT_MAX as usize,
+            c::c_int::MAX as usize,
         )
     };
     map_err!(res).map(drop).to_os_error()

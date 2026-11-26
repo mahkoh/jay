@@ -178,7 +178,7 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
 
     fn device(&self, fd: Rc<OwnedFd>, server_formats: Option<BHashMap<u32, GfxFormat>>) {
         self.render_ctx.take();
-        let drm = match Drm::open_existing(fd) {
+        let drm = match Drm::open_existing(self.state.drm_dev_ids.next(), fd) {
             Ok(d) => d,
             Err(e) => {
                 log::error!("Could not open the drm device: {}", ErrorFmt(e));
@@ -197,7 +197,6 @@ impl UsrJayRenderCtxOwner for PortalDisplay {
                 &self.state.eng,
                 &self.state.ring,
                 &self.state.eventfd_cache,
-                None,
                 &drm,
                 GfxApi::OpenGl,
                 None,

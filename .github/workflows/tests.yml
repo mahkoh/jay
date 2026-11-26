@@ -22,7 +22,7 @@ jobs:
       - name: Install
         run: |
           sudo apt-get update
-          sudo apt-get install -y libinput-dev libgbm-dev libudev-dev libpango1.0-dev libfontconfig-dev
+          sudo apt-get install -y libinput-dev libudev-dev libpango1.0-dev libfontconfig-dev
           curl https://sh.rustup.rs -sSf | sh -s -- -y
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: Restore target dir
@@ -58,7 +58,7 @@ jobs:
       - name: Install
         run: |
           sudo apt-get update
-          sudo apt-get install -y libinput-dev libgbm-dev libudev-dev libpango1.0-dev libfontconfig-dev
+          sudo apt-get install -y libinput-dev libudev-dev libpango1.0-dev libfontconfig-dev
           curl https://sh.rustup.rs -sSf | sh -s -- -y
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: Restore target dir
@@ -137,7 +137,7 @@ jobs:
       - name: Install
         run: |
           sudo apt-get update
-          sudo apt-get install -y libinput-dev libgbm-dev libudev-dev libpango1.0-dev \
+          sudo apt-get install -y libinput-dev libudev-dev libpango1.0-dev \
             libfontconfig-dev libvulkan1 mesa-vulkan-drivers xwayland adwaita-icon-theme
           curl https://sh.rustup.rs -sSf | sh -s -- -y
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH

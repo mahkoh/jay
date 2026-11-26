@@ -30,6 +30,7 @@ use counter::CounterSlot;
 use jay_config::Axis;
 use jay_config::ContainerTarget;
 use jay_config::Direction;
+use jay_config::FlattenContainer;
 use jay_config::RelativeAxis;
 use jay_config::Workspace;
 use jay_config::client::ClientCapabilities;
@@ -40,6 +41,7 @@ use jay_config::input::InputEventCode;
 use jay_config::input::LayerDirection;
 use jay_config::input::SwitchEvent;
 use jay_config::input::Timeline;
+use jay_config::input::WarpTarget;
 use jay_config::input::acceleration::AccelProfile;
 use jay_config::input::clickmethod::ClickMethod;
 use jay_config::input::scrollmethod::ScrollMethod;
@@ -119,7 +121,7 @@ pub enum SimpleCommand {
     ReloadSimpleIm,
     EnableUnicodeInput,
     OpenControlCenter,
-    WarpMouseToFocus,
+    WarpMouseToFocus(WarpTarget),
     HideOverlays,
     SetVisualizeCompositing(bool),
     ToggleVisualizeCompositing,
@@ -667,6 +669,7 @@ pub struct Config {
     pub show_bar: Option<bool>,
     pub split_reuses_container: Option<bool>,
     pub show_titles: Option<bool>,
+    pub flatten_container: Option<FlattenContainer>,
     pub focus_history: Option<FocusHistory>,
     pub middle_click_paste: Option<bool>,
     pub input_modes: AHashMap<String, InputMode>,

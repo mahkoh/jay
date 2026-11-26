@@ -227,6 +227,22 @@ instead.
 split-reuses-container = false  # default
 ```
 
+## Flatten Container
+
+The `flatten-container` setting configures when containers with a single child
+are automatically flattened into their parent:
+
+`"never"`
+: Never flatten containers.
+
+`"on-remove"`
+: Flattens containers when the second-to-last child is removed, e.g., when it
+  is closed or moved out of the container.
+
+```toml
+flatten-container = "never" # default
+```
+
 ## Middle-Click Paste
 
 Controls whether middle-clicking pastes the primary selection. Changing this

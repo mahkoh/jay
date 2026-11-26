@@ -1,6 +1,3 @@
-use crate::allocator::Allocator;
-use crate::allocator::AllocatorError;
-use crate::allocator::BufferUsage;
 use crate::cmm::cmm_eotf::Eotf;
 use crate::format::XRGB8888;
 use crate::format::XRGB2101010;
@@ -18,7 +15,7 @@ use crate::scale::Scale;
 use crate::state::State;
 use crate::tree::Transform;
 use crate::tree::TreeTimeline::RenderTL;
-use crate::video::LINEAR_MODIFIER;
+use crate::udmabuf::UdmabufError;
 use crate::video::dmabuf::DmaBuf;
 use jay_algorithms::mmap::Mmapped;
 use jay_algorithms::mmap::mmap;
@@ -39,7 +36,7 @@ pub enum ScreenshooterError {
     #[error("udmabuf is not available")]
     NoUdmabuf,
     #[error(transparent)]
-    AllocatorError(#[from] AllocatorError),
+    AllocatorError(#[from] UdmabufError),
     #[error(transparent)]
     RenderError(#[from] GfxError),
     #[error("Renderer does not support color management")]
@@ -127,15 +124,12 @@ pub fn take_screenshot(
             state.color_manager.srgb_linear().clone(),
         )
     };
-    let bo = udmabuf.create_bo(
+    let [buf] = udmabuf.create_dmabuf(
         &state.dma_buf_ids,
         extents.width(),
         extents.height(),
         format,
-        &[LINEAR_MODIFIER],
-        BufferUsage::none(),
     )?;
-    let buf = bo.dmabuf().clone();
     let plane = &buf.planes[0];
     let map = mmap(
         buf.height as usize * plane.stride as usize,

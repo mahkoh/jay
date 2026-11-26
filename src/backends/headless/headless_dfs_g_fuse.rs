@@ -66,7 +66,7 @@ impl DevTDirView<HeadlessBackend> for DrmDevs {
 
 impl dev::Dir for HeadlessDrmDevice {
     fn read_id(&self, buf: &mut String, ctx: &StrCtx<'_>) {
-        self.id.raw().str_fmt(buf, ctx);
+        self.drm.id().raw().str_fmt(buf, ctx);
     }
 
     fn read_dev(&self, buf: &mut String, ctx: &StrCtx<'_>) {

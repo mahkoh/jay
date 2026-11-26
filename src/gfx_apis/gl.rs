@@ -20,8 +20,6 @@ macro_rules! egl_transparent {
     };
 }
 
-use crate::allocator::AllocatorError;
-use crate::backend::DrmDeviceId;
 use crate::cmm::cmm_eotf::Eotf;
 use crate::gfx_api::AcquireSync;
 use crate::gfx_api::CopyTexture;
@@ -55,10 +53,10 @@ use crate::theme::Color;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::rc_eq::rc_eq;
 use crate::utils::vecstorage::VecStorage;
+use crate::video::allocator::AllocatorError;
 use crate::video::dmabuf::DMA_BUF_SYNC_READ;
 use crate::video::drm::Drm;
 use crate::video::drm::DrmError;
-use crate::video::gbm::GbmError;
 use isnt::std_1::vec::IsntVecExt;
 use std::any::Any;
 use std::cell::RefCell;
@@ -84,14 +82,13 @@ static INIT: LazyLock<Result<(), Arc<RenderError>>> =
     LazyLock::new(|| egl::init().map_err(Arc::new));
 
 pub(super) fn create_gfx_context(
-    drm_device_id: Option<DrmDeviceId>,
     drm: &Drm,
     software: bool,
 ) -> Result<Rc<dyn GfxContext>, GfxError> {
     if let Err(e) = &*INIT {
         return Err(GfxError(Box::new(e.clone())));
     }
-    GlRenderContext::from_drm_device(drm_device_id, drm, software)
+    GlRenderContext::from_drm_device(drm, software)
         .map(|v| Rc::new(v) as Rc<dyn GfxContext>)
         .map_err(|e| e.into())
 }
@@ -118,8 +115,8 @@ enum RenderError {
     ExtDeviceEnumeration,
     #[error("EGL library does not support `EGL_EXT_device_query`")]
     ExtDeviceQuery,
-    #[error("Could not create a GBM device")]
-    Gbm(#[source] GbmError),
+    #[error("Could not create an allocator")]
+    Allocator(#[source] AllocatorError),
     #[error("`eglCreateContext` failed")]
     CreateContext,
     #[error("`eglMakeCurrent` failed")]

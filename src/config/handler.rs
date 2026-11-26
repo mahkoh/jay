@@ -31,6 +31,7 @@ use crate::gfx_api::ScalingFilter;
 use crate::ifs::wl_output::BlendSpace;
 use crate::ifs::wl_output::PersistentOutputState;
 use crate::ifs::wl_seat::SeatId;
+use crate::ifs::wl_seat::WarpTarget;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wp_content_type_v1::ContentTypeExt;
 use crate::io_uring::TaskResultExt;
@@ -105,6 +106,7 @@ use jay_config::_private::serialize_server_message;
 use jay_config::Axis;
 use jay_config::Direction;
 use jay_config::JcContainerTarget;
+use jay_config::JcFlattenContainer;
 use jay_config::JcRelativeAxis;
 use jay_config::JcWorkspaceKind;
 use jay_config::Workspace;
@@ -115,6 +117,7 @@ use jay_config::input::FocusFollowsMouseMode;
 use jay_config::input::InputDevice;
 use jay_config::input::InputEventCode as ConfigInputEventCode;
 use jay_config::input::JcFallbackOutputMode;
+use jay_config::input::JcWarpTarget;
 use jay_config::input::LayerDirection;
 use jay_config::input::Seat;
 use jay_config::input::Timeline;
@@ -2938,6 +2941,11 @@ impl ConfigProxyHandler {
         self.state.set_primary_selection_enabled(enabled);
     }
 
+    fn handle_set_flatten_container(&self, mode: JcFlattenContainer) -> Result<(), CphError> {
+        self.state.set_flatten_container(mode.into());
+        Ok(())
+    }
+
     fn handle_seat_create_mark(&self, seat: Seat, kc: Option<u32>) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
         if let Some(kc) = kc {
@@ -2990,9 +2998,19 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_seat_warp_mouse_to_focus_target(
+        &self,
+        seat: Seat,
+        target: JcWarpTarget,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.schedule_warp_mouse_to_focus(target.into());
+        Ok(())
+    }
+
     fn handle_seat_warp_mouse_to_focus(&self, seat: Seat) -> Result<(), CphError> {
         let seat = self.get_seat(seat)?;
-        seat.schedule_warp_mouse_to_focus();
+        seat.schedule_warp_mouse_to_focus(WarpTarget::Window);
         Ok(())
     }
 
@@ -4248,6 +4266,9 @@ impl ConfigProxyHandler {
             ClientMessage::SetMiddleClickPasteEnabled { enabled } => {
                 self.handle_set_middle_click_paste_enabled(enabled);
             }
+            ClientMessage::SetFlattenContainer { mode } => self
+                .handle_set_flatten_container(mode)
+                .wrn("set_flatten_container")?,
             ClientMessage::SetWorkspaceDisplayOrder { order } => {
                 self.handle_set_workspace_display_order(order);
             }
@@ -4299,6 +4320,9 @@ impl ConfigProxyHandler {
             ClientMessage::SeatSetMouseFollowsFocus { seat, enabled } => self
                 .handle_seat_set_mouse_follows_focus(seat, enabled)
                 .wrn("seat_set_mouse_follows_focus")?,
+            ClientMessage::SeatWarpMouseToFocusTarget { seat, target } => self
+                .handle_seat_warp_mouse_to_focus_target(seat, target)
+                .wrn("seat_warp_mouse_to_focus_target")?,
             ClientMessage::ConnectorSetUseNativeGamut {
                 connector,
                 use_native_gamut,

@@ -1,4 +1,3 @@
-use crate::allocator::BufferObject;
 use crate::gfx_apis::gl::Framebuffer;
 use crate::gfx_apis::gl::GlRenderContext;
 use crate::gfx_apis::gl::RenderError;
@@ -10,7 +9,6 @@ use std::rc::Rc;
 pub struct Image {
     pub(in crate::gfx_apis::gl) ctx: Rc<GlRenderContext>,
     pub(in crate::gfx_apis::gl) gl: Rc<EglImage>,
-    pub(in crate::gfx_apis::gl) _bo: Option<Rc<dyn BufferObject>>,
 }
 
 impl Image {

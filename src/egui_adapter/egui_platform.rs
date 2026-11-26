@@ -1,7 +1,3 @@
-use crate::allocator::Allocator;
-use crate::allocator::AllocatorError;
-use crate::allocator::BO_USE_RENDERING;
-use crate::allocator::BufferObject;
 use crate::async_engine::SpawnedFuture;
 use crate::client::Client;
 use crate::client::ClientCaps;
@@ -35,10 +31,12 @@ use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::double_buffered::DoubleBuffered;
 use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::object_drop_queue::ObjectDropQueue;
 use crate::utils::pipe::Pipe;
 use crate::utils::pipe::pipe;
 use crate::utils::rc_eq::rc_eq;
+use crate::video::allocator::Allocator;
+use crate::video::allocator::AllocatorError;
+use crate::video::dmabuf::DmaBuf;
 use crate::wire::WlSurfaceId;
 use crate::wire::wl_pointer::Button;
 use crate::wire::wl_pointer::Enter;
@@ -173,7 +171,7 @@ pub struct EggContext {
 struct EggContextInner {
     id: EggContextId,
     renderer: Rc<EgvRenderer>,
-    allocator: Rc<dyn Allocator>,
+    allocator: Rc<Allocator>,
     state: Rc<State>,
     _client: Rc<Client>,
     con: Rc<UsrCon>,
@@ -262,11 +260,10 @@ struct EggWindowInner {
 struct EggFramebuffer {
     client_acquire_fence: CloneCell<Option<Option<SyncFile>>>,
     size: Cell<[i32; 2]>,
-    bo: Rc<dyn BufferObject>,
+    bo: Rc<DmaBuf>,
     egv: Rc<EgvFramebuffer>,
     wl_buffer: Rc<UsrWlBuffer>,
     window: Weak<EggWindowInner>,
-    drop_queue: Rc<ObjectDropQueue<Rc<dyn BufferObject>>>,
 }
 
 #[derive(Default)]
@@ -395,7 +392,7 @@ impl State {
         let (client1, client2) = uapi::socketpair(c::AF_UNIX, c::SOCK_STREAM | c::SOCK_CLOEXEC, 0)
             .map_os_err(EggError::CreateSocketPair)?;
         let allocator = ctx.allocator();
-        let dev = allocator.drm().map(|d| d.dev());
+        let dev = ctx.drm().map(|d| d.dev());
         let renderer = EgvRenderer::new(&self.eng, &self.ring, &self.eventfd_cache, dev)
             .map_err(EggError::CreateRenderer)?;
         let con = UsrCon::from_socket(
@@ -740,7 +737,7 @@ impl EggWindowInner {
                     fb_opt = None;
                     break 'check;
                 }
-                if !format.read_modifiers.contains(&fb.bo.dmabuf().modifier) {
+                if !format.read_modifiers.contains(&fb.bo.modifier) {
                     fb_opt = None;
                     break 'check;
                 }
@@ -749,7 +746,7 @@ impl EggWindowInner {
         let fb = match fb_opt {
             Some(fb) => fb,
             _ => {
-                let modifiers: Vec<_> = self
+                let modifiers = self
                     .ctx
                     .renderer
                     .support()
@@ -759,35 +756,30 @@ impl EggWindowInner {
                             && s.max_height >= physical_size[1] as u32
                             && format.read_modifiers.contains(&s.modifier)
                     })
-                    .map(|s| s.modifier)
-                    .collect();
+                    .map(|s| s.modifier);
                 let bo = self
                     .ctx
                     .allocator
-                    .create_bo(
+                    .allocate(
                         &self.ctx.state.dma_buf_ids,
                         physical_size[0],
                         physical_size[1],
                         EGV_FORMAT,
-                        &modifiers,
-                        BO_USE_RENDERING,
+                        modifiers,
                     )
                     .map_err(EggError::AllocateBuffer)?;
                 let egv = self
                     .egv
                     .import_framebuffer(&bo)
                     .map_err(EggError::ImportFramebuffer)?;
-                let dmabuf = bo.dmabuf();
-                let sync_file = bo.take_initial_sync();
-                let wl_buffer = self.ctx.zwp_linux_dmabuf_v1.create_buffer(dmabuf);
+                let wl_buffer = self.ctx.zwp_linux_dmabuf_v1.create_buffer(&bo);
                 let fb = Rc::new(EggFramebuffer {
-                    client_acquire_fence: CloneCell::new(Some(sync_file)),
+                    client_acquire_fence: CloneCell::new(Some(None)),
                     size: Cell::new(physical_size),
                     bo,
                     egv,
                     wl_buffer,
                     window: Rc::downgrade(self),
-                    drop_queue: self.ctx.state.bo_drop_queue.clone(),
                 });
                 self.buffers.back().set(Some(fb.clone()));
                 fb
@@ -1485,9 +1477,6 @@ impl UsrConOwner for EggContextInner {
 
 impl Drop for EggFramebuffer {
     fn drop(&mut self) {
-        if let Some(Some(fence)) = self.client_acquire_fence.take() {
-            self.drop_queue.push(&fence.0, self.bo.clone());
-        }
         self.wl_buffer.con.remove_obj(&*self.wl_buffer);
     }
 }

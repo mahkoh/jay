@@ -61,7 +61,6 @@ mod leaks;
 #[macro_use]
 mod tracy;
 mod acceptor;
-mod allocator;
 mod async_engine;
 mod backend;
 mod backends;
