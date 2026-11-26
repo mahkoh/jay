@@ -104,8 +104,8 @@ use jay_config::_private::ipc::WorkspaceSource;
 use jay_config::_private::serialize_server_message;
 use jay_config::Axis;
 use jay_config::Direction;
-use jay_config::FlattenContainer;
 use jay_config::JcContainerTarget;
+use jay_config::JcFlattenContainer;
 use jay_config::JcRelativeAxis;
 use jay_config::JcWorkspaceKind;
 use jay_config::Workspace;
@@ -2927,11 +2927,8 @@ impl ConfigProxyHandler {
         self.state.set_primary_selection_enabled(enabled);
     }
 
-    fn handle_set_flatten_container(&self, mode: FlattenContainer) -> Result<(), CphError> {
-        let Ok(mode) = mode.try_into() else {
-            return Err(CphError::UnknownFlattenContainer(mode));
-        };
-        self.state.set_flatten_container(mode);
+    fn handle_set_flatten_container(&self, mode: JcFlattenContainer) -> Result<(), CphError> {
+        self.state.set_flatten_container(mode.into());
         Ok(())
     }
 
@@ -4729,8 +4726,6 @@ enum CphError {
     UnsupportedWindowThemeColor(u32),
     #[error("Sized element {0} is not supported in window themes")]
     UnsupportedWindowThemeSized(u32),
-    #[error("Unknown flatten container mode {0:?}")]
-    UnknownFlattenContainer(FlattenContainer),
 }
 
 trait WithRequestName {
