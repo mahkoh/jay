@@ -13,6 +13,7 @@ use jay_proc::Object;
 use std::array::from_mut;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::time::Duration;
 use uapi::OwnedFd;
 use uapi::UstrPtr;
 use uapi::c;
@@ -37,9 +38,9 @@ impl JayReexec {
         });
     }
 
-    fn delay_close_input_fd(&self) -> Option<OwnedFd> {
+    fn delay_close_fds(&self) -> Option<OwnedFd> {
         // It's 2025 and closing evdev fds is still abysmally slow.
-        let mut fds = self.client.state.backend.get().get_input_fds();
+        let mut fds = self.client.state.backend.get().get_keepalive_fds();
         if fds.is_empty() {
             return None;
         }
@@ -89,6 +90,7 @@ impl JayReexec {
                             revents: 0,
                         };
                         let _ = uapi::poll(from_mut(&mut pollfd), -1);
+                        std::thread::sleep(Duration::from_millis(1000));
                     }
                     unsafe {
                         c::_exit(0);
@@ -123,7 +125,7 @@ impl JayReexecRequestHandler for JayReexec {
         for arg in &*args {
             args2.push(&**arg);
         }
-        let _drop_after_exec = self.delay_close_input_fd();
+        let _drop_after_exec = self.delay_close_fds();
         if let Err(e) = uapi::execvp(req.path, &args2).to_os_error() {
             self.send_failed(&e.to_string());
         }

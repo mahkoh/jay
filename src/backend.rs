@@ -88,7 +88,7 @@ pub trait Backend: GetLiveness + Any {
         false
     }
 
-    fn get_input_fds(&self) -> Vec<Rc<OwnedFd>> {
+    fn get_keepalive_fds(&self) -> Vec<Rc<OwnedFd>> {
         vec![]
     }
 

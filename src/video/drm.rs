@@ -53,6 +53,7 @@ use crate::video::drm::sys::get_nodes;
 use crate::video::drm::sys::get_version;
 use crate::video::drm::sys::mode_addfb2;
 use crate::video::drm::sys::mode_atomic;
+use crate::video::drm::sys::mode_closefb;
 use crate::video::drm::sys::mode_create_blob;
 use crate::video::drm::sys::mode_destroy_blob;
 use crate::video::drm::sys::mode_get_resources;
@@ -691,8 +692,11 @@ impl DrmFramebuffer {
 
 impl Drop for DrmFramebuffer {
     fn drop(&mut self) {
-        if let Err(e) = mode_rmfb(self.master.raw(), self.fb) {
-            log::error!("Could not delete framebuffer: {}", ErrorFmt(e));
+        if let Err(e) = mode_closefb(self.master.raw(), self.fb) {
+            log::error!("DRM_IOCTL_MODE_CLOSEFB failed: {}", ErrorFmt(e));
+            if let Err(e) = mode_rmfb(self.master.raw(), self.fb) {
+                log::error!("DRM_IOCTL_MODE_RMFB failed: {}", ErrorFmt(e));
+            }
         }
     }
 }
