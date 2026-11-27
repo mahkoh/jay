@@ -746,10 +746,7 @@ impl ContainerNode {
         let th = theme.sizes.title_height.get();
         let bw = theme.sizes.border_width.get();
         let num_children = ns.num_children.get() as i32;
-        let sp = match self.container_borders(LiveTL) {
-            ContainerBorders::Separators => 0,
-            ContainerBorders::Full => bw,
-        };
+        let sp = self.container_borders_space(LiveTL);
         let content_width = ns.width.get().sub(bw * (num_children - 1) + 2 * sp).max(0);
         let width_per_child = content_width / num_children;
         let mut rem = content_width % num_children;
@@ -781,10 +778,7 @@ impl ContainerNode {
         if num_children == 0 {
             return;
         }
-        let sp = match self.container_borders(LiveTL) {
-            ContainerBorders::Separators => 0,
-            ContainerBorders::Full => border_width,
-        };
+        let sp = self.container_borders_space(LiveTL);
         let mut pos = sp;
         let mut remaining_content_size = content_size;
         for child in self.children.iter_valid(LiveTL) {
@@ -1202,10 +1196,7 @@ impl ContainerNode {
         let tuh = theme.sizes.title_underline_height.get();
         let bw = theme.sizes.border_width.get();
         let cb = self.container_borders(RenderTL);
-        let sp = match cb {
-            ContainerBorders::Separators => 0,
-            ContainerBorders::Full => bw,
-        };
+        let sp = self.container_borders_space(RenderTL);
         let fwidth = ns.width.get();
         let fheight = ns.height.get();
         let cwidth = fwidth.sub(2 * sp).max(0);
@@ -2102,6 +2093,13 @@ impl ContainerNode {
                     ContainerBorders::Full
                 }
             }
+        }
+    }
+
+    fn container_borders_space(&self, timeline: TreeTimeline) -> i32 {
+        match self.container_borders(timeline) {
+            ContainerBorders::Separators => 0,
+            ContainerBorders::Full => self.node_state[timeline].theme.sizes.border_width.get(),
         }
     }
 
