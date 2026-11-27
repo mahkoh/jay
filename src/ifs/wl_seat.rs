@@ -170,6 +170,7 @@ use CursorPositionType::Warp;
 pub use event_handling::NodeSeatState;
 use hashbrown::hash_map::Entry;
 use jay_config::input::JcFallbackOutputMode;
+use jay_config::input::JcFullscreenFocusMove;
 use jay_config::input::JcWarpTarget;
 use jay_config::keyboard::syms::KeySym;
 use jay_config::keyboard::syms::SYM_Escape;
@@ -384,6 +385,24 @@ pub enum FallbackOutputMode {
 pub enum FullscreenFocusMove {
     Output,
     Workspace,
+}
+
+impl StaticText for FullscreenFocusMove {
+    fn text(&self) -> &'static str {
+        match self {
+            Self::Output => "Output",
+            Self::Workspace => "Workspace",
+        }
+    }
+}
+
+impl From<JcFullscreenFocusMove> for FullscreenFocusMove {
+    fn from(value: JcFullscreenFocusMove) -> Self {
+        match value {
+            JcFullscreenFocusMove::Output => Self::Output,
+            JcFullscreenFocusMove::Workspace => Self::Workspace,
+        }
+    }
 }
 
 impl StaticText for FallbackOutputMode {
@@ -1792,6 +1811,11 @@ impl WlSeatGlobal {
 
     pub fn mouse_follows_focus(&self) -> bool {
         self.mouse_follows_focus.get()
+    }
+
+    pub fn set_fullscreen_focus_move(&self, mode: FullscreenFocusMove) {
+        self.fullscreen_focus_move.set(mode);
+        self.state.trigger_cci(CCI_INPUT);
     }
 
     pub fn fullscreen_focus_move(&self) -> FullscreenFocusMove {

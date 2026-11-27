@@ -330,6 +330,10 @@ Pointer Revert Key
 Focus Follows Mouse
 : Toggle whether moving the pointer over a window gives it focus
 
+Fullscreen Focus Move
+: Dropdown to choose whether keyboard navigation moves to the neighboring
+  output or stays on the same workspace when a fullscreen window is focused
+
 Fallback Output Mode
 : Dropdown to choose between cursor-based and focus-based output selection
 

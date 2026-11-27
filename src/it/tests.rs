@@ -130,6 +130,7 @@ mod t2026_10_30_mono_style_config;
 mod t2026_11_09_subsurface_destroy_queued_placement;
 mod t2026_11_09_subsurface_desync_queued_parent;
 mod t2026_11_27_container_border_offsets;
+mod t2026_11_27_fullscreen_focus_move_setting;
 mod t2026_11_27_fullscreen_focus_swap;
 mod t2026_11_27_fullscreen_tile_click;
 

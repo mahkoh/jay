@@ -3734,6 +3734,25 @@ Config:
           ```toml
           unstable-mouse-follows-focus = true
           ```
+    fullscreen-focus-move:
+      ref: FullscreenFocusMove
+      required: false
+      description: |
+        Configures how keyboard focus moves (e.g. `focus-left`, `focus-right`,
+        `focus-up`, `focus-down`) behave when the focused window is fullscreen.
+
+        With `output` focus moves to the neighbouring output in that direction. With
+        `workspace` focus stays on the workspace of the fullscreen window: the
+        fullscreen window is made visible in the layout again and the neighbouring
+        window in that direction gets focus.
+
+        The default is `output`.
+
+        - Example:
+
+          ```toml
+          fullscreen-focus-move = "workspace"
+          ```
     window-management-key:
       kind: string
       required: false
@@ -5792,6 +5811,21 @@ FallbackOutputMode:
       description: Use the output the cursor is on.
     - value: focus
       description: Use the output the focus is on (highlighted window).
+
+
+FullscreenFocusMove:
+  kind: string
+  description: |
+    Defines how keyboard focus moves (e.g. left/right/up/down) behave when the focused
+    window is fullscreen.
+  values:
+    - value: output
+      description: Move focus to the neighbouring output in that direction.
+    - value: workspace
+      description: |
+        Keep focus on the workspace of the fullscreen window: the fullscreen window is
+        made visible in the layout again and the neighbouring window in that direction
+        gets focus.
 
 
 Egui:

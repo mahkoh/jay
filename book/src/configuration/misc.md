@@ -295,6 +295,29 @@ with `move-to-output`.
 fallback-output-mode = "cursor"  # default
 ```
 
+## Fullscreen Focus Move
+
+Determines what `focus-left`, `focus-right`, `focus-up`, and `focus-down` do
+when the focused window covers the whole output. Only the fullscreen window
+that is visible is affected; a window that is fullscreen but drawn as a tile in
+the layout is navigated like any other tile. See
+[Multiple Fullscreen Windows](../tiling.md#multiple-fullscreen-windows).
+
+`output`
+: Move focus to the output in that direction, leaving the window fullscreen
+  (default). If there is no output in that direction, focus moves to a window
+  of the layout, and the fullscreen window is demoted.
+
+`workspace`
+: Keep focus on the workspace of the fullscreen window: the window becomes a
+  tile of its layout again, and the neighboring window in that direction gets
+  focus. If no window of that workspace can take focus, the window is made
+  fullscreen again.
+
+```toml
+fullscreen-focus-move = "output"  # default
+```
+
 ## Focus History
 
 Configures the behavior of the `focus-prev` and `focus-next` actions.

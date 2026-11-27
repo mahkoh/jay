@@ -37,6 +37,7 @@ use jay_config::client::ClientCapabilities;
 use jay_config::get_overlay;
 use jay_config::get_workspace;
 use jay_config::input::FallbackOutputMode;
+use jay_config::input::FullscreenFocusMove;
 use jay_config::input::InputEventCode;
 use jay_config::input::LayerDirection;
 use jay_config::input::SwitchEvent;
@@ -680,6 +681,7 @@ pub struct Config {
     pub simple_im: Option<SimpleIm>,
     pub fallback_output_mode: Option<FallbackOutputMode>,
     pub mouse_follows_focus: Option<bool>,
+    pub fullscreen_focus_move: Option<FullscreenFocusMove>,
     pub transactions: Option<Transactions>,
     pub cursor_size: Option<i32>,
     pub configure_all_devices: bool,

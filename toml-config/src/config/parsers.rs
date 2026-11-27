@@ -35,6 +35,7 @@ mod flatten_container;
 pub mod float;
 pub mod focus_history;
 mod format;
+mod fullscreen_focus_move;
 mod gfx_api;
 mod idle;
 mod input;

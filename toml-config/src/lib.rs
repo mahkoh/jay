@@ -2050,6 +2050,11 @@ fn load_config(initial_load: bool, auto_reload: bool, persistent: &Rc<Persistent
             .seat
             .unstable_set_mouse_follows_focus(mouse_follows_focus);
     }
+    if let Some(fullscreen_focus_move) = config.fullscreen_focus_move {
+        persistent
+            .seat
+            .set_fullscreen_focus_move(fullscreen_focus_move);
+    }
     if let Some(v) = config.transactions {
         if let Some(v) = v.transaction_timeout {
             set_transaction_timeout(v);
