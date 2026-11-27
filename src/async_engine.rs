@@ -31,10 +31,15 @@ pub struct AsyncEngine {
     stash: RefCell<VecDeque<Runnable>>,
     yield_stash: RefCell<VecDeque<Waker>>,
     stopped: Cell<bool>,
-    now: Cell<Option<Time>>,
-    now_rt: Cell<Option<Time>>,
+    now: TimeIteration,
+    now_rt: TimeIteration,
     #[cfg(feature = "it")]
     idle: Cell<Option<Waker>>,
+}
+
+struct TimeIteration {
+    iteration: Cell<u64>,
+    time: Cell<Time>,
 }
 
 impl AsyncEngine {
@@ -104,8 +109,6 @@ impl AsyncEngine {
                 self.iteration.fetch_add(1);
                 break;
             }
-            self.now.take();
-            self.now_rt.take();
             let mut phase = 0;
             while phase < NUM_PHASES {
                 self.queues[phase].swap(&mut *stash);
@@ -160,24 +163,31 @@ impl AsyncEngine {
     }
 
     pub fn now(&self) -> Time {
-        match self.now.get() {
-            Some(t) => t,
-            None => {
-                let now = Time::now_unchecked();
-                self.now.set(Some(now));
-                now
-            }
-        }
+        self.now.get(self, Time::now_unchecked)
     }
 
     pub fn now_rt(&self) -> Time {
-        match self.now_rt.get() {
-            Some(t) => t,
-            None => {
-                let now = Time::now_unchecked_rt();
-                self.now_rt.set(Some(now));
-                now
-            }
+        self.now_rt.get(self, Time::now_unchecked_rt)
+    }
+}
+
+impl Default for TimeIteration {
+    fn default() -> Self {
+        Self {
+            iteration: Default::default(),
+            time: Cell::new(Time::now_unchecked()),
         }
+    }
+}
+
+impl TimeIteration {
+    #[inline(always)]
+    fn get(&self, eng: &AsyncEngine, f: impl FnOnce() -> Time) -> Time {
+        let iteration = eng.iteration.get();
+        if iteration != self.iteration.get() {
+            self.iteration.set(iteration);
+            self.time.set(f());
+        }
+        self.time.get()
     }
 }
