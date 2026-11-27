@@ -561,6 +561,10 @@ impl FloatNode {
         }
     }
 
+    pub fn move_to_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) {
+        self.set_workspace_(ws, true, true);
+    }
+
     fn set_workspace_(
         self: &Rc<Self>,
         ws: &Rc<WorkspaceNode>,

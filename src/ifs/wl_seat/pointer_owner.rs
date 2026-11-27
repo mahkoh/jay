@@ -1354,6 +1354,17 @@ trait WindowManagementGrabUsecase {
     }
 }
 
+fn reattach_float_to_cursor_output(seat: &Rc<WlSeatGlobal>, tl: &Rc<dyn ToplevelNode>) {
+    let Some(parent) = tl.tl_data().parent.get() else {
+        return;
+    };
+    let Some(float) = parent.cnode_get_float() else {
+        return;
+    };
+    let ws = seat.pointer_cursor.output().ensure_workspace();
+    float.move_to_workspace(&ws);
+}
+
 struct ToplevelGrabPointerOwner<T> {
     tl: Rc<dyn ToplevelNode>,
     usecase: T,
@@ -1409,6 +1420,10 @@ struct MoveToplevelGrabPointerOwner {
 
 impl WindowManagementGrabUsecase for MoveToplevelGrabPointerOwner {
     const BUTTON: u32 = BTN_LEFT;
+
+    fn on_drop(&self, seat: &Rc<WlSeatGlobal>, tl: &Rc<dyn ToplevelNode>) {
+        reattach_float_to_cursor_output(seat, tl);
+    }
 
     fn apply_changes(
         &self,
@@ -1698,6 +1713,11 @@ impl WindowManagementGrabUsecase for TileDragUsecase {
     }
 
     fn on_drop(&self, seat: &Rc<WlSeatGlobal>, _tl: &Rc<dyn ToplevelNode>) {
+        let dest = self.destination.take();
+        if dest.is_none() {
+            reattach_float_to_cursor_output(seat, &self.tl);
+        }
+        self.destination.set(dest);
         UiDragUsecase::left_button_up(self, seat);
     }
 }
