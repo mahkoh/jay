@@ -435,15 +435,16 @@ impl CursorUser {
         let x_int = x.round_down();
         let y_int = y.round_down();
         if !self.output_pos.get().contains(x_int, y_int) {
-            let (output, x_tmp, y_tmp) = self.group.state.find_closest_output(x_int, y_int);
+            let output = self.group.state.find_closest_output(x_int, y_int);
             self.set_output(&output);
+            let pos = self.output_pos.get();
             x = x.clamp_saturating(
-                Fixed::from_int(x_tmp),
-                Fixed::from_int(x_tmp + 1) - Fixed::EPSILON,
+                Fixed::from_int(pos.x1()),
+                Fixed::from_int(pos.x2()) - Fixed::EPSILON,
             );
             y = y.clamp_saturating(
-                Fixed::from_int(y_tmp),
-                Fixed::from_int(y_tmp + 1) - Fixed::EPSILON,
+                Fixed::from_int(pos.y1()),
+                Fixed::from_int(pos.y2()) - Fixed::EPSILON,
             );
         }
         if self.software_cursor()

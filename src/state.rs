@@ -215,7 +215,6 @@ use crate::utils::bhash::BHashSet;
 use crate::utils::bindings::Bindings;
 use crate::utils::box_cache::BoxCache;
 use crate::utils::box_cache::BoxUninit;
-use crate::utils::clamp_ext::ClampExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
@@ -1784,7 +1783,7 @@ impl State {
         !self.idle.backend_idle.get()
     }
 
-    pub fn find_closest_output(&self, x: i32, y: i32) -> (Rc<OutputNode>, i32, i32) {
+    pub fn find_closest_output(&self, x: i32, y: i32) -> Rc<OutputNode> {
         let mut optimal_dist = i128::MAX;
         let mut optimal_output = None;
         let outputs = self.root.outputs.lock();
@@ -1793,7 +1792,7 @@ impl State {
             let dist = pos.dist_squared(x, y);
             if dist == 0 {
                 if pos.contains(x, y) {
-                    return (output.clone(), x, y);
+                    return output.clone();
                 }
             }
             if dist < optimal_dist {
@@ -1801,18 +1800,7 @@ impl State {
                 optimal_output = Some(output.clone());
             }
         }
-        if let Some(output) = optimal_output {
-            let pos = output.node_state[LiveTL].pos.get();
-            if pos.is_empty() {
-                return (output, pos.x1(), pos.y1());
-            }
-            return (
-                output,
-                x.clamp_saturating(pos.x1(), pos.x2() - 1),
-                y.clamp_saturating(pos.y1(), pos.y2() - 1),
-            );
-        }
-        (self.dummy_output.get().unwrap(), 0, 0)
+        optimal_output.unwrap_or_else(|| self.dummy_output.get().unwrap())
     }
 
     pub fn now(&self) -> Time {
