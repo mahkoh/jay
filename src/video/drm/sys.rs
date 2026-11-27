@@ -1058,6 +1058,25 @@ pub fn mode_rmfb(fd: c_int, id: DrmFb) -> Result<(), OsError> {
 }
 
 #[repr(C)]
+struct drm_mode_closefb {
+    fb_id: u32,
+    pad: u32,
+}
+
+const DRM_IOCTL_MODE_CLOSEFB: u64 = drm_iowr::<drm_mode_closefb>(0xD0);
+
+pub fn mode_closefb(fd: c_int, id: DrmFb) -> Result<(), OsError> {
+    let mut res = drm_mode_closefb {
+        fb_id: id.0,
+        pad: 0,
+    };
+    unsafe {
+        ioctl(fd, DRM_IOCTL_MODE_CLOSEFB, &mut res)?;
+    }
+    Ok(())
+}
+
+#[repr(C)]
 struct drm_prime_handle {
     handle: u32,
     flags: u32,
