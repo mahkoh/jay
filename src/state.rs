@@ -248,6 +248,7 @@ use crate::wire::JayWorkspaceWatcherId;
 use crate::wire::ZwlrForeignToplevelManagerV1Id;
 use crate::xwayland;
 use crate::xwayland::XWaylandEvent;
+use az::saturating_cast;
 use bstr::ByteSlice;
 use isnt::std_1::primitive::IsntSliceExt;
 use jay_config::PciId;
@@ -518,8 +519,8 @@ pub struct XWaylandState {
 pub struct IdleState {
     pub input: Cell<bool>,
     pub change: AsyncEvent,
-    pub timeout: Cell<Duration>,
-    pub grace_period: Cell<Duration>,
+    pub timeout: Cell<u64>,
+    pub grace_period: Cell<u64>,
     pub timeout_changed: Cell<bool>,
     pub inhibitors: CopyHashMap<IdleInhibitorId, Rc<ZwpIdleInhibitorV1>>,
     pub inhibitors_changed: Cell<bool>,
@@ -531,12 +532,13 @@ pub struct IdleState {
 
 impl IdleState {
     pub fn set_timeout(&self, state: &State, timeout: Duration) {
-        self.timeout.set(timeout);
+        self.timeout.set(saturating_cast(timeout.as_nanos()));
         self.timeout_changed(state);
     }
 
     pub fn set_grace_period(&self, state: &State, grace_period: Duration) {
-        self.grace_period.set(grace_period);
+        self.grace_period
+            .set(saturating_cast(grace_period.as_nanos()));
         self.timeout_changed(state);
     }
 

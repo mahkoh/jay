@@ -149,7 +149,6 @@ use std::cell::RefCell;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::time::Duration;
 use thiserror::Error;
 use uapi::c;
 
@@ -352,8 +351,8 @@ fn start_compositor2(
         idle: IdleState {
             input: Default::default(),
             change: Default::default(),
-            timeout: Cell::new(Duration::from_secs(10 * 60)),
-            grace_period: Cell::new(Duration::from_secs(5)),
+            timeout: Cell::new(10 * 60 * 1_000_000_000),
+            grace_period: Cell::new(5_000_000_000),
             timeout_changed: Default::default(),
             inhibitors: Default::default(),
             inhibitors_changed: Default::default(),

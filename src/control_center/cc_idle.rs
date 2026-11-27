@@ -39,7 +39,7 @@ impl IdlePane {
                     false => &idle.grace_period,
                 };
                 row(ui, label, |ui| {
-                    let secs = field.get().as_secs();
+                    let secs = field.get() / 1_000_000_000;
                     let mut minutes = secs / 60;
                     let mut seconds = secs % 60;
                     let mut changed = false;
