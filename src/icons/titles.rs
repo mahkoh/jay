@@ -218,6 +218,10 @@ fn create_title_icons(
         let colors = calculate_accents(color);
         create_icon(&OVERLAY_PATH, colors[0])
     };
+    let create_fullscreen = |color: Color| {
+        let colors = calculate_accents(color);
+        create_icon(&FULLSCREEN_PATH, colors[0])
+    };
 
     Ok(Some(SizedTitleIcons {
         pin_unfocused_title: create_pins(key.unfocused_title_background)?,
@@ -227,8 +231,33 @@ fn create_title_icons(
         overlay_attention_requested: create_overlay(key.attention_requested_background)?,
         overlay_focused_title: create_overlay(key.focused_title_background)?,
         overlay_focused_inactive_title: create_overlay(key.focused_inactive_title_background)?,
+        fullscreen_unfocused_title: create_fullscreen(key.unfocused_title_background)?,
+        fullscreen_attention_requested: create_fullscreen(key.attention_requested_background)?,
+        fullscreen_focused_title: create_fullscreen(key.focused_title_background)?,
+        fullscreen_focused_inactive_title: create_fullscreen(
+            key.focused_inactive_title_background,
+        )?,
     }))
 }
+
+static FULLSCREEN_PATH: LazyLock<Path> = LazyLock::new(|| {
+    // four L-shaped corner brackets, inset like the pin icon
+    let rects = [
+        (20.0f32, 20.0f32, 10.0f32, 25.0f32),
+        (30.0, 20.0, 15.0, 10.0),
+        (70.0, 20.0, 10.0, 25.0),
+        (55.0, 20.0, 15.0, 10.0),
+        (20.0, 55.0, 10.0, 25.0),
+        (30.0, 70.0, 15.0, 10.0),
+        (70.0, 55.0, 10.0, 25.0),
+        (55.0, 70.0, 15.0, 10.0),
+    ];
+    let mut pb = PathBuilder::new();
+    for &(x, y, w, h) in &rects {
+        pb.push_rect(tiny_skia::Rect::from_xywh(x, y, w, h).unwrap());
+    }
+    pb.finish().unwrap()
+});
 
 static PIN_PATH: LazyLock<Path> = LazyLock::new(|| {
     let cx = 50.0f32;

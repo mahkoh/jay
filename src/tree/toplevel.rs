@@ -1109,6 +1109,13 @@ impl ToplevelData {
         Some(tl)
     }
 
+    pub fn shows_fullscreen_marker(&self) -> bool {
+        matches!(
+            &self.kind,
+            ToplevelType::Placeholder(Some(_)) | ToplevelType::PendingFullscreen(_)
+        )
+    }
+
     pub fn demote_fullscreen(
         &self,
         node: &Rc<dyn ToplevelNode>,

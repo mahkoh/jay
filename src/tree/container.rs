@@ -339,6 +339,7 @@ pub struct ContainerChildNodeState {
 #[derive(Clone, CachedValue)]
 pub struct Offsets {
     pub overlay_icon: Cell<i32>,
+    pub fullscreen_icon: Cell<i32>,
     pub toplevel_icon: Cell<i32>,
     pub title: Cell<i32>,
 }
@@ -2458,6 +2459,10 @@ impl ContainerNode {
         if self.tl_data().is_overlay_root_container[LiveTL].get() {
             x += th;
         }
+        snapshot!(fullscreen_icon);
+        if child.node.tl_data().shows_fullscreen_marker() {
+            x += th;
+        }
         snapshot!(toplevel_icon);
         if cns.toplevel_icon.is_some() {
             x += th;
@@ -2465,6 +2470,7 @@ impl ContainerNode {
         snapshot!(title);
         let offsets = Offsets {
             overlay_icon, //
+            fullscreen_icon,
             toplevel_icon,
             title,
         };
@@ -2473,6 +2479,7 @@ impl ContainerNode {
         });
         let OffsetsChanged {
             overlay_icon, //
+            fullscreen_icon,
             toplevel_icon,
             title,
         } = changed;
@@ -2484,6 +2491,7 @@ impl ContainerNode {
         }
         let damage = or_chain!(____________________)
             || overlay_icon
+            || fullscreen_icon
             || toplevel_icon
             || title
             || or_chain!();

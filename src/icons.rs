@@ -52,6 +52,10 @@ pub struct SizedTitleIcons {
     pub overlay_focused_title: Rc<dyn GfxTexture>,
     pub overlay_focused_inactive_title: Rc<dyn GfxTexture>,
     pub overlay_attention_requested: Rc<dyn GfxTexture>,
+    pub fullscreen_unfocused_title: Rc<dyn GfxTexture>,
+    pub fullscreen_focused_title: Rc<dyn GfxTexture>,
+    pub fullscreen_focused_inactive_title: Rc<dyn GfxTexture>,
+    pub fullscreen_attention_requested: Rc<dyn GfxTexture>,
 }
 
 pub struct SizedBarIcons {

@@ -126,7 +126,8 @@ pub struct FloatNodeState {
     requested_visible: Cell<bool>,
     pub position: Cell<Rect>,
     pub child: CloneCell<Option<Rc<dyn ToplevelNode>>>,
-    child_is_placeholder: Cell<bool>,
+    pub child_is_placeholder: Cell<bool>,
+    pub child_shows_fullscreen_marker: Cell<bool>,
     #[derivative(Default(value = "Cell::new(WorkspaceType::Normal)"))]
     pub workspace_ty: Cell<WorkspaceType>,
     pub title_rect: Cell<Rect>,
@@ -141,6 +142,7 @@ pub struct FloatNodeState {
 #[derive(CachedValue)]
 pub struct Offsets {
     pub overlay_icon: Cell<i32>,
+    pub fullscreen_icon: Cell<i32>,
     pub pin_icon: Cell<i32>,
     pub toplevel_icon: Cell<i32>,
     pub title: Cell<i32>,
@@ -895,10 +897,15 @@ impl FloatNode {
     fn set_ns_child(self: &Rc<Self>, child: Option<&Rc<dyn ToplevelNode>>) {
         self.add_transaction_op(FloatTransactionOp::SetChild(child.cloned()));
         let is_placeholder = child.is_some_and(|c| c.node_is_placeholder());
-        self.add_transaction_op(FloatTransactionOp::SetChildIsPlaceholder(is_placeholder));
+        let is_fs_marker = child.is_some_and(|c| c.tl_data().shows_fullscreen_marker());
+        self.add_transaction_op(FloatTransactionOp::SetChildShowsFullscreenMarker(
+            is_fs_marker,
+        ));
         let ns = &self.node_state[LiveTL];
         ns.child.set(child.cloned());
         ns.child_is_placeholder.set(is_placeholder);
+        ns.child_shows_fullscreen_marker.set(is_fs_marker);
+        self.schedule_title_offsets();
     }
 
     fn set_ns_workspace_type(self: &Rc<Self>, v: WorkspaceType) {
@@ -1028,6 +1035,10 @@ impl FloatNode {
         if ns.workspace_ty.get() == WorkspaceType::Overlay {
             x += th;
         }
+        snapshot!(fullscreen_icon);
+        if ns.child_shows_fullscreen_marker.get() {
+            x += th;
+        }
         snapshot!(pin_icon);
         if ns.pinned.get() || theme.show_pin_icon.get() {
             x += th;
@@ -1039,6 +1050,7 @@ impl FloatNode {
         snapshot!(title);
         let offsets = Offsets {
             overlay_icon,
+            fullscreen_icon,
             pin_icon,
             toplevel_icon,
             title,
@@ -1048,6 +1060,7 @@ impl FloatNode {
         });
         let OffsetsChanged {
             overlay_icon,
+            fullscreen_icon,
             pin_icon,
             toplevel_icon,
             title,
@@ -1057,6 +1070,7 @@ impl FloatNode {
         }
         let damage = or_chain!(________)
             || overlay_icon
+            || fullscreen_icon
             || pin_icon
             || toplevel_icon
             || title
@@ -1473,6 +1487,7 @@ impl ContainingNode for FloatNode {
 impl FloatNode {
     fn update_effective_visible(self: &Rc<Self>) {
         let ns = &self.node_state[LiveTL];
+        // A placeholder child means the fullscreen layer draws this float's window.
         let visible = ns.requested_visible.get() && !ns.child_is_placeholder.get();
         if self.set_ns_visible(visible) != visible {
             self.add_transaction_op(FloatTransactionOp::Damage);
@@ -1669,7 +1684,7 @@ pub enum FloatTransactionOp {
     SetRequestedVisible(bool),
     SetPosition(Rect),
     SetChild(Option<Rc<dyn ToplevelNode>>),
-    SetChildIsPlaceholder(bool),
+    SetChildShowsFullscreenMarker(bool),
     SetWorkspaceType(WorkspaceType),
     SetTitleRect(Rect),
     SetActive(bool),
@@ -1721,8 +1736,8 @@ impl Transactionable for FloatNode {
                     dmg(s.position.get());
                 }
             }
-            FloatTransactionOp::SetChildIsPlaceholder(v) => {
-                s.child_is_placeholder.set(v);
+            FloatTransactionOp::SetChildShowsFullscreenMarker(v) => {
+                s.child_shows_fullscreen_marker.set(v);
             }
             FloatTransactionOp::Damage => {
                 dmg(s.position.get());

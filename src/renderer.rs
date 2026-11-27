@@ -443,6 +443,33 @@ impl Renderer<'_> {
                         );
                     }
                 }
+                let shows_fullscreen_marker = child.node.tl_data().shows_fullscreen_marker();
+                if shows_fullscreen_marker {
+                    if let Some(icons) = child.title_icons.get(self.scale_idx) {
+                        let (x, y) = self
+                            .base
+                            .scale_point(x + offsets.fullscreen_icon.get(), rect.y1());
+                        let icon = match cns.ty.get() {
+                            ContainerChildType::Active => &icons.fullscreen_focused_title,
+                            ContainerChildType::AttentionRequested => {
+                                &icons.fullscreen_attention_requested
+                            }
+                            ContainerChildType::LastActive => {
+                                &icons.fullscreen_focused_inactive_title
+                            }
+                            ContainerChildType::Other => &icons.fullscreen_unfocused_title,
+                        };
+                        self.base.render_texture(
+                            icon,
+                            x,
+                            y,
+                            RenderTexture {
+                                bounds: Some(&bounds),
+                                ..Default::default()
+                            },
+                        );
+                    }
+                }
                 if let Some(surface) = cns.toplevel_icon.get() {
                     let x = x + 1 + cns.offsets.toplevel_icon.get();
                     let y = rect.y1() + 1;
@@ -903,6 +930,30 @@ impl Renderer<'_> {
             }
         }
         let is_pinned = ns.pinned.get();
+        let shows_fullscreen_marker = ns.child_shows_fullscreen_marker.get();
+        if shows_fullscreen_marker {
+            let (x, y) = self
+                .base
+                .scale_point(x1 + ns.offsets.fullscreen_icon.get(), y1);
+            if let Some(icons) = &*title_icons {
+                let icon = if ns.active.get() {
+                    &icons.fullscreen_focused_title
+                } else if ns.attention_requested.get() {
+                    &icons.fullscreen_attention_requested
+                } else {
+                    &icons.fullscreen_unfocused_title
+                };
+                self.base.render_texture(
+                    icon,
+                    x,
+                    y,
+                    RenderTexture {
+                        bounds: Some(&bounds),
+                        ..Default::default()
+                    },
+                );
+            }
+        }
         if is_pinned || theme.show_pin_icon.get() {
             let (x, y) = self.base.scale_point(x1 + ns.offsets.pin_icon.get(), y1);
             if let Some(icons) = &*title_icons {
