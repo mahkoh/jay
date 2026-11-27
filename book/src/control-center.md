@@ -590,7 +590,7 @@ Workspace
 : Which workspace the window is on
 
 Type
-: Container, xdg_toplevel, X Window, or Placeholder
+: Container, xdg_toplevel, X Window, Placeholder, or Pending fullscreen
 
 Tag
 : Toplevel tag (set via window rules); only shown for xdg_toplevel windows

@@ -313,7 +313,7 @@ where
 {
     fn get_placeholder(self: &Rc<Self>, _key: u64) -> Option<FuseInodeWithKey> {
         if let Some(v) = &*self.tl_data().fullscrceen_data.borrow() {
-            return Some(v.placeholder.clone().node_debugfs());
+            return Some(v.slot.node().node_debugfs_dyn());
         }
         None
     }

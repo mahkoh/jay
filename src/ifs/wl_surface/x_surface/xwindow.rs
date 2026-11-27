@@ -39,6 +39,7 @@ use crate::tree::ToplevelNodeBase;
 use crate::tree::ToplevelType;
 use crate::tree::TreeTimeline;
 use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::TreeTimeline::RenderTL;
 use crate::tree::WorkspaceEventListener;
 use crate::tree::WorkspaceNode;
 use crate::tree::WorkspaceType;
@@ -516,6 +517,20 @@ impl ToplevelNodeBase for Xwindow {
 
     fn tl_focus_child(&self) -> Option<Rc<dyn Node>> {
         Some(self.x.surface.clone())
+    }
+
+    fn tl_render_preview(
+        &self,
+        renderer: &mut Renderer<'_>,
+        x: i32,
+        y: i32,
+        w: i32,
+        h: i32,
+        bounds: Option<&Rect>,
+    ) -> bool {
+        let (sw, sh) = self.x.surface.buffer_abs_pos[RenderTL].get().size();
+        let src = Rect::new_sized_saturating(0, 0, sw, sh);
+        renderer.render_surface_scaled_fit(&self.x.surface, x, y, w, h, bounds, src)
     }
 
     fn tl_set_workspace_ext(&self, ws: &Rc<WorkspaceNode>) {

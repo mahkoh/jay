@@ -574,6 +574,9 @@ impl FloatNode {
         let ns = &self.node_state[LiveTL];
         if let Some(c) = ns.child.get() {
             c.tl_set_workspace(ws);
+            if c.node_is_pending_fullscreen() {
+                c.node_pending_fullscreen_moved_to_ws(ws);
+            }
         }
         self.workspace_link
             .set(Some(ws.stacked.add_last(self.clone())));
@@ -1359,7 +1362,11 @@ impl ContainingNode for FloatNode {
         ThemeChangeListener::changed(self);
     }
 
-    fn cnode_remove_child2(self: Rc<Self>, _child: &dyn Node, _preserve_focus: bool) {
+    fn cnode_remove_child2(self: Rc<Self>, child: &dyn Node, _preserve_focus: bool) {
+        let cur = self.node_state[LiveTL].child.get();
+        if cur.as_ref().map(|c| c.node_id()) != Some(child.node_id()) {
+            return;
+        }
         self.discard_child_properties();
         self.set_ns_visible(false);
         self.set_ns_child(None);
@@ -1383,8 +1390,8 @@ impl ContainingNode for FloatNode {
         }
     }
 
-    fn cnode_workspace(self: Rc<Self>) -> Rc<WorkspaceNode> {
-        self.workspace.get()
+    fn cnode_workspace(self: Rc<Self>) -> Option<Rc<WorkspaceNode>> {
+        Some(self.workspace.get())
     }
 
     fn cnode_make_visible(self: Rc<Self>, _child: &dyn Node) {
@@ -1477,7 +1484,11 @@ impl FloatNode {
             }
         }
         if let Some(child) = ns.child.get() {
-            child.tl_set_visible(visible);
+            // A tile told it became invisible runs the destroy path in
+            // NodeSeatState, which drops the keyboard focus held on it.
+            if !child.node_is_placeholder() {
+                child.tl_set_visible(visible);
+            }
         }
         self.seat_state.set_visible(&**self, visible);
     }

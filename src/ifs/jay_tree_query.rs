@@ -19,6 +19,7 @@ use crate::tree::Node;
 use crate::tree::NodeBase;
 use crate::tree::NodeVisitor;
 use crate::tree::OutputNode;
+use crate::tree::PendingFullscreenNode;
 use crate::tree::PlaceholderNode;
 use crate::tree::ToplevelData;
 use crate::tree::ToplevelIdentifier;
@@ -52,6 +53,7 @@ pub const TREE_TY_X_WINDOW: u32 = 8;
 pub const TREE_TY_XDG_POPUP: u32 = 9;
 pub const TREE_TY_LAYER_SURFACE: u32 = 10;
 pub const TREE_TY_LOCK_SURFACE: u32 = 11;
+pub const TREE_TY_PENDING_FULLSCREEN: u32 = 12;
 
 const CONTENT_TYPE_SINCE: Version = Version(20);
 
@@ -161,6 +163,7 @@ impl JayTreeQuery {
             ty: match &data.kind {
                 ToplevelType::Container => TREE_TY_CONTAINER,
                 ToplevelType::Placeholder(_) => TREE_TY_PLACEHOLDER,
+                ToplevelType::PendingFullscreen(_) => TREE_TY_PENDING_FULLSCREEN,
                 ToplevelType::XdgToplevel(_) => TREE_TY_XDG_TOPLEVEL,
                 ToplevelType::XWindow(_) => TREE_TY_X_WINDOW,
             },
@@ -185,8 +188,14 @@ impl JayTreeQuery {
         }
         match &data.kind {
             ToplevelType::Container => {}
-            ToplevelType::Placeholder(id) => {
-                if let Some(id) = *id {
+            ToplevelType::Placeholder(id) | ToplevelType::PendingFullscreen(id) => {
+                let wrapped = data
+                    .parent
+                    .get()
+                    .is_some_and(|p| p.node_is_pending_fullscreen());
+                if let Some(id) = *id
+                    && !wrapped
+                {
                     self.client.event(PlaceholderFor {
                         self_id: self.id,
                         id: &id.to_string(),
@@ -495,6 +504,13 @@ impl tree::NodeVisitorBase for Visitor<'_> {
     fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
         let s = self.0;
         s.send_toplevel(node.tl_data());
+        s.send_end();
+    }
+
+    fn visit_pending_fullscreen(&mut self, node: &Rc<PendingFullscreenNode>) {
+        let s = self.0;
+        s.send_toplevel(node.tl_data());
+        node.node_visit_children(self);
         s.send_end();
     }
 

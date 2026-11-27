@@ -30,6 +30,7 @@ use crate::ifs::wp_content_type_v1::ContentType;
 use crate::ifs::zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1;
 use crate::ifs::zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManagerV1;
 use crate::rect::Rect;
+use crate::renderer::Renderer;
 use crate::sm::ToplevelSession;
 use crate::state::ConnectorData;
 use crate::state::OutputEventListener;
@@ -46,6 +47,7 @@ use crate::tree::NodeBase;
 use crate::tree::NodeId;
 use crate::tree::NodeLayerLink;
 use crate::tree::OutputNode;
+use crate::tree::PendingFullscreenNode;
 use crate::tree::PlaceholderNode;
 use crate::tree::SplitView;
 use crate::tree::ToplevelThemeType::ParentTheme;
@@ -141,12 +143,15 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
             parent.node_child_title_changed(self, &title);
         }
         if let Some(data) = data.fullscrceen_data.borrow_mut().deref() {
-            data.placeholder
-                .tl_data()
-                .title
-                .borrow_mut()
-                .clone_from(&title);
-            data.placeholder.tl_title_changed();
+            let slot = data.slot.node();
+            slot.tl_data().title.borrow_mut().clone_from(&title);
+            slot.tl_title_changed();
+            if let Some(w) = data.slot.pending()
+                && let Some(c) = w.child()
+            {
+                c.tl_data().title.borrow_mut().clone_from(&title);
+                c.tl_title_changed();
+            }
         }
         data.property_changed(TL_CHANGED_TITLE);
     }
@@ -173,7 +178,9 @@ impl<T: ToplevelNodeBase> ToplevelNode for T {
         let was_floating = data.parent_is_float.get();
         let is_floating = parent.node_is_float();
         data.parent_is_float.set(is_floating);
-        self.tl_set_workspace(&parent.clone().cnode_workspace());
+        if let Some(ws) = parent.clone().cnode_workspace() {
+            self.tl_set_workspace(&ws);
+        }
         if was_floating != is_floating {
             data.property_changed(TL_CHANGED_FLOATING);
             if let Some(session) = data.session.get() {
@@ -328,6 +335,18 @@ pub trait ToplevelNodeBase:
 {
     fn tl_data(&self) -> &ToplevelData;
 
+    fn tl_render_preview(
+        &self,
+        _renderer: &mut Renderer<'_>,
+        _x: i32,
+        _y: i32,
+        _w: i32,
+        _h: i32,
+        _bounds: Option<&Rect>,
+    ) -> bool {
+        false
+    }
+
     fn tl_accepts_keyboard_focus(&self) -> bool {
         true
     }
@@ -418,8 +437,36 @@ pub enum ToplevelDataTransactionOp {
 }
 
 pub struct FullscreenedData {
-    placeholder: Rc<PlaceholderNode>,
+    slot: FullscreenSlot,
     workspace: Rc<WorkspaceNode>,
+}
+
+pub enum FullscreenSlot {
+    Active(Rc<PlaceholderNode>),
+    Pending(Rc<PendingFullscreenNode>),
+}
+
+impl FullscreenSlot {
+    pub fn is_destroyed(&self) -> bool {
+        match self {
+            Self::Active(v) => v.is_destroyed(),
+            Self::Pending(v) => v.is_destroyed(),
+        }
+    }
+
+    pub fn node(&self) -> Rc<dyn ToplevelNode> {
+        match self {
+            Self::Active(v) => v.clone(),
+            Self::Pending(v) => v.clone(),
+        }
+    }
+
+    pub fn pending(&self) -> Option<&Rc<PendingFullscreenNode>> {
+        match self {
+            Self::Active(_) => None,
+            Self::Pending(v) => Some(v),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -429,6 +476,13 @@ pub struct ToplevelOpt {
 }
 
 impl ToplevelOpt {
+    pub fn new(tl: &Rc<dyn ToplevelNode>) -> Self {
+        Self {
+            toplevel: Rc::downgrade(tl),
+            identifier: tl.tl_data().identifier.get(),
+        }
+    }
+
     pub fn get(&self) -> Option<Rc<dyn ToplevelNode>> {
         let tl = self.toplevel.upgrade()?;
         if tl.tl_data().identifier.get() == self.identifier {
@@ -442,6 +496,7 @@ impl ToplevelOpt {
 pub enum ToplevelType {
     Container,
     Placeholder(Option<ToplevelIdentifier>),
+    PendingFullscreen(Option<ToplevelIdentifier>),
     XdgToplevel(Rc<XdgToplevelToplevelData>),
     XWindow(Rc<XwindowData>),
 }
@@ -449,10 +504,10 @@ pub enum ToplevelType {
 impl ToplevelType {
     pub fn to_window_type(&self) -> WindowType {
         match self {
-            ToplevelType::Container => window::CONTAINER,
-            ToplevelType::Placeholder { .. } => window::PLACEHOLDER,
-            ToplevelType::XdgToplevel { .. } => window::XDG_TOPLEVEL,
-            ToplevelType::XWindow { .. } => window::X_WINDOW,
+            Self::Container => window::CONTAINER,
+            Self::Placeholder { .. } | Self::PendingFullscreen { .. } => window::PLACEHOLDER,
+            Self::XdgToplevel { .. } => window::XDG_TOPLEVEL,
+            Self::XWindow { .. } => window::X_WINDOW,
         }
     }
 }
@@ -727,7 +782,7 @@ impl ToplevelData {
 
     pub fn detach_node(&self, node: &dyn Node) {
         if let Some(fd) = self.fullscrceen_data.borrow_mut().take() {
-            fd.placeholder.tl_destroy();
+            fd.slot.node().tl_destroy_dyn();
         }
         if let Some(parent) = self.parent.take() {
             parent.cnode_remove_child(node);
@@ -892,11 +947,12 @@ impl ToplevelData {
         ws: &Rc<WorkspaceNode>,
     ) {
         let wns = &ws.node_state[LiveTL];
-        if wns.fullscreen.is_some() {
-            log::info!(
-                "Cannot fullscreen a node on a workspace that already has a fullscreen node attached"
-            );
-            return;
+        if let Some(fs) = wns.fullscreen.get() {
+            if fs.node_id() == node.node_id() {
+                log::info!("Cannot fullscreen a node that is already fullscreen");
+                return;
+            }
+            fs.tl_data().demote_fullscreen(&fs, ws);
         }
         if node.node_is_placeholder() {
             log::info!("Cannot fullscreen a placeholder node");
@@ -923,7 +979,7 @@ impl ToplevelData {
             kb_foci = ws.collect_kb_foci();
         }
         *data = Some(FullscreenedData {
-            placeholder,
+            slot: FullscreenSlot::Active(placeholder),
             workspace: ws.clone(),
         });
         drop(data);
@@ -955,41 +1011,245 @@ impl ToplevelData {
         };
         node.tl_mark_fullscreen(None);
         self.property_changed(TL_CHANGED_FULLSCREEN);
-        match fd.workspace.node_state[LiveTL].fullscreen.get() {
-            None => {
-                log::error!(
-                    "Node is supposed to be fullscreened on a workspace but workspace has not fullscreen node."
-                );
+        if fd.slot.pending().is_some() {
+            if !fd.workspace.node_state[LiveTL]
+                .pending_fullscreen
+                .get()
+                .iter()
+                .any(|n| n.node_id() == node.node_id())
+            {
+                log::error!(concat!(
+                    "Node is supposed to be pending-fullscreened on a workspace ",
+                    "but the workspace does not have it attached."
+                ));
                 return;
             }
-            Some(f) if f.node_id() != node.node_id() => {
-                log::error!(
-                    "Node is supposed to be fullscreened on a workspace but the workspace has a different node attached."
-                );
-                return;
+            fd.workspace.remove_pending_fullscreen(&*node);
+        } else {
+            match fd.workspace.node_state[LiveTL].fullscreen.get() {
+                None => {
+                    log::error!(concat!(
+                        "Node is supposed to be fullscreened on a workspace ",
+                        "but the workspace has no fullscreen node."
+                    ));
+                    return;
+                }
+                Some(f) if f.node_id() != node.node_id() => {
+                    log::error!(concat!(
+                        "Node is supposed to be fullscreened on a workspace ",
+                        "but the workspace has a different node attached."
+                    ));
+                    return;
+                }
+                _ => {}
             }
-            _ => {}
+            fd.workspace.remove_fullscreen_node();
         }
-        fd.workspace.remove_fullscreen_node();
-        if fd.placeholder.is_destroyed() {
+        if fd.slot.is_destroyed() {
             state.map_tiled(node);
             return;
         }
-        let parent = fd.placeholder.tl_data().parent.take().unwrap();
-        parent.clone().cnode_make_visible(&*fd.placeholder);
-        parent.cnode_replace_child(fd.placeholder.deref(), node.clone());
+        let slot = fd.slot.node().clone();
+        let parent = slot.tl_data().parent.take().unwrap();
+        parent.clone().cnode_make_visible(slot.as_ref());
+        parent.cnode_replace_child(slot.as_ref(), node.clone());
         if node.node_visible(LiveTL) {
-            let kb_foci = collect_kb_foci(fd.placeholder.clone());
+            let kb_foci = collect_kb_foci(slot.clone());
             for seat in kb_foci {
                 node.clone()
                     .node_do_focus_dyn(&seat, Direction::Unspecified);
             }
         }
-        fd.placeholder.tl_destroy();
+        slot.tl_destroy_dyn();
         for handle in self.manager_handles.lock().values() {
             handle.send_state(self.active(), false);
             handle.send_done();
         }
+    }
+
+    pub fn is_active_fullscreen(&self) -> bool {
+        self.fullscrceen_data
+            .borrow()
+            .as_ref()
+            .is_some_and(|f| matches!(f.slot, FullscreenSlot::Active(_)))
+    }
+
+    pub fn is_pending_fullscreen(&self) -> bool {
+        self.fullscrceen_data
+            .borrow()
+            .as_ref()
+            .is_some_and(|f| f.slot.pending().is_some())
+    }
+
+    pub fn pending_fullscreen_node(&self) -> Option<Rc<PendingFullscreenNode>> {
+        let data = self.fullscrceen_data.borrow();
+        data.as_ref().and_then(|fd| fd.slot.pending().cloned())
+    }
+
+    pub fn fullscreen_slot_node(&self) -> Option<Rc<dyn ToplevelNode>> {
+        let data = self.fullscrceen_data.borrow();
+        data.as_ref().map(|fd| fd.slot.node())
+    }
+
+    pub fn placeholder_window(&self) -> Option<Rc<dyn ToplevelNode>> {
+        let ident = match &self.kind {
+            ToplevelType::Placeholder(ident) | ToplevelType::PendingFullscreen(ident) => *ident,
+            _ => return None,
+        };
+        let ident = ident?;
+        let tl = self
+            .state
+            .toplevels
+            .get(&ident)
+            .and_then(|tl| tl.upgrade())?;
+        // A tile must never resolve to a container or to another tile.
+        if tl.node_is_container() || tl.node_is_placeholder() || tl.node_is_pending_fullscreen() {
+            return None;
+        }
+        Some(tl)
+    }
+
+    pub fn demote_fullscreen(
+        &self,
+        node: &Rc<dyn ToplevelNode>,
+        ws: &Rc<WorkspaceNode>,
+    ) -> Option<Rc<PendingFullscreenNode>> {
+        let mut data = self.fullscrceen_data.borrow_mut();
+        let mut fd = data.take()?;
+        let placeholder = match fd.slot {
+            FullscreenSlot::Active(v) => v,
+            FullscreenSlot::Pending(_) => {
+                log::error!("tried to demote a non-active fullscreen");
+                *data = Some(fd);
+                return None;
+            }
+        };
+        let Some(parent) = placeholder.tl_data().parent.get() else {
+            log::error!("active fullscreen placeholder has no parent");
+            *data = Some(FullscreenedData {
+                slot: FullscreenSlot::Active(placeholder),
+                workspace: fd.workspace,
+            });
+            return None;
+        };
+        let wrapper: Rc<PendingFullscreenNode> = Rc::new_cyclic(|weak| {
+            PendingFullscreenNode::new_for(&self.state, &placeholder, node, weak)
+        });
+        let placeholder_extents = placeholder.tl_data().desired_extents.get();
+        parent.cnode_replace_child(&*placeholder, wrapper.clone());
+        wrapper.clone().replace_child(&placeholder);
+        // cnode_replace_child only propagates the extents of the current child.
+        wrapper.clone().tl_change_extents(&placeholder_extents);
+        // A restore that ran first may have put another window in the slot.
+        let fs_same = fd.workspace.node_state[LiveTL]
+            .fullscreen
+            .get()
+            .is_some_and(|f| f.node_id() == node.node_id());
+        if fs_same {
+            fd.workspace.remove_fullscreen_node();
+        }
+        ws.add_pending_fullscreen(node);
+        fd.workspace = ws.clone();
+        fd.slot = FullscreenSlot::Pending(wrapper.clone());
+        *data = Some(fd);
+        Some(wrapper)
+    }
+
+    pub fn retarget_pending_fullscreen_workspace(
+        &self,
+        node: &Rc<dyn ToplevelNode>,
+        ws: &Rc<WorkspaceNode>,
+    ) {
+        let mut data = self.fullscrceen_data.borrow_mut();
+        let Some(fd) = data.as_mut() else { return };
+        if fd.slot.pending().is_none() || fd.workspace.id == ws.id {
+            return;
+        }
+        fd.workspace.remove_pending_fullscreen(&**node);
+        ws.add_pending_fullscreen(node);
+        fd.workspace = ws.clone();
+    }
+
+    pub fn restore_fullscreen(&self, node: &Rc<dyn ToplevelNode>, ws: &Rc<WorkspaceNode>) {
+        let mut data = self.fullscrceen_data.borrow_mut();
+        let Some(mut fd) = data.take() else {
+            return;
+        };
+        let Some(wrapper) = fd.slot.pending().cloned() else {
+            log::error!("tried to restore a non-pending fullscreen");
+            *data = Some(fd);
+            return;
+        };
+        let Some(parent) = wrapper.tl_data().parent.get() else {
+            log::error!("pending fullscreen wrapper has no parent");
+            *data = Some(fd);
+            return;
+        };
+        let Some(placeholder) = wrapper.child() else {
+            log::error!("pending fullscreen wrapper has no child");
+            *data = Some(fd);
+            return;
+        };
+        placeholder.set_in_pending_wrapper(false);
+        placeholder.set_hover(false);
+        let placeholder_dyn: Rc<dyn ToplevelNode> = placeholder.clone();
+        parent.cnode_replace_child(&*wrapper, placeholder_dyn);
+        wrapper.clone().clear_child();
+        // An active fullscreen window is parented to its workspace.
+        let ws_output = ws.node_state[LiveTL].output.get();
+        node.tl_set_parent(ws.clone());
+        ws.remove_pending_fullscreen(&**node);
+        ws.set_fullscreen_node(node);
+        node.clone()
+            .tl_change_extents(&ws_output.node_state[LiveTL].pos.get());
+        fd.workspace = ws.clone();
+        fd.slot = FullscreenSlot::Active(placeholder);
+        *data = Some(fd);
+        // Destroying the wrapper would ask its old parent to remove it.
+        wrapper.tl_data().parent.take();
+        wrapper.tl_destroy_dyn();
+    }
+
+    pub fn move_pending_fullscreen(
+        &self,
+        state: &Rc<State>,
+        node: &Rc<dyn ToplevelNode>,
+        ws: &Rc<WorkspaceNode>,
+    ) {
+        let mut data = self.fullscrceen_data.borrow_mut();
+        let Some(mut fd) = data.take() else {
+            return;
+        };
+        let Some(wrapper) = fd.slot.pending().cloned() else {
+            log::error!("tried to move a non-pending fullscreen window");
+            *data = Some(fd);
+            return;
+        };
+        fd.workspace.remove_pending_fullscreen(&**node);
+        if let Some(parent) = wrapper.tl_data().parent.get() {
+            parent.cnode_remove_child2(&*wrapper, true);
+        }
+        if let Some(c) = ws.node_state[LiveTL].container.get() {
+            let la = c.clone().tl_last_active_child();
+            let lap = la
+                .tl_data()
+                .parent
+                .get()
+                .and_then(|n| n.node_into_container());
+            if let Some(lap) = lap {
+                lap.add_child_after(&*la, wrapper.clone());
+            } else {
+                c.append_child(wrapper.clone());
+            }
+        } else {
+            let container =
+                ContainerNode::new(state, ws, wrapper.clone(), ContainerSplit::Horizontal);
+            ws.set_container(&container);
+        }
+        fd.workspace = ws.clone();
+        *data = Some(fd);
+        node.tl_set_visible(ws.node_state[LiveTL].visible.get());
+        ws.add_pending_fullscreen(node);
     }
 
     fn set_visible(&self, node: &dyn Node, visible: bool) {
@@ -1242,6 +1502,12 @@ pub enum TddType {
     },
 }
 
+pub fn demote_fullscreen_of_workspace(ws: &Rc<WorkspaceNode>) -> Option<Rc<dyn ToplevelNode>> {
+    let fs = ws.node_state[LiveTL].fullscreen.get()?;
+    fs.tl_data().demote_fullscreen(&fs, ws)?;
+    Some(fs)
+}
+
 pub fn default_tile_drag_bounds<T: ToplevelNodeBase + ?Sized>(t: &T, split: ContainerSplit) -> i32 {
     const FACTOR: i32 = 5;
     match split {
@@ -1308,8 +1574,10 @@ pub fn toplevel_create_split(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, axis: 
 }
 
 pub fn toplevel_set_floating(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, floating: bool) {
+    // A fullscreen window is drawn by the fullscreen layer and a tile is not a window.
     let data = tl.tl_data();
-    if data.is_fullscreen[LiveTL].get() {
+    if data.is_fullscreen[LiveTL].get() || tl.node_is_placeholder() || data.is_pending_fullscreen()
+    {
         return;
     }
     if data.parent_is_float.get() == floating {
@@ -1338,6 +1606,10 @@ pub fn toplevel_set_workspace(state: &Rc<State>, tl: Rc<dyn ToplevelNode>, ws: &
     let data = tl.tl_data();
     let fullscreen = data.is_fullscreen[LiveTL].get();
     let wns = &ws.node_state[LiveTL];
+    if fullscreen && data.is_pending_fullscreen() {
+        data.move_pending_fullscreen(state, &tl, ws);
+        return;
+    }
     if fullscreen {
         if let Some(old) = wns.fullscreen.get() {
             old.tl_set_fullscreen(false, None);

@@ -10,6 +10,7 @@ use crate::state::GfxCtxChangedListener;
 use crate::state::OutputEventListener;
 use crate::state::ScalesChangedListener;
 use crate::state::State;
+use crate::text::TextError;
 use crate::text::TextTexture;
 use crate::transactions::TransactionData;
 use crate::transactions::Transactionable;
@@ -55,6 +56,30 @@ mod placeholder_dfs_g_fuse;
 
 tree_id!(PlaceholderNodeId);
 
+const LABEL_TEXT: &str = "Fullscreen";
+const LABEL_FONT_MIN: i32 = 14;
+const LABEL_FONT_MAX: i32 = 48;
+const HINT_TEXT: &str = "left click: fullscreen\nright click: exit fullscreen";
+const HINT_FONT_MAX: i32 = 14;
+
+// The hint is drawn inside the tile, so its font has to follow the extent of the
+// tile: a fixed size overflows a small tile, and a tile of a display at a large
+// scale is small in logical pixels. A monospace advance is about 3/5 em, so the
+// longer line fits into the width of the tile when the font is at most 5/3 times
+// the width divided by the number of characters, and both lines fit into the
+// height of the tile when the font is at most 5/12 of the height. The upper bound is
+// the size the hint was drawn at before, larger text would only cover the preview.
+fn hint_font_size(width: i32, height: i32) -> i32 {
+    let chars = HINT_TEXT
+        .lines()
+        .map(|line| line.chars().count() as i32)
+        .max()
+        .unwrap_or(1);
+    let by_width = width * 5 / (3 * chars);
+    let by_height = height * 5 / 12;
+    by_width.min(by_height).clamp(1, HINT_FONT_MAX)
+}
+
 #[derive(GetLiveness)]
 pub struct PlaceholderNode {
     id: PlaceholderNodeId,
@@ -62,9 +87,12 @@ pub struct PlaceholderNode {
     toplevel: ToplevelData,
     destroyed: Cell<bool>,
     update_textures_scheduled: Cell<bool>,
+    in_pending_wrapper: Cell<bool>,
+    hover: Cell<bool>,
     state: Rc<State>,
     location: Cell<Option<NodeLocation>>,
     pub textures: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
+    pub label_textures: RefCell<SmallMapMut<Scale, TextTexture, 2>>,
     transaction_data: TransactionData<PlaceholderTransactionOp>,
     _gfx_ctx_listener: EventListener<dyn GfxCtxChangedListener>,
     _scales_listener: EventListener<dyn ScalesChangedListener>,
@@ -94,9 +122,12 @@ impl PlaceholderNode {
             ),
             destroyed: Default::default(),
             update_textures_scheduled: Cell::new(false),
+            in_pending_wrapper: Cell::new(false),
+            hover: Cell::new(false),
             state: state.clone(),
             location: Cell::new(node.node_location()),
             textures: Default::default(),
+            label_textures: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
             _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
             _scales_listener: EventListener::attached(slf.clone(), &state.scales_changed),
@@ -117,9 +148,12 @@ impl PlaceholderNode {
             ),
             destroyed: Default::default(),
             update_textures_scheduled: Default::default(),
+            in_pending_wrapper: Default::default(),
+            hover: Default::default(),
             state: state.clone(),
             location: Default::default(),
             textures: Default::default(),
+            label_textures: Default::default(),
             transaction_data: TransactionData::new(&state.tree),
             _gfx_ctx_listener: EventListener::attached(slf.clone(), &state.gfx_ctx_changed),
             _scales_listener: EventListener::attached(slf.clone(), &state.scales_changed),
@@ -128,6 +162,27 @@ impl PlaceholderNode {
 
     pub fn is_destroyed(&self) -> bool {
         self.destroyed.get()
+    }
+
+    pub fn set_in_pending_wrapper(self: &Rc<Self>, in_pending_wrapper: bool) {
+        self.in_pending_wrapper.set(in_pending_wrapper);
+        self.textures.borrow_mut().clear();
+        self.schedule_update_texture();
+    }
+
+    pub fn in_pending_wrapper(&self) -> bool {
+        self.in_pending_wrapper.get()
+    }
+
+    pub fn hover(&self) -> bool {
+        self.hover.get()
+    }
+
+    pub fn set_hover(self: &Rc<Self>, hover: bool) {
+        if self.hover.get() != hover {
+            self.hover.set(hover);
+            self.schedule_update_texture();
+        }
     }
 
     fn schedule_update_texture(self: &Rc<Self>) {
@@ -146,8 +201,8 @@ impl PlaceholderNode {
         let scales = self.toplevel.state.scales.lock();
         let rect = self.toplevel.content_size.get();
         let mut textures = self.textures.borrow_mut();
+        let mut label_textures = self.label_textures.borrow_mut();
         for (scale, _) in scales.iter() {
-            let tex = textures.get_or_insert_with(*scale, || TextTexture::new(&self.state, &ctx));
             let mut width = rect.width();
             let mut height = rect.height();
             if *scale != 1 {
@@ -155,17 +210,41 @@ impl PlaceholderNode {
                 width = (width as f64 * scale).round() as _;
                 height = (height as f64 * scale).round() as _;
             }
+            // The text renderer multiplies the font by the scale it is given, so the
+            // sizes below stay logical. Scaling them here as well grew the text with
+            // the square of the scale.
             if width != 0 && height != 0 {
-                let font = Arc::from(format!("monospace {}", width / 10).into_boxed_str());
-                tex.schedule_render_fitting(
+                // A tile-sized label texture would cost tens of MB per scale.
+                let logical = rect.width().min(rect.height());
+                let font_size = (logical / 10).clamp(LABEL_FONT_MIN, LABEL_FONT_MAX);
+                let font = Arc::from(format!("monospace {font_size}").into_boxed_str());
+                let label = label_textures
+                    .get_or_insert_with(*scale, || TextTexture::new(&self.state, &ctx));
+                label.schedule_render_fitting(
                     on_completed.clone(),
-                    Some(height),
+                    None,
                     &font,
-                    "Fullscreen",
+                    LABEL_TEXT,
                     self.toplevel.state.theme.colors.unfocused_title_text.get(),
                     false,
-                    None,
+                    scale.to_f64().into(),
                 );
+                if self.in_pending_wrapper.get() && self.hover.get() {
+                    let tex =
+                        textures.get_or_insert_with(*scale, || TextTexture::new(&self.state, &ctx));
+                    let font_size = hint_font_size(rect.width(), rect.height());
+                    let font = Arc::from(format!("monospace {font_size}").into_boxed_str());
+                    let markup = format!("<span background=\"#101010\">{HINT_TEXT}</span>");
+                    tex.schedule_render_fitting(
+                        on_completed.clone(),
+                        None,
+                        &font,
+                        &markup,
+                        self.toplevel.state.theme.colors.unfocused_title_text.get(),
+                        true,
+                        scale.to_f64().into(),
+                    );
+                }
             }
         }
         on_completed.event()
@@ -175,11 +254,27 @@ impl PlaceholderNode {
         let textures = &*self.textures.borrow();
         for (_, texture) in textures {
             if let Err(e) = texture.flip() {
-                log::warn!("Could not render fullscreen texture: {}", ErrorFmt(e));
+                // A hint texture of a tile that was never hovered is not scheduled.
+                if !matches!(e, TextError::NotScheduled) {
+                    log::warn!("Could not render placeholder texture: {}", ErrorFmt(e));
+                }
             }
         }
-        if self.node_visible(RenderTL) {
-            self.state.damage(self.node_absolute_position(RenderTL));
+        let label_textures = &*self.label_textures.borrow();
+        for (_, texture) in label_textures {
+            if let Err(e) = texture.flip() {
+                if !matches!(e, TextError::NotScheduled) {
+                    log::warn!("Could not render placeholder label: {}", ErrorFmt(e));
+                }
+            }
+        }
+        // Damage has to follow the current extents, not the last paint: a float
+        // drag moves the tile to another output without painting on the old one.
+        let rect = self.toplevel.desired_extents.get();
+        if self.node_visible(RenderTL) || self.in_pending_wrapper.get() {
+            if !rect.is_empty() {
+                self.state.damage(rect);
+            }
         }
     }
 }
@@ -206,7 +301,7 @@ impl NodeBase for PlaceholderNode {
     }
 
     fn node_absolute_position(&self, _tl: TreeTimeline) -> Rect {
-        self.toplevel.content_size.get()
+        self.toplevel.desired_extents.get()
     }
 
     fn node_output(&self) -> Option<Rc<OutputNode>> {
@@ -353,6 +448,7 @@ impl WorkspaceEventListener for PlaceholderNode {
 impl GfxCtxChangedListener for PlaceholderNode {
     fn handle_gfx_context_change(self: Rc<Self>) {
         self.textures.borrow_mut().clear();
+        self.label_textures.borrow_mut().clear();
         self.schedule_update_texture();
     }
 }
@@ -360,6 +456,7 @@ impl GfxCtxChangedListener for PlaceholderNode {
 impl ScalesChangedListener for PlaceholderNode {
     fn changed(self: Rc<Self>) {
         self.textures.borrow_mut().clear();
+        self.label_textures.borrow_mut().clear();
         self.schedule_update_texture();
     }
 }

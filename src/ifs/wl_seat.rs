@@ -119,9 +119,11 @@ use crate::tree::OutputNode;
 use crate::tree::RelativeAxis;
 use crate::tree::StackedNode;
 use crate::tree::ToplevelNode;
+use crate::tree::ToplevelNodeBase;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::WorkspaceChangeReason;
 use crate::tree::WorkspaceNode;
+use crate::tree::demote_fullscreen_of_workspace;
 use crate::tree::generic_node_visitor;
 use crate::tree::toplevel_create_split;
 use crate::tree::toplevel_data_parent_container;
@@ -322,6 +324,8 @@ pub struct WlSeatGlobal {
     simple_im_enabled: Cell<bool>,
     warp_mouse_to_focus_target: Cell<Option<WarpTarget>>,
     mouse_follows_focus: Cell<bool>,
+    fullscreen_focus_move: Cell<FullscreenFocusMove>,
+    fullscreen_focus_transition_running: Cell<bool>,
     liveness: Liveness,
 }
 
@@ -374,6 +378,12 @@ impl From<JcWarpTarget> for WarpTarget {
 pub enum FallbackOutputMode {
     Cursor,
     Focus,
+}
+
+#[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, Linearize)]
+pub enum FullscreenFocusMove {
+    Output,
+    Workspace,
 }
 
 impl StaticText for FallbackOutputMode {
@@ -500,6 +510,8 @@ impl WlSeatGlobal {
             simple_im_enabled: Cell::new(true),
             warp_mouse_to_focus_target: Cell::new(None),
             mouse_follows_focus: Cell::new(false),
+            fullscreen_focus_move: Cell::new(FullscreenFocusMove::Output),
+            fullscreen_focus_transition_running: Cell::new(false),
             liveness: Default::default(),
         });
         slf.pointer_cursor.set_owner(slf.clone());
@@ -954,12 +966,58 @@ impl WlSeatGlobal {
             tl.node_do_focus_dyn(self, direction);
         } else {
             let data = tl.tl_data();
-            if data.is_fullscreen[LiveTL].get()
+            // Navigation is relative to the node occupying the slot: the wrapper of a
+            // pending, the placeholder of an active fullscreen window.
+            let reference = if data.is_pending_fullscreen() {
+                data.pending_fullscreen_node()
+                    .map(|w| w as Rc<dyn ToplevelNode>)
+            } else if data.is_active_fullscreen()
+                && self.fullscreen_focus_move() == FullscreenFocusMove::Workspace
+            {
+                data.fullscreen_slot_node()
+            } else {
+                None
+            };
+            let mut moved_focus = false;
+            let mut no_sibling = false;
+            if let Some(reference) = &reference
+                && let Some(c) = toplevel_data_parent_container(reference.tl_data())
+            {
+                let before = self.keyboard_node.get();
+                no_sibling = c
+                    .move_focus_from_child(self, reference.deref(), direction)
+                    .is_none();
+                moved_focus = self.keyboard_node.get().node_id() != before.node_id();
+            }
+            // A fullscreen window hides its siblings, so demote it and retry.
+            if !moved_focus
+                && !no_sibling
+                && data.is_active_fullscreen()
+                && self.fullscreen_focus_move() == FullscreenFocusMove::Workspace
+                && toplevel_data_parent_container(data).is_some()
+                && let Some(ws) = data.workspace[LiveTL].get()
+                && let Some(fs) = demote_fullscreen_of_workspace(&ws)
+                // Promoting another window would destroy this wrapper.
+                && let Some(wrapper) = fs.tl_data().pending_fullscreen_node()
+            {
+                let before = self.keyboard_node.get();
+                if let Some(c) = toplevel_data_parent_container(wrapper.tl_data()) {
+                    c.move_focus_from_child(self, wrapper.deref(), direction);
+                }
+                let new_kb = self.keyboard_node.get();
+                moved_focus = new_kb.node_id() != before.node_id();
+                if !moved_focus || new_kb.node_workspace().map(|w| w.id) != Some(ws.id) {
+                    fs.tl_data().restore_fullscreen(&fs, &ws);
+                    moved_focus = false;
+                }
+            }
+            if !moved_focus
+                && data.is_fullscreen[LiveTL].get()
                 && let Some(output) = data.output_opt(LiveTL)
                 && let Some(target) = self.state.find_output_in_direction(&output, direction)
             {
                 target.take_keyboard_navigation_focus(self, direction);
-            } else if let Some(c) = toplevel_data_parent_container(data) {
+            } else if !moved_focus && let Some(c) = toplevel_data_parent_container(data) {
                 c.move_focus_from_child(self, tl.deref(), direction);
             }
         }
@@ -1085,6 +1143,29 @@ impl WlSeatGlobal {
                 return None;
             }
             let node = node.node.upgrade()?;
+            // A tile whose window has no focus target can sit in the history.
+            let node = match node.clone().node_toplevel() {
+                Some(tl) => tl
+                    .tl_data()
+                    .placeholder_window()
+                    .map(|tl| tl as Rc<dyn Node>)
+                    .unwrap_or(node),
+                None => node,
+            };
+            if !node.node_accepts_focus() {
+                return None;
+            }
+            // The history can hold both the focus proxy and the toplevel of a window.
+            let cand_id = node.node_id();
+            if cand_id == original.node_id() {
+                return None;
+            }
+            if let Some(cur) = original.clone().node_toplevel()
+                && let Some(tl) = node.clone().node_toplevel()
+                && tl.node_id() == cur.node_id()
+            {
+                return None;
+            }
             if self.focus_history_same_workspace.get() {
                 let new = node.node_location()?;
                 let o = match new {
@@ -1138,11 +1219,8 @@ impl WlSeatGlobal {
         let _reset = on_drop(|| {
             self.focus_history_rotate.fetch_sub(1);
         });
-        if !visible {
-            node.clone().node_make_visible_dyn();
-            if !node.node_visible(LiveTL) {
-                return;
-            }
+        if !visible && !self.make_visible_for_focus(&node) {
+            return;
         }
         self.focus_node(node);
         self.maybe_schedule_warp_mouse_to_focus();
@@ -1714,6 +1792,10 @@ impl WlSeatGlobal {
 
     pub fn mouse_follows_focus(&self) -> bool {
         self.mouse_follows_focus.get()
+    }
+
+    pub fn fullscreen_focus_move(&self) -> FullscreenFocusMove {
+        self.fullscreen_focus_move.get()
     }
 
     pub fn set_fallback_output_mode(&self, fallback_output_mode: FallbackOutputMode) {

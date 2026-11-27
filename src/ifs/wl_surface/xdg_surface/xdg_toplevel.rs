@@ -709,6 +709,20 @@ impl ToplevelNodeBase for XdgToplevel {
         &self.toplevel_data
     }
 
+    fn tl_render_preview(
+        &self,
+        renderer: &mut Renderer<'_>,
+        x: i32,
+        y: i32,
+        w: i32,
+        h: i32,
+        bounds: Option<&Rect>,
+    ) -> bool {
+        // The tile shows the window geometry.
+        let geo = self.xdg.geometry(RenderTL);
+        renderer.render_surface_scaled_fit(&self.xdg.surface, x, y, w, h, bounds, geo)
+    }
+
     fn tl_set_active(&self, active: bool) {
         let changed = {
             let old = self.states.get();

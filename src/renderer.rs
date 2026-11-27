@@ -29,6 +29,7 @@ use crate::tree::NodeBase;
 use crate::tree::OutputNode;
 use crate::tree::PlaceholderNode;
 use crate::tree::ToplevelData;
+use crate::tree::ToplevelNode;
 use crate::tree::ToplevelNodeBase;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::tree::WorkspaceNode;
@@ -295,30 +296,111 @@ impl Renderer<'_> {
         y: i32,
         bounds: Option<&Rect>,
     ) {
+        self.render_fullscreen_tile(placeholder, x, y, bounds, None);
+        self.render_tl_aux(placeholder.tl_data(), bounds, true);
+    }
+
+    pub fn render_fullscreen_tile(
+        &mut self,
+        placeholder: &PlaceholderNode,
+        x: i32,
+        y: i32,
+        bounds: Option<&Rect>,
+        preview: Option<&dyn ToplevelNode>,
+    ) {
+        self.render_placeholder_cover(placeholder, x, y, false);
+        self.render_placeholder_label(placeholder, x, y, bounds);
+        if let Some(preview) = preview {
+            let pos = placeholder.tl_data().content_size.get();
+            preview.tl_render_preview(self, x, y, pos.width(), pos.height(), bounds);
+        }
+        let hovered = placeholder.in_pending_wrapper() && placeholder.hover();
+        if hovered {
+            self.render_placeholder_cover(placeholder, x, y, true);
+            self.render_placeholder_hint(placeholder, x, y, bounds);
+        }
+    }
+
+    fn render_placeholder_cover(
+        &mut self,
+        placeholder: &PlaceholderNode,
+        x: i32,
+        y: i32,
+        dim: bool,
+    ) {
         let pos = placeholder.tl_data().content_size.get();
+        let color = if dim {
+            Color::from_srgba_straight(0, 0, 0, 0x90)
+        } else {
+            Color::from_srgba_straight(20, 20, 20, 255)
+        };
         self.base.fill_boxes(
             slice::from_ref(&pos.at_point(x, y)),
-            &Color::from_srgba_straight(20, 20, 20, 255),
+            &color,
             &self.state.color_manager.srgb_gamma22().linear,
             RenderIntent::Perceptual,
         );
+    }
+
+    fn render_placeholder_label(
+        &mut self,
+        placeholder: &PlaceholderNode,
+        x: i32,
+        y: i32,
+        bounds: Option<&Rect>,
+    ) {
+        let pos = placeholder.tl_data().content_size.get();
+        if let Some(tex) = placeholder.label_textures.borrow().get(&self.base.scale)
+            && let Some(texture) = tex.texture()
+        {
+            self.render_tile_text(&texture, x, y, pos.width(), pos.height(), bounds);
+        }
+    }
+
+    fn render_placeholder_hint(
+        &mut self,
+        placeholder: &PlaceholderNode,
+        x: i32,
+        y: i32,
+        bounds: Option<&Rect>,
+    ) {
+        let pos = placeholder.tl_data().content_size.get();
         if let Some(tex) = placeholder.textures.borrow().get(&self.base.scale)
             && let Some(texture) = tex.texture()
         {
-            let (tex_width, tex_height) = texture.size();
-            let x = x + (pos.width() - tex_width) / 2;
-            let y = y + (pos.height() - tex_height) / 2;
-            self.base.render_texture(
-                &texture,
-                x,
-                y,
-                RenderTexture {
-                    bounds,
-                    ..Default::default()
-                },
-            );
+            self.render_tile_text(&texture, x, y, pos.width(), pos.height(), bounds);
         }
-        self.render_tl_aux(placeholder.tl_data(), bounds, true);
+    }
+
+    // The texture is at physical size while the tile coordinates are logical, so
+    // the extents have to be scaled before centering.
+    fn render_tile_text(
+        &mut self,
+        texture: &Rc<dyn GfxTexture>,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+        bounds: Option<&Rect>,
+    ) {
+        let (tex_width, tex_height) = texture.size();
+        let (px, py) = self.base.scale_point(x, y);
+        let tile_w = (width as f64 * self.base.scalef).round() as i32;
+        let tile_h = (height as f64 * self.base.scalef).round() as i32;
+        let (x, y) = (
+            px + (tile_w - tex_width) / 2,
+            py + (tile_h - tex_height) / 2,
+        );
+        self.base.render_texture(
+            texture,
+            x,
+            y,
+            RenderTexture {
+                tsize: Some((tex_width, tex_height)),
+                bounds,
+                ..Default::default()
+            },
+        );
     }
 
     pub fn render_container(&mut self, container: &ContainerNode, x: i32, y: i32) {
@@ -530,6 +612,129 @@ impl Renderer<'_> {
         } else {
             self.render_buffer(surface, x, y, *tpoints, size, bounds);
         }
+    }
+
+    // The union of the buffers of the surface tree, in logical pixels relative to
+    // the origin of `surface`.
+    fn surface_fit_extents(&self, surface: &WlSurface, x: i32, y: i32) -> Option<Rect> {
+        let (w, h) = surface.buffer_abs_pos[RenderTL].get().size();
+        let mut extents = if surface.buffer.is_some() && w > 0 && h > 0 {
+            Some(Rect::new_sized_saturating(x, y, w, h))
+        } else {
+            None
+        };
+        let children = surface.children.borrow();
+        if let Some(children) = children.deref() {
+            for child in children.below.iter().chain(children.above.iter()) {
+                if child.pending.get() {
+                    continue;
+                }
+                let (dx, dy) = child.sub_surface.position.get();
+                let x = x.saturating_add(dx);
+                let y = y.saturating_add(dy);
+                let Some(child) = self.surface_fit_extents(&child.sub_surface.surface, x, y) else {
+                    continue;
+                };
+                extents = Some(match extents {
+                    Some(extents) => extents.union(child),
+                    None => child,
+                });
+            }
+        }
+        extents
+    }
+
+    fn render_surface_fit(
+        &mut self,
+        surface: &WlSurface,
+        x: i32,
+        y: i32,
+        fit: f64,
+        bounds: Option<&Rect>,
+    ) {
+        if surface.buffer.is_some() {
+            let (sw, sh) = surface.buffer_abs_pos[RenderTL].get().size();
+            if sw > 0 && sh > 0 {
+                let (sw, sh) = self.base.scale_point(sw, sh);
+                let tsize = (
+                    (sw as f64 * fit).round().max(1.0) as i32,
+                    (sh as f64 * fit).round().max(1.0) as i32,
+                );
+                let tpoints = *surface.buffer_points_norm.borrow();
+                self.render_buffer(surface, x, y, tpoints, tsize, bounds);
+            }
+        }
+        let children = surface.children.borrow();
+        let Some(children) = children.deref() else {
+            return;
+        };
+        for child in children.below.iter().chain(children.above.iter()) {
+            if child.pending.get() {
+                continue;
+            }
+            let (dx, dy) = child.sub_surface.position.get();
+            let (dx, dy) = self.base.scale_point(dx, dy);
+            let dx = (dx as f64 * fit).round() as i32;
+            let dy = (dy as f64 * fit).round() as i32;
+            self.render_surface_fit(
+                &child.sub_surface.surface,
+                x.saturating_add(dx),
+                y.saturating_add(dy),
+                fit,
+                bounds,
+            );
+        }
+    }
+
+    // Fits the surface tree into a tile of logical size `tile_w` x `tile_h`,
+    // preserving aspect ratio. `src` is the rect of the window the tile shows, in
+    // logical pixels relative to the origin of `surface`.
+    pub fn render_surface_scaled_fit(
+        &mut self,
+        surface: &WlSurface,
+        x: i32,
+        y: i32,
+        tile_w: i32,
+        tile_h: i32,
+        bounds: Option<&Rect>,
+        src: Rect,
+    ) -> bool {
+        if tile_w <= 0 || tile_h <= 0 {
+            return false;
+        }
+        // Without a rect, fall back to the buffers of the surface tree.
+        let src = if src.is_not_empty() {
+            src
+        } else {
+            match self.surface_fit_extents(surface, 0, 0) {
+                Some(extents) => extents,
+                None => return false,
+            }
+        };
+        let (sx, sy) = src.position();
+        let (sw, sh) = src.size();
+        let fit = (tile_w as f64 / sw as f64)
+            .min(tile_h as f64 / sh as f64)
+            .min(1.0);
+        let (sw, sh) = self.base.scale_point(sw, sh);
+        let dest_w = ((sw as f64 * fit).round() as i32).max(1);
+        let dest_h = ((sh as f64 * fit).round() as i32).max(1);
+        let (tx, ty) = self.base.scale_point(x, y);
+        let (tw, th) = self.base.scale_point(tile_w, tile_h);
+        let bx = tx.saturating_add((tw - dest_w) / 2);
+        let by = ty.saturating_add((th - dest_h) / 2);
+        // The surfaces are anchored to the origin of the toplevel surface.
+        let (sx, sy) = self.base.scale_point(sx, sy);
+        let px = bx.saturating_sub((sx as f64 * fit).round() as i32);
+        let py = by.saturating_sub((sy as f64 * fit).round() as i32);
+        // Clip so that surfaces outside the rect do not end up in the preview.
+        let clip = Rect::new_sized_saturating(bx, by, dest_w, dest_h);
+        let bounds = match bounds {
+            Some(bounds) => bounds.intersect(clip),
+            None => clip,
+        };
+        self.render_surface_fit(surface, px, py, fit, Some(&bounds));
+        true
     }
 
     fn render_buffer(

@@ -95,6 +95,8 @@ impl KbOwner for DefaultKbOwner {
         seat.keyboard_node_serial.set(serial);
         seat.keyboard_node.set(node.clone());
         seat.tablet_on_keyboard_node_change();
+        // Runs after the focus moved, so hiding the old window cannot move it back.
+        seat.fullscreen_focus_transition(&old, &node);
     }
 }
 
