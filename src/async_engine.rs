@@ -101,6 +101,7 @@ impl AsyncEngine {
                     idle.wake();
                     continue;
                 }
+                self.iteration.fetch_add(1);
                 break;
             }
             self.now.take();
