@@ -13,46 +13,30 @@ use crate::tree::Transform;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::timer::TimerFd;
+use crate::utils::timer::next_expiration;
 use isnt::std_1::primitive::IsntSliceExt;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
 use std::time::Duration;
-use uapi::c::CLOCK_MONOTONIC;
 
 pub async fn visualize_damage(state: Rc<State>) {
-    let timer = match TimerFd::new(CLOCK_MONOTONIC) {
-        Ok(t) => t,
-        Err(e) => {
-            log::error!("Could not create timer fd: {}", ErrorFmt(e));
-            return;
-        }
-    };
     loop {
         state.damage_visualizer.entry_added.triggered().await;
-        let duration = Duration::from_millis(50);
-        let res = timer.program(Some(duration), Some(duration));
-        if let Err(e) = res {
-            log::error!("Could not program timer: {}", ErrorFmt(e));
-            return;
-        }
+        let interval = 50_000_000;
+        let mut next = state.now_nsec() + interval;
         loop {
-            let res = timer.expired(&state.ring).await;
+            let res = state.ring.timeout(next).await;
             if let Err(e) = res {
-                log::error!("Could not wait for timer to expire: {}", ErrorFmt(e));
+                log::error!("Could not wait for timeout to expire: {}", ErrorFmt(e));
                 return;
             }
             if state.damage_visualizer.entries.borrow_mut().is_empty() {
                 break;
             }
             damage_all(&state);
-        }
-        let res = timer.program(None, None);
-        if let Err(e) = res {
-            log::error!("Could not disable timer: {}", ErrorFmt(e));
-            return;
+            next = next_expiration(state.now_nsec(), next, interval);
         }
     }
 }
