@@ -66,12 +66,19 @@ impl ExtWorkspaceHandleV1 {
         });
     }
 
-    #[expect(unused)]
     fn send_coordinates(&self, coordinates: &[u32]) {
         self.client.event(Coordinates {
             self_id: self.id,
             coordinates,
         });
+    }
+
+    /// Sends the workspace's position in its output's workspace list.
+    pub fn update_coordinates(&self, coordinate: u32) {
+        self.send_coordinates(&[coordinate]);
+        if let Some(manager) = self.manager.get() {
+            manager.schedule_done();
+        }
     }
 
     pub(super) fn send_current_state(&self) {

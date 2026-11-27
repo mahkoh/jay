@@ -156,6 +156,7 @@ pub struct OutputNode {
     pub hardware_cursor: CloneCell<Option<Rc<dyn HardwareCursor>>>,
     pub hardware_cursor_needs_render: Cell<bool>,
     update_render_data_scheduled: Cell<bool>,
+    workspace_coordinates_scheduled: Cell<bool>,
     pub screencasts: CopyHashMap<(ClientId, JayScreencastId), Rc<JayScreencast>>,
     pub screencopies: CopyHashMap<(ClientId, ZwlrScreencopyFrameV1Id), Rc<ZwlrScreencopyFrameV1>>,
     pub schedule: Rc<OutputSchedule>,
@@ -362,6 +363,7 @@ impl OutputNode {
             jay_outputs: Default::default(),
             screencasts: Default::default(),
             update_render_data_scheduled: Cell::new(false),
+            workspace_coordinates_scheduled: Cell::new(false),
             hardware_cursor_needs_render: Cell::new(false),
             screencopies: Default::default(),
             schedule: schedule.clone(),
@@ -1023,6 +1025,7 @@ impl OutputNode {
                     wh.handle_destroyed();
                 }
                 old.clear();
+                self.schedule_workspace_coordinate_update();
                 self.state.workspaces.remove(&*old.name);
                 self.state.trigger_cci(CCI_WORKSPACES);
             } else {
@@ -1161,6 +1164,26 @@ impl OutputNode {
         None
     }
 
+    pub fn schedule_workspace_coordinate_update(self: &Rc<Self>) {
+        if !self.workspace_coordinates_scheduled.replace(true) {
+            self.state
+                .workspace_managers
+                .schedule_coordinate_update(self);
+        }
+    }
+
+    pub fn update_workspace_coordinates(&self) {
+        self.workspace_coordinates_scheduled.set(false);
+        for (coordinate, ws) in self.workspaces.iter_valid(LiveTL).enumerate() {
+            let coordinate = coordinate as u32;
+            if ws.coordinate.replace(Some(coordinate)) != Some(coordinate) {
+                for wh in ws.ext_workspaces.lock().values() {
+                    wh.update_coordinates(coordinate);
+                }
+            }
+        }
+    }
+
     pub fn create_normal_workspace(self: &Rc<Self>, name: &str) -> Rc<WorkspaceNode> {
         let ws = WorkspaceNode::new(self, name, WorkspaceType::Normal);
         ws.opt.set(Some(ws.clone()));
@@ -1180,6 +1203,7 @@ impl OutputNode {
         for watcher in self.state.workspace_watchers.lock().values() {
             watcher.send_workspace(&ws);
         }
+        self.schedule_workspace_coordinate_update();
         self.state.workspace_managers.announce_workspace(self, &ws);
         self.schedule_update_render_data();
         ws
@@ -1543,6 +1567,7 @@ impl OutputNode {
                 ws_ref.detach();
                 self.workspaces.add_last_existing(&ws_ref);
             }
+            self.schedule_workspace_coordinate_update();
         }
         self.schedule_update_render_data();
     }
