@@ -776,13 +776,13 @@ impl Seat {
         self.window().resize(dx1, dy1, dx2, dy2);
     }
 
-    /// Sets whether the cursor should automatically move to the center of a window
-    /// when focus changes via keyboard commands (move-left, focus-right, show-workspace, etc.).
+    /// Sets how the cursor should automatically move when the keyboard focus changes via
+    /// keyboard commands (move-left, focus-right, show-workspace, etc.).
     ///
-    /// The default is `false`.
+    /// The default is [`MouseFollowsFocusMode::None`].
     #[deprecated = "This setting is unstable and might be removed in the future"]
-    pub fn unstable_set_mouse_follows_focus(self, enabled: bool) {
-        get!().seat_set_mouse_follows_focus(self, enabled)
+    pub fn unstable_set_mouse_follows_focus_mode(self, mode: MouseFollowsFocusMode) {
+        get!().seat_set_mouse_follows_focus_mode(self, mode.to_private())
     }
 
     /// Returns the output that contains the seat's cursor.
@@ -808,6 +808,23 @@ pub enum FocusFollowsMouseMode {
     /// The keyboard focus changes only when clicking on a window or the previously
     /// focused window becomes invisible.
     False,
+}
+
+/// A mouse-follows-focus mode.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq, PrivateEnum)]
+#[non_exhaustive]
+pub enum MouseFollowsFocusMode {
+    /// The cursor is never moved when the keyboard focus changes.
+    None,
+    /// The cursor is moved to the center of the focused output whenever the keyboard
+    /// focus moves to a different output.
+    Output,
+    /// The cursor is moved to the center of the focused window whenever the keyboard
+    /// focus changes.
+    Window,
+    /// The cursor is moved to the center of the focused workspace whenever the keyboard
+    /// focus moves to a different workspace.
+    Workspace,
 }
 
 /// The target that the cursor is warped to.
