@@ -2948,7 +2948,8 @@ impl ContainingNode for ContainerNode {
         let ns = &self.node_state[LiveTL];
         let tpuh = ns.theme.sizes.title_plus_underline_height.get();
         if ns.mono_child.is_some() {
-            parent.cnode_set_child_position(&*self, x, y - tpuh);
+            let sp = self.container_borders_space(LiveTL);
+            parent.cnode_set_child_position(&*self, x - sp, y - tpuh - sp);
         } else {
             let children = self.child_nodes.borrow();
             let Some(child) = children.get(&child.node_id()) else {
@@ -3062,22 +3063,23 @@ impl ContainingNode for ContainerNode {
                 self.schedule_layout();
             }
         }
+        let sp = self.container_borders_space(LiveTL);
         let pos = self.node_absolute_position(LiveTL);
         let mut x1 = None;
         let mut x2 = None;
         let mut y1 = None;
         let mut y2 = None;
         if left_outside {
-            x1 = new_x1.map(|v| v.min(pos.x2()));
+            x1 = new_x1.map(|v| (v - sp).min(pos.x2() - 2 * sp));
         }
         if right_outside {
-            x2 = new_x2.map(|v| v.max(x1.unwrap_or(pos.x1())));
+            x2 = new_x2.map(|v| (v + sp).max(x1.unwrap_or(pos.x1()) + 2 * sp));
         }
         if top_outside {
-            y1 = new_y1.map(|v| (v - tpuh).min(pos.y2() - tpuh));
+            y1 = new_y1.map(|v| (v - tpuh - sp).min(pos.y2() - tpuh - 2 * sp));
         }
         if bottom_outside {
-            y2 = new_y2.map(|v| v.max(y1.unwrap_or(pos.y1()) + tpuh));
+            y2 = new_y2.map(|v| (v + sp).max(y1.unwrap_or(pos.y1()) + tpuh + 2 * sp));
         }
         if ((x1.is_some() && x1 != Some(pos.x1()))
             || (x2.is_some() && x2 != Some(pos.x2()))
