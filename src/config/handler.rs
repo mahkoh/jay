@@ -34,7 +34,10 @@ use crate::ifs::wl_seat::SeatId;
 use crate::ifs::wl_seat::WarpTarget;
 use crate::ifs::wl_seat::WlSeatGlobal;
 use crate::ifs::wp_content_type_v1::ContentTypeExt;
+use crate::io_uring::IoUringError;
+use crate::io_uring::PendingTimeout;
 use crate::io_uring::TaskResultExt;
+use crate::io_uring::TimeoutCallback;
 use crate::kbvm::KbvmError;
 use crate::kbvm::KbvmMap;
 use crate::output_schedule::map_cursor_hz;
@@ -82,9 +85,9 @@ use crate::utils::markers::JayHash;
 use crate::utils::numcell::NumCell;
 use crate::utils::reset_immutable::ResetImmutable;
 use crate::utils::stack::Stack;
-use crate::utils::timer::TimerError;
-use crate::utils::timer::TimerFd;
+use crate::utils::timer::next_expiration;
 use az::saturating_cast;
+use jay_algorithms::oserror::OsError;
 use jay_algorithms::oserror::OsErrorExt;
 use jay_config::_private::ClientCriterionIpc;
 use jay_config::_private::ClientCriterionStringField;
@@ -266,10 +269,11 @@ pub struct Pollable {
 }
 
 pub(super) struct TimerData {
-    timer: TimerFd,
     id: u64,
     name: Rc<String>,
-    _handler: SpawnedFuture<()>,
+    timer: Cell<Option<PendingTimeout>>,
+    next: Cell<u64>,
+    period: Cell<Option<u64>>,
 }
 
 pub type CriterionCache<K, T> = Rc<CopyHashMap<K, Weak<CachedCriterion<K, T>>>>;
@@ -689,13 +693,34 @@ impl ConfigProxyHandler {
     }
 
     fn handle_program_timer(
-        &self,
+        self: &Rc<Self>,
         timer: JayTimer,
         initial: Option<Duration>,
         periodic: Option<Duration>,
     ) -> Result<(), CphError> {
         let timer = self.get_timer(timer)?;
-        timer.timer.program(initial, periodic)?;
+        timer.timer.take();
+        timer.period.set(
+            periodic
+                .map(|v| saturating_cast(v.as_nanos()))
+                .filter(|n| *n != 0),
+        );
+        let Some(initial) = initial else {
+            return Ok(());
+        };
+        if initial.is_zero() {
+            return Ok(());
+        }
+        let state = &self.state;
+        let next = state
+            .now_nsec_bt()
+            .saturating_add(saturating_cast(initial.as_nanos()));
+        let pending = state
+            .ring
+            .timeout_external2(true, next, self.clone(), timer.id)
+            .map_err(CphError::ProgramTimeout)?;
+        timer.timer.set(Some(pending));
+        timer.next.set(next);
         Ok(())
     }
 
@@ -708,32 +733,12 @@ impl ConfigProxyHandler {
             return Ok(());
         }
         let id = self.timer_ids.fetch_add(1);
-        let timer = TimerFd::new(c::CLOCK_BOOTTIME)?;
-        let handler = {
-            let timer = timer.clone();
-            let slf = self.clone();
-            self.state.eng.spawn("config timer", async move {
-                loop {
-                    match timer.expired(&slf.state.ring).await {
-                        Ok(_) => slf.send(&ServerMessage::TimerExpired {
-                            timer: JayTimer(id),
-                        }),
-                        Err(e) => {
-                            log::error!("Could not wait for timer expiration: {}", ErrorFmt(e));
-                            if let Some(timer) = slf.timers_by_id.remove(&id) {
-                                slf.timers_by_name.remove(&timer.name);
-                            }
-                            return;
-                        }
-                    }
-                }
-            })
-        };
         let td = Rc::new(TimerData {
-            timer,
             id,
             name: name.clone(),
-            _handler: handler,
+            timer: Default::default(),
+            next: Default::default(),
+            period: Default::default(),
         });
         self.timers_by_name.set(name.clone(), td.clone());
         self.timers_by_id.set(id, td.clone());
@@ -4731,6 +4736,36 @@ impl ConfigProxyHandler {
     }
 }
 
+impl TimeoutCallback for ConfigProxyHandler {
+    fn completed(self: Rc<Self>, res: Result<(), OsError>, data: u64) {
+        if let Err(e) = res {
+            log::error!("Timeout failed: {}", ErrorFmt(e));
+            return;
+        }
+        if let Some(timer) = self.timers_by_id.get(&data)
+            && let Some(period) = timer.period.get()
+        {
+            let next = next_expiration(self.state.now_nsec_bt(), timer.next.get(), period);
+            let res = self
+                .state
+                .ring
+                .timeout_external2(true, next, self.clone(), data);
+            match res {
+                Ok(p) => {
+                    timer.timer.set(Some(p));
+                    timer.next.set(next);
+                }
+                Err(e) => {
+                    log::error!("Could not schedule timeout: {}", ErrorFmt(e));
+                }
+            }
+        }
+        self.send(&ServerMessage::TimerExpired {
+            timer: JayTimer(data),
+        })
+    }
+}
+
 #[derive(Debug, Error)]
 enum CphError {
     #[error("Tried to set an unknown accel profile: {}", (.0).0)]
@@ -4781,8 +4816,8 @@ enum CphError {
     ParsingFailed(#[source] bincode::Error),
     #[error("Could not process a `{0}` request")]
     FailedRequest(&'static str, #[source] Box<Self>),
-    #[error(transparent)]
-    TimerError(#[from] TimerError),
+    #[error("Could not program the timeout")]
+    ProgramTimeout(#[source] IoUringError),
     #[error("The requested monitor scale {0} is too small")]
     ScaleTooSmall(f64),
     #[error("The requested monitor scale {0} is too large")]

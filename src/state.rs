@@ -1827,7 +1827,6 @@ impl State {
         self.eng.now_rt().usec()
     }
 
-    #[expect(unused)]
     pub fn now_nsec_bt(&self) -> u64 {
         self.eng.now_bt().nsec()
     }

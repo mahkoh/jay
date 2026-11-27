@@ -1,3 +1,5 @@
+#![expect(unused)]
+
 use crate::io_uring::IoUring;
 use crate::io_uring::IoUringError;
 use crate::utils::buf::TypedBuf;
