@@ -301,7 +301,7 @@ impl FloatNode {
         } else {
             calculate_float_position(output_rect, width, height)
         };
-        floater.set_ns_requested_visible(ws.float_visible());
+        floater.set_ns_requested_visible(ws.float_visible_for(floater.deref()));
         floater.set_position(position);
         floater.set_ns_child(Some(&child));
         floater.set_ns_workspace_type(ws.ty);
@@ -591,7 +591,7 @@ impl FloatNode {
         }
         self.location.set(ws.location());
         if update_visible {
-            self.set_visible(ws.float_visible());
+            self.set_visible(ws.float_visible_for(self.deref()));
         }
         if update_pinned && let Some(pl) = &*self.pinned_link.borrow_mut() {
             ws.node_state[LiveTL]
@@ -1334,6 +1334,13 @@ impl NodeBase for FloatNode {
         Some(self)
     }
 
+    fn node_contains_pending_fullscreen(&self) -> bool {
+        self.node_state[LiveTL]
+            .child
+            .get()
+            .is_some_and(|c| c.node_is_pending_fullscreen())
+    }
+
     fn node_is_float(&self) -> bool {
         true
     }
@@ -1343,6 +1350,7 @@ impl ContainingNode for FloatNode {
     fn cnode_replace_child(self: Rc<Self>, _old: &dyn Node, new: Rc<dyn ToplevelNode>) {
         self.discard_child_properties();
         self.set_ns_child(Some(&new));
+        self.set_visible(self.workspace.get().float_visible_for(self.deref()));
         new.tl_set_parent(self.clone());
         self.pull_child_properties();
         self.update_effective_visible();

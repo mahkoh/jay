@@ -1009,6 +1009,13 @@ pub trait NodeBase: GetLiveness + 'static {
     fn node_is_placeholder(&self) -> bool {
         false
     }
+    fn node_is_pending_fullscreen(&self) -> bool {
+        false
+    }
+
+    fn node_contains_pending_fullscreen(&self) -> bool {
+        false
+    }
 }
 
 pub trait Node: NodeBase {

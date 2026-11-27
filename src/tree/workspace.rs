@@ -121,6 +121,7 @@ pub struct WorkspaceNodeState {
     pub output: ObjAndId<Rc<OutputNode>>,
     pub position: Cell<Rect>,
     pub container: CloneCell<Option<Rc<ContainerNode>>>,
+    pub pending_fullscreen: CloneCell<Rc<Vec<Rc<dyn ToplevelNode>>>>,
     output_link: CloneCell<Option<NodeRef<WorkspaceOutputLink>>>,
     pub visible: Cell<bool>,
     pub fullscreen: CloneCell<Option<Rc<dyn ToplevelNode>>>,
@@ -265,9 +266,13 @@ impl WorkspaceNode {
         ns.visible.get() && ns.fullscreen.is_none()
     }
 
-    pub fn float_visible(&self) -> bool {
+    pub fn float_visible_for(&self, child: &dyn Node) -> bool {
         let ns = &self.node_state[LiveTL];
-        ns.visible.get() && (ns.fullscreen.is_none() || self.state.float_above_fullscreen.get())
+        // A pending fullscreen tile has to stay clickable while fullscreen.
+        ns.visible.get()
+            && (ns.fullscreen.is_none()
+                || self.state.float_above_fullscreen.get()
+                || child.node_contains_pending_fullscreen())
     }
 
     pub fn change_extents(self: &Rc<Self>, rect: &Rect, output: &Rc<OutputNode>) {
@@ -330,15 +335,16 @@ impl WorkspaceNode {
         if let Some(fs) = ns.fullscreen.get() {
             fs.tl_set_visible(visible);
         }
+        for p in ns.pending_fullscreen.get().iter() {
+            p.tl_set_visible(visible);
+        }
         if let Some(container) = ns.container.get() {
             container.tl_set_visible(self.container_visible());
         }
         for stacked in self.stacked.iter() {
             if stacked.stacked_needs_set_visible() {
-                stacked
-                    .deref()
-                    .clone()
-                    .stacked_set_visible(self.float_visible());
+                let visible = self.float_visible_for(stacked.deref().deref());
+                stacked.deref().clone().stacked_set_visible(visible);
             }
         }
         self.seat_state.set_visible(&**self, visible);
@@ -768,6 +774,7 @@ impl WorkspaceNodeState {
             output_link: Default::default(),
             visible: Default::default(),
             fullscreen: Default::default(),
+            pending_fullscreen: Default::default(),
         }
     }
 }
