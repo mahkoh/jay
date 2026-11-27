@@ -13,6 +13,7 @@ use jay_proc::Object;
 use std::array::from_mut;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::time::Duration;
 use uapi::OwnedFd;
 use uapi::UstrPtr;
 use uapi::c;
@@ -89,6 +90,7 @@ impl JayReexec {
                             revents: 0,
                         };
                         let _ = uapi::poll(from_mut(&mut pollfd), -1);
+                        std::thread::sleep(Duration::from_millis(1000));
                     }
                     unsafe {
                         c::_exit(0);
