@@ -746,10 +746,7 @@ impl ContainerNode {
         let th = theme.sizes.title_height.get();
         let bw = theme.sizes.border_width.get();
         let num_children = ns.num_children.get() as i32;
-        let sp = match self.container_borders(LiveTL) {
-            ContainerBorders::Separators => 0,
-            ContainerBorders::Full => bw,
-        };
+        let sp = self.container_borders_space(LiveTL);
         let content_width = ns.width.get().sub(bw * (num_children - 1) + 2 * sp).max(0);
         let width_per_child = content_width / num_children;
         let mut rem = content_width % num_children;
@@ -781,10 +778,7 @@ impl ContainerNode {
         if num_children == 0 {
             return;
         }
-        let sp = match self.container_borders(LiveTL) {
-            ContainerBorders::Separators => 0,
-            ContainerBorders::Full => border_width,
-        };
+        let sp = self.container_borders_space(LiveTL);
         let mut pos = sp;
         let mut remaining_content_size = content_size;
         for child in self.children.iter_valid(LiveTL) {
@@ -1202,10 +1196,7 @@ impl ContainerNode {
         let tuh = theme.sizes.title_underline_height.get();
         let bw = theme.sizes.border_width.get();
         let cb = self.container_borders(RenderTL);
-        let sp = match cb {
-            ContainerBorders::Separators => 0,
-            ContainerBorders::Full => bw,
-        };
+        let sp = self.container_borders_space(RenderTL);
         let fwidth = ns.width.get();
         let fheight = ns.height.get();
         let cwidth = fwidth.sub(2 * sp).max(0);
@@ -1493,6 +1484,14 @@ impl ContainerNode {
             .and_then(|p| p.node_into_container())
     }
 
+    fn moves_along(&self, split: ContainerSplit) -> bool {
+        let ns = &self.node_state[LiveTL];
+        match ns.mono_child.is_some() {
+            true => split == ContainerSplit::Horizontal,
+            false => split == ns.split.get(),
+        }
+    }
+
     fn find_neighboring_output(&self, direction: Direction) -> Option<Rc<OutputNode>> {
         if self.toplevel_data.parent.is_none() {
             return None;
@@ -1599,9 +1598,7 @@ impl ContainerNode {
         }
         let (split, prev) = direction_to_split(direction);
         // CASE 2: We're moving the child within the container.
-        if split == ns.split.get()
-            || (split == ContainerSplit::Horizontal && ns.mono_child.is_some())
-        {
+        if self.moves_along(split) {
             let cc = match self.child_nodes.borrow().get(&child.node_id()) {
                 Some(l) => l.to_ref(),
                 None => return,
@@ -1637,7 +1634,7 @@ impl ContainerNode {
         let mut neighbor = self.clone();
         let mut parent_opt = self.parent_container();
         while let Some(parent) = &parent_opt {
-            if parent.node_state[LiveTL].split.get() == split {
+            if parent.moves_along(split) {
                 break;
             }
             neighbor = parent.clone();
@@ -1659,7 +1656,7 @@ impl ContainerNode {
 
     fn insert_child(self: &Rc<Self>, node: Rc<dyn ToplevelNode>, direction: Direction) {
         let (split, right) = direction_to_split(direction);
-        if split != self.node_state[LiveTL].split.get() || right {
+        if !self.moves_along(split) || right {
             self.append_child(node);
         } else {
             self.prepend_child(node);
@@ -2096,6 +2093,13 @@ impl ContainerNode {
                     ContainerBorders::Full
                 }
             }
+        }
+    }
+
+    fn container_borders_space(&self, timeline: TreeTimeline) -> i32 {
+        match self.container_borders(timeline) {
+            ContainerBorders::Separators => 0,
+            ContainerBorders::Full => self.node_state[timeline].theme.sizes.border_width.get(),
         }
     }
 
@@ -2944,7 +2948,8 @@ impl ContainingNode for ContainerNode {
         let ns = &self.node_state[LiveTL];
         let tpuh = ns.theme.sizes.title_plus_underline_height.get();
         if ns.mono_child.is_some() {
-            parent.cnode_set_child_position(&*self, x, y - tpuh);
+            let sp = self.container_borders_space(LiveTL);
+            parent.cnode_set_child_position(&*self, x - sp, y - tpuh - sp);
         } else {
             let children = self.child_nodes.borrow();
             let Some(child) = children.get(&child.node_id()) else {
@@ -3058,22 +3063,23 @@ impl ContainingNode for ContainerNode {
                 self.schedule_layout();
             }
         }
+        let sp = self.container_borders_space(LiveTL);
         let pos = self.node_absolute_position(LiveTL);
         let mut x1 = None;
         let mut x2 = None;
         let mut y1 = None;
         let mut y2 = None;
         if left_outside {
-            x1 = new_x1.map(|v| v.min(pos.x2()));
+            x1 = new_x1.map(|v| (v - sp).min(pos.x2() - 2 * sp));
         }
         if right_outside {
-            x2 = new_x2.map(|v| v.max(x1.unwrap_or(pos.x1())));
+            x2 = new_x2.map(|v| (v + sp).max(x1.unwrap_or(pos.x1()) + 2 * sp));
         }
         if top_outside {
-            y1 = new_y1.map(|v| (v - tpuh).min(pos.y2() - tpuh));
+            y1 = new_y1.map(|v| (v - tpuh - sp).min(pos.y2() - tpuh - 2 * sp));
         }
         if bottom_outside {
-            y2 = new_y2.map(|v| v.max(y1.unwrap_or(pos.y1()) + tpuh));
+            y2 = new_y2.map(|v| (v + sp).max(y1.unwrap_or(pos.y1()) + tpuh + 2 * sp));
         }
         if ((x1.is_some() && x1 != Some(pos.x1()))
             || (x2.is_some() && x2 != Some(pos.x2()))
