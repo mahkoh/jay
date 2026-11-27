@@ -16,7 +16,9 @@ The `[status]` table has three fields:
 : How to start the program (string, array, or table). Required.
 
 `i3bar-separator`
-: Separator between i3bar components (default `" | "`). Optional.
+: Separator between i3bar components (default `" | "`). Optional. Components
+  can hide it with `"separator": false`, which keeps its width, or remove it
+  with `"separator_block_width": 0`.
 
 ### Format
 
