@@ -1944,14 +1944,39 @@ impl ContainerNode {
                 return;
             }
             seat_data.op = Some(SeatOp {
+                focus_on_release: kind == SeatOpKind::Move
+                    && child.node.node_is_pending_fullscreen(),
                 child,
                 kind,
                 x: seat_data.x,
                 y: seat_data.y,
             });
         } else if !pressed {
+            let focus = seat_data
+                .op
+                .as_ref()
+                .filter(|op| op.focus_on_release)
+                .filter(|op| {
+                    !self
+                        .state
+                        .ui_drag_threshold_reached((seat_data.x, seat_data.y), (op.x, op.y))
+                })
+                .map(|op| op.child.clone());
             seat_data.op = None;
             drop(seat_datas);
+            // The tile may have left this container while the button was held.
+            if let Some(child) = focus
+                && self
+                    .children
+                    .iter_valid(LiveTL)
+                    .any(|c| c.node.node_id() == child.node.node_id())
+            {
+                self.activate_child(&child);
+                child
+                    .node
+                    .clone()
+                    .node_do_focus_dyn(seat, Direction::Unspecified);
+            }
         }
     }
 
@@ -2572,6 +2597,7 @@ struct SeatOp {
     kind: SeatOpKind,
     x: i32,
     y: i32,
+    focus_on_release: bool,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]

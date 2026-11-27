@@ -164,6 +164,8 @@ struct CursorState {
     dist_hor: i32,
     dist_ver: i32,
     double_click_state: DoubleClickState,
+    focus_on_release: Option<Rc<dyn ToplevelNode>>,
+    op_start_pos: Rect,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -450,6 +452,8 @@ impl FloatNode {
             y,
             op_type: OpType::Move,
             op_active: false,
+            focus_on_release: None,
+            op_start_pos: Default::default(),
             dist_hor: 0,
             dist_ver: 0,
             double_click_state: Default::default(),
@@ -804,8 +808,10 @@ impl FloatNode {
             if !pressed {
                 return;
             }
+            // A press that may become a move must not focus a pending tile.
             if cursor_data.op_type == OpType::Move
                 && let Some(tl) = ns.child.get()
+                && !tl.node_is_pending_fullscreen()
             {
                 tl.node_do_focus_dyn(seat, Direction::Unspecified);
             }
@@ -823,10 +829,15 @@ impl FloatNode {
                 return;
             }
             cursor_data.op_active = true;
+            cursor_data.focus_on_release = (cursor_data.op_type == OpType::Move)
+                .then(|| ns.child.get())
+                .flatten()
+                .filter(|tl| tl.node_is_pending_fullscreen());
             let pos = ns.position.get();
             match cursor_data.op_type {
                 OpType::Move => {
                     self.restack();
+                    cursor_data.op_start_pos = pos;
                     cursor_data.dist_hor = cursor_data.x;
                     cursor_data.dist_ver = cursor_data.y;
                 }
@@ -853,8 +864,28 @@ impl FloatNode {
             }
         } else if !pressed {
             cursor_data.op_active = false;
+            // A float can be moved even with ui_drag disabled, so measure the move.
+            let focus = cursor_data.focus_on_release.take().filter(|_| {
+                let start = cursor_data.op_start_pos;
+                let pos = self.node_state[LiveTL].position.get();
+                !self
+                    .state
+                    .drag_threshold_reached((pos.x1(), pos.y1()), (start.x1(), start.y1()))
+            });
             let ws = cursor.output().ensure_workspace();
+            // Making the float invisible reverts its pointer grab, which feeds the
+            // button release back into this handler, so the cursor map borrow goes first.
+            drop(cursors);
             self.set_workspace_(&ws, true, true);
+            // A pending fullscreen child moves to the other workspace's container.
+            if let Some(tl) = focus
+                && self.node_state[LiveTL]
+                    .child
+                    .get()
+                    .is_some_and(|c| c.node_id() == tl.node_id())
+            {
+                tl.node_do_focus_dyn(seat, Direction::Unspecified);
+            }
         }
     }
 

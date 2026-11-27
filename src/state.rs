@@ -1897,13 +1897,14 @@ impl State {
         }
     }
 
-    pub fn ui_drag_threshold_reached(&self, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) -> bool {
-        if !self.ui_drag_enabled.get() {
-            return false;
-        }
+    pub fn drag_threshold_reached(&self, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) -> bool {
         let dx = x1 - x2;
         let dy = y1 - y2;
         dx * dx + dy * dy > self.ui_drag_threshold_squared.get()
+    }
+
+    pub fn ui_drag_threshold_reached(&self, (x1, y1): (i32, i32), (x2, y2): (i32, i32)) -> bool {
+        self.ui_drag_enabled.get() && self.drag_threshold_reached((x1, y1), (x2, y2))
     }
 
     pub fn update_xwayland_wire_scale(&self) {
