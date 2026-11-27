@@ -4300,6 +4300,24 @@ ComplexShortcut:
           ```
 
         The default is `false`.
+    allow-inhibited:
+      kind: boolean
+      required: false
+      description: |
+        Whether this shortcut will be executed even if the focused window inhibits
+        shortcuts.
+
+        Windows can only inhibit shortcuts if they have the
+        `keyboard-shortcuts-inhibit` capability.
+
+        - Example:
+
+          ```toml
+          [complex-shortcuts]
+          alt-q = { action = "close", allow-inhibited = true }
+          ```
+
+        The default is `false`.
 
 
 Vrr:
@@ -5654,6 +5672,9 @@ ClientCapabilities:
         - value: virtual-pointer
           description: |
             Grants access to the `zwlr_virtual_pointer_manager_v1` global.
+        - value: keyboard-shortcuts-inhibit
+          description: |
+            Grants access to the `zwp_keyboard_shortcuts_inhibit_manager_v1` global.
     - kind: array
       description: An array of masks that are OR'd.
       items:

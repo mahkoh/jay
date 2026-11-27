@@ -1153,6 +1153,12 @@ pub enum ClientMessage<'a> {
         seat: Seat,
         target: JcWarpTarget,
     },
+    SetShortcutAllowInhibited {
+        seat: Seat,
+        mods: Modifiers,
+        sym: KeySym,
+        allow: bool,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

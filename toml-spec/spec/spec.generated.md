@@ -1615,6 +1615,10 @@ The string should have one of the following values:
 
   Grants access to the `zwlr_virtual_pointer_manager_v1` global.
 
+- `keyboard-shortcuts-inhibit`:
+
+  Grants access to the `zwp_keyboard_shortcuts_inhibit_manager_v1` global.
+
 
 #### An array
 
@@ -2129,6 +2133,25 @@ The table has the following fields:
         repeat = true,
         allow-locked = true,
     }
+    ```
+  
+  The default is `false`.
+
+  The value of this field should be a boolean.
+
+- `allow-inhibited` (optional):
+
+  Whether this shortcut will be executed even if the focused window inhibits
+  shortcuts.
+  
+  Windows can only inhibit shortcuts if they have the
+  `keyboard-shortcuts-inhibit` capability.
+  
+  - Example:
+  
+    ```toml
+    [complex-shortcuts]
+    alt-q = { action = "close", allow-inhibited = true }
     ```
   
   The default is `false`.

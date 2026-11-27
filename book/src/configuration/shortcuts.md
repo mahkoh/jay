@@ -458,6 +458,8 @@ table. They support:
   (defaults to `false`). See [Repeating shortcuts](#repeating-shortcuts).
 - **`allow-locked`** -- whether the shortcut fires even while the screen is
   locked (defaults to `false`). See [Shortcuts while locked](#shortcuts-while-the-screen-is-locked).
+- **`allow-inhibited`** -- whether the shortcut fires even while the focused
+  window inhibits shortcuts (defaults to `false`). See [Shortcuts while inhibited](#shortcuts-while-inhibited).
 
 ### Volume keys regardless of modifiers
 
@@ -546,6 +548,39 @@ XF86AudioLowerVolume = {
 
 `allow-locked` is only available on complex shortcuts; entries in the plain
 `[shortcuts]` table never fire while locked.
+
+### Shortcuts while inhibited
+
+By default, shortcuts do not fire while the focused window inhibits them --
+the key presses go to the window instead. Only clients with the
+`keyboard-shortcuts-inhibit` capability can do this; see
+[Granting Privileges](../window-rules.md#granting-privileges):
+
+```toml
+# VM viewers launched with `jay run-tagged vm <program>`.
+[[clients]]
+match.tag = "vm"
+capabilities = "keyboard-shortcuts-inhibit"
+```
+
+Set `allow-inhibited = true` to let a shortcut fire anyway. This is most
+useful for shortcuts that must always work, such as switching VTs:
+
+```toml
+[complex-shortcuts]
+ctrl-alt-F1 = {
+    action = { type = "switch-to-vt", num = 1 },
+    allow-inhibited = true,
+}
+alt-q = {
+    action = "quit",
+    allow-inhibited = true,
+}
+```
+
+`allow-inhibited` is only available on complex shortcuts; entries in the plain
+`[shortcuts]` table never fire while inhibited. Key releases are never
+inhibited.
 
 ## Marks
 

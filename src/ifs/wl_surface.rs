@@ -25,6 +25,7 @@ pub mod xwayland_shell_v1;
 pub mod zwlr_layer_surface_v1;
 pub mod zwp_idle_inhibitor_v1;
 pub mod zwp_input_popup_surface_v2;
+pub mod zwp_keyboard_shortcuts_inhibitor_v1;
 
 use crate::backend::ButtonState;
 use crate::backend::KeyState;

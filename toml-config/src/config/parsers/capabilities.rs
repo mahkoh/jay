@@ -14,6 +14,7 @@ use jay_config::client::CC_GAMMA_CONTROL_MANAGER;
 use jay_config::client::CC_HEAD_MANAGER;
 use jay_config::client::CC_IDLE_NOTIFIER;
 use jay_config::client::CC_INPUT_METHOD;
+use jay_config::client::CC_KEYBOARD_SHORTCUTS_INHIBIT;
 use jay_config::client::CC_LAYER_SHELL;
 use jay_config::client::CC_SCREENCOPY;
 use jay_config::client::CC_SEAT_MANAGER;
@@ -58,6 +59,7 @@ impl Parser for CapabilitiesParser {
             "head-manager" => CC_HEAD_MANAGER,
             "gamma-control-manager" => CC_GAMMA_CONTROL_MANAGER,
             "virtual-pointer" => CC_VIRTUAL_POINTER,
+            "keyboard-shortcuts-inhibit" => CC_KEYBOARD_SHORTCUTS_INHIBIT,
             _ => {
                 return Err(
                     CapabilitiesParserError::UnknownCapability(string.to_owned()).spanned(span),
