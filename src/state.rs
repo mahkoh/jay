@@ -1825,6 +1825,11 @@ impl State {
         self.eng.now_rt().usec()
     }
 
+    #[expect(unused)]
+    pub fn now_nsec_bt(&self) -> u64 {
+        self.eng.now_bt().nsec()
+    }
+
     pub fn output_extents_changed(&self) {
         self.root.update_extents();
         for seat in self.globals.seats.lock().values() {

@@ -33,6 +33,7 @@ pub struct AsyncEngine {
     stopped: Cell<bool>,
     now: TimeIteration,
     now_rt: TimeIteration,
+    now_bt: TimeIteration,
     #[cfg(feature = "it")]
     idle: Cell<Option<Waker>>,
 }
@@ -54,6 +55,7 @@ impl AsyncEngine {
             stopped: Cell::new(false),
             now: Default::default(),
             now_rt: Default::default(),
+            now_bt: Default::default(),
             #[cfg(feature = "it")]
             idle: Default::default(),
         })
@@ -168,6 +170,10 @@ impl AsyncEngine {
 
     pub fn now_rt(&self) -> Time {
         self.now_rt.get(self, Time::now_unchecked_rt)
+    }
+
+    pub fn now_bt(&self) -> Time {
+        self.now_bt.get(self, Time::now_unchecked_bt)
     }
 }
 
