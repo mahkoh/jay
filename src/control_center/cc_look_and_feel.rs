@@ -148,6 +148,22 @@ impl LookAndFeelPane {
                 self.state.flatten_container.get(),
                 |v| self.state.set_flatten_container(v),
             );
+            combo_box_ui(
+                ui,
+                "Default Mono Style",
+                |ui| {
+                    tip(ui, |ui| {
+                        ui.label(concat!(
+                            "The mono style of newly created containers: Tabbed shows the ",
+                            "title bars next to each other, Stacked shows them below each ",
+                            "other.",
+                        ));
+                        ui.label("Changing this does not affect existing containers.");
+                    });
+                },
+                self.state.default_mono_style.get(),
+                |v| self.state.set_default_mono_style(v),
+            );
             row(ui, "Font", |ui| {
                 let mut v = self.state.theme.font.get().to_string();
                 if text_edit(ui, &mut v).changed() {

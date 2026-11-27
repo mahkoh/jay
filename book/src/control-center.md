@@ -483,6 +483,10 @@ Flatten Container
 : Dropdown to select when single-child containers are flattened (see
   [Flatten Container](configuration/misc.md#flatten-container))
 
+Default Mono Style
+: Dropdown to select the mono style of newly created containers (`Tabbed` or
+  `Stacked`, see [Default Mono Style](configuration/misc.md#default-mono-style))
+
 Font
 : Text field for the main compositor font family
 

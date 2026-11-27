@@ -243,6 +243,18 @@ are automatically flattened into their parent:
 flatten-container = "never" # default
 ```
 
+## Default Mono Style
+
+Controls the [mono style](../tiling.md#mono-styles) of newly created
+containers: `tabbed` shows the titles next to each other, `stacked` shows them
+below each other.
+
+Changing this does not affect existing containers.
+
+```toml
+default-mono-style = "tabbed"  # default
+```
+
 ## Middle-Click Paste
 
 Controls whether middle-clicking pastes the primary selection. Changing this

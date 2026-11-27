@@ -109,7 +109,7 @@ keybindings are listed below.
 : Toggle split direction
 
 `alt-m`
-: Toggle mono (stacking) layout
+: Toggle mono layout (show one window at a time)
 
 `alt-f`
 : Focus parent container
