@@ -84,7 +84,7 @@ use crate::utils::reset_immutable::ResetImmutable;
 use crate::utils::stack::Stack;
 use crate::utils::timer::TimerError;
 use crate::utils::timer::TimerFd;
-use az::SaturatingCast;
+use az::saturating_cast;
 use jay_algorithms::oserror::OsErrorExt;
 use jay_config::_private::ClientCriterionIpc;
 use jay_config::_private::ClientCriterionStringField;
@@ -3503,12 +3503,12 @@ impl ConfigProxyHandler {
 
     fn handle_set_transaction_timeout(&self, timeout: Duration) {
         self.state
-            .set_transaction_timeout_ns(SaturatingCast::saturating_cast(timeout.as_nanos()));
+            .set_transaction_timeout_ns(saturating_cast(timeout.as_nanos()));
     }
 
     fn handle_set_configure_timeout(&self, timeout: Duration) {
         self.state
-            .set_configure_timeout_ns(SaturatingCast::saturating_cast(timeout.as_nanos()));
+            .set_configure_timeout_ns(saturating_cast(timeout.as_nanos()));
     }
 
     fn handle_set_container_borders(&self, borders: JcContainerBorders) {
