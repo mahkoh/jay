@@ -270,7 +270,7 @@ impl Backend for MetalBackend {
         true
     }
 
-    fn get_input_fds(&self) -> Vec<Rc<OwnedFd>> {
+    fn get_keepalive_fds(&self) -> Vec<Rc<OwnedFd>> {
         let mut res = vec![];
         for dev in &*self.device_holder.input_devices.borrow() {
             if let Some(dev) = dev
@@ -278,6 +278,9 @@ impl Backend for MetalBackend {
             {
                 res.push(fd);
             }
+        }
+        for dev in self.device_holder.drm_devices.lock().values() {
+            res.push(dev.dev.master.fd().clone());
         }
         res
     }
