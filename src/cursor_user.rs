@@ -11,6 +11,7 @@ use crate::state::State;
 use crate::tree::OutputNode;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::WorkspaceNode;
+use crate::utils::clamp_ext::ClampExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
@@ -436,8 +437,14 @@ impl CursorUser {
         if !self.output_pos.get().contains(x_int, y_int) {
             let (output, x_tmp, y_tmp) = self.group.state.find_closest_output(x_int, y_int);
             self.set_output(&output);
-            x = x.apply_fract(x_tmp);
-            y = y.apply_fract(y_tmp);
+            x = x.clamp_saturating(
+                Fixed::from_int(x_tmp),
+                Fixed::from_int(x_tmp + 1) - Fixed::EPSILON,
+            );
+            y = y.clamp_saturating(
+                Fixed::from_int(y_tmp),
+                Fixed::from_int(y_tmp + 1) - Fixed::EPSILON,
+            );
         }
         if self.software_cursor()
             && let Some(cursor) = self.cursor.get()
