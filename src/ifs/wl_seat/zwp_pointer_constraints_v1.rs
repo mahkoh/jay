@@ -12,6 +12,7 @@ use crate::object::Version;
 use crate::rect::Rect;
 use crate::rect::Region;
 use crate::tree::TreeTimeline::LiveTL;
+use crate::utils::clamp_ext::ClampExt;
 use crate::utils::clonecell::CloneCell;
 use crate::wire::WlPointerId;
 use crate::wire::WlRegionId;
@@ -111,7 +112,7 @@ impl SeatConstraint {
         true
     }
 
-    pub fn warp(&self, mut x: Fixed, mut y: Fixed) -> (Fixed, Fixed) {
+    pub fn warp(&self, x: Fixed, y: Fixed) -> (Fixed, Fixed) {
         let (x_int, y_int) = (x.round_down(), y.round_down());
         let mut best_rect;
         if let Some(region) = self.region.get() {
@@ -130,17 +131,16 @@ impl SeatConstraint {
         } else {
             best_rect = self.surface.buffer_abs_pos[LiveTL].get().at_point(0, 0);
         }
-        if x_int < best_rect.x1() {
-            x = Fixed::from_int(best_rect.x1());
-        } else if x_int >= best_rect.x2() {
-            x = Fixed::from_int(best_rect.x2()) - Fixed::EPSILON;
-        }
-        if y_int < best_rect.y1() {
-            y = Fixed::from_int(best_rect.y1());
-        } else if y_int >= best_rect.y2() {
-            y = Fixed::from_int(best_rect.y2()) - Fixed::EPSILON;
-        }
-        (x, y)
+        (
+            x.clamp_saturating(
+                Fixed::from_int(best_rect.x1()),
+                Fixed::from_int(best_rect.x2()) - Fixed::EPSILON,
+            ),
+            y.clamp_saturating(
+                Fixed::from_int(best_rect.y1()),
+                Fixed::from_int(best_rect.y2()) - Fixed::EPSILON,
+            ),
+        )
     }
 
     fn detach(&self) {
