@@ -454,7 +454,8 @@ impl CursorUser {
             let old_y_int = old_y.round_down();
             let extents = cursor.damage_extents();
             self.group.damage(extents.move_(old_x_int, old_y_int));
-            self.group.damage(extents.move_(x_int, y_int));
+            self.group
+                .damage(extents.move_(x.round_down(), y.round_down()));
         }
         self.pos.set((x, y));
         self.update_hardware_cursor_(false);
