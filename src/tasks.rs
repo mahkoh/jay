@@ -37,7 +37,7 @@ pub async fn handle_slow_ei_clients(state: Rc<State>) {
 pub async fn handle_const_40hz_latch(state: Rc<State>) {
     let output = state.dummy_output.get().unwrap();
     let duration = Duration::from_nanos(1_000_000_000 / 40);
-    run_const_clock(duration, &state.ring, &state.const_40hz_latch, |l| {
+    run_const_clock(duration, &state, &state.const_40hz_latch, |l| {
         l.after_latch(&output, false);
     })
     .await;

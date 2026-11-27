@@ -1,36 +1,27 @@
-use crate::io_uring::IoUring;
+use crate::state::State;
 use crate::utils::asyncevent::AsyncEvent;
 use crate::utils::errorfmt::ErrorFmt;
 use crate::utils::event_listener::EventSource;
-use crate::utils::timer::TimerFd;
+use crate::utils::timer::next_expiration;
+use az::saturating_cast;
 use std::rc::Rc;
 use std::time::Duration;
-use uapi::c;
 
 pub async fn run_const_clock<T, F>(
     duration: Duration,
-    ring: &Rc<IoUring>,
+    state: &Rc<State>,
     source: &EventSource<T>,
     mut f: F,
 ) where
     T: ?Sized,
     F: FnMut(Rc<T>),
 {
-    let timer = match TimerFd::new(c::CLOCK_MONOTONIC) {
-        Ok(fd) => fd,
-        Err(e) => {
-            log::error!("Could not create timerfd: {}", ErrorFmt(e));
-            return;
-        }
-    };
-    if let Err(e) = timer.program(Some(duration), Some(duration)) {
-        log::error!("Could not program timerfd: {}", ErrorFmt(e));
-        return;
-    }
+    let interval = saturating_cast(duration.as_nanos());
+    let mut next = state.now_nsec().saturating_add(interval);
     let ae = Rc::new(AsyncEvent::default());
     loop {
-        if let Err(e) = timer.expired(&ring).await {
-            log::error!("Could not wait for timerfd to expire: {}", ErrorFmt(e));
+        if let Err(e) = state.ring.timeout(next).await {
+            log::error!("Could not wait for timeout to expire: {}", ErrorFmt(e));
             return;
         }
         let mut dispatched_any = false;
@@ -43,5 +34,6 @@ pub async fn run_const_clock<T, F>(
             source.on_attach(Box::new(move || ae2.trigger()));
             ae.triggered().await;
         }
+        next = next_expiration(state.now_nsec(), next, interval);
     }
 }
