@@ -285,9 +285,8 @@ impl XdgToplevel {
 
     pub fn set_icon_factory(&self, factory: Option<&Rc<JayIconSurfaceFactoryV1>>) {
         self.icon_surface_factory.set(factory.cloned());
-        if let Some(parent) = self.toplevel_data.parent.get() {
-            parent.cnode_child_icon_factory_changed(self.node_id.into());
-        }
+        self.toplevel_data
+            .notify_icon_factory_changed(self.node_id.into());
     }
 }
 

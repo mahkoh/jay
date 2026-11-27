@@ -23,17 +23,21 @@ async fn test(run: Rc<TestRun>) -> TestResult {
     tassert_eq!(factory.surfaces.borrow().len(), 1);
 
     // Fullscreening the window replaces it by a placeholder in the container.
+    // The placeholder forwards the icon of the window it stands for, so the
+    // container builds a new icon surface for the tile.
     run.cfg.set_fullscreen(ds.seat.id(), true)?;
     client.sync().await;
     tassert!(factory.surfaces.borrow()[0].finished.get());
-    tassert_eq!(factory.surfaces.borrow().len(), 1);
+    tassert_eq!(factory.surfaces.borrow().len(), 2);
+    tassert!(!factory.surfaces.borrow()[1].finished.get());
 
     // Returning the window to the container creates exactly one new icon
     // surface.
     run.cfg.set_fullscreen(ds.seat.id(), false)?;
     client.sync().await;
-    tassert_eq!(factory.surfaces.borrow().len(), 2);
-    tassert!(!factory.surfaces.borrow()[1].finished.get());
+    tassert_eq!(factory.surfaces.borrow().len(), 3);
+    tassert!(factory.surfaces.borrow()[1].finished.get());
+    tassert!(!factory.surfaces.borrow()[2].finished.get());
 
     Ok(())
 }

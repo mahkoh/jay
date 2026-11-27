@@ -1086,6 +1086,17 @@ impl ToplevelData {
         data.as_ref().and_then(|fd| fd.slot.pending().cloned())
     }
 
+    pub fn notify_icon_factory_changed(&self, node_id: NodeId) {
+        // A tile sits in the slot of a fullscreen window, so its parent is notified.
+        let (parent, child) = match self.fullscreen_slot_node() {
+            Some(tile) => (tile.tl_data().parent.get(), tile.node_id()),
+            None => (self.parent.get(), node_id),
+        };
+        if let Some(parent) = parent {
+            parent.cnode_child_icon_factory_changed(child);
+        }
+    }
+
     pub fn fullscreen_slot_node(&self) -> Option<Rc<dyn ToplevelNode>> {
         let data = self.fullscrceen_data.borrow();
         data.as_ref().map(|fd| fd.slot.node())

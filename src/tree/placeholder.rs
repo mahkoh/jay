@@ -3,6 +3,7 @@ use crate::cursor::KnownCursor;
 use crate::fixed::Fixed;
 use crate::ifs::wl_seat::NodeSeatState;
 use crate::ifs::wl_seat::WlSeatGlobal;
+use crate::ifs::wl_surface::icon_surface::jay_icon_surface_factory_v1::JayIconSurfaceFactoryV1;
 use crate::rect::Rect;
 use crate::renderer::Renderer;
 use crate::scale::Scale;
@@ -20,6 +21,7 @@ use crate::tree::Direction;
 use crate::tree::FindTreeResult;
 use crate::tree::FindTreeUsecase;
 use crate::tree::FoundNode;
+use crate::tree::Node;
 use crate::tree::NodeBase;
 use crate::tree::NodeId;
 use crate::tree::NodeLayerLink;
@@ -375,6 +377,16 @@ impl NodeBase for PlaceholderNode {
 impl ToplevelNodeBase for PlaceholderNode {
     fn tl_data(&self) -> &ToplevelData {
         &self.toplevel
+    }
+
+    fn tl_focus_child(&self) -> Option<Rc<dyn Node>> {
+        self.toplevel.placeholder_window()?.tl_focus_child()
+    }
+
+    fn tl_icon_surface_factory(&self) -> Option<Rc<JayIconSurfaceFactoryV1>> {
+        self.toplevel
+            .placeholder_window()
+            .and_then(|tl| tl.tl_icon_surface_factory())
     }
 
     fn tl_set_workspace_ext(&self, ws: &Rc<WorkspaceNode>) {
