@@ -1,5 +1,29 @@
 # Unreleased
 
+## Pending Fullscreen
+
+A workspace can now have multiple fullscreen windows. The fullscreen window that
+currently has keyboard focus is the active one and covers the entire output. The
+other fullscreen windows of that workspace are pending: they keep their slot in
+the layout and are drawn as a tile with a fullscreen marker in its title bar and
+a preview of the window instead of its content.
+
+Clicking the tile of a pending fullscreen window, or focusing it in any other
+way, makes it the active one. Moving keyboard focus to another window of the
+same workspace demotes the previously active fullscreen window to pending
+instead of unsetting fullscreen. Right-clicking the tile of a pending fullscreen
+window exits fullscreen for that window. Moving a pending fullscreen window to
+another workspace keeps it fullscreen.
+
+What keyboard navigation does at a fullscreen window is controlled by the new
+`fullscreen-focus-move` setting. With `output`, the default, focus moves to the
+neighboring output and the window stays fullscreen. With `workspace`, the
+fullscreen window is turned back into a tile and the neighboring window in that
+direction gets focus. The same option is the *Fullscreen Focus Move* dropdown in
+the input pane of the control center.
+
+This is documented in the *Multiple Fullscreen Windows* section in the book.
+
 ## Stacked Mono Style
 
 Containers in mono mode can now show their title bars below each other instead

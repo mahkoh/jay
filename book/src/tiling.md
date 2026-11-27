@@ -163,6 +163,35 @@ alt-shift-u = "enter-fullscreen"
 alt-ctrl-u  = "exit-fullscreen"
 ```
 
+### Multiple Fullscreen Windows
+
+A workspace can have more than one fullscreen window. The one that has keyboard
+focus is *active* and covers the whole output. The others are *pending*: they
+keep their slot in the layout and are drawn as a tile that shows a fullscreen
+icon and a scaled preview of the window.
+
+Only one window can cover the output, so focus changes move windows between
+these two states:
+
+- Moving keyboard focus to another window of the same workspace demotes the
+  active fullscreen window to pending. The window stays fullscreen and keeps
+  its slot, but is no longer visible.
+- Moving keyboard focus to a pending window promotes it, so it covers the
+  output again. Clicking its tile does this, and so does `focus-prev` or an
+  activation request from the window's client.
+- Right-clicking a pending tile takes that window out of fullscreen and shows
+  it in the layout again.
+- Moving keyboard focus to a floating window leaves the fullscreen window
+  active while [float above fullscreen](floating.md#float-above-fullscreen) is
+  enabled, since the fullscreen window still covers the workspace.
+
+Hovering a pending tile shows these two actions as a hint. A pending fullscreen
+window still counts as fullscreen, so window rules and the control center window
+list treat it like a fullscreen window.
+
+Keyboard navigation away from the active fullscreen window is configurable, see
+[Fullscreen Focus Move](configuration/misc.md#fullscreen-focus-move).
+
 ## Resizing Tiles
 
 Drag the separators between tiles with the mouse to resize them. The separator

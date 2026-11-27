@@ -96,6 +96,11 @@ alt-shift-a = "toggle-float-above-fullscreen"
 This is a global setting -- it affects all floating windows, not just the
 focused one.
 
+A float that contains the tile of a pending fullscreen window stays visible
+above the fullscreen window even when this setting is off, so that the tile can
+be clicked. See
+[Multiple Fullscreen Windows](tiling.md#multiple-fullscreen-windows).
+
 ## Window Rules: Initial Tile State
 
 You can force specific windows to start as floating (or tiled) using the
