@@ -11,6 +11,7 @@ use crate::state::State;
 use crate::tree::OutputNode;
 use crate::tree::TreeTimeline::LiveTL;
 use crate::tree::WorkspaceNode;
+use crate::utils::clamp_ext::ClampExt;
 use crate::utils::clonecell::CloneCell;
 use crate::utils::copyhashmap::CopyHashMap;
 use crate::utils::errorfmt::ErrorFmt;
@@ -434,10 +435,17 @@ impl CursorUser {
         let x_int = x.round_down();
         let y_int = y.round_down();
         if !self.output_pos.get().contains(x_int, y_int) {
-            let (output, x_tmp, y_tmp) = self.group.state.find_closest_output(x_int, y_int);
+            let output = self.group.state.find_closest_output(x_int, y_int);
             self.set_output(&output);
-            x = x.apply_fract(x_tmp);
-            y = y.apply_fract(y_tmp);
+            let pos = self.output_pos.get();
+            x = x.clamp_saturating(
+                Fixed::from_int(pos.x1()),
+                Fixed::from_int(pos.x2()) - Fixed::EPSILON,
+            );
+            y = y.clamp_saturating(
+                Fixed::from_int(pos.y1()),
+                Fixed::from_int(pos.y2()) - Fixed::EPSILON,
+            );
         }
         if self.software_cursor()
             && let Some(cursor) = self.cursor.get()
@@ -447,7 +455,8 @@ impl CursorUser {
             let old_y_int = old_y.round_down();
             let extents = cursor.damage_extents();
             self.group.damage(extents.move_(old_x_int, old_y_int));
-            self.group.damage(extents.move_(x_int, y_int));
+            self.group
+                .damage(extents.move_(x.round_down(), y.round_down()));
         }
         self.pos.set((x, y));
         self.update_hardware_cursor_(false);
