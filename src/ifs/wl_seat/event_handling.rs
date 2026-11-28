@@ -63,6 +63,7 @@ use crate::tree::Node;
 use crate::tree::NodeBase;
 use crate::tree::ToplevelNode;
 use crate::tree::TreeTimeline::LiveTL;
+use crate::tree::demote_fullscreen_of_workspace;
 use crate::utils::bitflags::BitflagsExt;
 use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::linkedlist::LinkedNode;
@@ -85,6 +86,7 @@ use kbvm::ModifierMask;
 use kbvm::evdev;
 use kbvm::state_machine::Event;
 use linearize::LinearizeExt;
+use run_on_drop::on_drop;
 use smallvec::SmallVec;
 use std::cell::Cell;
 use std::cell::RefCell;
@@ -1130,11 +1132,8 @@ impl WlSeatGlobal {
             && node.node_accepts_focus()
             && node.node_id() != self.keyboard_node.get().node_id()
         {
-            if !node.node_visible(LiveTL) {
-                node.clone().node_make_visible_dyn();
-                if !node.node_visible(LiveTL) {
-                    return;
-                }
+            if !self.make_visible_for_focus(&node) {
+                return;
             }
             self.focus_node(node);
             self.maybe_schedule_warp_mouse_to_focus();
@@ -1207,6 +1206,91 @@ impl WlSeatGlobal {
 
     pub fn focus_node_with_serial(self: &Rc<Self>, node: Rc<dyn Node>, serial: u64) {
         self.kb_owner.set_kb_node(self, node, serial);
+    }
+
+    pub fn fullscreen_focus_transition(self: &Rc<Self>, old: &Rc<dyn Node>, new: &Rc<dyn Node>) {
+        // Hiding or showing a window can move keyboard focus to a history
+        // candidate, which re-enters this function; only the outer call acts.
+        if self.fullscreen_focus_transition_running.get() {
+            return;
+        }
+        self.fullscreen_focus_transition_running.set(true);
+        let _reset = on_drop(|| {
+            self.fullscreen_focus_transition_running.set(false);
+        });
+        let state = &self.state;
+        let Some(new_tl) = new.clone().node_toplevel() else {
+            return;
+        };
+        let new_data = new_tl.tl_data();
+        let new_ws = new_data.workspace[LiveTL].get();
+        let new_pending = new_data.is_pending_fullscreen();
+        let new_parent_float = new_data.parent_is_float.get();
+        if new_pending {
+            if let Some(ws) = &new_ws {
+                // Deferred for the same reason as the demote below.
+                let ws = ws.clone();
+                let seat = self.clone();
+                let new_tl = new_tl.clone();
+                state.run_toplevel.schedule(move || {
+                    let data = new_tl.tl_data();
+                    data.restore_fullscreen(&new_tl, &ws);
+                    // The window may have been hidden when focus moved to it.
+                    seat.focus_toplevel(new_tl.clone());
+                });
+            }
+        }
+        let Some(old_tl) = old.clone().node_toplevel() else {
+            return;
+        };
+        let old_data = old_tl.tl_data();
+        let old_ws = old_data.workspace[LiveTL].get();
+        // Only one window can hold the slot, so the old one has to give it up first.
+        if let (Some(old_ws), Some(new_ws)) = (&old_ws, &new_ws) {
+            if old_tl.node_id() != new_tl.node_id()
+                && old_ws.id == new_ws.id
+                && old_data.is_active_fullscreen()
+                && !(new_parent_float && state.float_above_fullscreen.get())
+            {
+                // The swap must not run inside this handler: a button press holds
+                // its cursor state borrowed and can be re-dispatched by it.
+                let old_ws = old_ws.clone();
+                state.run_toplevel.schedule(move || {
+                    let data = old_tl.tl_data();
+                    data.demote_fullscreen(&old_tl, &old_ws);
+                });
+            }
+        }
+    }
+
+    // Demotes the active fullscreen window of the workspace of `node`, so that `node`
+    // can become visible.
+    pub fn make_visible_for_focus(self: &Rc<Self>, node: &Rc<dyn Node>) -> bool {
+        if !node.node_visible(LiveTL) {
+            node.clone().node_make_visible_dyn();
+        }
+        if node.node_visible(LiveTL) {
+            return true;
+        }
+        let Some(tl) = node.clone().node_toplevel() else {
+            return false;
+        };
+        let data = tl.tl_data();
+        if data.is_pending_fullscreen() || data.is_active_fullscreen() {
+            return true;
+        }
+        let Some(ws) = data.workspace[LiveTL].get() else {
+            return false;
+        };
+        let Some(fs) = demote_fullscreen_of_workspace(&ws) else {
+            return false;
+        };
+        node.clone().node_make_visible_dyn();
+        if node.node_visible(LiveTL) {
+            return true;
+        }
+        fs.tl_data().restore_fullscreen(&fs, &ws);
+        false
     }
 
     fn for_each_seat<C>(&self, ver: Version, client: ClientId, mut f: C)

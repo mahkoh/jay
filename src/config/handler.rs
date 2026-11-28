@@ -121,6 +121,7 @@ use jay_config::input::FocusFollowsMouseMode;
 use jay_config::input::InputDevice;
 use jay_config::input::InputEventCode as ConfigInputEventCode;
 use jay_config::input::JcFallbackOutputMode;
+use jay_config::input::JcFullscreenFocusMove;
 use jay_config::input::JcWarpTarget;
 use jay_config::input::LayerDirection;
 use jay_config::input::Seat;
@@ -3087,6 +3088,16 @@ impl ConfigProxyHandler {
         Ok(())
     }
 
+    fn handle_seat_set_fullscreen_focus_move(
+        &self,
+        seat: Seat,
+        mode: JcFullscreenFocusMove,
+    ) -> Result<(), CphError> {
+        let seat = self.get_seat(seat)?;
+        seat.set_fullscreen_focus_move(mode.into());
+        Ok(())
+    }
+
     fn get_sized(&self, sized: Resizable) -> Result<ThemeSized, CphError> {
         use jay_config::theme::sized::*;
         let sized = match sized {
@@ -4390,6 +4401,9 @@ impl ConfigProxyHandler {
             ClientMessage::SeatWarpMouseToFocusTarget { seat, target } => self
                 .handle_seat_warp_mouse_to_focus_target(seat, target)
                 .wrn("seat_warp_mouse_to_focus_target")?,
+            ClientMessage::SeatSetFullscreenFocusMove { seat, mode } => self
+                .handle_seat_set_fullscreen_focus_move(seat, mode)
+                .wrn("seat_set_fullscreen_focus_move")?,
             ClientMessage::ConnectorSetUseNativeGamut {
                 connector,
                 use_native_gamut,

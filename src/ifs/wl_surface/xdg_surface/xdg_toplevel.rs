@@ -285,9 +285,8 @@ impl XdgToplevel {
 
     pub fn set_icon_factory(&self, factory: Option<&Rc<JayIconSurfaceFactoryV1>>) {
         self.icon_surface_factory.set(factory.cloned());
-        if let Some(parent) = self.toplevel_data.parent.get() {
-            parent.cnode_child_icon_factory_changed(self.node_id.into());
-        }
+        self.toplevel_data
+            .notify_icon_factory_changed(self.node_id.into());
     }
 }
 
@@ -707,6 +706,20 @@ impl NodeBase for XdgToplevel {
 impl ToplevelNodeBase for XdgToplevel {
     fn tl_data(&self) -> &ToplevelData {
         &self.toplevel_data
+    }
+
+    fn tl_render_preview(
+        &self,
+        renderer: &mut Renderer<'_>,
+        x: i32,
+        y: i32,
+        w: i32,
+        h: i32,
+        bounds: Option<&Rect>,
+    ) -> bool {
+        // The tile shows the window geometry.
+        let geo = self.xdg.geometry(RenderTL);
+        renderer.render_surface_scaled_fit(&self.xdg.surface, x, y, w, h, bounds, geo)
     }
 
     fn tl_set_active(&self, active: bool) {

@@ -21,6 +21,7 @@ use crate::input::FocusFollowsMouseMode;
 use crate::input::InputDevice;
 use crate::input::InputEventCode;
 use crate::input::JcFallbackOutputMode;
+use crate::input::JcFullscreenFocusMove;
 use crate::input::JcWarpTarget;
 use crate::input::LayerDirection;
 use crate::input::Seat;
@@ -1176,6 +1177,10 @@ pub enum ClientMessage<'a> {
         style: JcMonoStyle,
     },
     GetDefaultMonoStyle,
+    SeatSetFullscreenFocusMove {
+        seat: Seat,
+        mode: JcFullscreenFocusMove,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug)]

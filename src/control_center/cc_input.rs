@@ -265,6 +265,28 @@ impl InputPane {
                     });
                     combo_box_ui(
                         ui,
+                        "Fullscreen Focus Move",
+                        |ui| {
+                            tip(ui, |ui| {
+                                ui.label(concat!(
+                                    "This determines where keyboard focus goes when ",
+                                    "keyboard navigation moves away from a fullscreen window.",
+                                ));
+                                ui.label(concat!(
+                                    "`Output` moves focus to the output in that direction, ",
+                                    "and the window stays fullscreen.",
+                                ));
+                                ui.label(concat!(
+                                    "`Workspace` turns the fullscreen window into a tile of ",
+                                    "its workspace and moves focus to a sibling of that tile.",
+                                ));
+                            });
+                        },
+                        seat.fullscreen_focus_move(),
+                        |o| seat.set_fullscreen_focus_move(o),
+                    );
+                    combo_box_ui(
+                        ui,
                         "Fallback Output Mode",
                         |ui| {
                             tip(ui, |ui| {

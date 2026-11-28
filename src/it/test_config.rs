@@ -20,6 +20,7 @@ use jay_config::Axis;
 use jay_config::Direction;
 use jay_config::JcContainerTarget;
 use jay_config::input::InputDevice;
+use jay_config::input::JcFullscreenFocusMove;
 use jay_config::input::Seat;
 use jay_config::keyboard::Keymap;
 use jay_config::keyboard::ModifiedKeySym;
@@ -294,6 +295,17 @@ impl TestConfig {
         self.send(ClientMessage::SetSeatFullscreen {
             seat: Seat(seat.raw() as _),
             fullscreen: fs,
+        })
+    }
+
+    pub fn set_fullscreen_focus_move(
+        &self,
+        seat: SeatId,
+        mode: JcFullscreenFocusMove,
+    ) -> TestResult {
+        self.send(ClientMessage::SeatSetFullscreenFocusMove {
+            seat: Seat(seat.raw() as _),
+            mode,
         })
     }
 

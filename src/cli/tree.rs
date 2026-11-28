@@ -14,6 +14,7 @@ use crate::ifs::jay_tree_query::TREE_TY_FLOAT;
 use crate::ifs::jay_tree_query::TREE_TY_LAYER_SURFACE;
 use crate::ifs::jay_tree_query::TREE_TY_LOCK_SURFACE;
 use crate::ifs::jay_tree_query::TREE_TY_OUTPUT;
+use crate::ifs::jay_tree_query::TREE_TY_PENDING_FULLSCREEN;
 use crate::ifs::jay_tree_query::TREE_TY_PLACEHOLDER;
 use crate::ifs::jay_tree_query::TREE_TY_WORKSPACE;
 use crate::ifs::jay_tree_query::TREE_TY_X_WINDOW;
@@ -421,6 +422,7 @@ impl Printer {
                 TREE_TY_XDG_POPUP => "xdg-popup",
                 TREE_TY_LAYER_SURFACE => "layer-surface",
                 TREE_TY_LOCK_SURFACE => "lock-surface",
+                TREE_TY_PENDING_FULLSCREEN => "pending-fullscreen",
                 _ => {
                     println!("{p}- unknown ({}):", node.ty);
                     break 'ty;

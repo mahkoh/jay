@@ -58,6 +58,7 @@ use linearize::LinearizeExt;
 use linearize::StaticMap;
 use linearize::static_map;
 pub use output::*;
+pub use pendingfullscreen::*;
 pub use placeholder::*;
 pub use stacked::*;
 use std::cell::Cell;
@@ -75,6 +76,7 @@ mod containing;
 mod display;
 mod float;
 mod output;
+mod pendingfullscreen;
 mod placeholder;
 mod stacked;
 mod toplevel;
@@ -1009,6 +1011,16 @@ pub trait NodeBase: GetLiveness + 'static {
     fn node_is_placeholder(&self) -> bool {
         false
     }
+
+    fn node_is_pending_fullscreen(&self) -> bool {
+        false
+    }
+
+    fn node_contains_pending_fullscreen(&self) -> bool {
+        false
+    }
+
+    fn node_pending_fullscreen_moved_to_ws(&self, _ws: &Rc<WorkspaceNode>) {}
 }
 
 pub trait Node: NodeBase {

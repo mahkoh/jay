@@ -648,6 +648,14 @@ impl Seat {
         get!().set_fallback_output_mode(self, mode.to_private());
     }
 
+    /// Sets how keyboard focus moves (e.g. left/right/up/down) behave when the focused
+    /// window is fullscreen.
+    ///
+    /// The default is `Output`.
+    pub fn set_fullscreen_focus_move(self, mode: FullscreenFocusMove) {
+        get!().seat_set_fullscreen_focus_move(self, mode.to_private());
+    }
+
     /// Enables or disable window management mode.
     ///
     /// In window management mode, floating windows can be moved by pressing the left
@@ -856,6 +864,19 @@ pub enum FallbackOutputMode {
     Cursor,
     /// Use the output the focus is on (highlighted window).
     Focus,
+}
+
+/// Defines how keyboard focus moves (e.g. left/right/up/down) behave when the focused
+/// window is fullscreen.
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, Eq, PartialEq, PrivateEnum)]
+#[non_exhaustive]
+pub enum FullscreenFocusMove {
+    /// Move focus to the neighbouring output in that direction. This is the default.
+    Output,
+    /// Keep focus on the workspace of the fullscreen window: the fullscreen window is
+    /// made visible in the layout again and the neighbouring window in that direction
+    /// gets focus.
+    Workspace,
 }
 
 /// Returns all seats.

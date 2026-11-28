@@ -339,6 +339,7 @@ pub struct ContainerChildNodeState {
 #[derive(Clone, CachedValue)]
 pub struct Offsets {
     pub overlay_icon: Cell<i32>,
+    pub fullscreen_icon: Cell<i32>,
     pub toplevel_icon: Cell<i32>,
     pub title: Cell<i32>,
 }
@@ -1605,10 +1606,10 @@ impl ContainerNode {
         seat: &Rc<WlSeatGlobal>,
         child: &dyn ToplevelNode,
         direction: Direction,
-    ) {
+    ) -> Option<NodeId> {
         let child = match self.child_nodes.borrow().get(&child.node_id()) {
             Some(c) => c.to_ref(),
-            _ => return,
+            _ => return None,
         };
         let ns = &self.node_state[LiveTL];
         let mc = ns.mono_child.get();
@@ -1632,15 +1633,16 @@ impl ContainerNode {
         let focus_in_parent = || {
             if let Some(parent) = self.toplevel_data.parent.get() {
                 if let Some(c) = parent.node_into_container() {
-                    c.move_focus_from_child(seat, self.deref(), direction);
-                } else if let Some(output) = self.find_neighboring_output(direction) {
+                    return c.move_focus_from_child(seat, self.deref(), direction);
+                }
+                if let Some(output) = self.find_neighboring_output(direction) {
                     output.take_keyboard_navigation_focus(seat, direction);
                 }
             }
+            None
         };
         if !in_line {
-            focus_in_parent();
-            return;
+            return focus_in_parent();
         }
         let prev = match direction {
             Direction::Left => true,
@@ -1654,14 +1656,14 @@ impl ContainerNode {
             false => child.next_valid(LiveTL),
         };
         let Some(sibling) = sibling else {
-            focus_in_parent();
-            return;
+            return focus_in_parent();
         };
         if mc.is_some() {
             self.activate_child(&sibling);
-        } else {
-            sibling.node.clone().node_do_focus_dyn(seat, direction);
         }
+        // activate_child does not focus a sibling hidden behind a fullscreen window.
+        sibling.node.clone().node_do_focus_dyn(seat, direction);
+        Some(sibling.node.node_id())
     }
 
     //
@@ -1903,11 +1905,14 @@ impl ContainerNode {
                     let cns = &child.node_state[LiveTL];
                     let rect = cns.title_rect.get();
                     if rect.contains(seat_data.x, seat_data.y) {
-                        self.activate_child(&child);
-                        child
-                            .node
-                            .clone()
-                            .node_do_focus_dyn(seat, Direction::Unspecified);
+                        // Focusing a pending tile restores its window and destroys it.
+                        if !child.node.node_is_pending_fullscreen() {
+                            self.activate_child(&child);
+                            child
+                                .node
+                                .clone()
+                                .node_do_focus_dyn(seat, Direction::Unspecified);
+                        }
                         break 'res (SeatOpKind::Move, child);
                     } else if !mono
                         && let Some(resize_handle) = child.resize_handle.get()
@@ -1939,14 +1944,39 @@ impl ContainerNode {
                 return;
             }
             seat_data.op = Some(SeatOp {
+                focus_on_release: kind == SeatOpKind::Move
+                    && child.node.node_is_pending_fullscreen(),
                 child,
                 kind,
                 x: seat_data.x,
                 y: seat_data.y,
             });
         } else if !pressed {
+            let focus = seat_data
+                .op
+                .as_ref()
+                .filter(|op| op.focus_on_release)
+                .filter(|op| {
+                    !self
+                        .state
+                        .ui_drag_threshold_reached((seat_data.x, seat_data.y), (op.x, op.y))
+                })
+                .map(|op| op.child.clone());
             seat_data.op = None;
             drop(seat_datas);
+            // The tile may have left this container while the button was held.
+            if let Some(child) = focus
+                && self
+                    .children
+                    .iter_valid(LiveTL)
+                    .any(|c| c.node.node_id() == child.node.node_id())
+            {
+                self.activate_child(&child);
+                child
+                    .node
+                    .clone()
+                    .node_do_focus_dyn(seat, Direction::Unspecified);
+            }
         }
     }
 
@@ -2454,6 +2484,10 @@ impl ContainerNode {
         if self.tl_data().is_overlay_root_container[LiveTL].get() {
             x += th;
         }
+        snapshot!(fullscreen_icon);
+        if child.node.tl_data().shows_fullscreen_marker() {
+            x += th;
+        }
         snapshot!(toplevel_icon);
         if cns.toplevel_icon.is_some() {
             x += th;
@@ -2461,6 +2495,7 @@ impl ContainerNode {
         snapshot!(title);
         let offsets = Offsets {
             overlay_icon, //
+            fullscreen_icon,
             toplevel_icon,
             title,
         };
@@ -2469,6 +2504,7 @@ impl ContainerNode {
         });
         let OffsetsChanged {
             overlay_icon, //
+            fullscreen_icon,
             toplevel_icon,
             title,
         } = changed;
@@ -2480,6 +2516,7 @@ impl ContainerNode {
         }
         let damage = or_chain!(____________________)
             || overlay_icon
+            || fullscreen_icon
             || toplevel_icon
             || title
             || or_chain!();
@@ -2560,6 +2597,7 @@ struct SeatOp {
     kind: SeatOpKind,
     x: i32,
     y: i32,
+    focus_on_release: bool,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -2983,6 +3021,8 @@ impl ContainingNode for ContainerNode {
         self.schedule_child_types();
         self.schedule_title_offsets(&link_ref);
         self.schedule_render_titles();
+        // cnode_replace_child does not schedule a layout for the new constraints.
+        self.schedule_layout();
     }
 
     fn cnode_remove_child2(self: Rc<Self>, child: &dyn Node, preserve_focus: bool) {
@@ -3059,8 +3099,8 @@ impl ContainingNode for ContainerNode {
         self.schedule_child_types();
     }
 
-    fn cnode_workspace(self: Rc<Self>) -> Rc<WorkspaceNode> {
-        self.workspace.get()
+    fn cnode_workspace(self: Rc<Self>) -> Option<Rc<WorkspaceNode>> {
+        Some(self.workspace.get())
     }
 
     fn cnode_make_visible(self: Rc<Self>, child: &dyn Node) {

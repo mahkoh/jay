@@ -5,10 +5,10 @@ use crate::leaks::Tracker;
 use crate::object::BreakLoops;
 use crate::object::Version;
 use crate::tree::Direction;
+use crate::tree::Node;
 use crate::tree::OutputNode;
 use crate::tree::OutputNodeId;
 use crate::tree::ToplevelOpt;
-use crate::tree::TreeTimeline::LiveTL;
 use crate::wire::ZwlrForeignToplevelHandleV1Id;
 use crate::wire::zwlr_foreign_toplevel_handle_v1::*;
 use arrayvec::ArrayVec;
@@ -63,15 +63,14 @@ impl ZwlrForeignToplevelHandleV1RequestHandler for ZwlrForeignToplevelHandleV1 {
 
     fn activate(&self, req: Activate, _slf: &Rc<Self>) -> Result<(), Self::Error> {
         if let Some(toplevel) = self.toplevel.get() {
-            if !toplevel.node_visible(LiveTL) {
-                toplevel.clone().node_make_visible_dyn();
-                if !toplevel.node_visible(LiveTL) {
-                    return Ok(());
-                }
-            }
             let seat = self.client.lookup(req.seat)?;
-            toplevel.node_do_focus_dyn(&seat.global, Direction::Unspecified);
-            seat.global.maybe_schedule_warp_mouse_to_focus();
+            let global = &seat.global;
+            let node: Rc<dyn Node> = toplevel.clone();
+            if !global.make_visible_for_focus(&node) {
+                return Ok(());
+            }
+            toplevel.node_do_focus_dyn(global, Direction::Unspecified);
+            global.maybe_schedule_warp_mouse_to_focus();
         }
         Ok(())
     }

@@ -126,7 +126,8 @@ pub struct FloatNodeState {
     requested_visible: Cell<bool>,
     pub position: Cell<Rect>,
     pub child: CloneCell<Option<Rc<dyn ToplevelNode>>>,
-    child_is_placeholder: Cell<bool>,
+    pub child_is_placeholder: Cell<bool>,
+    pub child_shows_fullscreen_marker: Cell<bool>,
     #[derivative(Default(value = "Cell::new(WorkspaceType::Normal)"))]
     pub workspace_ty: Cell<WorkspaceType>,
     pub title_rect: Cell<Rect>,
@@ -141,6 +142,7 @@ pub struct FloatNodeState {
 #[derive(CachedValue)]
 pub struct Offsets {
     pub overlay_icon: Cell<i32>,
+    pub fullscreen_icon: Cell<i32>,
     pub pin_icon: Cell<i32>,
     pub toplevel_icon: Cell<i32>,
     pub title: Cell<i32>,
@@ -162,6 +164,8 @@ struct CursorState {
     dist_hor: i32,
     dist_ver: i32,
     double_click_state: DoubleClickState,
+    focus_on_release: Option<Rc<dyn ToplevelNode>>,
+    op_start_pos: Rect,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -301,7 +305,7 @@ impl FloatNode {
         } else {
             calculate_float_position(output_rect, width, height)
         };
-        floater.set_ns_requested_visible(ws.float_visible());
+        floater.set_ns_requested_visible(ws.float_visible_for(floater.deref()));
         floater.set_position(position);
         floater.set_ns_child(Some(&child));
         floater.set_ns_workspace_type(ws.ty);
@@ -448,6 +452,8 @@ impl FloatNode {
             y,
             op_type: OpType::Move,
             op_active: false,
+            focus_on_release: None,
+            op_start_pos: Default::default(),
             dist_hor: 0,
             dist_ver: 0,
             double_click_state: Default::default(),
@@ -561,6 +567,10 @@ impl FloatNode {
         }
     }
 
+    pub fn move_to_workspace(self: &Rc<Self>, ws: &Rc<WorkspaceNode>) {
+        self.set_workspace_(ws, true, true);
+    }
+
     fn set_workspace_(
         self: &Rc<Self>,
         ws: &Rc<WorkspaceNode>,
@@ -570,6 +580,9 @@ impl FloatNode {
         let ns = &self.node_state[LiveTL];
         if let Some(c) = ns.child.get() {
             c.tl_set_workspace(ws);
+            if c.node_is_pending_fullscreen() {
+                c.node_pending_fullscreen_moved_to_ws(ws);
+            }
         }
         self.workspace_link
             .set(Some(ws.stacked.add_last(self.clone())));
@@ -587,7 +600,7 @@ impl FloatNode {
         }
         self.location.set(ws.location());
         if update_visible {
-            self.set_visible(ws.float_visible());
+            self.set_visible(ws.float_visible_for(self.deref()));
         }
         if update_pinned && let Some(pl) = &*self.pinned_link.borrow_mut() {
             ws.node_state[LiveTL]
@@ -795,8 +808,10 @@ impl FloatNode {
             if !pressed {
                 return;
             }
+            // A press that may become a move must not focus a pending tile.
             if cursor_data.op_type == OpType::Move
                 && let Some(tl) = ns.child.get()
+                && !tl.node_is_pending_fullscreen()
             {
                 tl.node_do_focus_dyn(seat, Direction::Unspecified);
             }
@@ -814,10 +829,15 @@ impl FloatNode {
                 return;
             }
             cursor_data.op_active = true;
+            cursor_data.focus_on_release = (cursor_data.op_type == OpType::Move)
+                .then(|| ns.child.get())
+                .flatten()
+                .filter(|tl| tl.node_is_pending_fullscreen());
             let pos = ns.position.get();
             match cursor_data.op_type {
                 OpType::Move => {
                     self.restack();
+                    cursor_data.op_start_pos = pos;
                     cursor_data.dist_hor = cursor_data.x;
                     cursor_data.dist_ver = cursor_data.y;
                 }
@@ -844,8 +864,28 @@ impl FloatNode {
             }
         } else if !pressed {
             cursor_data.op_active = false;
+            // A float can be moved even with ui_drag disabled, so measure the move.
+            let focus = cursor_data.focus_on_release.take().filter(|_| {
+                let start = cursor_data.op_start_pos;
+                let pos = self.node_state[LiveTL].position.get();
+                !self
+                    .state
+                    .drag_threshold_reached((pos.x1(), pos.y1()), (start.x1(), start.y1()))
+            });
             let ws = cursor.output().ensure_workspace();
+            // Making the float invisible reverts its pointer grab, which feeds the
+            // button release back into this handler, so the cursor map borrow goes first.
+            drop(cursors);
             self.set_workspace_(&ws, true, true);
+            // A pending fullscreen child moves to the other workspace's container.
+            if let Some(tl) = focus
+                && self.node_state[LiveTL]
+                    .child
+                    .get()
+                    .is_some_and(|c| c.node_id() == tl.node_id())
+            {
+                tl.node_do_focus_dyn(seat, Direction::Unspecified);
+            }
         }
     }
 
@@ -888,10 +928,15 @@ impl FloatNode {
     fn set_ns_child(self: &Rc<Self>, child: Option<&Rc<dyn ToplevelNode>>) {
         self.add_transaction_op(FloatTransactionOp::SetChild(child.cloned()));
         let is_placeholder = child.is_some_and(|c| c.node_is_placeholder());
-        self.add_transaction_op(FloatTransactionOp::SetChildIsPlaceholder(is_placeholder));
+        let is_fs_marker = child.is_some_and(|c| c.tl_data().shows_fullscreen_marker());
+        self.add_transaction_op(FloatTransactionOp::SetChildShowsFullscreenMarker(
+            is_fs_marker,
+        ));
         let ns = &self.node_state[LiveTL];
         ns.child.set(child.cloned());
         ns.child_is_placeholder.set(is_placeholder);
+        ns.child_shows_fullscreen_marker.set(is_fs_marker);
+        self.schedule_title_offsets();
     }
 
     fn set_ns_workspace_type(self: &Rc<Self>, v: WorkspaceType) {
@@ -1021,6 +1066,10 @@ impl FloatNode {
         if ns.workspace_ty.get() == WorkspaceType::Overlay {
             x += th;
         }
+        snapshot!(fullscreen_icon);
+        if ns.child_shows_fullscreen_marker.get() {
+            x += th;
+        }
         snapshot!(pin_icon);
         if ns.pinned.get() || theme.show_pin_icon.get() {
             x += th;
@@ -1032,6 +1081,7 @@ impl FloatNode {
         snapshot!(title);
         let offsets = Offsets {
             overlay_icon,
+            fullscreen_icon,
             pin_icon,
             toplevel_icon,
             title,
@@ -1041,6 +1091,7 @@ impl FloatNode {
         });
         let OffsetsChanged {
             overlay_icon,
+            fullscreen_icon,
             pin_icon,
             toplevel_icon,
             title,
@@ -1050,6 +1101,7 @@ impl FloatNode {
         }
         let damage = or_chain!(________)
             || overlay_icon
+            || fullscreen_icon
             || pin_icon
             || toplevel_icon
             || title
@@ -1330,6 +1382,13 @@ impl NodeBase for FloatNode {
         Some(self)
     }
 
+    fn node_contains_pending_fullscreen(&self) -> bool {
+        self.node_state[LiveTL]
+            .child
+            .get()
+            .is_some_and(|c| c.node_is_pending_fullscreen())
+    }
+
     fn node_is_float(&self) -> bool {
         true
     }
@@ -1339,6 +1398,7 @@ impl ContainingNode for FloatNode {
     fn cnode_replace_child(self: Rc<Self>, _old: &dyn Node, new: Rc<dyn ToplevelNode>) {
         self.discard_child_properties();
         self.set_ns_child(Some(&new));
+        self.set_visible(self.workspace.get().float_visible_for(self.deref()));
         new.tl_set_parent(self.clone());
         self.pull_child_properties();
         self.update_effective_visible();
@@ -1347,7 +1407,11 @@ impl ContainingNode for FloatNode {
         ThemeChangeListener::changed(self);
     }
 
-    fn cnode_remove_child2(self: Rc<Self>, _child: &dyn Node, _preserve_focus: bool) {
+    fn cnode_remove_child2(self: Rc<Self>, child: &dyn Node, _preserve_focus: bool) {
+        let cur = self.node_state[LiveTL].child.get();
+        if cur.as_ref().map(|c| c.node_id()) != Some(child.node_id()) {
+            return;
+        }
         self.discard_child_properties();
         self.set_ns_visible(false);
         self.set_ns_child(None);
@@ -1371,8 +1435,8 @@ impl ContainingNode for FloatNode {
         }
     }
 
-    fn cnode_workspace(self: Rc<Self>) -> Rc<WorkspaceNode> {
-        self.workspace.get()
+    fn cnode_workspace(self: Rc<Self>) -> Option<Rc<WorkspaceNode>> {
+        Some(self.workspace.get())
     }
 
     fn cnode_make_visible(self: Rc<Self>, _child: &dyn Node) {
@@ -1454,6 +1518,7 @@ impl ContainingNode for FloatNode {
 impl FloatNode {
     fn update_effective_visible(self: &Rc<Self>) {
         let ns = &self.node_state[LiveTL];
+        // A placeholder child means the fullscreen layer draws this float's window.
         let visible = ns.requested_visible.get() && !ns.child_is_placeholder.get();
         if self.set_ns_visible(visible) != visible {
             self.add_transaction_op(FloatTransactionOp::Damage);
@@ -1465,7 +1530,11 @@ impl FloatNode {
             }
         }
         if let Some(child) = ns.child.get() {
-            child.tl_set_visible(visible);
+            // A tile told it became invisible runs the destroy path in
+            // NodeSeatState, which drops the keyboard focus held on it.
+            if !child.node_is_placeholder() {
+                child.tl_set_visible(visible);
+            }
         }
         self.seat_state.set_visible(&**self, visible);
     }
@@ -1646,7 +1715,7 @@ pub enum FloatTransactionOp {
     SetRequestedVisible(bool),
     SetPosition(Rect),
     SetChild(Option<Rc<dyn ToplevelNode>>),
-    SetChildIsPlaceholder(bool),
+    SetChildShowsFullscreenMarker(bool),
     SetWorkspaceType(WorkspaceType),
     SetTitleRect(Rect),
     SetActive(bool),
@@ -1698,8 +1767,8 @@ impl Transactionable for FloatNode {
                     dmg(s.position.get());
                 }
             }
-            FloatTransactionOp::SetChildIsPlaceholder(v) => {
-                s.child_is_placeholder.set(v);
+            FloatTransactionOp::SetChildShowsFullscreenMarker(v) => {
+                s.child_shows_fullscreen_marker.set(v);
             }
             FloatTransactionOp::Damage => {
                 dmg(s.position.get());

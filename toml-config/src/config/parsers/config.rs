@@ -33,6 +33,7 @@ use crate::config::parsers::fallback_output_mode::FallbackOutputModeParser;
 use crate::config::parsers::flatten_container::FlattenContainerParser;
 use crate::config::parsers::float::FloatParser;
 use crate::config::parsers::focus_history::FocusHistoryParser;
+use crate::config::parsers::fullscreen_focus_move::FullscreenFocusMoveParser;
 use crate::config::parsers::gfx_api::GfxApiParser;
 use crate::config::parsers::idle::IdleParser;
 use crate::config::parsers::input::InputsParser;
@@ -182,6 +183,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 flatten_container_val,
                 default_mono_style_val,
             ),
+            (fullscreen_focus_move_val,),
         ) = ext.extract((
             (
                 opt(val("keymap")),
@@ -254,6 +256,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 opt(val("flatten-container")),
                 opt(val("default-mono-style")),
             ),
+            (opt(val("fullscreen-focus-move")),),
         ))?;
         let mut keymap = None;
         if let Some(value) = keymap_val {
@@ -629,6 +632,18 @@ impl Parser for ConfigParser<'_, '_, '_> {
                 }
             }
         }
+        let mut fullscreen_focus_move = None;
+        if let Some(value) = fullscreen_focus_move_val {
+            match value.parse(&mut FullscreenFocusMoveParser) {
+                Ok(v) => fullscreen_focus_move = Some(v),
+                Err(e) => {
+                    log::warn!(
+                        "Could not parse the fullscreen focus move: {}",
+                        self.0.error(e)
+                    );
+                }
+            }
+        }
         if let Some(value) = workspaces_val {
             if let Err(e) = value.parse(&mut WorkspacesParser(self.0)) {
                 log::warn!("Could not parse the workspaces: {}", self.0.error(e),);
@@ -742,6 +757,7 @@ impl Parser for ConfigParser<'_, '_, '_> {
             simple_im,
             fallback_output_mode,
             mouse_follows_focus: mouse_follows_focus.despan(),
+            fullscreen_focus_move,
             transactions,
             cursor_size: cursor_size.despan(),
             configure_all_devices,

@@ -2669,6 +2669,26 @@ The table has the following fields:
 
   The value of this field should be a boolean.
 
+- `fullscreen-focus-move` (optional):
+
+  Configures how keyboard focus moves (e.g. `focus-left`, `focus-right`,
+  `focus-up`, `focus-down`) behave when the focused window is fullscreen.
+  
+  With `output` focus moves to the neighbouring output in that direction. With
+  `workspace` focus stays on the workspace of the fullscreen window: the
+  fullscreen window is made visible in the layout again and the neighbouring
+  window in that direction gets focus.
+  
+  The default is `output`.
+  
+  - Example:
+  
+    ```toml
+    fullscreen-focus-move = "workspace"
+    ```
+
+  The value of this field should be a [FullscreenFocusMove](#types-FullscreenFocusMove).
+
 - `window-management-key` (optional):
 
   Configures a key that will enable window management mode while pressed.
@@ -4053,6 +4073,28 @@ The string should have one of the following values:
 
 - `xbgr16161616f`:
 
+
+
+
+<a name="types-FullscreenFocusMove"></a>
+### `FullscreenFocusMove`
+
+Defines how keyboard focus moves (e.g. left/right/up/down) behave when the focused
+window is fullscreen.
+
+Values of this type should be strings.
+
+The string should have one of the following values:
+
+- `output`:
+
+  Move focus to the neighbouring output in that direction.
+
+- `workspace`:
+
+  Keep focus on the workspace of the fullscreen window: the fullscreen window is
+  made visible in the layout again and the neighbouring window in that direction
+  gets focus.
 
 
 

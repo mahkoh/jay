@@ -411,6 +411,9 @@ fn show_window(behavior: &mut CcBehavior<'_>, ui: &mut Ui, window: &dyn Toplevel
             ToplevelType::Placeholder(_) => {
                 label(ui, "Type", "Placeholder");
             }
+            ToplevelType::PendingFullscreen(_) => {
+                label(ui, "Type", "Pending fullscreen");
+            }
             ToplevelType::XdgToplevel(t) => {
                 label(ui, "Type", "xdg_toplevel");
                 let tag = &*t.tag.borrow();

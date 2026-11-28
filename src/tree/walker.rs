@@ -11,6 +11,7 @@ use crate::tree::FloatNode;
 use crate::tree::Node;
 use crate::tree::NodeBase;
 use crate::tree::OutputNode;
+use crate::tree::PendingFullscreenNode;
 use crate::tree::PlaceholderNode;
 use crate::tree::WorkspaceNode;
 use std::rc::Rc;
@@ -60,6 +61,10 @@ pub trait NodeVisitorBase: Sized {
         node.node_visit_children(self);
     }
 
+    fn visit_pending_fullscreen(&mut self, node: &Rc<PendingFullscreenNode>) {
+        node.node_visit_children(self);
+    }
+
     fn visit_lock_surface(&mut self, node: &Rc<ExtSessionLockSurfaceV1>) {
         node.node_visit_children(self);
     }
@@ -81,6 +86,7 @@ pub trait NodeVisitor {
     fn visit_layer_surface(&mut self, node: &Rc<ZwlrLayerSurfaceV1>);
     fn visit_xwindow(&mut self, node: &Rc<Xwindow>);
     fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>);
+    fn visit_pending_fullscreen(&mut self, node: &Rc<PendingFullscreenNode>);
     fn visit_lock_surface(&mut self, node: &Rc<ExtSessionLockSurfaceV1>);
     fn visit_tray_item(&mut self, node: &Rc<JayTrayItemV1>);
 }
@@ -128,6 +134,10 @@ impl<T: NodeVisitorBase> NodeVisitor for T {
 
     fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
         <T as NodeVisitorBase>::visit_placeholder(self, node);
+    }
+
+    fn visit_pending_fullscreen(&mut self, node: &Rc<PendingFullscreenNode>) {
+        <T as NodeVisitorBase>::visit_pending_fullscreen(self, node);
     }
 
     fn visit_lock_surface(&mut self, node: &Rc<ExtSessionLockSurfaceV1>) {
@@ -199,6 +209,11 @@ impl<F: FnMut(Rc<dyn Node>)> NodeVisitor for GenericNodeVisitor<F> {
     }
 
     fn visit_placeholder(&mut self, node: &Rc<PlaceholderNode>) {
+        (self.f)(node.clone());
+        node.node_visit_children(self);
+    }
+
+    fn visit_pending_fullscreen(&mut self, node: &Rc<PendingFullscreenNode>) {
         (self.f)(node.clone());
         node.node_visit_children(self);
     }

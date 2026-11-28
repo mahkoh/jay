@@ -11,6 +11,7 @@ dir workspace_node {
     was_on_dummy_output: reg,
     has_container: reg,
     has_fullscreen: reg,
+    num_pending_fullscreen: reg,
     num_stacked: reg,
     num_jay_workspaces: reg,
     num_ext_workspaces: reg,
@@ -18,6 +19,7 @@ dir workspace_node {
     position_render: reg,
     container: custom (opt),
     fullscreen: custom (opt),
+    pending_fullscreen: view (key = 0),
 }
  */
 use crate::dfs::dfs_helpers::format_output_link;
@@ -28,10 +30,13 @@ use crate::tree::WorkspaceNode;
 use crate::tree::workspace::workspace_dfs_g_fuse::generated::workspace_node;
 use crate::utils::fuse::fuse_inode::FuseInodeExt;
 use crate::utils::fuse::fuse_inode::FuseInodeWithKey;
+use crate::utils::fuse::fuse_views::IterDirDyn;
+use crate::utils::fuse::fuse_views::IterDirDynView;
 use crate::utils::str_fmt::StrCtx;
 use crate::utils::str_fmt::StrFmt;
 use crate::utils::type_view::TypeViewExt1;
 use std::rc::Rc;
+use std::str::FromStr;
 pub use workspace_node::View as WorkspaceNodeView;
 
 impl WorkspaceNode {
@@ -41,6 +46,8 @@ impl WorkspaceNode {
 }
 
 impl workspace_node::Dir for WorkspaceNode {
+    type ViewPendingFullscreen = IterDirDyn<PendingFullscreen>;
+
     fn read_id(&self, buf: &mut String, ctx: &StrCtx<'_>) {
         self.id.raw().str_fmt(buf, ctx);
     }
@@ -90,6 +97,14 @@ impl workspace_node::Dir for WorkspaceNode {
             .str_fmt(buf, ctx);
     }
 
+    fn read_num_pending_fullscreen(&self, buf: &mut String, ctx: &StrCtx<'_>) {
+        self.node_state[LiveTL]
+            .pending_fullscreen
+            .get()
+            .len()
+            .str_fmt(buf, ctx);
+    }
+
     fn read_num_stacked(&self, buf: &mut String, ctx: &StrCtx<'_>) {
         self.stacked.iter().count().str_fmt(buf, ctx);
     }
@@ -118,6 +133,28 @@ impl workspace_node::Dir for WorkspaceNode {
     fn get_fullscreen(self: &Rc<Self>, _key: u64) -> Option<FuseInodeWithKey> {
         let fullscreen = self.node_state[LiveTL].fullscreen.get()?;
         Some(fullscreen.node_debugfs_dyn())
+    }
+}
+
+pub struct PendingFullscreen;
+
+impl IterDirDynView<WorkspaceNode> for PendingFullscreen {
+    fn iter(t: &Rc<WorkspaceNode>, _key: u64, mut f: impl FnMut(&str, FuseInodeWithKey)) {
+        let mut buf = itoa::Buffer::new();
+        let pending = t.node_state[LiveTL].pending_fullscreen.get();
+        for node in pending.iter() {
+            f(
+                buf.format(node.node_id().raw()),
+                node.clone().node_debugfs_dyn(),
+            );
+        }
+    }
+
+    fn get(t: &Rc<WorkspaceNode>, _key: u64, name: &str) -> Option<FuseInodeWithKey> {
+        let id = u32::from_str(name).ok()?;
+        let pending = t.node_state[LiveTL].pending_fullscreen.get();
+        let node = pending.iter().find(|n| n.node_id().raw() == id)?;
+        Some(node.clone().node_debugfs_dyn())
     }
 }
 
