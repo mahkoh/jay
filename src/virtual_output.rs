@@ -61,7 +61,7 @@ use crate::utils::hash_map_ext::HashMapExt;
 use crate::utils::numcell::NumCell;
 use crate::utils::on_change::OnChange;
 use crate::utils::rc_eq::rc_eq;
-use crate::utils::timer::TimerFd;
+use crate::utils::timer::next_expiration;
 use crate::video::allocator::AllocatorError;
 use crate::video::drm::ConnectorType;
 use linearize::Linearize;
@@ -75,9 +75,7 @@ use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::mem;
 use std::rc::Rc;
-use std::time::Duration;
 use thiserror::Error;
-use uapi::c;
 
 #[derive(Default)]
 pub struct VirtualOutputs {
@@ -738,25 +736,14 @@ impl VirtualOutput {
                 self.need_vblank.triggered().await;
             }
         } else {
-            let tfd = match TimerFd::new(c::CLOCK_MONOTONIC) {
-                Ok(fd) => fd,
-                Err(e) => {
-                    log::error!("Could not create a timer fd: {}", ErrorFmt(e));
-                    return;
-                }
-            };
-            let duration = Some(Duration::from_nanos(refresh_nsec));
-            let res = tfd.program(duration, duration);
-            if let Err(e) = res {
-                log::error!("Could not program the timer fd: {}", ErrorFmt(e));
-                return;
-            }
+            let mut next = self.state.now_nsec().saturating_add(refresh_nsec);
             loop {
                 handle_vblank();
-                if let Err(e) = tfd.expired(&self.state.ring).await {
-                    log::error!("Could not wait for timer fd to expire: {}", ErrorFmt(e));
+                if let Err(e) = self.state.ring.timeout(next).await {
+                    log::error!("Could not wait for timeout to expire: {}", ErrorFmt(e));
                     return;
                 }
+                next = next_expiration(self.state.now_nsec(), next, refresh_nsec);
             }
         }
     }

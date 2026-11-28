@@ -1,96 +1,86 @@
 use crate::backend::transaction::BackendConnectorTransactionError;
 use crate::backend::transaction::ConnectorTransaction;
+use crate::io_uring::PendingTimeout;
+use crate::io_uring::TimeoutCallback;
 use crate::state::State;
 use crate::tree::TreeTimeline::RenderTL;
 use crate::utils::errorfmt::ErrorFmt;
-use crate::utils::timer::TimerError;
-use crate::utils::timer::TimerFd;
-use futures_util::FutureExt;
-use futures_util::select;
-use std::pin::pin;
+use jay_algorithms::oserror::OsError;
+use run_on_drop::on_drop;
+use std::cell::Cell;
 use std::rc::Rc;
-use std::time::Duration;
-use uapi::c;
 
 pub async fn idle(state: Rc<State>) {
-    let timer = match TimerFd::new(c::CLOCK_MONOTONIC) {
-        Ok(t) => t,
-        Err(e) => {
-            log::error!("Could not create idle timer: {}", ErrorFmt(e));
-            return;
-        }
-    };
     state.idle.change.trigger();
     state.idle.timeout_changed.set(true);
-    let mut idle = Idle {
+    let idle = Rc::new(Idle {
+        last_input: Cell::new(state.now_nsec()),
         state,
-        timer,
-        idle: false,
-        dead: false,
-        is_inhibited: false,
-        last_input: now(),
-    };
+        timeout: Default::default(),
+        idle: Default::default(),
+        dead: Default::default(),
+        is_inhibited: Default::default(),
+    });
+    let _reset_timeout = on_drop(|| {
+        idle.timeout.take();
+    });
     idle.run().await;
 }
 
 struct Idle {
     state: Rc<State>,
-    timer: TimerFd,
-    idle: bool,
-    dead: bool,
-    is_inhibited: bool,
-    last_input: c::timespec,
+    timeout: Cell<Option<PendingTimeout>>,
+    idle: Cell<bool>,
+    dead: Cell<bool>,
+    is_inhibited: Cell<bool>,
+    last_input: Cell<u64>,
 }
 
 impl Idle {
-    async fn run(&mut self) {
-        // Keep a single timer read for all iterations, otherwise we can drop
-        // a read when a change event wins, and idle never fires again.
-        let timer = self.timer.clone();
-        let state = self.state.clone();
-        let mut expired = pin!(timer.expired(&state.ring).fuse());
-        while !self.dead {
-            select! {
-                res = expired => {
-                    self.handle_expired(res);
-                    expired.set(timer.expired(&state.ring).fuse());
-                }
-                _ = state.idle.change.triggered().fuse() => self.handle_idle_changes(),
-            }
+    async fn run(self: &Rc<Self>) {
+        while !self.dead.get() {
+            self.state.idle.change.triggered().await;
+            self.handle_idle_changes();
         }
         log::error!("Due to the above error, monitors will no longer be (de)activated.");
     }
 
-    fn handle_expired(&mut self, res: Result<u64, TimerError>) {
+    fn kill(&self) {
+        self.dead.set(true);
+        self.state.idle.change.trigger();
+    }
+
+    fn handle_expired(self: &Rc<Self>, res: Result<(), OsError>) {
         if let Err(e) = res {
             log::error!("Could not wait for idle timer to expire: {}", ErrorFmt(e));
-            self.dead = true;
+            self.kill();
             return;
         }
+        let now = self.state.now_nsec();
         let grace_period = self.state.idle.grace_period.get();
-        let timeout = self.state.idle.timeout.get();
+        let timeout_delta = self.state.idle.timeout.get();
+        let timeout = self.last_input.get().saturating_add(timeout_delta);
         let after_grace = timeout.saturating_add(grace_period);
-        let since = duration_since(self.last_input);
-        if since >= after_grace {
+        if now >= after_grace {
             self.set_in_grace_period(false);
-            if !timeout.is_zero() && !self.is_inhibited {
+            if timeout_delta != 0 && !self.is_inhibited.get() {
                 if let Some(config) = self.state.config.get() {
                     config.idle();
                 }
                 self.set_idle(true);
-                self.idle = true;
+                self.idle.set(true);
             }
-        } else if since >= timeout {
-            if !timeout.is_zero() && !self.is_inhibited {
+        } else if now >= timeout {
+            if timeout_delta != 0 && !self.is_inhibited.get() {
                 self.set_in_grace_period(true);
             }
-            self.program_timer2(after_grace - since);
+            self.program_timer2(after_grace);
         } else {
-            self.program_timer2(timeout - since);
+            self.program_timer2(timeout);
         }
     }
 
-    fn set_in_grace_period(&mut self, val: bool) {
+    fn set_in_grace_period(&self, val: bool) {
         if self.state.idle.in_grace_period.replace(val) == val {
             return;
         }
@@ -98,39 +88,47 @@ impl Idle {
         self.state.damage_hardware_cursors(false);
     }
 
-    fn handle_idle_changes(&mut self) {
+    fn handle_idle_changes(self: &Rc<Self>) {
         if self.state.idle.inhibitors_changed.replace(false) {
             let is_inhibited = self.state.idle.inhibitors.len() > 0;
-            if self.is_inhibited != is_inhibited {
-                self.is_inhibited = is_inhibited;
-                if !self.is_inhibited {
-                    self.last_input = now();
-                    self.program_timer();
-                }
+            if self.is_inhibited.replace(is_inhibited) != is_inhibited && !is_inhibited {
+                self.last_input.set(self.state.now_nsec());
+                self.program_timer();
             }
         }
         if self.state.idle.timeout_changed.replace(false) {
             self.program_timer();
         }
         if self.state.idle.input.replace(false) {
-            self.last_input = now();
+            self.last_input.set(self.state.now_nsec());
+            if self.state.idle.in_grace_period.get() {
+                self.program_timer();
+            }
             self.set_in_grace_period(false);
-            if self.idle {
+            if self.idle.get() {
                 self.set_idle(false);
-                self.idle = false;
+                self.idle.set(false);
                 self.program_timer();
             }
         }
     }
 
-    fn program_timer(&mut self) {
-        self.program_timer2(self.state.idle.timeout.get());
+    fn program_timer(self: &Rc<Self>) {
+        let timeout = self
+            .last_input
+            .get()
+            .saturating_add(self.state.idle.timeout.get());
+        self.program_timer2(timeout);
     }
 
-    fn program_timer2(&mut self, timeout: Duration) {
-        if let Err(e) = self.timer.program(Some(timeout), None) {
-            log::error!("Could not program idle timer: {}", ErrorFmt(e));
-            self.dead = true;
+    fn program_timer2(self: &Rc<Self>, timeout: u64) {
+        let res = self.state.ring.timeout_external(timeout, self.clone(), 0);
+        match res {
+            Ok(p) => self.timeout.set(Some(p)),
+            Err(e) => {
+                log::error!("Could not program idle timer: {}", ErrorFmt(e));
+                self.kill();
+            }
         }
     }
 
@@ -164,19 +162,8 @@ impl Idle {
     }
 }
 
-fn now() -> c::timespec {
-    let mut now = uapi::pod_zeroed();
-    let _ = uapi::clock_gettime(c::CLOCK_MONOTONIC, &mut now);
-    now
-}
-
-fn duration_since(start: c::timespec) -> Duration {
-    let now = now();
-    let mut nanos = (now.tv_sec as i64 - start.tv_sec as i64) * 1_000_000_000
-        + (now.tv_nsec as i64 - start.tv_nsec as i64);
-    if nanos < 0 {
-        log::error!("Time has gone backwards.");
-        nanos = 0;
+impl TimeoutCallback for Idle {
+    fn completed(self: Rc<Self>, res: Result<(), OsError>, _data: u64) {
+        self.handle_expired(res);
     }
-    Duration::from_nanos(nanos as u64)
 }

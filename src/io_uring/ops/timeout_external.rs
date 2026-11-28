@@ -6,6 +6,7 @@ use crate::io_uring::Task;
 use crate::io_uring::ops::timeout::timespec64;
 use crate::io_uring::sys::IORING_OP_TIMEOUT;
 use crate::io_uring::sys::IORING_TIMEOUT_ABS;
+use crate::io_uring::sys::IORING_TIMEOUT_BOOTTIME;
 use crate::io_uring::sys::io_uring_cqe;
 use crate::io_uring::sys::io_uring_sqe;
 use jay_algorithms::oserror::OsError;
@@ -44,11 +45,22 @@ pub struct TimeoutExternalTask {
     timespec: timespec64,
     shared: Rc<TimeoutExternalTaskShared>,
     data: u64,
+    boottime: bool,
 }
 
 impl IoUring {
     pub fn timeout_external(
         &self,
+        timeout_nsec: u64,
+        callback: Rc<dyn TimeoutCallback>,
+        data: u64,
+    ) -> Result<PendingTimeout, IoUringError> {
+        self.timeout_external2(false, timeout_nsec, callback, data)
+    }
+
+    pub fn timeout_external2(
+        &self,
+        boottime: bool,
         timeout_nsec: u64,
         callback: Rc<dyn TimeoutCallback>,
         data: u64,
@@ -62,6 +74,7 @@ impl IoUring {
             tv_nsec: (timeout_nsec % 1_000_000_000) as _,
         };
         pw.data = data;
+        pw.boottime = boottime;
         let pending = PendingTimeout {
             data: self.ring.clone(),
             shared: pw.shared.clone(),
@@ -91,10 +104,14 @@ unsafe impl Task for TimeoutExternalTask {
     }
 
     fn encode(&self, sqe: &mut io_uring_sqe) {
+        let mut flags = IORING_TIMEOUT_ABS;
+        if self.boottime {
+            flags |= IORING_TIMEOUT_BOOTTIME;
+        }
         sqe.opcode = IORING_OP_TIMEOUT;
         sqe.u2.addr = &self.timespec as *const _ as _;
         sqe.len = 1;
-        sqe.u3.timeout_flags = IORING_TIMEOUT_ABS;
+        sqe.u3.timeout_flags = flags;
         sqe.u1.off = 0;
     }
 }

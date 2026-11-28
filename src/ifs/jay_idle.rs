@@ -23,7 +23,7 @@ impl JayIdle {
         let to = self.client.state.idle.timeout.get();
         self.client.event(Interval {
             self_id: self.id,
-            interval: to.as_secs(),
+            interval: to / 1_000_000_000,
         });
     }
 
@@ -31,7 +31,7 @@ impl JayIdle {
         let to = self.client.state.idle.grace_period.get();
         self.client.event(GracePeriod {
             self_id: self.id,
-            period: to.as_secs(),
+            period: to / 1_000_000_000,
         });
     }
 
