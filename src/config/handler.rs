@@ -4762,7 +4762,7 @@ impl TimeoutCallback for ConfigProxyHandler {
         }
         self.send(&ServerMessage::TimerExpired {
             timer: JayTimer(data),
-        })
+        });
     }
 }
 
